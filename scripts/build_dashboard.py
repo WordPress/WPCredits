@@ -42,7 +42,7 @@ FIELDS = {
         "wp_profile": "fld2rGCjmvTZg5DLg",
         "teams": "fldwPGiajTLTu1Vqi",
         "internship_end_date": "fldLwLXupWurmimc7",
-        "start_date_text": "fld2lU2ZvYSJx7Ncs",  # "May 1-15" etc. (month only, no year)
+        "internship_start_date": "fldeadC0FAkXAxa17",
         "lessons": "fldE1rkXbTWJe8bBq",
         "mentor": "fldSBTwMgno8ecQ2X",
         # Learn course grade fields (non-empty = completed)
@@ -262,13 +262,6 @@ def cohort_sort_key(cohort):
         return (9999, 99)
 
 
-MONTH_NAMES = {
-    m: i for i, m in enumerate(
-        ["January", "February", "March", "April", "May", "June", "July",
-         "August", "September", "October", "November", "December"], 1)
-}
-
-
 def parse_iso_date(s):
     """Parse an ISO date or datetime string to a datetime.date (or None)."""
     if not s or not isinstance(s, str) or len(s) < 10:
@@ -277,29 +270,6 @@ def parse_iso_date(s):
         return date(int(s[0:4]), int(s[5:7]), int(s[8:10]))
     except ValueError:
         return None
-
-
-def parse_start_month(start_date_text):
-    """Get the month number (1-12) from a 'Start Date' value like 'May 1-15'."""
-    if not start_date_text:
-        return None
-    return MONTH_NAMES.get(str(start_date_text).split()[0])
-
-
-def infer_cohort_year(month, reference_date):
-    """Infer the year for a month-only cohort by picking the year whose
-    (year, month, 15) lands closest to the record's creation date.
-
-    'Start Date' carries no year, so we anchor it to when the record was created
-    (≈ when the student was onboarded). Becomes exact once a year-aware cohort
-    field exists in Airtable.
-    """
-    if not reference_date:
-        return None
-    return min(
-        (reference_date.year - 1, reference_date.year, reference_date.year + 1),
-        key=lambda y: abs((date(y, month, 15) - reference_date).days),
-    )
 
 
 def month_key(d):
@@ -800,12 +770,12 @@ def main():
             continue
         created = parse_iso_date(rec.get("createdTime"))
 
-        # Intake: month from "Start Date", year inferred from the creation date.
-        month = parse_start_month(get_field_value(rec, FIELDS["students_reports"]["start_date_text"]))
-        if month and created:
-            mk = f"{infer_cohort_year(month, created):04d}-{month:02d}"
-            if mk <= current_month:  # never show future sign-ups
-                joined_by_month[mk] = joined_by_month.get(mk, 0) + 1
+        # Intake month from the real Internship Start Date; fall back to the
+        # record's creation month when that date isn't filled in.
+        start_date = parse_iso_date(get_field_value(rec, FIELDS["students_reports"]["internship_start_date"])) or created
+        mk = month_key(start_date)
+        if mk and mk <= current_month:  # never show future sign-ups
+            joined_by_month[mk] = joined_by_month.get(mk, 0) + 1
 
         # Graduations: "Graduated on" (future field) -> Form 3 date -> end date.
         if status_n == GRADUATE_STATUS_KEY:
