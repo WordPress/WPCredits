@@ -905,16 +905,26 @@ def main():
         key=cohort_sort_key,
     )
 
-    # Build final data blob
+    # Public data blob — aggregates plus ANONYMOUS per-student rows only. Names,
+    # WordPress usernames, institutions, and the entire mentors list are not
+    # emitted: the public dashboard doesn't render per-person detail (that lives
+    # in the private dashboard). Keep only the student fields the template uses.
+    public_students = [
+        {
+            "status": s["status"],
+            "is_graduate": s["is_graduate"],
+            "fieldOfStudy": s["fieldOfStudy"],
+            "total_strings": s.get("total_strings", 0),
+        }
+        for s in students
+    ]
+
     data_blob = {
         "global": global_stats,
         "translationTotals": translation_totals,
-        "institutions": sorted(confirmed_institutions),
-        "cohorts": cohorts_list,
         "growth": growth,
         "feedback": feedback,
-        "students": students,
-        "mentors": mentors,
+        "students": public_students,
     }
 
     print(f"Built dashboard with {len(students)} students and {len(mentors)} mentors", file=sys.stderr)
