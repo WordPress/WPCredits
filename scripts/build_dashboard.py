@@ -61,6 +61,7 @@ FIELDS = {
     "students": {
         "full_name": "fldvGRKcyRBACeX9t",
         "email": "fldIj9twnzJ0oISpy",
+        "start_date": "fldoM2MDWAJAs2seh",
         "field_of_study": "fldwVUA9HZUhZFxJL",
         "internship_end_date": "fld6DQEFvDcaM9PuZ",
         "wp_profile": "fldqZWsRYplXlc8E4",
@@ -770,9 +771,16 @@ def main():
             continue
         created = parse_iso_date(rec.get("createdTime"))
 
-        # Intake month from the real Internship Start Date; fall back to the
-        # record's creation month when that date isn't filled in.
-        start_date = parse_iso_date(get_field_value(rec, FIELDS["students_reports"]["internship_start_date"])) or created
+        # Intake month, most reliable source first: the student's "Start Date"
+        # (Students table, matched by email), then the report's Internship Start
+        # Date, then the record's creation month.
+        report_email = get_field_value(rec, FIELDS["students_reports"]["email"])
+        student_rec = students_by_email.get(report_email.strip().lower()) if report_email else None
+        start_date = (
+            (parse_iso_date(get_field_value(student_rec, FIELDS["students"]["start_date"])) if student_rec else None)
+            or parse_iso_date(get_field_value(rec, FIELDS["students_reports"]["internship_start_date"]))
+            or created
+        )
         mk = month_key(start_date)
         if mk and mk <= current_month:  # never show future sign-ups
             joined_by_month[mk] = joined_by_month.get(mk, 0) + 1
