@@ -111,15 +111,11 @@ tbody tr:last-child td{border-bottom:none}
 <div class="nav" id="mainNav">
   <div class="nav-item active" data-section="global">Overview</div>
   <div class="nav-item" data-section="contributions">Contributions</div>
-  <div class="nav-item" data-section="learn">Learn</div>
-  <div class="nav-item" data-section="mentors">Mentors</div>
   <div class="nav-item" data-section="feedback">Voices</div>
 </div>
 <div class="content">
   <div class="section active" id="sec-global"></div>
   <div class="section" id="sec-contributions"></div>
-  <div class="section" id="sec-learn"></div>
-  <div class="section" id="sec-mentors"></div>
   <div class="section" id="sec-feedback"></div>
 </div>
 <div class="sponsors">
@@ -193,85 +189,6 @@ function initInstMap() {
 }
 
 // ─── NAV SWITCHING ─────────────────────────────────
-
-// ─── GLOBAL INSTITUTION FILTER SYNC ──────────────────
-(function(){
-  // Map student names to institutions for mentor filtering
-  const studentInstMap = {};
-  D.students.forEach(s => { if(s.name && s.institution) studentInstMap[s.name.trim().toLowerCase()] = s.institution; });
-
-  function getInstForMentor(m) {
-    // Check if any of the mentor's students belong to a given institution
-    const names = (m.students || []).concat((m.activeStudents||[]).map(s=>s.name)).concat((m.gradStudents||[]).map(s=>s.name));
-    const insts = new Set();
-    names.forEach(n => { if(n) { const inst = studentInstMap[n.trim().toLowerCase()]; if(inst) insts.add(inst); }});
-    return [...insts];
-  }
-
-  // Attach institution list to each mentor for filtering
-  D.mentors.forEach(m => { m._institutions = getInstForMentor(m); });
-
-  function syncInstitutionFilter(inst, source) {
-    // Sync Contributions and Learn institution dropdowns
-    ['cI','lI'].forEach(id => {
-      const sel = document.getElementById(id);
-      if(sel && sel.id !== source) {
-        sel.value = inst;
-        sel.dispatchEvent(new Event('change'));
-      }
-    });
-
-    // Filter mentors
-    filterMentors(inst);
-  }
-
-  function filterMentors(inst) {
-    const mS = document.getElementById('mS');
-    const q = mS ? mS.value.toLowerCase() : '';
-    let f = D.mentors;
-    if(inst !== 'all') f = f.filter(m => m._institutions.includes(inst));
-    if(q) f = f.filter(m => m.name.toLowerCase().includes(q) || (m.country_normalized||'').toLowerCase().includes(q));
-    f.sort((a,b) => a.name.localeCompare(b.name));
-
-    const tb = document.getElementById('mB');
-    if(!tb) return;
-    if(!f.length){ tb.innerHTML='<tr><td colspan="5" class="no-data">No mentors found</td></tr>'; return; }
-    tb.innerHTML = f.map(m => {
-      const nm = m.wp_username ? `<a class="profile-link" href="https://profiles.wordpress.org/${m.wp_username}/" target="_blank">${m.name}</a>` : m.name;
-      const langs = m.languages.length ? m.languages.map(l=>`<span class="lang-tag">${l}</span>`).join(' ') : '<span class="stats-zero">—</span>';
-      const slist = [];
-      (m.activeStudents||[]).forEach(s => slist.push(`<span class="s-active">${s.name}</span>`));
-      (m.gradStudents||[]).forEach(s => slist.push(`<span class="s-grad">${s.name}</span>`));
-      const students = slist.length ? `<div class="student-list">${slist.join(', ')}</div>` : `<span class="stats-zero">${m.studentCount||0} students</span>`;
-      return `<tr><td>${nm}</td><td>${m.country_normalized||m.country||''}</td><td>${langs}</td><td>${students}</td><td>${m.sponsored?'<span class="sponsored-badge">Sponsored</span>':''}</td></tr>`;
-    }).join('');
-  }
-
-  // Listen on Contributions and Learn institution dropdowns to sync
-  ['cI','lI'].forEach(id => {
-    const sel = document.getElementById(id);
-    if(sel) {
-      sel.addEventListener('change', function() {
-          const val = sel.value;
-          ['cI','lI'].forEach(oid => {
-            const other = document.getElementById(oid);
-            if(other && oid !== id) other.value = val;
-          });
-          filterMentors(val);
-      });
-    }
-  });
-
-  // Listen on mentor search too
-  const mS = document.getElementById('mS');
-  if(mS) {
-    mS.addEventListener('input', function() {
-      const inst = document.getElementById('cI') ? document.getElementById('cI').value : 'all';
-      filterMentors(inst);
-    });
-  }
-
-})();
 
 document.querySelectorAll('.nav-item').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -396,19 +313,7 @@ function tc(name){return TEAM_COLORS[name]||'#546e7a';}
     '<div class="card"><div class="num">' + (t.total||0).toLocaleString() + '</div><div class="lbl">Translation Strings</div></div>' +
     '<div class="card"><div class="num">' + transStudents + '</div><div class="lbl">Translating Students</div></div>' +
   '</div>' +
-  '<div class="chart-container"><h3>Translation Activity</h3><div class="trans-chart-wrap"><div class="donut-container" id="dC"></div><div class="legend" id="dL"></div></div></div>' +
-  '<div class="controls">' +
-    '<select id="cI"><option value="all">All Institutions</option>' + D.institutions.map(function(i){ return '<option value="' + i + '">' + i + '</option>'; }).join('') + '</select>' +
-    '<select id="cCo"><option value="all">All Cohorts</option>' + (D.cohorts||[]).map(function(c){ return '<option value="' + c + '">' + c + '</option>'; }).join('') + '</select>' +
-    '<input type="text" id="cS" placeholder="Search by name...">' +
-  '</div>' +
-  '<table><thead><tr>' +
-    '<th data-col="name">Student <span class="sort-arrow"></span></th>' +
-    '<th>Institution</th>' +
-    '<th>Team(s)</th>' +
-    '<th data-col="translations" style="text-align:right">Translations <span class="sort-arrow"></span></th>' +
-    '<th>Graduate</th>' +
-  '</tr></thead><tbody id="cB"></tbody></table>';
+  '<div class="chart-container"><h3>Translation Activity</h3><div class="trans-chart-wrap"><div class="donut-container" id="dC"></div><div class="legend" id="dL"></div></div></div>';
 
   // Translation donut chart
   function drawDonut(sg, tr, rv) {
@@ -422,161 +327,6 @@ function tc(name){return TEAM_COLORS[name]||'#546e7a';}
   }
   drawDonut(t.suggested, t.translated, t.reviewed);
 
-  // Table rendering
-  var sc = 'name', sd = 'asc';
-  function r() {
-    var inst = document.getElementById('cI').value;
-    var cohort = document.getElementById('cCo').value;
-    var q = document.getElementById('cS').value.toLowerCase();
-    var f = D.students.slice(); // Show ALL students now
-    if (inst !== 'all') f = f.filter(function(s){ return s.institution === inst; });
-    if (cohort !== 'all') f = f.filter(function(s){ return s.cohort === cohort; });
-    if (q) f = f.filter(function(s){ return s.name.toLowerCase().includes(q) || (s.wp_username||'').toLowerCase().includes(q); });
-    
-    // Sort
-    f.sort(function(a, b) {
-      var va, vb;
-      if (sc === 'name') { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
-      else if (sc === 'translations') { va = a.total_strings || 0; vb = b.total_strings || 0; }
-      else { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
-      return va < vb ? (sd === 'asc' ? -1 : 1) : va > vb ? (sd === 'asc' ? 1 : -1) : 0;
-    });
-
-    // Update donut for filtered view
-    if (inst !== 'all') {
-      var is = D.students.filter(function(s){ return s.institution === inst; });
-      drawDonut(
-        is.reduce(function(a,s){ return a + (s.suggested||0); }, 0),
-        is.reduce(function(a,s){ return a + (s.translated||0); }, 0),
-        is.reduce(function(a,s){ return a + (s.reviewed||0); }, 0)
-      );
-    } else {
-      drawDonut(t.suggested, t.translated, t.reviewed);
-    }
-
-    var tb = document.getElementById('cB');
-    if (!f.length) { tb.innerHTML = '<tr><td colspan="5" class="no-data">No students found</td></tr>'; return; }
-    var fm = function(v) { return v ? '<span class="has-value">' + v.toLocaleString() + '</span>' : '<span class="stats-zero">0</span>'; };
-    tb.innerHTML = f.map(function(s) {
-      var nm = s.wp_username ? '<a class="profile-link" href="https://profiles.wordpress.org/' + s.wp_username + '/" target="_blank">' + s.name + '</a>' : s.name;
-      var tm = (s.teams||[]).map(function(t){ return '<span class="team-badge ' + (t==='Polyglots'?'team-polyglots':'team-default') + '">' + t + '</span>'; }).join(' ') || '<span class="stats-zero">—</span>';
-      return '<tr>' +
-        '<td>' + nm + '</td>' +
-        '<td>' + s.institution + '</td>' +
-        '<td>' + tm + '</td>' +
-        '<td class="stats-cell">' + fm(s.total_strings) + '</td>' +
-        '<td>' + (s.is_graduate ? '<span class="grad-badge">Graduate</span>' : '') + '</td>' +
-      '</tr>';
-    }).join('');
-
-    // Update sort arrows
-    document.querySelectorAll('#sec-contributions thead th[data-col]').forEach(function(th) {
-      var a = th.querySelector('.sort-arrow');
-      if (a) a.textContent = th.dataset.col === sc ? (sd === 'asc' ? '▲' : '▼') : '';
-    });
-  }
-
-  // Event listeners
-  document.getElementById('cI').addEventListener('change', r);
-  document.getElementById('cCo').addEventListener('change', r);
-  document.getElementById('cS').addEventListener('input', r);
-  document.querySelectorAll('#sec-contributions thead th[data-col]').forEach(function(th) {
-    th.addEventListener('click', function() {
-      var c = th.dataset.col;
-      if (sc === c) sd = sd === 'asc' ? 'desc' : 'asc';
-      else { sc = c; sd = c === 'name' ? 'asc' : 'desc'; }
-      r();
-    });
-  });
-  
-  r();
-})();
-
-// ─── SECTION 4: LEARN ─────────────────────────────────
-(function(){
-  const el=document.getElementById('sec-learn');
-  const tc=D.students.reduce((a,s)=>a+(s.courses||0),0);
-  const wc=D.students.filter(s=>s.courses>0).length;
-  el.innerHTML=`<div class="cards" style="margin-bottom:24px"><div class="card"><div class="num">${tc}</div><div class="lbl">Total Courses Completed</div></div><div class="card"><div class="num">${wc}</div><div class="lbl">Students with Courses</div></div></div>
-    <div class="chart-container" style="margin-bottom:24px"><h3>Courses by Institution</h3><div class="bar-chart" id="learnInstChart"></div></div>
-    <div class="controls"><select id="lI"><option value="all">All Institutions</option>${D.institutions.map(i=>`<option value="${i}">${i}</option>`).join('')}</select><select id="lCo"><option value="all">All Cohorts</option>${(D.cohorts||[]).map(c=>`<option value="${c}">${c}</option>`).join('')}</select><input type="text" id="lS" placeholder="Search by name..."></div>
-    <table><thead><tr><th data-col="name">Student <span class="sort-arrow"></span></th><th>Institution</th><th data-col="courses" style="text-align:right">Courses Completed <span class="sort-arrow"></span></th></tr></thead><tbody id="lB"></tbody></table>`;
-  let sc='courses',sd='desc';
-  // Learn Courses by Institution chart
-  const lic = {};
-  D.students.forEach(s => { if(s.institution) lic[s.institution]=(lic[s.institution]||0)+(s.courses||0); });
-  const lia = Object.entries(lic).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  const lmi = lia[0]?lia[0][1]:1;
-  document.getElementById('learnInstChart').innerHTML = lia.map(([n,c]) => {
-    const sn = n.length>30?n.substring(0,28)+'\u2026':n;
-    return `<div class="bar-row"><div class="bar-label" title="${n}">${sn}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(c/lmi*100,8)}%;background:#0073aa">${c}</div></div></div>`;
-  }).join('');
-  function r(){
-    const inst=document.getElementById('lI').value,cohort=document.getElementById('lCo').value,q=document.getElementById('lS').value.toLowerCase();
-    let f=D.students.filter(s=>s.wp_username&&s.courses>0);
-    if(inst!=='all')f=f.filter(s=>s.institution===inst);
-    if(cohort!=='all')f=f.filter(s=>s.cohort===cohort);
-    if(q)f=f.filter(s=>s.name.toLowerCase().includes(q)||s.wp_username.toLowerCase().includes(q));
-    f.sort((a,b)=>{let va,vb;if(sc==='name'){va=a.name.toLowerCase();vb=b.name.toLowerCase();}else{va=a.courses||0;vb=b.courses||0;}return va<vb?(sd==='asc'?-1:1):va>vb?(sd==='asc'?1:-1):0;});
-    const mx=f.length?Math.max(...f.map(s=>s.courses)):1;
-    const tb=document.getElementById('lB');
-    if(!f.length){tb.innerHTML='<tr><td colspan="3" class="no-data">No course completions</td></tr>';return;}
-    tb.innerHTML=f.map(s=>{
-      const nm=`<a class="profile-link" href="https://profiles.wordpress.org/${s.wp_username}/" target="_blank">${s.name}</a>`;
-      const bw=Math.max((s.courses/mx)*80,4);
-      return `<tr><td>${nm}</td><td>${s.institution}</td><td class="stats-cell has-value"><span class="course-bar" style="width:${bw}px"></span>${s.courses}</td></tr>`;
-    }).join('');
-    document.querySelectorAll('#sec-learn thead th[data-col]').forEach(th=>{const a=th.querySelector('.sort-arrow');if(a)a.textContent=th.dataset.col===sc?(sd==='asc'?'▲':'▼'):'';});
-  }
-  document.getElementById('lI').addEventListener('change',r);
-  document.getElementById('lCo').addEventListener('change',r);
-  document.getElementById('lS').addEventListener('input',r);
-  document.querySelectorAll('#sec-learn thead th[data-col]').forEach(th=>{th.addEventListener('click',()=>{const c=th.dataset.col;if(sc===c)sd=sd==='asc'?'desc':'asc';else{sc=c;sd=c==='name'?'asc':'desc';}r();});});
-  r();
-})();
-
-// ─── SECTION 5: MENTORS ───────────────────────────────
-(function(){
-  const el=document.getElementById('sec-mentors');
-  const sponsored=D.mentors.filter(m=>m.sponsored).length;
-  el.innerHTML=`<div class="cards" style="margin-bottom:24px"><div class="card"><div class="num">${D.mentors.length}</div><div class="lbl">Active Mentors</div></div><div class="card"><div class="num">${sponsored}</div><div class="lbl">Sponsored Mentors</div></div></div>
-    <div class="controls"><input type="text" id="mS" placeholder="Search by name or country..."></div>
-    <table><thead><tr><th>Mentor</th><th>Country</th><th>Languages</th><th>Students</th><th>Sponsored</th></tr></thead><tbody id="mB"></tbody></table>`;
-  function r(){
-    const q=document.getElementById('mS').value.toLowerCase();
-    let f=D.mentors;
-    if(q)f=f.filter(m=>m.name.toLowerCase().includes(q)||(m.country_normalized||'').toLowerCase().includes(q));
-    f.sort((a,b)=>a.name.localeCompare(b.name));
-    const tb=document.getElementById('mB');
-    if(!f.length){tb.innerHTML='<tr><td colspan="5" class="no-data">No mentors found</td></tr>';return;}
-    tb.innerHTML=f.map(m=>{
-      const nm=m.wp_username?`<a class="profile-link" href="https://profiles.wordpress.org/${m.wp_username}/" target="_blank">${m.name}</a>`:m.name;
-      const langs=m.languages.length?m.languages.map(l=>`<span class="lang-tag">${l}</span>`).join(' '):'<span class="stats-zero">—</span>';
-      // Student list
-      let stuHtml='';
-      if(m.activeCount+m.gradCount>0){
-        const items=[];
-        m.activeStudents.forEach(s=>{
-          const sn=s.wp_username?`<a class="profile-link s-active" href="https://profiles.wordpress.org/${s.wp_username}/" target="_blank">${s.name}</a>`:`<span class="s-active">${s.name}</span>`;
-          items.push(sn);
-        });
-        m.gradStudents.forEach(s=>{
-          const sn=s.wp_username?`<a class="profile-link s-grad" href="https://profiles.wordpress.org/${s.wp_username}/" target="_blank">${s.name}</a>`:`<span class="s-grad">${s.name}</span>`;
-          items.push(sn+' <span class="grad-badge">Graduate</span>');
-        });
-        stuHtml=`<div class="student-list"><strong>${m.activeCount+m.gradCount}</strong> (${m.activeCount} active, ${m.gradCount} grad)<br>${items.join(', ')}</div>`;
-      } else {stuHtml='<span class="stats-zero">—</span>';}
-      // Sponsored
-      let spHtml='';
-      if(m.sponsored){
-        spHtml=`<span class="sponsored-badge">Yes</span>`;
-        if(m.companies.length) spHtml+=` <span style="font-size:12px;color:var(--text-light)">${m.companies.join(', ')}</span>`;
-      }
-      return `<tr><td>${nm}</td><td>${m.country_normalized||m.country||'—'}</td><td>${langs}</td><td>${stuHtml}</td><td>${spHtml}</td></tr>`;
-    }).join('');
-  }
-  document.getElementById('mS').addEventListener('input',r);
-  r();
 })();
 // Feedback section (aggregate, experience-only)
 (function(){
