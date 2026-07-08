@@ -153,7 +153,14 @@ def get_airtable_pat():
 
 
 def fetch_all_records(base_id, table_id, field_ids, pat):
-    """Fetch all records from Airtable table with pagination."""
+    """Fetch all records from an Airtable table (paginated).
+
+    Requests only the fields the build needs. If Airtable rejects that with a
+    422 — which is what happens when a requested field ID was deleted or renamed
+    in the base — drop the field filter, log a warning, and refetch all fields
+    so a single removed field degrades gracefully (it just reads as None via
+    get_field_value) instead of failing the whole build.
+    """
     url = f"{API_URL}/{base_id}/{table_id}"
     headers = {"Authorization": f"Bearer {pat}"}
     params = {"fields[]": field_ids, "returnFieldsByFieldId": "true", "pageSize": 100}
@@ -167,6 +174,23 @@ def fetch_all_records(base_id, table_id, field_ids, pat):
 
         try:
             r = requests.get(url, headers=headers, params=params, timeout=10)
+        except requests.RequestException as e:
+            print(f"Error fetching {table_id}: {e}", file=sys.stderr)
+            raise
+
+        if r.status_code == 422 and "fields[]" in params:
+            print(
+                f"Warning: {table_id} rejected the requested field list (422) — a "
+                f"mapped field was likely deleted or renamed in Airtable. Refetching "
+                f"all fields so the build continues; tidy up FIELDS when convenient.",
+                file=sys.stderr,
+            )
+            params.pop("fields[]")
+            all_records = []
+            offset = None
+            continue
+
+        try:
             r.raise_for_status()
         except requests.RequestException as e:
             print(f"Error fetching {table_id}: {e}", file=sys.stderr)
