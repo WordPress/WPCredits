@@ -323,27 +323,26 @@ function tc(name){return TEAM_COLORS[name]||'#546e7a';}
 // ─── SECTION 2: CONTRIBUTIONS ─────────────────────────
 (function(){
   const el = document.getElementById('sec-contributions');
-  const t = D.translationTotals;
-  const transStudents = D.students.filter(s => s.total_strings > 0).length;
-  
-  el.innerHTML = '<div class="cards">' +
-    '<div class="card"><div class="num">' + (t.total||0).toLocaleString() + '</div><div class="lbl">Translation Strings</div></div>' +
-    '<div class="card"><div class="num">' + transStudents + '</div><div class="lbl">Translating Students</div></div>' +
-  '</div>' +
-  '<div class="chart-container"><h3>Translation Activity</h3><div class="trans-chart-wrap"><div class="donut-container" id="dC"></div><div class="legend" id="dL"></div></div></div>';
-
-  // Translation donut chart
-  function drawDonut(sg, tr, rv) {
-    var tot = sg + tr + rv;
-    if (!tot) { document.getElementById('dC').innerHTML = '<div class="no-data">No data</div>'; document.getElementById('dL').innerHTML = ''; return; }
-    var segs = [{v:sg,c:'#0073aa',l:'Suggested'},{v:tr,c:'#00a32a',l:'Translated'},{v:rv,c:'#9b59b6',l:'Reviewed'}];
-    var r=90,cx=110,cy=110,sw=30,ci=2*Math.PI*r; var o=0,p='';
-    segs.forEach(function(s){ if(!s.v)return; var dl=ci*s.v/tot; p+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+s.c+'" stroke-width="'+sw+'" stroke-dasharray="'+dl+' '+(ci-dl)+'" stroke-dashoffset="'+(-o)+'" transform="rotate(-90 '+cx+' '+cy+')"/>'; o+=dl; });
-    document.getElementById('dC').innerHTML = '<svg viewBox="0 0 220 220">' + p + '</svg><div class="donut-center"><div class="big">' + tot.toLocaleString() + '</div><div class="sub">Strings</div></div>';
-    document.getElementById('dL').innerHTML = segs.map(function(s){ return '<div class="legend-item"><div class="legend-dot" style="background:'+s.c+'"></div><div><div class="legend-num">'+s.v.toLocaleString()+'</div><div style="font-size:12px;color:var(--text-light)">'+s.l+'</div></div></div>'; }).join('');
-  }
-  drawDonut(t.suggested, t.translated, t.reviewed);
-
+  const g = D.global;
+  const teamsReceiving = Object.keys(g.teamDistribution || {}).length;
+  const grad = g.graduates || 0, drop = g.dropouts || 0;
+  const gradRate = (grad + drop) > 0 ? Math.round(grad / (grad + drop) * 100) : null;
+  const rs = g.repeatSchools || {}, kg = g.keepContributingGrads || {};
+  const n = v => (v || 0).toLocaleString();
+  const pct = v => (v != null ? v + '%' : '—');
+  const card = (num, lbl, sub) => '<div class="card"><div class="num">' + num + '</div><div class="lbl">' + lbl + '</div>' + (sub ? '<div class="act-sub">' + sub + '</div>' : '') + '</div>';
+  el.innerHTML = ''
+    + '<p class="chart-sub" style="margin:2px 0 18px">What students produce through the program, and how it carries forward — program-wide totals.</p>'
+    + '<div class="cards">'
+    +   card(n(g.firstContributions), 'First contributions made')
+    +   card(n(g.sitesCreated), 'WordPress sites created')
+    +   card(n(g.eventParticipants), 'Took part in WordPress events')
+    +   card(n(g.totalCourses), 'Courses completed on Learn')
+    +   card(teamsReceiving, 'WordPress teams contributed to')
+    +   card(pct(gradRate), 'Graduation rate', 'of everyone who finished')
+    +   card(pct(kg.pct), 'Graduates who’ll keep contributing')
+    +   card(pct(rs.pct), 'Schools that run repeat cohorts')
+    + '</div>';
 })();
 // Feedback section (aggregate, experience-only)
 (function(){

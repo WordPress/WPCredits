@@ -43,6 +43,9 @@ FIELDS = {
         "teams": "fldwPGiajTLTu1Vqi",
         "internship_end_date": "fldLwLXupWurmimc7",
         "internship_start_date": "fldeadC0FAkXAxa17",
+        "first_contribution": "fld9AmBSoV87iaeMU",  # "Post Reflection: Your First Contribution"
+        "event_url": "fldJODnqx8jxGn0ra",            # WP event participation URL
+        "website_url": "fld2n1L2vcwDtlPlg",          # Personal Website URL (site built)
         "lessons": "fldE1rkXbTWJe8bBq",
         "mentor": "fldSBTwMgno8ecQ2X",
         # Learn course grade fields (non-empty = completed)
@@ -106,6 +109,7 @@ FIELDS = {
     },
     # Student feedback (student-linked layer). Aggregate, experience-only.
     "feedback": {
+        "email": "fldJcJQSgPIJ7XamR",          # used only to scope "keep" to graduates
         "ease": "fldn7M6U4xXurEgJ2",          # rating 1-5
         "satisfaction": "fldJPTEix369b8NOw",   # rating 1-5
         "impact": "fldxtEUsunNgjyKXV",         # rating 1-5
@@ -501,6 +505,12 @@ def main():
     total_hours = 0
     field_of_study_stats = {}
     country_from_mentor = {}  # Track which students have which country via mentor
+    # Contributions-tab metrics
+    first_contributions = 0
+    event_participants = 0
+    sites_created = 0
+    inst_quarters = {}   # institution name -> set of (year, quarter) students started in
+    grad_emails = set()  # emails of graduates, to scope "keep contributing" feedback
 
     for rec in students_reports_records:
         name = get_field_value(rec, FIELDS["students_reports"]["name"])
@@ -540,6 +550,23 @@ def main():
         elif status_n == NOT_MOVING_FORWARD_KEY:
             not_moving_forward_count += 1
 
+        # Contributions-tab metrics, counted across all reports (an artifact like a
+        # first contribution / site / event stands even if the student later left).
+        if get_field_value(rec, FIELDS["students_reports"]["first_contribution"]):
+            first_contributions += 1
+        if get_field_value(rec, FIELDS["students_reports"]["event_url"]):
+            event_participants += 1
+        if get_field_value(rec, FIELDS["students_reports"]["website_url"]):
+            sites_created += 1
+        # Repeat cohorts: the distinct year-quarters each school enrolled students in.
+        fc_email = get_field_value(rec, FIELDS["students_reports"]["email"])
+        fc_srec = students_by_email.get(fc_email.strip().lower()) if fc_email else None
+        fc_inst = get_field_value(rec, FIELDS["students_reports"]["institution"]) or []
+        if fc_srec and fc_inst and fc_inst[0] in institutions_lookup:
+            fc_sd = parse_iso_date(get_field_value(fc_srec, FIELDS["students"]["start_date"]))
+            if fc_sd:
+                inst_quarters.setdefault(institutions_lookup[fc_inst[0]]["name"], set()).add((fc_sd.year, (fc_sd.month - 1) // 3))
+
         # Skip students with non-active statuses (Not moving forward, SPAM, Dropped out, Paused, etc.)
         if status_n not in INCLUDED_STATUS_KEYS:
             continue
@@ -574,6 +601,8 @@ def main():
         email_key = report_email.strip().lower() if report_email else ""
         name_normalized = " ".join(name.strip().lower().split()) if name else ""
         student_rec = students_by_email.get(email_key) or students_by_name.get(name_normalized)
+        if is_graduate and email_key:
+            grad_emails.add(email_key)
         if student_rec:
             fos_obj = get_field_value(student_rec, FIELDS["students"]["field_of_study"])
             if fos_obj and isinstance(fos_obj, dict):
@@ -878,6 +907,27 @@ def main():
         "confidence": {"dist": conf_counts, "n": conf_n},
     }
 
+    # Contributions-tab: % of schools that repeat cohorts (students starting in
+    # >= 2 distinct year-quarters), and % of GRADUATE feedback respondents who
+    # said they're "likely" to keep contributing.
+    repeat_total = len(inst_quarters)
+    repeat_count = sum(1 for qs in inst_quarters.values() if len(qs) >= 2)
+    repeat_schools = {
+        "pct": round(100 * repeat_count / repeat_total) if repeat_total else None,
+        "count": repeat_count, "total": repeat_total,
+    }
+    grad_keep = []
+    for r in feedback_records:
+        fem = get_field_value(r, FIELDS["feedback"]["email"])
+        if fem and fem.strip().lower() in grad_emails:
+            k = status_key(get_field_value(r, FIELDS["feedback"]["keep"]))
+            if k:
+                grad_keep.append(k)
+    keep_contributing_grads = (
+        {"pct": round(100 * sum(1 for k in grad_keep if k == "likely") / len(grad_keep)), "n": len(grad_keep)}
+        if grad_keep else {"pct": None, "n": 0}
+    )
+
     # Build global stats
     global_stats = {
         "activeStudents": active_count,
@@ -894,6 +944,11 @@ def main():
         "instCountries": inst_countries,
         "mentorCountries": mentor_countries,
         "fieldOfStudy": field_of_study_stats,
+        "firstContributions": first_contributions,
+        "eventParticipants": event_participants,
+        "sitesCreated": sites_created,
+        "repeatSchools": repeat_schools,
+        "keepContributingGrads": keep_contributing_grads,
     }
 
     # Translation totals from WordPress.org profile scraping
