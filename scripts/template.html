@@ -44,6 +44,12 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .card .num{font-family:var(--serif);font-size:34px;font-weight:600;color:var(--blue-ink);line-height:1.05}
 .card .lbl{font-size:12px;color:var(--text-light);margin-top:7px;letter-spacing:.01em}
 .card .act-sub{font-size:12px;color:var(--wp-green);margin-top:6px;font-weight:500}
+/* Outcomes uses a fixed 3-up grid so the six cards read as two even rows and the
+   longer, self-explanatory labels have room to breathe. */
+.cards-outcomes{grid-template-columns:repeat(3,1fr)}
+@media(max-width:820px){.cards-outcomes{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.cards-outcomes{grid-template-columns:1fr}}
+.cards-outcomes .lbl{font-size:13px;line-height:1.4;color:var(--text)}
 .card.hl{background:var(--amber-tint)}
 .card.hl .num{color:var(--wp-orange)}
 .card.hl .act-sub{color:var(--wp-orange)}
@@ -232,22 +238,27 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   const el = document.getElementById('sec-global');
   // Derived figures for the restructured, story-first Overview.
   const countryCount = Object.keys(g.instCountries || {}).length;
-  // Graduation rate — show both: completion among those who reached an outcome,
-  // with a context line for how many are still in-program. "Not moving forward"
-  // (never enrolled) is excluded from every denominator.
+  // Graduation rate is completion among students who actually reached an outcome
+  // (graduated or dropped out) — students still in the program are not counted as
+  // failures. "Not moving forward" (never enrolled) is excluded from every denominator.
   const grad = g.graduates || 0, drop = g.dropouts || 0, act = g.activeStudents || 0;
   const finished = grad + drop, started = grad + drop + act;
   const completionRate = finished > 0 ? Math.round(grad / finished * 100) : null;
-  const stillActivePct = started > 0 ? Math.round(act / started * 100) : 0;
   // Experience signals from the feedback aggregate (may be absent on a fresh build).
   const fb = D.feedback || {};
+  // The recommend / keep-contributing questions live on the final feedback form,
+  // which students complete at the end of the program before downloading their
+  // certificate — so every respondent has finished. Verified against Airtable:
+  // no dropouts answer them. Safe to attribute to graduates.
   const recPct = (fb.recommend && fb.recommend.pct != null) ? fb.recommend.pct + '%' : '—';
   const keepPct = (fb.keep && fb.keep.pct != null) ? fb.keep.pct + '%' : '—';
+  const impact = (fb.ratings && fb.ratings.impact) || {};
+  const rs = g.repeatSchools || {};
   el.innerHTML = `
     <div class="act-label act-scale">Scale &amp; momentum</div>
     <div class="cards">
-      <div class="card"><div class="num" id="ovActive">${g.activeStudents}</div><div class="lbl">Active Students</div></div>
-      <div class="card"><div class="num">${grad}</div><div class="lbl">Graduates</div></div>
+      <div class="card"><div class="num" id="ovActive">${g.activeStudents}</div><div class="lbl">Students currently in the program</div></div>
+      <div class="card"><div class="num">${started}</div><div class="lbl">Students who have joined to date</div></div>
       <div class="card"><div class="num">${countryCount}</div><div class="lbl">Countries</div></div>
     </div>
     <div class="chart-container">
@@ -291,10 +302,13 @@ document.querySelectorAll('.nav-item').forEach(tab => {
     </div>
 
     <div class="act-label act-outcomes">Outcomes &amp; quality</div>
-    <div class="cards">
-      <div class="card hl"><div class="num">${completionRate != null ? completionRate + '%' : '—'}</div><div class="lbl">Graduation Rate</div>${started > 0 ? `<div class="act-sub">${stillActivePct}% still active</div>` : ''}</div>
-      <div class="card"><div class="num">${recPct}</div><div class="lbl">Would Recommend</div></div>
-      <div class="card"><div class="num">${keepPct}</div><div class="lbl">Keep Contributing</div></div>
+    <div class="cards cards-outcomes">
+      <div class="card hl"><div class="num">${completionRate != null ? completionRate + '%' : '—'}</div><div class="lbl">Graduated from the program</div></div>
+      <div class="card"><div class="num">${grad}</div><div class="lbl">Graduates to date</div></div>
+      <div class="card"><div class="num">${impact.avg != null ? impact.avg + '<span style="font-size:20px;color:var(--text-light)">/5</span>' : '—'}</div><div class="lbl">How impactful graduates rate their contributions</div></div>
+      <div class="card"><div class="num">${recPct}</div><div class="lbl">Graduates who would recommend the program</div></div>
+      <div class="card"><div class="num">${keepPct}</div><div class="lbl">Graduates who plan to keep contributing to WordPress</div></div>
+      <div class="card"><div class="num">${rs.pct != null ? rs.pct + '%' : '—'}</div><div class="lbl">Schools that have run more than one cohort</div>${rs.total ? `<div class="act-sub">of the ${rs.total} schools with us long enough to return</div>` : ''}</div>
     </div>
   `;
   // Growth over time (joining vs graduating, by month)
@@ -361,7 +375,7 @@ document.querySelectorAll('.nav-item').forEach(tab => {
     +   card(teamsReceiving, 'WordPress teams contributed to')
     +   card(pct(gradRate), 'Graduation rate', 'of everyone who finished')
     +   card(pct(kg.pct), 'Graduates who’ll keep contributing')
-    +   card(pct(rs.pct), 'Schools that run repeat cohorts')
+    +   card(pct(rs.pct), 'Schools that run repeat cohorts', rs.total ? 'of the ' + rs.total + ' with us long enough to return' : '')
     + '</div>';
 })();
 // Feedback section (aggregate, experience-only)
