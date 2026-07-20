@@ -496,8 +496,10 @@ def main():
 
     # Institutions tracked separately in Airtable (for reasons unrelated to this
     # dashboard) that are the same partner for repeat-cohort purposes.
+    # Keys are lowercased: names reach us through title_case(), which does not
+    # preserve acronyms ("CNM Ingenuity" -> "Cnm Ingenuity"), so match loosely.
     INSTITUTION_ALIASES = {
-        "CNM Ingenuity": "Central New Mexico Community College",
+        "cnm ingenuity": "Central New Mexico Community College",
     }
 
     # Process students
@@ -579,7 +581,7 @@ def main():
             )
             if fc_sd:
                 fc_name = institutions_lookup[fc_inst[0]]["name"]
-                fc_name = INSTITUTION_ALIASES.get(fc_name, fc_name)
+                fc_name = INSTITUTION_ALIASES.get(fc_name.strip().lower(), fc_name)
                 inst_quarters.setdefault(fc_name, set()).add((fc_sd.year, (fc_sd.month - 1) // 3))
 
         # Skip students with non-active statuses (Not moving forward, SPAM, Dropped out, Paused, etc.)
