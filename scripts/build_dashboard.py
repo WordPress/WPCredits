@@ -494,6 +494,12 @@ def main():
     DROPOUT_KEY = status_key("Dropped out")
     NOT_MOVING_FORWARD_KEY = status_key("Not moving forward")
 
+    # Institutions tracked separately in Airtable (for reasons unrelated to this
+    # dashboard) that are the same partner for repeat-cohort purposes.
+    INSTITUTION_ALIASES = {
+        "CNM Ingenuity": "Central New Mexico Community College",
+    }
+
     # Process students
     students = []
     institutions_set = set()
@@ -559,13 +565,22 @@ def main():
         if get_field_value(rec, FIELDS["students_reports"]["website_url"]):
             sites_created += 1
         # Repeat cohorts: the distinct year-quarters each school enrolled students in.
+        # Resolve the start date with the same cascade the growth chart uses — the
+        # Students "Start Date" is the best source but ~18 reports have no match, and
+        # dropping those silently lost a school that had in fact run a second cohort.
         fc_email = get_field_value(rec, FIELDS["students_reports"]["email"])
         fc_srec = students_by_email.get(fc_email.strip().lower()) if fc_email else None
         fc_inst = get_field_value(rec, FIELDS["students_reports"]["institution"]) or []
-        if fc_srec and fc_inst and fc_inst[0] in institutions_lookup:
-            fc_sd = parse_iso_date(get_field_value(fc_srec, FIELDS["students"]["start_date"]))
+        if fc_inst and fc_inst[0] in institutions_lookup:
+            fc_sd = (
+                (parse_iso_date(get_field_value(fc_srec, FIELDS["students"]["start_date"])) if fc_srec else None)
+                or parse_iso_date(get_field_value(rec, FIELDS["students_reports"]["internship_start_date"]))
+                or parse_iso_date(rec.get("createdTime"))
+            )
             if fc_sd:
-                inst_quarters.setdefault(institutions_lookup[fc_inst[0]]["name"], set()).add((fc_sd.year, (fc_sd.month - 1) // 3))
+                fc_name = institutions_lookup[fc_inst[0]]["name"]
+                fc_name = INSTITUTION_ALIASES.get(fc_name, fc_name)
+                inst_quarters.setdefault(fc_name, set()).add((fc_sd.year, (fc_sd.month - 1) // 3))
 
         # Skip students with non-active statuses (Not moving forward, SPAM, Dropped out, Paused, etc.)
         if status_n not in INCLUDED_STATUS_KEYS:
@@ -907,14 +922,26 @@ def main():
         "confidence": {"dist": conf_counts, "n": conf_n},
     }
 
-    # Contributions-tab: % of schools that repeat cohorts (students starting in
-    # >= 2 distinct year-quarters), and % of GRADUATE feedback respondents who
-    # said they're "likely" to keep contributing.
-    repeat_total = len(inst_quarters)
-    repeat_count = sum(1 for qs in inst_quarters.values() if len(qs) >= 2)
+    # % of schools that repeat cohorts (students starting in >= 2 distinct
+    # year-quarters), and % of GRADUATE feedback respondents who said they're
+    # "likely" to keep contributing.
+    #
+    # Schools whose *first* cohort is the quarter we're currently in are excluded
+    # from the denominator: they have not yet had the opportunity to return, so
+    # counting them as non-repeats understates partner retention.
+    _today = date.today()
+    _current_quarter = (_today.year, (_today.month - 1) // 3)
+    eligible_quarters = {
+        name: qs for name, qs in inst_quarters.items()
+        if qs and min(qs) < _current_quarter
+    }
+    repeat_total = len(eligible_quarters)
+    repeat_count = sum(1 for qs in eligible_quarters.values() if len(qs) >= 2)
     repeat_schools = {
         "pct": round(100 * repeat_count / repeat_total) if repeat_total else None,
         "count": repeat_count, "total": repeat_total,
+        # Schools too new to have repeated yet, excluded from the ratio above.
+        "tooNew": len(inst_quarters) - repeat_total,
     }
     grad_keep = []
     for r in feedback_records:
