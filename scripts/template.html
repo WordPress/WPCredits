@@ -20,7 +20,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap');
 :root{
   --wp-blue:#3858E9;--wp-blue-dark:#2743B4;--wp-green:#2F7D5B;--wp-orange:#B07A22;--wp-red:#C0492B;
-  --bg:#FAF7F2;--card-bg:#fff;--text:#23201A;--text-light:#756D60;--border:#EBE5DA;--row-hover:#F3EFE8;
+  --bg:#FAF7F2;--card-bg:#fff;--text:#23201A;--text-light:#756D60;--border:#EBE5DA;
   --blue-ink:#2743B4;--blue-tint:#EAEEFD;--green-tint:#E9F3ED;--amber-tint:#F7EFDE;
   --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
   --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -62,7 +62,6 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .act-label:first-child{margin-top:6px}
 .act-label::before{content:"";width:22px;height:3px;border-radius:2px;background:currentColor}
 .act-scale{color:var(--wp-blue)}
-.act-contribution{color:var(--wp-green)}
 .act-outcomes{color:var(--wp-orange)}
 .act-skills{color:var(--wp-green)}
 .skills-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
@@ -71,47 +70,6 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .skills-chips{display:flex;flex-wrap:wrap;gap:8px}
 .skill{display:inline-block;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:500;background:var(--blue-tint);color:var(--blue-ink)}
 .skills-transferable .skill{background:var(--green-tint);color:#1F5C43}
-.bar-chart{display:flex;flex-direction:column;gap:10px}
-.bar-row{display:flex;align-items:center;gap:12px}
-.bar-label{width:130px;text-align:right;font-size:13px;font-weight:500;color:var(--text);flex-shrink:0}
-.bar-track{flex:1;height:26px;background:#F0EBE1;border-radius:7px;overflow:hidden}
-.bar-fill{height:100%;border-radius:7px;display:flex;align-items:center;padding-left:10px;font-size:12px;font-weight:600;color:#fff;transition:width .6s ease}
-.controls{margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.controls select,.controls input{padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff;color:var(--text)}
-.controls select{min-width:280px}.controls input{width:220px}
-table{width:100%;background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);border-collapse:separate;border-spacing:0;overflow:hidden;font-size:13px}
-thead th{background:#F5F0E7;padding:11px 16px;text-align:left;font-weight:600;color:var(--text-light);font-size:11px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
-thead th:hover{color:var(--text)}
-thead th .sort-arrow{margin-left:4px;font-size:10px}
-tbody td{padding:11px 16px;border-bottom:1px solid #F0EBE1;vertical-align:middle}
-tbody tr:hover{background:var(--row-hover)}
-tbody tr:last-child td{border-bottom:none}
-.team-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;margin:1px 3px;white-space:nowrap}
-.team-polyglots{background:var(--green-tint);color:#1b5e20}
-.team-default{background:var(--blue-tint);color:#2743B4}
-.grad-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;background:var(--amber-tint);color:#8a5a12;margin-left:4px}
-.sponsored-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;background:var(--green-tint);color:#1b5e20}
-.profile-link{color:var(--wp-blue);text-decoration:none}
-.profile-link:hover{text-decoration:underline}
-.stats-cell{text-align:right;font-variant-numeric:tabular-nums}
-.stats-cell.has-value{font-weight:600}
-.stats-zero{color:#c7bfb0}
-.no-data{color:var(--text-light);font-style:italic;padding:40px;text-align:center}
-.trans-chart-wrap{display:flex;gap:32px;align-items:center;flex-wrap:wrap;justify-content:center}
-.donut-container{width:220px;height:220px;position:relative}
-.donut-container svg{width:100%;height:100%}
-.donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
-.donut-center .big{font-family:var(--serif);font-size:30px;font-weight:600;color:var(--text)}
-.donut-center .sub{font-size:11px;color:var(--text-light);text-transform:uppercase;letter-spacing:.04em}
-.legend{display:flex;flex-direction:column;gap:12px}
-.legend-item{display:flex;align-items:center;gap:10px;font-size:14px}
-.legend-dot{width:14px;height:14px;border-radius:4px;flex-shrink:0}
-.legend-num{font-weight:600;font-size:16px;font-family:var(--serif)}
-.course-bar{display:inline-block;height:18px;border-radius:4px;background:var(--wp-blue);min-width:2px;vertical-align:middle;margin-right:8px}
-.lang-tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;background:#F3E9F6;color:#6a1b9a;margin:1px 2px}
-.student-list{font-size:12px;line-height:1.6}
-.student-list .s-active{color:var(--wp-blue)}
-.student-list .s-grad{color:#b56a12}
 #instMap{width:100%;height:460px;border-radius:var(--radius);z-index:1}
 .leaflet-popup-content{font-family:var(--sans);font-size:13px;line-height:1.6}
 .leaflet-popup-content h4{margin:0 0 6px;font-size:14px;color:var(--wp-blue);border-bottom:1px solid var(--border);padding-bottom:4px}
