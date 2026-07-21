@@ -317,12 +317,8 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   const el = document.getElementById('sec-contributions');
   const g = D.global;
   const teamsReceiving = Object.keys(g.teamDistribution || {}).length;
-  const grad = g.graduates || 0, drop = g.dropouts || 0;
-  const gradRate = (grad + drop) > 0 ? Math.round(grad / (grad + drop) * 100) : null;
-  const rs = g.repeatSchools || {}, kg = g.keepContributingGrads || {};
   const n = v => (v || 0).toLocaleString();
-  const pct = v => (v != null ? v + '%' : '—');
-  const card = (num, lbl, sub) => '<div class="card"><div class="num">' + num + '</div><div class="lbl">' + lbl + '</div>' + (sub ? '<div class="act-sub">' + sub + '</div>' : '') + '</div>';
+  const card = (num, lbl) => '<div class="card"><div class="num">' + num + '</div><div class="lbl">' + lbl + '</div></div>';
   el.innerHTML = ''
     + '<p class="chart-sub" style="margin:2px 0 18px">What students produce through the program, and how it carries forward — program-wide totals.</p>'
     + '<div class="cards">'
@@ -331,9 +327,6 @@ document.querySelectorAll('.nav-item').forEach(tab => {
     +   card(n(g.eventParticipants), 'Took part in WordPress events')
     +   card(n(g.totalCourses), 'Courses completed on Learn')
     +   card(teamsReceiving, 'WordPress teams contributed to')
-    +   card(pct(gradRate), 'Graduation rate', 'of everyone who finished')
-    +   card(pct(kg.pct), 'Graduates who’ll keep contributing')
-    +   card(pct(rs.pct), 'Schools that run repeat cohorts', rs.total ? 'of the ' + rs.total + ' with us long enough to return' : '')
     + '</div>';
 })();
 // Feedback section (aggregate, experience-only)

@@ -109,7 +109,6 @@ FIELDS = {
     },
     # Student feedback (student-linked layer). Aggregate, experience-only.
     "feedback": {
-        "email": "fldJcJQSgPIJ7XamR",          # used only to scope "keep" to graduates
         "ease": "fldn7M6U4xXurEgJ2",          # rating 1-5
         "satisfaction": "fldJPTEix369b8NOw",   # rating 1-5
         "impact": "fldxtEUsunNgjyKXV",         # rating 1-5
@@ -518,7 +517,6 @@ def main():
     event_participants = 0
     sites_created = 0
     inst_quarters = {}   # institution name -> set of (year, quarter) students started in
-    grad_emails = set()  # emails of graduates, to scope "keep contributing" feedback
 
     for rec in students_reports_records:
         name = get_field_value(rec, FIELDS["students_reports"]["name"])
@@ -618,8 +616,6 @@ def main():
         email_key = report_email.strip().lower() if report_email else ""
         name_normalized = " ".join(name.strip().lower().split()) if name else ""
         student_rec = students_by_email.get(email_key) or students_by_name.get(name_normalized)
-        if is_graduate and email_key:
-            grad_emails.add(email_key)
         if student_rec:
             fos_obj = get_field_value(student_rec, FIELDS["students"]["field_of_study"])
             if fos_obj and isinstance(fos_obj, dict):
@@ -925,8 +921,7 @@ def main():
     }
 
     # % of schools that repeat cohorts (students starting in >= 2 distinct
-    # year-quarters), and % of GRADUATE feedback respondents who said they're
-    # "likely" to keep contributing.
+    # year-quarters).
     #
     # Schools whose *first* cohort is the quarter we're currently in are excluded
     # from the denominator: they have not yet had the opportunity to return, so
@@ -945,18 +940,6 @@ def main():
         # Schools too new to have repeated yet, excluded from the ratio above.
         "tooNew": len(inst_quarters) - repeat_total,
     }
-    grad_keep = []
-    for r in feedback_records:
-        fem = get_field_value(r, FIELDS["feedback"]["email"])
-        if fem and fem.strip().lower() in grad_emails:
-            k = status_key(get_field_value(r, FIELDS["feedback"]["keep"]))
-            if k:
-                grad_keep.append(k)
-    keep_contributing_grads = (
-        {"pct": round(100 * sum(1 for k in grad_keep if k == "likely") / len(grad_keep)), "n": len(grad_keep)}
-        if grad_keep else {"pct": None, "n": 0}
-    )
-
     # Build global stats
     global_stats = {
         "activeStudents": active_count,
@@ -977,7 +960,6 @@ def main():
         "eventParticipants": event_participants,
         "sitesCreated": sites_created,
         "repeatSchools": repeat_schools,
-        "keepContributingGrads": keep_contributing_grads,
     }
 
     # Translation totals from WordPress.org profile scraping
