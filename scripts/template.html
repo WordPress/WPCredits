@@ -19,7 +19,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap');
 :root{
-  --wp-blue:#3858E9;--wp-blue-dark:#2743B4;--wp-green:#2F7D5B;--wp-orange:#B07A22;--wp-red:#C0492B;
+  --wp-blue:#3858E9;--wp-blue-dark:#2743B4;--wp-green:#2F7D5B;--wp-orange:#B07A22;--wp-red:#C0492B;--wp-teal:#2A7B8C;
   --bg:#FAF7F2;--card-bg:#fff;--text:#23201A;--text-light:#756D60;--border:#EBE5DA;
   --blue-ink:#2743B4;--blue-tint:#EAEEFD;--green-tint:#E9F3ED;--amber-tint:#F7EFDE;
   --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
@@ -68,6 +68,10 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .act-scale{color:var(--wp-blue)}
 .act-outcomes{color:var(--wp-orange)}
 .act-skills{color:var(--wp-green)}
+/* Fourth act needs its own accent: blue, green and amber are taken by scale,
+   skills and outcomes. Teal is already part of the categorical palette set in
+   #142, so this introduces no new colour to the design. */
+.act-produce{color:var(--wp-teal)}
 .skills-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
 @media(max-width:760px){.skills-grid{grid-template-columns:1fr}}
 .skills-head{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);margin-bottom:12px}
@@ -102,12 +106,10 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 </header>
 <div class="nav" id="mainNav">
   <div class="nav-item active" data-section="global">Overview</div>
-  <div class="nav-item" data-section="contributions">Contributions</div>
   <div class="nav-item" data-section="feedback">Voices</div>
 </div>
 <div class="content">
   <div class="section active" id="sec-global"></div>
-  <div class="section" id="sec-contributions"></div>
   <div class="section" id="sec-feedback"></div>
 </div>
 <div class="sponsors">
@@ -194,12 +196,13 @@ document.querySelectorAll('.nav-item').forEach(tab => {
 // Team color helper
 // Categorical palette tuned to the warm page + brand blue/green/amber.
 
-// ─── SECTION 1: GLOBAL ───────────────────────────────
+// ─── OVERVIEW ────────────────────────────────────────
 (function(){
   const g = D.global;
   const el = document.getElementById('sec-global');
   // Derived figures for the restructured, story-first Overview.
   const countryCount = Object.keys(g.instCountries || {}).length;
+  const teamsReceiving = Object.keys(g.teamDistribution || {}).length;
   // Graduation rate is completion among students who actually reached an outcome
   // (graduated or dropped out) — students still in the program are not counted as
   // failures. "Not moving forward" (never enrolled) is excluded from every denominator.
@@ -263,6 +266,13 @@ document.querySelectorAll('.nav-item').forEach(tab => {
       </div>
     </div>
 
+    <div class="act-label act-produce">What students produce</div>
+    <div class="cards">
+      <div class="card"><div class="num">${(g.firstContributions || 0).toLocaleString()}</div><div class="lbl">First contributions made</div></div>
+      <div class="card"><div class="num">${(g.sitesCreated || 0).toLocaleString()}</div><div class="lbl">WordPress sites created</div></div>
+      <div class="card"><div class="num">${teamsReceiving}</div><div class="lbl">WordPress teams contributed to</div></div>
+    </div>
+
     <div class="act-label act-outcomes">Outcomes &amp; quality</div>
     <div class="cards cards-outcomes">
       <div class="card hl"><div class="num">${completionRate != null ? completionRate + '%' : '—'}</div><div class="lbl">Graduated from the program</div></div>
@@ -316,23 +326,6 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   initInstMap();
 })();
 
-// ─── SECTION 2: CONTRIBUTIONS ─────────────────────────
-(function(){
-  const el = document.getElementById('sec-contributions');
-  const g = D.global;
-  const teamsReceiving = Object.keys(g.teamDistribution || {}).length;
-  const n = v => (v || 0).toLocaleString();
-  const card = (num, lbl) => '<div class="card"><div class="num">' + num + '</div><div class="lbl">' + lbl + '</div></div>';
-  el.innerHTML = ''
-    + '<p class="chart-sub" style="margin:2px 0 18px">What students produce through the program, and how it carries forward — program-wide totals.</p>'
-    + '<div class="cards">'
-    +   card(n(g.firstContributions), 'First contributions made')
-    +   card(n(g.sitesCreated), 'WordPress sites created')
-    +   card(n(g.eventParticipants), 'Took part in WordPress events')
-    +   card(n(g.totalCourses), 'Courses completed on Learn')
-    +   card(teamsReceiving, 'WordPress teams contributed to')
-    + '</div>';
-})();
 // Feedback section (aggregate, experience-only)
 (function(){
   var el = document.getElementById('sec-feedback');
