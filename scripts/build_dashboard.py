@@ -909,7 +909,11 @@ def main():
             conf_n += 1
 
     feedback = {
-        "responses": len(feedback_records),
+        # NOTE: deliberately no overall "responses" count. len(feedback_records)
+        # counts ROWS in the Feedback table, and a row is pre-created for every
+        # student whether or not they ever answer — so it ran ~3-4x higher than
+        # any question's real response count and overstated the sample. Each
+        # metric now carries its own n, which is the only honest denominator.
         "ratings": {
             "ease": _rating_avg("ease"),
             "satisfaction": _rating_avg("satisfaction"),
