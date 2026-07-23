@@ -56,8 +56,6 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .chart-container{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 24px;margin-bottom:20px}
 .chart-container h3{font-size:18px;margin-bottom:3px;color:var(--text)}
 .chart-sub{font-size:13px;color:var(--text-light);margin:0 0 16px;line-height:1.4}
-.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
-@media(max-width:900px){.charts-row{grid-template-columns:1fr}}
 .act-label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-light);margin:30px 0 14px;display:flex;align-items:center;gap:9px;font-family:var(--sans)}
 .act-label:first-child{margin-top:6px}
 .act-label::before{content:"";width:22px;height:3px;border-radius:2px;background:currentColor}
@@ -87,8 +85,8 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .voice{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 24px}
 .voice-q{font-family:var(--serif);font-size:16px;line-height:1.55;color:var(--text)}
 .voice-meta{margin-top:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-light)}
-.voice-tag{border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:11px}
-@media(max-width:768px){.nav-item{padding:10px 12px;font-size:13px}.site-header{padding:22px 18px 16px}.nav{padding:0 18px}.content{padding:8px 18px 20px}.bar-label{width:90px;font-size:11px}}
+.voice-tag{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:11px;white-space:nowrap}
+@media(max-width:768px){.nav-item{padding:10px 12px;font-size:13px}.site-header{padding:22px 18px 16px}.nav{padding:0 18px}.content{padding:8px 18px 20px}}
 </style>
 </head>
 <body>
@@ -331,48 +329,31 @@ document.querySelectorAll('.nav-item').forEach(tab => {
 })();
 // Feedback section (aggregate, experience-only)
 (function(){
-  var fb = D.feedback, el = document.getElementById('sec-feedback');
+  var el = document.getElementById('sec-feedback');
   if (!el) return;
-  // Every figure carries its own response count: each question sits on a
-  // different form, so no two are answered by the same set of students. This is
-  // also the gate — a real answered-question count, never a table row count.
-  var nOf = function(o){ return (o && o.n) || 0; };
-  var hasAnswers = fb && (nOf(fb.ratings && fb.ratings.ease) || nOf(fb.ratings && fb.ratings.satisfaction) || nOf(fb.confidence));
-  if (!hasAnswers) { el.innerHTML = '<div class="chart-container"><h3>Student Feedback</h3><p style="color:var(--text-light)">No feedback yet.</p></div>'; return; }
-  var rat = function(o){ return (o && o.avg!=null) ? o.avg.toFixed(1) : '—'; };
-  var barW = function(o){ return (o && o.avg!=null) ? Math.round(o.avg/5*100) : 0; };
-  var ratingCard = function(title,o){ return '<div class="chart-container"><h3>'+title+'</h3>'
-    + '<div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">'+rat(o)+' <span style="font-size:13px;color:var(--text-light);font-weight:400">/ 5</span></div>'
-    + '<div style="height:6px;border-radius:3px;background:var(--border)"><div style="width:'+barW(o)+'%;height:6px;border-radius:3px;background:#B07A22"></div></div>'
-    + '<div style="margin-top:8px;font-size:12px;color:var(--text-light)">'+nOf(o)+' responses</div></div>'; };
-  var c = fb.confidence.dist || {}, cn = fb.confidence.n || 1;
-  var confOrder = [['Very confident','#2F7D5B'],['Confident','#7FB39A'],['Neutral','#C7BFB0'],['Not very confident','#B07A22']];
-  var seg = confOrder.map(function(x){ var v=c[x[0]]||0; return v? '<div style="width:'+(v/cn*100)+'%;background:'+x[1]+'"></div>':''; }).join('');
-  var leg = confOrder.map(function(x){ var v=c[x[0]]||0; return '<span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:'+x[1]+'"></span>'+x[0]+' '+Math.round(v/cn*100)+'%</span>'; }).join('');
+  // Voices is testimonials only. Every rating and percentage that used to sit
+  // below the quotes now lives on the Overview, where the denominators are
+  // stated properly; a stats block here only deflated the quotes.
+  //
+  // `country` is the institution's country as it appears on the partner map.
+  // The flag is built from the ISO 3166-1 alpha-2 code rather than pasted as an
+  // emoji so the source stays plain ASCII. Note that Windows renders no country
+  // flags at all — it falls back to the two letters — which is why the country
+  // name is always spelled out beside it rather than the flag standing alone.
+  var flag = function(cc){ return cc.replace(/./g, function(ch){ return String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65); }); };
   var voices = [
-    {q:"My time in the WordPress Credits Internship program was enlightening. This was my first time actively contributing to a real open-source project, and my first internship. I learned a lot about my own skills, about open-source software, and about the WordPress Foundation and WordPress software. Additionally, I would like to think that my contribution will have a lasting impact on the local WordPress community.", who:"Carolyn · Central New Mexico Community College", lang:"EN"},
-    {q:"This program was a great learning experience for me. I learned how to build and customize websites using WordPress, and also gained basic knowledge of HTML, CSS, and PHP. The mentors were very supportive and guided us throughout the journey. This course helped me gain confidence and real-world experience. I would highly recommend it to anyone interested in starting a career in WordPress and web development.", who:"Saad · Ahmad's Education", lang:"EN"},
-    {q:"WordPress Credits was a great experience for me. I could see how a global project works and I helped translate over 1,200 phrases. Sometimes you need patience, but the results give a lot of satisfaction. If you want to learn new technical skills and build your own portfolio, you should definitely join this program.", who:"Wiktoria · Krakow University of Economics", lang:"EN"},
-    {q:"El curso ha estado genial y la experiencia ha sido muy positiva. Me ha gustado mucho integrarme en la comunidad de WordPress y ver cómo se trabaja en un proyecto real de código abierto. Ha estado muy bien organizado y me ha servido para aprender un montón sobre la localización y traducción de software. Muy recomendable.", who:"Juan Manuel · IES Azarquiel", lang:"ES"},
-    {q:"Podría decir que no tengan miedo y se metan con todo menos con miedo a este programa, porque es una experiencia muy bonita, aprendes muchísimas cosas, sales de tu rutina diaria, te hace crecer personalmente y profesionalmente.", who:"Rossana · Universidad Privada Franz Tamayo", lang:"ES"},
-    {q:"Mi experiencia en WPCredits fue muy positiva ya que aprendí sobre WordPress, la colaboración en comunidades de código abierto y la importancia de compartir conocimientos. Aunque al inicio fue un reto familiarizarme con las diferentes plataformas, con el tiempo logré adaptarme y desarrollar nuevas habilidades. Recomiendo esta experiencia a otros estudiantes porque permite aprender herramientas útiles y participar en una comunidad tecnológica.", who:"Teresa · Universidad Fidélitas", lang:"ES"}
+    {q:"My time in the WordPress Credits Internship program was enlightening. This was my first time actively contributing to a real open-source project, and my first internship. I learned a lot about my own skills, about open-source software, and about the WordPress Foundation and WordPress software. Additionally, I would like to think that my contribution will have a lasting impact on the local WordPress community.", who:"Carolyn · Central New Mexico Community College", cc:"US", country:"United States"},
+    {q:"This program was a great learning experience for me. I learned how to build and customize websites using WordPress, and also gained basic knowledge of HTML, CSS, and PHP. The mentors were very supportive and guided us throughout the journey. This course helped me gain confidence and real-world experience. I would highly recommend it to anyone interested in starting a career in WordPress and web development.", who:"Saad · Ahmad's Education", cc:"BD", country:"Bangladesh"},
+    {q:"WordPress Credits was a great experience for me. I could see how a global project works and I helped translate over 1,200 phrases. Sometimes you need patience, but the results give a lot of satisfaction. If you want to learn new technical skills and build your own portfolio, you should definitely join this program.", who:"Wiktoria · Krakow University of Economics", cc:"PL", country:"Poland"},
+    {q:"El curso ha estado genial y la experiencia ha sido muy positiva. Me ha gustado mucho integrarme en la comunidad de WordPress y ver cómo se trabaja en un proyecto real de código abierto. Ha estado muy bien organizado y me ha servido para aprender un montón sobre la localización y traducción de software. Muy recomendable.", who:"Juan Manuel · IES Azarquiel", cc:"ES", country:"Spain"},
+    {q:"Podría decir que no tengan miedo y se metan con todo menos con miedo a este programa, porque es una experiencia muy bonita, aprendes muchísimas cosas, sales de tu rutina diaria, te hace crecer personalmente y profesionalmente.", who:"Rossana · Universidad Privada Franz Tamayo", cc:"BO", country:"Bolivia"},
+    {q:"Mi experiencia en WPCredits fue muy positiva ya que aprendí sobre WordPress, la colaboración en comunidades de código abierto y la importancia de compartir conocimientos. Aunque al inicio fue un reto familiarizarme con las diferentes plataformas, con el tiempo logré adaptarme y desarrollar nuevas habilidades. Recomiendo esta experiencia a otros estudiantes porque permite aprender herramientas útiles y participar en una comunidad tecnológica.", who:"Teresa · Universidad Fidélitas", cc:"CR", country:"Costa Rica"}
   ];
-  var voicesHtml = voices.map(function(v){ return '<div class="voice"><div class="voice-q">“'+v.q+'”</div><div class="voice-meta"><span>'+v.who+'</span><span class="voice-tag">'+v.lang+'</span></div></div>'; }).join('');
+  var voicesHtml = voices.map(function(v){ return '<div class="voice"><div class="voice-q">“'+v.q+'”</div><div class="voice-meta"><span>'+v.who+'</span><span class="voice-tag"><span aria-hidden="true">'+flag(v.cc)+'</span> '+v.country+'</span></div></div>'; }).join('');
   el.innerHTML = ''
     + '<h3 style="font-size:18px;margin:4px 0 6px">Voices from the program</h3>'
     + '<p style="font-size:13px;color:var(--text-light);margin:0 0 18px">In students’ own words, shared with their consent.</p>'
-    + '<div class="voices-grid">' + voicesHtml + '</div>'
-    + '<h3 style="font-size:18px;margin:32px 0 6px">How the program felt along the way</h3>'
-    + '<p style="font-size:13px;color:var(--text-light);margin:0 0 14px">Students answer at different points in the program, so each figure has its own response count.</p>'
-    + '<div class="charts-row">'
-    +   ratingCard('Ease of getting started', fb.ratings.ease)
-    +   ratingCard('Project / website satisfaction', fb.ratings.satisfaction)
-    + '</div>'
-    + '<div class="chart-container"><h3>Confidence contributing</h3>'
-    +   '<div style="display:flex;height:22px;border-radius:6px;overflow:hidden">'+seg+'</div>'
-    +   '<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;font-size:12px;color:var(--text-light)">'+leg+'</div>'
-    +   '<div style="margin-top:10px;font-size:12px;color:var(--text-light)">'+nOf(fb.confidence)+' responses</div></div>'
-    + '<p style="font-size:12px;color:var(--text-light);margin-top:12px">Aggregated from anonymous responses — no individual data shown. Graduation, recommendation and retention figures are on the Overview.</p>';
+    + '<div class="voices-grid">' + voicesHtml + '</div>';
 })();
 </script>
 </body>
