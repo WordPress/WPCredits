@@ -1,2 +1,7 @@
 .DS_Store
 .*.swp
+
+# Post-grad tracker (#137): raw per-graduate time-series is PRIVATE — this repo
+# is public, so never commit per-graduate activity. Only the aggregate summary
+# (data/post_grad_summary.json) is publishable.
+data/post_grad_snapshots.jsonl

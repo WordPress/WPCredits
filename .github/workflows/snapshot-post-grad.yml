@@ -1,0 +1,51 @@
+name: Snapshot Post-Grad Activity (PROTOTYPE)
+
+# Issue #137 — weekly snapshot of graduates' WordPress.org profile activity, to
+# measure the % who keep contributing AFTER graduation (delta from baseline).
+#
+# PROTOTYPE / NOT YET PRODUCTION. The raw per-graduate time-series is private
+# (this repo is public) and CANNOT be committed here. A persistent private store
+# — a private Airtable table in the same base is the leading candidate — is
+# decision #1 to settle with @maciejpilarski (issue owner) before enabling the
+# schedule. Until then this runs on manual dispatch only, and only the aggregate
+# summary (no handles) would ever be committed.
+#
+# To enable weekly runs later, uncomment the `schedule` block. It intentionally
+# fires 30 min after update-dashboard (Mon 06:00 UTC) to avoid overlap.
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '30 6 * * 1'  # Every Monday 06:30 UTC — after the dashboard build
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Snapshot post-grad activity
+        env:
+          AIRTABLE_PAT: ${{ secrets.AIRTABLE_PAT }}
+        run: python scripts/post_grad_snapshot.py
+
+      # NOTE: raw snapshots (data/post_grad_snapshots.jsonl) are .gitignored and
+      # would NOT persist across ephemeral runners — wiring a private persistent
+      # store is the open storage decision. Only the aggregate is committed here.
+      - name: Commit aggregate summary
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/post_grad_summary.json
+          git diff --staged --quiet || git commit -m "Update post-grad summary $(date -u +%Y-%m-%d)"
+          git push
