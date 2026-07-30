@@ -219,11 +219,20 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   const keepPct = (fb.keep && fb.keep.pct != null) ? fb.keep.pct + '%' : '—';
   const impact = (fb.ratings && fb.ratings.impact) || {};
   const rs = g.repeatSchools || {};
+  // Partner institutions: the count and the per-country breakdown come from the
+  // same confirmed set the map is built from, so all three always agree.
+  const partnerCount = g.partnerInstitutions || 0;
+  const instCountries = g.instCountries || {};
+  const countryRows = Object.entries(instCountries)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([c, n]) => `<div style="display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--border)"><span>${c}</span><span style="font-weight:600;color:var(--blue-ink)">${n}</span></div>`)
+    .join('');
   el.innerHTML = `
     <div class="act-label act-scale">Scale &amp; momentum</div>
     <div class="cards">
       <div class="card"><div class="num" id="ovActive">${g.activeStudents}</div><div class="lbl">Students currently in the program</div></div>
       <div class="card"><div class="num">${started}</div><div class="lbl">Students who have joined to date</div></div>
+      <div class="card"><div class="num">${partnerCount}</div><div class="lbl">Partner institutions</div></div>
       <div class="card"><div class="num">${countryCount}</div><div class="lbl">Countries</div></div>
     </div>
     <div class="chart-container">
@@ -237,6 +246,7 @@ document.querySelectorAll('.nav-item').forEach(tab => {
       <div style="position:relative;height:320px"><canvas id="growthChart"></canvas></div>
     </div>
     <div class="chart-container"><h3>Where our partners are</h3><div class="chart-sub">Partner institutions around the world</div><div id="instMap"></div></div>
+    <div class="chart-container"><h3>Partners by country</h3><div class="chart-sub">Confirmed partner institutions in each country</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2px 32px">${countryRows}</div></div>
     <div class="chart-container"><h3>Who's joining us</h3><div class="chart-sub">The academic backgrounds students bring</div><div id="fosChart"></div></div>
 
     <div class="act-label act-skills">Skills unlocked</div>

@@ -118,33 +118,85 @@ FIELDS = {
     },
 }
 
-# Partner institution map markers, grouped by city. Coordinates geocoded from
-# city + country (one-time). Keep in sync with the partner list; if this grows
-# often, consider moving locations into Airtable and building markers from there.
-INST_MARKERS = [
-    {"city": "Dhaka", "country": "Bangladesh", "lat": 23.7644, "lng": 90.389, "institutions": ["Ahmad's Education"]},
-    {"city": "Pisa", "country": "Italy", "lat": 43.4715, "lng": 10.6798, "institutions": ["Università di Pisa"]},
-    {"city": "San José", "country": "Costa Rica", "lat": 9.9328, "lng": -84.0796, "institutions": ["Universidad Fidélitas"]},
-    {"city": "Cartago", "country": "Costa Rica", "lat": 9.8157, "lng": -83.6944, "institutions": ["Liceo HHC Experimental Bilingue José Figueres Ferrer"]},
-    {"city": "Albuquerque", "country": "United States", "lat": 35.0841, "lng": -106.651, "institutions": ["Central New Mexico Community College"]},
-    {"city": "Madison", "country": "United States", "lat": 40.7598, "lng": -74.4171, "institutions": ["Drew University"]},
-    {"city": "Riga", "country": "Latvia", "lat": 56.9494, "lng": 24.1052, "institutions": ["Riga Nordic University"]},
-    {"city": "Santa Cruz de la Sierra", "country": "Bolivia", "lat": -17.7834, "lng": -63.1821, "institutions": ["Universidad Privada Franz Tamayo"]},
-    {"city": "Cochabamba", "country": "Bolivia", "lat": -17.4012, "lng": -66.1676, "institutions": ["Universidad Privada Franz Tamayo"]},
-    {"city": "Kraków", "country": "Poland", "lat": 50.0619, "lng": 19.9369, "institutions": ["Krakow University of Economics", "Cracow University of Technology"]},
-    {"city": "Toledo", "country": "Spain", "lat": 39.8559, "lng": -4.0243, "institutions": ["IES Azarquiel", "Escuela de Arte Toledo"]},
-    {"city": "Madrid", "country": "Spain", "lat": 40.4168, "lng": -3.7035, "institutions": ["Creative Campus - Universidad Europea", "Universidad de Diseño Innovación y Tecnología - UDIT"]},
-    {"city": "Zaragoza", "country": "Spain", "lat": 41.6916, "lng": -0.9101, "institutions": ["Escuela de Arte de Zaragoza", "Zaragoza Dinámica"]},
-    {"city": "Huesca", "country": "Spain", "lat": 42.1361, "lng": -0.0298, "institutions": ["Escuela de Arte de Huesca"]},
-    {"city": "Estepona", "country": "Spain", "lat": 36.4268, "lng": -5.1468, "institutions": ["Instituto de Educación Secundaria Mar de Alborán"]},
-    {"city": "Salamanca", "country": "Spain", "lat": 40.9652, "lng": -5.664, "institutions": ["IES Venancio Blanco"]},
-    {"city": "A Coruña", "country": "Spain", "lat": 43.3466, "lng": -8.4127, "institutions": ["CPR Liceo La Paz"]},
-    {"city": "Kolhapur", "country": "India", "lat": 16.7028, "lng": 74.2405, "institutions": ["D Y Patil Agriculture and Technical University, Talsande, Kolhapur"]},
-    {"city": "Kolkata", "country": "India", "lat": 22.5726, "lng": 88.3639, "institutions": ["ERAP Research and Learning LLP"]},
-    {"city": "Pula", "country": "Croatia", "lat": 44.8702, "lng": 13.8455, "institutions": ["Juraj Dobrila University of Pula"]},
-    {"city": "Kampala", "country": "Uganda", "lat": 0.3177, "lng": 32.5814, "institutions": ["E-zone School of Computing"]},
-    {"city": "Helsinki", "country": "Finland", "lat": 60.1666, "lng": 24.9435, "institutions": ["Haaga-Helia University of Applied Sciences"]},
-]
+# City coordinates for the partner map. The map markers are generated at build
+# time from the CONFIRMED institutions (see build_inst_markers), so the map,
+# the partner-institution count and the per-country breakdown can never disagree
+# — they all read the same confirmed set. This table only supplies a location.
+#
+# Keyed by (lowercased city, resolved country) so Airtable's inconsistent casing
+# ("KOLHAPUR", "madrid", "TOLEDO") all resolve. Value is (lat, lng, display_city);
+# the display name lives here so the popup shows "Kraków", not Airtable's "Krakow".
+#
+# When a NEW city is confirmed and has no entry here, that institution is absent
+# from the MAP only (the build logs a warning) — it still counts in every number.
+# Add the city's coordinates here to place its pin.
+CITY_COORDS = {
+    ("dhaka", "Bangladesh"): (23.7644, 90.389, "Dhaka"),
+    ("kishoreganj", "Bangladesh"): (24.4449, 90.7766, "Kishoreganj"),
+    ("pisa", "Italy"): (43.4715, 10.6798, "Pisa"),
+    ("san josé", "Costa Rica"): (9.9328, -84.0796, "San José"),
+    ("cartago", "Costa Rica"): (9.8157, -83.6944, "Cartago"),
+    ("albuquerque", "United States"): (35.0841, -106.651, "Albuquerque"),
+    ("madison", "United States"): (40.7598, -74.4171, "Madison"),
+    ("new york city", "United States"): (40.7128, -74.006, "New York City"),
+    ("riga", "Latvia"): (56.9494, 24.1052, "Riga"),
+    ("santa cruz", "Bolivia"): (-17.7834, -63.1821, "Santa Cruz de la Sierra"),
+    ("krakow", "Poland"): (50.0619, 19.9369, "Kraków"),
+    ("białystok", "Poland"): (53.1325, 23.1688, "Białystok"),
+    ("toledo", "Spain"): (39.8559, -4.0243, "Toledo"),
+    ("madrid", "Spain"): (40.4168, -3.7035, "Madrid"),
+    ("zaragoza", "Spain"): (41.6916, -0.9101, "Zaragoza"),
+    ("huesca", "Spain"): (42.1361, -0.0298, "Huesca"),
+    ("estepona", "Spain"): (36.4268, -5.1468, "Estepona"),
+    ("salamanca", "Spain"): (40.9652, -5.664, "Salamanca"),
+    ("a coruña", "Spain"): (43.3466, -8.4127, "A Coruña"),
+    ("granada", "Spain"): (37.1773, -3.5986, "Granada"),
+    ("l'hospitalet de llobregat", "Spain"): (41.3596, 2.0999, "L'Hospitalet de Llobregat"),
+    ("kolhapur", "India"): (16.7028, 74.2405, "Kolhapur"),
+    ("kolkata", "India"): (22.5726, 88.3639, "Kolkata"),
+    ("pula", "Croatia"): (44.8702, 13.8455, "Pula"),
+    ("kampala", "Uganda"): (0.3177, 32.5814, "Kampala"),
+    ("helsinki", "Finland"): (60.1666, 24.9435, "Helsinki"),
+    ("kathmandu", "Nepal"): (27.7172, 85.324, "Kathmandu"),
+    ("tangerang selatan", "Indonesia"): (-6.2885, 106.7181, "Tangerang Selatan"),
+    ("athens", "Greece"): (37.9838, 23.7275, "Athens"),
+    ("bucharest", "Romania"): (44.4268, 26.1025, "Bucharest"),
+}
+
+
+def build_inst_markers(institutions_records, countries_lookup):
+    """Generate partner-map markers from the confirmed institutions.
+
+    Groups confirmed institutions by (city, country) into one pin each, whose
+    popup lists every institution in that city. A confirmed institution with no
+    coordinates in CITY_COORDS is skipped from the map (logged) but is unaffected
+    everywhere else, so the map is always a subset-or-equal view of the same
+    confirmed set the counts are built from.
+    """
+    by_city = {}
+    missing = set()
+    for rec in institutions_records:
+        stage = select_name(get_field_value(rec, FIELDS["institutions"]["current_stage"]))
+        if status_key(stage) != "confirmed":
+            continue
+        name = (get_field_value(rec, FIELDS["institutions"]["name"]) or "").strip()
+        city = (get_field_value(rec, FIELDS["institutions"]["city"]) or "").strip()
+        country_ids = get_field_value(rec, FIELDS["institutions"]["country"]) or []
+        country = countries_lookup[country_ids[0]]["name"] if country_ids and country_ids[0] in countries_lookup else None
+        if not name or not city or not country:
+            continue
+        coords = CITY_COORDS.get((city.lower(), country))
+        if not coords:
+            missing.add((city, country))
+            continue
+        lat, lng, display_city = coords
+        key = (display_city, country)
+        entry = by_city.setdefault(key, {"city": display_city, "country": country, "lat": lat, "lng": lng, "institutions": []})
+        entry["institutions"].append(name)
+    for city, country in sorted(missing):
+        print(f"  Partner map: no coordinates for {city}, {country} — pin omitted "
+              f"(the institution still counts). Add it to CITY_COORDS.", file=sys.stderr)
+    return list(by_city.values())
 
 
 def get_airtable_pat():
@@ -1012,7 +1064,8 @@ def main():
 
     # Replace placeholders
     data_json = json.dumps(data_blob, separators=(",", ":"), ensure_ascii=False)
-    inst_markers_json = json.dumps(INST_MARKERS, separators=(",", ":"), ensure_ascii=False)
+    inst_markers = build_inst_markers(institutions_records, countries_lookup)
+    inst_markers_json = json.dumps(inst_markers, separators=(",", ":"), ensure_ascii=False)
 
     output_content = template_content.replace("/*DATA_BLOB*/", data_json)
     output_content = output_content.replace("/*INST_MARKERS*/", inst_markers_json)
