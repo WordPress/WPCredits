@@ -14,7 +14,10 @@
 <meta name="twitter:title" content="WordPress Credits Dashboard">
 <meta name="twitter:description" content="Live dashboard tracking WordPress Credits program: students, mentors, institutions, contributions, and translation activity.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap');
@@ -83,6 +86,12 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .leaflet-popup-content h4{margin:0 0 6px;font-size:14px;color:var(--wp-blue);border-bottom:1px solid var(--border);padding-bottom:4px}
 .leaflet-popup-content ul{margin:0;padding:0 0 0 16px}
 .leaflet-popup-content li{margin:2px 0;color:var(--text)}
+.leaflet-popup-content a{color:var(--wp-blue);text-decoration:none}
+.leaflet-popup-content a:hover{text-decoration:underline}
+/* Recolour marker clusters from the plugin's default green/amber to the WP-blue
+   palette so they read as part of the same map as the individual pins. */
+.marker-cluster{background:rgba(56,88,233,.22)}
+.marker-cluster div{background:var(--wp-blue);color:#fff;font-family:var(--sans);font-weight:700}
 .footer{text-align:center;padding:22px;color:var(--text-light);font-size:12px}
 .sponsors{border-top:1px solid var(--border);margin-top:8px;padding:30px 24px;text-align:center}
 .sponsors-label{font-size:13px;color:var(--text-light);margin-bottom:18px;letter-spacing:.02em}
@@ -162,14 +171,23 @@ function initInstMap() {
     });
   };
 
+  // Cluster nearby pins: partner cities are often only a few km apart (San José
+  // and Cartago, or the ten Spanish cities), so at world zoom they would sit on
+  // top of each other and hide one another. Clustering keeps every institution
+  // reachable and shows partner density.
+  const cluster = L.markerClusterGroup({ maxClusterRadius: 45, showCoverageOnHover: false });
   INST_MARKERS.forEach(m => {
     const icon = m.institutions.length > 1 ? wpIconMulti(m.institutions.length) : wpIcon;
-    const list = m.institutions.map(n => '<li>' + n + '</li>').join('');
+    const list = m.institutions.map(inst => {
+      const label = inst.url
+        ? '<a href="' + inst.url + '" target="_blank" rel="noopener noreferrer">' + inst.name + '</a>'
+        : inst.name;
+      return '<li>' + label + '</li>';
+    }).join('');
     const popup = '<h4>' + m.city + ', ' + m.country + '</h4><ul>' + list + '</ul>';
-    L.marker([m.lat, m.lng], { icon: icon })
-      .addTo(map)
-      .bindPopup(popup, { maxWidth: 280 });
+    cluster.addLayer(L.marker([m.lat, m.lng], { icon: icon }).bindPopup(popup, { maxWidth: 280 }));
   });
+  map.addLayer(cluster);
 
   // Invalidate size when tab becomes visible
   const observer = new MutationObserver(() => {

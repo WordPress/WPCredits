@@ -85,6 +85,7 @@ FIELDS = {
         "city": "fldinUAUulxqjZ7d5",
         "country": "fldMZYV5XmC6FbewY",
         "current_stage": "fld4l5x6ScLSLaJZl",
+        "website": "fldbpCAGd36ejjkaE",
     },
     "sponsors": {
         "company_name": "fldezMq2OBVeqn0DK",
@@ -161,7 +162,43 @@ CITY_COORDS = {
     ("tangerang selatan", "Indonesia"): (-6.2885, 106.7181, "Tangerang Selatan"),
     ("athens", "Greece"): (37.9838, 23.7275, "Athens"),
     ("bucharest", "Romania"): (44.4268, 26.1025, "Bucharest"),
+    ("cochabamba", "Bolivia"): (-17.4012, -66.1676, "Cochabamba"),
+    ("udupi", "India"): (13.3409, 74.7421, "Udupi"),
+    ("kundapura", "India"): (13.6255, 74.691, "Kundapura"),
 }
+
+# Institutions that Airtable holds as a single record but that operate more than
+# one physical campus. Listed here so the map draws a pin per campus with its own
+# label; the partner-institution COUNT and per-country breakdown are unaffected —
+# it is one university, counted once, shown in two places. Keyed by the Airtable
+# name; each campus is (lowercased city, country, display label). The city must
+# have an entry in CITY_COORDS above.
+CAMPUS_OVERRIDES = {
+    "Universidad Privada Franz Tamayo (UNIFRANZ)": [
+        ("santa cruz", "Bolivia", "Universidad Privada Franz Tamayo Santa Cruz de la Sierra"),
+        ("cochabamba", "Bolivia", "Universidad Privada Franz Tamayo Cochabamba"),
+    ],
+}
+
+
+def clean_website(url):
+    """Normalise an institution website field into a usable https link, or None.
+
+    Adds a scheme when the field is a bare domain, and rejects search-engine
+    redirect junk (some records hold a Bing/Google "click" URL instead of the
+    real site) so those show as plain text rather than a broken-looking link.
+    """
+    if not url:
+        return None
+    url = url.strip()
+    if not url:
+        return None
+    low = url.lower()
+    if "bing.com/ck" in low or "google.com/url" in low or "/ck/a" in low:
+        return None
+    if not low.startswith(("http://", "https://")):
+        url = "https://" + url
+    return url
 
 
 def build_inst_markers(institutions_records, countries_lookup):
@@ -175,24 +212,45 @@ def build_inst_markers(institutions_records, countries_lookup):
     """
     by_city = {}
     missing = set()
+
+    def place(display_city, country, lat, lng, inst_name, url):
+        entry = by_city.setdefault((display_city, country),
+                                   {"city": display_city, "country": country, "lat": lat, "lng": lng, "institutions": []})
+        entry["institutions"].append({"name": inst_name, "url": url})
+
     for rec in institutions_records:
         stage = select_name(get_field_value(rec, FIELDS["institutions"]["current_stage"]))
         if status_key(stage) != "confirmed":
             continue
         name = (get_field_value(rec, FIELDS["institutions"]["name"]) or "").strip()
-        city = (get_field_value(rec, FIELDS["institutions"]["city"]) or "").strip()
         country_ids = get_field_value(rec, FIELDS["institutions"]["country"]) or []
         country = countries_lookup[country_ids[0]]["name"] if country_ids and country_ids[0] in countries_lookup else None
-        if not name or not city or not country:
+        if not name or not country:
+            continue
+        url = clean_website(get_field_value(rec, FIELDS["institutions"]["website"]))
+
+        # Multi-campus institution: one pin per campus, with its own label.
+        campuses = CAMPUS_OVERRIDES.get(name)
+        if campuses:
+            for city_key, campus_country, label in campuses:
+                coords = CITY_COORDS.get((city_key, campus_country))
+                if not coords:
+                    missing.add((city_key.title(), campus_country))
+                    continue
+                lat, lng, display_city = coords
+                place(display_city, campus_country, lat, lng, label, url)
+            continue
+
+        city = (get_field_value(rec, FIELDS["institutions"]["city"]) or "").strip()
+        if not city:
             continue
         coords = CITY_COORDS.get((city.lower(), country))
         if not coords:
             missing.add((city, country))
             continue
         lat, lng, display_city = coords
-        key = (display_city, country)
-        entry = by_city.setdefault(key, {"city": display_city, "country": country, "lat": lat, "lng": lng, "institutions": []})
-        entry["institutions"].append(name)
+        place(display_city, country, lat, lng, name, url)
+
     for city, country in sorted(missing):
         print(f"  Partner map: no coordinates for {city}, {country} — pin omitted "
               f"(the institution still counts). Add it to CITY_COORDS.", file=sys.stderr)
