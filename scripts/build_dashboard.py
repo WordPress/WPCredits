@@ -971,7 +971,15 @@ def main():
             if mk and mk <= current_month:
                 graduated_by_month[mk] = graduated_by_month.get(mk, 0) + 1
 
-    # Continuous monthly series from first activity through the current month,
+    # The program's first cohort started in September 2025. A single earlier,
+    # mis-dated record would otherwise stretch the timeline back across ~two empty
+    # years, so the growth chart begins at the program start and the cumulative
+    # line counts from there.
+    PROGRAM_START_MONTH = "2025-09"
+    joined_by_month = {k: v for k, v in joined_by_month.items() if k >= PROGRAM_START_MONTH}
+    graduated_by_month = {k: v for k, v in graduated_by_month.items() if k >= PROGRAM_START_MONTH}
+
+    # Continuous monthly series from the program start through the current month,
     # filling empty months with zeros so the timeline has no gaps.
     growth = {"months": [], "joined": [], "graduated": [], "cumulativeJoined": []}
     all_months = set(joined_by_month) | set(graduated_by_month)
