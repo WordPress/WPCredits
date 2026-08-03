@@ -10,6 +10,13 @@ This folder is a source mirror of that suite. Each subfolder is the unpacked,
 installable source of one plugin or theme, kept in sync with its development
 repository.
 
+## Release & testing
+
+The first release of the suite is tracked in these issues:
+
+- **[#160 — Initial release](https://github.com/WordPress/WPCredits-Tracker/issues/160)** — release tracker and pre-flight checklist.
+- **[#161 — Prerelease testing](https://github.com/WordPress/WPCredits-Tracker/issues/161)** — open call for testing (testing window closes **10 August 2026**). Feedback welcome on that issue.
+
 ## What's in here
 
 ### Theme
