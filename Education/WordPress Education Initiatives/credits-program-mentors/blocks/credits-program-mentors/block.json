@@ -1,0 +1,32 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "credits-program-mentors/mentors",
+	"version": "1.5.1",
+	"title": "Credits Program Mentors",
+	"category": "widgets",
+	"icon": "groups",
+	"description": "Display the Sponsored mentors Airtable content as a card grid or table.",
+	"keywords": [ "airtable", "mentors", "sponsored" ],
+	"textdomain": "credits-program-mentors",
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ]
+	},
+	"attributes": {
+		"layout": { "type": "string", "default": "grid" },
+		"columns": { "type": "number", "default": 3 },
+		"limit": { "type": "number", "default": 0 },
+		"country": { "type": "string", "default": "" },
+		"language": { "type": "string", "default": "" },
+		"search": { "type": "string", "default": "" },
+		"fields": { "type": "string", "default": "" },
+		"view": { "type": "string", "default": "" },
+		"photos": { "type": "boolean", "default": true },
+		"photoSize": { "type": "number", "default": 116 },
+		"filters": { "type": "boolean", "default": true }
+	},
+	"editorScript": "credits-program-mentors-block",
+	"style": "credits-program-mentors",
+	"editorStyle": "credits-program-mentors"
+}

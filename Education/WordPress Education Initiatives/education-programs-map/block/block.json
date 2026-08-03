@@ -1,0 +1,33 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 2,
+	"name": "epm/education-programs-map",
+	"title": "Education Programs Map",
+	"category": "widgets",
+	"icon": "location-alt",
+	"description": "WPCC, WPCredits, and Student Club activity map with program filters.",
+	"keywords": [ "map", "education", "wpcc", "wpcredits", "student club" ],
+	"textdomain": "education-programs-map",
+	"attributes": {
+		"program": {
+			"type": "string",
+			"default": ""
+		},
+		"height": {
+			"type": "string",
+			"default": ""
+		},
+		"width": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "epm-block-editor",
+	"editorStyle": "epm-block-editor",
+	"style": [ "epm-leaflet", "epm-map" ],
+	"script": [ "epm-leaflet", "epm-map" ]
+}

@@ -1,0 +1,86 @@
+/*
+ * Palette matched to the education-credits-dashboard plugin (.ecd-dashboard),
+ * which itself maps to the Educational Initiatives (Education Hub) FSE theme.
+ */
+.epm-map-wrapper {
+	--epm-blue: #3858E9;       /* primary */
+	--epm-blue-dark: #213FD4;  /* primary-hover */
+	--epm-text: #1F2733;       /* ink */
+	--epm-text-light: #64748B; /* muted */
+	--epm-border: #E6E9F0;
+	--epm-surface-2: #F4F6FB;
+	--epm-card-bg: #FFFFFF;
+	--epm-radius: 8px;
+	--epm-shadow: 0 1px 2px rgba(16, 24, 43, .04), 0 1px 3px rgba(16, 24, 43, .06);
+	--epm-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+
+	margin: 1.5em 0;
+	font-family: var(--epm-sans);
+}
+
+.epm-map {
+	width: 100%;
+	border-radius: var(--epm-radius);
+	border: 1px solid var(--epm-border);
+	box-shadow: var(--epm-shadow);
+	z-index: 0;
+}
+
+.epm-map-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 12px;
+}
+
+.epm-filter-button {
+	border: 1px solid var(--epm-border);
+	background: var(--epm-card-bg);
+	color: var(--epm-text);
+	border-radius: 20px;
+	padding: 6px 16px;
+	font-size: 13px;
+	font-family: var(--epm-sans);
+	cursor: pointer;
+	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.epm-filter-button:hover {
+	background: var(--epm-surface-2);
+}
+
+.epm-filter-button.is-active {
+	background: var(--epm-blue);
+	border-color: var(--epm-blue);
+	color: #fff;
+}
+
+.epm-filter-button.is-active:hover {
+	background: var(--epm-blue-dark);
+	border-color: var(--epm-blue-dark);
+}
+
+/* Leaflet popup content, styled to match .ecd-dashboard .leaflet-popup-content */
+.epm-map-wrapper .leaflet-popup-content {
+	font-family: var(--epm-sans);
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--epm-text);
+}
+
+.epm-map-wrapper .leaflet-popup-content strong {
+	display: block;
+	font-size: 14px;
+	color: var(--epm-blue);
+	border-bottom: 1px solid var(--epm-border);
+	padding-bottom: 4px;
+	margin-bottom: 4px;
+}
+
+.epm-map-wrapper .leaflet-popup-content a {
+	color: var(--epm-blue);
+}
+
+.epm-map-wrapper .leaflet-popup-content a:hover {
+	color: var(--epm-blue-dark);
+}

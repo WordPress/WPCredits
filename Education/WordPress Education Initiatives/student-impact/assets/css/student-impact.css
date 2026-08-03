@@ -1,0 +1,507 @@
+/**
+ * Student Impact — showcase styles.
+ * Palette matches the Educational Initiatives theme.
+ */
+
+.si,
+.si-stats {
+	--si-primary: #3858e9;
+	--si-primary-600: #213fd4;
+	--si-accent: #7c3aed;
+	--si-navy: #10182b;
+	--si-ink: #1e293b;
+	--si-muted: #64748b;
+	--si-line: #e5e9f2;
+	--si-surface: #ffffff;
+	--si-surface-2: #f4f6fb;
+	--si-radius: 14px;
+	--si-cols: 3;
+
+	box-sizing: border-box;
+	width: 100%;
+	color: var(--si-ink);
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+.si *,
+.si *::before,
+.si *::after,
+.si-stats *,
+.si-stats *::before,
+.si-stats *::after {
+	box-sizing: border-box;
+}
+
+/* Header */
+.si__head {
+	text-align: center;
+	max-width: 42rem;
+	margin: 0 auto 1.75rem;
+}
+
+.si__title {
+	margin: 0 0 0.4rem;
+	font-size: clamp(1.6rem, 1.1rem + 1.6vw, 2.25rem);
+	font-weight: 700;
+	line-height: 1.15;
+	color: var(--si-navy);
+}
+
+.si__subtitle {
+	margin: 0;
+	font-size: 1.05rem;
+	color: var(--si-muted);
+	line-height: 1.5;
+}
+
+/* Filter bar */
+.si__filters {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.5rem;
+	margin: 0 auto 1.5rem;
+	max-width: 60rem;
+}
+
+.si-filter {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin: 0;
+	padding: 0.45rem 0.9rem;
+	font-size: 0.9rem;
+	font-weight: 600;
+	font-family: inherit;
+	line-height: 1;
+	color: var(--si-ink);
+	background: var(--si-surface);
+	border: 1px solid var(--si-line);
+	border-radius: 999px;
+	cursor: pointer;
+	transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.si-filter:hover,
+.si-filter:focus-visible {
+	color: var(--si-primary);
+	border-color: var(--si-primary);
+	background: rgba(56, 88, 233, 0.06);
+	outline: none;
+}
+
+.si-filter.is-active {
+	color: #fff;
+	background: var(--si-primary);
+	border-color: var(--si-primary);
+}
+
+.si-filter__count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.35em;
+	padding: 0 0.35em;
+	height: 1.35em;
+	font-size: 0.72rem;
+	font-weight: 700;
+	border-radius: 999px;
+	color: var(--si-muted);
+	background: var(--si-surface-2);
+}
+
+.si-filter.is-active .si-filter__count {
+	color: #fff;
+	background: rgba(255, 255, 255, 0.25);
+}
+
+.si__empty-filter {
+	text-align: center;
+	color: var(--si-muted);
+	margin: 1.5rem 0 0;
+}
+
+/* Grid */
+.si__grid {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(var(--si-cols), minmax(0, 1fr));
+	gap: 1.1rem;
+}
+
+@media (max-width: 1024px) {
+	.si__grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 600px) {
+	.si__grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+/* Card */
+.si-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	padding: 1.5rem 1.25rem 1.25rem;
+	background: var(--si-surface);
+	border: 1px solid var(--si-line);
+	border-radius: var(--si-radius);
+	box-shadow: 0 1px 2px rgba(16, 24, 43, 0.04);
+	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.si-card:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 12px 28px rgba(16, 24, 43, 0.1);
+	border-color: #d5ddf5;
+}
+
+/* Filtered-out cards. The attribute selector must win over the display:flex above,
+   which would otherwise override the UA [hidden] { display: none } rule. */
+.si-card[hidden] {
+	display: none;
+}
+
+.si-card--medal {
+	border-color: rgba(56, 88, 233, 0.35);
+	background: linear-gradient(180deg, #f7f9ff 0%, #ffffff 55%);
+}
+
+.si-card__top {
+	position: relative;
+}
+
+.si-card__rank {
+	position: absolute;
+	top: -6px;
+	left: -6px;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 8px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.8rem;
+	font-weight: 700;
+	color: #fff;
+	background: var(--si-navy);
+	border-radius: 999px;
+	box-shadow: 0 2px 6px rgba(16, 24, 43, 0.25);
+}
+
+.si-card--medal .si-card__rank {
+	background: linear-gradient(135deg, var(--si-primary), var(--si-accent));
+}
+
+.si-card__avatar {
+	width: 116px;
+	height: 116px;
+	border-radius: 50%;
+	object-fit: cover;
+	background: var(--si-surface-2);
+	border: 3px solid #fff;
+	box-shadow: 0 0 0 1px var(--si-line);
+}
+
+.si-card__avatar--ph {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 2.1rem;
+	font-weight: 700;
+	color: #fff;
+	background: linear-gradient(135deg, var(--si-primary), var(--si-accent));
+}
+
+.si-card__name {
+	margin: 0.85rem 0 0.15rem;
+	font-size: 1.12rem;
+	font-weight: 700;
+	line-height: 1.25;
+	color: var(--si-navy);
+}
+
+.si-card__name a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.si-card__name a:hover,
+.si-card__name a:focus {
+	color: var(--si-primary);
+	text-decoration: underline;
+}
+
+.si-card__meta {
+	margin: 0 0 0.15rem;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem 0.55rem;
+	font-size: 0.85rem;
+}
+
+.si-card__handle {
+	color: var(--si-primary);
+	font-weight: 600;
+}
+
+.si-card__team {
+	padding: 0.1rem 0.55rem;
+	font-size: 0.72rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: var(--si-accent);
+	background: rgba(124, 58, 237, 0.1);
+	border-radius: 999px;
+}
+
+/* Stats */
+.si-card__stats {
+	margin: 1rem 0 0;
+	width: 100%;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 0.5rem;
+}
+
+.si-stat {
+	margin: 0;
+	padding: 0.6rem 0.25rem;
+	background: var(--si-surface-2);
+	border-radius: 10px;
+}
+
+.si-stat dt {
+	margin: 0;
+	font-size: 0.68rem;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: var(--si-muted);
+}
+
+.si-stat dd {
+	margin: 0.15rem 0 0;
+	font-size: 1.35rem;
+	font-weight: 800;
+	line-height: 1;
+	color: var(--si-navy);
+}
+
+.si-stat--impact dd {
+	color: var(--si-primary);
+}
+
+.si-stat--hours dd {
+	color: var(--si-accent);
+}
+
+/* Badges */
+.si-card__badges {
+	margin: 0.85rem 0 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	justify-content: center;
+}
+
+.si-badge {
+	padding: 0.15rem 0.6rem;
+	font-size: 0.72rem;
+	font-weight: 600;
+	border-radius: 999px;
+}
+
+.si-badge--active {
+	color: #1a7f37;
+	background: rgba(26, 127, 55, 0.12);
+}
+
+.si-badge--high {
+	color: var(--si-primary-600);
+	background: rgba(56, 88, 233, 0.12);
+}
+
+/* Empty state (admins only) */
+.si--empty {
+	padding: 1rem 1.25rem;
+	border: 1px dashed var(--si-line);
+	border-radius: var(--si-radius);
+	color: var(--si-muted);
+	text-align: center;
+}
+
+/* ==========================================================================
+   Graduate Stats block — class-wide totals
+   ========================================================================== */
+
+.si-stats__head {
+	text-align: center;
+	max-width: 42rem;
+	margin: 0 auto 1.75rem;
+}
+
+.si-stats__title {
+	margin: 0 0 0.4rem;
+	font-size: clamp(1.6rem, 1.1rem + 1.6vw, 2.25rem);
+	font-weight: 700;
+	line-height: 1.15;
+	color: var(--si-navy);
+}
+
+.si-stats__subtitle {
+	margin: 0;
+	font-size: 1.05rem;
+	color: var(--si-muted);
+	line-height: 1.5;
+}
+
+.si-stats__grid {
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 1rem;
+}
+
+@media (max-width: 900px) {
+	.si-stats__grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 480px) {
+	.si-stats__grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.si-bigstat {
+	margin: 0;
+	padding: 1.6rem 1rem;
+	text-align: center;
+	background: var(--si-surface);
+	border: 1px solid var(--si-line);
+	border-radius: var(--si-radius);
+	box-shadow: 0 1px 2px rgba(16, 24, 43, 0.04);
+	background-image: linear-gradient(180deg, #f7f9ff 0%, #ffffff 60%);
+}
+
+.si-bigstat__value {
+	margin: 0;
+	font-size: clamp(2rem, 1.2rem + 2.6vw, 3rem);
+	font-weight: 800;
+	line-height: 1;
+	color: var(--si-primary);
+	font-variant-numeric: tabular-nums;
+}
+
+.si-bigstat--impact .si-bigstat__value {
+	color: var(--si-primary);
+}
+
+.si-bigstat--contrib .si-bigstat__value {
+	color: var(--si-navy);
+}
+
+.si-bigstat--hours .si-bigstat__value {
+	color: var(--si-accent);
+}
+
+.si-bigstat--students .si-bigstat__value {
+	background: linear-gradient(135deg, var(--si-primary), var(--si-accent));
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	color: var(--si-primary); /* fallback */
+}
+
+.si-bigstat__label {
+	margin: 0.5rem 0 0;
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--si-muted);
+}
+
+.si-stats__note {
+	margin: 1.25rem 0 0;
+	text-align: center;
+	font-size: 0.9rem;
+	color: var(--si-muted);
+}
+
+/* --- Inline strip variant (compact, for headers/footers) --- */
+.si-stats--inline .si-stats__head {
+	margin-bottom: 0.85rem;
+}
+
+.si-stats--inline .si-stats__title {
+	font-size: clamp(1.15rem, 0.9rem + 0.9vw, 1.5rem);
+}
+
+.si-stats--inline .si-stats__subtitle {
+	font-size: 0.95rem;
+}
+
+.si-stats--inline .si-stats__grid {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.5rem 1.5rem;
+}
+
+.si-stats--inline .si-bigstat {
+	display: flex;
+	flex-direction: row;
+	align-items: baseline;
+	gap: 0.4rem;
+	padding: 0.35rem 0;
+	background: none;
+	background-image: none;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	text-align: left;
+}
+
+/* Divider between adjacent items in the strip. */
+.si-stats--inline .si-bigstat + .si-bigstat {
+	padding-left: 1.5rem;
+	border-left: 1px solid var(--si-line);
+}
+
+.si-stats--inline .si-bigstat__value {
+	font-size: clamp(1.25rem, 1rem + 1vw, 1.7rem);
+}
+
+.si-stats--inline .si-bigstat__label {
+	margin: 0;
+	font-size: 0.72rem;
+}
+
+@media (max-width: 600px) {
+	.si-stats--inline .si-stats__grid {
+		flex-direction: column;
+		align-items: center;
+		gap: 0.35rem;
+	}
+
+	.si-stats--inline .si-bigstat + .si-bigstat {
+		padding-left: 0;
+		border-left: 0;
+	}
+}

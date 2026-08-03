@@ -1,0 +1,40 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "student-impact/stats",
+	"title": "Graduate Stats",
+	"category": "widgets",
+	"icon": "chart-bar",
+	"description": "Class-wide totals across all graduates: summed impact, contributions, and hours.",
+	"keywords": [ "students", "stats", "totals", "graduates", "impact", "hours" ],
+	"textdomain": "student-impact",
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		}
+	},
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": "Class Impact"
+		},
+		"subtitle": {
+			"type": "string",
+			"default": "What our graduates have contributed to WordPress."
+		},
+		"showNote": {
+			"type": "boolean",
+			"default": true
+		},
+		"layout": {
+			"type": "string",
+			"default": "grid"
+		}
+	},
+	"editorScript": "file:./editor.js",
+	"style": "student-impact",
+	"editorStyle": "student-impact"
+}

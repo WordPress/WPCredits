@@ -1,0 +1,629 @@
+/*
+Theme Name: WordPress Education Initiatives
+Theme URI: https://example.com/wordpress-education-blocks
+Author: Maciej Pilarski
+Author URI: https://example.com
+Description: A block (Full Site Editing) theme for open-source education initiatives. The header, footer, front page and every section are editable in the WordPress Site Editor (Appearance → Editor), with global colours and typography managed in Styles. Ships with block patterns for the hero, feature highlights, animated statistics, programs, campus, resources, testimonials and call-to-action.
+Version: 1.5.0
+Requires at least: 6.6
+Tested up to: 6.7
+Requires PHP: 7.4
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: wp-education-blocks
+Tags: education, one-page, full-site-editing, block-patterns, custom-colors, editor-style, block-styles, translation-ready, blog, featured-images
+*/
+
+/* ==========================================================================
+   Design tokens
+   The colour palette is also exposed to the editor through theme.json; these
+   variables cover the bespoke tints used by the custom section styling below.
+   ========================================================================== */
+:root {
+	--wpedu-blue: #3858e9;
+	--wpedu-blue-dark: #2e49d9;
+	--wpedu-blue-050: #fafbff;
+	--wpedu-blue-100: #eef2fd;
+	--wpedu-blue-150: #e8edfc;
+	--wpedu-blue-200: #dfe6fb;
+	--wpedu-blue-300: #dbe3fb;
+	--wpedu-blue-border: #c7d1f6;
+	--wpedu-blue-rule: #d7ddf3;
+
+	--wpedu-green: #34c19a;
+	--wpedu-green-mid: #5fd0ab;
+	--wpedu-green-100: #d7f3ea;
+	--wpedu-green-ink: #1a9e78;
+	--wpedu-green-ink2: #0e8a63;
+	--wpedu-green-deep: #0e6b52;
+
+	--wpedu-yellow: #f6c445;
+	--wpedu-yellow-100: #fdf1d0;
+	--wpedu-yellow-ink: #a97d13;
+	--wpedu-yellow-deep: #7a5a05;
+
+	--wpedu-purple: #8a54d6;
+	--wpedu-purple-100: #efe6fb;
+
+	--wpedu-ink: #1e1e1e;
+	--wpedu-text: #4b4b4b;
+	--wpedu-text-soft: #3c3c3c;
+	--wpedu-muted: #6e6e6e;
+	--wpedu-faint: #8d8d8d;
+	--wpedu-border: #ededed;
+	--wpedu-hover-bg: #f4f4f4;
+
+	--wpedu-radius: 4px;
+	--wpedu-radius-lg: 12px;
+	--wpedu-radius-xl: 20px;
+}
+
+@keyframes wpe-float {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-8px); }
+}
+
+/* Clip stray horizontal overflow (decorative art, long words) without
+   creating a scroll container, so the sticky header keeps working. */
+html { overflow-x: clip; }
+
+/* ==========================================================================
+   Header / navigation
+   Built with the core Site Logo, Navigation and Button blocks; these rules
+   restyle that markup to match the design.
+   ========================================================================== */
+.wpedu-header {
+	position: sticky;
+	top: 0;
+	z-index: 50;
+	background: var(--wpedu-blue, #fff);
+	background: #fff;
+	border-bottom: 1px solid var(--wpedu-border);
+	padding-top: 0;
+	padding-bottom: 0;
+}
+.wpedu-header .wpedu-nav {
+	min-height: 76px;
+	gap: 24px;
+	flex-wrap: nowrap;
+}
+.wpedu-brand { gap: 12px; flex-wrap: nowrap; }
+.wpedu-brand .wp-block-site-logo img { width: 38px; height: 38px; }
+.wpedu-brand__name { font-size: 20px; font-weight: 600; letter-spacing: -.01em; color: var(--wpedu-ink); white-space: nowrap; }
+.wpedu-brand__name .accent { color: var(--wpedu-blue); }
+.wpedu-brand__name .sub { color: var(--wpedu-muted); font-weight: 400; }
+
+.wpedu-nav__menu { flex: 1; }
+.wpedu-nav__menu .wp-block-navigation__container { justify-content: center; gap: 6px; }
+.wpedu-nav__menu .wp-block-navigation-item > .wp-block-navigation-item__content {
+	font-size: 15px;
+	color: var(--wpedu-ink);
+	padding: 8px 12px;
+	border-radius: var(--wpedu-radius);
+}
+.wpedu-nav__menu .wp-block-navigation-item > .wp-block-navigation-item__content:hover {
+	background: var(--wpedu-hover-bg);
+}
+.wpedu-nav__menu .wp-block-navigation__submenu-container {
+	border: 1px solid var(--wpedu-border);
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+	padding: 6px;
+	min-width: 240px;
+}
+.wpedu-nav__menu .wp-block-navigation__submenu-container .wp-block-navigation-item__content {
+	font-size: 14px;
+	padding: 9px 12px;
+	border-radius: var(--wpedu-radius);
+}
+.wpedu-nav__menu .wp-block-navigation__submenu-container .wp-block-navigation-item__content:hover {
+	background: var(--wpedu-hover-bg);
+}
+/* Desktop hover fallback: reveal submenus on hover even if the core
+   Navigation interactivity script is unavailable. Core's click-to-open still
+   works and pins the menu open; this only adds hover reveal on pointer devices. */
+@media (min-width: 782px) and (hover: hover) {
+	.wpedu-nav__menu .wp-block-navigation-item.has-child:hover > .wp-block-navigation__submenu-container {
+		visibility: visible;
+		opacity: 1;
+		height: auto;
+		min-width: 240px;
+		overflow: visible;
+	}
+}
+
+/* Primary buttons everywhere */
+.wpedu-btn.wp-block-button .wp-block-button__link,
+.wp-block-button.wpedu-btn__link .wp-block-button__link { border-radius: var(--wpedu-radius); }
+
+.wpedu-cta-btn .wp-block-button__link {
+	background: var(--wpedu-blue);
+	color: #fff;
+	font-size: 15px;
+	font-weight: 500;
+	padding: 11px 22px;
+	border-radius: var(--wpedu-radius);
+}
+.wpedu-cta-btn .wp-block-button__link:hover { background: var(--wpedu-blue-dark); }
+
+.wpedu-btn-ghost .wp-block-button__link {
+	background: #fff;
+	color: var(--wpedu-blue);
+	border: 1.5px solid var(--wpedu-blue-border);
+}
+.wpedu-btn-ghost .wp-block-button__link:hover {
+	background: #e6eaf4;
+	color: var(--wpedu-blue-dark);
+}
+
+/* ==========================================================================
+   Generic helpers reused by patterns
+   ========================================================================== */
+.wpedu-eyebrow {
+	display: inline-block;
+	font-size: 13px !important;
+	font-weight: 600;
+	letter-spacing: .08em;
+	text-transform: uppercase;
+	color: var(--wpedu-blue);
+	background: var(--wpedu-blue-150);
+	padding: 6px 14px;
+	border-radius: 20px;
+}
+.wpedu-eyebrow.is-plain { background: none; padding: 0; }
+
+.wpedu-icon { display: inline-flex; align-items: center; justify-content: center; }
+.wpedu-disc {
+	width: 56px; height: 56px; border-radius: 50%;
+	display: flex; align-items: center; justify-content: center; flex: none;
+}
+.wpedu-tile {
+	width: 56px; height: 56px; border-radius: 12px;
+	display: flex; align-items: center; justify-content: center;
+}
+.wpedu-tile.is-sm { width: 48px; height: 48px; border-radius: 10px; }
+.wpedu-bg-blue { background: var(--wpedu-blue-150); }
+.wpedu-bg-green { background: var(--wpedu-green-100); }
+.wpedu-bg-yellow { background: var(--wpedu-yellow-100); }
+.wpedu-bg-purple { background: var(--wpedu-purple-100); }
+.wpedu-fill-blue { background: var(--wpedu-blue); }
+.wpedu-fill-green { background: var(--wpedu-green-mid); }
+.wpedu-fill-yellow { background: var(--wpedu-yellow); }
+
+.wpedu-arrowlink a,
+a.wpedu-arrowlink {
+	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+/* Cover blocks used as editable image slots / photos.
+   Show the gradient placeholder only while NO image is set as the Cover
+   background; once a photo is set, hide the leftover gradient overlay so the
+   image is fully visible (and clipped to the Cover's shape). */
+.wpedu-imgslot:not(:has(img.wp-block-cover__image-background)) .wp-block-cover__background,
+.wpedu-photo:not(:has(img.wp-block-cover__image-background)) .wp-block-cover__background {
+	opacity: 1;
+	background: linear-gradient(135deg, var(--wpedu-blue-150), var(--wpedu-green-100)) !important;
+}
+.wpedu-imgslot:has(img.wp-block-cover__image-background) .wp-block-cover__gradient-background,
+.wpedu-photo:has(img.wp-block-cover__image-background) .wp-block-cover__gradient-background {
+	opacity: 0 !important;
+}
+.wpedu-imgslot .wp-block-cover__inner-container,
+.wpedu-photo .wp-block-cover__inner-container { color: #5a6b93; text-align: center; }
+
+/* Allow an Image block placed *inside* a photo Cover (instead of set as the
+   Cover background) to fill and clip to the Cover's shape, e.g. the hero
+   circle. Applies to the hero, campus and avatar image slots. */
+.wpedu-photo .wp-block-cover__inner-container:has(> figure.wp-block-image) {
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	display: flex;
+}
+.wpedu-photo .wp-block-cover__inner-container > figure.wp-block-image {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+}
+.wpedu-photo .wp-block-cover__inner-container > figure.wp-block-image img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+/* ==========================================================================
+   Hero
+   ========================================================================== */
+.wpedu-hero { padding-top: 28px; padding-bottom: 40px; }
+/* Top-align the columns so the headline sits just below the menu instead of
+   being pushed down by vertical centering against the taller image. */
+.wpedu-hero__cols.are-vertically-aligned-center { align-items: flex-start; }
+.wpedu-hero__cols { gap: 56px; }
+.wpedu-hero__copy { position: relative; }
+.wpedu-hero__copy::before {
+	content: "";
+	position: absolute; top: -30px; left: -6px; width: 70px; height: 46px;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='46' viewBox='0 0 70 46' fill='none' stroke='%2334c19a' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M8 40 L2 30'/%3E%3Cpath d='M26 30 L26 14'/%3E%3Cpath d='M48 34 L58 22'/%3E%3C/svg%3E") no-repeat;
+}
+.wpedu-hero__title {
+	font-size: clamp(38px, 6vw, 60px);
+	line-height: 1.04;
+	letter-spacing: -.025em;
+	font-weight: 700;
+	margin: 0 0 26px;
+	text-wrap: balance;
+}
+.wpedu-hero__title .wpedu-hero__hl {
+	position: relative;
+	color: var(--wpedu-blue);
+	white-space: nowrap;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='330' height='18' viewBox='0 0 330 18' fill='none' stroke='%2334c19a' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M4 11 C 80 4, 250 4, 326 9'/%3E%3Cpath d='M20 16 C 110 11, 210 11, 300 15' opacity='.55'/%3E%3C/svg%3E") no-repeat bottom / 100% 12px;
+	padding-bottom: 14px;
+}
+.wpedu-hero__lead { font-size: 18px; line-height: 1.6; color: var(--wpedu-text); max-width: 490px; margin: 0 0 32px; }
+
+.wpedu-hero__visual { position: relative; min-height: 480px; }
+.wpedu-hero__photo.wp-block-cover {
+	position: absolute; inset: 34px 40px 60px 26px;
+	min-height: 0; height: auto;
+	border-radius: 46% 46% 44% 44% / 50% 50% 46% 46%;
+	box-shadow: 0 20px 50px rgba(30, 40, 90, .16);
+}
+.wpedu-hero__visual::before {
+	content: "";
+	position: absolute; inset: 16px 24px 44px 8px;
+	background: var(--wpedu-blue-200);
+	border-radius: 48% 48% 46% 46% / 52% 52% 48% 48%;
+}
+.wpedu-hero__visual::after {
+	content: "";
+	position: absolute; left: 20px; bottom: 34px; width: 230px; height: 40px;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='230' height='40' viewBox='0 0 230 40' fill='none' stroke='%23f6c445' stroke-width='16' stroke-linecap='round'%3E%3Cpath d='M14 22 C 70 10, 150 30, 214 16'/%3E%3C/svg%3E") no-repeat;
+	pointer-events: none;
+}
+.wpedu-hero__badges { position: absolute; inset: 0; pointer-events: none; }
+.wpedu-hero__quote {
+	position: absolute; right: -24px; bottom: -6px; width: 250px;
+	background: #fff; border: 1px solid var(--wpedu-border);
+	border-radius: 10px; box-shadow: 0 14px 34px rgba(0, 0, 0, .12);
+	padding: 18px 20px; z-index: 3;
+}
+.wpedu-hero__quote p { font-size: 14px; line-height: 1.5; color: var(--wpedu-text-soft); margin: 0 0 8px; }
+.wpedu-hero__quote cite { font-size: 13px; font-weight: 600; color: var(--wpedu-blue); font-style: normal; }
+
+@media (prefers-reduced-motion: reduce) {
+	.wpedu-float { animation: none !important; }
+}
+
+/* ==========================================================================
+   Feature cards
+   ========================================================================== */
+.wpedu-features {
+	margin-top: 8px;
+	position: relative;
+	z-index: 2;
+}
+.wpedu-features__inner {
+	background: #fff;
+	border: 1px solid var(--wpedu-border);
+	border-radius: 14px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, .06);
+	padding: 12px;
+}
+.wpedu-feature { padding: 22px 24px; border-right: 1px solid var(--wpedu-border); }
+.wpedu-feature h3 { font-size: 18px; font-weight: 600; margin: 0 0 6px; }
+.wpedu-feature p { font-size: 14px; line-height: 1.5; color: var(--wpedu-muted); margin: 0; }
+
+/* ==========================================================================
+   Stats band
+   ========================================================================== */
+.wpedu-stats {
+	position: relative;
+	margin-top: 56px;
+	padding-top: 56px;
+	padding-bottom: 60px;
+}
+.wpedu-stats::before {
+	content: "";
+	position: absolute; top: -1px; left: 0; width: 100%; height: 40px;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 40' preserveAspectRatio='none' fill='%23fff'%3E%3Cpath d='M0 40 C 240 4 480 4 720 22 C 960 40 1200 40 1440 8 L1440 0 L0 0 Z'/%3E%3C/svg%3E") no-repeat;
+	background-size: 100% 40px;
+}
+.wpedu-stat { justify-content: center; }
+.wpedu-stat__num { font-size: 30px; font-weight: 700; line-height: 1; }
+.wpedu-stat__label { font-size: 15px; color: var(--wpedu-text); margin: 4px 0 0; }
+.wpedu-stat.has-rule { border-right: 1px solid var(--wpedu-blue-rule); }
+
+/* ==========================================================================
+   Cards (programs / resources / stories)
+   ========================================================================== */
+.wpedu-card {
+	background: #fff;
+	border: 1px solid var(--wpedu-border);
+	border-radius: var(--wpedu-radius-lg);
+	padding: 30px;
+	height: 100%;
+	transition: box-shadow .1s ease-out, transform .1s ease-out;
+}
+.wpedu-card:hover { box-shadow: 0 16px 40px rgba(0, 0, 0, .08); transform: translateY(-4px); }
+.wpedu-card h3 { font-size: 21px; font-weight: 600; margin: 0 0 10px; }
+.wpedu-card p { font-size: 15px; line-height: 1.6; color: var(--wpedu-muted); margin: 0 0 18px; }
+.wpedu-card .wpedu-tile { margin-bottom: 20px; }
+.wpedu-card .wpedu-cardlink { margin: 0; }
+.wpedu-card .wpedu-cardlink a { font-size: 15px; font-weight: 600; color: var(--wpedu-blue); }
+
+.wpedu-rescard {
+	border: 1px solid var(--wpedu-border);
+	border-radius: var(--wpedu-radius-lg);
+	padding: 24px;
+	height: 100%;
+	transition: border-color .1s ease-out, box-shadow .1s ease-out;
+}
+.wpedu-rescard:hover { border-color: var(--wpedu-blue-border); box-shadow: 0 10px 28px rgba(0, 0, 0, .06); }
+.wpedu-rescard .wpedu-tile { margin-bottom: 16px; }
+.wpedu-rescard h3 { font-size: 17px; font-weight: 600; margin: 0 0 8px; }
+.wpedu-rescard p { font-size: 14px; line-height: 1.55; color: var(--wpedu-muted); margin: 0; }
+
+/* ==========================================================================
+   Campus
+   ========================================================================== */
+.wpedu-campus__inner { border-radius: var(--wpedu-radius-xl); padding: 56px; }
+.wpedu-campus__inner h2 { font-size: clamp(28px, 4vw, 34px); line-height: 1.12; letter-spacing: -.02em; font-weight: 700; margin: 0 0 18px; }
+.wpedu-campus__lead { font-size: 16px; line-height: 1.6; color: var(--wpedu-text); margin: 0 0 24px; }
+.wpedu-check { gap: 12px; }
+.wpedu-check__mark {
+	flex: none; width: 24px; height: 24px; border-radius: 50%;
+	background: var(--wpedu-blue); display: flex; align-items: center; justify-content: center;
+}
+.wpedu-check p { font-size: 15px; color: var(--wpedu-text-soft); margin: 0; }
+.wpedu-campus__media.wp-block-cover {
+	min-height: 340px;
+	border-radius: 16px;
+	box-shadow: 0 16px 40px rgba(30, 40, 90, .14);
+}
+
+/* ==========================================================================
+   Stories
+   ========================================================================== */
+.wpedu-story { background: #fff; border: 1px solid var(--wpedu-border); border-radius: var(--wpedu-radius-lg); padding: 30px; height: 100%; }
+.wpedu-story__text { font-size: 16px; line-height: 1.6; color: var(--wpedu-ink); margin: 0 0 22px; }
+.wpedu-story__avatar.wp-block-cover { width: 44px; height: 44px; min-height: 44px; min-width: 44px; border-radius: 50%; flex: none; }
+.wpedu-story__name { font-size: 15px; font-weight: 600; margin: 0; }
+.wpedu-story__role { font-size: 13px; color: var(--wpedu-muted); margin: 0; }
+
+/* ==========================================================================
+   Community CTA
+   ========================================================================== */
+.wpedu-cta__inner {
+	border-radius: var(--wpedu-radius-xl);
+	padding: 64px 56px;
+	position: relative;
+	overflow: hidden;
+}
+.wpedu-cta__inner::before {
+	content: "";
+	position: absolute; top: -40px; left: -30px; width: 180px; height: 180px; opacity: .14;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180' fill='none' stroke='%23fff' stroke-width='2'%3E%3Ccircle cx='90' cy='90' r='80'/%3E%3Cpath d='M10 90h160'/%3E%3Cpath d='M90 10c34 30 34 130 0 160M90 10c-34 30-34 130 0 160'/%3E%3C/svg%3E") no-repeat;
+}
+.wpedu-cta__inner::after {
+	content: "";
+	position: absolute; bottom: 20px; right: 40px; width: 90px; height: 90px; opacity: .18;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90' fill='%23fff'%3E%3Ccircle cx='6' cy='6' r='3'/%3E%3Ccircle cx='30' cy='6' r='3'/%3E%3Ccircle cx='54' cy='6' r='3'/%3E%3Ccircle cx='6' cy='30' r='3'/%3E%3Ccircle cx='30' cy='30' r='3'/%3E%3Ccircle cx='54' cy='30' r='3'/%3E%3Ccircle cx='6' cy='54' r='3'/%3E%3Ccircle cx='30' cy='54' r='3'/%3E%3Ccircle cx='54' cy='54' r='3'/%3E%3C/svg%3E") no-repeat;
+}
+.wpedu-cta__inner h2 { font-size: clamp(30px, 4.5vw, 40px); line-height: 1.08; letter-spacing: -.02em; font-weight: 700; color: #fff; margin: 0 0 16px; }
+.wpedu-cta__lead { font-size: 18px; line-height: 1.6; color: var(--wpedu-blue-300); margin: 0 0 32px; }
+.wpedu-cta__content { position: relative; z-index: 2; }
+
+.wpedu-btn-white .wp-block-button__link { background: #fff; color: var(--wpedu-blue); font-weight: 600; padding: 14px 30px; }
+.wpedu-btn-white .wp-block-button__link:hover { background: var(--wpedu-blue-100); color: var(--wpedu-blue-dark); }
+.wpedu-btn-outline .wp-block-button__link { background: transparent; color: #fff; font-weight: 600; padding: 14px 30px; border: 1.5px solid rgba(255, 255, 255, .5); }
+.wpedu-btn-outline .wp-block-button__link:hover { background: rgba(255, 255, 255, .12); }
+
+/* ==========================================================================
+   Why contribution matters
+   ========================================================================== */
+.wpedu-why { padding-top: 64px; padding-bottom: 64px; }
+.wpedu-why__panel { border-radius: var(--wpedu-radius-xl); padding: clamp(28px, 5vw, 56px); }
+.wpedu-why__cols { gap: 48px; }
+.wpedu-why__text { font-size: 16px; line-height: 1.7; color: var(--wpedu-text); margin: 0 0 18px; }
+.wpedu-why__text:last-child { margin-bottom: 0; }
+.wpedu-why__text strong { color: var(--wpedu-ink); }
+.wpedu-why__media.wp-block-cover { min-height: 340px; border-radius: 16px; box-shadow: 0 16px 40px rgba(30, 40, 90, .14); overflow: hidden; }
+
+/* ==========================================================================
+   Career path timeline
+   ========================================================================== */
+.wpedu-timeline { padding-top: 64px; padding-bottom: 64px; }
+.wpedu-timeline__head { max-width: 760px; margin-bottom: 34px; }
+.wpedu-timeline__head h2 { font-size: clamp(30px, 4vw, 44px); line-height: 1.08; letter-spacing: -.02em; font-weight: 700; margin: 0 0 18px; text-wrap: balance; }
+.wpedu-timeline__lead { font-size: 18px; line-height: 1.6; color: var(--wpedu-text); margin: 0; }
+
+/* Phase colour keys */
+.wpedu-tl--blue   { --tc: #3858e9; --tt: #e8edfc; }
+.wpedu-tl--green  { --tc: #1a9e78; --tt: #d7f3ea; }
+.wpedu-tl--purple { --tc: #8a54d6; --tt: #efe6fb; }
+.wpedu-tl--yellow { --tc: #a97d13; --tt: #fdf1d0; }
+.wpedu-tl--teal   { --tc: #0a8a6f; --tt: #dff2ec; }
+
+/* Legend */
+.wpedu-tl__legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+.wpedu-tl__chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px; background: #fff; border: 1px solid var(--wpedu-border); font-size: 12.5px; font-weight: 600; color: var(--wpedu-ink); }
+.wpedu-tl__chip i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.wpedu-tl__chip b { font-weight: 400; opacity: .6; }
+.wpedu-tl__hint { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--wpedu-faint); margin: 0 0 20px; }
+
+/* Timeline list + connecting line */
+.wpedu-timeline__list { position: relative; }
+.wpedu-timeline__list::before { content: ""; position: absolute; left: 20px; top: 24px; bottom: 24px; width: 2px; background: var(--wpedu-border); border-radius: 2px; }
+
+/* Stage cards (native <details>) */
+.wpedu-tl-card { position: relative; margin-left: 52px; margin-bottom: 10px; background: #fff; border: 1px solid var(--wpedu-border); border-left: 3px solid var(--tc); border-radius: var(--wpedu-radius-lg); padding: 20px 22px; box-shadow: 0 1px 2px rgba(0, 0, 0, .03); transition: border-color .12s ease-out, box-shadow .12s ease-out; }
+.wpedu-tl-card:hover { border-color: var(--tc); box-shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 10px 28px rgba(0, 0, 0, .07); }
+.wpedu-tl-card[open] { box-shadow: 0 1px 3px rgba(0, 0, 0, .05), 0 8px 24px rgba(0, 0, 0, .05); }
+.wpedu-tl-card::before { content: ""; position: absolute; box-sizing: border-box; left: -43px; top: 22px; width: 18px; height: 18px; border-radius: 50%; background: var(--tc); border: 3px solid var(--wpedu-blue-050); box-shadow: 0 0 0 1px var(--tc); }
+.wpedu-tl-card.is-hollow::before { background: var(--wpedu-blue-050); border: 2.5px solid var(--tc); box-shadow: none; }
+
+.wpedu-tl__summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
+.wpedu-tl__summary::-webkit-details-marker { display: none; }
+.wpedu-tl__head-txt { flex: 1 1 auto; min-width: 0; }
+.wpedu-tl__eyebrow { display: block; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--tc); }
+.wpedu-tl__title { display: block; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -.01em; color: var(--wpedu-ink); margin-top: 5px; }
+.wpedu-tl__chev { flex: 0 0 auto; color: var(--wpedu-faint); margin-top: 2px; transition: transform .2s ease-out; }
+.wpedu-tl-card[open] .wpedu-tl__chev { transform: rotate(180deg); }
+.wpedu-tl__body { margin-top: 14px; }
+.wpedu-tl__body p { font-size: 15px; line-height: 1.65; color: var(--wpedu-text); margin: 0; }
+.wpedu-tl__tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.wpedu-tl__tags span { display: inline-block; padding: 5px 11px; border-radius: 999px; background: var(--tt); color: var(--tc); font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+
+.wpedu-tl__note { margin: 40px 0 0; padding-top: 24px; border-top: 1px solid var(--wpedu-border); font-size: 13px; line-height: 1.6; color: var(--wpedu-faint); max-width: 720px; }
+
+@media (max-width: 600px) {
+	.wpedu-tl-card { margin-left: 44px; padding: 16px 16px; }
+	.wpedu-tl-card::before { left: -39px; }
+	.wpedu-timeline__list::before { left: 16px; }
+}
+
+/* ==========================================================================
+   Section headings shared
+   ========================================================================== */
+.wpedu-section-head h2 { font-size: clamp(30px, 4vw, 38px); line-height: 1.1; letter-spacing: -.02em; font-weight: 700; margin: 0 0 14px; }
+.wpedu-section-head p { font-size: 17px; line-height: 1.6; color: var(--wpedu-muted); margin: 0; }
+
+/* ==========================================================================
+   Career paths
+   ========================================================================== */
+.wpedu-paths { padding-top: 64px; padding-bottom: 64px; }
+.wpedu-path {
+	background: #fff;
+	border: 1px solid var(--wpedu-border);
+	border-radius: var(--wpedu-radius-lg);
+	padding: clamp(20px, 3vw, 32px);
+	transition: box-shadow .1s ease-out, transform .1s ease-out;
+}
+.wpedu-path:hover { box-shadow: 0 16px 40px rgba(0, 0, 0, .08); transform: translateY(-4px); }
+.wpedu-path__head { margin-bottom: 24px; }
+.wpedu-path__disc {
+	flex: none;
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--pc-tint, var(--wpedu-blue-150));
+	color: var(--pc, var(--wpedu-blue));
+}
+.wpedu-path__disc svg { fill: currentColor; display: block; }
+.wpedu-path__no { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; letter-spacing: .04em; color: var(--pc, var(--wpedu-blue)); margin: 0; }
+.wpedu-path__title { font-size: clamp(19px, 2.2vw, 23px); font-weight: 600; letter-spacing: -.01em; margin: 0; }
+
+.wpedu-path__stages {
+	gap: 1px !important;
+	background: var(--wpedu-border);
+	border: 1px solid var(--wpedu-border);
+	border-radius: var(--wpedu-radius-lg);
+	overflow: hidden;
+}
+.wpedu-path__stage { background: #fff; padding: 18px; }
+.wpedu-path__stage--outcome { background: var(--pc-tint, var(--wpedu-blue-150)); }
+.wpedu-path__stage-meta { display: flex; align-items: center; gap: 10px; }
+.wpedu-path__k { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--wpedu-faint); }
+.wpedu-path__label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--pc, var(--wpedu-blue)); }
+.wpedu-path__text { font-size: 14px; line-height: 1.5; color: var(--wpedu-muted); margin: 0; }
+.wpedu-path__stage--outcome .wpedu-path__text { color: var(--wpedu-ink); }
+
+.wpedu-path--blue   { --pc: #3858e9; --pc-tint: #e8edfc; }
+.wpedu-path--green  { --pc: #1a9e78; --pc-tint: #d7f3ea; }
+.wpedu-path--yellow { --pc: #a97d13; --pc-tint: #fdf1d0; }
+.wpedu-path--purple { --pc: #8a54d6; --pc-tint: #efe6fb; }
+
+.wpedu-paths__cta {
+	background: #fff;
+	border: 1px solid var(--wpedu-border);
+	border-radius: var(--wpedu-radius-xl);
+	padding: clamp(28px, 5vw, 52px);
+	text-align: center;
+}
+.wpedu-paths__cta h2 { font-size: clamp(24px, 3.5vw, 36px); line-height: 1.14; letter-spacing: -.02em; font-weight: 700; margin: 0 auto 14px; max-width: 24ch; text-wrap: balance; }
+.wpedu-paths__cta-lead { font-size: clamp(15px, 1.8vw, 18px); line-height: 1.55; color: var(--wpedu-muted); max-width: 54ch; margin: 0 auto 28px; }
+
+/* ==========================================================================
+   Card / stat grids — fixed column counts
+   Force the intended number of columns so items fill the row evenly. The core
+   grid layout uses `auto-fill`, which leaves trailing empty tracks when the
+   item count does not fill the last row, making the content read as
+   left-aligned (most visible in the statistics band).
+   ========================================================================== */
+.wpedu-features__inner { grid-template-columns: repeat(4, 1fr) !important; }
+.wpedu-stats .is-layout-grid { grid-template-columns: repeat(4, 1fr) !important; }
+.wpedu-programs .is-layout-grid { grid-template-columns: repeat(3, 1fr) !important; }
+.wpedu-resources .is-layout-grid { grid-template-columns: repeat(4, 1fr) !important; }
+.wpedu-stories .is-layout-grid { grid-template-columns: repeat(3, 1fr) !important; }
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+.wpedu-footer { border-top: 1px solid var(--wpedu-border); padding-top: 56px; padding-bottom: 32px; }
+.wpedu-footer__brand-name { font-size: 16px; font-weight: 600; }
+.wpedu-footer__brand-name .accent { color: var(--wpedu-blue); }
+.wpedu-footer__about { font-size: 14px; line-height: 1.6; color: var(--wpedu-muted); max-width: 300px; margin: 0; }
+.wpedu-footer h4 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--wpedu-ink); margin: 0 0 14px; }
+.wpedu-footer__links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.wpedu-footer__links li { margin: 0; }
+.wpedu-footer__links a { font-size: 14px; color: var(--wpedu-muted); text-decoration: none; }
+.wpedu-footer__links a:hover { color: var(--wpedu-blue); }
+.wpedu-footer__bar { border-top: 1px solid var(--wpedu-border); padding-top: 24px; margin-top: 40px; }
+.wpedu-footer__copy { font-size: 13px; color: var(--wpedu-faint); margin: 0; }
+.wpedu-footer__motto { font-size: 13px; color: var(--wpedu-faint); font-style: italic; margin: 0; }
+
+/* ==========================================================================
+   Blog / fallback content
+   ========================================================================== */
+.wpedu-page { padding-top: 32px; padding-bottom: 64px; }
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 1080px) {
+	.wpedu-features__inner,
+	.wpedu-stats .is-layout-grid,
+	.wpedu-resources .is-layout-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+@media (max-width: 960px) {
+	.wpedu-programs .is-layout-grid,
+	.wpedu-stories .is-layout-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 781px) {
+	.wpedu-path__stages { grid-template-columns: repeat(2, 1fr) !important; }
+	.wpedu-feature { border-right: none; border-bottom: 1px solid var(--wpedu-border); }
+	.wpedu-feature:last-child { border-bottom: none; }
+	.wpedu-stat.has-rule { border-right: none; }
+	.wpedu-hero__visual { min-height: 420px; }
+	.wpedu-campus__inner { padding: 32px; }
+	.wpedu-cta__inner { padding: 44px 28px; }
+	.wpedu-hero__quote { right: 0; }
+}
+
+@media (max-width: 600px) {
+	.wpedu-features__inner,
+	.wpedu-stats .is-layout-grid,
+	.wpedu-resources .is-layout-grid,
+	.wpedu-path__stages { grid-template-columns: 1fr !important; }
+
+	/* Tighter page gutters so the header row and content fit small screens. */
+	body {
+		--wp--style--root--padding-left: 24px;
+		--wp--style--root--padding-right: 24px;
+	}
+	/* Keep the header to brand + hamburger; drop the least-essential pieces
+	   that otherwise overflow the row (the CTA also appears in the hero and
+	   community sections). */
+	.wpedu-brand__name .sub { display: none; }
+	.wpedu-header .wpedu-cta-btn { display: none; }
+}

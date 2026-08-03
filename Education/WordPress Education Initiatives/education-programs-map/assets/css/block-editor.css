@@ -1,0 +1,7 @@
+.wp-block[data-type="epm/education-programs-map"] .epm-block-editor-preview {
+	min-height: 120px;
+}
+
+.wp-block[data-type="epm/education-programs-map"] .epm-block-editor-preview .components-spinner {
+	margin: 24px auto;
+}

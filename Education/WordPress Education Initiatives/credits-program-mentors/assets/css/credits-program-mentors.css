@@ -1,0 +1,440 @@
+/**
+ * Credits Program Mentors front-end styles.
+ *
+ * Visually aligned with the Education Student Stories plugin so both read as
+ * part of the same site design (shared palette, card treatment, and chips).
+ * Prefixed with .credprme- to avoid clashing with theme styles.
+ */
+
+.credprme-mentors-wrap,
+.credprme-mentors {
+	--credprme-primary: #3858e9;
+	--credprme-primary-600: #213fd4;
+	--credprme-accent: #7c3aed;
+	--credprme-navy: #10182b;
+	--credprme-ink: #1e293b;
+	--credprme-muted: #64748b;
+	--credprme-line: #e5e9f2;
+	--credprme-surface: #ffffff;
+	--credprme-surface-2: #f4f6fb;
+	--credprme-radius: 14px;
+	--credprme-columns: 3;
+
+	box-sizing: border-box;
+	margin: 1.5em 0;
+	color: var(--credprme-ink);
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+.credprme-mentors-wrap *,
+.credprme-mentors-wrap *::before,
+.credprme-mentors-wrap *::after {
+	box-sizing: border-box;
+}
+
+.credprme-mentors-wrap [hidden] {
+	display: none !important;
+}
+
+/* ---------- Country map (Leaflet, matched to Education Programs Map) ---------- */
+.credprme-map {
+	margin: 0 0 1.5rem;
+}
+
+.credprme-map__canvas {
+	width: 100%;
+	border: 1px solid var(--credprme-line);
+	border-radius: var(--credprme-radius);
+	box-shadow: 0 1px 2px rgba(16, 24, 43, 0.04), 0 1px 3px rgba(16, 24, 43, 0.06);
+	z-index: 0;
+}
+
+/* Leaflet popup content, styled to match the site cards. */
+.credprme-map .leaflet-popup-content {
+	font-family: inherit;
+	font-size: 13px;
+	line-height: 1.6;
+	color: var(--credprme-ink);
+}
+
+.credprme-map .leaflet-popup-content strong {
+	display: block;
+	font-size: 14px;
+	color: var(--credprme-primary);
+	border-bottom: 1px solid var(--credprme-line);
+	padding-bottom: 4px;
+	margin-bottom: 4px;
+}
+
+/* ---------- Filter bar ---------- */
+.credprme-filters {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.75rem 1rem;
+	margin: 0 auto 1.5rem;
+	max-width: 60rem;
+}
+
+.credprme-filters__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	min-width: 160px;
+}
+
+.credprme-filters__label {
+	font-size: 0.72rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--credprme-muted);
+}
+
+.credprme-filters__select {
+	padding: 0.5rem 0.9rem;
+	border: 1px solid var(--credprme-line);
+	border-radius: 999px;
+	background: var(--credprme-surface);
+	color: var(--credprme-ink);
+	font-size: 0.9rem;
+	font-weight: 600;
+	font-family: inherit;
+	line-height: 1.2;
+	cursor: pointer;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.credprme-filters__select:hover {
+	border-color: var(--credprme-primary);
+}
+
+.credprme-filters__select:focus {
+	outline: none;
+	border-color: var(--credprme-primary);
+	box-shadow: 0 0 0 3px rgba(56, 88, 233, 0.15);
+}
+
+.credprme-mentors__noresults {
+	text-align: center;
+	color: var(--credprme-muted);
+	margin: 1.5rem 0 0;
+}
+
+/* ---------- Grid ---------- */
+.credprme-mentors--grid {
+	display: grid;
+	grid-template-columns: repeat(var(--credprme-columns), minmax(0, 1fr));
+	gap: 1.1rem;
+}
+
+.credprme-card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	gap: 0.6rem;
+	padding: 1.5rem 1.25rem 1.25rem;
+	border: 1px solid var(--credprme-line);
+	border-radius: var(--credprme-radius);
+	background: var(--credprme-surface);
+	box-shadow: 0 1px 2px rgba(16, 24, 43, 0.04);
+	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.credprme-card:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 12px 28px rgba(16, 24, 43, 0.1);
+	border-color: #d5ddf5;
+}
+
+/* Sponsored mentors get the subtle highlight the ESS "medal" cards use. */
+.credprme-card--sponsored {
+	border-color: rgba(56, 88, 233, 0.35);
+	background: linear-gradient(180deg, #f7f9ff 0%, #ffffff 55%);
+}
+
+/*
+ * Where subgrid is supported, lay each card onto shared row tracks so the same
+ * detail field (Country, Languages, sponsor, link…) sits at the same level in
+ * every card of a row. Falls back to the plain flex column above otherwise.
+ */
+@supports (grid-template-rows: subgrid) {
+	.credprme-mentors--grid {
+		grid-auto-rows: min-content;
+	}
+
+	.credprme-card {
+		display: grid;
+		grid-template-rows: subgrid;
+		grid-row: span var(--credprme-rows, 1);
+		justify-items: center;
+		row-gap: 0.6rem;
+	}
+
+	.credprme-card > * {
+		align-self: start;
+		margin: 0;
+	}
+
+	/* Empty slots must stay in flow so they occupy their subgrid track. */
+	.credprme-card__row--empty {
+		display: block;
+		min-height: 0;
+	}
+}
+
+/* In the flex fallback there are no shared tracks, so drop empty slots. */
+.credprme-card__row--empty {
+	display: none;
+}
+
+.credprme-card__photo {
+	line-height: 0;
+}
+
+.credprme-photo {
+	border-radius: 50%;
+	object-fit: cover;
+	background: var(--credprme-surface-2);
+	display: block;
+	max-width: 100%;
+	border: 3px solid #fff;
+	box-shadow: 0 0 0 1px var(--credprme-line);
+}
+
+.credprme-photo--placeholder {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	font-weight: 700;
+	line-height: 1;
+	text-transform: uppercase;
+	background: linear-gradient(135deg, var(--credprme-primary), var(--credprme-accent));
+}
+
+.credprme-card__title {
+	margin: 0.85rem 0 0.15rem;
+	font-size: 1.12rem;
+	font-weight: 700;
+	line-height: 1.25;
+	color: var(--credprme-navy);
+}
+
+.credprme-card__row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.4rem;
+	font-size: 0.85rem;
+}
+
+/* Tag rows (Languages, Sponsor…) stack the label above its pills. */
+.credprme-card__row--tags {
+	flex-direction: column;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.credprme-card__label {
+	color: var(--credprme-muted);
+	font-size: 0.68rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.credprme-card__value {
+	color: var(--credprme-ink);
+}
+
+.credprme-card__row--link {
+	margin-top: 0.15rem;
+}
+
+/* ---------- Badges & tags ---------- */
+/* Country badge — soft primary pill. */
+.credprme-badge {
+	display: inline-block;
+	padding: 0.15rem 0.6rem;
+	border-radius: 999px;
+	background: rgba(56, 88, 233, 0.1);
+	font-size: 0.72rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	color: var(--credprme-primary-600);
+}
+
+.credprme-tags {
+	display: inline-flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.35rem;
+}
+
+.credprme-tag {
+	display: inline-block;
+	padding: 0.12rem 0.55rem;
+	border-radius: 999px;
+	background: var(--credprme-surface-2);
+	border: 1px solid var(--credprme-line);
+	font-size: 0.75rem;
+	color: var(--credprme-ink);
+	white-space: nowrap;
+}
+
+/* Sponsored badge — accent pill with a dot. */
+.credprme-badge--sponsored {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4em;
+	padding: 0.15rem 0.6rem;
+	background: rgba(124, 58, 237, 0.1);
+	color: var(--credprme-accent);
+	font-size: 0.72rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.credprme-badge__dot {
+	width: 0.45em;
+	height: 0.45em;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+.credprme-card__row--sponsored {
+	margin-top: -0.1rem;
+}
+
+.credprme-table .credprme-badge--sponsored {
+	margin-left: 0.4em;
+	vertical-align: middle;
+}
+
+/* ---------- Links ---------- */
+.credprme-card__link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	font-weight: 600;
+	color: var(--credprme-primary);
+	text-decoration: none;
+}
+
+.credprme-card__link:hover,
+.credprme-card__link:focus {
+	color: var(--credprme-primary-600);
+	text-decoration: underline;
+}
+
+/* ---------- Table ---------- */
+.credprme-mentors--table-wrap {
+	overflow-x: auto;
+}
+
+.credprme-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9rem;
+}
+
+.credprme-table th,
+.credprme-table td {
+	padding: 0.65rem 0.85rem;
+	text-align: left;
+	border-bottom: 1px solid var(--credprme-line);
+	vertical-align: top;
+}
+
+.credprme-table th {
+	font-weight: 700;
+	color: var(--credprme-navy);
+	background: var(--credprme-surface-2);
+	white-space: nowrap;
+}
+
+.credprme-table__photo-col {
+	width: 56px;
+}
+
+/* Visually hide but keep for screen readers. */
+.credprme-mentors .screen-reader-text {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	border: 0;
+}
+
+/* ---------- States ---------- */
+.credprme-mentors--error {
+	padding: 0.75rem 1rem;
+	border: 1px solid #f0c33c;
+	background: #fcf3d6;
+	border-radius: var(--credprme-radius);
+	color: #55450a;
+}
+
+.credprme-mentors--empty {
+	padding: 1rem 1.25rem;
+	border: 1px dashed var(--credprme-line);
+	border-radius: var(--credprme-radius);
+	color: var(--credprme-muted);
+	text-align: center;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1024px) {
+	.credprme-mentors--grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 600px) {
+	.credprme-mentors--grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.credprme-table thead {
+		display: none;
+	}
+
+	.credprme-table,
+	.credprme-table tbody,
+	.credprme-table tr,
+	.credprme-table td {
+		display: block;
+		width: 100%;
+	}
+
+	.credprme-table tr {
+		margin-bottom: 1rem;
+		border: 1px solid var(--credprme-line);
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+	.credprme-table td {
+		border-bottom: 1px solid var(--credprme-line);
+		padding-left: 40%;
+		position: relative;
+	}
+
+	.credprme-table td::before {
+		content: attr(data-label);
+		position: absolute;
+		left: 0.85rem;
+		top: 0.65rem;
+		width: 35%;
+		font-weight: 600;
+		color: var(--credprme-muted);
+	}
+}

@@ -1,0 +1,44 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "student-impact/showcase",
+	"title": "Student Stories",
+	"category": "widgets",
+	"icon": "awards",
+	"description": "Showcase the top graduating students ranked by their WordPress.org impact, contributions, and hours.",
+	"keywords": [ "students", "stories", "showcase", "graduates", "contributors" ],
+	"textdomain": "student-impact",
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ],
+		"spacing": {
+			"margin": true,
+			"padding": true
+		}
+	},
+	"attributes": {
+		"count": {
+			"type": "number",
+			"default": 0
+		},
+		"columns": {
+			"type": "number",
+			"default": 3
+		},
+		"title": {
+			"type": "string",
+			"default": "Student Stories"
+		},
+		"subtitle": {
+			"type": "string",
+			"default": "Our top graduating contributors, ranked by real WordPress.org impact."
+		},
+		"showFilters": {
+			"type": "boolean",
+			"default": true
+		}
+	},
+	"editorScript": "file:./editor.js",
+	"style": "student-impact",
+	"editorStyle": "student-impact"
+}
