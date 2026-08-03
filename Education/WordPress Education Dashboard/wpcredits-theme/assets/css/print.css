@@ -1,0 +1,304 @@
+/*
+ * Printing the student list.
+ *
+ * A mentor printing sixty students wants all of them, so the plugin's own script
+ * opens every disclosure on `beforeprint` and restores them afterwards. Nothing
+ * here duplicates that — this sheet is only about what should be on the paper:
+ * the groups, every student's details, and none of the site chrome or controls.
+ */
+
+@page {
+	margin: 16mm 14mm;
+}
+
+body {
+	background: #fff;
+	color: #000;
+	font-size: 11pt;
+}
+
+/* Chrome, controls and anything that only works with a pointer. */
+.wpc-header,
+/* A notice is read on screen; on paper it is a band above a student list. */
+.wpcpm-notices,
+.wpc-footer,
+#wpadminbar,
+.wpc-dash__toolbar,
+.wpc-dash__hint,
+.wpc-triage,
+.wpcpm-dashboard__switcher,
+.wpcpm-notes__form,
+.wpcpm-note__delete,
+.wpc-row__action,
+.wpcpm-mentee__toggle,
+.wpcpm-mentee__action,
+/* The calendar's *controls* go, but the booked-call list stays: a mentor printing
+   their students wants the diary on the sheet, and has no use on paper for a month
+   grid of links, a slot picker, a timezone select or the availability form. */
+.wpcpm-calls__zone,
+.wpcpm-calendar,
+.wpcpm-slots, /* takes its busy status line with it */
+.wpcpm-availability, /* takes its copy control with it */
+.wpcpm-call__cancel,
+/* The student's own edit control is a control too — on paper it is a list of values
+   already shown in the table beside it. The row icons go with it: they are decoration,
+   and the label they sit beside already says what the row is. */
+.wpcpm-edit,
+.wpcpm-icon,
+.wpcpm-team__icon {
+	display: none !important;
+}
+
+.wpc-main--dashboard,
+.wpc-dash {
+	background: none;
+	border: 0;
+	box-shadow: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* A rule under the title, with who and when, the way a handout is headed. */
+.wpc-dash__band {
+	background: none;
+	border-bottom: 1px solid #1e1e1e;
+	display: block;
+	padding: 0 0 8px;
+}
+
+.wpc-dash__band .wpcpm-avatar {
+	display: none;
+}
+
+/* The mentor's name is the heading of this sheet. It used to be a gray 9pt line
+   beside the page title, and the page title is what carried the heading size — that
+   title is gone from the mentor template now, so the size moves to the name. */
+.wpcpm-dashboard__mentor-name {
+	color: #1e1e1e;
+	font-size: 15pt;
+	margin-bottom: 2px;
+}
+
+.wpcpm-dashboard__intro,
+.wpcpm-dashboard__updated {
+	color: #4a4a4a;
+	font-size: 9pt;
+}
+
+/* Group headers keep their shape but lose the fills — the label and the count
+   are the information, not the tint. */
+.wpc-group {
+	background: none !important;
+	border-bottom: 1px solid #dbdbdb;
+	color: #1e1e1e !important;
+	font-size: 8pt;
+	letter-spacing: .08em;
+	margin-top: 14px;
+	padding: 0 0 4px;
+	position: static;
+}
+
+.wpcpm-mentee,
+.wpcpm-mentee__disclosure,
+.wpcpm-mentee__disclosure[open] {
+	background: none !important;
+	border: 0;
+	break-inside: avoid;
+	margin: 0;
+	page-break-inside: avoid;
+}
+
+/* `margin: 0` matters as much as the border reset: on screen the summary is inset
+   by a margin so its border clears the card edge, and on paper that would just be
+   an indent under a heading that has none. */
+.wpcpm-mentee__summary {
+	background: none !important;
+	border: 0 !important;
+	display: block;
+	margin: 0;
+	padding: 8px 0 0;
+}
+
+.wpcpm-mentee__summary .wpcpm-avatar {
+	display: none;
+}
+
+.wpcpm-mentee__name {
+	display: inline;
+	font-size: 10pt;
+	width: auto;
+}
+
+.wpcpm-badge,
+.wpc-row__flag {
+	background: none !important;
+	color: #4a4a4a !important;
+	padding: 0;
+	width: auto;
+}
+
+.wpcpm-badge::before,
+.wpc-row__flag::before {
+	content: " — ";
+}
+
+.wpc-row__where,
+.wpc-row__until {
+	color: #4a4a4a;
+	display: inline;
+	overflow: visible;
+	white-space: normal;
+	width: auto;
+}
+
+/* The columns run together on one line here, so each needs its own separator —
+   on screen the gaps between flex items did that job. */
+.wpc-row__where::before,
+.wpc-row__until::before {
+	content: " · ";
+}
+
+/* The bubble around the note count is a screen affordance. */
+.wpcpm-notes__count {
+	border: 0;
+	color: #757575;
+	padding: 0;
+}
+
+.wpcpm-mentee__body {
+	display: block;
+	padding: 4px 0 0;
+}
+
+.wpcpm-mentee__table {
+	border: 0;
+	font-size: 9pt;
+	margin-bottom: 6px;
+}
+
+/* Every cell on one running line. `tbody` is in the selector because both the
+   plugin and the screen skin style these cells that specifically, and a shorter
+   selector would leave their bottom borders drawing rules under every value. */
+.wpcpm-mentee__table tbody tr,
+.wpcpm-mentee__table tbody th,
+.wpcpm-mentee__table tbody td {
+	border: 0;
+	display: inline;
+	padding: 0;
+}
+
+.wpcpm-mentee__table tbody th::after {
+	content: " ";
+}
+
+.wpcpm-mentee__label,
+.wpcpm-student__label {
+	display: inline;
+}
+
+.wpcpm-mentee__table tbody th {
+	color: #757575;
+	font-weight: 400;
+}
+
+.wpcpm-mentee__table .wpcpm-mentee__value::after {
+	content: " · ";
+	color: #757575;
+}
+
+.wpcpm-mentee__row.is-empty {
+	background: none !important;
+}
+
+.wpcpm-notes {
+	border: 0;
+	padding: 0;
+}
+
+.wpcpm-notes__title {
+	font-size: 9pt;
+	margin-bottom: 2px;
+}
+
+.wpcpm-note {
+	border-left: 0;
+	color: #4a4a4a;
+	font-size: 9pt;
+	margin-bottom: 4px;
+	padding-left: 0;
+}
+
+.wpcpm-note__meta {
+	display: inline;
+	font-size: 9pt;
+}
+
+.wpcpm-note__meta::after {
+	content: " — ";
+}
+
+.wpcpm-note__body,
+.wpcpm-note__body p {
+	display: inline;
+}
+
+.wpc-dash__ordering {
+	border-top: 1px solid #dbdbdb;
+	font-size: 8pt;
+	margin-top: 10px;
+	padding: 6px 0 0;
+}
+
+/* The student page puts "Your program" and "Your mentor" in two columns, which
+   this sheet undoes for the same reason it undoes the rest of the screen layout: a
+   column half a card wide is half a page wide on paper, and the tables in it are
+   labels beside values. One after the other, divided by a rule.
+
+   Prefixed `.wpc-student-page` to match the screen rules rather than undercut them:
+   this sheet loads after dashboard.css but order only settles ties, and a bare
+   `.wpcpm-student` would lose the display to a two-class selector. */
+.wpc-student-page .wpcpm-student {
+	display: block;
+}
+
+/* On screen the mentor section carries the column divider and the call section splits into
+   two of its own. On paper both are one column, divided by a rule above. */
+.wpc-student-page .wpcpm-student__section--mentor,
+.wpc-student-page .wpcpm-calls {
+	border-left: 0;
+	border-top: 1px solid #dbdbdb;
+}
+
+.wpc-student-page .wpcpm-calls__cols {
+	display: block;
+}
+
+/* Stacked on paper, so the gutter both halves pay for on screen is just an indent. */
+.wpc-student-page .wpcpm-calls__col--booked {
+	padding-right: 0;
+}
+
+/* The two action buttons are deliberately large on screen, where they are the only things
+   on the page a student does. On paper nothing is clickable and the URL is printed after
+   each one anyway, so the size buys nothing and costs a third of the line. */
+.wpc-student-page .wpcpm-student__actions .wpcpm-button {
+	font-size: 10pt;
+	padding: 2pt 6pt;
+}
+
+.wpc-student-page .wpcpm-calls__col--pick {
+	border-left: 0;
+	padding-left: 0;
+}
+
+/* Stacked, the top rule is the divider, so the first section has nothing above it
+   to divide from. */
+.wpc-student-page .wpcpm-student__section:first-of-type {
+	border-top: 0;
+}
+
+/* Links to Airtable and profiles are not clickable on paper, and the raw URL
+   after every name makes the sheet unreadable. */
+a[href]::after {
+	content: none !important;
+}

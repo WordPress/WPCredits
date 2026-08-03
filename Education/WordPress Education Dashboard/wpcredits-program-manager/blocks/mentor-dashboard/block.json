@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/mentor-dashboard",
+	"version": "1.12.0",
+	"title": "My Students (Mentor)",
+	"category": "widgets",
+	"icon": "groups",
+	"description": "Lists the students assigned to the mentor who is viewing the page, with their internship dates, tutor, institution and personal links.",
+	"keywords": [ "mentor", "students", "wpcredits", "program" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

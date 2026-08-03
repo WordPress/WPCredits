@@ -1,0 +1,240 @@
+/**
+ * Student program page — front-end styles.
+ *
+ * Loaded after the mentor stylesheet, which it depends on. Everything the two
+ * pages share — the color tokens, the identity header, the "view as" switcher,
+ * avatars, badges, buttons, the muted-text treatment — comes from there, so this
+ * file only carries what is specific to the student page. Anything defined twice
+ * is a chance for the two pages to drift apart.
+ */
+
+/* Sections read as the mentor page's student cards do: one bordered, rounded
+   block per topic, same radius and padding. */
+.wpcpm-student__section {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	margin-bottom: 1.25em;
+	padding: 1.25em;
+}
+
+.wpcpm-student__section:last-of-type {
+	margin-bottom: 0;
+}
+
+/* Matches .wpcpm-group__title on the mentor page. */
+.wpcpm-student__heading {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 1.05em;
+	gap: 0.5em;
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+/* Detail tables use the mentor page's metrics: same 12em label column, same
+   padding and rules, so a student and a mentor reading their own page see the
+   same thing in the same place. */
+.wpcpm-student__table {
+	border-collapse: collapse;
+	margin: 0;
+	width: 100%;
+}
+
+.wpcpm-student__table th,
+.wpcpm-student__table td {
+	border-bottom: 1px solid var( --wpcpm-border );
+	padding: 0.6em 0.75em 0.6em 0;
+	text-align: left;
+	vertical-align: top;
+}
+
+.wpcpm-student__table th {
+	font-weight: 600;
+	white-space: nowrap;
+	width: 12em;
+}
+
+.wpcpm-student__table tr:last-child th,
+.wpcpm-student__table tr:last-child td {
+	border-bottom: 0;
+}
+
+.wpcpm-student__table td {
+	overflow-wrap: anywhere;
+}
+
+/* Same treatment as the mentor page's "Not set". */
+.wpcpm-student__row.is-empty td {
+	color: inherit;
+	font-style: italic;
+	opacity: 0.72;
+}
+
+/* The report-form button used to be the only one, tucked under the program table as
+   `.wpcpm-student__action`. It has its own section now, shared with the course button. */
+.wpcpm-student__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6em;
+	margin: 0;
+}
+
+/* Two buttons, and one of them is the course — the thing a student is actually working
+   through. The report form is the second errand, so it is outlined rather than filled. */
+.wpcpm-button--secondary {
+	background: none;
+	font-weight: 500;
+}
+
+.wpcpm-student__note {
+	color: inherit;
+	font-size: 0.85em;
+	margin: 1em 0 0;
+	opacity: 0.72;
+}
+
+/* ------------------------------------------------------------------
+   Resources, in halves: what to read on the left, what is new on the right.
+   ------------------------------------------------------------------ */
+.wpcpm-resources--split {
+	display: grid;
+	gap: 1.25em;
+	grid-template-columns: 1fr 1fr;
+}
+
+.wpcpm-resources__col {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+/* The note used to pin itself to the bottom of its column, on the reasoning that a short
+   column should not leave the sentence floating halfway up beside a long list of updates.
+   In practice the column is as tall as the updates beside it, so the sentence sat a long
+   way under the buttons it describes and read as belonging to nothing. It follows the
+   buttons now — its own `margin: 1em 0 0` — and a short column simply ends early. */
+.wpcpm-resources__col .wpcpm-student__note:last-child {
+	margin-top: 1em;
+}
+
+.wpcpm-updates {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-updates__item {
+	border-bottom: 1px solid var( --wpcpm-border );
+	padding: 0.6em 0;
+}
+
+.wpcpm-updates__item:first-child {
+	padding-top: 0;
+}
+
+.wpcpm-updates__item:last-child {
+	border-bottom: 0;
+	padding-bottom: 0;
+}
+
+/* Title above date rather than beside it: the titles are the scannable part, and a date
+   column would set the width of the whole list from its least interesting element. */
+.wpcpm-updates__link {
+	display: block;
+	font-weight: 600;
+}
+
+.wpcpm-updates__date {
+	display: block;
+	font-size: 0.85em;
+	opacity: 0.72;
+}
+
+/* The mentor's contact card. */
+.wpcpm-mentor-card {
+	display: flex;
+	gap: 1em;
+}
+
+.wpcpm-mentor-card__body {
+	min-width: 0;
+}
+
+.wpcpm-mentor-card__name {
+	font-size: 1.1em;
+	font-weight: 700;
+	margin: 0;
+}
+
+.wpcpm-mentor-card__jobline,
+.wpcpm-mentor-card__location {
+	color: inherit;
+	margin: 0.1em 0 0;
+	opacity: 0.8;
+}
+
+.wpcpm-mentor-card__teams {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4em;
+	margin: 0.6em 0 1em;
+}
+
+.wpcpm-mentor-card__teams-label {
+	color: inherit;
+	font-size: 0.78em;
+	letter-spacing: 0.03em;
+	opacity: 0.72;
+	text-transform: uppercase;
+}
+
+/* Stack the tables on narrow screens, exactly as the mentor page does. */
+@media ( max-width: 600px ) {
+
+	.wpcpm-student__table th,
+	.wpcpm-student__table td {
+		border: 0;
+		display: block;
+		padding: 0;
+		white-space: normal;
+		width: auto;
+	}
+
+	.wpcpm-student__row {
+		border-bottom: 1px solid var( --wpcpm-border );
+		display: block;
+		padding: 0.75em 0;
+	}
+
+	.wpcpm-mentor-card {
+		flex-direction: column;
+	}
+
+	/* Halves do not fit; they stack, updates under resources. */
+	.wpcpm-resources--split {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* --------------------------------------------------------------------------
+   The student's own identity card
+
+   Built the same way as the mentor card so the two columns are a pair: portrait
+   beside a body, under the section's heading, above that section's table.
+   -------------------------------------------------------------------------- */
+.wpcpm-student__card {
+	display: flex;
+	gap: 1em;
+	margin: 0 0 1em;
+}
+
+.wpcpm-student__card-body {
+	min-width: 0;
+}
+
+.wpcpm-student__name {
+	font-weight: 700;
+	margin: 0;
+}

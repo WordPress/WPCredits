@@ -1,0 +1,605 @@
+/**
+ * Mentor dashboard — front-end styles.
+ *
+ * Deliberately low-specificity and color-light so it inherits the active
+ * theme's palette; only structure and spacing are opinionated here.
+ */
+
+/**
+ * Colors are derived from whatever the theme already uses, never guessed.
+ *
+ * An earlier version set light/dark values behind `prefers-color-scheme`, which
+ * keys off the operating system rather than the theme: a light theme viewed on a
+ * machine in dark mode got near-white "muted" text on a white background and the
+ * table became unreadable. Everything below is now built from `currentColor`, so
+ * text can never end up the same color as what is behind it.
+ */
+.wpcpm-dashboard {
+	--wpcpm-border: color-mix( in srgb, currentColor 18%, transparent );
+	--wpcpm-surface: color-mix( in srgb, currentColor 5%, transparent );
+	--wpcpm-radius: 8px;
+}
+
+/* Fallback for anything without color-mix(): a mid gray reads acceptably on
+   both light and dark backgrounds. */
+@supports not ( color: color-mix( in srgb, currentColor 18%, transparent ) ) {
+
+	.wpcpm-dashboard {
+		--wpcpm-border: rgba( 128, 128, 128, 0.4 );
+		--wpcpm-surface: rgba( 128, 128, 128, 0.08 );
+	}
+}
+
+/* Muted text inherits the theme's color and is dimmed, rather than being set to
+   a fixed gray that may match the background. */
+.wpcpm-muted,
+.wpcpm-dashboard__intro,
+.wpcpm-dashboard__empty,
+.wpcpm-dashboard__updated,
+.wpcpm-dashboard__switcher-note,
+.wpcpm-mentee__row.is-empty .wpcpm-mentee__value,
+.wpcpm-mentee__row dt {
+	color: inherit;
+	opacity: 0.72;
+}
+
+.wpcpm-dashboard__title {
+	margin: 0 0 0.5em;
+}
+
+/* Mentor identity header. */
+.wpcpm-dashboard__mentor {
+	align-items: center;
+	display: flex;
+	gap: 1em;
+	margin-bottom: 1.5em;
+}
+
+.wpcpm-dashboard__mentor-name {
+	font-size: 1.2em;
+	font-weight: 700;
+	margin: 0;
+}
+
+.wpcpm-dashboard__intro {
+	margin: 0.15em 0 0;
+}
+
+/* Profile photos, from wordpress.org where a profile is known. */
+.wpcpm-avatar {
+	background: var( --wpcpm-surface );
+	border-radius: 50%;
+	flex: 0 0 auto;
+	height: auto;
+	object-fit: cover;
+}
+
+.wpcpm-dashboard__empty,
+.wpcpm-dashboard__updated {
+	font-size: 0.9em;
+}
+
+.wpcpm-dashboard__updated {
+	margin-top: 2em;
+}
+
+/* Administrator-only "view as" control. */
+.wpcpm-dashboard__switcher {
+	align-items: center;
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	margin-bottom: 1.5em;
+	padding: 0.75em 1em;
+}
+
+.wpcpm-dashboard__switcher label {
+	font-weight: 600;
+}
+
+.wpcpm-dashboard__switcher-note {
+	font-size: 0.85em;
+}
+
+/* Current / past student groups. */
+.wpcpm-group {
+	margin: 0 0 2.5em;
+}
+
+.wpcpm-group:last-child {
+	margin-bottom: 0;
+}
+
+/* Flex rather than an inline span, so the count can never sit flush against the
+   heading text, and both keep clear of the cards below. */
+.wpcpm-group__title {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 1.05em;
+	gap: 0.5em;
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+.wpcpm-group__count {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 999px;
+	font-size: 0.8em;
+	font-weight: 600;
+	line-height: 1.6;
+	padding: 0 0.6em;
+	white-space: nowrap;
+}
+
+/* The past group is itself collapsible — worth keeping, but not what a mentor
+   opened the page for. */
+.wpcpm-group__summary {
+	align-items: center;
+	cursor: pointer;
+	display: flex;
+	gap: 0.5em;
+}
+
+.wpcpm-group__summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpcpm-group__summary::marker {
+	content: '';
+}
+
+.wpcpm-group__summary .wpcpm-group__title {
+	margin: 0;
+}
+
+.wpcpm-group__summary:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+
+.wpcpm-group__disclosure[open] .wpcpm-mentee__toggle {
+	transform: rotate( -135deg );
+}
+
+.wpcpm-group__body {
+	padding-top: 1em;
+}
+
+/* Student cards. One per row: each carries a details table, which a narrow
+   card would force into a sideways scroll. */
+.wpcpm-mentees {
+	display: grid;
+	gap: 1.25em;
+	grid-template-columns: 1fr;
+}
+
+.wpcpm-mentee {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+}
+
+/* Collapsible student. Padding lives on the summary and body rather than the
+   card, so the whole width of the row is a click target. */
+.wpcpm-mentee__summary {
+	align-items: center;
+	cursor: pointer;
+	display: flex;
+	gap: 0.75em;
+	padding: 1em 1.25em;
+}
+
+/* The default triangle is replaced by the chevron below. */
+.wpcpm-mentee__summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpcpm-mentee__summary::marker {
+	content: '';
+}
+
+.wpcpm-mentee__summary:hover {
+	background: var( --wpcpm-surface );
+}
+
+.wpcpm-mentee__summary:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: -2px;
+}
+
+.wpcpm-mentee__disclosure[open] .wpcpm-mentee__summary {
+	border-bottom: 1px solid var( --wpcpm-border );
+}
+
+/* Chevron, rotated when open. Decorative — aria-hidden in the markup. */
+.wpcpm-mentee__toggle {
+	border-bottom: 2px solid currentColor;
+	border-right: 2px solid currentColor;
+	flex: 0 0 auto;
+	height: 0.5em;
+	margin-left: auto;
+	opacity: 0.6;
+	transform: rotate( 45deg );
+	transition: transform 0.15s ease;
+	width: 0.5em;
+}
+
+.wpcpm-mentee__disclosure[open] .wpcpm-mentee__toggle {
+	transform: rotate( -135deg );
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+
+	.wpcpm-mentee__toggle {
+		transition: none;
+	}
+}
+
+.wpcpm-mentee__body {
+	padding: 1.25em;
+}
+
+/* Enough to identify a student while collapsed. */
+.wpcpm-mentee__preview {
+	display: block;
+	flex-basis: 100%;
+	font-size: 0.88em;
+	opacity: 0.72;
+}
+
+.wpcpm-dashboard__bulk {
+	display: flex;
+	gap: 0.5em;
+	margin-bottom: 1em;
+}
+
+.wpcpm-dashboard__bulk[hidden] {
+	display: none;
+}
+
+.wpcpm-mentee__identity {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35em 0.5em;
+	align-items: baseline;
+	min-width: 0;
+}
+
+.wpcpm-mentee__name {
+	font-size: 1.15em;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-badge {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 999px;
+	font-size: 0.75em;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	padding: 0.2em 0.7em;
+	white-space: nowrap;
+}
+
+.wpcpm-badge--50h {
+	background: rgba( 124, 58, 237, 0.12 );
+	border-color: rgba( 124, 58, 237, 0.35 );
+}
+
+.wpcpm-badge--sensei {
+	background: rgba( 56, 88, 233, 0.12 );
+	border-color: rgba( 56, 88, 233, 0.35 );
+}
+
+/* Details table: field and value. */
+.wpcpm-mentee__table {
+	border-collapse: collapse;
+	margin: 0 0 1em;
+	width: 100%;
+}
+
+.wpcpm-mentee__table tbody th,
+.wpcpm-mentee__table tbody td {
+	border-bottom: 1px solid var( --wpcpm-border );
+	padding: 0.6em 0.75em 0.6em 0;
+	text-align: left;
+	vertical-align: top;
+}
+
+.wpcpm-mentee__table tbody th {
+	font-weight: 600;
+	white-space: nowrap;
+	width: 12em;
+}
+
+.wpcpm-mentee__table tbody tr:last-child th,
+.wpcpm-mentee__table tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+.wpcpm-mentee__value {
+	overflow-wrap: anywhere;
+}
+
+/* An empty field is shown, not hidden — but recedes so it does not compete
+   with the values that are actually there. */
+.wpcpm-mentee__row.is-empty .wpcpm-mentee__value {
+	font-style: italic;
+	opacity: 0.75;
+}
+
+/* Stack the table on narrow screens rather than letting it scroll sideways. */
+@media ( max-width: 600px ) {
+
+	.wpcpm-mentee__table tbody th,
+	.wpcpm-mentee__table tbody td {
+		border: 0;
+		display: block;
+		padding: 0;
+		width: auto;
+		white-space: normal;
+	}
+
+	.wpcpm-mentee__row {
+		border-bottom: 1px solid var( --wpcpm-border );
+		display: block;
+		padding: 0.75em 0;
+	}
+
+}
+
+.screen-reader-text {
+	clip-path: inset( 50% );
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
+}
+
+.wpcpm-mentee__action {
+	margin: 1em 0 0;
+}
+
+/* Call notes. */
+.wpcpm-notes {
+	border-top: 1px solid var( --wpcpm-border );
+	margin-top: 1.5em;
+	padding-top: 1.25em;
+}
+
+.wpcpm-notes__title {
+	font-size: 1em;
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-notes__count {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 999px;
+	font-size: 0.8em;
+	font-weight: 600;
+	padding: 0.1em 0.55em;
+}
+
+.wpcpm-notes__empty {
+	margin: 0 0 1em;
+	opacity: 0.72;
+}
+
+/* Shown in place of the add-note form once mentoring has finished. */
+.wpcpm-notes__closed {
+	font-style: italic;
+	margin: 0;
+	opacity: 0.72;
+}
+
+.wpcpm-notes__message {
+	border-left: 3px solid currentColor;
+	font-weight: 600;
+	margin: 0 0 1em;
+	padding-left: 0.75em;
+}
+
+.wpcpm-notes__message.is-error {
+	color: #b32d2e;
+}
+
+.wpcpm-notes__list {
+	display: grid;
+	gap: 0.75em;
+	list-style: none;
+	margin: 0 0 1.25em;
+	padding: 0;
+}
+
+.wpcpm-note {
+	background: var( --wpcpm-surface );
+	border-radius: var( --wpcpm-radius );
+	padding: 0.85em 1em;
+}
+
+.wpcpm-note__meta {
+	font-size: 0.82em;
+	margin-bottom: 0.35em;
+	opacity: 0.72;
+}
+
+.wpcpm-note__author::before {
+	content: '· ';
+}
+
+.wpcpm-note__body > p {
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-note__body > p:last-child {
+	margin-bottom: 0;
+}
+
+.wpcpm-note__delete {
+	margin-top: 0.4em;
+}
+
+.wpcpm-note__delete-button {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font-size: 0.82em;
+	opacity: 0.7;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.wpcpm-note__delete-button:hover,
+.wpcpm-note__delete-button:focus {
+	opacity: 1;
+}
+
+.wpcpm-notes__form {
+	display: grid;
+	gap: 0.5em;
+	justify-items: start;
+}
+
+.wpcpm-notes__label {
+	font-weight: 600;
+}
+
+.wpcpm-notes__input {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 4px;
+	font: inherit;
+	padding: 0.6em;
+	width: 100%;
+}
+
+.wpcpm-button {
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	display: inline-block;
+	font-size: 0.9em;
+	font-weight: 600;
+	padding: 0.5em 1em;
+	text-decoration: none;
+}
+
+.wpcpm-button:hover,
+.wpcpm-button:focus {
+	text-decoration: underline;
+}
+
+/* Shown in place of gated content. */
+.wpcpm-restricted {
+	border-left: 4px solid var( --wpcpm-border, rgba( 0, 0, 0, 0.2 ) );
+	padding-left: 1em;
+}
+
+/* ==========================================================================
+   Contact-row icons, and the inline Edit control's placement
+   ========================================================================== */
+
+/* The wrapper *inside* the cell is the flex row, not the cell. `display: flex` on a
+   `<th>` takes it out of the table layout algorithm and any width set on the label
+   column goes with it. This also keeps the icon out of the text run, where an inline
+   SVG pushes the line box around by its own height. */
+.wpcpm-mentee__label,
+.wpcpm-student__label {
+	align-items: center;
+	display: inline-flex;
+	gap: 0.5em;
+}
+
+.wpcpm-icon {
+	flex: none;
+	opacity: 0.6;
+}
+
+/* An empty row's icon dims with the rest of it, so "Not set" reads as one state
+   rather than a live icon beside a missing value. */
+.wpcpm-mentee__row.is-empty .wpcpm-icon,
+.wpcpm-student__row.is-empty .wpcpm-icon {
+	opacity: 0.35;
+}
+
+/* The value and its Edit control share the cell: the value takes whatever width is
+   left, which is what puts Edit against the table's right edge. A wrapper inside the
+   cell rather than the cell itself, because changing a `<td>`'s display takes it out
+   of the table layout algorithm and the column widths go with it. */
+.wpcpm-student__cell {
+	align-items: baseline;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 1em;
+}
+
+.wpcpm-student__value {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.wpcpm-edit {
+	flex: 0 0 auto;
+	margin-left: 0;
+	text-align: right;
+}
+
+/* Opened, the form needs the width of the cell rather than the width of the word
+   "Edit", and its contents read left to right like every other form. */
+.wpcpm-edit[open] {
+	flex-basis: 100%;
+	text-align: left;
+}
+
+.wpcpm-edit[open] .wpcpm-edit__toggle {
+	display: block;
+	text-align: right;
+}
+
+/* ==========================================================================
+   The contribution team's icon, in the row label
+
+   Dashicons, WordPress's own set, sized and coloured to sit with the SVG row icons
+   above rather than at the 20px the font ships at — a Dashicon needs `font-size`
+   *and* a matching box, because the glyph is sized by the first and the space it
+   occupies by the second.
+
+   It labels the row rather than decorating the value, so it is a sibling of the
+   label text inside `.wpcpm-*__label`, and the flex rule up there lays it out.
+   ========================================================================== */
+.wpcpm-team__icon {
+	flex: none;
+	font-size: 16px;
+	height: 16px;
+	line-height: 1;
+	opacity: 0.6;
+	width: 16px;
+}
+
+/* The question mark stays at full strength on a row that has no value. The other row
+   icons dim there — they only repeat what the label says — but this one is the piece of
+   information on that row: nobody has chosen a team. */
+.wpcpm-student__row.is-empty .wpcpm-team__icon--unset,
+.wpcpm-mentee__row.is-empty .wpcpm-team__icon--unset {
+	opacity: 0.6;
+}
+
+/* An availability panel with nothing in it says so in a warmer colour than the rest of
+   the muted text — a mentor whose schedule is empty is not getting calls, and the panel
+   is closed by default, so this line is the only thing that will tell them.
+
+   A literal, and the one in this stylesheet: everything else here is derived from
+   `currentColor` so it cannot clash with an unknown theme, but this is a specified
+   colour rather than a shade of the text, and deriving it would produce something else.
+   `--wpcpm-attention` so a theme can restate it in one place. */
+.wpcpm-availability--unset {
+	--wpcpm-attention: #daa39b;
+}
+
+.wpcpm-availability--unset .wpcpm-availability__state {
+	color: var( --wpcpm-attention );
+	opacity: 1;
+}

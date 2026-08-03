@@ -1,0 +1,28 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/viewer-chip",
+	"title": "Mentor account chip",
+	"category": "theme",
+	"icon": "admin-users",
+	"description": "The signed-in mentor's chip for the header: a link to My Students, a log-out link and their profile photo. Shows a sign-in button to visitors.",
+	"keywords": [ "mentor", "account", "login", "logout", "avatar" ],
+	"textdomain": "wpcredits-theme",
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"multiple": false,
+		"align": false,
+		"spacing": {
+			"blockGap": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"interactivity": {
+			"clientNavigation": false
+		}
+	},
+	"editorScript": "file:./index.js",
+	"render": "file:./render.php"
+}

@@ -1,0 +1,542 @@
+<?php
+/**
+ * The mail layer and the calendar invitations.
+ *
+ * These assertions are here because every one of them stands for something that was
+ * silently wrong or missing before, and none of it is visible from reading a template:
+ * a message built outside the recipient's locale is in the wrong language and looks fine
+ * in code; a cancellation with a fresh calendar UID adds an event rather than removing one;
+ * a folded line that splits a multi-byte character produces a file some calendars refuse.
+ *
+ * Run from the plugin root:  php bin/test-mail.php
+ */
+
+if ( 'cli' !== PHP_SAPI ) {
+	exit( 1 );
+}
+
+define( 'ABSPATH', __DIR__ . '/' );
+define( 'MINUTE_IN_SECONDS', 60 );
+define( 'HOUR_IN_SECONDS', 3600 );
+define( 'DAY_IN_SECONDS', 86400 );
+
+$GLOBALS['opts']    = array();
+$GLOBALS['umeta']   = array();
+$GLOBALS['users']   = array();
+$GLOBALS['mail']    = array();
+$GLOBALS['cron']    = array();
+$GLOBALS['locales'] = array();
+$GLOBALS['uid']     = 0;
+$GLOBALS['manage']  = array();
+$GLOBALS['filters'] = array();
+
+class WP_Error {
+	private $data;
+	public function __construct( $c = '', $m = '', $d = null ) { $this->data = $d; }
+	public function get_error_data() { return $this->data; }
+	public function get_error_message() { return ''; }
+}
+class WP_User {
+	public $ID = 0, $display_name = '', $user_email = '', $user_login = '', $roles = array();
+	public function __construct( $id = 0, $name = '', $email = '', $roles = array() ) {
+		$this->ID = $id; $this->display_name = $name; $this->user_email = $email;
+		$this->user_login = strtolower( str_replace( ' ', '', $name ) ); $this->roles = $roles;
+	}
+	public function exists() { return $this->ID > 0; }
+}
+class WP_Post { public $ID = 0, $post_content = '', $post_type = '', $post_status = 'publish'; }
+
+function is_wp_error( $t ) { return $t instanceof WP_Error; }
+function __( $s, $d = null ) { return $s; }
+function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
+function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
+function esc_html__( $s, $d = null ) { return esc_html( $s ); }
+function esc_attr( $s ) { return esc_html( $s ); }
+function esc_url_raw( $u, $p = null ) {
+	$u = trim( (string) $u );
+	return preg_match( '#^https?://#i', $u ) ? $u : '';
+}
+function sanitize_text_field( $s ) { return trim( str_replace( array( "\r", "\n" ), '', strip_tags( (string) $s ) ) ); }
+function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
+function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+function sanitize_file_name( $n ) { return preg_replace( '/[^A-Za-z0-9._-]/', '', (string) $n ); }
+function wp_unslash( $v ) { return $v; }
+function absint( $v ) { return abs( (int) $v ); }
+function wp_parse_args( $a, $d = array() ) { return array_merge( $d, (array) $a ); }
+function wp_specialchars_decode( $s, $q = null ) { return html_entity_decode( (string) $s, ENT_QUOTES ); }
+function wp_parse_url( $u, $c = -1 ) { return parse_url( $u, $c ); }
+function home_url( $p = '' ) { return 'https://example.test' . $p; }
+function get_bloginfo( $k = 'name' ) { return 'WordPress Education Dashboard'; }
+function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
+function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+function get_temp_dir() { return sys_get_temp_dir() . '/'; }
+function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
+function wp_generate_password( $l = 12, $s = true, $e = false ) { return substr( md5( (string) mt_rand() ), 0, (int) $l ); }
+function wp_delete_file( $p ) { if ( file_exists( $p ) ) { unlink( $p ); } }
+function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
+function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
+function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; }
+function get_current_user_id() { return $GLOBALS['uid']; }
+function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
+function user_can( $u, $c ) { $id = is_object( $u ) ? $u->ID : (int) $u; return in_array( $id, $GLOBALS['manage'], true ); }
+function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
+function number_format_i18n( $n ) { return (string) $n; }
+function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
+function wp_timezone_string() { return 'UTC'; }
+function wp_date( $format, $ts = null, $zone = null ) {
+	$d = new DateTime( '@' . (int) $ts );
+	$d->setTimezone( $zone instanceof DateTimeZone ? $zone : new DateTimeZone( 'UTC' ) );
+	return $d->format( $format );
+}
+function add_action( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['filters'][ $h ][] = $c; }
+function add_filter( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['filters'][ $h ][] = $c; }
+function apply_filters( $h, $v ) { return $v; }
+function do_action( $h ) {
+	$args = array_slice( func_get_args(), 1 );
+	foreach ( $GLOBALS['filters'][ $h ] ?? array() as $cb ) { call_user_func_array( $cb, $args ); }
+}
+function wp_next_scheduled( $h ) { return $GLOBALS['cron'][ $h ] ?? false; }
+function wp_schedule_single_event( $w, $h ) { $GLOBALS['cron'][ $h ] = $w; return true; }
+function wp_schedule_event( $w, $r, $h ) { $GLOBALS['cron'][ $h ] = $w; return true; }
+function wp_clear_scheduled_hook( $h ) { unset( $GLOBALS['cron'][ $h ] ); }
+function wp_new_user_notification( $id, $dep = null, $notify = '' ) { $GLOBALS['invited'][] = (int) $id; }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
+function add_query_arg( $args, $url = '' ) {
+	$sep = false === strpos( $url, '?' ) ? '?' : '&';
+
+	return $url . $sep . http_build_query( (array) $args );
+}
+function check_admin_referer( $a = -1, $q = '_wpnonce' ) { return true; }
+function wp_die( $m = '' ) { throw new Exception( 'wp_die: ' . $m ); }
+function wp_safe_redirect( $to ) { throw new Exception( 'redirect: ' . $to ); }
+
+/** Stands in for the admin screen the sample handler redirects back to. */
+class WPCPM_Admin { public static function settings_url() { return 'https://example.test/wp-admin/admin.php?page=wpcpm-settings'; } }
+
+/**
+ * Locale switching, recorded rather than ignored.
+ *
+ * The mail layer's central claim is that a template is built *inside* the recipient's
+ * locale. A stub that returned true and did nothing would let that regress in silence, so
+ * this one keeps a stack and the assertions read it.
+ */
+function switch_to_user_locale( $user_id ) { $GLOBALS['locales'][] = (int) $user_id; return true; }
+function restore_previous_locale() { array_pop( $GLOBALS['locales'] ); return true; }
+
+/**
+ * `wp_mail()`, recording what it was handed and firing the outcome hook the log listens to.
+ */
+function wp_mail( $to, $subject, $body, $headers = array(), $attachments = array() ) {
+	// Whether each attachment still exists *at send time* is the assertion that matters:
+	// the file is written by the builder and deleted immediately afterwards, and an order
+	// mistake there means every invitation goes out with nothing attached.
+	$present = array();
+
+	foreach ( (array) $attachments as $path ) {
+		$present[ $path ] = file_exists( $path );
+	}
+
+	$GLOBALS['mail'][] = compact( 'to', 'subject', 'body', 'headers', 'attachments', 'present' );
+
+	if ( ! empty( $GLOBALS['mail_fails'] ) ) {
+		do_action( 'wp_mail_failed', new WP_Error( 'fail', 'nope', compact( 'to', 'subject' ) ) );
+
+		return false;
+	}
+
+	do_action( 'wp_mail_succeeded', compact( 'to', 'subject' ) );
+
+	return true;
+}
+
+define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
+define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
+define( 'WPCPM_VERSION', 'test' );
+
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ics.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-dashboard.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-availability.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
+
+/* ---- fixtures ----------------------------------------------------------- */
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
+
+$GLOBALS['users'][20] = new WP_User( 20, 'Kel Santiago-Pilarski', 'kel@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][30] = new WP_User( 30, 'Moldir Bekezhanova', 'moldir@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+
+WPCPM_Mail::init();
+
+/* ---- runner ------------------------------------------------------------- */
+$fail = 0;
+function ck( $label, $actual, $expected ) {
+	global $fail;
+	$ok = $actual === $expected;
+	if ( ! $ok ) { $fail++; }
+	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
+	if ( ! $ok ) {
+		echo "       expected: " . var_export( $expected, true ) . "\n";
+		echo "       actual:   " . var_export( $actual, true ) . "\n";
+	}
+}
+
+/* ---- the send wrapper --------------------------------------------------- */
+
+echo "=== WPCPM_Mail::send ===\n";
+
+$GLOBALS['mail'] = array();
+$seen_locale = null;
+
+$sent = WPCPM_Mail::send(
+	30,
+	'test-context',
+	function ( $user ) use ( &$seen_locale ) {
+		// Read from *inside* the builder: this is the only moment at which the claim
+		// "templates are built in the recipient's locale" is either true or false.
+		$seen_locale = end( $GLOBALS['locales'] );
+
+		return array( 'subject' => 'Hello', 'body' => 'Body' );
+	}
+);
+
+ck( 'a message is handed off', array( $sent ), array( true ) );
+ck( 'the template is built inside the recipient locale', array( $seen_locale ), array( 30 ) );
+ck( 'and the locale is restored afterwards', $GLOBALS['locales'], array() );
+ck( 'it goes to the recipient', array( $GLOBALS['mail'][0]['to'] ), array( 'moldir@example.test' ) );
+
+// A subject is a header. A newline in one is how a name from Airtable becomes extra headers.
+$GLOBALS['mail'] = array();
+WPCPM_Mail::send( 30, 'test', function () {
+	return array( 'subject' => "Booked\r\nBcc: attacker@example.test", 'body' => 'x' );
+} );
+ck( 'newlines are stripped from the subject',
+    array( false !== strpos( $GLOBALS['mail'][0]['subject'], "\n" ), false !== strpos( $GLOBALS['mail'][0]['subject'], 'Bcc' ) ),
+    array( false, true ) );
+
+$GLOBALS['mail'] = array();
+$sent = WPCPM_Mail::send( 30, 'test', function () { return array( 'subject' => '   ', 'body' => 'x' ); } );
+ck( 'a message with no subject is not sent', array( $sent, count( $GLOBALS['mail'] ) ), array( false, 0 ) );
+
+$sent = WPCPM_Mail::send( 999, 'test', function () { return array( 'subject' => 'x', 'body' => 'y' ); } );
+ck( 'a recipient who does not exist is not mailed', array( $sent ), array( false ) );
+
+/* ---- Reply-To ----------------------------------------------------------- */
+
+echo "\n=== Reply-To ===\n";
+
+ck( 'points at the other party',
+    WPCPM_Mail::reply_to( $GLOBALS['users'][20] ),
+    array( 'Reply-To: "Kel Santiago-Pilarski" <kel@example.test>' ) );
+ck( 'nobody to reply to means no header', WPCPM_Mail::reply_to( null ), array() );
+
+$hostile = new WP_User( 40, "Ke\"l\r\nBcc: attacker@example.test", 'x@example.test' );
+$header  = WPCPM_Mail::reply_to( $hostile );
+ck( 'a name cannot break out of the header',
+    array( false !== strpos( $header[0], "\n" ), false !== strpos( $header[0], '"Ke l Bcc: attacker@example.test"' ) ),
+    array( false, true ) );
+
+/* ---- the log ------------------------------------------------------------ */
+
+echo "\n=== The log ===\n";
+
+WPCPM_Mail::clear_log();
+WPCPM_Mail::send( 30, 'call-booked', function () { return array( 'subject' => 'Booked', 'body' => 'x' ); } );
+
+$log = WPCPM_Mail::log();
+ck( 'a send is recorded with its outcome and context',
+    array( count( $log ), $log[0]['context'], $log[0]['sent'], $log[0]['to'] ),
+    array( 1, 'call-booked', true, 'moldir@example.test' ) );
+
+$GLOBALS['mail_fails'] = true;
+WPCPM_Mail::send( 30, 'call-booked', function () { return array( 'subject' => 'Booked', 'body' => 'x' ); } );
+$GLOBALS['mail_fails'] = false;
+
+$log = WPCPM_Mail::log();
+ck( 'a refusal is recorded as one', array( $log[0]['sent'] ), array( false ) );
+ck( 'and counted', array( WPCPM_Mail::failures() ), array( 1 ) );
+
+// Mail belonging to WordPress or another plugin must not be swept into this log.
+WPCPM_Mail::clear_log();
+wp_mail( 'someone@example.test', 'Comment awaiting moderation', 'body' );
+ck( 'somebody else\'s mail is not recorded', array( count( WPCPM_Mail::log() ) ), array( 0 ) );
+
+/* ---- the invitation queue ---------------------------------------------- */
+
+echo "\n=== The invitation queue ===\n";
+
+WPCPM_Mail::clear_queue();
+$GLOBALS['invited'] = array();
+
+foreach ( range( 1, 25 ) as $i ) {
+	$GLOBALS['users'][ 100 + $i ] = new WP_User( 100 + $i, 'Student ' . $i, "s$i@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+	WPCPM_Mail::queue_invite( 100 + $i );
+}
+
+ck( 'everybody queued is waiting', array( WPCPM_Mail::queued() ), array( 25 ) );
+WPCPM_Mail::queue_invite( 101 );
+ck( 'queueing the same person twice does not duplicate them', array( WPCPM_Mail::queued() ), array( 25 ) );
+ck( 'a run is scheduled', array( false !== wp_next_scheduled( WPCPM_Mail::CRON_QUEUE ) ), array( true ) );
+
+WPCPM_Mail::drain_queue();
+ck( 'one run sends a batch, not the lot',
+    array( count( $GLOBALS['invited'] ), WPCPM_Mail::queued() ),
+    array( WPCPM_Mail::QUEUE_BATCH, 25 - WPCPM_Mail::QUEUE_BATCH ) );
+
+WPCPM_Mail::drain_queue();
+WPCPM_Mail::drain_queue();
+ck( 'and it drains to empty', array( count( $GLOBALS['invited'] ), WPCPM_Mail::queued() ), array( 25, 0 ) );
+ck( 'everybody drained is stamped as invited',
+    array( (int) get_user_meta( 105, 'wpcpm_student_invited', true ) > 0 ), array( true ) );
+
+/* ---- the welcome email -------------------------------------------------- */
+
+echo "\n=== The invitation template ===\n";
+
+$core = array(
+	'to'      => 'moldir@example.test',
+	'subject' => '[%s] Login Details',
+	'message' => "Username: moldir\r\n\r\nTo set your password, visit the following address:\r\n\r\nhttps://example.test/reset\r\n",
+	'headers' => '',
+);
+
+$student = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][30], 'WordPress Education Dashboard' );
+$mentor  = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][20], 'WordPress Education Dashboard' );
+
+ck( 'the student subject names the program, not "Login Details"',
+    array( $student['subject'] ), array( '[WordPress Education Dashboard] Welcome to the WordPress Credits Program' ) );
+ck( 'the mentor gets a different subject',
+    array( $mentor['subject'] ), array( '[WordPress Education Dashboard] Your mentor account is ready' ) );
+ck( 'both keep the reset link WordPress generated',
+    array(
+        false !== strpos( $student['message'], 'https://example.test/reset' ),
+        false !== strpos( $mentor['message'], 'https://example.test/reset' ),
+    ),
+    array( true, true ) );
+ck( 'both keep the username',
+    array( false !== strpos( $student['message'], 'Username: moldir' ) ), array( true ) );
+ck( 'both say what to do when the link has expired',
+    array(
+        false !== strpos( $student['message'], 'Lost your password?' ),
+        false !== strpos( $mentor['message'], 'Lost your password?' ),
+    ),
+    array( true, true ) );
+ck( 'the two audiences are told different things',
+    array( $student['message'] === $mentor['message'] ), array( false ) );
+
+$stranger = new WP_User( 50, 'Someone Else', 'else@example.test', array( 'subscriber' ) );
+$left     = WPCPM_Mail::welcome_email( $core, $stranger, 'Site' );
+ck( 'an account that is not ours is left alone', array( $left === $core ), array( true ) );
+
+/* ---- calendar invitations ---------------------------------------------- */
+
+echo "\n=== Calendar invitations ===\n";
+
+$facts = array(
+	'id'         => 77,
+	'start'      => 1786000000,
+	'end'        => 1786001800,
+	'mentor_id'  => 20,
+	'student_id' => 30,
+	'record'     => 'recSTUDENT1234567',
+	'name'       => 'Moldir Bekezhanova',
+	'zone'       => 'Asia/Tokyo',
+	'topic'      => "Reviewing my first PR;\nwith a newline, and a comma",
+	'booked'     => 1785000000,
+);
+
+$request = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Mentor call', "Line one\nLine two", 'https://meet.example.test/kel' );
+$cancel  = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_CANCEL, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Mentor call', 'Gone', '' );
+
+ck( 'a booking is a REQUEST and a cancellation a CANCEL',
+    array(
+        false !== strpos( $request, 'METHOD:REQUEST' ),
+        false !== strpos( $cancel, 'METHOD:CANCEL' ),
+        false !== strpos( $cancel, 'STATUS:CANCELLED' ),
+    ),
+    array( true, true, true ) );
+
+// The single most important property in the file: a cancellation that does not carry the
+// booking's own UID adds a second event to the calendar instead of withdrawing the first.
+ck( 'both name the same event',
+    array( WPCPM_ICS::uid( 77 ), false !== strpos( $request, 'UID:' . WPCPM_ICS::uid( 77 ) ), false !== strpos( $cancel, 'UID:' . WPCPM_ICS::uid( 77 ) ) ),
+    array( 'wpcpm-call-77@example.test', true, true ) );
+ck( 'and the cancellation outranks the booking',
+    array( false !== strpos( $request, 'SEQUENCE:0' ), false !== strpos( $cancel, 'SEQUENCE:1' ) ),
+    array( true, true ) );
+
+ck( 'times are UTC, not a floating local time',
+    array( false !== strpos( $request, 'DTSTART:' . gmdate( 'Ymd\THis\Z', 1786000000 ) ), false !== strpos( $request, 'TZID' ) ),
+    array( true, false ) );
+
+ck( 'the meeting link is the location',
+    array( false !== strpos( $request, 'LOCATION:https://meet.example.test/kel' ) ), array( true ) );
+
+ck( 'semicolons, commas and newlines in a description are escaped',
+    array(
+        false !== strpos( $request, 'DESCRIPTION:Line one\nLine two' ),
+        // A raw newline would end the property and produce an unparseable file.
+        (bool) preg_match( '/DESCRIPTION:[^\r\n]*\r\n(?! )/', $request ),
+    ),
+    array( true, true ) );
+
+// Every line has to be CRLF and at most 75 octets, counted in bytes.
+$too_long = array();
+foreach ( explode( "\r\n", trim( $request ) ) as $line ) {
+	if ( strlen( $line ) > 75 ) { $too_long[] = $line; }
+}
+ck( 'every line is folded to 75 octets', array( count( $too_long ) ), array( 0 ) );
+ck( 'lines are CRLF-delimited', array( false !== strpos( $request, "\r\n" ), false !== strpos( str_replace( "\r\n", '', $request ), "\n" ) ), array( true, false ) );
+
+// Folding on a byte boundary in the middle of a multi-byte character makes a file some
+// calendars refuse outright, and a mentor with an accent in their name is enough to hit it.
+$accented = new WP_User( 60, str_repeat( 'Zoë Ćwiąkalski ', 8 ), 'zoe@example.test' );
+$folded   = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $accented, $GLOBALS['users'][30], str_repeat( 'Zoë ', 30 ), 'x', '' );
+$unfolded = str_replace( "\r\n ", '', $folded );
+ck( 'folding never splits a multi-byte character',
+    array( $unfolded === mb_convert_encoding( $unfolded, 'UTF-8', 'UTF-8' ) ), array( true ) );
+
+/* ---- the attachment lifecycle ------------------------------------------ */
+
+echo "\n=== The attachment ===\n";
+
+$path = WPCPM_ICS::tempfile( $request );
+ck( 'the calendar is written where wp_mail can attach it',
+    array( '' !== $path, file_exists( $path ), basename( $path ) ),
+    array( true, true, 'mentor-call.ics' ) );
+
+WPCPM_ICS::cleanup( $path );
+ck( 'and cleaned up afterwards', array( file_exists( $path ), is_dir( dirname( $path ) ) ), array( false, false ) );
+
+// The ordering assertion: the file must still be on disk when wp_mail sees it. Cleanup
+// running first would send every invitation with nothing attached, and nothing in the
+// plugin's own output would look wrong.
+$GLOBALS['mail'] = array();
+WPCPM_Mail::send( 30, 'call-booked', function () use ( $request ) {
+	$file = WPCPM_ICS::tempfile( $request );
+
+	return array( 'subject' => 'Booked', 'body' => 'x', 'attachments' => array( $file ), 'cleanup' => array( $file ) );
+} );
+
+$attached = $GLOBALS['mail'][0];
+ck( 'the attachment exists at the moment it is sent',
+    array( count( $attached['attachments'] ), reset( $attached['present'] ) ),
+    array( 1, true ) );
+ck( 'and is gone once the send is over',
+    array( file_exists( reset( $attached['attachments'] ) ) ), array( false ) );
+
+/* ---- format_range ------------------------------------------------------ */
+
+echo "\n=== format_range ===\n";
+
+$GLOBALS['opts']['date_format'] = 'F j, Y';
+$GLOBALS['opts']['time_format'] = 'g:i a';
+
+$tokyo = new DateTimeZone( 'Asia/Tokyo' );
+
+// A 30-minute call inside one day needs no date on the end.
+$same = WPCPM_Mentor_Calls::format_range( 1786000000, 1786001800, $tokyo );
+ck( 'a call inside one day states the end as a time only',
+    array( 1 === substr_count( $same, ',' ) ), array( true ) );
+
+// The same call read on a clock where it crosses midnight has to say so, or "11:45 pm –
+// 12:15 am" reads as ending fourteen hours before it starts.
+$start = strtotime( '2026-08-03 23:45:00 UTC' );
+$cross = WPCPM_Mentor_Calls::format_range( $start, $start + 1800, new DateTimeZone( 'UTC' ) );
+ck( 'a call crossing midnight dates its end',
+    array( false !== strpos( $cross, 'August 4, 2026' ) ), array( true ) );
+
+/* ---- the sample invitation ---------------------------------------------- */
+
+echo "\n=== The sample invitation ===\n";
+
+// Two bugs lived here and nothing was watching. The sample stood the plain login URL in for
+// *both* of core's addresses, so it printed the same link twice; and the audience was read
+// from `$_GET` while the buttons post it, so both of them sent the student template. Both
+// were found by somebody pressing the button, which is the wrong way to find out.
+//
+// **Driven through `$_POST`**, because that is where the real form puts the field. The first
+// version of this test set `$_GET` by hand and passed against the broken code — a harness
+// that arranges the world to suit the implementation tests nothing.
+$GLOBALS['uid']    = 20;
+$GLOBALS['manage'] = array( 20 );
+
+/**
+ * Press one of the two sample buttons and return the message it produced.
+ *
+ * @param string $kind `student` or `mentor`.
+ * @return array The mail, or an empty array if none was sent.
+ */
+function press_sample_button( $kind ) {
+	$GLOBALS['mail'] = array();
+
+	$_GET  = array();
+	$_POST = array( 'kind' => $kind );
+
+	try {
+		WPCPM_Mail::handle_test();
+	} catch ( Exception $e ) {
+		// The handler ends in a redirect, which the stub raises.
+		$GLOBALS['last_redirect'] = $e->getMessage();
+	}
+
+	return $GLOBALS['mail'] ? $GLOBALS['mail'][0] : array();
+}
+
+$student_sample = press_sample_button( 'student' );
+$mentor_sample  = press_sample_button( 'mentor' );
+
+ck( 'the sample handler finishes and redirects',
+    array( isset( $GLOBALS['last_redirect'] ), ! empty( $student_sample ) ), array( true, true ) );
+
+// The audience actually asked for. Both buttons sending the same template is the bug this
+// pins, and it is invisible from the plugin's own screens.
+ck( 'the student button sends the student invitation',
+    array( $student_sample['subject'] ),
+    array( '[WordPress Education Dashboard] Welcome to the WordPress Credits Program' ) );
+ck( 'the mentor button sends the mentor invitation',
+    array( $mentor_sample['subject'] ),
+    array( '[WordPress Education Dashboard] Your mentor account is ready' ) );
+ck( 'the two samples say different things',
+    array( $student_sample['body'] === $mentor_sample['body'] ), array( false ) );
+ck( 'and each is logged under its own audience',
+    array( WPCPM_Mail::log()[0]['context'] ), array( 'test-mentor' ) );
+
+$sample = $student_sample['body'];
+
+preg_match_all( '#https?://\S+#', $sample, $urls );
+$found  = $urls[0];
+$unique = array_values( array_unique( $found ) );
+
+ck( 'no address appears twice', array( count( $found ) === count( $unique ) ), array( true ) );
+ck( 'the reset stand-in is marked as an example, not a live link',
+    array(
+        false !== strpos( $sample, 'EXAMPLE-KEY-NOT-A-REAL-LINK' ),
+        false !== strpos( $sample, 'action=rp' ),
+    ),
+    array( true, true ) );
+ck( 'and the login page is there once, on its own',
+    array( count( preg_grep( '#/wp-login\.php$#', $found ) ) ), array( 1 ) );
+ck( 'the sample says which address does what',
+    array( false !== strpos( $sample, 'Of the two addresses above' ) ), array( true ) );
+
+/* ---- the meeting link -------------------------------------------------- */
+
+echo "\n=== The meeting link ===\n";
+
+ck( 'an https room is kept', array( WPCPM_Mentor_Availability::meeting_url( 'https://meet.example.test/kel' ) ), array( 'https://meet.example.test/kel' ) );
+ck( 'a javascript URL is not',  array( WPCPM_Mentor_Availability::meeting_url( 'javascript:alert(1)' ) ), array( '' ) );
+ck( 'nor a data URL',           array( WPCPM_Mentor_Availability::meeting_url( 'data:text/html,<script>' ) ), array( '' ) );
+ck( 'blank stays blank',        array( WPCPM_Mentor_Availability::meeting_url( '   ' ) ), array( '' ) );
+
+echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+exit( $fail ? 1 : 0 );

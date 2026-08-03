@@ -1,0 +1,46 @@
+/*
+ * Editor-only corrections.
+ *
+ * style.css is loaded as an editor stylesheet too, so the canvas already shows
+ * the real chrome and the real landing sections. These are the few rules that
+ * are true only inside the editor, where there is no viewport for a sticky bar
+ * to stick to and no signed-in visitor for the viewer chip to describe.
+ */
+
+/* A sticky header inside the canvas sticks to the canvas, which reads as a bug
+   while you are editing the part below it. */
+.editor-styles-wrapper .wpc-header {
+	position: static;
+}
+
+/* The chip is server-rendered from who is signed in. Its editor preview is a
+   fixed sample, so mark it as one rather than let it read as live data. */
+.wpc-viewer--preview {
+	opacity: .75;
+	pointer-events: none;
+}
+
+.wpc-viewer--preview .wpc-viewer__link,
+.wpc-viewer--preview .wpc-viewer__logout {
+	color: var( --wpc-ink-70 );
+}
+
+.wpc-viewer--preview .wpc-viewer__link {
+	color: var( --wpc-brand );
+}
+
+/* The hero statistic is absolutely positioned against the column. In the editor
+   that puts it under the block toolbar and out of reach, so it sits in flow. */
+.editor-styles-wrapper .wpc-hero__stat {
+	bottom: auto;
+	left: auto;
+	margin-top: -18px;
+	position: relative;
+}
+
+/* The hero photo is `object-fit: cover` in a fixed ratio on the front end. The
+   editor draws the same shape, so replacing the image does not change the layout
+   under the block while you are looking at it. */
+.editor-styles-wrapper .wpc-hero__media .wp-block-image {
+	aspect-ratio: 1240 / 745;
+}

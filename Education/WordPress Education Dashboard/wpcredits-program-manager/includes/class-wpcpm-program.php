@@ -1,0 +1,109 @@
+<?php
+/**
+ * The program a student is on, as people say it rather than as Airtable stores it.
+ *
+ * @package WPCreditsProgramManager
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Translates Airtable's `Status` values into program names and course links.
+ *
+ * Airtable calls the two tracks `In Sensei` and `In Sensei 50h`, which is internal
+ * shorthand from an earlier name for the program. Students and mentors know them as
+ * the 150-hour and 50-hour WordPress Credits Program, and that is what every screen
+ * says. The raw values stay the storage format — the sync matches on them, the
+ * settings list them, and nothing here rewrites what is saved.
+ *
+ * Kept in one place because the mapping is needed on both dashboards and in two
+ * different shapes (a label and a course URL), and two copies would disagree.
+ */
+class WPCPM_Program {
+
+	/** Airtable status for the 150-hour track. */
+	const STATUS_150H = 'In Sensei';
+
+	/** Airtable status for the 50-hour track. */
+	const STATUS_50H = 'In Sensei 50h';
+
+	/**
+	 * The program name for a status, or the status itself if it is not a track.
+	 *
+	 * `Graduate` and `Dropped out` pass straight through: they are the *state* of a
+	 * student rather than a program, and inventing a display name for them would put
+	 * a course label on somebody who has finished.
+	 *
+	 * @param string $status Airtable status.
+	 * @return string
+	 */
+	public static function label( $status ) {
+		$status = trim( (string) $status );
+		$labels = self::labels();
+
+		return isset( $labels[ $status ] ) ? $labels[ $status ] : $status;
+	}
+
+	/**
+	 * The status → program name map.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function labels() {
+		$labels = array(
+			self::STATUS_150H => __( 'WordPress Credits Program 150h', 'wpcredits-program-manager' ),
+			self::STATUS_50H  => __( 'WordPress Credits Program 50h', 'wpcredits-program-manager' ),
+		);
+
+		/**
+		 * Filter the program names shown for each Airtable status.
+		 *
+		 * @param array<string, string> $labels Status to display name.
+		 */
+		return (array) apply_filters( 'wpcpm_program_labels', $labels );
+	}
+
+	/**
+	 * The Learn WordPress course for a status.
+	 *
+	 * @param string $status Airtable status.
+	 * @return string URL, or an empty string when the status has no course.
+	 */
+	public static function course_url( $status ) {
+		$status  = trim( (string) $status );
+		$courses = self::courses();
+
+		return isset( $courses[ $status ] ) ? $courses[ $status ] : '';
+	}
+
+	/**
+	 * The status → course URL map.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function courses() {
+		$courses = array(
+			self::STATUS_150H => 'https://learn.wordpress.org/course/wordpress-credits/',
+			self::STATUS_50H  => 'https://learn.wordpress.org/course/50-hours-wordpress-credits/',
+		);
+
+		/**
+		 * Filter the Learn WordPress course for each Airtable status.
+		 *
+		 * @param array<string, string> $courses Status to course URL.
+		 */
+		return (array) apply_filters( 'wpcpm_program_courses', $courses );
+	}
+
+	/**
+	 * Whether a status is one of the two tracks, as opposed to a finished state.
+	 *
+	 * @param string $status Airtable status.
+	 * @return bool
+	 */
+	public static function is_track( $status ) {
+		return isset( self::labels()[ trim( (string) $status ) ] );
+	}
+}

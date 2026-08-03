@@ -1,0 +1,395 @@
+/**
+ * Handbook assistant, front end.
+ *
+ * Deliberately unbranded and unopinionated about colour. The theme dresses the dashboards;
+ * this only has to hold a question box, an answer and a list of sources apart from each
+ * other, and inherit whatever the surrounding page looks like.
+ */
+
+.wpcpm-handbook {
+	margin: 1.5em 0;
+}
+
+.wpcpm-handbook__form {
+	margin: 0 0 1.25em;
+}
+
+.wpcpm-handbook__label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 0.4em;
+}
+
+/* Wraps rather than shrinking the field: a question box narrower than a question is
+   worse than a button on its own line. */
+.wpcpm-handbook__row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+.wpcpm-handbook__input {
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	flex: 1 1 22em;
+	font: inherit;
+	min-width: 0;
+	padding: 0.5em 0.7em;
+}
+
+.wpcpm-handbook__hint,
+.wpcpm-handbook__footnote,
+.wpcpm-handbook__quoted {
+	font-size: 0.9em;
+	opacity: 0.75;
+}
+
+.wpcpm-handbook__footnote {
+	border-top: 1px solid currentColor;
+	margin-top: 2em;
+	padding-top: 0.8em;
+}
+
+.wpcpm-handbook__examples {
+	list-style: none;
+	margin: 0.5em 0 0;
+	padding: 0;
+}
+
+.wpcpm-handbook__examples li {
+	margin-bottom: 0.35em;
+}
+
+.wpcpm-handbook__answer {
+	border-left: 3px solid currentColor;
+	margin: 1.25em 0;
+	padding-left: 1em;
+}
+
+.wpcpm-handbook__text > :first-child {
+	margin-top: 0;
+}
+
+.wpcpm-handbook__text > :last-child {
+	margin-bottom: 0;
+}
+
+/* The line that says the good answer could not be produced. Not an error — the reader
+   still has an answer — so it is set as an aside rather than a warning. */
+.wpcpm-handbook__degraded {
+	font-size: 0.9em;
+	font-style: italic;
+	margin: 0 0 0.8em;
+	opacity: 0.8;
+}
+
+.wpcpm-handbook__quoted {
+	margin: 0.6em 0 0;
+}
+
+.wpcpm-handbook__heading {
+	font-size: 0.85em;
+	letter-spacing: 0.06em;
+	margin: 1.5em 0 0.6em;
+	text-transform: uppercase;
+}
+
+.wpcpm-handbook__sources {
+	margin: 0;
+	padding-left: 1.4em;
+}
+
+.wpcpm-handbook__source {
+	margin-bottom: 0.9em;
+}
+
+.wpcpm-handbook__source-link {
+	font-weight: 600;
+}
+
+.wpcpm-handbook__source-text {
+	font-size: 0.92em;
+	margin: 0.2em 0 0;
+	opacity: 0.8;
+}
+
+.wpcpm-handbook__notice {
+	margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   The slide-over panel
+
+   Opened from a launcher the theme places in the header. Fixed to the right on a
+   desktop, full width on a phone. Styled here rather than in the theme because the
+   panel is the plugin's: a theme that never adds a launcher still gets a working
+   panel from the inline block, and a different theme gets the same one.
+   -------------------------------------------------------------------------- */
+
+.wpcpm-hb-panel {
+	bottom: 0;
+	left: 0;
+	position: fixed;
+	right: 0;
+	top: 0;
+	z-index: 100000;
+}
+
+.wpcpm-hb-panel__scrim {
+	background: rgba( 0, 0, 0, 0.35 );
+	inset: 0;
+	opacity: 0;
+	position: absolute;
+	transition: opacity 0.18s ease;
+}
+
+.wpcpm-hb-panel.is-open .wpcpm-hb-panel__scrim {
+	opacity: 1;
+}
+
+.wpcpm-hb-panel__sheet {
+	background: #fff;
+	bottom: 0;
+	box-shadow: -8px 0 32px rgba( 0, 0, 0, 0.18 );
+	display: flex;
+	flex-direction: column;
+	max-width: 100%;
+	position: absolute;
+	right: 0;
+	top: 0;
+	transform: translateX( 100% );
+	transition: transform 0.18s ease;
+	width: 30rem;
+}
+
+.wpcpm-hb-panel.is-open .wpcpm-hb-panel__sheet {
+	transform: translateX( 0 );
+}
+
+/* Respect a stated preference for less movement: the panel still appears, it just
+   does not slide. */
+@media ( prefers-reduced-motion: reduce ) {
+
+	.wpcpm-hb-panel__scrim,
+	.wpcpm-hb-panel__sheet {
+		transition: none;
+	}
+}
+
+.wpcpm-hb-panel__head {
+	align-items: center;
+	border-bottom: 1px solid rgba( 0, 0, 0, 0.1 );
+	display: flex;
+	gap: 1em;
+	justify-content: space-between;
+	padding: 1em 1.25em;
+}
+
+.wpcpm-hb-panel__title {
+	font-size: 1.05rem;
+	margin: 0;
+}
+
+.wpcpm-hb-panel__close {
+	background: none;
+	border: 0;
+	cursor: pointer;
+	font-size: 1.6rem;
+	line-height: 1;
+	padding: 0 0.2em;
+}
+
+.wpcpm-hb-panel__form {
+	border-bottom: 1px solid rgba( 0, 0, 0, 0.1 );
+	display: flex;
+	gap: 0.5em;
+	padding: 1em 1.25em;
+}
+
+.wpcpm-hb-panel__input {
+	border: 1px solid rgba( 0, 0, 0, 0.25 );
+	border-radius: 4px;
+	flex: 1 1 auto;
+	font: inherit;
+	min-width: 0;
+	padding: 0.5em 0.7em;
+}
+
+/* The only part that scrolls. The question box stays put while a long answer moves
+   under it, so asking the next thing never means scrolling back up. */
+.wpcpm-hb-panel__body {
+	flex: 1 1 auto;
+	overflow-y: auto;
+	padding: 1.25em;
+}
+
+.wpcpm-hb-panel__answer > :first-child {
+	margin-top: 0;
+}
+
+.wpcpm-hb-panel__sources-title {
+	font-size: 0.8rem;
+	letter-spacing: 0.06em;
+	margin: 1.5em 0 0.6em;
+	text-transform: uppercase;
+}
+
+.wpcpm-hb-panel__sources {
+	margin: 0;
+	padding-left: 1.3em;
+}
+
+.wpcpm-hb-panel__sources li {
+	margin-bottom: 0.9em;
+}
+
+.wpcpm-hb-panel__source-text {
+	font-size: 0.9em;
+	margin: 0.2em 0 0;
+	opacity: 0.75;
+}
+
+.wpcpm-hb-panel__hint,
+.wpcpm-hb-panel__degraded,
+.wpcpm-hb-panel__foot {
+	font-size: 0.9em;
+	opacity: 0.75;
+}
+
+.wpcpm-hb-panel__degraded {
+	font-style: italic;
+}
+
+.wpcpm-hb-panel__foot {
+	border-top: 1px solid rgba( 0, 0, 0, 0.1 );
+	margin: 0;
+	padding: 0.9em 1.25em;
+}
+
+/* The page behind must not scroll while the panel is over it. */
+.wpcpm-hb-open,
+.wpcpm-hb-open body {
+	overflow: hidden;
+}
+
+@media ( max-width: 600px ) {
+
+	.wpcpm-hb-panel__sheet {
+		width: 100%;
+	}
+}
+
+/* --------------------------------------------------------------------------
+   The prompt at the foot of a dashboard
+
+   Not a section of its own: two lines under everything else, offering the panel to
+   people who did not know it was there.
+   -------------------------------------------------------------------------- */
+
+.wpcpm-handbook__prompt {
+	align-items: baseline;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6em;
+	margin: 1.5em 0 0;
+}
+
+.wpcpm-handbook__prompt-button {
+	background: none;
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	cursor: pointer;
+	font: inherit;
+	font-size: 0.9em;
+	padding: 0.4em 0.9em;
+}
+
+.wpcpm-handbook__prompt-note {
+	font-size: 0.85em;
+	opacity: 0.7;
+}
+
+/* An answer that cites nothing from the WordPress sites it was told to use. Warned about
+   rather than hidden: the model may simply not have cited anything, but an uncited answer
+   from one that was asked to cite is the one most likely to be invented. */
+.wpcpm-handbook__unsourced,
+.wpcpm-hb-panel__unsourced {
+	border-left: 3px solid #d63638;
+	font-size: 0.9em;
+	margin: 0 0 0.9em;
+	padding-left: 0.8em;
+}
+
+/* --------------------------------------------------------------------------
+   Waiting
+
+   A grounded answer takes ten to twenty-five seconds. A line of text for that long
+   reads as a page that has stopped, so there is a bar that moves and a count of
+   seconds that proves it. Indeterminate on purpose: nothing reports how far through a
+   search is, and a bar that pretended to know would stall at 90%.
+   -------------------------------------------------------------------------- */
+
+.wpcpm-hb-panel__bar {
+	background: rgba( 0, 0, 0, 0.08 );
+	border-radius: 999px;
+	height: 6px;
+	margin: 0.6em 0 0.4em;
+	overflow: hidden;
+}
+
+.wpcpm-hb-panel__bar span {
+	background: currentColor;
+	border-radius: 999px;
+	display: block;
+	height: 100%;
+	opacity: 0.55;
+	/* A third of the track, travelling across it. */
+	width: 34%;
+	animation: wpcpm-hb-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes wpcpm-hb-slide {
+
+	from {
+		transform: translateX( -110% );
+	}
+
+	to {
+		transform: translateX( 320% );
+	}
+}
+
+.wpcpm-hb-panel__clock {
+	font-size: 0.85em;
+	font-variant-numeric: tabular-nums;
+	margin: 0;
+	opacity: 0.6;
+}
+
+/* A moving bar is the point, so with motion reduced the seconds carry the message
+   instead and the bar simply fills. */
+@media ( prefers-reduced-motion: reduce ) {
+
+	.wpcpm-hb-panel__bar span {
+		animation: none;
+		width: 100%;
+	}
+}
+
+/* The address under each citation. Google supplies no page title, so the path is what
+   identifies a handbook page four levels deep — and it has to be able to break, because
+   those paths are long. */
+.wpcpm-handbook__source-url,
+.wpcpm-hb-panel__source-url {
+	font-size: 0.85em;
+	margin: 0.15em 0 0;
+	opacity: 0.65;
+	overflow-wrap: anywhere;
+}
+
+/* The privacy note, italic so it reads as an aside about the tool rather than as part of
+   the answer. Both places it appears: under the panel, and under the inline block. */
+.wpcpm-handbook__footnote,
+.wpcpm-hb-panel__foot {
+	font-style: italic;
+}

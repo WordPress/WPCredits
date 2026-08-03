@@ -1,0 +1,157 @@
+<?php
+/**
+ * The program's front-end dashboards, as one menu.
+ *
+ * @package WPCreditsProgramManager
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Collects the dashboards the current user can reach and puts them in the toolbar.
+ *
+ * Each module owns its own page, but a person can reach more than one of them —
+ * an administrator reaches every page, and somebody can genuinely be both a mentor
+ * and a student. Registering them from one place means an administrator gets them
+ * grouped under a single menu instead of a row of unrelated top-level items, while
+ * a mentor with one page still gets one direct link.
+ */
+class WPCPM_Dashboards {
+
+	const NODE = 'wpcpm-dashboards';
+
+	/**
+	 * Hooks.
+	 */
+	public static function init() {
+		add_action( 'admin_bar_menu', array( __CLASS__, 'admin_bar' ), 40 );
+	}
+
+	/**
+	 * The dashboards this user can reach, in menu order.
+	 *
+	 * @return array[] Each entry has id, title, href and own keys.
+	 */
+	public static function links() {
+		$can_manage = current_user_can( WPCPM_Roles::CAP_MANAGE );
+		$links      = array();
+
+		$student_page = WPCPM_Students_Dashboard::page_url();
+		$is_student   = WPCPM_Students_Dashboard::is_student();
+
+		if ( '' !== $student_page && ( $is_student || $can_manage ) ) {
+			$links[] = array(
+				'id'    => 'wpcpm-student-dashboard',
+				// "My Program" only when it is theirs; an administrator looking at
+				// somebody else's should not be told it is their own.
+				'title' => $is_student
+					? __( 'Student Report Card', 'wpcredits-program-manager' )
+					: __( 'Student Dashboard', 'wpcredits-program-manager' ),
+				'href'  => $student_page,
+				'own'   => $is_student,
+			);
+		}
+
+		$mentor_page = WPCPM_Mentors_Dashboard::page_url();
+		$is_mentor   = WPCPM_Mentors_Dashboard::is_mentor();
+
+		if ( '' !== $mentor_page && ( $is_mentor || $can_manage ) ) {
+			$links[] = array(
+				'id'    => 'wpcpm-mentor-dashboard',
+				'title' => $is_mentor
+					? __( 'Mentor Report Card', 'wpcredits-program-manager' )
+					: __( 'Mentor Dashboard', 'wpcredits-program-manager' ),
+				'href'  => $mentor_page,
+				'own'   => $is_mentor,
+			);
+		}
+
+		/**
+		 * Filter the dashboards offered in the toolbar.
+		 *
+		 * @param array[] $links Dashboard links.
+		 */
+		return (array) apply_filters( 'wpcpm_dashboard_links', $links );
+	}
+
+	/**
+	 * Add the dashboards to the toolbar.
+	 *
+	 * @param WP_Admin_Bar $admin_bar Admin bar instance.
+	 */
+	public static function admin_bar( $admin_bar ) {
+		if ( ! $admin_bar instanceof WP_Admin_Bar ) {
+			return;
+		}
+
+		$links = self::links();
+
+		if ( empty( $links ) ) {
+			return;
+		}
+
+		// One page: a direct link, because burying a mentor's only destination
+		// under a menu costs them a click for nothing.
+		if ( 1 === count( $links ) ) {
+			$admin_bar->add_node(
+				array(
+					'id'    => $links[0]['id'],
+					'title' => $links[0]['title'],
+					'href'  => $links[0]['href'],
+				)
+			);
+
+			return;
+		}
+
+		$admin_bar->add_node(
+			array(
+				'id'    => self::NODE,
+				'title' => __( 'Dashboards', 'wpcredits-program-manager' ),
+				'href'  => $links[0]['href'],
+				'meta'  => array( 'title' => __( 'The program dashboards you can reach', 'wpcredits-program-manager' ) ),
+			)
+		);
+
+		foreach ( $links as $link ) {
+			$admin_bar->add_node(
+				array(
+					'id'     => $link['id'],
+					'parent' => self::NODE,
+					'title'  => $link['title'],
+					'href'   => $link['href'],
+				)
+			);
+		}
+	}
+
+	/**
+	 * Why a dashboard has nothing to show, phrased for who is asking.
+	 *
+	 * An administrator who has not synced yet used to be told they lacked a role,
+	 * which is both untrue and unactionable — the accounts simply do not exist. The
+	 * message has to name the real reason and point at the screen that fixes it.
+	 *
+	 * @param string $module     Module ID, `mentors` or `students`.
+	 * @param bool   $can_manage Whether the viewer manages the program.
+	 * @return string HTML.
+	 */
+	public static function nothing_to_show( $module, $can_manage ) {
+		if ( ! $can_manage ) {
+			return 'students' === $module
+				? esc_html__( 'This page is for program students. Your account is not linked to a student record.', 'wpcredits-program-manager' )
+				: esc_html__( 'This page is for program mentors. Your account does not hold the Mentor role.', 'wpcredits-program-manager' );
+		}
+
+		$message = 'students' === $module
+			? __( 'No student accounts have been synced yet, so there is nothing to show. Run a sync on the Students screen and they will appear here.', 'wpcredits-program-manager' )
+			: __( 'No mentor accounts have been synced yet, so there is nothing to show. Run a sync on the Mentors screen and they will appear here.', 'wpcredits-program-manager' );
+
+		$screen = ( 'students' === $module ) ? 'wpcpm-students' : 'wpcpm-mentors';
+
+		return esc_html( $message ) . ' <a href="' . esc_url( admin_url( 'admin.php?page=' . $screen ) ) . '">'
+			. esc_html__( 'Open that screen', 'wpcredits-program-manager' ) . '</a>';
+	}
+}

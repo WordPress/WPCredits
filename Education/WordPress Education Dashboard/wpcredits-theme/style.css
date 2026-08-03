@@ -1,0 +1,1276 @@
+/*
+Theme Name: WPCredits
+Theme URI: https://example.com/wpcredits-theme
+Author: Maciej Pilarski
+Author URI: https://example.com
+Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
+Version: 1.8.1
+Requires at least: 6.6
+Tested up to: 6.8
+Requires PHP: 7.4
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: wpcredits-theme
+Domain Path: /languages
+Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
+*/
+
+/* ==========================================================================
+   Token aliases
+
+   theme.json owns the values — these are short names for the ones this
+   stylesheet reaches for often, so a rule reads as design intent rather than as
+   a preset path. Nothing here introduces a color theme.json does not define.
+   ========================================================================== */
+:root {
+	--wpc-brand: var( --wp--preset--color--brand );
+	--wpc-brand-dark: var( --wp--preset--color--brand-dark );
+	--wpc-brand-tint: var( --wp--preset--color--brand-tint );
+	--wpc-brand-border: var( --wp--preset--color--brand-border );
+
+	--wpc-ink: var( --wp--preset--color--ink );
+	--wpc-ink-70: var( --wp--preset--color--ink-70 );
+	--wpc-ink-60: var( --wp--preset--color--ink-60 );
+	--wpc-ink-50: var( --wp--preset--color--ink-50 );
+
+	--wpc-surface: var( --wp--preset--color--base );
+	--wpc-surface-soft: var( --wp--preset--color--surface-soft );
+	--wpc-surface-band: var( --wp--preset--color--surface-band );
+
+	--wpc-line: var( --wp--preset--color--line );
+	--wpc-line-soft: var( --wp--custom--line--soft );
+	--wpc-line-card: var( --wp--custom--line--card );
+	--wpc-line-strong: var( --wp--custom--line--strong );
+	--wpc-control-border: var( --wp--custom--line--control );
+
+	--wpc-red: var( --wp--custom--status--red );
+	--wpc-red-tint: var( --wp--custom--status--red-tint );
+	--wpc-red-border: var( --wp--custom--status--red-border );
+	--wpc-red-chip: var( --wp--custom--status--red-chip );
+
+	--wpc-amber: var( --wp--custom--status--amber );
+	--wpc-amber-tint: var( --wp--custom--status--amber-tint );
+	--wpc-amber-border: var( --wp--custom--status--amber-border );
+	--wpc-amber-chip: var( --wp--custom--status--amber-chip );
+
+	--wpc-green: var( --wp--custom--status--green );
+	--wpc-green-tint: var( --wp--custom--status--green-tint );
+	--wpc-green-border: var( --wp--custom--status--green-border );
+
+	--wpc-radius-card: var( --wp--custom--radius--card );
+	--wpc-radius-panel: var( --wp--custom--radius--panel );
+	--wpc-radius-control: var( --wp--custom--radius--control );
+	--wpc-radius-pill: var( --wp--custom--radius--pill );
+
+	--wpc-font: var( --wp--preset--font-family--system );
+	--wpc-mono: var( --wp--preset--font-family--mono );
+
+	--wpc-shadow-card: var( --wp--custom--shadow--card );
+	--wpc-shadow-float: var( --wp--custom--shadow--float );
+
+	/* The sticky bar's height — the reference site's 76px — so anything else that
+	   sticks knows where to stop. Kept here rather than in theme.json because it is
+	   a measurement the layout depends on, not a value anyone should be offered in
+	   the editor. */
+	--wpc-header-height: 76px;
+}
+
+/* ==========================================================================
+   Base
+
+   theme.json covers color and type. What is left is the handful of things it
+   has no opinion about.
+   ========================================================================== */
+body {
+	-webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	text-wrap: balance;
+}
+
+/* One focus treatment across the whole theme: a 2px brand ring, offset so it
+   never sits on top of the control's own border. */
+:where( a, button, input, select, textarea, summary, [tabindex] ):focus-visible {
+	outline: 2px solid var( --wpc-brand );
+	outline-offset: 2px;
+}
+
+/* The reference site's skip link, which slides in at the top-left corner.
+   Block themes get their skip link from core, which prints its own focus styles
+   in an inline <style> in the footer — later in the document than this file — so
+   `body` is prepended to outrank it rather than to add meaning. */
+body .skip-link.screen-reader-text:focus {
+	background: var( --wpc-surface );
+	border-radius: 0 0 6px 0;
+	box-shadow: 0 2px 8px rgba( 0, 0, 0, .15 );
+	clip-path: none;
+	color: var( --wpc-brand );
+	font: 500 15px/1.4 var( --wpc-font );
+	height: auto;
+	left: 0;
+	margin: 0;
+	padding: 10px 18px;
+	text-decoration: none;
+	top: 0;
+	width: auto;
+	z-index: 1000;
+}
+
+/* ==========================================================================
+   Chrome tokens
+
+   The header and footer reproduce the WordPress Education Initiatives theme
+   exactly. Its measure and gutter — 1240px and 40px — are theme.json's wideSize
+   and root padding too, so the brand lines up with the content below it rather
+   than sitting 60px to its left.
+
+   The rest are values only the chrome uses: the 76px bar, the #ededed rule that
+   is a shade lighter than the page's, the #6e6e6e muted gray, and the 4px control
+   radius. They stay here rather than in theme.json because nothing in the editor
+   should be able to move them out of step with the reference.
+   ========================================================================== */
+:root {
+	--wpc-chrome-maxw: 1240px;
+	--wpc-chrome-gutter: 40px;
+
+	/* The header's outer box. Its gutters have to sit *outside* the measure, or the
+	   brand and the navigation end up inset a further 40px from the content below
+	   them: `wideSize` is the width of the content box, not of a box with padding
+	   added. The reference theme has no such problem — there the page sections carry
+	   the same padding as the bar, so everything shares one indent. */
+	--wpc-chrome-shell: calc( var( --wpc-chrome-maxw ) + 2 * var( --wpc-chrome-gutter ) );
+
+	--wpc-chrome-rule: #ededed;
+	--wpc-chrome-muted: #6e6e6e;
+	--wpc-chrome-faint: #8d8d8d;
+	--wpc-chrome-hover: #f4f4f4;
+	--wpc-chrome-radius: 4px;
+
+	/* Borrowed from credits-program-mentors, so a profile photo looks the same
+	   wherever the program shows one: a white mount with a hairline around it. */
+	--wpc-photo-mount: #fff;
+	--wpc-photo-line: #e5e9f2;
+	--wpc-photo-backdrop: #f4f6fb;
+}
+
+/* ==========================================================================
+   Site header — sticky white bar, 76px, centered navigation
+   ========================================================================== */
+/* The bar sticks from its wrapper, not from itself.
+
+   A template part is rendered inside a wrapper element whose height is exactly the
+   part's, and a sticky element can only travel inside its containing block — so
+   `position: sticky` on the `<header>` had nowhere to go and the bar scrolled away
+   with the page. That was easy to misread as the dashboard's group headings being
+   the thing at fault, since once the bar had gone they were the only thing pinned.
+
+   The wrapper is the whole page's child, so stickiness belongs there; the header
+   keeps the paint. */
+.wpc-header-part {
+	position: sticky;
+	top: 0;
+	z-index: 50;
+}
+
+.admin-bar .wpc-header-part {
+	top: 32px;
+}
+
+.wpc-header {
+	background: var( --wpc-surface );
+	border-bottom: 1px solid var( --wpc-chrome-rule );
+}
+
+/* Core spaces every top-level block: `:where(.wp-site-blocks) > * { margin-block-start: 20px }`.
+   On a `main` that paints its own background that gap is a white stripe — it is margin, so it
+   falls outside the background, between the header's rule and the page. Padding inside the
+   element cannot close it, and adding padding on top of it only moves the content further down
+   the stripe.
+
+   So the gap goes. The space those pages want above their card is padding on the element
+   itself, where the background covers it — see `.wpc-main--content` below and
+   `.wpc-main--dashboard` in assets/css/dashboard.css.
+
+   The footer's own gap goes with it, or the identical stripe appears along the bottom edge. */
+.wp-site-blocks > .wpc-main--dashboard,
+.wp-site-blocks > .wpc-main--content,
+.wp-site-blocks > .wpc-main--dashboard + .wpc-footer-part,
+.wp-site-blocks > .wpc-main--content + .wpc-footer-part {
+	margin-block-start: 0;
+}
+
+.wpc-header__inner {
+	gap: 40px;
+	margin: 0 auto;
+	max-width: var( --wpc-chrome-shell );
+	min-height: var( --wpc-header-height );
+	padding: 0 var( --wpc-chrome-gutter );
+	width: 100%;
+}
+
+/* --- brand ------------------------------------------------------------- */
+.wpc-brand {
+	flex: none;
+	gap: 12px;
+}
+
+.wpc-brand .wp-block-site-logo,
+.wpc-brand .wp-block-site-logo a {
+	display: block;
+	line-height: 0;
+}
+
+/* The mark is brand blue in the chrome, not ink: the bundled SVG paints with
+   currentColor, so the color is set on the wrapper. */
+.wpc-brand .wp-block-site-logo img,
+.wpc-brand .wpc-logo {
+	color: var( --wpc-brand );
+	display: block;
+	height: 38px;
+	width: 38px;
+}
+
+.wpc-brand__name {
+	color: var( --wpc-ink );
+	font-size: 20px;
+	font-weight: 600;
+	letter-spacing: -.01em;
+	line-height: 1.2;
+	white-space: nowrap;
+}
+
+.wpc-brand__name em {
+	color: var( --wpc-brand );
+	font-style: normal;
+}
+
+/* Whatever follows the accent word — "Initiatives" — is muted and unbolded. */
+.wpc-brand__name i {
+	color: var( --wpc-chrome-muted );
+	font-style: normal;
+	font-weight: 400;
+}
+
+/* --- navigation -------------------------------------------------------- */
+/* Pushed to the right edge of the content, so the last thing in the bar — the
+   profile photo — lines up with the right edge of everything below it. The
+   reference centers this group because its own last item is a wide blue button
+   that reads as deliberate in the middle; an avatar floating there just looks
+   unaligned. */
+.wpc-nav__center {
+	display: flex;
+	flex: 1;
+	gap: 6px;
+	justify-content: flex-end;
+}
+
+.wpc-nav {
+	font-size: 15px;
+}
+
+.wpc-nav .wp-block-navigation__container {
+	gap: 6px;
+}
+
+/* Top-level items and submenu toggles share one shape, as they do in the
+   reference: a 15px label in a 4px-radius hit area that grays on hover. */
+.wpc-header .wpc-nav .wp-block-navigation-item__content,
+.wpc-header .wpc-nav .wp-block-navigation-submenu__toggle {
+	border: 0;
+	border-radius: var( --wpc-chrome-radius );
+	color: var( --wpc-ink );
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	font: inherit;
+	font-size: 15px;
+	gap: 5px;
+	padding: 8px 12px;
+	text-decoration: none;
+}
+
+.wpc-header .wpc-nav .wp-block-navigation-item__content:hover,
+.wpc-header .wpc-nav .wp-block-navigation-item__content:focus,
+.wpc-header .wpc-nav .wp-block-navigation-submenu__toggle:hover,
+.wpc-header .wpc-nav .wp-block-navigation-submenu__toggle[aria-expanded="true"] {
+	background: var( --wpc-chrome-hover );
+	color: var( --wpc-ink );
+}
+
+.wpc-header .wpc-nav .current-menu-item > .wp-block-navigation-item__content,
+.wpc-header .wpc-nav [aria-current="page"] {
+	color: var( --wpc-brand );
+	font-weight: 500;
+}
+
+/* The caret, dimmed and flipped when its panel is open. */
+.wpc-nav .wp-block-navigation__submenu-icon {
+	opacity: .6;
+	transition: transform .15s ease;
+}
+
+.wpc-header .wpc-nav .wp-block-navigation-submenu__toggle[aria-expanded="true"] .wp-block-navigation__submenu-icon {
+	transform: rotate( 180deg );
+}
+
+/* Dropdown panels: 240px, white, hairline border, 8px corners, soft shadow.
+
+   The navigation block ships opinionated defaults for all of this, at specificities
+   that a single class cannot reach — hence the compound selectors through the rest
+   of this section. `.wpc-nav.wp-block-navigation` is one element wearing both
+   classes, which buys a point without inventing a wrapper. */
+.wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__submenu-container {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-chrome-rule );
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba( 0, 0, 0, .12 );
+	left: 0;
+	min-width: 240px;
+	padding: 6px;
+	top: calc( 100% + 8px );
+	width: 240px;
+	z-index: 60;
+}
+
+.wpc-header .wpc-nav .has-child .wp-block-navigation__submenu-container > .wp-block-navigation-item > .wp-block-navigation-item__content {
+	border-radius: var( --wpc-chrome-radius );
+	color: var( --wpc-ink );
+	display: block;
+	font-size: 14px;
+	padding: 9px 12px;
+}
+
+/* Shown and hidden with `display`, the way the reference toggles its panels with
+   the `hidden` attribute — not with core's `opacity`/`visibility` pair.
+
+   Core fades submenus in and out, and its reveal rule also resets `width` to
+   `auto`. Restating the whole chain with the theme's classes in front outranks it,
+   but a fade that has to win a specificity fight on two properties at once is a
+   fragile thing to inherit from a block that keeps being revised. `display` is
+   decisive, matches the reference's own behavior, and leaves nothing to animate
+   half-way. */
+.wpc-header .wpc-nav .has-child .wp-block-navigation__submenu-container {
+	display: none;
+}
+
+.wpc-header .wpc-nav .has-child .wp-block-navigation-submenu__toggle[aria-expanded="true"] ~ .wp-block-navigation__submenu-container {
+	display: flex;
+	opacity: 1;
+	visibility: visible;
+	width: 240px;
+}
+
+/* A third level would open to the side; the reference has none, so nesting is
+   flattened into the same panel rather than left to fly out off screen. */
+.wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__submenu-container .wp-block-navigation__submenu-container {
+	border: 0;
+	box-shadow: none;
+	left: 0;
+	padding: 0 0 0 12px;
+	position: static;
+	width: auto;
+}
+
+/* --- mobile toggle ----------------------------------------------------- */
+.wpc-header .wpc-nav .wp-block-navigation__responsive-container-open:not( .always-shown ) {
+	align-items: center;
+	background: none;
+	border: 1px solid var( --wpc-chrome-rule );
+	border-radius: var( --wpc-chrome-radius );
+	color: var( --wpc-ink );
+	display: none;
+	height: 44px;
+	justify-content: center;
+	padding: 0;
+	width: 44px;
+}
+
+/* --- viewer chip / call to action -------------------------------------- */
+.wpc-viewer {
+	align-items: center;
+	display: flex;
+	flex: none;
+	font-size: 15px;
+	gap: 18px;
+}
+
+.wpc-header .wpc-viewer a {
+	color: var( --wpc-ink );
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wpc-header .wpc-viewer a:hover,
+.wpc-header .wpc-viewer a:focus {
+	color: var( --wpc-brand );
+}
+
+.wpc-viewer__link {
+	border-radius: var( --wpc-chrome-radius );
+	padding: 8px 12px;
+}
+
+.wpc-header .wpc-viewer__link:hover,
+.wpc-header .wpc-viewer__link:focus {
+	background: var( --wpc-chrome-hover );
+	color: var( --wpc-ink );
+}
+
+/* The handbook launcher, dressed as the header's other links rather than as a button:
+   it sits between the navigation and the account chip and should read as part of that
+   row, not as a call to action competing with it. */
+.wpc-header .wpc-ask {
+	background: none;
+	border: 0;
+	border-radius: var( --wpc-chrome-radius );
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	padding: 8px 12px;
+	white-space: nowrap;
+}
+
+.wpc-header .wpc-ask:hover,
+.wpc-header .wpc-ask:focus {
+	background: var( --wpc-chrome-hover );
+	color: var( --wpc-ink );
+}
+
+.wpc-header .wpc-viewer__link.is-current {
+	color: var( --wpc-brand );
+	font-weight: 500;
+}
+
+.wpc-header .wpc-viewer__logout {
+	color: var( --wpc-chrome-muted );
+	font-size: 14px;
+}
+
+/* Falls back to the initials in the `data-initials` attribute when there is no
+   photo to load. */
+.wpc-viewer__avatar {
+	align-items: center;
+	background: var( --wpc-brand-tint );
+	border-radius: 50%;
+	color: var( --wpc-brand );
+	display: flex;
+	flex: none;
+	font: 500 12px/1 var( --wpc-font );
+	height: 34px;
+	justify-content: center;
+	overflow: hidden;
+	width: 34px;
+}
+
+.wpc-viewer__avatar::before {
+	content: attr( data-initials );
+}
+
+.wpc-viewer__avatar:has( img )::before {
+	content: none;
+}
+
+/* A real photo gets the program's mount, the same as on the mentor page. The
+   initials fallback keeps the flat tinted circle: a white ring around a letter
+   reads as a mistake, and there is no photo there to mount. */
+.wpc-viewer__avatar img {
+	background: var( --wpc-photo-backdrop );
+	border: 2px solid var( --wpc-photo-mount );
+	border-radius: 50%;
+	box-shadow: 0 0 0 1px var( --wpc-photo-line );
+	box-sizing: border-box;
+	display: block;
+	height: 34px;
+	object-fit: cover;
+	width: 34px;
+}
+
+/* The reference site's own call to action, which on this site is the way in. */
+.wpc-header .wpc-viewer__signin,
+.wpc-header .wpc-viewer--guest a {
+	background: var( --wpc-brand );
+	border-radius: var( --wpc-chrome-radius );
+	color: var( --wpc-surface );
+	font-size: 15px;
+	font-weight: 500;
+	padding: 11px 22px;
+}
+
+.wpc-header .wpc-viewer--guest a:hover,
+.wpc-header .wpc-viewer--guest a:focus {
+	background: var( --wpc-brand-dark );
+	color: var( --wpc-surface );
+}
+
+/* ==========================================================================
+   Footer — four columns over a rule, then the credit bar
+   ========================================================================== */
+.wpc-footer {
+	border-top: 1px solid var( --wpc-chrome-rule );
+	padding: 56px var( --wpc-chrome-gutter ) 32px;
+}
+
+.wpc-footer__grid {
+	display: grid;
+	gap: 40px;
+	grid-template-columns: 2fr 1fr 1fr 1fr;
+	margin: 0 auto;
+	max-width: var( --wpc-chrome-maxw );
+}
+
+.wpc-footer__brand {
+	gap: 10px;
+	margin-bottom: 16px;
+}
+
+.wpc-footer__brand .wp-block-site-logo,
+.wpc-footer__brand .wp-block-site-logo a {
+	display: block;
+	line-height: 0;
+}
+
+.wpc-footer__brand .wp-block-site-logo img,
+.wpc-footer__brand .wpc-logo {
+	color: var( --wpc-brand );
+	display: block;
+	height: 32px;
+	width: 32px;
+}
+
+.wpc-footer__brand-name {
+	font-size: 16px;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.wpc-footer__brand-name em {
+	color: var( --wpc-brand );
+	font-style: normal;
+}
+
+.wpc-footer__brand-name i {
+	color: var( --wpc-chrome-muted );
+	font-style: normal;
+	font-weight: 400;
+}
+
+.wpc-footer__about {
+	color: var( --wpc-chrome-muted );
+	font-size: 14px;
+	line-height: 1.6;
+	margin: 0;
+	max-width: 300px;
+}
+
+.wpc-footer h4 {
+	color: var( --wpc-ink );
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: .06em;
+	margin: 0 0 14px;
+	text-transform: uppercase;
+}
+
+.wpc-footer__links {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-footer .wpc-footer__links a {
+	color: var( --wpc-chrome-muted );
+	font-size: 14px;
+	text-decoration: none;
+}
+
+.wpc-footer .wpc-footer__links a:hover,
+.wpc-footer .wpc-footer__links a:focus {
+	color: var( --wpc-brand );
+}
+
+.wpc-footer__bar {
+	border-top: 1px solid var( --wpc-chrome-rule );
+	gap: 12px;
+	margin: 40px auto 0;
+	max-width: var( --wpc-chrome-maxw );
+	padding-top: 24px;
+}
+
+.wpc-footer__copy,
+.wpc-footer__motto {
+	color: var( --wpc-chrome-faint );
+	font-size: 13px;
+	margin: 0;
+}
+
+.wpc-footer__motto {
+	font-style: italic;
+}
+
+/* ==========================================================================
+   Buttons — core's block, this design's shapes
+   ========================================================================== */
+.wp-block-button.wpc-button--large .wp-block-button__link {
+	font-size: 14px;
+	padding: 11px 20px;
+}
+
+.wp-block-button.is-style-outline .wp-block-button__link {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-brand );
+	color: var( --wpc-brand );
+}
+
+.wp-block-button.is-style-outline .wp-block-button__link:hover,
+.wp-block-button.is-style-outline .wp-block-button__link:focus {
+	background: var( --wpc-brand-tint );
+	border-color: var( --wpc-brand-dark );
+	color: var( --wpc-brand-dark );
+}
+
+.wp-block-button.wpc-button--light .wp-block-button__link {
+	background: var( --wpc-surface );
+	color: var( --wpc-brand );
+}
+
+.wp-block-button.wpc-button--light .wp-block-button__link:hover,
+.wp-block-button.wpc-button--light .wp-block-button__link:focus {
+	background: var( --wpc-brand-tint );
+	color: var( --wpc-brand-dark );
+}
+
+/* ==========================================================================
+   Block styles
+   ========================================================================== */
+.wp-block-group.is-style-card {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	padding: 20px;
+}
+
+.wp-block-group.is-style-band {
+	background: var( --wpc-surface-soft );
+	border-bottom: 1px solid var( --wpc-line );
+	border-top: 1px solid var( --wpc-line );
+}
+
+.wpc-eyebrow,
+p.is-style-eyebrow {
+	color: var( --wpc-ink-60 );
+	font: 500 11px/16px var( --wpc-font );
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.wpc-pill,
+p.is-style-pill {
+	background: var( --wpc-line-soft );
+	border-radius: var( --wpc-radius-pill );
+	color: var( --wpc-ink-70 );
+	display: inline-block;
+	font: 500 11px/16px var( --wpc-font );
+	letter-spacing: .06em;
+	padding: 4px 11px;
+	text-transform: uppercase;
+}
+
+/* ==========================================================================
+   Landing — hero
+   ========================================================================== */
+.wpc-hero__cols {
+	gap: 44px;
+}
+
+.wpc-hero__title {
+	letter-spacing: -.02em;
+	line-height: 1.14;
+}
+
+.wpc-hero__title em {
+	color: var( --wpc-brand );
+	font-style: normal;
+}
+
+.wpc-hero__lede {
+	max-width: 44ch;
+}
+
+.wpc-hero__actions {
+	gap: 12px;
+}
+
+.wpc-hero__media {
+	position: relative;
+}
+
+.wpc-hero__media .wp-block-image,
+.wpc-hero__media .wp-block-image img {
+	border-radius: 16px;
+	display: block;
+	width: 100%;
+}
+
+/* A tint behind the photo while it loads, so the column is the photo's shape from
+   the first paint rather than collapsing and pushing the page down when it arrives.
+   The ratio is the shipped image's, and any replacement of the same shape keeps it. */
+.wpc-hero__media .wp-block-image {
+	aspect-ratio: 1240 / 745;
+	background: var( --wpc-brand-tint );
+	overflow: hidden;
+}
+
+.wpc-hero__media .wp-block-image img {
+	height: 100%;
+	object-fit: cover;
+}
+
+/* Overhung further off the photo's left edge than it looks like it should be: the
+   card is the one number on the page, and at `left: -16px` it read as a caption
+   stuck to the corner of the image. Out here it sits in the white between the two
+   columns and reads as its own object. There is room for it — the lede above ends
+   well short of the photo — and the 900px rule below re-anchors it to the right
+   before the columns stack, where there is none. */
+.wpc-hero__stat {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	bottom: -18px;
+	box-shadow: var( --wpc-shadow-float );
+	left: -64px;
+	padding: 18px 20px;
+	position: absolute;
+	width: 260px;
+}
+
+/* Room between the number and what it counts. At the sizes the pattern sets — the
+   hero's own title size over its own body size — a couple of pixels read as one
+   crowded block rather than as a figure with a caption. */
+.wpc-hero__stat > * + * {
+	margin-top: 10px;
+}
+
+/* The number borrows the hero title's size and color from the pattern, so it also
+   borrows the title's tracking: 44px at the default spacing reads loose beside it.
+   Tabular figures so the card does not reflow as the count changes — 11 and 92 are
+   the same width. */
+.wpc-hero__stat-number {
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -.02em;
+}
+
+/* The label is the lede's size and color; the extra weight is what keeps it from
+   reading as a second lede that wandered into the photo. */
+.wpc-hero__stat-label {
+	line-height: 1.4;
+}
+
+/* ==========================================================================
+   Landing — audiences band
+   ========================================================================== */
+.wpc-audiences {
+	border-bottom: 1px solid var( --wpc-line );
+	border-top: 1px solid var( --wpc-line );
+}
+
+.wpc-audiences__grid {
+	gap: 0;
+}
+
+.wpc-audience {
+	padding: 0 24px;
+}
+
+.wpc-audience + .wpc-audience {
+	border-left: 1px solid var( --wpc-line-card );
+}
+
+.wpc-audience:first-child {
+	padding-left: 0;
+}
+
+.wpc-audience:last-child {
+	padding-right: 0;
+}
+
+.wpc-audience__icon {
+	align-items: center;
+	border-radius: var( --wpc-radius-card );
+	display: flex;
+	height: 36px;
+	justify-content: center;
+	width: 36px;
+}
+
+.wpc-audience__icon svg {
+	height: 20px;
+	width: 20px;
+}
+
+.wpc-audience__icon--blue {
+	background: var( --wpc-brand-tint );
+	color: var( --wpc-brand );
+}
+
+.wpc-audience__icon--green {
+	background: var( --wpc-green-tint );
+	color: var( --wpc-green );
+}
+
+.wpc-audience__icon--amber {
+	background: var( --wpc-amber-chip );
+	color: var( --wpc-amber );
+}
+
+.wpc-audience__icon--gray {
+	background: var( --wpc-surface-band );
+	color: var( --wpc-ink-70 );
+}
+
+/* ==========================================================================
+   Landing — how it runs
+   ========================================================================== */
+.wpc-section__head {
+	gap: 20px;
+}
+
+.wpc-section__more a {
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wpc-steps {
+	gap: 16px;
+}
+
+.wpc-step {
+	flex-basis: 0;
+}
+
+/* ==========================================================================
+   Landing — call to action
+   ========================================================================== */
+.wpc-cta {
+	gap: 32px;
+}
+
+.wpc-cta__copy {
+	flex: 1 1 auto;
+	max-width: 60ch;
+}
+
+/* ==========================================================================
+   Pages, posts and archives
+   ========================================================================== */
+
+/* A single post or page reads as a card on the soft surface, the same as the Report Cards and
+   the archive's entries. Before this the title and prose sat directly on white with nothing
+   around them, which on a site where every other view is carded looked less like a design
+   decision than like a missing template.
+
+   The space above and below is padding here, not margin on the card: as margin it collapses
+   straight out of a `main` that has no padding or border of its own, taking those bands
+   outside the background — the same bug that put a white stripe above and below the
+   dashboard card. */
+/* The same even 16px the dashboard card uses, so every view insets from the chrome above and
+   below it by the same amount. */
+.wpc-main--content {
+	background: var( --wpc-surface-soft );
+	padding-bottom: 16px;
+	padding-top: 16px;
+}
+
+.wpc-article {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	box-shadow: var( --wpc-shadow-card );
+	padding: 40px;
+}
+
+@media ( max-width: 782px ) {
+
+	.wpc-main--content {
+		padding-bottom: 10px;
+		padding-top: 10px;
+	}
+
+	/* Edge to edge on a phone: a card inset from a 20px page margin leaves the text in a
+	   40px gutter and the border earns none of it. */
+	.wpc-article {
+		border-left: 0;
+		border-radius: 0;
+		border-right: 0;
+		padding: 28px 20px;
+	}
+}
+
+.wpc-prose > * + * {
+	margin-top: 20px;
+}
+
+.wpc-prose h2 {
+	margin-top: 32px;
+}
+
+.wpc-prose h3 {
+	margin-top: 24px;
+}
+
+.wpc-prose ul,
+.wpc-prose ol {
+	padding-left: 22px;
+}
+
+.wpc-prose li + li {
+	margin-top: 6px;
+}
+
+.wpc-prose img,
+.wpc-prose .wp-block-image img {
+	border-radius: var( --wpc-radius-card );
+}
+
+.wpc-page__meta {
+	color: var( --wpc-ink-60 );
+}
+
+.wpc-page-head .wp-block-query-title {
+	margin-bottom: 8px;
+}
+
+.wpc-entry {
+	height: 100%;
+}
+
+.wpc-pagination .wp-block-query-pagination-numbers,
+.wpc-pagination .wp-block-query-pagination-previous,
+.wpc-pagination .wp-block-query-pagination-next {
+	font-size: 13px;
+}
+
+.wpc-pagination a,
+.wpc-pagination .page-numbers {
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-control );
+	padding: 6px 11px;
+	text-decoration: none;
+}
+
+.wpc-pagination .page-numbers.current {
+	background: var( --wpc-brand );
+	border-color: var( --wpc-brand );
+	color: var( --wpc-surface );
+}
+
+.wp-block-search__button {
+	background: var( --wpc-brand );
+	border: 0;
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-surface );
+	font: 500 13px/20px var( --wpc-font );
+	padding: 8px 14px;
+}
+
+.wp-block-search__input {
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	font: 13px/20px var( --wpc-font );
+	padding: 8px 10px;
+}
+
+/* ==========================================================================
+   Plugin notices that can appear on any page
+
+   WPCredits Program Manager gates ordinary pages too, so its restricted notice
+   and its button have to be styled by the stylesheet that always loads — not by
+   the dashboard skin, which only loads where the mentor list renders. The header
+   notices below are here for the same reason.
+   ========================================================================== */
+
+/* The plugin prints these on `wp_body_open`, so they land above the sticky header and
+   scroll away with the page — which is right for a notice: it is read once, where the
+   header has to stay reachable. Measured to the chrome's own shell, so the text lines up
+   with the brand directly above it rather than starting at the window edge. */
+.wpcpm-notices__item {
+	background: var( --wpc-amber-tint );
+	border-bottom: 1px solid var( --wpc-amber-border );
+	/* The plugin draws a rule down the leading edge for themes that give it no styling
+	   of its own. Here the tint and the full-width band do that job. */
+	border-left: 0;
+	color: var( --wpc-ink );
+	font: 13px/20px var( --wpc-font );
+	padding: 12px 0;
+}
+
+/* The band spans the window; its text is held to the measure the header uses. */
+.wpcpm-notices__item > * {
+	margin-left: auto;
+	margin-right: auto;
+	max-width: var( --wpc-chrome-maxw );
+	padding-left: var( --wpc-chrome-gutter );
+	padding-right: var( --wpc-chrome-gutter );
+}
+
+/* Two notices — somebody in two audiences — separate with a hairline instead of
+   repeating the band's own edge. */
+.wpcpm-notices__item + .wpcpm-notices__item {
+	border-top: 1px solid var( --wpc-amber-border );
+}
+
+.wpcpm-notices__item a {
+	color: var( --wpc-brand-dark );
+}
+
+.wpcpm-dashboard--notice,
+.wpcpm-restricted {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	font: 13px/20px var( --wpc-font );
+	margin: 32px 0;
+	padding: 24px 20px;
+	text-align: center;
+}
+
+.wpcpm-dashboard--notice p,
+.wpcpm-restricted {
+	color: var( --wpc-ink-70 );
+	margin: 0;
+}
+
+.wpcpm-dashboard--notice p + p {
+	margin-top: 14px;
+}
+
+/* The tinted tile above the notice. The glyph is a background image with its
+   color baked into the data URI rather than a mask, because a mask would clip
+   the tile itself away and leave the icon floating on the page. */
+.wpcpm-dashboard--notice::before,
+.wpcpm-restricted::before {
+	background: var( --wpc-brand-tint ) var( --wpc-icon-people-brand ) center / 22px no-repeat;
+	border-radius: var( --wpc-radius-card );
+	content: "";
+	display: block;
+	height: 40px;
+	margin: 0 auto 12px;
+	width: 40px;
+}
+
+.wpcpm-restricted__action {
+	margin: 14px 0 0;
+	text-align: center;
+}
+
+.wpcpm-button,
+.wpcpm-restricted__action a {
+	background: var( --wpc-brand );
+	border: 1px solid var( --wpc-brand );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-surface );
+	cursor: pointer;
+	display: inline-block;
+	font: 500 13px/20px var( --wpc-font );
+	padding: 7px 14px;
+	text-decoration: none;
+}
+
+.wpcpm-button:hover,
+.wpcpm-button:focus,
+.wpcpm-restricted__action a:hover,
+.wpcpm-restricted__action a:focus {
+	background: var( --wpc-brand-dark );
+	border-color: var( --wpc-brand-dark );
+	color: var( --wpc-surface );
+}
+
+/* ==========================================================================
+   Icons drawn from CSS
+
+   Only the ones the theme cannot put markup around: the disclosure triangle on
+   the plugin's own <summary> and the tile above a gated notice. Everything else is
+   inline SVG from inc/icons.php.
+
+   Masks take their color from the element. The notice tile is the exception —
+   there the glyph is a background image over a tint, so its color is baked in.
+   ========================================================================== */
+:root {
+	--wpc-icon-chevron-right: url( 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10.6 6L9.4 7l4.6 5-4.6 5 1.2 1 5.4-6z"/></svg>' );
+	--wpc-icon-chevron-down: url( 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17.5 11.6L12 16l-5.5-4.4.9-1.2L12 14l4.5-3.6 1 1.2z"/></svg>' );
+	--wpc-icon-people-brand: url( 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%233858e9"><path fill-rule="evenodd" d="M15.5 9.5a1 1 0 100-2 1 1 0 000 2zm0 1.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm-2.25 6v-2a2.75 2.75 0 00-2.75-2.75h-4A2.75 2.75 0 003.75 15v2h1.5v-2c0-.69.56-1.25 1.25-1.25h4c.69 0 1.25.56 1.25 1.25v2h1.5zm7-2v2h-1.5v-2c0-.69-.56-1.25-1.25-1.25H15v-1.5h2.5A2.75 2.75 0 0120.25 15zM9.5 8.5a1 1 0 11-2 0 1 1 0 012 0zm1.5 0a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/></svg>' );
+}
+
+/* ==========================================================================
+   Responsive — the reference site's breakpoints
+
+   1080: the footer drops to two columns. 960: the navigation collapses behind a
+   toggle. 640: gutters halve. The page's own sections follow at 900/600, which is
+   where their four-up grids stop fitting.
+   ========================================================================== */
+@media ( max-width: 1080px ) {
+	.wpc-footer__grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+@media ( max-width: 960px ) {
+	.wpc-header__inner {
+		gap: 16px;
+	}
+
+	/* Brand left, toggle right. */
+	.wpc-nav__center {
+		justify-content: flex-end;
+	}
+
+	/* Core collapses its navigation at 600px; the reference collapses at 960, so
+	   the inline menu is hidden and the toggle revealed for the 360px in between.
+	   Both selectors carry `.wpc-nav` to outrank core's own min-width rules. */
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container:not( .is-menu-open ) {
+		display: none;
+	}
+
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container-open:not( .always-shown ) {
+		display: flex;
+	}
+
+	/* The open panel drops under the bar rather than covering the screen, which is
+	   what the reference does. Pinned with `fixed` and the bar's own height: the
+	   header is sticky at the top, so the two always meet. */
+	.wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open {
+		background: var( --wpc-surface );
+		border-bottom: 1px solid var( --wpc-chrome-rule );
+		bottom: auto;
+		box-shadow: 0 12px 24px rgba( 0, 0, 0, .08 );
+		height: auto;
+		left: 0;
+		padding: 12px 24px 20px;
+		right: 0;
+		top: var( --wpc-header-height );
+		z-index: 55;
+	}
+
+	.admin-bar .wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open {
+		top: calc( var( --wpc-header-height ) + 32px );
+	}
+
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__container {
+		gap: 2px;
+	}
+
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-item__content,
+	.wpc-header .wpc-nav .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation-submenu__toggle {
+		font-size: 16px;
+		padding: 12px;
+		width: 100%;
+	}
+
+	/* Panels stop being panels: inside a dropdown they are just an indent. */
+	.wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__submenu-container {
+		border: 0;
+		box-shadow: none;
+		padding: 0 0 6px 12px;
+		position: static;
+		width: auto;
+	}
+}
+
+@media ( max-width: 900px ) {
+	.wpc-hero__cols {
+		gap: 28px;
+	}
+
+	.wpc-hero__title {
+		font-size: 34px;
+	}
+
+	.wpc-hero__stat {
+		bottom: -14px;
+		left: auto;
+		right: 12px;
+	}
+
+	/* The number takes the title's size, so it takes the title's smaller size here
+	   too — otherwise the card's figure ends up larger than the headline above it.
+	   Two classes deep to outrank `.has-display-font-size`, which the pattern sets
+	   and which core prints from global styles rather than from this file. */
+	.wpc-hero__stat .wpc-hero__stat-number {
+		font-size: 34px;
+	}
+
+	.wpc-audiences__grid {
+		row-gap: 24px;
+	}
+
+	.wpc-audience,
+	.wpc-audience:first-child,
+	.wpc-audience:last-child {
+		padding: 0;
+	}
+
+	.wpc-audience + .wpc-audience {
+		border-left: 0;
+	}
+
+	.wpc-cta {
+		gap: 20px;
+		padding: 28px !important;
+	}
+}
+
+@media ( max-width: 640px ) {
+	:root {
+		--wpc-chrome-gutter: 20px;
+	}
+
+	.wpc-footer__grid {
+		grid-template-columns: 1fr;
+	}
+
+	.wpc-brand__name {
+		font-size: 17px;
+	}
+
+	.wpc-viewer {
+		gap: 10px;
+	}
+
+	.wpc-viewer__logout {
+		display: none;
+	}
+
+	.wpc-viewer__signin,
+	.wpc-viewer--guest a {
+		font-size: 14px;
+		padding: 9px 14px;
+	}
+}
+
+/* Below 600px WordPress stops fixing the admin bar, so the header has nothing to
+   make room for. */
+@media screen and ( max-width: 600px ) {
+	.admin-bar .wpc-header-part {
+		top: 0;
+	}
+
+	.admin-bar .wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open {
+		top: var( --wpc-header-height );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: .01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: .01ms !important;
+	}
+}

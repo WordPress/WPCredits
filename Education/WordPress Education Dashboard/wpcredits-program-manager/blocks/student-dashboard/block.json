@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/student-dashboard",
+	"version": "1.12.0",
+	"title": "My Program (Student)",
+	"category": "widgets",
+	"icon": "welcome-learn-more",
+	"description": "Shows the logged-in student their program details and the mentor assigned to them.",
+	"keywords": [ "student", "program", "wpcredits", "mentor" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

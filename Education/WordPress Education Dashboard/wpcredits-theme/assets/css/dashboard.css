@@ -1,0 +1,2287 @@
+/*
+ * Mentor dashboard skin.
+ *
+ * Every selector here is the plugin's own markup or a class the theme's script
+ * added to it. Nothing is hidden that carries information: the one thing the
+ * stylesheet takes off screen is the plugin's run-on preview line, and only on
+ * wide viewports, where the script has already split the same three facts into
+ * columns. Below 900px that line comes back and the columns go away, because at
+ * that width one line reads better than four.
+ *
+ * Inside the card the patterns are wp-admin native — 13px body, sentence case,
+ * 2px radii on controls, flat notices, no shadows.
+ */
+
+/* ==========================================================================
+   Standing the plugin's own layout down
+
+   WPCredits Program Manager ships a deliberately theme-agnostic stylesheet: one
+   rounded, bordered card per student, a gap between them, and colors derived
+   from `currentColor` with `opacity` for anything muted. That is the right
+   default for an unknown theme. This design wants a single table-like list with
+   real grays, so the card shell and the opacity dimming are switched off here
+   rather than fought rule by rule further down.
+   ========================================================================== */
+.wpc-dashboard-page .wpcpm-mentees {
+	gap: 0;
+}
+
+.wpc-dashboard-page .wpcpm-mentee {
+	border: 0;
+	border-radius: 0;
+}
+
+/* Muted text is a color in this design, not a transparency. Left dimmed, the
+   grays below would compound with it. */
+.wpc-dashboard-page .wpcpm-dashboard__intro,
+.wpc-dashboard-page .wpcpm-dashboard__empty,
+.wpc-dashboard-page .wpcpm-dashboard__updated,
+.wpc-dashboard-page .wpcpm-dashboard__switcher-note,
+.wpc-dashboard-page .wpcpm-mentee__preview,
+.wpc-dashboard-page .wpcpm-mentee__row.is-empty .wpcpm-mentee__value,
+.wpc-dashboard-page .wpcpm-badge {
+	opacity: 1;
+}
+
+/* ==========================================================================
+   The card
+   ========================================================================== */
+/* The space above and below the card is padding here, not margin on the card.
+
+   As margin it collapsed straight out of this element — `main` has no padding or border of
+   its own, so nothing stopped it — which left the element only as tall as the card. The 32px
+   above and 48px below were then outside the background and painted in the page's base colour,
+   so the card appeared to sit in a white band rather than on the soft surface. */
+/* 16px, evenly: the card sits just under the header's rule and just above the footer's, rather
+   than in a band of its own at either end. */
+.wpc-main--dashboard {
+	background: var( --wpc-surface-soft );
+	padding-bottom: 16px;
+	padding-top: 16px;
+}
+
+.wpc-dash {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-radius: var( --wpc-radius-card );
+	box-shadow: var( --wpc-shadow-card );
+	margin-bottom: 0;
+	margin-top: 0;
+}
+
+.wpc-dashboard-page .wpcpm-dashboard,
+.wpc-dashboard-page .wpc-dash__content {
+	font: 13px/20px var( --wpc-font );
+}
+
+.wpc-dash__content > * {
+	margin: 0;
+}
+
+/* Before the script runs the title is an ordinary page heading; afterwards it
+   sits inside the band. Both need the same size. */
+.wpc-dash__title {
+	font: 700 22px/28px var( --wpc-font );
+	letter-spacing: -.01em;
+	margin: 0;
+	padding: 22px 32px 0;
+}
+
+/* No `.wpc-dash-enhanced` exception here any more. That rule zeroed the title's inset for
+   the arrangement where the script moved the title inside the dashboard root and the band
+   supplied the padding. The script stopped moving it, and `wpc-dash-enhanced` goes on the
+   plugin's root — which the title is a sibling of, not a descendant — so the rule could not
+   have matched anything either way. */
+
+/* ==========================================================================
+   Header band — who this list belongs to, and the triage counts
+   ========================================================================== */
+.wpc-dash__band {
+	align-items: center;
+	background: var( --wpc-surface-soft );
+	border-bottom: 1px solid var( --wpc-line );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	padding: 22px 32px;
+}
+
+/* Padded on its own, because the band that would otherwise provide the inset is
+   only built once there are students to group. A mentor with none still gets a
+   header, and it should not hug the card's edge. */
+.wpcpm-dashboard__mentor {
+	align-items: center;
+	display: flex;
+	flex: 1 1 340px;
+	gap: 16px;
+	margin: 0;
+	padding: 18px 32px 22px;
+}
+
+.wpc-dash__band .wpcpm-dashboard__mentor {
+	padding: 0;
+}
+
+/* Profile photos wear the credits-program-mentors mount — a white ring with a
+   hairline outside it — so a mentor recognizes the same face treatment on both
+   sides of the program. The ring sits outside the declared size rather than
+   eating into it, which keeps the photo itself as large as it was. */
+.wpc-dashboard-page .wpcpm-avatar {
+	background: var( --wpc-photo-backdrop );
+	border: 3px solid var( --wpc-photo-mount );
+	border-radius: 50%;
+	box-shadow: 0 0 0 1px var( --wpc-photo-line );
+	object-fit: cover;
+}
+
+.wpcpm-dashboard__mentor .wpcpm-avatar {
+	flex: none;
+	height: 80px;
+	width: 80px;
+}
+
+.wpcpm-dashboard__mentor-identity {
+	align-items: baseline;
+	column-gap: 5px;
+	display: flex;
+	flex-wrap: wrap;
+	min-width: 0;
+}
+
+/* The mentor's name is the heading of this page now — the plugin renders it as an
+   `<h1>`, and the page's own title ("My Students") has been dropped from the template
+   because it said less than the name does. So this takes the size the page title had,
+   and the facts about the list sit under it as one quiet line. */
+.wpcpm-dashboard__mentor-name {
+	color: var( --wpc-ink );
+	flex-basis: 100%;
+	font: 700 22px/28px var( --wpc-font );
+	letter-spacing: -.01em;
+	margin: 0 0 2px;
+}
+
+.wpcpm-dashboard__intro,
+.wpcpm-dashboard__updated {
+	color: var( --wpc-ink-60 );
+	font: 13px/20px var( --wpc-font );
+	margin: 0;
+}
+
+/* No generated "· " separator any more. It existed to run the name, the count and the
+   last-updated line together on one line; the name is a heading above them now, and
+   the plugin already joins the other two into a single sentence. A leading dot would
+   read as a missing first item. */
+.wpcpm-dashboard__mentor-identity .wpcpm-dashboard__updated::before {
+	content: "· ";
+}
+
+/* ==========================================================================
+   Triage strip — the counts double as filters
+   ========================================================================== */
+.wpc-triage {
+	display: flex;
+	flex: none;
+	gap: 14px;
+}
+
+.wpc-triage__item {
+	background: none;
+	border: 0;
+	border-radius: var( --wpc-radius-control );
+	cursor: pointer;
+	display: block;
+	font: inherit;
+	padding: 2px 6px;
+	text-align: right;
+}
+
+.wpc-triage__item:hover {
+	background: var( --wpc-surface-band );
+}
+
+.wpc-triage__item.is-active {
+	background: var( --wpc-brand-tint );
+	box-shadow: inset 0 0 0 1px var( --wpc-brand-border );
+}
+
+.wpc-triage__count {
+	display: block;
+	font: 700 18px/22px var( --wpc-font );
+}
+
+.wpc-triage__item--call .wpc-triage__count {
+	color: var( --wpc-red );
+}
+
+.wpc-triage__item--ending .wpc-triage__count {
+	color: var( --wpc-amber );
+}
+
+.wpc-triage__item--ok .wpc-triage__count {
+	color: var( --wpc-green );
+}
+
+.wpc-triage__label {
+	color: var( --wpc-ink-60 );
+	display: block;
+	font: 12px/16px var( --wpc-font );
+	white-space: nowrap;
+}
+
+/* ==========================================================================
+   Toolbar — search, match count, the plugin's bulk buttons
+   ========================================================================== */
+.wpc-dash__toolbar {
+	align-items: center;
+	border-bottom: 1px solid var( --wpc-line-soft );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	padding: 16px 32px;
+}
+
+.wpc-search {
+	align-items: center;
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	display: flex;
+	flex: 1 1 260px;
+	gap: 8px;
+	padding: 6px 10px;
+}
+
+.wpc-search:focus-within {
+	border-color: var( --wpc-brand );
+	outline: 2px solid var( --wpc-brand );
+	outline-offset: 1px;
+}
+
+.wpc-search svg {
+	color: var( --wpc-ink-60 );
+	flex: none;
+}
+
+.wpc-search__input {
+	background: none;
+	border: 0;
+	flex: 1;
+	font: 13px/20px var( --wpc-font );
+	min-width: 0;
+	padding: 1px 0;
+}
+
+.wpc-search__input:focus {
+	outline: 0;
+}
+
+.wpc-search__input::placeholder {
+	color: var( --wpc-ink-50 );
+	opacity: 1;
+}
+
+.wpc-search__clear {
+	background: none;
+	border: 0;
+	color: var( --wpc-ink-60 );
+	cursor: pointer;
+	line-height: 0;
+	padding: 0;
+}
+
+.wpc-search__clear:hover {
+	color: var( --wpc-ink );
+}
+
+.wpc-dash__count {
+	color: var( --wpc-ink-70 );
+	font: 13px/20px var( --wpc-font );
+	margin: 0;
+}
+
+.wpc-dash__count:empty {
+	display: none;
+}
+
+.wpcpm-dashboard__bulk {
+	display: flex;
+	gap: 8px;
+	margin: 0;
+}
+
+/* The plugin's button, in wp-admin's secondary shape where the design calls for
+   it. The primary treatment is in style.css, which loads everywhere the plugin
+   might print one. */
+.wpcpm-dashboard__bulk .wpcpm-button,
+.wpcpm-dashboard__switcher .wpcpm-button {
+	background: var( --wpc-surface );
+	border-color: var( --wpc-control-border );
+	color: var( --wpc-ink );
+}
+
+.wpcpm-dashboard__bulk .wpcpm-button:hover,
+.wpcpm-dashboard__switcher .wpcpm-button:hover {
+	background: var( --wpc-line-soft );
+	border-color: var( --wpc-ink-70 );
+	color: var( --wpc-ink );
+}
+
+.wpc-dash__hint,
+.wpc-dash__ordering {
+	color: var( --wpc-ink-60 );
+	font: 12px/18px var( --wpc-font );
+	margin: 0;
+	padding: 14px 32px;
+}
+
+.wpc-dash__hint {
+	background: var( --wpc-surface-soft );
+	border-bottom: 1px solid var( --wpc-line-soft );
+}
+
+.wpc-dash__ordering {
+	border-top: 1px solid var( --wpc-line-soft );
+}
+
+/* ==========================================================================
+   "Viewing as mentor" — administrators only
+   ========================================================================== */
+.wpcpm-dashboard__switcher {
+	align-items: center;
+	background: var( --wpc-brand-tint );
+	border: 1px solid var( --wpc-brand-border );
+	border-radius: var( --wpc-radius-card );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 22px 32px 0;
+	padding: 16px 18px;
+}
+
+/* The shared rule leaves no space beneath, because on the mentor page the header that
+   follows brings its own 18px of top padding. The student page's switcher is followed
+   straight into the two-column grid, whose first section carries a top rule — so the
+   hairline was drawn hard against the bottom of the switcher box with nothing between
+   them. Matching the mentor page's gap here rather than adding it to the shared rule:
+   there it would land on top of padding that already exists. */
+.wpc-student-page .wpcpm-dashboard__switcher {
+	margin-bottom: 18px;
+}
+
+.wpcpm-dashboard__switcher label {
+	font: 500 13px/20px var( --wpc-font );
+}
+
+.wpcpm-dashboard__switcher select {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	font: 13px/20px var( --wpc-font );
+	min-width: 230px;
+	padding: 6px 8px;
+}
+
+.wpcpm-dashboard__switcher-note {
+	color: var( --wpc-ink-70 );
+	font: 12px/18px var( --wpc-font );
+	margin-left: auto;
+}
+
+/* ==========================================================================
+   Group headers
+   ========================================================================== */
+/* Sticky, but below the site's own sticky bar — otherwise the group a mentor is
+   scrolling through disappears behind it. */
+.wpc-group {
+	display: flex;
+	font: 500 11px/16px var( --wpc-font );
+	justify-content: space-between;
+	letter-spacing: .06em;
+	padding: 8px 32px;
+	position: sticky;
+	text-transform: uppercase;
+	top: var( --wpc-header-height );
+	z-index: 2;
+}
+
+.admin-bar .wpc-group {
+	top: calc( var( --wpc-header-height ) + 32px );
+}
+
+/* The admin bar is not fixed below 600px, so nothing has to make room for it. */
+@media screen and ( max-width: 600px ) {
+	.admin-bar .wpc-group {
+		top: var( --wpc-header-height );
+	}
+}
+
+.wpc-group--call {
+	background: var( --wpc-red-tint );
+	border-bottom: 1px solid var( --wpc-red-border );
+	color: var( --wpc-red );
+}
+
+.wpc-group--ending {
+	background: var( --wpc-amber-tint );
+	border-bottom: 1px solid var( --wpc-amber-border );
+	color: var( --wpc-amber );
+}
+
+.wpc-group--ok {
+	background: var( --wpc-surface-band );
+	border-bottom: 1px solid var( --wpc-line-card );
+	color: var( --wpc-ink-70 );
+}
+
+/* ==========================================================================
+   The student program page
+
+   Same card, same 32px inset, same grays and type as the mentor page. The plugin
+   already shares the shell classes between the two — the identity header, the
+   switcher, the muted text — so those are dressed by the rules above and only the
+   student page's own sections and tables are set here. Its stylesheet stands the
+   plugin's bordered-block look down the same way `.wpcpm-mentee` is stood down.
+   ========================================================================== */
+.wpc-dashboard-page .wpcpm-student__section {
+	border: 0;
+	border-radius: 0;
+	border-top: 1px solid var( --wpc-line-soft );
+	margin: 0;
+	padding: 20px 32px 24px;
+}
+
+.wpc-dashboard-page .wpcpm-student__section:first-of-type {
+	border-top: 0;
+}
+
+/* "Your program" and "Your mentor" sit side by side.
+
+   The grid is declared on the root because the plugin renders the two sections as
+   siblings of the identity header, the switcher and the "last updated" line rather
+   than wrapping them together — so everything that is not a section is spanned back
+   across both columns. Doing it this way keeps the change a theme concern: adding a
+   wrapper in the plugin would mean re-checking every rule that reaches these
+   sections from the outside.
+
+   `minmax( 0, 1fr )` on both, for the reason the mentor body uses it — a track
+   sized from its content will not shrink below it, and an un-breakable URL in the
+   mentor's contact table would otherwise push its column past half.
+
+   On the plugin's own wrapper, not on the dashboard root. With the grid on the root,
+   the identity header and the "view as" switcher were unplaced children competing with
+   explicitly-placed sections, and grid put them in the first *free* row — which was
+   below both section rows, so the student's name and photo ended up at the foot of the
+   page. */
+.wpc-student-page .wpcpm-student__grid {
+	display: grid;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+/* Stacked, only the upper section met the header and the lower one was divided from
+   it by the rule above. Side by side they both meet the header, so both keep a top
+   rule — the `:first-of-type` exception would leave the two columns mismatched —
+   and the divider between them becomes a vertical rule on the second. The sections
+   stretch to the taller of the two, so that rule runs the full height. */
+.wpc-student-page .wpcpm-student__section:first-of-type {
+	border-top: 1px solid var( --wpc-line-soft );
+}
+
+/* The divider between the page's two columns. Only the mentor section carries it now —
+   the call section left the grid, and a full-width section with a left border would draw
+   a stray rule down the middle of the card. */
+.wpc-student-page .wpcpm-student__section--mentor {
+	border-left: 1px solid var( --wpc-line-soft );
+}
+
+/* Only matches when the program section is absent — it has not synced yet, and
+   the plugin prints a notice in its place. Nothing to divide, and half a card of
+   white beside it would read as something failing to load. */
+.wpc-student-page .wpcpm-student__section--mentor:first-of-type {
+	border-left: 0;
+	grid-column: 1 / -1;
+}
+
+.wpc-dashboard-page .wpcpm-student__heading {
+	color: var( --wpc-ink-70 );
+	font: 700 12px/16px var( --wpc-font );
+	letter-spacing: .06em;
+	margin: 0 0 12px;
+	text-transform: uppercase;
+}
+
+/* The student's identity card, inside the "My program" section and built like the mentor
+   card in the column beside it — portrait, then body, then that section's table. It used
+   to be a full-width `<header>` above both columns, which is why it carried the card's
+   32px inset and a page-header's type size; inside a section it needs neither. */
+.wpc-dashboard-page .wpcpm-student__card {
+	align-items: center;
+	display: flex;
+	gap: 16px;
+	margin: 0 0 16px;
+}
+
+/* Size only. The photo *mount* — white ring, hairline, backdrop — comes from the
+   shared `.wpcpm-avatar` rule above, which is the treatment the mentor page and the
+   header chip both use. This block used to restate `background` and `border` in brand
+   colors, and that is exactly why the student page's photos did not look like any
+   other photo on the site.
+
+   88px, the same as the mentor's, so neither column's portrait outweighs the other. */
+.wpc-dashboard-page .wpcpm-student__card .wpcpm-avatar {
+	flex: none;
+	height: 88px;
+	width: 88px;
+}
+
+/* The same treatment the mentor's name takes in the card beside it. It was 22px while
+   this was a page header above both columns; at that size inside a column it would make
+   the left column shout and the right one whisper. */
+.wpc-dashboard-page .wpcpm-student__name {
+	color: var( --wpc-ink );
+	font: 700 14px/20px var( --wpc-font );
+	margin: 0;
+}
+
+/* Detail tables read as the mentor page's do. */
+.wpc-dashboard-page .wpcpm-student__table {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-collapse: collapse;
+	font: 13px/20px var( --wpc-font );
+	width: 100%;
+}
+
+.wpc-dashboard-page .wpcpm-student__table th,
+.wpc-dashboard-page .wpcpm-student__table td {
+	border-bottom: 1px solid var( --wpc-line-soft );
+	padding: 9px 12px;
+	vertical-align: top;
+}
+
+.wpc-dashboard-page .wpcpm-student__table th {
+	color: var( --wpc-ink-70 );
+	font: 500 13px/20px var( --wpc-font );
+	width: 170px;
+}
+
+.wpc-dashboard-page .wpcpm-student__table tr:last-child th,
+.wpc-dashboard-page .wpcpm-student__table tr:last-child td {
+	border-bottom: 0;
+}
+
+.wpc-dashboard-page .wpcpm-student__row.is-empty {
+	background: var( --wpc-amber-tint );
+}
+
+/* Except in the mentor card. The amber means "this is yours to fill in" — which is true
+   of the student's own rows, three of which have an Edit control right there — and false
+   of their mentor's. A student cannot add their mentor's website, so flagging its absence
+   asks them for something they cannot give. The row still reads "Not set"; it just stops
+   being a task.
+
+   Keyed on the section class the plugin already emits, so no new markup was needed. */
+.wpc-dashboard-page .wpcpm-student__section--mentor .wpcpm-student__row.is-empty {
+	background: none;
+}
+
+/* The icon dims on an empty row elsewhere. Here that would be the last trace of a flag on
+   a row that is deliberately not flagged, so it stays at full strength with the others. */
+.wpc-dashboard-page .wpcpm-student__section--mentor .wpcpm-student__row.is-empty .wpcpm-icon {
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-student__missing {
+	color: var( --wpc-ink-50 );
+	font-style: italic;
+}
+
+/* The mentor contact card: portrait beside name, jobline, location and teams. The
+   contact table is a *sibling* of this, not a child of its body — inside the body it
+   was indented by the portrait's width and read as belonging to the text column rather
+   than to the card. */
+.wpc-dashboard-page .wpcpm-mentor-card {
+	display: flex;
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+/* Size only, for the reason above. Large enough to read as a portrait of the person
+   the student is about to book a call with, rather than a thumbnail beside a table. */
+.wpc-dashboard-page .wpcpm-mentor-card .wpcpm-avatar {
+	flex: none;
+	height: 88px;
+	width: 88px;
+}
+
+.wpc-dashboard-page .wpcpm-mentor-card__name {
+	color: var( --wpc-ink );
+	font: 700 14px/20px var( --wpc-font );
+	margin: 0;
+}
+
+.wpc-dashboard-page .wpcpm-mentor-card__jobline,
+.wpc-dashboard-page .wpcpm-mentor-card__location {
+	color: var( --wpc-ink-60 );
+	font: 13px/20px var( --wpc-font );
+	margin: 0;
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-mentor-card__teams {
+	margin: 8px 0 14px;
+}
+
+.wpc-dashboard-page .wpcpm-mentor-card__teams-label {
+	color: var( --wpc-ink-60 );
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-student__note {
+	color: var( --wpc-ink-50 );
+	opacity: 1;
+}
+
+/* The course and report-form buttons, in their own section below the two columns. */
+.wpc-dashboard-page .wpcpm-student__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 0;
+}
+
+/* Deliberately much larger than the plugin's 13px/7px-14px button. Everything above this
+   section is reference — what the program records, who the mentor is — and these two links
+   are the only things on the page a student actually does. At the shared size they read as
+   two more table controls; at this size they read as the point of the page. */
+.wpc-dashboard-page .wpcpm-student__actions .wpcpm-button,
+.wpc-dashboard-page .wpcpm-handbook__prompt .wpcpm-button {
+	border-radius: 8px;
+	font: 600 17px/24px var( --wpc-font );
+	padding: 15px 32px;
+}
+
+/* Slack's logo, on its own. No border, no fill, no padding — the plugin deliberately leaves
+   the `wpcpm-button` classes off this one, and these rules exist to make sure nothing else
+   puts a box back around it. */
+.wpc-dashboard-page .wpcpm-student__actions .wpcpm-resources__slack {
+	align-items: center;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	display: inline-flex;
+	padding: 0;
+}
+
+/* Exactly as tall as the buttons beside it: their 1px border, 15px of padding, 24px line and
+   the same again back down — 56px. Set here as well as in the plugin because the height is
+   this file's decision, three rules above; change the padding there and this follows.
+   `width: auto` lets the viewBox keep the artwork's proportions. */
+.wpc-dashboard-page .wpcpm-student__actions .wpcpm-resources__slack svg {
+	height: 56px;
+	width: auto;
+}
+
+/* Nothing to tint, so the whole logo lifts instead. Slack's colours stay exactly as
+   published either way, which is the condition the artwork is licensed on. */
+.wpc-dashboard-page .wpcpm-student__actions .wpcpm-resources__slack:hover,
+.wpc-dashboard-page .wpcpm-student__actions .wpcpm-resources__slack:focus {
+	opacity: 0.75;
+}
+
+.wpc-dashboard-page .wpcpm-student__actions .wpcpm-resources__slack svg {
+	display: block;
+}
+
+@media ( max-width: 600px ) {
+
+	/* Two 32px-padded buttons do not sit side by side on a phone, and a button that wraps
+	   its label mid-word is worse than one that spans the column. */
+	.wpc-dashboard-page .wpcpm-student__actions .wpcpm-button,
+	.wpc-dashboard-page .wpcpm-handbook__prompt .wpcpm-button {
+		flex: 1 1 100%;
+		text-align: center;
+	}
+
+	/* Except the logo, which is not a button and does not span anything. */
+	.wpc-dashboard-page .wpcpm-student__actions .wpcpm-resources__slack {
+		flex: 0 0 auto;
+	}
+}
+
+/* The course is what a student is working through; the report form is the errand. So the
+   report button is outlined in brand rather than filled with it — still clearly a button,
+   and clearly the second one. */
+.wpc-dashboard-page .wpcpm-button--secondary {
+	background: none;
+	border-color: var( --wpc-brand-border );
+	color: var( --wpc-brand );
+}
+
+.wpc-dashboard-page .wpcpm-button--secondary:hover,
+.wpc-dashboard-page .wpcpm-button--secondary:focus {
+	background: var( --wpc-brand-tint );
+	border-color: var( --wpc-brand );
+	color: var( --wpc-brand-dark );
+}
+
+/* On the mentor page the script lifts this line into the header band, which is
+   where its inset comes from. Nothing moves it on the student page, so left to
+   the shared rule's `margin: 0` it sits flush against the card edge. */
+.wpc-student-page .wpcpm-dashboard__updated {
+	border-top: 1px solid var( --wpc-line-soft );
+	color: var( --wpc-ink-50 );
+	margin: 0;
+	padding: 14px 32px 18px;
+}
+
+/* The switcher is inset by the shared rule above. Restated only so a student page
+   rendered by a plugin old enough to still emit the page-specific class is inset
+   too, rather than spanning the card edge to edge. */
+.wpc-student-page .wpcpm-student__switcher {
+	background: var( --wpc-brand-tint );
+	border: 1px solid var( --wpc-brand-border );
+	border-radius: var( --wpc-radius-card );
+	margin: 22px 32px 0;
+	padding: 16px 18px;
+}
+
+.wpc-student-page .wpcpm-student__updated {
+	border-top: 1px solid var( --wpc-line-soft );
+	color: var( --wpc-ink-50 );
+	margin: 0;
+	padding: 14px 32px 18px;
+}
+
+/* Back to one column at the width the mentor page's two-column body collapses at,
+   and for the same reason: these are label-and-value tables with a 170px label, and
+   half of a card this narrow is not enough for the value beside it. */
+@media ( max-width: 900px ) {
+
+	.wpc-student-page .wpcpm-student__grid {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	/* The explicit placements above would keep two tracks in a one-column grid, so
+	   every section goes back to source order. */
+	.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section {
+		grid-column: 1;
+		grid-row: auto;
+	}
+
+	.wpc-student-page .wpcpm-student__section--mentor {
+		border-left: 0;
+	}
+
+	/* Stacked again, so the divider is the top rule and the upper section drops it. */
+	.wpc-student-page .wpcpm-student__section:first-of-type {
+		border-top: 0;
+	}
+}
+
+@media ( max-width: 782px ) {
+
+	.wpc-dashboard-page .wpcpm-student__section,
+	.wpc-student-page .wpcpm-dashboard__updated,
+	.wpc-student-page .wpcpm-student__updated {
+		padding-left: 20px;
+		padding-right: 20px;
+	}
+
+	.wpc-student-page .wpcpm-dashboard__switcher,
+	.wpc-student-page .wpcpm-student__switcher {
+		margin-left: 20px;
+		margin-right: 20px;
+	}
+}
+
+/* ==========================================================================
+   Current / past student groups
+
+   The plugin groups students into "Currently mentoring" and "Past students".
+   Everything else in this card is inset by 32px; the group headings arrived
+   later and had no inset, so they sat flush against the edge of the list.
+   ========================================================================== */
+.wpc-dashboard-page .wpcpm-group {
+	margin: 0;
+}
+
+.wpc-dashboard-page .wpcpm-group__title {
+	align-items: center;
+	color: var( --wpc-ink-70 );
+	display: flex;
+	flex-wrap: wrap;
+	font: 700 12px/16px var( --wpc-font );
+	gap: 8px;
+	letter-spacing: .06em;
+	margin: 0;
+	padding: 20px 32px 10px;
+	text-transform: uppercase;
+}
+
+.wpc-dashboard-page .wpcpm-group__count {
+	border: 1px solid var( --wpc-line );
+	border-radius: 999px;
+	font: 700 11px/18px var( --wpc-font );
+	letter-spacing: 0;
+	padding: 0 7px;
+}
+
+/* The past group is a disclosure, so its heading lives in a summary rather than in
+   an h3 — but it is still a peer of "Currently mentoring" and has to start on the
+   same 32px line. Two things were pushing it right: the summary had no left
+   padding, and the title inside it kept the 32px of its own from the rule above, on
+   top of the leading disclosure triangle.
+
+   So the padding moves to the summary, the title loses its own, and the triangle
+   follows the title instead of leading it. A leading arrow would put the label at
+   56px while the heading above sat at 32px; trailing, both labels line up and the
+   arrow reads as part of the heading it opens. */
+.wpc-dashboard-page .wpcpm-group__summary {
+	align-items: center;
+	border-top: 1px solid var( --wpc-line-soft );
+	cursor: pointer;
+	display: flex;
+	gap: 8px;
+	padding: 20px 32px 10px;
+}
+
+.wpc-dashboard-page .wpcpm-group__summary .wpcpm-group__title {
+	margin: 0;
+	padding: 0;
+}
+
+/* Undo the row treatment, where the triangle is pulled to the front of the line. */
+.wpc-dashboard-page .wpcpm-group__summary .wpcpm-mentee__toggle {
+	order: 0;
+}
+
+.wpc-dashboard-page .wpcpm-group__body {
+	padding: 0;
+}
+
+/* The "no students" and "mentoring has finished" lines sit in the same column as
+   the headings above them, with even space above and below — the heading does not
+   supply the gap, so leaving the top at zero pinned the sentence to it. */
+.wpc-dashboard-page .wpcpm-group .wpcpm-dashboard__empty {
+	margin: 0;
+	padding: 20px 32px;
+}
+
+/* ==========================================================================
+   One student — collapsed
+   ========================================================================== */
+.wpcpm-mentees {
+	display: block;
+}
+
+/* No separator of its own: the summary below carries a full border, and a rule
+   here as well would read as a doubled line between two rows.
+
+   It does need space around it, though: two adjacent bordered summaries meeting
+   would read as one 2px rule. That space is padding on the row rather than the
+   list's `gap` (inert — the list is `display: block` here) or a sibling margin:
+   the script hides filtered rows with `row.el.hidden`, and padding on a
+   `display: none` row collapses with it where `.wpcpm-mentee + .wpcpm-mentee`
+   would strand 8px above the first row that survived the filter. */
+.wpcpm-mentee {
+	border-bottom: 0;
+	padding: 4px 0;
+}
+
+/* Bordered like the other panels on the page — the details table and the notes
+   box use the same `--wpc-line-card` — so a collapsed student reads as an object
+   rather than as a band in a striped list.
+
+   The 20px margin plus 12px padding keeps the text at the card's 32px inset, so
+   rows still line up with the group headings above them; only the border moves in.
+   Sum the two whenever either changes. */
+.wpcpm-mentee__summary {
+	align-items: center;
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	cursor: pointer;
+	display: flex;
+	gap: 12px;
+	list-style: none;
+	margin: 0 20px;
+	padding: 10px 12px;
+}
+
+.wpcpm-mentee__summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpcpm-mentee__summary:hover {
+	background: var( --wpc-surface-soft );
+}
+
+/* The identity wrapper steps out of the way so the name, the columns the script
+   added and the plugin's own badge all become cells of the same row. */
+.wpc-dash-enhanced .wpcpm-mentee__identity {
+	display: contents;
+}
+
+/* Big enough to recognize a face at a glance, which is the whole point of putting
+   one in the row. The mount is thinner than on the portrait above so the ring stays
+   in proportion at this size. */
+.wpcpm-mentee__summary .wpcpm-avatar {
+	border-width: 3px;
+	flex: none;
+	height: 44px;
+	width: 44px;
+}
+
+/* A minimum, not a maximum. A fixed 160px column kept the institution beside it
+   perfectly aligned and cut people's names off to do it — the wrong trade: the name
+   is the one thing in the row a mentor is looking for. Short names still line the
+   next column up; a long one pushes into the space the institution was flexing into
+   anyway. */
+.wpcpm-mentee__name {
+	color: var( --wpc-ink );
+	flex: none;
+	font: 500 13px/20px var( --wpc-font );
+	margin: 0;
+	min-width: 160px;
+	/* The plugin allows a break anywhere so a long name cannot burst a narrow
+	   card. Here there is room, and a name broken mid-word reads worse. */
+	overflow-wrap: normal;
+	white-space: nowrap;
+}
+
+/* The track is a column of the details table, not of the row: on a wide screen
+   the row has institution, team, end date, note recency and an action to fit
+   already, and the chip is the one of those a mentor can also read off the
+   opened card. It comes back on narrow screens, where the columns go away. */
+.wpc-dash-enhanced .wpcpm-mentee__summary .wpcpm-badge {
+	display: none;
+}
+
+.wpcpm-badge {
+	border: 0;
+	border-radius: var( --wpc-radius-control );
+	flex: none;
+	font: 500 11px/16px var( --wpc-font );
+	padding: 2px 7px;
+	white-space: nowrap;
+}
+
+.wpcpm-badge--sensei {
+	background: var( --wpc-brand-tint );
+	color: var( --wpc-brand );
+}
+
+.wpcpm-badge--50h {
+	background: var( --wpc-amber-chip );
+	color: var( --wpc-amber );
+}
+
+/* The plugin's own one-line preview. Hidden only while the script's columns are
+   carrying the same facts. */
+.wpc-dash-enhanced .wpcpm-mentee__preview {
+	display: none;
+}
+
+.wpcpm-mentee__preview {
+	color: var( --wpc-ink-60 );
+	font: 12px/18px var( --wpc-font );
+}
+
+.wpc-row__where {
+	color: var( --wpc-ink-60 );
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.wpc-row__where mark {
+	background: var( --wpc-amber-chip );
+	color: var( --wpc-ink );
+	padding: 0 2px;
+}
+
+/* A fixed column so the dates line up down the list, and never wrapped — a date
+   broken over two lines makes every row a different height. Wider than the
+   design's 132px because a spelled-out locale date, "until September 12, 2026",
+   is longer than the "until 2 Nov 2026" it was drawn with. */
+.wpc-row__until {
+	color: var( --wpc-ink-60 );
+	flex: none;
+	white-space: nowrap;
+	width: 168px;
+}
+
+.wpc-row__flag {
+	border-radius: var( --wpc-radius-control );
+	box-sizing: border-box;
+	flex: none;
+	font: 500 11px/16px var( --wpc-font );
+	padding: 2px 7px;
+	text-align: center;
+	width: 88px;
+}
+
+.wpc-row__flag.is-overdue {
+	background: var( --wpc-red-chip );
+	color: var( --wpc-red );
+}
+
+.wpc-row__flag.is-ending {
+	background: var( --wpc-amber-tint );
+	color: var( --wpc-amber );
+}
+
+.wpc-row__flag.is-quiet {
+	color: var( --wpc-ink-60 );
+	font-weight: 400;
+	font-size: 12px;
+}
+
+.wpc-row__flag:empty {
+	display: none;
+}
+
+.wpc-row__action {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-brand-border );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-brand );
+	cursor: pointer;
+	flex: none;
+	font: 500 12px/18px var( --wpc-font );
+	padding: 5px 10px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wpc-row__action:hover,
+.wpc-row__action:focus {
+	background: var( --wpc-brand-tint );
+	color: var( --wpc-brand-dark );
+}
+
+.wpc-row__action--note {
+	background: var( --wpc-brand );
+	border-color: var( --wpc-brand );
+	color: var( --wpc-surface );
+}
+
+.wpc-row__action--note:hover,
+.wpc-row__action--note:focus {
+	background: var( --wpc-brand-dark );
+	border-color: var( --wpc-brand-dark );
+	color: var( --wpc-surface );
+}
+
+/* The disclosure triangle. The plugin draws it as two rotated borders pushed to
+   the right of the row; this design wants the WordPress chevron at the front, so
+   the borders and the rotation are cleared and a masked glyph takes over. */
+.wpcpm-mentee__toggle {
+	background: currentColor;
+	border: 0;
+	color: var( --wpc-ink-60 );
+	flex: none;
+	height: 16px;
+	margin-left: 0;
+	mask: var( --wpc-icon-chevron-right ) center / contain no-repeat;
+	opacity: 1;
+	order: -1;
+	transform: none;
+	width: 16px;
+	-webkit-mask: var( --wpc-icon-chevron-right ) center / contain no-repeat;
+}
+
+.wpcpm-mentee__disclosure[open] .wpcpm-mentee__toggle {
+	color: var( --wpc-brand );
+	mask-image: var( --wpc-icon-chevron-down );
+	transform: none;
+	-webkit-mask-image: var( --wpc-icon-chevron-down );
+}
+
+/* ==========================================================================
+   One student — opened
+   ========================================================================== */
+/* Opening a student moves the box out one level: the border and the inset belong
+   to the disclosure so that one outline encloses the row *and* the details it
+   opened onto. Left on the summary, the border would close above the content and
+   the table and notes would read as loose panels that happened to follow.
+
+   `overflow: hidden` is what lets the summary keep square corners — it is clipped
+   to the container's radius, so the tinted header meets the rounded top edge
+   exactly without restating the radius on two corners. */
+.wpcpm-mentee__disclosure[open] {
+	background: var( --wpc-surface-soft );
+	border: 1px solid var( --wpc-brand-border );
+	border-radius: var( --wpc-radius-panel );
+	margin: 0 20px;
+	overflow: hidden;
+}
+
+/* Now a header inside that box rather than a box of its own: the border survives
+   only as the rule dividing it from the content, and the inset it used to carry
+   is the container's. */
+.wpcpm-mentee__disclosure[open] > .wpcpm-mentee__summary {
+	background: var( --wpc-brand-tint );
+	border: 0;
+	border-bottom: 1px solid var( --wpc-brand-border );
+	border-radius: 0;
+	margin: 0;
+}
+
+.wpcpm-mentee__disclosure[open] > .wpcpm-mentee__summary .wpc-row__where,
+.wpcpm-mentee__disclosure[open] > .wpcpm-mentee__summary .wpc-row__until {
+	color: var( --wpc-ink-70 );
+}
+
+/* Details and notes share the width evenly. `minmax( 0, 1fr )` rather than plain
+   `1fr` on both, because a grid track sized from content refuses to shrink below
+   it — a long institution name or an un-breakable URL would otherwise push its
+   column wider than its half. */
+/* Symmetric, and the same 12px the summary above uses. Two things follow from that,
+   both of which were wrong while the left was 52px against the right's 12px:
+
+   - The table's left edge lands on the card's 32px inset (20px margin on the
+     disclosure plus this 12px), so it lines up with the student's name in the row
+     above it and with the group headings — instead of being indented 72px, a figure
+     inherited from an earlier layout and nothing on the page still measures from.
+   - The gutter's centre is the card's centre, so the split between details and notes
+     lines up with the rule between Resources and Updates at the foot of the card.
+     With 40px more padding on one side than the other it sat 20px to the right of it.
+
+   `minmax( 0, 1fr )` rather than plain `1fr` on both, because a grid track sized from
+   content refuses to shrink below it — a long institution name or an un-breakable URL
+   would otherwise push its column wider than its half. */
+.wpcpm-mentee__body {
+	align-items: start;
+	display: grid;
+	gap: 20px;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	padding: 16px 12px 20px;
+}
+
+/* Placed explicitly rather than left to source order. The script lifts the report
+   button out of the body into the collapsed row, so at runtime there are two
+   children and the flow happens to be right — but with JavaScript off there are
+   three, and the button would take the notes column and shove notes underneath. */
+.wpcpm-mentee__body > .wpcpm-mentee__table {
+	grid-area: 1 / 1;
+}
+
+.wpcpm-mentee__body > .wpcpm-notes {
+	grid-area: 1 / 2;
+}
+
+.wpcpm-mentee__body > .wpcpm-mentee__action {
+	grid-area: 2 / 1 / 3 / -1;
+}
+
+/* ==========================================================================
+   The details table
+   ========================================================================== */
+.wpcpm-mentee__table {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-collapse: collapse;
+	font: 13px/20px var( --wpc-font );
+	width: 100%;
+}
+
+/* The label column is fixed so values line up down the table. The width lived on
+   the header row until the plugin dropped it, which left the columns to size
+   themselves off whichever row happened to be longest. */
+.wpcpm-mentee__table tbody th {
+	width: 170px;
+	font: 500 13px/20px var( --wpc-font );
+	text-align: left;
+	vertical-align: top;
+}
+
+/* `tbody` in the selector on purpose: the plugin styles these cells as
+   `.wpcpm-mentee__table tbody th`, so a rule one class shorter would lose the
+   border color to its `color-mix()` gray. */
+.wpcpm-mentee__table tbody th,
+.wpcpm-mentee__table tbody td {
+	border-bottom: 1px solid var( --wpc-line-soft );
+	padding: 9px 12px;
+	vertical-align: top;
+}
+
+.wpcpm-mentee__table tbody tr:last-child th,
+.wpcpm-mentee__table tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+/* A gap in Airtable reads as a gap in Airtable, not as a row the page forgot. */
+.wpcpm-mentee__missing {
+	color: var( --wpc-ink-50 );
+	font-style: italic;
+}
+
+.wpcpm-mentee__row.is-empty {
+	background: var( --wpc-amber-tint );
+}
+
+/* Left in the body for anyone printing or without JavaScript; the script lifts
+   it into the row when it runs. */
+.wpcpm-mentee__action {
+	margin: 12px 0 0;
+}
+
+/* ==========================================================================
+   Call notes
+   ========================================================================== */
+/* Level with the details table beside it. The plugin gives this section a 1.25em
+   top margin — right when it sits under the table in one column, 20px of drift when
+   the theme puts the two side by side. The top padding is a little tighter than the
+   rest so the "Notes" heading lands on roughly the same line as the table's first
+   row rather than 16px below it. */
+.wpcpm-notes {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	margin: 0;
+	padding: 11px 16px 16px;
+}
+
+.wpcpm-notes__title {
+	align-items: baseline;
+	display: flex;
+	font: 500 13px/20px var( --wpc-font );
+	gap: 6px;
+	justify-content: space-between;
+	margin: 0 0 10px;
+}
+
+.wpcpm-notes__count {
+	color: var( --wpc-ink-60 );
+	font: 12px/18px var( --wpc-font );
+}
+
+.wpcpm-notes__message {
+	border-radius: var( --wpc-radius-card );
+	font: 13px/20px var( --wpc-font );
+	margin: 0 0 12px;
+	padding: 12px 14px;
+}
+
+.wpcpm-notes__message.is-success {
+	background: var( --wpc-green-tint );
+	border: 1px solid var( --wpc-green-border );
+}
+
+.wpcpm-notes__message.is-error {
+	background: var( --wpc-red-tint );
+	border: 1px solid var( --wpc-red-border );
+}
+
+.wpcpm-notes__empty {
+	color: var( --wpc-ink-60 );
+	font: 13px/20px var( --wpc-font );
+	margin: 0 0 14px;
+}
+
+.wpcpm-notes__list {
+	list-style: none;
+	margin: 0 0 12px;
+	padding: 0;
+}
+
+/* A rule down the left rather than the plugin's tinted card: the notes panel is
+   already a card, and a fill inside a fill flattens the thread.
+
+   Laid out as a grid so Delete sits at the end of the date line, where the design
+   has it. The plugin gives the delete form as a sibling of the note body, not a
+   child of its meta line, so the row can only be composed here. */
+.wpcpm-note {
+	background: none;
+	border-left: 2px solid var( --wpc-line-soft );
+	border-radius: 0;
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) auto;
+	margin-bottom: 12px;
+	padding: 0 0 0 11px;
+}
+
+.wpcpm-note:first-child {
+	border-left-color: var( --wpc-brand-border );
+}
+
+.wpcpm-note__meta {
+	align-items: baseline;
+	color: var( --wpc-ink-60 );
+	display: flex;
+	flex-wrap: wrap;
+	font: 12px/18px var( --wpc-font );
+	gap: 6px;
+	grid-column: 1;
+	grid-row: 1;
+	margin-bottom: 0;
+	opacity: 1;
+}
+
+.wpcpm-note__body {
+	grid-column: 1 / -1;
+	grid-row: 2;
+}
+
+.wpcpm-note__body {
+	font: 13px/20px var( --wpc-font );
+	grid-column: 1 / -1;
+}
+
+.wpcpm-note__body p {
+	margin: 0 0 6px;
+}
+
+.wpcpm-note__body p:last-child {
+	margin-bottom: 0;
+}
+
+.wpcpm-note__delete {
+	grid-column: 2;
+	grid-row: 1;
+	margin: 0;
+}
+
+.wpcpm-note__delete-button {
+	background: none;
+	border: 0;
+	color: var( --wpc-red );
+	cursor: pointer;
+	font: 12px/18px var( --wpc-font );
+	padding: 0;
+}
+
+.wpcpm-note__delete-button:hover {
+	text-decoration: underline;
+}
+
+.wpcpm-notes__label {
+	display: block;
+	font: 500 13px/20px var( --wpc-font );
+	margin-bottom: 6px;
+}
+
+.wpcpm-notes__input {
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	box-sizing: border-box;
+	font: 13px/20px var( --wpc-font );
+	padding: 9px 10px;
+	resize: vertical;
+	width: 100%;
+}
+
+.wpcpm-notes__form .wpcpm-button {
+	margin-top: 9px;
+}
+
+/* ==========================================================================
+   The call calendar
+
+   Added by the plugin to both dashboards: a diary and an availability editor on
+   the mentor page, a month grid and a slot picker on the student's. The plugin's
+   own `calendar.css` is theme-agnostic in the same way its dashboard sheet is —
+   `currentColor` with opacity, `em` sizing — so the same three things have to be
+   stood down here: real grays instead of transparency, this card's 32px inset
+   instead of none, and the wp-admin control shapes instead of generic ones.
+   ========================================================================== */
+
+/* On the mentor page nothing else supplies the inset, so without this the section
+   sits flush against the card edge — the same thing that happened to the group
+   headings in plugin 1.8.0. On the student page it is also a
+   `.wpcpm-student__section`, which already has both, so this must not fight it. */
+.wpc-dashboard-page .wpcpm-calls--mentor {
+	border-top: 1px solid var( --wpc-line-soft );
+	margin: 0;
+	padding: 20px 32px 24px;
+}
+
+/* Two sections, one row: the program on the left, the mentor on the right. The call
+   section used to be placed here too, under the mentor — it spans the whole card now,
+   because the month grid inside it wants more width than half a card gives it. */
+.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section:first-of-type {
+	grid-column: 1;
+	grid-row: 1;
+}
+
+.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section--mentor {
+	grid-column: 2;
+	grid-row: 1;
+}
+
+.wpc-dashboard-page .wpcpm-calls__heading {
+	align-items: center;
+	color: var( --wpc-ink-70 );
+	font: 700 12px/16px var( --wpc-font );
+	gap: 8px;
+	letter-spacing: .06em;
+	margin: 0 0 12px;
+	text-transform: uppercase;
+}
+
+.wpc-dashboard-page .wpcpm-calls__count {
+	background: var( --wpc-surface-soft );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-pill );
+	color: var( --wpc-ink-70 );
+	font: 500 11px/16px var( --wpc-font );
+	letter-spacing: 0;
+	padding: 0 7px;
+}
+
+.wpc-dashboard-page .wpcpm-calls__intro,
+.wpc-dashboard-page .wpcpm-calls__note,
+.wpc-dashboard-page .wpcpm-calls__empty,
+.wpc-dashboard-page .wpcpm-slots__zone,
+.wpc-dashboard-page .wpcpm-call__relative,
+.wpc-dashboard-page .wpcpm-call__their-zone,
+.wpc-dashboard-page .wpcpm-calls__zone-hint,
+.wpc-dashboard-page .wpcpm-availability__intro,
+.wpc-dashboard-page .wpcpm-availability__hint,
+.wpc-dashboard-page .wpcpm-availability__count,
+.wpc-dashboard-page .wpcpm-availability__note,
+.wpc-dashboard-page .wpcpm-availability__state {
+	color: var( --wpc-ink-70 );
+	font: 13px/20px var( --wpc-font );
+	opacity: 1;
+}
+
+/* The plugin's `.wpcpm-calls__empty` has no background of its own, but the shared
+   `.wpcpm-dashboard__empty` band below does — and this is a sentence in a section,
+   not a whole empty page. */
+.wpc-dashboard-page .wpcpm-calls__empty {
+	background: none;
+	border: 0;
+	margin: 0 0 4px;
+	padding: 0;
+	text-align: left;
+}
+
+.wpc-dashboard-page .wpcpm-calls__mentor-note {
+	background: var( --wpc-brand-tint );
+	border: 1px solid var( --wpc-brand-border );
+	border-left-width: 3px;
+	border-radius: var( --wpc-radius-panel );
+	color: var( --wpc-ink );
+	font: 13px/20px var( --wpc-font );
+	margin: 0 0 14px;
+	padding: 10px 12px;
+}
+
+/* -------------------------------------------------------------------------
+   Booked calls
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-call {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	padding: 12px 14px;
+}
+
+.wpc-dashboard-page .wpcpm-call__time {
+	color: var( --wpc-ink );
+	font: 700 13px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-call__who {
+	color: var( --wpc-ink );
+	font: 500 13px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-call__topic {
+	color: var( --wpc-ink-70 );
+	font: 13px/20px var( --wpc-font );
+}
+
+/* Canceling a call is destructive and reads as the notes' delete does — a red
+   text link, not a button competing with the slot buttons below it. */
+.wpc-dashboard-page .wpcpm-call__cancel-button {
+	background: none;
+	border: 0;
+	color: var( --wpc-red );
+	font: 12px/18px var( --wpc-font );
+	padding: 0;
+}
+
+.wpc-dashboard-page .wpcpm-call__cancel-button:hover {
+	background: none;
+	text-decoration: underline;
+}
+
+/* -------------------------------------------------------------------------
+   The month grid
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-calendar {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	margin: 0 0 16px;
+	padding: 12px 14px 14px;
+}
+
+.wpc-dashboard-page .wpcpm-calendar__month {
+	color: var( --wpc-ink );
+	font: 700 13px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-calendar__nav {
+	color: var( --wpc-brand );
+	font: 500 12px/18px var( --wpc-font );
+	text-decoration: none;
+}
+
+.wpc-dashboard-page .wpcpm-calendar__nav:hover {
+	text-decoration: underline;
+}
+
+.wpc-dashboard-page .wpcpm-calendar__grid th {
+	color: var( --wpc-ink-50 );
+	font: 500 11px/16px var( --wpc-font );
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-calendar__day {
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-ink-50 );
+	font: 13px/18px var( --wpc-font );
+}
+
+/* A bookable day is the only thing on the grid that looks pressable. */
+.wpc-dashboard-page .wpcpm-calendar__cell.is-open .wpcpm-calendar__day {
+	background: var( --wpc-brand-tint );
+	border-color: var( --wpc-brand-border );
+	color: var( --wpc-brand-dark );
+	font-weight: 700;
+}
+
+.wpc-dashboard-page .wpcpm-calendar__cell.is-open .wpcpm-calendar__day:hover,
+.wpc-dashboard-page .wpcpm-calendar__cell.is-open .wpcpm-calendar__day:focus {
+	background: var( --wpc-surface-band );
+	border-color: var( --wpc-brand );
+}
+
+.wpc-dashboard-page .wpcpm-calendar__day.is-empty {
+	color: var( --wpc-ink-50 );
+	opacity: 1;
+}
+
+/* Today reads as a ring in the line color, not in brand: brand already means
+   "bookable" on this grid, and today is frequently neither. */
+.wpc-dashboard-page .wpcpm-calendar__cell.is-today .wpcpm-calendar__day {
+	box-shadow: inset 0 0 0 1px var( --wpc-line-strong );
+}
+
+.wpc-dashboard-page .wpcpm-calendar__slots {
+	color: var( --wpc-ink-70 );
+	font: 500 10px/12px var( --wpc-font );
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-calendar__cell.is-open .wpcpm-calendar__slots {
+	color: var( --wpc-brand-dark );
+}
+
+/* -------------------------------------------------------------------------
+   One day's slots
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-slots__title {
+	color: var( --wpc-ink );
+	font: 700 13px/20px var( --wpc-font );
+	margin: 0 0 2px;
+}
+
+.wpc-dashboard-page .wpcpm-slots__label {
+	font: 500 13px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-slots__topic {
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	font: 13px/20px var( --wpc-font );
+	padding: 8px 10px;
+	resize: vertical;
+}
+
+.wpc-dashboard-page .wpcpm-slots__button {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-ink );
+	padding: 7px 8px;
+}
+
+.wpc-dashboard-page .wpcpm-slots__button:hover,
+.wpc-dashboard-page .wpcpm-slots__button:focus {
+	background: var( --wpc-brand-tint );
+	border-color: var( --wpc-brand );
+	color: var( --wpc-brand-dark );
+}
+
+.wpc-dashboard-page .wpcpm-slots__time {
+	font: 700 13px/18px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-slots__until {
+	color: var( --wpc-ink-70 );
+	font: 11px/14px var( --wpc-font );
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-slots__button:hover .wpcpm-slots__until,
+.wpc-dashboard-page .wpcpm-slots__button:focus .wpcpm-slots__until {
+	color: var( --wpc-brand-dark );
+}
+
+/* -------------------------------------------------------------------------
+   Timezone chooser and availability editor
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-calls__zone {
+	background: var( --wpc-surface-soft );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	font: 13px/20px var( --wpc-font );
+	margin: 0 0 16px;
+	padding: 10px 12px;
+}
+
+.wpc-dashboard-page .wpcpm-availability {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+}
+
+.wpc-dashboard-page .wpcpm-availability__title {
+	color: var( --wpc-ink );
+	font: 700 13px/20px var( --wpc-font );
+}
+
+/* -------------------------------------------------------------------------
+   A form that is on its way
+   ------------------------------------------------------------------------- */
+
+/* The pressed control keeps brand fill while it reads "Booking…" — it is the only thing
+   on screen saying the page is working, so it must not fade at the same moment. */
+.wpc-dashboard-page .is-sending button[data-wpcpm-label] {
+	background: var( --wpc-brand );
+	border-color: var( --wpc-brand );
+	color: var( --wpc-surface );
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-slots__busy {
+	color: var( --wpc-ink-70 );
+	font: 13px/20px var( --wpc-font );
+	opacity: 1;
+}
+
+/* The save confirmation is outside the disclosure now, so it reads with the panel shut.
+   Inset to match the summary beside it, and separated from the disclosure below. */
+.wpc-dashboard-page .wpcpm-availability > .wpcpm-notes__message {
+	margin: 0;
+	padding: 10px 14px 0;
+}
+
+/* The copy control sits under the weekly grid, and reads as a tool rather than as part of
+   the schedule: a tinted strip, a secondary button, and the label type this card uses for
+   supporting text. */
+.wpc-dashboard-page .wpcpm-availability__copy {
+	background: var( --wpc-surface-soft );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	padding: 8px 10px;
+}
+
+.wpc-dashboard-page .wpcpm-availability__copy-label {
+	color: var( --wpc-ink-70 );
+	font: 500 12px/18px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-availability__copy select {
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	font: 13px/20px var( --wpc-font );
+	min-width: 0;
+	padding: 4px 6px;
+}
+
+/* The button is small here — it is a step in filling the form in, not the form's own
+   submit, and the two should not look interchangeable. */
+.wpc-dashboard-page .wpcpm-availability__copy .wpcpm-button {
+	font: 500 12px/18px var( --wpc-font );
+	padding: 4px 10px;
+}
+
+.wpc-dashboard-page .wpcpm-availability__copy-status {
+	color: var( --wpc-ink-70 );
+	font: 12px/18px var( --wpc-font );
+	opacity: 1;
+}
+
+/* An empty schedule says so in the plugin's attention colour rather than the muted grey
+   the rest of this panel's supporting text takes. Restated here because the group of
+   muted-text rules at the top of this file sets `opacity: 1` on
+   `.wpcpm-availability__state`, and would otherwise also give it `--wpc-ink-70`. */
+.wpc-dashboard-page .wpcpm-availability--unset .wpcpm-availability__state {
+	color: #daa39b;
+	opacity: 1;
+}
+
+/* The plugin reuses `.wpcpm-mentee__toggle` for this disclosure's chevron, which
+   gets it this theme's masked icon and its `order: -1` for free. The open state does
+   not follow, though — that rule is keyed to `.wpcpm-mentee__disclosure` — so the
+   arrow would point right while the panel was open. */
+.wpc-dashboard-page .wpcpm-availability__disclosure[open] .wpcpm-mentee__toggle {
+	color: var( --wpc-brand );
+	mask-image: var( --wpc-icon-chevron-down );
+	-webkit-mask-image: var( --wpc-icon-chevron-down );
+}
+
+.wpc-dashboard-page .wpcpm-availability__body {
+	border-top: 1px solid var( --wpc-line-soft );
+	padding: 14px;
+}
+
+.wpc-dashboard-page .wpcpm-availability__legend {
+	color: var( --wpc-ink-70 );
+	font: 700 11px/16px var( --wpc-font );
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+.wpc-dashboard-page .wpcpm-availability__table th {
+	color: var( --wpc-ink );
+	font: 500 13px/20px var( --wpc-font );
+	width: 110px;
+}
+
+.wpc-dashboard-page .wpcpm-availability__field label {
+	font: 500 13px/20px var( --wpc-font );
+}
+
+/* `min-width: 0` is the operative half. A `<select>` will not shrink below its
+   longest option, and the timezone list contains some very long ones — the same
+   thing that made the editor's Program access panel overflow its sidebar. */
+.wpc-dashboard-page .wpcpm-availability__field select,
+.wpc-dashboard-page .wpcpm-availability__field input,
+.wpc-dashboard-page .wpcpm-availability__field textarea,
+.wpc-dashboard-page .wpcpm-calls__zone select,
+.wpc-dashboard-page .wpcpm-availability__windows input {
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	font: 13px/20px var( --wpc-font );
+	min-width: 0;
+	padding: 5px 8px;
+}
+
+/* The two time inputs per day are sized to their content, not to the 26em the
+   plugin's own field rule gives everything else in the form. */
+.wpc-dashboard-page .wpcpm-availability__windows input {
+	width: auto;
+}
+
+.wpc-dashboard-page .wpcpm-availability__to {
+	color: var( --wpc-ink-50 );
+}
+
+/* -------------------------------------------------------------------------
+   Booked calls beside the picker, on the student page
+   ------------------------------------------------------------------------- */
+
+/* The plugin declares the grid; this supplies the gutter and the rule between the halves,
+   matching the mentor page's diary-beside-availability treatment.
+
+   The gutter is *padding on each half*, not a `column-gap`. With a gap, the two `1fr`
+   tracks divide the space that is left after it, and the rule — which sits on the leading
+   edge of the second track — lands half a gutter to the right of the card's middle. The
+   section above splits at exactly 50%, so the two rules were 12px apart on a page where
+   they read as the same line. Paying the gutter out of both halves puts the track boundary
+   back on the centre line. */
+.wpc-dashboard-page .wpcpm-calls__cols {
+	column-gap: 0;
+}
+
+.wpc-dashboard-page .wpcpm-calls__col--booked {
+	padding-right: 24px;
+}
+
+.wpc-dashboard-page .wpcpm-calls__col--pick {
+	border-left: 1px solid var( --wpc-line-soft );
+	padding-left: 24px;
+}
+
+@media ( max-width: 900px ) {
+
+	/* Stacked, so the divider is a rule above rather than beside, and there is no centre
+	   line left to line up with. */
+	.wpc-dashboard-page .wpcpm-calls__col--booked {
+		padding-right: 0;
+	}
+
+	.wpc-dashboard-page .wpcpm-calls__col--pick {
+		border-left: 0;
+		border-top: 1px solid var( --wpc-line-soft );
+		padding-left: 0;
+		padding-top: 20px;
+	}
+}
+
+/* -------------------------------------------------------------------------
+   Diary beside availability, on the mentor page
+   ------------------------------------------------------------------------- */
+
+/* The plugin already declares the two-column grid; this only supplies the gutter
+   this design uses and a rule between the halves, so they read as two panels rather
+   than two things that happen to be adjacent.
+
+   Paid out of both halves rather than as a `column-gap`, for the reason given on the
+   student page's split above: a gap moves the rule off the centre line by half its width. */
+.wpc-dashboard-page .wpcpm-calls--mentor {
+	column-gap: 0;
+}
+
+.wpc-dashboard-page .wpcpm-calls__col--diary {
+	padding-right: 24px;
+}
+
+.wpc-dashboard-page .wpcpm-calls__col--availability {
+	border-left: 1px solid var( --wpc-line-soft );
+	padding-left: 24px;
+}
+
+/* The diary opens with a section label and the availability column does not, so the two
+   panels started a label apart — the disclosure sat level with the word "UPCOMING CALLS"
+   while the first call card began below it, and two panels that are meant to be read
+   together looked staggered.
+
+   The offset is that label's own box: 16px of line plus its 12px margin, both set on
+   `.wpcpm-calls__heading` a few rules up. It is a number tied to another number, which is
+   why they are stated together here — change one and this has to follow. */
+.wpc-dashboard-page .wpcpm-calls__col--availability {
+	margin-top: 28px;
+}
+
+@media ( max-width: 900px ) {
+
+	/* Stacked, so the divider is a rule above rather than beside, and there is no longer a
+	   label in an adjacent column to start level with. */
+	.wpc-dashboard-page .wpcpm-calls__col--diary {
+		padding-right: 0;
+	}
+
+	.wpc-dashboard-page .wpcpm-calls__col--availability {
+		border-left: 0;
+		border-top: 1px solid var( --wpc-line-soft );
+		margin-top: 0;
+		padding-left: 0;
+		padding-top: 20px;
+	}
+}
+
+/* -------------------------------------------------------------------------
+   Contact-row icons
+   ------------------------------------------------------------------------- */
+
+/* Quieter than the label they sit beside — they identify a row at a glance, they are
+   not information in their own right, and at this size a full-contrast line icon
+   competes with the value in the next column. */
+.wpc-dashboard-page .wpcpm-icon {
+	color: var( --wpc-ink-50 );
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-mentee__row.is-empty .wpcpm-icon,
+.wpc-dashboard-page .wpcpm-student__row.is-empty .wpcpm-icon {
+	color: var( --wpc-ink-50 );
+	opacity: 0.55;
+}
+
+/* The team icon labels its row, so it takes the same gray as the other row icons. */
+.wpc-dashboard-page .wpcpm-team__icon {
+	color: var( --wpc-ink-50 );
+	opacity: 1;
+}
+
+/* Not dimmed on an empty row, unlike the other icons: on this row the question mark is
+   the information — no team has been chosen — rather than a repeat of the label. */
+.wpc-dashboard-page .wpcpm-student__row.is-empty .wpcpm-team__icon--unset,
+.wpc-dashboard-page .wpcpm-mentee__row.is-empty .wpcpm-team__icon--unset {
+	color: var( --wpc-ink-50 );
+	opacity: 1;
+}
+
+/* -------------------------------------------------------------------------
+   Inline "Edit" beside a value the student maintains
+   ------------------------------------------------------------------------- */
+
+/* A link, not a button. It sits inside a table cell beside the value, and a button
+   there would outweigh the value it belongs to. */
+.wpc-dashboard-page .wpcpm-edit__toggle {
+	color: var( --wpc-brand );
+	font: 500 12px/18px var( --wpc-font );
+	opacity: 1;
+}
+
+/* Opened, the form is separated from the value above it — without a rule the inputs
+   read as another row of the table rather than as an editor for the row they are in. */
+.wpc-dashboard-page .wpcpm-edit[open] .wpcpm-edit__body {
+	border-top: 1px solid var( --wpc-line-soft );
+	margin-top: 8px;
+	padding-top: 10px;
+}
+
+.wpc-dashboard-page .wpcpm-edit__form input,
+.wpc-dashboard-page .wpcpm-edit__form select {
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	font: 13px/20px var( --wpc-font );
+	min-width: 0;
+	padding: 5px 8px;
+}
+
+.wpc-dashboard-page .wpcpm-edit__note {
+	color: var( --wpc-ink-70 );
+	font: 12px/18px var( --wpc-font );
+	opacity: 1;
+}
+
+/* ==========================================================================
+   Empty state
+
+   The gated and wrong-role notices are styled in style.css, not here: a page the
+   plugin has restricted is not necessarily the mentor page, and this stylesheet
+   only loads where the dashboard renders.
+   ========================================================================== */
+.wpcpm-dashboard__empty {
+	background: var( --wpc-surface-soft );
+	border-top: 1px solid var( --wpc-line-soft );
+	color: var( --wpc-ink-70 );
+	font: 13px/20px var( --wpc-font );
+	margin: 0;
+	padding: 24px 32px;
+	text-align: center;
+}
+
+/* ==========================================================================
+   Between the design's width and the tablet layout
+
+   The design's row is drawn at 1120px, where every column fits. Narrower than
+   that something has to give, and the end date is the column to lose: it is the
+   one fact also spelled out in the opened card's Internship row, and for the
+   students who are actually running out of time the chip beside it already says
+   how many days are left. Losing it keeps the institution readable instead of
+   squeezing every column into an ellipsis.
+   ========================================================================== */
+@media ( max-width: 1180px ) {
+	.wpc-dash-enhanced .wpc-row__until {
+		display: none;
+	}
+
+	.wpcpm-mentee__name {
+		width: 150px;
+	}
+}
+
+/* ==========================================================================
+   Tablet — two-line rows
+   ========================================================================== */
+@media ( max-width: 900px ) {
+	.wpc-dash-enhanced .wpcpm-mentee__summary .wpcpm-badge {
+		display: inline-block;
+	}
+
+	/* Was a margin on the card; it is the parent's padding now, for the reason given where
+	   that rule is. */
+	.wpc-main--dashboard {
+		padding-bottom: 10px;
+		padding-top: 10px;
+	}
+
+	/* The summary is not in this list: it reaches the same 20px inset through a
+	   margin plus a padding, so it gets its own pair of halves further down. */
+	.wpc-dash__band,
+	.wpc-dash__toolbar,
+	.wpc-group,
+	.wpc-dash__hint,
+	.wpc-dash__ordering,
+	.wpcpm-dashboard__empty {
+		padding-left: 20px;
+		padding-right: 20px;
+	}
+
+	.wpcpm-dashboard__switcher {
+		margin-left: 20px;
+		margin-right: 20px;
+	}
+
+	.wpcpm-dashboard__mentor .wpcpm-avatar {
+		height: 42px;
+		width: 42px;
+	}
+
+	.wpcpm-dashboard__mentor-name {
+		font-size: 20px;
+		line-height: 26px;
+	}
+
+	/* The counts become cards, because at this width they are the first thing on
+	   screen rather than a footnote to the right of a name. */
+	.wpc-triage {
+		flex: 1 1 100%;
+		gap: 8px;
+	}
+
+	.wpc-triage__item {
+		background: var( --wpc-surface );
+		border: 1px solid var( --wpc-line-card );
+		border-radius: var( --wpc-radius-card );
+		flex: 1;
+		padding: 9px 12px;
+		text-align: left;
+	}
+
+	.wpc-triage__item--call {
+		border-color: var( --wpc-red-border );
+	}
+
+	.wpc-triage__item--ending {
+		border-color: var( --wpc-amber-border );
+	}
+
+	.wpc-triage__item--ok {
+		border-color: var( --wpc-green-border );
+	}
+
+	.wpc-triage__count {
+		font-size: 17px;
+		line-height: 21px;
+	}
+
+	.wpc-triage__label {
+		color: var( --wpc-ink-70 );
+		white-space: normal;
+	}
+
+	/* Two lines: identity on the first, the plugin's own summary line on the
+	   second. The columns are what does not fit here, so they go.
+
+	   10px of margin and 10px of padding, so the text lands on the same 20px inset
+	   as everything above while the border stays clear of the card edge. */
+	.wpcpm-mentee__summary {
+		flex-wrap: wrap;
+		gap: 10px;
+		margin-left: 10px;
+		margin-right: 10px;
+		padding-bottom: 12px;
+		padding-left: 10px;
+		padding-right: 10px;
+		padding-top: 12px;
+	}
+
+	.wpcpm-mentee__summary .wpcpm-avatar {
+		height: 40px;
+		width: 40px;
+	}
+
+	.wpcpm-mentee__name {
+		flex: 1;
+		width: auto;
+	}
+
+	.wpc-dash-enhanced .wpc-row__where,
+	.wpc-dash-enhanced .wpc-row__until {
+		display: none;
+	}
+
+	.wpc-dash-enhanced .wpcpm-mentee__preview {
+		display: block;
+		flex-basis: 100%;
+		order: 9;
+		padding-left: 60px;
+	}
+
+	.wpc-row__flag {
+		order: 3;
+		width: auto;
+	}
+
+	.wpc-row__action {
+		order: 4;
+	}
+
+	/* Halved with the inset: the open disclosure is 10px in here, not 20px. */
+	.wpcpm-mentee__disclosure[open] {
+		margin-left: 10px;
+		margin-right: 10px;
+	}
+
+	.wpcpm-mentee__body {
+		grid-template-columns: minmax( 0, 1fr );
+		padding: 16px 10px 20px;
+	}
+
+	/* The placements above would create an implicit second column in a grid that
+	   now has one, so they are stood down with the layout. */
+	.wpcpm-mentee__body > .wpcpm-mentee__table,
+	.wpcpm-mentee__body > .wpcpm-notes,
+	.wpcpm-mentee__body > .wpcpm-mentee__action {
+		grid-area: auto;
+	}
+
+	.wpcpm-mentee__table,
+	.wpcpm-mentee__table tbody,
+	.wpcpm-mentee__table tr,
+	.wpcpm-mentee__table th,
+	.wpcpm-mentee__table td {
+		display: block;
+		width: auto;
+	}
+
+	.wpcpm-mentee__table tr {
+		border-bottom: 1px solid var( --wpc-line-soft );
+		padding: 6px 0;
+	}
+
+	.wpcpm-mentee__table th,
+	.wpcpm-mentee__table td {
+		border: 0;
+		padding: 3px 12px;
+	}
+
+	.wpcpm-mentee__table td::before {
+		color: var( --wpc-ink-50 );
+		content: attr( data-label ) ": ";
+		font-size: 12px;
+	}
+}
+
+@media ( max-width: 600px ) {
+	.wpc-triage {
+		flex-wrap: wrap;
+	}
+
+	.wpc-triage__item {
+		flex-basis: calc( 50% - 4px );
+	}
+
+	.wpc-dash-enhanced .wpcpm-mentee__preview {
+		padding-left: 0;
+	}
+}
+
+/* -------------------------------------------------------------------------
+   Resources, in halves
+
+   Left: what is new. Right: what to read. The divider is a vertical rule on the
+   right column, the same idiom the student page's own two columns use, with an
+   equal 32px either side of it rather than a gap on one side and padding on the
+   other. The section keeps its own horizontal inset, so the `max-width: 782px`
+   rule further up — which narrows that inset to 20px — still applies untouched.
+
+   The two halves swapped in plugin 1.40.0 — updates lead now — so these rules are
+   written against which side a column is on rather than which one it is: the
+   divider belongs to whichever column comes second.
+
+   `minmax( 0, 1fr )` on both tracks for the reason the page grid uses it: a track
+   sized from its content refuses to shrink below it, and one long update title
+   would otherwise push its column past half.
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-resources--split {
+	display: grid;
+	gap: 0;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+.wpc-dashboard-page .wpcpm-resources--split > .wpcpm-resources__col:first-child {
+	padding-right: 32px;
+}
+
+.wpc-dashboard-page .wpcpm-resources--split > .wpcpm-resources__col + .wpcpm-resources__col {
+	border-left: 1px solid var( --wpc-line-soft );
+	padding-left: 32px;
+}
+
+.wpc-dashboard-page .wpcpm-updates__item {
+	border-bottom-color: var( --wpc-line-soft );
+	padding: 10px 0;
+}
+
+.wpc-dashboard-page .wpcpm-updates__link {
+	color: var( --wpc-ink );
+	font: 600 15px/22px var( --wpc-font );
+	text-decoration: none;
+}
+
+.wpc-dashboard-page .wpcpm-updates__link:hover,
+.wpc-dashboard-page .wpcpm-updates__link:focus {
+	color: var( --wpc-brand-dark );
+	text-decoration: underline;
+}
+
+.wpc-dashboard-page .wpcpm-updates__date {
+	color: var( --wpc-ink-60 );
+	font: 12px/18px var( --wpc-font );
+	margin-top: 2px;
+}
+
+.wpc-dashboard-page .wpcpm-updates__more {
+	color: var( --wpc-brand );
+	font-weight: 600;
+}
+
+.wpc-dashboard-page .wpcpm-updates__empty {
+	font-style: italic;
+}
+
+/* Halves at the width the page's own two columns stop being halves, so the card never
+   has one two-column row and one stacked one. */
+@media ( max-width: 900px ) {
+
+	.wpc-dashboard-page .wpcpm-resources--split {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpc-dashboard-page .wpcpm-resources--split > .wpcpm-resources__col:first-child {
+		padding-bottom: 20px;
+		padding-right: 0;
+	}
+
+	/* Stacked, so the divider is the rule above rather than the one beside. */
+	.wpc-dashboard-page .wpcpm-resources--split > .wpcpm-resources__col + .wpcpm-resources__col {
+		border-left: 0;
+		border-top: 1px solid var( --wpc-line-soft );
+		padding-left: 0;
+		padding-top: 20px;
+	}
+}
+
+/* -------------------------------------------------------------------------
+   "Need help?" at the foot of the mentor card
+
+   The plugin gives this the same `.wpcpm-button` classes as the course and report
+   buttons, so the large treatment above already covers it. This only places the row:
+   the card's own 32px inset, and a rule above it so it reads as a footer to the page
+   rather than as part of the student list.
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-handbook__prompt {
+	align-items: center;
+	border-top: 1px solid var( --wpc-line-soft );
+	gap: 16px;
+	margin: 0;
+	padding: 24px 32px 28px;
+}
+
+.wpc-dashboard-page .wpcpm-handbook__prompt-note {
+	color: var( --wpc-ink-60 );
+	font: 13px/20px var( --wpc-font );
+}
+
+@media ( max-width: 782px ) {
+
+	.wpc-dashboard-page .wpcpm-handbook__prompt {
+		padding-left: 20px;
+		padding-right: 20px;
+	}
+}

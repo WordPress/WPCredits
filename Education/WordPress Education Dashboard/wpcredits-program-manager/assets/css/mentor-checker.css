@@ -1,0 +1,228 @@
+/**
+ * Mentor Checker admin screen.
+ */
+
+.wpcpm-checker-intro {
+	max-width: 60em;
+}
+
+.wpcpm-checker-controls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 12px;
+	align-items: center;
+	margin: 1.5em 0 0.5em;
+}
+
+.wpcpm-checker-inline-form {
+	display: inline;
+	margin: 0;
+}
+
+.wpcpm-checker-status {
+	min-height: 1.5em;
+	margin: 0.5em 0;
+	color: #50575e;
+}
+
+.wpcpm-checker-progress {
+	max-width: 42em;
+	padding: 12px 16px;
+	margin: 0 0 1em;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+}
+
+.wpcpm-checker-progress__head {
+	display: flex;
+	gap: 12px;
+	align-items: baseline;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.wpcpm-checker-progress__label {
+	font-weight: 600;
+}
+
+.wpcpm-checker-progress__count {
+	font-variant-numeric: tabular-nums;
+	color: #50575e;
+}
+
+.wpcpm-checker-progress__bar {
+	height: 8px;
+	overflow: hidden;
+	background: #dcdcde;
+	border-radius: 4px;
+}
+
+.wpcpm-checker-progress__bar span {
+	display: block;
+	width: 0;
+	height: 100%;
+	background: #2271b1;
+	border-radius: 4px;
+	transition: width 240ms ease;
+}
+
+.wpcpm-checker-progress__meta {
+	display: flex;
+	gap: 12px;
+	justify-content: space-between;
+	margin-top: 8px;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.wpcpm-checker-progress__eta {
+	font-style: italic;
+}
+
+/* Each queued row carries both labels; the row's state picks which one shows. */
+.wpcpm-checker-when-checking {
+	display: none;
+}
+
+tr.is-checking .wpcpm-checker-when-queued {
+	display: none;
+}
+
+tr.is-checking .wpcpm-checker-when-checking {
+	display: inline-block;
+}
+
+tr.is-checking {
+	background: #f0f6fc;
+}
+
+.wpcpm-checker-spinner {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-right: 4px;
+	vertical-align: -1px;
+	border: 2px solid currentColor;
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: wpcpm-checker-spin 700ms linear infinite;
+}
+
+@keyframes wpcpm-checker-spin {
+	to {
+		transform: rotate( 360deg );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.wpcpm-checker-spinner {
+		animation-duration: 2.4s;
+	}
+
+	.wpcpm-checker-progress__bar span {
+		transition: none;
+	}
+}
+
+.wpcpm-checker-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 20px;
+	padding: 12px 16px;
+	margin: 0 0 1em;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-left: 4px solid #2271b1;
+}
+
+.wpcpm-checker-stat b {
+	font-size: 1.15em;
+}
+
+.wpcpm-checker-results .wpcpm-checker-col-name {
+	width: 18%;
+}
+
+.wpcpm-checker-results .wpcpm-checker-col-profile {
+	width: 16%;
+}
+
+.wpcpm-checker-results .wpcpm-checker-col-status {
+	width: 12%;
+}
+
+.wpcpm-checker-results .wpcpm-checker-col-action {
+	width: 22%;
+}
+
+.wpcpm-checker-pill,
+.wpcpm-checker-action {
+	display: inline-block;
+	padding: 1px 8px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.7;
+	border-radius: 9px;
+}
+
+.wpcpm-checker-pill--yes {
+	color: #005c2a;
+	background: #d5f2e0;
+}
+
+.wpcpm-checker-pill--no {
+	color: #50575e;
+	background: #f0f0f1;
+}
+
+.wpcpm-checker-pill--warn {
+	color: #8a5700;
+	background: #fcf3d8;
+}
+
+.wpcpm-checker-pill--pending {
+	color: #787c82;
+	background: #f6f7f7;
+}
+
+.wpcpm-checker-pill--checking {
+	color: #0a4b78;
+	background: #d7e9f7;
+}
+
+.wpcpm-checker-action--eligible {
+	color: #0a4b78;
+	background: #d7e9f7;
+}
+
+.wpcpm-checker-action--promoted {
+	color: #005c2a;
+	background: #d5f2e0;
+}
+
+.wpcpm-checker-action--skipped {
+	color: #50575e;
+	background: #f0f0f1;
+}
+
+.wpcpm-checker-action--failed {
+	color: #8a1f11;
+	background: #fbe4e2;
+}
+
+.wpcpm-checker-note,
+.wpcpm-checker-date {
+	display: block;
+	margin-top: 3px;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.wpcpm-checker-muted {
+	color: #787c82;
+}
+
+.wpcpm-checker-col-action .button {
+	margin-top: 6px;
+}

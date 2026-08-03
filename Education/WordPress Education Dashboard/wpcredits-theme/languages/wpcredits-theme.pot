@@ -1,0 +1,576 @@
+# Copyright (C) 2026 WPCredits Theme
+# This file is distributed under the GPL-2.0-or-later license.
+msgid ""
+msgstr ""
+"Project-Id-Version: WPCredits Theme\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/theme/wpcredits-theme/\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-08-03T05:36:26+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: bin/make-pot.sh (GNU gettext)\n"
+"X-Domain: wpcredits-theme\n"
+#: blocks/handbook-launcher/render.php:28
+msgid "Need help?"
+msgstr ""
+
+#: blocks/viewer-chip/render.php:27 inc/login.php:106
+msgid "Log in"
+msgstr ""
+
+#: blocks/viewer-chip/render.php:58
+msgid "My Program"
+msgstr ""
+
+#: blocks/viewer-chip/render.php:59
+msgid "Student Dashboard"
+msgstr ""
+
+#: blocks/viewer-chip/render.php:74
+msgid "My Students"
+msgstr ""
+
+#: blocks/viewer-chip/render.php:75
+msgid "Mentor Dashboard"
+msgstr ""
+
+#: blocks/viewer-chip/render.php:82
+msgid "Log out"
+msgstr ""
+
+#. translators: %s: the signed-in person's name.
+#: blocks/viewer-chip/render.php:92
+#, php-format
+msgid "Profile photo of %s"
+msgstr ""
+
+#: functions.php:89
+msgid "WPCredits program"
+msgstr ""
+
+#: functions.php:90
+msgid "Sections for the program’s landing page."
+msgstr ""
+
+#: functions.php:105
+msgid "Card"
+msgstr ""
+
+#: functions.php:113
+msgid "Pale band"
+msgstr ""
+
+#: functions.php:121
+msgid "Eyebrow"
+msgstr ""
+
+#: functions.php:129
+msgid "Pill"
+msgstr ""
+
+#: inc/dashboard.php:344
+msgid "Need a call"
+msgstr ""
+
+#: inc/dashboard.php:348
+msgid "Ending soon"
+msgstr ""
+
+#: inc/dashboard.php:352
+msgid "On track"
+msgstr ""
+
+#: inc/dashboard.php:356
+msgid "Search students"
+msgstr ""
+
+#: inc/dashboard.php:357
+msgid "Search students, institutions or teams"
+msgstr ""
+
+#: inc/dashboard.php:358
+msgid "Clear the search"
+msgstr ""
+
+#. translators: 1: matching students, 2: total students.
+#: inc/dashboard.php:360
+#, php-format
+msgid "%1$s of %2$s students match"
+msgstr ""
+
+#: inc/dashboard.php:361
+msgid "No students match that search."
+msgstr ""
+
+#. translators: %s: number of matches within one group.
+#: inc/dashboard.php:363
+#, php-format
+msgid "%s match"
+msgstr ""
+
+#: inc/dashboard.php:364
+msgid ""
+"Some browsers do not search inside collapsed sections with Ctrl+F. Use "
+"Expand all first if you are looking for something specific."
+msgstr ""
+
+#: inc/dashboard.php:365
+msgid "No notes"
+msgstr ""
+
+#: inc/dashboard.php:366
+msgid "Add a note"
+msgstr ""
+
+#: inc/dashboard.php:367
+msgid "Details"
+msgstr ""
+
+#. translators: %s: number of days.
+#: inc/dashboard.php:369
+#, php-format
+msgid "%s days"
+msgstr ""
+
+#: inc/dashboard.php:370
+msgid "Ended"
+msgstr ""
+
+#: inc/dashboard.php:371
+msgid "need a call"
+msgstr ""
+
+#: inc/dashboard.php:372
+msgid "ending soon"
+msgstr ""
+
+#: inc/dashboard.php:373
+msgid "on track"
+msgstr ""
+
+#: inc/dashboard.php:374
+msgid "Show all students"
+msgstr ""
+
+#: inc/dashboard.php:375
+msgid "Ordered by internship end date within each group, soonest first."
+msgstr ""
+
+#. translators: %s: student's name.
+#: inc/dashboard.php:377
+#, php-format
+msgid "Add a note for %s"
+msgstr ""
+
+#. translators: %s: internship end date.
+#: inc/dashboard.php:379
+#, php-format
+msgid "until %s"
+msgstr ""
+
+#: inc/login.php:119
+msgid "You are already logged in."
+msgstr ""
+
+#: inc/login.php:121 patterns/cta.php:43
+msgid "Open My Students"
+msgstr ""
+
+#. translators: %s: the "Lost your password?" link text, wrapped for emphasis.
+#: inc/login.php:143
+#, php-format
+msgid ""
+"Your account was created by the program. If you have never set a password, "
+"use %s with the email address in your Airtable record."
+msgstr ""
+
+#: inc/login.php:144
+msgid "Lost your password?"
+msgstr ""
+
+#: inc/login.php:151
+msgid "Code is poetry."
+msgstr ""
+
+#: inc/template-tags.php:165
+msgid "Education"
+msgstr ""
+
+#: patterns/audiences.php:20
+msgid "Students"
+msgstr ""
+
+#: patterns/audiences.php:21
+msgid ""
+"Join an internship track — In Sensei or In Sensei 50h — with a mentor "
+"assigned to you."
+msgstr ""
+
+#: patterns/audiences.php:26
+msgid "Mentors"
+msgstr ""
+
+#: patterns/audiences.php:27
+msgid ""
+"Guide your students, keep a note of every call, and file their reports on "
+"time."
+msgstr ""
+
+#: patterns/audiences.php:32
+msgid "Institutions"
+msgstr ""
+
+#: patterns/audiences.php:33
+msgid ""
+"Recognise open-source work as coursework and place your students with "
+"mentors."
+msgstr ""
+
+#: patterns/audiences.php:38
+msgid "Program managers"
+msgstr ""
+
+#: patterns/audiences.php:39
+msgid ""
+"Run the program: sync Airtable, provision accounts, promote vetted mentors."
+msgstr ""
+
+#: patterns/cta.php:26
+msgid "Your students, their details and your call notes are on one page."
+msgstr ""
+
+#: patterns/cta.php:27
+msgid ""
+"Your students, their details and your call notes are on one page. Sign in "
+"and it opens straight away."
+msgstr ""
+
+#: patterns/cta.php:33
+msgid "Already mentoring?"
+msgstr ""
+
+#. translators: 1: current year, 2: site name.
+#: patterns/footer-credit.php:22
+#, php-format
+msgid "© %1$s %2$s"
+msgstr ""
+
+#: patterns/hero.php:24
+msgid "WordPress Credits Program"
+msgstr ""
+
+#: patterns/hero.php:28
+msgid "Real contributions,"
+msgstr ""
+
+#: patterns/hero.php:28
+msgid "real academic credit"
+msgstr ""
+
+#: patterns/hero.php:32
+msgid ""
+"Students contribute to WordPress as part of their degree. Institutions award "
+"the credit. Mentors guide every internship, from first commit to final "
+"report."
+msgstr ""
+
+#: patterns/hero.php:37
+msgid "Apply as a student"
+msgstr ""
+
+#: patterns/hero.php:41
+msgid "Become a mentor"
+msgstr ""
+
+#: patterns/hero.php:48
+msgid "A student taking notes during a video call with their mentor."
+msgstr ""
+
+#: patterns/hero.php:57
+msgid "mentors currently active in the program"
+msgstr ""
+
+#: patterns/steps.php:15
+msgid "Placement"
+msgstr ""
+
+#: patterns/steps.php:16
+msgid "The institution nominates a student; the program assigns a mentor."
+msgstr ""
+
+#: patterns/steps.php:19
+msgid "Contribution"
+msgstr ""
+
+#: patterns/steps.php:20
+msgid "The student joins a contribution team and starts logging hours."
+msgstr ""
+
+#: patterns/steps.php:23
+msgid "Check-ins"
+msgstr ""
+
+#: patterns/steps.php:24
+msgid ""
+"Mentor and student meet regularly. Every call is noted on the student’s card."
+msgstr ""
+
+#: patterns/steps.php:27
+msgid "Report"
+msgstr ""
+
+#: patterns/steps.php:28
+msgid ""
+"The student files their report form and the institution awards the credit."
+msgstr ""
+
+#: patterns/steps.php:36
+msgid "How an internship runs"
+msgstr ""
+
+#: patterns/steps.php:40
+msgid "Read the handbook"
+msgstr ""
+
+#: patterns/audiences.php
+msgctxt "Pattern title"
+msgid "Four audiences"
+msgstr ""
+
+#: patterns/audiences.php
+msgctxt "Pattern description"
+msgid ""
+"A pale band with one column per audience the program serves — students, "
+"mentors, institutions and program managers."
+msgstr ""
+
+#: patterns/cta.php
+msgctxt "Pattern title"
+msgid "Mentor call to action"
+msgstr ""
+
+#: patterns/cta.php
+msgctxt "Pattern description"
+msgid "A brand-blue band pointing mentors at their students page."
+msgstr ""
+
+#: patterns/footer-credit.php
+msgctxt "Pattern title"
+msgid "Footer credit line"
+msgstr ""
+
+#: patterns/footer-credit.php
+msgctxt "Pattern description"
+msgid "Copyright year and site name for the footer."
+msgstr ""
+
+#: patterns/hero.php
+msgctxt "Pattern title"
+msgid "Program hero"
+msgstr ""
+
+#: patterns/hero.php
+msgctxt "Pattern description"
+msgid ""
+"Headline, standfirst and two calls to action beside a photo with a floating "
+"statistic."
+msgstr ""
+
+#: patterns/steps.php
+msgctxt "Pattern title"
+msgid "How an internship runs"
+msgstr ""
+
+#: patterns/steps.php
+msgctxt "Pattern description"
+msgid ""
+"Four numbered cards walking through an internship, from placement to the "
+"final report."
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "WordPress blue"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "WordPress blue, pressed"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Pale indigo"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Indigo rule"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Ink"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Ink, secondary"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Muted text"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Placeholder text"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Rule"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Band"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "Soft gray"
+msgstr ""
+
+#: theme.json
+msgctxt "Color name"
+msgid "White"
+msgstr ""
+
+#: theme.json
+msgctxt "Font size name"
+msgid "Extra small"
+msgstr ""
+
+#: theme.json
+msgctxt "Font size name"
+msgid "Small"
+msgstr ""
+
+#: theme.json
+msgctxt "Font size name"
+msgid "Medium"
+msgstr ""
+
+#: theme.json
+msgctxt "Font size name"
+msgid "Large"
+msgstr ""
+
+#: theme.json
+msgctxt "Font size name"
+msgid "Extra large"
+msgstr ""
+
+#: theme.json
+msgctxt "Font size name"
+msgid "Huge"
+msgstr ""
+
+#: theme.json
+msgctxt "Font size name"
+msgid "Display"
+msgstr ""
+
+#: theme.json
+msgctxt "Font family name"
+msgid "System"
+msgstr ""
+
+#: theme.json
+msgctxt "Font family name"
+msgid "Monospace"
+msgstr ""
+
+#: theme.json
+msgctxt "Space size name"
+msgid "1"
+msgstr ""
+
+#: theme.json
+msgctxt "Space size name"
+msgid "2"
+msgstr ""
+
+#: theme.json
+msgctxt "Space size name"
+msgid "3"
+msgstr ""
+
+#: theme.json
+msgctxt "Space size name"
+msgid "4"
+msgstr ""
+
+#: theme.json
+msgctxt "Space size name"
+msgid "5"
+msgstr ""
+
+#: theme.json
+msgctxt "Space size name"
+msgid "6"
+msgstr ""
+
+#: theme.json
+msgctxt "Space size name"
+msgid "7"
+msgstr ""
+
+#: theme.json
+msgctxt "Custom template name"
+msgid "Full width page"
+msgstr ""
+
+#: theme.json
+msgctxt "Template part name"
+msgid "Header"
+msgstr ""
+
+#: theme.json
+msgctxt "Template part name"
+msgid "Footer"
+msgstr ""
+
+#: style.css
+msgctxt "Name of the theme"
+msgid "WPCredits"
+msgstr ""
+
+#: style.css
+msgctxt "Description of the theme"
+msgid ""
+"A block theme and the front end for the WPCredits Program Manager plugin. "
+"Gives the program a landing page built from patterns, a branded login, and a "
+"full-width \"My Students\" template that dresses the plugin's own mentor "
+"dashboard as a compact, triaged, printable list. Chrome follows the "
+"WordPress Education Initiatives site; inside the dashboard the patterns are "
+"wp-admin native."
+msgstr ""
+
+#: style.css
+msgctxt "Author of the theme"
+msgid "Maciej Pilarski"
+msgstr ""
+
+#: style.css
+msgctxt "Tags of the theme"
+msgid ""
+"education, full-site-editing, block-patterns, custom-colors, custom-logo, "
+"custom-menu, translation-ready, full-width-template, block-styles"
+msgstr ""

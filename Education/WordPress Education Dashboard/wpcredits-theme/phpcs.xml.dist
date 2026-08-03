@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<ruleset name="WPCredits theme">
+
+	<description>
+		WordPress Coding Standards for this theme. Run: phpcs   Fix: phpcbf
+
+		The one exclusion below is a path WordPress dictates the name of. Everything else
+		is expected to pass, so a real violation stands out against a clean report.
+	</description>
+
+	<file>.</file>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+
+	<!--
+		Development scripts. They run on the command line, outside WordPress, and read and
+		write files directly — which is the opposite of what the standard is for and would
+		drown the report in violations that are correct for a theme and meaningless for a
+		build script.
+	-->
+	<exclude-pattern>*/bin/*</exclude-pattern>
+
+	<rule ref="WordPress">
+		<!--
+			A block's asset file must be named `index.asset.php` — that is the filename
+			WordPress derives from `block.json`'s script reference. Renaming it to satisfy the
+			sniff would stop the block registering.
+		-->
+		<exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
+	</rule>
+
+	<!--
+		Undefined and unused variables. It has already earned its place in both projects:
+		renaming a reserved-keyword parameter left a dangling reference in the function body
+		that `php -l` cannot see and that would have rendered an empty class attribute.
+	-->
+	<rule ref="VariableAnalysis"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="wpcredits-theme"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="wpcredits"/>
+				<element value="WPCREDITS"/>
+			</property>
+		</properties>
+	</rule>
+
+	<config name="minimum_wp_version" value="6.6"/>
+
+</ruleset>

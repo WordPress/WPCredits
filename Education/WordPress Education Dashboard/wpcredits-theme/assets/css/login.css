@@ -1,0 +1,390 @@
+/*
+ * wp-login.php, wearing the program's chrome.
+ *
+ * The tokens are repeated as literals here on purpose: this page never loads
+ * theme.json's generated CSS, so `var( --wp--preset--… )` would resolve to
+ * nothing and the form would come out unstyled.
+ */
+:root {
+	--wpc-brand: #3858e9;
+	--wpc-brand-dark: #2e49d9;
+	--wpc-brand-tint: #ecf0fa;
+	--wpc-brand-border: #a3b1d4;
+	--wpc-ink: #1e1e1e;
+	--wpc-ink-70: #4a4a4a;
+	--wpc-ink-60: #757575;
+	--wpc-ink-50: #8d8d8d;
+	--wpc-chrome-muted: #6e6e6e;
+	--wpc-line: #e6e6e6;
+	--wpc-line-soft: #ededed;
+	--wpc-surface: #fff;
+	--wpc-surface-soft: #fcfcfc;
+	--wpc-control-border: #8d8d8d;
+	--wpc-font: -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+body.login {
+	background: var( --wpc-surface-soft );
+	color: var( --wpc-ink );
+	font-family: var( --wpc-font );
+}
+
+/* A two-column grid so "Lost your password?" and the link home sit on one row,
+   the way the design has them. wp-login.php gives them as two sibling
+   paragraphs with nothing around them, so the container is the only place the
+   pairing can happen. Everything else spans both columns. */
+#login {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	padding-top: 6vh;
+	width: 360px;
+}
+
+#login > * {
+	grid-column: 1 / -1;
+}
+
+/* One card, assembled from the blocks wp-login.php happens to print: the
+   masthead, the intro, the form, the two links, and the note after it. Each
+   carries the card's left and right edges and none carries a top or bottom one,
+   so they stack into a single outline whatever else WordPress inserts between
+   them — a logged-out message, an error, a password-reset notice. */
+#login form {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-bottom: 0;
+	border-radius: 0;
+	border-top: 0;
+	box-shadow: none;
+	margin: 0;
+	padding: 24px 32px 28px;
+}
+
+/* WordPress's own W logo. Dropped rather than restyled: the masthead below is
+   the same link with the same destination, and core already marks this heading
+   `role="presentation"` — the page's real h1 is the screen-reader-only title, so
+   nothing is lost from the outline. The footer's "Go to site" link remains. */
+.login .wp-login-logo {
+	display: none;
+}
+
+/* ==========================================================================
+   Masthead
+   ========================================================================== */
+/* The same brand as every other page: the mark beside the name, not above it, at
+   the header's own 38px and 20px. Centered as a row, because a login card has no
+   left-hand column to hang it off. */
+.wpc-login__brand {
+	background: var( --wpc-surface-soft );
+	border: 1px solid var( --wpc-line );
+	border-radius: 8px 8px 0 0;
+	padding: 28px 32px 24px;
+	text-align: center;
+}
+
+.wpc-login__mark {
+	align-items: center;
+	display: flex;
+	gap: 10px;
+	justify-content: center;
+}
+
+/* Smaller than the site header's 38px, and the name smaller than its 20px, because
+   this card is 360px wide where the header has the whole page: at the header's sizes
+   "WordPress Education Dashboard" plus the mark measured about 347px against the
+   294px between the card's 32px insets, and `white-space: nowrap` made it overhang
+   the card rather than wrap — so the brand read as wider than everything under it. */
+.wpc-login__brand .wpc-logo {
+	color: var( --wpc-brand );
+	display: block;
+	flex: none;
+	height: 32px;
+	width: 32px;
+}
+
+.wpc-login__name {
+	color: var( --wpc-ink );
+	font: 600 16px/1.25 var( --wpc-font );
+	letter-spacing: -.01em;
+	margin: 0;
+	/* The sizes above fit this site's name on one line. A longer one wraps inside the
+	   padding now instead of hanging off the card — the row is centered, so two lines
+	   beside the mark still read as a brand. */
+	min-width: 0;
+}
+
+.wpc-login__name em {
+	color: var( --wpc-brand );
+	font-style: normal;
+}
+
+/* Whatever follows the accent word is muted and unbolded — and, like the header,
+   upright. `<i>` is the tag the title filter uses; it is a hook, not a request to
+   italicise. */
+.wpc-login__name i {
+	color: var( --wpc-chrome-muted );
+	font-style: normal;
+	font-weight: 400;
+}
+
+.wpc-login__tagline {
+	color: var( --wpc-ink-60 );
+	font: 13px/20px var( --wpc-font );
+	margin: 8px 0 0;
+}
+
+/* ==========================================================================
+   Intro
+   ========================================================================== */
+.wpc-login__intro {
+	background: var( --wpc-surface );
+	border-left: 1px solid var( --wpc-line );
+	border-right: 1px solid var( --wpc-line );
+	margin: 0;
+	padding: 28px 32px 0;
+}
+
+.wpc-login__title {
+	font: 700 22px/28px var( --wpc-font );
+	margin: 0 0 6px;
+}
+
+/* ==========================================================================
+   Fields
+   ========================================================================== */
+.login form .input,
+.login input[type="text"],
+.login input[type="password"],
+.login input[type="email"] {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-control-border );
+	border-radius: 2px;
+	box-shadow: none;
+	font: 14px/20px var( --wpc-font );
+	margin: 0 0 16px;
+	padding: 9px 10px;
+}
+
+.login form .input:focus,
+.login input[type="text"]:focus,
+.login input[type="password"]:focus,
+.login input[type="email"]:focus {
+	border-color: var( --wpc-brand );
+	box-shadow: none;
+	outline: 2px solid var( --wpc-brand );
+	outline-offset: 1px;
+}
+
+.login label {
+	color: var( --wpc-ink );
+	font: 500 13px/20px var( --wpc-font );
+}
+
+/* The checkbox and its label are siblings in wp-login.php's markup, so the row
+   has to be laid out on the paragraph around them.
+
+   Addressed through `#login` because core's own two rules cannot be outranked from
+   a class: `.login form .forgetmenot` floats the row left, and `#login form p` zeroes
+   every paragraph margin on the page. A floated row is out of flow, so the submit
+   paragraph rode up into it and the Log in button was drawn across "Remember Me" —
+   which is what the too-small gap underneath actually was. An ID is not a habit worth
+   picking up; here it is the specificity core set, matched.
+
+   Then more space under the row than over it, deliberately: "Remember me" is the last
+   thing the form asks, so it belongs with the fields above and wants a clear step down
+   to the button that submits them. The space above is the preceding element's own
+   margin — whatever `login_form` printed there, a captcha on this site — and at 20px
+   against this 24px the two read as balanced, so the row is not fighting it. */
+#login form p.forgetmenot {
+	align-items: center;
+	display: flex;
+	float: none;
+	gap: 8px;
+	margin: 0 0 24px;
+}
+
+.login .forgetmenot label {
+	color: var( --wpc-ink-70 );
+	font-weight: 400;
+	line-height: 20px;
+}
+
+.login input[type="checkbox"] {
+	accent-color: var( --wpc-brand );
+	border-color: var( --wpc-control-border );
+	height: 16px;
+	margin: 0;
+	width: 16px;
+}
+
+.login .button.wp-hide-pw {
+	color: var( --wpc-ink-60 );
+	top: 1px;
+}
+
+.login .button.wp-hide-pw:hover {
+	color: var( --wpc-ink );
+}
+
+/* ==========================================================================
+   Submit
+   ========================================================================== */
+.login .submit {
+	margin: 0;
+}
+
+.wp-core-ui .login .button-primary,
+.login .button-primary {
+	background: var( --wpc-brand );
+	border: 0;
+	border-radius: 2px;
+	box-shadow: none;
+	float: none;
+	font: 500 14px/20px var( --wpc-font );
+	height: auto;
+	padding: 11px;
+	text-shadow: none;
+	width: 100%;
+}
+
+.wp-core-ui .login .button-primary:hover,
+.wp-core-ui .login .button-primary:focus {
+	background: var( --wpc-brand-dark );
+}
+
+.wp-core-ui .login .button-primary:focus {
+	box-shadow: none;
+	outline: 2px solid var( --wpc-brand );
+	outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Links under the form, and the footer
+   ========================================================================== */
+#login #nav,
+#login #backtoblog {
+	background: var( --wpc-surface );
+	font: 13px/20px var( --wpc-font );
+	margin: 0;
+	padding: 18px 0 20px;
+}
+
+#login #nav {
+	border-left: 1px solid var( --wpc-line );
+	grid-column: 1 / 2;
+	padding-left: 32px;
+	text-align: left;
+}
+
+#login #backtoblog {
+	border-right: 1px solid var( --wpc-line );
+	grid-column: 2 / 3;
+	padding-right: 32px;
+	text-align: right;
+}
+
+#login #nav a,
+#login #backtoblog a {
+	color: var( --wpc-brand );
+}
+
+#login #backtoblog a {
+	color: var( --wpc-ink-60 );
+}
+
+#login #backtoblog a:hover {
+	color: var( --wpc-brand );
+}
+
+/* Printed after wp-login.php closes #login, so these two carry the card's
+   bottom edge themselves — and need border-box, or the padding would push them
+   wider than the card above. */
+.wpc-login__note,
+.wpc-login__poetry {
+	box-sizing: border-box;
+	margin-left: auto;
+	margin-right: auto;
+	max-width: 360px;
+	width: 100%;
+}
+
+.wpc-login__note {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-bottom: 0;
+	border-top: 1px solid var( --wpc-line-soft );
+	color: var( --wpc-ink-60 );
+	font: 12px/18px var( --wpc-font );
+	margin-bottom: 0;
+	margin-top: 0;
+	padding: 18px 32px 20px;
+}
+
+.wpc-login__note b {
+	font-weight: 500;
+}
+
+.wpc-login__poetry {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-radius: 0 0 8px 8px;
+	border-top: 1px solid var( --wpc-line );
+	color: var( --wpc-ink-50 );
+	font: italic 12px/18px var( --wpc-font );
+	margin-bottom: 6vh;
+	margin-top: 0;
+	padding: 16px 32px;
+	text-align: center;
+}
+
+/* ==========================================================================
+   Notices
+   ========================================================================== */
+/* Notices sit between the intro and the form, so they carry the card's side
+   edges too — a notice with no left and right border cuts the outline in half. */
+.login .message,
+.login .success,
+.login #login_error {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-bottom: 0;
+	border-left: 4px solid var( --wpc-brand );
+	border-radius: 0;
+	border-top: 0;
+	box-shadow: none;
+	font: 13px/20px var( --wpc-font );
+	margin: 0;
+	padding: 12px 16px 12px 28px;
+}
+
+.login #login_error {
+	border-left-color: #cc1818;
+}
+
+.login .wpc-login__signed-in {
+	border-left-color: #008030;
+}
+
+@media ( max-width: 480px ) {
+	#login {
+		box-sizing: border-box;
+		padding-left: 12px;
+		padding-right: 12px;
+		width: 100%;
+	}
+
+	.wpc-login__brand,
+	.wpc-login__intro,
+	#login form,
+	#login #nav,
+	#login #backtoblog {
+		padding-left: 20px;
+		padding-right: 20px;
+	}
+
+	.wpc-login__note,
+	.wpc-login__poetry {
+		padding-left: 20px;
+		padding-right: 20px;
+	}
+}

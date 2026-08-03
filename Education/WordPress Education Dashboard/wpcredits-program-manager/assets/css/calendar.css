@@ -1,0 +1,646 @@
+/**
+ * Call calendar — front-end styles.
+ *
+ * Same rules as the rest of the plugin's front end: structure and spacing only,
+ * every color derived from `currentColor` so it cannot collide with a theme's
+ * background, and `em` sizing so it takes the theme's type scale. A theme that wants
+ * this to look like its own can restate any of it — this stylesheet is registered
+ * with the dashboard stylesheet as a dependency, so a theme loading after both wins.
+ */
+
+.wpcpm-calls {
+	margin: 1.5em 0;
+}
+
+.wpcpm-calls__heading {
+	align-items: baseline;
+	display: flex;
+	gap: 0.5em;
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-calls__count {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 999px;
+	font-size: 0.8em;
+	font-weight: 400;
+	padding: 0 0.6em;
+}
+
+.wpcpm-calls__intro,
+.wpcpm-calls__note,
+.wpcpm-calls__empty {
+	color: inherit;
+	margin: 0 0 0.75em;
+	opacity: 0.72;
+}
+
+/* The mentor's own words, so it is not dimmed like the plugin's own prose. */
+.wpcpm-calls__mentor-note {
+	background: var( --wpcpm-surface );
+	border-left: 3px solid var( --wpcpm-border );
+	margin: 0 0 1em;
+	padding: 0.6em 0.8em;
+}
+
+/* --------------------------------------------------------------------------
+   Booked calls
+   -------------------------------------------------------------------------- */
+.wpcpm-calls__list {
+	display: grid;
+	gap: 0.75em;
+	list-style: none;
+	margin: 0 0 1.25em;
+	padding: 0;
+}
+
+.wpcpm-call {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	padding: 0.8em 1em;
+}
+
+.wpcpm-call__when {
+	align-items: baseline;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+.wpcpm-call__time {
+	font-weight: 700;
+}
+
+.wpcpm-call__relative,
+.wpcpm-call__their-zone {
+	color: inherit;
+	opacity: 0.72;
+}
+
+.wpcpm-call__who {
+	margin: 0.25em 0 0;
+}
+
+.wpcpm-call__their-zone,
+.wpcpm-call__topic {
+	font-size: 0.92em;
+	margin: 0.25em 0 0;
+}
+
+.wpcpm-call__cancel {
+	margin: 0.6em 0 0;
+}
+
+.wpcpm-call__cancel-button {
+	background: none;
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 4px;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	font-size: 0.9em;
+	padding: 0.2em 0.6em;
+}
+
+.wpcpm-call__cancel-button:hover,
+.wpcpm-call__cancel-button:focus {
+	background: var( --wpcpm-surface );
+}
+
+/* --------------------------------------------------------------------------
+   Timezone chooser
+   -------------------------------------------------------------------------- */
+.wpcpm-calls__zone {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	margin: 0 0 1.25em;
+}
+
+.wpcpm-calls__zone select {
+	max-width: 100%;
+	/* A select will not shrink below its longest option — and the timezone list has
+	   some very long ones — so it needs an explicit floor to stay in a narrow card. */
+	min-width: 0;
+}
+
+.wpcpm-calls__zone-hint {
+	color: inherit;
+	flex-basis: 100%;
+	font-size: 0.9em;
+	opacity: 0.72;
+}
+
+/* --------------------------------------------------------------------------
+   The month grid
+   -------------------------------------------------------------------------- */
+.wpcpm-calendar {
+	margin: 0 0 1.25em;
+}
+
+.wpcpm-calendar__head {
+	align-items: center;
+	display: flex;
+	gap: 0.5em;
+	justify-content: space-between;
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-calendar__month {
+	margin: 0;
+	text-align: center;
+}
+
+/* The disabled halves are empty spans rather than absent, so the month name stays
+   centered in the row whether or not there is a month either side of it. */
+.wpcpm-calendar__nav {
+	flex: 0 0 auto;
+	min-width: 4em;
+}
+
+.wpcpm-calendar__nav.is-disabled {
+	min-height: 1px;
+}
+
+.wpcpm-calendar__grid {
+	border-collapse: collapse;
+	table-layout: fixed;
+	width: 100%;
+}
+
+.wpcpm-calendar__grid th {
+	font-size: 0.8em;
+	font-weight: 400;
+	opacity: 0.72;
+	padding: 0 0 0.4em;
+	text-align: center;
+}
+
+.wpcpm-calendar__grid th abbr {
+	border: 0;
+	text-decoration: none;
+}
+
+.wpcpm-calendar__grid td {
+	padding: 2px;
+	text-align: center;
+	vertical-align: top;
+}
+
+.wpcpm-calendar__day {
+	align-items: center;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	justify-content: center;
+	min-height: 3em;
+	padding: 0.3em 0;
+	text-decoration: none;
+}
+
+/* A day with nothing open is still a date, so it is shown — just not as something
+   that can be pressed. */
+.wpcpm-calendar__day.is-empty {
+	opacity: 0.4;
+}
+
+.wpcpm-calendar__cell.is-open .wpcpm-calendar__day {
+	background: var( --wpcpm-surface );
+	border-color: var( --wpcpm-border );
+	font-weight: 700;
+}
+
+.wpcpm-calendar__cell.is-open .wpcpm-calendar__day:hover,
+.wpcpm-calendar__cell.is-open .wpcpm-calendar__day:focus {
+	border-color: currentColor;
+}
+
+/* Today is marked by a ring rather than a fill, so it cannot be mistaken for the
+   selected day or for an open one. */
+.wpcpm-calendar__cell.is-today .wpcpm-calendar__day {
+	box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.wpcpm-calendar__number {
+	font-size: 0.95em;
+	line-height: 1.2;
+}
+
+.wpcpm-calendar__slots {
+	font-size: 0.7em;
+	font-weight: 400;
+	line-height: 1;
+	opacity: 0.72;
+}
+
+/* --------------------------------------------------------------------------
+   One day's slots
+   -------------------------------------------------------------------------- */
+.wpcpm-slots__title {
+	margin: 0 0 0.2em;
+}
+
+.wpcpm-slots__zone {
+	color: inherit;
+	font-size: 0.9em;
+	margin: 0 0 0.75em;
+	opacity: 0.72;
+}
+
+.wpcpm-slots__label {
+	display: block;
+	font-size: 0.9em;
+	margin-bottom: 0.3em;
+}
+
+.wpcpm-slots__topic {
+	box-sizing: border-box;
+	display: block;
+	margin-bottom: 0.75em;
+	width: 100%;
+}
+
+.wpcpm-slots__list {
+	display: grid;
+	gap: 0.5em;
+	grid-template-columns: repeat( auto-fill, minmax( 8.5em, 1fr ) );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-slots__button {
+	background: none;
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 4px;
+	color: inherit;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	font: inherit;
+	gap: 1px;
+	padding: 0.45em 0.5em;
+	text-align: center;
+	width: 100%;
+}
+
+.wpcpm-slots__button:hover,
+.wpcpm-slots__button:focus {
+	background: var( --wpcpm-surface );
+	border-color: currentColor;
+}
+
+.wpcpm-slots__time {
+	font-weight: 700;
+}
+
+.wpcpm-slots__until {
+	font-size: 0.8em;
+	opacity: 0.72;
+}
+
+/* --------------------------------------------------------------------------
+   The mentor's availability editor
+   -------------------------------------------------------------------------- */
+.wpcpm-availability {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	margin: 1.25em 0 0;
+}
+
+/* The save confirmation sits between the section's border and the disclosure, so it needs
+   the same horizontal inset the summary has — otherwise it touches the border on both
+   sides. It lives out here so it can be read with the panel shut. */
+.wpcpm-availability > .wpcpm-notes__message {
+	margin: 0;
+	padding: 0.7em 1em 0;
+}
+
+.wpcpm-availability__summary {
+	align-items: center;
+	cursor: pointer;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	list-style: none;
+	padding: 0.7em 1em;
+}
+
+.wpcpm-availability__summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpcpm-availability__summary::marker {
+	content: '';
+}
+
+.wpcpm-availability__title {
+	font-weight: 700;
+}
+
+.wpcpm-availability__state {
+	color: inherit;
+	font-size: 0.9em;
+	opacity: 0.72;
+}
+
+.wpcpm-availability__body {
+	border-top: 1px solid var( --wpcpm-border );
+	padding: 1em;
+}
+
+.wpcpm-availability__intro,
+.wpcpm-availability__hint,
+.wpcpm-availability__count,
+.wpcpm-availability__note {
+	color: inherit;
+	opacity: 0.72;
+}
+
+.wpcpm-availability__intro {
+	margin: 0 0 1em;
+}
+
+.wpcpm-availability__week,
+.wpcpm-availability__options {
+	border: 0;
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+.wpcpm-availability__legend {
+	font-weight: 700;
+	padding: 0;
+}
+
+.wpcpm-availability__table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.wpcpm-availability__table th {
+	font-weight: 400;
+	padding: 0.35em 0.75em 0.35em 0;
+	text-align: left;
+	white-space: nowrap;
+}
+
+.wpcpm-availability__windows {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75em;
+	padding: 0.35em 0;
+}
+
+.wpcpm-availability__window {
+	align-items: center;
+	display: flex;
+	gap: 0.3em;
+}
+
+.wpcpm-availability__hint,
+.wpcpm-availability__count {
+	font-size: 0.9em;
+	margin: 0.5em 0 0;
+}
+
+.wpcpm-availability__field {
+	display: grid;
+	gap: 0.2em;
+	margin: 0 0 0.85em;
+}
+
+.wpcpm-availability__field label {
+	font-weight: 500;
+}
+
+.wpcpm-availability__field select,
+.wpcpm-availability__field input,
+.wpcpm-availability__field textarea {
+	box-sizing: border-box;
+	max-width: 26em;
+	min-width: 0;
+	width: 100%;
+}
+
+.wpcpm-availability__note {
+	font-size: 0.85em;
+}
+
+.wpcpm-availability__actions {
+	margin: 0;
+}
+
+@media ( max-width: 600px ) {
+
+	/* Stacked, so the two ranges do not each get half a screen width. */
+	.wpcpm-availability__windows {
+		flex-direction: column;
+	}
+
+	.wpcpm-slots__list {
+		grid-template-columns: repeat( auto-fill, minmax( 7em, 1fr ) );
+	}
+}
+
+/* --------------------------------------------------------------------------
+   The mentor's two columns: diary beside availability
+   -------------------------------------------------------------------------- */
+.wpcpm-calls--mentor {
+	display: grid;
+	gap: 1.5em;
+	/* `minmax( 0, 1fr )` on both, not plain `1fr`: a track sized from its content
+	   refuses to shrink below it, and a long student name or an un-breakable URL in
+	   the diary would push its column past half the row. */
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+.wpcpm-calls__col {
+	min-width: 0;
+}
+
+/* The editor is the whole of its column, so the margin that separated it from the
+   diary when they were stacked is now a gap the grid supplies. */
+.wpcpm-calls--mentor .wpcpm-availability {
+	margin-top: 0;
+}
+
+@media ( max-width: 900px ) {
+
+	/* One column, at the width the rest of the dashboard collapses at. Two columns of
+	   forms and time inputs is not a layout below this. */
+	.wpcpm-calls--mentor {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}
+
+/* --------------------------------------------------------------------------
+   Inline "Edit" beside a value the student maintains
+   -------------------------------------------------------------------------- */
+.wpcpm-edit {
+	display: inline;
+	margin-left: 0.5em;
+}
+
+.wpcpm-edit__toggle {
+	cursor: pointer;
+	display: inline;
+	font-size: 0.85em;
+	list-style: none;
+	opacity: 0.72;
+}
+
+.wpcpm-edit__toggle::-webkit-details-marker {
+	display: none;
+}
+
+.wpcpm-edit__toggle::marker {
+	content: '';
+}
+
+.wpcpm-edit__toggle:hover,
+.wpcpm-edit__toggle:focus {
+	opacity: 1;
+	text-decoration: underline;
+}
+
+/* Block, so the form drops below the value rather than trying to sit on the same line
+   in a table cell that has no room for it. */
+.wpcpm-edit__body {
+	display: block;
+	margin-top: 0.5em;
+}
+
+.wpcpm-edit__form {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4em;
+}
+
+.wpcpm-edit__form input,
+.wpcpm-edit__form select {
+	box-sizing: border-box;
+	flex: 1 1 12em;
+	/* A select will not shrink below its longest option — the team list has some long
+	   ones — so it needs an explicit floor to stay inside a table cell. */
+	min-width: 0;
+}
+
+.wpcpm-edit__note {
+	color: inherit;
+	font-size: 0.85em;
+	margin: 0.3em 0 0;
+	opacity: 0.72;
+}
+
+/* --------------------------------------------------------------------------
+   Larger portraits
+   -------------------------------------------------------------------------- */
+.wpcpm-avatar--lg {
+	border-radius: 50%;
+	flex: none;
+	height: auto;
+	max-width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   "Copy hours from … to …", under the weekly grid
+   -------------------------------------------------------------------------- */
+.wpcpm-availability__copy {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4em;
+	margin: 0.75em 0 0;
+}
+
+.wpcpm-availability__copy-label {
+	font-size: 0.9em;
+}
+
+.wpcpm-availability__copy select {
+	/* A select will not shrink below its longest option, and the weekday names are long
+	   in several locales — so it needs an explicit floor to stay inside the panel. */
+	min-width: 0;
+}
+
+/* Its own line, so a status message appearing does not shuffle the controls sideways. */
+.wpcpm-availability__copy-status {
+	color: inherit;
+	flex-basis: 100%;
+	font-size: 0.9em;
+	margin: 0.2em 0 0;
+	opacity: 0.72;
+}
+
+.wpcpm-availability__copy-status:empty {
+	display: none;
+}
+
+/* --------------------------------------------------------------------------
+   A form that is on its way
+
+   Pressing a time slot used to look like nothing had happened until the page came
+   back, so students pressed again — and a second press can hit the booking lock and
+   be told somebody else was booking, when their own first press was.
+   -------------------------------------------------------------------------- */
+.is-sending {
+	cursor: progress;
+}
+
+/* The controls that were not pressed step back; the one that was keeps full contrast,
+   because it is the one now saying "Booking…". */
+.is-sending button[disabled],
+.is-sending input[disabled] {
+	cursor: progress;
+	opacity: 0.5;
+}
+
+.is-sending button[data-wpcpm-label] {
+	opacity: 1;
+}
+
+.wpcpm-slots__busy {
+	color: inherit;
+	font-size: 0.9em;
+	margin: 0.75em 0 0;
+	opacity: 0.72;
+}
+
+.wpcpm-slots__busy:empty {
+	display: none;
+}
+
+/* --------------------------------------------------------------------------
+   The student's call section: booked calls beside the picker
+
+   The section spans the card rather than sitting in one of the page's columns,
+   because a month grid needs the width. Inside it the split is the same idea as the
+   mentor's diary-beside-availability: what is booked, and what could be.
+   -------------------------------------------------------------------------- */
+.wpcpm-calls__cols {
+	display: grid;
+	gap: 1.5em;
+	/* `minmax( 0, 1fr )` on both, not plain `1fr`: a track sized from its content will
+	   not shrink below it, and a long mentor name in a booked call would push its
+	   column past half the row. */
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+/* The booked list already spaces its own items, and it is the whole of its column. */
+.wpcpm-calls__col--booked .wpcpm-calls__list {
+	margin-bottom: 0;
+}
+
+@media ( max-width: 900px ) {
+
+	/* One column, at the width the rest of the dashboard collapses at. Two columns of
+	   month grid and booked calls is not a layout below this. */
+	.wpcpm-calls__cols {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}

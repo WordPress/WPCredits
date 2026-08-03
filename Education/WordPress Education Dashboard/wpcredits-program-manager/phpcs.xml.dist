@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<ruleset name="WPCredits Program Manager">
+
+	<description>
+		WordPress Coding Standards for this plugin. Run: phpcs   Fix: phpcbf
+
+		Everything below is either a path that is not ours to style or a sniff whose
+		default does not apply to this plugin, with the reason recorded. Nothing here
+		silences a category of mistake — the whole point of pinning the standard is that
+		a real violation shows up against an otherwise clean report.
+	</description>
+
+	<file>.</file>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+
+	<!-- Generated and vendored paths. -->
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+
+	<!--
+		Development scripts. They deliberately declare stand-ins for dozens of WordPress
+		functions and read superglobals directly, which is the opposite of what the
+		standard is for and would drown the report.
+	-->
+	<exclude-pattern>*/bin/*</exclude-pattern>
+
+	<rule ref="WordPress">
+
+		<!--
+			Block asset files must be named `editor.asset.php`: that is the filename
+			`block.json`'s `file:./editor.js` reference makes WordPress look for. The sniff
+			wants hyphenated-lowercase, which would break block registration.
+		-->
+		<exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
+
+		<!--
+			`meta_query`, `meta_key` and `meta_value` are flagged because an unbounded meta
+			query on a large table is slow. Every one of ours is bounded to a single person
+			or a single time window — a mentor's calls in one month, the notes about one
+			student, the account holding one Airtable record ID — and runs on an
+			authenticated dashboard or an admin screen, never in a front-page loop. There is
+			no alternative shape available either: the plugin's own records are related to
+			people and dates, which is what post meta is for.
+
+			Excluded here rather than annotated at sixteen call sites, so the sniff's real
+			purpose is recorded once instead of being restated as boilerplate.
+		-->
+		<exclude name="WordPress.DB.SlowDBQuery.slow_db_query_meta_query"/>
+		<exclude name="WordPress.DB.SlowDBQuery.slow_db_query_meta_key"/>
+		<exclude name="WordPress.DB.SlowDBQuery.slow_db_query_meta_value"/>
+
+		<!--
+			`numberposts` above 100 is flagged because a front-end loop should paginate.
+			These three are ceilings, not page sizes: "every note about this student",
+			"every call in this mentor's window", "every call, to delete on uninstall". A
+			ceiling exists so a runaway query cannot hang the page, and setting it to 100
+			would silently truncate a mentor with a busy diary — which is worse than the
+			query it is protecting against.
+		-->
+		<exclude name="WordPress.WP.PostsPerPage.posts_per_page_numberposts"/>
+	</rule>
+
+	<!--
+		Undefined and unused variables. Not part of the WordPress standard, and it has
+		already earned its place here: renaming two reserved-keyword parameters left
+		dangling references in the method bodies that `php -l` cannot see and that would
+		have returned null at runtime.
+	-->
+	<rule ref="VariableAnalysis"/>
+
+	<!-- The plugin's own text domain, so a wrong or missing one is an error. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="wpcredits-program-manager"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Prefixes the plugin owns, so a stray global is caught. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="wpcpm"/>
+				<element value="WPCPM"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Minimum supported WordPress version, for the deprecation sniffs. -->
+	<config name="minimum_wp_version" value="6.5"/>
+
+</ruleset>

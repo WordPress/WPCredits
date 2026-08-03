@@ -1,0 +1,25 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/handbook-launcher",
+	"title": "Need help? button",
+	"category": "theme",
+	"icon": "editor-help",
+	"description": "A header button that opens the handbook assistant. Renders nothing when the plugin is inactive, the assistant is switched off, or the reader is not allowed to use it.",
+	"keywords": [ "handbook", "help", "ask", "assistant", "search" ],
+	"textdomain": "wpcredits-theme",
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"multiple": false,
+		"align": false,
+		"typography": {
+			"fontSize": true
+		},
+		"interactivity": {
+			"clientNavigation": false
+		}
+	},
+	"editorScript": "file:./index.js",
+	"render": "file:./render.php"
+}

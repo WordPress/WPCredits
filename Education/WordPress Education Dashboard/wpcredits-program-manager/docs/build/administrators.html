@@ -1,0 +1,577 @@
+<!-- wp:paragraph -->
+<p>This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>It also contains the mentor and student guides in full. Program managers are the people other people ask, and the access levels mean you cannot open either of those pages yourself.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">The plugin in wp-admin</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Everything the program manager touches lives under one top-level menu, <strong>WPCredits Program</strong>. You need the <code>wpcpm_manage_program</code> capability to see it, which the Administrator role is granted on activation.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":556,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/admin-overview.png" alt="The Overview screen. Each audience is a module with its own role, account count and screen." class="wp-image-556"/><figcaption class="wp-element-caption">The Overview screen. Each audience is a module with its own role, account count and screen.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Overview</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>One card per module, in menu order, each showing its role slug, how many accounts hold that role, and whether the module is built or is currently role-only. Underneath, the same treatment for the parts of the program that can be run on their own.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>If Airtable is not connected yet, this screen says so and links straight to the setting.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">The module screens</h3>
+<!-- /wp:heading -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Screen</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Students</strong></td><td>The student list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Mentors</strong></td><td>The mentor list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Institutions</strong></td><td>Role only — registers <code>wpcpm_institution</code> and reserves the screen.</td></tr><tr><td><strong>Sponsors</strong></td><td>Role only — registers <code>wpcpm_sponsor</code> and reserves the screen.</td></tr><tr><td><strong>Administrators</strong></td><td>Lists the program capabilities granted to Administrator, and who holds the role.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:paragraph -->
+<p>A role-only screen tells you the role slug, whether it is registered, and how many accounts hold it. That is deliberate: the role exists and can gate content from the day it is added, long before the module has screens of its own.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Modules</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The <strong>Modules</strong> submenu lists the parts of the program that are run and configured on their own rather than belonging to one audience — currently <strong>Header notices</strong>, <strong>Need help?</strong> and the <strong>Mentor Status Checker</strong>. Each has its own screen behind an <em>Open tool</em> button.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">Settings</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>WPCredits Program → Settings</strong>. One screen, in sections.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":557,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/admin-settings.png" alt="The Airtable connection and the Mentors module, at the top of the settings screen." class="wp-image-557"/><figcaption class="wp-element-caption">The Airtable connection and the Mentors module, at the top of the settings screen.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Airtable connection</h3>
+<!-- /wp:heading -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Setting</th><th>What it is for</th></tr></thead><tbody><tr><td><strong>Personal Access Token</strong></td><td>Stored in the database and never sent back to the browser. Leave blank to keep the current token.</td></tr><tr><td><strong>Base ID</strong></td><td>The Airtable base holding the program.</td></tr><tr><td><strong>Mentors table</strong></td><td>Where mentor records live.</td></tr><tr><td><strong>Students Reports table</strong></td><td>Internship dates, links and contribution team — what the mentor page shows.</td></tr><tr><td><strong>Students table</strong></td><td>Read only for the Tutor column, which does not exist on Students Reports.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Linked tables</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Airtable sends linked-record fields as record IDs rather than names, so two more tables are read to turn those IDs into names: <strong>Institutions</strong> and <strong>Contribution areas</strong>. Each has a name-column setting, used only when the token lacks the <code>schema.bases:read</code> scope — with that scope the primary column is detected automatically.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Mentors module</h3>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Mentor status to sync</strong> — only mentors holding this Airtable status get an account.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Currently mentoring</strong> — one status per line. Students holding any of these appear under "Currently mentoring" on their mentor's page.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Past students</strong> — statuses that mean mentoring has finished. Those students appear in a separate, collapsed section. Leave empty to show only current students; a status in both boxes counts as current.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>When a mentor is no longer active</strong> — remove the Mentor role and clear their student list, or leave the role in place. The account itself is never deleted either way.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Invitation emails</strong> — off by default, and worth leaving off: a first sync creates around ninety accounts at once. Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Daily sync</strong> — sync automatically once a day.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Mentor landing page</strong> — send mentors to their Report Card on login and in place of the wp-admin Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who followed a link somewhere specific still lands there. Administrators are unaffected.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Students module</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Uses the same status lists as the Mentors module — a current student is anyone a mentor is currently mentoring.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>When a student leaves the program</strong> — remove the Student role, so they lose access to Student-level content, or leave it in place. The account is never deleted, and their program details are kept.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Student landing page</strong> — the same arrangement as for mentors, pointing at the Student Report Card.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Need help?</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The question box over the WordPress documentation.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Switch it on</strong> — off means the box answers nobody, the header button disappears and the page it lives on is unpublished. Nothing is deleted, so switching it back on restores all of it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Answer provider</strong> and <strong>API key</strong> — leaving the provider as <em>None</em> keeps everything on this site and means there are no answers at all. Choosing one sends each question, and the extracts that match it, to that company.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Model</strong> — leave as <code>gemini-flash-latest</code> unless you have a reason not to. It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under the site.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Who can ask</strong> — mentors and program managers by default; optionally students and institutions as well, anybody logged in, or program managers only. Never anybody logged out, whatever this says.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Questions per person per hour</strong> — so a free tier cannot be spent in an afternoon. <code>0</code> removes the limit.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Mail</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>A sample-invitation sender — the student and mentor invitations say different things, so you can send yourself either — and a log of recent mail: bookings, cancellations, reminders and invitations. "Accepted" means the site handed the message off without complaint; it cannot tell you the message was delivered or read.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">Modules you run on their own</h2>
+<!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Header notices</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>WPCredits Program → Modules → Header notices.</strong> One notice per audience — Students, Mentors, Institutions, Sponsors, Administrators — each in its own editor on one screen, with a single Save button underneath.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":555,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/admin-header-notices.png" alt="One editor per audience. An empty notice is not shown; there is no separate switch." class="wp-image-555"/><figcaption class="wp-element-caption">One editor per audience. An empty notice is not shown; there is no separate switch.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>An empty notice is off.</strong> There is no separate switch, because a switch is one more thing to leave in the wrong position.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Anyone in two audiences sees both notices.</strong> An administrator who also mentors gets the mentor notice and the administrator one, mentor first. Audience membership uses the same tests the dashboards do, so an administrator matched to an Airtable mentor record counts as a mentor even though the sync never gives them the role.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>A notice appears at the top of the content, which in this program's theme is the top of the dashboard card — not above the site header.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Links and simple emphasis survive; scripts and other markup are stripped <strong>on save</strong>, so nothing dangerous is stored rather than merely hidden at render time.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Mentor Status Checker</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Promotes mentors from <em>Vetted - positive</em> to <em>Active</em> in Airtable once their WordPress.org profile shows the Credits Mentor's Course completion. It reads profiles, matches the badge, and reports what it would change before it changes anything. It needs the Airtable connection, so it refuses to run until that is set up.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Need help?</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The tool screen for the question box configured under Settings. Its own screen is where the handbook page lives and where you can see whether a provider is set.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">Who can read what</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Every post and page carries a <strong>Program access</strong> control in the editor sidebar.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":554,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/admin-access-level.png" alt="The access control sits with the post&#039;s own settings. Administrators can always read every level." class="wp-image-554"/><figcaption class="wp-element-caption">The access control sits with the post&#039;s own settings. Administrators can always read every level.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:paragraph -->
+<p>The levels come from the roles, so there is one per audience plus the two ends:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Level</th><th>Who can read it</th></tr></thead><tbody><tr><td>Public</td><td>Everyone, including logged-out visitors.</td></tr><tr><td>Student level</td><td>Accounts holding <code>wpcpm_student</code>, plus administrators.</td></tr><tr><td>Mentor level</td><td>Accounts holding <code>wpcpm_mentor</code>, plus administrators.</td></tr><tr><td>Institution level</td><td>Accounts holding <code>wpcpm_institution</code>, plus administrators.</td></tr><tr><td>Sponsor level</td><td>Accounts holding <code>wpcpm_sponsor</code>, plus administrators.</td></tr><tr><td>Administrators only</td><td>Accounts with <code>wpcpm_manage_program</code>.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:paragraph -->
+<p><strong>The levels do not nest.</strong> A mentor holds the mentor capability and nothing else, so a mentor cannot read a Student-level page. That is why documentation written for mentors has to repeat what students are told rather than link to it.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Gating is applied in four places, so there is no back way in: front-end listings filter restricted posts out, direct URLs send logged-out visitors to the login form and logged-in ones to an explanation, the rendered content and excerpt are filtered, and the REST API is filtered too.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Program updates and announcements</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The column at the foot of both Report Cards lists recent posts from the <em>Updates</em> category, filtered by the same access levels — so a post set to Mentor level appears on the mentor's card and on nobody else's. Set the access level on the post and it lands in the right place; there is nothing else to configure.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">Running it day to day</h2>
+<!-- /wp:heading -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">The sync</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Both syncs read Airtable and reconcile accounts: create what is missing, update what has changed, and apply your <em>when they are no longer active</em> setting to the rest. Run one by hand from the Students or Mentors screen, or leave <strong>Daily sync</strong> on.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Accounts are matched by WordPress.org username where there is one, and by email otherwise. <strong>No account is ever deleted by a sync</strong> — the most it will do is remove a role.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The sync report on each screen says what happened rather than only that it finished: created, updated, skipped and why.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Invitations</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>An invitation is a password-reset link. Send them in bulk by switching <strong>Invitation emails</strong> on before a sync, or one at a time from the Students and Mentors screens — which is the safer habit, because a first sync creates around ninety accounts at once.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Pages the plugin owns</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Activation creates the Report Card pages and gates them. If one goes missing, re-activating the plugin recreates it; the settings screen warns you when a page it expects is not there.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Uninstall</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Uninstall removes the settings, the sync state, the access-level meta and the custom roles, and moves affected accounts back to Subscriber. <strong>Accounts are never deleted</strong>, and their program details in Airtable are untouched.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">When something is wrong</h3>
+<!-- /wp:heading -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Symptom</th><th>Where to look</th></tr></thead><tbody><tr><td>A student or mentor is missing</td><td>Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list.</td></tr><tr><td>Details are stale on a Report Card</td><td>Run the sync by hand; the page renders from what the last sync stored.</td></tr><tr><td>A mentor sees the wrong students</td><td>The mentor↔student link in Airtable. The page joins on the records, not on names.</td></tr><tr><td>Nobody can book a call</td><td>The mentor has published no availability. Their Report Card says so.</td></tr><tr><td>Invitations are not arriving</td><td>The <strong>Mail</strong> section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service.</td></tr><tr><td>A gated page is readable by the wrong people</td><td>The post's <strong>Program access</strong> control, and the reader's role. Administrators can read every level by design.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">What is on your Report Card</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The page you land on after logging in lists the students assigned to you and nothing else — it is built from the program records, so there is no list to keep and nobody to ask for access.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":548,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/mentor-report-card-triaged-list.png" alt="The counts at the top are also filters — press one to see only that group. Names shown are examples." class="wp-image-548"/><figcaption class="wp-element-caption">The counts at the top are also filters — press one to see only that group. Names shown are examples.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Your students, triaged</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Rather than one long list, your students are grouped by what needs your attention, and the counts at the top double as filters:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Need a call</strong> — no note for longer than the program's window, so nobody knows how they are getting on.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ending soon</strong> — the internship end date is close.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>On track</strong> — everybody else.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>A student falls into the first group they match, so somebody who needs a call is never filed under "ending soon" instead. Within each group they are ordered by internship end date, soonest first.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Finding and reading a student</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>Search</strong> matches students, institutions and teams, and tells you how many of your students match. Opening a student shows their full record: program and track, internship duration, educational institution, tutor, field of study, contribution team, accessibility needs, their contact links, and a button to their report form.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":547,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/mentor-report-card-student-and-notes.png" alt="Opening a student shows their record on the left and your notes on the right. Names shown are examples." class="wp-image-547"/><figcaption class="wp-element-caption">Opening a student shows their record on the left and your notes on the right. Names shown are examples.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:paragraph -->
+<p><strong>Expand all</strong> and <strong>Collapse all</strong> work on the whole list. Two things worth knowing: some browsers will not find text with Ctrl+F inside collapsed sections, so expand first if you are hunting for something specific — and printing opens every student for you automatically, so a printed list is always the complete one.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Notes</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Every student takes notes: what you discussed, what they are working on, what to follow up. <strong>Add a note</strong> after each call — that is also what keeps them out of the "Need a call" group. You can delete your own notes; notes written by somebody else stay theirs. Once a student's mentoring has finished, their notes are kept as a record but no new ones can be added.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Resources</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>At the foot of the page: the mentors Slack channel, the Mentor guide in the handbook, and <strong>Need help?</strong> — a question box answered from the WordPress documentation. Beside them, <strong>Program updates and announcements</strong> carries anything recently posted for mentors.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">Setting your availability so students can book</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>This is the one thing worth doing today. Until you publish some hours, your students see "No availability set, so you cannot book a call yet" and have no way to reach you except Slack.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":546,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/mentor-report-card-availability.png" alt="Set the hours you are free each week, then how calls are offered." class="wp-image-546"/><figcaption class="wp-element-caption">Set the hours you are free each week, then how calls are offered.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:paragraph -->
+<p>Open <strong>Your availability for calls</strong> on your Report Card and set:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>The hours you are free, each week</strong> — a start and end time per weekday. Leave a day blank to offer nothing on it. The slots are generated from these windows, so you are publishing hours, not individual appointments.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Call length</strong> — how long one call runs, which decides how many slots a window holds.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Shortest notice</strong> — hours. Slots closer than this are not offered, so nobody books you for twenty minutes from now.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>How far ahead</strong> — days. How far into the future students can book.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Bookings per student</strong> — how many upcoming calls one student may hold at once.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Days off</strong> — one date per line, as <code>2026-12-24</code>. Nothing is offered on those days, which is how you take a holiday without clearing your weekly hours.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Where we meet</strong> — your meeting link, sent to the student with the booking.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Note for students</strong> — shown above the slots on the booking calendar. A good place for "bring a link to whatever you are working on".</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Press <strong>Save availability</strong> and the slots it opens are immediately bookable.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Everything is in your own timezone, and each student sees the same call in theirs.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">When a student books</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>You both get an email with a calendar invitation attached, so the call lands in your calendar rather than only on the page. A reminder goes out 24 hours before, and either of you can cancel — which puts the slot straight back on the calendar.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Booked calls appear under <strong>Upcoming calls</strong> beside your availability, so you can see what is coming without leaving the page. Each one shows the time in your timezone and in theirs, and whatever the student wrote when booking.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">If something looks wrong</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Student details come from the program records rather than being typed in here, so if a student's dates, institution or contribution team are wrong, that is where it has to be corrected. The page catches up at the next sync.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>A student who has left the program moves to <strong>Past students</strong>, a collapsed section at the foot of the list. Their details and your notes are kept for reference; no new notes can be added.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>If a student you are mentoring is missing from the list entirely, the link between you is missing in the program records. That is one for the program managers.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">What your students see</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Your students have their own page — a Student Report Card — and it is worth knowing what is on it, because most of what they ask you about is on it somewhere. You cannot open theirs (the gating is by role, not by seniority), so here it is.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The section that matters most for you is the booking calendar: what a student sees there is entirely decided by the availability you publish.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">What is on your Report Card</h2>
+<!-- /wp:heading -->
+
+<!-- wp:image {"id":550,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/student-report-card-profile.png" alt="Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples." class="wp-image-550"/><figcaption class="wp-element-caption">Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">My profile</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Your program details as the program records hold them: your track, your internship dates, your educational institution, your tutor and your field of study.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Four of these are yours to change. Press <strong>Edit</strong> and you can update your <strong>WordPress.org username</strong>, your <strong>Slack handle</strong>, your <strong>contribution team</strong> and your <strong>personal website</strong>. Press Save and the change is written straight back to the program records, so you never have to ask anybody to correct them for you.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The rest — your dates, your institution, your tutor — come from the program records and are not editable here. If one of them is wrong, see <em>If something looks wrong</em> below.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">My mentor</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Who your mentor is and how to reach them: their WordPress.org profile, their Slack handle, their website, and the contribution teams they work in. This is the person to ask first about anything to do with your contributions.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">My course and report form</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Two buttons. <strong>Open your course</strong> takes you to your course on Learn WordPress. <strong>Open your report form</strong> opens your report form with your details already filled in — the 50-hour form if you are on that track, the standard one otherwise.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Resources</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>At the foot of the page: the students Slack channel, the Student guide in the handbook, and <strong>Need help?</strong> — a question box answered from the WordPress documentation, if the program has switched it on. Beside them, <strong>Program updates and announcements</strong> lists anything recently posted for you.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">Booking a call with your mentor</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Your mentor publishes the hours they are free, and you pick from them. There is no email back and forth about what suits.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:image {"id":549,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://wpeducationdashboard.wpcomstaging.com/wp-content/uploads/2026/08/student-report-card-booking-a-call.png" alt="Days with times available are highlighted. Pick a day, then a time." class="wp-image-549"/><figcaption class="wp-element-caption">Days with times available are highlighted. Pick a day, then a time.</figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:paragraph -->
+<p>Days with something open carry a count. Press one and the times for that day appear underneath. Booking is a single press, with an optional note about what you would like to discuss — worth writing, because it is what lets your mentor prepare.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Both of you get an email with a calendar invitation attached, so the call lands in your calendar rather than only on this page. A reminder goes out 24 hours before.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>If something comes up you can cancel from the same section, and the slot goes straight back on your mentor's calendar for somebody else.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>A few things worth knowing:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li>Slots closer than your mentor's shortest notice are not offered at all.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Your mentor sets how far ahead you can book, so the calendar stops at some point in the future.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>There may be a limit on how many calls you can hold at once. Cancel one you no longer need and the next becomes bookable.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Times are shown in your own timezone, and in your mentor's on their side. Neither of you has to do the arithmetic.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p><strong>If your mentor has published nothing yet</strong>, the section says so. That is not a fault on your side — ask them in Slack to set their hours.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">If something looks wrong</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Your program details come from the program records, so if your dates, institution or tutor are not right, that is where it has to be corrected — changing it here would be overwritten at the next sync. Ask your mentor, or whoever runs the program.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The four fields with an <strong>Edit</strong> control are the exceptions: those write back to the records, so they are yours to keep current.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>If the page shows nothing at all, or says it cannot find your record, your account exists but is not linked to a program record yet. That is one for the program managers.</p>
+<!-- /wp:paragraph -->
