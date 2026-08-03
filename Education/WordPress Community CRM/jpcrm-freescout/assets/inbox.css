@@ -1,0 +1,171 @@
+/**
+ * Inbox styles.
+ *
+ * Deliberately close to core wp-admin so the inbox reads as part of the
+ * dashboard rather than an embedded third-party app.
+ */
+
+.jpcrm-fs-wrap .jpcrm-fs-number {
+	color: #646970;
+	font-size: 14px;
+	font-weight: 400;
+}
+
+.jpcrm-fs-muted {
+	color: #646970;
+	font-size: 12px;
+}
+
+.jpcrm-fs-error {
+	color: #b32d2e;
+}
+
+.jpcrm-fs-ok {
+	color: #007017;
+}
+
+.jpcrm-fs-col-number {
+	width: 70px;
+}
+
+.jpcrm-fs-search {
+	margin: 6px 0 12px;
+}
+
+/* Customer summary panel */
+
+.jpcrm-fs-panel {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-left-width: 4px;
+	border-left-color: #72aee6;
+	margin: 16px 0;
+	padding: 10px 12px;
+}
+
+/* Thread history */
+
+.jpcrm-fs-threads {
+	margin: 16px 0;
+}
+
+.jpcrm-fs-thread {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	margin-bottom: 12px;
+}
+
+.jpcrm-fs-thread-customer {
+	border-left: 4px solid #dba617;
+}
+
+.jpcrm-fs-thread-message {
+	border-left: 4px solid #2271b1;
+}
+
+.jpcrm-fs-thread-note {
+	background: #fcf9e8;
+	border-left: 4px solid #8c8f94;
+}
+
+.jpcrm-fs-thread-head {
+	align-items: center;
+	border-bottom: 1px solid #f0f0f1;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	padding: 8px 12px;
+}
+
+.jpcrm-fs-thread-author {
+	font-weight: 600;
+}
+
+.jpcrm-fs-thread-date {
+	color: #646970;
+	font-size: 12px;
+}
+
+.jpcrm-fs-thread-badge {
+	background: #8c8f94;
+	border-radius: 2px;
+	color: #fff;
+	font-size: 11px;
+	padding: 1px 6px;
+	text-transform: uppercase;
+}
+
+.jpcrm-fs-thread-body {
+	padding: 12px;
+	word-wrap: break-word;
+}
+
+.jpcrm-fs-thread-body img {
+	height: auto;
+	max-width: 100%;
+}
+
+.jpcrm-fs-thread-body blockquote {
+	border-left: 3px solid #dcdcde;
+	color: #646970;
+	margin-left: 0;
+	padding-left: 12px;
+}
+
+/* Reply box */
+
+.jpcrm-fs-reply,
+.jpcrm-fs-new-ticket {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	margin: 20px 0;
+	padding: 12px 16px;
+}
+
+.jpcrm-fs-reply h2 {
+	margin-top: 0;
+}
+
+.jpcrm-fs-reply-actions {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.jpcrm-fs-close-after {
+	color: #646970;
+}
+
+.jpcrm-fs-reply-feedback {
+	margin-top: 8px;
+}
+
+.jpcrm-fs-reply-feedback.is-error {
+	color: #b32d2e;
+}
+
+.jpcrm-fs-reply-feedback.is-success {
+	color: #007017;
+}
+
+.jpcrm-fs-webhook-url {
+	word-break: break-all;
+}
+
+/* Contact-record tab */
+
+.jpcrm-fs-tickets {
+	margin-bottom: 12px;
+}
+
+.jpcrm-fs-empty {
+	color: #646970;
+}
+
+.jpcrm-fs-agent-map {
+	margin: 10px 0;
+	max-width: 760px;
+}

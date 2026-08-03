@@ -1,0 +1,315 @@
+/**
+ * wp-login.php, wearing the Community CRM design.
+ *
+ * The front page is the primary sign-in route, but wp-login.php stays
+ * reachable (password resets, interim logins, and as a safety net if the front
+ * page form is ever edited away). This restyles it with the same WordPress
+ * Design System tokens so the two never look like different products.
+ *
+ * Loaded via login_enqueue_scripts — see inc/login.php.
+ *
+ * @package Community_CRM
+ */
+
+:root {
+	--ccrm-brand: #3858e9;
+	--ccrm-brand-active: #2e49d9;
+	--ccrm-content: #1e1e1e;
+	--ccrm-content-weak: #6e6e6e;
+	--ccrm-surface: #f4f4f4;
+	--ccrm-surface-strong: #fff;
+	--ccrm-stroke: #e4e4e4;
+	--ccrm-stroke-strong: #dbdbdb;
+	--ccrm-stroke-control: #8d8d8d;
+	--ccrm-radius-sm: 2px;
+	--ccrm-radius-lg: 8px;
+	--ccrm-font: -apple-system, system-ui, "Segoe UI", "Roboto", "Oxygen-Sans", "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif;
+	--ccrm-mono: "Menlo", "Consolas", monaco, monospace;
+	--ccrm-weight-medium: 499;
+	--ccrm-shadow-card: 0 1px 1px rgba( 0, 0, 0, 0.04 ), 0 2px 4px rgba( 0, 0, 0, 0.03 );
+}
+
+body.login {
+	background: var(--ccrm-surface);
+	color: var(--ccrm-content);
+	font-family: var(--ccrm-font);
+	font-size: 13px;
+	line-height: 20px;
+}
+
+/* --- Brand mark ------------------------------------------------------- */
+
+body.login h1 a,
+body.login .wp-login-logo a {
+	width: 40px;
+	height: 40px;
+	margin: 0 auto 20px;
+	background-image: url( "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-2 -2 24 24' fill='%233858e9'%3E%3Cpath d='M20 10c0-5.51-4.49-10-10-10C4.48 0 0 4.49 0 10c0 5.52 4.48 10 10 10 5.51 0 10-4.48 10-10zM7.78 15.37L4.37 6.22c.55-.02 1.17-.08 1.17-.08.5-.06.44-1.13-.06-1.11 0 0-1.45.11-2.37.11-.18 0-.37 0-.58-.01C4.12 2.69 6.87 1.11 10 1.11c2.33 0 4.45.87 6.05 2.34-.68-.11-1.65.39-1.65 1.58 0 .74.45 1.36.9 2.1.35.61.55 1.36.55 2.46 0 1.49-1.4 5-1.4 5l-3.03-8.37c.54-.02.82-.17.82-.17.5-.05.44-1.25-.06-1.22 0 0-1.44.12-2.38.12-.87 0-2.33-.12-2.33-.12-.5-.03-.56 1.2-.06 1.22l.92.08 1.26 3.41zM17.41 10c.24-.64.74-1.87.43-4.25.7 1.29 1.05 2.71 1.05 4.25 0 3.29-1.73 6.24-4.4 7.78.97-2.59 1.94-5.2 2.92-7.78zM6.1 18.09C3.12 16.65 1.11 13.53 1.11 10c0-1.3.23-2.48.72-3.59C3.25 10.3 4.67 14.2 6.1 18.09zm4.03-6.63l2.58 6.98c-.86.29-1.76.45-2.71.45-.79 0-1.57-.11-2.29-.33.81-2.38 1.62-4.74 2.42-7.1z'/%3E%3C/svg%3E" );
+	background-size: 40px 40px;
+	background-position: center;
+	background-repeat: no-repeat;
+	text-indent: -9999px;
+	outline: none;
+	box-shadow: none;
+}
+
+/* --- Card ------------------------------------------------------------- */
+
+body.login form {
+	border: 1px solid var(--ccrm-stroke);
+	border-radius: var(--ccrm-radius-lg);
+	background: var(--ccrm-surface-strong);
+	box-shadow: var(--ccrm-shadow-card);
+	padding: 32px;
+	margin-top: 20px;
+	font-weight: 400;
+}
+
+body.login form .forgetmenot {
+	font-weight: 400;
+}
+
+/* --- Labels and inputs ------------------------------------------------ */
+
+body.login label {
+	color: var(--ccrm-content);
+	font-size: 13px;
+	font-weight: var(--ccrm-weight-medium);
+	line-height: 20px;
+}
+
+body.login form .input,
+body.login input[type="text"],
+body.login input[type="password"],
+body.login input[type="email"] {
+	box-sizing: border-box;
+	width: 100%;
+	border: 1px solid var(--ccrm-stroke-control);
+	border-radius: var(--ccrm-radius-sm);
+	background: var(--ccrm-surface-strong);
+	box-shadow: none;
+	padding: 8px 12px;
+	color: var(--ccrm-content);
+	font-family: var(--ccrm-font);
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 20px;
+}
+
+body.login form .input:hover,
+body.login input[type="text"]:hover,
+body.login input[type="password"]:hover {
+	border-color: #6e6e6e;
+}
+
+/* WPDS focus is a 2px brand ring: the 1px border plus a 1px spread reads as
+   exactly 2px. The transparent outline keeps a ring in forced-colors mode. */
+body.login form .input:focus,
+body.login input[type="text"]:focus,
+body.login input[type="password"]:focus,
+body.login input[type="checkbox"]:focus {
+	border-color: var(--ccrm-brand);
+	box-shadow: 0 0 0 1px var(--ccrm-brand);
+	outline: 2px solid transparent;
+	outline-offset: 0;
+}
+
+body.login input[type="checkbox"] {
+	width: 16px;
+	height: 16px;
+	border-color: var(--ccrm-stroke-control);
+	border-radius: var(--ccrm-radius-xs, 1px);
+	accent-color: var(--ccrm-brand);
+}
+
+body.login input[type="checkbox"]:checked::before {
+	margin: -3px 0 0 -4px;
+	color: var(--ccrm-brand);
+}
+
+/* Show-password toggle. */
+body.login .wp-hide-pw {
+	color: var(--ccrm-content-weak);
+}
+
+body.login .wp-hide-pw:hover,
+body.login .wp-hide-pw:focus {
+	color: var(--ccrm-brand);
+}
+
+body.login .wp-hide-pw:focus {
+	border-color: var(--ccrm-brand);
+	outline: 2px solid var(--ccrm-brand);
+	box-shadow: none;
+}
+
+/* --- Submit ----------------------------------------------------------- */
+
+body.login .button-primary,
+body.login #wp-submit {
+	float: none;
+	width: 100%;
+	border: 1px solid transparent;
+	border-radius: var(--ccrm-radius-sm);
+	background: var(--ccrm-brand);
+	box-shadow: none;
+	padding: 10px 18px;
+	color: #fff;
+	font-family: var(--ccrm-font);
+	font-size: 13px;
+	font-weight: var(--ccrm-weight-medium);
+	line-height: 20px;
+	height: auto;
+	text-shadow: none;
+	transition: background 0.1s ease;
+}
+
+body.login .button-primary:hover,
+body.login .button-primary:focus,
+body.login #wp-submit:hover,
+body.login #wp-submit:focus {
+	background: var(--ccrm-brand-active);
+	border-color: transparent;
+	color: #fff;
+}
+
+body.login .button-primary:focus-visible,
+body.login #wp-submit:focus-visible {
+	outline: 2px solid var(--ccrm-brand);
+	outline-offset: 2px;
+	box-shadow: none;
+}
+
+body.login .submit {
+	margin-top: 4px;
+}
+
+/* Secondary buttons (e.g. "Get New Password" screens use primary; this
+   catches reset-password and setup screens). */
+body.login .button:not( .button-primary ):not( .wp-hide-pw ) {
+	border: 1px solid var(--ccrm-stroke-strong);
+	border-radius: var(--ccrm-radius-sm);
+	background: transparent;
+	box-shadow: none;
+	color: var(--ccrm-content);
+	font-size: 13px;
+	font-weight: var(--ccrm-weight-medium);
+	line-height: 20px;
+	height: auto;
+	padding: 9px 17px;
+	text-shadow: none;
+}
+
+body.login .button:not( .button-primary ):not( .wp-hide-pw ):hover {
+	border-color: var(--ccrm-brand);
+	background: #ecf0fa;
+	color: var(--ccrm-content);
+}
+
+/* --- Notices ---------------------------------------------------------- */
+
+body.login #login_error,
+body.login .notice,
+body.login .message,
+body.login .success {
+	border: 1px solid var(--ccrm-stroke);
+	border-left-width: 1px;
+	border-radius: 4px;
+	box-shadow: none;
+	padding: 12px 16px;
+	font-size: 13px;
+	line-height: 20px;
+}
+
+body.login #login_error {
+	border-color: #daa39b;
+	background: #fff6f5;
+	color: #470000;
+}
+
+body.login .message,
+body.login .notice-info {
+	border-color: #9fbcdc;
+	background: #f3f9ff;
+	color: #001b4f;
+}
+
+body.login .success,
+body.login .notice-success {
+	border-color: #8ac894;
+	background: #ebffed;
+	color: #002900;
+}
+
+/* --- Links ------------------------------------------------------------ */
+
+body.login a {
+	color: var(--ccrm-brand);
+	text-decoration: none;
+}
+
+body.login a:hover {
+	color: var(--ccrm-brand-active);
+	text-decoration: underline;
+}
+
+body.login #nav,
+body.login #backtoblog {
+	padding: 0;
+	margin: 16px 0 0;
+	font-size: 12px;
+	line-height: 16px;
+	text-align: center;
+}
+
+body.login #nav a,
+body.login #backtoblog a {
+	color: var(--ccrm-brand);
+}
+
+body.login #nav a:hover,
+body.login #backtoblog a:hover,
+body.login #nav a:focus,
+body.login #backtoblog a:focus {
+	color: var(--ccrm-brand-active);
+}
+
+/* --- The design's footer line -----------------------------------------
+ *
+ * Printed at login_footer, so this sits below the card and the #nav /
+ * #backtoblog links — the same role the footer bar plays on the front page.
+ * -------------------------------------------------------------------- */
+
+body.login .ccrm-login-screen__poetry {
+	width: 320px;
+	max-width: 100%;
+	margin: 24px auto 0;
+	padding: 0 24px;
+	box-sizing: border-box;
+	color: var(--ccrm-content-weak);
+	font-family: var(--ccrm-mono);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 16px;
+	text-align: center;
+}
+
+/* --- Language switcher ------------------------------------------------ */
+
+body.login .language-switcher {
+	margin-top: 16px;
+}
+
+body.login .language-switcher select {
+	border-color: var(--ccrm-stroke-control);
+	border-radius: var(--ccrm-radius-sm);
+	font-size: 13px;
+}
+
+/* --- Privacy / policy links ------------------------------------------- */
+
+body.login .privacy-policy-page-link {
+	margin: 24px 0 0;
+	font-size: 12px;
+	line-height: 16px;
+}
