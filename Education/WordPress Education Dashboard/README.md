@@ -130,8 +130,13 @@ Coding standard is WordPress-Core via `phpcs`. Translations are regenerated with
 
 ## Status
 
-Pre-release. Deployed and being tested on a staging site; see the open issues in this repository
-for what is being tested and what is left before the first release.
+**Pre-release**, deployed and being tested on a staging site.
+
+- [#158 — prerelease testing](https://github.com/WordPress/WPCredits-Tracker/issues/158): a call
+  for testing, open until **10 August 2026**. Students, mentors, people outside European timezones
+  and anyone using a screen reader are all especially welcome.
+- [#159 — initial release](https://github.com/WordPress/WPCredits-Tracker/issues/159): what has to
+  be true before the first release, and the open decisions still to make.
 
 ## License
 
