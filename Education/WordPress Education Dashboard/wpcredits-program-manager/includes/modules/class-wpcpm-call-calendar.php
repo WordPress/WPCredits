@@ -133,7 +133,7 @@ class WPCPM_Call_Calendar {
 				'<p class="wpcpm-calls__empty">%s</p>',
 				esc_html__( 'No mentor is linked to your account yet. Once the program data names one, you can book a call here.', 'wpcredits-program-manager' )
 			);
-			self::close_student();
+			self::close_student( $student, $viewer_is_student );
 
 			return;
 		}
@@ -142,7 +142,7 @@ class WPCPM_Call_Calendar {
 
 		if ( '' !== $reason ) {
 			printf( '<p class="wpcpm-calls__empty">%s</p>', esc_html( $reason ) );
-			self::close_student();
+			self::close_student( $student, $viewer_is_student );
 
 			return;
 		}
@@ -194,7 +194,7 @@ class WPCPM_Call_Calendar {
 				'<p class="wpcpm-calls__empty">%s</p>',
 				esc_html__( 'Your mentor has availability set but nothing is open at the moment — every slot in the current window is taken. Check back in a few days.', 'wpcredits-program-manager' )
 			);
-			self::close_student();
+			self::close_student( $student, $viewer_is_student );
 
 			return;
 		}
@@ -206,7 +206,7 @@ class WPCPM_Call_Calendar {
 		self::render_month( $by_day, $month, $zone );
 		self::render_day( $by_day, $day, $zone, $student, $can_manage && ! $viewer_is_student );
 
-		self::close_student();
+		self::close_student( $student, $viewer_is_student );
 	}
 
 	/**
@@ -216,11 +216,40 @@ class WPCPM_Call_Calendar {
 	 * bookable, nothing open, or a full calendar — and every one of them is inside two
 	 * open `<div>`s. Closing them by hand at each exit is how one of them eventually
 	 * does not, and unbalanced markup on this page pulls the whole card apart.
+	 *
+	 * Being the single funnel, it is also where the group sessions render — so they appear on the
+	 * three early exits too, which is where they matter most: a student whose mentor has published
+	 * no private hours can still be invited to a session.
+	 *
+	 * @param WP_User|null $student           The student, when there is one.
+	 * @param bool         $viewer_is_student Whether the viewer may join or leave.
 	 */
-	private static function close_student() {
+	private static function close_student( $student = null, $viewer_is_student = false ) {
 		echo '</div>';
+
+		// Outside the picking column but inside the pair, so it sits under both and is not
+		// squeezed into half the card.
+		if ( $student instanceof WP_User ) {
+			self::render_student_sessions( $student, $viewer_is_student );
+		}
+
 		echo '</div>';
 		echo '</section>';
+	}
+
+	/**
+	 * The student's group sessions, under their own calls.
+	 *
+	 * Called from every path that closes the booked column, including the early exits: a student
+	 * whose mentor has published no private hours can still be invited to a session, and the
+	 * version that only rendered this on the happy path hid it from exactly the people most
+	 * likely to need it.
+	 *
+	 * @param WP_User $student           The student.
+	 * @param bool    $viewer_is_student Whether the viewer may join or leave.
+	 */
+	private static function render_student_sessions( WP_User $student, $viewer_is_student ) {
+		WPCPM_Group_Sessions::render_student_list( $student, $viewer_is_student );
 	}
 
 	/**
@@ -712,6 +741,12 @@ class WPCPM_Call_Calendar {
 
 		echo '<div class="wpcpm-calls__col wpcpm-calls__col--availability">';
 		WPCPM_Mentor_Availability::render_editor( $mentor );
+		echo '</div>';
+
+		// Below both columns and spanning them: a group session is neither a booked call nor an
+		// hour they published, and it needs the width for the form.
+		echo '<div class="wpcpm-calls__col wpcpm-calls__col--sessions">';
+		WPCPM_Group_Sessions::render_mentor_panel( $mentor );
 		echo '</div>';
 
 		echo '</section>';

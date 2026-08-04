@@ -530,6 +530,33 @@
 	min-width: 0;
 }
 
+/* The team checkboxes. A whole row of the form rather than a field beside the button, because
+   there are a dozen teams and they need the full width to stack in. */
+.wpcpm-edit__group {
+	border: 0;
+	display: grid;
+	flex: 1 1 100%;
+	gap: 0.2em 1em;
+	grid-template-columns: repeat( auto-fit, minmax( 11em, 1fr ) );
+	margin: 0;
+	min-width: 0;
+	padding: 0;
+}
+
+/* The label is the hit area, so the whole "☐ Documentation" reads and clicks as one thing. */
+.wpcpm-edit__check {
+	align-items: center;
+	display: flex;
+	gap: 0.4em;
+	line-height: 1.4;
+}
+
+.wpcpm-edit__check input {
+	/* Not the `flex: 1 1 12em` the text inputs take — a checkbox that stretches is a bug. */
+	flex: none;
+	margin: 0;
+}
+
 .wpcpm-edit__note {
 	color: inherit;
 	font-size: 0.85em;
@@ -643,4 +670,113 @@
 	.wpcpm-calls__cols {
 		grid-template-columns: minmax( 0, 1fr );
 	}
+}
+
+/* --------------------------------------------------------------------------
+   Group sessions
+
+   Theme-agnostic, like everything else in this file: one bordered block per session,
+   the same `--wpcpm-border` and radius the call cards use, so a session reads as the
+   same kind of object as a booked call rather than as a new species.
+   -------------------------------------------------------------------------- */
+.wpcpm-sessions {
+	margin-top: 1.5em;
+}
+
+.wpcpm-sessions__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-sessions__item {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	margin-bottom: 0.75em;
+	padding: 0.75em 1em;
+}
+
+.wpcpm-sessions__item:last-child {
+	margin-bottom: 0;
+}
+
+/* The one line that decides whether reading on is worth it. */
+.wpcpm-sessions__places {
+	font-size: 0.9em;
+	font-weight: 600;
+	margin: 0.2em 0 0;
+}
+
+.wpcpm-sessions__attendees,
+.wpcpm-sessions__state {
+	font-size: 0.9em;
+	margin: 0.4em 0 0;
+	opacity: 0.72;
+}
+
+.wpcpm-sessions__join {
+	margin-top: 0.6em;
+}
+
+/* The create form and the note form are both disclosures, so a mentor's diary is not
+   two forms deep before they have decided to write anything. */
+.wpcpm-sessions__new,
+.wpcpm-sessions__note {
+	margin-top: 0.75em;
+}
+
+.wpcpm-sessions__new-toggle,
+.wpcpm-sessions__note-toggle {
+	cursor: pointer;
+	font-size: 0.9em;
+	font-weight: 600;
+}
+
+.wpcpm-sessions__form {
+	display: grid;
+	gap: 0.75em 1em;
+	grid-template-columns: repeat( auto-fit, minmax( 12em, 1fr ) );
+	margin-top: 0.75em;
+}
+
+.wpcpm-sessions__form .wpcpm-field {
+	margin: 0;
+}
+
+/* The topic and the button want the whole width; the four short fields share a row. */
+.wpcpm-sessions__form .wpcpm-field:nth-last-child( 2 ),
+.wpcpm-sessions__submit {
+	grid-column: 1 / -1;
+}
+
+.wpcpm-field label {
+	display: block;
+	font-size: 0.9em;
+	font-weight: 600;
+	margin-bottom: 0.2em;
+}
+
+.wpcpm-field input,
+.wpcpm-field textarea {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+.wpcpm-field__hint {
+	display: block;
+	font-size: 0.85em;
+	margin-top: 0.2em;
+	opacity: 0.72;
+}
+
+.wpcpm-sessions__note textarea {
+	box-sizing: border-box;
+	margin-top: 0.4em;
+	width: 100%;
+}
+
+.wpcpm-sessions__note-hint {
+	font-size: 0.85em;
+	margin: 0.3em 0;
+	opacity: 0.72;
 }

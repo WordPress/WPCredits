@@ -26,3 +26,16 @@ A few things worth knowing:
 
 **If your mentor has published nothing yet**, the section says so. That is not a fault on your
 side — ask them in Slack to set their hours.
+
+## Group sessions
+
+Your mentor may run a session for several students at once — a walkthrough, a question hour,
+something for everybody who started the same week. Those appear under *My mentor call* with what the
+session is about and how many places are left.
+
+**Join this session** puts you on it, and you get an email with a calendar invitation the same as a
+private call. If something changes, **Leave the session** takes you off and frees your place for
+somebody else.
+
+A session counts towards the number of upcoming calls you may hold at once, so if you cannot join
+one, check whether you are already holding as many as your mentor allows.

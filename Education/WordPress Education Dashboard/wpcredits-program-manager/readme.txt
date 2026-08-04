@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.42.0
+Stable tag: 1.43.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,7 +192,7 @@ Field *names* are used rather than IDs because Airtable's `filterByFormula` only
 
 As with mentors, accounts are created with a random password and **no email is sent**, administrators' roles are never touched, and no account is ever deleted. A student who leaves the program loses the Student role, and with it access to Student-level content, unless you set *When a student leaves the program* to leave it in place.
 
-**The student page.** Activation creates a page called *Student Report Card* at `/student-dashboard/`, gated to Student level. Its sections are *My profile*, *My mentor*, *My course and report form* and *My mentor call*. It renders against the logged-in user, so each student sees only their own. It shows their program (`In Sensei` or `In Sensei 50h`), internship dates, tutor, educational institution, WordPress.org, Slack, contribution team, personal website, and a button to their prefilled report form — the 50-hour form for students on that track.
+**The student page.** Activation creates a page called *Student Report Card* at `/student-dashboard/`, gated to Student level. Its sections are *My profile*, *My mentor*, *My course*, *Report form* and *My mentor call*. It renders against the logged-in user, so each student sees only their own. It shows their program (`In Sensei` or `In Sensei 50h`), internship dates, tutor, educational institution, WordPress.org, Slack, contribution team, personal website, and a button to their prefilled report form — the 50-hour form for students on that track.
 
 There is no *Program* column in Airtable, so the program shown is the student's status, which is also what decides which report form applies.
 
@@ -290,6 +290,55 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.43.2 =
+* **Actually fixed that warning.** Asking `get_users()` for `'ID'` is documented to return a flat
+  list of IDs, and on this site it returns `stdClass` rows regardless — something in the stack
+  filters the query — so 1.43.1 moved the `intval()` from core into the plugin rather than removing
+  it. `WPCPM_Roles::id_of()` now resolves an int, a numeric string, a row object or a `WP_User`
+  without assuming which arrived. Verified by rendering all four dashboard paths with an error
+  handler attached: zero notices.
+
+= 1.43.1 =
+* **Fixed a PHP warning on every Student Report Card render.** Looking a student's mentor up asked
+  `get_users()` for whole rows, and on this stack `WP_User_Query` hands those to core's user-meta
+  cache as raw objects — so `update_meta_cache()` tried to `intval()` one and warned. Both lookups
+  now ask for a flat list of IDs and hydrate what they need. Found by rendering the four dashboard
+  paths with an error handler attached rather than by reading the page.
+
+= 1.43.0 =
+* **New: group sessions.** A mentor announces a session — date, time, length, how many places and
+  what it is about — and their students join it. An office hour rather than a slot: it is not carved
+  out of the weekly hours, and a mentor can run one at a time they would never offer privately. It
+  **does** block that time from one-to-one booking, so nobody books them over it.
+  * Students join and leave from *My mentor call*; leaving frees the place. Joining counts towards
+    the mentor's per-student limit on upcoming calls, because an upcoming session is one.
+  * Everybody who joins gets a calendar invitation, the 24-hour reminder goes to all of them, and
+    cancelling the session tells everybody on it.
+  * **One note for the whole group.** The mentor writes it once and it appears on every attendee's
+    card, counts for each of them in the triage — so nobody who attended is left in *Need a call* —
+    and one deletion removes it from everyone.
+  * Built on the existing call post type rather than a second one, which is why the diary, the
+    reminder sweep, the slot blocking, the cancellation mail and the ICS builder needed no changes.
+    A call with no capacity marked is still a one-to-one call, so nothing was migrated.
+* **The Student Report Card's "My course and report form" is two sections**, *My course* and
+  *Report form*, stacked. One section holding two buttons read as a single task with two links
+  rather than the two separate things a student does.
+* **A student can select several contribution teams.** Airtable's field is a linked record and
+  already took a list, so this is a checkbox list rather than a single select — visible at once and
+  usable on a phone. Every submitted ID is checked against the catalog, so a hand-edited form cannot
+  write an unknown link.
+* **"Accessibility needs" now reads "None" rather than an amber "Not set" when it is empty.** A
+  blank there is the student's answer, not missing data, and flagging it asked mentors to chase
+  something already settled. Fields may now declare what their blank means.
+* **A student's row heals itself from the mentor's copy.** Two syncs write two caches of the same
+  student and are not run together, so whichever has not run since a field was added showed "Not
+  set" for data sitting in the other cache — which is what happened to *Field of study* on every
+  student card while 546 of 558 mentor rows had it. The student's own value always wins; the
+  mentor's copy only ever fills a blank.
+* Adds `bin/test-group-sessions.php` and `bin/test-student-program.php`, and listed `study` and
+  `access` in both syncs' opening state — they auto-vivified, but the asymmetry with `tutors` is
+  what made a stale cache read as a code difference.
 
 = 1.42.0 =
 * **Three program guides**, one per audience, in `docs/`: a student guide, a mentor guide that

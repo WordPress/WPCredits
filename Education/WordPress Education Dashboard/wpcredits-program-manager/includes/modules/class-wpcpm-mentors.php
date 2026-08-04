@@ -77,6 +77,7 @@ class WPCPM_Mentors extends WPCPM_Module {
 		WPCPM_Mentor_Availability::init();
 		WPCPM_Mentor_Calls::init();
 		WPCPM_Call_Calendar::init();
+		WPCPM_Group_Sessions::init();
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );

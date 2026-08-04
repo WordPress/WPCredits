@@ -8,7 +8,7 @@ Your program details as the program records hold them: your track, your internsh
 educational institution, your tutor and your field of study.
 
 Four of these are yours to change. Press **Edit** and you can update your **WordPress.org
-username**, your **Slack handle**, your **contribution team** and your **personal website**. Press
+username**, your **Slack handle**, your **contribution teams** and your **personal website**. Press
 Save and the change is written straight back to the program records, so you never have to ask
 anybody to correct them for you.
 
@@ -21,11 +21,15 @@ Who your mentor is and how to reach them: their WordPress.org profile, their Sla
 website, and the contribution teams they work in. This is the person to ask first about anything
 to do with your contributions.
 
-### My course and report form
+### My course
 
-Two buttons. **Open your course** takes you to your course on Learn WordPress. **Open your report
-form** opens your report form with your details already filled in — the 50-hour form if you are on
-that track, the standard one otherwise.
+**Open your course** takes you to your course on Learn WordPress — the syllabus for the track you
+are on.
+
+### Report form
+
+**Open your report form** opens your report form with your details already filled in: the 50-hour
+form if you are on that track, the standard one otherwise.
 
 ### Resources
 

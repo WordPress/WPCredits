@@ -22,7 +22,7 @@ A student falls into the first group they match, so somebody who needs a call is
 
 **Search** matches students, institutions and teams, and tells you how many of your students match.
 Opening a student shows their full record: program and track, internship duration, educational
-institution, tutor, field of study, contribution team, accessibility needs, their contact links,
+institution, tutor, field of study, contribution teams, accessibility needs, their contact links,
 and a button to their report form.
 
 {{image:mentor-report-card-student-and-notes|Opening a student shows their record on the left and your notes on the right. Names shown are examples.}}

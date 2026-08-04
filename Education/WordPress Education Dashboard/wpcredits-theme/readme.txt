@@ -157,6 +157,13 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.8.2 =
+* **Dresses the plugin's new group sessions.** Each session is a bordered block with the design's
+  own card line and radius rather than the plugin's theme-agnostic default, its counts and hints use
+  the real grays instead of `opacity`, and the create and note forms take the same controls as the
+  availability editor — so the two forms on a mentor's card do not look like they came from
+  different plugins.
+
 = 1.8.1 =
 * **Dropped "Printing opens every student first." from the ordering line** under the student list.
   The behaviour is unchanged — printing still opens every student, so a printed list is never

@@ -12,8 +12,8 @@ Two components live here, and they are built to work together:
 
 | Folder | What it is | Version |
 | --- | --- | --- |
-| [`wpcredits-program-manager/`](wpcredits-program-manager/) | The plugin. All of the program logic: roles, access levels, the Airtable sync, the Report Cards, the call calendar, email. | 1.42.0 |
-| [`wpcredits-theme/`](wpcredits-theme/) | The block theme. The landing page, the branded login, and the skin that turns the plugin's markup into the dashboard people actually use. | 1.8.1 |
+| [`wpcredits-program-manager/`](wpcredits-program-manager/) | The plugin. All of the program logic: roles, access levels, the Airtable sync, the Report Cards, the call calendar, email. | 1.43.2 |
+| [`wpcredits-theme/`](wpcredits-theme/) | The block theme. The landing page, the branded login, and the skin that turns the plugin's markup into the dashboard people actually use. | 1.8.2 |
 
 The theme is the front end for the plugin and does not add program data or behaviour of its own.
 The plugin works without it — the pages are just unstyled.
@@ -45,7 +45,9 @@ per person, so there is no URL to guess at somebody else's record.
   and their prefilled report form.
 - The **Mentor Report Card** groups their students into *Need a call* (no note in 30 days),
   *Ending soon* (finishing within 60 days) and *On track*, with search across students,
-  institutions and teams, per-student notes, and a printable view.
+  institutions and teams, per-student notes, and a printable view. Mentors also announce **group
+  sessions** here — an office hour several students join, with one note afterwards that lands on
+  every attendee's card.
 
 **Per-post access levels.** Every post and page carries a *Program access* level — Public, or one
 audience's level, or Administrators only — enforced in four places, because each covers a hole the

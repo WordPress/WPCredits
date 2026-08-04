@@ -239,7 +239,13 @@ class WPCPM_Mentors_Sync {
 				'steps'   => array(),
 				'mentors' => array(),
 				'reports' => array(),
+				// All three are email-keyed maps filled by the same pass over the Students
+				// table. They auto-vivify, so leaving two of them out worked — but the
+				// asymmetry is what made a missing "Field of study" read as a code difference
+				// between it and the tutor rather than as two caches of different ages.
 				'tutors'  => array(),
+				'study'   => array(),
+				'access'  => array(),
 				'stats'   => self::empty_stats(),
 				'notices' => array(),
 			),

@@ -48,7 +48,7 @@ A student falls into the first group they match, so somebody who needs a call is
 
 **Search** matches students, institutions and teams, and tells you how many of your students match.
 Opening a student shows their full record: program and track, internship duration, educational
-institution, tutor, field of study, contribution team, accessibility needs, their contact links,
+institution, tutor, field of study, contribution teams, accessibility needs, their contact links,
 and a button to their report form.
 
 ![Opening a student shows their record on the left and your notes on the right. Names shown are examples.](images/mentor-report-card-student-and-notes.png)
@@ -112,10 +112,40 @@ Booked calls appear under **Upcoming calls** beside your availability, so you ca
 without leaving the page. Each one shows the time in your timezone and in theirs, and whatever the
 student wrote when booking.
 
+## Group sessions
+
+Sometimes the useful thing is one call with several students rather than five separate ones — a
+walkthrough, a question hour, a session for everybody starting the same week.
+
+**Plan a group session** under *Group sessions* on your Report Card. You choose:
+
+- **Date and start time**, in your own timezone. Your students see it in theirs.
+- **Length** in minutes.
+- **Places** — how many students may join, between 2 and 50.
+- **What it is about**. Your students read this beside the session, so it is how they decide
+  whether it is for them.
+
+A session is not carved out of your weekly hours; you pick any time, including one you would never
+offer for private calls. It does **block that time from one-to-one booking**, so nobody books you
+privately over a session you are running.
+
+Your students see it under *My mentor call* and can **join** while there are places left, and
+**leave** again if something changes — which frees their place for somebody else. Joining counts
+towards the limit you set for how many upcoming calls one student may hold.
+
+Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes
+to all of them. If you cancel the session, every student on it is told.
+
+### One note for the whole group
+
+Under a session you have run, **Add a note for everybody on this session**. You write it once and it
+appears on every attendee's card — and it counts for each of them, so nobody who was there is left
+sitting in *Need a call*. Deleting it removes it from everyone.
+
 ## If something looks wrong
 
 Student details come from the program records rather than being typed in here, so if a student's
-dates, institution or contribution team are wrong, that is where it has to be corrected. The page
+dates, institution or contribution teams are wrong, that is where it has to be corrected. The page
 catches up at the next sync.
 
 A student who has left the program moves to **Past students**, a collapsed section at the foot of
@@ -145,7 +175,7 @@ Your program details as the program records hold them: your track, your internsh
 educational institution, your tutor and your field of study.
 
 Four of these are yours to change. Press **Edit** and you can update your **WordPress.org
-username**, your **Slack handle**, your **contribution team** and your **personal website**. Press
+username**, your **Slack handle**, your **contribution teams** and your **personal website**. Press
 Save and the change is written straight back to the program records, so you never have to ask
 anybody to correct them for you.
 
@@ -158,11 +188,15 @@ Who your mentor is and how to reach them: their WordPress.org profile, their Sla
 website, and the contribution teams they work in. This is the person to ask first about anything
 to do with your contributions.
 
-### My course and report form
+### My course
 
-Two buttons. **Open your course** takes you to your course on Learn WordPress. **Open your report
-form** opens your report form with your details already filled in — the 50-hour form if you are on
-that track, the standard one otherwise.
+**Open your course** takes you to your course on Learn WordPress — the syllabus for the track you
+are on.
+
+### Report form
+
+**Open your report form** opens your report form with your details already filled in: the 50-hour
+form if you are on that track, the standard one otherwise.
 
 ### Resources
 
@@ -200,6 +234,19 @@ A few things worth knowing:
 
 **If your mentor has published nothing yet**, the section says so. That is not a fault on your
 side — ask them in Slack to set their hours.
+
+## Group sessions
+
+Your mentor may run a session for several students at once — a walkthrough, a question hour,
+something for everybody who started the same week. Those appear under *My mentor call* with what the
+session is about and how many places are left.
+
+**Join this session** puts you on it, and you get an email with a calendar invitation the same as a
+private call. If something changes, **Leave the session** takes you off and frees your place for
+somebody else.
+
+A session counts towards the number of upcoming calls you may hold at once, so if you cannot join
+one, check whether you are already holding as many as your mentor allows.
 
 ## If something looks wrong
 

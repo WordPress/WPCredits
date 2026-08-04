@@ -926,6 +926,21 @@ ck( 'the lockup is asked for by height and keeps its proportions',
 
 // The height of the buttons beside it — their 1px border, 15px padding and 24px line, twice
 // over — so the three read as one row rather than a logo tucked in beside two big buttons.
+// The Student Report Card's course and report form are two sections now, not one holding two
+// buttons. Asserted on the source because rendering that page needs the whole student record;
+// this suite already guards the card's copy the same way, and the alternative is no cover at all.
+$student_page_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php' );
+
+ck( 'the course and the report form are separate sections',
+    array(
+        false !== strpos( $student_page_src, "__( 'My course', 'wpcredits-program-manager' )" ),
+        false !== strpos( $student_page_src, "__( 'Report form', 'wpcredits-program-manager' )" ),
+        false !== strpos( $student_page_src, 'My course and report form' ),
+        // One call per section, so neither can quietly regain the other's button.
+        2 === substr_count( $student_page_src, 'self::render_link_section(' ),
+    ),
+    array( true, true, false, true ) );
+
 // The example question is shown to students, mentors, institutions and administrators alike,
 // so it must not be a question only one of them would ask.
 $assistant_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php' );

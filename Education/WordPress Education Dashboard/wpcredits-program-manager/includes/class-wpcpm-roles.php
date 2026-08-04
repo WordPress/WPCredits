@@ -208,6 +208,29 @@ class WPCPM_Roles {
 	 * @param int|WP_User|null $user User ID, object, or null for the current user.
 	 * @return WP_User|null
 	 */
+	/**
+	 * A user ID out of whatever `get_users()` handed back.
+	 *
+	 * **The `fields` argument cannot be trusted on every stack.** Asked for `'ID'`, WordPress is
+	 * documented to return a flat list of IDs — and on this program's site it returns `stdClass`
+	 * rows anyway, because something in the stack filters the query. Casting the entry straight to
+	 * `int` then raises "Object of class stdClass could not be converted to int" on every render,
+	 * which is exactly the warning this was introduced to stop.
+	 *
+	 * So the shape is not assumed. An int, a numeric string, a `stdClass` row and a `WP_User` all
+	 * resolve; anything else is 0.
+	 *
+	 * @param mixed $entry One element of a `get_users()` result.
+	 * @return int User ID, or 0.
+	 */
+	public static function id_of( $entry ) {
+		if ( is_object( $entry ) ) {
+			return isset( $entry->ID ) ? (int) $entry->ID : 0;
+		}
+
+		return is_numeric( $entry ) ? (int) $entry : 0;
+	}
+
 	public static function resolve_user( $user = null ) {
 		if ( $user instanceof WP_User ) {
 			return $user;

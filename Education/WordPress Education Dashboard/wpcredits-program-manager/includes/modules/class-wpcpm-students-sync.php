@@ -145,7 +145,11 @@ class WPCPM_Students_Sync {
 				'students' => array(),
 				'mentors'  => array(),
 				'pending'  => array(),
+				// Three email-keyed maps from one pass over the Students table; listed together
+				// so a later reader does not have to work out why only one of them was declared.
 				'tutors'   => array(),
+				'study'    => array(),
+				'access'   => array(),
 				'stats'    => self::empty_stats(),
 				'notices'  => array(),
 			),
@@ -453,33 +457,37 @@ class WPCPM_Students_Sync {
 			$mentor_ids = WPCPM_Airtable::link_ids( isset( $cells[ $fields['report_mentor'] ] ) ? $cells[ $fields['report_mentor'] ] : array() );
 
 			$state['students'][] = array(
-				'record_id'   => isset( $record['id'] ) ? (string) $record['id'] : '',
-				'name'        => trim( $read( 'report_name' ) ),
-				'email'       => $email,
-				'email_key'   => strtolower( trim( $email ) ),
+				'record_id'      => isset( $record['id'] ) ? (string) $record['id'] : '',
+				'name'           => trim( $read( 'report_name' ) ),
+				'email'          => $email,
+				'email_key'      => strtolower( trim( $email ) ),
 				// The track is the program: there is no separate Program column in
 				// Airtable, and the status is also what decides which reporting form
 				// applies.
-				'program'     => $status,
-				'is_50h'      => $is_50h,
-				'is_past'     => in_array( $status, $statuses['past'], true ),
-				'start'       => $read( 'report_start' ),
-				'end'         => $read( 'report_end' ),
-				'institution' => WPCPM_Mentors_Sync::resolve_stored(
+				'program'        => $status,
+				'is_50h'         => $is_50h,
+				'is_past'        => in_array( $status, $statuses['past'], true ),
+				'start'          => $read( 'report_start' ),
+				'end'            => $read( 'report_end' ),
+				'institution'    => WPCPM_Mentors_Sync::resolve_stored(
 					WPCPM_Airtable::flatten( isset( $cells[ $fields['report_instituton'] ] ) ? $cells[ $fields['report_instituton'] ] : '' ),
 					'institutions'
 				),
-				'profile'     => $profile,
-				'username'    => WPCPM_Mentors_Sync::wporg_username( $profile ),
-				'slack'       => $read( 'report_slack' ),
-				'team'        => WPCPM_Mentors_Sync::resolve_stored(
+				'profile'        => $profile,
+				'username'       => WPCPM_Mentors_Sync::wporg_username( $profile ),
+				'slack'          => $read( 'report_slack' ),
+				'team'           => WPCPM_Mentors_Sync::resolve_stored(
 					WPCPM_Airtable::flatten( isset( $cells[ $fields['report_team'] ] ) ? $cells[ $fields['report_team'] ] : '' ),
 					'teams'
 				),
-				'website'     => $read( 'report_website' ),
-				'link'        => $is_50h ? $read( 'report_link_50h' ) : $read( 'report_link' ),
-				'tutor'       => '',
-				'mentor_id'   => ! empty( $mentor_ids ) ? $mentor_ids[0] : '',
+				'website'        => $read( 'report_website' ),
+				'link'           => $is_50h ? $read( 'report_link_50h' ) : $read( 'report_link' ),
+				// Filled by the email-keyed pass over the Students table, below. Declared here so
+				// the row's shape is the same whether or not that pass found anything.
+				'tutor'          => '',
+				'field_of_study' => '',
+				'accessibility'  => '',
+				'mentor_id'      => ! empty( $mentor_ids ) ? $mentor_ids[0] : '',
 			);
 
 			++$state['stats']['students_seen'];
@@ -1026,9 +1034,117 @@ class WPCPM_Students_Sync {
 	 * @return array
 	 */
 	public static function get_program( $user_id ) {
-		$program = get_user_meta( (int) $user_id, self::META_PROGRAM, true );
+		$user_id = (int) $user_id;
+		$program = get_user_meta( $user_id, self::META_PROGRAM, true );
+		$program = is_array( $program ) ? $program : array();
 
-		return is_array( $program ) ? $program : array();
+		return self::heal( $program, $user_id );
+	}
+
+	/**
+	 * Fields the mentor's copy of a student can supply when this student's own row lacks them.
+	 *
+	 * **Two syncs write two caches of the same student, and they are not run together.** The
+	 * mentors sync fills `wpcpm_mentees` on the mentor; this one fills `wpcpm_student_program` on
+	 * the student. Whenever a field is added to both, whichever sync has not been run since is a
+	 * page showing "Not set" for data that is sitting in the other cache — which is how *Field of
+	 * study* came to be missing from every one of 301 student rows while 546 of 558 mentor rows
+	 * had it.
+	 *
+	 * So rather than telling people to run a sync, the value is borrowed at render time. This is
+	 * the same self-healing `resolve_stored()` already gives institutions and teams, and the third
+	 * time this trap has produced a page that looked broken while the code was correct.
+	 */
+	const HEALABLE = array( 'field_of_study', 'accessibility' );
+
+	/**
+	 * Fill blanks in a student's own row from the mentor's copy of the same student.
+	 *
+	 * Only ever fills what is missing or empty, so a value this sync wrote always wins, and it
+	 * costs nothing on a row that is already complete — the common case returns before looking
+	 * anything up.
+	 *
+	 * @param array $program The student's stored row.
+	 * @param int   $user_id Student user ID.
+	 * @return array
+	 */
+	private static function heal( array $program, $user_id ) {
+		$missing = array();
+
+		foreach ( self::HEALABLE as $key ) {
+			if ( '' === trim( (string) ( isset( $program[ $key ] ) ? $program[ $key ] : '' ) ) ) {
+				$missing[] = $key;
+			}
+		}
+
+		if ( empty( $missing ) ) {
+			return $program;
+		}
+
+		$row = self::mentor_side_row( $user_id );
+
+		foreach ( $missing as $key ) {
+			if ( isset( $row[ $key ] ) && '' !== trim( (string) $row[ $key ] ) ) {
+				$program[ $key ] = $row[ $key ];
+			}
+		}
+
+		return $program;
+	}
+
+	/**
+	 * The mentor's copy of one student's row, or an empty array.
+	 *
+	 * Memoized per request, including the "there is none" answer: a student whose mentor has no
+	 * account would otherwise pay for the lookup on every call.
+	 *
+	 * @param int $user_id Student user ID.
+	 * @return array
+	 */
+	private static function mentor_side_row( $user_id ) {
+		static $cache = array();
+
+		if ( isset( $cache[ $user_id ] ) ) {
+			return $cache[ $user_id ];
+		}
+
+		$cache[ $user_id ] = array();
+
+		$record = trim( (string) get_user_meta( $user_id, self::META_RECORD_ID, true ) );
+		$mentor = self::get_mentor( $user_id );
+		$mentor = isset( $mentor['record_id'] ) ? trim( (string) $mentor['record_id'] ) : '';
+
+		if ( '' === $record || '' === $mentor ) {
+			return $cache[ $user_id ];
+		}
+
+		// The student's card names the mentor by Airtable record, and the mentors sync stamps that
+		// record on the mentor's WordPress account — so this is the join between the two caches.
+		$users = get_users(
+			array(
+				'meta_key'   => WPCPM_Mentors_Sync::META_RECORD_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_key -- Indexed, and one row.
+				'meta_value' => $mentor, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_value -- Exact match on a record ID.
+				'number'     => 1,
+				// A flat list of IDs, for the reason given in `WPCPM_Mentor_Calls::scan_for_mentor()`:
+				// asking for rows makes core's user-meta cache warn on this site's stack.
+				'fields'     => 'ID',
+			)
+		);
+
+		if ( empty( $users ) ) {
+			return $cache[ $user_id ];
+		}
+
+		$rows = get_user_meta( WPCPM_Roles::id_of( $users[0] ), WPCPM_Mentors_Sync::META_MENTEES, true );
+
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			if ( is_array( $row ) && isset( $row['record_id'] ) && $row['record_id'] === $record ) {
+				$cache[ $user_id ] = $row;
+				break;
+			}
+		}
+
+		return $cache[ $user_id ];
 	}
 
 	/**

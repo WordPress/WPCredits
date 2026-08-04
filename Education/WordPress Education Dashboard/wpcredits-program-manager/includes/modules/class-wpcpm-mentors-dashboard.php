@@ -931,7 +931,7 @@ class WPCPM_Mentors_Dashboard {
 				'icon'  => 'slack',
 			),
 			array(
-				'label'     => __( 'Contribution team', 'wpcredits-program-manager' ),
+				'label'     => __( 'Contribution teams', 'wpcredits-program-manager' ),
 				'value'     => $team,
 				// Each team name links to its own site on make.wordpress.org, so the
 				// cell is built as HTML rather than as one value with one URL.
@@ -951,6 +951,8 @@ class WPCPM_Mentors_Dashboard {
 			array(
 				'label' => __( 'Accessibility needs', 'wpcredits-program-manager' ),
 				'value' => $get( 'accessibility' ),
+				// Blank here is an answer, not a gap: the student has none.
+				'blank' => __( 'None', 'wpcredits-program-manager' ),
 			),
 		);
 
@@ -1214,6 +1216,8 @@ class WPCPM_Mentors_Dashboard {
 	 *     @type string $icon      Key into WPCPM_Icons for a fixed row icon.
 	 *     @type string $icon_html Pre-built icon markup, for a row whose icon depends on its
 	 *                             value. Takes precedence over `icon`.
+	 *     @type string $blank     What an empty value *means*, when it means something. Shown as
+	 *                             an ordinary value, and the row is not flagged as missing.
 	 * }
 	 */
 	private static function render_row( array $field ) {
@@ -1221,7 +1225,21 @@ class WPCPM_Mentors_Dashboard {
 		$value    = isset( $field['value'] ) ? trim( (string) $field['value'] ) : '';
 		$url      = isset( $field['url'] ) ? trim( (string) $field['url'] ) : '';
 		$external = ! isset( $field['external'] ) || (bool) $field['external'];
-		$empty    = ( '' === $value );
+		$blank    = isset( $field['blank'] ) ? trim( (string) $field['blank'] ) : '';
+
+		// **An empty value is not always missing data.** Most blanks on this card are something to
+		// chase — an unset institution is a gap in the records — and the amber row says so. But a
+		// student who wrote nothing under *Accessibility needs* has answered: they do not have any.
+		// Showing that as "Not set" in amber asks a mentor to go and get an answer that is already
+		// in, and quietly suggests the student left a form half-finished.
+		//
+		// So a field may declare what its blank means. It reads as an ordinary value and the row
+		// keeps normal styling.
+		if ( '' === $value && '' !== $blank ) {
+			$value = $blank;
+		}
+
+		$empty = ( '' === $value );
 
 		// `html` is for a value that is several links rather than one — a student can be
 		// on more than one contribution team, so the whole cell is built by the caller

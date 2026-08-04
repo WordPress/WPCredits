@@ -462,7 +462,7 @@ class WPCPM_Students_Dashboard {
 				'edit'  => 'slack',
 			),
 			array(
-				'label'     => __( 'Contribution team', 'wpcredits-program-manager' ),
+				'label'     => __( 'Contribution teams', 'wpcredits-program-manager' ),
 				'value'     => $team,
 				'html'      => WPCPM_Contribution_Teams::links( $team ),
 				'icon_html' => WPCPM_Contribution_Teams::label_icon( $team ),
@@ -517,7 +517,14 @@ class WPCPM_Students_Dashboard {
 	 * button at the foot of one column reads as belonging to that column rather than to
 	 * the page.
 	 *
-	 * Renders nothing at all when neither link exists, rather than an empty heading.
+	 * Two sections, one per errand: **My course** and **Report form**. They were one section
+	 * holding both buttons, which read as a single task with two links rather than as the two
+	 * separate things a student does — the course is what they work through, the report form is
+	 * what they file.
+	 *
+	 * Stacked, and each renders only if its own link exists, so a student with no report form
+	 * gets one section rather than a heading over an empty row. Both are rendered outside
+	 * `.wpcpm-student__grid`, so neither is placed into one of its two columns.
 	 *
 	 * @param array $program The student's cached program array.
 	 */
@@ -526,36 +533,55 @@ class WPCPM_Students_Dashboard {
 		$course = WPCPM_Program::course_url( $status );
 		$report = isset( $program['link'] ) ? (string) $program['link'] : '';
 
-		if ( '' === $course && '' === $report ) {
-			return;
-		}
-
-		echo '<section class="wpcpm-student__section wpcpm-student__links">';
-		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'My course and report form', 'wpcredits-program-manager' ) . '</h3>';
-		echo '<p class="wpcpm-student__actions">';
-
 		if ( '' !== $course ) {
-			printf(
-				'<a class="wpcpm-button" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-				esc_url( $course ),
-				esc_html__( 'Open your course', 'wpcredits-program-manager' )
+			self::render_link_section(
+				'course',
+				__( 'My course', 'wpcredits-program-manager' ),
+				$course,
+				__( 'Open your course', 'wpcredits-program-manager' ),
+				'wpcpm-button'
 			);
 		}
 
 		if ( '' !== $report ) {
-			printf(
-				'<a class="wpcpm-button wpcpm-button--secondary" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
-				esc_url( $report ),
-				esc_html(
-					! empty( $program['is_50h'] )
-						? __( 'Open your report form (50h)', 'wpcredits-program-manager' )
-						: __( 'Open your report form', 'wpcredits-program-manager' )
-				)
+			self::render_link_section(
+				'report',
+				__( 'Report form', 'wpcredits-program-manager' ),
+				$report,
+				! empty( $program['is_50h'] )
+					? __( 'Open your report form (50h)', 'wpcredits-program-manager' )
+					: __( 'Open your report form', 'wpcredits-program-manager' ),
+				'wpcpm-button wpcpm-button--secondary'
 			);
 		}
+	}
 
-		echo '</p>';
-		echo '</section>';
+	/**
+	 * One of those sections.
+	 *
+	 * Keeps `wpcpm-student__links` as well as its own modifier: the theme's large-button rule
+	 * and every other rule written for the old single section still reach both halves, so the
+	 * split needed no stylesheet change to look right.
+	 *
+	 * @param string $slug    Modifier suffix, `course` or `report`.
+	 * @param string $heading Section heading.
+	 * @param string $url     Where the button goes.
+	 * @param string $label   Button label.
+	 * @param string $classes Button classes.
+	 */
+	private static function render_link_section( $slug, $heading, $url, $label, $classes ) {
+		printf(
+			'<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--%1$s">'
+				. '<h3 class="wpcpm-student__heading">%2$s</h3>'
+				. '<p class="wpcpm-student__actions">'
+				. '<a class="%3$s" href="%4$s" target="_blank" rel="noopener noreferrer">%5$s</a>'
+				. '</p></section>',
+			esc_attr( $slug ),
+			esc_html( $heading ),
+			esc_attr( $classes ),
+			esc_url( $url ),
+			esc_html( $label )
+		);
 	}
 
 	/**

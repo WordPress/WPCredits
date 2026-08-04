@@ -34,7 +34,7 @@ Your program details as the program records hold them: your track, your internsh
 educational institution, your tutor and your field of study.
 
 Four of these are yours to change. Press **Edit** and you can update your **WordPress.org
-username**, your **Slack handle**, your **contribution team** and your **personal website**. Press
+username**, your **Slack handle**, your **contribution teams** and your **personal website**. Press
 Save and the change is written straight back to the program records, so you never have to ask
 anybody to correct them for you.
 
@@ -47,11 +47,15 @@ Who your mentor is and how to reach them: their WordPress.org profile, their Sla
 website, and the contribution teams they work in. This is the person to ask first about anything
 to do with your contributions.
 
-### My course and report form
+### My course
 
-Two buttons. **Open your course** takes you to your course on Learn WordPress. **Open your report
-form** opens your report form with your details already filled in — the 50-hour form if you are on
-that track, the standard one otherwise.
+**Open your course** takes you to your course on Learn WordPress — the syllabus for the track you
+are on.
+
+### Report form
+
+**Open your report form** opens your report form with your details already filled in: the 50-hour
+form if you are on that track, the standard one otherwise.
 
 ### Resources
 
@@ -89,6 +93,19 @@ A few things worth knowing:
 
 **If your mentor has published nothing yet**, the section says so. That is not a fault on your
 side — ask them in Slack to set their hours.
+
+## Group sessions
+
+Your mentor may run a session for several students at once — a walkthrough, a question hour,
+something for everybody who started the same week. Those appear under *My mentor call* with what the
+session is about and how many places are left.
+
+**Join this session** puts you on it, and you get an email with a calendar invitation the same as a
+private call. If something changes, **Leave the session** takes you off and frees your place for
+somebody else.
+
+A session counts towards the number of upcoming calls you may hold at once, so if you cannot join
+one, check whether you are already holding as many as your mentor allows.
 
 ## If something looks wrong
 

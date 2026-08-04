@@ -150,5 +150,20 @@ ck( 'Sponsors are a notice audience, and membership is actually tested',
     ),
     array( true, true, true ) );
 
+echo "\n=== A user ID out of whatever get_users() returned ===\n";
+
+// This site's stack returns `stdClass` rows even when the query asked for `'ID'`, so the shape is
+// never assumed. Casting such a row straight to int is what raised "Object of class stdClass could
+// not be converted to int" on every Student Report Card render.
+$row     = new stdClass();
+$row->ID = 42;
+
+ck( 'an int passes through', WPCPM_Roles::id_of( 7 ), 7 );
+ck( 'a numeric string is an ID too', WPCPM_Roles::id_of( '7' ), 7 );
+ck( 'a row object yields its ID — stdClass or WP_User, the branch is the same', WPCPM_Roles::id_of( $row ), 42 );
+ck( 'anything else is nobody',
+    array( WPCPM_Roles::id_of( null ), WPCPM_Roles::id_of( 'abc' ), WPCPM_Roles::id_of( new stdClass() ) ),
+    array( 0, 0, 0 ) );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

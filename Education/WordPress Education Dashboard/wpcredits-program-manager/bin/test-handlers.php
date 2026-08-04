@@ -374,6 +374,54 @@ run( 'handle_save (nothing submitted)', array( 'WPCPM_Student_Profile', 'handle_
 $_POST = array( 'student' => 20, 'details' => array( 'slack' => 'x' ) );
 run( 'handle_save (not your details)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
 
+// Teams post as an array now. This is the shape the browser sends, including the empty value the
+// form always carries so that unchecking everything still reaches the handler — the version that
+// read every field through `is_scalar()` turned this into '' and saved nothing.
+$GLOBALS['uid'] = 30;
+$_POST          = array( 'student' => 30, 'details' => array( 'team' => array( 'recTEAM0000000001', '' ) ) );
+run( 'handle_save (several teams, as an array)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
+
+$_POST = array( 'student' => 30, 'details' => array( 'team' => array( '' ) ) );
+run( 'handle_save (every team unchecked)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
+
+// A hostile shape: nested arrays and objects must not reach Airtable or trip a type error.
+$_POST = array( 'student' => 30, 'details' => array( 'team' => array( array( 'nope' ), 'recUNKNOWN0000001' ) ) );
+run( 'handle_save (junk in the team array)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
+
+echo "\n=== WPCPM_Group_Sessions ===\n";
+$GLOBALS['uid'] = 20; $GLOBALS['caps'] = false;
+
+// Every rejection path, because each one is a `bounce()` or a `wp_die()` and a typo in any of them
+// is a fatal on a form a mentor uses.
+$_POST = array( 'mentor' => 20, 'date' => '', 'time' => '', 'minutes' => 60, 'capacity' => 6 );
+run( 'handle_create (no date)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+
+$_POST = array( 'mentor' => 20, 'date' => '2027-01-05', 'time' => '10:00', 'minutes' => 0, 'capacity' => 6 );
+run( 'handle_create (no length)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+
+$_POST = array( 'mentor' => 20, 'date' => '2027-01-05', 'time' => '10:00', 'minutes' => 60, 'capacity' => 1 );
+run( 'handle_create (capacity of one is a 1:1 call)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+
+$_POST = array( 'mentor' => 20, 'date' => '2020-01-05', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6 );
+run( 'handle_create (in the past)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+
+$_POST = array( 'mentor' => 20, 'date' => '2027-01-05', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6 );
+run( 'handle_create (valid)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+
+$_POST = array( 'mentor' => 30, 'date' => '2027-01-05', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6 );
+run( 'handle_create (not your diary)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+
+$GLOBALS['uid'] = 30;
+$_POST          = array( 'session' => 0 );
+run( 'handle_join (no such session)', array( 'WPCPM_Group_Sessions', 'handle_join' ) );
+
+$_POST = array( 'session' => 999999 );
+run( 'handle_leave (not on it)', array( 'WPCPM_Group_Sessions', 'handle_leave' ) );
+
+$GLOBALS['uid'] = 20;
+$_POST          = array( 'session' => 0, 'note' => 'Covered the release cycle.' );
+run( 'handle_note (no such session)', array( 'WPCPM_Group_Sessions', 'handle_note' ) );
+
 echo "\n=== WPCPM_Mentor_Notes ===\n";
 $GLOBALS['uid'] = 20; $GLOBALS['caps'] = false;
 $_POST = array( 'student' => $student_rec, 'mentor' => 20, 'note' => 'Spoke about the project.', 'student_name' => 'Sam Student' );

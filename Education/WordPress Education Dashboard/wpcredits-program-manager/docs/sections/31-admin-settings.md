@@ -11,7 +11,7 @@
 | **Personal Access Token** | Stored in the database and never sent back to the browser. Leave blank to keep the current token. |
 | **Base ID** | The Airtable base holding the program. |
 | **Mentors table** | Where mentor records live. |
-| **Students Reports table** | Internship dates, links and contribution team — what the mentor page shows. |
+| **Students Reports table** | Internship dates, links and contribution teams — what the mentor page shows. |
 | **Students table** | Read only for the Tutor column, which does not exist on Students Reports. |
 
 ### Linked tables

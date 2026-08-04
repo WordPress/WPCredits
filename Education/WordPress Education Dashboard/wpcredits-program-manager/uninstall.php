@@ -45,6 +45,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-availability.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-calls.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-call-calendar.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-group-sessions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-modules.php';

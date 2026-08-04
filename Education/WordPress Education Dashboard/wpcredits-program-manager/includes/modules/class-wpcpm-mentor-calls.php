@@ -57,6 +57,15 @@ class WPCPM_Mentor_Calls {
 	/** Marks that the reminder for a call has already gone out. */
 	const META_REMINDED = '_wpcpm_call_reminded';
 
+	/**
+	 * How many students a call has room for.
+	 *
+	 * Absent or 1 means a one-to-one call, which is every call that existed before group
+	 * sessions — so nothing has to be migrated and an unmarked call keeps behaving exactly
+	 * as it did.
+	 */
+	const META_CAPACITY = '_wpcpm_call_capacity';
+
 	/** Cron hook that sweeps for calls needing a reminder. */
 	const CRON_REMINDERS = 'wpcpm_send_call_reminders';
 
@@ -179,14 +188,21 @@ class WPCPM_Mentor_Calls {
 		$record = isset( $card['record_id'] ) ? trim( (string) $card['record_id'] ) : '';
 
 		if ( '' !== $record ) {
+			// `'ID'` as a string, not `array( 'ID' )` and not `'all'`. Both of those make
+			// `WP_User_Query` hand core's `cache_users()` whole rows, and on this site something
+			// in the stack leaves them as raw `stdClass` — so `update_meta_cache()` tries to
+			// `intval()` an object and raises a warning on every student card render. Asking for
+			// a flat list of IDs and hydrating one of them here avoids the path entirely.
 			$found = get_users(
 				array(
 					'meta_key'   => WPCPM_Mentors_Sync::META_RECORD_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_key -- Indexed lookup of one account.
 					'meta_value' => $record, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_value -- As above.
 					'number'     => 1,
-					'fields'     => 'all',
+					'fields'     => 'ID',
 				)
 			);
+
+			$found = ! empty( $found[0] ) ? array( get_user_by( 'id', WPCPM_Roles::id_of( $found[0] ) ) ) : array();
 
 			if ( ! empty( $found[0] ) && $found[0] instanceof WP_User ) {
 				$resolved[ $student_id ] = (int) $found[0]->ID;
@@ -493,18 +509,150 @@ class WPCPM_Mentor_Calls {
 	 * @return array
 	 */
 	public static function details( WP_Post $call ) {
+		$attendees = self::attendees( $call->ID );
+
 		return array(
 			'id'         => (int) $call->ID,
 			'start'      => (int) get_post_meta( $call->ID, self::META_START, true ),
 			'end'        => (int) get_post_meta( $call->ID, self::META_END, true ),
 			'mentor_id'  => (int) get_post_meta( $call->ID, self::META_MENTOR, true ),
+			// The first attendee, which for a one-to-one call is the only one. Kept so every
+			// caller written before group sessions reads what it always read.
 			'student_id' => (int) get_post_meta( $call->ID, self::META_STUDENT, true ),
 			'record'     => (string) get_post_meta( $call->ID, self::META_RECORD, true ),
 			'name'       => (string) get_post_meta( $call->ID, self::META_NAME, true ),
 			'zone'       => (string) get_post_meta( $call->ID, self::META_ZONE, true ),
 			'topic'      => (string) $call->post_content,
 			'booked'     => get_post_time( 'U', true, $call ),
+			'capacity'   => self::capacity( $call->ID ),
+			'attendees'  => $attendees,
+			'is_group'   => self::capacity( $call->ID ) > 1,
+			'places'     => max( 0, self::capacity( $call->ID ) - count( $attendees ) ),
 		);
+	}
+
+	/*
+	 * Attendees
+	 * --------------------------------------------------------------------
+	 *
+	 * **A call's attendees are repeated `META_STUDENT` rows, not one serialized list.** That is
+	 * the whole reason group sessions needed no new queries: `for_student()` and `for_record()`
+	 * match a meta *value*, so a student finds a session they joined with the same query that
+	 * finds their own one-to-one calls, and `taken_starts()` — which is what stops a private
+	 * call being booked over a group session — needs no change either.
+	 *
+	 * `get_post_meta( …, true )` returns the first row, so a one-to-one call still reads as it
+	 * always did.
+	 */
+
+	/**
+	 * How many students this call has room for.
+	 *
+	 * @param int $call_id Call post ID.
+	 * @return int One or more.
+	 */
+	public static function capacity( $call_id ) {
+		$capacity = (int) get_post_meta( (int) $call_id, self::META_CAPACITY, true );
+
+		return $capacity > 1 ? $capacity : 1;
+	}
+
+	/**
+	 * The users attending, in the order they joined.
+	 *
+	 * @param int $call_id Call post ID.
+	 * @return int[] User IDs.
+	 */
+	public static function attendees( $call_id ) {
+		$ids = get_post_meta( (int) $call_id, self::META_STUDENT, false );
+		$out = array();
+
+		foreach ( is_array( $ids ) ? $ids : array() as $id ) {
+			$id = (int) $id;
+
+			if ( $id > 0 && ! in_array( $id, $out, true ) ) {
+				$out[] = $id;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * The Airtable records of the users attending.
+	 *
+	 * Read separately rather than paired with the user IDs: a note written after a group session
+	 * is keyed to records, and this is the list it needs.
+	 *
+	 * @param int $call_id Call post ID.
+	 * @return string[] Record IDs.
+	 */
+	public static function attendee_records( $call_id ) {
+		$records = get_post_meta( (int) $call_id, self::META_RECORD, false );
+		$out     = array();
+
+		foreach ( is_array( $records ) ? $records : array() as $record ) {
+			$record = trim( (string) $record );
+
+			if ( '' !== $record && ! in_array( $record, $out, true ) ) {
+				$out[] = $record;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Whether a call still has room.
+	 *
+	 * @param int $call_id Call post ID.
+	 * @return bool
+	 */
+	public static function has_room( $call_id ) {
+		return count( self::attendees( $call_id ) ) < self::capacity( $call_id );
+	}
+
+	/**
+	 * Add somebody to a call.
+	 *
+	 * `add_post_meta()`, not `update_post_meta()`: the second would replace the row and the
+	 * session would hold one attendee however many joined.
+	 *
+	 * @param int    $call_id    Call post ID.
+	 * @param int    $student_id Student user ID.
+	 * @param string $record     Their Airtable record.
+	 * @return bool Whether they were added.
+	 */
+	public static function add_attendee( $call_id, $student_id, $record ) {
+		$call_id    = (int) $call_id;
+		$student_id = (int) $student_id;
+
+		if ( $student_id <= 0 || in_array( $student_id, self::attendees( $call_id ), true ) ) {
+			return false;
+		}
+
+		add_post_meta( $call_id, self::META_STUDENT, $student_id );
+
+		if ( '' !== trim( (string) $record ) ) {
+			add_post_meta( $call_id, self::META_RECORD, trim( (string) $record ) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Take somebody off a call.
+	 *
+	 * @param int    $call_id    Call post ID.
+	 * @param int    $student_id Student user ID.
+	 * @param string $record     Their Airtable record.
+	 */
+	public static function remove_attendee( $call_id, $student_id, $record ) {
+		delete_post_meta( (int) $call_id, self::META_STUDENT, (int) $student_id );
+
+		if ( '' !== trim( (string) $record ) ) {
+			delete_post_meta( (int) $call_id, self::META_RECORD, trim( (string) $record ) );
+		}
 	}
 
 	/*
@@ -825,6 +973,107 @@ class WPCPM_Mentor_Calls {
 	}
 
 	/**
+	 * Take the booking lock, for another module.
+	 *
+	 * Group sessions compete for the same lock as one-to-one bookings, deliberately: two students
+	 * racing for the last place in a session is the same race as two racing for one slot.
+	 *
+	 * @param int $mentor_id Mentor user ID.
+	 * @return bool Whether the lock was taken.
+	 */
+	public static function lock_for( $mentor_id ) {
+		return self::lock( $mentor_id );
+	}
+
+	/**
+	 * Release the booking lock, for another module.
+	 *
+	 * @param int $mentor_id Mentor user ID.
+	 */
+	public static function unlock_for( $mentor_id ) {
+		self::unlock( $mentor_id );
+	}
+
+	/**
+	 * Redirect with an outcome message, for another module.
+	 *
+	 * @param string $status Outcome flag.
+	 */
+	public static function bounce_to( $status ) {
+		self::bounce( $status );
+	}
+
+	/**
+	 * Tell both sides somebody joined a group session.
+	 *
+	 * The same mail a one-to-one booking sends, and that is right rather than lazy: joining a
+	 * session *is* booking a call, the student needs the same calendar invite, and the mentor needs
+	 * to know somebody is coming. Each student's invite names only them and the mentor, which also
+	 * keeps one student's address off another's calendar entry.
+	 *
+	 * @param int          $call_id Session post ID.
+	 * @param WP_User      $mentor  The mentor.
+	 * @param WP_User|null $student Who joined.
+	 */
+	public static function notify_joined( $call_id, WP_User $mentor, $student ) {
+		self::notify_booked( $call_id, $mentor, $student );
+	}
+
+	/**
+	 * Tell one student their place on a session is released.
+	 *
+	 * Only them: the session goes ahead for everybody else, so telling the rest that somebody left
+	 * would be noise — and telling them *who* left would be worse.
+	 *
+	 * @param int $call_id    Session post ID.
+	 * @param int $student_id Who left.
+	 */
+	public static function notify_left( $call_id, $student_id ) {
+		$call = get_post( (int) $call_id );
+
+		if ( ! $call instanceof WP_Post || ! self::mail_enabled( $call ) ) {
+			return;
+		}
+
+		$student = get_user_by( 'id', (int) $student_id );
+
+		if ( ! $student instanceof WP_User ) {
+			return;
+		}
+
+		$facts  = self::details( $call );
+		$mentor = get_user_by( 'id', $facts['mentor_id'] );
+
+		WPCPM_Mail::send(
+			$student,
+			'call-cancelled',
+			function ( $recipient ) use ( $facts, $mentor, $student ) {
+				// `METHOD:CANCEL` with the same UID as the invitation, so the entry disappears
+				// from their calendar rather than sitting there for a session they left.
+				$invite = self::calendar( $facts, WPCPM_ICS::METHOD_CANCEL, $mentor, $student, $recipient );
+
+				return array(
+					'subject'     => sprintf(
+						/* translators: 1: site name, 2: mentor name. */
+						__( '[%1$s] You left the group session with %2$s', 'wpcredits-program-manager' ),
+						WPCPM_Mail::site_name(),
+						$mentor instanceof WP_User ? $mentor->display_name : ''
+					),
+					'body'        => self::mail_body(
+						$facts,
+						$recipient,
+						$mentor instanceof WP_User ? $mentor->display_name : '',
+						false,
+						'cancelled'
+					),
+					'attachments' => $invite,
+					'cleanup'     => $invite,
+				);
+			}
+		);
+	}
+
+	/**
 	 * The message for an outcome flag, or an empty array.
 	 *
 	 * @param string $status Outcome flag.
@@ -832,14 +1081,30 @@ class WPCPM_Mentor_Calls {
 	 */
 	public static function message( $status ) {
 		$messages = array(
-			'booked'    => array( 'success', __( 'Your call is booked. It is in the list above, and your mentor can see it too.', 'wpcredits-program-manager' ) ),
-			'cancelled' => array( 'success', __( 'That call is canceled and the slot is free again.', 'wpcredits-program-manager' ) ),
-			'zone'      => array( 'success', __( 'Times are now shown in your timezone.', 'wpcredits-program-manager' ) ),
-			'taken'     => array( 'error', __( 'Somebody booked that slot first. Please pick another one.', 'wpcredits-program-manager' ) ),
-			'busy'      => array( 'error', __( 'Another booking was going through at the same moment. Please try again.', 'wpcredits-program-manager' ) ),
-			'blocked'   => array( 'error', __( 'That call could not be booked. The calendar below says why.', 'wpcredits-program-manager' ) ),
-			'no-mentor' => array( 'error', __( 'No mentor is linked to your account yet, so there is nobody to book with.', 'wpcredits-program-manager' ) ),
-			'error'     => array( 'error', __( 'That call could not be saved.', 'wpcredits-program-manager' ) ),
+			'booked'              => array( 'success', __( 'Your call is booked. It is in the list above, and your mentor can see it too.', 'wpcredits-program-manager' ) ),
+			'cancelled'           => array( 'success', __( 'That call is canceled and the slot is free again.', 'wpcredits-program-manager' ) ),
+			'zone'                => array( 'success', __( 'Times are now shown in your timezone.', 'wpcredits-program-manager' ) ),
+			'taken'               => array( 'error', __( 'Somebody booked that slot first. Please pick another one.', 'wpcredits-program-manager' ) ),
+			'busy'                => array( 'error', __( 'Another booking was going through at the same moment. Please try again.', 'wpcredits-program-manager' ) ),
+			'blocked'             => array( 'error', __( 'That call could not be booked. The calendar below says why.', 'wpcredits-program-manager' ) ),
+			'no-mentor'           => array( 'error', __( 'No mentor is linked to your account yet, so there is nobody to book with.', 'wpcredits-program-manager' ) ),
+			'error'               => array( 'error', __( 'That call could not be saved.', 'wpcredits-program-manager' ) ),
+
+			// Group sessions.
+			'session-created'     => array( 'success', __( 'Your group session is created. Your students can see it and join.', 'wpcredits-program-manager' ) ),
+			'session-joined'      => array( 'success', __( 'You are on the session. It is in your list above, and there is an invitation in your email.', 'wpcredits-program-manager' ) ),
+			'session-left'        => array( 'success', __( 'You have left that session, and your place is free for somebody else.', 'wpcredits-program-manager' ) ),
+			'session-full'        => array( 'error', __( 'That session filled up while you were reading it.', 'wpcredits-program-manager' ) ),
+			'session-gone'        => array( 'error', __( 'That session is no longer open.', 'wpcredits-program-manager' ) ),
+			'session-not-yours'   => array( 'error', __( 'That session belongs to a different mentor.', 'wpcredits-program-manager' ) ),
+			'session-already'     => array( 'error', __( 'You are already on that session.', 'wpcredits-program-manager' ) ),
+			'session-when'        => array( 'error', __( 'A session needs a date and a start time.', 'wpcredits-program-manager' ) ),
+			'session-length'      => array( 'error', __( 'That session length is not a number of minutes this can use.', 'wpcredits-program-manager' ) ),
+			'session-capacity'    => array( 'error', __( 'A group session holds between 2 and 50 students.', 'wpcredits-program-manager' ) ),
+			'session-past'        => array( 'error', __( 'That start time has already passed.', 'wpcredits-program-manager' ) ),
+			'session-clash'       => array( 'error', __( 'Something else of yours already starts at that moment.', 'wpcredits-program-manager' ) ),
+			'session-noted'       => array( 'success', __( 'Your note is saved, and it is on every card of everybody who was there.', 'wpcredits-program-manager' ) ),
+			'session-note-failed' => array( 'error', __( 'That note could not be saved.', 'wpcredits-program-manager' ) ),
 		);
 
 		return isset( $messages[ $status ] ) ? $messages[ $status ] : array();
@@ -946,7 +1211,36 @@ class WPCPM_Mentor_Calls {
 	}
 
 	/**
-	 * Tell the other side a call was canceled.
+	 * Everybody a message about this call should go to: the mentor, then every attendee.
+	 *
+	 * One list, so a cancellation and a reminder can never disagree about who is on a session —
+	 * exactly the kind of split that leaves one student turning up to a call the others were told
+	 * was off.
+	 *
+	 * @param array $facts From `details()`.
+	 * @return WP_User[]
+	 */
+	private static function recipients( array $facts ) {
+		$people = array();
+		$mentor = get_user_by( 'id', $facts['mentor_id'] );
+
+		if ( $mentor instanceof WP_User ) {
+			$people[] = $mentor;
+		}
+
+		foreach ( $facts['attendees'] as $student_id ) {
+			$student = get_user_by( 'id', $student_id );
+
+			if ( $student instanceof WP_User ) {
+				$people[] = $student;
+			}
+		}
+
+		return $people;
+	}
+
+	/**
+	 * Tell everybody else a call was canceled.
 	 *
 	 * @param WP_Post $call Call post.
 	 */
@@ -969,9 +1263,9 @@ class WPCPM_Mentor_Calls {
 			$by = wp_get_current_user()->display_name;
 		}
 
-		foreach ( array( $mentor, $student ) as $person ) {
-			// The person who pressed cancel knows; the other one is the one who needs telling.
-			if ( ! $person instanceof WP_User || (int) $person->ID === $actor ) {
+		foreach ( self::recipients( $facts ) as $person ) {
+			// The person who pressed cancel knows; everybody else needs telling.
+			if ( (int) $person->ID === $actor ) {
 				continue;
 			}
 
@@ -1109,11 +1403,17 @@ class WPCPM_Mentor_Calls {
 		$student = get_user_by( 'id', $facts['student_id'] );
 		$name    = '' !== $facts['name'] ? $facts['name'] : __( 'your student', 'wpcredits-program-manager' );
 
-		foreach ( array( $mentor, $student ) as $person ) {
-			if ( ! $person instanceof WP_User ) {
-				continue;
-			}
+		// A group session has no single other person to name, so the mentor is told how many are
+		// coming instead. Naming one of several attendees would be worse than naming none.
+		if ( $facts['is_group'] ) {
+			$name = sprintf(
+				/* translators: %s: number of students attending. */
+				_n( '%s student', '%s students', count( $facts['attendees'] ), 'wpcredits-program-manager' ),
+				number_format_i18n( count( $facts['attendees'] ) )
+			);
+		}
 
+		foreach ( self::recipients( $facts ) as $person ) {
 			$to_mentor  = (int) $person->ID === (int) $facts['mentor_id'];
 			$other      = $to_mentor ? $student : $mentor;
 			$other_name = $to_mentor ? $name : ( $mentor instanceof WP_User ? $mentor->display_name : '' );

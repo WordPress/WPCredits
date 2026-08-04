@@ -80,11 +80,11 @@ class WPCPM_Student_Profile {
 				'help'        => __( 'Your display name in the Making WordPress Slack.', 'wpcredits-program-manager' ),
 			),
 			'team'    => array(
-				'label'       => __( 'Contribution team', 'wpcredits-program-manager' ),
+				'label'       => __( 'Contribution teams', 'wpcredits-program-manager' ),
 				'program_key' => 'team',
 				'field'       => $fields['report_team'],
 				'type'        => 'team',
-				'help'        => __( 'The team you are contributing to.', 'wpcredits-program-manager' ),
+				'help'        => __( 'The teams you are contributing to. Choose as many as apply.', 'wpcredits-program-manager' ),
 			),
 			'website' => array(
 				'label'       => __( 'Personal website', 'wpcredits-program-manager' ),
@@ -154,21 +154,31 @@ class WPCPM_Student_Profile {
 				continue;
 			}
 
-			$raw = is_scalar( $posted[ $key ] ) ? (string) $posted[ $key ] : '';
-
+			// Teams post as an array of checkbox values; everything else is one scalar. Reading
+			// every field through `is_scalar()` — which the single-team version did — turns the
+			// array into an empty string, so the whole field would have stopped saving the moment
+			// the control became a checkbox list, and silently.
 			if ( 'team' === $spec['type'] ) {
-				$value = self::clean_team( $raw );
+				$ids = self::clean_teams( $posted[ $key ] );
 
-				// A linked-record field takes an array of record IDs. An empty array is
-				// how the link is cleared; a bare empty string would be rejected.
-				$cells[ $spec['field'] ] = ( '' === $value ) ? array() : array( $value );
+				// A linked-record field takes an array of record IDs, however many. An empty
+				// array is how every link is cleared; a bare empty string would be rejected.
+				$cells[ $spec['field'] ] = $ids;
 
-				$changed[ $key ] = ( '' === $value )
-					? ''
-					: WPCPM_Mentors_Sync::resolve_stored( $value, 'teams' );
+				$changed[ $key ] = implode(
+					', ',
+					array_map(
+						static function ( $id ) {
+							return WPCPM_Mentors_Sync::resolve_stored( $id, 'teams' );
+						},
+						$ids
+					)
+				);
 
 				continue;
 			}
+
+			$raw = is_scalar( $posted[ $key ] ) ? (string) $posted[ $key ] : '';
 
 			$value = ( 'url' === $spec['type'] )
 				? self::clean_url( $raw )
@@ -221,23 +231,35 @@ class WPCPM_Student_Profile {
 	}
 
 	/**
-	 * A submitted team value, if it is a team Airtable knows.
+	 * The submitted teams, keeping only those Airtable knows.
 	 *
-	 * The select's values are record IDs, so anything that is not one of the cataloged
-	 * IDs is refused rather than passed to Airtable — a linked-record write with an
-	 * unknown ID is an error at best and a link to the wrong record at worst.
+	 * The checkboxes carry record IDs, and **every one is checked against the catalog** — a
+	 * linked-record write with an unknown ID is an error at best and a link to the wrong record at
+	 * worst, and one bad value in the array would take the whole save down with it. Unknown IDs are
+	 * dropped rather than refusing the lot, so a stale catalog costs one team rather than the edit.
 	 *
-	 * @param string $value Posted value.
-	 * @return string Record ID, or an empty string to clear the link.
+	 * Duplicates are collapsed, because Airtable will happily store the same link twice.
+	 *
+	 * @param mixed $value Posted value: an array of record IDs, or a single one.
+	 * @return string[] Validated record IDs, possibly empty to clear every link.
 	 */
-	private static function clean_team( $value ) {
-		$value = trim( (string) $value );
+	private static function clean_teams( $value ) {
+		$known = WPCPM_Contribution_Teams::options();
+		$out   = array();
 
-		if ( '' === $value ) {
-			return '';
+		foreach ( (array) $value as $id ) {
+			if ( ! is_scalar( $id ) ) {
+				continue;
+			}
+
+			$id = trim( (string) $id );
+
+			if ( '' !== $id && isset( $known[ $id ] ) && ! in_array( $id, $out, true ) ) {
+				$out[] = $id;
+			}
 		}
 
-		return isset( WPCPM_Contribution_Teams::options()[ $value ] ) ? $value : '';
+		return $out;
 	}
 
 	/**
@@ -411,35 +433,63 @@ class WPCPM_Student_Profile {
 		echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_SAVE ) . '" />';
 		printf( '<input type="hidden" name="student" value="%d" />', (int) $student_id );
 
-		printf(
-			'<label class="screen-reader-text" for="%1$s">%2$s</label>',
-			esc_attr( $id ),
-			esc_html( $spec['label'] )
-		);
+		if ( 'team' !== $spec['type'] ) {
+			printf(
+				'<label class="screen-reader-text" for="%1$s">%2$s</label>',
+				esc_attr( $id ),
+				esc_html( $spec['label'] )
+			);
+		}
 
 		if ( 'team' === $spec['type'] ) {
-			// Matched by *name*, because the cached value is a name — the record ID is not
-			// kept on the student's row.
-			$selected = '';
+			// A student can contribute to more than one team, so this is a list of checkboxes
+			// rather than a `<select multiple>`: every option and every current answer is visible
+			// at once, and it is operable on a phone, where a multi-select is a scrolling trap
+			// that hides what is already chosen.
+			//
+			// Matched by *name*, because the cached value is a name — the record IDs are not kept
+			// on the student's row. Several names arrive comma-joined, which is also what
+			// `resolve_stored()` produces, so splitting on commas is reading our own format back.
+			$selected = array();
 
-			foreach ( $teams as $record_id => $team_name ) {
-				if ( 0 === strcasecmp( trim( $team_name ), trim( $current ) ) ) {
-					$selected = $record_id;
-					break;
+			foreach ( explode( ',', $current ) as $chosen ) {
+				$chosen = trim( $chosen );
+
+				if ( '' === $chosen ) {
+					continue;
+				}
+
+				foreach ( $teams as $record_id => $team_name ) {
+					if ( 0 === strcasecmp( trim( $team_name ), $chosen ) ) {
+						$selected[] = $record_id;
+						break;
+					}
 				}
 			}
 
-			printf( '<select id="%1$s" name="details[%2$s]">', esc_attr( $id ), esc_attr( $key ) );
-			printf( '<option value="">%s</option>', esc_html__( '— not set —', 'wpcredits-program-manager' ) );
+			// `<fieldset>` and `<legend>`, so a screen reader announces what the group of
+			// checkboxes is for. The visible label the sighted reader has is the row it opened.
+			printf(
+				'<fieldset class="wpcpm-edit__group"><legend class="screen-reader-text">%s</legend>',
+				esc_html( $spec['label'] )
+			);
+
 			foreach ( $teams as $record_id => $team_name ) {
 				printf(
-					'<option value="%1$s"%2$s>%3$s</option>',
+					'<label class="wpcpm-edit__check"><input type="checkbox" name="details[%1$s][]" value="%2$s"%3$s /> %4$s</label>',
+					esc_attr( $key ),
 					esc_attr( $record_id ),
-					selected( $record_id, $selected, false ),
+					in_array( $record_id, $selected, true ) ? ' checked="checked"' : '',
 					esc_html( $team_name )
 				);
 			}
-			echo '</select>';
+
+			// Unchecking every box posts nothing at all for `details[team]`, and the save loop
+			// skips a key it was not sent — so clearing the last team would silently do nothing.
+			// This empty value is always posted, so the array always arrives.
+			printf( '<input type="hidden" name="details[%s][]" value="" />', esc_attr( $key ) );
+
+			echo '</fieldset>';
 		} else {
 			// `type="text"` even for the URLs. `type="url"` refuses anything without a
 			// scheme, and Airtable's url columns are full of scheme-less values a student

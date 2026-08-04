@@ -394,7 +394,7 @@ class WPCPM_Handbook_Assistant {
 	/**
 	 * A "Resources" section for the foot of a dashboard.
 	 *
-	 * Built from the same classes as the Student Report Card's "My course and report form" —
+	 * Built from the same classes as the Student Report Card's "My course" section —
 	 * `wpcpm-student__section`, `__heading`, `__actions` — rather than a look-alike of its own.
 	 * The theme already dresses those, so this is the same section rather than a second one
 	 * that resembles it and drifts the first time either is restyled.

@@ -33,6 +33,14 @@ class WPCPM_Mentor_Notes {
 	/** Post meta: the student's name when the note was written, for admin listings. */
 	const META_STUDENT_NAME = '_wpcpm_student_name';
 
+	/**
+	 * The group session a note was written after, when it was.
+	 *
+	 * Stored so a note that appears on several cards can say which session it came from, rather
+	 * than looking like the same text typed five times.
+	 */
+	const META_SESSION = '_wpcpm_note_session';
+
 	const ACTION_ADD    = 'wpcpm_add_note';
 	const ACTION_DELETE = 'wpcpm_delete_note';
 
@@ -262,6 +270,79 @@ class WPCPM_Mentor_Notes {
 		}
 
 		self::redirect_back( $student, 'saved' );
+	}
+
+	/**
+	 * One note, on every student who attended a group session.
+	 *
+	 * **One post with a `META_STUDENT` row per attendee, not one post each.** `get_notes()` matches
+	 * a meta *value*, so repeated rows put the same note on every attendee's card, count for each
+	 * of them in the triage — so nobody is stranded in *Need a call* after a session they were at —
+	 * and one deletion removes it from everybody. Writing a copy per student would have left the
+	 * mentor deleting the same note five times, and five chances to miss one.
+	 *
+	 * Refuses unless the writer may access **every** attendee. A note is one object visible on
+	 * several cards, so partial permission is not a thing it can honour.
+	 *
+	 * @param int      $call_id Session post ID.
+	 * @param string   $note    The note body, already trimmed.
+	 * @param string[] $records Attendee record IDs.
+	 * @return int|WP_Error Post ID, or why not.
+	 */
+	public static function add_for_records( $call_id, $note, array $records ) {
+		$note = trim( (string) $note );
+
+		if ( '' === $note ) {
+			return new WP_Error( 'wpcpm_note_empty', __( 'Nothing was saved — the note was empty.', 'wpcredits-program-manager' ) );
+		}
+
+		$clean = array();
+
+		foreach ( $records as $record ) {
+			$record = trim( (string) $record );
+
+			if ( '' === $record || in_array( $record, $clean, true ) ) {
+				continue;
+			}
+
+			if ( ! self::user_can_access( $record ) ) {
+				return new WP_Error( 'wpcpm_note_denied', __( 'You cannot add notes for everybody on that session.', 'wpcredits-program-manager' ) );
+			}
+
+			$clean[] = $record;
+		}
+
+		if ( empty( $clean ) ) {
+			return new WP_Error( 'wpcpm_note_nobody', __( 'Nobody joined that session, so there is nobody to note.', 'wpcredits-program-manager' ) );
+		}
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'    => self::POST_TYPE,
+				'post_status'  => 'publish',
+				'post_author'  => get_current_user_id(),
+				'post_content' => $note,
+				'post_title'   => sprintf(
+					/* translators: 1: number of students, 2: date and time. */
+					__( 'Group session note, %1$s students — %2$s', 'wpcredits-program-manager' ),
+					number_format_i18n( count( $clean ) ),
+					wp_date( 'Y-m-d H:i' )
+				),
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_id ) ) {
+			return $post_id;
+		}
+
+		foreach ( $clean as $record ) {
+			add_post_meta( $post_id, self::META_STUDENT, $record );
+		}
+
+		update_post_meta( $post_id, self::META_SESSION, (int) $call_id );
+
+		return (int) $post_id;
 	}
 
 	/**
