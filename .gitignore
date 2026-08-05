@@ -5,3 +5,8 @@
 # is public, so never commit per-graduate activity. Only the aggregate summary
 # (data/post_grad_summary.json) is publishable.
 data/post_grad_snapshots.jsonl
+
+# Named per-student showcase seed (privacy): individual names/handles/hours must
+# not be committed to this public repo. Kept out so a local plugin sync can't
+# accidentally re-add it. Enforced by scripts/privacy_guard.sh.
+Education/WordPress Education Initiatives/student-impact/data/seed.json
