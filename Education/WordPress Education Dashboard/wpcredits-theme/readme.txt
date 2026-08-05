@@ -157,6 +157,11 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.8.4 =
+* **Dresses the report form's grouped fieldsets.** The plugin's own border and radius are stood down
+  for the design's card line, and each group's legend takes the same uppercase treatment as every
+  other heading inside a card — so a group reads as a section rather than as a browser default.
+
 = 1.8.3 =
 * **Dresses the student's new report form.** Its inputs and textareas take the same controls as the
   availability editor and the session forms, checkboxes are left as checkboxes rather than being

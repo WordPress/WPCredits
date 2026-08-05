@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.44.0
+Stable tag: 1.45.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,24 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.45.0 =
+* **The report form is a disclosure, and its fields are grouped.** Twenty boxes in one run is a wall
+  rather than a form; grouped into *Your hours*, *Course grades*, *Additional courses*, *Your
+  project*, *Taking part* and *Your posts*, it reads as a few short questions and a student can
+  answer the part they came for. The numbers sit several to a row because they are two characters
+  wide; the prose takes the full width. Closed by default — it opens itself when there is a message
+  to read, because a "Saved" behind a closed disclosure is a message nobody sees.
+* **Contribution teams are no longer asked for on the report form.** They are chosen once, in *My
+  profile*, and a second control writing the same Airtable column invited two answers to one
+  question.
+* **The sponsor company is off the form**, pending the Sponsors module that will own it. The
+  Sponsors catalog the sync now builds stays, because that module will need it.
+* **Removed the "Open the full form" link.** The fields *are* the report now, and a second route to
+  the same record invited the same thing to be filled in two ways.
+* In Sensei is 20 fields and In Sensei 50h is 8. `bin/test-report-form.php` pins both lists, and now
+  also asserts that every field lands in a declared group — a field with an unknown group would
+  render nowhere at all, invisible and impossible to fill in.
 
 = 1.44.0 =
 * **The Report form section is the report form now**, filled in on the Student Report Card rather

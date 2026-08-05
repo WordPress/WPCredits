@@ -2258,6 +2258,31 @@
 	color: var( --wpc-ink-70 );
 }
 
+/* The grouped fieldsets. The plugin's own border and radius are stood down for the
+   design's card line, and the legend takes the same uppercase treatment as every other
+   heading inside a card — so a group reads as a section rather than as a browser default. */
+.wpc-dashboard-page .wpcpm-report__group {
+	border-color: var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	padding: 14px 16px 18px;
+}
+
+.wpc-dashboard-page .wpcpm-report__group > legend {
+	color: var( --wpc-ink-70 );
+	font: 700 11px/16px var( --wpc-font );
+	letter-spacing: .06em;
+}
+
+.wpc-dashboard-page .wpcpm-report__toggle {
+	color: var( --wpc-brand );
+	font: 600 13px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-report__count {
+	color: var( --wpc-ink-60 );
+	opacity: 1;
+}
+
 /* -------------------------------------------------------------------------
    Resources, in halves
 

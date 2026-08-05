@@ -57,18 +57,17 @@ are on.
 Your report, filled in here on the page. What it asks for depends on your track: the course has
 twenty-two things to report, the 50-hour course ten.
 
-Both ask for your **hours**, your **grades**, the **teams** you contributed to, a description of
-**what you contributed**, your **sponsor company** if you have one, your **personal website**, and
-the **meetings and discussions** you took part in. The course adds a reflection post for each stage
-and your closing post; the 50-hour course asks instead for one **final project report**.
+Open **Your report form** and the fields are grouped: your **hours**, your **course grades**, your
+**project** — what you contributed and your personal website — and **taking part**, the meetings and
+discussions you joined. The course adds a group of **posts**: a reflection for each stage and your
+closing post. The 50-hour course asks instead for one **final project report**.
 
 The grades are yours to copy across from wherever you were marked — this form records them, it does
 not decide them. Fill in what you have and press **Save my report**; you can come back and add the
 rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
 you save.
 
-Below the fields, **Open the full form** is the prefilled form you may have used before. It still
-works and writes to the same record.
+Your **contribution teams** are not asked for twice: you choose those once, in *My profile* above.
 
 ### Resources
 

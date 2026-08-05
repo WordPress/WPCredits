@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-05T09:54:04+00:00\n"
+"POT-Creation-Date: 2026-08-05T10:12:55+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: bin/make-pot.sh (GNU gettext)\n"
@@ -817,13 +817,13 @@ msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:50
 #: includes/modules/class-wpcpm-students-dashboard.php:92
-#: includes/modules/class-wpcpm-students-dashboard.php:944
-#: includes/modules/class-wpcpm-students-dashboard.php:981
+#: includes/modules/class-wpcpm-students-dashboard.php:931
+#: includes/modules/class-wpcpm-students-dashboard.php:968
 msgid "Student Report Card"
 msgstr ""
 
 #: includes/class-wpcpm-dashboards.php:51
-#: includes/modules/class-wpcpm-students-dashboard.php:945
+#: includes/modules/class-wpcpm-students-dashboard.php:932
 msgid "Student Dashboard"
 msgstr ""
 
@@ -1162,7 +1162,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-group-sessions.php:611
 #: includes/modules/class-wpcpm-mentor-availability.php:816
 #: includes/modules/class-wpcpm-student-profile.php:430
-#: includes/modules/class-wpcpm-student-report-form.php:331
+#: includes/modules/class-wpcpm-student-report-form.php:385
 msgid "Saving…"
 msgstr ""
 
@@ -2074,27 +2074,26 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-dashboard.php:910
 #: includes/modules/class-wpcpm-student-profile.php:67
 #: includes/modules/class-wpcpm-students-dashboard.php:436
-#: includes/modules/class-wpcpm-students-dashboard.php:699
+#: includes/modules/class-wpcpm-students-dashboard.php:686
 #: includes/tools/class-wpcpm-mentor-checker.php:709
 msgid "WordPress.org"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:916
 #: includes/modules/class-wpcpm-students-dashboard.php:444
-#: includes/modules/class-wpcpm-students-dashboard.php:682
+#: includes/modules/class-wpcpm-students-dashboard.php:669
 msgid "Email"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:926
 #: includes/modules/class-wpcpm-student-profile.php:75
 #: includes/modules/class-wpcpm-students-dashboard.php:459
-#: includes/modules/class-wpcpm-students-dashboard.php:691
+#: includes/modules/class-wpcpm-students-dashboard.php:678
 msgid "Slack"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:934
 #: includes/modules/class-wpcpm-student-profile.php:83
-#: includes/modules/class-wpcpm-student-report-form.php:116
 #: includes/modules/class-wpcpm-students-dashboard.php:466
 msgid "Contribution teams"
 msgstr ""
@@ -2146,7 +2145,7 @@ msgstr ""
 #. translators: %s: mentor name.
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1057
 #: includes/modules/class-wpcpm-students-dashboard.php:374
-#: includes/modules/class-wpcpm-students-dashboard.php:645
+#: includes/modules/class-wpcpm-students-dashboard.php:632
 #, php-format
 msgid "Profile photo of %s"
 msgstr ""
@@ -2184,7 +2183,7 @@ msgid "Value"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1271
-#: includes/modules/class-wpcpm-students-dashboard.php:768
+#: includes/modules/class-wpcpm-students-dashboard.php:755
 msgid "Not set"
 msgstr ""
 
@@ -2671,7 +2670,6 @@ msgid "Your display name in the Making WordPress Slack."
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-profile.php:87
-#: includes/modules/class-wpcpm-student-report-form.php:119
 msgid "The teams you are contributing to. Choose as many as apply."
 msgstr ""
 
@@ -2698,7 +2696,7 @@ msgid "Saved, and written back to the program records."
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-profile.php:352
-#: includes/modules/class-wpcpm-student-report-form.php:742
+#: includes/modules/class-wpcpm-student-report-form.php:711
 msgid "Nothing was submitted, so nothing changed."
 msgstr ""
 
@@ -2722,175 +2720,201 @@ msgstr ""
 msgid "Save"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:89
+#: includes/modules/class-wpcpm-student-report-form.php:91
 msgid "Hours contributed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:95
-msgid "Open source basics and WordPress — final grade"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:96
-msgid "How decisions are made in the WordPress project — final grade"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:100
-msgid "Community meeting etiquette — final grade"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:101
-msgid "Writing in the WordPress voice — final grade"
+#: includes/modules/class-wpcpm-student-report-form.php:97
+msgid "The total you have logged so far."
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-report-form.php:102
-msgid "Beginner WordPress User — final grade"
+msgid "Open source basics and WordPress"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-report-form.php:103
-msgid "Intermediate WordPress User — final grade"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:104
-msgid "Advanced WordPress User — final grade"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:105
-msgid "Beginner WordPress Developer"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:106
-msgid "Intermediate Theme Developer"
+msgid "How decisions are made in the WordPress project"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-report-form.php:107
-msgid "Beginner WordPress Designer"
+msgid "Community meeting etiquette"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:108
+msgid "Writing in the WordPress voice"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:109
+msgid "Beginner WordPress User"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:110
+msgid "Intermediate WordPress User"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-report-form.php:111
-msgid "Basic principles of conflict resolution — final grade"
+msgid "Advanced WordPress User"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:122
-msgid "What you contributed"
+#: includes/modules/class-wpcpm-student-report-form.php:115
+msgid "Beginner WordPress Developer"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:116
+msgid "Intermediate Theme Developer"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:117
+msgid "Beginner WordPress Designer"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:121
+msgid "Basic principles of conflict resolution"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-report-form.php:126
-msgid "Sponsor company"
+msgid "What you contributed"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:129
-msgid "The company sponsoring your place, if one is."
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:132
+#: includes/modules/class-wpcpm-student-report-form.php:131
 msgid "Your personal website"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-report-form.php:139
-msgid "Reflection: building your personal website"
+msgid "Building your personal website"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:143
-msgid "Meetings and discussions you took part in"
+#: includes/modules/class-wpcpm-student-report-form.php:144
+msgid "Choosing your team and project"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:145
-msgid "Slack, GitHub or blog links, one per line."
+#: includes/modules/class-wpcpm-student-report-form.php:149
+msgid "Your first contribution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:148
-msgid "Reflection: choosing your team and project"
+#: includes/modules/class-wpcpm-student-report-form.php:154
+msgid "Halfway check-in"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:152
-msgid "Reflection: your first contribution"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:156
-msgid "Reflection: halfway check-in"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:160
-msgid "A WordPress event you took part in"
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:164
+#: includes/modules/class-wpcpm-student-report-form.php:159
 msgid "Your closing post"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:177
+#: includes/modules/class-wpcpm-student-report-form.php:167
+msgid "Meetings and discussions you took part in"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:170
+msgid "Slack, GitHub or blog links, one per line."
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:178
 msgid "Your final project report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:179
+#: includes/modules/class-wpcpm-student-report-form.php:181
 msgid "The write-up of what you built and contributed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:216
+#: includes/modules/class-wpcpm-student-report-form.php:189
+msgid "A WordPress event you took part in"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:217
+msgid "Your hours"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:218
+msgid "Course grades"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:219
+msgid "Additional courses"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:220
+msgid "Your project"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:221
+msgid "Taking part"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:222
+msgid "Your posts"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:245
 msgid "Your record could not be found in the program data."
 msgstr ""
 
+#: includes/modules/class-wpcpm-student-report-form.php:332
+msgid "Your report form"
+msgstr ""
+
+#. translators: %s: number of fields on the form.
+#: includes/modules/class-wpcpm-student-report-form.php:336
+#, php-format
+msgid "%s field"
+msgid_plural "%s fields"
+msgstr[0] ""
+msgstr[1] ""
+
 #. translators: %s: the reason the record could not be read.
-#: includes/modules/class-wpcpm-student-report-form.php:303
+#: includes/modules/class-wpcpm-student-report-form.php:355
 #, php-format
 msgid ""
 "Your report form could not be loaded just now: %s Nothing has been lost — "
 "try reloading the page."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:316
+#: includes/modules/class-wpcpm-student-report-form.php:370
 msgid ""
 "Your report for the 50-hour course. Fill in what you have; you can come back "
 "and add the rest."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:317
+#: includes/modules/class-wpcpm-student-report-form.php:371
 msgid ""
 "Your report for the course. Fill in what you have; you can come back and add "
 "the rest."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:324
+#: includes/modules/class-wpcpm-student-report-form.php:378
 msgid "This is the student's own report, so it is shown here but not editable."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:345
+#: includes/modules/class-wpcpm-student-report-form.php:421
 msgid "Save my report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:434
-msgid ""
-"This list has not been read from the program records yet. Run a sync and it "
-"becomes editable."
-msgstr ""
-
-#: includes/modules/class-wpcpm-student-report-form.php:504
+#: includes/modules/class-wpcpm-student-report-form.php:525
 msgid "You cannot fill in that report form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:741
+#: includes/modules/class-wpcpm-student-report-form.php:710
 msgid "Your report form is saved, and your mentor can see it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:743
+#: includes/modules/class-wpcpm-student-report-form.php:712
 msgid ""
 "Your record could not be found in the program data, so there is nothing to "
 "save to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:744
+#: includes/modules/class-wpcpm-student-report-form.php:713
 msgid ""
 "The program records refused the change, so nothing was saved. Please try "
 "again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:745
+#: includes/modules/class-wpcpm-student-report-form.php:714
 msgid ""
 "Saved, except for one or more numbers that could not be read. Check the "
 "grades and hours: they take digits, and a grade is between 0 and 100."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:746
+#: includes/modules/class-wpcpm-student-report-form.php:715
 msgid ""
 "Nothing was saved: the numbers could not be read. Grades and hours take "
 "digits, and a grade is between 0 and 100."
@@ -2922,37 +2946,29 @@ msgstr ""
 msgid "Open your course"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:561
+#: includes/modules/class-wpcpm-students-dashboard.php:562
 msgid "Report form"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:573
-msgid "Open the full form (50h)"
-msgstr ""
-
-#: includes/modules/class-wpcpm-students-dashboard.php:574
-msgid "Open the full form"
-msgstr ""
-
-#: includes/modules/class-wpcpm-students-dashboard.php:617
+#: includes/modules/class-wpcpm-students-dashboard.php:604
 msgid "My mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:624
+#: includes/modules/class-wpcpm-students-dashboard.php:611
 msgid ""
 "No mentor is assigned to you yet. Your program manager will introduce you to "
 "one."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:666
+#: includes/modules/class-wpcpm-students-dashboard.php:653
 msgid "Teams"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:707
+#: includes/modules/class-wpcpm-students-dashboard.php:694
 msgid "Website"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-dashboard.php:715
+#: includes/modules/class-wpcpm-students-dashboard.php:702
 msgid "GitHub"
 msgstr ""
 

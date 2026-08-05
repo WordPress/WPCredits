@@ -9,7 +9,7 @@ decided by the availability you publish.
 
 ## Their report form
 
-A student's *Report form* section holds the fields they fill in — hours, grades, teams, what they
+A student's *Report form* section holds the fields they fill in — hours, grades, what they
 contributed, their reflection posts. You can read it on their card, but not type in it: the report is
 the student's own account of their work, and a mentor filling it in would make the record say
 something it does not mean. If something in it is wrong, that is a conversation rather than an edit.

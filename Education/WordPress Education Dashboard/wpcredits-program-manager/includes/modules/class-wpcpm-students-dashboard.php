@@ -555,26 +555,13 @@ class WPCPM_Students_Dashboard {
 	 * @param WP_User $student The student.
 	 */
 	private static function render_report_form( array $program, WP_User $student ) {
-		$report = isset( $program['link'] ) ? (string) $program['link'] : '';
-
+		// The prefilled Airtable form is deliberately *not* linked from here any more. The fields
+		// below are the report now, and offering a second route to the same record invited two
+		// people — or one person twice — to fill the same thing in two ways.
 		echo '<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--report" id="wpcpm-report-form">';
 		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'Report form', 'wpcredits-program-manager' ) . '</h3>';
 
 		WPCPM_Student_Report_Form::render( $student, $program );
-
-		// The prefilled Airtable form still works and people are used to it, so it stays as a
-		// second route rather than being taken away along with the change.
-		if ( '' !== $report ) {
-			printf(
-				'<p class="wpcpm-student__actions wpcpm-report__alt"><a class="wpcpm-button wpcpm-button--secondary" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></p>',
-				esc_url( $report ),
-				esc_html(
-					! empty( $program['is_50h'] )
-						? __( 'Open the full form (50h)', 'wpcredits-program-manager' )
-						: __( 'Open the full form', 'wpcredits-program-manager' )
-				)
-			);
-		}
 
 		echo '</section>';
 	}

@@ -71,118 +71,126 @@ class WPCPM_Student_Report_Form {
 	 */
 	public static function fields( $is_50h ) {
 		$grade = array(
-			'type' => 'number',
-			'step' => '0.01',
-			'min'  => 0,
-			'max'  => 100,
+			'type'  => 'number',
+			'step'  => '0.01',
+			'min'   => 0,
+			'max'   => 100,
+			'group' => 'grades',
 		);
 
 		$mark = array(
-			'type' => 'number',
-			'step' => '1',
-			'min'  => 0,
-			'max'  => 100,
+			'type'  => 'number',
+			'step'  => '1',
+			'min'   => 0,
+			'max'   => 100,
+			'group' => 'courses',
 		);
 
-		$common = array(
+		$hours = array(
 			'Hours' => array(
 				'label' => __( 'Hours contributed', 'wpcredits-program-manager' ),
 				'type'  => 'number',
 				'step'  => '1',
 				'min'   => 0,
 				'max'   => 10000,
+				'group' => 'hours',
+				'help'  => __( 'The total you have logged so far.', 'wpcredits-program-manager' ),
 			),
-			'Open source basics and WordPress - final grade' => array( 'label' => __( 'Open source basics and WordPress — final grade', 'wpcredits-program-manager' ) ) + $grade,
-			'How decisions are made in the WordPress project - final grade' => array( 'label' => __( 'How decisions are made in the WordPress project — final grade', 'wpcredits-program-manager' ) ) + $grade,
 		);
 
-		$sensei = array(
-			'Community meeting etiquette - final grade'    => array( 'label' => __( 'Community meeting etiquette — final grade', 'wpcredits-program-manager' ) ) + $grade,
-			'Writing in the WordPress voice - final grade' => array( 'label' => __( 'Writing in the WordPress voice — final grade', 'wpcredits-program-manager' ) ) + $grade,
-			'Beginner WordPress User - final grade'        => array( 'label' => __( 'Beginner WordPress User — final grade', 'wpcredits-program-manager' ) ) + $grade,
-			'Intermediate WordPress User - final grade'    => array( 'label' => __( 'Intermediate WordPress User — final grade', 'wpcredits-program-manager' ) ) + $grade,
-			'Advance WordPress User - final grade'         => array( 'label' => __( 'Advanced WordPress User — final grade', 'wpcredits-program-manager' ) ) + $grade,
-			'Beginner WordPress Developer'                 => array( 'label' => __( 'Beginner WordPress Developer', 'wpcredits-program-manager' ) ) + $mark,
-			'Intermediate Theme Developer'                 => array( 'label' => __( 'Intermediate Theme Developer', 'wpcredits-program-manager' ) ) + $mark,
-			'Beginner WordPress Designer'                  => array( 'label' => __( 'Beginner WordPress Designer', 'wpcredits-program-manager' ) ) + $mark,
+		$common_grades = array(
+			'Open source basics and WordPress - final grade' => array( 'label' => __( 'Open source basics and WordPress', 'wpcredits-program-manager' ) ) + $grade,
+			'How decisions are made in the WordPress project - final grade' => array( 'label' => __( 'How decisions are made in the WordPress project', 'wpcredits-program-manager' ) ) + $grade,
 		);
 
-		$fifty = array(
-			'Basic principles of conflict resolution - final grade' => array( 'label' => __( 'Basic principles of conflict resolution — final grade', 'wpcredits-program-manager' ) ) + $grade,
+		$sensei_grades = array(
+			'Community meeting etiquette - final grade'    => array( 'label' => __( 'Community meeting etiquette', 'wpcredits-program-manager' ) ) + $grade,
+			'Writing in the WordPress voice - final grade' => array( 'label' => __( 'Writing in the WordPress voice', 'wpcredits-program-manager' ) ) + $grade,
+			'Beginner WordPress User - final grade'        => array( 'label' => __( 'Beginner WordPress User', 'wpcredits-program-manager' ) ) + $grade,
+			'Intermediate WordPress User - final grade'    => array( 'label' => __( 'Intermediate WordPress User', 'wpcredits-program-manager' ) ) + $grade,
+			'Advance WordPress User - final grade'         => array( 'label' => __( 'Advanced WordPress User', 'wpcredits-program-manager' ) ) + $grade,
+		);
+
+		$sensei_courses = array(
+			'Beginner WordPress Developer' => array( 'label' => __( 'Beginner WordPress Developer', 'wpcredits-program-manager' ) ) + $mark,
+			'Intermediate Theme Developer' => array( 'label' => __( 'Intermediate Theme Developer', 'wpcredits-program-manager' ) ) + $mark,
+			'Beginner WordPress Designer'  => array( 'label' => __( 'Beginner WordPress Designer', 'wpcredits-program-manager' ) ) + $mark,
+		);
+
+		$fifty_grades = array(
+			'Basic principles of conflict resolution - final grade' => array( 'label' => __( 'Basic principles of conflict resolution', 'wpcredits-program-manager' ) ) + $grade,
 		);
 
 		$project = array(
-			'Main Contribution Team'           => array(
-				'label' => __( 'Contribution teams', 'wpcredits-program-manager' ),
-				'type'  => 'links',
-				'map'   => 'teams',
-				'help'  => __( 'The teams you are contributing to. Choose as many as apply.', 'wpcredits-program-manager' ),
-			),
 			'Contribution Project Description' => array(
 				'label' => __( 'What you contributed', 'wpcredits-program-manager' ),
 				'type'  => 'textarea',
-			),
-			'Company '                         => array(
-				'label' => __( 'Sponsor company', 'wpcredits-program-manager' ),
-				'type'  => 'links',
-				'map'   => 'companies',
-				'help'  => __( 'The company sponsoring your place, if one is.', 'wpcredits-program-manager' ),
+				'group' => 'project',
 			),
 			'Personal Website URL'             => array(
 				'label' => __( 'Your personal website', 'wpcredits-program-manager' ),
 				'type'  => 'url',
+				'group' => 'project',
 			),
 		);
 
-		$reflections = array(
+		$posts = array(
 			'Post Reflection: Building Your Personal Website' => array(
-				'label' => __( 'Reflection: building your personal website', 'wpcredits-program-manager' ),
+				'label' => __( 'Building your personal website', 'wpcredits-program-manager' ),
 				'type'  => 'url',
-			),
-			'Slack/GitHub/Blog WordPress Community meetings/discussions' => array(
-				'label' => __( 'Meetings and discussions you took part in', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'help'  => __( 'Slack, GitHub or blog links, one per line.', 'wpcredits-program-manager' ),
+				'group' => 'posts',
 			),
 			'Post Reflection: Choosing Your Team and Project' => array(
-				'label' => __( 'Reflection: choosing your team and project', 'wpcredits-program-manager' ),
+				'label' => __( 'Choosing your team and project', 'wpcredits-program-manager' ),
 				'type'  => 'url',
+				'group' => 'posts',
 			),
 			'Post Reflection: Your First Contribution' => array(
-				'label' => __( 'Reflection: your first contribution', 'wpcredits-program-manager' ),
+				'label' => __( 'Your first contribution', 'wpcredits-program-manager' ),
 				'type'  => 'url',
+				'group' => 'posts',
 			),
 			'Post Reflection: Halfway Check-In'        => array(
-				'label' => __( 'Reflection: halfway check-in', 'wpcredits-program-manager' ),
+				'label' => __( 'Halfway check-in', 'wpcredits-program-manager' ),
 				'type'  => 'url',
-			),
-			'WP event participation URL'               => array(
-				'label' => __( 'A WordPress event you took part in', 'wpcredits-program-manager' ),
-				'type'  => 'url',
+				'group' => 'posts',
 			),
 			'Closing post URL'                         => array(
 				'label' => __( 'Your closing post', 'wpcredits-program-manager' ),
 				'type'  => 'url',
+				'group' => 'posts',
+			),
+		);
+
+		$participation = array(
+			'Slack/GitHub/Blog WordPress Community meetings/discussions' => array(
+				'label' => __( 'Meetings and discussions you took part in', 'wpcredits-program-manager' ),
+				'type'  => 'textarea',
+				'group' => 'part',
+				'help'  => __( 'Slack, GitHub or blog links, one per line.', 'wpcredits-program-manager' ),
 			),
 		);
 
 		if ( $is_50h ) {
-			// Ten fields. The 50-hour track has its own grade — conflict resolution — that the
-			// longer one does not, and none of the reflection posts.
-			$fields = $common + $fifty + array(
-				'Main Contribution Team'            => $project['Main Contribution Team'],
+			$fields = $hours + $common_grades + $fifty_grades + array(
 				'Contribution Project Description'  => $project['Contribution Project Description'],
-				'Slack/GitHub/Blog WordPress Community meetings/discussions' => $reflections['Slack/GitHub/Blog WordPress Community meetings/discussions'],
 				'Final Contribution Project Report' => array(
 					'label' => __( 'Your final project report', 'wpcredits-program-manager' ),
 					'type'  => 'richtext',
+					'group' => 'project',
 					'help'  => __( 'The write-up of what you built and contributed.', 'wpcredits-program-manager' ),
 				),
 				'Personal Website URL'              => $project['Personal Website URL'],
-				'Company '                          => $project['Company '],
-			);
+			) + $participation;
 		} else {
-			$fields = $common + $sensei + $project + $reflections;
+			$fields = $hours + $common_grades + $sensei_grades + $sensei_courses + $project
+				+ $participation + array(
+					'WP event participation URL' => array(
+						'label' => __( 'A WordPress event you took part in', 'wpcredits-program-manager' ),
+						'type'  => 'url',
+						'group' => 'part',
+					),
+				) + $posts;
 		}
 
 		/**
@@ -192,6 +200,27 @@ class WPCPM_Student_Report_Form {
 		 * @param bool  $is_50h Whether this is the 50-hour track.
 		 */
 		return (array) apply_filters( 'wpcpm_report_form_fields', $fields, $is_50h );
+	}
+
+	/**
+	 * The groups the fields are shown in, in order.
+	 *
+	 * **Twenty boxes in one run is a wall, not a form.** Grouped, it reads as four short questions —
+	 * how much, what you scored, what you built, where you took part — and a student can answer the
+	 * part they came for without reading the rest. The numbers sit several to a row because they are
+	 * two characters wide; the prose gets the full width.
+	 *
+	 * @return array<string, string> Group key => legend.
+	 */
+	public static function groups() {
+		return array(
+			'hours'   => __( 'Your hours', 'wpcredits-program-manager' ),
+			'grades'  => __( 'Course grades', 'wpcredits-program-manager' ),
+			'courses' => __( 'Additional courses', 'wpcredits-program-manager' ),
+			'project' => __( 'Your project', 'wpcredits-program-manager' ),
+			'part'    => __( 'Taking part', 'wpcredits-program-manager' ),
+			'posts'   => __( 'Your posts', 'wpcredits-program-manager' ),
+		);
 	}
 
 	/*
@@ -283,11 +312,34 @@ class WPCPM_Student_Report_Form {
 	 * @param array   $program Their cached program row, for the track.
 	 */
 	public static function render( WP_User $student, array $program ) {
-		$is_50h = ! empty( $program['is_50h'] );
-		$fields = self::fields( $is_50h );
-		$record = WPCPM_Mentor_Calls::student_record( $student->ID );
-		$values = self::values( $record );
-		$can    = self::user_can_edit( $student->ID );
+		$is_50h  = ! empty( $program['is_50h'] );
+		$fields  = self::fields( $is_50h );
+		$record  = WPCPM_Mentor_Calls::student_record( $student->ID );
+		$values  = self::values( $record );
+		$can     = self::user_can_edit( $student->ID );
+		$message = self::message( self::status() );
+
+		// Closed by default: it is a long form somebody opens deliberately, and a Report Card that
+		// begins with twenty boxes buries everything under it. **Open when there is something to
+		// say** — a "Saved" or a rejected grade behind a closed disclosure is a message nobody
+		// reads, which is the same reasoning that reopens a student's card after a note is saved.
+		printf(
+			'<details class="wpcpm-report__disclosure"%s>',
+			empty( $message ) ? '' : ' open'
+		);
+		printf(
+			'<summary class="wpcpm-report__toggle">%1$s <span class="wpcpm-report__count">%2$s</span></summary>',
+			esc_html__( 'Your report form', 'wpcredits-program-manager' ),
+			esc_html(
+				sprintf(
+					/* translators: %s: number of fields on the form. */
+					_n( '%s field', '%s fields', count( $fields ), 'wpcredits-program-manager' ),
+					number_format_i18n( count( $fields ) )
+				)
+			)
+		);
+
+		echo '<div class="wpcpm-report__body">';
 
 		self::render_message();
 
@@ -305,6 +357,8 @@ class WPCPM_Student_Report_Form {
 					)
 				)
 			);
+
+			echo '</div></details>';
 
 			return;
 		}
@@ -335,8 +389,30 @@ class WPCPM_Student_Report_Form {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
 
-		foreach ( $fields as $name => $spec ) {
-			self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : '', $can );
+		// Grouped, so the form reads as four short questions rather than twenty boxes.
+		foreach ( self::groups() as $group => $legend ) {
+			$in_group = array_filter(
+				$fields,
+				static function ( $spec ) use ( $group ) {
+					return isset( $spec['group'] ) && $group === $spec['group'];
+				}
+			);
+
+			if ( empty( $in_group ) ) {
+				continue;
+			}
+
+			printf(
+				'<fieldset class="wpcpm-report__group wpcpm-report__group--%1$s"><legend>%2$s</legend>',
+				esc_attr( $group ),
+				esc_html( $legend )
+			);
+
+			foreach ( $in_group as $name => $spec ) {
+				self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : '', $can );
+			}
+
+			echo '</fieldset>';
 		}
 
 		if ( $can ) {
@@ -347,6 +423,8 @@ class WPCPM_Student_Report_Form {
 		}
 
 		echo '</form>';
+		echo '</div>';
+		echo '</details>';
 	}
 
 	/**
@@ -370,9 +448,7 @@ class WPCPM_Student_Report_Form {
 			esc_html( $spec['label'] )
 		);
 
-		if ( 'links' === $type ) {
-			self::render_links_field( $key, $spec, $value, $can );
-		} elseif ( 'number' === $type ) {
+		if ( 'number' === $type ) {
 			printf(
 				'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="decimal"%7$s />',
 				esc_attr( $id ),
@@ -414,61 +490,6 @@ class WPCPM_Student_Report_Form {
 		echo '</p>';
 	}
 
-	/**
-	 * A linked-record field, as checkboxes.
-	 *
-	 * Checkboxes rather than a multi-select, matching the profile editor: every option and every
-	 * current answer visible at once, and operable on a phone.
-	 *
-	 * @param string $key   Form key.
-	 * @param array  $spec  Field spec.
-	 * @param mixed  $value Current value: an array of record IDs, or of `{id,name}` objects.
-	 * @param bool   $can   Whether it may be edited.
-	 */
-	private static function render_links_field( $key, array $spec, $value, $can ) {
-		$known = self::catalog( isset( $spec['map'] ) ? $spec['map'] : 'teams' );
-
-		if ( empty( $known ) ) {
-			printf(
-				'<span class="wpcpm-field__hint">%s</span>',
-				esc_html__( 'This list has not been read from the program records yet. Run a sync and it becomes editable.', 'wpcredits-program-manager' )
-			);
-
-			return;
-		}
-
-		// The REST API returns a linked-record cell as bare record IDs; the Airtable MCP tool returns
-		// `{id,name}` objects, and a harness fed the latter would pass while the live site failed.
-		// Both shapes are read here for that reason.
-		$chosen = array();
-
-		foreach ( (array) $value as $entry ) {
-			if ( is_array( $entry ) && isset( $entry['id'] ) ) {
-				$chosen[] = (string) $entry['id'];
-			} elseif ( is_scalar( $entry ) ) {
-				$chosen[] = (string) $entry;
-			}
-		}
-
-		echo '<span class="wpcpm-field__group">';
-
-		foreach ( $known as $id => $label ) {
-			printf(
-				'<label class="wpcpm-edit__check"><input type="checkbox" name="report[%1$s][]" value="%2$s"%3$s%4$s /> %5$s</label>',
-				esc_attr( $key ),
-				esc_attr( $id ),
-				in_array( $id, $chosen, true ) ? ' checked="checked"' : '',
-				$can ? '' : ' disabled="disabled"',
-				esc_html( $label )
-			);
-		}
-
-		// Unchecking everything posts nothing for this key, and the save loop skips a key it was
-		// not sent — so clearing the last one would silently do nothing without this.
-		printf( '<input type="hidden" name="report[%s][]" value="" />', esc_attr( $key ) );
-
-		echo '</span>';
-	}
 
 	/**
 	 * The outcome of the last save, if there is one.
@@ -582,10 +603,6 @@ class WPCPM_Student_Report_Form {
 	private static function clean( $raw, array $spec ) {
 		$type = isset( $spec['type'] ) ? $spec['type'] : 'text';
 
-		if ( 'links' === $type ) {
-			return array( true, self::clean_links( $raw, isset( $spec['map'] ) ? $spec['map'] : 'teams' ) );
-		}
-
 		if ( ! is_scalar( $raw ) ) {
 			return array( false, null );
 		}
@@ -630,31 +647,6 @@ class WPCPM_Student_Report_Form {
 		return array( true, mb_substr( sanitize_textarea_field( $raw ), 0, self::MAX_TEXT ) );
 	}
 
-	/**
-	 * Validated record IDs for a linked-record field.
-	 *
-	 * @param mixed  $raw Posted value.
-	 * @param string $map Which catalog to check against.
-	 * @return string[]
-	 */
-	private static function clean_links( $raw, $map ) {
-		$known = self::catalog( $map );
-		$out   = array();
-
-		foreach ( (array) $raw as $id ) {
-			if ( ! is_scalar( $id ) ) {
-				continue;
-			}
-
-			$id = trim( (string) $id );
-
-			if ( '' !== $id && isset( $known[ $id ] ) && ! in_array( $id, $out, true ) ) {
-				$out[] = $id;
-			}
-		}
-
-		return $out;
-	}
 
 	/**
 	 * A URL the way the rest of the plugin normalizes them.
@@ -679,29 +671,6 @@ class WPCPM_Student_Report_Form {
 		return $url ? $url : '';
 	}
 
-	/**
-	 * One of the record-ID catalogs the sync builds.
-	 *
-	 * @param string $map `teams` or `companies`.
-	 * @return array<string, string> Record ID => name.
-	 */
-	public static function catalog( $map ) {
-		$lookups = WPCPM_Mentors_Sync::lookups();
-		$raw     = isset( $lookups[ $map ] ) ? (array) $lookups[ $map ] : array();
-		$out     = array();
-
-		foreach ( $raw as $id => $name ) {
-			$name = trim( (string) $name );
-
-			if ( WPCPM_Mentors_Sync::is_record_id( $id ) && '' !== $name ) {
-				$out[ $id ] = $name;
-			}
-		}
-
-		natcasesort( $out );
-
-		return $out;
-	}
 
 	/**
 	 * A form key for an Airtable field name.

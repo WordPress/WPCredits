@@ -181,9 +181,7 @@ $sensei_expected = array(
 	'Beginner WordPress Developer',
 	'Intermediate Theme Developer',
 	'Beginner WordPress Designer',
-	'Main Contribution Team',
 	'Contribution Project Description',
-	'Company ',
 	'Personal Website URL',
 	'Post Reflection: Building Your Personal Website',
 	'Slack/GitHub/Blog WordPress Community meetings/discussions',
@@ -199,12 +197,10 @@ $fifty_expected = array(
 	'Open source basics and WordPress - final grade',
 	'How decisions are made in the WordPress project - final grade',
 	'Basic principles of conflict resolution - final grade',
-	'Main Contribution Team',
 	'Contribution Project Description',
 	'Slack/GitHub/Blog WordPress Community meetings/discussions',
 	'Final Contribution Project Report',
 	'Personal Website URL',
-	'Company ',
 );
 
 $sensei = array_keys( WPCPM_Student_Report_Form::fields( false ) );
@@ -218,14 +214,19 @@ $want_fifty  = $fifty_expected;
 sort( $want_sensei );
 sort( $want_fifty );
 
-ck( 'In Sensei holds exactly its 22 fields', $sensei, $want_sensei );
-ck( 'In Sensei 50h holds exactly its 10 fields', $fifty, $want_fifty );
+ck( 'In Sensei holds exactly its 20 fields', $sensei, $want_sensei );
+ck( 'In Sensei 50h holds exactly its 8 fields', $fifty, $want_fifty );
 
-// The trailing space on `Company ` is real, and dropping it makes the write silently do nothing —
-// the same trap as `Tutor ` on the Students table.
-ck( 'the trailing space on "Company " survives',
-    array( in_array( 'Company ', $sensei, true ), in_array( 'Company', $sensei, true ) ),
-    array( true, false ) );
+// Both were removed deliberately, and each for its own reason: contribution teams are chosen once,
+// in My profile, and a second control for the same Airtable column invited two answers; Company waits
+// for the Sponsors module, which will own it. Asserted so neither drifts back in unnoticed.
+ck( 'contribution teams are not on the report form',
+    array( in_array( 'Main Contribution Team', $sensei, true ), in_array( 'Main Contribution Team', $fifty, true ) ),
+    array( false, false ) );
+
+ck( 'the sponsor company is not on the report form',
+    array( in_array( 'Company ', $sensei, true ), in_array( 'Company ', $fifty, true ) ),
+    array( false, false ) );
 
 // The three fields the program excluded must not be back, on either track.
 foreach ( array( 'Name', 'WordPress Profile', 'Slack Name' ) as $excluded ) {
@@ -262,6 +263,29 @@ ck( 'the final project report belongs to the 50h track alone',
 ck( 'the reflection posts belong to In Sensei alone',
     count( preg_grep( '/^Post Reflection/', $fifty ) ), 0 );
 
+echo "\n=== Every field belongs to a group ===\n";
+
+// The form renders group by group, so a field with an unknown group is a field that renders
+// nowhere — invisible on the page and impossible to fill in, with nothing to show it went missing.
+$groups = array_keys( WPCPM_Student_Report_Form::groups() );
+
+foreach ( array( 'In Sensei' => false, 'In Sensei 50h' => true ) as $label => $is_50h ) {
+	$orphans = array();
+
+	foreach ( WPCPM_Student_Report_Form::fields( $is_50h ) as $name => $spec ) {
+		if ( ! isset( $spec['group'] ) || ! in_array( $spec['group'], $groups, true ) ) {
+			$orphans[] = $name;
+		}
+	}
+
+	ck( sprintf( 'every %s field is in a declared group', $label ), $orphans, array() );
+}
+
+// A group with a legend but no fields would draw an empty box.
+ck( 'the 50h form has no reflection posts group',
+    count( array_filter( WPCPM_Student_Report_Form::fields( true ), static function ( $spec ) { return 'posts' === $spec['group']; } ) ),
+    0 );
+
 echo "\n=== Numbers: cleared is not the same as rejected ===\n";
 
 $grade = array( 'label' => 'A grade', 'type' => 'number', 'step' => '0.01', 'min' => 0, 'max' => 100 );
@@ -292,28 +316,6 @@ ck( 'an empty box clears it', clean( '', $url ), array( true, '' ) );
 // The reason `clean_url()` exists rather than trusting the browser: a javascript: URL must not
 // survive, and prefixing it with https would be worse than dropping it.
 ck( 'a javascript: URL does not survive', clean( 'javascript:alert(1)', $url ), array( true, '' ) );
-
-echo "\n=== Linked records ===\n";
-
-$GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ] = array(
-	'v'         => WPCPM_Mentors_Sync::LOOKUPS_VERSION,
-	'teams'     => array( 'recTEAM0000000001' => 'Core', 'recTEAM0000000002' => 'Documentation' ),
-	'companies' => array( 'recCOMP0000000001' => 'Automattic' ),
-);
-
-$teams   = array( 'label' => 'Teams', 'type' => 'links', 'map' => 'teams' );
-$company = array( 'label' => 'Company', 'type' => 'links', 'map' => 'companies' );
-
-ck( 'known teams survive, and the form\'s empty value is dropped',
-    clean( array( 'recTEAM0000000001', '' ), $teams ), array( true, array( 'recTEAM0000000001' ) ) );
-ck( 'unchecking everything clears the links',
-    clean( array( '' ), $teams ), array( true, array() ) );
-ck( 'an ID from the wrong catalog is refused',
-    clean( array( 'recCOMP0000000001' ), $teams ), array( true, array() ) );
-ck( 'the companies catalog accepts its own',
-    clean( array( 'recCOMP0000000001' ), $company ), array( true, array( 'recCOMP0000000001' ) ) );
-ck( 'an unknown record ID never reaches Airtable',
-    clean( array( 'recNOTREAL0000001' ), $company ), array( true, array() ) );
 
 echo "\n=== Form keys ===\n";
 
