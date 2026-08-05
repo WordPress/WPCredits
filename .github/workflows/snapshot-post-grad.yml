@@ -1,22 +1,29 @@
-name: Snapshot Post-Grad Activity (PROTOTYPE)
+name: Snapshot Post-Grad Activity
 
-# Issue #137 — weekly snapshot of graduates' WordPress.org profile activity, to
-# measure the % who keep contributing AFTER graduation (delta from baseline).
+# Issue #137 — MONTHLY snapshot of graduates' WordPress.org profile activity, to
+# measure the % who keep contributing AFTER graduation and to build a 6-month
+# post-graduation retention curve.
 #
-# PROTOTYPE / NOT YET PRODUCTION. The raw per-graduate time-series is private
-# (this repo is public) and CANNOT be committed here. A persistent private store
-# — a private Airtable table in the same base is the leading candidate — is
-# decision #1 to settle with @maciejpilarski (issue owner) before enabling the
-# schedule. Until then this runs on manual dispatch only, and only the aggregate
-# summary (no handles) would ever be committed.
+# Storage: raw per-graduate rows go to a PRIVATE Airtable table (this repo is
+# public — they must never be committed here). Set the repo variable
+# POST_GRAD_TABLE_ID to that table's id and give the AIRTABLE_PAT secret write
+# scope. Only the aggregate summary (no handles) is committed to the repo.
 #
-# To enable weekly runs later, uncomment the `schedule` block. It intentionally
-# fires 30 min after update-dashboard (Mon 06:00 UTC) to avoid overlap.
+# Two ways to run:
+#   * workflow_dispatch (manual "Run workflow" button) — defaults to report_only,
+#     so it scrapes and prints the number in the run log but writes NOTHING.
+#     Use this for a first real number before the Airtable table exists.
+#   * schedule (monthly) — commented out until POST_GRAD_TABLE_ID is configured.
 
 on:
   workflow_dispatch:
+    inputs:
+      report_only:
+        description: "Scrape + report only; write nothing to Airtable/repo"
+        type: boolean
+        default: true
   # schedule:
-  #   - cron: '30 6 * * 1'  # Every Monday 06:30 UTC — after the dashboard build
+  #   - cron: '0 7 1 * *'  # 07:00 UTC on the 1st of each month
 
 permissions:
   contents: write
@@ -37,12 +44,15 @@ jobs:
       - name: Snapshot post-grad activity
         env:
           AIRTABLE_PAT: ${{ secrets.AIRTABLE_PAT }}
-        run: python scripts/post_grad_snapshot.py
+          POST_GRAD_TABLE_ID: ${{ vars.POST_GRAD_TABLE_ID }}
+        run: |
+          python scripts/post_grad_snapshot.py \
+            ${{ (github.event_name == 'workflow_dispatch' && inputs.report_only) && '--report-only' || '' }}
 
-      # NOTE: raw snapshots (data/post_grad_snapshots.jsonl) are .gitignored and
-      # would NOT persist across ephemeral runners — wiring a private persistent
-      # store is the open storage decision. Only the aggregate is committed here.
+      # Aggregate summary only (no handles). Skipped on report-only runs, which
+      # write nothing. Raw per-graduate rows live in Airtable, never in git.
       - name: Commit aggregate summary
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.report_only) }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

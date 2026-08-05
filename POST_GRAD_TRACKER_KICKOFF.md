@@ -107,36 +107,45 @@ These are empirical findings from this repo's data, not assumptions:
   consistent with the privacy slimming done in #132. Per-student detail belongs
   in the private dashboard (#109).
 
-## Prototype built — 2026-07-27 (branch `feature/post-grad-tracker`, no PR)
+## Status — 2026-08-05 (branch `feature/post-grad-tracker`, no PR)
 
-A working prototype exists for @maciejpilarski to react to. **Not merged; still
-his call to own/direct.** What's here:
+Isotta owns this (not Maciej, confirmed 2026-08-05). Phase 1 rebuilt around the
+window+gate design discovered on the #137 thread. What's here:
 
-- `scripts/post_grad_snapshot.py` — the snapshotter. Reuses build_dashboard's
-  Airtable + `fetch_translation_stats` helpers (import is side-effect-free).
-  Finds graduates, computes each one's grad-date via the same cascade the build
-  uses, scrapes translation strings, appends a dated snapshot row, and prints
-  the headline % (delta-from-baseline). `--dry-run` / `--limit N` for testing.
-- `.github/workflows/snapshot-post-grad.yml` — weekly sibling Action, **manual
-  dispatch only** for now (schedule commented out) until storage is decided.
-- `data/post_grad_snapshots.jsonl` — raw per-graduate store, **.gitignored**
-  (this repo is public; see privacy caveat). `data/post_grad_summary.json` —
-  the publishable aggregate.
+- `scripts/post_grad_snapshot.py` — the snapshotter. One read-only scrape per
+  graduate reads the profile's **"Recent impact" panel** (Last 30/90 days, 12
+  months of contribution counts) and the **"Credits Graduate · since <Month
+  Year>" badge** for the graduation date. Reuses build_dashboard's Airtable
+  helpers for the roster. `--report-only` / `--limit N` for testing.
+- `.github/workflows/snapshot-post-grad.yml` — **monthly** sibling Action.
+  `workflow_dispatch` defaults to `report_only` (writes nothing) so a first real
+  number can be pulled now; schedule commented out until the Airtable table + the
+  `POST_GRAD_TABLE_ID` variable exist.
 
-Verified locally: metric math, baseline flagging, JSONL round-trip (stubbed),
-and a live `profiles.wordpress.org` scrape. Not yet run against Airtable
+### Design (decided on #137)
+- **Window vs horizon.** wp.org offers only 30/90/365-day readings — there is no
+  6-month reading. The 6-month horizon comes from **monthly snapshots tagged by
+  months-since-graduation**, stitched over time. That is why a persistent store
+  is genuinely required (unlike the "active now" headline, which needs none).
+- **"A contribution" = any wp.org contribution** (the panel's own number; can't
+  be filtered to translations only).
+- **Post-grad-ONLY rule = grad-date gate:** count a graduate only when the window
+  is fully after graduation (`today − grad_date ≥ 90d`). Recent grads (<90d) are
+  "not yet measurable." This is the piece the ESS plugin's raw `recent90>0` lacks.
+- **Storage = private Airtable table** in the same base; **cadence = monthly.**
+
+### Verified locally (2026-08-05)
+Metric/gate math + Airtable field mapping (unit tests) and **live
+`profiles.wordpress.org` scrapes** — badge grad-date correctly overrides the
+Airtable fallback; the three windows parse. Not yet run against Airtable
 (needs the CI `AIRTABLE_PAT`) — `iter_graduates()` mirrors the build's own
-graduate/grad-date logic.
+graduate logic.
 
-**Prototype defaults picked for you to challenge** (all in the script header):
-contribution = increase in translation strings vs baseline; storage = private
-JSONL now / private Airtable table the likely production home; cadence = weekly;
-baseline = first observation.
-
-**Still open for the Maciej sync — the two that block enabling the schedule:**
-1. **Raw storage** — the .gitignored JSONL can't persist on ephemeral CI runners
-   and can't be committed publicly. Need a private persistent store (private
-   Airtable table in the same base is the leading option; needs PAT **write**
-   scope, which the current read-only PAT lacks).
-2. **Confirm the contribution definition** — strings-only, or also badges/feed
-   items dated after graduation?
+### Next
+1. **Create the private Airtable table** (`Snapshot Date`, `WP Username`, `Grad
+   Date`, `Grad Date Source`, `Months Since Grad`, `Recent 30d`, `Recent 90d`,
+   `Recent 365d`), set repo var `POST_GRAD_TABLE_ID`, and give `AIRTABLE_PAT`
+   **write** scope. Then flip the monthly schedule on.
+2. **Pull a first real number** now via the manual Action (report-only).
+3. **Phase 3:** the 6-month retention curve + dashboard aggregate card, once a
+   few monthly snapshots have accrued.
