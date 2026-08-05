@@ -88,6 +88,16 @@ function get_post_meta( $id, $k = '', $single = false ) { return $single ? '' : 
 function wp_next_scheduled( $h ) { return false; }
 function wp_schedule_single_event() {} function wp_clear_scheduled_hook() {}
 function wp_json_encode( $v ) { return json_encode( $v ); }
+function wp_create_nonce( $a = -1 ) { return 'nonce'; }
+function wp_nonce_field( $a = -1, $n = '_wpnonce', $r = true, $echo = true ) {
+	$field = sprintf( '<input type="hidden" name="%s" value="%s" />', $n, wp_create_nonce( $a ) );
+
+	if ( $echo ) {
+		echo $field; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Test double.
+	}
+
+	return $field;
+}
 
 /**
  * Honours the protocol allow-list, so the URL assertions are not vacuous.
@@ -111,6 +121,8 @@ require_once __DIR__ . '/../includes/class-wpcpm-settings.php';
 require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
 require_once __DIR__ . '/../includes/class-wpcpm-airtable.php';
 require_once __DIR__ . '/../includes/class-wpcpm-program.php';
+require_once __DIR__ . '/../includes/class-wpcpm-icons.php';
+require_once __DIR__ . '/../includes/class-wpcpm-contribution-teams.php';
 require_once __DIR__ . '/../includes/class-wpcpm-wporg-profile.php';
 require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
@@ -171,16 +183,20 @@ echo "=== The two field sets, exactly as the program specified them ===\n";
 // whatever the implementation happened to contain, which is the one thing this must not do.
 $sensei_expected = array(
 	'Hours',
+	'WordPress Profile',
+	'Slack Name',
 	'Open source basics and WordPress - final grade',
 	'How decisions are made in the WordPress project - final grade',
 	'Community meeting etiquette - final grade',
 	'Writing in the WordPress voice - final grade',
+	'Basic principles of conflict resolution - final grade',
 	'Beginner WordPress User - final grade',
 	'Intermediate WordPress User - final grade',
 	'Advance WordPress User - final grade',
 	'Beginner WordPress Developer',
 	'Intermediate Theme Developer',
 	'Beginner WordPress Designer',
+	'Main Contribution Team',
 	'Contribution Project Description',
 	'Personal Website URL',
 	'Post Reflection: Building Your Personal Website',
@@ -194,9 +210,12 @@ $sensei_expected = array(
 
 $fifty_expected = array(
 	'Hours',
+	'WordPress Profile',
+	'Slack Name',
 	'Open source basics and WordPress - final grade',
 	'How decisions are made in the WordPress project - final grade',
 	'Basic principles of conflict resolution - final grade',
+	'Main Contribution Team',
 	'Contribution Project Description',
 	'Slack/GitHub/Blog WordPress Community meetings/discussions',
 	'Final Contribution Project Report',
@@ -214,26 +233,70 @@ $want_fifty  = $fifty_expected;
 sort( $want_sensei );
 sort( $want_fifty );
 
-ck( 'In Sensei holds exactly its 20 fields', $sensei, $want_sensei );
-ck( 'In Sensei 50h holds exactly its 8 fields', $fifty, $want_fifty );
+ck( 'In Sensei holds exactly its 24 fields', $sensei, $want_sensei );
+ck( 'In Sensei 50h holds exactly its 11 fields', $fifty, $want_fifty );
 
-// Both were removed deliberately, and each for its own reason: contribution teams are chosen once,
-// in My profile, and a second control for the same Airtable column invited two answers; Company waits
-// for the Sponsors module, which will own it. Asserted so neither drifts back in unnoticed.
-ck( 'contribution teams are not on the report form',
+// The contribution team is asked for **here and nowhere else**. It was on the profile editor until
+// 1.46.0; two controls writing one Airtable column invited two answers, so the assertion is not that
+// it exists but that it exists once. `$profile_src` is read below.
+ck( 'contribution teams are on the report form, on both tracks',
     array( in_array( 'Main Contribution Team', $sensei, true ), in_array( 'Main Contribution Team', $fifty, true ) ),
-    array( false, false ) );
+    array( true, true ) );
+
+// It heads the Project section on both, which is where the Airtable form asks it.
+$sensei_specs = WPCPM_Student_Report_Form::fields( false );
+$fifty_specs  = WPCPM_Student_Report_Form::fields( true );
+
+ck( 'and sits in the project group',
+    array( $sensei_specs['Main Contribution Team']['group'], $fifty_specs['Main Contribution Team']['group'] ),
+    array( 'project', 'project' ) );
+
+// Above "What you contributed" — the order the fields are declared in is the order they render in.
+$order = static function ( array $specs, $name ) {
+	return array_search( $name, array_keys( $specs ), true );
+};
+
+ck( 'above the project description, on both tracks',
+    array(
+        $order( $sensei_specs, 'Main Contribution Team' ) < $order( $sensei_specs, 'Contribution Project Description' ),
+        $order( $fifty_specs, 'Main Contribution Team' ) < $order( $fifty_specs, 'Contribution Project Description' ),
+    ),
+    array( true, true ) );
+
+// The other half of "once": the profile editor must not offer it as well.
+$profile_src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-student-profile.php' );
+
+ck( 'and the profile editor no longer offers it',
+    array( false !== strpos( $profile_src, "'team'" ) ),
+    array( false ) );
+
+// Company waits for the Sponsors module, which will own it.
 
 ck( 'the sponsor company is not on the report form',
     array( in_array( 'Company ', $sensei, true ), in_array( 'Company ', $fifty, true ) ),
     array( false, false ) );
 
-// The three fields the program excluded must not be back, on either track.
-foreach ( array( 'Name', 'WordPress Profile', 'Slack Name' ) as $excluded ) {
-	ck( sprintf( '"%s" is on neither form', $excluded ),
-	    array( in_array( $excluded, $sensei, true ), in_array( $excluded, $fifty, true ) ),
-	    array( false, false ) );
-}
+// `Name` is the student's own and comes from the record; the form never asks it.
+//
+// `WordPress Profile` and `Slack Name` were on this list until 1.48.0, when the profile editor
+// was removed and the form took its three questions over. What has to hold now is the same thing
+// that holds for contribution teams: asked here, and nowhere else.
+ck( '"Name" is on neither form',
+    array( in_array( 'Name', $sensei, true ), in_array( 'Name', $fifty, true ) ),
+    array( false, false ) );
+
+ck( 'the contact lessons open Onboarding on both tracks',
+    array(
+        $sensei_specs['WordPress Profile']['group'],
+        $sensei_specs['Slack Name']['group'],
+        $order( $sensei_specs, 'WordPress Profile' ) < $order( $sensei_specs, 'Open source basics and WordPress - final grade' ),
+        $fifty_specs['WordPress Profile']['group'],
+    ),
+    array( 'onboarding', 'onboarding', true, 'onboarding' ) );
+
+// The profile editor is gone, so nothing else writes these three columns.
+ck( 'the profile editor no longer exists',
+    file_exists( __DIR__ . '/../includes/modules/class-wpcpm-student-profile.php' ), false );
 
 // Deprecated columns, deliberately left out.
 ck( 'nothing marked (DELETED) is offered',
@@ -245,13 +308,39 @@ foreach ( array( 'Personal link', '50h personal link', "Mentor's email" ) as $co
 	    in_array( $computed, array_merge( $sensei, $fifty ), true ), false );
 }
 
-// The one difference between the tracks that is easy to get backwards.
-ck( 'conflict resolution belongs to the 50h track alone',
+// It was 50h-only until 1.47.0, which was the 50-hour form having been built first rather than a
+// difference between the courses. Both ask it.
+ck( 'conflict resolution is asked on both tracks',
     array(
         in_array( 'Basic principles of conflict resolution - final grade', $fifty, true ),
         in_array( 'Basic principles of conflict resolution - final grade', $sensei, true ),
     ),
-    array( true, false ) );
+    array( true, true ) );
+
+// Between the voice course and the three user levels, which is the order the long form uses.
+ck( 'and sits between the voice course and the user levels',
+    array(
+        $order( $sensei_specs, 'Writing in the WordPress voice - final grade' )
+            < $order( $sensei_specs, 'Basic principles of conflict resolution - final grade' ),
+        $order( $sensei_specs, 'Basic principles of conflict resolution - final grade' )
+            < $order( $sensei_specs, 'Beginner WordPress User - final grade' ),
+    ),
+    array( true, true ) );
+
+// Onboarding is four runs, and each says what it is one way or the other: a heading over the
+// fields, or a note under them. The assertion is that none of them is unmarked — a run with
+// neither reads as a continuation of the one above it, which is how the marks and the two
+// contact questions ran together before 1.52.0.
+ck( 'every run in Onboarding is marked, by a heading or a note',
+    array(
+        isset( $sensei_specs['Open source basics and WordPress - final grade']['subgroup'] ),
+        isset( $sensei_specs['Beginner WordPress User - final grade']['divider'] ),
+        isset( $sensei_specs['Advance WordPress User - final grade']['note'] ),
+        isset( $sensei_specs['Beginner WordPress Developer']['divider'] ),
+        isset( $sensei_specs['Beginner WordPress Designer']['note'] ),
+        isset( $sensei_specs['Personal Website URL']['subgroup'] ),
+    ),
+    array( true, true, true, true, true, true ) );
 
 ck( 'the final project report belongs to the 50h track alone',
     array(
@@ -331,6 +420,93 @@ ck( 'every field has a distinct key', count( array_unique( $keys ) ), count( $ke
 ck( 'keys are safe in a form name', count( preg_grep( '/^[a-z0-9]+$/', $keys ) ), count( $keys ) );
 ck( '"Company " and "Company" would not collide',
     WPCPM_Student_Report_Form::key( 'Company ' ) === WPCPM_Student_Report_Form::key( 'Company' ), false );
+
+echo "\n=== Read only ===\n";
+
+/*
+ * **This is the half that shipped wrong.** The form was gated on `user_can_edit()` alone, which is
+ * true for a program manager — so a manager opening a report from a *mentor's* page got live boxes
+ * and a Save button over somebody else's answers. The capability says who may ever edit; the view
+ * says whether this place is one where editing happens, and on a mentee card it is not.
+ *
+ * Asserted on the markup rather than on the flag, because "disabled" that reaches one field type
+ * and not another looks read only until somebody types in the box it missed.
+ */
+$record = 'recStudent0000001';
+$sid    = 7;
+
+$GLOBALS['umeta'][ $sid ][ WPCPM_Students_Sync::META_RECORD_ID ] = $record;
+
+// Seeded through the cache `values()` reads first, so nothing here reaches Airtable.
+set_transient(
+	'wpcpm_report_' . md5( $record ),
+	array(
+		'Total hours'     => 42,
+		'Personal site'   => 'https://example.test/me',
+		'Contribution to' => array( 'recTeam0000000001' ),
+	)
+);
+
+// One real team, so the checkbox branch renders rather than printing its "run a sync" hint.
+update_option(
+	WPCPM_Mentors_Sync::OPT_LOOKUPS,
+	array( 'v' => WPCPM_Mentors_Sync::LOOKUPS_VERSION, 'teams' => array( 'recTeam0000000001' => 'Documentation' ) )
+);
+
+/**
+ * Render one report body.
+ *
+ * @param bool $read_only Whether the view forces a record rather than a form.
+ * @param bool $manager   Whether the viewer holds the manage capability.
+ * @return string
+ */
+function body( $read_only, $manager ) {
+	global $sid;
+
+	$GLOBALS['uid']  = 99;      // Somebody other than the student.
+	$GLOBALS['caps'] = $manager;
+
+	$method = new ReflectionMethod( 'WPCPM_Student_Report_Form', 'render_body' );
+
+	if ( PHP_VERSION_ID < 80100 ) {
+		$method->setAccessible( true );
+	}
+
+	ob_start();
+	$method->invoke( null, new WP_User( $sid ), array( 'is_50h' => false, 'record_id' => $GLOBALS['rec'] ), $read_only );
+
+	return (string) ob_get_clean();
+}
+
+$GLOBALS['rec'] = $record;
+
+$read = body( true, true );   // A manager reading a mentor's page: the worst case.
+$edit = body( false, true );  // The same manager on the student's own card.
+
+ck( 'a read-only report is not a form at all', false !== strpos( $read, '<form' ), false );
+ck( 'no save button',                          false !== strpos( $read, 'Save my report' ), false );
+ck( 'no nonce to post with',                   false !== strpos( $read, 'name="_wpnonce"' ), false );
+
+// Counted rather than searched: one enabled box among twenty disabled ones is the failure worth
+// catching, and "contains disabled" would pass with nineteen.
+preg_match_all( '/<(input|textarea)\b[^>]*/', $read, $m );
+
+$controls = $m[0];
+$enabled  = array_values( array_filter( $controls, function ( $tag ) { return false === strpos( $tag, 'disabled' ); } ) );
+
+ck( 'the fields did render',            count( $controls ) > 10, true );
+ck( 'every control is disabled',        $enabled, array() );
+ck( 'the team checkboxes are among them', count( preg_grep( '/type="checkbox"/', $controls ) ) > 0, true );
+ck( 'it says why it cannot be edited',  false !== strpos( $read, 'not editable' ), true );
+
+// The other half of the same rule: forcing read only must not have disabled the form for the
+// people who are meant to fill it in.
+ck( 'an editable report is still a form', false !== strpos( $edit, '<form' ), true );
+ck( 'and still has its save button',      false !== strpos( $edit, 'Save my report' ), true );
+
+preg_match_all( '/<(input|textarea)\b[^>]*/', $edit, $m2 );
+
+ck( 'and nothing in it is disabled', count( preg_grep( '/disabled/', $m2[0] ) ), 0 );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

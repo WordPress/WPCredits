@@ -58,7 +58,7 @@ ck( 'a restored page re-enables the buttons', (bool) preg_match( '/buttons\[ j \
 $php_files = array(
 	$root . '/includes/modules/class-wpcpm-call-calendar.php',
 	$root . '/includes/modules/class-wpcpm-mentor-availability.php',
-	$root . '/includes/modules/class-wpcpm-student-profile.php',
+	$root . '/includes/modules/class-wpcpm-student-report-form.php',
 );
 $once = 0; $busy = 0;
 foreach ( $php_files as $f ) {
@@ -66,7 +66,7 @@ foreach ( $php_files as $f ) {
 	$once += substr_count( $src, 'data-wpcpm-once' );
 	$busy += substr_count( $src, 'data-wpcpm-busy="%2$s"' );
 }
-ck( 'every guarded form declares a busy label', array( $once, $busy ), array( 5, 5 ) );
+ck( 'every guarded form declares a busy label', array( $once, $busy ), array( 6, 6 ) );
 ck( 'the booking form declares a visible status',
     (bool) strpos( file_get_contents( $php_files[0] ), 'data-wpcpm-status=' ) );
 ck( 'and renders the live region it goes in',

@@ -709,6 +709,13 @@ class WPCPM_Call_Calendar {
 		// "am I getting calls, and are the hours I published the reason?" — so each half
 		// is wrapped for the stylesheet to place. With no CSS they stack, which is the
 		// right fallback and what happens below 900px anyway.
+		// The diary and the sessions share the left-hand side, in one box. **Not two rows of the
+		// section's grid**: a tall availability form beside them spans those rows and has its
+		// height divided between them, so the sessions ended up as far down the page as the form
+		// is tall, with a column of white above them. One cell holding a stack does not care how
+		// tall the other column is.
+		echo '<div class="wpcpm-calls__side">';
+
 		echo '<div class="wpcpm-calls__col wpcpm-calls__col--diary">';
 
 		printf(
@@ -739,14 +746,20 @@ class WPCPM_Call_Calendar {
 
 		echo '</div>';
 
-		echo '<div class="wpcpm-calls__col wpcpm-calls__col--availability">';
-		WPCPM_Mentor_Availability::render_editor( $mentor );
-		echo '</div>';
-
-		// Below both columns and spanning them: a group session is neither a booked call nor an
-		// hour they published, and it needs the width for the form.
+		// Under the diary, in the same side: a group session is neither a booked call nor an hour
+		// they published, but it is the same kind of thing — what is in the calendar — and it
+		// reads with them rather than under a form somewhere to the right.
 		echo '<div class="wpcpm-calls__col wpcpm-calls__col--sessions">';
 		WPCPM_Group_Sessions::render_mentor_panel( $mentor );
+		echo '</div>';
+
+		echo '</div>';
+
+		// The two controls that change what is in the calendar, one under the other: the hours
+		// students book inside, and the session they can all join.
+		echo '<div class="wpcpm-calls__col wpcpm-calls__col--availability">';
+		WPCPM_Mentor_Availability::render_editor( $mentor );
+		WPCPM_Group_Sessions::render_mentor_planner( $mentor );
 		echo '</div>';
 
 		echo '</section>';

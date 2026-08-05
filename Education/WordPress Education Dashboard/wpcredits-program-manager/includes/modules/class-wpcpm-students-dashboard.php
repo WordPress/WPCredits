@@ -215,7 +215,7 @@ class WPCPM_Students_Dashboard {
 		// foot of a section tall enough — a month grid and a day's worth of slots — to
 		// push them off the screen.
 		if ( ! empty( $program ) ) {
-			self::render_links( $program );
+			self::render_links( $program, $student );
 			self::render_report_form( $program, $student );
 		}
 
@@ -438,7 +438,6 @@ class WPCPM_Students_Dashboard {
 				'url'   => '' !== $username ? 'https://profiles.wordpress.org/' . rawurlencode( $username ) . '/' : '',
 				'icon'  => 'profile',
 				// The student maintains this one, so the row carries its own editor.
-				'edit'  => 'profile',
 			),
 			array(
 				'label'    => __( 'Email', 'wpcredits-program-manager' ),
@@ -460,33 +459,23 @@ class WPCPM_Students_Dashboard {
 				'value' => $get( 'slack' ),
 				'url'   => $get( 'slack' ) ? WPCPM_Mentors_Dashboard::slack_url() : '',
 				'icon'  => 'slack',
-				'edit'  => 'slack',
 			),
 			array(
 				'label'     => __( 'Contribution teams', 'wpcredits-program-manager' ),
 				'value'     => $team,
 				'html'      => WPCPM_Contribution_Teams::links( $team ),
 				'icon_html' => WPCPM_Contribution_Teams::label_icon( $team ),
-				'edit'      => 'team',
 			),
 			array(
 				'label' => __( 'Personal website', 'wpcredits-program-manager' ),
 				'value' => '' !== $website ? preg_replace( '#^https?://#', '', untrailingslashit( $website ) ) : '',
 				'url'   => WPCPM_Mentors_Dashboard::normalize_url( $website ),
 				'icon'  => 'website',
-				'edit'  => 'website',
 			),
 		);
 
-		printf(
-			'<section class="wpcpm-student__section" id="%s">',
-			esc_attr( WPCPM_Student_Profile::ANCHOR )
-		);
+		echo '<section class="wpcpm-student__section">';
 		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'My profile', 'wpcredits-program-manager' ) . '</h3>';
-
-		// The result of the last inline save. This section owns it now — the separate
-		// "Your details" form that used to is gone.
-		WPCPM_Student_Profile::render_message();
 
 		self::render_identity( $student, $program );
 
@@ -527,21 +516,35 @@ class WPCPM_Students_Dashboard {
 	 * gets one section rather than a heading over an empty row. Both are rendered outside
 	 * `.wpcpm-student__grid`, so neither is placed into one of its two columns.
 	 *
-	 * @param array $program The student's cached program array.
+	 * **My course has two columns of its own** since 1.49.0: the button, and the hours box the
+	 * report form used to open with. Hours is the one number a student updates without having
+	 * anything else to report, and it was behind a disclosure with twenty other questions.
+	 *
+	 * @param array   $program The student's cached program array.
+	 * @param WP_User $student The student the page is being drawn for.
 	 */
-	private static function render_links( array $program ) {
+	private static function render_links( array $program, WP_User $student ) {
 		$status = ! empty( $program['status'] ) ? (string) $program['status'] : ( isset( $program['program'] ) ? (string) $program['program'] : '' );
 		$course = WPCPM_Program::course_url( $status );
 		$report = isset( $program['link'] ) ? (string) $program['link'] : '';
 
 		if ( '' !== $course ) {
-			self::render_link_section(
-				'course',
-				__( 'My course', 'wpcredits-program-manager' ),
-				$course,
-				__( 'Open your course', 'wpcredits-program-manager' ),
-				'wpcpm-button'
+			// Two columns: the button that opens the course, and the one number a student
+			// updates without having anything else to report. Anything more would be the
+			// report form, which is the section below.
+			echo '<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--course">';
+			echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'My course', 'wpcredits-program-manager' ) . '</h3>';
+			echo '<div class="wpcpm-student__course-cols">';
+
+			printf(
+				'<p class="wpcpm-student__actions"><a class="wpcpm-button" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></p>',
+				esc_url( $course ),
+				esc_html__( 'Open your course', 'wpcredits-program-manager' )
 			);
+
+			WPCPM_Student_Report_Form::render_hours( $student, $program );
+
+			echo '</div></section>';
 		}
 
 		// The report form is a section of its own with the fields in it, rendered by the caller —
@@ -564,34 +567,6 @@ class WPCPM_Students_Dashboard {
 		WPCPM_Student_Report_Form::render( $student, $program );
 
 		echo '</section>';
-	}
-
-	/**
-	 * One of those sections.
-	 *
-	 * Keeps `wpcpm-student__links` as well as its own modifier: the theme's large-button rule
-	 * and every other rule written for the old single section still reach both halves, so the
-	 * split needed no stylesheet change to look right.
-	 *
-	 * @param string $slug    Modifier suffix, `course` or `report`.
-	 * @param string $heading Section heading.
-	 * @param string $url     Where the button goes.
-	 * @param string $label   Button label.
-	 * @param string $classes Button classes.
-	 */
-	private static function render_link_section( $slug, $heading, $url, $label, $classes ) {
-		printf(
-			'<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--%1$s">'
-				. '<h3 class="wpcpm-student__heading">%2$s</h3>'
-				. '<p class="wpcpm-student__actions">'
-				. '<a class="%3$s" href="%4$s" target="_blank" rel="noopener noreferrer">%5$s</a>'
-				. '</p></section>',
-			esc_attr( $slug ),
-			esc_html( $heading ),
-			esc_attr( $classes ),
-			esc_url( $url ),
-			esc_html( $label )
-		);
 	}
 
 	/**
@@ -767,13 +742,6 @@ class WPCPM_Students_Dashboard {
 		}
 
 		echo '</span>';
-
-		// After the value in the markup, and at the right edge of the table on screen —
-		// the value span takes the remaining width. `edit_control()` decides for itself
-		// whether the viewer may edit, so this does not have to.
-		if ( ! empty( $field['edit'] ) && $student_id ) {
-			WPCPM_Student_Profile::edit_control( $field['edit'], $program, $student_id );
-		}
 
 		echo '</div></td></tr>';
 	}

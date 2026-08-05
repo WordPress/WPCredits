@@ -380,33 +380,23 @@
 	/**
 	 * The row's right-hand action.
 	 *
-	 * The report form link is moved out of the card body rather than copied: two
-	 * links to the same form is one more than a screen reader needs to hear. For a
-	 * student who needs a call there is no such link, so the action opens the card
+	 * **The report form link is left where the plugin puts it.** It used to be hoisted out of
+	 * the card body into the row, back when it opened the student's Airtable form — one link,
+	 * reachable without opening the card. Since plugin 1.55.0 it opens that student's report
+	 * *on this page*, at the foot of their own card, which is where the answer appears; a
+	 * control in the row that scrolls you into the card below it is a worse version of the
+	 * disclosure triangle already there.
+	 *
+	 * So the only row action left is the one for a student who needs a call: it opens the card
 	 * and puts the cursor in the note field — the thing the mentor came to do.
 	 *
-	 * Rows nobody has to act on get nothing: the disclosure triangle already says
-	 * the row opens, and a second control that does the same is noise.
+	 * Rows nobody has to act on get nothing: the disclosure triangle already says the row
+	 * opens, and a second control that does the same is noise.
 	 *
 	 * @param {Object} row Row.
 	 * @return {?Element}
 	 */
 	function actionFor( row ) {
-		var report = row.el.querySelector( '.wpcpm-mentee__action a' );
-
-		if ( report ) {
-			var wrap = row.el.querySelector( '.wpcpm-mentee__action' );
-
-			report.classList.add( 'wpc-row__action' );
-			report.addEventListener( 'click', stop );
-
-			if ( wrap ) {
-				wrap.parentNode.removeChild( wrap );
-			}
-
-			return report;
-		}
-
 		var field = row.el.querySelector( '.wpcpm-notes__input' );
 
 		if ( ! field || 'call' !== row.group ) {

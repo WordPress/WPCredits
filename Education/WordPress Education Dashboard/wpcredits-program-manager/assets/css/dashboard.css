@@ -360,10 +360,6 @@
 	width: 1px;
 }
 
-.wpcpm-mentee__action {
-	margin: 1em 0 0;
-}
-
 /* Call notes. */
 .wpcpm-notes {
 	border-top: 1px solid var( --wpcpm-border );

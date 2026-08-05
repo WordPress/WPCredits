@@ -965,6 +965,21 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
+	 * The account behind an Airtable student record, if there is one.
+	 *
+	 * Public because the mentor's page needs it: a mentee row carries the record ID, and
+	 * offering to open that student's report form means resolving it to an account first.
+	 *
+	 * @param string $record_id Airtable record ID.
+	 * @return WP_User|null
+	 */
+	public static function user_for_record( $record_id ) {
+		$record_id = is_string( $record_id ) ? trim( $record_id ) : '';
+
+		return '' === $record_id ? null : self::find_by_record_id( $record_id );
+	}
+
+	/**
 	 * The account already linked to a student record.
 	 *
 	 * @param string $record_id Airtable record ID.

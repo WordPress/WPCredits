@@ -362,32 +362,6 @@ $GLOBALS['uid'] = 30;
 $_POST = array( 'mentor' => 20, 'availability' => array() );
 run( 'handle_save (student cannot edit a mentor)', array( 'WPCPM_Mentor_Availability', 'handle_save' ) );
 
-echo "\n=== WPCPM_Student_Profile ===\n";
-$GLOBALS['uid'] = 30; $GLOBALS['caps'] = false;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'api_token' => '', 'base_id' => '' );
-$_POST = array( 'student' => 30, 'details' => array( 'slack' => '@newhandle' ) );
-run( 'handle_save (no Airtable credentials)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
-
-$_POST = array( 'student' => 30, 'details' => array() );
-run( 'handle_save (nothing submitted)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
-
-$_POST = array( 'student' => 20, 'details' => array( 'slack' => 'x' ) );
-run( 'handle_save (not your details)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
-
-// Teams post as an array now. This is the shape the browser sends, including the empty value the
-// form always carries so that unchecking everything still reaches the handler — the version that
-// read every field through `is_scalar()` turned this into '' and saved nothing.
-$GLOBALS['uid'] = 30;
-$_POST          = array( 'student' => 30, 'details' => array( 'team' => array( 'recTEAM0000000001', '' ) ) );
-run( 'handle_save (several teams, as an array)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
-
-$_POST = array( 'student' => 30, 'details' => array( 'team' => array( '' ) ) );
-run( 'handle_save (every team unchecked)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
-
-// A hostile shape: nested arrays and objects must not reach Airtable or trip a type error.
-$_POST = array( 'student' => 30, 'details' => array( 'team' => array( array( 'nope' ), 'recUNKNOWN0000001' ) ) );
-run( 'handle_save (junk in the team array)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
-
 echo "\n=== WPCPM_Student_Report_Form ===\n";
 $GLOBALS['uid'] = 30; $GLOBALS['caps'] = false;
 $GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'api_token' => '', 'base_id' => '' );
@@ -404,6 +378,21 @@ run( 'handle_save (unreadable number)', array( 'WPCPM_Student_Report_Form', 'han
 
 $_POST = array( 'student' => 30, 'report' => array( WPCPM_Student_Report_Form::key( 'Hours' ) => '120' ) );
 run( 'handle_save (a readable number, no credentials)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
+
+// Teams post as an array, including the empty value the form always carries so that unchecking
+// everything still reaches the handler. A version that read every field through `is_scalar()`
+// turned this into '' and saved nothing — the bug this shape is here to keep out.
+$team = WPCPM_Student_Report_Form::key( 'Main Contribution Team' );
+
+$_POST = array( 'student' => 30, 'report' => array( $team => array( 'recTEAM0000000001', '' ) ) );
+run( 'handle_save (several teams, as an array)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
+
+$_POST = array( 'student' => 30, 'report' => array( $team => array( '' ) ) );
+run( 'handle_save (every team unchecked)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
+
+// A hostile shape: nested arrays and objects must not reach Airtable or trip a type error.
+$_POST = array( 'student' => 30, 'report' => array( $team => array( array( 'nope' ), 'recUNKNOWN0000001' ) ) );
+run( 'handle_save (junk in the team array)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
 
 echo "\n=== WPCPM_Group_Sessions ===\n";
 $GLOBALS['uid'] = 20; $GLOBALS['caps'] = false;

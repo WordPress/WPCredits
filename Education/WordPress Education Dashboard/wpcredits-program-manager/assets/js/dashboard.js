@@ -78,5 +78,60 @@
 				}
 			} );
 		} );
+		/**
+		 * A student's report form, fetched the first time its disclosure is opened.
+		 *
+		 * Not rendered with the page: reading one costs an Airtable request, and a mentor with
+		 * sixty students would pay for sixty of them to look at one. Fetched once and kept —
+		 * closing and reopening does not ask again.
+		 */
+		( function reports() {
+			var cfg = window.wpcpmDashboard;
+
+			if ( ! cfg || ! cfg.reportEndpoint ) {
+				return;
+			}
+
+			root.addEventListener( 'toggle', function ( event ) {
+				var box = event.target;
+
+				if ( ! box.open || ! box.hasAttribute( 'data-wpcpm-report' ) || box.dataset.wpcpmLoaded ) {
+					return;
+				}
+
+				var body = box.querySelector( '[data-wpcpm-report-body]' );
+
+				if ( ! body ) {
+					return;
+				}
+
+				// Set before the request, not after it: a second toggle while the first is in
+				// flight would otherwise ask again.
+				box.dataset.wpcpmLoaded = '1';
+
+				window.fetch( cfg.reportEndpoint + encodeURIComponent( box.getAttribute( 'data-wpcpm-report' ) ), {
+					credentials: 'same-origin',
+					headers: { 'X-WP-Nonce': cfg.nonce }
+				} )
+					.then( function ( response ) {
+						if ( ! response.ok ) {
+							throw new Error( 'http' );
+						}
+
+						return response.json();
+					} )
+					.then( function ( data ) {
+						body.outerHTML = data.html;
+					} )
+					.catch( function () {
+						// The attribute is cleared so the next open tries again — a report that
+						// failed once because the network blinked should not stay broken until
+						// the page is reloaded.
+						delete box.dataset.wpcpmLoaded;
+						body.textContent = cfg.strings.failed;
+					} );
+			}, true );
+		}() );
+
 	} );
 }() );

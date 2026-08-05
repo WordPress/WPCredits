@@ -348,7 +348,6 @@ class WPCPM_Group_Sessions {
 	public static function render_mentor_panel( WP_User $mentor ) {
 		$sessions = self::for_mentor( $mentor->ID );
 		$zone     = WPCPM_Mentor_Availability::viewer_timezone( $mentor->ID );
-		$settings = WPCPM_Mentor_Availability::get( $mentor->ID );
 
 		echo '<div class="wpcpm-sessions">';
 
@@ -356,11 +355,6 @@ class WPCPM_Group_Sessions {
 			'<h3 class="wpcpm-calls__heading">%1$s <span class="wpcpm-calls__count">%2$s</span></h3>',
 			esc_html__( 'Group sessions', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $sessions ) ) )
-		);
-
-		printf(
-			'<p class="wpcpm-calls__intro">%s</p>',
-			esc_html__( 'An open session your students can join, at a time you choose. It also blocks that time from one-to-one booking, so nobody books you privately over it.', 'wpcredits-program-manager' )
 		);
 
 		if ( empty( $sessions ) ) {
@@ -378,7 +372,30 @@ class WPCPM_Group_Sessions {
 			echo '</ul>';
 		}
 
+		echo '</div>';
+	}
+
+	/**
+	 * The panel that plans one, for the column beside the diary.
+	 *
+	 * Split from the list on purpose: what is in the calendar reads down the left with the booked
+	 * calls, and the two controls that change the calendar — the hours, and this — sit together on
+	 * the right. The explanation travels with the control rather than with the list, because it
+	 * describes what pressing it does.
+	 *
+	 * @param WP_User $mentor The mentor whose sessions these are.
+	 */
+	public static function render_mentor_planner( WP_User $mentor ) {
+		$settings = WPCPM_Mentor_Availability::get( $mentor->ID );
+
+		echo '<div class="wpcpm-sessions wpcpm-sessions--planner">';
+
 		self::render_create_form( $mentor, $settings );
+
+		printf(
+			'<p class="wpcpm-calls__intro">%s</p>',
+			esc_html__( 'An open session your students can join, at a time you choose. It also blocks that time from one-to-one booking, so nobody books you privately over it.', 'wpcredits-program-manager' )
+		);
 
 		echo '</div>';
 	}

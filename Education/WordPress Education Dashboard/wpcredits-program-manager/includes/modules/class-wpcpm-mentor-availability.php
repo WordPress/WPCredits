@@ -791,10 +791,17 @@ class WPCPM_Mentor_Availability {
 		// Closed. Always — at rest, with nothing published, and after a save. A panel that
 		// unfolds on arrival is a panel that has to be folded away again, and the summary
 		// line beside the title already says what the schedule is.
+		// The way in first, then what is published under it — the heading-then-content order the
+		// booked calls beside it use. The state is out of the summary either way, so it stays put
+		// whether the form is open or shut.
 		echo '<details class="wpcpm-availability__disclosure">';
 
+		// The schedule goes *inside* the summary, under its label. It has to be readable with the
+		// form shut, which rules out the body; and it belongs under the control rather than over
+		// it, which rules out a paragraph before the disclosure. A summary may hold blocks, so
+		// this is the one place that is both.
 		printf(
-			'<summary class="wpcpm-availability__summary"><span class="wpcpm-availability__title">%1$s</span> <span class="wpcpm-availability__state">%2$s</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+			'<summary class="wpcpm-availability__summary">%1$s<span class="wpcpm-availability__state">%2$s</span></summary>',
 			esc_html__( 'Your availability for calls', 'wpcredits-program-manager' ),
 			wp_kses_post( self::summary( $mentor->ID ) )
 		);

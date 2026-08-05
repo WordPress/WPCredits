@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.45.0
+Stable tag: 1.56.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,7 +192,7 @@ Field *names* are used rather than IDs because Airtable's `filterByFormula` only
 
 As with mentors, accounts are created with a random password and **no email is sent**, administrators' roles are never touched, and no account is ever deleted. A student who leaves the program loses the Student role, and with it access to Student-level content, unless you set *When a student leaves the program* to leave it in place.
 
-**The student page.** Activation creates a page called *Student Report Card* at `/student-dashboard/`, gated to Student level. Its sections are *My profile*, *My mentor*, *My course*, *Report form* and *My mentor call*. It renders against the logged-in user, so each student sees only their own. It shows their program (`In Sensei` or `In Sensei 50h`), internship dates, tutor, educational institution, WordPress.org, Slack, contribution team, personal website, and a button to their prefilled report form — the 50-hour form for students on that track.
+**The student page.** Activation creates a page called *Student Report Card* at `/student-dashboard/`, gated to Student level. Its sections are *My profile*, *My mentor*, *My course*, *Report form* and *My mentor call*. It renders against the logged-in user, so each student sees only their own. It shows their program (`In Sensei` or `In Sensei 50h`), internship dates, tutor, educational institution, WordPress.org, Slack, contribution team and personal website. *My profile* is a record, not a form: everything a student can change about themselves is asked on the report form, so no column is written from two places.
 
 There is no *Program* column in Airtable, so the program shown is the student's status, which is also what decides which report form applies.
 
@@ -290,6 +290,247 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.56.2 =
+* **Restores the notes section on a student's card.** It was dropped by accident when the report
+  disclosure took its place in the card; notes are the mentor's own record of their calls and
+  nothing else on the page holds them. They sit beside the details table again.
+* **A report opened from a mentor's page is read only for everyone, program managers included.**
+  The capability said a manager may edit any report, so a manager reading a mentor's page got live
+  boxes and a *Save my report* button over somebody else's answers. Whether a report may be edited
+  is now the view's decision as well as the capability's: on a mentee card it is a record, and a
+  manager still edits from the student's own card.
+* Read only now means there is no form at all — no `<form>`, no nonce, no hidden fields, no submit
+  — rather than a form with everything in it disabled.
+* The report spans the full width of the card under the details table, instead of being auto-placed
+  into the notes column at half width.
+* Pins all of that in `bin/test-report-form.php`, asserted on the rendered markup: every control
+  disabled, no save button, and the student's own form still editable.
+
+= 1.56.1 =
+* **A student's report opens on the mentor's card instead of loading a page.** It was a link
+  dressed as a disclosure, which is not the same thing: pressing it navigated. It is a real
+  `<details>` now, and the body is fetched the first time it is opened.
+* **New route `wpcpm/v1/report/<record>`**, which serves one student's report rendered read only.
+  A program manager may read any; a mentor may read the students assigned to them and nobody else,
+  checked against the same mentee list their page is drawn from — so a record they were never
+  given cannot be asked for by editing a URL.
+* Fetched once and kept: closing and reopening does not ask again, and a request that fails clears
+  the flag so the next open retries rather than staying broken until the page is reloaded.
+* `render()` is split into the disclosure and its body, so the page and the route render the same
+  markup and there is no second copy of the form to keep in step.
+
+= 1.56.0 =
+* **The group sessions panel splits in two.** What is planned stays on the left with the booked
+  calls — that column is what is in the calendar. Planning one moves to the right, under the
+  availability panel and in a box like it, because those two are the controls that *change* what is
+  in the calendar. The explanation travels with the control rather than with the list, since it
+  describes what pressing it does.
+* **A student's report form opens from a disclosure, not a button.** Same triangle, same wording as
+  the student's own card. It is still a link rather than a `<details>` with the form already
+  inside: reading a report costs an Airtable request, and rendering sixty of them on every page
+  load — for the fifty-nine nobody opened — is not a page a mentor would wait for.
+
+= 1.55.1 =
+* **Group sessions really do follow the diary now.** 1.55.0 put them in the same grid column, which
+  was not enough: the availability form beside them spans those rows, and a spanning item has its
+  height divided between the rows it covers — so the sessions still sat as far down the page as
+  the form is tall. The diary and the sessions are one box on the left now, which does not care how
+  tall the column beside it is.
+* The left-hand side carries its own inset, so the sessions keep the margin the booked calls have.
+
+= 1.55.0 =
+* **A mentor can read their student's report form.** The button in the student's row linked to the
+  Airtable form; the answers are on this site now, so the row offers *View report form* and the
+  card shows it read only — `user_can_edit()` is false for a mentor, so it renders as a record
+  rather than as something they could change.
+* **Only the card that was asked for loads one.** Reading a report costs an Airtable request, and
+  doing that for sixty cards on every page load would not be a page anybody waits for. The link
+  carries the record and comes back to the same card.
+* **Group sessions sit under the diary rather than under both columns.** An open availability form
+  is tall, and spanning the row pushed the sessions the whole height of it down the page, leaving a
+  column of white beside them.
+* **"24 fields" is gone from beside "Your report form".** It was there to say how much was behind
+  the disclosure, and what it said was "twenty-four things to do" — the opposite of the reason the
+  form is grouped and headed at all.
+
+= 1.54.1 =
+* **Fixes the last hint in the project column falling through the bottom of the pair**, under the
+  rule that follows it. The textareas there were stretched to `min-height: 100%` — right when the
+  description was the only thing beside the team list and had to fill it, wrong once three
+  questions were stacked in that column, because a percentage of an auto-height box resolved
+  against the whole row. They take their own height now.
+* **The published schedule sits under the availability toggle again, not under the open form.** It
+  has to be readable with the form shut, which rules out the body, and it belongs under the
+  control rather than over it — so it goes inside the summary, under the label, which is the one
+  place that is both.
+
+= 1.54.0 =
+* **"Meetings and discussions you took part in" joins the column beside the team list**, under the
+  project description and the post about choosing it. Three questions about the project in one
+  column, with the tall list of teams beside all of them.
+* A pair can now hold a **stack**: one cell of the pair with however many fields belong in it.
+  Spanning the team list across N grid rows divided its height between them, so each question
+  floated a third of the way down the column instead of following the one above it — this is one
+  cell holding a column, which does not care how many questions there are.
+* **The availability toggle sits above what it publishes**, and the panel takes the same border,
+  radius and inset as the booked calls beside it, so the two halves of that section read as one
+  thing rather than as a list next to a panel.
+
+= 1.53.0 =
+* **"Link to the Post 'Reflection: Choosing Your Team and Project'" moved beside the team**, under
+  the project description. The team list is a column of its own and the two questions about the
+  project now stack next to it.
+* **The five course marks are headed *Enter your final grade*.** It is the one instruction that
+  applies to all of them and it was nowhere on the form.
+* **"Optional courses" moved under its three fields as a note.** Nothing had to be done for those
+  courses, which is a thing to say about the answers rather than a name for them.
+* **The availability disclosure is the control group sessions uses** — a plain summary with its own
+  triangle, not a bar with a chevron bolted to the end. Two disclosures a few inches apart on one
+  card should be the same thing. What is published moves out of the summary and above it, so it
+  stays put whether the form is open or shut.
+
+= 1.52.1 =
+* **A divider opens the run of reflection links in Project**, under the contribution team and the
+  project description. The two halves at the top are what a student is doing; everything below is
+  what they did, and the two ran together. On the 50-hour track the same rule falls in the same
+  place, above the meetings and discussions.
+
+= 1.52.0 =
+* **"Complete one of the following courses" sits under the three user levels**, set as a field
+  hint. It was a heading over them reading *Minimum 1 of the following courses* — but it is a
+  condition on the three answers, not a name for them, so it belongs where the other notes about
+  filling something in belong.
+* **The five course marks open with the same rule** the lessons below them do. They started a
+  section of their own and had nothing to mark it, so they read as a continuation of the two
+  contact questions above.
+* Two new things a field can declare: `divider`, which opens a section with a rule and no heading
+  where the labels already say what the run is, and `note`, which writes a line under a run rather
+  than a heading over it.
+
+= 1.51.2 =
+* **The lesson headings inside a group look like headings.** *Minimum 1 of the following courses*,
+  *Optional courses* and *Create your personal website* were set smaller and lighter than the field
+  labels they introduce, so they read as a stray line of text and the fields under them looked like
+  they belonged to whatever came before. Each now opens its section with a rule and takes the same
+  uppercase tracking every other heading on the card uses — one step below the group's own legend,
+  so the order reads group, lesson, field.
+* The space says it too: generous above the rule, tight under the heading, so a heading sits with
+  what it introduces rather than floating between two runs of fields.
+
+= 1.51.1 =
+* **The number boxes are the width of the answer.** 52px, which fits 100 and nothing more. The
+  spinner arrows go with it — at this width they would sit on top of the number, and nobody steps
+  a course mark up one at a time.
+* **The three user levels line up with the marks above them.** They were wrapped in a paired row,
+  and a pair makes its own grid — `auto-fit` collapsed it to three tracks where the group has
+  four, so its boxes sat between the columns rather than in them. They are ordinary fields in the
+  group's grid now; the heading above them is what keeps the three together.
+* **Every row of the team list is the same height**, whether the team's name fits on one line or
+  two, with more space between rows. Measured rather than eyeballed: all 25 rows are 36px.
+
+= 1.51.0 =
+* **Every number box is the same width, and narrow.** The widest answer any of them takes is three
+  digits, and they were as wide as the column they sat in.
+* **The question sits beside the box rather than above it.** A mark sheet is a list of names with a
+  number against each; a two-character answer under a three-line label was mostly label. The
+  columns are wider to suit, so the group still reads several to a row. Each field is capped at
+  24em, so a box in a wide column stays near the question it answers.
+* **The gap between a team's icon and its name is the same on every row.** The Dashicon glyphs are
+  not all the same width, so the icon now sits in a fixed box of its own with the glyph centred in
+  it.
+* The hours box takes the same width as the rest, so the one number outside the form matches the
+  twenty inside it.
+
+= 1.50.1 =
+* **The hours box is the height of every other number box.** Its row was set to `stretch`, so the
+  input grew to the height of the button beside it — and the button was tall because "Save hours"
+  had wrapped onto two lines. The button no longer wraps, and the two now match each other and the
+  five grade boxes below them.
+* **The project description starts on the same line as every other right-hand field.** Its pair was
+  split 3:4 where every other pair is halves, which left the column a little to the left of the
+  ones above it. Measured rather than eyeballed: all three right-hand columns now begin at the
+  same offset.
+
+= 1.50.0 =
+* **Fixes the contribution teams scattering across the row.** Every field in this form was wrapped
+  in a `<p>`, and **a `<p>` cannot contain a `<fieldset>`** — the parser closes the paragraph the
+  moment one opens, so the checkbox list and the hint after it stopped being part of the field and
+  became loose items in the grid. The team block is a `<div>` now. This is why the list sat beside
+  its own label, and why the project description never moved up beside it.
+* Two collisions the fix exposed, both from the list finally being inside `.wpcpm-field`: the
+  form's `label { display: block }` stood every checkbox above its own name, and its
+  `input { width: 100% }` made each checkbox as wide as its column. Both are answered rather than
+  worked around — a check is a flex row, and its box is `width: auto`.
+* **Team icons beside the team names**, the same ones the student's card and the mentor's table
+  show, so a team is recognisable by its mark and not only by reading the name.
+* **The hours box takes the report's own controls**, so the one number outside the form does not
+  look like a different kind of field to the twenty inside it.
+* The reflection links say what they are: *Link to the Post "Reflection: Choosing Your Team and
+  Project"*, *"Your First Contribution"*, *"Halfway Check-In"*, and *Link to a WordPress event you
+  have participated in (online or in person)*.
+
+= 1.49.1 =
+* **The paired fields in 1.49.0 never actually paired.** The rule giving a URL or a paragraph the
+  full row was a descendant selector, so it also caught the fields *inside* a pair and told each of
+  them to span it — the two halves stacked, and the pair was a pair in the markup only. It applies
+  to the fields the group places itself now; a pair sets its own columns. Slack sits beside the
+  WordPress.org profile, the reflection post beside the website, and the project beside the team.
+* **The three WordPress User levels are one lesson**, headed *Minimum 1 of the following courses*
+  and kept on a row together. They were three separate questions the grid packed wherever they
+  fit, which left Advanced stranded on a line of its own.
+* **The hours box is a box and a button on one line**, with the label over them and the hint under.
+  It was drawn through the form's field renderer, which puts label, input and hint in one block and
+  left the Save button an outsider beside all three.
+
+= 1.49.0 =
+* **Hours moved to *My course*, beside the button**, which now has two columns. It is the one
+  number a student updates without having anything else to report, and it was the first question
+  behind a disclosure holding twenty others. The box is the width of the answer now rather than
+  the width of the card.
+* **Fields that belong together share a row.** The two contact lessons, the website and the post
+  about building it, and the contribution team beside the project it is for. The group packs
+  whatever fits into a row, which is how the Slack box ended up in the middle of a run of course
+  marks — a pair is wrapped now, so it stays a pair.
+* **The team checkboxes run across rather than down.** Two dozen teams in one column was most of a
+  screen before the next question.
+* Renamed, to the program's own wording: *What you contributed* is **Describe your contribution
+  project**, *Your personal website* is **Your personal website URL**, and the reflection post is
+  **Link to the Post "Reflection: Building Your Personal Website"**.
+
+= 1.48.0 =
+* **The report form asks the three questions the profile editor used to.** *Your WordPress.org
+  profile* and *Your Slack name* open Onboarding, where both course forms ask them, and the personal
+  website was already there — which meant it was editable from two controls writing one Airtable
+  column, the thing that had just been fixed for contribution teams. One question, one place.
+* **The inline profile editor is gone**, with its handler, its validation and its flash message.
+  *My profile* is a record now: the same details, read from the program, with nothing to press. A
+  student changes them on the form, on the same page, a section further down.
+* Nothing was lost with it. The team validation it owned moved with the question in 1.46.0, and
+  `bin/test-handlers.php` exercises the same hostile shapes against the form's handler instead.
+
+= 1.47.0 =
+* **Conflict resolution is asked on both courses.** It was on the 50-hour track alone, which was
+  the 50-hour form having been built first rather than a difference between the two. On *In Sensei*
+  it sits between the voice course and the three user levels, the order that form uses.
+* **Two lessons inside Onboarding are headed** — *Optional courses* and *Create your personal
+  website* — so a mark for a course nobody had to take does not read as a missing answer, and the
+  website pair reads as the lesson it belongs to rather than as more of the list above it.
+
+= 1.46.0 =
+* **The report form is grouped the way the Airtable form is** — *Total hours*, *Onboarding*,
+  *Project*, *Wrap-up* — rather than by the kind of field each question happens to be. A student
+  who has filled the Airtable form in before finds the same shape, and the two can be read side by
+  side while both exist. The personal website sits in Onboarding on the long course and under
+  Wrap-up on the 50-hour one, which is where each form has it.
+* **Contribution teams are asked for on the report form again**, at the head of *Project*, above
+  what you contributed. They came off the form in 1.45.0 on the reasoning that two controls writing
+  one Airtable column invite two answers — which stands, so the profile editor no longer offers
+  them. One question, one place, and that place is now the form the question belongs to.
+* Removed the "Fill in what you have; you can come back and add the rest" line above the form. It
+  said nothing the form does not.
+* URLs take a full row like the prose fields do. A URL in a 13em column is as unreadable as a
+  paragraph in one.
 
 = 1.45.0 =
 * **The report form is a disclosure, and its fields are grouped.** Twenty boxes in one run is a wall

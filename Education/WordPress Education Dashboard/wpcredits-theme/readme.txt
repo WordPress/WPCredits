@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.1
+Stable tag: 1.8.17
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -55,8 +55,8 @@ page. Specifically it:
   is overdue always outranks an internship that is ending.
 * Adds a search box over the students already listed.
 * Lifts the plugin's "Expand all" / "Collapse all" buttons into a toolbar.
-* Moves the report-form link into the student's row rather than copying it, so
-  there is still only one link to the form.
+* Adds a "Add note" control to the rows of students who need a call, so the thing a mentor came
+  to do is one press from the list.
 
 With JavaScript blocked, the page is the plugin's list, styled: each student is a
 native `<details>` element that opens on its own, and the plugin's own script still
@@ -156,6 +156,81 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.8.17 =
+* Places the report form across the full width of a student's card, under the details table and the
+  notes beside it. As the third child of a two-column grid it was auto-placed into the notes column,
+  where a form of twenty-odd fields had half a card to fit in.
+* Drops the rules for the Airtable button that used to sit in the card; the plugin stopped emitting
+  it in 1.56.0.
+
+= 1.8.16 =
+* Drops the styling for the link that stood in for the report disclosure. It is a real disclosure
+  since plugin 1.56.1, so the summary takes the treatment every other one on the card has.
+
+= 1.8.15 =
+* Dresses the session planner as the availability panel's twin — same box, same inset — so the
+  right-hand column reads as two controls rather than as a panel with a loose paragraph under it.
+* The closed report form on a mentee's card takes the disclosure's own colour and type, so a link
+  standing in for a `<summary>` is not a different kind of thing to look at.
+
+= 1.8.14 =
+* **The report-form link stays in the card.** The script used to hoist it into the student's row,
+  which was right while it opened the Airtable form — one link, reachable without opening the card.
+  Since plugin 1.55.0 it opens that student's report *on this page*, at the foot of their own card,
+  so a control in the row that scrolls you into the card below it is a worse version of the
+  disclosure triangle already there. The row keeps its "Add note" action for a student who needs a
+  call.
+* Dresses the mentor section's new left-hand box: it carries the inset, so the diary and the group
+  sessions under it keep the same margin.
+
+= 1.8.13 =
+* **"No availability set" takes the same red as "Need a call".** Both say the same kind of thing —
+  something is not set and somebody is waiting on it — and this one had a pale red of its own.
+* Gives group sessions the space the grid used to provide when they spanned the row, now that they
+  follow the diary in the same column.
+
+= 1.8.12 =
+* The availability panel takes a call card's inset — same 12px/14px — so the schedule and the
+  booked calls beside it are two of the same box. Its body keeps only the rule and the space over
+  it, since the panel now carries the padding.
+
+= 1.8.11 =
+* **"Save my report" takes the same treatment as the card's other actions** — the size and radius
+  the course, report-form and Need help? buttons use. It is the one thing a student presses on that
+  form, and it was the size of a table control.
+* Follows the plugin's availability disclosure, which is now the same control group sessions uses:
+  the toggle takes the sessions treatment, and the rules that dressed the old bar — its title span
+  and its borrowed chevron — are gone with the markup they styled.
+
+= 1.8.10 =
+* Dresses the report form's two new section marks in the card's tokens: the headless divider takes
+  the same soft rule as a headed one, and the note under a run of fields takes the muted ink every
+  other hint on the card uses.
+
+= 1.8.9 =
+* Dresses the report form's lesson headings in the card's own tokens — the soft rule and the muted
+  ink — one step below the group legend, so a group, a lesson and a field are three distinct
+  levels rather than three things shouting at the same volume.
+
+= 1.8.8 =
+* The Save button beside the hours box takes the same type and padding as the controls, so the box
+  and the button read as one row rather than as a field with something taller attached to it.
+
+= 1.8.7 =
+* **The hours box takes the report form's controls** — same border, radius, type and padding — so
+  the field outside the form matches the ones inside it.
+* A team's name in the contribution list is an answer rather than a field label, so it keeps the
+  card's body type instead of the bold, muted, 12px treatment every question above it takes.
+
+= 1.8.6 =
+* Follows the hours box, which draws its own label rather than one of the form's field rows, so the
+  label keeps the muted treatment every other label on the card has.
+
+= 1.8.5 =
+* **Dresses My course's two columns** — the button that opens the course beside the hours box the
+  plugin moved there — and gives the hours label the same muted treatment every other field label
+  on the card has.
 
 = 1.8.4 =
 * **Dresses the report form's grouped fieldsets.** The plugin's own border and radius are stood down

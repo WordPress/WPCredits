@@ -344,6 +344,21 @@ class WPCPM_Mentors_Dashboard {
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
 
+		// Where the report bodies come from, and the one message the script has to say for
+		// itself. Localized here rather than printed in the markup so the strings stay
+		// translatable and the endpoint is built by WordPress.
+		wp_localize_script(
+			self::SCRIPT,
+			'wpcpmDashboard',
+			array(
+				'reportEndpoint' => esc_url_raw( rest_url( 'wpcpm/v1/report/' ) ),
+				'nonce'          => wp_create_nonce( 'wp_rest' ),
+				'strings'        => array(
+					'failed' => __( 'That report could not be loaded just now. Close this and open it again to retry.', 'wpcredits-program-manager' ),
+				),
+			)
+		);
+
 		if ( ! is_user_logged_in() ) {
 			return self::notice(
 				__( 'Please log in to see the students assigned to you.', 'wpcredits-program-manager' ),
@@ -976,25 +991,39 @@ class WPCPM_Mentors_Dashboard {
 
 		echo '</tbody></table>';
 
-		$link = $get( 'link' );
-
-		if ( '' !== $link ) {
-			printf(
-				'<p class="wpcpm-mentee__action"><a class="wpcpm-button" href="%1$s" target="_blank" rel="noopener noreferrer" title="%2$s">%3$s</a></p>',
-				esc_url( $link ),
-				// Airtable column names are not translated: the tooltip names the
-				// actual column to go and edit, which does not change with locale.
-				esc_attr( self::source_title( $is_50h ? '50h personal link' : 'Personal link' ) ),
-				esc_html(
-					$is_50h
-						? __( 'Student report form (50h)', 'wpcredits-program-manager' )
-						: __( 'Student report form', 'wpcredits-program-manager' )
-				)
-			);
-		}
-
+		// The mentor's own notes on this student, beside the table. Rendered before the report so
+		// that the source order matches what the grid draws — table and notes side by side, the
+		// report underneath both — and so the single-column layout on a phone reads the same way.
 		WPCPM_Mentor_Notes::render( $record, $name, $mentor_id );
 
+		// The student's own report form, **read only**, in a disclosure of its own. The route it is
+		// fetched from renders it as a record rather than as something to change, whoever is
+		// looking: a mentor cannot edit it, and neither can a program manager reading a mentor's
+		// page, because this is the mentor's view of it. Managers edit a report from the student's
+		// own card, where the form belongs to the student it is about.
+		//
+		// **The body arrives when it is opened.** Reading a report costs an Airtable request, and a
+		// mentor with sixty students would pay for sixty of them to look at one — so the card
+		// ships the disclosure and the script fetches the one that gets opened.
+		//
+		// This is the one control on the page that needs JavaScript, and it says so rather than
+		// spinning: everything else here — the disclosures, the notes form, printing — works
+		// without it, so a silent "Loading…" would be the only dead thing on the page.
+		if ( '' !== $record && WPCPM_Students_Sync::user_for_record( $record ) instanceof WP_User ) {
+			printf(
+				'<details class="wpcpm-report__disclosure wpcpm-mentee__report" data-wpcpm-report="%1$s">'
+					. '<summary class="wpcpm-report__toggle">%2$s</summary>'
+					. '<div class="wpcpm-report__body" data-wpcpm-report-body>'
+					. '<p class="wpcpm-student__note">%3$s</p>'
+					. '<noscript><p class="wpcpm-student__note">%4$s</p></noscript>'
+					. '</div>'
+					. '</details>',
+				esc_attr( $record ),
+				esc_html__( 'Report form', 'wpcredits-program-manager' ),
+				esc_html__( 'Loading…', 'wpcredits-program-manager' ),
+				esc_html__( 'This one needs JavaScript: the report is fetched when you open it, so that a page listing sixty students does not read sixty reports nobody asked for.', 'wpcredits-program-manager' )
+			);
+		}
 		echo '</div>'; // .wpcpm-mentee__body
 		echo '</details>';
 		echo '</article>';

@@ -653,7 +653,8 @@
    are the only things on the page a student actually does. At the shared size they read as
    two more table controls; at this size they read as the point of the page. */
 .wpc-dashboard-page .wpcpm-student__actions .wpcpm-button,
-.wpc-dashboard-page .wpcpm-handbook__prompt .wpcpm-button {
+.wpc-dashboard-page .wpcpm-handbook__prompt .wpcpm-button,
+.wpc-dashboard-page .wpcpm-report__submit .wpcpm-button {
 	border-radius: 8px;
 	font: 600 17px/24px var( --wpc-font );
 	padding: 15px 32px;
@@ -1161,10 +1162,11 @@
 	padding: 16px 12px 20px;
 }
 
-/* Placed explicitly rather than left to source order. The script lifts the report
-   button out of the body into the collapsed row, so at runtime there are two
-   children and the flow happens to be right — but with JavaScript off there are
-   three, and the button would take the notes column and shove notes underneath. */
+/* Placed explicitly rather than left to source order, because auto-placement puts
+   the report where it fits rather than where it belongs: as the third child of a
+   two-column grid it lands beside the table, in the notes column, and a form of
+   twenty-odd fields squeezed into half a card is unreadable. Spanning both columns
+   under the table gives it the width its two-column groups were drawn for. */
 .wpcpm-mentee__body > .wpcpm-mentee__table {
 	grid-area: 1 / 1;
 }
@@ -1173,7 +1175,7 @@
 	grid-area: 1 / 2;
 }
 
-.wpcpm-mentee__body > .wpcpm-mentee__action {
+.wpcpm-mentee__body > .wpcpm-mentee__report {
 	grid-area: 2 / 1 / 3 / -1;
 }
 
@@ -1223,10 +1225,10 @@
 	background: var( --wpc-amber-tint );
 }
 
-/* Left in the body for anyone printing or without JavaScript; the script lifts
-   it into the row when it runs. */
-.wpcpm-mentee__action {
-	margin: 12px 0 0;
+/* The grid's own 20px gap already separates it from the table and the notes above
+   it, so the plugin's top margin would only add to a space that is already there. */
+.wpcpm-mentee__report {
+	margin-top: 0;
 }
 
 /* ==========================================================================
@@ -1647,15 +1649,20 @@
 	padding: 10px 12px;
 }
 
+/* The session planner is the availability panel's twin — same box, same inset — so the right
+   column reads as two controls rather than as a panel and a loose paragraph. */
+.wpc-dashboard-page .wpcpm-sessions--planner {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	padding: 12px 14px;
+}
+
 .wpc-dashboard-page .wpcpm-availability {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line-card );
 	border-radius: var( --wpc-radius-panel );
-}
-
-.wpc-dashboard-page .wpcpm-availability__title {
-	color: var( --wpc-ink );
-	font: 700 13px/20px var( --wpc-font );
+	padding: 12px 14px;
 }
 
 /* -------------------------------------------------------------------------
@@ -1720,28 +1727,20 @@
 	opacity: 1;
 }
 
-/* An empty schedule says so in the plugin's attention colour rather than the muted grey
-   the rest of this panel's supporting text takes. Restated here because the group of
-   muted-text rules at the top of this file sets `opacity: 1` on
-   `.wpcpm-availability__state`, and would otherwise also give it `--wpc-ink-70`. */
+/* An empty schedule is the same kind of statement as "Need a call" — something is not set and
+   somebody is waiting on it — so it takes the same red rather than a pale one of its own.
+   Restated here because the group of muted-text rules at the top of this file sets
+   `opacity: 1` on `.wpcpm-availability__state`, and would otherwise give it `--wpc-ink-70`. */
 .wpc-dashboard-page .wpcpm-availability--unset .wpcpm-availability__state {
-	color: #daa39b;
+	color: var( --wpc-red );
 	opacity: 1;
 }
 
-/* The plugin reuses `.wpcpm-mentee__toggle` for this disclosure's chevron, which
-   gets it this theme's masked icon and its `order: -1` for free. The open state does
-   not follow, though — that rule is keyed to `.wpcpm-mentee__disclosure` — so the
-   arrow would point right while the panel was open. */
-.wpc-dashboard-page .wpcpm-availability__disclosure[open] .wpcpm-mentee__toggle {
-	color: var( --wpc-brand );
-	mask-image: var( --wpc-icon-chevron-down );
-	-webkit-mask-image: var( --wpc-icon-chevron-down );
-}
-
+/* The panel carries the inset now, so the body only needs the rule and the space over it. */
 .wpc-dashboard-page .wpcpm-availability__body {
 	border-top: 1px solid var( --wpc-line-soft );
-	padding: 14px;
+	margin-top: 12px;
+	padding: 14px 0 0;
 }
 
 .wpc-dashboard-page .wpcpm-availability__legend {
@@ -1843,7 +1842,7 @@
 }
 
 .wpc-dashboard-page .wpcpm-calls__col--diary {
-	padding-right: 24px;
+	padding-right: 0;
 }
 
 .wpc-dashboard-page .wpcpm-calls__col--availability {
@@ -1851,16 +1850,22 @@
 	padding-left: 24px;
 }
 
-/* The diary opens with a section label and the availability column does not, so the two
-   panels started a label apart — the disclosure sat level with the word "UPCOMING CALLS"
-   while the first call card began below it, and two panels that are meant to be read
-   together looked staggered.
+/* The diary opens with a section label and the availability column does not, so the two panels
+   start a label apart — the disclosure would sit level with the word "UPCOMING CALLS" while the
+   first call card begins below it, and two panels meant to be read together look staggered.
 
    The offset is that label's own box: 16px of line plus its 12px margin, both set on
-   `.wpcpm-calls__heading` a few rules up. It is a number tied to another number, which is
-   why they are stated together here — change one and this has to follow. */
+   `.wpcpm-calls__heading` a few rules up. It is a number tied to another number, which is why
+   they are stated together here — change one and this has to follow. */
 .wpc-dashboard-page .wpcpm-calls__col--availability {
 	margin-top: 28px;
+}
+
+/* The left-hand side carries the diary's inset now that it is a box of its own, and the two
+   things inside it are separated by the gap rather than by margins. */
+.wpc-dashboard-page .wpcpm-calls__side {
+	gap: 24px;
+	padding-right: 24px;
 }
 
 @media ( max-width: 900px ) {
@@ -2126,7 +2131,7 @@
 	   now has one, so they are stood down with the layout. */
 	.wpcpm-mentee__body > .wpcpm-mentee__table,
 	.wpcpm-mentee__body > .wpcpm-notes,
-	.wpcpm-mentee__body > .wpcpm-mentee__action {
+	.wpcpm-mentee__body > .wpcpm-mentee__report {
 		grid-area: auto;
 	}
 
@@ -2200,7 +2205,8 @@
 }
 
 .wpc-dashboard-page .wpcpm-sessions__new-toggle,
-.wpc-dashboard-page .wpcpm-sessions__note-toggle {
+.wpc-dashboard-page .wpcpm-sessions__note-toggle,
+.wpc-dashboard-page .wpcpm-availability__summary {
 	color: var( --wpc-brand );
 	font: 600 13px/20px var( --wpc-font );
 }
@@ -2228,8 +2234,18 @@
    availability editor and the session forms rather than looking like a third kind of
    form on the same site.
    ------------------------------------------------------------------------- */
+/* The Save button matches the box beside it: the same 13px/20px and 6px of padding the
+   controls take, plus a border of its own width, so the two are one row rather than a field
+   with something taller stuck to it. */
+.wpc-dashboard-page .wpcpm-hours__entry .wpcpm-button {
+	border-width: 1px;
+	font: 600 13px/20px var( --wpc-font );
+	padding: 6px 12px;
+}
+
 .wpc-dashboard-page .wpcpm-report input,
-.wpc-dashboard-page .wpcpm-report textarea {
+.wpc-dashboard-page .wpcpm-report textarea,
+.wpc-dashboard-page .wpcpm-hours input {
 	border: 1px solid var( --wpc-line-control, var( --wpc-line-card ) );
 	border-radius: var( --wpc-radius-control );
 	font: 13px/20px var( --wpc-font );
@@ -2253,7 +2269,8 @@
 /* A disabled form is a manager looking at somebody else's report, so it should read as
    information rather than as something broken. */
 .wpc-dashboard-page .wpcpm-report input:disabled,
-.wpc-dashboard-page .wpcpm-report textarea:disabled {
+.wpc-dashboard-page .wpcpm-report textarea:disabled,
+.wpc-dashboard-page .wpcpm-hours input:disabled {
 	background: var( --wpc-surface-soft );
 	color: var( --wpc-ink-70 );
 }
@@ -2261,6 +2278,29 @@
 /* The grouped fieldsets. The plugin's own border and radius are stood down for the
    design's card line, and the legend takes the same uppercase treatment as every other
    heading inside a card — so a group reads as a section rather than as a browser default. */
+/* My course, in two columns: the button that opens the course, and the hours box. They are
+   read together — "where do I go" and "how far am I" — and neither needs half a card. */
+.wpc-dashboard-page .wpcpm-student__course-cols {
+	align-items: center;
+	display: grid;
+	gap: 16px 32px;
+	grid-template-columns: repeat( auto-fit, minmax( 15em, 1fr ) );
+}
+
+/* The hours box draws its own label — it is not one of the form's `.wpcpm-field` rows — so it
+   is given the same muted treatment every other field label on this card has. */
+.wpc-dashboard-page .wpcpm-hours__label {
+	color: var( --wpc-ink-70 );
+	font: 600 12px/16px var( --wpc-font );
+}
+
+/* A team's name is an answer, not a field label: the card's own label treatment — 12px, bold,
+   muted — is for the question above the list, and reads as shouting on two dozen checkboxes. */
+.wpc-dashboard-page .wpcpm-field .wpcpm-report__check {
+	color: var( --wpc-ink );
+	font: 13px/1.4 var( --wpc-font );
+}
+
 .wpc-dashboard-page .wpcpm-report__group {
 	border-color: var( --wpc-line-card );
 	border-radius: var( --wpc-radius-panel );
@@ -2269,6 +2309,26 @@
 
 .wpc-dashboard-page .wpcpm-report__group > legend {
 	color: var( --wpc-ink-70 );
+	font: 700 11px/16px var( --wpc-font );
+	letter-spacing: .06em;
+}
+
+/* The lesson headings inside a group. One step down from the group's own legend — same
+   uppercase tracking, a shade lighter — so the order reads group, lesson, field rather than
+   three things shouting at the same volume. */
+.wpc-dashboard-page .wpcpm-report__rule {
+	border-top-color: var( --wpc-line-soft );
+}
+
+.wpc-dashboard-page .wpcpm-report__note {
+	color: var( --wpc-ink-60 );
+	font: 12px/16px var( --wpc-font );
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-report__sub {
+	border-top-color: var( --wpc-line-soft );
+	color: var( --wpc-ink-60 );
 	font: 700 11px/16px var( --wpc-font );
 	letter-spacing: .06em;
 }

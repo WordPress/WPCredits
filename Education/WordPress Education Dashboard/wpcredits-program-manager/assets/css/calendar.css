@@ -305,10 +305,13 @@
 /* --------------------------------------------------------------------------
    The mentor's availability editor
    -------------------------------------------------------------------------- */
+/* The same box the booked calls beside it sit in — same border, radius and inset — so the two
+   halves of this section read as one thing rather than as a list next to a panel. */
 .wpcpm-availability {
 	border: 1px solid var( --wpcpm-border );
 	border-radius: var( --wpcpm-radius );
-	margin: 1.25em 0 0;
+	margin: 0;
+	padding: 0.8em 1em;
 }
 
 /* The save confirmation sits between the section's border and the disclosure, so it needs
@@ -319,37 +322,32 @@
 	padding: 0.7em 1em 0;
 }
 
+/* The same control group sessions uses to open its form: a plain summary with its own
+   triangle, not a bar with a chevron bolted to the end. Two disclosures a few inches apart on
+   one card should be the same thing. */
 .wpcpm-availability__summary {
-	align-items: center;
 	cursor: pointer;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5em;
-	list-style: none;
-	padding: 0.7em 1em;
+	font-size: 0.9em;
+	font-weight: 600;
 }
 
-.wpcpm-availability__summary::-webkit-details-marker {
-	display: none;
-}
-
-.wpcpm-availability__summary::marker {
-	content: '';
-}
-
-.wpcpm-availability__title {
-	font-weight: 700;
-}
-
+/* What is published, under the control's own label and inside it, so it is readable whether
+   the form is open or shut. Its own weight and size — the summary is a heading, this is not. */
 .wpcpm-availability__state {
 	color: inherit;
-	font-size: 0.9em;
+	display: block;
+	font-size: 0.95em;
+	font-weight: 400;
+	margin-top: 0.5em;
 	opacity: 0.72;
 }
 
+
+
 .wpcpm-availability__body {
 	border-top: 1px solid var( --wpcpm-border );
-	padding: 1em;
+	margin-top: 0.8em;
+	padding-top: 1em;
 }
 
 .wpcpm-availability__intro,
@@ -459,6 +457,30 @@
 }
 
 .wpcpm-calls__col {
+	min-width: 0;
+}
+
+/* The planner takes the availability panel's box: they are the two controls that change what
+   is in the calendar, and a bordered one beside a bare one reads as only half a pair. */
+.wpcpm-sessions--planner {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	margin-top: 1em;
+	padding: 0.8em 1em;
+}
+
+/* Under the control, the way the published hours sit under theirs. */
+.wpcpm-sessions--planner .wpcpm-calls__intro {
+	margin: 0.5em 0 0;
+}
+
+/* The diary and the sessions in one box on the left, the hours on the right. A box rather than
+   two rows of this grid: a spanning item has its height divided between the rows it covers, so
+   an open availability form put the sessions as far down the page as the form is tall. */
+.wpcpm-calls__side {
+	display: grid;
+	gap: 1.5em;
+	grid-template-rows: min-content;
 	min-width: 0;
 }
 
@@ -797,6 +819,11 @@
 	font-weight: 600;
 }
 
+/* The report on a mentee's card: a real disclosure, so it needs no triangle of its own. */
+.wpcpm-mentee__report {
+	margin: 1em 0 0;
+}
+
 .wpcpm-report__count {
 	font-weight: 400;
 	opacity: 0.72;
@@ -829,18 +856,210 @@
 	min-width: 0;
 }
 
-/* Numbers are short; four to a row on a wide card reads as a mark sheet rather than
-   as a column of unrelated questions. */
-.wpcpm-report__group--grades,
-.wpcpm-report__group--courses,
+/* Numbers are short; several to a row on a wide card reads as a mark sheet rather than as a
+   column of unrelated questions. The columns are wider than the boxes because the question is
+   beside the box now, not above it — a mark sheet is a list of names with a number against
+   each, and a two-character answer under a three-line label was mostly label. */
+.wpcpm-report__group--onboarding,
 .wpcpm-report__group--hours {
-	grid-template-columns: repeat( auto-fit, minmax( 11em, 1fr ) );
+	grid-template-columns: repeat( auto-fit, minmax( 19em, 1fr ) );
 }
 
-/* A paragraph in a 13em column is unreadable. */
-.wpcpm-report__group .wpcpm-field--textarea,
-.wpcpm-report__group .wpcpm-field--richtext {
+/* Every number box the same width, and narrow: the widest answer any of them takes is three
+   digits. The question takes the room left over. */
+.wpcpm-report__group .wpcpm-field--number {
+	align-items: center;
+	display: flex;
+	gap: 0.75em;
+	justify-content: space-between;
+	/* Capped, so a box in a wide column stays near the question it answers. Without it the
+	   three user levels sat a third of a card away from their own labels. */
+	max-width: 24em;
+}
+
+.wpcpm-report__group .wpcpm-field--number label {
+	margin-bottom: 0;
+}
+
+.wpcpm-report__group .wpcpm-field--number input {
+	appearance: textfield;
+	flex: none;
+	-moz-appearance: textfield;
+	width: 4em;
+}
+
+.wpcpm-report__group .wpcpm-field--number input::-webkit-outer-spin-button,
+.wpcpm-report__group .wpcpm-field--number input::-webkit-inner-spin-button {
+	appearance: none;
+	margin: 0;
+	-webkit-appearance: none;
+}
+
+/* A paragraph in a 13em column is unreadable, and so is a URL: both take the full row.
+   That is also the shape of the Airtable form this replaces, where every question of any
+   length has a row to itself.
+
+   **Direct children only.** As a descendant rule this also caught the fields inside a pair,
+   where it told each of them to span the pair — so the two halves stacked and the pair was a
+   pair in the markup only. A pair sets its own columns; this is for the fields the group
+   places itself. */
+.wpcpm-report__group > .wpcpm-field--textarea,
+.wpcpm-report__group > .wpcpm-field--richtext,
+.wpcpm-report__group > .wpcpm-field--url,
+.wpcpm-report__group > .wpcpm-field--team {
 	grid-column: 1 / -1;
+}
+
+/* A pair of fields that belong together — the two contact lessons, the website and the post
+   about building it, the team and the project it is for. Its own grid inside the group's, so
+   the group cannot pack a short box in beside them. */
+.wpcpm-report__pair {
+	display: grid;
+	gap: 0.75em 1.25em;
+	grid-column: 1 / -1;
+	grid-template-columns: repeat( auto-fit, minmax( 16em, 1fr ) );
+}
+
+/* The team list is the tall one: a column of checkboxes beside the project it is for, rather
+   than above it, so the section does not run off the screen before the next question.
+   Halves, like every other pair, so the description begins on the same line as the right-hand
+   field of every group above it rather than a little to the left of it. */
+.wpcpm-report__pair--project {
+	align-items: start;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+/* The questions about the project — describe it, link the post about choosing it, list the
+   discussions — share one column beside the team list.
+
+   A column of their own rather than rows of the pair's grid: a tall list spanned across N
+   rows has its height divided between them, so each question floated a third of the way down
+   the column instead of following the one above it. This is one cell holding a stack. */
+.wpcpm-report__stack {
+	display: grid;
+	gap: 0.75em;
+	min-width: 0;
+}
+
+.wpcpm-report__stack .wpcpm-field {
+	margin: 0;
+	min-width: 0;
+}
+
+@media ( max-width: 782px ) {
+
+	.wpcpm-report__pair--project {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}
+
+/* The textareas take their own height. They were stretched to `min-height: 100%` back when the
+   description was the only thing beside the team list and had to fill it — with three questions
+   stacked in that column, a percentage of an auto-height box resolved against the whole row and
+   pushed the last hint out through the bottom of the pair, under the rule that follows it. */
+
+/* A lesson heading inside a group — "Optional courses", "Create your personal website".
+   **It has to outrank the labels under it.** At 0.85em and 0.75 opacity it was quieter than the
+   field labels it introduced, so it read as a stray line of text rather than as a heading and
+   the fields under it looked like they belonged to whatever came before.
+
+   Three things say "heading" together: the rule that opens the section, the uppercase tracking
+   the card uses for every other heading, and the space — generous above it, tight below, so it
+   sits with what it introduces rather than floating between two groups of fields. */
+/* A section that starts with a rule and no heading. Same line, same space above it — the two
+   have to be one thing, or a form of them reads as two kinds of divider. */
+.wpcpm-report__rule {
+	border-top: 1px solid rgba( 0, 0, 0, 0.12 );
+	grid-column: 1 / -1;
+	margin: 1em 0 0;
+	padding-top: 0.9em;
+}
+
+/* A condition on the answers above it — "complete one of the following" — set as the field
+   hints are, because that is what it is: a note about how to fill something in. */
+.wpcpm-report__note {
+	font-size: 0.85em;
+	grid-column: 1 / -1;
+	margin: 0.4em 0 0;
+	opacity: 0.72;
+}
+
+.wpcpm-report__sub {
+	/* The rule is the section's, not the text's, so it is drawn in its own light gray rather
+	   than in `currentColor`, which would give it the heading's weight. */
+	border-top: 1px solid rgba( 0, 0, 0, 0.12 );
+	font-size: 0.75em;
+	font-weight: 700;
+	grid-column: 1 / -1;
+	letter-spacing: 0.06em;
+	margin: 1em 0 0;
+	padding-top: 0.9em;
+	text-transform: uppercase;
+}
+
+/* The first row under a heading sits close to it. Everything in this grid has a row gap; this
+   takes it back for the one row that should read as attached. */
+.wpcpm-report__sub + *,
+.wpcpm-report__rule + * {
+	margin-top: -0.35em;
+}
+
+/* The contribution teams, the same control the profile editor had before this form took the
+   question over. A dozen teams need the full width to stack in, so the checkboxes lay
+   themselves out in as many columns as fit rather than in one long list. */
+.wpcpm-report__teams {
+	border: 0;
+	display: grid;
+	gap: 0.5em 1em;
+	grid-template-columns: repeat( auto-fit, minmax( 10em, 1fr ) );
+	margin: 0.25em 0 0;
+	min-width: 0;
+	padding: 0;
+}
+
+/* The label is the hit area, so the whole "☐ Documentation" reads and clicks as one thing.
+   Two classes deep because `.wpcpm-field label` — which every other field in this form wants —
+   is `display: block`, and would otherwise stand each checkbox above its own name. */
+.wpcpm-field .wpcpm-report__check {
+	align-items: center;
+	display: flex;
+	font-weight: 400;
+	gap: 0.4em;
+	line-height: 1.4;
+	margin-bottom: 0;
+	/* Two lines' worth, so a team whose name wraps does not make its row taller than the
+	   rest — the checkboxes and marks then step evenly down every column. */
+	min-height: 2.8em;
+}
+
+/* `width: 100%` is right for the text boxes in this form and wrong for a checkbox: it made
+   each one as wide as its column, with the glyph at the left of it and the team's name pushed
+   to the far side. Both are needed — `flex: none` stops it growing, `width: auto` stops it
+   starting wide. */
+.wpcpm-field .wpcpm-report__check input {
+	flex: none;
+	margin: 0;
+	width: auto;
+}
+
+/* The team's own icon, so the list reads the way the teams do everywhere else on the card. */
+.wpcpm-report__check .wpcpm-team__icon {
+	align-items: center;
+	display: inline-flex;
+	flex: none;
+	font-size: 16px;
+	height: 16px;
+	justify-content: center;
+	line-height: 1;
+	margin-right: 0.15em;
+	opacity: 0.75;
+	width: 16px;
+}
+
+/* The name of the group, where every other field has a `<label>`. */
+.wpcpm-field__label {
+	display: block;
+	font-weight: 600;
 }
 
 .wpcpm-report__submit {
@@ -849,4 +1068,36 @@
 
 .wpcpm-report__error {
 	font-weight: 600;
+}
+
+/* The hours box, beside the course button rather than in the form. A number two or three
+   characters long had the full width of the card, which reads as an invitation to write an
+   essay in it. */
+.wpcpm-hours {
+	display: grid;
+	gap: 0.25em;
+	justify-items: start;
+}
+
+.wpcpm-hours__label {
+	font-weight: 600;
+}
+
+/* The box and the button, on one line and the same height as each other *and* as every other
+   number box in the report — `stretch` made the input grow to the button's height instead, so
+   the one field outside the form was the tallest thing on the card. Baselines rather than
+   stretch, and the button is stopped from wrapping "Save hours" onto two lines, which is what
+   made it tall in the first place. */
+.wpcpm-hours__entry {
+	align-items: start;
+	display: flex;
+	gap: 0.5em;
+}
+
+.wpcpm-hours__entry .wpcpm-button {
+	white-space: nowrap;
+}
+
+.wpcpm-hours input[type="number"] {
+	width: 5em;
 }

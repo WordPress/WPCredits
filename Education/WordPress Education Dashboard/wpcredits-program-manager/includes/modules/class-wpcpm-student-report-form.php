@@ -48,6 +48,7 @@ class WPCPM_Student_Report_Form {
 	 */
 	public static function init() {
 		add_action( 'admin_post_' . self::ACTION_SAVE, array( __CLASS__, 'handle_save' ) );
+		add_action( 'rest_api_init', array( __CLASS__, 'register_route' ) );
 	}
 
 	/*
@@ -75,7 +76,7 @@ class WPCPM_Student_Report_Form {
 			'step'  => '0.01',
 			'min'   => 0,
 			'max'   => 100,
-			'group' => 'grades',
+			'group' => 'onboarding',
 		);
 
 		$mark = array(
@@ -83,7 +84,7 @@ class WPCPM_Student_Report_Form {
 			'step'  => '1',
 			'min'   => 0,
 			'max'   => 100,
-			'group' => 'courses',
+			'group' => 'onboarding',
 		);
 
 		$hours = array(
@@ -98,37 +99,80 @@ class WPCPM_Student_Report_Form {
 			),
 		);
 
+		// The first two lessons of Onboarding. They were rows in *My profile* until 1.48.0, which
+		// meant the personal website was editable from two controls writing one Airtable column —
+		// the thing that had already been fixed for contribution teams. The form owns all three
+		// now, and the profile shows them without an editor.
+		$contact = array(
+			'WordPress Profile' => array(
+				'label' => __( 'Your WordPress.org profile', 'wpcredits-program-manager' ),
+				'type'  => 'url',
+				'group' => 'onboarding',
+				'row'   => 'contact',
+				'help'  => __( 'Your profile page, or just your username.', 'wpcredits-program-manager' ),
+			),
+			'Slack Name'        => array(
+				'label'     => __( 'Your Slack name', 'wpcredits-program-manager' ),
+				'type'      => 'text',
+				'maxlength' => 100,
+				'group'     => 'onboarding',
+				'row'       => 'contact',
+				'help'      => __( 'Your display name in the Making WordPress Slack.', 'wpcredits-program-manager' ),
+			),
+		);
+
 		$common_grades = array(
-			'Open source basics and WordPress - final grade' => array( 'label' => __( 'Open source basics and WordPress', 'wpcredits-program-manager' ) ) + $grade,
+			'Open source basics and WordPress - final grade' => array(
+				'label'    => __( 'Open source basics and WordPress', 'wpcredits-program-manager' ),
+				'subgroup' => __( 'Enter your final grade', 'wpcredits-program-manager' ),
+			) + $grade,
 			'How decisions are made in the WordPress project - final grade' => array( 'label' => __( 'How decisions are made in the WordPress project', 'wpcredits-program-manager' ) ) + $grade,
+		);
+
+		// Conflict resolution is asked on both courses. It lived in `$fifty_grades` alone because the
+		// 50-hour form was built first — the long course asks it too, between the voice course and
+		// the three user levels, which is the order its own form uses.
+		$conflict = array(
+			'Basic principles of conflict resolution - final grade' => array( 'label' => __( 'Basic principles of conflict resolution', 'wpcredits-program-manager' ) ) + $grade,
 		);
 
 		$sensei_grades = array(
 			'Community meeting etiquette - final grade'    => array( 'label' => __( 'Community meeting etiquette', 'wpcredits-program-manager' ) ) + $grade,
 			'Writing in the WordPress voice - final grade' => array( 'label' => __( 'Writing in the WordPress voice', 'wpcredits-program-manager' ) ) + $grade,
-			'Beginner WordPress User - final grade'        => array( 'label' => __( 'Beginner WordPress User', 'wpcredits-program-manager' ) ) + $grade,
-			'Intermediate WordPress User - final grade'    => array( 'label' => __( 'Intermediate WordPress User', 'wpcredits-program-manager' ) ) + $grade,
-			'Advance WordPress User - final grade'         => array( 'label' => __( 'Advanced WordPress User', 'wpcredits-program-manager' ) ) + $grade,
+		) + $conflict + array(
+			'Beginner WordPress User - final grade'     => array(
+				'label'   => __( 'Beginner WordPress User', 'wpcredits-program-manager' ),
+				'divider' => true,
+			) + $grade,
+			'Intermediate WordPress User - final grade' => array( 'label' => __( 'Intermediate WordPress User', 'wpcredits-program-manager' ) ) + $grade,
+			'Advance WordPress User - final grade'      => array(
+				'label' => __( 'Advanced WordPress User', 'wpcredits-program-manager' ),
+				'note'  => __( 'Complete one of the following courses', 'wpcredits-program-manager' ),
+			) + $grade,
 		);
 
+		// Named on the form, because a mark for a course nobody had to take should not look like a
+		// missing answer. The heading is printed above the first field carrying it.
 		$sensei_courses = array(
-			'Beginner WordPress Developer' => array( 'label' => __( 'Beginner WordPress Developer', 'wpcredits-program-manager' ) ) + $mark,
+			'Beginner WordPress Developer' => array( 'divider' => true )
+				+ $mark + array( 'label' => __( 'Beginner WordPress Developer', 'wpcredits-program-manager' ) ),
 			'Intermediate Theme Developer' => array( 'label' => __( 'Intermediate Theme Developer', 'wpcredits-program-manager' ) ) + $mark,
-			'Beginner WordPress Designer'  => array( 'label' => __( 'Beginner WordPress Designer', 'wpcredits-program-manager' ) ) + $mark,
+			'Beginner WordPress Designer'  => array(
+				'label' => __( 'Beginner WordPress Designer', 'wpcredits-program-manager' ),
+				'note'  => __( 'Optional courses', 'wpcredits-program-manager' ),
+			) + $mark,
 		);
 
-		$fifty_grades = array(
-			'Basic principles of conflict resolution - final grade' => array( 'label' => __( 'Basic principles of conflict resolution', 'wpcredits-program-manager' ) ) + $grade,
-		);
+		$fifty_grades = $conflict;
 
 		$project = array(
 			'Contribution Project Description' => array(
-				'label' => __( 'What you contributed', 'wpcredits-program-manager' ),
+				'label' => __( 'Describe your contribution project', 'wpcredits-program-manager' ),
 				'type'  => 'textarea',
 				'group' => 'project',
 			),
 			'Personal Website URL'             => array(
-				'label' => __( 'Your personal website', 'wpcredits-program-manager' ),
+				'label' => __( 'Your personal website URL', 'wpcredits-program-manager' ),
 				'type'  => 'url',
 				'group' => 'project',
 			),
@@ -136,22 +180,22 @@ class WPCPM_Student_Report_Form {
 
 		$posts = array(
 			'Post Reflection: Building Your Personal Website' => array(
-				'label' => __( 'Building your personal website', 'wpcredits-program-manager' ),
+				'label' => __( 'Link to the Post "Reflection: Building Your Personal Website"', 'wpcredits-program-manager' ),
 				'type'  => 'url',
 				'group' => 'posts',
 			),
 			'Post Reflection: Choosing Your Team and Project' => array(
-				'label' => __( 'Choosing your team and project', 'wpcredits-program-manager' ),
+				'label' => __( 'Link to the Post "Reflection: Choosing Your Team and Project"', 'wpcredits-program-manager' ),
 				'type'  => 'url',
 				'group' => 'posts',
 			),
 			'Post Reflection: Your First Contribution' => array(
-				'label' => __( 'Your first contribution', 'wpcredits-program-manager' ),
+				'label' => __( 'Link to the Post "Reflection: Your First Contribution"', 'wpcredits-program-manager' ),
 				'type'  => 'url',
 				'group' => 'posts',
 			),
 			'Post Reflection: Halfway Check-In'        => array(
-				'label' => __( 'Halfway check-in', 'wpcredits-program-manager' ),
+				'label' => __( 'Link to the Post "Reflection: Halfway Check-In"', 'wpcredits-program-manager' ),
 				'type'  => 'url',
 				'group' => 'posts',
 			),
@@ -171,26 +215,78 @@ class WPCPM_Student_Report_Form {
 			),
 		);
 
+		// Asked for here rather than in *My profile*: it is a question about the project, and the
+		// Airtable form this replaces asks it at the head of the Project section. One control, one
+		// column — the profile no longer offers it, so there is still only one place to answer.
+		$teams = array(
+			'Main Contribution Team' => array(
+				'label' => __( 'Main contribution team', 'wpcredits-program-manager' ),
+				'type'  => 'team',
+				'group' => 'project',
+				'row'   => 'project',
+				'help'  => __( 'The teams you are contributing to. Choose as many as apply.', 'wpcredits-program-manager' ),
+			),
+		);
+
+		// A field's group differs by track: the personal website is onboarding on the long course
+		// and an optional wrap-up lesson on the 50-hour one, which is how the two Airtable forms
+		// have it. Rather than two copies of the spec, the group is set as each track is composed.
+		$in = static function ( array $spec, $group ) {
+			$spec['group'] = $group;
+
+			return $spec;
+		};
+
 		if ( $is_50h ) {
-			$fields = $hours + $common_grades + $fifty_grades + array(
-				'Contribution Project Description'  => $project['Contribution Project Description'],
+			$fields = $hours + $contact + $common_grades + $fifty_grades + $teams + array(
+				'Contribution Project Description'  => array(
+					'row'   => 'project',
+					'stack' => true,
+				) + $in( $project['Contribution Project Description'], 'project' ),
+				'Slack/GitHub/Blog WordPress Community meetings/discussions' => array(
+					'row'   => 'project',
+					'stack' => true,
+				) + $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' ),
 				'Final Contribution Project Report' => array(
 					'label' => __( 'Your final project report', 'wpcredits-program-manager' ),
 					'type'  => 'richtext',
-					'group' => 'project',
+					'group' => 'wrapup',
 					'help'  => __( 'The write-up of what you built and contributed.', 'wpcredits-program-manager' ),
 				),
-				'Personal Website URL'              => $project['Personal Website URL'],
-			) + $participation;
+				'Personal Website URL'              => $in( $project['Personal Website URL'], 'wrapup' ),
+			);
 		} else {
-			$fields = $hours + $common_grades + $sensei_grades + $sensei_courses + $project
-				+ $participation + array(
-					'WP event participation URL' => array(
-						'label' => __( 'A WordPress event you took part in', 'wpcredits-program-manager' ),
-						'type'  => 'url',
-						'group' => 'part',
-					),
-				) + $posts;
+			$fields = $hours + $contact + $common_grades + $sensei_grades + $sensei_courses + array(
+				// Onboarding closes with the website and the post about building it.
+				'Personal Website URL' => array(
+					'subgroup' => __( 'Create your personal website', 'wpcredits-program-manager' ),
+					'row'      => 'website',
+				) + $in( $project['Personal Website URL'], 'onboarding' ),
+				'Post Reflection: Building Your Personal Website' => array( 'row' => 'website' )
+					+ $in( $posts['Post Reflection: Building Your Personal Website'], 'onboarding' ),
+			) + $teams + array(
+				'Contribution Project Description'         => array(
+					'row'   => 'project',
+					'stack' => true,
+				) + $in( $project['Contribution Project Description'], 'project' ),
+				'Post Reflection: Choosing Your Team and Project' => array(
+					'row'   => 'project',
+					'stack' => true,
+				) + $in( $posts['Post Reflection: Choosing Your Team and Project'], 'project' ),
+				'Slack/GitHub/Blog WordPress Community meetings/discussions' => array(
+					'row'   => 'project',
+					'stack' => true,
+				) + $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' ),
+				'Post Reflection: Your First Contribution' => array( 'divider' => true )
+					+ $in( $posts['Post Reflection: Your First Contribution'], 'project' ),
+				'Post Reflection: Halfway Check-In'        => $in( $posts['Post Reflection: Halfway Check-In'], 'project' ),
+				'WP event participation URL'               => array(
+					'label' => __( 'Link to a WordPress event you have participated in (online or in person)', 'wpcredits-program-manager' ),
+					'type'  => 'url',
+					'group' => 'project',
+				),
+				'Closing post URL'                         => $in( $posts['Closing post URL'], 'wrapup' ),
+			);
 		}
 
 		/**
@@ -205,21 +301,21 @@ class WPCPM_Student_Report_Form {
 	/**
 	 * The groups the fields are shown in, in order.
 	 *
-	 * **Twenty boxes in one run is a wall, not a form.** Grouped, it reads as four short questions —
-	 * how much, what you scored, what you built, where you took part — and a student can answer the
-	 * part they came for without reading the rest. The numbers sit several to a row because they are
-	 * two characters wide; the prose gets the full width.
+	 * **Twenty boxes in one run is a wall, not a form.** These are the sections of the Airtable form
+	 * this replaces — Total hours, Onboarding, Project, Wrap-up — so a student who has filled that in
+	 * before finds the same shape here, and the two can be read side by side while both exist.
+	 *
+	 * The numbers sit several to a row because they are two characters wide; the prose gets the full
+	 * width.
 	 *
 	 * @return array<string, string> Group key => legend.
 	 */
 	public static function groups() {
 		return array(
-			'hours'   => __( 'Your hours', 'wpcredits-program-manager' ),
-			'grades'  => __( 'Course grades', 'wpcredits-program-manager' ),
-			'courses' => __( 'Additional courses', 'wpcredits-program-manager' ),
-			'project' => __( 'Your project', 'wpcredits-program-manager' ),
-			'part'    => __( 'Taking part', 'wpcredits-program-manager' ),
-			'posts'   => __( 'Your posts', 'wpcredits-program-manager' ),
+			'hours'      => __( 'Total hours', 'wpcredits-program-manager' ),
+			'onboarding' => __( 'Onboarding', 'wpcredits-program-manager' ),
+			'project'    => __( 'Project', 'wpcredits-program-manager' ),
+			'wrapup'     => __( 'Wrap-up', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -310,13 +406,10 @@ class WPCPM_Student_Report_Form {
 	 *
 	 * @param WP_User $student The student whose report this is.
 	 * @param array   $program Their cached program row, for the track.
+	 * @param string  $heading Optional label for the disclosure; the student's own wording by
+	 *                         default, so a mentor reading one is not told it is theirs.
 	 */
-	public static function render( WP_User $student, array $program ) {
-		$is_50h  = ! empty( $program['is_50h'] );
-		$fields  = self::fields( $is_50h );
-		$record  = WPCPM_Mentor_Calls::student_record( $student->ID );
-		$values  = self::values( $record );
-		$can     = self::user_can_edit( $student->ID );
+	public static function render( WP_User $student, array $program, $heading = '' ) {
 		$message = self::message( self::status() );
 
 		// Closed by default: it is a long form somebody opens deliberately, and a Report Card that
@@ -327,17 +420,41 @@ class WPCPM_Student_Report_Form {
 			'<details class="wpcpm-report__disclosure"%s>',
 			empty( $message ) ? '' : ' open'
 		);
+		// No field count beside it. It was there to say how much was behind the disclosure, and
+		// what it actually said was "twenty-four things to do" — which is the opposite of the
+		// reason the form is grouped and headed at all.
 		printf(
-			'<summary class="wpcpm-report__toggle">%1$s <span class="wpcpm-report__count">%2$s</span></summary>',
-			esc_html__( 'Your report form', 'wpcredits-program-manager' ),
-			esc_html(
-				sprintf(
-					/* translators: %s: number of fields on the form. */
-					_n( '%s field', '%s fields', count( $fields ), 'wpcredits-program-manager' ),
-					number_format_i18n( count( $fields ) )
-				)
-			)
+			'<summary class="wpcpm-report__toggle">%s</summary>',
+			esc_html( '' !== $heading ? $heading : __( 'Your report form', 'wpcredits-program-manager' ) )
 		);
+
+		self::render_body( $student, $program );
+
+		echo '</details>';
+	}
+
+	/**
+	 * What is inside the disclosure.
+	 *
+	 * Split from the wrapper so the mentor's page can fetch one on demand: the markup is the same
+	 * either way, and there is no second copy of the form to keep in step.
+	 *
+	 * `$read_only` is the *view's* decision, separate from the capability check. A program manager
+	 * may edit any report, but not from a mentor's page: there the report is somebody else's record
+	 * being read, and an editable copy of it — with a Save button — is an invitation to answer a
+	 * question on the student's behalf. The capability still governs where a manager does edit, on
+	 * the student's own card.
+	 *
+	 * @param WP_User $student   The student whose report this is.
+	 * @param array   $program   Their cached program row, for the track.
+	 * @param bool    $read_only Force a record rather than a form, whatever the viewer may do.
+	 */
+	private static function render_body( WP_User $student, array $program, $read_only = false ) {
+		$is_50h = ! empty( $program['is_50h'] );
+		$fields = self::fields( $is_50h );
+		$record = WPCPM_Mentor_Calls::student_record( $student->ID );
+		$values = self::values( $record );
+		$can    = ! $read_only && self::user_can_edit( $student->ID );
 
 		echo '<div class="wpcpm-report__body">';
 
@@ -358,19 +475,10 @@ class WPCPM_Student_Report_Form {
 				)
 			);
 
-			echo '</div></details>';
+			echo '</div>';
 
 			return;
 		}
-
-		printf(
-			'<p class="wpcpm-student__note">%s</p>',
-			esc_html(
-				$is_50h
-					? __( 'Your report for the 50-hour course. Fill in what you have; you can come back and add the rest.', 'wpcredits-program-manager' )
-					: __( 'Your report for the course. Fill in what you have; you can come back and add the rest.', 'wpcredits-program-manager' )
-			)
-		);
 
 		if ( ! $can ) {
 			printf(
@@ -379,18 +487,34 @@ class WPCPM_Student_Report_Form {
 			);
 		}
 
-		printf(
-			'<form class="wpcpm-report" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Saving…', 'wpcredits-program-manager' )
-		);
+		// Not a `<form>` at all when it cannot be saved. Disabled fields post nothing and the save
+		// handler checks the capability again, so a form here would be harmless — but it would still
+		// be a form, and the reason to leave it out is what it says: a reader of somebody else's
+		// report is looking at a record, not at something addressed to them. It also means there is
+		// no nonce, no student ID and no submit path in markup nobody may submit.
+		if ( $can ) {
+			printf(
+				'<form class="wpcpm-report" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Saving…', 'wpcredits-program-manager' )
+			);
 
-		wp_nonce_field( self::ACTION_SAVE . '_' . (int) $student->ID );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
-		printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
+			wp_nonce_field( self::ACTION_SAVE . '_' . (int) $student->ID );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
+			printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
+		} else {
+			// The same class, so one set of layout rules dresses both.
+			echo '<div class="wpcpm-report wpcpm-report--readonly">';
+		}
 
-		// Grouped, so the form reads as four short questions rather than twenty boxes.
+		// Grouped, so the form reads as four short questions rather than twenty boxes. `hours`
+		// is skipped: it is rendered in *My course*, beside the course button, by
+		// `render_hours()` — one field, posting to this same handler.
 		foreach ( self::groups() as $group => $legend ) {
+			if ( 'hours' === $group ) {
+				continue;
+			}
+
 			$in_group = array_filter(
 				$fields,
 				static function ( $spec ) use ( $group ) {
@@ -408,8 +532,102 @@ class WPCPM_Student_Report_Form {
 				esc_html( $legend )
 			);
 
+			$subgroup = '';
+			$row      = '';
+			$stacked  = false;
+
 			foreach ( $in_group as $name => $spec ) {
+				if ( ! empty( $spec['subgroup'] ) && $spec['subgroup'] !== $subgroup ) {
+					$subgroup = $spec['subgroup'];
+
+					// A heading closes whatever row was open: the lesson below it starts a new one.
+					if ( '' !== $row ) {
+						if ( $stacked ) {
+							echo '</div>';
+							$stacked = false;
+						}
+
+						echo '</div>';
+						$row = '';
+					}
+
+					printf(
+						'<p class="wpcpm-report__sub">%s</p>',
+						esc_html( $subgroup )
+					);
+				}
+
+				// A rule with no heading over it: a run of fields that starts a section of its own
+				// but needs no naming, because its own labels already say what it is.
+				if ( ! empty( $spec['divider'] ) ) {
+					if ( '' !== $row ) {
+						if ( $stacked ) {
+							echo '</div>';
+							$stacked = false;
+						}
+
+						echo '</div>';
+						$row = '';
+					}
+
+					echo '<p class="wpcpm-report__rule" aria-hidden="true"></p>';
+				}
+
+				$wants = isset( $spec['row'] ) ? (string) $spec['row'] : '';
+
+				if ( $wants !== $row ) {
+					if ( '' !== $row ) {
+						if ( $stacked ) {
+							echo '</div>';
+							$stacked = false;
+						}
+
+						echo '</div>';
+					}
+
+					// Its own grid inside the group's, so a pair stays a pair: the group packs
+					// whatever fits into a row, which is how the Slack box ended up in the middle
+					// of a run of course marks.
+					if ( '' !== $wants ) {
+						printf( '<div class="wpcpm-report__pair wpcpm-report__pair--%s">', esc_attr( $wants ) );
+					}
+
+					$row = $wants;
+				}
+
+				// Everything marked `stack` shares one column of the pair, in order. Opened at the
+				// first of them and closed with the row.
+				if ( ! empty( $spec['stack'] ) && ! $stacked ) {
+					echo '<div class="wpcpm-report__stack">';
+					$stacked = true;
+				}
+
 				self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : '', $can );
+
+				// A note under the run rather than a heading over it: "complete one of the
+				// following" is a condition on the answers above, not a name for them.
+				if ( ! empty( $spec['note'] ) ) {
+					if ( '' !== $row ) {
+						if ( $stacked ) {
+							echo '</div>';
+							$stacked = false;
+						}
+
+						echo '</div>';
+						$row = '';
+					}
+
+					printf( '<p class="wpcpm-report__note">%s</p>', esc_html( $spec['note'] ) );
+				}
+			}
+
+			if ( '' !== $row ) {
+				if ( $stacked ) {
+					echo '</div>';
+					$stacked = false;
+				}
+
+				echo '</div>';
 			}
 
 			echo '</fieldset>';
@@ -422,9 +640,180 @@ class WPCPM_Student_Report_Form {
 			);
 		}
 
-		echo '</form>';
+		echo $can ? '</form>' : '</div>';
 		echo '</div>';
-		echo '</details>';
+	}
+
+	/**
+	 * Register the route that serves one student's report to their mentor.
+	 */
+	public static function register_route() {
+		register_rest_route(
+			'wpcpm/v1',
+			'/report/(?P<record>[A-Za-z0-9]+)',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'rest_report' ),
+				'permission_callback' => array( __CLASS__, 'rest_permission' ),
+				'args'                => array(
+					'record' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Who may read a report over the route.
+	 *
+	 * A program manager may read any; a mentor may read the students assigned to them and nobody
+	 * else. **The mentee list is the authority**, not the request: it is the same list their page
+	 * is drawn from, so a record they were never given cannot be asked for by editing a URL.
+	 *
+	 * @param WP_REST_Request $request The request.
+	 * @return bool
+	 */
+	public static function rest_permission( $request ) {
+		if ( ! is_user_logged_in() ) {
+			return false;
+		}
+
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return true;
+		}
+
+		$record = (string) $request['record'];
+
+		foreach ( WPCPM_Mentors_Dashboard::get_mentees( get_current_user_id() ) as $mentee ) {
+			if ( isset( $mentee['record_id'] ) && (string) $mentee['record_id'] === $record ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * One student's report, rendered read only.
+	 *
+	 * Served on demand rather than with the page: reading a report costs an Airtable request, and
+	 * a mentor with sixty students would pay for sixty of them to look at one.
+	 *
+	 * @param WP_REST_Request $request The request.
+	 * @return WP_REST_Response
+	 */
+	public static function rest_report( $request ) {
+		$record  = (string) $request['record'];
+		$student = WPCPM_Students_Sync::user_for_record( $record );
+
+		if ( ! $student instanceof WP_User ) {
+			return new WP_REST_Response(
+				array( 'html' => '<p class="wpcpm-report__error">' . esc_html__( 'That student has no account on this site yet, so there is no report to show.', 'wpcredits-program-manager' ) . '</p>' ),
+				200
+			);
+		}
+
+		$program = WPCPM_Students_Sync::get_program( $student->ID );
+
+		ob_start();
+		// Read only for everyone, including a program manager: this route exists to show a mentor
+		// the report their student wrote, and the answers are the student's to give.
+		self::render_body( $student, $program, true );
+
+		return new WP_REST_Response( array( 'html' => ob_get_clean() ), 200 );
+	}
+
+	/**
+	 * The hours box, for *My course* rather than for the form.
+	 *
+	 * The one number a student updates most often, and the only one they update without having
+	 * anything else to report — so it sits beside the course button rather than behind a
+	 * disclosure with twenty other questions.
+	 *
+	 * Its own `<form>`, posting to the same handler with the same nonce. Two forms, one field
+	 * each way: the handler walks the posted keys and ignores what it was not sent, so nothing
+	 * here can clear an answer given in the other one.
+	 *
+	 * @param WP_User $student The student whose report this is.
+	 * @param array   $program Their cached program row.
+	 */
+	public static function render_hours( WP_User $student, array $program ) {
+		$record = isset( $program['record_id'] ) ? (string) $program['record_id'] : '';
+
+		if ( '' === $record ) {
+			return;
+		}
+
+		$fields = self::fields( ! empty( $program['is_50h'] ) );
+
+		if ( ! isset( $fields['Hours'] ) ) {
+			return;
+		}
+
+		$values = self::values( $record );
+
+		// A failure is left to the form below, which says so properly. Showing an empty box here
+		// would read as "you have logged nothing", which is a different and alarming statement.
+		if ( is_wp_error( $values ) ) {
+			return;
+		}
+
+		$can = self::user_can_edit( $student->ID );
+
+		printf(
+			'<form class="wpcpm-hours" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Saving…', 'wpcredits-program-manager' )
+		);
+
+		wp_nonce_field( self::ACTION_SAVE . '_' . (int) $student->ID );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
+		printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
+
+		// Drawn here rather than through `render_field()`. That renders one `<p>` holding label,
+		// input and hint, which leaves the Save button an outsider beside all three — the label
+		// above it, the hint below, and nothing lining up with anything. This is a box and a
+		// button on one line, with the label over them and the hint under: three rows, one column,
+		// left aligned.
+		$spec  = $fields['Hours'];
+		$value = isset( $values['Hours'] ) ? $values['Hours'] : '';
+		$id    = 'wpcpm-report-' . self::key( 'Hours' );
+
+		printf(
+			'<label class="wpcpm-hours__label" for="%1$s">%2$s</label>',
+			esc_attr( $id ),
+			esc_html( $spec['label'] )
+		);
+
+		echo '<span class="wpcpm-hours__entry">';
+
+		printf(
+			'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="numeric"%7$s />',
+			esc_attr( $id ),
+			esc_attr( self::key( 'Hours' ) ),
+			esc_attr( is_scalar( $value ) ? (string) $value : '' ),
+			esc_attr( isset( $spec['step'] ) ? $spec['step'] : 'any' ),
+			esc_attr( isset( $spec['min'] ) ? (string) $spec['min'] : '' ),
+			esc_attr( isset( $spec['max'] ) ? (string) $spec['max'] : '' ),
+			$can ? '' : ' disabled="disabled"'
+		);
+
+		if ( $can ) {
+			printf(
+				'<button type="submit" class="wpcpm-button">%s</button>',
+				esc_html__( 'Save hours', 'wpcredits-program-manager' )
+			);
+		}
+
+		echo '</span>';
+
+		if ( ! empty( $spec['help'] ) ) {
+			printf( '<span class="wpcpm-field__hint">%s</span>', esc_html( $spec['help'] ) );
+		}
+
+		echo '</form>';
 	}
 
 	/**
@@ -441,14 +830,27 @@ class WPCPM_Student_Report_Form {
 		$type = isset( $spec['type'] ) ? $spec['type'] : 'text';
 		$dis  = $can ? '' : ' disabled="disabled"';
 
+		// A `<div>` for the checkbox list, a `<p>` for everything else. **A `<p>` cannot contain a
+		// `<fieldset>`**: the parser closes the paragraph the moment one opens, so the list and the
+		// hint after it became siblings of the field rather than its children — and, in a grid,
+		// separate items. That is what scattered the team block across the row.
+		//
+		// A checkbox list also has no single control to point `for` at, so its name is a plain
+		// span; the `<fieldset>` inside carries the accessible grouping instead.
+		$wrapper = ( 'team' === $type ) ? 'div' : 'p';
+
 		printf(
-			'<p class="wpcpm-field wpcpm-field--%1$s"><label for="%2$s">%3$s</label>',
+			'<%1$s class="wpcpm-field wpcpm-field--%2$s">%3$s',
+			esc_attr( $wrapper ),
 			esc_attr( $type ),
-			esc_attr( $id ),
-			esc_html( $spec['label'] )
+			'team' === $type
+				? '<span class="wpcpm-field__label">' . esc_html( $spec['label'] ) . '</span>'
+				: sprintf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $spec['label'] ) )
 		);
 
-		if ( 'number' === $type ) {
+		if ( 'team' === $type ) {
+			self::render_teams( $key, $value, $can, $spec );
+		} elseif ( 'number' === $type ) {
 			printf(
 				'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="decimal"%7$s />',
 				esc_attr( $id ),
@@ -487,9 +889,80 @@ class WPCPM_Student_Report_Form {
 			printf( '<span class="wpcpm-field__hint">%s</span>', esc_html( $spec['help'] ) );
 		}
 
-		echo '</p>';
+		printf( '</%s>', esc_attr( $wrapper ) );
 	}
 
+
+	/**
+	 * The contribution-team checkboxes.
+	 *
+	 * A list of checkboxes rather than a `<select multiple>`: a student can contribute to more than
+	 * one team, every option and every current answer is visible at once, and it is operable on a
+	 * phone, where a multi-select is a scrolling trap that hides what is already chosen.
+	 *
+	 * Matched by **record ID**, not by name. The profile editor had to match on names because the
+	 * cached student row keeps the resolved name; this form reads the record from Airtable live, so
+	 * a linked-record column arrives as the IDs themselves.
+	 *
+	 * @param string $key   Field key.
+	 * @param mixed  $value Current value: an array of record IDs.
+	 * @param bool   $can   Whether it may be edited.
+	 * @param array  $spec  Field spec.
+	 */
+	private static function render_teams( $key, $value, $can, array $spec ) {
+		$teams = WPCPM_Contribution_Teams::options();
+
+		if ( empty( $teams ) ) {
+			printf(
+				'<span class="wpcpm-field__hint">%s</span>',
+				esc_html__( 'The team list has not been read from Airtable yet. Run a sync and this becomes editable.', 'wpcredits-program-manager' )
+			);
+
+			return;
+		}
+
+		$selected = array();
+
+		foreach ( (array) $value as $id ) {
+			if ( is_scalar( $id ) && isset( $teams[ (string) $id ] ) ) {
+				$selected[] = (string) $id;
+			}
+		}
+
+		printf(
+			'<fieldset class="wpcpm-report__teams"><legend class="screen-reader-text">%s</legend>',
+			esc_html( $spec['label'] )
+		);
+
+		foreach ( $teams as $record_id => $team_name ) {
+			printf(
+				// The team's own icon, the same one the student's card and the mentor's table
+				// show for it, so a team is recognisable here by the mark rather than only by
+				// reading the name. `label_icon()` escapes what it builds and is decorative —
+				// `aria-hidden` — because the name beside it already says which team this is.
+				'<label class="wpcpm-report__check"><input type="checkbox" name="report[%1$s][]" value="%2$s"%3$s%4$s />%5$s <span>%6$s</span></label>',
+				esc_attr( $key ),
+				esc_attr( $record_id ),
+				in_array( (string) $record_id, $selected, true ) ? ' checked="checked"' : '',
+				$can ? '' : ' disabled="disabled"',
+				WPCPM_Contribution_Teams::label_icon( $team_name ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One escaped <span> built by label_icon().
+				esc_html( $team_name )
+			);
+		}
+
+		// Unchecking every box posts nothing at all for `report[team]`, and the save loop skips a
+		// key it was not sent — so clearing the last team would silently do nothing. This empty
+		// value is always posted, so the array always arrives.
+		//
+		// Only where there is something to post to. In a read-only view it is the one control left
+		// that could still carry a value, and a field nobody may change should not be in the markup
+		// at all.
+		if ( $can ) {
+			printf( '<input type="hidden" name="report[%s][]" value="" />', esc_attr( $key ) );
+		}
+
+		echo '</fieldset>';
+	}
 
 	/**
 	 * The outcome of the last save, if there is one.
@@ -603,6 +1076,31 @@ class WPCPM_Student_Report_Form {
 	private static function clean( $raw, array $spec ) {
 		$type = isset( $spec['type'] ) ? $spec['type'] : 'text';
 
+		// Before the scalar guard: teams post as an array of checkbox values, and reading them
+		// through `is_scalar()` would turn the array into an empty string — the field would stop
+		// saving the moment the control became a checkbox list, and silently.
+		if ( 'team' === $type ) {
+			$known = WPCPM_Contribution_Teams::options();
+			$ids   = array();
+
+			foreach ( (array) $raw as $id ) {
+				if ( ! is_scalar( $id ) ) {
+					continue;
+				}
+
+				$id = trim( (string) $id );
+
+				// Duplicates collapse, because Airtable will happily store the same link twice.
+				if ( '' !== $id && isset( $known[ $id ] ) && ! in_array( $id, $ids, true ) ) {
+					$ids[] = $id;
+				}
+			}
+
+			// A linked-record field takes an array of record IDs, however many. An empty array is
+			// how every link is cleared; a bare empty string would be rejected.
+			return array( true, $ids );
+		}
+
 		if ( ! is_scalar( $raw ) ) {
 			return array( false, null );
 		}
@@ -639,6 +1137,12 @@ class WPCPM_Student_Report_Form {
 
 		if ( 'url' === $type ) {
 			return array( true, self::clean_url( $raw ) );
+		}
+
+		if ( 'text' === $type ) {
+			$max = isset( $spec['maxlength'] ) ? (int) $spec['maxlength'] : self::MAX_TEXT;
+
+			return array( true, sanitize_text_field( mb_substr( $raw, 0, $max ) ) );
 		}
 
 		// `textarea` and `richtext` both arrive as text. Rich text is Markdown in Airtable, so it

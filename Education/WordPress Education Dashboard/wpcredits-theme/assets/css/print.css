@@ -31,7 +31,6 @@ body {
 .wpcpm-note__delete,
 .wpc-row__action,
 .wpcpm-mentee__toggle,
-.wpcpm-mentee__action,
 /* The calendar's *controls* go, but the booked-call list stays: a mentor printing
    their students wants the diary on the sheet, and has no use on paper for a month
    grid of links, a slot picker, a timezone select or the availability form. */
