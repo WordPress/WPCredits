@@ -142,10 +142,13 @@ Airtable fallback; the three windows parse. Not yet run against Airtable
 graduate logic.
 
 ### Next
-1. **Create the private Airtable table** (`Snapshot Date`, `WP Username`, `Grad
-   Date`, `Grad Date Source`, `Months Since Grad`, `Recent 30d`, `Recent 90d`,
-   `Recent 365d`), set repo var `POST_GRAD_TABLE_ID`, and give `AIRTABLE_PAT`
-   **write** scope. Then flip the monthly schedule on.
-2. **Pull a first real number** now via the manual Action (report-only).
-3. **Phase 3:** the 6-month retention curve + dashboard aggregate card, once a
+1. ~~Create the private Airtable table~~ **DONE (2026-08-05)** — "Post-Grad
+   Snapshots" = `tblwTv3G4WYIRztTG` in base `appIzQKfwTn5dyPVp`. Columns:
+   `Snapshot` (primary), `WP Username`, `Snapshot Date`, `Grad Date`, `Grad Date
+   Source`, `Months Since Grad`, `Recent 30d/90d/365d`.
+2. **Give `AIRTABLE_PAT` write scope** to that table + set repo **variable**
+   `POST_GRAD_TABLE_ID = tblwTv3G4WYIRztTG`. Then flip the monthly schedule on.
+3. **Pull a first real number** now via a local report-only run (or the manual
+   Action once the branch is pushed).
+4. **Phase 3:** the 6-month retention curve + dashboard aggregate card, once a
    few monthly snapshots have accrued.

@@ -274,8 +274,12 @@ def compute_metric(rows):
 # Persistence
 # --------------------------------------------------------------------------- #
 def to_airtable_fields(row):
-    """Map a snapshot row to the private Airtable table's field names."""
+    """Map a snapshot row to the private Airtable table's field names.
+
+    Field names must match the 'Post-Grad Snapshots' table (tblwTv3G4WYIRztTG).
+    """
     return {
+        "Snapshot": f"{row['wp_username']} · {row['snapshot_date']}",  # primary key field
         "Snapshot Date": row["snapshot_date"],
         "WP Username": row["wp_username"],
         "Grad Date": row["grad_date"],
