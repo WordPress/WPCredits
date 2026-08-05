@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.56.3
+Stable tag: 1.57.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,21 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.57.0 =
+* **The student sync now runs every three hours** instead of once a day, so what people see on
+  their cards is at most a few hours behind Airtable rather than up to a day. The mentors sync
+  stays daily: it reads one WordPress.org profile per mentor, which is the expensive half.
+* **A run already in progress is left to finish.** Starting a sync wipes the state and begins
+  again, which was harmless once a day and is not at three hours — a slow run would be restarted
+  from the top by the next one, and a site whose runs take longer than the gap would sync forever
+  without ever completing. A run whose ticks have stopped is still restarted, since that one is
+  not going to finish on its own.
+* Sites upgrading are moved onto the new interval. A recurring event keeps the schedule it was
+  created with, so the existing daily one is replaced rather than left in place — otherwise the
+  code would say three hours and the site would go on syncing daily, with nothing to show the
+  disagreement.
+* Renames the *Daily sync* setting to *Automatic sync* and says what it actually does now.
 
 = 1.56.3 =
 * **What a student saves on the report form now shows on their card.** Their WordPress.org profile,

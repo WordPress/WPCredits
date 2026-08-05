@@ -25,8 +25,19 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WPCPM_Students_Sync {
 
-	const CRON_DAILY = 'wpcpm_students_daily';
-	const CRON_TICK  = 'wpcpm_students_sync_tick';
+	/**
+	 * The recurring run.
+	 *
+	 * The hook keeps its old name although the run is no longer daily: the string is what WordPress
+	 * stored in the cron array on every site already running this, and renaming it would leave that
+	 * event behind with nothing listening to it — a sync that never fires and no error to say so.
+	 */
+	const CRON_AUTO = 'wpcpm_students_daily';
+
+	const CRON_TICK = 'wpcpm_students_sync_tick';
+
+	/** Our own interval: core offers hourly, twicedaily, daily and weekly, and none of them is this. */
+	const EVERY_THREE_HOURS = 'wpcpm_three_hours';
 
 	const OPT_STATE  = 'wpcpm_students_state';
 	const OPT_REPORT = 'wpcpm_students_report';
@@ -81,36 +92,86 @@ class WPCPM_Students_Sync {
 	 * Register cron hooks.
 	 */
 	public static function register_cron() {
-		add_action( self::CRON_DAILY, array( __CLASS__, 'cron_daily' ) );
+		// Before `schedule()`, and on every request rather than only when scheduling: cron reads
+		// the interval back when it decides what to run next, and an event on a schedule WordPress
+		// cannot find is silently dropped from the queue.
+		add_filter( 'cron_schedules', array( __CLASS__, 'cron_interval' ) ); // phpcs:ignore WordPress.WP.CronInterval.ChangeDetected -- Three hours, well above the 15-minute floor the sniff guards.
+
+		add_action( self::CRON_AUTO, array( __CLASS__, 'cron_auto' ) );
 		add_action( self::CRON_TICK, array( __CLASS__, 'run_tick' ) );
 
 		self::schedule();
 	}
 
 	/**
-	 * Ensure the daily event exists.
+	 * Add the three-hour interval.
+	 *
+	 * @param array $schedules Registered schedules.
+	 * @return array
+	 */
+	public static function cron_interval( $schedules ) {
+		$schedules = is_array( $schedules ) ? $schedules : array();
+
+		$schedules[ self::EVERY_THREE_HOURS ] = array(
+			'interval' => 3 * HOUR_IN_SECONDS,
+			'display'  => __( 'Every three hours', 'wpcredits-program-manager' ),
+		);
+
+		return $schedules;
+	}
+
+	/**
+	 * Ensure the recurring event exists, on the interval this version wants.
+	 *
+	 * **The recurrence is checked, not just the existence.** An event already in the cron array
+	 * keeps whatever schedule it was created with — so a site that has been running the daily sync
+	 * would have gone on running it daily forever, with the code here saying three hours and no
+	 * sign of the disagreement anywhere.
 	 */
 	public static function schedule() {
-		if ( ! wp_next_scheduled( self::CRON_DAILY ) ) {
-			// Offset from the mentors sync so the two never contend for the same
-			// Airtable rate limit or the same PHP worker.
-			wp_schedule_event( time() + ( 3 * HOUR_IN_SECONDS ), 'daily', self::CRON_DAILY );
+		$event = wp_get_scheduled_event( self::CRON_AUTO );
+
+		if ( $event && isset( $event->schedule ) && self::EVERY_THREE_HOURS === $event->schedule ) {
+			return;
 		}
+
+		if ( $event ) {
+			wp_clear_scheduled_hook( self::CRON_AUTO );
+		}
+
+		// Offset from the mentors sync so the two never contend for the same Airtable rate limit or
+		// the same PHP worker. It only holds for the first run — after that the two cadences drift
+		// apart anyway — but it keeps them off each other on the one run that follows an upgrade,
+		// which is when both are most likely to have work to do.
+		wp_schedule_event( time() + ( 30 * MINUTE_IN_SECONDS ), self::EVERY_THREE_HOURS, self::CRON_AUTO );
 	}
 
 	/**
 	 * Drop all scheduled work.
 	 */
 	public static function unschedule() {
-		wp_clear_scheduled_hook( self::CRON_DAILY );
+		wp_clear_scheduled_hook( self::CRON_AUTO );
 		wp_clear_scheduled_hook( self::CRON_TICK );
 	}
 
 	/**
-	 * Daily entry point.
+	 * Recurring entry point.
 	 */
-	public static function cron_daily() {
+	public static function cron_auto() {
 		if ( ! WPCPM_Settings::get_value( 'auto_sync' ) ) {
+			return;
+		}
+
+		// **A run in progress is left alone.** `start()` wipes the state and begins again, which was
+		// harmless while this fired once a day and a run finished in minutes — at three hours it is
+		// not: a slow run would be restarted from the top by the next tick, and a site whose runs
+		// take longer than the gap would sync forever without ever finishing one.
+		//
+		// Unless it has stalled: a run whose ticks stopped is not going to finish on its own, and
+		// refusing to start on account of it would be worse than the restart it is avoiding.
+		$progress = self::progress();
+
+		if ( ! empty( $progress['running'] ) && empty( $progress['stalled'] ) ) {
 			return;
 		}
 

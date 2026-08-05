@@ -446,10 +446,11 @@ class WPCPM_Admin {
 		);
 
 		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="auto_sync" value="1"%2$s> %3$s</label></td></tr>',
-			esc_html__( 'Daily sync', 'wpcredits-program-manager' ),
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="auto_sync" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Automatic sync', 'wpcredits-program-manager' ),
 			checked( ! empty( $settings['auto_sync'] ), true, false ),
-			esc_html__( 'Sync automatically once a day', 'wpcredits-program-manager' )
+			esc_html__( 'Read Airtable on a schedule', 'wpcredits-program-manager' ),
+			esc_html__( 'Students every three hours, mentors once a day: the student rows carry what people are shown on their cards, and the mentors run costs one WordPress.org profile read per mentor. A run already in progress is left to finish rather than restarted. Either can also be run by hand from the Students and Mentors screens.', 'wpcredits-program-manager' )
 		);
 
 		printf(

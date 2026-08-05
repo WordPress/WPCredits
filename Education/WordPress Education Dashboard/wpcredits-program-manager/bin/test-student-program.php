@@ -72,9 +72,21 @@ function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_transient( $k ) { return false; }
 function set_transient( $k, $v, $e = 0 ) { return true; }
 function delete_transient( $k ) { return true; }
-function wp_next_scheduled( $h ) { return false; }
-function wp_schedule_single_event() {} function wp_schedule_event() {}
-function wp_clear_scheduled_hook() {}
+
+/*
+ * A cron array good enough to schedule against: what is registered, on what recurrence, and what
+ * was cleared. `$GLOBALS['cron']` holds one entry per hook.
+ */
+function wp_next_scheduled( $h ) { return isset( $GLOBALS['cron'][ $h ] ) ? $GLOBALS['cron'][ $h ]['timestamp'] : false; }
+function wp_get_scheduled_event( $h ) {
+	return isset( $GLOBALS['cron'][ $h ] ) ? (object) $GLOBALS['cron'][ $h ] : false;
+}
+function wp_schedule_event( $when, $recurrence, $hook ) {
+	$GLOBALS['cron'][ $hook ] = array( 'hook' => $hook, 'timestamp' => (int) $when, 'schedule' => $recurrence );
+	return true;
+}
+function wp_schedule_single_event() {}
+function wp_clear_scheduled_hook( $h = '' ) { unset( $GLOBALS['cron'][ $h ] ); return 1; }
 function current_user_can( $c ) { return false; }
 function get_current_user_id() { return 0; }
 function is_admin() { return false; }
@@ -131,6 +143,7 @@ function get_users( $args = array() ) {
 }
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/../includes/class-wpcpm-settings.php';
 require_once __DIR__ . '/../includes/class-wpcpm-airtable.php';
 require_once __DIR__ . '/../includes/class-wpcpm-program.php';
 require_once __DIR__ . '/../includes/class-wpcpm-wporg-profile.php';
@@ -410,6 +423,84 @@ ck( 'a report with none of these four columns changes nothing',
     false );
 ck( 'and leaves the row as it was',
     $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['team'], 'Core' );
+
+echo "\n=== When the sync runs ===\n";
+
+/*
+ * **A recurring event keeps the schedule it was created with.** Changing the interval in the code
+ * changes nothing for a site that already has the event — `wp_next_scheduled()` answers "yes, it
+ * exists" and the old recurrence stays. So the upgrade path is the thing worth asserting: an
+ * existing daily event has to be replaced, not left alone.
+ */
+$GLOBALS['cron'] = array();
+
+WPCPM_Students_Sync::schedule();
+
+$event = wp_get_scheduled_event( WPCPM_Students_Sync::CRON_AUTO );
+
+ck( 'a fresh site gets the three-hour schedule', $event->schedule, WPCPM_Students_Sync::EVERY_THREE_HOURS );
+ck( 'and the interval behind that name is three hours',
+    WPCPM_Students_Sync::cron_interval( array() )[ WPCPM_Students_Sync::EVERY_THREE_HOURS ]['interval'], 3 * HOUR_IN_SECONDS );
+
+// The upgrade: what every site running an older version actually has.
+$GLOBALS['cron'] = array(
+	WPCPM_Students_Sync::CRON_AUTO => array(
+		'hook'      => WPCPM_Students_Sync::CRON_AUTO,
+		'timestamp' => time() + DAY_IN_SECONDS,
+		'schedule'  => 'daily',
+	),
+);
+
+WPCPM_Students_Sync::schedule();
+
+ck( 'an existing daily event is moved onto the new interval',
+    wp_get_scheduled_event( WPCPM_Students_Sync::CRON_AUTO )->schedule, WPCPM_Students_Sync::EVERY_THREE_HOURS );
+
+// And having been moved, it stays put: rescheduling on every request would push the next run
+// further away each time and the sync would never fire at all.
+$when = wp_get_scheduled_event( WPCPM_Students_Sync::CRON_AUTO )->timestamp;
+
+WPCPM_Students_Sync::schedule();
+WPCPM_Students_Sync::schedule();
+
+ck( 'a correct event is left where it is',
+    wp_get_scheduled_event( WPCPM_Students_Sync::CRON_AUTO )->timestamp, $when );
+
+echo "\n=== A run in progress is not restarted ===\n";
+
+// Connected, or `start()` refuses before it gets as far as the guard being tested.
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'auto_sync' => true, 'api_token' => 'patTEST', 'base_id' => 'appTEST' );
+
+/**
+ * Put the sync into a given state and report whether `cron_auto()` started a new run.
+ *
+ * @param array $state Sync state to seed.
+ * @return bool
+ */
+function restarted( array $state ) {
+	$GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] = $state;
+
+	WPCPM_Students_Sync::cron_auto();
+
+	$now = $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ];
+
+	// `start()` writes a state of its own, from the first phase with an empty cursor.
+	return 'reports' === $now['phase'] && 0 === $now['cursor'] && $now !== $state;
+}
+
+$mid = array( 'phase' => 'mentors', 'cursor' => 40, 'started' => time() - 600, 'touched' => time() - 5, 'stats' => array() );
+
+ck( 'a run part-way through is left to finish', restarted( $mid ), false );
+ck( 'and its progress is untouched', $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ]['cursor'], 40 );
+
+// A run whose ticks stopped is not going to finish on its own.
+$dead = array( 'phase' => 'mentors', 'cursor' => 40, 'started' => time() - 7200, 'touched' => time() - 7200, 'stats' => array() );
+
+ck( 'a stalled run is started again', restarted( $dead ), true );
+
+$done = array( 'phase' => 'done', 'cursor' => 0, 'started' => time() - 600, 'touched' => time() - 600, 'stats' => array() );
+
+ck( 'a finished run does not block the next one', restarted( $done ), true );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

@@ -89,7 +89,7 @@ delete_metadata( 'post', 0, WPCPM_Content_Access::META_KEY, '', true );
 // the bug.
 wp_clear_scheduled_hook( WPCPM_Mentors_Sync::CRON_DAILY );
 wp_clear_scheduled_hook( WPCPM_Mentors_Sync::CRON_TICK );
-wp_clear_scheduled_hook( WPCPM_Students_Sync::CRON_DAILY );
+wp_clear_scheduled_hook( WPCPM_Students_Sync::CRON_AUTO );
 wp_clear_scheduled_hook( WPCPM_Students_Sync::CRON_TICK );
 wp_clear_scheduled_hook( WPCPM_Mentor_Calls::CRON_REMINDERS );
 wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
