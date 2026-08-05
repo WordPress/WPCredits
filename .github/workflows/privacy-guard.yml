@@ -1,0 +1,24 @@
+name: Privacy Guard
+
+# Blocks individual-level personal data (usernames, emails, named per-person
+# rows) from entering this PUBLIC repo. See scripts/privacy_guard.sh and #137.
+#
+# To make this ENFORCING (block merges), add "Privacy Guard / guard" as a
+# required status check in the branch-protection rule for `trunk`
+# (Settings → Branches). Without that it reports but does not block.
+
+on:
+  pull_request:
+  push:
+    branches: [trunk]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Scan tracked data files for personal data
+        run: bash scripts/privacy_guard.sh
