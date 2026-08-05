@@ -58,7 +58,7 @@ import os
 import re
 import sys
 import time
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import requests
@@ -110,7 +110,15 @@ def parse_badge_grad_date(html):
     month = MONTHS.get(m.group(1))
     if not month:
         return None
-    return date(int(m.group(2)), month, 1).isoformat()
+    # The badge is month-granular ("since October 2025") — the exact day is
+    # unknown. Pin to the LAST day of that month (the latest possible actual
+    # graduation) so the 90-day gate is CONSERVATIVE: a graduate is only
+    # measurable once the trailing window is fully clear of even a late-in-month
+    # graduation. Using the 1st here instead would let up to ~4 weeks of
+    # in-program activity leak past the gate for boundary cases.
+    year = int(m.group(2))
+    first_next = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    return (first_next - timedelta(days=1)).isoformat()
 
 
 def parse_window(text, label):
@@ -210,8 +218,14 @@ def months_between(grad_iso, today):
     return (today.year - g.year) * 12 + (today.month - g.month)
 
 
-def build_rows(graduates, snapshot_date, today, delay, limit=None):
-    """Scrape each graduate and assemble one snapshot row apiece."""
+def build_rows(graduates, snapshot_date, today, delay, limit=None, verbose=False):
+    """Scrape each graduate and assemble one snapshot row apiece.
+
+    PRIVACY: this runs in a PUBLIC-repo GitHub Action, whose logs are world-
+    readable. Per-graduate detail (handle + activity + grad date) is per-student
+    private data and must NOT go to the default log — only a bare progress
+    counter does. Pass verbose=True (local debugging only) for the detail lines.
+    """
     rows = []
     targets = graduates[:limit] if limit else graduates
     for i, g in enumerate(targets, 1):
@@ -234,8 +248,11 @@ def build_rows(graduates, snapshot_date, today, delay, limit=None):
             "profile_ok": prof["ok"],
             "http": prof["http"],
         })
-        log(f"  [{i}/{len(targets)}] {username}: 90d={prof['recent90']} "
-            f"grad={grad_iso or '?'}({source})")
+        if verbose:  # local debugging only — never in CI (leaks per-student data)
+            log(f"  [{i}/{len(targets)}] {username}: 90d={prof['recent90']} "
+                f"grad={grad_iso or '?'}({source})")
+        elif i % 25 == 0 or i == len(targets):
+            log(f"  …scraped {i}/{len(targets)}")
         if delay and i < len(targets):
             time.sleep(delay)
     return rows
@@ -319,6 +336,9 @@ def main():
     parser.add_argument("--limit", type=int, default=None, help="Only the first N graduates (testing).")
     parser.add_argument("--delay", type=float, default=FETCH_DELAY_SECONDS,
                         help=f"Seconds between profile fetches (default {FETCH_DELAY_SECONDS}).")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Log per-graduate detail. LOCAL ONLY — leaks per-student "
+                             "data into public CI logs; never use in the Action.")
     args = parser.parse_args()
 
     pat = bd.get_airtable_pat()
@@ -331,7 +351,7 @@ def main():
         log("Nothing to snapshot.")
         return 0
 
-    rows = build_rows(graduates, snapshot_date, today, args.delay, args.limit)
+    rows = build_rows(graduates, snapshot_date, today, args.delay, args.limit, args.verbose)
     metric = compute_metric(rows)
 
     log("")
