@@ -37,11 +37,13 @@ class WPCPM_Settings {
 			// so these two tables are read purely to turn those IDs into names.
 			'institutions_table'        => 'tbl4V0FEbzRP7I2w2',
 			'teams_table'               => 'tblUBEXiS3QKUCXHf',
+			'sponsors_table'            => 'tbluji8wknOZr55fa',
 			// The column holding each table's display name. Used when the schema
 			// endpoint is unavailable, since it is the schema that reports which
 			// field is primary.
 			'institutions_name_field'   => 'Name',
 			'teams_name_field'          => 'Contribution teams or areas',
+			'sponsors_name_field'       => 'Company Name',
 			// Students a mentor is currently mentoring.
 			'student_statuses'          => array( 'In Sensei', 'In Sensei 50h' ),
 			// Students whose mentoring has finished. Shown in a separate, collapsed
@@ -148,7 +150,7 @@ class WPCPM_Settings {
 			}
 		}
 
-		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'institutions_name_field', 'teams_name_field' ) as $key ) {
+		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'sponsors_name_field' ) as $key ) {
 			if ( isset( $input[ $key ] ) ) {
 				$clean[ $key ] = sanitize_text_field( wp_unslash( $input[ $key ] ) );
 			}

@@ -216,6 +216,7 @@ class WPCPM_Students_Dashboard {
 		// push them off the screen.
 		if ( ! empty( $program ) ) {
 			self::render_links( $program );
+			self::render_report_form( $program, $student );
 		}
 
 		// Outside the grid, spanning the card. It holds a month calendar, which wants more
@@ -543,17 +544,39 @@ class WPCPM_Students_Dashboard {
 			);
 		}
 
+		// The report form is a section of its own with the fields in it, rendered by the caller —
+		// `render_links()` only owns the two link sections.
+	}
+
+	/**
+	 * The Report form section: the fields, and the prefilled form as a second route.
+	 *
+	 * @param array   $program The student's cached program row.
+	 * @param WP_User $student The student.
+	 */
+	private static function render_report_form( array $program, WP_User $student ) {
+		$report = isset( $program['link'] ) ? (string) $program['link'] : '';
+
+		echo '<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--report" id="wpcpm-report-form">';
+		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'Report form', 'wpcredits-program-manager' ) . '</h3>';
+
+		WPCPM_Student_Report_Form::render( $student, $program );
+
+		// The prefilled Airtable form still works and people are used to it, so it stays as a
+		// second route rather than being taken away along with the change.
 		if ( '' !== $report ) {
-			self::render_link_section(
-				'report',
-				__( 'Report form', 'wpcredits-program-manager' ),
-				$report,
-				! empty( $program['is_50h'] )
-					? __( 'Open your report form (50h)', 'wpcredits-program-manager' )
-					: __( 'Open your report form', 'wpcredits-program-manager' ),
-				'wpcpm-button wpcpm-button--secondary'
+			printf(
+				'<p class="wpcpm-student__actions wpcpm-report__alt"><a class="wpcpm-button wpcpm-button--secondary" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></p>',
+				esc_url( $report ),
+				esc_html(
+					! empty( $program['is_50h'] )
+						? __( 'Open the full form (50h)', 'wpcredits-program-manager' )
+						: __( 'Open the full form', 'wpcredits-program-manager' )
+				)
 			);
 		}
+
+		echo '</section>';
 	}
 
 	/**

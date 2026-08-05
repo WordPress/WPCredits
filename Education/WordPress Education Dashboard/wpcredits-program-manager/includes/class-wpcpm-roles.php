@@ -203,12 +203,6 @@ class WPCPM_Roles {
 	}
 
 	/**
-	 * Normalize a user argument to a WP_User.
-	 *
-	 * @param int|WP_User|null $user User ID, object, or null for the current user.
-	 * @return WP_User|null
-	 */
-	/**
 	 * A user ID out of whatever `get_users()` handed back.
 	 *
 	 * **The `fields` argument cannot be trusted on every stack.** Asked for `'ID'`, WordPress is
@@ -231,6 +225,12 @@ class WPCPM_Roles {
 		return is_numeric( $entry ) ? (int) $entry : 0;
 	}
 
+	/**
+	 * Normalize a user argument to a WP_User.
+	 *
+	 * @param int|WP_User|null $user User ID, object, or null for the current user.
+	 * @return WP_User|null
+	 */
 	public static function resolve_user( $user = null ) {
 		if ( $user instanceof WP_User ) {
 			return $user;

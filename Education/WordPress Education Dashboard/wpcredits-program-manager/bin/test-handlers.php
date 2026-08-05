@@ -388,6 +388,23 @@ run( 'handle_save (every team unchecked)', array( 'WPCPM_Student_Profile', 'hand
 $_POST = array( 'student' => 30, 'details' => array( 'team' => array( array( 'nope' ), 'recUNKNOWN0000001' ) ) );
 run( 'handle_save (junk in the team array)', array( 'WPCPM_Student_Profile', 'handle_save' ) );
 
+echo "\n=== WPCPM_Student_Report_Form ===\n";
+$GLOBALS['uid'] = 30; $GLOBALS['caps'] = false;
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'api_token' => '', 'base_id' => '' );
+
+$_POST = array( 'student' => 30, 'report' => array() );
+run( 'handle_save (nothing submitted)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
+
+$_POST = array( 'student' => 20, 'report' => array( 'x' => '1' ) );
+run( 'handle_save (not your report)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
+
+// A grade that cannot be read must bounce rather than fatal, and must not be sent as zero.
+$_POST = array( 'student' => 30, 'report' => array( WPCPM_Student_Report_Form::key( 'Hours' ) => 'lots' ) );
+run( 'handle_save (unreadable number)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
+
+$_POST = array( 'student' => 30, 'report' => array( WPCPM_Student_Report_Form::key( 'Hours' ) => '120' ) );
+run( 'handle_save (a readable number, no credentials)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
+
 echo "\n=== WPCPM_Group_Sessions ===\n";
 $GLOBALS['uid'] = 20; $GLOBALS['caps'] = false;
 

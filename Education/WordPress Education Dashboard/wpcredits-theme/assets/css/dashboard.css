@@ -2222,6 +2222,43 @@
 }
 
 /* -------------------------------------------------------------------------
+   The student's report form
+
+   The plugin lays it out; this only dresses the controls so they match the
+   availability editor and the session forms rather than looking like a third kind of
+   form on the same site.
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-report input,
+.wpc-dashboard-page .wpcpm-report textarea {
+	border: 1px solid var( --wpc-line-control, var( --wpc-line-card ) );
+	border-radius: var( --wpc-radius-control );
+	font: 13px/20px var( --wpc-font );
+	padding: 6px 8px;
+}
+
+/* Checkboxes are not text boxes, and a bordered one looks broken. */
+.wpc-dashboard-page .wpcpm-report input[type="checkbox"] {
+	border-radius: 0;
+	padding: 0;
+}
+
+.wpc-dashboard-page .wpcpm-report__alt {
+	border-top-color: var( --wpc-line-soft );
+}
+
+.wpc-dashboard-page .wpcpm-report__error {
+	color: var( --wpc-red, #b32d2e );
+}
+
+/* A disabled form is a manager looking at somebody else's report, so it should read as
+   information rather than as something broken. */
+.wpc-dashboard-page .wpcpm-report input:disabled,
+.wpc-dashboard-page .wpcpm-report textarea:disabled {
+	background: var( --wpc-surface-soft );
+	color: var( --wpc-ink-70 );
+}
+
+/* -------------------------------------------------------------------------
    Resources, in halves
 
    Left: what is new. Right: what to read. The divider is a vertical rule on the

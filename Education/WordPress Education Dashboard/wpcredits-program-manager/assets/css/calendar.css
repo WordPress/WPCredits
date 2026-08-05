@@ -780,3 +780,53 @@
 	margin: 0.3em 0;
 	opacity: 0.72;
 }
+
+/* --------------------------------------------------------------------------
+   The student's report form
+
+   Two columns on a wide card, because twenty-two single-file fields is a very long
+   page and most of them are short numbers. The long-form answers span both.
+   -------------------------------------------------------------------------- */
+.wpcpm-report {
+	display: grid;
+	gap: 0.9em 1.5em;
+	grid-template-columns: repeat( auto-fit, minmax( 15em, 1fr ) );
+	margin-top: 0.75em;
+}
+
+.wpcpm-report .wpcpm-field {
+	margin: 0;
+	min-width: 0;
+}
+
+/* A paragraph of prose in a 15em column is unreadable, and so is a checkbox list. */
+.wpcpm-report .wpcpm-field--textarea,
+.wpcpm-report .wpcpm-field--richtext,
+.wpcpm-report .wpcpm-field--links,
+.wpcpm-report__submit,
+.wpcpm-report__alt {
+	grid-column: 1 / -1;
+}
+
+.wpcpm-report .wpcpm-field__group {
+	display: grid;
+	gap: 0.2em 1em;
+	grid-template-columns: repeat( auto-fit, minmax( 11em, 1fr ) );
+	margin-top: 0.2em;
+}
+
+.wpcpm-report__submit {
+	margin: 0.5em 0 0;
+}
+
+/* The prefilled Airtable form, kept as a second route. Set apart by a rule so it does
+   not read as another field of the form above it. */
+.wpcpm-report__alt {
+	border-top: 1px solid var( --wpcpm-border );
+	margin: 0.5em 0 0;
+	padding-top: 1em;
+}
+
+.wpcpm-report__error {
+	font-weight: 600;
+}

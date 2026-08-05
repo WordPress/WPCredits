@@ -81,6 +81,7 @@ foreach ( array(
 	'includes/modules/class-wpcpm-mentor-availability.php' => 'wpcpm_availability',
 	'includes/modules/class-wpcpm-mentor-notes.php'        => 'wpcpm_note',
 	'includes/modules/class-wpcpm-student-profile.php'     => 'wpcpm_details',
+	'includes/modules/class-wpcpm-student-report-form.php' => 'wpcpm_report',
 ) as $file => $arg ) {
 	$src = file_get_contents( $root . '/' . $file );
 	ck(

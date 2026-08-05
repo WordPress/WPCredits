@@ -373,6 +373,15 @@ role, not by seniority), so here it is.
 The section that matters most for you is the booking calendar: what a student sees there is entirely
 decided by the availability you publish.
 
+## Their report form
+
+A student's *Report form* section holds the fields they fill in — hours, grades, teams, what they
+contributed, their reflection posts. You can read it on their card, but not type in it: the report is
+the student's own account of their work, and a mentor filling it in would make the record say
+something it does not mean. If something in it is wrong, that is a conversation rather than an edit.
+
+A program manager can edit it, for a student who cannot get into their own account.
+
 ## What is on your Report Card
 
 ![Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.](images/student-report-card-profile.png)
@@ -405,8 +414,21 @@ are on.
 
 ### Report form
 
-**Open your report form** opens your report form with your details already filled in: the 50-hour
-form if you are on that track, the standard one otherwise.
+Your report, filled in here on the page. What it asks for depends on your track: the course has
+twenty-two things to report, the 50-hour course ten.
+
+Both ask for your **hours**, your **grades**, the **teams** you contributed to, a description of
+**what you contributed**, your **sponsor company** if you have one, your **personal website**, and
+the **meetings and discussions** you took part in. The course adds a reflection post for each stage
+and your closing post; the 50-hour course asks instead for one **final project report**.
+
+The grades are yours to copy across from wherever you were marked — this form records them, it does
+not decide them. Fill in what you have and press **Save my report**; you can come back and add the
+rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
+you save.
+
+Below the fields, **Open the full form** is the prefilled form you may have used before. It still
+works and writes to the same record.
 
 ### Resources
 

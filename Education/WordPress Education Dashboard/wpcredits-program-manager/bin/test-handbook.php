@@ -936,10 +936,13 @@ ck( 'the course and the report form are separate sections',
         false !== strpos( $student_page_src, "__( 'My course', 'wpcredits-program-manager' )" ),
         false !== strpos( $student_page_src, "__( 'Report form', 'wpcredits-program-manager' )" ),
         false !== strpos( $student_page_src, 'My course and report form' ),
-        // One call per section, so neither can quietly regain the other's button.
-        2 === substr_count( $student_page_src, 'self::render_link_section(' ),
+        // My course is the only link section left: the report form grew into a form of its own,
+        // rendered by `render_report_form()`, and this count is what catches the two merging again.
+        1 === substr_count( $student_page_src, 'self::render_link_section(' ),
+        false !== strpos( $student_page_src, 'self::render_report_form(' ),
+        false !== strpos( $student_page_src, 'WPCPM_Student_Report_Form::render(' ),
     ),
-    array( true, true, false, true ) );
+    array( true, true, false, true, true, true ) );
 
 // The example question is shown to students, mentors, institutions and administrators alike,
 // so it must not be a question only one of them would ask.

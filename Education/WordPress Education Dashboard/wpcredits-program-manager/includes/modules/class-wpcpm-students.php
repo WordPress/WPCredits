@@ -74,6 +74,7 @@ class WPCPM_Students extends WPCPM_Module {
 		WPCPM_Students_Sync::register_cron();
 		WPCPM_Students_Dashboard::init();
 		WPCPM_Student_Profile::init();
+		WPCPM_Student_Report_Form::init();
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );

@@ -12,8 +12,8 @@ Two components live here, and they are built to work together:
 
 | Folder | What it is | Version |
 | --- | --- | --- |
-| [`wpcredits-program-manager/`](wpcredits-program-manager/) | The plugin. All of the program logic: roles, access levels, the Airtable sync, the Report Cards, the call calendar, email. | 1.43.2 |
-| [`wpcredits-theme/`](wpcredits-theme/) | The block theme. The landing page, the branded login, and the skin that turns the plugin's markup into the dashboard people actually use. | 1.8.2 |
+| [`wpcredits-program-manager/`](wpcredits-program-manager/) | The plugin. All of the program logic: roles, access levels, the Airtable sync, the Report Cards, the call calendar, email. | 1.44.0 |
+| [`wpcredits-theme/`](wpcredits-theme/) | The block theme. The landing page, the branded login, and the skin that turns the plugin's markup into the dashboard people actually use. | 1.8.3 |
 
 The theme is the front end for the plugin and does not add program data or behaviour of its own.
 The plugin works without it — the pages are just unstyled.
@@ -40,9 +40,10 @@ set.
 per person, so there is no URL to guess at somebody else's record.
 
 - The **Student Report Card** shows their program and track, internship dates, institution, tutor
-  and contribution team; lets them correct their own WordPress.org handle, Slack name, contribution
-  team and personal website, writing the change straight back to Airtable; and links their course
-  and their prefilled report form.
+  and contribution teams; lets them correct their own WordPress.org handle, Slack name, contribution
+  teams and personal website, writing the change straight back to Airtable; links their course; and
+  holds their **report form** — the hours, grades, reflections and project write-up they file, with a
+  different set of fields for each of the two tracks.
 - The **Mentor Report Card** groups their students into *Need a call* (no note in 30 days),
   *Ending soon* (finishing within 60 days) and *On track*, with search across students,
   institutions and teams, per-student notes, and a printable view. Mentors also announce **group

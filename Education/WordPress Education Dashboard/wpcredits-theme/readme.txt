@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.8.3 =
+* **Dresses the student's new report form.** Its inputs and textareas take the same controls as the
+  availability editor and the session forms, checkboxes are left as checkboxes rather than being
+  given a text box's border, and a form a program manager is reading rather than filling in reads as
+  information instead of as something broken.
+
 = 1.8.2 =
 * **Dresses the plugin's new group sessions.** Each session is a bordered block with the design's
   own card line and radius rather than the plugin's theme-agnostic default, its counts and hints use

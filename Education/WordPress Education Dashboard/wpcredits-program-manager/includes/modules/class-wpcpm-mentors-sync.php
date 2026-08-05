@@ -44,7 +44,7 @@ class WPCPM_Mentors_Sync {
 	 * trusted, so the page falls back to "Not set" and asks for a sync instead of
 	 * confidently showing the wrong thing.
 	 */
-	const LOOKUPS_VERSION = 2;
+	const LOOKUPS_VERSION = 3;
 
 	/** User meta. */
 	const META_RECORD_ID  = 'wpcpm_mentor_record_id';
@@ -619,6 +619,10 @@ class WPCPM_Mentors_Sync {
 		$tables = array(
 			'institutions' => array( $settings['institutions_table'], $settings['institutions_name_field'] ),
 			'teams'        => array( $settings['teams_table'], $settings['teams_name_field'] ),
+			// Sponsors, for the report form's Company field — a linked record like the other two,
+			// so it needs the same record-ID-to-name catalog before a student can be offered a
+			// choice that is safe to write back.
+			'companies'    => array( $settings['sponsors_table'], $settings['sponsors_name_field'] ),
 		);
 
 		if ( ! isset( $state['lookups'] ) || ! is_array( $state['lookups'] ) ) {
@@ -756,6 +760,7 @@ class WPCPM_Mentors_Sync {
 		return array(
 			'institutions' => ( is_array( $stored ) && ! empty( $stored['institutions'] ) ) ? (array) $stored['institutions'] : array(),
 			'teams'        => ( is_array( $stored ) && ! empty( $stored['teams'] ) ) ? (array) $stored['teams'] : array(),
+			'companies'    => ( is_array( $stored ) && ! empty( $stored['companies'] ) ) ? (array) $stored['companies'] : array(),
 		);
 	}
 

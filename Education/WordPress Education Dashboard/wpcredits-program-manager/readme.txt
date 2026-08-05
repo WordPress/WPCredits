@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.43.2
+Stable tag: 1.44.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,32 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.44.0 =
+* **The Report form section is the report form now**, filled in on the Student Report Card rather
+  than only linked to — and it differs by track: twenty-two fields for *In Sensei*, ten for
+  *In Sensei 50h*, with the 50-hour course asking for a final project report and the conflict
+  resolution grade that the longer course does not, and none of its reflection posts.
+* **Hours and the grades are the student's to type.** They are marked elsewhere and copy the score
+  across, so this records a result rather than deciding one.
+* Values are read **live from Airtable**, cached for five minutes and cleared on save. The sync does
+  not carry these fields, and adding them to it would mean a form showing "Not set" for everything
+  until the next run — the trap that hid *Field of study* on every student card.
+* Every value is validated by type before it goes anywhere: a grade takes digits between 0 and 100
+  and understands a comma decimal, an empty box **clears** the column rather than being refused,
+  and an unreadable one is named in the message rather than saved as zero. One bad answer no longer
+  costs the other twenty-one — an Airtable PATCH fails whole.
+* Linked-record fields — *Main Contribution Team* and *Company* — are checkbox lists validated
+  against catalogs the sync builds, so a hand-edited form cannot write an unknown link.
+* **Sponsors is a third lookup table**, for the Company field; `LOOKUPS_VERSION` moves to 3, so a
+  site upgrading refetches the catalogs on its next sync. Settings gain the Sponsors table and its
+  name field.
+* A mentor can read a student's report but not edit it: the report is the student's own account of
+  their work. A program manager can, for a student locked out of their account.
+* The prefilled Airtable form stays, below the fields, as a second route.
+* Adds `bin/test-report-form.php`, which pins both field lists by name — Airtable exposes no way to
+  read a view's visible fields, so the lists are maintained by hand and would otherwise drift in
+  silence.
 
 = 1.43.2 =
 * **Actually fixed that warning.** Asking `get_users()` for `'ID'` is documented to return a flat
