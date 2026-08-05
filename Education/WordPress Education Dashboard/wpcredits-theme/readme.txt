@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.17
+Stable tag: 1.8.18
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,12 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.8.18 =
+* **Fixes the version stamped on every stylesheet and script the theme loads.** It was written out
+  by hand and had sat at 1.7.1 through ten releases, so browsers and edge caches kept serving the
+  CSS and JavaScript they already had — a fix would ship and the page would carry on looking the
+  way it did months ago. It is read from the stylesheet header now and cannot drift again.
 
 = 1.8.17 =
 * Places the report form across the full width of a student's card, under the details table and the

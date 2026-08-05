@@ -344,6 +344,73 @@ $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ] = array();
 
 ck( 'with no team catalog, nothing is accepted', teams( array( 'recTEAM0000000001' ) ), array() );
 
+echo "\n=== What a saved report carries back to the cards ===\n";
+
+/*
+ * **The bug this exists to prevent.** Four of the report form's answers — profile, Slack, team,
+ * website — are also rows on the cards, and the cards read the copy the sync left behind. Saving
+ * wrote them to Airtable and stopped there, so a student who had just chosen their team was shown
+ * *Not set* on their own card until the next weekly sync. Both cached copies are asserted, because
+ * there are two of them and updating one is the failure that looks fixed.
+ */
+$GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ] = array(
+	'v'     => WPCPM_Mentors_Sync::LOOKUPS_VERSION,
+	'teams' => array(
+		'recTEAM0000000001' => 'Core',
+		'recTEAM0000000002' => 'Documentation',
+	),
+);
+
+$fields = WPCPM_Mentors_Sync::fields();
+
+$id = seed(
+	array( 'name' => 'Celi', 'team' => '', 'website' => '', 'slack' => '' ),
+	array( 'name' => 'Celi', 'team' => '', 'website' => '' )
+);
+
+$saved = WPCPM_Students_Sync::apply_report(
+	$id,
+	array(
+		$fields['report_team']    => array( 'recTEAM0000000002' ),
+		$fields['report_website'] => 'https://celigaroe.com',
+		$fields['report_slack']   => '@Celi Garoe',
+		$fields['report_profile'] => 'https://profiles.wordpress.org/celigaroe/',
+	)
+);
+
+$program = $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ];
+
+ck( 'something was carried over', $saved, true );
+ck( 'the team is stored as its name, not its record ID', $program['team'], 'Documentation' );
+ck( 'the website lands on the card row', $program['website'], 'https://celigaroe.com' );
+ck( 'so does the Slack name', $program['slack'], '@Celi Garoe' );
+ck( 'and the username is derived from the profile URL', $program['username'], 'celigaroe' );
+ck( 'the rest of the row is left alone', $program['name'], 'Celi' );
+
+// The mentor's copy is a second cache of the same student, and their card reads it.
+$mentees = $GLOBALS['umeta'][ $id + 1 ][ WPCPM_Mentors_Sync::META_MENTEES ];
+
+ck( 'the mentor\'s copy is updated too', $mentees[1]['team'], 'Documentation' );
+ck( 'and the right row in it — not the first', $mentees[0]['record_id'], 'recOTHER123456789' );
+ck( 'the other student is untouched', isset( $mentees[0]['team'] ), false );
+
+// Clearing every box posts an empty array, and "" is the answer, not a reason to skip the write.
+WPCPM_Students_Sync::apply_report( $id, array( $fields['report_team'] => array() ) );
+
+ck( 'unchecking every team clears the card row',
+    $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['team'], '' );
+ck( 'and does not disturb the answers beside it',
+    $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['website'], 'https://celigaroe.com' );
+
+// A save of nothing this touches — a grade, say — must not write user meta at all.
+$id = seed( array( 'name' => 'Moldir', 'team' => 'Core' ), array( 'name' => 'Moldir' ) );
+
+ck( 'a report with none of these four columns changes nothing',
+    WPCPM_Students_Sync::apply_report( $id, array( 'Community meeting etiquette - final grade' => 90 ) ),
+    false );
+ck( 'and leaves the row as it was',
+    $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['team'], 'Core' );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

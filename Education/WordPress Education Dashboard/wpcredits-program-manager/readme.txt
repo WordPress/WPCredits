@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.56.2
+Stable tag: 1.56.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,17 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.56.3 =
+* **What a student saves on the report form now shows on their card.** Their WordPress.org profile,
+  Slack name, contribution team and personal website are asked for on the form but drawn on the
+  cards, and the cards read the copy the sync leaves behind — so a student who had just chosen
+  *Community* was shown "Not set" until the next weekly sync, with the answer sitting in Airtable
+  the whole time. Saving now carries those four back into both cached copies of the row: the
+  student's own, and the one inside their mentor's list. No extra Airtable request — the values
+  written are the ones just accepted from the form.
+* Pins that in `bin/test-student-program.php`, including the case that looks fixed: updating the
+  student's copy and not the mentor's.
 
 = 1.56.2 =
 * **Restores the notes section on a student's card.** It was dropped by accident when the report

@@ -1125,16 +1125,42 @@ class WPCPM_Students_Sync {
 
 		$cache[ $user_id ] = array();
 
-		$record = trim( (string) get_user_meta( $user_id, self::META_RECORD_ID, true ) );
-		$mentor = self::get_mentor( $user_id );
-		$mentor = isset( $mentor['record_id'] ) ? trim( (string) $mentor['record_id'] ) : '';
+		$record    = trim( (string) get_user_meta( $user_id, self::META_RECORD_ID, true ) );
+		$mentor_id = self::mentor_user_id( $user_id );
 
-		if ( '' === $record || '' === $mentor ) {
+		if ( '' === $record || ! $mentor_id ) {
 			return $cache[ $user_id ];
 		}
 
-		// The student's card names the mentor by Airtable record, and the mentors sync stamps that
-		// record on the mentor's WordPress account — so this is the join between the two caches.
+		$rows = get_user_meta( $mentor_id, WPCPM_Mentors_Sync::META_MENTEES, true );
+
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			if ( is_array( $row ) && isset( $row['record_id'] ) && $row['record_id'] === $record ) {
+				$cache[ $user_id ] = $row;
+				break;
+			}
+		}
+
+		return $cache[ $user_id ];
+	}
+
+	/**
+	 * The WordPress account of a student's mentor, or 0.
+	 *
+	 * The student's card names the mentor by Airtable record, and the mentors sync stamps that
+	 * record on the mentor's WordPress account — so this is the join between the two caches.
+	 *
+	 * @param int $user_id Student user ID.
+	 * @return int
+	 */
+	private static function mentor_user_id( $user_id ) {
+		$mentor = self::get_mentor( $user_id );
+		$mentor = isset( $mentor['record_id'] ) ? trim( (string) $mentor['record_id'] ) : '';
+
+		if ( '' === $mentor ) {
+			return 0;
+		}
+
 		$users = get_users(
 			array(
 				'meta_key'   => WPCPM_Mentors_Sync::META_RECORD_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_key -- Indexed, and one row.
@@ -1146,20 +1172,100 @@ class WPCPM_Students_Sync {
 			)
 		);
 
-		if ( empty( $users ) ) {
-			return $cache[ $user_id ];
+		return empty( $users ) ? 0 : (int) WPCPM_Roles::id_of( $users[0] );
+	}
+
+	/**
+	 * Carry what a student just saved into the two cached copies of their row.
+	 *
+	 * **The report form and the cards read the same four Airtable columns, but not at the same
+	 * time.** *WordPress Profile*, *Slack Name*, *Main Contribution Team* and *Personal Website
+	 * URL* live in the Students Reports table; the form writes them live, while the cards read the
+	 * copy this sync left behind. So a student who filled in their team saw *Not set* on their own
+	 * card until the next sync ran — the answer was in Airtable, and the page was showing a
+	 * week-old snapshot of it.
+	 *
+	 * Both copies are updated, because there are two: the student's own `wpcpm_student_program`,
+	 * and the row inside their mentor's `wpcpm_mentees`. Updating one and not the other is the
+	 * failure `heal()` exists to paper over, and this is a chance not to create it.
+	 *
+	 * No Airtable request: the values being written are the ones just accepted from the form.
+	 *
+	 * @param int   $user_id Student user ID.
+	 * @param array $cells   Cells as sent to Airtable, keyed by column name.
+	 * @return bool Whether anything was carried over.
+	 */
+	public static function apply_report( $user_id, array $cells ) {
+		$user_id = (int) $user_id;
+		$fields  = WPCPM_Mentors_Sync::fields();
+
+		// Keyed by the *configured* column names rather than by literals, so a base that renames a
+		// column renames it here too — the same map the sync itself reads.
+		$map = array(
+			$fields['report_profile'] => 'profile',
+			$fields['report_slack']   => 'slack',
+			$fields['report_team']    => 'team',
+			$fields['report_website'] => 'website',
+		);
+
+		$changed = array();
+
+		foreach ( $map as $column => $key ) {
+			// `array_key_exists`, not `isset`: the save loop only includes a column when the form
+			// posted it, and an answer cleared to "" is still an answer.
+			if ( ! array_key_exists( $column, $cells ) ) {
+				continue;
+			}
+
+			$value = WPCPM_Airtable::flatten( $cells[ $column ] );
+
+			if ( 'team' === $key ) {
+				// A linked-record column is written as record IDs; the cards store names.
+				$value = WPCPM_Mentors_Sync::resolve_stored( $value, 'teams' );
+			}
+
+			$changed[ $key ] = $value;
+
+			if ( 'profile' === $key ) {
+				// Stored beside the URL, and it is what the card links and labels.
+				$changed['username'] = WPCPM_Mentors_Sync::wporg_username( $value );
+			}
 		}
 
-		$rows = get_user_meta( WPCPM_Roles::id_of( $users[0] ), WPCPM_Mentors_Sync::META_MENTEES, true );
+		if ( empty( $changed ) ) {
+			return false;
+		}
 
-		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
-			if ( is_array( $row ) && isset( $row['record_id'] ) && $row['record_id'] === $record ) {
-				$cache[ $user_id ] = $row;
+		$program = get_user_meta( $user_id, self::META_PROGRAM, true );
+
+		if ( is_array( $program ) && ! empty( $program ) ) {
+			update_user_meta( $user_id, self::META_PROGRAM, array_merge( $program, $changed ) );
+		}
+
+		$record    = trim( (string) get_user_meta( $user_id, self::META_RECORD_ID, true ) );
+		$mentor_id = self::mentor_user_id( $user_id );
+
+		if ( '' === $record || ! $mentor_id ) {
+			return true;
+		}
+
+		$rows  = get_user_meta( $mentor_id, WPCPM_Mentors_Sync::META_MENTEES, true );
+		$rows  = is_array( $rows ) ? $rows : array();
+		$found = false;
+
+		foreach ( $rows as $i => $row ) {
+			if ( is_array( $row ) && isset( $row['record_id'] ) && (string) $row['record_id'] === $record ) {
+				$rows[ $i ] = array_merge( $row, $changed );
+				$found      = true;
 				break;
 			}
 		}
 
-		return $cache[ $user_id ];
+		if ( $found ) {
+			update_user_meta( $mentor_id, WPCPM_Mentors_Sync::META_MENTEES, $rows );
+		}
+
+		return true;
 	}
 
 	/**

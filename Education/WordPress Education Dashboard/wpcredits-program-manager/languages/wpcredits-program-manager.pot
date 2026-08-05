@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-05T16:37:57+00:00\n"
+"POT-Creation-Date: 2026-08-05T16:52:34+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: bin/make-pot.sh (GNU gettext)\n"
@@ -2393,7 +2393,7 @@ msgid "Could not create the account \"%1$s\": %2$s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-sync.php:1689
-#: includes/modules/class-wpcpm-students-sync.php:1187
+#: includes/modules/class-wpcpm-students-sync.php:1293
 msgid "That user does not exist."
 msgstr ""
 
@@ -2870,33 +2870,33 @@ msgstr ""
 msgid "You cannot fill in that report form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1214
+#: includes/modules/class-wpcpm-student-report-form.php:1219
 msgid "Your report form is saved, and your mentor can see it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1215
+#: includes/modules/class-wpcpm-student-report-form.php:1220
 msgid "Nothing was submitted, so nothing changed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1216
+#: includes/modules/class-wpcpm-student-report-form.php:1221
 msgid ""
 "Your record could not be found in the program data, so there is nothing to "
 "save to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1217
+#: includes/modules/class-wpcpm-student-report-form.php:1222
 msgid ""
 "The program records refused the change, so nothing was saved. Please try "
 "again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1218
+#: includes/modules/class-wpcpm-student-report-form.php:1223
 msgid ""
 "Saved, except for one or more numbers that could not be read. Check the "
 "grades and hours: they take digits, and a grade is between 0 and 100."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1219
+#: includes/modules/class-wpcpm-student-report-form.php:1224
 msgid ""
 "Nothing was saved: the numbers could not be read. Grades and hours take "
 "digits, and a grade is between 0 and 100."
@@ -3002,7 +3002,7 @@ msgid ""
 "record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-sync.php:1191
+#: includes/modules/class-wpcpm-students-sync.php:1297
 msgid "That account does not hold the Student role."
 msgstr ""
 

@@ -1057,6 +1057,11 @@ class WPCPM_Student_Report_Form {
 		// The cache holds what Airtable had a moment ago, which is now wrong.
 		self::forget( $record );
 
+		// Four of these answers are also shown on the cards, from a copy the sync leaves behind —
+		// so without this a student who chose their team saw *Not set* on their own card until the
+		// next sync, with the answer sitting in Airtable the whole time.
+		WPCPM_Students_Sync::apply_report( $student_id, $cells );
+
 		// Everything readable was saved; anything that was not is named rather than dropped in
 		// silence, which is what makes a rejected grade findable instead of mysterious.
 		self::bounce( empty( $rejected ) ? 'report-saved' : 'report-partly' );

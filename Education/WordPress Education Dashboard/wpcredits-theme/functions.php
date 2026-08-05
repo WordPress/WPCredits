@@ -19,8 +19,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/*
+ * Read from the stylesheet header rather than written out here.
+ *
+ * **A hand-kept copy of the version drifts, and the drift is invisible.** This one sat at 1.7.1
+ * through ten releases, and since it is the `ver` on every stylesheet and script the theme
+ * enqueues, every browser and every edge cache kept serving whatever they had from the last time
+ * that number changed. The symptom is not a broken page — it is a fix that "did not work", on a
+ * page that is being drawn by CSS from months ago.
+ *
+ * `wp_get_theme()` reads the header WordPress has already parsed and caches it, so this costs
+ * nothing per request and cannot disagree with `style.css`. No argument, so it is the *stylesheet*
+ * theme's version — which is the one that matches the files, since `get_theme_file_uri()` and
+ * `get_stylesheet_uri()` both prefer a child theme's copy.
+ */
 if ( ! defined( 'WPCREDITS_VERSION' ) ) {
-	define( 'WPCREDITS_VERSION', '1.7.1' );
+	define( 'WPCREDITS_VERSION', (string) wp_get_theme()->get( 'Version' ) );
 }
 
 require_once get_theme_file_path( 'inc/icons.php' );
