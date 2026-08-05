@@ -10,20 +10,21 @@ name: Snapshot Post-Grad Activity
 # scope. Only the aggregate summary (no handles) is committed to the repo.
 #
 # Two ways to run:
+#   * schedule — 07:00 UTC on the 1st of each month; writes a snapshot per
+#     graduate to the private Airtable table (POST_GRAD_TABLE_ID).
 #   * workflow_dispatch (manual "Run workflow" button) — defaults to report_only,
 #     so it scrapes and prints the number in the run log but writes NOTHING.
-#     Use this for a first real number before the Airtable table exists.
-#   * schedule (monthly) — commented out until POST_GRAD_TABLE_ID is configured.
+#     Set report_only=false to force an immediate real snapshot write.
 
 on:
+  schedule:
+    - cron: '0 7 1 * *'  # 07:00 UTC on the 1st of each month
   workflow_dispatch:
     inputs:
       report_only:
         description: "Scrape + report only; write nothing to Airtable/repo"
         type: boolean
         default: true
-  # schedule:
-  #   - cron: '0 7 1 * *'  # 07:00 UTC on the 1st of each month
 
 permissions:
   contents: write
