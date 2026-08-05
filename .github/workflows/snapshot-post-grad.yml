@@ -1,0 +1,62 @@
+name: Snapshot Post-Grad Activity
+
+# Issue #137 — MONTHLY snapshot of graduates' WordPress.org profile activity, to
+# measure the % who keep contributing AFTER graduation and to build a 6-month
+# post-graduation retention curve.
+#
+# Storage: raw per-graduate rows go to a PRIVATE Airtable table (this repo is
+# public — they must never be committed here). Set the repo variable
+# POST_GRAD_TABLE_ID to that table's id and give the AIRTABLE_PAT secret write
+# scope. Only the aggregate summary (no handles) is committed to the repo.
+#
+# Two ways to run:
+#   * schedule — 07:00 UTC on the 1st of each month; writes a snapshot per
+#     graduate to the private Airtable table (POST_GRAD_TABLE_ID).
+#   * workflow_dispatch (manual "Run workflow" button) — defaults to report_only,
+#     so it scrapes and prints the number in the run log but writes NOTHING.
+#     Set report_only=false to force an immediate real snapshot write.
+
+on:
+  schedule:
+    - cron: '0 7 1 * *'  # 07:00 UTC on the 1st of each month
+  workflow_dispatch:
+    inputs:
+      report_only:
+        description: "Scrape + report only; write nothing to Airtable/repo"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Snapshot post-grad activity
+        env:
+          AIRTABLE_PAT: ${{ secrets.AIRTABLE_PAT }}
+          POST_GRAD_TABLE_ID: ${{ vars.POST_GRAD_TABLE_ID }}
+        run: |
+          python scripts/post_grad_snapshot.py \
+            ${{ (github.event_name == 'workflow_dispatch' && inputs.report_only) && '--report-only' || '' }}
+
+      # Aggregate summary only (no handles). Skipped on report-only runs, which
+      # write nothing. Raw per-graduate rows live in Airtable, never in git.
+      - name: Commit aggregate summary
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.report_only) }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/post_grad_summary.json
+          git diff --staged --quiet || git commit -m "Update post-grad summary $(date -u +%Y-%m-%d)"
+          git push
