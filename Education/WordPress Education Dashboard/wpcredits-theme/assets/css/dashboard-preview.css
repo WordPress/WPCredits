@@ -1,0 +1,198 @@
+/**
+ * Student Report Card — proposed design changes, on approval.
+ *
+ * **A trial layer, and nothing else.** Every rule here is scoped to `.wpc-preview`, a class the
+ * theme puts on `<body>` only when a program manager asks for it with `?design=preview`. Nothing in
+ * this file can reach a student, or anybody who has not typed that into their own address bar, and
+ * removing the file plus the twelve lines that enqueue it puts the page back exactly as it was.
+ * There are no markup changes behind it: everything below works against the page as it ships.
+ *
+ * What it proposes, and why — the findings are from the review of 6 August 2026:
+ *
+ * 1. **One thing on the page is large.** Every piece of type on the card sits between 10px and
+ *    17px across sixteen size-and-weight pairs, so nothing is a focal point. The hours figure is
+ *    the number the whole program turns on and it was a 13px text box; here it is the size of a
+ *    number somebody is meant to read across the room.
+ * 2. **The controls look like controls.** The report form and the three surveys — the only things
+ *    on this page a student has to *do* — were four blue text links between large white blocks,
+ *    19 to 20 pixels tall. They are rows now, with a target big enough for a thumb.
+ * 3. **The 205px hole beside the profile table closes**, because the two columns stop being forced
+ *    to the same height.
+ * 4. **A scale stops looking like the grade boxes above it.** Five bordered boxes with digits in
+ *    them are, on this page, two different controls: a 1-to-5 choice in the surveys and a text
+ *    field in the report. One of them becomes a segmented control.
+ * 5. **Missing optional answers stop being amber.** Amber is the page's warning colour and it was
+ *    being spent on "Tutor: not set".
+ *
+ * @package WPCredits_Theme
+ */
+
+/* ==========================================================================
+   1. A focal number
+
+   The hours box keeps its form, its label and its button — only the figure grows. It is the one
+   number a student comes back to check, and the only quantity on the page that means progress.
+   ========================================================================== */
+.wpc-preview .wpcpm-hours input {
+	font: 700 34px/40px var( --wpc-font );
+	padding: 4px 10px;
+	text-align: center;
+	width: 3.5em;
+}
+
+.wpc-preview .wpcpm-hours__entry {
+	align-items: center;
+	display: flex;
+	gap: 12px;
+}
+
+.wpc-preview .wpcpm-hours__label {
+	font: 700 12px/16px var( --wpc-font );
+	letter-spacing: .06em;
+	text-transform: uppercase;
+}
+
+/* ==========================================================================
+   2. The disclosures become controls
+
+   A row with an edge, a hover state and 48px of height, rather than a line of blue text. The
+   triangle goes: a control that looks like a control does not need one, and the native marker
+   cannot be positioned. The count moves to the right, where a status belongs.
+   ========================================================================== */
+.wpc-preview .wpcpm-report__disclosure {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel, 8px );
+	margin-bottom: 12px;
+}
+
+.wpc-preview .wpcpm-report__toggle {
+	align-items: center;
+	color: var( --wpc-ink );
+	display: flex;
+	font: 600 15px/20px var( --wpc-font );
+	gap: 12px;
+	list-style: none;
+	min-height: 48px;
+	padding: 0 16px;
+}
+
+.wpc-preview .wpcpm-report__toggle::-webkit-details-marker {
+	display: none;
+}
+
+/* The chevron, drawn rather than typed, so it can turn with the disclosure. */
+.wpc-preview .wpcpm-report__toggle::before {
+	border-right: 2px solid var( --wpc-ink-60 );
+	border-bottom: 2px solid var( --wpc-ink-60 );
+	content: "";
+	flex: none;
+	height: 7px;
+	transform: rotate( -45deg );
+	transition: transform .15s ease;
+	width: 7px;
+}
+
+.wpc-preview .wpcpm-report__disclosure[open] > .wpcpm-report__toggle::before {
+	transform: rotate( 45deg );
+}
+
+.wpc-preview .wpcpm-report__toggle:hover {
+	background: var( --wpc-surface-band );
+}
+
+.wpc-preview .wpcpm-report__disclosure[open] > .wpcpm-report__toggle {
+	border-bottom: 1px solid var( --wpc-line-soft );
+}
+
+/* The progress count, read as a status rather than as part of the title. */
+.wpc-preview .wpcpm-report__count {
+	background: var( --wpc-surface-band );
+	border-radius: 999px;
+	color: var( --wpc-ink-70 );
+	font: 600 12px/16px var( --wpc-font );
+	margin-left: auto;
+	opacity: 1;
+	padding: 3px 10px;
+}
+
+.wpc-preview .wpcpm-report__body {
+	margin-top: 0;
+	padding: 16px;
+}
+
+/* ==========================================================================
+   3. The hole beside the profile table
+
+   `align-items: start` on the two-column grid. The mentor card is shorter than the program table
+   and was being stretched to match it, which is where the 205px of white came from.
+   ========================================================================== */
+.wpc-preview .wpcpm-student__grid {
+	align-items: start;
+}
+
+/* ==========================================================================
+   4. A scale reads as a scale
+
+   One segmented control instead of five boxes that look like the grade fields in the report form
+   above. The steps share an edge; the chosen one is filled.
+   ========================================================================== */
+.wpc-preview .wpcpm-rating {
+	gap: 0;
+}
+
+.wpc-preview .wpcpm-rating__step {
+	border-radius: 0;
+	border-right-width: 0;
+	min-height: 36px;
+}
+
+.wpc-preview .wpcpm-rating__step:first-of-type {
+	border-radius: var( --wpc-radius-control, 4px ) 0 0 var( --wpc-radius-control, 4px );
+}
+
+.wpc-preview .wpcpm-rating__step:last-of-type {
+	border-radius: 0 var( --wpc-radius-control, 4px ) var( --wpc-radius-control, 4px ) 0;
+	border-right-width: 1px;
+}
+
+/* The low end keeps its column, so the segments still start where the dropdowns do; the high end
+   needs the space the removed gap used to give it. */
+.wpc-preview .wpcpm-rating__end--low {
+	padding-right: var( --wpcpm-scale-gap, 0.5rem );
+}
+
+.wpc-preview .wpcpm-rating__end--high {
+	margin-left: var( --wpcpm-scale-gap, 0.5rem );
+}
+
+/* A dropdown is the same height as the segments beside it: they answer the same kind of question
+   and were 19px against 28px. */
+.wpc-preview .wpcpm-feedback__group > .wpcpm-field--select select {
+	min-height: 36px;
+	/* Still level with the second segment's right edge, which moved when the gap between them went. */
+	width: calc( 2 * var( --wpcpm-scale-step ) );
+}
+
+/* ==========================================================================
+   5. Missing is not a warning
+
+   Amber is what this page uses for something wrong. An optional field nobody has filled in is not
+   wrong, and there are three of them on a new student's card.
+   ========================================================================== */
+.wpc-preview .wpcpm-student__row.is-empty {
+	background: var( --wpc-surface-soft );
+}
+
+/* ==========================================================================
+   6. Text that passes AA
+
+   `--wpc-ink-50` is 3.32:1 on white and is used on 59 elements here. `--wpc-ink-60` is 4.61:1 and
+   is close enough in tone that nothing about the page's colour changes.
+   ========================================================================== */
+.wpc-preview .wpcpm-student__note,
+.wpc-preview .wpcpm-report__note,
+.wpc-preview .wpcpm-field__hint,
+.wpc-preview .wpcpm-rating__end {
+	color: var( --wpc-ink-60 );
+}

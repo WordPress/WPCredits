@@ -321,6 +321,60 @@ function wpcredits_dashboard_assets() {
 add_action( 'wp_enqueue_scripts', 'wpcredits_dashboard_assets', 20 );
 
 /**
+ * Whether this request asked to see the proposed design.
+ *
+ * `?design=preview`, and only for somebody who can manage the program. It is a trial layer being
+ * looked at before anyone decides to keep it, so a student must not be able to land on it — from a
+ * shared link, a search result, or a URL somebody pasted into Slack.
+ *
+ * **Everything about it is meant to be easy to undo**: delete `assets/css/dashboard-preview.css`,
+ * delete this function and the two below, and the page is back to what it was. Nothing else in the
+ * theme or the plugin knows this exists.
+ *
+ * @return bool
+ */
+function wpcredits_design_preview() {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag, and the capability below is the gate.
+	if ( ! isset( $_GET['design'] ) || 'preview' !== sanitize_key( wp_unslash( $_GET['design'] ) ) ) {
+		return false;
+	}
+
+	return class_exists( 'WPCPM_Roles' ) && current_user_can( WPCPM_Roles::CAP_MANAGE );
+}
+
+/**
+ * Load the proposed design over the top of the shipped one.
+ */
+function wpcredits_design_preview_assets() {
+	if ( ! wpcredits_design_preview() || ! wpcredits_is_dashboard_page() ) {
+		return;
+	}
+
+	wp_enqueue_style(
+		'wpcredits-dashboard-preview',
+		get_theme_file_uri( 'assets/css/dashboard-preview.css' ),
+		array( 'wpcredits-dashboard' ),
+		WPCREDITS_VERSION
+	);
+}
+add_action( 'wp_enqueue_scripts', 'wpcredits_design_preview_assets', 30 );
+
+/**
+ * Mark the body, so every rule in the preview stylesheet has something to hang on.
+ *
+ * @param string[] $classes Body classes.
+ * @return string[]
+ */
+function wpcredits_design_preview_body_class( $classes ) {
+	if ( wpcredits_design_preview() ) {
+		$classes[] = 'wpc-preview';
+	}
+
+	return $classes;
+}
+add_filter( 'body_class', 'wpcredits_design_preview_body_class' );
+
+/**
  * The payload handed to the script.
  *
  * @param WP_User $mentor Mentor whose list is on screen.

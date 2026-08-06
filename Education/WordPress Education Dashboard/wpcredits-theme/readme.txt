@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.22
+Stable tag: 1.8.23
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,13 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.8.23 =
+* Adds an opt-in preview of proposed Student Report Card design changes at `?design=preview`, for
+  program managers only. It is a trial layer: one stylesheet scoped to a body class, no markup
+  changes, and nothing renders differently for anyone who has not asked for it. Delete
+  `assets/css/dashboard-preview.css` and the three functions at the foot of `inc/dashboard.php` to
+  remove it entirely.
 
 = 1.8.22 =
 * Draws the same rule under each feedback survey as the one above the set of them.
