@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.58.2
+Stable tag: 1.58.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,14 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.58.3 =
+* **The dropdowns line up with the scales and stop hogging the row.** They started 72px to the left
+  of the 1 on every scale beside them, and ran 347px wide for answers like "Yes" and "Partly". They
+  now begin at the same x as the first step and are the width of a scale.
+* The indent both share is held in `rem` rather than `em`: a custom property resolves where it is
+  used, so an em value came out 66px inside the 12px end label and 85px against the 13px dropdown —
+  which is the misalignment it exists to prevent.
 
 = 1.58.2 =
 * **Every 1-to-5 scale now starts at the same place.** The label at the low end is part of the

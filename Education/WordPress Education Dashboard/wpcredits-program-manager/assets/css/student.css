@@ -277,6 +277,13 @@
    scannable rather than a wall. Prose answers are the exception and sit two to a row, because a
    comment box the width of the whole card is mostly empty. */
 .wpcpm-report__group.wpcpm-feedback__group {
+	/* The answer column's own indent: the width of a scale's low-end label, and the space after it.
+	   **In rem, not em.** A custom property resolves where it is *used*, so an em value would be
+	   66px inside the 12px label and 85px against the 13px dropdown beside it — which is exactly the
+	   misalignment this exists to prevent. Against the root size both come out the same. */
+	--wpcpm-scale-end: 4.25rem;
+	--wpcpm-scale-gap: 0.5rem;
+
 	column-gap: 2.5em;
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
 	/* The gap does the spacing, not margins on the fields: `calendar.css` zeroes those and is read
@@ -340,9 +347,14 @@
 	width: 100%;
 }
 
-.wpcpm-feedback__group select {
-	max-width: 26em;
-	width: 100%;
+/* Dropdowns line up with the scales: indented past the low-end label so the answers start at one
+   x whatever kind of answer they are, and as wide as a scale rather than as wide as the card. The
+   longest option in any of these columns is "Neither likely nor unlikely", which fits inside this
+   with room to spare — a dropdown wide enough for a sentence looks like it wants one. */
+.wpcpm-feedback__group > .wpcpm-field--select select {
+	margin-left: calc( var( --wpcpm-scale-end ) + var( --wpcpm-scale-gap ) );
+	max-width: 100%;
+	width: 17rem;
 }
 
 /* The permissions box holds one question and one consent line; neither wants a column. */
@@ -395,6 +407,12 @@
 	.wpcpm-report__group.wpcpm-feedback__group > .wpcpm-field--textarea {
 		grid-column: 1 / -1;
 	}
+
+	/* No question column to line up with, so no indent — and a dropdown takes the width it has. */
+	.wpcpm-feedback__group > .wpcpm-field--select select {
+		margin-left: 0;
+		width: 100%;
+	}
 }
 
 /* --------------------------------------------------------------------------
@@ -409,7 +427,7 @@
 	border: 0;
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.5em;
+	gap: var( --wpcpm-scale-gap, 0.5rem );
 	margin: 0.35em 0 0;
 	padding: 0;
 }
@@ -427,7 +445,7 @@
    Fixed rather than `min-width`: a column that can grow is a column that stops aligning the moment
    one question needs a longer word, which is the thing being fixed. */
 .wpcpm-rating__end--low {
-	flex: 0 0 5.5em;
+	flex: 0 0 var( --wpcpm-scale-end, 4.25rem );
 	text-align: right;
 }
 
