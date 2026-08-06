@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.58.4
+Stable tag: 1.58.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,16 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.58.5 =
+* *Send my answers* is now **Save my answers**, which is what it does — the answers can be changed
+  and saved again at any time.
+* A rule under each survey, the twin of the one above them, so three stacked forms read as three
+  rather than as one long one with headings in it.
+* **More room throughout.** The line explaining what a form is for sat flush against the first
+  group of questions with no gap at all. The gaps were nominally 1.25em, but they sit against notes
+  set at 11px, so an em bought 14px of space where it read as 20 — they are in rem now and measure
+  the same wherever they are used.
 
 = 1.58.4 =
 * The dropdowns end where the second step of a scale ends, and their value is centred.

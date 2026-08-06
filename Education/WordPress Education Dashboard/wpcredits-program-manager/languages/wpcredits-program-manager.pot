@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-06T08:40:37+00:00\n"
+"POT-Creation-Date: 2026-08-06T09:19:33+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: bin/make-pot.sh (GNU gettext)\n"
@@ -2963,7 +2963,7 @@ msgid ""
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:734
-msgid "Send my answers"
+msgid "Save my answers"
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-feedback.php:840

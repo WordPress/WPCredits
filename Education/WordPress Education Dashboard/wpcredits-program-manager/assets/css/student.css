@@ -247,8 +247,14 @@
    groups and the submit button, so anything a theme has already styled there
    applies here without a second set of rules.
    -------------------------------------------------------------------------- */
+/* Each survey is closed off by a rule of its own, the twin of the one above the section. Three
+   forms stacked with nothing between them read as one long form with three headings in it, and the
+   button that ends one sat directly above the summary that begins the next. Drawn under the whole
+   disclosure rather than under the button, so a collapsed survey is separated from its neighbour
+   too — otherwise the rules appear and disappear as forms are opened. */
 .wpcpm-feedback {
 	margin-top: 1em;
+	padding-bottom: 1.25em;
 }
 
 /* The surveys' own heading, and the sentence under it. The heading carries the rule that separates
@@ -259,6 +265,33 @@
 
 .wpcpm-feedback__intro {
 	margin: 0 0 0.75em;
+}
+
+/* Room to breathe between the parts of a survey. Left to the defaults these ran into each other —
+   the line explaining what a form is for sat flush against the first group of questions, with no
+   gap at all, and the whole thing read as one dense block rather than as a short form with a
+   sentence above it. */
+/* In rem, not em. These sit against explanatory notes set at 11px, so an em value gives 14px of
+   space where it reads as 20 — which is how the whole survey ended up looking condensed while
+   every gap in it was nominally "1.25". */
+.wpcpm-feedback > .wpcpm-report__body {
+	margin-top: 1rem;
+}
+
+.wpcpm-feedback > .wpcpm-report__body > .wpcpm-student__note {
+	margin: 0 0 1.25rem;
+}
+
+.wpcpm-report__group.wpcpm-feedback__group {
+	margin-bottom: 1.5rem;
+}
+
+.wpcpm-feedback__group > .wpcpm-report__note {
+	margin: 0 0 1.25rem;
+}
+
+.wpcpm-feedback .wpcpm-report__submit {
+	margin-top: 1.75rem;
 }
 
 /* A layout of its own, not the report form's.
@@ -288,8 +321,11 @@
 	column-gap: 2.5em;
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
 	/* The gap does the spacing, not margins on the fields: `calendar.css` zeroes those and is read
-	   after this file, and a row of questions with nothing between them is a wall. */
-	row-gap: 1.4em;
+	   after this file, and a row of questions with nothing between them is a wall. In rem for the
+	   reason given below — an em here is measured against whichever question happens to be first. */
+	padding-bottom: 1.25rem;
+	padding-top: 1rem;
+	row-gap: 1.5rem;
 }
 
 /* **`display` has to be given back when a field is hidden.** The rules below set `display: grid`

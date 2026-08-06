@@ -731,7 +731,7 @@ class WPCPM_Student_Feedback {
 		if ( $can ) {
 			printf(
 				'<p class="wpcpm-report__submit"><button type="submit" class="wpcpm-button">%s</button></p>',
-				esc_html__( 'Send my answers', 'wpcredits-program-manager' )
+				esc_html__( 'Save my answers', 'wpcredits-program-manager' )
 			);
 		}
 

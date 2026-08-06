@@ -2486,6 +2486,12 @@
 	margin-top: 0;
 }
 
+/* The same rule under each survey as the one above them all: see the plugin's note on why it is
+   drawn under the disclosure rather than under the button inside it. */
+.wpc-dashboard-page .wpcpm-feedback {
+	border-bottom: 1px solid var( --wpc-line-soft );
+}
+
 .wpc-dashboard-page .wpcpm-feedback__group--permissions {
 	background: var( --wpc-surface-soft );
 	border-style: solid;
