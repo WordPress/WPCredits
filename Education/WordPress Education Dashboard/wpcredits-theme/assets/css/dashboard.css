@@ -2511,32 +2511,54 @@
 	font: 600 14px/20px var( --wpc-font );
 }
 
-/* The scale. The chosen step is filled rather than merely ringed: on a row of
-   five, a border alone is hard to pick out at a glance — which is the one thing
-   a scale has to make obvious. */
+/* The scale is five stars, because the Airtable columns behind it are star columns — a row of
+   numbered boxes here and five stars in the base would be two renderings of one answer, and the
+   people reading the answers see the stars. So: no box, no border, just the star and the space
+   around it that keeps the target big enough for a thumb. */
 .wpc-dashboard-page .wpcpm-rating__step {
-	background: var( --wpc-surface );
-	border-color: var( --wpc-line-control, var( --wpc-line-card ) );
-	border-radius: var( --wpc-radius-control );
-	font: 600 13px/20px var( --wpc-font );
-	min-width: 2.75em;
+	background: none;
+	border: 0;
+	color: var( --wpc-ink-50 );
 	justify-content: center;
-	transition: background-color 0.12s ease, border-color 0.12s ease;
+	min-height: 36px;
+	transition: color .12s ease;
 }
 
-.wpc-dashboard-page .wpcpm-rating__step:hover {
-	border-color: var( --wpc-blue );
+.wpc-dashboard-page .wpcpm-rating__step:has( input:checked ),
+.wpc-dashboard-page .wpcpm-rating__step:has( ~ .wpcpm-rating__step input:checked ),
+.wpc-dashboard-page .wpcpm-rating__step:hover,
+.wpc-dashboard-page .wpcpm-rating__step:has( ~ .wpcpm-rating__step:hover ) {
+	color: var( --wpc-amber, #926300 );
 }
 
-.wpc-dashboard-page .wpcpm-rating__step:has( input:checked ) {
-	background: var( --wpc-blue );
-	border-color: var( --wpc-blue );
-	color: #fff;
+/* Keyboard focus lands on a radio that is not drawn, so the star around it shows the ring. */
+.wpc-dashboard-page .wpcpm-rating__step:has( input:focus-visible ) {
+	border-radius: var( --wpc-radius-control );
+	outline: 2px solid var( --wpc-blue );
+	outline-offset: 2px;
 }
+
+/* Somebody else's answers: the stars stay, in ink rather than amber, so the row reads as a record
+   rather than as something waiting to be filled in. */
+.wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step:hover,
+.wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step:has( ~ .wpcpm-rating__step:hover ) {
+	color: var( --wpc-ink-50 );
+}
+
+.wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step:has( input:checked ),
+.wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step:has( ~ .wpcpm-rating__step input:checked ) {
+	color: var( --wpc-ink-70 );
+}
+
+
 
 /* `:has()` is not everywhere yet, and a scale that cannot show which step is
    chosen is unusable rather than merely plain — so the radio itself stays
    visible as the fallback, and is only hidden where the fill works. */
+/* The radio itself is hidden **only where `:has()` works**, because that is what draws the stars as
+   filled or empty. Without it the stars are all outlines and the radio is the only thing saying
+   which one is chosen, so it stays on screen — a scale that cannot show its own answer is worse
+   than a plain one. */
 @supports selector( :has( * ) ) {
 
 	.wpc-dashboard-page .wpcpm-rating__step input {
@@ -2544,13 +2566,6 @@
 		opacity: 0;
 		position: absolute;
 		width: 1px;
-	}
-
-	/* Keyboard focus moves to the radio, which is now invisible — so the step
-	   around it has to show the ring instead. */
-	.wpc-dashboard-page .wpcpm-rating__step:has( input:focus-visible ) {
-		outline: 2px solid var( --wpc-blue );
-		outline-offset: 2px;
 	}
 }
 
@@ -2562,12 +2577,6 @@
 /* Disabled means a mentor or manager reading somebody else's answers: it should
    read as a record, the way the disabled report form does. */
 .wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step {
-	background: var( --wpc-surface-soft );
-	color: var( --wpc-ink-70 );
+	background: none;
 }
 
-.wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step:has( input:checked ) {
-	background: var( --wpc-ink-70 );
-	border-color: var( --wpc-ink-70 );
-	color: #fff;
-}

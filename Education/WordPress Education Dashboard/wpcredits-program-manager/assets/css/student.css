@@ -514,9 +514,36 @@
 	text-align: center;
 }
 
-.wpcpm-feedback__group .wpcpm-rating__step > span {
-	flex: 1 1 auto;
-	text-align: center;
+/* The star fills the box it is centred in. `1 1 auto` rather than a width, so the box stays the
+   token width the dropdowns are measured against. */
+.wpcpm-rating__star {
+	display: block;
+	height: 1.5rem;
+	width: 1.5rem;
+}
+
+/* **Outline until chosen, then filled up to the one you picked.** A star rating is cumulative —
+   three stars means three, not "the third" — so the fill runs from the left, which is what
+   `:has( ~ … input:checked )` does: any step with a checked step *after* it is also filled.
+   Hovering previews the same way. */
+.wpcpm-rating__step .wpcpm-rating__star {
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.5;
+}
+
+.wpcpm-rating__step:has( input:checked ) .wpcpm-rating__star,
+.wpcpm-rating__step:has( ~ .wpcpm-rating__step input:checked ) .wpcpm-rating__star {
+	fill: currentColor;
+	stroke: none;
+}
+
+/* The preview, while the pointer is over the row. Only where the scale can still be answered —
+   a read-only report should not light up under the mouse. */
+.wpcpm-rating__step:hover .wpcpm-rating__star,
+.wpcpm-rating__step:has( ~ .wpcpm-rating__step:hover ) .wpcpm-rating__star {
+	fill: currentColor;
+	stroke: none;
 }
 
 /* The whole step is the target, not just the dot: a 1-to-5 scale is used on a

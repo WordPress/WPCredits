@@ -881,6 +881,17 @@ class WPCPM_Student_Feedback {
 		$max  = isset( $spec['max'] ) ? (int) $spec['max'] : 5;
 		$ends = isset( $spec['ends'] ) ? $spec['ends'] : array( '', '' );
 
+		// **Stars, because the column is a star column.** Every one of these is an Airtable `rating`
+		// field with `icon: star`, so a row of numbered boxes here and five stars in the base are two
+		// renderings of one answer — and the person reading the answers sees the stars.
+		//
+		// The star is decorative and the number is not: the glyph carries `aria-hidden`, and the
+		// radio's accessible name comes from the text beside it. A screen reader announces "3 of 5",
+		// which is the answer; "star" is how it happens to be drawn.
+		$star = '<svg class="wpcpm-rating__star" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+			. '<path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.4-5.8-3-5.8 3 1.1-6.4L2.6 9.4l6.5-.9L12 2.6z" />'
+			. '</svg>';
+
 		printf(
 			'<fieldset class="wpcpm-rating" data-wpcpm-field="%1$s"><legend class="screen-reader-text">%2$s</legend>',
 			esc_attr( $key ),
@@ -896,11 +907,20 @@ class WPCPM_Student_Feedback {
 
 		for ( $i = 1; $i <= $max; $i++ ) {
 			printf(
-				'<label class="wpcpm-rating__step"><input type="radio" name="feedback[%1$s]" value="%2$d"%3$s%4$s /><span>%2$d</span></label>',
+				'<label class="wpcpm-rating__step"><input type="radio" name="feedback[%1$s]" value="%2$d"%3$s%4$s />%5$s<span class="screen-reader-text">%6$s</span></label>',
 				esc_attr( $key ),
 				(int) $i,
 				checked( (string) $value, (string) $i, false ),
-				$can ? '' : ' disabled="disabled"'
+				$can ? '' : ' disabled="disabled"',
+				$star, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal above.
+				esc_html(
+					sprintf(
+						/* translators: 1: this step's number, 2: the highest number on the scale. */
+						__( '%1$s of %2$s', 'wpcredits-program-manager' ),
+						number_format_i18n( $i ),
+						number_format_i18n( $max )
+					)
+				)
 			);
 		}
 

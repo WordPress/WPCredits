@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.58.5
+Stable tag: 1.59.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,16 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.59.0 =
+* **The 1-to-5 scales are stars.** Every rating column behind them is an Airtable star column, so a
+  row of numbered boxes here and five stars in the base were two renderings of one answer — and the
+  people who read the answers see the stars. They fill from the left, the way a star rating means
+  three rather than "the third", and hovering previews the same.
+* The star is drawn as decoration and the number is not: the glyph is `aria-hidden`, and each radio
+  keeps a name a screen reader can use — "3 of 5". Where `:has()` is unsupported the radio itself
+  stays visible, because a scale that cannot show its own answer is worse than a plain one.
+* The steps keep the width the dropdowns are measured against, so nothing else on the row moves.
 
 = 1.58.5 =
 * *Send my answers* is now **Save my answers**, which is what it does — the answers can be changed
