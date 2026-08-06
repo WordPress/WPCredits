@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.58.0
+Stable tag: 1.58.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,17 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.58.1 =
+* **The surveys use the width of the card.** Questions on the left, answers aligned down the right,
+  prose two boxes to a row — instead of every 1-to-5 scale wrapping onto two lines inside a 208px
+  column with 1,176px of card empty beside it. The layout rules now sit two classes deep, because
+  the report form's own column rule is loaded after this one and a rule of equal weight lost.
+* **Fixes the two conditional follow-ups, which were shown to everybody.** Giving those fields a
+  `display` of their own beat the `[hidden]` rule every browser ships, so the script hid them and
+  nothing happened.
+* Adds a *Feedback forms* heading above them, and gives every question one treatment — a scale's
+  question is a span and the rest are labels, and they were styled as two different things.
 
 = 1.58.0 =
 * **The feedback surveys, on the Student Report Card.** Four short forms under *Your report form*,

@@ -569,7 +569,16 @@ class WPCPM_Student_Feedback {
 
 		self::render_message();
 
-		// Said once, above all of them. They sit in the same section as the report form and look
+		// A heading of its own, because these are a different errand from the report above them.
+		// It is an <h4> under the section's <h3>, not another <h3>: they belong to the Report form
+		// section, and a heading outline that says otherwise is wrong to a screen reader even
+		// where it looks right on screen.
+		printf(
+			'<h4 class="wpcpm-student__heading wpcpm-feedback__title">%s</h4>',
+			esc_html__( 'Feedback forms', 'wpcredits-program-manager' )
+		);
+
+		// Said once, under the heading. They sit in the same section as the report form and look
 		// the same, so without this a student would reasonably assume these count towards their
 		// credits — and answer them the way somebody answers a marked question.
 		printf(

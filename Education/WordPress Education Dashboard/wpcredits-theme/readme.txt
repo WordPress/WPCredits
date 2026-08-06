@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.19
+Stable tag: 1.8.20
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,10 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.8.20 =
+* A survey question now takes the card's body size and ink rather than the 12px muted treatment the
+  report form uses for its field labels. A question is read; a field label is scanned.
 
 = 1.8.19 =
 * Dresses the feedback surveys the plugin adds in 1.58.0: the 1-to-5 scales, the consent line, and

@@ -2486,6 +2486,15 @@
 	font: 13px/20px var( --wpc-font );
 }
 
+/* A survey question is read, not scanned like a field label — so it takes the card's body size
+   and ink rather than the 12px muted treatment the report form's labels use. Both selectors,
+   because a scale's question is a span and everything else's is a <label>. */
+.wpc-dashboard-page .wpcpm-feedback__group .wpcpm-field > label,
+.wpc-dashboard-page .wpcpm-feedback__group .wpcpm-field__label {
+	color: var( --wpc-ink );
+	font: 600 14px/20px var( --wpc-font );
+}
+
 /* The scale. The chosen step is filled rather than merely ringed: on a row of
    five, a border alone is hard to pick out at a glance — which is the one thing
    a scale has to make obvious. */
