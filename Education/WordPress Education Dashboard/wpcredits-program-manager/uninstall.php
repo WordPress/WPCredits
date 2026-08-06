@@ -32,8 +32,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-sync.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-dashboard.php';
-require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-profile.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-report-form.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-student-feedback.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentors-dashboard.php';

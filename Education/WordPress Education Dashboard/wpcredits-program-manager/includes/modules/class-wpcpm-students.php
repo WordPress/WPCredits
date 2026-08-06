@@ -74,6 +74,7 @@ class WPCPM_Students extends WPCPM_Module {
 		WPCPM_Students_Sync::register_cron();
 		WPCPM_Students_Dashboard::init();
 		WPCPM_Student_Report_Form::init();
+		WPCPM_Student_Feedback::init();
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
@@ -116,6 +117,7 @@ class WPCPM_Students extends WPCPM_Module {
 			WPCPM_Students_Sync::META_PROGRAM,
 			WPCPM_Students_Sync::META_MENTOR,
 			WPCPM_Students_Sync::META_UPDATED,
+			WPCPM_Student_Feedback::META_RECORD,
 			'wpcpm_student_invited',
 		) as $meta_key ) {
 			delete_metadata( 'user', 0, $meta_key, '', true );

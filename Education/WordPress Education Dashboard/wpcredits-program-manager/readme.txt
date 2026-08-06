@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.57.0
+Stable tag: 1.58.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,34 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.58.0 =
+* **The feedback surveys, on the Student Report Card.** Four short forms under *Your report form*,
+  each its own toggle: *Getting started*, *Half way*, *Finishing up*, and — for anyone who did not
+  finish — *Leaving the program*. They write to the Feedback table in Airtable, one row per student,
+  so a stage fills in its own columns and leaves the rest alone.
+* The question set is the one settled in issue #123 after the analysis of 242 responses, and the
+  reasoning is encoded rather than left to whoever edits the form next:
+  * **The three anchors repeat word for word** in the first three forms — overall experience,
+    confidence contributing, and how much the mentor's support is helping — because that is what
+    lets a student's answers be read as a line rather than three unrelated snapshots. The test
+    suite asserts they are identical across the three.
+  * **Two follow-ups are conditional**, shown only when the answer above them was poor: what
+    slowed you down, and what is making the hours hard to reach. Asked of everybody they come back
+    mostly blank. They stay visible without JavaScript, and never vanish once something has been
+    typed into them.
+  * **The eight retired questions are not asked**, and a test keeps them retired.
+  * **Form 3's permissions are fenced off** in a box of their own that says it is optional: sharing
+    a quote publicly and being contacted about opportunities are not feedback about the program.
+* Ratings are 1-to-5 radio scales with both ends named, so they work without JavaScript, from the
+  keyboard, and on a phone.
+* Answers are prefilled from the record and can be changed at any time; each form's summary says
+  how many of its questions are answered.
+* A single-select answer is checked against the choices the column actually has, so a hand-edited
+  form cannot add an option to the base or take the whole submission down with it.
+* Adds `feedback_table` to the settings, and `WPCPM_Airtable::create_records()`.
+* Fixes a fatal in `uninstall.php`, which still required the student profile editor deleted in
+  1.52.0 — cleanup would have stopped there and left everything behind.
 
 = 1.57.0 =
 * **The student sync now runs every three hours** instead of once a day, so what people see on

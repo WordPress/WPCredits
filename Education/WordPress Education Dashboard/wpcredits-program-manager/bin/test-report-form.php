@@ -263,12 +263,11 @@ ck( 'above the project description, on both tracks',
     ),
     array( true, true ) );
 
-// The other half of "once": the profile editor must not offer it as well.
-$profile_src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-student-profile.php' );
-
-ck( 'and the profile editor no longer offers it',
-    array( false !== strpos( $profile_src, "'team'" ) ),
-    array( false ) );
+// The other half of "once": nothing else may offer it. The profile editor did, and was deleted
+// when its last three fields moved here — so the assertion is that the file itself is gone, which
+// is the only way "asked once" can be guaranteed rather than hoped for.
+ck( 'and the profile editor that used to offer it is gone',
+    file_exists( __DIR__ . '/../includes/modules/class-wpcpm-student-profile.php' ), false );
 
 // Company waits for the Sponsors module, which will own it.
 

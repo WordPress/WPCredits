@@ -151,6 +151,59 @@ class WPCPM_Airtable {
 	}
 
 	/**
+	 * Create records.
+	 *
+	 * `typecast` is deliberately **not** sent: it lets Airtable coerce an unknown single-select
+	 * value into a new choice, so one typo would add an option to the column rather than fail.
+	 * Everything written here is validated against the choices the base already has.
+	 *
+	 * @param string $table   Table ID or name.
+	 * @param array  $records List of `array( 'fields' => array )`.
+	 * @return array|WP_Error List of created record IDs, in order.
+	 */
+	public function create_records( $table, array $records ) {
+		$guard = $this->guard();
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+
+		$records = array_values(
+			array_filter(
+				$records,
+				static function ( $record ) {
+					return ! empty( $record['fields'] ) && is_array( $record['fields'] );
+				}
+			)
+		);
+
+		if ( empty( $records ) ) {
+			return array();
+		}
+
+		$created = array();
+
+		foreach ( array_chunk( $records, 10 ) as $chunk ) {
+			$response = $this->request(
+				$this->table_url( $table ),
+				'POST',
+				array( 'records' => array_values( $chunk ) )
+			);
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			foreach ( ( isset( $response['records'] ) && is_array( $response['records'] ) ) ? $response['records'] : array() as $record ) {
+				if ( ! empty( $record['id'] ) ) {
+					$created[] = (string) $record['id'];
+				}
+			}
+		}
+
+		return $created;
+	}
+
+	/**
 	 * Update records.
 	 *
 	 * Airtable accepts at most ten records per PATCH, so longer lists are chunked.

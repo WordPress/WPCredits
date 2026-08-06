@@ -33,6 +33,9 @@ class WPCPM_Settings {
 			'mentor_status'             => 'Active',
 			'reports_table'             => 'tbljYkkVGbeoaWEtY',
 			'students_table'            => 'tbla8GZg5x6NY7aWt',
+			// The feedback surveys. One row per student, with a column per question
+			// and a `F1`/`F2`/`F3`/`F4` prefix saying which stage asked it.
+			'feedback_table'            => 'tblx3TH6fp4edQJDm',
 			// Linked-record fields come back from the REST API as bare record IDs,
 			// so these two tables are read purely to turn those IDs into names.
 			'institutions_table'        => 'tbl4V0FEbzRP7I2w2',
@@ -150,7 +153,7 @@ class WPCPM_Settings {
 			}
 		}
 
-		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'institutions_table', 'teams_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'sponsors_name_field' ) as $key ) {
+		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'feedback_table', 'institutions_table', 'teams_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'sponsors_name_field' ) as $key ) {
 			if ( isset( $input[ $key ] ) ) {
 				$clean[ $key ] = sanitize_text_field( wp_unslash( $input[ $key ] ) );
 			}

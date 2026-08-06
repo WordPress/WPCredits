@@ -238,3 +238,108 @@
 	font-weight: 700;
 	margin: 0;
 }
+
+/* --------------------------------------------------------------------------
+   Feedback surveys
+
+   The plugin's own layer: structure only, so a theme can dress these the way it
+   dresses the report form. They reuse `.wpcpm-report__*` for the disclosure, the
+   groups and the submit button, so anything a theme has already styled there
+   applies here without a second set of rules.
+   -------------------------------------------------------------------------- */
+.wpcpm-feedback {
+	margin-top: 1em;
+}
+
+.wpcpm-feedback__intro {
+	margin: 1.25em 0 0.5em;
+}
+
+/* One question per row, unlike the report form's groups.
+
+   The report form asks for grades and links — short answers whose labels are shorter still, and
+   four to a row reads as the mark sheet it is. A survey is the opposite: the *question* is the
+   long part, and in a 13em column "Are the course materials available in a language you are
+   comfortable working in?" wraps to four lines above a two-word answer. It also broke the scales,
+   which need one line for five steps and both ends named. */
+.wpcpm-feedback__group {
+	grid-template-columns: minmax( 0, 1fr );
+}
+
+.wpcpm-feedback__group .wpcpm-field {
+	margin: 0 0 1em;
+}
+
+.wpcpm-feedback__group .wpcpm-field:last-child {
+	margin-bottom: 0;
+}
+
+/* The permissions block reads as an aside rather than as more of the survey: a
+   dashed edge, because a solid one would make it look like another section of
+   questions to get through. */
+.wpcpm-feedback__group--permissions {
+	border-style: dashed;
+}
+
+.wpcpm-feedback__consent {
+	align-items: flex-start;
+	display: flex;
+	gap: 0.5em;
+	line-height: 1.4;
+}
+
+.wpcpm-feedback__consent input {
+	flex: none;
+	margin-top: 0.15em;
+}
+
+/* A survey's answers are the short part, so a box the width of the card is mostly
+   empty. Wide enough to answer in, and no wider. */
+.wpcpm-feedback__group select,
+.wpcpm-feedback__group textarea {
+	max-width: 34em;
+	width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   The one-to-five scales
+
+   Radios, laid out as a row with both ends named. Wrapping is allowed rather
+   than scrolling: on a narrow screen the labels fall onto their own line, which
+   is legible — a scrolling scale hides the end somebody is looking for.
+   -------------------------------------------------------------------------- */
+.wpcpm-rating {
+	align-items: center;
+	border: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	margin: 0.35em 0 0;
+	padding: 0;
+}
+
+.wpcpm-rating__end {
+	font-size: 0.85em;
+	opacity: 0.7;
+}
+
+/* The whole step is the target, not just the dot: a 1-to-5 scale is used on a
+   phone with a thumb, and a bare radio is a 13px target. */
+.wpcpm-rating__step {
+	align-items: center;
+	border: 1px solid var( --wpcpm-border, #dcdcde );
+	border-radius: 4px;
+	cursor: pointer;
+	display: inline-flex;
+	gap: 0.35em;
+	line-height: 1;
+	padding: 0.4em 0.6em;
+}
+
+.wpcpm-rating__step input {
+	margin: 0;
+}
+
+.wpcpm-report--readonly .wpcpm-rating__step {
+	cursor: default;
+}

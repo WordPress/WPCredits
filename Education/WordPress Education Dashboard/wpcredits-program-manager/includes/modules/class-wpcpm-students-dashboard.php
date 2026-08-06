@@ -24,6 +24,7 @@ class WPCPM_Students_Dashboard {
 	const BLOCK     = 'wpcpm/student-dashboard';
 	const OPT_PAGE  = 'wpcpm_student_page_id';
 	const STYLE     = 'wpcpm-student-dashboard';
+	const SCRIPT    = 'wpcpm-student-feedback';
 
 	/**
 	 * Hooks.
@@ -113,6 +114,18 @@ class WPCPM_Students_Dashboard {
 			);
 		}
 
+		// The surveys' only script. In the footer and with no dependencies: it reads rules out of
+		// the markup and hides two questions, so nothing on the page waits for it.
+		if ( ! wp_script_is( self::SCRIPT, 'registered' ) ) {
+			wp_register_script(
+				self::SCRIPT,
+				WPCPM_PLUGIN_URL . 'assets/js/feedback.js',
+				array(),
+				WPCPM_VERSION,
+				true
+			);
+		}
+
 		add_shortcode( self::SHORTCODE, array( __CLASS__, 'render' ) );
 
 		$block_dir = WPCPM_PLUGIN_DIR . 'blocks/student-dashboard';
@@ -165,6 +178,7 @@ class WPCPM_Students_Dashboard {
 		$atts = shortcode_atts( array( 'title' => '' ), is_array( $atts ) ? $atts : array(), self::SHORTCODE );
 
 		wp_enqueue_style( self::STYLE );
+		wp_enqueue_script( self::SCRIPT );
 
 		if ( ! is_user_logged_in() ) {
 			return self::notice(
@@ -565,6 +579,13 @@ class WPCPM_Students_Dashboard {
 		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'Report form', 'wpcredits-program-manager' ) . '</h3>';
 
 		WPCPM_Student_Report_Form::render( $student, $program );
+
+		// Under the report, in the same section and in disclosures of the same kind — because to a
+		// student they are the same errand: the things this page asks them to fill in. They are not
+		// the same record, though, and the note below the first one says so: the report is what
+		// counts towards their credits, and the surveys are not marked, not seen by their
+		// institution, and can be left alone without consequence.
+		WPCPM_Student_Feedback::render( $student, $program );
 
 		echo '</section>';
 	}

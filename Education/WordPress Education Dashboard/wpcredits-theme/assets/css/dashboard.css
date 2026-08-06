@@ -2457,3 +2457,92 @@
 		padding-right: 20px;
 	}
 }
+
+/* ==========================================================================
+   Feedback surveys
+
+   Dressed as the report form's siblings, because that is what they are to a
+   student: the same disclosure, the same grouped fieldsets, the same button.
+   Only what is new here needs rules — the scales, the consent line, and the
+   permissions box that has to read as separate from the questions above it.
+   ========================================================================== */
+/* Set apart from the report above them without a heading of their own: the
+   report is what counts towards their credits and these are not, and a line is
+   a quieter way to say so than another <h3>. */
+.wpc-dashboard-page .wpcpm-feedback__intro {
+	border-top: 1px solid var( --wpc-line-soft );
+	color: var( --wpc-ink-70 );
+	margin-top: 24px;
+	padding-top: 20px;
+}
+
+.wpc-dashboard-page .wpcpm-feedback__group--permissions {
+	background: var( --wpc-surface-soft );
+	border-style: solid;
+}
+
+.wpc-dashboard-page .wpcpm-feedback__consent {
+	color: var( --wpc-ink );
+	font: 13px/20px var( --wpc-font );
+}
+
+/* The scale. The chosen step is filled rather than merely ringed: on a row of
+   five, a border alone is hard to pick out at a glance — which is the one thing
+   a scale has to make obvious. */
+.wpc-dashboard-page .wpcpm-rating__step {
+	background: var( --wpc-surface );
+	border-color: var( --wpc-line-control, var( --wpc-line-card ) );
+	border-radius: var( --wpc-radius-control );
+	font: 600 13px/20px var( --wpc-font );
+	min-width: 2.75em;
+	justify-content: center;
+	transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.wpc-dashboard-page .wpcpm-rating__step:hover {
+	border-color: var( --wpc-blue );
+}
+
+.wpc-dashboard-page .wpcpm-rating__step:has( input:checked ) {
+	background: var( --wpc-blue );
+	border-color: var( --wpc-blue );
+	color: #fff;
+}
+
+/* `:has()` is not everywhere yet, and a scale that cannot show which step is
+   chosen is unusable rather than merely plain — so the radio itself stays
+   visible as the fallback, and is only hidden where the fill works. */
+@supports selector( :has( * ) ) {
+
+	.wpc-dashboard-page .wpcpm-rating__step input {
+		height: 1px;
+		opacity: 0;
+		position: absolute;
+		width: 1px;
+	}
+
+	/* Keyboard focus moves to the radio, which is now invisible — so the step
+	   around it has to show the ring instead. */
+	.wpc-dashboard-page .wpcpm-rating__step:has( input:focus-visible ) {
+		outline: 2px solid var( --wpc-blue );
+		outline-offset: 2px;
+	}
+}
+
+.wpc-dashboard-page .wpcpm-rating__end {
+	color: var( --wpc-ink-70 );
+	font: 12px/16px var( --wpc-font );
+}
+
+/* Disabled means a mentor or manager reading somebody else's answers: it should
+   read as a record, the way the disabled report form does. */
+.wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step {
+	background: var( --wpc-surface-soft );
+	color: var( --wpc-ink-70 );
+}
+
+.wpc-dashboard-page .wpcpm-report--readonly .wpcpm-rating__step:has( input:checked ) {
+	background: var( --wpc-ink-70 );
+	border-color: var( --wpc-ink-70 );
+	color: #fff;
+}

@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.18
+Stable tag: 1.8.19
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,14 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.8.19 =
+* Dresses the feedback surveys the plugin adds in 1.58.0: the 1-to-5 scales, the consent line, and
+  the permissions box that has to read as separate from the questions above it. The forms
+  themselves reuse the report form's treatment, since to a student they are the same kind of thing.
+* The chosen step on a scale is filled rather than ringed — on a row of five, a border alone is
+  hard to pick out, which is the one thing a scale has to make obvious. Where `:has()` is
+  unsupported the radio stays visible instead, so the answer is never invisible.
 
 = 1.8.18 =
 * **Fixes the version stamped on every stylesheet and script the theme loads.** It was written out
