@@ -13,6 +13,7 @@
 | **Mentors table** | Where mentor records live. |
 | **Students Reports table** | Internship dates, links and contribution teams — what the mentor page shows. |
 | **Students table** | Read only for the Tutor column, which does not exist on Students Reports. |
+| **Feedback table** | Where the students' survey answers are written. One row per student, with a column per question. |
 
 ### Linked tables
 
@@ -35,7 +36,10 @@ column is detected automatically.
   accounts at once. Invitations are queued and sent a few at a time rather than all inside the sync,
   so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time
   from the Mentors and Students screens.
-- **Daily sync** — sync automatically once a day.
+- **Automatic sync** — read Airtable on a schedule. **Students every three hours, mentors once a
+  day**: the student rows carry what people are shown on their cards, while the mentors run costs
+  one WordPress.org profile read per mentor. A run already in progress is left to finish rather than
+  restarted. Either can also be run by hand from the Students and Mentors screens.
 - **Mentor landing page** — send mentors to their Report Card on login and in place of the wp-admin
   Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who followed a
   link somewhere specific still lands there. Administrators are unaffected.

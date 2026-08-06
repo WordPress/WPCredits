@@ -61,6 +61,7 @@ Status Checker**. Each has its own screen behind an *Open tool* button.
 | **Mentors table** | Where mentor records live. |
 | **Students Reports table** | Internship dates, links and contribution teams — what the mentor page shows. |
 | **Students table** | Read only for the Tutor column, which does not exist on Students Reports. |
+| **Feedback table** | Where the students' survey answers are written. One row per student, with a column per question. |
 
 ### Linked tables
 
@@ -83,7 +84,10 @@ column is detected automatically.
   accounts at once. Invitations are queued and sent a few at a time rather than all inside the sync,
   so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time
   from the Mentors and Students screens.
-- **Daily sync** — sync automatically once a day.
+- **Automatic sync** — read Airtable on a schedule. **Students every three hours, mentors once a
+  day**: the student rows carry what people are shown on their cards, while the mentors run costs
+  one WordPress.org profile read per mentor. A run already in progress is left to finish rather than
+  restarted. Either can also be run by hand from the Students and Mentors screens.
 - **Mentor landing page** — send mentors to their Report Card on login and in place of the wp-admin
   Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who followed a
   link somewhere specific still lands there. Administrators are unaffected.
@@ -196,7 +200,13 @@ configure.
 
 Both syncs read Airtable and reconcile accounts: create what is missing, update what has changed,
 and apply your *when they are no longer active* setting to the rest. Run one by hand from the
-Students or Mentors screen, or leave **Daily sync** on.
+Students or Mentors screen, or leave **Automatic sync** on — students every three hours, mentors
+once a day.
+
+They run on different clocks on purpose. The student rows carry what students and mentors are shown
+on their cards, so a day-old copy is a day-old card; the mentors run reads one WordPress.org profile
+per mentor, which is the expensive half. A run still going when the next one is due is left to
+finish rather than restarted.
 
 Accounts are matched by WordPress.org username where there is one, and by email otherwise. **No
 account is ever deleted by a sync** — the most it will do is remove a role.
@@ -232,6 +242,66 @@ Airtable are untouched.
 | Invitations are not arriving | The **Mail** section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 
+## The feedback surveys
+
+Students are asked how the program is going three times — at the start, half way, and at the end —
+from their own Report Card, under their report form. Anyone who leaves without finishing is asked a
+fourth set instead: four questions about how far they got and what stopped them.
+
+The question set is the one settled in
+[#123](https://github.com/WordPress/WPCredits-Tracker/issues/123) after the analysis of 242
+responses from December 2025 to June 2026. Three things about it are worth knowing before anybody
+changes a question.
+
+### The three anchors
+
+*Overall experience*, *how confident do you feel contributing* and *how well is your mentor's support
+helping* repeat **word for word** in all three stage forms, on the same 1-to-5 scale. That is the
+whole reason the surveys are split by stage rather than being one long form: the same student's
+answers can be read as a line over time, and mentor support can be correlated against belonging and
+intent to keep contributing.
+
+Reword one of them in one form and the comparison quietly stops meaning anything. The test suite
+asserts all three are identical across the three forms, so that mistake fails a build rather than
+appearing in an analysis six months later.
+
+### The retired questions
+
+Eight questions were dropped by that analysis — for duplicating the question beside them, or for
+returning the highest rate of empty answers. They still exist as columns in the table, so nothing
+but a test stops one being added back. `bin/test-feedback.php` names all eight.
+
+### Where the answers go
+
+One row per student in the **Feedback table**, matched on email address, with a column per question
+prefixed `F1`–`F4` for the stage that asked it. A stage fills in its own columns and leaves the rest
+alone, so one row is one student's account of the program from beginning to end.
+
+Two consequences:
+
+- **Mentors do not see any of it.** The answers are not on the mentor's page, and several questions
+  are about the mentor. Keep it that way — a student who thinks their mentor is reading writes
+  something politer than the truth.
+- **The row is matched by email.** A student whose feedback email differs from the one on their
+  roster record gets a second row. The table's `Students` link would be the better key and nothing
+  populates it yet; that is the open question in #123.
+
+### Changing a question
+
+Questions live in `WPCPM_Student_Feedback::forms()`, keyed by the exact Airtable column name.
+Airtable refuses a whole record when one field name does not match, so a typo does not spoil one
+answer — it loses the student's entire submission, and they are told only that it could not be sent.
+
+`bin/test-feedback.php` pins all 44 column names and every single-select's choices against the
+base's own schema. Run it after any change to the base:
+
+```bash
+php bin/test-feedback.php
+```
+
+A single-select answer is checked against the choices the column actually has before it is sent, so
+a hand-edited form cannot add an option to the base or take a submission down with it.
+
 ## What is on your Report Card
 
 The page you land on after logging in lists the students assigned to you and nothing else — it is
@@ -258,8 +328,12 @@ A student falls into the first group they match, so somebody who needs a call is
 
 **Search** matches students, institutions and teams, and tells you how many of your students match.
 Opening a student shows their full record: program and track, internship duration, educational
-institution, tutor, field of study, contribution teams, accessibility needs, their contact links,
-and a button to their report form.
+institution, tutor, field of study, contribution teams, accessibility needs and their contact links.
+
+Under it, **Report form** opens the student's own report where it stands — their hours, grades,
+project and posts — without leaving the page. It is read only; see *Their report form* below for
+why. The first time you open one it is fetched, so it takes a moment: a page listing sixty students
+does not read sixty reports nobody asked for.
 
 ![Opening a student shows their record on the left and your notes on the right. Names shown are examples.](images/mentor-report-card-student-and-notes.png)
 
@@ -380,7 +454,23 @@ contributed, their reflection posts. You can read it on their card, but not type
 the student's own account of their work, and a mentor filling it in would make the record say
 something it does not mean. If something in it is wrong, that is a conversation rather than an edit.
 
-A program manager can edit it, for a student who cannot get into their own account.
+A program manager can edit it — but from the student's own card, not from yours. Opened from a
+mentor's page a report is a record whoever is reading it, so a manager helping you with a student
+sees exactly what you see.
+
+## Their feedback forms
+
+Under the report are three short forms asking the student how the program is going: at the start,
+half way, and at the end. Two things about them are worth knowing.
+
+They ask about your support by name — how much it is helping, what was most helpful, what could be
+better — and **you do not see the answers**, on your page or anywhere else on this site. They are
+read by the program managers in aggregate. That is deliberate: a student who thinks their mentor is
+reading over their shoulder writes something politer than the truth, and the answers stop being
+worth collecting.
+
+They are also not part of the report and are not marked, so a student who has answered none of them
+is not behind on anything. Please do not chase them.
 
 ## What is on your Report Card
 
@@ -391,15 +481,13 @@ A program manager can edit it, for a student who cannot get into their own accou
 ### My profile
 
 Your program details as the program records hold them: your track, your internship dates, your
-educational institution, your tutor and your field of study.
+educational institution, your tutor and your field of study, followed by your WordPress.org profile,
+your Slack name, your contribution teams and your personal website.
 
-Four of these are yours to change. Press **Edit** and you can update your **WordPress.org
-username**, your **Slack handle**, your **contribution teams** and your **personal website**. Press
-Save and the change is written straight back to the program records, so you never have to ask
-anybody to correct them for you.
-
-The rest — your dates, your institution, your tutor — come from the program records and are not
-editable here. If one of them is wrong, see *If something looks wrong* below.
+Nothing here is typed in on this table. The last four come from your **report form** below — fill
+them in there and they appear here as soon as you save. The rest — your dates, your institution,
+your tutor — come from the program records and cannot be changed from this site at all. If one of
+them is wrong, see *If something looks wrong* below.
 
 ### My mentor
 
@@ -412,22 +500,35 @@ to do with your contributions.
 **Open your course** takes you to your course on Learn WordPress — the syllabus for the track you
 are on.
 
+Beside it is **Hours contributed**: the running total of the hours you have put in. It is the one
+number you will come back to change most often, so it sits here on its own rather than inside the
+report form. Type the new total, press **Save hours**, and that is the whole errand.
+
 ### Report form
 
-Your report, filled in here on the page. What it asks for depends on your track: the course has
-twenty-two things to report, the 50-hour course ten.
+Your report, filled in here on the page. It is the record of your work on the program, and it is
+what your mentor reads.
 
-Open **Your report form** and the fields are grouped: your **hours**, your **course grades**, your
-**project** — what you contributed and your personal website — and **taking part**, the meetings and
-discussions you joined. The course adds a group of **posts**: a reflection for each stage and your
-closing post. The 50-hour course asks instead for one **final project report**.
+Open **Your report form** and the questions are grouped in the order you meet them:
+
+- **Onboarding** — your WordPress.org profile and Slack name, the final grade for each course
+  module, and your personal website with the reflection post about building it.
+- **Project** — your **contribution team**, what you contributed, the meetings and discussions you
+  took part in, and the reflection posts for each stage.
+- **Wrap-up** — your closing post.
+
+What is asked depends on your track: the 150-hour course asks for the reflection posts and the
+module grades; the 50-hour course asks instead for one final project report.
 
 The grades are yours to copy across from wherever you were marked — this form records them, it does
 not decide them. Fill in what you have and press **Save my report**; you can come back and add the
 rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
-you save.
+you save, and the four fields that also appear in *My profile* above update there at the same time.
 
-Your **contribution teams** are not asked for twice: you choose those once, in *My profile* above.
+### Feedback forms
+
+Under your report, and nothing to do with it: three short forms asking how the program is going for
+you. See *Telling us how it is going* below.
 
 ### Resources
 
@@ -479,14 +580,57 @@ somebody else.
 A session counts towards the number of upcoming calls you may hold at once, so if you cannot join
 one, check whether you are already holding as many as your mentor allows.
 
+## Telling us how it is going
+
+Under your report form are three short forms — **Getting started**, **Half way** and **Finishing
+up** — one for each stage of the program. Each takes a couple of minutes.
+
+They are feedback about the program, not part of your report. They are not marked, your institution
+never sees them, and leaving them alone has no effect on your place on the program or on your
+credits. That is the whole reason they are separate: they are only useful if you say what you
+actually think.
+
+### What they ask
+
+Three questions repeat word for word in all three forms — your overall experience, how confident you
+feel contributing, and how much your mentor's support is helping. Answering the same three at each
+stage is what lets the program see how the experience changes over time rather than only how it
+ended.
+
+The rest are about the stage you are at: how easy it was to get started, whether you feel part of the
+WordPress community, whether the hours feel achievable, what you would change. A few questions only
+appear when they apply — say the hours are hard to reach and a box opens asking why.
+
+**Finishing up** ends with two optional permissions, in a box of their own: whether a quote about
+your experience may be shared publicly, and whether the program may contact you about WordPress
+events and opportunities. Both are yours to decline, and declining changes nothing else.
+
+### Filling one in
+
+Open the form for the stage you are at, answer what you want to answer, and press **Save my
+answers**. Nothing is required — a form with two answers in it is worth more than one nobody filled
+in.
+
+You can change any answer later: open the form again and your answers are still there. The form's
+title tells you how many of its questions you have answered.
+
+Your mentor does not see these answers on their page.
+
+### Leaving the program
+
+If you finish early or do not complete the program, the three forms above are replaced by a single
+short one, **Leaving the program** — four questions about how far you got and what stopped you. It
+is the part of the program we hear about least, and the part most worth hearing about.
+
 ## If something looks wrong
 
 Your program details come from the program records, so if your dates, institution or tutor are not
 right, that is where it has to be corrected — changing it here would be overwritten at the next
 sync. Ask your mentor, or whoever runs the program.
 
-The four fields with an **Edit** control are the exceptions: those write back to the records, so
-they are yours to keep current.
+Your WordPress.org profile, Slack name, contribution team and personal website are the exceptions.
+Those four are asked for on your **report form**, and saving it writes them back to the records — so
+they are yours to keep current, and the way to correct them is to correct them there.
 
 If the page shows nothing at all, or says it cannot find your record, your account exists but is
 not linked to a program record yet. That is one for the program managers.

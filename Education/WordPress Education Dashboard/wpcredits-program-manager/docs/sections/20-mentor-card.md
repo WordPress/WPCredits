@@ -22,8 +22,12 @@ A student falls into the first group they match, so somebody who needs a call is
 
 **Search** matches students, institutions and teams, and tells you how many of your students match.
 Opening a student shows their full record: program and track, internship duration, educational
-institution, tutor, field of study, contribution teams, accessibility needs, their contact links,
-and a button to their report form.
+institution, tutor, field of study, contribution teams, accessibility needs and their contact links.
+
+Under it, **Report form** opens the student's own report where it stands — their hours, grades,
+project and posts — without leaving the page. It is read only; see *Their report form* below for
+why. The first time you open one it is fetched, so it takes a moment: a page listing sixty students
+does not read sixty reports nobody asked for.
 
 {{image:mentor-report-card-student-and-notes|Opening a student shows their record on the left and your notes on the right. Names shown are examples.}}
 

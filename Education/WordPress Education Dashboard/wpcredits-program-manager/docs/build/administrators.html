@@ -67,7 +67,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Setting</th><th>What it is for</th></tr></thead><tbody><tr><td><strong>Personal Access Token</strong></td><td>Stored in the database and never sent back to the browser. Leave blank to keep the current token.</td></tr><tr><td><strong>Base ID</strong></td><td>The Airtable base holding the program.</td></tr><tr><td><strong>Mentors table</strong></td><td>Where mentor records live.</td></tr><tr><td><strong>Students Reports table</strong></td><td>Internship dates, links and contribution teams — what the mentor page shows.</td></tr><tr><td><strong>Students table</strong></td><td>Read only for the Tutor column, which does not exist on Students Reports.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Setting</th><th>What it is for</th></tr></thead><tbody><tr><td><strong>Personal Access Token</strong></td><td>Stored in the database and never sent back to the browser. Leave blank to keep the current token.</td></tr><tr><td><strong>Base ID</strong></td><td>The Airtable base holding the program.</td></tr><tr><td><strong>Mentors table</strong></td><td>Where mentor records live.</td></tr><tr><td><strong>Students Reports table</strong></td><td>Internship dates, links and contribution teams — what the mentor page shows.</td></tr><tr><td><strong>Students table</strong></td><td>Read only for the Tutor column, which does not exist on Students Reports.</td></tr><tr><td><strong>Feedback table</strong></td><td>Where the students' survey answers are written. One row per student, with a column per question.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":3} -->
@@ -100,7 +100,7 @@
 <li><strong>Invitation emails</strong> — off by default, and worth leaving off: a first sync creates around ninety accounts at once. Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Daily sync</strong> — sync automatically once a day.</li>
+<li><strong>Automatic sync</strong> — read Airtable on a schedule. <strong>Students every three hours, mentors once a day</strong>: the student rows carry what people are shown on their cards, while the mentors run costs one WordPress.org profile read per mentor. A run already in progress is left to finish rather than restarted. Either can also be run by hand from the Students and Mentors screens.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Mentor landing page</strong> — send mentors to their Report Card on login and in place of the wp-admin Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who followed a link somewhere specific still lands there. Administrators are unaffected.</li>
@@ -257,7 +257,11 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Both syncs read Airtable and reconcile accounts: create what is missing, update what has changed, and apply your <em>when they are no longer active</em> setting to the rest. Run one by hand from the Students or Mentors screen, or leave <strong>Daily sync</strong> on.</p>
+<p>Both syncs read Airtable and reconcile accounts: create what is missing, update what has changed, and apply your <em>when they are no longer active</em> setting to the rest. Run one by hand from the Students or Mentors screen, or leave <strong>Automatic sync</strong> on — students every three hours, mentors once a day.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>They run on different clocks on purpose. The student rows carry what students and mentors are shown on their cards, so a day-old copy is a day-old card; the mentors run reads one WordPress.org profile per mentor, which is the expensive half. A run still going when the next one is due is left to finish rather than restarted.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -299,6 +303,81 @@
 <!-- wp:table -->
 <figure class="wp-block-table"><table><thead><tr><th>Symptom</th><th>Where to look</th></tr></thead><tbody><tr><td>A student or mentor is missing</td><td>Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list.</td></tr><tr><td>Details are stale on a Report Card</td><td>Run the sync by hand; the page renders from what the last sync stored.</td></tr><tr><td>A mentor sees the wrong students</td><td>The mentor↔student link in Airtable. The page joins on the records, not on names.</td></tr><tr><td>Nobody can book a call</td><td>The mentor has published no availability. Their Report Card says so.</td></tr><tr><td>Invitations are not arriving</td><td>The <strong>Mail</strong> section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service.</td></tr><tr><td>A gated page is readable by the wrong people</td><td>The post's <strong>Program access</strong> control, and the reader's role. Administrators can read every level by design.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">The feedback surveys</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Students are asked how the program is going three times — at the start, half way, and at the end — from their own Report Card, under their report form. Anyone who leaves without finishing is asked a fourth set instead: four questions about how far they got and what stopped them.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The question set is the one settled in [#123](https://github.com/WordPress/WPCredits-Tracker/issues/123) after the analysis of 242 responses from December 2025 to June 2026. Three things about it are worth knowing before anybody changes a question.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">The three anchors</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><em>Overall experience</em>, <em>how confident do you feel contributing</em> and <em>how well is your mentor's support helping</em> repeat <strong>word for word</strong> in all three stage forms, on the same 1-to-5 scale. That is the whole reason the surveys are split by stage rather than being one long form: the same student's answers can be read as a line over time, and mentor support can be correlated against belonging and intent to keep contributing.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Reword one of them in one form and the comparison quietly stops meaning anything. The test suite asserts all three are identical across the three forms, so that mistake fails a build rather than appearing in an analysis six months later.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">The retired questions</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Eight questions were dropped by that analysis — for duplicating the question beside them, or for returning the highest rate of empty answers. They still exist as columns in the table, so nothing but a test stops one being added back. <code>bin/test-feedback.php</code> names all eight.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Where the answers go</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>One row per student in the <strong>Feedback table</strong>, matched on email address, with a column per question prefixed <code>F1</code>–<code>F4</code> for the stage that asked it. A stage fills in its own columns and leaves the rest alone, so one row is one student's account of the program from beginning to end.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Two consequences:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Mentors do not see any of it.</strong> The answers are not on the mentor's page, and several questions are about the mentor. Keep it that way — a student who thinks their mentor is reading writes something politer than the truth.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>The row is matched by email.</strong> A student whose feedback email differs from the one on their roster record gets a second row. The table's <code>Students</code> link would be the better key and nothing populates it yet; that is the open question in #123.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Changing a question</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Questions live in <code>WPCPM_Student_Feedback::forms()</code>, keyed by the exact Airtable column name. Airtable refuses a whole record when one field name does not match, so a typo does not spoil one answer — it loses the student's entire submission, and they are told only that it could not be sent.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><code>bin/test-feedback.php</code> pins all 44 column names and every single-select's choices against the base's own schema. Run it after any change to the base:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>``<code>bash php bin/test-feedback.php </code>``</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>A single-select answer is checked against the choices the column actually has before it is sent, so a hand-edited form cannot add an option to the base or take a submission down with it.</p>
+<!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":2} -->
 <h2 class="wp-block-heading">What is on your Report Card</h2>
@@ -343,7 +422,11 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>Search</strong> matches students, institutions and teams, and tells you how many of your students match. Opening a student shows their full record: program and track, internship duration, educational institution, tutor, field of study, contribution teams, accessibility needs, their contact links, and a button to their report form.</p>
+<p><strong>Search</strong> matches students, institutions and teams, and tells you how many of your students match. Opening a student shows their full record: program and track, internship duration, educational institution, tutor, field of study, contribution teams, accessibility needs and their contact links.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Under it, <strong>Report form</strong> opens the student's own report where it stands — their hours, grades, project and posts — without leaving the page. It is read only; see <em>Their report form</em> below for why. The first time you open one it is fetched, so it takes a moment: a page listing sixty students does not read sixty reports nobody asked for.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:image {"id":547,"sizeSlug":"large","linkDestination":"none"} -->
@@ -521,7 +604,23 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>A program manager can edit it, for a student who cannot get into their own account.</p>
+<p>A program manager can edit it — but from the student's own card, not from yours. Opened from a mentor's page a report is a record whoever is reading it, so a manager helping you with a student sees exactly what you see.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">Their feedback forms</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Under the report are three short forms asking the student how the program is going: at the start, half way, and at the end. Two things about them are worth knowing.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>They ask about your support by name — how much it is helping, what was most helpful, what could be better — and <strong>you do not see the answers</strong>, on your page or anywhere else on this site. They are read by the program managers in aggregate. That is deliberate: a student who thinks their mentor is reading over their shoulder writes something politer than the truth, and the answers stop being worth collecting.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>They are also not part of the report and are not marked, so a student who has answered none of them is not behind on anything. Please do not chase them.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":2} -->
@@ -537,15 +636,11 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Your program details as the program records hold them: your track, your internship dates, your educational institution, your tutor and your field of study.</p>
+<p>Your program details as the program records hold them: your track, your internship dates, your educational institution, your tutor and your field of study, followed by your WordPress.org profile, your Slack name, your contribution teams and your personal website.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>Four of these are yours to change. Press <strong>Edit</strong> and you can update your <strong>WordPress.org username</strong>, your <strong>Slack handle</strong>, your <strong>contribution teams</strong> and your <strong>personal website</strong>. Press Save and the change is written straight back to the program records, so you never have to ask anybody to correct them for you.</p>
-<!-- /wp:paragraph -->
-
-<!-- wp:paragraph -->
-<p>The rest — your dates, your institution, your tutor — come from the program records and are not editable here. If one of them is wrong, see <em>If something looks wrong</em> below.</p>
+<p>Nothing here is typed in on this table. The last four come from your <strong>report form</strong> below — fill them in there and they appear here as soon as you save. The rest — your dates, your institution, your tutor — come from the program records and cannot be changed from this site at all. If one of them is wrong, see <em>If something looks wrong</em> below.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3} -->
@@ -564,24 +659,50 @@
 <p><strong>Open your course</strong> takes you to your course on Learn WordPress — the syllabus for the track you are on.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:paragraph -->
+<p>Beside it is <strong>Hours contributed</strong>: the running total of the hours you have put in. It is the one number you will come back to change most often, so it sits here on its own rather than inside the report form. Type the new total, press <strong>Save hours</strong>, and that is the whole errand.</p>
+<!-- /wp:paragraph -->
+
 <!-- wp:heading {"level":3} -->
 <h3 class="wp-block-heading">Report form</h3>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Your report, filled in here on the page. What it asks for depends on your track: the course has twenty-two things to report, the 50-hour course ten.</p>
+<p>Your report, filled in here on the page. It is the record of your work on the program, and it is what your mentor reads.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>Open <strong>Your report form</strong> and the fields are grouped: your <strong>hours</strong>, your <strong>course grades</strong>, your <strong>project</strong> — what you contributed and your personal website — and <strong>taking part</strong>, the meetings and discussions you joined. The course adds a group of <strong>posts</strong>: a reflection for each stage and your closing post. The 50-hour course asks instead for one <strong>final project report</strong>.</p>
+<p>Open <strong>Your report form</strong> and the questions are grouped in the order you meet them:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Onboarding</strong> — your WordPress.org profile and Slack name, the final grade for each course module, and your personal website with the reflection post about building it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Project</strong> — your <strong>contribution team</strong>, what you contributed, the meetings and discussions you took part in, and the reflection posts for each stage.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Wrap-up</strong> — your closing post.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>What is asked depends on your track: the 150-hour course asks for the reflection posts and the module grades; the 50-hour course asks instead for one final project report.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>The grades are yours to copy across from wherever you were marked — this form records them, it does not decide them. Fill in what you have and press <strong>Save my report</strong>; you can come back and add the rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as you save.</p>
+<p>The grades are yours to copy across from wherever you were marked — this form records them, it does not decide them. Fill in what you have and press <strong>Save my report</strong>; you can come back and add the rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as you save, and the four fields that also appear in <em>My profile</em> above update there at the same time.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Feedback forms</h3>
+<!-- /wp:heading -->
+
 <!-- wp:paragraph -->
-<p>Your <strong>contribution teams</strong> are not asked for twice: you choose those once, in <em>My profile</em> above.</p>
+<p>Under your report, and nothing to do with it: three short forms asking how the program is going for you. See <em>Telling us how it is going</em> below.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3} -->
@@ -658,6 +779,58 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">Telling us how it is going</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Under your report form are three short forms — <strong>Getting started</strong>, <strong>Half way</strong> and <strong>Finishing up</strong> — one for each stage of the program. Each takes a couple of minutes.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>They are feedback about the program, not part of your report. They are not marked, your institution never sees them, and leaving them alone has no effect on your place on the program or on your credits. That is the whole reason they are separate: they are only useful if you say what you actually think.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">What they ask</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Three questions repeat word for word in all three forms — your overall experience, how confident you feel contributing, and how much your mentor's support is helping. Answering the same three at each stage is what lets the program see how the experience changes over time rather than only how it ended.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The rest are about the stage you are at: how easy it was to get started, whether you feel part of the WordPress community, whether the hours feel achievable, what you would change. A few questions only appear when they apply — say the hours are hard to reach and a box opens asking why.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>Finishing up</strong> ends with two optional permissions, in a box of their own: whether a quote about your experience may be shared publicly, and whether the program may contact you about WordPress events and opportunities. Both are yours to decline, and declining changes nothing else.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Filling one in</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Open the form for the stage you are at, answer what you want to answer, and press <strong>Save my answers</strong>. Nothing is required — a form with two answers in it is worth more than one nobody filled in.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>You can change any answer later: open the form again and your answers are still there. The form's title tells you how many of its questions you have answered.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Your mentor does not see these answers on their page.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">Leaving the program</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>If you finish early or do not complete the program, the three forms above are replaced by a single short one, <strong>Leaving the program</strong> — four questions about how far you got and what stopped you. It is the part of the program we hear about least, and the part most worth hearing about.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2} -->
 <h2 class="wp-block-heading">If something looks wrong</h2>
 <!-- /wp:heading -->
 
@@ -666,7 +839,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>The four fields with an <strong>Edit</strong> control are the exceptions: those write back to the records, so they are yours to keep current.</p>
+<p>Your WordPress.org profile, Slack name, contribution team and personal website are the exceptions. Those four are asked for on your <strong>report form</strong>, and saving it writes them back to the records — so they are yours to keep current, and the way to correct them is to correct them there.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->

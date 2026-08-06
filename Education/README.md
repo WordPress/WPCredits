@@ -57,8 +57,12 @@ sync that provisions accounts but never deletes one. `wpcredits-theme` is its fr
 page, a branded `wp-login.php`, and the skin that turns the plugin's markup into a usable dashboard.
 The plugin works without the theme; the pages are just unstyled.
 
+Students are also asked how the program is going, three times while they are on it and once if they
+leave early; the answers go back to Airtable and are not shown to their mentor.
+
 The plugin's `docs/` folder also holds the three program guides — student, mentor and program
-manager — generated from one set of sections by `bin/build-docs.php`.
+manager — generated from one set of sections by `bin/build-docs.php` and published on the dashboard
+itself, each behind its own audience's access level.
 
 ### WordPress Community CRM — the internal CRM
 

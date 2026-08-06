@@ -12,8 +12,8 @@ Two components live here, and they are built to work together:
 
 | Folder | What it is | Version |
 | --- | --- | --- |
-| [`wpcredits-program-manager/`](wpcredits-program-manager/) | The plugin. All of the program logic: roles, access levels, the Airtable sync, the Report Cards, the call calendar, email. | 1.45.0 |
-| [`wpcredits-theme/`](wpcredits-theme/) | The block theme. The landing page, the branded login, and the skin that turns the plugin's markup into the dashboard people actually use. | 1.8.4 |
+| [`wpcredits-program-manager/`](wpcredits-program-manager/) | The plugin. All of the program logic: roles, access levels, the Airtable sync, the Report Cards, the call calendar, the feedback surveys, email. | 1.58.5 |
+| [`wpcredits-theme/`](wpcredits-theme/) | The block theme. The landing page, the branded login, and the skin that turns the plugin's markup into the dashboard people actually use. | 1.8.24 |
 
 The theme is the front end for the plugin and does not add program data or behaviour of its own.
 The plugin works without it — the pages are just unstyled.
@@ -40,15 +40,27 @@ set.
 per person, so there is no URL to guess at somebody else's record.
 
 - The **Student Report Card** shows their program and track, internship dates, institution, tutor
-  and contribution teams; lets them correct their own WordPress.org handle, Slack name, contribution
-  teams and personal website, writing the change straight back to Airtable; links their course; and
-  holds their **report form** — the hours, grades, reflections and project write-up they file, with a
-  different set of fields for each of the two tracks.
+  and contribution teams; links their course; carries the running **hours** total as a box of its
+  own, since that is the one number they come back to change; and holds their **report form** — the
+  grades, reflections and project write-up they file, grouped as onboarding, project and wrap-up,
+  with a different set of fields for each of the two tracks. Four of its answers — WordPress.org
+  handle, Slack name, contribution team, personal website — are also rows on the cards, so saving
+  the report writes them into both cached copies of the student's row rather than leaving the cards
+  a sync behind.
 - The **Mentor Report Card** groups their students into *Need a call* (no note in 30 days),
   *Ending soon* (finishing within 60 days) and *On track*, with search across students,
   institutions and teams, per-student notes, and a printable view. Mentors also announce **group
   sessions** here — an office hour several students join, with one note afterwards that lands on
   every attendee's card.
+
+**Feedback surveys.** Three short forms on the Student Report Card — at the start, half way and at
+the end — plus an exit survey for anyone who leaves without finishing. The question set is the one
+settled in [#123](https://github.com/WordPress/WPCredits-Tracker/issues/123) after analysing 242
+responses: three questions repeat word for word at every stage so a student's answers can be read
+as a line rather than three unrelated snapshots, two follow-ups appear only when the answer above
+them was poor, and the permissions to quote them publicly or contact them later are fenced off in a
+box that says it is optional. Answers land one row per student in Airtable. **Mentors do not see
+them** — several of the questions are about the mentor.
 
 **Per-post access levels.** Every post and page carries a *Program access* level — Public, or one
 audience's level, or Administrators only — enforced in four places, because each covers a hole the
@@ -85,7 +97,10 @@ theme's stylesheets with invented people. None is a capture of a live Report Car
 students' names, email addresses, photographs and call notes.
 
 **Airtable sync.** A resumable cron state machine provisions accounts and refreshes records
-without ever deleting a user or touching an administrator's roles. Usernames come from the
+without ever deleting a user or touching an administrator's roles. **Students refresh every three
+hours, mentors once a day** — the student rows carry what people are shown on their cards, while the
+mentors run costs one WordPress.org profile read per mentor. A run still in progress is left to
+finish rather than restarted. Usernames come from the
 WordPress.org profile where there is one and the email local part where there is not. A mentor who
 stops being Active loses the role and their student list, and no account is ever removed.
 

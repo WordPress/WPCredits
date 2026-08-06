@@ -4,7 +4,13 @@
 
 Both syncs read Airtable and reconcile accounts: create what is missing, update what has changed,
 and apply your *when they are no longer active* setting to the rest. Run one by hand from the
-Students or Mentors screen, or leave **Daily sync** on.
+Students or Mentors screen, or leave **Automatic sync** on — students every three hours, mentors
+once a day.
+
+They run on different clocks on purpose. The student rows carry what students and mentors are shown
+on their cards, so a day-old copy is a day-old card; the mentors run reads one WordPress.org profile
+per mentor, which is the expensive half. A run still going when the next one is due is left to
+finish rather than restarted.
 
 Accounts are matched by WordPress.org username where there is one, and by email otherwise. **No
 account is ever deleted by a sync** — the most it will do is remove a role.
