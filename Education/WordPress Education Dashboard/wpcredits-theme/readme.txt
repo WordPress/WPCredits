@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.20
+Stable tag: 1.8.21
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,10 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.8.21 =
+* Moves the rule that separates the feedback surveys from the report form onto the surveys'
+  heading, so everything about them — including their name — is on their side of the line.
 
 = 1.8.20 =
 * A survey question now takes the card's body size and ink rather than the 12px muted treatment the

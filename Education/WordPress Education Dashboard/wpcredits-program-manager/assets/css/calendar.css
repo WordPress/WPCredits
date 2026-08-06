@@ -1062,8 +1062,13 @@
 	font-weight: 600;
 }
 
+/* Centred, and it is the one control in the form that is. Every question in these forms is
+   left-aligned against the same edge, so a button on that edge reads as one more row of the last
+   group rather than as the end of the form — which is what it is, and the only thing left to do
+   once the questions are answered. */
 .wpcpm-report__submit {
-	margin: 0;
+	margin: 0.5em 0 0;
+	text-align: center;
 }
 
 .wpcpm-report__error {

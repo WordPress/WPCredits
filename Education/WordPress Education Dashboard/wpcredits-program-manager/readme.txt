@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.58.1
+Stable tag: 1.58.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,22 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.58.2 =
+* **Every 1-to-5 scale now starts at the same place.** The label at the low end is part of the
+  scale rather than a heading for it, so its width was deciding where the steps began — "Poor",
+  "Not at all" and "Very hard" put three rows of steps at three different x positions on the same
+  card. The low end takes a fixed column now, right-aligned against the 1 it labels.
+* **The consent checkbox sits in front of its sentence again.** Two rules were taking it apart: the
+  treatment that makes every question a block killed the flex row, and the report form's
+  `width: 100%` on field inputs — loaded after this stylesheet — stretched the checkbox across the
+  line and pushed its own words underneath it.
+* *Feedback forms* moves below the rule that separates the surveys from the report. The rule
+  belonged to the paragraph under the heading, so it was drawn between the heading and the text it
+  introduces, leaving the heading up against the report form and labelling the wrong thing.
+* *Save my report* and *Send my answers* are centred. Every question in these forms is left-aligned
+  against one edge, so a button on that edge read as one more row of the last group rather than as
+  the end of the form.
 
 = 1.58.1 =
 * **The surveys use the width of the card.** Questions on the left, answers aligned down the right,

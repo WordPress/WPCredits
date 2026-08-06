@@ -251,8 +251,14 @@
 	margin-top: 1em;
 }
 
+/* The surveys' own heading, and the sentence under it. The heading carries the rule that separates
+   them from the report form — see the theme's note — so the space above belongs to it. */
+.wpcpm-feedback__title {
+	margin-top: 1.75em;
+}
+
 .wpcpm-feedback__intro {
-	margin: 1.25em 0 0.5em;
+	margin: 0 0 0.75em;
 }
 
 /* A layout of its own, not the report form's.
@@ -348,6 +354,31 @@
 	max-width: 46em;
 }
 
+/* **The consent box in front of its sentence, on the same line.**
+
+   This is the one control on the page that is an answer written as a label, and two rules further
+   up the cascade take it apart: the treatment that makes every question a block kills the flex,
+   and `calendar.css` — read after this file — gives every input in a field `width: 100%`, which
+   stretches a checkbox across the line and pushes its own words onto the next one. The result is a
+   consent box floating at the right edge above the sentence it belongs to.
+
+   So both are answered here, deep enough to win, and `width: auto` is said out loud rather than
+   left to a reset that is not there. */
+.wpcpm-feedback__group .wpcpm-field--checkbox > label.wpcpm-feedback__consent {
+	align-items: flex-start;
+	display: flex;
+	/* An answer, not a question: the bold treatment belongs to the things being asked. */
+	font-weight: 400;
+	gap: 0.5em;
+	line-height: 1.4;
+}
+
+.wpcpm-feedback__group .wpcpm-feedback__consent input[type="checkbox"] {
+	flex: 0 0 auto;
+	margin: 0.15em 0 0;
+	width: auto;
+}
+
 /* Narrow: one column, and the question above its answer rather than beside it — 22em of label
    and a scale is more than a phone has. */
 @media ( max-width: 782px ) {
@@ -386,6 +417,18 @@
 .wpcpm-rating__end {
 	font-size: 0.85em;
 	opacity: 0.7;
+}
+
+/* **A fixed column for the low end, so every scale starts at the same x.** The label is part of
+   the scale, not a heading for it, so its width was setting where the steps began — "Poor",
+   "Not at all" and "Very hard" put three rows of steps at three different places, 556px, 585px
+   and 588px down the same card. Right-aligned, so the label still sits against the 1 it labels.
+
+   Fixed rather than `min-width`: a column that can grow is a column that stops aligning the moment
+   one question needs a longer word, which is the thing being fixed. */
+.wpcpm-rating__end--low {
+	flex: 0 0 5.5em;
+	text-align: right;
 }
 
 /* The whole step is the target, not just the dot: a 1-to-5 scale is used on a

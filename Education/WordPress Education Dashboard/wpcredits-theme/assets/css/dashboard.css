@@ -2469,11 +2469,21 @@
 /* Set apart from the report above them without a heading of their own: the
    report is what counts towards their credits and these are not, and a line is
    a quieter way to say so than another <h3>. */
-.wpc-dashboard-page .wpcpm-feedback__intro {
+/* The rule belongs to the heading, not to the paragraph under it.
+
+   It marks where the report ends and the surveys begin, so everything about the surveys has to be
+   on the surveys' side of it — including their name. On the paragraph it drew the line *between*
+   the heading and the text it introduces, which put "Feedback forms" up against the report form's
+   disclosure, labelling the wrong thing. */
+.wpc-dashboard-page .wpcpm-feedback__title {
 	border-top: 1px solid var( --wpc-line-soft );
-	color: var( --wpc-ink-70 );
 	margin-top: 24px;
 	padding-top: 20px;
+}
+
+.wpc-dashboard-page .wpcpm-feedback__intro {
+	color: var( --wpc-ink-70 );
+	margin-top: 0;
 }
 
 .wpc-dashboard-page .wpcpm-feedback__group--permissions {

@@ -887,8 +887,11 @@ class WPCPM_Student_Feedback {
 			esc_html( $spec['label'] )
 		);
 
+		// Named low and high rather than left to `:first-of-type`. The low end is what the steps
+		// start after, so it is the element the alignment rule has to hold on to, and a scale that
+		// one day renders only one end must not have that rule land on the wrong label.
 		if ( '' !== $ends[0] ) {
-			printf( '<span class="wpcpm-rating__end">%s</span>', esc_html( $ends[0] ) );
+			printf( '<span class="wpcpm-rating__end wpcpm-rating__end--low">%s</span>', esc_html( $ends[0] ) );
 		}
 
 		for ( $i = 1; $i <= $max; $i++ ) {
@@ -902,7 +905,7 @@ class WPCPM_Student_Feedback {
 		}
 
 		if ( '' !== $ends[1] ) {
-			printf( '<span class="wpcpm-rating__end">%s</span>', esc_html( $ends[1] ) );
+			printf( '<span class="wpcpm-rating__end wpcpm-rating__end--high">%s</span>', esc_html( $ends[1] ) );
 		}
 
 		echo '</fieldset>';
