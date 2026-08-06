@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.58.3
+Stable tag: 1.58.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.58.4 =
+* The dropdowns end where the second step of a scale ends, and their value is centred.
+* **The numbers are centred in their boxes.** `.wpcpm-field label { display: block }` in
+  `calendar.css` is more specific than the rule that makes a step a flex box, so a step was not one
+  — `justify-content: center` computed as "center" and did nothing, and every digit sat 8px from
+  the left edge with 35px of space after it.
+* A step is a fixed, border-box `--wpcpm-scale-step` wide, so the widths the dropdowns are measured
+  against no longer depend on the padding around a digit.
 
 = 1.58.3 =
 * **The dropdowns line up with the scales and stop hogging the row.** They started 72px to the left

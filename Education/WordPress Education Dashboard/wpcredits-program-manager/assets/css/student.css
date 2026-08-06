@@ -283,6 +283,7 @@
 	   misalignment this exists to prevent. Against the root size both come out the same. */
 	--wpcpm-scale-end: 4.25rem;
 	--wpcpm-scale-gap: 0.5rem;
+	--wpcpm-scale-step: 3rem;
 
 	column-gap: 2.5em;
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
@@ -352,9 +353,14 @@
    longest option in any of these columns is "Neither likely nor unlikely", which fits inside this
    with room to spare — a dropdown wide enough for a sentence looks like it wants one. */
 .wpcpm-feedback__group > .wpcpm-field--select select {
+	/* Both boxes are border-box, so a step is exactly `--wpcpm-scale-step` wide and the arithmetic
+	   below lands on the pixel rather than two borders short of it. */
+	box-sizing: border-box;
 	margin-left: calc( var( --wpcpm-scale-end ) + var( --wpcpm-scale-gap ) );
 	max-width: 100%;
-	width: 17rem;
+	/* As far as the second step's right edge: two boxes and the gap between them. */
+	text-align: center;
+	width: calc( ( 2 * var( --wpcpm-scale-step ) ) + var( --wpcpm-scale-gap ) );
 }
 
 /* The permissions box holds one question and one consent line; neither wants a column. */
@@ -447,6 +453,34 @@
 .wpcpm-rating__end--low {
 	flex: 0 0 var( --wpcpm-scale-end, 4.25rem );
 	text-align: right;
+}
+
+/* **A fixed box, with the number in the middle of it.**
+
+   Sized here rather than left to grow around its contents: the dropdowns are measured against
+   these boxes, so a step whose width depends on its padding and the digit inside it is a step the
+   rest of the row cannot line up with.
+
+   The digit takes the whole box and centres inside it. `justify-content` alone did not do it — the
+   box carries a hidden radio as well as the number, and the number sat 8px from the left edge with
+   35px of space after it. Centring the text inside a span that fills the box does not care what
+   else is in there. */
+.wpcpm-feedback__group .wpcpm-rating__step {
+	/* `.wpcpm-field label { display: block }` in `calendar.css` is more specific than the rule that
+	   makes a step a flex box, so the step was not one — which is why `justify-content: center` did
+	   nothing and the digit sat against the left edge. */
+	box-sizing: border-box;
+	display: inline-flex;
+	flex: 0 0 var( --wpcpm-scale-step, 3rem );
+	justify-content: center;
+	padding-left: 0;
+	padding-right: 0;
+	text-align: center;
+}
+
+.wpcpm-feedback__group .wpcpm-rating__step > span {
+	flex: 1 1 auto;
+	text-align: center;
 }
 
 /* The whole step is the target, not just the dot: a 1-to-5 scale is used on a
