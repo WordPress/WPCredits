@@ -107,6 +107,58 @@ $guides = array(
 );
 
 /**
+ * A stable, unique anchor for a heading.
+ *
+ * Reset per guide by `wpcpm_docs_anchor_reset()`, so the same heading in two guides gets the same
+ * anchor and a repeated heading *within* one guide gets `-2`.
+ *
+ * @param string $text Heading text, as written in Markdown.
+ * @return string
+ */
+function wpcpm_docs_anchor( $text ) {
+	static $seen = array();
+
+	if ( null === $text ) {
+		$seen = array();
+
+		return '';
+	}
+
+	// Inline markup goes before slugging: `**Notes**` and `Notes` are the same heading.
+	$slug = strtolower( trim( preg_replace( '/[^a-z0-9]+/i', '-', wpcpm_docs_strip_inline( $text ) ), '-' ) );
+	$slug = '' !== $slug ? $slug : 'section';
+
+	if ( isset( $seen[ $slug ] ) ) {
+		++$seen[ $slug ];
+
+		return $slug . '-' . $seen[ $slug ];
+	}
+
+	$seen[ $slug ] = 1;
+
+	return $slug;
+}
+
+/**
+ * Start a new guide's anchor numbering.
+ */
+function wpcpm_docs_anchor_reset() {
+	wpcpm_docs_anchor( null );
+}
+
+/**
+ * Strip the Markdown inline markup a heading can carry.
+ *
+ * @param string $text Heading text.
+ * @return string
+ */
+function wpcpm_docs_strip_inline( $text ) {
+	$text = preg_replace( '/\[([^\]]+)\]\([^)]*\)/', '$1', (string) $text );
+
+	return str_replace( array( '**', '*', '`' ), '', $text );
+}
+
+/**
  * Read one section.
  *
  * @param string $dir  Sections directory.
@@ -227,10 +279,24 @@ function wpcpm_docs_to_blocks( $md ) {
 		if ( preg_match( '/^(#{2,4}) (.+)$/', $line, $m ) ) {
 			$flush();
 			$level = strlen( $m[1] );
-			$out[]  = sprintf(
-				"<!-- wp:heading {\"level\":%d} -->\n<h%d class=\"wp-block-heading\">%s</h%d>\n<!-- /wp:heading -->",
+
+			// **Every heading carries an anchor.** The published guides are long enough to need a
+			// table of contents, and a contents entry has to have somewhere to jump to. Written in
+			// at build time rather than added by the theme at render time, because an anchor is
+			// part of the document — it is what a link somebody shares points at, and it should not
+			// change because a stylesheet did.
+			//
+			// Uniquified, because the guides repeat sections on purpose: the mentor guide carries
+			// the student guide in full, so "What is on your Report Card" and "Resources" each
+			// appear twice and would otherwise share an anchor with the wrong one.
+			$anchor = wpcpm_docs_anchor( $m[2] );
+
+			$out[] = sprintf(
+				"<!-- wp:heading {\"level\":%d,\"anchor\":\"%s\"} -->\n<h%d class=\"wp-block-heading\" id=\"%s\">%s</h%d>\n<!-- /wp:heading -->",
 				$level,
+				$anchor,
 				$level,
+				$anchor,
 				wpcpm_docs_inline( $m[2] ),
 				$level
 			);
@@ -341,6 +407,10 @@ function wpcpm_docs_inline( $text ) {
 $made = array();
 
 foreach ( $guides as $slug => $guide ) {
+	// Anchors are numbered per guide, so the second "Resources" in the mentor guide is `resources-2`
+	// there and the only one in the student guide stays `resources`.
+	wpcpm_docs_anchor_reset();
+
 	$body = array();
 
 	foreach ( $guide['parts'] as $part ) {

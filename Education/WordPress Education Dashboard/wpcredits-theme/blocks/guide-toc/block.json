@@ -1,0 +1,37 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/guide-toc",
+	"title": "Table of contents",
+	"category": "theme",
+	"icon": "list-view",
+	"description": "The headings of the page being viewed, as jump links. Built for the Documentation template's sidebar, where the core Table of Contents block cannot work.",
+	"keywords": [ "contents", "toc", "outline", "headings", "documentation" ],
+	"textdomain": "wpcredits-theme",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		},
+		"maxLevel": {
+			"type": "number",
+			"default": 3
+		}
+	},
+	"supports": {
+		"html": false,
+		"reusable": false,
+		"align": false,
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"typography": {
+			"fontSize": true
+		},
+		"interactivity": {
+			"clientNavigation": false
+		}
+	},
+	"render": "file:./render.php"
+}

@@ -1,0 +1,192 @@
+/**
+ * The Documentation template.
+ *
+ * The full width of the window, the article on the left and the contents list down the right.
+ * Loaded only where that template is used — it is the one layout on this site with a sidebar, and
+ * nothing else needs to pay for it.
+ *
+ * **The contents list is never scrollable and is never cut off.** It is as tall as it is, in the
+ * page's own scroll, so every entry can be reached — including the fifty-five in the program
+ * manager guide. It does not stick, because a sticky list taller than the window is a list whose
+ * last entries you cannot reach at all, which is the one thing worse than having to scroll back up.
+ *
+ * The article's measure is capped even though the page is full width: line length is about reading,
+ * not about how much room there happens to be.
+ */
+
+/* ==========================================================================
+   The two columns
+   ========================================================================== */
+/* **The article starts where the site logo starts.**
+
+   The header is a 1,240px container centred in the window, so its left edge — and the logo on it —
+   sits at half of whatever is left over. Matching that with a fixed inset would only be right at one
+   window width, so it is calculated the same way the header's own centring is: the page is full
+   width, and the left inset is the gutter the header would have had. Below 1,240px there is no
+   gutter left to match and it falls back to 40px, which is where the header's content ends up too.
+
+   The right side is left free. Nothing is centred and nothing is capped: the article takes the room
+   between the logo's line and the contents list, and the contents list sits against the far edge. */
+.wpc-doc {
+	padding-left: max( 40px, calc( ( 100% - 1240px ) / 2 ) );
+	padding-right: 40px;
+}
+
+/* **Where a columns block stacks is core's decision, not this file's.** Core ships
+   `@media (min-width: 782px) { .wp-block-columns { flex-wrap: nowrap !important } }`, so no rule
+   here can make the columns wrap earlier — an `!important` in the block library outranks anything a
+   theme writes. Everything narrow below therefore uses core's own 781px breakpoint, which is where
+   it also sets `flex-basis: 100% !important` on the columns and stacks them for us. */
+.wpc-doc .wpc-doc__cols {
+	align-items: start;
+	gap: 64px;
+}
+
+.wpc-doc__aside {
+	flex-grow: 0;
+}
+
+.wpc-doc__body {
+	min-width: 0;
+}
+
+/* ==========================================================================
+   The contents list
+   ========================================================================== */
+/* No `max-height`, no `overflow`. The list is as long as the page's headings and every entry is
+   reachable in the page's own scroll. */
+.wpc-toc {
+	border-left: 2px solid var( --wpc-line-soft );
+	padding-left: 16px;
+}
+
+.wpc-toc__title {
+	color: var( --wpc-ink-70 );
+	font: 700 12px/16px var( --wpc-font );
+	letter-spacing: .06em;
+	margin: 0 0 12px;
+	text-transform: uppercase;
+}
+
+.wpc-toc__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-toc__item {
+	margin: 0;
+}
+
+.wpc-toc__link {
+	color: var( --wpc-ink-70 );
+	display: block;
+	font: 400 13px/18px var( --wpc-font );
+	padding: 5px 0;
+	text-decoration: none;
+	/* A heading can be a full sentence; wrapping is better than a truncated entry nobody can read. */
+	overflow-wrap: break-word;
+}
+
+.wpc-toc__link:hover,
+.wpc-toc__link:focus {
+	color: var( --wpc-brand );
+	text-decoration: underline;
+}
+
+/* The top level is the guide's own sections and carries the weight; the level below is indented
+   rather than restyled, so the list reads as an outline without becoming two lists. */
+.wpc-toc__item--h2 > .wpc-toc__link {
+	color: var( --wpc-ink );
+	font-weight: 600;
+	margin-top: 8px;
+}
+
+.wpc-toc__item--h3 > .wpc-toc__link {
+	padding-left: 14px;
+}
+
+/* ==========================================================================
+   The prose
+   ========================================================================== */
+/* Somewhere to land. Anchored headings scroll to the top of the viewport, which puts them under a
+   sticky header; the offset is what stops a jump landing on the line above the one you asked for. */
+.wpc-doc__prose :is( h2, h3, h4 )[id] {
+	scroll-margin-top: 96px;
+}
+
+/* Capped even on a full-width page: 90-odd characters is the line the text was written for, and a
+   1,400px measure on a wide screen is a page nobody finishes a paragraph of. */
+.wpc-doc__prose > *,
+.wpc-doc__title {
+	max-width: 900px;
+}
+
+.wpc-doc__prose > .alignwide,
+.wpc-doc__prose > .alignfull,
+.wpc-doc__prose > .wp-block-table {
+	max-width: none;
+}
+
+/* The guides' section headings are the page's own structure, so they get a rule above them. `h3` is
+   left alone: it is a heading inside a section, not a new one. */
+.wpc-doc__prose h2 {
+	border-top: 1px solid var( --wpc-line-soft );
+	margin-top: 48px;
+	padding-top: 32px;
+}
+
+.wpc-doc__prose h2:first-child {
+	border-top: 0;
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.wpc-doc__prose img {
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel, 8px );
+	height: auto;
+}
+
+/* The screenshots are captioned with the italic line under them that `build-docs.php` writes. */
+.wpc-doc__prose img + em,
+.wpc-doc__prose figcaption {
+	color: var( --wpc-ink-60 );
+	display: block;
+	font-size: 13px;
+}
+
+.wpc-doc__prose table {
+	font-size: 14px;
+}
+
+/* ==========================================================================
+   Narrow
+   ========================================================================== */
+/* Core's own stacking width. Below it the two columns become one, and the contents list becomes a
+   block at the top of the page instead of a column beside it. */
+@media ( max-width: 781px ) {
+
+	.wpc-doc .wpc-doc__cols {
+		gap: 24px;
+	}
+
+	/* Stacked by core at this width, which puts the contents list *after* the article — twelve
+	   thousand pixels after it. `order` moves it back to the top, where a contents list is worth
+	   having; the DOM keeps the article first, which is the order to read the page in. */
+	.wpc-doc__aside {
+		order: -1;
+	}
+
+	.wpc-toc {
+		border-left: 0;
+		border-top: 1px solid var( --wpc-line-soft );
+		border-bottom: 1px solid var( --wpc-line-soft );
+		padding: 16px 0;
+	}
+
+	.wpc-doc__prose h2 {
+		margin-top: 32px;
+		padding-top: 24px;
+	}
+}

@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.25
+Stable tag: 1.9.2
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,31 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.9.2 =
+* The Documentation template lines its article up with the site logo. The header is a centred
+  1,240px container, so its left edge moves with the window — the page now calculates the same
+  gutter instead of guessing a fixed inset, and falls back to 40px on windows narrower than that.
+  The right side stays free: nothing centred, nothing capped.
+
+= 1.9.1 =
+* The Documentation template is full width, with the contents list down the right.
+* The contents list never scrolls on its own and is never cut off — the program manager guide has
+  fifty-five headings, and every one of them is reachable in the page own scroll. It does not stick:
+  a sticky list taller than the window is a list whose last entries cannot be reached at all.
+* Narrow layouts follow core own 781px stacking width rather than a made-up one. Core ships
+  `flex-wrap: nowrap !important` above that width, so a theme cannot stack a columns block earlier
+  however the rule is written.
+
+= 1.9.0 =
+* **A Documentation page template**, for the three program guides. Slightly wider than a normal page
+  to make room for a sidebar, with a contents list in it and the article beside it capped at a
+  readable measure — the extra width buys the sidebar, not longer lines.
+* The contents list is a theme block, **Table of contents**. WordPress has one, but it is provided by
+  the Gutenberg plugin rather than by core, and it returns nothing at all outside `the_content` — so
+  it cannot be used in a template's sidebar, which is where a contents list belongs.
+* The list sticks beside the article and scrolls on its own when it outgrows the window; below 900px
+  it becomes a block at the top of the page instead.
 
 = 1.8.25 =
 * Dresses the feedback scales as stars for plugin 1.59.0 — amber when chosen or hovered, ink when

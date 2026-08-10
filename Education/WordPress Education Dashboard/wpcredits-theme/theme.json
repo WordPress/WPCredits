@@ -137,7 +137,14 @@
 		"spacing": {
 			"customSpacingSize": false,
 			"defaultSpacingSizes": false,
-			"units": [ "px", "%", "em", "rem", "vh", "vw" ],
+			"units": [
+				"px",
+				"%",
+				"em",
+				"rem",
+				"vh",
+				"vw"
+			],
 			"spacingSizes": [
 				{
 					"slug": "10",
@@ -423,7 +430,16 @@
 		{
 			"name": "page-full-width",
 			"title": "Full width page",
-			"postTypes": [ "page" ]
+			"postTypes": [
+				"page"
+			]
+		},
+		{
+			"name": "page-documentation",
+			"title": "Documentation",
+			"postTypes": [
+				"page"
+			]
 		}
 	]
 }

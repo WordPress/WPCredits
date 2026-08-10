@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.59.0
+Stable tag: 1.59.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.59.1 =
+* Every heading in the three program guides now carries an anchor, written by `bin/build-docs.php`.
+  An anchor is part of the document — it is what a shared link points at — so it is generated with
+  the guide rather than added by a stylesheet at render time. Repeated headings are numbered, since
+  the mentor guide carries the student guide in full and Resources appears in both.
 
 = 1.59.0 =
 * **The 1-to-5 scales are stars.** Every rating column behind them is an Airtable star column, so a
