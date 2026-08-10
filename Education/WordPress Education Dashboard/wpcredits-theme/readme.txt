@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.5
+Stable tag: 1.9.6
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,11 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.9.6 =
+* A search box at the foot of the Documentation sidebar, and the sidebar card is now the same height
+  as the article beside it — so the page reads as two panels rather than a short box next to a long
+  one, and the search sits at the bottom of the column rather than adrift under the contents list.
 
 = 1.9.5 =
 * The gutter between the two cards on the Documentation template is the space the band leaves above

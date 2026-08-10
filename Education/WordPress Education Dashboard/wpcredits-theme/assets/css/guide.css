@@ -46,9 +46,10 @@
    theme writes. Everything narrow below therefore uses core's own 781px breakpoint, which is where
    it also sets `flex-basis: 100% !important` on the columns and stacks them for us. */
 .wpc-doc .wpc-doc__cols {
-	/* Each card is as tall as its own contents: a contents list stretched to the height of a
-	   thirty-thousand-word guide is a mostly empty box. */
-	align-items: start;
+	/* Both cards the same height, so the page reads as two panels rather than as a short box beside
+	   a long one. `stretch` is the flex default; it is written out because the rule it replaced said
+	   the opposite, and the reason it changed is worth keeping. */
+	align-items: stretch;
 	/* The same space the band leaves above the card, so the gutter between the two cards and the
 	   gap under the header are one measurement rather than two that happen to look similar. Both
 	   halve on a phone, where `.wpc-main--content` drops its padding to 10px. */
@@ -56,9 +57,27 @@
 }
 
 /* A percentage rather than a width in pixels, so the sidebar grows with the window instead of
-   leaving more and more space beside it. */
+   leaving more and more space beside it.
+
+   A column of its own, so the search can be pushed to the foot of the card with `margin-top: auto`
+   — the card is as tall as the article beside it, and a search box left directly under the contents
+   list would sit in the middle of nowhere. */
 .wpc-doc__aside {
+	display: flex;
+	flex-direction: column;
 	flex-grow: 0;
+}
+
+.wpc-doc__search {
+	margin-top: auto;
+	padding-top: 32px;
+}
+
+/* Searching from a guide searches the site, and what comes back is already filtered by what the
+   reader is allowed to open — the access levels are enforced on the query, so a student searching
+   from their guide cannot be shown a line of the program manager's. */
+.wpc-doc__search .wp-block-search__inside-wrapper {
+	max-width: none;
 }
 
 .wpc-doc__body {
