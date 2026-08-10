@@ -46,10 +46,13 @@
    theme writes. Everything narrow below therefore uses core's own 781px breakpoint, which is where
    it also sets `flex-basis: 100% !important` on the columns and stacks them for us. */
 .wpc-doc .wpc-doc__cols {
-	/* Both cards the same height, so the page reads as two panels rather than as a short box beside
-	   a long one. `stretch` is the flex default; it is written out because the rule it replaced said
-	   the opposite, and the reason it changed is worth keeping. */
-	align-items: stretch;
+	/* **The sidebar's height is set on the column, not here.** Core ships
+	   `.wp-block-columns { align-items: normal !important }`, so `align-items` on this container
+	   does nothing whatever it says — the sidebar column carries `verticalAlignment: top` instead,
+	   which is core's own way of saying it and emits an `align-self` no `!important` outranks.
+
+	   What it buys: a card as tall as what is in it. Stretched to match a thirty-thousand-word
+	   guide, the sidebar was ten thousand pixels of empty white below its search. */
 	/* The same space the band leaves above the card, so the gutter between the two cards and the
 	   gap under the header are one measurement rather than two that happen to look similar. Both
 	   halve on a phone, where `.wpc-main--content` drops its padding to 10px. */
