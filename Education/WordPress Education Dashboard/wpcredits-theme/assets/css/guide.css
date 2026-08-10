@@ -57,20 +57,17 @@
 }
 
 /* A percentage rather than a width in pixels, so the sidebar grows with the window instead of
-   leaving more and more space beside it.
-
-   A column of its own, so the search can be pushed to the foot of the card with `margin-top: auto`
-   — the card is as tall as the article beside it, and a search box left directly under the contents
-   list would sit in the middle of nowhere. */
+   leaving more and more space beside it. */
 .wpc-doc__aside {
-	display: flex;
-	flex-direction: column;
 	flex-grow: 0;
 }
 
+/* Directly under the contents list, not at the foot of the card. The card is as tall as the article
+   beside it, so a search pushed to the bottom of it is thousands of pixels below the thing it
+   belongs to — off screen from the moment the page loads, and reachable only by scrolling to the
+   end of the guide. */
 .wpc-doc__search {
-	margin-top: auto;
-	padding-top: 32px;
+	margin-top: 28px;
 }
 
 /* Searching from a guide searches the site, and what comes back is already filtered by what the

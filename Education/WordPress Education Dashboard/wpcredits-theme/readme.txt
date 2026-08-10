@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.10.0
+Stable tag: 1.10.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,11 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.10.1 =
+* The Documentation sidebar search sits directly under the contents list rather than at the foot of
+  the card. The card is as tall as the article beside it, so the foot of it is thousands of pixels
+  below the list — off screen on load, and reachable only by scrolling to the end of the guide.
 
 = 1.10.0 =
 * **The landing page mentor figure is live.** It was typed in as 92; the site had 88, and nothing
