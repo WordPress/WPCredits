@@ -1,0 +1,45 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcredits/program-stat",
+	"title": "Program figure",
+	"category": "theme",
+	"icon": "chart-bar",
+	"description": "A live count from the program: mentors, students, institutions or sponsors. Falls back to the number written into the block when the plugin is not available.",
+	"keywords": [ "count", "mentors", "students", "statistic", "number" ],
+	"textdomain": "wpcredits-theme",
+	"attributes": {
+		"stat": {
+			"type": "string",
+			"default": "mentors"
+		},
+		"fallback": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"align": false,
+		"color": {
+			"text": true,
+			"background": true
+		},
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"typography": {
+			"fontSize": true,
+			"lineHeight": true,
+			"__experimentalFontWeight": true,
+			"__experimentalDefaultControls": {
+				"fontSize": true
+			}
+		},
+		"interactivity": {
+			"clientNavigation": true
+		}
+	},
+	"render": "file:./render.php"
+}

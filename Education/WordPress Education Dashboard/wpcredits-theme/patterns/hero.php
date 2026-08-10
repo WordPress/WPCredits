@@ -49,9 +49,7 @@
 <!-- /wp:image -->
 
 <!-- wp:group {"className":"wpc-hero__stat","layout":{"type":"constrained"}} -->
-<div class="wp-block-group wpc-hero__stat"><!-- wp:paragraph {"className":"wpc-hero__stat-number","textColor":"brand","fontSize":"display","style":{"typography":{"fontWeight":"700","lineHeight":"1.14"},"spacing":{"margin":{"top":"0","bottom":"0"}}}} -->
-<p class="wpc-hero__stat-number has-brand-color has-text-color has-display-font-size" style="margin-top:0;margin-bottom:0;font-weight:700;line-height:1.14">92</p>
-<!-- /wp:paragraph -->
+<div class="wp-block-group wpc-hero__stat"><!-- wp:wpcredits/program-stat {"stat":"mentors","fallback":"90","className":"wpc-hero__stat-number","textColor":"brand","fontSize":"display","style":{"typography":{"fontWeight":"700","lineHeight":"1.14"},"spacing":{"margin":{"top":"0","bottom":"0"}}}} /-->
 
 <!-- wp:paragraph {"className":"wpc-hero__stat-label","fontSize":"medium","textColor":"ink-70","style":{"typography":{"fontWeight":"600"},"spacing":{"margin":{"top":"0","bottom":"0"}}}} -->
 <p class="wpc-hero__stat-label has-ink-70-color has-text-color has-medium-font-size" style="margin-top:0;margin-bottom:0;font-weight:600"><?php esc_html_e( 'mentors currently active in the program', 'wpcredits-theme' ); ?></p>

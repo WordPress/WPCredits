@@ -87,6 +87,7 @@ function wpcredits_register_blocks() {
 	register_block_type( get_theme_file_path( 'blocks/viewer-chip' ) );
 	register_block_type( get_theme_file_path( 'blocks/handbook-launcher' ) );
 	register_block_type( get_theme_file_path( 'blocks/guide-toc' ) );
+	register_block_type( get_theme_file_path( 'blocks/program-stat' ) );
 }
 add_action( 'init', 'wpcredits_register_blocks' );
 

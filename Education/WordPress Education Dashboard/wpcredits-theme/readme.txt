@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.6
+Stable tag: 1.10.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,15 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.10.0 =
+* **The landing page mentor figure is live.** It was typed in as 92; the site had 88, and nothing
+  would ever have said so. A new **Program figure** block counts the accounts holding a program role
+  — the same number the Mentors screen reports — and the sync keeps that in step with the mentors
+  Airtable lists as active, so the page never asks Airtable anything. Cached for an hour, since it
+  only moves when a sync runs.
+* The block takes a fallback, used when the plugin is inactive or the count is zero: a landing page
+  opening with 0 mentors is worse than one showing the last figure somebody checked.
 
 = 1.9.6 =
 * A search box at the foot of the Documentation sidebar, and the sidebar card is now the same height

@@ -217,3 +217,39 @@ function wpcredits_initials( $name ) {
 		? mb_strtoupper( $first . $last )
 		: strtoupper( $first . $last );
 }
+
+/**
+ * How many accounts hold one of the program's roles.
+ *
+ * The count behind the landing page's figure. Cached for an hour because it only changes when a
+ * sync runs, and read with `count_total` rather than by fetching the users — the page needs the
+ * number, not the people.
+ *
+ * @param string $role Role slug.
+ * @return int
+ */
+function wpcredits_program_count( $role ) {
+	$role = sanitize_key( $role );
+	$key  = 'wpcredits_count_' . $role;
+
+	$cached = get_transient( $key );
+
+	if ( false !== $cached ) {
+		return (int) $cached;
+	}
+
+	$query = new WP_User_Query(
+		array(
+			'role'        => $role,
+			'number'      => 1,
+			'count_total' => true,
+			'fields'      => 'ID',
+		)
+	);
+
+	$count = (int) $query->get_total();
+
+	set_transient( $key, $count, HOUR_IN_SECONDS );
+
+	return $count;
+}
