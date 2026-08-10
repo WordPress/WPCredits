@@ -26,9 +26,19 @@
    The right side is left free. Nothing is centred and nothing is capped: the article takes the room
    between the logo's line and the contents list, and the contents list sits against the far edge. */
 .wpc-doc {
+	/* Kept in step with `.wpc-main--content`'s vertical padding, which is what sets the gap between
+	   the header and the top of the card. */
+	--wpc-doc-gutter: 16px;
+
 	padding-left: max( 40px, calc( ( 100% - 1240px ) / 2 ) );
 	padding-right: 40px;
 }
+
+/* The band, the padding above and below it, and the way it meets the header and the footer all come
+   from `.wpc-main--content`, which this template's `<main>` carries as well — the same class a
+   regular page uses, not a copy of its values. It is the reason the page behind the cards is the
+   soft surface rather than white, and the reason there is no stripe of body background between the
+   band and the footer. Nothing about that is repeated here; the template just wears the class. */
 
 /* **Where a columns block stacks is core's decision, not this file's.** Core ships
    `@media (min-width: 782px) { .wp-block-columns { flex-wrap: nowrap !important } }`, so no rule
@@ -39,7 +49,10 @@
 	/* Each card is as tall as its own contents: a contents list stretched to the height of a
 	   thirty-thousand-word guide is a mostly empty box. */
 	align-items: start;
-	gap: 24px;
+	/* The same space the band leaves above the card, so the gutter between the two cards and the
+	   gap under the header are one measurement rather than two that happen to look similar. Both
+	   halve on a phone, where `.wpc-main--content` drops its padding to 10px. */
+	gap: var( --wpc-doc-gutter );
 }
 
 /* A percentage rather than a width in pixels, so the sidebar grows with the window instead of
@@ -155,8 +168,8 @@
    block at the top of the page instead of a column beside it. */
 @media ( max-width: 781px ) {
 
-	.wpc-doc .wpc-doc__cols {
-		gap: 24px;
+	.wpc-doc {
+		--wpc-doc-gutter: 10px;
 	}
 
 	/* Stacked by core at this width, which puts the contents list *after* the article — twelve
@@ -166,10 +179,8 @@
 		order: -1;
 	}
 
-	/* Stacked, so the two cards need air between them rather than a gutter beside them. */
-	.wpc-doc__aside {
-		margin-bottom: 16px;
-	}
+	/* Stacked, so the gutter is above and below rather than beside — the flex gap already provides
+	   it, and the list needs nothing more. */
 
 	.wpc-doc__prose h2 {
 		margin-top: 32px;

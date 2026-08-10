@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.3
+Stable tag: 1.9.5
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,17 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.9.5 =
+* The gutter between the two cards on the Documentation template is the space the band leaves above
+  them — one measurement in one place rather than two that happened to look similar, and both halve
+  on a phone where the band does.
+
+= 1.9.4 =
+* The Documentation template now wears `wpc-main--content`, the same class a regular page uses, so
+  its background band, the space above and below it, and the way it meets the header and footer are
+  the page treatment itself rather than an approximation of it. It had none of that: the cards sat
+  on the body background with the wrong gaps around them.
 
 = 1.9.3 =
 * The Documentation template is two cards side by side: the page in the left one, dressed exactly as
