@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.2
+Stable tag: 1.9.3
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,12 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.9.3 =
+* The Documentation template is two cards side by side: the page in the left one, dressed exactly as
+  every other page on the site, and the contents list in a card of its own on the right. The sidebar
+  is a percentage of the window rather than a fixed width, so it grows with it.
+* The contents list loses its rule and its indent — the card around it is the edge now.
 
 = 1.9.2 =
 * The Documentation template lines its article up with the site logo. The header is a centred

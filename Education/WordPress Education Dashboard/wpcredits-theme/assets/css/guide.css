@@ -1,17 +1,15 @@
 /**
  * The Documentation template.
  *
- * The full width of the window, the article on the left and the contents list down the right.
- * Loaded only where that template is used — it is the one layout on this site with a sidebar, and
+ * Two cards side by side across the full width of the window: the page in the left one, dressed
+ * exactly as every other page on this site, and the contents list in a card of its own on the
+ * right. Loaded only where that template is used — it is the one layout here with a sidebar, and
  * nothing else needs to pay for it.
  *
  * **The contents list is never scrollable and is never cut off.** It is as tall as it is, in the
  * page's own scroll, so every entry can be reached — including the fifty-five in the program
  * manager guide. It does not stick, because a sticky list taller than the window is a list whose
  * last entries you cannot reach at all, which is the one thing worse than having to scroll back up.
- *
- * The article's measure is capped even though the page is full width: line length is about reading,
- * not about how much room there happens to be.
  */
 
 /* ==========================================================================
@@ -38,10 +36,14 @@
    theme writes. Everything narrow below therefore uses core's own 781px breakpoint, which is where
    it also sets `flex-basis: 100% !important` on the columns and stacks them for us. */
 .wpc-doc .wpc-doc__cols {
+	/* Each card is as tall as its own contents: a contents list stretched to the height of a
+	   thirty-thousand-word guide is a mostly empty box. */
 	align-items: start;
-	gap: 64px;
+	gap: 24px;
 }
 
+/* A percentage rather than a width in pixels, so the sidebar grows with the window instead of
+   leaving more and more space beside it. */
 .wpc-doc__aside {
 	flex-grow: 0;
 }
@@ -54,10 +56,9 @@
    The contents list
    ========================================================================== */
 /* No `max-height`, no `overflow`. The list is as long as the page's headings and every entry is
-   reachable in the page's own scroll. */
+   reachable in the page's own scroll. No border either: the card around it is the edge now. */
 .wpc-toc {
-	border-left: 2px solid var( --wpc-line-soft );
-	padding-left: 16px;
+	padding: 0;
 }
 
 .wpc-toc__title {
@@ -115,19 +116,6 @@
 	scroll-margin-top: 96px;
 }
 
-/* Capped even on a full-width page: 90-odd characters is the line the text was written for, and a
-   1,400px measure on a wide screen is a page nobody finishes a paragraph of. */
-.wpc-doc__prose > *,
-.wpc-doc__title {
-	max-width: 900px;
-}
-
-.wpc-doc__prose > .alignwide,
-.wpc-doc__prose > .alignfull,
-.wpc-doc__prose > .wp-block-table {
-	max-width: none;
-}
-
 /* The guides' section headings are the page's own structure, so they get a rule above them. `h3` is
    left alone: it is a heading inside a section, not a new one. */
 .wpc-doc__prose h2 {
@@ -178,11 +166,9 @@
 		order: -1;
 	}
 
-	.wpc-toc {
-		border-left: 0;
-		border-top: 1px solid var( --wpc-line-soft );
-		border-bottom: 1px solid var( --wpc-line-soft );
-		padding: 16px 0;
+	/* Stacked, so the two cards need air between them rather than a gutter beside them. */
+	.wpc-doc__aside {
+		margin-bottom: 16px;
 	}
 
 	.wpc-doc__prose h2 {
