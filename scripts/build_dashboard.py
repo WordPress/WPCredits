@@ -1062,9 +1062,19 @@ def main():
         # Schools too new to have repeated yet, excluded from the ratio above.
         "tooNew": len(inst_quarters) - repeat_total,
     }
+    # Average month-over-month growth in students since launch (compound rate
+    # over the cumulative-joined series). A single honest momentum number for the
+    # Scale row; None until there are at least two months to compare.
+    _cum = growth["cumulativeJoined"]
+    avg_monthly_growth = None
+    if len(_cum) >= 2 and _cum[0] > 0:
+        n_intervals = len(_cum) - 1
+        avg_monthly_growth = round(((_cum[-1] / _cum[0]) ** (1 / n_intervals) - 1) * 100)
+
     # Build global stats
     global_stats = {
         "activeStudents": active_count,
+        "avgMonthlyGrowth": avg_monthly_growth,
         "graduates": graduate_count,
         "dropouts": dropout_count,
         "notMovingForward": not_moving_forward_count,
