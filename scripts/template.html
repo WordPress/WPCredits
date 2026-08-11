@@ -257,11 +257,10 @@ document.querySelectorAll('.nav-item').forEach(tab => {
     </div>
     <div class="chart-container">
       <h3>How the program is growing</h3>
-      <div class="chart-sub">Students joining and graduating, month by month</div>
+      <div class="chart-sub">New students each month, and the running total</div>
       <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:8px;font-size:12px;color:var(--text-light)">
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#2F7D5B"></span>Joined</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#3858E9"></span>Graduated</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;background:#B07A22;display:inline-block"></span>Cumulative joined</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#2F7D5B"></span>Joined this month</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;background:#B07A22;display:inline-block"></span>Total students</span>
       </div>
       <div style="position:relative;height:320px"><canvas id="growthChart"></canvas></div>
     </div>
@@ -319,14 +318,12 @@ document.querySelectorAll('.nav-item').forEach(tab => {
     if (!gr || !cv || !gr.months || !gr.months.length || typeof Chart === 'undefined') return;
     new Chart(cv, {
       data: { labels: gr.months, datasets: [
-        { type:'bar', label:'Joined', data:gr.joined, backgroundColor:'#2F7D5B', yAxisID:'y' },
-        { type:'bar', label:'Graduated', data:gr.graduated, backgroundColor:'#3858E9', yAxisID:'y' },
-        { type:'line', label:'Cumulative joined', data:gr.cumulativeJoined, borderColor:'#B07A22', backgroundColor:'#B07A22', borderWidth:2, tension:0.3, pointRadius:2, yAxisID:'y1' }
+        { type:'bar', label:'Joined this month', data:gr.joined, backgroundColor:'#2F7D5B' },
+        { type:'line', label:'Total students', data:gr.cumulativeJoined, borderColor:'#B07A22', backgroundColor:'#B07A22', borderWidth:2, tension:0.3, pointRadius:2 }
       ]},
       options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
         scales:{ x:{ grid:{ display:false }, ticks:{ autoSkip:true, maxRotation:45, minRotation:45 } },
-          y:{ beginAtZero:true, title:{ display:true, text:'per month' } },
-          y1:{ position:'right', beginAtZero:true, grid:{ drawOnChartArea:false }, title:{ display:true, text:'cumulative' } } } }
+          y:{ beginAtZero:true } } }
     });
   })();
   // Field of Study chart (computed dynamically from student data)
