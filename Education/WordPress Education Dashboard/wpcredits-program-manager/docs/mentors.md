@@ -305,6 +305,11 @@ one, check whether you are already holding as many as your mentor allows.
 Under your report form are three short forms — **Getting started**, **Half way** and **Finishing
 up** — one for each stage of the program. Each takes a couple of minutes.
 
+**They open one at a time.** *Half way* appears once you have answered everything in *Getting
+started*, and *Finishing up* once you have finished both. That is not a hoop to jump through: the
+three forms ask the same three questions at three different points, and the answers are only worth
+anything if they are given months apart rather than all on your last day.
+
 They are feedback about the program, not part of your report. They are not marked, your institution
 never sees them, and leaving them alone has no effect on your place on the program or on your
 credits. That is the whole reason they are separate: they are only useful if you say what you
@@ -332,7 +337,11 @@ answers**. Nothing is required — a form with two answers in it is worth more t
 in.
 
 You can change any answer later: open the form again and your answers are still there. The form's
-title tells you how many of its questions you have answered.
+title tells you how many of its questions you have answered, and says *all answered* when you have
+finished it — which is also when the next one appears.
+
+The count only ever includes the questions you are actually being asked. A follow-up that did not
+apply to you is not a question you have left blank.
 
 Your mentor does not see these answers on their page.
 

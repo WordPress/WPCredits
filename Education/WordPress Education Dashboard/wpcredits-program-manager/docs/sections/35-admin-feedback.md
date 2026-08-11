@@ -27,6 +27,21 @@ Eight questions were dropped by that analysis — for duplicating the question b
 returning the highest rate of empty answers. They still exist as columns in the table, so nothing
 but a test stops one being added back. `bin/test-feedback.php` names all eight.
 
+### One stage at a time
+
+A student sees *Getting started* first; *Half way* appears once it is fully answered, and *Finishing
+up* once both are. The reason is the anchors above: three identical questions are only comparable if
+the answers are months apart, and a student who opens all three on their last day gives three copies
+of one opinion.
+
+Two things keep that from trapping anybody. A conditional follow-up that was never triggered does
+not count as unanswered, so a form cannot sit one question short of complete for a question nobody
+was asked; and a form somebody has already written in is never taken away, however incomplete the
+one before it is.
+
+The optional permissions at the end of Form 3 are not required either — a student who declines both
+has still finished.
+
 ### Where the answers go
 
 One row per student in the **Feedback table**, matched on email address, with a column per question

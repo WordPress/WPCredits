@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.59.1
+Stable tag: 1.60.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,21 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.60.0 =
+* **The feedback surveys open one stage at a time.** *Half way* appears once *Getting started* is
+  fully answered, and *Finishing up* once both are. The three forms ask the same three questions at
+  three different points, and those answers only mean anything given months apart — a student who
+  opens all three on their last day gives three copies of one opinion.
+* Two things keep that from trapping anybody. A conditional follow-up that was never triggered does
+  not count as unanswered, so a form cannot sit one question short of complete for a question nobody
+  was asked. And **a form somebody has already written in is never taken away**, however incomplete
+  the one before it — answers given in another order would otherwise be stranded behind it.
+* The optional permissions at the end of the last form are not required to finish it, as it says.
+* The summary counts the questions being *asked*: a finished form reads *all answered* rather than
+  sitting a question short for a follow-up that did not apply.
+* Says so on the page when a form is still to come, rather than leaving a gap that reads as
+  something taken away, and in all three guides.
 
 = 1.59.1 =
 * Every heading in the three program guides now carries an anchor, written by `bin/build-docs.php`.

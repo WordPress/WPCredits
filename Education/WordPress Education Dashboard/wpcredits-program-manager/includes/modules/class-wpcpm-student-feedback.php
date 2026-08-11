@@ -599,11 +599,64 @@ class WPCPM_Student_Feedback {
 			);
 		}
 
-		foreach ( $keys as $key ) {
+		// **One stage at a time.** A form appears once the one before it is finished, so the answers
+		// arrive in the order they are asked about rather than all at the end — which is the whole
+		// point of asking the same three questions three times. See `unlocked()`.
+		$unlocked = self::unlocked( $keys, $forms, $values );
+
+		foreach ( $unlocked as $key ) {
 			if ( isset( $forms[ $key ] ) ) {
 				self::render_form( $key, $forms[ $key ], $student, $values, $can );
 			}
 		}
+
+		// Said only when there is something still to come, and only to the person who can act on it:
+		// a form that is simply absent looks like a form that was taken away.
+		if ( $can && count( $unlocked ) < count( $keys ) ) {
+			printf(
+				'<p class="wpcpm-student__note wpcpm-feedback__locked">%s</p>',
+				esc_html__( 'The next form appears once you have answered everything in this one. There is no rush — they are asked at different points in the program.', 'wpcredits-program-manager' )
+			);
+		}
+	}
+
+	/**
+	 * Which of a student's forms are open to them.
+	 *
+	 * Each stage waits for the one before it to be finished. The surveys are meant to be answered
+	 * *at* each stage — the three repeated questions only mean something if the answers are months
+	 * apart — and a student who opens all three on their last day gives three copies of one opinion.
+	 *
+	 * **A form that has already been started is never taken away.** Answers given before this rule
+	 * existed, or given in a different order, would otherwise be stranded behind a form somebody had
+	 * left incomplete, with no way to reach them and nothing on screen to say why.
+	 *
+	 * @param string[] $keys   The forms this student is eligible for, in order.
+	 * @param array    $forms  All form definitions.
+	 * @param array    $values Answers on the record.
+	 * @return string[]
+	 */
+	public static function unlocked( array $keys, array $forms, array $values ) {
+		$open    = array();
+		$blocked = false;
+
+		foreach ( $keys as $key ) {
+			if ( ! isset( $forms[ $key ] ) ) {
+				continue;
+			}
+
+			$form = $forms[ $key ];
+
+			if ( ! $blocked || self::answered( $form, $values ) > 0 ) {
+				$open[] = $key;
+			}
+
+			if ( ! self::is_complete( $form, $values ) ) {
+				$blocked = true;
+			}
+		}
+
+		return $open;
 	}
 
 	/**
@@ -616,7 +669,7 @@ class WPCPM_Student_Feedback {
 	 * @param bool    $can     Whether it may be filled in.
 	 */
 	private static function render_form( $key, array $form, WP_User $student, array $values, $can ) {
-		$answered = self::answered( $form, $values );
+		list( $answered, $asking ) = self::progress( $form, $values );
 
 		printf(
 			'<details class="wpcpm-report__disclosure wpcpm-feedback" id="wpcpm-feedback-%1$s">',
@@ -624,7 +677,10 @@ class WPCPM_Student_Feedback {
 		);
 
 		// The count says what is done, not how much there is to do: "6 of 9 answered" is progress,
-		// while the field count the report form used to carry read as a list of chores.
+		// while the field count the report form used to carry read as a list of chores. It counts
+		// **the questions being asked**, so a finished form says "9 of 9" rather than sitting a
+		// question short for a follow-up nobody triggered — which now decides whether the next form
+		// appears, and would be an unfixable "not finished" if it counted the wrong total.
 		printf(
 			'<summary class="wpcpm-report__toggle">%1$s%2$s</summary>',
 			esc_html( $form['title'] ),
@@ -632,12 +688,14 @@ class WPCPM_Student_Feedback {
 				? sprintf(
 					' <span class="wpcpm-report__count">%s</span>',
 					esc_html(
-						sprintf(
-							/* translators: 1: number of questions answered, 2: number of questions. */
-							__( '%1$s of %2$s answered', 'wpcredits-program-manager' ),
-							number_format_i18n( $answered ),
-							number_format_i18n( count( $form['fields'] ) )
-						)
+						$answered >= $asking
+							? __( 'all answered', 'wpcredits-program-manager' )
+							: sprintf(
+								/* translators: 1: number of questions answered, 2: number of questions being asked. */
+								__( '%1$s of %2$s answered', 'wpcredits-program-manager' ),
+								number_format_i18n( $answered ),
+								number_format_i18n( $asking )
+							)
 					)
 				)
 				: ''
@@ -748,25 +806,113 @@ class WPCPM_Student_Feedback {
 	 * @return int
 	 */
 	private static function answered( array $form, array $values ) {
-		$count = 0;
+		list( $done ) = self::progress( $form, $values );
 
-		foreach ( array_keys( $form['fields'] ) as $name ) {
-			if ( ! isset( $values[ $name ] ) ) {
+		return $done;
+	}
+
+	/**
+	 * How far through a form somebody is: answered, and how many there are to answer.
+	 *
+	 * **Only the questions that actually apply are counted**, on both sides of the count. A
+	 * conditional follow-up nobody triggered is not a question this student has left blank, and a
+	 * form stuck at "8 of 9" for a question that will never be asked reads as unfinished forever —
+	 * which matters more since the next stage waits on this one being finished.
+	 *
+	 * The optional permissions are left out entirely. They say they are optional, and a student who
+	 * declines both must not be told they have not finished.
+	 *
+	 * @param array $form   Form definition.
+	 * @param array $values Answers on the record.
+	 * @return array{0:int,1:int} Answered, and the number that apply.
+	 */
+	private static function progress( array $form, array $values ) {
+		$done  = 0;
+		$total = 0;
+
+		foreach ( $form['fields'] as $name => $spec ) {
+			if ( isset( $spec['group'] ) && 'permissions' === $spec['group'] ) {
 				continue;
 			}
 
-			$value = $values[ $name ];
-
-			// An unticked checkbox is absent rather than false, so anything present counts —
-			// except an empty string, which Airtable keeps for a cleared text box.
-			if ( is_scalar( $value ) && '' === trim( (string) $value ) ) {
+			if ( ! self::applies( $spec, $values ) ) {
 				continue;
 			}
 
-			++$count;
+			++$total;
+
+			if ( self::has_answer( isset( $values[ $name ] ) ? $values[ $name ] : null ) ) {
+				++$done;
+			}
 		}
 
-		return $count;
+		return array( $done, $total );
+	}
+
+	/**
+	 * Whether a stored value counts as an answer.
+	 *
+	 * @param mixed $value Value from the record.
+	 * @return bool
+	 */
+	private static function has_answer( $value ) {
+		if ( null === $value ) {
+			return false;
+		}
+
+		if ( is_array( $value ) ) {
+			return ! empty( $value );
+		}
+
+		// A ticked checkbox is `true`; an unticked one is absent. An empty string is what Airtable
+		// keeps for a cleared text box, and is not an answer.
+		if ( is_bool( $value ) ) {
+			return true;
+		}
+
+		return is_scalar( $value ) && '' !== trim( (string) $value );
+	}
+
+	/**
+	 * Whether a conditional question is being asked at all.
+	 *
+	 * The server's copy of the rule the script reads out of `data-wpcpm-when`. Both take the same
+	 * definition from `forms()`, so they cannot disagree about what a poor answer is.
+	 *
+	 * @param array $spec   Field spec.
+	 * @param array $values Answers on the record.
+	 * @return bool
+	 */
+	private static function applies( array $spec, array $values ) {
+		if ( empty( $spec['when'] ) ) {
+			return true;
+		}
+
+		foreach ( $spec['when'] as $rule ) {
+			$current = isset( $values[ $rule['field'] ] ) ? $values[ $rule['field'] ] : '';
+			$current = is_scalar( $current ) ? (string) $current : '';
+
+			// Compared as strings: a rating comes back from Airtable as a number and the rule is
+			// written as `'1'`.
+			if ( in_array( $current, array_map( 'strval', (array) $rule['values'] ), true ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether every question a form is currently asking has been answered.
+	 *
+	 * @param array $form   Form definition.
+	 * @param array $values Answers on the record.
+	 * @return bool
+	 */
+	public static function is_complete( array $form, array $values ) {
+		list( $done, $total ) = self::progress( $form, $values );
+
+		return $total > 0 && $done === $total;
 	}
 
 	/**

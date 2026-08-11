@@ -419,6 +419,107 @@ ck( 'the anchors of two stages do not share a key',
     WPCPM_Student_Feedback::key( 'F1- Overall experience so far' ) === WPCPM_Student_Feedback::key( 'F2 - Overall experience so far' ),
     false );
 
+echo "\n=== One stage at a time ===\n";
+
+/*
+ * A form appears once the one before it is finished. The surveys are meant to be answered *at* each
+ * stage — three repeated questions only mean something if the answers are months apart — and a
+ * student who opens all three on their last day gives three copies of one opinion.
+ *
+ * The rule is asserted through `unlocked()` rather than through the rendered page, because what is
+ * being checked is which forms a student can reach, and that is a decision, not a layout.
+ */
+
+/**
+ * Answers that finish a form, with the conditional included only when it applies.
+ *
+ * @param string $key   Form key.
+ * @param array  $forms All forms.
+ * @param array  $skip  Column names to leave blank.
+ * @return array
+ */
+function fill( $key, array $forms, array $skip = array() ) {
+	$out = array();
+
+	foreach ( $forms[ $key ]['fields'] as $name => $spec ) {
+		if ( in_array( $name, $skip, true ) ) {
+			continue;
+		}
+
+		if ( isset( $spec['group'] ) && 'permissions' === $spec['group'] ) {
+			continue;
+		}
+
+		// The follow-ups are only asked when the answer above them was poor. Left blank here, and
+		// the ratings below are deliberately good, so they do not apply.
+		if ( ! empty( $spec['when'] ) ) {
+			continue;
+		}
+
+		$type = isset( $spec['type'] ) ? $spec['type'] : 'textarea';
+
+		if ( 'rating' === $type ) {
+			$out[ $name ] = 4;
+		} elseif ( 'select' === $type ) {
+			$out[ $name ] = $spec['choices'][0];
+		} else {
+			$out[ $name ] = 'an answer';
+		}
+	}
+
+	return $out;
+}
+
+$stages = array( 'f1', 'f2', 'f3' );
+
+ck( 'with nothing answered, only the first form is open',
+    WPCPM_Student_Feedback::unlocked( $stages, $forms, array() ), array( 'f1' ) );
+
+$part = fill( 'f1', $forms );
+array_pop( $part );
+
+ck( 'a part-finished first form does not open the second',
+    WPCPM_Student_Feedback::unlocked( $stages, $forms, $part ), array( 'f1' ) );
+
+$one = fill( 'f1', $forms );
+
+ck( 'finishing the first opens the second, and only the second',
+    WPCPM_Student_Feedback::unlocked( $stages, $forms, $one ), array( 'f1', 'f2' ) );
+
+$two = $one + fill( 'f2', $forms );
+
+ck( 'finishing the second opens the third',
+    WPCPM_Student_Feedback::unlocked( $stages, $forms, $two ), array( 'f1', 'f2', 'f3' ) );
+
+// The conditional is the case that would otherwise lock a student out for ever: it is not asked, so
+// it cannot be answered, so a form that counted it would never be finished.
+$low = fill( 'f1', $forms );
+$low['F1 - How easy was it to get started?'] = 1;
+
+ck( 'a poor answer asks the follow-up, and the form is unfinished until it is answered',
+    WPCPM_Student_Feedback::unlocked( $stages, $forms, $low ), array( 'f1' ) );
+
+$low['F1* - What specifically slowed you down or was unclear?'] = 'The Slack invite took a week.';
+
+ck( 'answering the follow-up finishes it',
+    WPCPM_Student_Feedback::unlocked( $stages, $forms, $low ), array( 'f1', 'f2' ) );
+
+// Form 3's permissions say they are optional. A student who declines both has still finished.
+$all = $two + fill( 'f3', $forms );
+
+ck( 'the optional permissions are not required to finish the last form',
+    WPCPM_Student_Feedback::is_complete( $forms['f3'], $all ), true );
+
+// Never take away a form somebody has already written in.
+$stranded = array( 'F2 - Overall experience so far' => 3 );
+
+ck( 'a form already started stays open even with the one before it unfinished',
+    WPCPM_Student_Feedback::unlocked( $stages, $forms, $stranded ), array( 'f1', 'f2' ) );
+
+// The exit survey is on its own list and waits for nothing.
+ck( 'the exit survey is never gated',
+    WPCPM_Student_Feedback::unlocked( array( 'f4' ), $forms, array() ), array( 'f4' ) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );
