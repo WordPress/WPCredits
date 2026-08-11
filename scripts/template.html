@@ -54,9 +54,7 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .card .lbl{font-size:12px;color:var(--text-light);margin-top:7px;letter-spacing:.01em}
 /* Outcomes uses a fixed 3-up grid so the six cards read as two even rows and the
    longer, self-explanatory labels have room to breathe. */
-.cards-outcomes{grid-template-columns:repeat(3,1fr)}
-@media(max-width:820px){.cards-outcomes{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:520px){.cards-outcomes{grid-template-columns:1fr}}
+.cards-outcomes{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
 .cards-outcomes .lbl{font-size:13px;line-height:1.4;color:var(--text)}
 .card.hl{background:var(--amber-tint)}
 .card.hl .num{color:var(--wp-orange)}
@@ -258,7 +256,7 @@ document.querySelectorAll('.nav-item').forEach(tab => {
     <div class="cards">
       <div class="card"><div class="num" id="ovActive">${g.activeStudents}</div><div class="lbl">Students currently in the program</div></div>
       <div class="card"><div class="num">${started}</div><div class="lbl">Students who have joined to date</div></div>
-      <div class="card"><div class="num">${g.avgMonthlyGrowth != null ? g.avgMonthlyGrowth + '%' : '—'}</div><div class="lbl">Average monthly growth in students since launch</div></div>
+      <div class="card"><div class="num">${grad}</div><div class="lbl">Graduates to date</div></div>
       <div class="card"><div class="num">${partnerCount}</div><div class="lbl">Partner institutions</div></div>
       <div class="card"><div class="num">${countryCount}</div><div class="lbl">Countries</div></div>
     </div>
@@ -313,7 +311,6 @@ document.querySelectorAll('.nav-item').forEach(tab => {
     <p class="chart-sub" style="margin:-6px 0 16px;max-width:760px">A graduate is a student who completed their agreed hours of applied, real-world work in the WordPress open source project — ranging from 50 to 400 hours — as part of their studies.</p>
     <div class="cards cards-outcomes">
       <div class="card hl"><div class="num">${completionRate != null ? completionRate + '%' : '—'}</div><div class="lbl">Graduated from the program</div></div>
-      <div class="card"><div class="num">${grad}</div><div class="lbl">Graduates to date</div></div>
       <div class="card"><div class="num">${impact.avg != null ? impact.avg + '<span style="font-size:20px;color:var(--text-light)">/5</span>' : '—'}</div><div class="lbl">How impactful graduates rate their contributions</div></div>
       <div class="card"><div class="num">${recPct}</div><div class="lbl">Graduates who would recommend the program</div></div>
       <div class="card"><div class="num">${keepPct}</div><div class="lbl">Graduates who plan to keep contributing to WordPress</div></div>
