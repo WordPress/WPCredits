@@ -135,6 +135,7 @@ FIELDS = {
 CITY_COORDS = {
     ("dhaka", "Bangladesh"): (23.7644, 90.389, "Dhaka"),
     ("kishoreganj", "Bangladesh"): (24.4449, 90.7766, "Kishoreganj"),
+    ("bogura", "Bangladesh"): (24.8481, 89.3728, "Bogura"),
     ("pisa", "Italy"): (43.4715, 10.6798, "Pisa"),
     ("san josé", "Costa Rica"): (9.9328, -84.0796, "San José"),
     ("cartago", "Costa Rica"): (9.8157, -83.6944, "Cartago"),
