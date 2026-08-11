@@ -269,6 +269,15 @@ document.querySelectorAll('.nav-item').forEach(tab => {
       </div>
       <div style="position:relative;height:320px"><canvas id="growthChart"></canvas></div>
     </div>
+    <div class="chart-container">
+      <h3>How our partner network is growing</h3>
+      <div class="chart-sub">Confirmed partner institutions, month by month</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:8px;font-size:12px;color:var(--text-light)">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#2A7B8C"></span>Confirmed this month</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:3px;background:#3858E9;display:inline-block"></span>Total institutions</span>
+      </div>
+      <div style="position:relative;height:260px"><canvas id="instGrowthChart"></canvas></div>
+    </div>
     <div class="chart-container"><h3>Where our partners are</h3><div class="chart-sub">Partner institutions around the world</div><div id="instMap"></div></div>
     <div class="chart-container"><h3>Partners by country</h3><div class="chart-sub">Confirmed partner institutions in each country</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2px 32px">${countryRows}</div></div>
     <div class="chart-container"><h3>Who's joined us</h3><div class="chart-sub">The academic backgrounds students bring</div><div id="fosChart"></div></div>
@@ -325,6 +334,20 @@ document.querySelectorAll('.nav-item').forEach(tab => {
       data: { labels: gr.months, datasets: [
         { type:'bar', label:'Joined this month', data:gr.joined, backgroundColor:'#2F7D5B' },
         { type:'line', label:'Total students', data:gr.cumulativeJoined, borderColor:'#B07A22', backgroundColor:'#B07A22', borderWidth:2, tension:0.3, pointRadius:2 }
+      ]},
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        scales:{ x:{ grid:{ display:false }, ticks:{ autoSkip:true, maxRotation:45, minRotation:45 } },
+          y:{ beginAtZero:true } } }
+    });
+  })();
+  // Partner network growth (confirmed institutions per month + running total)
+  (function(){
+    var ig = D.instGrowth, cv = document.getElementById('instGrowthChart');
+    if (!ig || !cv || !ig.months || !ig.months.length || typeof Chart === 'undefined') return;
+    new Chart(cv, {
+      data: { labels: ig.months, datasets: [
+        { type:'bar', label:'Confirmed this month', data:ig.added, backgroundColor:'#2A7B8C' },
+        { type:'line', label:'Total institutions', data:ig.cumulative, borderColor:'#3858E9', backgroundColor:'#3858E9', borderWidth:2, tension:0.3, pointRadius:2 }
       ]},
       options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
         scales:{ x:{ grid:{ display:false }, ticks:{ autoSkip:true, maxRotation:45, minRotation:45 } },

@@ -86,6 +86,7 @@ FIELDS = {
         "country": "fldMZYV5XmC6FbewY",
         "current_stage": "fld4l5x6ScLSLaJZl",
         "website": "fldbpCAGd36ejjkaE",
+        "confirmed_on": "fldBANuJmJOBRQFs8",
     },
     "sponsors": {
         "company_name": "fldezMq2OBVeqn0DK",
@@ -997,6 +998,41 @@ def main():
             m = m + 1 if m < 12 else 1
             y = y if m != 1 else y + 1
 
+    # --- Partner network growth (cumulative confirmed institutions by month) ---
+    # Uses each institution's real "Confirmed on" date (falling back to the
+    # record's createdTime if it's ever empty), aligned to the same
+    # PROGRAM_START_MONTH as the student chart. Partners confirmed before launch
+    # are counted into the starting cumulative (founding partners), not dropped.
+    inst_added_by_month = {}
+    inst_pre_floor = 0
+    for rec in institutions_records:
+        stage = select_name(get_field_value(rec, FIELDS["institutions"]["current_stage"]))
+        if status_key(stage) != "confirmed":
+            continue
+        cdate = (parse_iso_date(get_field_value(rec, FIELDS["institutions"]["confirmed_on"]))
+                 or parse_iso_date(rec.get("createdTime")))
+        if not cdate:
+            continue
+        cmk = month_key(cdate)
+        if cmk < PROGRAM_START_MONTH:
+            inst_pre_floor += 1
+        else:
+            inst_added_by_month[cmk] = inst_added_by_month.get(cmk, 0) + 1
+
+    inst_growth = {"months": [], "added": [], "cumulative": []}
+    if inst_added_by_month or inst_pre_floor:
+        y, m = int(PROGRAM_START_MONTH[:4]), int(PROGRAM_START_MONTH[5:7])
+        cy, cm = int(current_month[:4]), int(current_month[5:7])
+        cum = inst_pre_floor
+        while (y, m) <= (cy, cm):
+            mk = f"{y:04d}-{m:02d}"
+            cum += inst_added_by_month.get(mk, 0)
+            inst_growth["months"].append(mk)
+            inst_growth["added"].append(inst_added_by_month.get(mk, 0))
+            inst_growth["cumulative"].append(cum)
+            m = m + 1 if m < 12 else 1
+            y = y if m != 1 else y + 1
+
     # --- Student feedback (aggregate, experience-only; no individuals) ---
     def _rating_avg(field):
         vals = [get_field_value(r, FIELDS["feedback"][field]) for r in feedback_records]
@@ -1121,6 +1157,7 @@ def main():
         "global": global_stats,
         "translationTotals": translation_totals,
         "growth": growth,
+        "instGrowth": inst_growth,
         "feedback": feedback,
         "students": public_students,
     }
