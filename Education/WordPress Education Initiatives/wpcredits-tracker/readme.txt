@@ -12,7 +12,7 @@ A native WordPress rendering of the WordPress Credits program dashboard — no i
 
 == Description ==
 
-This plugin renders the WordPress Credits program dashboard natively on your site, replacing the iframe embed of https://wordpress.github.io/WPCredits-Tracker/. It is a PHP port of that project's Python build (`scripts/build_dashboard.py`), producing the same public figures on your own server.
+This plugin renders the WordPress Credits program dashboard natively on your site, replacing the iframe embed of https://wordpress.github.io/WPCredits/. It is a PHP port of that project's Python build (`scripts/build_dashboard.py`), producing the same public figures on your own server.
 
 The dashboard has two tabs:
 

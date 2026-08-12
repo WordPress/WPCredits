@@ -6,7 +6,7 @@ Connect, Student Clubs and the Community team's event work run on.
 
 The rest of this repository is the program itself: how it works, who it is for, the mentor and
 student handbooks, the pitch materials and the public
-[WPCredits dashboard](https://wordpress.github.io/WPCredits-Tracker/). This directory is where the
+[WPCredits dashboard](https://github.com/WordPress/WPCredits/). This directory is where the
 tooling behind it lives.
 
 Each subfolder is a **source mirror**: unpacked, installable plugin and theme source, kept in sync
@@ -17,10 +17,10 @@ be zipped and installed on a WordPress site as it stands.
 
 | Folder | What it is | Status |
 | --- | --- | --- |
-| [`WordPress Education Initiatives`](./WordPress%20Education%20Initiatives) | The **public site**: one block theme plus five plugins that present the education programs and surface live program data. | Pre-release — [#160](https://github.com/WordPress/WPCredits-Tracker/issues/160), [#161](https://github.com/WordPress/WPCredits-Tracker/issues/161) |
-| [`WordPress Education Dashboard`](./WordPress%20Education%20Dashboard) | The **member-facing dashboard**: a plugin and its companion theme giving Credits students and mentors a signed-in view of their own placement, their calls and their report cards. | Pre-release, on staging — [#158](https://github.com/WordPress/WPCredits-Tracker/issues/158), [#159](https://github.com/WordPress/WPCredits-Tracker/issues/159) |
-| [`WordPress Community CRM`](./WordPress%20Community%20CRM) | The Community team's **internal CRM**: a block theme whose front page is the sign-in screen, plus a plugin bringing a FreeScout help desk onto the Jetpack CRM contact record. | Pre-release — [#162](https://github.com/WordPress/WPCredits-Tracker/issues/162) |
-| [`WordPress Education Media Kit`](./WordPress%20Education%20Media%20Kit) | The **media kit**: logos, partner badges, quotes and paste-ready boilerplate for institutions, sponsors and clubs announcing their involvement. A single self-contained HTML page, [published here](https://wordpress.github.io/WPCredits-Tracker/Education/WordPress%20Education%20Media%20Kit/). |  Published |
+| [`WordPress Education Initiatives`](./WordPress%20Education%20Initiatives) | The **public site**: one block theme plus five plugins that present the education programs and surface live program data. | Pre-release — [#160](https://github.com/WordPress/WPCredits/issues/160), [#161](https://github.com/WordPress/WPCredits/issues/161) |
+| [`WordPress Education Dashboard`](./WordPress%20Education%20Dashboard) | The **member-facing dashboard**: a plugin and its companion theme giving Credits students and mentors a signed-in view of their own placement, their calls and their report cards. | Pre-release, on staging — [#158](https://github.com/WordPress/WPCredits/issues/158), [#159](https://github.com/WordPress/WPCredits/issues/159) |
+| [`WordPress Community CRM`](./WordPress%20Community%20CRM) | The Community team's **internal CRM**: a block theme whose front page is the sign-in screen, plus a plugin bringing a FreeScout help desk onto the Jetpack CRM contact record. | Pre-release — [#162](https://github.com/WordPress/WPCredits/issues/162) |
+| [`WordPress Education Media Kit`](./WordPress%20Education%20Media%20Kit) | The **media kit**: logos, partner badges, quotes and paste-ready boilerplate for institutions, sponsors and clubs announcing their involvement. A single self-contained HTML page, [published here](https://wordpress.github.io/WPCredits/Education/WordPress%20Education%20Media%20Kit/). |  Published |
 
 Each of the first three folders has its own README with the full component list, versions,
 requirements and install steps. Start there — the summaries below are only meant to tell you which

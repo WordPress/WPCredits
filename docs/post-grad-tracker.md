@@ -4,7 +4,7 @@ Measures whether WordPress Credits graduates **keep contributing to WordPress
 after they graduate** — the strongest evidence of the program's long-term
 impact, distinct from the self-reported "plan to keep contributing."
 
-- **Issue:** [#137](https://github.com/WordPress/WPCredits-Tracker/issues/137)
+- **Issue:** [#137](https://github.com/WordPress/WPCredits/issues/137)
 - **Script:** [`scripts/post_grad_snapshot.py`](../scripts/post_grad_snapshot.py)
 - **Workflow:** [`.github/workflows/snapshot-post-grad.yml`](../.github/workflows/snapshot-post-grad.yml)
 - **Store:** private Airtable table **`Post-Grad Snapshots`** (`tblwTv3G4WYIRztTG`) in base `appIzQKfwTn5dyPVp`
@@ -88,7 +88,7 @@ GitHub → Actions → *Snapshot Post-Grad Activity* → **Run workflow** (leave
 
 ```bash
 python3 -m venv ~/.wpcredits-venv && ~/.wpcredits-venv/bin/pip install requests
-cd /path/to/WPCredits-Tracker
+cd /path/to/WPCredits
 read -rs AIRTABLE_PAT && export AIRTABLE_PAT && \
   ~/.wpcredits-venv/bin/python scripts/post_grad_snapshot.py --report-only && \
   unset AIRTABLE_PAT

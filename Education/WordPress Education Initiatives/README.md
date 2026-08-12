@@ -14,8 +14,8 @@ repository.
 
 The first release of the suite is tracked in these issues:
 
-- **[#160 — Initial release](https://github.com/WordPress/WPCredits-Tracker/issues/160)** — release tracker and pre-flight checklist.
-- **[#161 — Prerelease testing](https://github.com/WordPress/WPCredits-Tracker/issues/161)** — open call for testing (testing window closes **10 August 2026**). Feedback welcome on that issue.
+- **[#160 — Initial release](https://github.com/WordPress/WPCredits/issues/160)** — release tracker and pre-flight checklist.
+- **[#161 — Prerelease testing](https://github.com/WordPress/WPCredits/issues/161)** — open call for testing (testing window closes **10 August 2026**). Feedback welcome on that issue.
 
 ## What's in here
 

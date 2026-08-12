@@ -15,7 +15,7 @@ source of one plugin or theme, kept in sync with its development repository.
 
 ## Release & testing
 
-- **[#162 — Prerelease testing](https://github.com/WordPress/WPCredits-Tracker/issues/162)** — open call for testing (testing window closes **31 August 2026**). Feedback welcome on that issue.
+- **[#162 — Prerelease testing](https://github.com/WordPress/WPCredits/issues/162)** — open call for testing (testing window closes **31 August 2026**). Feedback welcome on that issue.
 
 ## What's in here
 

@@ -55,7 +55,7 @@ per person, so there is no URL to guess at somebody else's record.
 
 **Feedback surveys.** Three short forms on the Student Report Card — at the start, half way and at
 the end — plus an exit survey for anyone who leaves without finishing. The question set is the one
-settled in [#123](https://github.com/WordPress/WPCredits-Tracker/issues/123) after analysing 242
+settled in [#123](https://github.com/WordPress/WPCredits/issues/123) after analysing 242
 responses: three questions repeat word for word at every stage so a student's answers can be read
 as a line rather than three unrelated snapshots, two follow-ups appear only when the answer above
 them was poor, and the permissions to quote them publicly or contact them later are fenced off in a
@@ -150,10 +150,10 @@ Coding standard is WordPress-Core via `phpcs`. Translations are regenerated with
 
 **Pre-release**, deployed and being tested on a staging site.
 
-- [#158 — prerelease testing](https://github.com/WordPress/WPCredits-Tracker/issues/158): a call
+- [#158 — prerelease testing](https://github.com/WordPress/WPCredits/issues/158): a call
   for testing, open until **10 August 2026**. Students, mentors, people outside European timezones
   and anyone using a screen reader are all especially welcome.
-- [#159 — initial release](https://github.com/WordPress/WPCredits-Tracker/issues/159): what has to
+- [#159 — initial release](https://github.com/WordPress/WPCredits/issues/159): what has to
   be true before the first release, and the open decisions still to make.
 
 ## License

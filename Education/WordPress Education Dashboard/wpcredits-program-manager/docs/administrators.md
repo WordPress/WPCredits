@@ -249,7 +249,7 @@ from their own Report Card, under their report form. Anyone who leaves without f
 fourth set instead: four questions about how far they got and what stopped them.
 
 The question set is the one settled in
-[#123](https://github.com/WordPress/WPCredits-Tracker/issues/123) after the analysis of 242
+[#123](https://github.com/WordPress/WPCredits/issues/123) after the analysis of 242
 responses from December 2025 to June 2026. Three things about it are worth knowing before anybody
 changes a question.
 

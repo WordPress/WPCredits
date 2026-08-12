@@ -19,7 +19,7 @@ needs new time-series storage that does not exist yet.
 
 ## Home (decided 2026-07-23)
 
-**Inside this repo** (`WPCredits-Tracker`). A new snapshot job + a time-series
+**Inside this repo** (`WPCredits`). A new snapshot job + a time-series
 data store the weekly Action appends to. NOT part of `build_dashboard.py`'s
 render path — the dashboard only *surfaces* the metric later, once there's
 history.

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.60.0
+Stable tag: 1.60.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.60.1 =
+* The program repository moved from `WordPress/WPCredits-Tracker` to `WordPress/WPCredits`, and the
+  old `wordpress.github.io/WPCredits-Tracker/` dashboard address now 404s. Links in the guides point
+  at the new one.
 
 = 1.60.0 =
 * **The feedback surveys open one stage at a time.** *Half way* appears once *Getting started* is

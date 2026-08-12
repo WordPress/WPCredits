@@ -2,7 +2,7 @@
 
 Thank you for your interest in improving the documentation for **WordPress Credits**—an official initiative by the WordPress Foundation that connects academic institutions with the global WordPress open source community.
 
-This repository (`WPCredits-Tracker`) is used to **coordinate, draft, and maintain public documentation** related to the WordPress Credits program, including:
+This repository (`WPCredits`) is used to **coordinate, draft, and maintain public documentation** related to the WordPress Credits program, including:
 - Handbook content
 - Onboarding guides
 - Contribution templates
@@ -32,7 +32,7 @@ If you’re looking to:
 ### 1. **Review Existing Content**
 Before contributing:
 - Read the current [WordPress Credits Handbook](https://make.wordpress.org/handbook/wordpress-credits-contribution-internship-program/)
-- Browse open [Issues](https://github.com/WordPress/WPCredits-Tracker/issues)
+- Browse open [Issues](https://github.com/WordPress/WPCredits/issues)
 
 ### 2. **Open an Issue First (Recommended)**
 For substantial changes (new sections, structural updates, policy clarifications), **open an issue** to propose your idea and get feedback from maintainers.
@@ -67,7 +67,7 @@ We are committed to fostering a respectful, collaborative, and inclusive environ
 
 ## Questions or Unsure?
 
-- Open a [Issue](https://github.com/WordPress/WPCredits-Tracker/issues) for general questions  
+- Open a [Issue](https://github.com/WordPress/WPCredits/issues) for general questions  
 - Contact the WordPress Foundation team via the [#wpcredits Slack channel](https://make.wordpress.org/chat/)  
 - For sensitive matters, email: **education@wordpressfoundation.org**
 
