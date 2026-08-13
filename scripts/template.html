@@ -97,9 +97,13 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
 .sponsors{border-top:1px solid var(--border);margin-top:8px;padding:30px 24px;text-align:center}
 .sponsors-label{font-size:13px;color:var(--text-light);margin-bottom:18px;letter-spacing:.02em}
 .sponsors-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:30px 40px}
-.sponsors-row a{display:inline-flex;align-items:center}
+.sponsors-row a{display:inline-flex;align-items:center;text-decoration:none}
 .sponsors-row img{max-height:32px;max-width:140px;width:auto;object-fit:contain;opacity:.62;filter:grayscale(100%);transition:opacity .15s ease,filter .15s ease}
 .sponsors-row a:hover img{opacity:1;filter:none}
+/* Text fallback for sponsors whose only logo file is on a white background,
+   which would show as a white box on the cream strip. */
+.sponsors-row .sponsor-name{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--text-light);opacity:.72;transition:opacity .15s ease,color .15s ease}
+.sponsors-row a:hover .sponsor-name{opacity:1;color:var(--text)}
 .voices-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px}
 @media(max-width:760px){.voices-grid{grid-template-columns:1fr}}
 .voice{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px 24px}
@@ -137,11 +141,12 @@ h1,h2,h3,h4{font-family:var(--serif);font-weight:600}
     <a href="https://www.hostinger.com/" target="_blank" rel="noopener noreferrer" title="Hostinger"><img src="assets/sponsors/hostinger.png" alt="Hostinger" loading="lazy"></a>
     <a href="https://elementor.com/" target="_blank" rel="noopener noreferrer" title="Elementor"><img src="assets/sponsors/elementor.png" alt="Elementor" loading="lazy"></a>
     <a href="https://wpbakery.com" target="_blank" rel="noopener noreferrer" title="WPBakery"><img src="assets/sponsors/wpbakery.png" alt="WPBakery" loading="lazy"></a>
-    <a href="https://www.weglot.com" target="_blank" rel="noopener noreferrer" title="Weglot"><img src="assets/sponsors/weglot.png" alt="Weglot" loading="lazy"></a>
+    <a href="https://www.weglot.com" target="_blank" rel="noopener noreferrer" title="Weglot"><span class="sponsor-name">Weglot</span></a>
     <a href="https://hosting.com/" target="_blank" rel="noopener noreferrer" title="hosting.com"><img src="assets/sponsors/hosting-com.png" alt="hosting.com" loading="lazy"></a>
     <a href="https://raiolanetworks.com" target="_blank" rel="noopener noreferrer" title="Raiola Networks"><img src="assets/sponsors/raiola-networks.png" alt="Raiola Networks" loading="lazy"></a>
-    <a href="https://www.smarthost.pl/" target="_blank" rel="noopener noreferrer" title="Smarthost"><img src="assets/sponsors/smarthost.jpg" alt="Smarthost" loading="lazy"></a>
-    <a href="https://www.villasostaga.it/it/" target="_blank" rel="noopener noreferrer" title="Villa Sostaga"><img src="assets/sponsors/villa-sostaga.jpg" alt="Villa Sostaga" loading="lazy"></a>
+    <a href="https://cloud86.io/" target="_blank" rel="noopener noreferrer" title="Cloud86"><img src="assets/sponsors/cloud86.png" alt="Cloud86" loading="lazy"></a>
+    <a href="https://www.smarthost.pl/" target="_blank" rel="noopener noreferrer" title="Smarthost"><span class="sponsor-name">Smarthost</span></a>
+    <a href="https://www.villasostaga.it/it/" target="_blank" rel="noopener noreferrer" title="Villa Sostaga"><span class="sponsor-name">Villa Sostaga</span></a>
   </div>
 </div>
 <div class="footer">Data sourced from Airtable &amp; WordPress.org profiles &bull; The dashboard refreshes once a week &mdash; every Monday at 6:00 UTC</div>
