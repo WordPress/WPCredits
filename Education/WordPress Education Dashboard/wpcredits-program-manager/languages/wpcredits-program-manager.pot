@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-12T12:03:32+00:00\n"
+"POT-Creation-Date: 2026-08-18T20:49:44+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: bin/make-pot.sh (GNU gettext)\n"
@@ -3432,85 +3432,85 @@ msgid ""
 "their email address otherwise."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:109
+#: includes/tools/class-wpcpm-handbook-answer.php:133
 msgid ""
 "The AI model this site is set to use is not available. A program manager can "
 "change it in the plugin settings."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:114
+#: includes/tools/class-wpcpm-handbook-answer.php:138
 msgid ""
 "The AI service is busy at the moment. Asking again in a minute usually works."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:118
+#: includes/tools/class-wpcpm-handbook-answer.php:142
 msgid ""
 "The AI service refused the request. A program manager may need to check the "
 "API key in the plugin settings."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:121
+#: includes/tools/class-wpcpm-handbook-answer.php:145
 msgid "The answer could not be fetched just now. Trying again usually works."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:260
+#: includes/tools/class-wpcpm-handbook-answer.php:284
 msgid "Ask a question and it will be looked up in the WordPress documentation."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:268
+#: includes/tools/class-wpcpm-handbook-answer.php:292
 #: includes/tools/class-wpcpm-handbook-assistant.php:583
 msgid ""
 "No AI provider is configured, so questions cannot be answered yet. A program "
 "manager can add one in the plugin settings."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:276
+#: includes/tools/class-wpcpm-handbook-answer.php:300
 msgid ""
 "Too many questions have been asked recently. Try again in a little while."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:326
+#: includes/tools/class-wpcpm-handbook-answer.php:350
 msgid "None — questions cannot be answered"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:327
+#: includes/tools/class-wpcpm-handbook-answer.php:351
 msgid "Google AI Studio (Gemini)"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:381
+#: includes/tools/class-wpcpm-handbook-answer.php:405
 msgid "The provider returned something unusable."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:403
+#: includes/tools/class-wpcpm-handbook-answer.php:441
 msgid "No provider is configured."
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:444
+#: includes/tools/class-wpcpm-handbook-answer.php:488
 msgid "no API key is set"
 msgstr ""
 
 #. translators: %d: HTTP status code.
-#: includes/tools/class-wpcpm-handbook-answer.php:509
+#: includes/tools/class-wpcpm-handbook-answer.php:553
 #, php-format
 msgid "HTTP %d"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:527
+#: includes/tools/class-wpcpm-handbook-answer.php:571
 msgid "the provider returned nothing"
 msgstr ""
 
 #. translators: 1: page name, 2: hostname.
-#: includes/tools/class-wpcpm-handbook-answer.php:666
+#: includes/tools/class-wpcpm-handbook-answer.php:710
 #, php-format
 msgctxt "handbook citation"
 msgid "%1$s — %2$s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:731
+#: includes/tools/class-wpcpm-handbook-answer.php:775
 msgid "you have asked a lot of questions in the last hour"
 msgstr ""
 
-#: includes/tools/class-wpcpm-handbook-answer.php:739
+#: includes/tools/class-wpcpm-handbook-answer.php:783
 msgid "the assistant has reached its daily limit"
 msgstr ""
 

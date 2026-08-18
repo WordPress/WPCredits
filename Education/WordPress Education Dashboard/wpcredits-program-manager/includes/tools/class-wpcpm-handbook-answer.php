@@ -57,6 +57,30 @@ class WPCPM_Handbook_Answer {
 	const TIMEOUT = 60;
 
 	/**
+	 * How much of the budget a second attempt needs before it is worth starting.
+	 *
+	 * A grounded answer from the lighter model has come back in three seconds; ten leaves room for
+	 * one that is slower than that without running the reader's browser out of patience.
+	 */
+	const RETRY_BUDGET = 10;
+
+	/**
+	 * The model to try when the configured one says it is busy.
+	 *
+	 * Deliberately a *lighter* model rather than a bigger one: the point of the second attempt is
+	 * that it is served from a different pool and answers quickly, not that it answers better. If
+	 * the site is already on the light model, the general Flash alias is the alternative.
+	 *
+	 * @return string Empty when there is nothing sensible to fall back to.
+	 */
+	private static function fallback_model() {
+		$model = (string) WPCPM_Settings::get_value( 'handbook_model', 'gemini-flash-latest' );
+		$light = 'gemini-flash-lite-latest';
+
+		return ( $light === $model ) ? 'gemini-flash-latest' : $light;
+	}
+
+	/**
 	 * How long the last provider attempt took, in seconds.
 	 *
 	 * Read by the retry above to decide whether there is time for another go.
@@ -384,17 +408,31 @@ class WPCPM_Handbook_Answer {
 		if ( 'gemini' === $provider ) {
 			$answer = self::gemini( $question );
 
-			// One retry, and only when the provider said it was busy rather than that anything
-			// was wrong. "High demand" is transient by definition, and it fails in a second or
-			// two — so there is room to try again inside the same request, which is better than
-			// telling somebody to press the button themselves.
+			// One retry when the provider said it was busy — but **against a different model**.
+			// "High demand" is a statement about one model's capacity, so asking the same one
+			// again is asking the thing that is full: `gemini-flash-latest` answered 503 twice
+			// in a row while `gemini-flash-lite-latest` answered in three seconds.
 			//
-			// Guarded on how long the first attempt took: after a slow failure there is no
-			// budget left, and a second attempt would only trip the browser's own ceiling.
-			if ( is_wp_error( $answer ) && self::is_busy( $answer ) && self::$last_attempt < 15 ) {
-				sleep( 2 );
+			// Guarded on the budget that is actually left rather than on a fixed number of
+			// seconds. The old guard was "only if the first attempt took under 15s", on the
+			// reasoning that a busy provider fails fast — but a grounded request takes 20 to 60
+			// seconds even when it succeeds, so the retry never once fired and the reader saw
+			// the error on the first failure.
+			if ( is_wp_error( $answer ) && self::is_busy( $answer ) ) {
+				$spent = self::$last_attempt;
+				$other = self::fallback_model();
 
-				$answer = self::gemini( $question );
+				if ( '' !== $other && $spent + self::RETRY_BUDGET < self::TIMEOUT ) {
+					sleep( 1 );
+
+					$second = self::gemini( $question, $other );
+
+					// Only if it worked. A failure from the fallback is less use to the reader
+					// than the first model's, which is at least about the model they configured.
+					if ( ! is_wp_error( $second ) ) {
+						$answer = $second;
+					}
+				}
 			}
 
 			return $answer;
@@ -434,11 +472,17 @@ class WPCPM_Handbook_Answer {
 	 * Ask Google AI Studio, with search grounding.
 	 *
 	 * @param string $question What was asked.
+	 * @param string $override Model to use instead of the configured one.
 	 * @return array|WP_Error `text` and `sources`.
 	 */
-	private static function gemini( $question ) {
+	private static function gemini( $question, $override = '' ) {
 		$key   = (string) WPCPM_Settings::get_value( 'handbook_key', '' );
-		$model = (string) WPCPM_Settings::get_value( 'handbook_model', 'gemini-2.5-flash' );
+		// The fallback matches the settings default. It used to be `gemini-2.5-flash`, which Google
+		// has since retired — so on a site with no model saved, every question failed with "no
+		// longer available" rather than falling back to anything.
+		$model = '' !== $override
+			? $override
+			: (string) WPCPM_Settings::get_value( 'handbook_model', 'gemini-flash-latest' );
 
 		if ( '' === $key ) {
 			return new WP_Error( 'wpcpm_handbook_key', __( 'no API key is set', 'wpcredits-program-manager' ) );

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.60.1
+Stable tag: 1.60.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,18 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.60.2 =
+* **The "Need help?" retry now tries a different model.** "This model is currently experiencing high
+  demand" is a statement about one model's capacity, so asking the same one again is asking the
+  thing that is full — `gemini-flash-latest` answered 503 twice in a row while
+  `gemini-flash-lite-latest` answered the same grounded question in three seconds.
+* **The retry was never firing at all.** It was guarded on the first attempt having taken under 15
+  seconds, on the reasoning that a busy provider fails fast; a grounded request takes 20 to 60
+  seconds even when it works, so the guard never passed and the reader saw the error on the first
+  failure. It is now guarded on the time actually left in the request.
+* Fixes the model used when a site has none saved: it was `gemini-2.5-flash`, which Google has
+  retired and which answers 404, so the fallback was itself a failure.
 
 = 1.60.1 =
 * The program repository moved from `WordPress/WPCredits-Tracker` to `WordPress/WPCredits`, and the

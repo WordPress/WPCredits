@@ -1265,5 +1265,63 @@ foreach ( $must_remove as $what => $needle ) {
 ck( 'the legacy schedules are cleared while the plugin runs, too',
     array( false !== strpos( $removal, 'clear_legacy_schedules' ) ), array( true ) );
 
+echo "\n=== When the model says it is busy ===\n";
+
+/*
+ * "This model is currently experiencing high demand" is a statement about *one model's* capacity, so
+ * the retry has to ask a different one — `gemini-flash-latest` answered 503 twice in a row on
+ * 6 August 2026 while `gemini-flash-lite-latest` answered the same grounded question in three
+ * seconds. Both halves are asserted here: which model is chosen, and which statuses count as busy
+ * at all.
+ */
+$busy = new ReflectionMethod( 'WPCPM_Handbook_Answer', 'is_busy' );
+$pick = new ReflectionMethod( 'WPCPM_Handbook_Answer', 'fallback_model' );
+
+if ( PHP_VERSION_ID < 80100 ) {
+	$busy->setAccessible( true );
+	$pick->setAccessible( true );
+}
+
+/**
+ * A failure carrying an HTTP status, as the provider call builds one.
+ *
+ * @param int $status HTTP status.
+ * @return WP_Error
+ */
+function failure( $status ) {
+	return new WP_Error( 'wpcpm_handbook_http', 'upstream said no', array( 'status' => $status ) );
+}
+
+foreach ( array( 429, 500, 502, 503, 504 ) as $status ) {
+	ck( "$status counts as busy", array( $busy->invoke( null, failure( $status ) ) ), array( true ) );
+}
+
+// 404 is the retired-model case, which never fixes itself by waiting and must not be retried.
+foreach ( array( 400, 401, 403, 404 ) as $status ) {
+	ck( "$status is not busy", array( $busy->invoke( null, failure( $status ) ) ), array( false ) );
+}
+
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'handbook_model' => 'gemini-flash-latest' );
+
+ck( 'a busy Flash falls back to the lighter model',
+    array( $pick->invoke( null ) ), array( 'gemini-flash-lite-latest' ) );
+
+// Falling back to itself would be asking the thing that is full.
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'handbook_model' => 'gemini-flash-lite-latest' );
+
+ck( 'a site already on the light model falls back to the other one',
+    array( $pick->invoke( null ) ), array( 'gemini-flash-latest' ) );
+
+ck( 'the fallback is never the model that just failed',
+    array( $pick->invoke( null ) !== 'gemini-flash-lite-latest' ), array( true ) );
+
+// The default matters: it used to be a model Google has retired, so a site with nothing saved got a
+// 404 rather than an answer.
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array();
+
+ck( 'the shipped default is not a retired model',
+    array( in_array( WPCPM_Settings::get_value( 'handbook_model', 'gemini-flash-latest' ), array( 'gemini-2.5-flash', 'gemini-1.5-flash' ), true ) ),
+    array( false ) );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );
