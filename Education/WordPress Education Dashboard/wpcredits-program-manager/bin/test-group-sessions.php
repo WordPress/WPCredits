@@ -151,6 +151,8 @@ require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-notes.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
+// Loaded for its MIN_MINUTES / MAX_MINUTES, which are what the length field's grid is built from.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-group-sessions.php';
 
 $fails = 0;
 $total = 0;
@@ -285,6 +287,57 @@ $denied          = WPCPM_Mentor_Notes::add_for_records( $group, 'Not mine.', arr
 
 ck( 'a writer without access to everybody is refused',
     is_wp_error( $denied ) ? $denied->get_error_code() : '', 'wpcpm_note_denied' );
+
+// ---------------------------------------------------------------------------------------------
+// The length field's grid.
+//
+// A number input's `step` counts from its `min`, not from zero. With `min="1" step="5"` the valid
+// lengths were 1, 6, 11 … 56, 61 — so a browser refused **60**, which was the field's own default
+// value, while 61 and 56 went through. Reported by Celi Garoe in prerelease testing
+// (WordPress/WPCredits#166). Asserting the grid rather than the attributes, because the property
+// that matters is which numbers a mentor can actually type.
+
+/**
+ * Would a browser accept this length, given the field's min/max/step?
+ *
+ * @param int $minutes Length a mentor typed.
+ * @return bool
+ */
+function grid_accepts( $minutes ) {
+	if ( $minutes < WPCPM_Group_Sessions::MIN_MINUTES || $minutes > WPCPM_Group_Sessions::MAX_MINUTES ) {
+		return false;
+	}
+
+	// `step` is the floor here, which is what puts every multiple of it on the grid.
+	return 0 === ( $minutes - WPCPM_Group_Sessions::MIN_MINUTES ) % WPCPM_Group_Sessions::MIN_MINUTES;
+}
+
+foreach ( array( 15, 30, 45, 60, 90, 120 ) as $length ) {
+	ck( sprintf( 'a %d-minute session is on the grid', $length ), grid_accepts( $length ), true );
+}
+
+ck( 'the shortest allowed length is on the grid', grid_accepts( WPCPM_Group_Sessions::MIN_MINUTES ), true );
+ck( 'so is the longest', grid_accepts( WPCPM_Group_Sessions::MAX_MINUTES ), true );
+ck( 'a length off the grid is refused', grid_accepts( 61 ), false );
+ck( 'nothing shorter than the floor', grid_accepts( 1 ), false );
+ck( 'nothing past the ceiling', grid_accepts( WPCPM_Group_Sessions::MAX_MINUTES + 5 ), false );
+
+// The form's default has to be a length the form itself accepts — that was the whole of the bug.
+ck( 'the default length the form offers is one it accepts', grid_accepts( 60 ), true );
+
+// The checks above only hold while the field's `min` and `step` are the *same* number, so that is
+// asserted on the markup itself — the grid maths cannot see a template edited back to two literals.
+$field = '';
+
+if ( preg_match( '/<input type="number" id="wpcpm-session-minutes"[^>]*>/', file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-group-sessions.php' ), $m ) ) {
+	$field = $m[0];
+}
+
+preg_match( '/ min="([^"]+)"/', $field, $min );
+preg_match( '/ step="([^"]+)"/', $field, $step );
+
+ck( 'the length field takes its floor and its step from one value',
+    isset( $min[1], $step[1] ) && $min[1] === $step[1], true );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

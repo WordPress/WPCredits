@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.60.2
+Stable tag: 1.60.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.60.3 =
+* A group session can be 60 minutes again. A number field's step counts from its min, so `min="1" step="5"` made the valid lengths 1, 6, 11 … 61 — rejecting 60, which was the field's own default. Reported by Celi Garoe in prerelease testing.
 
 = 1.60.2 =
 * **The "Need help?" retry now tries a different model.** "This model is currently experiencing high

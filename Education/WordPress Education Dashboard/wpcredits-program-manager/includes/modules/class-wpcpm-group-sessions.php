@@ -53,6 +53,17 @@ class WPCPM_Group_Sessions {
 	const MAX_MINUTES = 480;
 
 	/**
+	 * Shortest a session may run, in minutes, and the grid the length field steps on.
+	 *
+	 * The two are the same number on purpose. A number field's `step` counts from its `min`, not
+	 * from zero, so `min="1" step="5"` made the valid lengths 1, 6, 11 … 56, 61 — and rejected 60,
+	 * which was the field's own default value. Reported by Celi Garoe in prerelease testing
+	 * (WordPress/WPCredits#166): "It does not allow for 60 minutes (but yes more or less than
+	 * that)." Keeping the floor on the grid is what makes every multiple of it valid.
+	 */
+	const MIN_MINUTES = 5;
+
+	/**
 	 * Hooks.
 	 */
 	public static function init() {
@@ -150,7 +161,7 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-when' );
 		}
 
-		if ( $minutes < 1 || $minutes > self::MAX_MINUTES ) {
+		if ( $minutes < self::MIN_MINUTES || $minutes > self::MAX_MINUTES ) {
 			self::bounce( 'session-length' );
 		}
 
@@ -447,8 +458,9 @@ class WPCPM_Group_Sessions {
 
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-session-minutes">%1$s</label>'
-				. '<input type="number" id="wpcpm-session-minutes" name="minutes" value="60" min="1" max="%2$d" step="5" required /></p>',
+				. '<input type="number" id="wpcpm-session-minutes" name="minutes" value="60" min="%2$d" max="%3$d" step="%2$d" required /></p>',
 			esc_html__( 'Length in minutes', 'wpcredits-program-manager' ),
+			(int) self::MIN_MINUTES,
 			(int) self::MAX_MINUTES
 		);
 
