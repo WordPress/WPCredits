@@ -23,7 +23,7 @@ The first release of the suite is tracked in these issues:
 
 | Folder | Name | Version | What it does |
 | --- | --- | --- | --- |
-| [`wordpress-education-blocks`](./wordpress-education-blocks) | **WordPress Education Initiatives** | 1.5.0 | Full Site Editing (block) theme — the front end of the initiative. The header, footer, front page and every section are edited in the WordPress Site Editor, with global colours/typography in Styles. Ships block patterns for the hero, feature highlights, animated statistics, programs, campus, resources, testimonials, career paths, an expandable career-path timeline, a "why contribution matters" panel, and the call-to-action. Includes a WordPress Playground blueprint for one-click, in-browser previews. |
+| [`wordpress-education-blocks`](./wordpress-education-blocks) | **WordPress Education Initiatives** | 1.6.0 | Full Site Editing (block) theme — the front end of the initiative. Framed by the [official wordpress.org header and footer](../WordPress.org%20Global%20Header%20and%20Footer). The header, front page and every section are edited in the WordPress Site Editor, with global colours/typography in Styles. Ships block patterns for the hero, feature highlights, animated statistics, programs, campus, resources, testimonials, career paths, an expandable career-path timeline, a "why contribution matters" panel, and the call-to-action. Includes a WordPress Playground blueprint for one-click, in-browser previews. |
 
 ### Plugins
 

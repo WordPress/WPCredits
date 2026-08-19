@@ -3,7 +3,7 @@ Contributors: maciejpilarski
 Requires at least: 6.6
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, one-page, full-site-editing, block-patterns, custom-colors, editor-style, block-styles, translation-ready
@@ -75,6 +75,10 @@ They are block patterns (Appearance → Editor → Patterns → Education), and 
 also available in the block inserter when editing any page or template.
 
 == Changelog ==
+
+= 1.6.0 =
+* Adds the official wordpress.org global header and footer, from the WordPress.org Global Header and Footer plugin, so the site is framed the way every WordPress.org property is.
+* Removes the theme's own footer — the global footer is the footer now.
 
 = 1.5.0 =
 * Added WordPress Playground support: a blueprint.json and "try it live" links

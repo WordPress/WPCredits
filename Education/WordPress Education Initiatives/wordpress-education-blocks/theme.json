@@ -12,20 +12,76 @@
 			"defaultPalette": false,
 			"defaultGradients": false,
 			"palette": [
-				{ "slug": "base", "color": "#ffffff", "name": "Base" },
-				{ "slug": "contrast", "color": "#1e1e1e", "name": "Ink" },
-				{ "slug": "primary", "color": "#3858e9", "name": "WordPress Blue" },
-				{ "slug": "primary-dark", "color": "#2e49d9", "name": "Blue (dark)" },
-				{ "slug": "text", "color": "#4b4b4b", "name": "Body text" },
-				{ "slug": "muted", "color": "#6e6e6e", "name": "Muted" },
-				{ "slug": "border", "color": "#ededed", "name": "Border" },
-				{ "slug": "surface", "color": "#eef2fd", "name": "Surface blue" },
-				{ "slug": "surface-2", "color": "#e8edfc", "name": "Surface blue 2" },
-				{ "slug": "surface-soft", "color": "#fafbff", "name": "Surface soft" },
-				{ "slug": "green", "color": "#1a9e78", "name": "Green" },
-				{ "slug": "accent-green", "color": "#34c19a", "name": "Accent green" },
-				{ "slug": "yellow", "color": "#f6c445", "name": "Yellow" },
-				{ "slug": "purple", "color": "#8a54d6", "name": "Purple" }
+				{
+					"slug": "base",
+					"color": "#ffffff",
+					"name": "Base"
+				},
+				{
+					"slug": "contrast",
+					"color": "#1e1e1e",
+					"name": "Ink"
+				},
+				{
+					"slug": "primary",
+					"color": "#3858e9",
+					"name": "WordPress Blue"
+				},
+				{
+					"slug": "primary-dark",
+					"color": "#2e49d9",
+					"name": "Blue (dark)"
+				},
+				{
+					"slug": "text",
+					"color": "#4b4b4b",
+					"name": "Body text"
+				},
+				{
+					"slug": "muted",
+					"color": "#6e6e6e",
+					"name": "Muted"
+				},
+				{
+					"slug": "border",
+					"color": "#ededed",
+					"name": "Border"
+				},
+				{
+					"slug": "surface",
+					"color": "#eef2fd",
+					"name": "Surface blue"
+				},
+				{
+					"slug": "surface-2",
+					"color": "#e8edfc",
+					"name": "Surface blue 2"
+				},
+				{
+					"slug": "surface-soft",
+					"color": "#fafbff",
+					"name": "Surface soft"
+				},
+				{
+					"slug": "green",
+					"color": "#1a9e78",
+					"name": "Green"
+				},
+				{
+					"slug": "accent-green",
+					"color": "#34c19a",
+					"name": "Accent green"
+				},
+				{
+					"slug": "yellow",
+					"color": "#f6c445",
+					"name": "Yellow"
+				},
+				{
+					"slug": "purple",
+					"color": "#8a54d6",
+					"name": "Purple"
+				}
 			]
 		},
 		"typography": {
@@ -39,22 +95,80 @@
 				}
 			],
 			"fontSizes": [
-				{ "slug": "small", "size": "14px", "name": "Small", "fluid": false },
-				{ "slug": "medium", "size": "16px", "name": "Medium", "fluid": false },
-				{ "slug": "large", "size": "18px", "name": "Large" },
-				{ "slug": "x-large", "size": "21px", "name": "Extra large" },
-				{ "slug": "xx-large", "size": "38px", "name": "Huge", "fluid": { "min": "30px", "max": "38px" } },
-				{ "slug": "hero", "size": "60px", "name": "Hero", "fluid": { "min": "38px", "max": "60px" } }
+				{
+					"slug": "small",
+					"size": "14px",
+					"name": "Small",
+					"fluid": false
+				},
+				{
+					"slug": "medium",
+					"size": "16px",
+					"name": "Medium",
+					"fluid": false
+				},
+				{
+					"slug": "large",
+					"size": "18px",
+					"name": "Large"
+				},
+				{
+					"slug": "x-large",
+					"size": "21px",
+					"name": "Extra large"
+				},
+				{
+					"slug": "xx-large",
+					"size": "38px",
+					"name": "Huge",
+					"fluid": {
+						"min": "30px",
+						"max": "38px"
+					}
+				},
+				{
+					"slug": "hero",
+					"size": "60px",
+					"name": "Hero",
+					"fluid": {
+						"min": "38px",
+						"max": "60px"
+					}
+				}
 			]
 		},
 		"spacing": {
-			"units": [ "px", "%", "em", "rem", "vw" ],
-			"spacingScale": { "steps": 0 },
+			"units": [
+				"px",
+				"%",
+				"em",
+				"rem",
+				"vw"
+			],
+			"spacingScale": {
+				"steps": 0
+			},
 			"spacingSizes": [
-				{ "slug": "40", "size": "24px", "name": "Small" },
-				{ "slug": "50", "size": "40px", "name": "Medium" },
-				{ "slug": "60", "size": "56px", "name": "Large" },
-				{ "slug": "70", "size": "80px", "name": "Extra large" }
+				{
+					"slug": "40",
+					"size": "24px",
+					"name": "Small"
+				},
+				{
+					"slug": "50",
+					"size": "40px",
+					"name": "Medium"
+				},
+				{
+					"slug": "60",
+					"size": "56px",
+					"name": "Large"
+				},
+				{
+					"slug": "70",
+					"size": "80px",
+					"name": "Extra large"
+				}
 			]
 		}
 	},
@@ -70,20 +184,40 @@
 		},
 		"elements": {
 			"link": {
-				"color": { "text": "var(--wp--preset--color--primary)" },
-				":hover": { "color": { "text": "var(--wp--preset--color--primary-dark)" } }
+				"color": {
+					"text": "var(--wp--preset--color--primary)"
+				},
+				":hover": {
+					"color": {
+						"text": "var(--wp--preset--color--primary-dark)"
+					}
+				}
 			},
 			"heading": {
-				"typography": { "fontWeight": "700", "lineHeight": "1.15" }
+				"typography": {
+					"fontWeight": "700",
+					"lineHeight": "1.15"
+				}
 			},
 			"button": {
 				"color": {
 					"background": "var(--wp--preset--color--primary)",
 					"text": "var(--wp--preset--color--base)"
 				},
-				"border": { "radius": "4px" },
-				"typography": { "fontWeight": "500" },
-				"spacing": { "padding": { "top": "14px", "bottom": "14px", "left": "28px", "right": "28px" } },
+				"border": {
+					"radius": "4px"
+				},
+				"typography": {
+					"fontWeight": "500"
+				},
+				"spacing": {
+					"padding": {
+						"top": "14px",
+						"bottom": "14px",
+						"left": "28px",
+						"right": "28px"
+					}
+				},
 				":hover": {
 					"color": {
 						"background": "var(--wp--preset--color--primary-dark)",
@@ -93,16 +227,37 @@
 			}
 		},
 		"spacing": {
-			"padding": { "top": "0", "bottom": "0", "left": "40px", "right": "40px" }
+			"padding": {
+				"top": "0",
+				"bottom": "0",
+				"left": "40px",
+				"right": "40px"
+			}
 		},
 		"blocks": {
 			"core/site-title": {
-				"typography": { "fontWeight": "600", "fontSize": "20px" }
+				"typography": {
+					"fontWeight": "600",
+					"fontSize": "20px"
+				}
 			}
 		}
 	},
 	"templateParts": [
-		{ "name": "header", "title": "Header", "area": "header" },
-		{ "name": "footer", "title": "Footer", "area": "footer" }
+		{
+			"name": "header",
+			"title": "Header",
+			"area": "header"
+		},
+		{
+			"name": "wporg-header",
+			"title": "WordPress.org global header",
+			"area": "header"
+		},
+		{
+			"name": "wporg-footer",
+			"title": "WordPress.org global footer",
+			"area": "footer"
+		}
 	]
 }

@@ -4,7 +4,7 @@ Theme URI: https://example.com/wordpress-education-blocks
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block (Full Site Editing) theme for open-source education initiatives. The header, footer, front page and every section are editable in the WordPress Site Editor (Appearance → Editor), with global colours and typography managed in Styles. Ships with block patterns for the hero, feature highlights, animated statistics, programs, campus, resources, testimonials and call-to-action.
-Version: 1.5.0
+Version: 1.6.0
 Requires at least: 6.6
 Tested up to: 6.7
 Requires PHP: 7.4
@@ -565,20 +565,12 @@ a.wpedu-arrowlink {
 .wpedu-stories .is-layout-grid { grid-template-columns: repeat(3, 1fr) !important; }
 
 /* ==========================================================================
-   Footer
+   Global header and footer
    ========================================================================== */
-.wpedu-footer { border-top: 1px solid var(--wpedu-border); padding-top: 56px; padding-bottom: 32px; }
-.wpedu-footer__brand-name { font-size: 16px; font-weight: 600; }
-.wpedu-footer__brand-name .accent { color: var(--wpedu-blue); }
-.wpedu-footer__about { font-size: 14px; line-height: 1.6; color: var(--wpedu-muted); max-width: 300px; margin: 0; }
-.wpedu-footer h4 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--wpedu-ink); margin: 0 0 14px; }
-.wpedu-footer__links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.wpedu-footer__links li { margin: 0; }
-.wpedu-footer__links a { font-size: 14px; color: var(--wpedu-muted); text-decoration: none; }
-.wpedu-footer__links a:hover { color: var(--wpedu-blue); }
-.wpedu-footer__bar { border-top: 1px solid var(--wpedu-border); padding-top: 24px; margin-top: 40px; }
-.wpedu-footer__copy { font-size: 13px; color: var(--wpedu-faint); margin: 0; }
-.wpedu-footer__motto { font-size: 13px; color: var(--wpedu-faint); font-style: italic; margin: 0; }
+/* Matches wordpress.org's own markup: the template-part wrapper drops out of the
+   layout, so the global header and footer sit directly in .wp-site-blocks and take
+   no flow gap. WordPress ships the class name but not the rule. */
+.wp-block-template-part.has-display-contents { display: contents; }
 
 /* ==========================================================================
    Blog / fallback content
