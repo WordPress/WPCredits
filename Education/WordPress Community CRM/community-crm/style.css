@@ -7,7 +7,7 @@ Description: A block theme for the WordPress Community CRM — the internal tool
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Version: 1.2.0
+Version: 1.2.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: community-crm
@@ -97,6 +97,18 @@ body .wp-site-blocks > * {
 
 .ccrm-header {
 	border-bottom: 1px solid var(--wp--preset--color--border-soft);
+	/* The bar spans the window, but what is in it lines up with the content column
+	   below. The card is the content size centred inside main's gutters, which puts
+	   its left edge at (100% - content-size) / 2 exactly — the gutters cancel out.
+	   Once the window is too narrow for the full content size the card fills the
+	   gutters instead, and max() hands the bar the same gutter at the same moment.
+
+	   In the stylesheet rather than the block's padding attribute because the value
+	   is a formula, not a figure the Site Editor's padding control could express. */
+	padding-inline: max(
+		var( --wp--preset--spacing--60 ),
+		calc( ( 100% - var( --wp--style--global--content-size, 1040px ) ) / 2 )
+	);
 }
 
 .ccrm-header__mark {

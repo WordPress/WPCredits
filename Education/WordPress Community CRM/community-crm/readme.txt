@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: full-site-editing, block-patterns, one-column, two-columns, three-columns, custom-colors, custom-logo, custom-menu, block-styles, editor-style, wide-blocks, translation-ready
@@ -162,6 +162,9 @@ WordPress.org, the name will need changing — theme names there cannot include
 "WordPress".
 
 == Changelog ==
+
+= 1.2.1 =
+* The header bar's contents now line up with the content column below it, instead of sitting in the window's own gutter.
 
 = 1.2.0 =
 * Adds the official wordpress.org global header and footer, from the WordPress.org Global Header and Footer plugin, so the site is framed the way every WordPress.org property is.
