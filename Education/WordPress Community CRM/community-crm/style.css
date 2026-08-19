@@ -7,7 +7,7 @@ Description: A block theme for the WordPress Community CRM — the internal tool
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Version: 1.1.5
+Version: 1.2.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: community-crm
@@ -37,19 +37,11 @@ Tags: full-site-editing, block-patterns, one-column, two-columns, three-columns,
  * mid-screen. On the sign-in screen the footer is fixed to the window instead,
  * so it tracks the window as it resizes and stays visible while scrolling.
  *
- * The header, main and footer regions each carry their own padding (as in the
- * design), so the root block gap between them is removed. The `body` prefix
+ * The header and main regions each carry their own padding (as in the design),
+ * so the root block gap between them is removed. The `body` prefix
  * outranks core's `:root :where(.wp-site-blocks) > *` rule regardless of
  * stylesheet order.
  * ---------------------------------------------------------------------- */
-
-:root {
-	/* Height of the footer bar: 24px padding top and bottom, a 16px line, and
-	   the 1px top border. The sign-in screen fixes the footer to the window, so
-	   it needs this figure to reserve the space. Keep the two in step if the
-	   footer's padding or type size changes. */
-	--ccrm-footer-height: 65px;
-}
 
 .wp-site-blocks {
 	display: flex;
@@ -68,26 +60,10 @@ body .wp-site-blocks > * {
 	flex: 1 0 auto;
 }
 
-/* Sign-in screen: the footer bar is fixed to the bottom edge of the window, so
-   it tracks the window as it resizes and stays visible even when the page
-   scrolls (short windows, and the taller stacked layout on phones). Being out
-   of flow, it also cannot be pushed down the page by the card above it. */
-body.ccrm-login-page .ccrm-footer {
-	position: fixed;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	z-index: 10;
-}
-
-/* A fixed footer is out of flow, so its height has to be reserved at the foot
-   of the shell or the card slides underneath it on a short window.
-   box-sizing:border-box keeps that padding INSIDE the 100dvh min-height —
-   without it the shell would measure 100dvh + 65px and produce the very
-   scrollbar the spacing in this section is tuned to avoid. */
-body.ccrm-login-page .wp-site-blocks {
-	box-sizing: border-box;
-	padding-bottom: var( --ccrm-footer-height );
+/* Matches wordpress.org's own markup: the wrapper drops out so the global header and
+   footer are flex items of the shell themselves, not boxes containing one. */
+.wp-block-template-part.has-display-contents {
+	display: contents;
 }
 
 /* .ccrm-main--center centres its content in the space between the header and
@@ -146,17 +122,6 @@ body.ccrm-login-page .wp-site-blocks {
 /* A single-item nav needs no list chrome. */
 .ccrm-header__nav {
 	flex: 0 0 auto;
-}
-
-.ccrm-footer {
-	border-top: 1px solid var(--wp--preset--color--border-soft);
-}
-
-/* "Code is poetry." — monospace, quiet, centred. */
-.ccrm-footer__poetry {
-	flex: 0 0 auto;
-	margin: 0;
-	font-family: var(--wp--preset--font-family--mono);
 }
 
 /* -------------------------------------------------------------------------
@@ -652,8 +617,7 @@ body.ccrm-login-page .wp-site-blocks {
 	}
 
 	.ccrm-signin,
-	.ccrm-header,
-	.ccrm-footer {
+	.ccrm-header {
 		border-color: #dbdbdb;
 	}
 }

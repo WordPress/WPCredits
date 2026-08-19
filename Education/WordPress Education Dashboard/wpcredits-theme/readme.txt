@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.10.2
+Stable tag: 1.12.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,19 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.12.0 =
+* Removes the theme's own footer. The wordpress.org global footer is the only footer now, so the site ends the way every other WordPress.org property does.
+* Drops the footer template part, its pattern and its styles with it.
+
+= 1.11.1 =
+* Match wordpress.org's own markup: the global header and footer template parts now carry `has-display-contents`, so their wrapper drops out of the layout instead of taking a flow gap.
+
+= 1.11.0 =
+* Adds the official wordpress.org global header and footer, above and below the site own chrome —
+  the arrangement wordpress.org properties use, with the global bar outermost and the site own
+  navigation inside it. They come from the WordPress.org Global Header and Footer plugin, which
+  vendors the blocks from WordPress/wporg-mu-plugins.
 
 = 1.10.2 =
 * The Documentation sidebar card ends under its search instead of matching the article height.

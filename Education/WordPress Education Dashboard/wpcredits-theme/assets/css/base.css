@@ -1,0 +1,7 @@
+
+/* Template-part wrappers marked has-display-contents drop out of the layout,
+   matching the markup on wordpress.org. Without this the wrapper takes a
+   .wp-site-blocks flow gap and prints a band above the global header. */
+.wp-block-template-part.has-display-contents {
+	display: contents;
+}

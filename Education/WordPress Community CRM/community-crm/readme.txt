@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.5
+Stable tag: 1.2.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: full-site-editing, block-patterns, one-column, two-columns, three-columns, custom-colors, custom-logo, custom-menu, block-styles, editor-style, wide-blocks, translation-ready
@@ -17,7 +17,8 @@ WordCamps. The front page doubles as the sign-in screen.
 
 The theme renders the Community CRM homepage design: a single card holding an
 illustrated hero, the WordPress.org sign-in form and a request-access panel,
-framed by a thin header bar and a compact footer that reads "Code is poetry."
+framed by a thin header bar, under the official wordpress.org global header, with
+the wordpress.org global footer closing the page.
 — centred, in monospace.
 
 Everything is built on WordPress Design System (WPDS) tokens — brand blue
@@ -115,9 +116,6 @@ exists. `redirect_to` values are always passed through
 == Templates ==
 
 * **front-page** — the sign-in screen: illustrated hero and the sign-in form.
-  Its footer bar is fixed to the bottom of the window; the height reserved for
-  it is the `--ccrm-footer-height` custom property in style.css, which must be
-  kept in step if you change the footer's padding or type size.
 * **index** — the post list.
 * **archive**, **search**, **single**, **page**, **404**.
 * **Page — no title** (`page-plain`) — full-bleed page content, no card.
@@ -164,6 +162,10 @@ WordPress.org, the name will need changing — theme names there cannot include
 "WordPress".
 
 == Changelog ==
+
+= 1.2.0 =
+* Adds the official wordpress.org global header and footer, from the WordPress.org Global Header and Footer plugin, so the site is framed the way every WordPress.org property is.
+* Removes the theme's own footer bar. Its "Code is poetry." line is in the global footer already, and with the bar gone the sign-in screen no longer reserves height for it.
 
 = 1.1.5 =
 * Security: sign-in failures no longer reveal whether an account exists. The raw

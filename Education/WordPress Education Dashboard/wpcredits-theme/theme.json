@@ -421,8 +421,13 @@
 			"area": "header"
 		},
 		{
-			"name": "footer",
-			"title": "Footer",
+			"name": "wporg-header",
+			"title": "WordPress.org global header",
+			"area": "header"
+		},
+		{
+			"name": "wporg-footer",
+			"title": "WordPress.org global footer",
 			"area": "footer"
 		}
 	],

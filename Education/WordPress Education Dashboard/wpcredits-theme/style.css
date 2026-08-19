@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.10.2
+Version: 1.12.0
 Requires at least: 6.6
 Tested up to: 6.8
 Requires PHP: 7.4
@@ -195,11 +195,13 @@ body .skip-link.screen-reader-text:focus {
    itself, where the background covers it — see `.wpc-main--content` below and
    `.wpc-main--dashboard` in assets/css/dashboard.css.
 
-   The footer's own gap goes with it, or the identical stripe appears along the bottom edge. */
+   The gap above the wordpress.org global footer goes with it, or the identical stripe
+   appears along the bottom edge. */
 .wp-site-blocks > .wpc-main--dashboard,
 .wp-site-blocks > .wpc-main--content,
-.wp-site-blocks > .wpc-main--dashboard + .wpc-footer-part,
-.wp-site-blocks > .wpc-main--content + .wpc-footer-part {
+.wp-site-blocks > .wpc-main--dashboard + .global-footer,
+.wp-site-blocks > .wpc-main--content + .global-footer,
+.wp-site-blocks > .global-footer {
 	margin-block-start: 0;
 }
 
@@ -504,114 +506,6 @@ body .skip-link.screen-reader-text:focus {
 .wpc-header .wpc-viewer--guest a:focus {
 	background: var( --wpc-brand-dark );
 	color: var( --wpc-surface );
-}
-
-/* ==========================================================================
-   Footer — four columns over a rule, then the credit bar
-   ========================================================================== */
-.wpc-footer {
-	border-top: 1px solid var( --wpc-chrome-rule );
-	padding: 56px var( --wpc-chrome-gutter ) 32px;
-}
-
-.wpc-footer__grid {
-	display: grid;
-	gap: 40px;
-	grid-template-columns: 2fr 1fr 1fr 1fr;
-	margin: 0 auto;
-	max-width: var( --wpc-chrome-maxw );
-}
-
-.wpc-footer__brand {
-	gap: 10px;
-	margin-bottom: 16px;
-}
-
-.wpc-footer__brand .wp-block-site-logo,
-.wpc-footer__brand .wp-block-site-logo a {
-	display: block;
-	line-height: 0;
-}
-
-.wpc-footer__brand .wp-block-site-logo img,
-.wpc-footer__brand .wpc-logo {
-	color: var( --wpc-brand );
-	display: block;
-	height: 32px;
-	width: 32px;
-}
-
-.wpc-footer__brand-name {
-	font-size: 16px;
-	font-weight: 600;
-	line-height: 1.3;
-}
-
-.wpc-footer__brand-name em {
-	color: var( --wpc-brand );
-	font-style: normal;
-}
-
-.wpc-footer__brand-name i {
-	color: var( --wpc-chrome-muted );
-	font-style: normal;
-	font-weight: 400;
-}
-
-.wpc-footer__about {
-	color: var( --wpc-chrome-muted );
-	font-size: 14px;
-	line-height: 1.6;
-	margin: 0;
-	max-width: 300px;
-}
-
-.wpc-footer h4 {
-	color: var( --wpc-ink );
-	font-size: 13px;
-	font-weight: 600;
-	letter-spacing: .06em;
-	margin: 0 0 14px;
-	text-transform: uppercase;
-}
-
-.wpc-footer__links {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.wpc-footer .wpc-footer__links a {
-	color: var( --wpc-chrome-muted );
-	font-size: 14px;
-	text-decoration: none;
-}
-
-.wpc-footer .wpc-footer__links a:hover,
-.wpc-footer .wpc-footer__links a:focus {
-	color: var( --wpc-brand );
-}
-
-.wpc-footer__bar {
-	border-top: 1px solid var( --wpc-chrome-rule );
-	gap: 12px;
-	margin: 40px auto 0;
-	max-width: var( --wpc-chrome-maxw );
-	padding-top: 24px;
-}
-
-.wpc-footer__copy,
-.wpc-footer__motto {
-	color: var( --wpc-chrome-faint );
-	font-size: 13px;
-	margin: 0;
-}
-
-.wpc-footer__motto {
-	font-style: italic;
 }
 
 /* ==========================================================================
@@ -1110,16 +1004,9 @@ p.is-style-pill {
 /* ==========================================================================
    Responsive — the reference site's breakpoints
 
-   1080: the footer drops to two columns. 960: the navigation collapses behind a
-   toggle. 640: gutters halve. The page's own sections follow at 900/600, which is
+   960: the navigation collapses behind a toggle. 640: gutters halve. The page's own sections follow at 900/600, which is
    where their four-up grids stop fitting.
    ========================================================================== */
-@media ( max-width: 1080px ) {
-	.wpc-footer__grid {
-		grid-template-columns: 1fr 1fr;
-	}
-}
-
 @media ( max-width: 960px ) {
 	.wpc-header__inner {
 		gap: 16px;
@@ -1228,10 +1115,6 @@ p.is-style-pill {
 @media ( max-width: 640px ) {
 	:root {
 		--wpc-chrome-gutter: 20px;
-	}
-
-	.wpc-footer__grid {
-		grid-template-columns: 1fr;
 	}
 
 	.wpc-brand__name {

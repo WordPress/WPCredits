@@ -21,7 +21,8 @@ body {
 .wpc-header,
 /* A notice is read on screen; on paper it is a band above a student list. */
 .wpcpm-notices,
-.wpc-footer,
+.global-footer,
+.wp-block-wporg-global-header,
 #wpadminbar,
 .wpc-dash__toolbar,
 .wpc-dash__hint,
