@@ -151,6 +151,34 @@ class EPM_Campus_Connect {
 	}
 
 	/**
+	 * Clip a value to fit its database column.
+	 *
+	 * Venue names in the source are free text and occasionally enormous — one
+	 * Ugandan event names eleven schools in a single 255-character field, which
+	 * overflows the name column and makes the whole insert fail.
+	 *
+	 * The budget is counted in BYTES, not characters, because the institutions
+	 * table can be latin1 (it inherits whatever charset the site had when the table
+	 * was created), and a latin1 VARCHAR(191) holds 191 bytes. Clipping to 191
+	 * characters is not enough: 191 characters of text containing curly quotes runs
+	 * to 197 bytes and is still rejected. mb_strcut() trims to a byte budget without
+	 * splitting a multi-byte character in half.
+	 *
+	 * @param string $value  Value to clip.
+	 * @param int    $length Maximum length in bytes.
+	 * @return string
+	 */
+	private static function clip( $value, $length = 191 ) {
+		if ( strlen( $value ) <= $length ) {
+			return $value;
+		}
+
+		$ellipsis = '…';
+
+		return mb_strcut( $value, 0, $length - strlen( $ellipsis ) ) . $ellipsis;
+	}
+
+	/**
 	 * The key that decides which events share a marker.
 	 *
 	 * Events are grouped by city, which matches what the map is for ("city-level
@@ -317,15 +345,15 @@ class EPM_Campus_Connect {
 			);
 
 			$data = array(
-				'name'             => $name,
-				'city'             => $newest['city'],
-				'country'          => $newest['country'],
+				'name'             => self::clip( $name ),
+				'city'             => self::clip( $newest['city'] ),
+				'country'          => self::clip( $newest['country'] ),
 				'latitude'         => $newest['latitude'],
 				'longitude'        => $newest['longitude'],
 				'programs'         => array( self::TARGET_PROGRAM ),
 				'event_count'      => count( $group ),
 				'website'          => '',
-				'wpcc_url'         => $newest['url'],
+				'wpcc_url'         => self::clip( $newest['url'], 255 ),
 				'student_club_url' => '',
 				'airtable_id'      => $airtable_id,
 				'source'           => self::SOURCE,
@@ -335,6 +363,10 @@ class EPM_Campus_Connect {
 
 			$existing = EPM_DB::get_by_airtable_id( $airtable_id );
 
+			// Recorded before the save is attempted: a marker that already exists should
+			// not be hidden just because one sync run failed to update it.
+			$matched_ids[] = $airtable_id;
+
 			if ( $existing ) {
 				// Keep any program or Student Club link an admin added by hand; everything
 				// else about these rows is owned by this sync.
@@ -342,14 +374,23 @@ class EPM_Campus_Connect {
 				$data['student_club_url'] = $existing->student_club_url;
 				$data['website']          = $existing->website;
 
-				EPM_DB::update( $existing->id, $data );
-				++$updated;
+				$saved = EPM_DB::update( $existing->id, $data );
 			} else {
-				EPM_DB::insert( $data );
-				++$created;
+				$saved = EPM_DB::insert( $data );
 			}
 
-			$matched_ids[] = $airtable_id;
+			// Counting without checking would over-report the number of markers built,
+			// hiding the fact that a row never made it into the database at all.
+			if ( is_wp_error( $saved ) ) {
+				$skipped[] = self::clip( $name, 80 ) . ' — ' . __( 'could not be saved to the database', 'education-programs-map' );
+				continue;
+			}
+
+			if ( $existing ) {
+				++$updated;
+			} else {
+				++$created;
+			}
 		}
 
 		$hidden = EPM_DB::hide_airtable_records_except( self::TARGET_PROGRAM, $matched_ids, self::SOURCE );

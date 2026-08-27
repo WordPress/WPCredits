@@ -3,7 +3,7 @@
  * Plugin Name:       Education Programs Map
  * Plugin URI:        https://github.com/WordPress/wordpress.org/issues/584
  * Description:       Displays a world map with city-level markers for WordPress Campus Connect (WPCC), WPCredits, and Student Club activity, with a Dashboard settings screen for adding and managing institutions. Implements https://github.com/WordPress/wordpress.org/issues/584.
- * Version:           2.2.0
+ * Version:           2.3.0
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EPM_VERSION', '2.2.0' );
+define( 'EPM_VERSION', '2.3.0' );
 define( 'EPM_PLUGIN_FILE', __FILE__ );
 define( 'EPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -57,6 +57,33 @@ function epm_migrate_legacy_options() {
 	}
 }
 add_action( 'plugins_loaded', 'epm_migrate_legacy_options', 5 );
+
+/**
+ * Drop the retired per-program WPCC connection. Campus Connect activity now comes
+ * from the events table via EPM_Campus_Connect, so the old connection's settings
+ * are dead weight — and they hold an Airtable token, which should not linger in
+ * the database for a connection that can no longer be reached from the admin.
+ *
+ * Institutions it imported are left alone; they are ordinary rows and an admin can
+ * still edit or delete them by hand.
+ */
+function epm_remove_retired_wpcc_connection() {
+	if ( get_option( 'epm_wpcc_connection_removed' ) ) {
+		return;
+	}
+
+	foreach ( array( EPM_Airtable::OPTION_NAME, EPM_Airtable::LAST_RESULT_NAME ) as $option_name ) {
+		$stored = get_option( $option_name );
+
+		if ( is_array( $stored ) && isset( $stored['wpcc'] ) ) {
+			unset( $stored['wpcc'] );
+			update_option( $option_name, $stored, false );
+		}
+	}
+
+	update_option( 'epm_wpcc_connection_removed', 1, false );
+}
+add_action( 'plugins_loaded', 'epm_remove_retired_wpcc_connection', 6 );
 
 /**
  * Create/upgrade the institutions table on activation.

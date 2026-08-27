@@ -5,7 +5,7 @@ Tags: map, education, meetup, wpcc, wpcredits
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.2.0
+Stable tag: 2.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -39,15 +39,13 @@ Search for "Education Programs Map" in the block inserter to add the map without
 
 ### Airtable Sync
 
-Dashboard > Education Programs Map > Airtable Sync has an independent connection for each of the three built-in programs (WPCC, WPCredits, Student Club), since each can live in a completely different Airtable base. For each, configure a Personal Access Token (needs `data.records:read` on that base), the base ID, the institutions table name, and the linked table used for country names, then click that program's "Sync Now" — or check "Automatically sync every 7 days" to have it run on its own via WP-Cron. Each institution is matched to its Airtable record, so re-running a sync updates existing entries rather than duplicating them, and only ever affects institutions belonging to that program. Coordinates are looked up automatically from the institution's city and country via the Photon geocoding service (OpenStreetMap data).
+Dashboard > Education Programs Map > Airtable Sync has an independent connection for each institutions-based program (WPCredits and Student Club), since each can live in a completely different Airtable base. WordPress Campus Connect is not among them — it is imported from the events table by the Campus Connect Events connection described below. For each, configure a Personal Access Token (needs `data.records:read` on that base), the base ID, the institutions table name, and the linked table used for country names, then click that program's "Sync Now" — or check "Automatically sync every 7 days" to have it run on its own via WP-Cron. Each institution is matched to its Airtable record, so re-running a sync updates existing entries rather than duplicating them, and only ever affects institutions belonging to that program. Coordinates are looked up automatically from the institution's city and country via the Photon geocoding service (OpenStreetMap data).
 
 ### Campus Connect Events
 
-The same screen has a fourth connection, "Campus Connect Events," which works differently from the three above: instead of an institutions table, it reads the WordCamp Central events table synced into Airtable (the `WordCamps` table), narrowed to Campus Connect by the `{Event Type}='Campus Connect'` filter formula, since that table also holds regular WordCamps. Configure a token, base ID, and table name, then click "Sync Events Now," or enable auto-sync to have it run alongside the others on the same weekly schedule.
+The same screen has one further connection, "Campus Connect Events," which works differently from the two above: instead of an institutions table, it reads the WordCamp Central events table synced into Airtable (the `WordCamps` table), narrowed to Campus Connect by the `{Event Type}='Campus Connect'` filter formula, since that table also holds regular WordCamps. Configure a token, base ID, and table name, then click "Sync Events Now," or enable auto-sync to have it run alongside the others on the same weekly schedule.
 
-Imported events become markers tagged with the existing WPCC program, so they appear under the map's current WPCC filter. **Events are grouped by city**: a city that has hosted several Campus Connect events becomes one marker whose popup lists each event with its venue, date, and a link to its site, rather than several overlapping markers. Events whose record has no city each become their own marker, named after their venue. This sync needs no geocoding — the source records already carry coordinates — so it runs in a single pass.
-
-This connection and the WPCC connection above can safely both be configured: each sync only ever updates or hides the markers it imported itself.
+Imported events become markers tagged with the WPCC program, so they appear under the map's WPCC filter. **This is the only source that feeds WPCC.** **Events are grouped by city**: a city that has hosted several Campus Connect events becomes one marker whose popup lists each event with its venue, date, and a link to its site, rather than several overlapping markers. Events whose record has no city each become their own marker, named after their venue. This sync needs no geocoding — the source records already carry coordinates — so it runs in a single pass.
 
 Institutions whose Airtable record no longer matches the filter (e.g. it's no longer "Confirmed," or was deleted) are hidden from the public map rather than deleted — they stay visible in the admin's "All Institutions" list (marked with a "Hidden" badge) and automatically reappear on the map if the record matches again on a later sync. Any institution's visibility can also be toggled by hand from its edit screen.
 
@@ -59,6 +57,12 @@ Institutions whose Airtable record no longer matches the filter (e.g. it's no lo
 4. Add `[education_programs_map]` to any page to display the map.
 
 ## Changelog
+
+### 2.3.0
+
+- Removed the per-program WPCC connection from the Airtable Sync screen. Campus Connect activity now comes solely from the Campus Connect Events connection, which reads the events table rather than an institutions table, so there is one source per program again. The retired connection's stored settings (including its Airtable token) are deleted automatically on upgrade; any institutions it had already imported are left alone and can still be edited or deleted by hand.
+- Fixed markers being silently dropped when a venue name is too long for the name column — one Campus Connect event names eleven schools in a single 255-character field, which made its insert fail. Over-long names, cities, countries, and URLs are now clipped to fit. The clip is measured in bytes rather than characters, because the institutions table can be latin1, where a `VARCHAR(191)` holds 191 bytes and 191 characters of text containing curly quotes would still be rejected.
+- Fixed the sync reporting more markers than it actually created: it counted every row it attempted, without checking whether the database accepted it. Rows that fail to save are now reported under "Skipped" instead of being counted as created.
 
 ### 2.2.0
 

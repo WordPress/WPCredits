@@ -1,8 +1,10 @@
 <?php
 /**
  * Pulls institutions in from Airtable and keeps them in sync with the local
- * institutions table. Each program (WPCC, WPCredits, Student Club) has its own
- * independent connection, since each can live in a completely different Airtable base.
+ * institutions table. Each program has its own independent connection, since each
+ * can live in a completely different Airtable base.
+ *
+ * WPCC is not one of them — see PROGRAM_KEYS and EPM_Campus_Connect.
  *
  * @package Education_Programs_Map
  */
@@ -26,11 +28,16 @@ class EPM_Airtable {
 	const SOURCE = 'airtable';
 
 	/**
-	 * The three programs that can each have their own Airtable connection.
+	 * The programs that can each have their own institutions-table connection.
+	 *
+	 * WPCC is deliberately absent: Campus Connect activity is imported from the
+	 * WordCamp Central events table by EPM_Campus_Connect instead, which reads a
+	 * different Airtable base with a completely different shape. Having both would
+	 * mean two connections claiming the same program.
 	 *
 	 * @var string[]
 	 */
-	const PROGRAM_KEYS = array( 'wpcc', 'wpcredits', 'student_club' );
+	const PROGRAM_KEYS = array( 'wpcredits', 'student_club' );
 
 	public function __construct() {
 		add_filter( 'cron_schedules', array( $this, 'register_schedule' ) ); // phpcs:ignore WordPress.WP.CronInterval.CronSchedulesInterval -- interval is intentionally 7 days; see register_schedule().

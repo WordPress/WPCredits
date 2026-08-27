@@ -429,14 +429,13 @@ class EPM_Admin {
 
 		$program_labels = EPM_DB::get_programs();
 		$fallback_names = array(
-			'wpcc'         => __( 'WPCC', 'education-programs-map' ),
 			'wpcredits'    => __( 'WPCredits', 'education-programs-map' ),
 			'student_club' => __( 'Student Club', 'education-programs-map' ),
 		);
 		?>
 		<div class="wrap epm-wrap">
 			<h1><?php esc_html_e( 'Airtable Sync', 'education-programs-map' ); ?></h1>
-			<p><?php esc_html_e( 'Pull institutions in from Airtable instead of adding them one by one. Each program below has its own independent connection, since WPCC, WPCredits, and Student Club can each live in a different Airtable base. A synced institution is matched by its Airtable record, so re-running a sync updates existing entries instead of duplicating them, and hides ones that no longer match instead of deleting them.', 'education-programs-map' ); ?></p>
+			<p><?php esc_html_e( 'Pull institutions in from Airtable instead of adding them one by one. Each program below has its own independent connection, since each can live in a different Airtable base. A synced institution is matched by its Airtable record, so re-running a sync updates existing entries instead of duplicating them, and hides ones that no longer match instead of deleting them. WordPress Campus Connect is not listed here — it is imported from the events table by the Campus Connect Events connection at the bottom of this screen.', 'education-programs-map' ); ?></p>
 
 			<?php foreach ( EPM_Airtable::PROGRAM_KEYS as $program ) : ?>
 				<?php
@@ -577,7 +576,7 @@ class EPM_Admin {
 		?>
 		<h2><?php esc_html_e( 'Campus Connect Events', 'education-programs-map' ); ?></h2>
 		<p><?php esc_html_e( 'Pulls WordPress Campus Connect events from the Airtable table synced from central.wordcamp.org, and turns them into map markers tagged with the WPCC program. Events are grouped by city, so a city that has hosted several events becomes one marker listing them all. Coordinates come straight from Airtable, so nothing needs geocoding.', 'education-programs-map' ); ?></p>
-		<p><?php esc_html_e( 'This connection is independent of the WPCC connection above: each only ever hides or updates the markers it imported itself, so the two can safely run against different bases.', 'education-programs-map' ); ?></p>
+		<p><?php esc_html_e( 'This is the only connection that feeds WPCC. It reads a different Airtable base from the connections above, and only ever hides or updates the markers it imported itself.', 'education-programs-map' ); ?></p>
 
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=epm-airtable' ) ); ?>">
 			<?php wp_nonce_field( 'epm_save_campus_connect_settings' ); ?>
