@@ -1,6 +1,9 @@
 /*
- * Palette matched to the education-credits-dashboard plugin (.ecd-dashboard),
- * which itself maps to the Educational Initiatives (Education Hub) FSE theme.
+ * Palette taken from the WordPress Education Initiatives theme (theme.json):
+ * primary #3858e9, purple #8a54d6, green #1a9e78, accent-green #34c19a,
+ * yellow #f6c445, muted #6e6e6e. Per-program marker colours are assigned in
+ * EPM_Programs::get_colors() and travel to the map as a data attribute, so the
+ * markers, the legend swatches, and the popup headings all stay in step.
  */
 .epm-map-wrapper {
 	--epm-blue: #3858E9;       /* primary */
@@ -40,6 +43,8 @@
 	border-radius: 20px;
 	padding: 6px 16px;
 	font-size: 13px;
+	display: inline-flex;
+	align-items: center;
 	font-family: var(--epm-sans);
 	cursor: pointer;
 	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
@@ -55,9 +60,28 @@
 	color: #fff;
 }
 
+/*
+ * Program buttons get their own colour applied inline when active, which beats
+ * these rules; this pair is what the colourless "All programs" button falls back on.
+ */
 .epm-filter-button.is-active:hover {
 	background: var(--epm-blue-dark);
 	border-color: var(--epm-blue-dark);
+}
+
+/* Legend dot, matching the fill of that program's markers. */
+.epm-filter-swatch {
+	width: 10px;
+	height: 10px;
+	margin-right: 7px;
+	border-radius: 50%;
+	flex: 0 0 auto;
+	box-shadow: 0 0 0 1px rgba(16, 24, 43, .12);
+}
+
+/* While a program is selected the whole button is its colour, so the dot is redundant. */
+.epm-filter-button.is-active .epm-filter-swatch {
+	display: none;
 }
 
 /* Leaflet popup content, styled to match .ecd-dashboard .leaflet-popup-content */

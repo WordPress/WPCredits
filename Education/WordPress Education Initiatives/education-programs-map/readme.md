@@ -5,7 +5,7 @@ Tags: map, education, meetup, wpcc, wpcredits
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.3.0
+Stable tag: 2.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -57,6 +57,12 @@ Institutions whose Airtable record no longer matches the filter (e.g. it's no lo
 4. Add `[education_programs_map]` to any page to display the map.
 
 ## Changelog
+
+### 2.4.0
+
+- Map markers are now coloured per program instead of all being the same blue, using the WordPress Education Initiatives theme palette: WPCC keeps the WordPress blue (`#3858e9`), WPCredits is purple (`#8a54d6`), and Student Club is green (`#1a9e78`). Custom programs added on the Programs screen are assigned the remaining palette colours in order, so each keeps a stable colour.
+- The filter bar doubles as the map's legend: each program's button carries a dot in that program's colour, and the selected button fills with its own colour rather than a fixed blue. A marker's popup heading matches its marker.
+- An institution belonging to more than one program takes the colour of the program the map is currently filtered by; with no filter applied it takes the colour of the first program it belongs to.
 
 ### 2.3.0
 

@@ -28,6 +28,61 @@ class EPM_Programs {
 	}
 
 	/**
+	 * Marker colours for the three built-in programs, taken from the WordPress
+	 * Education Initiatives theme palette (theme.json): "primary" (WordPress Blue),
+	 * "purple", and "green". WPCC keeps the primary blue the map has always used.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function default_colors() {
+		return array(
+			'wpcc'         => '#3858e9',
+			'wpcredits'    => '#8a54d6',
+			'student_club' => '#1a9e78',
+		);
+	}
+
+	/**
+	 * Remaining palette colours, handed out in order to any custom program an admin
+	 * adds. Ordered strongest-first so the weakest colour on the map's very light
+	 * basemap (the yellow) is the last one reached for.
+	 *
+	 * @return string[]
+	 */
+	public static function fallback_colors() {
+		return array( '#34c19a', '#2e49d9', '#f6c445', '#6e6e6e' );
+	}
+
+	/**
+	 * Get a colour for every current program, as key => hex.
+	 *
+	 * Built-in programs always keep their own colour; custom programs are assigned
+	 * from the fallback palette in the order they appear, so a given program keeps
+	 * the same colour from one page load to the next.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function get_colors() {
+		$defaults = self::default_colors();
+		$fallback = self::fallback_colors();
+
+		$colors = array();
+		$next   = 0;
+
+		foreach ( array_keys( self::get_all() ) as $key ) {
+			if ( isset( $defaults[ $key ] ) ) {
+				$colors[ $key ] = $defaults[ $key ];
+				continue;
+			}
+
+			$colors[ $key ] = $fallback[ $next % count( $fallback ) ];
+			++$next;
+		}
+
+		return $colors;
+	}
+
+	/**
 	 * Get all programs as key => label pairs.
 	 *
 	 * @return array<string,string>

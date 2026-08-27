@@ -87,6 +87,7 @@ class EPM_Shortcode {
 				data-program="<?php echo esc_attr( $atts['program'] ); ?>"
 				data-rest-url="<?php echo esc_url( rest_url( 'education-programs-map/v1/institutions' ) ); ?>"
 				data-programs="<?php echo esc_attr( wp_json_encode( EPM_DB::get_programs() ) ); ?>"
+				data-program-colors="<?php echo esc_attr( wp_json_encode( EPM_Programs::get_colors() ) ); ?>"
 				data-label-events="<?php echo esc_attr( __( 'events', 'education-programs-map' ) ); ?>"
 				data-label-all="<?php echo esc_attr( __( 'All programs', 'education-programs-map' ) ); ?>"
 			></div>
