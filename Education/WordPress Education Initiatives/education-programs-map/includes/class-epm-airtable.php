@@ -19,6 +19,13 @@ class EPM_Airtable {
 	const CRON_INTERVAL    = 'epm_weekly';
 
 	/**
+	 * Marks the institutions table rows this sync owns, so its hiding pass can
+	 * never touch rows imported by the Campus Connect events sync (which also
+	 * writes "wpcc"-tagged rows).
+	 */
+	const SOURCE = 'airtable';
+
+	/**
 	 * The three programs that can each have their own Airtable connection.
 	 *
 	 * @var string[]
@@ -60,6 +67,12 @@ class EPM_Airtable {
 			}
 		}
 
+		// The Campus Connect events sync shares this one weekly event rather than
+		// scheduling a second, so its auto-sync toggle has to be considered here too.
+		if ( ! $any_enabled && EPM_Campus_Connect::is_auto_sync_ready() ) {
+			$any_enabled = true;
+		}
+
 		$scheduled = wp_next_scheduled( self::CRON_HOOK );
 
 		if ( $any_enabled && ! $scheduled ) {
@@ -78,6 +91,10 @@ class EPM_Airtable {
 			if ( ! empty( $settings['auto_sync'] ) && self::is_configured( $program ) ) {
 				self::store_result( $program, self::run_sync( $program ), 'auto' );
 			}
+		}
+
+		if ( EPM_Campus_Connect::is_auto_sync_ready() ) {
+			EPM_Campus_Connect::store_result( EPM_Campus_Connect::run_sync(), 'auto' );
 		}
 	}
 
@@ -178,98 +195,6 @@ class EPM_Airtable {
 	}
 
 	/**
-	 * Build an Airtable API request URL, encoding repeated params (e.g. fields[]) correctly.
-	 *
-	 * @param array  $settings Connection settings for the relevant program.
-	 * @param string $table    Table name or ID.
-	 * @param array  $params   Query parameters; array values become repeated `key[]=` params.
-	 * @return string
-	 */
-	private static function build_url( $settings, $table, $params ) {
-		$parts = array();
-
-		foreach ( $params as $key => $value ) {
-			foreach ( (array) $value as $single ) {
-				$parts[] = rawurlencode( is_array( $value ) ? $key . '[]' : $key ) . '=' . rawurlencode( $single );
-			}
-		}
-
-		$url = 'https://api.airtable.com/v0/' . rawurlencode( $settings['base_id'] ) . '/' . rawurlencode( $table );
-
-		return $parts ? $url . '?' . implode( '&', $parts ) : $url;
-	}
-
-	/**
-	 * Perform a single GET request against the Airtable REST API.
-	 *
-	 * @param array  $settings Connection settings for the relevant program.
-	 * @param string $table    Table name or ID.
-	 * @param array  $params   Query parameters.
-	 * @return array|WP_Error Decoded response body, or WP_Error on failure.
-	 */
-	private static function api_get( $settings, $table, $params = array() ) {
-		// phpcs:ignore WordPressVIPMinimum.Functions.RestrictedFunctions.wp_remote_get_wp_remote_get -- vip_safe_wp_remote_get() only exists on WordPress VIP hosting; this plugin targets general WordPress.
-		$response = wp_remote_get(
-			self::build_url( $settings, $table, $params ),
-			array(
-				// phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout -- runs only during an occasional admin-triggered or weekly cron sync, never on a public page load.
-				'timeout' => 20,
-				'headers' => array(
-					'Authorization' => 'Bearer ' . $settings['token'],
-				),
-			)
-		);
-
-		if ( is_wp_error( $response ) ) {
-			return $response;
-		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-
-		if ( 200 !== $code ) {
-			$message = $body['error']['message'] ?? sprintf(
-				/* translators: %d: HTTP status code returned by Airtable. */
-				__( 'Airtable API request failed with status %d.', 'education-programs-map' ),
-				$code
-			);
-			return new WP_Error( 'epm_airtable_http_error', $message );
-		}
-
-		return $body;
-	}
-
-	/**
-	 * Fetch every record from a table, following pagination automatically.
-	 *
-	 * @param array  $settings Connection settings for the relevant program.
-	 * @param string $table    Table name or ID.
-	 * @param array  $params   Query parameters.
-	 * @return array|WP_Error
-	 */
-	private static function fetch_all( $settings, $table, $params = array() ) {
-		$records = array();
-		$offset  = null;
-
-		do {
-			$page_params = $params;
-			if ( $offset ) {
-				$page_params['offset'] = $offset;
-			}
-
-			$page = self::api_get( $settings, $table, $page_params );
-			if ( is_wp_error( $page ) ) {
-				return $page;
-			}
-
-			$records = array_merge( $records, $page['records'] ?? array() );
-			$offset  = $page['offset'] ?? null;
-		} while ( $offset );
-
-		return $records;
-	}
-
-	/**
 	 * Build a record-ID => name map for the linked "Countries" table.
 	 *
 	 * @param array  $settings Connection settings for the relevant program.
@@ -277,7 +202,7 @@ class EPM_Airtable {
 	 * @return array<string,string>|WP_Error
 	 */
 	private static function fetch_country_names( $settings, $table ) {
-		$records = self::fetch_all( $settings, $table, array( 'fields' => array( 'Name' ) ) );
+		$records = EPM_Airtable_Client::fetch_all( $settings['token'], $settings['base_id'], $table, array( 'fields' => array( 'Name' ) ) );
 
 		if ( is_wp_error( $records ) ) {
 			return $records;
@@ -318,7 +243,7 @@ class EPM_Airtable {
 			$params['filterByFormula'] = $settings['filter_formula'];
 		}
 
-		$records = self::fetch_all( $settings, $settings['table_name'], $params );
+		$records = EPM_Airtable_Client::fetch_all( $settings['token'], $settings['base_id'], $settings['table_name'], $params );
 		if ( is_wp_error( $records ) ) {
 			return $records;
 		}
@@ -369,6 +294,7 @@ class EPM_Airtable {
 				'wpcc_url'         => '',
 				'student_club_url' => '',
 				'airtable_id'      => $record['id'],
+				'source'           => self::SOURCE,
 				'hidden'           => false,
 			);
 
@@ -394,7 +320,7 @@ class EPM_Airtable {
 			usleep( 500000 );
 		}
 
-		$hidden = EPM_DB::hide_airtable_records_except( $program, $matched_ids );
+		$hidden = EPM_DB::hide_airtable_records_except( $program, $matched_ids, self::SOURCE );
 
 		return array(
 			'created' => $created,

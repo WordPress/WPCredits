@@ -41,20 +41,49 @@
 			return Math.max( 6, Math.min( 24, 6 + Math.sqrt( eventCount ) * 3 ) );
 		}
 
+		function eventsHtml( events ) {
+			if ( ! events || ! events.length ) {
+				return '';
+			}
+
+			var html = '<ul class="epm-popup-events">';
+
+			events.forEach( function ( event ) {
+				var label = event.venue || event.dateLabel || '';
+
+				html += '<li>';
+				if ( event.url ) {
+					html += '<a href="' + escapeAttr( event.url ) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml( label ) + '</a>';
+				} else {
+					html += escapeHtml( label );
+				}
+				if ( event.venue && event.dateLabel ) {
+					html += '<span class="epm-popup-event-date">' + escapeHtml( event.dateLabel ) + '</span>';
+				}
+				html += '</li>';
+			} );
+
+			return html + '</ul>';
+		}
+
 		function popupHtml( institution ) {
 			var html = '<strong>' + escapeHtml( institution.name ) + '</strong><br>';
 			html += escapeHtml( institution.city );
-			if ( institution.country ) {
-				html += ', ' + escapeHtml( institution.country );
+			if ( institution.city && institution.country ) {
+				html += ', ';
 			}
+			html += escapeHtml( institution.country );
 			html += '<br>' + escapeHtml( ( institution.programLabels || [] ).join( ', ' ) );
 			if ( institution.eventCount > 0 ) {
 				html += '<br>' + institution.eventCount + ' ' + escapeHtml( settings.strings && settings.strings.events ? settings.strings.events : 'events' );
 			}
+			html += eventsHtml( institution.events );
 			if ( institution.website ) {
 				html += '<br><a href="' + escapeAttr( institution.website ) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml( institution.website ) + '</a>';
 			}
-			if ( institution.wpccUrl ) {
+			// When the event list is present it already links every event, so a
+			// separate "WPCC site" link would just repeat its first entry.
+			if ( institution.wpccUrl && ! ( institution.events && institution.events.length ) ) {
 				html += '<br><a href="' + escapeAttr( institution.wpccUrl ) + '" target="_blank" rel="noopener noreferrer">WPCC site</a>';
 			}
 			if ( institution.studentClubUrl ) {

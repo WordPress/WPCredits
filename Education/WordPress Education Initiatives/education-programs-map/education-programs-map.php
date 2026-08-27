@@ -3,7 +3,7 @@
  * Plugin Name:       Education Programs Map
  * Plugin URI:        https://github.com/WordPress/wordpress.org/issues/584
  * Description:       Displays a world map with city-level markers for WordPress Campus Connect (WPCC), WPCredits, and Student Club activity, with a Dashboard settings screen for adding and managing institutions. Implements https://github.com/WordPress/wordpress.org/issues/584.
- * Version:           2.1.1
+ * Version:           2.2.0
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -16,17 +16,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EPM_VERSION', '2.1.1' );
+define( 'EPM_VERSION', '2.2.0' );
 define( 'EPM_PLUGIN_FILE', __FILE__ );
 define( 'EPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'EPM_DB_VERSION', '1.4' );
+define( 'EPM_DB_VERSION', '1.5' );
 
 require_once EPM_PLUGIN_DIR . 'includes/class-epm-db.php';
 require_once EPM_PLUGIN_DIR . 'includes/class-epm-programs.php';
 require_once EPM_PLUGIN_DIR . 'includes/class-epm-settings.php';
 require_once EPM_PLUGIN_DIR . 'includes/class-epm-geocoder.php';
+require_once EPM_PLUGIN_DIR . 'includes/class-epm-airtable-client.php';
 require_once EPM_PLUGIN_DIR . 'includes/class-epm-airtable.php';
+require_once EPM_PLUGIN_DIR . 'includes/class-epm-campus-connect.php';
 require_once EPM_PLUGIN_DIR . 'includes/class-epm-admin.php';
 require_once EPM_PLUGIN_DIR . 'includes/class-epm-rest.php';
 require_once EPM_PLUGIN_DIR . 'includes/class-epm-shortcode.php';

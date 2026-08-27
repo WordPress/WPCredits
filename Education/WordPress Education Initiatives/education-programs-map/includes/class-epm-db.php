@@ -59,6 +59,36 @@ class EPM_DB {
 	}
 
 	/**
+	 * Encode an institution's imported event list for storage.
+	 *
+	 * @param array $events List of event arrays.
+	 * @return string JSON, or an empty string when there are no events.
+	 */
+	public static function encode_events( $events ) {
+		if ( empty( $events ) || ! is_array( $events ) ) {
+			return '';
+		}
+
+		return (string) wp_json_encode( array_values( $events ) );
+	}
+
+	/**
+	 * Decode the stored event list back into an array.
+	 *
+	 * @param string $events_json Raw column value.
+	 * @return array
+	 */
+	public static function parse_events( $events_json ) {
+		if ( empty( $events_json ) ) {
+			return array();
+		}
+
+		$decoded = json_decode( (string) $events_json, true );
+
+		return is_array( $decoded ) ? $decoded : array();
+	}
+
+	/**
 	 * Create the table on first activation, or upgrade it when the schema changes.
 	 */
 	public static function maybe_upgrade() {
@@ -89,18 +119,37 @@ class EPM_DB {
 			wpcc_url VARCHAR(255) NOT NULL DEFAULT '',
 			student_club_url VARCHAR(255) NOT NULL DEFAULT '',
 			airtable_id VARCHAR(64) NOT NULL DEFAULT '',
+			source VARCHAR(32) NOT NULL DEFAULT '',
+			events LONGTEXT NULL,
 			hidden TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
 			PRIMARY KEY  (id),
-			KEY airtable_id (airtable_id)
+			KEY airtable_id (airtable_id),
+			KEY source (source)
 		) {$charset_collate};";
 
 		dbDelta( $sql );
 
 		self::maybe_migrate_single_program_column();
+		self::maybe_backfill_source_column();
 
 		update_option( 'epm_db_version', EPM_DB_VERSION );
+	}
+
+	/**
+	 * Rows created before the "source" column existed were all produced by the
+	 * per-program institutions sync, so tag them as such once. Without this they
+	 * would look like manually-added rows and fall outside the source-scoped
+	 * hiding in hide_airtable_records_except(), which would leave stale
+	 * institutions on the map forever.
+	 */
+	private static function maybe_backfill_source_column() {
+		global $wpdb;
+		$table = self::table_name();
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is derived from $wpdb->prefix, not user input.
+		$wpdb->query( "UPDATE {$table} SET source = 'airtable' WHERE airtable_id != '' AND source = ''" );
 	}
 
 	/**
@@ -196,11 +245,13 @@ class EPM_DB {
 				'wpcc_url'         => $data['wpcc_url'],
 				'student_club_url' => $data['student_club_url'],
 				'airtable_id'      => $data['airtable_id'] ?? '',
+				'source'           => $data['source'] ?? '',
+				'events'           => self::encode_events( $data['events'] ?? array() ),
 				'hidden'           => ! empty( $data['hidden'] ) ? 1 : 0,
 				'created_at'       => $now,
 				'updated_at'       => $now,
 			),
-			array( '%s', '%s', '%s', '%f', '%f', '%s', '%d', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
+			array( '%s', '%s', '%s', '%f', '%f', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
 		);
 
 		if ( false === $inserted ) {
@@ -236,11 +287,22 @@ class EPM_DB {
 		);
 		$formats = array( '%s', '%s', '%s', '%f', '%f', '%s', '%d', '%s', '%s', '%s', '%d', '%s' );
 
-		// Only touch airtable_id when the caller explicitly provides it, so manual
-		// edits from the admin form (which never set it) don't clear a synced record's link.
+		// Only touch airtable_id/source/events when the caller explicitly provides them,
+		// so manual edits from the admin form (which never set them) don't clear a synced
+		// record's link, its owning sync, or its imported event list.
 		if ( array_key_exists( 'airtable_id', $data ) ) {
 			$fields['airtable_id'] = $data['airtable_id'];
 			$formats[]             = '%s';
+		}
+
+		if ( array_key_exists( 'source', $data ) ) {
+			$fields['source'] = $data['source'];
+			$formats[]        = '%s';
+		}
+
+		if ( array_key_exists( 'events', $data ) ) {
+			$fields['events'] = self::encode_events( $data['events'] );
+			$formats[]        = '%s';
 		}
 
 		$updated = $wpdb->update(
@@ -343,11 +405,18 @@ class EPM_DB {
 	 * different Airtable base; without this scoping, syncing one program's base
 	 * would wrongly hide institutions that only belong to a different program's sync.
 	 *
+	 * Also scoped to a single source, because more than one sync can legitimately
+	 * write rows tagged with the same program — the per-program institutions sync
+	 * and the Campus Connect events sync both produce "wpcc" rows. Without the
+	 * source scope each of those syncs would hide everything the other had just
+	 * imported, since the other's record IDs are never in its own keep list.
+	 *
 	 * @param string   $program           Program key this sync run was for.
 	 * @param string[] $keep_airtable_ids Airtable record IDs that should stay visible.
+	 * @param string   $source            Which sync owns the rows being considered.
 	 * @return int Number of institutions newly hidden.
 	 */
-	public static function hide_airtable_records_except( $program, array $keep_airtable_ids ) {
+	public static function hide_airtable_records_except( $program, array $keep_airtable_ids, $source = 'airtable' ) {
 		global $wpdb;
 		$table = self::table_name();
 
@@ -355,8 +424,9 @@ class EPM_DB {
 			return (int) $wpdb->query(
 				$wpdb->prepare(
 					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is derived from $wpdb->prefix, not user input.
-					"UPDATE {$table} SET hidden = 1 WHERE FIND_IN_SET( %s, programs ) AND airtable_id != '' AND hidden = 0",
-					$program
+					"UPDATE {$table} SET hidden = 1 WHERE FIND_IN_SET( %s, programs ) AND source = %s AND hidden = 0",
+					$program,
+					$source
 				)
 			);
 		}
@@ -365,8 +435,8 @@ class EPM_DB {
 		return (int) $wpdb->query(
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $table is derived from $wpdb->prefix, not user input; $placeholders is a dynamically-sized list of %s tokens (one per $keep_airtable_ids entry), both consumed by this same prepare() call.
-				"UPDATE {$table} SET hidden = 1 WHERE FIND_IN_SET( %s, programs ) AND airtable_id != '' AND hidden = 0 AND airtable_id NOT IN ( {$placeholders} )",
-				array_merge( array( $program ), $keep_airtable_ids )
+				"UPDATE {$table} SET hidden = 1 WHERE FIND_IN_SET( %s, programs ) AND source = %s AND hidden = 0 AND airtable_id NOT IN ( {$placeholders} )",
+				array_merge( array( $program, $source ), $keep_airtable_ids )
 			)
 		);
 	}

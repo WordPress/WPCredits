@@ -84,3 +84,33 @@
 .epm-map-wrapper .leaflet-popup-content a:hover {
 	color: var(--epm-blue-dark);
 }
+
+/*
+ * The list of events behind a marker. A location can hold several (Ajmer has
+ * three), so this is capped and scrolls rather than growing the popup past the
+ * edge of the map.
+ */
+.epm-map-wrapper .leaflet-popup-content .epm-popup-events {
+	list-style: none;
+	margin: 6px 0 0;
+	padding: 6px 0 0;
+	border-top: 1px solid var(--epm-border);
+	max-height: 160px;
+	overflow-y: auto;
+}
+
+.epm-map-wrapper .leaflet-popup-content .epm-popup-events li {
+	margin: 0 0 6px;
+	padding: 0;
+	line-height: 1.4;
+}
+
+.epm-map-wrapper .leaflet-popup-content .epm-popup-events li:last-child {
+	margin-bottom: 0;
+}
+
+.epm-map-wrapper .leaflet-popup-content .epm-popup-event-date {
+	display: block;
+	color: var(--epm-text-light);
+	font-size: 12px;
+}

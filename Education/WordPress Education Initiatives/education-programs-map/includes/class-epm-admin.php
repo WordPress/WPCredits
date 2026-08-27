@@ -24,6 +24,8 @@ class EPM_Admin {
 		add_action( 'admin_init', array( $this, 'handle_delete_program' ) );
 		add_action( 'admin_init', array( $this, 'handle_airtable_settings_submission' ) );
 		add_action( 'admin_init', array( $this, 'handle_airtable_sync' ) );
+		add_action( 'admin_init', array( $this, 'handle_campus_connect_settings_submission' ) );
+		add_action( 'admin_init', array( $this, 'handle_campus_connect_sync' ) );
 		add_action( 'admin_notices', array( $this, 'render_notices' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 	}
@@ -288,7 +290,9 @@ class EPM_Admin {
 								<input type="checkbox" name="visible" value="1" <?php checked( empty( $values['hidden'] ) ); ?> />
 								<?php esc_html_e( 'Show this institution on the public map', 'education-programs-map' ); ?>
 							</label>
-							<?php if ( ! empty( $institution->airtable_id ) ) : ?>
+							<?php if ( isset( $institution->source ) && EPM_Campus_Connect::SOURCE === $institution->source ) : ?>
+								<p class="description"><?php esc_html_e( 'This marker was built from Campus Connect events in Airtable. Its name, location, event count, and event list are rewritten on every sync, and it is re-hidden automatically if no event there matches any more.', 'education-programs-map' ); ?></p>
+							<?php elseif ( ! empty( $institution->airtable_id ) ) : ?>
 								<p class="description"><?php esc_html_e( 'This institution is linked to Airtable — the next sync will re-hide it automatically if it is no longer "Confirmed" there.', 'education-programs-map' ); ?></p>
 							<?php endif; ?>
 						</td>
@@ -553,7 +557,129 @@ class EPM_Admin {
 				<?php endif; ?>
 				<hr />
 			<?php endforeach; ?>
+
+			<?php $this->render_campus_connect_section(); ?>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the "Campus Connect Events" connection, which reads the WordCamp
+	 * Central events table rather than an institutions table and therefore has its
+	 * own settings, its own field names, and no Countries table.
+	 */
+	private function render_campus_connect_section() {
+		$settings      = EPM_Campus_Connect::get_settings();
+		$has_token     = '' !== $settings['token'];
+		$configured    = EPM_Campus_Connect::is_configured();
+		$last_result   = EPM_Campus_Connect::get_last_result();
+		$next_auto_run = wp_next_scheduled( EPM_Airtable::CRON_HOOK );
+		?>
+		<h2><?php esc_html_e( 'Campus Connect Events', 'education-programs-map' ); ?></h2>
+		<p><?php esc_html_e( 'Pulls WordPress Campus Connect events from the Airtable table synced from central.wordcamp.org, and turns them into map markers tagged with the WPCC program. Events are grouped by city, so a city that has hosted several events becomes one marker listing them all. Coordinates come straight from Airtable, so nothing needs geocoding.', 'education-programs-map' ); ?></p>
+		<p><?php esc_html_e( 'This connection is independent of the WPCC connection above: each only ever hides or updates the markers it imported itself, so the two can safely run against different bases.', 'education-programs-map' ); ?></p>
+
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=epm-airtable' ) ); ?>">
+			<?php wp_nonce_field( 'epm_save_campus_connect_settings' ); ?>
+			<input type="hidden" name="epm_action" value="save_campus_connect_settings" />
+
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><label for="epm-cc-token"><?php esc_html_e( 'Personal Access Token', 'education-programs-map' ); ?></label></th>
+					<td>
+						<input name="token" id="epm-cc-token" type="password" class="regular-text" autocomplete="off" placeholder="<?php echo $has_token ? esc_attr__( 'Saved — leave blank to keep it', 'education-programs-map' ) : 'patXXXXXXXXXXXXXX.XXXXXXXX'; ?>" />
+						<p class="description"><?php esc_html_e( 'Needs data.records:read access to the base below. Leave blank when saving other fields to keep the current token.', 'education-programs-map' ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="epm-cc-base"><?php esc_html_e( 'Base ID', 'education-programs-map' ); ?></label></th>
+					<td><input name="base_id" id="epm-cc-base" type="text" class="regular-text" value="<?php echo esc_attr( $settings['base_id'] ); ?>" placeholder="appXXXXXXXXXXXXXX" /></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="epm-cc-table"><?php esc_html_e( 'Events Table', 'education-programs-map' ); ?></label></th>
+					<td>
+						<input name="table_name" id="epm-cc-table" type="text" class="regular-text" value="<?php echo esc_attr( $settings['table_name'] ); ?>" />
+						<p class="description"><?php esc_html_e( 'Reads the Name, City, Country, Latitude, Longitude, Start Date, End Date, Site URL, Central Link, Venue Name, and Organizer fields.', 'education-programs-map' ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="epm-cc-filter"><?php esc_html_e( 'Filter Formula', 'education-programs-map' ); ?></label></th>
+					<td>
+						<input name="filter_formula" id="epm-cc-filter" type="text" class="large-text" value="<?php echo esc_attr( $settings['filter_formula'] ); ?>" />
+						<p class="description"><?php esc_html_e( 'The events table also holds WordCamps, so this filter is what narrows it to Campus Connect. Clearing it imports every event in the table.', 'education-programs-map' ); ?></p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Automatic Sync', 'education-programs-map' ); ?></th>
+					<td>
+						<label>
+							<input type="checkbox" name="auto_sync" value="1" <?php checked( ! empty( $settings['auto_sync'] ) ); ?> />
+							<?php esc_html_e( 'Automatically sync every 7 days', 'education-programs-map' ); ?>
+						</label>
+						<?php if ( ! empty( $settings['auto_sync'] ) && $next_auto_run ) : ?>
+							<p class="description">
+								<?php
+								printf(
+									/* translators: %s: date and time of the next scheduled automatic sync. */
+									esc_html__( 'Next automatic sync check: %s.', 'education-programs-map' ),
+									esc_html( wp_date( 'Y-m-d H:i', $next_auto_run ) )
+								);
+								?>
+							</p>
+						<?php endif; ?>
+					</td>
+				</tr>
+			</table>
+
+			<?php submit_button( __( 'Save Connection', 'education-programs-map' ), 'secondary' ); ?>
+		</form>
+
+		<?php if ( ! $configured ) : ?>
+			<p class="description"><?php esc_html_e( 'Save a token, base ID, and table name above before syncing.', 'education-programs-map' ); ?></p>
+		<?php else : ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=epm-airtable' ) ); ?>">
+				<?php wp_nonce_field( 'epm_run_campus_connect_sync' ); ?>
+				<input type="hidden" name="epm_action" value="run_campus_connect_sync" />
+				<?php submit_button( __( 'Sync Events Now', 'education-programs-map' ), 'primary', 'submit', false ); ?>
+			</form>
+		<?php endif; ?>
+
+		<?php if ( is_array( $last_result ) ) : ?>
+			<p>
+				<?php
+				printf(
+					/* translators: 1: sync trigger word, either manually or automatically. 2: date and time. */
+					esc_html__( 'Ran %1$s on %2$s.', 'education-programs-map' ),
+					'auto' === $last_result['trigger'] ? esc_html__( 'automatically', 'education-programs-map' ) : esc_html__( 'manually', 'education-programs-map' ),
+					esc_html( wp_date( 'Y-m-d H:i', $last_result['timestamp'] ) )
+				);
+				?>
+			</p>
+			<?php if ( isset( $last_result['error'] ) ) : ?>
+				<p><?php echo esc_html( $last_result['error'] ); ?></p>
+			<?php else : ?>
+				<p>
+					<?php
+					printf(
+						/* translators: 1: number of events read, 2: markers created, 3: markers updated, 4: markers newly hidden. */
+						esc_html__( 'Read %1$d events: created %2$d markers, updated %3$d, hid %4$d that no longer appear.', 'education-programs-map' ),
+						(int) ( $last_result['events'] ?? 0 ),
+						(int) $last_result['created'],
+						(int) $last_result['updated'],
+						(int) ( $last_result['hidden'] ?? 0 )
+					);
+					?>
+				</p>
+				<?php if ( ! empty( $last_result['skipped'] ) ) : ?>
+					<p><?php esc_html_e( 'Skipped:', 'education-programs-map' ); ?></p>
+					<ul style="list-style: disc; margin-left: 20px;">
+						<?php foreach ( $last_result['skipped'] as $reason ) : ?>
+							<li><?php echo esc_html( $reason ); ?></li>
+						<?php endforeach; ?>
+					</ul>
+				<?php endif; ?>
+			<?php endif; ?>
+		<?php endif; ?>
 		<?php
 	}
 
@@ -768,6 +894,86 @@ class EPM_Admin {
 		}
 
 		wp_safe_redirect( admin_url( 'admin.php?page=epm-programs' ) );
+		exit;
+	}
+
+	/**
+	 * Handle submission of the Campus Connect events connection settings form.
+	 */
+	public function handle_campus_connect_settings_submission() {
+		if ( ! isset( $_POST['epm_action'] ) || 'save_campus_connect_settings' !== $_POST['epm_action'] ) {
+			return;
+		}
+
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'education-programs-map' ) );
+		}
+
+		check_admin_referer( 'epm_save_campus_connect_settings' );
+
+		$current = EPM_Campus_Connect::get_settings();
+
+		$token = isset( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : '';
+		if ( '' === $token ) {
+			$token = $current['token']; // Keep the existing token when the field is left blank.
+		}
+
+		EPM_Campus_Connect::save_settings(
+			array(
+				'token'          => $token,
+				'base_id'        => isset( $_POST['base_id'] ) ? sanitize_text_field( wp_unslash( $_POST['base_id'] ) ) : '',
+				'table_name'     => isset( $_POST['table_name'] ) ? sanitize_text_field( wp_unslash( $_POST['table_name'] ) ) : '',
+				'filter_formula' => isset( $_POST['filter_formula'] ) ? sanitize_text_field( wp_unslash( $_POST['filter_formula'] ) ) : '',
+				'auto_sync'      => ! empty( $_POST['auto_sync'] ),
+			)
+		);
+		EPM_Airtable::maybe_schedule();
+
+		set_transient( 'epm_admin_success', __( 'Campus Connect connection saved.', 'education-programs-map' ), 60 );
+		wp_safe_redirect( admin_url( 'admin.php?page=epm-airtable' ) );
+		exit;
+	}
+
+	/**
+	 * Handle a manually triggered Campus Connect events sync.
+	 */
+	public function handle_campus_connect_sync() {
+		if ( ! isset( $_POST['epm_action'] ) || 'run_campus_connect_sync' !== $_POST['epm_action'] ) {
+			return;
+		}
+
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'education-programs-map' ) );
+		}
+
+		check_admin_referer( 'epm_run_campus_connect_sync' );
+
+		if ( function_exists( 'set_time_limit' ) ) {
+			set_time_limit( 180 );
+		}
+
+		$result = EPM_Campus_Connect::run_sync();
+		EPM_Campus_Connect::store_result( $result, 'manual' );
+
+		if ( is_wp_error( $result ) ) {
+			set_transient( 'epm_admin_errors', array( $result->get_error_message() ), 60 );
+		} else {
+			set_transient(
+				'epm_admin_success',
+				sprintf(
+					/* translators: 1: number of events read, 2: markers created, 3: markers updated, 4: markers hidden, 5: number skipped. */
+					__( 'Campus Connect sync complete: %1$d events read, %2$d markers created, %3$d updated, %4$d hidden, %5$d skipped.', 'education-programs-map' ),
+					(int) $result['events'],
+					(int) $result['created'],
+					(int) $result['updated'],
+					(int) $result['hidden'],
+					count( $result['skipped'] )
+				),
+				60
+			);
+		}
+
+		wp_safe_redirect( admin_url( 'admin.php?page=epm-airtable' ) );
 		exit;
 	}
 

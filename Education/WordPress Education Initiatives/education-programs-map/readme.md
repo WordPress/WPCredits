@@ -5,7 +5,7 @@ Tags: map, education, meetup, wpcc, wpcredits
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.1.1
+Stable tag: 2.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -41,6 +41,14 @@ Search for "Education Programs Map" in the block inserter to add the map without
 
 Dashboard > Education Programs Map > Airtable Sync has an independent connection for each of the three built-in programs (WPCC, WPCredits, Student Club), since each can live in a completely different Airtable base. For each, configure a Personal Access Token (needs `data.records:read` on that base), the base ID, the institutions table name, and the linked table used for country names, then click that program's "Sync Now" — or check "Automatically sync every 7 days" to have it run on its own via WP-Cron. Each institution is matched to its Airtable record, so re-running a sync updates existing entries rather than duplicating them, and only ever affects institutions belonging to that program. Coordinates are looked up automatically from the institution's city and country via the Photon geocoding service (OpenStreetMap data).
 
+### Campus Connect Events
+
+The same screen has a fourth connection, "Campus Connect Events," which works differently from the three above: instead of an institutions table, it reads the WordCamp Central events table synced into Airtable (the `WordCamps` table), narrowed to Campus Connect by the `{Event Type}='Campus Connect'` filter formula, since that table also holds regular WordCamps. Configure a token, base ID, and table name, then click "Sync Events Now," or enable auto-sync to have it run alongside the others on the same weekly schedule.
+
+Imported events become markers tagged with the existing WPCC program, so they appear under the map's current WPCC filter. **Events are grouped by city**: a city that has hosted several Campus Connect events becomes one marker whose popup lists each event with its venue, date, and a link to its site, rather than several overlapping markers. Events whose record has no city each become their own marker, named after their venue. This sync needs no geocoding — the source records already carry coordinates — so it runs in a single pass.
+
+This connection and the WPCC connection above can safely both be configured: each sync only ever updates or hides the markers it imported itself.
+
 Institutions whose Airtable record no longer matches the filter (e.g. it's no longer "Confirmed," or was deleted) are hidden from the public map rather than deleted — they stay visible in the admin's "All Institutions" list (marked with a "Hidden" badge) and automatically reappear on the map if the record matches again on a later sync. Any institution's visibility can also be toggled by hand from its edit screen.
 
 ## Installation
@@ -51,6 +59,14 @@ Institutions whose Airtable record no longer matches the filter (e.g. it's no lo
 4. Add `[education_programs_map]` to any page to display the map.
 
 ## Changelog
+
+### 2.2.0
+
+- Add a fourth "Campus Connect Events" connection to the Airtable Sync screen, which reads the WordCamp Central events table (the one synced from `central.wordcamp.org`) and turns WordPress Campus Connect events into map markers tagged with the existing WPCC program. It defaults to the `WordCamps` table filtered by `{Event Type}='Campus Connect'`, since that table also holds regular WordCamps.
+- Events are grouped by city, so a city that has hosted several Campus Connect events becomes a single marker whose popup lists each event with its venue, date, and a link to its site — Ajmer, for example, becomes one marker covering three events at three different colleges. Events whose record has no city each become their own marker, named after their venue.
+- This sync never calls the geocoder: the source records already carry latitude and longitude, so it imports in one pass with no per-record rate-limit delay and no "could not determine coordinates" skips.
+- Fixed a data-safety issue that this second WPCC-tagged source would otherwise have exposed: hiding records that fall out of a sync's filter is now scoped to the sync that imported them, not just to the program. Previously two sources feeding the same program would each hide everything the other had just imported. Institutions imported by earlier versions are tagged as belonging to the per-program sync automatically on upgrade.
+- The map popup no longer prints a leading comma for a marker that has a country but no city, and no longer repeats the newest event's link as a separate "WPCC site" line when the event list is already shown.
 
 ### 2.1.1
 

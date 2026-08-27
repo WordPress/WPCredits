@@ -62,6 +62,38 @@ class EPM_REST {
 	}
 
 	/**
+	 * Turn an institution's stored event list into JSON-friendly entries, with a
+	 * display label formatted using the site's own date format and locale.
+	 *
+	 * @param object $institution Institution row.
+	 * @return array[]
+	 */
+	private static function prepare_events( $institution ) {
+		$events = EPM_DB::parse_events( $institution->events ?? '' );
+
+		return array_values(
+			array_map(
+				static function ( $event ) {
+					$date = isset( $event['date'] ) ? (string) $event['date'] : '';
+
+					// The source stores date-only values; anchoring at midday keeps the
+					// formatted label on the intended day regardless of the site's timezone.
+					$timestamp = '' !== $date ? strtotime( $date . ' 12:00:00' ) : false;
+
+					return array(
+						'venue'     => isset( $event['venue'] ) ? (string) $event['venue'] : '',
+						'date'      => $date,
+						'dateLabel' => $timestamp ? date_i18n( get_option( 'date_format' ), $timestamp ) : $date,
+						'url'       => isset( $event['url'] ) ? esc_url_raw( (string) $event['url'] ) : '',
+						'organizer' => isset( $event['organizer'] ) ? (string) $event['organizer'] : '',
+					);
+				},
+				$events
+			)
+		);
+	}
+
+	/**
 	 * Return institutions as a JSON-friendly array for the frontend map.
 	 *
 	 * @param WP_REST_Request $request Current request.
@@ -91,6 +123,7 @@ class EPM_REST {
 						$program_keys
 					),
 					'eventCount'     => (int) $institution->event_count,
+					'events'         => self::prepare_events( $institution ),
 					'website'        => esc_url_raw( $institution->website ),
 					'wpccUrl'        => esc_url_raw( $institution->wpcc_url ),
 					'studentClubUrl' => esc_url_raw( $institution->student_club_url ),
