@@ -99,9 +99,9 @@ plus seven fields, grouped by where the Airtable view itself puts them:
 | `Developer basics: Optional modules taken` | Onboarding | textarea |
 | `Patch Testing: Trac ticket comments` | Onboarding | textarea |
 | `Optional: Additional Contribution Project Summary` | Project | textarea |
-| `Contributing beyond WP Credits` | Wrap-up | textarea |
-| `Alumni program: personal email` | Wrap-up | email |
-| `Alumni program: mentoring opt-in` | Wrap-up | checkbox |
+| `Contributing beyond WP Credits` | Project | textarea |
+| `Alumni program: personal email` | Project | email |
+| `Alumni program: mentoring opt-in` | Project | checkbox |
 
 Note the inconsistent capitalisation of `Developer Basics:` and `Developer basics:` — that is how
 the base spells them, and the keys are what a write has to name, so both are copied exactly.
@@ -178,6 +178,12 @@ The dev-track view is 34 fields now rather than 35, and the seven the form adds 
 was never one of them. `bin/fixtures/reports-table-fields.json` was refreshed to the table's 52
 remaining field names, which is what now stops anybody adding it back: a field name the base does
 not have fails `every dev field name exists in Airtable`.
+
+**Corrected after review.** The three end-of-programme questions were first put in Wrap-up, on the
+reading that that is what they sound like. The view asks them in the middle of Project, between
+`Post Reflection: Your First Contribution` and `Post Reflection: Halfway Check-In`, and where a
+question is asked is the program's decision rather than something to infer from its wording. Moved
+in 1.63.0, with the five-field run asserted in `bin/test-report-form.php`.
 
 ## Deliberately not in scope
 

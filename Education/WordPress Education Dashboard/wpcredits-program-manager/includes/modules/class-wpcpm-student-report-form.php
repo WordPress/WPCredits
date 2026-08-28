@@ -204,17 +204,20 @@ class WPCPM_Student_Report_Form {
 			),
 		);
 
-		// Asked at the end because they are about what happens after the program rather than in it.
+		// In *Project*, between the first-contribution post and the halfway one, which is where the
+		// base's own dev-track view puts them. They read as end-of-programme questions and were in
+		// Wrap-up until 1.63.0 — but where a question is asked is the program's decision, not an
+		// inference from what it sounds like, and the view is where that decision is recorded.
 		$dev_alumni = array(
 			'Contributing beyond WP Credits'   => array(
 				'label' => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
 				'type'  => 'textarea',
-				'group' => 'wrapup',
+				'group' => 'project',
 			),
 			'Alumni program: personal email'   => array(
 				'label' => __( 'A personal email address for the alumni programme', 'wpcredits-program-manager' ),
 				'type'  => 'email',
-				'group' => 'wrapup',
+				'group' => 'project',
 				'row'   => 'alumni',
 				'help'  => __( 'Somewhere that still reaches you once your student address stops working.', 'wpcredits-program-manager' ),
 			),
@@ -223,7 +226,7 @@ class WPCPM_Student_Report_Form {
 			'Alumni program: mentoring opt-in' => array(
 				'label' => __( 'Yes, I am happy to be contacted about mentoring future WordPress Credits students.', 'wpcredits-program-manager' ),
 				'type'  => 'checkbox',
-				'group' => 'wrapup',
+				'group' => 'project',
 				'row'   => 'alumni',
 			),
 		);
@@ -363,7 +366,7 @@ class WPCPM_Student_Report_Form {
 				$fields = self::insert_after( $fields, 'Advance WordPress User - final grade', $dev_basics );
 				$fields = self::insert_after( $fields, 'Beginner WordPress Designer', $dev_patch );
 				$fields = self::insert_after( $fields, 'Contribution Project Summary', $dev_project );
-				$fields = $fields + $dev_alumni;
+				$fields = self::insert_after( $fields, 'Post Reflection: Your First Contribution', $dev_alumni );
 			}
 		}
 

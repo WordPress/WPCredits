@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.62.1
+Stable tag: 1.63.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.63.0 =
+* Moves the Developer Track's three end-of-programme questions — how you plan to keep contributing, the alumni personal email, and the mentoring opt-in — out of Wrap-up and into Project, between the first-contribution post and the halfway one, which is the order the Airtable view asks them in.
 
 = 1.62.1 =
 * Refreshes the Airtable field-name fixture: `Post Reflection: Choosing Your Team and Project copy` was confirmed a duplicated field and deleted from the base, so the table is 52 columns rather than 53. The report form never used it; this keeps the check that guards every field name honest.

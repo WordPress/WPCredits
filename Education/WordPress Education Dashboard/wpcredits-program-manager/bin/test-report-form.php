@@ -588,9 +588,27 @@ ck( 'patch testing follows the developer courses',
 ck( 'the second project summary follows the first',
     $at( $dev, 'Optional: Additional Contribution Project Summary' ) === $at( $dev, 'Contribution Project Summary' ) + 1, true );
 
-ck( 'the alumni questions are in the wrap-up',
+// They read as end-of-programme questions, which is why they were in Wrap-up at first. The base's
+// dev-track view asks them in the middle of Project, between the first-contribution post and the
+// halfway one, and that is the program's decision rather than something to infer from the wording.
+ck( 'the alumni questions are in the project section',
     array( $dev['Alumni program: personal email']['group'], $dev['Alumni program: mentoring opt-in']['group'], $dev['Contributing beyond WP Credits']['group'] ),
-    array( 'wrapup', 'wrapup', 'wrapup' ) );
+    array( 'project', 'project', 'project' ) );
+
+// The exact run from the view: 27, 28, 29, 30, 31.
+ck( 'and sit between the first-contribution post and the halfway one',
+    array_slice(
+        array_keys( $dev ),
+        $at( $dev, 'Post Reflection: Your First Contribution' ),
+        5
+    ),
+    array(
+        'Post Reflection: Your First Contribution',
+        'Contributing beyond WP Credits',
+        'Alumni program: personal email',
+        'Alumni program: mentoring opt-in',
+        'Post Reflection: Halfway Check-In',
+    ) );
 
 // The consent label has to say what is being agreed to. "Alumni program: mentoring opt-in" is a
 // column name, not a question a person can answer.
