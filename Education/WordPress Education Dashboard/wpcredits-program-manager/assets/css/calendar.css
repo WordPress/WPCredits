@@ -906,6 +906,7 @@
 .wpcpm-report__group > .wpcpm-field--textarea,
 .wpcpm-report__group > .wpcpm-field--richtext,
 .wpcpm-report__group > .wpcpm-field--url,
+.wpcpm-report__group > .wpcpm-field--email,
 .wpcpm-report__group > .wpcpm-field--checkbox,
 .wpcpm-report__group > .wpcpm-field--team {
 	grid-column: 1 / -1;
@@ -926,14 +927,23 @@
 	font-weight: 400;
 }
 
-/* `.wpcpm-field input` is 100% wide, which for a tick box means a box the width of the form. */
+/* `.wpcpm-field input` is 100% wide, which for a tick box means a box the width of the form.
+   The margin is the browser's own on a checkbox, and it is what set this row a few pixels in from
+   the left edge every other field in the group shares. */
 .wpcpm-report__group .wpcpm-field--checkbox input[type="checkbox"] {
 	flex: 0 0 auto;
+	margin-inline-start: 0;
 	width: auto;
 }
 
 .wpcpm-report__group .wpcpm-field--checkbox .wpcpm-field__hint {
 	flex: 1 1 100%;
+}
+
+/* A checkbox following the field it qualifies belongs to it: the standard gap between fields
+   would read as the start of a new question. */
+.wpcpm-report__group > .wpcpm-field--email + .wpcpm-field--checkbox {
+	margin-top: -0.35em;
 }
 
 /* A pair of fields that belong together — the two contact lessons, the website and the post

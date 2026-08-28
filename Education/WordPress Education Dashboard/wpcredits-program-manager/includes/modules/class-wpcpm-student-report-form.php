@@ -200,6 +200,12 @@ class WPCPM_Student_Report_Form {
 				'label' => __( 'A second contribution project, if you had one', 'wpcredits-program-manager' ),
 				'type'  => 'textarea',
 				'group' => 'project',
+				// It is inserted into the middle of the team/project pair, so it has to belong to
+				// that pair's stacked column. A field without the row *ends* the pair, and the
+				// questions after it open a second one with an empty right half — which is what
+				// scattered the Project section when this was first added.
+				'row'   => 'project',
+				'stack' => true,
 				'help'  => __( 'Optional. Leave empty if you worked on one project.', 'wpcredits-program-manager' ),
 			),
 		);
@@ -218,7 +224,6 @@ class WPCPM_Student_Report_Form {
 				'label' => __( 'A personal email address for the alumni programme', 'wpcredits-program-manager' ),
 				'type'  => 'email',
 				'group' => 'project',
-				'row'   => 'alumni',
 				'help'  => __( 'Somewhere that still reaches you once your student address stops working.', 'wpcredits-program-manager' ),
 			),
 			// The label says what is being agreed to. Repeating the column name here would ask for
@@ -227,7 +232,6 @@ class WPCPM_Student_Report_Form {
 				'label' => __( 'Yes, I am happy to be contacted about mentoring future WordPress Credits students.', 'wpcredits-program-manager' ),
 				'type'  => 'checkbox',
 				'group' => 'project',
-				'row'   => 'alumni',
 			),
 		);
 

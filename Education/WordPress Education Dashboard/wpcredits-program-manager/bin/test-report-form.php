@@ -631,6 +631,83 @@ ck( 'a malformed address is rejected, not stored', clean( 'not-an-address', $ema
 ck( 'a ticked box is true',   clean( '1', $check_spec ), array( true, true ) );
 ck( 'an unticked box is false, not nothing', clean( '0', $check_spec ), array( true, false ) );
 
+echo "\n=== Paired fields stay together ===\n";
+
+// **This is the check that was missing, and the reason the Project section came out scattered.**
+//
+// `render_body()` opens a `.wpcpm-report__pair` at the first field carrying a `row` and closes it
+// at the first field that does not. So a field inserted into the middle of a paired run ends the
+// pair, and the fields after it open a *second* pair — which, at two columns, renders as a run of
+// half-width boxes with an empty column beside them. Nothing errors; it just looks wrong, and only
+// on the one track whose form has the extra field.
+//
+// The property is simple: every field sharing a `row` must be contiguous. Asserting it is what
+// makes "you broke a pair" a failing test rather than something to spot in a screenshot.
+foreach ( array( '150h', '50h', 'dev' ) as $track ) {
+	$specs  = WPCPM_Student_Report_Form::fields( $track );
+	$broken = array();
+	$seen   = array();
+	$last   = '';
+
+	foreach ( $specs as $name => $spec ) {
+		$row = isset( $spec['row'] ) ? $spec['row'] : '';
+
+		// Coming back to a row after leaving it is the failure: the run was interrupted.
+		if ( '' !== $row && $row !== $last && isset( $seen[ $row ] ) ) {
+			$broken[] = $row . ' resumes at ' . $name;
+		}
+
+		if ( '' !== $row ) {
+			$seen[ $row ] = true;
+		}
+
+		$last = $row;
+	}
+
+	ck( sprintf( 'no %s pair is interrupted', $track ), $broken, array() );
+}
+
+// The stacked column is one cell of the pair, opened at the first field marked `stack`. A field
+// between the pair's start and its stack that carries neither would sit outside both.
+$dev = WPCPM_Student_Report_Form::fields( 'dev' );
+
+ck( 'the second project summary is in the stacked column, not loose in the group',
+    array(
+        isset( $dev['Optional: Additional Contribution Project Summary']['row'] ) ? $dev['Optional: Additional Contribution Project Summary']['row'] : '',
+        ! empty( $dev['Optional: Additional Contribution Project Summary']['stack'] ),
+    ),
+    array( 'project', true ) );
+
+// Everything the group lays out itself gets either the number treatment or a row to itself, which
+// is the form's whole layout rule. A control type missing from that CSS list becomes a narrow cell
+// with whatever fits beside it — how the alumni address first rendered.
+//
+// Fields inside a pair are exempt: the pair sets its own columns, which is why `Slack Name` can be
+// a plain text box without a full-width rule.
+$full_width = array( 'textarea', 'richtext', 'url', 'email', 'checkbox', 'team' );
+$css        = file_get_contents( __DIR__ . '/../assets/css/calendar.css' );
+$missing    = array();
+
+foreach ( array( '150h', '50h', 'dev' ) as $track ) {
+	foreach ( WPCPM_Student_Report_Form::fields( $track ) as $name => $spec ) {
+		$type = isset( $spec['type'] ) ? $spec['type'] : 'text';
+
+		if ( ! empty( $spec['row'] ) || 'number' === $type || in_array( $type, $full_width, true ) ) {
+			continue;
+		}
+
+		$missing[ $type ] = $name;
+	}
+}
+
+ck( 'every control type is either a number or laid out full width', $missing, array() );
+
+foreach ( $full_width as $type ) {
+	ck( sprintf( 'the %s control has its full-width rule', $type ),
+	    false !== strpos( $css, '.wpcpm-report__group > .wpcpm-field--' . $type . ',' )
+	        || false !== strpos( $css, '.wpcpm-report__group > .wpcpm-field--' . $type . ' {' ), true );
+}
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

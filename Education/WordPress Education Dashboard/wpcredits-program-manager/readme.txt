@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.63.0
+Stable tag: 1.63.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,14 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.63.2 =
+* Lines the consent checkbox up with the left edge every other field in the group shares. The inset was the browser's own margin on a checkbox.
+
+= 1.63.1 =
+* Fixes the Developer Track's Project section, which rendered as a run of half-width boxes with an empty column beside them. The second project summary had been inserted into the middle of the team/project pair, which closed the pair early and made the questions after it open a second one.
+* The alumni consent checkbox now sits under the address it goes with rather than beside it, and the address takes a full row like every other single-value field.
+* Tests now assert that fields sharing a row stay contiguous, and that every control the group lays out itself has a width rule — the two properties whose absence let the section come out scattered.
 
 = 1.63.0 =
 * Moves the Developer Track's three end-of-programme questions — how you plan to keep contributing, the alumni personal email, and the mentoring opt-in — out of Wrap-up and into Project, between the first-contribution post and the halfway one, which is the order the Airtable view asks them in.
