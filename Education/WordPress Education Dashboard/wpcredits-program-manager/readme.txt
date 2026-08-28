@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.60.3
+Stable tag: 1.61.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.61.0 =
+* Adds the **Developer Track** as a third program, from the `Developer Track` status in Airtable. It has its own report form — the 150-hour form plus seven fields — its own Learn WordPress course, and its own reporting-form link.
+* The track is now derived from the Airtable status rather than carried as an `is_50h` boolean. Two tracks fit a boolean; three do not, and a second flag beside the first would have made "both true" representable.
+* **Fixes a field the report form could never save.** It read and wrote `Contribution Project Description`, which is not a column in the base — the column is `Contribution Project Summary` — so a student's project description neither loaded nor stored. Tests now check every field name against a fixture of the table's real columns.
+* Adds email and checkbox controls to the report form, the latter with the hidden zero that makes unticking reach Airtable.
 
 = 1.60.3 =
 * A group session can be 60 minutes again. A number field's step counts from its min, so `min="1" step="5"` made the valid lengths 1, 6, 11 … 61 — rejecting 60, which was the field's own default. Reported by Celi Garoe in prerelease testing.

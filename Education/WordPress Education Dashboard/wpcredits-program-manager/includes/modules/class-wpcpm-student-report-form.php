@@ -67,10 +67,12 @@ class WPCPM_Student_Report_Form {
 	 * `step` mirrors the column's own precision: the grades allow two decimals, hours and the three
 	 * course marks are whole numbers.
 	 *
-	 * @param bool $is_50h Whether the student is on the 50-hour track.
+	 * @param string $track Track key from `WPCPM_Program::track()`: `150h`, `50h` or `dev`. Anything
+	 *                      else, including the empty string a finished student has, gets the
+	 *                      150-hour form — the one most of them filled in.
 	 * @return array<string, array> Airtable field name => spec.
 	 */
-	public static function fields( $is_50h ) {
+	public static function fields( $track ) {
 		$grade = array(
 			'type'  => 'number',
 			'step'  => '0.01',
@@ -165,13 +167,79 @@ class WPCPM_Student_Report_Form {
 
 		$fifty_grades = $conflict;
 
+		// Developer track only. Long text in the base, so long text here — these are lists a
+		// student writes out (modules taken, tickets commented on) rather than single values.
+		$dev_basics = array(
+			'Developer Basics: modules completed'      => array(
+				'label' => __( 'Developer Basics: modules you completed', 'wpcredits-program-manager' ),
+				'type'  => 'textarea',
+				'group' => 'onboarding',
+				'help'  => __( 'One per line.', 'wpcredits-program-manager' ),
+			),
+			// `Basics` capitalised above and lower here is how the base spells the two columns. The
+			// keys are what a write has to name, so both are copied exactly rather than tidied.
+			'Developer basics: Optional modules taken' => array(
+				'label' => __( 'Developer Basics: optional modules you took', 'wpcredits-program-manager' ),
+				'type'  => 'textarea',
+				'group' => 'onboarding',
+				'help'  => __( 'One per line. Leave empty if you took none.', 'wpcredits-program-manager' ),
+			),
+		);
+
+		$dev_patch = array(
+			'Patch Testing: Trac ticket comments' => array(
+				'label' => __( 'Patch testing: your Trac ticket comments', 'wpcredits-program-manager' ),
+				'type'  => 'textarea',
+				'group' => 'onboarding',
+				'help'  => __( 'Links to the tickets you commented on, one per line.', 'wpcredits-program-manager' ),
+			),
+		);
+
+		$dev_project = array(
+			'Optional: Additional Contribution Project Summary' => array(
+				'label' => __( 'A second contribution project, if you had one', 'wpcredits-program-manager' ),
+				'type'  => 'textarea',
+				'group' => 'project',
+				'help'  => __( 'Optional. Leave empty if you worked on one project.', 'wpcredits-program-manager' ),
+			),
+		);
+
+		// Asked at the end because they are about what happens after the program rather than in it.
+		$dev_alumni = array(
+			'Contributing beyond WP Credits'   => array(
+				'label' => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
+				'type'  => 'textarea',
+				'group' => 'wrapup',
+			),
+			'Alumni program: personal email'   => array(
+				'label' => __( 'A personal email address for the alumni programme', 'wpcredits-program-manager' ),
+				'type'  => 'email',
+				'group' => 'wrapup',
+				'row'   => 'alumni',
+				'help'  => __( 'Somewhere that still reaches you once your student address stops working.', 'wpcredits-program-manager' ),
+			),
+			// The label says what is being agreed to. Repeating the column name here would ask for
+			// consent without stating what for.
+			'Alumni program: mentoring opt-in' => array(
+				'label' => __( 'Yes, I am happy to be contacted about mentoring future WordPress Credits students.', 'wpcredits-program-manager' ),
+				'type'  => 'checkbox',
+				'group' => 'wrapup',
+				'row'   => 'alumni',
+			),
+		);
+
+		// `Contribution Project Summary` is the column's name in the base. It was
+		// `Contribution Project Description` here until 1.61.0 — a name matching no field, so the
+		// answer neither loaded nor saved. The same class of failure as the trailing space on
+		// `Company `, and the reason `bin/test-report-form.php` now checks every key against a
+		// fixture of the table's real field names.
 		$project = array(
-			'Contribution Project Description' => array(
+			'Contribution Project Summary' => array(
 				'label' => __( 'Describe your contribution project', 'wpcredits-program-manager' ),
 				'type'  => 'textarea',
 				'group' => 'project',
 			),
-			'Personal Website URL'             => array(
+			'Personal Website URL'         => array(
 				'label' => __( 'Your personal website URL', 'wpcredits-program-manager' ),
 				'type'  => 'url',
 				'group' => 'project',
@@ -237,12 +305,12 @@ class WPCPM_Student_Report_Form {
 			return $spec;
 		};
 
-		if ( $is_50h ) {
+		if ( '50h' === $track ) {
 			$fields = $hours + $contact + $common_grades + $fifty_grades + $teams + array(
-				'Contribution Project Description'  => array(
+				'Contribution Project Summary'      => array(
 					'row'   => 'project',
 					'stack' => true,
-				) + $in( $project['Contribution Project Description'], 'project' ),
+				) + $in( $project['Contribution Project Summary'], 'project' ),
 				'Slack/GitHub/Blog WordPress Community meetings/discussions' => array(
 					'row'   => 'project',
 					'stack' => true,
@@ -265,10 +333,10 @@ class WPCPM_Student_Report_Form {
 				'Post Reflection: Building Your Personal Website' => array( 'row' => 'website' )
 					+ $in( $posts['Post Reflection: Building Your Personal Website'], 'onboarding' ),
 			) + $teams + array(
-				'Contribution Project Description'         => array(
+				'Contribution Project Summary'             => array(
 					'row'   => 'project',
 					'stack' => true,
-				) + $in( $project['Contribution Project Description'], 'project' ),
+				) + $in( $project['Contribution Project Summary'], 'project' ),
 				'Post Reflection: Choosing Your Team and Project' => array(
 					'row'   => 'project',
 					'stack' => true,
@@ -287,15 +355,60 @@ class WPCPM_Student_Report_Form {
 				),
 				'Closing post URL'                         => $in( $posts['Closing post URL'], 'wrapup' ),
 			);
+
+			// The developer track is the 150-hour form plus seven fields, in the places the base's
+			// own "Temporal view for dev track" puts them. Written as insertions into that set
+			// rather than as a third copy, because a copy would drift the moment either changed.
+			if ( 'dev' === $track ) {
+				$fields = self::insert_after( $fields, 'Advance WordPress User - final grade', $dev_basics );
+				$fields = self::insert_after( $fields, 'Beginner WordPress Designer', $dev_patch );
+				$fields = self::insert_after( $fields, 'Contribution Project Summary', $dev_project );
+				$fields = $fields + $dev_alumni;
+			}
 		}
 
 		/**
 		 * Filter the report form's fields for one track.
 		 *
-		 * @param array $fields Airtable field name => spec.
-		 * @param bool  $is_50h Whether this is the 50-hour track.
+		 * @param array  $fields Airtable field name => spec.
+		 * @param string $track  Track key: `150h`, `50h` or `dev`.
 		 */
-		return (array) apply_filters( 'wpcpm_report_form_fields', $fields, $is_50h );
+		return (array) apply_filters( 'wpcpm_report_form_fields', $fields, $track );
+	}
+
+	/**
+	 * Put fields straight after a named one, keeping every other key where it was.
+	 *
+	 * Order inside a group is the array's own order — `render_body()` groups with `array_filter()`,
+	 * which preserves it — so where a field sits in this array is where a student sees it.
+	 *
+	 * A missing anchor appends rather than throws: a form with a question in the wrong place is
+	 * recoverable, a fatal on the Student Report Card is not. `bin/test-report-form.php` asserts
+	 * each insertion's position, so a renamed anchor fails a test rather than moving quietly.
+	 *
+	 * @param array  $fields Field set.
+	 * @param string $anchor Field name to insert after.
+	 * @param array  $add    Fields to insert.
+	 * @return array
+	 */
+	private static function insert_after( array $fields, $anchor, array $add ) {
+		if ( ! isset( $fields[ $anchor ] ) ) {
+			return $fields + $add;
+		}
+
+		$out = array();
+
+		foreach ( $fields as $name => $spec ) {
+			$out[ $name ] = $spec;
+
+			if ( $name === $anchor ) {
+				foreach ( $add as $add_name => $add_spec ) {
+					$out[ $add_name ] = $add_spec;
+				}
+			}
+		}
+
+		return $out;
 	}
 
 	/**
@@ -450,8 +563,8 @@ class WPCPM_Student_Report_Form {
 	 * @param bool    $read_only Force a record rather than a form, whatever the viewer may do.
 	 */
 	private static function render_body( WP_User $student, array $program, $read_only = false ) {
-		$is_50h = ! empty( $program['is_50h'] );
-		$fields = self::fields( $is_50h );
+		$track  = WPCPM_Program::track( isset( $program['program'] ) ? $program['program'] : '' );
+		$fields = self::fields( $track );
 		$record = WPCPM_Mentor_Calls::student_record( $student->ID );
 		$values = self::values( $record );
 		$can    = ! $read_only && self::user_can_edit( $student->ID );
@@ -746,7 +859,7 @@ class WPCPM_Student_Report_Form {
 			return;
 		}
 
-		$fields = self::fields( ! empty( $program['is_50h'] ) );
+		$fields = self::fields( WPCPM_Program::track( isset( $program['program'] ) ? $program['program'] : '' ) );
 
 		if ( ! isset( $fields['Hours'] ) ) {
 			return;
@@ -839,6 +952,32 @@ class WPCPM_Student_Report_Form {
 		// span; the `<fieldset>` inside carries the accessible grouping instead.
 		$wrapper = ( 'team' === $type ) ? 'div' : 'p';
 
+		// A checkbox reads as "[x] Yes, I agree to…", so the box comes first and the label after
+		// it. Printing the label above would turn a consent question into a heading with an
+		// unlabelled tick under it.
+		if ( 'checkbox' === $type ) {
+			// **The hidden zero is what makes unticking possible.** A cleared checkbox posts
+			// nothing at all, and `handle_save()` skips any field the browser did not send — so
+			// without this a student could tick the box once and never take it back. It is a
+			// consent checkbox, so that is the one direction that must work.
+			printf(
+				'<p class="wpcpm-field wpcpm-field--checkbox"><input type="hidden" name="report[%2$s]" value="0" /><input type="checkbox" id="%1$s" name="report[%2$s]" value="1"%3$s%4$s /><label for="%1$s">%5$s</label>',
+				esc_attr( $id ),
+				esc_attr( $key ),
+				checked( self::is_ticked( $value ), true, false ),
+				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				esc_html( $spec['label'] )
+			);
+
+			if ( ! empty( $spec['help'] ) ) {
+				printf( '<span class="wpcpm-field__hint">%s</span>', esc_html( $spec['help'] ) );
+			}
+
+			echo '</p>';
+
+			return;
+		}
+
 		printf(
 			'<%1$s class="wpcpm-field wpcpm-field--%2$s">%3$s',
 			esc_attr( $wrapper ),
@@ -871,6 +1010,14 @@ class WPCPM_Student_Report_Form {
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
 				esc_textarea( is_scalar( $value ) ? (string) $value : '' )
 			);
+		} elseif ( 'email' === $type ) {
+			printf(
+				'<input type="email" id="%1$s" name="report[%2$s]" value="%3$s" inputmode="email" autocomplete="email"%4$s />',
+				esc_attr( $id ),
+				esc_attr( $key ),
+				esc_attr( is_scalar( $value ) ? (string) $value : '' ),
+				$dis // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+			);
 		} else {
 			// `type="text"` even for the URLs, for the reason the profile editor gives: `type="url"`
 			// refuses a scheme-less address, and Airtable's url columns are full of them — the
@@ -892,6 +1039,23 @@ class WPCPM_Student_Report_Form {
 		printf( '</%s>', esc_attr( $wrapper ) );
 	}
 
+
+	/**
+	 * Whether a stored value means a ticked box.
+	 *
+	 * Airtable sends a checkbox as `true` or omits the field entirely when it is unticked, so an
+	 * absent value is a real answer here rather than missing data.
+	 *
+	 * @param mixed $value Stored value.
+	 * @return bool
+	 */
+	private static function is_ticked( $value ) {
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		return is_scalar( $value ) && in_array( strtolower( trim( (string) $value ) ), array( '1', 'true', 'yes' ), true );
+	}
 
 	/**
 	 * The contribution-team checkboxes.
@@ -1005,7 +1169,7 @@ class WPCPM_Student_Report_Form {
 		}
 
 		$program = WPCPM_Students_Sync::get_program( $student_id );
-		$fields  = self::fields( ! empty( $program['is_50h'] ) );
+		$fields  = self::fields( WPCPM_Program::track( isset( $program['program'] ) ? $program['program'] : '' ) );
 
 		$posted = isset( $_POST['report'] ) && is_array( $_POST['report'] )
 			? wp_unslash( $_POST['report'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Every value is validated by type below.
@@ -1111,6 +1275,23 @@ class WPCPM_Student_Report_Form {
 		}
 
 		$raw = trim( (string) $raw );
+
+		// A checkbox posts `1` when ticked and `0` from the hidden input when not, so both are
+		// answers and neither can be rejected. Airtable takes a real boolean.
+		if ( 'checkbox' === $type ) {
+			return array( true, '1' === $raw || 'true' === strtolower( $raw ) );
+		}
+
+		if ( 'email' === $type ) {
+			// Emptying the box clears the column, the same bargain the number fields strike.
+			if ( '' === $raw ) {
+				return array( true, '' );
+			}
+
+			$email = sanitize_email( $raw );
+
+			return is_email( $email ) ? array( true, $email ) : array( false, null );
+		}
 
 		if ( 'number' === $type ) {
 			// Emptying the box means emptying the column, and Airtable does that with `null`. An

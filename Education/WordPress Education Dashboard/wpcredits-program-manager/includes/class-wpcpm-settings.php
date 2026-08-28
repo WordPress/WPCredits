@@ -48,7 +48,7 @@ class WPCPM_Settings {
 			'teams_name_field'          => 'Contribution teams or areas',
 			'sponsors_name_field'       => 'Company Name',
 			// Students a mentor is currently mentoring.
-			'student_statuses'          => array( 'In Sensei', 'In Sensei 50h' ),
+			'student_statuses'          => array( 'In Sensei', 'In Sensei 50h', 'Developer Track' ),
 			// Students whose mentoring has finished. Shown in a separate, collapsed
 			// section rather than mixed in with the current ones.
 			'past_statuses'             => array( 'Graduate', 'Dropped out' ),

@@ -906,8 +906,34 @@
 .wpcpm-report__group > .wpcpm-field--textarea,
 .wpcpm-report__group > .wpcpm-field--richtext,
 .wpcpm-report__group > .wpcpm-field--url,
+.wpcpm-report__group > .wpcpm-field--checkbox,
 .wpcpm-report__group > .wpcpm-field--team {
 	grid-column: 1 / -1;
+}
+
+/* The consent checkbox: box first, then the sentence it agrees to, on one line. Everything else
+   in this form stacks its label above its control, which for a checkbox would read as a heading
+   with an unlabelled tick beneath it. */
+.wpcpm-report__group .wpcpm-field--checkbox {
+	align-items: baseline;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0 0.55em;
+}
+
+.wpcpm-report__group .wpcpm-field--checkbox label {
+	flex: 1 1 16em;
+	font-weight: 400;
+}
+
+/* `.wpcpm-field input` is 100% wide, which for a tick box means a box the width of the form. */
+.wpcpm-report__group .wpcpm-field--checkbox input[type="checkbox"] {
+	flex: 0 0 auto;
+	width: auto;
+}
+
+.wpcpm-report__group .wpcpm-field--checkbox .wpcpm-field__hint {
+	flex: 1 1 100%;
 }
 
 /* A pair of fields that belong together — the two contact lessons, the website and the post

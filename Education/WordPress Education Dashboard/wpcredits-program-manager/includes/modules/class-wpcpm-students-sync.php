@@ -494,6 +494,7 @@ class WPCPM_Students_Sync {
 					$fields['report_end'],
 					$fields['report_link'],
 					$fields['report_link_50h'],
+					$fields['report_link_dev'],
 				),
 				'offset'  => $state['offset'],
 			)
@@ -511,7 +512,7 @@ class WPCPM_Students_Sync {
 			};
 
 			$status  = $read( 'report_status' );
-			$is_50h  = ( false !== stripos( $status, '50h' ) );
+			$track   = WPCPM_Program::track( $status );
 			$email   = $read( 'report_email' );
 			$profile = $read( 'report_profile' );
 
@@ -526,7 +527,6 @@ class WPCPM_Students_Sync {
 				// Airtable, and the status is also what decides which reporting form
 				// applies.
 				'program'        => $status,
-				'is_50h'         => $is_50h,
 				'is_past'        => in_array( $status, $statuses['past'], true ),
 				'start'          => $read( 'report_start' ),
 				'end'            => $read( 'report_end' ),
@@ -542,7 +542,11 @@ class WPCPM_Students_Sync {
 					'teams'
 				),
 				'website'        => $read( 'report_website' ),
-				'link'           => $is_50h ? $read( 'report_link_50h' ) : $read( 'report_link' ),
+				// All three formula fields are always populated, so the track is what decides
+				// which one is this student's real link. Unknown track falls back to the
+				// 150-hour link rather than to nothing: a finished student keeps a working
+				// link to the form they filled in.
+				'link'           => $read( WPCPM_Mentors_Sync::link_field( $track ) ),
 				// Filled by the email-keyed pass over the Students table, below. Declared here so
 				// the row's shape is the same whether or not that pass found anything.
 				'tutor'          => '',

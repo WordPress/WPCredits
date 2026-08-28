@@ -29,6 +29,9 @@ class WPCPM_Program {
 	/** Airtable status for the 50-hour track. */
 	const STATUS_50H = 'In Sensei 50h';
 
+	/** Airtable status for the developer track. */
+	const STATUS_DEV = 'Developer Track';
+
 	/**
 	 * The program name for a status, or the status itself if it is not a track.
 	 *
@@ -55,6 +58,12 @@ class WPCPM_Program {
 		$labels = array(
 			self::STATUS_150H => __( 'WordPress Credits Program 150h', 'wpcredits-program-manager' ),
 			self::STATUS_50H  => __( 'WordPress Credits Program 50h', 'wpcredits-program-manager' ),
+			// Maps to itself, which is not a redundant entry: `is_track()` tests membership of
+			// this map, and that is what gates the feedback surveys and the course button. Remove
+			// the row as tidying and the surveys go quiet for this track, silently. The other two
+			// statuses are internal shorthand and need translating; this one is already the name
+			// students and mentors use, so screen and base say the same thing.
+			self::STATUS_DEV  => __( 'Developer Track', 'wpcredits-program-manager' ),
 		);
 
 		/**
@@ -87,6 +96,7 @@ class WPCPM_Program {
 		$courses = array(
 			self::STATUS_150H => 'https://learn.wordpress.org/course/wordpress-credits/',
 			self::STATUS_50H  => 'https://learn.wordpress.org/course/50-hours-wordpress-credits/',
+			self::STATUS_DEV  => 'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
 		);
 
 		/**
@@ -98,12 +108,36 @@ class WPCPM_Program {
 	}
 
 	/**
-	 * Whether a status is one of the two tracks, as opposed to a finished state.
+	 * Whether a status is one of the tracks, as opposed to a finished state.
 	 *
 	 * @param string $status Airtable status.
 	 * @return bool
 	 */
 	public static function is_track( $status ) {
 		return isset( self::labels()[ trim( (string) $status ) ] );
+	}
+
+	/**
+	 * Which track a status is, as a short key.
+	 *
+	 * **This replaced an `is_50h` boolean carried on every synced row.** Two tracks fit a boolean;
+	 * three do not, and a second flag beside the first would give four states for three tracks with
+	 * "both true" representable and meaningless. The status is already stored on every row by both
+	 * syncs, and the boolean was derived from it anyway — so the track is derived where it is
+	 * needed and nothing has to be kept in step. A fourth track is one entry in this map.
+	 *
+	 * @param string $status Airtable status.
+	 * @return string `150h`, `50h`, `dev`, or an empty string for a finished state.
+	 */
+	public static function track( $status ) {
+		$tracks = array(
+			self::STATUS_150H => '150h',
+			self::STATUS_50H  => '50h',
+			self::STATUS_DEV  => 'dev',
+		);
+
+		$status = trim( (string) $status );
+
+		return isset( $tracks[ $status ] ) ? $tracks[ $status ] : '';
 	}
 }

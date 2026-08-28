@@ -817,7 +817,6 @@ class WPCPM_Mentors_Dashboard {
 
 		$name        = $get( 'name' );
 		$status      = $get( 'status' );
-		$is_50h      = ! empty( $mentee['is_50h'] );
 		$institution = WPCPM_Mentors_Sync::resolve_stored( $get( 'institution' ), 'institutions' );
 		$team        = WPCPM_Mentors_Sync::resolve_stored( $get( 'team' ), 'teams' );
 
@@ -849,9 +848,13 @@ class WPCPM_Mentors_Dashboard {
 		echo '<div class="wpcpm-mentee__identity">';
 		echo '<h3 class="wpcpm-mentee__name">' . esc_html( $name ? $name : __( 'Unnamed student', 'wpcredits-program-manager' ) ) . '</h3>';
 		if ( '' !== $status ) {
+			// The modifier is the track, so a third one is a third class rather than a second
+			// boolean. A finished student has no track and keeps the plain badge.
+			$track = WPCPM_Program::track( $status );
+
 			printf(
 				'<span class="wpcpm-badge wpcpm-badge--%1$s">%2$s</span>',
-				esc_attr( $is_50h ? '50h' : 'sensei' ),
+				esc_attr( '' === $track ? 'sensei' : ( '150h' === $track ? 'sensei' : $track ) ),
 				esc_html( WPCPM_Program::label( $status ) )
 			);
 		}

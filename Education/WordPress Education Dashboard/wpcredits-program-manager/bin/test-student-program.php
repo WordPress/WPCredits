@@ -502,6 +502,70 @@ $done = array( 'phase' => 'done', 'cursor' => 0, 'started' => time() - 600, 'tou
 
 ck( 'a finished run does not block the next one', restarted( $done ), true );
 
+echo "\n=== The three tracks ===\n";
+
+// `is_50h` was a boolean carried on every synced row until 1.61.0. Three tracks do not fit one, and
+// a second flag beside it would have made "both true" representable. The track is derived from the
+// status both syncs already store, so these are the only three places it can be wrong.
+
+foreach ( array(
+	'In Sensei'     => '150h',
+	'In Sensei 50h' => '50h',
+	'Developer Track' => 'dev',
+) as $status => $want ) {
+	ck( sprintf( '%s is the %s track', $status, $want ), WPCPM_Program::track( $status ), $want );
+	ck( sprintf( '%s is a track', $status ), WPCPM_Program::is_track( $status ), true );
+	ck( sprintf( '%s has a course', $status ), '' !== WPCPM_Program::course_url( $status ), true );
+}
+
+// A finished student is in a *state*, not on a track, and putting a course button on somebody who
+// has graduated is the reason that distinction exists.
+foreach ( array( 'Graduate', 'Dropped out', 'Paused', 'Fail', '', 'Something new in Airtable' ) as $status ) {
+	ck( sprintf( '%s is on no track', '' === $status ? '(empty)' : $status ), WPCPM_Program::track( $status ), '' );
+	ck( sprintf( '%s is not a track', '' === $status ? '(empty)' : $status ), WPCPM_Program::is_track( $status ), false );
+}
+
+// The status passes through as its own label rather than being invented, so an unknown status shows
+// what Airtable says instead of a blank.
+ck( 'an unknown status is its own label', WPCPM_Program::label( 'Something new' ), 'Something new' );
+
+// Whitespace is what a copy-paste into Airtable leaves behind.
+ck( 'a padded status still resolves', WPCPM_Program::track( '  Developer Track  ' ), 'dev' );
+
+// The developer track shows the name the base uses, so screen and base agree.
+ck( 'the developer track is named after its status',
+    WPCPM_Program::label( 'Developer Track' ), 'Developer Track' );
+
+// **The labels map is what `is_track()` tests**, which is what gates the feedback surveys. Losing
+// the entry would turn them off for this track without any other symptom.
+ck( 'and is in the labels map, which is what gates the surveys',
+    isset( WPCPM_Program::labels()['Developer Track'] ), true );
+
+// Reading the wrong formula column gives a working link to the wrong form — a failure that looks
+// like success until a student fills in another track's questions.
+ck( 'each track reads its own reporting-form link',
+    array(
+        WPCPM_Mentors_Sync::link_field( '150h' ),
+        WPCPM_Mentors_Sync::link_field( '50h' ),
+        WPCPM_Mentors_Sync::link_field( 'dev' ),
+    ),
+    array( 'report_link', 'report_link_50h', 'report_link_dev' ) );
+
+ck( 'and a finished student keeps the 150-hour one', WPCPM_Mentors_Sync::link_field( '' ), 'report_link' );
+
+// The three link columns have to be named the same way in both places, or the sync asks Airtable
+// for a field that does not exist and the link comes back empty.
+$names = WPCPM_Mentors_Sync::fields();
+
+ck( 'and all three link fields are named',
+    array( $names['report_link'], $names['report_link_50h'], $names['report_link_dev'] ),
+    array( 'Personal link', '50h personal link', 'Dev Track ONLY personal link' ) );
+
+// Without the status in this list the sync's Airtable formula never asks for those students, and
+// the whole track looks broken while every line of code is right.
+ck( 'the developer track is one of the statuses the sync fetches',
+    in_array( 'Developer Track', WPCPM_Settings::defaults()['student_statuses'], true ), true );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

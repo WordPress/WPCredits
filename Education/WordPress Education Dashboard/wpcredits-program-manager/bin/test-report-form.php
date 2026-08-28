@@ -53,6 +53,10 @@ function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_url( $s ) { return $s; }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+// Close enough to WordPress's own for what is asserted here: strip what an address cannot contain,
+// then answer whether what is left is one.
+function sanitize_email( $s ) { return trim( preg_replace( '/[^a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~@\-]/', '', (string) $s ) ); }
+function is_email( $s ) { return (bool) filter_var( (string) $s, FILTER_VALIDATE_EMAIL ); }
 function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
@@ -197,7 +201,7 @@ $sensei_expected = array(
 	'Intermediate Theme Developer',
 	'Beginner WordPress Designer',
 	'Main Contribution Team',
-	'Contribution Project Description',
+	'Contribution Project Summary',
 	'Personal Website URL',
 	'Post Reflection: Building Your Personal Website',
 	'Slack/GitHub/Blog WordPress Community meetings/discussions',
@@ -216,14 +220,14 @@ $fifty_expected = array(
 	'How decisions are made in the WordPress project - final grade',
 	'Basic principles of conflict resolution - final grade',
 	'Main Contribution Team',
-	'Contribution Project Description',
+	'Contribution Project Summary',
 	'Slack/GitHub/Blog WordPress Community meetings/discussions',
 	'Final Contribution Project Report',
 	'Personal Website URL',
 );
 
-$sensei = array_keys( WPCPM_Student_Report_Form::fields( false ) );
-$fifty  = array_keys( WPCPM_Student_Report_Form::fields( true ) );
+$sensei = array_keys( WPCPM_Student_Report_Form::fields( '150h' ) );
+$fifty  = array_keys( WPCPM_Student_Report_Form::fields( '50h' ) );
 
 sort( $sensei );
 sort( $fifty );
@@ -244,8 +248,8 @@ ck( 'contribution teams are on the report form, on both tracks',
     array( true, true ) );
 
 // It heads the Project section on both, which is where the Airtable form asks it.
-$sensei_specs = WPCPM_Student_Report_Form::fields( false );
-$fifty_specs  = WPCPM_Student_Report_Form::fields( true );
+$sensei_specs = WPCPM_Student_Report_Form::fields( '150h' );
+$fifty_specs  = WPCPM_Student_Report_Form::fields( '50h' );
 
 ck( 'and sits in the project group',
     array( $sensei_specs['Main Contribution Team']['group'], $fifty_specs['Main Contribution Team']['group'] ),
@@ -258,8 +262,8 @@ $order = static function ( array $specs, $name ) {
 
 ck( 'above the project description, on both tracks',
     array(
-        $order( $sensei_specs, 'Main Contribution Team' ) < $order( $sensei_specs, 'Contribution Project Description' ),
-        $order( $fifty_specs, 'Main Contribution Team' ) < $order( $fifty_specs, 'Contribution Project Description' ),
+        $order( $sensei_specs, 'Main Contribution Team' ) < $order( $sensei_specs, 'Contribution Project Summary' ),
+        $order( $fifty_specs, 'Main Contribution Team' ) < $order( $fifty_specs, 'Contribution Project Summary' ),
     ),
     array( true, true ) );
 
@@ -357,10 +361,10 @@ echo "\n=== Every field belongs to a group ===\n";
 // nowhere — invisible on the page and impossible to fill in, with nothing to show it went missing.
 $groups = array_keys( WPCPM_Student_Report_Form::groups() );
 
-foreach ( array( 'In Sensei' => false, 'In Sensei 50h' => true ) as $label => $is_50h ) {
+foreach ( array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev' ) as $label => $track ) {
 	$orphans = array();
 
-	foreach ( WPCPM_Student_Report_Form::fields( $is_50h ) as $name => $spec ) {
+	foreach ( WPCPM_Student_Report_Form::fields( $track ) as $name => $spec ) {
 		if ( ! isset( $spec['group'] ) || ! in_array( $spec['group'], $groups, true ) ) {
 			$orphans[] = $name;
 		}
@@ -371,7 +375,7 @@ foreach ( array( 'In Sensei' => false, 'In Sensei 50h' => true ) as $label => $i
 
 // A group with a legend but no fields would draw an empty box.
 ck( 'the 50h form has no reflection posts group',
-    count( array_filter( WPCPM_Student_Report_Form::fields( true ), static function ( $spec ) { return 'posts' === $spec['group']; } ) ),
+    count( array_filter( WPCPM_Student_Report_Form::fields( '50h' ), static function ( $spec ) { return 'posts' === $spec['group']; } ) ),
     0 );
 
 echo "\n=== Numbers: cleared is not the same as rejected ===\n";
@@ -411,7 +415,7 @@ echo "\n=== Form keys ===\n";
 // stable and survive a round trip through a form.
 $keys = array();
 
-foreach ( array_keys( WPCPM_Student_Report_Form::fields( false ) ) as $name ) {
+foreach ( array_keys( WPCPM_Student_Report_Form::fields( '150h' ) ) as $name ) {
 	$keys[] = WPCPM_Student_Report_Form::key( $name );
 }
 
@@ -506,6 +510,107 @@ ck( 'and still has its save button',      false !== strpos( $edit, 'Save my repo
 preg_match_all( '/<(input|textarea)\b[^>]*/', $edit, $m2 );
 
 ck( 'and nothing in it is disabled', count( preg_grep( '/disabled/', $m2[0] ) ), 0 );
+
+echo "\n=== Every field name is a real Airtable column ===\n";
+
+// **This is the check that was missing.** The form read and wrote
+// `Contribution Project Description` for both tracks until 1.61.0; the base's column is
+// `Contribution Project Summary`, so that answer neither loaded nor saved, silently, for as long
+// as the field existed. Nothing in the code could notice: a field name is just a string until
+// Airtable sees it.
+//
+// The fixture is the table's field list, read from the metadata API. It has to be refreshed when
+// the table changes, which is the point — a rename in Airtable should break a test here rather
+// than a student's report there.
+$fixture = json_decode( file_get_contents( __DIR__ . '/fixtures/reports-table-fields.json' ), true );
+$real    = isset( $fixture['fields'] ) ? $fixture['fields'] : array();
+
+ck( 'the fixture loaded', count( $real ) > 40, true );
+
+// Trailing spaces are real. `Company ` has one in the base, and trimming the fixture would hide
+// exactly the class of bug it exists to catch.
+ck( 'and keeps the trailing space on "Company "', in_array( 'Company ', $real, true ), true );
+
+foreach ( array( '150h', '50h', 'dev' ) as $track ) {
+	$unknown = array_values( array_diff( array_keys( WPCPM_Student_Report_Form::fields( $track ) ), $real ) );
+
+	ck( sprintf( 'every %s field name exists in Airtable', $track ), $unknown, array() );
+}
+
+echo "\n=== Developer Track ===\n";
+
+$dev = WPCPM_Student_Report_Form::fields( 'dev' );
+$one = WPCPM_Student_Report_Form::fields( '150h' );
+
+// Asserted as a set relation rather than a field list, so it keeps holding when either form
+// changes. The base says the dev view is a superset of the 150-hour one; this says the code agrees.
+ck( 'the dev form is a superset of the 150-hour form',
+    array_values( array_diff( array_keys( $one ), array_keys( $dev ) ) ), array() );
+
+$added = array_values( array_diff( array_keys( $dev ), array_keys( $one ) ) );
+sort( $added );
+
+$want = array(
+	'Alumni program: mentoring opt-in',
+	'Alumni program: personal email',
+	'Contributing beyond WP Credits',
+	'Developer Basics: modules completed',
+	'Developer basics: Optional modules taken',
+	'Optional: Additional Contribution Project Summary',
+	'Patch Testing: Trac ticket comments',
+);
+
+ck( 'and adds exactly the seven developer fields', $added, $want );
+
+// `Email` is the account's identity and the key both syncs join on. A student who could edit it
+// would detach their own record from their account.
+ck( 'the email column is not a form field', isset( $dev['Email'] ), false );
+
+// Field 27 of the Airtable view, `Post Reflection: Choosing Your Team and Project copy`, is left
+// out pending confirmation that it is not just a duplicated field. See docs/specs/.
+ck( 'the duplicated reflection field is left out',
+    isset( $dev['Post Reflection: Choosing Your Team and Project copy'] ), false );
+
+$at = static function ( array $specs, $name ) {
+	return array_search( $name, array_keys( $specs ), true );
+};
+
+// Order inside a group is this array's order, and `insert_after()` is what puts each new field
+// where the Airtable view has it. A renamed anchor would silently append instead, so the positions
+// are asserted rather than the call.
+ck( 'the developer modules follow the user levels',
+    $at( $dev, 'Developer Basics: modules completed' ) === $at( $dev, 'Advance WordPress User - final grade' ) + 1, true );
+
+ck( 'patch testing follows the developer courses',
+    $at( $dev, 'Patch Testing: Trac ticket comments' ) === $at( $dev, 'Beginner WordPress Designer' ) + 1, true );
+
+ck( 'the second project summary follows the first',
+    $at( $dev, 'Optional: Additional Contribution Project Summary' ) === $at( $dev, 'Contribution Project Summary' ) + 1, true );
+
+ck( 'the alumni questions are in the wrap-up',
+    array( $dev['Alumni program: personal email']['group'], $dev['Alumni program: mentoring opt-in']['group'], $dev['Contributing beyond WP Credits']['group'] ),
+    array( 'wrapup', 'wrapup', 'wrapup' ) );
+
+// The consent label has to say what is being agreed to. "Alumni program: mentoring opt-in" is a
+// column name, not a question a person can answer.
+ck( 'the consent checkbox says what it is consenting to',
+    false !== stripos( $dev['Alumni program: mentoring opt-in']['label'], 'mentoring' )
+        && false !== stripos( $dev['Alumni program: mentoring opt-in']['label'], 'happy to be contacted' ), true );
+
+echo "\n=== The email and checkbox controls ===\n";
+
+$email_spec = array( 'label' => 'An email', 'type' => 'email' );
+$check_spec = array( 'label' => 'A tick', 'type' => 'checkbox' );
+
+ck( 'a valid address is kept',   clean( 'someone@example.com', $email_spec ), array( true, 'someone@example.com' ) );
+ck( 'whitespace around it goes', clean( '  someone@example.com  ', $email_spec ), array( true, 'someone@example.com' ) );
+ck( 'an empty box clears it',    clean( '', $email_spec ), array( true, '' ) );
+ck( 'a malformed address is rejected, not stored', clean( 'not-an-address', $email_spec ), array( false, null ) );
+
+// Airtable takes a real boolean here, and both directions have to be answers: the hidden `0` the
+// form posts beside the box is what makes unticking reach the base at all.
+ck( 'a ticked box is true',   clean( '1', $check_spec ), array( true, true ) );
+ck( 'an unticked box is false, not nothing', clean( '0', $check_spec ), array( true, false ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

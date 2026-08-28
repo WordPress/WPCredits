@@ -155,6 +155,7 @@ class WPCPM_Mentors_Sync {
 				'report_end'        => 'Internship End Date',
 				'report_link'       => 'Personal link',
 				'report_link_50h'   => '50h personal link',
+				'report_link_dev'   => 'Dev Track ONLY personal link',
 				// Students table, for the tutor join.
 				'student_email'     => 'Email',
 				'student_tutor'     => 'Tutor ',
@@ -165,6 +166,29 @@ class WPCPM_Mentors_Sync {
 				'student_access'    => 'Accessibility needs',
 			)
 		);
+	}
+
+	/**
+	 * Which `fields()` key holds a track's reporting-form link.
+	 *
+	 * The three formula columns are all populated on every record, so reading the wrong one gives a
+	 * working link to the wrong form — a failure that looks like success until a student fills in
+	 * somebody else's questions. Hence a map rather than a conditional.
+	 *
+	 * A finished student has no track. They keep the 150-hour link, which is the form most of them
+	 * filled in, rather than no link at all.
+	 *
+	 * @param string $track Track key from `WPCPM_Program::track()`.
+	 * @return string A key of `fields()`.
+	 */
+	public static function link_field( $track ) {
+		$links = array(
+			'150h' => 'report_link',
+			'50h'  => 'report_link_50h',
+			'dev'  => 'report_link_dev',
+		);
+
+		return isset( $links[ $track ] ) ? $links[ $track ] : 'report_link';
 	}
 
 	/**
@@ -1273,6 +1297,7 @@ class WPCPM_Mentors_Sync {
 			$fields['report_end'],
 			$fields['report_link'],
 			$fields['report_link_50h'],
+			$fields['report_link_dev'],
 		);
 
 		$statuses = self::tracked_statuses( $settings );
@@ -1306,15 +1331,11 @@ class WPCPM_Mentors_Sync {
 			$profile = WPCPM_Airtable::flatten( isset( $cells[ $fields['report_profile'] ] ) ? $cells[ $fields['report_profile'] ] : '' );
 			$email   = WPCPM_Airtable::flatten( isset( $cells[ $fields['report_email'] ] ) ? $cells[ $fields['report_email'] ] : '' );
 
-			// "In Sensei" students get the standard reporting form; the 50-hour
-			// track gets its own. Both formula fields are always populated, so the
-			// status is what decides which one is the student's real link.
-			$is_50h = ( false !== stripos( $status, '50h' ) );
-			$link   = WPCPM_Airtable::flatten(
-				$is_50h
-					? ( isset( $cells[ $fields['report_link_50h'] ] ) ? $cells[ $fields['report_link_50h'] ] : '' )
-					: ( isset( $cells[ $fields['report_link'] ] ) ? $cells[ $fields['report_link'] ] : '' )
-			);
+			// Each track has its own reporting form. All three formula fields are always
+			// populated, so the status is what decides which one is the student's real link.
+			$track = WPCPM_Program::track( $status );
+			$key   = $fields[ self::link_field( $track ) ];
+			$link  = WPCPM_Airtable::flatten( isset( $cells[ $key ] ) ? $cells[ $key ] : '' );
 
 			$row = array(
 				'record_id'      => isset( $record['id'] ) ? (string) $record['id'] : '',
@@ -1322,7 +1343,6 @@ class WPCPM_Mentors_Sync {
 				'email'          => $email,
 				'email_key'      => strtolower( trim( $email ) ),
 				'status'         => $status,
-				'is_50h'         => $is_50h,
 				'is_past'        => in_array( $status, $statuses['past'], true ),
 				'start'          => WPCPM_Airtable::flatten( isset( $cells[ $fields['report_start'] ] ) ? $cells[ $fields['report_start'] ] : '' ),
 				'end'            => WPCPM_Airtable::flatten( isset( $cells[ $fields['report_end'] ] ) ? $cells[ $fields['report_end'] ] : '' ),

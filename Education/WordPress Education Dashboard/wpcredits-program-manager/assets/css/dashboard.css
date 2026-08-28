@@ -294,6 +294,13 @@
 	border-color: rgba( 56, 88, 233, 0.35 );
 }
 
+/* Teal, which is the colour Airtable gives the Developer Track choice — so a mentor scanning the
+   list sees the same colour they see in the base. */
+.wpcpm-badge--dev {
+	background: rgba( 13, 148, 136, 0.12 );
+	border-color: rgba( 13, 148, 136, 0.35 );
+}
+
 /* Details table: field and value. */
 .wpcpm-mentee__table {
 	border-collapse: collapse;
