@@ -298,6 +298,113 @@ ck( 'and it drains to empty', array( count( $GLOBALS['invited'] ), WPCPM_Mail::q
 ck( 'everybody drained is stamped as invited',
     array( (int) get_user_meta( 105, 'wpcpm_student_invited', true ) > 0 ), array( true ) );
 
+/* ---- bulk invitations --------------------------------------------------- */
+
+echo "\n=== Bulk invitations ===\n";
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited'] = array();
+
+$bulk = range( 200, 240 );
+
+foreach ( $bulk as $id ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, 'Student ' . $id, "b$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+}
+
+$added = WPCPM_Mail::queue_invites( $bulk );
+
+ck( 'everybody named is queued', array( $added, WPCPM_Mail::queued() ), array( 41, 41 ) );
+
+// The run is what makes progress reportable: the queue alone only knows who is left, so a screen
+// reading it could say "31 waiting" but never "10 of 41 sent".
+$run = WPCPM_Mail::run();
+
+ck( 'and the run records what it started with', $run['total'], 41 );
+ck( 'and is not finished yet', $run['finished'], 0 );
+
+WPCPM_Mail::drain_queue();
+
+$run = WPCPM_Mail::run();
+
+ck( 'progress is the total less what is left',
+    $run['total'] - WPCPM_Mail::queued(), WPCPM_Mail::QUEUE_BATCH );
+
+ck( 'and the run stays open while there is more to send', WPCPM_Mail::run()['finished'], 0 );
+
+// **Pressing the button twice must not send twice.** The second press adds only people the first
+// did not already queue.
+$again = WPCPM_Mail::queue_invites( $bulk );
+
+ck( 'queueing the same people again adds nobody', $again, 0 );
+
+foreach ( range( 1, 5 ) as $ignored ) {
+	WPCPM_Mail::drain_queue();
+}
+
+ck( 'it drains to empty', array( count( $GLOBALS['invited'] ), WPCPM_Mail::queued() ), array( 41, 0 ) );
+
+// Kept rather than deleted, so the screen can say what happened instead of the card vanishing.
+ck( 'and the run is then marked finished', WPCPM_Mail::run()['finished'] > 0, true );
+ck( 'while still remembering the total', WPCPM_Mail::run()['total'], 41 );
+
+WPCPM_Mail::dismiss_run();
+ck( 'dismissing forgets it', WPCPM_Mail::run(), array() );
+
+// The abort. Batches already sent cannot be recalled; the rest can, and that is the only remedy
+// that exists after the mistake rather than before it.
+//
+// A fresh range, because everybody in `$bulk` now carries an invited stamp and `queue_invites()`
+// refuses those — which is the previous assertion, from the other side.
+WPCPM_Mail::clear_queue();
+$GLOBALS['invited'] = array();
+$abort = range( 300, 340 );
+
+foreach ( $abort as $id ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, 'Student ' . $id, "a$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+}
+
+WPCPM_Mail::queue_invites( $abort );
+WPCPM_Mail::drain_queue();
+$sent_before_stop = count( $GLOBALS['invited'] );
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::drain_queue();
+
+ck( 'stopping sends nothing further',
+    array( $sent_before_stop, count( $GLOBALS['invited'] ) ),
+    array( WPCPM_Mail::QUEUE_BATCH, WPCPM_Mail::QUEUE_BATCH ) );
+
+// An empty list must not open a run, or the screen reports on a send that never happened.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
+ck( 'queueing nobody starts no run', array( WPCPM_Mail::queue_invites( array() ), WPCPM_Mail::run() ), array( 0, array() ) );
+
+// Zeroes and repeats are what a hand-built list of IDs arrives with.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
+foreach ( array( 401, 402 ) as $id ) {
+	$GLOBALS['users'][ $id ] = new WP_User( $id, 'Student ' . $id, "d$id@example.test", array( WPCPM_Roles::ROLE_STUDENT ) );
+}
+
+ck( 'duplicates and empty IDs are dropped',
+    array( WPCPM_Mail::queue_invites( array( 401, 401, 0, '', 402 ) ), WPCPM_Mail::queued() ),
+    array( 2, 2 ) );
+
+// The other half of the guard: somebody already sent to is not queued again, whichever stamp
+// they carry.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['users'][ 500 ] = new WP_User( 500, 'Sent already', 'sent@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+update_user_meta( 500, 'wpcpm_mentor_invited', time() );
+
+ck( 'somebody already invited is never queued again',
+    array( WPCPM_Mail::queue_invites( array( 500 ) ), WPCPM_Mail::queued() ), array( 0, 0 ) );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
 /* ---- the welcome email -------------------------------------------------- */
 
 echo "\n=== The invitation template ===\n";

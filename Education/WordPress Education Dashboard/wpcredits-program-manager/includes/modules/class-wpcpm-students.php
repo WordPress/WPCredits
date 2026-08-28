@@ -20,6 +20,9 @@ class WPCPM_Students extends WPCPM_Module {
 	const ACTION_SYNC   = 'wpcpm_students_sync';
 	const ACTION_CANCEL = 'wpcpm_students_cancel';
 	const ACTION_INVITE = 'wpcpm_students_invite';
+
+	/** Admin-post action for inviting everybody who has never been invited. */
+	const ACTION_BULK = 'wpcpm_students_bulk_invite';
 	const ACTION_TICK   = 'wpcpm_students_tick';
 
 	/**
@@ -79,6 +82,7 @@ class WPCPM_Students extends WPCPM_Module {
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_INVITE, array( $this, 'handle_invite' ) );
+		add_action( 'admin_post_' . self::ACTION_BULK, array( $this, 'handle_bulk_invite' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
 	}
 
@@ -176,6 +180,27 @@ class WPCPM_Students extends WPCPM_Module {
 	}
 
 	/**
+	 * Queue an invitation for everybody who has never had one.
+	 *
+	 * Queued rather than sent here: `send_invite()` sends immediately, which is right for one row
+	 * and would time out somewhere in the middle of two hundred. The queue is drained by cron a
+	 * batch at a time, which is what it was built for.
+	 */
+	public function handle_bulk_invite() {
+		$this->verify( self::ACTION_BULK );
+
+		$pending = WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_STUDENT, 'wpcpm_student_invited' );
+
+		if ( empty( $pending ) ) {
+			$this->redirect_back( 'invites-none' );
+		}
+
+		WPCPM_Mail::queue_invites( $pending );
+
+		$this->redirect_back( 'invites-queued' );
+	}
+
+	/**
 	 * Capability and nonce check.
 	 *
 	 * @param string $action Nonce action.
@@ -217,6 +242,9 @@ class WPCPM_Students extends WPCPM_Module {
 			'started'   => array( 'success', __( 'Sync started — progress is shown below and updates as it runs.', 'wpcredits-program-manager' ) ),
 			'cancelled' => array( 'info', __( 'Sync canceled.', 'wpcredits-program-manager' ) ),
 			'invited'   => array( 'success', __( 'Invitation email sent.', 'wpcredits-program-manager' ) ),
+			'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background — the progress is shown below.', 'wpcredits-program-manager' ) ),
+			'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
+			'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
 			'error'     => array( 'error', __( 'That action could not be completed.', 'wpcredits-program-manager' ) ),
 		);
 
@@ -263,6 +291,14 @@ class WPCPM_Students extends WPCPM_Module {
 	 * @param int   $last     Timestamp of the last completed run.
 	 */
 	private function render_sync_panel( array $progress, $last ) {
+		WPCPM_Mail::render_invite_card(
+			array(
+				'action'  => self::ACTION_BULK,
+				'pending' => WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_STUDENT, 'wpcpm_student_invited' ),
+				'noun'    => __( 'students', 'wpcredits-program-manager' ),
+			)
+		);
+
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Airtable sync', 'wpcredits-program-manager' ) . '</h2>';
 

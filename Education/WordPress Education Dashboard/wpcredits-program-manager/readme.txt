@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.61.0
+Stable tag: 1.62.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.62.0 =
+* Adds a bulk invitation to the Students and Mentors screens: one button that invites everybody who has never been invited, with the count in the button so nobody presses it without reading how many people it reaches.
+* The sending is reported as it goes — a progress bar, how many of how many have gone out, and when the next batch is due — because at ten every two minutes a few hundred invitations take the better part of an hour, and a screen that says nothing invites a second press.
+* A Stop button cancels whatever is left. Messages already sent cannot be recalled; the rest can.
+* Anybody already invited is skipped, in the queue itself and not only by the screen that fills it, so the button is safe to press twice.
 
 = 1.61.0 =
 * Adds the **Developer Track** as a third program, from the `Developer Track` status in Airtable. It has its own report form — the 150-hour form plus seven fields — its own Learn WordPress course, and its own reporting-form link.

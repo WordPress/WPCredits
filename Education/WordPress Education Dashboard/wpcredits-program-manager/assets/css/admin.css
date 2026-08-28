@@ -271,3 +271,38 @@
 	font-size: 13px;
 	padding-top: 8px;
 }
+
+/* -------------------------------------------------------------------------
+ * Bulk invitations
+ *
+ * The card that sends invitations to everybody who has never had one, and then
+ * reports on the sending — which takes the better part of an hour at ten every
+ * two minutes, so the reporting is most of the point.
+ * ---------------------------------------------------------------------- */
+.wpcpm-invites__count {
+	margin: 0 0 8px;
+}
+
+/* Not `.wpcpm-progress`: that class already dresses the sync screen's step list,
+   and a bar borrowing it would inherit that layout. */
+.wpcpm-invites__bar {
+	background: #f0f0f1;
+	border-radius: 999px;
+	height: 8px;
+	margin: 0 0 8px;
+	overflow: hidden;
+}
+
+.wpcpm-invites__bar > span {
+	background: #3858e9;
+	display: block;
+	height: 100%;
+	/* The count only moves when the page comes back, so the fill is animated to
+	   show that the last step was progress rather than a redraw. */
+	transition: width 0.4s ease;
+}
+
+.wpcpm-invites form {
+	display: inline-block;
+	margin: 0 12px 0 0;
+}

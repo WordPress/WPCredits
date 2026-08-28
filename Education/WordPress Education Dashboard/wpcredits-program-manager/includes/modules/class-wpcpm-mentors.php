@@ -20,6 +20,9 @@ class WPCPM_Mentors extends WPCPM_Module {
 	const ACTION_SYNC   = 'wpcpm_mentors_sync';
 	const ACTION_CANCEL = 'wpcpm_mentors_cancel';
 	const ACTION_INVITE = 'wpcpm_mentors_invite';
+
+	/** Admin-post action for inviting everybody who has never been invited. */
+	const ACTION_BULK = 'wpcpm_mentors_bulk_invite';
 	const ACTION_TICK   = 'wpcpm_mentors_tick';
 
 	/**
@@ -82,6 +85,7 @@ class WPCPM_Mentors extends WPCPM_Module {
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_INVITE, array( $this, 'handle_invite' ) );
+		add_action( 'admin_post_' . self::ACTION_BULK, array( $this, 'handle_bulk_invite' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
 	}
 
@@ -200,6 +204,27 @@ class WPCPM_Mentors extends WPCPM_Module {
 	}
 
 	/**
+	 * Queue an invitation for every mentor who has never had one.
+	 *
+	 * Queued rather than sent here: `send_invite()` sends immediately, which is right for one row
+	 * and would time out somewhere in the middle of two hundred. The queue is drained by cron a
+	 * batch at a time, which is what it was built for.
+	 */
+	public function handle_bulk_invite() {
+		$this->verify( self::ACTION_BULK );
+
+		$pending = WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_MENTOR, 'wpcpm_mentor_invited' );
+
+		if ( empty( $pending ) ) {
+			$this->redirect_back( 'invites-none' );
+		}
+
+		WPCPM_Mail::queue_invites( $pending );
+
+		$this->redirect_back( 'invites-queued' );
+	}
+
+	/**
 	 * Capability and nonce check shared by the admin actions.
 	 *
 	 * @param string $action Action name, used as the nonce action.
@@ -285,6 +310,9 @@ class WPCPM_Mentors extends WPCPM_Module {
 			'started'   => array( 'success', __( 'Sync started — progress is shown below and updates as it runs.', 'wpcredits-program-manager' ) ),
 			'cancelled' => array( 'info', __( 'Sync canceled.', 'wpcredits-program-manager' ) ),
 			'invited'   => array( 'success', __( 'Invitation email sent.', 'wpcredits-program-manager' ) ),
+			'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background — the progress is shown below.', 'wpcredits-program-manager' ) ),
+			'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
+			'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
 			'error'     => array( 'error', __( 'That action could not be completed. See the error below.', 'wpcredits-program-manager' ) ),
 		);
 
@@ -306,6 +334,14 @@ class WPCPM_Mentors extends WPCPM_Module {
 	 * @param int   $last     Timestamp of the last completed sync.
 	 */
 	private function render_sync_panel( array $progress, $last ) {
+		WPCPM_Mail::render_invite_card(
+			array(
+				'action'  => self::ACTION_BULK,
+				'pending' => WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_MENTOR, 'wpcpm_mentor_invited' ),
+				'noun'    => __( 'mentors', 'wpcredits-program-manager' ),
+			)
+		);
+
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Airtable sync', 'wpcredits-program-manager' ) . '</h2>';
 

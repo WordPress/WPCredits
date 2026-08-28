@@ -42,8 +42,24 @@ class WPCPM_Mail {
 	/** Invitations sent per cron run. */
 	const QUEUE_BATCH = 10;
 
+	/**
+	 * What a bulk invite is working through, so a screen can show progress.
+	 *
+	 * The queue only knows who is *left*. Sending 241 invitations ten at a time takes the better
+	 * part of an hour, and a screen that can only say "231 waiting" leaves somebody with no idea
+	 * whether anything is happening — which is how a bulk send gets pressed twice. Holding the
+	 * total it started with turns that into "10 of 241 sent".
+	 */
+	const RUN_OPTION = 'wpcpm_invite_run';
+
 	/** Admin-post action for the sample send. */
 	const ACTION_TEST = 'wpcpm_send_test_mail';
+
+	/** Admin-post action that cancels whatever is left of a bulk invite. */
+	const ACTION_STOP = 'wpcpm_stop_invites';
+
+	/** Admin-post action that clears a finished run from the screen. */
+	const ACTION_DISMISS = 'wpcpm_dismiss_invite_run';
 
 	/**
 	 * What is currently being sent, if it is ours.
@@ -64,6 +80,8 @@ class WPCPM_Mail {
 		add_filter( 'wp_new_user_notification_email', array( __CLASS__, 'welcome_email' ), 10, 3 );
 		add_action( self::CRON_QUEUE, array( __CLASS__, 'drain_queue' ) );
 		add_action( 'admin_post_' . self::ACTION_TEST, array( __CLASS__, 'handle_test' ) );
+		add_action( 'admin_post_' . self::ACTION_STOP, array( __CLASS__, 'handle_stop' ) );
+		add_action( 'admin_post_' . self::ACTION_DISMISS, array( __CLASS__, 'handle_dismiss' ) );
 
 		// The outcome, rather than the attempt. `wp_mail()` returns a boolean that says
 		// whether the message was accepted for delivery; these two hooks carry the same
@@ -329,6 +347,93 @@ class WPCPM_Mail {
 	}
 
 	/**
+	 * Queue invitations for people who have never had one, and start a run the screen can report on.
+	 *
+	 * Not a loop over `queue_invite()`: that would write the option once per person, and 241 writes
+	 * of a growing array is a lot of work to do inside one admin request.
+	 *
+	 * **Anyone already invited is dropped here, not only by the caller.** The screen builds its
+	 * list from `never_invited()`, so in practice the two agree — but the list is built when the
+	 * page renders and acted on when the button is pressed, and a batch can go out in between. The
+	 * caller being careful is not the same as the send being safe, and this is the send.
+	 *
+	 * That makes this the wrong function for a deliberate re-invitation. There is one of those
+	 * already: `send_invite()`, behind Resend invite on a person's row, which is one message to one
+	 * named person rather than a few hundred at once.
+	 *
+	 * @param int[] $user_ids Users to invite.
+	 * @return int How many were added, after dropping duplicates, anyone queued, and anyone sent to.
+	 */
+	public static function queue_invites( array $user_ids ) {
+		$queue = self::queue();
+		$ids   = array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) );
+		$fresh = array();
+
+		foreach ( array_diff( $ids, $queue ) as $id ) {
+			// Either stamp: this does not need to know which kind of person it is looking at, and
+			// an account holding both roles has still been written to either way.
+			if ( get_user_meta( $id, 'wpcpm_student_invited', true ) || get_user_meta( $id, 'wpcpm_mentor_invited', true ) ) {
+				continue;
+			}
+
+			$fresh[] = $id;
+		}
+
+		if ( empty( $fresh ) ) {
+			return 0;
+		}
+
+		$queue = array_merge( $queue, $fresh );
+
+		update_option( self::QUEUE_OPTION, $queue, false );
+
+		// The run counts everybody now waiting, not just this batch: if a sync had already queued
+		// somebody, the bar has to reach the end of the actual work rather than of this request's
+		// share of it.
+		update_option(
+			self::RUN_OPTION,
+			array(
+				'total'    => count( $queue ),
+				'started'  => time(),
+				'finished' => 0,
+			),
+			false
+		);
+
+		if ( ! wp_next_scheduled( self::CRON_QUEUE ) ) {
+			wp_schedule_single_event( time() + 60, self::CRON_QUEUE );
+		}
+
+		return count( $fresh );
+	}
+
+	/**
+	 * The bulk invite currently running, or the last one to finish.
+	 *
+	 * @return array{total:int,started:int,finished:int}|array{} Empty when there has been none.
+	 */
+	public static function run() {
+		$run = get_option( self::RUN_OPTION, array() );
+
+		if ( ! is_array( $run ) || empty( $run['total'] ) ) {
+			return array();
+		}
+
+		return array(
+			'total'    => (int) $run['total'],
+			'started'  => (int) ( isset( $run['started'] ) ? $run['started'] : 0 ),
+			'finished' => (int) ( isset( $run['finished'] ) ? $run['finished'] : 0 ),
+		);
+	}
+
+	/**
+	 * Stop reporting on the last run.
+	 */
+	public static function dismiss_run() {
+		delete_option( self::RUN_OPTION );
+	}
+
+	/**
 	 * Everybody currently waiting.
 	 *
 	 * @return int[]
@@ -356,6 +461,7 @@ class WPCPM_Mail {
 
 		if ( empty( $queue ) ) {
 			delete_option( self::QUEUE_OPTION );
+			self::finish_run();
 
 			return;
 		}
@@ -389,7 +495,295 @@ class WPCPM_Mail {
 
 		if ( ! empty( $queue ) ) {
 			wp_schedule_single_event( time() + 120, self::CRON_QUEUE );
+		} else {
+			// Stamped only once the last batch has actually been sent, not when the queue option
+			// was emptied above — that happens *before* sending, so the two are not the same
+			// moment and a screen reading the earlier one would say "finished" mid-send.
+			self::finish_run();
 		}
+	}
+
+	/**
+	 * Cancel whatever is left of a bulk invite.
+	 */
+	public static function handle_stop() {
+		self::verify( self::ACTION_STOP );
+
+		self::clear_queue();
+		self::dismiss_run();
+
+		self::back( 'invites-stopped' );
+	}
+
+	/**
+	 * Clear a finished run from the screen.
+	 */
+	public static function handle_dismiss() {
+		self::verify( self::ACTION_DISMISS );
+
+		self::dismiss_run();
+
+		self::back( '' );
+	}
+
+	/**
+	 * Capability and nonce check for the shared invite actions.
+	 *
+	 * @param string $action Nonce action.
+	 */
+	private static function verify( $action ) {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		check_admin_referer( $action );
+	}
+
+	/**
+	 * Back to whichever module screen the button was on.
+	 *
+	 * The referer rather than a fixed page, because one pair of handlers serves both screens and
+	 * sending a mentor manager to the students list would be its own small bug.
+	 *
+	 * @param string $status Status slug, or an empty string for none.
+	 */
+	private static function back( $status ) {
+		$url = wp_get_referer();
+
+		if ( ! $url ) {
+			$url = admin_url( 'admin.php?page=wpcpm' );
+		}
+
+		$url = remove_query_arg( 'wpcpm_status', $url );
+
+		if ( '' !== $status ) {
+			$url = add_query_arg( 'wpcpm_status', $status, $url );
+		}
+
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * The bulk-invite card: what would be sent, what is being sent, what was sent.
+	 *
+	 * One renderer for both module screens, because a students-shaped copy and a mentors-shaped
+	 * copy of a control that emails hundreds of people is two places for the confirmation to be
+	 * wrong in.
+	 *
+	 * @param array $args {
+	 *     What to invite, and who.
+	 *
+	 *     @type string $action  Admin-post action for sending. The module owns this one, because
+	 *                           only the module knows which role it is inviting.
+	 * }
+	 *     @type int[]  $pending Users who have never been invited.
+	 *     @type string $noun    Plural noun for the people, already translated.
+	 * }
+	 */
+	public static function render_invite_card( array $args ) {
+		$pending = isset( $args['pending'] ) ? (array) $args['pending'] : array();
+		$noun    = isset( $args['noun'] ) ? (string) $args['noun'] : __( 'people', 'wpcredits-program-manager' );
+		$run     = self::run();
+		$waiting = self::queued();
+		$post    = esc_url( admin_url( 'admin-post.php' ) );
+
+		echo '<div class="wpcpm-card wpcpm-invites">';
+		echo '<h2>' . esc_html__( 'Invitations', 'wpcredits-program-manager' ) . '</h2>';
+
+		// A run in progress owns the card. Offering "send" while a send is under way is how the
+		// same people get two emails.
+		if ( $waiting > 0 && ! empty( $run ) ) {
+			$sent    = max( 0, $run['total'] - $waiting );
+			$percent = $run['total'] > 0 ? (int) round( ( $sent / $run['total'] ) * 100 ) : 0;
+			$next    = wp_next_scheduled( self::CRON_QUEUE );
+
+			printf(
+				'<p class="wpcpm-invites__count"><strong>%s</strong></p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: sent so far, 2: total in this run. */
+						__( 'Sending: %1$d of %2$d sent.', 'wpcredits-program-manager' ),
+						$sent,
+						$run['total']
+					)
+				)
+			);
+
+			printf(
+				'<div class="wpcpm-invites__bar" role="progressbar" aria-valuenow="%1$d" aria-valuemin="0" aria-valuemax="100" aria-label="%3$s"><span style="width:%1$d%%"></span></div><p class="description">%2$s</p>',
+				(int) $percent,
+				esc_html(
+					sprintf(
+						/* translators: 1: how many are left, 2: batch size, 3: human time until the next batch. */
+						__( '%1$d still to go. They go out %2$d at a time, so this finishes on its own — you can leave this page. Next batch %3$s.', 'wpcredits-program-manager' ),
+						$waiting,
+						self::QUEUE_BATCH,
+						$next ? sprintf( /* translators: %s: human time difference. */ __( 'in about %s', 'wpcredits-program-manager' ), human_time_diff( time(), $next ) ) : __( 'shortly', 'wpcredits-program-manager' )
+					)
+				),
+				esc_attr__( 'Invitations sent', 'wpcredits-program-manager' )
+			);
+
+			// The abort. The batches already sent cannot be recalled, but the rest can — which is
+			// worth more than the confirmation dialog, because it is the only remedy that exists
+			// after the mistake rather than before it.
+			printf(
+				'<form method="post" action="%1$s" onsubmit="return confirm(\'%2$s\');">',
+				$post, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+				esc_js( __( 'Stop sending? Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) )
+			);
+			wp_nonce_field( self::ACTION_STOP );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_STOP ) );
+			printf(
+				'<button type="submit" class="button">%s</button>',
+				esc_html(
+					sprintf(
+						/* translators: %d: how many are still queued. */
+						__( 'Stop and cancel the remaining %d', 'wpcredits-program-manager' ),
+						$waiting
+					)
+				)
+			);
+			echo '</form>';
+
+			// Cron runs on requests, so the page has to come back for the count to move. Only
+			// while something is actually in flight — a page that reloads for ever is its own bug.
+			echo '<script>window.setTimeout(function(){window.location.reload();},30000);</script>';
+			echo '</div>';
+
+			return;
+		}
+
+		if ( ! empty( $run ) && $run['finished'] ) {
+			printf(
+				'<p class="wpcpm-invites__count"><strong>%s</strong></p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: how many were sent, 2: the people, e.g. "students". */
+						_n( 'Finished: %1$d invitation sent to %2$s.', 'Finished: %1$d invitations sent to %2$s.', $run['total'], 'wpcredits-program-manager' ),
+						$run['total'],
+						$noun
+					)
+				)
+			);
+
+			printf( '<form method="post" action="%s">', $post ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+			wp_nonce_field( self::ACTION_DISMISS );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DISMISS ) );
+			printf( '<button type="submit" class="button-link">%s</button>', esc_html__( 'Dismiss', 'wpcredits-program-manager' ) );
+			echo '</form>';
+		}
+
+		if ( empty( $pending ) ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: the people, e.g. "students". */
+						__( 'Every one of the %s has been invited. To send somebody a fresh link, use Resend invite on their row.', 'wpcredits-program-manager' ),
+						$noun
+					)
+				)
+			);
+			echo '</div>';
+
+			return;
+		}
+
+		$count = count( $pending );
+
+		// **The count is in the button, not only in the prose above it.** What makes a bulk send
+		// safe is that nobody can press it without having read how many people it reaches.
+		printf(
+			'<form method="post" action="%1$s" onsubmit="return confirm(\'%2$s\');">',
+			$post, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped above.
+			esc_js(
+				sprintf(
+					/* translators: 1: how many people, 2: the people, e.g. "students". */
+					__( 'Send an invitation to %1$d %2$s? They cannot be recalled once sent.', 'wpcredits-program-manager' ),
+					$count,
+					$noun
+				)
+			)
+		);
+		wp_nonce_field( $args['action'] );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
+		printf(
+			'<button type="submit" class="button button-primary">%s</button>',
+			esc_html(
+				sprintf(
+					/* translators: 1: how many people, 2: the people, e.g. "students". */
+					_n( 'Invite %1$d %2$s who has never been invited', 'Invite %1$d %2$s who have never been invited', $count, 'wpcredits-program-manager' ),
+					$count,
+					$noun
+				)
+			)
+		);
+		echo '</form>';
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: %d: batch size. */
+					__( 'Anybody already invited is skipped, so this is safe to run twice. Messages go out %d at a time in the background.', 'wpcredits-program-manager' ),
+					self::QUEUE_BATCH
+				)
+			)
+		);
+
+		echo '</div>';
+	}
+
+	/**
+	 * Everybody holding a role who has never been sent an invitation.
+	 *
+	 * `NOT EXISTS` rather than an empty-value test: `drain_queue()` stamps the meta as it sends, so
+	 * absence is the only reliable "never invited". A stamp of 0 would mean somebody wrote one.
+	 *
+	 * @param string $role Role slug.
+	 * @param string $meta Meta key holding the invitation timestamp.
+	 * @return int[] User IDs.
+	 */
+	public static function never_invited( $role, $meta ) {
+		return array_map(
+			'intval',
+			get_users(
+				array(
+					'role'        => $role,
+					'fields'      => 'ID',
+					'number'      => -1,
+					'orderby'     => 'ID',
+					'count_total' => false,
+					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Run once, from an admin screen, over a few hundred users.
+					'meta_query'  => array(
+						array(
+							'key'     => $meta,
+							'compare' => 'NOT EXISTS',
+						),
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * Record that a run has nothing left to send.
+	 *
+	 * Kept rather than deleted, so the screen can say "241 invitations sent" instead of the card
+	 * simply vanishing and leaving somebody wondering whether it ran at all.
+	 */
+	private static function finish_run() {
+		$run = self::run();
+
+		if ( empty( $run ) || $run['finished'] ) {
+			return;
+		}
+
+		$run['finished'] = time();
+
+		update_option( self::RUN_OPTION, $run, false );
 	}
 
 	/**
