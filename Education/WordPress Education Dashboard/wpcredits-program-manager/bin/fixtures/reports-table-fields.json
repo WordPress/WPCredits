@@ -1,7 +1,7 @@
 {
-	"_comment": "Field names of the Airtable 'Students Reports' table (tbljYkkVGbeoaWEtY), read from the base's metadata API on 2026-08-26. bin/test-report-form.php checks every field-name key the report form uses against this list. Trailing spaces are real -- 'Company ' has one in the base. Refresh with a metadata read when the table changes.",
+	"_comment": "Field names of the Airtable 'Students Reports' table (tbljYkkVGbeoaWEtY), read from the base's metadata API. bin/test-report-form.php checks every field-name key the report form uses against this list. Trailing spaces are real -- 'Company ' has one in the base. Refresh with a metadata read when the table changes.",
 	"table": "tbljYkkVGbeoaWEtY",
-	"read": "2026-08-26",
+	"read": "2026-08-28",
 	"fields": [
 		"50h personal link",
 		"Advance WordPress User - final grade",
@@ -45,7 +45,6 @@
 		"Post 8 (DELETED)",
 		"Post Reflection: Building Your Personal Website",
 		"Post Reflection: Choosing Your Team and Project",
-		"Post Reflection: Choosing Your Team and Project copy",
 		"Post Reflection: Halfway Check-In",
 		"Post Reflection: Your First Contribution",
 		"Slack Name",

@@ -15,7 +15,7 @@ Everything below was read from the base (`appIzQKfwTn5dyPVp`), not assumed.
 | | Students (`tbla8GZg5x6NY7aWt`) | Students Reports (`tbljYkkVGbeoaWEtY`) |
 | --- | --- | --- |
 | Status choice | `Developer Track` | `Developer Track` |
-| Report form view | — | `viwox0pWsBBzbfvYH` "Temporal view for dev track", 35 fields |
+| Report form view | — | `viwox0pWsBBzbfvYH` "Temporal view for dev track", 34 fields |
 | Personal link | — | `Dev Track ONLY personal link` |
 
 The base treats this as a third parallel track, laid out exactly like the other two:
@@ -24,7 +24,7 @@ The base treats this as a third parallel track, laid out exactly like the other 
 | --- | --- | --- | --- |
 | 150-hour | `viwq0RmkdJWQkkoPo` "Temporal view for the normal course report form" | 26 | `Personal link` |
 | 50-hour | `viwuHlJ2dqHOM8RhT` "Temporal view for the 50h course" | 13 | `50h personal link` |
-| **Developer** | `viwox0pWsBBzbfvYH` "Temporal view for dev track" | **35** | `Dev Track ONLY personal link` |
+| **Developer** | `viwox0pWsBBzbfvYH` "Temporal view for dev track" | **34** (35 before field 27 was deleted — see below) | `Dev Track ONLY personal link` |
 
 **The dev-track field set is a strict superset of the 150-hour one.** Every field the 150h form
 asks for is in the dev view, plus nine more. The only field the dev track does not take that another
@@ -106,8 +106,9 @@ plus seven fields, grouped by where the Airtable view itself puts them:
 Note the inconsistent capitalisation of `Developer Basics:` and `Developer basics:` — that is how
 the base spells them, and the keys are what a write has to name, so both are copied exactly.
 
-Nine of the view's fields appear in neither existing form. Seven become form fields: `Email` and
-field 27 are the two that do not, for the reasons below.
+Nine of the view's fields appeared in neither existing form. Seven become form fields: `Email` and
+field 27 are the two that do not — `Email` for the reason below, field 27 because it was a
+duplicate and has since been deleted from the base.
 
 `Email` (field 2 of the view) is **not** a form field. It is the account identity and the key both
 syncs join on; letting a student edit it would detach their own record from their account.
@@ -165,14 +166,21 @@ Extending the existing suites rather than adding one:
 No test asserts the fillout link by reading Airtable; the link choice is a pure function of the
 track and is tested as one.
 
+## Resolved after the spec was written
+
+**Field 27, `Post Reflection: Choosing Your Team and Project copy`,** was a URL field immediately
+after `Post Reflection: Choosing Your Team and Project`, carrying the suffix Airtable appends when a
+field is duplicated. It was left out of the form pending an answer about whether it was a real
+second question.
+
+**Celi Garoe confirmed on 28 August 2026 that it was a duplicate, and deleted it from the base.**
+The dev-track view is 34 fields now rather than 35, and the seven the form adds are unchanged — it
+was never one of them. `bin/fixtures/reports-table-fields.json` was refreshed to the table's 52
+remaining field names, which is what now stops anybody adding it back: a field name the base does
+not have fails `every dev field name exists in Airtable`.
+
 ## Deliberately not in scope
 
-- **Field 27, `Post Reflection: Choosing Your Team and Project copy`.** A URL field immediately
-  after `Post Reflection: Choosing Your Team and Project`, with the suffix Airtable appends when a
-  field is duplicated. Left out of the form pending confirmation from Celi Garoe or Isotta Peira
-  about whether it is a real second question or an artefact. An omitted field can be added later; a
-  duplicate-looking question confuses every student who sees it. If it is an artefact it should be
-  deleted from the base, so the view stops advertising it.
 - Any change to the feedback surveys. Adding the labels entry means dev-track students get the same
   three surveys under the same sequential gating as the other tracks, which is the intended
   behaviour and needs no code.

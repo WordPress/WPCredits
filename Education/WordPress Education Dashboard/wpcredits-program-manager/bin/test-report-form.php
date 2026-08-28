@@ -566,10 +566,11 @@ ck( 'and adds exactly the seven developer fields', $added, $want );
 // would detach their own record from their account.
 ck( 'the email column is not a form field', isset( $dev['Email'] ), false );
 
-// Field 27 of the Airtable view, `Post Reflection: Choosing Your Team and Project copy`, is left
-// out pending confirmation that it is not just a duplicated field. See docs/specs/.
-ck( 'the duplicated reflection field is left out',
-    isset( $dev['Post Reflection: Choosing Your Team and Project copy'] ), false );
+// `Post Reflection: Choosing Your Team and Project copy` was field 27 of the dev-track view and was
+// left out of the form pending an answer about it. Celi Garoe confirmed on 28 August 2026 that it
+// was a duplicated field, and it has been deleted from the base — so there is no assertion here any
+// more. Adding it to the form now fails "every dev field name exists in Airtable" above, which is
+// the stronger check and the one that catches the whole class rather than this one instance.
 
 $at = static function ( array $specs, $name ) {
 	return array_search( $name, array_keys( $specs ), true );

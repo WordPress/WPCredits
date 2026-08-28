@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.62.0
+Stable tag: 1.62.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.62.1 =
+* Refreshes the Airtable field-name fixture: `Post Reflection: Choosing Your Team and Project copy` was confirmed a duplicated field and deleted from the base, so the table is 52 columns rather than 53. The report form never used it; this keeps the check that guards every field name honest.
 
 = 1.62.0 =
 * Adds a bulk invitation to the Students and Mentors screens: one button that invites everybody who has never been invited, with the count in the button so nobody presses it without reading how many people it reaches.
