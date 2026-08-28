@@ -115,6 +115,7 @@ define( 'WPCPM_VERSION', 'test' );
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
@@ -303,6 +304,48 @@ ck( 'on multisite the network admin root is not a request either',
 $GLOBALS['multisite'] = false;
 ck( 'and off multisite it is an ordinary URL',
     array( WPCPM_Request::is_explicit_redirect( 'https://example.test/wp-admin/network/' ) ), array( true ) );
+
+
+echo "\n=== Password reset links survive support-session detection ===\n";
+
+// A reset link is a plain `/wp-login.php?action=rp&key=...` URL. On this host wpcomsh redirects
+// logged-out login requests to `/_wpcomsh_detect_support_session?redirect=...`, and that path is
+// only served while the request is proxied AND no detection cookie is set yet. Re-open the wrapped
+// URL later — from a mailbox, a chat, the back button — and nothing handles it, so WordPress 404s.
+// Reported for peiraisotta and others on 28 August 2026.
+//
+// wpcomsh's own `need_to_detect()` short-circuits on a query parameter it defines for the purpose,
+// so setting it before their `login_init` callback runs keeps the redirect from happening at all.
+// Doing it here rather than in the invitation email also repairs the links already in people's
+// inboxes, which changing the email body could not.
+
+$short_circuit = 'disable-support-session-detection';
+
+foreach ( array( 'rp', 'resetpass', 'lostpassword' ) as $action ) {
+	$_GET = array( 'action' => $action, 'key' => 'abc', 'login' => 'someone' );
+
+	WPCPM_Mail::keep_password_links_working();
+
+	ck( sprintf( 'the %s screen opts out of detection', $action ), isset( $_GET[ $short_circuit ] ), true );
+}
+
+// Everything else is left alone: detection exists for a reason, and a plain login is the case it
+// was built for. Only the long-lived links are exempted.
+foreach ( array( '', 'login', 'register', 'jetpack-sso' ) as $action ) {
+	$_GET = '' === $action ? array() : array( 'action' => $action );
+
+	WPCPM_Mail::keep_password_links_working();
+
+	ck( sprintf( 'the %s screen still detects', '' === $action ? 'login' : $action ), isset( $_GET[ $short_circuit ] ), false );
+}
+
+// An action arrives as user input, so it has to survive being nonsense.
+$_GET = array( 'action' => array( 'rp' ) );
+WPCPM_Mail::keep_password_links_working();
+ck( 'an array action is not an action', isset( $_GET[ $short_circuit ] ), false );
+
+$_GET = array();
+
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

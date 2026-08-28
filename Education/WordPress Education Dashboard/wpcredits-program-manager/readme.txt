@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.63.2
+Stable tag: 1.63.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.63.3 =
+* Fixes password and invitation links landing on "That page could not be found". On a WordPress.com host with Jetpack SSO switched off, logged-out login requests are redirected to a support-session detection page that is only served under narrow conditions — so a reset link re-opened from a mailbox, the back button, or a pasted message 404s. The password screens now opt out of that detection, which repairs the links already in people's inboxes as well as the ones sent from now on.
 
 = 1.63.2 =
 * Lines the consent checkbox up with the left edge every other field in the group shares. The inset was the browser's own margin on a checkbox.

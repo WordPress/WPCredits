@@ -83,6 +83,9 @@ class WPCPM_Mail {
 		add_action( 'admin_post_' . self::ACTION_STOP, array( __CLASS__, 'handle_stop' ) );
 		add_action( 'admin_post_' . self::ACTION_DISMISS, array( __CLASS__, 'handle_dismiss' ) );
 
+		// Before wpcomsh's own `login_init` callback, which runs at -1. See the method.
+		add_action( 'login_init', array( __CLASS__, 'keep_password_links_working' ), -2 );
+
 		// The outcome, rather than the attempt. `wp_mail()` returns a boolean that says
 		// whether the message was accepted for delivery; these two hooks carry the same
 		// answer and also fire for the invitations, which WordPress sends itself and which
@@ -501,6 +504,46 @@ class WPCPM_Mail {
 			// moment and a screen reading the earlier one would say "finished" mid-send.
 			self::finish_run();
 		}
+	}
+
+	/**
+	 * Keep password links out of WordPress.com's support-session detector.
+	 *
+	 * **The problem this solves.** Every invitation and every "lost your password" mail sends
+	 * somebody to a plain `/wp-login.php?action=rp&key=…` address. On a WordPress.com Atomic host
+	 * with Jetpack SSO switched off, `WPCOMSH_Support_Session_Detect` redirects logged-out login
+	 * requests to `/_wpcomsh_detect_support_session?redirect=…&nonce=…` — and that path is only
+	 * served while two things are true at once: the request is proxied, and no detection cookie has
+	 * been set yet. Outside that window nothing handles the path, so WordPress 404s and the person
+	 * resetting their password gets "That page could not be found" instead.
+	 *
+	 * Which is a trap, because a password link is exactly the kind of address that gets re-opened:
+	 * out of a mailbox a day later, off the back button, out of a message where somebody pasted it
+	 * to ask for help. Reported for several mentors on 28 August 2026.
+	 *
+	 * **Why here and not in the email.** The invitation body could carry the parameter, but that
+	 * would only help mail sent afterwards. Opting out at the login screen repairs the links
+	 * already sitting in people's inboxes, and covers the reset mail WordPress sends itself, which
+	 * this plugin does not build.
+	 *
+	 * Setting a query parameter to steer another plugin is not pretty. It is done this way because
+	 * `QUERY_PARAM_TO_SHORT_CIRCUIT` is the opt-out wpcomsh defines for the purpose, so it survives
+	 * them renaming or re-prioritising the callback — which `remove_action()` on their class name
+	 * would not.
+	 *
+	 * Only the password screens are exempted. Detection exists to stop a support session acting on
+	 * somebody's behalf, and a plain login is the case it was built for.
+	 */
+	public static function keep_password_links_working() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reading which login screen this is, and changing nothing.
+		$action = isset( $_GET['action'] ) && is_scalar( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : '';
+
+		if ( ! in_array( $action, array( 'rp', 'resetpass', 'lostpassword' ), true ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- A flag wpcomsh tests for presence; its value is never read.
+		$_GET['disable-support-session-detection'] = '';
 	}
 
 	/**
