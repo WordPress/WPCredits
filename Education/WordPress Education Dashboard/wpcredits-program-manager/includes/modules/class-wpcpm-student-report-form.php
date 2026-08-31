@@ -188,13 +188,13 @@ class WPCPM_Student_Report_Form {
 
 		$dev_patch = array(
 			'Patch Testing: Trac ticket comments' => array(
-				'label' => __( 'Patch testing: your Trac ticket comments', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-				// First of the stacked questions beside the team list, so the stack opens here.
-				'row'   => 'project',
-				'stack' => true,
-				'help'  => __( 'Links to the tickets you commented on, one per line.', 'wpcredits-program-manager' ),
+				// Lesson 3 of the course is "Practical: Patch Testing", and the heading is the
+				// half of that name the field's own label does not already say.
+				'subgroup' => __( 'Practical', 'wpcredits-program-manager' ),
+				'label'    => __( 'Patch testing: your Trac ticket comments', 'wpcredits-program-manager' ),
+				'type'     => 'textarea',
+				'group'    => 'project',
+				'help'     => __( 'Links to the tickets you commented on, one per line.', 'wpcredits-program-manager' ),
 			),
 		);
 
@@ -219,9 +219,13 @@ class WPCPM_Student_Report_Form {
 		// inference from what it sounds like, and the view is where that decision is recorded.
 		$dev_alumni = array(
 			'Contributing beyond WP Credits'   => array(
-				'label' => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
+				// Lesson 7, "Alumni Program: Connect with the community and plan your contribution
+				// beyond WP Credits". Named for the programme rather than for the question, so a
+				// student recognises which lesson these three answer.
+				'subgroup' => __( 'Alumni Program', 'wpcredits-program-manager' ),
+				'label'    => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
+				'type'     => 'textarea',
+				'group'    => 'project',
 			),
 			'Alumni program: personal email'   => array(
 				'label' => __( 'A personal email address for the alumni programme', 'wpcredits-program-manager' ),
@@ -378,7 +382,7 @@ class WPCPM_Student_Report_Form {
 			// reflection at lesson 9 rather than after it.
 			if ( 'dev' === $track ) {
 				$fields = self::insert_after( $fields, 'Advance WordPress User - final grade', $dev_basics );
-				$fields = self::insert_after( $fields, 'Main Contribution Team', $dev_patch );
+				$fields = self::insert_after( $fields, 'Post Reflection: Building Your Personal Website', $dev_patch );
 				$fields = self::insert_after( $fields, 'Contribution Project Summary', $dev_project );
 				$fields = self::insert_after( $fields, 'Slack/GitHub/Blog WordPress Community meetings/discussions', $dev_alumni );
 			}

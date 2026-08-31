@@ -588,12 +588,24 @@ ck( 'the developer modules follow the user levels',
 ck( 'patch testing is in the project section, not with the course grades',
     $dev['Patch Testing: Trac ticket comments']['group'], 'project' );
 
-ck( 'and opens the questions stacked beside the team list',
+// It heads the section, under a heading of its own. A subgroup heading closes whatever row is
+// open — `render_body()` has to, or the heading would print inside the pair's grid — so a field
+// carrying one cannot also sit in the stacked column beside the team list.
+ck( 'and heads the section, on a full-width row of its own',
     array(
-        $at( $dev, 'Patch Testing: Trac ticket comments' ) === $at( $dev, 'Main Contribution Team' ) + 1,
-        ! empty( $dev['Patch Testing: Trac ticket comments']['stack'] ),
+        $at( $dev, 'Patch Testing: Trac ticket comments' ) < $at( $dev, 'Main Contribution Team' ),
+        isset( $dev['Patch Testing: Trac ticket comments']['row'] ),
     ),
-    array( true, true ) );
+    array( true, false ) );
+
+// The two headings the course names these runs by, without which a student has to guess which
+// lesson a question belongs to.
+ck( 'the two developer sections are named after their lessons',
+    array(
+        $dev['Patch Testing: Trac ticket comments']['subgroup'],
+        $dev['Contributing beyond WP Credits']['subgroup'],
+    ),
+    array( 'Practical', 'Alumni Program' ) );
 
 ck( 'the second project summary follows the first',
     $at( $dev, 'Optional: Additional Contribution Project Summary' ) === $at( $dev, 'Contribution Project Summary' ) + 1, true );
