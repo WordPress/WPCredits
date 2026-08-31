@@ -25,6 +25,10 @@ class WPCPM_Mentors_Dashboard {
 	const STYLE     = 'wpcpm-mentor-dashboard';
 	const SCRIPT    = 'wpcpm-mentor-dashboard';
 
+	/** The triage, search and counts laid over the rendered list. */
+	const TRIAGE_STYLE  = 'wpcpm-triage';
+	const TRIAGE_SCRIPT = 'wpcpm-triage';
+
 	/**
 	 * Records which title revision this site has been brought up to.
 	 *
@@ -305,6 +309,189 @@ class WPCPM_Mentors_Dashboard {
 				true
 			);
 		}
+
+		if ( ! wp_style_is( self::TRIAGE_STYLE, 'registered' ) ) {
+			wp_register_style(
+				self::TRIAGE_STYLE,
+				WPCPM_PLUGIN_URL . 'assets/css/triage.css',
+				array( self::STYLE ),
+				WPCPM_VERSION
+			);
+		}
+
+		if ( ! wp_script_is( self::TRIAGE_SCRIPT, 'registered' ) ) {
+			wp_register_script(
+				self::TRIAGE_SCRIPT,
+				WPCPM_PLUGIN_URL . 'assets/js/triage.js',
+				array(),
+				WPCPM_VERSION,
+				true
+			);
+		}
+	}
+
+	/**
+	 * What the triage script needs to group, count and search the rendered list.
+	 *
+	 * Everything here is already on the page or already in this plugin — the script fetches
+	 * nothing and writes nothing, and no student appears who was not rendered. It is handed over
+	 * as data rather than scraped out of the markup so that changing a column's wording does not
+	 * quietly change which pile a student lands in.
+	 *
+	 * Which mentor's list this is comes from `current_mentor()`, the same answer the render
+	 * uses. The theme used to work it out for itself and the two disagreed for an administrator
+	 * who also mentors — the rows are joined on Airtable record ID, so nothing matched and every
+	 * row lost its end date and note count. There is only one answer now, by construction.
+	 *
+	 * @param int $mentor_id Mentor whose list is on screen.
+	 * @return array
+	 */
+	public static function triage_data( $mentor_id ) {
+		$students = array();
+		$format   = (string) get_option( 'date_format' );
+
+		foreach ( self::get_mentees( (int) $mentor_id ) as $mentee ) {
+			if ( ! is_array( $mentee ) ) {
+				continue;
+			}
+
+			$record = isset( $mentee['record_id'] ) ? (string) $mentee['record_id'] : '';
+
+			// Without a record ID the card carries no anchor, so there is nothing to match this
+			// row to. Such a student is left ungrouped rather than guessed at.
+			if ( '' === $record ) {
+				continue;
+			}
+
+			$end   = isset( $mentee['end'] ) ? (string) $mentee['end'] : '';
+			$stamp = ( '' !== $end ) ? strtotime( $end ) : false;
+
+			$institution = WPCPM_Mentors_Sync::resolve_stored(
+				isset( $mentee['institution'] ) ? (string) $mentee['institution'] : '',
+				'institutions'
+			);
+			$team        = WPCPM_Mentors_Sync::resolve_stored(
+				isset( $mentee['team'] ) ? (string) $mentee['team'] : '',
+				'teams'
+			);
+
+			$students[ $record ] = array(
+				'name'        => isset( $mentee['name'] ) ? (string) $mentee['name'] : '',
+				'institution' => $institution,
+				'team'        => $team,
+				'status'      => isset( $mentee['status'] ) ? (string) $mentee['status'] : '',
+				'isPast'      => ! empty( $mentee['is_past'] ),
+				'end'         => $stamp ? gmdate( 'Y-m-d', $stamp ) : '',
+				'endLabel'    => $stamp ? date_i18n( $format, $stamp ) : '',
+				'notes'       => (int) WPCPM_Mentor_Notes::count_notes( $record ),
+				// Everything a mentor might type into the box, built here so the script never
+				// has to read it back out of the rendered row.
+				'search'      => self::search_haystack( $mentee, $institution, $team ),
+			);
+		}
+
+		return array(
+			'students' => $students,
+			// The site's today, not the browser's: a mentor travelling should see the same
+			// grouping as the program manager looking at the same list.
+			'today'    => wp_date( 'Y-m-d' ),
+			'windows'  => array(
+				/**
+				 * Filter how near the end of an internship counts as ending soon.
+				 *
+				 * @param int $days Default 60.
+				 */
+				'endingSoon' => max( 1, (int) apply_filters( 'wpcpm_ending_soon_days', 60 ) ),
+				/**
+				 * Filter how long a student can go without a note before they need a call.
+				 *
+				 * Matches the wording on the card — "no note in the last 30 days" — so the
+				 * grouping and the notice cannot contradict each other.
+				 *
+				 * @param int $days Default 30.
+				 */
+				'staleNote'  => max( 1, (int) apply_filters( 'wpcpm_stale_note_days', 30 ) ),
+			),
+			'groups'   => array(
+				// Order matters: a student falls into the first group they match, so somebody
+				// who needs a call is never filed under "ending soon" instead.
+				array(
+					'key'   => 'call',
+					'label' => __( 'Need a call', 'wpcredits-program-manager' ),
+				),
+				array(
+					'key'   => 'ending',
+					'label' => __( 'Ending soon', 'wpcredits-program-manager' ),
+				),
+				array(
+					'key'   => 'ok',
+					'label' => __( 'On track', 'wpcredits-program-manager' ),
+				),
+			),
+			'i18n'     => array(
+				'searchLabel'   => __( 'Search students', 'wpcredits-program-manager' ),
+				'searchHint'    => __( 'Search students, institutions or teams', 'wpcredits-program-manager' ),
+				'clearSearch'   => __( 'Clear the search', 'wpcredits-program-manager' ),
+				/* translators: 1: matching students, 2: total students. */
+				'matchCount'    => __( '%1$s of %2$s students match', 'wpcredits-program-manager' ),
+				'noMatches'     => __( 'No students match that search.', 'wpcredits-program-manager' ),
+				/* translators: %s: number of matches within one group. */
+				'groupMatches'  => __( '%s match', 'wpcredits-program-manager' ),
+				'collapsedHint' => __( 'Some browsers do not search inside collapsed sections with Ctrl+F. Use Expand all first if you are looking for something specific.', 'wpcredits-program-manager' ),
+				'noNotes'       => __( 'No notes', 'wpcredits-program-manager' ),
+				'addNote'       => __( 'Add a note', 'wpcredits-program-manager' ),
+				'details'       => __( 'Details', 'wpcredits-program-manager' ),
+				/* translators: %s: number of days. */
+				'daysLeft'      => __( '%s days', 'wpcredits-program-manager' ),
+				'endedAlready'  => __( 'Ended', 'wpcredits-program-manager' ),
+				'needCall'      => __( 'need a call', 'wpcredits-program-manager' ),
+				'endingSoon'    => __( 'ending soon', 'wpcredits-program-manager' ),
+				'onTrack'       => __( 'on track', 'wpcredits-program-manager' ),
+				'showAll'       => __( 'Show all students', 'wpcredits-program-manager' ),
+				'ordering'      => __( 'Ordered by internship end date within each group, soonest first.', 'wpcredits-program-manager' ),
+				/* translators: %s: student's name. */
+				'noteFor'       => __( 'Add a note for %s', 'wpcredits-program-manager' ),
+				/* translators: %s: internship end date. */
+				'until'         => __( 'until %s', 'wpcredits-program-manager' ),
+			),
+			'icons'    => array(
+				'search' => WPCPM_Icons::ui( 'search', 16 ),
+				'close'  => WPCPM_Icons::ui( 'close', 15 ),
+				'people' => WPCPM_Icons::ui( 'people', 20 ),
+			),
+		);
+	}
+
+	/**
+	 * The searchable text for one student.
+	 *
+	 * Lowercased once here so the script can compare without doing it per keystroke.
+	 *
+	 * @param array  $mentee      Student row.
+	 * @param string $institution Resolved institution name.
+	 * @param string $team        Resolved team name.
+	 * @return string
+	 */
+	private static function search_haystack( array $mentee, $institution, $team ) {
+		$parts = array(
+			isset( $mentee['name'] ) ? $mentee['name'] : '',
+			$institution,
+			$team,
+			isset( $mentee['status'] ) ? $mentee['status'] : '',
+			isset( $mentee['username'] ) ? $mentee['username'] : '',
+			isset( $mentee['email'] ) ? $mentee['email'] : '',
+			isset( $mentee['slack'] ) ? $mentee['slack'] : '',
+			isset( $mentee['tutor'] ) ? $mentee['tutor'] : '',
+		);
+
+		// `strlen` as the filter, not the default: a student whose only searchable value is "0"
+		// is a real row, and the default callback would drop it.
+		$parts = array_filter( array_map( 'trim', array_map( 'strval', $parts ) ), 'strlen' );
+
+		// Names in this program are not all ASCII, so a byte-wise lowercase would miss matches.
+		return function_exists( 'mb_strtolower' )
+			? mb_strtolower( implode( ' ', $parts ) )
+			: strtolower( implode( ' ', $parts ) );
 	}
 
 	/**
@@ -343,6 +530,17 @@ class WPCPM_Mentors_Dashboard {
 
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
+
+		// The triage, the counts and the search. Enqueued only for the mentor whose list this
+		// is: it is the rendered list that is being grouped, so there is nothing to hand over
+		// when the card is a notice rather than a list.
+		$viewer = self::current_mentor();
+
+		if ( $viewer instanceof WP_User ) {
+			wp_enqueue_style( self::TRIAGE_STYLE );
+			wp_enqueue_script( self::TRIAGE_SCRIPT );
+			wp_localize_script( self::TRIAGE_SCRIPT, 'wpcpmTriage', self::triage_data( $viewer->ID ) );
+		}
 
 		// Where the report bodies come from, and the one message the script has to say for
 		// itself. Localized here rather than printed in the markup so the strings stay

@@ -1,0 +1,209 @@
+/**
+ * Mentor Report Card — the triage, counts and search the script lays over the list.
+ *
+ * A **baseline**, deliberately, not a copy of what wpcredits-theme draws. The script moved into
+ * this plugin in 1.64.0 so that a theme change could not take the triage and the search with it;
+ * this sheet is what makes that true for the look as well as the behaviour. Under any theme the
+ * band, the counts and the search box are legible and usable on their own.
+ *
+ * It is registered as depending on the dashboard stylesheet and therefore prints before a theme's
+ * own skin, so a theme that wants a richer treatment — as wpcredits-theme does — overrides these
+ * on a plain tie rather than having to outrank them. Nothing here uses `!important`, and nothing
+ * is prefixed with a page class, for that reason.
+ *
+ * Colours come from the tokens in dashboard.css, which resolve against whatever text colour the
+ * theme sets. There are no fixed greys here: a plugin cannot know it is being read on a light
+ * background.
+ */
+
+/* The band across the top of the list: who is being shown, and the three counts. */
+.wpc-dash__band {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px 20px;
+	margin: 0 0 1em;
+}
+
+/* The counts. Buttons, because each one filters the list to its own group. */
+.wpc-triage {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.wpc-triage__item {
+	background: none;
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 999px;
+	color: inherit;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.4em;
+	font: inherit;
+	padding: 0.25em 0.85em;
+}
+
+.wpc-triage__item:hover,
+.wpc-triage__item:focus-visible {
+	background: var( --wpcpm-surface );
+}
+
+/* The chosen filter has to be legible as chosen without colour alone, so it takes a heavier
+   border as well as the fill. */
+.wpc-triage__item.is-active {
+	background: var( --wpcpm-surface );
+	border-color: currentColor;
+	font-weight: 600;
+}
+
+.wpc-triage__count {
+	font-weight: 700;
+}
+
+.wpc-triage__label {
+	opacity: 0.75;
+}
+
+/* Search, and the count of what it matched. */
+.wpc-dash__toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+	margin: 0 0 1em;
+}
+
+.wpc-search {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	flex: 1 1 18em;
+	max-width: 28em;
+}
+
+/* The glyph sits inside the field, so the field is padded to leave room for it rather than the
+   two being laid out side by side — a flex row would let the box slide off the icon at any width
+   the theme happens to give this column. */
+.wpc-search .wpcpm-icon {
+	position: absolute;
+	left: 0.6em;
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.wpc-search__input {
+	box-sizing: border-box;
+	width: 100%;
+	padding: 0.4em 2em 0.4em 2.2em;
+}
+
+.wpc-search__clear {
+	position: absolute;
+	right: 0.4em;
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	display: inline-flex;
+	opacity: 0.6;
+	padding: 0.2em;
+}
+
+.wpc-search__clear:hover,
+.wpc-search__clear:focus-visible {
+	opacity: 1;
+}
+
+.wpc-dash__count,
+.wpc-dash__hint,
+.wpc-dash__ordering {
+	font-size: 0.9em;
+	margin: 0;
+	opacity: 0.75;
+}
+
+/* A group heading, inserted into the list ahead of the students in that pile.
+ *
+ * **Single-class, like every rule in this sheet.** wpcredits-theme styles `.wpc-group` too — as a
+ * sticky uppercase bar with a 32px inset — and this sheet prints first, so a plain tie hands the
+ * theme the win. Written as `.wpc-dash-enhanced .wpc-group` it out-ranked the theme instead and
+ * took the inset off the bar, which put the count out past the edge of the cards. Anything here
+ * that needs to beat a theme is a bug in this sheet, not a case for more specificity. */
+.wpc-group {
+	align-items: baseline;
+	border-bottom: 1px solid var( --wpcpm-border );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 0.75em;
+	justify-content: space-between;
+	margin: 1.25em 0 0.6em;
+	padding: 0 0 0.35em;
+}
+
+.wpc-group__label {
+	font-weight: 600;
+}
+
+.wpc-group__count {
+	opacity: 0.7;
+}
+
+/* Hidden rather than removed, so a search that matches nothing in one group leaves the others
+   where they were instead of the whole list jumping. */
+.wpc-dash-enhanced [hidden] {
+	display: none;
+}
+
+/* The per-row action the script adds — "Add a note", "Details". */
+.wpc-row__action {
+	background: none;
+	border: 0;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.wpc-row__action:hover,
+.wpc-row__action:focus-visible {
+	text-decoration: none;
+}
+
+@media ( max-width: 600px ) {
+
+	/* The counts are the first thing worth reading on a phone, and three pills wrap into a
+	   ragged block. One per line, full width, so they read as a summary. */
+	.wpc-triage {
+		display: grid;
+		gap: 6px;
+		grid-template-columns: 1fr;
+		width: 100%;
+	}
+
+	.wpc-triage__item {
+		border-radius: var( --wpcpm-radius );
+		justify-content: space-between;
+	}
+
+	.wpc-search {
+		max-width: none;
+	}
+}
+
+/* Print: the controls are all pointer-operated and say nothing on paper. The plugin's own print
+   sheet hides the rest of the furniture; this covers what the script adds. */
+@media print {
+
+	.wpc-dash__toolbar,
+	.wpc-triage,
+	.wpc-dash__hint,
+	.wpc-row__action {
+		display: none;
+	}
+}

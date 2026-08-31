@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.63.3
+Stable tag: 1.64.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.64.0 =
+* The Mentor Report Card's triage, counts and search now live in the plugin. They were in wpcredits-theme, which meant a theme change would have taken them with it — the one piece of the card a theme was carrying that was function rather than decoration.
+* Ships a baseline stylesheet for them, so they are legible and usable under any theme. A theme's own richer skin still overrides it.
+* Which mentor's list is being grouped now comes from the plugin's own `current_mentor()` rather than being worked out a second time, which is what once made an administrator who also mentors see rows with no end dates or note counts.
+* The `wpcredits_ending_soon_days` and `wpcredits_stale_note_days` filters are now `wpcpm_ending_soon_days` and `wpcpm_stale_note_days`.
 
 = 1.63.3 =
 * Fixes password and invitation links landing on "That page could not be found". On a WordPress.com host with Jetpack SSO switched off, logged-out login requests are redirected to a support-session detection page that is only served under narrow conditions — so a reset link re-opened from a mailbox, the back button, or a pasted message 404s. The password screens now opt out of that detection, which repairs the links already in people's inboxes as well as the ones sent from now on.

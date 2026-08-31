@@ -1,21 +1,21 @@
 /**
- * Mentor dashboard — triage groups, counts, search.
+ * Mentor Report Card — triage groups, counts, search.
  *
- * Progressive enhancement over what the plugin has already rendered. Every value
- * used here is either in the DOM already or was handed over in
- * `wpcreditsDashboard` from the plugin's own public API; nothing is fetched,
- * nothing is written, and no student appears who was not on the page to begin
- * with. With this file blocked the page is still the plugin's list, styled: each
- * student is a native <details> that opens on its own, and the plugin's own
- * script still runs Expand all and printing.
+ * Progressive enhancement over what has already been rendered. Every value used here is
+ * either in the DOM already or was handed over in `wpcpmTriage`; nothing is fetched, nothing
+ * is written, and no student appears who was not on the page to begin with. With this file
+ * blocked the page is still the list, styled: each student is a native <details> that opens
+ * on its own, and Expand all and printing still work.
  *
- * Written in the same plain-ES5 style as the plugin's dashboard.js, so the two
- * scripts on this page read as one codebase.
+ * **This lived in wpcredits-theme until plugin 1.64.0.** It was the one piece of the Mentor
+ * Report Card that a theme carried, which meant a theme switch took the triage and the search
+ * with it. It reads only the DOM and its own localized data, so it had no theme dependencies
+ * to unpick — it simply belonged here.
  */
 ( function () {
 	'use strict';
 
-	var data = window.wpcreditsDashboard;
+	var data = window.wpcpmTriage;
 
 	if ( ! data || ! data.students ) {
 		return;
@@ -56,6 +56,13 @@
 		// rather than as empty. It also keeps "Last updated…" inside the band, where
 		// it is inset with everything else.
 		var rows = list ? collect( root, list ) : [];
+
+		// A stale copy of this script in a theme would otherwise build a second band and a
+		// second search box over the first. The class the enhancement already sets is the
+		// cheapest thing to test for.
+		if ( root.classList.contains( 'wpc-dash-enhanced' ) ) {
+			return;
+		}
 
 		root.classList.add( 'wpc-dash-enhanced' );
 

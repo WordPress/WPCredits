@@ -128,6 +128,49 @@ class WPCPM_Icons {
 	}
 
 	/**
+	 * The three flat glyphs the Mentor Report Card's triage needs.
+	 *
+	 * Filled rather than stroked, so they are kept apart from `shapes()` above: a magnifying
+	 * glass and a cross at 15–16px read better as solid shapes than as 1.6px strokes, and
+	 * mixing the two rendering styles in one set would mean every caller having to know which
+	 * kind it was asking for.
+	 *
+	 * They came from wpcredits-theme with the triage script in 1.64.0. Same paths, so nothing
+	 * about the card changed the day it stopped being the theme's job.
+	 *
+	 * @param string $name One of `search`, `close`, `people`.
+	 * @param int    $size Pixel size.
+	 * @return string HTML, or an empty string for an unknown key.
+	 */
+	public static function ui( $name, $size = 16 ) {
+		$paths = array(
+			'search' => 'M13 5c-3.3 0-6 2.7-6 6 0 1.4.5 2.7 1.3 3.7l-3.8 3.8 1.1 1.1 3.8-3.8c1 .8 2.3 1.3 3.7 1.3 3.3 0 6-2.7 6-6S16.3 5 13 5zm0 10.5c-2.5 0-4.5-2-4.5-4.5s2-4.5 4.5-4.5 4.5 2 4.5 4.5-2 4.5-4.5 4.5z',
+			'close'  => 'm13.06 12 6.47-6.47-1.06-1.06L12 10.94 5.53 4.47 4.47 5.53 10.94 12l-6.47 6.47 1.06 1.06L12 13.06l6.47 6.47 1.06-1.06L13.06 12Z',
+			'people' => 'M15.5 9.5a1 1 0 100-2 1 1 0 000 2zm0 1.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zm-2.25 6v-2a2.75 2.75 0 00-2.75-2.75h-4A2.75 2.75 0 003.75 15v2h1.5v-2c0-.69.56-1.25 1.25-1.25h4c.69 0 1.25.56 1.25 1.25v2h1.5zm7-2v2h-1.5v-2c0-.69-.56-1.25-1.25-1.25H15v-1.5h2.5A2.75 2.75 0 0120.25 15zM9.5 8.5a1 1 0 11-2 0 1 1 0 012 0zm1.5 0a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z',
+		);
+
+		$name = (string) $name;
+
+		if ( ! isset( $paths[ $name ] ) ) {
+			return '';
+		}
+
+		$size = max( 8, min( 64, (int) $size ) );
+
+		// `people` is drawn as overlapping shapes and needs the even-odd rule to keep its
+		// holes; the other two are single outlines and would be unchanged by it.
+		$rule = 'people' === $name ? ' fill-rule="evenodd" clip-rule="evenodd"' : '';
+
+		return sprintf(
+			'<svg class="wpcpm-icon wpcpm-icon--%1$s" width="%2$d" height="%2$d" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="%3$s"%4$s /></svg>',
+			esc_attr( $name ),
+			$size,
+			$paths[ $name ], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static path data, not input.
+			$rule // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+		);
+	}
+
+	/**
 	 * Why callers echo these directly instead of filtering them.
 	 *
 	 * There is nothing to sanitize: every byte comes from `shapes()`, which is a static

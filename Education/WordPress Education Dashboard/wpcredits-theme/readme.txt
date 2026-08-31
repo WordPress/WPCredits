@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.12.0
+Stable tag: 1.13.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -66,9 +66,9 @@ handles printing.
 
 Two numbers decide the grouping, both filterable:
 
-* `wpcredits_stale_note_days` — how long a student can go without a note before
+* `wpcpm_stale_note_days` (in the plugin since 1.64.0; was `wpcredits_stale_note_days` here) — how long a student can go without a note before
   they need a call. Default 30, matching the plugin's own wording on the page.
-* `wpcredits_ending_soon_days` — how close an internship end has to be to count as
+* `wpcpm_ending_soon_days` (in the plugin since 1.64.0; was `wpcredits_ending_soon_days` here) — how close an internship end has to be to count as
   ending soon. Default 60.
 
 Dates are compared against the site's today, not the browser's, so a mentor
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.13.0 =
+* Hands the Mentor Report Card's triage, counts and search to the plugin, which renders the list they regroup. A theme should not be the reason a feature exists. Requires WPCredits Program Manager 1.64.0; this theme now only dresses the result.
 
 = 1.12.0 =
 * Removes the theme's own footer. The wordpress.org global footer is the only footer now, so the site ends the way every other WordPress.org property does.
