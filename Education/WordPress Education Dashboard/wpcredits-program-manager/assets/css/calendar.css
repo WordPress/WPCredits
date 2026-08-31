@@ -787,7 +787,7 @@
 .wpcpm-field__hint {
 	display: block;
 	font-size: 0.85em;
-	margin-top: 0.2em;
+	margin-top: 0.2rem;
 	opacity: 0.72;
 }
 
@@ -837,7 +837,7 @@
 	border: 1px solid var( --wpcpm-border );
 	border-radius: var( --wpcpm-radius );
 	display: grid;
-	gap: 0.75em 1.25em;
+	gap: 1.75rem 1.25em;
 	grid-template-columns: repeat( auto-fit, minmax( 13em, 1fr ) );
 	margin: 0 0 1em;
 	padding: 0.75em 1em 1em;
@@ -951,7 +951,7 @@
    the group cannot pack a short box in beside them. */
 .wpcpm-report__pair {
 	display: grid;
-	gap: 0.75em 1.25em;
+	gap: 1.75rem 1.25em;
 	grid-column: 1 / -1;
 	grid-template-columns: repeat( auto-fit, minmax( 16em, 1fr ) );
 }
@@ -973,7 +973,7 @@
    the column instead of following the one above it. This is one cell holding a stack. */
 .wpcpm-report__stack {
 	display: grid;
-	gap: 0.75em;
+	gap: 1.75rem;
 	min-width: 0;
 }
 

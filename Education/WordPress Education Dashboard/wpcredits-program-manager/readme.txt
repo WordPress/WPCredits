@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.64.0
+Stable tag: 1.64.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.64.1 =
+* More air between one question and the next on the report form. A field's grey hint sat 3px under the answer it describes and 8px above the next question's title, so it read as belonging to whichever one you looked at first. It is 6px and 28px now, and the vertical rhythm is set in `rem` so the three containers that lay out fields actually agree — in `em` they resolved differently and did not.
 
 = 1.64.0 =
 * The Mentor Report Card's triage, counts and search now live in the plugin. They were in wpcredits-theme, which meant a theme change would have taken them with it — the one piece of the card a theme was carrying that was function rather than decoration.
