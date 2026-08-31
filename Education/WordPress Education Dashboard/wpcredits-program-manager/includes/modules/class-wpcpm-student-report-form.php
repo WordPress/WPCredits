@@ -190,7 +190,10 @@ class WPCPM_Student_Report_Form {
 			'Patch Testing: Trac ticket comments' => array(
 				'label' => __( 'Patch testing: your Trac ticket comments', 'wpcredits-program-manager' ),
 				'type'  => 'textarea',
-				'group' => 'onboarding',
+				'group' => 'project',
+				// First of the stacked questions beside the team list, so the stack opens here.
+				'row'   => 'project',
+				'stack' => true,
 				'help'  => __( 'Links to the tickets you commented on, one per line.', 'wpcredits-program-manager' ),
 			),
 		);
@@ -363,14 +366,21 @@ class WPCPM_Student_Report_Form {
 				'Closing post URL'                         => $in( $posts['Closing post URL'], 'wrapup' ),
 			);
 
-			// The developer track is the 150-hour form plus seven fields, in the places the base's
-			// own "Temporal view for dev track" puts them. Written as insertions into that set
-			// rather than as a third copy, because a copy would drift the moment either changed.
+			// The developer track is the 150-hour form plus seven fields. Written as insertions into
+			// that set rather than as a third copy, because a copy would drift the moment either
+			// changed.
+			//
+			// **The anchors follow the Learn course, not the Airtable view.** The view lists the
+			// fields in the order the columns happen to sit in the table; the course is the order
+			// the student works through, and that is what a form should follow. The two disagree
+			// twice — patch testing is lesson 3 and belongs with the project rather than among the
+			// course grades, and the alumni programme is lesson 7, ahead of the first-contribution
+			// reflection at lesson 9 rather than after it.
 			if ( 'dev' === $track ) {
 				$fields = self::insert_after( $fields, 'Advance WordPress User - final grade', $dev_basics );
-				$fields = self::insert_after( $fields, 'Beginner WordPress Designer', $dev_patch );
+				$fields = self::insert_after( $fields, 'Main Contribution Team', $dev_patch );
 				$fields = self::insert_after( $fields, 'Contribution Project Summary', $dev_project );
-				$fields = self::insert_after( $fields, 'Post Reflection: Your First Contribution', $dev_alumni );
+				$fields = self::insert_after( $fields, 'Slack/GitHub/Blog WordPress Community meetings/discussions', $dev_alumni );
 			}
 		}
 

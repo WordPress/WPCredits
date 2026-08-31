@@ -582,8 +582,18 @@ $at = static function ( array $specs, $name ) {
 ck( 'the developer modules follow the user levels',
     $at( $dev, 'Developer Basics: modules completed' ) === $at( $dev, 'Advance WordPress User - final grade' ) + 1, true );
 
-ck( 'patch testing follows the developer courses',
-    $at( $dev, 'Patch Testing: Trac ticket comments' ) === $at( $dev, 'Beginner WordPress Designer' ) + 1, true );
+// Lesson 3, "Practical: Patch Testing", which the course puts in the project run rather than among
+// the course grades. It was in Onboarding while the Airtable view was the only guide — the view
+// lists columns in table order, the course is the order a student actually works through.
+ck( 'patch testing is in the project section, not with the course grades',
+    $dev['Patch Testing: Trac ticket comments']['group'], 'project' );
+
+ck( 'and opens the questions stacked beside the team list',
+    array(
+        $at( $dev, 'Patch Testing: Trac ticket comments' ) === $at( $dev, 'Main Contribution Team' ) + 1,
+        ! empty( $dev['Patch Testing: Trac ticket comments']['stack'] ),
+    ),
+    array( true, true ) );
 
 ck( 'the second project summary follows the first',
     $at( $dev, 'Optional: Additional Contribution Project Summary' ) === $at( $dev, 'Contribution Project Summary' ) + 1, true );
@@ -595,19 +605,22 @@ ck( 'the alumni questions are in the project section',
     array( $dev['Alumni program: personal email']['group'], $dev['Alumni program: mentoring opt-in']['group'], $dev['Contributing beyond WP Credits']['group'] ),
     array( 'project', 'project', 'project' ) );
 
-// The exact run from the view: 27, 28, 29, 30, 31.
-ck( 'and sit between the first-contribution post and the halfway one',
+// The alumni programme is lesson 7 and the first-contribution reflection is lesson 9, so the
+// alumni questions come *before* it. They were after it while the Airtable view was the only
+// guide. The three of them also close the pair: they carry no row, so the run of stacked questions
+// beside the team list ends here, which is what puts them full width.
+ck( 'the alumni questions follow the discussions and precede the first-contribution post',
     array_slice(
         array_keys( $dev ),
-        $at( $dev, 'Post Reflection: Your First Contribution' ),
+        $at( $dev, 'Slack/GitHub/Blog WordPress Community meetings/discussions' ),
         5
     ),
     array(
-        'Post Reflection: Your First Contribution',
+        'Slack/GitHub/Blog WordPress Community meetings/discussions',
         'Contributing beyond WP Credits',
         'Alumni program: personal email',
         'Alumni program: mentoring opt-in',
-        'Post Reflection: Halfway Check-In',
+        'Post Reflection: Your First Contribution',
     ) );
 
 // The consent label has to say what is being agreed to. "Alumni program: mentoring opt-in" is a
