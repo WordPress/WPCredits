@@ -1,14 +1,14 @@
 {
-  "generated": "2026-08-05",
+  "generated": "2026-09-01",
   "window_days": 90,
   "horizon_months": 6,
   "definition": "any wp.org contribution in the active window, grad-date-gated",
-  "graduates": 222,
-  "with_profile": 222,
-  "grad_date_known": 222,
-  "measurable_90d": 109,
-  "active_90d": 18,
-  "pct_active_post_grad": 17,
-  "within_6mo_horizon": 215,
-  "parse_failures": 1
+  "graduates": 327,
+  "with_profile": 327,
+  "grad_date_known": 327,
+  "measurable_90d": 123,
+  "active_90d": 17,
+  "pct_active_post_grad": 14,
+  "within_6mo_horizon": 319,
+  "parse_failures": 2
 }
