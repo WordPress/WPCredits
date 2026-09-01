@@ -603,9 +603,39 @@ ck( 'and heads the section, on a full-width row of its own',
 ck( 'the two developer sections are named after their lessons',
     array(
         $dev['Patch Testing: Trac ticket comments']['subgroup'],
-        $dev['Contributing beyond WP Credits']['subgroup'],
+        $dev['Slack/GitHub/Blog WordPress Community meetings/discussions']['subgroup'],
     ),
     array( 'Practical', 'Alumni Program' ) );
+
+// On this course the meetings and discussions are asked inside the Alumni Program lesson, so on
+// this track the field heads that run instead of sitting in the column beside the team list.
+ck( 'the discussions open the alumni run rather than the project column',
+    array(
+        isset( $dev['Slack/GitHub/Blog WordPress Community meetings/discussions']['row'] ),
+        $dev['Slack/GitHub/Blog WordPress Community meetings/discussions']['group'],
+    ),
+    array( false, 'project' ) );
+
+// **Moved on one track, not on all of them.** The other two courses ask it with the project
+// questions, and the field is one Airtable column — a copy left behind would be two boxes writing
+// to it, which is the bug the contribution teams had.
+$one = WPCPM_Student_Report_Form::fields( '150h' );
+
+ck( 'and the 150-hour form still asks it where it always did',
+    array(
+        isset( $one['Slack/GitHub/Blog WordPress Community meetings/discussions']['row'] ),
+        isset( $one['Slack/GitHub/Blog WordPress Community meetings/discussions']['subgroup'] ),
+    ),
+    array( true, false ) );
+
+// A rule where the next lesson starts. Only on this track: on the others the team list is the
+// first thing in the section, and a rule directly under the legend divides nothing.
+ck( 'a rule opens the team lesson on the developer track only',
+    array(
+        ! empty( $dev['Main Contribution Team']['divider'] ),
+        ! empty( $one['Main Contribution Team']['divider'] ),
+    ),
+    array( true, false ) );
 
 ck( 'the second project summary follows the first',
     $at( $dev, 'Optional: Additional Contribution Project Summary' ) === $at( $dev, 'Contribution Project Summary' ) + 1, true );

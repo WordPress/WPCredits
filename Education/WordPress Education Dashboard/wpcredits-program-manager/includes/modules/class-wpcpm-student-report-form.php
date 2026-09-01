@@ -219,13 +219,9 @@ class WPCPM_Student_Report_Form {
 		// inference from what it sounds like, and the view is where that decision is recorded.
 		$dev_alumni = array(
 			'Contributing beyond WP Credits'   => array(
-				// Lesson 7, "Alumni Program: Connect with the community and plan your contribution
-				// beyond WP Credits". Named for the programme rather than for the question, so a
-				// student recognises which lesson these three answer.
-				'subgroup' => __( 'Alumni Program', 'wpcredits-program-manager' ),
-				'label'    => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
-				'type'     => 'textarea',
-				'group'    => 'project',
+				'label' => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
+				'type'  => 'textarea',
+				'group' => 'project',
 			),
 			'Alumni program: personal email'   => array(
 				'label' => __( 'A personal email address for the alumni programme', 'wpcredits-program-manager' ),
@@ -384,7 +380,35 @@ class WPCPM_Student_Report_Form {
 				$fields = self::insert_after( $fields, 'Advance WordPress User - final grade', $dev_basics );
 				$fields = self::insert_after( $fields, 'Post Reflection: Building Your Personal Website', $dev_patch );
 				$fields = self::insert_after( $fields, 'Contribution Project Summary', $dev_project );
-				$fields = self::insert_after( $fields, 'Slack/GitHub/Blog WordPress Community meetings/discussions', $dev_alumni );
+
+				// On this course the meetings and discussions are asked inside the Alumni Program
+				// lesson, not with the project questions — so on this track alone the field moves
+				// out of the column beside the team list and heads that run instead. It carries the
+				// heading because it is the lesson's first question.
+				//
+				// Moved rather than copied: the same field left in both places would be one Airtable
+				// column with two boxes writing to it, which is the bug the contribution teams had.
+				$meetings = 'Slack/GitHub/Blog WordPress Community meetings/discussions';
+				$moved    = isset( $fields[ $meetings ] ) ? $fields[ $meetings ] : array();
+
+				unset( $fields[ $meetings ] );
+
+				// It is not one of the stacked questions any more, and a field carrying a heading
+				// could not be: `render_body()` closes the open row before printing one.
+				unset( $moved['row'], $moved['stack'] );
+
+				$moved['subgroup'] = __( 'Alumni Program', 'wpcredits-program-manager' );
+
+				$fields = self::insert_after(
+					$fields,
+					'Post Reflection: Choosing Your Team and Project',
+					array( $meetings => $moved ) + $dev_alumni
+				);
+
+				// A rule above the team list, where the next lesson starts. The heading over patch
+				// testing draws its own, but that one sits directly under the section's legend and
+				// rules nothing off — see the stylesheet, which hides it there.
+				$fields['Main Contribution Team']['divider'] = true;
 			}
 		}
 

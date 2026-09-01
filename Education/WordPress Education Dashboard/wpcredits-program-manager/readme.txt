@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.64.3
+Stable tag: 1.64.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.64.4 =
+* On the Developer Track the meetings and discussions question moves into the **Alumni Program** section and heads it, which is where that course asks it. The other two tracks keep asking it with the project questions — it is one Airtable column, so it is moved rather than copied.
+* The rule now falls above the contribution team, where the next lesson starts, instead of above the section's first heading where it divided nothing.
 
 = 1.64.3 =
 * Names the Developer Track's two new runs of questions after the lessons they answer: **Practical**, with the patch-testing question under it, and **Alumni Program**. Patch testing takes a full-width row at the head of the project section, because a section heading closes the two-column pair it would otherwise sit in.

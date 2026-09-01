@@ -1020,6 +1020,15 @@
 	opacity: 0.72;
 }
 
+/* A heading that opens the section rules nothing off: the section's own legend is directly above
+   it, and two lines a few pixels apart read as a mistake rather than as a division. The rule earns
+   its place between one lesson and the next, not under the box's own title. */
+.wpcpm-report__group > legend + .wpcpm-report__sub {
+	border-top: 0;
+	margin-top: 0;
+	padding-top: 0;
+}
+
 .wpcpm-report__sub {
 	/* The rule is the section's, not the text's, so it is drawn in its own light gray rather
 	   than in `currentColor`, which would give it the heading's weight. */
