@@ -189,7 +189,13 @@ class WPCPM_Students extends WPCPM_Module {
 	public function handle_bulk_invite() {
 		$this->verify( self::ACTION_BULK );
 
-		$pending = WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_STUDENT, 'wpcpm_student_invited' );
+		// From the posted field, not the URL: `admin-post.php` never sees the list's query string,
+		// so reading the filter from there would send to every student while the screen that
+		// offered the button was showing one institution.
+		$pending = WPCPM_Mail::only_institution(
+			WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_STUDENT, 'wpcpm_student_invited' ),
+			WPCPM_Request::posted_text( 'wpcpm_institution' )
+		);
 
 		if ( empty( $pending ) ) {
 			$this->redirect_back( 'invites-none' );
@@ -291,11 +297,23 @@ class WPCPM_Students extends WPCPM_Module {
 	 * @param int   $last     Timestamp of the last completed run.
 	 */
 	private function render_sync_panel( array $progress, $last ) {
+		// **The card obeys the filter the list is showing.** Offering "invite 241 students" under a
+		// list narrowed to one institution is how somebody emails two hundred people by accident.
+		$filter  = self::institution_filter();
+		$pending = WPCPM_Mail::only_institution(
+			WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_STUDENT, 'wpcpm_student_invited' ),
+			$filter
+		);
+
 		WPCPM_Mail::render_invite_card(
 			array(
 				'action'  => self::ACTION_BULK,
-				'pending' => WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_STUDENT, 'wpcpm_student_invited' ),
-				'noun'    => __( 'students', 'wpcredits-program-manager' ),
+				'pending' => $pending,
+				'noun'    => '' === $filter
+					? __( 'students', 'wpcredits-program-manager' )
+					/* translators: %s: institution name. */
+					: sprintf( __( 'students at %s', 'wpcredits-program-manager' ), $filter ),
+				'hidden'  => array( 'wpcpm_institution' => $filter ),
 			)
 		);
 
@@ -430,6 +448,97 @@ class WPCPM_Students extends WPCPM_Module {
 	}
 
 	/**
+	 * Which institution the screen is narrowed to, if any.
+	 *
+	 * The name itself rather than an ID: institutions arrive from Airtable as linked records that
+	 * the sync has already resolved to names on each student's row, and there is no institution
+	 * post or term on this site to hold an ID against.
+	 *
+	 * @return string Resolved institution name, or an empty string for all of them.
+	 */
+	public static function institution_filter() {
+		return WPCPM_Request::text( 'wpcpm_institution' );
+	}
+
+	/**
+	 * Every institution with students, and how many each has.
+	 *
+	 * @param WP_User[] $students Students to count over.
+	 * @return array<string, int> Institution name => student count, by name.
+	 */
+	private function institutions( array $students ) {
+		$counts = array();
+
+		foreach ( $students as $student ) {
+			$program = WPCPM_Students_Sync::get_program( $student->ID );
+			$name    = isset( $program['institution'] ) ? trim( (string) $program['institution'] ) : '';
+
+			if ( '' === $name ) {
+				continue;
+			}
+
+			$counts[ $name ] = isset( $counts[ $name ] ) ? $counts[ $name ] + 1 : 1;
+		}
+
+		ksort( $counts );
+
+		return $counts;
+	}
+
+	/**
+	 * The institution picker.
+	 *
+	 * A GET form, so a narrowed list is a URL somebody can bookmark or send to a colleague — which
+	 * matters here, because the next thing they do with it may be to email a few dozen people.
+	 *
+	 * @param array<string, int> $institutions Name => count.
+	 * @param string             $current      The one in force.
+	 */
+	private function render_institution_filter( array $institutions, $current ) {
+		if ( empty( $institutions ) ) {
+			return;
+		}
+
+		printf(
+			'<form method="get" class="wpcpm-filter"><input type="hidden" name="page" value="%s" />',
+			esc_attr( $this->page_slug() )
+		);
+
+		printf(
+			'<label for="wpcpm-institution">%s</label> ',
+			esc_html__( 'Institution', 'wpcredits-program-manager' )
+		);
+
+		echo '<select name="wpcpm_institution" id="wpcpm-institution">';
+		printf(
+			'<option value="">%s</option>',
+			esc_html__( 'All institutions', 'wpcredits-program-manager' )
+		);
+
+		foreach ( $institutions as $name => $count ) {
+			printf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( $name ),
+				selected( $name, $current, false ),
+				esc_html( sprintf( '%1$s (%2$s)', $name, number_format_i18n( $count ) ) )
+			);
+		}
+
+		echo '</select> ';
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Filter', 'wpcredits-program-manager' ) );
+
+		if ( '' !== $current ) {
+			printf(
+				' <a href="%1$s">%2$s</a>',
+				esc_url( $this->admin_url() ),
+				esc_html__( 'Show all students', 'wpcredits-program-manager' )
+			);
+		}
+
+		echo '</form>';
+	}
+
+	/**
 	 * The provisioned students.
 	 */
 	private function render_student_list() {
@@ -442,7 +551,24 @@ class WPCPM_Students extends WPCPM_Module {
 			)
 		);
 
-		$page_url = WPCPM_Students_Dashboard::page_url();
+		$page_url     = WPCPM_Students_Dashboard::page_url();
+		$institutions = $this->institutions( $students );
+		$filter       = self::institution_filter();
+
+		// Narrowed after counting, so the picker always offers every institution rather than only
+		// the one already chosen.
+		if ( '' !== $filter ) {
+			$students = array_values(
+				array_filter(
+					$students,
+					static function ( $student ) use ( $filter ) {
+						$program = WPCPM_Students_Sync::get_program( $student->ID );
+
+						return isset( $program['institution'] ) && trim( (string) $program['institution'] ) === $filter;
+					}
+				)
+			);
+		}
 
 		echo '<div class="wpcpm-card">';
 		printf(
@@ -450,6 +576,8 @@ class WPCPM_Students extends WPCPM_Module {
 			esc_html__( 'Student accounts', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $students ) ) )
 		);
+
+		$this->render_institution_filter( $institutions, $filter );
 
 		if ( $page_url ) {
 			printf(
@@ -472,6 +600,7 @@ class WPCPM_Students extends WPCPM_Module {
 		echo '<th scope="col">' . esc_html__( 'Student', 'wpcredits-program-manager' ) . '</th>';
 		echo '<th scope="col">' . esc_html__( 'Username', 'wpcredits-program-manager' ) . '</th>';
 		echo '<th scope="col">' . esc_html__( 'Program', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
 		echo '<th scope="col">' . esc_html__( 'Mentor', 'wpcredits-program-manager' ) . '</th>';
 		echo '<th scope="col">' . esc_html__( 'Actions', 'wpcredits-program-manager' ) . '</th>';
 		echo '</tr></thead><tbody>';
@@ -489,6 +618,7 @@ class WPCPM_Students extends WPCPM_Module {
 			);
 			printf( '<td><code>%s</code></td>', esc_html( $student->user_login ) );
 			printf( '<td>%s</td>', esc_html( ! empty( $program['program'] ) ? $program['program'] : '—' ) );
+			printf( '<td>%s</td>', esc_html( ! empty( $program['institution'] ) ? $program['institution'] : '—' ) );
 			printf( '<td>%s</td>', esc_html( ! empty( $mentor['name'] ) ? $mentor['name'] : '—' ) );
 
 			echo '<td class="wpcpm-list__actions">';

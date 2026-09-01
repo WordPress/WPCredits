@@ -165,4 +165,30 @@ class WPCPM_Request {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
 		return absint( wp_unslash( $_POST[ $name ] ) );
 	}
+
+	/**
+	 * Free text from a posted form.
+	 *
+	 * The counterpart to `text()`, for a filter that has to survive the round trip through
+	 * `admin-post.php` — which sees the form's fields and not the query string of the screen the
+	 * form was on. `sanitize_key()` would not do: an institution's name has spaces, capitals and
+	 * punctuation in it.
+	 *
+	 * Same standing as the rest of this class: it says what was posted, and proves nothing. The
+	 * handler has already checked the nonce and the capability, and whatever this returns is
+	 * matched against values the site itself holds rather than trusted.
+	 *
+	 * @param string $name     Field name.
+	 * @param string $fallback Returned when the field is absent.
+	 * @return string
+	 */
+	public static function posted_text( $name, $fallback = '' ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
+		if ( ! isset( $_POST[ $name ] ) || ! is_scalar( $_POST[ $name ] ) ) {
+			return $fallback;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
+		return trim( sanitize_text_field( wp_unslash( $_POST[ $name ] ) ) );
+	}
 }

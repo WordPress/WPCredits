@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.64.4
+Stable tag: 1.65.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.65.0 =
+* The Students screen shows each student's institution and can be narrowed to one of them.
+* **The bulk invitation obeys that filter.** With a cohort selected the button says how many it will reach and names the institution, and the send is narrowed again on the way through — the form posts to `admin-post.php`, which never sees the screen's query string, so a handler reading the filter from the URL would have emailed every student while the screen showed one institution.
 
 = 1.64.4 =
 * On the Developer Track the meetings and discussions question moves into the **Alumni Program** section and heads it, which is where that course asks it. The other two tracks keep asking it with the project questions — it is one Airtable column, so it is moved rather than copied.

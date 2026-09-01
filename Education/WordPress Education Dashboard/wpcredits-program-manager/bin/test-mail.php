@@ -103,6 +103,7 @@ function wp_schedule_single_event( $w, $h ) { $GLOBALS['cron'][ $h ] = $w; retur
 function wp_schedule_event( $w, $r, $h ) { $GLOBALS['cron'][ $h ] = $w; return true; }
 function wp_clear_scheduled_hook( $h ) { unset( $GLOBALS['cron'][ $h ] ); }
 function wp_new_user_notification( $id, $dep = null, $notify = '' ) { $GLOBALS['invited'][] = (int) $id; }
+
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function add_query_arg( $args, $url = '' ) {
 	$sep = false === strpos( $url, '?' ) ? '?' : '&';
@@ -404,6 +405,50 @@ ck( 'somebody already invited is never queued again',
 
 WPCPM_Mail::clear_queue();
 WPCPM_Mail::dismiss_run();
+
+/* ---- inviting one institution ------------------------------------------- */
+
+echo "\n=== Inviting one institution ===\n";
+
+// The Students screen can be narrowed to an institution so an invitation reaches one cohort
+// rather than every student on the site. The narrowing has to hold at the *send*, not only in the
+// list: the button posts to `admin-post.php`, which never sees the screen's query string, so a
+// handler reading the filter from the URL would quietly send to everybody.
+
+// Written as the sync writes it, so `get_program()` is the real one reading its real meta key.
+foreach ( array(
+	701 => 'Pundra University of Science & Technology',
+	702 => 'Pundra University of Science & Technology',
+	703 => 'IES Azarquiel',
+	704 => '',
+) as $id => $institution ) {
+	update_user_meta( $id, WPCPM_Students_Sync::META_PROGRAM, array( 'institution' => $institution ) );
+}
+
+// 705 gets no row at all — the other way a student can be incomplete.
+
+$everyone = array( 701, 702, 703, 704, 705 );
+
+ck( 'one institution is the students in it',
+    WPCPM_Mail::only_institution( $everyone, 'Pundra University of Science & Technology' ),
+    array( 701, 702 ) );
+
+ck( 'and a different one is a different set',
+    WPCPM_Mail::only_institution( $everyone, 'IES Azarquiel' ), array( 703 ) );
+
+// The unfiltered screen still invites everybody, so the empty string cannot mean "nobody".
+ck( 'no filter means no narrowing', WPCPM_Mail::only_institution( $everyone, '' ), $everyone );
+ck( 'and whitespace is no filter either', WPCPM_Mail::only_institution( $everyone, '   ' ), $everyone );
+
+// A name nobody carries reaches nobody. It arrives from a posted field, so it is matched against
+// what the site holds rather than trusted — the failure has to be an empty send, not a wide one.
+ck( 'an institution nobody is at reaches nobody',
+    WPCPM_Mail::only_institution( $everyone, 'Somewhere Else' ), array() );
+
+// A student with no institution, or no program row at all, is not swept into somebody else's
+// cohort — the two ways a row can be incomplete.
+ck( 'a student with no institution is in no institution',
+    WPCPM_Mail::only_institution( array( 704, 705 ), 'IES Azarquiel' ), array() );
 
 /* ---- the welcome email -------------------------------------------------- */
 

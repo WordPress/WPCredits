@@ -608,6 +608,37 @@ class WPCPM_Mail {
 	}
 
 	/**
+	 * Narrow a list of users to one institution.
+	 *
+	 * The institution is inside the `wpcpm_program` user meta rather than a meta key of its own,
+	 * so it cannot be reached with a `meta_query` and is filtered here instead. That is a read per
+	 * user, which is fine for a few hundred on an admin screen and would not be for a cron sweep.
+	 *
+	 * @param int[]  $user_ids    Users to narrow.
+	 * @param string $institution Resolved institution name; an empty string means no narrowing.
+	 * @return int[]
+	 */
+	public static function only_institution( array $user_ids, $institution ) {
+		$institution = trim( (string) $institution );
+
+		if ( '' === $institution ) {
+			return $user_ids;
+		}
+
+		$out = array();
+
+		foreach ( $user_ids as $id ) {
+			$program = WPCPM_Students_Sync::get_program( (int) $id );
+
+			if ( isset( $program['institution'] ) && trim( (string) $program['institution'] ) === $institution ) {
+				$out[] = (int) $id;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * The bulk-invite card: what would be sent, what is being sent, what was sent.
 	 *
 	 * One renderer for both module screens, because a students-shaped copy and a mentors-shaped
@@ -752,6 +783,14 @@ class WPCPM_Mail {
 		);
 		wp_nonce_field( $args['action'] );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
+
+		foreach ( (array) ( isset( $args['hidden'] ) ? $args['hidden'] : array() ) as $name => $value ) {
+			printf(
+				'<input type="hidden" name="%1$s" value="%2$s" />',
+				esc_attr( $name ),
+				esc_attr( (string) $value )
+			);
+		}
 		printf(
 			'<button type="submit" class="button button-primary">%s</button>',
 			esc_html(
