@@ -145,10 +145,81 @@ class WPCPM_Mail {
 		// other reasons, and mail in the wrong language beats no mail.
 		$switched = function_exists( 'switch_to_user_locale' ) ? switch_to_user_locale( $user->ID ) : false;
 
-		$mail = (array) call_user_func( $build, $user );
+		$sent = self::hand_off( $user->user_email, $context, call_user_func( $build, $user ), $user );
 
+		if ( $switched ) {
+			restore_previous_locale();
+		}
+
+		return $sent;
+	}
+
+	/**
+	 * Send one message to an address that has no account yet.
+	 *
+	 * An applicant is an email address and nothing more: no user to look up, no profile
+	 * language to switch into. `send()` needs a `WP_User`, so mail to somebody who has not
+	 * been provisioned went straight to `wp_mail()` before this - past the filter, the log
+	 * and the subject sanitising - which made the one message sent to a stranger the one
+	 * message nobody could trace.
+	 *
+	 * The language comes from the caller, because an applicant's form is the only place it
+	 * is known. Left empty, the message is built in whatever locale the request is in.
+	 *
+	 * @param string   $email   Where it goes. Refused unless `is_email()` accepts it.
+	 * @param string   $context Short label for the log, e.g. `institution-applied`.
+	 * @param callable $build   Receives the address as a string and returns the same array
+	 *                          `send()`'s builder does.
+	 * @param string   $locale  Locale to build the message in, e.g. `es_ES`. Empty for the
+	 *                          current one.
+	 * @return bool Whether the message was handed off successfully.
+	 */
+	public static function send_to( $email, $context, $build, $locale = '' ) {
+		$email = trim( (string) $email );
+
+		if ( ! is_email( $email ) ) {
+			return false;
+		}
+
+		if ( ! is_callable( $build ) ) {
+			return false;
+		}
+
+		$locale = trim( (string) $locale );
+
+		// Guarded the way `send()` guards its own switch: a site missing the function gets
+		// mail in the wrong language rather than no mail. `switch_to_locale()` also answers
+		// false when asked for the locale already in force, and then there is nothing to
+		// restore.
+		$switched = '' !== $locale && function_exists( 'switch_to_locale' ) ? switch_to_locale( $locale ) : false;
+
+		$sent = self::hand_off( $email, $context, call_user_func( $build, $email ), null );
+
+		if ( $switched ) {
+			restore_previous_locale();
+		}
+
+		return $sent;
+	}
+
+	/**
+	 * The part of a send that is the same whoever it is for.
+	 *
+	 * Defaults, the filter, the subject, `wp_mail()` and the cleanup, once - so `send()` and
+	 * `send_to()` cannot drift apart in what they let through, and a message to a bare
+	 * address is logged and filtered exactly like one to a user. Runs inside whatever locale
+	 * the caller has switched to; the switching is the only thing the two callers do
+	 * differently, so it stays with them.
+	 *
+	 * @param string       $to        Address the message goes to.
+	 * @param string       $context   Short label for the log.
+	 * @param mixed        $mail      What the builder returned.
+	 * @param WP_User|null $recipient The recipient's account, or null when there is none.
+	 * @return bool Whether the message was handed off successfully.
+	 */
+	private static function hand_off( $to, $context, $mail, $recipient ) {
 		$mail = wp_parse_args(
-			$mail,
+			(array) $mail,
 			array(
 				'subject'     => '',
 				'body'        => '',
@@ -161,14 +232,18 @@ class WPCPM_Mail {
 		/**
 		 * Filter a message before it is sent.
 		 *
-		 * Runs inside the recipient's locale, so anything added here is translated the same
-		 * way the template was.
+		 * Runs inside the locale the message is being built in - the recipient's profile
+		 * language, or the one a caller named for an address with no account - so anything
+		 * added here is translated the same way the template was.
 		 *
-		 * @param array   $mail      Subject, body, headers, attachments.
-		 * @param string  $context   Message context.
-		 * @param WP_User $recipient Recipient.
+		 * @param array        $mail      Subject, body, headers, attachments.
+		 * @param string       $context   Message context.
+		 * @param WP_User|null $recipient Recipient. Null when the message goes to an address
+		 *                                that has no account yet, as an applicant's does, so
+		 *                                a site keying on the person has to allow for having
+		 *                                nobody to key on.
 		 */
-		$mail = (array) apply_filters( 'wpcpm_mail', $mail, $context, $user );
+		$mail = (array) apply_filters( 'wpcpm_mail', $mail, $context, $recipient );
 
 		$sent = false;
 
@@ -176,7 +251,7 @@ class WPCPM_Mail {
 			self::$context = sanitize_key( $context );
 
 			$sent = wp_mail(
-				$user->user_email,
+				$to,
 				// A subject is a header: the CR and LF that would turn one into several are
 				// stripped here rather than at each template, because the names that reach a
 				// subject come from Airtable columns and WordPress profiles and are not
@@ -192,10 +267,6 @@ class WPCPM_Mail {
 
 		foreach ( (array) $mail['cleanup'] as $path ) {
 			WPCPM_ICS::cleanup( $path );
-		}
-
-		if ( $switched ) {
-			restore_previous_locale();
 		}
 
 		return (bool) $sent;
@@ -373,9 +444,14 @@ class WPCPM_Mail {
 		$fresh = array();
 
 		foreach ( array_diff( $ids, $queue ) as $id ) {
-			// Either stamp: this does not need to know which kind of person it is looking at, and
-			// an account holding both roles has still been written to either way.
-			if ( get_user_meta( $id, 'wpcpm_student_invited', true ) || get_user_meta( $id, 'wpcpm_mentor_invited', true ) ) {
+			// Any of the stamps: this does not need to know which kind of person it is looking
+			// at, and an account holding more than one role has still been written to whichever
+			// way `drain_queue()` chose to stamp it.
+			if (
+				get_user_meta( $id, 'wpcpm_student_invited', true )
+				|| get_user_meta( $id, 'wpcpm_mentor_invited', true )
+				|| get_user_meta( $id, 'wpcpm_institution_invited', true )
+			) {
 				continue;
 			}
 
@@ -489,9 +565,15 @@ class WPCPM_Mail {
 
 			wp_new_user_notification( $user->ID, null, 'user' );
 
-			$meta = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR )
-				? 'wpcpm_mentor_invited'
-				: 'wpcpm_student_invited';
+			// The same order `welcome_email()` chooses the template in, so the stamp an account
+			// carries names the invitation it was actually sent.
+			if ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR ) ) {
+				$meta = 'wpcpm_mentor_invited';
+			} elseif ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_INSTITUTION ) ) {
+				$meta = 'wpcpm_institution_invited';
+			} else {
+				$meta = 'wpcpm_student_invited';
+			}
 
 			update_user_meta( $user->ID, $meta, time() );
 		}
@@ -886,8 +968,9 @@ class WPCPM_Mail {
 	 *
 	 * WordPress sends a username, a reset link and a login URL. Arriving cold that reads as
 	 * a phishing attempt: a site the reader may not recognise telling them to set a password,
-	 * with no mention of the program, who they are to it, or what to do next. A mentor and a
-	 * student are also arriving for entirely different reasons, and get different copy.
+	 * with no mention of the program, who they are to it, or what to do next. A mentor, a
+	 * student and an institution's contact are also arriving for entirely different reasons,
+	 * and get different copy.
 	 *
 	 * The reset link's one-day expiry is left exactly as WordPress sets it. Extending it here
 	 * would lengthen the window on every password reset on the site, not just these — so
@@ -904,25 +987,75 @@ class WPCPM_Mail {
 			return $email;
 		}
 
-		$is_mentor  = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR );
-		$is_student = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_STUDENT );
+		$is_mentor      = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR );
+		$is_student     = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_STUDENT );
+		$is_institution = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_INSTITUTION );
 
 		// Not one of ours. Somebody else's plugin, or a hand-made account.
-		if ( ! $is_mentor && ! $is_student ) {
+		if ( ! $is_mentor && ! $is_student && ! $is_institution ) {
 			return $email;
 		}
 
-		$page = $is_mentor
-			? WPCPM_Mentors_Dashboard::page_url()
-			: WPCPM_Students_Dashboard::page_url();
+		// One audience per message, chosen in the order `drain_queue()` picks the invited stamp
+		// in, so the stamp an account carries names the template it was sent. A mentor can also
+		// be an institution's member (membership is added to an existing account, never the
+		// other way round), and that account was a mentor's before it was anything else.
+		if ( $is_mentor ) {
+			$kind = 'mentor';
+		} elseif ( $is_institution ) {
+			$kind = 'institution';
+		} else {
+			$kind = 'student';
+		}
 
-		$opening = $is_mentor
-			? __( 'You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there.', 'wpcredits-program-manager' )
-			: __( 'You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there.', 'wpcredits-program-manager' );
+		if ( 'mentor' === $kind ) {
+			$page    = WPCPM_Mentors_Dashboard::page_url();
+			$opening = __( 'You have been set up as a mentor on the WordPress Credits Program, and this is your account on the program site. Your students, their programs and the calls they book with you all live there.', 'wpcredits-program-manager' );
+			$next    = __( 'Set your password using the link below, then publish the hours you are free so your students can book calls with you.', 'wpcredits-program-manager' );
+			$label   = __( 'Your students:', 'wpcredits-program-manager' );
+			/* translators: %s: site name. */
+			$subject = __( '[%s] Your mentor account is ready', 'wpcredits-program-manager' );
+		} elseif ( 'institution' === $kind ) {
+			// Whether the institution's Collaboration Agreement is already on file, asked of the
+			// agreement module at send time, because the two next steps are different in kind:
+			// a new institution has to produce and sign the agreement before anything else
+			// opens, while one whose agreement is on file walks straight in. The two classes
+			// arrive in the next phase; until both exist the answer is no, which is right for a
+			// new institution and merely redundant for a legacy one. Array callables rather than
+			// static calls, because `bin/check-references.php` would rightly flag a call to a
+			// method that is not declared yet.
+			$settled = false;
 
-		$next = $is_mentor
-			? __( 'Set your password using the link below, then publish the hours you are free so your students can book calls with you.', 'wpcredits-program-manager' )
-			: __( 'Set your password using the link below, then check your details and book your first call with your mentor.', 'wpcredits-program-manager' );
+			if ( class_exists( 'WPCPM_Institution_Agreement' ) && class_exists( 'WPCPM_Institution_Members' ) ) {
+				$record  = (string) call_user_func( array( 'WPCPM_Institution_Members', 'institution_of' ), $user );
+				$settled = '' !== $record && (bool) call_user_func( array( 'WPCPM_Institution_Agreement', 'is_settled' ), $record );
+			}
+
+			// The institution dashboard arrives with the same phase. Until then there is no
+			// address to print, and a line pointing at nothing is worse than no line.
+			$page = method_exists( 'WPCPM_Institutions_Dashboard', 'page_url' )
+				? (string) call_user_func( array( 'WPCPM_Institutions_Dashboard', 'page_url' ) )
+				: '';
+
+			$opening = $settled
+				? __( 'Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, your students and their progress all live there.', 'wpcredits-program-manager' )
+				: __( 'Your institution has been set up on the WordPress Credits Program, and this is its account on the program site. Your Collaboration Agreement with the program, and once it is in place your students and their progress, all live there.', 'wpcredits-program-manager' );
+			$next    = $settled
+				? __( 'Set your password using the link below. Your Collaboration Agreement is on file, so your account is open.', 'wpcredits-program-manager' )
+				: __( 'Set your password using the link below. The first and only step after that is the Collaboration Agreement: generate the program\'s or upload your own, sign it, and upload the signed copy. A program manager then accepts it and the rest of the site opens.', 'wpcredits-program-manager' );
+			$label   = $settled
+				? __( 'Your institution dashboard:', 'wpcredits-program-manager' )
+				: __( 'Where the agreement is uploaded:', 'wpcredits-program-manager' );
+			/* translators: %s: site name. */
+			$subject = __( '[%s] Your institution account is ready', 'wpcredits-program-manager' );
+		} else {
+			$page    = WPCPM_Students_Dashboard::page_url();
+			$opening = __( 'You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there.', 'wpcredits-program-manager' );
+			$next    = __( 'Set your password using the link below, then check your details and book your first call with your mentor.', 'wpcredits-program-manager' );
+			$label   = __( 'Your report card:', 'wpcredits-program-manager' );
+			/* translators: %s: site name. */
+			$subject = __( '[%s] Welcome to the WordPress Credits Program', 'wpcredits-program-manager' );
+		}
 
 		$lines = array(
 			$opening,
@@ -942,26 +1075,17 @@ class WPCPM_Mail {
 
 		if ( '' !== $page ) {
 			$lines[] = '';
-			$lines[] = $is_mentor
-				? __( 'Your students:', 'wpcredits-program-manager' )
-				: __( 'Your report card:', 'wpcredits-program-manager' );
+			$lines[] = $label;
 			$lines[] = $page;
 		}
 
-		$email['subject'] = sprintf(
-			$is_mentor
-				/* translators: %s: site name. */
-				? __( '[%s] Your mentor account is ready', 'wpcredits-program-manager' )
-				/* translators: %s: site name. */
-				: __( '[%s] Welcome to the WordPress Credits Program', 'wpcredits-program-manager' ),
-			wp_specialchars_decode( (string) $blogname, ENT_QUOTES )
-		);
+		$email['subject'] = sprintf( $subject, wp_specialchars_decode( (string) $blogname, ENT_QUOTES ) );
 
 		$email['message'] = implode( "\r\n", $lines ) . "\r\n";
 
 		// WordPress is about to call `wp_mail()` itself, so this is the only moment at which
 		// the log can be told that what follows is an invitation and whose it is.
-		self::$context = $is_mentor ? 'invite-mentor' : 'invite-student';
+		self::$context = 'invite-' . $kind;
 
 		return $email;
 	}
@@ -978,18 +1102,25 @@ class WPCPM_Mail {
 
 		check_admin_referer( self::ACTION_TEST, self::ACTION_TEST );
 
+		// The audiences a button can ask for, and the role each is previewed as.
+		$roles = array(
+			'student'     => WPCPM_Roles::ROLE_STUDENT,
+			'mentor'      => WPCPM_Roles::ROLE_MENTOR,
+			'institution' => WPCPM_Roles::ROLE_INSTITUTION,
+		);
+
 		// `posted_key()`, not `key()`: the two buttons are forms that post to `admin-post.php`,
 		// so the audience arrives in `$_POST`. Reading `$_GET` returned the fallback every
 		// time, which meant both buttons sent the student template.
 		$kind = WPCPM_Request::posted_key( 'kind' );
-		$kind = in_array( $kind, array( 'mentor', 'student' ), true ) ? $kind : 'student';
+		$kind = isset( $roles[ $kind ] ) ? $kind : 'student';
 
 		$viewer = wp_get_current_user();
 
 		// The real filter, against the real user, with the role it is being previewed as
-		// stood in temporarily — so what arrives is what a student or mentor would get and
+		// stood in temporarily - so what arrives is what a student, a mentor or an institution would get and
 		// not a second template that only looks like it.
-		$role = 'mentor' === $kind ? WPCPM_Roles::ROLE_MENTOR : WPCPM_Roles::ROLE_STUDENT;
+		$role = $roles[ $kind ];
 
 		$preview = function ( $email, $user, $blogname ) use ( $role ) {
 			$stand_in        = clone $user;

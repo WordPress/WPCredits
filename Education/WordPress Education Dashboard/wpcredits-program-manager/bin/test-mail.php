@@ -60,6 +60,7 @@ function sanitize_text_field( $s ) { return trim( str_replace( array( "\r", "\n"
 function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_file_name( $n ) { return preg_replace( '/[^A-Za-z0-9._-]/', '', (string) $n ); }
+function is_email( $s ) { return (bool) filter_var( (string) $s, FILTER_VALIDATE_EMAIL ); }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function wp_parse_args( $a, $d = array() ) { return array_merge( $d, (array) $a ); }
@@ -93,7 +94,18 @@ function wp_date( $format, $ts = null, $zone = null ) {
 }
 function add_action( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['filters'][ $h ][] = $c; }
 function add_filter( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['filters'][ $h ][] = $c; }
-function apply_filters( $h, $v ) { return $v; }
+/**
+ * `apply_filters()`, running what was registered rather than handing the value straight back.
+ *
+ * A stub that ignored the callbacks could never show what `wpcpm_mail` is handed as the
+ * recipient. Nothing loaded here registers a callback on a hook the plugin applies, so
+ * the assertions that predate this see the same values they always did.
+ */
+function apply_filters( $h, $v ) {
+	$args = array_slice( func_get_args(), 1 );
+	foreach ( $GLOBALS['filters'][ $h ] ?? array() as $cb ) { $args[0] = call_user_func_array( $cb, $args ); }
+	return $args[0];
+}
 function do_action( $h ) {
 	$args = array_slice( func_get_args(), 1 );
 	foreach ( $GLOBALS['filters'][ $h ] ?? array() as $cb ) { call_user_func_array( $cb, $args ); }
@@ -122,9 +134,11 @@ class WPCPM_Admin { public static function settings_url() { return 'https://exam
  *
  * The mail layer's central claim is that a template is built *inside* the recipient's
  * locale. A stub that returned true and did nothing would let that regress in silence, so
- * this one keeps a stack and the assertions read it.
+ * these keep a stack and the assertions read it: a user ID when the switch was to somebody's
+ * profile language, a locale code when the caller named one for an address with no account.
  */
 function switch_to_user_locale( $user_id ) { $GLOBALS['locales'][] = (int) $user_id; return true; }
+function switch_to_locale( $locale ) { $GLOBALS['locales'][] = (string) $locale; return true; }
 function restore_previous_locale() { array_pop( $GLOBALS['locales'] ); return true; }
 
 /**
@@ -230,6 +244,76 @@ ck( 'a message with no subject is not sent', array( $sent, count( $GLOBALS['mail
 
 $sent = WPCPM_Mail::send( 999, 'test', function () { return array( 'subject' => 'x', 'body' => 'y' ); } );
 ck( 'a recipient who does not exist is not mailed', array( $sent ), array( false ) );
+
+/* ---- send_to: an address with no account ------------------------------- */
+
+echo "\n=== WPCPM_Mail::send_to ===\n";
+
+// An applicant is an address and nothing else. Before `send_to()`, mail to one went to
+// `wp_mail()` directly and so past the filter, the log and the subject sanitising - which is
+// why every claim made about `send()` above is made again here, against a bare address.
+WPCPM_Mail::clear_log();
+$GLOBALS['mail'] = array();
+$seen_locale     = null;
+$seen_to         = null;
+$seen_recipient  = 'never called';
+
+$GLOBALS['filters']['wpcpm_mail'][] = function ( $mail, $context, $recipient ) use ( &$seen_recipient ) {
+	$seen_recipient = $recipient;
+
+	return $mail;
+};
+
+$sent = WPCPM_Mail::send_to(
+	'applicant@example.test',
+	'institution-applied',
+	function ( $to ) use ( &$seen_locale, &$seen_to ) {
+		$seen_locale = end( $GLOBALS['locales'] );
+		$seen_to     = $to;
+
+		return array( 'subject' => 'Application received', 'body' => 'Body' );
+	},
+	'es_ES'
+);
+
+ck( 'an address with no account is mailed', array( $sent, $GLOBALS['mail'][0]['to'] ), array( true, 'applicant@example.test' ) );
+ck( 'the builder is handed the address, there being no user', array( $seen_to ), array( 'applicant@example.test' ) );
+ck( 'the template is built inside the locale the caller named', array( $seen_locale ), array( 'es_ES' ) );
+ck( 'and that locale is restored afterwards', $GLOBALS['locales'], array() );
+ck( 'the send is logged under its context',
+    array( WPCPM_Mail::log()[0]['context'], WPCPM_Mail::log()[0]['to'] ),
+    array( 'institution-applied', 'applicant@example.test' ) );
+ck( 'the filter runs, with nobody as the recipient', array( $seen_recipient ), array( null ) );
+
+// Null is the exception for an address with no account, not a change: the same filter still
+// sees the account when there is one.
+$seen_recipient = 'never called';
+WPCPM_Mail::send( 30, 'test', function () { return array( 'subject' => 'x', 'body' => 'y' ); } );
+ck( 'while send() still hands it the user', array( $seen_recipient instanceof WP_User ), array( true ) );
+
+unset( $GLOBALS['filters']['wpcpm_mail'] );
+
+// No locale named means no switch: the message is built in whatever is in force.
+$seen_locale = null;
+$sent        = WPCPM_Mail::send_to( 'applicant@example.test', 'test', function () use ( &$seen_locale ) {
+	$seen_locale = end( $GLOBALS['locales'] );
+
+	return array( 'subject' => 'x', 'body' => 'y' );
+} );
+ck( 'no locale means no switching', array( $sent, $seen_locale, $GLOBALS['locales'] ), array( true, false, array() ) );
+
+// The same header discipline as send(): this is the other way a subject reaches wp_mail().
+$GLOBALS['mail'] = array();
+WPCPM_Mail::send_to( 'applicant@example.test', 'test', function () {
+	return array( 'subject' => "Received\r\nBcc: attacker@example.test", 'body' => 'x' );
+} );
+ck( 'newlines are stripped from its subject too',
+    array( false !== strpos( $GLOBALS['mail'][0]['subject'], "\n" ), false !== strpos( $GLOBALS['mail'][0]['subject'], 'Bcc' ) ),
+    array( false, true ) );
+
+$GLOBALS['mail'] = array();
+$sent = WPCPM_Mail::send_to( 'not-an-address', 'test', function () { return array( 'subject' => 'x', 'body' => 'y' ); } );
+ck( 'something that is not an address is refused', array( $sent, count( $GLOBALS['mail'] ) ), array( false, 0 ) );
 
 /* ---- Reply-To ----------------------------------------------------------- */
 
@@ -403,6 +487,38 @@ update_user_meta( 500, 'wpcpm_mentor_invited', time() );
 ck( 'somebody already invited is never queued again',
     array( WPCPM_Mail::queue_invites( array( 500 ) ), WPCPM_Mail::queued() ), array( 0, 0 ) );
 
+// The third kind of account carries the third stamp, and the guard has to read that one too.
+$GLOBALS['users'][ 510 ] = new WP_User( 510, 'Invited institution', 'inst@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+update_user_meta( 510, 'wpcpm_institution_invited', time() );
+
+ck( 'nor is an institution already invited',
+    array( WPCPM_Mail::queue_invites( array( 510 ) ), WPCPM_Mail::queued() ), array( 0, 0 ) );
+
+// Which stamp goes on is what the guards above read back, so each kind of account has to get
+// its own: an institution stamped as a student would pass the guard and still show as never
+// invited on its own screen, which lists by role and stamp together.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited'] = array();
+
+$GLOBALS['users'][601] = new WP_User( 601, 'A mentor', 'm601@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][602] = new WP_User( 602, 'A student', 's602@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][603] = new WP_User( 603, 'An institution', 'i603@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+
+WPCPM_Mail::queue_invites( array( 601, 602, 603 ) );
+WPCPM_Mail::drain_queue();
+
+ck( 'each kind of account is stamped with its own invited meta',
+    array(
+        (int) get_user_meta( 601, 'wpcpm_mentor_invited', true ) > 0,
+        (int) get_user_meta( 602, 'wpcpm_student_invited', true ) > 0,
+        (int) get_user_meta( 603, 'wpcpm_institution_invited', true ) > 0,
+        get_user_meta( 603, 'wpcpm_student_invited', true ),
+        get_user_meta( 603, 'wpcpm_mentor_invited', true ),
+    ),
+    array( true, true, true, '', '' ) );
+ck( 'and each of the three was actually notified', $GLOBALS['invited'], array( 601, 602, 603 ) );
+
 WPCPM_Mail::clear_queue();
 WPCPM_Mail::dismiss_run();
 
@@ -488,6 +604,95 @@ ck( 'the two audiences are told different things',
 $stranger = new WP_User( 50, 'Someone Else', 'else@example.test', array( 'subscriber' ) );
 $left     = WPCPM_Mail::welcome_email( $core, $stranger, 'Site' );
 ck( 'an account that is not ours is left alone', array( $left === $core ), array( true ) );
+
+// The third audience. An account holding only the institution role was "not one of ours" and
+// went out as WordPress's bare "Login Details", which is the bug these pin.
+$GLOBALS['users'][70] = new WP_User( 70, 'Pundra Contact', 'contact@pundra.example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+
+$institution = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'WordPress Education Dashboard' );
+
+ck( 'an institution account is one of ours', array( $institution === $core ), array( false ) );
+ck( 'and its subject says whose account it is',
+    array( $institution['subject'] ), array( '[WordPress Education Dashboard] Your institution account is ready' ) );
+ck( 'it keeps the username and the reset link WordPress generated',
+    array( false !== strpos( $institution['message'], 'Username: moldir' ), false !== strpos( $institution['message'], 'https://example.test/reset' ) ),
+    array( true, true ) );
+ck( 'a new institution is told the agreement is the first step',
+    array(
+        false !== strpos( $institution['message'], 'Collaboration Agreement' ),
+        false !== strpos( $institution['message'], 'generate' ),
+        false !== strpos( $institution['message'], 'on file' ),
+    ),
+    array( true, true, false ) );
+ck( 'and the institution wording is its own',
+    array( $institution['message'] === $mentor['message'], $institution['message'] === $student['message'] ), array( false, false ) );
+
+// The context is observed the way production observes it: WordPress calls `wp_mail()` itself
+// straight after the filter, and the outcome hook reads what the filter left behind.
+WPCPM_Mail::clear_log();
+WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'Site' );
+wp_mail( 'contact@pundra.example.test', $institution['subject'], $institution['message'] );
+ck( 'the invitation is logged as an institution\'s', array( WPCPM_Mail::log()[0]['context'] ), array( 'invite-institution' ) );
+
+// The agreement module answers `is_settled()` once it exists; the next phase ships it and the
+// members module beside it. A legacy institution whose agreement is already on file must not
+// be told to produce one. Stand-ins, declared here rather than with the other stubs so that the
+// invitation above was first built without them - the way it is in the plugin today.
+if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
+	/** Stands in for the members module: which institution an account belongs to. */
+	class WPCPM_Institution_Members { public static function institution_of( $user ) { return $GLOBALS['institution_of'][ $user->ID ] ?? ''; } }
+	/** Stands in for the agreement module: whether that institution's agreement is on file. */
+	class WPCPM_Institution_Agreement { public static function is_settled( $record ) { return in_array( $record, $GLOBALS['settled'] ?? array(), true ); } }
+}
+$GLOBALS['institution_of'] = array( 70 => 'recLEGACY' );
+$GLOBALS['settled']        = array( 'recLEGACY' );
+$on_file                   = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'WordPress Education Dashboard' );
+
+ck( 'an institution whose agreement is on file is told its account is open',
+    array(
+        false !== strpos( $on_file['message'], 'on file' ),
+        false !== stripos( $on_file['message'], 'generat' ),
+        false !== strpos( $on_file['message'], 'upload' ),
+        $on_file['subject'],
+    ),
+    array( true, false, false, '[WordPress Education Dashboard] Your institution account is ready' ) );
+
+// The dashboard line. There is no institution dashboard until Phase 1, and until there is one
+// there must be no line pointing at it. The stand-in below is declared here rather than with
+// the other stubs so the invitation is first built with no such page at all - the way it is in
+// the plugin today - and only then with one.
+ck( 'no dashboard line while the module has no page',
+    array( false !== strpos( $institution['message'], 'Your institution dashboard:' ) ), array( false ) );
+
+if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+	/** Stands in for the module once it has a page; empty means the page is not set up yet. */
+	class WPCPM_Institutions_Dashboard { public static function page_url() { return $GLOBALS['institution_page'] ?? ''; } }
+}
+
+$GLOBALS['institution_page'] = '';
+$no_page                     = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'Site' );
+$GLOBALS['institution_page'] = 'https://example.test/institution-dashboard/';
+$with_page                   = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'Site' );
+
+ck( 'nor while the page answers with nothing',
+    array( false !== strpos( $no_page['message'], 'Your institution dashboard:' ) ), array( false ) );
+ck( 'and the line appears once there is a page to point at',
+    array( false !== strpos( $with_page['message'], "Your institution dashboard:\r\nhttps://example.test/institution-dashboard/" ) ), array( true ) );
+
+// Same page, different job: before the agreement is accepted the dashboard is where the
+// signed copy goes, and the line says so.
+$GLOBALS['settled'] = array();
+$to_upload          = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'Site' );
+$GLOBALS['settled'] = array( 'recLEGACY' );
+
+ck( 'an institution still to sign is pointed at the same page as the place to upload',
+    array(
+        false !== strpos( $to_upload['message'], "Where the agreement is uploaded:\r\nhttps://example.test/institution-dashboard/" ),
+        false !== strpos( $to_upload['message'], 'Your institution dashboard:' ),
+        false !== strpos( $to_upload['message'], 'once it is in place' ),
+        false !== strpos( $with_page['message'], 'once it is in place' ),
+    ),
+    array( true, false, true, false ) );
 
 /* ---- calendar invitations ---------------------------------------------- */
 
@@ -662,6 +867,17 @@ ck( 'the two samples say different things',
     array( $student_sample['body'] === $mentor_sample['body'] ), array( false ) );
 ck( 'and each is logged under its own audience',
     array( WPCPM_Mail::log()[0]['context'] ), array( 'test-mentor' ) );
+
+$institution_sample = press_sample_button( 'institution' );
+
+ck( 'the institution button sends the institution invitation',
+    array( $institution_sample['subject'], WPCPM_Mail::log()[0]['context'] ),
+    array( '[WordPress Education Dashboard] Your institution account is ready', 'test-institution' ) );
+
+// A kind nobody offers a button for falls back to the student template rather than to nothing.
+ck( 'an unknown kind previews the student invitation',
+    array( press_sample_button( 'sponsor' )['subject'] ),
+    array( '[WordPress Education Dashboard] Welcome to the WordPress Credits Program' ) );
 
 $sample = $student_sample['body'];
 
