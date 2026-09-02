@@ -12,13 +12,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Where the signed agreements will live, and whether the host serves them to anyone who asks.
  *
- * The directory is `wp-content/uploads/wpcpm-private/`, made with an `index.php` and an
- * `.htaccess` that denies everything under both Apache syntaxes. That is the most a plugin can
- * do from PHP, and on this program's host it is not enough: Atomic serves uploads through
- * nginx, which never reads `.htaccess`, and a request for a file that exists there is answered
- * with the file (open question 10 of the design spec, answered by probing the host). So the
- * plugin never prints a file's URL anywhere, every download goes through a handler that checks
- * the capability and the institution first, and the file names carry 128 bits of entropy.
+ * Atomic serves uploads through nginx, which never reads `.htaccess`, and the host will not
+ * add a rule for this plugin. So the guard files are written for hosts that do read them, and
+ * the two controls that actually hold here are ones the plugin can apply on its own:
+ *
+ * 1. **The directory name begins with a dot.** Probing this host on 2 September 2026: a file in
+ *    `uploads/wpcpm-probe-plain/` answers 200 with its body, and the same file in
+ *    `uploads/.wpcpm-probe-dot/` answers 403 with none. The rule that denies dot-prefixed path
+ *    segments is nginx's own and needs nobody's cooperation. It is a host behaviour rather than
+ *    a promise, which is why it is not relied on alone and why `probe()` re-checks it.
+ * 2. **Every stored file is encrypted at rest**, AES-256-GCM, one random key per site held in a
+ *    non-autoloaded option. If the host ever stops refusing dot paths, what it hands over is
+ *    ciphertext. The key lives in the database and the bytes live on disk, so reaching the
+ *    document means reaching both stores, and reaching either one alone yields nothing.
+ *
+ * On top of that the plugin never prints a file's URL anywhere, every download goes through a
+ * handler that checks the capability and the institution first, and file names carry 128 bits
+ * of entropy. `store()` and `read()` are the only way in and out; nothing else touches the bytes.
  *
  * `probe()` is how the site finds out what its own host does, rather than assuming. It writes a
  * throwaway file, asks for it over HTTP the way a stranger would, records the answer in
@@ -36,8 +46,36 @@ class WPCPM_Private_Files {
 	/** Option holding the last probe's result: `status`, `time`, `blocked`, `error`. */
 	const OPTION_PROBE = 'wpcpm_private_probe';
 
-	/** The directory's name under the uploads base. */
-	const DIRECTORY = 'wpcpm-private';
+	/**
+	 * The directory's name under the uploads base.
+	 *
+	 * The leading dot is load-bearing, not decoration: this host answers 403 for any URL with a
+	 * dot-prefixed segment and 200 for the same file without one. Renaming it without a dot
+	 * turns a refusal into a download.
+	 */
+	const DIRECTORY = '.wpcpm-private';
+
+	/** What the directory was called before 1.68.0, moved on the next `ensure()`. */
+	const LEGACY_DIRECTORY = 'wpcpm-private';
+
+	/** The per-site key that encrypts stored files. Not autoloaded, never printed. */
+	const OPTION_KEY = 'wpcpm_private_key';
+
+	/** Authenticated encryption: a tampered file fails to decrypt rather than decrypting wrongly. */
+	const CIPHER = 'aes-256-gcm';
+
+	/** One byte of format version at the head of every stored file, so the format can change. */
+	const FORMAT = 1;
+
+	/**
+	 * The extensions this store will write, by name.
+	 *
+	 * An allowlist rather than a shape test, because the directory lives under the document
+	 * root: a name like `x.php` is a name the host could be asked to execute, and no rule about
+	 * letters and digits refuses it. The signed agreement is a PDF; that is the whole list until
+	 * something else genuinely needs storing.
+	 */
+	const EXTENSIONS = array( 'pdf' );
 
 	/** How long the probe waits for its own site to answer, in seconds. */
 	const PROBE_TIMEOUT = 10;
@@ -92,6 +130,8 @@ class WPCPM_Private_Files {
 	 * @return true|WP_Error
 	 */
 	public static function ensure() {
+		self::migrate_legacy();
+
 		$base = self::base();
 
 		if ( ! wp_mkdir_p( $base ) ) {
@@ -154,10 +194,12 @@ class WPCPM_Private_Files {
 	 */
 	public static function probe() {
 		$result = array(
-			'status'  => 0,
-			'time'    => time(),
-			'blocked' => false,
-			'error'   => '',
+			'status'         => 0,
+			'time'           => time(),
+			'blocked'        => false,
+			'error'          => '',
+			'control_status' => 0,
+			'encrypted'      => self::can_encrypt(),
 		);
 
 		$ensured = self::ensure();
@@ -204,9 +246,54 @@ class WPCPM_Private_Files {
 			$result['blocked'] = in_array( $result['status'], self::BLOCKED_STATUSES, true );
 		}
 
+		$result['control_status'] = self::probe_control( $name );
+
 		update_option( self::OPTION_PROBE, $result, false );
 
 		return $result;
+	}
+
+	/**
+	 * Ask for the same file from a directory whose name has no dot, and report the status.
+	 *
+	 * This is the control the main probe is measured against. Without it, a host that answers
+	 * 403 for everything under uploads and a host that answers 403 only for dot paths look
+	 * identical, and the storage card would credit the plugin's directory name for a refusal
+	 * that had nothing to do with it. On this program's host the control answers 200 and the
+	 * real path answers 403, which is what makes the leading dot worth having.
+	 *
+	 * Failure is not an error: the control is an explanation, not a control in the other sense,
+	 * and a probe that cannot place it simply records 0.
+	 *
+	 * @param string $name The throwaway file's name.
+	 * @return int The HTTP status, or 0 when the check could not be made.
+	 */
+	private static function probe_control( $name ) {
+		$upload  = wp_upload_dir( null, false );
+		$basedir = trailingslashit( isset( $upload['basedir'] ) ? (string) $upload['basedir'] : '' ) . self::LEGACY_DIRECTORY . '/';
+		$baseurl = trailingslashit( isset( $upload['baseurl'] ) ? (string) $upload['baseurl'] : '' ) . self::LEGACY_DIRECTORY . '/';
+
+		if ( '' === trim( $baseurl, '/' ) || ! wp_mkdir_p( $basedir ) ) {
+			return 0;
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- A throwaway file with no content of its own, deleted in this same request.
+		if ( false === file_put_contents( $basedir . $name, "control\n" ) ) {
+			return 0;
+		}
+
+		$response = wp_remote_head(
+			$baseurl . $name,
+			array(
+				'timeout'     => self::PROBE_TIMEOUT,
+				'redirection' => 3,
+			)
+		);
+
+		wp_delete_file( $basedir . $name );
+		@rmdir( $basedir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Removed when empty; left alone when a legacy file is still waiting for the next ensure() to move it.
+
+		return is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
 	}
 
 	/**
@@ -222,10 +309,14 @@ class WPCPM_Private_Files {
 		}
 
 		return array(
-			'status'  => (int) $stored['status'],
-			'time'    => (int) $stored['time'],
-			'blocked' => (bool) $stored['blocked'],
-			'error'   => isset( $stored['error'] ) ? (string) $stored['error'] : '',
+			'status'         => (int) $stored['status'],
+			'time'           => (int) $stored['time'],
+			'blocked'        => (bool) $stored['blocked'],
+			'error'          => isset( $stored['error'] ) ? (string) $stored['error'] : '',
+			// Absent on a record written before the control probe existed, which reads as
+			// "not measured" rather than as "the host refused it too".
+			'control_status' => isset( $stored['control_status'] ) ? (int) $stored['control_status'] : 0,
+			'encrypted'      => isset( $stored['encrypted'] ) ? (bool) $stored['encrypted'] : self::can_encrypt(),
 		);
 	}
 
@@ -291,6 +382,313 @@ class WPCPM_Private_Files {
 		}
 
 		return $full;
+	}
+
+	/**
+	 * Write bytes into the store, encrypted, and return what the caller must remember.
+	 *
+	 * The only way a file enters this directory. The plaintext never touches the disk: it is
+	 * encrypted in memory and the ciphertext is what `file_put_contents()` receives, so there
+	 * is no window in which a readable copy exists under a directory the host might serve.
+	 *
+	 * The returned `path` is relative to `base()`, which is what a post stores; `sha256` is of
+	 * the **plaintext**, so a later reader can prove it got back exactly what was uploaded, and
+	 * `size` is the plaintext length for display. The name carries 128 bits of entropy and no
+	 * hint of the institution, and the extension is fixed by the caller from a checked list
+	 * rather than taken from the upload.
+	 *
+	 * @param string $bytes     The file's contents.
+	 * @param string $extension Extension without the dot, letters and digits only.
+	 * @return array{path: string, sha256: string, size: int}|WP_Error
+	 */
+	public static function store( $bytes, $extension = 'pdf' ) {
+		$bytes = (string) $bytes;
+
+		if ( '' === $bytes ) {
+			return new WP_Error( 'wpcpm_private_empty', __( 'There was nothing to store.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( ! in_array( (string) $extension, self::EXTENSIONS, true ) ) {
+			return new WP_Error( 'wpcpm_private_extension', __( 'That is not a file extension this store accepts.', 'wpcredits-program-manager' ) );
+		}
+
+		$ensured = self::ensure();
+
+		if ( is_wp_error( $ensured ) ) {
+			return $ensured;
+		}
+
+		$sealed = self::seal( $bytes );
+
+		if ( is_wp_error( $sealed ) ) {
+			return $sealed;
+		}
+
+		// Year folders keep one directory from growing without limit, and the retention rules
+		// in the design spec are expressed in years too.
+		$relative = gmdate( 'Y' ) . '/' . bin2hex( random_bytes( 16 ) ) . '.' . $extension;
+		$absolute = self::base() . $relative;
+
+		if ( ! wp_mkdir_p( dirname( $absolute ) ) ) {
+			return new WP_Error( 'wpcpm_private_dir', __( 'The year directory could not be created.', 'wpcredits-program-manager' ) );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- The plugin's own store, under uploads; WP_Filesystem would ask for credentials on a request that has none, and the bytes are already ciphertext.
+		if ( false === file_put_contents( $absolute, $sealed ) ) {
+			return new WP_Error( 'wpcpm_private_write', __( 'The file could not be written.', 'wpcredits-program-manager' ) );
+		}
+
+		// Owner-only, for the hosts where that means something. It is not the control here.
+		@chmod( $absolute, 0640 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- A best effort on hosts that honour it; failure changes nothing about the two controls that do the work.
+
+		return array(
+			'path'   => $relative,
+			'sha256' => hash( 'sha256', $bytes ),
+			'size'   => strlen( $bytes ),
+		);
+	}
+
+	/**
+	 * Read a stored file back, decrypted, or say why not.
+	 *
+	 * The counterpart of `store()`, and the only reader. A file whose tag does not verify is
+	 * refused rather than returned: with GCM that means the bytes were changed after they were
+	 * written, and handing a reviewer a document that is not the one that was signed is the
+	 * failure this whole directory exists to prevent.
+	 *
+	 * @param string $relative Path relative to the base, as stored on the post.
+	 * @return string|WP_Error The plaintext.
+	 */
+	public static function read( $relative ) {
+		$absolute = self::path( $relative );
+
+		if ( false === $absolute ) {
+			return new WP_Error( 'wpcpm_private_missing', __( 'That file is not in the store.', 'wpcredits-program-manager' ) );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading the plugin's own file by an absolute path `path()` has already resolved and bounded.
+		$sealed = file_get_contents( $absolute );
+
+		if ( false === $sealed ) {
+			return new WP_Error( 'wpcpm_private_unreadable', __( 'That file could not be read.', 'wpcredits-program-manager' ) );
+		}
+
+		return self::unseal( $sealed );
+	}
+
+	/**
+	 * Delete a stored file. Returns true when it is gone, including when it never existed.
+	 *
+	 * @param string $relative Path relative to the base.
+	 * @return bool
+	 */
+	public static function forget( $relative ) {
+		$absolute = self::path( $relative );
+
+		if ( false === $absolute ) {
+			return true;
+		}
+
+		wp_delete_file( $absolute );
+
+		return ! file_exists( $absolute );
+	}
+
+	/**
+	 * Whether this site can encrypt at all, for the storage card and for `store()`.
+	 *
+	 * @return bool
+	 */
+	public static function can_encrypt() {
+		return function_exists( 'openssl_encrypt' )
+			&& function_exists( 'openssl_decrypt' )
+			&& in_array( self::CIPHER, (array) openssl_get_cipher_methods(), true );
+	}
+
+	/**
+	 * Encrypt, and lay the result out so `unseal()` can take it apart without guessing.
+	 *
+	 * Format: one version byte, then the 12-byte nonce, then the 16-byte tag, then the
+	 * ciphertext. The version byte is what makes a future format change possible without a
+	 * migration that has to guess which files are which.
+	 *
+	 * @param string $bytes Plaintext.
+	 * @return string|WP_Error
+	 */
+	private static function seal( $bytes ) {
+		if ( ! self::can_encrypt() ) {
+			return new WP_Error(
+				'wpcpm_private_cipher',
+				__( 'This site cannot encrypt stored files: PHP has no OpenSSL support for AES-256-GCM. Uploads are refused rather than stored in the clear.', 'wpcredits-program-manager' )
+			);
+		}
+
+		$key = self::key();
+
+		if ( is_wp_error( $key ) ) {
+			return $key;
+		}
+
+		$nonce  = random_bytes( 12 );
+		$tag    = '';
+		$cipher = openssl_encrypt( $bytes, self::CIPHER, $key, OPENSSL_RAW_DATA, $nonce, $tag );
+
+		if ( false === $cipher ) {
+			return new WP_Error( 'wpcpm_private_cipher', __( 'The file could not be encrypted.', 'wpcredits-program-manager' ) );
+		}
+
+		return chr( self::FORMAT ) . $nonce . $tag . $cipher;
+	}
+
+	/**
+	 * Take a stored file apart and decrypt it.
+	 *
+	 * @param string $sealed What is on disk.
+	 * @return string|WP_Error
+	 */
+	private static function unseal( $sealed ) {
+		if ( ! self::can_encrypt() ) {
+			return new WP_Error( 'wpcpm_private_cipher', __( 'This site cannot decrypt stored files: PHP has no OpenSSL support for AES-256-GCM.', 'wpcredits-program-manager' ) );
+		}
+
+		// One version byte, twelve of nonce, sixteen of tag, and at least one of ciphertext.
+		if ( strlen( $sealed ) < 30 || self::FORMAT !== ord( $sealed[0] ) ) {
+			return new WP_Error( 'wpcpm_private_format', __( 'That file is not in a format this store wrote.', 'wpcredits-program-manager' ) );
+		}
+
+		$key = self::key();
+
+		if ( is_wp_error( $key ) ) {
+			return $key;
+		}
+
+		$plain = openssl_decrypt( substr( $sealed, 29 ), self::CIPHER, $key, OPENSSL_RAW_DATA, substr( $sealed, 1, 12 ), substr( $sealed, 13, 16 ) );
+
+		if ( false === $plain ) {
+			return new WP_Error(
+				'wpcpm_private_tampered',
+				__( 'That file did not decrypt. Either it was changed after it was stored, or the site key has been replaced.', 'wpcredits-program-manager' )
+			);
+		}
+
+		return $plain;
+	}
+
+	/**
+	 * The site's file key, made once and kept out of the autoloaded options.
+	 *
+	 * In the database, while the files are on disk, so that reaching a stored agreement means
+	 * reaching both stores: a leaked file is ciphertext and a leaked database row is a key with
+	 * nothing to open. Never printed, never sent, and deliberately not derived from the
+	 * WordPress salts, because rotating those is a routine security step that would otherwise
+	 * make every stored agreement unreadable.
+	 *
+	 * @return string|WP_Error 32 raw bytes.
+	 */
+	private static function key() {
+		$stored = get_option( self::OPTION_KEY );
+
+		if ( is_string( $stored ) && '' !== $stored ) {
+			$key = self::from_hex( $stored );
+
+			if ( '' !== $key ) {
+				return $key;
+			}
+
+			return new WP_Error(
+				'wpcpm_private_key',
+				__( 'The site key for stored files is not readable. Stored files cannot be opened until it is restored from a backup.', 'wpcredits-program-manager' )
+			);
+		}
+
+		$key = random_bytes( 32 );
+
+		// `add_option()` and not `update_option()`: two requests arriving together must not each
+		// make a key and have the second overwrite the first, which would orphan whatever the
+		// first one had already encrypted.
+		if ( ! add_option( self::OPTION_KEY, bin2hex( $key ), '', false ) ) {
+			$stored = get_option( self::OPTION_KEY );
+			$key    = is_string( $stored ) ? self::from_hex( $stored ) : '';
+
+			if ( '' === $key ) {
+				return new WP_Error( 'wpcpm_private_key', __( 'The site key for stored files could not be made.', 'wpcredits-program-manager' ) );
+			}
+		}
+
+		return $key;
+	}
+
+	/**
+	 * A stored key back as raw bytes, or '' when it is not one.
+	 *
+	 * @param string $hex What the option holds.
+	 * @return string 32 raw bytes, or ''.
+	 */
+	private static function from_hex( $hex ) {
+		if ( ! preg_match( '/^[0-9a-f]{64}$/', (string) $hex ) ) {
+			return '';
+		}
+
+		$key = hex2bin( $hex );
+
+		return ( is_string( $key ) && 32 === strlen( $key ) ) ? $key : '';
+	}
+
+	/**
+	 * Move anything the old, undotted directory holds into this one, then remove it.
+	 *
+	 * 1.67.0 made `uploads/wpcpm-private/`, which this host serves. Nothing had been stored in
+	 * it by then, but a site that did have files there must not be left with them in a place
+	 * the web can reach, so the move runs on every `ensure()` and is a no-op once done.
+	 *
+	 * @return void
+	 */
+	private static function migrate_legacy() {
+		$upload = wp_upload_dir( null, false );
+		$legacy = trailingslashit( isset( $upload['basedir'] ) ? (string) $upload['basedir'] : '' ) . self::LEGACY_DIRECTORY . '/';
+
+		if ( self::LEGACY_DIRECTORY === self::DIRECTORY || ! is_dir( $legacy ) ) {
+			return;
+		}
+
+		// `scandir()` and not `glob( '*' )`: glob skips dot-prefixed names, so the `.htaccess`
+		// guard would be left behind and the directory could never be removed.
+		$found = scandir( $legacy );
+
+		foreach ( (array) $found as $name ) {
+			if ( '.' === $name || '..' === $name ) {
+				continue;
+			}
+
+			$item = $legacy . $name;
+
+			// The guard files are made fresh in the new directory; nothing else is left behind.
+			if ( 'index.php' === $name || '.htaccess' === $name ) {
+				wp_delete_file( $item );
+				continue;
+			}
+
+			$target = self::base() . $name;
+
+			if ( is_dir( $item ) ) {
+				wp_mkdir_p( $target );
+
+				foreach ( (array) scandir( $item ) as $inner ) {
+					if ( '.' === $inner || '..' === $inner ) {
+						continue;
+					}
+
+					@rename( $item . '/' . $inner, $target . '/' . $inner ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rename -- A move inside the plugin's own store; a failure leaves the file where it was, which the next run retries.
+				}
+
+				@rmdir( $item ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Empty by the loop above, or left alone.
+				continue;
+			}
+
+			@rename( $item, $target ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rename -- As above.
+		}
+
+		@rmdir( $legacy ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Only succeeds once it is empty.
 	}
 
 	/**

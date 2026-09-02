@@ -167,7 +167,19 @@ function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
 function wp_is_writable( $p ) { return is_writable( $p ); }
 function wp_generate_password( $l = 12, $s = true, $e = false ) { return substr( str_repeat( md5( (string) mt_rand() ), 2 ), 0, (int) $l ); }
 function wp_delete_file( $p ) { if ( file_exists( $p ) ) { unlink( $p ); } }
-function wp_remote_head( $url, $args = array() ) { $GLOBALS['calls'][] = array( 'wp_remote_head', $url, $args ); $GLOBALS['probe_seen_file'] = file_exists( $GLOBALS['uploads'] . '/wpcpm-private/' . basename( $url ) ); return $GLOBALS['head']; }
+function wp_remote_head( $url, $args = array() ) {
+	$GLOBALS['calls'][] = array( 'wp_remote_head', $url, $args );
+	// The host as it was measured on 2 September 2026: any path with a dot-prefixed segment is
+	// refused, and everything else under uploads is served. `$GLOBALS['head']` is what a
+	// scenario wants the served case to answer.
+	if ( is_wp_error( $GLOBALS['head'] ) ) {
+		return $GLOBALS['head'];
+	}
+	if ( false !== strpos( (string) wp_parse_url( $url, PHP_URL_PATH ), '/.' ) ) {
+		return array( 'response' => array( 'code' => 403 ) );
+	}
+	return $GLOBALS['head'];
+}
 function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) && isset( $r['response']['code'] ) ? (int) $r['response']['code'] : ''; }
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
@@ -599,7 +611,20 @@ ck( 'no em or en dash anywhere in the module', preg_match( "/\xE2\x80\x93|\xE2\x
 $files_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php' );
 ck( 'nor in the private-files class', preg_match( "/\xE2\x80\x93|\xE2\x80\x94/", $files_src ), 0 );
 ck( 'nor in the CSS section', preg_match( "/\xE2\x80\x93|\xE2\x80\x94/", substr( file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' ), strpos( file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' ), 'Institutions screen' ) ) ), 0 );
-ck( 'every option this module writes is non-autoloaded', preg_match_all( '/update_option\(/', $files_src ), preg_match_all( '/update_option\([^;]*,\s*false\s*\);/s', $files_src ) );
+// Comment lines stripped first: both writers explain themselves in prose that names the
+// function, and counting those would make this assertion pass or fail for the wrong reason.
+$files_code = implode( "\n", array_filter( explode( "\n", $files_src ), function ( $line ) {
+	$t = ltrim( $line );
+	return '' !== $t && 0 !== strpos( $t, '*' ) && 0 !== strpos( $t, '//' ) && 0 !== strpos( $t, '/*' );
+} ) );
+ck( 'every option the store writes is kept out of the autoloaded set', array(
+	preg_match_all( '/update_option\(/', $files_code ),
+	preg_match_all( '/update_option\([^;]*,\s*false\s*\);/s', $files_code ),
+	// `add_option()` takes the flag in a fourth argument; the key must not be loaded on every
+	// request of every page either.
+	preg_match_all( '/add_option\(/', $files_code ),
+	preg_match_all( '/add_option\([^;]*,\s*false\s*\)/s', $files_code ),
+), array( 3, 3, 1, 1 ) );
 
 /* ---- the screen, rendered from the seed fixture ------------------------- */
 
@@ -643,7 +668,17 @@ foreach ( $trailing as $name ) {
 ck( 'every such name prints trimmed', $trimmed_ok, true );
 ck( 'and carries the whitespace mark', substr_count( $html, 'wpcpm-inst-mark--space' ), $seed['counts']['trailing_space_names'] );
 ck( 'the two nameless records are marked, not printed blank', substr_count( $html, 'wpcpm-inst-mark--empty' ), $seed['counts']['nameless'] );
-ck( 'a nameless record shows its record id so it can be found in the grid', false !== strpos( $html, '<code class="wpcpm-inst-record">recCvxvOLHHTHkCnK</code>' ), true );
+// Proven with a row the suite empties: the two records that had no name on 2 September were
+// deleted by a program manager the same day, and this has to keep working for the next one.
+$blank_id   = $seed['institutions'][0]['id'];
+$kept       = get_option( WPCPM_Institutions_Index::OPTION );
+$with_blank = $kept;
+$with_blank['rows'][ $blank_id ]['name'] = '';
+update_option( WPCPM_Institutions_Index::OPTION, $with_blank, false );
+$blank_html = render_screen();
+update_option( WPCPM_Institutions_Index::OPTION, $kept, false );
+ck( 'a nameless record is marked rather than printed blank', substr_count( $blank_html, 'wpcpm-inst-mark--empty' ), 1 );
+ck( 'and shows its record id so it can be found in the grid', false !== strpos( $blank_html, '<code class="wpcpm-inst-record">' . $blank_id . '</code>' ), true );
 
 // Countries: every one an institution names resolves; the ones with no contact are marked.
 $named_without_contact = 0;
@@ -933,66 +968,51 @@ ck( 'and the ones with no version are named for what they are, never called unkn
 
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'] = $rows;
 
-/* ---- the private directory and the probe -------------------------------- */
+/* ---- the storage card --------------------------------------------------- */
 
-echo "\n=== The private directory and the probe ===\n";
+// The store's own behaviour, its directory and its encryption belong to
+// bin/test-private-files.php. What is checked here is only what this screen says about it.
 
-$base = $GLOBALS['uploads'] . '/wpcpm-private/';
+echo "\n=== The storage card ===\n";
 
-ck( 'the base is under the uploads directory', WPCPM_Private_Files::base(), $base );
-ck( 'the URL path names the directory, never a file', WPCPM_Private_Files::url_path(), '/wp-content/uploads/wpcpm-private/' );
-ck( 'ensure() makes the directory with both guards', array(
-	WPCPM_Private_Files::ensure(),
-	is_file( $base . 'index.php' ),
-	is_file( $base . '.htaccess' ),
-	false !== strpos( file_get_contents( $base . '.htaccess' ), 'Require all denied' ),
-	false !== strpos( file_get_contents( $base . '.htaccess' ), 'Deny from all' ),
-), array( true, true, true, true, true ) );
+$base = $GLOBALS['uploads'] . '/' . WPCPM_Private_Files::DIRECTORY . '/';
 
-file_put_contents( $base . '.htaccess', "# edited by the host\n" );
-WPCPM_Private_Files::ensure();
-ck( 'a guard file that exists is left as it is', file_get_contents( $base . '.htaccess' ), "# edited by the host\n" );
-unlink( $base . '.htaccess' );
-WPCPM_Private_Files::ensure();
+// What this host does: the dot path is refused by its own rule, a plain uploads path is served.
+$GLOBALS['head'] = array( 'response' => array( 'code' => 200 ) );
+$result          = WPCPM_Private_Files::probe();
+$html            = render_screen();
 
-$before = time();
-$GLOBALS['head'] = array( 'response' => array( 'code' => 403 ) );
-$result = WPCPM_Private_Files::probe();
-ck( 'a 403 records blocked', array( $result['status'], $result['blocked'], $result['error'], $result['time'] >= $before ), array( 403, true, '', true ) );
-ck( 'the file existed while the host was asked, and is gone after', array( $GLOBALS['probe_seen_file'], glob( $base . 'probe-*.txt' ) ), array( true, array() ) );
-$head_call = null;
-foreach ( $GLOBALS['calls'] as $call ) { if ( 'wp_remote_head' === $call[0] ) { $head_call = $call; } }
-ck( 'the request went to the directory\'s public URL with a bounded timeout', array(
-	0 === strpos( $head_call[1], 'https://example.test/wp-content/uploads/wpcpm-private/probe-' ),
-	$head_call[2]['timeout'],
-), array( true, WPCPM_Private_Files::PROBE_TIMEOUT ) );
-ck( 'and the result is stored non-autoloaded', array( get_option( 'wpcpm_private_probe' ) === $result, in_array( array( 'update_option', 'wpcpm_private_probe', false ), $GLOBALS['calls'], true ) ), array( true, true ) );
-ck( 'probe_result() reads it back', WPCPM_Private_Files::probe_result(), $result );
-ck( 'the verdict is blocked', WPCPM_Private_Files::verdict( $result ), 'blocked' );
-
-$html = render_screen();
-ck( 'the storage card says the host blocks direct requests', false !== strpos( $html, 'The host blocks direct requests to the private directory (HTTP 403 on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . ').' ), true );
+ck( 'the card says the host refuses direct requests', false !== strpos( $html, 'The host refuses direct requests to the private directory (HTTP 403 on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . ').' ), true );
+ck( 'and says the files are encrypted, which is the control that does not need the host', false !== strpos( $html, 'Stored files are encrypted with AES-256-GCM.' ), true );
 ck( 'with a Run probe button posting the probe action', false !== strpos( $html, '<input type="hidden" name="action" value="wpcpm_institutions_probe" />' ) && false !== strpos( $html, '>Run probe</button>' ), true );
 
+// The control is what makes the refusal attributable to the leading dot rather than to a host
+// that refuses everything under uploads.
+ck( 'the control path was measured and served', array( $result['control_status'] >= 200 && $result['control_status'] < 300 ), array( true ) );
+ck( 'so the card explains what the dot is doing', false !== strpos( $html, 'so the dot is what makes the difference' ), true );
+
+// A record from before the control existed must not make the card claim something it did not measure.
+$GLOBALS['opts']['wpcpm_private_probe'] = array( 'status' => 403, 'time' => $result['time'], 'blocked' => true, 'error' => '' );
+ck( 'an older record leaves the explanation out rather than inventing it', false === strpos( render_screen(), 'so the dot is what makes the difference' ), true );
+
+// The host changing its mind: the card must still be honest, and must say the bytes are useless.
 $GLOBALS['head'] = array( 'response' => array( 'code' => 200 ) );
-$result = WPCPM_Private_Files::probe();
-ck( 'a 200 records served', array( $result['status'], $result['blocked'], WPCPM_Private_Files::verdict( $result ) ), array( 200, false, 'served' ) );
+$result          = WPCPM_Private_Files::probe_result();
+$result          = array( 'status' => 200, 'time' => $result['time'], 'blocked' => false, 'error' => '', 'control_status' => 200, 'encrypted' => true );
+$GLOBALS['opts']['wpcpm_private_probe'] = $result;
 $html = render_screen();
-ck( 'and the card warns, naming the directory to block', false !== strpos( $html, '<p class="wpcpm-warning wpcpm-inst-status wpcpm-inst-status--warn">The host serves files in the private directory directly (HTTP 200 on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . '). Names are unguessable, but ask the host to block /wp-content/uploads/wpcpm-private/.</p>' ), true );
+ck( 'a served verdict warns, names the path and says what is exposed', array(
+	false !== strpos( $html, 'The host hands out files in the private directory to anyone who asks (HTTP 200 on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . ').' ),
+	false !== strpos( $html, 'What it hands over is encrypted' ),
+	false !== strpos( $html, '/wp-content/uploads/.wpcpm-private/ should not be reachable' ),
+	false !== strpos( $html, 'wpcpm-warning' ),
+), array( true, true, true, true ) );
 
-$GLOBALS['head'] = array( 'response' => array( 'code' => 404 ) );
-ck( 'a 404 for a file that exists is the host hiding it: blocked', WPCPM_Private_Files::probe()['blocked'], true );
+$GLOBALS['opts']['wpcpm_private_probe'] = array( 'status' => 0, 'time' => $result['time'], 'blocked' => false, 'error' => 'cURL error 28', 'control_status' => 0, 'encrypted' => true );
+ck( 'a failed probe says it could not tell', false !== strpos( render_screen(), 'The probe could not tell what the host does (on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . '): cURL error 28' ), true );
 
-$GLOBALS['head'] = new WP_Error( 'http_request_failed', 'cURL error 28' );
-$result = WPCPM_Private_Files::probe();
-ck( 'a failed request records neither verdict, with the error', array( $result['status'], $result['blocked'], $result['error'], WPCPM_Private_Files::verdict( $result ) ), array( 0, false, 'cURL error 28', 'unknown' ) );
-$html = render_screen();
-ck( 'and the card says it could not tell', false !== strpos( $html, 'The probe could not tell what the host does (on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . '): cURL error 28' ), true );
-
-$GLOBALS['head'] = array( 'response' => array( 'code' => 503 ) );
-$result = WPCPM_Private_Files::probe();
-$html   = render_screen();
-ck( 'a 5xx is neither too', array( WPCPM_Private_Files::verdict( $result ), false !== strpos( $html, 'it answered HTTP 503 on ' ) ), array( 'unknown', true ) );
+$GLOBALS['opts']['wpcpm_private_probe'] = array( 'status' => 503, 'time' => $result['time'], 'blocked' => false, 'error' => '', 'control_status' => 0, 'encrypted' => true );
+ck( 'and a 5xx is neither verdict', false !== strpos( render_screen(), 'it answered HTTP 503 on ' ), true );
 
 delete_option( 'wpcpm_private_probe' );
 ck( 'with no record probe_result() is null', WPCPM_Private_Files::probe_result(), null );

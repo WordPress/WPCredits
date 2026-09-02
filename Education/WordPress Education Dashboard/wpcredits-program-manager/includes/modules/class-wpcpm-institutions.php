@@ -1170,13 +1170,28 @@ class WPCPM_Institutions extends WPCPM_Module {
 
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Storage', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Signed agreements are stored under the uploads directory and served only through the plugin, which checks who is asking. The probe writes a throwaway file, requests it the way a stranger would, and records the answer.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Signed agreements are stored under the uploads directory, in a folder whose name begins with a dot, and every file is encrypted before it is written. They are handed out only by the plugin, which checks who is asking. The probe writes a throwaway file, requests it the way a stranger would, and records the answer.', 'wpcredits-program-manager' ) . '</p>';
+
+		// The encryption is the control that does not depend on the host, so it is stated first
+		// and stated as a fact about this site rather than as a promise about the directory.
+		if ( WPCPM_Private_Files::can_encrypt() ) {
+			printf(
+				'<p class="wpcpm-inst-status wpcpm-inst-status--ok">%s</p>',
+				esc_html__( 'Stored files are encrypted with AES-256-GCM. The key is held on this site and never leaves it, so a copy of the file taken from disk is unreadable without it.', 'wpcredits-program-manager' )
+			);
+		} else {
+			printf(
+				'<p class="wpcpm-warning wpcpm-inst-status wpcpm-inst-status--warn">%s</p>',
+				esc_html__( 'This site cannot encrypt stored files: PHP here has no OpenSSL support for AES-256-GCM. Uploads are refused rather than stored in the clear. Ask the host to enable it.', 'wpcredits-program-manager' )
+			);
+		}
 
 		if ( null === $result ) {
 			echo '<p>' . esc_html__( 'The probe has not run yet.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
 			$verdict = WPCPM_Private_Files::verdict( $result );
 			$when    = $result['time'] ? wp_date( 'Y-m-d H:i', $result['time'] ) : '';
+			$control = isset( $result['control_status'] ) ? (int) $result['control_status'] : 0;
 
 			if ( 'blocked' === $verdict ) {
 				printf(
@@ -1184,19 +1199,34 @@ class WPCPM_Institutions extends WPCPM_Module {
 					esc_html(
 						sprintf(
 							/* translators: 1: HTTP status code, 2: date and time. */
-							__( 'The host blocks direct requests to the private directory (HTTP %1$d on %2$s).', 'wpcredits-program-manager' ),
+							__( 'The host refuses direct requests to the private directory (HTTP %1$d on %2$s).', 'wpcredits-program-manager' ),
 							$result['status'],
 							$when
 						)
 					)
 				);
+
+				// Without the control the refusal could be the host blocking all of uploads, and
+				// the card would be crediting the directory name for something else entirely.
+				if ( $control >= 200 && $control < 300 ) {
+					printf(
+						'<p class="description">%s</p>',
+						esc_html(
+							sprintf(
+								/* translators: %d: HTTP status code. */
+								__( 'The same file in a folder without the leading dot answers HTTP %d on this host, so the dot is what makes the difference. It is a host behaviour rather than a promise, which is why the files are encrypted as well.', 'wpcredits-program-manager' ),
+								$control
+							)
+						)
+					);
+				}
 			} elseif ( 'served' === $verdict ) {
 				printf(
 					'<p class="wpcpm-warning wpcpm-inst-status wpcpm-inst-status--warn">%s</p>',
 					esc_html(
 						sprintf(
 							/* translators: 1: HTTP status code, 2: date and time, 3: the directory path. */
-							__( 'The host serves files in the private directory directly (HTTP %1$d on %2$s). Names are unguessable, but ask the host to block %3$s.', 'wpcredits-program-manager' ),
+							__( 'The host hands out files in the private directory to anyone who asks (HTTP %1$d on %2$s). What it hands over is encrypted, and the names are unguessable, so nothing readable is exposed. Even so, %3$s should not be reachable: tell the host, and do not store anything here that is not encrypted by this plugin.', 'wpcredits-program-manager' ),
 							$result['status'],
 							$when,
 							$path
