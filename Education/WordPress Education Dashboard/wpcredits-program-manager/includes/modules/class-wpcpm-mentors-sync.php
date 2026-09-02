@@ -137,33 +137,47 @@ class WPCPM_Mentors_Sync {
 			'wpcpm_mentors_fields',
 			array(
 				// Mentors table.
-				'mentor_name'       => 'Full Name',
-				'mentor_profile'    => 'WordPress profile',
-				'mentor_email'      => 'Email',
-				'mentor_status'     => 'Status',
+				'mentor_name'         => 'Full Name',
+				'mentor_profile'      => 'WordPress profile',
+				'mentor_email'        => 'Email',
+				'mentor_status'       => 'Status',
 				// Students Reports table.
-				'report_name'       => 'Name',
-				'report_email'      => 'Email',
-				'report_status'     => 'Status',
-				'report_mentor'     => 'Mentor',
-				'report_instituton' => 'Educational institution',
-				'report_profile'    => 'WordPress Profile',
-				'report_slack'      => 'Slack Name',
-				'report_team'       => 'Main Contribution Team',
-				'report_website'    => 'Personal Website URL',
-				'report_start'      => 'Internship Start Date',
-				'report_end'        => 'Internship End Date',
-				'report_link'       => 'Personal link',
-				'report_link_50h'   => '50h personal link',
-				'report_link_dev'   => 'Dev Track ONLY personal link',
+				'report_name'         => 'Name',
+				'report_email'        => 'Email',
+				'report_status'       => 'Status',
+				'report_mentor'       => 'Mentor',
+				'report_instituton'   => 'Educational institution',
+				'report_profile'      => 'WordPress Profile',
+				'report_slack'        => 'Slack Name',
+				'report_team'         => 'Main Contribution Team',
+				'report_website'      => 'Personal Website URL',
+				'report_start'        => 'Internship Start Date',
+				'report_end'          => 'Internship End Date',
+				'report_link'         => 'Personal link',
+				'report_link_50h'     => '50h personal link',
+				'report_link_dev'     => 'Dev Track ONLY personal link',
 				// Students table, for the tutor join.
-				'student_email'     => 'Email',
-				'student_tutor'     => 'Tutor ',
-				'student_tutors'    => 'Tutors official',
+				'student_email'       => 'Email',
+				'student_tutor'       => 'Tutor ',
+				'student_tutors'      => 'Tutors official',
 				// Both live only in the Students table, not in Students Reports, which is
 				// why they arrive through the same email-keyed join the tutor does.
-				'student_study'     => 'Your field of study',
-				'student_access'    => 'Accessibility needs',
+				'student_study'       => 'Your field of study',
+				'student_access'      => 'Accessibility needs',
+				// The rest of the Students table the students sync's Students-table pass
+				// reads for the per-institution roster index (design spec section 8.1).
+				// `Educational Institutions` is plural with a capital I, and `Start Date`
+				// is this table's own column, not the reports table's `Internship Start
+				// Date`; every name here is asserted against
+				// bin/fixtures/students-table-fields.json by bin/test-students-sync.php.
+				'student_record_name' => 'Full Name',
+				'student_status'      => 'Status',
+				'student_institution' => 'Educational Institutions',
+				'student_start'       => 'Start Date',
+				'student_end'         => 'End Date',
+				'student_mentor'      => 'Mentor',
+				'student_profile'     => 'WP Profile',
+				'student_import_key'  => 'Site import key',
 			)
 		);
 	}

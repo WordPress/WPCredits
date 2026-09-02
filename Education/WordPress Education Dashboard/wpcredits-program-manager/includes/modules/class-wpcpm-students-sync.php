@@ -22,6 +22,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * else — so their Slack handle, job line, site and teams come from their
  * WordPress.org profile. That is one HTTP request per mentor, so the results are
  * gathered once per run and shared by every student assigned to them.
+ *
+ * Since the Institutions module the `tutors` phase is also the institution side's one
+ * read of the Students table (design spec section 8.1): it builds a row per Students
+ * record, `provision` joins each report to those rows by email and stamps the account
+ * with its institution's record ID, and `finish()` writes the per-institution roster
+ * index through `WPCPM_Roster_Index`. Nothing else pages that table for the roster.
  */
 class WPCPM_Students_Sync {
 
@@ -52,6 +58,25 @@ class WPCPM_Students_Sync {
 	const META_MENTOR    = 'wpcpm_student_mentor';
 	const META_UPDATED   = 'wpcpm_student_updated';
 
+	/**
+	 * The Institutions record ID the student belongs to, on its own key (design decision 1).
+	 *
+	 * A record ID and never a name: `resolve_stored()` returns '' for an ID the lookups map
+	 * does not know, and a fence built on name equality would match every unresolved
+	 * student against every unresolved institution. **Deleted rather than written empty**:
+	 * `meta_value => ''` with the default compare matches every row holding an empty
+	 * string, so an empty stamp is a fence that fails open. Whose word the stamp is on is
+	 * `institution_source` inside `META_PROGRAM`, and it has three values: `students` when
+	 * the Students table answered, `reports` when that table has no row for the address at
+	 * all and the reports-side link stood in, and `''` when duplicate rows disagreed. The key
+	 * is written on every account the sync reaches, whichever way it went, **including the
+	 * runs that delete the stamp**: `students` with no stamp means the authority was asked
+	 * and said the student belongs to no institution. So the key's presence is the sync's
+	 * word that it looked, and its absence is the only state that means an account was never
+	 * described - which is what the manager screen counts as a broken sync.
+	 */
+	const META_INSTITUTION = 'wpcpm_student_institution';
+
 	const BUDGET       = 18;
 	const BUDGET_AJAX  = 8;
 	const LOCK_TIMEOUT = 120;
@@ -75,8 +100,10 @@ class WPCPM_Students_Sync {
 				'weight' => 40,
 				'steps'  => 20,
 			),
+			// The key stays `tutors` although the phase now reads the whole table: a run in
+			// flight resumes from a stored phase name, and a renamed key would strand it.
 			'tutors'    => array(
-				'label'  => __( 'Reading tutor assignments', 'wpcredits-program-manager' ),
+				'label'  => __( 'Reading the Students table', 'wpcredits-program-manager' ),
 				'weight' => 15,
 				'steps'  => 6,
 			),
@@ -211,6 +238,10 @@ class WPCPM_Students_Sync {
 				'tutors'   => array(),
 				'study'    => array(),
 				'access'   => array(),
+				// The roster: one row per Students record, keyed by its record ID, in the
+				// shape `WPCPM_Roster_Index` stores. Roughly doubles the state option, which
+				// is why the row holds only what the index needs.
+				'rows'     => array(),
 				'stats'    => self::empty_stats(),
 				'notices'  => array(),
 			),
@@ -349,7 +380,11 @@ class WPCPM_Students_Sync {
 				);
 
 			case 'tutors':
-				return __( 'Joining tutors to students by email…', 'wpcredits-program-manager' );
+				return sprintf(
+					/* translators: %s: number of Students table rows read. */
+					__( '%s Students rows read', 'wpcredits-program-manager' ),
+					number_format_i18n( $get( 'rows_read' ) )
+				);
 
 			case 'provision':
 				return sprintf(
@@ -516,7 +551,8 @@ class WPCPM_Students_Sync {
 			$email   = $read( 'report_email' );
 			$profile = $read( 'report_profile' );
 
-			$mentor_ids = WPCPM_Airtable::link_ids( isset( $cells[ $fields['report_mentor'] ] ) ? $cells[ $fields['report_mentor'] ] : array() );
+			$mentor_ids      = WPCPM_Airtable::link_ids( isset( $cells[ $fields['report_mentor'] ] ) ? $cells[ $fields['report_mentor'] ] : array() );
+			$institution_ids = WPCPM_Airtable::link_ids( isset( $cells[ $fields['report_instituton'] ] ) ? $cells[ $fields['report_instituton'] ] : array() );
 
 			$state['students'][] = array(
 				'record_id'      => isset( $record['id'] ) ? (string) $record['id'] : '',
@@ -553,6 +589,10 @@ class WPCPM_Students_Sync {
 				'field_of_study' => '',
 				'accessibility'  => '',
 				'mentor_id'      => ! empty( $mentor_ids ) ? $mentor_ids[0] : '',
+				// The reports-side institution link kept as an ID beside the resolved name:
+				// the stamp of last resort for an account whose Students row the email join
+				// cannot find. Stripped before the row becomes `wpcpm_student_program`.
+				'institution_id' => ( ! empty( $institution_ids ) && WPCPM_Mentors_Sync::is_record_id( $institution_ids[0] ) ) ? (string) $institution_ids[0] : '',
 			);
 
 			++$state['stats']['students_seen'];
@@ -678,7 +718,18 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
-	 * Phase 3 — the tutor join, on email, exactly as the Mentors sync does it.
+	 * Phase 3 - the Students table, read once, for two things at once.
+	 *
+	 * The three email-keyed maps that give each account its tutor, field of study and
+	 * accessibility needs, exactly as the Mentors sync builds them; and, since the
+	 * Institutions module, the roster: one row per Students record, keyed by its record
+	 * ID, in the shape `WPCPM_Roster_Index` stores (design spec section 8.1). One pass,
+	 * because a second phase paging the same 800 rows at a second cadence with a second
+	 * date rule is how two surfaces come to disagree about the same student.
+	 *
+	 * The row holds no free text and never the accessibility disclosure: that was told to
+	 * the program, not to the school, and the index is what an institution reads.
+	 * `Accessibility needs` still feeds the map behind `wpcpm_student_program`, as before.
 	 *
 	 * @param array          $state    Sync state, by reference.
 	 * @param WPCPM_Airtable $airtable Client.
@@ -692,11 +743,19 @@ class WPCPM_Students_Sync {
 			$settings['students_table'],
 			array(
 				'fields' => array(
+					$fields['student_record_name'],
 					$fields['student_email'],
+					$fields['student_status'],
+					$fields['student_institution'],
+					$fields['student_start'],
+					$fields['student_end'],
+					$fields['student_mentor'],
+					$fields['student_profile'],
 					$fields['student_tutor'],
 					$fields['student_tutors'],
 					$fields['student_study'],
 					$fields['student_access'],
+					$fields['student_import_key'],
 				),
 				'offset' => $state['offset'],
 			)
@@ -706,38 +765,85 @@ class WPCPM_Students_Sync {
 			return $page;
 		}
 
+		// A run already in flight when this shipped has no `rows`; it gets an empty set here
+		// and `finish()` treats a missing key, not an empty one, as "leave the index alone".
+		if ( ! isset( $state['rows'] ) || ! is_array( $state['rows'] ) ) {
+			$state['rows'] = array();
+		}
+
 		foreach ( $page['records'] as $record ) {
 			$cells = isset( $record['fields'] ) && is_array( $record['fields'] ) ? $record['fields'] : array();
-			$email = strtolower( trim( WPCPM_Airtable::flatten( isset( $cells[ $fields['student_email'] ] ) ? $cells[ $fields['student_email'] ] : '' ) ) );
 
-			if ( '' === $email ) {
-				continue;
-			}
+			$read = static function ( $key ) use ( $cells, $fields ) {
+				return trim( WPCPM_Airtable::flatten( isset( $cells[ $fields[ $key ] ] ) ? $cells[ $fields[ $key ] ] : '' ) );
+			};
 
-			$tutor = trim( WPCPM_Airtable::flatten( isset( $cells[ $fields['student_tutor'] ] ) ? $cells[ $fields['student_tutor'] ] : '' ) );
+			$email     = $read( 'student_email' );
+			$email_key = strtolower( $email );
+			$tutor     = $read( 'student_tutor' );
 
 			if ( '' === $tutor ) {
-				$tutor = trim( WPCPM_Airtable::flatten( isset( $cells[ $fields['student_tutors'] ] ) ? $cells[ $fields['student_tutors'] ] : '' ) );
-			}
-
-			if ( '' !== $tutor ) {
-				$state['tutors'][ $email ] = $tutor;
+				$tutor = $read( 'student_tutors' );
 			}
 
 			// Both live only in the Students table, so this email-keyed pass is the only
 			// place they can be picked up. Parallel maps, so a run already in flight when
 			// this shipped keeps working — a missing key reads as absent.
-			$study = trim( WPCPM_Airtable::flatten( isset( $cells[ $fields['student_study'] ] ) ? $cells[ $fields['student_study'] ] : '' ) );
+			$study  = $read( 'student_study' );
+			$access = $read( 'student_access' );
 
-			if ( '' !== $study ) {
-				$state['study'][ $email ] = $study;
+			if ( '' !== $email_key ) {
+				if ( '' !== $tutor ) {
+					$state['tutors'][ $email_key ] = $tutor;
+				}
+
+				if ( '' !== $study ) {
+					$state['study'][ $email_key ] = $study;
+				}
+
+				if ( '' !== $access ) {
+					$state['access'][ $email_key ] = $access;
+				}
 			}
 
-			$access = trim( WPCPM_Airtable::flatten( isset( $cells[ $fields['student_access'] ] ) ? $cells[ $fields['student_access'] ] : '' ) );
+			$record_id = isset( $record['id'] ) ? trim( (string) $record['id'] ) : '';
 
-			if ( '' !== $access ) {
-				$state['access'][ $email ] = $access;
+			if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+				continue;
 			}
+
+			// The first ID of the link and nothing else: 797 of 800 rows link to exactly one
+			// institution and none to more, so a second ID would be a data error to surface,
+			// not a second school to file the student under.
+			$links       = WPCPM_Airtable::link_ids( isset( $cells[ $fields['student_institution'] ] ) ? $cells[ $fields['student_institution'] ] : array() );
+			$institution = ( ! empty( $links ) && WPCPM_Mentors_Sync::is_record_id( $links[0] ) ) ? trim( (string) $links[0] ) : '';
+			$mentors     = WPCPM_Airtable::link_ids( isset( $cells[ $fields['student_mentor'] ] ) ? $cells[ $fields['student_mentor'] ] : array() );
+
+			$state['rows'][ $record_id ] = array(
+				'record_id'      => $record_id,
+				'name'           => $read( 'student_record_name' ),
+				'email'          => $email,
+				'email_key'      => $email_key,
+				'status'         => $read( 'student_status' ),
+				'institution'    => $institution,
+				// Stored as read. `WPCPM_Cohort::key()` files anything that is not a plain
+				// date under "no start date", so a field type change in the base surfaces
+				// as an empty cohort rather than being papered over here.
+				'start'          => $read( 'student_start' ),
+				'end'            => $read( 'student_end' ),
+				'has_mentor'     => ! empty( $mentors ),
+				'username'       => WPCPM_Mentors_Sync::wporg_username( $read( 'student_profile' ) ),
+				'field_of_study' => $study,
+				'tutor'          => $tutor,
+				'import_key'     => $read( 'student_import_key' ),
+				// Both filled by `phase_provision()`, which is where the reports and the
+				// accounts are; declared here so every row has the same shape.
+				'reports'        => array(),
+				'user_id'        => 0,
+			);
+
+			// Not `++`: a run that started under the previous version has no such key yet.
+			$state['stats']['rows_read'] = ( isset( $state['stats']['rows_read'] ) ? (int) $state['stats']['rows_read'] : 0 ) + 1;
 		}
 
 		$state['offset'] = $page['offset'];
@@ -775,12 +881,20 @@ class WPCPM_Students_Sync {
 			return true;
 		}
 
+		$by_email = self::rows_by_email( $state );
+
 		foreach ( $slice as $index => $student ) {
 			$state['cursor'] = $index + 1;
 
 			if ( '' === $student['record_id'] ) {
 				continue;
 			}
+
+			// The Students rows behind this report, by email, resolved before the account:
+			// a row's `reports` list is about the record in Airtable and is filled whether
+			// or not an account exists, because a graduate with no account is still a
+			// finished student on the roster.
+			$join = self::join_students_rows( $state, $student, $by_email );
 
 			// Past students keep the account they already have but are not newly
 			// provisioned: an account is for someone who needs to sign in.
@@ -811,7 +925,10 @@ class WPCPM_Students_Sync {
 			}
 
 			$program = $student;
-			unset( $program['email_key'], $program['mentor_id'] );
+			unset( $program['email_key'], $program['mentor_id'], $program['institution_id'] );
+
+			// Whose word the stamp below is on, beside the resolved name the cards print.
+			$program['institution_source'] = $join['source'];
 
 			update_user_meta( $user_id, self::META_RECORD_ID, $student['record_id'] );
 			update_user_meta( $user_id, self::META_ACTIVE, $student['is_past'] ? 0 : 1 );
@@ -819,10 +936,134 @@ class WPCPM_Students_Sync {
 			update_user_meta( $user_id, self::META_MENTOR, $mentor );
 			update_user_meta( $user_id, self::META_UPDATED, time() );
 
+			// The stamp the institution fence reads. Deleted, never written empty: see the
+			// constant. Counted only where the reports side stood in for an address the
+			// Students table has no row for at all, so the manager screen can say how many
+			// records that table still lacks. A row that exists and names no institution is
+			// not one of those: it leaves the fence closed and is counted on the
+			// reconciliation card, under the rows with no institution.
+			if ( WPCPM_Mentors_Sync::is_record_id( $join['institution'] ) ) {
+				update_user_meta( $user_id, self::META_INSTITUTION, $join['institution'] );
+
+				if ( 'reports' === $join['source'] ) {
+					$state['stats']['stamped_from_reports'] = ( isset( $state['stats']['stamped_from_reports'] ) ? (int) $state['stats']['stamped_from_reports'] : 0 ) + 1;
+				}
+			} else {
+				delete_user_meta( $user_id, self::META_INSTITUTION );
+			}
+
+			foreach ( $join['rows'] as $record_id ) {
+				$state['rows'][ $record_id ]['user_id'] = (int) $user_id;
+			}
+
 			++$state['stats']['assigned'];
 		}
 
 		return true;
+	}
+
+	/**
+	 * The Students rows' record IDs by email key, built once per tick.
+	 *
+	 * @param array $state Sync state.
+	 * @return array<string, string[]>
+	 */
+	private static function rows_by_email( array $state ) {
+		$by_email = array();
+		$rows     = isset( $state['rows'] ) && is_array( $state['rows'] ) ? $state['rows'] : array();
+
+		foreach ( $rows as $record_id => $row ) {
+			$key = isset( $row['email_key'] ) ? (string) $row['email_key'] : '';
+
+			if ( '' === $key ) {
+				continue;
+			}
+
+			$by_email[ $key ][] = (string) $record_id;
+		}
+
+		return $by_email;
+	}
+
+	/**
+	 * Which institution a report's student belongs to, and on whose word.
+	 *
+	 * The Students table is the authority (design decision 2), reached by email because
+	 * `Students.Students Reports` is empty on every row of both tables. Exactly one row, or
+	 * several that agree on the institution, is the Students side's answer. No row at all is
+	 * the seven reports-only accounts the first spec dropped from the fence while their
+	 * mentors still saw them: the reports-side link stands in, marked `reports` so the
+	 * dashboard can say a program manager needs to complete the record. Several rows that
+	 * disagree are one address filed under two schools; nobody here can say which, so the
+	 * stamp goes and the conflict is counted, and neither row is given the account or the
+	 * report, because a disputed identity on both rosters is worse than on neither.
+	 *
+	 * A Students row that exists and names no institution is not the same case, and must not
+	 * be read as one: the authority answered, and its answer is blank. The stamp is deleted
+	 * rather than written empty (design decision 1) and the source stays `students`, because
+	 * the stamp is the fence key, and opening the fence for an institution the Students table
+	 * does not name is the failure decision 1 exists to prevent. The row is still joined to
+	 * its report and its account, and is counted once, as an institution-less row on the
+	 * reconciliation card and on the manager's `wpcpm_roster_unlinked` list.
+	 *
+	 * @param array $state    Sync state, by reference: `reports` is appended on the matched rows.
+	 * @param array $student  The reports row.
+	 * @param array $by_email Students record IDs by email key.
+	 * @return array{institution: string, source: string, rows: string[]}
+	 */
+	private static function join_students_rows( array &$state, array $student, array $by_email ) {
+		$email_key    = isset( $student['email_key'] ) ? (string) $student['email_key'] : '';
+		$matches      = ( '' !== $email_key && isset( $by_email[ $email_key ] ) ) ? $by_email[ $email_key ] : array();
+		$from_reports = ( isset( $student['institution_id'] ) && WPCPM_Mentors_Sync::is_record_id( $student['institution_id'] ) ) ? (string) $student['institution_id'] : '';
+
+		if ( empty( $matches ) ) {
+			return array(
+				'institution' => $from_reports,
+				'source'      => 'reports',
+				'rows'        => array(),
+			);
+		}
+
+		$institutions = array();
+
+		foreach ( $matches as $record_id ) {
+			$institutions[] = isset( $state['rows'][ $record_id ]['institution'] ) ? (string) $state['rows'][ $record_id ]['institution'] : '';
+		}
+
+		$institutions = array_values( array_unique( $institutions ) );
+
+		if ( count( $institutions ) > 1 ) {
+			$state['notices'][] = sprintf(
+				/* translators: %s: student name. */
+				__( 'No institution recorded for %s: duplicate email in the Students table, filed under more than one institution.', 'wpcredits-program-manager' ),
+				$student['name'] ? $student['name'] : $student['record_id']
+			);
+			++$state['stats']['conflicts'];
+
+			return array(
+				'institution' => '',
+				'source'      => '',
+				'rows'        => array(),
+			);
+		}
+
+		foreach ( $matches as $record_id ) {
+			$reports = isset( $state['rows'][ $record_id ]['reports'] ) ? (array) $state['rows'][ $record_id ]['reports'] : array();
+
+			if ( ! in_array( $student['record_id'], $reports, true ) ) {
+				$reports[] = $student['record_id'];
+			}
+
+			$state['rows'][ $record_id ]['reports'] = $reports;
+		}
+
+		// '' when the row names no institution, and `phase_provision()` deletes the stamp on
+		// it: the Students side has spoken either way, so the source is its word either way.
+		return array(
+			'institution' => $institutions[0],
+			'source'      => 'students',
+			'rows'        => $matches,
+		);
 	}
 
 	/**
@@ -978,10 +1219,20 @@ class WPCPM_Students_Sync {
 	 * @param array $settings Plugin settings.
 	 */
 	private static function revoke_departed( array &$state, array $settings ) {
-		$known = array();
+		$known  = array();
+		$synced = array();
 
 		foreach ( (array) $state['students'] as $student ) {
-			if ( ! empty( $student['record_id'] ) && empty( $student['is_past'] ) ) {
+			if ( empty( $student['record_id'] ) ) {
+				continue;
+			}
+
+			// Everyone this run read, finished or not: a graduate keeps their institution
+			// stamp, because their school's semester report is about them. Only a record
+			// the run did not see at all has left.
+			$synced[] = $student['record_id'];
+
+			if ( empty( $student['is_past'] ) ) {
 				$known[] = $student['record_id'];
 			}
 		}
@@ -1004,6 +1255,12 @@ class WPCPM_Students_Sync {
 
 			if ( '' === $record || in_array( $record, $known, true ) ) {
 				continue;
+			}
+
+			// An identity that outlives the link is a fence that fails open (design decision
+			// 1), so this goes whatever `student_on_inactive` says about the role.
+			if ( ! in_array( $record, $synced, true ) ) {
+				delete_user_meta( $user_id, self::META_INSTITUTION );
 			}
 
 			update_user_meta( $user_id, self::META_ACTIVE, 0 );
@@ -1079,10 +1336,184 @@ class WPCPM_Students_Sync {
 			false
 		);
 
+		// The roster index, from the rows the Students-table pass built. Only here, so a
+		// run that fails part-way leaves last run's options in place. A state with no
+		// `rows` key at all is a run that started under the previous version and finished
+		// under this one; it leaves the index alone rather than writing an empty one.
+		if ( isset( $state['rows'] ) && is_array( $state['rows'] ) ) {
+			self::write_roster( $state );
+		}
+
 		update_option( self::OPT_LAST, time(), false );
 		delete_option( self::OPT_STATE );
 		delete_option( self::OPT_LOCK );
 		wp_clear_scheduled_hook( self::CRON_TICK );
+	}
+
+	/**
+	 * Group the rows by institution and write the index, the counts and the reconciliation.
+	 *
+	 * The counts come from `WPCPM_Cohort::participation()` per institution per cohort key,
+	 * the same function the comparison strip and the semester report read, so the three
+	 * can only disagree about when the table was read, and each prints that.
+	 *
+	 * @param array $state Final state.
+	 */
+	private static function write_roster( array $state ) {
+		$by_institution = array();
+		$unlinked       = array();
+
+		foreach ( $state['rows'] as $record_id => $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$institution = isset( $row['institution'] ) ? (string) $row['institution'] : '';
+
+			if ( WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
+				$by_institution[ $institution ][ $record_id ] = $row;
+			} else {
+				$unlinked[ $record_id ] = $row;
+			}
+		}
+
+		$counts = array();
+
+		foreach ( $by_institution as $institution => $rows ) {
+			$keys = array();
+
+			foreach ( $rows as $row ) {
+				$keys[ WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' ) ] = true;
+			}
+
+			$keys = array_keys( $keys );
+			usort( $keys, array( 'WPCPM_Cohort', 'compare' ) );
+
+			$counts[ $institution ] = array();
+
+			foreach ( $keys as $key ) {
+				$counts[ $institution ][ $key ] = WPCPM_Cohort::participation( $rows, $key );
+			}
+		}
+
+		WPCPM_Roster_Index::write_all(
+			$by_institution,
+			$unlinked,
+			$counts,
+			self::reconciliation( $state ),
+			isset( $state['started'] ) ? (int) $state['started'] : time()
+		);
+	}
+
+	/**
+	 * The manager's reconciliation card, counted once from what both passes read.
+	 *
+	 * Every number is a row a program manager may need to touch, counted rather than
+	 * listed: the card says "31 Students rows have no report", and the grid is where the
+	 * rows are. Reports rows are the ones the run fetched, which is the tracked statuses
+	 * only, so a disagreement with a status the sync never asks for cannot be seen here.
+	 *
+	 * @param array $state Final state.
+	 * @return array{students_without_reports: array, reports_without_students: array, status_disagreements: int, duplicate_emails: array, no_institution: int, no_start_date: array}
+	 */
+	private static function reconciliation( array $state ) {
+		$rows     = $state['rows'];
+		$reports  = isset( $state['students'] ) ? (array) $state['students'] : array();
+		$by_email = self::rows_by_email( $state );
+
+		$out = array(
+			'students_without_reports' => array(),
+			'reports_without_students' => array(),
+			'status_disagreements'     => 0,
+			'duplicate_emails'         => array(),
+			'no_institution'           => 0,
+			'no_start_date'            => array(),
+		);
+
+		$report_emails = array();
+
+		foreach ( $reports as $report ) {
+			$key = isset( $report['email_key'] ) ? (string) $report['email_key'] : '';
+
+			if ( '' !== $key ) {
+				$report_emails[ $key ] = true;
+			}
+		}
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$status = isset( $row['status'] ) ? (string) $row['status'] : '';
+			$key    = isset( $row['email_key'] ) ? (string) $row['email_key'] : '';
+
+			// A row with no address has no report either: email is the only join.
+			if ( '' === $key || ! isset( $report_emails[ $key ] ) ) {
+				self::tally( $out['students_without_reports'], $status );
+			}
+
+			if ( ! WPCPM_Mentors_Sync::is_record_id( isset( $row['institution'] ) ? $row['institution'] : '' ) ) {
+				++$out['no_institution'];
+			}
+
+			if ( '' === trim( (string) ( isset( $row['start'] ) ? $row['start'] : '' ) ) ) {
+				self::tally( $out['no_start_date'], $status );
+			}
+		}
+
+		foreach ( $reports as $report ) {
+			$key    = isset( $report['email_key'] ) ? (string) $report['email_key'] : '';
+			$status = isset( $report['program'] ) ? trim( (string) $report['program'] ) : '';
+
+			if ( '' === $key || ! isset( $by_email[ $key ] ) ) {
+				self::tally( $out['reports_without_students'], $status );
+				continue;
+			}
+
+			// One disagreement per report row, however many Students rows share its address.
+			foreach ( $by_email[ $key ] as $record_id ) {
+				$theirs = isset( $rows[ $record_id ]['status'] ) ? trim( (string) $rows[ $record_id ]['status'] ) : '';
+
+				if ( $theirs !== $status ) {
+					++$out['status_disagreements'];
+					break;
+				}
+			}
+		}
+
+		// An address on more than one row, counted once per institution it is filed under:
+		// the base's nine are all inside one school, and a pair split across two shows up
+		// on both, which is where it needs to be seen.
+		foreach ( $by_email as $record_ids ) {
+			if ( count( $record_ids ) < 2 ) {
+				continue;
+			}
+
+			$institutions = array();
+
+			foreach ( $record_ids as $record_id ) {
+				$institutions[ isset( $rows[ $record_id ]['institution'] ) ? (string) $rows[ $record_id ]['institution'] : '' ] = true;
+			}
+
+			foreach ( array_keys( $institutions ) as $institution ) {
+				self::tally( $out['duplicate_emails'], $institution );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Count one more under a key, creating the key on first sight.
+	 *
+	 * @param array  $bucket Counts by key, by reference.
+	 * @param string $key    The key; '' is a key like any other, for the empty status.
+	 */
+	private static function tally( array &$bucket, $key ) {
+		$key = (string) $key;
+
+		$bucket[ $key ] = isset( $bucket[ $key ] ) ? (int) $bucket[ $key ] + 1 : 1;
 	}
 
 	/**
@@ -1092,18 +1523,23 @@ class WPCPM_Students_Sync {
 	 */
 	public static function empty_stats() {
 		return array(
-			'students_seen' => 0,
-			'mentors_seen'  => 0,
-			'profiles_read' => 0,
-			'created'       => 0,
-			'linked'        => 0,
-			'updated'       => 0,
-			'invited'       => 0,
-			'assigned'      => 0,
-			'revoked'       => 0,
-			'skipped'       => 0,
-			'conflicts'     => 0,
-			'no_mentor'     => 0,
+			'students_seen'        => 0,
+			'mentors_seen'         => 0,
+			'profiles_read'        => 0,
+			'created'              => 0,
+			'linked'               => 0,
+			'updated'              => 0,
+			'invited'              => 0,
+			'assigned'             => 0,
+			'revoked'              => 0,
+			'skipped'              => 0,
+			'conflicts'            => 0,
+			'no_mentor'            => 0,
+			// The Students-table pass: rows read, and accounts whose institution had to
+			// come from the reports side because the Students table has no row for the
+			// address. A row that exists and names no institution is not one of these.
+			'rows_read'            => 0,
+			'stamped_from_reports' => 0,
 		);
 	}
 
