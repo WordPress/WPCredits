@@ -4,11 +4,11 @@
     "institutions_table": "tbl4V0FEbzRP7I2w2",
     "countries_table": "tbltB7GSRoTtSi4Ps",
     "counts": {
-        "institutions": 106,
+        "institutions": 104,
         "by_stage": {
             "Confirmed": 42,
-            "Not Moving Forward": 15,
-            "First Contact Made": 12,
+            "Not Moving Forward": 14,
+            "First Contact Made": 11,
             "Agreement Sent": 8,
             "Student": 7,
             "Info Sent": 6,
@@ -21,8 +21,8 @@
         "created_before_consent_question": 84,
         "created_before_consent_question_confirmed": 38,
         "created_before_consent_question_with_consent": 0,
-        "trailing_space_names": 10,
-        "nameless": 2,
+        "trailing_space_names": 0,
+        "nameless": 0,
         "countries": 196,
         "countries_without_contact": 58,
         "countries_used_by_institutions": 33,
@@ -282,7 +282,7 @@
         {
             "id": "rec91OCFr8CNnR6vE",
             "createdTime": "2026-01-27T23:44:15.000Z",
-            "name": "Sorbonne university ",
+            "name": "Sorbonne university",
             "stage": "Not Moving Forward",
             "country": [
                 "recDsUM9YiiYYNYuL"
@@ -307,7 +307,7 @@
         {
             "id": "rec9bQNrPvYz6JqHd",
             "createdTime": "2026-01-28T15:40:55.000Z",
-            "name": "RCC INSTITUTE OF INFORMATION TECHNOLOGY ",
+            "name": "RCC INSTITUTE OF INFORMATION TECHNOLOGY",
             "stage": "Agreement Sent",
             "country": [
                 "recUbFtvvS7aWNS9h"
@@ -480,29 +480,6 @@
             }
         },
         {
-            "id": "recCvxvOLHHTHkCnK",
-            "createdTime": "2026-09-01T15:14:21.000Z",
-            "name": "",
-            "stage": "First Contact Made",
-            "country": [],
-            "city": "",
-            "website": "",
-            "confirmed_on": "",
-            "consent": false,
-            "has_contact_email": false,
-            "has_contact_person": false,
-            "agreement": {
-                "status": "",
-                "kind": "",
-                "accepted_on": "",
-                "signed_on": "",
-                "accepted_by": "",
-                "has_document": false,
-                "submitted_on": "",
-                "template_version": ""
-            }
-        },
-        {
             "id": "recDO0XeU3jHNISEQ",
             "createdTime": "2026-06-08T15:28:44.000Z",
             "name": "Haaga-Helia University of Applied Sciences",
@@ -651,29 +628,6 @@
             }
         },
         {
-            "id": "recFk4EYsN2cftv3b",
-            "createdTime": "2026-09-01T16:05:07.000Z",
-            "name": "",
-            "stage": "Not Moving Forward",
-            "country": [],
-            "city": "",
-            "website": "",
-            "confirmed_on": "",
-            "consent": false,
-            "has_contact_email": false,
-            "has_contact_person": false,
-            "agreement": {
-                "status": "",
-                "kind": "",
-                "accepted_on": "",
-                "signed_on": "",
-                "accepted_by": "",
-                "has_document": false,
-                "submitted_on": "",
-                "template_version": ""
-            }
-        },
-        {
             "id": "recGzpWO43cQnVYEw",
             "createdTime": "2025-10-03T10:36:18.000Z",
             "name": "Riga Nordic University",
@@ -801,7 +755,7 @@
         {
             "id": "recJnYMVvBGh1a3GW",
             "createdTime": "2026-08-19T18:28:22.000Z",
-            "name": "Rajshahi University of Engineering and Technology ",
+            "name": "Rajshahi University of Engineering and Technology",
             "stage": "First Contact Made",
             "country": [
                 "recN4suJnKvMukqxo"
@@ -926,7 +880,7 @@
         {
             "id": "recL9ApwJKeApcASy",
             "createdTime": "2026-08-28T00:46:56.000Z",
-            "name": "Universidad del Valle",
+            "name": "Rajshahi University of Engineering and Technology",
             "stage": "Under Review",
             "country": [
                 "recYDDnB6knIeaKXC"
@@ -1326,7 +1280,7 @@
         {
             "id": "recRl0R7xl1HSDU0t",
             "createdTime": "2026-05-11T11:30:25.000Z",
-            "name": "Triskelion Education and Skills Initiative ",
+            "name": "Triskelion Education and Skills Initiative",
             "stage": "Call Scheduled",
             "country": [
                 "reczm8p7bc9wHGXzi"
@@ -1526,7 +1480,7 @@
         {
             "id": "recWOD2tgsdpN3HRn",
             "createdTime": "2026-03-06T13:22:47.000Z",
-            "name": "Jan Dlugosz University in Czestochowa ",
+            "name": "Jan Dlugosz University in Czestochowa",
             "stage": "Agreement Sent",
             "country": [
                 "recbDPrFD5eGjVvEH"
@@ -1676,7 +1630,7 @@
         {
             "id": "recbDaa9iqyx8l0yp",
             "createdTime": "2026-01-31T16:30:42.000Z",
-            "name": "D Y Patil Agriculture and Technical University, Talsande, Kolhapur ",
+            "name": "D Y Patil Agriculture and Technical University, Talsande, Kolhapur",
             "stage": "Confirmed",
             "country": [
                 "recUbFtvvS7aWNS9h"
@@ -1901,7 +1855,7 @@
         {
             "id": "recgvsC00uWDaoiKS",
             "createdTime": "2026-07-01T14:40:51.000Z",
-            "name": "Instituto Fomento Ocupacional FOC ",
+            "name": "Instituto Fomento Ocupacional FOC",
             "stage": "Confirmed",
             "country": [
                 "recrU0qPNEX1zi07G"
@@ -2126,7 +2080,7 @@
         {
             "id": "recmHcy73ynDhE8gL",
             "createdTime": "2026-08-01T08:29:25.000Z",
-            "name": "Pokhara College of Management ",
+            "name": "Pokhara College of Management",
             "stage": "Student",
             "country": [
                 "recLEFwdsdiEO0Qdh"
@@ -2251,7 +2205,7 @@
         {
             "id": "recnjTGbn2zdVU4VN",
             "createdTime": "2026-05-27T15:38:34.000Z",
-            "name": "NSBM Green University ",
+            "name": "NSBM Green University",
             "stage": "First Contact Made",
             "country": [
                 "recpfaiwSUkMIFDsS"
@@ -2351,7 +2305,7 @@
         {
             "id": "recsgawpglaEdV77D",
             "createdTime": "2026-07-27T11:25:53.000Z",
-            "name": "Moodlakatte Institute of Technology ",
+            "name": "Moodlakatte Institute of Technology",
             "stage": "Confirmed",
             "country": [
                 "recUbFtvvS7aWNS9h"

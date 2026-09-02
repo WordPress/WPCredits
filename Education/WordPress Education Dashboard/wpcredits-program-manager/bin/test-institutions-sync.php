@@ -4,7 +4,7 @@
  * the ones that have left the pipeline, and nothing else?
  *
  * The Airtable client is stood in for by a pager over bin/fixtures/institutions-index-seed.json,
- * so the run reads the same 106 records the base held on 2026-09-02. The other pieces of
+ * so the run reads whatever the seed fixture last read from the base. The other pieces of
  * the module are stood in for at their contracts and record what they were asked, which
  * is what most of the assertions read: the countries map refreshed once and first, the
  * columns requested (and the prose columns not), `rebuild()` called once per record with
@@ -425,7 +425,8 @@ function member( $id, $record ) {
 }
 
 $seed = seed();
-ck( 'the fixture loaded', array( count( $seed['institutions'] ) ), array( 106 ) );
+$SEEDED = count( $seed['institutions'] );
+ck( 'the fixture loaded', array( $SEEDED > 0, $SEEDED === (int) $seed['counts']['institutions'] ), array( true, true ) );
 
 /* ---- one full run --------------------------------------------------------- */
 
@@ -478,7 +479,7 @@ ck( 'no prose or link column was requested', array_values( array_intersect( $rea
 
 // The index.
 $rows = WPCPM_Institutions_Index::rows();
-ck( 'the index holds every record', count( $rows ), 106 );
+ck( 'the index holds every record', count( $rows ), $SEEDED );
 ck( 'read at the run\'s start time', array( WPCPM_Institutions_Index::read()['read'] > 0 ), array( true ) );
 
 $counts = WPCPM_Institutions_Index::stage_counts();
@@ -513,7 +514,7 @@ foreach ( $rows as $row ) {
 ck( 'no row carries a Drive link', $drive, 0 );
 
 // The gate: one rebuild per record, with the Drive link the index does not hold.
-ck( 'rebuild() was called once per record', count( $GLOBALS['calls']['rebuild'] ), 106 );
+ck( 'rebuild() was called once per record', count( $GLOBALS['calls']['rebuild'] ), $SEEDED );
 $rebuilt = array_keys( $GLOBALS['calls']['rebuild'] );
 $all     = array_keys( $rows );
 sort( $rebuilt );
@@ -547,10 +548,20 @@ ck( 'and the Confirmed one\'s was rebuilt, not deleted', array_key_exists( WPCPM
 $report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
 // `locked` counts institutions whose gate was closed, not members: every institution that
 // has left the active stages loses its agreement option whether or not anybody holds an
-// account for it. The seed has 18 such rows (15 Not Moving Forward, 2 SPAM, 1 Revisit Later)
-// and this scenario adds one whose record has gone from the base altogether.
-ck( 'the report counts the run', array( $report['stats']['records_seen'], $report['stats']['rebuilt'], $report['stats']['countries'], $report['stats']['revoked'], $report['stats']['locked'], $report['stats']['nameless'], $report['stats']['would_provision'] ), array( 106, 106, 196, 3, 19, 2, 0 ) );
-ck( 'the nameless records are named in the notices', count( $report['notices'] ), 2 );
+// account for it. Counted from the fixture and the settings rather than written down, so a
+// refreshed seed moves the expected number with the data.
+$active_stages = WPCPM_Settings::defaults()['institution_active_stages'];
+$outside       = 0;
+foreach ( $seed['institutions'] as $row ) {
+	if ( ! in_array( $row['stage'], $active_stages, true ) ) {
+		++$outside;
+	}
+}
+ck( 'the report counts the run', array( $report['stats']['records_seen'], $report['stats']['rebuilt'], $report['stats']['countries'], $report['stats']['revoked'], $report['stats']['nameless'], $report['stats']['would_provision'] ), array( $SEEDED, $SEEDED, 196, 3, (int) $seed['counts']['nameless'], 0 ) );
+// `locked` counts institutions whose gate was closed: every seeded row outside the active
+// stages, plus the one this scenario removes from the base altogether.
+ck( 'and locks every institution that has left the active stages', $report['stats']['locked'], $outside + 1 );
+ck( 'a nameless record would be named in the notices', count( $report['notices'] ), (int) $seed['counts']['nameless'] );
 ck( 'the last-run time is stamped', array( WPCPM_Institutions_Sync::last_read() > 0 ), array( true ) );
 ck( 'the state and lock are gone', array( get_option( WPCPM_Institutions_Sync::OPT_STATE ), get_option( WPCPM_Institutions_Sync::OPT_LOCK ) ), array( false, false ) );
 ck( 'the tick event is cleared', isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] ), false );
@@ -559,6 +570,23 @@ ck( 'every option was written with autoload off',
 	array( false, false, false ) );
 
 /* ---- provisioning is a count ------------------------------------------- */
+
+echo "\n=== A record with no name ===\n";
+
+// Proven with a record the suite empties rather than one the base happens to hold: the two that
+// were nameless on 2 September were deleted by a program manager the same day, and this
+// behaviour has to keep working the next time somebody adds a blank row.
+reset_site( $seed, array( $confirmed => array( 'Name' => '' ) ) );
+
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+$rows = WPCPM_Institutions_Index::rows();
+ck( 'a nameless record is kept, under its own ID', array( isset( $rows[ $confirmed ] ), $rows[ $confirmed ]['name'] ), array( true, '' ) );
+ck( 'and the index is not one row short', count( $rows ), $SEEDED );
+$notices = get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'];
+ck( 'the run names it so a manager can find it in the grid', array( 1, false !== strpos( implode( "\n", $notices ), $confirmed ) ), array( count( $notices ), true ) );
+ck( 'and counts it', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['nameless'], 1 );
 
 echo "\n=== Provisioning counts and creates nothing ===\n";
 
@@ -573,7 +601,8 @@ ck( 'the contact email is lowercased', $rows[ $confirmed ]['contact_email'], 're
 ck( 'the agreement columns reach the index, the link only as a flag', $rows[ $confirmed ]['agreement'], array( 'status' => 'On file', 'kind' => 'Legacy', 'accepted_on' => '', 'signed_on' => '', 'accepted_by' => '', 'submitted_on' => '', 'template_version' => '', 'has_document' => true ) );
 ck( 'and the link itself went to rebuild()', $GLOBALS['calls']['rebuild'][ $confirmed ]['document'], 'https://drive.google.com/drive/folders/pisa' );
 ck( 'the one Confirmed, settled, contactable institution with no history is counted', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['would_provision'], 1 );
-ck( 'and said so in a notice', array( false !== strpos( get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'][2], 'nothing was created' ) ), array( true ) );
+$notices = get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'];
+ck( 'and said so in a notice', array( false !== strpos( implode( "\n", $notices ), 'nothing was created' ) ), array( true ) );
 ck( 'no account was created', $GLOBALS['users'], array() );
 
 reset_site( $seed, array( $confirmed => array( 'Contact Email' => 'rector@example.edu', 'Agreement Status' => 'On file', 'Agreement Kind' => 'Legacy', 'Agreement Document' => 'https://drive.google.com/drive/folders/pisa' ) ) );
@@ -603,7 +632,7 @@ run_to_end();
 
 ck( 'the membership is kept', array( isset( $GLOBALS['calls']['detach'] ), isset( $GLOBALS['members'][40] ) ), array( false, true ) );
 ck( 'but the gate still closes', array_key_exists( WPCPM_Institution_Agreement::option_name( $not_moving ), $GLOBALS['opts'] ), false );
-ck( 'and the report says so', array( get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['locked'], get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['revoked'] ), array( 18, 0 ) );
+ck( 'and the report says so', array( get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['locked'], get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['revoked'] ), array( $outside, 0 ) );
 
 /* ---- an error mid-records ------------------------------------------------- */
 
@@ -637,7 +666,7 @@ run_to_end();
 ck( 'the next tick resumed from page two, not page one',
 	array_map( static function ( $call ) { return $call['args']['offset']; }, $GLOBALS['calls']['fetch_page'] ),
 	array( 'page2' ) );
-ck( 'and the run finished', array( WPCPM_Institutions_Sync::is_running(), count( WPCPM_Institutions_Index::rows() ) ), array( false, 106 ) );
+ck( 'and the run finished', array( WPCPM_Institutions_Sync::is_running(), count( WPCPM_Institutions_Index::rows() ) ), array( false, $SEEDED ) );
 
 reset_site( $seed );
 $GLOBALS['countries_error'] = true;

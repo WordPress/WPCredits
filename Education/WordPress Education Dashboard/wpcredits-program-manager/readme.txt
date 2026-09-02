@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.67.0
+Stable tag: 1.68.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.68.0 =
+* **Signed agreements are protected without asking the host for anything.** This site's host hands out any file under the uploads directory to whoever knows its name, and will not add a rule to stop. So the store now does two things for itself: the folder's name begins with a dot, which the host's own rules already refuse, and every file is encrypted before it is written, so what a misconfigured host would hand over is unreadable. The storage card says which of the two is doing the work, measured rather than assumed, and would notice the day the host changed.
+* A file altered after it was stored is refused rather than shown to a reviewer as the document that was signed, and the store accepts one kind of file, a PDF.
+* Nothing had been uploaded yet, so nothing needed converting; a site that did have files in the old folder has them moved on the next load.
 
 = 1.67.0 =
 * **The Institutions screen is real.** It reads the site's own copy of the base and never Airtable: a sync panel, the pipeline grouped by stage with an agreement column and a "Confirmed with no agreement recorded" filter, the reconciliation card, the consent report, the agreement template card and a storage probe. Nothing institutions themselves can see yet; that is the next release.

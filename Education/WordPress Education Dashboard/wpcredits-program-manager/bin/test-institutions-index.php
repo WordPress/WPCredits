@@ -176,7 +176,8 @@ ck( 'the envelope carries the version and the read time', array( $stored['v'], $
 ck( 'read() hands the envelope back', WPCPM_Institutions_Index::read()['read'], $read_at );
 
 ck( 'every fixture row is in the index', count( WPCPM_Institutions_Index::rows() ), $seed['counts']['institutions'] );
-ck( 'and that is 106', count( WPCPM_Institutions_Index::rows() ), 106 );
+$SEEDED = count( $seed['institutions'] );
+ck( 'and that is what the fixture holds', count( WPCPM_Institutions_Index::rows() ), $SEEDED );
 
 $counts = WPCPM_Institutions_Index::stage_counts();
 $want   = $seed['counts']['by_stage'];
@@ -227,21 +228,38 @@ foreach ( WPCPM_Institutions_Index::rows() as $row ) {
 }
 ck( 'trailing spaces on names survive', $trailing, $seed['counts']['trailing_space_names'] );
 
-$sorbonne = null;
-foreach ( WPCPM_Institutions_Index::rows() as $row ) {
-	if ( 'Sorbonne university ' === $row['name'] ) {
-		$sorbonne = $row;
-	}
-}
-ck( 'Sorbonne is stored with its space', is_array( $sorbonne ), true );
+// The index stores a name as the base holds it and repairs nothing: trimming here would make
+// the site and the grid disagree about what an institution is called, and the screen is where
+// the tidying belongs. Ten records ended in a space and two had no name at all on 2 September;
+// a program manager cleaned all twelve the same day, so both shapes are made here rather than
+// waited for.
+$before_awkward = WPCPM_Institutions_Index::read();
 
-$nameless = 0;
+$awkward = array(
+	'recSPACE0000000AA' => 'Sorbonne university ',
+	'recBLANK0000000BB' => '',
+);
+foreach ( $awkward as $id => $name ) {
+	WPCPM_Institutions_Index::insert( array( 'record_id' => $id, 'name' => $name, 'stage' => 'Confirmed' ) );
+}
+
+ck( 'a trailing space on a name survives the round trip', WPCPM_Institutions_Index::row( 'recSPACE0000000AA' )['name'], 'Sorbonne university ' );
+ck( 'and is not quietly trimmed on the way in', WPCPM_Institutions_Index::row( 'recSPACE0000000AA' )['name'] !== 'Sorbonne university', true );
+ck( 'a record with no name is kept, under its own ID', array( WPCPM_Institutions_Index::has( 'recBLANK0000000BB' ), WPCPM_Institutions_Index::row( 'recBLANK0000000BB' )['name'] ), array( true, '' ) );
+
+$trailing_now = 0;
+$nameless_now = 0;
 foreach ( WPCPM_Institutions_Index::rows() as $row ) {
 	if ( '' === $row['name'] ) {
-		++$nameless;
+		++$nameless_now;
+	} elseif ( rtrim( $row['name'] ) !== $row['name'] ) {
+		++$trailing_now;
 	}
 }
-ck( 'the two nameless records are kept under their IDs', $nameless, $seed['counts']['nameless'] );
+ck( 'the seed itself is clean, so these two are the only awkward rows', array( $trailing_now, $nameless_now ), array( (int) $seed['counts']['trailing_space_names'] + 1, (int) $seed['counts']['nameless'] + 1 ) );
+
+// Put the index back, so the counts the rest of this suite pins are the fixture's.
+WPCPM_Institutions_Index::write( $before_awkward['rows'], $before_awkward['read'] );
 
 ck( 'an unknown record is null', WPCPM_Institutions_Index::row( 'recNOPE0000000000' ), null );
 ck( 'a malformed ID is null, not a lookup of the empty key', WPCPM_Institutions_Index::row( '' ), null );
@@ -330,16 +348,16 @@ WPCPM_Institutions_Index::insert(
 );
 
 ck( 'the new row is there', WPCPM_Institutions_Index::has( 'recNEWAPPROVED001' ), true );
-ck( 'the index grew by one', count( WPCPM_Institutions_Index::rows() ), 107 );
+ck( 'the index grew by one', count( WPCPM_Institutions_Index::rows() ), $SEEDED + 1 );
 ck( 'and the read time is the table\'s, not the row\'s', WPCPM_Institutions_Index::read()['read'], $read_at );
 ck( 'the inserted row has the full shape', array_keys( WPCPM_Institutions_Index::row( 'recNEWAPPROVED001' ) ), $contract );
 
 WPCPM_Institutions_Index::insert( array_merge( $rows['rec1ZgEtczDKjRNP4'], array( 'stage' => 'Student' ) ) );
 ck( 'inserting an existing ID replaces the row', WPCPM_Institutions_Index::row( 'rec1ZgEtczDKjRNP4' )['stage'], 'Student' );
-ck( 'without growing the index', count( WPCPM_Institutions_Index::rows() ), 107 );
+ck( 'without growing the index', count( WPCPM_Institutions_Index::rows() ), $SEEDED + 1 );
 
 WPCPM_Institutions_Index::insert( array( 'record_id' => 'nonsense', 'name' => 'Nope' ) );
-ck( 'a malformed ID is not inserted', count( WPCPM_Institutions_Index::rows() ), 107 );
+ck( 'a malformed ID is not inserted', count( WPCPM_Institutions_Index::rows() ), $SEEDED + 1 );
 
 /* ---- stages the lists do not name ---------------------------------------- */
 
