@@ -81,7 +81,10 @@ ck( 'the version is the one the fixture pins', WPCPM_Agreement_Template::version
 ck( 'the read date is the one the fixture pins', $template['read'], $fixture['read'] );
 ck( 'the language is the one the fixture pins', $template['language'], $fixture['language'] );
 ck( 'the block count is the one the fixture pins', count( $template['blocks'] ), $fixture['blocks'] );
-ck( 'the source is the Doc', 0 === strpos( $template['source'], 'https://docs.google.com/document/d/' ), true );
+// The provenance is a description, not an address. The Doc is editable by anyone holding its
+// link, and this plugin's source is public, so the link lives in a site setting instead.
+ck( 'the source names where the wording came from', false !== stripos( $template['source'], 'Collaboration Agreement template' ), true );
+ck( 'and carries no address at all', preg_match( '#https?://#', $template['source'] ), 0 );
 
 ck( 'the placeholder appears exactly twice', substr_count( $text, WPCPM_Agreement_Template::PLACEHOLDER ), 2 );
 ck( 'which is what the fixture and the class both expect',

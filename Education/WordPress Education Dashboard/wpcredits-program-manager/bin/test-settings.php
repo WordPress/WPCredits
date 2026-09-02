@@ -217,6 +217,7 @@ $probe = array(
 	'agreement_max_mb'          => '20',
 	'agreement_uploads_per_day' => '8',
 	'agreement_review_days'     => '5',
+	'agreement_doc_url'         => 'https://docs.google.com/document/d/PROBEDOC/edit',
 	'agreement_notify'          => 'one@example.org,two@example.org',
 	'agreement_discard_days'    => '60',
 	'invite_retention_days'     => '45',
@@ -487,6 +488,19 @@ ck( 'save() stamps the version', get_option( WPCPM_Settings::OPT_VERSION ), WPCP
 
 WPCPM_Settings::maybe_upgrade();
 ck( 'so an upgrade after a save appends nothing', WPCPM_Settings::get_value( 'student_statuses' ), array( 'In Sensei' ) );
+
+// The address of the agreement wording is rendered as a link on a manager's screen, so it is
+// held to https and to Google's own hosts rather than taken as typed.
+foreach ( array(
+	'http://docs.google.com/document/d/x'   => '',
+	'https://evil.example/document/d/x'     => '',
+	'javascript:alert(1)'                   => '',
+	'not a url at all'                      => '',
+	'https://drive.google.com/drive/f/abc'  => 'https://drive.google.com/drive/f/abc',
+) as $typed => $want ) {
+	$saved = WPCPM_Settings::save( array( 'agreement_doc_url' => $typed ) );
+	ck( sprintf( 'agreement_doc_url refuses or keeps %s', $typed ), $saved['agreement_doc_url'], $want );
+}
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

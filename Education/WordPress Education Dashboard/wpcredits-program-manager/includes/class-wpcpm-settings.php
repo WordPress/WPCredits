@@ -138,6 +138,11 @@ class WPCPM_Settings {
 			'agreement_uploads_per_day' => 5,
 			'agreement_review_days'     => 3,
 			'agreement_notify'          => '',
+			// Where the wording actually lives, for the manager screen's link and for the drift
+			// check that compares the plugin's copy against it. Deliberately empty by default and
+			// deliberately not in the code: the document is editable by anyone holding its link,
+			// so the link belongs on the site rather than in a public repository.
+			'agreement_doc_url'         => '',
 			'agreement_discard_days'    => 30,
 			// Roster import by institutions. Off until it has run on the pilot, since
 			// every import is a write to the shared base.
@@ -298,6 +303,15 @@ class WPCPM_Settings {
 		// whichever the manager typed. Anything that is not an address is dropped rather
 		// than kept, because a bad recipient here fails the one message that most needs
 		// to arrive, and an empty result falls back to every program manager.
+		if ( isset( $input['agreement_doc_url'] ) ) {
+			$url  = esc_url_raw( trim( wp_unslash( $input['agreement_doc_url'] ) ), array( 'https' ) );
+			$host = $url ? strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) ) : '';
+
+			// Google only, and https only: this value is rendered as a link on an admin screen,
+			// and a free-text URL field there is a redirect waiting to happen.
+			$clean['agreement_doc_url'] = in_array( $host, array( 'docs.google.com', 'drive.google.com' ), true ) ? $url : '';
+		}
+
 		if ( isset( $input['agreement_notify'] ) ) {
 			$raw       = wp_unslash( $input['agreement_notify'] );
 			$raw       = is_array( $raw ) ? $raw : preg_split( '/[\s,]+/', (string) $raw );

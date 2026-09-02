@@ -918,9 +918,26 @@ $template = WPCPM_Agreement_Template::load( 'en' );
 ck( 'the template card shows the version, the read date, the source and the checksum prefix', array(
 	false !== strpos( $html, '<th scope="row">Version</th><td>' . $template['version'] . '</td>' ),
 	false !== strpos( $html, '<th scope="row">Copied from the Doc on</th><td>' . $template['read'] . '</td>' ),
-	false !== strpos( $html, '<a href="' . esc_html( $template['source'] ) . '" target="_blank" rel="noopener">Open the Google Doc</a>' ),
+	false !== strpos( $html, esc_html( $template['source'] ) ),
 	false !== strpos( $html, '<code>' . substr( WPCPM_Agreement_Template::checksum( $template ), 0, 12 ) . '</code>' ),
 ), array( true, true, true, true ) );
+
+// The wording's address is a setting rather than a value in the code: the document is editable
+// by anyone holding its link, and this plugin's source is public. With no address given the card
+// says so; given one, it links it.
+ck( 'with no address given, the card says where the address lives and prints none', array(
+	false !== strpos( $html, '(its address is a setting, not carried in the code)' ),
+	false !== strpos( $html, 'docs.google.com' ),
+), array( true, false ) );
+
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['agreement_doc_url'] = 'https://docs.google.com/document/d/EXAMPLEDOCID/edit';
+$with_doc = render_screen();
+unset( $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['agreement_doc_url'] );
+
+ck( 'and links it once the site has been given one', array(
+	false !== strpos( $with_doc, 'href="https://docs.google.com/document/d/EXAMPLEDOCID/edit"' ),
+	false !== strpos( $with_doc, '>Open it</a>' ),
+), array( true, true ) );
 ck( 'and offers no drift button', array( stripos( $html, 'drift' ), stripos( $html, 'Check against the Doc' ) ), array( false, false ) );
 
 // Step four of keeping the copy in step with the Doc: who signed which version. The version

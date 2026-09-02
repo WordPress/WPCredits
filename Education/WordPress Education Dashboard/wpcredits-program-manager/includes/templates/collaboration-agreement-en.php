@@ -45,7 +45,11 @@ return array(
 	'language' => 'en',
 	'version'  => '2025-11-04',
 	'read'     => '2026-09-02',
-	'source'   => 'https://docs.google.com/document/d/1iA2kJFx5KRrrpyajisoQa1n_5W4OQGgpnB7jpqjsVnY/edit',
+	// Described rather than linked. The document it was copied from is editable by anyone
+	// holding its link, so publishing that link in a public repository hands out write access to
+	// the wording institutions sign. A program manager who needs it sets `agreement_doc_url` in
+	// the plugin's settings, which stays on the site.
+	'source'   => 'The WordPress Foundation\'s Collaboration Agreement template, held in Google Docs by the program.',
 	'blocks'   => array(
 		array(
 			'type' => 'h1',

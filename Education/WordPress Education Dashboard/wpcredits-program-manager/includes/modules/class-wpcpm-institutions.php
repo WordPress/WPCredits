@@ -1059,11 +1059,26 @@ class WPCPM_Institutions extends WPCPM_Module {
 			printf( '<tr><th scope="row">%1$s</th><td><code>%2$s</code></td></tr>', esc_html__( 'Language', 'wpcredits-program-manager' ), esc_html( $language ) );
 			printf( '<tr><th scope="row">%1$s</th><td>%2$s</td></tr>', esc_html__( 'Version', 'wpcredits-program-manager' ), esc_html( WPCPM_Agreement_Template::version( $template ) ) );
 			printf( '<tr><th scope="row">%1$s</th><td>%2$s</td></tr>', esc_html__( 'Copied from the Doc on', 'wpcredits-program-manager' ), esc_html( isset( $template['read'] ) ? (string) $template['read'] : '' ) );
+			// The template names where it came from in words; the address itself is a setting,
+			// because the document is editable by anyone holding its link and this plugin's source
+			// is public. A site that has been given the link shows it, and one that has not says
+			// so rather than rendering an empty anchor.
+			$doc = (string) WPCPM_Settings::get_value( 'agreement_doc_url', '' );
+
 			printf(
-				'<tr><th scope="row">%1$s</th><td><a href="%2$s" target="_blank" rel="noopener">%3$s</a></td></tr>',
+				'<tr><th scope="row">%1$s</th><td>%2$s%3$s</td></tr>',
 				esc_html__( 'Source', 'wpcredits-program-manager' ),
-				esc_url( isset( $template['source'] ) ? (string) $template['source'] : '' ),
-				esc_html__( 'Open the Google Doc', 'wpcredits-program-manager' )
+				esc_html( isset( $template['source'] ) ? (string) $template['source'] : '' ),
+				'' !== $doc
+					? sprintf(
+						' <a href="%1$s" target="_blank" rel="noopener">%2$s</a>',
+						esc_url( $doc ),
+						esc_html__( 'Open it', 'wpcredits-program-manager' )
+					)
+					: sprintf(
+						' <span class="wpcpm-inst-muted">%s</span>',
+						esc_html__( '(its address is a setting, not carried in the code)', 'wpcredits-program-manager' )
+					)
 			);
 			printf(
 				'<tr><th scope="row">%1$s</th><td><code>%2$s</code> <span class="wpcpm-inst-muted">%3$s</span></td></tr>',

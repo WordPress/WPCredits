@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.70.1
+Stable tag: 1.71.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.71.0 =
+* **The address of the Collaboration Agreement wording is now a setting rather than a value in the code.** The document it was copied from is editable by anyone holding its link, and this plugin's source is public, so carrying the link in the code handed out write access to the wording institutions sign. The template says in words where it came from; a site that needs the address is given it in Settings, where it is held to https and to Google's own hosts.
 
 = 1.70.1 =
 * Translation template regenerated: 1,146 strings, against 1.70.0's behaviour. It had not been rebuilt since 19 August, so everything added since then was untranslatable.
