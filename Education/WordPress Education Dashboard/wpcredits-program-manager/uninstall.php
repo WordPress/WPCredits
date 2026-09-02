@@ -27,7 +27,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-notices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ics.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-mail.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-contribution-teams.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-field-value.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-updates.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-agreement-template.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-sync.php';
@@ -65,6 +67,9 @@ WPCPM_Tools::uninstall();
 WPCPM_Roles::unregister();
 
 delete_option( WPCPM_Settings::OPTION );
+delete_option( WPCPM_Settings::OPT_VERSION );
+// The wait Airtable last asked for, if the plugin is removed inside one.
+delete_option( WPCPM_Airtable::BACKOFF_OPTION );
 
 // Pending one-shot messages. Nobody is going to read "Saved." after the plugin is gone.
 delete_metadata( 'user', 0, WPCPM_Flash::META, '', true );

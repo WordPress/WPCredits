@@ -21,6 +21,16 @@ class WPCPM_Admin {
 	const SETTINGS_NONCE = 'wpcpm_save_settings';
 
 	/**
+	 * Boolean settings the settings screen does not render yet.
+	 *
+	 * The save handler reads every other switch unconditionally, because an unticked box
+	 * posts nothing and absent has to mean off. For a switch with no box on the form absent
+	 * means nothing, so these are left to `WPCPM_Settings::save()`'s own guard. The
+	 * Institutions settings card removes each one from here when it renders it.
+	 */
+	const UNRENDERED_SWITCHES = array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled' );
+
+	/**
 	 * Hooks.
 	 */
 	public function __construct() {
@@ -56,7 +66,9 @@ class WPCPM_Admin {
 			add_submenu_page(
 				self::MENU_SLUG,
 				$module->label(),
-				$module->label(),
+				// The menu title, not the page title: a module may hang a pending-count bubble on
+				// it, and the plain label stays the `<h1>`.
+				$module->menu_label(),
 				WPCPM_Roles::CAP_MANAGE,
 				$module->page_slug(),
 				array( $module, 'render_admin_page' )
@@ -305,9 +317,11 @@ class WPCPM_Admin {
 		//
 		// Safe to iterate every setting because of the `isset()`: a key this form does not
 		// render is simply absent from the request and is left alone. The one shape that
-		// cannot work that way is a checkbox, which posts nothing at all when unticked —
-		// those are read unconditionally below, which is correct precisely because this form
-		// renders all of them.
+		// cannot work that way is a checkbox, which posts nothing at all when unticked - so
+		// those are read unconditionally below, which is only correct for the ones this form
+		// renders. The switches it does not render yet are listed in UNRENDERED_SWITCHES and
+		// skipped: read unconditionally, the first save of this screen would have switched
+		// every one of them off. bin/test-settings.php checks the list against the form.
 		$input    = array();
 		$defaults = WPCPM_Settings::defaults();
 
@@ -322,7 +336,7 @@ class WPCPM_Admin {
 		}
 
 		foreach ( $defaults as $key => $default ) {
-			if ( is_bool( $default ) ) {
+			if ( is_bool( $default ) && ! in_array( $key, self::UNRENDERED_SWITCHES, true ) ) {
 				$input[ $key ] = ! empty( $_POST[ $key ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Cast to bool on the spot.
 			}
 		}
@@ -641,12 +655,13 @@ class WPCPM_Admin {
 
 		printf(
 			'<p>%s</p>',
-			esc_html__( 'Ninety people is a bad audience for a first look at a template. Send yourself the invitation as a student or as a mentor would receive it — the two say different things.', 'wpcredits-program-manager' )
+			esc_html__( 'Ninety people is a bad audience for a first look at a template. Send yourself the invitation as a student, a mentor or an institution would receive it - the three say different things.', 'wpcredits-program-manager' )
 		);
 
 		foreach ( array(
-			'student' => __( 'Email me the student invitation', 'wpcredits-program-manager' ),
-			'mentor'  => __( 'Email me the mentor invitation', 'wpcredits-program-manager' ),
+			'student'     => __( 'Email me the student invitation', 'wpcredits-program-manager' ),
+			'mentor'      => __( 'Email me the mentor invitation', 'wpcredits-program-manager' ),
+			'institution' => __( 'Email me the institution invitation', 'wpcredits-program-manager' ),
 		) as $kind => $label ) {
 			printf(
 				'<form method="post" action="%1$s" class="wpcpm-inline-form">',

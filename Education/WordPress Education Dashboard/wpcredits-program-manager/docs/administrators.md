@@ -120,8 +120,9 @@ The question box over the WordPress documentation.
 
 ### Mail
 
-A sample-invitation sender — the student and mentor invitations say different things, so you can send
-yourself either — and a log of recent mail: bookings, cancellations, reminders and invitations.
+A sample-invitation sender - the student, mentor and institution invitations say different things, so
+you can send yourself any of the three - and a log of recent mail: bookings, cancellations, reminders and
+invitations.
 "Accepted" means the site handed the message off without complaint; it cannot tell you the message was
 delivered or read.
 

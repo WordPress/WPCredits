@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.65.0
+Stable tag: 1.66.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.66.0 =
+* Groundwork for the Institutions module; nothing new on screen yet. The settings the module will read (institutions, applications, agreements, imports) exist with their defaults, and `WPCPM_Settings::maybe_upgrade()` adds **Paused** and **Pending graduation** to a saved status list once. Both syncs build their Airtable formula from that list, so until it held the two statuses no paused student was fetched while every line of code looked correct.
+* `WPCPM_Airtable::request()` paces requests to five a second and honours a 429. The wait Airtable asks for is recorded in one option so every process on the site stays away; a cron or WP-CLI run sleeps out a wait of five seconds or less, and a page render gets a `wpcpm_airtable_rate_limited` error at once rather than a hung tab. `formula_in()` takes a third argument that matches through Airtable's own `LOWER()`, for email addresses only.
+* `WPCPM_Mail::send_to()` mails an address that has no account yet, in a chosen locale, through the same log; the `wpcpm_mail` filter's third argument is now `WP_User|null`. The invitation gains an institution branch with two wordings: the Collaboration Agreement as the first step, or the account is open because the agreement is on file. Institutions carry their own `wpcpm_institution_invited` stamp, and the sample-invitation card on Settings can send the institution one.
+* `WPCPM_Field_Value` holds the one set of cleaning rules the Student Report Card and the feedback forms used to keep separately. Both forms behave as before.
+* The Collaboration Agreement template (English, from the Foundation's Doc as modified on 4 November 2025) as a block list, with `WPCPM_Agreement_Template` and a fixture that pins its text so an edit without a version bump fails the suite.
+* The submit guard moves out of `calendar.js` into its own `forms.js`, the progress script drives more than one panel on a page, and modules gain `menu_label()` so a screen can carry a count bubble in the menu.
+* Fixtures for the Students, Feedback and Institutions tables as read from the base on 2 September 2026, including the eleven fields the module adds, and a suite that checks the settings defaults against the base's own choices.
 
 = 1.65.0 =
 * The Students screen shows each student's institution and can be narrowed to one of them.

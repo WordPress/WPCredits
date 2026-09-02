@@ -32,6 +32,20 @@ abstract class WPCPM_Module {
 	abstract public function label();
 
 	/**
+	 * The submenu title, which may carry markup the plain label cannot.
+	 *
+	 * `label()` is also the screen's `<h1>` and is escaped there, so a module that wants a
+	 * pending-count bubble in the menu (the Institutions review queue) overrides this and
+	 * leaves `label()` alone. Whatever this returns is printed by `add_submenu_page()` as
+	 * core prints its own "Comments" bubble: the module escapes the text itself.
+	 *
+	 * @return string
+	 */
+	public function menu_label() {
+		return $this->label();
+	}
+
+	/**
 	 * The user role this module manages.
 	 *
 	 * @return string
