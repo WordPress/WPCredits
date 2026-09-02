@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.14.1
+Stable tag: 1.14.4
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,15 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.14.4 =
+* Hides the collapsed menu's close button along with the panel it belongs to, which was leaving an X on top of the lone menu item.
+
+= 1.14.3 =
+* Puts the lone menu item back in the header rather than across the top of the page. Core positions the collapsed menu over the whole viewport, so showing it without returning it to the normal flow painted the link under the wordpress.org header.
+
+= 1.14.2 =
+* **A menu holding one item no longer hides behind a hamburger.** On a phone the header collapsed its navigation into a toggle whatever was in it, so tapping the hamburger revealed a single link. Reported by Celi Garoe on rechecking the phone layout. A lone item now sits inline beside the logo; add a second and the toggle comes back on its own.
 
 = 1.14.1 =
 * Translation template regenerated: 96 strings, against 1.14.0. It had not been rebuilt since 5 August.

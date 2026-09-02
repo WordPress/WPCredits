@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.14.1
+Version: 1.14.4
 Requires at least: 6.6
 Tested up to: 6.8
 Requires PHP: 7.4
@@ -1026,6 +1026,41 @@ p.is-style-pill {
 
 	.wpc-header .wpc-nav .wp-block-navigation__responsive-container-open:not( .always-shown ) {
 		display: flex;
+	}
+
+	/* A menu of one is not a menu. `wpcredits_lone_nav_item()` marks a navigation holding a
+	   single item, and it shows inline rather than behind a hamburger that opens onto one link.
+	   Add a second item and the class stops being applied, so the toggle returns by itself.
+
+	   The container has to come out of the overlay as well as be shown. Core positions it
+	   `fixed` over the whole viewport for the panel it normally is, so displaying it without
+	   putting it back in the flow paints the link across the top of the page, underneath the
+	   wordpress.org header, which is worse than the hamburger it replaced. */
+	.wpc-header .wpc-nav--lone .wp-block-navigation__responsive-container-open:not( .always-shown ) {
+		display: none;
+	}
+
+	.wpc-header .wpc-nav--lone .wp-block-navigation__responsive-container:not( .is-menu-open ) {
+		background: none;
+		display: flex;
+		height: auto;
+		padding: 0;
+		position: static;
+		width: auto;
+	}
+
+	.wpc-header .wpc-nav--lone .wp-block-navigation__responsive-container:not( .is-menu-open ) .wp-block-navigation__responsive-dialog {
+		position: static;
+	}
+
+	.wpc-header .wpc-nav--lone .wp-block-navigation__responsive-container:not( .is-menu-open ) .wp-block-navigation__container {
+		width: auto;
+	}
+
+	/* The panel's own close button belongs to the panel. With the panel gone it is an X sitting
+	   on top of the link, which is exactly the sort of stray mark this change set out to remove. */
+	.wpc-header .wpc-nav--lone .wp-block-navigation__responsive-container:not( .is-menu-open ) .wp-block-navigation__responsive-container-close {
+		display: none;
 	}
 
 	/* The open panel drops under the bar rather than covering the screen, which is

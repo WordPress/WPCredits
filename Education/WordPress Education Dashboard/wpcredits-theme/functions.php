@@ -210,6 +210,56 @@ function wpcredits_site_logo_fallback( $content ) {
 add_filter( 'render_block_core/site-logo', 'wpcredits_site_logo_fallback' );
 
 /**
+ * Mark a navigation that holds a single item, so it is not hidden behind a toggle.
+ *
+ * Below 960px the header collapses its menu into a hamburger, which is the right thing for a
+ * menu. This site's menu currently holds one entry, and a mentor testing on a phone reported the
+ * obvious: tapping a hamburger to reveal one link looks broken. It is not worth a toggle, an
+ * overlay and two taps to reach something that fits beside the logo.
+ *
+ * So the count is taken here, where the rendered list actually is, and the stylesheet shows a lone
+ * item inline instead. Counted from the markup rather than from `$block['innerBlocks']` because a
+ * navigation that stores its items in a `wp_navigation` post resolves them at render time and has
+ * no inner blocks to count. The moment a second item is added the class stops being applied and
+ * the hamburger comes back on its own, with nothing to remember.
+ *
+ * @param string $content Rendered block HTML.
+ * @return string
+ */
+function wpcredits_lone_nav_item( $content ) {
+	if ( ! class_exists( 'WP_HTML_Tag_Processor' ) || false === strpos( $content, 'wpc-nav' ) ) {
+		return $content;
+	}
+
+	$items = 0;
+	$count = new WP_HTML_Tag_Processor( $content );
+
+	while ( $count->next_tag( array( 'class_name' => 'wp-block-navigation-item' ) ) ) {
+		++$items;
+
+		// Two is enough to know it is a real menu; there is no need to walk a long one.
+		if ( $items > 1 ) {
+			return $content;
+		}
+	}
+
+	if ( 1 !== $items ) {
+		return $content;
+	}
+
+	$nav = new WP_HTML_Tag_Processor( $content );
+
+	if ( ! $nav->next_tag( array( 'tag_name' => 'NAV' ) ) ) {
+		return $content;
+	}
+
+	$nav->add_class( 'wpc-nav--lone' );
+
+	return $nav->get_updated_html();
+}
+add_filter( 'render_block_core/navigation', 'wpcredits_lone_nav_item' );
+
+/**
  * Body classes the dashboard skin keys off.
  *
  * @param string[] $classes Body classes.
