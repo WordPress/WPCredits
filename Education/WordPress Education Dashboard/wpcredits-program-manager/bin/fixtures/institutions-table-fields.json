@@ -1,0 +1,92 @@
+{
+	"_comment": "Field names and select choices of the Airtable 'Institutions' table (tbl4V0FEbzRP7I2w2) and the 'Countries' table (tbltB7GSRoTtSi4Ps), read from the base's metadata API. bin/test-institution-application.php checks every field-name key the public application form uses against this list. Two strings here are load-bearing and look like typos: 'Anything else you’d like us to know?' uses a right single quotation mark (U+2019) and not an apostrophe, and the first internship choice begins with a space. `create_records()` does not send `typecast`, so a choice spelled any other way is a 422 for the whole record. Refresh with a metadata read when either table changes.",
+	"institutions_table": "tbl4V0FEbzRP7I2w2",
+	"countries_table": "tbltB7GSRoTtSi4Ps",
+	"read": "2026-09-02",
+	"fields": [
+		"Anything else you’d like us to know?",
+		"Calendly link (from Person of contact (Team)) (from Countries)",
+		"City",
+		"Comments",
+		"Confirmed on",
+		"Contact Email",
+		"Contact Person",
+		"Country",
+		"Current Stage",
+		"Days to Follow-Up",
+		"Department",
+		"Email (from Person of contact (Team)) (from Countries)",
+		"Estimated number of students who may be interested",
+		"Feedback",
+		"Follow-Up Date",
+		"HelpScout",
+		"How do your internships or practices typically work?",
+		"Last Contact Date",
+		"Linked Onboarding Record",
+		"Mentors",
+		"Name",
+		"Next Step",
+		"Notes",
+		"Original program manager",
+		"Privacy Policy Compliance",
+		"Program manager (from Countries)",
+		"Student Contact name",
+		"Students",
+		"Students 2",
+		"Students Reports",
+		"Students Reports 2 (from Linked Onboarding Record)",
+		"Students Reports copy",
+		"To Follow Up",
+		"Tutors",
+		"Website",
+		"Why are you interested in offering WordPress Credits to your students?",
+		"Your Email"
+	],
+	"choices": {
+		"Current Stage": [
+			"First Contact Made",
+			"Call Scheduled",
+			"Info Sent",
+			"Waiting on Reply",
+			"Under Review",
+			"Agreement Sent",
+			"Confirmed",
+			"Not Moving Forward",
+			"Revisit Later",
+			"SPAM",
+			"Student"
+		],
+		"How do your internships or practices typically work?": [
+			" Based on required hours (e.g. 150 hours)",
+			"Fixed duration (e.g. semester-based)",
+			"Flexible duration or year-round",
+			"Other (please specify)"
+		],
+		"To Follow Up": [ "Yes", "No" ]
+	},
+	"types": {
+		"Contact Email": "singleLineText",
+		"Country": "multipleRecordLinks",
+		"Estimated number of students who may be interested": "number, precision 0",
+		"Privacy Policy Compliance": "checkbox",
+		"Website": "url",
+		"Your Email": "email"
+	},
+	"countries_fields": [
+		"Calendly link (from Person of contact (Team))",
+		"Email (from Person of contact (Team))",
+		"Institutions (Form)",
+		"Mentors",
+		"Name",
+		"Person of contact (Team)",
+		"Students",
+		"Students 2"
+	],
+	"countries_facts": {
+		"record_count": 196,
+		"with_person_of_contact": 196,
+		"distinct_managers": 8,
+		"duplicate_names": 0,
+		"empty_names": 0
+	}
+}
