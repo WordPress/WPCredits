@@ -19,6 +19,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Reads are the common case; `update_records()` is the one write path, used by the
  * Mentor Status Checker to move a mentor's status. Writing needs the
  * `data.records:write` scope on the token, which a read-only token will not have.
+ *
+ * Every request goes through `request()`, which keeps this process under Airtable's
+ * five-a-second ceiling and honours a 429 for as long as Airtable asked. Both matter
+ * because a 429 does not refuse one request, it refuses every request for the base for
+ * thirty seconds - from every client - and two live-read paths on this site can be
+ * reached by Subscriber-based accounts.
  */
 class WPCPM_Airtable {
 
@@ -26,11 +32,68 @@ class WPCPM_Airtable {
 	const PAGE_SIZE = 100;
 
 	/**
+	 * Airtable's published ceiling: five requests per second per base.
+	 *
+	 * The sixth is not queued, it is answered 429, and from that moment the base
+	 * refuses every request for thirty seconds. RATE_WINDOW is the second the five are
+	 * counted over.
+	 */
+	const RATE_LIMIT  = 5;
+	const RATE_WINDOW = 1;
+
+	/** Seconds to stay away after a 429 that does not say. Airtable sends 30. */
+	const BACKOFF_DEFAULT = 30;
+
+	/** Longest remaining backoff a cron or WP-CLI process sleeps out rather than refuses. */
+	const BACKOFF_SLEEP_MAX = 5;
+
+	/** Option holding the Unix time until which the base has asked to be left alone. */
+	const BACKOFF_OPTION = 'wpcpm_airtable_backoff';
+
+	/**
 	 * Plugin settings.
 	 *
 	 * @var array
 	 */
 	private $settings;
+
+	/**
+	 * Start times of the requests this process made within the last RATE_WINDOW, oldest first.
+	 *
+	 * @var float[]
+	 */
+	private static $recent = array();
+
+	/**
+	 * Unix time until which requests are refused, 0 when they are not.
+	 *
+	 * Mirrors BACKOFF_OPTION for the process that saw the 429, so it does not go back
+	 * to the database to learn what it was just told.
+	 *
+	 * @var int
+	 */
+	private static $backoff_until = 0;
+
+	/**
+	 * Stand-in for `microtime( true )`. Null means the real clock. See for_tests().
+	 *
+	 * @var callable|null
+	 */
+	private static $clock = null;
+
+	/**
+	 * Stand-in for sleeping. Null means really sleeping. See for_tests().
+	 *
+	 * @var callable|null
+	 */
+	private static $sleeper = null;
+
+	/**
+	 * Stand-in for the "may this process block for a few seconds" check. See for_tests().
+	 *
+	 * @var callable|null
+	 */
+	private static $can_wait = null;
 
 	/**
 	 * Constructor.
@@ -343,11 +406,24 @@ class WPCPM_Airtable {
 	/**
 	 * Build an `OR({Field}='a',{Field}='b')` formula, or a bare equality for one value.
 	 *
+	 * With `$lower`, each test becomes `LOWER({Field}) = 'value'` with the value lowercased
+	 * here before it is quoted, so an address stored as `Ann@Example.org` still finds its
+	 * row. The field side is lowercased by Airtable's own LOWER() because that is the side
+	 * this code does not hold, and Airtable's LOWER() is Unicode-aware: it folds `Ł` in a
+	 * name as readily as `A` in an address. The needle side is lowercased by PHP, and PHP's
+	 * folding is not guaranteed to agree with Airtable's outside ASCII - `strtolower()`
+	 * leaves `Ł` alone, and even `mb_strtolower()` follows its own tables, which nobody has
+	 * checked against Airtable's for every letter of every script. That is why this flag
+	 * is only right for values that are ASCII by nature, which is to say email addresses,
+	 * and never for names: a name formula built this way prints 0 students for
+	 * Uniwersytet Łódzki, with every line of code looking correct.
+	 *
 	 * @param string   $field  Field name.
 	 * @param string[] $values Accepted values.
+	 * @param bool     $lower  Compare case-insensitively. Only for ASCII-natured values such as emails.
 	 * @return string Empty string when there is nothing to filter on.
 	 */
-	public function formula_in( $field, array $values ) {
+	public function formula_in( $field, array $values, $lower = false ) {
 		$values = array_values( array_filter( array_map( 'strval', $values ), 'strlen' ) );
 
 		if ( empty( $values ) ) {
@@ -358,7 +434,15 @@ class WPCPM_Airtable {
 		$tests = array();
 
 		foreach ( $values as $value ) {
-			$tests[] = sprintf( '{%s} = %s', $field, $this->quote( $value ) );
+			if ( $lower ) {
+				// mbstring is on every host this plugin has met but is not something
+				// WordPress requires; for the ASCII values this flag is meant for the two
+				// agree anyway, so the fallback loses nothing.
+				$needle  = function_exists( 'mb_strtolower' ) ? mb_strtolower( $value ) : strtolower( $value );
+				$tests[] = sprintf( 'LOWER({%s}) = %s', $field, $this->quote( $needle ) );
+			} else {
+				$tests[] = sprintf( '{%s} = %s', $field, $this->quote( $value ) );
+			}
 		}
 
 		if ( 1 === count( $tests ) ) {
@@ -429,6 +513,42 @@ class WPCPM_Airtable {
 	}
 
 	/**
+	 * Seconds until Airtable will take requests again, 0 when it will now.
+	 *
+	 * For screens: a page that gets `wpcpm_airtable_rate_limited` back can say how long
+	 * the wait is instead of "something went wrong", and a sync panel can say why the
+	 * last tick did nothing.
+	 *
+	 * @return int
+	 */
+	public static function backoff_remaining() {
+		return self::seconds_until( self::backoff_until() );
+	}
+
+	/**
+	 * Replace the clock, the sleeper and the may-this-process-block check. Test-only.
+	 *
+	 * Pacing and backoff are about elapsed time, and a suite that really slept through
+	 * them would take half a minute per assertion. Nothing in the plugin calls this;
+	 * bin/test-airtable.php does, with a clock it advances by hand, a sleeper that
+	 * records what it was asked for, and a check it flips between "page render" and
+	 * "cron", which the suite could not otherwise reach because it runs under the CLI
+	 * itself. Each argument is a callable, or null for the real thing. Recent request
+	 * starts and any recorded backoff are forgotten too, so every scenario begins clean.
+	 *
+	 * @param callable|null $clock    Returns the current Unix time as a float.
+	 * @param callable|null $sleeper  Receives the number of seconds to pause for.
+	 * @param callable|null $can_wait Returns whether this process may block for a few seconds.
+	 */
+	public static function for_tests( $clock = null, $sleeper = null, $can_wait = null ) {
+		self::$clock         = $clock;
+		self::$sleeper       = $sleeper;
+		self::$can_wait      = $can_wait;
+		self::$recent        = array();
+		self::$backoff_until = 0;
+	}
+
+	/**
 	 * Perform an authenticated request and decode the response.
 	 *
 	 * @param string     $url    Absolute request URL.
@@ -437,6 +557,45 @@ class WPCPM_Airtable {
 	 * @return array|WP_Error Decoded response body.
 	 */
 	private function request( $url, $method = 'GET', $body = null ) {
+		// A 429 seen earlier - by this process, or through the option by any other - is
+		// honoured before anything is sent. Airtable counts the requests it refuses, so
+		// every one sent inside the window pushes the base's thirty seconds out again,
+		// for everybody.
+		$until = self::backoff_until();
+
+		if ( $until > 0 ) {
+			$wait = self::seconds_until( $until );
+
+			if ( $wait > 0 ) {
+				// A sync under cron or WP-CLI has nobody waiting on it, so a few seconds'
+				// pause is cheaper than abandoning the tick and coming back next time.
+				// A page render cannot sit for thirty seconds - the visitor sees a hung
+				// tab, and PHP's own time limit is not much longer - so it gets the error
+				// at once and the screen can say what is happening. Cron gets the same
+				// answer for a long wait, because a tick spent asleep is a tick that did
+				// no work and the next one is minutes away anyway.
+				if ( $wait <= self::BACKOFF_SLEEP_MAX && self::can_wait() ) {
+					self::pause( $wait );
+
+					// Another process may have been refused while this one slept and pushed the
+					// window out again. Its record outranks the memory of our own.
+					$again = self::seconds_until( self::backoff_until() );
+
+					if ( $again > 0 ) {
+						return self::rate_limited( $again );
+					}
+				} else {
+					return self::rate_limited( $wait );
+				}
+			}
+
+			// Slept out or long gone: forget it, so the option does not linger for the
+			// next reader, and so a fresh 429 below is recorded as the new one it is.
+			self::clear_backoff();
+		}
+
+		self::pace();
+
 		$args = array(
 			'method'  => $method,
 			'timeout' => 20,
@@ -459,6 +618,18 @@ class WPCPM_Airtable {
 
 		$code = (int) wp_remote_retrieve_response_code( $response );
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		// Told off. Record how long for, where the next request - from this process or
+		// any other - will see it, and hand back an error the caller can tell apart from
+		// a real failure, because the right response to this one is "try again later",
+		// not "check the token".
+		if ( 429 === $code ) {
+			$wait = self::retry_after( $response );
+
+			self::record_backoff( $wait );
+
+			return self::rate_limited( $wait );
+		}
 
 		if ( $code < 200 || $code > 299 ) {
 			$detail = '';
@@ -502,6 +673,214 @@ class WPCPM_Airtable {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Hold the next request back until it is not the sixth to start within a second.
+	 *
+	 * In-process only: the record of recent starts is a static, so two PHP processes
+	 * talking to the base at once do not see each other's requests. Cross-process
+	 * protection is the 429 handling in request(), where the first process to be told
+	 * off records the backoff in an option every other process reads before sending.
+	 * This pacing exists so that one sync - the one caller that fires requests back to
+	 * back - does not earn that 429 on its own.
+	 */
+	private static function pace() {
+		$now = self::now();
+
+		self::forget_old_starts( $now );
+
+		if ( count( self::$recent ) >= self::RATE_LIMIT ) {
+			// The next request may start the moment the oldest of the last five falls
+			// out of the window, and not a moment sooner.
+			$wait = self::$recent[ count( self::$recent ) - self::RATE_LIMIT ] + self::RATE_WINDOW - $now;
+
+			if ( $wait > 0 ) {
+				self::pause( $wait );
+
+				$now = self::now();
+				self::forget_old_starts( $now );
+			}
+		}
+
+		self::$recent[] = $now;
+	}
+
+	/**
+	 * Drop recorded request starts that are older than the rate window.
+	 *
+	 * @param float $now Current Unix time.
+	 */
+	private static function forget_old_starts( $now ) {
+		$floor = $now - self::RATE_WINDOW;
+
+		self::$recent = array_values(
+			array_filter(
+				self::$recent,
+				static function ( $started ) use ( $floor ) {
+					return $started > $floor;
+				}
+			)
+		);
+	}
+
+	/**
+	 * How long a 429 asked us to stay away, in whole seconds.
+	 *
+	 * @param array $response Raw HTTP API response.
+	 * @return int
+	 */
+	private static function retry_after( $response ) {
+		$header = wp_remote_retrieve_header( $response, 'retry-after' );
+
+		// Requests hands back a list when a header was sent twice; the first is as good
+		// as any.
+		if ( is_array( $header ) ) {
+			$header = reset( $header );
+		}
+
+		$header = trim( (string) $header );
+
+		// The header may also carry an HTTP date. Airtable never sends one, and thirty
+		// seconds is what its 429 means whatever the header says, so anything that is
+		// not a plain number of seconds falls back to that rather than being parsed.
+		if ( '' === $header || ! is_numeric( $header ) || (float) $header <= 0 ) {
+			return self::BACKOFF_DEFAULT;
+		}
+
+		return (int) ceil( (float) $header );
+	}
+
+	/**
+	 * The error every refused request returns, distinguishable from a real failure.
+	 *
+	 * @param int $seconds Seconds until Airtable will take requests again.
+	 * @return WP_Error
+	 */
+	private static function rate_limited( $seconds ) {
+		return new WP_Error(
+			'wpcpm_airtable_rate_limited',
+			sprintf(
+				/* translators: %d: number of seconds. */
+				_n(
+					'Airtable asked us to wait %d second before sending more requests.',
+					'Airtable asked us to wait %d seconds before sending more requests.',
+					$seconds,
+					'wpcredits-program-manager'
+				),
+				$seconds
+			),
+			array(
+				'status'      => 429,
+				'retry_after' => $seconds,
+			)
+		);
+	}
+
+	/**
+	 * Unix time until which the base has asked to be left alone, 0 when it has not.
+	 *
+	 * The static answers for the process that saw the 429; the option answers for every
+	 * other one, and is only consulted when the static has nothing. The common case
+	 * therefore costs at most one query per process, and none at all once WordPress has
+	 * cached the option as missing.
+	 *
+	 * @return int
+	 */
+	private static function backoff_until() {
+		// The later of the two, always. The static is this process's own memory; the option
+		// is every other process's, and one of them may have been refused again while this
+		// one was counting down its own window. Reading the option on every call costs one
+		// cached lookup, against the HTTP request it precedes.
+		return max( self::$backoff_until, (int) get_option( self::BACKOFF_OPTION, 0 ) );
+	}
+
+	/**
+	 * Remember a 429, for this process and every other.
+	 *
+	 * Not autoloaded: the option exists for thirty seconds at a time, and every page
+	 * load that never talks to Airtable has no use for it.
+	 *
+	 * @param int $seconds Seconds to stay away, from now.
+	 */
+	private static function record_backoff( $seconds ) {
+		self::$backoff_until = (int) ceil( self::now() ) + (int) $seconds;
+
+		update_option( self::BACKOFF_OPTION, self::$backoff_until, false );
+	}
+
+	/**
+	 * Forget a recorded 429, for this process and every other.
+	 */
+	private static function clear_backoff() {
+		self::$backoff_until = 0;
+
+		delete_option( self::BACKOFF_OPTION );
+	}
+
+	/**
+	 * Whole seconds from now until a Unix time, 0 when it has passed.
+	 *
+	 * @param int $until Unix time.
+	 * @return int
+	 */
+	private static function seconds_until( $until ) {
+		$left = $until - self::now();
+
+		return $left > 0 ? (int) ceil( $left ) : 0;
+	}
+
+	/**
+	 * Whether this process may block for a few seconds without anyone noticing.
+	 *
+	 * @return bool
+	 */
+	private static function can_wait() {
+		if ( null !== self::$can_wait ) {
+			return (bool) call_user_func( self::$can_wait );
+		}
+
+		return wp_doing_cron() || 'cli' === PHP_SAPI;
+	}
+
+	/**
+	 * Current Unix time, with fractions.
+	 *
+	 * @return float
+	 */
+	private static function now() {
+		if ( null !== self::$clock ) {
+			return (float) call_user_func( self::$clock );
+		}
+
+		return microtime( true );
+	}
+
+	/**
+	 * Pause this process.
+	 *
+	 * Whole seconds go through sleep() and the remainder through usleep(), because
+	 * usleep() with more than a second is not something every platform accepts.
+	 *
+	 * @param float $seconds Seconds to pause for.
+	 */
+	private static function pause( $seconds ) {
+		if ( null !== self::$sleeper ) {
+			call_user_func( self::$sleeper, $seconds );
+			return;
+		}
+
+		$whole = (int) floor( $seconds );
+
+		if ( $whole > 0 ) {
+			sleep( $whole );
+		}
+
+		$fraction = $seconds - $whole;
+
+		if ( $fraction > 0 ) {
+			usleep( (int) ceil( $fraction * 1000000 ) );
+		}
 	}
 
 	/**
