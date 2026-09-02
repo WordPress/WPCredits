@@ -1,0 +1,16 @@
+{
+	"_comment": "Pins the plugin's English copy of the Collaboration Agreement (includes/templates/collaboration-agreement-en.php), read from the Google Doc '[EN] Collaboration Agreement - WP Credits' whose modifiedTime is the version. 'sha256' is WPCPM_Agreement_Template::checksum() of the UNMERGED template, i.e. the sha256 of plain_text() with '[Institution Name]' still in place; 'placeholder_count' is how many times that token appears; 'blocks' is the block count; 'load_bearing' are the sentences the program relies on, each of which must be present verbatim. The rule: any edit to the agreement's text needs a version bump (to the Doc's new modified date) and a refresh of this file, together, in the same change. bin/test-agreement-template.php fails otherwise. Refresh by running the class against the edited template and copying its checksum here, never by editing the hash to match.",
+	"language": "en",
+	"version": "2025-11-04",
+	"read": "2026-09-02",
+	"sha256": "b9d1aa6a387e9c3c9ba09545caf1930a8f1094f12dc777255f723002554127ff",
+	"placeholder_count": 2,
+	"blocks": 22,
+	"load_bearing": [
+		"This document is not legally binding.",
+		"Participation does not create an employment relationship between the student and WPF.",
+		"WPF does not provide insurance coverage for students participating in the Program.",
+		"The Program is free of charge for both institutions and students.",
+		"remains valid until modified or terminated by either party with written notice"
+	]
+}
