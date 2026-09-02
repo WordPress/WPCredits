@@ -20,6 +20,16 @@ class WPCPM_Settings {
 
 	const OPTION = 'wpcpm_settings';
 
+	/** Option holding the settings schema version, so `maybe_upgrade()` runs once per change. */
+	const OPT_VERSION = 'wpcpm_settings_version';
+
+	/**
+	 * Bump this when a *saved* option has to be migrated rather than merely defaulted.
+	 *
+	 * 2: `Paused` and `Pending graduation` joined `student_statuses`.
+	 */
+	const SETTINGS_VERSION = 2;
+
 	/**
 	 * Default settings, pre-filled with the live WPCredits base coordinates.
 	 *
@@ -47,8 +57,10 @@ class WPCPM_Settings {
 			'institutions_name_field'   => 'Name',
 			'teams_name_field'          => 'Contribution teams or areas',
 			'sponsors_name_field'       => 'Company Name',
-			// Students a mentor is currently mentoring.
-			'student_statuses'          => array( 'In Sensei', 'In Sensei 50h', 'Developer Track' ),
+			// Students a mentor is currently mentoring. `Paused` and `Pending graduation`
+			// count as current: both syncs build their Airtable formula from this list,
+			// so a status missing here is a student nobody fetches (see `maybe_upgrade()`).
+			'student_statuses'          => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ),
 			// Students whose mentoring has finished. Shown in a separate, collapsed
 			// section rather than mixed in with the current ones.
 			'past_statuses'             => array( 'Graduate', 'Dropped out' ),
@@ -87,6 +99,52 @@ class WPCPM_Settings {
 			// Students module, mirroring the mentors settings above.
 			'student_home'              => true,
 			'student_on_inactive'       => 'revoke',
+
+			// Institutions module. The countries table is read for the same reason as
+			// the three lookup tables above: an institution's country arrives as a bare
+			// record ID, and it is the country that says which manager looks after it.
+			'countries_table'           => 'tbltB7GSRoTtSi4Ps',
+			'countries_name_field'      => 'Name',
+			// The `Current Stage` an approved application is created at, and the stages
+			// that count as being in the pipeline. An institution whose stage leaves this
+			// list is treated like a mentor who is no longer Active.
+			'institution_new_stage'     => 'First Contact Made',
+			'institution_active_stages' => array( 'First Contact Made', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Call Scheduled', 'Agreement Sent', 'Confirmed', 'Student' ),
+			// Off by default for the same reason as the welcome email: a sync that
+			// creates accounts should do so because somebody asked it to, not because
+			// the files were updated.
+			'institution_provision'     => false,
+			'institution_on_inactive'   => 'revoke',
+			'institution_home'          => true,
+			// The public application form. Off until the page that hosts it exists,
+			// because on means accepting submissions from anybody on the internet.
+			'applications_enabled'      => false,
+			// How long each kind of application is kept, in days. Spam goes quickly,
+			// a rejection stays long enough to recognise the same institution applying
+			// again, and approved ones are kept for ever (0): they are the audit trail
+			// of who was let in.
+			'application_spam_days'     => 30,
+			'application_rejected_days' => 365,
+			'application_approved_days' => 0,
+			// The signed-agreement upload. The size cap and the daily count per
+			// institution are what stops a Subscriber-based account filling the disk.
+			// `agreement_notify` is who hears about an upload, comma-separated; empty
+			// means every account that can manage the program, so the queue is never
+			// silently nobody's job. An upload nobody has looked at for
+			// `agreement_review_days` is overdue and goes in the reminder; a withdrawn
+			// or returned file is deleted after `agreement_discard_days`, an accepted
+			// one never, because it is the agreement.
+			'agreement_max_mb'          => 10,
+			'agreement_uploads_per_day' => 5,
+			'agreement_review_days'     => 3,
+			'agreement_notify'          => '',
+			'agreement_discard_days'    => 30,
+			// Roster import by institutions. Off until it has run on the pilot, since
+			// every import is a write to the shared base.
+			'import_enabled'            => false,
+			// Days an invitation to join an institution's account is kept once it has
+			// lapsed, so a manager can still see who was invited and never came.
+			'invite_retention_days'     => 30,
 
 			// Tool — Mentor Status Checker. Prefixed so the tool's settings stay
 			// visibly separate from the modules' in one shared option.
@@ -153,7 +211,7 @@ class WPCPM_Settings {
 			}
 		}
 
-		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'feedback_table', 'institutions_table', 'teams_table', 'sponsors_table', 'institutions_name_field', 'teams_name_field', 'sponsors_name_field' ) as $key ) {
+		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'feedback_table', 'institutions_table', 'teams_table', 'sponsors_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'sponsors_name_field', 'countries_name_field', 'institution_new_stage' ) as $key ) {
 			if ( isset( $input[ $key ] ) ) {
 				$clean[ $key ] = sanitize_text_field( wp_unslash( $input[ $key ] ) );
 			}
@@ -163,7 +221,7 @@ class WPCPM_Settings {
 			$clean['mentor_status'] = sanitize_text_field( wp_unslash( $input['mentor_status'] ) );
 		}
 
-		foreach ( array( 'student_statuses', 'past_statuses' ) as $list_key ) {
+		foreach ( array( 'student_statuses', 'past_statuses', 'institution_active_stages' ) as $list_key ) {
 			if ( ! isset( $input[ $list_key ] ) ) {
 				continue;
 			}
@@ -226,6 +284,45 @@ class WPCPM_Settings {
 
 		$clean['student_on_inactive'] = ( isset( $input['student_on_inactive'] ) && 'keep' === $input['student_on_inactive'] ) ? 'keep' : 'revoke';
 
+		// Institutions module.
+		$clean['institution_on_inactive'] = ( isset( $input['institution_on_inactive'] ) && 'keep' === $input['institution_on_inactive'] ) ? 'keep' : 'revoke';
+
+		// Who hears about an agreement upload: addresses one per line or comma-separated,
+		// whichever the manager typed. Anything that is not an address is dropped rather
+		// than kept, because a bad recipient here fails the one message that most needs
+		// to arrive, and an empty result falls back to every program manager.
+		if ( isset( $input['agreement_notify'] ) ) {
+			$raw       = wp_unslash( $input['agreement_notify'] );
+			$raw       = is_array( $raw ) ? $raw : preg_split( '/[\s,]+/', (string) $raw );
+			$addresses = array();
+			foreach ( $raw as $address ) {
+				if ( ! is_string( $address ) ) {
+					continue;
+				}
+
+				// Lowercased before the de-duplication below: an address is one mailbox however
+				// it was typed, and the upload notice must not reach it twice.
+				$address = sanitize_email( strtolower( trim( $address ) ) );
+				if ( '' !== $address && is_email( $address ) ) {
+					$addresses[] = $address;
+				}
+			}
+			$clean['agreement_notify'] = implode( ',', array_unique( $addresses ) );
+		}
+
+		// Guarded like `handbook_enabled`, unlike the checkboxes above: the settings
+		// screen does not render these four yet, so they are absent from every save of
+		// the existing form, and reading them unconditionally would switch the home
+		// redirect off and keep provisioning, applications and import off no matter
+		// what a filter or a later screen set. Absent means "leave alone" - which only
+		// holds while the save handler forwards booleans the form renders, not every
+		// boolean in the defaults.
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled' ) as $flag ) {
+			if ( array_key_exists( $flag, $input ) ) {
+				$clean[ $flag ] = ! empty( $input[ $flag ] );
+			}
+		}
+
 		// Mentor Status Checker.
 		foreach ( array( 'checker_source_status', 'checker_target_status', 'checker_course_slug', 'checker_course_title', 'checker_completion_phrase' ) as $key ) {
 			if ( isset( $input[ $key ] ) ) {
@@ -240,10 +337,21 @@ class WPCPM_Settings {
 		// Clamped rather than merely cast: a zero page cap would report every
 		// mentor as unresolvable, and a zero batch size would stall the run.
 		$limits = array(
-			'checker_max_pages'     => array( 1, 100 ),
-			'checker_batch_size'    => array( 1, 25 ),
-			'checker_request_delay' => array( 0, 5000 ),
-			'checker_cache_ttl'     => array( 0, MONTH_IN_SECONDS ),
+			'checker_max_pages'         => array( 1, 100 ),
+			'checker_batch_size'        => array( 1, 25 ),
+			'checker_request_delay'     => array( 0, 5000 ),
+			'checker_cache_ttl'         => array( 0, MONTH_IN_SECONDS ),
+			// Institutions module. The floors keep a typo from purging today's
+			// applications tonight or refusing every upload; the approved-application
+			// floor is 0 because 0 is the value that means "keep for ever".
+			'application_spam_days'     => array( 1, 365 ),
+			'application_rejected_days' => array( 30, 3650 ),
+			'application_approved_days' => array( 0, 3650 ),
+			'agreement_max_mb'          => array( 1, 50 ),
+			'agreement_uploads_per_day' => array( 1, 50 ),
+			'agreement_review_days'     => array( 1, 60 ),
+			'agreement_discard_days'    => array( 7, 365 ),
+			'invite_retention_days'     => array( 7, 365 ),
 		);
 
 		foreach ( $limits as $key => $range ) {
@@ -257,12 +365,60 @@ class WPCPM_Settings {
 
 		update_option( self::OPTION, $clean );
 
+		// A save carries the manager's current lists, so it is by definition up to date:
+		// stamping here means `maybe_upgrade()` can never follow a save and put back a
+		// status that was just removed on purpose.
+		update_option( self::OPT_VERSION, self::SETTINGS_VERSION );
+
 		// Keep the weekly schedule in step with the setting that governs it.
 		if ( class_exists( 'WPCPM_Mentor_Checker_Runner' ) ) {
 			WPCPM_Mentor_Checker_Runner::sync_cron( $clean['checker_cron_enabled'] );
 		}
 
 		return $clean;
+	}
+
+	/**
+	 * Migrate a saved option when the settings schema moves, in the shape of
+	 * `WPCPM_Roles::maybe_upgrade()`: it covers sites updated by dropping in new files.
+	 *
+	 * Defaults only reach a site that has never saved. A saved option is merged over
+	 * them key by key, so a new *value* inside an existing list never arrives on its
+	 * own, and for `student_statuses` that is a silent failure: both syncs build their
+	 * Airtable formula from the saved list, so until it holds `Paused` and `Pending
+	 * graduation` no Paused student is fetched and every line of code looks correct.
+	 * The Developer Track shipped with a manual step for the same trap; this closes
+	 * the gap with code, once, by appending whichever of the two is missing.
+	 *
+	 * The version option is what makes it once. Without it, a manager who removes a
+	 * status on purpose would find it back after the next request, so the append runs
+	 * only while the stored version is below 2, and both this and `save()` stamp the
+	 * version afterwards. A site with no saved option inherits the new default and is
+	 * stamped without writing one.
+	 */
+	public static function maybe_upgrade() {
+		if ( (int) get_option( self::OPT_VERSION ) >= self::SETTINGS_VERSION ) {
+			return;
+		}
+
+		$stored = get_option( self::OPTION, array() );
+
+		if ( is_array( $stored ) && isset( $stored['student_statuses'] ) && is_array( $stored['student_statuses'] ) ) {
+			$statuses = $stored['student_statuses'];
+
+			foreach ( array( 'Paused', 'Pending graduation' ) as $status ) {
+				if ( ! in_array( $status, $statuses, true ) ) {
+					$statuses[] = $status;
+				}
+			}
+
+			if ( $statuses !== $stored['student_statuses'] ) {
+				$stored['student_statuses'] = $statuses;
+				update_option( self::OPTION, $stored );
+			}
+		}
+
+		update_option( self::OPT_VERSION, self::SETTINGS_VERSION );
 	}
 
 	/**

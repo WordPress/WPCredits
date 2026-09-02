@@ -71,6 +71,25 @@ function esc_textarea( $s ) { return esc_html( $s ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+/**
+ * Strips what the real one strips, so a junk address does not become a valid-looking one
+ * by accident here and get asserted as kept.
+ */
+function sanitize_email( $e ) {
+	$e = (string) $e;
+
+	if ( strlen( $e ) < 3 || false === strpos( $e, '@', 1 ) || substr_count( $e, '@' ) > 1 ) {
+		return '';
+	}
+
+	list( $local, $domain ) = explode( '@', $e, 2 );
+
+	$local  = preg_replace( '/[^a-zA-Z0-9!#$%&\'*+\/=?^_`{|}~\.\[\]-]/', '', $local );
+	$domain = preg_replace( '/[^a-zA-Z0-9\.\-]/', '', $domain );
+
+	return ( '' === $local || '' === $domain ) ? '' : $local . '@' . $domain;
+}
+function is_email( $e ) { return false !== filter_var( (string) $e, FILTER_VALIDATE_EMAIL ) ? $e : false; }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function apply_filters( $t, $v ) { return $v; }
@@ -149,20 +168,57 @@ ck( 'the handler derives its keys from the defaults, not a hand-written list',
     array( true, false ) );
 
 // A round trip through the real sanitiser for every non-boolean field, with a value that is
-// recognisably ours coming back.
+// recognisably ours coming back. Every key in the defaults must appear here or in the
+// boolean probe below, and that is asserted, so a setting cannot be added without its
+// round trip - the failure this file exists for is a field that saves nothing.
 $probe = array(
 	'api_token'                 => 'patTESTTOKEN1234567890',
 	'base_id'                   => 'appPROBE0000000001',
+	'mentors_table'             => 'tblPROBE0000000002',
+	'mentor_status'             => 'Probe active',
+	'reports_table'             => 'tblPROBE0000000003',
+	'students_table'            => 'tblPROBE0000000004',
+	'feedback_table'            => 'tblPROBE0000000005',
+	'institutions_table'        => 'tblPROBE0000000001',
+	'teams_table'               => 'tblPROBE0000000006',
+	'sponsors_table'            => 'tblPROBE0000000007',
+	'institutions_name_field'   => 'Probe institution',
+	'teams_name_field'          => 'Probe field',
+	'sponsors_name_field'       => 'Probe sponsor',
+	'student_statuses'          => array( 'Probe current', 'Probe paused' ),
+	'past_statuses'             => array( 'Probe past' ),
+	'on_inactive'               => 'keep',
 	'handbook_provider'         => 'gemini',
 	'handbook_key'              => 'AQ.probe-key-value',
 	'handbook_model'            => 'gemini-2.5-flash',
 	'handbook_access'           => 'program',
 	'handbook_limit'            => '35',
-	'checker_course_slug'       => 'probe-course',
-	'checker_source_status'     => 'Probe status',
-	'institutions_table'        => 'tblPROBE0000000001',
-	'teams_name_field'          => 'Probe field',
 	'student_on_inactive'       => 'keep',
+	'checker_source_status'     => 'Probe status',
+	'checker_target_status'     => 'Probe target',
+	'checker_course_slug'       => 'probe-course',
+	'checker_course_title'      => 'Probe course',
+	'checker_completion_phrase' => 'Probe phrase',
+	'checker_timeline_filter'   => 'all',
+	'checker_max_pages'         => '7',
+	'checker_batch_size'        => '4',
+	'checker_request_delay'     => '250',
+	'checker_cache_ttl'         => '7200',
+	// Institutions module.
+	'countries_table'           => 'tblPROBE0000000008',
+	'countries_name_field'      => 'Probe country',
+	'institution_new_stage'     => 'Probe stage',
+	'institution_active_stages' => array( 'Probe stage', 'Probe confirmed' ),
+	'institution_on_inactive'   => 'keep',
+	'application_spam_days'     => '45',
+	'application_rejected_days' => '400',
+	'application_approved_days' => '90',
+	'agreement_max_mb'          => '20',
+	'agreement_uploads_per_day' => '8',
+	'agreement_review_days'     => '5',
+	'agreement_notify'          => 'one@example.org,two@example.org',
+	'agreement_discard_days'    => '60',
+	'invite_retention_days'     => '45',
 );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
@@ -170,10 +226,34 @@ $GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
 $saved = WPCPM_Settings::save( $probe );
 
 foreach ( $probe as $key => $value ) {
-	$expected = 'handbook_limit' === $key ? 35 : $value;
+	// Integers are posted as strings and come back cast; everything else comes back as sent.
+	$expected = is_int( $defaults[ $key ] ) ? (int) $value : $value;
 
 	ck( sprintf( '%s survives the save', $key ), array( $saved[ $key ] ), array( $expected ) );
 }
+
+// Every checkbox, flipped away from its default so a value stuck at the default shows.
+$bool_probe = array();
+
+foreach ( $defaults as $key => $default ) {
+	if ( is_bool( $default ) ) {
+		$bool_probe[ $key ] = ! $default;
+	}
+}
+
+$saved = WPCPM_Settings::save( $bool_probe );
+
+foreach ( $bool_probe as $key => $value ) {
+	ck( sprintf( '%s can be flipped to %s', $key, var_export( $value, true ) ), array( $saved[ $key ] ), array( $value ) );
+}
+
+ck( 'every setting has a round-trip probe',
+    array_values( array_diff( array_keys( $defaults ), array_keys( $probe ), array_keys( $bool_probe ) ) ),
+    array() );
+
+ck( 'and every probe names a real setting',
+    array_values( array_diff( array_keys( $probe ), array_keys( $defaults ) ) ),
+    array() );
 
 /* ---- the shapes that are easy to get wrong ------------------------------ */
 
@@ -211,6 +291,201 @@ ck( 'the rate limit is capped', array( $saved['handbook_limit'] ), array( 200 ) 
 // here should invent one.
 ck( 'no endpoint setting exists to be got wrong',
     array( array_key_exists( 'handbook_endpoint', WPCPM_Settings::defaults() ) ), array( false ) );
+
+/* ---- the institutions settings ------------------------------------------ */
+
+echo "\n=== Institutions settings ===\n";
+
+// The settings screen does not render the four institution switches yet, so a save of the
+// existing form omits them. That must leave them alone - the same input switches off a
+// checkbox the form does render, which is the contrast being pinned.
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array_merge(
+	WPCPM_Settings::defaults(),
+	array(
+		'institution_provision' => true,
+		'institution_home'      => true,
+		'applications_enabled'  => true,
+		'import_enabled'        => true,
+		'auto_sync'             => true,
+	)
+);
+
+$saved = WPCPM_Settings::save( array( 'base_id' => 'appPROBE0000000002' ) );
+
+foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled' ) as $flag ) {
+	ck( sprintf( '%s survives a save that omits it', $flag ), array( $saved[ $flag ] ), array( true ) );
+}
+
+ck( 'while a checkbox the form renders is switched off by the same save', array( $saved['auto_sync'] ), array( false ) );
+
+$saved = WPCPM_Settings::save( array( 'institution_provision' => '', 'institution_home' => '0' ) );
+ck( 'and an explicit off is honoured', array( $saved['institution_provision'], $saved['institution_home'] ), array( false, false ) );
+
+// Each integer is clamped at both ends. The floors are the point: a typo of 0 in a retention
+// field would otherwise purge everything on the next cron run.
+$ranges = array(
+	'application_spam_days'     => array( 1, 365 ),
+	'application_rejected_days' => array( 30, 3650 ),
+	'application_approved_days' => array( 0, 3650 ),
+	'agreement_max_mb'          => array( 1, 50 ),
+	'agreement_uploads_per_day' => array( 1, 50 ),
+	'agreement_review_days'     => array( 1, 60 ),
+	'agreement_discard_days'    => array( 7, 365 ),
+	'invite_retention_days'     => array( 7, 365 ),
+);
+
+foreach ( $ranges as $key => $range ) {
+	$saved = WPCPM_Settings::save( array( $key => (string) ( $range[0] - 1 ) ) );
+	ck( sprintf( '%s is floored at %d', $key, $range[0] ), array( $saved[ $key ] ), array( $range[0] ) );
+
+	$saved = WPCPM_Settings::save( array( $key => (string) ( $range[1] + 1 ) ) );
+	ck( sprintf( '%s is capped at %d', $key, $range[1] ), array( $saved[ $key ] ), array( $range[1] ) );
+
+	$saved = WPCPM_Settings::save( array( $key => (string) $range[0] ) );
+	ck( sprintf( '%s accepts its floor', $key ), array( $saved[ $key ] ), array( $range[0] ) );
+}
+
+// The notify list: commas or newlines, valid addresses kept once, everything else dropped.
+$saved = WPCPM_Settings::save(
+	array(
+		'agreement_notify' => "one@example.org, not-an-address\ntwo@example.org,name@\n@example.org, one@example.org\n\n  three@example.org  ",
+	)
+);
+ck( 'agreement_notify keeps the addresses and drops the junk',
+    array( $saved['agreement_notify'] ), array( 'one@example.org,two@example.org,three@example.org' ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => "nothing here\njavascript:alert(1)" ) );
+ck( 'and is empty when nothing valid was typed', array( $saved['agreement_notify'] ), array( '' ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => 'kept@example.org' ) );
+$saved = WPCPM_Settings::save( array( 'base_id' => 'appPROBE0000000003' ) );
+ck( 'a save that omits the field leaves it alone', array( $saved['agreement_notify'] ), array( 'kept@example.org' ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => 'A@Example.org, a@example.org' ) );
+ck( 'one mailbox typed two ways is kept once', array( $saved['agreement_notify'] ), array( 'a@example.org' ) );
+
+$saved = WPCPM_Settings::save( array( 'agreement_notify' => array( array( 'nested' ), 'b@example.org' ) ) );
+ck( 'a nested array in a crafted request is skipped, not fatal', array( $saved['agreement_notify'] ), array( 'b@example.org' ) );
+
+// The save handler reads every rendered checkbox unconditionally and skips the ones the
+// form does not render yet; the two lists must agree with the form itself, or a switch is
+// either silently turned off on every save or silently never saved.
+preg_match( '/const UNRENDERED_SWITCHES = array\( (.*?) \);/', $admin, $m );
+preg_match_all( "/'([a-z_]+)'/", isset( $m[1] ) ? $m[1] : '', $listed );
+preg_match_all( '/name="([a-z_]+)"/', $admin, $rendered );
+$switches = array_keys( array_filter( WPCPM_Settings::defaults(), 'is_bool' ) );
+ck( 'the handler declares the switches the form does not render', empty( $listed[1] ), false );
+ck( 'every switch is either rendered by the form or declared unrendered',
+    array_values( array_diff( $switches, $rendered[1], $listed[1] ) ), array() );
+ck( 'and none is both', array_values( array_intersect( $rendered[1], $listed[1] ) ), array() );
+
+$keep = $GLOBALS['opts'];
+$GLOBALS['opts'] = array( WPCPM_Settings::OPTION => array( 'student_statuses' => array() ) );
+WPCPM_Settings::maybe_upgrade();
+ck( 'a saved but empty status list is given both statuses', $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['student_statuses'], array( 'Paused', 'Pending graduation' ) );
+$GLOBALS['opts'] = $keep;
+
+// The stage list goes through the same loop as the status lists.
+$saved = WPCPM_Settings::save( array( 'institution_active_stages' => " Confirmed \n\nConfirmed\n<b>Student</b>\n" ) );
+ck( 'institution_active_stages is split, trimmed, stripped and de-duplicated',
+    array( $saved['institution_active_stages'] ), array( array( 'Confirmed', 'Student' ) ) );
+
+$saved = WPCPM_Settings::save( array( 'institution_on_inactive' => 'delete' ) );
+ck( 'institution_on_inactive never becomes anything but keep or revoke', array( $saved['institution_on_inactive'] ), array( 'revoke' ) );
+
+/* ---- the two statuses reach a saved list --------------------------------- */
+
+echo "\n=== Paused and Pending graduation reach a saved list ===\n";
+
+// Both syncs build their Airtable formula from the saved list, so a site that saved before
+// the two statuses existed fetches no Paused student while every line of code looks right.
+$three = array( 'In Sensei', 'In Sensei 50h', 'Developer Track' );
+$five  = array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' );
+
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPTION => array(
+		'student_statuses' => $three,
+		'base_id'          => 'appSAVED0000000001',
+	),
+);
+
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'both are appended to a saved list of three, in order', $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['student_statuses'], $five );
+ck( 'the rest of the option is untouched', $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['base_id'], 'appSAVED0000000001' );
+ck( 'and the version is stamped', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
+
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPTION => array( 'student_statuses' => array( 'In Sensei', 'Pending graduation' ) ),
+);
+
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'only the missing one is appended, after what was there',
+    $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['student_statuses'], array( 'In Sensei', 'Pending graduation', 'Paused' ) );
+
+// Already has them: nothing is written to the option at all.
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPTION => array( 'student_statuses' => $five ),
+);
+$before = $GLOBALS['opts'][ WPCPM_Settings::OPTION ];
+
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'a list that already has them is left alone', $GLOBALS['opts'][ WPCPM_Settings::OPTION ], $before );
+ck( 'but the version is still stamped', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
+
+// Idempotent: a second run on an upgraded site changes nothing.
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPTION => array( 'student_statuses' => $three ),
+);
+WPCPM_Settings::maybe_upgrade();
+$after_once = $GLOBALS['opts'];
+WPCPM_Settings::maybe_upgrade();
+ck( 'a second run changes nothing', $GLOBALS['opts'], $after_once );
+
+// A site that has never saved has no option to migrate: the new default already holds both.
+$GLOBALS['opts'] = array();
+
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'with no saved option, the version is stamped', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
+ck( 'and no option is invented', array_key_exists( WPCPM_Settings::OPTION, $GLOBALS['opts'] ), false );
+ck( 'the default carries both', WPCPM_Settings::get_value( 'student_statuses' ), $five );
+
+// A saved option from before the list existed at all inherits the default rather than
+// getting a two-item list written over it.
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPTION => array( 'base_id' => 'appSAVED0000000002' ),
+);
+
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'a saved option with no list is not given one', array_key_exists( 'student_statuses', $GLOBALS['opts'][ WPCPM_Settings::OPTION ] ), false );
+ck( 'so it reads the default', WPCPM_Settings::get_value( 'student_statuses' ), $five );
+
+// The point of the version key: a manager who removes a status on purpose must not find it
+// back after the next request.
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPTION => array( 'student_statuses' => $three ),
+);
+
+WPCPM_Settings::maybe_upgrade();
+WPCPM_Settings::save( array( 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Pending graduation' ) ) );
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'a status a manager removed stays removed',
+    WPCPM_Settings::get_value( 'student_statuses' ), array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Pending graduation' ) );
+
+// And a fresh save on a site that never ran the upgrade stamps the version itself, so the
+// upgrade cannot arrive later and put back what that save left out.
+$GLOBALS['opts'] = array();
+
+WPCPM_Settings::save( array( 'student_statuses' => array( 'In Sensei' ) ) );
+ck( 'save() stamps the version', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
+
+WPCPM_Settings::maybe_upgrade();
+ck( 'so an upgrade after a save appends nothing', WPCPM_Settings::get_value( 'student_statuses' ), array( 'In Sensei' ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );
