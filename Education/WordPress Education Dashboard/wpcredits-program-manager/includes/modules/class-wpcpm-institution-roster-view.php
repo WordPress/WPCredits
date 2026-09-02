@@ -630,13 +630,25 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
-	 * One group's table.
+	 * One group's students, a card each.
 	 *
-	 * The header row and every cell are built from the same scoped column list, so a ground
-	 * that one day drops a column drops its heading with it rather than leaving an empty
-	 * column nobody can read.
+	 * Not a table. Eleven columns do not fit a page at any width worth having, and the table
+	 * this used to be answered that by scrolling sideways inside its own box: a school looking
+	 * for a tutor's name had to drag the roster across to find it, and the page it sits on is
+	 * the only one in the plugin that behaved that way. The Mentor Report Card had already
+	 * settled the question for a list of students you have to read rather than compare, so
+	 * this is that component: a disclosure a student at a time, the name and what identifies
+	 * them on the closed row, everything else inside.
 	 *
-	 * @param string $label   The group's heading, for the table's caption.
+	 * The classes are the mentor card's own, deliberately. Sharing the markup means sharing
+	 * the stylesheet, the chevron, the focus ring and the print rules, and it means the two
+	 * pages cannot drift apart the next time either is touched.
+	 *
+	 * Every permitted column becomes a row, and a column the fence removed is simply not
+	 * there; an empty one still prints its label, because a blank a school can see is
+	 * information and a row that vanishes is a question about whether the page is broken.
+	 *
+	 * @param string $label   The group's heading, for the list's accessible name.
 	 * @param array  $rows    The group's rows.
 	 * @param array  $columns The columns the fence permits.
 	 * @param string $here    The current URL, without the detail view's argument.
@@ -646,47 +658,144 @@ class WPCPM_Institution_Roster_View {
 			return;
 		}
 
-		// The table is wider than a phone. It scrolls inside its own box rather than pushing
-		// the page sideways, which on a dashboard takes the filter bar with it.
-		echo '<div class="wpcpm-roster__scroll">';
-		echo '<table class="wpcpm-roster__table">';
-		printf(
-			'<caption class="screen-reader-text">%s</caption>',
-			esc_html( $label )
-		);
-		echo '<thead><tr>';
-
-		foreach ( $columns as $heading ) {
-			printf( '<th scope="col">%s</th>', esc_html( $heading ) );
-		}
-
-		echo '</tr></thead><tbody>';
+		printf( '<ul class="wpcpm-roster__students" aria-label="%s">', esc_attr( $label ) );
 
 		foreach ( $rows as $row ) {
 			if ( ! is_array( $row ) ) {
 				continue;
 			}
 
-			$cells = self::cells( $row, $here );
+			self::render_student( $row, $columns, $here, count( $rows ) );
+		}
 
-			echo '<tr class="wpcpm-roster__row">';
+		echo '</ul>';
+	}
 
-			foreach ( $columns as $key => $heading ) {
-				$value = ( isset( $cells[ $key ] ) && '' !== $cells[ $key ] ) ? $cells[ $key ] : self::blank();
+	/**
+	 * One student, as the card the Mentor Report Card draws.
+	 *
+	 * Open when the group holds one student, closed otherwise, which is the rule the mentor
+	 * card follows: collapsing a list of one helps nobody, and a list of twelve is unreadable
+	 * without it.
+	 *
+	 * @param array  $row     The index row.
+	 * @param array  $columns The columns the fence permits.
+	 * @param string $here    The current URL, without the detail view's argument.
+	 * @param int    $total   How many students are in this group.
+	 */
+	private static function render_student( array $row, array $columns, $here, $total ) {
+		$cells   = self::cells( $row, $here );
+		$name    = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+		$name    = '' === $name ? __( 'Unnamed student', 'wpcredits-program-manager' ) : $name;
+		$user_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
 
-				printf(
-					'<td class="wpcpm-roster__cell wpcpm-roster__cell--%3$s" data-label="%1$s">%2$s</td>',
-					esc_attr( $heading ),
-					$value, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by cells(), which escapes every value it interpolates.
-					esc_attr( self::column_slug( $key ) )
-				);
+		// `wpcpm-mentee` as well as the list class: on the mentor page the card's border sits
+		// on the element wrapping the disclosure, not on the disclosure itself, and the
+		// wrapper here is this list item. Without it the cards would be borderless rows that
+		// only look like the mentor page's from the summary line inwards.
+		echo '<li class="wpcpm-mentee wpcpm-roster__student-item">';
+		printf( '<details class="wpcpm-mentee__disclosure wpcpm-roster__card"%s>', 1 === (int) $total ? ' open' : '' );
+		echo '<summary class="wpcpm-mentee__summary">';
+		echo '<div class="wpcpm-mentee__identity">';
+
+		// The name is a heading and, where the student has an account, the way into their own
+		// card. The link is inside the summary, so it is reached by the keyboard before the
+		// disclosure opens rather than only after.
+		printf(
+			'<h4 class="wpcpm-mentee__name">%s</h4>',
+			$user_id > 0
+				? sprintf(
+					'<a class="wpcpm-roster__student" href="%1$s">%2$s</a>',
+					esc_url( add_query_arg( self::ARG_STUDENT, $user_id, $here ) ),
+					esc_html( $name )
+				)
+				: esc_html( $name )
+		);
+
+		// The program badge, from the same place the mentor card takes it, so one student
+		// wears the same colour on both pages.
+		$program = self::program_of( $row );
+
+		if ( '' !== $program ) {
+			printf(
+				'<span class="wpcpm-badge%1$s">%2$s</span>',
+				'' === WPCPM_Program::badge( $program ) ? '' : esc_attr( ' wpcpm-badge--' . WPCPM_Program::badge( $program ) ),
+				esc_html( WPCPM_Program::label( $program ) )
+			);
+		}
+
+		// Enough to tell one closed card from another without opening it: when they were here
+		// and who mentored them, which is what a school scans a roster for.
+		$preview = array_filter(
+			array(
+				self::plain( isset( $cells['students|Start Date'] ) ? $cells['students|Start Date'] : '' ),
+				self::plain( isset( $cells['students|Mentor'] ) ? $cells['students|Mentor'] : '' ),
+			),
+			'strlen'
+		);
+
+		if ( ! empty( $preview ) ) {
+			printf( '<span class="wpcpm-mentee__preview">%s</span>', esc_html( implode( ' · ', $preview ) ) );
+		}
+
+		echo '</div>';
+		echo '<span class="wpcpm-mentee__toggle" aria-hidden="true"></span>';
+		echo '</summary>';
+
+		echo '<div class="wpcpm-mentee__body">';
+		printf(
+			'<table class="wpcpm-mentee__table"><caption class="screen-reader-text">%s</caption><tbody>',
+			esc_html(
+				sprintf(
+					/* translators: %s: student name. */
+					__( 'Program details for %s', 'wpcredits-program-manager' ),
+					$name
+				)
+			)
+		);
+
+		foreach ( $columns as $key => $heading ) {
+			// The name is the card's own heading; repeating it as the first row of its body
+			// would be the page telling the reader something they are already looking at.
+			if ( 'students|Full Name' === $key ) {
+				continue;
 			}
 
+			$value = ( isset( $cells[ $key ] ) && '' !== $cells[ $key ] ) ? $cells[ $key ] : '';
+			$empty = ( '' === $value );
+
+			printf( '<tr class="wpcpm-mentee__row%1$s wpcpm-roster__row--%2$s">', $empty ? ' is-empty' : '', esc_attr( self::column_slug( $key ) ) );
+			printf(
+				'<th scope="row" data-label="%1$s"><span class="wpcpm-mentee__label">%2$s</span></th>',
+				esc_attr__( 'Field', 'wpcredits-program-manager' ),
+				esc_html( $heading )
+			);
+			printf(
+				'<td class="wpcpm-mentee__value" data-label="%1$s">%2$s</td>',
+				esc_attr__( 'Value', 'wpcredits-program-manager' ),
+				$empty ? esc_html( self::blank_text() ) : $value // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by cells(), which escapes every value it interpolates.
+			);
 			echo '</tr>';
 		}
 
 		echo '</tbody></table>';
 		echo '</div>';
+		echo '</details>';
+		echo '</li>';
+	}
+
+	/**
+	 * A cell's text, with any markup taken off.
+	 *
+	 * The preview line on a closed card is plain text inside a span, and `cells()` returns
+	 * markup for the columns that carry a link or a badge. Stripping is what lets the preview
+	 * reuse those values instead of computing them a second way and drifting from them.
+	 *
+	 * @param string $html A cell's markup.
+	 * @return string
+	 */
+	private static function plain( $html ) {
+		return trim( html_entity_decode( wp_strip_all_tags( (string) $html ), ENT_QUOTES, 'UTF-8' ) );
 	}
 
 	/**
@@ -766,6 +875,31 @@ class WPCPM_Institution_Roster_View {
 	 */
 	private static function column_slug( $key ) {
 		return str_replace( array( '|', ' ' ), '-', strtolower( (string) $key ) );
+	}
+
+	/**
+	 * The reports status a card's badge is drawn from.
+	 *
+	 * The same value `program_cell()` prefers, read the same way: the program is the Students
+	 * Reports status, which only an account-bearing row carries in its program meta. A row
+	 * without one has no program yet and gets no badge, rather than a badge of the pipeline
+	 * status from the other vocabulary.
+	 *
+	 * @param array $row The index row.
+	 * @return string
+	 */
+	private static function program_of( array $row ) {
+		$user_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
+
+		if ( $user_id < 1 ) {
+			return '';
+		}
+
+		$program = get_user_meta( $user_id, WPCPM_Students_Sync::META_PROGRAM, true );
+
+		return ( is_array( $program ) && isset( $program['program'] ) && is_scalar( $program['program'] ) )
+			? trim( (string) $program['program'] )
+			: '';
 	}
 
 	/**
@@ -1206,8 +1340,21 @@ class WPCPM_Institution_Roster_View {
 	private static function blank() {
 		return sprintf(
 			'<span class="wpcpm-muted">%s</span>',
-			esc_html__( 'Not recorded', 'wpcredits-program-manager' )
+			esc_html( self::blank_text() )
 		);
+	}
+
+	/**
+	 * What an empty value says, as words.
+	 *
+	 * The card's value cell is styled by `is-empty` on its row, the way the mentor card's is,
+	 * so it wants the sentence without the span `blank()` wraps it in. One place, so the two
+	 * cannot come to say different things.
+	 *
+	 * @return string
+	 */
+	private static function blank_text() {
+		return __( 'Not recorded', 'wpcredits-program-manager' );
 	}
 
 	/**

@@ -60,6 +60,13 @@ class WP_User {
 
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
+function wp_strip_all_tags( $text, $remove_breaks = false ) {
+	$text = preg_replace( '@<(script|style)[^>]*?>.*?</\\1>@si', '', (string) $text );
+	$text = strip_tags( $text );
+
+	return $remove_breaks ? trim( preg_replace( '/[\r\n\t ]+/', ' ', $text ) ) : $text;
+}
+
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
@@ -393,7 +400,20 @@ ck( 'Bo is waiting, and the row says a mentor is assigned',
 	has( group_rows( $html, 'waiting' ), 'A mentor is assigned. The report record has not been created yet.' ), true );
 ck( 'Cy is waiting with no mentor at all', has( group_rows( $html, 'waiting' ), 'No mentor yet.' ), true );
 ck( 'the collapsed groups are disclosures', substr_count( $html, '<details class="wpcpm-group__disclosure">' ), 2 );
-ck( 'and Current is not one of them', has( group_rows( $html, 'current' ), '<details' ), false );
+// The group, not its students. Since the roster became the Mentor Report Card's component
+// every student is a disclosure of its own, so "no <details> in here" would now be false for
+// a reason that has nothing to do with whether the group is collapsed.
+ck( 'and Current is not one of them', has( group_rows( $html, 'current' ), 'wpcpm-group__disclosure' ), false );
+ck( 'though each of its students is a card that opens', substr_count( group_rows( $html, 'current' ), 'wpcpm-mentee__disclosure' ), 1 );
+ck( 'drawn with the mentor card\'s own classes, so the two pages cannot drift apart',
+    array(
+		has( group_rows( $html, 'current' ), 'wpcpm-mentee__summary' ),
+		has( group_rows( $html, 'current' ), 'wpcpm-mentee__table' ),
+		has( group_rows( $html, 'current' ), 'wpcpm-mentee__value' ),
+	),
+    array( true, true, true ) );
+// The roster used to scroll sideways inside its own box, which is the thing this replaced.
+ck( 'and nothing on the page scrolls sideways any more', has( $html, 'wpcpm-roster__scroll' ), false );
 
 echo "\n=== What is never rendered ===\n";
 

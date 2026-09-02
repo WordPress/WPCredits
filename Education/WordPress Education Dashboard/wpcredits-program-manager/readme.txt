@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.73.1
+Stable tag: 1.73.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.73.2 =
+* **The roster is no longer a table that scrolls sideways.** Each student is a card that opens, which is the component the Mentor Report Card already uses for the same job: the name, the program badge and the dates and mentor on the closed row, everything else inside. Nothing on the page scrolls horizontally at any width, and the cards need no separate mobile layout because they were built for one.
+* **The cohort summary reads as a notice** rather than as more body text, in the same tinted shape the page already uses for one.
+* The cards are drawn with the Mentor Report Card's own classes, so the two pages share one stylesheet and cannot drift apart.
 
 = 1.73.1 =
 * **The Institution Dashboard now reads like the Student and Mentor Report Cards.** Its sections are separated by space and a rule rather than boxed one inside another, and only the agreement panel keeps a border, because it is the one place a school is asked to do something.
