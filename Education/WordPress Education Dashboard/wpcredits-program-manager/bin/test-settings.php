@@ -209,6 +209,7 @@ $probe = array(
 	'countries_name_field'      => 'Probe country',
 	'institution_new_stage'     => 'Probe stage',
 	'institution_active_stages' => array( 'Probe stage', 'Probe confirmed' ),
+	'two_factor_roles'          => array( 'administrator', 'wpcpm_mentor' ),
 	'institution_on_inactive'   => 'keep',
 	'application_spam_days'     => '45',
 	'application_rejected_days' => '400',

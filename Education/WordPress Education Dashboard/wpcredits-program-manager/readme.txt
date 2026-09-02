@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.68.0
+Stable tag: 1.69.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.69.0 =
+* **Signing in can now ask for a code as well as a password.** The codes, the login step and the rate limiting come from the Two Factor plugin, which WordPress.org publishes and which runs entirely on this site. Nothing is sent to any other service and no account anywhere else is involved.
+* **Program managers and institution accounts are asked for one from their next sign-in, with nothing to set up first**, because the code is emailed. That matters more than it sounds: the alternative, letting people in on a password and then asking them to set up an app, leaves a gap in which somebody holding a stolen password sets up their own.
+* Everyone can then set up an authenticator app on their profile screen, which is quicker and does not depend on email. The Mentor and Student Report Cards now say so, because the plugin puts its controls in an admin screen that mentors and students never open.
+* Mentors and students are not required to use it, and can turn it on for themselves. Which roles must use it is a setting, so widening it later does not need a release.
+* Settings gains a card showing the policy and how far along each role is.
 
 = 1.68.0 =
 * **Signed agreements are protected without asking the host for anything.** This site's host hands out any file under the uploads directory to whoever knows its name, and will not add a rule to stop. So the store now does two things for itself: the folder's name begins with a dot, which the host's own rules already refuse, and every file is encrypted before it is written, so what a misconfigured host would hand over is unreadable. The storage card says which of the two is doing the work, measured rather than assumed, and would notice the day the host changed.

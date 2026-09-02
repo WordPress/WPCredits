@@ -516,6 +516,8 @@ class WPCPM_Admin {
 
 		$this->render_handbook_settings( $settings );
 
+		$this->render_two_factor_settings( $settings );
+
 		submit_button( __( 'Save settings', 'wpcredits-program-manager' ) );
 		echo '</form>';
 
@@ -523,6 +525,100 @@ class WPCPM_Admin {
 		// handler, and a form cannot be nested in another.
 		$this->render_mail_card();
 
+		echo '</div>';
+	}
+
+	/**
+	 * Which roles must present a second factor, and how far along each one is.
+	 *
+	 * Rendered even when the Two Factor plugin is not installed, because a policy that silently
+	 * does nothing is worse than one that says why: the card then names the plugin and stops.
+	 *
+	 * The list posts as checkboxes with an empty hidden field in front of them, so that clearing
+	 * every box still sends the key. Without it an all-unticked save would look like "the form
+	 * did not render this" and `WPCPM_Settings::save()` would leave the old policy in place,
+	 * which is the one shape a security setting must not have.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_two_factor_settings( array $settings ) {
+		$status   = WPCPM_Two_Factor::status();
+		$required = WPCPM_Two_Factor::required_roles();
+
+		echo '<div class="wpcpm-card">';
+		echo '<h2>' . esc_html__( 'Two-factor authentication', 'wpcredits-program-manager' ) . '</h2>';
+
+		if ( ! $status['available'] ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html__( 'Nobody is asked for a second factor, because the Two Factor plugin is not active on this site. Install and activate it, and the roles ticked below will be asked for a code as well as a password at their next sign-in.', 'wpcredits-program-manager' )
+			);
+		} else {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html__( 'An account in a ticked role is asked for a code as well as its password, from its next sign-in, with nothing to set up first: the code is emailed. Each person can then set up an authenticator app on their own profile screen, which is quicker and does not depend on their email. Untick everything to ask nobody.', 'wpcredits-program-manager' )
+			);
+		}
+
+		echo '<table class="wpcpm-table"><tbody>';
+		echo '<tr><th scope="row">' . esc_html__( 'Roles that must use it', 'wpcredits-program-manager' ) . '</th><td>';
+
+		// Always sent, so that unticking every box clears the policy rather than being read as
+		// a form that did not render the field. Empty values are dropped by the sanitiser.
+		echo '<input type="hidden" name="two_factor_roles[]" value="" />';
+
+		// Administrator first and by name, because it is the role this matters most for and the
+		// one WordPress owns rather than this plugin.
+		$choices = array( WPCPM_Roles::ROLE_ADMIN => __( 'Program managers (administrators)', 'wpcredits-program-manager' ) );
+
+		foreach ( WPCPM_Roles::custom_roles() as $slug => $role ) {
+			$choices[ $slug ] = $role['label'];
+		}
+
+		foreach ( $choices as $slug => $label ) {
+			printf(
+				'<label><input type="checkbox" name="two_factor_roles[]" value="%1$s"%2$s> %3$s</label><br>',
+				esc_attr( $slug ),
+				in_array( $slug, $required, true ) ? ' checked' : '',
+				esc_html( $label )
+			);
+		}
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'Students are left off by default: a student account holds that student\'s own work, there are hundreds of them, and there is nobody to unlock the ones who change phone. They can still turn it on for themselves.', 'wpcredits-program-manager' )
+		);
+
+		echo '</td></tr>';
+
+		if ( $status['available'] && ! empty( $status['roles'] ) ) {
+			echo '<tr><th scope="row">' . esc_html__( 'Where it stands', 'wpcredits-program-manager' ) . '</th><td>';
+
+			foreach ( $status['roles'] as $row ) {
+				printf(
+					'<p>%s</p>',
+					esc_html(
+						sprintf(
+							/* translators: 1: role name, 2: accounts covered, 3: accounts in the role, 4: accounts using an app. */
+							__( '%1$s: %2$d of %3$d covered, %4$d using an authenticator app.', 'wpcredits-program-manager' ),
+							$row['label'],
+							$row['covered'],
+							$row['total'],
+							$row['app']
+						)
+					)
+				);
+			}
+
+			printf(
+				'<p class="description">%s</p>',
+				esc_html__( 'Counted now, on this screen. An account that is covered but has no app is using emailed codes.', 'wpcredits-program-manager' )
+			);
+
+			echo '</td></tr>';
+		}
+
+		echo '</tbody></table>';
 		echo '</div>';
 	}
 

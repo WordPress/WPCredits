@@ -580,6 +580,13 @@ class WPCPM_Mentors_Dashboard {
 
 		echo '<div class="wpcpm-dashboard">';
 
+		// Where a mentor actually is, which is the only place a prompt to protect the account
+		// will be seen: the plugin's own controls live on the wp-admin profile screen, and
+		// mentors are routed away from wp-admin the moment they sign in. The reader's own
+		// account, never the one being looked at: an administrator inspecting a mentor's list is
+		// being told about their own sign-in, not about somebody else's.
+		WPCPM_Two_Factor::prompt( wp_get_current_user() );
+
 		if ( ! empty( $atts['title'] ) ) {
 			echo '<h2 class="wpcpm-dashboard__title">' . esc_html( $atts['title'] ) . '</h2>';
 		}

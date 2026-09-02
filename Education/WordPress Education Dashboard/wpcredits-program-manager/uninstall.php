@@ -30,6 +30,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-contribution-te
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-field-value.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-updates.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-agreement-template.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-two-factor.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-cohort.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roster-index.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-private-files.php';

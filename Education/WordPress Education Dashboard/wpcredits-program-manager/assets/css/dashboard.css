@@ -621,3 +621,45 @@
 	color: var( --wpcpm-attention );
 	opacity: 1;
 }
+
+/*
+ * The two-factor prompt on a Report Card.
+ *
+ * The plugin's own controls live on the wp-admin profile screen, which mentors and students
+ * never open, so this is the only place they hear about it. Quiet by default and firmer for an
+ * account the program requires it of, because one is an invitation and the other is a standing
+ * fact about how that account signs in.
+ */
+.wpcpm-2fa {
+	margin: 0 0 1.5rem;
+	padding: 1rem 1.25rem;
+	border: 1px solid rgba( 30, 64, 175, 0.25 );
+	border-left-width: 4px;
+	border-radius: 4px;
+	background: rgba( 30, 64, 175, 0.05 );
+}
+
+.wpcpm-2fa--required {
+	border-color: rgba( 180, 83, 9, 0.35 );
+	background: rgba( 217, 119, 6, 0.07 );
+}
+
+.wpcpm-2fa__title {
+	margin: 0 0 0.35rem;
+	font-size: 1rem;
+	line-height: 1.3;
+}
+
+.wpcpm-2fa__body {
+	margin: 0 0 0.75rem;
+}
+
+.wpcpm-2fa__actions {
+	margin: 0 0 0.5rem;
+}
+
+.wpcpm-2fa__note {
+	margin: 0;
+	font-size: 0.875rem;
+	opacity: 0.8;
+}

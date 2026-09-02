@@ -146,6 +146,13 @@ class WPCPM_Settings {
 			// lapsed, so a manager can still see who was invited and never came.
 			'invite_retention_days'     => 30,
 
+			// Which roles must present a second factor at login, laid over the Two Factor
+			// plugin. Administrators and institutions by default: those two see other people's
+			// data, and both are small enough groups to help one by one. Mentors are a
+			// deliberate omission until the program tells them it is coming, and students are
+			// left to choose for themselves. An empty list requires it of nobody.
+			'two_factor_roles'          => array( 'administrator', 'wpcpm_institution' ),
+
 			// Tool — Mentor Status Checker. Prefixed so the tool's settings stay
 			// visibly separate from the modules' in one shared option.
 			'checker_source_status'     => 'Vetted - positive',
@@ -221,7 +228,7 @@ class WPCPM_Settings {
 			$clean['mentor_status'] = sanitize_text_field( wp_unslash( $input['mentor_status'] ) );
 		}
 
-		foreach ( array( 'student_statuses', 'past_statuses', 'institution_active_stages' ) as $list_key ) {
+		foreach ( array( 'student_statuses', 'past_statuses', 'institution_active_stages', 'two_factor_roles' ) as $list_key ) {
 			if ( ! isset( $input[ $list_key ] ) ) {
 				continue;
 			}

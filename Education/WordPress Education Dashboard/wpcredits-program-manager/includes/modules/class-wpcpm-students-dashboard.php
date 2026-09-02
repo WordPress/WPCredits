@@ -204,6 +204,11 @@ class WPCPM_Students_Dashboard {
 
 		echo '<div class="wpcpm-dashboard wpcpm-student">';
 
+		// As on the Mentor Report Card: the setup screen is in wp-admin, and a student has no
+		// reason to go there, so the invitation comes to them. The reader's own account, never
+		// the student being viewed.
+		WPCPM_Two_Factor::prompt( wp_get_current_user() );
+
 		if ( ! empty( $atts['title'] ) ) {
 			echo '<h2 class="wpcpm-student__title">' . esc_html( $atts['title'] ) . '</h2>';
 		}
