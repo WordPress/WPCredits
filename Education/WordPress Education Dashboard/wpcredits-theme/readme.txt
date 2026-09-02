@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.14.0
+Stable tag: 1.14.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.14.1 =
+* Translation template regenerated: 96 strings, against 1.14.0. It had not been rebuilt since 5 August.
 
 = 1.14.0 =
 * **The header fits a phone.** The brand, the menu and the viewer's own links were one row that could not shrink, so on a narrow screen everything to the right of the site name was pushed off the edge: a mentor reported the Log in button and "My Students" cut off at the side and the menu looking as though it were missing items. They were on screen, just past it. The brand now takes one row and the rest takes another, wrapping again if it has to, and the dropdown hangs off the header itself rather than a fixed distance down the page.

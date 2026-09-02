@@ -9,11 +9,15 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-05T12:09:41+00:00\n"
+"POT-Creation-Date: 2026-09-02T09:27:17+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: bin/make-pot.sh (GNU gettext)\n"
 "X-Domain: wpcredits-theme\n"
+#: blocks/guide-toc/render.php:27
+msgid "On this page"
+msgstr ""
+
 #: blocks/handbook-launcher/render.php:28
 msgid "Need help?"
 msgstr ""
@@ -48,128 +52,28 @@ msgstr ""
 msgid "Profile photo of %s"
 msgstr ""
 
-#: functions.php:89
+#: functions.php:106
 msgid "WPCredits program"
 msgstr ""
 
-#: functions.php:90
+#: functions.php:107
 msgid "Sections for the program’s landing page."
 msgstr ""
 
-#: functions.php:105
+#: functions.php:122
 msgid "Card"
 msgstr ""
 
-#: functions.php:113
+#: functions.php:130
 msgid "Pale band"
 msgstr ""
 
-#: functions.php:121
+#: functions.php:138
 msgid "Eyebrow"
 msgstr ""
 
-#: functions.php:129
+#: functions.php:146
 msgid "Pill"
-msgstr ""
-
-#: inc/dashboard.php:344
-msgid "Need a call"
-msgstr ""
-
-#: inc/dashboard.php:348
-msgid "Ending soon"
-msgstr ""
-
-#: inc/dashboard.php:352
-msgid "On track"
-msgstr ""
-
-#: inc/dashboard.php:356
-msgid "Search students"
-msgstr ""
-
-#: inc/dashboard.php:357
-msgid "Search students, institutions or teams"
-msgstr ""
-
-#: inc/dashboard.php:358
-msgid "Clear the search"
-msgstr ""
-
-#. translators: 1: matching students, 2: total students.
-#: inc/dashboard.php:360
-#, php-format
-msgid "%1$s of %2$s students match"
-msgstr ""
-
-#: inc/dashboard.php:361
-msgid "No students match that search."
-msgstr ""
-
-#. translators: %s: number of matches within one group.
-#: inc/dashboard.php:363
-#, php-format
-msgid "%s match"
-msgstr ""
-
-#: inc/dashboard.php:364
-msgid ""
-"Some browsers do not search inside collapsed sections with Ctrl+F. Use "
-"Expand all first if you are looking for something specific."
-msgstr ""
-
-#: inc/dashboard.php:365
-msgid "No notes"
-msgstr ""
-
-#: inc/dashboard.php:366
-msgid "Add a note"
-msgstr ""
-
-#: inc/dashboard.php:367
-msgid "Details"
-msgstr ""
-
-#. translators: %s: number of days.
-#: inc/dashboard.php:369
-#, php-format
-msgid "%s days"
-msgstr ""
-
-#: inc/dashboard.php:370
-msgid "Ended"
-msgstr ""
-
-#: inc/dashboard.php:371
-msgid "need a call"
-msgstr ""
-
-#: inc/dashboard.php:372
-msgid "ending soon"
-msgstr ""
-
-#: inc/dashboard.php:373
-msgid "on track"
-msgstr ""
-
-#: inc/dashboard.php:374
-msgid "Show all students"
-msgstr ""
-
-#: inc/dashboard.php:375
-msgid "Ordered by internship end date within each group, soonest first."
-msgstr ""
-
-#. translators: %s: student's name.
-#: inc/dashboard.php:377
-#, php-format
-msgid "Add a note for %s"
-msgstr ""
-
-#. translators: %s: internship end date.
-#: inc/dashboard.php:379
-#, php-format
-msgid "until %s"
 msgstr ""
 
 #: inc/login.php:119
@@ -253,12 +157,6 @@ msgstr ""
 msgid "Already mentoring?"
 msgstr ""
 
-#. translators: 1: current year, 2: site name.
-#: patterns/footer-credit.php:22
-#, php-format
-msgid "© %1$s %2$s"
-msgstr ""
-
 #: patterns/hero.php:24
 msgid "WordPress Credits Program"
 msgstr ""
@@ -290,7 +188,7 @@ msgstr ""
 msgid "A student taking notes during a video call with their mentor."
 msgstr ""
 
-#: patterns/hero.php:57
+#: patterns/hero.php:55
 msgid "mentors currently active in the program"
 msgstr ""
 
@@ -356,16 +254,6 @@ msgstr ""
 #: patterns/cta.php
 msgctxt "Pattern description"
 msgid "A brand-blue band pointing mentors at their students page."
-msgstr ""
-
-#: patterns/footer-credit.php
-msgctxt "Pattern title"
-msgid "Footer credit line"
-msgstr ""
-
-#: patterns/footer-credit.php
-msgctxt "Pattern description"
-msgid "Copyright year and site name for the footer."
 msgstr ""
 
 #: patterns/hero.php
@@ -538,13 +426,23 @@ msgid "Full width page"
 msgstr ""
 
 #: theme.json
+msgctxt "Custom template name"
+msgid "Documentation"
+msgstr ""
+
+#: theme.json
 msgctxt "Template part name"
 msgid "Header"
 msgstr ""
 
 #: theme.json
 msgctxt "Template part name"
-msgid "Footer"
+msgid "WordPress.org global header"
+msgstr ""
+
+#: theme.json
+msgctxt "Template part name"
+msgid "WordPress.org global footer"
 msgstr ""
 
 #: style.css

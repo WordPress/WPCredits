@@ -1545,6 +1545,8 @@ class WPCPM_Mentor_Calls {
 	 * @param WP_User|null $mentor    Mentor.
 	 * @param WP_User|null $student   Student.
 	 * @param WP_User      $recipient Who the mail is for.
+	 * @param int|null     $sequence  Revision, for an event sent more than once. Null is the
+	 *                                default: 0 for a booking, 1 for a cancellation.
 	 * @return string[]
 	 */
 	private static function calendar( array $facts, $method, $mentor, $student, WP_User $recipient, $sequence = null ) {

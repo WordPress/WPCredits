@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.70.0
+Stable tag: 1.70.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.70.1 =
+* Translation template regenerated: 1,146 strings, against 1.70.0's behaviour. It had not been rebuilt since 19 August, so everything added since then was untranslatable.
+* Coding standards: the tree now reports no errors at all.
 
 = 1.70.0 =
 * **A group session can be changed, not only cancelled.** Moving one used to mean cancelling on everybody and asking them to join again. The mentor can now change the time, the length, the places and what it is about, from the session itself.

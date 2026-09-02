@@ -135,8 +135,7 @@ class WPCPM_Student_Feedback {
 	public static function forms() {
 		$forms = array();
 
-		$forms['f1'] = array
-		(
+		$forms['f1'] = array(
 			'title'  => __( 'Getting started', 'wpcredits-program-manager' ),
 			'note'   => __( 'For once you have chosen your contribution team and project. It takes a couple of minutes.', 'wpcredits-program-manager' ),
 			'mentor' => 'F1 - Mentor',
