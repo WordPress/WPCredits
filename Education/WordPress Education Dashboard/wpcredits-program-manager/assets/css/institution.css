@@ -64,14 +64,38 @@
  * `.wpcpm-student__section` does it. Defined here rather than in each card's own piece so
  * that four separate commits cannot produce four slightly different boxes.
  */
-.wpcpm-institution__card,
+/*
+ * The page's sections.
+ *
+ * The Mentor and Student Report Cards separate their sections with space and a heading, not
+ * with a box each; three bordered slabs down a page is what made this one read as a different
+ * product. So the roster and the People card are given the same rhythm as a `.wpcpm-group`
+ * over there: a rule above, room to breathe, and nothing drawn around them.
+ *
+ * The two agreement blocks keep their border, and that is the one deliberate difference.
+ * They are the only things on the page that ask the reader to do something, and a panel a
+ * school is meant to act in should look like a panel rather than like more of the roster.
+ */
+.wpcpm-roster,
+.wpcpm-people {
+	border-top: 1px solid var( --wpcpm-border );
+	margin: 2.5em 0 0;
+	padding: 2em 0 0;
+}
+
 .wpcpm-agreement-panel,
-.wpcpm-agreement-card,
-.wpcpm-roster {
+.wpcpm-agreement-card {
+	background: var( --wpcpm-surface );
 	border: 1px solid var( --wpcpm-border );
 	border-radius: var( --wpcpm-radius );
+	margin: 2.5em 0 0;
+	padding: 1.5em;
+}
+
+/* The student detail view replaces the roster rather than sitting beside it, so it needs
+   room under the header and nothing drawn around it: it is the page at that point. */
+.wpcpm-institution__card {
 	margin-bottom: 1.25em;
-	padding: 1.25em;
 }
 
 .wpcpm-institution__card:last-of-type {
@@ -217,7 +241,20 @@
 
 /* Inside a numbered step the form *is* the step: it sits under the sentence
    that numbers it, and the list has already spaced the item around both. */
-.wpcpm-agreement-panel__steps .wpcpm-agreement-panel__form {
+.wpcpm-agreement-panel__steps /* A file input is the one control on this page nobody can style much; what it can be given
+   is room, so it does not sit flush against the sentence that asks for it. */
+.wpcpm-agreement-panel__field input[type="file"] {
+	display: block;
+	margin-top: 0.35em;
+	max-width: 100%;
+}
+
+.wpcpm-agreement-panel__choices label {
+	display: inline;
+	font-weight: 400;
+}
+
+.wpcpm-agreement-panel__form {
 	margin-top: 0.5em;
 }
 
@@ -277,17 +314,64 @@
 	margin: 1.25em 0 0.5em;
 }
 
-/* The People card's rows: name and address on the left, the control on the right. */
+/*
+ * The People card's rows.
+ *
+ * Flexbox and not a grid, because the row's parts are flat siblings in the markup: a name, an
+ * address, a mark and a standing line, all spans, then the form. A grid would have to put
+ * three of them in one cell to keep them on a line, and three things in one grid cell sit on
+ * top of each other rather than flowing.
+ *
+ * So they flow as a line, the control is pushed to the end where every other list on this
+ * page puts one, and the standing line is ordered last with a full basis so it takes a line
+ * of its own underneath. A run of members then reads down the names rather than through the
+ * furniture between them.
+ */
+.wpcpm-people__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
 .wpcpm-people__member {
 	align-items: baseline;
+	border-top: 1px solid var( --wpcpm-border );
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.4em 1em;
-	justify-content: space-between;
+	gap: 0.2em 0.75em;
+	padding: 0.9em 0;
+}
+
+.wpcpm-people__member:first-child {
+	border-top: 0;
 }
 
 .wpcpm-people__name {
 	font-weight: 600;
+}
+
+.wpcpm-people__email {
+	opacity: 0.75;
+	overflow-wrap: anywhere;
+}
+
+/* Ordered after the control so it drops to its own line, and given the whole width so
+   nothing can come up beside it. */
+.wpcpm-people__facts {
+	flex: 1 1 100%;
+	font-size: 0.9em;
+	opacity: 0.72;
+	order: 2;
+}
+
+.wpcpm-people__form {
+	margin: 0 0 0 auto;
+	order: 1;
+}
+
+.wpcpm-people__mark {
+	display: inline;
+	grid-area: identity;
 }
 
 /* "The program's contact", for information and with nothing attached to it. */
@@ -306,32 +390,90 @@
    controls are of different widths and there are never many of them. */
 .wpcpm-roster__filters {
 	align-items: flex-end;
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.75em 1em;
-	margin: 0 0 1.25em;
-}
-
-.wpcpm-roster__filter {
-	display: flex;
-	flex-direction: column;
-	gap: 0.25em;
-}
-
-/* The comparison strip: this semester's two numbers against the previous one. */
-.wpcpm-roster__strip {
-	background: var( --wpcpm-surface );
-	border-radius: var( --wpcpm-radius );
 	margin: 0 0 1.5em;
 	padding: 0.9em 1em;
 }
 
+/* A field is its label above its control. The wrapper is a `<p>`, so its own margin has to
+   go or the row inherits paragraph spacing it does not want. */
+.wpcpm-roster__filter,
+.wpcpm-roster__actions {
+	display: flex;
+	margin: 0;
+}
+
+.wpcpm-roster__filter {
+	flex-direction: column;
+	gap: 0.25em;
+}
+
+.wpcpm-roster__filter label {
+	font-size: 0.85em;
+	font-weight: 600;
+	opacity: 0.75;
+}
+
+/* The controls carry no width of their own, so they collapse to their content and the row
+   reads as ragged. A floor each, and the search takes what is left. */
+.wpcpm-roster__filter select {
+	max-width: 100%;
+	min-width: 12em;
+}
+
+.wpcpm-roster__filter input[type="search"] {
+	max-width: 100%;
+	min-width: 14em;
+}
+
+.wpcpm-roster__filter:last-of-type {
+	flex: 1 1 14em;
+}
+
+.wpcpm-roster__actions {
+	align-items: center;
+	gap: 1em;
+}
+
+.wpcpm-roster__clear {
+	font-size: 0.9em;
+}
+
+/* The comparison strip: this semester's two numbers against the previous one. */
+/*
+ * The comparison strip: this cohort's two numbers, then the one before it.
+ *
+ * Quiet on purpose. It is context for the roster underneath, not a result in its own right,
+ * and the slab it used to be competed with the table for the eye. A left rule and a tighter
+ * set says "this is about the list below" without asking for a box.
+ */
+.wpcpm-roster__strip {
+	border-left: 3px solid var( --wpcpm-border );
+	margin: 0 0 1.75em;
+	padding: 0.1em 0 0.1em 1em;
+}
+
 .wpcpm-roster__strip-title {
-	font-size: 1em;
-	margin: 0 0 0.4em;
+	font-size: 0.85em;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	margin: 0 0 0.2em;
+	opacity: 0.75;
+	text-transform: uppercase;
+}
+
+.wpcpm-roster__strip-now {
+	font-size: 1.05em;
+	margin: 0;
 }
 
 .wpcpm-roster__strip-then {
+	margin: 0.15em 0 0;
 	opacity: 0.72;
 }
 
@@ -364,8 +506,62 @@
 }
 
 .wpcpm-roster__table th {
+	font-size: 0.8em;
 	font-weight: 600;
+	letter-spacing: 0.02em;
+	opacity: 0.75;
+	padding-bottom: 0.65em;
+	text-transform: uppercase;
 	white-space: nowrap;
+}
+
+/* The head is the only rule that carries weight; the rows are separated by the lightest
+   line the tokens allow, because eleven columns of hairlines is a grid, not a list. */
+.wpcpm-roster__table thead th {
+	border-bottom-width: 2px;
+}
+
+.wpcpm-roster__table tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+/*
+ * Column widths, from the plugin's own column keys rather than from `data-label`, which is
+ * translated and would stop matching on a Polish site.
+ *
+ * A table with no widths gives every column an equal share of a width it does not have, so a
+ * date became five lines and a name became two while "Not recorded" sat on one. These say
+ * which columns must never wrap and which may; the wrapper scrolls when the sum is wider
+ * than the page, which is the arrangement the roster was designed around.
+ */
+.wpcpm-roster__cell--students-start-date,
+.wpcpm-roster__cell--students-end-date,
+.wpcpm-roster__cell--reports-hours {
+	white-space: nowrap;
+}
+
+.wpcpm-roster__cell--students-full-name {
+	min-width: 11em;
+}
+
+.wpcpm-roster__cell--students-mentor,
+.wpcpm-roster__cell--students-tutor {
+	min-width: 8em;
+}
+
+.wpcpm-roster__cell--students-field-of-study {
+	min-width: 12em;
+}
+
+/* The name is the row's handle: it reads first and it is the only link in most rows. */
+.wpcpm-roster__student {
+	font-weight: 600;
+}
+
+/* Wide by design, so the table keeps its columns and the wrapper scrolls, rather than the
+   columns collapsing to fit a phone and every cell wrapping to three lines. */
+.wpcpm-roster__table {
+	min-width: 54em;
 }
 
 /* The detail table prints every row even when the cell is empty, so the labels
@@ -439,4 +635,100 @@
 .wpcpm-warning {
 	border-inline-start: 4px solid var( --wpcpm-border );
 	padding-inline-start: 0.75em;
+}
+
+/**
+ * The roster on a narrow screen.
+ *
+ * A table of eleven columns cannot be made to fit a phone, and a scroller that has to be
+ * dragged sideways to read one student is not an answer either. So below the point where the
+ * columns stop making sense the table stops being a table: every row becomes a card, and each
+ * cell takes its own heading from the `data-label` the markup already carries. That is the
+ * shape a mentor reads on the same phone, one person to a card, so the two pages agree.
+ *
+ * `display: block` on the table parts is what the pattern needs; the head is hidden because
+ * every cell now carries its own label. Nothing is lost: a cell the table would have left
+ * empty prints its heading and its dash, so the reader can still see the question was asked.
+ */
+@media ( max-width: 782px ) {
+
+	.wpcpm-roster__scroll {
+		overflow-x: visible;
+	}
+
+	.wpcpm-roster__table {
+		display: block;
+		min-width: 0;
+	}
+
+	.wpcpm-roster__table thead {
+		clip: rect( 1px, 1px, 1px, 1px );
+		clip-path: inset( 50% );
+		height: 1px;
+		overflow: hidden;
+		position: absolute;
+		white-space: nowrap;
+		width: 1px;
+	}
+
+	.wpcpm-roster__table tbody,
+	.wpcpm-roster__row {
+		display: block;
+	}
+
+	.wpcpm-roster__row {
+		border: 1px solid var( --wpcpm-border );
+		border-radius: var( --wpcpm-radius );
+		margin-bottom: 0.75em;
+		padding: 0.25em 1em;
+	}
+
+	.wpcpm-roster__table tbody tr:last-child td,
+	.wpcpm-roster__cell {
+		border-bottom: 0;
+	}
+
+	/* Label and value on one line while they fit, wrapping to two when they do not. The
+	   label keeps a column of its own so a run of cells reads as a list and not as prose. */
+	.wpcpm-roster__cell {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25em 1em;
+		min-width: 0;
+		padding: 0.35em 0;
+	}
+
+	.wpcpm-roster__cell::before {
+		content: attr( data-label );
+		flex: 0 0 8em;
+		font-size: 0.8em;
+		font-weight: 600;
+		letter-spacing: 0.02em;
+		opacity: 0.75;
+		text-transform: uppercase;
+	}
+
+	/* The name leads the card rather than sitting in a labelled row like the rest. */
+	.wpcpm-roster__cell--students-full-name {
+		border-bottom: 1px solid var( --wpcpm-border );
+		font-size: 1.05em;
+		padding-bottom: 0.6em;
+	}
+
+	.wpcpm-roster__cell--students-full-name::before {
+		display: none;
+	}
+
+	/* The filter bar is a column here: three controls side by side on a phone are three
+	   controls too narrow to use. */
+	.wpcpm-roster__filter,
+	.wpcpm-roster__filter:last-of-type {
+		flex: 1 1 100%;
+	}
+
+	.wpcpm-roster__filter select,
+	.wpcpm-roster__filter input[type="search"] {
+		min-width: 0;
+		width: 100%;
+	}
 }

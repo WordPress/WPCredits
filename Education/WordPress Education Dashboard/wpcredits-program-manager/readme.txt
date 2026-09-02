@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.73.0
+Stable tag: 1.73.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.73.1 =
+* **The Institution Dashboard now reads like the Student and Mentor Report Cards.** Its sections are separated by space and a rule rather than boxed one inside another, and only the agreement panel keeps a border, because it is the one place a school is asked to do something.
+* **The filter bar was stacking every control down the page.** All three fields shared one wrapper, while the stylesheet lays a field out as its label above its control, so it stacked label, control, label, control. Each field has its own wrapper now and the bar is one row that wraps.
+* **The roster is readable.** Dates no longer break across five lines, the head reads as a head, and the columns that must not wrap are named by the plugin's own column keys rather than by their headings, which are translated.
+* **On a phone the roster becomes one card per student**, each cell carrying its own label, which is the shape a mentor already reads on the same screen. The markup was prepared for this and the stylesheet had never used it.
+* The People card lists a person per row with the control at the end, and a switcher's select no longer runs off the side of a narrow screen, on any dashboard.
 
 = 1.73.0 =
 * **Institutions module, Phase 3: institutions can apply, and agreements can be signed through the site.** A public application form with thirteen questions, a consent gate that stores the wording and the policy's own modified date rather than a tick, a honeypot, a dwell token, per-source and site-wide limits, content scoring that holds a submission for a person rather than refusing it, and duplicate flagging that never merges two submissions. Off by default: switch it on under Settings, and note that it shows nothing to the public until the site has a published privacy policy.

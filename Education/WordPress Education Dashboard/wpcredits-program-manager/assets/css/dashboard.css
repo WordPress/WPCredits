@@ -100,6 +100,13 @@
 	font-weight: 600;
 }
 
+/* A select sizes itself to its longest option, which on a phone is wider than the screen:
+   the control ran out past its own box and the page scrolled sideways to follow it. Shared
+   with every dashboard that carries a switcher, because they all had it. */
+.wpcpm-dashboard__switcher select {
+	max-width: 100%;
+}
+
 .wpcpm-dashboard__switcher-note {
 	font-size: 0.85em;
 }

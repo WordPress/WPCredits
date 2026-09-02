@@ -381,6 +381,9 @@ class WPCPM_Institution_Roster_View {
 			);
 		}
 
+		// One wrapper per field, and not one around the lot: the stylesheet lays a field out
+		// as its label above its control, so three fields sharing a wrapper stacked label,
+		// control, label, control down the page instead of sitting side by side.
 		echo '<p class="wpcpm-roster__filter">';
 		printf(
 			'<label for="wpcpm-roster-cohort">%s</label> ',
@@ -404,8 +407,10 @@ class WPCPM_Institution_Roster_View {
 			);
 		}
 
-		echo '</select> ';
+		echo '</select>';
+		echo '</p>';
 
+		echo '<p class="wpcpm-roster__filter">';
 		printf(
 			'<label for="wpcpm-roster-status">%s</label> ',
 			esc_html__( 'Group', 'wpcredits-program-manager' )
@@ -426,8 +431,10 @@ class WPCPM_Institution_Roster_View {
 			);
 		}
 
-		echo '</select> ';
+		echo '</select>';
+		echo '</p>';
 
+		echo '<p class="wpcpm-roster__filter">';
 		printf(
 			'<label for="wpcpm-roster-search">%1$s</label> <input type="search" id="wpcpm-roster-search" name="%2$s" value="%3$s" placeholder="%4$s" />',
 			esc_html__( 'Search', 'wpcredits-program-manager' ),
@@ -436,8 +443,13 @@ class WPCPM_Institution_Roster_View {
 			esc_attr__( 'Name, email, WordPress.org, tutor', 'wpcredits-program-manager' )
 		);
 
+		echo '</p>';
+
+		// The actions are not a field: they carry no label, and they sit on the baseline of
+		// the controls beside them rather than below a caption of their own.
+		echo '<p class="wpcpm-roster__actions">';
 		printf(
-			' <button type="submit" class="wpcpm-button">%s</button>',
+			'<button type="submit" class="wpcpm-button">%s</button>',
 			esc_html__( 'Show', 'wpcredits-program-manager' )
 		);
 
@@ -663,9 +675,10 @@ class WPCPM_Institution_Roster_View {
 				$value = ( isset( $cells[ $key ] ) && '' !== $cells[ $key ] ) ? $cells[ $key ] : self::blank();
 
 				printf(
-					'<td class="wpcpm-roster__cell" data-label="%1$s">%2$s</td>',
+					'<td class="wpcpm-roster__cell wpcpm-roster__cell--%3$s" data-label="%1$s">%2$s</td>',
 					esc_attr( $heading ),
-					$value // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by cells(), which escapes every value it interpolates.
+					$value, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by cells(), which escapes every value it interpolates.
+					esc_attr( self::column_slug( $key ) )
 				);
 			}
 
@@ -737,6 +750,22 @@ class WPCPM_Institution_Roster_View {
 			'students|Your field of study'   => esc_html( $get( 'field_of_study' ) ),
 			'students|Tutor '                => esc_html( $get( 'tutor' ) ),
 		);
+	}
+
+	/**
+	 * A column key as a class name.
+	 *
+	 * The cells already carry the heading in `data-label`, for the stacked layout on a phone,
+	 * but a heading is translated and a stylesheet cannot key off it: on a Polish site every
+	 * rule written against `data-label` would stop matching. The column key is the plugin's
+	 * own, so the class made from it is stable in every language, which is what lets the
+	 * stylesheet say that a date must not wrap without saying it about every cell.
+	 *
+	 * @param string $key Column key, e.g. `students|Start Date`.
+	 * @return string
+	 */
+	private static function column_slug( $key ) {
+		return str_replace( array( '|', ' ' ), '-', strtolower( (string) $key ) );
 	}
 
 	/**
