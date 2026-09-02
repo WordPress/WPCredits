@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress in five modules — Students, Mentors, Institutions, Sponsors and Administrators — plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a private page listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.66.0
+ * Version:           1.67.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.66.0' );
+define( 'WPCPM_VERSION', '1.67.0' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -40,6 +40,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-contribution-teams.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-updates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
@@ -55,6 +58,13 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-call-calendar.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-group-sessions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-countries.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-members.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sponsors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-modules.php';

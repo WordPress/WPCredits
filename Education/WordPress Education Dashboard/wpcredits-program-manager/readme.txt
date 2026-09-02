@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.66.0
+Stable tag: 1.67.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,16 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.67.0 =
+* **The Institutions screen is real.** It reads the site's own copy of the base and never Airtable: a sync panel, the pipeline grouped by stage with an agreement column and a "Confirmed with no agreement recorded" filter, the reconciliation card, the consent report, the agreement template card and a storage probe. Nothing institutions themselves can see yet; that is the next release.
+* A daily **institutions sync** reads the Institutions and Countries tables into an index, rebuilds each institution's agreement state, and closes the gate on any institution that has left the active stages. It runs four hours off the students sync, which recurs every three, so the two never share a slot.
+* **A student's institution is now a record ID, not a name.** The students sync reads it from the Students table by the email join and stamps the account; a name that failed to resolve used to match every other unresolved name. The sync also writes a per-institution roster index and the reconciliation counts behind the manager card.
+* **`WPCPM_Institution_Policy` is the one fence.** Every institution-side path asks it and acts on what it returns; the map of who may do what is explicit, an unknown action is refused rather than allowed, and "not yours", "no such record" and "agreement outstanding" are one message, so a form cannot be walked to learn which records exist.
+* **Membership is a stamp on the person**, written only by `WPCPM_Institution_Members`, with an audit row for every attach and detach and a notice to the program when an institution's last member leaves.
+* **The Collaboration Agreement gate reads two sources and fails closed.** It is settled only when the site's accepted document and Airtable's `Agreement Status` agree; typing `On file` with a Drive link into the grid settles it and materialises the record on the site, and typing `Revoked` locks it again on the next sync.
+* `WPCPM_Cohort` derives a semester from a start date, reading the date as text so a student who started on 1 July is never filed under June, and its participation counts always sum to the number who signed up.
+* Notices addressed to institutions now reach current members rather than every account that once held the role, and `uninstall.php` no longer misses a module class, which would have stopped cleanup halfway.
 
 = 1.66.0 =
 * Groundwork for the Institutions module; nothing new on screen yet. The settings the module will read (institutions, applications, agreements, imports) exist with their defaults, and `WPCPM_Settings::maybe_upgrade()` adds **Paused** and **Pending graduation** to a saved status list once. Both syncs build their Airtable formula from that list, so until it held the two statuses no paused student was fetched while every line of code looked correct.

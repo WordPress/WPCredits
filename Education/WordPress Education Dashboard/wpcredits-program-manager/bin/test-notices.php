@@ -129,6 +129,16 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-dashboard.php';
+if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
+	/** Stands in for the members module: a notice for institutions reaches members, not the role. */
+	class WPCPM_Institution_Members {
+		public static function is_member( $user = null ) {
+			$id = $user instanceof WP_User ? $user->ID : (int) $user;
+			return in_array( $id, isset( $GLOBALS['institution_members'] ) ? $GLOBALS['institution_members'] : array(), true );
+		}
+	}
+}
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-notices.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php';
@@ -158,6 +168,7 @@ set_notices(
 );
 
 // 10 plain student. 20 plain mentor. 30 institution. 40 administrator.
+$GLOBALS['institution_members'] = array( 30 );
 // 50 administrator who also mentors — recognised by an Airtable record, never by role.
 // 60 student who also mentors. 70 subscriber in no audience.
 $GLOBALS['users'][10] = new WP_User( 10, 'Student', array( WPCPM_Roles::ROLE_STUDENT ) );

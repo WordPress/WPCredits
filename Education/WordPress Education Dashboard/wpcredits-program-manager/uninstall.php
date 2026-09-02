@@ -30,6 +30,9 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-contribution-te
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-field-value.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-updates.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-agreement-template.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-cohort.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roster-index.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-private-files.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-sync.php';
@@ -50,6 +53,16 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-call-calendar.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-group-sessions.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-countries.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-index.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-sync.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-audit.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-members.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-agreement.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-policy.php';
+// Instantiated by `WPCPM_Modules::uninstall()` like the other four; it was missing here, which
+// would have been a fatal in the middle of cleanup on the day somebody uninstalled.
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-modules.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-tool.php';
@@ -63,6 +76,12 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-mentor-ch
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-tools.php';
 
 WPCPM_Modules::uninstall();
+
+// The roster index the students sync writes for the institution side, and the stamp that
+// says which institution a student belongs to. Both are the plugin's own cache of a fact
+// Airtable holds; the accounts they describe are people and are left alone.
+WPCPM_Roster_Index::delete_all();
+delete_metadata( 'user', 0, WPCPM_Students_Sync::META_INSTITUTION, '', true );
 WPCPM_Tools::uninstall();
 WPCPM_Roles::unregister();
 
@@ -70,6 +89,8 @@ delete_option( WPCPM_Settings::OPTION );
 delete_option( WPCPM_Settings::OPT_VERSION );
 // The wait Airtable last asked for, if the plugin is removed inside one.
 delete_option( WPCPM_Airtable::BACKOFF_OPTION );
+// The Countries routing map, rebuilt from the base by the next sync or by the button.
+delete_option( WPCPM_Countries::OPTION );
 
 // Pending one-shot messages. Nobody is going to read "Saved." after the plugin is gone.
 delete_metadata( 'user', 0, WPCPM_Flash::META, '', true );
@@ -98,6 +119,8 @@ wp_clear_scheduled_hook( WPCPM_Students_Sync::CRON_AUTO );
 wp_clear_scheduled_hook( WPCPM_Students_Sync::CRON_TICK );
 wp_clear_scheduled_hook( WPCPM_Mentor_Calls::CRON_REMINDERS );
 wp_clear_scheduled_hook( WPCPM_Mail::CRON_QUEUE );
+wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_DAILY );
+wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_TICK );
 // Named as literals because the classes that owned them are gone. A site upgrading from the
 // version that kept a local copy still has both schedules and the table, and a scheduled hook
 // whose callback no longer exists fails silently for ever.

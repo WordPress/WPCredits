@@ -12,7 +12,7 @@ Two components live here, and they are built to work together:
 
 | Folder | What it is | Version |
 | --- | --- | --- |
-| [`wpcredits-program-manager/`](wpcredits-program-manager/) | The plugin. All of the program logic: roles, access levels, the Airtable sync, the Report Cards, the call calendar, the feedback surveys, email. | 1.66.0 |
+| [`wpcredits-program-manager/`](wpcredits-program-manager/) | The plugin. All of the program logic: roles, access levels, the Airtable sync, the Report Cards, the call calendar, the feedback surveys, email. | 1.67.0 |
 | [`wpcredits-theme/`](wpcredits-theme/) | The block theme. The landing page, the branded login, and the skin that turns the plugin's markup into the dashboard people actually use. Frames every page with the [official wordpress.org header and footer](../WordPress.org%20Global%20Header%20and%20Footer). | 1.13.0 |
 
 The theme is the front end for the plugin and does not add program data or behaviour of its own.

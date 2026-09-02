@@ -234,6 +234,14 @@ define( 'WPCPM_PLUGIN_URL', 'https://example.test/wp-content/plugins/wpcredits-p
 define( 'WPCPM_VERSION', 'test' );
 define( 'WPCPM_PLUGIN_FILE', WPCPM_PLUGIN_DIR . 'wpcredits-program-manager.php' );
 
+// Stubs the Institutions module's storage probe reaches. Declared with the others rather
+// than at the point of use, so a handler that starts calling one does not fail here first.
+function trailingslashit( $s ) { return rtrim( (string) $s, '/\\' ) . '/'; }
+function wp_upload_dir( $t = null, $c = true ) { return array( 'basedir' => get_temp_dir() . 'wpcpm-handlers', 'baseurl' => 'https://example.test/wp-content/uploads' ); }
+function wp_is_writable( $p ) { return is_writable( $p ); }
+function wp_remote_head( $u, $a = array() ) { return array( 'response' => array( 'code' => 403 ) ); }
+function wp_remote_retrieve_response_code( $r ) { return isset( $r['response']['code'] ) ? $r['response']['code'] : ''; }
+
 // The plugin's own require list, read from the bootstrap rather than copied. A copy is a
 // second list that has to agree with the first, and it did not: adding WPCPM_Flash broke
 // every handler here with "Class not found" until this was noticed. Same trap as
@@ -438,6 +446,27 @@ run( 'handle_add (empty note)', array( 'WPCPM_Mentor_Notes', 'handle_add' ) );
 
 $_POST = array( 'note_id' => 4242 );
 run( 'handle_delete (note that does not exist)', array( 'WPCPM_Mentor_Notes', 'handle_delete' ) );
+
+echo "\n=== WPCPM_Institutions ===\n";
+
+$institutions = new WPCPM_Institutions();
+
+$GLOBALS['uid']  = 1;
+$GLOBALS['caps'] = true;
+$_POST           = array();
+
+run( 'handle_sync (manager)', array( $institutions, 'handle_sync' ) );
+run( 'handle_cancel (manager)', array( $institutions, 'handle_cancel' ) );
+run( 'handle_probe (manager)', array( $institutions, 'handle_probe' ) );
+
+// Capability before nonce: somebody without it meets wp_die(), not a nonce screen.
+$GLOBALS['caps'] = false;
+
+run( 'handle_sync (no capability)', array( $institutions, 'handle_sync' ) );
+run( 'handle_cancel (no capability)', array( $institutions, 'handle_cancel' ) );
+run( 'handle_probe (no capability)', array( $institutions, 'handle_probe' ) );
+
+$GLOBALS['caps'] = true;
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL HANDLERS REACHED A NORMAL OUTCOME\n" );
 exit( $fail ? 1 : 0 );

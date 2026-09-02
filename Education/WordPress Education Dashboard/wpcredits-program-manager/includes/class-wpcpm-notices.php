@@ -294,7 +294,9 @@ class WPCPM_Notices {
 				return WPCPM_Mentors_Dashboard::is_mentor( $user );
 
 			case 'institution':
-				return WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_INSTITUTION );
+				// Membership, not the role: an account keeps the role until a manager takes it
+				// away, and a notice for institutions is for the people currently acting for one.
+				return WPCPM_Institution_Members::is_member( $user );
 
 			case 'sponsor':
 				return WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_SPONSOR );

@@ -165,5 +165,21 @@ ck( 'anything else is nobody',
     array( WPCPM_Roles::id_of( null ), WPCPM_Roles::id_of( 'abc' ), WPCPM_Roles::id_of( new stdClass() ) ),
     array( 0, 0, 0 ) );
 
+// The loader and uninstall.php build their class lists by hand, in parallel, and the day they
+// differ is a fatal in the middle of cleanup that says nothing: `WPCPM_Modules::uninstall()`
+// instantiates every module, and class-wpcpm-sponsors.php was missing from uninstall.php for
+// ten releases. Every class file the loader requires unconditionally must be required there too.
+$loader_src    = file_get_contents( dirname( __DIR__ ) . '/wpcredits-program-manager.php' );
+$uninstall_src = file_get_contents( dirname( __DIR__ ) . '/uninstall.php' );
+preg_match_all( "/^require_once WPCPM_PLUGIN_DIR \. '([^']+)';/m", $loader_src, $in_loader );
+preg_match_all( "/^require_once plugin_dir_path\( __FILE__ \) \. '([^']+)';/m", $uninstall_src, $in_uninstall );
+$loader_only = array_values( array_diff( $in_loader[1], $in_uninstall[1], array( 'includes/class-wpcpm-admin.php', 'includes/class-wpcpm-dashboards.php', 'includes/class-wpcpm-cli.php' ) ) );
+ck( 'every class the loader requires is required by uninstall.php too (admin, dashboards and CLI excepted)', $loader_only, array() );
+ck( 'and uninstall.php requires nothing the loader does not', array_values( array_diff( $in_uninstall[1], $in_loader[1] ) ), array() );
+foreach ( $in_uninstall[1] as $rel ) {
+	if ( ! file_exists( dirname( __DIR__ ) . '/' . $rel ) ) {
+		ck( 'uninstall.php requires a file that exists: ' . $rel, false, true );
+	}
+}
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );
