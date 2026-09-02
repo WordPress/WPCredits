@@ -1020,6 +1020,100 @@ class WPCPM_Mentor_Calls {
 	}
 
 	/**
+	 * Tell everybody on a session that it has moved, and move it in their calendars.
+	 *
+	 * Sent only when the time changed, and to the students rather than the mentor, who is the one
+	 * who moved it. The invitation carries the session's revision as its `SEQUENCE`, which is what
+	 * makes a calendar treat it as a move of the entry it already holds rather than as a second
+	 * entry: without it a student ends up with the old time and the new one side by side and no
+	 * way to tell which is real.
+	 *
+	 * The old time is named in the message, because "your session has moved" on its own leaves
+	 * somebody who has three of them wondering which.
+	 *
+	 * @param int $call_id   Session post ID.
+	 * @param int $was_start The start it had before, as a timestamp.
+	 * @param int $revision  How many times it has been changed.
+	 */
+	public static function notify_session_moved( $call_id, $was_start, $revision ) {
+		$call = get_post( (int) $call_id );
+
+		if ( ! $call instanceof WP_Post || ! self::mail_enabled( $call ) ) {
+			return;
+		}
+
+		$facts    = self::details( $call );
+		$mentor   = get_user_by( 'id', $facts['mentor_id'] );
+		$actor    = get_current_user_id();
+		$was_end  = (int) $was_start + ( (int) $facts['end'] - (int) $facts['start'] );
+		$revision = (int) $revision;
+
+		foreach ( self::attendees( $call->ID ) as $student_id ) {
+			$student = get_user_by( 'id', (int) $student_id );
+
+			// The person who moved it already knows. Everybody else is finding out.
+			if ( ! $student instanceof WP_User || (int) $student->ID === (int) $actor ) {
+				continue;
+			}
+
+			WPCPM_Mail::send(
+				$student,
+				'session-moved',
+				function ( $recipient ) use ( $facts, $mentor, $student, $was_start, $was_end, $revision ) {
+					$zone   = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
+					$invite = self::calendar( $facts, WPCPM_ICS::METHOD_REQUEST, $mentor, $student, $recipient, $revision );
+					$page   = WPCPM_Students_Dashboard::page_url();
+
+					$lines = array(
+						sprintf(
+							/* translators: 1: the time it used to be at, 2: the time it is at now. */
+							__( 'The group session that was on %1$s has moved. It is now on %2$s.', 'wpcredits-program-manager' ),
+							self::format_range( $was_start, $was_end, $zone ),
+							self::format_range( $facts['start'], $facts['end'], $zone )
+						),
+						'',
+						sprintf(
+							/* translators: %s: timezone name. */
+							__( 'Times are shown in %s.', 'wpcredits-program-manager' ),
+							WPCPM_Mentor_Availability::zone_label( $zone->getName() )
+						),
+						'',
+						__( 'Your place is kept, and the invitation attached replaces the one already in your calendar. If the new time does not work for you, you can leave the session from your report card.', 'wpcredits-program-manager' ),
+					);
+
+					if ( '' !== trim( (string) $facts['topic'] ) ) {
+						$lines[] = '';
+						$lines[] = sprintf(
+							/* translators: %s: what the session is about. */
+							__( 'What it is about: %s', 'wpcredits-program-manager' ),
+							$facts['topic']
+						);
+					}
+
+					if ( '' !== $page ) {
+						$lines[] = '';
+						$lines[] = __( 'Your report card:', 'wpcredits-program-manager' );
+						$lines[] = $page;
+					}
+
+					return array(
+						'subject'     => sprintf(
+							/* translators: 1: site name, 2: mentor name. */
+							__( '[%1$s] The group session with %2$s has moved', 'wpcredits-program-manager' ),
+							WPCPM_Mail::site_name(),
+							$mentor instanceof WP_User ? $mentor->display_name : ''
+						),
+						'body'        => implode( "\r\n", $lines ) . "\r\n",
+						'headers'     => WPCPM_Mail::reply_to( $mentor ),
+						'attachments' => $invite,
+						'cleanup'     => $invite,
+					);
+				}
+			);
+		}
+	}
+
+	/**
 	 * Tell one student their place on a session is released.
 	 *
 	 * Only them: the session goes ahead for everybody else, so telling the rest that somebody left
@@ -1103,6 +1197,8 @@ class WPCPM_Mentor_Calls {
 			'session-capacity'    => array( 'error', __( 'A group session holds between 2 and 50 students.', 'wpcredits-program-manager' ) ),
 			'session-past'        => array( 'error', __( 'That start time has already passed.', 'wpcredits-program-manager' ) ),
 			'session-clash'       => array( 'error', __( 'Something else of yours already starts at that moment.', 'wpcredits-program-manager' ) ),
+			'session-updated'     => array( 'success', __( 'Your group session is updated. If the time changed, everybody on it has been emailed a new invitation.', 'wpcredits-program-manager' ) ),
+			'session-shrink'      => array( 'error', __( 'That is fewer places than there are students already on the session. Remove somebody first, or keep the places.', 'wpcredits-program-manager' ) ),
 			'session-noted'       => array( 'success', __( 'Your note is saved, and it is on every card of everybody who was there.', 'wpcredits-program-manager' ) ),
 			'session-note-failed' => array( 'error', __( 'That note could not be saved.', 'wpcredits-program-manager' ) ),
 		);
@@ -1451,12 +1547,13 @@ class WPCPM_Mentor_Calls {
 	 * @param WP_User      $recipient Who the mail is for.
 	 * @return string[]
 	 */
-	private static function calendar( array $facts, $method, $mentor, $student, WP_User $recipient ) {
+	private static function calendar( array $facts, $method, $mentor, $student, WP_User $recipient, $sequence = null ) {
 		static $built = array();
 
 		// Called twice per message by design — once for `attachments`, once for `cleanup` —
-		// and writing the file twice would leak the first one.
-		$memo = $facts['id'] . '|' . $method . '|' . $recipient->ID;
+		// and writing the file twice would leak the first one. The revision is part of the key
+		// too: a session moved twice in one request would otherwise hand back the first file.
+		$memo = $facts['id'] . '|' . $method . '|' . $recipient->ID . '|' . (string) $sequence;
 
 		if ( isset( $built[ $memo ] ) ) {
 			return $built[ $memo ];
@@ -1480,7 +1577,7 @@ class WPCPM_Mentor_Calls {
 
 		$description = self::mail_body( $facts, $recipient, $mentor_name, false, 'calendar' );
 
-		$ics  = WPCPM_ICS::build( $facts, $method, $mentor, $student, $summary, $description, $where );
+		$ics  = WPCPM_ICS::build( $facts, $method, $mentor, $student, $summary, $description, $where, $sequence );
 		$path = WPCPM_ICS::tempfile( $ics );
 
 		$built[ $memo ] = '' === $path ? array() : array( $path );

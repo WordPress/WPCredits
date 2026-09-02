@@ -45,10 +45,12 @@ class WPCPM_ICS {
 	 * @param WP_User|null $student Student, the attendee.
 	 * @param string       $summary Event title.
 	 * @param string       $body    Event description, as plain text.
-	 * @param string       $where   Meeting URL or place, may be empty.
+	 * @param string       $where    Meeting URL or place, may be empty.
+	 * @param int|null     $sequence Revision number, for an event sent more than once. Null keeps
+	 *                               the default: 0 for a booking, 1 for a cancellation.
 	 * @return string The `.ics` contents, CRLF-delimited.
 	 */
-	public static function build( array $facts, $method, $mentor, $student, $summary, $body, $where = '' ) {
+	public static function build( array $facts, $method, $mentor, $student, $summary, $body, $where = '', $sequence = null ) {
 		$method = self::METHOD_CANCEL === $method ? self::METHOD_CANCEL : self::METHOD_REQUEST;
 
 		$lines = array(
@@ -59,9 +61,12 @@ class WPCPM_ICS {
 			'METHOD:' . $method,
 			'BEGIN:VEVENT',
 			'UID:' . self::uid( $facts['id'] ),
-			// A cancellation has to outrank the booking it withdraws, or a calendar that
-			// already holds the event is entitled to ignore it as a stale duplicate.
-			'SEQUENCE:' . ( self::METHOD_CANCEL === $method ? '1' : '0' ),
+			// A calendar that already holds this event is entitled to ignore anything that does
+			// not outrank what it has, so every re-send of the same UID has to count higher than
+			// the last. A cancellation outranks the booking it withdraws; an edited session
+			// passes its own revision, which is why moving a session actually moves it in the
+			// students' calendars rather than arriving as a duplicate they must reconcile.
+			'SEQUENCE:' . (int) ( null === $sequence ? ( self::METHOD_CANCEL === $method ? 1 : 0 ) : max( 0, (int) $sequence ) ),
 			'DTSTAMP:' . self::stamp( time() ),
 			'DTSTART:' . self::stamp( $facts['start'] ),
 			'DTEND:' . self::stamp( $facts['end'] ),

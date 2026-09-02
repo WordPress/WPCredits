@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.13.0
+Version: 1.14.0
 Requires at least: 6.6
 Tested up to: 6.8
 Requires PHP: 7.4
@@ -1119,6 +1119,64 @@ p.is-style-pill {
 
 	.wpc-brand__name {
 		font-size: 17px;
+	}
+
+	/* The header becomes two rows on a phone.
+	 *
+	 * It was one row of three items that could not shrink: `.wpc-brand` and `.wpc-viewer` were
+	 * both `flex: none`, and "WordPress Education Dashboard" alone is wider than 375px once the
+	 * logo is beside it. Everything to its right was pushed off the edge, which is why a mentor
+	 * reported the Log in button and "My Students" cut off at the side and the menu looking as
+	 * though it were missing items: they were on screen, just past it.
+	 *
+	 * So the brand takes the first row and the navigation, the help launcher and the viewer's
+	 * own links take the second, wrapping again if they have to. Nothing is hidden on a small
+	 * screen that is not hidden on a large one, because a phone is where a mentor checks a
+	 * student between other things. */
+	.wpc-header__inner {
+		flex-wrap: wrap;
+		gap: 4px 12px;
+		min-height: 0;
+		padding-bottom: 10px;
+		padding-top: 10px;
+	}
+
+	.wpc-brand {
+		flex: 1 1 100%;
+		min-width: 0;
+	}
+
+	.wpc-brand__name {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.wpc-nav__center {
+		flex: 1 1 100%;
+		flex-wrap: wrap;
+		justify-content: flex-start;
+		row-gap: 4px;
+	}
+
+	.wpc-viewer {
+		flex: 0 1 auto;
+		flex-wrap: wrap;
+		min-width: 0;
+		row-gap: 4px;
+	}
+
+	/* The dropdown hangs off the header itself rather than a fixed distance down the viewport.
+	 * `--wpc-header-height` is a constant, and the moment the bar is two rows tall the panel
+	 * either overlaps the header or floats below it. Anchoring to the element keeps them
+	 * together whatever the bar ends up being. */
+	.wpc-header {
+		position: relative;
+	}
+
+	.wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open,
+	.admin-bar .wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__responsive-container.is-menu-open {
+		position: absolute;
+		top: 100%;
 	}
 
 	.wpc-viewer {

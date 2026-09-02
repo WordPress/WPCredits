@@ -37,6 +37,17 @@ class WPCPM_Group_Sessions {
 	const ACTION_JOIN   = 'wpcpm_join_session';
 	const ACTION_LEAVE  = 'wpcpm_leave_session';
 	const ACTION_NOTE   = 'wpcpm_session_note';
+	const ACTION_EDIT   = 'wpcpm_edit_session';
+
+	/**
+	 * How many times a session has been changed since it was announced.
+	 *
+	 * The number rides on the calendar invitation as its `SEQUENCE`. A calendar that already
+	 * holds the event ignores anything that does not outrank what it has, so without this an
+	 * edited session would reach a student's calendar as a duplicate of the original rather
+	 * than as a move, and they would keep the old time.
+	 */
+	const META_REVISION = '_wpcpm_session_revision';
 
 	/**
 	 * Most students one session may hold.
@@ -71,6 +82,7 @@ class WPCPM_Group_Sessions {
 		add_action( 'admin_post_' . self::ACTION_JOIN, array( __CLASS__, 'handle_join' ) );
 		add_action( 'admin_post_' . self::ACTION_LEAVE, array( __CLASS__, 'handle_leave' ) );
 		add_action( 'admin_post_' . self::ACTION_NOTE, array( __CLASS__, 'handle_note' ) );
+		add_action( 'admin_post_' . self::ACTION_EDIT, array( __CLASS__, 'handle_edit' ) );
 	}
 
 	/*
@@ -217,6 +229,162 @@ class WPCPM_Group_Sessions {
 		update_post_meta( $post_id, WPCPM_Mentor_Calls::META_ZONE, $zone->getName() );
 
 		self::bounce( 'session-created' );
+	}
+
+	/**
+	 * Change a session that has already been announced.
+	 *
+	 * A mentor could cancel a session but not move it, so a room double-booked or a clash with a
+	 * class meant cancelling on everybody and asking them to join again. This is the same form
+	 * as creating one, with the three rules an edit needs and a create does not.
+	 *
+	 * **Places may not fall below the people already on it.** Reducing capacity cannot be allowed
+	 * to silently decide which student loses their place; the mentor removes somebody or keeps
+	 * the places.
+	 *
+	 * **The clash test ignores this session.** Every session clashes with itself, so the check
+	 * that stops two things starting at once has to be told which one is being moved.
+	 *
+	 * **Everybody on it is told, and their calendar is moved.** A session whose time changed
+	 * without an invitation is worse than one that was cancelled: the student has an entry that
+	 * is now wrong and no reason to look again.
+	 */
+	public static function handle_edit() {
+		$call_id = isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+
+		check_admin_referer( self::ACTION_EDIT . '_' . $call_id );
+
+		$call = self::session( $call_id );
+
+		if ( null === $call ) {
+			self::bounce( 'session-gone' );
+		}
+
+		$mentor_id = (int) get_post_meta( $call->ID, WPCPM_Mentor_Calls::META_MENTOR, true );
+
+		// The same gate as creating one: the mentor themselves, or a program manager acting for
+		// them. Read from the session rather than from the form, so a posted mentor ID decides
+		// nothing.
+		if ( ! WPCPM_Mentor_Availability::user_can_edit( $mentor_id ) ) {
+			wp_die( esc_html__( 'You cannot change that session.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$date     = isset( $_POST['date'] ) ? WPCPM_Mentor_Availability::date_string( sanitize_text_field( wp_unslash( $_POST['date'] ) ) ) : '';
+		$time     = isset( $_POST['time'] ) ? WPCPM_Mentor_Availability::time_string( sanitize_text_field( wp_unslash( $_POST['time'] ) ) ) : '';
+		$minutes  = isset( $_POST['minutes'] ) ? absint( wp_unslash( $_POST['minutes'] ) ) : 0;
+		$capacity = isset( $_POST['capacity'] ) ? absint( wp_unslash( $_POST['capacity'] ) ) : 0;
+		$topic    = isset( $_POST['topic'] ) ? sanitize_textarea_field( wp_unslash( $_POST['topic'] ) ) : '';
+		$topic    = trim( mb_substr( $topic, 0, WPCPM_Mentor_Calls::MAX_TOPIC ) );
+
+		if ( '' === $date || '' === $time ) {
+			self::bounce( 'session-when' );
+		}
+
+		if ( $minutes < self::MIN_MINUTES || $minutes > self::MAX_MINUTES ) {
+			self::bounce( 'session-length' );
+		}
+
+		if ( $capacity < self::MIN_CAPACITY || $capacity > self::MAX_CAPACITY ) {
+			self::bounce( 'session-capacity' );
+		}
+
+		$facts = WPCPM_Mentor_Calls::details( $call );
+		$taken = count( $facts['attendees'] );
+
+		if ( $capacity < $taken ) {
+			self::bounce( 'session-shrink' );
+		}
+
+		$zone  = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( $mentor_id )['timezone'] );
+		$start = DateTimeImmutable::createFromFormat( 'Y-m-d H:i', $date . ' ' . $time, $zone );
+
+		if ( false === $start ) {
+			self::bounce( 'session-when' );
+		}
+
+		$start_ts = $start->getTimestamp();
+
+		if ( $start_ts <= time() ) {
+			self::bounce( 'session-past' );
+		}
+
+		// Anything else of this mentor's starting at that moment. `taken_starts()` cannot answer
+		// this one, because it reports which instants are taken and not by what, and every
+		// session clashes with itself.
+		if ( self::clashes_with_another( $mentor_id, $start_ts, $call->ID ) ) {
+			self::bounce( 'session-clash' );
+		}
+
+		$was_start = (int) $facts['start'];
+		$was_end   = (int) $facts['end'];
+		$end_ts    = $start_ts + ( $minutes * MINUTE_IN_SECONDS );
+
+		wp_update_post(
+			array(
+				'ID'           => $call->ID,
+				'post_content' => $topic,
+				'post_title'   => sprintf(
+					/* translators: %s: session date and time. */
+					__( 'Group session — %s', 'wpcredits-program-manager' ),
+					wp_date( 'Y-m-d H:i', $start_ts )
+				),
+			)
+		);
+
+		update_post_meta( $call->ID, WPCPM_Mentor_Calls::META_START, $start_ts );
+		update_post_meta( $call->ID, WPCPM_Mentor_Calls::META_END, $end_ts );
+		update_post_meta( $call->ID, WPCPM_Mentor_Calls::META_CAPACITY, $capacity );
+		update_post_meta( $call->ID, WPCPM_Mentor_Calls::META_ZONE, $zone->getName() );
+
+		// Only when the time actually moved. Correcting a typo in the topic should not put an
+		// email in front of everybody on the session, and a calendar that gets an update for an
+		// event that did not change teaches people to ignore the next one.
+		if ( $start_ts !== $was_start || $end_ts !== $was_end ) {
+			$revision = (int) get_post_meta( $call->ID, self::META_REVISION, true ) + 1;
+			update_post_meta( $call->ID, self::META_REVISION, $revision );
+
+			WPCPM_Mentor_Calls::notify_session_moved( $call->ID, $was_start, $revision );
+		}
+
+		self::bounce( 'session-updated' );
+	}
+
+	/**
+	 * Whether anything else of this mentor's starts at that moment.
+	 *
+	 * `taken_starts()` answers with the timestamps that are taken, which cannot say *which*
+	 * booking holds one. For an edit that is the whole question, so the sessions and calls at
+	 * that instant are read back and the one being moved is discounted.
+	 *
+	 * @param int $mentor_id The mentor.
+	 * @param int $start_ts  The proposed start.
+	 * @param int $except    The session being moved.
+	 * @return bool
+	 */
+	private static function clashes_with_another( $mentor_id, $start_ts, $except ) {
+		$others = get_posts(
+			array(
+				'post_type'        => WPCPM_Mentor_Calls::POST_TYPE,
+				'post_status'      => 'publish',
+				'numberposts'      => -1,
+				'fields'           => 'ids',
+				'exclude'          => array( (int) $except ),
+				'suppress_filters' => false,
+				'meta_query'       => array(
+					'relation' => 'AND',
+					array(
+						'key'   => WPCPM_Mentor_Calls::META_MENTOR,
+						'value' => (int) $mentor_id,
+					),
+					array(
+						'key'   => WPCPM_Mentor_Calls::META_START,
+						'value' => (int) $start_ts,
+					),
+				),
+			)
+		);
+
+		return ! empty( $others );
 	}
 
 	/*
@@ -678,16 +846,134 @@ class WPCPM_Group_Sessions {
 	}
 
 	/**
-	 * The mentor's controls for a session.
+	 * The form that changes a session that has already been announced.
+	 *
+	 * Folded away behind a summary, because the common case is reading the list rather than
+	 * changing it, and an open form per session would bury the sessions themselves.
+	 *
+	 * Pre-filled from the session in the mentor's own timezone, which is the clock they entered
+	 * it in. The places field cannot be dragged below the number already on it, so the rule the
+	 * handler enforces is visible before it is hit rather than only afterwards as an error.
+	 *
+	 * @param WP_Post $session The session.
+	 * @param array   $facts   From `details()`.
+	 */
+	private static function render_edit_form( WP_Post $session, array $facts ) {
+		$mentor_id = (int) $facts['mentor_id'];
+		$zone      = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( $mentor_id )['timezone'] );
+		$start     = ( new DateTimeImmutable( '@' . (int) $facts['start'] ) )->setTimezone( $zone );
+		$minutes   = max( 1, (int) round( ( (int) $facts['end'] - (int) $facts['start'] ) / MINUTE_IN_SECONDS ) );
+		$taken     = count( $facts['attendees'] );
+		$floor     = max( (int) self::MIN_CAPACITY, $taken );
+		$id        = 'wpcpm-session-' . (int) $session->ID;
+
+		echo '<details class="wpcpm-sessions__edit">';
+		printf(
+			'<summary class="wpcpm-sessions__edit-toggle">%s</summary>',
+			esc_html__( 'Change this session', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<form class="wpcpm-sessions__form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Saving…', 'wpcredits-program-manager' )
+		);
+
+		wp_nonce_field( self::ACTION_EDIT . '_' . $session->ID );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_EDIT ) );
+		printf( '<input type="hidden" name="session" value="%d" />', (int) $session->ID );
+
+		printf(
+			'<p class="wpcpm-field"><label for="%1$s-date">%2$s</label>'
+				. '<input type="date" id="%1$s-date" name="date" value="%3$s" required /></p>',
+			esc_attr( $id ),
+			esc_html__( 'Date', 'wpcredits-program-manager' ),
+			esc_attr( $start->format( 'Y-m-d' ) )
+		);
+
+		printf(
+			'<p class="wpcpm-field"><label for="%1$s-time">%2$s</label>'
+				. '<input type="time" id="%1$s-time" name="time" value="%3$s" required />'
+				. '<span class="wpcpm-field__hint">%4$s</span></p>',
+			esc_attr( $id ),
+			esc_html__( 'Start time', 'wpcredits-program-manager' ),
+			esc_attr( $start->format( 'H:i' ) ),
+			esc_html(
+				sprintf(
+					/* translators: %s: timezone name, e.g. Europe/Riga. */
+					__( 'In your own timezone, %s. Your students see it in theirs.', 'wpcredits-program-manager' ),
+					WPCPM_Mentor_Availability::zone_label( $zone->getName() )
+				)
+			)
+		);
+
+		printf(
+			'<p class="wpcpm-field"><label for="%1$s-minutes">%2$s</label>'
+				. '<input type="number" id="%1$s-minutes" name="minutes" value="%3$d" min="%4$d" max="%5$d" step="%4$d" required /></p>',
+			esc_attr( $id ),
+			esc_html__( 'Length in minutes', 'wpcredits-program-manager' ),
+			(int) $minutes,
+			(int) self::MIN_MINUTES,
+			(int) self::MAX_MINUTES
+		);
+
+		printf(
+			'<p class="wpcpm-field"><label for="%1$s-capacity">%2$s</label>'
+				. '<input type="number" id="%1$s-capacity" name="capacity" value="%3$d" min="%4$d" max="%5$d" required />'
+				. '<span class="wpcpm-field__hint">%6$s</span></p>',
+			esc_attr( $id ),
+			esc_html__( 'Places', 'wpcredits-program-manager' ),
+			(int) $facts['capacity'],
+			(int) $floor,
+			(int) self::MAX_CAPACITY,
+			esc_html(
+				$taken > 0
+					? sprintf(
+						/* translators: %s: how many students are already on the session. */
+						_n( '%s student is already on it, so the places cannot go below that.', '%s students are already on it, so the places cannot go below that.', $taken, 'wpcredits-program-manager' ),
+						number_format_i18n( $taken )
+					)
+					: __( 'How many students may join.', 'wpcredits-program-manager' )
+			)
+		);
+
+		printf(
+			'<p class="wpcpm-field"><label for="%1$s-topic">%2$s</label>'
+				. '<textarea id="%1$s-topic" name="topic" rows="3" maxlength="%3$d">%4$s</textarea></p>',
+			esc_attr( $id ),
+			esc_html__( 'What it is about', 'wpcredits-program-manager' ),
+			(int) WPCPM_Mentor_Calls::MAX_TOPIC,
+			esc_textarea( (string) $facts['topic'] )
+		);
+
+		if ( $taken > 0 ) {
+			printf(
+				'<p class="wpcpm-field__hint">%s</p>',
+				esc_html__( 'If you change the time, everybody on the session is emailed a new invitation that replaces the one in their calendar.', 'wpcredits-program-manager' )
+			);
+		}
+
+		printf(
+			'<p class="wpcpm-sessions__submit"><button type="submit" class="wpcpm-button">%s</button></p>',
+			esc_html__( 'Save the changes', 'wpcredits-program-manager' )
+		);
+
+		echo '</form>';
+		echo '</details>';
+	}
+
+	/**
+	 * The mentor's controls for a session: change it, or cancel it.
 	 *
 	 * Cancelling is the existing call cancellation, which trashes the post and tells every
-	 * attendee — there is nothing group-specific to add.
+	 * attendee — there is nothing group-specific to add. Changing it is this module's own, and
+	 * comes first because cancelling on everybody used to be the only way to move a session.
 	 *
 	 * @param WP_Post $session The session.
 	 * @param array   $facts   From `details()`.
 	 */
 	private static function render_mentor_actions( WP_Post $session, array $facts ) {
-		unset( $facts );
+		self::render_edit_form( $session, $facts );
 
 		printf(
 			'<form class="wpcpm-call__cancel" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',

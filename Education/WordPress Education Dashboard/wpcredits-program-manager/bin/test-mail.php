@@ -731,6 +731,23 @@ ck( 'and the cancellation outranks the booking',
     array( false !== strpos( $request, 'SEQUENCE:0' ), false !== strpos( $cancel, 'SEQUENCE:1' ) ),
     array( true, true ) );
 
+// A session that is moved is sent again with the same UID, so the revision has to climb or a
+// calendar holding the original is entitled to treat the move as a stale duplicate and keep the
+// old time. This is what makes editing a group session reach the students rather than only the
+// mentor's screen.
+$moved  = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Mentor call', 'Moved', '', 2 );
+$again  = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Mentor call', 'Moved twice', '', 3 );
+$scrubbed = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Mentor call', 'Nonsense', '', -5 );
+
+ck( 'a moved session carries the revision it was given',
+    array( false !== strpos( $moved, 'SEQUENCE:2' ), false !== strpos( $again, 'SEQUENCE:3' ) ),
+    array( true, true ) );
+ck( 'and keeps the UID it was booked under, so it moves rather than duplicating',
+    substr_count( $moved, WPCPM_ICS::uid( $facts['id'] ) ) > 0, true );
+ck( 'a nonsense revision cannot go below zero', false !== strpos( $scrubbed, 'SEQUENCE:0' ), true );
+ck( 'and a booking with no revision still reads as the first one',
+    false !== strpos( $request, 'SEQUENCE:0' ), true );
+
 ck( 'times are UTC, not a floating local time',
     array( false !== strpos( $request, 'DTSTART:' . gmdate( 'Ymd\THis\Z', 1786000000 ) ), false !== strpos( $request, 'TZID' ) ),
     array( true, false ) );

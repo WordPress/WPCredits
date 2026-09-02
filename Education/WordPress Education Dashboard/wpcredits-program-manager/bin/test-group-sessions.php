@@ -339,6 +339,64 @@ preg_match( '/ step="([^"]+)"/', $field, $step );
 ck( 'the length field takes its floor and its step from one value',
     isset( $min[1], $step[1] ) && $min[1] === $step[1], true );
 
+/* ---- changing a session that has already been announced ------------------ */
+
+echo "\n=== Editing a session ===\n";
+
+// Source-level, because the handler reads $_POST and redirects and this suite has no harness for
+// that. Each of these stands for a rule that is invisible from outside until it is wrong.
+$edit = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-group-sessions.php' );
+$body = substr( $edit, strpos( $edit, 'public static function handle_edit()' ) );
+$body = substr( $body, 0, strpos( $body, "\n\t}\n" ) );
+
+ck( 'the nonce is keyed to the session, not shared by every session on the page',
+    false !== strpos( $body, 'check_admin_referer( self::ACTION_EDIT . \'_\' . $call_id )' ), true );
+ck( 'the mentor is read from the session rather than from the form',
+    false !== strpos( $body, 'get_post_meta( $call->ID, WPCPM_Mentor_Calls::META_MENTOR, true )' ), true );
+ck( 'and the same gate as creating one decides who may',
+    false !== strpos( $body, 'WPCPM_Mentor_Availability::user_can_edit( $mentor_id )' ), true );
+ck( 'the places cannot fall below the students already on it',
+    false !== strpos( $body, '$capacity < $taken' ) && false !== strpos( $body, "bounce( 'session-shrink' )" ), true );
+ck( 'the clash test is told which session is being moved, or it would clash with itself',
+    false !== strpos( $body, 'self::clashes_with_another( $mentor_id, $start_ts, $call->ID )' ), true );
+ck( 'a start in the past is refused, as it is when creating one',
+    false !== strpos( $body, "bounce( 'session-past' )" ), true );
+ck( 'the revision climbs only when the time actually moved',
+    false !== strpos( $body, '$start_ts !== $was_start || $end_ts !== $was_end' ), true );
+ck( 'and that is the only path that emails everybody on it',
+    substr_count( $body, 'notify_session_moved' ), 1 );
+
+// The query behind the clash test has to leave this session out of its own answer.
+$clash = substr( $edit, strpos( $edit, 'private static function clashes_with_another' ) );
+$clash = substr( $clash, 0, strpos( $clash, "\n\t}\n" ) );
+ck( 'the exclusion is in the query rather than filtered afterwards',
+    false !== strpos( $clash, "'exclude'" ) && false !== strpos( $clash, '(int) $except' ), true );
+
+// The form the mentor sees.
+$form = substr( $edit, strpos( $edit, 'private static function render_edit_form' ) );
+$form = substr( $form, 0, strpos( $form, "\n\t}\n" ) );
+ck( 'the form posts the edit action with the session it belongs to',
+    false !== strpos( $form, "self::ACTION_EDIT . '_' . $session->ID" ) && false !== strpos( $form, 'name="session"' ), true );
+ck( 'the places field will not let the mentor drag below what is taken',
+    false !== strpos( $form, 'max( (int) self::MIN_CAPACITY, $taken )' ), true );
+ck( 'the length field keeps the same grid the create form uses',
+    false !== strpos( $form, 'self::MIN_MINUTES' ) && false !== strpos( $form, 'step=' ), true );
+ck( 'the topic is escaped for a textarea rather than for an attribute',
+    false !== strpos( $form, 'esc_textarea(' ), true );
+ck( 'and a session with students on it says the email will go out',
+    false !== strpos( $form, 'emailed a new invitation' ), true );
+
+// Both new outcomes have something to say to the mentor.
+$calls = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-mentor-calls.php' );
+foreach ( array( 'session-updated', 'session-shrink' ) as $wpcpm_status ) {
+	ck( sprintf( 'the %s outcome has a message', $wpcpm_status ), false !== strpos( $calls, "'" . $wpcpm_status . "'" ), true );
+}
+ck( 'the moved notice sends a REQUEST carrying the revision, not a cancellation',
+    false !== strpos( $calls, 'WPCPM_ICS::METHOD_REQUEST, $mentor, $student, $recipient, $revision' ), true );
+ck( 'and skips whoever moved it, who already knows',
+    false !== strpos( $calls, '(int) $student->ID === (int) $actor' ), true );
+
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

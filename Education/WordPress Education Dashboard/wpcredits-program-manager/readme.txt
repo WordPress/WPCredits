@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.69.0
+Stable tag: 1.70.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.70.0 =
+* **A group session can be changed, not only cancelled.** Moving one used to mean cancelling on everybody and asking them to join again. The mentor can now change the time, the length, the places and what it is about, from the session itself.
+* **Everybody on a moved session is emailed a new invitation that replaces the one in their calendar**, and only when the time actually changed. The invitation counts up each time it is sent, which is what makes a calendar move the entry it already holds instead of adding a second one beside it.
+* Places cannot be set below the number of students already on the session, and the form will not let a mentor try. A session no longer clashes with itself when it is saved without being moved.
 
 = 1.69.0 =
 * **Signing in can now ask for a code as well as a password.** The codes, the login step and the rate limiting come from the Two Factor plugin, which WordPress.org publishes and which runs entirely on this site. Nothing is sent to any other service and no account anywhere else is involved.
