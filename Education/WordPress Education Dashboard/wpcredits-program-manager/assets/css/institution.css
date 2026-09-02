@@ -156,7 +156,10 @@
 	padding: 0.25em 0 0.25em 1em;
 }
 
+.wpcpm-agreement-panel__contact,
+.wpcpm-agreement-panel__hint,
 .wpcpm-agreement-panel__note-by,
+.wpcpm-agreement-panel__on-file-note,
 .wpcpm-agreement-panel__read,
 .wpcpm-agreement-panel__soon,
 .wpcpm-agreement-card__route,
@@ -190,6 +193,88 @@
 	border-radius: var( --wpcpm-radius );
 	margin: 0 0 1em;
 	padding: 0.6em 0.9em;
+}
+
+/* -------------------------------------------------------------------------
+ * The agreement's own controls.
+ *
+ * The panel went from a page of words to a control on every one of its five
+ * states, and the settled card grew the accepted copy and the way to replace
+ * it. What follows is structure and spacing only, on the same tokens as
+ * everything above: these forms are read in the order they are printed, by
+ * somebody who has never seen them before, and what they need is room rather
+ * than a look of their own.
+ * ---------------------------------------------------------------------- */
+
+/* Every form either half draws. Room above it, so a control never reads as the
+   end of the sentence that introduced it, and none below, because whatever
+   follows brings its own. */
+.wpcpm-agreement-panel__form,
+.wpcpm-agreement-panel__regenerate,
+.wpcpm-agreement-panel__on-file {
+	margin: 1em 0 0;
+}
+
+/* Inside a numbered step the form *is* the step: it sits under the sentence
+   that numbers it, and the list has already spaced the item around both. */
+.wpcpm-agreement-panel__steps .wpcpm-agreement-panel__form {
+	margin-top: 0.5em;
+}
+
+/* The sentence a step opens with, above the control that does it. */
+.wpcpm-agreement-panel__step {
+	margin: 0 0 0.5em;
+}
+
+/* One field to a line, with its label above the control rather than beside it:
+   a label read after the box it names is a label read twice. Every form on the
+   panel uses it, so they read as one form drawn several times. */
+.wpcpm-agreement-panel__field {
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-agreement-panel__field > label {
+	display: block;
+	margin-bottom: 0.25em;
+}
+
+/* "Which agreement is this?": the legend asks and the two radios answer. No
+   border, because the browser's own fieldset box would be a second box inside
+   the card, and `min-width: 0` because a fieldset's own minimum is its
+   content's rather than its container's, which is how one ends up wider than
+   the card it sits in. */
+.wpcpm-agreement-panel__choices {
+	border: 0;
+	margin: 0 0 0.75em;
+	min-width: 0;
+	padding: 0;
+}
+
+.wpcpm-agreement-panel__choices legend {
+	margin-bottom: 0.25em;
+	padding: 0;
+}
+
+.wpcpm-agreement-panel__choices p {
+	margin: 0 0 0.25em;
+}
+
+/* The link that fetches a document, and the lines the settled card ends on. */
+.wpcpm-agreement-panel__download,
+.wpcpm-agreement-card__accepted,
+.wpcpm-agreement-card__replace {
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-agreement-card__drive {
+	margin: 0.75em 0 0;
+}
+
+/* The heading over a form only a program manager is offered. Smaller than the
+   title above it: it names a control, not a card. */
+.wpcpm-agreement-panel__on-file-title {
+	font-size: 1em;
+	margin: 1.25em 0 0.5em;
 }
 
 /* The People card's rows: name and address on the left, the control on the right. */

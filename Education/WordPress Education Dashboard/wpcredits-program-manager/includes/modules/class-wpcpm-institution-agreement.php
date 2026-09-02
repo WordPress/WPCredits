@@ -41,9 +41,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * paths of later phases can ask "does an accepted post stand?" without a special case for
  * agreements that were never uploaded here.
  *
- * Phase 1 ships the predicate, the summary and the reconcile path. Generation, upload, accept,
- * return, revoke, reinstate, download and stage writes are later phases; `STAGE_ORDER` and
- * `TERMINAL_STAGES` are declared here so the base's spelling is asserted once, in the fixture.
+ * Phase 1 shipped the predicate, the summary and the reconcile path; Phase 2 added the on-file
+ * route. Phase 3 adds the transitions an institution and a reviewer make between them: upload
+ * (T3, T10), download, withdraw (T4), accept (T5) and return (T6), with the daily discard
+ * (T11) and the reminder digest. Revoke (T8) and reinstate (T9) are Phase 4's; `STAGE_ORDER`
+ * and `TERMINAL_STAGES` are declared here so the base's spelling is asserted once, in the
+ * fixture, and `handle_accept()` is the one write that reads them.
  */
 class WPCPM_Institution_Agreement {
 
@@ -199,6 +202,116 @@ class WPCPM_Institution_Agreement {
 	/** Seconds before a held rebuild lock is treated as abandoned. */
 	const LOCK_TIMEOUT = 300;
 
+	/** The signed copy arrives here: `admin_post_`, multipart, a member or a manager on behalf. */
+	const ACTION_UPLOAD = 'wpcpm_agreement_upload';
+
+	/** The only route to a stored file's bytes. Registered for logged-out too, to send them to log in. */
+	const ACTION_DOWNLOAD = 'wpcpm_agreement_download';
+
+	/** A manager accepts one submitted document (T5). */
+	const ACTION_ACCEPT = 'wpcpm_agreement_accept';
+
+	/** A manager sends one submitted document back with a note (T6). */
+	const ACTION_RETURN = 'wpcpm_agreement_return';
+
+	/** A member or a manager takes a submitted document back (T4). */
+	const ACTION_WITHDRAW = 'wpcpm_agreement_withdraw';
+
+	/** Daily: forget the files of documents nobody is waiting on any more (T11). */
+	const CRON_DISCARD = 'wpcpm_agreement_discard';
+
+	/** How many documents one discard query reads, and how many such queries a run makes. */
+	const DISCARD_BATCH = 200;
+	const DISCARD_PAGES = 25;
+
+	/** Daily: the review queue's reminder digest. */
+	const CRON_REMINDERS = 'wpcpm_agreement_reminders';
+
+	/** `Agreement Status` for a document waiting to be read. */
+	const AIRTABLE_AWAITING = 'Awaiting review';
+
+	/** `Agreement Status` for a document a manager sent back. */
+	const AIRTABLE_RETURNED = 'Returned';
+
+	/** `Agreement Status` for a document in force. */
+	const AIRTABLE_ACCEPTED = 'Accepted';
+
+	/** `Agreement Kind` for a signed copy of the program's own template. */
+	const AIRTABLE_KIND_TEMPLATE = 'Program template';
+
+	/** `Agreement Kind` for a document the institution wrote itself. */
+	const AIRTABLE_KIND_OWN = 'Institution-specific';
+
+	/** The one stage an acceptance may set, and only forward along `STAGE_ORDER`. */
+	const STAGE_CONFIRMED = 'Confirmed';
+
+	/** Mail contexts, so every send is in the log under a name a manager can search for. */
+	const MAIL_RECEIVED = 'agreement-received';
+	const MAIL_ACCEPTED = 'agreement-accepted';
+	const MAIL_RETURNED = 'agreement-returned';
+	const MAIL_LANDED   = 'agreement-landed';
+	const MAIL_REMINDER = 'agreement-reminder';
+
+	/**
+	 * What the event rows on a document say, in the same voice as the two Phase 2 rows.
+	 *
+	 * Prose rather than slugs, because the panel and the manager's review block print them
+	 * and the log is read by people, not matched on by code. `EVENT_RECORDED` is the one
+	 * exception and it is matched on, which is why it is the only one with a predicate.
+	 */
+	const EVENT_UPLOADED   = 'signed copy uploaded';
+	const EVENT_ACCEPTED   = 'accepted';
+	const EVENT_RETURNED   = 'returned for changes';
+	const EVENT_WITHDRAWN  = 'withdrawn';
+	const EVENT_SUPERSEDED = 'superseded by a newer document';
+	const EVENT_DISCARDED  = 'file discarded';
+
+	/** Audit kinds, one per transition that changes state. */
+	const LOG_UPLOAD   = 'agreement_upload';
+	const LOG_ACCEPT   = 'agreement_accept';
+	const LOG_RETURN   = 'agreement_return';
+	const LOG_WITHDRAW = 'agreement_withdraw';
+
+	/** A returned document's note, in characters. Long enough to say why, short enough to read. */
+	const MIN_NOTE = 20;
+	const MAX_NOTE = 2000;
+
+	/** Longest original filename kept for display. It is never used on disk or in a header. */
+	const MAX_FILENAME = 200;
+
+	/** The five bytes every PDF begins with. */
+	const PDF_MAGIC = '%PDF-';
+
+	/**
+	 * Names whose presence refuses the file outright, and the outcome each one flashes.
+	 *
+	 * Two, and only two. `/Encrypt` because a document nobody can open is not a document the
+	 * program can keep, and `/Launch` because it is an action whose only purpose is to run
+	 * something on the reader's machine. Everything else the scan finds is a flag: see
+	 * `inspect_pdf()` for why the line is drawn there and not further along.
+	 */
+	const SCAN_REFUSALS = array(
+		'/Encrypt' => 'agreement-encrypted',
+		'/Launch'  => 'agreement-launch',
+	);
+
+	/** Names recorded for the reviewer and never a refusal. */
+	const SCAN_FLAGS = array( '/JavaScript', '/JS', '/OpenAction', '/AA', '/EmbeddedFile' );
+
+	/**
+	 * How much of a file the courtesy scan will inflate.
+	 *
+	 * A few hundred bytes of zlib can expand into gigabytes, and a scan that helps an
+	 * attacker exhaust the site's memory would be worse than no scan at all. Per stream and
+	 * in total, both, because either alone is a way round the other.
+	 */
+	const SCAN_MAX_STREAMS = 200;
+	const SCAN_MAX_STREAM  = 2097152;
+	const SCAN_MAX_TOTAL   = 8388608;
+
+	/** Remembers the day the reminder digest went out, so it goes out once. */
+	const OPTION_REMINDED = 'wpcpm_agreement_reminded';
+
 	/**
 	 * Hooks.
 	 *
@@ -206,11 +319,28 @@ class WPCPM_Institution_Agreement {
 	 * the one arrangement `bin/test-institution-policy.php` can read: it resolves every
 	 * `admin_post_` registration in the institution classes to a method body in the same
 	 * file, and asserts that the body decides before it touches Airtable.
+	 *
+	 * Download is the one action with a `nopriv` arm, and it is not an exception to that
+	 * rule: without one, a member following a link from an email that has signed them out
+	 * meets `admin-post.php`'s bare `0` instead of a login form with a way back. The handler
+	 * refuses a logged-out request in its first three lines; the arm exists so it can refuse
+	 * it usefully. Every other action would tell a stranger something by existing.
+	 *
+	 * Both crons are hooked here and neither is scheduled here: scheduling belongs to the
+	 * module's activation, where every other event of this plugin's is put on the calendar.
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
 		add_action( 'admin_post_' . self::ACTION_ON_FILE, array( __CLASS__, 'handle_on_file' ) );
 		add_action( 'admin_post_' . self::ACTION_ON_FILE_ALL, array( __CLASS__, 'handle_on_file_all' ) );
+		add_action( 'admin_post_' . self::ACTION_UPLOAD, array( __CLASS__, 'handle_upload' ) );
+		add_action( 'admin_post_' . self::ACTION_DOWNLOAD, array( __CLASS__, 'handle_download' ) );
+		add_action( 'admin_post_nopriv_' . self::ACTION_DOWNLOAD, array( __CLASS__, 'handle_download' ) );
+		add_action( 'admin_post_' . self::ACTION_ACCEPT, array( __CLASS__, 'handle_accept' ) );
+		add_action( 'admin_post_' . self::ACTION_RETURN, array( __CLASS__, 'handle_return' ) );
+		add_action( 'admin_post_' . self::ACTION_WITHDRAW, array( __CLASS__, 'handle_withdraw' ) );
+		add_action( self::CRON_DISCARD, array( __CLASS__, 'discard' ) );
+		add_action( self::CRON_REMINDERS, array( __CLASS__, 'remind' ) );
 	}
 
 	/**
@@ -869,6 +999,979 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * Take a signed agreement in (T3, T10).
+	 *
+	 * The plugin's first multipart handler, and the thirteen steps of design spec 7.4 are an
+	 * order rather than a list. Two boundaries in it carry the whole design:
+	 *
+	 * - **The ceiling is claimed before the bytes are looked at.** A script posting files in a
+	 *   loop should cost this site one option read each, not one read, one hash and one
+	 *   decompression pass over ten megabytes each. Anything cheaper than the ceiling goes
+	 *   above it; nothing else does.
+	 * - **Nothing reaches the private directory that has not passed every check.** The
+	 *   extension, the declared type, the magic bytes, `finfo` and the courtesy scan all run
+	 *   against PHP's temporary copy, and `store()` is called after the last of them. A file
+	 *   that fails any one of them was never in the store to have to be removed from it.
+	 *
+	 * Airtable comes after the post, not before, and a failure there does not fail the upload:
+	 * an institution that has sent its signed agreement has done its part, and telling it
+	 * otherwise because a third party was down would be the plugin's mistake presented as
+	 * theirs. The record carries `_wpcpm_agr_airtable_pending` and the sync retries.
+	 */
+	public static function handle_upload() {
+		if ( ! is_user_logged_in() ) {
+			wp_die( esc_html__( 'You need to be signed in to upload an agreement.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$record = self::record_for_request();
+
+		check_admin_referer( self::ACTION_UPLOAD . '_' . $record );
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_AGREEMENT,
+			WPCPM_Institution_Policy::subject_institution( $record )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		// Step 4, and it is above step 6 on purpose: see the docblock.
+		if ( ! WPCPM_Ceiling::claim( 'agreement-upload:' . $record, self::upload_limit(), DAY_IN_SECONDS ) ) {
+			self::bounce( 'agreement-busy' );
+		}
+
+		// The declaration is a hidden `0` and a checkbox `1`, so an unticked box posts `0`
+		// rather than nothing and "I forgot to tick it" and "my browser dropped the field"
+		// read the same to the person, which is what they are.
+		if ( '1' !== WPCPM_Request::posted_text( 'wpcpm_agreement_signed' ) ) {
+			self::bounce( 'agreement-declare' );
+		}
+
+		$kind = WPCPM_Request::posted_key( 'wpcpm_agreement_kind' );
+
+		if ( ! in_array( $kind, array( self::KIND_TEMPLATE, self::KIND_OWN ), true ) ) {
+			self::bounce( 'agreement-kind' );
+		}
+
+		// One in review at a time. Two documents waiting would make "the submitted post" mean
+		// two things to accept, return and withdraw, and a reviewer would have to guess which
+		// of them the institution meant.
+		$summary = self::summary( $record );
+
+		if ( ! empty( $summary['pending_id'] ) ) {
+			self::bounce( 'agreement-in-review' );
+		}
+
+		$file    = self::uploaded_file();
+		$maximum = self::upload_bytes();
+
+		if ( UPLOAD_ERR_INI_SIZE === $file['error'] || UPLOAD_ERR_FORM_SIZE === $file['error'] || $file['size'] > $maximum ) {
+			self::bounce( 'agreement-too-big' );
+		}
+
+		if ( UPLOAD_ERR_OK !== $file['error'] || $file['size'] < 1 || '' === $file['tmp_name'] || ! self::arrived_by_post( $file['tmp_name'] ) ) {
+			self::bounce( 'agreement-no-file' );
+		}
+
+		// The size PHP reported and the size on disk are the same number on any request that
+		// went as it should. The one on disk decides, because it is the one about to be read
+		// into this process's memory a few lines below.
+		if ( self::disk_size( $file['tmp_name'] ) > $maximum ) {
+			self::bounce( 'agreement-too-big' );
+		}
+
+		// The extension and the declared type together, from WordPress's own map, then the
+		// bytes. `wp_check_filetype_and_ext()` answers about the name; the two tests below
+		// answer about the contents, which is what a renamed executable fails.
+		$checked = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'], array( 'pdf' => 'application/pdf' ) );
+
+		if ( 'pdf' !== ( isset( $checked['ext'] ) ? $checked['ext'] : '' ) || 'application/pdf' !== ( isset( $checked['type'] ) ? $checked['type'] : '' ) ) {
+			self::bounce( 'agreement-not-pdf' );
+		}
+
+		$bytes = self::file_bytes( $file['tmp_name'] );
+		$mime  = self::mime_of( $file['tmp_name'] );
+
+		// An empty `$mime` is a host with no fileinfo extension. The magic bytes and the map
+		// above still run, so the refusal that matters still happens; a host without fileinfo
+		// is not told it may never send an agreement.
+		if ( self::PDF_MAGIC !== substr( $bytes, 0, strlen( self::PDF_MAGIC ) ) || ( '' !== $mime && 'application/pdf' !== $mime ) ) {
+			self::bounce( 'agreement-not-pdf' );
+		}
+
+		$scan = self::inspect_pdf( $bytes );
+
+		if ( empty( $scan['ok'] ) ) {
+			self::bounce( $scan['reason'] );
+		}
+
+		$stored = WPCPM_Private_Files::store( $bytes, 'pdf' );
+
+		if ( is_wp_error( $stored ) ) {
+			self::bounce( 'agreement-file' );
+		}
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => self::POST_TYPE,
+				'post_status' => self::POST_STATUS,
+				'post_author' => get_current_user_id(),
+				'post_title'  => sprintf(
+					/* translators: %s: Airtable record ID of the institution. */
+					__( 'Signed Collaboration Agreement (%s)', 'wpcredits-program-manager' ),
+					$record
+				),
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
+			// The bytes are already in the store and nothing points at them, so they are
+			// removed here rather than left as a file no route could ever reach again.
+			WPCPM_Private_Files::forget( $stored['path'] );
+			self::bounce( 'agreement-file' );
+		}
+
+		$post_id = (int) $post_id;
+		$today   = wp_date( 'Y-m-d' );
+
+		update_post_meta( $post_id, self::META_INSTITUTION, $record );
+		update_post_meta( $post_id, self::META_STATE, self::STATE_SUBMITTED );
+		update_post_meta( $post_id, self::META_KIND, $kind );
+		update_post_meta( $post_id, self::META_FILE, $stored );
+		update_post_meta( $post_id, self::META_ORIGINAL_NAME, $file['name'] );
+		update_post_meta( $post_id, self::META_FLAGS, $scan['flags'] );
+
+		self::add_event( $post_id, self::EVENT_UPLOADED );
+
+		// A template the institution generated and then signed is the same agreement, so the
+		// generated row stops being an outstanding step and becomes history. So does one an
+		// institution generated and then answered with its own lawyers' paper instead: the
+		// step was answered either way, and a generated row left standing beside a document
+		// in review would read as a second thing still to do.
+		$version = self::supersede_generated( $record, $post_id );
+
+		// The version travels with the program's own template and nothing else. It is what
+		// lets the reviewer's checklist say which template the copy in front of them was cut
+		// from; on an institution's own paper there is no such footer to compare, and
+		// `handle_accept()` would write it into `Agreement Template Version` beside
+		// `Agreement Kind` = `Institution-specific`, which is a sentence the base cannot mean.
+		if ( self::KIND_TEMPLATE === $kind && '' !== $version ) {
+			update_post_meta( $post_id, self::META_TEMPLATE_VERSION, $version );
+		}
+
+		$settings = WPCPM_Settings::get();
+		$fields   = WPCPM_Institutions_Sync::fields();
+		$cells    = array( $fields['agr_submitted_on'] => $today );
+
+		// T10: a replacement uploaded while an accepted agreement stands writes the date and
+		// nothing else. The kind and the status describe the copy that is in force, and a
+		// replacement that is never accepted must not have changed either of them.
+		if ( empty( $summary['agreement_id'] ) ) {
+			$cells[ $fields['agr_status'] ] = self::AIRTABLE_AWAITING;
+			$cells[ $fields['agr_kind'] ]   = self::airtable_kind( $kind );
+		}
+
+		$airtable = new WPCPM_Airtable( $settings );
+		$written  = $airtable->update_records(
+			$settings['institutions_table'],
+			array(
+				array(
+					'id'     => $record,
+					'fields' => $cells,
+				),
+			)
+		);
+
+		$landed = ! is_wp_error( $written ) && ! empty( $written );
+
+		if ( ! $landed ) {
+			update_post_meta( $post_id, self::META_AIRTABLE_PENDING, 1 );
+		}
+
+		self::rebuild(
+			$record,
+			self::airtable_block( $record, ( $landed && empty( $summary['agreement_id'] ) ) ? array( 'status' => self::AIRTABLE_AWAITING ) : array() )
+		);
+
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => self::LOG_UPLOAD,
+				'institution' => $record,
+				'subject'     => (string) $post_id,
+				'actor'       => get_current_user_id(),
+				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_INDEX,
+				'message'     => __( 'A signed Collaboration Agreement was uploaded and is waiting for a program manager to read it.', 'wpcredits-program-manager' ),
+				'data'        => array(
+					'kind'     => $kind,
+					'size'     => (int) $stored['size'],
+					'sha256'   => (string) $stored['sha256'],
+					'flags'    => $scan['flags'],
+					'airtable' => $landed ? 'written' : 'pending',
+				),
+			)
+		);
+
+		self::mail_received( $record, $post_id );
+		self::mail_landed( $record, $post_id );
+
+		self::bounce( 'agreement-uploaded' );
+	}
+
+	/**
+	 * Hand one stored document to somebody entitled to it.
+	 *
+	 * Never inline, and the reason is the reviewer as much as anyone: a PDF has a scripting
+	 * model, and a program manager's browser should pass the file to a viewer of their
+	 * choosing rather than open it in the tab their session lives in. The filename is built
+	 * from the institution and the date the site holds, never from the uploaded name, because
+	 * that name is the one string on this path an outsider chose.
+	 *
+	 * A legacy row has no file: the answer is 404, the same as a post that does not exist, so
+	 * that guessing IDs tells a stranger nothing about which ones are real.
+	 */
+	public static function handle_download() {
+		if ( ! is_user_logged_in() ) {
+			// The link is in an email and an email outlives a session. A bare refusal here
+			// would read as "you may not have this" to somebody who may.
+			wp_safe_redirect( wp_login_url( self::current_url() ) );
+			exit;
+		}
+
+		$post_id = self::requested_document();
+
+		check_admin_referer( self::ACTION_DOWNLOAD . '_' . $post_id );
+
+		$post = get_post( $post_id );
+
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type ) {
+			wp_die( esc_html__( 'That document is not one this site holds.', 'wpcredits-program-manager' ), 404 );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_AGREEMENT,
+			WPCPM_Institution_Policy::subject_post( $post, self::META_INSTITUTION )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		$file = self::file_of( $post_id );
+
+		if ( null === $file ) {
+			wp_die( esc_html__( 'That document has no file on this site.', 'wpcredits-program-manager' ), 404 );
+		}
+
+		$bytes = WPCPM_Private_Files::read( $file['path'] );
+
+		if ( is_wp_error( $bytes ) ) {
+			wp_die( esc_html__( 'That file could not be read. Tell a program manager.', 'wpcredits-program-manager' ), 500 );
+		}
+
+		nocache_headers();
+
+		header( 'Content-Type: application/pdf' );
+		header( 'Content-Disposition: attachment; filename="' . self::download_name( $post ) . '"' );
+		header( 'X-Content-Type-Options: nosniff' );
+		header( "Content-Security-Policy: default-src 'none'; sandbox" );
+		header( 'Cache-Control: private, no-store' );
+		header( 'Content-Length: ' . strlen( $bytes ) );
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- The decrypted PDF itself, sent as the body of an attachment response under its own Content-Type; escaping it would corrupt the file.
+		echo $bytes;
+		exit;
+	}
+
+	/**
+	 * Accept one submitted document, and open the institution's account (T5).
+	 *
+	 * The order is the on-file route's, with one addition: the record is read live before it
+	 * is written. Acceptance is the program saying yes, and it must not say yes to a record
+	 * it has said no to, so the stage is read from the base rather than from the index the
+	 * last sync left behind. A read that fails refuses the whole thing, because an acceptance
+	 * that cannot read the record must not write it.
+	 *
+	 * One PATCH, not two. The five agreement cells and, when the stage read precedes it,
+	 * `Current Stage`. A second call would be a second chance to half-succeed.
+	 *
+	 * The outcome is the on-file route's as well: `agreement-accepted` when the gate is open
+	 * by the end of the request, `agreement-later` when the rebuild found the lock held and
+	 * the account opens on the next sync instead. A manager told the account is open does not
+	 * press Refresh, and this is the one path where that leaves a whole institution locked
+	 * out with an email in their inbox saying otherwise.
+	 */
+	public static function handle_accept() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$post_id = WPCPM_Request::posted_id( 'wpcpm_agreement_post' );
+
+		check_admin_referer( self::ACTION_ACCEPT . '_' . $post_id );
+
+		$post = self::submitted_post( $post_id );
+
+		if ( ! $post instanceof WP_Post ) {
+			self::bounce( 'agreement-gone' );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_AGREEMENT,
+			WPCPM_Institution_Policy::subject_post( $post, self::META_INSTITUTION )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		$record = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
+
+		if ( ! self::lock( $record ) ) {
+			self::bounce( 'agreement-busy' );
+		}
+
+		// Read again, now that nothing else can be writing. The state was checked before the
+		// lock was taken, and a withdrawal from the institution's own panel in that gap would
+		// otherwise be accepted over: a document whose file has already been deleted, recorded
+		// as the agreement in force.
+		if ( ! self::submitted_post( $post_id ) instanceof WP_Post ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-gone' );
+		}
+
+		$settings = WPCPM_Settings::get();
+		$fields   = WPCPM_Institutions_Sync::fields();
+		$airtable = new WPCPM_Airtable( $settings );
+		$live     = $airtable->get_record( $settings['institutions_table'], $record );
+
+		if ( is_wp_error( $live ) ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-airtable' );
+		}
+
+		$stage = isset( $live['fields'][ $fields['stage'] ] ) ? trim( (string) $live['fields'][ $fields['stage'] ] ) : '';
+
+		if ( in_array( $stage, self::TERMINAL_STAGES, true ) ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-stage' );
+		}
+
+		$today = wp_date( 'Y-m-d' );
+		$actor = wp_get_current_user();
+		$kind  = (string) get_post_meta( $post_id, self::META_KIND, true );
+
+		// Only a signed copy of the program's own template has a template version. The cell is
+		// written on both kinds all the same, because an empty value is what clears a version
+		// the base is holding from an earlier upload: `Institution-specific` standing beside a
+		// template version is a contradiction a manager reading the grid cannot resolve.
+		$version = self::KIND_TEMPLATE === $kind ? (string) get_post_meta( $post_id, self::META_TEMPLATE_VERSION, true ) : '';
+
+		$cells = array(
+			$fields['agr_status']      => self::AIRTABLE_ACCEPTED,
+			$fields['agr_kind']        => self::airtable_kind( $kind ),
+			$fields['agr_accepted_on'] => $today,
+			$fields['agr_accepted_by'] => $actor instanceof WP_User ? $actor->display_name : '',
+			$fields['agr_template']    => $version,
+		);
+
+		// Forward only, and never off the end. An empty stage counts as preceding, because a
+		// record with no stage at all is one nothing has moved yet.
+		if ( self::precedes_confirmed( $stage ) ) {
+			$cells[ $fields['stage'] ] = self::STAGE_CONFIRMED;
+		}
+
+		$written = $airtable->update_records(
+			$settings['institutions_table'],
+			array(
+				array(
+					'id'     => $record,
+					'fields' => $cells,
+				),
+			)
+		);
+
+		// An empty result is a refusal too: `update_records()` drops a record it cannot send
+		// and answers with the ones it did, so "nothing was updated" must not read as success
+		// on the path where success opens an account.
+		if ( is_wp_error( $written ) || empty( $written ) ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-airtable' );
+		}
+
+		$previous = self::summary( $record );
+
+		if ( ! empty( $previous['agreement_id'] ) ) {
+			self::supersede( (int) $previous['agreement_id'] );
+		}
+
+		update_post_meta( $post_id, self::META_STATE, self::STATE_ACCEPTED );
+		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
+		update_post_meta( $post_id, self::META_DECIDED_AT, $today );
+
+		self::add_event( $post_id, self::EVENT_ACCEPTED );
+
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => self::LOG_ACCEPT,
+				'institution' => $record,
+				'subject'     => (string) $post_id,
+				'actor'       => get_current_user_id(),
+				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_LIVE,
+				'message'     => __( 'A signed Collaboration Agreement was accepted, and the institution\'s account opened.', 'wpcredits-program-manager' ),
+				'data'        => array(
+					'kind'     => $kind,
+					'stage'    => $stage,
+					'confirms' => isset( $cells[ $fields['stage'] ] ) ? 1 : 0,
+				),
+			)
+		);
+
+		// Released before the rebuild, which takes the same lock for its own critical
+		// section, exactly as `record_on_file()` does. Nothing is left unguarded: the post is
+		// accepted now, so a second acceptance is refused by the state test rather than by
+		// the lock.
+		self::unlock( $record );
+
+		$option = self::rebuild(
+			$record,
+			self::airtable_block(
+				$record,
+				array(
+					'status'           => self::AIRTABLE_ACCEPTED,
+					'kind'             => self::airtable_kind( $kind ),
+					'accepted_on'      => $today,
+					'template_version' => $version,
+				)
+			)
+		);
+
+		self::mail_accepted( $record, $post_id );
+
+		// An empty option means the rebuild found the lock held, by a sync working through
+		// this very record, and skipped rather than raced it: both writes have landed and the
+		// gate is still shut. The members are told either way, because the acceptance is real,
+		// nothing sends that message a second time, and the next sync or Refresh opens the
+		// account within the minute. What must not happen is the manager reading "the account
+		// is open" over a gate that is not, so they are told what the on-file route tells them
+		// in the same half-done state, which names the one thing left to do.
+		if ( empty( $option ) ) {
+			self::bounce( 'agreement-later' );
+		}
+
+		self::bounce( 'agreement-accepted' );
+	}
+
+	/**
+	 * Send one submitted document back with a note (T6).
+	 *
+	 * The note is required and mailed verbatim, with reply-to the manager who wrote it: an
+	 * institution told only that its agreement came back learns nothing, and the person who
+	 * can answer the question it will ask is the one who sent it.
+	 */
+	public static function handle_return() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$post_id = WPCPM_Request::posted_id( 'wpcpm_agreement_post' );
+
+		check_admin_referer( self::ACTION_RETURN . '_' . $post_id );
+
+		$post = self::submitted_post( $post_id );
+
+		if ( ! $post instanceof WP_Post ) {
+			self::bounce( 'agreement-gone' );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_AGREEMENT,
+			WPCPM_Institution_Policy::subject_post( $post, self::META_INSTITUTION )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		$note   = self::posted_note();
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $note ) : strlen( $note );
+
+		if ( $length < self::MIN_NOTE || $length > self::MAX_NOTE ) {
+			self::bounce( 'agreement-note' );
+		}
+
+		$record = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
+
+		if ( ! self::lock( $record ) ) {
+			self::bounce( 'agreement-busy' );
+		}
+
+		// Read again under the lock, for the reason `handle_accept()` gives.
+		if ( ! self::submitted_post( $post_id ) instanceof WP_Post ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-gone' );
+		}
+
+		$summary = self::summary( $record );
+
+		// T6: the status is `Returned` unless an accepted agreement stands. Sending a
+		// replacement back must not tell the base that the copy in force was returned.
+		if ( empty( $summary['agreement_id'] ) ) {
+			$settings = WPCPM_Settings::get();
+			$fields   = WPCPM_Institutions_Sync::fields();
+			$airtable = new WPCPM_Airtable( $settings );
+			$written  = $airtable->update_records(
+				$settings['institutions_table'],
+				array(
+					array(
+						'id'     => $record,
+						'fields' => array( $fields['agr_status'] => self::AIRTABLE_RETURNED ),
+					),
+				)
+			);
+
+			if ( is_wp_error( $written ) || empty( $written ) ) {
+				self::unlock( $record );
+				self::bounce( 'agreement-airtable' );
+			}
+		}
+
+		$today = wp_date( 'Y-m-d' );
+
+		update_post_meta( $post_id, self::META_STATE, self::STATE_RETURNED );
+		update_post_meta( $post_id, self::META_NOTE, $note );
+		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
+		update_post_meta( $post_id, self::META_DECIDED_AT, $today );
+
+		self::add_event( $post_id, self::EVENT_RETURNED );
+
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => self::LOG_RETURN,
+				'institution' => $record,
+				'subject'     => (string) $post_id,
+				'actor'       => get_current_user_id(),
+				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_CACHE,
+				'message'     => __( 'A signed Collaboration Agreement was returned to the institution with a note.', 'wpcredits-program-manager' ),
+				'data'        => array( 'replacement' => empty( $summary['agreement_id'] ) ? 0 : 1 ),
+			)
+		);
+
+		self::unlock( $record );
+
+		self::rebuild(
+			$record,
+			self::airtable_block( $record, empty( $summary['agreement_id'] ) ? array( 'status' => self::AIRTABLE_RETURNED ) : array() )
+		);
+
+		self::mail_returned( $record, $post_id, $note );
+
+		self::bounce( 'agreement-returned' );
+	}
+
+	/**
+	 * Take a submitted document back before anybody has read it (T4).
+	 *
+	 * A member's control, and a manager's on their behalf. The file goes at once rather than
+	 * on the discard cron's schedule: withdrawing is what somebody does when they realise
+	 * they attached the wrong document, and "it will be deleted within thirty days" is not
+	 * the answer that person wants. Nothing is mailed, because nothing happened that anyone
+	 * else needs to be told about, and the base was never told the document arrived in a way
+	 * a withdrawal has to undo.
+	 */
+	public static function handle_withdraw() {
+		if ( ! is_user_logged_in() ) {
+			wp_die( esc_html__( 'You need to be signed in to withdraw an agreement.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$post_id = WPCPM_Request::posted_id( 'wpcpm_agreement_post' );
+
+		check_admin_referer( self::ACTION_WITHDRAW . '_' . $post_id );
+
+		$post = self::submitted_post( $post_id );
+
+		if ( ! $post instanceof WP_Post ) {
+			self::bounce( 'agreement-gone' );
+		}
+
+		// The subject is the document's own institution stamp, never a posted record: the one
+		// refusal this handler has to make is a member of B withdrawing A's document, and a
+		// posted field is exactly what such a request would carry.
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_AGREEMENT,
+			WPCPM_Institution_Policy::subject_post( $post, self::META_INSTITUTION )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		$record = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
+
+		// The same lock accept and return take, for the same reason and from the other side:
+		// a member pressing Withdraw in the second a manager presses Accept must lose or win
+		// outright, never delete the file out from under an acceptance that is mid-flight.
+		if ( ! self::lock( $record ) ) {
+			self::bounce( 'agreement-busy' );
+		}
+
+		if ( ! self::submitted_post( $post_id ) instanceof WP_Post ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-gone' );
+		}
+
+		update_post_meta( $post_id, self::META_STATE, self::STATE_WITHDRAWN );
+		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
+		update_post_meta( $post_id, self::META_DECIDED_AT, wp_date( 'Y-m-d' ) );
+
+		self::forget_file( $post_id );
+		self::add_event( $post_id, self::EVENT_WITHDRAWN );
+
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => self::LOG_WITHDRAW,
+				'institution' => $record,
+				'subject'     => (string) $post_id,
+				'actor'       => get_current_user_id(),
+				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_CACHE,
+				'message'     => __( 'A submitted Collaboration Agreement was withdrawn and its file deleted.', 'wpcredits-program-manager' ),
+				'data'        => array(),
+			)
+		);
+
+		self::unlock( $record );
+		self::rebuild( $record, self::airtable_block( $record, array() ) );
+
+		self::bounce( 'agreement-withdrawn' );
+	}
+
+	/**
+	 * Every document waiting to be read, across every institution, oldest first.
+	 *
+	 * Oldest first because it is a queue somebody works through, and the institution that has
+	 * waited longest is the one whose turn it is. The manager's screen reads this; nothing
+	 * else does.
+	 *
+	 * @param int $limit Most rows to read. The queue card wants them all up to its own cap;
+	 *                   the menu bubble wants only enough to know whether to print a number.
+	 * @return int[] Post IDs.
+	 */
+	public static function awaiting_review( $limit = 200 ) {
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => self::POST_STATUS,
+				'numberposts'      => (int) $limit > 0 ? (int) $limit : 200,
+				'fields'           => 'ids',
+				'orderby'          => array(
+					'date' => 'ASC',
+					'ID'   => 'ASC',
+				),
+				'suppress_filters' => false,
+				'meta_query'       => array(
+					array(
+						'key'   => self::META_STATE,
+						'value' => self::STATE_SUBMITTED,
+					),
+				),
+			)
+		);
+
+		return array_map( 'intval', (array) $posts );
+	}
+
+	/**
+	 * What the reviewer's checklist needs to know about one document.
+	 *
+	 * Facts only, in the shape the review block prints them: nothing here decides anything
+	 * and nothing here is a URL. An unknown post answers with an empty array rather than a
+	 * half-filled one, so a caller that forgot to check gets nothing to print.
+	 *
+	 * @param int $post_id Agreement post ID.
+	 * @return array
+	 */
+	public static function review_facts( $post_id ) {
+		$post_id = absint( $post_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type ) {
+			return array();
+		}
+
+		$record = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
+		$row    = WPCPM_Institutions_Index::row( $record );
+		$file   = self::file_of( $post_id );
+		$author = $post->post_author ? get_userdata( (int) $post->post_author ) : false;
+		$flags  = get_post_meta( $post_id, self::META_FLAGS, true );
+
+		return array(
+			'post_id'          => $post_id,
+			'state'            => (string) get_post_meta( $post_id, self::META_STATE, true ),
+			'kind'             => (string) get_post_meta( $post_id, self::META_KIND, true ),
+			'name_on_document' => (string) get_post_meta( $post_id, self::META_NAME_ON_DOCUMENT, true ),
+			'template_version' => (string) get_post_meta( $post_id, self::META_TEMPLATE_VERSION, true ),
+			'institution'      => $record,
+			'institution_name' => ( is_array( $row ) && '' !== trim( (string) $row['name'] ) ) ? trim( (string) $row['name'] ) : $record,
+			'uploaded_by'      => $author instanceof WP_User ? $author->display_name : '',
+			'uploaded_at'      => substr( (string) $post->post_date, 0, 10 ),
+			'original_name'    => (string) get_post_meta( $post_id, self::META_ORIGINAL_NAME, true ),
+			'flags'            => is_array( $flags ) ? array_values( $flags ) : array(),
+			'size'             => null === $file ? 0 : (int) $file['size'],
+			'members'          => count( WPCPM_Institution_Members::members_of( $record ) ),
+		);
+	}
+
+	/**
+	 * Forget the files of documents nobody is waiting on any more (T11). The daily cron body.
+	 *
+	 * Withdrawn and returned only. An accepted document is the agreement and is kept; a
+	 * superseded one is the copy that was in force before it and is the answer to "what did
+	 * we agree to last year"; a generated one has no file at all. What is left is the two
+	 * states that mean "this file was a mistake or is being replaced", and holding somebody's
+	 * signed paperwork for longer than there is a reason to is the thing being avoided.
+	 *
+	 * The post is kept in every case: the history of an institution's agreement is what the
+	 * next manager reads, and a deleted row would make a return look like it never happened.
+	 *
+	 * Oldest first, documents that still have a file only, and paged until the query runs
+	 * dry. All three are what make a run catch up rather than circle. A batch of the newest
+	 * withdrawn and returned rows hands every run the same recent documents and leaves the
+	 * oldest file on disk for ever, which is a retention rule that has quietly stopped
+	 * retaining; asking only for rows that still have a file is what stops the front of an
+	 * oldest-first queue filling with the ones this cron dealt with months ago; and paging is
+	 * what carries a run past a page of documents it has to keep, so a busy month cannot hide
+	 * the one file that is a year overdue behind it.
+	 *
+	 * The cursor counts the rows left in place rather than the rows read, because forgetting
+	 * a file takes that document out of the query's own answer: counting reads would step
+	 * over as many documents as were just dealt with. `DISCARD_PAGES` is the end of it: five
+	 * thousand documents a night, which for a program with forty-two institutions is every
+	 * one of them a hundred times over, and a cron that cannot say when it will end is worse
+	 * than one that leaves the rest for tomorrow.
+	 *
+	 * @return int How many files were forgotten.
+	 */
+	public static function discard() {
+		$days   = (int) WPCPM_Settings::get_value( 'agreement_discard_days', 30 );
+		$cut    = time() - ( max( 1, $days ) * DAY_IN_SECONDS );
+		$gone   = 0;
+		$offset = 0;
+
+		for ( $page = 0; $page < self::DISCARD_PAGES; $page++ ) {
+			$posts = (array) get_posts(
+				array(
+					'post_type'        => self::POST_TYPE,
+					'post_status'      => self::POST_STATUS,
+					'numberposts'      => self::DISCARD_BATCH,
+					'offset'           => $offset,
+					'orderby'          => array(
+						'date' => 'ASC',
+						'ID'   => 'ASC',
+					),
+					'suppress_filters' => false,
+					'meta_query'       => array(
+						array(
+							'key'     => self::META_STATE,
+							'value'   => array( self::STATE_WITHDRAWN, self::STATE_RETURNED ),
+							'compare' => 'IN',
+						),
+						array(
+							'key'     => self::META_FILE,
+							'compare' => 'EXISTS',
+						),
+					),
+				)
+			);
+
+			foreach ( $posts as $post ) {
+				if ( ! $post instanceof WP_Post ) {
+					++$offset;
+					continue;
+				}
+
+				// A state this pass did not ask for means the query answered more broadly than
+				// it was asked to, and an accepted agreement must never lose its file to a cron.
+				$state = (string) get_post_meta( $post->ID, self::META_STATE, true );
+
+				if ( ! in_array( $state, array( self::STATE_WITHDRAWN, self::STATE_RETURNED ), true ) || self::decided_at_of( $post ) > $cut ) {
+					++$offset;
+					continue;
+				}
+
+				// A row whose file meta is there but says nothing readable: there is nothing to
+				// delete and it stays in the answer, so the cursor steps over it like any other
+				// document this pass leaves where it is.
+				if ( ! self::forget_file( $post->ID ) ) {
+					++$offset;
+					continue;
+				}
+
+				self::add_event( $post->ID, self::EVENT_DISCARDED, 0 );
+
+				++$gone;
+			}
+
+			if ( count( $posts ) < self::DISCARD_BATCH ) {
+				break;
+			}
+		}
+
+		return $gone;
+	}
+
+	/**
+	 * Tell the managers what has been waiting too long. The daily digest.
+	 *
+	 * Sent only when something is actually overdue, and at most once a day. A queue that is
+	 * somebody's job needs the reminder more than the notice each upload sends, and a digest
+	 * that arrives every morning saying nothing is one nobody opens on the morning it says
+	 * something. The day is stamped only when a message goes out, so an item that becomes
+	 * overdue at noon is not held until tomorrow by a silent run at dawn.
+	 *
+	 * @return int How many messages went out.
+	 */
+	public static function remind() {
+		$today = wp_date( 'Y-m-d' );
+
+		if ( (string) get_option( self::OPTION_REMINDED, '' ) === $today ) {
+			return 0;
+		}
+
+		$days    = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
+		$cut     = time() - ( $days * DAY_IN_SECONDS );
+		$overdue = array();
+
+		foreach ( self::awaiting_review() as $post_id ) {
+			$post = get_post( $post_id );
+
+			if ( ! $post instanceof WP_Post || self::post_time( $post ) > $cut ) {
+				continue;
+			}
+
+			$facts = self::review_facts( $post_id );
+
+			if ( ! empty( $facts ) ) {
+				$overdue[] = $facts;
+			}
+		}
+
+		if ( empty( $overdue ) ) {
+			return 0;
+		}
+
+		$site  = WPCPM_Mail::site_name();
+		$queue = admin_url( 'admin.php?page=wpcpm-institutions' );
+
+		$build = function () use ( $site, $overdue, $queue, $days ) {
+			// One plural form and one number that never needs pluralising: the days are
+			// written as "the 3-day review window" so that a translator has one rule to
+			// follow rather than two counts crossing in one sentence.
+			$lines = array(
+				sprintf(
+					/* translators: 1: number of agreements, 2: number of days in the review window. */
+					_n(
+						'%1$s signed agreement has been waiting longer than the %2$s-day review window.',
+						'%1$s signed agreements have been waiting longer than the %2$s-day review window.',
+						count( $overdue ),
+						'wpcredits-program-manager'
+					),
+					number_format_i18n( count( $overdue ) ),
+					number_format_i18n( $days )
+				),
+			);
+
+			foreach ( $overdue as $facts ) {
+				$lines[] = sprintf(
+					/* translators: 1: institution name, 2: date the agreement was uploaded. */
+					__( '%1$s, uploaded %2$s', 'wpcredits-program-manager' ),
+					$facts['institution_name'],
+					$facts['uploaded_at']
+				);
+			}
+
+			$lines[] = $queue;
+
+			return array(
+				'subject' => sprintf(
+					/* translators: 1: site name, 2: number of agreements. */
+					_n(
+						'[%1$s] %2$s signed agreement is waiting for review',
+						'[%1$s] %2$s signed agreements are waiting for review',
+						count( $overdue ),
+						'wpcredits-program-manager'
+					),
+					$site,
+					number_format_i18n( count( $overdue ) )
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+			);
+		};
+
+		$sent = (int) WPCPM_Institutions::notify_managers( self::MAIL_REMINDER, $build );
+
+		update_option( self::OPTION_REMINDED, $today, false );
+
+		return $sent;
+	}
+
+	/**
+	 * The courtesy scan, and it is presented as a courtesy everywhere it is shown.
+	 *
+	 * A bounded look for seven names, two of which refuse the file and five of which are
+	 * recorded for the reviewer. What makes it worth writing at all is the two steps before
+	 * the looking: a PDF may write `/Launch` as `/L#61unch`, and it may hide the whole
+	 * object in a `FlateDecode` stream, so a scan that searched the raw bytes would pass a
+	 * file any text editor could show you was hostile. Both escapes are undone first.
+	 *
+	 * What it is not is evidence. A token can be hidden in ways a bounded scan will not
+	 * find - an object stream inside an object stream, a filter chain this does not
+	 * implement, a name split across an indirect reference - and the reviewer's actual
+	 * protection is download-never-inline plus their own viewer. The panel, the checklist and
+	 * the tests all say so, in those words, because a "scanned: clean" badge would move
+	 * somebody from "I will open this carefully" to "the site checked it".
+	 *
+	 * @param string $bytes The file's contents.
+	 * @return array{ok: bool, reason: string, flags: string[]}
+	 */
+	public static function inspect_pdf( $bytes ) {
+		$bytes    = (string) $bytes;
+		$haystack = self::decode_names( $bytes );
+
+		foreach ( self::inflated_streams( $bytes ) as $stream ) {
+			$haystack .= "\n" . self::decode_names( $stream );
+		}
+
+		foreach ( self::SCAN_REFUSALS as $name => $reason ) {
+			if ( self::names_contain( $haystack, $name ) ) {
+				return array(
+					'ok'     => false,
+					'reason' => $reason,
+					'flags'  => array(),
+				);
+			}
+		}
+
+		$flags = array();
+
+		foreach ( self::SCAN_FLAGS as $name ) {
+			if ( self::names_contain( $haystack, $name ) ) {
+				$flags[] = $name;
+			}
+		}
+
+		return array(
+			'ok'     => true,
+			'reason' => '',
+			'flags'  => $flags,
+		);
+	}
+
+	/**
 	 * The last bulk recording's tally, for the screen.
 	 *
 	 * @return array|null
@@ -1257,6 +2360,848 @@ class WPCPM_Institution_Agreement {
 	 * @param string $status Outcome slug.
 	 */
 	private static function bounce_on_file( $status ) {
+		WPCPM_Flash::set( WPCPM_Institutions::FLASH, $status );
+
+		$back = wp_get_referer();
+
+		wp_safe_redirect( $back ? $back : admin_url( 'admin.php?page=wpcpm-institutions' ) );
+		exit;
+	}
+
+	/**
+	 * Which institution this request acts for.
+	 *
+	 * A member's own stamp wins, always. The posted record is the manager's on-behalf form
+	 * saying which row it was drawn on, and honouring it for a member would make a hidden
+	 * input the fence rather than the membership. A manager with neither a posted record nor
+	 * a membership falls through to the switcher, which is where `resolve_institution()`
+	 * keeps that logic for every other screen in the module.
+	 *
+	 * The answer is what the nonce is keyed to, so a form drawn for one institution cannot be
+	 * replayed at another whatever the posted field says.
+	 *
+	 * @return string Institutions record ID, or ''.
+	 */
+	private static function record_for_request() {
+		$viewer = wp_get_current_user();
+		$own    = WPCPM_Institution_Members::institution_of( $viewer );
+
+		if ( '' !== $own ) {
+			return $own;
+		}
+
+		$can_manage = current_user_can( WPCPM_Roles::CAP_MANAGE );
+
+		if ( $can_manage ) {
+			$asked = WPCPM_Request::posted_text( 'wpcpm_agreement_record' );
+
+			if ( WPCPM_Institutions_Index::has( $asked ) ) {
+				return trim( $asked );
+			}
+		}
+
+		return WPCPM_Institution_Roster::resolve_institution( $viewer, $can_manage );
+	}
+
+	/**
+	 * How many uploads one institution gets a day.
+	 *
+	 * @return int
+	 */
+	private static function upload_limit() {
+		return max( 1, (int) WPCPM_Settings::get_value( 'agreement_uploads_per_day', 5 ) );
+	}
+
+	/**
+	 * The largest file this site accepts, in bytes.
+	 *
+	 * @return int
+	 */
+	private static function upload_bytes() {
+		return max( 1, (int) WPCPM_Settings::get_value( 'agreement_max_mb', 10 ) ) * MB_IN_BYTES;
+	}
+
+	/**
+	 * The posted file, every member typed, nothing trusted.
+	 *
+	 * `$_FILES` is the one superglobal a form field cannot be read out of with
+	 * `WPCPM_Request`, so it is read here, once, and each member is cast on the way out. The
+	 * name is sanitised and capped because it is kept for display beside the reviewer's
+	 * checklist; it is never used on disk and never put in a header.
+	 *
+	 * @return array{error: int, size: int, tmp_name: string, name: string}
+	 */
+	private static function uploaded_file() {
+		$empty = array(
+			'error'    => UPLOAD_ERR_NO_FILE,
+			'size'     => 0,
+			'tmp_name' => '',
+			'name'     => '',
+		);
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- `handle_upload()` verifies the nonce before it calls this.
+		if ( ! isset( $_FILES['wpcpm_agreement_file'] ) || ! is_array( $_FILES['wpcpm_agreement_file'] ) ) {
+			return $empty;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above for the nonce; every member is cast or sanitised on the lines below, which is the only sanitising an upload admits. What makes the bytes safe is the six checks `handle_upload()` runs over them, not a filter on this array.
+		$raw = wp_unslash( $_FILES['wpcpm_agreement_file'] );
+
+		return array(
+			'error'    => isset( $raw['error'] ) ? (int) $raw['error'] : UPLOAD_ERR_NO_FILE,
+			'size'     => isset( $raw['size'] ) ? (int) $raw['size'] : 0,
+			'tmp_name' => isset( $raw['tmp_name'] ) ? (string) $raw['tmp_name'] : '',
+			'name'     => isset( $raw['name'] ) ? substr( sanitize_file_name( (string) $raw['name'] ), 0, self::MAX_FILENAME ) : '',
+		);
+	}
+
+	/**
+	 * Whether this path is a file PHP received on this request.
+	 *
+	 * `is_uploaded_file()` is what stops a posted string naming `wp-config.php` from being
+	 * read out of the filesystem and stored as somebody's agreement, and it is the check
+	 * being made here. It answers from PHP's own list of the files this request received,
+	 * which is empty under CLI, where the test suite runs and where no `admin_post_` action
+	 * can fire at all: `admin-post.php` is a web endpoint, so the branch below is unreachable
+	 * from any request that could reach this handler.
+	 *
+	 * @param string $path The temporary path the upload arrived at.
+	 * @return bool
+	 */
+	private static function arrived_by_post( $path ) {
+		if ( 'cli' === PHP_SAPI ) {
+			return is_readable( $path );
+		}
+
+		return is_uploaded_file( $path );
+	}
+
+	/**
+	 * How many bytes a temporary file actually holds.
+	 *
+	 * @param string $path Temporary path.
+	 * @return int
+	 */
+	private static function disk_size( $path ) {
+		$size = filesize( $path );
+
+		return false === $size ? 0 : (int) $size;
+	}
+
+	/**
+	 * Read an uploaded temporary file into memory.
+	 *
+	 * Bounded by the size check the caller has already made, and read once: the magic bytes,
+	 * the courtesy scan and `store()` all work on this one copy rather than opening the file
+	 * three times and risking three different answers.
+	 *
+	 * @param string $path Temporary path.
+	 * @return string The bytes, or '' when they could not be read.
+	 */
+	private static function file_bytes( $path ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- PHP's own temporary copy of the upload, by the absolute path PHP gave us; `WP_Filesystem` would ask for credentials this request has none to give.
+		$bytes = file_get_contents( $path );
+
+		return is_string( $bytes ) ? $bytes : '';
+	}
+
+	/**
+	 * What the fileinfo extension says a file is, or '' when the host has none.
+	 *
+	 * @param string $path Path to inspect.
+	 * @return string A MIME type, or ''.
+	 */
+	private static function mime_of( $path ) {
+		if ( ! function_exists( 'finfo_open' ) ) {
+			return '';
+		}
+
+		$finfo = finfo_open( FILEINFO_MIME_TYPE );
+
+		if ( ! $finfo ) {
+			return '';
+		}
+
+		$type = finfo_file( $finfo, $path );
+
+		// No `finfo_close()`: it has been a no-op since PHP 8.0, where the resource became an
+		// object that is freed when this method returns, and the standard flags the call as
+		// deprecated. Letting `$finfo` go out of scope is the supported way to close it.
+		unset( $finfo );
+
+		return is_string( $type ) ? $type : '';
+	}
+
+	/**
+	 * Undo PDF's `#xx` name escapes.
+	 *
+	 * A name in a PDF may be written with any of its characters as `#` and two hex digits, so
+	 * `/Launch` is also `/L#61unch` and `/#4C#61#75#6E#63#68`. A scan that searched the raw
+	 * bytes would pass every one of those, which is why this runs first and over both the
+	 * raw file and each inflated stream.
+	 *
+	 * @param string $bytes Anything to search.
+	 * @return string
+	 */
+	private static function decode_names( $bytes ) {
+		return (string) preg_replace_callback(
+			'/#([0-9A-Fa-f]{2})/',
+			static function ( $escape ) {
+				return chr( hexdec( $escape[1] ) );
+			},
+			(string) $bytes
+		);
+	}
+
+	/**
+	 * Whether a haystack names a PDF name, and not merely a longer one beginning with it.
+	 *
+	 * `/JS` must not match inside `/JSomething`, and `/AA` must not match `/AArgh`. A PDF
+	 * name ends at a delimiter, so the test is the name followed by anything that is not a
+	 * name character.
+	 *
+	 * @param string $haystack Decoded bytes.
+	 * @param string $name     The name, leading slash included.
+	 * @return bool
+	 */
+	private static function names_contain( $haystack, $name ) {
+		return 1 === preg_match( '/' . preg_quote( (string) $name, '/' ) . '(?![0-9A-Za-z])/', (string) $haystack );
+	}
+
+	/**
+	 * Every `FlateDecode` stream in a file, inflated, within a budget.
+	 *
+	 * The interesting half of the scan. A hostile PDF does not write `/Launch` where a text
+	 * search would find it; it writes it inside a compressed object stream. Each `stream`
+	 * keyword is found (never `endstream`, which the lookbehind excludes), the dictionary in
+	 * front of it is checked for `/FlateDecode`, and what follows is inflated.
+	 *
+	 * The budget is the other half. A few hundred bytes of zlib can expand into gigabytes, so
+	 * a scan meant to protect the reviewer must not become the way to exhaust the site's
+	 * memory: at most `SCAN_MAX_STREAMS` streams, at most `SCAN_MAX_STREAM` bytes out of each
+	 * and `SCAN_MAX_TOTAL` in all. A stream that would exceed its own bound is skipped rather
+	 * than partly read, and this is one of the bounds the docblock on `inspect_pdf()` means
+	 * when it says the scan is a courtesy and not evidence.
+	 *
+	 * @param string $bytes The file's contents.
+	 * @return string[] The inflated streams, in file order.
+	 */
+	private static function inflated_streams( $bytes ) {
+		$out   = array();
+		$total = 0;
+
+		if ( ! preg_match_all( '/(?<![A-Za-z])stream(\r\n|\r|\n)?/', $bytes, $hits, PREG_OFFSET_CAPTURE ) ) {
+			return $out;
+		}
+
+		foreach ( $hits[0] as $index => $hit ) {
+			if ( $index >= self::SCAN_MAX_STREAMS || $total >= self::SCAN_MAX_TOTAL ) {
+				break;
+			}
+
+			$at   = (int) $hit[1];
+			$back = min( 2048, $at );
+
+			// A window rather than a parser. A filter named further back than this is one
+			// this scan does not claim to find.
+			if ( ! self::names_contain( self::decode_names( substr( $bytes, $at - $back, $back ) ), '/FlateDecode' ) ) {
+				continue;
+			}
+
+			$from  = $at + strlen( $hit[0] );
+			$end   = strpos( $bytes, 'endstream', $from );
+			$body  = false === $end ? substr( $bytes, $from ) : substr( $bytes, $from, $end - $from );
+			$plain = self::inflate( $body );
+
+			if ( '' === $plain ) {
+				continue;
+			}
+
+			$out[]  = $plain;
+			$total += strlen( $plain );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Inflate one stream body, bounded, whichever of the two shapes it is in.
+	 *
+	 * `gzuncompress()` reads the zlib wrapper nearly every producer writes; `gzinflate()`
+	 * reads the raw deflate a few write instead. Both answer false for data they cannot read,
+	 * which for a PDF full of images is the normal case rather than an error, so both are
+	 * silenced. Both are given the output bound, and both answer false rather than a
+	 * truncated string when the stream would exceed it.
+	 *
+	 * @param string $body The compressed bytes.
+	 * @return string The inflated bytes, or '' when there are none to be had.
+	 */
+	private static function inflate( $body ) {
+		if ( '' === $body || ! function_exists( 'gzuncompress' ) ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- A stream this scan cannot read is a normal part of a normal PDF, not a condition worth a warning in the host's log on every upload.
+		$plain = @gzuncompress( $body, self::SCAN_MAX_STREAM );
+
+		if ( ! is_string( $plain ) || '' === $plain ) {
+			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- As above, for the producers that write a raw deflate stream with no zlib header.
+			$plain = @gzinflate( $body, self::SCAN_MAX_STREAM );
+		}
+
+		return is_string( $plain ) ? $plain : '';
+	}
+
+	/**
+	 * An agreement post that is ours, private and waiting for review, or null.
+	 *
+	 * The one shape accept, return and withdraw all act on, so "is this still in review" is
+	 * asked in one place and a second click on any of the three answers the same way.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return WP_Post|null
+	 */
+	private static function submitted_post( $post_id ) {
+		$post = get_post( absint( $post_id ) );
+
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type ) {
+			return null;
+		}
+
+		if ( self::STATE_SUBMITTED !== (string) get_post_meta( $post->ID, self::META_STATE, true ) ) {
+			return null;
+		}
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( get_post_meta( $post->ID, self::META_INSTITUTION, true ) ) ) {
+			return null;
+		}
+
+		return $post;
+	}
+
+	/**
+	 * The stored file a document points at, or null when it has none.
+	 *
+	 * A generated post and a legacy row both have none, and both are legitimate; the caller
+	 * decides whether that is a 404 or a fact for the checklist.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array{path: string, size: int, sha256: string}|null
+	 */
+	private static function file_of( $post_id ) {
+		$file = get_post_meta( absint( $post_id ), self::META_FILE, true );
+
+		if ( ! is_array( $file ) || empty( $file['path'] ) ) {
+			return null;
+		}
+
+		return array(
+			'path'   => (string) $file['path'],
+			'size'   => isset( $file['size'] ) ? (int) $file['size'] : 0,
+			'sha256' => isset( $file['sha256'] ) ? (string) $file['sha256'] : '',
+		);
+	}
+
+	/**
+	 * Delete a document's file and the meta that pointed at it.
+	 *
+	 * Both, in that order, and the meta whether or not the delete reported success: a row
+	 * pointing at bytes that are not there any more is what would make the panel offer a
+	 * download that 500s.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool Whether there was a file to forget.
+	 */
+	private static function forget_file( $post_id ) {
+		$file = self::file_of( $post_id );
+
+		if ( null === $file ) {
+			return false;
+		}
+
+		WPCPM_Private_Files::forget( $file['path'] );
+		delete_post_meta( (int) $post_id, self::META_FILE );
+
+		return true;
+	}
+
+	/**
+	 * Add one row to a document's event log.
+	 *
+	 * @param int      $post_id Post ID.
+	 * @param string   $event   What happened, in the words the log prints.
+	 * @param int|null $actor   Who did it; null for the current user, 0 for the system.
+	 */
+	private static function add_event( $post_id, $event, $actor = null ) {
+		add_post_meta(
+			(int) $post_id,
+			self::META_EVENT,
+			array(
+				'event' => (string) $event,
+				'at'    => time(),
+				'actor' => null === $actor ? get_current_user_id() : (int) $actor,
+			)
+		);
+	}
+
+	/**
+	 * Retire one document, with a row saying so.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	private static function supersede( $post_id ) {
+		update_post_meta( (int) $post_id, self::META_STATE, self::STATE_SUPERSEDED );
+		self::add_event( (int) $post_id, self::EVENT_SUPERSEDED );
+	}
+
+	/**
+	 * Retire the generated templates an upload has just answered, and say which version.
+	 *
+	 * A template the institution generated and then signed is the same agreement, so the
+	 * generated row stops being an outstanding step. The version comes back so the uploaded
+	 * copy can carry it: that is what lets the reviewer's checklist say which template the
+	 * paper in front of them was cut from, on a copy that arrived as a scan with nothing
+	 * machine-readable in it.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @param int    $except The new post, which is not to be touched.
+	 * @return string The newest generated document's template version, or ''.
+	 */
+	private static function supersede_generated( $record, $except ) {
+		$version = '';
+
+		foreach ( self::posts_for( $record ) as $post ) {
+			if ( (int) $post->ID === (int) $except ) {
+				continue;
+			}
+
+			if ( self::STATE_GENERATED !== (string) get_post_meta( $post->ID, self::META_STATE, true ) ) {
+				continue;
+			}
+
+			// `posts_for()` is newest first, so the first one found is the one they printed.
+			if ( '' === $version ) {
+				$version = (string) get_post_meta( $post->ID, self::META_TEMPLATE_VERSION, true );
+			}
+
+			self::supersede( (int) $post->ID );
+		}
+
+		return $version;
+	}
+
+	/**
+	 * How the base spells one of this class's kinds.
+	 *
+	 * @param string $kind A `KIND_*` value.
+	 * @return string The `Agreement Kind` choice, or '' for a kind the base has no word for.
+	 */
+	private static function airtable_kind( $kind ) {
+		$map = array(
+			self::KIND_TEMPLATE => self::AIRTABLE_KIND_TEMPLATE,
+			self::KIND_OWN      => self::AIRTABLE_KIND_OWN,
+			self::KIND_LEGACY   => self::AIRTABLE_KIND_LEGACY,
+		);
+
+		return isset( $map[ (string) $kind ] ) ? $map[ (string) $kind ] : '';
+	}
+
+	/**
+	 * The Airtable block to rebuild an option from, after a transition wrote part of one.
+	 *
+	 * `rebuild()` wants the record's whole agreement block and a handler knows only the cells
+	 * it just wrote. What the option already holds stands in for the rest, so a transition
+	 * that changed the status does not quietly forget the Drive link a legacy row settled on.
+	 * A handler whose Airtable write failed passes no changes at all and gets the state the
+	 * base is still in, which is the state the sync will find on its next pass.
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param array  $changed The cells this request wrote, in `rebuild()`'s vocabulary.
+	 * @return array
+	 */
+	private static function airtable_block( $record, array $changed ) {
+		$option = self::option( $record );
+
+		return array_merge(
+			array(
+				'status'   => null === $option ? '' : $option['airtable_status'],
+				'document' => null === $option ? '' : $option['drive_url'],
+			),
+			$changed
+		);
+	}
+
+	/**
+	 * Whether a stage read from the base comes before `Confirmed`.
+	 *
+	 * Forward only, and never off the end: an institution already at `Student` is not moved
+	 * back to `Confirmed` by an acceptance. An empty stage counts as preceding, because a
+	 * record nothing has moved yet is at the start of the list rather than off it. A stage
+	 * the list does not know is not moved at all: this class does not guess where somebody
+	 * else's word belongs.
+	 *
+	 * @param string $stage The `Current Stage` value read live.
+	 * @return bool
+	 */
+	private static function precedes_confirmed( $stage ) {
+		$stage = trim( (string) $stage );
+
+		if ( '' === $stage ) {
+			return true;
+		}
+
+		$at     = array_search( $stage, self::STAGE_ORDER, true );
+		$target = array_search( self::STAGE_CONFIRMED, self::STAGE_ORDER, true );
+
+		return false !== $at && false !== $target && $at < $target;
+	}
+
+	/**
+	 * The unix time a document's decision was made, falling back to when it arrived.
+	 *
+	 * @param WP_Post $post The document.
+	 * @return int
+	 */
+	private static function decided_at_of( WP_Post $post ) {
+		$decided = self::date_or_empty( get_post_meta( $post->ID, self::META_DECIDED_AT, true ) );
+
+		if ( '' !== $decided ) {
+			return (int) strtotime( $decided . ' 00:00:00 UTC' );
+		}
+
+		return self::post_time( $post );
+	}
+
+	/**
+	 * The unix time a document was created.
+	 *
+	 * Read from `post_date` rather than `post_date_gmt` because the stand-ins the suite runs
+	 * against carry one date, and because every comparison this feeds is in days: an offset
+	 * of a few hours cannot move an item across a three-day or a thirty-day line in a way
+	 * that matters to anybody.
+	 *
+	 * @param WP_Post $post The document.
+	 * @return int
+	 */
+	private static function post_time( WP_Post $post ) {
+		$time = strtotime( (string) $post->post_date . ' UTC' );
+
+		return false === $time ? 0 : (int) $time;
+	}
+
+	/**
+	 * The filename a download is offered under.
+	 *
+	 * The institution and the date, from what this site holds. Never
+	 * `_wpcpm_agr_original_name`: that string is the one thing on this path an outsider chose,
+	 * and a header is exactly where a chosen string should not end up.
+	 *
+	 * @param WP_Post $post The document.
+	 * @return string
+	 */
+	private static function download_name( WP_Post $post ) {
+		$record = (string) get_post_meta( $post->ID, self::META_INSTITUTION, true );
+		$row    = WPCPM_Institutions_Index::row( $record );
+		$name   = ( is_array( $row ) && '' !== trim( (string) $row['name'] ) ) ? trim( (string) $row['name'] ) : $record;
+		$slug   = sanitize_title( $name );
+
+		if ( '' === $slug ) {
+			$slug = 'collaboration-agreement';
+		}
+
+		return sanitize_file_name( $slug . '-' . substr( (string) $post->post_date, 0, 10 ) ) . '.pdf';
+	}
+
+	/**
+	 * The download link this request was making, for the login form to come back to.
+	 *
+	 * Rebuilt from the three arguments the route takes rather than read out of
+	 * `REQUEST_URI`, so the host in it is this site's and not a header somebody sent.
+	 *
+	 * @return string
+	 */
+	private static function current_url() {
+		return add_query_arg(
+			array(
+				'action'   => self::ACTION_DOWNLOAD,
+				'post'     => self::requested_document(),
+				'_wpnonce' => WPCPM_Request::key( '_wpnonce' ),
+			),
+			admin_url( 'admin-post.php' )
+		);
+	}
+
+	/**
+	 * Which document a download link names.
+	 *
+	 * The download is a `wp_nonce_url()` link rather than a form, so its arguments arrive in
+	 * the query string and `WPCPM_Request::id()` is the right reader for them. It is the
+	 * wrong reader inside a handler that receives a posted form, and `bin/check-references.php`
+	 * says so of any handler that checks a nonce, which is why the read is named here instead
+	 * of sitting in `handle_download()`'s body.
+	 *
+	 * @return int
+	 */
+	private static function requested_document() {
+		return WPCPM_Request::id( 'post' );
+	}
+
+	/**
+	 * The note a manager typed, with its line breaks.
+	 *
+	 * `WPCPM_Request` has no reader for a textarea, and `sanitize_text_field()` would fold
+	 * the paragraphs of a note that is mailed verbatim into one line.
+	 *
+	 * @return string
+	 */
+	private static function posted_note() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The calling handler verifies the nonce before reaching here.
+		if ( ! isset( $_POST['wpcpm_agreement_note'] ) || ! is_scalar( $_POST['wpcpm_agreement_note'] ) ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
+		return trim( sanitize_textarea_field( wp_unslash( $_POST['wpcpm_agreement_note'] ) ) );
+	}
+
+	/**
+	 * Send one message to every live member of an institution.
+	 *
+	 * Every member at every step, because equal members should not learn from a colleague
+	 * that the account is open, or that it is not.
+	 *
+	 * @param string   $record  Institutions record ID.
+	 * @param string   $context Mail context, for the log.
+	 * @param callable $build   Builder in `WPCPM_Mail::send()`'s shape.
+	 * @return int How many were sent.
+	 */
+	private static function mail_members( $record, $context, $build ) {
+		$sent = 0;
+
+		foreach ( WPCPM_Institution_Members::members_of( $record ) as $member ) {
+			$sent += WPCPM_Mail::send( $member, $context, $build ) ? 1 : 0;
+		}
+
+		return $sent;
+	}
+
+	/**
+	 * Tell the institution its signed agreement arrived (T3, T10).
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param int    $post_id The submitted document.
+	 * @return int How many members were mailed.
+	 */
+	private static function mail_received( $record, $post_id ) {
+		$facts = self::review_facts( $post_id );
+
+		if ( empty( $facts ) ) {
+			return 0;
+		}
+
+		$site = WPCPM_Mail::site_name();
+		$days = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
+		$who  = '' === $facts['uploaded_by'] ? __( 'a member of your institution', 'wpcredits-program-manager' ) : $facts['uploaded_by'];
+
+		$build = function () use ( $site, $facts, $days, $who ) {
+			$lines = array(
+				sprintf(
+					/* translators: 1: date the file arrived, 2: who uploaded it. */
+					__( 'We received your signed Collaboration Agreement on %1$s, uploaded by %2$s.', 'wpcredits-program-manager' ),
+					$facts['uploaded_at'],
+					$who
+				),
+				sprintf(
+					/* translators: %s: number of working days. */
+					_n(
+						'A program manager will read it and you will get an email either way, usually within %s working day.',
+						'A program manager will read it and you will get an email either way, usually within %s working days.',
+						$days,
+						'wpcredits-program-manager'
+					),
+					number_format_i18n( $days )
+				),
+				__( 'If it was the wrong file, withdraw it from the agreement panel on the site and upload the right one.', 'wpcredits-program-manager' ),
+			);
+
+			return array(
+				'subject' => sprintf(
+					/* translators: %s: site name. */
+					__( '[%s] We received your signed agreement', 'wpcredits-program-manager' ),
+					$site
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+			);
+		};
+
+		return self::mail_members( $record, self::MAIL_RECEIVED, $build );
+	}
+
+	/**
+	 * Tell the managers that a signed agreement is waiting to be read.
+	 *
+	 * One per upload. The reminder digest is what carries the queue after this; a first
+	 * notice that never came would make the digest read as a surprise.
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param int    $post_id The submitted document.
+	 * @return int How many managers were mailed.
+	 */
+	private static function mail_landed( $record, $post_id ) {
+		$facts = self::review_facts( $post_id );
+
+		if ( empty( $facts ) ) {
+			return 0;
+		}
+
+		$site  = WPCPM_Mail::site_name();
+		$queue = admin_url( 'admin.php?page=wpcpm-institutions' );
+
+		$build = function () use ( $site, $facts, $queue ) {
+			$lines = array(
+				sprintf(
+					/* translators: 1: institution name, 2: date, 3: who uploaded it. */
+					__( '%1$s uploaded a signed Collaboration Agreement on %2$s (%3$s).', 'wpcredits-program-manager' ),
+					$facts['institution_name'],
+					$facts['uploaded_at'],
+					'' === $facts['uploaded_by'] ? $facts['institution'] : $facts['uploaded_by']
+				),
+				$facts['flags']
+					? sprintf(
+						/* translators: %s: comma-separated list of PDF feature names. */
+						__( 'The courtesy scan noticed: %s. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.', 'wpcredits-program-manager' ),
+						implode( ', ', $facts['flags'] )
+					)
+					: __( 'The courtesy scan noticed nothing. It is a courtesy and not evidence: download the file and open it in a viewer of your choosing.', 'wpcredits-program-manager' ),
+				$queue,
+			);
+
+			return array(
+				'subject' => sprintf(
+					/* translators: 1: site name, 2: institution name. */
+					__( '[%1$s] Signed agreement from %2$s is waiting for review', 'wpcredits-program-manager' ),
+					$site,
+					$facts['institution_name']
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+			);
+		};
+
+		return (int) WPCPM_Institutions::notify_managers( self::MAIL_LANDED, $build );
+	}
+
+	/**
+	 * Tell the institution its agreement was accepted, and its account is open (T5).
+	 *
+	 * The link is to the dashboard, not to the file: a download link carries a nonce, a nonce
+	 * belongs to the account it was made for, and this one message goes to every member. The
+	 * card at the foot of the dashboard draws each of them a link that is theirs.
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param int    $post_id The accepted document.
+	 * @return int How many members were mailed.
+	 */
+	private static function mail_accepted( $record, $post_id ) {
+		$facts = self::review_facts( $post_id );
+
+		if ( empty( $facts ) ) {
+			return 0;
+		}
+
+		$site = WPCPM_Mail::site_name();
+		$when = wp_date( 'Y-m-d' );
+		$page = WPCPM_Institutions_Dashboard::page_url();
+
+		$build = function () use ( $site, $when, $page ) {
+			$lines = array(
+				sprintf(
+					/* translators: %s: date the agreement was accepted. */
+					__( 'Your Collaboration Agreement was accepted on %s. Your account on the site is open.', 'wpcredits-program-manager' ),
+					$when
+				),
+				__( 'You can now see your students and their progress, open one student to read their Student Report Card, and download your own copy of the signed agreement from the card at the foot of the page.', 'wpcredits-program-manager' ),
+			);
+
+			if ( '' !== $page ) {
+				$lines[] = $page;
+			}
+
+			return array(
+				'subject' => sprintf(
+					/* translators: %s: site name. */
+					__( '[%s] Your agreement is accepted', 'wpcredits-program-manager' ),
+					$site
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+			);
+		};
+
+		return self::mail_members( $record, self::MAIL_ACCEPTED, $build );
+	}
+
+	/**
+	 * Send the institution the manager's note, word for word (T6).
+	 *
+	 * Verbatim, and with reply-to the manager who wrote it: an institution told only that
+	 * its agreement came back learns nothing, and the person who can answer the question it
+	 * will ask is the one who sent it.
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param int    $post_id The returned document.
+	 * @param string $note    The note, as typed.
+	 * @return int How many members were mailed.
+	 */
+	private static function mail_returned( $record, $post_id, $note ) {
+		$facts = self::review_facts( $post_id );
+
+		if ( empty( $facts ) ) {
+			return 0;
+		}
+
+		$site    = WPCPM_Mail::site_name();
+		$manager = wp_get_current_user();
+		$named   = $manager instanceof WP_User ? $manager->display_name : '';
+		$headers = WPCPM_Mail::reply_to( $manager instanceof WP_User ? $manager : null );
+		$when    = wp_date( 'Y-m-d' );
+
+		$build = function () use ( $site, $note, $named, $headers, $when ) {
+			$lines = array(
+				sprintf(
+					/* translators: 1: date, 2: the program manager's name. */
+					__( 'Your signed Collaboration Agreement was sent back on %1$s by %2$s, with this note:', 'wpcredits-program-manager' ),
+					$when,
+					$named
+				),
+				$note,
+				__( 'Upload the corrected copy from the agreement panel on the site. Replying to this message reaches the program manager who wrote the note.', 'wpcredits-program-manager' ),
+			);
+
+			return array(
+				'subject' => sprintf(
+					/* translators: %s: site name. */
+					__( '[%s] Your signed agreement needs a change', 'wpcredits-program-manager' ),
+					$site
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+				'headers' => $headers,
+			);
+		};
+
+		return self::mail_members( $record, self::MAIL_RETURNED, $build );
+	}
+
+	/**
+	 * Return from an agreement handler with a one-shot outcome, and stop.
+	 *
+	 * The same shape as `bounce_on_file()`, which Phase 2 shipped and which this phase does
+	 * not touch: back where the request came from, since every one of these forms is drawn on
+	 * both the institution's panel and the manager's row, with the Institutions screen as the
+	 * fallback for a request that carried no referer. The words for each outcome live in
+	 * `WPCPM_Institution_Panel::messages()`, once, because both screens print them.
+	 *
+	 * @param string $status Outcome slug.
+	 */
+	private static function bounce( $status ) {
 		WPCPM_Flash::set( WPCPM_Institutions::FLASH, $status );
 
 		$back = wp_get_referer();

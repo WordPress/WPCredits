@@ -381,5 +381,43 @@ if ( file_exists( dirname( __DIR__ ) . '/' . $dashboard_file ) ) {
 } else {
 	echo "--   the institution dashboard has not landed yet: " . $dashboard_file . "\n";
 }
+// The ceiling's rows are `add_option()` claims named by a hash, one per key per window, and no
+// uninstall reaches them by name: they need the class's own `delete_all()` on the uninstall
+// path and the sweep's schedule cleared, or a removed plugin leaves a heap of rows that nothing
+// will ever read and a cron hook whose callback is gone. And the class must be `init()`ed
+// from the boot path, or the schedule fires into nothing and the heap grows while the plugin
+// is installed too. Asserted from the day the file exists, like the dashboard above.
+$ceiling_file = 'includes/class-wpcpm-ceiling.php';
+
+if ( file_exists( dirname( __DIR__ ) . '/' . $ceiling_file ) ) {
+	ck( 'the ceiling is loaded, and uninstall.php can see it',
+	    array(
+	        in_array( $ceiling_file, $anywhere[1], true ),
+	        in_array( $ceiling_file, $in_uninstall[1], true ),
+	    ),
+	    array( true, true ) );
+
+	$boot_path = $loader_src . $registry . file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-institutions.php' );
+	ck( 'and its sweep is hooked from the boot path', false !== strpos( $boot_path, 'WPCPM_Ceiling::init()' ), true );
+
+	$reach = $uninstall_src;
+
+	foreach ( $in_uninstall[1] as $rel ) {
+		$path = dirname( __DIR__ ) . '/' . $rel;
+
+		if ( file_exists( $path ) ) {
+			$reach .= file_get_contents( $path );
+		}
+	}
+
+	ck( 'its rows are deleted and its sweep unscheduled on uninstall',
+	    array(
+	        false !== strpos( $reach, 'WPCPM_Ceiling::delete_all()' ),
+	        (bool) preg_match( '/wp_clear_scheduled_hook\(\s*(?:WPCPM_Ceiling::CRON_SWEEP|\'wpcpm_ceiling_sweep\')\s*\)/', $reach ),
+	    ),
+	    array( true, true ) );
+} else {
+	echo "--   the ceiling has not landed yet: " . $ceiling_file . "\n";
+}
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

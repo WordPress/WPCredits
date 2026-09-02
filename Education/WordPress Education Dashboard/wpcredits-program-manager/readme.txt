@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.72.1
+Stable tag: 1.73.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.73.0 =
+* **Institutions module, Phase 3: institutions can apply, and agreements can be signed through the site.** A public application form with thirteen questions, a consent gate that stores the wording and the policy's own modified date rather than a tick, a honeypot, a dwell token, per-source and site-wide limits, content scoring that holds a submission for a person rather than refusing it, and duplicate flagging that never merges two submissions. Off by default: switch it on under Settings, and note that it shows nothing to the public until the site has a published privacy policy.
+* **A review queue on the Institutions screen**, one list of applications and signed agreements waiting, oldest first, with an overdue mark, the country's contact for information, and a count on the menu. Six decisions: approve, ask for more information, reject, reject as spam, reopen, purge. A rejection is a neutral acknowledgement with no reason; a spam row is told nothing at all.
+* **Approving creates the Airtable record, the pipeline row, the account and the invitation**, in that order, each half stamped as it lands so an interrupted approval is finished by pressing Approve again rather than by starting over. An address that already has an account is a conflict and is named, never adopted.
+* **The agreement path**: generate the program's template as a print document the institution saves as a PDF, upload a signed copy, download it, accept it, return it with a note, or withdraw it. Uploads are checked as PDFs rather than trusted by name, refused if encrypted or carrying a launch action, and stored encrypted with an unguessable name; nothing that fails a check reaches the store. Every step emails every member of the institution, and a nightly digest tells program managers what is still waiting.
+* **Agreement files for withdrawn and returned documents are forgotten on a schedule**, and applications are purged by three retention settings.
 
 = 1.72.1 =
 * **A newly created dashboard page is gated as intended.** The access level is registered with a default of public, which is what WordPress answers for a page that has no access row at all, so "gate it unless it is already set" read a brand-new page as deliberately public and left it open. Found on the live site with the new Institution Dashboard; the same line was in the Mentor and Student dashboards and is fixed in all three. Existing pages already gated are untouched.

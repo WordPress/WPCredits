@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/institution-application",
+	"version": "1.72.1",
+	"title": "Institution Application Form",
+	"category": "widgets",
+	"icon": "welcome-write-blog",
+	"description": "The public form an educational institution fills in to ask to join the WordPress Credits Program.",
+	"keywords": [ "institution", "application", "apply", "wpcredits" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

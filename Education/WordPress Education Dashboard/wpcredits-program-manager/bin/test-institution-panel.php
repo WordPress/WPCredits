@@ -56,6 +56,8 @@ $GLOBALS['allow']      = true;
 $GLOBALS['member_of']  = array();
 $GLOBALS['decisions']  = array();
 $GLOBALS['referer']    = '';
+$GLOBALS['languages']  = array( 'en' );
+$GLOBALS['members']    = array();
 
 class WP_Error {
 	public $code = '';
@@ -112,6 +114,20 @@ function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? $GLOBALS['clock'] : (int) $t ); }
 function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+function add_query_arg( $args, $url = '' ) {
+	$sep = false === strpos( (string) $url, '?' ) ? '?' : '&';
+	return (string) $url . $sep . http_build_query( (array) $args );
+}
+function wp_nonce_url( $url, $action = -1, $name = '_wpnonce' ) {
+	$sep = false === strpos( (string) $url, '?' ) ? '?' : '&';
+	return (string) $url . $sep . $name . '=nonce-' . $action;
+}
+function size_format( $bytes, $decimals = 0 ) {
+	$bytes = (int) $bytes;
+	if ( $bytes >= 1048576 ) { return number_format( $bytes / 1048576, max( 1, $decimals ) ) . ' MB'; }
+	if ( $bytes >= 1024 ) { return number_format( $bytes / 1024, $decimals ) . ' KB'; }
+	return $bytes . ' B';
+}
 function add_action( $h, $c, $p = 10, $a = 1 ) {}
 function register_post_type( $t, $a = array() ) { $GLOBALS['post_types'][ $t ] = $a; return (object) $a; }
 function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( 'nonce-' . $a ) . '" />'; }
@@ -242,6 +258,24 @@ if ( ! class_exists( 'WPCPM_Institution_Policy' ) ) {
 				'evidence'        => 'index',
 			);
 		}
+		/**
+		 * One document's subject, from the post's own stamp and never from the screen.
+		 *
+		 * The download link and the withdraw form act on a post ID rather than on a
+		 * record, and they are drawn from three screens. Reading the institution off the
+		 * post here is what makes "a member of B withdrawing A's post gets the one
+		 * refusal" true whichever screen drew the control.
+		 */
+		public static function subject_post( WP_Post $post, $meta_key ) {
+			$record = (string) get_post_meta( $post->ID, $meta_key, true );
+
+			return array(
+				'type'            => 'post',
+				'id'              => (string) $post->ID,
+				'institution_ids' => '' !== $record ? array( $record ) : array(),
+				'evidence'        => 'index',
+			);
+		}
 		public static function decide( $action, array $subject, $user = null ) {
 			$GLOBALS['decisions'][] = array( $action, $subject['id'] );
 
@@ -312,10 +346,20 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 }
 
 if ( ! class_exists( 'WPCPM_Settings' ) ) {
-	/** Enough of the settings for the one table the write names. */
+	/**
+	 * Enough of the settings for the one table the write names and the one number the
+	 * upload form and its refusal print. Both are pinned against the real defaults below.
+	 */
 	class WPCPM_Settings {
 		public static function get() {
-			return array( 'institutions_table' => 'tbl4V0FEbzRP7I2w2' );
+			return array(
+				'institutions_table' => 'tbl4V0FEbzRP7I2w2',
+				'agreement_max_mb'   => 10,
+			);
+		}
+		public static function get_value( $key, $fallback = null ) {
+			$settings = self::get();
+			return array_key_exists( $key, $settings ) ? $settings[ $key ] : $fallback;
 		}
 	}
 }
@@ -378,6 +422,64 @@ if ( ! class_exists( 'WPCPM_Institutions' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Agreement_Generate' ) ) {
+	/**
+	 * The generate route, for the one thing the panel needs of it: the action name.
+	 *
+	 * A stub rather than the real class, which reaches the template files, the ceiling, the
+	 * mail queue and the Airtable client to do its job and would drag all four into a suite
+	 * about markup. The string is pinned against the real file below, byte for byte, because
+	 * a form posting to an action nobody registered is a page that silently does nothing.
+	 */
+	class WPCPM_Agreement_Generate {
+		const ACTION_GENERATE = 'wpcpm_agreement_generate';
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
+	/**
+	 * The roster, for the one thing the forms need of it: the switcher's argument name.
+	 *
+	 * The real class reads the Students table, the membership store and the policy to do its
+	 * job, none of which a suite about markup wants. What the forms borrow is the name a
+	 * manager's institution arrives under, and it is pinned against the real file below: a
+	 * form posting an argument `resolve_institution()` does not read is a manager acting on
+	 * whichever institution happens to be their fallback.
+	 */
+	class WPCPM_Institution_Roster {
+		const ARG_VIEW = 'wpcpm_institution_view';
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Agreement_Template' ) ) {
+	/** The template store, for the one question the generate form asks it. */
+	class WPCPM_Agreement_Template {
+		public static function languages() {
+			return (array) $GLOBALS['languages'];
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
+	/**
+	 * The membership store, at the one method the review block and `review_facts()` read.
+	 *
+	 * The count matters and the accounts do not: what the Accept confirm has to say is how
+	 * many people an acceptance emails, which is the whole reason the design puts a number
+	 * in a dialog rather than "the institution".
+	 */
+	class WPCPM_Institution_Members {
+		public static function members_of( $record_id ) {
+			$rows = $GLOBALS['members'][ (string) $record_id ] ?? array();
+			$out  = array();
+			foreach ( (array) $rows as $i => $name ) {
+				$out[] = new WP_User( 700 + $i, $name, 'member' . $i . '@example.edu' );
+			}
+			return $out;
+		}
+	}
+}
+
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php';
 
@@ -416,6 +518,10 @@ function reset_world() {
 	$GLOBALS['allow']      = true;
 	$GLOBALS['member_of']  = array();
 	$GLOBALS['post_fails'] = false;
+	$GLOBALS['members']    = array();
+	// `$GLOBALS['languages']` is deliberately not reset here. It configures the template
+	// stub rather than describing the world, the way `$GLOBALS['users']` does, and a block
+	// that sets it and then seeds an institution would otherwise lose it before rendering.
 }
 
 /**
@@ -610,6 +716,7 @@ $rec_a   = 'recAAAAAAAAAAAAA1';
 $rec_b   = 'recBBBBBBBBBBBBB2';
 $country = 'recCOUNTRYAAAAAAA';
 
+$GLOBALS['users'][7] = new WP_User( 7, 'Wera Rektor', 'wera@example.edu' );
 $GLOBALS['users'][9] = new WP_User( 9, 'Ada Manager', 'ada@example.test' );
 
 /* ---- the constants pin the base's spelling ------------------------------ */
@@ -649,7 +756,7 @@ $none = panel( $rec_a );
 ck( 'none: says nothing is recorded', false !== strpos( $none, 'no Collaboration Agreement recorded' ), true );
 ck( 'none: three numbered steps', substr_count( $none, '<li>' ), 3 );
 ck( 'none: names both routes to a document in step one', false !== strpos( $none, 'or upload an agreement of your own' ), true );
-ck( 'none: says the two controls are not here yet', false !== strpos( $none, 'Generating and uploading arrive in the next release' ), true );
+ck( 'none: offers both controls rather than promising them', array( false !== strpos( $none, 'value="wpcpm_agreement_generate"' ), false !== strpos( $none, 'value="wpcpm_agreement_upload"' ) ), array( true, true ) );
 ck( 'none: says a signed agreement can be recorded instead', false !== strpos( $none, 'does not need to sign again' ), true );
 ck( 'none: no on-file form for a member', false !== strpos( $none, 'wpcpm_agreement_drive' ), false );
 $ledes['none'] = $none;
@@ -672,7 +779,7 @@ $submitted = panel( $rec_a );
 
 ck( 'submitted: says it arrived and that an email is coming either way', false !== strpos( $submitted, 'We received your signed agreement on 2025-09-01' ), true );
 ck( 'submitted: asks the reader to do nothing, so no steps', substr_count( $submitted, '<li>' ), 0 );
-ck( 'submitted: says download and withdraw are not here yet', false !== strpos( $submitted, 'withdrawing it arrive in the next release' ), true );
+ck( 'submitted: offers the copy and the way to take it back', array( false !== strpos( $submitted, 'action=wpcpm_agreement_download' ), false !== strpos( $submitted, 'value="wpcpm_agreement_withdraw"' ) ), array( true, true ) );
 $ledes['submitted'] = $submitted;
 
 reset_world();
@@ -983,8 +1090,9 @@ $GLOBALS['users'][13] = new WP_User( 13, 'Di Manager', 'di@example.test' );
 WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'agreement-busy', 13 );
 $busy = panel( $rec_b, true );
 
-ck( 'a recording that lost the race to another write says nothing was recorded', false !== strpos( $busy, 'Nothing was recorded. Another write to this institution' ), true );
+ck( 'a recording that lost the race to another write says nothing was saved', false !== strpos( $busy, 'Nothing was saved. Either another write to this institution' ), true );
 ck( 'and names the two writers it could have lost to', false !== strpos( $busy, 'from a sync or from somebody else pressing the same button' ), true );
+ck( 'and the other producer of the same slug, the daily ceiling', false !== strpos( $busy, 'used up the documents one day allows it to generate and upload' ), true );
 ck( 'as an error rather than as news', false !== strpos( $busy, 'wpcpm-agreement-panel__message--error' ), true );
 ck( 'and the form is still there to try again with', false !== strpos( $busy, 'name="wpcpm_agreement_drive"' ), true );
 
@@ -1185,6 +1293,676 @@ ck( 'and the bulk route checks the link before it loops', strpos( $bulk, 'self::
 ck( 'every exit after the lock gives it back', substr_count( $write, 'self::unlock(' ), 4 );
 ck( 'and the log row is written while the lock is still held', strpos( $write, 'WPCPM_Institution_Audit::record(' ) < strrpos( $write, 'self::unlock(' ), true );
 ck( 'the write never redirects, which is what lets the bulk route loop it', strpos( $write, 'bounce_on_file(' ), false );
+
+
+/* ---- Phase 3: the forms each locked state offers -------------------------- */
+
+echo "\n=== Each locked state offers its own controls and no other state's ===\n";
+
+/**
+ * How many of each control one render printed.
+ *
+ * Counted by the value of the hidden `action` field, which is the thing `admin-post.php`
+ * dispatches on, rather than by a class name: a form whose class was renamed still posts,
+ * and a form whose action was renamed posts into nothing at all.
+ *
+ * @param string $html What a render printed.
+ * @return array<string, int>
+ */
+function forms_in( $html ) {
+	return array(
+		'generate' => substr_count( $html, 'value="' . WPCPM_Agreement_Generate::ACTION_GENERATE . '"' ),
+		'upload'   => substr_count( $html, 'value="' . WPCPM_Institution_Agreement::ACTION_UPLOAD . '"' ),
+		'withdraw' => substr_count( $html, 'value="' . WPCPM_Institution_Agreement::ACTION_WITHDRAW . '"' ),
+		'accept'   => substr_count( $html, 'value="' . WPCPM_Institution_Agreement::ACTION_ACCEPT . '"' ),
+		'return'   => substr_count( $html, 'value="' . WPCPM_Institution_Agreement::ACTION_RETURN . '"' ),
+		'download' => substr_count( $html, 'action=' . WPCPM_Institution_Agreement::ACTION_DOWNLOAD ),
+	);
+}
+
+/**
+ * Stand one institution up in a named summary state and render its panel for a member.
+ *
+ * @param string $record Institutions record ID.
+ * @param string $state  A `STATE_*` value, or an empty string for nothing recorded at all.
+ * @param string $status The Airtable `Agreement Status` the rebuild reads.
+ * @param array  $meta   Extra meta rows on the seeded document.
+ * @return array `array( html, post id )`.
+ */
+function state_panel( $record, $state, $status, array $meta = array() ) {
+	reset_world();
+	seed_index( $record, 'recCOUNTRYAAAAAAA' );
+	$GLOBALS['opts'][ WPCPM_Countries::OPTION ] = array(
+		'v'    => WPCPM_Countries::VERSION,
+		'read' => 1756600000,
+		'rows' => array( 'recCOUNTRYAAAAAAA' => array( 'name' => 'Poland', 'manager' => 'recTEAMAAAAAAAA1', 'email' => 'poland@example.org', 'calendly' => '' ) ),
+	);
+
+	$post_id = '' === $state ? 0 : seed_post( $record, $state, WPCPM_Institution_Agreement::KIND_TEMPLATE, $meta );
+	WPCPM_Institution_Agreement::rebuild( $record, block( $status ) );
+
+	return array( panel( $record ), $post_id );
+}
+
+$file_meta = array(
+	WPCPM_Institution_Agreement::META_FILE              => array(
+		'path'   => '2026/0123456789abcdef0123456789abcd.pdf',
+		'size'   => 239616,
+		'sha256' => str_repeat( 'a', 64 ),
+	),
+	WPCPM_Institution_Agreement::META_ORIGINAL_NAME     => 'Umowa podpisana.pdf',
+	WPCPM_Institution_Agreement::META_TEMPLATE_VERSION  => '2025-11-04',
+	WPCPM_Institution_Agreement::META_NAME_ON_DOCUMENT  => 'Universidad Example Sede Central',
+	WPCPM_Institution_Agreement::META_FLAGS             => array( '/JavaScript', '/OpenAction' ),
+);
+
+list( $p_none )      = state_panel( $rec_a, '', 'Not started' );
+list( $p_generated ) = state_panel( $rec_a, WPCPM_Institution_Agreement::STATE_GENERATED, 'Template generated', array( WPCPM_Institution_Agreement::META_TEMPLATE_VERSION => '2025-11-04' ) );
+list( $p_submitted, $submitted_id ) = state_panel( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, 'Awaiting review', $file_meta );
+list( $p_returned )  = state_panel( $rec_a, WPCPM_Institution_Agreement::STATE_RETURNED, 'Returned', array( WPCPM_Institution_Agreement::META_NOTE => 'Page 4 is not signed.', WPCPM_Institution_Agreement::META_DECIDED_BY => 9, WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-08-30' ) );
+list( $p_revoked )   = state_panel( $rec_a, WPCPM_Institution_Agreement::STATE_REVOKED, 'Revoked', array( WPCPM_Institution_Agreement::META_NOTE => 'The partnership ended in July.', WPCPM_Institution_Agreement::META_DECIDED_BY => 9, WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-08-31' ) );
+
+// The spec's section 7.4 table, read as a matrix. `generated` carries two generate forms
+// on purpose: the full one, and the Regenerate control that reproduces the document the
+// institution already has. Everything else is one form or none.
+ck( 'none: generate and upload, nothing else', forms_in( $p_none ), array( 'generate' => 1, 'upload' => 1, 'withdraw' => 0, 'accept' => 0, 'return' => 0, 'download' => 0 ) );
+ck( 'generated: the same two, plus Regenerate', forms_in( $p_generated ), array( 'generate' => 2, 'upload' => 1, 'withdraw' => 0, 'accept' => 0, 'return' => 0, 'download' => 0 ) );
+ck( 'submitted: download and withdraw, and nothing to upload over it', forms_in( $p_submitted ), array( 'generate' => 0, 'upload' => 0, 'withdraw' => 1, 'accept' => 0, 'return' => 0, 'download' => 1 ) );
+ck( 'returned: the upload form and not the generate form', forms_in( $p_returned ), array( 'generate' => 0, 'upload' => 1, 'withdraw' => 0, 'accept' => 0, 'return' => 0, 'download' => 0 ) );
+ck( 'revoked: the same', forms_in( $p_revoked ), array( 'generate' => 0, 'upload' => 1, 'withdraw' => 0, 'accept' => 0, 'return' => 0, 'download' => 0 ) );
+
+ck( 'generated: says when it was generated and from which template', false !== strpos( $p_generated, 'You generated the program&#039;s agreement on 2025-09-01 (template 2025-11-04)' ), true );
+ck( 'and offers that document again rather than only a fresh one', false !== strpos( $p_generated, 'Open that document again' ), true );
+ck( 'revoked: still names the country contact after the upload form', strpos( $p_revoked, 'value="wpcpm_agreement_upload"' ) < strpos( $p_revoked, 'Your program contact for Poland' ), true );
+
+/* ---- every nonce action string, byte for byte ---------------------------- */
+
+echo "\n=== Every nonce is keyed the way its handler reads it ===\n";
+
+// The strings the handlers check against, taken from the classes that own them rather than
+// typed here, and then typed here as well: a constant renamed on both sides at once is a
+// rename, a constant renamed on one side is a form that 403s and a test that still passes.
+ck( 'the six action names are the ones the contract fixes',
+	array(
+		WPCPM_Agreement_Generate::ACTION_GENERATE,
+		WPCPM_Institution_Agreement::ACTION_UPLOAD,
+		WPCPM_Institution_Agreement::ACTION_DOWNLOAD,
+		WPCPM_Institution_Agreement::ACTION_ACCEPT,
+		WPCPM_Institution_Agreement::ACTION_RETURN,
+		WPCPM_Institution_Agreement::ACTION_WITHDRAW,
+	),
+	array( 'wpcpm_agreement_generate', 'wpcpm_agreement_upload', 'wpcpm_agreement_download', 'wpcpm_agreement_accept', 'wpcpm_agreement_return', 'wpcpm_agreement_withdraw' ) );
+
+$generate_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-agreement-generate.php' );
+preg_match( "/const ACTION_GENERATE\s*=\s*'([^']+)'/", $generate_src, $g );
+ck( 'and the generate action stubbed here is the real class\'s own', WPCPM_Agreement_Generate::ACTION_GENERATE, $g[1] ?? '' );
+
+ck( 'generate is keyed to the institution', false !== strpos( $p_none, 'value="nonce-wpcpm_agreement_generate_' . $rec_a . '"' ), true );
+ck( 'upload is keyed to the institution', false !== strpos( $p_none, 'value="nonce-wpcpm_agreement_upload_' . $rec_a . '"' ), true );
+ck( 'regenerate is keyed to the institution too, not to the document', false !== strpos( $p_generated, 'value="nonce-wpcpm_agreement_generate_' . $rec_a . '"' ), true );
+ck( 'withdraw is keyed to the document', false !== strpos( $p_submitted, 'value="nonce-wpcpm_agreement_withdraw_' . $submitted_id . '"' ), true );
+ck( 'and no form was keyed to the wrong half', array(
+	false !== strpos( $p_none, 'nonce-wpcpm_agreement_upload_' . $submitted_id ),
+	false !== strpos( $p_submitted, 'nonce-wpcpm_agreement_withdraw_' . $rec_a ),
+), array( false, false ) );
+
+ck( 'every form posts to admin-post.php', substr_count( $p_none, 'action="https://example.test/wp-admin/admin-post.php"' ), 2 );
+ck( 'and every form carries the attribute the submit guard reads', substr_count( $p_none, 'data-wpcpm-once' ), 2 );
+
+/* ---- a manager's post lands on the institution they were looking at ------- */
+
+echo "\n=== A manager's generate carries the switcher; a member's carries nothing ===\n";
+
+// `generate()` resolves the institution from the request and from nothing else, and a POST
+// to admin-post.php carries the form's own fields and none of the query string of the page
+// the button was on. So a manager pressing Generate on an institution's dashboard resolved
+// to whichever institution is their fallback, met a nonce keyed to a different record, and
+// got "Are you sure you want to do this?" every time: a program manager could not generate
+// at all. The switcher argument on the form's own action is what carries the answer back.
+
+/**
+ * One form out of a render, by the action it posts to.
+ *
+ * The panel prints several forms into one string, and every question below is about one of
+ * them: which fields it carries, and where it posts. Sliced on the hidden `action` field
+ * rather than on a class, for the reason `forms_in()` gives - the action is the thing
+ * `admin-post.php` dispatches on.
+ *
+ * @param string $html   What a render printed.
+ * @param string $action The `admin_post_` action name.
+ * @return string
+ */
+function form_with( $html, $action ) {
+	$at = strpos( $html, 'value="' . $action . '"' );
+
+	if ( false === $at ) {
+		return '';
+	}
+
+	$open = (int) strrpos( substr( $html, 0, $at ), '<form ' );
+	$end  = (int) strpos( $html, '</form>', $at );
+
+	return substr( $html, $open, $end - $open + 7 );
+}
+
+$roster_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php' );
+preg_match( "/const ARG_VIEW\s*=\s*'([^']+)'/", $roster_src, $v );
+ck( 'the switcher argument stubbed here is the roster\'s own', WPCPM_Institution_Roster::ARG_VIEW, $v[1] ?? '' );
+
+// The two facts on the other side that an argument on a form's action depends on, read off
+// the roster rather than assumed here: `resolve_institution()` honours the switcher for a
+// manager, and `requested_view()` looks in the query string as well as in the posted
+// fields. Take either away and this form posts an argument nobody reads.
+ck( 'the resolver honours the switcher, and looks where a form action puts it', array(
+	false !== strpos( method_body( $roster_src, 'resolve_institution' ), 'self::requested_view()' ),
+	false !== strpos( method_body( $roster_src, 'requested_view' ), 'WPCPM_Request::text( self::ARG_VIEW )' ),
+), array( true, true ) );
+
+list( $member_none ) = state_panel( $rec_a, '', 'Not started' );
+$manager_none        = panel( $rec_a, true );
+
+list( $member_generated ) = state_panel( $rec_a, WPCPM_Institution_Agreement::STATE_GENERATED, 'Template generated', array( WPCPM_Institution_Agreement::META_TEMPLATE_VERSION => '2025-11-04' ) );
+$manager_generated        = panel( $rec_a, true );
+
+$plain    = 'action="https://example.test/wp-admin/admin-post.php"';
+$switched = 'action="https://example.test/wp-admin/admin-post.php?' . WPCPM_Institution_Roster::ARG_VIEW . '=' . $rec_a . '"';
+
+ck( 'a member posts to admin-post.php and nothing else', array( substr_count( $member_none, $plain ), false !== strpos( $member_none, WPCPM_Institution_Roster::ARG_VIEW ) ), array( 2, false ) );
+ck( 'a manager\'s generate form names the institution being looked at', false !== strpos( $manager_none, $switched ), true );
+ck( 'exactly once: it is the only form on that state whose handler resolves from the request', substr_count( $manager_none, $switched ), 1 );
+ck( 'and Regenerate carries it too, because it is keyed to the same institution', substr_count( $manager_generated, $switched ), 2 );
+ck( 'the upload form does not, because its own handler honours the record it posts', false !== strpos( form_with( $manager_none, WPCPM_Institution_Agreement::ACTION_UPLOAD ), WPCPM_Institution_Roster::ARG_VIEW ), false );
+
+// The field the generate form used to carry: it named the right institution while the
+// handler was busy resolving another one, which is the worst kind of hidden input - one
+// that reads as the answer and is never asked.
+ck( 'the generate form carries no record field', false !== strpos( form_with( $member_none, WPCPM_Agreement_Generate::ACTION_GENERATE ), 'name="wpcpm_agreement_record"' ), false );
+ck( 'nor does Regenerate', false !== strpos( form_with( $member_generated, WPCPM_Agreement_Generate::ACTION_GENERATE ), 'name="wpcpm_agreement_record"' ), false );
+// The route reads that field only when it is there, and a request without it falls through
+// to `resolve_institution()`, which is what reads the switcher off the action URL. That
+// fallback is the whole reason this form can drop the field, so it is pinned rather than
+// assumed.
+ck( 'and the generate route falls through to the resolver, which is what reads the action URL', false !== strpos( $generate_src, 'WPCPM_Institution_Roster::resolve_institution(' ), true );
+ck( 'the upload form still carries it, because its handler honours it for a manager', false !== strpos( form_with( $member_none, WPCPM_Institution_Agreement::ACTION_UPLOAD ), 'name="wpcpm_agreement_record" value="' . $rec_a . '"' ), true );
+ck( 'and its handler really reads it', false !== strpos( $agr_src, "WPCPM_Request::posted_text( 'wpcpm_agreement_record' )" ), true );
+
+/* ---- the download is a nonce URL and never a file URL -------------------- */
+
+echo "\n=== The download link is a nonced route, never the file ===\n";
+
+$expected_download = 'https://example.test/wp-admin/admin-post.php?action=wpcpm_agreement_download&post=' . $submitted_id . '&_wpnonce=nonce-wpcpm_agreement_download_' . $submitted_id;
+
+ck( 'the link is admin-post.php with the action, the post and the nonce', false !== strpos( $p_submitted, $expected_download ), true );
+ck( 'and the nonce is keyed to the post ID, which is what the handler checks', false !== strpos( $p_submitted, '_wpnonce=nonce-wpcpm_agreement_download_' . $submitted_id ), true );
+
+// Design spec 7.4: the plugin never prints a private file's URL anywhere. The stored path,
+// the private directory's name and the extension are each looked for on their own, because
+// the way this leaks is one careless `esc_url( $file['path'] )` in a later phase.
+ck( 'the stored path is nowhere in the page', false !== strpos( $p_submitted, '0123456789abcdef0123456789abcd' ), false );
+ck( 'neither is the private directory', false !== strpos( $p_submitted, 'wpcpm-private' ), false );
+ck( 'nor the original filename the institution sent', false !== strpos( $p_submitted, 'Umowa podpisana' ), false );
+ck( 'nor a .pdf address of any kind', false !== strpos( $p_submitted, '.pdf' ), false );
+
+/* ---- one free-text field, and it is the return note ---------------------- */
+
+echo "\n=== No form carries a free-text field except the return note ===\n";
+
+// Design spec 7.4, on the upload form: "No free-text field: a textarea on an upload form is
+// a second place for personal data to land." The panel is where an institution's own people
+// type, so the rule is checked over all five of its states at once rather than form by form.
+$all_states = $p_none . $p_generated . $p_submitted . $p_returned . $p_revoked;
+
+ck( 'no state of the panel prints a textarea', substr_count( $all_states, '<textarea' ), 0 );
+
+ob_start();
+WPCPM_Institution_Panel::render_upload_form( $rec_a, '' );
+$upload_only = (string) ob_get_clean();
+
+ck( 'the upload form has no textarea', substr_count( $upload_only, '<textarea' ), 0 );
+ck( 'and no free-text input either: a file, two radios, a checkbox and its companion', substr_count( $upload_only, 'type="text"' ), 0 );
+ck( 'the one text box on the panel is the name the agreement will print', substr_count( $p_none, 'type="text"' ), 1 );
+ck( 'and it is the generate form\'s', false !== strpos( $p_none, 'name="wpcpm_agreement_name"' ), true );
+
+/* ---- the upload form, field by field ------------------------------------- */
+
+echo "\n=== The upload form is the shape the handler reads ===\n";
+
+ck( 'it is multipart, or the bytes never arrive', false !== strpos( $upload_only, 'enctype="multipart/form-data"' ), true );
+ck( 'the file field is the name the handler reads, and asks for a PDF', false !== strpos( $upload_only, 'name="wpcpm_agreement_file" accept="application/pdf,.pdf"' ), true );
+ck( 'the kind is two radios on the server-held allowlist', array(
+	false !== strpos( $upload_only, 'name="wpcpm_agreement_kind" value="template"' ),
+	false !== strpos( $upload_only, 'name="wpcpm_agreement_kind" value="own"' ),
+), array( true, true ) );
+ck( 'the institution travels with it, for a manager uploading on behalf', false !== strpos( $upload_only, 'name="wpcpm_agreement_record" value="' . $rec_a . '"' ), true );
+
+// The companion has to come first: a later field of the same name wins, so an unticked box
+// leaves `0` behind and a ticked one overwrites it. In the other order the declaration would
+// always post `0` and no upload could ever succeed.
+$companion = strpos( $upload_only, 'name="wpcpm_agreement_signed" value="0"' );
+$checkbox  = strpos( $upload_only, 'name="wpcpm_agreement_signed" value="1"' );
+
+ck( 'both halves of the declaration are printed', array( is_int( $companion ), is_int( $checkbox ) ), array( true, true ) );
+ck( 'and the hidden 0 comes before the checkbox', $companion < $checkbox, true );
+ck( 'the checkbox is a checkbox and the companion is hidden', array(
+	false !== strpos( $upload_only, 'type="checkbox" id="wpcpm-upload-' . $rec_a . '-signed" name="wpcpm_agreement_signed" value="1"' ),
+	false !== strpos( $upload_only, '<input type="hidden" name="wpcpm_agreement_signed" value="0" />' ),
+), array( true, true ) );
+
+/* ---- the generate form, and the language select that is not always there -- */
+
+echo "\n=== The generate form pre-fills the name and offers a language only when there is one to pick ===\n";
+
+ck( 'the name is pre-filled from the pipeline index', false !== strpos( $p_none, 'name="wpcpm_agreement_name" value="Universidad Example"' ), true );
+ck( 'with one template the reader is not asked which', substr_count( $p_none, 'name="wpcpm_agreement_language"' ), 0 );
+ck( 'and no select is printed at all', substr_count( $p_none, '<select' ), 0 );
+ck( 'the Regenerate control carries the language the document was made with, whatever the count', substr_count( $p_generated, 'name="wpcpm_agreement_language"' ), 1 );
+
+$GLOBALS['languages'] = array( 'en', 'es' );
+list( $p_two ) = state_panel( $rec_a, '', 'Not started' );
+$GLOBALS['languages'] = array( 'en' );
+
+ck( 'with two templates the reader is asked which', substr_count( $p_two, '<select' ), 1 );
+ck( 'and both are offered', array( false !== strpos( $p_two, '<option value="en">' ), false !== strpos( $p_two, '<option value="es">' ) ), array( true, true ) );
+
+/* ---- the manager's upload on behalf -------------------------------------- */
+
+echo "\n=== A manager uploads on the institution's behalf with the same form ===\n";
+
+reset_world();
+seed_index( $rec_a, '' );
+$GLOBALS['caps'] = true;
+ob_start();
+WPCPM_Institution_Panel::render_manager_upload( $rec_a );
+$on_behalf = (string) ob_get_clean();
+
+ck( 'a manager gets the form', false !== strpos( $on_behalf, 'value="wpcpm_agreement_upload"' ), true );
+ck( 'keyed to the institution being looked at', false !== strpos( $on_behalf, 'value="nonce-wpcpm_agreement_upload_' . $rec_a . '"' ), true );
+ck( 'and told what it does to the people at that institution', false !== strpos( $on_behalf, 'everybody at the institution is emailed that it arrived' ), true );
+ck( 'the record travels in the field its handler honours', false !== strpos( $on_behalf, 'name="wpcpm_agreement_record" value="' . $rec_a . '"' ), true );
+
+$GLOBALS['caps']      = false;
+$GLOBALS['member_of'] = array( $rec_a );
+ob_start();
+WPCPM_Institution_Panel::render_manager_upload( $rec_a );
+ck( 'a member of the institution gets nothing from the manager\'s form', (string) ob_get_clean(), '' );
+
+// This method is called from an institution's row on a screen it knows nothing about, so it
+// decides for itself and it decides before it prints: a heading reading "Upload a signed
+// agreement on the institution's behalf" with nothing under it is what a caller gets when
+// the capability is asked here and the fence is asked one call further down.
+$GLOBALS['caps']      = true;
+$GLOBALS['member_of'] = array();
+$GLOBALS['allow']     = false;
+ob_start();
+WPCPM_Institution_Panel::render_manager_upload( $rec_a );
+$refused_behalf   = (string) ob_get_clean();
+$GLOBALS['allow'] = true;
+
+ck( 'a manager the fence refuses gets nothing, not a heading over no form', $refused_behalf, '' );
+ck( 'and a record that is not a record draws nothing either', ( function () {
+	ob_start();
+	WPCPM_Institution_Panel::render_manager_upload( 'not-a-record' );
+	return (string) ob_get_clean();
+} )(), '' );
+ck( 'the heading and the form arrive together', array(
+	substr_count( $on_behalf, 'Upload a signed agreement on the institution' ),
+	substr_count( $on_behalf, 'value="wpcpm_agreement_upload"' ),
+), array( 1, 1 ) );
+
+/* ---- the reviewer's block ------------------------------------------------ */
+
+echo "\n=== The review block: the checklist read, the flags as a courtesy, two ways out ===\n";
+
+/**
+ * Render the review block for one document and hand back what it printed.
+ *
+ * @param int         $post_id    Agreement post ID.
+ * @param bool        $can_manage Whether the viewer holds CAP_MANAGE.
+ * @param string|null $member_of  The institution the viewer belongs to; null for none.
+ * @return string
+ */
+function review( $post_id, $can_manage = true, $member_of = null ) {
+	$GLOBALS['caps']      = $can_manage;
+	$GLOBALS['member_of'] = null === $member_of ? array() : array( $member_of );
+	ob_start();
+	WPCPM_Institution_Panel::render_review( $post_id );
+	return (string) ob_get_clean();
+}
+
+reset_world();
+seed_index( $rec_a, '' );
+$GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska', 'Bo Nowak', 'Cy Wisniewski' );
+$review_id = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+$template_review = review( $review_id );
+
+ck( 'the block names the institution it is about', false !== strpos( $template_review, 'Review the signed agreement from Universidad Example' ), true );
+ck( 'and who uploaded it, when, and how big it is', false !== strpos( $template_review, 'Uploaded by Wera Rektor on 2025-09-01, 234 KB.' ), true );
+ck( 'the checklist is read, not ticked: three sentences and no boxes', array( substr_count( $template_review, '<li>' ), substr_count( $template_review, 'type="checkbox"' ) ), array( 3, 0 ) );
+ck( 'a template-kind document names the version the footer should carry', false !== strpos( $template_review, 'The footer on the signed copy names template version 2025-11-04.' ), true );
+ck( 'and the two names, side by side', false !== strpos( $template_review, 'The name on the document is Universidad Example Sede Central. Airtable&#039;s Name for this institution is Universidad Example.' ), true );
+ck( 'and asks whether the signature block is filled', false !== strpos( $template_review, 'signature block is filled in' ), true );
+ck( 'the flags line names what the scan noticed', false !== strpos( $template_review, 'The scan noticed these in the file: /JavaScript, /OpenAction.' ), true );
+ck( 'and says in the same breath that it is not evidence', false !== strpos( $template_review, 'The scan is a courtesy and not evidence' ), true );
+ck( 'and what does protect the reviewer', false !== strpos( $template_review, 'never opens the file in your browser' ), true );
+ck( 'the copy itself is one nonced link away', false !== strpos( $template_review, 'action=wpcpm_agreement_download&post=' . $review_id . '&_wpnonce=nonce-wpcpm_agreement_download_' . $review_id ), true );
+ck( 'and the file is still nowhere in the page', array( false !== strpos( $template_review, '0123456789abcdef' ), false !== strpos( $template_review, 'Umowa podpisana' ) ), array( false, false ) );
+
+ck( 'the two ways out are Accept and Return, one each', array_intersect_key( forms_in( $template_review ), array( 'accept' => 0, 'return' => 0, 'upload' => 0, 'withdraw' => 0 ) ), array( 'upload' => 0, 'withdraw' => 0, 'accept' => 1, 'return' => 1 ) );
+ck( 'Accept is keyed to the document', false !== strpos( $template_review, 'value="nonce-wpcpm_agreement_accept_' . $review_id . '"' ), true );
+ck( 'Return is too', false !== strpos( $template_review, 'value="nonce-wpcpm_agreement_return_' . $review_id . '"' ), true );
+ck( 'and both carry the post ID under the name the handlers read', substr_count( $template_review, 'name="wpcpm_agreement_post" value="' . $review_id . '"' ), 2 );
+
+// The confirm names everything that leaves the building: the institution, the Airtable stage
+// and the number of inboxes. The count comes from members_of(), so a fourth member added
+// this morning is a four in the dialog this afternoon.
+ck( 'the Accept confirm names the institution', false !== strpos( $template_review, 'Accept the signed agreement from Universidad Example?' ), true );
+ck( 'names Confirmed', false !== strpos( $template_review, 'sets Current Stage to Confirmed in Airtable' ), true );
+ck( 'names how many people it emails', false !== strpos( $template_review, 'emails the 3 people at the institution' ), true );
+ck( 'and says it can be undone', false !== strpos( $template_review, 'You can revoke it from here later' ), true );
+
+$GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska' );
+ck( 'one member is one person, not one people', false !== strpos( review( $review_id ), 'emails the 1 person at the institution' ), true );
+$GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska', 'Bo Nowak', 'Cy Wisniewski' );
+
+ck( 'the return note is the one free-text field in the block', substr_count( $template_review, '<textarea' ), 1 );
+ck( 'named the way the handler reads it, and bounded the way it refuses', false !== strpos( $template_review, 'name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required' ), true );
+ck( 'and said to be mailed verbatim', false !== strpos( $template_review, 'exactly as you write it' ), true );
+
+/* ---- an own-kind document is a different read ----------------------------- */
+
+reset_world();
+seed_index( $rec_a, '' );
+$GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska' );
+$own_id = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_OWN, array( WPCPM_Institution_Agreement::META_FILE => array( 'path' => '2026/ffffffffffffffffffffffffffffffff.pdf', 'size' => 51200, 'sha256' => str_repeat( 'b', 64 ) ) ) );
+$own_review = review( $own_id );
+
+ck( 'an own-kind document says to read the whole thing', false !== strpos( $own_review, 'Read the whole document' ), true );
+ck( 'names the two parties it has to name', false !== strpos( $own_review, 'It names the WordPress Foundation and the institution' ), true );
+ck( 'and warns about what it must not add', false !== strpos( $own_review, 'does not commit the program to anything the program&#039;s own template does not' ), true );
+ck( 'it does not compare a template version, because there is none to compare', false !== strpos( $own_review, 'The footer on the signed copy names template version' ), false );
+ck( 'the flags line is there whichever kind it is', false !== strpos( $own_review, 'The scan is a courtesy and not evidence' ), true );
+ck( 'and says so plainly when the scan noticed nothing', false !== strpos( $own_review, 'The scan noticed none of the features it looks for' ), true );
+
+/* ---- who may read a review block ----------------------------------------- */
+
+echo "\n=== The review block belongs to a program manager and to nobody else ===\n";
+
+ck( 'a member of another institution gets nothing', review( $own_id, false, $rec_b ), '' );
+ck( 'a member of this very institution gets nothing either: reviewing is not theirs', review( $own_id, false, $rec_a ), '' );
+ck( 'a manager the fence refuses gets nothing', ( function () use ( $own_id ) {
+	$GLOBALS['allow'] = false;
+	$out              = review( $own_id );
+	$GLOBALS['allow'] = true;
+	return $out;
+} )(), '' );
+ck( 'a program manager gets it', '' !== trim( review( $own_id ) ), true );
+
+// Accept and Return are transitions out of `submitted` and out of nothing else, so a block
+// over any other state would be two buttons that refuse.
+update_post_meta( $own_id, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_WITHDRAWN );
+ck( 'a withdrawn document has nothing left to review', review( $own_id ), '' );
+update_post_meta( $own_id, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_SUBMITTED );
+
+ck( 'a post ID that is not an agreement at all draws nothing', review( 999999 ), '' );
+
+// The block reads one source, so it has to survive that source answering with nothing:
+// `review_facts()` returns an empty array for a post it does not recognise, and a heading
+// reading "Review the signed agreement from" over two live buttons is worse than silence.
+$orphan = wp_insert_post( array( 'post_type' => WPCPM_Institution_Agreement::POST_TYPE, 'post_status' => WPCPM_Institution_Agreement::POST_STATUS ) );
+update_post_meta( $orphan, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_SUBMITTED );
+update_post_meta( $orphan, WPCPM_Institution_Agreement::META_INSTITUTION, $rec_b );
+ck( 'and a document whose institution the index has not read yet is named by its record', false !== strpos( review( $orphan ), 'Review the signed agreement from ' . $rec_b ), true );
+
+/* ---- the card at the foot of a settled dashboard -------------------------- */
+
+echo "\n=== The settled card carries the copy and the way to replace it ===\n";
+
+reset_world();
+seed_index( $rec_a, '' );
+$accepted_id = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_ACCEPTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Accepted' ) );
+
+ck( 'the institution is settled', WPCPM_Institution_Agreement::is_settled( $rec_a ), true );
+$accepted_card = card( $rec_a );
+
+ck( 'the card offers the accepted copy', false !== strpos( $accepted_card, 'action=wpcpm_agreement_download&post=' . $accepted_id ), true );
+ck( 'and the upload form that replaces it', forms_in( $accepted_card )['upload'], 1 );
+ck( 'saying plainly that the current one stays in force', false !== strpos( $accepted_card, 'stays in force until a program manager accepts the new one' ), true );
+ck( 'and the file is not named anywhere on it', false !== strpos( $accepted_card, '0123456789abcdef' ), false );
+
+// A replacement already waiting: the upload would refuse ("one in review at a time"), so the
+// card says where it got to and offers the way back out instead of a form that cannot work.
+$replacement_id = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Accepted' ) );
+$busy_card = card( $rec_a );
+
+ck( 'with a replacement in review the card says so', false !== strpos( $busy_card, 'A newer signed agreement is waiting for review' ), true );
+ck( 'offers no second upload', forms_in( $busy_card )['upload'], 0 );
+ck( 'and offers the way to take the replacement back', array( forms_in( $busy_card )['withdraw'], false !== strpos( $busy_card, 'value="nonce-wpcpm_agreement_withdraw_' . $replacement_id . '"' ) ), array( 1, true ) );
+
+// A legacy row is settled and has no file at all. Offering a download would 404; the route
+// line and the manager's Drive link are what that institution has.
+reset_world();
+seed_index( $rec_b, '' );
+WPCPM_Institution_Agreement::rebuild( $rec_b, block( 'On file', $drive ) );
+$legacy_card = card( $rec_b );
+
+ck( 'an on-file institution is settled', WPCPM_Institution_Agreement::is_settled( $rec_b ), true );
+ck( 'and is offered no download, because this site holds no file', false !== strpos( $legacy_card, 'action=wpcpm_agreement_download' ), false );
+ck( 'but may still replace it by signing the current template', forms_in( $legacy_card )['upload'], 1 );
+
+/* ---- a document of another institution's is nobody else's ------------------ */
+
+echo "\n=== A control keyed to a document asks about that document's institution ===\n";
+
+reset_world();
+seed_index( $rec_a, '' );
+$theirs = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+
+$GLOBALS['caps']      = false;
+$GLOBALS['member_of'] = array( $rec_b );
+$GLOBALS['decisions'] = array();
+ob_start();
+WPCPM_Institution_Panel::render_download_link( $theirs, 'Download' );
+WPCPM_Institution_Panel::render_withdraw_form( $theirs );
+$stranger_controls = (string) ob_get_clean();
+
+ck( 'a member of another institution gets neither control', $stranger_controls, '' );
+ck( 'and the fence was asked about the document, not about the screen', $GLOBALS['decisions'], array( array( 'agreement', (string) $theirs ), array( 'agreement', (string) $theirs ) ) );
+
+$GLOBALS['member_of'] = array( $rec_a );
+ob_start();
+WPCPM_Institution_Panel::render_download_link( $theirs, 'Download' );
+WPCPM_Institution_Panel::render_withdraw_form( $theirs );
+$own_controls = (string) ob_get_clean();
+
+ck( 'a member of the institution that uploaded it gets both', array(
+	false !== strpos( $own_controls, 'action=wpcpm_agreement_download&post=' . $theirs ),
+	false !== strpos( $own_controls, 'value="wpcpm_agreement_withdraw"' ),
+), array( true, true ) );
+
+/* ---- every class either half prints is dressed ---------------------------- */
+
+echo "\n=== Every class these two halves print has a rule in the right stylesheet ===\n";
+
+// Markup with no stylesheet is the failure nothing above would catch: every assertion in
+// this file passes on a page that renders as a stack of unstyled paragraphs, and the review
+// block shipped exactly that way - eleven classes and not one rule anywhere. The two halves
+// are asked of different files because they are drawn on different surfaces: the panel and
+// the card on the institution dashboard, which loads institution.css on top of the mentor
+// stylesheet, and the review block in wp-admin, which loads admin.css and neither of the
+// other two.
+
+/**
+ * Every class this file's markup carries, read from the source rather than from a render.
+ *
+ * A render only shows the states this file happened to stand up; the source shows all of
+ * them. The form classes come out of the `form_start()` calls, because that is where the
+ * panel names them, and the rest out of the `class="..."` attributes. A name built from a
+ * placeholder is skipped: `--%1$s` is a modifier assembled at runtime, and the base class
+ * printed beside it is the one a stylesheet can name.
+ *
+ * @param string $src The panel source.
+ * @return string[]
+ */
+function classes_in( $src ) {
+	$names = array();
+
+	preg_match_all( '/class="([^"]*)"/', $src, $attrs );
+	preg_match_all( "/form_start\(\s*'([^']+)'/", $src, $forms );
+
+	foreach ( array_merge( $attrs[1], $forms[1] ) as $list ) {
+		foreach ( preg_split( '/\s+/', trim( $list ) ) as $name ) {
+			if ( '' !== $name && 0 === strpos( $name, 'wpcpm-' ) && false === strpos( $name, '%' ) ) {
+				$names[ $name ] = true;
+			}
+		}
+	}
+
+	return array_keys( $names );
+}
+
+/**
+ * Whether a stylesheet has a rule for one class.
+ *
+ * A modifier is dressed by its base: `class="a a--b"` takes its box from `.a`, and a
+ * modifier exists so that a theme has somewhere to hang a difference, not so that every one
+ * of them has to carry a declaration of its own.
+ *
+ * @param string $css  The stylesheet.
+ * @param string $name The class name.
+ * @return bool
+ */
+function dressed( $css, $name ) {
+	$at   = strpos( $name, '--' );
+	$base = false === $at ? $name : substr( $name, 0, $at );
+
+	return (bool) preg_match( '/\.' . preg_quote( $base, '/' ) . '(?![\w-])/', $css );
+}
+
+$front_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' )
+	. (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/dashboard.css' );
+$admin_css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' );
+
+$undressed = array();
+$review    = 0;
+
+foreach ( classes_in( $panel_src ) as $name ) {
+	$in_admin = 0 === strpos( $name, 'wpcpm-review' );
+	$review  += $in_admin ? 1 : 0;
+
+	if ( ! dressed( $in_admin ? $admin_css : $front_css, $name ) ) {
+		$undressed[] = $name;
+	}
+}
+
+sort( $undressed );
+
+ck( 'the review block is eleven classes, and the admin stylesheet dresses all of them', array( $review, in_array( 'wpcpm-review', $undressed, true ) ), array( 11, false ) );
+
+// `.wpcpm-link-button` is the mentor dashboard's own button class - the group-sessions cards
+// print it too - so its rule belongs in dashboard.css and not in either file this page owns.
+// Named here rather than skipped quietly, so that the day dashboard.css grows it, this line
+// fails and the exception goes with it.
+ck( 'every class either half prints is dressed, but for the one another stylesheet owes', $undressed, array( 'wpcpm-link-button' ) );
+
+// The review block draws two pieces of the panel's own markup - the download link, and the
+// note's textarea, which carries the panel's input class - on a screen that loads neither of
+// the front-end stylesheets. Both are dressed by context in admin.css rather than by a
+// second copy of institution.css's selectors: one class dressed in two files is two files
+// that have to be kept in step.
+ck( 'the panel markup inside the review block is dressed on the screen it is drawn on', array(
+	false !== strpos( $admin_css, '.wpcpm-review .wpcpm-agreement-panel__download' ),
+	false !== strpos( $admin_css, '.wpcpm-review__note textarea' ),
+), array( true, true ) );
+
+// Declarations only: both files talk about `!important` in their comments, and saying why
+// a rule does not use one is the opposite of using one.
+$declarations = function ( $css ) {
+	return (string) preg_replace( '#/\*.*?\*/#s', '', (string) $css );
+};
+
+ck( 'and neither stylesheet reaches for !important', array( substr_count( $declarations( $front_css ), '!important' ), substr_count( $declarations( $admin_css ), '!important' ) ), array( 0, 0 ) );
+ck( 'nor writes an em dash or an en dash, the way the two PHP files do not', array(
+	preg_match( '/[\x{2013}\x{2014}]/u', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' ) ),
+	preg_match( '/[\x{2013}\x{2014}]/u', $admin_css ),
+), array( 0, 0 ) );
+
+/* ---- the submit guard is an attribute, and the guard is a script ---------- */
+
+echo "\n=== The once attribute is printed, and the docblock says what reads it ===\n";
+
+// `data-wpcpm-once` is inert on both of these screens: what reads it is assets/js/forms.js,
+// registered as `wpcpm-forms`, and neither the institution dashboard nor the Institutions
+// screen enqueues it. That is a fact about the site rather than about this file, and the
+// only thing this file can do about it is not pretend otherwise - a reader who believes the
+// guard is running does not go looking for the enqueue that is missing.
+$form_doc = substr( $panel_src, 0, (int) strpos( $panel_src, 'private static function form_start(' ) );
+$form_doc = substr( $form_doc, (int) strrpos( $form_doc, '/**' ) );
+
+ck( 'the docblock names the script the attribute needs', false !== strpos( $form_doc, 'wpcpm-forms' ), true );
+ck( 'and says the screens do not enqueue it', false !== strpos( $form_doc, 'enqueue' ), true );
+ck( 'and the attribute is still the one that script reads', false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/forms.js' ), 'form[data-wpcpm-once]' ), true );
+
+// The tripwire on the sentence above: when a screen does enqueue the guard, this fails, and
+// the docblock that says nothing enqueues it is one line away from the failure.
+$enqueues = 0;
+
+foreach ( array( 'includes/class-wpcpm-admin.php', 'includes/modules/class-wpcpm-institutions.php', 'includes/modules/class-wpcpm-institutions-dashboard.php' ) as $file ) {
+	$enqueues += substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . $file ), "wp_enqueue_script( 'wpcpm-forms' )" );
+}
+
+ck( 'no screen these forms are drawn on enqueues it yet, which is what the docblock says', $enqueues, 0 );
+
+/* ---- every outcome the handlers flash has words --------------------------- */
+
+echo "\n=== Every outcome the handlers flash has words on this page ===\n";
+
+$named = array_keys( WPCPM_Institution_Panel::messages() );
+
+ck( 'messages() names every slug the contract lists',
+	array_values( array_diff( array(
+		'agreement-uploaded',
+		'agreement-too-big',
+		'agreement-not-pdf',
+		'agreement-encrypted',
+		'agreement-launch',
+		'agreement-in-review',
+		'agreement-declare',
+		'agreement-kind',
+		'agreement-accepted',
+		'agreement-returned',
+		'agreement-withdrawn',
+		'agreement-note',
+		'agreement-stage',
+		'agreement-generated-later',
+		'agreement-name',
+	), $named ) ),
+	array() );
+
+// And every slug the two handler files actually flash, read off their source. This is the
+// assertion that pays for itself: `render_flash()` prints nothing at all for a slug it does
+// not know, so a handler that refuses with a name nobody wrote words for is a button that
+// looks like it did nothing. Three of these were found exactly this way.
+$flashed_slugs = array();
+foreach ( array( $agr_src, $generate_src ) as $handler_src ) {
+	preg_match_all( "/(?:self::bounce(?:_on_file)?\(\s*|WPCPM_Flash::set\(\s*WPCPM_Institutions::FLASH\s*,\s*|return\s+|'reason'\s*=>\s*)'(agreement-[a-z-]+)'/", $handler_src, $found );
+	$flashed_slugs = array_merge( $flashed_slugs, $found[1] );
+}
+$flashed_slugs = array_values( array_unique( $flashed_slugs ) );
+
+ck( 'the handlers really do flash a dozen or more outcomes', count( $flashed_slugs ) >= 12, true );
+ck( 'and every one of them has words here', array_values( array_diff( $flashed_slugs, $named ) ), array() );
+
+ck( 'the size the upload form offers is the size the refusal names', array(
+	false !== strpos( $upload_only, 'as a PDF of up to 10 MB' ),
+	false !== strpos( WPCPM_Institution_Panel::messages()['agreement-too-big'][1], 'larger than the 10 MB this site accepts' ),
+), array( true, true ) );
+
+$settings_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php' );
+ck( 'and ten is what the real defaults say', false !== strpos( $settings_src, "'agreement_max_mb'              => 10," ), true );
+
+ck( 'every message is a known notice type', array_values( array_unique( array_map( function ( $row ) { return $row[0]; }, WPCPM_Institution_Panel::messages() ) ) ), array( 'success', 'error', 'info' ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

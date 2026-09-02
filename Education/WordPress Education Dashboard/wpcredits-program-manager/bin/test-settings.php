@@ -172,55 +172,57 @@ ck( 'the handler derives its keys from the defaults, not a hand-written list',
 // boolean probe below, and that is asserted, so a setting cannot be added without its
 // round trip - the failure this file exists for is a field that saves nothing.
 $probe = array(
-	'api_token'                 => 'patTESTTOKEN1234567890',
-	'base_id'                   => 'appPROBE0000000001',
-	'mentors_table'             => 'tblPROBE0000000002',
-	'mentor_status'             => 'Probe active',
-	'reports_table'             => 'tblPROBE0000000003',
-	'students_table'            => 'tblPROBE0000000004',
-	'feedback_table'            => 'tblPROBE0000000005',
-	'institutions_table'        => 'tblPROBE0000000001',
-	'teams_table'               => 'tblPROBE0000000006',
-	'sponsors_table'            => 'tblPROBE0000000007',
-	'institutions_name_field'   => 'Probe institution',
-	'teams_name_field'          => 'Probe field',
-	'sponsors_name_field'       => 'Probe sponsor',
-	'student_statuses'          => array( 'Probe current', 'Probe paused' ),
-	'past_statuses'             => array( 'Probe past' ),
-	'on_inactive'               => 'keep',
-	'handbook_provider'         => 'gemini',
-	'handbook_key'              => 'AQ.probe-key-value',
-	'handbook_model'            => 'gemini-2.5-flash',
-	'handbook_access'           => 'program',
-	'handbook_limit'            => '35',
-	'student_on_inactive'       => 'keep',
-	'checker_source_status'     => 'Probe status',
-	'checker_target_status'     => 'Probe target',
-	'checker_course_slug'       => 'probe-course',
-	'checker_course_title'      => 'Probe course',
-	'checker_completion_phrase' => 'Probe phrase',
-	'checker_timeline_filter'   => 'all',
-	'checker_max_pages'         => '7',
-	'checker_batch_size'        => '4',
-	'checker_request_delay'     => '250',
-	'checker_cache_ttl'         => '7200',
+	'api_token'                     => 'patTESTTOKEN1234567890',
+	'base_id'                       => 'appPROBE0000000001',
+	'mentors_table'                 => 'tblPROBE0000000002',
+	'mentor_status'                 => 'Probe active',
+	'reports_table'                 => 'tblPROBE0000000003',
+	'students_table'                => 'tblPROBE0000000004',
+	'feedback_table'                => 'tblPROBE0000000005',
+	'institutions_table'            => 'tblPROBE0000000001',
+	'teams_table'                   => 'tblPROBE0000000006',
+	'sponsors_table'                => 'tblPROBE0000000007',
+	'institutions_name_field'       => 'Probe institution',
+	'teams_name_field'              => 'Probe field',
+	'sponsors_name_field'           => 'Probe sponsor',
+	'student_statuses'              => array( 'Probe current', 'Probe paused' ),
+	'past_statuses'                 => array( 'Probe past' ),
+	'on_inactive'                   => 'keep',
+	'handbook_provider'             => 'gemini',
+	'handbook_key'                  => 'AQ.probe-key-value',
+	'handbook_model'                => 'gemini-2.5-flash',
+	'handbook_access'               => 'program',
+	'handbook_limit'                => '35',
+	'student_on_inactive'           => 'keep',
+	'checker_source_status'         => 'Probe status',
+	'checker_target_status'         => 'Probe target',
+	'checker_course_slug'           => 'probe-course',
+	'checker_course_title'          => 'Probe course',
+	'checker_completion_phrase'     => 'Probe phrase',
+	'checker_timeline_filter'       => 'all',
+	'checker_max_pages'             => '7',
+	'checker_batch_size'            => '4',
+	'checker_request_delay'         => '250',
+	'checker_cache_ttl'             => '7200',
 	// Institutions module.
-	'countries_table'           => 'tblPROBE0000000008',
-	'countries_name_field'      => 'Probe country',
-	'institution_new_stage'     => 'Probe stage',
-	'institution_active_stages' => array( 'Probe stage', 'Probe confirmed' ),
-	'two_factor_roles'          => array( 'administrator', 'wpcpm_mentor' ),
-	'institution_on_inactive'   => 'keep',
-	'application_spam_days'     => '45',
-	'application_rejected_days' => '400',
-	'application_approved_days' => '90',
-	'agreement_max_mb'          => '20',
-	'agreement_uploads_per_day' => '8',
-	'agreement_review_days'     => '5',
-	'agreement_doc_url'         => 'https://docs.google.com/document/d/PROBEDOC/edit',
-	'agreement_notify'          => 'one@example.org,two@example.org',
-	'agreement_discard_days'    => '60',
-	'invite_retention_days'     => '45',
+	'countries_table'               => 'tblPROBE0000000008',
+	'countries_name_field'          => 'Probe country',
+	'institution_new_stage'         => 'Probe stage',
+	'institution_active_stages'     => array( 'Probe stage', 'Probe confirmed' ),
+	'two_factor_roles'              => array( 'administrator', 'wpcpm_mentor' ),
+	'institution_on_inactive'       => 'keep',
+	'application_spam_days'         => '45',
+	'application_rejected_days'     => '400',
+	'application_approved_days'     => '90',
+	'application_trusted_proxy'     => '203.0.113.7',
+	'agreement_max_mb'              => '20',
+	'agreement_uploads_per_day'     => '8',
+	'agreement_generations_per_day' => '15',
+	'agreement_review_days'         => '5',
+	'agreement_doc_url'             => 'https://docs.google.com/document/d/PROBEDOC/edit',
+	'agreement_notify'              => 'one@example.org,two@example.org',
+	'agreement_discard_days'        => '60',
+	'invite_retention_days'         => '45',
 );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
@@ -326,14 +328,15 @@ ck( 'and an explicit off is honoured', array( $saved['institution_provision'], $
 // Each integer is clamped at both ends. The floors are the point: a typo of 0 in a retention
 // field would otherwise purge everything on the next cron run.
 $ranges = array(
-	'application_spam_days'     => array( 1, 365 ),
-	'application_rejected_days' => array( 30, 3650 ),
-	'application_approved_days' => array( 0, 3650 ),
-	'agreement_max_mb'          => array( 1, 50 ),
-	'agreement_uploads_per_day' => array( 1, 50 ),
-	'agreement_review_days'     => array( 1, 60 ),
-	'agreement_discard_days'    => array( 7, 365 ),
-	'invite_retention_days'     => array( 7, 365 ),
+	'application_spam_days'         => array( 1, 365 ),
+	'application_rejected_days'     => array( 30, 3650 ),
+	'application_approved_days'     => array( 0, 3650 ),
+	'agreement_max_mb'              => array( 1, 50 ),
+	'agreement_uploads_per_day'     => array( 1, 50 ),
+	'agreement_generations_per_day' => array( 1, 100 ),
+	'agreement_review_days'         => array( 1, 60 ),
+	'agreement_discard_days'        => array( 7, 365 ),
+	'invite_retention_days'         => array( 7, 365 ),
 );
 
 foreach ( $ranges as $key => $range ) {
@@ -368,6 +371,39 @@ ck( 'one mailbox typed two ways is kept once', array( $saved['agreement_notify']
 
 $saved = WPCPM_Settings::save( array( 'agreement_notify' => array( array( 'nested' ), 'b@example.org' ) ) );
 ck( 'a nested array in a crafted request is skipped, not fatal', array( $saved['agreement_notify'] ), array( 'b@example.org' ) );
+
+// The trusted proxy is compared with `REMOTE_ADDR`, so it is an IP or nothing. A value that
+// can never match would read as a setting while trusting no header, which is empty in disguise;
+// a list, a range or a URL is refused for the same reason, since none of them is one address.
+foreach ( array(
+	'not an ip'                => '',
+	'203.0.113.7, 203.0.113.8' => '',
+	'203.0.113.0/24'           => '',
+	'https://203.0.113.7'      => '',
+	'203.0.113.7'              => '203.0.113.7',
+	' 203.0.113.7 '            => '203.0.113.7',
+	'2001:db8::7'              => '2001:db8::7',
+	''                         => '',
+) as $typed => $want ) {
+	$saved = WPCPM_Settings::save( array( 'application_trusted_proxy' => $typed ) );
+	ck( sprintf( 'application_trusted_proxy refuses or keeps "%s"', $typed ), $saved['application_trusted_proxy'], $want );
+}
+
+$saved = WPCPM_Settings::save( array( 'application_trusted_proxy' => '203.0.113.7' ) );
+$saved = WPCPM_Settings::save( array( 'base_id' => 'appPROBE0000000004' ) );
+ck( 'a save that omits the proxy leaves it alone', $saved['application_trusted_proxy'], '203.0.113.7' );
+
+$saved = WPCPM_Settings::save( array( 'application_trusted_proxy' => array( '203.0.113.7' ) ) );
+ck( 'an array in a crafted request is dropped, not fatal', $saved['application_trusted_proxy'], '' );
+
+// The generation ceiling is clamped like the other counts; its floor is 1 because 0 would refuse
+// every institution its own template.
+$saved = WPCPM_Settings::save( array( 'agreement_generations_per_day' => '250' ) );
+ck( 'agreement_generations_per_day is capped at 100', $saved['agreement_generations_per_day'], 100 );
+$saved = WPCPM_Settings::save( array( 'agreement_generations_per_day' => '0' ) );
+ck( 'and floored at 1', $saved['agreement_generations_per_day'], 1 );
+$saved = WPCPM_Settings::save( array( 'agreement_generations_per_day' => '10' ) );
+ck( 'and the default of ten is inside the range', $saved['agreement_generations_per_day'], WPCPM_Settings::defaults()['agreement_generations_per_day'] );
 
 // The save handler reads every rendered checkbox unconditionally and skips the ones the
 // form does not render yet; the two lists must agree with the form itself, or a switch is

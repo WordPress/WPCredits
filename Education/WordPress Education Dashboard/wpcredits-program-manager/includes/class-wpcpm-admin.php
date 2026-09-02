@@ -28,7 +28,7 @@ class WPCPM_Admin {
 	 * means nothing, so these are left to `WPCPM_Settings::save()`'s own guard. The
 	 * Institutions settings card removes each one from here when it renders it.
 	 */
-	const UNRENDERED_SWITCHES = array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled' );
+	const UNRENDERED_SWITCHES = array( 'institution_provision', 'institution_home', 'import_enabled' );
 
 	/**
 	 * Hooks.
@@ -507,6 +507,29 @@ class WPCPM_Admin {
 			WPCPM_Students_Dashboard::page_url()
 				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( WPCPM_Students_Dashboard::page_url() ) )
 				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing — re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
+		);
+
+		// The public application form. Off by default and switched on here, because turning it
+		// on publishes a page that strangers can post to, which is not a thing to inherit from
+		// an update. The privacy policy is named on the same row rather than in a document
+		// nobody will read at the moment they need it: the form refuses to render at all
+		// without one, so a switch that looks on while the page shows nothing is exactly the
+		// confusion this line exists to prevent.
+		$policy_url = function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
+		$apply_url  = class_exists( 'WPCPM_Institution_Application' ) ? (string) WPCPM_Institution_Application::page_url() : '';
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s%6$s</td></tr>',
+			esc_html__( 'Applications from institutions', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['applications_enabled'] ), true, false ),
+			esc_html__( 'Take applications through the form on this site', 'wpcredits-program-manager' ),
+			esc_html__( 'A public page anybody can post to. Every submission is stored for a program manager to read on the Institutions screen, and nothing is created until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ),
+			'' === $policy_url
+				? '<p class="description wpcpm-warning">' . esc_html__( 'No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings, Privacy.', 'wpcredits-program-manager' ) . '</p>'
+				: '',
+			'' !== $apply_url
+				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( $apply_url ) )
+				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing: re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
 		);
 
 		echo '</tbody></table>';

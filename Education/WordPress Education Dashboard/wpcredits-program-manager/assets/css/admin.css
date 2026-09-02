@@ -1,5 +1,5 @@
 /**
- * WPCredits Program Manager — admin styles.
+ * WPCredits Program Manager - admin styles.
  */
 
 .wpcpm-wrap .wpcpm-lede {
@@ -276,7 +276,7 @@
  * Bulk invitations
  *
  * The card that sends invitations to everybody who has never had one, and then
- * reports on the sending — which takes the better part of an hour at ten every
+ * reports on the sending - which takes the better part of an hour at ten every
  * two minutes, so the reporting is most of the point.
  * ---------------------------------------------------------------------- */
 .wpcpm-invites__count {
@@ -386,4 +386,95 @@
    table's heading column is narrower than the 22em the shared rule gives it. */
 .wpcpm-inst-versions th {
 	width: 16em;
+}
+
+/* -------------------------------------------------------------------------
+ * The agreement review block
+ *
+ * One document waiting in the queue: who sent it, the three things to look at,
+ * what the courtesy scan noticed, the copy itself, and the two decisions. It is
+ * drawn inside a queue item that already has a card around it, so it carries no
+ * box of its own. What it needs is to read as one block, and for the half that
+ * is read and the half that decides to be plainly two halves.
+ * ---------------------------------------------------------------------- */
+.wpcpm-review {
+	border-top: 1px solid #f0f0f1;
+	margin-top: 12px;
+	padding-top: 12px;
+}
+
+.wpcpm-review__title {
+	font-size: 14px;
+	margin: 0 0 8px;
+}
+
+.wpcpm-review__facts {
+	margin: 0 0 4px;
+}
+
+/* Which kind the institution declared, which is what decides how the checklist
+   under it reads. */
+.wpcpm-review__kind {
+	color: #50575e;
+	margin: 0 0 8px;
+}
+
+/* The three things to look at. Markers, because this is read as a list and the
+   queue items around it have none. */
+.wpcpm-review__checklist {
+	list-style: disc;
+	margin: 0 0 12px 1.5em;
+}
+
+.wpcpm-review__checklist li {
+	margin-bottom: 4px;
+}
+
+/* What the scan noticed. Neither red nor the amber of the pipeline's marks: a
+   flag is a thing to look at rather than a fault, the sentence under it says the
+   scan is not evidence either way, and a colour here would claim more than the
+   scan knows. */
+.wpcpm-review__flags {
+	margin: 0 0 4px;
+}
+
+.wpcpm-review__courtesy {
+	color: #646970;
+	font-size: 13px;
+	margin: 0 0 12px;
+}
+
+/* The download link is the panel's own markup drawn on a screen that does not
+   load the panel's stylesheet. Dressed by context rather than by a second copy
+   of institution.css's selector: one class dressed in two files is two files to
+   keep in step. The note's textarea below is here for the same reason. */
+.wpcpm-review .wpcpm-agreement-panel__download {
+	margin: 0 0 12px;
+}
+
+/* Accept and Return are two decisions, not two buttons in a row, so the rule
+   above the first of them separates deciding from reading. */
+.wpcpm-review__form {
+	margin: 12px 0 0;
+}
+
+.wpcpm-review__form--accept {
+	border-top: 1px solid #f0f0f1;
+	padding-top: 12px;
+}
+
+.wpcpm-review__note {
+	margin: 0 0 8px;
+}
+
+.wpcpm-review__note label {
+	display: block;
+	margin-bottom: 4px;
+}
+
+/* The note is the whole of what the institution is told, so it is given the
+   width of a paragraph to write rather than the width of the column. */
+.wpcpm-review__note textarea {
+	max-width: 46em;
+	width: 100%;
 }

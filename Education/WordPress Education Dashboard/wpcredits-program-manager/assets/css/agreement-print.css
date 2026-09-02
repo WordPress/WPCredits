@@ -1,0 +1,236 @@
+/**
+ * The Collaboration Agreement as a sheet of paper.
+ *
+ * This file is never linked. `WPCPM_Agreement_Generate::document()` reads it off disk and
+ * inlines it in the document's own style element, because the page it styles is echoed
+ * straight out of `admin-post.php` with no theme, no `wp_head()` and no enqueue pass to
+ * hang a stylesheet on. It is a file rather than a PHP string so that it can be edited as
+ * CSS, and so the one thing the reviewer compares - what the institution saw - has a
+ * single source.
+ *
+ * Two rules the rest of the plugin does not have to keep, and both of them are why this
+ * comment is written the long way round rather than showing you the characters it means:
+ *
+ * - **No square brackets, anywhere.** The generated document must carry none, because a
+ *   bracket on a page a rector signs reads as a placeholder the generator failed to fill
+ *   in, and `WPCPM_Agreement_Template::merge()` refuses one in the text for exactly that
+ *   reason. An attribute selector here would put one back after the merge had refused it,
+ *   in a place nobody would think to look. `bin/test-agreement-generate.php` asserts the
+ *   whole document is free of them, and it caught this comment saying so in the first
+ *   draft.
+ * - **Nothing that could close a style element.** Inlined CSS cannot carry the two
+ *   characters that end a tag, in that order, anywhere: they would close the element early
+ *   and print the rest of the file as text. The generator drops the whole stylesheet rather
+ *   than emit one that carries them, so a file that grew a pair would print unstyled
+ *   instead of broken.
+ *
+ * The page is A4 because that is what the institutions signing this print on. The measures
+ * are in millimetres for the same reason: this is a physical page, not a screen, and a
+ * signature line that is 60mm long is 60mm long on every browser.
+ */
+
+@page {
+	size: A4;
+	margin: 20mm;
+}
+
+html {
+	background: #fff;
+}
+
+/*
+ * 11pt on paper, serif, generous leading. A signed agreement is read once, slowly, by
+ * somebody deciding whether to sign it, and the print size is the one thing about this
+ * document that is not the program's wording to choose.
+ */
+body.wpcpm-agreement-print {
+	background: #fff;
+	color: #111;
+	font-family: Georgia, "Times New Roman", Times, serif;
+	font-size: 11pt;
+	line-height: 1.5;
+	margin: 0;
+	padding: 16mm 8mm;
+}
+
+/*
+ * On screen the column is held to the width it will print at, so what the reader sees
+ * before pressing Save as PDF is the page they will get. In print the `@page` margin does
+ * that job and the cap would narrow the column twice.
+ */
+.wpcpm-agreement {
+	margin: 0 auto;
+	max-width: 170mm;
+}
+
+.wpcpm-agreement__h1 {
+	font-size: 17pt;
+	font-weight: 700;
+	line-height: 1.25;
+	margin: 0 0 2mm;
+}
+
+.wpcpm-agreement__h2 {
+	font-size: 13pt;
+	font-weight: 400;
+	line-height: 1.3;
+	margin: 0 0 8mm;
+}
+
+.wpcpm-agreement__h3 {
+	font-size: 12pt;
+	font-weight: 700;
+	margin: 8mm 0 2mm;
+	/* A numbered clause heading orphaned at the foot of a page is the one break that makes
+	   a signed copy hard to read back. */
+	page-break-after: avoid;
+	break-after: avoid;
+}
+
+.wpcpm-agreement__p {
+	margin: 0 0 4mm;
+	text-align: justify;
+}
+
+/* "WordPress Foundation (WPF):" and its two siblings: a lead-in to a list, not a heading. */
+.wpcpm-agreement__label {
+	font-weight: 700;
+	margin: 5mm 0 1mm;
+	page-break-after: avoid;
+	break-after: avoid;
+}
+
+.wpcpm-agreement__list {
+	margin: 0 0 4mm;
+	padding-left: 7mm;
+}
+
+.wpcpm-agreement__list li {
+	margin: 0 0 1.5mm;
+}
+
+/*
+ * The two signature boxes, side by side, three ruled lines each. Kept off a page boundary
+ * as one block: a signature block split across two sheets is signed on one of them.
+ */
+.wpcpm-agreement__signatures {
+	display: flex;
+	gap: 12mm;
+	margin: 12mm 0 0;
+	page-break-inside: avoid;
+	break-inside: avoid;
+}
+
+/*
+ * Two columns and one 12mm gap, so each column is half the block less half the gap:
+ * 2 x (50% - 6mm) + 12mm = 100%. Asking for 50% each and adding the gap on top is 12mm
+ * more than the row has, and the overflow lands on the second column, which is the
+ * institution's: it started 12mm past half way and its three ruled lines ran off the
+ * right of the page area into the margin, 12mm short and up against the trim.
+ *
+ * The grow and shrink factors are left on so that a template with some other number of
+ * parties divides the row it has rather than running off the paper, and `min-width` lets
+ * a column take the share it is given rather than the width of the longest word in it.
+ */
+.wpcpm-agreement__party {
+	flex: 1 1 calc(50% - 6mm);
+	min-width: 0;
+}
+
+.wpcpm-agreement__party-name {
+	font-weight: 700;
+	margin: 0 0 6mm;
+}
+
+.wpcpm-agreement__line {
+	margin: 0 0 7mm;
+}
+
+.wpcpm-agreement__line-label {
+	color: #444;
+	display: block;
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: 8pt;
+	letter-spacing: 0.04em;
+	margin: 0 0 1mm;
+	text-transform: uppercase;
+}
+
+/* The line itself: what is signed on. Ruled rather than an underscore run, so it is the
+   same length whatever the font does. */
+.wpcpm-agreement__line-rule {
+	border-bottom: 1px solid #111;
+	display: block;
+	height: 7mm;
+}
+
+/*
+ * The footer: the line the reviewer reads off a signed copy months later.
+ *
+ * On screen it is in the flow, at the foot of the agreement, where it reads as the last
+ * sheet's footer and covers nothing. Repeating it on every sheet is a print job and is
+ * done in the print block below, which is also where the box model has to be got right.
+ */
+.wpcpm-agreement__footer {
+	border-top: 1px solid #ddd;
+	color: #555;
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: 8pt;
+	line-height: 1.4;
+	margin: 12mm auto 0;
+	max-width: 170mm;
+	padding: 3mm 0 0;
+	text-align: center;
+}
+
+@media print {
+
+	body.wpcpm-agreement-print {
+		padding: 0;
+	}
+
+	/*
+	 * On paper the footer repeats on every sheet, below the text and never over it.
+	 *
+	 * Not `position: fixed`, which two drafts of this file tried. A fixed box in paged media
+	 * is laid out against the page area and painted on every sheet, but it is taken out of
+	 * the flow, so the text knows nothing about it: `bottom: 0` put the footer exactly where
+	 * the last line of a full sheet ends and erased one to two lines of the agreement on
+	 * every one of them, and `top: 100%` put it outside the page area, where the printed
+	 * output is clipped, so it vanished from the first sheet and reappeared at the top of
+	 * the next, printed through the opening line.
+	 *
+	 * `display: table-footer-group` is the mechanism that actually does what is wanted here,
+	 * and it is the reason this document is a table in print and nothing else. A table's
+	 * footer group repeats at the foot of every fragment the table is broken into, and,
+	 * unlike a fixed box, it is IN the flow: the pagination reserves its height on each
+	 * sheet before it breaks the rows, so no line of the agreement can ever be laid out
+	 * where the footer will print. Whatever the footer's height, the text stops above it.
+	 *
+	 * The `padding-top` is the visible gap between the last line and the line of small print
+	 * beneath it; it is inside the reserved height, so widening it moves the text up rather
+	 * than pushing the footer down into the margin.
+	 *
+	 * No opaque background, here or above: it was what turned the first overlap into an
+	 * erasure. Without one, any future collision is visible instead of silently painting
+	 * over the words somebody is about to sign.
+	 */
+	.wpcpm-agreement-print {
+		display: table;
+		width: 100%;
+	}
+
+	.wpcpm-agreement {
+		display: table-row-group;
+		max-width: none;
+	}
+
+	.wpcpm-agreement__footer {
+		border-top: 0;
+		display: table-footer-group;
+		margin: 0;
+		max-width: none;
+		padding-top: 4mm;
+		position: static;
+	}
+}

@@ -64,6 +64,89 @@ class WPCPM_Institutions extends WPCPM_Module {
 	const CONSENT_QUESTION_ADDED = '2026-07-20';
 
 	/**
+	 * The five decisions a manager takes on an application, and the deletion behind them.
+	 *
+	 * One action apiece rather than one handler reading a posted verb: the nonce is keyed to
+	 * the action and the application together, so a nonce harvested from the Reject form of
+	 * one application cannot approve another.
+	 */
+	const ACTION_APPROVE = 'wpcpm_app_approve';
+	const ACTION_INFO    = 'wpcpm_app_info';
+	const ACTION_REJECT  = 'wpcpm_app_reject';
+	const ACTION_SPAM    = 'wpcpm_app_spam';
+	const ACTION_REOPEN  = 'wpcpm_app_reopen';
+	const ACTION_PURGE   = 'wpcpm_app_purge';
+
+	/** The daily retention run, which deletes what the three retention settings say to. */
+	const CRON_PURGE = 'wpcpm_purge_applications';
+
+	/**
+	 * What each deletion left behind.
+	 *
+	 * A reference, a state and a date, and never an address or a word of what anybody wrote:
+	 * a log that survives the thing it describes must not become the copy of it that the
+	 * retention rule was there to remove.
+	 */
+	const OPTION_APP_LOG = 'wpcpm_application_log';
+
+	/** How many rows that log keeps. */
+	const APP_LOG_MAX = 200;
+
+	/**
+	 * How many rows the queue card draws.
+	 *
+	 * A ceiling and not a page size, the way `PROVISION_LIMIT` is. `/apply` is open to
+	 * strangers, so how many rows are waiting is somebody else's decision: a card that drew
+	 * one per submission would answer a bad afternoon on the form with a screen nobody can
+	 * open, which is the screen the applications need a manager to be able to open. The
+	 * oldest fifty are the ones whose turn it is, and the card says when there are more.
+	 */
+	const QUEUE_MAX = 50;
+
+	/**
+	 * Where the menu bubble stops counting.
+	 *
+	 * The same reason and a harder one: the bubble is drawn on every admin page load, not
+	 * only on this screen. Two hundred to match the ceiling `WPCPM_Institution_Agreement::awaiting_review()`
+	 * already reads under, and because past it the exact number changes nothing a manager
+	 * does next.
+	 */
+	const COUNT_MAX = 200;
+
+	/** The query argument that opens one application on this screen. */
+	// The same spelling `WPCPM_Institution_Application::QUERY_QUEUE` puts in the managers'
+	// mail, and deliberately not `wpcpm_application`, which is already the name of the posted
+	// answers array on the public form: one word meaning two things is how a deep link ends
+	// up opening nothing at all.
+	const ARG_APPLICATION = 'wpcpm_app_id';
+
+	/** The form field naming the application every decision is posted for. */
+	const FIELD_APPLICATION = 'wpcpm_application';
+
+	/**
+	 * A manager's question or reason: long enough to be a sentence, short enough to read.
+	 *
+	 * The question is the whole of what an applicant is told, so an empty one is refused;
+	 * the reason on a rejection is never sent anywhere, so it is optional and only the
+	 * ceiling applies to it.
+	 */
+	const MIN_NOTE = 10;
+	const MAX_NOTE = 2000;
+
+	/** The two messages this queue sends, named for the mail log. */
+	const MAIL_INFO     = 'institution-information';
+	const MAIL_DECLINED = 'institution-declined';
+
+	/** What the application's own history calls each decision. */
+	const EVENT_INFO     = 'information requested';
+	const EVENT_REJECTED = 'rejected';
+	const EVENT_SPAM     = 'marked as spam';
+	const EVENT_REOPENED = 'reopened';
+
+	/** The form's own word for "this one looks like another one", on `META_SIGNALS`. */
+	const SIGNAL_DUPLICATE = 'duplicate';
+
+	/**
 	 * The membership stamps `WPCPM_Institution_Members` writes on accounts.
 	 *
 	 * Named through the class that owns them rather than as literals: `WPCPM_Institution_Members`
@@ -99,6 +182,47 @@ class WPCPM_Institutions extends WPCPM_Module {
 	 */
 	public function label() {
 		return __( 'Institutions', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * The menu title, carrying the queue's pending count as a bubble.
+	 *
+	 * The number is what a manager opens this screen for: applications waiting to be decided
+	 * and signed agreements waiting to be read, added together, in the markup WordPress
+	 * already styles for comments awaiting moderation. `label()` stays plain, because it is
+	 * also the `<h1>` and a bubble in a heading is not a heading.
+	 *
+	 * Two reads on every admin page load, which is what a bubble costs. The alternative is a
+	 * cached number that says three when there are four, and a queue whose count nobody
+	 * trusts is a queue nobody works.
+	 *
+	 * Bounded at `COUNT_MAX`, and it says "and more" there rather than pretending the ceiling
+	 * is the number: a form open to strangers can be flooded, and a bubble that counted every
+	 * row of a flood would put that cost on every admin page in the site.
+	 *
+	 * @return string
+	 */
+	public function menu_label() {
+		$pending = self::queue_count();
+
+		if ( $pending < 1 ) {
+			return $this->label();
+		}
+
+		$shown = $pending < self::COUNT_MAX
+			? number_format_i18n( $pending )
+			: sprintf(
+				/* translators: %s: the largest number the menu bubble counts to. */
+				__( '%s+', 'wpcredits-program-manager' ),
+				number_format_i18n( self::COUNT_MAX )
+			);
+
+		return sprintf(
+			'%1$s <span class="awaiting-mod count-%2$d"><span class="pending-count">%3$s</span></span>',
+			$this->label(),
+			$pending,
+			$shown
+		);
 	}
 
 	/**
@@ -139,6 +263,9 @@ class WPCPM_Institutions extends WPCPM_Module {
 
 		// The institution's own page, and the three membership handlers behind the People card
 		// and this screen's backstop.
+		WPCPM_Ceiling::init();
+		WPCPM_Institution_Application::init();
+		WPCPM_Agreement_Generate::init();
 		WPCPM_Institutions_Dashboard::init();
 		WPCPM_Institution_People::init();
 
@@ -150,6 +277,18 @@ class WPCPM_Institutions extends WPCPM_Module {
 		add_action( 'admin_post_' . self::ACTION_PROVISION, array( $this, 'handle_provision' ) );
 		add_action( 'admin_post_' . self::ACTION_PROVISION_ONE, array( $this, 'handle_provision_one' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
+
+		// The review queue's six decisions. `admin_post_` and never `nopriv`: every one of
+		// them needs the management capability, and a logged-out request has no business
+		// reaching a handler that mails an applicant.
+		add_action( 'admin_post_' . self::ACTION_APPROVE, array( $this, 'handle_approve' ) );
+		add_action( 'admin_post_' . self::ACTION_INFO, array( $this, 'handle_info' ) );
+		add_action( 'admin_post_' . self::ACTION_REJECT, array( $this, 'handle_reject' ) );
+		add_action( 'admin_post_' . self::ACTION_SPAM, array( $this, 'handle_spam' ) );
+		add_action( 'admin_post_' . self::ACTION_REOPEN, array( $this, 'handle_reopen' ) );
+		add_action( 'admin_post_' . self::ACTION_PURGE, array( $this, 'handle_purge' ) );
+
+		add_action( self::CRON_PURGE, array( __CLASS__, 'purge_applications' ) );
 	}
 
 	/**
@@ -169,6 +308,27 @@ class WPCPM_Institutions extends WPCPM_Module {
 
 		WPCPM_Institutions_Sync::activate();
 		WPCPM_Institutions_Dashboard::ensure_page();
+
+		// The ceiling's own housekeeping: its rows are hash-named claims that nothing reads
+		// after their window, so a sweep is the only thing that ever removes them.
+		if ( ! wp_next_scheduled( WPCPM_Ceiling::CRON_SWEEP ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', WPCPM_Ceiling::CRON_SWEEP );
+		}
+
+		// The application form's page, and deliberately not gated: see `ensure_page()`.
+		WPCPM_Institution_Application::ensure_page();
+
+		// The three nightly jobs this phase adds: retention on applications, retention on
+		// agreement files, and the reviewer's digest. All daily because all three settings are
+		// in days, and none on the sync's cadence: a base that is down must not stop a file
+		// being forgotten on time. An hour apart so they never land in one request.
+		$nightly = array( self::CRON_PURGE, WPCPM_Institution_Agreement::CRON_DISCARD, WPCPM_Institution_Agreement::CRON_REMINDERS );
+
+		foreach ( $nightly as $offset => $hook ) {
+			if ( ! wp_next_scheduled( $hook ) ) {
+				wp_schedule_event( time() + ( ( 2 + $offset ) * HOUR_IN_SECONDS ), 'daily', $hook );
+			}
+		}
 	}
 
 	/**
@@ -199,6 +359,17 @@ class WPCPM_Institutions extends WPCPM_Module {
 		delete_option( WPCPM_Institutions_Dashboard::OPT_PAGE );
 		delete_option( WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED );
 
+		wp_clear_scheduled_hook( WPCPM_Ceiling::CRON_SWEEP );
+		wp_clear_scheduled_hook( self::CRON_PURGE );
+		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_DISCARD );
+		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_REMINDERS );
+
+		delete_option( WPCPM_Institution_Application::OPT_PAGE );
+		delete_option( self::OPTION_APP_LOG );
+
+		WPCPM_Ceiling::delete_all();
+		WPCPM_Institution_Application::delete_all();
+		WPCPM_Institution_Approval::delete_all();
 		WPCPM_Roster_Index::delete_all();
 		WPCPM_Institution_Agreement::delete_all();
 		WPCPM_Institution_Audit::delete_all();
@@ -333,6 +504,266 @@ class WPCPM_Institutions extends WPCPM_Module {
 		$this->redirect_back( $refused ? 'provision-refused' : 'provision-failed' );
 	}
 
+
+	/**
+	 * Approve one application: the Airtable record, the index row and the account.
+	 *
+	 * Capability, then the nonce keyed to the application, then the state, and only then the
+	 * work, which lives in `WPCPM_Institution_Approval` because it is ten ordered steps with
+	 * a lock around them and half of them talk to Airtable. A half-done application, one
+	 * whose record landed and whose account did not, is finished by pressing this again: the
+	 * approval skips whichever half is already stamped, and there is no second path that
+	 * could finish it differently.
+	 */
+	public function handle_approve() {
+		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
+
+		$this->verify( self::ACTION_APPROVE . '_' . $application_id );
+
+		$post = self::application( $application_id );
+
+		if ( null === $post ) {
+			$this->redirect_back( 'app-unknown' );
+		}
+
+		if ( ! in_array( self::application_state( $post ), self::open_states(), true ) ) {
+			$this->redirect_back( 'app-state' );
+		}
+
+		$result = WPCPM_Institution_Approval::approve( (int) $post->ID, get_current_user_id() );
+
+		if ( is_wp_error( $result ) ) {
+			$this->redirect_back( self::approval_outcome( $result->get_error_code() ) );
+		}
+
+		$this->redirect_back( ! empty( $result['adopted'] ) ? 'app-adopted' : 'app-approved' );
+	}
+
+	/**
+	 * Ask the applicant a question and park the application until they answer.
+	 *
+	 * The question is mailed with the asking manager's address to reply to, because the
+	 * answer is a conversation and the site is not part of it. Nothing else changes: the
+	 * application stays in the queue under `info`, so a question nobody answers is still
+	 * something a manager can see and decide.
+	 *
+	 * The state moves only if the message left. `info` is this queue's word for "asked, and
+	 * waiting on them", so writing it after a send that failed would put an application in
+	 * front of the next manager as one somebody is already waiting on - and the applicant,
+	 * who was never asked anything, waits for a question that is sitting in nobody's inbox.
+	 */
+	public function handle_info() {
+		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
+
+		$this->verify( self::ACTION_INFO . '_' . $application_id );
+
+		$post = self::application( $application_id );
+
+		if ( null === $post ) {
+			$this->redirect_back( 'app-unknown' );
+		}
+
+		if ( ! in_array( self::application_state( $post ), self::open_states(), true ) ) {
+			$this->redirect_back( 'app-state' );
+		}
+
+		$question = self::posted_note( 'wpcpm_question' );
+
+		if ( mb_strlen( $question ) < self::MIN_NOTE ) {
+			$this->redirect_back( 'app-question' );
+		}
+
+		$email = self::application_email( $post );
+
+		if ( ! is_email( $email ) ) {
+			$this->redirect_back( 'app-no-email' );
+		}
+
+		$manager   = wp_get_current_user();
+		$site      = WPCPM_Mail::site_name();
+		$reference = self::application_reference( $post );
+
+		$build = static function () use ( $site, $reference, $question, $manager ) {
+			$lines = array(
+				__( 'Thank you for applying to the WordPress Credits Program. Before a program manager can take your application further, they have one question:', 'wpcredits-program-manager' ),
+				$question,
+				__( 'Reply to this message and your answer reaches them directly.', 'wpcredits-program-manager' ),
+			);
+
+			return array(
+				'subject' => sprintf(
+					/* translators: 1: site name, 2: application reference, e.g. APP-2026-0007. */
+					__( '[%1$s] A question about your application (%2$s)', 'wpcredits-program-manager' ),
+					$site,
+					$reference
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+				'headers' => WPCPM_Mail::reply_to( $manager ),
+			);
+		};
+
+		if ( ! WPCPM_Mail::send_to( $email, self::MAIL_INFO, $build ) ) {
+			$this->redirect_back( 'app-not-sent' );
+		}
+
+		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_INFO );
+		self::record_event( (int) $post->ID, self::EVENT_INFO, $question );
+
+		$this->redirect_back( 'app-info' );
+	}
+
+	/**
+	 * Reject one application, and tell the applicant nothing but that it was decided.
+	 *
+	 * Design decision 16: the acknowledgement carries no reason. A reason written for a
+	 * colleague reads differently to the person it is about, a reason is what an argument
+	 * starts from, and the program has no obligation to give one. The manager's reason is
+	 * kept on the application's own history, where the next manager reading the queue can
+	 * see it and the applicant cannot.
+	 */
+	public function handle_reject() {
+		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
+
+		$this->verify( self::ACTION_REJECT . '_' . $application_id );
+
+		$post = self::application( $application_id );
+
+		if ( null === $post ) {
+			$this->redirect_back( 'app-unknown' );
+		}
+
+		if ( ! in_array( self::application_state( $post ), self::open_states(), true ) ) {
+			$this->redirect_back( 'app-state' );
+		}
+
+		$reason = self::posted_note( 'wpcpm_reason' );
+		$email  = self::application_email( $post );
+		$site   = WPCPM_Mail::site_name();
+
+		// The reason is deliberately not captured by this closure. Keeping it out of the
+		// builder's scope is what stops a later edit reaching for it "just for the subject".
+		$build = static function () use ( $site ) {
+			$lines = array(
+				__( 'Thank you for your interest in the WordPress Credits Program, and for the time it took to write to us.', 'wpcredits-program-manager' ),
+				__( 'A program manager has read your application and we are not taking it forward. We are sorry not to have better news.', 'wpcredits-program-manager' ),
+				__( 'Institutions apply again as their programs change, and an application now says nothing about a later one.', 'wpcredits-program-manager' ),
+			);
+
+			return array(
+				'subject' => sprintf(
+					/* translators: %s: site name. */
+					__( '[%s] About your application to the WordPress Credits Program', 'wpcredits-program-manager' ),
+					$site
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+			);
+		};
+
+		if ( is_email( $email ) ) {
+			WPCPM_Mail::send_to( $email, self::MAIL_DECLINED, $build );
+		}
+
+		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_REJECTED );
+		self::record_event( (int) $post->ID, self::EVENT_REJECTED, $reason );
+
+		$this->redirect_back( 'app-rejected' );
+	}
+
+	/**
+	 * Mark one application as spam, and send nothing at all.
+	 *
+	 * Not a quieter rejection: the address on a spam submission is forged or is somebody
+	 * else's, so an acknowledgement is either wasted or is mail this site sent to a stranger
+	 * on a spammer's instruction. The row stays until the retention cron removes it, so the
+	 * decision can be undone by a manager who disagrees.
+	 */
+	public function handle_spam() {
+		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
+
+		$this->verify( self::ACTION_SPAM . '_' . $application_id );
+
+		$post = self::application( $application_id );
+
+		if ( null === $post ) {
+			$this->redirect_back( 'app-unknown' );
+		}
+
+		if ( ! in_array( self::application_state( $post ), self::open_states(), true ) ) {
+			$this->redirect_back( 'app-state' );
+		}
+
+		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_SPAM );
+		self::record_event( (int) $post->ID, self::EVENT_SPAM, '' );
+
+		$this->redirect_back( 'app-spam' );
+	}
+
+	/**
+	 * Put a decided application back in the queue.
+	 *
+	 * The abort that makes the other four safe to press: a rejection or a spam mark taken in
+	 * haste, or a question that turned out to be unnecessary, goes back to `new`. An approved
+	 * application is not on this list, because approval created a record and an account and
+	 * reopening it would offer Approve on a row that has already had it.
+	 */
+	public function handle_reopen() {
+		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
+
+		$this->verify( self::ACTION_REOPEN . '_' . $application_id );
+
+		$post = self::application( $application_id );
+
+		if ( null === $post ) {
+			$this->redirect_back( 'app-unknown' );
+		}
+
+		if ( ! in_array( self::application_state( $post ), self::reopen_states(), true ) ) {
+			$this->redirect_back( 'app-state' );
+		}
+
+		update_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, WPCPM_Institution_Application::STATE_NEW );
+		self::record_event( (int) $post->ID, self::EVENT_REOPENED, '' );
+
+		$this->redirect_back( 'app-reopened' );
+	}
+
+	/**
+	 * Delete one decided application for good, and log that it happened.
+	 *
+	 * `wp_delete_post( $id, true )`: no trash, because a retention rule that leaves the row
+	 * in the trash has not deleted anything. Only a decided application can be purged, so a
+	 * queue row cannot be made to disappear by a mis-click; the log row that replaces it
+	 * carries the reference and the date and nothing a person wrote.
+	 */
+	public function handle_purge() {
+		$application_id = WPCPM_Request::posted_id( self::FIELD_APPLICATION );
+
+		$this->verify( self::ACTION_PURGE . '_' . $application_id );
+
+		$post = self::application( $application_id );
+
+		if ( null === $post ) {
+			$this->redirect_back( 'app-unknown' );
+		}
+
+		$state = self::application_state( $post );
+
+		if ( ! in_array( $state, self::purgeable_states(), true ) ) {
+			$this->redirect_back( 'app-state' );
+		}
+
+		$reference = self::application_reference( $post );
+		$post_id   = (int) $post->ID;
+
+		if ( ! wp_delete_post( $post_id, true ) ) {
+			$this->redirect_back( 'app-failed' );
+		}
+
+		self::log_purge( $post_id, $reference, $state, 0, get_current_user_id() );
+
+		$this->redirect_back( 'app-purged' );
+	}
+
 	/**
 	 * Capability and nonce check, in that order.
 	 *
@@ -452,6 +883,605 @@ class WPCPM_Institutions extends WPCPM_Module {
 	}
 
 	/*
+	 * The application queue
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The application a handler was posted for, or null when it is not one of ours.
+	 *
+	 * The post type is checked and not only the ID: `admin-post.php` takes whatever number
+	 * is posted, and a handler that trusted it would set an application state on a page.
+	 *
+	 * @param int $application_id Post ID.
+	 * @return WP_Post|null
+	 */
+	private static function application( $application_id ) {
+		$post = get_post( (int) $application_id );
+
+		if ( ! $post instanceof WP_Post || WPCPM_Institution_Application::POST_TYPE !== $post->post_type ) {
+			return null;
+		}
+
+		return $post;
+	}
+
+	/**
+	 * One application's state.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return string One of `WPCPM_Institution_Application`'s `STATE_` values, or ''.
+	 */
+	private static function application_state( WP_Post $post ) {
+		return (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, true );
+	}
+
+	/**
+	 * One application's reference, e.g. `APP-2026-0007`.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return string
+	 */
+	private static function application_reference( WP_Post $post ) {
+		$stored = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_REFERENCE, true );
+
+		// The stored one first, because it is what the acknowledgement quoted; the computed
+		// one behind it, so a row whose stamp went missing still has something to be called.
+		return '' !== $stored ? $stored : WPCPM_Institution_Application::reference( (int) $post->ID );
+	}
+
+	/**
+	 * The answers as they were stored, keyed by Airtable column name.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return array
+	 */
+	private static function application_fields( WP_Post $post ) {
+		$fields = get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_FIELDS, true );
+
+		return is_array( $fields ) ? $fields : array();
+	}
+
+	/**
+	 * The address the applicant gave, or '' when there is not a usable one.
+	 *
+	 * The column is named through the sync's map rather than as a literal, so the base's
+	 * spelling of it is asserted in one place and against one fixture.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return string
+	 */
+	private static function application_email( WP_Post $post ) {
+		$columns = WPCPM_Institutions_Sync::fields();
+		$key     = isset( $columns['contact_email'] ) ? $columns['contact_email'] : 'Contact Email';
+		$fields  = self::application_fields( $post );
+
+		return isset( $fields[ $key ] ) ? sanitize_email( (string) $fields[ $key ] ) : '';
+	}
+
+	/**
+	 * The three states that put an application in the queue.
+	 *
+	 * `held` is in the list on purpose: a submission the anti-spam checks degraded is one
+	 * nobody was told about, so if it is not in front of a manager nobody ever sees it.
+	 *
+	 * @return string[]
+	 */
+	private static function open_states() {
+		return array(
+			WPCPM_Institution_Application::STATE_NEW,
+			WPCPM_Institution_Application::STATE_HELD,
+			WPCPM_Institution_Application::STATE_INFO,
+		);
+	}
+
+	/**
+	 * The states a manager may put back to `new`.
+	 *
+	 * @return string[]
+	 */
+	private static function reopen_states() {
+		return array(
+			WPCPM_Institution_Application::STATE_HELD,
+			WPCPM_Institution_Application::STATE_INFO,
+			WPCPM_Institution_Application::STATE_SPAM,
+			WPCPM_Institution_Application::STATE_REJECTED,
+		);
+	}
+
+	/**
+	 * The states that may be deleted, by hand or by the retention cron.
+	 *
+	 * The same three the retention settings name, and never an open one: an application
+	 * waiting for a decision is somebody's unanswered letter.
+	 *
+	 * @return string[]
+	 */
+	private static function purgeable_states() {
+		return array(
+			WPCPM_Institution_Application::STATE_SPAM,
+			WPCPM_Institution_Application::STATE_REJECTED,
+			WPCPM_Institution_Application::STATE_APPROVED,
+		);
+	}
+
+	/**
+	 * A state in the words the screen uses for it.
+	 *
+	 * @param string $state An application state.
+	 * @return string
+	 */
+	private static function application_state_label( $state ) {
+		$labels = array(
+			WPCPM_Institution_Application::STATE_NEW      => __( 'new', 'wpcredits-program-manager' ),
+			WPCPM_Institution_Application::STATE_HELD     => __( 'held by the anti-spam checks', 'wpcredits-program-manager' ),
+			WPCPM_Institution_Application::STATE_INFO     => __( 'waiting on the applicant', 'wpcredits-program-manager' ),
+			WPCPM_Institution_Application::STATE_SPAM     => __( 'marked as spam', 'wpcredits-program-manager' ),
+			WPCPM_Institution_Application::STATE_REJECTED => __( 'rejected', 'wpcredits-program-manager' ),
+			WPCPM_Institution_Application::STATE_APPROVED => __( 'approved', 'wpcredits-program-manager' ),
+		);
+
+		return isset( $labels[ $state ] ) ? $labels[ $state ] : $state;
+	}
+
+	/**
+	 * Which outcome message a refused approval gets.
+	 *
+	 * Mapped rather than passed through: an approval's `WP_Error` message is written for the
+	 * caller, and what a manager needs is the sentence that says what to do next. Each code a
+	 * person can act on gets its own; a code nobody can act on, an Airtable request that never
+	 * came back or a capability that went away mid-request, falls through to "it did not land".
+	 *
+	 * @param string $code The `WP_Error` code from `WPCPM_Institution_Approval::approve()`.
+	 * @return string Outcome slug for the flash.
+	 */
+	private static function approval_outcome( $code ) {
+		$outcomes = array(
+			'wpcpm_app_unknown'       => 'app-unknown',
+			'wpcpm_app_state'         => 'app-state',
+			'wpcpm_app_unverified'    => 'app-unverified',
+			'wpcpm_app_email'         => 'app-email',
+			'wpcpm_app_country'       => 'app-country',
+			'wpcpm_app_busy'          => 'app-busy',
+			'wpcpm_app_fields'        => 'app-incomplete',
+			'wpcpm_app_no_email'      => 'app-incomplete',
+			'wpcpm_app_name'          => 'app-incomplete',
+
+			// The membership refusals. Named separately from `app-failed` because that
+			// sentence ends with "pressing Approve again completes the rest", which is true
+			// of a write that failed halfway and false of these: the account they name is
+			// already somebody else's, and no number of presses changes that.
+			'wpcpm_member_elsewhere'  => 'app-member-elsewhere',
+			'wpcpm_member_is_admin'   => 'app-member-taken',
+			'wpcpm_member_is_student' => 'app-member-taken',
+		);
+
+		return isset( $outcomes[ (string) $code ] ) ? $outcomes[ (string) $code ] : 'app-failed';
+	}
+
+	/**
+	 * A posted note, trimmed to the ceiling.
+	 *
+	 * `sanitize_textarea_field()` and not `WPCPM_Request::posted_text()`: a question to an
+	 * applicant has paragraphs in it, and `sanitize_text_field()` would fold them into one
+	 * line. Only ever called from a handler that has already checked the capability and the
+	 * nonce, exactly as the rest of the `posted_` family is.
+	 *
+	 * @param string $name Field name.
+	 * @return string
+	 */
+	private static function posted_note( $name ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verify() has checked the nonce before any handler reaches here.
+		if ( ! isset( $_POST[ $name ] ) || ! is_scalar( $_POST[ $name ] ) ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
+		$note = sanitize_textarea_field( wp_unslash( $_POST[ $name ] ) );
+
+		return trim( mb_substr( $note, 0, self::MAX_NOTE ) );
+	}
+
+	/**
+	 * Add one row to an application's own history.
+	 *
+	 * Through the form's own writer, so the shape of a history row is decided in one place
+	 * and the sanitising with it. This is where a rejection's reason lives, and the only
+	 * place it lives.
+	 *
+	 * @param int    $post_id Application post ID.
+	 * @param string $event   What happened.
+	 * @param string $note    What the manager wrote, or ''.
+	 */
+	private static function record_event( $post_id, $event, $note ) {
+		WPCPM_Institution_Application::add_event( (int) $post_id, $event, get_current_user_id(), $note );
+	}
+
+	/**
+	 * How many things are waiting for a manager, applications and agreements together.
+	 *
+	 * Stops at `COUNT_MAX`, because the caller is a bubble on every admin page load: what a
+	 * manager does about a queue is the same at two hundred as at two thousand, and the
+	 * difference between those two numbers is a cost the whole of wp-admin would carry.
+	 *
+	 * @return int Between 0 and `COUNT_MAX`.
+	 */
+	private static function queue_count() {
+		// One more than the bubble can show, from both sides, and no further: this runs on
+		// every wp-admin page load, so the question it asks has to stay the same size whatever
+		// the queue does. `COUNT_MAX + 1` is enough to tell "199" from "200 or more".
+		$limit   = self::COUNT_MAX + 1;
+		$waiting = (int) WPCPM_Institution_Application::pending_count( $limit )
+			+ count( (array) WPCPM_Institution_Agreement::awaiting_review( $limit ) );
+
+		return min( self::COUNT_MAX, $waiting );
+	}
+
+	/**
+	 * The queue, as one list, oldest first.
+	 *
+	 * Two kinds of row and one list, because they are one queue: a person works it from the
+	 * top, and an application that has waited a week does not become less urgent by being
+	 * filed under a different heading than a signed agreement that has waited a day.
+	 *
+	 * Nothing here reads Airtable. Both halves come from posts this site holds, the country
+	 * names from the countries map and the institution names from the pipeline index, so the
+	 * cost of the card is bounded by the window and never by how many submissions arrived.
+	 *
+	 * Bounded because the applications half is written by strangers. Both lists arrive oldest
+	 * first, so the oldest `$limit` of each is every row that can reach the top of a list
+	 * sorted by age, and building the rest would cost several meta reads apiece for rows
+	 * nobody would be shown. `waiting` is the whole number so the card can say it is showing
+	 * part of it - the agreements in it are as many as their own reader returns, which has a
+	 * ceiling of its own, and the applications are counted in full because that is the half
+	 * that can be flooded.
+	 *
+	 * @param int $limit How many rows to build, at most.
+	 * @return array{rows: array[], waiting: int} Rows: `kind`, `kind_label`, `id`, `at`,
+	 *               `overdue`, `name`, `country_name`, `contact`, `state`, `signals`,
+	 *               `duplicate`, `record`.
+	 */
+	private static function queue_rows( $limit ) {
+		$limit   = max( 1, (int) $limit );
+		$now     = time();
+		$overdue = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) ) * DAY_IN_SECONDS;
+		$rows    = array();
+
+		$applications = WPCPM_Institution_Application::applications( self::open_states() );
+		$documents    = array_map( 'intval', (array) WPCPM_Institution_Agreement::awaiting_review() );
+		$waiting      = count( $applications ) + count( $documents );
+
+		$applications = array_slice( $applications, 0, $limit );
+		$documents    = array_slice( $documents, 0, $limit );
+		$duplicates   = self::duplicates( $applications );
+
+		foreach ( $applications as $post ) {
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			$country = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY, true );
+			$at      = (int) get_post_time( 'U', true, $post );
+			$name    = trim( (string) $post->post_title );
+
+			$rows[] = array(
+				'kind'         => 'application',
+				'kind_label'   => __( 'Application', 'wpcredits-program-manager' ),
+				'id'           => (int) $post->ID,
+				'at'           => $at,
+				'overdue'      => ( $now - $at ) > $overdue,
+				'name'         => '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ),
+				'country_name' => self::country_name( $country, (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ) ),
+				'contact'      => WPCPM_Countries::contact_of( $country ),
+				'state'        => self::application_state( $post ),
+				// Carried on the row rather than counted again when it is drawn: a held row
+				// has to say on the list that it was held, and how many checks held it.
+				'signals'      => self::signals( $post ),
+				'duplicate'    => in_array( (int) $post->ID, $duplicates, true ),
+				'record'       => '',
+			);
+		}
+
+		foreach ( $documents as $post_id ) {
+			$post = get_post( (int) $post_id );
+
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			$record = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Agreement::META_INSTITUTION, true );
+			$index  = WPCPM_Institutions_Index::row( $record );
+			$index  = is_array( $index ) ? $index : array();
+
+			$country = isset( $index['country'] ) ? (string) $index['country'] : '';
+			$at      = (int) get_post_time( 'U', true, $post );
+
+			$rows[] = array(
+				'kind'         => 'agreement',
+				'kind_label'   => __( 'Signed agreement', 'wpcredits-program-manager' ),
+				'id'           => (int) $post->ID,
+				'at'           => $at,
+				'overdue'      => ( $now - $at ) > $overdue,
+				'name'         => self::institution_name( $record ),
+				'country_name' => self::country_name( $country, isset( $index['country_name'] ) ? (string) $index['country_name'] : '' ),
+				'contact'      => WPCPM_Countries::contact_of( $country ),
+				'state'        => '',
+				'signals'      => array(),
+				'duplicate'    => false,
+				'record'       => $record,
+			);
+		}
+
+		usort(
+			$rows,
+			static function ( $a, $b ) {
+				return $a['at'] === $b['at'] ? $a['id'] - $b['id'] : $a['at'] - $b['at'];
+			}
+		);
+
+		return array(
+			// Sliced after the sort, so the window is the oldest of the two kinds together
+			// rather than the oldest of each with the newer kind pushed off the end.
+			'rows'    => array_slice( $rows, 0, $limit ),
+			'waiting' => $waiting,
+		);
+	}
+
+	/**
+	 * What the form's checks recorded against one application.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return string[] Signal slugs, in the order they were raised.
+	 */
+	private static function signals( WP_Post $post ) {
+		$stored = get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_SIGNALS, true );
+
+		if ( ! is_array( $stored ) ) {
+			return array();
+		}
+
+		return array_values( array_unique( array_filter( array_map( 'strval', $stored ), 'strlen' ) ) );
+	}
+
+	/**
+	 * Which of the open applications look like each other.
+	 *
+	 * Nothing is merged, ever: a stranger submitting first with a target's published address
+	 * must never be able to edit or suppress the genuine submission. So the queue flags and
+	 * a manager decides, on the hashed address the form stored and on the trimmed, lowered
+	 * name, which is the same pair the live search asks Airtable about.
+	 *
+	 * The form's own signal is honoured too, whichever way round it stores it, so a duplicate
+	 * of something already decided is still flagged after the twin has left the queue, and the
+	 * later of a pair the queue's window has split still carries its flag when it is drawn.
+	 * The older one of such a pair does not, which is one of the things the card is saying
+	 * when it says it is showing part of a longer list.
+	 *
+	 * @param array $posts Open applications; the queue passes the window it is drawing.
+	 * @return int[] Post IDs to flag.
+	 */
+	private static function duplicates( array $posts ) {
+		$by_email = array();
+		$by_name  = array();
+		$flagged  = array();
+
+		foreach ( $posts as $post ) {
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			$email = trim( (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_EMAIL, true ) );
+			$name  = self::lower( $post->post_title );
+
+			if ( '' !== $email ) {
+				$by_email[ $email ][] = (int) $post->ID;
+			}
+
+			if ( '' !== $name ) {
+				$by_name[ $name ][] = (int) $post->ID;
+			}
+
+			$signals = get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_SIGNALS, true );
+
+			if ( is_array( $signals ) && in_array( self::SIGNAL_DUPLICATE, $signals, true ) ) {
+				$flagged[] = (int) $post->ID;
+			}
+		}
+
+		foreach ( array_merge( array_values( $by_email ), array_values( $by_name ) ) as $group ) {
+			if ( count( $group ) > 1 ) {
+				$flagged = array_merge( $flagged, $group );
+			}
+		}
+
+		return array_values( array_unique( $flagged ) );
+	}
+
+	/**
+	 * A value lowered for comparison, with mbstring where there is any.
+	 *
+	 * @param string $value Raw value.
+	 * @return string
+	 */
+	private static function lower( $value ) {
+		$value = trim( (string) $value );
+
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( $value ) : strtolower( $value );
+	}
+
+	/**
+	 * A country's name from the map, falling back to whatever was stored beside the ID.
+	 *
+	 * The stamp is the fallback and not the source: a country renamed in the base should
+	 * print its new name on a row submitted before the rename.
+	 *
+	 * @param string $country_id Countries record ID.
+	 * @param string $stored     The name stored alongside it.
+	 * @return string
+	 */
+	private static function country_name( $country_id, $stored ) {
+		$name = WPCPM_Countries::name_of( $country_id );
+
+		return '' !== $name ? $name : trim( (string) $stored );
+	}
+
+	/*
+	 * Retention
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * Delete the applications the retention settings say have been kept long enough.
+	 *
+	 * The daily `CRON_PURGE` run. Three settings, one per decided state, each in days, and
+	 * **0 means never**: an approved application is the paper trail behind an account and a
+	 * record, and the default keeps it forever on purpose.
+	 *
+	 * The clock runs from the decision and not from the submission, so lengthening a
+	 * retention setting gives every row the longer life rather than deleting a batch that
+	 * was already past the old one.
+	 *
+	 * @return int How many were deleted.
+	 */
+	public static function purge_applications() {
+		$retention = array(
+			WPCPM_Institution_Application::STATE_SPAM     => 'application_spam_days',
+			WPCPM_Institution_Application::STATE_REJECTED => 'application_rejected_days',
+			WPCPM_Institution_Application::STATE_APPROVED => 'application_approved_days',
+		);
+
+		$purged = 0;
+
+		foreach ( $retention as $state => $setting ) {
+			$days = (int) WPCPM_Settings::get_value( $setting, 0 );
+
+			if ( $days < 1 ) {
+				continue;
+			}
+
+			$cutoff = time() - ( $days * DAY_IN_SECONDS );
+
+			foreach ( WPCPM_Institution_Application::applications( array( $state ) ) as $post ) {
+				if ( ! $post instanceof WP_Post || self::decided_at( $post ) > $cutoff ) {
+					continue;
+				}
+
+				$reference = self::application_reference( $post );
+				$post_id   = (int) $post->ID;
+
+				if ( ! wp_delete_post( $post_id, true ) ) {
+					continue;
+				}
+
+				self::log_purge( $post_id, $reference, $state, $days, 0 );
+				++$purged;
+			}
+		}
+
+		return $purged;
+	}
+
+	/**
+	 * When an application was last decided.
+	 *
+	 * The newest row of its own history, because that is when the state it is being kept
+	 * under began. An application with no history at all falls back to when it arrived,
+	 * which is the only other date it has.
+	 *
+	 * @param WP_Post $post The application.
+	 * @return int Unix time, UTC.
+	 */
+	private static function decided_at( WP_Post $post ) {
+		$latest = 0;
+
+		foreach ( (array) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_EVENT, false ) as $event ) {
+			if ( is_array( $event ) && isset( $event['at'] ) && (int) $event['at'] > $latest ) {
+				$latest = (int) $event['at'];
+			}
+		}
+
+		return $latest > 0 ? $latest : (int) get_post_time( 'U', true, $post );
+	}
+
+	/**
+	 * Record that an application was deleted.
+	 *
+	 * The reference, the state it was in, the rule that removed it and who pressed it: enough
+	 * to answer "what happened to APP-2026-0007" months later, and nothing that would make
+	 * this option a copy of the thing the retention rule deleted. No address, and not a word
+	 * of what anybody wrote.
+	 *
+	 * @param int    $post_id   The application that was deleted.
+	 * @param string $reference Its reference.
+	 * @param string $state     The state it was in.
+	 * @param int    $days      The retention setting that removed it, or 0 for a manager.
+	 * @param int    $actor     Who pressed it, 0 for the cron.
+	 */
+	private static function log_purge( $post_id, $reference, $state, $days, $actor ) {
+		$log = self::application_log();
+
+		$log[] = array(
+			'at'        => time(),
+			'id'        => (int) $post_id,
+			'reference' => sanitize_text_field( (string) $reference ),
+			'state'     => sanitize_key( (string) $state ),
+			'days'      => (int) $days,
+			'actor'     => (int) $actor,
+		);
+
+		if ( count( $log ) > self::APP_LOG_MAX ) {
+			$log = array_slice( $log, -self::APP_LOG_MAX );
+		}
+
+		update_option( self::OPTION_APP_LOG, $log, false );
+	}
+
+	/**
+	 * Every purge this site has recorded, oldest first.
+	 *
+	 * @return array[]
+	 */
+	public static function application_log() {
+		$log = get_option( self::OPTION_APP_LOG, array() );
+
+		return is_array( $log ) ? array_values( $log ) : array();
+	}
+
+	/**
+	 * Every outcome the queue's handlers can flash, in the words the reader gets.
+	 *
+	 * Kept beside the handlers that flash them, the way `WPCPM_Institution_Panel::messages()`
+	 * keeps the agreement route's. Every refusal opens by saying that nothing happened, since
+	 * the reader has just pressed a button and cannot see the server.
+	 *
+	 * @return array<string, array>
+	 */
+	private static function queue_messages() {
+		return array(
+			'app-approved'         => array( 'success', __( 'The application is approved. The Airtable record, the pipeline row and the account are created, and the invitation is queued.', 'wpcredits-program-manager' ) ),
+			'app-adopted'          => array( 'success', __( 'The application is approved. Airtable already held a record for this institution, so it was adopted rather than created; the account is made and the invitation is queued.', 'wpcredits-program-manager' ) ),
+			'app-unknown'          => array( 'error', __( 'Nothing happened. That application no longer exists.', 'wpcredits-program-manager' ) ),
+			'app-state'            => array( 'error', __( 'Nothing happened. That application is not in a state this decision applies to; somebody may have decided it first. Reload the screen to see where it is.', 'wpcredits-program-manager' ) ),
+			'app-unverified'       => array( 'error', __( 'Nothing was created. The address on that application has not been confirmed, and approving mails a password-set link: it must never go to an address nobody has claimed. Confirming it is the applicant\'s own act and no manager can take it for them; open the application, where the line under the heading says what that means for the state this one is in.', 'wpcredits-program-manager' ) ),
+			'app-email'            => array( 'error', __( 'Nothing was created. An account on this site already holds that address. Find out whose it is first: an account found by address with no institution stamp is a conflict, not a match.', 'wpcredits-program-manager' ) ),
+			'app-country'          => array( 'error', __( 'Nothing was created. The country on the application no longer resolves in the Countries table. Run a sync and try again.', 'wpcredits-program-manager' ) ),
+			'app-busy'             => array( 'error', __( 'Nothing happened. This application was already being approved, from a sync or from somebody else pressing the same button. Give it a minute and look at the row again.', 'wpcredits-program-manager' ) ),
+			'app-incomplete'       => array( 'error', __( 'Nothing was created. This application does not carry the name, the address or the answers a record is made from. Ask the applicant for what is missing, or reject it.', 'wpcredits-program-manager' ) ),
+			'app-failed'           => array( 'error', __( 'Nothing was finished. Airtable or this site refused a write; whatever half landed is stamped, and pressing Approve again completes the rest.', 'wpcredits-program-manager' ) ),
+			'app-member-elsewhere' => array( 'error', __( 'Nothing was finished. The account for that address already acts for a different institution, so pressing Approve again cannot help: decide who that account belongs to first, and remove it from the other institution if this application is the right one.', 'wpcredits-program-manager' ) ),
+			'app-member-taken'     => array( 'error', __( 'Nothing was finished. The account for that address is not one this can adopt, so pressing Approve again cannot help: a person has to decide what that account is for before this institution can have one.', 'wpcredits-program-manager' ) ),
+			'app-question'         => array( 'error', __( 'Nothing was sent. Write the question you want answered: it is the whole of what the applicant is told.', 'wpcredits-program-manager' ) ),
+			'app-no-email'         => array( 'error', __( 'Nothing was sent. This application carries no usable address, so there is nobody to ask.', 'wpcredits-program-manager' ) ),
+			'app-not-sent'         => array( 'error', __( 'Nothing was sent and nothing moved. This site could not hand the question to its mail server, so the application is exactly where it was and the question is still yours to ask. Try again, and look at the recent mail on the settings screen if it keeps failing.', 'wpcredits-program-manager' ) ),
+			'app-info'             => array( 'success', __( 'The question is on its way, with your address to reply to. The application waits in the queue for their answer.', 'wpcredits-program-manager' ) ),
+			'app-rejected'         => array( 'success', __( 'The application is rejected and the applicant has a neutral acknowledgement with no reason in it. Your reason is on the application\'s own history, where the next manager can read it.', 'wpcredits-program-manager' ) ),
+			'app-spam'             => array( 'info', __( 'The application is marked as spam. Nothing was sent: the address is forged or is somebody else\'s, and either way a reply is wrong.', 'wpcredits-program-manager' ) ),
+			'app-reopened'         => array( 'info', __( 'The application is open again and back in the queue.', 'wpcredits-program-manager' ) ),
+			'app-purged'           => array( 'success', __( 'The application is deleted. The log keeps its reference and the date, and nothing else.', 'wpcredits-program-manager' ) ),
+		);
+	}
+
+	/*
 	 * The screen
 	 * --------------------------------------------------------------------
 	 */
@@ -492,6 +1522,10 @@ class WPCPM_Institutions extends WPCPM_Module {
 			$messages = array_merge( $messages, (array) WPCPM_Institution_Panel::messages() );
 		}
 
+		// The queue's own outcomes, kept beside the handlers that flash them for the reason
+		// the panel keeps the agreement route's: one list, in the words the reader gets.
+		$messages = array_merge( $messages, self::queue_messages() );
+
 		if ( isset( $messages[ $status ] ) ) {
 			printf(
 				'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
@@ -523,6 +1557,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		$gaps = self::membership_gaps( isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array() );
 
 		$this->render_sync_panel( $progress, $last );
+		$this->render_queue();
 		$this->render_pipeline( $index, $filter, $gaps );
 		$this->render_provisioning( $index );
 		$this->render_reconciliation( $counts, $index, $gaps );
@@ -617,6 +1652,775 @@ class WPCPM_Institutions extends WPCPM_Module {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * The one thing waiting to be read: applications and signed agreements, oldest first.
+	 *
+	 * Drawn directly under the sync panel because it is the work, and everything below it is
+	 * the state of the program. An open application is drawn above the list rather than
+	 * instead of it, so a manager comparing two rows can see both.
+	 */
+	private function render_queue() {
+		$open = self::application( WPCPM_Request::id( self::ARG_APPLICATION ) );
+
+		if ( null !== $open ) {
+			$this->render_application( $open );
+		}
+
+		$queue   = self::queue_rows( self::QUEUE_MAX );
+		$rows    = $queue['rows'];
+		$waiting = (int) $queue['waiting'];
+		$days    = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) );
+
+		echo '<div class="wpcpm-card">';
+		printf(
+			'<h2 id="wpcpm-queue">%1$s <span class="wpcpm-count">%2$s</span></h2>',
+			esc_html__( 'Waiting for review', 'wpcredits-program-manager' ),
+			esc_html( number_format_i18n( $waiting ) )
+		);
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: %s: number of days. */
+					__( 'Applications from institutions and signed agreements waiting to be read, in one list, oldest first: they are one queue and a person works it from the top. Anything that has waited longer than %s days is marked overdue.', 'wpcredits-program-manager' ),
+					number_format_i18n( $days )
+				)
+			)
+		);
+
+		if ( empty( $rows ) ) {
+			echo '<p>' . esc_html__( 'Nothing is waiting. New applications and uploaded agreements appear here.', 'wpcredits-program-manager' ) . '</p>';
+			echo '</div>';
+
+			return;
+		}
+
+		// Said out loud whenever the list is shorter than the queue, so nobody reads the rows
+		// on the screen as the whole of what is waiting for them.
+		if ( count( $rows ) < $waiting ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: how many rows are drawn, 2: how many are waiting in total. */
+						__( 'Showing the oldest %1$s of %2$s. The list stops there so that a burst of applications cannot make this screen too slow to open; decide these and the next of them take their place.', 'wpcredits-program-manager' ),
+						number_format_i18n( count( $rows ) ),
+						number_format_i18n( $waiting )
+					)
+				)
+			);
+		}
+
+		echo '<ol class="wpcpm-queue">';
+
+		foreach ( $rows as $row ) {
+			$this->render_queue_row( $row );
+		}
+
+		echo '</ol>';
+		echo '</div>';
+	}
+
+	/**
+	 * One row of the queue.
+	 *
+	 * The age in words and the date in figures, because "4 days ago" is what a manager
+	 * triages by and the date is what they quote in an email. The country's contact is
+	 * printed for information and never mailed: routing says who knows this institution,
+	 * not who else should hear about the row.
+	 *
+	 * A held row is marked as one. Every decision on this card is reachable from the list, so
+	 * a state that only the open application admitted to would let somebody reject a
+	 * submission the site had quietly decided was suspect without ever being told that it
+	 * had. The mark says which rows those are; the application says why.
+	 *
+	 * @param array $row One row from `queue_rows()`.
+	 */
+	private function render_queue_row( array $row ) {
+		$overdue = ! empty( $row['overdue'] );
+
+		printf( '<li class="wpcpm-queue-item%s">', $overdue ? ' is-overdue' : '' );
+
+		printf(
+			'<h3 class="wpcpm-queue-title"><span class="wpcpm-inst-name__text">%1$s</span> <span class="wpcpm-inst-muted">%2$s</span></h3>',
+			esc_html( (string) $row['name'] ),
+			esc_html( (string) $row['kind_label'] )
+		);
+
+		printf(
+			'<p class="wpcpm-queue-age">%1$s%2$s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: human-readable time difference, 2: date and time. */
+					__( 'Waiting %1$s, since %2$s.', 'wpcredits-program-manager' ),
+					human_time_diff( (int) $row['at'], time() ),
+					wp_date( 'Y-m-d H:i', (int) $row['at'] )
+				)
+			),
+			$overdue
+				? ' <span class="wpcpm-inst-mark wpcpm-inst-mark--overdue">' . esc_html__( 'overdue', 'wpcredits-program-manager' ) . '</span>'
+				: ''
+		);
+
+		if ( '' !== (string) $row['country_name'] ) {
+			printf(
+				'<p class="wpcpm-queue-country">%s</p>',
+				esc_html(
+					'' !== (string) $row['contact']
+						? sprintf(
+							/* translators: 1: country, 2: the country's person of contact. */
+							__( '%1$s. Person of contact: %2$s, for information.', 'wpcredits-program-manager' ),
+							(string) $row['country_name'],
+							(string) $row['contact']
+						)
+						: sprintf(
+							/* translators: %s: country. */
+							__( '%s. The Countries table names nobody for it, for information.', 'wpcredits-program-manager' ),
+							(string) $row['country_name']
+						)
+				)
+			);
+		}
+
+		if ( WPCPM_Institution_Application::STATE_HELD === (string) $row['state'] ) {
+			$signals = isset( $row['signals'] ) ? (array) $row['signals'] : array();
+
+			printf(
+				'<p><span class="wpcpm-inst-mark wpcpm-inst-mark--held" title="%1$s">%2$s</span> %3$s</p>',
+				esc_attr__( 'The anti-spam checks held this submission. Nothing was announced about it, and none of the checks refused it.', 'wpcredits-program-manager' ),
+				esc_html__( 'held', 'wpcredits-program-manager' ),
+				esc_html(
+					empty( $signals )
+						? __( 'Held with no check recorded against it. Open it and decide it on what is on it.', 'wpcredits-program-manager' )
+						: sprintf(
+							/* translators: %s: how many checks held the submission. */
+							_n( '%s check held it; open the application to read it.', '%s checks held it; open the application to read them.', count( $signals ), 'wpcredits-program-manager' ),
+							number_format_i18n( count( $signals ) )
+						)
+				)
+			);
+		}
+
+		if ( ! empty( $row['duplicate'] ) ) {
+			printf(
+				'<p><span class="wpcpm-inst-mark wpcpm-inst-mark--duplicate" title="%1$s">%2$s</span> %3$s</p>',
+				esc_attr__( 'Another application in the queue names the same institution or the same address.', 'wpcredits-program-manager' ),
+				esc_html__( 'possible duplicate', 'wpcredits-program-manager' ),
+				esc_html__( 'Open both and decide; nothing is ever merged.', 'wpcredits-program-manager' )
+			);
+		}
+
+		if ( 'application' === $row['kind'] ) {
+			printf(
+				'<p><a class="button" href="%1$s">%2$s</a> <span class="wpcpm-inst-muted">%3$s</span></p>',
+				esc_url( add_query_arg( self::ARG_APPLICATION, (int) $row['id'], $this->admin_url() ) ),
+				esc_html__( 'Open this application', 'wpcredits-program-manager' ),
+				esc_html( self::application_state_label( (string) $row['state'] ) )
+			);
+		} else {
+			// The review block itself: the checklist, the flags, the download link and the
+			// two decisions. Drawn by the panel that owns every agreement control, so the
+			// queue and the institution's own row cannot drift apart.
+			WPCPM_Institution_Panel::render_review( (int) $row['id'] );
+		}
+
+		echo '</li>';
+	}
+
+	/**
+	 * One application, open: every answer, the consent, the verification and the decisions.
+	 *
+	 * @param WP_Post $post The application.
+	 */
+	private function render_application( WP_Post $post ) {
+		$state = self::application_state( $post );
+		$name  = trim( (string) $post->post_title );
+
+		echo '<div class="wpcpm-card wpcpm-application" id="wpcpm-application">';
+
+		printf(
+			'<h2>%1$s <span class="wpcpm-inst-muted">%2$s</span></h2>',
+			esc_html( '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ) ),
+			esc_html( self::application_reference( $post ) )
+		);
+
+		printf(
+			'<p class="wpcpm-inst-read">%1$s <a href="%2$s">%3$s</a></p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: application state, 2: date and time it arrived. */
+					__( 'State: %1$s. Arrived %2$s.', 'wpcredits-program-manager' ),
+					self::application_state_label( $state ),
+					wp_date( 'Y-m-d H:i', (int) get_post_time( 'U', true, $post ) )
+				)
+			),
+			esc_url( $this->admin_url() . '#wpcpm-queue' ),
+			esc_html__( 'Back to the queue', 'wpcredits-program-manager' )
+		);
+
+		// Before the address line and before a single answer: what the site thinks of this
+		// submission is the context every other thing on the card is read in.
+		$this->render_signals( $post, $state );
+
+		echo '<p>' . esc_html( self::verification_line( $post, $state ) ) . '</p>';
+
+		$this->render_application_answers( $post );
+		$this->render_duplicate_search( $post );
+		$this->render_application_actions( $post, $state );
+
+		echo '</div>';
+	}
+
+	/**
+	 * Every answer the applicant gave, in the order the form asked for them.
+	 *
+	 * The columns come from the form's own map, so a question added there appears here
+	 * without a second list to keep in step, and the two the server holds rather than the
+	 * applicant, the country and the consent, are answered from the meta the submission
+	 * stamped. Every value is printed escaped: this is a stranger's prose on an admin screen.
+	 *
+	 * The question is printed as the applicant read it, with the Airtable column under it,
+	 * because the manager deciding this is the person who will look the record up in the base.
+	 *
+	 * @param WP_Post $post The application.
+	 */
+	private function render_application_answers( WP_Post $post ) {
+		$fields  = self::application_fields( $post );
+		$columns = WPCPM_Institutions_Sync::fields();
+		$country = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY, true );
+
+		echo '<table class="widefat striped wpcpm-list wpcpm-app-answers"><tbody>';
+
+		foreach ( WPCPM_Institution_Application::fields() as $column => $spec ) {
+			$column = (string) $column;
+			$label  = is_array( $spec ) && ! empty( $spec['label'] ) ? (string) $spec['label'] : $column;
+
+			if ( isset( $columns['country'] ) && $columns['country'] === $column ) {
+				$value = self::country_name( $country, (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY_NAME, true ) );
+			} elseif ( isset( $columns['consent'] ) && $columns['consent'] === $column ) {
+				$value = self::consent_line( get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_CONSENT, true ) );
+			} else {
+				$answer = isset( $fields[ $column ] ) ? $fields[ $column ] : '';
+				$value  = is_array( $answer ) ? implode( ', ', array_map( 'strval', $answer ) ) : (string) $answer;
+			}
+
+			printf(
+				'<tr><th scope="row">%1$s<br /><code class="wpcpm-inst-record">%2$s</code></th><td>%3$s</td></tr>',
+				esc_html( $label ),
+				esc_html( $column ),
+				'' !== trim( $value )
+					? esc_html( $value )
+					: '<span class="wpcpm-inst-muted">' . esc_html__( 'no answer', 'wpcredits-program-manager' ) . '</span>'
+			);
+		}
+
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * The consent record in one sentence.
+	 *
+	 * The sentence they were shown, when they agreed, and when the policy was last changed,
+	 * because "they agreed" is worthless if the policy moved afterwards and this is where a
+	 * manager can see that it did.
+	 *
+	 * @param mixed $consent The stored consent record.
+	 * @return string
+	 */
+	private static function consent_line( $consent ) {
+		if ( ! is_array( $consent ) || empty( $consent ) ) {
+			return __( 'No consent record was stored with this application.', 'wpcredits-program-manager' );
+		}
+
+		$at    = isset( $consent['at'] ) ? (int) $consent['at'] : 0;
+		$parts = array(
+			$at > 0
+				? sprintf(
+					/* translators: %s: date and time. */
+					__( 'Agreed %s.', 'wpcredits-program-manager' ),
+					wp_date( 'Y-m-d H:i', $at )
+				)
+				: __( 'Agreed; no time was recorded.', 'wpcredits-program-manager' ),
+		);
+
+		if ( ! empty( $consent['sentence'] ) ) {
+			$parts[] = (string) $consent['sentence'];
+		}
+
+		if ( ! empty( $consent['url'] ) ) {
+			$parts[] = sprintf(
+				/* translators: %s: privacy policy address. */
+				__( 'Policy: %s', 'wpcredits-program-manager' ),
+				(string) $consent['url']
+			);
+		}
+
+		if ( ! empty( $consent['modified'] ) ) {
+			$parts[] = sprintf(
+				/* translators: %s: date the privacy policy was last changed. */
+				__( 'The policy was last changed %s; anything later than the agreement above is not what they read.', 'wpcredits-program-manager' ),
+				(string) $consent['modified']
+			);
+		}
+
+		return implode( ' ', $parts );
+	}
+
+	/**
+	 * What the form's checks made of this submission, in plain words.
+	 *
+	 * This screen is the only place `_wpcpm_app_signals` is ever read back, and until it was
+	 * printed a held row looked like any other: a manager pressing Reject or Send this
+	 * question on one was acting on a submission the site had quietly decided was suspect,
+	 * without being shown either that or why. Every decision here is somebody's judgement
+	 * about an institution, and a judgement taken on a hidden opinion is not one.
+	 *
+	 * Printed for every application and not only for a held one. Two of the checks hold
+	 * nothing by themselves, `duplicate` and the site-wide ceiling, so a row can be `new` and
+	 * still have something on it worth reading; and "nothing was flagged" is evidence too,
+	 * which is why an empty list is printed as an empty list rather than as no block at all.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $state Its state.
+	 */
+	private function render_signals( WP_Post $post, $state ) {
+		$held    = WPCPM_Institution_Application::STATE_HELD === (string) $state;
+		$signals = self::signals( $post );
+		$labels  = self::signal_labels();
+
+		printf(
+			'<h3>%s</h3>',
+			esc_html(
+				$held
+					? __( 'Why this application is held', 'wpcredits-program-manager' )
+					: __( 'What the checks made of it', 'wpcredits-program-manager' )
+			)
+		);
+
+		if ( $held ) {
+			// What holding actually does, which is narrower than it sounds and worth saying
+			// plainly: it spares the managers a message, and nothing else. The applicant was
+			// acknowledged like anybody else and holds the link that confirms their address,
+			// so this row can be approved. Saying otherwise would steer the decision, which
+			// is what the old wording here did.
+			echo '<p>' . esc_html__( 'Holding spares the managers a message and nothing more. The applicant was acknowledged exactly as any other was, and holds the link that confirms their address, so this application can be approved once that link is used. None of these checks refused anything: each one holds a row for a person to look at, which is what this is.', 'wpcredits-program-manager' ) . '</p>';
+
+			if ( in_array( 'mail-ceiling', $signals, true ) ) {
+				// The one exception, and the only case where nobody wrote to them.
+				echo '<p>' . esc_html__( 'Except this one: the day\'s limit on acknowledgements had been reached when it arrived, so no message was sent and the address is unconfirmed. Ask them for it by hand before approving.', 'wpcredits-program-manager' ) . '</p>';
+			}
+		}
+
+		if ( empty( $signals ) ) {
+			echo '<p>' . esc_html(
+				$held
+					? __( 'No check recorded anything against it. The state says held and nothing says why, so decide it on what is on it.', 'wpcredits-program-manager' )
+					: __( 'Nothing. Every check the form makes passed.', 'wpcredits-program-manager' )
+			) . '</p>';
+
+			return;
+		}
+
+		echo '<ul class="wpcpm-app-signals">';
+
+		foreach ( $signals as $signal ) {
+			printf( '<li>%s</li>', esc_html( isset( $labels[ $signal ] ) ? $labels[ $signal ] : self::unnamed_signal( $signal ) ) );
+		}
+
+		echo '</ul>';
+	}
+
+	/**
+	 * Every check the form can raise, in the words a manager reads.
+	 *
+	 * Kept here rather than beside the checks that raise them, for the reason
+	 * `queue_messages()` keeps the outcomes here: what a slug means to the check is not what
+	 * it has to mean to the person deciding. The numbers are read from the form's own
+	 * constants, so a limit changed there cannot leave a sentence here quoting the old one.
+	 *
+	 * The slugs are the form's literals and there is nothing to name them through, so a check
+	 * added there and not here prints as itself rather than disappearing: see
+	 * `unnamed_signal()`, which is the whole reason this is a lookup and not a switch.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function signal_labels() {
+		return array(
+			'honeypot'             => __( 'A field no visitor can see was filled in, which is what an automated submission does and a person cannot.', 'wpcredits-program-manager' ),
+			'dwell'                => sprintf(
+				/* translators: %s: a number of seconds. */
+				__( 'It arrived without the token the form hands a browser, or less than %s seconds after the page was drawn.', 'wpcredits-program-manager' ),
+				number_format_i18n( WPCPM_Institution_Application::MIN_SECONDS )
+			),
+			'disallowed'           => __( 'Something written on it matches this site\'s comment disallowed list.', 'wpcredits-program-manager' ),
+			'links'                => sprintf(
+				/* translators: %s: a number of links. */
+				__( 'The written answers carry %s links or more.', 'wpcredits-program-manager' ),
+				number_format_i18n( WPCPM_Institution_Application::MAX_LINKS )
+			),
+			'identical'            => __( 'The same paragraph was given as the answer to more than one question.', 'wpcredits-program-manager' ),
+			'short'                => sprintf(
+				/* translators: %s: a number of characters. */
+				__( 'The answer about why they are interested is shorter than %s characters.', 'wpcredits-program-manager' ),
+				number_format_i18n( WPCPM_Institution_Application::MIN_REASON )
+			),
+			'no-mx'                => __( 'Nothing at the domain of the address they gave looks able to receive mail, so a reply may reach nobody.', 'wpcredits-program-manager' ),
+			'name-is-contact'      => __( 'The institution and the person to contact were given the same name, which is what a script with one string to offer does.', 'wpcredits-program-manager' ),
+			'site-ceiling'         => sprintf(
+				/* translators: %s: how many applications a day the site accepts before it starts holding them. */
+				__( 'The site had already taken %s applications that day, so this one was kept and held instead of being refused. It says nothing about the application itself.', 'wpcredits-program-manager' ),
+				number_format_i18n( WPCPM_Institution_Application::PER_DAY )
+			),
+			self::SIGNAL_DUPLICATE => __( 'Another application already named this institution or this address. Nothing is ever merged: open both and decide.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * A check this screen has no sentence for.
+	 *
+	 * Its own line rather than nothing at all: a check added to the form after this list was
+	 * written is still a reason a submission is sitting in front of somebody, and a manager
+	 * who can see the slug can go and ask what it means. A manager shown nothing cannot.
+	 *
+	 * @param string $signal The stored slug.
+	 * @return string
+	 */
+	private static function unnamed_signal( $signal ) {
+		return sprintf(
+			/* translators: %s: the stored name of a check, e.g. no-mx. */
+			__( 'A check this screen has no words for yet, recorded as "%s".', 'wpcredits-program-manager' ),
+			$signal
+		);
+	}
+
+	/**
+	 * Whether the applicant has confirmed the address, in a sentence that fits the state.
+	 *
+	 * Its own line above the answers rather than a column in them: approval refuses an
+	 * unconfirmed address, so this is the first thing a manager needs to know and the reason
+	 * the Approve button will not work if they do not read it.
+	 *
+	 * A held row gets its own sentence. The one this used to print sent the manager off to
+	 * wait for "the link in their acknowledgement", and a held submission is the one nothing
+	 * was announced about, so it named a mail that may never have left. What is true of both
+	 * is that confirming is the applicant's own act, which is the whole point of it; what is
+	 * different is what an unconfirmed address on a held row is evidence of, which is
+	 * nothing. Held is not a state this refuses to describe a way out of: the link is signed
+	 * against the application and not against its state, so a held row can carry a
+	 * confirmation like any other and be approved on it.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $state Its state.
+	 * @return string
+	 */
+	private static function verification_line( WP_Post $post, $state ) {
+		$verified = get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_VERIFIED, true );
+
+		if ( '' === trim( (string) $verified ) ) {
+			return WPCPM_Institution_Application::STATE_HELD === (string) $state
+				? __( 'The address has not been confirmed, and nothing on this row says the applicant was ever asked to: read the checks above before you read the silence. Approving mails a password-set link and is refused until the address is confirmed, and only the applicant can confirm it. Ask them something from here if you need to, or decide the row on what is on it.', 'wpcredits-program-manager' )
+				: __( 'The address has not been confirmed yet. The acknowledgement carried the link that confirms it, and approving mails a password-set link, so approval is refused until the applicant follows that link.', 'wpcredits-program-manager' );
+		}
+
+		if ( is_numeric( $verified ) ) {
+			return sprintf(
+				/* translators: %s: date and time. */
+				__( 'The applicant confirmed their address on %s.', 'wpcredits-program-manager' ),
+				wp_date( 'Y-m-d H:i', (int) $verified )
+			);
+		}
+
+		return __( 'The applicant has confirmed their address.', 'wpcredits-program-manager' );
+	}
+
+	/**
+	 * What Airtable already holds under this name or this address.
+	 *
+	 * The one live read on this screen, and it happens only for an application somebody has
+	 * opened: the queue itself never touches the base, so a screen full of rows costs no
+	 * requests. Two tests, because the base is full of records promoted from outreach that
+	 * have a name and no `Contact Email` at all, and matching only on the address would miss
+	 * every one of them.
+	 *
+	 * A match is information and never an action: whether this is the same institution is a
+	 * judgement, and the approval makes the same search again when it is pressed.
+	 *
+	 * @param WP_Post $post The application.
+	 */
+	private function render_duplicate_search( WP_Post $post ) {
+		echo '<h3>' . esc_html__( 'What Airtable already has', 'wpcredits-program-manager' ) . '</h3>';
+
+		if ( ! WPCPM_Settings::is_connected() ) {
+			echo '<p>' . esc_html__( 'Airtable is not connected, so no search was made.', 'wpcredits-program-manager' ) . '</p>';
+
+			return;
+		}
+
+		$matches = self::duplicate_search( trim( (string) $post->post_title ), self::application_email( $post ) );
+
+		if ( is_wp_error( $matches ) ) {
+			printf(
+				'<p class="wpcpm-warning">%1$s %2$s</p>',
+				esc_html__( 'The search could not be made:', 'wpcredits-program-manager' ),
+				esc_html( $matches->get_error_message() )
+			);
+
+			return;
+		}
+
+		if ( empty( $matches ) ) {
+			echo '<p>' . esc_html__( 'No Institutions record carries this name or this address. Approving creates one.', 'wpcredits-program-manager' ) . '</p>';
+
+			return;
+		}
+
+		echo '<p>' . esc_html__( 'These records match on the trimmed name or on the address. Approving adopts the first of them rather than creating a second:', 'wpcredits-program-manager' ) . '</p>';
+		echo '<ul class="wpcpm-app-matches">';
+
+		foreach ( $matches as $match ) {
+			printf(
+				'<li><span class="wpcpm-inst-name__text">%1$s</span> <code class="wpcpm-inst-record">%2$s</code> %3$s</li>',
+				esc_html( '' !== $match['name'] ? $match['name'] : __( '(no name)', 'wpcredits-program-manager' ) ),
+				esc_html( $match['record_id'] ),
+				esc_html( '' !== $match['stage'] ? $match['stage'] : __( 'no stage', 'wpcredits-program-manager' ) )
+			);
+		}
+
+		echo '</ul>';
+	}
+
+	/**
+	 * Ask the base what it holds under this name or this address.
+	 *
+	 * `TRIM(LOWER({Name}))` on the field side because ten names in the table end in a space
+	 * and the base is the side this code does not hold; the needle is lowered here. The
+	 * address half goes through `formula_in()` with its `LOWER()` flag, which is what that
+	 * flag is for.
+	 *
+	 * @param string $name  The institution name as applied under.
+	 * @param string $email The address as applied under.
+	 * @return array[]|WP_Error Matches: `record_id`, `name`, `stage`.
+	 */
+	private static function duplicate_search( $name, $email ) {
+		$airtable = new WPCPM_Airtable();
+		$columns  = WPCPM_Institutions_Sync::fields();
+		$settings = WPCPM_Settings::get();
+		$tests    = array();
+
+		if ( '' !== trim( (string) $name ) ) {
+			$tests[] = sprintf(
+				'TRIM(LOWER({%1$s})) = %2$s',
+				str_replace( array( '\\', '}' ), array( '\\\\', '\\}' ), $columns['name'] ),
+				self::formula_literal( self::lower( $name ) )
+			);
+		}
+
+		$by_email = $airtable->formula_in( $columns['contact_email'], array( (string) $email ), true );
+
+		if ( '' !== $by_email ) {
+			$tests[] = $by_email;
+		}
+
+		if ( empty( $tests ) ) {
+			return array();
+		}
+
+		$page = $airtable->fetch_page(
+			isset( $settings['institutions_table'] ) ? (string) $settings['institutions_table'] : '',
+			array(
+				'formula' => 1 === count( $tests ) ? $tests[0] : 'OR(' . implode( ', ', $tests ) . ')',
+				'fields'  => array( $columns['name'], $columns['contact_email'], $columns['stage'] ),
+			)
+		);
+
+		if ( is_wp_error( $page ) ) {
+			return $page;
+		}
+
+		$matches = array();
+
+		foreach ( $page['records'] as $record ) {
+			$record_id = isset( $record['id'] ) ? trim( (string) $record['id'] ) : '';
+
+			if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+				continue;
+			}
+
+			$cells = isset( $record['fields'] ) && is_array( $record['fields'] ) ? $record['fields'] : array();
+
+			$matches[] = array(
+				'record_id' => $record_id,
+				'name'      => trim( WPCPM_Airtable::flatten( isset( $cells[ $columns['name'] ] ) ? $cells[ $columns['name'] ] : '' ) ),
+				'stage'     => trim( WPCPM_Airtable::flatten( isset( $cells[ $columns['stage'] ] ) ? $cells[ $columns['stage'] ] : '' ) ),
+			);
+		}
+
+		return $matches;
+	}
+
+	/**
+	 * A string literal for an Airtable formula.
+	 *
+	 * `WPCPM_Airtable::formula_in()` builds its own and keeps its quoting private; this is
+	 * the one formula in the plugin that is not a list of equalities, so it quotes its own
+	 * needle the same way.
+	 *
+	 * @param string $value The value.
+	 * @return string
+	 */
+	private static function formula_literal( $value ) {
+		return "'" . str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), (string) $value ) . "'";
+	}
+
+	/**
+	 * The decisions available on an open application.
+	 *
+	 * Which forms appear is the state's answer and the handlers ask it again: a form nobody
+	 * may post is a courtesy that saves a reader a refusal, never the check itself.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $state Its state.
+	 */
+	private function render_application_actions( WP_Post $post, $state ) {
+		echo '<h3>' . esc_html__( 'What happens next', 'wpcredits-program-manager' ) . '</h3>';
+
+		$name  = trim( (string) $post->post_title );
+		$name  = '' !== $name ? $name : self::application_reference( $post );
+		$email = self::application_email( $post );
+
+		if ( in_array( $state, self::open_states(), true ) ) {
+			// The one address this screen prints, and design spec 7.3 asks for it by name:
+			// the next thing that happens is a password-set link being mailed, and "to the
+			// address on the application" is not something a manager can check.
+			$this->render_decision_form(
+				$post,
+				array(
+					'action'  => self::ACTION_APPROVE,
+					'label'   => __( 'Approve', 'wpcredits-program-manager' ),
+					'class'   => 'button button-primary',
+					'confirm' => sprintf(
+						/* translators: 1: institution name, 2: contact email address. */
+						__( 'Create an Airtable record and a site account for %1$s, and email a password-set link to %2$s? The Airtable record cannot be removed from here.', 'wpcredits-program-manager' ),
+						$name,
+						'' !== $email ? $email : __( 'the address on the application', 'wpcredits-program-manager' )
+					),
+				)
+			);
+
+			$this->render_decision_form(
+				$post,
+				array(
+					'action' => self::ACTION_INFO,
+					'label'  => __( 'Send this question', 'wpcredits-program-manager' ),
+					'field'  => 'wpcpm_question',
+					'prompt' => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
+				)
+			);
+
+			$this->render_decision_form(
+				$post,
+				array(
+					'action'  => self::ACTION_REJECT,
+					'label'   => __( 'Reject', 'wpcredits-program-manager' ),
+					'field'   => 'wpcpm_reason',
+					'prompt'  => __( 'Why, for the next manager who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
+					'confirm' => sprintf(
+						/* translators: %s: institution name. */
+						__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),
+						$name
+					),
+				)
+			);
+
+			$this->render_decision_form(
+				$post,
+				array(
+					'action'  => self::ACTION_SPAM,
+					'label'   => __( 'Reject as spam', 'wpcredits-program-manager' ),
+					'confirm' => sprintf(
+						/* translators: %s: institution name. */
+						__( 'Mark the application from %s as spam? Nothing at all is sent to the address on it.', 'wpcredits-program-manager' ),
+						$name
+					),
+				)
+			);
+		}
+
+		if ( in_array( $state, self::reopen_states(), true ) ) {
+			$this->render_decision_form(
+				$post,
+				array(
+					'action' => self::ACTION_REOPEN,
+					'label'  => __( 'Put back in the queue', 'wpcredits-program-manager' ),
+				)
+			);
+		}
+
+		if ( in_array( $state, self::purgeable_states(), true ) ) {
+			$this->render_decision_form(
+				$post,
+				array(
+					'action'  => self::ACTION_PURGE,
+					'label'   => __( 'Delete for good', 'wpcredits-program-manager' ),
+					'confirm' => sprintf(
+						/* translators: %s: institution name. */
+						__( 'Delete the application from %s for good? Every answer on it goes; only its reference and the date are kept. This cannot be undone.', 'wpcredits-program-manager' ),
+						$name
+					),
+				)
+			);
+		}
+	}
+
+	/**
+	 * One decision's form.
+	 *
+	 * The nonce is keyed to the action and the application together, so a nonce harvested
+	 * from one row's Reject cannot approve another's.
+	 *
+	 * @param WP_Post $post The application.
+	 * @param array   $args `action`, `label`, `class`, `confirm`, `field`, `prompt`.
+	 */
+	private function render_decision_form( WP_Post $post, array $args ) {
+		$args = array_merge(
+			array(
+				'action'  => '',
+				'label'   => '',
+				'class'   => 'button',
+				'confirm' => '',
+				'field'   => '',
+				'prompt'  => '',
+			),
+			$args
+		);
+
+		printf(
+			'<form class="wpcpm-app-action" method="post" action="%1$s"%2$s>',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			'' !== $args['confirm'] ? ' onsubmit="return confirm(\'' . esc_js( $args['confirm'] ) . '\');"' : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped inline.
+		);
+		wp_nonce_field( $args['action'] . '_' . (int) $post->ID );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_APPLICATION ), (int) $post->ID );
+
+		if ( '' !== $args['field'] ) {
+			printf(
+				'<p><label for="%1$s">%2$s</label><br /><textarea class="large-text" id="%1$s" name="%1$s" rows="4" maxlength="%3$d"></textarea></p>',
+				esc_attr( $args['field'] ),
+				esc_html( $args['prompt'] ),
+				(int) self::MAX_NOTE
+			);
+		}
+
+		printf(
+			'<p><button type="submit" class="%1$s">%2$s</button></p>',
+			esc_attr( $args['class'] ),
+			esc_html( $args['label'] )
+		);
+		echo '</form>';
 	}
 
 	/**

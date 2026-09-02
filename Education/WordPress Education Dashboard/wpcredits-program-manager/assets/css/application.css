@@ -1,0 +1,238 @@
+/**
+ * The public application form - front-end styles.
+ *
+ * Stands on its own, with no dependency on the dashboard stylesheets. Everything else this
+ * plugin draws on the front end is a page somebody has signed in to see, so the three
+ * dashboards share one shell; this page is read by strangers who followed a link from a
+ * conference talk, and loading three pages' worth of rules to draw a set of fields would be
+ * the only reason it was slow.
+ *
+ * Colours are derived from `currentColor` the way dashboard.css derives its own, and for the
+ * reason recorded there: values behind `prefers-color-scheme` key off the operating system
+ * rather than the theme, so a light theme read on a machine in dark mode ended up with
+ * near-white text on white. Nothing here can end up the same colour as what is behind it.
+ *
+ * Low specificity throughout, no `!important`, and nothing prefixed with a page class, so a
+ * theme that wants its own treatment overrides these on a plain tie.
+ */
+
+.wpcpm-application {
+	--wpcpm-border: color-mix( in srgb, currentColor 18%, transparent );
+	--wpcpm-surface: color-mix( in srgb, currentColor 5%, transparent );
+	--wpcpm-radius: 8px;
+}
+
+/* Fallback for anything without color-mix(): a mid gray reads acceptably on both light and
+   dark backgrounds. */
+@supports not ( color: color-mix( in srgb, currentColor 18%, transparent ) ) {
+
+	.wpcpm-application {
+		--wpcpm-border: rgba( 128, 128, 128, 0.4 );
+		--wpcpm-surface: rgba( 128, 128, 128, 0.08 );
+	}
+}
+
+.wpcpm-application__title {
+	margin: 0 0 0.75em;
+}
+
+/* What a program manager is told when the form is not being drawn for anybody else. */
+.wpcpm-application__notice {
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-inline-start-width: 4px;
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1.5em;
+	padding: 0.75em 1em;
+}
+
+/* The outcome of the last attempt. Bordered on the leading edge rather than filled, because a
+   solid warning colour a plugin picks cannot be known to read on the theme's background. */
+.wpcpm-application__message {
+	border: 1px solid var( --wpcpm-border );
+	border-inline-start-width: 4px;
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1.5em;
+	padding: 0.75em 1em;
+}
+
+.wpcpm-application__message.is-error {
+	font-weight: 600;
+}
+
+/*
+ * The groups of questions.
+ *
+ * A `fieldset` with a `legend`, which is what groups controls for a screen reader as well as
+ * for the eye. Browsers give both a default border and padding that no two agree on, so both
+ * are stated here.
+ */
+.wpcpm-application__group {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1.5em;
+	min-width: 0;
+	padding: 1em 1.25em 1.25em;
+}
+
+.wpcpm-application__group > legend {
+	font-weight: 700;
+	padding-inline: 0.4em;
+}
+
+/* One question. */
+.wpcpm-field {
+	display: block;
+	margin: 0 0 1.25em;
+}
+
+.wpcpm-field:last-child {
+	margin-bottom: 0;
+}
+
+.wpcpm-field > label,
+.wpcpm-field__label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 0.3em;
+}
+
+.wpcpm-field input[type="text"],
+.wpcpm-field input[type="email"],
+.wpcpm-field input[type="number"],
+.wpcpm-field select,
+.wpcpm-field textarea {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	box-sizing: border-box;
+	display: block;
+	max-width: 100%;
+	padding: 0.5em 0.6em;
+	width: 100%;
+}
+
+.wpcpm-field textarea {
+	min-height: 6em;
+	resize: vertical;
+}
+
+/* A count of students is a short answer and a full-width box invites an essay. */
+.wpcpm-field--number input[type="number"] {
+	max-width: 10em;
+}
+
+/* The checkbox list and the consent box: control first, label after it, because
+   "[x] Yes, I confirm" is how a tick reads. */
+.wpcpm-field__check,
+.wpcpm-field__consent {
+	align-items: flex-start;
+	display: flex;
+	font-weight: 400;
+	gap: 0.5em;
+	margin-bottom: 0.4em;
+}
+
+.wpcpm-field__check input,
+.wpcpm-field__consent input {
+	margin-top: 0.25em;
+}
+
+.wpcpm-field__consent label {
+	font-weight: 400;
+}
+
+.wpcpm-field__hint {
+	display: block;
+	margin-top: 0.3em;
+	opacity: 0.72;
+}
+
+/*
+ * What is wrong with one answer.
+ *
+ * Never colour alone: the sentence says what to do, and the field is marked `aria-invalid`,
+ * so somebody who cannot tell the border apart is told the same thing in words.
+ */
+.wpcpm-field__problem {
+	display: block;
+	font-weight: 600;
+	margin-top: 0.3em;
+}
+
+.wpcpm-field.has-problem input,
+.wpcpm-field.has-problem select,
+.wpcpm-field.has-problem textarea {
+	border-width: 2px;
+}
+
+/*
+ * The honeypot.
+ *
+ * Taken off the screen rather than hidden with `display: none`, which is the one thing a
+ * form-filling script does look for. Nobody reading the page with a screen reader or a
+ * keyboard reaches it: the wrapper is `aria-hidden` and the input's tabindex is -1.
+ */
+.wpcpm-application__confirm {
+	height: 1px;
+	left: -9999px;
+	overflow: hidden;
+	position: absolute;
+	top: auto;
+	width: 1px;
+}
+
+.wpcpm-application__send {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75em;
+	margin: 0;
+}
+
+/* Matches the button on the dashboards without depending on their stylesheet, so the two
+   look like one program. */
+.wpcpm-button {
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+	padding: 0.5em 1.2em;
+}
+
+.wpcpm-button:hover,
+.wpcpm-button:focus {
+	border-color: currentColor;
+}
+
+.wpcpm-button[disabled] {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.wpcpm-application__busy {
+	opacity: 0.72;
+}
+
+/* The confirmation, which replaces the form rather than sitting above it: there is nothing
+   left to fill in, and a form under "thank you" invites a second application. */
+.wpcpm-application__done {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	padding: 1em 1.25em;
+}
+
+.wpcpm-application__done h3 {
+	margin-top: 0;
+}
+
+.wpcpm-application__reference {
+	font-weight: 600;
+}
+
+/* The editor's static preview. */
+.wpcpm-application__groups {
+	margin: 0 0 1em;
+	padding-inline-start: 1.2em;
+}

@@ -37,95 +37,98 @@ class WPCPM_Settings {
 	 */
 	public static function defaults() {
 		return array(
-			'api_token'                 => '',
-			'base_id'                   => 'appIzQKfwTn5dyPVp',
-			'mentors_table'             => 'tblJmEYgBWYxVuzUw',
-			'mentor_status'             => 'Active',
-			'reports_table'             => 'tbljYkkVGbeoaWEtY',
-			'students_table'            => 'tbla8GZg5x6NY7aWt',
+			'api_token'                     => '',
+			'base_id'                       => 'appIzQKfwTn5dyPVp',
+			'mentors_table'                 => 'tblJmEYgBWYxVuzUw',
+			'mentor_status'                 => 'Active',
+			'reports_table'                 => 'tbljYkkVGbeoaWEtY',
+			'students_table'                => 'tbla8GZg5x6NY7aWt',
 			// The feedback surveys. One row per student, with a column per question
 			// and a `F1`/`F2`/`F3`/`F4` prefix saying which stage asked it.
-			'feedback_table'            => 'tblx3TH6fp4edQJDm',
+			'feedback_table'                => 'tblx3TH6fp4edQJDm',
 			// Linked-record fields come back from the REST API as bare record IDs,
 			// so these two tables are read purely to turn those IDs into names.
-			'institutions_table'        => 'tbl4V0FEbzRP7I2w2',
-			'teams_table'               => 'tblUBEXiS3QKUCXHf',
-			'sponsors_table'            => 'tbluji8wknOZr55fa',
+			'institutions_table'            => 'tbl4V0FEbzRP7I2w2',
+			'teams_table'                   => 'tblUBEXiS3QKUCXHf',
+			'sponsors_table'                => 'tbluji8wknOZr55fa',
 			// The column holding each table's display name. Used when the schema
 			// endpoint is unavailable, since it is the schema that reports which
 			// field is primary.
-			'institutions_name_field'   => 'Name',
-			'teams_name_field'          => 'Contribution teams or areas',
-			'sponsors_name_field'       => 'Company Name',
+			'institutions_name_field'       => 'Name',
+			'teams_name_field'              => 'Contribution teams or areas',
+			'sponsors_name_field'           => 'Company Name',
 			// Students a mentor is currently mentoring. `Paused` and `Pending graduation`
 			// count as current: both syncs build their Airtable formula from this list,
 			// so a status missing here is a student nobody fetches (see `maybe_upgrade()`).
-			'student_statuses'          => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ),
+			'student_statuses'              => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ),
 			// Students whose mentoring has finished. Shown in a separate, collapsed
 			// section rather than mixed in with the current ones.
-			'past_statuses'             => array( 'Graduate', 'Dropped out' ),
+			'past_statuses'                 => array( 'Graduate', 'Dropped out' ),
 			// What to do when a mentor is no longer Active in Airtable. `revoke`
 			// takes the Mentor role away but never deletes the account.
-			'on_inactive'               => 'revoke',
+			'on_inactive'                   => 'revoke',
 			// Off by default: a first sync provisions ~90 accounts at once, and
 			// nobody wants to discover that by way of ninety emails.
-			'send_welcome_email'        => false,
-			'auto_sync'                 => true,
+			'send_welcome_email'            => false,
+			'auto_sync'                     => true,
 			// The handbook assistant, and whether it exists at all. Off means no page, no
 			// daily fetch of somebody else's site, and no question box — the stored copy is
 			// kept, so switching it back on does not mean waiting for a sync.
-			'handbook_enabled'          => true,
+			'handbook_enabled'              => true,
 			// The handbook assistant. The source defaults to the WordPress Education
 			// Handbook, which is an ordinary REST-enabled post type on make.wordpress.org.
 			// Empty means answers are quoted from the handbook and nothing leaves the site.
 			// Turning this on sends questions to a third party, so it is a deliberate act.
-			'handbook_provider'         => '',
-			'handbook_key'              => '',
+			'handbook_provider'             => '',
+			'handbook_key'                  => '',
 			// An alias, deliberately. Google retired `gemini-2.0-flash` and then
 			// `gemini-2.5-flash` while this was being written, and each time the symptom was
 			// a refused request and no answer. `gemini-flash-latest` cannot be retired out
 			// from under a site.
-			'handbook_model'            => 'gemini-flash-latest',
+			'handbook_model'                => 'gemini-flash-latest',
 			// Who may ask. `mentor` — mentors and program managers — is the default: the
 			// handbook is written for the people running the program, and most of it describes
 			// work students do not do. `program` widens it to students and institutions,
 			// `any` to anybody logged in, `manage` to program managers alone.
-			'handbook_access'           => 'mentor',
+			'handbook_access'               => 'mentor',
 			// Generated answers per person per hour. The extractive answer is never limited.
-			'handbook_limit'            => 20,
+			'handbook_limit'                => 20,
 			// On by default: a mentor logging in otherwise lands on a wp-admin
 			// screen that shows them nothing they can use.
-			'mentor_home'               => true,
+			'mentor_home'                   => true,
 			// Students module, mirroring the mentors settings above.
-			'student_home'              => true,
-			'student_on_inactive'       => 'revoke',
+			'student_home'                  => true,
+			'student_on_inactive'           => 'revoke',
 
 			// Institutions module. The countries table is read for the same reason as
 			// the three lookup tables above: an institution's country arrives as a bare
 			// record ID, and it is the country that says which manager looks after it.
-			'countries_table'           => 'tbltB7GSRoTtSi4Ps',
-			'countries_name_field'      => 'Name',
+			'countries_table'               => 'tbltB7GSRoTtSi4Ps',
+			'countries_name_field'          => 'Name',
 			// The `Current Stage` an approved application is created at, and the stages
 			// that count as being in the pipeline. An institution whose stage leaves this
 			// list is treated like a mentor who is no longer Active.
-			'institution_new_stage'     => 'First Contact Made',
-			'institution_active_stages' => array( 'First Contact Made', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Call Scheduled', 'Agreement Sent', 'Confirmed', 'Student' ),
+			'institution_new_stage'         => 'First Contact Made',
+			'institution_active_stages'     => array( 'First Contact Made', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Call Scheduled', 'Agreement Sent', 'Confirmed', 'Student' ),
 			// Off by default for the same reason as the welcome email: a sync that
 			// creates accounts should do so because somebody asked it to, not because
 			// the files were updated.
-			'institution_provision'     => false,
-			'institution_on_inactive'   => 'revoke',
-			'institution_home'          => true,
+			'institution_provision'         => false,
+			'institution_on_inactive'       => 'revoke',
+			'institution_home'              => true,
 			// The public application form. Off until the page that hosts it exists,
 			// because on means accepting submissions from anybody on the internet.
-			'applications_enabled'      => false,
+			'applications_enabled'          => false,
 			// How long each kind of application is kept, in days. Spam goes quickly,
 			// a rejection stays long enough to recognise the same institution applying
 			// again, and approved ones are kept for ever (0): they are the audit trail
 			// of who was let in.
-			'application_spam_days'     => 30,
-			'application_rejected_days' => 365,
-			'application_approved_days' => 0,
+			'application_spam_days'         => 30,
+			'application_rejected_days'     => 365,
+			'application_approved_days'     => 0,
+			// The connecting address whose forwarded header the application form believes, or
+			// empty for none. Empty is right on this host, where `REMOTE_ADDR` is the client.
+			'application_trusted_proxy'     => '',
 			// The signed-agreement upload. The size cap and the daily count per
 			// institution are what stops a Subscriber-based account filling the disk.
 			// `agreement_notify` is who hears about an upload, comma-separated; empty
@@ -134,45 +137,48 @@ class WPCPM_Settings {
 			// `agreement_review_days` is overdue and goes in the reminder; a withdrawn
 			// or returned file is deleted after `agreement_discard_days`, an accepted
 			// one never, because it is the agreement.
-			'agreement_max_mb'          => 10,
-			'agreement_uploads_per_day' => 5,
-			'agreement_review_days'     => 3,
-			'agreement_notify'          => '',
+			'agreement_max_mb'              => 10,
+			'agreement_uploads_per_day'     => 5,
+			// Template generations per institution per day. Each one is a post, an Airtable
+			// write and a document, and ten is more than getting the name right takes.
+			'agreement_generations_per_day' => 10,
+			'agreement_review_days'         => 3,
+			'agreement_notify'              => '',
 			// Where the wording actually lives, for the manager screen's link and for the drift
 			// check that compares the plugin's copy against it. Deliberately empty by default and
 			// deliberately not in the code: the document is editable by anyone holding its link,
 			// so the link belongs on the site rather than in a public repository.
-			'agreement_doc_url'         => '',
-			'agreement_discard_days'    => 30,
+			'agreement_doc_url'             => '',
+			'agreement_discard_days'        => 30,
 			// Roster import by institutions. Off until it has run on the pilot, since
 			// every import is a write to the shared base.
-			'import_enabled'            => false,
+			'import_enabled'                => false,
 			// Days an invitation to join an institution's account is kept once it has
 			// lapsed, so a manager can still see who was invited and never came.
-			'invite_retention_days'     => 30,
+			'invite_retention_days'         => 30,
 
 			// Which roles must present a second factor at login, laid over the Two Factor
 			// plugin. Administrators and institutions by default: those two see other people's
 			// data, and both are small enough groups to help one by one. Mentors are a
 			// deliberate omission until the program tells them it is coming, and students are
 			// left to choose for themselves. An empty list requires it of nobody.
-			'two_factor_roles'          => array( 'administrator', 'wpcpm_institution' ),
+			'two_factor_roles'              => array( 'administrator', 'wpcpm_institution' ),
 
 			// Tool — Mentor Status Checker. Prefixed so the tool's settings stay
 			// visibly separate from the modules' in one shared option.
-			'checker_source_status'     => 'Vetted - positive',
-			'checker_target_status'     => 'Active',
-			'checker_course_slug'       => 'wordpress-credits-mentors-course',
-			'checker_course_title'      => "WordPress Credits Mentor's Course",
-			'checker_completion_phrase' => 'Completed the course',
-			'checker_timeline_filter'   => 'meta',
-			'checker_max_pages'         => 15,
-			'checker_batch_size'        => 3,
-			'checker_request_delay'     => 0,
-			'checker_cache_ttl'         => 12 * HOUR_IN_SECONDS,
+			'checker_source_status'         => 'Vetted - positive',
+			'checker_target_status'         => 'Active',
+			'checker_course_slug'           => 'wordpress-credits-mentors-course',
+			'checker_course_title'          => "WordPress Credits Mentor's Course",
+			'checker_completion_phrase'     => 'Completed the course',
+			'checker_timeline_filter'       => 'meta',
+			'checker_max_pages'             => 15,
+			'checker_batch_size'            => 3,
+			'checker_request_delay'         => 0,
+			'checker_cache_ttl'             => 12 * HOUR_IN_SECONDS,
 			// Off by default: promoting a mentor is a write to a shared base.
-			'checker_cron_enabled'      => false,
-			'checker_cron_promotes'     => false,
+			'checker_cron_enabled'          => false,
+			'checker_cron_promotes'         => false,
 		);
 	}
 
@@ -331,6 +337,19 @@ class WPCPM_Settings {
 			$clean['agreement_notify'] = implode( ',', array_unique( $addresses ) );
 		}
 
+		// The one connecting address whose forwarded header the application form believes.
+		// The form's per-address ceiling keys on the client address, and a header anybody can
+		// send is not an address: only the edge itself may say who is behind it. On this host
+		// `REMOTE_ADDR` is already the client (design spec, open question 9), so the default is
+		// empty and no header is trusted. Anything but an IP is dropped rather than kept: the
+		// value is compared with `REMOTE_ADDR`, and one that can never match is an empty
+		// setting that looks set.
+		if ( isset( $input['application_trusted_proxy'] ) ) {
+			$proxy = is_string( $input['application_trusted_proxy'] ) ? trim( wp_unslash( $input['application_trusted_proxy'] ) ) : '';
+
+			$clean['application_trusted_proxy'] = ( '' !== $proxy && false !== filter_var( $proxy, FILTER_VALIDATE_IP ) ) ? $proxy : '';
+		}
+
 		// Guarded like `handbook_enabled`, unlike the checkboxes above: the settings
 		// screen does not render these four yet, so they are absent from every save of
 		// the existing form, and reading them unconditionally would switch the home
@@ -358,21 +377,22 @@ class WPCPM_Settings {
 		// Clamped rather than merely cast: a zero page cap would report every
 		// mentor as unresolvable, and a zero batch size would stall the run.
 		$limits = array(
-			'checker_max_pages'         => array( 1, 100 ),
-			'checker_batch_size'        => array( 1, 25 ),
-			'checker_request_delay'     => array( 0, 5000 ),
-			'checker_cache_ttl'         => array( 0, MONTH_IN_SECONDS ),
+			'checker_max_pages'             => array( 1, 100 ),
+			'checker_batch_size'            => array( 1, 25 ),
+			'checker_request_delay'         => array( 0, 5000 ),
+			'checker_cache_ttl'             => array( 0, MONTH_IN_SECONDS ),
 			// Institutions module. The floors keep a typo from purging today's
 			// applications tonight or refusing every upload; the approved-application
 			// floor is 0 because 0 is the value that means "keep for ever".
-			'application_spam_days'     => array( 1, 365 ),
-			'application_rejected_days' => array( 30, 3650 ),
-			'application_approved_days' => array( 0, 3650 ),
-			'agreement_max_mb'          => array( 1, 50 ),
-			'agreement_uploads_per_day' => array( 1, 50 ),
-			'agreement_review_days'     => array( 1, 60 ),
-			'agreement_discard_days'    => array( 7, 365 ),
-			'invite_retention_days'     => array( 7, 365 ),
+			'application_spam_days'         => array( 1, 365 ),
+			'application_rejected_days'     => array( 30, 3650 ),
+			'application_approved_days'     => array( 0, 3650 ),
+			'agreement_max_mb'              => array( 1, 50 ),
+			'agreement_uploads_per_day'     => array( 1, 50 ),
+			'agreement_generations_per_day' => array( 1, 100 ),
+			'agreement_review_days'         => array( 1, 60 ),
+			'agreement_discard_days'        => array( 7, 365 ),
+			'invite_retention_days'         => array( 7, 365 ),
 		);
 
 		foreach ( $limits as $key => $range ) {
