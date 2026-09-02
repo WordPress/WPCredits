@@ -1046,13 +1046,15 @@ class WPCPM_Mentors_Dashboard {
 		echo '<div class="wpcpm-mentee__identity">';
 		echo '<h3 class="wpcpm-mentee__name">' . esc_html( $name ? $name : __( 'Unnamed student', 'wpcredits-program-manager' ) ) . '</h3>';
 		if ( '' !== $status ) {
-			// The modifier is the track, so a third one is a third class rather than a second
-			// boolean. A finished student has no track and keeps the plain badge.
-			$track = WPCPM_Program::track( $status );
+			// The modifier is the track where there is one, so a fourth track is one entry in
+			// `WPCPM_Program` and nothing here. A paused student and one awaiting graduation get
+			// their own, because they are still on this list and are not still working; a
+			// finished student keeps the plain badge.
+			$badge = WPCPM_Program::badge( $status );
 
 			printf(
-				'<span class="wpcpm-badge wpcpm-badge--%1$s">%2$s</span>',
-				esc_attr( '' === $track ? 'sensei' : ( '150h' === $track ? 'sensei' : $track ) ),
+				'<span class="wpcpm-badge%1$s">%2$s</span>',
+				'' === $badge ? '' : esc_attr( ' wpcpm-badge--' . $badge ),
 				esc_html( WPCPM_Program::label( $status ) )
 			);
 		}

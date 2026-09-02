@@ -503,6 +503,23 @@ $done = array( 'phase' => 'done', 'cursor' => 0, 'started' => time() - 600, 'tou
 
 ck( 'a finished run does not block the next one', restarted( $done ), true );
 
+echo "\n=== The badge a status is painted with ===\n";
+
+ck( 'the 150-hour track keeps the sensei badge', WPCPM_Program::badge( WPCPM_Program::STATUS_150H ), 'sensei' );
+ck( 'the 50-hour track has its own', WPCPM_Program::badge( WPCPM_Program::STATUS_50H ), '50h' );
+ck( 'and so does the Developer Track', WPCPM_Program::badge( WPCPM_Program::STATUS_DEV ), 'dev' );
+// The two statuses decision 21 added. Before this they fell through to the sensei colour, which
+// told a mentor that a paused student was still working.
+ck( 'Paused is its own badge, not the sensei one', WPCPM_Program::badge( 'Paused' ), 'paused' );
+ck( 'Pending graduation is its own too', WPCPM_Program::badge( 'Pending graduation' ), 'pending' );
+ck( 'a finished student keeps the plain badge', array( WPCPM_Program::badge( 'Graduate' ), WPCPM_Program::badge( 'Dropped out' ), WPCPM_Program::badge( '' ) ), array( '', '', '' ) );
+ck( 'and the label is the status itself for both', array( WPCPM_Program::label( 'Paused' ), WPCPM_Program::label( 'Pending graduation' ) ), array( 'Paused', 'Pending graduation' ) );
+// Every modifier the class can return has a rule, or the badge is painted with nothing.
+$css = file_get_contents( dirname( __DIR__ ) . '/assets/css/dashboard.css' );
+foreach ( array( 'sensei', '50h', 'dev', 'paused', 'pending' ) as $modifier ) {
+	ck( sprintf( 'dashboard.css styles wpcpm-badge--%s', $modifier ), false !== strpos( $css, '.wpcpm-badge--' . $modifier . ' {' ), true );
+}
+
 echo "\n=== The three tracks ===\n";
 
 // `is_50h` was a boolean carried on every synced row until 1.61.0. Three tracks do not fit one, and

@@ -140,4 +140,33 @@ class WPCPM_Program {
 
 		return isset( $tracks[ $status ] ) ? $tracks[ $status ] : '';
 	}
+
+	/**
+	 * The badge modifier for a status, as the dashboards paint it.
+	 *
+	 * The track where there is one, so a fourth track is one entry in `track()` and nothing
+	 * here. Paused and Pending graduation are on no track and are not finished either: they
+	 * are a student who is still the mentor's, and painting them in the 150-hour colour said
+	 * they were still working when the point of the status is that they are not. Every other
+	 * status keeps the plain badge.
+	 *
+	 * @param string $status Airtable status.
+	 * @return string A modifier for `wpcpm-badge--`, or an empty string for the plain badge.
+	 */
+	public static function badge( $status ) {
+		$track = self::track( $status );
+
+		if ( '' !== $track ) {
+			return '150h' === $track ? 'sensei' : $track;
+		}
+
+		$others = array(
+			'Paused'              => 'paused',
+			'Pending graduation'  => 'pending',
+		);
+
+		$status = trim( (string) $status );
+
+		return isset( $others[ $status ] ) ? $others[ $status ] : '';
+	}
 }

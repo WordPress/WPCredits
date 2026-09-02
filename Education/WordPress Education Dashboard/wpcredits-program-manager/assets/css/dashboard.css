@@ -301,6 +301,21 @@
 	border-color: rgba( 13, 148, 136, 0.35 );
 }
 
+/*
+ * A student who is paused, and one who has finished the work and is waiting for the
+ * paperwork. Both are still on their mentor's list, so they need a colour that is neither
+ * a working track nor the plain finished badge.
+ */
+.wpcpm-badge--paused {
+	background: rgba( 100, 116, 139, 0.14 );
+	border-color: rgba( 100, 116, 139, 0.4 );
+}
+
+.wpcpm-badge--pending {
+	background: rgba( 217, 119, 6, 0.12 );
+	border-color: rgba( 217, 119, 6, 0.35 );
+}
+
 /* Details table: field and value. */
 .wpcpm-mentee__table {
 	border-collapse: collapse;
