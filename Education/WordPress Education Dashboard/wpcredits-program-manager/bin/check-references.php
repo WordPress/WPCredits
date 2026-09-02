@@ -39,7 +39,7 @@ $declared = array();
 foreach ( $files as $path ) {
 	$src = file_get_contents( $path );
 
-	if ( ! preg_match( '/^class ([A-Za-z_]+)/m', $src, $m ) ) {
+	if ( ! preg_match( '/^(?:final |abstract )?class ([A-Za-z_]+)/m', $src, $m ) ) {
 		continue;
 	}
 

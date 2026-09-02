@@ -1066,8 +1066,8 @@ class WPCPM_Student_Report_Form {
 		} else {
 			// `type="text"` even for the URLs, for the reason the profile editor gives: `type="url"`
 			// refuses a scheme-less address, and Airtable's url columns are full of them — the
-			// browser would block the save with a message a student cannot act on. `clean_url()`
-			// adds the scheme instead.
+			// browser would block the save with a message a student cannot act on.
+			// `WPCPM_Field_Value::clean_url()` adds the scheme instead.
 			printf(
 				'<input type="text" id="%1$s" name="report[%2$s]" value="%3$s" inputmode="url"%4$s />',
 				esc_attr( $id ),
@@ -1279,131 +1279,20 @@ class WPCPM_Student_Report_Form {
 	/**
 	 * A submitted value, in the shape Airtable takes, or null if it cannot be used.
 	 *
-	 * Every type is handled explicitly. Nothing reaches Airtable without passing through here —
-	 * a number field given "twelve" is a 422 for the whole request, so one bad answer would
-	 * otherwise lose the other twenty-one.
+	 * The rules live in `WPCPM_Field_Value`, shared with the feedback forms. This keeps the pair
+	 * the handler reads, and passes the form's own text cap so nothing a student can type got
+	 * shorter when the rules moved.
 	 *
 	 * @param mixed $raw  Posted value.
 	 * @param array $spec Field spec.
 	 * @return array{0:bool,1:mixed} Whether to write it, and what to write.
 	 */
 	private static function clean( $raw, array $spec ) {
-		$type = isset( $spec['type'] ) ? $spec['type'] : 'text';
+		$spec['max_text'] = self::MAX_TEXT;
 
-		// Before the scalar guard: teams post as an array of checkbox values, and reading them
-		// through `is_scalar()` would turn the array into an empty string — the field would stop
-		// saving the moment the control became a checkbox list, and silently.
-		if ( 'team' === $type ) {
-			$known = WPCPM_Contribution_Teams::options();
-			$ids   = array();
+		$result = WPCPM_Field_Value::clean( $raw, $spec );
 
-			foreach ( (array) $raw as $id ) {
-				if ( ! is_scalar( $id ) ) {
-					continue;
-				}
-
-				$id = trim( (string) $id );
-
-				// Duplicates collapse, because Airtable will happily store the same link twice.
-				if ( '' !== $id && isset( $known[ $id ] ) && ! in_array( $id, $ids, true ) ) {
-					$ids[] = $id;
-				}
-			}
-
-			// A linked-record field takes an array of record IDs, however many. An empty array is
-			// how every link is cleared; a bare empty string would be rejected.
-			return array( true, $ids );
-		}
-
-		if ( ! is_scalar( $raw ) ) {
-			return array( false, null );
-		}
-
-		$raw = trim( (string) $raw );
-
-		// A checkbox posts `1` when ticked and `0` from the hidden input when not, so both are
-		// answers and neither can be rejected. Airtable takes a real boolean.
-		if ( 'checkbox' === $type ) {
-			return array( true, '1' === $raw || 'true' === strtolower( $raw ) );
-		}
-
-		if ( 'email' === $type ) {
-			// Emptying the box clears the column, the same bargain the number fields strike.
-			if ( '' === $raw ) {
-				return array( true, '' );
-			}
-
-			$email = sanitize_email( $raw );
-
-			return is_email( $email ) ? array( true, $email ) : array( false, null );
-		}
-
-		if ( 'number' === $type ) {
-			// Emptying the box means emptying the column, and Airtable does that with `null`. An
-			// empty string in a number field is a 422 for the whole request, which would lose the
-			// other twenty-one answers along with this one.
-			if ( '' === $raw ) {
-				return array( true, null );
-			}
-
-			// A comma decimal is what half of Europe types, and Airtable will not take it.
-			$raw = str_replace( ',', '.', $raw );
-
-			if ( ! is_numeric( $raw ) ) {
-				return array( false, null );
-			}
-
-			$number = ( isset( $spec['step'] ) && '1' === $spec['step'] ) ? (int) round( (float) $raw ) : round( (float) $raw, 2 );
-
-			if ( isset( $spec['min'] ) && $number < $spec['min'] ) {
-				return array( false, null );
-			}
-
-			if ( isset( $spec['max'] ) && $number > $spec['max'] ) {
-				return array( false, null );
-			}
-
-			return array( true, $number );
-		}
-
-		if ( 'url' === $type ) {
-			return array( true, self::clean_url( $raw ) );
-		}
-
-		if ( 'text' === $type ) {
-			$max = isset( $spec['maxlength'] ) ? (int) $spec['maxlength'] : self::MAX_TEXT;
-
-			return array( true, sanitize_text_field( mb_substr( $raw, 0, $max ) ) );
-		}
-
-		// `textarea` and `richtext` both arrive as text. Rich text is Markdown in Airtable, so it
-		// is stored as typed rather than being converted — a student writing a bullet list gets a
-		// bullet list, and one writing prose gets prose.
-		return array( true, mb_substr( sanitize_textarea_field( $raw ), 0, self::MAX_TEXT ) );
-	}
-
-
-	/**
-	 * A URL the way the rest of the plugin normalizes them.
-	 *
-	 * Airtable's url columns are full of scheme-less values, and a student retyping one the same
-	 * way should not be told off for it.
-	 *
-	 * @param string $raw Posted value.
-	 * @return string
-	 */
-	private static function clean_url( $raw ) {
-		if ( '' === $raw ) {
-			return '';
-		}
-
-		if ( ! preg_match( '#^https?://#i', $raw ) ) {
-			$raw = 'https://' . ltrim( $raw, '/' );
-		}
-
-		$url = esc_url_raw( $raw, array( 'http', 'https' ) );
-
-		return $url ? $url : '';
+		return array( $result['ok'], $result['value'] );
 	}
 
 

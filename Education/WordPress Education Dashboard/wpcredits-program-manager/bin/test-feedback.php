@@ -120,6 +120,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-students-dashboard.php';
+require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-feedback.php';
 

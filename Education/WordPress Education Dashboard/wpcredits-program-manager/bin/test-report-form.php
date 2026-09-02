@@ -134,6 +134,7 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-notes.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-students-dashboard.php';
+require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
 
 $fails = 0;
@@ -405,7 +406,7 @@ ck( 'a scheme-less address gets https', clean( 'example.com/post', $url ), array
 ck( 'a real URL is left alone', clean( 'http://example.com/x', $url ), array( true, 'http://example.com/x' ) );
 ck( 'an empty box clears it', clean( '', $url ), array( true, '' ) );
 
-// The reason `clean_url()` exists rather than trusting the browser: a javascript: URL must not
+// The reason `WPCPM_Field_Value::clean_url()` exists rather than trusting the browser: a javascript: URL must not
 // survive, and prefixing it with https would be worse than dropping it.
 ck( 'a javascript: URL does not survive', clean( 'javascript:alert(1)', $url ), array( true, '' ) );
 

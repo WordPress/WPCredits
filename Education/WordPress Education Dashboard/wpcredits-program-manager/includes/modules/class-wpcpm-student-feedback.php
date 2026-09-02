@@ -1195,48 +1195,25 @@ class WPCPM_Student_Feedback {
 	/**
 	 * A submitted answer, in the shape Airtable takes, or a refusal.
 	 *
+	 * The rules live in `WPCPM_Field_Value`, shared with the Student Report Card form. A field
+	 * with no type is a long answer here, where the report form's is a single line, so the
+	 * default is filled in before the shared rules see it - the `wpcpm_feedback_forms` filter
+	 * can add a field without one. The form's own text cap goes along for the same reason.
+	 *
 	 * @param mixed $raw  Posted value.
 	 * @param array $spec Field spec.
 	 * @return array{0:bool,1:mixed}
 	 */
 	private static function clean( $raw, array $spec ) {
-		$type = isset( $spec['type'] ) ? $spec['type'] : 'textarea';
-
-		if ( 'checkbox' === $type ) {
-			// Airtable clears a checkbox with `false`, not with an empty string.
-			return array( true, ! empty( $raw ) );
+		if ( ! isset( $spec['type'] ) ) {
+			$spec['type'] = 'textarea';
 		}
 
-		if ( ! is_scalar( $raw ) ) {
-			return array( false, null );
-		}
+		$spec['max_text'] = self::MAX_TEXT;
 
-		$value = trim( (string) $raw );
+		$result = WPCPM_Field_Value::clean( $raw, $spec );
 
-		if ( 'rating' === $type ) {
-			if ( '' === $value ) {
-				// Cleared, which is a legitimate answer to a question nobody has to answer.
-				return array( true, null );
-			}
-
-			$max    = isset( $spec['max'] ) ? (int) $spec['max'] : 5;
-			$number = (int) $value;
-
-			return ( $number >= 1 && $number <= $max ) ? array( true, $number ) : array( false, null );
-		}
-
-		if ( 'select' === $type ) {
-			if ( '' === $value ) {
-				return array( true, null );
-			}
-
-			// **Matched against the choices the column actually has.** Airtable would otherwise
-			// refuse the whole record — or, with typecast on, quietly invent a new option — and a
-			// hand-edited form must be able to do neither.
-			return in_array( $value, (array) $spec['choices'], true ) ? array( true, $value ) : array( false, null );
-		}
-
-		return array( true, mb_substr( sanitize_textarea_field( $value ), 0, self::MAX_TEXT ) );
+		return array( $result['ok'], $result['value'] );
 	}
 
 	/**
