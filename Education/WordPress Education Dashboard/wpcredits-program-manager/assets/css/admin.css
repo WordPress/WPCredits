@@ -306,3 +306,84 @@
 	display: inline-block;
 	margin: 0 12px 0 0;
 }
+
+/* -------------------------------------------------------------------------
+ * Institutions screen
+ *
+ * The manager's view of the pipeline, the reconciliation card, the consent
+ * report and the storage probe. Only what those cards need; the card, table,
+ * count and progress rules above are reused as they are.
+ * ---------------------------------------------------------------------- */
+.wpcpm-inst-read {
+	color: #646970;
+	font-size: 12px;
+	margin: 4px 0 12px;
+}
+
+.wpcpm-inst-muted {
+	color: #646970;
+}
+
+.wpcpm-inst-stage {
+	margin: 24px 0 8px;
+}
+
+.wpcpm-inst-gap {
+	margin: 8px 0 12px;
+}
+
+/* A small flag beside a value the base spells oddly: a name with whitespace around
+   it, a record with no name, a country with nobody to route to. Amber rather than
+   red, because none of them is an error on this site. */
+.wpcpm-inst-mark {
+	background: #fcf9e8;
+	border: 1px solid #dba617;
+	border-radius: 3px;
+	color: #674e00;
+	font-size: 11px;
+	line-height: 1.6;
+	padding: 0 5px;
+	vertical-align: middle;
+	white-space: nowrap;
+}
+
+.wpcpm-inst-name__text {
+	font-weight: 600;
+}
+
+.wpcpm-inst-record {
+	font-size: 11px;
+}
+
+.wpcpm-inst-table td {
+	vertical-align: top;
+}
+
+.wpcpm-inst-agreement--settled {
+	color: #007017;
+}
+
+.wpcpm-inst-recon th {
+	width: 26em;
+}
+
+.wpcpm-inst-status--ok {
+	color: #007017;
+	font-weight: 600;
+}
+
+.wpcpm-inst-status--unknown {
+	color: #646970;
+}
+
+/* The backstop count, directly under the agreement-gap link it sits beside. The
+   description lines that follow it carry their own spacing. */
+.wpcpm-inst-members {
+	margin: 8px 0 4px;
+}
+
+/* A template version is a date and the names beside it are the long half, so this
+   table's heading column is narrower than the 22em the shared rule gives it. */
+.wpcpm-inst-versions th {
+	width: 16em;
+}
