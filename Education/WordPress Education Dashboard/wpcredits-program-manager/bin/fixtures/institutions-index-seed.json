@@ -1,0 +1,4051 @@
+{
+    "_comment": "The Institutions table (tbl4V0FEbzRP7I2w2) and the Countries table (tbltB7GSRoTtSi4Ps) as read from the base on 2026-09-02, with every personal field removed: no contact person, no contact email, no department, no prose, no manager names or addresses (countries carry only whether a contact, an email and a Calendly link exist). Institution names, cities and websites are the organisations' public facts. The record recDdomg5W6h410JT is the TEST institution. Seeds the pipeline index in tests; refresh with bin/dump-institutions-seed.php or by hand when the base changes, and update the counts in bin/test-institutions-index.php with it.",
+    "read": "2026-09-02",
+    "institutions_table": "tbl4V0FEbzRP7I2w2",
+    "countries_table": "tbltB7GSRoTtSi4Ps",
+    "counts": {
+        "institutions": 106,
+        "by_stage": {
+            "Confirmed": 42,
+            "Not Moving Forward": 15,
+            "First Contact Made": 12,
+            "Agreement Sent": 8,
+            "Student": 7,
+            "Info Sent": 6,
+            "Under Review": 5,
+            "Waiting on Reply": 4,
+            "Call Scheduled": 4,
+            "SPAM": 2,
+            "Revisit Later": 1
+        },
+        "created_before_consent_question": 84,
+        "created_before_consent_question_confirmed": 38,
+        "created_before_consent_question_with_consent": 0,
+        "trailing_space_names": 10,
+        "nameless": 2,
+        "countries": 196,
+        "countries_without_contact": 58,
+        "countries_used_by_institutions": 33,
+        "countries_used_without_contact": 3
+    },
+    "institutions": [
+        {
+            "id": "rec0IT9J93YkAYvSU",
+            "createdTime": "2026-04-21T07:27:44.000Z",
+            "name": "Uniwersytet Warmińsko-Mazurski w Olsztynie",
+            "stage": "Info Sent",
+            "country": [
+                "recbDPrFD5eGjVvEH"
+            ],
+            "city": "Olsztyn",
+            "website": "https://uwm.edu.pl/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec12mOnaVkFZrCud",
+            "createdTime": "2026-02-02T09:55:26.000Z",
+            "name": "Rajshahi Court College",
+            "stage": "Agreement Sent",
+            "country": [
+                "recN4suJnKvMukqxo"
+            ],
+            "city": "Rajshahi",
+            "website": "https://rajcourtcollege.edu.bd",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec1Sezb7tnyzHB6I",
+            "createdTime": "2026-07-15T02:49:22.000Z",
+            "name": "Universitas Ciputra Surabaya",
+            "stage": "First Contact Made",
+            "country": [
+                "rec9pwquNs3g1m8IR"
+            ],
+            "city": "Surabaya",
+            "website": "https://www.ciputra.ac.id/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec1ZgEtczDKjRNP4",
+            "createdTime": "2025-07-17T13:13:11.000Z",
+            "name": "Università di Pisa",
+            "stage": "Confirmed",
+            "country": [
+                "recQcCJMA9jvWJnTB"
+            ],
+            "city": "Pisa",
+            "website": "",
+            "confirmed_on": "2025-06-26",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec1uKToSodYueZHm",
+            "createdTime": "2025-07-18T12:15:09.000Z",
+            "name": "Govt. Mohammadpur Model School and College",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recN4suJnKvMukqxo"
+            ],
+            "city": "Dhaka",
+            "website": "",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec2JYIDewxi6iftq",
+            "createdTime": "2025-11-03T09:10:44.000Z",
+            "name": "Ahmad's Education",
+            "stage": "Confirmed",
+            "country": [
+                "recN4suJnKvMukqxo"
+            ],
+            "city": "Dhaka",
+            "website": "https://www.madrasatuahmad.com/",
+            "confirmed_on": "2025-11-10",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec3Br4BAlgZn31nU",
+            "createdTime": "2026-05-19T05:56:24.000Z",
+            "name": "GBS - Malta",
+            "stage": "First Contact Made",
+            "country": [
+                "recyAQaqxW41KMGhq"
+            ],
+            "city": "San Ġiljan",
+            "website": "https://gbs.edu.mt/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec6wnq0UAgWultZR",
+            "createdTime": "2026-03-09T15:45:42.000Z",
+            "name": "CPR Liceo La Paz",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "A Coruña",
+            "website": "https://www.liceolapaz.com/",
+            "confirmed_on": "2026-05-22",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec7vtWB3DTXRHaHj",
+            "createdTime": "2026-04-09T06:04:32.000Z",
+            "name": "GEETHANJALI COLLEGE OF ENGINEERING TECHNOLOGY",
+            "stage": "Info Sent",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "Jagtial",
+            "website": "https://gcet.edu.in/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec8YsEFkrXqrl3eU",
+            "createdTime": "2026-09-01T15:04:45.000Z",
+            "name": "Université de Genève",
+            "stage": "First Contact Made",
+            "country": [
+                "rec2ytW6788ThQzXR"
+            ],
+            "city": "Geneve",
+            "website": "https://www.unige.ch/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": false,
+            "has_contact_person": false,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec91OCFr8CNnR6vE",
+            "createdTime": "2026-01-27T23:44:15.000Z",
+            "name": "Sorbonne university ",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recDsUM9YiiYYNYuL"
+            ],
+            "city": "Paris",
+            "website": "https://www.bing.com/entityexplore?q=Sorbonne&filters=local_ypid:%22YN5BB3B5614D2B7BCF%22&elv=AXXfrEiqqD9r3GuelwApulp6iZbEclE0SRrsQ5kCD*4!5JR8rHlpBnHH1lYSrOoCuzaSnu9SHeSn109jBptgYU4sn9R5byJ6uh5qFw!iSfdh&mkt=fr-fr&setLang=fr-fr&form=SWTIOS📍 Sorbonne   75005 Paris   https://www.sorbonne-universite.fr/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec9bQNrPvYz6JqHd",
+            "createdTime": "2026-01-28T15:40:55.000Z",
+            "name": "RCC INSTITUTE OF INFORMATION TECHNOLOGY ",
+            "stage": "Agreement Sent",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "KOLKATA",
+            "website": "https://rcciit.edu.in/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rec9nLOjermo4C6ik",
+            "createdTime": "2026-06-23T07:54:54.000Z",
+            "name": "Texas International College",
+            "stage": "Confirmed",
+            "country": [
+                "recLEFwdsdiEO0Qdh"
+            ],
+            "city": "Kathmandu",
+            "website": "https://texasintl.edu.np/",
+            "confirmed_on": "2026-06-26",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recA1eSGGXOmnVvNc",
+            "createdTime": "2026-02-11T04:56:18.000Z",
+            "name": "D. Y. Patil school of Engineering and Management, Kolhapur",
+            "stage": "Confirmed",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "KOLHAPUR",
+            "website": "sem.dypatilunikop.org",
+            "confirmed_on": "2026-07-06",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recAYSQUZPKwKhZ8X",
+            "createdTime": "2026-08-01T08:20:18.000Z",
+            "name": "Thames college",
+            "stage": "Student",
+            "country": [
+                "recLEFwdsdiEO0Qdh"
+            ],
+            "city": "Lalitpur ",
+            "website": "thamescollege.com",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recBIMqaarllHvTDI",
+            "createdTime": "2025-11-28T10:52:40.000Z",
+            "name": "IES Azarquiel",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Toledo",
+            "website": "http://www.ies-azarquiel.es/",
+            "confirmed_on": "2026-02-02",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recBMZuDk75hN74zT",
+            "createdTime": "2025-07-18T12:15:09.000Z",
+            "name": "University of the Philippines Ccebu",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recxOyLkdjq13oLii"
+            ],
+            "city": "Cebu",
+            "website": "",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recBoobOwowNWz0M7",
+            "createdTime": "2026-04-11T11:39:16.000Z",
+            "name": "Wrocław Business Academy WAB",
+            "stage": "Waiting on Reply",
+            "country": [
+                "recbDPrFD5eGjVvEH"
+            ],
+            "city": "Wroclaw",
+            "website": "https://akademiata.pl/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recCvxvOLHHTHkCnK",
+            "createdTime": "2026-09-01T15:14:21.000Z",
+            "name": "",
+            "stage": "First Contact Made",
+            "country": [],
+            "city": "",
+            "website": "",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": false,
+            "has_contact_person": false,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recDO0XeU3jHNISEQ",
+            "createdTime": "2026-06-08T15:28:44.000Z",
+            "name": "Haaga-Helia University of Applied Sciences",
+            "stage": "Confirmed",
+            "country": [
+                "recZCT3B4ygZXhFdN"
+            ],
+            "city": "Helsinki",
+            "website": "https://www.haaga-helia.fi/en",
+            "confirmed_on": "2026-06-10",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recDdomg5W6h410JT",
+            "createdTime": "2026-09-02T03:22:46.000Z",
+            "name": "TEST - WordPress Education Dashboard (do not use)",
+            "stage": "Under Review",
+            "country": [],
+            "city": "Test",
+            "website": "https://wordpresseducation.org/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recEAED4xutJkCEp6",
+            "createdTime": "2026-02-23T19:27:25.000Z",
+            "name": "Centar za mlade Pula",
+            "stage": "Info Sent",
+            "country": [
+                "receqNPzWxbGefC8G"
+            ],
+            "city": "Pula",
+            "website": "www.czmp.hr",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recEOdEzyRo9cQrRF",
+            "createdTime": "2025-07-18T12:15:09.000Z",
+            "name": "Universidad Fidélitas",
+            "stage": "Confirmed",
+            "country": [
+                "recTNmomn2snGKRow"
+            ],
+            "city": "San José",
+            "website": "",
+            "confirmed_on": "2025-08-26",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recEalVaYi3muCpiN",
+            "createdTime": "2025-09-17T17:16:06.000Z",
+            "name": "Central New Mexico Community College",
+            "stage": "Confirmed",
+            "country": [
+                "recQB0aK2ff2Zuzac"
+            ],
+            "city": "Albuquerque",
+            "website": "https://www.cnm.edu/",
+            "confirmed_on": "2025-12-08",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recFPKUXqgslQhvaX",
+            "createdTime": "2026-06-10T16:52:36.000Z",
+            "name": "Universidad Técnica del Norte",
+            "stage": "Under Review",
+            "country": [
+                "recPJkMkCiv8EDYBu"
+            ],
+            "city": "Ibarra",
+            "website": "https://www.utn.edu.ec/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recFk4EYsN2cftv3b",
+            "createdTime": "2026-09-01T16:05:07.000Z",
+            "name": "",
+            "stage": "Not Moving Forward",
+            "country": [],
+            "city": "",
+            "website": "",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": false,
+            "has_contact_person": false,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recGzpWO43cQnVYEw",
+            "createdTime": "2025-10-03T10:36:18.000Z",
+            "name": "Riga Nordic University",
+            "stage": "Confirmed",
+            "country": [
+                "receLarddc39NW6ih"
+            ],
+            "city": "Riga",
+            "website": "https://rnu.lv",
+            "confirmed_on": "2025-10-02",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recHBCuyOdPNOqgZ5",
+            "createdTime": "2026-01-23T15:41:14.000Z",
+            "name": "Escuela de Arte de Zaragoza",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Zaragoza",
+            "website": "https://www.escueladeartedezaragoza.com/",
+            "confirmed_on": "2026-03-26",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recHEjsdyuKpGRzef",
+            "createdTime": "2026-01-23T15:41:59.000Z",
+            "name": "Escuela de Arte de Huesca",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Huesca",
+            "website": "escueladeartedehuesca.org",
+            "confirmed_on": "2026-05-04",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recIIVFQdzMYWvMvp",
+            "createdTime": "2026-03-17T13:48:33.000Z",
+            "name": "University of Doha",
+            "stage": "Info Sent",
+            "country": [
+                "recp6BvJl3plb9PkP"
+            ],
+            "city": "Doha",
+            "website": "https://www.udst.edu.qa/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recJ10wfIaE2PSgKP",
+            "createdTime": "2026-07-20T07:36:12.000Z",
+            "name": "Institut Teknologi Tangerang Selatan",
+            "stage": "Confirmed",
+            "country": [
+                "rec9pwquNs3g1m8IR"
+            ],
+            "city": "Tangerang Selatan",
+            "website": "www.itts.ac.id",
+            "confirmed_on": "2026-07-21",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recJnYMVvBGh1a3GW",
+            "createdTime": "2026-08-19T18:28:22.000Z",
+            "name": "Rajshahi University of Engineering and Technology ",
+            "stage": "First Contact Made",
+            "country": [
+                "recN4suJnKvMukqxo"
+            ],
+            "city": "Rajshahi ",
+            "website": "https://www.ruet.ac.bd",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recK0elxJ6wTwolCG",
+            "createdTime": "2025-11-06T16:12:12.000Z",
+            "name": "Luciana Mendiola",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recTNmomn2snGKRow"
+            ],
+            "city": "Escazu",
+            "website": "https://www.costarica.ttu.edu/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recKAqLVayNfGJCoA",
+            "createdTime": "2025-07-18T12:14:36.000Z",
+            "name": "University of Lynchburg",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recQB0aK2ff2Zuzac"
+            ],
+            "city": "Lynchburg",
+            "website": "",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recL3C8YWSLHp1UG8",
+            "createdTime": "2026-06-30T16:53:51.000Z",
+            "name": "Hutec Univeristy",
+            "stage": "Student",
+            "country": [
+                "rec3ZCeXOdAlVwPhl"
+            ],
+            "city": "RAWALPINDI",
+            "website": "www.munchobites.com",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recL6EvHlsLLWxKkQ",
+            "createdTime": "2026-02-03T13:56:47.000Z",
+            "name": "Duoc UC",
+            "stage": "Agreement Sent",
+            "country": [
+                "rec1tQ68o0XWEOHHX"
+            ],
+            "city": "Santiago",
+            "website": "duoc.cl",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recL9ApwJKeApcASy",
+            "createdTime": "2026-08-28T00:46:56.000Z",
+            "name": "Universidad del Valle",
+            "stage": "Under Review",
+            "country": [
+                "recYDDnB6knIeaKXC"
+            ],
+            "city": "Managua",
+            "website": "https://univalle.edu.ni/",
+            "confirmed_on": "2026-08-28",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recLXsxK9NPZW9XXS",
+            "createdTime": "2026-02-25T03:20:53.000Z",
+            "name": "Universidad Latina",
+            "stage": "Call Scheduled",
+            "country": [
+                "recTNmomn2snGKRow"
+            ],
+            "city": "San Pedro-Heredia",
+            "website": "www.ulatina.ac.cr",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recMD1QKOk5hPxh8K",
+            "createdTime": "2026-04-10T09:44:46.000Z",
+            "name": "E-zone School of Computing",
+            "stage": "Confirmed",
+            "country": [
+                "reczm8p7bc9wHGXzi"
+            ],
+            "city": "Kampala",
+            "website": "https://ezoneschool.ac.ug/",
+            "confirmed_on": "2026-04-19",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recMLkqiJ3GZJhWit",
+            "createdTime": "2025-10-08T15:52:17.000Z",
+            "name": "Universidad Privada Franz Tamayo (UNIFRANZ)",
+            "stage": "Confirmed",
+            "country": [
+                "recXlINcRRYUCjKUk"
+            ],
+            "city": "SANTA CRUZ",
+            "website": "https://unifranz.edu.bo/",
+            "confirmed_on": "2025-10-06",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recMq1B06onwn2lgZ",
+            "createdTime": "2026-05-26T05:23:28.000Z",
+            "name": "My Swayam",
+            "stage": "First Contact Made",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "Surat",
+            "website": "https://myswayam.online/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recNDZkTZhu1bnjcN",
+            "createdTime": "2026-03-26T14:03:21.000Z",
+            "name": "Uniwersytet WSB Merito",
+            "stage": "Agreement Sent",
+            "country": [
+                "recbDPrFD5eGjVvEH"
+            ],
+            "city": "Whole Poland",
+            "website": "https://www.merito.pl/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recOE057sxzGkRZpO",
+            "createdTime": "2026-03-17T14:06:02.000Z",
+            "name": "University of Tasmania",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recX2LwAZzQ3J8meM"
+            ],
+            "city": "Hobart",
+            "website": "https://www.utas.edu.au/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recOYE0rz2ikMGQb8",
+            "createdTime": "2026-08-22T05:28:48.000Z",
+            "name": "D. Y. Patil school of Engineering and Management",
+            "stage": "Student",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "Kolhapur ",
+            "website": "sem.dypatilunikop.org",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recOZtcU03wFiayl5",
+            "createdTime": "2026-07-01T14:05:20.000Z",
+            "name": "Universitas Islam Negeri Sultan Maulana Hasanuddin Banten",
+            "stage": "Agreement Sent",
+            "country": [
+                "rec9pwquNs3g1m8IR"
+            ],
+            "city": "Serang",
+            "website": "https://uinbanten.ac.id/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recOho4wzflsiJY3W",
+            "createdTime": "2026-08-01T09:37:29.000Z",
+            "name": "SOS Hermann Gmeniar School Gandaki",
+            "stage": "Student",
+            "country": [
+                "recLEFwdsdiEO0Qdh"
+            ],
+            "city": "Pokhara",
+            "website": "https://www.soshgsgandaki.edu.np/",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recP4dfLEt4VMUgqr",
+            "createdTime": "2026-01-19T17:38:23.000Z",
+            "name": "CIFP Rodolfo Ucha",
+            "stage": "Agreement Sent",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Ferrol",
+            "website": "https://www.cifprodolfoucha.es/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recPbZKaarF6ldvtr",
+            "createdTime": "2025-11-26T07:59:13.000Z",
+            "name": "Krakow University of Economics",
+            "stage": "Confirmed",
+            "country": [
+                "recbDPrFD5eGjVvEH"
+            ],
+            "city": "Krakow",
+            "website": "uek.krakow.pl",
+            "confirmed_on": "2026-02-10",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recPsKwn2RT1qNhNV",
+            "createdTime": "2026-06-26T11:19:16.000Z",
+            "name": "Institut Provençana",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "L'Hospitalet de Llobregat",
+            "website": "www.proven.cat",
+            "confirmed_on": "2026-07-08",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recQfTIRMlk8gd9CY",
+            "createdTime": "2026-09-01T15:14:59.000Z",
+            "name": "Università La Sapienza",
+            "stage": "First Contact Made",
+            "country": [
+                "recQcCJMA9jvWJnTB"
+            ],
+            "city": "Rome",
+            "website": "https://www.uniroma1.it/it/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recRFyGupCi30QXwI",
+            "createdTime": "2026-02-12T09:24:51.000Z",
+            "name": "ERAP Research and Learning LLP",
+            "stage": "Confirmed",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "Kolkata",
+            "website": "www.rapeducation.com",
+            "confirmed_on": "2026-03-10",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recRHZlPPsveQeQ0C",
+            "createdTime": "2026-06-04T12:15:35.000Z",
+            "name": "SAE Athens",
+            "stage": "Confirmed",
+            "country": [
+                "recKDCLOzsayZiJdo"
+            ],
+            "city": "Athens",
+            "website": "https://www.sae.edu/grc/sae-home/",
+            "confirmed_on": "2026-07-30",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recRl0R7xl1HSDU0t",
+            "createdTime": "2026-05-11T11:30:25.000Z",
+            "name": "Triskelion Education and Skills Initiative ",
+            "stage": "Call Scheduled",
+            "country": [
+                "reczm8p7bc9wHGXzi"
+            ],
+            "city": "Lira",
+            "website": "https://triskelionedu.org",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recSAtga4DUpgyn17",
+            "createdTime": "2026-05-31T09:33:39.000Z",
+            "name": "Danson Solutions Pvt. Ltd.",
+            "stage": "First Contact Made",
+            "country": [
+                "recLEFwdsdiEO0Qdh"
+            ],
+            "city": "Kathmandu",
+            "website": "https://dansonsolutions.com/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recUe9Us6E0CbTJFu",
+            "createdTime": "2026-07-07T01:02:36.000Z",
+            "name": "Colegio Universitario de Cartago",
+            "stage": "Confirmed",
+            "country": [
+                "recTNmomn2snGKRow"
+            ],
+            "city": "Cartago",
+            "website": "https://www.cuc.ac.cr/",
+            "confirmed_on": "2026-09-01",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recUm1krY9lUoyqNw",
+            "createdTime": "2025-07-18T12:15:09.000Z",
+            "name": "Ladoke Akintola University of Technology Ogbomosho",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recrflG4x1NYN6wXx"
+            ],
+            "city": "Ogbomosho",
+            "website": "",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recV60KDCU9qQRHW2",
+            "createdTime": "2025-12-16T03:23:23.000Z",
+            "name": "Khon Kaen University",
+            "stage": "Not Moving Forward",
+            "country": [
+                "rechNY4I2DxqJDLky"
+            ],
+            "city": "Khon Kaen",
+            "website": "https://kku.ac.th",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recV8eZugmYnhz25x",
+            "createdTime": "2026-06-29T08:15:23.000Z",
+            "name": "Moyo Islamic Academy (MIA)",
+            "stage": "Call Scheduled",
+            "country": [
+                "recEaWjoiR1UBWSNm"
+            ],
+            "city": "Chake Chake",
+            "website": "https://www.moyoislamic.academy",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recVxir087DG8zLCC",
+            "createdTime": "2026-05-14T14:26:06.000Z",
+            "name": "Esic University",
+            "stage": "Waiting on Reply",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Pozuelo de Alarcon",
+            "website": "esic.edu",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recVyjZQbjTg5ZMjw",
+            "createdTime": "2026-07-30T05:11:03.000Z",
+            "name": "IMJ Innovation iHUB Foundation, Kundapura",
+            "stage": "Confirmed",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "Udupi",
+            "website": "https://imjihub.com/",
+            "confirmed_on": "2026-07-30",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recWOD2tgsdpN3HRn",
+            "createdTime": "2026-03-06T13:22:47.000Z",
+            "name": "Jan Dlugosz University in Czestochowa ",
+            "stage": "Agreement Sent",
+            "country": [
+                "recbDPrFD5eGjVvEH"
+            ],
+            "city": "Czestochowa",
+            "website": "https://www.ujd.edu.pl/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recX6Av114wdUHGyR",
+            "createdTime": "2025-07-18T12:15:09.000Z",
+            "name": "Janamaitri Multiple Campus",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recLEFwdsdiEO0Qdh"
+            ],
+            "city": "Kathmandu",
+            "website": "",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recYVp3SKxufHr1sg",
+            "createdTime": "2026-02-02T15:31:48.000Z",
+            "name": "Instituto de Educación Secundaria Mar de Alborán",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Estepona",
+            "website": "https://maralboran.eu/",
+            "confirmed_on": "2026-04-28",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recaBHZFopYa94pyD",
+            "createdTime": "2026-08-01T08:25:49.000Z",
+            "name": "SOS",
+            "stage": "Student",
+            "country": [
+                "recLEFwdsdiEO0Qdh"
+            ],
+            "city": "Pokhara",
+            "website": "https://www.soshgsgandaki.edu.np/",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recaVjxcZL6fWYHVK",
+            "createdTime": "2026-01-13T04:04:46.000Z",
+            "name": "RMIT University",
+            "stage": "Under Review",
+            "country": [
+                "recX2LwAZzQ3J8meM"
+            ],
+            "city": "Melbourne",
+            "website": "https://www.rmit.edu.au/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recaxmxxG8zc5fw9I",
+            "createdTime": "2025-12-06T17:02:54.000Z",
+            "name": "AAB College",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recbBWUy9JixjJowE"
+            ],
+            "city": "Presevo",
+            "website": "https://aab-edu.net",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recbDaa9iqyx8l0yp",
+            "createdTime": "2026-01-31T16:30:42.000Z",
+            "name": "D Y Patil Agriculture and Technical University, Talsande, Kolhapur ",
+            "stage": "Confirmed",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "Kolhapur",
+            "website": "https://dyp-atu.edu.in/",
+            "confirmed_on": "2026-04-10",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reccDNrHsIoXPnofM",
+            "createdTime": "2026-07-14T20:02:23.000Z",
+            "name": "City Tech / NYC College of Technology, CUNY",
+            "stage": "Confirmed",
+            "country": [
+                "recQB0aK2ff2Zuzac"
+            ],
+            "city": "Brooklyn",
+            "website": "https://www.citytech.cuny.edu/communication-design/",
+            "confirmed_on": "2026-08-24",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reccebcaNaQThBcDz",
+            "createdTime": "2026-07-01T17:06:29.000Z",
+            "name": "CUNY - New York City College of Technology",
+            "stage": "Confirmed",
+            "country": [
+                "recQB0aK2ff2Zuzac"
+            ],
+            "city": "New York City",
+            "website": "https://citytech.cuny.edu/",
+            "confirmed_on": "2026-07-08",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rece1hg91fLbECHNu",
+            "createdTime": "2026-01-30T08:40:48.000Z",
+            "name": "Eventos y Formación Digital SL (Wanatop Academy)",
+            "stage": "Info Sent",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Zaragoza",
+            "website": "https://wanatopacademy.es/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recewINXIo7aW0vrv",
+            "createdTime": "2026-06-29T09:11:04.000Z",
+            "name": "Titu Maiorescu University",
+            "stage": "Confirmed",
+            "country": [
+                "recHdotKUeY1f99H2"
+            ],
+            "city": "Bucharest",
+            "website": "https://www.utm.ro/en/",
+            "confirmed_on": "2026-07-28",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recfPlBJ6n81Jy9SO",
+            "createdTime": "2026-07-17T16:36:32.000Z",
+            "name": "Università di Bologna",
+            "stage": "Confirmed",
+            "country": [
+                "recQcCJMA9jvWJnTB"
+            ],
+            "city": "Bologna",
+            "website": "",
+            "confirmed_on": "2026-09-01",
+            "consent": false,
+            "has_contact_email": false,
+            "has_contact_person": false,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recfSKWgfqgA3EINo",
+            "createdTime": "2026-07-23T08:01:15.000Z",
+            "name": "Universitas Jenderal Achmad Yani Yogyakarta",
+            "stage": "First Contact Made",
+            "country": [
+                "rec9pwquNs3g1m8IR"
+            ],
+            "city": "Yogyakarta",
+            "website": "https://unjaya.ac.id/",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recg3pXx33YAXBmBM",
+            "createdTime": "2026-02-01T03:19:19.000Z",
+            "name": "Kirirom Institute of Technology",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recLAc7cL6dM5vd5r"
+            ],
+            "city": "Phnom Penh",
+            "website": "https://www.kit.edu.kh/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recgZ3TcENfWb6DcH",
+            "createdTime": "2026-03-18T10:12:49.000Z",
+            "name": "Wschodnioeuropejska Akademia Nauk Stosowanych w Białymstoku",
+            "stage": "Confirmed",
+            "country": [
+                "recbDPrFD5eGjVvEH"
+            ],
+            "city": "Białystok",
+            "website": "https://wans.edu.pl/",
+            "confirmed_on": "2026-06-26",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recgvsC00uWDaoiKS",
+            "createdTime": "2026-07-01T14:40:51.000Z",
+            "name": "Instituto Fomento Ocupacional FOC ",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Granada",
+            "website": "www.foc.es",
+            "confirmed_on": "2026-07-23",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recgzKCvE03Gqgz1M",
+            "createdTime": "2026-08-13T06:15:58.000Z",
+            "name": "PHINMA Cagayan de Oro College",
+            "stage": "Info Sent",
+            "country": [
+                "recxOyLkdjq13oLii"
+            ],
+            "city": "Cagayan de Oro City",
+            "website": "https://coc.phinma.edu.ph/",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rechzuRmLpNcobqjv",
+            "createdTime": "2026-01-12T18:28:45.000Z",
+            "name": "WP Rig",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recQB0aK2ff2Zuzac"
+            ],
+            "city": "Omaha",
+            "website": "wprig.io",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reci0Q50stVy8tpHv",
+            "createdTime": "2025-12-09T09:58:22.000Z",
+            "name": "Creative Campus - Universidad Europea",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Madrid",
+            "website": "https://creativecampus.universidadeuropea.com/",
+            "confirmed_on": "2026-02-02",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reciKlNeGOwYtDdWq",
+            "createdTime": "2025-07-18T12:15:09.000Z",
+            "name": "RevOu",
+            "stage": "Not Moving Forward",
+            "country": [
+                "rec9pwquNs3g1m8IR"
+            ],
+            "city": "DKI Jakarta",
+            "website": "",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recirK2BDcZXTWdF9",
+            "createdTime": "2026-04-24T15:38:05.000Z",
+            "name": "Liceo HHC Experimental Bilingue José Figueres Ferrer",
+            "stage": "Confirmed",
+            "country": [
+                "recTNmomn2snGKRow"
+            ],
+            "city": "Cartago",
+            "website": "https://www.liceofigueres.org/",
+            "confirmed_on": "2026-05-28",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reckVejqPr4dT5u8K",
+            "createdTime": "2026-07-07T01:06:03.000Z",
+            "name": "Universidad Americana",
+            "stage": "First Contact Made",
+            "country": [
+                "recYDDnB6knIeaKXC"
+            ],
+            "city": "Managua",
+            "website": "https://www.uam.edu.ni/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reckkq1diEQNxeCae",
+            "createdTime": "2026-07-27T02:58:05.000Z",
+            "name": "Universitas Ekuitas Indonesia",
+            "stage": "First Contact Made",
+            "country": [
+                "rec9pwquNs3g1m8IR"
+            ],
+            "city": "Bandung",
+            "website": "www.ekuitas.ac.id",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reckpG1xvcBOJR0DF",
+            "createdTime": "2026-01-23T16:38:38.000Z",
+            "name": "Zaragoza Dinámica",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Zaragoza",
+            "website": "zaragozadinamica.es",
+            "confirmed_on": "2026-03-24",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recmHcy73ynDhE8gL",
+            "createdTime": "2026-08-01T08:29:25.000Z",
+            "name": "Pokhara College of Management ",
+            "stage": "Student",
+            "country": [
+                "recLEFwdsdiEO0Qdh"
+            ],
+            "city": "Pokhara ",
+            "website": "https://share.google/zN2VZPacrLelq7BEv",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recmwqVaDiVqN4fB0",
+            "createdTime": "2026-04-29T19:34:24.000Z",
+            "name": "Keiser University Latin American Campus (Nicaragua)",
+            "stage": "Agreement Sent",
+            "country": [
+                "recYDDnB6knIeaKXC"
+            ],
+            "city": "San Marcos",
+            "website": "https://keiseruniversity.edu.ni/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recnClk538DjmqidP",
+            "createdTime": "2026-07-21T14:25:48.000Z",
+            "name": "Kishoreganj Polytechnic Institute",
+            "stage": "Confirmed",
+            "country": [
+                "recN4suJnKvMukqxo"
+            ],
+            "city": "Kishoreganj",
+            "website": "https://kishoreganj.polytech.gov.bd/",
+            "confirmed_on": "2026-07-30",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recncX7kQnF4Nu9Ep",
+            "createdTime": "2026-03-01T18:42:53.000Z",
+            "name": "Nkumba University",
+            "stage": "Waiting on Reply",
+            "country": [
+                "reczm8p7bc9wHGXzi"
+            ],
+            "city": "Kampala",
+            "website": "https://nkumbauniversity.ac.ug/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recnd05BHZjmP3HFR",
+            "createdTime": "2026-07-24T16:02:32.000Z",
+            "name": "Jose Rodríguez",
+            "stage": "SPAM",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "722969010766715705",
+            "website": "mercado pago wed",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recnjTGbn2zdVU4VN",
+            "createdTime": "2026-05-27T15:38:34.000Z",
+            "name": "NSBM Green University ",
+            "stage": "First Contact Made",
+            "country": [
+                "recpfaiwSUkMIFDsS"
+            ],
+            "city": "Colombo ",
+            "website": "http:// www.nsbm.ac.lk",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recnm3LdvEYV5zWMr",
+            "createdTime": "2026-06-05T23:27:26.000Z",
+            "name": "Hill Eric Todd",
+            "stage": "SPAM",
+            "country": [
+                "recQB0aK2ff2Zuzac"
+            ],
+            "city": "Portland ",
+            "website": "Google.com",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reco5lzvl7aZXP3tJ",
+            "createdTime": "2025-12-19T19:25:45.000Z",
+            "name": "Drew University",
+            "stage": "Confirmed",
+            "country": [
+                "recQB0aK2ff2Zuzac"
+            ],
+            "city": "Madison",
+            "website": "drew.edu",
+            "confirmed_on": "2026-02-13",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recsRpS875ErLSfvH",
+            "createdTime": "2026-02-10T03:55:52.000Z",
+            "name": "Diocese of Lismore Catholic Schools",
+            "stage": "Revisit Later",
+            "country": [
+                "recX2LwAZzQ3J8meM"
+            ],
+            "city": "Lismore",
+            "website": "https://lism.catholic.edu.au/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recsgawpglaEdV77D",
+            "createdTime": "2026-07-27T11:25:53.000Z",
+            "name": "Moodlakatte Institute of Technology ",
+            "stage": "Confirmed",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "Kundapura",
+            "website": "https://www.mitkundapura.com/",
+            "confirmed_on": "2026-07-30",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recsiWnPIps2gfgTY",
+            "createdTime": "2026-05-08T09:49:14.000Z",
+            "name": "Pundra University of Science & Technology",
+            "stage": "Confirmed",
+            "country": [
+                "recN4suJnKvMukqxo"
+            ],
+            "city": "Bogura",
+            "website": "https://pundrauniversity.ac.bd/",
+            "confirmed_on": "2026-08-03",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "rectlh4eA3nkO7Dni",
+            "createdTime": "2026-03-03T10:16:15.000Z",
+            "name": "Juraj Dobrila University of Pula",
+            "stage": "Confirmed",
+            "country": [
+                "receqNPzWxbGefC8G"
+            ],
+            "city": "Pula",
+            "website": "https://www.unipu.hr/",
+            "confirmed_on": "2026-03-17",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recu7MnCpeVwhSxeY",
+            "createdTime": "2026-04-27T07:39:17.000Z",
+            "name": "Universidad de Diseño Innovación y Tecnología - UDIT",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "madrid",
+            "website": "https://www.bing.com/ck/a?!&&p=f4102e07a0b3ac1ea8b548094d25377b254384faf54c0f0e92b3e4f664f3300eJmltdHM9MTc3NzI0ODAwMA&ptn=3&ver=2&hsh=4&fclid=10afe377-c865-697d-3e51-f440c92f688f&psq=udit&u=a1aHR0cHM6Ly93d3cudWRpdC5lcy8",
+            "confirmed_on": "2026-05-29",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recuozVpTrDClWKsz",
+            "createdTime": "2025-11-17T00:30:20.000Z",
+            "name": "the University of Algiers 1 – Benyoucef Benkhedda",
+            "stage": "Not Moving Forward",
+            "country": [
+                "recHahrbpmPxNKhpy"
+            ],
+            "city": "Algiers",
+            "website": "https://sciences.univ-alger.dz/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recvMGvf7vHxxhXFm",
+            "createdTime": "2026-01-16T12:05:30.000Z",
+            "name": "Cracow University of Technology",
+            "stage": "Confirmed",
+            "country": [
+                "recbDPrFD5eGjVvEH"
+            ],
+            "city": "Krakow",
+            "website": "https://www.pk.edu.pl/",
+            "confirmed_on": "2025-11-22",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recvd44YNXYZMCIMG",
+            "createdTime": "2026-02-23T09:10:25.000Z",
+            "name": "IES Venancio Blanco",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "Salamanca",
+            "website": "https://iesvenancioblanco.es/",
+            "confirmed_on": "2026-03-24",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recw4mnw7SVsxOUvd",
+            "createdTime": "2026-02-20T00:35:44.000Z",
+            "name": "Universidad Central",
+            "stage": "Waiting on Reply",
+            "country": [
+                "recTNmomn2snGKRow"
+            ],
+            "city": "San José",
+            "website": "https://uc.ac.cr/",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recwF5LPdPxrd1iiz",
+            "createdTime": "2026-08-22T05:50:49.000Z",
+            "name": "Dy Patil School of engineering & Management kolhapur",
+            "stage": "Student",
+            "country": [
+                "recUbFtvvS7aWNS9h"
+            ],
+            "city": "kolhapur",
+            "website": "https://dypgroup.in/applicantLogins.htm",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recwalUnt2Am3KyKm",
+            "createdTime": "2026-08-16T09:48:23.000Z",
+            "name": "Kishoreganj University",
+            "stage": "Call Scheduled",
+            "country": [
+                "recN4suJnKvMukqxo"
+            ],
+            "city": "Dhaka",
+            "website": "https://kiu.ac.bd/clubs/cpc/",
+            "confirmed_on": "",
+            "consent": true,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recx07kUbeQlJ50xE",
+            "createdTime": "2026-03-11T08:08:40.000Z",
+            "name": "Fundación Economistas sin Fronteras",
+            "stage": "Under Review",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "madrid",
+            "website": "ecosfron.org",
+            "confirmed_on": "",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "recyumdlqCiLN5LvE",
+            "createdTime": "2025-12-23T09:48:20.000Z",
+            "name": "Escuela de Arte Toledo",
+            "stage": "Confirmed",
+            "country": [
+                "recrU0qPNEX1zi07G"
+            ],
+            "city": "TOLEDO",
+            "website": "https://escueladeartetoledo.com/",
+            "confirmed_on": "2026-03-18",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        },
+        {
+            "id": "reczKB4Kc5ua8q6pR",
+            "createdTime": "2026-06-18T08:31:07.000Z",
+            "name": "CNM Ingenuity",
+            "stage": "Confirmed",
+            "country": [
+                "recQB0aK2ff2Zuzac"
+            ],
+            "city": "Albuquerque",
+            "website": "https://www.cnmingenuity.org/",
+            "confirmed_on": "2026-06-18",
+            "consent": false,
+            "has_contact_email": true,
+            "has_contact_person": true,
+            "agreement": {
+                "status": "",
+                "kind": "",
+                "accepted_on": "",
+                "signed_on": "",
+                "accepted_by": "",
+                "has_document": false,
+                "submitted_on": "",
+                "template_version": ""
+            }
+        }
+    ],
+    "countries": [
+        {
+            "id": "rec0ZOpVDtdZsH9Dm",
+            "name": "Turkey",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec14c8Nb6r4Otf1b",
+            "name": "Singapore",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "rec17Ho0gWb3f90rN",
+            "name": "Gambia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec17dRSlrM68jbZX",
+            "name": "Bulgaria",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec1tQ68o0XWEOHHX",
+            "name": "Chile",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec2UUxpSPIi1lry8",
+            "name": "Paraguay",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec2jhTdiFoSUhL1s",
+            "name": "Morocco",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec2olQ3VCtKNL34D",
+            "name": "Kiribati",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "rec2ytW6788ThQzXR",
+            "name": "Switzerland",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec3CuHR6TmDLpdik",
+            "name": "Ukraine",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec3SBH0WiyHfkpr8",
+            "name": "Papua New Guinea",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "rec3ZCeXOdAlVwPhl",
+            "name": "Pakistan",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec4VOtry2A9xLqws",
+            "name": "Georgia",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "rec5NpQjelwzIogOS",
+            "name": "Hong Kong / Macao",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec5uTPDgY9a4ZlIA",
+            "name": "Ivory Coast (Côte d’Ivoire)",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec7COn9C6E6qwfHI",
+            "name": "United Kingdom",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec7eLfedKucf66qi",
+            "name": "Mali",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec8L61Hs5bTXOrCD",
+            "name": "Kuwait",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec94C0hawbjyH976",
+            "name": "Mozambique",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "rec9VbC00eXPKTsj8",
+            "name": "El Salvador",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec9adzGY4btP8q8P",
+            "name": "Barbados",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec9nOACcWBgaYuIr",
+            "name": "South Africa",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "rec9pwquNs3g1m8IR",
+            "name": "Indonesia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rec9uzNc5U0lGfrR7",
+            "name": "Palestine",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recAnejpZ4vuSxRzc",
+            "name": "Israel",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recB2mSJp0w2KK0D5",
+            "name": "Iceland",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recBeAD46pjcmAyRS",
+            "name": "Sweden",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recCNeYKfjgbrNuxD",
+            "name": "Hungary",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recCXZJvD5VxC6VVg",
+            "name": "Cuba",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recCeZ7bpS8cXwvnA",
+            "name": "Zambia",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recCqJtwBX6DvBDB3",
+            "name": "Bahrain",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recD2nhFIZ5D9OGyT",
+            "name": "Egypt",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recDQyxkAF9XhwHKq",
+            "name": "Fiji",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recDsUM9YiiYYNYuL",
+            "name": "France",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recDwI2ksI1X3b9eh",
+            "name": "Central African Republic",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recEJC7VWJ3wKdq44",
+            "name": "Nauru",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recEUE2n0wrZMmtN7",
+            "name": "Vanuatu",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recEaWjoiR1UBWSNm",
+            "name": "Tanzania",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recEk7GXFpdPe7r12",
+            "name": "Cyprus",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recFMhe0TqtnwVfYC",
+            "name": "Azerbaijan",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recGJMaELE90pHUVd",
+            "name": "Bhutan",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recGeHwIFj5oKbxAF",
+            "name": "Lithuania",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recGi8R5nZXy9KznG",
+            "name": "Brazil",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recGsrGv433lxnjED",
+            "name": "Republic of the Congo",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recHAgGte5MciMiRp",
+            "name": "Guyana",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recHHEcotXyzDkC2U",
+            "name": "Gabon",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recHahrbpmPxNKhpy",
+            "name": "Algeria",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recHdotKUeY1f99H2",
+            "name": "Romania",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recHjRZVzUKsdwhMV",
+            "name": "Estonia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recHk2oVjrtmtnpu1",
+            "name": "Denmark",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recHpadOxviWNoves",
+            "name": "Bosnia and Herzegovina",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recHtSUsQ4OZM3q5o",
+            "name": "Palau",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recIAGAfXzmOBhi2X",
+            "name": "Belgium",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recIDFSilmE8x7otH",
+            "name": "Monaco",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recIZDPijEJMPzwWt",
+            "name": "Montenegro",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recIj9nFCwJPYBksd",
+            "name": "Argentina",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recItda2mzVr4VAZE",
+            "name": "Netherlands",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recIxMaiIk6VPcn8l",
+            "name": "Panama",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recJUHTgJ64Kwxvvn",
+            "name": "New Zealand",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recJWcQP2F17eIU63",
+            "name": "Peru",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recJdxksPgTIjbs1w",
+            "name": "Saudi Arabia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recKDCLOzsayZiJdo",
+            "name": "Greece",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recKDst67BEEEOsUw",
+            "name": "Luxembourg",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recKHvZLLaNLTMzUM",
+            "name": "Suriname",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recLAc7cL6dM5vd5r",
+            "name": "Cambodia",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recLBQsLqQWEGDEVH",
+            "name": "Micronesia",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recLEFwdsdiEO0Qdh",
+            "name": "Nepal",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recLZU8ANgDtnd4A1",
+            "name": "Libya",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recLyeE5kQnrUBMPQ",
+            "name": "Eswatini (Swaziland)",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recLyy8d5OrgVRv8r",
+            "name": "Tunisia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recM8iZUtF1T2ffSD",
+            "name": "Colombia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recMPXq7wkbJFwa5M",
+            "name": "Dominica",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recMmY7aXLmH46ZZS",
+            "name": "Lesotho",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recN4suJnKvMukqxo",
+            "name": "Bangladesh",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recNc0OGdbWgKSUln",
+            "name": "Yemen",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recNlhMIqn0uR0YRl",
+            "name": "Niger",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recPJkMkCiv8EDYBu",
+            "name": "Ecuador",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recPSRqzDoRcmqwru",
+            "name": "Brunei",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recQB0aK2ff2Zuzac",
+            "name": "United States",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recQPOWl0chQlJ8py",
+            "name": "Lebanon",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recQQFJkUhATMwMAN",
+            "name": "Mauritius",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recQcCJMA9jvWJnTB",
+            "name": "Italy",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recQiwH6LANWAoMIs",
+            "name": "Tajikistan",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recQufTLLEcN8CVaV",
+            "name": "Solomon Islands",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recQvv7oAUMy5F5ls",
+            "name": "Turkmenistan",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recRI3DdWsSQbUPFw",
+            "name": "Oman",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recRZ6RPuaiuQT5pY",
+            "name": "Venezuela",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recST2rwBSh43GtU1",
+            "name": "Belarus",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recT1ZwR9zW9Cmyyw",
+            "name": "Slovakia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recTNmomn2snGKRow",
+            "name": "Costa Rica",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recU9alWq5KcaVlT7",
+            "name": "Haiti",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recUbFtvvS7aWNS9h",
+            "name": "India",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recV1wXbTHDWT8mXN",
+            "name": "United Arab Emirates",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recVPOMEE40Ujft8r",
+            "name": "Ethiopia",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recVTkQEvtlCCA82e",
+            "name": "Moldova",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recVwBlpp1mwhjgfp",
+            "name": "North Korea",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recVwxUhml7CkJ9tr",
+            "name": "Madagascar",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recWWoRqyfmz1eCls",
+            "name": "Laos",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recWbIVZwUIFo9iHE",
+            "name": "Malawi",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recX2LwAZzQ3J8meM",
+            "name": "Australia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recX4WxANdkd5tgKw",
+            "name": "Ireland",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recXTtgbcHfiRdlM3",
+            "name": "Serbia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recXdzq3HrwA2eSRt",
+            "name": "Cameroon",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recXjgfyuUBOIQ7kE",
+            "name": "Tonga",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recXlINcRRYUCjKUk",
+            "name": "Bolivia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recXvo9OHcv0JUern",
+            "name": "Maldives",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recYDDnB6knIeaKXC",
+            "name": "Nicaragua",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recYEGiIWZFuQcwMb",
+            "name": "Bahamas",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recYft9HK416wE4Iw",
+            "name": "Benin",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recYhfUxgH4dUEoRW",
+            "name": "Liberia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recZCT3B4ygZXhFdN",
+            "name": "Finland",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recZW2cLFrHMQNOdv",
+            "name": "Democratic Republic of the Congo",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recZlQbCicR3INw6u",
+            "name": "Rwanda",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recZtjwwNjloUFM7j",
+            "name": "Belize",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recaCmHtwUFlNSCAr",
+            "name": "South Sudan",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recaKLs5vfoq5Vag5",
+            "name": "Malaysia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recaffPQIM8uaXTzp",
+            "name": "Eritrea",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recas457peOQSfaTs",
+            "name": "South Korea",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recatUeksmbh9uWlg",
+            "name": "Myanmar (Burma)",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recb4F4vimwuHBio6",
+            "name": "Timor-Leste (East Timor)",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recbBWUy9JixjJowE",
+            "name": "Kosovo",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recbDPrFD5eGjVvEH",
+            "name": "Poland",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recbpHn2GkoBhc5bN",
+            "name": "Kenya",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recbzA0uUobR4WA4C",
+            "name": "Namibia",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recc3im1ZmbM8tree",
+            "name": "Tuvalu",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "reccZ22zvggWbbxpy",
+            "name": "Ghana",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recdCLVfDE8biaeiL",
+            "name": "Iraq",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recdgh4BToxtIaw4u",
+            "name": "Armenia",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "receIzGWfzioq7JXH",
+            "name": "Austria",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "receLarddc39NW6ih",
+            "name": "Latvia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recebojygiYTJsbVU",
+            "name": "San Marino",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "receqNPzWxbGefC8G",
+            "name": "Croatia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "receyMGSl3fdrJNTj",
+            "name": "Japan",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recf1Z7u39cgqJ8ON",
+            "name": "Norway",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recfTwxasArXWjPSo",
+            "name": "Saint Lucia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recg4m8emHkZY5Niw",
+            "name": "Iran",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recg7vKSjsUtGrJ4D",
+            "name": "Mauritania",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recgeBAqmbI5vM0nQ",
+            "name": "Marshall Islands",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recgypbSrl91gjL02",
+            "name": "Seychelles",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "rechGyHjFJm4VYOF0",
+            "name": "Czech Republic",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rechNY4I2DxqJDLky",
+            "name": "Thailand",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "reciGb98HH12h7mNj",
+            "name": "Guinea",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recije5hN2WwnZKFa",
+            "name": "Chad",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recj6nZ2OZKWYyZM9",
+            "name": "Trinidad and Tobago",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recjR2x4HFtAstuL4",
+            "name": "Senegal",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recjntXkSq4oRv0Xg",
+            "name": "Vietnam",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "reckvmCoO9BurS4Ci",
+            "name": "Mongolia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reclIvbEQ2CDeyxwF",
+            "name": "Togo",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "reclP4NHtyDSzgNVp",
+            "name": "North Macedonia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reclUnyE0XW2ppfVL",
+            "name": "Burundi",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recmY5kWAFRvIiEHv",
+            "name": "Guinea-Bissau",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recmdkZMrm7WPxzmX",
+            "name": "Slovenia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recnxQ4gnKE3wX05A",
+            "name": "Andorra",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reco05uUPJG5mfI13",
+            "name": "Portugal",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recoOd0Db8FRUAw8P",
+            "name": "Uzbekistan",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recp6BvJl3plb9PkP",
+            "name": "Qatar",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recp8kjFJggVYAID7",
+            "name": "Guatemala",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recpQlYYXwIXFpVbA",
+            "name": "Germany",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recpYs7QHTMGraXzW",
+            "name": "Saint Kitts and Nevis",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recpa1hpyEeNTstPO",
+            "name": "Afghanistan",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recpacRGUYE3D98uI",
+            "name": "São Tomé and Príncipe",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recpbRtWgMpb3h4yI",
+            "name": "Comoros",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recpfaiwSUkMIFDsS",
+            "name": "Sri Lanka",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recq16CJoXMwXY418",
+            "name": "Uruguay",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recqJoMmsjG4SNVyE",
+            "name": "Russia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recqQIw3Ps4wm8VOQ",
+            "name": "Equatorial Guinea",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recqTDvgNrUvJ4leQ",
+            "name": "Burkina Faso",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recqWE7Tqm0wwYr88",
+            "name": "Somalia",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recr6k52US0cA4wFy",
+            "name": "Sudan",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recrEyrhHuvz6BjOt",
+            "name": "Sierra Leone",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recrKbif3xV1ujb9m",
+            "name": "Canada",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recrU0qPNEX1zi07G",
+            "name": "Spain",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recrdNkVMNYYJOU2x",
+            "name": "Antigua and Barbuda",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recrflG4x1NYN6wXx",
+            "name": "Nigeria",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recsPpkA3aX9bdEAx",
+            "name": "Mexico",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rect3Vjm4Lzqo8aS6",
+            "name": "Jordan",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "rectRVGdw4NgmEqBK",
+            "name": "China",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recugP2tuva2p9Xml",
+            "name": "Zimbabwe",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recuqKzzacTfNC8vY",
+            "name": "Botswana",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recvkOOyz9uMbS7SN",
+            "name": "Western Sahara",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recvzSntny1VOoBYL",
+            "name": "Angola",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recxACSqpgFeNzp5U",
+            "name": "Jamaica",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recxOyLkdjq13oLii",
+            "name": "Philippines",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recxlWyV2WvPaHbFc",
+            "name": "Kyrgyzstan",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recyAQaqxW41KMGhq",
+            "name": "Malta",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recyH1PJN65LyCdNG",
+            "name": "Syria",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recyJT3pa13Tiw2OS",
+            "name": "Samoa",
+            "has_contact": false,
+            "has_email": false,
+            "has_calendly": false
+        },
+        {
+            "id": "recyd40UZ4YFM7Ui9",
+            "name": "Grenada",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recydQ5UZEf9o5tAA",
+            "name": "Liechtenstein",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "recyuydMcnwMXoze9",
+            "name": "Cape Verde",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reczE2XZwkA2id0su",
+            "name": "Dominican Republic",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reczZ32OzVv84Udy5",
+            "name": "Kazakhstan",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reczj7pzElJjuHKXz",
+            "name": "Saint Vincent and the Grenadines",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reczm8p7bc9wHGXzi",
+            "name": "Uganda",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reczrDQm7naIcrRtL",
+            "name": "Honduras",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        },
+        {
+            "id": "reczzaaHa7FfjQUN2",
+            "name": "Albania",
+            "has_contact": true,
+            "has_email": true,
+            "has_calendly": true
+        }
+    ]
+}
