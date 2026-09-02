@@ -1614,7 +1614,11 @@ class WPCPM_Mentors_Dashboard {
 	 * @param int $page_id Page ID.
 	 */
 	private static function gate_page( $page_id ) {
-		if ( ! get_post_meta( $page_id, WPCPM_Content_Access::META_KEY, true ) ) {
+		// `metadata_exists()` and not the value: the access level is registered with a default
+		// of `public`, which `get_post_meta()` returns for a page that has no row at all, so
+		// asking the value would read a brand-new page as deliberately public and never gate it.
+		// That is exactly how the Institution Dashboard first came up on the live site.
+		if ( ! metadata_exists( 'post', $page_id, WPCPM_Content_Access::META_KEY ) ) {
 			update_post_meta( $page_id, WPCPM_Content_Access::META_KEY, WPCPM_Roles::ROLE_MENTOR );
 		}
 	}

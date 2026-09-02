@@ -28,6 +28,10 @@ function esc_attr__( $s, $d = null ) { return $s; }
 function _x( $s, $c, $d = null ) { return $s; }
 function apply_filters( $tag, $value ) { return $value; }
 function sprintf_noop() {}
+function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
+function esc_url( $s ) { return (string) $s; }
+function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+function current_user_can( $cap ) { return (bool) $GLOBALS['can_manage']; }
 
 class WP_Role {
 	public $name, $capabilities;
@@ -150,6 +154,140 @@ ck( 'Sponsors are a notice audience, and membership is actually tested',
     ),
     array( true, true, true ) );
 
+echo "\n=== The dashboards in the toolbar ===\n";
+
+/*
+ * The two dashboards that are always loaded, stubbed to the two answers `links()` actually
+ * reads: where the page is, and whether it is the viewer's own. The real classes are
+ * sixteen hundred lines that want a database, and none of that decides what goes in the
+ * toolbar.
+ */
+$GLOBALS['can_manage'] = false;
+$GLOBALS['pages']      = array(
+	'student'     => 'https://example.test/student-report-card/',
+	'mentor'      => 'https://example.test/mentor-report-card/',
+	'institution' => 'https://example.test/institution-dashboard/',
+);
+$GLOBALS['own'] = array( 'student' => false, 'mentor' => false, 'institution' => false );
+
+/** Stands in for the student dashboard. */
+class WPCPM_Students_Dashboard {
+	public static function page_url() { return $GLOBALS['pages']['student']; }
+	public static function is_student( $user = null ) { return $GLOBALS['own']['student']; }
+}
+/** Stands in for the mentor dashboard. */
+class WPCPM_Mentors_Dashboard {
+	public static function page_url() { return $GLOBALS['pages']['mentor']; }
+	public static function is_mentor( $user = null ) { return $GLOBALS['own']['mentor']; }
+}
+
+require_once __DIR__ . '/../includes/class-wpcpm-dashboards.php';
+
+/**
+ * The toolbar entries as `id|title|own`, which is everything a caller reads off one.
+ *
+ * @return string[]
+ */
+function toolbar() {
+	$out = array();
+
+	foreach ( WPCPM_Dashboards::links() as $link ) {
+		$out[] = $link['id'] . '|' . $link['title'] . '|' . ( $link['own'] ? 'own' : 'other' );
+	}
+
+	return $out;
+}
+
+// The institution dashboard is a later class in the same module, and this suite loads
+// neither it nor the loader, so this is the real "not installed yet" state, asserted before
+// anything declares the stand-in. A guard that only *looks* right is a menu item that
+// fatals every page of the site on the release where the class is missing.
+$GLOBALS['can_manage'] = true;
+ck( 'without the institution dashboard class the toolbar holds the two it always had',
+    toolbar(),
+    array( 'wpcpm-student-dashboard|Student Dashboard|other', 'wpcpm-mentor-dashboard|Mentor Dashboard|other' ) );
+
+$GLOBALS['can_manage']         = false;
+$GLOBALS['own']['institution'] = true;
+ck( 'and a member of an institution is offered nothing either', toolbar(), array() );
+
+if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+	/** Stands in for the institution dashboard: a page, and membership rather than the role. */
+	class WPCPM_Institutions_Dashboard {
+		public static function page_url() { return $GLOBALS['pages']['institution']; }
+		public static function is_member( $user = null ) { return $GLOBALS['own']['institution']; }
+	}
+}
+
+// The page's own name in both cases. Open question 14 settled it as "Institution Dashboard"
+// and put a TITLE_VERSION behind it so one rename reaches every site; a second name for the
+// same page in the toolbar is exactly what that mechanism exists to prevent. The `own` flag
+// still says whose it is.
+ck( 'a member gets their own institution, named as theirs',
+    toolbar(), array( 'wpcpm-institution-dashboard|Institution Dashboard|own' ) );
+
+$GLOBALS['own']['institution'] = false;
+$GLOBALS['can_manage']         = true;
+ck( 'a manager gets all three, and is told the institution one is not theirs',
+    toolbar(),
+    array(
+        'wpcpm-student-dashboard|Student Dashboard|other',
+        'wpcpm-mentor-dashboard|Mentor Dashboard|other',
+        'wpcpm-institution-dashboard|Institution Dashboard|other',
+    ) );
+
+// A page that does not exist yet, or is in the trash: `page_url()` returns '' and the entry
+// has to go, because a toolbar link to nothing is worse than no link at all.
+$GLOBALS['pages']['institution'] = '';
+ck( 'no page, no entry, not even for a manager',
+    toolbar(),
+    array( 'wpcpm-student-dashboard|Student Dashboard|other', 'wpcpm-mentor-dashboard|Mentor Dashboard|other' ) );
+
+$GLOBALS['pages']['institution'] = 'https://example.test/institution-dashboard/';
+$GLOBALS['can_manage']           = false;
+ck( 'and somebody who is neither is offered nothing', toolbar(), array() );
+
+echo "\n=== What an empty dashboard says, per audience ===\n";
+
+// The fall-through this used to have told everybody who was not a student that they did not
+// hold the Mentor role. For an institution that is wrong twice over: wrong role, and the
+// wrong test: membership is what the page reads.
+// Asserted on what has to be true rather than on the exact sentence, because the wording is
+// the product owner's to change and a test that pins prose is a test that gets edited to
+// match whatever the code now says.
+$member_sees = WPCPM_Dashboards::nothing_to_show( 'institutions', false );
+ck( 'an institution is told about institutions, and never about the Mentor role',
+    array(
+        false !== stripos( $member_sees, 'institution' ),
+        false !== strpos( $member_sees, 'Mentor role' ),
+    ),
+    array( true, false ) );
+
+// A manager sees an empty page when no institution has an account, which no amount of
+// syncing fixes: the resolver falls back to the first institution *with a live member*. So
+// this one points at the screen that provisions and never says "sync".
+$manager_sees = WPCPM_Dashboards::nothing_to_show( 'institutions', true );
+ck( 'a manager is sent to the Institutions screen, and is not told to run a sync',
+    array(
+        false !== strpos( $manager_sees, 'admin.php?page=wpcpm-institutions' ),
+        false !== stripos( $manager_sees, 'sync' ),
+    ),
+    array( true, false ) );
+
+// The two that were there first, unchanged by the third.
+ck( 'the student and mentor wordings are untouched',
+    array(
+        WPCPM_Dashboards::nothing_to_show( 'students', false ),
+        WPCPM_Dashboards::nothing_to_show( 'mentors', false ),
+    ),
+    array(
+        'This page is for program students. Your account is not linked to a student record.',
+        'This page is for program mentors. Your account does not hold the Mentor role.',
+    ) );
+ck( 'and an unknown module ID still lands on the mentor wording it always did',
+    array( WPCPM_Dashboards::nothing_to_show( 'nonsense', false ) ),
+    array( 'This page is for program mentors. Your account does not hold the Mentor role.' ) );
+
 echo "\n=== A user ID out of whatever get_users() returned ===\n";
 
 // This site's stack returns `stdClass` rows even when the query asked for `'ID'`, so the shape is
@@ -180,6 +318,68 @@ foreach ( $in_uninstall[1] as $rel ) {
 	if ( ! file_exists( dirname( __DIR__ ) . '/' . $rel ) ) {
 		ck( 'uninstall.php requires a file that exists: ' . $rel, false, true );
 	}
+}
+
+// The third list nobody maintains by hand: the files themselves. A class file that lands in
+// `includes/` with no `require_once` for it is neither a fatal nor a failing test. It is a
+// class that silently never loads, so every `class_exists()` guard around it goes on
+// reporting "not installed yet" and the feature is simply absent. Read off disk rather than
+// listed here, so the next file is covered the day it lands.
+preg_match_all( "/require_once WPCPM_PLUGIN_DIR \. '([^']+)';/", $loader_src, $anywhere );
+$on_disk = array();
+foreach ( array( 'includes', 'includes/modules', 'includes/tools' ) as $dir ) {
+	foreach ( glob( dirname( __DIR__ ) . '/' . $dir . '/class-wpcpm-*.php' ) as $path ) {
+		$on_disk[] = $dir . '/' . basename( $path );
+	}
+}
+ck( 'every class file under includes/ is required by the loader',
+    array_values( array_diff( $on_disk, $anywhere[1] ) ), array() );
+
+// The institution dashboard's own wiring, asserted from the day the file exists rather than
+// from a name written here in advance. Its page ID and its title-version flag are two options
+// on a live site, and an option an uninstall leaves behind is invisible until somebody
+// reinstalls: the page comes back pointing at a post that is not there any more, and the
+// title migration never runs again because the flag says it already did.
+$dashboard_file = 'includes/modules/class-wpcpm-institutions-dashboard.php';
+
+if ( file_exists( dirname( __DIR__ ) . '/' . $dashboard_file ) ) {
+	ck( 'the institution dashboard is loaded, and uninstall.php can see it',
+	    array(
+	        in_array( $dashboard_file, $anywhere[1], true ),
+	        in_array( $dashboard_file, $in_uninstall[1], true ),
+	    ),
+	    array( true, true ) );
+
+	/*
+	 * Searched inside a `delete_option()` call, and across everything `uninstall.php` pulls
+	 * in: the class file declares both constants and is required there, so a bare name search
+	 * would pass on the declaration alone, and the other two dashboards have their page
+	 * options deleted by their module's `uninstall()` rather than by `uninstall.php` itself.
+	 * Either spelling of the name counts; what is asserted is that something on the uninstall
+	 * path deletes it.
+	 */
+	$reach = $uninstall_src;
+
+	foreach ( $in_uninstall[1] as $rel ) {
+		$path = dirname( __DIR__ ) . '/' . $rel;
+
+		if ( file_exists( $path ) ) {
+			$reach .= file_get_contents( $path );
+		}
+	}
+
+	$deleted = array();
+
+	foreach ( array( 'OPT_PAGE' => 'wpcpm_institution_page_id', 'OPT_TITLE_FIXED' => 'wpcpm_institution_page_title_fixed' ) as $constant => $option ) {
+		$deleted[] = (bool) preg_match(
+			'/delete_option\(\s*(?:WPCPM_Institutions_Dashboard::' . $constant . "|'" . $option . "')\s*\)/",
+			$reach
+		);
+	}
+
+	ck( 'and its page option and title option are both deleted on uninstall', $deleted, array( true, true ) );
+} else {
+	echo "--   the institution dashboard has not landed yet: " . $dashboard_file . "\n";
 }
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

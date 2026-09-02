@@ -49,6 +49,13 @@ $GLOBALS['uploads'] = sys_get_temp_dir() . '/wpcpm-screen-test-' . getmypid();
 $GLOBALS['members_of']   = array();
 $GLOBALS['member_reads'] = array();
 
+// Provisioning: why each institution may not have an account, which ones the screen asked
+// about, and which ones it went on to provision.
+$GLOBALS['blocks']           = array();
+$GLOBALS['blocks_read']      = array();
+$GLOBALS['provisioned']      = array();
+$GLOBALS['provision_result'] = array();
+
 class WP_Error {
 	private $c, $m;
 	public function __construct( $c = '', $m = '', $d = null ) { $this->c = $c; $this->m = $m; }
@@ -154,7 +161,12 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function add_query_arg( $k, $v = '', $u = '' ) { return $u . ( false === strpos( $u, '?' ) ? '?' : '&' ) . $k . '=' . $v; }
 function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
 function wp_create_nonce( $a = '' ) { return 'nonce'; }
-function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true ) { printf( '<button type="submit" class="button button-%s" name="%s">%s</button>', $type, $name, esc_html( $text ) ); }
+function esc_js( $s ) { return str_replace( array( "'", "\n" ), array( "\\'", '' ), (string) $s ); }
+function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true, $other = array() ) {
+	$attrs = '';
+	foreach ( (array) $other as $key => $value ) { $attrs .= ' ' . $key . '="' . esc_attr( $value ) . '"'; }
+	printf( '<button type="submit" class="button button-%s" name="%s"%s>%s</button>', $type, $name, $attrs, esc_html( $text ) );
+}
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
 function wp_date( $format, $ts = null, $zone = null ) { return gmdate( $format, (int) $ts ); }
@@ -267,6 +279,35 @@ if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+	/** Stands in for the institution's own page: this suite is about the manager screen. */
+	class WPCPM_Institutions_Dashboard {
+		const OPT_PAGE        = 'wpcpm_institution_page_id';
+		const OPT_TITLE_FIXED = 'wpcpm_institution_page_title_fixed';
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'dashboard_init' );
+		}
+		public static function ensure_page() {
+			$GLOBALS['calls'][] = array( 'dashboard_ensure_page' );
+		}
+		public static function page_url() {
+			return 'https://example.test/institution-dashboard/';
+		}
+		public static function is_member( $user = null ) {
+			return false;
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_People' ) ) {
+	/** Stands in for the People card: its own suite covers it. */
+	class WPCPM_Institution_People {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'people_init' );
+		}
+	}
+}
+
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	/** Stands in for the members module: the screen names its meta keys through it. */
 	class WPCPM_Institution_Members {
@@ -291,6 +332,9 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 	class WPCPM_Institution_Agreement {
 		const POST_TYPE         = 'wpcpm_agreement';
+		const ACTION_ON_FILE     = 'wpcpm_agreement_on_file';
+		const ACTION_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
+		const MAX_LOCATION       = 200;
 		const STATE_GENERATED   = 'generated';
 		const STATE_SUBMITTED   = 'submitted';
 		const STATE_ACCEPTED    = 'accepted';
@@ -367,6 +411,30 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 		public static function activate() { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::activate' ); }
 		public static function deactivate() { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::deactivate' ); }
 		public static function last_read() { return $GLOBALS['sync_last'] ?? 0; }
+
+		/*
+		 * Provisioning. The screen asks why an institution may not have an account and prints
+		 * the answer; whether the answer is right is bin/test-institutions-sync.php's business,
+		 * so the stub answers from a map. Its default is the day-one state the design describes:
+		 * every Confirmed institution is legacy and none has an agreement recorded yet.
+		 */
+		const PROVISION_ERROR     = 'wpcpm_provision_refused';
+		const BLOCK_NOT_INDEXED   = 'not_indexed';
+		const BLOCK_NOT_CONFIRMED = 'not_confirmed';
+		const BLOCK_NO_EMAIL      = 'no_email';
+		const BLOCK_NO_AGREEMENT  = 'no_agreement';
+		const BLOCK_HAS_MEMBER    = 'has_member';
+		const BLOCK_FORMER_MEMBER = 'former_member';
+		const BLOCK_CONFLICT      = 'account_exists';
+		public static function provision_block( $record_id ) {
+			$GLOBALS['blocks_read'][] = $record_id;
+			return isset( $GLOBALS['blocks'][ $record_id ] ) ? $GLOBALS['blocks'][ $record_id ] : self::BLOCK_NO_AGREEMENT;
+		}
+		public static function provision_message( $reason ) { return 'Refused: ' . $reason . '.'; }
+		public static function provision( $record_id, $actor_id = 0 ) {
+			$GLOBALS['provisioned'][] = array( $record_id, (int) $actor_id );
+			return $GLOBALS['provision_result'][ $record_id ] ?? 100 + count( $GLOBALS['provisioned'] );
+		}
 	}
 }
 
@@ -437,6 +505,7 @@ function ck( $label, $actual, $expected ) {
 function render_screen( array $get = array() ) {
 	$_GET = $get;
 	$GLOBALS['summary_reads'] = array();
+	$GLOBALS['blocks_read']   = array();
 	ob_start();
 	( new WPCPM_Institutions() )->render_admin_page();
 	return ob_get_clean();
@@ -577,7 +646,7 @@ ck( 'is_implemented() is true', ( new WPCPM_Institutions() )->is_implemented(), 
 // Every handler: the capability is decided before the nonce is read, so an anonymous request
 // gets the 403 the design names rather than a nonce failure that tells it the handler exists.
 preg_match_all( '/public function (handle_[a-z_]+)\s*\(/', $src, $handlers );
-ck( 'the four handlers exist', $handlers[1], array( 'handle_tick', 'handle_sync', 'handle_cancel', 'handle_probe' ) );
+ck( 'the six handlers exist', $handlers[1], array( 'handle_tick', 'handle_sync', 'handle_cancel', 'handle_probe', 'handle_provision', 'handle_provision_one' ) );
 
 foreach ( $handlers[1] as $handler ) {
 	$body  = function_body( $src, $handler );
@@ -604,6 +673,17 @@ ck( 'verify() itself checks the capability first', array(
 
 ck( 'no institution id is compared with === in the screen',
 	preg_match( '/\$record_id\s*===|===\s*\$record_id|\$country\s*===\s*\$|\$institution\s*===/', $src ), 0 );
+
+// The provisioning rule has one copy, in the sync. The screen asks it and prints the answer;
+// a second copy here is how the button and the nightly run come to disagree about the same
+// institution, which is the whole reason the rule was written down once.
+$reasons_body = function_body( $src, 'provision_reasons' );
+ck( 'the screen asks the sync why an institution may not be provisioned, and decides nothing itself', array(
+	false !== strpos( $reasons_body, 'WPCPM_Institutions_Sync::provision_block(' ),
+	strpos( $reasons_body, 'is_settled' ),
+	strpos( $reasons_body, 'members_of' ),
+	strpos( $reasons_body, 'get_user_by' ),
+), array( true, false, false, false ) );
 ck( 'nothing on the screen reads Airtable', array( strpos( $src, 'WPCPM_Airtable' ), strpos( $src, 'fetch_all' ) ), array( false, false ) );
 ck( 'the screen never renders the option key of a file URL', strpos( $src, 'base_url' ), false );
 ck( 'no em or en dash anywhere in the module', preg_match( "/\xE2\x80\x93|\xE2\x80\x94/", $src ), 0 );
@@ -635,7 +715,7 @@ $html = render_screen();
 ck( 'the page opens with the skeleton', array(
 	false !== strpos( $html, '<div class="wrap wpcpm-wrap"><h1>Institutions</h1><p class="wpcpm-lede">' ),
 	substr_count( $html, '<div class="wpcpm-card">' ),
-), array( true, 7 ) );
+), array( true, 8 ) );
 
 ck( 'the pipeline counts every fixture row', false !== strpos( $html, 'Pipeline <span class="wpcpm-count">' . $seed['counts']['institutions'] . '</span>' ), true );
 
@@ -694,8 +774,11 @@ ck( 'which are Cambodia, Nigeria and Thailand', $gap_names, array( 'Cambodia', '
 ck( 'no row prints an unresolved country', strpos( $html, 'unknown country' ), false );
 ck( 'the rows with no country say so', substr_count( $html, '>no country<' ), count( array_filter( $rows, function ( $r ) { return '' === $r['country']; } ) ) );
 
-// Contact and consent columns.
-ck( 'the one Confirmed record with no email is marked', substr_count( $html, '<span class="wpcpm-warning">no email</span>' ), count( array_filter( $rows, function ( $r ) { return '' === $r['contact_email']; } ) ) );
+// Contact and consent columns. Once per pipeline row with no address, and again on the
+// provisioning card for the Confirmed ones, where it is the reason there is no account.
+$no_email           = array_filter( $rows, function ( $r ) { return '' === $r['contact_email']; } );
+$no_email_confirmed = array_filter( $no_email, function ( $r ) { return 'Confirmed' === $r['stage']; } );
+ck( 'the records with no email are marked', substr_count( $html, '<span class="wpcpm-warning">no email</span>' ), count( $no_email ) + count( $no_email_confirmed ) );
 ck( 'no address is printed on the screen', preg_match( '/@example\.test/', $html ), 0 );
 
 // The agreement column reads the summary, once per row.
@@ -867,8 +950,10 @@ ck( 'the no-member count is in the pipeline card and the contacts count on the r
 	strpos( $html, 'Contacts who are not members' ) > strpos( $html, 'Students rows with no institution' ),
 ), array( true, true ) );
 
+// Three cards join the index to the live stamps: the no-member count, the contacts count and
+// the provisioning card, and every one of them says which half is as old as the sync.
 $provenance = '(from the pipeline index read ' . gmdate( 'Y-m-d H:i', $read_at ) . '; memberships counted now)';
-ck( 'each count says which half is as old as the sync and which was read now', substr_count( $html, $provenance ), 2 );
+ck( 'each count says which half is as old as the sync and which was read now', substr_count( $html, $provenance ), 3 );
 
 ck( 'the two pieces this phase does not build are named, not printed as a zero', array(
 	false !== strpos( $html, 'Invitations ship with a later phase, so the third backstop count, invitations older than seven days, is not shown: there are none to count yet.' ),
@@ -896,6 +981,88 @@ ck( 'no address reaches the screen, the member\'s least of all', preg_match( '/@
 
 $GLOBALS['members_of']   = array();
 $GLOBALS['member_reads'] = array();
+
+/* ---- institution accounts ----------------------------------------------- */
+
+// What the card decides is `WPCPM_Institutions_Sync::provision_block()`'s answer and never a
+// second copy of the rule here, so what is checked is that the screen asks the right
+// institutions, prints the answer it gets, and offers the control only where the answer was
+// yes. Whether the answers themselves are right is bin/test-institutions-sync.php's business.
+
+echo "\n=== Institution accounts: the gate, the bulk button and the per-row control ===\n";
+
+$day_one = render_screen();
+
+ck( 'the card counts the institutions ready for an account', false !== strpos( $day_one, 'Institution accounts <span class="wpcpm-count">0</span>' ), true );
+ck( 'and asks about the 42 Confirmed institutions, once each and about no others', array(
+	count( $GLOBALS['blocks_read'] ),
+	count( array_unique( $GLOBALS['blocks_read'] ) ),
+), array( count( $confirmed ), count( $confirmed ) ) );
+ck( 'it says how many Confirmed institutions it looked at, and when the index was read', false !== strpos( $day_one, '42 Confirmed institutions. ' . $provenance ), true );
+
+// Day one: every real Confirmed institution is legacy, so none has an agreement recorded and
+// the bulk button refuses for all of them, whatever else is ready.
+preg_match( '#<p class="wpcpm-warning">(No account is created in bulk.*?)</p>#s', $day_one, $gate );
+$gate = isset( $gate[1] ) ? $gate[1] : '';
+
+ck( 'the gate says how many hold the button shut', false !== strpos( $gate, 'No account is created in bulk while 42 Confirmed institutions have no agreement recorded:' ), true );
+ck( 'names the first five of them and counts the rest', array(
+	false !== strpos( $gate, esc_html( trim( $rows[ $confirmed[0] ]['name'] ) ) ),
+	false !== strpos( $gate, esc_html( trim( $rows[ $confirmed[4] ]['name'] ) ) ),
+	false !== strpos( $gate, esc_html( trim( $rows[ $confirmed[5] ]['name'] ) ) ),
+	false !== strpos( $gate, 'and 37 more' ),
+), array( true, true, false, true ) );
+ck( 'and links the filtered pipeline, which is where the work starts', false !== strpos( $gate, '?page=wpcpm-institutions&wpcpm_filter=agreement_gap' ), true );
+ck( 'the button is drawn disabled rather than hidden', false !== strpos( $day_one, '<button type="submit" class="button button-primary" name="submit" disabled="disabled">Create the accounts</button>' ), true );
+ck( 'and nothing offers to create a single one either', strpos( $day_one, '>Create account</button>' ), false );
+ck( 'every Confirmed institution is listed with the sync\'s reason for having no account', substr_count( $day_one, '<span class="wpcpm-inst-muted">Refused: no_agreement.</span>' ), count( $confirmed ) );
+
+// The agreements recorded: three ready, one address already taken, one with no contact
+// address, one that has had a member before, and the rest with accounts already.
+$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
+$GLOBALS['blocks'][ $confirmed[0] ] = '';
+$GLOBALS['blocks'][ $confirmed[1] ] = '';
+$GLOBALS['blocks'][ $confirmed[2] ] = '';
+$GLOBALS['blocks'][ $confirmed[3] ] = WPCPM_Institutions_Sync::BLOCK_CONFLICT;
+$GLOBALS['blocks'][ $confirmed[4] ] = WPCPM_Institutions_Sync::BLOCK_NO_EMAIL;
+$GLOBALS['blocks'][ $confirmed[5] ] = WPCPM_Institutions_Sync::BLOCK_FORMER_MEMBER;
+
+$open = render_screen();
+
+ck( 'with every agreement recorded the gate is gone', strpos( $open, 'No account is created in bulk' ), false );
+ck( 'and the count is in the button, not only in the prose above it', false !== strpos( $open, '<button type="submit" class="button button-primary" name="submit">Create 3 accounts</button>' ), true );
+ck( 'the confirm names how many people it reaches and that it cannot be recalled', false !== strpos( $open, 'onsubmit="return confirm(\'Create 3 institution accounts and email each one a password-set link to the address Airtable holds for it? Invitations cannot be recalled once sent.\');"' ), true );
+ck( 'each ready institution gets its own control, with a nonce keyed to it', array(
+	substr_count( $open, '>Create account</button>' ),
+	false !== strpos( $open, 'value="nonce-wpcpm_institutions_provision_one_' . $confirmed[0] . '"' ),
+	false !== strpos( $open, '<input type="hidden" name="wpcpm_institution" value="' . $confirmed[0] . '" />' ),
+	false !== strpos( $open, '<input type="hidden" name="action" value="wpcpm_institutions_provision_one" />' ),
+), array( 3, true, true, true ) );
+ck( 'and the refusals are the sync\'s words, one per row', array(
+	substr_count( $open, 'Refused: account_exists.' ),
+	substr_count( $open, 'Refused: no_email.' ),
+	substr_count( $open, 'Refused: former_member.' ),
+	substr_count( $open, 'Refused: has_member.' ),
+), array( 1, 1, 1, 0 ) );
+ck( 'the ones that already have an account are counted rather than listed', false !== strpos( $open, ( count( $confirmed ) - 6 ) . ' Confirmed institutions already have an account and are not listed above.' ), true );
+ck( 'no address reaches the card, only whether there is one', array(
+	preg_match( '/@example\.test/i', $open ),
+	substr_count( $open, '<span class="wpcpm-warning">no email</span>' ) > 0,
+), array( 0, true ) );
+
+ck( 'the card says the nightly sync is not doing this too', false !== strpos( $open, 'The nightly sync does not create accounts' ), true );
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+ck( 'and says so when it is', false !== strpos( render_screen(), 'The nightly sync creates these accounts too' ), true );
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = false;
+
+$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
+$done              = render_screen();
+ck( 'with every account made the card says so and draws no worklist', array(
+	false !== strpos( $done, 'Every Confirmed institution has an account.' ),
+	strpos( $done, 'wpcpm-inst-provision' ),
+), array( true, false ) );
+
+$GLOBALS['blocks'] = array();
 
 /* ---- discrepancies and the template card -------------------------------- */
 
@@ -1149,6 +1316,87 @@ $GLOBALS['calls'] = array();
 outcome( array( $module, 'handle_tick' ) );
 ck( 'and leaves an idle one alone', in_array( array( 'WPCPM_Institutions_Sync::tick', 8 ), $GLOBALS['calls'], true ), false );
 
+/* ---- the provisioning handlers ------------------------------------------ */
+
+echo "\n=== The provisioning handlers ===\n";
+
+$back = 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions';
+
+$GLOBALS['caps'] = false;
+ck( 'handle_provision without the capability dies 403 before any nonce is read', array( outcome( array( $module, 'handle_provision' ) ), $GLOBALS['referer'] ), array( 'wp_die: You do not have permission to manage the program.', array() ) );
+ck( 'and so does the per-row control', array( outcome( array( $module, 'handle_provision_one' ) ), $GLOBALS['referer'] ), array( 'wp_die: You do not have permission to manage the program.', array() ) );
+$GLOBALS['caps'] = true;
+
+// The gate is enforced here and not only in the markup: a disabled button is a courtesy to
+// the person in front of it, never a check.
+$GLOBALS['blocks']      = array();
+$GLOBALS['provisioned'] = array();
+ck( 'the bulk handler refuses while a Confirmed institution has no agreement recorded, and creates nothing', array(
+	outcome( array( $module, 'handle_provision' ) ),
+	$GLOBALS['referer'],
+	$GLOBALS['provisioned'],
+	get_user_meta( 1, WPCPM_Flash::META ),
+), array( $back, array( 'wpcpm_institutions_provision' ), array(), array( 'institutions' => 'provision-blocked' ) ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
+$GLOBALS['blocks'][ $confirmed[0] ] = '';
+$GLOBALS['blocks'][ $confirmed[1] ] = '';
+$GLOBALS['provisioned'] = array();
+ck( 'with the gate open it provisions the ready ones, nobody else, as the manager who pressed it', array(
+	outcome( array( $module, 'handle_provision' ) ),
+	$GLOBALS['provisioned'],
+	get_user_meta( 1, WPCPM_Flash::META ),
+), array( $back, array( array( $confirmed[0], 1 ), array( $confirmed[1], 1 ) ), array( 'institutions' => 'provisioned' ) ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+$GLOBALS['blocks']      = array_fill_keys( $confirmed, '' );
+$GLOBALS['provisioned'] = array();
+outcome( array( $module, 'handle_provision' ) );
+ck( 'one press stops at the ceiling and leaves the rest for the next', count( $GLOBALS['provisioned'] ), WPCPM_Institutions::PROVISION_LIMIT );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
+$GLOBALS['blocks'][ $confirmed[0] ] = '';
+$GLOBALS['provision_result'][ $confirmed[0] ] = new WP_Error( 'existing_user_login', 'that login is taken' );
+outcome( array( $module, 'handle_provision' ) );
+ck( 'an account that could not be created is reported rather than counted as done', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'provision-failed' ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+$GLOBALS['provision_result'] = array();
+
+$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
+outcome( array( $module, 'handle_provision' ) );
+ck( 'and with nothing ready it says so rather than claiming a success', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'provision-none' ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+// The per-row control. The record ID is read from the posted form with posted_text(): a
+// record ID is case-sensitive, and sanitize_key() would lowercase it into a record that does
+// not exist. The nonce is keyed to the institution, so one row's nonce is no use on another.
+$GLOBALS['provisioned'] = array();
+$_POST                  = array( 'wpcpm_institution' => 'recMiXeDCaSe123' );
+ck( 'the per-row control provisions the institution its nonce names, with the case intact', array(
+	outcome( array( $module, 'handle_provision_one' ) ),
+	$GLOBALS['referer'],
+	$GLOBALS['provisioned'],
+	get_user_meta( 1, WPCPM_Flash::META ),
+), array( $back, array( 'wpcpm_institutions_provision_one_recMiXeDCaSe123' ), array( array( 'recMiXeDCaSe123', 1 ) ), array( 'institutions' => 'provisioned' ) ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+$GLOBALS['provision_result']['recMiXeDCaSe123'] = new WP_Error( WPCPM_Institutions_Sync::PROVISION_ERROR, 'no agreement is recorded for it', array( 'reason' => 'no_agreement' ) );
+outcome( array( $module, 'handle_provision_one' ) );
+ck( 'a refusal from a stale page is a refusal and not a failure', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'provision-refused' ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+$GLOBALS['provision_result']['recMiXeDCaSe123'] = new WP_Error( 'existing_user_login', 'that login is taken' );
+outcome( array( $module, 'handle_provision_one' ) );
+ck( 'and an account that could not be made is a failure and not a refusal', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'provision-failed' ) );
+delete_user_meta( 1, WPCPM_Flash::META );
+
+$_POST                      = array();
+$GLOBALS['provision_result'] = array();
+$GLOBALS['provisioned']      = array();
+$GLOBALS['blocks']           = array();
+
 // The running panel, with the attributes admin.js reads.
 $GLOBALS['sync_progress'] = array( 'running' => true, 'label' => 'Reading institution records…', 'step_label' => 'Step 2 of 4', 'percent' => 40, 'detail' => '53 of 106', 'elapsed' => 75, 'stalled' => false );
 $running = render_screen();
@@ -1178,10 +1426,14 @@ echo "\n=== Lifecycle ===\n";
 $GLOBALS['calls'] = array();
 $module->boot();
 $hooks = array_map( function ( $c ) { return $c[1]; }, array_filter( $GLOBALS['calls'], function ( $c ) { return 'add_action' === $c[0]; } ) );
-ck( 'boot() wires the four handlers', array_values( $hooks ), array(
-	'admin_post_wpcpm_institutions_sync', 'admin_post_wpcpm_institutions_cancel', 'admin_post_wpcpm_institutions_probe', 'wp_ajax_wpcpm_institutions_tick',
+ck( 'boot() wires the six handlers', array_values( $hooks ), array(
+	'admin_post_wpcpm_institutions_sync', 'admin_post_wpcpm_institutions_cancel', 'admin_post_wpcpm_institutions_probe',
+	'admin_post_wpcpm_institutions_provision', 'admin_post_wpcpm_institutions_provision_one', 'wp_ajax_wpcpm_institutions_tick',
 ) );
-ck( 'boots the two post types and hands the cron events to the sync, as the Students module does', array_slice( $GLOBALS['calls'], 0, 3 ), array( array( 'WPCPM_Institution_Agreement::init' ), array( 'WPCPM_Institution_Audit::init' ), array( 'WPCPM_Institutions_Sync::register_cron' ) ) );
+// The institution's own page and the People card's handlers boot here too, between the post
+// types and the cron: both register hooks, so they belong on `plugins_loaded` with the rest
+// rather than being reached from a render.
+ck( 'boots the two post types, the page and the People handlers, then hands the cron events to the sync', array_slice( $GLOBALS['calls'], 0, 5 ), array( array( 'WPCPM_Institution_Agreement::init' ), array( 'WPCPM_Institution_Audit::init' ), array( 'dashboard_init' ), array( 'people_init' ), array( 'WPCPM_Institutions_Sync::register_cron' ) ) );
 
 $GLOBALS['calls'] = array();
 $GLOBALS['head']  = array( 'response' => array( 'code' => 403 ) );

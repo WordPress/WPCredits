@@ -830,6 +830,22 @@ class WPCPM_Student_Report_Form {
 	 * else. **The mentee list is the authority**, not the request: it is the same list their page
 	 * is drawn from, so a record they were never given cannot be asked for by editing a URL.
 	 *
+	 * **The third audience is an institution**, since the Institutions module: a member reading
+	 * the card of a student on their own roster, from the detail view, which ships the same
+	 * disclosure the mentor's card does and fetches it from this route. That branch owns none of
+	 * the decision - `WPCPM_Institution_Roster::claim()` makes it, against the live Students row
+	 * and its `Educational Institutions` link, because a record ID arriving in a URL is not
+	 * evidence of anything. It is tried last of the three: a manager and a mentor are answered
+	 * from what the site already holds, and `claim()` may spend an Airtable request.
+	 *
+	 * **A refusal is `false` and never the `WP_Error`.** One route, three audiences: a mentor who
+	 * is not this student's mentor already gets core's one answer, and a member who gets a
+	 * different one - with a code naming this module - could tell from the outside which
+	 * question the site asked about them. The fence's one refusal message belongs where the
+	 * fence puts it, in what `claim()` returns to the paths that render it. Every `WP_Error` is
+	 * a no, an unreadable Airtable included: a route that opened when the base was down would
+	 * be a fence that fails open on the one day nothing can check it.
+	 *
 	 * @param WP_REST_Request $request The request.
 	 * @return bool
 	 */
@@ -846,6 +862,16 @@ class WPCPM_Student_Report_Form {
 
 		foreach ( WPCPM_Mentors_Dashboard::get_mentees( get_current_user_id() ) as $mentee ) {
 			if ( isset( $mentee['record_id'] ) && (string) $mentee['record_id'] === $record ) {
+				return true;
+			}
+		}
+
+		// Guarded, not assumed: this route is a mentor's every working day, and it must not
+		// depend on the Institutions module's files having been loaded to answer them.
+		if ( class_exists( 'WPCPM_Institution_Roster' ) && class_exists( 'WPCPM_Institution_Policy' ) ) {
+			$claim = WPCPM_Institution_Roster::claim( $record, WPCPM_Institution_Policy::ACT_VIEW_REPORT, 'report' );
+
+			if ( ! is_wp_error( $claim ) ) {
 				return true;
 			}
 		}

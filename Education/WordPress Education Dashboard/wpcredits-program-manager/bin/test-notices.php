@@ -171,6 +171,8 @@ set_notices(
 $GLOBALS['institution_members'] = array( 30 );
 // 50 administrator who also mentors — recognised by an Airtable record, never by role.
 // 60 student who also mentors. 70 subscriber in no audience.
+// 80 holds the Institution role with no live membership, 90 acts for an institution with no
+// role yet: the two accounts that tell membership and the role apart.
 $GLOBALS['users'][10] = new WP_User( 10, 'Student', array( WPCPM_Roles::ROLE_STUDENT ) );
 $GLOBALS['users'][20] = new WP_User( 20, 'Mentor', array( WPCPM_Roles::ROLE_MENTOR ) );
 $GLOBALS['users'][30] = new WP_User( 30, 'Institution', array( WPCPM_Roles::ROLE_INSTITUTION ) );
@@ -178,6 +180,9 @@ $GLOBALS['users'][40] = new WP_User( 40, 'Admin', array( 'administrator' ) );
 $GLOBALS['users'][50] = new WP_User( 50, 'Admin who mentors', array( 'administrator' ) );
 $GLOBALS['users'][60] = new WP_User( 60, 'Student who mentors', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ) );
 $GLOBALS['users'][70] = new WP_User( 70, 'Subscriber', array( 'subscriber' ) );
+$GLOBALS['users'][80] = new WP_User( 80, 'Former institution', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['users'][90] = new WP_User( 90, 'Institution staff', array( 'subscriber' ) );
+$GLOBALS['institution_members'][] = 90;
 $GLOBALS['manage'] = array( 40, 50 );
 $GLOBALS['umeta'][50][ WPCPM_Mentors_Sync::META_RECORD_ID ] = 'recMENTOR12345678';
 
@@ -221,6 +226,14 @@ function seen_by( $id ) {
 ck( 'a student sees only the student notice',      seen_by( 10 ), array( 'student' ) );
 ck( 'a mentor sees only the mentor notice',        seen_by( 20 ), array( 'mentor' ) );
 ck( 'an institution sees only its own',            seen_by( 30 ), array( 'institution' ) );
+// The two halves of the delegation, and the reason it delegates at all: `detach()` leaves the
+// account holding the Institution role, and `attach()` adds the role to an account that may
+// already be a member by the time the role lands. Testing the role here would show a notice to
+// somebody whose access ended this morning and hide it from the person who took it over.
+ck( 'the Institution role without a live membership sees nothing',
+    seen_by( 80 ), array() );
+ck( 'and a live membership without the role still sees it',
+    seen_by( 90 ), array( 'institution' ) );
 ck( 'an administrator sees only the admin notice', seen_by( 40 ), array( 'admin' ) );
 ck( 'an administrator who mentors sees both, mentor first',
     seen_by( 50 ), array( 'mentor', 'admin' ) );
@@ -270,6 +283,12 @@ set_notices( $saved );
 $pipeline = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-notices.php' );
 $tool_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php' );
 
+ck( 'the institution audience asks the members class, and never the role',
+    array(
+        (bool) strpos( $pipeline, 'WPCPM_Institution_Members::is_member( $user )' ),
+        (bool) strpos( $pipeline, 'ROLE_INSTITUTION' ),
+    ),
+    array( true, false ) );
 ck( 'bare lines become paragraphs, then everything is filtered',
     array( (bool) strpos( $pipeline, 'wp_kses_post( wpautop( $body ) )' ) ), array( true ) );
 ck( 'no post type is registered any more',

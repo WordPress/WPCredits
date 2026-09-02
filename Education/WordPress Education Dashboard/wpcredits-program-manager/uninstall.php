@@ -61,6 +61,12 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institu
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-members.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-agreement.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-policy.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institutions-dashboard.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-roster.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-roster-view.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-student-view.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-people.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-panel.php';
 // Instantiated by `WPCPM_Modules::uninstall()` like the other four; it was missing here, which
 // would have been a fatal in the middle of cleanup on the day somebody uninstalled.
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors.php';

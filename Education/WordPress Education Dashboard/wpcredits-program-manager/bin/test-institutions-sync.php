@@ -38,16 +38,20 @@ $GLOBALS['calls']    = array();
 class WP_Error {
 	public $code = '';
 	public $message = '';
-	public function __construct( $c = '', $m = '' ) { $this->code = $c; $this->message = $m; }
+	public $data = null;
+	public function __construct( $c = '', $m = '', $d = null ) { $this->code = $c; $this->message = $m; $this->data = $d; }
 	public function get_error_message() { return $this->message; }
 	public function get_error_code() { return $this->code; }
+	public function get_error_data() { return $this->data; }
 }
 class WP_User {
-	public $ID = 0, $roles = array(), $display_name = '', $user_email = '';
+	public $ID = 0, $roles = array(), $display_name = '', $user_email = '', $user_login = '';
 	public function __construct( $id = 0 ) {
 		$this->ID = (int) $id;
 		if ( isset( $GLOBALS['users'][ $this->ID ] ) ) {
-			$this->roles = $GLOBALS['users'][ $this->ID ]['roles'];
+			$this->roles      = $GLOBALS['users'][ $this->ID ]['roles'];
+			$this->user_email = isset( $GLOBALS['users'][ $this->ID ]['email'] ) ? $GLOBALS['users'][ $this->ID ]['email'] : '';
+			$this->user_login = isset( $GLOBALS['users'][ $this->ID ]['login'] ) ? $GLOBALS['users'][ $this->ID ]['login'] : '';
 		}
 	}
 	public function exists() { return $this->ID > 0; }
@@ -96,6 +100,53 @@ function get_users( $args ) {
 		$ids[] = $id;
 	}
 	return $ids;
+}
+function get_user_by( $field, $value ) {
+	foreach ( $GLOBALS['users'] as $id => $user ) {
+		if ( 'email' === $field && isset( $user['email'] ) && strtolower( $user['email'] ) === strtolower( (string) $value ) ) {
+			return new WP_User( $id );
+		}
+	}
+	return false;
+}
+function username_exists( $login ) {
+	foreach ( $GLOBALS['users'] as $id => $user ) {
+		if ( isset( $user['login'] ) && $user['login'] === $login ) {
+			return $id;
+		}
+	}
+	return false;
+}
+function sanitize_user( $login, $strict = false ) { return preg_replace( '/[^a-z0-9 _.\-@]/i', '', (string) $login ); }
+function wp_generate_password( $length = 12, $special = true, $extra = false ) { return str_repeat( 'x', (int) $length ); }
+
+/**
+ * Creates an account, and can be made to fail or to die the way a real request can.
+ *
+ * `insert_fails` returns the WP_Error wp_insert_user() gives a duplicate login; `insert_dies`
+ * throws, which is a request that never came back, so nothing after it in that tick runs and
+ * the run state stays as the last completed slice left it.
+ */
+function wp_insert_user( $args ) {
+	$GLOBALS['calls']['wp_insert_user'][] = $args;
+	$n = count( $GLOBALS['calls']['wp_insert_user'] );
+
+	if ( ! empty( $GLOBALS['insert_dies'] ) && (int) $GLOBALS['insert_dies'] === $n ) {
+		throw new RuntimeException( 'the request died' );
+	}
+
+	if ( ! empty( $GLOBALS['insert_fails'] ) && (int) $GLOBALS['insert_fails'] === $n ) {
+		return new WP_Error( 'existing_user_login', 'Sorry, that username already exists!' );
+	}
+
+	$id                     = 100 + $n;
+	$GLOBALS['users'][ $id ] = array(
+		'roles' => array( $args['role'] ),
+		'email' => $args['user_email'],
+		'login' => $args['user_login'],
+	);
+
+	return $id;
 }
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
@@ -253,8 +304,35 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Mail' ) ) {
+	/** The invitation queue: what matters here is who was queued, and that it was queued once. */
+	class WPCPM_Mail {
+		public static function queue_invites( array $user_ids ) {
+			$GLOBALS['calls']['queue_invites'][] = array_values( array_map( 'intval', $user_ids ) );
+			return count( $user_ids );
+		}
+	}
+}
+
 if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 	class WPCPM_Institution_Members {
+		const HOW_PROVISIONED = 'provisioned';
+		/** Stands in for the real attach(): the stamp, the flag and the role, or a refusal. */
+		public static function attach( $user_id, $record_id, $how, $actor_id, $invite_id = 0 ) {
+			$GLOBALS['calls']['attach'][] = array( (int) $user_id, $record_id, $how, (int) $actor_id );
+
+			if ( ! empty( $GLOBALS['attach_fails'] ) ) {
+				return new WP_Error( 'wpcpm_member_not_indexed', 'That institution is not in the pipeline index yet.' );
+			}
+
+			$GLOBALS['members'][ $user_id ] = $record_id;
+
+			if ( ! in_array( WPCPM_Roles::ROLE_INSTITUTION, $GLOBALS['users'][ $user_id ]['roles'], true ) ) {
+				$GLOBALS['users'][ $user_id ]['roles'][] = WPCPM_Roles::ROLE_INSTITUTION;
+			}
+
+			return true;
+		}
 		public static function institution_of( $user = null ) {
 			$id = $user instanceof WP_User ? $user->ID : (int) $user;
 			return isset( $GLOBALS['members'][ $id ] ) ? $GLOBALS['members'][ $id ] : '';
@@ -396,6 +474,9 @@ function reset_site( array $seed, array $override = array() ) {
 	$GLOBALS['former']          = array();
 	$GLOBALS['fail_page']       = 0;
 	$GLOBALS['countries_error'] = false;
+	$GLOBALS['insert_fails']    = 0;
+	$GLOBALS['insert_dies']     = 0;
+	$GLOBALS['attach_fails']    = false;
 
 	$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array_merge(
 		WPCPM_Settings::defaults(),
@@ -557,7 +638,10 @@ foreach ( $seed['institutions'] as $row ) {
 		++$outside;
 	}
 }
-ck( 'the report counts the run', array( $report['stats']['records_seen'], $report['stats']['rebuilt'], $report['stats']['countries'], $report['stats']['revoked'], $report['stats']['nameless'], $report['stats']['would_provision'] ), array( $SEEDED, $SEEDED, 196, 3, (int) $seed['counts']['nameless'], 0 ) );
+ck( 'the report counts the run', array( $report['stats']['records_seen'], $report['stats']['rebuilt'], $report['stats']['countries'], $report['stats']['revoked'], $report['stats']['nameless'], $report['stats']['provisioned'] ), array( $SEEDED, $SEEDED, 196, 3, (int) $seed['counts']['nameless'], 0 ) );
+// Provisioning is off by default, and off means the phase does not even look: the first run
+// of a sync that mails people is a decision for a human, as it is for the welcome email.
+ck( 'and with provisioning off nothing was created or even considered', array( isset( $GLOBALS['calls']['wp_insert_user'] ), $report['stats']['provision_skipped'], $report['stats']['conflicts'] ), array( false, 0, 0 ) );
 // `locked` counts institutions whose gate was closed: every seeded row outside the active
 // stages, plus the one this scenario removes from the base altogether.
 ck( 'and locks every institution that has left the active stages', $report['stats']['locked'], $outside + 1 );
@@ -569,7 +653,7 @@ ck( 'every option was written with autoload off',
 	array( $GLOBALS['autoload'][ WPCPM_Institutions_Sync::OPT_REPORT ], $GLOBALS['autoload'][ WPCPM_Institutions_Sync::OPT_LAST ], $GLOBALS['autoload'][ WPCPM_Institutions_Index::OPTION ] ),
 	array( false, false, false ) );
 
-/* ---- provisioning is a count ------------------------------------------- */
+/* ---- a nameless record ---------------------------------------------------- */
 
 echo "\n=== A record with no name ===\n";
 
@@ -588,35 +672,279 @@ $notices = get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'];
 ck( 'the run names it so a manager can find it in the grid', array( 1, false !== strpos( implode( "\n", $notices ), $confirmed ) ), array( count( $notices ), true ) );
 ck( 'and counts it', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['nameless'], 1 );
 
-echo "\n=== Provisioning counts and creates nothing ===\n";
+/* ---- provisioning --------------------------------------------------------- */
 
-reset_site( $seed, array( $confirmed => array( 'Contact Email' => 'Rector@Example.EDU', 'Agreement Status' => 'On file', 'Agreement Kind' => 'Legacy', 'Agreement Document' => 'https://drive.google.com/drive/folders/pisa' ) ) );
+echo "\n=== Provisioning: one institution, one account ===\n";
+
+/**
+ * The cells that make an institution ready for an account: a contact, an address, and an
+ * agreement Airtable calls On file with a Drive link behind it.
+ *
+ * @param string $email  Contact address.
+ * @param string $person Contact person.
+ * @return array
+ */
+function ready_cells( $email, $person = 'A Rector' ) {
+	return array(
+		'Contact Email'      => $email,
+		'Contact Person'     => $person,
+		'Agreement Status'   => 'On file',
+		'Agreement Kind'     => 'Legacy',
+		'Agreement Document' => 'https://drive.google.com/drive/folders/pisa',
+	);
+}
+
+$CONFIRMED_ROWS = (int) $seed['counts']['by_stage']['Confirmed'];
+
+reset_site( $seed, array( $confirmed => ready_cells( 'Rector@Example.EDU' ) ) );
 $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
 
 WPCPM_Institutions_Sync::start();
 run_to_end();
 
-$rows = WPCPM_Institutions_Index::rows();
+$rows   = WPCPM_Institutions_Index::rows();
+$report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+
 ck( 'the contact email is lowercased', $rows[ $confirmed ]['contact_email'], 'rector@example.edu' );
 ck( 'the agreement columns reach the index, the link only as a flag', $rows[ $confirmed ]['agreement'], array( 'status' => 'On file', 'kind' => 'Legacy', 'accepted_on' => '', 'signed_on' => '', 'accepted_by' => '', 'submitted_on' => '', 'template_version' => '', 'has_document' => true ) );
 ck( 'and the link itself went to rebuild()', $GLOBALS['calls']['rebuild'][ $confirmed ]['document'], 'https://drive.google.com/drive/folders/pisa' );
-ck( 'the one Confirmed, settled, contactable institution with no history is counted', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['would_provision'], 1 );
-$notices = get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'];
-ck( 'and said so in a notice', array( false !== strpos( implode( "\n", $notices ), 'nothing was created' ) ), array( true ) );
-ck( 'no account was created', $GLOBALS['users'], array() );
 
-reset_site( $seed, array( $confirmed => array( 'Contact Email' => 'rector@example.edu', 'Agreement Status' => 'On file', 'Agreement Kind' => 'Legacy', 'Agreement Document' => 'https://drive.google.com/drive/folders/pisa' ) ) );
+ck( 'exactly one account was created', count( $GLOBALS['calls']['wp_insert_user'] ), 1 );
+$made = $GLOBALS['calls']['wp_insert_user'][0];
+ck( 'with the Institution role and the contact address', array( $made['role'], $made['user_email'] ), array( WPCPM_Roles::ROLE_INSTITUTION, 'rector@example.edu' ) );
+ck( 'named for the contact person, not the school', array( $made['display_name'], $made['nickname'] ), array( 'A Rector', 'A Rector' ) );
+ck( 'on a free login from the address, with a password nobody knows', array( $made['user_login'], strlen( $made['user_pass'] ) ), array( 'rector', 24 ) );
+ck( 'the stamp names this institution, provisioned, by the sync', $GLOBALS['calls']['attach'], array( array( 101, $confirmed, 'provisioned', 0 ) ) );
+ck( 'and it holds the role and the membership', array( in_array( WPCPM_Roles::ROLE_INSTITUTION, $GLOBALS['users'][101]['roles'], true ), WPCPM_Institution_Members::institution_of( new WP_User( 101 ) ) ), array( true, $confirmed ) );
+ck( 'one invitation was queued, for that account alone', $GLOBALS['calls']['queue_invites'], array( array( 101 ) ) );
+ck( 'the run counts it, with the other Confirmed rows skipped for want of an address',
+	array( $report['stats']['provisioned'], $report['stats']['provision_skipped'], $report['stats']['conflicts'], $report['stats']['provision_failed'] ),
+	array( 1, $CONFIRMED_ROWS - 1, 0, 0 ) );
+ck( 'and nothing was named in the notices, because nothing needs a person', $report['notices'], array() );
+
+// The rule that matters most, from the other side: run it again and the institution now has a
+// member, so it is skipped rather than given a second account.
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'a second run creates nothing for an institution that now has a member',
+	array( count( $GLOBALS['calls']['wp_insert_user'] ), get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['provisioned'] ),
+	array( 1, 0 ) );
+
+echo "\n=== An address that already has an account is a conflict ===\n";
+
+reset_site( $seed, array( $confirmed => ready_cells( 'rector@example.edu' ) ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+// Somebody who registered here for something else, in the case the base does not use.
+$GLOBALS['users'][9] = array( 'roles' => array( 'subscriber' ), 'email' => 'Rector@Example.EDU', 'login' => 'rector' );
+
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+$report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'no account was created and none was adopted', array( isset( $GLOBALS['calls']['wp_insert_user'] ), isset( $GLOBALS['calls']['attach'] ), isset( $GLOBALS['members'][9] ) ), array( false, false, false ) );
+ck( 'the conflict is counted rather than skipped in silence', array( $report['stats']['conflicts'], $report['stats']['provisioned'] ), array( 1, 0 ) );
+ck( 'and named, with the institution and what a conflict is', array(
+	false !== strpos( implode( "\n", $report['notices'] ), 'Università di Pisa' ),
+	false !== strpos( implode( "\n", $report['notices'] ), 'conflict, not a match' ),
+), array( true, true ) );
+
+echo "\n=== The history rule, and the gate ===\n";
+
+reset_site( $seed, array( $confirmed => ready_cells( 'rector@example.edu' ) ) );
 $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
 $GLOBALS['former'][77] = $confirmed;
 WPCPM_Institutions_Sync::start();
 run_to_end();
-ck( 'an institution with a former member is not counted', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['would_provision'], 0 );
+ck( 'an institution with a former member is skipped, not provisioned again',
+	array( isset( $GLOBALS['calls']['wp_insert_user'] ), get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['provisioned'], get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['provision_skipped'] ),
+	array( false, 0, $CONFIRMED_ROWS ) );
 
-reset_site( $seed, array( $confirmed => array( 'Contact Email' => 'rector@example.edu' ) ) );
+reset_site( $seed, array( $confirmed => array( 'Contact Email' => 'rector@example.edu', 'Contact Person' => 'A Rector' ) ) );
 $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
 WPCPM_Institutions_Sync::start();
 run_to_end();
-ck( 'nor one whose agreement is not settled', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['would_provision'], 0 );
+ck( 'nor is one whose agreement is not recorded', array( isset( $GLOBALS['calls']['wp_insert_user'] ), get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['provisioned'] ), array( false, 0 ) );
+
+// The block reasons the manager screen reads, from the same one copy of the rule.
+ck( 'provision_block() names why, in the order it decides', array(
+	WPCPM_Institutions_Sync::provision_block( 'recNOTINDEXED0001' ),
+	WPCPM_Institutions_Sync::provision_block( 'not a record id' ),
+	WPCPM_Institutions_Sync::provision_block( $not_moving ),
+	WPCPM_Institutions_Sync::provision_block( $confirmed ),
+), array( 'not_indexed', 'not_indexed', 'not_confirmed', 'no_agreement' ) );
+ck( 'and the no-agreement wording names the Drive link, which is what a manager has to find', array(
+	false !== strpos( WPCPM_Institutions_Sync::provision_message( WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT ), 'Drive link' ),
+	'' === WPCPM_Institutions_Sync::provision_message( 'something else' ),
+), array( true, true ) );
+ck( 'provision() refuses the same way, with the reason in the error data', array(
+	is_wp_error( WPCPM_Institutions_Sync::provision( $confirmed ) ),
+	WPCPM_Institutions_Sync::provision( $confirmed )->get_error_code(),
+	WPCPM_Institutions_Sync::provision( $confirmed )->get_error_data()['reason'],
+	isset( $GLOBALS['calls']['wp_insert_user'] ),
+), array( true, WPCPM_Institutions_Sync::PROVISION_ERROR, 'no_agreement', false ) );
+
+echo "\n=== An agreement revoked from under an account that already exists ===\n";
+
+// Design spec 7.4's T8: the option deleted, the stage left at Confirmed, and the account left
+// standing, because a revocation locks a member out rather than removing them. The row that
+// produces is the one this block pins. Read in the wrong order it is an institution "waiting
+// for its first agreement", which is three wrong things at once: the worklist tells a manager
+// to record an agreement for a partner that already has an account, the bulk button is shut
+// for every other institution while that row is there, and the row is missing from the count
+// of the ones that already have an account.
+$second = '';
+foreach ( $seed['institutions'] as $institution ) {
+	if ( 'Confirmed' === $institution['stage'] && $institution['id'] !== $confirmed ) {
+		$second = $institution['id'];
+		break;
+	}
+}
+
+reset_site(
+	$seed,
+	array(
+		$confirmed => ready_cells( 'rector@example.edu' ),
+		// A second Confirmed institution with an address and no agreement: the one the gate
+		// exists for, so the assertions below can tell the two rows apart.
+		$second    => array( 'Contact Email' => 'dean@example.edu', 'Contact Person' => 'A Dean' ),
+	)
+);
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+ck( 'the settled institution got its one account', array( count( $GLOBALS['calls']['wp_insert_user'] ), WPCPM_Institution_Members::institution_of( new WP_User( 101 ) ) ), array( 1, $confirmed ) );
+
+// The revoke, on the site's side: the gate's option deleted and nothing else touched.
+delete_option( WPCPM_Institution_Agreement::option_name( $confirmed ) );
+
+ck( 'a revoked institution is one that already has an account, whatever its agreement says now',
+	WPCPM_Institutions_Sync::provision_block( $confirmed ), WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
+ck( 'and the sentence beside it says so rather than asking for the agreement again',
+	WPCPM_Institutions_Sync::provision_message( WPCPM_Institutions_Sync::provision_block( $confirmed ) ),
+	WPCPM_Institutions_Sync::provision_message( WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER ) );
+
+// The manager card's two lists, built the way it builds them: the count of the institutions
+// that already have an account, and the list whose emptiness decides whether the bulk button
+// is offered to anybody at all.
+$reasons = array();
+foreach ( WPCPM_Institutions_Index::rows() as $record_id => $row ) {
+	if ( 'Confirmed' === trim( (string) $row['stage'] ) ) {
+		$reasons[ $record_id ] = WPCPM_Institutions_Sync::provision_block( $record_id );
+	}
+}
+
+ck( 'so the revoked one is counted among the institutions that already have an account',
+	array_keys( $reasons, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER, true ), array( $confirmed ) );
+ck( 'and the only institution holding the bulk button shut is the one that really has no agreement',
+	array_keys( $reasons, WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT, true ), array( $second ) );
+
+// One detach later the account is gone from the membership and is history instead, which the
+// sync must not undo either: the same question, one reason further down the list.
+WPCPM_Institution_Members::detach( 101, 'revoked', 0 );
+$GLOBALS['former'][101] = $confirmed; // The stand-in detach() drops the stamp; the real one moves it to `_was`.
+
+// A former member does not excuse a missing agreement. Only a LIVE account is "already has an
+// account"; once that account is gone, an institution with no recorded agreement belongs back on
+// the list of what a manager still has to do, or a school whose contact once left would slip
+// out of the one list that names it. The former member is reported only once the agreement is.
+ck( 'and once that member is removed it is an institution with no recorded agreement first, its former member notwithstanding',
+	WPCPM_Institutions_Sync::provision_block( $confirmed ), WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT );
+
+// Airtable's own half of T8, so the next run rebuilds the gate as Revoked rather than as the
+// `On file` the fixture holds: neither institution may be given an account by it.
+$GLOBALS['pages']['tbl4V0FEbzRP7I2w2'] = airtable_pages(
+	$seed,
+	array(
+		$confirmed => array_merge( ready_cells( 'rector@example.edu' ), array( 'Agreement Status' => 'Revoked' ) ),
+		$second    => array( 'Contact Email' => 'dean@example.edu', 'Contact Person' => 'A Dean' ),
+	)
+);
+
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+ck( 'and the nightly run creates no second account for either of them',
+	array( count( $GLOBALS['calls']['wp_insert_user'] ), get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['provisioned'] ),
+	array( 1, 0 ) );
+
+echo "\n=== A run that dies part way through provisioning ===\n";
+
+// Six institutions ready at once, so the phase has to take more than one batch.
+$confirmed_ids = array();
+foreach ( $seed['institutions'] as $institution ) {
+	if ( 'Confirmed' === $institution['stage'] ) {
+		$confirmed_ids[] = $institution['id'];
+	}
+}
+$six      = array_slice( $confirmed_ids, 0, 6 );
+$override = array();
+foreach ( $six as $n => $id ) {
+	$override[ $id ] = ready_cells( 'contact' . $n . '@example.edu', 'Contact ' . $n );
+}
+
+reset_site( $seed, $override );
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['insert_dies'] = WPCPM_Institutions_Sync::PROVISION_BATCH + 1;
+
+WPCPM_Institutions_Sync::start();
+$died = '';
+try {
+	run_to_end();
+} catch ( RuntimeException $e ) {
+	$died = $e->getMessage();
+}
+
+$state = get_option( WPCPM_Institutions_Sync::OPT_STATE );
+ck( 'the request never came back', $died, 'the request died' );
+ck( 'the accounts made before it stand', count( $GLOBALS['calls']['attach'] ), WPCPM_Institutions_Sync::PROVISION_BATCH );
+ck( 'the run is still in the provision phase, with the rest of the candidates pending',
+	array( $state['phase'], count( $state['provision'] ), $state['stats']['provisioned'] ),
+	array( 'provision', $CONFIRMED_ROWS - WPCPM_Institutions_Sync::PROVISION_BATCH, WPCPM_Institutions_Sync::PROVISION_BATCH ) );
+ck( 'and the lock it died holding is still held', array( get_option( WPCPM_Institutions_Sync::OPT_LOCK ) > 0 ), array( true ) );
+
+// The next tick, once the lock has gone stale, carries on from the batch it had reached.
+$GLOBALS['insert_dies'] = 0;
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_LOCK ] = time() - WPCPM_Institutions_Sync::LOCK_TIMEOUT - 1;
+run_to_end();
+
+$report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'the run finished', WPCPM_Institutions_Sync::is_running(), false );
+ck( 'the six ready institutions have six accounts between them, not eleven',
+	array( $report['stats']['provisioned'], count( $GLOBALS['calls']['attach'] ), count( array_unique( array_map( static function ( $call ) { return $call[1]; }, $GLOBALS['calls']['attach'] ) ) ) ),
+	array( 6, 6, 6 ) );
+ck( 'each was invited once', count( $GLOBALS['calls']['queue_invites'] ), 6 );
+ck( 'and the ones with no address were skipped', $report['stats']['provision_skipped'], $CONFIRMED_ROWS - 6 );
+
+echo "\n=== An account that cannot be created, and one that cannot be stamped ===\n";
+
+reset_site( $seed, array( $confirmed => ready_cells( 'rector@example.edu' ) ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['insert_fails'] = 1;
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+ck( 'a refused insert is counted and named, and nothing is stamped',
+	array( $report['stats']['provision_failed'], $report['stats']['provisioned'], isset( $GLOBALS['calls']['attach'] ), false !== strpos( implode( "\n", $report['notices'] ), 'already exists' ) ),
+	array( 1, 0, false, true ) );
+
+reset_site( $seed, array( $confirmed => ready_cells( 'rector@example.edu' ) ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['attach_fails'] = true;
+WPCPM_Institutions_Sync::start();
+run_to_end();
+$report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
+// The account is left standing rather than deleted, and it is not invited: an invitation to an
+// account that acts for nobody is worse than none. The next run finds the address taken and
+// says so, which is a person's problem to look at rather than a loop.
+ck( 'a refused stamp leaves the account, sends nothing, and is named',
+	array( $report['stats']['provision_failed'], isset( $GLOBALS['calls']['queue_invites'] ), isset( $GLOBALS['users'][101] ), false !== strpos( implode( "\n", $report['notices'] ), 'pipeline index' ) ),
+	array( 1, false, true, true ) );
+
+$GLOBALS['attach_fails'] = false;
+WPCPM_Institutions_Sync::start();
+run_to_end();
+ck( 'and the next run names it as a conflict rather than trying again', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['conflicts'], 1 );
 
 /* ---- keep, not revoke ----------------------------------------------------- */
 
@@ -744,6 +1072,14 @@ ck( 'the percent is the countries\' weight once they are done', $progress['perce
 $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ]['steps'] = array( 'countries' => 1, 'records' => 3 );
 ck( 'and climbs through the records phase by its slices', WPCPM_Institutions_Sync::progress()['percent'], 34 );
 ck( 'the phase weights are the design\'s', array_map( static function ( $p ) { return $p['weight']; }, WPCPM_Institutions_Sync::phases() ), array( 'countries' => 15, 'records' => 45, 'provision' => 25, 'revoke' => 15 ) );
+
+// The provision phase says what it is doing rather than what it would do, and counts both
+// halves a manager cares about: the accounts made, and the addresses that stopped one.
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ]['phase']                 = 'provision';
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ]['stats']['provisioned']  = 3;
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ]['stats']['conflicts']    = 2;
+ck( 'the provision phase names the work and counts it', array( WPCPM_Institutions_Sync::progress()['label'], WPCPM_Institutions_Sync::progress()['detail'] ), array( 'Creating the institution accounts…', '3 accounts created · 2 addresses already taken' ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ]['phase'] = 'records';
 
 ck( 'a run whose ticks keep coming is not stalled', WPCPM_Institutions_Sync::progress()['stalled'], false );
 $GLOBALS['opts'][ WPCPM_Institutions_Sync::OPT_STATE ]['touched'] = time() - WPCPM_Institutions_Sync::LOCK_TIMEOUT - 5;

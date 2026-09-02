@@ -65,6 +65,16 @@ class WPCPM_Roster_Index {
 	);
 
 	/**
+	 * Statuses that are never shown to an institution as a person.
+	 *
+	 * `SPAM` is somebody's abuse of the public form, and `Duplicated` is a row naming a
+	 * student who is already on the list under another record. Neither is a person the
+	 * school sent, and printing them would ask a school to explain a stranger. Dropped
+	 * before the cohort filter and before every count, so no total can carry them either.
+	 */
+	const NEVER_SHOWN = array( 'SPAM', 'Duplicated' );
+
+	/**
 	 * The option name for one institution.
 	 *
 	 * @param string $record_id Institutions record ID.
@@ -158,6 +168,178 @@ class WPCPM_Roster_Index {
 			'institutions'   => isset( $stored['institutions'] ) && is_array( $stored['institutions'] ) ? $stored['institutions'] : array(),
 			'reconciliation' => isset( $stored['reconciliation'] ) && is_array( $stored['reconciliation'] ) ? $stored['reconciliation'] : array(),
 		);
+	}
+
+	/**
+	 * One institution's rows in the four groups the dashboard prints.
+	 *
+	 * | Group         | Rows                                                        |
+	 * | `current`     | a tracked current status, with a Students Reports row       |
+	 * | `waiting`     | a tracked current status, with none: nobody has been assigned |
+	 * | `finished`    | a tracked past status                                       |
+	 * | `not_started` | everything else: `Not moving forward`, `Fail`, no status at all |
+	 *
+	 * The two tracked lists come from the settings through
+	 * `WPCPM_Mentors_Sync::tracked_statuses()`, so the roster and the two syncs cannot
+	 * disagree about what "current" means. `not_started` is the residue rather than a
+	 * third list, which is what keeps the four groups exhaustive: a status the base grows
+	 * and nobody adds to the settings shows up under a heading with its own status printed
+	 * beside it, instead of vanishing from a school's roster with no trace. `SPAM` and
+	 * `Duplicated` are the one exception and are dropped outright.
+	 *
+	 * The cohort filter runs **first**, before any row is placed, so the groups, their
+	 * lengths and the comparison strip above them all describe the same semester. Note
+	 * that a group's length and `WPCPM_Cohort::participation()`'s `signed_up` answer
+	 * different questions: participation also drops `Interested`, which is a lead rather
+	 * than an enrolment, while a lead that somehow reached a roster is still shown here.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param string $cohort    A `WPCPM_Cohort` key to narrow to; anything else shows every row.
+	 * @return array{current: array, waiting: array, finished: array, not_started: array}
+	 *         Each a set of rows keyed by Students record ID, in index order.
+	 */
+	public static function groups( $record_id, $cohort = '' ) {
+		$groups = array(
+			'current'     => array(),
+			'waiting'     => array(),
+			'finished'    => array(),
+			'not_started' => array(),
+		);
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			return $groups;
+		}
+
+		$tracked = WPCPM_Mentors_Sync::tracked_statuses();
+		$active  = isset( $tracked['active'] ) ? (array) $tracked['active'] : array();
+		$past    = isset( $tracked['past'] ) ? (array) $tracked['past'] : array();
+		$narrow  = WPCPM_Cohort::is_key( $cohort );
+
+		foreach ( self::rows( $record_id ) as $key => $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$status = trim( isset( $row['status'] ) ? (string) $row['status'] : '' );
+
+			if ( in_array( $status, self::NEVER_SHOWN, true ) ) {
+				continue;
+			}
+
+			if ( $narrow && WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' ) !== $cohort ) {
+				continue;
+			}
+
+			if ( in_array( $status, $active, true ) ) {
+				// `reports` is the Students Reports rows behind this student, and the
+				// automation that creates one fires on a mentor being assigned. So an empty
+				// list is "nobody is mentoring them yet", which is the single question an
+				// institution asks most often about a student it has sent. `has_mentor` sits
+				// on the row beside it, so the rarer "a mentor is named but no report record
+				// exists" can be told apart on the screen rather than here.
+				$groups[ empty( $row['reports'] ) ? 'waiting' : 'current' ][ $key ] = $row;
+				continue;
+			}
+
+			if ( in_array( $status, $past, true ) ) {
+				$groups['finished'][ $key ] = $row;
+				continue;
+			}
+
+			$groups['not_started'][ $key ] = $row;
+		}
+
+		return $groups;
+	}
+
+	/**
+	 * The institution's students whose Students row the site could not find.
+	 *
+	 * The fifth list on the dashboard, "Not yet in the Students table": accounts the
+	 * students sync could only place from the reports side, because the Students table
+	 * has no row for their address at all. Nineteen such rows exist, seven of them with
+	 * accounts. They are real students of this institution and are listed read-only, with
+	 * a line saying a program manager has to complete the record - because the alternative
+	 * is a school being told it has fewer students than it sent, with nothing to point at.
+	 *
+	 * The database compares meta under its own collation, which does not tell `recABC`
+	 * from `recabc`; Airtable record IDs do, so every hit is checked again in PHP. Rows go
+	 * through `clean()` like every other row in this index, which is what guarantees the
+	 * accessibility disclosure on the program meta cannot arrive here by the back door.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return array Rows in the index shape, keyed by user ID; `record_id` is empty because
+	 *               that is exactly what these students do not have.
+	 */
+	public static function unlinked_for( $record_id ) {
+		$record_id = trim( (string) $record_id );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			return array();
+		}
+
+		$users = get_users(
+			array(
+				'number'     => -1,
+				'meta_key'   => WPCPM_Students_Sync::META_INSTITUTION,
+				'meta_value' => $record_id,
+			)
+		);
+
+		$rows = array();
+
+		foreach ( (array) $users as $user ) {
+			if ( ! $user instanceof WP_User || ! $user->exists() ) {
+				continue;
+			}
+
+			if ( ! self::same_record( get_user_meta( $user->ID, WPCPM_Students_Sync::META_INSTITUTION, true ), $record_id ) ) {
+				continue;
+			}
+
+			$program = get_user_meta( $user->ID, WPCPM_Students_Sync::META_PROGRAM, true );
+
+			if ( ! is_array( $program ) ) {
+				continue;
+			}
+
+			$source = isset( $program['institution_source'] ) ? (string) $program['institution_source'] : '';
+
+			// The sync's own word for how it placed this account. `students` means the
+			// authority answered and this student is on the roster proper; only `reports`
+			// means the Students table was asked and had nothing.
+			if ( 'reports' !== $source ) {
+				continue;
+			}
+
+			$report = isset( $program['record_id'] ) ? (string) $program['record_id'] : '';
+
+			$rows[ $user->ID ] = self::clean(
+				array(
+					// No Students record: that is the whole point of this list, and putting the
+					// reports record here instead would hand a caller an ID that looks like a
+					// Students row and is not one.
+					'record_id'      => '',
+					'name'           => isset( $program['name'] ) ? $program['name'] : $user->display_name,
+					'email'          => isset( $program['email'] ) ? $program['email'] : $user->user_email,
+					'status'         => isset( $program['program'] ) ? $program['program'] : '',
+					'institution'    => $record_id,
+					// The reports-side dates, because there is no Students row to take them
+					// from. The roster's own dates come from the Students table; these do not,
+					// and the screen says so.
+					'start'          => isset( $program['start'] ) ? $program['start'] : '',
+					'end'            => isset( $program['end'] ) ? $program['end'] : '',
+					'has_mentor'     => ! empty( get_user_meta( $user->ID, WPCPM_Students_Sync::META_MENTOR, true ) ),
+					'username'       => isset( $program['username'] ) ? $program['username'] : '',
+					'field_of_study' => isset( $program['field_of_study'] ) ? $program['field_of_study'] : '',
+					'tutor'          => isset( $program['tutor'] ) ? $program['tutor'] : '',
+					'reports'        => WPCPM_Mentors_Sync::is_record_id( $report ) ? array( $report ) : array(),
+					'user_id'        => $user->ID,
+				)
+			);
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -292,6 +474,28 @@ class WPCPM_Roster_Index {
 
 		delete_option( self::OPTION_UNLINKED );
 		delete_option( self::OPTION_COUNTS );
+	}
+
+	/**
+	 * Whether two values are the same institution record ID.
+	 *
+	 * Both must be well-formed before they are compared, for the reason
+	 * `WPCPM_Institution_Members::same()` gives and this index has to repeat: two empty
+	 * strings are equal and are not the same institution, and a fence built on that shape
+	 * matches every unstamped student against every unnamed institution. Kept as one named
+	 * helper so the comparison is not written inline anywhere in this file.
+	 *
+	 * @param string $one One value, as the database returned it.
+	 * @param string $two The record ID asked for.
+	 * @return bool
+	 */
+	private static function same_record( $one, $two ) {
+		$one = trim( (string) $one );
+		$two = trim( (string) $two );
+
+		return WPCPM_Mentors_Sync::is_record_id( $one )
+			&& WPCPM_Mentors_Sync::is_record_id( $two )
+			&& 0 === strcmp( $one, $two );
 	}
 
 	/**

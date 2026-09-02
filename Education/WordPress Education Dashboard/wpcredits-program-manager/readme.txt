@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.71.0
+Stable tag: 1.72.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,17 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.72.1 =
+* **A newly created dashboard page is gated as intended.** The access level is registered with a default of public, which is what WordPress answers for a page that has no access row at all, so "gate it unless it is already set" read a brand-new page as deliberately public and left it open. Found on the live site with the new Institution Dashboard; the same line was in the Mentor and Student dashboards and is fixed in all three. Existing pages already gated are untouched.
+
+= 1.72.0 =
+* **Institutions module, Phase 2: an institution can log in.** A new Institution Dashboard page, gated to institution accounts, with the students the pipeline index holds for that institution in four groups (current, waiting for a mentor, finished, did not start), a cohort picker with a comparison against the previous cohort, a filter bar whose state lives in the URL, a read-only card for one student including their Student Report Card, and a People card listing who has access with Remove and Leave. Program managers see every institution through a switcher and a banner naming any unsettled agreement.
+* **The agreement gate is real.** An institution whose Collaboration Agreement is not recorded sees only the agreement panel, and the policy refuses its roster, its students and the report route whatever the page hides. Every render and every handler asks the policy first; the one fence in front of live Airtable reads, claim(), now hands over only the columns the roster publishes, so the accessibility disclosure and the program's notes cannot reach a school through it.
+* **Accounts are created from the Contact Email**, for a Confirmed institution with a recorded agreement and no membership history, live or former; an address that already has any account is a conflict and is named rather than adopted. Per-institution and bulk controls, both gated on the agreement.
+* **Agreements signed before this site existed can be recorded as on file**, one at a time with a Drive link, or all at once: every Confirmed institution with nothing recorded, with the one link they share. Each gets its own recorded agreement, its own audit row and its own Airtable cells, written base-first and refused outright if the base refuses.
+* Managers can add an account for an institution by hand, re-add a former member in one click, and are told, rather than silenced, when they press Remove on a membership that has already ended.
+* The institution identity header reads the pipeline index rather than the stamp taken when the account was attached, so it no longer freezes at that day.
 
 = 1.71.0 =
 * **The address of the Collaboration Agreement wording is now a setting rather than a value in the code.** The document it was copied from is editable by anyone holding its link, and this plugin's source is public, so carrying the link in the code handed out write access to the wording institutions sign. The template says in words where it came from; a site that needs the address is given it in Settings, where it is held to https and to Google's own hosts.

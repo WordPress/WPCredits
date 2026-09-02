@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/institution-dashboard",
+	"version": "1.72.0",
+	"title": "Institution Dashboard",
+	"category": "widgets",
+	"icon": "bank",
+	"description": "Shows the people who act for a partner institution their own students, their Collaboration Agreement and the members of their account.",
+	"keywords": [ "institution", "students", "wpcredits", "program" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

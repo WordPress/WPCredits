@@ -30,6 +30,23 @@ class WPCPM_Institutions extends WPCPM_Module {
 	const ACTION_PROBE  = 'wpcpm_institutions_probe';
 	const ACTION_TICK   = 'wpcpm_institutions_tick';
 
+	/** Provisioning: every institution that is ready, and one institution at a time. */
+	const ACTION_PROVISION     = 'wpcpm_institutions_provision';
+	const ACTION_PROVISION_ONE = 'wpcpm_institutions_provision_one';
+
+	/**
+	 * How many accounts one press of the bulk button creates.
+	 *
+	 * A ceiling and not a page size: forty-two Confirmed institutions is the whole of day
+	 * one, and a request that inserts every one of them plus its stamp and its audit row is
+	 * the request that times out on a slow host. Whatever is left is still listed on the card
+	 * afterwards, and the button says so, so pressing it again is the way through.
+	 */
+	const PROVISION_LIMIT = 25;
+
+	/** How many institutions the gate's refusal names before it says "and N more". */
+	const PROVISION_NAMES = 5;
+
 	/** Flash channel for this screen's outcomes. */
 	const FLASH = 'institutions';
 
@@ -120,11 +137,18 @@ class WPCPM_Institutions extends WPCPM_Module {
 		WPCPM_Institution_Agreement::init();
 		WPCPM_Institution_Audit::init();
 
+		// The institution's own page, and the three membership handlers behind the People card
+		// and this screen's backstop.
+		WPCPM_Institutions_Dashboard::init();
+		WPCPM_Institution_People::init();
+
 		WPCPM_Institutions_Sync::register_cron();
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_PROBE, array( $this, 'handle_probe' ) );
+		add_action( 'admin_post_' . self::ACTION_PROVISION, array( $this, 'handle_provision' ) );
+		add_action( 'admin_post_' . self::ACTION_PROVISION_ONE, array( $this, 'handle_provision_one' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
 	}
 
@@ -144,6 +168,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		}
 
 		WPCPM_Institutions_Sync::activate();
+		WPCPM_Institutions_Dashboard::ensure_page();
 	}
 
 	/**
@@ -171,6 +196,8 @@ class WPCPM_Institutions extends WPCPM_Module {
 		delete_option( WPCPM_Institutions_Index::OPTION );
 		delete_option( WPCPM_Countries::OPTION );
 		delete_option( WPCPM_Private_Files::OPTION_PROBE );
+		delete_option( WPCPM_Institutions_Dashboard::OPT_PAGE );
+		delete_option( WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED );
 
 		WPCPM_Roster_Index::delete_all();
 		WPCPM_Institution_Agreement::delete_all();
@@ -234,6 +261,76 @@ class WPCPM_Institutions extends WPCPM_Module {
 		$result = WPCPM_Private_Files::probe();
 
 		$this->redirect_back( '' !== $result['error'] ? 'probe-failed' : 'probed' );
+	}
+
+	/**
+	 * Create an account for every institution that is ready for one.
+	 *
+	 * The gate first, and in the handler and not only in the markup: the button is drawn
+	 * disabled while a Confirmed institution has no agreement recorded, but a disabled button
+	 * is a courtesy to the person and not a check. Nothing is created while the count is
+	 * above zero, whichever institutions are ready, because the point of the gate is that the
+	 * program records what it has already agreed before it starts opening accounts.
+	 *
+	 * `PROVISION_LIMIT` at a time. The card recomputes what is left on the next page load, so
+	 * a run that stops at the ceiling needs no state to carry on: press it again.
+	 */
+	public function handle_provision() {
+		$this->verify( self::ACTION_PROVISION );
+
+		$reasons = self::provision_reasons( WPCPM_Institutions_Index::rows() );
+
+		if ( ! empty( array_keys( $reasons, WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT, true ) ) ) {
+			$this->redirect_back( 'provision-blocked' );
+		}
+
+		$created = 0;
+		$failed  = 0;
+
+		foreach ( array_slice( array_keys( $reasons, '', true ), 0, self::PROVISION_LIMIT ) as $record_id ) {
+			$result = WPCPM_Institutions_Sync::provision( $record_id, get_current_user_id() );
+
+			if ( is_wp_error( $result ) ) {
+				++$failed;
+				continue;
+			}
+
+			++$created;
+		}
+
+		if ( $failed > 0 ) {
+			$this->redirect_back( 'provision-failed' );
+		}
+
+		$this->redirect_back( $created > 0 ? 'provisioned' : 'provision-none' );
+	}
+
+	/**
+	 * Create the account for one institution.
+	 *
+	 * The record ID is read with `WPCPM_Request::posted_text()` and never a `key()`:
+	 * `sanitize_key()` lowercases, and an Airtable record ID is case-sensitive. It is read
+	 * before the capability is decided only because the nonce is keyed to it; nothing is done
+	 * with it until both checks have passed.
+	 *
+	 * Whether this institution may be provisioned is `provision_block()`'s answer, asked
+	 * inside `provision()`, so a stale page that offers the button after somebody else has
+	 * recorded a revocation is refused rather than obeyed.
+	 */
+	public function handle_provision_one() {
+		$record_id = WPCPM_Request::posted_text( 'wpcpm_institution' );
+
+		$this->verify( self::ACTION_PROVISION_ONE . '_' . $record_id );
+
+		$result = WPCPM_Institutions_Sync::provision( $record_id, get_current_user_id() );
+
+		if ( ! is_wp_error( $result ) ) {
+			$this->redirect_back( 'provisioned' );
+		}
+
+		$refused = WPCPM_Institutions_Sync::PROVISION_ERROR === $result->get_error_code();
+
+		$this->redirect_back( $refused ? 'provision-refused' : 'provision-failed' );
 	}
 
 	/**
@@ -376,12 +473,24 @@ class WPCPM_Institutions extends WPCPM_Module {
 		$status = sanitize_key( (string) WPCPM_Flash::take( self::FLASH ) );
 
 		$messages = array(
-			'started'      => array( 'success', __( 'Sync started. Progress is shown below and updates as it runs.', 'wpcredits-program-manager' ) ),
-			'cancelled'    => array( 'info', __( 'Sync canceled.', 'wpcredits-program-manager' ) ),
-			'probed'       => array( 'success', __( 'The probe ran. The storage card says what the host did.', 'wpcredits-program-manager' ) ),
-			'probe-failed' => array( 'error', __( 'The probe could not be completed. The storage card says why.', 'wpcredits-program-manager' ) ),
-			'error'        => array( 'error', __( 'That action could not be completed.', 'wpcredits-program-manager' ) ),
+			'started'           => array( 'success', __( 'Sync started. Progress is shown below and updates as it runs.', 'wpcredits-program-manager' ) ),
+			'cancelled'         => array( 'info', __( 'Sync canceled.', 'wpcredits-program-manager' ) ),
+			'probed'            => array( 'success', __( 'The probe ran. The storage card says what the host did.', 'wpcredits-program-manager' ) ),
+			'probe-failed'      => array( 'error', __( 'The probe could not be completed. The storage card says why.', 'wpcredits-program-manager' ) ),
+			'provisioned'       => array( 'success', __( 'The accounts were created, each with an invitation queued. The provisioning card says what is left.', 'wpcredits-program-manager' ) ),
+			'provision-blocked' => array( 'error', __( 'Nothing was created: a Confirmed institution has no agreement recorded. The provisioning card names them.', 'wpcredits-program-manager' ) ),
+			'provision-refused' => array( 'error', __( 'That institution cannot be given an account yet. The provisioning card says why.', 'wpcredits-program-manager' ) ),
+			'provision-failed'  => array( 'error', __( 'Not every account could be created. The provisioning card names what is left.', 'wpcredits-program-manager' ) ),
+			'provision-none'    => array( 'info', __( 'There was nothing to create.', 'wpcredits-program-manager' ) ),
+			'error'             => array( 'error', __( 'That action could not be completed.', 'wpcredits-program-manager' ) ),
 		);
+
+		// The on-file route's outcomes, named once in the class that draws its form: the same form
+		// appears on this screen and on the institution's own agreement panel, and it lands
+		// wherever it was pressed. Without this the outcome is taken from the channel and dropped.
+		if ( class_exists( 'WPCPM_Institution_Panel' ) && method_exists( 'WPCPM_Institution_Panel', 'messages' ) ) {
+			$messages = array_merge( $messages, (array) WPCPM_Institution_Panel::messages() );
+		}
 
 		if ( isset( $messages[ $status ] ) ) {
 			printf(
@@ -415,6 +524,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 
 		$this->render_sync_panel( $progress, $last );
 		$this->render_pipeline( $index, $filter, $gaps );
+		$this->render_provisioning( $index );
 		$this->render_reconciliation( $counts, $index, $gaps );
 		$this->render_consent( $index );
 		$this->render_discrepancies( $index );
@@ -786,6 +896,374 @@ class WPCPM_Institutions extends WPCPM_Module {
 			esc_html__( 'Countries named by institutions with no program manager contact in the Countries table:', 'wpcredits-program-manager' ),
 			esc_html( implode( ', ', $parts ) )
 		);
+	}
+
+	/**
+	 * Institution accounts: the bulk button, the gate in front of it, and a row apiece.
+	 *
+	 * Every Confirmed institution is listed with either the control that creates its account
+	 * or the sentence saying why it has none, because a worklist that hides the refusals is a
+	 * worklist a manager cannot finish. Which of the two a row gets is
+	 * `WPCPM_Institutions_Sync::provision_block()`'s answer and never a second copy of the
+	 * rule here, so this card, the button it draws and the nightly run cannot disagree.
+	 *
+	 * The gate is the design's: while any Confirmed institution has no agreement recorded the
+	 * bulk button refuses, naming them and saying how many, whatever else is ready. Recording
+	 * the agreement per institution is what stops a partner that signed years ago being
+	 * emailed that its first step is to sign.
+	 *
+	 * "Recorded" here is `is_settled()`, the same option the policy's gate reads, rather than
+	 * the pipeline card's summary: this is the predicate provisioning will actually be
+	 * refused by, and when the two sides disagree the discrepancies card is where that is
+	 * reported.
+	 *
+	 * @param array $index The pipeline index, from `WPCPM_Institutions_Index::read()`.
+	 */
+	private function render_provisioning( array $index ) {
+		$rows    = isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array();
+		$read    = isset( $index['read'] ) ? (int) $index['read'] : 0;
+		$reasons = self::provision_reasons( $rows );
+
+		$ready   = array_keys( $reasons, '', true );
+		$blocked = array_keys( $reasons, WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT, true );
+		$held    = array_keys( $reasons, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER, true );
+
+		echo '<div class="wpcpm-card">';
+		printf(
+			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
+			esc_html__( 'Institution accounts', 'wpcredits-program-manager' ),
+			esc_html( number_format_i18n( count( $ready ) ) )
+		);
+
+		echo '<p class="description">' . esc_html__( 'The first account for an institution is made from the Contact Email Airtable holds for it, and only for a Confirmed institution whose agreement is recorded and that has never had a member. After that first account, membership is managed here: without that rule a contact who was removed would be given a new account every night. An address that already belongs to an account is a conflict and not a match, and is left alone.', 'wpcredits-program-manager' ) . '</p>';
+
+		printf(
+			'<p class="wpcpm-inst-read">%1$s %2$s</p>',
+			esc_html(
+				sprintf(
+					/* translators: %s: number of institutions. */
+					_n( '%s Confirmed institution.', '%s Confirmed institutions.', count( $reasons ), 'wpcredits-program-manager' ),
+					number_format_i18n( count( $reasons ) )
+				)
+			),
+			esc_html( self::membership_read_line( $read ) )
+		);
+
+		if ( empty( $reasons ) ) {
+			echo '<p>' . esc_html__( 'No institution has reached Confirmed yet, so there is nothing to provision.', 'wpcredits-program-manager' ) . '</p>';
+			echo '</div>';
+
+			return;
+		}
+
+		$this->render_provision_gate( $blocked );
+		$this->render_provision_button( count( $ready ), empty( $blocked ) );
+		$this->render_provision_rows( $reasons );
+
+		if ( ! empty( $held ) ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: number of institutions. */
+						_n( '%s Confirmed institution already has an account and is not listed above.', '%s Confirmed institutions already have an account and are not listed above.', count( $held ), 'wpcredits-program-manager' ),
+						number_format_i18n( count( $held ) )
+					)
+				)
+			);
+		}
+
+		// Which of the two routes is live, said plainly: the same rule decides both, and a
+		// manager who presses nothing here should still know whether accounts appear overnight.
+		printf(
+			'<p class="description">%s</p>',
+			esc_html(
+				WPCPM_Settings::get_value( 'institution_provision' )
+					? __( 'The nightly sync creates these accounts too, by the same rule, on top of anything made here.', 'wpcredits-program-manager' )
+					: __( 'The nightly sync does not create accounts: this card is the only way one is made.', 'wpcredits-program-manager' )
+			)
+		);
+
+		echo '</div>';
+	}
+
+	/**
+	 * The gate's refusal, naming the institutions that hold the bulk button shut.
+	 *
+	 * Named and not only counted: "42 institutions" is a number a manager can do nothing
+	 * with, and the first few names plus the link to the filtered pipeline is where the work
+	 * actually starts.
+	 *
+	 * @param array $blocked Record IDs of the Confirmed institutions with no agreement recorded.
+	 */
+	private function render_provision_gate( array $blocked ) {
+		if ( empty( $blocked ) ) {
+			return;
+		}
+
+		$names = array();
+
+		foreach ( array_slice( $blocked, 0, self::PROVISION_NAMES ) as $record_id ) {
+			$names[] = self::institution_name( $record_id );
+		}
+
+		$rest = count( $blocked ) - count( $names );
+
+		if ( $rest > 0 ) {
+			$names[] = sprintf(
+				/* translators: %s: how many more institutions there are. */
+				_n( 'and %s more', 'and %s more', $rest, 'wpcredits-program-manager' ),
+				number_format_i18n( $rest )
+			);
+		}
+
+		printf(
+			'<p class="wpcpm-warning">%1$s %2$s. <a href="%3$s">%4$s</a></p>',
+			esc_html(
+				sprintf(
+					/* translators: %s: number of institutions. */
+					_n(
+						'No account is created in bulk while %s Confirmed institution has no agreement recorded:',
+						'No account is created in bulk while %s Confirmed institutions have no agreement recorded:',
+						count( $blocked ),
+						'wpcredits-program-manager'
+					),
+					number_format_i18n( count( $blocked ) )
+				)
+			),
+			esc_html( implode( ', ', $names ) ),
+			esc_url( add_query_arg( 'wpcpm_filter', self::FILTER_GAP, $this->admin_url() ) ),
+			esc_html__( 'Show them', 'wpcredits-program-manager' )
+		);
+
+		$this->render_on_file_all_form( count( $blocked ) );
+	}
+
+	/**
+	 * The bulk on-file form: every Confirmed institution with nothing recorded, one link.
+	 *
+	 * Every institution at Confirmed signed an agreement before this site could generate or
+	 * upload one, so recording them one at a time is a chore that stalls the bulk button for
+	 * everybody. This is the on-file route applied to all of them at once, with the one link
+	 * they share: the program's folder of signed agreements. Each still gets its own recorded
+	 * agreement, its own audit row and its own Airtable cells, which is what makes it a
+	 * recording and not a fiat.
+	 *
+	 * @param int $count How many institutions it would record.
+	 */
+	private function render_on_file_all_form( $count ) {
+		echo '<form class="wpcpm-on-file-all" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		wp_nonce_field( WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL ) );
+
+		echo '<p class="description">' . esc_html__( 'Every Confirmed institution signed a Collaboration Agreement before this site could record one. Record them all as signed with the one link they share, the folder where the signed copies are kept. Each institution gets its own recorded agreement, its own line in the audit log and its own Airtable cells, and its account can then be created.', 'wpcredits-program-manager' ) . '</p>';
+
+		printf(
+			'<p><label for="wpcpm-on-file-all-drive">%1$s</label> <input type="url" class="regular-text" id="wpcpm-on-file-all-drive" name="wpcpm_agreement_drive" required placeholder="%2$s" /></p>',
+			esc_html__( 'Drive link to the signed agreements', 'wpcredits-program-manager' ),
+			esc_attr__( 'https://drive.google.com/...', 'wpcredits-program-manager' )
+		);
+		printf(
+			'<p><label for="wpcpm-on-file-all-where">%1$s</label> <input type="text" class="regular-text" id="wpcpm-on-file-all-where" name="wpcpm_agreement_where" maxlength="%2$d" placeholder="%3$s" /></p>',
+			esc_html__( 'Where the paper is, in a few words (optional)', 'wpcredits-program-manager' ),
+			(int) WPCPM_Institution_Agreement::MAX_LOCATION,
+			esc_attr__( 'Signed PDFs in the program Drive, one per institution', 'wpcredits-program-manager' )
+		);
+		printf(
+			'<p><button type="submit" class="button button-secondary">%s</button></p>',
+			esc_html(
+				sprintf(
+					/* translators: %s: number of institutions. */
+					_n( 'Record %s institution as signed', 'Record all %s institutions as signed', (int) $count, 'wpcredits-program-manager' ),
+					number_format_i18n( (int) $count )
+				)
+			)
+		);
+		echo '</form>';
+	}
+
+	/**
+	 * The bulk button.
+	 *
+	 * The count is in the button and not only in the prose above it, as the invitations card
+	 * has it: what makes a bulk action safe is that nobody can press it without having read
+	 * how many people it reaches. It is drawn disabled rather than hidden while the gate is
+	 * shut, so a manager can see what will be there once the agreements are recorded.
+	 *
+	 * @param int  $count How many accounts pressing it would create.
+	 * @param bool $open  Whether the agreement gate lets it through.
+	 */
+	private function render_provision_button( $count, $open ) {
+		$count   = (int) $count;
+		$enabled = $open && $count > 0;
+		$confirm = sprintf(
+			/* translators: %s: how many accounts. */
+			_n(
+				'Create %s institution account and email a password-set link to the address Airtable holds for it? Invitations cannot be recalled once sent.',
+				'Create %s institution accounts and email each one a password-set link to the address Airtable holds for it? Invitations cannot be recalled once sent.',
+				$count,
+				'wpcredits-program-manager'
+			),
+			number_format_i18n( $count )
+		);
+
+		printf(
+			'<form method="post" action="%1$s"%2$s>',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			$enabled ? ' onsubmit="return confirm(\'' . esc_js( $confirm ) . '\');"' : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped inline.
+		);
+		wp_nonce_field( self::ACTION_PROVISION );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_PROVISION ) );
+		submit_button(
+			$count > 0
+				? sprintf(
+					/* translators: %s: how many accounts. */
+					_n( 'Create %s account', 'Create %s accounts', $count, 'wpcredits-program-manager' ),
+					number_format_i18n( $count )
+				)
+				: __( 'Create the accounts', 'wpcredits-program-manager' ),
+			'primary',
+			'submit',
+			false,
+			$enabled ? array() : array( 'disabled' => 'disabled' )
+		);
+		echo '</form>';
+
+		if ( $count > self::PROVISION_LIMIT ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: how many accounts one press creates. */
+						__( 'One press creates %s of them and the rest stay listed here; press it again to carry on.', 'wpcredits-program-manager' ),
+						number_format_i18n( self::PROVISION_LIMIT )
+					)
+				)
+			);
+		}
+	}
+
+	/**
+	 * One row per Confirmed institution that does not have an account yet.
+	 *
+	 * Ready first, then the ones the gate holds, then the rest: a worklist reads from the top.
+	 * No address is printed, here or anywhere on this screen, so the contact column says
+	 * whether there is one and not what it is.
+	 *
+	 * @param array $reasons Record ID to block reason, from `provision_reasons()`.
+	 */
+	private function render_provision_rows( array $reasons ) {
+		$order = array(
+			'',
+			WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT,
+			WPCPM_Institutions_Sync::BLOCK_CONFLICT,
+			WPCPM_Institutions_Sync::BLOCK_NO_EMAIL,
+			WPCPM_Institutions_Sync::BLOCK_FORMER_MEMBER,
+			WPCPM_Institutions_Sync::BLOCK_NOT_INDEXED,
+		);
+
+		$listed = array();
+
+		foreach ( $order as $reason ) {
+			foreach ( array_keys( $reasons, $reason, true ) as $record_id ) {
+				$listed[ $record_id ] = $reason;
+			}
+		}
+
+		if ( empty( $listed ) ) {
+			echo '<p>' . esc_html__( 'Every Confirmed institution has an account.', 'wpcredits-program-manager' ) . '</p>';
+
+			return;
+		}
+
+		echo '<table class="widefat striped wpcpm-list wpcpm-inst-provision"><thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Contact', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Account', 'wpcredits-program-manager' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		foreach ( $listed as $record_id => $reason ) {
+			$row = WPCPM_Institutions_Index::row( $record_id );
+			$row = is_array( $row ) ? $row : array();
+
+			echo '<tr>';
+			printf(
+				'<td class="wpcpm-inst-name"><span class="wpcpm-inst-name__text">%1$s</span><br /><code class="wpcpm-inst-record">%2$s</code></td>',
+				esc_html( self::institution_name( $record_id ) ),
+				esc_html( $record_id )
+			);
+
+			printf(
+				'<td>%s</td>',
+				empty( $row['contact_email'] )
+					? '<span class="wpcpm-warning">' . esc_html__( 'no email', 'wpcredits-program-manager' ) . '</span>'
+					: esc_html__( 'email on record', 'wpcredits-program-manager' )
+			);
+
+			echo '<td class="wpcpm-inst-provision__action">';
+
+			if ( '' === $reason ) {
+				$this->render_provision_row_button( $record_id );
+			} else {
+				printf( '<span class="wpcpm-inst-muted">%s</span>', esc_html( WPCPM_Institutions_Sync::provision_message( $reason ) ) );
+			}
+
+			echo '</td></tr>';
+		}
+
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * The per-row control: create this one institution's account.
+	 *
+	 * The nonce is keyed to the institution, so a nonce harvested from one row cannot be
+	 * posted for another.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 */
+	private function render_provision_row_button( $record_id ) {
+		$confirm = sprintf(
+			/* translators: %s: institution name. */
+			__( 'Create an account for %s and email a password-set link to the address Airtable holds for it? The invitation cannot be recalled once sent.', 'wpcredits-program-manager' ),
+			self::institution_name( $record_id )
+		);
+
+		printf(
+			'<form method="post" action="%1$s" onsubmit="return confirm(\'%2$s\');">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_js( $confirm )
+		);
+		wp_nonce_field( self::ACTION_PROVISION_ONE . '_' . $record_id );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_PROVISION_ONE ) );
+		printf( '<input type="hidden" name="wpcpm_institution" value="%s" />', esc_attr( $record_id ) );
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Create account', 'wpcredits-program-manager' ) );
+		echo '</form>';
+	}
+
+	/**
+	 * Why each Confirmed institution may not be provisioned, keyed as the index keys them.
+	 *
+	 * Only the Confirmed rows are asked about, and they are asked exactly once for the card
+	 * and for whichever handler is running: `provision_block()` costs an option read and, for
+	 * a row that gets past the cheap facts, two membership queries, and asking the other
+	 * hundred rows what their stage already says would put those queries on every render.
+	 *
+	 * @param array $rows Index rows.
+	 * @return array<string, string> Record ID to a `BLOCK_` constant, or '' when it is ready.
+	 */
+	private static function provision_reasons( array $rows ) {
+		$reasons = array();
+
+		foreach ( $rows as $record_id => $row ) {
+			if ( ! isset( $row['stage'] ) || 'Confirmed' !== trim( (string) $row['stage'] ) ) {
+				continue;
+			}
+
+			$reasons[ $record_id ] = WPCPM_Institutions_Sync::provision_block( $record_id );
+		}
+
+		return $reasons;
 	}
 
 	/**

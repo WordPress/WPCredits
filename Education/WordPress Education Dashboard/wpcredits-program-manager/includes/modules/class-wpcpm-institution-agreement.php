@@ -168,6 +168,30 @@ class WPCPM_Institution_Agreement {
 	/** The hosts a Drive link may point at. Exact, lowercase, no `www.`. */
 	const DRIVE_HOSTS = array( 'drive.google.com', 'docs.google.com' );
 
+	/** The `admin_post_` action the manager's "agreement on file" form posts to (T7). */
+	const ACTION_ON_FILE = 'wpcpm_agreement_on_file';
+
+	/** The `Agreement Kind` choice a legacy row carries in the base, spelled as the fixture holds it. */
+	const AIRTABLE_KIND_LEGACY = 'Legacy';
+
+	/** The event a post recorded through this site's on-file form carries, so the route reads `site`. */
+	const EVENT_ON_FILE = 'recorded on file';
+
+	/** The audit kind a recording on file writes, in the shape `WPCPM_Institution_Roster::LOG_REFUSED` uses. */
+	const LOG_ON_FILE = 'agreement_on_file';
+
+	/** The bulk form of the on-file route: every Confirmed institution with nothing recorded, one link. */
+	const ACTION_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
+
+	/** Where the last bulk recording's tally is kept, for the screen to read back. Non-autoloaded. */
+	const OPTION_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
+
+	/** Seconds a bulk recording spends before it stops and says how far it got. */
+	const ON_FILE_ALL_BUDGET = 20;
+
+	/** Longest location note the on-file form keeps, in characters. */
+	const MAX_LOCATION = 200;
+
 	const OPTION_PREFIX = 'wpcpm_agreement_';
 	const LOCK_PREFIX   = 'wpcpm_agreement_lock_';
 	const VERSION       = 1;
@@ -177,9 +201,16 @@ class WPCPM_Institution_Agreement {
 
 	/**
 	 * Hooks.
+	 *
+	 * The on-file handler is registered here, beside the method it names, because that is
+	 * the one arrangement `bin/test-institution-policy.php` can read: it resolves every
+	 * `admin_post_` registration in the institution classes to a method body in the same
+	 * file, and asserts that the body decides before it touches Airtable.
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
+		add_action( 'admin_post_' . self::ACTION_ON_FILE, array( __CLASS__, 'handle_on_file' ) );
+		add_action( 'admin_post_' . self::ACTION_ON_FILE_ALL, array( __CLASS__, 'handle_on_file_all' ) );
 	}
 
 	/**
@@ -500,6 +531,352 @@ class WPCPM_Institution_Agreement {
 		}
 
 		return in_array( strtolower( $parts['host'] ), self::DRIVE_HOSTS, true );
+	}
+
+	/**
+	 * Record an agreement the program already holds, by hand, with a link (T7).
+	 *
+	 * The route every real pilot candidate needs. All 42 Confirmed institutions signed
+	 * before this site existed, so the first thing the module has to be able to say is "the
+	 * program already holds this one", and the account has to open without asking a partner
+	 * of several years to sign again.
+	 *
+	 * The order is the whole point, and it is the same order acceptance will use in Phase 3:
+	 *
+	 * 1. capability, then nonce, then the policy. The capability is the cheap refusal, the
+	 *    nonce is keyed to the institution so a form for one record cannot be replayed at
+	 *    another, and `decide()` is the fence every write in this module goes through even
+	 *    when the capability has already answered.
+	 * 2. the Drive link, refused by name when it is not one. A recorded agreement with no
+	 *    link is a claim nobody can check later.
+	 * 3. **Airtable first, and the whole thing refused when it fails.** The base is the
+	 *    program's record of this state. An institution opened on the site while the base
+	 *    still says `Not started` is exactly the shape this design exists to prevent, and a
+	 *    site that wrote its own record first would produce it on every failed PATCH.
+	 * 4. then the post, then the option through `rebuild()`. If the process dies between
+	 *    them, the next reconcile (T12) materialises the post from the `On file` row it now
+	 *    finds and settles the institution: the same end state, one sync later.
+	 *
+	 * No mail. Nobody at the institution asked for this and nothing about it is news to
+	 * them; what they notice is that the dashboard is there on the next page load.
+	 */
+	public static function handle_on_file() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		// Read before the nonce is checked because the nonce is keyed to it; nothing is done
+		// with it until `check_admin_referer()` below has passed and the index has been asked
+		// whether it is a record at all.
+		$record = WPCPM_Request::posted_text( 'wpcpm_agreement_record' );
+
+		check_admin_referer( self::ACTION_ON_FILE . '_' . $record );
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_AGREEMENT,
+			WPCPM_Institution_Policy::subject_institution( $record )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		if ( ! WPCPM_Institutions_Index::has( $record ) ) {
+			self::bounce_on_file( 'agreement-unknown' );
+		}
+
+		$drive = WPCPM_Request::posted_text( 'wpcpm_agreement_drive' );
+
+		// Ahead of the lock, because this refusal needs nothing but the posted string: a
+		// link that is not a Drive link must not make an option row at all, not even one
+		// that is deleted on the next line.
+		if ( ! self::is_drive_link( $drive ) ) {
+			self::bounce_on_file( 'agreement-link' );
+		}
+
+		$signed = self::date_or_empty( WPCPM_Request::posted_text( 'wpcpm_agreement_signed_on' ) );
+		$where  = trim( mb_substr( WPCPM_Request::posted_text( 'wpcpm_agreement_where' ), 0, self::MAX_LOCATION ) );
+
+		self::bounce_on_file( self::record_on_file( $record, $drive, $signed, $where, $decision ) );
+	}
+
+	/**
+	 * Record one institution's agreement as on file, and open its account.
+	 *
+	 * The write behind both on-file forms: the single one, which has already read and
+	 * checked its form, and the bulk one, which loops this over every Confirmed institution
+	 * with nothing recorded. Airtable first and refused outright on failure, then the legacy
+	 * post, then the option: an institution opened on the site while the base still says
+	 * otherwise is the shape this design exists to prevent. Answers with the outcome slug the
+	 * caller flashes, and never redirects itself, which is what lets it be looped.
+	 *
+	 * @param string $record   Institutions record ID, already known to the index.
+	 * @param string $drive    A Drive link, already validated.
+	 * @param string $signed   Date signed, `Y-m-d` or ''.
+	 * @param string $where    Where the paper is, in the manager's words, or ''.
+	 * @param array  $decision The policy's decision that allowed this.
+	 * @return string One of the outcome slugs `WPCPM_Institution_Panel::messages()` names.
+	 */
+	private static function record_on_file( $record, $drive, $signed, $where, array $decision ) {
+		// The transition lock, taken here for the reason T5, T8 and T9 take theirs: the "no
+		// accepted post" test below and the insert that acts on it are one decision, and two
+		// managers pressing Record it in the same second would otherwise both find none and
+		// both insert one, leaving an institution with two accepted agreements and the base
+		// patched twice. `add_option()` is the test-and-set, and `lock()` clears one older
+		// than LOCK_TIMEOUT so a request that died holding it cannot lock a record forever.
+		// Every exit from here on releases it.
+		if ( ! self::lock( $record ) ) {
+			return 'agreement-busy';
+		}
+
+		// T7's "from" column: no accepted post. Replacing one is what upload and accept are
+		// for, and a second legacy row beside an accepted one would make "an accepted one
+		// stands" mean two different things to T3, T6 and T10.
+		$summary = self::summary( $record );
+
+		if ( ! empty( $summary['agreement_id'] ) ) {
+			self::unlock( $record );
+			return 'agreement-standing';
+		}
+
+		$today    = wp_date( 'Y-m-d' );
+		$actor    = wp_get_current_user();
+		$settings = WPCPM_Settings::get();
+		$fields   = WPCPM_Institutions_Sync::fields();
+
+		// Named through the sync's field map so the base's spelling is asserted in one place
+		// and against one fixture. `update_records()` sends no `typecast`, so a choice spelled
+		// any other way is a 422 for the whole record.
+		$cells = array(
+			$fields['agr_status']      => self::AIRTABLE_ON_FILE,
+			$fields['agr_kind']        => self::AIRTABLE_KIND_LEGACY,
+			$fields['agr_document']    => $drive,
+			$fields['agr_accepted_on'] => $today,
+			$fields['agr_accepted_by'] => $actor instanceof WP_User ? $actor->display_name : '',
+		);
+
+		if ( '' !== $signed ) {
+			$cells[ $fields['agr_signed_on'] ] = $signed;
+		}
+
+		$airtable = new WPCPM_Airtable( $settings );
+		$written  = $airtable->update_records(
+			$settings['institutions_table'],
+			array(
+				array(
+					'id'     => $record,
+					'fields' => $cells,
+				),
+			)
+		);
+
+		// An empty result is a refusal too: `update_records()` drops a record it cannot send
+		// and answers with the records it did, so "nothing was updated" must not read as
+		// success on the one path where success opens an account.
+		if ( is_wp_error( $written ) || empty( $written ) ) {
+			self::unlock( $record );
+			return 'agreement-airtable';
+		}
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => self::POST_TYPE,
+				'post_status' => self::POST_STATUS,
+				'post_author' => get_current_user_id(),
+				'post_title'  => sprintf(
+					/* translators: %s: Airtable record ID of the institution. */
+					__( 'Collaboration Agreement on file (%s)', 'wpcredits-program-manager' ),
+					$record
+				),
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
+			self::unlock( $record );
+			return 'agreement-not-saved';
+		}
+
+		$post_id = (int) $post_id;
+
+		update_post_meta( $post_id, self::META_INSTITUTION, $record );
+		update_post_meta( $post_id, self::META_STATE, self::STATE_ACCEPTED );
+		update_post_meta( $post_id, self::META_KIND, self::KIND_LEGACY );
+		update_post_meta( $post_id, self::META_DRIVE_URL, esc_url_raw( $drive ) );
+		update_post_meta( $post_id, self::META_SIGNED_ON, $signed );
+		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
+		update_post_meta( $post_id, self::META_DECIDED_AT, $today );
+
+		// Where the paper is, in the manager's own words. Section 9 keeps one note field per
+		// document and this is the only note a legacy row can carry, so it goes there rather
+		// than earning a meta key of its own; nothing an institution sees ever prints it.
+		if ( '' !== $where ) {
+			update_post_meta( $post_id, self::META_NOTE, $where );
+		}
+
+		add_post_meta(
+			$post_id,
+			self::META_EVENT,
+			array(
+				'event' => self::EVENT_ON_FILE,
+				'at'    => time(),
+				'actor' => get_current_user_id(),
+			)
+		);
+
+		// Design spec 5.6: membership and agreement events are rows of the same type, and
+		// every row carries the ground the act was allowed on. This was the one write on the
+		// institution side that left none. `attach()`, `detach()` and the live claim all
+		// write one, so an account could open here with nothing in the log saying who opened
+		// it or on what basis, which is the one question a manager asks of an agreement
+		// months later. The ground comes from the decision rather than from the capability
+		// checked at the top, because the decision is what allowed it; the subject is the
+		// document, so the row survives the option being rebuilt or deleted.
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => self::LOG_ON_FILE,
+				'institution' => $record,
+				'subject'     => (string) $post_id,
+				'actor'       => get_current_user_id(),
+				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_INDEX,
+				'message'     => __( 'A Collaboration Agreement the program already held was recorded as on file, and the account opened.', 'wpcredits-program-manager' ),
+				'data'        => array(
+					'kind'      => self::KIND_LEGACY,
+					'drive'     => $drive,
+					'signed_on' => $signed,
+				),
+			)
+		);
+
+		// Released before the rebuild, which takes the same lock for its own critical
+		// section: a handler still holding it would make every successful recording report
+		// that the state was being rebuilt. Nothing is left unguarded by letting go here,
+		// because the accepted post now exists and the next request to take the lock is
+		// refused by the standing-agreement test rather than by the lock.
+		self::unlock( $record );
+
+		// The block as the base now holds it, minus the name in `Agreement Accepted By`: the
+		// option is read on every request by the policy and holds no prose about people.
+		$option = self::rebuild(
+			$record,
+			array(
+				'status'           => self::AIRTABLE_ON_FILE,
+				'kind'             => self::AIRTABLE_KIND_LEGACY,
+				'accepted_on'      => $today,
+				'signed_on'        => $signed,
+				'accepted_by'      => '',
+				'document'         => $drive,
+				'submitted_on'     => '',
+				'template_version' => '',
+			)
+		);
+
+		// A held lock means a sync was rebuilding this very record; the two writes that
+		// matter have landed and the next run finishes the job, which is what the manager is
+		// told rather than "done" over a gate that is still closed.
+		return empty( $option ) ? 'agreement-later' : 'agreement-on-file';
+	}
+
+	/**
+	 * Record every Confirmed institution with nothing recorded as signed, with one link.
+	 *
+	 * Every institution the pipeline holds at Confirmed signed a Collaboration Agreement: that
+	 * is what the stage means, and it was true before this site existed to generate or upload
+	 * one. Decision 24 keeps them out of the gate by having a program manager record each as
+	 * on file, and with thirty-eight of them, "each" by hand is the kind of chore that gets
+	 * done for the pilot institution and nobody else, leaving the bulk button shut for
+	 * everyone. So this is that route applied to all of them at once, with one link: the
+	 * program's folder of signed agreements, which is where they actually are.
+	 *
+	 * The same write as the single route, per institution, in the same order, with the same
+	 * lock and the same audit row. Nothing is treated as signed by fiat: each institution gets
+	 * its own recorded agreement, its own row in the log naming who recorded it and on what
+	 * basis, and its own Airtable cells, so the base and the site agree afterwards. An
+	 * institution that fails is named and left for the single route; the run stops after
+	 * ON_FILE_ALL_BUDGET seconds and says how far it got, because a request that times out
+	 * halfway is one that has recorded some and cannot say which.
+	 */
+	public static function handle_on_file_all() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		check_admin_referer( self::ACTION_ON_FILE_ALL );
+
+		$drive = WPCPM_Request::posted_text( 'wpcpm_agreement_drive' );
+
+		if ( ! self::is_drive_link( $drive ) ) {
+			self::bounce_on_file( 'agreement-link' );
+		}
+
+		$where = trim( mb_substr( WPCPM_Request::posted_text( 'wpcpm_agreement_where' ), 0, self::MAX_LOCATION ) );
+		$tally = array(
+			'recorded' => 0,
+			'skipped'  => 0,
+			'failed'   => array(),
+			'left'     => 0,
+			'at'       => time(),
+			'actor'    => get_current_user_id(),
+		);
+		$began = microtime( true );
+		$todo  = array();
+
+		foreach ( WPCPM_Institutions_Index::rows() as $record_id => $row ) {
+			if ( 'Confirmed' !== trim( (string) $row['stage'] ) || self::is_settled( $record_id ) ) {
+				continue;
+			}
+
+			$todo[] = $record_id;
+		}
+
+		if ( empty( $todo ) ) {
+			self::bounce_on_file( 'agreement-all-none' );
+		}
+
+		foreach ( $todo as $i => $record_id ) {
+			if ( microtime( true ) - $began > self::ON_FILE_ALL_BUDGET ) {
+				$tally['left'] = count( $todo ) - $i;
+				break;
+			}
+
+			// Decided per institution, on the manager ground, because that is what each audit
+			// row records: a bulk action is thirty-eight decisions, not one.
+			$decision = WPCPM_Institution_Policy::decide(
+				WPCPM_Institution_Policy::ACT_AGREEMENT,
+				WPCPM_Institution_Policy::subject_institution( $record_id )
+			);
+
+			if ( empty( $decision['allowed'] ) ) {
+				$tally['failed'][ $record_id ] = 'refused';
+				continue;
+			}
+
+			$outcome = self::record_on_file( $record_id, $drive, '', $where, $decision );
+
+			if ( 'agreement-on-file' === $outcome || 'agreement-later' === $outcome ) {
+				++$tally['recorded'];
+			} elseif ( 'agreement-standing' === $outcome ) {
+				++$tally['skipped'];
+			} else {
+				$tally['failed'][ $record_id ] = $outcome;
+			}
+		}
+
+		update_option( self::OPTION_ON_FILE_ALL, $tally, false );
+
+		self::bounce_on_file( 'agreement-on-file-all' );
+	}
+
+	/**
+	 * The last bulk recording's tally, for the screen.
+	 *
+	 * @return array|null
+	 */
+	public static function last_on_file_all() {
+		$tally = get_option( self::OPTION_ON_FILE_ALL, null );
+
+		return is_array( $tally ) ? $tally : null;
 	}
 
 	/**
@@ -865,5 +1242,26 @@ class WPCPM_Institution_Agreement {
 	 */
 	private static function unlock( $record_id ) {
 		delete_option( self::lock_name( $record_id ) );
+	}
+
+	/**
+	 * Return from the on-file handler with a one-shot outcome, and stop.
+	 *
+	 * The form is drawn in two places, the manager's institution row and the dashboard's
+	 * agreement panel, so the destination is where the request came from rather than one
+	 * fixed screen; `wp_safe_redirect()` keeps that to this site, and a request with no
+	 * referer lands on the Institutions screen, which is where the row is. The words for
+	 * each outcome live in `WPCPM_Institution_Panel::messages()`, once, because both screens
+	 * print them.
+	 *
+	 * @param string $status Outcome slug.
+	 */
+	private static function bounce_on_file( $status ) {
+		WPCPM_Flash::set( WPCPM_Institutions::FLASH, $status );
+
+		$back = wp_get_referer();
+
+		wp_safe_redirect( $back ? $back : admin_url( 'admin.php?page=wpcpm-institutions' ) );
+		exit;
 	}
 }

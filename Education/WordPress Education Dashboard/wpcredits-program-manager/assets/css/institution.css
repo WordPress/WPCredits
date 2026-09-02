@@ -1,0 +1,357 @@
+/**
+ * Institution Dashboard - front-end styles.
+ *
+ * Loaded after the mentor stylesheet, which it depends on. Everything the three pages
+ * share - the colour tokens, the "view as" switcher, avatars, badges, buttons, the
+ * muted-text treatment - comes from there, so this file only carries what is specific
+ * to the institution page. Anything defined twice is a chance for the pages to drift.
+ *
+ * A baseline, deliberately, the way triage.css is one: under any theme the header, the
+ * banner and the cards are legible and usable on their own. Nothing here uses
+ * `!important` and nothing is prefixed with a page class, so a theme that wants a richer
+ * treatment overrides these on a plain tie rather than having to outrank them.
+ */
+
+/* The identity header: name, place, stage, contact, website. No avatar - an institution
+   has no wordpress.org profile, and a logo is not a fact the base holds. */
+.wpcpm-institution__identity {
+	margin-bottom: 1.5em;
+}
+
+/* Matches .wpcpm-dashboard__mentor-name on the mentor page, so the two headers read as
+   the same header. */
+.wpcpm-institution__name {
+	font-size: 1.2em;
+	font-weight: 700;
+	margin: 0;
+}
+
+.wpcpm-institution__website {
+	margin: 0.15em 0 0;
+}
+
+/**
+ * The banner over an institution whose agreement is not settled.
+ *
+ * Only a program manager ever sees it, and it is the one thing on the page that says the
+ * members are being shown something narrower. Bordered on the leading edge rather than
+ * filled, because a solid warning colour a plugin picks cannot be known to read on the
+ * theme's background - the tokens can.
+ */
+.wpcpm-institution__banner {
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-inline-start-width: 4px;
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1.5em;
+	padding: 0.75em 1em;
+}
+
+.wpcpm-institution__banner p {
+	margin: 0;
+}
+
+.wpcpm-institution__banner p + p {
+	margin-top: 0.4em;
+	opacity: 0.72;
+}
+
+/**
+ * The cards under the header: the agreement panel, the roster, the People card, the
+ * agreement card at the foot.
+ *
+ * One bordered, rounded block per topic, at the mentor page's radius and padding, the way
+ * `.wpcpm-student__section` does it. Defined here rather than in each card's own piece so
+ * that four separate commits cannot produce four slightly different boxes.
+ */
+.wpcpm-institution__card,
+.wpcpm-agreement-panel,
+.wpcpm-agreement-card,
+.wpcpm-roster {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	margin-bottom: 1.25em;
+	padding: 1.25em;
+}
+
+.wpcpm-institution__card:last-of-type {
+	margin-bottom: 0;
+}
+
+/* Matches .wpcpm-group__title on the mentor page. */
+.wpcpm-institution__heading {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 1.05em;
+	gap: 0.5em;
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+/* When the data was read. Every screen prints it, so it is styled once. */
+.wpcpm-institution__read {
+	margin: 1.25em 0 0;
+}
+
+.wpcpm-institution__read,
+.wpcpm-institution__empty {
+	color: inherit;
+	opacity: 0.72;
+}
+
+/* -------------------------------------------------------------------------
+ * The cards this shell draws, styled here rather than in the four pieces that
+ * build them.
+ *
+ * They land as separate commits against one page, and a stylesheet per card is
+ * how four slightly different tables end up under one heading. What follows is
+ * structure and spacing only, on the tokens the mentor stylesheet defines: no
+ * fixed colours, so the page reads on a light theme and a dark one.
+ * ---------------------------------------------------------------------- */
+
+/* The People card and the student detail view carry `wpcpm-institution__card` as
+   well, so their box is the one above and is not repeated here. */
+.wpcpm-agreement-panel__title,
+.wpcpm-agreement-card__title,
+.wpcpm-people__title,
+.wpcpm-roster__title {
+	font-size: 1.05em;
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-agreement-panel__lede,
+.wpcpm-agreement-panel__on-file-lede,
+.wpcpm-people__intro,
+.wpcpm-people__subtitle {
+	margin: 0 0 1em;
+}
+
+/* The three numbered steps, and the list of members. Both are lists of things a
+   person does or is, so neither wants a bullet. */
+.wpcpm-agreement-panel__steps,
+.wpcpm-people__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-agreement-panel__steps > li,
+.wpcpm-people__member {
+	border-top: 1px solid var( --wpcpm-border );
+	padding: 0.75em 0;
+}
+
+.wpcpm-agreement-panel__steps > li:first-child,
+.wpcpm-people__member:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+/* A manager's note, back to the institution verbatim. Quoted so it is plainly
+   somebody's words rather than the program's own wording. */
+.wpcpm-agreement-panel__note {
+	border-inline-start: 3px solid var( --wpcpm-border );
+	margin: 0 0 1em;
+	padding: 0.25em 0 0.25em 1em;
+}
+
+.wpcpm-agreement-panel__note-by,
+.wpcpm-agreement-panel__read,
+.wpcpm-agreement-panel__soon,
+.wpcpm-agreement-card__route,
+.wpcpm-agreement-card__soon,
+.wpcpm-people__facts,
+.wpcpm-people__note,
+.wpcpm-people__read,
+.wpcpm-people__muted,
+.wpcpm-roster__note,
+.wpcpm-roster__read,
+.wpcpm-roster__empty,
+/* Not this page's own name: it arrives with the Student Report Card's markup, whose
+   stylesheet is the student dashboard's entire dress, and this page has no other use for
+   that. One selector here rather than a second stylesheet for one paragraph. */
+.wpcpm-student__note {
+	color: inherit;
+	opacity: 0.72;
+}
+
+.wpcpm-agreement-panel__input {
+	max-width: 32em;
+	width: 100%;
+}
+
+/* A flash from a handler that has just run: the same shape as the banner, so
+   the page has one way of saying something out of band. */
+.wpcpm-agreement-panel__message,
+.wpcpm-people__message {
+	border: 1px solid var( --wpcpm-border );
+	border-inline-start-width: 4px;
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1em;
+	padding: 0.6em 0.9em;
+}
+
+/* The People card's rows: name and address on the left, the control on the right. */
+.wpcpm-people__member {
+	align-items: baseline;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4em 1em;
+	justify-content: space-between;
+}
+
+.wpcpm-people__name {
+	font-weight: 600;
+}
+
+/* "The program's contact", for information and with nothing attached to it. */
+.wpcpm-people__mark {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 999px;
+	font-size: 0.85em;
+	padding: 0.1em 0.6em;
+}
+
+.wpcpm-people__form {
+	margin-top: 1em;
+}
+
+/* The cohort picker and the filter bar. A row that wraps rather than a grid: the
+   controls are of different widths and there are never many of them. */
+.wpcpm-roster__filters {
+	align-items: flex-end;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75em 1em;
+	margin: 0 0 1.25em;
+}
+
+.wpcpm-roster__filter {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25em;
+}
+
+/* The comparison strip: this semester's two numbers against the previous one. */
+.wpcpm-roster__strip {
+	background: var( --wpcpm-surface );
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1.5em;
+	padding: 0.9em 1em;
+}
+
+.wpcpm-roster__strip-title {
+	font-size: 1em;
+	margin: 0 0 0.4em;
+}
+
+.wpcpm-roster__strip-then {
+	opacity: 0.72;
+}
+
+/**
+ * The roster table.
+ *
+ * Wrapped in its own scroller, because the roster is wide by design - eleven
+ * columns before hours - and a table that widens the page pushes the whole
+ * layout sideways on a phone. The wrapper scrolls; the page does not.
+ */
+.wpcpm-roster__scroll {
+	overflow-x: auto;
+}
+
+.wpcpm-roster__table,
+.wpcpm-institution__table {
+	border-collapse: collapse;
+	margin: 0;
+	width: 100%;
+}
+
+.wpcpm-roster__table th,
+.wpcpm-roster__table td,
+.wpcpm-institution__table th,
+.wpcpm-institution__table td {
+	border-bottom: 1px solid var( --wpcpm-border );
+	padding: 0.5em 0.75em;
+	text-align: start;
+	vertical-align: top;
+}
+
+.wpcpm-roster__table th {
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+/* The detail table prints every row even when the cell is empty, so the labels
+   need the fixed column the mentor page's own tables use. */
+.wpcpm-institution__table th {
+	font-weight: 600;
+	width: 12em;
+}
+
+.wpcpm-roster__group {
+	margin-bottom: 1.5em;
+}
+
+.wpcpm-roster__group:last-child {
+	margin-bottom: 0;
+}
+
+/* "Not yet in the Students table": read-only, and a program manager's to fix. */
+.wpcpm-roster__group--unlinked .wpcpm-roster__table {
+	opacity: 0.9;
+}
+
+.wpcpm-roster__read--footer {
+	margin: 1.25em 0 0;
+}
+
+.wpcpm-roster__read--strip {
+	margin: 0.4em 0 0;
+}
+
+/* One student's detail view: the way back, then the card. */
+.wpcpm-institution__back {
+	display: inline-block;
+	margin: 0 0 1em;
+}
+
+/* The card's header: the photo beside the name. The name and its badge are
+   `.wpcpm-mentee__identity` from the mentor stylesheet, so the two headers read as the
+   same header and that group is defined in one place rather than two. */
+.wpcpm-institution__student-identity {
+	align-items: center;
+	display: flex;
+	gap: 1em;
+	margin-bottom: 1.25em;
+}
+
+.wpcpm-institution__student-name {
+	font-size: 1.2em;
+	font-weight: 700;
+	margin: 0;
+}
+
+/**
+ * The Student Report Card, read-only and fetched when it is opened.
+ *
+ * Two classes on the one element, which nothing else here needs. The card enqueues
+ * the calendar stylesheet for the report's own markup, and that file gives
+ * `.wpcpm-report__disclosure` a margin of its own; one class each would leave the winner to
+ * be whichever of the two files the page happened to print last, which is not this file's to
+ * know. Still no `!important`: a theme that wants this block its own way needs two classes
+ * here rather than one.
+ */
+.wpcpm-report__disclosure.wpcpm-institution__report {
+	border-top: 1px solid var( --wpcpm-border );
+	margin-top: 1.25em;
+	padding-top: 1.25em;
+}
+
+/* Something the reader has to act on: a status that blocks a graduation, a
+   missing Drive link. Marked on the leading edge, never by colour alone. */
+.wpcpm-warning {
+	border-inline-start: 4px solid var( --wpcpm-border );
+	padding-inline-start: 0.75em;
+}

@@ -23,9 +23,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * names each institution's country through it. `records` reads the Institutions table with
  * an explicit column list, writes `WPCPM_Institutions_Index` in one go, then rebuilds every
  * `wpcpm_agreement_<record>` option from what the base says (T12 in the design). `provision`
- * is a count in this phase: account creation ships in Phase 2, and until then the sync says
- * how many accounts it would make rather than making any. `revoke` closes the gate and
- * detaches the members of every institution that has left the pipeline.
+ * creates the one account an institution starts with from its `Contact Email`, and only for
+ * an institution with no membership history at all. `revoke` closes the gate and detaches
+ * the members of every institution that has left the pipeline.
  */
 class WPCPM_Institutions_Sync {
 
@@ -65,6 +65,44 @@ class WPCPM_Institutions_Sync {
 	const REBUILD_BATCH = 25;
 
 	/**
+	 * Accounts created per slice of the provision phase.
+	 *
+	 * Small on purpose. Each one is a user insert, a stamp, an audit row and a queued
+	 * invitation, and a slice that runs long is a slice the browser poll cannot show the end
+	 * of. The pending list lives in the run state, so the next tick carries on where this one
+	 * stopped rather than starting the phase again.
+	 */
+	const PROVISION_BATCH = 5;
+
+	/**
+	 * The `WP_Error` code every refused provisioning carries.
+	 *
+	 * One code with the reason in its data, rather than a code per reason: callers switch on
+	 * `get_error_data()['reason']` against the `BLOCK_` constants, and a caller that only
+	 * wants to know whether it worked reads `is_wp_error()` and nothing else.
+	 */
+	const PROVISION_ERROR = 'wpcpm_provision_refused';
+
+	/*
+	 * Why an institution may not be provisioned, in the order `provision_block()` decides
+	 * them: the cheap facts from the index first, then the two membership queries, then the
+	 * agreement and the account lookup, so most of the expensive questions are only asked
+	 * about a row that has passed every free one.
+	 *
+	 * Membership is asked before the agreement even though it is the dearer question, because
+	 * the two answers are not interchangeable: an institution that already has an account is
+	 * that whatever its agreement says, and a revocation deletes the gate's option while
+	 * leaving the account and the stage exactly where they were.
+	 */
+	const BLOCK_NOT_INDEXED   = 'not_indexed';
+	const BLOCK_NOT_CONFIRMED = 'not_confirmed';
+	const BLOCK_NO_EMAIL      = 'no_email';
+	const BLOCK_HAS_MEMBER    = 'has_member';
+	const BLOCK_FORMER_MEMBER = 'former_member';
+	const BLOCK_NO_AGREEMENT  = 'no_agreement';
+	const BLOCK_CONFLICT      = 'account_exists';
+
+	/**
 	 * The date the consent checkbox joined the Airtable form.
 	 *
 	 * Every consent-ticked record was created on or after it and none before; the manager
@@ -93,9 +131,11 @@ class WPCPM_Institutions_Sync {
 				'steps'  => 7,
 			),
 			'provision' => array(
-				'label'  => __( 'Counting institution accounts to create', 'wpcredits-program-manager' ),
+				'label'  => __( 'Creating the institution accounts', 'wpcredits-program-manager' ),
 				'weight' => 25,
-				'steps'  => 1,
+				// Four slices, not one: the phase creates accounts `PROVISION_BATCH` at a
+				// time, and a bar that sat still through all of them would read as a stall.
+				'steps'  => 4,
 			),
 			'revoke'    => array(
 				'label'  => __( 'Checking which institutions have left the pipeline', 'wpcredits-program-manager' ),
@@ -407,9 +447,10 @@ class WPCPM_Institutions_Sync {
 
 			case 'provision':
 				return sprintf(
-					/* translators: %s: number of institutions that would get an account. */
-					__( '%s institutions would be provisioned', 'wpcredits-program-manager' ),
-					number_format_i18n( $get( 'would_provision' ) )
+					/* translators: 1: accounts created, 2: addresses that already had an account. */
+					__( '%1$s accounts created · %2$s addresses already taken', 'wpcredits-program-manager' ),
+					number_format_i18n( $get( 'provisioned' ) ),
+					number_format_i18n( $get( 'conflicts' ) )
 				);
 
 			case 'revoke':
@@ -731,60 +772,332 @@ class WPCPM_Institutions_Sync {
 	}
 
 	/**
-	 * Phase 3 - count the institutions that would get an account.
+	 * Phase 3 - create the one account each Confirmed institution starts with.
 	 *
-	 * A count and nothing more in this phase: account creation is Phase 2 of the module,
-	 * and until it ships the sync reports what it would do rather than doing it. Even the
-	 * count is behind `institution_provision`, which is off by default for the reason the
-	 * welcome email is. The rule counted is the one Phase 2 will apply: Confirmed, with a
-	 * contact address an account can be made from, a settled agreement (the gate is what
-	 * stops a partner that signed years ago being told its first step is to sign), and no
-	 * membership history, live or former, because after the first account membership is
-	 * managed on the site.
+	 * Behind `institution_provision`, which is off by default for the reason the welcome
+	 * email is: the first run of a sync that mails people is a decision for a human. With it
+	 * off the phase does nothing at all, and the manager screen's provisioning card is the
+	 * way in instead.
+	 *
+	 * The candidate list is every Confirmed row of the index this run has just written, built
+	 * once and then worked through `PROVISION_BATCH` at a time, with the remainder in the run
+	 * state so a tick that ends mid-phase is resumed rather than restarted. Whether each
+	 * candidate is actually provisioned is `provision_block()`'s decision and nowhere else's,
+	 * so the nightly run and the two buttons on the manager screen cannot come to different
+	 * answers about the same institution.
 	 *
 	 * @param array $state    Sync state, by reference.
 	 * @param array $settings Plugin settings.
 	 * @return true
 	 */
 	private static function phase_provision( array &$state, array $settings ) {
-		if ( ! empty( $settings['institution_provision'] ) ) {
-			$count = 0;
+		if ( empty( $settings['institution_provision'] ) ) {
+			$state['phase'] = 'revoke';
 
-			foreach ( WPCPM_Institutions_Index::rows() as $record_id => $row ) {
-				if ( 'Confirmed' !== $row['stage'] || ! is_email( $row['contact_email'] ) ) {
-					continue;
-				}
-
-				if ( ! WPCPM_Institution_Agreement::is_settled( $record_id ) ) {
-					continue;
-				}
-
-				if ( ! empty( WPCPM_Institution_Members::members_of( $record_id ) ) || ! empty( WPCPM_Institution_Members::former_members_of( $record_id ) ) ) {
-					continue;
-				}
-
-				++$count;
-			}
-
-			$state['stats']['would_provision'] = $count;
-
-			if ( $count > 0 ) {
-				$state['notices'][] = sprintf(
-					/* translators: %s: number of institutions. */
-					_n(
-						'%s Confirmed institution with a settled agreement has no account yet. Account creation ships in the next phase of the Institutions module; nothing was created.',
-						'%s Confirmed institutions with a settled agreement have no account yet. Account creation ships in the next phase of the Institutions module; nothing was created.',
-						$count,
-						'wpcredits-program-manager'
-					),
-					number_format_i18n( $count )
-				);
-			}
+			return true;
 		}
 
-		$state['phase'] = 'revoke';
+		// A run that started before this release carries a stats array with none of the four
+		// keys this phase counts into. Filled in rather than incremented from nothing, because
+		// the upgrade lands between two ticks of a run that is already going.
+		$state['stats'] = array_merge( self::empty_stats(), (array) $state['stats'] );
+
+		if ( ! isset( $state['provision'] ) ) {
+			$candidates = array();
+
+			// Only the Confirmed rows are candidates, and that is read from the index rather
+			// than asked of `provision_block()` here: the other hundred rows would each cost
+			// an option read to be told what the stage already says.
+			foreach ( WPCPM_Institutions_Index::rows() as $record_id => $row ) {
+				if ( 'Confirmed' === trim( (string) $row['stage'] ) ) {
+					$candidates[] = $record_id;
+				}
+			}
+
+			$state['provision'] = $candidates;
+		}
+
+		$pending = array_values( (array) $state['provision'] );
+		$batch   = array_splice( $pending, 0, self::PROVISION_BATCH );
+
+		foreach ( $batch as $record_id ) {
+			self::provision_candidate( $state, (string) $record_id );
+		}
+
+		$state['provision'] = $pending;
+
+		if ( empty( $pending ) ) {
+			$state['phase'] = 'revoke';
+		}
 
 		return true;
+	}
+
+	/**
+	 * One candidate: provision it, or count and name why not.
+	 *
+	 * The block is asked for before `provision()` is called and again inside it. That is
+	 * deliberate: `provision()` is public and is also what the manager screen's buttons
+	 * press, so it cannot trust a caller to have checked, and the run needs the reason in
+	 * order to count and report it. Both passes are a handful of reads about one institution.
+	 *
+	 * A conflict is named in the notices because it is the one outcome a person has to
+	 * resolve: the address Airtable holds already belongs to an account, which is a conflict
+	 * and not a match, and adopting it would hand an institution's roster to whoever that is.
+	 *
+	 * @param array  $state     Sync state, by reference.
+	 * @param string $record_id Institutions record ID.
+	 */
+	private static function provision_candidate( array &$state, $record_id ) {
+		$reason = self::provision_block( $record_id );
+
+		if ( '' !== $reason && self::BLOCK_CONFLICT !== $reason ) {
+			++$state['stats']['provision_skipped'];
+
+			return;
+		}
+
+		$row  = WPCPM_Institutions_Index::row( $record_id );
+		$name = is_array( $row ) && '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : $record_id;
+
+		if ( self::BLOCK_CONFLICT === $reason ) {
+			++$state['stats']['conflicts'];
+			$state['notices'][] = sprintf(
+				/* translators: 1: institution name, 2: why it was skipped. */
+				__( 'No account was created for %1$s: %2$s', 'wpcredits-program-manager' ),
+				$name,
+				self::provision_message( $reason )
+			);
+
+			return;
+		}
+
+		$result = self::provision( $record_id, 0 );
+
+		if ( is_wp_error( $result ) ) {
+			++$state['stats']['provision_failed'];
+			$state['notices'][] = sprintf(
+				/* translators: 1: institution name, 2: error message. */
+				__( 'Could not create the account for %1$s: %2$s', 'wpcredits-program-manager' ),
+				$name,
+				$result->get_error_message()
+			);
+
+			return;
+		}
+
+		++$state['stats']['provisioned'];
+	}
+
+	/**
+	 * Why this institution may not be provisioned from its `Contact Email` right now, or ''.
+	 *
+	 * The one copy of the rule, read by the nightly run, by the manager screen's card and by
+	 * both of its buttons. In order, and the order is the point:
+	 *
+	 * - a row the index holds, at `Confirmed`: provisioning is what the program does once it
+	 *   has said yes, and the index is the site's own copy of that answer;
+	 * - a `Contact Email` WordPress can make an account from;
+	 * - no live member and no former member. **This is the rule that matters most**: without
+	 *   it the sync re-creates a removed contact's account every night, for ever. After the
+	 *   first account, membership is managed on the site. It is asked before the agreement,
+	 *   ahead of its own cost, because a revocation deletes the agreement option and leaves
+	 *   the account and the stage alone (design spec 7.4, T8). Asked the other way round, an
+	 *   institution that already has an account is reported as one waiting for its first
+	 *   agreement: the worklist tells a manager to record one for a partner that was
+	 *   provisioned months ago, the row is missing from the count of the ones that already
+	 *   have an account, and the bulk button stays shut for every other institution while it
+	 *   is there;
+	 * - a settled agreement, because an account opened before the agreement is recorded is a
+	 *   partner that signed years ago being emailed that its first step is to sign;
+	 * - and last, an address that already belongs to an account. That is a conflict and not a
+	 *   match: found-by-email with no membership could be a student, a mentor or a person who
+	 *   registered here for something else, and adopting them would hand a school's roster to
+	 *   somebody who never asked for it.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string One of the `BLOCK_` constants, or '' when an account may be created.
+	 */
+	public static function provision_block( $record_id ) {
+		$record_id = trim( (string) $record_id );
+		$row       = WPCPM_Mentors_Sync::is_record_id( $record_id ) ? WPCPM_Institutions_Index::row( $record_id ) : null;
+
+		if ( ! is_array( $row ) ) {
+			return self::BLOCK_NOT_INDEXED;
+		}
+
+		if ( 'Confirmed' !== trim( (string) $row['stage'] ) ) {
+			return self::BLOCK_NOT_CONFIRMED;
+		}
+
+		$email = trim( (string) $row['contact_email'] );
+
+		if ( ! is_email( $email ) ) {
+			return self::BLOCK_NO_EMAIL;
+		}
+
+		if ( ! empty( WPCPM_Institution_Members::members_of( $record_id ) ) ) {
+			return self::BLOCK_HAS_MEMBER;
+		}
+
+		// The agreement is asked before the former-member test, and after the live-member one,
+		// on purpose. A revoked institution that still has its account is "already has an
+		// account", whatever the agreement says. But an institution with no recorded agreement
+		// and only a former member is not: it must go on holding the bulk button shut and be
+		// listed with "record the agreement", or a school whose contact once left would slip
+		// out of the one list that says what a manager still has to do for it.
+		if ( ! WPCPM_Institution_Agreement::is_settled( $record_id ) ) {
+			return self::BLOCK_NO_AGREEMENT;
+		}
+
+		if ( ! empty( WPCPM_Institution_Members::former_members_of( $record_id ) ) ) {
+			return self::BLOCK_FORMER_MEMBER;
+		}
+
+		if ( get_user_by( 'email', $email ) instanceof WP_User ) {
+			return self::BLOCK_CONFLICT;
+		}
+
+		return '';
+	}
+
+	/**
+	 * What a block means, in the words the run report and the manager screen both use.
+	 *
+	 * One wording per reason, in one place, so the sentence a manager reads beside the button
+	 * and the sentence in the nightly run's notices cannot drift apart.
+	 *
+	 * @param string $reason One of the `BLOCK_` constants.
+	 * @return string
+	 */
+	public static function provision_message( $reason ) {
+		switch ( (string) $reason ) {
+			case self::BLOCK_NOT_INDEXED:
+				return __( 'The pipeline index does not hold that institution. Run the institutions sync, then try again.', 'wpcredits-program-manager' );
+
+			case self::BLOCK_NOT_CONFIRMED:
+				return __( 'Only a Confirmed institution is given an account. Move it to Confirmed in Airtable first.', 'wpcredits-program-manager' );
+
+			case self::BLOCK_NO_EMAIL:
+				return __( 'Airtable holds no Contact Email for it, and WordPress cannot create an account without an address.', 'wpcredits-program-manager' );
+
+			case self::BLOCK_NO_AGREEMENT:
+				return __( 'No agreement is recorded for it. Record the one on file with its Drive link, or accept a signed one, before the account is created.', 'wpcredits-program-manager' );
+
+			case self::BLOCK_HAS_MEMBER:
+				return __( 'It already has a member. After the first account, membership is managed on this site.', 'wpcredits-program-manager' );
+
+			case self::BLOCK_FORMER_MEMBER:
+				return __( 'It has had a member before. Add the account by hand rather than provisioning it again.', 'wpcredits-program-manager' );
+
+			case self::BLOCK_CONFLICT:
+				return __( 'The Contact Email already belongs to an account on this site. That is a conflict, not a match: add that account as a member by hand if it is the right person.', 'wpcredits-program-manager' );
+		}
+
+		return '';
+	}
+
+	/**
+	 * Create the one account an institution starts with.
+	 *
+	 * Refuses first, through `provision_block()`, whoever the caller is: a stale page, a
+	 * second press of the button and the nightly run all arrive here, and the checks are
+	 * cheap next to the account they prevent.
+	 *
+	 * The account, then the stamp, then the invitation, in that order and each only if the
+	 * one before it worked. An account that could not be stamped is left standing rather than
+	 * deleted, because deleting a person's account to tidy up a failed write is worse than the
+	 * mess it tidies: the next run finds an address that already has an account, names it as
+	 * a conflict, and stops, which is a person's problem to look at rather than a loop. What
+	 * it does not do is send that account an invitation, because an invitation to an account
+	 * that cannot act for anybody is worse than none.
+	 *
+	 * The invitation is not behind `send_welcome_email`. Provisioning is itself the opt-in,
+	 * and an institution account nobody is told about is an account nobody uses: the password
+	 * is random, so the mail is the only way in.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param int    $actor_id  Who is doing it; 0 for the sync.
+	 * @return int|WP_Error The new account's ID.
+	 */
+	public static function provision( $record_id, $actor_id = 0 ) {
+		$record_id = trim( (string) $record_id );
+		$reason    = self::provision_block( $record_id );
+
+		if ( '' !== $reason ) {
+			return new WP_Error( self::PROVISION_ERROR, self::provision_message( $reason ), array( 'reason' => $reason ) );
+		}
+
+		$row   = WPCPM_Institutions_Index::row( $record_id );
+		$email = trim( (string) $row['contact_email'] );
+		$name  = trim( (string) $row['contact_person'] );
+
+		if ( '' === $name ) {
+			$name = trim( (string) $row['name'] );
+		}
+
+		// A record with neither a contact person nor a name is one of the blank rows the base
+		// collects; its ID is at least something a manager can search the grid for.
+		if ( '' === $name ) {
+			$name = $record_id;
+		}
+
+		$login   = self::unique_login( $email );
+		$user_id = wp_insert_user(
+			array(
+				'user_login'   => $login,
+				'user_email'   => $email,
+				'user_pass'    => wp_generate_password( 24, true, true ),
+				'display_name' => $name,
+				'nickname'     => $name,
+				'role'         => WPCPM_Roles::ROLE_INSTITUTION,
+			)
+		);
+
+		if ( is_wp_error( $user_id ) ) {
+			return $user_id;
+		}
+
+		$attached = WPCPM_Institution_Members::attach( (int) $user_id, $record_id, WPCPM_Institution_Members::HOW_PROVISIONED, absint( $actor_id ) );
+
+		if ( is_wp_error( $attached ) ) {
+			return $attached;
+		}
+
+		WPCPM_Mail::queue_invites( array( (int) $user_id ) );
+
+		return (int) $user_id;
+	}
+
+	/**
+	 * A free username, from the local part of the contact address.
+	 *
+	 * The same shape the students sync uses for a student with no WordPress.org handle, for
+	 * the same reason: the address is the only identifier Airtable gives us, and a login is
+	 * not an identity here. Plenty of institutions will send `info@`, so the numeric suffix
+	 * is the common case rather than an edge one; what matters is that it is free.
+	 *
+	 * @param string $email Contact address.
+	 * @return string
+	 */
+	private static function unique_login( $email ) {
+		$base = strtolower( (string) strstr( (string) $email, '@', true ) );
+		$base = preg_replace( '/[^a-z0-9._\-]/', '', $base );
+		$base = sanitize_user( $base, true );
+
+		if ( '' === $base ) {
+			$base = 'institution';
+		}
+
+		$login = $base;
+		$n     = 1;
+
+		while ( username_exists( $login ) ) {
+			++$n;
+			$login = $base . $n;
+		}
+
+		return $login;
 	}
 
 	/**
@@ -904,15 +1217,22 @@ class WPCPM_Institutions_Sync {
 	 */
 	public static function empty_stats() {
 		return array(
-			'countries'       => 0,
-			'records_seen'    => 0,
-			'nameless'        => 0,
-			'skipped'         => 0,
-			'rebuilt'         => 0,
-			'settled'         => 0,
-			'would_provision' => 0,
-			'locked'          => 0,
-			'revoked'         => 0,
+			'countries'         => 0,
+			'records_seen'      => 0,
+			'nameless'          => 0,
+			'skipped'           => 0,
+			'rebuilt'           => 0,
+			'settled'           => 0,
+			// The provision phase's four numbers: accounts made, Confirmed institutions that
+			// were not ready for one, addresses that already belong to an account, and
+			// attempts that failed outright. Kept apart from `skipped`, which is the records
+			// phase's count of rows it could not read.
+			'provisioned'       => 0,
+			'provision_skipped' => 0,
+			'conflicts'         => 0,
+			'provision_failed'  => 0,
+			'locked'            => 0,
+			'revoked'           => 0,
 		);
 	}
 
