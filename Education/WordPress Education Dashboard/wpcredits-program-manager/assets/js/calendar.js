@@ -17,10 +17,8 @@
  * by copying. The mentor still presses Save, which means a copy that went to the wrong
  * days is undone by not saving.
  *
- * **Showing that a form is working**, on every form these two pages post. Pressing a time
- * slot looked like nothing had happened until the page reloaded, so students pressed again
- * — and a second press can hit the booking lock and be told "another booking was going
- * through" when their own first press is what was going through.
+ * The submit guard these pages' forms also carry is forms.js, which this script depends on;
+ * it started life in here and moved out once screens with forms and no calendar needed it.
  */
 ( function () {
 	'use strict';
@@ -161,155 +159,8 @@
 		} );
 	}
 
-	/**
-	 * Stop a form being submitted twice, and say that it is working.
-	 *
-	 * The trap this has to avoid: the slot buttons carry the value being submitted
-	 * (`name="start" value="…"`), and a *disabled* control is not serialized. Disabling the
-	 * pressed button inside the submit handler would therefore post the form with no slot
-	 * in it — booking would break outright, which is a good deal worse than the confusion
-	 * this fixes. So the pressed button is disabled from a `setTimeout`, after the browser
-	 * has already built the request; the buttons that were *not* pressed carry nothing and
-	 * are safe to disable immediately.
-	 *
-	 * Changing a button's text is always safe: for `<button name value>` the submitted
-	 * value is the `value` attribute, never the label.
-	 */
-	function guardForms() {
-		var forms = document.querySelectorAll( 'form[data-wpcpm-once]' );
-		var i;
-
-		for ( i = 0; i < forms.length; i++ ) {
-			guardForm( forms[ i ] );
-		}
-	}
-
-	/**
-	 * @param {HTMLFormElement} form Form to guard.
-	 */
-	function guardForm( form ) {
-		var pressed = null;
-
-		// `submitter` is not available everywhere, so the last control pressed is tracked
-		// too. `mousedown` rather than `click`, because `click` on a submit button and the
-		// form's `submit` event race in some browsers.
-		form.addEventListener( 'mousedown', function ( event ) {
-			var target = event.target;
-
-			while ( target && target !== form ) {
-				if ( 'BUTTON' === target.tagName || 'INPUT' === target.tagName ) {
-					pressed = target;
-					return;
-				}
-				target = target.parentNode;
-			}
-		} );
-
-		form.addEventListener( 'keydown', function ( event ) {
-			if ( 'Enter' === event.key || ' ' === event.key ) {
-				var target = event.target;
-
-				if ( target && 'BUTTON' === target.tagName ) {
-					pressed = target;
-				}
-			}
-		} );
-
-		form.addEventListener( 'submit', function ( event ) {
-			if ( form.getAttribute( 'data-wpcpm-sent' ) ) {
-				// Already on its way. Swallow the repeat rather than posting twice.
-				event.preventDefault();
-				return;
-			}
-
-			form.setAttribute( 'data-wpcpm-sent', '1' );
-			form.setAttribute( 'aria-busy', 'true' );
-			form.className += ' is-sending';
-
-			var button = event.submitter || pressed;
-			var busy = form.getAttribute( 'data-wpcpm-busy' );
-			var buttons = form.querySelectorAll( 'button, input[type="submit"]' );
-			var i;
-
-			for ( i = 0; i < buttons.length; i++ ) {
-				if ( buttons[ i ] !== button ) {
-					// Not the pressed control, so it contributes nothing to this request.
-					buttons[ i ].disabled = true;
-				}
-			}
-
-			if ( button && busy ) {
-				// `innerHTML` because a slot button is two spans — a time and an end time —
-				// and restoring a saved `textContent` would bring them back as one run-on
-				// string. It is this button's own markup, none of it from input.
-				button.setAttribute( 'data-wpcpm-label', button.innerHTML );
-				button.textContent = busy;
-			}
-
-			var status = form.querySelector( '[data-wpcpm-busy-status]' );
-
-			if ( status ) {
-				status.textContent = form.getAttribute( 'data-wpcpm-status' ) || busy || '';
-			}
-
-			// After the request has been built. See the note on guardForms().
-			if ( button ) {
-				window.setTimeout( function () {
-					button.disabled = true;
-				}, 0 );
-			}
-		} );
-	}
-
-	/**
-	 * Undo the busy state when a page comes back from the browser's cache.
-	 *
-	 * Going back to a booking page would otherwise show every slot disabled and one of them
-	 * still reading "Booking…", with nothing a student could do about it.
-	 */
-	function releaseOnRestore() {
-		window.addEventListener( 'pageshow', function ( event ) {
-			if ( ! event.persisted ) {
-				return;
-			}
-
-			var forms = document.querySelectorAll( 'form[data-wpcpm-sent]' );
-			var i;
-			var j;
-
-			for ( i = 0; i < forms.length; i++ ) {
-				var form = forms[ i ];
-
-				form.removeAttribute( 'data-wpcpm-sent' );
-				form.removeAttribute( 'aria-busy' );
-				form.className = form.className.replace( / ?is-sending/, '' );
-
-				var buttons = form.querySelectorAll( 'button, input[type="submit"]' );
-
-				for ( j = 0; j < buttons.length; j++ ) {
-					buttons[ j ].disabled = false;
-
-					var label = buttons[ j ].getAttribute( 'data-wpcpm-label' );
-
-					if ( null !== label ) {
-						buttons[ j ].innerHTML = label;
-						buttons[ j ].removeAttribute( 'data-wpcpm-label' );
-					}
-				}
-
-				var status = form.querySelector( '[data-wpcpm-busy-status]' );
-
-				if ( status ) {
-					status.textContent = '';
-				}
-			}
-		} );
-	}
-
 	ready( function () {
 		copyHours();
-		guardForms();
-		releaseOnRestore();
 
 		var select = document.querySelector( '[data-wpcpm-zone]' );
 		var hint = document.querySelector( '[data-wpcpm-zone-hint]' );

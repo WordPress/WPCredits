@@ -1,10 +1,10 @@
 /**
  * WPCredits Program Manager — admin behavior.
  *
- * Drives a running sync and reports its progress. Each poll does two jobs: it
- * advances the sync by one slice (so the work does not depend on WP-Cron firing)
- * and it refreshes the readout. Between polls a local clock keeps counting, so
- * there is never a stretch of seconds where nothing on screen moves.
+ * Drives every running sync on the page and reports its progress. Each poll does
+ * two jobs: it advances the sync by one slice (so the work does not depend on
+ * WP-Cron firing) and it refreshes the readout. Between polls a local clock keeps
+ * counting, so there is never a stretch of seconds where nothing on screen moves.
  *
  * Falls back gracefully: with JavaScript off, the server prints a meta refresh
  * and cron carries the run instead.
@@ -41,15 +41,42 @@
 	}
 
 	/**
-	 * Wire up the progress panel, if one is on the page.
+	 * Wire up every progress panel on the page.
+	 *
+	 * One poller per panel, each reading its own action, nonce and interval. A screen
+	 * used to draw at most one run, so the first `[data-wpcpm-progress]` was the only
+	 * one; the Institutions screen draws a sync panel and a provisioning run on the
+	 * same page, and with a single poller the second would sit at zero until somebody
+	 * reloaded. A page with one panel behaves exactly as it did.
+	 *
+	 * @return {number} How many panels were wired.
 	 */
 	function initProgress() {
-		var root = document.querySelector( '[data-wpcpm-progress]' );
+		var roots = document.querySelectorAll( '[data-wpcpm-progress]' );
+		var i;
 
-		if ( ! root || typeof window.ajaxurl === 'undefined' ) {
-			return false;
+		if ( ! roots.length || typeof window.ajaxurl === 'undefined' ) {
+			return 0;
 		}
 
+		for ( i = 0; i < roots.length; i++ ) {
+			pollProgress( roots[ i ] );
+		}
+
+		return roots.length;
+	}
+
+	/**
+	 * Drive one progress panel until its run finishes.
+	 *
+	 * Everything it needs is on the panel, so two of these on a page never share
+	 * state: each has its own clock, its own `finished` flag and its own back-off.
+	 * Whichever run finishes first reloads the page, and the fresh page wires a new
+	 * poller for the one still going.
+	 *
+	 * @param {Element} root The panel element.
+	 */
+	function pollProgress( root ) {
 		var action = root.getAttribute( 'data-action' );
 		var nonce = root.getAttribute( 'data-nonce' );
 		var poll = parseInt( root.getAttribute( 'data-poll' ), 10 ) || POLL_FALLBACK;
@@ -173,8 +200,6 @@
 		}, 1000 );
 
 		tick();
-
-		return true;
 	}
 
 	/**
@@ -200,7 +225,7 @@
 
 	document.addEventListener( 'DOMContentLoaded', function () {
 		// The live poll supersedes a blunt reload, so only fall back when absent.
-		if ( ! initProgress() ) {
+		if ( 0 === initProgress() ) {
 			initReload();
 		}
 	} );

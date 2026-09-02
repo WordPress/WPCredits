@@ -65,11 +65,26 @@ class WPCPM_Call_Calendar {
 			);
 		}
 
+		// The submit guard is its own script. It started as the tail of calendar.js, when
+		// the calendar's pages were the only ones with a form worth guarding; the
+		// Institutions screens have forms and no calendar, and should not load a calendar
+		// for a guard that has nothing to do with it. The calendar script names it as a
+		// dependency, so every page that had the guard still has it, loaded first.
+		if ( ! wp_script_is( 'wpcpm-forms', 'registered' ) ) {
+			wp_register_script(
+				'wpcpm-forms',
+				WPCPM_PLUGIN_URL . 'assets/js/forms.js',
+				array(),
+				WPCPM_VERSION,
+				true
+			);
+		}
+
 		if ( ! wp_script_is( self::SCRIPT, 'registered' ) ) {
 			wp_register_script(
 				self::SCRIPT,
 				WPCPM_PLUGIN_URL . 'assets/js/calendar.js',
-				array(),
+				array( 'wpcpm-forms' ),
 				WPCPM_VERSION,
 				true
 			);
