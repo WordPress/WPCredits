@@ -256,6 +256,20 @@
 	outline-offset: 1px;
 }
 
+/* The plugin's own stylesheet lays this control out as an overlay: the input is padded to
+   leave a gutter down each side and the glyph and the clear button are positioned absolutely
+   into it. This theme lays it out as a flex row instead, with the border on the wrapper and a
+   gap between the three parts, and it reset the input's padding without standing the
+   positioning down. So the glyph stayed absolute and painted itself over the first letter of
+   the placeholder, which is what a reader sees as a strange character in the search box, and
+   the clear button sat on the field's right edge whenever there was anything to clear - unseen
+   until somebody typed. Stood down here rather than in the plugin: the row is this theme's
+   arrangement, and the overlay is the right shape for a site that does not dress this page. */
+.wpc-dashboard-page .wpc-search .wpcpm-icon,
+.wpc-dashboard-page .wpc-search .wpc-search__clear {
+	position: static;
+}
+
 .wpc-search svg {
 	color: var( --wpc-ink-60 );
 	flex: none;

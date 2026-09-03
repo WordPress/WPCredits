@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.80.2
+Stable tag: 1.81.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.81.0 =
+* The reading half of the institutions import. `WPCPM_Institution_Import` takes the text of a CSV, or one student's row, and returns cleaned rows with a verdict each. It opens no socket, writes no post and creates nothing: the staging, the checks against the base and the creation loop are separate pieces still to come, and a test asserts this file reaches none of them.
+* A file is read the way registries actually export one: a byte order mark stripped, semicolons and tabs read as well as commas, quoted newlines kept whole, and headers matched by spelling, so `Full Name`, `E-Mail` and `full_name` all land. An unknown column is listed back rather than refusing the file. A file that is not UTF-8 is refused rather than converted, because guessing an encoding wrong writes a mangled name onto a record that is then created, synced and printed.
+* A name beginning `=`, `+`, `-` or `@` refuses the row: it is a formula to every spreadsheet a program manager opens the export in, and it reaches the subject line of the welcome automation. A mandatory field that fails refuses the row; an optional one is dropped and named, so a mistyped field of study costs a school a column and not a student. Two rows describing one person block each other, naming the line.
 
 = 1.80.2 =
 * A program track is no longer required to count hours. 1.80.0 asserted that every track had a row in the hours map, which would have made hours a condition of adding a track at all: the next track that does not count them would have failed a test rather than simply showing no denominator. A track absent from the map now has no target, the same answer the Developer Track's explicit zero gives, and that is pinned as the supported state.

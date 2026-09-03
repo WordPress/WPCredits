@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.16.3
+Stable tag: 1.16.4
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.16.4 =
+* The search box on the Mentor Report Card no longer prints its magnifying glass on top of the placeholder's first letter. The plugin lays that control out as an overlay, with the glyph and the clear button positioned absolutely into a padded gutter; this theme lays it out as a flex row and had reset the padding without standing the positioning down. The clear button had the same fault on the other side, unseen until somebody typed.
 
 = 1.16.3 =
 * The city and country line under an institution's name is back in line with the rest of the header. The identity header reuses the shared `wpcpm-dashboard__intro` class for that line, and 1.16.1's inset rule matched it by class, so the line was inset twice and sat 32px right of the name above it. The rule now matches only a direct child of the page root.
