@@ -400,6 +400,10 @@ class WPCPM_Institutions_Dashboard {
 			// arrived with. It draws nothing at all unless the site takes imports, so on every
 			// site that has not switched them on this line costs one method call.
 			self::card( 'WPCPM_Institution_Import_Form', $record, $context );
+			// After the roster and the enrolment form, before the people: the report is written
+			// from the roster a school has just read, and it folds closed unless the address
+			// names a semester, so on an ordinary visit it is one row with a chevron.
+			self::card( 'WPCPM_Semester_Report_Screen', $record, $context );
 			self::card( 'WPCPM_Institution_People', $record, $context );
 			self::card( 'WPCPM_Institution_Agreement_Card', $record, $context );
 		}

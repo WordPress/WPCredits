@@ -1243,6 +1243,18 @@
 	-webkit-mask-image: var( --wpc-icon-chevron-down );
 }
 
+/* The same for a group's summary row. The plugin rotates its own border chevron by -135deg
+   when a group is open, and that rotation was landing on this masked icon, so every open
+   group - and since 1.89.0 every panel on the Institution Dashboard starts open - showed a
+   corner where the student cards show a chevron pointing down. Same specificity as the
+   plugin's rule and loaded after it, so the icon swap wins and the rotation is cancelled. */
+.wpcpm-group__disclosure[open] .wpcpm-mentee__toggle {
+	color: var( --wpc-brand );
+	mask-image: var( --wpc-icon-chevron-down );
+	transform: none;
+	-webkit-mask-image: var( --wpc-icon-chevron-down );
+}
+
 /* ==========================================================================
    One student — opened
    ========================================================================== */

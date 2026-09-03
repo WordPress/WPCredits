@@ -80,6 +80,10 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institu
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-notes.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-invite.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-request.php';
+// The semester report's two halves. `WPCPM_Institutions::uninstall()` calls `delete_all()` on
+// the data half, so leaving them out of this list would be a fatal in the middle of cleanup.
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-semester-report.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-semester-report-screen.php';
 // Instantiated by `WPCPM_Modules::uninstall()` like the other four; it was missing here, which
 // would have been a fatal in the middle of cleanup on the day somebody uninstalled.
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors.php';

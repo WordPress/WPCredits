@@ -67,12 +67,12 @@ The question box over the WordPress documentation.
   always points at the current Gemini Flash, so it cannot be retired out from under the site.
 - **Who can ask** — mentors and program managers by default; optionally students and institutions as
   well, anybody logged in, or program managers only. Never anybody logged out, whatever this says.
-- **Questions per person per hour** — so a free tier cannot be spent in an afternoon. `0` removes the
+- **Questions per person per hour** - so a free tier cannot be spent in an afternoon. `0` removes the
   limit.
 
 ### Mail
 
-A sample-invitation sender — the student and mentor invitations say different things, so you can send
-yourself either — and a log of recent mail: bookings, cancellations, reminders and invitations.
+A sample-invitation sender - the student, mentor and institution invitations say different things, so
+you can send yourself any of the three - and a log of recent mail: bookings, cancellations, reminders and invitations.
 "Accepted" means the site handed the message off without complaint; it cannot tell you the message was
 delivered or read.

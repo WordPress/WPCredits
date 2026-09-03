@@ -130,8 +130,13 @@ class WPCPM_Institution_People {
 		// `wpcpm-people` hooks style only what is this card's own.
 		printf( '<section class="wpcpm-institution__card wpcpm-people" id="%s">', esc_attr( self::ANCHOR ) );
 
+		// The same disclosure the roster's groups and the enrolment form are drawn in, open by
+		// default: a short list of colleagues is not something to hide, but a page on which
+		// every other panel folds and this one does not hands the reader a chevron that works
+		// on one row and is missing on the next. Same classes on purpose, so the theme's one
+		// set of rules for the fold, the chevron and the inset applies here without a copy.
 		printf(
-			'<h2 class="wpcpm-institution__heading wpcpm-people__title">%1$s <span class="wpcpm-people__count">%2$s</span></h2>',
+			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s <span class="wpcpm-group__count wpcpm-people__count">%2$s</span></span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
 			esc_html__( 'Institution representatives', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
 		);
@@ -189,6 +194,7 @@ class WPCPM_Institution_People {
 
 		self::render_read_line( $read );
 
+		echo '</div></details>';
 		echo '</section>';
 	}
 

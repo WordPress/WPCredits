@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.16.6
+Stable tag: 1.16.7
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.16.7 =
+* An open group on the Institution Dashboard shows a chevron pointing down, as an open student card does. The plugin rotates its own chevron when a group opens, and that rotation was landing on this theme's icon, which drew a corner instead; the student cards had their own rule and the groups did not. With every panel on that page now a disclosure, the open state is the one a school sees first.
 
 = 1.16.6 =
 * "Current" and "Waiting for a mentor" join the same left edge as everything else on the Institution Dashboard. An open group draws its name as a heading rather than as a clickable row, and the heading carries its 32px inset in padding where the row carries it in margin. 1.16.5 zeroed the row and left the heading, so the two open groups stood alone while the collapsed rows beneath them had moved.

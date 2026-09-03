@@ -496,11 +496,15 @@ ck( 'Bo is not', has( group_rows( $html, 'current' ), 'Bo Example' ), false );
 ck( 'Bo is waiting, and the row says a mentor is assigned',
 	has( group_rows( $html, 'waiting' ), 'A mentor is assigned. The report record has not been created yet.' ), true );
 ck( 'Cy is waiting with no mentor at all', has( group_rows( $html, 'waiting' ), 'No mentor yet.' ), true );
-ck( 'the collapsed groups are disclosures', substr_count( $html, '<details class="wpcpm-group__disclosure">' ), 2 );
-// The group, not its students. Since the roster became the Mentor Report Card's component
-// every student is a disclosure of its own, so "no <details> in here" would now be false for
-// a reason that has nothing to do with whether the group is collapsed.
-ck( 'and Current is not one of them', has( group_rows( $html, 'current' ), 'wpcpm-group__disclosure' ), false );
+// Every group is a disclosure, so the same chevron is on every row of the page. The two a
+// school works from start open; the two it reads rarely start closed. The group, not its
+// students: since the roster became the Mentor Report Card's component every student is a
+// disclosure of its own, so the assertions name the group's own tag.
+ck( 'all four groups are disclosures', substr_count( $html, '<details class="wpcpm-group__disclosure"' ), 4 );
+ck( 'Current starts open', has( group_rows( $html, 'current' ), '<details class="wpcpm-group__disclosure" open>' ), true );
+ck( 'so does Waiting', has( group_rows( $html, 'waiting' ), '<details class="wpcpm-group__disclosure" open>' ), true );
+ck( 'Finished starts closed', has( group_rows( $html, 'finished' ), '<details class="wpcpm-group__disclosure">' ), true );
+ck( 'and so does Did not start', has( group_rows( $html, 'not_started' ), '<details class="wpcpm-group__disclosure">' ), true );
 
 // ...until it is long. One institution has forty-two students on the program at once, and an
 // open list of forty-two buries the groups, the people and the agreement under it. Past
@@ -534,7 +538,8 @@ $long = render();
 
 // Named for the Current group, not "somewhere on the page": Finished and Did not start are
 // disclosures whatever their length, so counting them would pass with the ceiling deleted.
-ck( 'a group longer than the ceiling starts closed', has( group_rows( $long, 'current' ), 'wpcpm-group__disclosure' ), true );
+ck( 'a group longer than the ceiling starts closed', has( group_rows( $long, 'current' ), '<details class="wpcpm-group__disclosure">' ), true );
+ck( 'and not open', has( group_rows( $long, 'current' ), '<details class="wpcpm-group__disclosure" open>' ), false );
 ck( 'and says how many are inside it without being opened', has( $long, '>' . ( WPCPM_Institution_Roster_View::OPEN_MAX + 1 ) . '<' ), true );
 ck( 'the students are still there, one card each, for search and for the browser to find',
     substr_count( $long, 'wpcpm-mentee__disclosure' ), WPCPM_Institution_Roster_View::OPEN_MAX + 1 );

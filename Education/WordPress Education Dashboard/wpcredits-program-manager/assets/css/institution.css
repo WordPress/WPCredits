@@ -198,9 +198,9 @@
 
 /* The People card and the student detail view carry `wpcpm-institution__card` as
    well, so their box is the one above and is not repeated here. */
-.wpcpm-agreement-panel__title,
-.wpcpm-agreement-card__title,
-.wpcpm-people__title,
+/* The People card's and both agreement blocks' headings are no longer here: each is the
+   summary of a `wpcpm-group__disclosure` now, drawn and spaced by the group rules the roster
+   shares, so that one chevron looks the same on every panel of the page. */
 .wpcpm-roster__title {
 	font-size: 1.05em;
 	margin: 0 0 0.75em;

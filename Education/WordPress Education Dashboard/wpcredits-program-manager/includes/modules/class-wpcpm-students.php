@@ -122,6 +122,7 @@ class WPCPM_Students extends WPCPM_Module {
 			WPCPM_Students_Sync::META_MENTOR,
 			WPCPM_Students_Sync::META_UPDATED,
 			WPCPM_Student_Feedback::META_RECORD,
+			WPCPM_Student_Feedback::META_RECORD_PLACEMENT,
 			'wpcpm_student_invited',
 		) as $meta_key ) {
 			delete_metadata( 'user', 0, $meta_key, '', true );

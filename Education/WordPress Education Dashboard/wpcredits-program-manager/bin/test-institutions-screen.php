@@ -106,7 +106,7 @@ class WP_User {
 	}
 	public function exists() { return $this->ID > 0; }
 }
-class WP_Post { public $ID = 0, $post_content = '', $post_type = '', $post_status = 'publish', $post_title = '', $post_date_gmt = ''; }
+class WP_Post { public $ID = 0, $post_content = '', $post_type = '', $post_status = 'publish', $post_title = '', $post_date_gmt = '', $post_modified_gmt = ''; }
 class WP_Role {}
 
 /**
@@ -194,7 +194,19 @@ function wp_send_json_success( $d = null ) { $GLOBALS['json'] = $d; throw new Ex
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect: ' . $to ); }
 function wp_die( $m = '', $c = 0 ) { throw new Exception( 'wp_die: ' . $m ); }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
-function add_query_arg( $k, $v = '', $u = '' ) { return $u . ( false === strpos( $u, '?' ) ? '?' : '&' ) . $k . '=' . $v; }
+// Both shapes core accepts: a key and a value, and a map of them. The reports card uses the
+// map form for the switcher argument, and a stub that only knew the first would drop it and
+// let a link that sends a manager to the wrong institution pass.
+function add_query_arg( $k, $v = '', $u = '' ) {
+	$pairs = is_array( $k ) ? $k : array( $k => $v );
+	$url   = is_array( $k ) ? (string) $v : (string) $u;
+
+	foreach ( $pairs as $key => $value ) {
+		$url .= ( false === strpos( $url, '?' ) ? '?' : '&' ) . $key . '=' . $value;
+	}
+
+	return $url;
+}
 function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
 function wp_create_nonce( $a = '' ) { return 'nonce'; }
 function esc_js( $s ) { return str_replace( array( "'", "\n" ), array( "\\'", '' ), (string) $s ); }
@@ -852,6 +864,106 @@ if ( ! class_exists( 'WPCPM_Mentors' ) ) {
 	}
 }
 
+/*
+ * The semester reports card.
+ *
+ * The card is one query and one row renderer, so the two report classes are stubbed to what it
+ * actually reads: the post type it queries, the two meta accessors, the state, the generated
+ * date, the switcher link and the consent form. The last of those is the only control on a
+ * report that lives outside the institution's own dashboard - design spec open question 2 puts
+ * the send in a program manager's hands - so this screen is where it has to appear.
+ */
+if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
+	class WPCPM_Semester_Report {
+		const POST_TYPE   = 'wpcpm_inst_report';
+		const STATE_FINAL = 'final';
+		public static function institution_of( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_institution', true ); }
+		public static function cohort_of( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_cohort', true ); }
+		public static function generated_at( WP_Post $post ) { return (int) get_post_meta( $post->ID, '_wpcpm_report_generated', true ); }
+		public static function state( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_state', true ); }
+		public static function init() {}
+		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Semester_Report::delete_all' ); return 0; }
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Semester_Report_Screen' ) ) {
+	class WPCPM_Semester_Report_Screen {
+		const ACTION_ASK  = 'wpcpm_report_ask';
+		const ASK_PER_RUN = 25;
+		const CRON_ASK    = 'wpcpm_report_ask_queue';
+		const META_ASKED  = 'wpcpm_report_consent_asked';
+		const META_STASH  = 'wpcpm_report_stash';
+		public static function report_url( $cohort ) { return '' === (string) $cohort ? '' : 'https://example.test/institution-dashboard/?wpcpm_report=' . $cohort; }
+		public static function render_ask_form( $post_id ) {
+			printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
+			wp_nonce_field( self::ACTION_ASK . '_' . (int) $post_id );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_ASK ) );
+			printf( '<input type="hidden" name="report" value="%d" />', (int) $post_id );
+			echo '<button type="submit">Ask the students</button></form>';
+		}
+		public static function init() {}
+		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Semester_Report_Screen::delete_all' ); return 0; }
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Student_Feedback' ) ) {
+	class WPCPM_Student_Feedback {
+		const META_REPORT_PERMISSIONS = 'wpcpm_report_permissions';
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
+	class WPCPM_Institution_Roster {
+		const ARG_VIEW = 'wpcpm_institution_view';
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Cohort' ) ) {
+	class WPCPM_Cohort {
+		public static function label( $key ) { return 'Semester ' . (string) $key; }
+	}
+}
+
+/*
+ * `get_posts()` and `wp_count_posts()`, for the reports card and nothing else.
+ *
+ * Filtered here rather than in the store, because the card's own query arguments are what is
+ * being pinned: it asks for `private` and not `any`, so a report somebody trashed by hand is a
+ * withdrawn document and not a row to list, and this stub would list it if the card stopped
+ * saying so.
+ */
+function get_posts( $args = array() ) {
+	$type   = isset( $args['post_type'] ) ? (string) $args['post_type'] : '';
+	$status = isset( $args['post_status'] ) ? (string) $args['post_status'] : 'publish';
+	$found  = array();
+
+	foreach ( $GLOBALS['posts'] as $post ) {
+		if ( $post->post_type === $type && $post->post_status === $status ) { $found[] = $post; }
+	}
+
+	usort( $found, static function ( $a, $b ) { return strcmp( $b->post_modified_gmt, $a->post_modified_gmt ); } );
+
+	$limit = isset( $args['posts_per_page'] ) ? (int) $args['posts_per_page'] : -1;
+
+	return $limit > 0 ? array_slice( $found, 0, $limit ) : $found;
+}
+
+function wp_count_posts( $type = 'post' ) {
+	$tally = array( 'private' => 0 );
+
+	foreach ( $GLOBALS['posts'] as $post ) {
+		if ( $post->post_type === $type && 'private' === $post->post_status ) { ++$tally['private']; }
+	}
+
+	return (object) $tally;
+}
+
+function get_post_modified_time( $format, $gmt = false, $post = null, $translate = false ) {
+	$stamp = $post instanceof WP_Post ? strtotime( $post->post_modified_gmt . ' +0000' ) : 0;
+
+	return 'U' === $format ? (int) $stamp : gmdate( $format, (int) $stamp );
+}
+
 /**
  * The mail layer, recording which door each message left by.
  *
@@ -1160,12 +1272,50 @@ ck( 'every option the store writes is kept out of the autoloaded set', array(
 
 echo "\n=== The screen, rendered from the seed fixture ===\n";
 
+/**
+ * Stand one semester report up in the store.
+ *
+ * @param int    $id      Post ID.
+ * @param string $record  Institutions record ID.
+ * @param string $cohort  Cohort key.
+ * @param string $state   `draft` or `final`.
+ * @param int    $at      When it was generated and last edited, unix time.
+ * @param string $status  Post status, so a trashed report can be seeded too.
+ * @return WP_Post
+ */
+function seed_report( $id, $record, $cohort, $state, $at, $status = 'private' ) {
+	$post                    = new WP_Post();
+	$post->ID                = (int) $id;
+	$post->post_type         = WPCPM_Semester_Report::POST_TYPE;
+	$post->post_status       = $status;
+	$post->post_title        = 'Report ' . $cohort;
+	$post->post_date_gmt     = gmdate( 'Y-m-d H:i:s', (int) $at );
+	$post->post_modified_gmt = gmdate( 'Y-m-d H:i:s', (int) $at );
+
+	$GLOBALS['posts'][ (int) $id ] = $post;
+	$GLOBALS['pmeta'][ (int) $id ] = array();
+
+	update_post_meta( $id, '_wpcpm_report_institution', $record );
+	update_post_meta( $id, '_wpcpm_report_cohort', $cohort );
+	update_post_meta( $id, '_wpcpm_report_state', $state );
+	update_post_meta( $id, '_wpcpm_report_generated', (int) $at );
+
+	return $post;
+}
+
+$report_record = (string) $seed['institutions'][1]['id'];
+
+seed_report( 9101, $report_record, '2026-H1', 'draft', 1756000000 );
+seed_report( 9102, $report_record, '2025-H2', 'final', 1755000000 );
+// Trashed by hand: a document somebody withdrew, which is not a row to list.
+seed_report( 9103, $report_record, '2025-H1', 'draft', 1754000000, 'trash' );
+
 $html = render_screen();
 
 ck( 'the page opens with the skeleton', array(
 	false !== strpos( $html, '<div class="wrap wpcpm-wrap"><h1>Institutions</h1><p class="wpcpm-lede">' ),
 	substr_count( $html, '<div class="wpcpm-card">' ),
-), array( true, 9 ) );
+), array( true, 10 ) );
 
 ck( 'the pipeline counts every fixture row', false !== strpos( $html, 'Pipeline <span class="wpcpm-count">' . $seed['counts']['institutions'] . '</span>' ), true );
 
@@ -1609,6 +1759,45 @@ ck( 'and the ones with no version are named for what they are, never called unkn
 ), array( false, true ) );
 
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'] = $rows;
+
+/* ---- the semester reports card ------------------------------------------ */
+
+echo "\n=== The semester reports card ===\n";
+
+// One list of what every institution is writing. Two things are being pinned: what it counts,
+// and that the consent request is offered here and only here. Open question 2 puts the send in
+// a program manager's hands, because the institution is the party that gains from a student's
+// yes and must not be the party that asks for it, so this screen is the one that draws it.
+ck( 'the card counts the reports that exist', false !== strpos( $html, 'Semester reports <span class="wpcpm-count">2</span>' ), true );
+ck( 'and not the one somebody trashed', false !== strpos( $html, 'Report 2025-H1' ), false );
+
+$report_rows = array();
+
+if ( preg_match_all( '#<tr><td>(.*?)</tr>#s', $html, $found ) ) {
+	foreach ( $found[1] as $row ) {
+		if ( false !== strpos( $row, WPCPM_Semester_Report_Screen::ACTION_ASK ) ) { $report_rows[] = $row; }
+	}
+}
+
+ck( 'each report is a row', count( $report_rows ), 2 );
+ck( 'newest edit first', false !== strpos( $report_rows[0], '2026-H1' ), true );
+ck( 'a draft says so', false !== strpos( $report_rows[0], 'Draft' ), true );
+ck( 'and a final report says so', false !== strpos( $report_rows[1], 'Final' ), true );
+
+// The switcher argument, and the reason it is asserted: the link goes to the institution's own
+// dashboard, and without it a manager lands on whichever institution is their fallback and
+// reads a different school's report under this row's name.
+ck( 'the row opens the report as that institution', false !== strpos( $report_rows[0], WPCPM_Institution_Roster::ARG_VIEW . '=' . $report_record ), true );
+ck( 'every row offers the consent request', substr_count( $html, 'value="' . WPCPM_Semester_Report_Screen::ACTION_ASK . '"' ), 2 );
+ck( 'each with a nonce keyed to its own report', false !== strpos( $report_rows[0], 'nonce-' . WPCPM_Semester_Report_Screen::ACTION_ASK . '_9101' ), true );
+
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+
+$empty_card = render_screen();
+
+ck( 'with nothing written, the card says so', false !== strpos( $empty_card, 'No institution has generated a report yet.' ), true );
+ck( 'and offers nobody a request to send', false !== strpos( $empty_card, 'value="' . WPCPM_Semester_Report_Screen::ACTION_ASK . '"' ), false );
 
 /* ---- the storage card --------------------------------------------------- */
 
@@ -2624,6 +2813,21 @@ ck( 'uninstall() drops the three options, every delete_all() and the membership 
 	in_array( 'delete_metadata:wpcpm_institution_profile', $names, true ),
 ), array( true, true, true, true, true, true, true, true, true, true ) );
 ck( 'and leaves the signed files where they are', is_file( $base . 'agreements/2026/abc.pdf' ), true );
+
+/*
+ * The semester report, on the way out. Both halves hold something an uninstall has to take
+ * with it: the reports themselves, which carry students' own words released to one university
+ * for one document; the three user meta keys; the ask cron; and the per-report options, which
+ * are named after post IDs and so have no name this file could carry a list of.
+ */
+ck( 'and takes the semester reports and their leftovers with it', array(
+	in_array( 'WPCPM_Semester_Report::delete_all', $names, true ),
+	in_array( 'WPCPM_Semester_Report_Screen::delete_all', $names, true ),
+	in_array( 'unschedule:' . WPCPM_Semester_Report_Screen::CRON_ASK, $names, true ),
+	in_array( 'delete_metadata:' . WPCPM_Student_Feedback::META_REPORT_PERMISSIONS, $names, true ),
+	in_array( 'delete_metadata:' . WPCPM_Semester_Report_Screen::META_ASKED, $names, true ),
+	in_array( 'delete_metadata:' . WPCPM_Semester_Report_Screen::META_STASH, $names, true ),
+), array( true, true, true, true, true, true ) );
 
 /* ---- clean up ----------------------------------------------------------- */
 

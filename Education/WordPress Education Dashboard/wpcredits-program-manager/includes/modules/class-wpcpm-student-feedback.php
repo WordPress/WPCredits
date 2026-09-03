@@ -54,6 +54,31 @@ class WPCPM_Student_Feedback {
 	/** Where the student's own feedback record ID is remembered, so it is looked up once. */
 	const META_RECORD = 'wpcpm_feedback_record';
 
+	/**
+	 * User meta: the institution `META_RECORD` was resolved against, or '' when there was none.
+	 *
+	 * The stamp is only as good as what the site knew when it was written. Every student who
+	 * ever opened the feedback section before `preferred()` existed carries a stamp chosen by
+	 * "the first row Airtable returned", and for the fifty duplicated addresses that is a coin
+	 * toss that `preferred()` never got to correct, because the stamp is read first. So a
+	 * withdrawal typed by a student landed on the other school's row while their own school's
+	 * report went on reading the row that said yes. Recording *what the choice was made with*
+	 * lets the lookup run again exactly when that knowledge has changed, once, rather than on
+	 * every render or never.
+	 */
+	const META_RECORD_PLACEMENT = 'wpcpm_feedback_record_for';
+
+	/**
+	 * Where a student's own answers in the permissions box are stamped: what they said, the
+	 * wording they were shown, and when.
+	 *
+	 * Airtable stays the authority on what the semester report may print, and it is re-read on
+	 * every render so a withdrawal takes effect at once. This is the site's own record of the
+	 * moment consent was given, which a row that has since been edited cannot supply: the
+	 * question a student answered in March is not necessarily the question the form asks today.
+	 */
+	const META_REPORT_PERMISSIONS = 'wpcpm_report_permissions';
+
 	/** Longest a free-text answer may be. */
 	const MAX_TEXT = 5000;
 
@@ -283,7 +308,7 @@ class WPCPM_Student_Feedback {
 					'label' => __( 'One main change that would improve the program', 'wpcredits-program-manager' ),
 					'type'  => 'textarea',
 				),
-				// Optional, and fenced off from the feedback above it: these two are about what may
+				// Optional, and fenced off from the feedback above it: these are about what may
 				// be done with a student's name, not about how the program went.
 				'F3 - May we share a quote about your experience publicly? If so, please share your thoughts below' => array(
 					'label' => __( 'May we share a quote about your experience publicly? If so, write it here.', 'wpcredits-program-manager' ),
@@ -294,6 +319,28 @@ class WPCPM_Student_Feedback {
 					'label' => __( 'Yes, you can contact me about WordPress events, learning and skill building opportunities, and career opportunities.', 'wpcredits-program-manager' ),
 					'type'  => 'checkbox',
 					'group' => 'permissions',
+				),
+				// The institution's semester report. Asked in the second person and about *this
+				// student*, because that is what is being decided: not whether the program may
+				// describe itself, but whether one named person appears in a document their
+				// university sends out. Nothing else on this page leaves the program, so these
+				// two carry the whole weight of that difference, and `handle_save()` refuses to
+				// write them for anybody but the student themselves.
+				//
+				// The choices are the base's, byte for byte: `update_records()` sends no
+				// `typecast`, so a choice spelled any other way is a 422 for the whole record and
+				// the student is told their answers could not be sent.
+				'F3 - Report: my institution may list me in its semester report' => array(
+					'label'   => __( 'May your institution list you in its semester report?', 'wpcredits-program-manager' ),
+					'type'    => 'select',
+					'choices' => array( 'Yes, with my name', 'Yes, by my blog address only', 'No' ),
+					'group'   => 'permissions',
+				),
+				'F3 - Report: my institution may quote my feedback in its semester report' => array(
+					'label'   => __( 'May your institution quote your feedback in its semester report?', 'wpcredits-program-manager' ),
+					'type'    => 'select',
+					'choices' => array( 'Yes, with my name', 'Yes, without my name', 'No' ),
+					'group'   => 'permissions',
 				),
 			),
 		);
@@ -386,10 +433,27 @@ class WPCPM_Student_Feedback {
 	 * @return string|WP_Error Record ID.
 	 */
 	public static function record_for( WP_User $student, array $program, $create = false ) {
+		// Which institution the site says this student belongs to, and only when it is a record
+		// ID: the stamp is an Institutions record and the link column takes record IDs, so a name
+		// that slipped in would be refused for the whole write.
+		$institution = trim( (string) get_user_meta( $student->ID, WPCPM_Students_Sync::META_INSTITUTION, true ) );
+		$institution = WPCPM_Mentors_Sync::is_record_id( $institution ) ? $institution : '';
+
 		$known = trim( (string) get_user_meta( $student->ID, self::META_RECORD, true ) );
 
+		// **The stamp is believed only when it was made with what the site knows now.** A
+		// student the site cannot place has nothing to prefer between rows, so their stamp
+		// stands; a placed student's stamp stands when it was resolved against that same
+		// institution. Anything else - a stamp from before the placement was known, or from a
+		// different placement - is the coin toss described on `META_RECORD_PLACEMENT`, and it is
+		// resolved again, once, and re-stamped, so the cost is one read per change of knowledge
+		// and not one per render.
 		if ( '' !== $known ) {
-			return $known;
+			$resolved_for = trim( (string) get_user_meta( $student->ID, self::META_RECORD_PLACEMENT, true ) );
+
+			if ( '' === $institution || $resolved_for === $institution ) {
+				return $known;
+			}
 		}
 
 		$email = isset( $program['email'] ) ? trim( (string) $program['email'] ) : '';
@@ -409,7 +473,9 @@ class WPCPM_Student_Feedback {
 				// roster differ by case often enough to matter, and a miss here does not read as a
 				// miss — it silently starts a second row.
 				'formula' => sprintf( 'LOWER({Email}) = LOWER(%s)', self::quote( $email ) ),
-				'fields'  => array( 'Email' ),
+				// `Institution` comes back in the same read rather than a second one, because the
+				// answer to "which of these rows is this student's" is on it. See `preferred()`.
+				'fields'  => array( 'Email', 'Institution' ),
 			)
 		);
 
@@ -417,11 +483,20 @@ class WPCPM_Student_Feedback {
 			return $page;
 		}
 
-		if ( ! empty( $page['records'][0]['id'] ) ) {
-			$record = (string) $page['records'][0]['id'];
+		$record = self::preferred( $page['records'], $institution );
+
+		if ( '' !== $record ) {
 			update_user_meta( $student->ID, self::META_RECORD, $record );
+			update_user_meta( $student->ID, self::META_RECORD_PLACEMENT, $institution );
 
 			return $record;
+		}
+
+		// The address has no row at all any more, but a stamp says it once did. The row was
+		// deleted in the base; the stamp is not evidence of anything now, and creating a fresh
+		// row below is the right answer for a student who came to write.
+		if ( '' !== $known && ! $create ) {
+			return new WP_Error( 'wpcpm_feedback_none', __( 'You have no feedback record yet.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( ! $create ) {
@@ -439,6 +514,15 @@ class WPCPM_Student_Feedback {
 			$cells['Course'] = (string) $program['program'];
 		}
 
+		// The institution, on the row this student's answers will live on. It is linked on all 834
+		// existing rows, and the semester report fetches Feedback by address and then keeps only
+		// the rows whose link is empty or names the institution it is writing about: a new row
+		// with no link would be read by every institution rather than by none, and a consent
+		// given on it would be printed by a school this student never attended.
+		if ( '' !== $institution ) {
+			$cells['Institution'] = array( $institution );
+		}
+
 		$created = $airtable->create_records( $settings['feedback_table'], array( array( 'fields' => $cells ) ) );
 
 		if ( is_wp_error( $created ) ) {
@@ -450,8 +534,62 @@ class WPCPM_Student_Feedback {
 		}
 
 		update_user_meta( $student->ID, self::META_RECORD, (string) $created[0] );
+		update_user_meta( $student->ID, self::META_RECORD_PLACEMENT, $institution );
 
 		return (string) $created[0];
+	}
+
+	/**
+	 * Which of several Feedback rows for one address is this student's.
+	 *
+	 * About fifty addresses have more than one row in the table, so "the first one Airtable
+	 * returned" is a coin toss, and until now it decided which row a student's answers went to.
+	 * That is survivable for feedback and not survivable for consent: the semester report fetches
+	 * Feedback by address and keeps only the rows whose `Institution` is empty or names the
+	 * institution it is writing about, so a "Yes, with my name" sitting on a row linked to a
+	 * different school is never read, and the student is left out of a report they agreed to
+	 * appear in without anybody being told why.
+	 *
+	 * So: this institution's row, else one with no link at all, else the first. The middle rung is
+	 * there because the report keeps unlinked rows too, and a row linked to *another* school is the
+	 * one row it is certain to throw away.
+	 *
+	 * A student the site cannot place keeps the old answer, the first row: without an institution
+	 * there is nothing to prefer, and no report fetches them by an address it does not hold.
+	 *
+	 * @param array  $records     Records from the address lookup, as Airtable returned them.
+	 * @param string $institution Institutions record ID this student belongs to, or ''.
+	 * @return string Record ID, or '' when there are no rows at all.
+	 */
+	private static function preferred( array $records, $institution ) {
+		$first    = '';
+		$unlinked = '';
+
+		foreach ( $records as $record ) {
+			if ( empty( $record['id'] ) ) {
+				continue;
+			}
+
+			$id = (string) $record['id'];
+
+			if ( '' === $first ) {
+				$first = $id;
+			}
+
+			$linked = isset( $record['fields']['Institution'] )
+				? array_map( 'strval', (array) $record['fields']['Institution'] )
+				: array();
+
+			if ( '' !== $institution && in_array( $institution, $linked, true ) ) {
+				return $id;
+			}
+
+			if ( '' === $unlinked && empty( $linked ) ) {
+				$unlinked = $id;
+			}
+		}
+
+		return ( '' !== $institution && '' !== $unlinked ) ? $unlinked : $first;
 	}
 
 	/**
@@ -531,6 +669,23 @@ class WPCPM_Student_Feedback {
 		return "'" . str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), (string) $value ) . "'";
 	}
 
+	/**
+	 * Whether the person on this request is the student themselves.
+	 *
+	 * Deliberately not a capability. `WPCPM_Student_Report_Form::user_can_edit()` answers "may
+	 * this page be filled in", and a program manager passes it; the permissions box asks a
+	 * different question, "is this person's own name being given away", and no capability can
+	 * stand in for that. Both the form and the handler ask this one so they cannot disagree.
+	 *
+	 * @param int $student_id The student the form is about.
+	 * @return bool
+	 */
+	private static function is_self( $student_id ) {
+		$student_id = (int) $student_id;
+
+		return $student_id > 0 && get_current_user_id() === $student_id;
+	}
+
 
 	/*
 	 * Rendering
@@ -559,6 +714,12 @@ class WPCPM_Student_Feedback {
 		$record = self::record_for( $student, $program );
 		$values = is_wp_error( $record ) ? array() : self::values( $record );
 
+		// `user_can_edit()` is true for a program manager as well as for the student, and one box
+		// on this page turns on which of the two is reading: a permission is only a permission
+		// when the person it is about gave it. So who the reader is travels down with `$can`
+		// rather than being asked again three functions lower, where it would be easy to forget.
+		$is_self = self::is_self( $student->ID );
+
 		// A record that could not be read is not the same as a student who has not answered yet.
 		// The forms still render — they are blank either way — but a failed read must not be shown
 		// as "you have answered nothing", which invites somebody to type it all in again over
@@ -580,9 +741,13 @@ class WPCPM_Student_Feedback {
 		// Said once, under the heading. They sit in the same section as the report form and look
 		// the same, so without this a student would reasonably assume these count towards their
 		// credits — and answer them the way somebody answers a marked question.
+		//
+		// **The exception is named here rather than left to be discovered.** The permissions box
+		// at the end of the last form is the one place an answer can reach the institution, and a
+		// promise that is true everywhere except in one box is not a promise a student can act on.
 		printf(
 			'<p class="wpcpm-student__note wpcpm-feedback__intro">%s</p>',
-			esc_html__( 'The forms below are feedback about the program itself. They are not part of your report, they are not marked, and your institution does not see them — so please say what you actually think.', 'wpcredits-program-manager' )
+			esc_html__( 'The forms below are feedback about the program itself. They are not part of your report, they are not marked, and your institution does not see them, so please say what you actually think. The one exception is the permissions box at the end of the last form: it asks what your institution may put in its own semester report, and nothing from it is shared unless you say yes.', 'wpcredits-program-manager' )
 		);
 
 		if ( $unread ) {
@@ -605,7 +770,7 @@ class WPCPM_Student_Feedback {
 
 		foreach ( $unlocked as $key ) {
 			if ( isset( $forms[ $key ] ) ) {
-				self::render_form( $key, $forms[ $key ], $student, $values, $can );
+				self::render_form( $key, $forms[ $key ], $student, $values, $can, $is_self );
 			}
 		}
 
@@ -666,8 +831,9 @@ class WPCPM_Student_Feedback {
 	 * @param WP_User $student The student.
 	 * @param array   $values  Answers already on the record.
 	 * @param bool    $can     Whether it may be filled in.
+	 * @param bool    $is_self Whether the reader is the student themselves.
 	 */
-	private static function render_form( $key, array $form, WP_User $student, array $values, $can ) {
+	private static function render_form( $key, array $form, WP_User $student, array $values, $can, $is_self ) {
 		list( $answered, $asking ) = self::progress( $form, $values );
 
 		printf(
@@ -769,17 +935,30 @@ class WPCPM_Student_Feedback {
 		echo '</fieldset>';
 
 		if ( ! empty( $permissions ) ) {
-			// Its own box, its own heading, and a sentence saying it is optional. These two are
-			// about what may be done with somebody's name, and a student declining both must not
+			// Its own box, its own heading, and a sentence saying it is optional. These are all
+			// about what may be done with somebody's name, and a student declining them must not
 			// feel it reflects on the answers above.
 			printf(
 				'<fieldset class="wpcpm-report__group wpcpm-feedback__group wpcpm-feedback__group--permissions"><legend>%1$s</legend><p class="wpcpm-report__note">%2$s</p>',
 				esc_html__( 'Permissions', 'wpcredits-program-manager' ),
-				esc_html__( 'Optional, and separate from the feedback above. Leaving both blank changes nothing about your report or your place on the program.', 'wpcredits-program-manager' )
+				esc_html__( 'Optional, and separate from the feedback above. These are the only answers on this page that anyone outside the program sees, and only if you say yes. Leaving them blank changes nothing about your report or your place on the program.', 'wpcredits-program-manager' )
 			);
 
+			// **Read-only for anybody but the student**, said out loud rather than left as a row of
+			// greyed-out boxes nobody can explain. A manager can fill in the rest of this form on a
+			// student's behalf, and that is useful; a manager choosing "Yes, with my name" here
+			// would be a consent nobody gave, recorded under the student's name in a document their
+			// university prints. `handle_save()` refuses the write as well, because a disabled
+			// control is a courtesy to the browser and not a rule.
+			if ( $can && ! $is_self ) {
+				printf(
+					'<p class="wpcpm-report__note">%s</p>',
+					esc_html__( 'Only the student can answer these. Their answers are shown here so you can see what they said.', 'wpcredits-program-manager' )
+				);
+			}
+
 			foreach ( $permissions as $name => $spec ) {
-				self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : null, $can );
+				self::render_field( $name, $spec, isset( $values[ $name ] ) ? $values[ $name ] : null, $can && $is_self );
 			}
 
 			echo '</fieldset>';
@@ -1131,10 +1310,32 @@ class WPCPM_Student_Feedback {
 			? wp_unslash( $_POST['feedback'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Every value is validated by type below.
 			: array();
 
-		$cells = array();
+		// The permissions box is the student's own, and `user_can_edit()` above is not: it passes
+		// program managers too, and it is right to, because a manager typing up a paper survey on
+		// a student's behalf is a real errand. Consent is the one thing that errand cannot cover.
+		$is_self = self::is_self( $student_id );
+		$cells   = array();
+		$dropped = 0;
 
 		foreach ( $form['fields'] as $name => $spec ) {
 			$key = self::key( $name );
+
+			// **Never written by anybody but the student.** A manager choosing "Yes, with my name"
+			// would put a name into a document a university sends out on a permission its owner
+			// never gave, and nothing downstream could tell that consent from a real one. The cell
+			// is dropped and the rest of the form still saves: refusing the whole submission would
+			// lose answers that were legitimately typed in, and teach people to work around this.
+			//
+			// Skipped before the checkbox rule below, not after it: an absent checkbox reads as
+			// "unticked", so a manager saving a form they were shown with the box disabled would
+			// otherwise withdraw a consent the student had given.
+			if ( ! $is_self && isset( $spec['group'] ) && 'permissions' === $spec['group'] ) {
+				if ( isset( $posted[ $key ] ) ) {
+					++$dropped;
+				}
+
+				continue;
+			}
 
 			// A checkbox posts nothing when it is unticked, so it is read whether or not it is
 			// there — otherwise consent could be given and never withdrawn.
@@ -1150,7 +1351,9 @@ class WPCPM_Student_Feedback {
 		}
 
 		if ( empty( $cells ) ) {
-			self::bounce( 'feedback-nothing', $form_key );
+			// A post carrying nothing but somebody else's permissions is not an empty form, and
+			// saying "nothing was filled in" would hide the one thing worth knowing about it.
+			self::bounce( $dropped ? 'feedback-not-yours' : 'feedback-nothing', $form_key );
 		}
 
 		// Only now: an empty submission should not create a row for somebody who has not answered.
@@ -1188,7 +1391,91 @@ class WPCPM_Student_Feedback {
 		}
 
 		self::forget( $record );
-		self::bounce( 'feedback-saved', $form_key );
+
+		// Only the student reaches this: `$cells` cannot hold a permissions field otherwise.
+		if ( $is_self ) {
+			self::stamp_permissions( $student_id, $form, $cells );
+		}
+
+		self::bounce( $dropped ? 'feedback-not-yours' : 'feedback-saved', $form_key );
+	}
+
+	/**
+	 * Record what a student released, in the wording they were shown, and when.
+	 *
+	 * Airtable remains the authority: the semester report re-reads these columns on every render
+	 * so a withdrawal takes effect at once, and nothing reads this stamp to decide what may be
+	 * printed. What it is for is the question Airtable cannot answer six months later - *what were
+	 * they asked* - because the row holds today's answer under today's column name, and a question
+	 * that has since been reworded leaves no trace at all.
+	 *
+	 * Every field in the permissions box is stamped, not only the two the report reads: they are
+	 * one box, answered in one breath, and half a record of what somebody agreed to is worse than
+	 * none. The stamp is replaced rather than merged, because the box is on one form and one save
+	 * carries all of it - a merge could only ever leave an old answer sitting under a new time.
+	 *
+	 * @param int   $student_id The student.
+	 * @param array $form       The form definition that was shown.
+	 * @param array $cells      What is being written to Airtable, by column name.
+	 */
+	private static function stamp_permissions( $student_id, array $form, array $cells ) {
+		$answers = array();
+		$wording = array();
+
+		foreach ( $form['fields'] as $name => $spec ) {
+			if ( ! isset( $spec['group'] ) || 'permissions' !== $spec['group'] || ! array_key_exists( $name, $cells ) ) {
+				continue;
+			}
+
+			$answers[ $name ] = $cells[ $name ];
+			$wording[ $name ] = isset( $spec['label'] ) ? (string) $spec['label'] : '';
+		}
+
+		if ( empty( $answers ) ) {
+			return;
+		}
+
+		update_user_meta(
+			$student_id,
+			self::META_REPORT_PERMISSIONS,
+			array(
+				'v'       => 1,
+				'time'    => time(),
+				'answers' => $answers,
+				'wording' => $wording,
+			)
+		);
+
+		self::forget_report_cache( $student_id );
+	}
+
+	/**
+	 * Drop the semester report's cached reads for this student's institution.
+	 *
+	 * The report caches what it read from Airtable for five minutes per institution, which is right
+	 * for a page somebody is editing and wrong for a withdrawal: a student who has just said "No"
+	 * would go on being listed, by name, for as long as the cache stood, on the one screen where
+	 * being listed is the whole point.
+	 *
+	 * Through the report's own `forget()` rather than by deleting a transient, because the key
+	 * includes the set of addresses the read covered and cannot be worked out from one student.
+	 * Guarded with `class_exists()` because the report is a separate module: a checkout without it
+	 * must still be able to save a survey.
+	 *
+	 * @param int $student_id The student whose answers changed.
+	 */
+	private static function forget_report_cache( $student_id ) {
+		if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
+			return;
+		}
+
+		$institution = trim( (string) get_user_meta( $student_id, WPCPM_Students_Sync::META_INSTITUTION, true ) );
+
+		if ( '' === $institution ) {
+			return;
+		}
+
+		WPCPM_Semester_Report::forget( $institution );
 	}
 
 	/**
@@ -1248,11 +1535,15 @@ class WPCPM_Student_Feedback {
 	 */
 	public static function message( $status ) {
 		$messages = array(
-			'feedback-saved'   => array( 'success', __( 'Thank you — your answers have been sent. You can change them at any time.', 'wpcredits-program-manager' ) ),
-			'feedback-nothing' => array( 'error', __( 'Nothing was filled in, so nothing was sent.', 'wpcredits-program-manager' ) ),
-			'feedback-refused' => array( 'error', __( 'Airtable would not take your answers. Nothing has been lost — try again in a moment.', 'wpcredits-program-manager' ) ),
-			'feedback-failed'  => array( 'error', __( 'Your feedback could not be matched to your program record, so nothing was sent.', 'wpcredits-program-manager' ) ),
-			'feedback-unknown' => array( 'error', __( 'That form does not exist.', 'wpcredits-program-manager' ) ),
+			'feedback-saved'     => array( 'success', __( 'Thank you — your answers have been sent. You can change them at any time.', 'wpcredits-program-manager' ) ),
+			'feedback-nothing'   => array( 'error', __( 'Nothing was filled in, so nothing was sent.', 'wpcredits-program-manager' ) ),
+			'feedback-refused'   => array( 'error', __( 'Airtable would not take your answers. Nothing has been lost — try again in a moment.', 'wpcredits-program-manager' ) ),
+			'feedback-failed'    => array( 'error', __( 'Your feedback could not be matched to your program record, so nothing was sent.', 'wpcredits-program-manager' ) ),
+			'feedback-unknown'   => array( 'error', __( 'That form does not exist.', 'wpcredits-program-manager' ) ),
+			// Seen by a manager, and it names the rule rather than the failure: the answers were
+			// not refused because something went wrong, but because they are not this reader's to
+			// give. Anything else on the same submission was saved.
+			'feedback-not-yours' => array( 'error', __( 'The permission answers are the student\'s own to give, so they were not saved. Anything else on the form was.', 'wpcredits-program-manager' ) ),
 		);
 
 		return isset( $messages[ $status ] ) ? $messages[ $status ] : array();

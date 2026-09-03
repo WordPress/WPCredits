@@ -115,6 +115,15 @@ class WPCPM_Institutions extends WPCPM_Module {
 	const CONSENT_QUESTION_ADDED = '2026-07-20';
 
 	/**
+	 * How many semester reports the card lists.
+	 *
+	 * A hundred and five institutions and two semesters a year, so the whole set is a page of
+	 * its own before long. Newest edit first, because the question this card answers is what
+	 * the schools have been doing rather than what they have ever done.
+	 */
+	const REPORTS_SHOWN = 60;
+
+	/**
 	 * The five decisions a manager takes on an application, and the deletion behind them.
 	 *
 	 * One action apiece rather than one handler reading a posted verb: the nonce is keyed to
@@ -329,6 +338,14 @@ class WPCPM_Institutions extends WPCPM_Module {
 		WPCPM_Institution_Import_Form::init();
 		WPCPM_Institution_Create::init();
 
+		// The semester report, in the module's two halves: the data half registers the post
+		// type and its meta, the request-touching half the nine handlers and the print assets.
+		// Both are booted here rather than from the dashboard, because the print document is an
+		// `admin_post_` route and a handler registered only when a page renders is a handler
+		// that is not there when the form posts to it.
+		WPCPM_Semester_Report::init();
+		WPCPM_Semester_Report_Screen::init();
+
 		WPCPM_Institutions_Sync::register_cron();
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
@@ -425,6 +442,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_DISCARD );
 		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_REMINDERS );
 		wp_clear_scheduled_hook( WPCPM_Institution_Invite::CRON_EXPIRE );
+		wp_clear_scheduled_hook( WPCPM_Semester_Report_Screen::CRON_ASK );
 
 		delete_option( WPCPM_Institution_Application::OPT_PAGE );
 		delete_option( self::OPTION_APP_LOG );
@@ -438,10 +456,29 @@ class WPCPM_Institutions extends WPCPM_Module {
 		// The batch posts hold a school's list of names and addresses, so they go with the
 		// rest rather than outliving the plugin that made them.
 		WPCPM_Institution_Import::delete_all();
+		// The semester reports go for the same reason and one more: each one holds students'
+		// own words, released to one university for one document. The consent that put them
+		// there was consent to that document, not to a post that outlives the plugin.
+		WPCPM_Semester_Report::delete_all();
 
 		foreach ( self::member_meta() as $meta_key ) {
 			delete_metadata( 'user', 0, $meta_key, '', true );
 		}
+
+		// The report's three user meta keys, each named through the class that writes it. The
+		// permissions stamp is a copy of an answer that lives in Airtable, the asked stamp is
+		// a reminder clock, and the stash is an unsent draft somebody's colleague overwrote;
+		// none of the three is the answer itself, and none of them means anything once the
+		// screens that read them are gone.
+		delete_metadata( 'user', 0, WPCPM_Student_Feedback::META_REPORT_PERMISSIONS, '', true );
+		delete_metadata( 'user', 0, WPCPM_Semester_Report_Screen::META_ASKED, '', true );
+		delete_metadata( 'user', 0, WPCPM_Semester_Report_Screen::META_STASH, '', true );
+
+		// The generate lock and the ask queue are per report, so they have no single name to
+		// delete. They are transient by intent rather than by storage (a lock has to survive a
+		// crashed request, which is why it is an option), and left behind they are rows in
+		// `wp_options` naming post IDs that no longer exist.
+		WPCPM_Semester_Report_Screen::delete_all();
 	}
 
 	/*
@@ -1901,6 +1938,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		$this->render_reconciliation( $counts, $index, $gaps );
 		$this->render_consent( $index );
 		$this->render_discrepancies( $index );
+		$this->render_semester_reports();
 		$this->render_template( $index );
 		$this->render_storage();
 
@@ -3846,6 +3884,157 @@ class WPCPM_Institutions extends WPCPM_Module {
 
 		echo '</tbody></table>';
 		echo '</div>';
+	}
+
+	/**
+	 * Every semester report on the site: whose it is, which semester, and how far along.
+	 *
+	 * A manager's one list of what the institutions are writing. The reports themselves are
+	 * edited on the dashboard and nowhere else, so each row opens there through the switcher
+	 * rather than in wp-admin: there is no wp-admin screen for the post type, on purpose, and a
+	 * second place to edit a document several people share is a second place for them to
+	 * overwrite each other.
+	 *
+	 * Both dates are shown because they answer different questions. *Generated* is how old the
+	 * numbers are; *last edited* is whether anybody has written anything since. A report
+	 * generated in July and never edited is one nobody has picked up.
+	 */
+	private function render_semester_reports() {
+		// `private` by name rather than `any`: it is the one status a report is ever written
+		// with, and `any` would also bring back a report somebody had trashed by hand, which
+		// is a document that has been withdrawn rather than one to list.
+		$posts = get_posts(
+			array(
+				'post_type'        => WPCPM_Semester_Report::POST_TYPE,
+				'post_status'      => 'private',
+				'posts_per_page'   => self::REPORTS_SHOWN,
+				'orderby'          => 'modified',
+				'order'            => 'DESC',
+				'suppress_filters' => false,
+			)
+		);
+
+		$total = 0;
+
+		// Counted rather than taken from the rows above, which are capped: a heading reading 60
+		// beside a list of 60 is a heading that stops being true the day the sixty-first report
+		// is written, and says nothing about it. Asked for only when there is something to
+		// count, so a site whose institutions have not started writing runs one query and not two.
+		if ( ! empty( $posts ) ) {
+			$tally = wp_count_posts( WPCPM_Semester_Report::POST_TYPE );
+			$total = isset( $tally->private ) ? (int) $tally->private : count( $posts );
+		}
+
+		echo '<div class="wpcpm-card">';
+		printf(
+			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
+			esc_html__( 'Semester reports', 'wpcredits-program-manager' ),
+			esc_html( number_format_i18n( $total ) )
+		);
+		echo '<p class="description">' . esc_html__( 'What each institution has written about a semester, and where it has got to. Reports are edited on the institution dashboard, so each one opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
+
+		if ( empty( $posts ) ) {
+			echo '<p>' . esc_html__( 'No institution has generated a report yet.', 'wpcredits-program-manager' ) . '</p>';
+			echo '</div>';
+
+			return;
+		}
+
+		if ( $total > count( $posts ) ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: how many reports are listed. */
+						__( 'The %s most recently edited are listed.', 'wpcredits-program-manager' ),
+						number_format_i18n( count( $posts ) )
+					)
+				)
+			);
+		}
+
+		// Design spec section 14, open question 2: the consent request is a program manager's
+		// to send and nobody else's, so this is the only screen it is offered on. The
+		// institution's own report says how many of its students have not answered and that a
+		// manager can write to them; it never offers the send, because the party that gains
+		// from a yes must not be the party that asks for it.
+		printf(
+			'<p class="description">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: %s: a number of messages. */
+					__( 'Asking writes one short message to each student in that semester who wrote feedback and has not said whether it may be used. Nobody is asked twice in thirty days, and at most %s go out at a time; the rest follow shortly.', 'wpcredits-program-manager' ),
+					number_format_i18n( WPCPM_Semester_Report_Screen::ASK_PER_RUN )
+				)
+			)
+		);
+
+		echo '<table class="widefat striped wpcpm-list"><thead><tr>';
+		echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Semester', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'State', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Generated', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Last edited', 'wpcredits-program-manager' ) . '</th>';
+		echo '<th scope="col">' . esc_html__( 'Consent', 'wpcredits-program-manager' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		foreach ( $posts as $post ) {
+			$this->render_semester_report_row( $post );
+		}
+
+		echo '</tbody></table>';
+		echo '</div>';
+	}
+
+	/**
+	 * One row of the semester reports card.
+	 *
+	 * @param WP_Post $post The report.
+	 */
+	private function render_semester_report_row( WP_Post $post ) {
+		$record = WPCPM_Semester_Report::institution_of( $post );
+		$cohort = WPCPM_Semester_Report::cohort_of( $post );
+		$name   = '' !== $record ? self::institution_name( $record ) : '';
+		$name   = '' !== $name ? $name : __( '(institution not in the index)', 'wpcredits-program-manager' );
+
+		// The switcher argument, because `resolve_institution()` is what places a manager on
+		// somebody else's dashboard and it reads that one argument and nothing else. Without it
+		// the link lands the manager on whichever institution is their fallback, which is a
+		// different school's report under this row's name.
+		$url = WPCPM_Semester_Report_Screen::report_url( $cohort );
+		$url = ( '' !== $url && '' !== $record ) ? add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record ), $url ) : '';
+
+		$label     = '' !== $cohort ? WPCPM_Cohort::label( $cohort ) : __( '(no semester recorded)', 'wpcredits-program-manager' );
+		$generated = WPCPM_Semester_Report::generated_at( $post );
+		$edited    = (int) get_post_modified_time( 'U', true, $post );
+		$final     = WPCPM_Semester_Report::STATE_FINAL === WPCPM_Semester_Report::state( $post );
+		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+
+		printf(
+			'<tr><td>%1$s<br /><code>%2$s</code></td><td>%3$s%4$s</td><td>%5$s</td><td>%6$s</td><td>%7$s</td><td>',
+			'' !== $url
+				? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html( $name ) )
+				: esc_html( $name ),
+			esc_html( '' !== $record ? $record : '-' ),
+			esc_html( $label ),
+			'' !== $cohort ? sprintf( ' <code>%s</code>', esc_html( $cohort ) ) : '',
+			esc_html(
+				$final
+					? __( 'Final', 'wpcredits-program-manager' )
+					: __( 'Draft', 'wpcredits-program-manager' )
+			),
+			esc_html( $generated ? wp_date( $format, $generated ) : __( 'not yet', 'wpcredits-program-manager' ) ),
+			esc_html( $edited ? wp_date( $format, $edited ) : __( 'never', 'wpcredits-program-manager' ) )
+		);
+
+		// Offered whatever state the report is in, including `final`, and deliberately: this
+		// asks students a question, it changes no word of the document, and a school that has
+		// marked a report final is exactly the school whose remaining students are worth
+		// asking before the next one. The answers reach the document through
+		// `ACTION_REFRESH_CONSENT`, which is allowed on a final report for the same reason.
+		WPCPM_Semester_Report_Screen::render_ask_form( $post->ID );
+
+		echo '</td></tr>';
 	}
 
 	/**

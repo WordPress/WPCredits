@@ -185,8 +185,12 @@ class WPCPM_Institution_Panel {
 		$row        = is_array( $row ) ? $row : WPCPM_Institutions_Index::empty_row();
 
 		printf( '<section class="wpcpm-agreement-panel" id="%s">', esc_attr( self::ANCHOR ) );
+
+		// The disclosure every other panel on the page is drawn in, open: this is the panel a
+		// locked account has come to act on, so it must not start folded, but it folds like
+		// the rest, because a chevron on every row but one is a control that is missing.
 		printf(
-			'<h2 class="wpcpm-agreement-panel__title">%s</h2>',
+			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%s</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
 			esc_html__( 'Collaboration Agreement', 'wpcredits-program-manager' )
 		);
 
@@ -199,6 +203,7 @@ class WPCPM_Institution_Panel {
 
 		self::render_read_line( $record_id );
 
+		echo '</div></details>';
 		echo '</section>';
 	}
 
@@ -1612,8 +1617,12 @@ class WPCPM_Institution_Agreement_Card {
 		$accepted   = isset( $summary['accepted_at'] ) ? (string) $summary['accepted_at'] : '';
 
 		echo '<section class="wpcpm-agreement-card">';
+
+		// Folds like every other panel, and starts open so the accepted date stays where a
+		// school is used to finding it; it is the foot of the page, so nothing sits under it
+		// for an open card to push away.
 		printf(
-			'<h2 class="wpcpm-agreement-card__title">%s</h2>',
+			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%s</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
 			esc_html__( 'Collaboration Agreement', 'wpcredits-program-manager' )
 		);
 
@@ -1640,6 +1649,7 @@ class WPCPM_Institution_Agreement_Card {
 			self::render_drive_link( $record_id );
 		}
 
+		echo '</div></details>';
 		echo '</section>';
 	}
 

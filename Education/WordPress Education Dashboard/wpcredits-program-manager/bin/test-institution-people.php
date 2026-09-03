@@ -406,7 +406,7 @@ $card = render_card( 7, $A );
 ck( 'it names the three live members', array( has( $card, 'Anna Kowalska' ), has( $card, 'Bob Contact' ), has( $card, 'Grace Third' ) ), array( true, true, true ) );
 ck( 'and not the former member', has( $card, 'Frank Former' ), false );
 ck( 'and not a member of another institution', has( $card, 'Cleo Beta' ), false );
-ck( 'the count is the live members', has( $card, '<span class="wpcpm-people__count">3</span>' ), true );
+ck( 'the count is the live members', has( $card, '<span class="wpcpm-group__count wpcpm-people__count">3</span>' ), true );
 ck( 'each address is printed', array( has( $card, 'anna@example.test' ), has( $card, 'contact@example.test' ) ), array( true, true ) );
 ck( 'how: added by a program manager', has( $card, 'Added by a program manager' ), true );
 ck( 'how: added by the institutions sync', has( $card, 'Added by the institutions sync' ), true );
@@ -425,7 +425,7 @@ $named = render_card( 1, $D, true );
 
 ck( 'the contact is listed', has( $named, 'Dana Dean' ), true );
 ck( 'with the address the base holds', has( $named, 'dana@example.test' ), true );
-ck( 'and the count is one, not zero', has( $named, '<span class="wpcpm-people__count">1</span>' ), true );
+ck( 'and the count is one, not zero', has( $named, '<span class="wpcpm-group__count wpcpm-people__count">1</span>' ), true );
 ck( 'the row says the account is what is missing', has( $named, 'no account on this site yet' ), true );
 ck( 'and it is marked as the program\'s contact', has( $named, 'the program&#039;s contact' ), true );
 // The row is a fact about the program's records; there is no membership under it to end.
@@ -436,13 +436,13 @@ ck( 'and who can act is still answered separately', has( $named, 'Nobody can act
 // The row goes away by itself once the account exists, because the address then matches a
 // member and `holds_address()` suppresses it - no second place to keep in step.
 ck( 'no contact row where a member holds the address', has( $card, 'no account on this site yet' ), false );
-ck( 'and that card still counts three', has( $card, '<span class="wpcpm-people__count">3</span>' ), true );
+ck( 'and that card still counts three', has( $card, '<span class="wpcpm-group__count wpcpm-people__count">3</span>' ), true );
 
 // A base row with an address and no name still names somebody rather than printing a blank.
 $unnamed = render_card( 9, $B );
 ck( 'an address with no name is still listed', has( $unnamed, 'rector@example.test' ), true );
 ck( 'under a stated absence rather than an empty line', has( $unnamed, 'Name not recorded' ), true );
-ck( 'and it counts alongside the member', has( $unnamed, '<span class="wpcpm-people__count">2</span>' ), true );
+ck( 'and it counts alongside the member', has( $unnamed, '<span class="wpcpm-group__count wpcpm-people__count">2</span>' ), true );
 
 // One heading, one meaning: the manager screen counts and lists the same way.
 $block = render_manager_block( 1, $D );

@@ -630,15 +630,18 @@ class WPCPM_Institution_Roster_View {
 	/**
 	 * One of the four groups: its heading, its count, its explanation and its table.
 	 *
-	 * Finished and Did not start are collapsed, as design spec 7.5 asks: they are counted
-	 * every time and read rarely. An empty group still prints, with its zero, so that a group
-	 * a filter emptied is visibly empty rather than missing.
+	 * **Every group is a disclosure.** Finished and Did not start start closed, as design spec
+	 * 7.5 asks: they are counted every time and read rarely. Current and Waiting start open,
+	 * and fold: the product owner asked for the same chevron on every panel of the page, and
+	 * a heading that cannot be folded beside three that can is a control that is there on one
+	 * row and gone on the next. An empty group still prints, with its zero, so that a group a
+	 * filter emptied is visibly empty rather than missing.
 	 *
-	 * **A long group is collapsed whichever group it is.** One institution has forty-two
+	 * **A long group starts closed whichever group it is.** One institution has forty-two
 	 * students on the program at once, and an open list of forty-two cards buries everything
 	 * under it: the other groups, the people, the agreement. Past `OPEN_MAX` the group starts
 	 * closed with its count on the row, which is the number a school is usually looking for
-	 * anyway, and one press opens it. Below that it stays open, because a list of six that
+	 * anyway, and one press opens it. Below that it starts open, because a list of six that
 	 * has to be opened is a list that has been hidden for no reason.
 	 *
 	 * @param string $key     Group key.
@@ -649,26 +652,26 @@ class WPCPM_Institution_Roster_View {
 	 * @param array  $filters The chosen group and search term.
 	 */
 	private static function render_group( $key, $label, array $rows, array $columns, $here, array $filters ) {
-		$count     = count( $rows );
-		$collapsed = in_array( $key, array( 'finished', 'not_started' ), true ) || $count > self::OPEN_MAX;
+		$count = count( $rows );
+
+		// **Every group folds, and the two a school works from start open.** Current and
+		// Waiting used to be plain headings while Finished and Not started were disclosures,
+		// so half the page could be closed and half could not, and a reader who had folded
+		// the finished students away reached for the same chevron on the current ones and
+		// found nothing there. One shape for all four; what differs is only whether the group
+		// starts open, which the two active groups do unless they are long enough to push the
+		// rest of the page off the screen.
+		$open = ! in_array( $key, array( 'finished', 'not_started' ), true ) && $count <= self::OPEN_MAX;
 
 		printf( '<section class="wpcpm-group wpcpm-roster__group wpcpm-roster__group--%s">', esc_attr( $key ) );
 
-		if ( $collapsed ) {
-			echo '<details class="wpcpm-group__disclosure">';
-			printf(
-				'<summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-				esc_html( $label ),
-				esc_html( number_format_i18n( $count ) )
-			);
-			echo '<div class="wpcpm-group__body">';
-		} else {
-			printf(
-				'<h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3>',
-				esc_html( $label ),
-				esc_html( number_format_i18n( $count ) )
-			);
-		}
+		printf( '<details class="wpcpm-group__disclosure"%s>', $open ? ' open' : '' );
+		printf(
+			'<summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+			esc_html( $label ),
+			esc_html( number_format_i18n( $count ) )
+		);
+		echo '<div class="wpcpm-group__body">';
 
 		printf( '<p class="wpcpm-muted wpcpm-roster__note">%s</p>', esc_html( self::group_note( $key ) ) );
 
@@ -685,10 +688,7 @@ class WPCPM_Institution_Roster_View {
 			self::render_table( $label, $rows, $columns, $here );
 		}
 
-		if ( $collapsed ) {
-			echo '</div></details>';
-		}
-
+		echo '</div></details>';
 		echo '</section>';
 	}
 

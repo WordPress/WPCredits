@@ -1,0 +1,506 @@
+/**
+ * The semester report, on the dashboard and on paper.
+ *
+ * One file dresses both surfaces, because they are one document. `WPCPM_Semester_Report_Screen`
+ * enqueues this on the institution dashboard, after institution.css, and reads the same file off
+ * disk to inline it in the standalone printed document, which is echoed from admin-post.php with
+ * no theme, no wp_head() and no enqueue pass to hang a stylesheet on. A second file for the paper
+ * would be a second chance for the thing a school checks on screen and the thing it hands to its
+ * rector to disagree.
+ *
+ * Two rules follow from that, and both are worth knowing before editing:
+ *
+ * - **Nothing that could close a style element.** Inlined CSS cannot carry the two characters that
+ *   end a tag, in that order, anywhere, including in this comment: they would close the element
+ *   early and print the rest of the file as text. The screen drops the whole stylesheet rather
+ *   than emit one that carries them, so a file that grew a pair prints unstyled instead of broken.
+ * - **Every colour has a fallback.** On the dashboard the tokens come from dashboard.css by way of
+ *   institution.css, and the page reads on a light theme and a dark one. In the printed document
+ *   none of them is defined, so each var() carries the value paper wants. Nothing here is a fixed
+ *   colour without a token in front of it, and nothing uses !important: a theme that wants the
+ *   card its own way overrides these on a plain tie.
+ *
+ * The screen half is styled on institution.css's rhythm: a rule above a section rather than a box
+ * around it, quiet text at 0.72 opacity, one radius, one border colour. The paper half is
+ * millimetres, because a printed page is a physical object and 18mm is 18mm on every browser.
+ */
+
+/* -------------------------------------------------------------------------
+ * The card on the dashboard.
+ * ---------------------------------------------------------------------- */
+
+/* The same treatment the roster, the import form and the People card get: a rule above, room to
+   breathe, and nothing drawn around it. Three bordered slabs down a page is what made this page
+   read as a different product from the two Report Cards. */
+.wpcpm-report-card {
+	border-top: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	margin: 2.5em 0 0;
+	padding: 2em 0 0;
+}
+
+.wpcpm-report-card__lede,
+.wpcpm-report-card__back {
+	margin: 0 0 1em;
+}
+
+.wpcpm-report-card__title {
+	font-size: 1.05em;
+	margin: 0 0 0.5em;
+}
+
+/* Draft or Final, beside the semester and again on each row of the index. A badge rather than a
+   colour: "final" is a fact about the document, and a reader who cannot tell two greens apart
+   still has to be able to read it. */
+.wpcpm-report-card__state {
+	border: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	border-radius: var( --wpcpm-radius, 8px );
+	font-size: 0.85em;
+	font-weight: 400;
+	padding: 0.1em 0.5em;
+	white-space: nowrap;
+}
+
+.wpcpm-report-card__fact,
+.wpcpm-report-card__note,
+.wpcpm-report-card__empty,
+.wpcpm-report-card__generated {
+	color: inherit;
+	margin: 0.15em 0 0;
+	opacity: 0.72;
+}
+
+/* A message from a handler that has just run: the same shape as the panel's and the People
+   card's, so the page has one way of saying something out of band. */
+.wpcpm-report-card__message {
+	background: var( --wpcpm-surface, rgba( 128, 128, 128, 0.08 ) );
+	border: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	border-inline-start-width: 4px;
+	border-radius: var( --wpcpm-radius, 8px );
+	margin: 0 0 1.5em;
+	padding: 0.6em 0.9em;
+}
+
+/* The refused save's own words, waiting in the boxes below. Marked on the leading edge, never by
+   colour alone: it is the one notice on this page that is about something the reader has to
+   finish rather than about something that happened. */
+.wpcpm-report-card__stash {
+	border-inline-start: 4px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	margin: 0 0 1.5em;
+	padding: 0.25em 0 0.25em 1em;
+}
+
+/* -------------------------------------------------------------------------
+ * The index of semesters.
+ * ---------------------------------------------------------------------- */
+
+.wpcpm-report-card__cohorts {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+/* Name, state and the way in on one line, wrapping to two on a phone rather than shrinking the
+   button to something nobody can press. */
+.wpcpm-report-card__cohort {
+	align-items: center;
+	border-top: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 1em;
+	padding: 0.75em 0;
+}
+
+.wpcpm-report-card__cohort:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+.wpcpm-report-card__cohort-name {
+	font-weight: 600;
+	margin-inline-end: auto;
+}
+
+/* -------------------------------------------------------------------------
+ * The editing form.
+ * ---------------------------------------------------------------------- */
+
+/* A section is a group of related controls, so it is a fieldset. No border: the browser's default
+   frame around one is the third box on a page that already has enough of them, and the rule above
+   the legend does the same job in the page's own idiom. */
+.wpcpm-report-card__section,
+.wpcpm-report-card__quotes {
+	border: 0;
+	border-top: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	margin: 1.5em 0 0;
+	padding: 1.25em 0 0;
+}
+
+.wpcpm-report-card__section-title {
+	font-size: 1.05em;
+	font-weight: 600;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-report-card__text {
+	box-sizing: border-box;
+	display: block;
+	margin-top: 0.35em;
+	width: 100%;
+}
+
+.wpcpm-report-card__hide,
+.wpcpm-report-card__quote-choice {
+	margin: 0.5em 0 0;
+}
+
+/* The student's own words while the school decides what to do with them. Quoted rather than
+   boxed, and never in a field: the picker offers include, translate and name, and there is no
+   control here that could carry the original, because there is no such control in the handler. */
+.wpcpm-report-card__quote {
+	border-inline-start: 3px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	margin: 1.25em 0 0;
+	padding: 0.25em 0 0.25em 1em;
+}
+
+.wpcpm-report-card__quote-text {
+	border: 0;
+	font-style: italic;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-report-card__quote-name {
+	margin: 0.35em 0 0;
+	opacity: 0.72;
+}
+
+.wpcpm-report-card__submit,
+.wpcpm-report-card__actions {
+	margin: 1.5em 0 0;
+}
+
+/* The buttons under the form sit in a row and wrap; each is its own form, so they are laid out as
+   flex items rather than inline, which would leave the browser's own paragraph spacing between
+   them and read as a list of unrelated things. */
+.wpcpm-report-card__actions {
+	align-items: center;
+	border-top: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 0.75em;
+	padding-top: 1.25em;
+}
+
+.wpcpm-report-card__action {
+	margin: 0;
+}
+
+.wpcpm-report-card__actions .wpcpm-report-card__note {
+	flex: 1 1 100%;
+	margin: 0;
+}
+
+.wpcpm-report-card__revisions {
+	margin: 1.5em 0 0;
+}
+
+.wpcpm-report-card__revision-list {
+	list-style: none;
+	margin: 0.75em 0 0;
+	padding: 0;
+}
+
+.wpcpm-report-card__revision {
+	align-items: center;
+	border-top: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 1em;
+	padding: 0.6em 0;
+}
+
+.wpcpm-report-card__revision-when {
+	margin-inline-end: auto;
+	opacity: 0.72;
+}
+
+/* The document under the form, which is the point of the whole section: what the reader is about
+   to print. Inset and ruled off so it reads as the output of the controls above rather than as
+   more of them. */
+.wpcpm-report-card__preview {
+	border-top: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	margin: 2em 0 0;
+	padding: 1.5em 0 0;
+}
+
+.wpcpm-report-card__preview-title {
+	font-size: 1.05em;
+	margin: 0 0 1em;
+}
+
+/* -------------------------------------------------------------------------
+ * The document itself, drawn identically on the dashboard and on paper.
+ * ---------------------------------------------------------------------- */
+
+.wpcpm-report-doc {
+	margin: 0;
+}
+
+.wpcpm-report-doc__title {
+	font-size: 1.4em;
+	font-weight: 700;
+	line-height: 1.25;
+	margin: 0 0 0.2em;
+}
+
+.wpcpm-report-doc__cohort {
+	margin: 0 0 1.5em;
+	opacity: 0.72;
+}
+
+.wpcpm-report-doc__section {
+	margin: 0 0 2em;
+}
+
+.wpcpm-report-doc__section:last-child {
+	margin-bottom: 0;
+}
+
+.wpcpm-report-doc__heading {
+	font-size: 1.1em;
+	font-weight: 700;
+	margin: 0 0 0.6em;
+}
+
+.wpcpm-report-doc__p {
+	margin: 0 0 0.8em;
+}
+
+.wpcpm-report-doc__note,
+.wpcpm-report-doc__read,
+.wpcpm-report-doc__withheld,
+.wpcpm-report-doc__withdrawn {
+	color: inherit;
+	margin: 0.75em 0 0;
+	opacity: 0.72;
+}
+
+/* The document a failed consent read draws instead of itself. Marked on the leading edge and
+   at full strength, unlike every other line of small print here: it is the one sentence on the
+   page that must not read as a footnote, because the page it replaced would have looked
+   finished. */
+.wpcpm-report-doc__unreadable {
+	border-inline-start: 4px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	margin: 1em 0 0;
+	padding: 0.25em 0 0.25em 1em;
+}
+
+/* Participation: labels in a column, numbers beside them, every row printed. The shape the
+   student detail view and the mentor page already use for a table of facts. */
+.wpcpm-report-doc__table {
+	border-collapse: collapse;
+	margin: 0;
+	width: 100%;
+}
+
+.wpcpm-report-doc__table th,
+.wpcpm-report-doc__table td {
+	border-bottom: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	padding: 0.4em 0.75em 0.4em 0;
+	text-align: start;
+	vertical-align: top;
+}
+
+.wpcpm-report-doc__table th {
+	font-weight: 600;
+	width: 60%;
+}
+
+.wpcpm-report-doc__teams,
+.wpcpm-report-doc__events,
+.wpcpm-report-doc__students {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-report-doc__team,
+.wpcpm-report-doc__event {
+	border-top: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	padding: 0.4em 0;
+}
+
+.wpcpm-report-doc__team:first-child,
+.wpcpm-report-doc__event:first-child {
+	border-top: 0;
+}
+
+.wpcpm-report-doc__count {
+	opacity: 0.72;
+}
+
+/* One student: their chosen name or blog host, then their links. Kept off a page boundary as one
+   block in print, below. */
+.wpcpm-report-doc__student {
+	border-top: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	padding: 0.75em 0;
+}
+
+.wpcpm-report-doc__student:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+.wpcpm-report-doc__student-name {
+	font-weight: 600;
+	margin: 0;
+}
+
+/* Every link prints its address as its own text, as the reference report does: this document is
+   read on paper by somebody who cannot click, and a link whose text is "here" is a link that is
+   gone the moment the page leaves the screen. The address wraps rather than running off the
+   trim, because some of them are long. */
+.wpcpm-report-doc__link {
+	margin: 0.2em 0 0;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+.wpcpm-report-doc__link-label {
+	opacity: 0.72;
+}
+
+/* A released quote: the original first and always, the institution's translation under it. */
+.wpcpm-report-doc__quote {
+	border-inline-start: 3px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	margin: 0 0 1.25em;
+	padding: 0.25em 0 0.25em 1em;
+}
+
+.wpcpm-report-doc__quote-text {
+	border: 0;
+	font-style: italic;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-report-doc__translation {
+	margin: 0.5em 0 0;
+}
+
+.wpcpm-report-doc__translation-label {
+	font-weight: 600;
+	opacity: 0.72;
+}
+
+.wpcpm-report-doc__quote-name {
+	margin: 0.35em 0 0;
+	opacity: 0.72;
+}
+
+/* -------------------------------------------------------------------------
+ * The standalone printed document.
+ *
+ * `body.wpcpm-report-print` exists only on the page echoed from admin-post.php, so everything
+ * scoped to it is invisible to the dashboard, where the theme owns the page and the tokens
+ * above are already defined.
+ * ---------------------------------------------------------------------- */
+
+@page {
+	margin: 18mm;
+}
+
+body.wpcpm-report-print {
+	background: #fff;
+	color: #111;
+	font-family: Georgia, "Times New Roman", Times, serif;
+	font-size: 11pt;
+	line-height: 1.5;
+	margin: 0;
+	padding: 16mm 8mm;
+}
+
+/* On screen the column is held to the width it will print at, so what the reader sees before
+   pressing Save as PDF is the page they will get. In print the @page margin does that job and the
+   cap would narrow the column twice. */
+body.wpcpm-report-print .wpcpm-report-doc {
+	margin: 0 auto;
+	max-width: 174mm;
+}
+
+body.wpcpm-report-print .wpcpm-report-doc__title {
+	font-size: 17pt;
+	line-height: 1.25;
+}
+
+body.wpcpm-report-print .wpcpm-report-doc__heading {
+	font-size: 13pt;
+	/* A section heading orphaned at the foot of a page is the break that makes a printed report
+	   hard to read back. */
+	break-after: avoid;
+	page-break-after: avoid;
+}
+
+body.wpcpm-report-print .wpcpm-report-doc__table th,
+body.wpcpm-report-print .wpcpm-report-doc__table td,
+body.wpcpm-report-print .wpcpm-report-doc__team,
+body.wpcpm-report-print .wpcpm-report-doc__event,
+body.wpcpm-report-print .wpcpm-report-doc__student,
+body.wpcpm-report-print .wpcpm-report-doc__quote {
+	border-color: #ccc;
+}
+
+body.wpcpm-report-print .wpcpm-report-doc__note,
+body.wpcpm-report-print .wpcpm-report-doc__read,
+body.wpcpm-report-print .wpcpm-report-doc__withheld,
+body.wpcpm-report-print .wpcpm-report-doc__count,
+body.wpcpm-report-print .wpcpm-report-doc__link-label,
+body.wpcpm-report-print .wpcpm-report-doc__quote-name,
+body.wpcpm-report-print .wpcpm-report-doc__cohort {
+	color: #555;
+	opacity: 1;
+}
+
+@media print {
+
+	body.wpcpm-report-print {
+		padding: 0;
+	}
+
+	/* The controls are not part of the document. Somebody pressing Ctrl-P on the dashboard gets
+	   the report rather than the report with a form wrapped around it, which is the same thing
+	   the print link gives them. */
+	.wpcpm-report-card__form,
+	.wpcpm-report-card__actions,
+	.wpcpm-report-card__revisions,
+	.wpcpm-report-card__generate,
+	.wpcpm-report-card__back,
+	.wpcpm-report-card__preview-title,
+	.wpcpm-report-card__message,
+	.wpcpm-report-card__stash,
+	/* And the withdrawal line, which the print handler leaves off the paper on purpose: on a
+	   sheet handed to a rector it says something about a student that the student's
+	   withdrawal was meant to stop the document saying. Ctrl-P must not put it back. */
+	.wpcpm-report-doc__withdrawn {
+		display: none;
+	}
+
+	/* A quote broken across two sheets reads as two half quotes, and a student row split from
+	   its own links reads as a student with none. Both are one block. */
+	.wpcpm-report-doc__quote,
+	.wpcpm-report-doc__student {
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+
+	/* Student Feedback opens a page of its own. It is the part of the report a reader is sent to,
+	   it is the part every student who released a quote will look for their own words in, and
+	   three quotes stranded at the foot of the Recognition page is where they would otherwise
+	   land. `break-before` for browsers that implement the current property, `page-break-before`
+	   for the ones that still only take the old one. */
+	.wpcpm-report-doc__section--feedback {
+		break-before: page;
+		page-break-before: always;
+	}
+}
