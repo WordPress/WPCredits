@@ -17,7 +17,10 @@
  *   does have names no institution, when one address is filed under two institutions, and
  *   again after the student leaves the synced set;
  * - the accessibility disclosure never reaches a roster row, while `wpcpm_student_program`
- *   keeps every key it had, plus `institution_source`.
+ *   keeps every key it had, plus `institution_source`;
+ * - `Hours` is asked for, carried onto the roster row and into the cached program block, and
+ *   arrives as the base holds it: fractional values undivided, a logged 0 told apart from a
+ *   cell nobody has filled in, and a count past the target neither clamped nor doubted.
  *
  * Every address is under example.test and every name is invented.
  *
@@ -39,6 +42,7 @@ $GLOBALS['umeta']    = array();
 $GLOBALS['cron']     = array();
 $GLOBALS['airtable'] = array();
 $GLOBALS['fetches']  = array();
+$GLOBALS['states']   = array();
 
 class WP_Error {
 	private $code, $message;
@@ -94,7 +98,23 @@ function add_action() {} function add_filter() {} function do_action() {}
 function number_format_i18n( $n, $d = 0 ) { return (string) round( $n, $d ); }
 function wp_date( $f, $t = null ) { return gmdate( $f, null === $t ? time() : $t ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
-function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
+/**
+ * `update_option()`, keeping every version of the sync's own state.
+ *
+ * A tick runs every phase to completion, so by the time `run_tick()` returns the state option
+ * has been deleted and the rows the Students pass built are gone. They are written back after
+ * each phase step, though, so keeping each write is how a suite that cannot pause a tick can
+ * still read what one phase handed to the next.
+ */
+function update_option( $k, $v, $a = null ) {
+	$GLOBALS['opts'][ $k ] = $v;
+
+	if ( WPCPM_Students_Sync::OPT_STATE === $k ) {
+		$GLOBALS['states'][] = $v;
+	}
+
+	return true;
+}
 function add_option( $k, $v, $x = '', $a = null ) { if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; } $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function wp_next_scheduled( $h ) { return isset( $GLOBALS['cron'][ $h ] ) ? $GLOBALS['cron'][ $h ] : false; }
@@ -292,9 +312,11 @@ if ( ! class_exists( 'WPCPM_Cohort' ) ) {
 	}
 }
 
-$fail = 0;
+$fail  = 0;
+$total = 0;
 function ck( $label, $actual, $expected ) {
-	global $fail;
+	global $fail, $total;
+	++$total;
 	$ok = $actual === $expected;
 	if ( ! $ok ) { $fail++; }
 	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
@@ -412,6 +434,9 @@ for ( $i = 1; $i <= 8; $i++ ) {
 			$fields['report_profile'] => 'https://profiles.wordpress.org/krakow-grad-one/',
 			$fields['report_website'] => 'https://krakow-grad-one.example.test',
 			$fields['report_team']    => array( 'recTEAM0000000001' ),
+			// A number, and a fractional one, which is what the live column holds for some
+			// students: Airtable sends it as a number and the sync has to keep every digit.
+			$fields['report_hours']   => 135.5,
 		) : array()
 	);
 }
@@ -426,7 +451,8 @@ for ( $i = 9; $i <= 10; $i++ ) {
 		$fields['student_end']        => '2026-06-30',
 		$fields['student_import_key'] => 'batch-1:9',
 	) : array() );
-	$ids[ "rk$i" ] = report_row( "Krakow Pending $i", $email, 'Pending graduation', $krakow );
+	// Nine has logged zero hours, which is an answer somebody recorded and not a blank cell.
+	$ids[ "rk$i" ] = report_row( "Krakow Pending $i", $email, 'Pending graduation', $krakow, 9 === $i ? array( $fields['report_hours'] => 0 ) : array() );
 }
 for ( $i = 11; $i <= 15; $i++ ) {
 	$ids[ "k$i" ] = student_row( "Krakow Applicant $i", "krakow-nmf-$i@example.test", 'Not moving forward', $krakow, '2026-02-16' );
@@ -440,7 +466,9 @@ for ( $i = 1; $i <= 4; $i++ ) {
 	$email = "bee-twice-$i@example.test";
 	$ids[ "b{$i}a" ] = student_row( "Bee Student $i", $email, 'In Sensei', $bee, '2026-08-03' );
 	$ids[ "b{$i}b" ] = student_row( "Bee Student $i (again)", strtoupper( $email ), 'In Sensei', $bee, '2026-08-03' );
-	$ids[ "rb$i" ]   = report_row( "Bee Student $i", $email, 'In Sensei', $bee );
+	// Bee Student 1 has run well past the 150 hours their track is worked to, which four
+	// students on the live base have done.
+	$ids[ "rb$i" ]   = report_row( "Bee Student $i", $email, 'In Sensei', $bee, 1 === $i ? array( $fields['report_hours'] => 400 ) : array() );
 }
 
 // Cee: three duplicated addresses, all Graduate in 2025 H2, none with a report.
@@ -527,6 +555,7 @@ echo "\n=== One run ===\n";
  */
 function run_sync() {
 	$GLOBALS['fetches'] = array();
+	$GLOBALS['states']  = array();
 
 	$started = WPCPM_Students_Sync::start();
 
@@ -608,6 +637,28 @@ echo "\n=== What a roster row holds ===\n";
 $k9 = $roster['rows'][ $ids['k9'] ];
 
 ck( 'the row is in the index shape', array_keys( $k9 ), WPCPM_Roster_Index::KEYS );
+
+// **And it was in that shape before `clean()` ever saw it.** The Students pass builds each row
+// once; the join, the mentor fill and `phase_provision()` then write into it by key, and
+// `WPCPM_Roster_Index::clean()` runs only at the end. A key the builder leaves out is therefore
+// a key nothing in between can lend into without testing for its existence first, which is how
+// a column ends up silently absent for every student on a roster.
+$mid = null;
+
+foreach ( $GLOBALS['states'] as $state ) {
+	if ( 'provision' === ( $state['phase'] ?? '' ) && ! empty( $state['rows'] ) ) {
+		$mid = $state;
+		break;
+	}
+}
+
+$built    = array_keys( $mid['rows'][ $ids['k9'] ] );
+$declared = WPCPM_Roster_Index::KEYS;
+
+sort( $built );
+sort( $declared );
+
+ck( 'the Students pass built it with every key the index declares', $built, $declared );
 ck( 'with the columns read from the table',
 	array( $k9['name'], $k9['email_key'], $k9['status'], $k9['institution'], $k9['start'], $k9['end'], $k9['has_mentor'], $k9['username'], $k9['field_of_study'], $k9['tutor'], $k9['import_key'] ),
 	array( 'Krakow Pending 9', 'krakow-pending-9@example.test', 'Pending graduation', $krakow, '2026-03-02', '2026-06-30', true, 'krakow-pending-nine', 'Technology & Engineering', 'Ola Tutor', 'batch-1:9' ) );
@@ -635,6 +686,45 @@ ck( 'the website comes off the report record too', $k1['website'], 'https://krak
 ck( 'and so does the contribution team', $k1['team'], 'Polyglots' );
 // A row the reports side never reached lends nothing, rather than borrowing a neighbour's.
 ck( 'a student with no report record has none of them', array( $roster['rows'][ $ids['k2'] ]['website'], $roster['rows'][ $ids['k2'] ]['team'] ), array( '', '' ) );
+
+echo "\n=== Hours reach the roster ===\n";
+
+// Airtable returns only the fields a request names, so a column left out of the pass's list
+// arrives as an absent cell rather than as an error: the roster would read "Not recorded" for
+// every student in the program and nothing anywhere would say why.
+$reports_fetch  = array_values( array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $reports_table ) { return $f['table'] === $reports_table; } ) );
+$reports_fields = json_decode( file_get_contents( __DIR__ . '/fixtures/reports-table-fields.json' ), true );
+
+ck( 'the reports pass asks Airtable for the hours column',
+	in_array( $fields['report_hours'], $reports_fetch[0]['fields'], true ), true );
+// The name is the base's, byte for byte. A column asked for under a name the base does not
+// have is not an error either: Airtable answers with the rows and without that field.
+ck( sprintf( "'%s' is a column of the Students Reports table, byte for byte", $fields['report_hours'] ),
+	in_array( $fields['report_hours'], $reports_fields['fields'], true ), true );
+
+// **Fractional, and kept that way.** 135.5 is a real value on the live base. An `intval()` or
+// a `round()` anywhere on this path prints 135 and tells a school half an hour of somebody's
+// term did not happen, so the sync carries the number as the string the base sent.
+ck( 'a fractional count reaches the roster row undivided and unrounded', $k1['hours'], '135.5' );
+
+// **Zero is an answer, and `empty()` cannot tell it from silence.** The lend guard compares
+// against '' for exactly this row: a student who has logged nothing is not a student nobody
+// has logged for, and lending on truthiness would file the first under the second.
+ck( 'a logged zero is lent onto the roster row', $k9['hours'], '0' );
+
+// The other half of the same rule. A report row with no hours cell at all leaves the roster
+// row empty, so the two students render differently: "0 of 150" against "Not recorded".
+ck( 'a report row with no hours cell lends nothing', $roster['rows'][ $ids['k2'] ]['hours'], '' );
+ck( 'and a student with no report record has none either', $roster['rows'][ $ids['k11'] ]['hours'], '' );
+
+// **Past the target, and printed as it stands.** Four students on the live base have run over
+// 150 hours; nothing on this path may clamp to the target or treat it as a ceiling.
+$roster_bee = WPCPM_Roster_Index::rows( $bee );
+
+ck( 'a count past the track target is carried whole', $roster_bee[ $ids['b1a'] ]['hours'], '400' );
+// Both Students rows join the one report, the case-only duplicate included, so the lend has to
+// reach both of them rather than the first one it meets.
+ck( 'and reaches the case-only duplicate of that row too', $roster_bee[ $ids['b1b'] ]['hours'], '400' );
 
 // Graduate 2, not 1: Graduate 1 is the one with a pre-existing account.
 $k2 = $roster['rows'][ $ids['k2'] ];
@@ -759,7 +849,12 @@ $program = account( 'krakow-pending-9@example.test' )['program'];
 
 ck( 'every key the row had, plus institution_source, and nothing else',
 	array_keys( $program ),
-	array( 'record_id', 'name', 'email', 'program', 'is_past', 'start', 'end', 'institution', 'profile', 'username', 'slack', 'team', 'website', 'link', 'tutor', 'field_of_study', 'accessibility', 'institution_source' ) );
+	array( 'record_id', 'name', 'email', 'program', 'is_past', 'start', 'end', 'institution', 'profile', 'username', 'slack', 'team', 'website', 'hours', 'link', 'tutor', 'field_of_study', 'accessibility', 'institution_source' ) );
+// **`hours` has to be one of them.** This block is replaced whole on every run, and
+// `apply_report()` writes the student's own saved hours into it between runs; a sync that
+// rebuilt the block without the key would delete that value every night, and the roster reads
+// this copy before it reads the index.
+ck( 'the hours the report row carried are in the cached block', $program['hours'], '0' );
 ck( 'the institution is still the resolved name the cards print', $program['institution'], 'Krakow University of Economics' );
 ck( 'the accessibility needs still reach the program row', $program['accessibility'], 'Screen reader user' );
 ck( 'and so do the tutor and the field of study',
@@ -817,5 +912,5 @@ $after = array_filter( $GLOBALS['opts'], static function ( $name ) { return 0 ==
 ck( 'the old run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
 ck( 'and left every roster option exactly as it was', $after, $snapshot );
 
-echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

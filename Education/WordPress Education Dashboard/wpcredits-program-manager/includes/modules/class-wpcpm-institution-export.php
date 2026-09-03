@@ -141,9 +141,14 @@ class WPCPM_Institution_Export {
 	 * students is not something the program's roster is for, and the semester report forbids an
 	 * address outright (design spec 7.9). The one address either surface names is the mentor's.
 	 *
-	 * **There is no hours column.** Hours arrive with Phase 5's sync work and `hours_target()`;
-	 * `WPCPM_Roster_Index::KEYS` has nowhere to put one today, and a column of blanks in a file
-	 * reads as "nobody has done anything" rather than "not collected yet".
+	 * **The hours column is here now**, and this paragraph used to say the opposite in a bolded
+	 * rule: that there was none, because the roster index had nowhere to hold one. It has since,
+	 * and the roster screen prints it, so a file without it would no longer match the page it
+	 * was taken from. The number is written as the base holds it, unformatted: "12 of 150" is
+	 * for reading and a spreadsheet wants something it can add up.
+	 *
+	 * Both suites hold this pair together, and one of them will go red the next time a column
+	 * is added to the screen and not to the file.
 	 *
 	 * @return array<string, string> Column key to heading.
 	 */
@@ -161,6 +166,7 @@ class WPCPM_Institution_Export {
 			'reports|Personal Website URL'   => __( 'Website', 'wpcredits-program-manager' ),
 			'students|Your field of study'   => __( 'Field of study', 'wpcredits-program-manager' ),
 			'students|Tutor '                => __( 'Tutor', 'wpcredits-program-manager' ),
+			'reports|Hours'                  => __( 'Hours', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -381,6 +387,7 @@ class WPCPM_Institution_Export {
 			'reports|Personal Website URL'   => self::from( $program, 'website' ),
 			'students|Your field of study'   => self::from( $row, 'field_of_study' ),
 			'students|Tutor '                => self::from( $row, 'tutor' ),
+			'reports|Hours'                  => self::first( array( self::from( $program, 'hours' ), self::from( $row, 'hours' ) ) ),
 		);
 	}
 

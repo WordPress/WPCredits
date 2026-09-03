@@ -36,8 +36,15 @@ class WPCPM_Roster_Index {
 	/** Participation per institution per cohort, and the reconciliation summary. */
 	const OPTION_COUNTS = 'wpcpm_roster_counts';
 
-	/** Envelope version; an option written by another version is discarded on read. */
-	const VERSION = 3;
+	/**
+	 * Envelope version; an option written by another version is discarded on read.
+	 *
+	 * Bumped to 4 when `hours` joined `KEYS`. A version 3 row has no such key, so a roster
+	 * reading one back would print an empty hours cell for every student on it until the
+	 * next sync finished - and an empty hours cell reads as "nobody has done anything"
+	 * rather than "not read yet", which is the one thing that column must never say.
+	 */
+	const VERSION = 4;
 
 	/**
 	 * The keys a row holds, in the order they are stored.
@@ -69,6 +76,17 @@ class WPCPM_Roster_Index {
 		'mentor_name',
 		'team',
 		'website',
+		// **A Students Reports column like the three above, and here for the same reason.**
+		// `Hours` is on 612 of the Students Reports rows, and "how far along are they" is the
+		// question a school asks straight after "who is mentoring them". Read only off
+		// `wpcpm_student_program`, it would be answered for the students who have signed in
+		// here and blank for the rest, which at one university is two rows of fifteen.
+		//
+		// Kept as the string the base sends, and formatted where it is printed. The live
+		// column is fractional for some students (6.2, 135.5), so an `intval()` on the way in
+		// would round a term's work down, and it runs past the target for others (400 against
+		// a 150-hour track), so nothing may treat the target as a ceiling.
+		'hours',
 		'import_key',
 		'reports',
 		'user_id',

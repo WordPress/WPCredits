@@ -486,6 +486,44 @@ final class WPCPM_Institution_Import {
 	 * @return int Post ID, or 0.
 	 */
 	public static function staged_for( $institution ) {
+		return self::in_state( $institution, self::STATE_STAGED );
+	}
+
+	/**
+	 * The batch this institution has in hand, staged or part way through being created.
+	 *
+	 * **What "one list at a time" has to mean once creating exists.** `staged_for()` answers
+	 * about a list nobody has confirmed yet; a batch that is being created is just as much in
+	 * hand, and a school allowed to send a second list while the first was half created would
+	 * have two imports writing to one roster with one lock between them. This is the question
+	 * the screen and the check handler both ask.
+	 *
+	 * A `done` or `blocked` batch is not in hand: the first has finished and the second has
+	 * stopped for good, and neither may keep a school from importing again. That the students
+	 * already created are not created twice is the duplicate ladder's job, and it can do it,
+	 * because every created row was put on this institution's roster the moment it was made.
+	 *
+	 * @param string $institution Airtable Institutions record ID.
+	 * @return int Post ID, or 0.
+	 */
+	public static function active_for( $institution ) {
+		$staged = self::in_state( $institution, self::STATE_STAGED );
+
+		return $staged > 0 ? $staged : self::in_state( $institution, self::STATE_CREATING );
+	}
+
+	/**
+	 * One institution's batch in one state.
+	 *
+	 * Two queries rather than one with an `IN`: the states are asked about in a fixed order,
+	 * so a school with a staged list and a stalled one is shown the staged one every time
+	 * rather than whichever the database preferred.
+	 *
+	 * @param string $institution Airtable Institutions record ID.
+	 * @param string $state       One of the four batch states.
+	 * @return int Post ID, or 0.
+	 */
+	private static function in_state( $institution, $state ) {
 		$found = get_posts(
 			array(
 				'post_type'      => self::POST_TYPE,
@@ -499,7 +537,7 @@ final class WPCPM_Institution_Import {
 					),
 					array(
 						'key'   => self::META_STATE,
-						'value' => self::STATE_STAGED,
+						'value' => (string) $state,
 					),
 				),
 			)

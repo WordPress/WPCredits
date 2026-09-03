@@ -9,6 +9,11 @@
  * write goes down with autoload off, and the uninstall sweep finds every prefixed option
  * through `$wpdb` with the underscores escaped, plus the two named ones by name.
  *
+ * The `hours` key is pinned here as a string and never as a number: the live column is
+ * fractional for some students, so a row that arrived as 6.2 has to read back as "6.2", and a
+ * row that arrived as 0 has to read back as "0" rather than as the "" a student nobody has
+ * logged for gets.
+ *
  * Run from the plugin root:  php bin/test-roster-index.php
  */
 
@@ -79,9 +84,11 @@ define( 'WPCPM_VERSION', 'test' );
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 
-$fail = 0;
+$fail  = 0;
+$total = 0;
 function ck( $label, $actual, $expected ) {
-	global $fail;
+	global $fail, $total;
+	++$total;
 	$ok = $actual === $expected;
 	if ( ! $ok ) { $fail++; }
 	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
@@ -118,6 +125,9 @@ function row( $record_id, $email, array $extra = array() ) {
 			'username'       => 'adaexample',
 			'field_of_study' => 'Technology & Engineering',
 			'tutor'          => 'Tutor Example',
+			// A float, as Airtable sends a Number column, and a fractional one: the index
+			// stores what it is given as a string and must not round it on the way past.
+			'hours'          => 135.5,
 			'import_key'     => 'batch-1:1',
 			'reports'        => array( 'recREPORT00000001', 'not-a-record', 'recREPORT00000001' ),
 			'user_id'        => '42',
@@ -149,6 +159,14 @@ echo "\n=== Another version's envelope is discarded ===\n";
 $GLOBALS['opts'][ 'wpcpm_roster_' . $inst_a ] = array( 'v' => WPCPM_Roster_Index::VERSION + 1, 'read' => 5, 'rows' => array( 'recSTUDENT0000001' => array( 'record_id' => 'recSTUDENT0000001' ) ) );
 
 ck( 'a roster written by another version reads as empty', WPCPM_Roster_Index::read( $inst_a ), $empty );
+
+// Version 3 is the shape this index had before `hours` joined `KEYS`, so its rows carry no
+// such key. Read rather than discarded, every student on the roster would show an empty hours
+// cell until the next sync finished - and an empty hours cell reads as "has done nothing",
+// which is a different and worse sentence than "not read yet".
+$GLOBALS['opts'][ 'wpcpm_roster_' . $inst_a ] = array( 'v' => 3, 'read' => 5, 'rows' => array( 'recSTUDENT0000001' => array( 'record_id' => 'recSTUDENT0000001', 'name' => 'Ada Example' ) ) );
+
+ck( 'a roster written before hours joined the row is discarded too', WPCPM_Roster_Index::read( $inst_a ), $empty );
 
 $GLOBALS['opts'][ 'wpcpm_roster_' . $inst_a ] = 'garbage';
 
@@ -211,6 +229,16 @@ ck( 'the name is trimmed', $row['name'], 'Ada Example' );
 ck( 'has_mentor is a boolean', $row['has_mentor'], true );
 ck( 'user_id is an integer', $row['user_id'], 42 );
 ck( 'reports keeps only record IDs, once each', $row['reports'], array( 'recREPORT00000001' ) );
+
+// **Hours are a string, and every digit of it survives.** The column is fractional on the live
+// base (6.2, 135.5); an `intval()` or an `(int)` cast anywhere on this path would store 135
+// and rewrite half an hour of somebody's term out of the record.
+ck( 'a fractional hours value is stored whole, as a string', $row['hours'], '135.5' );
+// It sits with the other three Students Reports columns rather than on the end of the list,
+// because that is what it is: a value the reports row lends, not a Students column.
+ck( 'and its key is beside the other lent columns',
+	array_slice( WPCPM_Roster_Index::KEYS, (int) array_search( 'mentor_name', WPCPM_Roster_Index::KEYS, true ), 4 ),
+	array( 'mentor_name', 'team', 'website', 'hours' ) );
 ck( 'the email key is lowercased', $row['email_key'], 'ada@example.test' );
 ck( 'a row sent without an email key gets one from its address',
 	$a['rows']['recSTUDENT0000002']['email_key'], 'bo@example.test' );
@@ -228,6 +256,20 @@ ck( 'the counts are written whole',
 ck( 'four options, every one with autoload off',
 	array( count( $GLOBALS['autoload'] ), array_values( array_unique( $GLOBALS['autoload'] ) ) ),
 	array( 4, array( false ) ) );
+
+// **A logged zero and an unfilled cell are different facts and must not clean to one value.**
+// The first is a student who has done nothing yet, the second a student nobody has logged for,
+// and the roster prints "0 of 150" for one and "Not recorded" for the other.
+WPCPM_Roster_Index::insert( $inst_a, row( 'recSTUDENT0000030', 'zero@example.test', array( 'hours' => 0 ) ) );
+WPCPM_Roster_Index::insert( $inst_a, row( 'recSTUDENT0000031', 'none@example.test', array( 'hours' => null ) ) );
+
+ck( 'a logged zero cleans to "0"', WPCPM_Roster_Index::rows( $inst_a )['recSTUDENT0000030']['hours'], '0' );
+ck( 'and a row with no hours at all cleans to ""', WPCPM_Roster_Index::rows( $inst_a )['recSTUDENT0000031']['hours'], '' );
+// Padding is trimmed like every other scalar here, so a cell somebody typed a space into joins
+// the numbers rather than becoming a value nothing can parse.
+WPCPM_Roster_Index::insert( $inst_a, row( 'recSTUDENT0000032', 'pad@example.test', array( 'hours' => ' 6.2 ' ) ) );
+
+ck( 'and padding around a value is trimmed off', WPCPM_Roster_Index::rows( $inst_a )['recSTUDENT0000032']['hours'], '6.2' );
 
 echo "\n=== An institution that lost every row is emptied, not left stale ===\n";
 
@@ -306,5 +348,5 @@ ck( 'the names came through one prepared LIKE query', count( $GLOBALS['queries']
 ck( 'with the prefix escaped', $GLOBALS['queries'][0]['args'][0], 'wpcpm\\_roster\\_%' );
 ck( 'against the options table', false !== strpos( $GLOBALS['queries'][0]['sql'], 'wp_options' ), true );
 
-echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

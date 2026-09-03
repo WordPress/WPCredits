@@ -18,6 +18,12 @@
  *   words. Zeros there read as a failure; "no students started in July to December 2024"
  *   reads as what happened.
  * - Every count carries the index's read time, in the strip and again in the footer.
+ * - **The hours cell prints a denominator only where the program has one.** The two clocked
+ *   tracks read "12 of 150" and "6.2 of 50"; the Developer Track, a track the hours map has
+ *   never heard of and a student whose track is behind them all read "12 h", because "12 of 0"
+ *   is a target this program does not have. A fractional count keeps its fraction, a count
+ *   past the target is printed as it stands, and a student nobody has logged for reads
+ *   "Not recorded" while a student who logged nothing reads "0 of 150".
  * - The filters narrow before the render and survive in the URL: the controls come back
  *   filled in, and the link to a student's detail view carries the cohort and the filters,
  *   which is what makes a filtered roster a page a colleague can be sent.
@@ -82,7 +88,9 @@ function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolo
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function apply_filters( $t, $v ) { return $v; }
-function number_format_i18n( $n, $d = 0 ) { return (string) round( $n, $d ); }
+// Core's own, minus the locale: it pads to the number of places it is given, which is what
+// makes the difference between "150 of 150" and "150.00 of 150" a thing this suite can see.
+function number_format_i18n( $n, $d = 0 ) { return number_format( (float) $n, (int) $d ); }
 function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/\\' ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
@@ -354,6 +362,9 @@ function row( $record_id, $name, $status, $start, array $extra = array() ) {
 			'username'       => '',
 			'field_of_study' => '',
 			'tutor'          => '',
+			// Written by the sync for every row, empty where the reports side had nothing to
+			// lend: the roster tells that apart from a logged 0, and both are tested below.
+			'hours'          => '',
 			'import_key'     => '',
 			'reports'        => array(),
 			'user_id'        => 0,
@@ -547,8 +558,13 @@ ck( 'so is the Duplicated one', has( $html, 'Dup Example' ), false );
 ck( 'the accessibility disclosure appears nowhere', has( $html, 'Screen reader user' ), false );
 ck( 'nor does the column exist', has( $html, 'Accessibility' ), false );
 ck( 'the columns are the ones the spec lists', array_values( WPCPM_Institution_Roster_View::columns() ), array(
-	'Student', 'Program', 'Dates', 'Days left', 'Mentor', 'WordPress.org', 'Team', 'Website', 'Field of study', 'Tutor',
+	'Student', 'Program', 'Dates', 'Days left', 'Mentor', 'WordPress.org', 'Team', 'Website', 'Field of study', 'Tutor', 'Hours',
 ) );
+// The key names the table and the column the value is read from, the way the fence's `scope()`
+// reads them, and `Hours` is a Students Reports column. A key naming the Students table would
+// scope this column against a table that does not hold it.
+ck( 'and hours are keyed to the table the value comes from',
+	array_key_exists( 'reports|Hours', WPCPM_Institution_Roster_View::columns() ), true );
 ck( 'and none of them names accessibility',
 	preg_grep( '/accessib/i', array_keys( WPCPM_Institution_Roster_View::columns() ) ), array() );
 
@@ -570,6 +586,161 @@ ck( 'a row with an account links to the detail view',
 	has( $ada, 'wpcpm_institution_student=21' ), true );
 ck( 'a row without one does not', has( group_rows( $html, 'waiting' ), 'wpcpm_institution_student' ), false );
 ck( 'an empty cell says so rather than going blank', has( group_rows( $html, 'waiting' ), 'Not recorded' ), true );
+
+echo "\n=== Hours ===\n";
+
+/**
+ * The Hours cell of the first card in one group, as the reader sees it.
+ *
+ * Read out of the card by the column's own class rather than by position, so a column added
+ * beside it does not silently move these assertions onto somebody else's value.
+ *
+ * @param string $html  The rendered page.
+ * @param string $group Which group's first card to read.
+ * @return string|null The cell's text, or null when the card has no hours row at all.
+ */
+function hours_of( $html, $group = 'current' ) {
+	if ( ! preg_match( '/wpcpm-roster__row--reports-hours">.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)<\/td>/s', group_rows( $html, $group ), $m ) ) {
+		return null;
+	}
+
+	return trim( html_entity_decode( wp_strip_all_tags( $m[1] ), ENT_QUOTES, 'UTF-8' ) );
+}
+
+/**
+ * Ada's cached program block, rewritten from scratch.
+ *
+ * From scratch rather than merged, because half of what is being tested is what happens when a
+ * key is not there at all.
+ *
+ * @param array $changes Keys to set on top of the block the fixture seeds.
+ */
+function ada_program( array $changes = array() ) {
+	$GLOBALS['umeta'][21]['wpcpm_student_program'] = array_merge(
+		array(
+			'name'          => 'Ada Example',
+			'program'       => 'In Sensei',
+			'team'          => 'Documentation Team',
+			'website'       => 'https://ada.example.com/',
+			'accessibility' => 'Screen reader user',
+		),
+		$changes
+	);
+}
+
+// **The header exists and the cell is empty**, which is the state every roster is in the day
+// before the sync first reads the column. It has to read as a gap in the records, the way every
+// other empty cell on this card does, and not as a zero: "0 of 150" about a student nobody has
+// logged for is the page inventing a fact about them.
+ck( 'a student with no hours anywhere reads as a gap', hours_of( render() ), 'Not recorded' );
+ck( 'and the heading is printed even so', has( group_rows( render(), 'current' ), '>Hours</span>' ), true );
+
+// The index, for the students who have never signed in here - which is most of a school's
+// roster. Bo has no account at all, so the cached block cannot be the source, and the track the
+// target comes from has to fall back to the Students row's own status.
+$GLOBALS['index'][ $A ]['rows']['recSTU00000000002']['hours'] = '12';
+
+ck( 'a student with no account gets their hours off the index', hours_of( render(), 'waiting' ), '12 of 150' );
+
+// The 50-hour track is a different denominator, from the same map, and the value is fractional:
+// 6.2 is a real count on the live base, and an intval() anywhere would print 6.
+$GLOBALS['index'][ $A ]['rows']['recSTU00000000003']['hours'] = '6.2';
+
+ck( 'the 50-hour track prints its own target, and keeps the fraction',
+	has( group_rows( render(), 'waiting' ), '6.2 of 50' ), true );
+
+// **The account first, the index second**, the same order the mentor, the team and the website
+// are read in: the cached block is written by the same sync and is the fresher of the two when
+// a student saves their own report between runs.
+$GLOBALS['index'][ $A ]['rows']['recSTU00000000001']['hours'] = '5';
+ada_program( array( 'hours' => '12' ) );
+
+ck( 'the account\'s copy is preferred over the index\'s', hours_of( render() ), '12 of 150' );
+
+// **And "0" is a value, not a reason to fall through.** `! $cached( ... )` here would reach past
+// a count a student has just cleared and print the index's older, larger one: the school would
+// be shown hours the student no longer claims.
+ada_program( array( 'hours' => '0' ) );
+
+ck( 'a cleared count wins over the index rather than falling through it', hours_of( render() ), '0 of 150' );
+// The other half of the same rule, side by side: nobody has logged for one of them and the
+// other has logged nothing, and the two cells say different things.
+ck( 'which is not what an unlogged student reads', hours_of( render(), 'waiting' ) === hours_of( render() ), false );
+
+// Fractions again, on the value the account carries, and the exact target with no decimal
+// point: a fixed number of places would print either "135" or "150.0", and both are wrong.
+ada_program( array( 'hours' => '135.5' ) );
+ck( 'a fractional count keeps its fraction', hours_of( render() ), '135.5 of 150' );
+
+ada_program( array( 'hours' => '150' ) );
+ck( 'and a whole one is printed whole', hours_of( render() ), '150 of 150' );
+
+// The places come off the digits the base sent rather than off a fixed width, so each of these
+// is written the way it was recorded. `number_format_i18n()` pads, which is why a fixed one or
+// two places would print "150.00 of 150" for the student above.
+ada_program( array( 'hours' => '6.25' ) );
+ck( 'two places are kept', hours_of( render() ), '6.25 of 150' );
+
+ada_program( array( 'hours' => '6.257' ) );
+ck( 'and three are rounded to the two this column is written to', hours_of( render() ), '6.26 of 150' );
+
+ada_program( array( 'hours' => '6.20' ) );
+ck( 'a trailing zero is not a place', hours_of( render() ), '6.2 of 150' );
+
+// **Past the target, printed as it stands.** Students on the live base have logged 400 against
+// a 150-hour track. Clamping to the target would hide an overrun from the only people who are
+// counting, and a percentage drawn from this must not assume it stays under 100 either.
+ada_program( array( 'hours' => '400' ) );
+ck( 'a count past the target is neither clamped nor doubted', hours_of( render() ), '400 of 150' );
+
+// **The Developer Track has no target and prints no denominator** (design decision 23). Its 0
+// in the map is the answer rather than a gap, so the cell has to say the hours on their own.
+ada_program( array( 'program' => 'Developer Track', 'hours' => '12' ) );
+
+ck( 'the Developer Track prints the hours alone', hours_of( render() ), '12 h' );
+ck( 'and never a denominator of nothing', has( group_rows( render(), 'current' ), 'of 0' ), false );
+
+// A track the hours map has never heard of answers the same way, and that is a supported state
+// rather than an omission: `hours_targets()`'s docblock says so in as many words, because a
+// track the program adds and does not count hours for must not need a row there first.
+ada_program( array( 'program' => 'Research Track', 'hours' => '12' ) );
+ck( 'a track absent from the hours map prints the hours alone too', hours_of( render() ), '12 h' );
+
+// A student whose track is behind them keeps their hours and loses the denominator, because
+// `hours_target()` answers 0 for a finished status: "150 of 150" would be this page deciding
+// which track a graduate was on, which it has no way of knowing.
+ada_program( array( 'program' => 'Graduate', 'hours' => '150' ) );
+ck( 'a finished student\'s hours print without a target', hours_of( render() ), '150 h' );
+
+// A Number column that stopped being a number: printed as it stands. `(float) 'n/a'` is 0.0, so
+// a cast here would tell a school its student had done nothing on the strength of somebody
+// changing a field type in the base.
+ada_program( array( 'hours' => 'n/a' ) );
+ck( 'a value that is not a number is shown as it is', hours_of( render() ), 'n/a' );
+ck( 'rather than counted as none of the target', has( group_rows( render(), 'current' ), '0 of 150' ), false );
+
+// **And escaped, which nothing pinned until a reviewer removed `esc_html()` twice and watched
+// 283 checks stay green.** The value is a Number column in Airtable, so today it cannot hold
+// markup; what it can hold is whatever a field type change or a formula makes of it, and this
+// cell is the one place on the roster that prints a base value without a shape of its own.
+ada_program( array( 'hours' => '<b>12</b>' ) );
+ck( 'a value carrying markup is escaped, not rendered', has( render(), '<b>12</b>' ), false );
+ck( 'and reaches the page as text', has( render(), '&lt;b&gt;12&lt;/b&gt;' ), true );
+
+// The same for the branch that formats rather than passing through, which was the second of
+// the two unescaped returns: a value that survives `is_numeric()` cannot carry markup, so the
+// proof there is that the two branches escape through the same call rather than one of them
+// having been left out.
+$view = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php' );
+$start = strpos( $view, 'private static function hours_cell' );
+$body  = substr( $view, $start, strpos( $view, "\n\t}", $start ) - $start );
+
+// One `return '';` for the empty case needs no escaping; every other return does.
+ck( 'every return in the hours cell that carries a value escapes it', substr_count( $body, 'return ' ) - 1, substr_count( $body, 'esc_html' ) );
+
+// Back to the fixture: everything below reads Ada's own row.
+ada_program();
+unset( $GLOBALS['index'][ $A ]['rows']['recSTU00000000001']['hours'], $GLOBALS['index'][ $A ]['rows']['recSTU00000000002']['hours'], $GLOBALS['index'][ $A ]['rows']['recSTU00000000003']['hours'] );
 
 echo "\n=== The cohort picker ===\n";
 

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.86.4
+Stable tag: 1.87.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.87.0 =
+* Phase 5 of the Institutions module is complete. An institution can now send a list of students, see what it was understood to say, and confirm it; the records are created a slice at a time, and an import that runs long carries on by itself.
+* Creating is written to survive being interrupted. A row's state is saved before the request and not after, so a row whose answer was lost is identifiable afterwards and is searched for by its `Site import key` before anything is created again: a killed request costs a retry, never a second student. Records are created one call at a time, because a batch call returns a re-indexed list and would stamp the wrong record on the wrong person after the first refusal.
+* A refusal that is not the row's own no longer writes off the batch. A missing token, an open rate-limit window or a 500 refuses every call that follows, and marking each row failed in turn would have ended a three hundred row import with three hundred students terminally failed. The slice stops and is rescheduled; rows that were never sent go back to pending, and a row whose answer may have been lost stays recoverable.
+* The guard runs before every slice and reads the member who confirmed rather than whoever is present, so a revoke or an unsettled agreement stops an import that is continuing on cron with nobody signed in.
+* A student's logged hours are on the roster and in both exports, reading "12 of 150" against a track with a target and "12 h" against one without, never "12 of 0". Fractional hours are kept: the base holds 6.2 and 135.5 for real students.
 
 = 1.86.4 =
 * The enrolment section's chevron matches the roster's, and the open form is the bordered panel the theme hangs off an open row, which is what says the section is open. The section had its own left padding to line the form up by hand; the theme zeroes that padding at a higher specificity, so it never applied and the alignment came from the theme all along. Handed back rather than left as a rule that looks load-bearing and is not.

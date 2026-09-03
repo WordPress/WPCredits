@@ -463,7 +463,7 @@ ck( 'the fence is asked with the export action', $GLOBALS['asked'][ count( $GLOB
 ck(
 	'the header is every column, in order',
 	$file[0],
-	array( 'Roster group', 'Student', 'Program', 'Start date', 'End date', 'Cohort', 'Mentor', 'WordPress.org', 'Team', 'Website', 'Field of study', 'Tutor' )
+	array( 'Roster group', 'Student', 'Program', 'Start date', 'End date', 'Cohort', 'Mentor', 'WordPress.org', 'Team', 'Website', 'Field of study', 'Tutor', 'Hours' )
 );
 
 // Five people, not seven. SPAM is somebody's abuse of the public form and Duplicated is a row
@@ -544,7 +544,7 @@ $empty = rows_of( WPCPM_Institution_Export::csv( WPCPM_Institution_Export::roste
 // A header and nothing under it. An institution with nobody in a semester gets a file saying
 // what would have been in it, which is a different thing from being refused.
 ck( 'a cohort with nobody in it is still a file with headings', count( $empty ), 1 );
-ck( 'and the headings are the whole list', count( $empty[0] ), 12 );
+ck( 'and the headings are the whole list', count( $empty[0] ), 13 );
 
 echo "\n=== The fence, and the field scope it may one day carry ===\n";
 
@@ -586,8 +586,8 @@ ck( 'the file is a header and one student', count( $card ), 2 );
 
 // The same shape as the roster export, so a school can file one under the other. A two-column
 // "field, value" layout - the obvious way to write one record out - could not be.
-ck( 'the first twelve columns are the roster export\'s, in its order', array_slice( $card[0], 0, 12 ), $file[0] );
-ck( 'then this track\'s eleven grades', count( $card[0] ), 23 );
+ck( 'the first thirteen columns are the roster export\'s, in its order', array_slice( $card[0], 0, 13 ), $file[0] );
+ck( 'then this track\'s eleven grades', count( $card[0] ), 24 );
 
 ck( 'the student is the one asked for', $card[1][1], 'Ana Fidelitas' );
 ck( 'and the row carries the roster group the card sits under', $card[1][0], 'Current' );
@@ -626,13 +626,13 @@ ck( 'and the headings are the course names a person reads', WPCPM_Institution_Ex
 
 $unmentored = rows_of( WPCPM_Institution_Export::csv( WPCPM_Institution_Export::student_matrix( 14, allowed_for( $A ), array(), new WP_User( 14, 'Ewa Zielinska' ) ) ) );
 
-ck( 'a 150-hour student with no report record still gets every grade column', count( $unmentored[0] ), 23 );
+ck( 'a 150-hour student with no report record still gets every grade column', count( $unmentored[0] ), 24 );
 
 // A student waiting for a mentor has no Students Reports row at all, because the automation
 // that creates one fires on the assignment. Empty grade columns are the truth about them; a
 // refusal would make "waiting for a mentor" an unexportable state, which for a school's first
 // term is most of its roster.
-ck( 'and every one of them is empty', array_unique( array_slice( $unmentored[1], 12 ) ), array( '' ) );
+ck( 'and every one of them is empty', array_unique( array_slice( $unmentored[1], 13 ) ), array( '' ) );
 
 echo "\n=== A student the Students table has no row for ===\n";
 
@@ -649,7 +649,7 @@ ck( 'their name comes from the account', $iker[1][1], 'Iker Reports-Only' );
 ck( 'their program comes from the cached block', $iker[1][2], 'WordPress Credits Program 50h' );
 ck( 'their team and website come with it', array( $iker[1][8], $iker[1][9] ), array( 'Training', 'https://iker.example.test/' ) );
 ck( 'and the roster group is empty, because they are on no roster row', $iker[1][0], '' );
-ck( 'the 50-hour form gives them fifteen columns', count( $iker[0] ), 15 );
+ck( 'the 50-hour form gives them sixteen columns', count( $iker[0] ), 16 );
 
 echo "\n=== The two lists that have to agree ===\n";
 

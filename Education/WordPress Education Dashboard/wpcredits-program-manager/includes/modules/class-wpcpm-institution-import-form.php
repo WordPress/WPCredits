@@ -29,6 +29,12 @@ final class WPCPM_Institution_Import_Form {
 	/** The `admin_post_` action the preview's Cancel posts to. */
 	const ACTION_CANCEL = WPCPM_Institution_Import::ACTION_CANCEL;
 
+	/** The `admin_post_` action the preview's Confirm posts to. */
+	const ACTION_CONFIRM = WPCPM_Institution_Import::ACTION_CONFIRM;
+
+	/** The `admin_post_` action the progress screen's Continue posts to. */
+	const ACTION_CONTINUE = WPCPM_Institution_Import::ACTION_CONTINUE;
+
 	/** The batch the preview is showing, in the address. */
 	const ARG_BATCH = 'wpcpm_batch';
 
@@ -52,6 +58,8 @@ final class WPCPM_Institution_Import_Form {
 	public static function init() {
 		add_action( 'admin_post_' . self::ACTION_CHECK, array( __CLASS__, 'handle_check' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( __CLASS__, 'handle_cancel' ) );
+		add_action( 'admin_post_' . self::ACTION_CONFIRM, array( __CLASS__, 'handle_confirm' ) );
+		add_action( 'admin_post_' . self::ACTION_CONTINUE, array( __CLASS__, 'handle_continue' ) );
 	}
 
 	/**
@@ -99,7 +107,9 @@ final class WPCPM_Institution_Import_Form {
 			return;
 		}
 
-		$staged = WPCPM_Institution_Import::staged_for( $record );
+		// Staged or part way through being created: both are a list this school has in hand,
+		// and the preview is what shows either of them.
+		$staged = WPCPM_Institution_Import::active_for( $record );
 
 		// **Read once, here, and carried down.** The disclosure has to know whether there is a
 		// message before the message is printed, and `WPCPM_Flash::take()` empties the channel.
@@ -108,7 +118,8 @@ final class WPCPM_Institution_Import_Form {
 		// simulates several requests in one process could not honestly reproduce it. One read
 		// and one argument is less to know.
 		$flash = WPCPM_Flash::take( self::FLASH );
-		$said  = ( is_array( $flash ) && ! empty( $flash['status'] ) ) ? (string) $flash['status'] : '';
+		$flash = is_array( $flash ) ? $flash : array();
+		$said  = ! empty( $flash['status'] ) ? (string) $flash['status'] : '';
 
 		echo '<section class="wpcpm-institution__card wpcpm-import" id="wpcpm-import">';
 
@@ -130,10 +141,14 @@ final class WPCPM_Institution_Import_Form {
 
 		echo '<div class="wpcpm-group__body wpcpm-import__body">';
 
-		self::render_message( $said );
+		self::render_message( $flash );
+
+		$finished = ( 0 === $staged && ! empty( $flash['detail']['batch'] ) ) ? (int) $flash['detail']['batch'] : 0;
 
 		if ( $staged > 0 ) {
 			self::render_preview( $staged, $record );
+		} elseif ( $finished > 0 ) {
+			self::render_outcome( $finished, $record );
 		} else {
 			self::render_form( $record );
 		}
@@ -354,6 +369,12 @@ final class WPCPM_Institution_Import_Form {
 			return;
 		}
 
+		if ( WPCPM_Institution_Import::STATE_CREATING === $batch['state'] ) {
+			self::render_progress( $batch );
+
+			return;
+		}
+
 		$counts = self::counts( $batch['rows'] );
 
 		printf(
@@ -389,6 +410,8 @@ final class WPCPM_Institution_Import_Form {
 
 		echo '</ul>';
 
+		self::render_confirm( $batch_id, $batch, $counts['ok'] );
+
 		printf(
 			'<form class="wpcpm-import__cancel" method="post" action="%s">',
 			esc_url( admin_url( 'admin-post.php' ) )
@@ -401,14 +424,102 @@ final class WPCPM_Institution_Import_Form {
 			esc_html__( 'Throw this list away', 'wpcredits-program-manager' )
 		);
 		echo '</form>';
+	}
 
-		// Said plainly rather than left to be inferred from the absence of a button. Creating
-		// is a separate release, and a school staring at a checked list with nothing to press
-		// deserves to know that rather than to hunt for the control.
+	/**
+	 * The Confirm control, and the sentence it makes somebody read first.
+	 *
+	 * **Everything that is about to happen, and everything that is not.** The count, the
+	 * institution's own program and start date, that no mail goes out now, when the student
+	 * will hear from anybody, and the one instruction that prevents the duplicate this plugin
+	 * cannot close: a student who is imported and then sent to the public registration form
+	 * creates a second record under their own hand, and no ladder here can tell that from a
+	 * new enrolment.
+	 *
+	 * @param int   $batch_id The staged batch.
+	 * @param array $batch    The batch.
+	 * @param int   $creating How many rows would be created.
+	 */
+	private static function render_confirm( $batch_id, array $batch, $creating ) {
+		if ( $creating < 1 ) {
+			// Nothing to create is not a button. A school whose whole list was blocked reads
+			// the rows and throws the list away; a Confirm here would do nothing and would
+			// teach them that the button sometimes does nothing.
+			return;
+		}
+
+		$values = isset( $batch['values'] ) && is_array( $batch['values'] ) ? $batch['values'] : array();
+		$says   = sprintf(
+			/* translators: 1: how many student records, 2: the program's name, 3: the start date. */
+			__( 'Create %1$s student records on the %2$s program, starting %3$s. No email is sent now. Each student is emailed by the program once a mentor is assigned, and receives their login when their account is created. Do not send these students to the registration form; it would create a second record.', 'wpcredits-program-manager' ),
+			number_format_i18n( $creating ),
+			WPCPM_Program::label( isset( $values['status'] ) ? (string) $values['status'] : '' ),
+			isset( $values['start'] ) ? (string) $values['start'] : ''
+		);
+
+		printf(
+			'<form class="wpcpm-import__actions" method="post" action="%1$s" onsubmit="return window.confirm(%2$s);">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr( wp_json_encode( $says ) )
+		);
+		wp_nonce_field( WPCPM_Institution_Create::confirm_action( $batch_id ) );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONFIRM ) );
+		printf( '<input type="hidden" name="batch" value="%d" />', (int) $batch_id );
+		printf( '<p class="wpcpm-import__note">%s</p>', esc_html( $says ) );
+		printf(
+			'<button type="submit" class="wpcpm-button">%s</button>',
+			esc_html__( 'Create these student records', 'wpcredits-program-manager' )
+		);
+		echo '</form>';
+	}
+
+	/**
+	 * A batch part way through, and the control that carries it on.
+	 *
+	 * Continue is offered as well as the scheduled continuation, not instead of it. Cron on a
+	 * quiet site runs when somebody visits, which for an institution's dashboard may be
+	 * tomorrow; a person watching a half-finished import should not have to wait for a visitor.
+	 *
+	 * @param array $batch The batch being created.
+	 */
+	private static function render_progress( array $batch ) {
+		$tally = WPCPM_Institution_Create::tally( $batch['rows'] );
+		$left  = WPCPM_Institution_Create::remaining( $batch['rows'] );
+
+		printf(
+			'<p class="wpcpm-import__summary">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: students created so far, 2: how many are still to come. */
+					__( '%1$s created so far. %2$s still to create.', 'wpcredits-program-manager' ),
+					number_format_i18n( $tally['created'] ),
+					number_format_i18n( $left )
+				)
+			)
+		);
+
+		// Said rather than left to be worked out from a button that is not there: a batch with
+		// records behind it cannot be thrown away, because deleting the post would leave those
+		// students with a `Site import key` pointing at a batch that no longer exists.
 		printf(
 			'<p class="wpcpm-import__note">%s</p>',
-			esc_html__( 'Creating these records from here ships with the next release. Until then a program manager creates them.', 'wpcredits-program-manager' )
+			esc_html__( 'This import has already created records, so it cannot be thrown away. It carries on by itself, and Continue picks it up now.', 'wpcredits-program-manager' )
 		);
+
+		self::render_exceptions( $batch['rows'] );
+
+		printf(
+			'<form class="wpcpm-import__actions" method="post" action="%s">',
+			esc_url( admin_url( 'admin-post.php' ) )
+		);
+		wp_nonce_field( WPCPM_Institution_Create::continue_action( $batch['id'] ) );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CONTINUE ) );
+		printf( '<input type="hidden" name="batch" value="%d" />', (int) $batch['id'] );
+		printf(
+			'<button type="submit" class="wpcpm-button">%s</button>',
+			esc_html__( 'Continue', 'wpcredits-program-manager' )
+		);
+		echo '</form>';
 	}
 
 	/**
@@ -431,6 +542,107 @@ final class WPCPM_Institution_Import_Form {
 	}
 
 	/**
+	 * What a finished import did, once, on the way back from it.
+	 *
+	 * Shown from the flash rather than from a query for a finished batch, because a batch that
+	 * has stopped must not keep a school from importing again: what they need after a stopped
+	 * import is to send the rest of the list, and the students already created are caught by
+	 * the duplicate ladder because each was put on this roster the moment it was made.
+	 *
+	 * @param int    $batch_id The batch the flash named.
+	 * @param string $record   Institutions record ID, to check the batch is this school's.
+	 */
+	private static function render_outcome( $batch_id, $record ) {
+		$batch = WPCPM_Institution_Import::batch( $batch_id );
+
+		if ( ! is_array( $batch ) || $batch['institution'] !== $record ) {
+			return;
+		}
+
+		$tally = WPCPM_Institution_Create::tally( $batch['rows'] );
+
+		printf(
+			'<p class="wpcpm-import__summary">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: students created, 2: rows not created, 3: rows the program records refused. */
+					__( '%1$s created, %2$s blocked, %3$s failed.', 'wpcredits-program-manager' ),
+					number_format_i18n( $tally['created'] ),
+					number_format_i18n( $tally['blocked'] ),
+					number_format_i18n( $tally['failed'] )
+				)
+			)
+		);
+
+		self::render_exceptions( $batch['rows'] );
+	}
+
+	/**
+	 * The rows of a batch that did not simply get created.
+	 *
+	 * Only those: a list of two hundred students who were created exactly as asked is a list
+	 * nobody reads, and burying the three that were not in it is how a school comes back a
+	 * week later asking where somebody went.
+	 *
+	 * @param array $rows The batch's rows.
+	 */
+	private static function render_exceptions( array $rows ) {
+		$shown = array();
+
+		foreach ( $rows as $row ) {
+			$state = WPCPM_Institution_Create::state_of( $row );
+
+			if ( in_array( $state, array( WPCPM_Institution_Create::ROW_FAILED, WPCPM_Institution_Create::ROW_BLOCKED ), true ) ) {
+				$shown[] = $row;
+			}
+		}
+
+		if ( empty( $shown ) ) {
+			return;
+		}
+
+		echo '<ul class="wpcpm-import__rows-list">';
+
+		foreach ( $shown as $row ) {
+			self::render_row( $row );
+		}
+
+		echo '</ul>';
+	}
+
+	/**
+	 * What one row says to the school, before creating and after it.
+	 *
+	 * A row the base refused says so in the base's own words: that message is the only account
+	 * of what went wrong with that one student, and a paraphrase would cost a program manager
+	 * the clue. A row whose answer changed between the preview somebody read and the moment it
+	 * was about to be created is prefaced with that fact, because otherwise a school reads a
+	 * refusal on a line the screen told them ten seconds earlier was ready.
+	 *
+	 * @param array $row A checked row.
+	 * @return string
+	 */
+	private static function verdict_sentence( array $row ) {
+		if ( WPCPM_Institution_Create::ROW_FAILED === WPCPM_Institution_Create::state_of( $row ) ) {
+			return sprintf(
+				/* translators: %s: the message the program records answered with, word for word. */
+				__( 'The program records refused this row: %s', 'wpcredits-program-manager' ),
+				isset( $row['error'] ) ? (string) $row['error'] : ''
+			);
+		}
+
+		if ( empty( $row['changed'] ) ) {
+			return self::sentence_for( $row );
+		}
+
+		return sprintf(
+			/* translators: %s: the sentence describing what the second check found. */
+			__( 'Checked again just before creating, and the answer had changed. %s', 'wpcredits-program-manager' ),
+			self::sentence_for( $row )
+		);
+	}
+
+	/**
 	 * What one row's verdict says to the school.
 	 *
 	 * **The blocked sentence is one sentence and is written once, here.** It is the same
@@ -442,7 +654,7 @@ final class WPCPM_Institution_Import_Form {
 	 * @param array $row A checked row.
 	 * @return string
 	 */
-	private static function verdict_sentence( array $row ) {
+	private static function sentence_for( array $row ) {
 		$verdict = isset( $row['verdict'] ) ? (string) $row['verdict'] : WPCPM_Institution_Import::OK;
 		$detail  = isset( $row['detail'] ) && is_array( $row['detail'] ) ? $row['detail'] : array();
 
@@ -580,7 +792,9 @@ final class WPCPM_Institution_Import_Form {
 
 		check_admin_referer( self::ACTION_CHECK . '_' . $institution );
 
-		if ( WPCPM_Institution_Import::staged_for( $institution ) > 0 ) {
+		// Staged or being created: either is a list this school already has in hand, and a
+		// second one would put two imports on one roster behind one lock.
+		if ( WPCPM_Institution_Import::active_for( $institution ) > 0 ) {
 			self::bounce( 'already-staged' );
 		}
 
@@ -665,6 +879,121 @@ final class WPCPM_Institution_Import_Form {
 		}
 
 		self::bounce( WPCPM_Institution_Import::cancel( $batch_id ) ? 'cancelled' : 'not-cancelled' );
+	}
+
+	/**
+	 * Create the clean rows of one staged batch.
+	 *
+	 * **The order is the module's rule.** The batch is read first because everything else is
+	 * derived from it: the institution comes off `_wpcpm_batch_institution` and never off the
+	 * form, so a member of one school posting another's batch ID is decided against the school
+	 * that batch belongs to; the decision is cheap and is made before the nonce; the nonce is
+	 * keyed to the batch and to what the batch says; and only then does anything reach the
+	 * network. A cross-site post costs this site one post read.
+	 *
+	 * The account that pressed this is written onto the batch before the first record is
+	 * created, because every later slice re-asks the policy about that account and the ones
+	 * running under cron have no other way to know who to ask about.
+	 */
+	public static function handle_confirm() {
+		if ( ! self::enabled() ) {
+			self::bounce( 'off' );
+		}
+
+		$batch_id = (int) WPCPM_Request::posted_text( 'batch' );
+		$batch    = WPCPM_Institution_Import::batch( $batch_id );
+
+		if ( ! is_array( $batch ) ) {
+			self::bounce( 'no-batch' );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_ADD_STUDENT,
+			WPCPM_Institution_Policy::subject_institution( $batch['institution'] )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			self::bounce( 'refused' );
+		}
+
+		check_admin_referer( WPCPM_Institution_Create::confirm_action( $batch_id ) );
+
+		// A second Confirm of a batch that has been created, or that stopped, creates nothing.
+		// This is the browser's back button, and it has to be free.
+		if ( WPCPM_Institution_Import::STATE_STAGED !== $batch['state'] ) {
+			self::bounce( 'not-staged-now' );
+		}
+
+		WPCPM_Institution_Create::claim( $batch_id, get_current_user_id(), $decision['ground'] );
+
+		self::report( WPCPM_Institution_Create::create_slice( $batch_id ), $batch_id );
+	}
+
+	/**
+	 * Carry on with a batch already being created.
+	 *
+	 * The same order, and the nonce keyed to the batch alone: a batch part way through changes
+	 * on every slice, so a fingerprint of its rows would invalidate this button as soon as the
+	 * first student existed.
+	 *
+	 * **The batch is not re-claimed here.** The account the guard holds to the rule on every
+	 * slice is the one that confirmed, and letting a second member take that over by pressing
+	 * Continue would let a revoked confirmer's batch be carried on under somebody else's name.
+	 * This reader is checked in their own right, above, and that is all pressing this buys.
+	 */
+	public static function handle_continue() {
+		if ( ! self::enabled() ) {
+			self::bounce( 'off' );
+		}
+
+		$batch_id = (int) WPCPM_Request::posted_text( 'batch' );
+		$batch    = WPCPM_Institution_Import::batch( $batch_id );
+
+		if ( ! is_array( $batch ) ) {
+			self::bounce( 'no-batch' );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_ADD_STUDENT,
+			WPCPM_Institution_Policy::subject_institution( $batch['institution'] )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			self::bounce( 'refused' );
+		}
+
+		check_admin_referer( WPCPM_Institution_Create::continue_action( $batch_id ) );
+
+		if ( WPCPM_Institution_Import::STATE_CREATING !== $batch['state'] ) {
+			self::bounce( 'not-creating-now' );
+		}
+
+		self::report( WPCPM_Institution_Create::create_slice( $batch_id ), $batch_id );
+	}
+
+	/**
+	 * Say what a slice did, and go back to the dashboard.
+	 *
+	 * The batch ID travels with the message so the page can show which rows did not simply get
+	 * created; the counts travel with it so the sentence can name them rather than saying that
+	 * something happened.
+	 *
+	 * @param array $outcome  From `WPCPM_Institution_Create::create_slice()`.
+	 * @param int   $batch_id The batch.
+	 */
+	private static function report( array $outcome, $batch_id ) {
+		self::leave(
+			(string) $outcome['problem'],
+			array(
+				'detail' => array(
+					'batch'     => (int) $batch_id,
+					'created'   => (int) $outcome['created'],
+					'blocked'   => (int) $outcome['blocked'],
+					'failed'    => (int) $outcome['failed'],
+					'remaining' => (int) $outcome['remaining'],
+				),
+			)
+		);
 	}
 
 	/**
@@ -881,10 +1210,10 @@ final class WPCPM_Institution_Import_Form {
 	/**
 	 * Print whatever the last import left to say.
 	 *
-	 * @param string $key The status `render()` read, or '' for nothing to say.
+	 * @param array $flash The flash `render()` read, or an empty array for nothing to say.
 	 */
-	private static function render_message( $key ) {
-		$key = (string) $key;
+	private static function render_message( array $flash ) {
+		$key = ! empty( $flash['status'] ) ? (string) $flash['status'] : '';
 
 		if ( '' === $key ) {
 			return;
@@ -892,12 +1221,56 @@ final class WPCPM_Institution_Import_Form {
 
 		$said = self::messages();
 		$text = isset( $said[ $key ] ) ? $said[ $key ] : $said['unknown'];
+		$sums = self::summary_sentence( $key, isset( $flash['detail'] ) && is_array( $flash['detail'] ) ? $flash['detail'] : array() );
+
+		if ( '' !== $sums ) {
+			$text = $sums;
+		}
 
 		printf(
 			'<p class="wpcpm-import__message wpcpm-import__message--%1$s">%2$s</p>',
 			esc_attr( sanitize_html_class( $key ) ),
 			esc_html( $text )
 		);
+	}
+
+	/**
+	 * The one sentence that has to carry numbers, or ''.
+	 *
+	 * **Created, blocked and failed, named separately, because they are three different jobs
+	 * for the reader.** Created is nothing to do; blocked is a row to ask a program manager
+	 * about; failed is a row to send again. A single total would hide the two that need doing
+	 * behind the one that does not.
+	 *
+	 * @param string $key    The status.
+	 * @param array  $detail What the handler counted.
+	 * @return string
+	 */
+	private static function summary_sentence( $key, array $detail ) {
+		$count = function ( $name ) use ( $detail ) {
+			return number_format_i18n( isset( $detail[ $name ] ) ? (int) $detail[ $name ] : 0 );
+		};
+
+		if ( 'created' === $key ) {
+			return sprintf(
+				/* translators: 1: students created, 2: rows not created, 3: rows the program records refused. */
+				__( 'Done: %1$s students created, %2$s blocked, %3$s failed. Nobody has been emailed.', 'wpcredits-program-manager' ),
+				$count( 'created' ),
+				$count( 'blocked' ),
+				$count( 'failed' )
+			);
+		}
+
+		if ( 'progress' === $key ) {
+			return sprintf(
+				/* translators: 1: students created so far, 2: how many are still to come. */
+				__( '%1$s students created so far, %2$s still to go. This carries on by itself, and Continue picks it up now.', 'wpcredits-program-manager' ),
+				$count( 'created' ),
+				$count( 'remaining' )
+			);
+		}
+
+		return '';
 	}
 
 	/**
@@ -911,6 +1284,22 @@ final class WPCPM_Institution_Import_Form {
 	public static function messages() {
 		return array(
 			'checked'              => __( 'The list was checked. Nothing has been created yet.', 'wpcredits-program-manager' ),
+			// Both of these are replaced by `summary_sentence()`, which has the counts. They
+			// are here so that a status can never reach the screen without a sentence behind
+			// it, which is what the "unknown" fallback would otherwise have to say.
+			'created'              => __( 'The import finished.', 'wpcredits-program-manager' ),
+			'progress'             => __( 'The import is running.', 'wpcredits-program-manager' ),
+			'not-staged-now'       => __( 'That list has already been created, or it stopped. Nothing was created again.', 'wpcredits-program-manager' ),
+			'not-creating-now'     => __( 'That import is not running, so there was nothing to carry on with.', 'wpcredits-program-manager' ),
+			'locked'               => __( 'This import is already running. Give it a moment and look again.', 'wpcredits-program-manager' ),
+			'wrong-state'          => __( 'That list is not one that can be created.', 'wpcredits-program-manager' ),
+			// The three ways a slice can be stopped by the guard that runs before every one of
+			// them. Named separately because a school can act on the first and only a program
+			// manager can act on the other two.
+			'agreement'            => __( 'The import stopped: this institution\'s agreement is no longer settled. Students created before it stopped are on your roster.', 'wpcredits-program-manager' ),
+			'not-allowed'          => __( 'The import stopped: the account that started it can no longer add students here. Ask a program manager.', 'wpcredits-program-manager' ),
+			'no-actor'             => __( 'The import stopped: it has no record of who started it. Ask a program manager.', 'wpcredits-program-manager' ),
+			'no-institution'       => __( 'That list is not attached to an institution, so nothing was created.', 'wpcredits-program-manager' ),
 			'cancelled'            => __( 'That list was thrown away.', 'wpcredits-program-manager' ),
 			'not-cancelled'        => __( 'That list could not be thrown away. It may already have been.', 'wpcredits-program-manager' ),
 			'off'                  => __( 'This site is not taking imports right now.', 'wpcredits-program-manager' ),

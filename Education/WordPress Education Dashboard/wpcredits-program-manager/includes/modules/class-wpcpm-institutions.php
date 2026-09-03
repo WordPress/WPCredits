@@ -327,6 +327,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		WPCPM_Institution_Export::init();
 		WPCPM_Institution_Import::init();
 		WPCPM_Institution_Import_Form::init();
+		WPCPM_Institution_Create::init();
 
 		WPCPM_Institutions_Sync::register_cron();
 

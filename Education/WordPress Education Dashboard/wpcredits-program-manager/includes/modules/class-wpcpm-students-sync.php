@@ -527,6 +527,11 @@ class WPCPM_Students_Sync {
 					$fields['report_website'],
 					$fields['report_start'],
 					$fields['report_end'],
+					// Asked for by name, like every other column here: Airtable returns only
+					// the fields a request lists, so a column left out of this list arrives as
+					// an absent cell rather than as an error, and the roster would print
+					// "Not recorded" for a student whose hours the base has been holding.
+					$fields['report_hours'],
 					$fields['report_link'],
 					$fields['report_link_50h'],
 					$fields['report_link_dev'],
@@ -578,6 +583,12 @@ class WPCPM_Students_Sync {
 					'teams'
 				),
 				'website'        => $read( 'report_website' ),
+				// The string the base sends, undivided: `WPCPM_Program::hours_target()` has the
+				// denominator and the Developer Track's is 0, so a number formatted here would
+				// have to invent one. It reaches `wpcpm_student_program` with the rest of this
+				// row, which is what stops the next sync from wiping the value `apply_report()`
+				// wrote there when a student saved their own report between runs.
+				'hours'          => $read( 'report_hours' ),
 				// All three formula fields are always populated, so the track is what decides
 				// which one is this student's real link. Unknown track falls back to the
 				// 150-hour link rather than to nothing: a finished student keeps a working
@@ -837,11 +848,12 @@ class WPCPM_Students_Sync {
 				'tutor'          => $tutor,
 				'import_key'     => $read( 'student_import_key' ),
 				// Filled by `phase_provision()` from the reports row this student joins to,
-				// which is the only place either value exists. Declared here so every row has
-				// the same shape whether or not that join finds anything.
+				// which is the only place any of these four exists. Declared here so every row
+				// has the same shape whether or not that join finds anything.
 				'mentor_name'    => '',
 				'team'           => '',
 				'website'        => '',
+				'hours'          => '',
 				// Both filled by `phase_provision()`, which is where the reports and the
 				// accounts are; declared here so every row has the same shape.
 				'reports'        => array(),
@@ -1083,9 +1095,21 @@ class WPCPM_Students_Sync {
 			// were found and fixed one at a time, over three reports from the same roster, so
 			// they are a list now: a sixth column is a line here rather than a fourth round of
 			// somebody noticing a blank cell.
-			foreach ( array( 'team', 'website' ) as $lend ) {
-				if ( '' === (string) $state['rows'][ $record_id ][ $lend ] && ! empty( $student[ $lend ] ) ) {
-					$state['rows'][ $record_id ][ $lend ] = (string) $student[ $lend ];
+			//
+			// **Both sides are compared against '' rather than tested with `empty()`**, because
+			// `empty( '0' )` is true and `hours` is the first column on this list whose real
+			// value can be "0". A student who has logged nothing is not a student nobody has
+			// logged for; lending on emptiness would file the first under the second and the
+			// roster would print "Not recorded" for both. Each side is read through `isset()`
+			// as well, so a run already in flight when this shipped - whose rows and whose
+			// reports rows were built without an `hours` key - lends what it has instead of
+			// warning on the key it does not.
+			foreach ( array( 'team', 'website', 'hours' ) as $lend ) {
+				$held = isset( $state['rows'][ $record_id ][ $lend ] ) ? (string) $state['rows'][ $record_id ][ $lend ] : '';
+				$lent = isset( $student[ $lend ] ) ? (string) $student[ $lend ] : '';
+
+				if ( '' === $held && '' !== $lent ) {
+					$state['rows'][ $record_id ][ $lend ] = $lent;
 				}
 			}
 

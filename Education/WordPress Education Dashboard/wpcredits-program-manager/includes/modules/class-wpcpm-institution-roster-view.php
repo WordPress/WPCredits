@@ -231,8 +231,11 @@ class WPCPM_Institution_Roster_View {
 	 * one day scopes fields would have to split the dates cell to drop an end date; nothing
 	 * shipped scopes them, and `scope()` returns the whole list for every ground there is.
 	 *
-	 * Hours arrive in Phase 5 and are deliberately absent until the column is synced: an
-	 * empty hours column reads as "nobody has done anything" rather than "not collected yet".
+	 * Hours are `reports|Hours`, named for the table and the column the value is read from,
+	 * the way every other key here is. What the cell says is `hours_cell()`'s decision and not
+	 * this list's: a track worked to no target prints no denominator, and a student nobody has
+	 * logged for prints the same "Not recorded" every other empty cell does, because an hours
+	 * column that read "0" for them would say they had done nothing.
 	 *
 	 * @return array<string, string> Column key to heading.
 	 */
@@ -248,6 +251,7 @@ class WPCPM_Institution_Roster_View {
 			'reports|Personal Website URL'   => __( 'Website', 'wpcredits-program-manager' ),
 			'students|Your field of study'   => __( 'Field of study', 'wpcredits-program-manager' ),
 			'students|Tutor '                => __( 'Tutor', 'wpcredits-program-manager' ),
+			'reports|Hours'                  => __( 'Hours', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -904,11 +908,12 @@ class WPCPM_Institution_Roster_View {
 	/**
 	 * One student's cells, keyed as `columns()` is, each already escaped.
 	 *
-	 * The index row carries what the Students table holds; the team and the website live on
-	 * the Students Reports row and reach this page through `wpcpm_student_program`, which the
-	 * students sync writes for every account. **Two keys are read out of that block and
-	 * nothing else**: it also carries the student's accessibility disclosure, which was made
-	 * to the program and is not the school's to read.
+	 * The index row carries what the Students table holds; the team, the website and the hours
+	 * live on the Students Reports row and reach this page through `wpcpm_student_program`,
+	 * which the students sync writes for every account. **Every value taken out of that block
+	 * is read out by name, one at a time**: it also carries the student's accessibility
+	 * disclosure, which was made to the program and is not the school's to read, so a block
+	 * printed wholesale is a disclosure this page has no right to make.
 	 *
 	 * @param array  $row  An index row.
 	 * @param string $here The current URL, without the detail view's argument.
@@ -937,6 +942,19 @@ class WPCPM_Institution_Roster_View {
 		$mentor_name = '' !== $cached( $mentor, 'name' ) ? $cached( $mentor, 'name' ) : $get( 'mentor_name' );
 		$team        = '' !== $cached( $program, 'team' ) ? $cached( $program, 'team' ) : $get( 'team' );
 		$website     = '' !== $cached( $program, 'website' ) ? $cached( $program, 'website' ) : $get( 'website' );
+
+		// The same order, and `'' !==` earns its keep here in a way it does not above: "0" is a
+		// real number of hours, so a truthiness test would fall past a cleared count through to
+		// the index's older copy and print a number the student no longer claims.
+		$hours = '' !== $cached( $program, 'hours' ) ? $cached( $program, 'hours' ) : $get( 'hours' );
+
+		// The track the hours target is read from: the Students Reports status where the
+		// account carries one, the Students row's status otherwise, which is the order
+		// `program_cell()` prints those two in. Neither has to name a track - a graduate names
+		// none - and `WPCPM_Program::hours_target()` answers 0 for anything it has not heard
+		// of, which is what makes "150 h" the right cell for a student whose track is behind
+		// them rather than an invented "150 of 150".
+		$track = '' !== $cached( $program, 'program' ) ? $cached( $program, 'program' ) : $get( 'status' );
 
 		$name = $get( 'name' );
 
@@ -973,6 +991,7 @@ class WPCPM_Institution_Roster_View {
 			'reports|Personal Website URL'   => self::website_cell( $website ),
 			'students|Your field of study'   => esc_html( $get( 'field_of_study' ) ),
 			'students|Tutor '                => esc_html( $get( 'tutor' ) ),
+			'reports|Hours'                  => self::hours_cell( $hours, $track ),
 		);
 	}
 
@@ -1196,6 +1215,94 @@ class WPCPM_Institution_Roster_View {
 			esc_url( $website ),
 			esc_html( (string) preg_replace( '#^https?://#i', '', untrailingslashit( $website ) ) )
 		);
+	}
+
+	/**
+	 * The hours cell: what a student has logged, against their track's target if it has one.
+	 *
+	 * **A track worked to no target prints no denominator.** `WPCPM_Program::hours_target()`
+	 * answers 0 for the Developer Track, which is worked to a body of merged contributions
+	 * rather than to a clock, and 0 again for a status its map has never heard of, because a
+	 * track the program adds and does not count hours for is a supported state and not an
+	 * omission. Both read "12 h", never "12 of 0".
+	 *
+	 * Three things the live column does that this cell has to survive, read off the base rather
+	 * than assumed:
+	 *
+	 * - The value is **fractional** for some students (6.2, 135.5), so it is printed to as many
+	 *   places as the base sent it with, counted by `hours_decimals()` off the string itself.
+	 *   An `intval()` here would print 6 for 6.2 and quietly round a term's work down.
+	 * - It runs **past the target** for others (400 against a 150-hour track). That is printed
+	 *   as it stands: "400 of 150" is what the records say, and clamping to the target would
+	 *   hide an overrun from the one party paying attention to it.
+	 * - An unset cell is **absent, not zero**. '' returns '' so the row says "Not recorded",
+	 *   while a logged 0 prints "0 of 150": a student nobody has logged for and a student who
+	 *   has done nothing are different answers to a school's question.
+	 *
+	 * @param string $hours  The value as the base holds it, or ''.
+	 * @param string $status The status the target is read from.
+	 * @return string Cell markup.
+	 */
+	private static function hours_cell( $hours, $status ) {
+		$hours = trim( (string) $hours );
+
+		if ( '' === $hours ) {
+			return '';
+		}
+
+		// A Number column that has stopped being a number is printed as it stands rather than
+		// cast: `(float) 'n/a'` is 0.0, and a cell reading "0 of 150" would tell a school its
+		// student had done nothing on the strength of a field type somebody changed.
+		if ( ! is_numeric( $hours ) ) {
+			return esc_html( $hours );
+		}
+
+		$logged = number_format_i18n( (float) $hours, self::hours_decimals( $hours ) );
+
+		if ( ! WPCPM_Program::has_hours_target( $status ) ) {
+			return esc_html(
+				sprintf(
+					/* translators: %s: hours logged, e.g. "12" or "6.2". */
+					__( '%s h', 'wpcredits-program-manager' ),
+					$logged
+				)
+			);
+		}
+
+		return esc_html(
+			sprintf(
+				/* translators: 1: hours logged, 2: the track's target in hours. */
+				__( '%1$s of %2$s', 'wpcredits-program-manager' ),
+				$logged,
+				number_format_i18n( WPCPM_Program::hours_target( $status ) )
+			)
+		);
+	}
+
+	/**
+	 * How many decimal places one hours value is printed to, at most two.
+	 *
+	 * **Counted off the string the base sent, not off the float.** A fixed 0 would print 136 for
+	 * 135.5 and rewrite a student's work with a display decision; a fixed 1 or 2 would print
+	 * "150.0" for the student who logged exactly 150, because `number_format_i18n()` pads. So
+	 * the value decides how it is written, and it decides from its own digits: comparing a
+	 * float against its own rounding to answer the same question means trusting an equality
+	 * that binary fractions do not owe anybody.
+	 *
+	 * Trailing zeros do not count, so a "6.20" somebody typed reads as "6.2", and two places is
+	 * the ceiling: these are hours entered by hand on a form, not a measurement.
+	 *
+	 * @param string $hours The value as the base holds it, already known to be numeric.
+	 * @return int 0, 1 or 2.
+	 */
+	private static function hours_decimals( $hours ) {
+		$dot = strpos( (string) $hours, '.' );
+
+		if ( false === $dot ) {
+			return 0;
+		}
+
+		return min( 2, strlen( rtrim( substr( (string) $hours, $dot + 1 ), '0' ) ) );
 	}
 
 	/**

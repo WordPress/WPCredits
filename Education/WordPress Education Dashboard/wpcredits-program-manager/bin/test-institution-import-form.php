@@ -49,6 +49,12 @@ $GLOBALS['staged']   = 0;
 $GLOBALS['calls']    = array();
 $GLOBALS['next_id']  = 900;
 $GLOBALS['checked']  = null;
+$GLOBALS['settled']  = true;
+$GLOBALS['audit']    = array();
+$GLOBALS['requests'] = array();
+$GLOBALS['inserted'] = array();
+$GLOBALS['cron']     = array();
+$GLOBALS['created']  = array();
 
 function __( $t, $d = null ) { return $t; }
 function esc_html__( $t, $d = null ) { return $t; }
@@ -76,6 +82,12 @@ function current_user_can( $cap ) { return (bool) $GLOBALS['manage']; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function add_option( $k, $v, $x = '', $a = null ) { if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; } $GLOBALS['opts'][ $k ] = $v; return true; }
+function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+function wp_json_encode( $v ) { return json_encode( $v ); }
+function wp_next_scheduled( $hook, $args = array() ) { return isset( $GLOBALS['cron'][ $hook . ':' . json_encode( $args ) ] ) ? $GLOBALS['cron'][ $hook . ':' . json_encode( $args ) ] : false; }
+function wp_schedule_single_event( $when, $hook, $args = array() ) { $GLOBALS['cron'][ $hook . ':' . json_encode( $args ) ] = (int) $when; return true; }
+function sanitize_textarea_field( $s ) { return (string) $s; }
+function wp_date( $f ) { return gmdate( $f ); }
 function add_action() {}
 function apply_filters( $t, $v ) { return $v; }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
@@ -113,6 +125,7 @@ class WPCPM_Mentors_Sync {
 		return array(
 			'student_record_name' => 'Full Name', 'student_email' => 'Email', 'student_status' => 'Status',
 			'student_institution' => 'Educational Institutions', 'student_start' => 'Start Date', 'student_profile' => 'WP Profile',
+			'student_end' => 'End Date', 'student_import_key' => 'Site import key',
 			'report_name' => 'Name', 'report_email' => 'Email', 'report_status' => 'Status',
 			'report_instituton' => 'Educational institution', 'report_profile' => 'WordPress Profile',
 		);
@@ -123,10 +136,37 @@ class WPCPM_Airtable {
 	public function formula_in( $f, array $v, $l = false ) { return empty( $v ) ? '' : 'in'; }
 	public function formula_contains( $f, array $v, $l = true ) { return empty( $v ) ? '' : 'has'; }
 	public function fetch_all( $t, array $a = array() ) { return array(); }
+	/** Every create is recorded whole, so the handlers' cells can be read back and asserted. */
+	public function create_records( $t, array $records ) {
+		$ids = array();
+		foreach ( $records as $record ) {
+			$GLOBALS['created'][] = $record['fields'];
+			$ids[]                = sprintf( 'rec%014d', count( $GLOBALS['created'] ) );
+		}
+		return $ids;
+	}
 	public static function flatten( $v, $g = ', ' ) { return is_array( $v ) ? implode( $g, $v ) : (string) $v; }
 	public static function link_ids( $v ) { return array_values( array_filter( (array) $v, 'strlen' ) ); }
 }
-class WPCPM_Roster_Index { public static function rows( $r ) { return array(); } }
+class WPCPM_Roster_Index {
+	public static function rows( $r ) { return array(); }
+	public static function insert( $r, array $row ) { $GLOBALS['inserted'][] = array( $r, $row ); }
+}
+/** The creation loop's collaborators, no further than the form needs to reach them. */
+class WPCPM_Institution_Agreement { public static function is_settled( $r ) { return (bool) $GLOBALS['settled']; } }
+class WPCPM_Institution_Audit {
+	const GROUND_MANAGER = 'manager';
+	const GROUND_MEMBER  = 'member';
+	const GROUND_SYSTEM  = 'system';
+	const EVIDENCE_CACHE = 'cache';
+	const EVIDENCE_LIVE  = 'live';
+	public static function grounds() { return array( 'manager', 'member', 'system' ); }
+	public static function record( array $entry ) { $GLOBALS['audit'][] = $entry; return 1; }
+}
+class WPCPM_Institution_Request {
+	const KIND_ADD = 'add';
+	public static function raise( $k, $i, $s, $a, $g = '' ) { $GLOBALS['requests'][] = array( $k, $i, $s, $a, $g ); return 1; }
+}
 class WPCPM_Roles { const CAP_MANAGE = 'wpcpm_manage'; }
 class WPCPM_Settings {
 	public static function get() { return array( 'students_table' => 'tblS', 'reports_table' => 'tblR' ); }
@@ -143,9 +183,13 @@ class WPCPM_Request {
 class WPCPM_Institution_Policy {
 	const ACT_ADD_STUDENT = 'add_student';
 	public static function subject_institution( $id ) { $GLOBALS['calls'][] = array( 'subject', $id ); return array( 'institution' => $id ); }
-	public static function decide( $action, $subject ) {
-		$GLOBALS['calls'][] = array( 'decide', $action, isset( $subject['institution'] ) ? $subject['institution'] : '' );
-		return array( 'allowed' => (bool) $GLOBALS['allowed'], 'institution' => isset( $subject['institution'] ) ? $subject['institution'] : '' );
+	public static function decide( $action, $subject, $user = null ) {
+		$GLOBALS['calls'][] = array( 'decide', $action, isset( $subject['institution'] ) ? $subject['institution'] : '', $user );
+		return array(
+			'allowed'     => (bool) $GLOBALS['allowed'],
+			'ground'      => 'member',
+			'institution' => isset( $subject['institution'] ) ? $subject['institution'] : '',
+		);
 	}
 }
 class WPCPM_Institution_Roster {
@@ -183,6 +227,7 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function get_user_by( $by, $v ) { return false; }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-create.php';
 
 // The handlers call `exit`. Loaded through a rewrite so the runner can catch the end instead.
 $form_source = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import-form.php' );
@@ -429,6 +474,112 @@ ck( 'its own institution can throw it away', post_cancel( $batch_id ), 'cancelle
 ck( 'and then there is none waiting', WPCPM_Institution_Import::staged_for( $HERE ), 0 );
 ck( 'cancelling a batch that is gone says so', post_cancel( $batch_id ), 'no-batch' );
 
+echo "\n=== Confirm: the order, the nonce, and what a second press does ===\n";
+
+/** Press a batch control as somebody, and report what the screen said. */
+function post_batch( $handler, $batch_id ) {
+	$GLOBALS['referer']  = array();
+	$GLOBALS['calls']    = array();
+	$GLOBALS['flash']    = array();
+	$GLOBALS['redirect'] = '';
+	$_POST               = array( 'batch' => (string) (int) $batch_id );
+	$_GET                = array();
+	$_FILES              = array();
+
+	try {
+		call_user_func( array( 'WPCPM_Institution_Import_Form', $handler ) );
+	} catch ( Left $e ) {
+		// Ended where it meant to.
+	}
+
+	$flash = isset( $GLOBALS['flash']['institution_import'] ) ? $GLOBALS['flash']['institution_import'] : array();
+
+	return isset( $flash['status'] ) ? $flash['status'] : '';
+}
+
+fresh_world();
+$GLOBALS['created'] = array();
+post_check( batch_fields() );
+$batch_id = WPCPM_Institution_Import::staged_for( $HERE );
+
+// Keyed to the batch, so a token minted for one school's list is not a token for another's,
+// and to a digest of what that list says, so a token minted for the preview somebody read is
+// not a token for a list that has changed since.
+$action = WPCPM_Institution_Create::confirm_action( $batch_id );
+ck( 'the confirm action names the batch', 0 === strpos( $action, WPCPM_Institution_Import::ACTION_CONFIRM . '_' . $batch_id . '_' ), true );
+ck( 'and another batch would get another action', WPCPM_Institution_Create::confirm_action( $batch_id + 1 ) === $action, false );
+// The Continue button is keyed to the batch alone: a batch part way through changes on every
+// slice, so a digest of its rows would invalidate the button as soon as one student existed.
+ck( 'the continue action is the batch and nothing else', WPCPM_Institution_Create::continue_action( $batch_id ), WPCPM_Institution_Import::ACTION_CONTINUE . '_' . $batch_id );
+
+// The reader may be anybody; the batch says whose list it is, and that is what is decided
+// about. A member of one school posting another's batch ID is refused.
+$GLOBALS['resolved'] = $THERE;
+$GLOBALS['allowed']  = false;
+ck( 'somebody the policy refuses cannot confirm it', post_batch( 'handle_confirm', $batch_id ), 'refused' );
+$decided = array();
+foreach ( $GLOBALS['calls'] as $call ) { if ( 'decide' === $call[0] ) { $decided[] = $call[2]; } }
+ck( 'and the decision was about the batch\'s institution', $decided, array( $HERE ) );
+// The cheap decision comes first, so a refused reader costs one post read and no nonce check.
+ck( 'and no nonce was checked for them', $GLOBALS['referer'], array() );
+ck( 'and nothing was created', count( $GLOBALS['created'] ), 0 );
+
+$GLOBALS['allowed']  = true;
+$GLOBALS['resolved'] = $HERE;
+$status              = post_batch( 'handle_confirm', $batch_id );
+
+ck( 'its own institution can create the list', $status, 'created' );
+ck( 'and the nonce that was checked was the batch\'s', $GLOBALS['referer'], array( $action ) );
+ck( 'and the one clean row was created', count( $GLOBALS['created'] ), 1 );
+// Read off the batch, never off the form, on this and on every later slice.
+ck( 'against the institution the batch was staged for', $GLOBALS['created'][0]['Educational Institutions'], array( $HERE ) );
+// So the account that pressed this can be re-asked by a slice with no user of its own.
+ck( 'and the account that pressed it is on the batch', WPCPM_Institution_Create::actor_of( $batch_id ), 7 );
+
+$made   = count( $GLOBALS['created'] );
+$status = post_batch( 'handle_confirm', $batch_id );
+
+// The browser's back button, and it has to be free.
+ck( 'a second confirm of a done batch creates nothing', count( $GLOBALS['created'] ), $made );
+ck( 'and says so', $status, 'not-staged-now' );
+
+// Nothing is being created, so there is nothing to carry on with.
+ck( 'continue refuses a batch that is not running', post_batch( 'handle_continue', $batch_id ), 'not-creating-now' );
+ck( 'and creates nothing either', count( $GLOBALS['created'] ), $made );
+
+// A finished batch is not "in hand": the school has to be able to send the rest of the list,
+// and the students already created are caught by the ladder because each went on this roster
+// the moment it was made.
+ck( 'and the school may send another list', WPCPM_Institution_Import::active_for( $HERE ), 0 );
+
+echo "\n=== What the three states of a batch put on the screen ===\n";
+
+fresh_world();
+$GLOBALS['created'] = array();
+post_check( batch_fields() );
+$batch_id = WPCPM_Institution_Import::staged_for( $HERE );
+$staged   = draw_section( $HERE );
+
+// Everything that is about to happen, and everything that is not, read before the button:
+// the count, the program, the date, that no mail goes out now, and the one instruction that
+// prevents the duplicate this plugin cannot close.
+ck( 'a staged list offers the create control', false !== strpos( $staged, 'Create these student records' ), true );
+ck( 'saying no email is sent now', false !== strpos( $staged, 'No email is sent now' ), true );
+ck( 'and warning against the registration form', false !== strpos( $staged, 'would create a second record' ), true );
+ck( 'and it can still be thrown away', false !== strpos( $staged, 'Throw this list away' ), true );
+
+update_post_meta( $batch_id, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_CREATING );
+$running = draw_section( $HERE );
+
+// A batch with records behind it cannot be thrown away: deleting the post would leave those
+// students with a `Site import key` pointing at a batch that no longer exists.
+ck( 'a running import offers Continue instead', false !== strpos( $running, '>Continue<' ), true );
+ck( 'and no way to throw it away', false !== strpos( $running, 'Throw this list away' ), false );
+ck( 'and does not offer to create it again', false !== strpos( $running, 'Create these student records' ), false );
+// Cron on a quiet site runs when somebody visits, which for a school's dashboard may be
+// tomorrow; the person watching should not have to wait for a visitor.
+ck( 'and says it carries on by itself', false !== strpos( $running, 'carries on by itself' ), true );
+
 echo "\n=== What the preview says, and what it does not ===\n";
 
 $said = WPCPM_Institution_Import_Form::messages();
@@ -438,6 +589,25 @@ $said = WPCPM_Institution_Import_Form::messages();
 // program. The reason lives on the batch, for a program manager.
 $source = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import-form.php' );
 ck( 'the blocked sentence is written once', substr_count( $source, 'This student cannot be imported from here' ), 1 );
+
+/**
+ * The module with its comments removed.
+ *
+ * Scanned instead of the raw text, because the comments explain why the module does not do
+ * these things and name them to do it. Built here rather than three hundred lines down, where
+ * it used to be: the next assertion read `$code` before anything had assigned it, so it was
+ * asking `strpos( null, ... )` and could not fail whatever the module said.
+ */
+$code = '';
+
+foreach ( token_get_all( '<?php ' . $source ) as $token ) {
+	if ( is_array( $token ) && in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ) {
+		continue;
+	}
+
+	$code .= is_array( $token ) ? $token[1] : $token;
+}
+
 ck( 'and the manager-only reason never reaches the screen', false !== strpos( $code, 'manager_reason' ), false );
 
 // A school that pasted thirty students and got twenty-eight has to be able to fix the two.
@@ -501,24 +671,10 @@ ck( 'the section joins the two that already carry a rule', false !== strpos( $cs
 
 echo "\n=== The file is read, never stored ===\n";
 
-/**
- * The module with its comments removed.
- *
- * Scanned instead of the raw text, because the comments explain why the module does not call
- * these things and name them to do it. Reading the raw source made "nothing here moves an
- * upload" fail on the sentence saying wp_handle_upload() would put a list of names into a
- * web-served directory, which is the assertion punishing the documentation for being specific.
- */
-$code = '';
-
-foreach ( token_get_all( '<?php ' . $source ) as $token ) {
-	if ( is_array( $token ) && in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ) {
-		continue;
-	}
-
-	$code .= is_array( $token ) ? $token[1] : $token;
-}
-
+// The comment-free source built above. Reading the raw text made "nothing here moves an
+// upload" fail on the sentence saying wp_handle_upload() would put a list of names into a
+// web-served directory, which is the assertion punishing the documentation for being specific.
+//
 // `wp_handle_upload()` would move a list of names and addresses into the uploads directory,
 // which this site serves over the web.
 ck( 'nothing here moves an upload', false !== strpos( $code, 'wp_handle_upload' ), false );
