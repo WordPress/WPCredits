@@ -234,7 +234,7 @@ function batch_fields( array $over = array() ) {
 			'program' => 'In Sensei',
 			'start'   => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ),
 			'end'     => '',
-			'told'    => '1',
+			'notified' => '1',
 			'paste'   => "Name,Email\nAnna Kowalska,anna@uek.krakow.pl\n",
 		),
 		$over
@@ -321,7 +321,7 @@ $cases = array(
 	array( 'an end date before the start is refused', array( 'end' => '2020-01-01' ), 'bad-end' ),
 	array( 'and one more than a year after it', array( 'end' => gmdate( 'Y-m-d', time() + 800 * DAY_IN_SECONDS ) ), 'bad-end' ),
 	// The school's own statement, and the form does not proceed without it.
-	array( 'the list is refused until the school confirms it has told them', array( 'told' => '' ), 'not-told' ),
+	array( 'the list is refused until the school confirms it has notified them', array( 'notified' => '' ), 'not-notified' ),
 	array( 'a post with nothing in it at all is refused', array( 'paste' => '' ), 'nothing-sent' ),
 );
 
@@ -464,12 +464,12 @@ ck( 'a waiting list opens it', false !== strpos( $with_batch, 'wpcpm-import__dis
 
 // So is a message from the last attempt, which folded away unread before this.
 fresh_world();
-post_check( batch_fields( array( 'told' => '' ) ) );
+post_check( batch_fields( array( 'notified' => '' ) ) );
 $with_message = draw_section( $HERE );
 ck( 'and so does something left to say', false !== strpos( $with_message, 'wpcpm-import__disclosure" open' ), true );
 // Read twice in one request: once to decide whether to open, once to print. `take()` is
 // memoized for exactly that, and without it the message would be shown inside a folded section.
-ck( 'the message still prints after being read to make that decision', false !== strpos( $with_message, 'Confirm that these students have been told' ), true );
+ck( 'the message still prints after being read to make that decision', false !== strpos( $with_message, 'Confirm that these students have been notified' ), true );
 
 fresh_world();
 $GLOBALS['settings'] = array( 'import_enabled' => false );

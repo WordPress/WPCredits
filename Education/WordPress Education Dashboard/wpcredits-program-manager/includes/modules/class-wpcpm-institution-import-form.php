@@ -195,11 +195,16 @@ final class WPCPM_Institution_Import_Form {
 
 		// **Recorded on the batch and never written to a student's record.** The consent that
 		// matters is the student's own, given on their own form; this is the school saying it
-		// has told them, which is a different statement by a different person and belongs in a
-		// different place.
+		// has notified them, which is a different statement by a different person and belongs
+		// in a different place.
+		//
+		// It names the name and the address and nothing else. A WordPress.org profile is not
+		// shared at this point because there is none to share: getting one is the student's own
+		// first step after enrolment, so a school confirming it had been notified about would
+		// be confirming something that has not happened.
 		printf(
-			'<p class="wpcpm-field wpcpm-field--check"><label><input type="checkbox" name="told" value="1" required /> %s</label></p>',
-			esc_html__( 'These students have been told that their name, email address and WordPress.org profile are shared with the WordPress Foundation for the WordPress Credits Program.', 'wpcredits-program-manager' )
+			'<p class="wpcpm-field wpcpm-field--check"><label><input type="checkbox" name="notified" value="1" required /> %s</label></p>',
+			esc_html__( 'These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program.', 'wpcredits-program-manager' )
 		);
 
 		echo '</div>';
@@ -242,7 +247,7 @@ final class WPCPM_Institution_Import_Form {
 			esc_html(
 				sprintf(
 					/* translators: %s: the largest number of students one import may carry. */
-					__( 'A header row, then one student per line. Name and email are needed; a WordPress.org profile, field of study and tutor are read when they are there. Up to %s students. The file is read and never stored.', 'wpcredits-program-manager' ),
+					__( 'A header row, then one student per line. Name and email are needed; field of study and tutor are read when they are there. Up to %s students. The file is read and never stored.', 'wpcredits-program-manager' ),
 					number_format_i18n( WPCPM_Institution_Import::MAX_ROWS )
 				)
 			)
@@ -703,19 +708,19 @@ final class WPCPM_Institution_Import_Form {
 			}
 		}
 
-		if ( '1' !== WPCPM_Request::posted_text( 'told' ) ) {
+		if ( '1' !== WPCPM_Request::posted_text( 'notified' ) ) {
 			return array(
 				'values'  => array(),
-				'problem' => 'not-told',
+				'problem' => 'not-notified',
 			);
 		}
 
 		return array(
 			'values'  => array(
-				'status' => $status,
-				'start'  => $start,
-				'end'    => $end,
-				'told'   => true,
+				'status'   => $status,
+				'start'    => $start,
+				'end'      => $end,
+				'notified' => true,
 			),
 			'problem' => '',
 		);
@@ -907,7 +912,7 @@ final class WPCPM_Institution_Import_Form {
 			'bad-start'            => __( 'Give the date these students start, as a date.', 'wpcredits-program-manager' ),
 			'start-far'            => __( 'That start date is more than a year away. Check the year.', 'wpcredits-program-manager' ),
 			'bad-end'              => __( 'The end date has to be after the start date, and within a year of it.', 'wpcredits-program-manager' ),
-			'not-told'             => __( 'Confirm that these students have been told what is shared, before sending the list.', 'wpcredits-program-manager' ),
+			'not-notified'         => __( 'Confirm that these students have been notified of what is shared, before sending the list.', 'wpcredits-program-manager' ),
 			'nothing-sent'         => __( 'Nothing was sent. Fill in one student, choose a file, or paste a list.', 'wpcredits-program-manager' ),
 			'unreadable'           => __( 'The program records could not be reached just now, so the list was not checked. Nothing was created. Try again shortly.', 'wpcredits-program-manager' ),
 			'not-staged'           => __( 'The list was read but could not be kept. Nothing was created.', 'wpcredits-program-manager' ),

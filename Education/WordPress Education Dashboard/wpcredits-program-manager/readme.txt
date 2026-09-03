@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.86.1
+Stable tag: 1.86.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.86.2 =
+* The enrolment form no longer mentions a WordPress.org profile anywhere. The confirmation a school gives now reads "These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program", which is what is actually shared at that point: a profile is not, because the student does not have one until after they are enrolled. The file hint stopped listing it as a column too.
+* "Told" is "notified" throughout that form, in the confirmation, in the refusal when it is not ticked, and in the field the two are recorded under.
 
 = 1.86.1 =
 * The tutor picker finds its tutors. 1.86.0 asked Airtable for them with a formula, and a formula reading a linked-record column sees the linked rows' name rather than their record ID, so matching on the ID found nothing for every institution and every picker was empty. The whole table is fourteen rows across the program, so it is read once and filtered here, where the record IDs are what the data actually holds.
