@@ -732,8 +732,24 @@
  * stylesheet, and that stylesheet is not loaded on this page, so every label and every box
  * came out as the browser's own.
  */
+/*
+ * **The theme owns this body's inset and its open state, and both are better than mine were.**
+ * A dressed dashboard turns an open group into a bordered panel hanging off the summary row,
+ * inset to match it, which is the visible answer to "is this section open" and the reason the
+ * form now lines up with the row that opens it. An earlier version of this file added its own
+ * left padding to fix the alignment by hand; the theme zeroes `.wpcpm-group__body`'s padding
+ * at a higher specificity, so that padding never applied and the alignment it was credited
+ * with came from the theme all along. Only the top gap is this file's.
+ */
 .wpcpm-import__body {
 	padding-top: 0.5em;
+}
+
+/* The chevron matches the roster's, which is the point of borrowing the component. The
+   plugin's own rule leaves this one rotated in both states, so a reader saw a mark that never
+   changed; the roster's sits unrotated and lets the panel below say whether the row is open. */
+.wpcpm-import__disclosure .wpcpm-mentee__toggle {
+	transform: none;
 }
 
 .wpcpm-import__lede {
@@ -816,9 +832,15 @@
 	margin-bottom: 0;
 }
 
+/* **`width: auto` is the whole fix and it is not decoration.** Something above this gives
+   every input in the dashboard a full width, and a checkbox obeying it becomes a 1,133px flex
+   item with a tick drawn in the middle of it and its label pushed off to a column at the far
+   right of the page. That is what the consent looked like on the day it shipped. */
 .wpcpm-import .wpcpm-field--check input[type="checkbox"] {
 	flex: none;
+	height: auto;
 	margin: 0.2em 0 0;
+	width: auto;
 }
 
 .wpcpm-import .wpcpm-field__hint {

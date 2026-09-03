@@ -119,7 +119,7 @@ final class WPCPM_Institution_Import_Form {
 		// the last attempt left something to say, because both of those are the page asking
 		// the reader for something rather than offering.
 		printf(
-			'<details class="wpcpm-group wpcpm-import__disclosure"%s>',
+			'<details class="wpcpm-group wpcpm-group__disclosure wpcpm-import__disclosure"%s>',
 			( $staged > 0 || '' !== $said ) ? ' open' : ''
 		);
 
@@ -236,7 +236,16 @@ final class WPCPM_Institution_Import_Form {
 				printf( '<option value="%1$s">%1$s</option>', esc_attr( $option ) );
 			}
 
-			echo '</select></p>';
+			echo '</select>';
+
+			if ( 'tutor' === $name && empty( $options ) ) {
+				printf(
+					'<span class="wpcpm-field__hint">%s</span>',
+					esc_html__( 'The program has no tutors recorded for your institution yet. Ask a program manager to add them, and they will appear here.', 'wpcredits-program-manager' )
+				);
+			}
+
+			echo '</p>';
 		}
 
 		printf( '<h3 class="wpcpm-import__subtitle">%s</h3>', esc_html__( 'Or a list', 'wpcredits-program-manager' ) );
@@ -315,11 +324,13 @@ final class WPCPM_Institution_Import_Form {
 		}
 
 		if ( 'tutor' === $name ) {
-			$tutors = WPCPM_Institution_Import::tutors( $record );
-
-			// A school with none recorded gets a text box rather than a picker holding one
-			// empty answer, which would read as "this site has never heard of your tutors".
-			return empty( $tutors ) ? null : $tutors;
+			// **Always a picker, even when the answer is empty.** Tutors are a table in the
+			// base and a free-text box invites a name that matches nothing in it, which is
+			// how the column filled up with spellings in the first place. A school with none
+			// recorded gets a picker holding only the blank answer and the sentence beside it
+			// saying who to ask, which is a truer thing to show than a box implying the site
+			// will take whatever they type.
+			return WPCPM_Institution_Import::tutors( $record );
 		}
 
 		return null;

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.86.2
+Stable tag: 1.86.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.86.4 =
+* The enrolment section's chevron matches the roster's, and the open form is the bordered panel the theme hangs off an open row, which is what says the section is open. The section had its own left padding to line the form up by hand; the theme zeroes that padding at a higher specificity, so it never applied and the alignment came from the theme all along. Handed back rather than left as a rule that looks load-bearing and is not.
+
+= 1.86.3 =
+* The consent tick is beside its own words again. Every input on the dashboard is given a full width, and a checkbox obeying that became a control the width of the page with the tick drawn in the middle of it and its label pushed into a narrow column at the far right.
+* The enrolment form lines up with the row that opens it. The shared group summary carries its own inset, so the form beneath it sat 32px to the left of the heading it belongs to.
+* The row now shows whether the section is open: it was missing the class the shared disclosure hangs its open state on, so the chevron never turned.
+* Tutor is a picker whether or not the base has any for that institution. A free-text box invites a name matching nothing in the Tutors table, which is how that column filled with spellings; an institution with none recorded now gets an empty picker and a sentence saying who to ask.
 
 = 1.86.2 =
 * The enrolment form no longer mentions a WordPress.org profile anywhere. The confirmation a school gives now reads "These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program", which is what is actually shared at that point: a profile is not, because the student does not have one until after they are enrolled. The file hint stopped listing it as a column too.

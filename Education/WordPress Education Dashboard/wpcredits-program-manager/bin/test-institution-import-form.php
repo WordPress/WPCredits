@@ -376,6 +376,14 @@ ck( 'holding the base\'s own nine', substr_count( $form, '<option value="Technol
 // cohort under it.
 ck( 'opening on a blank answer', false !== strpos( $form, '<option value="">Not recorded</option>' ), true );
 
+// Tutors are a table in the base, and a free-text box invites a name that matches nothing in
+// it, which is how that column filled with spellings. So it is a picker even when this
+// institution has nobody in the table yet, with a sentence saying who to ask rather than a box
+// implying the site will take whatever is typed.
+ck( 'the tutor is a picker even with none recorded', false !== strpos( $form, '<select id="wpcpm-import-tutor"' ), true );
+ck( 'and says who to ask instead of pretending otherwise', false !== strpos( $form, 'no tutors recorded for your institution yet' ), true );
+ck( 'no field is left as a free-text box that the base has options for', substr_count( $form, 'id="wpcpm-import-tutor" name="tutor" /' ), 0 );
+
 echo "\n=== Cancel decides against the batch's institution ===\n";
 
 // Its own batch, staged here rather than borrowed from a block above: the form assertions
@@ -451,7 +459,10 @@ $closed = draw_section( $HERE );
 
 // The same disclosure the roster's own buckets use, so it opens with the control the reader
 // has already met four times above it rather than with a fifth kind of thing.
-ck( 'the section is a disclosure', false !== strpos( $closed, '<details class="wpcpm-group wpcpm-import__disclosure"' ), true );
+ck( 'the section is a disclosure', false !== strpos( $closed, '<details class="wpcpm-group wpcpm-group__disclosure wpcpm-import__disclosure"' ), true );
+// The open state lives on the shared class: without it the chevron never turned, and nothing
+// on the row said whether the section was open or shut.
+ck( 'carrying the class the open state hangs off', false !== strpos( $closed, 'wpcpm-group__disclosure' ), true );
 // Enrolling is occasional and this form is the longest thing on the page; left open it pushes
 // the people and the agreement off the screen for every visit that came to read the roster.
 ck( 'and it is folded when there is nothing to answer', false !== strpos( $closed, 'wpcpm-import__disclosure" open' ), false );
