@@ -512,7 +512,11 @@
 .wpc-institution-page .wpcpm-agreement-card,
 .wpc-institution-page .wpcpm-agreement-panel,
 .wpc-institution-page .wpcpm-institution__banner,
-.wpc-institution-page .wpcpm-dashboard__intro {
+/* A direct child, because `wpcpm-dashboard__intro` is a shared class rather than a place on
+   the page: the identity header reuses it for the city and country line, which already sits
+   inside the header's own inset. Insetting it by class gave that one line 32px twice, so it
+   hung off to the right of the name above it and the website below. */
+.wpc-institution-page .wpcpm-institution > .wpcpm-dashboard__intro {
 	margin-left: 32px;
 	margin-right: 32px;
 }
@@ -2113,7 +2117,7 @@
 	.wpc-institution-page .wpcpm-agreement-card,
 	.wpc-institution-page .wpcpm-agreement-panel,
 	.wpc-institution-page .wpcpm-institution__banner,
-	.wpc-institution-page .wpcpm-dashboard__intro {
+	.wpc-institution-page .wpcpm-institution > .wpcpm-dashboard__intro {
 		margin-left: 20px;
 		margin-right: 20px;
 	}

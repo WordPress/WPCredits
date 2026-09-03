@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.78.4
+Stable tag: 1.79.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.79.0 =
+* The contact an institution's record names is now listed under Institution representatives, whether or not they hold an account on this site. The card counted accounts alone, so forty of the forty-two confirmed institutions read "Institution representatives 0" three lines under a header naming that very person. The row says the account is what is missing, and it disappears by itself once one exists. The Institutions screen counts and lists the same way, so the heading means one thing on both.
 
 = 1.78.4 =
 * The panels on the Institution Dashboard now sit evenly inside their own borders. A heading does not collapse its top margin through a panel's padding, so the cohort strip and the agreement card carried 45px and 53px above their first line against 21px below it. The inset is now the padding on both sides.

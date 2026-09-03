@@ -117,6 +117,14 @@ class WPCPM_Institution_People {
 		$contact = self::contact_email( $record_id );
 		$viewer  = get_current_user_id();
 
+		// The person Airtable names, when no account here holds their address. Forty of the
+		// forty-two confirmed institutions have a contact and no account at all, so without
+		// this row the card said "Institution representatives 0" directly under a header
+		// naming that very person - a card that contradicts the page it sits on.
+		$contact_name  = self::contact_person( $record_id );
+		$contact_shown = ( '' !== $contact || '' !== $contact_name )
+			&& ! self::holds_address( $members, $contact );
+
 		// The card's box, heading, read line and empty line are the shell's shared classes, so
 		// four cards written in four commits cannot end up four slightly different boxes; the
 		// `wpcpm-people` hooks style only what is this card's own.
@@ -125,7 +133,7 @@ class WPCPM_Institution_People {
 		printf(
 			'<h2 class="wpcpm-institution__heading wpcpm-people__title">%1$s <span class="wpcpm-people__count">%2$s</span></h2>',
 			esc_html__( 'Institution representatives', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $members ) ) )
+			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
 		);
 
 		printf(
@@ -133,7 +141,7 @@ class WPCPM_Institution_People {
 			esc_html(
 				sprintf(
 					/* translators: %s: institution name. */
-					__( 'Everyone here can see %s\'s students on this site, and everyone here can remove anyone, including themselves. A removal keeps the account and tells the people who are left.', 'wpcredits-program-manager' ),
+					__( 'Everyone here with an account can see %s\'s students on this site, and can remove anyone, including themselves. A removal keeps the account and tells the people who are left.', 'wpcredits-program-manager' ),
 					$name
 				)
 			)
@@ -141,19 +149,29 @@ class WPCPM_Institution_People {
 
 		self::render_message( $record_id );
 
-		if ( empty( $members ) ) {
-			printf(
-				'<p class="wpcpm-institution__empty wpcpm-people__empty">%s</p>',
-				esc_html__( 'Nobody can act for this institution on this site right now.', 'wpcredits-program-manager' )
-			);
-		} else {
+		if ( $members || $contact_shown ) {
 			echo '<ul class="wpcpm-people__list">';
 
 			foreach ( $members as $member ) {
 				self::render_member( $member, $members, $name, $contact, $viewer, $can_change, '' );
 			}
 
+			// After the accounts, because the accounts are the rows that can be acted on.
+			if ( $contact_shown ) {
+				self::render_contact_row( $contact_name, self::contact_email_raw( $record_id ) );
+			}
+
 			echo '</ul>';
+		}
+
+		// Still said whenever no account exists, contact row or not: the row names who the
+		// program writes to, and this line answers the different question of who can open
+		// this page. An institution can have the first and not the second, and today most do.
+		if ( empty( $members ) ) {
+			printf(
+				'<p class="wpcpm-institution__empty wpcpm-people__empty">%s</p>',
+				esc_html__( 'Nobody can act for this institution on this site right now.', 'wpcredits-program-manager' )
+			);
 		}
 
 		printf(
@@ -217,6 +235,57 @@ class WPCPM_Institution_People {
 		if ( $can_change ) {
 			self::render_remove_form( $member, $members, $name, $is_self, $is_contact, $origin );
 		}
+
+		echo '</li>';
+	}
+
+	/**
+	 * The contact Airtable names, who holds no account here.
+	 *
+	 * **A representative of the institution, not of this site.** The card answers "who speaks
+	 * for this school", and until now it answered it with the accounts alone - so a school
+	 * whose contact has never signed in read as having nobody, three lines under a header
+	 * naming that person. Two of the forty-two confirmed institutions have an account; every
+	 * other page said zero.
+	 *
+	 * The row carries no control, because there is nothing here to remove: it is a fact about
+	 * the program's records, and it goes away by itself the moment somebody adds the account,
+	 * since the address then matches a member and `holds_address()` suppresses this row.
+	 *
+	 * The status is stated rather than implied. A row that named the person and stopped would
+	 * read as access, which is the one thing it is not; and where the address is missing from
+	 * the base and only a name is known, that name may in fact belong to one of the accounts
+	 * above under a different address. Forty-one of the forty-two carry both, so the pairing
+	 * is reliable in practice and the wording does not overclaim where it is not.
+	 *
+	 * @param string $name  The contact's name as Airtable holds it, or ''.
+	 * @param string $email The contact's address as Airtable holds it, or ''.
+	 */
+	private static function render_contact_row( $name, $email ) {
+		$name  = trim( (string) $name );
+		$email = trim( (string) $email );
+
+		echo '<li class="wpcpm-people__member wpcpm-people__member--contact">';
+
+		printf(
+			'<span class="wpcpm-people__name">%s</span>',
+			esc_html( '' !== $name ? $name : __( 'Name not recorded', 'wpcredits-program-manager' ) )
+		);
+
+		if ( '' !== $email ) {
+			printf( ' <span class="wpcpm-people__email">%s</span>', esc_html( $email ) );
+		}
+
+		printf(
+			' <span class="wpcpm-people__mark" title="%1$s">%2$s</span>',
+			esc_attr__( 'This is the person Airtable holds for the institution. It is shown so everybody knows who the program writes to.', 'wpcredits-program-manager' ),
+			esc_html__( 'the program\'s contact', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			' <span class="wpcpm-people__facts wpcpm-people__status">%s</span>',
+			esc_html__( 'Named in the program records, with no account on this site yet. A program manager can add one so they can see this page.', 'wpcredits-program-manager' )
+		);
 
 		echo '</li>';
 	}
@@ -432,22 +501,24 @@ class WPCPM_Institution_People {
 		$contact = self::contact_email( $record_id );
 		$viewer  = get_current_user_id();
 
+		// The same row the dashboard card draws, so one heading means one thing on both
+		// screens. The gap line further down is what this screen adds to it: there it is
+		// followed by the form that closes the gap.
+		$contact_name  = self::contact_person( $record_id );
+		$contact_shown = ( '' !== $contact || '' !== $contact_name )
+			&& ! self::holds_address( $members, $contact );
+
 		echo '<div class="wpcpm-people wpcpm-people--admin">';
 
 		printf(
 			'<h3 class="wpcpm-people__title">%1$s <span class="wpcpm-people__count">%2$s</span></h3>',
 			esc_html__( 'Institution representatives', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $members ) ) )
+			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
 		);
 
 		self::render_message( $record_id );
 
-		if ( empty( $members ) ) {
-			printf(
-				'<p class="wpcpm-people__empty wpcpm-warning">%s</p>',
-				esc_html__( 'Nobody can act for this institution on this site. Nobody at the school can see their own students, answer for the agreement, or be written to here.', 'wpcredits-program-manager' )
-			);
-		} else {
+		if ( $members || $contact_shown ) {
 			echo '<ul class="wpcpm-people__list">';
 
 			foreach ( $members as $member ) {
@@ -458,7 +529,18 @@ class WPCPM_Institution_People {
 				self::render_member( $member, $members, $name, $contact, $viewer, true, self::RETURN_ADMIN );
 			}
 
+			if ( $contact_shown ) {
+				self::render_contact_row( $contact_name, self::contact_email_raw( $record_id ) );
+			}
+
 			echo '</ul>';
+		}
+
+		if ( empty( $members ) ) {
+			printf(
+				'<p class="wpcpm-people__empty wpcpm-warning">%s</p>',
+				esc_html__( 'Nobody can act for this institution on this site. Nobody at the school can see their own students, answer for the agreement, or be written to here.', 'wpcredits-program-manager' )
+			);
 		}
 
 		if ( '' !== $contact && ! self::holds_address( $members, $contact ) ) {
@@ -946,6 +1028,18 @@ class WPCPM_Institution_People {
 		$name = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
 
 		return '' !== $name ? $name : (string) $record_id;
+	}
+
+	/**
+	 * The contact's name as Airtable holds it, or ''.
+	 *
+	 * @param string $record_id Airtable institution record ID.
+	 * @return string
+	 */
+	private static function contact_person( $record_id ) {
+		$row = WPCPM_Institutions_Index::row( $record_id );
+
+		return is_array( $row ) && isset( $row['contact_person'] ) ? trim( (string) $row['contact_person'] ) : '';
 	}
 
 	/**

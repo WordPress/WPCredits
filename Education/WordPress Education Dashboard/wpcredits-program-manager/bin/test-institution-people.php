@@ -354,13 +354,17 @@ function method_body( $source, $name ) {
 $A = 'recDdomg5W6h410JT'; // the TEST institution in the seed fixture.
 $B = 'rec0IT9J93YkAYvSU';
 $C = 'recZZZZZZZZZZZZZZ'; // well-formed, never indexed.
+// A contact in the base and no account at all, which is what forty of the forty-two
+// confirmed institutions looked like when the contact row was written.
+$D = 'rec1D1D1D1D1D1D1D';
 
 $GLOBALS['index'] = array(
 	$A => array( 'record_id' => $A, 'name' => 'TEST - WordPress Education Dashboard (do not use) ', 'stage' => 'Confirmed', 'city' => 'Test', 'country_name' => 'Poland', 'website' => '', 'contact_person' => 'Bob Contact', 'contact_email' => 'Contact@example.test' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Example', 'stage' => 'Confirmed', 'city' => 'Example', 'country_name' => 'Costa Rica', 'website' => '', 'contact_person' => '', 'contact_email' => 'rector@example.test' ),
+	$D => array( 'record_id' => $D, 'name' => 'Politechnika Example', 'stage' => 'Confirmed', 'city' => 'Example', 'country_name' => 'Poland', 'website' => '', 'contact_person' => 'Dana Dean', 'contact_email' => 'dana@example.test' ),
 );
 $GLOBALS['index_read'] = 1756000000;
-$GLOBALS['settled']    = array( $A, $B );
+$GLOBALS['settled']    = array( $A, $B, $D );
 
 $GLOBALS['users'] = array(
 	1  => new WP_User( 1, 'Manager', 'manager@example.test', array( 'administrator' ) ),
@@ -411,6 +415,40 @@ ck( 'since: the date the stamp was written', has( $card, gmdate( 'Y-m-d' ) ), tr
 ck( 'the institution name prints trimmed', has( $card, 'TEST - WordPress Education Dashboard (do not use)&#039;s students' ), true );
 ck( 'the read time of the facts that are not live', has( $card, 'were read ' . gmdate( 'Y-m-d H:i', 1756000000 ) ), true );
 ck( 'and it never renders accessibility', has( $card, 'accessibility' ), false );
+
+echo "\n=== The contact Airtable names is a representative, account or no account ===\n";
+
+// The card used to count accounts and list accounts, so an institution whose contact has
+// never signed in read "Institution representatives 0" three lines under a header naming
+// that very person. Two of the forty-two confirmed institutions have an account.
+$named = render_card( 1, $D, true );
+
+ck( 'the contact is listed', has( $named, 'Dana Dean' ), true );
+ck( 'with the address the base holds', has( $named, 'dana@example.test' ), true );
+ck( 'and the count is one, not zero', has( $named, '<span class="wpcpm-people__count">1</span>' ), true );
+ck( 'the row says the account is what is missing', has( $named, 'no account on this site yet' ), true );
+ck( 'and it is marked as the program\'s contact', has( $named, 'the program&#039;s contact' ), true );
+// The row is a fact about the program's records; there is no membership under it to end.
+ck( 'the row carries no Remove control', has( $named, 'wpcpm-people__remove' ), false );
+// Two different questions: who the program writes to, and who can open this page.
+ck( 'and who can act is still answered separately', has( $named, 'Nobody can act for this institution on this site right now.' ), true );
+
+// The row goes away by itself once the account exists, because the address then matches a
+// member and `holds_address()` suppresses it - no second place to keep in step.
+ck( 'no contact row where a member holds the address', has( $card, 'no account on this site yet' ), false );
+ck( 'and that card still counts three', has( $card, '<span class="wpcpm-people__count">3</span>' ), true );
+
+// A base row with an address and no name still names somebody rather than printing a blank.
+$unnamed = render_card( 9, $B );
+ck( 'an address with no name is still listed', has( $unnamed, 'rector@example.test' ), true );
+ck( 'under a stated absence rather than an empty line', has( $unnamed, 'Name not recorded' ), true );
+ck( 'and it counts alongside the member', has( $unnamed, '<span class="wpcpm-people__count">2</span>' ), true );
+
+// One heading, one meaning: the manager screen counts and lists the same way.
+$block = render_manager_block( 1, $D );
+ck( 'the manager screen lists the contact too', has( $block, 'Dana Dean' ), true );
+ck( 'and counts it the same way', has( $block, '<span class="wpcpm-people__count">1</span>' ), true );
+ck( 'and still names the gap it can close', has( $block, 'no member holds that address' ), true );
 
 echo "\n=== The program's contact is marked, and the mark takes nothing away ===\n";
 

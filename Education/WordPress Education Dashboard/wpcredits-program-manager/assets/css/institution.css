@@ -426,6 +426,15 @@
 	order: 2;
 }
 
+/* The row for a contact who holds no account here. It reads as a representative, because
+   that is what the person is, and the status line below the name is what keeps it from
+   reading as access. No border change: a second border treatment down the list would say
+   the row is a lesser kind of thing, and on forty of the forty-two institutions it is the
+   only row there is. */
+.wpcpm-people__status {
+	font-style: italic;
+}
+
 .wpcpm-people__form {
 	margin: 0 0 0 auto;
 	order: 1;
