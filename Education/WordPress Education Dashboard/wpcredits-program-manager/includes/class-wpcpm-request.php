@@ -191,4 +191,30 @@ class WPCPM_Request {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
 		return trim( sanitize_text_field( wp_unslash( $_POST[ $name ] ) ) );
 	}
+
+	/**
+	 * A posted value that is allowed to have lines in it.
+	 *
+	 * **`posted_text()` strips newlines, and for a pasted list that is the whole value.**
+	 * `sanitize_text_field()` collapses every run of whitespace, so a CSV pasted into a
+	 * textarea arrives as one line: the header becomes the first cell and the first student's
+	 * name joins it, which the import then refuses for having no email column. It cost a live
+	 * import to find, because every test fed the parser a string directly and never came
+	 * through the request at all.
+	 *
+	 * `sanitize_textarea_field()` is the same cleaning with the line breaks left alone.
+	 *
+	 * @param string $name     Key in `$_POST`.
+	 * @param string $fallback Returned when the key is absent or not a scalar.
+	 * @return string
+	 */
+	public static function posted_lines( $name, $fallback = '' ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
+		if ( ! isset( $_POST[ $name ] ) || ! is_scalar( $_POST[ $name ] ) ) {
+			return $fallback;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
+		return trim( sanitize_textarea_field( wp_unslash( $_POST[ $name ] ) ) );
+	}
 }

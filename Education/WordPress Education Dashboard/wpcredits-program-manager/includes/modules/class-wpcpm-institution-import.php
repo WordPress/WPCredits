@@ -164,6 +164,33 @@ final class WPCPM_Institution_Import {
 	/** Columns the file carried that this import does not read, listed back to the school. */
 	const META_UNKNOWN = '_wpcpm_batch_unknown';
 
+	/** When a batch stopped moving, so the purge knows what to count from. */
+	const META_SETTLED_AT = '_wpcpm_batch_settled_at';
+
+	/**
+	 * How long a finished batch is kept.
+	 *
+	 * **These rows hold a school's list of names and email addresses**, which is why they are
+	 * kept for a bounded time rather than forever. A month is long enough for a program manager
+	 * to answer "what did that import actually do" while a school is still asking, and the
+	 * created students are on the roster and in Airtable either way: what is thrown away is the
+	 * working copy of the list, not the record of the people.
+	 *
+	 * @var int
+	 */
+	const KEEP_DONE_DAYS = 30;
+
+	/**
+	 * How long a batch nobody confirmed is kept.
+	 *
+	 * A week, and shorter than a finished one for the reason that it is worth less: nothing was
+	 * created from it, so it is a list of names sitting on the site to no end. A school that
+	 * still wants those students sends the list again, which the duplicate ladder makes safe.
+	 *
+	 * @var int
+	 */
+	const KEEP_STAGED_DAYS = 7;
+
 	/**
 	 * How many checks one institution may run in an hour.
 	 *
@@ -197,6 +224,18 @@ final class WPCPM_Institution_Import {
 
 	/** The capped log of checks, for the manager reconciliation card. */
 	const OPT_LOG = 'wpcpm_import_log';
+
+	/**
+	 * What an institution's creation lock is called.
+	 *
+	 * Declared here rather than beside the loop that takes it, because this class owns the
+	 * batch and everything in the options table named after one: `delete_all()` has to remove
+	 * these, and a module that reads and decides should not have to name a module that writes
+	 * in order to tidy up after it.
+	 *
+	 * @var string
+	 */
+	const LOCK_PREFIX = 'wpcpm_import_lock_';
 
 	/**
 	 * How many addresses go into one query against the base.
@@ -264,6 +303,137 @@ final class WPCPM_Institution_Import {
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
+		// The same daily event the application retention runs on: one promise about how long
+		// this site keeps somebody's name, kept in one place.
+		add_action( WPCPM_Institutions::CRON_PURGE, array( __CLASS__, 'purge_batches' ) );
+	}
+
+	/**
+	 * Remove every trace of the import on uninstall.
+	 *
+	 * **The batch posts are the reason this method exists.** Each one holds a school's list of
+	 * names and email addresses, and until this was written an uninstall left every one of them
+	 * in the database: the plugin would be gone and the people would still be there. The log
+	 * and the locks go with them, the log because it names who ran what and the locks because a
+	 * request that died holding one leaves a row nothing else would ever clear.
+	 *
+	 * The students created by an import are not touched. They are records in Airtable and
+	 * accounts on this site, and both are people rather than plugin state, which is the same
+	 * line `uninstall.php` draws everywhere else.
+	 *
+	 * @return int How many batch posts were removed.
+	 */
+	public static function delete_all() {
+		$removed = 0;
+
+		$found = get_posts(
+			array(
+				'post_type'      => self::POST_TYPE,
+				'post_status'    => 'any',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+			)
+		);
+
+		foreach ( $found as $post_id ) {
+			if ( wp_delete_post( (int) $post_id, true ) ) {
+				++$removed;
+			}
+		}
+
+		delete_option( self::OPT_LOG );
+
+		global $wpdb;
+
+		// One query rather than a read of every institution: a lock is named after a record ID
+		// and the institutions this site once knew about are exactly what is being deleted, so
+		// there is no list left to walk.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::LOCK_PREFIX ) . '%' ) );
+
+		return $removed;
+	}
+
+	/**
+	 * Stamp a batch as having stopped moving.
+	 *
+	 * Called wherever a batch reaches a state it will not leave on its own. Without it the
+	 * purge would have to guess from the post's dates, and a post's modified time is not
+	 * touched by `update_post_meta()`, so every batch would look as old as its creation.
+	 *
+	 * @param int $post_id Batch post ID.
+	 */
+	public static function settle( $post_id ) {
+		update_post_meta( (int) $post_id, self::META_SETTLED_AT, time() );
+	}
+
+	/**
+	 * Throw away batches nobody needs any more.
+	 *
+	 * **A batch post is a school's list of names and addresses**, and until this existed there
+	 * was no rule that ever removed one: a check run once left those names on the site
+	 * indefinitely. Runs on the same daily cron the application retention uses, because they
+	 * are the same kind of promise about the same kind of data.
+	 *
+	 * The two windows are constants rather than settings on purpose. The application retention
+	 * is configurable because a program may genuinely want to keep a rejected application for a
+	 * year; nobody wants a longer copy of a working list, and a setting would only be a way to
+	 * turn a data-protection rule off by accident.
+	 *
+	 * The locks go too. They are short-lived by design, but a request that died holding one
+	 * leaves a row nothing else will ever remove.
+	 *
+	 * @return int How many batches were deleted.
+	 */
+	public static function purge_batches() {
+		$windows = array(
+			self::STATE_DONE    => self::KEEP_DONE_DAYS,
+			self::STATE_BLOCKED => self::KEEP_DONE_DAYS,
+			self::STATE_STAGED  => self::KEEP_STAGED_DAYS,
+		);
+
+		$purged = 0;
+
+		foreach ( $windows as $state => $days ) {
+			$cutoff = time() - ( $days * DAY_IN_SECONDS );
+
+			$found = get_posts(
+				array(
+					'post_type'      => self::POST_TYPE,
+					'post_status'    => 'private',
+					'posts_per_page' => -1,
+					'fields'         => 'ids',
+					'meta_query'     => array(
+						array(
+							'key'   => self::META_STATE,
+							'value' => $state,
+						),
+					),
+				)
+			);
+
+			foreach ( $found as $post_id ) {
+				$settled = (int) get_post_meta( $post_id, self::META_SETTLED_AT, true );
+
+				// A staged batch never settles, so its clock starts when it was staged. A
+				// finished one that predates the stamp falls back to the same date, which is
+				// older than its real one and so only ever deletes it sooner: erring towards
+				// keeping a list longer would be the wrong way to be wrong here.
+				if ( ! $settled ) {
+					$settled = (int) get_post_time( 'U', true, $post_id );
+				}
+
+				if ( $settled > $cutoff ) {
+					continue;
+				}
+
+				if ( wp_delete_post( (int) $post_id, true ) ) {
+					++$purged;
+				}
+			}
+		}
+
+		return $purged;
 	}
 
 	/**

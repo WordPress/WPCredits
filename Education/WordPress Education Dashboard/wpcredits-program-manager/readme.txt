@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.87.0
+Stable tag: 1.88.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,14 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.88.1 =
+* A list pasted into the enrolment form is read with its lines intact. It was read through the sanitiser that collapses whitespace, so a pasted CSV arrived as a single line: the header ran into the first student's name and the file was refused for having no email column. Every test had fed the parser a string directly and none had come through a posted form, so nothing caught it until a real import did.
+
+= 1.88.0 =
+* A school's uploaded list of students is no longer kept forever. Each import batch holds names and email addresses, and nothing removed one: a check run once left those names on the site indefinitely. A finished batch is now kept for thirty days and one nobody confirmed for seven, on the same daily job the application retention runs on. A batch still being created is never swept, however old, because rows of it may be in flight.
+* Uninstalling removes them too, with the check log and any lock a dead request left behind. Before this the plugin could be deleted and every list would stay in the database. The students an import created are untouched: they are records and accounts, which is the line uninstall draws everywhere else.
+* The two windows are fixed rather than settings. The application retention is configurable because a program may want to keep a rejected application for a year; nobody wants a longer copy of a working list, and a setting would only be a way to switch a data-protection rule off by accident.
 
 = 1.87.0 =
 * Phase 5 of the Institutions module is complete. An institution can now send a list of students, see what it was understood to say, and confirm it; the records are created a slice at a time, and an import that runs long carries on by itself.

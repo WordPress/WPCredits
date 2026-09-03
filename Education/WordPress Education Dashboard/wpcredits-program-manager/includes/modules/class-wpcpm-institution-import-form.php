@@ -1129,7 +1129,8 @@ final class WPCPM_Institution_Import_Form {
 			}
 		}
 
-		$paste = WPCPM_Request::posted_text( 'paste' );
+		// Lines, not text: the text reader strips them and a CSV becomes one line.
+		$paste = WPCPM_Request::posted_lines( 'paste' );
 
 		if ( '' !== trim( $paste ) ) {
 			return $paste;

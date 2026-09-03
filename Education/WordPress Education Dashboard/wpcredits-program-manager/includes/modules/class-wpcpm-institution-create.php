@@ -63,7 +63,8 @@ final class WPCPM_Institution_Create {
 	 *
 	 * @var string
 	 */
-	const LOCK_PREFIX = 'wpcpm_import_lock_';
+	/** The batch store owns this name; taken from there so the two cannot drift. */
+	const LOCK_PREFIX = WPCPM_Institution_Import::LOCK_PREFIX;
 
 	/**
 	 * Seconds until the next unattended slice.
@@ -942,6 +943,10 @@ final class WPCPM_Institution_Create {
 		$batch_id = (int) $batch['id'];
 
 		update_post_meta( $batch_id, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_BLOCKED );
+		// Stops the retention clock from guessing: a post's modified time is not touched by
+		// `update_post_meta()`, so without this stamp every batch would look as old as its
+		// creation and a long import would be thrown away on the wrong day.
+		WPCPM_Institution_Import::settle( $batch_id );
 		update_post_meta( $batch_id, self::META_REASON, sanitize_key( (string) $problem ) );
 
 		$tally = self::tally( $batch['rows'] );
@@ -986,6 +991,10 @@ final class WPCPM_Institution_Create {
 		$tally    = self::tally( $rows );
 
 		update_post_meta( $batch_id, WPCPM_Institution_Import::META_STATE, WPCPM_Institution_Import::STATE_DONE );
+		// Stops the retention clock from guessing: a post's modified time is not touched by
+		// `update_post_meta()`, so without this stamp every batch would look as old as its
+		// creation and a long import would be thrown away on the wrong day.
+		WPCPM_Institution_Import::settle( $batch_id );
 
 		WPCPM_Institution_Audit::record(
 			array(

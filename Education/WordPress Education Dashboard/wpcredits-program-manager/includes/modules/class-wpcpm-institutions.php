@@ -435,6 +435,9 @@ class WPCPM_Institutions extends WPCPM_Module {
 		WPCPM_Roster_Index::delete_all();
 		WPCPM_Institution_Agreement::delete_all();
 		WPCPM_Institution_Audit::delete_all();
+		// The batch posts hold a school's list of names and addresses, so they go with the
+		// rest rather than outliving the plugin that made them.
+		WPCPM_Institution_Import::delete_all();
 
 		foreach ( self::member_meta() as $meta_key ) {
 			delete_metadata( 'user', 0, $meta_key, '', true );

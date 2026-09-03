@@ -201,6 +201,32 @@ function wp_delete_post( $id, $force = false ) { $gone = isset( $GLOBALS['posts'
 function get_post( $id ) { return isset( $GLOBALS['posts'][ (int) $id ] ) ? $GLOBALS['posts'][ (int) $id ] : null; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
 function get_post_meta( $id, $k, $single = false ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $k ] : ''; }
+/**
+ * `$wpdb` far enough to answer the one query `delete_all()` makes.
+ *
+ * The lock rows are named after institution record IDs, so there is no list left to walk once
+ * the institutions are gone: the real method deletes them by prefix in one statement, and this
+ * does the same over the fixture's options.
+ */
+class Fake_Wpdb {
+	public $options = 'wp_options';
+	public function esc_like( $t ) { return addcslashes( (string) $t, '_%\\' ); }
+	public function prepare( $sql, $arg ) { return str_replace( '%s', $arg, $sql ); }
+	public function query( $sql ) {
+		if ( ! preg_match( "/LIKE (.+)%$/", trim( $sql ), $m ) ) { return 0; }
+		$prefix = stripcslashes( trim( $m[1] ) );
+		$gone   = 0;
+		foreach ( array_keys( $GLOBALS['opts'] ) as $name ) {
+			if ( 0 === strpos( $name, $prefix ) ) { unset( $GLOBALS['opts'][ $name ] ); ++$gone; }
+		}
+		return $gone;
+	}
+}
+$GLOBALS['wpdb'] = new Fake_Wpdb();
+
+function get_post_time( $format, $gmt = false, $id = 0 ) {
+	return isset( $GLOBALS['post_time'][ (int) $id ] ) ? $GLOBALS['post_time'][ (int) $id ] : time();
+}
 function get_posts( $args ) {
 	$out = array();
 
@@ -818,6 +844,70 @@ ck( 'and what does fit is still allowed', WPCPM_Institution_Import::claim_rows( 
 
 // Once the day is full, a check is refused before a byte is parsed rather than after.
 ck( 'a full day refuses the next check up front', WPCPM_Institution_Import::may_check( $HERE )['problem'], 'rows_today' );
+
+echo "\n=== A list of names is not kept forever ===\n";
+
+/**
+ * Until this rule existed nothing ever removed a batch post, and each one holds a school's
+ * list of names and email addresses. A check run once left those names on the site
+ * indefinitely, which is the kind of thing nobody notices because it looks like nothing.
+ */
+$GLOBALS['posts']     = array();
+$GLOBALS['pmeta']     = array();
+$GLOBALS['post_time'] = array();
+
+/** A batch in one state, settled however many days ago. */
+function aged_batch( $institution, $state, $days_ago, $stamped = true ) {
+	$id = WPCPM_Institution_Import::stage( $institution, 7, array(), array(), array() );
+	update_post_meta( $id, WPCPM_Institution_Import::META_STATE, $state );
+	$when = time() - ( $days_ago * DAY_IN_SECONDS );
+
+	if ( $stamped ) {
+		update_post_meta( $id, WPCPM_Institution_Import::META_SETTLED_AT, $when );
+	}
+
+	$GLOBALS['post_time'][ $id ] = $when;
+
+	return $id;
+}
+
+$old_done    = aged_batch( $HERE, WPCPM_Institution_Import::STATE_DONE, 31 );
+$new_done    = aged_batch( $HERE, WPCPM_Institution_Import::STATE_DONE, 29 );
+$old_staged  = aged_batch( $HERE, WPCPM_Institution_Import::STATE_STAGED, 8 );
+$new_staged  = aged_batch( $ELSEWHERE, WPCPM_Institution_Import::STATE_STAGED, 6 );
+$old_blocked = aged_batch( $ELSEWHERE, WPCPM_Institution_Import::STATE_BLOCKED, 31 );
+// A batch created before the stamp existed: its clock falls back to when it was staged, which
+// is older than the truth, so it is thrown away sooner rather than kept longer.
+$unstamped   = aged_batch( $HERE, WPCPM_Institution_Import::STATE_DONE, 40, false );
+
+ck( 'six batches to consider', count( $GLOBALS['posts'] ), 6 );
+ck( 'four of them are past their window', WPCPM_Institution_Import::purge_batches(), 4 );
+
+ck( 'a finished batch over a month old is gone', WPCPM_Institution_Import::batch( $old_done ), null );
+ck( 'a blocked one over a month old goes too', WPCPM_Institution_Import::batch( $old_blocked ), null );
+// Shorter, and for a reason: nothing was created from it, so it is a list of names to no end.
+ck( 'a staged batch over a week old is gone', WPCPM_Institution_Import::batch( $old_staged ), null );
+ck( 'and one from before the stamp existed', WPCPM_Institution_Import::batch( $unstamped ), null );
+
+ck( 'a finished batch inside the month stays', WPCPM_Institution_Import::batch( $new_done )['state'], WPCPM_Institution_Import::STATE_DONE );
+ck( 'and a staged one inside the week', WPCPM_Institution_Import::batch( $new_staged )['state'], WPCPM_Institution_Import::STATE_STAGED );
+
+// A batch still being created is never swept: rows of it may be in flight.
+$creating = aged_batch( $HERE, WPCPM_Institution_Import::STATE_CREATING, 90 );
+WPCPM_Institution_Import::purge_batches();
+ck( 'a batch still creating is never swept, however old', WPCPM_Institution_Import::batch( $creating )['state'], WPCPM_Institution_Import::STATE_CREATING );
+
+echo "\n=== And nothing of it outlives the plugin ===\n";
+
+$GLOBALS['opts'][ WPCPM_Institution_Import::OPT_LOG ] = array( array( 'institution' => $HERE, 'member' => 7, 'rows' => 3, 'blocked' => 0, 'when' => time() ) );
+$GLOBALS['opts']['wpcpm_import_lock_' . $HERE ]       = time();
+
+$removed = WPCPM_Institution_Import::delete_all();
+
+// The plugin would otherwise be gone and the people still there.
+ck( 'every remaining batch is deleted', $removed > 0 && empty( $GLOBALS['posts'] ), true );
+ck( 'the check log goes with them', WPCPM_Institution_Import::log(), array() );
+ck( 'and so does a lock a dead request left behind', isset( $GLOBALS['opts']['wpcpm_import_lock_' . $HERE ] ), false );
 
 echo "\n=== The log is a ratio, not a list of people ===\n";
 

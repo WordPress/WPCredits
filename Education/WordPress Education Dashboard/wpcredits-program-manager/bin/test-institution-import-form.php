@@ -63,6 +63,9 @@ function esc_attr( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 function esc_url( $u ) { return $u; }
 function esc_url_raw( $u ) { return $u; }
 function sanitize_text_field( $s ) { return trim( preg_replace( '/[\r\n\t ]+/', ' ', strip_tags( (string) $s ) ) ); }
+// The real one keeps the line breaks and cleans everything else. A stub that flattened them
+// too would have hidden the bug this suite exists to prevent coming back.
+function sanitize_textarea_field( $s ) { return str_replace( array( "\r\n", "\r" ), "\n", strip_tags( (string) $s ) ); }
 function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function number_format_i18n( $n ) { return (string) $n; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
@@ -86,7 +89,6 @@ function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function wp_next_scheduled( $hook, $args = array() ) { return isset( $GLOBALS['cron'][ $hook . ':' . json_encode( $args ) ] ) ? $GLOBALS['cron'][ $hook . ':' . json_encode( $args ) ] : false; }
 function wp_schedule_single_event( $when, $hook, $args = array() ) { $GLOBALS['cron'][ $hook . ':' . json_encode( $args ) ] = (int) $when; return true; }
-function sanitize_textarea_field( $s ) { return (string) $s; }
 function wp_date( $f ) { return gmdate( $f ); }
 function add_action() {}
 function apply_filters( $t, $v ) { return $v; }
@@ -178,7 +180,13 @@ class WPCPM_Flash {
 }
 class WPCPM_Request {
 	public static function text( $n, $f = '' ) { return isset( $_GET[ $n ] ) ? (string) $_GET[ $n ] : $f; }
-	public static function posted_text( $n, $f = '' ) { return isset( $_POST[ $n ] ) ? (string) $_POST[ $n ] : $f; }
+	// **These two clean differently, and that difference is the point.** The suite used to
+	// return the posted value untouched for both, so a handler reading a pasted CSV through
+	// the text reader looked fine here and arrived as a single line in production: the header
+	// and the first student ran together and the import refused the file for having no email
+	// column. It took a live import to find.
+	public static function posted_text( $n, $f = '' ) { return isset( $_POST[ $n ] ) ? trim( sanitize_text_field( (string) $_POST[ $n ] ) ) : $f; }
+	public static function posted_lines( $n, $f = '' ) { return isset( $_POST[ $n ] ) ? trim( sanitize_textarea_field( (string) $_POST[ $n ] ) ) : $f; }
 }
 class WPCPM_Institution_Policy {
 	const ACT_ADD_STUDENT = 'add_student';
@@ -294,6 +302,17 @@ echo "=== The institution is the reader's, never the form's ===\n";
 $status = post_check( batch_fields( array( 'institution' => $THERE, 'record' => $THERE ) ) );
 
 ck( 'a valid list is checked and staged', $status, 'checked' );
+
+// **The lines survived the request, which is what failed in production.** A pasted CSV read
+// through the text sanitiser arrives as one line, so the header and the first student run
+// together and the file is refused for having no email column. Three lines in, three rows out.
+fresh_world();
+$status = post_check( batch_fields( array( 'paste' => "Name,Email\nAnna Kowalska,anna@uek.krakow.pl\nBartek Zielinski,bartek@uek.krakow.pl\nCecylia Nowak,cecylia@uek.krakow.pl\n" ) ) );
+$staged = WPCPM_Institution_Import::batch( WPCPM_Institution_Import::staged_for( $HERE ) );
+
+ck( 'a three line paste is checked', $status, 'checked' );
+ck( 'and arrives as three rows, not one', count( $staged['rows'] ), 3 );
+ck( 'the first row is the first student and not the header plus them', $staged['rows'][0]['name'], 'Anna Kowalska' );
 
 $decided = array();
 foreach ( $GLOBALS['calls'] as $call ) { if ( 'decide' === $call[0] ) { $decided[] = $call[2]; } }

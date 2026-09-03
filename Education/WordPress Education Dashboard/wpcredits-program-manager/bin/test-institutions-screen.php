@@ -473,6 +473,11 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'import_init' );
 		}
+		// The batch posts hold a school's list of names, so the uninstall has to reach them.
+		public static function delete_all() {
+			$GLOBALS['calls'][] = array( 'import_delete_all' );
+			return 0;
+		}
 	}
 
 	class WPCPM_Institution_Import_Form {
