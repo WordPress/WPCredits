@@ -404,6 +404,45 @@ ck( 'the collapsed groups are disclosures', substr_count( $html, '<details class
 // every student is a disclosure of its own, so "no <details> in here" would now be false for
 // a reason that has nothing to do with whether the group is collapsed.
 ck( 'and Current is not one of them', has( group_rows( $html, 'current' ), 'wpcpm-group__disclosure' ), false );
+
+// ...until it is long. One institution has forty-two students on the program at once, and an
+// open list of forty-two buries the groups, the people and the agreement under it. Past
+// OPEN_MAX the group starts closed with its count on the row, which is the number a school is
+// usually after anyway.
+$many = array();
+
+for ( $i = 0; $i <= WPCPM_Institution_Roster_View::OPEN_MAX; $i++ ) {
+	$many[ 'recBULKSTUDENT' . str_pad( (string) $i, 3, '0', STR_PAD_LEFT ) ] = array(
+		'record_id'   => 'recBULKSTUDENT' . str_pad( (string) $i, 3, '0', STR_PAD_LEFT ),
+		'name'        => 'Student ' . $i,
+		'email'       => 'student' . $i . '@example.edu',
+		'status'      => 'In Sensei',
+		'institution' => 'recINSTAAA0000001',
+		'start'       => '2026-02-01',
+		'end'         => '2026-06-30',
+		'user_id'     => 900 + $i,
+		'reports'     => array( 'recREPORT' . str_pad( (string) $i, 6, '0', STR_PAD_LEFT ) ),
+	);
+}
+
+// Kept and put back: everything below this block reads the fixture's own cohorts.
+$seeded = $GLOBALS['index']['recINSTAAA0000001'];
+
+$GLOBALS['index']['recINSTAAA0000001'] = array(
+	'read' => 1756000000,
+	'rows' => $many,
+);
+
+$long = render();
+
+// Named for the Current group, not "somewhere on the page": Finished and Did not start are
+// disclosures whatever their length, so counting them would pass with the ceiling deleted.
+ck( 'a group longer than the ceiling starts closed', has( group_rows( $long, 'current' ), 'wpcpm-group__disclosure' ), true );
+ck( 'and says how many are inside it without being opened', has( $long, '>' . ( WPCPM_Institution_Roster_View::OPEN_MAX + 1 ) . '<' ), true );
+ck( 'the students are still there, one card each, for search and for the browser to find',
+    substr_count( $long, 'wpcpm-mentee__disclosure' ), WPCPM_Institution_Roster_View::OPEN_MAX + 1 );
+
+$GLOBALS['index']['recINSTAAA0000001'] = $seeded;
 ck( 'though each of its students is a card that opens', substr_count( group_rows( $html, 'current' ), 'wpcpm-mentee__disclosure' ), 1 );
 ck( 'drawn with the mentor card\'s own classes, so the two pages cannot drift apart',
     array(

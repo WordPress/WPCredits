@@ -488,9 +488,14 @@
 	background: rgba( 30, 64, 175, 0.05 );
 	border: 1px solid rgba( 30, 64, 175, 0.25 );
 	border-left-width: 4px;
-	border-radius: 4px;
+	border-radius: var( --wpcpm-radius );
 	margin: 0 0 1.75em;
-	padding: 1rem 1.25rem;
+
+	/* The same room inside as the agreement panel at the foot of the page. They are the two
+	   bordered blocks a school sees, and a block that is tighter than the other reads as a
+	   different kind of thing rather than as the same page. The left edge is 4px of the 1.5em,
+	   so the text still starts where the card's does. */
+	padding: 1.5em;
 }
 
 .wpcpm-roster__strip-title {

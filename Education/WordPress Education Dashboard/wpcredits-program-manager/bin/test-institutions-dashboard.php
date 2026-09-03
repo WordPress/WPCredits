@@ -1193,6 +1193,11 @@ $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 
 ck( 'the icon the site declares is the one shown', false !== strpos( $out, 'src="https://pk.edu.pl/assets/crest.png"' ), true );
 ck( 'and it carries no alt text, being decoration beside the name it repeats', false !== strpos( $out, 'class="wpcpm-institution__icon" src="https://pk.edu.pl/assets/crest.png" alt=""' ), true );
+
+// The server proving an icon and the reader loading it are different questions: this site can
+// reach a university that a program manager on another continent cannot, and an <img> that
+// fails leaves a broken-image glyph beside the name. It takes itself off the page instead.
+ck( 'an icon the reader cannot load removes itself rather than showing broken', false !== strpos( $out, 'onerror="this.remove()"' ), true );
 // Beside the whole identity, not inside it: the name, the place, the site and the two facts
 // are one block, and an icon against the first line reads as a bullet on that line.
 ck( 'and it sits beside the block rather than inside it', array(
@@ -1251,6 +1256,27 @@ ck( 'an icon on another host is refused', array(
 	false !== strpos( $out, 'tracker.example' ),
 	false !== strpos( $out, 'wpcpm-institution__icon' ),
 ), array( false, false ) );
+
+// But refusing the declaration is not refusing the institution. Plenty of sites serve their
+// logo from a CDN, which is ordinary; one of the program's own institutions declares its logo
+// on Cloudinary and serves a perfectly good /favicon.ico, and showed nothing at all because
+// the lookup stopped at the first candidate instead of trying the next.
+$GLOBALS['transients'] = array();
+$GLOBALS['http'] = array(
+	'https://pk.edu.pl' => array(
+		'code' => 200,
+		'body' => '<html><head><link rel="icon" href="https://cdn.example/logo.png" type="image/png"></head></html>',
+	),
+	'https://cdn.example/logo.png' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
+	'https://pk.edu.pl/favicon.ico' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/x-icon' ) ),
+);
+
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+
+ck( 'a logo on a CDN falls through to the site\'s own icon rather than to nothing', array(
+	false !== strpos( $out, 'src="https://pk.edu.pl/favicon.ico"' ),
+	false !== strpos( $out, 'cdn.example' ),
+), array( true, false ) );
 
 $GLOBALS['transients'] = array();
 $GLOBALS['http']       = array();

@@ -609,35 +609,49 @@ class WPCPM_Institutions_Dashboard {
 			}
 		}
 
-		$url = '' !== $href ? self::absolute_icon( $href, $website ) : '';
+		// Two candidates, in order: what the document declares, then the conventional path.
+		//
+		// **An off-host declaration is skipped rather than fatal to the whole lookup.** Plenty
+		// of sites serve their logo from a CDN, which is ordinary and not something to punish;
+		// what the same-host rule is for is a document this program does not own pointing a
+		// dashboard at an arbitrary third party, and skipping the declaration answers that
+		// completely. Giving up at that point did not: one institution declares its logo on
+		// Cloudinary and serves a perfectly good `/favicon.ico`, and showed nothing at all.
+		$candidates = array();
 
-		if ( '' === $url ) {
-			$url = rtrim( $website, '/' ) . '/favicon.ico';
+		if ( '' !== $href ) {
+			$candidates[] = self::absolute_icon( $href, $website );
 		}
 
-		// Kept only if it is on the institution's own host: a document this program does not
-		// own must not be able to point a dashboard at an arbitrary third party.
-		if ( strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) ) !== $host ) {
-			return '';
+		$candidates[] = rtrim( $website, '/' ) . '/favicon.ico';
+
+		foreach ( $candidates as $url ) {
+			if ( '' === $url || strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) ) !== $host ) {
+				continue;
+			}
+
+			$head = wp_safe_remote_head(
+				$url,
+				array(
+					'timeout'     => 4,
+					'redirection' => 2,
+				)
+			);
+
+			if ( is_wp_error( $head ) || 200 !== (int) wp_remote_retrieve_response_code( $head ) ) {
+				continue;
+			}
+
+			$type = strtolower( (string) wp_remote_retrieve_header( $head, 'content-type' ) );
+
+			// An icon, and not a sign-in page answering 200 with an HTML apology, which is what
+			// a missing `/favicon.ico` usually is.
+			if ( '' === $type || 0 === strpos( $type, 'image/' ) ) {
+				return $url;
+			}
 		}
 
-		$head = wp_safe_remote_head(
-			$url,
-			array(
-				'timeout'     => 4,
-				'redirection' => 2,
-			)
-		);
-
-		if ( is_wp_error( $head ) || 200 !== (int) wp_remote_retrieve_response_code( $head ) ) {
-			return '';
-		}
-
-		$type = strtolower( (string) wp_remote_retrieve_header( $head, 'content-type' ) );
-
-		// An icon, and not a login page answering 200 with an HTML apology, which is what a
-		// missing `/favicon.ico` usually is.
-		return ( '' === $type || 0 === strpos( $type, 'image/' ) ) ? $url : '';
+		return '';
 	}
 
 	/**
@@ -801,8 +815,16 @@ class WPCPM_Institutions_Dashboard {
 		// line of it reads as a bullet on that line instead. The same arrangement the Mentor
 		// Report Card uses for a mentor's photo.
 		if ( '' !== $icon ) {
+			// **`onerror` because the server proving it and the reader loading it are two
+			// different questions.** The HEAD below happens on this site, from a host that can
+			// reach the institution's server; a program manager on another continent may not,
+			// and a university that answers Warsaw in 40ms can time out from anywhere else. An
+			// `<img>` that fails leaves a browser's broken-image glyph beside the name, which
+			// is worse than the nothing this feature promises when there is no icon. Removing
+			// itself takes the gap with it. The handler is the same shape as the confirm on
+			// the People card: one expression, no script file, nothing to load.
 			printf(
-				'<img class="wpcpm-institution__icon" src="%1$s" alt="" width="48" height="48" loading="lazy" decoding="async" />',
+				'<img class="wpcpm-institution__icon" src="%1$s" alt="" width="48" height="48" loading="lazy" decoding="async" onerror="this.remove()" />',
 				esc_url( $icon )
 			);
 		}

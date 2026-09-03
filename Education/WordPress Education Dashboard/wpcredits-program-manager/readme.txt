@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.77.2
+Stable tag: 1.78.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,18 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.78.3 =
+* An institution's icon that this site can reach but the reader cannot now takes itself off the page instead of leaving a broken-image glyph beside the name. A university's server answering this site quickly says nothing about whether it answers a program manager on another continent.
+
+= 1.78.2 =
+* The cohort summary and the agreement panel have the same room inside them. They are the two bordered blocks a school sees on the page, and one being tighter than the other made it read as a different kind of thing.
+
+= 1.78.1 =
+* An institution whose site serves its logo from a CDN gets its icon again. The declaration is still skipped, because a page the program does not own must not be able to point a dashboard at a third party, but the lookup now goes on to the site's own conventional icon instead of giving up at the first candidate.
+
+= 1.78.0 =
+* **A long group of students starts closed, whichever group it is.** One institution has forty-two students on the program at once, and an open list of forty-two buried everything under it: the other groups, the people, the agreement. Past twelve the group opens on its count with one press to see inside; below that it stays open, because a short list that has to be opened has been hidden for no reason. The students are all still on the page, so the browser's own find still reaches them.
 
 = 1.77.2 =
 * The facts under an institution's name lose their full stops. They are labelled values on their own lines now rather than a sentence, and a trailing point on "Stage: Confirmed" reads as a typo rather than as grammar.

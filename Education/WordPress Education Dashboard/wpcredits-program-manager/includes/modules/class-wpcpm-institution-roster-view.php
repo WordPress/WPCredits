@@ -555,11 +555,27 @@ class WPCPM_Institution_Roster_View {
 	}
 
 	/**
+	 * How many students a group may show before it starts closed.
+	 *
+	 * Twelve fits a screen with the sections below it still in sight, which is the thing a
+	 * long list takes away. It is a display choice and nothing depends on it: the count on
+	 * the row is the same number either way, and the filters read the whole group.
+	 */
+	const OPEN_MAX = 12;
+
+	/**
 	 * One of the four groups: its heading, its count, its explanation and its table.
 	 *
 	 * Finished and Did not start are collapsed, as design spec 7.5 asks: they are counted
 	 * every time and read rarely. An empty group still prints, with its zero, so that a group
 	 * a filter emptied is visibly empty rather than missing.
+	 *
+	 * **A long group is collapsed whichever group it is.** One institution has forty-two
+	 * students on the program at once, and an open list of forty-two cards buries everything
+	 * under it: the other groups, the people, the agreement. Past `OPEN_MAX` the group starts
+	 * closed with its count on the row, which is the number a school is usually looking for
+	 * anyway, and one press opens it. Below that it stays open, because a list of six that
+	 * has to be opened is a list that has been hidden for no reason.
 	 *
 	 * @param string $key     Group key.
 	 * @param string $label   Group heading.
@@ -570,7 +586,7 @@ class WPCPM_Institution_Roster_View {
 	 */
 	private static function render_group( $key, $label, array $rows, array $columns, $here, array $filters ) {
 		$count     = count( $rows );
-		$collapsed = in_array( $key, array( 'finished', 'not_started' ), true );
+		$collapsed = in_array( $key, array( 'finished', 'not_started' ), true ) || $count > self::OPEN_MAX;
 
 		printf( '<section class="wpcpm-group wpcpm-roster__group wpcpm-roster__group--%s">', esc_attr( $key ) );
 
