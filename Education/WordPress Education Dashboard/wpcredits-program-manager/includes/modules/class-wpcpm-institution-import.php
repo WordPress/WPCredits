@@ -2,11 +2,15 @@
 /**
  * Reading a list of students an institution wants enrolled.
  *
- * This file is the half of the import that touches nothing: it takes the text of a CSV, or the
- * single row a one-student form posts, and turns it into cleaned rows with a verdict each. It
- * opens no socket, writes no post and creates nothing in Airtable. The staging, the duplicate
- * ladder against the base, the ceilings and the creation loop are separate pieces, so that the
- * part a school's file reaches first can be read, and tested, without any of that in the way.
+ * This file reads and decides; it never writes. It takes the text of a CSV, or the single row a
+ * one-student form posts, turns it into cleaned rows, and checks each of them against the two
+ * Airtable tables and this site's accounts to give it a verdict. Nothing here creates a record,
+ * writes a post, sends mail or touches a superglobal: the staging, the ceilings, the form and
+ * the creation loop are separate pieces, and a test asserts this file reaches none of them.
+ *
+ * The reading is in two halves that can be used apart. `parse()` and `clean_rows()` need no
+ * network at all, which is what lets the shape of a school's file be tested exhaustively; only
+ * `check_against_base()` goes out, and it only ever reads.
  *
  * @package WPCredits_Program_Manager
  */
@@ -77,6 +81,45 @@ final class WPCPM_Institution_Import {
 	 * @var string
 	 */
 	const DUPLICATE_FILE = 'duplicate-file';
+
+	/**
+	 * This student is already on this institution's roster. Not created, and said plainly.
+	 *
+	 * @var string
+	 */
+	const EXISTS_HERE = 'exists-here';
+
+	/**
+	 * A hit somewhere the institution is not allowed to be told about. Not created.
+	 *
+	 * **The one verdict whose reason is never shown.** The hit may be a student at another
+	 * university, a row nobody has linked yet, or an account on this site belonging to a mentor
+	 * or a program manager. Answering each of those differently would turn a preview into a
+	 * membership oracle: paste three hundred addresses, read three hundred different answers,
+	 * and learn who is in the program. Every one of them gets the same sentence, and the reason
+	 * is stored for a program manager to read.
+	 *
+	 * @var string
+	 */
+	const BLOCKED = 'blocked';
+
+	/**
+	 * Somebody of a similar name is already on this roster. A warning, not a refusal.
+	 *
+	 * @var string
+	 */
+	const NEAR_NAME = 'near-name';
+
+	/**
+	 * How many addresses go into one query against the base.
+	 *
+	 * The formula is an `OR()` of one test per value and Airtable has a ceiling on its length,
+	 * so three hundred rows are asked about in six requests rather than one that is refused or
+	 * three hundred that are throttled.
+	 *
+	 * @var int
+	 */
+	const CHUNK = 50;
 
 	/**
 	 * The columns this import understands, and what a school may call them.
@@ -275,6 +318,12 @@ final class WPCPM_Institution_Import {
 			'verdict'        => self::OK,
 			'problems'       => array(),
 			'warnings'       => array(),
+			// Written by the ladder, and present from the start so every row has one shape:
+			// `detail` is what the institution is shown about this verdict, `manager_reason` is
+			// what only a program manager sees. A renderer reading a key that exists on some
+			// rows and not others is how one of them ends up printed by accident.
+			'detail'         => array(),
+			'manager_reason' => '',
 		);
 
 		$raw_name = isset( $raw['name'] ) ? (string) $raw['name'] : '';
@@ -428,6 +477,360 @@ final class WPCPM_Institution_Import {
 		}
 
 		return $clean;
+	}
+
+	/**
+	 * Check cleaned rows against the base and this site.
+	 *
+	 * **Six steps, and the institution learns the answer to only one of them.** A row that hits
+	 * this institution's own roster is told so, in detail, because it is their own list. A row
+	 * that hits anything else is told it cannot be imported from here and nothing more: which
+	 * other university, whether the person has an account, whether a record exists at all are
+	 * all facts about people outside this school, and a preview that answered them per row would
+	 * be a lookup service for anyone who could paste a list of addresses.
+	 *
+	 * Rows already refused by the cleaner are not looked up: they are not going to be created,
+	 * and asking about them would spend requests to change nothing.
+	 *
+	 * @param array          $rows        Rows from `clean_rows()`.
+	 * @param string         $institution Airtable Institutions record ID this import is for.
+	 * @param WPCPM_Airtable $airtable    A configured client.
+	 * @param array          $settings    Plugin settings, for the two table IDs.
+	 * @return array|WP_Error The rows with their verdicts, or the first error from the base.
+	 */
+	public static function check_against_base( array $rows, $institution, $airtable, array $settings ) {
+		$fields  = WPCPM_Mentors_Sync::fields();
+		$pending = array();
+
+		foreach ( $rows as $index => $row ) {
+			if ( self::OK === $row['verdict'] ) {
+				$pending[ $index ] = $row;
+			}
+		}
+
+		if ( empty( $pending ) ) {
+			return $rows;
+		}
+
+		$emails  = array();
+		$handles = array();
+
+		foreach ( $pending as $row ) {
+			if ( '' !== $row['email_key'] ) {
+				$emails[] = $row['email_key'];
+			}
+
+			// Under three characters is not a handle worth a substring search: `FIND('an', ...)`
+			// matches most of the base and every one of those rows would then be discarded in
+			// PHP, which is a request spent to learn nothing.
+			if ( '' !== $row['handle'] && mb_strlen( $row['handle'] ) >= 3 ) {
+				$handles[] = $row['handle'];
+			}
+		}
+
+		$students = self::lookup_by_email( $airtable, $settings['students_table'], $fields['student_email'], $emails, $fields, 'students' );
+
+		if ( is_wp_error( $students ) ) {
+			return $students;
+		}
+
+		$reports = self::lookup_by_email( $airtable, $settings['reports_table'], $fields['report_email'], $emails, $fields, 'reports' );
+
+		if ( is_wp_error( $reports ) ) {
+			return $reports;
+		}
+
+		$by_handle = self::lookup_by_handle( $airtable, $settings, $fields, $handles );
+
+		if ( is_wp_error( $by_handle ) ) {
+			return $by_handle;
+		}
+
+		$roster = WPCPM_Roster_Index::rows( $institution );
+
+		foreach ( $pending as $index => $row ) {
+			$rows[ $index ] = self::judge( $row, $institution, $students, $reports, $by_handle, $roster );
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * One row's verdict, given everything the ladder found.
+	 *
+	 * The order is deliberate. This institution's own roster is checked first, so a school
+	 * re-uploading last term's file is told "already on your roster" rather than the blank
+	 * refusal, which would be both unhelpful and untrue. Everything else collapses to one
+	 * answer.
+	 *
+	 * @param array  $row         A cleaned row.
+	 * @param string $institution The institution this import is for.
+	 * @param array  $students    Students rows by email key.
+	 * @param array  $reports     Students Reports rows by email key.
+	 * @param array  $by_handle   Rows from either table, by handle.
+	 * @param array  $roster      This institution's index rows.
+	 * @return array
+	 */
+	private static function judge( array $row, $institution, array $students, array $reports, array $by_handle, array $roster ) {
+		$student = isset( $students[ $row['email_key'] ] ) ? $students[ $row['email_key'] ] : null;
+		$report  = isset( $reports[ $row['email_key'] ] ) ? $reports[ $row['email_key'] ] : null;
+
+		if ( is_array( $student ) && in_array( $institution, $student['institutions'], true ) ) {
+			$row['verdict'] = self::EXISTS_HERE;
+			$row['detail']  = array(
+				'name'   => $student['name'],
+				'status' => $student['status'],
+				'start'  => $student['start'],
+				'record' => $student['record_id'],
+			);
+
+			return $row;
+		}
+
+		// A reports row on this institution with no Students row behind it is a state only a
+		// program manager can finish, and saying so is more use than the blank refusal: the
+		// school is not being kept from anything, the record is half-made.
+		if ( ! is_array( $student ) && is_array( $report ) && in_array( $institution, $report['institutions'], true ) ) {
+			$row['verdict'] = self::EXISTS_HERE;
+			$row['detail']  = array(
+				'name'         => $report['name'],
+				'status'       => $report['status'],
+				'start'        => '',
+				'record'       => '',
+				'reports_only' => true,
+			);
+
+			return $row;
+		}
+
+		// **From here down, one answer.** What differs between these branches is only what a
+		// program manager is told afterwards.
+		$reason = '';
+
+		if ( is_array( $student ) ) {
+			$reason = empty( $student['institutions'] )
+				? 'students row with no institution'
+				: 'students row at another institution';
+		} elseif ( is_array( $report ) ) {
+			$reason = 'students reports row elsewhere';
+		} elseif ( '' !== $row['handle'] && isset( $by_handle[ $row['handle'] ] ) ) {
+			$reason = 'wordpress.org profile already on a record';
+		} elseif ( '' !== $row['email'] && get_user_by( 'email', $row['email'] ) ) {
+			// A site account of any kind: a student, a mentor, a program manager, another
+			// school's member. Which of those it is, is exactly what must not be answered.
+			$reason = 'account on this site';
+		}
+
+		if ( '' !== $reason ) {
+			$row['verdict']        = self::BLOCKED;
+			$row['manager_reason'] = $reason;
+			// Nothing shown. The sentence the institution sees is one constant, written where
+			// the preview is rendered, so no branch here can accidentally vary it.
+			$row['detail'] = array();
+
+			return $row;
+		}
+
+		$near = self::near_name( $row['name'], $roster );
+
+		if ( '' !== $near ) {
+			// Soft: the row is still created. Two people at one university do share a name, and
+			// refusing on a resemblance would make the school argue with a robot about it.
+			$row['verdict'] = self::NEAR_NAME;
+			$row['detail']  = array( 'near' => $near );
+		}
+
+		return $row;
+	}
+
+	/**
+	 * Rows of one table whose address is in this list, keyed by lowercased address.
+	 *
+	 * @param WPCPM_Airtable $airtable A configured client.
+	 * @param string         $table    Table ID.
+	 * @param string         $column   The email column's name in that table.
+	 * @param string[]       $emails   Lowercased addresses.
+	 * @param array          $fields   `WPCPM_Mentors_Sync::fields()`.
+	 * @param string         $kind     `students` or `reports`, for the columns to read back.
+	 * @return array|WP_Error
+	 */
+	private static function lookup_by_email( $airtable, $table, $column, array $emails, array $fields, $kind ) {
+		$found = array();
+
+		if ( empty( $emails ) ) {
+			return $found;
+		}
+
+		$wanted = 'students' === $kind
+			? array( $fields['student_record_name'], $fields['student_email'], $fields['student_status'], $fields['student_institution'], $fields['student_start'] )
+			: array( $fields['report_name'], $fields['report_email'], $fields['report_status'], $fields['report_instituton'] );
+
+		foreach ( array_chunk( array_unique( $emails ), self::CHUNK ) as $chunk ) {
+			$records = $airtable->fetch_all(
+				$table,
+				array(
+					// The third argument is what makes this a comparison of mailboxes rather
+					// than of spellings: the base holds addresses as they were typed.
+					'formula' => $airtable->formula_in( $column, $chunk, true ),
+					'fields'  => $wanted,
+				)
+			);
+
+			if ( is_wp_error( $records ) ) {
+				return $records;
+			}
+
+			foreach ( $records as $record ) {
+				$row = self::shape_hit( $record, $fields, $kind );
+
+				if ( '' !== $row['email_key'] ) {
+					$found[ $row['email_key'] ] = $row;
+				}
+			}
+		}
+
+		return $found;
+	}
+
+	/**
+	 * Rows of either table carrying one of these handles, keyed by handle.
+	 *
+	 * **`FIND()` finds candidates; PHP decides.** The base holds profiles as URLs, so a handle
+	 * has to be looked for inside them, and a substring search says yes to `ann` inside
+	 * `joanna`. Every value that comes back is put through the same normaliser the import used
+	 * on the file and compared for exact equality, which also means a row holding
+	 * `profiles.wordpress.org/annak` and one holding `https://profiles.wordpress.org/annak/`
+	 * both match, and neither can be defeated by writing the URL a third way.
+	 *
+	 * @param WPCPM_Airtable $airtable A configured client.
+	 * @param array          $settings Plugin settings.
+	 * @param array          $fields   `WPCPM_Mentors_Sync::fields()`.
+	 * @param string[]       $handles  Handles of three characters or more.
+	 * @return array|WP_Error
+	 */
+	private static function lookup_by_handle( $airtable, array $settings, array $fields, array $handles ) {
+		$found = array();
+
+		if ( empty( $handles ) ) {
+			return $found;
+		}
+
+		$tables = array(
+			array( $settings['students_table'], $fields['student_profile'] ),
+			array( $settings['reports_table'], $fields['report_profile'] ),
+		);
+
+		foreach ( $tables as $pair ) {
+			list( $table, $column ) = $pair;
+
+			foreach ( array_chunk( array_unique( $handles ), self::CHUNK ) as $chunk ) {
+				$records = $airtable->fetch_all(
+					$table,
+					array(
+						'formula' => $airtable->formula_contains( $column, $chunk ),
+						'fields'  => array( $column ),
+					)
+				);
+
+				if ( is_wp_error( $records ) ) {
+					return $records;
+				}
+
+				foreach ( $records as $record ) {
+					$cells  = isset( $record['fields'] ) && is_array( $record['fields'] ) ? $record['fields'] : array();
+					$value  = WPCPM_Airtable::flatten( isset( $cells[ $column ] ) ? $cells[ $column ] : '' );
+					$handle = WPCPM_Mentors_Sync::wporg_username( $value );
+
+					if ( '' !== $handle && in_array( $handle, $chunk, true ) ) {
+						$found[ $handle ] = true;
+					}
+				}
+			}
+		}
+
+		return $found;
+	}
+
+	/**
+	 * The fields of one hit, in the shape `judge()` reads.
+	 *
+	 * @param array  $record One Airtable record.
+	 * @param array  $fields `WPCPM_Mentors_Sync::fields()`.
+	 * @param string $kind   `students` or `reports`.
+	 * @return array
+	 */
+	private static function shape_hit( array $record, array $fields, $kind ) {
+		$cells = isset( $record['fields'] ) && is_array( $record['fields'] ) ? $record['fields'] : array();
+		$get   = function ( $column ) use ( $cells ) {
+			return WPCPM_Airtable::flatten( isset( $cells[ $column ] ) ? $cells[ $column ] : '' );
+		};
+
+		if ( 'students' === $kind ) {
+			$email = $get( $fields['student_email'] );
+
+			return array(
+				'record_id'    => isset( $record['id'] ) ? (string) $record['id'] : '',
+				'name'         => $get( $fields['student_record_name'] ),
+				'email_key'    => strtolower( trim( $email ) ),
+				'status'       => $get( $fields['student_status'] ),
+				'start'        => $get( $fields['student_start'] ),
+				'institutions' => WPCPM_Airtable::link_ids( isset( $cells[ $fields['student_institution'] ] ) ? $cells[ $fields['student_institution'] ] : array() ),
+			);
+		}
+
+		$email = $get( $fields['report_email'] );
+
+		return array(
+			'record_id'    => isset( $record['id'] ) ? (string) $record['id'] : '',
+			'name'         => $get( $fields['report_name'] ),
+			'email_key'    => strtolower( trim( $email ) ),
+			'status'       => $get( $fields['report_status'] ),
+			'start'        => '',
+			'institutions' => WPCPM_Airtable::link_ids( isset( $cells[ $fields['report_instituton'] ] ) ? $cells[ $fields['report_instituton'] ] : array() ),
+		);
+	}
+
+	/**
+	 * A name already on this roster that this one resembles, or ''.
+	 *
+	 * Compared on the letters alone, with case, spacing and punctuation removed, so that
+	 * "Anna Kowalska" and "anna kowalska" are one person and "Anna Kowalska-Nowak" is not. The
+	 * point is a school re-typing somebody they already sent, not fuzzy matching: this is a
+	 * warning attached to a row that still gets created, and a cleverer comparison would only
+	 * produce warnings nobody can act on.
+	 *
+	 * @param string $name   The cleaned name from the file.
+	 * @param array  $roster This institution's index rows.
+	 * @return string The roster name it resembles, or ''.
+	 */
+	private static function near_name( $name, array $roster ) {
+		$key = self::name_key( $name );
+
+		if ( '' === $key ) {
+			return '';
+		}
+
+		foreach ( $roster as $row ) {
+			$other = isset( $row['name'] ) ? (string) $row['name'] : '';
+
+			if ( '' !== $other && self::name_key( $other ) === $key ) {
+				return $other;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * A name reduced to its letters and digits, lowercased.
+	 *
+	 * @param string $name A name.
+	 * @return string
+	 */
+	private static function name_key( $name ) {
+		$key = preg_replace( '/[^\p{L}\p{N}]+/u', '', (string) $name );
+
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $key ) : strtolower( (string) $key );
 	}
 
 	/**

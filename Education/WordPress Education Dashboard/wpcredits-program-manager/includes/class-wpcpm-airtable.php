@@ -453,6 +453,53 @@ class WPCPM_Airtable {
 	}
 
 	/**
+	 * A formula matching rows whose field contains any of these needles.
+	 *
+	 * **`FIND()` is a substring test, and the caller must finish the job in PHP.** This exists
+	 * for the columns that hold a WordPress.org profile, where the base has a URL and the thing
+	 * being looked for is a handle, so equality would miss every row: `annak` has to find
+	 * `https://profiles.wordpress.org/annak/`. The cost of that is that `ann` also finds
+	 * `joanna`, so every row this returns is a candidate and not a match, and the caller
+	 * normalises both sides and compares them exactly before believing it.
+	 *
+	 * The quoting lives here, with `formula_in()` and the escaper, rather than in the modules
+	 * that build queries. A second place that assembles a formula out of somebody's file is a
+	 * second place to get the escaping wrong, and the value being searched for here arrives in a
+	 * CSV from outside the program.
+	 *
+	 * @param string   $field   Column name.
+	 * @param string[] $needles Values to look for.
+	 * @param bool     $lower   Compare against `LOWER()` of the column, which is the usual case
+	 *                          for a handle: the base's URLs are cased however they were pasted.
+	 * @return string A formula, or '' when there is nothing to look for.
+	 */
+	public function formula_contains( $field, array $needles, $lower = true ) {
+		$needles = array_values( array_filter( array_map( 'strval', $needles ), 'strlen' ) );
+
+		if ( empty( $needles ) ) {
+			return '';
+		}
+
+		$field  = $this->escape_field_name( $field );
+		$column = $lower ? sprintf( 'LOWER({%s})', $field ) : sprintf( '{%s}', $field );
+		$tests  = array();
+
+		foreach ( $needles as $needle ) {
+			if ( $lower ) {
+				$needle = function_exists( 'mb_strtolower' ) ? mb_strtolower( $needle ) : strtolower( $needle );
+			}
+
+			$tests[] = sprintf( 'FIND(%s, %s) > 0', $this->quote( $needle ), $column );
+		}
+
+		if ( 1 === count( $tests ) ) {
+			return $tests[0];
+		}
+
+		return 'OR(' . implode( ',', $tests ) . ')';
+	}
+
+	/**
 	 * Reduce an Airtable cell to a scalar string.
 	 *
 	 * Handles the three shapes the API returns for the fields this plugin reads:

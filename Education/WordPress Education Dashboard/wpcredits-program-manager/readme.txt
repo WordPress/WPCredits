@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.81.0
+Stable tag: 1.82.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.82.0 =
+* The import now checks each row against the two Airtable tables and this site's accounts before anything is created. A student already on the institution's own roster is named in full, with their status and start date, because that is the school's own list. Every other kind of hit gets one answer and one only: this student cannot be imported from here. A preview that said which other university, or whether an account exists, would answer three hundred questions about who is in the program for anyone who could paste three hundred addresses. A program manager is told which it was; the school never is.
+* A WordPress.org profile is treated as an identity alongside the address, so a student enrolled elsewhere under a different mailbox is still found. The base holds profiles as URLs and the file holds handles, so the query is a substring search and every candidate it returns is then normalised and compared exactly in PHP: a URL written three ways still matches, and `ann` inside `joanna` does not.
+* A name already on the institution's own roster is a warning rather than a refusal. Two people at one university do share a name.
 
 = 1.81.0 =
 * The reading half of the institutions import. `WPCPM_Institution_Import` takes the text of a CSV, or one student's row, and returns cleaned rows with a verdict each. It opens no socket, writes no post and creates nothing: the staging, the checks against the base and the creation loop are separate pieces still to come, and a test asserts this file reaches none of them.

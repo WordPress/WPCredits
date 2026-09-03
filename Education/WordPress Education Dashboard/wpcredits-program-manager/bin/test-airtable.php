@@ -187,6 +187,42 @@ ck( 'the needle is folded with mb_strtolower(), not strtolower()',
 	$airtable->formula_in( 'Name', array( 'Łódź' ), true ),
 	"LOWER({Name}) = 'łódź'" );
 
+/* ---- formula_contains() -------------------------------------------------- */
+
+echo "\n=== formula_contains() ===\n";
+
+// For the profile columns, where the base holds a URL and the thing being looked for is a
+// handle: equality would miss every row.
+ck( 'one needle is a bare FIND against the lowered column',
+	$airtable->formula_contains( 'WP Profile', array( 'annak' ) ),
+	"FIND('annak', LOWER({WP Profile})) > 0" );
+
+ck( 'two needles are an OR()',
+	$airtable->formula_contains( 'WP Profile', array( 'annak', 'bartekz' ) ),
+	"OR(FIND('annak', LOWER({WP Profile})) > 0,FIND('bartekz', LOWER({WP Profile})) > 0)" );
+
+ck( 'nothing to look for is an empty formula',
+	$airtable->formula_contains( 'WP Profile', array( '', null ) ),
+	'' );
+
+// The needle comes out of a CSV somebody outside the program uploaded, which is exactly why
+// the quoting lives in this class rather than in the module that builds the query.
+ck( 'a quote in the needle is escaped',
+	$airtable->formula_contains( 'WP Profile', array( "o'neil" ) ),
+	"FIND('o\\'neil', LOWER({WP Profile})) > 0" );
+
+ck( 'and so is the field name',
+	$airtable->formula_contains( 'Odd}Name', array( 'x' ) ),
+	"FIND('x', LOWER({Odd\\}Name})) > 0" );
+
+ck( 'the needle is lowered with the column',
+	$airtable->formula_contains( 'WP Profile', array( 'AnnaK' ) ),
+	"FIND('annak', LOWER({WP Profile})) > 0" );
+
+ck( 'and lowering can be turned off, column and needle together',
+	$airtable->formula_contains( 'WP Profile', array( 'AnnaK' ), false ),
+	"FIND('AnnaK', {WP Profile}) > 0" );
+
 /* ---- a 429 is honoured --------------------------------------------------- */
 
 echo "\n=== A 429 records a backoff that every later request honours ===\n";

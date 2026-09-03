@@ -97,6 +97,21 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-institution-import.php'
  */
 if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 	class WPCPM_Mentors_Sync {
+		public static function fields() {
+			return array(
+				'student_record_name' => 'Full Name',
+				'student_email'       => 'Email',
+				'student_status'      => 'Status',
+				'student_institution' => 'Educational Institutions',
+				'student_start'       => 'Start Date',
+				'student_profile'     => 'WP Profile',
+				'report_name'         => 'Name',
+				'report_email'        => 'Email',
+				'report_status'       => 'Status',
+				'report_instituton'   => 'Educational institution',
+				'report_profile'      => 'WordPress Profile',
+			);
+		}
 		public static function wporg_username( $raw ) {
 			$value = trim( (string) $raw );
 			$value = trim( $value, " \t\n\r\0\x0B<>" );
@@ -121,6 +136,17 @@ if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Airtable' ) ) {
+	class WPCPM_Airtable {
+		public static function flatten( $value, $glue = ', ' ) {
+			return is_array( $value ) ? implode( $glue, array_map( 'strval', $value ) ) : (string) $value;
+		}
+		public static function link_ids( $value ) {
+			return array_values( array_filter( (array) $value, 'strlen' ) );
+		}
+	}
+}
+
 if ( ! class_exists( 'WPCPM_Institution_Student_Form' ) ) {
 	class WPCPM_Institution_Student_Form {
 		public static function choices( $name ) {
@@ -138,6 +164,95 @@ if ( ! class_exists( 'WPCPM_Institution_Student_Form' ) ) {
 				)
 				: array();
 		}
+	}
+}
+
+/**
+ * The base and the site, as far as the ladder can see them.
+ *
+ * `$GLOBALS['records']` is one table's rows; the fake client filters them the way Airtable
+ * would, so the formulas the module builds are exercised rather than bypassed. `$GLOBALS['site']`
+ * is the accounts `get_user_by()` finds.
+ */
+$GLOBALS['records'] = array();
+$GLOBALS['site']    = array();
+$GLOBALS['roster']  = array();
+$GLOBALS['queries'] = array();
+
+class WP_Error {
+	public $code;
+	public $message;
+	public function __construct( $code = '', $message = '' ) {
+		$this->code    = $code;
+		$this->message = $message;
+	}
+	public function get_error_message() {
+		return $this->message;
+	}
+}
+function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
+function get_user_by( $by, $value ) {
+	return isset( $GLOBALS['site'][ strtolower( (string) $value ) ] ) ? (object) array( 'ID' => 1 ) : false;
+}
+
+if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
+	class WPCPM_Roster_Index {
+		public static function rows( $record_id ) {
+			return isset( $GLOBALS['roster'][ $record_id ] ) ? $GLOBALS['roster'][ $record_id ] : array();
+		}
+	}
+}
+
+/**
+ * A client that answers the two formulas this module builds, rather than a canned list.
+ *
+ * Filtering the fixtures with the formula is what makes the query assertions worth anything: a
+ * stub that returned every seeded row whatever was asked would pass just as happily with the
+ * formula left empty, which is the bug most worth catching here.
+ */
+class Fake_Airtable {
+	public function formula_in( $field, array $values, $lower = false ) {
+		$values = array_values( array_filter( array_map( 'strval', $values ), 'strlen' ) );
+		return empty( $values ) ? '' : 'in:' . $field . ':' . implode( ',', array_map( 'strtolower', $values ) );
+	}
+	public function formula_contains( $field, array $needles, $lower = true ) {
+		$needles = array_values( array_filter( array_map( 'strval', $needles ), 'strlen' ) );
+		return empty( $needles ) ? '' : 'has:' . $field . ':' . implode( ',', array_map( 'strtolower', $needles ) );
+	}
+	public function fetch_all( $table, array $args = array() ) {
+		$GLOBALS['queries'][] = array( $table, isset( $args['formula'] ) ? $args['formula'] : '' );
+
+		if ( isset( $GLOBALS['fail_table'] ) && $GLOBALS['fail_table'] === $table ) {
+			return new WP_Error( 'airtable', 'the base said no' );
+		}
+
+		$formula = isset( $args['formula'] ) ? $args['formula'] : '';
+		$rows    = isset( $GLOBALS['records'][ $table ] ) ? $GLOBALS['records'][ $table ] : array();
+
+		if ( '' === $formula ) {
+			return array();
+		}
+
+		list( $kind, $field, $list ) = explode( ':', $formula, 3 );
+		$wanted                      = explode( ',', $list );
+		$out                         = array();
+
+		foreach ( $rows as $row ) {
+			$cell = isset( $row['fields'][ $field ] ) ? (string) $row['fields'][ $field ] : '';
+
+			foreach ( $wanted as $needle ) {
+				$hit = 'in' === $kind
+					? strtolower( $cell ) === $needle
+					: false !== strpos( strtolower( $cell ), $needle );
+
+				if ( $hit ) {
+					$out[] = $row;
+					break;
+				}
+			}
+		}
+
+		return $out;
 	}
 }
 
@@ -432,6 +547,159 @@ add_filter(
 $filtered = WPCPM_Institution_Import::parse( "Apellidos y Nombre,Email\nAnna Kowalska,anna@uek.krakow.pl\n" );
 ck( 'a site can teach it a registry\'s own header', $filtered['ok'], true );
 $GLOBALS['filters']['wpcpm_import_aliases'] = array();
+
+echo "\n=== The ladder: what the base and this site already know ===\n";
+
+$HERE      = 'recHERE000000001';
+$ELSEWHERE = 'recELSE000000001';
+$SETTINGS  = array( 'students_table' => 'tblStudents', 'reports_table' => 'tblReports' );
+
+/** Seed the base, the site and this institution's roster, then run one file through the ladder. */
+function ladder( $csv, $students = array(), $reports = array(), $site = array(), $roster = array() ) {
+	global $HERE, $SETTINGS;
+
+	$GLOBALS['records'] = array( 'tblStudents' => $students, 'tblReports' => $reports );
+	$GLOBALS['site']    = array_flip( array_map( 'strtolower', $site ) );
+	$GLOBALS['roster']  = array( $HERE => $roster );
+	$GLOBALS['queries'] = array();
+	unset( $GLOBALS['fail_table'] );
+
+	$rows = WPCPM_Institution_Import::clean_rows( WPCPM_Institution_Import::parse( $csv )['rows'] );
+
+	return WPCPM_Institution_Import::check_against_base( $rows, $HERE, new Fake_Airtable(), $SETTINGS );
+}
+
+/** One Airtable record, in the shape the client returns. */
+function rec( $id, array $fields ) {
+	return array( 'id' => $id, 'fields' => $fields );
+}
+
+$one = "Name,Email\nAnna Kowalska,anna@uek.krakow.pl\n";
+
+// Their own list, so they are told about it in full: this is the school's own roster and
+// nothing about it is a fact about anybody else.
+$here = ladder(
+	$one,
+	array( rec( 'recS1', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'Anna@uek.krakow.pl', 'Status' => 'In Sensei', 'Start Date' => '2026-02-01', 'Educational Institutions' => array( $HERE ) ) ) )
+);
+
+ck( 'a student already on this roster is named as such', $here[0]['verdict'], 'exists-here' );
+ck( 'with the name the base holds', $here[0]['detail']['name'], 'Anna Kowalska' );
+ck( 'their status', $here[0]['detail']['status'], 'In Sensei' );
+ck( 'and when they started', $here[0]['detail']['start'], '2026-02-01' );
+// The address is matched as a mailbox, not as a spelling: the base holds it as it was typed.
+ck( 'the address matched despite its casing', $here[0]['detail']['record'], 'recS1' );
+
+// Half a record: a reports row on this institution with no Students row behind it. The school
+// is not being kept from anything, so the blank refusal would be untrue as well as unhelpful.
+$half = ladder(
+	$one,
+	array(),
+	array( rec( 'recR1', array( 'Name' => 'Anna Kowalska', 'Email' => 'anna@uek.krakow.pl', 'Status' => 'In Sensei', 'Educational institution' => array( $HERE ) ) ) )
+);
+ck( 'a reports row on this institution is also "already here"', $half[0]['verdict'], 'exists-here' );
+ck( 'flagged as the half-made record it is', $half[0]['detail']['reports_only'], true );
+
+echo "\n=== Everything else gets one answer, and one only ===\n";
+
+// The four ways a row can hit something outside this school. The institution must not be able
+// to tell them apart: three hundred addresses pasted in would otherwise answer three hundred
+// questions about who is in the program.
+$causes = array(
+	'another institution' => ladder( $one, array( rec( 'recS2', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'anna@uek.krakow.pl', 'Status' => 'In Sensei', 'Educational Institutions' => array( $ELSEWHERE ) ) ) ) ),
+	'no institution'      => ladder( $one, array( rec( 'recS3', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'anna@uek.krakow.pl', 'Status' => 'Interested', 'Educational Institutions' => array() ) ) ) ),
+	'a reports row'       => ladder( $one, array(), array( rec( 'recR2', array( 'Name' => 'Anna K', 'Email' => 'anna@uek.krakow.pl', 'Educational institution' => array( $ELSEWHERE ) ) ) ) ),
+	'an account here'     => ladder( $one, array(), array(), array( 'anna@uek.krakow.pl' ) ),
+);
+
+foreach ( $causes as $what => $result ) {
+	ck( sprintf( 'a hit at %s blocks the row', $what ), $result[0]['verdict'], 'blocked' );
+	// The whole point: nothing about where the hit was reaches the row the school will read.
+	ck( sprintf( 'and tells the school nothing about it (%s)', $what ), $result[0]['detail'], array() );
+}
+
+$reasons = array_map(
+	function ( $result ) {
+		return $result[0]['manager_reason'];
+	},
+	$causes
+);
+// A program manager does get the difference, on the batch and not on the school's screen.
+ck( 'a program manager is told which it was, and the four differ', count( array_unique( $reasons ) ), 4 );
+
+// The profile is an identity too. A student enrolled elsewhere under another address is found
+// by their handle, and the row is blocked exactly as if the address had matched.
+$by_handle = ladder(
+	"Name,Email,Profile\nAnna Kowalska,new.address@uek.krakow.pl,@annak\n",
+	array( rec( 'recS4', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'other@example.test', 'WP Profile' => 'https://profiles.wordpress.org/annak/', 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
+);
+ck( 'a handle already on a record blocks the row', $by_handle[0]['verdict'], 'blocked' );
+ck( 'saying no more than the others do', $by_handle[0]['detail'], array() );
+
+// FIND() is a substring test, so the base answers with candidates. `ann` inside `joanna` is
+// exactly the false positive that would block an innocent row, and PHP is what throws it out.
+$substring = ladder(
+	"Name,Email,Profile\nAnn Nowak,ann@uek.krakow.pl,@ann\n",
+	array( rec( 'recS5', array( 'Full Name' => 'Joanna Lis', 'Email' => 'joanna@example.test', 'WP Profile' => 'https://profiles.wordpress.org/joanna/', 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
+);
+ck( 'a handle inside a longer one is not a match', $substring[0]['verdict'], 'ok' );
+
+// The same person, written three ways. None of the spellings can defeat the comparison,
+// because both sides go through the normaliser the file went through.
+foreach ( array( 'profiles.wordpress.org/annak', 'https://profiles.wordpress.org/AnnaK/', 'annak' ) as $spelling ) {
+	$variant = ladder(
+		"Name,Email,Profile\nAnna Kowalska,fresh@uek.krakow.pl,@annak\n",
+		array( rec( 'recS6', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'other@example.test', 'WP Profile' => $spelling, 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
+	);
+	ck( sprintf( 'the URL written as "%s" still matches', $spelling ), $variant[0]['verdict'], 'blocked' );
+}
+
+// Two characters is most of the base. Asking is a request spent to throw every row away again.
+$short = ladder( "Name,Email,Profile\nAnna Kowalska,anna@uek.krakow.pl,@an\n" );
+$asked = array_filter( $GLOBALS['queries'], function ( $q ) { return 0 === strpos( $q[1], 'has:' ); } );
+ck( 'a handle under three characters is not searched for', $asked, array() );
+
+echo "\n=== A resemblance warns; it does not refuse ===\n";
+
+$near = ladder(
+	"Name,Email\nanna  kowalska,fresh@uek.krakow.pl\n",
+	array(), array(), array(),
+	array( array( 'name' => 'Anna Kowalska', 'email_key' => 'anna@uek.krakow.pl' ) )
+);
+// Two people at one university do share a name, and refusing on a resemblance would make the
+// school argue with a robot about it.
+ck( 'a name already on the roster is a warning, not a block', $near[0]['verdict'], 'near-name' );
+ck( 'and names who it resembles', $near[0]['detail']['near'], 'Anna Kowalska' );
+
+$unlike = ladder(
+	"Name,Email\nAnna Kowalska-Nowak,fresh@uek.krakow.pl\n",
+	array(), array(), array(),
+	array( array( 'name' => 'Anna Kowalska', 'email_key' => 'anna@uek.krakow.pl' ) )
+);
+ck( 'a different name is not a resemblance', $unlike[0]['verdict'], 'ok' );
+
+echo "\n=== What the ladder does not do ===\n";
+
+// Rows the cleaner already refused are not looked up: they are not going to be created, and
+// asking about them spends requests to change nothing.
+$skipped = ladder( "Name,Email\n=cmd(),anna@uek.krakow.pl\n" );
+ck( 'an invalid row keeps its verdict', $skipped[0]['verdict'], 'invalid' );
+ck( 'and nothing was asked about it', $GLOBALS['queries'], array() );
+
+$clean = ladder( $one );
+ck( 'a row nothing knows about is ready to create', $clean[0]['verdict'], 'ok' );
+
+// One request per table per chunk, and the address list is in the formula: a stub that ignored
+// the formula would pass every assertion above with the query left empty.
+ck( 'two tables were asked, students and reports, by address', count( $GLOBALS['queries'] ), 2 );
+ck( 'and the address was in the query', $GLOBALS['queries'][0][1], 'in:Email:anna@uek.krakow.pl' );
+
+// The first error stops the ladder rather than a verdict being guessed from half an answer.
+$GLOBALS['fail_table'] = 'tblReports';
+$rows                  = WPCPM_Institution_Import::clean_rows( WPCPM_Institution_Import::parse( $one )['rows'] );
+$errored               = WPCPM_Institution_Import::check_against_base( $rows, $HERE, new Fake_Airtable(), $SETTINGS );
+ck( 'an error from the base is returned, not swallowed', is_wp_error( $errored ), true );
+unset( $GLOBALS['fail_table'] );
 
 echo "\n=== This file touches nothing ===\n";
 
