@@ -99,6 +99,12 @@ function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_attr__( $s, $d = null ) { return esc_attr( $s ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
+// Enough of the real thing for a test: the plugin only ever passes it an anchor whose href
+// is already through esc_url(), and what is being asserted is the sentence, not kses itself.
+function wp_kses( $html, $allowed = array() ) {
+	return strip_tags( (string) $html, '<a>' );
+}
+
 function esc_url( $u ) { return (string) $u; }
 function esc_url_raw( $u, $protocols = null ) {
 	// Only what `WPCPM_Field_Value::clean_url()` needs of it: an http(s) address, or nothing.
@@ -734,6 +740,16 @@ ck( 'the U+2019 label survives to the page', false !== strpos( $form, "Anything 
 ck( 'the checkbox values keep the leading space the column has', false !== strpos( $form, 'value=" Based on required hours (e.g. 150 hours)"' ), true );
 ck( 'and show it trimmed', false !== strpos( $form, '<span>Based on required hours (e.g. 150 hours)</span>' ), true );
 ck( 'the consent box is not ticked when nothing was posted', strpos( $form, 'checked="checked"' ), false );
+
+// The policy line under the consent box. The link is one word inside the sentence, not the
+// sentence's last two words after a colon: "read the privacy policy here" is what a person
+// reads, and "here" is what they click.
+ck( 'the policy line links a word inside the sentence', array(
+	false !== strpos( $form, '>here</a>' ),
+	false !== strpos( $form, 'You can read the privacy policy' ),
+), array( true, true ) );
+ck( 'and it points at the policy this site has set', false !== strpos( $form, 'href="' . get_privacy_policy_url() . '" rel="noopener">here</a>' ), true );
+ck( 'the old shape, with the link trailing a colon, is gone', false !== strpos( $form, 'The policy is here:' ), false );
 ck( 'the stylesheet and the submit guard are enqueued', $GLOBALS['enqueued'], array( 'wpcpm-institution-application', 'wpcpm-forms' ) );
 ck( 'the form is guarded against a second press', false !== strpos( $form, 'data-wpcpm-once' ), true );
 

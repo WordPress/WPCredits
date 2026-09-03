@@ -1285,6 +1285,12 @@ class WPCPM_Institution_Application {
 	 * Rendered as a link to the policy and not as its text: the wording stored on the
 	 * application is this sentence plus the policy's own modified date, and a policy quoted in
 	 * full here would be a second copy to keep true.
+	 *
+	 * The link is one word inside the sentence rather than the sentence's last two words after
+	 * a colon, so it reads as a sentence and a translator can put the word where their own
+	 * grammar wants it. The tags are passed as arguments for that reason: a translation must be
+	 * able to move them without being able to introduce markup, which is what the `wp_kses()`
+	 * around it enforces.
 	 */
 	private static function render_policy_line() {
 		$policy = self::policy_url();
@@ -1294,10 +1300,21 @@ class WPCPM_Institution_Application {
 		}
 
 		printf(
-			'<span class="wpcpm-field__hint">%1$s <a href="%2$s" rel="noopener">%3$s</a></span>',
-			esc_html__( 'The policy is here:', 'wpcredits-program-manager' ),
-			esc_url( $policy ),
-			esc_html__( 'privacy policy', 'wpcredits-program-manager' )
+			'<span class="wpcpm-field__hint">%s</span>',
+			wp_kses(
+				sprintf(
+					/* translators: %1$s: opening link tag to the privacy policy, %2$s: closing link tag. */
+					__( 'You can read the privacy policy %1$shere%2$s.', 'wpcredits-program-manager' ),
+					'<a href="' . esc_url( $policy ) . '" rel="noopener">',
+					'</a>'
+				),
+				array(
+					'a' => array(
+						'href' => array(),
+						'rel'  => array(),
+					),
+				)
+			)
 		);
 	}
 

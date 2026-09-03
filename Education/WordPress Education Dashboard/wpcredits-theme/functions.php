@@ -274,6 +274,10 @@ function wpcredits_body_class( $classes ) {
 		$classes[] = 'wpc-student-page';
 	}
 
+	if ( wpcredits_is_institution_page() ) {
+		$classes[] = 'wpc-institution-page';
+	}
+
 	if ( is_user_logged_in() ) {
 		$classes[] = 'wpc-signed-in';
 	}

@@ -363,7 +363,8 @@
    hairline was drawn hard against the bottom of the switcher box with nothing between
    them. Matching the mentor page's gap here rather than adding it to the shared rule:
    there it would land on top of padding that already exists. */
-.wpc-student-page .wpcpm-dashboard__switcher {
+.wpc-student-page .wpcpm-dashboard__switcher,
+.wpc-institution-page .wpcpm-dashboard__switcher {
 	margin-bottom: 18px;
 }
 
@@ -481,6 +482,14 @@
    rule — the `:first-of-type` exception would leave the two columns mismatched —
    and the divider between them becomes a vertical rule on the second. The sections
    stretch to the taller of the two, so that rule runs the full height. */
+/* The institution page opens on the same shape as the student page: the switcher, the
+   identity header, and then a section. So it wants the rule back for the same reason - the
+   section that follows is not the first thing on the page, and without the hairline the
+   announcements read as part of the header above them. */
+.wpc-institution-page .wpcpm-student__section:first-of-type {
+	border-top: 1px solid var( --wpc-line-soft );
+}
+
 .wpc-student-page .wpcpm-student__section:first-of-type {
 	border-top: 1px solid var( --wpc-line-soft );
 }
