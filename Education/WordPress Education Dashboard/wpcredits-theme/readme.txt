@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.16.0
+Stable tag: 1.16.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.16.1 =
+* The Institution Dashboard's own blocks are inset from the card again. The dashboard shell carries no global padding, so when 1.16.0 moved the page onto that shell the identity header, the roster, the People card and the agreement panels came to rest against the card's border while the heading and the resources section stayed inset. They now carry the shell's 32px, narrowing to 20px below 900px like every other block in it.
 
 = 1.16.0 =
 * The Institution Dashboard now uses the dashboard template the Student Dashboard and Mentor Report Card use. It had no template of its own, so it fell back to the article layout: a 34px title with 24px under it inside a 40px card, where its two siblings use a 22px title in the dashboard shell. The heading and the space around it now match the other two pages.

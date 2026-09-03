@@ -490,6 +490,33 @@
 	border-top: 1px solid var( --wpc-line-soft );
 }
 
+/* The dashboard shell carries no global padding of its own: every block in it sets its own
+   32px, the way `.wpc-dash__band` and `.wpcpm-student__section` above do. The Institution
+   Dashboard reached that shell later than its stylesheet did - until theme 1.16.0 it fell
+   through to the article template, whose `has-global-padding` was quietly supplying the
+   inset for the whole page. The moment the page moved onto the dashboard template, every
+   block the institution stylesheet owns came to rest against the card's border while the
+   heading and the resources section stayed inset, which is a page with two left edges.
+
+   The sections take padding, so the rules above them keep running the full width of the
+   card - that full-bleed hairline over inset content is the shape the other two dashboards
+   have. The bordered blocks take a margin instead, so their border lands on the inset
+   rather than 32px inside it and they line up with the switcher's box above them. */
+.wpc-institution-page .wpcpm-institution__identity,
+.wpc-institution-page .wpcpm-institution__card,
+.wpc-institution-page .wpcpm-roster {
+	padding-left: 32px;
+	padding-right: 32px;
+}
+
+.wpc-institution-page .wpcpm-agreement-card,
+.wpc-institution-page .wpcpm-agreement-panel,
+.wpc-institution-page .wpcpm-institution__banner,
+.wpc-institution-page .wpcpm-dashboard__intro {
+	margin-left: 32px;
+	margin-right: 32px;
+}
+
 .wpc-student-page .wpcpm-student__section:first-of-type {
 	border-top: 1px solid var( --wpc-line-soft );
 }
@@ -2063,12 +2090,19 @@
 	.wpc-group,
 	.wpc-dash__hint,
 	.wpc-dash__ordering,
-	.wpcpm-dashboard__empty {
+	.wpcpm-dashboard__empty,
+	.wpc-institution-page .wpcpm-institution__identity,
+	.wpc-institution-page .wpcpm-institution__card,
+	.wpc-institution-page .wpcpm-roster {
 		padding-left: 20px;
 		padding-right: 20px;
 	}
 
-	.wpcpm-dashboard__switcher {
+	.wpcpm-dashboard__switcher,
+	.wpc-institution-page .wpcpm-agreement-card,
+	.wpc-institution-page .wpcpm-agreement-panel,
+	.wpc-institution-page .wpcpm-institution__banner,
+	.wpc-institution-page .wpcpm-dashboard__intro {
 		margin-left: 20px;
 		margin-right: 20px;
 	}
