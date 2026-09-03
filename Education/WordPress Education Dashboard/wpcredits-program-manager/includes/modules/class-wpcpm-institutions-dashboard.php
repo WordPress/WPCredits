@@ -378,6 +378,14 @@ class WPCPM_Institutions_Dashboard {
 			self::render_banner( $record );
 		}
 
+		// Where to go with a question, directly under the institution's name rather than at the
+		// foot of the page. The two Report Cards end on this section, and for them that is
+		// right: a mentor comes to work through a list and the resources are what is left when
+		// they are done. A school arrives with a question more often than with a task, and the
+		// answer was three screens down past a roster they had not come to read. Drawn for a
+		// locked account as well, which is the one most likely to need somebody to ask.
+		self::render_help( $record );
+
 		$context = self::context( $record, $can_manage );
 
 		// The agreement panel first, and for a locked account last as well. It draws itself
@@ -390,12 +398,6 @@ class WPCPM_Institutions_Dashboard {
 			self::card( 'WPCPM_Institution_People', $record, $context );
 			self::card( 'WPCPM_Institution_Agreement_Card', $record, $context );
 		}
-
-		// Where to go with a question, in the same section the two Report Cards end on: the
-		// program's updates, the guide, the Slack channel and the assistant. Drawn for a locked
-		// account too, and deliberately: an institution that cannot see its students yet is
-		// exactly the one most likely to need somebody to ask.
-		self::render_help( $record );
 
 		echo '</div>';
 

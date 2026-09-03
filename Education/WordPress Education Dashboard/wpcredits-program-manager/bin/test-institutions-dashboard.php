@@ -1076,6 +1076,14 @@ $GLOBALS['resources'] = array();
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 
 ck( 'the section is drawn, for the institution audience', $GLOBALS['resources'], array( 'institution' ) );
+
+// And where it is drawn, which is the point of moving it: under the institution's name and
+// above the roster, not at the foot. A school arrives with a question more often than with a
+// task, and the answer used to be three screens down past a list they had not come to read.
+ck( 'and it sits under the identity header, above everything the reader has to work through', array(
+	strpos( $out, 'wpcpm-institution__name' ) < strpos( $out, 'wpcpm-handbook__resources' ),
+	strpos( $out, 'wpcpm-handbook__resources' ) < strpos( $out, 'data-card="roster"' ),
+), array( true, true ) );
 ck( 'and it names the person, their address and the way to book them', array(
 	false !== strpos( $out, 'Your contact at the program' ),
 	false !== strpos( $out, 'Ola Nowak' ),

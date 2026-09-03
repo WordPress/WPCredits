@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.75.0
+Stable tag: 1.75.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.75.1 =
+* **The announcements and the Resources section move to the top of the Institution Dashboard**, under the institution's name. The two Report Cards end on that section, which is right for them: a mentor comes to work through a list. A school arrives with a question more often than with a task, and the answer was three screens down past a roster it had not come to read.
 
 = 1.75.0 =
 * **Institutions module, Phase 4: an institution can change things, not just read them.** A student's name, dates and field of study are editable through an allowlist: a column outside it has no control, is never read from the request and cannot be written, and every save writes one audit row naming who changed what, from what, to what, and on what ground.
