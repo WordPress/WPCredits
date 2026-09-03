@@ -516,6 +516,157 @@ class WPCPM_Institutions_Dashboard {
 	}
 
 	/**
+	 * The institution's own site icon, or ''.
+	 *
+	 * **Resolved on this site and never through a third party.** The obvious way to put a
+	 * favicon on a page is to point an `<img>` at somebody's icon service, which tells that
+	 * service which institution every program manager looked at and when. This asks the
+	 * institution's own site instead: the `<link rel="icon">` it declares, and `/favicon.ico`
+	 * if it declares none.
+	 *
+	 * Cached for a week per site, including the answer "there isn't one", because the failure
+	 * is the common case for a university that never set one and re-asking on every page load
+	 * would spend two HTTP requests to learn nothing. The cache is keyed by the host, so ten
+	 * institutions at one university cost one lookup.
+	 *
+	 * Only ever an absolute https or http URL on the institution's own host: an icon path is
+	 * attacker-controlled data as far as this plugin is concerned, since it comes out of a
+	 * document the program does not own.
+	 *
+	 * @param string $website The institution's website, already normalised to a URL.
+	 * @return string An icon URL, or ''.
+	 */
+	private static function site_icon( $website ) {
+		$website = trim( (string) $website );
+
+		if ( '' === $website ) {
+			return '';
+		}
+
+		$host = strtolower( (string) wp_parse_url( $website, PHP_URL_HOST ) );
+
+		if ( '' === $host ) {
+			return '';
+		}
+
+		$key    = 'wpcpm_icon_' . md5( $host );
+		$cached = get_transient( $key );
+
+		if ( false !== $cached ) {
+			return is_string( $cached ) ? $cached : '';
+		}
+
+		$icon = self::discover_icon( $website, $host );
+
+		// A week either way. The answer changes about as often as a university rebrands.
+		set_transient( $key, $icon, WEEK_IN_SECONDS );
+
+		return $icon;
+	}
+
+	/**
+	 * Ask one site for its icon.
+	 *
+	 * Two requests at most, both short and both with a small ceiling on what is read back: a
+	 * page that streams a hundred megabytes must not be able to hold a dashboard open.
+	 *
+	 * @param string $website The site.
+	 * @param string $host    Its host, for keeping the answer on the same site.
+	 * @return string
+	 */
+	private static function discover_icon( $website, $host ) {
+		$response = wp_safe_remote_get(
+			$website,
+			array(
+				'timeout'             => 4,
+				'redirection'         => 3,
+				'limit_response_size' => 200000,
+				'user-agent'          => 'WPCreditsProgramManager/' . WPCPM_VERSION . '; ' . home_url( '/' ),
+			)
+		);
+
+		$html = is_wp_error( $response ) ? '' : (string) wp_remote_retrieve_body( $response );
+		$href = '';
+
+		// `rel` may carry several words and the order of the attributes is the document's
+		// business, so the tag is matched first and its attributes read afterwards.
+		if ( '' !== $html && preg_match_all( '/<link\s[^>]*>/i', $html, $tags ) ) {
+			foreach ( $tags[0] as $tag ) {
+				if ( ! preg_match( '/\brel\s*=\s*["\']([^"\']*)["\']/i', $tag, $rel ) ) {
+					continue;
+				}
+
+				$words = preg_split( '/\s+/', strtolower( trim( $rel[1] ) ) );
+
+				if ( ! in_array( 'icon', (array) $words, true ) ) {
+					continue;
+				}
+
+				if ( preg_match( '/\bhref\s*=\s*["\']([^"\']+)["\']/i', $tag, $found ) ) {
+					$href = html_entity_decode( trim( $found[1] ), ENT_QUOTES, 'UTF-8' );
+					break;
+				}
+			}
+		}
+
+		$url = '' !== $href ? self::absolute_icon( $href, $website ) : '';
+
+		if ( '' === $url ) {
+			$url = rtrim( $website, '/' ) . '/favicon.ico';
+		}
+
+		// Kept only if it is on the institution's own host: a document this program does not
+		// own must not be able to point a dashboard at an arbitrary third party.
+		if ( strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) ) !== $host ) {
+			return '';
+		}
+
+		$head = wp_safe_remote_head(
+			$url,
+			array(
+				'timeout'     => 4,
+				'redirection' => 2,
+			)
+		);
+
+		if ( is_wp_error( $head ) || 200 !== (int) wp_remote_retrieve_response_code( $head ) ) {
+			return '';
+		}
+
+		$type = strtolower( (string) wp_remote_retrieve_header( $head, 'content-type' ) );
+
+		// An icon, and not a login page answering 200 with an HTML apology, which is what a
+		// missing `/favicon.ico` usually is.
+		return ( '' === $type || 0 === strpos( $type, 'image/' ) ) ? $url : '';
+	}
+
+	/**
+	 * One `href` from a document, as an absolute URL on that site.
+	 *
+	 * @param string $href    The value the document gave.
+	 * @param string $website The site it came from.
+	 * @return string
+	 */
+	private static function absolute_icon( $href, $website ) {
+		if ( 0 === strpos( $href, '//' ) ) {
+			$href = ( 0 === strpos( $website, 'http://' ) ? 'http:' : 'https:' ) . $href;
+		}
+
+		if ( preg_match( '#^https?://#i', $href ) ) {
+			return esc_url_raw( $href );
+		}
+
+		// A data: or javascript: href is not a URL this will follow.
+		if ( false !== strpos( $href, ':' ) && ! preg_match( '#^/#', $href ) ) {
+			return '';
+		}
+
+		$base = rtrim( $website, '/' );
+
+		return esc_url_raw( 0 === strpos( $href, '/' ) ? $base . $href : $base . '/' . $href );
+	}
+
+	/**
 	 * The Resources section, with this institution's own contact in it.
 	 *
 	 * The section is `WPCPM_Handbook_Assistant::render_resources()`, the one the Student and
@@ -634,8 +785,28 @@ class WPCPM_Institutions_Dashboard {
 			// line, and the manager screen is where it gets fixed.
 			: __( 'Unnamed institution', 'wpcredits-program-manager' );
 
+		$website = self::website_url( $profile['website'] );
+
 		echo '<header class="wpcpm-institution__identity">';
+
+		// The institution's own site icon beside its name, which is the nearest thing an
+		// institution has to the profile photo a mentor and a student get. Resolved from the
+		// website the program records and cached, and printed only when the site actually
+		// answered with one: an icon that 404s is a broken image where a crest should be, and
+		// a placeholder crest for a university that has its own is worse than nothing.
+		$icon = self::site_icon( $website );
+
+		echo '<div class="wpcpm-institution__heading-line">';
+
+		if ( '' !== $icon ) {
+			printf(
+				'<img class="wpcpm-institution__icon" src="%1$s" alt="" width="32" height="32" loading="lazy" decoding="async" />',
+				esc_url( $icon )
+			);
+		}
+
 		printf( '<p class="wpcpm-institution__name">%s</p>', esc_html( $name ) );
+		echo '</div>';
 
 		// Sentences rather than a row of values joined by punctuation, so a missing city or a
 		// missing contact leaves no stray separator behind.
@@ -660,8 +831,6 @@ class WPCPM_Institutions_Dashboard {
 		if ( ! empty( $facts ) ) {
 			printf( '<p class="wpcpm-dashboard__intro">%s</p>', esc_html( implode( ' ', $facts ) ) );
 		}
-
-		$website = self::website_url( $profile['website'] );
 
 		if ( '' !== $website ) {
 			printf(

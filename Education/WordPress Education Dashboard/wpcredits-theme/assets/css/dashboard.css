@@ -846,13 +846,47 @@
    follows the title instead of leading it. A leading arrow would put the label at
    56px while the heading above sat at 32px; trailing, both labels line up and the
    arrow reads as part of the heading it opens. */
+/* A collapsed group is a control, and it has to look like one. This used to be a heading
+   with a hairline above it and a chevron pushed to the far side of the page, so on a wide
+   screen the only sign it could be pressed was an inch of white away from the words it
+   belonged to, and nothing changed under the cursor. The plugin gave it a row treatment; this
+   rule was quietly undoing most of it, leaving a box with a background, a radius and no top
+   edge. It is the row now, on the theme's own tokens. */
 .wpc-dashboard-page .wpcpm-group__summary {
 	align-items: center;
-	border-top: 1px solid var( --wpc-line-soft );
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
 	cursor: pointer;
 	display: flex;
 	gap: 8px;
-	padding: 20px 32px 10px;
+	margin: 0 32px;
+	padding: 14px 18px;
+}
+
+.wpc-dashboard-page .wpcpm-group__summary:hover {
+	border-color: var( --wpc-ink-70 );
+}
+
+/* Open, the row is the panel's header and gives up its rounded foot to it. */
+.wpc-dashboard-page .wpcpm-group__disclosure[open] .wpcpm-group__summary {
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+.wpc-dashboard-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
+	border: 1px solid var( --wpc-line-card );
+	border-radius: 0 0 var( --wpc-radius-card ) var( --wpc-radius-card );
+	border-top: 0;
+	margin: 0 32px;
+	padding: 16px 18px;
+}
+
+/* Two collapsed groups in a row were touching, because the shared rule above flattens every
+   group's margin so the mentor page's headings sit where its inset expects them. A group
+   that is a pressed row rather than a heading needs to be told apart from the next one. */
+.wpc-dashboard-page .wpcpm-roster__group + .wpcpm-roster__group {
+	margin-top: 10px;
 }
 
 .wpc-dashboard-page .wpcpm-group__summary .wpcpm-group__title {
@@ -866,6 +900,15 @@
 }
 
 .wpc-dashboard-page .wpcpm-group__body {
+	padding: 0;
+}
+
+/* The people on an institution's card are a list of cards, not a bulleted list. The plugin
+   resets the padding, and a core list rule out-specifies it, so the first card sat indented
+   from the paragraph above it while nothing else on the page did. */
+.wpc-dashboard-page .wpcpm-people__list {
+	list-style: none;
+	margin: 0;
 	padding: 0;
 }
 

@@ -18,6 +18,23 @@
 	margin-bottom: 1.5em;
 }
 
+/* The site icon beside the name, which is the nearest thing an institution has to the profile
+   photo a mentor and a student are shown. Sized rather than left to the file: a favicon can be
+   16px or 512px and the header should not change shape either way. */
+.wpcpm-institution__heading-line {
+	align-items: center;
+	display: flex;
+	gap: 0.6em;
+}
+
+.wpcpm-institution__icon {
+	border-radius: 4px;
+	flex: 0 0 auto;
+	height: 32px;
+	object-fit: contain;
+	width: 32px;
+}
+
 /* Matches .wpcpm-dashboard__mentor-name on the mentor page, so the two headers read as
    the same header. */
 .wpcpm-institution__name {

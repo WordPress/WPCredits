@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.15.1
+Stable tag: 1.15.2
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,11 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.15.2 =
+* A collapsed group of students reads as something you can press: a bordered row that lifts on hover and joins the panel it opens. The skin had been undoing most of that, leaving a box with a background, a radius and no top edge.
+* Two collapsed groups in a row no longer touch.
+* The people on an institution card line up with everything else on the page: a core list rule was indenting them.
 
 = 1.15.1 =
 * Two spacing fixes on the Institution Dashboard, both the ones the student page already needed: the program manager notice has room under it rather than the institution name sitting against its edge, and the first section carries the same hairline rule as every section below it.

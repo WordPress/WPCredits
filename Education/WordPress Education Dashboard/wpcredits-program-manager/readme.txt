@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.76.1
+Stable tag: 1.77.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.77.0 =
+* **The institution's own site icon sits beside its name**, which is the nearest thing an institution has to the profile photo a mentor and a student are shown. Read from the institution's own website and never through a third-party icon service, which would be told which institution every program manager looked at and when. A site that declares none, or answers with a sign-in page where an icon should be, shows nothing rather than a broken image, and both answers are cached for a week.
+* **"People with access" is now "Institution representatives."**
 
 = 1.76.1 =
 * The line under the consent box reads "You can read the privacy policy here", with the link on the word rather than trailing a colon. The tags are passed to the sentence as arguments, so a translation can put the linked word where its own grammar wants it.

@@ -124,7 +124,7 @@ class WPCPM_Institution_People {
 
 		printf(
 			'<h2 class="wpcpm-institution__heading wpcpm-people__title">%1$s <span class="wpcpm-people__count">%2$s</span></h2>',
-			esc_html__( 'People with access', 'wpcredits-program-manager' ),
+			esc_html__( 'Institution representatives', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $members ) ) )
 		);
 
@@ -436,7 +436,7 @@ class WPCPM_Institution_People {
 
 		printf(
 			'<h3 class="wpcpm-people__title">%1$s <span class="wpcpm-people__count">%2$s</span></h3>',
-			esc_html__( 'People with access', 'wpcredits-program-manager' ),
+			esc_html__( 'Institution representatives', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $members ) ) )
 		);
 

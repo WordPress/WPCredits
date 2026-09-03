@@ -450,7 +450,7 @@ echo "\n=== A member whose agreement is not settled sees no card at all ===\n";
 
 $GLOBALS['settled'] = array( $B );
 ck( 'nothing is drawn', render_card( 7, $A ), '' );
-ck( 'and a manager still sees it', has( render_card( 1, $A, true ), 'People with access' ), true );
+ck( 'and a manager still sees it', has( render_card( 1, $A, true ), 'Institution representatives' ), true );
 $GLOBALS['settled'] = array( $A, $B );
 
 /* ---- removal: the fence -------------------------------------------------- */
@@ -544,7 +544,7 @@ $back = render_card( 7, $A );
 // memoises per user and channel for the whole process, so a second render for user 7 in this
 // run can print nothing whatever is queued, and an assertion on it passes by construction. The
 // guard is the one above: nothing was queued for the leaver in the first place.
-ck( 'the card itself is drawn again', has( $back, 'People with access' ), true );
+ck( 'the card itself is drawn again', has( $back, 'Institution representatives' ), true );
 // Back to nobody, which is the state the blocks below were written against.
 WPCPM_Institution_Members::detach( 7, 'removed', 1 );
 

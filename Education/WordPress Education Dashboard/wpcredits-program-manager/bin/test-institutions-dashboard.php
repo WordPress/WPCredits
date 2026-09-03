@@ -47,6 +47,7 @@ if ( 'cli' !== PHP_SAPI ) {
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
+define( 'WEEK_IN_SECONDS', 604800 );
 define( 'DAY_IN_SECONDS', 86400 );
 
 $GLOBALS['opts']    = array();
@@ -118,6 +119,35 @@ function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 // Like WordPress: the access level is registered with a default of 'public', which is what a
 // page with no row at all answers. `metadata_exists()` is how the two are told apart.
+// Transients, and the two outbound requests the site-icon lookup makes. Both are recorded
+// rather than performed: what is asserted is which host was asked and what was done with the
+// answer, and a suite that reached the internet would be a suite that fails on a train.
+function get_transient( $k ) {
+	return array_key_exists( $k, $GLOBALS['transients'] ) ? $GLOBALS['transients'][ $k ] : false;
+}
+function set_transient( $k, $v, $ttl = 0 ) {
+	$GLOBALS['transients'][ $k ] = $v;
+	$GLOBALS['calls'][]          = array( 'set_transient', $k, $ttl );
+	return true;
+}
+function wp_safe_remote_get( $url, $args = array() ) {
+	$GLOBALS['fetched'][] = array( 'get', $url );
+	return isset( $GLOBALS['http'][ $url ] ) ? $GLOBALS['http'][ $url ] : new WP_Error( 'http', 'nothing seeded' );
+}
+function wp_safe_remote_head( $url, $args = array() ) {
+	$GLOBALS['fetched'][] = array( 'head', $url );
+	return isset( $GLOBALS['http'][ $url ] ) ? $GLOBALS['http'][ $url ] : new WP_Error( 'http', 'nothing seeded' );
+}
+function wp_remote_retrieve_body( $r ) {
+	return is_array( $r ) && isset( $r['body'] ) ? $r['body'] : '';
+}
+function wp_remote_retrieve_response_code( $r ) {
+	return is_array( $r ) && isset( $r['code'] ) ? $r['code'] : 0;
+}
+function wp_remote_retrieve_header( $r, $name ) {
+	return is_array( $r ) && isset( $r['headers'][ $name ] ) ? $r['headers'][ $name ] : '';
+}
+
 function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ( '_wpcpm_access_level' === $k ? 'public' : '' ); }
 function metadata_exists( $type, $id, $k ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; $GLOBALS['calls'][] = array( 'update_post_meta', (int) $id, $k, $v ); return true; }
@@ -443,6 +473,10 @@ if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php';
+
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+$GLOBALS['fetched']    = array();
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -1123,6 +1157,87 @@ ck( 'a locked account gets the section too', $GLOBALS['resources'], array( 'inst
 ck( 'with its own contact in it', false !== strpos( $locked, 'Ola Nowak' ), true );
 
 $GLOBALS['routing'] = array();
+
+
+/* ---- the institution's own site icon ------------------------------------- */
+
+echo "\n=== The site icon beside the name ===\n";
+
+// Resolved from the institution's own site and never through somebody's icon service: an
+// <img> pointed at one of those would tell it which institution every program manager looked
+// at, and when.
+$GLOBALS['transients'] = array();
+$GLOBALS['fetched']    = array();
+$GLOBALS['http']       = array(
+	'https://pk.edu.pl' => array(
+		'code' => 200,
+		'body' => '<html><head><link rel="shortcut icon" href="/assets/crest.png"></head><body></body></html>',
+	),
+	'https://pk.edu.pl/assets/crest.png' => array(
+		'code'    => 200,
+		'headers' => array( 'content-type' => 'image/png' ),
+	),
+);
+
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+
+ck( 'the icon the site declares is the one shown', false !== strpos( $out, 'src="https://pk.edu.pl/assets/crest.png"' ), true );
+ck( 'and it carries no alt text, being decoration beside the name it repeats', false !== strpos( $out, 'class="wpcpm-institution__icon" src="https://pk.edu.pl/assets/crest.png" alt=""' ), true );
+ck( 'the site was asked once and the icon proved with a HEAD', $GLOBALS['fetched'], array(
+	array( 'get', 'https://pk.edu.pl' ),
+	array( 'head', 'https://pk.edu.pl/assets/crest.png' ),
+) );
+ck( 'and the answer is cached for a week, keyed by host', array(
+	count( $GLOBALS['transients'] ),
+	false !== strpos( (string) key( $GLOBALS['transients'] ), 'wpcpm_icon_' ),
+), array( 1, true ) );
+
+// Asked again, nothing is fetched: the cache is the point.
+$GLOBALS['fetched'] = array();
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'a second render asks the site nothing', $GLOBALS['fetched'], array() );
+
+// A site that declares none falls back to /favicon.ico, and a 404 there means no icon at all
+// rather than a broken image where a crest should be.
+$GLOBALS['transients'] = array();
+$GLOBALS['fetched']    = array();
+$GLOBALS['http']       = array(
+	'https://pk.edu.pl' => array( 'code' => 200, 'body' => '<html><head></head></html>' ),
+);
+
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'a site with no icon shows none', false !== strpos( $out, 'wpcpm-institution__icon' ), false );
+ck( 'having tried the conventional path', in_array( array( 'head', 'https://pk.edu.pl/favicon.ico' ), $GLOBALS['fetched'], true ), true );
+ck( 'and the failure is cached too, so it is not asked again every page load', count( $GLOBALS['transients'] ), 1 );
+
+// A 200 that is not an image is what a missing favicon usually is: a sign-in page apologising.
+$GLOBALS['transients'] = array();
+$GLOBALS['http'] = array(
+	'https://pk.edu.pl' => array( 'code' => 200, 'body' => '<html><head></head></html>' ),
+	'https://pk.edu.pl/favicon.ico' => array( 'code' => 200, 'headers' => array( 'content-type' => 'text/html; charset=utf-8' ) ),
+);
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'an HTML page answering where an icon should be is not an icon', false !== strpos( $out, 'wpcpm-institution__icon' ), false );
+
+// The document is not the program's, so what it points at is not trusted: an icon on somebody
+// else's host would let a page this program does not own aim a dashboard wherever it liked.
+$GLOBALS['transients'] = array();
+$GLOBALS['http'] = array(
+	'https://pk.edu.pl' => array(
+		'code' => 200,
+		'body' => '<html><head><link rel="icon" href="https://tracker.example/pixel.png"></head></html>',
+	),
+	'https://tracker.example/pixel.png' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
+);
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'an icon on another host is refused', array(
+	false !== strpos( $out, 'tracker.example' ),
+	false !== strpos( $out, 'wpcpm-institution__icon' ),
+), array( false, false ) );
+
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+$GLOBALS['fetched']    = array();
 
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
