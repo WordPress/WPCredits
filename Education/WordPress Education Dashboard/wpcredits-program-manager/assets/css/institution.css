@@ -151,23 +151,22 @@
 	margin: 0 0 1em;
 }
 
-/* The three numbered steps, and the list of members. Both are lists of things a
-   person does or is, so neither wants a bullet. */
-.wpcpm-agreement-panel__steps,
-.wpcpm-people__list {
+/* The three numbered steps: a list of things to do, so no bullet, and a rule between them.
+   The members were separated the same way until they became cards; their rules live with the
+   People card below, and naming them here as well left the first card without its top line,
+   because `:first-child` outranks the rule that draws the card. */
+.wpcpm-agreement-panel__steps {
 	list-style: none;
 	margin: 0;
 	padding: 0;
 }
 
-.wpcpm-agreement-panel__steps > li,
-.wpcpm-people__member {
+.wpcpm-agreement-panel__steps > li {
 	border-top: 1px solid var( --wpcpm-border );
 	padding: 0.75em 0;
 }
 
-.wpcpm-agreement-panel__steps > li:first-child,
-.wpcpm-people__member:first-child {
+.wpcpm-agreement-panel__steps > li:first-child {
 	border-top: 0;
 	padding-top: 0;
 }

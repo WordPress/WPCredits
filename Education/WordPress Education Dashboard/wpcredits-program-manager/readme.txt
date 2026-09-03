@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.73.3
+Stable tag: 1.73.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.73.4 =
+* The first person in the People card has its top border back. An older rule was still stripping it from the first row, left over from when the members were a hairline-separated list rather than cards, and it outranked the rule that draws the card.
 
 = 1.73.3 =
 * **A collapsed group now looks like something you press.** Finished and Did not start were headings with a chevron pushed to the far side of the page, and nothing under the cursor changed; they are bordered rows that lift on hover, joining the panel they open. The Mentor Report Card gains the same, because it draws the same component.
