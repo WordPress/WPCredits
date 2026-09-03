@@ -1232,6 +1232,41 @@ ck( 'a site with no icon shows none', false !== strpos( $out, 'wpcpm-institution
 ck( 'having tried the conventional path', in_array( array( 'head', 'https://pk.edu.pl/favicon.ico' ), $GLOBALS['fetched'], true ), true );
 ck( 'and the failure is cached too, so it is not asked again every page load', count( $GLOBALS['transients'] ), 1 );
 
+// A head longer than the old 200KB read cap. One university in this program does not close
+// its head until byte 309,827, so its icon declarations were past the cut and the resolver
+// reported the site as having none - a wrong answer, cached for a week, with nothing failing
+// and nothing logged. The padding here is a comment rather than junk, so the document stays a
+// document and the only thing being tested is its size.
+$GLOBALS['transients'] = array();
+$GLOBALS['fetched']    = array();
+$GLOBALS['http']       = array(
+	'https://pk.edu.pl'                  => array(
+		'code' => 200,
+		'body' => '<html><head><!--' . str_repeat( 'x', 400000 ) . '--><link rel="icon" href="/assets/crest.png"></head><body></body></html>',
+	),
+	'https://pk.edu.pl/assets/crest.png' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
+);
+
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'an icon declared past the old read cap is still found', false !== strpos( $out, 'src="https://pk.edu.pl/assets/crest.png"' ), true );
+
+// Only the head declares an icon, and stopping there is what keeps the larger read cheap. A
+// `<link>` in the body is a document's own business and not a declaration of the site's icon.
+$GLOBALS['transients'] = array();
+$GLOBALS['fetched']    = array();
+$GLOBALS['http']       = array(
+	'https://pk.edu.pl'                 => array(
+		'code' => 200,
+		'body' => '<html><head></head><body><link rel="icon" href="/body-crest.png"></body></html>',
+	),
+	'https://pk.edu.pl/favicon.ico'     => array( 'code' => 404 ),
+	'https://pk.edu.pl/body-crest.png'  => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
+);
+
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+ck( 'a link tag in the body is not the site\'s icon', false !== strpos( $out, 'body-crest.png' ), false );
+ck( 'and the conventional path is what was tried instead', in_array( array( 'head', 'https://pk.edu.pl/favicon.ico' ), $GLOBALS['fetched'], true ), true );
+
 // A 200 that is not an image is what a missing favicon usually is: a sign-in page apologising.
 $GLOBALS['transients'] = array();
 $GLOBALS['http'] = array(

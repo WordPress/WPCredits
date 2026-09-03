@@ -516,6 +516,17 @@ class WPCPM_Institutions_Dashboard {
 	}
 
 	/**
+	 * How much of an institution's home page is read while looking for its icon.
+	 *
+	 * Past any real `<head>`, which is the only part of the document this reads: the smaller
+	 * cap this replaced cut inside one university's head and reported the site as having no
+	 * icon at all. The request's real ceiling is its four-second timeout.
+	 *
+	 * @var int
+	 */
+	const MAX_ICON_HTML = 1048576;
+
+	/**
 	 * The institution's own site icon, or ''.
 	 *
 	 * **Resolved on this site and never through a third party.** The obvious way to put a
@@ -580,12 +591,32 @@ class WPCPM_Institutions_Dashboard {
 			array(
 				'timeout'             => 4,
 				'redirection'         => 3,
-				'limit_response_size' => 200000,
+				// **A cap that cut inside the head answered "no icon" for a site that had
+				// one.** It was 200KB, which sounds generous for a `<head>` and is not: one
+				// university in this program does not close its head until byte 309,827, so
+				// its four icon declarations were past the cut and the resolver reported the
+				// site as offering none. Nothing failed and nothing was logged; the answer was
+				// simply wrong, and cached for a week. The ceiling that actually bounds this
+				// request is the four-second timeout above, which no cap changes; this one is
+				// here so a page that streams megabytes cannot be read into memory, and a
+				// megabyte is past any real head while still being that.
+				'limit_response_size' => self::MAX_ICON_HTML,
 				'user-agent'          => 'WPCreditsProgramManager/' . WPCPM_VERSION . '; ' . home_url( '/' ),
 			)
 		);
 
 		$html = is_wp_error( $response ) ? '' : (string) wp_remote_retrieve_body( $response );
+		$head = stripos( $html, '</head>' );
+
+		// Only the head declares an icon. Cutting there keeps a `<link>` written in the body
+		// out of the match, and it is what makes the megabyte above cheap: the regex runs over
+		// the head and not over the page. A document whose head never closes within the cap is
+		// read as far as it was fetched, which is the old behaviour and still better than
+		// nothing.
+		if ( false !== $head ) {
+			$html = substr( $html, 0, $head );
+		}
+
 		$href = '';
 
 		// `rel` may carry several words and the order of the attributes is the document's

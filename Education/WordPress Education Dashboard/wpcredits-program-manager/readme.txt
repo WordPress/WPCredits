@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.80.0
+Stable tag: 1.80.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.80.1 =
+* An institution whose home page has a very long head no longer reports having no site icon. The resolver read at most 200KB, and one university in the program does not close its head until byte 309,827, so its icon declarations were past the cut. The answer was wrong rather than failed, and cached for a week. The read now covers any real head, and only the head is searched, which keeps it cheap and keeps a link tag in the page body from being mistaken for the site's icon.
 
 = 1.80.0 =
 * Phase 5 of the Institutions module begins with hours. `WPCPM_Program::hours_target()` and `has_hours_target()` say what each track is worked towards: 150 hours, 50 hours, and none at all for the Developer Track, which is worked to merged contributions rather than to a clock. The Students Reports `Hours` column now travels through both syncs and the report form, so a student's logged hours reach the mentor's card and the institution's roster.
