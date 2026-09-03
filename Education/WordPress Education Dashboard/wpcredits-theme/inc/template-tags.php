@@ -66,15 +66,50 @@ function wpcredits_is_student_page() {
 }
 
 /**
- * Whether this request is either dashboard.
+ * Whether this request is the institution dashboard.
  *
- * The two pages share a shell, so anything that dresses that shell — the card,
- * the insets, the type — applies to both.
+ * Matched the same three ways as the other two, and guarded on the class so a
+ * plugin older than the Institutions module does not fatal.
+ *
+ * @return bool
+ */
+function wpcredits_is_institution_page() {
+	if ( ! wpcredits_plugin_active() || ! is_singular() || ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
+		return false;
+	}
+
+	$page_id = (int) get_option( WPCPM_Institutions_Dashboard::OPT_PAGE );
+
+	if ( $page_id && get_queried_object_id() === $page_id ) {
+		return true;
+	}
+
+	$post = get_post();
+
+	if ( ! $post instanceof WP_Post ) {
+		return false;
+	}
+
+	return has_block( WPCPM_Institutions_Dashboard::BLOCK, $post )
+		|| has_shortcode( (string) $post->post_content, WPCPM_Institutions_Dashboard::SHORTCODE );
+}
+
+/**
+ * Whether this request is any of the dashboards.
+ *
+ * The three pages share a shell, so anything that dresses that shell — the card,
+ * the insets, the type — applies to all of them.
+ *
+ * **The institution page was missing from this for two releases**, which is why it
+ * did not look like the other two however much its own stylesheet was worked on:
+ * the skin below is what gives a dashboard its card, its measure and its type, and
+ * none of it was loading there. Anything added here has to be added to the body
+ * class in functions.php as well, since every rule in the skin is prefixed with it.
  *
  * @return bool
  */
 function wpcredits_is_dashboard_page() {
-	return wpcredits_is_mentor_page() || wpcredits_is_student_page();
+	return wpcredits_is_mentor_page() || wpcredits_is_student_page() || wpcredits_is_institution_page();
 }
 
 /**

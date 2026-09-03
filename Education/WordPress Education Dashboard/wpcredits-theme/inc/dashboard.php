@@ -37,7 +37,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 
 /**
- * Load the skin and the script on the mentor page.
+ * Load the skin and the script on any dashboard page.
  *
  * Registered at priority 20 so the plugin's own stylesheet is already registered
  * and can be declared a dependency. Without that the plugin's CSS — enqueued from
@@ -59,6 +59,10 @@ function wpcredits_dashboard_assets() {
 
 	if ( class_exists( 'WPCPM_Students_Dashboard' ) && wp_style_is( WPCPM_Students_Dashboard::STYLE, 'registered' ) ) {
 		$deps[] = WPCPM_Students_Dashboard::STYLE;
+	}
+
+	if ( class_exists( 'WPCPM_Institutions_Dashboard' ) && wp_style_is( WPCPM_Institutions_Dashboard::STYLE, 'registered' ) ) {
+		$deps[] = WPCPM_Institutions_Dashboard::STYLE;
 	}
 
 	// The call calendar, for the same reason as the two above — and it is the sharpest

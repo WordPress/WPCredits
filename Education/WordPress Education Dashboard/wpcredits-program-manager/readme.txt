@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.73.4
+Stable tag: 1.74.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.74.0 =
+* **The Institution Dashboard ends on a Resources section**, the same one the Student and Mentor Report Cards end on: the program's announcements at that access level, the handbook page written for institutions, the WordPress Credits Slack channel, and the "Need help?" assistant.
+* **It names the institution's own contact at the program.** Every institution is routed to a program manager by country, and until now that name appeared only in the panel of a revoked agreement, which is the worst possible moment to meet it for the first time. Their address is there, and a booking link where the program has one. A country the program has not routed yet shows nothing rather than an empty heading.
+* Drawn for a locked account as well, deliberately: an institution that cannot see its students yet is the one most likely to need somebody to ask.
 
 = 1.73.4 =
 * The first person in the People card has its top border back. An older rule was still stripping it from the first row, left over from when the members were a hairline-separated list rather than cards, and it outranked the rule that draws the card.

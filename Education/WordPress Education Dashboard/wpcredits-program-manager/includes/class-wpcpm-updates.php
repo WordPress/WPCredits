@@ -76,13 +76,14 @@ class WPCPM_Updates {
 	 * Public plus that audience's own level, and nothing else — so the Mentor Report Card lists
 	 * mentor announcements and the Student Report Card lists student ones.
 	 *
-	 * @param string $audience `student` or `mentor`.
+	 * @param string $audience `student`, `mentor` or `institution`.
 	 * @return string[]|null Levels, or null for "ask the viewer instead".
 	 */
 	private static function levels_for( $audience ) {
 		$map = array(
-			'student' => WPCPM_Roles::ROLE_STUDENT,
-			'mentor'  => WPCPM_Roles::ROLE_MENTOR,
+			'student'     => WPCPM_Roles::ROLE_STUDENT,
+			'mentor'      => WPCPM_Roles::ROLE_MENTOR,
+			'institution' => WPCPM_Roles::ROLE_INSTITUTION,
 		);
 
 		if ( ! isset( $map[ $audience ] ) ) {

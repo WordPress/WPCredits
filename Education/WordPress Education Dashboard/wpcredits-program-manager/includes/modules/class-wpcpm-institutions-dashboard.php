@@ -391,6 +391,12 @@ class WPCPM_Institutions_Dashboard {
 			self::card( 'WPCPM_Institution_Agreement_Card', $record, $context );
 		}
 
+		// Where to go with a question, in the same section the two Report Cards end on: the
+		// program's updates, the guide, the Slack channel and the assistant. Drawn for a locked
+		// account too, and deliberately: an institution that cannot see its students yet is
+		// exactly the one most likely to need somebody to ask.
+		self::render_help( $record );
+
 		echo '</div>';
 
 		return (string) ob_get_clean();
@@ -505,6 +511,109 @@ class WPCPM_Institutions_Dashboard {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * The Resources section, with this institution's own contact in it.
+	 *
+	 * The section is `WPCPM_Handbook_Assistant::render_resources()`, the one the Student and
+	 * Mentor Report Cards end on, asked for the institution audience: its own handbook page,
+	 * the program's Slack channel, the announcements at that access level, and the assistant.
+	 * Written that way rather than as a Help section of this page's own so the three cards
+	 * cannot come to offer help in three different shapes.
+	 *
+	 * The one thing added is the person. Every institution is routed to a program manager by
+	 * country, and until now that name appeared only in a revoked agreement's panel, which is
+	 * the worst possible moment to meet it for the first time.
+	 *
+	 * @param string $record Institutions record ID.
+	 */
+	private static function render_help( $record ) {
+		if ( ! class_exists( 'WPCPM_Handbook_Assistant' ) || ! method_exists( 'WPCPM_Handbook_Assistant', 'render_resources' ) ) {
+			return;
+		}
+
+		echo WPCPM_Handbook_Assistant::render_resources( 'institution', self::contact_block( $record ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the assistant and by contact_block(), both of which escape what they interpolate.
+	}
+
+	/**
+	 * Who this institution writes to, as the Resources section's last word.
+	 *
+	 * The routing is by country and lives in `WPCPM_Countries`, which holds a name, an address
+	 * and sometimes a booking link for each. A country the program has not routed yet prints
+	 * nothing at all rather than a heading with a blank under it: an empty contact block would
+	 * read as "you have nobody", which is not what an unrouted country means.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string Escaped markup, or ''.
+	 */
+	private static function contact_block( $record ) {
+		$row = WPCPM_Institutions_Index::row( $record );
+
+		$country = ( is_array( $row ) && isset( $row['country'] ) ) ? trim( (string) $row['country'] ) : '';
+
+		if ( '' === $country || ! class_exists( 'WPCPM_Countries' ) ) {
+			return '';
+		}
+
+		$routing = WPCPM_Countries::routing( $country );
+
+		if ( ! is_array( $routing ) ) {
+			return '';
+		}
+
+		$name     = isset( $routing['manager'] ) ? trim( (string) $routing['manager'] ) : '';
+		$email    = isset( $routing['email'] ) ? trim( (string) $routing['email'] ) : '';
+		$calendly = isset( $routing['calendly'] ) ? trim( (string) $routing['calendly'] ) : '';
+
+		// A record ID in the name means the linked manager was never resolved to a person; it
+		// is a database key and nothing to show a school.
+		if ( '' !== $name && WPCPM_Mentors_Sync::is_record_id( $name ) ) {
+			$name = '';
+		}
+
+		if ( '' === $name && '' === $email && '' === $calendly ) {
+			return '';
+		}
+
+		$out  = '<div class="wpcpm-resources__contact">';
+		$out .= sprintf(
+			'<h3 class="wpcpm-student__heading">%s</h3>',
+			esc_html__( 'Your contact at the program', 'wpcredits-program-manager' )
+		);
+
+		if ( '' !== $name ) {
+			$out .= sprintf( '<p class="wpcpm-resources__contact-name">%s</p>', esc_html( $name ) );
+		}
+
+		$lines = array();
+
+		if ( '' !== $email ) {
+			$lines[] = sprintf(
+				'<a href="mailto:%1$s">%2$s</a>',
+				esc_attr( $email ),
+				esc_html( $email )
+			);
+		}
+
+		if ( '' !== $calendly ) {
+			$lines[] = sprintf(
+				'<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
+				esc_url( $calendly ),
+				esc_html__( 'Book a call', 'wpcredits-program-manager' )
+			);
+		}
+
+		if ( ! empty( $lines ) ) {
+			$out .= '<p class="wpcpm-resources__contact-links">' . implode( ' &middot; ', $lines ) . '</p>';
+		}
+
+		$out .= sprintf(
+			'<p class="wpcpm-student__note">%s</p>',
+			esc_html__( 'They look after institutions in your country. Write to them about anything the guide does not answer.', 'wpcredits-program-manager' )
+		);
+
+		return $out . '</div>';
 	}
 
 	/**

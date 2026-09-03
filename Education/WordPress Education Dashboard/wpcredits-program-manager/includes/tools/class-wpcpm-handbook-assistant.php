@@ -374,18 +374,27 @@ class WPCPM_Handbook_Assistant {
 		return (array) apply_filters(
 			'wpcpm_handbook_guides',
 			array(
-				'student' => array(
+				'student'     => array(
 					'label' => __( 'Student guide', 'wpcredits-program-manager' ),
 					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/student-guide/',
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					// Named for a screen reader, which gets no help at all from the icon.
 					'chat'  => __( 'Ask in the students Slack channel', 'wpcredits-program-manager' ),
 				),
-				'mentor'  => array(
+				'mentor'      => array(
 					'label' => __( 'Mentor guide', 'wpcredits-program-manager' ),
 					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/mentor-guide/',
 					'slack' => 'https://wordpress.slack.com/archives/C09KYQLS7F1',
 					'chat'  => __( 'Ask in the mentors Slack channel', 'wpcredits-program-manager' ),
+				),
+				// The institutions page of the same handbook, and the program's own channel
+				// rather than either of the two above: a school's question is about running
+				// the program, not about a student's work or a mentor's.
+				'institution' => array(
+					'label' => __( 'Institution guide', 'wpcredits-program-manager' ),
+					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/institutions/',
+					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
+					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),
 			)
 		);
@@ -404,10 +413,16 @@ class WPCPM_Handbook_Assistant {
 	 * ask questions — those govern the "Need help?" button beside it and nothing else. Hiding a
 	 * handbook link because an API key is missing would make no sense to anybody.
 	 *
-	 * @param string $audience `student` or `mentor`, deciding which guide is linked.
+	 * @param string $audience `student`, `mentor` or `institution`, deciding which guide is
+	 *                         linked.
+	 * @param string $extra    Markup for this audience alone, printed under the buttons and
+	 *                         already escaped by its caller. The institution's own contact goes
+	 *                         here: it is the one thing on this section that differs per reader,
+	 *                         and it belongs beside the guide rather than in a section of its
+	 *                         own at the foot of a page that already has several.
 	 * @return string
 	 */
-	public static function render_resources( $audience = '' ) {
+	public static function render_resources( $audience = '', $extra = '' ) {
 		$guides = self::guides();
 		$guide  = isset( $guides[ $audience ] ) ? $guides[ $audience ] : null;
 
@@ -422,7 +437,9 @@ class WPCPM_Handbook_Assistant {
 				? self::audience_includes_students() && self::is_available()
 				: self::is_available() );
 
-		if ( ! $guide && ! $may_ask ) {
+		$extra = (string) $extra;
+
+		if ( ! $guide && ! $may_ask && '' === $extra ) {
 			return '';
 		}
 
@@ -493,6 +510,10 @@ class WPCPM_Handbook_Assistant {
 				esc_html__( 'Ask anything about the program or WordPress itself, and get an answer.', 'wpcredits-program-manager' )
 			);
 		}
+
+		// Last, because it names a person: whoever is reading has come here for somewhere to go,
+		// and the human being is the answer when the two links above are not.
+		$out .= $extra;
 
 		$out .= '</div>';
 

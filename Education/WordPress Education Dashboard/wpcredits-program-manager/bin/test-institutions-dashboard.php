@@ -408,6 +408,31 @@ if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
  * bound when the file is compiled, so a top-level declaration is a class that exists from
  * the first line: only a conditional one is absent until execution reaches it.
  */
+if ( ! class_exists( 'WPCPM_Handbook_Assistant' ) ) {
+	/**
+	 * Stands in for the shared Resources section.
+	 *
+	 * Records the audience it was asked for and hands back the audience-specific block, which
+	 * is all this page contributes to it; what the section itself draws is its own suite's.
+	 */
+	class WPCPM_Handbook_Assistant {
+		public static function render_resources( $audience = '', $extra = '' ) {
+			$GLOBALS['resources'][] = (string) $audience;
+
+			return '<section class="wpcpm-handbook__resources" data-audience="' . $audience . '">' . $extra . '</section>';
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Countries' ) ) {
+	/** Stands in for the country routing map. */
+	class WPCPM_Countries {
+		public static function routing( $record_id ) {
+			return isset( $GLOBALS['routing'][ $record_id ] ) ? $GLOBALS['routing'][ $record_id ] : null;
+		}
+	}
+}
+
 if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
 	class WPCPM_Institution_Panel {
 		public static function render( $record_id, array $context ) {
@@ -477,6 +502,7 @@ $GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ] = array(
 			'name'           => 'Politechnika Krakowska ',
 			'stage'          => 'Confirmed',
 			'city'           => 'Krakow',
+			'country'        => 'recCOUNTRYPOLAND1',
 			'country_name'   => 'Poland',
 			'website'        => 'pk.edu.pl',
 			'contact_person' => 'Anna Kowalska',
@@ -487,6 +513,7 @@ $GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ] = array(
 			'name'           => 'D. Y. Patil',
 			'stage'          => 'Confirmed',
 			'city'           => 'Pune',
+			'country'        => 'recCOUNTRYINDIA01',
 			'country_name'   => 'India',
 			'website'        => '',
 			'contact_person' => '',
@@ -1027,6 +1054,68 @@ ck( 'and points at the hand-written editor script', $block['editorScript'], 'fil
 $asset = require WPCPM_PLUGIN_DIR . 'blocks/institution-dashboard/editor.asset.php';
 ck( 'editor.asset.php declares the wp.* globals editor.js reads', $asset['dependencies'], array( 'wp-blocks', 'wp-block-editor', 'wp-components', 'wp-element', 'wp-i18n', 'wp-server-side-render' ) );
 ck( 'at the same version block.json carries', $asset['version'], $block['version'] );
+
+/* ---- the Resources section, and the person in it ------------------------- */
+
+echo "\n=== Where to go with a question ===\n";
+
+// The section is the one the two Report Cards end on, asked for this audience. What this page
+// adds to it is the person: every institution is routed to a program manager by country, and
+// until now that name appeared only in a revoked agreement's panel, which is the worst moment
+// to meet it for the first time.
+$GLOBALS['routing'] = array(
+	'recCOUNTRYPOLAND1' => array(
+		'name'     => 'Poland',
+		'manager'  => 'Ola Nowak',
+		'email'    => 'ola@example.org',
+		'calendly' => 'https://calendly.com/example/intro',
+	),
+);
+
+$GLOBALS['resources'] = array();
+$out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+
+ck( 'the section is drawn, for the institution audience', $GLOBALS['resources'], array( 'institution' ) );
+ck( 'and it names the person, their address and the way to book them', array(
+	false !== strpos( $out, 'Your contact at the program' ),
+	false !== strpos( $out, 'Ola Nowak' ),
+	false !== strpos( $out, 'mailto:ola@example.org' ),
+	false !== strpos( $out, 'https://calendly.com/example/intro' ),
+), array( true, true, true, true ) );
+
+// A country the program has not routed prints nothing at all. A heading with a blank under it
+// would read as "you have nobody", which is not what an unrouted country means.
+$GLOBALS['resources'] = array();
+$out = render_as( 4, array( 'wpcpm_institution_view' => $patil ) );
+
+ck( 'an unrouted country still gets the section', $GLOBALS['resources'], array( 'institution' ) );
+ck( 'but no contact block, and no empty heading', array(
+	false !== strpos( $out, 'wpcpm-resources__contact' ),
+	false !== strpos( $out, 'Your contact at the program' ),
+), array( false, false ) );
+
+// A record ID in the manager field means the link was never resolved to a person. It is a
+// database key, and printing one at a school is worse than printing nothing.
+$GLOBALS['routing']['recCOUNTRYINDIA01'] = array(
+	'name'     => 'India',
+	'manager'  => 'recUNRESOLVED0001',
+	'email'    => 'india@example.org',
+	'calendly' => '',
+);
+$out = render_as( 4, array( 'wpcpm_institution_view' => $patil ) );
+
+ck( 'an unresolved manager link is not shown as a name', false !== strpos( $out, 'recUNRESOLVED0001' ), false );
+ck( 'though the address behind it still is', false !== strpos( $out, 'mailto:india@example.org' ), true );
+
+// The locked account is the one most likely to need somebody to ask.
+$GLOBALS['resources'] = array();
+$locked = render_as( 2 );
+
+ck( 'a locked account gets the section too', $GLOBALS['resources'], array( 'institution' ) );
+ck( 'with its own contact in it', false !== strpos( $locked, 'Ola Nowak' ), true );
+
+$GLOBALS['routing'] = array();
+
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

@@ -608,3 +608,26 @@
 		width: 100%;
 	}
 }
+
+/*
+ * The person in the Resources section.
+ *
+ * Under the guide and the channel, and set apart from them by a rule rather than a box: the
+ * two above are places to read, this is somebody to write to, and the section is already one
+ * bordered block at the foot of a page that has several.
+ */
+.wpcpm-resources__contact {
+	border-top: 1px solid var( --wpcpm-border );
+	margin-top: 1.25em;
+	padding-top: 1.25em;
+}
+
+.wpcpm-resources__contact-name {
+	font-size: 1.05em;
+	font-weight: 600;
+	margin: 0;
+}
+
+.wpcpm-resources__contact-links {
+	margin: 0.2em 0 0;
+}

@@ -1044,12 +1044,32 @@ ck( 'and it survives the audience being narrowed to mentors',
     ),
     array( true, false ) );
 
-// An unknown audience has no guide, so with nothing to offer there is no empty section.
+// An unknown audience has no guide, so with nothing to offer there is no empty section. Not
+// `institution`, which used to stand for "unknown" here and is a real audience with a guide of
+// its own since the Institution Dashboard grew a Resources section.
 $settings['handbook_provider'] = '';
 $settings['handbook_key']      = '';
 $GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
 ck( 'nothing to show means no empty section',
-    array( WPCPM_Handbook_Assistant::render_resources( 'institution' ) ), array( '' ) );
+    array( WPCPM_Handbook_Assistant::render_resources( 'nobody-in-particular' ) ), array( '' ) );
+
+// The three the plugin actually draws, each with a guide and a channel of its own.
+$guides = WPCPM_Handbook_Assistant::guides();
+ck( 'and the audiences that do have a guide are the three that have a dashboard',
+    array_keys( $guides ), array( 'student', 'mentor', 'institution' ) );
+ck( 'the institution\'s guide is the handbook page written for them', $guides['institution']['url'], 'https://make.wordpress.org/community/handbook/education/credits/institutions/' );
+ck( 'and its channel is the program\'s own, not a student or mentor one',
+    array(
+		$guides['institution']['slack'] !== $guides['mentor']['slack'],
+		'' !== $guides['institution']['slack'],
+	),
+    array( true, true ) );
+
+// The audience-specific block is what the Institution Dashboard puts its contact in, and it
+// is enough on its own to make a section worth drawing.
+ck( 'an audience with nothing but a block of its own still gets a section',
+    false !== strpos( WPCPM_Handbook_Assistant::render_resources( 'nobody-in-particular', '<div class="wpcpm-resources__contact">Ola</div>' ), 'wpcpm-resources__contact' ),
+    true );
 
 $settings['handbook_provider'] = 'gemini';
 $settings['handbook_key']      = 'test-key';
