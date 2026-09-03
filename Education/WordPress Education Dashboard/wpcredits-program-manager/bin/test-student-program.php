@@ -630,10 +630,18 @@ ck( 'a status the map never heard of is 0', WPCPM_Program::hours_target( 'Gradua
 ck( 'and an empty status is 0 rather than a notice', WPCPM_Program::hours_target( '' ), 0 );
 ck( 'padding is trimmed, as it is everywhere else a status is read', WPCPM_Program::hours_target( '  In Sensei  ' ), 150 );
 
-// Every track `labels()` knows has a row here, or a fourth track added to one map and not the
-// other would silently lose its denominator on every page that prints one.
-$missing = array_diff( array_keys( WPCPM_Program::labels() ), array_keys( WPCPM_Program::hours_targets() ) );
-ck( 'every track in labels() has a row in the hours map', $missing, array() );
+// A track with no row in the hours map is a track that does not count hours, and that is a
+// supported state rather than an omission: not every track the program adds will be worked to
+// a clock. This asserted the opposite for an hour - that every track in `labels()` must appear
+// in the hours map - which would have made hours a condition of adding a track at all, and the
+// next one to arrive without them would have failed a test rather than simply not showing a
+// denominator.
+add_filter( 'wpcpm_program_labels', function ( $labels ) { $labels['Research Track'] = 'Research Track'; return $labels; } );
+
+ck( 'a track the hours map has never heard of is a track', WPCPM_Program::is_track( 'Research Track' ), true );
+ck( 'and it has no target rather than a broken one', WPCPM_Program::hours_target( 'Research Track' ), 0 );
+ck( 'so nothing prints a denominator for it', WPCPM_Program::has_hours_target( 'Research Track' ), false );
+$GLOBALS['filters']['wpcpm_program_labels'] = array();
 
 // The filter is what an institution with its own target reaches for, so it has to be able to
 // add a status as well as change one.

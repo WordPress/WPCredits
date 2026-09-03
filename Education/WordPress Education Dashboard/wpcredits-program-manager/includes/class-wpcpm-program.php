@@ -128,6 +128,12 @@ class WPCPM_Program {
 	 * of its students would be inventing a denominator the program does not have. Everything
 	 * that shows hours asks `has_hours_target()` first and prints "12 h" for this track.
 	 *
+	 * **A track may be absent from this map entirely, and nothing is to require otherwise.**
+	 * Not every track the program adds will count hours, so a missing row means no target, the
+	 * same answer the Developer Track's explicit 0 gives. Anything that treats a track's
+	 * absence here as a defect - a guard, a validation, an assertion that the two maps have
+	 * the same keys - turns hours into a condition of adding a track, which they are not.
+	 *
 	 * @return array<string, int>
 	 */
 	public static function hours_targets() {
