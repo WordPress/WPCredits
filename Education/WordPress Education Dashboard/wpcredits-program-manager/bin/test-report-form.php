@@ -538,6 +538,24 @@ foreach ( array( '150h', '50h', 'dev' ) as $track ) {
 	ck( sprintf( 'every %s field name exists in Airtable', $track ), $unknown, array() );
 }
 
+// The same check for the other half of this table's traffic. The form's own list is above;
+// these are the columns the syncs ask Airtable for, and a wrong name fails the same silent
+// way - the API answers with the field simply absent, so the column reads empty for every
+// student and nothing anywhere reports a problem.
+$sync_columns = array();
+
+foreach ( WPCPM_Mentors_Sync::fields() as $key => $column ) {
+	if ( 0 === strpos( $key, 'report_' ) ) {
+		$sync_columns[] = $column;
+	}
+}
+
+ck( 'the syncs read a dozen or more columns from this table', count( $sync_columns ) > 10, true );
+ck( 'and every one of them exists in Airtable', array_values( array_diff( $sync_columns, $real ) ), array() );
+// Named on its own because it is the newest and the one a roster column and an hours target
+// both hang off: an empty Hours column would read as every student having logged nothing.
+ck( 'Hours among them', in_array( 'Hours', $sync_columns, true ), true );
+
 echo "\n=== Developer Track ===\n";
 
 $dev = WPCPM_Student_Report_Form::fields( 'dev' );

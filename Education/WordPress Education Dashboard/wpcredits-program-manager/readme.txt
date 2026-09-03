@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.79.0
+Stable tag: 1.80.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.80.0 =
+* Phase 5 of the Institutions module begins with hours. `WPCPM_Program::hours_target()` and `has_hours_target()` say what each track is worked towards: 150 hours, 50 hours, and none at all for the Developer Track, which is worked to merged contributions rather than to a clock. The Students Reports `Hours` column now travels through both syncs and the report form, so a student's logged hours reach the mentor's card and the institution's roster.
+* Every Students Reports column the syncs read is now checked against the table's field list, not just the columns the report form writes. A renamed column used to fail silently: Airtable answers with the field simply absent, so it reads empty for every student and nothing reports a problem.
 
 = 1.79.0 =
 * The contact an institution's record names is now listed under Institution representatives, whether or not they hold an account on this site. The card counted accounts alone, so forty of the forty-two confirmed institutions read "Institution representatives 0" three lines under a header naming that very person. The row says the account is what is missing, and it disappears by itself once one exists. The Institutions screen counts and lists the same way, so the heading means one thing on both.

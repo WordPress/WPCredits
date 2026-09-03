@@ -61,8 +61,24 @@ function trailingslashit( $s ) { return rtrim( (string) $s, '/\\' ) . '/'; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/' ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
-function apply_filters( $t, $v ) { return $v; }
-function add_action() {} function add_filter() {} function do_action() {}
+/**
+ * Filters that actually run, which a pass-through cannot test.
+ *
+ * With nothing registered this behaves exactly as the pass-through it replaces, so the rest of
+ * the file is unaffected; what it adds is the ability to register one and see it take effect.
+ * Every filter this plugin exposes is a promise to somebody outside it, and a promise nothing
+ * exercises is one that can quietly stop being kept.
+ */
+$GLOBALS['filters'] = array();
+function apply_filters( $t, $v ) {
+	foreach ( isset( $GLOBALS['filters'][ $t ] ) ? $GLOBALS['filters'][ $t ] : array() as $callback ) {
+		$v = call_user_func( $callback, $v );
+	}
+
+	return $v;
+}
+function add_filter( $t, $callback, $priority = 10, $args = 1 ) { $GLOBALS['filters'][ $t ][] = $callback; }
+function add_action() {} function do_action() {}
 function wp_parse_url( $u, $c = -1 ) { return parse_url( (string) $u ); }
 function absint( $v ) { return abs( (int) $v ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
@@ -416,10 +432,24 @@ ck( 'unchecking every team clears the card row',
 ck( 'and does not disturb the answers beside it',
     $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['website'], 'https://celigaroe.com' );
 
+// Hours arrives as a number and is kept as the string every other cell on the row is: the
+// two clocked tracks divide it by a target, the Developer Track prints it on its own, and
+// both of those are formatting decisions made where the value is printed rather than here.
+WPCPM_Students_Sync::apply_report( $id, array( $fields['report_hours'] => 42 ) );
+
+ck( 'hours land on the card row', $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['hours'], '42' );
+ck( 'and on the mentor\'s copy of that student',
+    $GLOBALS['umeta'][ $id + 1 ][ WPCPM_Mentors_Sync::META_MENTEES ][1]['hours'], '42' );
+// Zero is an answer. A student who has logged nothing is not a student whose hours are unknown,
+// and `array_key_exists` in the loop is what keeps the two apart.
+WPCPM_Students_Sync::apply_report( $id, array( $fields['report_hours'] => 0 ) );
+ck( 'zero hours are written rather than skipped',
+    $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['hours'], '0' );
+
 // A save of nothing this touches — a grade, say — must not write user meta at all.
 $id = seed( array( 'name' => 'Moldir', 'team' => 'Core' ), array( 'name' => 'Moldir' ) );
 
-ck( 'a report with none of these four columns changes nothing',
+ck( 'a report with none of these five columns changes nothing',
     WPCPM_Students_Sync::apply_report( $id, array( 'Community meeting etiquette - final grade' => 90 ) ),
     false );
 ck( 'and leaves the row as it was',
@@ -583,6 +613,34 @@ ck( 'and all three link fields are named',
 // the whole track looks broken while every line of code is right.
 ck( 'the developer track is one of the statuses the sync fetches',
     in_array( 'Developer Track', WPCPM_Settings::defaults()['student_statuses'], true ), true );
+
+echo "\n=== The hours a status is worked towards ===\n";
+
+ck( 'the 150-hour track is 150', WPCPM_Program::hours_target( 'In Sensei' ), 150 );
+ck( 'the 50-hour track is 50', WPCPM_Program::hours_target( 'In Sensei 50h' ), 50 );
+// Not a gap in the map. The track is worked to merged contributions rather than to a clock,
+// so a denominator here would be one the program does not have.
+ck( 'the developer track has no target', WPCPM_Program::hours_target( 'Developer Track' ), 0 );
+ck( 'and says so rather than being asked to prove it', WPCPM_Program::has_hours_target( 'Developer Track' ), false );
+ck( 'the two clocked tracks say yes', array( WPCPM_Program::has_hours_target( 'In Sensei' ), WPCPM_Program::has_hours_target( 'In Sensei 50h' ) ), array( true, true ) );
+
+// A finished state and a typo answer the same way, which is the answer a caller wants: print
+// no denominator. Telling one from the other is what `is_track()` is for.
+ck( 'a status the map never heard of is 0', WPCPM_Program::hours_target( 'Graduated' ), 0 );
+ck( 'and an empty status is 0 rather than a notice', WPCPM_Program::hours_target( '' ), 0 );
+ck( 'padding is trimmed, as it is everywhere else a status is read', WPCPM_Program::hours_target( '  In Sensei  ' ), 150 );
+
+// Every track `labels()` knows has a row here, or a fourth track added to one map and not the
+// other would silently lose its denominator on every page that prints one.
+$missing = array_diff( array_keys( WPCPM_Program::labels() ), array_keys( WPCPM_Program::hours_targets() ) );
+ck( 'every track in labels() has a row in the hours map', $missing, array() );
+
+// The filter is what an institution with its own target reaches for, so it has to be able to
+// add a status as well as change one.
+add_filter( 'wpcpm_program_hours_targets', function ( $targets ) { $targets['In Sensei 25h'] = 25; return $targets; } );
+ck( 'the filter can add a status', WPCPM_Program::hours_target( 'In Sensei 25h' ), 25 );
+ck( 'and the added status has a target', WPCPM_Program::has_hours_target( 'In Sensei 25h' ), true );
+$GLOBALS['filters']['wpcpm_program_hours_targets'] = array();
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

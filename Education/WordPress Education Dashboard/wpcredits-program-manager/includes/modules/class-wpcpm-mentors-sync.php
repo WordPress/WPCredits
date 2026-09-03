@@ -153,6 +153,20 @@ class WPCPM_Mentors_Sync {
 				'report_website'      => 'Personal Website URL',
 				'report_start'        => 'Internship Start Date',
 				'report_end'          => 'Internship End Date',
+				// The hours a student has logged, against the target their status carries in
+				// `WPCPM_Program::hours_target()`. A number in the base, kept as the string
+				// every other cell on this row is, and formatted where it is printed: the
+				// Developer Track's target is 0, so a renderer that reached for "n of 150"
+				// here would invent a denominator for a track that has none.
+				//
+				// **Two things the live column does that a renderer has to survive**, read
+				// off the base rather than assumed: the value is fractional for some students
+				// (6.2, 135.5), so `intval()` would quietly round a term's work down; and it
+				// runs past the target for others (400 against a 150-hour track), so a bar
+				// drawn from it needs clamping and a percentage needs no upper faith. An unset
+				// cell is absent rather than 0, which is a student nobody has logged for yet
+				// and not a student who has done nothing.
+				'report_hours'        => 'Hours',
 				'report_link'         => 'Personal link',
 				'report_link_50h'     => '50h personal link',
 				'report_link_dev'     => 'Dev Track ONLY personal link',
@@ -1309,6 +1323,7 @@ class WPCPM_Mentors_Sync {
 			$fields['report_website'],
 			$fields['report_start'],
 			$fields['report_end'],
+			$fields['report_hours'],
 			$fields['report_link'],
 			$fields['report_link_50h'],
 			$fields['report_link_dev'],
@@ -1374,6 +1389,7 @@ class WPCPM_Mentors_Sync {
 					isset( $state['lookups']['teams'] ) ? (array) $state['lookups']['teams'] : array()
 				),
 				'website'        => WPCPM_Airtable::flatten( isset( $cells[ $fields['report_website'] ] ) ? $cells[ $fields['report_website'] ] : '' ),
+				'hours'          => WPCPM_Airtable::flatten( isset( $cells[ $fields['report_hours'] ] ) ? $cells[ $fields['report_hours'] ] : '' ),
 				'link'           => $link,
 				'tutor'          => '',
 				// Joined from the Students table below, by email.

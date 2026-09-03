@@ -1707,6 +1707,7 @@ class WPCPM_Students_Sync {
 			$fields['report_slack']   => 'slack',
 			$fields['report_team']    => 'team',
 			$fields['report_website'] => 'website',
+			$fields['report_hours']   => 'hours',
 		);
 
 		$changed = array();

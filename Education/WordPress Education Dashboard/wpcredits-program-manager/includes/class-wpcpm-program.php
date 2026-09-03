@@ -108,6 +108,59 @@ class WPCPM_Program {
 	}
 
 	/**
+	 * How many hours a status is worked towards, or 0 for no target.
+	 *
+	 * @param string $status Airtable status.
+	 * @return int Hours, or 0 when this status is worked to no target at all.
+	 */
+	public static function hours_target( $status ) {
+		$targets = self::hours_targets();
+		$status  = trim( (string) $status );
+
+		return isset( $targets[ $status ] ) ? (int) $targets[ $status ] : 0;
+	}
+
+	/**
+	 * The status to hours map.
+	 *
+	 * **The Developer Track is 0 and that is a value, not a gap.** It is worked to a body of
+	 * merged contributions rather than to a clock, so a page that printed "12 of 150" for one
+	 * of its students would be inventing a denominator the program does not have. Everything
+	 * that shows hours asks `has_hours_target()` first and prints "12 h" for this track.
+	 *
+	 * @return array<string, int>
+	 */
+	public static function hours_targets() {
+		$targets = array(
+			self::STATUS_150H => 150,
+			self::STATUS_50H  => 50,
+			self::STATUS_DEV  => 0,
+		);
+
+		/**
+		 * Filter the hours each Airtable status is worked towards.
+		 *
+		 * @param array<string, int> $targets Status to hours, 0 meaning no target.
+		 */
+		return (array) apply_filters( 'wpcpm_program_hours_targets', $targets );
+	}
+
+	/**
+	 * Whether a status is worked towards a number of hours at all.
+	 *
+	 * A status this map has never heard of answers no, the same as the Developer Track does,
+	 * because both mean "do not print a denominator" and that is the only question a caller
+	 * asks here. Callers that need to tell an unknown status from a known one without a target
+	 * have `is_track()` for it, which is the question `labels()` answers.
+	 *
+	 * @param string $status Airtable status.
+	 * @return bool
+	 */
+	public static function has_hours_target( $status ) {
+		return self::hours_target( $status ) > 0;
+	}
+
+	/**
 	 * Whether a status is one of the tracks, as opposed to a finished state.
 	 *
 	 * @param string $status Airtable status.
