@@ -747,12 +747,12 @@ $out = render_as( 2 );
 
 ck( 'a locked member gets the identity header', false !== strpos( $out, 'wpcpm-institution__identity' ), true );
 ck( 'naming their institution, trimmed', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Krakowska</p>' ), true );
-ck( 'with the city the index knows and the stamp does not', false !== strpos( $out, 'Krakow, Poland.' ), true );
+ck( 'with the city the index knows and the stamp does not', false !== strpos( $out, 'Krakow, Poland' ), true );
 
 // The two sources disagree about the stage, and the fresh one wins. The stamp is written
 // once, by attach(), and no sync ever refreshes it: preferred, it would have this member
 // reading the day their account was attached on a header with no read date to say so.
-ck( 'and the index\'s stage, because the index is what gets re-read', false !== strpos( $out, 'Stage: Confirmed.' ), true );
+ck( 'and the index\'s stage, because the index is what gets re-read', false !== strpos( $out, 'Stage: Confirmed' ), true );
 ck( 'never the stamp\'s, which has been stale since attach() wrote it', false !== strpos( $out, 'Agreement Sent' ), false );
 
 ck( 'and the panel', false !== strpos( $out, 'data-card="panel"' ), true );
@@ -776,10 +776,20 @@ ck( 'and still sees their own', false !== strpos( $out, 'Krakowska' ), true );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['v'] = 99;
 $out = render_as( 2 );
 ck( 'with no index row the stamp draws the header', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Krakowska</p>' ), true );
-ck( 'stage and all', false !== strpos( $out, 'Stage: Agreement Sent.' ), true );
+ck( 'stage and all', false !== strpos( $out, 'Stage: Agreement Sent<' ), true );
 // Needled on the city *sentence*, because the institution's own name contains the city.
 ck( 'and the city only the index ever knew is simply absent', false !== strpos( $out, 'Krakow, Poland' ), false );
-ck( 'leaving the country the stamp does hold, with no stray separator', false !== strpos( $out, '>Poland.' ), true );
+ck( 'leaving the country the stamp does hold, with no stray separator', false !== strpos( $out, '>Poland<' ), true );
+
+// One fact to a line, in the order somebody reads them: where it is, how to reach it, where
+// the program has got to, and who it writes to. They used to run together in one sentence.
+ck( 'the header puts each fact on its own line, in that order', array(
+	strpos( $out, 'wpcpm-institution__name' ) < strpos( $out, 'wpcpm-dashboard__intro' ),
+	strpos( $out, 'wpcpm-dashboard__intro' ) < strpos( $out, 'wpcpm-institution__website' ),
+	strpos( $out, 'wpcpm-institution__website' ) < strpos( $out, 'wpcpm-institution__stage' ),
+	strpos( $out, 'wpcpm-institution__stage' ) < strpos( $out, 'wpcpm-institution__contact' ),
+), array( true, true, true, true ) );
+ck( 'and no longer runs them together in a sentence', false !== strpos( $out, 'Poland Stage:' ), false );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['v'] = 1;
 
 /* ---- a manager on the same unsettled institution ------------------------- */
@@ -801,7 +811,7 @@ ck( 'with the switcher', false !== strpos( $out, 'id="wpcpm-institution-switcher
 ck( 'posting the field the resolver actually reads', false !== strpos( $out, 'name="' . WPCPM_Institution_Roster::ARG_VIEW . '"' ), true );
 ck( 'listing both institutions', substr_count( $out, '<option value="rec' ), 2 );
 ck( 'with the one being viewed selected', false !== strpos( $out, 'value="' . $krakow . '" selected' ), true );
-ck( 'and the header falls back to the index, since a manager holds no stamp', false !== strpos( $out, 'Stage: Confirmed.' ), true );
+ck( 'and the header falls back to the index, since a manager holds no stamp', false !== strpos( $out, 'Stage: Confirmed' ), true );
 ck( 'and a bare host from the base is given a scheme', false !== strpos( $out, 'href="https://pk.edu.pl"' ), true );
 ck( 'and printed without one', false !== strpos( $out, '>pk.edu.pl</a>' ), true );
 
@@ -1183,6 +1193,13 @@ $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 
 ck( 'the icon the site declares is the one shown', false !== strpos( $out, 'src="https://pk.edu.pl/assets/crest.png"' ), true );
 ck( 'and it carries no alt text, being decoration beside the name it repeats', false !== strpos( $out, 'class="wpcpm-institution__icon" src="https://pk.edu.pl/assets/crest.png" alt=""' ), true );
+// Beside the whole identity, not inside it: the name, the place, the site and the two facts
+// are one block, and an icon against the first line reads as a bullet on that line.
+ck( 'and it sits beside the block rather than inside it', array(
+	strpos( $out, 'wpcpm-institution__icon' ) < strpos( $out, 'wpcpm-institution__details' ),
+	strpos( $out, 'wpcpm-institution__details' ) < strpos( $out, 'wpcpm-institution__name' ),
+	strpos( $out, 'wpcpm-institution__contact' ) < strpos( $out, '</div></header>' ),
+), array( true, true, true ) );
 ck( 'the site was asked once and the icon proved with a HEAD', $GLOBALS['fetched'], array(
 	array( 'get', 'https://pk.edu.pl' ),
 	array( 'head', 'https://pk.edu.pl/assets/crest.png' ),

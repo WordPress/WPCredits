@@ -796,40 +796,34 @@ class WPCPM_Institutions_Dashboard {
 		// a placeholder crest for a university that has its own is worse than nothing.
 		$icon = self::site_icon( $website );
 
-		echo '<div class="wpcpm-institution__heading-line">';
-
+		// The icon sits beside the whole block rather than beside the title line: the name, the
+		// place, the site and the two facts are one identity, and an icon against the first
+		// line of it reads as a bullet on that line instead. The same arrangement the Mentor
+		// Report Card uses for a mentor's photo.
 		if ( '' !== $icon ) {
 			printf(
-				'<img class="wpcpm-institution__icon" src="%1$s" alt="" width="32" height="32" loading="lazy" decoding="async" />',
+				'<img class="wpcpm-institution__icon" src="%1$s" alt="" width="48" height="48" loading="lazy" decoding="async" />',
 				esc_url( $icon )
 			);
 		}
 
+		echo '<div class="wpcpm-institution__details">';
 		printf( '<p class="wpcpm-institution__name">%s</p>', esc_html( $name ) );
-		echo '</div>';
 
 		// Sentences rather than a row of values joined by punctuation, so a missing city or a
 		// missing contact leaves no stray separator behind.
-		$facts = array();
-
+		// One fact to a line, in the order somebody reads them: where the institution is, how to
+		// reach it, where the program has got to with it, and who the program writes to. They
+		// used to run together in one sentence, which kept a missing city from leaving a stray
+		// separator behind; each line carries its own label now, so a line that is not there is
+		// simply not there and nothing needs joining.
+		//
+		// No full stops: these are labelled values on their own lines, not sentences, and a
+		// trailing point on "Stage: Confirmed" reads as a typo rather than as grammar.
 		$place = array_values( array_filter( array( $profile['city'], $profile['country_name'] ) ) );
 
 		if ( ! empty( $place ) ) {
-			$facts[] = implode( ', ', $place ) . '.';
-		}
-
-		if ( '' !== $profile['stage'] ) {
-			/* translators: %s: the Airtable Current Stage, e.g. "Confirmed". */
-			$facts[] = sprintf( __( 'Stage: %s.', 'wpcredits-program-manager' ), $profile['stage'] );
-		}
-
-		if ( '' !== $profile['contact_person'] ) {
-			/* translators: %s: the institution's named contact person. */
-			$facts[] = sprintf( __( 'Contact: %s.', 'wpcredits-program-manager' ), $profile['contact_person'] );
-		}
-
-		if ( ! empty( $facts ) ) {
-			printf( '<p class="wpcpm-dashboard__intro">%s</p>', esc_html( implode( ' ', $facts ) ) );
+			printf( '<p class="wpcpm-dashboard__intro">%s</p>', esc_html( implode( ', ', $place ) ) );
 		}
 
 		if ( '' !== $website ) {
@@ -840,6 +834,33 @@ class WPCPM_Institutions_Dashboard {
 			);
 		}
 
+		if ( '' !== $profile['stage'] ) {
+			printf(
+				'<p class="wpcpm-institution__fact wpcpm-institution__stage">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: the Airtable Current Stage, e.g. "Confirmed". */
+						__( 'Stage: %s', 'wpcredits-program-manager' ),
+						$profile['stage']
+					)
+				)
+			);
+		}
+
+		if ( '' !== $profile['contact_person'] ) {
+			printf(
+				'<p class="wpcpm-institution__fact wpcpm-institution__contact">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: the institution's named contact person. */
+						__( 'Contact: %s', 'wpcredits-program-manager' ),
+						$profile['contact_person']
+					)
+				)
+			);
+		}
+
+		echo '</div>';
 		echo '</header>';
 	}
 

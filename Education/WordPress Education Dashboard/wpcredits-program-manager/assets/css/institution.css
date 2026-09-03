@@ -14,26 +14,40 @@
 
 /* The identity header: name, place, stage, contact, website. No avatar - an institution
    has no wordpress.org profile, and a logo is not a fact the base holds. */
+/* The icon on the left, the identity beside it: the name, the place, the site and the two
+   facts are one block, and the icon belongs against all of it rather than against the first
+   line. `align-items: flex-start` so a tall block keeps the icon at the top with the name
+   instead of floating it down the middle. */
 .wpcpm-institution__identity {
+	align-items: flex-start;
+	display: flex;
+	gap: 1em;
 	margin-bottom: 1.5em;
 }
 
-/* The site icon beside the name, which is the nearest thing an institution has to the profile
-   photo a mentor and a student are shown. Sized rather than left to the file: a favicon can be
-   16px or 512px and the header should not change shape either way. */
-.wpcpm-institution__heading-line {
-	align-items: center;
-	display: flex;
-	gap: 0.6em;
+.wpcpm-institution__details {
+	min-width: 0;
 }
 
+/* The institution's own site icon, which is the nearest thing it has to the profile photo a
+   mentor and a student are shown. Sized rather than left to the file: a favicon can be 16px or
+   512px and the header should not change shape either way. `contain`, because a crest is not a
+   square and cropping one is worse than letterboxing it. */
 .wpcpm-institution__icon {
 	border-radius: 4px;
 	flex: 0 0 auto;
-	height: 32px;
+	height: 48px;
 	object-fit: contain;
-	width: 32px;
+	width: 48px;
 }
+
+/* The facts under the name, a line each. Quiet, and tight to one another: they are one block
+   of context, not four paragraphs. */
+.wpcpm-institution__fact {
+	margin: 0.15em 0 0;
+	opacity: 0.75;
+}
+
 
 /* Matches .wpcpm-dashboard__mentor-name on the mentor page, so the two headers read as
    the same header. */
