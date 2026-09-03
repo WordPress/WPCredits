@@ -123,6 +123,36 @@
 	padding: 1.5em;
 }
 
+/*
+ * A panel's inset is its padding, and only its padding.
+ *
+ * Margins do not collapse through padding, so a heading that opens a panel lays its own top
+ * margin on top of the panel's padding while the last line inside contributes nothing at the
+ * bottom. The panels came out with 45px and 53px above their first line against 21px below
+ * it, which reads as a box that has slipped down inside its own border. Two of the panels
+ * looked wrong on the page before anybody measured them.
+ *
+ * The margins come from the theme's heading rules, so this is written as "whatever opens or
+ * closes this panel" rather than as a list of the headings that do: a section added later
+ * gets the same inset without anybody remembering this rule exists. Only the block direction
+ * is zeroed, since the horizontal margins are nobody's problem here.
+ */
+.wpcpm-institution .wpcpm-agreement-panel > :first-child,
+.wpcpm-institution .wpcpm-agreement-card > :first-child,
+.wpcpm-institution .wpcpm-dashboard__switcher > :first-child,
+.wpcpm-institution .wpcpm-roster__filters > :first-child,
+.wpcpm-institution .wpcpm-roster__strip > :first-child {
+	margin-block-start: 0;
+}
+
+.wpcpm-institution .wpcpm-agreement-panel > :last-child,
+.wpcpm-institution .wpcpm-agreement-card > :last-child,
+.wpcpm-institution .wpcpm-dashboard__switcher > :last-child,
+.wpcpm-institution .wpcpm-roster__filters > :last-child,
+.wpcpm-institution .wpcpm-roster__strip > :last-child {
+	margin-block-end: 0;
+}
+
 /* The student detail view replaces the roster rather than sitting beside it, so it needs
    room under the header and nothing drawn around it: it is the page at that point. */
 .wpcpm-institution__card {

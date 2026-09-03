@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.15.2
+Stable tag: 1.16.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.16.0 =
+* The Institution Dashboard now uses the dashboard template the Student Dashboard and Mentor Report Card use. It had no template of its own, so it fell back to the article layout: a 34px title with 24px under it inside a 40px card, where its two siblings use a 22px title in the dashboard shell. The heading and the space around it now match the other two pages.
 
 = 1.15.2 =
 * A collapsed group of students reads as something you can press: a bordered row that lifts on hover and joins the panel it opens. The skin had been undoing most of that, leaving a box with a background, a radius and no top edge.
