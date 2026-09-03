@@ -80,6 +80,10 @@ function add_action() {}
 function apply_filters( $t, $v ) { return $v; }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
 function wp_hash( $v ) { return md5( (string) $v ); }
+$GLOBALS['transients'] = array();
+function get_transient( $k ) { return array_key_exists( $k, $GLOBALS['transients'] ) ? $GLOBALS['transients'][ $k ] : false; }
+function set_transient( $k, $v, $ttl = 0 ) { $GLOBALS['transients'][ $k ] = $v; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['transients'][ $k ] ); return true; }
 function sanitize_email( $e ) { return filter_var( trim( (string) $e ), FILTER_SANITIZE_EMAIL ); }
 function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE_EMAIL ); }
 function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
@@ -198,7 +202,7 @@ function ck( $label, $actual, $expected ) {
 	printf( "FAIL %s\n     got:  %s\n     want: %s\n", $label, var_export( $actual, true ), var_export( $expected, true ) );
 }
 
-$HERE  = 'recHERE000000001';
+$HERE  = 'recHERE0000000001';
 $THERE = 'recTHERE00000001';
 
 /** Post the form and report where it left the reader, and what it said. */
@@ -303,6 +307,7 @@ function fresh_world() {
 	$GLOBALS['posts'] = array();
 	$GLOBALS['pmeta'] = array();
 	$GLOBALS['opts']  = array();
+	$GLOBALS['flash'] = array();
 }
 
 $cases = array(
@@ -338,6 +343,7 @@ $status = post_check(
 			'name'           => 'Bartek Zielinski',
 			'email'          => 'bartek@uek.krakow.pl',
 			'profile'        => '@bartekz',
+			// Posted as a forged field would be: the form no longer offers it.
 			'field_of_study' => 'Technology & Engineering',
 			'tutor'          => 'Dr Nowak',
 		)
@@ -349,12 +355,38 @@ ck( 'one student sent through the boxes is checked the same way', $status, 'chec
 $rows = WPCPM_Institution_Import::batch( WPCPM_Institution_Import::staged_for( $HERE ) )['rows'];
 
 ck( 'and arrives as one cleaned row', count( $rows ), 1 );
-ck( 'with the profile canonicalised as any file\'s would be', $rows[0]['profile'], 'https://profiles.wordpress.org/bartekz/' );
 ck( 'and the address lowercased for comparing', $rows[0]['email_key'], 'bartek@uek.krakow.pl' );
+ck( 'and one posted anyway is not carried', $rows[0]['profile'], '' );
+
+// Drawn with nothing staged, or the section shows the preview and every assertion about the
+// form's controls would be asking the wrong markup and passing for the wrong reason.
+fresh_world();
+$form = draw_section( $HERE );
+
+ck( 'the form is the form and not a preview', false !== strpos( $form, 'name="paste"' ), true );
+// Getting a WordPress.org profile is the student's own first step of onboarding, after they
+// are enrolled, so at the moment a school fills this in nobody has one to give.
+ck( 'the form asks for no profile', false !== strpos( $form, 'name="profile"' ), false );
+
+// A single-select in Airtable, and create_records() sends no typecast, so a value spelled any
+// other way is a 422 for the whole record: a text box here is one a school can only get wrong.
+ck( 'the field of study is a picker', false !== strpos( $form, '<select id="wpcpm-import-field_of_study"' ), true );
+ck( 'holding the base\'s own nine', substr_count( $form, '<option value="Technology &amp; Engineering"' ), 1 );
+// Neither field is required, and a picker that opens on the first real answer files half a
+// cohort under it.
+ck( 'opening on a blank answer', false !== strpos( $form, '<option value="">Not recorded</option>' ), true );
 
 echo "\n=== Cancel decides against the batch's institution ===\n";
 
+// Its own batch, staged here rather than borrowed from a block above: the form assertions
+// clear the world between them, and a cancel test reading whatever survived that is a test
+// that passes or fails on the order of the file.
+fresh_world();
+post_check( batch_fields() );
+
 $batch_id = WPCPM_Institution_Import::staged_for( $HERE );
+
+ck( 'there is a batch to cancel', $batch_id > 0, true );
 
 /** Press Cancel as somebody, and report what the screen said. */
 function post_cancel( $batch_id ) {
@@ -404,6 +436,57 @@ ck( 'and the manager-only reason never reaches the screen', false !== strpos( $c
 foreach ( array( 'parse-not_utf8', 'parse-no_columns', 'parse-too_many_rows', 'parse-batch_mismatch', 'too_often', 'rows_today' ) as $key ) {
 	ck( sprintf( '"%s" has a sentence somebody can act on', $key ), isset( $said[ $key ] ) && strlen( $said[ $key ] ) > 20, true );
 }
+
+echo "\n=== The section folds, and opens when it is asking for something ===\n";
+
+/** Draw the section as the reader would meet it, and hand back the markup. */
+function draw_section( $record ) {
+	ob_start();
+	WPCPM_Institution_Import_Form::render( $record, array( 'can_manage' => false ) );
+	return (string) ob_get_clean();
+}
+
+fresh_world();
+$closed = draw_section( $HERE );
+
+// The same disclosure the roster's own buckets use, so it opens with the control the reader
+// has already met four times above it rather than with a fifth kind of thing.
+ck( 'the section is a disclosure', false !== strpos( $closed, '<details class="wpcpm-group wpcpm-import__disclosure"' ), true );
+// Enrolling is occasional and this form is the longest thing on the page; left open it pushes
+// the people and the agreement off the screen for every visit that came to read the roster.
+ck( 'and it is folded when there is nothing to answer', false !== strpos( $closed, 'wpcpm-import__disclosure" open' ), false );
+ck( 'its summary is the shared one, not a fifth kind of heading', false !== strpos( $closed, 'class="wpcpm-group__summary"' ), true );
+
+// A list waiting to be looked at is the page asking the reader for something.
+post_check( batch_fields() );
+$with_batch = draw_section( $HERE );
+ck( 'a waiting list opens it', false !== strpos( $with_batch, 'wpcpm-import__disclosure" open' ), true );
+
+// So is a message from the last attempt, which folded away unread before this.
+fresh_world();
+post_check( batch_fields( array( 'told' => '' ) ) );
+$with_message = draw_section( $HERE );
+ck( 'and so does something left to say', false !== strpos( $with_message, 'wpcpm-import__disclosure" open' ), true );
+// Read twice in one request: once to decide whether to open, once to print. `take()` is
+// memoized for exactly that, and without it the message would be shown inside a folded section.
+ck( 'the message still prints after being read to make that decision', false !== strpos( $with_message, 'Confirm that these students have been told' ), true );
+
+fresh_world();
+$GLOBALS['settings'] = array( 'import_enabled' => false );
+ck( 'and none of it is drawn while the setting is off', draw_section( $HERE ), '' );
+$GLOBALS['settings'] = array( 'import_enabled' => true );
+
+// Every class the form prints has a rule of its own in the page's stylesheet. `.wpcpm-field`
+// is defined in the application form's, which is not loaded here, so the fields came out as
+// the browser's own on the day this shipped.
+$css = file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' );
+
+foreach ( array( 'wpcpm-import__body', 'wpcpm-import__batch', 'wpcpm-import__subtitle', 'wpcpm-import__row', 'wpcpm-import__verdict', 'wpcpm-import__message', 'wpcpm-field--check', 'wpcpm-field__hint' ) as $class ) {
+	ck( sprintf( '.%s is styled on this page', $class ), false !== strpos( $css, '.' . $class ), true );
+}
+
+// It carries a rule above it and the page's rhythm, like the two sections it sits between.
+ck( 'the section joins the two that already carry a rule', false !== strpos( $css, ".wpcpm-roster,\n.wpcpm-import,\n.wpcpm-people {" ), true );
 
 echo "\n=== The file is read, never stored ===\n";
 

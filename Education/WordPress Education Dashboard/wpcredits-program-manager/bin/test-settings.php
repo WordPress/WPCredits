@@ -178,6 +178,7 @@ $probe = array(
 	'mentor_status'                 => 'Probe active',
 	'reports_table'                 => 'tblPROBE0000000003',
 	'students_table'                => 'tblPROBE0000000004',
+	'tutors_table'                  => 'tblPROBE0000000014',
 	'feedback_table'                => 'tblPROBE0000000005',
 	'institutions_table'            => 'tblPROBE0000000001',
 	'teams_table'                   => 'tblPROBE0000000006',

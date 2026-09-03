@@ -99,15 +99,38 @@ final class WPCPM_Institution_Import_Form {
 			return;
 		}
 
+		$staged = WPCPM_Institution_Import::staged_for( $record );
+
+		// **Read once, here, and carried down.** The disclosure has to know whether there is a
+		// message before the message is printed, and `WPCPM_Flash::take()` empties the channel.
+		// It memoizes per request, so asking twice does work in production; relying on that
+		// made the behaviour depend on a subtlety two files away, and a test harness that
+		// simulates several requests in one process could not honestly reproduce it. One read
+		// and one argument is less to know.
+		$flash = WPCPM_Flash::take( self::FLASH );
+		$said  = ( is_array( $flash ) && ! empty( $flash['status'] ) ) ? (string) $flash['status'] : '';
+
 		echo '<section class="wpcpm-institution__card wpcpm-import" id="wpcpm-import">';
+
+		// **Folded by default, and open when there is something to answer.** Enrolling is an
+		// occasional act and the form is the longest thing on this page; left open it pushes
+		// the people and the agreement off the screen for the ninety-nine visits that came to
+		// read the roster. It opens by itself when a list is waiting to be looked at or when
+		// the last attempt left something to say, because both of those are the page asking
+		// the reader for something rather than offering.
 		printf(
-			'<h2 class="wpcpm-institution__heading wpcpm-import__title">%s</h2>',
+			'<details class="wpcpm-group wpcpm-import__disclosure"%s>',
+			( $staged > 0 || '' !== $said ) ? ' open' : ''
+		);
+
+		printf(
+			'<summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html__( 'Enrol students', 'wpcredits-program-manager' )
 		);
 
-		self::render_message();
+		echo '<div class="wpcpm-group__body wpcpm-import__body">';
 
-		$staged = WPCPM_Institution_Import::staged_for( $record );
+		self::render_message( $said );
 
 		if ( $staged > 0 ) {
 			self::render_preview( $staged, $record );
@@ -115,6 +138,8 @@ final class WPCPM_Institution_Import_Form {
 			self::render_form( $record );
 		}
 
+		echo '</div>';
+		echo '</details>';
 		echo '</section>';
 	}
 	// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
@@ -185,10 +210,28 @@ final class WPCPM_Institution_Import_Form {
 
 		foreach ( self::single_fields() as $name => $label ) {
 			printf(
-				'<p class="wpcpm-field"><label for="wpcpm-import-%1$s">%2$s</label><input type="text" id="wpcpm-import-%1$s" name="%1$s" /></p>',
+				'<p class="wpcpm-field"><label for="wpcpm-import-%1$s">%2$s</label>',
 				esc_attr( $name ),
 				esc_html( $label )
 			);
+
+			$options = self::options_for( $name, $record );
+
+			if ( null === $options ) {
+				printf( '<input type="text" id="wpcpm-import-%1$s" name="%1$s" /></p>', esc_attr( $name ) );
+				continue;
+			}
+
+			printf( '<select id="wpcpm-import-%1$s" name="%1$s">', esc_attr( $name ) );
+			// Blank first and selected, because neither of these is required and a picker that
+			// opens on the first real answer is a picker that files half a cohort under it.
+			printf( '<option value="">%s</option>', esc_html__( 'Not recorded', 'wpcredits-program-manager' ) );
+
+			foreach ( $options as $option ) {
+				printf( '<option value="%1$s">%1$s</option>', esc_attr( $option ) );
+			}
+
+			echo '</select></p>';
 		}
 
 		printf( '<h3 class="wpcpm-import__subtitle">%s</h3>', esc_html__( 'Or a list', 'wpcredits-program-manager' ) );
@@ -227,13 +270,54 @@ final class WPCPM_Institution_Import_Form {
 	 * @return array<string, string> Field name to label.
 	 */
 	private static function single_fields() {
+		// **No WordPress.org profile.** Getting one is the student's own first step of
+		// onboarding, after they are enrolled, so at the moment a school fills this in nobody
+		// has one to give: a box for it collects blanks at best and somebody's guess at worst.
+		// The CSV route still reads a `profile` column for the school that does happen to hold
+		// them, because taking a value somebody has is different from asking for one they do
+		// not.
 		return array(
 			'name'           => __( 'Full name', 'wpcredits-program-manager' ),
 			'email'          => __( 'Email address', 'wpcredits-program-manager' ),
-			'profile'        => __( 'WordPress.org profile', 'wpcredits-program-manager' ),
 			'field_of_study' => __( 'Field of study', 'wpcredits-program-manager' ),
 			'tutor'          => __( 'Tutor', 'wpcredits-program-manager' ),
 		);
+	}
+
+	/**
+	 * The answers a field offers, or null when it is free text.
+	 *
+	 * **Both lists are the base's own.** `Your field of study` is a single-select in Airtable
+	 * and `create_records()` sends no typecast, so a value spelled any other way is a 422 for
+	 * the whole record: a text box here is a box in which a school can only get it wrong.
+	 * Tutors are a table, and the list offered is this institution's own rows from it and never
+	 * the program's fourteen.
+	 *
+	 * The file route is deliberately not held to these. A school adding a tutor the base has
+	 * not heard of yet should not have their whole term refused for it, so a CSV keeps free
+	 * text and the cleaner's own rules; what the picker buys is that nobody types a name into
+	 * the one-student form that matches nothing.
+	 *
+	 * @param string $name   The field.
+	 * @param string $record Institutions record ID.
+	 * @return string[]|null
+	 */
+	private static function options_for( $name, $record ) {
+		if ( 'field_of_study' === $name ) {
+			return class_exists( 'WPCPM_Institution_Student_Form' )
+				? (array) WPCPM_Institution_Student_Form::choices( 'field_of_study' )
+				: null;
+		}
+
+		if ( 'tutor' === $name ) {
+			$tutors = WPCPM_Institution_Import::tutors( $record );
+
+			// A school with none recorded gets a text box rather than a picker holding one
+			// empty answer, which would read as "this site has never heard of your tutors".
+			return empty( $tutors ) ? null : $tutors;
+		}
+
+		return null;
 	}
 
 	/**
@@ -780,16 +864,17 @@ final class WPCPM_Institution_Import_Form {
 
 	/**
 	 * Print whatever the last import left to say.
+	 *
+	 * @param string $key The status `render()` read, or '' for nothing to say.
 	 */
-	private static function render_message() {
-		$flash = WPCPM_Flash::take( self::FLASH );
+	private static function render_message( $key ) {
+		$key = (string) $key;
 
-		if ( ! is_array( $flash ) || empty( $flash['status'] ) ) {
+		if ( '' === $key ) {
 			return;
 		}
 
 		$said = self::messages();
-		$key  = (string) $flash['status'];
 		$text = isset( $said[ $key ] ) ? $said[ $key ] : $said['unknown'];
 
 		printf(

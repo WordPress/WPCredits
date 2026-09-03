@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.85.1
+Stable tag: 1.86.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,16 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.86.1 =
+* The tutor picker finds its tutors. 1.86.0 asked Airtable for them with a formula, and a formula reading a linked-record column sees the linked rows' name rather than their record ID, so matching on the ID found nothing for every institution and every picker was empty. The whole table is fourteen rows across the program, so it is read once and filtered here, where the record IDs are what the data actually holds.
+
+= 1.86.0 =
+* The enrolment section folds, using the same disclosure the roster's own groups use, and opens by itself when a list is waiting or the last attempt left something to say. It is the longest thing on the page and the rarest thing anybody comes for.
+* It is styled. Every class it prints now has a rule on this page: the field styling it was relying on lives in the application form's stylesheet, which is not loaded on the dashboard, so labels, boxes and the consent tick came out as the browser's own.
+* The form no longer asks for a WordPress.org profile. Getting one is the student's own first step of onboarding, after they are enrolled, so nobody has one to give at the moment a school fills this in. A CSV that happens to carry the column is still read.
+* Field of study is a picker of the base's own nine values rather than a text box. It is a single-select in Airtable and records are written without typecast, so a value spelled any other way was a refusal of the whole record.
+* Tutor is a picker of this institution's own tutors, read from the Tutors table and cached for half a day. Never the program's whole list: that would tell one school who tutors at another. A school with none recorded gets a text box.
 
 = 1.85.1 =
 * The switch that turns enrolment lists on is on the settings screen, under Institutions, beside the applications switch. It had been deliberately left off the form while the import had no screen of its own, which was right until the screen shipped in 1.85.0 and wrong from that moment: the setting existed, defaulted to off, and had nowhere to be turned on. The row names the ceilings, so nobody has to read the source to learn what a school is allowed to send.

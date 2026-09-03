@@ -108,6 +108,7 @@
  * school is meant to act in should look like a panel rather than like more of the roster.
  */
 .wpcpm-roster,
+.wpcpm-import,
 .wpcpm-people {
 	border-top: 1px solid var( --wpcpm-border );
 	margin: 2.5em 0 0;
@@ -714,4 +715,197 @@
 
 .wpcpm-resources__contact-links {
 	margin: 0.2em 0 0;
+}
+
+/* ==========================================================================
+   Enrolling students
+   ========================================================================== */
+
+/*
+ * The form is the longest thing on this page and the rarest thing anybody comes for, so it
+ * is a disclosure rather than a section: the same `wpcpm-group` the roster's own buckets use,
+ * which means it opens and closes with the control the reader has already met four times
+ * above it rather than with a fifth kind of thing.
+ *
+ * Nothing here restates that component. What follows dresses only the form inside it, which
+ * had no rules at all when it shipped: `.wpcpm-field` is defined in the application form's
+ * stylesheet, and that stylesheet is not loaded on this page, so every label and every box
+ * came out as the browser's own.
+ */
+.wpcpm-import__body {
+	padding-top: 0.5em;
+}
+
+.wpcpm-import__lede {
+	margin: 0 0 1.5em;
+}
+
+/* The batch-wide answers are one decision about the whole list, so they are boxed together
+   and the rows below them are not: a school choosing a term once should be able to see that
+   it applies to everything under it. Same tint and inset as the agreement panel. */
+.wpcpm-import__batch {
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1.5em;
+	padding: 1.5em;
+}
+
+.wpcpm-import__subtitle {
+	font-size: 1em;
+	font-weight: 600;
+	margin: 1.5em 0 0.75em;
+}
+
+.wpcpm-import__rows > .wpcpm-import__subtitle:first-child {
+	margin-top: 0;
+}
+
+.wpcpm-import .wpcpm-field {
+	display: block;
+	margin: 0 0 1.25em;
+}
+
+.wpcpm-import .wpcpm-field:last-child {
+	margin-bottom: 0;
+}
+
+.wpcpm-import .wpcpm-field > label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 0.3em;
+}
+
+.wpcpm-import .wpcpm-field input[type="text"],
+.wpcpm-import .wpcpm-field input[type="date"],
+.wpcpm-import .wpcpm-field select,
+.wpcpm-import .wpcpm-field textarea {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	box-sizing: border-box;
+	display: block;
+	max-width: 100%;
+	padding: 0.5em 0.6em;
+	width: 100%;
+}
+
+/* A date is eight characters and a full-width box for it reads as a paragraph field. The
+   select is sized to its longest option rather than to the column. */
+.wpcpm-import .wpcpm-field input[type="date"] {
+	max-width: 14em;
+}
+
+.wpcpm-import .wpcpm-field select {
+	max-width: 28em;
+	width: auto;
+}
+
+.wpcpm-import .wpcpm-field textarea {
+	min-height: 8em;
+	resize: vertical;
+}
+
+/* **Control first, label after it**, because "[x] These students have been told" is how a
+   tick reads. Without this the box floated on its own line above a paragraph that did not
+   look like its label, which is how the consent came out on the day it shipped. */
+.wpcpm-import .wpcpm-field--check > label {
+	align-items: flex-start;
+	display: flex;
+	font-weight: 400;
+	gap: 0.5em;
+	margin-bottom: 0;
+}
+
+.wpcpm-import .wpcpm-field--check input[type="checkbox"] {
+	flex: none;
+	margin: 0.2em 0 0;
+}
+
+.wpcpm-import .wpcpm-field__hint {
+	display: block;
+	font-size: 0.9em;
+	margin-top: 0.35em;
+	opacity: 0.72;
+}
+
+.wpcpm-import__actions {
+	margin: 1.5em 0 0;
+}
+
+/* The preview: one line per row, with the verdict carrying the colour rather than the row,
+   so a list of thirty is read down the left and only the exceptions pull the eye. */
+.wpcpm-import__summary {
+	font-weight: 600;
+	margin: 0 0 0.75em;
+}
+
+.wpcpm-import__note {
+	font-size: 0.9em;
+	margin: 0.75em 0 0;
+	opacity: 0.72;
+}
+
+.wpcpm-import__rows-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-import__row {
+	align-items: baseline;
+	border-top: 1px solid var( --wpcpm-border );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3em 0.75em;
+	padding: 0.75em 0;
+}
+
+.wpcpm-import__row:last-child {
+	border-bottom: 1px solid var( --wpcpm-border );
+}
+
+.wpcpm-import__line {
+	flex: none;
+	font-size: 0.9em;
+	min-width: 5em;
+	opacity: 0.72;
+}
+
+.wpcpm-import__name {
+	font-weight: 600;
+}
+
+.wpcpm-import__email {
+	font-size: 0.9em;
+	opacity: 0.72;
+}
+
+/* The verdict takes the whole second line: a row that cannot be created is explained in a
+   sentence, and a sentence squeezed into a fourth column is a sentence nobody reads. */
+.wpcpm-import__verdict {
+	flex: 1 1 100%;
+	font-size: 0.9em;
+}
+
+.wpcpm-import__row--ok .wpcpm-import__verdict {
+	opacity: 0.72;
+}
+
+.wpcpm-import__row--blocked .wpcpm-import__verdict,
+.wpcpm-import__row--invalid .wpcpm-import__verdict,
+.wpcpm-import__row--duplicate-file .wpcpm-import__verdict {
+	font-weight: 600;
+	opacity: 1;
+}
+
+.wpcpm-import__cancel {
+	margin: 1.5em 0 0;
+}
+
+.wpcpm-import__message {
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	margin: 0 0 1.5em;
+	padding: 1em 1.25em;
 }

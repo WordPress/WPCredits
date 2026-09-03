@@ -267,6 +267,90 @@ final class WPCPM_Institution_Import {
 	}
 
 	/**
+	 * The tutors this institution has, by name.
+	 *
+	 * **This institution's own, and never the program's.** The Tutors table holds fourteen
+	 * records across every university in the program, each linked to the institution it
+	 * belongs to. A picker offering all fourteen would tell one school who tutors at another,
+	 * which is the same disclosure the import's single blank refusal exists to prevent, sold
+	 * back as a convenience.
+	 *
+	 * Cached for half a day per institution: the list changes when a school hires somebody,
+	 * and a form that read the base on every page load would spend a request to learn the same
+	 * fourteen names all morning.
+	 *
+	 * @param string         $institution Airtable Institutions record ID.
+	 * @param WPCPM_Airtable $airtable    A configured client, or null to build one.
+	 * @return string[] Names, sorted, without duplicates.
+	 */
+	public static function tutors( $institution, $airtable = null ) {
+		$institution = trim( (string) $institution );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
+			return array();
+		}
+
+		$key    = 'wpcpm_tutors_' . md5( $institution );
+		$cached = get_transient( $key );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$settings = WPCPM_Settings::get();
+		$table    = isset( $settings['tutors_table'] ) ? (string) $settings['tutors_table'] : '';
+
+		if ( '' === $table ) {
+			return array();
+		}
+
+		$airtable = $airtable instanceof WPCPM_Airtable ? $airtable : new WPCPM_Airtable( $settings );
+
+		// **Filtered here and not by a formula, because the two see different things.** A
+		// linked-record column returns record IDs in the field data, which is what this needs,
+		// but a `filterByFormula` reading the same column sees the linked rows' primary field
+		// instead: `FIND('recPbZ...', {Institutions Onboarding})` matches nothing, silently and
+		// for every institution, which is exactly how this shipped and read as "no tutors
+		// anywhere". Matching the name instead would work and would tie the answer to a string
+		// two schools could share.
+		//
+		// The whole table is fourteen rows across the entire program, so reading it costs one
+		// request and the filtering is free.
+		$records = $airtable->fetch_all(
+			$table,
+			array( 'fields' => array( 'Name', 'Institutions Onboarding' ) )
+		);
+
+		if ( is_wp_error( $records ) ) {
+			// Not cached: a school whose picker was empty because the base was unreachable for
+			// a moment would go on seeing an empty picker for half a day.
+			return array();
+		}
+
+		$names = array();
+
+		foreach ( $records as $record ) {
+			$cells = isset( $record['fields'] ) && is_array( $record['fields'] ) ? $record['fields'] : array();
+			$links = WPCPM_Airtable::link_ids( isset( $cells['Institutions Onboarding'] ) ? $cells['Institutions Onboarding'] : array() );
+
+			if ( ! in_array( $institution, $links, true ) ) {
+				continue;
+			}
+
+			$name = trim( WPCPM_Airtable::flatten( isset( $cells['Name'] ) ? $cells['Name'] : '' ) );
+
+			if ( '' !== $name && ! in_array( $name, $names, true ) ) {
+				$names[] = $name;
+			}
+		}
+
+		sort( $names );
+		set_transient( $key, $names, 12 * HOUR_IN_SECONDS );
+
+		return $names;
+	}
+
+	/**
 	 * Register the batch post type.
 	 *
 	 * Private, unqueryable, and mapped to a capability type nothing is granted, so these are
