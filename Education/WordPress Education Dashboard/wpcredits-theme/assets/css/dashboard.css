@@ -938,6 +938,24 @@
 	padding: 16px 18px;
 }
 
+/*
+ * **On the Institution Dashboard that 32px is the second one, and it shows.**
+ *
+ * The Mentor Report Card puts its groups straight into the card, so the inset above is what
+ * holds them off the card's edge and it is the only one they get. The institution page puts
+ * everything inside a section that is already inset by 32px, so a group summary lands at 64
+ * while the heading above it, the filter bar, the cohort strip, the student cards, the people
+ * rows and the agreement panel all sit at 32. One thing on the page stepped right, and it was
+ * the row a reader clicks.
+ *
+ * Measured before this rule: every one of those at 353, the summaries alone at 385.
+ */
+.wpc-institution-page .wpcpm-group__summary,
+.wpc-institution-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
+	margin-left: 0;
+	margin-right: 0;
+}
+
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every
    group's margin so the mentor page's headings sit where its inset expects them. A group
    that is a pressed row rather than a heading needs to be told apart from the next one. */
