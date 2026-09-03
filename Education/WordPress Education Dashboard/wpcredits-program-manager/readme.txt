@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.83.0
+Stable tag: 1.84.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.84.0 =
+* A student's mentor and contribution team appear on an institution's roster whether or not that student has ever signed in here. Both live on the Students Reports row and were read only through the student's WordPress account, so a school saw them for the handful of students who happen to hold an account and nothing for the rest: at one university, two rows of fifteen. The sync has both values in hand when it joins the two tables and now writes them into the roster index. Where a student does hold an account, that copy is still preferred, being the fresher of the two between runs.
+* The mentor column no longer tells a school its student is further behind than they are. An empty mentor name has two causes, and the cell named only one of them: it said the report record had not been created yet, while the index was holding that record's ID. It now says which of the two it is.
+* The roster index carries two more columns, so a stored copy from before this release is discarded and rebuilt on the next sync rather than rendering half a row.
 
 = 1.83.0 =
 * Provisioning no longer adopts an account that belongs to somebody else. An account found by email carrying another module's record stamp, or a role this program did not give it, is a conflict rather than a match: it is counted, named in the run report, and left alone. Without this, an institution importing a mentor's or a colleague's address would have had that person's account turned into a student on their roster at the next sync, opening their Student Report Card to a school they have nothing to do with.

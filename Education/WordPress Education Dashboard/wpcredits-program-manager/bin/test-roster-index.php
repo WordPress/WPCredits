@@ -93,7 +93,7 @@ function ck( $label, $actual, $expected ) {
 
 $inst_a = 'recINSTAAA0000001';
 $inst_b = 'recINSTBBB0000001';
-$empty  = array( 'v' => 1, 'read' => 0, 'rows' => array() );
+$empty  = array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 0, 'rows' => array() );
 
 /**
  * A row as the sync hands it over, with two keys the index must drop.
@@ -137,14 +137,18 @@ ck( 'a string that is not a record ID reads as the empty shape too', WPCPM_Roste
 ck( 'the unlinked list starts empty', WPCPM_Roster_Index::unlinked(), array() );
 ck( 'and so do the counts, in their own shape',
 	WPCPM_Roster_Index::counts(),
-	array( 'v' => 1, 'read' => 0, 'institutions' => array(), 'reconciliation' => array() ) );
+	array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 0, 'institutions' => array(), 'reconciliation' => array() ) );
 ck( 'the option name is the prefix and the record', WPCPM_Roster_Index::option_name( $inst_a ), 'wpcpm_roster_' . $inst_a );
 
 echo "\n=== Another version's envelope is discarded ===\n";
 
-$GLOBALS['opts'][ 'wpcpm_roster_' . $inst_a ] = array( 'v' => 2, 'read' => 5, 'rows' => array( 'recSTUDENT0000001' => array( 'record_id' => 'recSTUDENT0000001' ) ) );
+// Any version but this one, so a bump does not turn this assertion red and invite somebody to
+// edit the number rather than think about what the bump means. A stored roster written under a
+// different shape is thrown away and the next sync writes it again, which is the whole point:
+// the keys a row carries changed, and half-shaped rows would render as missing data.
+$GLOBALS['opts'][ 'wpcpm_roster_' . $inst_a ] = array( 'v' => WPCPM_Roster_Index::VERSION + 1, 'read' => 5, 'rows' => array( 'recSTUDENT0000001' => array( 'record_id' => 'recSTUDENT0000001' ) ) );
 
-ck( 'a roster written by version 2 reads as empty', WPCPM_Roster_Index::read( $inst_a ), $empty );
+ck( 'a roster written by another version reads as empty', WPCPM_Roster_Index::read( $inst_a ), $empty );
 
 $GLOBALS['opts'][ 'wpcpm_roster_' . $inst_a ] = 'garbage';
 
@@ -154,7 +158,7 @@ $GLOBALS['opts'][ WPCPM_Roster_Index::OPTION_COUNTS ] = array( 'v' => 0, 'read' 
 
 ck( 'counts from another version are discarded', WPCPM_Roster_Index::counts()['institutions'], array() );
 
-$GLOBALS['opts'][ WPCPM_Roster_Index::OPTION_UNLINKED ] = array( 'v' => 1, 'read' => 5, 'rows' => array( 'recSTUDENT0000009' => array( 'record_id' => 'recSTUDENT0000009' ) ) );
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPTION_UNLINKED ] = array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 5, 'rows' => array( 'recSTUDENT0000009' => array( 'record_id' => 'recSTUDENT0000009' ) ) );
 
 ck( 'this version\'s unlinked rows read back',
 	array_keys( WPCPM_Roster_Index::unlinked() ), array( 'recSTUDENT0000009' ) );
@@ -192,7 +196,7 @@ WPCPM_Roster_Index::write_all(
 $a = get_option( 'wpcpm_roster_' . $inst_a );
 
 ck( 'institution A got its option', is_array( $a ), true );
-ck( 'stamped with the version and the read time', array( $a['v'], $a['read'] ), array( 1, 1700000000 ) );
+ck( 'stamped with the version and the read time', array( $a['v'], $a['read'] ), array( WPCPM_Roster_Index::VERSION, 1700000000 ) );
 ck( 'rows keyed by Students record ID, the bogus one dropped',
 	array_keys( $a['rows'] ), array( 'recSTUDENT0000001', 'recSTUDENT0000002' ) );
 
@@ -220,7 +224,7 @@ ck( 'the unlinked rows are written', array_keys( WPCPM_Roster_Index::unlinked() 
 ck( 'with the same read time', get_option( WPCPM_Roster_Index::OPTION_UNLINKED )['read'], 1700000000 );
 ck( 'the counts are written whole',
 	WPCPM_Roster_Index::counts(),
-	array( 'v' => 1, 'read' => 1700000000, 'institutions' => $counts, 'reconciliation' => $recon ) );
+	array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 1700000000, 'institutions' => $counts, 'reconciliation' => $recon ) );
 ck( 'four options, every one with autoload off',
 	array( count( $GLOBALS['autoload'] ), array_values( array_unique( $GLOBALS['autoload'] ) ) ),
 	array( 4, array( false ) ) );
@@ -236,7 +240,7 @@ WPCPM_Roster_Index::write_all(
 );
 
 ck( 'B, known from last run\'s counts, is rewritten empty',
-	WPCPM_Roster_Index::read( $inst_b ), array( 'v' => 1, 'read' => 1700000100, 'rows' => array() ) );
+	WPCPM_Roster_Index::read( $inst_b ), array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 1700000100, 'rows' => array() ) );
 ck( 'A keeps its row', array_keys( WPCPM_Roster_Index::rows( $inst_a ) ), array( 'recSTUDENT0000001' ) );
 ck( 'the unlinked list is now empty', WPCPM_Roster_Index::unlinked(), array() );
 

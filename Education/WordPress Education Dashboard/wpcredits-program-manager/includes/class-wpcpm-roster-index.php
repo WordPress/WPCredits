@@ -37,7 +37,7 @@ class WPCPM_Roster_Index {
 	const OPTION_COUNTS = 'wpcpm_roster_counts';
 
 	/** Envelope version; an option written by another version is discarded on read. */
-	const VERSION = 1;
+	const VERSION = 2;
 
 	/**
 	 * The keys a row holds, in the order they are stored.
@@ -59,6 +59,15 @@ class WPCPM_Roster_Index {
 		'username',
 		'field_of_study',
 		'tutor',
+		// **Both are on the Students Reports row, and both used to be read only off the
+		// student's WordPress account.** That meant a school saw a mentor's name and a
+		// contribution team for the two students in a cohort who happen to have signed in
+		// here, and nothing for the other thirteen: at one university, thirteen of fifteen
+		// rows said "A mentor is assigned. The report record has not been created yet." about
+		// students whose report record this very index was already holding. The sync has both
+		// values in hand when it joins the two tables, so it writes them here.
+		'mentor_name',
+		'team',
 		'import_key',
 		'reports',
 		'user_id',

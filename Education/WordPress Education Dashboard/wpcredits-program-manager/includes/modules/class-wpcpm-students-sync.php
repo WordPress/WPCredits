@@ -836,6 +836,11 @@ class WPCPM_Students_Sync {
 				'field_of_study' => $study,
 				'tutor'          => $tutor,
 				'import_key'     => $read( 'student_import_key' ),
+				// Filled by `phase_provision()` from the reports row this student joins to,
+				// which is the only place either value exists. Declared here so every row has
+				// the same shape whether or not that join finds anything.
+				'mentor_name'    => '',
+				'team'           => '',
 				// Both filled by `phase_provision()`, which is where the reports and the
 				// accounts are; declared here so every row has the same shape.
 				'reports'        => array(),
@@ -1069,6 +1074,27 @@ class WPCPM_Students_Sync {
 			// two rows are already joined by address, so it costs no read.
 			if ( '' === (string) $state['rows'][ $record_id ]['username'] && ! empty( $student['username'] ) ) {
 				$state['rows'][ $record_id ]['username'] = (string) $student['username'];
+			}
+
+			// The team, from the same row and for the same reason: it is a Students Reports
+			// column, and the roster was reading it off the student's WordPress account, which
+			// most students on a school's roster do not have.
+			if ( '' === (string) $state['rows'][ $record_id ]['team'] && ! empty( $student['team'] ) ) {
+				$state['rows'][ $record_id ]['team'] = (string) $student['team'];
+			}
+
+			// The mentor's name, through the catalog the mentors phase built. That phase runs
+			// before this one, so the map is complete by now; a mentor the run could not read
+			// leaves the name empty, and the roster says a mentor is assigned without naming
+			// them rather than inventing a reason there is none.
+			$mentor_id = isset( $student['mentor_id'] ) ? (string) $student['mentor_id'] : '';
+
+			if ( '' === (string) $state['rows'][ $record_id ]['mentor_name'] && '' !== $mentor_id ) {
+				$mentor = isset( $state['mentors'][ $mentor_id ] ) ? $state['mentors'][ $mentor_id ] : array();
+
+				if ( ! empty( $mentor['name'] ) ) {
+					$state['rows'][ $record_id ]['mentor_name'] = (string) $mentor['name'];
+				}
 			}
 		}
 

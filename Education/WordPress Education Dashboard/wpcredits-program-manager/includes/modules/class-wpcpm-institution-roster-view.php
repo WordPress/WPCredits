@@ -866,6 +866,17 @@ class WPCPM_Institution_Roster_View {
 			return ( is_array( $block ) && isset( $block[ $key ] ) && is_scalar( $block[ $key ] ) ) ? trim( (string) $block[ $key ] ) : '';
 		};
 
+		// **The index first, the account second.** Both of these live on the Students Reports
+		// row, and this page used to read them only through the student's WordPress account -
+		// which most students on a school's roster do not have. At one university that meant
+		// two rows of fifteen named a mentor and the other thirteen said a mentor was assigned
+		// but the report record did not exist yet, about students whose report record the index
+		// was holding at the time. The account is still preferred where there is one, because
+		// it is written by the same sync and is the fresher of the two when a student edits
+		// their own report between runs.
+		$mentor_name = '' !== $cached( $mentor, 'name' ) ? $cached( $mentor, 'name' ) : $get( 'mentor_name' );
+		$team        = '' !== $cached( $program, 'team' ) ? $cached( $program, 'team' ) : $get( 'team' );
+
 		$name = $get( 'name' );
 
 		if ( '' === $name ) {
@@ -891,13 +902,13 @@ class WPCPM_Institution_Roster_View {
 			'students|Status'                => self::program_cell( $cached( $program, 'program' ), $get( 'status' ) ),
 			'students|Start Date'            => self::dates_cell( $get( 'start' ), $end ),
 			'students|End Date'              => self::days_cell( $end ),
-			'students|Mentor'                => self::mentor_cell( $cached( $mentor, 'name' ), ! empty( $row['has_mentor'] ) ),
+			'students|Mentor'                => self::mentor_cell( $mentor_name, ! empty( $row['has_mentor'] ), ! empty( $row['reports'] ) ),
 			'students|WP Profile'            => '' === $username ? '' : sprintf(
 				'<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>',
 				esc_url( 'https://profiles.wordpress.org/' . rawurlencode( $username ) . '/' ),
 				esc_html( $username )
 			),
-			'reports|Main Contribution Team' => esc_html( $cached( $program, 'team' ) ),
+			'reports|Main Contribution Team' => esc_html( $team ),
 			'reports|Personal Website URL'   => self::website_cell( $cached( $program, 'website' ) ),
 			'students|Your field of study'   => esc_html( $get( 'field_of_study' ) ),
 			'students|Tutor '                => esc_html( $get( 'tutor' ) ),
@@ -1075,20 +1086,31 @@ class WPCPM_Institution_Roster_View {
 	 * that creates the report record, the second is waiting on the program.
 	 *
 	 * @param string $name       The mentor's name from the cached card, if there is one.
-	 * @param bool   $has_mentor Whether the Students row links a mentor.
+	 * @param bool   $has_mentor  Whether the Students row links a mentor.
+	 * @param bool   $has_report  Whether the index knows of a Students Reports row.
 	 * @return string
 	 */
-	private static function mentor_cell( $name, $has_mentor ) {
+	private static function mentor_cell( $name, $has_mentor, $has_report = false ) {
 		if ( '' !== $name ) {
 			return esc_html( $name );
 		}
 
+		if ( ! $has_mentor ) {
+			return sprintf( '<span class="wpcpm-muted">%s</span>', esc_html__( 'No mentor yet.', 'wpcredits-program-manager' ) );
+		}
+
+		// **An empty name has two causes and the sentence used to name only one of them.** It
+		// said the report record had not been created yet, which for most rows was simply
+		// untrue: the index was holding that record's ID while the sentence denied it. The
+		// missing thing was the name, not the record. Saying which of the two it is costs one
+		// value the row already carries, and getting it wrong tells a school its student is
+		// further behind than they are.
 		return sprintf(
 			'<span class="wpcpm-muted">%s</span>',
 			esc_html(
-				$has_mentor
-					? __( 'A mentor is assigned. The report record has not been created yet.', 'wpcredits-program-manager' )
-					: __( 'No mentor yet.', 'wpcredits-program-manager' )
+				$has_report
+					? __( 'A mentor is assigned. Their name has not reached this page yet.', 'wpcredits-program-manager' )
+					: __( 'A mentor is assigned. The report record has not been created yet.', 'wpcredits-program-manager' )
 			)
 		);
 	}
