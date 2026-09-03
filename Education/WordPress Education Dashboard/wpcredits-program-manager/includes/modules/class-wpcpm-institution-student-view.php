@@ -12,7 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * The card behind a name on the roster, at `?wpcpm_institution_student=<user id>`.
  *
- * Four rules shape it, and each of them is an assertion in `bin/test-institution-student-view.php`.
+ * Six rules shape it. The first four are assertions in `bin/test-institution-student-view.php`;
+ * the two about the controls hanging off the card are in `bin/test-student-view-controls.php`.
  *
  * **The fence is asked here, not taken from the caller.** `decide( ACT_VIEW_STUDENT )` on the
  * student's own account stamp, every render, whoever called it and whatever they passed in the
@@ -42,6 +43,18 @@ if ( ! defined( 'ABSPATH' ) ) {
  * this file can see. Grades live in it, and this is the one screen an institution meets them on.
  * It arrives with the calendar stylesheet, which is where the rules for that markup live: one
  * copy of the report's markup wants one copy of its dress, not a second in institution.css.
+ *
+ * **Two controls hang off the card, and neither of them belongs to this file.** The single
+ * student export is `WPCPM_Institution_Export`'s, drawn as a link when `decide( ACT_EXPORT )`
+ * allows it; graduate and withdraw are `WPCPM_Institution_Students`', drawn by calling its own
+ * renderer. Every rule about either - which states are offered, that a `Paused` student is
+ * refused by name, what the confirm dialog says, how the nonces are keyed - lives in those two
+ * classes, and this file decides nothing about them beyond where they go.
+ *
+ * **Where they go is a rule of its own.** The export is a quiet link inside the card. The status
+ * card is the only thing on this page that cannot be taken back - it moves `Status` on the
+ * Students table and the program records answer that with mail nobody can recall - so it is
+ * drawn last, after the card closes, and nobody meets it on the way to something they came for.
  */
 class WPCPM_Institution_Student_View {
 
@@ -145,9 +158,16 @@ class WPCPM_Institution_Student_View {
 		echo '</tbody></table>';
 
 		self::render_report( $student );
+		self::render_export( $user_id );
 		self::render_footer( $record_id, $user_id, $context );
 
 		echo '</section>';
+
+		// Last, and outside the card, for two reasons. It is the one control on this page that
+		// cannot be taken back, so it sits past everything a reader came here for rather than
+		// between them and it. And `render_form()` prints a `wpcpm-institution__card` box of its
+		// own, so drawing it inside this one would put two card borders around a single block.
+		self::render_status( $student, $program, $row );
 	}
 
 	/**
@@ -157,13 +177,21 @@ class WPCPM_Institution_Student_View {
 	 * user ID cheap: nothing is fetched, and an account with no stamp belongs to nobody but a
 	 * program manager.
 	 *
+	 * The action is a parameter because this page draws more than one thing and they are not
+	 * one permission: the card is `ACT_VIEW_STUDENT` and the export link is `ACT_EXPORT`. Both
+	 * grounds shipped today answer the two the same way, so nothing on a live site turns on
+	 * this; it is asked separately because `WPCPM_Institution_Export::handle_student()` asks
+	 * `ACT_EXPORT` when the link is followed, and a ground that one day allows reading a card
+	 * without allowing it to be carried away has to close the link and the handler together.
+	 *
 	 * @param int              $user_id The student's account.
 	 * @param int|WP_User|null $user    The reader; null for the current one.
+	 * @param string           $action  One of the policy's ACT_* constants; viewing the card by default.
 	 * @return array What decide() returned.
 	 */
-	private static function decision( $user_id, $user = null ) {
+	private static function decision( $user_id, $user = null, $action = WPCPM_Institution_Policy::ACT_VIEW_STUDENT ) {
 		return WPCPM_Institution_Policy::decide(
-			WPCPM_Institution_Policy::ACT_VIEW_STUDENT,
+			$action,
 			WPCPM_Institution_Policy::subject_student_account( $user_id ),
 			$user
 		);
@@ -616,6 +644,91 @@ class WPCPM_Institution_Student_View {
 			esc_html__( 'Student Report Card', 'wpcredits-program-manager' ),
 			esc_html__( 'Loading…', 'wpcredits-program-manager' ),
 			esc_html__( 'This one needs JavaScript: the Student Report Card is read from the program records when you open it, so that a roster of forty students does not read forty reports nobody asked for.', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * The single-student export, as a quiet link.
+	 *
+	 * A link and not a button: it takes nothing away and changes nothing, and the file it
+	 * fetches is this card plus the course grades - which, with the disclosure above it, is
+	 * the only place an institution meets a grade at all (design spec 7.5).
+	 *
+	 * Asked with `ACT_EXPORT` and not borrowed from the decision that drew the card, for the
+	 * reason `decision()` gives. Nothing is drawn when it is refused, never a disabled control
+	 * with an explanation beside it: why one reader may take a file and another may not is the
+	 * policy's business, and a page that answered it would be answering a question about
+	 * somebody else's membership.
+	 *
+	 * There is no `scope()` call here, unlike the table above, because there is no one cell
+	 * whose absence would mean "no file": the columns are narrowed inside
+	 * `WPCPM_Institution_Export::student_matrix()`, against the decision that handler makes for
+	 * itself on the live Students row, and a decision permitting no column refuses there.
+	 *
+	 * Guarded rather than called outright, for the reason `WPCPM_Student_Report_Form` guards
+	 * this module's classes on the report route: this file is not the one that decides which
+	 * files a site has loaded, and a card that lost its download link is a smaller failure than
+	 * a fatal on the one page a school reads.
+	 *
+	 * @param int $user_id The student's account.
+	 */
+	private static function render_export( $user_id ) {
+		$user_id = (int) $user_id;
+
+		if ( ! class_exists( 'WPCPM_Institution_Export' ) ) {
+			return;
+		}
+
+		$decision = self::decision( $user_id, null, WPCPM_Institution_Policy::ACT_EXPORT );
+
+		if ( empty( $decision['allowed'] ) ) {
+			return;
+		}
+
+		// The account on screen and never the reader's own: `student_url()` keys its nonce to
+		// the user ID it is handed, so `get_current_user_id()` here would mint a token for
+		// exporting the member who is looking rather than the student they are looking at.
+		printf(
+			'<p class="wpcpm-institution__student-export"><a href="%1$s">%2$s</a></p>',
+			esc_url( WPCPM_Institution_Export::student_url( $user_id ) ),
+			esc_html__( 'Download this student\'s details and course grades as a CSV file', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * Graduate and withdraw, drawn by the class that owns them.
+	 *
+	 * Every rule about these two is `WPCPM_Institution_Students`': which states are offered,
+	 * that a `Paused` student is refused by name and told why, that the confirm dialog names
+	 * the mail the program records send, how each nonce is keyed to one record and one state,
+	 * and whether to draw anything at all. Not one of them is repeated here, and that includes
+	 * the last: `render_form()` is called for a student with no Students record too, and left
+	 * to say so itself. A second copy of a rule about a write that mails a student is the copy
+	 * that goes stale.
+	 *
+	 * **The Students record, and not the Students Reports one.**
+	 * `WPCPM_Mentor_Calls::student_record()` answers with the reports record - it is what the
+	 * disclosure above is keyed to, and what `handle_student()` claims as `TYPE_REPORT` - while
+	 * `handle_change()` claims this one as `TYPE_STUDENT` against the Students table. Handing
+	 * the reports ID over would key both nonces to a record that claim cannot find, so the two
+	 * buttons would draw and neither would work. The Students ID is on the roster index row,
+	 * under `record_id`, which is also the key `render_form()` looks that row up by.
+	 *
+	 * @param WP_User $student The student.
+	 * @param array   $program Their cached program row.
+	 * @param array   $row     Their roster index row.
+	 */
+	private static function render_status( WP_User $student, array $program, array $row ) {
+		if ( ! class_exists( 'WPCPM_Institution_Students' ) ) {
+			return;
+		}
+
+		WPCPM_Institution_Students::render_form(
+			isset( $row['record_id'] ) ? (string) $row['record_id'] : '',
+			// The name this card already resolved across the account, the cached row and the
+			// index, so the confirm dialog names the student the way the heading above it does
+			// rather than working out a fourth answer of its own.
+			array( 'name' => self::name( $student, $program, $row ) )
 		);
 	}
 

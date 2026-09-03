@@ -49,6 +49,11 @@ $GLOBALS['opts']   = array(
 );
 $GLOBALS['umeta']  = array();
 $GLOBALS['allowed'] = true;
+// Actions the fence refuses while everything else is allowed. The real policy answers each
+// action off its own row of grounds(), so "reads the roster" and "may export it" are
+// separately answerable questions however alike their answers happen to be today. This is
+// what lets the export control be tested against the answer it is actually drawn from.
+$GLOBALS['refuse'] = array();
 
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '';
@@ -122,6 +127,13 @@ function remove_query_arg( $keys, $url = null ) {
 	foreach ( (array) $keys as $k ) { unset( $args[ $k ] ); }
 	return wpcpm_test_join( $path, $args );
 }
+function admin_url( $path = '' ) { return 'https://example.test/wp-admin/' . $path; }
+// The nonce is a readable stand-in rather than a hash, so an assertion can say which action
+// the link was keyed to. That is the property that matters here: a link keyed to something
+// else is a link `check_admin_referer()` throws out.
+function wp_nonce_url( $url, $action = -1, $name = '_wpnonce' ) {
+	return add_query_arg( $name, 'nonce-' . $action, $url );
+}
 
 /* ---- the other pieces, stubbed to their contracts ------------------------ */
 
@@ -148,16 +160,18 @@ class WPCPM_Students_Sync {
 /** The fence. Every call is recorded, so the roster's own decide() can be asserted. */
 class WPCPM_Institution_Policy {
 	const ACT_VIEW_ROSTER = 'view_roster';
+	const ACT_EXPORT      = 'export';
 	public static function subject_institution( $record_id ) {
 		return array( 'type' => 'institution', 'id' => (string) $record_id, 'institution_ids' => array( (string) $record_id ), 'evidence' => 'index' );
 	}
 	public static function decide( $action, array $subject, $user = null ) {
 		$GLOBALS['decisions'][] = array( $action, $subject['id'] );
+		$allowed                = $GLOBALS['allowed'] && ! in_array( $action, $GLOBALS['refuse'], true );
 		return array(
-			'allowed'     => (bool) $GLOBALS['allowed'],
-			'ground'      => $GLOBALS['allowed'] ? 'member' : '',
-			'institution' => $GLOBALS['allowed'] ? (string) $subject['id'] : '',
-			'fields'      => $GLOBALS['allowed'] ? null : array(),
+			'allowed'     => $allowed,
+			'ground'      => $allowed ? 'member' : '',
+			'institution' => $allowed ? (string) $subject['id'] : '',
+			'fields'      => $allowed ? null : array(),
 			'why'         => '',
 		);
 	}
@@ -221,14 +235,25 @@ class WPCPM_Roster_Index {
 	}
 }
 
+/** The switcher's argument lives on the dashboard class; the export link reads it from there. */
+class WPCPM_Institution_Roster {
+	const ARG_VIEW = 'wpcpm_institution_view';
+}
+
+// `WPCPM_Institution_Export` is deliberately *not* stubbed here. It is declared further down,
+// inside a conditional so PHP cannot early-bind it, which is what lets the first assertions
+// run in a process where the export module genuinely does not exist.
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php';
 
-$fail = 0;
+$fail  = 0;
+$total = 0;
 function ck( $label, $actual, $expected ) {
-	global $fail;
+	global $fail, $total;
+	++$total;
 	$ok = $actual === $expected;
 	if ( ! $ok ) { $fail++; }
 	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
@@ -261,6 +286,23 @@ function options( $html, $name ) {
 function chosen( $html, $name ) {
 	if ( ! preg_match( '/<select name="' . preg_quote( $name, '/' ) . '"[^>]*>(.*?)<\/select>/s', $html, $m ) ) { return null; }
 	return preg_match( "/<option value=\"([^\"]*)\" selected='selected'/", $m[1], $s ) ? $s[1] : '';
+}
+
+/** The actions paragraph of the filter bar: the Show button and whatever sits beside it. */
+function actions( $html ) {
+	return preg_match( '/<p class="wpcpm-roster__actions">(.*?)<\/p>/s', $html, $m ) ? $m[1] : '';
+}
+
+/** The export link's address with its entities decoded, or '' when there is no export link. */
+function export_href( $html ) {
+	if ( ! preg_match( '/<a class="wpcpm-roster__export" href="([^"]*)"/', $html, $m ) ) { return ''; }
+	return html_entity_decode( $m[1], ENT_QUOTES, 'UTF-8' );
+}
+
+/** The export link's query arguments. */
+function export_args( $html ) {
+	list( , $args ) = wpcpm_test_split( export_href( $html ) );
+	return $args;
 }
 
 /** Every table row of one group, as plain markup. */
@@ -373,11 +415,55 @@ $GLOBALS['umeta'][21] = array(
 
 $GLOBALS['unlinked'] = array( $A => array() );
 
+echo "=== Before the export module is loaded ===\n";
+
+// `wpcredits-program-manager.php` requires this view before it requires the export module, so
+// there is a window in which `WPCPM_Institution_Export` does not exist. A renderer that assumed
+// otherwise would take the whole dashboard down with a fatal, where leaving one link out costs
+// a school a convenience. These three run first because nothing has declared the stub yet.
+$no_module = render();
+
+ck( 'with no export module the control is simply absent', has( $no_module, 'wpcpm-roster__export' ), false );
+ck( 'and the roster is drawn anyway rather than fatalling', has( $no_module, 'Ada Example' ), true );
+ck( 'and the fence is not asked about an export nothing could perform',
+	$GLOBALS['decisions'], array( array( 'view_roster', $A ) ) );
+
+// Declared here, and inside a conditional so PHP cannot early-bind it: an unconditional
+// top-level class is available from the first line of the script, which would make the three
+// assertions above untestable in a single process.
+if ( ! class_exists( 'WPCPM_Institution_Export' ) ) {
+	/**
+	 * The export module, stubbed to `roster_url()`'s contract and to nothing else.
+	 *
+	 * The real class is `includes/modules/class-wpcpm-institution-export.php`, which this test
+	 * does not load: it reaches Airtable through several classes this file has no stand-ins
+	 * for. What is reproduced is exactly what the roster view leans on - a nonced
+	 * `admin-post.php` address carrying the cohort and the manager's switcher, naming no
+	 * institution at all, because `handle_roster()` resolves that for itself.
+	 */
+	class WPCPM_Institution_Export {
+		const ACTION_ROSTER = 'wpcpm_export_roster';
+		const ARG_COHORT    = 'wpcpm_cohort';
+
+		public static function roster_url( $cohort = '' ) {
+			$args = array( 'action' => self::ACTION_ROSTER );
+
+			if ( WPCPM_Cohort::is_key( $cohort ) ) { $args[ self::ARG_COHORT ] = (string) $cohort; }
+
+			$view = WPCPM_Request::text( WPCPM_Institution_Roster::ARG_VIEW );
+
+			if ( '' !== $view ) { $args[ WPCPM_Institution_Roster::ARG_VIEW ] = $view; }
+
+			return wp_nonce_url( add_query_arg( $args, admin_url( 'admin-post.php' ) ), self::ACTION_ROSTER );
+		}
+	}
+}
+
 $html = render();
 
-echo "=== The fence, and the shape of the page ===\n";
+echo "\n=== The fence, and the shape of the page ===\n";
 
-ck( 'the roster asks the fence before it draws anything', $GLOBALS['decisions'], array( array( 'view_roster', $A ) ) );
+ck( 'the roster asks the fence before it draws anything', $GLOBALS['decisions'][0], array( 'view_roster', $A ) );
 ck( 'a malformed record draws nothing at all', render( array(), 'krakow' ), '' );
 
 $GLOBALS['allowed'] = false;
@@ -644,6 +730,106 @@ $GLOBALS['opts']['permalink_structure'] = '/%postname%/';
 ck( 'and without them it carries one, as the mentor switcher does',
 	has( $plain, '<input type="hidden" name="page_id" value="12" />' ), true );
 
+echo "\n=== The roster export ===\n";
+
+$exporting = render();
+
+// Two decisions and not one. `view_roster` and `export` are separate rows of the policy's
+// grounds(); today they carry the same grounds, so this only ever agrees with the first, and
+// that is exactly why it has to be asked rather than assumed. handle_roster() decides on its
+// own ACT_EXPORT call, so the day either row is narrowed a renderer reading the other would
+// leave a link whose only destination is that handler's refusal page.
+ck( 'the control asks the fence for its own action, on this institution',
+	$GLOBALS['decisions'], array( array( 'view_roster', $A ), array( 'export', $A ) ) );
+ck( 'and draws the link when the answer is yes', has( $exporting, 'class="wpcpm-roster__export"' ), true );
+
+// Beside Show, in the paragraph the spec puts the roster's actions in, rather than adrift
+// above the groups where it would read as a heading.
+ck( 'it sits in the actions paragraph beside Show',
+	array( has( actions( $exporting ), '>Show</button>' ), has( actions( $exporting ), 'wpcpm-roster__export' ) ),
+	array( true, true ) );
+
+// The export is a GET. A second submit button inside this form would post the filter bar's own
+// fields back to this page and never reach admin-post.php at all.
+ck( 'and is a link, so the filter form still has exactly one button', substr_count( actions( $exporting ), '<button' ), 1 );
+
+// The divergence itself: a reader the fence allows the roster and refuses the export. No
+// shipped ground produces it today, which is why it is worth holding a fixture at: the whole
+// value of drawing this control from ACT_EXPORT is what happens on the release that does.
+$GLOBALS['refuse'] = array( 'export' );
+$unsettled         = render();
+$GLOBALS['refuse'] = array();
+
+ck( 'a reader the fence refuses an export is offered no control', has( $unsettled, 'wpcpm-roster__export' ), false );
+ck( 'though their roster is drawn as before', has( $unsettled, 'Ada Example' ), true );
+
+$GLOBALS['allowed'] = false;
+$refused_all        = render();
+$GLOBALS['allowed'] = true;
+
+ck( 'and a viewer refused the roster is offered no file of it either', has( $refused_all, 'wpcpm-roster__export' ), false );
+
+// The whole address, because every part of it matters: the admin-post action, the cohort, and
+// a nonce keyed to that action rather than to some other one check_admin_referer() would throw
+// out.
+ck( 'the link is a nonced admin-post address keyed to the roster export',
+	export_href( $exporting ),
+	'https://example.test/wp-admin/admin-post.php?action=wpcpm_export_roster&wpcpm_cohort=2026-H1&_wpnonce=nonce-wpcpm_export_roster' );
+
+// Design spec 5.5: a member's own stamp or a manager's switcher, resolved by the handler. An
+// institution that arrived inside a link is an institution nobody answered for.
+ck( 'and it names no institution, which handle_roster() resolves for itself',
+	false !== strpos( export_href( $exporting ), $A ), false );
+
+$older_export = render( array( 'wpcpm_cohort' => '2025-H1' ) );
+$none_export  = render( array( 'wpcpm_cohort' => 'none' ) );
+
+ck( 'the cohort on screen travels, so the file is the semester being read',
+	export_args( $older_export )['wpcpm_cohort'] ?? null, '2025-H1' );
+ck( 'and No start date is a cohort the file can be of, like any other',
+	export_args( $none_export )['wpcpm_cohort'] ?? null, 'none' );
+
+$searched = render( array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_search' => 'ada' ) );
+
+// roster_matrix() narrows by cohort and by nothing else, so a search that leaves one student on
+// the page leaves all five in the file. That is why the label says "this cohort": a link
+// promising "these students" would hand a school the other four without saying so.
+ck( 'the search does not travel, because it does not narrow the file',
+	export_args( $searched ),
+	array( 'action' => 'wpcpm_export_roster', 'wpcpm_cohort' => '2026-H1', '_wpnonce' => 'nonce-wpcpm_export_roster' ) );
+ck( 'and the label says which of the two the file is',
+	has( $searched, '>Download this cohort (CSV)</a>' ), true );
+
+$switched = render( array( 'wpcpm_institution_view' => $B ), $B, array( 'can_manage' => true ) );
+
+// resolve_institution() reads this argument on the manager branch only. Without it a manager
+// reading school B through the switcher would press Download and get school A's students, under
+// a filename naming A.
+ck( "a manager's switcher travels, or the file is of the other school",
+	export_args( $switched )['wpcpm_institution_view'] ?? null, $B );
+
+$member_stray = render( array( 'wpcpm_institution_view' => $B ) );
+
+// **The subject the fence is asked about is the caller's, never the request's.** Design spec
+// 5.5 forbids reading it out of a query string, and until this assertion existed nothing
+// proved it: a reviewer swapped `subject_institution( $record_id )` for
+// `subject_institution( WPCPM_Request::text( self::ARG_VIEW, $record_id ) )` - the forbidden
+// shape exactly - and all 115 checks stayed green, because the only render that pinned the
+// subject carried no switcher at all. This one carries a switcher naming another school and
+// still expects both questions to be asked about this reader's own.
+ck( 'a stray switcher does not become the subject of either question',
+	$GLOBALS['decisions'], array( array( 'view_roster', $A ), array( 'export', $A ) ) );
+
+// The filter form refuses to echo a member's stray switcher back into its own links, and the
+// export link does carry one, because roster_url() reads the argument out of the request for
+// itself. It is inert: resolve_institution() only consults it on the manager branch, so a
+// member still gets their own institution's file. Pinned so the difference between the two
+// links is a decision on the record rather than something nobody noticed.
+ck( "a member's stray switcher rides along in the export link, where the handler ignores it",
+	export_args( $member_stray )['wpcpm_institution_view'] ?? null, $B );
+ck( 'while their filter form still refuses to carry one',
+	has( $member_stray, 'name="wpcpm_institution_view"' ), false );
+
 echo "\n=== Days left ===\n";
 
 $GLOBALS['index'][ $A ]['rows']['recSTU00000000001']['end'] = $GLOBALS['today'];
@@ -661,5 +847,5 @@ ck( 'a date that never existed is not a number of days',
 
 $GLOBALS['index'][ $A ]['rows']['recSTU00000000001']['end'] = '2026-09-30';
 
-echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

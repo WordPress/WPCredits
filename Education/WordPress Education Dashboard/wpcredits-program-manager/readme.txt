@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.84.1
+Stable tag: 1.85.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.85.0 =
+* An institution can send a list of students to be enrolled. Choose the program and the term once, then add one student through five boxes or send a CSV, and the site reads it and shows what it understood before anything is created: which rows are ready, which are already on your roster, which cannot be imported from here, and which could not be read and why. Nothing is created yet; that is the next release, and the screen says so. The whole section is behind a setting that is off by default.
+* The file is read and never stored. It is refused rather than converted when it is not UTF-8, because guessing an encoding wrong spells somebody's name wrong on a record that is then created, synced and printed on a certificate. A start date more than a year from today is refused as a typo, since a whole cohort filed under the wrong year is unpicked a record at a time.
+* The roster carries a download control, and one student's card carries its own. Both are drawn only for a reader the fence would allow to follow them, and the roster's file matches the cohort on screen.
+* An institution can mark a student graduated or withdrawn from that student's card. The control is the last thing on the page, because it is the one thing there that cannot be taken back.
 
 = 1.84.1 =
 * A student's personal website appears on the roster whether or not they have signed in here. It was the last column still read only through the student's WordPress account, after the profile, the mentor and the team. The four are now filled from one list in the sync, so a fifth is a line rather than another round of somebody spotting a blank cell.

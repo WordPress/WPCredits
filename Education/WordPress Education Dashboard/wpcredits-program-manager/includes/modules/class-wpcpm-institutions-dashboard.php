@@ -395,6 +395,11 @@ class WPCPM_Institutions_Dashboard {
 
 		if ( ! $locked ) {
 			self::card( 'WPCPM_Institution_Roster_View', $record, $context );
+			// After the roster and before the people: a school enrolling students has just
+			// read the list it is adding to, and the question the form answers is the one they
+			// arrived with. It draws nothing at all unless the site takes imports, so on every
+			// site that has not switched them on this line costs one method call.
+			self::card( 'WPCPM_Institution_Import_Form', $record, $context );
 			self::card( 'WPCPM_Institution_People', $record, $context );
 			self::card( 'WPCPM_Institution_Agreement_Card', $record, $context );
 		}

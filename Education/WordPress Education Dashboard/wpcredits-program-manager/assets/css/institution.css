@@ -506,12 +506,21 @@
 	flex: 1 1 14em;
 }
 
+/* Three controls now, not two: Show, Clear the filters and the export link. The row wraps
+   because the third one pushed it past the width of a phone, where the media query below
+   widens the fields and leaves this paragraph to fend for itself. `gap` covers both axes, so
+   a wrapped line keeps its spacing without a second declaration. */
 .wpcpm-roster__actions {
 	align-items: center;
+	flex-wrap: wrap;
 	gap: 1em;
 }
 
-.wpcpm-roster__clear {
+/* The button comes first and the two links follow it, so they are sized to match each other rather than it. They are the smaller
+   kind of thing in the paragraph, and a download link set at the button's size would read as
+   a second primary action beside Show. */
+.wpcpm-roster__clear,
+.wpcpm-roster__export {
 	font-size: 0.9em;
 }
 

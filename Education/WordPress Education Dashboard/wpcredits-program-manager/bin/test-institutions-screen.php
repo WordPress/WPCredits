@@ -475,6 +475,12 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 		}
 	}
 
+	class WPCPM_Institution_Import_Form {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'import_form_init' );
+		}
+	}
+
 	class WPCPM_Institution_Request {
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'request_init' );

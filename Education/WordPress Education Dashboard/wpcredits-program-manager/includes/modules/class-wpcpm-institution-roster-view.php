@@ -139,7 +139,7 @@ class WPCPM_Institution_Roster_View {
 		echo '<section class="wpcpm-roster">';
 		printf( '<h2 class="wpcpm-roster__title">%s</h2>', esc_html__( 'Students', 'wpcredits-program-manager' ) );
 
-		self::render_filters( $cohorts, $cohort, $filters, ! empty( $context['can_manage'] ) );
+		self::render_filters( $record_id, $cohorts, $cohort, $filters, ! empty( $context['can_manage'] ) );
 		self::render_strip( $rows, $cohort, $read );
 
 		$groups = WPCPM_Roster_Index::groups( $record_id, $cohort );
@@ -348,12 +348,13 @@ class WPCPM_Institution_Roster_View {
 	 * the URL that reached this page, which is what makes a filtered roster something a
 	 * colleague can be sent.
 	 *
+	 * @param string $record_id  Institutions record ID, which the export control's own fence needs.
 	 * @param array  $cohorts    Cohort key to the number who signed up.
 	 * @param string $cohort     The chosen cohort.
 	 * @param array  $filters    The chosen group and search term.
 	 * @param bool   $can_manage Whether the viewer is a program manager.
 	 */
-	private static function render_filters( array $cohorts, $cohort, array $filters, $can_manage ) {
+	private static function render_filters( $record_id, array $cohorts, $cohort, array $filters, $can_manage ) {
 		echo '<form class="wpcpm-roster__filters" method="get">';
 
 		// Without pretty permalinks the page is addressed by query string, which a GET form
@@ -461,8 +462,67 @@ class WPCPM_Institution_Roster_View {
 			);
 		}
 
+		self::render_export( $record_id, $cohort );
+
 		echo '</p>';
 		echo '</form>';
+	}
+
+	/**
+	 * The roster export, as the third control in the actions paragraph.
+	 *
+	 * A link and not a button: the export is a GET, `WPCPM_Institution_Export::roster_url()`
+	 * returns a nonced `admin-post.php` address, and a submit button inside this form would
+	 * post the filter bar's own fields to the page instead.
+	 *
+	 * **The fence is asked again, with `ACT_EXPORT`, rather than inferred from the roster being
+	 * on screen.** `handle_roster()` decides on its own `decide( ACT_EXPORT, ... )` and refuses
+	 * with `wp_die()`, so the only control worth drawing is one that agrees with that call. It
+	 * is a separate row of `WPCPM_Institution_Policy::grounds()` from `ACT_VIEW_ROSTER`, which
+	 * is the point of that map being written out in full: today the two rows carry the same
+	 * grounds and the agreement gate of decision 6 covers both, so an institution whose
+	 * agreement is outstanding reaches neither - but narrowing either row is a one-line diff
+	 * there, and the reserved project ground of section 12 would land on some rows and not
+	 * others. Reading the answer to the wrong question would then leave a link whose only
+	 * destination is a refusal page, and a control that leads to a refusal is worse than no
+	 * control: it reads as the program being broken rather than as permission being absent.
+	 *
+	 * The cohort travels in the link, so the file is the semester on screen. Nothing else does:
+	 * `roster_url()` reads the manager switcher out of the request for itself, and
+	 * `handle_roster()` resolves the institution for itself (design spec 5.5), because an
+	 * institution that arrived inside a link is an institution nobody answered for.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @param string $cohort    The chosen cohort.
+	 */
+	private static function render_export( $record_id, $cohort ) {
+		// `wpcredits-program-manager.php` requires this file before it requires the export
+		// module, so the class is not defined while this one is being loaded. The same guard
+		// the student detail view is called behind, for the same reason: a missing link costs a
+		// school one convenience, an undefined class costs it the whole dashboard.
+		if ( ! class_exists( 'WPCPM_Institution_Export' ) ) {
+			return;
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_EXPORT,
+			WPCPM_Institution_Policy::subject_institution( $record_id )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			return;
+		}
+
+		// **The label names the cohort, not the rows on screen.** `roster_matrix()` narrows by
+		// cohort and by nothing else, so the group filter and the search box narrow this page
+		// and leave the file whole. One institution has forty-two students on the program at
+		// once; a reader who searched for one of them and pressed a link promising "these
+		// students" would open a file holding the other forty-one.
+		printf(
+			' <a class="wpcpm-roster__export" href="%1$s">%2$s</a>',
+			esc_url( WPCPM_Institution_Export::roster_url( $cohort ) ),
+			esc_html__( 'Download this cohort (CSV)', 'wpcredits-program-manager' )
+		);
 	}
 
 	/**
