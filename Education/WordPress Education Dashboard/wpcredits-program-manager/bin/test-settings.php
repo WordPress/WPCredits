@@ -538,5 +538,35 @@ foreach ( array(
 	ck( sprintf( 'agreement_doc_url refuses or keeps %s', $typed ), $saved['agreement_doc_url'], $want );
 }
 
+/* ---- the Institutions module has a section of its own --------------------- */
+
+// It used to be one row at the foot of the Students card, under a heading that said Students
+// module, which is where a program manager would never look for it. The other four had no
+// control at all and could only be changed in code.
+$admin = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-wpcpm-admin.php' );
+$card  = substr( $admin, (int) strpos( $admin, 'private function render_institution_settings' ) );
+$card  = substr( $card, 0, (int) strpos( $card, "\n\t}\n" ) );
+
+ck( 'the Institutions card exists and is named for the module', false !== strpos( $card, "'Institutions module'" ), true );
+
+foreach ( array( 'applications_enabled', 'institution_home', 'institution_provision', 'institution_on_inactive', 'agreement_review_days', 'agreement_notify', 'agreement_doc_url' ) as $name ) {
+	ck( sprintf( '%s has a control on it', $name ), false !== strpos( $card, 'name="' . $name . '"' ), true );
+}
+
+$students = substr( $admin, (int) strpos( $admin, "'Students module'" ) );
+$students = substr( $students, 0, (int) strpos( $students, 'render_institution_settings' ) );
+
+ck( 'and the application form is no longer filed under Students', false !== strpos( $students, 'applications_enabled' ), false );
+
+// A rendered checkbox is read unconditionally on save, so the two that moved must be off the
+// unrendered list or the first save of this screen would switch them both off.
+preg_match( '/const UNRENDERED_SWITCHES = array\( (.*?) \);/', $admin, $unrendered );
+
+ck( 'the two switches that gained a control are off the unrendered list', array(
+	false !== strpos( $unrendered[1], "'institution_home'" ),
+	false !== strpos( $unrendered[1], "'institution_provision'" ),
+), array( false, false ) );
+
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

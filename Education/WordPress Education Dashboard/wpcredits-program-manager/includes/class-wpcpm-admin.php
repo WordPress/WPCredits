@@ -28,7 +28,7 @@ class WPCPM_Admin {
 	 * means nothing, so these are left to `WPCPM_Settings::save()`'s own guard. The
 	 * Institutions settings card removes each one from here when it renders it.
 	 */
-	const UNRENDERED_SWITCHES = array( 'institution_provision', 'institution_home', 'import_enabled' );
+	const UNRENDERED_SWITCHES = array( 'import_enabled' );
 
 	/**
 	 * Hooks.
@@ -509,6 +509,47 @@ class WPCPM_Admin {
 				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing — re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
 		);
 
+		echo '</tbody></table>';
+		echo '</div>';
+
+		$this->render_institution_settings( $settings );
+
+		$this->render_checker_settings( $settings );
+
+		$this->render_handbook_settings( $settings );
+
+		$this->render_two_factor_settings( $settings );
+
+		submit_button( __( 'Save settings', 'wpcredits-program-manager' ) );
+		echo '</form>';
+
+		// After the settings form, not inside it: each control below posts to its own
+		// handler, and a form cannot be nested in another.
+		$this->render_mail_card();
+
+		echo '</div>';
+	}
+
+	/**
+	 * The Institutions module's own settings.
+	 *
+	 * Its own card, and not a row at the foot of the Students one. The application form was
+	 * put there when it was the only institution setting with a control, and it read as a
+	 * student setting: the heading above it says Students module, and a program manager
+	 * scanning for what institutions can do had no reason to look under it.
+	 *
+	 * The other four have existed since Phase 0 with no control at all, which meant the only
+	 * way to change any of them was code. They are here now for the same reason: a setting
+	 * nobody can find is a setting nobody can use.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_institution_settings( array $settings ) {
+		echo '<div class="wpcpm-card">';
+		echo '<h2>' . esc_html__( 'Institutions module', 'wpcredits-program-manager' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'Institutions are the schools and universities whose students are on the program. Each has its own dashboard, its own people, and one Collaboration Agreement.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<table class="form-table" role="presentation"><tbody>';
+
 		// The public application form. Off by default and switched on here, because turning it
 		// on publishes a page that strangers can post to, which is not a thing to inherit from
 		// an update. The privacy policy is named on the same row rather than in a document
@@ -532,22 +573,60 @@ class WPCPM_Admin {
 				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing: re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
 		);
 
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="institution_home" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s</td></tr>',
+			esc_html__( 'Institution landing page', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['institution_home'] ), true, false ),
+			esc_html__( 'Use the Institution Dashboard page as the institution dashboard', 'wpcredits-program-manager' ),
+			esc_html__( 'Institution accounts go there when they log in and in place of the wp-admin Dashboard, and get an "Institution Dashboard" link in the toolbar. Same exceptions as for mentors and students.', 'wpcredits-program-manager' ),
+			class_exists( 'WPCPM_Institutions_Dashboard' ) && '' !== WPCPM_Institutions_Dashboard::page_url()
+				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( WPCPM_Institutions_Dashboard::page_url() ) )
+				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing: re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
+		);
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="institution_provision" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Create accounts automatically', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['institution_provision'] ), true, false ),
+			esc_html__( 'Let the nightly sync create the first account for a Confirmed institution', 'wpcredits-program-manager' ),
+			esc_html__( 'From the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member. An address that already belongs to an account is left alone and named on the Institutions screen. With this off, accounts are created only when somebody presses the button there.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><fieldset><label><input type="radio" name="institution_on_inactive" value="revoke"%2$s> %3$s</label><br><label><input type="radio" name="institution_on_inactive" value="keep"%4$s> %5$s</label></fieldset><p class="description">%6$s</p></td></tr>',
+			esc_html__( 'When an institution leaves the pipeline', 'wpcredits-program-manager' ),
+			checked( $settings['institution_on_inactive'], 'revoke', false ),
+			esc_html__( 'Remove its people, so they lose access to its students', 'wpcredits-program-manager' ),
+			checked( $settings['institution_on_inactive'], 'keep', false ),
+			esc_html__( 'Leave their access in place', 'wpcredits-program-manager' ),
+			esc_html__( 'When Airtable moves an institution out of the stages the program treats as active. The accounts themselves are never deleted either way, and the agreement and the roster are kept.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><input type="number" class="small-text" name="agreement_review_days" min="1" max="60" value="%2$s"> %3$s<p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Agreement review', 'wpcredits-program-manager' ),
+			esc_attr( (string) $settings['agreement_review_days'] ),
+			esc_html__( 'days', 'wpcredits-program-manager' ),
+			esc_html__( 'How long a signed agreement may wait before the queue marks it overdue and the nightly digest names it.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><input type="text" class="regular-text" name="agreement_notify" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Who reviews agreements', 'wpcredits-program-manager' ),
+			esc_attr( (string) $settings['agreement_notify'] ),
+			esc_attr__( 'one@example.org, two@example.org', 'wpcredits-program-manager' ),
+			esc_html__( 'Addresses told when an agreement arrives and sent the overdue digest. Leave it empty and every program manager is written to, which reaches technical administrators as well; set it before the first real upload.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><input type="url" class="regular-text" name="agreement_doc_url" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'The agreement wording', 'wpcredits-program-manager' ),
+			esc_attr( (string) $settings['agreement_doc_url'] ),
+			esc_attr__( 'https://docs.google.com/document/d/...', 'wpcredits-program-manager' ),
+			esc_html__( 'The Google Doc the plugin\'s copy of the Collaboration Agreement was taken from, used by the Check against the Doc button. Held on this site rather than in the code, because the document is editable by anyone holding its link and the plugin\'s source is public. Google addresses only.', 'wpcredits-program-manager' )
+		);
+
 		echo '</tbody></table>';
-		echo '</div>';
-
-		$this->render_checker_settings( $settings );
-
-		$this->render_handbook_settings( $settings );
-
-		$this->render_two_factor_settings( $settings );
-
-		submit_button( __( 'Save settings', 'wpcredits-program-manager' ) );
-		echo '</form>';
-
-		// After the settings form, not inside it: each control below posts to its own
-		// handler, and a form cannot be nested in another.
-		$this->render_mail_card();
-
 		echo '</div>';
 	}
 

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.75.1
+Stable tag: 1.76.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.76.0 =
+* **The Institutions module has its own settings section.** The application form was a single row at the foot of the Students card, under a heading that said Students module, which is where nobody would look for it.
+* **Five institution settings gained a control**, having existed since Phase 0 with none, so the only way to change any of them was in code: the institution landing page, whether the nightly sync creates the first account for a Confirmed institution, what happens to an institution's people when it leaves the pipeline, how long a signed agreement may wait before the queue calls it overdue, who is told when one arrives, and where the agreement wording lives.
 
 = 1.75.1 =
 * **The announcements and the Resources section move to the top of the Institution Dashboard**, under the institution's name. The two Report Cards end on that section, which is right for them: a mentor comes to work through a list. A school arrives with a question more often than with a task, and the answer was three screens down past a roster it had not come to read.
