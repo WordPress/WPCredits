@@ -956,6 +956,22 @@
 	margin-right: 0;
 }
 
+/*
+ * The same second inset, in the other half of the component. An open group draws its name as a
+ * heading rather than as a clickable row, and that heading carries the 32px in padding where
+ * the row carries it in margin. Zeroing only the row left "Current" and "Waiting for a mentor"
+ * standing 32px right of every other line on the page while the collapsed rows beneath them
+ * had moved: the two shapes have to be answered together or the page looks half fixed, which
+ * is what it looked like.
+ *
+ * Only the heading form. Inside a summary the same class is a span whose offset comes from the
+ * row's own padding, and that one is right where it is.
+ */
+.wpc-institution-page .wpcpm-group > .wpcpm-group__title {
+	padding-left: 0;
+	padding-right: 0;
+}
+
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every
    group's margin so the mentor page's headings sit where its inset expects them. A group
    that is a pressed row rather than a heading needs to be told apart from the next one. */

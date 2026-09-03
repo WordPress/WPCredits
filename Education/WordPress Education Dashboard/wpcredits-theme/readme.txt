@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.16.5
+Stable tag: 1.16.6
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.16.6 =
+* "Current" and "Waiting for a mentor" join the same left edge as everything else on the Institution Dashboard. An open group draws its name as a heading rather than as a clickable row, and the heading carries its 32px inset in padding where the row carries it in margin. 1.16.5 zeroed the row and left the heading, so the two open groups stood alone while the collapsed rows beneath them had moved.
 
 = 1.16.5 =
 * Every block on the Institution Dashboard starts at one left edge. The shared group summary carries a 32px inset, which is right on the Mentor Report Card where the groups sit straight in the card, and one inset too many on the institution page where they sit inside a section that already has one. The result was that the heading, the filter bar, the cohort strip, the student cards, the people rows and the agreement panel all lined up at 32px and the rows a reader clicks stood alone at 64.
