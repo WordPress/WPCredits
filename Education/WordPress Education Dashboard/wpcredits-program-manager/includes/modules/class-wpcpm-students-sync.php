@@ -841,6 +841,7 @@ class WPCPM_Students_Sync {
 				// the same shape whether or not that join finds anything.
 				'mentor_name'    => '',
 				'team'           => '',
+				'website'        => '',
 				// Both filled by `phase_provision()`, which is where the reports and the
 				// accounts are; declared here so every row has the same shape.
 				'reports'        => array(),
@@ -1076,11 +1077,16 @@ class WPCPM_Students_Sync {
 				$state['rows'][ $record_id ]['username'] = (string) $student['username'];
 			}
 
-			// The team, from the same row and for the same reason: it is a Students Reports
-			// column, and the roster was reading it off the student's WordPress account, which
-			// most students on a school's roster do not have.
-			if ( '' === (string) $state['rows'][ $record_id ]['team'] && ! empty( $student['team'] ) ) {
-				$state['rows'][ $record_id ]['team'] = (string) $student['team'];
+			// **Everything else this row can lend, in one list.** All of these are Students
+			// Reports columns, and the roster used to read every one of them off the student's
+			// WordPress account, which most students on a school's roster do not have. They
+			// were found and fixed one at a time, over three reports from the same roster, so
+			// they are a list now: a sixth column is a line here rather than a fourth round of
+			// somebody noticing a blank cell.
+			foreach ( array( 'team', 'website' ) as $lend ) {
+				if ( '' === (string) $state['rows'][ $record_id ][ $lend ] && ! empty( $student[ $lend ] ) ) {
+					$state['rows'][ $record_id ][ $lend ] = (string) $student[ $lend ];
+				}
 			}
 
 			// The mentor's name, through the catalog the mentors phase built. That phase runs

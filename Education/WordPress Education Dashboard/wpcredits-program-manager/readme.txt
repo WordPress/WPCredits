@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.84.0
+Stable tag: 1.84.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.84.1 =
+* A student's personal website appears on the roster whether or not they have signed in here. It was the last column still read only through the student's WordPress account, after the profile, the mentor and the team. The four are now filled from one list in the sync, so a fifth is a line rather than another round of somebody spotting a blank cell.
 
 = 1.84.0 =
 * A student's mentor and contribution team appear on an institution's roster whether or not that student has ever signed in here. Both live on the Students Reports row and were read only through the student's WordPress account, so a school saw them for the handful of students who happen to hold an account and nothing for the rest: at one university, two rows of fifteen. The sync has both values in hand when it joins the two tables and now writes them into the roster index. Where a student does hold an account, that copy is still preferred, being the fresher of the two between runs.

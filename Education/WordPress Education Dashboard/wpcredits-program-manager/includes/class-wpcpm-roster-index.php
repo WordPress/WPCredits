@@ -37,7 +37,7 @@ class WPCPM_Roster_Index {
 	const OPTION_COUNTS = 'wpcpm_roster_counts';
 
 	/** Envelope version; an option written by another version is discarded on read. */
-	const VERSION = 2;
+	const VERSION = 3;
 
 	/**
 	 * The keys a row holds, in the order they are stored.
@@ -68,6 +68,7 @@ class WPCPM_Roster_Index {
 		// values in hand when it joins the two tables, so it writes them here.
 		'mentor_name',
 		'team',
+		'website',
 		'import_key',
 		'reports',
 		'user_id',

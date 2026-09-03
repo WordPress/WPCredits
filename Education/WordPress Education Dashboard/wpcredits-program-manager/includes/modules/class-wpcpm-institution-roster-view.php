@@ -876,6 +876,7 @@ class WPCPM_Institution_Roster_View {
 		// their own report between runs.
 		$mentor_name = '' !== $cached( $mentor, 'name' ) ? $cached( $mentor, 'name' ) : $get( 'mentor_name' );
 		$team        = '' !== $cached( $program, 'team' ) ? $cached( $program, 'team' ) : $get( 'team' );
+		$website     = '' !== $cached( $program, 'website' ) ? $cached( $program, 'website' ) : $get( 'website' );
 
 		$name = $get( 'name' );
 
@@ -909,7 +910,7 @@ class WPCPM_Institution_Roster_View {
 				esc_html( $username )
 			),
 			'reports|Main Contribution Team' => esc_html( $team ),
-			'reports|Personal Website URL'   => self::website_cell( $cached( $program, 'website' ) ),
+			'reports|Personal Website URL'   => self::website_cell( $website ),
 			'students|Your field of study'   => esc_html( $get( 'field_of_study' ) ),
 			'students|Tutor '                => esc_html( $get( 'tutor' ) ),
 		);

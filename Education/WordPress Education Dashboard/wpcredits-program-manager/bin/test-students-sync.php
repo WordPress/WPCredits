@@ -336,7 +336,9 @@ $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ] = array(
 		$eee    => 'Eee School of Example',
 		$fff    => 'Eff Academy of Example',
 	),
-	'teams'        => array(),
+	// One team, so a reports row that names it resolves to a name rather than to nothing: the
+	// roster prints the name and the record ID would be meaningless on a school's screen.
+	'teams'        => array( 'recTEAM0000000001' => 'Polyglots' ),
 );
 
 /*
@@ -406,7 +408,11 @@ for ( $i = 1; $i <= 8; $i++ ) {
 		$email,
 		'Graduate',
 		$krakow,
-		1 === $i ? array( $fields['report_profile'] => 'https://profiles.wordpress.org/krakow-grad-one/' ) : array()
+		1 === $i ? array(
+			$fields['report_profile'] => 'https://profiles.wordpress.org/krakow-grad-one/',
+			$fields['report_website'] => 'https://krakow-grad-one.example.test',
+			$fields['report_team']    => array( 'recTEAM0000000001' ),
+		) : array()
 	);
 }
 for ( $i = 9; $i <= 10; $i++ ) {
@@ -620,6 +626,15 @@ ck( 'a student with no profile on their Students row takes the one on their repo
 ck( 'and a Students row that has its own keeps it', $k9['username'], 'krakow-pending-nine' );
 // A student with neither is still empty, rather than borrowing somebody else's.
 ck( 'a student with neither has none', $roster['rows'][ $ids['k2'] ]['username'], '' );
+
+// The same for every other column the reports row can lend. Each of these was found by
+// somebody looking at a real roster and asking why a cell was blank, one at a time, so they
+// are asserted together: the roster reads all of them off the index for a student who has
+// never signed in, which is most students on a school's roster.
+ck( 'the website comes off the report record too', $k1['website'], 'https://krakow-grad-one.example.test' );
+ck( 'and so does the contribution team', $k1['team'], 'Polyglots' );
+// A row the reports side never reached lends nothing, rather than borrowing a neighbour's.
+ck( 'a student with no report record has none of them', array( $roster['rows'][ $ids['k2'] ]['website'], $roster['rows'][ $ids['k2'] ]['team'] ), array( '', '' ) );
 
 // Graduate 2, not 1: Graduate 1 is the one with a pre-existing account.
 $k2 = $roster['rows'][ $ids['k2'] ];
