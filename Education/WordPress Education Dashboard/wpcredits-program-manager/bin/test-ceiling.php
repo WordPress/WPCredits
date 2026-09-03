@@ -357,6 +357,34 @@ ck( 'no option is read for autoloading: the class never calls add_option() or up
 ck( 'the row is dated by its value, never by parsing the name',
     array( false !== strpos( $source, "'window' => (int) \$window" ), false !== strpos( $source, "'bucket' => (int) \$bucket" ), false !== strpos( $source, 'substr( $name' ) ),
     array( true, true, false ) );
+echo "\n=== A claim can take more than one of the window's allowance ===\n";
+
+// For the ceilings counted in things rather than in events: the import's rows-a-day is one
+// claim of however many rows a file holds. Claiming per row would write one option row per
+// student to learn one answer, and would admit a file that crosses the line halfway through.
+$GLOBALS['opts'] = array();
+
+ck( 'a claim of five takes five of the ten', WPCPM_Ceiling::claim( 'rows', 10, 3600, 5 ), true );
+ck( 'and the window says so', WPCPM_Ceiling::count( 'rows', 3600 ), 5 );
+ck( 'a second five exactly fills it', WPCPM_Ceiling::claim( 'rows', 10, 3600, 5 ), true );
+ck( 'and one more of anything is refused', WPCPM_Ceiling::claim( 'rows', 10, 3600, 1 ), false );
+
+// The whole amount or nothing. A batch that does not fit is refused before a row is parsed,
+// rather than being let part way in and stopped in the middle.
+$GLOBALS['opts'] = array();
+WPCPM_Ceiling::claim( 'rows', 10, 3600, 8 );
+ck( 'a claim that would cross the line takes none of it', WPCPM_Ceiling::claim( 'rows', 10, 3600, 5 ), false );
+ck( 'and the window is untouched by the refusal', WPCPM_Ceiling::count( 'rows', 3600 ), 8 );
+
+// Otherwise asking for more than the limit would be a way past it.
+$GLOBALS['opts'] = array();
+ck( 'an amount larger than the whole limit is refused, not clamped', WPCPM_Ceiling::claim( 'rows', 10, 3600, 11 ), false );
+ck( 'and nothing was written', WPCPM_Ceiling::count( 'rows', 3600 ), 0 );
+
+// Every existing caller passes no amount and must behave exactly as it did.
+$GLOBALS['opts'] = array();
+ck( 'the default claim is still one', array( WPCPM_Ceiling::claim( 'events', 2, 3600 ), WPCPM_Ceiling::claim( 'events', 2, 3600 ), WPCPM_Ceiling::claim( 'events', 2, 3600 ) ), array( true, true, false ) );
+
 ck( 'no dash but the hyphen', preg_match( '/[\x{2013}\x{2014}]/u', $source ), 0 );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );

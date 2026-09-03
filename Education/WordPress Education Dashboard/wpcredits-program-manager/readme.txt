@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.82.0
+Stable tag: 1.83.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.83.0 =
+* Provisioning no longer adopts an account that belongs to somebody else. An account found by email carrying another module's record stamp, or a role this program did not give it, is a conflict rather than a match: it is counted, named in the run report, and left alone. Without this, an institution importing a mentor's or a colleague's address would have had that person's account turned into a student on their roster at the next sync, opening their Student Report Card to a school they have nothing to do with.
+* An institution can mark a student graduated or withdrawn, and nothing else. Pausing and pending graduation are the program's calls. The row is read again and confirmed before the write, and a currently Paused student is refused by name: the mirror automation is restricted to a view that Paused is not in, so marking one Graduate would mail the student while the report record, the account and the mentor's list all stayed Paused.
+* Two CSV exports, the roster and one student. Both are written with a byte order mark, because Excel reads a BOM-less UTF-8 file as Latin-1 and mangles every accented name in the program, and any cell beginning `=`, `+`, `-` or `@` is prefixed with an apostrophe so a spreadsheet reads it as text rather than as a formula. Accessibility needs appear in neither: they were disclosed to the program, not to the school.
+* A program manager can link an unlinked Students row to an institution from the reconciliation card. It refuses when the row already carries a mentor with a matching status, and when any Students Reports row exists for the address, because writing the link onto such a row fires the Airtable automation and creates a second report record.
+* A student's WordPress.org profile appears on institution rosters again. The profile lives on the Students Reports row and the index was reading only the Students table's own column, which at one university is empty for every one of their fifteen students while the report record carries it for eleven of them. The index now falls back to it, and a school that fills its own column keeps what it wrote.
 
 = 1.82.0 =
 * The import now checks each row against the two Airtable tables and this site's accounts before anything is created. A student already on the institution's own roster is named in full, with their status and start date, because that is the school's own list. Every other kind of hit gets one answer and one only: this student cannot be imported from here. A preview that said which other university, or whether an account exists, would answer three hundred questions about who is in the program for anyone who could paste three hundred addresses. A program manager is told which it was; the school never is.

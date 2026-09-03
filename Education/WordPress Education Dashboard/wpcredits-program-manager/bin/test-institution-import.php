@@ -64,7 +64,6 @@ function esc_url_raw( $url ) { return $url; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url ); }
 function trailingslashit( $s ) { return rtrim( (string) $s, '/' ) . '/'; }
 function absint( $v ) { return abs( (int) $v ); }
-function get_option( $k, $d = false ) { return $d; }
 function sanitize_email( $email ) { return filter_var( trim( (string) $email ), FILTER_SANITIZE_EMAIL ); }
 function is_email( $email ) { return (bool) filter_var( (string) $email, FILTER_VALIDATE_EMAIL ); }
 
@@ -178,6 +177,51 @@ $GLOBALS['records'] = array();
 $GLOBALS['site']    = array();
 $GLOBALS['roster']  = array();
 $GLOBALS['queries'] = array();
+
+$GLOBALS['posts']  = array();
+$GLOBALS['pmeta']  = array();
+$GLOBALS['opts']   = array();
+$GLOBALS['next_id'] = 500;
+$GLOBALS['now']    = 1788400000;
+
+function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
+function update_option( $k, $v, $autoload = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
+function add_option( $k, $v, $x = '', $autoload = null ) {
+	if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; }
+	$GLOBALS['opts'][ $k ] = $v;
+	return true;
+}
+function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+function wp_insert_post( $args, $wp_error = false ) {
+	$id = ++$GLOBALS['next_id'];
+	$GLOBALS['posts'][ $id ] = (object) array_merge( array( 'ID' => $id, 'post_type' => '', 'post_author' => 0, 'post_status' => '' ), $args );
+	return $id;
+}
+function wp_delete_post( $id, $force = false ) { $gone = isset( $GLOBALS['posts'][ (int) $id ] ); unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return $gone; }
+function get_post( $id ) { return isset( $GLOBALS['posts'][ (int) $id ] ) ? $GLOBALS['posts'][ (int) $id ] : null; }
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+function get_post_meta( $id, $k, $single = false ) { return isset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['pmeta'][ (int) $id ][ $k ] : ''; }
+function get_posts( $args ) {
+	$out = array();
+
+	foreach ( $GLOBALS['posts'] as $id => $post ) {
+		if ( $post->post_type !== $args['post_type'] ) { continue; }
+		$ok = true;
+
+		foreach ( isset( $args['meta_query'] ) ? $args['meta_query'] : array() as $clause ) {
+			if ( get_post_meta( $id, $clause['key'], true ) !== $clause['value'] ) { $ok = false; break; }
+		}
+
+		if ( $ok ) { $out[] = $id; }
+	}
+
+	return $out;
+}
+function register_post_type( $type, $args ) { $GLOBALS['registered'][ $type ] = $args; return true; }
+function wp_hash( $v ) { return md5( (string) $v ); }
+function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
+
+require_once __DIR__ . '/../includes/class-wpcpm-ceiling.php';
 
 class WP_Error {
 	public $code;
@@ -701,6 +745,105 @@ $errored               = WPCPM_Institution_Import::check_against_base( $rows, $H
 ck( 'an error from the base is returned, not swallowed', is_wp_error( $errored ), true );
 unset( $GLOBALS['fail_table'] );
 
+echo "\n=== The batch: staged, read, cancelled ===\n";
+
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+
+$staged = WPCPM_Institution_Import::stage(
+	$HERE,
+	7,
+	array( 'status' => 'In Sensei', 'start' => '2026-09-07', 'end' => '', 'confirmed' => true ),
+	WPCPM_Institution_Import::clean_rows( WPCPM_Institution_Import::parse( $one )['rows'] ),
+	array( 'Notes' )
+);
+
+ck( 'staging answers with a post ID', $staged > 0, true );
+
+$read = WPCPM_Institution_Import::batch( $staged );
+
+ck( 'the batch knows its institution', $read['institution'], $HERE );
+ck( 'and starts staged', $read['state'], 'staged' );
+ck( 'the member who ran it is the author', $read['author'], 7 );
+ck( 'the batch-wide answers are kept', $read['values']['start'], '2026-09-07' );
+ck( 'so are the rows', count( $read['rows'] ), 1 );
+ck( 'and the columns nobody read', $read['unknown'], array( 'Notes' ) );
+
+// A post title is the one field of a private post that tends to escape into an admin list or
+// a search result, and this one is read by nobody: the screen renders the rows.
+ck( 'no student name is in the post title', false !== strpos( $GLOBALS['posts'][ $staged ]->post_title, 'Anna' ), false );
+ck( 'and the post is private', $GLOBALS['posts'][ $staged ]->post_status, 'private' );
+
+// One at a time, so a school cannot stage six lists and confirm them in an order nobody meant.
+ck( 'the institution has one waiting', WPCPM_Institution_Import::staged_for( $HERE ), $staged );
+ck( 'and another institution has none', WPCPM_Institution_Import::staged_for( $ELSEWHERE ), 0 );
+
+ck( 'a staged batch can be cancelled', WPCPM_Institution_Import::cancel( $staged ), true );
+ck( 'and is gone afterwards', WPCPM_Institution_Import::batch( $staged ), null );
+
+// A batch being created has records in Airtable behind it. Deleting the post would leave them
+// with nothing on this site that remembers why they exist, and their Site import key pointing
+// at a batch that is gone.
+$creating = WPCPM_Institution_Import::stage( $HERE, 7, array(), array(), array() );
+update_post_meta( $creating, WPCPM_Institution_Import::META_STATE, 'creating' );
+ck( 'a batch being created cannot be cancelled', WPCPM_Institution_Import::cancel( $creating ), false );
+ck( 'and is still there', WPCPM_Institution_Import::batch( $creating )['state'], 'creating' );
+
+// Eighteen characters. register_post_type() refuses a name over twenty and returns a WP_Error
+// nothing reads, so an over-long name is a type that silently does not exist.
+ck( 'the post type name fits inside the twenty WordPress allows', strlen( WPCPM_Institution_Import::POST_TYPE ) <= 20, true );
+
+echo "\n=== The ceilings refuse before the work ===\n";
+
+$GLOBALS['opts'] = array();
+
+// A person correcting a file and trying again does it two or three times.
+$checks = array();
+for ( $i = 0; $i < 6; $i++ ) {
+	$checks[] = WPCPM_Institution_Import::may_check( $HERE )['ok'];
+}
+ck( 'five checks an hour are allowed and the sixth is not', $checks, array( true, true, true, true, true, false ) );
+ck( 'and the refusal is named', WPCPM_Institution_Import::may_check( $HERE )['problem'], 'too_often' );
+// One school running out says nothing about another.
+ck( 'another institution is unaffected', WPCPM_Institution_Import::may_check( $ELSEWHERE )['ok'], true );
+
+$GLOBALS['opts'] = array();
+ck( 'a file of two hundred rows fits the day', WPCPM_Institution_Import::claim_rows( $HERE, 200 )['ok'], true );
+ck( 'and so does a second', WPCPM_Institution_Import::claim_rows( $HERE, 200 )['ok'], true );
+// All of them or none: a batch that would cross the line is refused whole, rather than let
+// part way in and stopped in the middle with half a school's term created.
+ck( 'a third that would cross the line is refused whole', WPCPM_Institution_Import::claim_rows( $HERE, 300 )['ok'], false );
+ck( 'the day is untouched by that refusal', WPCPM_Institution_Import::rows_used( $HERE ), 400 );
+ck( 'and what does fit is still allowed', WPCPM_Institution_Import::claim_rows( $HERE, 200 )['ok'], true );
+
+// Once the day is full, a check is refused before a byte is parsed rather than after.
+ck( 'a full day refuses the next check up front', WPCPM_Institution_Import::may_check( $HERE )['problem'], 'rows_today' );
+
+echo "\n=== The log is a ratio, not a list of people ===\n";
+
+$GLOBALS['opts'] = array();
+WPCPM_Institution_Import::log_check( $HERE, 7, 20, 1 );
+WPCPM_Institution_Import::log_check( $HERE, 7, 20, 18 );
+
+$log = WPCPM_Institution_Import::log();
+ck( 'both checks are logged', count( $log ), 2 );
+// No name and no address: the count is the signal, and the names are in the batch post for as
+// long as it lives.
+ck( 'and neither line carries a person', array_keys( $log[0] ), array( 'institution', 'member', 'rows', 'blocked', 'when' ) );
+
+// A member feeding addresses in to see which come back blocked looks exactly like this.
+$odd = WPCPM_Institution_Import::suspicious();
+ck( 'the mostly-blocked check is the one flagged', count( $odd ), 1 );
+ck( 'and it is the right one', $odd[0]['blocked'], 18 );
+
+$GLOBALS['opts'] = array();
+for ( $i = 0; $i < WPCPM_Institution_Import::LOG_MAX + 10; $i++ ) {
+	WPCPM_Institution_Import::log_check( $HERE, 7, 1, 0 );
+}
+// It is an option, read on a manager screen. A log that grew without a bound is eventually
+// the reason one is slow.
+ck( 'the log is capped', count( WPCPM_Institution_Import::log() ), WPCPM_Institution_Import::LOG_MAX );
+
 echo "\n=== This file touches nothing ===\n";
 
 $source = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-import.php' );
@@ -726,7 +869,12 @@ foreach ( token_get_all( $source ) as $token ) {
 // The staging, the ladder against the base, the ceilings on how often and the creation loop are
 // separate pieces. Keeping them out is what lets a school's file be read, and tested, with none
 // of that in the way - and what makes it true that a preview cannot create or leak anything.
-foreach ( array( 'wp_remote_', 'create_records', 'update_records', 'wp_insert_post', 'update_post_meta', 'wp_mail', '$_POST', '$_FILES', '$_GET' ) as $forbidden ) {
+// `wp_insert_post` and `update_post_meta` were on this list until the batch store landed in
+// the same file, and they are off it now because staging a checked list is exactly what that
+// store does. What the list still means, and what is worth asserting, is unchanged: this file
+// creates nothing in Airtable, sends no mail, and reads no superglobal - every value it works
+// on was handed to it by a caller that had already decided who was asking.
+foreach ( array( 'wp_remote_', 'create_records', 'update_records', 'wp_mail', '$_POST', '$_FILES', '$_GET' ) as $forbidden ) {
 	ck( sprintf( 'no %s anywhere in it', $forbidden ), false !== strpos( $code, $forbidden ), false );
 }
 

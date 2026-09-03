@@ -450,6 +450,31 @@ if ( ! class_exists( 'WPCPM_Institution_Invite' ) ) {
 
 if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 	/** Stands in for mentor requests. */
+	/**
+	 * The three modules `boot()` starts that this screen never calls into.
+	 *
+	 * Stubs rather than requires: this suite is about the Institutions screen, and loading the
+	 * real graduation, export and import modules would bring their own dependencies in to prove
+	 * nothing about it. What the suite does need is that `boot()` starting them is not a fatal.
+	 */
+	class WPCPM_Institution_Students {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'students_init' );
+		}
+	}
+
+	class WPCPM_Institution_Export {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'export_init' );
+		}
+	}
+
+	class WPCPM_Institution_Import {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'import_init' );
+		}
+	}
+
 	class WPCPM_Institution_Request {
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'request_init' );
@@ -1035,8 +1060,12 @@ ck( 'is_implemented() is true', ( new WPCPM_Institutions() )->is_implemented(), 
 // Every handler: the capability is decided before the nonce is read, so an anonymous request
 // gets the 403 the design names rather than a nonce failure that tells it the handler exists.
 preg_match_all( '/public function (handle_[a-z_]+)\s*\(/', $src, $handlers );
-ck( 'the twelve handlers exist', $handlers[1], array(
+ck( 'the thirteen handlers exist', $handlers[1], array(
 	'handle_tick', 'handle_sync', 'handle_cancel', 'handle_probe', 'handle_provision', 'handle_provision_one',
+	// Linking an unlinked Students row to an institution, which used to be a sentence saying
+	// it would ship later. Registered beside the other provisioning controls, which is where
+	// the reader meets it, so it sits here rather than at the end.
+	'handle_link',
 	'handle_approve', 'handle_info', 'handle_reject', 'handle_spam', 'handle_reopen', 'handle_purge',
 ) );
 
@@ -1076,16 +1105,19 @@ ck( 'the screen asks the sync why an institution may not be provisioned, and dec
 	strpos( $reasons_body, 'members_of' ),
 	strpos( $reasons_body, 'get_user_by' ),
 ), array( true, false, false, false ) );
-// One exception, and design spec 7.2 asks for it by name: an application somebody has opened
-// is searched for in the base, because "has this institution applied before" cannot be
-// answered from a copy that is a day old. The queue's own list still reads nothing, and
+// One read exception, and design spec 7.2 asks for it by name: an application somebody has
+// opened is searched for in the base, because "has this institution applied before" cannot be
+// answered from a copy that is a day old. The one write is the link control, which is a write
+// handler and so builds its own client the way every other write handler in this plugin does.
+// What the assertion is really guarding is unchanged: the queue's own list reads nothing, and
 // nothing anywhere pages the table.
-ck( 'the screen reads Airtable in one place only, and pages nothing', array(
+ck( 'the screen reads Airtable in one place, writes in one, and pages nothing', array(
 	substr_count( $src, 'new WPCPM_Airtable' ),
 	false !== strpos( function_body( $src, 'duplicate_search' ), 'new WPCPM_Airtable' ),
+	false !== strpos( function_body( $src, 'handle_link' ), 'new WPCPM_Airtable' ),
 	strpos( $src, 'fetch_all' ),
 	strpos( function_body( $src, 'queue_rows' ), 'WPCPM_Airtable' ),
-), array( 1, true, false, false ) );
+), array( 2, true, true, false, false ) );
 ck( 'the screen never renders the option key of a file URL', strpos( $src, 'base_url' ), false );
 ck( 'no em or en dash anywhere in the module', preg_match( "/\xE2\x80\x93|\xE2\x80\x94/", $src ), 0 );
 
@@ -1279,7 +1311,15 @@ ck( 'the unlinked rows are listed by name and status only', array(
 	false !== strpos( $html, '<li>Unlinked Three <span class="wpcpm-inst-muted">Graduate</span></li>' ),
 	false === strpos( $html, 'u1@example.test' ),
 ), array( true, true, true, true ) );
-ck( 'with the note that linking ships next phase', false !== strpos( $html, 'Linking a row to an institution from here ships with the next phase.' ), true );
+// The note that said linking would ship later is gone, because it has. What replaced it is a
+// control that refuses more often than it accepts: writing the institution link onto a row
+// that already has a mentor fires the Airtable automation and creates a second reports row.
+ck( 'the promise that it would ship later is gone', false !== strpos( $html, 'ships with the next phase' ), false );
+// These fixture rows are accounts the sync could only place from the reports side, so none of
+// them carries a Students record ID and the control has nothing to address. It says so rather
+// than drawing a control that could not work, and that sentence is what stands here now.
+// `bin/test-unlinked-link.php` owns the control's own behaviour, on rows that do have one.
+ck( 'and a row with no record ID is told what to do in Airtable instead', false !== strpos( $html, 'carries no usable Airtable record ID' ), true );
 
 // A stamp the sync deleted on purpose is not a broken sync: it wrote `institution_source`,
 // which is its word that it looked. Account 31 is one of those, and unstamping it must leave
@@ -2504,7 +2544,9 @@ $hooks = array_map( function ( $c ) { return $c[1]; }, array_filter( $GLOBALS['c
 // cron is a retention rule that never runs.
 $wanted = array(
 	'admin_post_wpcpm_institutions_sync', 'admin_post_wpcpm_institutions_cancel', 'admin_post_wpcpm_institutions_probe',
-	'admin_post_wpcpm_institutions_provision', 'admin_post_wpcpm_institutions_provision_one', 'wp_ajax_wpcpm_institutions_tick',
+	'admin_post_wpcpm_institutions_provision', 'admin_post_wpcpm_institutions_provision_one',
+	// Linking an unlinked Students row, beside the other provisioning controls.
+	'admin_post_wpcpm_institutions_link', 'wp_ajax_wpcpm_institutions_tick',
 	'admin_post_wpcpm_app_approve', 'admin_post_wpcpm_app_info', 'admin_post_wpcpm_app_reject',
 	'admin_post_wpcpm_app_spam', 'admin_post_wpcpm_app_reopen', 'admin_post_wpcpm_app_purge',
 	'wpcpm_purge_applications',

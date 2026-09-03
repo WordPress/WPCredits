@@ -111,6 +111,94 @@ final class WPCPM_Institution_Import {
 	const NEAR_NAME = 'near-name';
 
 	/**
+	 * The post that holds one checked list until somebody confirms or cancels it.
+	 *
+	 * Eighteen characters. `register_post_type()` refuses a name over twenty and returns a
+	 * `WP_Error` that nothing reads, so an over-long name is a type that silently does not
+	 * exist while `get_posts()` goes on querying it; `bin/test-roles.php` measures every one
+	 * this plugin declares, for the release where that happened.
+	 *
+	 * @var string
+	 */
+	const POST_TYPE = 'wpcpm_import_batch';
+
+	/** Parse, clean, check and stage. Writes a batch post and nothing in Airtable. */
+	const ACTION_CHECK = 'wpcpm_import_check';
+
+	/** Create the clean rows of one staged batch. */
+	const ACTION_CONFIRM = 'wpcpm_import_confirm';
+
+	/** The next slice of a batch already being created. */
+	const ACTION_CONTINUE = 'wpcpm_import_continue';
+
+	/** Throw a staged batch away. */
+	const ACTION_CANCEL = 'wpcpm_import_cancel';
+
+	/** Carries on creating when nobody is watching the page. */
+	const CRON_TICK = 'wpcpm_import_tick';
+
+	/** Checked, and waiting for somebody to confirm or cancel it. */
+	const STATE_STAGED = 'staged';
+
+	/** Being created. Cannot be cancelled: some of it exists. */
+	const STATE_CREATING = 'creating';
+
+	/** Finished, whatever the mix of created, blocked and failed rows. */
+	const STATE_DONE = 'done';
+
+	/** Stopped part way, because the institution or the member stopped being allowed. */
+	const STATE_BLOCKED = 'blocked';
+
+	/** The institution the batch is for. Read from here and never from a form. */
+	const META_INSTITUTION = '_wpcpm_batch_institution';
+
+	/** One of the four states above. */
+	const META_STATE = '_wpcpm_batch_state';
+
+	/** The checked rows, each with its verdict and, once created, its record ID. */
+	const META_ROWS = '_wpcpm_batch_rows';
+
+	/** The batch-wide answers: program, start, end, and the confirmation that was ticked. */
+	const META_VALUES = '_wpcpm_batch_values';
+
+	/** Columns the file carried that this import does not read, listed back to the school. */
+	const META_UNKNOWN = '_wpcpm_batch_unknown';
+
+	/**
+	 * How many checks one institution may run in an hour.
+	 *
+	 * A person correcting a file and trying again does it two or three times. Five is above
+	 * that and far below the rate at which somebody would learn anything by feeding addresses
+	 * in and reading which came back blocked.
+	 *
+	 * @var int
+	 */
+	const CHECKS_PER_HOUR = 5;
+
+	/**
+	 * How many rows one institution may have checked in a day.
+	 *
+	 * Twice the largest intake in the program, so no real term is ever refused, and a ceiling
+	 * on the total work a single school can ask of the base whatever it splits it into.
+	 *
+	 * @var int
+	 */
+	const ROWS_PER_DAY = 600;
+
+	/**
+	 * How many checks the log remembers.
+	 *
+	 * Capped because it is an option: a log that grew without a bound would be read on every
+	 * manager screen and would eventually be the reason one is slow.
+	 *
+	 * @var int
+	 */
+	const LOG_MAX = 200;
+
+	/** The capped log of checks, for the manager reconciliation card. */
+	const OPT_LOG = 'wpcpm_import_log';
+
+	/**
 	 * How many addresses go into one query against the base.
 	 *
 	 * The formula is an `OR()` of one test per value and Airtable has a ceiling on its length,
@@ -167,6 +255,354 @@ final class WPCPM_Institution_Import {
 	 */
 	public static function columns() {
 		return array( 'name', 'email', 'profile', 'field_of_study', 'tutor' );
+	}
+
+	/**
+	 * Hooks.
+	 *
+	 * Called from `WPCPM_Institutions::init()` beside the other institution modules.
+	 */
+	public static function init() {
+		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
+	}
+
+	/**
+	 * Register the batch post type.
+	 *
+	 * Private, unqueryable, and mapped to a capability type nothing is granted, so these are
+	 * reachable only through this module's own reads. A batch holds a school's list of names
+	 * and addresses; it must not be one URL guess away from anybody.
+	 */
+	public static function register_post_type() {
+		register_post_type(
+			self::POST_TYPE,
+			array(
+				'labels'              => array(
+					'name'          => __( 'Import batches', 'wpcredits-program-manager' ),
+					'singular_name' => __( 'Import batch', 'wpcredits-program-manager' ),
+				),
+				'public'              => false,
+				'publicly_queryable'  => false,
+				'exclude_from_search' => true,
+				'show_ui'             => false,
+				'show_in_menu'        => false,
+				'show_in_rest'        => false,
+				'has_archive'         => false,
+				'rewrite'             => false,
+				'query_var'           => false,
+				'supports'            => array( 'title', 'author' ),
+				'capability_type'     => array( 'wpcpm_import_batch', 'wpcpm_import_batches' ),
+				'map_meta_cap'        => true,
+			)
+		);
+	}
+
+	/**
+	 * Whether this institution may run a check at all, before anything is read.
+	 *
+	 * **Two ceilings, and this is only the half that can be answered early.** The hourly one is
+	 * a count of checks, so it is claimed here, before a byte of the file is parsed. The daily
+	 * one is a count of rows, and the row count is not known until the file has been read; what
+	 * can be said here is whether the day is already full, which refuses the common case
+	 * cheaply. `claim_rows()` takes the real number afterwards.
+	 *
+	 * Both are nuisance controls rather than entitlements. What they are really for is the file
+	 * that is not an intake: an address book fed in to see which rows come back blocked. That
+	 * reading is answered by the single blank refusal every outside hit gets, and by this.
+	 *
+	 * @param string $institution Airtable Institutions record ID.
+	 * @return array{ok:bool,problem:string,detail:array}
+	 */
+	public static function may_check( $institution ) {
+		$institution = trim( (string) $institution );
+
+		if ( '' === $institution ) {
+			return self::refusal( 'no_institution' );
+		}
+
+		if ( self::rows_used( $institution ) >= self::ROWS_PER_DAY ) {
+			return self::refusal( 'rows_today', array( 'max' => self::ROWS_PER_DAY ) );
+		}
+
+		if ( ! WPCPM_Ceiling::claim( WPCPM_Ceiling::key( 'import-check', $institution ), self::CHECKS_PER_HOUR, HOUR_IN_SECONDS ) ) {
+			return self::refusal( 'too_often', array( 'max' => self::CHECKS_PER_HOUR ) );
+		}
+
+		return array(
+			'ok'      => true,
+			'problem' => '',
+			'detail'  => array(),
+		);
+	}
+
+	/**
+	 * Claim a file's rows against the day's allowance.
+	 *
+	 * All of them or none: a batch that would cross the line is refused whole, rather than let
+	 * part way in and stopped in the middle with half a school's term created.
+	 *
+	 * @param string $institution Airtable Institutions record ID.
+	 * @param int    $rows        How many rows the file holds.
+	 * @return array{ok:bool,problem:string,detail:array}
+	 */
+	public static function claim_rows( $institution, $rows ) {
+		$rows = max( 0, (int) $rows );
+
+		if ( 0 === $rows ) {
+			return array(
+				'ok'      => true,
+				'problem' => '',
+				'detail'  => array(),
+			);
+		}
+
+		$claimed = WPCPM_Ceiling::claim(
+			WPCPM_Ceiling::key( 'import-rows', trim( (string) $institution ) ),
+			self::ROWS_PER_DAY,
+			DAY_IN_SECONDS,
+			$rows
+		);
+
+		if ( ! $claimed ) {
+			return self::refusal(
+				'rows_today',
+				array(
+					'max'  => self::ROWS_PER_DAY,
+					'used' => self::rows_used( $institution ),
+					'rows' => $rows,
+				)
+			);
+		}
+
+		return array(
+			'ok'      => true,
+			'problem' => '',
+			'detail'  => array(),
+		);
+	}
+
+	/**
+	 * How many rows this institution has had checked today.
+	 *
+	 * @param string $institution Airtable Institutions record ID.
+	 * @return int
+	 */
+	public static function rows_used( $institution ) {
+		return (int) WPCPM_Ceiling::count( WPCPM_Ceiling::key( 'import-rows', trim( (string) $institution ) ), DAY_IN_SECONDS );
+	}
+
+	/**
+	 * The batch this institution has waiting, if any.
+	 *
+	 * One at a time, so a school cannot stage six lists and confirm them in an order nobody
+	 * intended. A second check replaces this one only after it has been cancelled, which is
+	 * the caller's business rather than this method's.
+	 *
+	 * @param string $institution Airtable Institutions record ID.
+	 * @return int Post ID, or 0.
+	 */
+	public static function staged_for( $institution ) {
+		$found = get_posts(
+			array(
+				'post_type'      => self::POST_TYPE,
+				'post_status'    => 'private',
+				'posts_per_page' => 1,
+				'fields'         => 'ids',
+				'meta_query'     => array(
+					array(
+						'key'   => self::META_INSTITUTION,
+						'value' => trim( (string) $institution ),
+					),
+					array(
+						'key'   => self::META_STATE,
+						'value' => self::STATE_STAGED,
+					),
+				),
+			)
+		);
+
+		return empty( $found ) ? 0 : (int) $found[0];
+	}
+
+	/**
+	 * Store a checked list, and answer with its post ID.
+	 *
+	 * **The institution is written here and read from here for the whole life of the batch.**
+	 * Every later handler reads `_wpcpm_batch_institution` off the post rather than off the
+	 * request, so a confirm posted by somebody who has since moved, or forged with another
+	 * school's ID in the form, still decides against the institution the batch was staged for.
+	 *
+	 * @param string $institution Airtable Institutions record ID, from `resolve_institution()`.
+	 * @param int    $author      The member who ran the check.
+	 * @param array  $values      Batch-wide answers: `status`, `start`, `end`, `confirmed`.
+	 * @param array  $rows        Checked rows.
+	 * @param array  $unknown     Columns the file carried that this import does not read.
+	 * @return int Post ID, or 0 when the post could not be created.
+	 */
+	public static function stage( $institution, $author, array $values, array $rows, array $unknown = array() ) {
+		$institution = trim( (string) $institution );
+
+		if ( '' === $institution ) {
+			return 0;
+		}
+
+		$post_id = wp_insert_post(
+			array(
+				'post_type'   => self::POST_TYPE,
+				'post_status' => 'private',
+				'post_author' => (int) $author,
+				// Never a name from the file. A post title is the one field of a private post
+				// that tends to escape into an admin list or a search result, and this one is
+				// read by nobody: the screen renders the rows, not the title.
+				'post_title'  => sprintf( 'Import %s', $institution ),
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_id ) || ! $post_id ) {
+			return 0;
+		}
+
+		update_post_meta( $post_id, self::META_INSTITUTION, $institution );
+		update_post_meta( $post_id, self::META_STATE, self::STATE_STAGED );
+		update_post_meta( $post_id, self::META_VALUES, $values );
+		update_post_meta( $post_id, self::META_ROWS, $rows );
+		update_post_meta( $post_id, self::META_UNKNOWN, array_values( $unknown ) );
+
+		return (int) $post_id;
+	}
+
+	/**
+	 * One batch, or null.
+	 *
+	 * @param int $post_id Batch post ID.
+	 * @return array|null `institution`, `state`, `values`, `rows`, `unknown`, `author`.
+	 */
+	public static function batch( $post_id ) {
+		$post_id = (int) $post_id;
+		$post    = get_post( $post_id );
+
+		if ( ! $post || self::POST_TYPE !== $post->post_type ) {
+			return null;
+		}
+
+		$rows    = get_post_meta( $post_id, self::META_ROWS, true );
+		$values  = get_post_meta( $post_id, self::META_VALUES, true );
+		$unknown = get_post_meta( $post_id, self::META_UNKNOWN, true );
+
+		return array(
+			'id'          => $post_id,
+			'institution' => (string) get_post_meta( $post_id, self::META_INSTITUTION, true ),
+			'state'       => (string) get_post_meta( $post_id, self::META_STATE, true ),
+			'values'      => is_array( $values ) ? $values : array(),
+			'rows'        => is_array( $rows ) ? $rows : array(),
+			'unknown'     => is_array( $unknown ) ? $unknown : array(),
+			'author'      => (int) $post->post_author,
+		);
+	}
+
+	/**
+	 * Throw a staged batch away.
+	 *
+	 * **Only a staged one.** A batch being created, or one that has finished, has records in
+	 * Airtable behind it: deleting the post would leave those rows with nothing on this site
+	 * that remembers why they exist, and the `Site import key` on them pointing at a batch that
+	 * is gone. The screen says so rather than offering a control that would lie.
+	 *
+	 * @param int $post_id Batch post ID.
+	 * @return bool Whether it was deleted.
+	 */
+	public static function cancel( $post_id ) {
+		$batch = self::batch( $post_id );
+
+		if ( ! is_array( $batch ) || self::STATE_STAGED !== $batch['state'] ) {
+			return false;
+		}
+
+		return (bool) wp_delete_post( (int) $post_id, true );
+	}
+
+	/**
+	 * Write one line to the capped log of checks.
+	 *
+	 * **What this is for is the ratio, not the row.** A member feeding addresses in to see
+	 * which come back blocked looks exactly like a batch whose blocked count is most of it, and
+	 * a run of those from one institution is the shape worth a manager's attention. No name and
+	 * no address is stored: the count is the signal, and the names are in the batch post for as
+	 * long as it lives.
+	 *
+	 * @param string $institution Airtable Institutions record ID.
+	 * @param int    $member      Who ran the check.
+	 * @param int    $rows        How many rows the file held.
+	 * @param int    $blocked     How many of them were blocked.
+	 * @param int    $when        Unix time, for a caller that has one.
+	 */
+	public static function log_check( $institution, $member, $rows, $blocked, $when = 0 ) {
+		$log = get_option( self::OPT_LOG );
+		$log = is_array( $log ) ? $log : array();
+
+		$log[] = array(
+			'institution' => trim( (string) $institution ),
+			'member'      => (int) $member,
+			'rows'        => (int) $rows,
+			'blocked'     => (int) $blocked,
+			'when'        => $when ? (int) $when : time(),
+		);
+
+		if ( count( $log ) > self::LOG_MAX ) {
+			$log = array_slice( $log, -self::LOG_MAX );
+		}
+
+		update_option( self::OPT_LOG, $log, false );
+	}
+
+	/**
+	 * The log, newest last.
+	 *
+	 * @return array[]
+	 */
+	public static function log() {
+		$log = get_option( self::OPT_LOG );
+
+		return is_array( $log ) ? $log : array();
+	}
+
+	/**
+	 * Checks whose blocked rows were more than half the file.
+	 *
+	 * The manager reconciliation card lists these. A school whose file was mostly people the
+	 * program already knows has either sent last term's list again, which is worth a word, or
+	 * is finding out who the program knows, which is worth more than a word.
+	 *
+	 * @return array[]
+	 */
+	public static function suspicious() {
+		$out = array();
+
+		foreach ( self::log() as $line ) {
+			$rows = isset( $line['rows'] ) ? (int) $line['rows'] : 0;
+
+			if ( $rows > 0 && (int) $line['blocked'] * 2 > $rows ) {
+				$out[] = $line;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * A refusal, in the shape the ceilings answer with.
+	 *
+	 * @param string $problem Key.
+	 * @param array  $detail  Whatever the caller needs to say it.
+	 * @return array{ok:bool,problem:string,detail:array}
+	 */
+	private static function refusal( $problem, array $detail = array() ) {
+		return array(
+			'ok'      => false,
+			'problem' => (string) $problem,
+			'detail'  => $detail,
+		);
 	}
 
 	/**

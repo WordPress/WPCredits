@@ -54,6 +54,57 @@ class WPCPM_Institutions extends WPCPM_Module {
 	const FILTER_GAP = 'agreement_gap';
 
 	/**
+	 * Linking one unlinked Students row to an institution, from the reconciliation card.
+	 *
+	 * A program manager's act and never an institution's. An import preview that answered
+	 * "this address is an adoptable Students row" would be a membership oracle a school could
+	 * walk address by address, so the import collapses every outside hit to one neutral
+	 * refusal and adoption happens here instead.
+	 */
+	const ACTION_LINK = 'wpcpm_institutions_link';
+
+	/** Flash channel for the link control, read by the card that draws the control. */
+	const FLASH_LINK = 'institutions_link';
+
+	/** Where the link control's redirect lands, so the outcome is on screen next to it. */
+	const ANCHOR_UNLINKED = 'wpcpm-unlinked';
+
+	/**
+	 * The statuses `Add students to Students Reports and Feedback` (`wflXg1xFuiCSG0pXZ`) watches.
+	 *
+	 * That automation is deployed, and it creates a Students Reports row and a Feedback row as
+	 * soon as a Students row holds a name, an address, an institution link and a mentor at one
+	 * of these four statuses. A row that already has the other three is one write away from
+	 * firing it, and that write is the link this control makes: it is the traced source of the
+	 * duplicate reports rows in the base, 18 addresses of them on the reports side.
+	 *
+	 * Pinned here rather than taken from `student_statuses`: that setting says which statuses
+	 * this program tracks and a manager may change it, while this list says what somebody
+	 * else's automation does, which no setting on this site can alter.
+	 */
+	const AUTOMATION_STATUSES = array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Developer Track' );
+
+	/**
+	 * Why a row may not be linked, and how a press of Link ended.
+	 *
+	 * One vocabulary for both sides: the card prints the same sentence beside a row it will
+	 * not offer a control for that the handler flashes when it refuses the write, so a manager
+	 * cannot be told two different things about the same row.
+	 */
+	const LINK_AUTOMATION     = 'automation';
+	const LINK_REPORTS        = 'reports-row';
+	const LINK_NO_EMAIL       = 'no-address';
+	const LINK_ALREADY        = 'already-linked';
+	const LINK_DONE           = 'linked';
+	const LINK_BAD_RECORD     = 'bad-record';
+	const LINK_NO_INSTITUTION = 'unknown-institution';
+	const LINK_READ_FAILED    = 'read-failed';
+	const LINK_WRITE_FAILED   = 'write-failed';
+
+	/** The audit kind a link writes, in the shape `WPCPM_Institution_Agreement::LOG_ON_FILE` uses. */
+	const LOG_LINKED = 'student_linked';
+
+	/**
 	 * The day the consent checkbox was added to the Airtable application form.
 	 *
 	 * Every consent-ticked record was created on or after this date and none before it, so a
@@ -272,6 +323,9 @@ class WPCPM_Institutions extends WPCPM_Module {
 		WPCPM_Institution_Notes::init();
 		WPCPM_Institution_Invite::init();
 		WPCPM_Institution_Request::init();
+		WPCPM_Institution_Students::init();
+		WPCPM_Institution_Export::init();
+		WPCPM_Institution_Import::init();
 
 		WPCPM_Institutions_Sync::register_cron();
 
@@ -280,6 +334,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		add_action( 'admin_post_' . self::ACTION_PROBE, array( $this, 'handle_probe' ) );
 		add_action( 'admin_post_' . self::ACTION_PROVISION, array( $this, 'handle_provision' ) );
 		add_action( 'admin_post_' . self::ACTION_PROVISION_ONE, array( $this, 'handle_provision_one' ) );
+		add_action( 'admin_post_' . self::ACTION_LINK, array( $this, 'handle_link' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
 
 		// The review queue's six decisions. `admin_post_` and never `nopriv`: every one of
@@ -509,6 +564,279 @@ class WPCPM_Institutions extends WPCPM_Module {
 		$this->redirect_back( $refused ? 'provision-refused' : 'provision-failed' );
 	}
 
+	/**
+	 * Link one unlinked Students row to an institution.
+	 *
+	 * **The write this handler makes is what fires an automation, so the row is read again
+	 * before it is made.** Setting `Educational Institutions` on a Students row that already
+	 * carries a mentor at one of `AUTOMATION_STATUSES` completes the condition
+	 * `Add students to Students Reports and Feedback` watches, and it creates a second
+	 * Students Reports row for a student who has one. The same is true one step removed when
+	 * a reports row already exists for the address. Both are refused, and refused against a
+	 * live read: `wpcpm_roster_unlinked` is as old as the last sync, and a mentor assigned in
+	 * the base an hour ago is exactly the case that turns a safe row into an unsafe one.
+	 *
+	 * The order is the module's: the capability and the nonce through `verify()`, then
+	 * `decide()`, then anything that reaches the network. The nonce is keyed to the Students
+	 * row, so a token harvested from the control of a row the site is willing to link is not
+	 * a token for the row beside it, which is the row these refusals are about.
+	 *
+	 * Nothing else on the row is written. Every other cell is somebody else's writing, and a
+	 * PATCH carrying a copy read a moment earlier is this site overwriting the base with it.
+	 */
+	public function handle_link() {
+		$students_record = WPCPM_Request::posted_text( 'wpcpm_student' );
+
+		$this->verify( self::ACTION_LINK . '_' . $students_record );
+
+		$institution = WPCPM_Request::posted_text( 'wpcpm_institution' );
+
+		// Shape, then the policy, then the state of the record, in the order
+		// `WPCPM_Institution_People::handle_add_account()` explains: a value that is not a
+		// record ID at all is a forged or a broken form, and deciding after it keeps the
+		// decision the log reads about a well-formed institution.
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $students_record ) || ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
+			$this->finish_link( self::LINK_BAD_RECORD, '' );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_ADD_STUDENT,
+			WPCPM_Institution_Policy::subject_institution( $institution )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		// An institution the site has never read cannot be given a student: the record ID
+		// would go into Airtable unchecked, and a mistyped one links the student to nothing.
+		if ( ! WPCPM_Institutions_Index::has( $institution ) ) {
+			$this->finish_link( self::LINK_NO_INSTITUTION, '' );
+		}
+
+		$settings = WPCPM_Settings::get();
+		$fields   = WPCPM_Mentors_Sync::fields();
+		$airtable = new WPCPM_Airtable( $settings );
+		$record   = $airtable->get_record( isset( $settings['students_table'] ) ? (string) $settings['students_table'] : '', $students_record );
+
+		if ( is_wp_error( $record ) ) {
+			$this->finish_link( self::LINK_READ_FAILED, $record->get_error_message() );
+		}
+
+		$row    = self::link_row( isset( $record['fields'] ) ? (array) $record['fields'] : array(), $fields );
+		$reason = self::link_block( $row );
+
+		// The cheap refusals first, because the reports lookup is a second request and a row
+		// the automation already covers is refused whatever that lookup would have said.
+		if ( '' !== $reason ) {
+			$this->finish_link( $reason, '' );
+		}
+
+		$reports = self::reports_by_email( $airtable, $settings, $fields, $row['email_key'] );
+
+		// Fail closed. "Airtable did not answer" is not "there is no reports row", and the
+		// whole point of this control is that it does not guess about the second row.
+		if ( is_wp_error( $reports ) ) {
+			$this->finish_link( self::LINK_READ_FAILED, $reports->get_error_message() );
+		}
+
+		$row['reports'] = $reports;
+		$reason         = self::link_block( $row );
+
+		if ( '' !== $reason ) {
+			$this->finish_link( $reason, '' );
+		}
+
+		$written = $airtable->update_records(
+			isset( $settings['students_table'] ) ? (string) $settings['students_table'] : '',
+			array(
+				array(
+					'id'     => $students_record,
+					'fields' => array( $fields['student_institution'] => array( $institution ) ),
+				),
+			)
+		);
+
+		if ( is_wp_error( $written ) ) {
+			$this->finish_link( self::LINK_WRITE_FAILED, $written->get_error_message() );
+		}
+
+		$row['record_id']   = $students_record;
+		$row['institution'] = $institution;
+
+		// On the roster now rather than after tonight's sync, for the reason the import path
+		// inserts its rows: a manager who has just linked a student and is told to come back
+		// tomorrow to see it has no way to tell a slow index from a write that did not land.
+		WPCPM_Roster_Index::insert( $institution, $row );
+
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => self::LOG_LINKED,
+				'institution' => $institution,
+				'subject'     => $students_record,
+				'actor'       => get_current_user_id(),
+				// The ground the fence answered on, not an assumption about who pressed:
+				// decision 2 says a manager passes every action as `manager`, and the log is
+				// where that is read back.
+				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : WPCPM_Institution_Audit::GROUND_MANAGER,
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_LIVE,
+				'message'     => '',
+				'data'        => array(
+					'to'     => $institution,
+					'status' => $row['status'],
+				),
+			)
+		);
+
+		$this->finish_link( self::LINK_DONE, self::institution_name( $institution ) );
+	}
+
+	/**
+	 * Say how the link ended and go back to the card that asked.
+	 *
+	 * Its own channel rather than the screen's, so the sentence is drawn inside the
+	 * reconciliation card beside the row it is about instead of at the top of a screen with
+	 * eight other cards on it.
+	 *
+	 * @param string $status One of the `LINK_` constants.
+	 * @param string $detail What the sentence adds: an institution name, or an Airtable error.
+	 */
+	private function finish_link( $status, $detail ) {
+		WPCPM_Flash::set(
+			self::FLASH_LINK,
+			array(
+				'status' => (string) $status,
+				'detail' => (string) $detail,
+			)
+		);
+
+		wp_safe_redirect( $this->admin_url() . '#' . self::ANCHOR_UNLINKED );
+		exit;
+	}
+
+	/**
+	 * One live Students record in the shape the roster index and `link_block()` use.
+	 *
+	 * Built from the record that was just read rather than from the index, because it is the
+	 * live row the write lands on. `reports` is left empty here and filled by the lookup: the
+	 * Students table's own `Students Reports` column is empty on all 800 rows, so the only
+	 * join between the two tables is the address.
+	 *
+	 * @param array $cells  The record's `fields`.
+	 * @param array $fields `WPCPM_Mentors_Sync::fields()`.
+	 * @return array A row in the roster index's shape.
+	 */
+	private static function link_row( array $cells, array $fields ) {
+		$read = static function ( $column ) use ( $cells, $fields ) {
+			return isset( $fields[ $column ], $cells[ $fields[ $column ] ] )
+				? trim( (string) WPCPM_Airtable::flatten( $cells[ $fields[ $column ] ] ) )
+				: '';
+		};
+
+		$links = WPCPM_Airtable::link_ids( isset( $cells[ $fields['student_institution'] ] ) ? $cells[ $fields['student_institution'] ] : array() );
+		$email = $read( 'student_email' );
+
+		return array(
+			'record_id'      => '',
+			'name'           => $read( 'student_record_name' ),
+			'email'          => $email,
+			'email_key'      => strtolower( $email ),
+			'status'         => $read( 'student_status' ),
+			'institution'    => ( ! empty( $links ) && WPCPM_Mentors_Sync::is_record_id( $links[0] ) ) ? trim( (string) $links[0] ) : '',
+			'start'          => $read( 'student_start' ),
+			'end'            => $read( 'student_end' ),
+			'has_mentor'     => ! empty( WPCPM_Airtable::link_ids( isset( $cells[ $fields['student_mentor'] ] ) ? $cells[ $fields['student_mentor'] ] : array() ) ),
+			'username'       => WPCPM_Mentors_Sync::wporg_username( $read( 'student_profile' ) ),
+			'field_of_study' => $read( 'student_study' ),
+			'tutor'          => $read( 'student_tutor' ),
+			'import_key'     => $read( 'student_import_key' ),
+			'reports'        => array(),
+			'user_id'        => 0,
+		);
+	}
+
+	/**
+	 * Why this row may not be linked, or '' when it may.
+	 *
+	 * **One rule, asked twice.** The card asks it of the index row so it does not offer a
+	 * control that would be refused, and the handler asks it of the live record because the
+	 * index is as old as the last sync and the write is what fires the automation. Written
+	 * once so the two cannot drift into telling a manager different things about one row.
+	 *
+	 * The order is deliberate: a row that already names an institution is not this list's
+	 * business at all, the automation refusal costs nothing to check, and the reports refusal
+	 * is last because on the live path it is the one that costs a request.
+	 *
+	 * @param array $row A row in the roster index's shape.
+	 * @return string A `LINK_` reason, or '' when the row may be linked.
+	 */
+	private static function link_block( array $row ) {
+		if ( '' !== trim( (string) ( isset( $row['institution'] ) ? $row['institution'] : '' ) ) ) {
+			return self::LINK_ALREADY;
+		}
+
+		$status = trim( (string) ( isset( $row['status'] ) ? $row['status'] : '' ) );
+
+		if ( ! empty( $row['has_mentor'] ) && in_array( $status, self::AUTOMATION_STATUSES, true ) ) {
+			return self::LINK_AUTOMATION;
+		}
+
+		// No address is not "no duplicate": it is the site being unable to run the check at
+		// all, because the two tables are joined by nothing else. Three Students rows carry
+		// no email; a manager fixes the address in the base and the row becomes linkable.
+		if ( '' === trim( (string) ( isset( $row['email_key'] ) ? $row['email_key'] : '' ) ) ) {
+			return self::LINK_NO_EMAIL;
+		}
+
+		if ( ! empty( $row['reports'] ) ) {
+			return self::LINK_REPORTS;
+		}
+
+		return '';
+	}
+
+	/**
+	 * The Students Reports record IDs held for one address.
+	 *
+	 * `formula_in()`'s third argument wraps the column in `LOWER()`, which is what makes this
+	 * a comparison of mailboxes rather than of spellings: the base holds addresses as they
+	 * were typed and one pair in the Students table differs only by case.
+	 *
+	 * One page and never every page: the question is whether any row exists at all, and a
+	 * second page can only add more of them. What comes back is counted and **not** re-checked against the
+	 * address in PHP, because Airtable answers a `fields` list naming an unknown column with
+	 * records carrying no fields at all, and a re-check would then read those as misses and
+	 * hand back the empty answer this control must never invent.
+	 *
+	 * @param WPCPM_Airtable $airtable A configured client.
+	 * @param array          $settings Plugin settings.
+	 * @param array          $fields   `WPCPM_Mentors_Sync::fields()`.
+	 * @param string         $email    The address, lowercased.
+	 * @return array|WP_Error Record IDs, or why the base could not be asked.
+	 */
+	private static function reports_by_email( $airtable, array $settings, array $fields, $email ) {
+		$page = $airtable->fetch_page(
+			isset( $settings['reports_table'] ) ? (string) $settings['reports_table'] : '',
+			array(
+				'formula' => $airtable->formula_in( $fields['report_email'], array( (string) $email ), true ),
+				'fields'  => array( $fields['report_email'] ),
+			)
+		);
+
+		if ( is_wp_error( $page ) ) {
+			return $page;
+		}
+
+		$found = array();
+
+		foreach ( $page['records'] as $record ) {
+			if ( ! empty( $record['id'] ) ) {
+				$found[] = (string) $record['id'];
+			}
+		}
+
+		return $found;
+	}
 
 	/**
 	 * Approve one application: the Airtable record, the index row and the account.
@@ -3159,25 +3487,239 @@ class WPCPM_Institutions extends WPCPM_Module {
 
 		$unlinked = WPCPM_Roster_Index::unlinked();
 
+		// Outside the list and not inside it: a sync that finished between the redirect and
+		// this render empties the list, and an outcome nothing draws is one that sits in user
+		// meta until some later page surprises somebody with it.
+		$this->render_link_outcome();
+
 		if ( ! empty( $unlinked ) ) {
-			echo '<h3>' . esc_html__( 'Rows with no institution', 'wpcredits-program-manager' ) . '</h3>';
-			echo '<ul class="wpcpm-notices wpcpm-inst-unlinked">';
-
-			foreach ( $unlinked as $row ) {
-				$status = isset( $row['status'] ) ? trim( (string) $row['status'] ) : '';
-
-				printf(
-					'<li>%1$s <span class="wpcpm-inst-muted">%2$s</span></li>',
-					esc_html( isset( $row['name'] ) && '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : __( '(no name)', 'wpcredits-program-manager' ) ),
-					esc_html( '' !== $status ? $status : __( '(no status)', 'wpcredits-program-manager' ) )
-				);
-			}
-
-			echo '</ul>';
-			echo '<p class="description">' . esc_html__( 'Linking a row to an institution from here ships with the next phase. Until then, set Educational Institutions on the row in Airtable.', 'wpcredits-program-manager' ) . '</p>';
+			$this->render_unlinked( $unlinked );
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * The Students rows that name no institution, each with its Link control or its reason.
+	 *
+	 * Three rows today. A program manager links one from here and no institution ever does:
+	 * the import's whole verdict design exists so that a school cannot learn which addresses
+	 * outside its own roster the base knows about, and a self-service adopt control would
+	 * hand it exactly that, one address at a time.
+	 *
+	 * A row is offered a control only when `link_block()` says the write is safe, and the
+	 * reason is printed beside the row when it is not. The handler asks the same question
+	 * again against a live read and refuses on its own: a disabled control is a courtesy to
+	 * the person and not a check, and this list is only as fresh as the last sync.
+	 *
+	 * @param array $rows Rows from `WPCPM_Roster_Index::unlinked()`.
+	 */
+	private function render_unlinked( array $rows ) {
+		$choices  = self::link_choices();
+		$offered  = 0;
+		$standing = 0;
+
+		printf(
+			'<h3 id="%1$s">%2$s</h3>',
+			esc_attr( self::ANCHOR_UNLINKED ),
+			esc_html__( 'Rows with no institution', 'wpcredits-program-manager' )
+		);
+
+		echo '<ul class="wpcpm-notices wpcpm-inst-unlinked">';
+
+		foreach ( $rows as $row ) {
+			$row       = is_array( $row ) ? $row : array();
+			$record_id = isset( $row['record_id'] ) ? trim( (string) $row['record_id'] ) : '';
+			$status    = isset( $row['status'] ) ? trim( (string) $row['status'] ) : '';
+			$name      = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+
+			printf(
+				'<li>%1$s <span class="wpcpm-inst-muted">%2$s</span>',
+				esc_html( '' !== $name ? $name : __( '(no name)', 'wpcredits-program-manager' ) ),
+				esc_html( '' !== $status ? $status : __( '(no status)', 'wpcredits-program-manager' ) )
+			);
+
+			// A stored option is not a guaranteed shape. `WPCPM_Roster_Index` drops a row whose
+			// record ID is not well-formed on the way in, but that is a promise made on the
+			// write side about the runs that have happened since it was made, and a row this
+			// site cannot address in Airtable is a row no control here could ever act on.
+			if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+				++$standing;
+				echo '</li>';
+				continue;
+			}
+
+			$reason = self::link_block( $row );
+
+			if ( '' === $reason ) {
+				++$offered;
+				$this->render_link_form( $record_id, $name, $choices );
+			} else {
+				printf( ' <span class="wpcpm-warning">%s</span>', esc_html( self::link_message( $reason ) ) );
+			}
+
+			echo '</li>';
+		}
+
+		echo '</ul>';
+
+		if ( $offered > 0 ) {
+			echo '<p class="description">' . esc_html__( 'Linking writes Educational Institutions onto the Students row in Airtable and nothing else. Two rows are refused rather than linked: one carrying a mentor at a status the automation watches, and one whose address already has a Students Reports row. Either write would create a second Students Reports row, which is the duplicate this card exists to stop making more of. A linked row stays on this list until the next sync rebuilds it.', 'wpcredits-program-manager' ) . '</p>';
+		}
+
+		// The standing instruction, for a row this control cannot act on at all. It says the
+		// same thing the three refusals above say in their own words: the link is made in the
+		// base, by hand, and not from here.
+		if ( $standing > 0 ) {
+			echo '<p class="description">' . esc_html__( 'A row above carries no usable Airtable record ID, so nothing here can address it. Set Educational Institutions on that row in Airtable.', 'wpcredits-program-manager' ) . '</p>';
+		}
+	}
+
+	/**
+	 * The per-row control: link this Students row to one institution.
+	 *
+	 * The nonce is keyed to the Students row. Every one of these controls is on one page, and
+	 * a nonce that covered the action rather than the row would let a token taken from a row
+	 * the site is willing to link be posted for the row beside it, which is a row it refuses.
+	 *
+	 * The institution is a `<select>` and never a free-text record ID: the base holds
+	 * near-collisions and ten names ending in a space, and a mistyped record ID is a link to
+	 * nothing that no later screen would show as wrong.
+	 *
+	 * @param string $record_id Students record ID.
+	 * @param string $name      The student's name, for the confirm.
+	 * @param array  $choices   Institution record ID to name, from `link_choices()`.
+	 */
+	private function render_link_form( $record_id, $name, array $choices ) {
+		$field   = 'wpcpm-link-' . $record_id;
+		$confirm = sprintf(
+			/* translators: %s: the student's name as the Students table holds it. */
+			__( 'Link %s to the institution chosen here? This writes Educational Institutions onto the Students row in Airtable. The row is read again first and the write is refused if it would create a second Students Reports row.', 'wpcredits-program-manager' ),
+			'' !== $name ? $name : $record_id
+		);
+
+		printf(
+			' <form class="wpcpm-inst-link" method="post" action="%1$s" onsubmit="return confirm(\'%2$s\');">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_js( $confirm )
+		);
+		wp_nonce_field( self::ACTION_LINK . '_' . $record_id );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_LINK ) );
+		printf( '<input type="hidden" name="wpcpm_student" value="%s" />', esc_attr( $record_id ) );
+		printf(
+			'<label class="screen-reader-text" for="%1$s">%2$s</label>',
+			esc_attr( $field ),
+			esc_html__( 'Institution to link this row to', 'wpcredits-program-manager' )
+		);
+		printf( '<select id="%s" name="wpcpm_institution" required>', esc_attr( $field ) );
+		printf( '<option value="">%s</option>', esc_html__( 'Choose an institution', 'wpcredits-program-manager' ) );
+
+		foreach ( $choices as $choice => $label ) {
+			printf( '<option value="%1$s">%2$s</option>', esc_attr( $choice ), esc_html( $label ) );
+		}
+
+		echo '</select>';
+		printf( ' <button type="submit" class="button">%s</button>', esc_html__( 'Link', 'wpcredits-program-manager' ) );
+		echo '</form>';
+	}
+
+	/**
+	 * How the last press of Link ended, drawn inside the card that made it.
+	 *
+	 * Taken and cleared here rather than at the top of the screen with the other outcomes,
+	 * because it is a sentence about one row in a list eight cards down: a manager who has to
+	 * scroll back up to read what happened cannot see the row it happened to.
+	 */
+	private function render_link_outcome() {
+		$flash  = WPCPM_Flash::take( self::FLASH_LINK );
+		$status = ( is_array( $flash ) && isset( $flash['status'] ) ) ? (string) $flash['status'] : '';
+		$detail = ( is_array( $flash ) && isset( $flash['detail'] ) ) ? (string) $flash['detail'] : '';
+
+		if ( '' === $status ) {
+			return;
+		}
+
+		if ( self::LINK_DONE === $status ) {
+			printf(
+				'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+				esc_html(
+					'' !== $detail
+						? sprintf(
+							/* translators: %s: institution name. */
+							__( 'The row is linked to %s. It is on that institution\'s roster now, and it stays on this list until the next sync rebuilds it.', 'wpcredits-program-manager' ),
+							$detail
+						)
+						: self::link_message( $status )
+				)
+			);
+
+			return;
+		}
+
+		// "Nothing was written" first, in every refusal. What a manager needs to know before
+		// the reason is whether the base changed, because the answer decides whether the next
+		// thing they do is fix the row or nothing at all.
+		printf(
+			'<div class="notice notice-error is-dismissible"><p>%1$s %2$s%3$s</p></div>',
+			esc_html__( 'Nothing was written.', 'wpcredits-program-manager' ),
+			esc_html( self::link_message( $status ) ),
+			'' !== $detail ? ' <code>' . esc_html( $detail ) . '</code>' : ''
+		);
+	}
+
+	/**
+	 * The sentence for one `LINK_` outcome.
+	 *
+	 * One map for the card's row notes and the handler's flashes both, so a row that says why
+	 * it is not offered a control and the refusal that follows pressing Link anyway say it in
+	 * the same words.
+	 *
+	 * @param string $status A `LINK_` constant.
+	 * @return string The sentence, or '' for a status this map does not know.
+	 */
+	private static function link_message( $status ) {
+		$messages = array(
+			self::LINK_DONE           => __( 'The row is linked. It is on that institution\'s roster now, and it stays on this list until the next sync rebuilds it.', 'wpcredits-program-manager' ),
+			self::LINK_AUTOMATION     => __( 'This row carries a mentor and a status the Airtable automation watches, so writing an institution onto it now would create a second Students Reports row. Deal with the mentor or the status in the base first.', 'wpcredits-program-manager' ),
+			self::LINK_REPORTS        => __( 'A Students Reports row already exists for this row\'s address, so writing an institution onto it now would leave the program holding two records for one student.', 'wpcredits-program-manager' ),
+			self::LINK_NO_EMAIL       => __( 'This row carries no address, and the address is the only join between the two tables, so the site cannot tell whether a Students Reports row already exists for it.', 'wpcredits-program-manager' ),
+			self::LINK_ALREADY        => __( 'This row already names an institution. This list is as old as the last sync; run one to rebuild it.', 'wpcredits-program-manager' ),
+			self::LINK_BAD_RECORD     => __( 'That control did not name a Students row and an institution this site can act on.', 'wpcredits-program-manager' ),
+			self::LINK_NO_INSTITUTION => __( 'That institution is not in the pipeline index. Run a sync and try again.', 'wpcredits-program-manager' ),
+			self::LINK_READ_FAILED    => __( 'Airtable would not answer, so the checks that keep this control from creating a second Students Reports row could not be run.', 'wpcredits-program-manager' ),
+			self::LINK_WRITE_FAILED   => __( 'Airtable refused the change, so the row is exactly where it was.', 'wpcredits-program-manager' ),
+		);
+
+		return isset( $messages[ $status ] ) ? $messages[ $status ] : '';
+	}
+
+	/**
+	 * Every institution the site has read, as record ID to the name to print.
+	 *
+	 * The whole index and not only the Confirmed rows: a Students row with no institution is
+	 * most often older than the partnership it belongs to, and a picker that hid everything
+	 * short of Confirmed would refuse the exact case this control is for.
+	 *
+	 * Names are trimmed by `institution_name()`, which also answers a nameless record with its
+	 * record ID: ten names in the base end in a space and two Confirmed records have no name
+	 * at all, and neither is a row a manager should have to pick blind.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function link_choices() {
+		$choices = array();
+
+		foreach ( array_keys( WPCPM_Institutions_Index::rows() ) as $record_id ) {
+			if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+				continue;
+			}
+
+			$choices[ trim( (string) $record_id ) ] = self::institution_name( $record_id );
+		}
+
+		asort( $choices, SORT_NATURAL | SORT_FLAG_CASE );
+
+		return $choices;
 	}
 
 	/**

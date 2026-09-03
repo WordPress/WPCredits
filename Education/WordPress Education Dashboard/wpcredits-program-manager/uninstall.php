@@ -72,6 +72,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-agreeme
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-application.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-approval.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-student-form.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-students.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-export.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-import.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-notes.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-institution-invite.php';

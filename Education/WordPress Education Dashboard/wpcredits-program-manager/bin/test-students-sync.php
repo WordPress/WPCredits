@@ -399,7 +399,15 @@ function report_row( $name, $email, $status, $institution, array $extra = array(
 for ( $i = 1; $i <= 8; $i++ ) {
 	$email = "krakow-grad-$i@example.test";
 	$ids[ "k$i" ]  = student_row( "Krakow Graduate $i", $email, 'Graduate', $krakow, '2026-02-16' );
-	$ids[ "rk$i" ] = report_row( "Krakow Graduate $i", $email, 'Graduate', $krakow );
+	// The first one carries a profile on its reports row and none on its Students row, which
+	// is what every row at one real university looks like: see the assertion further down.
+	$ids[ "rk$i" ] = report_row(
+		"Krakow Graduate $i",
+		$email,
+		'Graduate',
+		$krakow,
+		1 === $i ? array( $fields['report_profile'] => 'https://profiles.wordpress.org/krakow-grad-one/' ) : array()
+	);
 }
 for ( $i = 9; $i <= 10; $i++ ) {
 	$email = "krakow-pending-$i@example.test";
@@ -598,6 +606,20 @@ ck( 'with the columns read from the table',
 	array( $k9['name'], $k9['email_key'], $k9['status'], $k9['institution'], $k9['start'], $k9['end'], $k9['has_mentor'], $k9['username'], $k9['field_of_study'], $k9['tutor'], $k9['import_key'] ),
 	array( 'Krakow Pending 9', 'krakow-pending-9@example.test', 'Pending graduation', $krakow, '2026-03-02', '2026-06-30', true, 'krakow-pending-nine', 'Technology & Engineering', 'Ola Tutor', 'batch-1:9' ) );
 ck( 'its report and its account were filled in', array( $k9['reports'], $k9['user_id'] > 0 ), array( array( $ids['rk9'] ), true ) );
+
+// **The profile lives on the reports row, not on the Students row.** Measured on the live
+// base: at one university the Students table's `WP Profile` column is empty for all fifteen
+// of their students while the reports row carries one for eleven of the same fifteen, so a
+// roster reading only the Students column showed no WordPress.org profile at all and read as
+// though nobody in the program had one. It is the first step of onboarding.
+$k1 = $roster['rows'][ $ids['k1'] ];
+
+ck( 'a student with no profile on their Students row takes the one on their report', $k1['username'], 'krakow-grad-one' );
+// Only when the Students side gave nothing: a school that does populate its own column keeps
+// what it wrote there.
+ck( 'and a Students row that has its own keeps it', $k9['username'], 'krakow-pending-nine' );
+// A student with neither is still empty, rather than borrowing somebody else's.
+ck( 'a student with neither has none', $roster['rows'][ $ids['k2'] ]['username'], '' );
 
 // Graduate 2, not 1: Graduate 1 is the one with a pre-existing account.
 $k2 = $roster['rows'][ $ids['k2'] ];

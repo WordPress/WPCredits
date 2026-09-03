@@ -1055,6 +1055,21 @@ class WPCPM_Students_Sync {
 			}
 
 			$state['rows'][ $record_id ]['reports'] = $reports;
+
+			// **The profile lives on the reports row, not on the Students row.** Measured on
+			// the live base: at Krakow University of Economics the Students table's `WP Profile`
+			// column is empty for all fifteen of their students, while the Students Reports
+			// row carries one for eleven of the same fifteen. The index was reading only the
+			// Students column, so every institution's roster showed no WordPress.org profile at
+			// all and read as though nobody in the program had one - which is the opposite of
+			// true, the profile being the first step of onboarding.
+			//
+			// Filled only when the Students side gave nothing, so a school that does populate
+			// its own column keeps what it wrote there. This is the point in the sync where the
+			// two rows are already joined by address, so it costs no read.
+			if ( '' === (string) $state['rows'][ $record_id ]['username'] && ! empty( $student['username'] ) ) {
+				$state['rows'][ $record_id ]['username'] = (string) $student['username'];
+			}
 		}
 
 		// '' when the row names no institution, and `phase_provision()` deletes the stamp on
@@ -1069,6 +1084,17 @@ class WPCPM_Students_Sync {
 	/**
 	 * Create or link the WordPress account for one student.
 	 *
+	 * **An account found by email is adopted only when it is nobody else's.** A record ID is
+	 * the sync's own word about whose account it is; an address is only what somebody typed
+	 * into a form, and since the institutions module the somebody is an institution choosing
+	 * what to import (design spec 7.6). Assigning a mentor is routine manager work, so a
+	 * mentor's or a colleague's address imported as a student would, on the next sync, turn
+	 * that person's account into a student on that institution's roster.
+	 *
+	 * So an email match carrying another module's stamp or a role this program did not give
+	 * it is a conflict rather than a match: counted, named, and left exactly as it was. Real
+	 * students never reach that test, because their own stamp finds them first.
+	 *
 	 * @param array $student Student row.
 	 * @param array $state   Sync state, by reference.
 	 * @param bool  $may_create Whether a missing account may be created.
@@ -1080,10 +1106,15 @@ class WPCPM_Students_Sync {
 		// Identify by the record we stored, then by email. Never by login: student
 		// logins are derived from an email address when there is no WordPress.org
 		// profile, which is far too weak a signal to claim an existing account on.
-		$user = self::find_by_record_id( $student['record_id'] );
+		$user     = self::find_by_record_id( $student['record_id'] );
+		$adopting = false;
 
 		if ( ! $user && is_email( $email ) ) {
 			$user = get_user_by( 'email', $email );
+
+			// Which way the account was found is what decides how much it has to prove
+			// below, so it is remembered here rather than guessed at afterwards.
+			$adopting = ( $user instanceof WP_User );
 		}
 
 		if ( $user instanceof WP_User ) {
@@ -1095,6 +1126,21 @@ class WPCPM_Students_Sync {
 					__( 'Skipped %1$s — the account "%2$s" is already linked to a different student record.', 'wpcredits-program-manager' ),
 					$student['name'] ? $student['name'] : $student['record_id'],
 					$user->user_login
+				);
+				++$state['stats']['conflicts'];
+
+				return 0;
+			}
+
+			$block = $adopting ? self::adoption_block( $user ) : '';
+
+			if ( '' !== $block ) {
+				$state['notices'][] = sprintf(
+					/* translators: 1: student name, 2: WordPress username, 3: what that account already is, such as "is a mentor's account". */
+					__( 'Skipped %1$s: the address belongs to the account "%2$s", which %3$s. That is a conflict and not a match, so the account was left as it is.', 'wpcredits-program-manager' ),
+					$student['name'] ? $student['name'] : $student['record_id'],
+					$user->user_login,
+					$block
 				);
 				++$state['stats']['conflicts'];
 
@@ -1171,6 +1217,84 @@ class WPCPM_Students_Sync {
 		}
 
 		return (int) $user_id;
+	}
+
+	/**
+	 * The roles an account may already hold and still be adopted as a student's.
+	 *
+	 * Subscriber is the account a person made for themselves here and Student is the one
+	 * this sync gives them; every other role on the site was granted to somebody by
+	 * somebody, and that grant is the fact that makes the account not a student's to take.
+	 * Subscriber is a literal because it is WordPress's own role rather than one of ours,
+	 * which is how `WPCPM_Roles` writes it too.
+	 */
+	const ADOPTABLE_ROLES = array( WPCPM_Roles::ROLE_STUDENT, 'subscriber' );
+
+	/**
+	 * Why the account behind this address may not be adopted as this student's, or ''.
+	 *
+	 * **Only the email path asks.** An account found by its own student stamp is one this
+	 * sync created and may carry anything at all; this is about an address, which is a value
+	 * an institution types into an import form.
+	 *
+	 * The `_was` stamp counts for the same reason `WPCPM_Institutions_Sync::provision_block()`
+	 * refuses a former member: a membership that has ended is still why that account exists,
+	 * and the person is still a school's colleague rather than its student. The cost is that
+	 * a genuine student who used to act for their institution is refused here every run until
+	 * a program manager settles it by hand, which is the trade the spec asks for: a repeated
+	 * line on the reconciliation card is cheaper than one silent wrong roster row.
+	 *
+	 * @param WP_User $user The account the address belongs to.
+	 * @return string What the account already is, in the words the run report prints, or ''.
+	 */
+	private static function adoption_block( WP_User $user ) {
+		foreach ( self::foreign_stamps() as $key => $what ) {
+			if ( '' !== trim( (string) get_user_meta( $user->ID, $key, true ) ) ) {
+				return $what;
+			}
+		}
+
+		foreach ( (array) $user->roles as $role ) {
+			if ( in_array( $role, self::ADOPTABLE_ROLES, true ) ) {
+				continue;
+			}
+
+			return sprintf(
+				/* translators: %s: a WordPress role slug, such as administrator. */
+				__( 'holds the "%s" role', 'wpcredits-program-manager' ),
+				$role
+			);
+		}
+
+		return '';
+	}
+
+	/**
+	 * The stamps other modules write on an account, and what each one says about it.
+	 *
+	 * The student stamp is not among them: `provision_student()` has already compared it,
+	 * and an account carrying this student's own record is the one being refreshed.
+	 *
+	 * Named through the classes that write them rather than repeated as literals, so
+	 * `bin/check-references.php` fails on a rename instead of this fence quietly reading a
+	 * key nothing writes any more. The institutions module is asked for only when it is
+	 * loaded: the plugin loader requires every module, so on a running site the answer is
+	 * always yes, and the guard is for the CLI suites, which load one module at a time and
+	 * would otherwise fatal on the constant rather than run their own subject.
+	 *
+	 * @return array<string, string> Meta key, and what an account carrying it already is.
+	 */
+	private static function foreign_stamps() {
+		$stamps = array(
+			WPCPM_Mentors_Sync::META_RECORD_ID => __( "is a mentor's account", 'wpcredits-program-manager' ),
+		);
+
+		if ( class_exists( 'WPCPM_Institution_Members' ) ) {
+			$stamps[ WPCPM_Institution_Members::META_RECORD_ID ]     = __( 'acts for an institution', 'wpcredits-program-manager' );
+			$stamps[ WPCPM_Institution_Members::META_RECORD_ID_WAS ] = __( 'acted for an institution before', 'wpcredits-program-manager' );
+		}
+
+		return $stamps;
 	}
 
 	/**

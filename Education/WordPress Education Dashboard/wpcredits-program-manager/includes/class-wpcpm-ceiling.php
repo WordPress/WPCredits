@@ -79,19 +79,32 @@ class WPCPM_Ceiling {
 	 * instant: that request's claim counts and this one is refused, which is wrong only in
 	 * the safe direction and only in that instant.
 	 *
+	 * **`$amount` is for ceilings counted in things rather than in events.** The import's
+	 * six-hundred-rows-a-day is one claim of however many rows the file holds, not six hundred
+	 * claims: a loop calling this once per row would write six hundred option rows to learn
+	 * one answer, and would admit a file that goes over the line halfway through. Claiming the
+	 * whole amount at once means a batch that does not fit is refused before a row is parsed,
+	 * which is where the spec puts it.
+	 *
+	 * A claim larger than the whole limit can never fit and is refused rather than clamped, so
+	 * a caller cannot get a free pass by asking for too much.
+	 *
 	 * @param string $key    What is being limited, e.g. `'dwell:' . $hash`. Never a raw
 	 *                       address: callers pass `wp_hash()` of one.
 	 * @param int    $limit  How many claims a window admits.
 	 * @param int    $window Window length in seconds.
+	 * @param int    $amount How much of the window's allowance this claim takes. One by
+	 *                       default, which is every caller that counts events.
 	 * @return bool Whether the claim was counted.
 	 */
-	public static function claim( $key, $limit, $window ) {
+	public static function claim( $key, $limit, $window, $amount = 1 ) {
 		$limit  = (int) $limit;
+		$amount = max( 1, (int) $amount );
 		$window = self::window( $window );
 		$bucket = self::bucket( $window );
 		$name   = self::option_name( $key, $bucket );
 
-		if ( $limit < 1 ) {
+		if ( $limit < 1 || $amount > $limit ) {
 			return false;
 		}
 
@@ -101,16 +114,16 @@ class WPCPM_Ceiling {
 			// The first claim in this window. `add_option()` is the test-and-set: one INSERT
 			// that fails when the row is already there, so two first claims arriving together
 			// cannot both succeed, and a limit of 1 is exact. Never autoloaded.
-			return (bool) add_option( $name, self::row( $window, $bucket, 1 ), '', false );
+			return (bool) add_option( $name, self::row( $window, $bucket, $amount ), '', false );
 		}
 
 		$count = self::count_of( $row );
 
-		if ( $count >= $limit ) {
+		if ( $count + $amount > $limit ) {
 			return false;
 		}
 
-		update_option( $name, self::row( $window, $bucket, $count + 1 ), false );
+		update_option( $name, self::row( $window, $bucket, $count + $amount ), false );
 
 		return true;
 	}
