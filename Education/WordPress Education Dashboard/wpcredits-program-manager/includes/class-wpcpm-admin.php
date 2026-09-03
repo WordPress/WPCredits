@@ -27,8 +27,15 @@ class WPCPM_Admin {
 	 * posts nothing and absent has to mean off. For a switch with no box on the form absent
 	 * means nothing, so these are left to `WPCPM_Settings::save()`'s own guard. The
 	 * Institutions settings card removes each one from here when it renders it.
+	 *
+	 * **Empty since 1.85.1, and worth keeping rather than deleting.** It held
+	 * `import_enabled` for as long as the import had no screen, and that was right at the
+	 * time and wrong the moment the screen shipped: the setting existed, defaulted to off,
+	 * and had nowhere to be turned on, so the feature was unreachable and the settings page
+	 * gave no hint that it was there. The next switch that ships ahead of its surface goes
+	 * here and comes out the same way.
 	 */
-	const UNRENDERED_SWITCHES = array( 'import_enabled' );
+	const UNRENDERED_SWITCHES = array();
 
 	/**
 	 * Hooks.
@@ -571,6 +578,25 @@ class WPCPM_Admin {
 			'' !== $apply_url
 				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( $apply_url ) )
 				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing: re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
+		);
+
+		// Beside the applications switch, because the two are the same kind of decision: both
+		// open a route by which people outside the program put names into it, and a site that
+		// wants one may well not want the other.
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="import_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p><p class="description">%5$s</p></td></tr>',
+			esc_html__( 'Enrolment lists from institutions', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['import_enabled'] ), true, false ),
+			esc_html__( 'Let an institution send a list of students to enrol', 'wpcredits-program-manager' ),
+			esc_html__( 'Adds an "Enrol students" section to the Institution Dashboard, where a school chooses the program and the term and then adds one student or sends a CSV. The list is read and checked against the program records, and the school sees what was understood before anything is created. While this is off the section does not appear at all.', 'wpcredits-program-manager' ),
+			esc_html(
+				sprintf(
+					/* translators: 1: checks per hour, 2: rows per day. */
+					__( 'Ceilings per institution: %1$s checks an hour and %2$s students a day. Files are read and never stored.', 'wpcredits-program-manager' ),
+					class_exists( 'WPCPM_Institution_Import' ) ? number_format_i18n( WPCPM_Institution_Import::CHECKS_PER_HOUR ) : '',
+					class_exists( 'WPCPM_Institution_Import' ) ? number_format_i18n( WPCPM_Institution_Import::ROWS_PER_DAY ) : ''
+				)
+			)
 		);
 
 		printf(

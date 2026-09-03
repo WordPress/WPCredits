@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.85.0
+Stable tag: 1.85.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.85.1 =
+* The switch that turns enrolment lists on is on the settings screen, under Institutions, beside the applications switch. It had been deliberately left off the form while the import had no screen of its own, which was right until the screen shipped in 1.85.0 and wrong from that moment: the setting existed, defaulted to off, and had nowhere to be turned on. The row names the ceilings, so nobody has to read the source to learn what a school is allowed to send.
 
 = 1.85.0 =
 * An institution can send a list of students to be enrolled. Choose the program and the term once, then add one student through five boxes or send a CSV, and the site reads it and shows what it understood before anything is created: which rows are ready, which are already on your roster, which cannot be imported from here, and which could not be read and why. Nothing is created yet; that is the next release, and the screen says so. The whole section is behind a setting that is off by default.

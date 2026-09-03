@@ -408,11 +408,17 @@ ck( 'and the default of ten is inside the range', $saved['agreement_generations_
 // The save handler reads every rendered checkbox unconditionally and skips the ones the
 // form does not render yet; the two lists must agree with the form itself, or a switch is
 // either silently turned off on every save or silently never saved.
-preg_match( '/const UNRENDERED_SWITCHES = array\( (.*?) \);/', $admin, $m );
+preg_match( '/const UNRENDERED_SWITCHES = array\((.*?)\);/', $admin, $m );
 preg_match_all( "/'([a-z_]+)'/", isset( $m[1] ) ? $m[1] : '', $listed );
 preg_match_all( '/name="([a-z_]+)"/', $admin, $rendered );
 $switches = array_keys( array_filter( WPCPM_Settings::defaults(), 'is_bool' ) );
-ck( 'the handler declares the switches the form does not render', empty( $listed[1] ), false );
+
+// **The list being empty is a fine answer, and used not to be.** This asserted it was not
+// empty, on the reasoning that a switch was always going to be waiting for its screen. Then
+// the import's screen shipped, the last entry came out, and the assertion failed for the
+// state everybody wants: every switch has a box. What actually matters is the pairing below,
+// and a switch that had no box and no entry would still be caught by it.
+ck( 'the declared list is a list, whether or not anything is in it', is_array( $listed[1] ), true );
 ck( 'every switch is either rendered by the form or declared unrendered',
     array_values( array_diff( $switches, $rendered[1], $listed[1] ) ), array() );
 ck( 'and none is both', array_values( array_intersect( $rendered[1], $listed[1] ) ), array() );
