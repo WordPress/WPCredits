@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * A refusal names its reason with a short key rather than a sentence, because the caller decides
  * how to say it: a form lists the rejected fields on its flash, an import lists them per row.
  * The keys are `not_scalar`, `not_a_number`, `below_min`, `above_max`, `bad_email`,
- * `bad_choice` and `out_of_range`.
+ * `bad_choice`, `bad_date` and `out_of_range`.
  */
 final class WPCPM_Field_Value {
 
@@ -44,8 +44,8 @@ final class WPCPM_Field_Value {
 	 *
 	 * @param mixed $raw  Posted value.
 	 * @param array $spec Field spec: `type` (team, checkbox, email, number, url, text, textarea,
-	 *                    richtext, rating, select; a missing type is text) and, per type, `min`,
-	 *                    `max`, `step`, `maxlength`, `max_text` and `choices`.
+	 *                    richtext, rating, select, date; a missing type is text) and, per type,
+	 *                    `min`, `max`, `step`, `maxlength`, `max_text` and `choices`.
 	 * @return array{ok:bool,value:mixed,problem:string} `problem` is '' when `ok`, and `value`
 	 *                                                   is null when it is not.
 	 */
@@ -165,6 +165,33 @@ final class WPCPM_Field_Value {
 			$choices = isset( $spec['choices'] ) ? (array) $spec['choices'] : array();
 
 			return in_array( $raw, $choices, true ) ? self::accept( $raw ) : self::refuse( 'bad_choice' );
+		}
+
+		if ( 'date' === $type ) {
+			// Emptying the box clears the column, and Airtable clears a date the way it clears a
+			// number: with `null`. An empty string in a date column is a 422 for the whole
+			// request, so the one answer a school gives most often - "we do not know yet" -
+			// would otherwise lose every other cell in the same save.
+			if ( '' === $raw ) {
+				return self::accept( null );
+			}
+
+			// The shape first, because `checkdate()` takes three integers and would answer
+			// happily about `26-2-3`. Airtable writes and reads its date columns as
+			// `YYYY-MM-DD`, so that is the one shape this takes; the browser's date control
+			// posts exactly it, and a hand-made request that does not is refused rather than
+			// guessed at.
+			if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $raw, $parts ) ) {
+				return self::refuse( 'bad_date' );
+			}
+
+			// The calendar, not the pattern. `2026-02-30` and `2025-02-29` both match the
+			// pattern above, and Airtable would take neither.
+			if ( ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) {
+				return self::refuse( 'bad_date' );
+			}
+
+			return self::accept( $raw );
 		}
 
 		if ( 'text' === $type ) {

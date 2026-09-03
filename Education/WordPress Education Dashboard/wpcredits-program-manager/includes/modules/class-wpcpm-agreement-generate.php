@@ -53,6 +53,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * doing that over an institution whose accepted document is its own paper or a legacy copy
  * would leave the base saying it signed something it did not.
  *
+ * **A manager generating on behalf.** The two bespoke agreements and many of the legacy ones
+ * are handled by a program manager rather than by the institution, so a manager looking at an
+ * institution through the dashboard's switcher generates for that institution and not for
+ * whichever one they would otherwise fall back to. Which institution that is has exactly one
+ * answer here, `WPCPM_Institution_Roster::resolve_institution()`, and `record_for_request()`
+ * says why that is the answer and what used to be the second one.
+ *
  * **The one failure that must not stop the download.** Airtable is the program's record of
  * this state, and every transition that settles a gate writes it first and refuses when it
  * cannot (T5, T7, T8, T9). Generating settles nothing: it produces a piece of paper. So T2
@@ -96,15 +103,6 @@ class WPCPM_Agreement_Generate {
 
 	/** A generated post to reproduce, as carried by the Regenerate link. */
 	const FIELD_POST = 'wpcpm_agreement_post';
-
-	/**
-	 * The institution the form was drawn for, as the panel's forms carry it.
-	 *
-	 * The same field name the upload and on-file forms post, because it answers the same
-	 * question and a manager acting on behalf should not have to remember which of two
-	 * spellings a given form wants. Read only for a manager; see `record_for_request()`.
-	 */
-	const FIELD_RECORD = 'wpcpm_agreement_record';
 
 	/** How much of a posted name is kept. Characters, not bytes. */
 	const MAX_NAME = 200;
@@ -844,39 +842,42 @@ class WPCPM_Agreement_Generate {
 	/**
 	 * Which institution this request generates for.
 	 *
-	 * `WPCPM_Institution_Roster::resolve_institution()` is the module's answer and stays the
-	 * answer: a member's own membership is what places them and no posted value can move
-	 * them, and a manager's switcher is honoured. The one thing it cannot see from here is
-	 * the switcher, which lives in the dashboard's query string; this form posts to
-	 * `admin-post.php`, and a POST carries no query string. The panel puts the record it drew
-	 * the form for in a hidden field for that reason, and this is where the field is read.
+	 * `WPCPM_Institution_Roster::resolve_institution()` is the module's one answer, and after
+	 * Phase 3's review it is the only answer this route has. Design spec 5.5 says so in as
+	 * many words: the resolver is "the acting institution for every manager-on-behalf action
+	 * (import, generate, upload)". A member's own membership places them and nothing in the
+	 * request can move them; a manager's switcher is honoured, from the query string or from
+	 * a posted `wpcpm_institution_view`, both of which `requested_view()` reads.
 	 *
-	 * Read only for a user who holds `CAP_MANAGE`, asked of the capability here rather than
-	 * taken from the form, and only for a record the pipeline index holds. It is the field
-	 * the module's other on-behalf forms already post, read in the precedence
-	 * `resolve_institution()` itself uses for a manager - the switcher before their own
-	 * membership - so that the handler acts on the institution the panel drew the form for
-	 * and a manager who is also a member of somewhere else is not sent to their own row.
+	 * **Two mechanisms, and which one won.** This method used to read a posted
+	 * `wpcpm_agreement_record` for a manager before falling through to the resolver, while
+	 * the panel solved the same problem by putting the switcher on the form's action URL,
+	 * where the resolver looks. So one job had two answers and the one written here was never
+	 * asked: no generate form has ever posted that field. The resolver wins, and the posted
+	 * branch is gone rather than left dormant. It wins because it is the only one of the two
+	 * that answers for a member as well as for a manager, so keeping both meant two
+	 * precedence rules for one question, in two files, kept in step by hand; and because a
+	 * second reader of a second field name is exactly how a fence acquires a gap.
 	 *
-	 * Nothing downstream is weakened by it: the nonce is keyed to whatever this returns, so
-	 * a form drawn for one institution cannot be replayed at another, and `decide()` is asked
-	 * about it either way.
+	 * **The other one is now impossible and not merely unused.** There is no constant and no
+	 * read left, so nothing here can be handed an institution by the request: a POST that
+	 * carries `wpcpm_agreement_record` at this route is not ignored by a branch somebody
+	 * could switch back on, there is no branch. And it cannot come back through the front
+	 * door either, because `generate()` keys the nonce to whatever this returns, so a form
+	 * drawn for one institution meets a nonce check for another and dies on it.
+	 * `bin/test-agreement-generate.php` asserts both against this source.
+	 *
+	 * The field name itself stays alive elsewhere on purpose: `handle_on_file()` and
+	 * `WPCPM_Institution_Agreement::record_for_request()` read it, and the panel's upload and
+	 * on-file forms post it, which is one mechanism per form rather than two per route.
 	 *
 	 * @return string Institutions record ID, or ''.
 	 */
 	private static function record_for_request() {
-		$viewer     = wp_get_current_user();
-		$can_manage = current_user_can( WPCPM_Roles::CAP_MANAGE );
-
-		if ( $can_manage ) {
-			$asked = WPCPM_Request::posted_text( self::FIELD_RECORD );
-
-			if ( WPCPM_Institutions_Index::has( $asked ) ) {
-				return trim( $asked );
-			}
-		}
-
-		return WPCPM_Institution_Roster::resolve_institution( $viewer, $can_manage );
+		return WPCPM_Institution_Roster::resolve_institution(
+			wp_get_current_user(),
+			current_user_can( WPCPM_Roles::CAP_MANAGE )
+		);
 	}
 
 	/**

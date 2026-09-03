@@ -489,7 +489,7 @@ ck( 'somebody already invited is never queued again',
 
 // The third kind of account carries the third stamp, and the guard has to read that one too.
 $GLOBALS['users'][ 510 ] = new WP_User( 510, 'Invited institution', 'inst@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
-update_user_meta( 510, 'wpcpm_institution_invited', time() );
+update_user_meta( 510, 'wpcpm_inst_invited', time() );
 
 ck( 'nor is an institution already invited',
     array( WPCPM_Mail::queue_invites( array( 510 ) ), WPCPM_Mail::queued() ), array( 0, 0 ) );
@@ -512,7 +512,7 @@ ck( 'each kind of account is stamped with its own invited meta',
     array(
         (int) get_user_meta( 601, 'wpcpm_mentor_invited', true ) > 0,
         (int) get_user_meta( 602, 'wpcpm_student_invited', true ) > 0,
-        (int) get_user_meta( 603, 'wpcpm_institution_invited', true ) > 0,
+        (int) get_user_meta( 603, 'wpcpm_inst_invited', true ) > 0,
         get_user_meta( 603, 'wpcpm_student_invited', true ),
         get_user_meta( 603, 'wpcpm_mentor_invited', true ),
     ),

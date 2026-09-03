@@ -1,0 +1,92 @@
+# The program's Collaboration Agreement Doc, as its plain-text export reads it out.
+#
+# Hand written, never generated. This is the other side of WPCPM_Agreement_Template::drift(),
+# and a fixture produced by calling plain_text() could only ever agree with itself: it would
+# pass while the real check reported a difference on every press, which is what happened.
+#
+# The words are the Doc's, which is where the plugin's copy was transcribed from too. What is
+# the Doc's alone is the SHAPE, and the shape is the whole point of this file:
+#
+#   - the "PLEASE MAKE A COPY" heading, an instruction to whoever opens the Doc, which the
+#     plugin's copy leaves out because it is not a clause anybody signs;
+#   - the Code of Conduct bullet, where "Code of Conduct" is a hyperlink: a text export carries
+#     the words and not the address, and the plugin's copy prints the address in parentheses
+#     because a signed paper copy cannot be clicked;
+#   - the Doc's bullet glyph, which is a list marker and not a word;
+#   - the ruled lines a signatory writes on, which are longer here than the four underscores
+#     plain_text() prints.
+#
+# Those four are exactly what normalise() folds away, and every one of them is a difference
+# this check must not report. Anything else in here that stops matching is a wording change.
+#
+# How to check it: open the Doc and read down this file beside it. How to maintain it: when
+# the wording owner edits the Doc, this file is edited in the same change as the block list
+# and bin/fixtures/agreement-template-en.json - see the four steps at the top of
+# includes/templates/collaboration-agreement-en.php.
+#
+# The note ends at the first line that does not begin with a #; the export begins below it.
+PLEASE MAKE A COPY
+
+Collaboration Agreement
+
+Between the WordPress Foundation and [Institution Name]
+
+This agreement sets out the understanding between the WordPress Foundation (WPF), a non-profit organization that supports the WordPress open-source project, and [Institution Name] (hereafter referred to as “the Institution”) regarding the participation of students in the WordPress Credits program (hereafter referred to as “the Program”).
+
+This document is not legally binding. Its purpose is to establish a framework for collaboration and shared expectations between the parties.
+
+1. Purpose
+
+The Program offers students practical experience contributing to the WordPress open-source project under the guidance of mentors. Students gain transferable skills in project design, digital collaboration, and community contribution. Institutions may recognize this work as part of their curricular internship, practice, or credit system.
+
+2. Roles and Responsibilities
+
+WordPress Foundation (WPF):
+
+● Provides structure, resources, and mentorship through the Program.
+● Ensures students have access to contribution projects and onboarding materials.
+● Offers feedback on student performance and completion certificates where appropriate.
+● Maintains communication with the institution regarding program updates and student progress.
+
+The Institution:
+
+● Informs students of the Program requirements, duration, and expectations.
+● Assists students with any academic recognition, credits, or curricular requirements related to their participation.
+● Provides a point of contact for coordination with WPF.
+● Publish a dedicated page about the WP Credits program on the institution’s website.
+
+Students:
+
+● Participate remotely in the Program following the guidelines provided.
+● Commit to completing the required hours and tasks.
+● Abide by the WordPress community’s Code of Conduct.
+
+3. Program Conditions
+
+● The Program is conducted fully online and remotely.
+● Participation does not create an employment relationship between the student and WPF.
+● The Program is free of charge for both institutions and students.
+
+4. Liability and Insurance
+
+● WPF does not provide insurance coverage for students participating in the Program.
+● WPF is not responsible for accidents, injuries, health issues, or any damages that may occur to students during their participation.
+● The responsibility for ensuring that students are covered by any required insurance rests with the institution and/or the students themselves.
+
+5. Duration
+
+The collaboration begins upon the signing of this agreement and remains valid until modified or terminated by either party with written notice.
+
+6. Acknowledgement
+
+By signing below, both parties confirm their commitment to collaborate in good faith to support student learning and participation in the WordPress Credits Program.
+
+For WordPress Foundation
+Name: ______________________________
+Title: ______________________________
+Date: ______________________________
+
+For The Institution
+Name: ______________________________
+Title: ______________________________
+Date: ______________________________

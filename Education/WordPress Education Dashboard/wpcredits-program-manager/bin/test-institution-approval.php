@@ -227,7 +227,7 @@ if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 	/** The public form, at its contract: the post type, the states and the meta keys. */
 	class WPCPM_Institution_Application {
-		const POST_TYPE          = 'wpcpm_institution_app';
+		const POST_TYPE          = 'wpcpm_inst_app';
 		const STATE_NEW          = 'new';
 		const STATE_HELD         = 'held';
 		const STATE_SPAM         = 'spam';
@@ -461,7 +461,7 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 		public static function queue_invites( array $user_ids ) {
 			$fresh = array();
 			foreach ( array_values( array_unique( array_map( 'intval', $user_ids ) ) ) as $id ) {
-				if ( in_array( $id, $GLOBALS['mail_queue'], true ) || get_user_meta( $id, 'wpcpm_institution_invited', true ) ) {
+				if ( in_array( $id, $GLOBALS['mail_queue'], true ) || get_user_meta( $id, 'wpcpm_inst_invited', true ) ) {
 					continue;
 				}
 				$GLOBALS['mail_queue'][] = $id;

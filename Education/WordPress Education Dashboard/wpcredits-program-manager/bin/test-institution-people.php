@@ -266,7 +266,7 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 				if (
 					get_user_meta( $id, 'wpcpm_student_invited', true )
 					|| get_user_meta( $id, 'wpcpm_mentor_invited', true )
-					|| get_user_meta( $id, 'wpcpm_institution_invited', true )
+					|| get_user_meta( $id, 'wpcpm_inst_invited', true )
 				) {
 					continue;
 				}
@@ -381,8 +381,8 @@ $GLOBALS['manage'] = array( 1, 14 );
 // re-add paths worth pinning: the mentor and two of the members carry a stamp, so the queue
 // drops them and the card must not claim an invitation it is not going to send.
 $GLOBALS['umeta'][10]['wpcpm_mentor_invited']      = 1756000001;
-$GLOBALS['umeta'][12]['wpcpm_institution_invited'] = 1756000002;
-$GLOBALS['umeta'][13]['wpcpm_institution_invited'] = 1756000003;
+$GLOBALS['umeta'][12]['wpcpm_inst_invited'] = 1756000002;
+$GLOBALS['umeta'][13]['wpcpm_inst_invited'] = 1756000003;
 
 // Frank was a member of A and is not one now, which is what makes him re-addable.
 WPCPM_Institution_Members::attach( 12, $A, 'manager', 1 );

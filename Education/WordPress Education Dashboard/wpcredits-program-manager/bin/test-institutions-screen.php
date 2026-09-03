@@ -420,6 +420,46 @@ if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Institution_Student_Form' ) ) {
+	/** Stands in for the student edit form: its own suite covers the allowlist. */
+	class WPCPM_Institution_Student_Form {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'student_form_init' );
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Notes' ) ) {
+	/** Stands in for institution notes. */
+	class WPCPM_Institution_Notes {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'notes_init' );
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Invite' ) ) {
+	/** Stands in for member invitations. */
+	class WPCPM_Institution_Invite {
+		const CRON_EXPIRE = 'wpcpm_invite_expire';
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'invite_init' );
+		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
+	/** Stands in for mentor requests. */
+	class WPCPM_Institution_Request {
+		public static function init() {
+			$GLOBALS['calls'][] = array( 'request_init' );
+		}
+		public static function open_requests( $limit = 200 ) {
+			return array();
+		}
+	}
+}
+
 if ( ! class_exists( 'WPCPM_Institution_People' ) ) {
 	/** Stands in for the People card: its own suite covers it. */
 	class WPCPM_Institution_People {
@@ -436,7 +476,7 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 		const META_ACTIVE        = 'wpcpm_institution_active';
 		const META_RECORD_ID_WAS = 'wpcpm_institution_record_id_was';
 		const META_MEMBERSHIP    = 'wpcpm_institution_membership';
-		const META_INVITED       = 'wpcpm_institution_invited';
+		const META_INVITED       = 'wpcpm_inst_invited';
 		const META_PROFILE       = 'wpcpm_institution_profile';
 		public static function members_of( $record_id ) {
 			// Recorded, so the backstop counts can be shown to ask each institution once:
@@ -581,7 +621,7 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 	 * the stub answers from the post store and nothing here decides what a submission does.
 	 */
 	class WPCPM_Institution_Application {
-		const POST_TYPE = 'wpcpm_institution_app';
+		const POST_TYPE = 'wpcpm_inst_app';
 		const OPT_PAGE  = 'wpcpm_application_page_id';
 
 		public static function init() {
@@ -2473,7 +2513,21 @@ ck( 'boot() wires every handler this module has and the retention cron', array_v
 // The institution's own page and the People card's handlers boot here too, between the post
 // types and the cron: both register hooks, so they belong on `plugins_loaded` with the rest
 // rather than being reached from a render.
-ck( 'boots the two post types, the page and the People handlers, then hands the cron events to the sync', array_slice( $GLOBALS['calls'], 0, 8 ), array( array( 'WPCPM_Institution_Agreement::init' ), array( 'WPCPM_Institution_Audit::init' ), array( 'ceiling_init' ), array( 'application_init' ), array( 'generate_init' ), array( 'dashboard_init' ), array( 'people_init' ), array( 'WPCPM_Institutions_Sync::register_cron' ) ) );
+// Everything `boot()` starts, in order. Read as a slice so a handler added later fails here
+// rather than passing unnoticed: this assertion is the only thing that says the module's
+// pieces are actually started, and a subset check would say nothing.
+ck( 'boots the post types, then every module this screen owns, then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 10 ), array(
+	array( 'WPCPM_Institution_Agreement::init' ),
+	array( 'WPCPM_Institution_Audit::init' ),
+	array( 'ceiling_init' ),
+	array( 'application_init' ),
+	array( 'generate_init' ),
+	array( 'dashboard_init' ),
+	array( 'people_init' ),
+	array( 'student_form_init' ),
+	array( 'notes_init' ),
+	array( 'invite_init' ),
+) );
 
 $GLOBALS['calls'] = array();
 $GLOBALS['head']  = array( 'response' => array( 'code' => 403 ) );

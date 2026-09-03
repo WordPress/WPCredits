@@ -450,7 +450,7 @@ class WPCPM_Mail {
 			if (
 				get_user_meta( $id, 'wpcpm_student_invited', true )
 				|| get_user_meta( $id, 'wpcpm_mentor_invited', true )
-				|| get_user_meta( $id, 'wpcpm_institution_invited', true )
+				|| get_user_meta( $id, 'wpcpm_inst_invited', true )
 			) {
 				continue;
 			}
@@ -570,7 +570,7 @@ class WPCPM_Mail {
 			if ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR ) ) {
 				$meta = 'wpcpm_mentor_invited';
 			} elseif ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_INSTITUTION ) ) {
-				$meta = 'wpcpm_institution_invited';
+				$meta = 'wpcpm_inst_invited';
 			} else {
 				$meta = 'wpcpm_student_invited';
 			}

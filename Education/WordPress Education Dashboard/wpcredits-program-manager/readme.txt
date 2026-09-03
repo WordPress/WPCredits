@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.74.0
+Stable tag: 1.75.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.75.0 =
+* **Institutions module, Phase 4: an institution can change things, not just read them.** A student's name, dates and field of study are editable through an allowlist: a column outside it has no control, is never read from the request and cannot be written, and every save writes one audit row naming who changed what, from what, to what, and on what ground.
+* **Institutions can keep their own notes on their own students.** A mentor never sees them and they never see a mentor's; a note written before this release keeps exactly the audience it had.
+* **Members can invite their colleagues.** The invitation token is stored hashed and never in the clear, the link lands on a page that asks before anything happens, and every failure gives one message, because "this expired" and "no such invitation" together would tell a stranger which addresses were invited. A revoked agreement cancels the pending invitations and the acceptance asks the gate again for itself.
+* **A member can ask for a mentor** for a student who has none, once per student, and a program manager resolves it.
+* **An accepted agreement can be revoked and reinstated.** Revoking writes Airtable first, deletes the site's record of the agreement so the account is limited from that request rather than after the next sync, leaves the pipeline stage alone, and emails everybody at the institution the reason.
+* **The plugin's copy of the Collaboration Agreement can be checked against the Doc** from a button on the Institutions screen. A button only: the Doc is world-editable, so a scheduled check could be told what to say by anybody.
+* **Three post types had names longer than WordPress allows and were never registered.** `wpcpm_institution_app` had been in that state since 1.73.0, which meant the application form's storage had no capability mapping at all. All are renamed, nothing was lost because no rows existed, and a test now measures every post type the plugin declares.
 
 = 1.74.0 =
 * **The Institution Dashboard ends on a Resources section**, the same one the Student and Mentor Report Cards end on: the program's announcements at that access level, the handbook page written for institutions, the WordPress Credits Slack channel, and the "Need help?" assistant.

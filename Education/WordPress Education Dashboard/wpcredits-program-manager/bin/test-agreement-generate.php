@@ -34,6 +34,14 @@
  * - **A member's own institution overrides any posted value.** Asserted through a resolver
  *   stub that follows section 5.5's three steps rather than answering a flag, because what
  *   this file has to be able to see is that the handler asks and acts on the answer.
+ * - **One mechanism decides which institution a manager acts for, and the other is gone.**
+ *   Phase 3 shipped two: a posted `wpcpm_agreement_record` this class read, and the switcher
+ *   on the form's action URL the panel actually sends. Only the second was ever fed, so the
+ *   first was a fence nobody tested. `resolve_institution()` won, and both halves are pinned:
+ *   the switcher resolves through either transport and names the institution in the nonce,
+ *   the decision, the post, the log row and the Airtable patch, never the fallback; the dead
+ *   field moves nothing and is absent from this file's code; and the panel hands its record
+ *   to `form_start()`, which is what puts the switcher where the resolver looks.
  *
  * Three cases end in `echo` and `exit`, which cannot be observed from inside the process
  * that runs them. Those run this same file again as a child (`php bin/test-agreement-generate.php
@@ -352,12 +360,18 @@ if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
 	 * viewer's own membership, then a manager's fallback. A stub that returned whatever the
 	 * form posted would pass a handler that let a member generate another institution's
 	 * agreement, which is the one thing this resolution rule exists to stop.
+	 *
+	 * `requested_view()` is stubbed as the real one is written, reading the query string and
+	 * then the posted field, because this route is now resolved entirely by this method: the
+	 * generate class reads no record of its own any more, so both transports the resolver
+	 * accepts are transports this handler accepts, and a stub that knew only one of them
+	 * would pin half a contract. Both spellings are pinned against the real source below.
 	 */
 	class WPCPM_Institution_Roster {
 		const ARG_VIEW = 'wpcpm_institution_view';
 		public static function resolve_institution( $viewer, $can_manage ) {
 			if ( $can_manage ) {
-				$asked = WPCPM_Request::text( self::ARG_VIEW );
+				$asked = self::requested_view();
 				if ( WPCPM_Mentors_Sync::is_record_id( $asked ) && WPCPM_Institutions_Index::has( $asked ) ) {
 					return trim( $asked );
 				}
@@ -368,6 +382,11 @@ if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
 			}
 
 			return $can_manage ? $GLOBALS['fallback'] : '';
+		}
+		private static function requested_view() {
+			$asked = WPCPM_Request::text( self::ARG_VIEW );
+
+			return '' === $asked ? WPCPM_Request::posted_text( self::ARG_VIEW ) : $asked;
 		}
 	}
 }
@@ -968,12 +987,19 @@ ck( 'and it reads no post, no option, no request and no clock',
 
 echo "\n=== Which institution the document is for ===\n";
 
+// The field the route used to read, and no longer has a constant for. It is written out in
+// full here on purpose: a caller can still put this name in a POST, and what these blocks
+// pin is that doing so now changes nothing at all.
+$dead_field = 'wpcpm_agreement_record';
+
 reset_world();
 seed_index( 'recMEMBEROWN00001' );
 seed_index( 'recOTHERPLACE0001' );
 sign_in( 31, false, 'recMEMBEROWN00001' );
 
-$_POST[ WPCPM_Agreement_Generate::FIELD_RECORD ]   = 'recOTHERPLACE0001';
+$_POST[ $dead_field ]                              = 'recOTHERPLACE0001';
+$_POST[ WPCPM_Institution_Roster::ARG_VIEW ]       = 'recOTHERPLACE0001';
+$_GET[ WPCPM_Institution_Roster::ARG_VIEW ]        = 'recOTHERPLACE0001';
 $_POST[ WPCPM_Agreement_Generate::FIELD_NAME ]     = 'Universidad Example';
 $_POST[ WPCPM_Agreement_Generate::FIELD_LANGUAGE ] = 'en';
 
@@ -984,7 +1010,11 @@ try {
 	$outcome = $e->getMessage();
 }
 
-ck( "a member's own institution overrides the posted one, in the nonce", $GLOBALS['nonces'], array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recMEMBEROWN00001' ) );
+// Every value a request can carry says another institution here, in all three spellings at
+// once: the field the handler used to read, and both transports the switcher travels on. A
+// member is placed by their membership and by nothing else, which is why the switcher is
+// read for `CAP_MANAGE` only.
+ck( "a member's own institution overrides everything the request says, in the nonce", $GLOBALS['nonces'], array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recMEMBEROWN00001' ) );
 ck( 'and in what was decided on', $GLOBALS['decisions'], array( array( 'agreement', 'institution', 'recMEMBEROWN00001' ) ) );
 ck( 'and in the post that was written', get_post_meta( 500, WPCPM_Institution_Agreement::META_INSTITUTION, true ), 'recMEMBEROWN00001' );
 ck( 'and the document was printed rather than a redirect', $outcome, 'nothing' );
@@ -992,24 +1022,9 @@ ck( 'and the document was printed rather than a redirect', $outcome, 'nothing' )
 reset_world();
 seed_index( 'recSWITCHEDTO0001' );
 sign_in( 7, true );
-$GLOBALS['fallback']                    = 'recFALLBACK000001';
-$_GET[ WPCPM_Institution_Roster::ARG_VIEW ] = 'recSWITCHEDTO0001';
+$GLOBALS['fallback']                           = 'recFALLBACK000001';
+$_GET[ WPCPM_Institution_Roster::ARG_VIEW ]    = 'recSWITCHEDTO0001';
 $_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = 'Universidad Example';
-
-try {
-	WPCPM_Agreement_Generate::generate();
-} catch ( Exception $e ) {
-	$outcome = $e->getMessage();
-}
-
-ck( "a manager's switcher is honoured", $GLOBALS['nonces'], array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recSWITCHEDTO0001' ) );
-
-reset_world();
-seed_index( 'recSWITCHEDTO0001' );
-sign_in( 7, true );
-$GLOBALS['fallback']                             = 'recFALLBACK000001';
-$_POST[ WPCPM_Agreement_Generate::FIELD_RECORD ] = 'recSWITCHEDTO0001';
-$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ]   = 'Universidad Example';
 
 try {
 	WPCPM_Agreement_Generate::generate();
@@ -1018,25 +1033,29 @@ try {
 	$outcome = $e->getMessage();
 }
 
-// Manager on behalf, which is the half of the switcher that has to survive the POST. The
-// switcher is a query argument on the dashboard and this form posts to `admin-post.php`,
-// which carries no query string, so the record the panel drew the form for travels in the
-// form. Without reading it the handler resolved a manager to their fallback institution,
-// checked a nonce keyed to that one against a form keyed to another, and died on the nonce
-// before anything in this block happened.
-ck( 'a manager generates for the institution the form was drawn for',
+// Manager on behalf, and the whole of it. The switcher is a query argument on the dashboard
+// and the panel copies it onto the form's action URL, so it arrives in the query string of a
+// POST to `admin-post.php`; `resolve_institution()` is what reads it, and after Phase 3's
+// review it is the only thing this route asks. The fallback is set to a different record
+// throughout, because "the first institution in the index with a live member" is what a
+// manager silently generates for when the switcher is not honoured, and a document naming
+// the wrong institution is the failure this block exists to catch.
+ck( "a manager's switcher is honoured, in the nonce",
     array( $GLOBALS['nonces'], $outcome ),
     array( array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recSWITCHEDTO0001' ), 'nothing' ) );
 ck( 'and the decision, the post and the log row all name that one, not the fallback',
     array( $GLOBALS['decisions'][0][2], get_post_meta( 500, WPCPM_Institution_Agreement::META_INSTITUTION, true ), $GLOBALS['audit'][0]['institution'] ),
     array( 'recSWITCHEDTO0001', 'recSWITCHEDTO0001', 'recSWITCHEDTO0001' ) );
+ck( 'and the base was patched for that one too',
+    isset( $GLOBALS['patched'][0][1][0]['id'] ) ? $GLOBALS['patched'][0][1][0]['id'] : '',
+    'recSWITCHEDTO0001' );
 
 reset_world();
 seed_index( 'recSWITCHEDTO0001' );
 sign_in( 7, true );
-$GLOBALS['fallback']                             = 'recSWITCHEDTO0001';
-$_POST[ WPCPM_Agreement_Generate::FIELD_RECORD ] = 'recNOTINTHEINDEX1';
-$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ]   = 'Universidad Example';
+$GLOBALS['fallback']                           = 'recFALLBACK000001';
+$_POST[ WPCPM_Institution_Roster::ARG_VIEW ]   = 'recSWITCHEDTO0001';
+$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = 'Universidad Example';
 
 try {
 	WPCPM_Agreement_Generate::generate();
@@ -1045,16 +1064,21 @@ try {
 	$outcome = $e->getMessage();
 }
 
-ck( 'a posted record the index does not hold is no record at all, and the resolver answers',
-    array( $GLOBALS['nonces'], $outcome ),
-    array( array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recSWITCHEDTO0001' ), 'nothing' ) );
+// The other transport the resolver accepts, which is the one that lets the panel move the
+// switcher off the action URL and into a hidden field the day a host strips query strings
+// from POST targets. Nothing in this handler would have to change for that, and this is
+// where that claim is checked rather than believed.
+ck( 'the switcher posted as a field resolves the same way',
+    array( $GLOBALS['nonces'], get_post_meta( 500, WPCPM_Institution_Agreement::META_INSTITUTION, true ) ),
+    array( array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recSWITCHEDTO0001' ), 'recSWITCHEDTO0001' ) );
 
 reset_world();
-seed_index( 'recMEMBEROWN00001' );
-seed_index( 'recOTHERPLACE0001' );
-sign_in( 31, false, 'recMEMBEROWN00001' );
-$_POST[ WPCPM_Agreement_Generate::FIELD_RECORD ] = 'recOTHERPLACE0001';
-$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ]   = 'Universidad Example';
+seed_index( 'recSWITCHEDTO0001' );
+seed_index( 'recFALLBACK000001' );
+sign_in( 7, true );
+$GLOBALS['fallback']                           = 'recFALLBACK000001';
+$_POST[ $dead_field ]                          = 'recSWITCHEDTO0001';
+$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = 'Universidad Example';
 
 try {
 	WPCPM_Agreement_Generate::generate();
@@ -1063,9 +1087,34 @@ try {
 	$outcome = $e->getMessage();
 }
 
-ck( 'and a member who posts the same field is still placed by their membership',
+// The dead mechanism, asserted dead by behaviour. Phase 3 shipped a manager branch here that
+// read this field and a panel that never posted it, so one job had two answers and the one
+// written in this class was never asked. The resolver won and the branch is gone: a POST
+// carrying this field is now resolved as though it were absent, which for a manager with no
+// switcher is their fallback institution. That is the wrong institution to generate for, and
+// it is refused one step later - the nonce is keyed to what the resolver said, so a form
+// drawn for another institution cannot be replayed here whatever it posts.
+ck( 'the field the route used to read moves nothing, and the fallback answers instead',
     array( $GLOBALS['nonces'], get_post_meta( 500, WPCPM_Institution_Agreement::META_INSTITUTION, true ) ),
-    array( array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recMEMBEROWN00001' ), 'recMEMBEROWN00001' ) );
+    array( array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recFALLBACK000001' ), 'recFALLBACK000001' ) );
+
+reset_world();
+seed_index( 'recSWITCHEDTO0001' );
+sign_in( 7, true );
+$GLOBALS['fallback']                           = 'recSWITCHEDTO0001';
+$_GET[ WPCPM_Institution_Roster::ARG_VIEW ]    = 'recNOTINTHEINDEX1';
+$_POST[ WPCPM_Agreement_Generate::FIELD_NAME ] = 'Universidad Example';
+
+try {
+	WPCPM_Agreement_Generate::generate();
+	$outcome = 'nothing';
+} catch ( Exception $e ) {
+	$outcome = $e->getMessage();
+}
+
+ck( 'a switcher record the index does not hold is no record at all, and the resolver answers',
+    array( $GLOBALS['nonces'], $outcome ),
+    array( array( WPCPM_Agreement_Generate::ACTION_GENERATE . '_recSWITCHEDTO0001' ), 'nothing' ) );
 
 reset_world();
 sign_in( 31, false );
@@ -1572,20 +1621,62 @@ ck( 'the form is read with the posted readers, never the query string, except th
 
 $resolver = method_body( $source, 'record_for_request' );
 
-// The record a manager acts on comes out of the form, because the switcher's query argument
-// does not survive a POST to `admin-post.php`. It is read for a manager only, asked of the
-// capability here rather than taken from the form, and only for a record the index holds -
-// and then it is what the nonce is keyed to, so a form drawn for one institution still
-// cannot be replayed at another.
-ck( 'the record a manager acts on is posted too, and is nobody else\'s to post',
+// Which institution this route acts for has exactly one answer, and the assertions are
+// written as counts so that a second one cannot be added quietly beside the first. The
+// resolver is called once and nothing else in this method reads the request at all: no
+// `WPCPM_Request`, so no posted record, no query argument, no third spelling. The capability
+// is passed to the resolver rather than acted on here, which is what keeps the precedence
+// rule (switcher, then membership, then fallback) in the one file that owns it.
+ck( 'the institution has one resolver and this method reads nothing else',
     array(
-		substr_count( $resolver, 'WPCPM_Request::posted_text( self::FIELD_RECORD )' ),
-		substr_count( $resolver, 'WPCPM_Request::text(' ),
-		substr_count( $resolver, 'current_user_can( WPCPM_Roles::CAP_MANAGE )' ),
-		substr_count( $resolver, 'WPCPM_Institutions_Index::has(' ),
 		substr_count( $resolver, 'WPCPM_Institution_Roster::resolve_institution(' ),
+		substr_count( $resolver, 'WPCPM_Request::' ),
+		substr_count( $resolver, 'WPCPM_Institutions_Index::has(' ),
+		substr_count( $resolver, 'current_user_can( WPCPM_Roles::CAP_MANAGE )' ),
 	),
-    array( 1, 0, 1, 1, 1 ) );
+    array( 1, 0, 0, 1 ) );
+
+// The dead mechanism, asserted gone from the source and not merely unused. Phase 3 left a
+// manager branch reading `wpcpm_agreement_record` that no generate form has ever posted, so
+// the name is looked for over the whole file rather than over the method: a constant nobody
+// reads today is a constant somebody reads next phase, and the point of choosing between two
+// mechanisms is that the loser stops being available.
+//
+// Comments are stripped first, because the docblock that says which mechanism won has to be
+// able to name the one that lost. What must not exist is a line of code carrying the name.
+$code = (string) preg_replace( array( '#/\*.*?\*/#s', '#(^|\s)//[^\n]*#' ), ' ', $source );
+
+ck( 'the field the panel never posted is gone from this file\'s code entirely',
+    array( substr_count( $code, 'wpcpm_agreement_record' ), substr_count( $code, 'FIELD_RECORD' ) ),
+    array( 0, 0 ) );
+// The docblock above the method, which `method_body()` deliberately does not return: the
+// reason one mechanism won and the other was deleted is the part of this change a reader six
+// months from now needs, and a comment nothing asserts is a comment that gets tidied away.
+$before   = substr( $source, 0, (int) strpos( $source, 'function record_for_request(' ) );
+$why      = substr( $before, (int) strrpos( $before, '/**' ) );
+
+ck( 'and the comment that explains why is still there, naming both mechanisms',
+    array(
+		false !== strpos( $why, 'wpcpm_agreement_record' ),
+		false !== strpos( $why, 'resolve_institution()' ),
+	),
+    array( true, true ) );
+
+// And the winner is on the other side of the contract: the panel puts the switcher on the
+// generate form's action URL under the roster's own argument name, which is where
+// `resolve_institution()` looks. Read off both files, because a mechanism that only one half
+// of a pair implements is the defect this whole block is about.
+$roster_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster.php' );
+
+preg_match( "/const ARG_VIEW\s*=\s*'([^']+)'/", $roster_src, $arg );
+
+ck( 'the switcher argument stubbed here is the roster\'s own', WPCPM_Institution_Roster::ARG_VIEW, isset( $arg[1] ) ? $arg[1] : '' );
+ck( 'the resolver reads it from the query string and from a posted field, as stubbed above',
+    array(
+		false !== strpos( $roster_src, 'WPCPM_Request::text( self::ARG_VIEW )' ),
+		false !== strpos( $roster_src, 'WPCPM_Request::posted_text( self::ARG_VIEW )' ),
+	),
+    array( true, true ) );
 ck( 'no institution ID is compared with === outside the policy', substr_count( $source, "=== \$record" ) + substr_count( $source, "\$record ===" ), 0 );
 ck( 'the ceiling is claimed before a template is read or a post is written',
     array( $offsets['ceiling'] < $offsets['merge'], $offsets['ceiling'] < $offsets['post'] ),
@@ -1677,9 +1768,26 @@ sort( $slugs );
 
 ck( 'the panel has words for every outcome this piece flashes, bar the four being handed to it', array_values( array_diff( $slugs, $owed ) ), array() );
 ck( 'and those four are flashed by this file, so the names the panel is given are these', $handed, $owed );
-ck( 'the record a manager acts on travels in the panel\'s own forms',
-    array( WPCPM_Agreement_Generate::FIELD_RECORD, false !== strpos( $panel, 'wpcpm_agreement_record' ) || false !== strpos( $panel, 'FIELD_RECORD' ) ),
-    array( 'wpcpm_agreement_record', true ) );
+// The other half of the one mechanism, read off the panel: both forms that post to this
+// route hand `form_start()` the record, which is what puts the switcher on the action URL,
+// and neither of them prints the field this class stopped reading. The panel's own suite
+// asserts the markup that comes out; what is asserted here is that the two files chose the
+// same mechanism, which is the thing Phase 3 got wrong and no single-file test could see.
+$generate_form   = method_body( $panel, 'render_generate_form' );
+$regenerate_form = method_body( $panel, 'render_regenerate_form' );
+
+ck( 'both forms posting to this route hand the record to form_start()',
+    array(
+		substr_count( $generate_form, "\t\t\t\$record_id\n" ),
+		substr_count( $regenerate_form, "\t\t\t\$record_id\n" ),
+	),
+    array( 1, 1 ) );
+ck( 'and neither prints the field this route no longer reads',
+    array( strpos( $generate_form, 'wpcpm_agreement_record' ), strpos( $regenerate_form, 'wpcpm_agreement_record' ) ),
+    array( false, false ) );
+ck( 'form_start() is what turns that argument into the switcher on the action URL',
+    false !== strpos( method_body( $panel, 'form_start' ), 'add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record )' ),
+    true );
 ck( 'and the flash goes to the channel the panel reads', substr_count( $source, 'WPCPM_Flash::set( WPCPM_Institutions::FLASH,' ), 2 );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );

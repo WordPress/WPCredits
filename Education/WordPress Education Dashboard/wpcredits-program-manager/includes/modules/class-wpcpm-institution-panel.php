@@ -87,6 +87,15 @@ class WPCPM_Institution_Panel {
 			'agreement-standing'           => array( 'error', __( 'Nothing was recorded. An accepted agreement already stands for this institution.', 'wpcredits-program-manager' ) ),
 			'agreement-unknown'            => array( 'error', __( 'Nothing was recorded. That institution is not in the pipeline index; run a sync and try again.', 'wpcredits-program-manager' ) ),
 			'agreement-busy'               => array( 'error', __( 'Nothing was saved. Either another write to this institution\'s agreement was in flight, from a sync or from somebody else pressing the same button, or this institution has used up the documents one day allows it to generate and upload. Try again in a moment, and tomorrow if it happens again.', 'wpcredits-program-manager' ) ),
+			// Revoke and reinstate, T8 and T9. Named here with everything else the two agreement
+			// forms can flash, because a slug with no row prints nothing at all: the button
+			// redirects, the page looks untouched, and the manager presses it again.
+			'agreement-revoked'            => array( 'success', __( 'The agreement is revoked. The institution\'s account is limited to the agreement panel from its next page load, and everybody there has been emailed your note.', 'wpcredits-program-manager' ) ),
+			'agreement-revoke-note'        => array( 'error', __( 'Nothing was revoked. A note is required, between 20 and 2000 characters: it is emailed to the institution as the reason, so it has to say something.', 'wpcredits-program-manager' ) ),
+			'agreement-not-accepted'       => array( 'error', __( 'Nothing was revoked. There is no accepted agreement to revoke for this institution.', 'wpcredits-program-manager' ) ),
+			'agreement-not-revoked'        => array( 'error', __( 'Nothing was reinstated. There is no revoked agreement to put back for this institution.', 'wpcredits-program-manager' ) ),
+			'agreement-reinstate-standing' => array( 'error', __( 'Nothing was reinstated. An accepted agreement already stands, so there is nothing for the revoked one to come back to.', 'wpcredits-program-manager' ) ),
+			'agreement-reinstated'         => array( 'success', __( 'The agreement is back in force and the account is open again. Everybody at the institution has been emailed.', 'wpcredits-program-manager' ) ),
 			'agreement-all-none'           => array( 'info', __( 'Nothing to record: every Confirmed institution already has an agreement recorded.', 'wpcredits-program-manager' ) ),
 			'agreement-on-file-all'        => array( 'success', self::on_file_all_summary() ),
 			'agreement-airtable'           => array( 'error', __( 'Airtable could not be updated, so nothing was recorded here either. The base is the record of this state, and the site does not open an account the base has not agreed to.', 'wpcredits-program-manager' ) ),
@@ -235,9 +244,7 @@ class WPCPM_Institution_Panel {
 			return;
 		}
 
-		$row  = WPCPM_Institutions_Index::row( $record_id );
-		$name = is_array( $row ) ? trim( (string) $row['name'] ) : '';
-		$name = '' !== $name ? $name : $record_id;
+		$name = self::institution_name( $record_id );
 		$base = 'wpcpm-on-file-' . sanitize_html_class( $record_id );
 
 		echo '<form class="wpcpm-agreement-panel__on-file" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
@@ -330,10 +337,25 @@ class WPCPM_Institution_Panel {
 	 * @return bool
 	 */
 	private static function may_act_on_post( $post_id ) {
+		return null !== self::post_decision( $post_id );
+	}
+
+	/**
+	 * The same question, with the answer kept rather than reduced to yes or no.
+	 *
+	 * The withdraw form needs the ground as well as the verdict, because the same control
+	 * says two different things depending on who is pressing it, and the ground is what the
+	 * policy found rather than a flag a screen passed down. Asked once per control: a queue
+	 * drawing forty rows must not ask the fence twice for one button.
+	 *
+	 * @param int $post_id Agreement post ID.
+	 * @return array|null The decision, or null when there is nothing to draw.
+	 */
+	private static function post_decision( $post_id ) {
 		$post = get_post( (int) $post_id );
 
 		if ( ! $post instanceof WP_Post || WPCPM_Institution_Agreement::POST_TYPE !== $post->post_type ) {
-			return false;
+			return null;
 		}
 
 		$decision = WPCPM_Institution_Policy::decide(
@@ -341,7 +363,7 @@ class WPCPM_Institution_Panel {
 			WPCPM_Institution_Policy::subject_post( $post, WPCPM_Institution_Agreement::META_INSTITUTION )
 		);
 
-		return ! empty( $decision['allowed'] );
+		return empty( $decision['allowed'] ) ? null : $decision;
 	}
 
 	/**
@@ -377,6 +399,16 @@ class WPCPM_Institution_Panel {
 	 * membership is what places them, `resolve_institution()` does not read the argument for
 	 * anybody without `CAP_MANAGE`, and a URL carrying a record for them would be a hidden
 	 * field dressed up as a fence.
+	 *
+	 * **One mechanism per form, and never two.** Phase 3 shipped both: this argument, and a
+	 * posted `wpcpm_agreement_record` that `WPCPM_Agreement_Generate` read and no generate
+	 * form ever sent. The resolver won, and the read is gone from that class rather than left
+	 * dormant, so the generate and Regenerate forms carry the switcher here and nothing else.
+	 * The upload and on-file forms are the other way round and stay that way: their handlers
+	 * read the posted record themselves, so those forms post the field and are *not* given
+	 * this argument. Two transports exist in the module because two handlers read two things;
+	 * what must not exist is one form feeding both, which is a second answer waiting to
+	 * disagree with the first.
 	 *
 	 * @param string $css          Class attribute for the form.
 	 * @param string $action       The `admin_post_` action name.
@@ -863,9 +895,10 @@ class WPCPM_Institution_Panel {
 		$languages = (array) WPCPM_Agreement_Template::languages();
 
 		// The record travels on the action URL for a manager and nowhere else. `generate()`
-		// resolves the institution and then keys the nonce to what it resolved, so the
-		// posted field this form used to carry was read by nothing: it named the right
-		// institution while the handler was busy resolving another one.
+		// resolves the institution through `resolve_institution()` and then keys the nonce to
+		// what it resolved, and since Phase 3's review that is the only way it can be told:
+		// the posted field it used to read is gone from that class, so a form that sent one
+		// would name an institution nothing there can hear.
 		self::form_start(
 			'wpcpm-agreement-panel__form wpcpm-agreement-panel__form--generate',
 			WPCPM_Agreement_Generate::ACTION_GENERATE,
@@ -1076,6 +1109,21 @@ class WPCPM_Institution_Panel {
 	 * than as a gate, and is the shape `render()` and `render_review()` are written to
 	 * avoid.
 	 *
+	 * **It decides everything for itself, because its caller is a table.** The Institutions
+	 * screen draws one of these per institution row, from a loop that already holds a name, a
+	 * summary and a record ID and could hand any of them over. Nothing here is taken from the
+	 * caller but the record ID, and that is checked for shape before it is used: the
+	 * capability, the fence and the state below are all read here. A row rendering a form its
+	 * handler would refuse is worse than a row rendering nothing, and the screen is not the
+	 * place where that is known.
+	 *
+	 * **The state it will not draw over.** `handle_upload()` allows one document in review at
+	 * a time, so an institution with a signed copy already waiting gets the sentence saying
+	 * so and no form, the way the card at the foot of a settled dashboard does for a
+	 * replacement. An accepted agreement is not in that set: a re-signed copy arriving by
+	 * email is exactly T10, and the current one stays in force until somebody accepts the new
+	 * one.
+	 *
 	 * @param string $record_id Institutions record ID.
 	 */
 	public static function render_manager_upload( $record_id ) {
@@ -1089,6 +1137,28 @@ class WPCPM_Institution_Panel {
 			'<h3 class="wpcpm-agreement-panel__on-file-title">%s</h3>',
 			esc_html__( 'Upload a signed agreement on the institution\'s behalf', 'wpcredits-program-manager' )
 		);
+
+		$summary = WPCPM_Institution_Agreement::summary( $record_id );
+		$pending = isset( $summary['pending_id'] ) ? (int) $summary['pending_id'] : 0;
+
+		// The way back out of that state rather than a dead end: the copy that is waiting,
+		// and the control that takes it back. Both are gated on the document's own
+		// institution, so the row cannot borrow another institution's paperwork by passing
+		// the wrong record.
+		if ( $pending ) {
+			printf(
+				'<p class="wpcpm-agreement-panel__lede">%s</p>',
+				esc_html__( 'A signed agreement from this institution is already waiting for review, and only one can be in review at a time. Accept, return or withdraw that one first.', 'wpcredits-program-manager' )
+			);
+
+			self::render_download_link(
+				$pending,
+				__( 'Download the copy waiting for review', 'wpcredits-program-manager' )
+			);
+			self::render_withdraw_form( $pending );
+
+			return;
+		}
 
 		self::render_upload_form(
 			$record_id,
@@ -1154,14 +1224,27 @@ class WPCPM_Institution_Panel {
 	 * agreement (T10) is withdrawn from the card at the foot of a settled dashboard, which is
 	 * a second caller with a second decision of its own.
 	 *
+	 * **A manager may withdraw, and is told different things.** `handle_withdraw()` takes a
+	 * member or a manager on the member's behalf, so the control belongs on the manager's
+	 * institution row as much as on the panel; what does not carry across is the wording. A
+	 * manager pressing this deletes somebody else's document, and the two facts they need and
+	 * a member does not are that the institution is not emailed and that nothing will be
+	 * reviewed until the institution uploads again. So the confirm is written for whoever the
+	 * policy says is looking, and it names the institution the way every other manager's
+	 * confirm in this module does: a person acting on forty rows should not have to remember
+	 * which one the button belongs to.
+	 *
 	 * @param int $post_id Agreement post ID.
 	 */
 	public static function render_withdraw_form( $post_id ) {
-		$post_id = (int) $post_id;
+		$post_id  = (int) $post_id;
+		$decision = $post_id ? self::post_decision( $post_id ) : null;
 
-		if ( ! $post_id || ! self::may_act_on_post( $post_id ) ) {
+		if ( null === $decision ) {
 			return;
 		}
+
+		$as_manager = isset( $decision['ground'] ) && WPCPM_Institution_Policy::GROUND_MANAGER === (string) $decision['ground'];
 
 		self::form_start(
 			'wpcpm-agreement-panel__form wpcpm-agreement-panel__form--withdraw',
@@ -1175,11 +1258,58 @@ class WPCPM_Institution_Panel {
 
 		printf(
 			'<button type="submit" class="wpcpm-button" onclick="return confirm(%1$s)">%2$s</button>',
-			esc_attr( wp_json_encode( __( 'Withdraw the signed agreement waiting for review? The file is deleted from this site straight away and nothing is kept from it. You can upload another whenever you are ready.', 'wpcredits-program-manager' ) ) ),
-			esc_html__( 'Withdraw it', 'wpcredits-program-manager' )
+			esc_attr( wp_json_encode( self::withdraw_confirm( $post_id, $as_manager ) ) ),
+			esc_html(
+				$as_manager
+					? __( 'Withdraw it on the institution\'s behalf', 'wpcredits-program-manager' )
+					: __( 'Withdraw it', 'wpcredits-program-manager' )
+			)
 		);
 
 		echo '</form>';
+	}
+
+	/**
+	 * What the withdraw dialog asks, in the words of whoever is being asked.
+	 *
+	 * The member's copy is about their own document and their own next step. The manager's
+	 * copy is about another organisation's document: it names the institution, it says that
+	 * nobody there is emailed - the one thing a manager has to know, because telling them
+	 * becomes their job the moment they press it - and it says what the institution is left
+	 * with, which is a queue with nothing in it.
+	 *
+	 * @param int  $post_id    Agreement post ID.
+	 * @param bool $as_manager Whether the policy allowed this on the manager ground.
+	 * @return string
+	 */
+	private static function withdraw_confirm( $post_id, $as_manager ) {
+		if ( ! $as_manager ) {
+			return __( 'Withdraw the signed agreement waiting for review? The file is deleted from this site straight away and nothing is kept from it. You can upload another whenever you are ready.', 'wpcredits-program-manager' );
+		}
+
+		return sprintf(
+			/* translators: %s: institution name. */
+			__( 'Withdraw the signed agreement from %s? Their file is deleted from this site straight away and nothing is kept from it. Nobody at the institution is emailed, so tell them yourself: until somebody uploads another copy there is nothing for anyone to review.', 'wpcredits-program-manager' ),
+			self::institution_name( (string) get_post_meta( (int) $post_id, WPCPM_Institution_Agreement::META_INSTITUTION, true ) )
+		);
+	}
+
+	/**
+	 * An institution's name as the last sync read it, falling back to its record ID.
+	 *
+	 * The record ID is a poor name and a true one. A manager's dialog that named the wrong
+	 * institution would be worse than one naming a record nobody recognises, and the index is
+	 * a cache: an institution created between two syncs is not in it yet.
+	 *
+	 * @param string $record_id Institutions record ID.
+	 * @return string
+	 */
+	private static function institution_name( $record_id ) {
+		$record_id = trim( (string) $record_id );
+		$row       = WPCPM_Institutions_Index::row( $record_id );
+		$name      = is_array( $row ) ? trim( (string) $row['name'] ) : '';
+
+		return '' !== $name ? $name : $record_id;
 	}
 
 	/**

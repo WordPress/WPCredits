@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * | `wpcpm_institution_active`         | 1 while it may be exercised; 0 after a detach or the sync's revoke  |
  * | `wpcpm_institution_record_id_was`  | Where the stamp goes when membership ends: history without power   |
  * | `wpcpm_institution_membership`     | `since`, `by`, `how`, `invite`: facts for the card and the log      |
- * | `wpcpm_institution_invited`        | Stamped by the mail layer when the login invitation is sent        |
+ * | `wpcpm_inst_invited`        | Stamped by the mail layer when the login invitation is sent        |
  * | `wpcpm_institution_profile`        | The index row's public facts, so the header needs no Airtable read |
  *
  * The policy reads `institution_of()` and nothing else here; the facts are for people.
@@ -46,7 +46,7 @@ class WPCPM_Institution_Members {
 	const META_MEMBERSHIP = 'wpcpm_institution_membership';
 
 	/** User meta: when the login invitation went out. Written by the mail layer. */
-	const META_INVITED = 'wpcpm_institution_invited';
+	const META_INVITED = 'wpcpm_inst_invited';
 
 	/** User meta: name, city, country, stage, website, contact person from the index row. */
 	const META_PROFILE = 'wpcpm_institution_profile';
@@ -430,7 +430,7 @@ class WPCPM_Institution_Members {
 	/**
 	 * Cancel every pending invitation this account issued.
 	 *
-	 * A deliberate no-op until the invitation post type (`wpcpm_institution_invite`) ships
+	 * A deliberate no-op until the invitation post type (`wpcpm_inst_invite`) ships
 	 * in Phase 4. It is called now so `detach()` already has the step in the right order,
 	 * and the day the type exists this is the one place to fill in.
 	 *

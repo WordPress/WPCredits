@@ -82,6 +82,7 @@ $GLOBALS['decisions']   = array();
 $GLOBALS['index_rows']  = array();
 $GLOBALS['filetype']    = null;
 $GLOBALS['settings']    = array();
+$GLOBALS['countries']   = array();
 $GLOBALS['temp_files']  = array();
 $GLOBALS['queries']     = array();
 $GLOBALS['lock_claims'] = 0;
@@ -595,6 +596,26 @@ if ( ! class_exists( 'WPCPM_Institutions_Dashboard' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WPCPM_Countries' ) ) {
+	/**
+	 * The routing table, at the two methods the revoked mail reads.
+	 *
+	 * `routing()` answers null for an unknown country and for a known one with nobody
+	 * against it, which is the contract's one check for a caller that wants to route: the
+	 * revoked mail has a sentence for each of those two and the assertions read both.
+	 */
+	class WPCPM_Countries {
+		public static function routing( $record_id ) {
+			$row = $GLOBALS['countries'][ (string) $record_id ] ?? null;
+			return ( null === $row || '' === trim( (string) $row['email'] ) ) ? null : $row;
+		}
+		public static function name_of( $record_id ) {
+			$row = $GLOBALS['countries'][ (string) $record_id ] ?? null;
+			return null === $row ? '' : (string) $row['name'];
+		}
+	}
+}
+
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
 
 $fail = 0;
@@ -638,6 +659,7 @@ function reset_world() {
 	$GLOBALS['claims']      = array();
 	$GLOBALS['decisions']   = array();
 	$GLOBALS['index_rows']  = array();
+	$GLOBALS['countries']   = array();
 	$GLOBALS['filetype']    = null;
 	$GLOBALS['queries']     = array();
 	$GLOBALS['lock_claims'] = 0;
@@ -732,6 +754,30 @@ function seed_index( $record, $name, $stage = 'Under Review' ) {
 		)
 	);
 	WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+}
+
+/**
+ * Give an institution a country, and that country somebody to write to.
+ *
+ * Two rows, because the address the revoked mail names is read through the index row and the
+ * routing table together, and a fixture that set only one of them would pass a mail that
+ * named a country nobody is against.
+ *
+ * @param string $record  Institutions record ID.
+ * @param string $country Countries record ID.
+ * @param string $name    The country's name.
+ * @param string $email   The contact's address, or '' for a country with nobody against it.
+ */
+function seed_country( $record, $country, $name = 'Costa Rica', $email = 'costa.rica@example.org' ) {
+	$GLOBALS['index_rows'][ $record ]['country'] = $country;
+	WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+
+	$GLOBALS['countries'][ $country ] = array(
+		'name'     => $name,
+		'manager'  => 'recTEAMAAAAAAAAA1',
+		'email'    => $email,
+		'calendly' => '',
+	);
 }
 
 /**
@@ -2002,6 +2048,311 @@ foreach ( array( 'handle_accept', 'handle_return', 'handle_withdraw' ) as $handl
 	ck( $handler . '() reads the state again once the lock is its own', strpos( $body_now, 'self::lock(' ) < strrpos( $body_now, 'self::submitted_post( $post_id )' ), true );
 }
 
+/* ---- revoke ------------------------------------------------------------- */
+
+echo "\n=== handle_revoke(): Airtable first, the option deleted, and the gate shut on this request (T8) ===\n";
+
+/**
+ * An institution whose agreement is in force, with a manager signed in to take it away.
+ *
+ * Both sides of the option agree, two members are there to be told, and the note box holds
+ * something long enough to pass, so every assertion below starts from an open account and can
+ * say which of the things that closes it happened.
+ *
+ * @param string $kind Which kind the accepted document is.
+ * @return int The accepted document's ID.
+ */
+function settled_world( $kind = 'template' ) {
+	reset_world();
+	seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example', 'Confirmed' );
+	sign_in( 1, 'Kasia Manager', 'kasia@example.org', true );
+	$GLOBALS['members']['recAAAAAAAAAAAAA1'] = array( 4, 5 );
+	$GLOBALS['users'][4]                     = new WP_User( 4, 'Ola Member', 'ola@example.edu' );
+	$GLOBALS['users'][5]                     = new WP_User( 5, 'Bo Nowak', 'bo@example.edu' );
+	$GLOBALS['managers']                     = array( $GLOBALS['users'][1] );
+
+	$id = seed_post(
+		'recAAAAAAAAAAAAA1',
+		'accepted',
+		$kind,
+		array(
+			WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-02-02',
+			WPCPM_Institution_Agreement::META_FILE       => array(
+				'path'   => '2026/deadbeef.pdf',
+				'size'   => 240128,
+				'sha256' => str_repeat( 'b', 64 ),
+			),
+		)
+	);
+
+	$GLOBALS['files']['2026/deadbeef.pdf'] = '%PDF-1.4 signed';
+
+	$_POST = array(
+		'wpcpm_agreement_post' => $id,
+		'wpcpm_agreement_note' => 'The rector has asked us to pause every agreement the university holds until the privacy review is finished.',
+	);
+
+	// A legacy row settles under `On file` and a link; anything this site accepted settles
+	// under `Accepted`. Both are the state the base is in before the revocation.
+	$legacy = 'legacy' === $kind;
+
+	WPCPM_Institution_Agreement::rebuild(
+		'recAAAAAAAAAAAAA1',
+		block( $legacy ? 'On file' : 'Accepted', $legacy ? 'https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz' : '' )
+	);
+
+	return $id;
+}
+
+$id = settled_world();
+ck( 'the world starts with the gate open', WPCPM_Institution_Agreement::is_settled( $rec_a ), true );
+
+$GLOBALS['caps'] = false;
+ck( 'a member cannot revoke their own institution\'s agreement', run( 'handle_revoke' ), 'died: You do not have permission to manage the program.' );
+ck( 'and nothing was written', array( $GLOBALS['patched'], WPCPM_Institution_Agreement::is_settled( $rec_a ) ), array( array(), true ) );
+
+$id                            = settled_world();
+$_POST['wpcpm_agreement_note'] = str_repeat( 'a', 19 );
+ck( 'a note under twenty characters refuses', run( 'handle_revoke' ), 'agreement-revoke-note' );
+ck( 'nothing was written and the agreement is still in force', array(
+	$GLOBALS['patched'],
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+	WPCPM_Institution_Agreement::is_settled( $rec_a ),
+), array( array(), 'accepted', true ) );
+ck( 'and no lock was taken for a refusal the posted string alone decides', array_key_exists( 'wpcpm_agreement_lock_' . $rec_a, $GLOBALS['opts'] ), false );
+
+$_POST['wpcpm_agreement_note'] = str_repeat( 'a', 2001 );
+ck( 'and so does one over two thousand', run( 'handle_revoke' ), 'agreement-revoke-note' );
+
+$_POST['wpcpm_agreement_note'] = str_repeat( 'a', 20 );
+ck( 'twenty exactly is enough to revoke on', run( 'handle_revoke' ), 'agreement-revoked' );
+
+$id                  = settled_world();
+$before              = get_option( 'wpcpm_agreement_' . $rec_a );
+$GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'Service Unavailable' );
+ck( 'a PATCH that fails refuses the whole revocation', run( 'handle_revoke' ), 'agreement-airtable' );
+ck( 'the document is still the one in force', get_post_meta( $id, '_wpcpm_agr_state', true ), 'accepted' );
+ck( 'the option is exactly as it was', get_option( 'wpcpm_agreement_' . $rec_a ), $before );
+ck( 'so the account is still open', WPCPM_Institution_Agreement::is_settled( $rec_a ), true );
+ck( 'and nobody was told anything', $GLOBALS['mail'], array() );
+ck( 'the lock was released', array_key_exists( 'wpcpm_agreement_lock_' . $rec_a, $GLOBALS['opts'] ), false );
+
+$id                  = settled_world();
+$GLOBALS['airtable'] = array();
+ck( 'and a PATCH that reports nothing updated is a failure too', run( 'handle_revoke' ), 'agreement-airtable' );
+ck( 'with the gate still open', WPCPM_Institution_Agreement::is_settled( $rec_a ), true );
+
+$id   = settled_world();
+$note = (string) $_POST['wpcpm_agreement_note'];
+seed_country( $rec_a, 'recCOUNTRYAAAAAA1' );
+$outcome = run( 'handle_revoke' );
+
+ck( 'the outcome is the one the panel prints', $outcome, 'agreement-revoked' );
+ck( 'the nonce was keyed to the document, not to what the form said it was', $GLOBALS['nonces'], array( 'wpcpm_agreement_revoke_' . $id ) );
+ck( 'Airtable was written before anything else left the process', $GLOBALS['journal'], array( 'airtable', 'audit' ) );
+ck( 'one PATCH, carrying the status and nothing else', array( count( $GLOBALS['patched'] ), patched_cells() ), array( 1, array( 'Agreement Status' => 'Revoked' ) ) );
+ck( 'the stage is not guessed at', array_key_exists( 'Current Stage', patched_cells() ), false );
+ck( 'the document is revoked, dated, signed and carrying the note', array(
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+	get_post_meta( $id, '_wpcpm_agr_decided_by', true ),
+	get_post_meta( $id, '_wpcpm_agr_decided_at', true ),
+	get_post_meta( $id, '_wpcpm_agr_note', true ),
+), array( 'revoked', 1, gmdate( 'Y-m-d' ), $note ) );
+ck( 'the option is deleted, not rewritten', array_key_exists( 'wpcpm_agreement_' . $rec_a, $GLOBALS['opts'] ), false );
+ck( 'so the gate is shut on this request, with no sync in between', WPCPM_Institution_Agreement::is_settled( $rec_a ), false );
+ck( 'and the panel can still say why', WPCPM_Institution_Agreement::summary( $rec_a )['state'], 'revoked' );
+ck( 'every member was told, once each, and nobody else', mail_log(), array( 'agreement-revoked to ola@example.edu', 'agreement-revoked to bo@example.edu' ) );
+ck( 'with the note word for word, in both of them', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], $note ),
+	false !== strpos( $GLOBALS['mail'][1]['body'], $note ),
+), array( true, true ) );
+ck( 'naming the manager who wrote it', false !== strpos( $GLOBALS['mail'][0]['body'], 'Kasia Manager' ), true );
+ck( 'saying what is limited rather than what is gone', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'limited to the agreement panel' ),
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Nothing about your students has been deleted.' ),
+), array( true, true ) );
+ck( 'and naming the country contact to write to', false !== strpos( $GLOBALS['mail'][0]['body'], 'Your program contact for Costa Rica is costa.rica@example.org.' ), true );
+ck( 'who is named and never mailed', in_array( 'costa.rica@example.org', array_column( $GLOBALS['mail'], 'to' ), true ), false );
+ck( 'one audit row, on the manager ground, from what the site was holding', array(
+	$GLOBALS['audit'][0]['kind'],
+	$GLOBALS['audit'][0]['ground'],
+	$GLOBALS['audit'][0]['evidence'],
+	$GLOBALS['audit'][0]['actor'],
+), array( 'agreement_revoke', 'manager', 'cache', 1 ) );
+ck( 'the lock was released', array_key_exists( 'wpcpm_agreement_lock_' . $rec_a, $GLOBALS['opts'] ), false );
+ck( 'a second press finds nothing in force to revoke', run( 'handle_revoke' ), 'agreement-not-accepted' );
+ck( 'and wrote nothing further', count( $GLOBALS['patched'] ), 1 );
+
+$id = settled_world();
+run( 'handle_revoke' );
+ck( 'an institution the base routes nowhere gets the neutral sentence instead', false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the program manager who has been in touch with your institution.' ), true );
+
+$id = settled_world();
+seed_country( $rec_a, 'recCOUNTRYAAAAAA1', 'Nigeria', '' );
+run( 'handle_revoke' );
+ck( 'and so does one whose country has nobody against it', false !== strpos( $GLOBALS['mail'][0]['body'], 'Write to the program manager who has been in touch with your institution.' ), true );
+
+$id = settled_world( 'legacy' );
+update_post_meta( $id, WPCPM_Institution_Agreement::META_NOTE, 'second folder, the 2025 copy' );
+$outcome = run( 'handle_revoke' );
+
+ck( 'a legacy row the program holds on file is revoked the same way', array( $outcome, patched_cells() ), array( 'agreement-revoked', array( 'Agreement Status' => 'Revoked' ) ) );
+ck( 'and the manager\'s note about where the paper is does not become what the institution reads', get_post_meta( $id, '_wpcpm_agr_note', true ), (string) $_POST['wpcpm_agreement_note'] );
+
+$id = settled_world();
+$GLOBALS['opts'][ 'wpcpm_agreement_lock_' . $rec_a ] = time();
+ck( 'a held lock stops a revocation rather than racing it', run( 'handle_revoke' ), 'agreement-busy' );
+ck( 'and nothing was read, written or sent', array( $GLOBALS['journal'], WPCPM_Institution_Agreement::is_settled( $rec_a ) ), array( array(), true ) );
+
+/* ---- reinstate ---------------------------------------------------------- */
+
+echo "\n=== handle_reinstate(): the abort that makes revoking a safe click (T9) ===\n";
+
+/**
+ * The same institution one revocation later: a revoked document and a shut gate.
+ *
+ * The journal is cleared afterwards rather than the world rebuilt, because what is being
+ * asserted is what the reinstatement does on top of a real revocation: the option this
+ * handler has to write back is the one the revocation deleted.
+ *
+ * @param string $kind Which kind the document is.
+ * @return int The revoked document's ID.
+ */
+function revoked_world( $kind = 'template' ) {
+	$id = settled_world( $kind );
+
+	run( 'handle_revoke' );
+
+	$GLOBALS['journal']  = array();
+	$GLOBALS['patched']  = array();
+	$GLOBALS['audit']    = array();
+	$GLOBALS['mail']     = array();
+	$GLOBALS['nonces']   = array();
+	$GLOBALS['airtable'] = null;
+	$_POST               = array( 'wpcpm_agreement_post' => $id );
+
+	return $id;
+}
+
+$id = revoked_world();
+ck( 'the world starts with the gate shut and no option at all', array(
+	WPCPM_Institution_Agreement::is_settled( $rec_a ),
+	array_key_exists( 'wpcpm_agreement_' . $rec_a, $GLOBALS['opts'] ),
+), array( false, false ) );
+
+$GLOBALS['caps'] = false;
+ck( 'a member cannot reinstate their own institution\'s agreement', run( 'handle_reinstate' ), 'died: You do not have permission to manage the program.' );
+ck( 'and nothing was written', $GLOBALS['patched'], array() );
+
+$id                  = revoked_world();
+$GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'Service Unavailable' );
+ck( 'a PATCH that fails refuses the whole reinstatement', run( 'handle_reinstate' ), 'agreement-airtable' );
+ck( 'the document is still revoked and the gate still shut', array(
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+	WPCPM_Institution_Agreement::is_settled( $rec_a ),
+), array( 'revoked', false ) );
+ck( 'and nobody was told anything', $GLOBALS['mail'], array() );
+
+$id       = revoked_world();
+$standing = seed_post( $rec_a, 'accepted', 'own', array( WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-03-03' ) );
+ck( 'reinstating under an agreement that already stands is refused', run( 'handle_reinstate' ), 'agreement-reinstate-standing' );
+ck( 'nothing was written and both documents are where they were', array(
+	$GLOBALS['patched'],
+	get_post_meta( $standing, '_wpcpm_agr_state', true ),
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+), array( array(), 'accepted', 'revoked' ) );
+
+$id                            = revoked_world();
+$newer                         = seed_post( $rec_a, 'revoked', 'own', array( WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-04-04' ) );
+$_POST['wpcpm_agreement_post'] = $id;
+ck( 'only the most recently revoked document may be put back', run( 'handle_reinstate' ), 'agreement-not-revoked' );
+ck( 'and nothing was written', $GLOBALS['patched'], array() );
+
+$_POST['wpcpm_agreement_post'] = $newer;
+ck( 'while the newest one is', run( 'handle_reinstate' ), 'agreement-reinstated' );
+
+$id      = revoked_world();
+$outcome = run( 'handle_reinstate' );
+
+ck( 'the outcome is the one the panel prints', $outcome, 'agreement-reinstated' );
+ck( 'the nonce was keyed to the document', $GLOBALS['nonces'], array( 'wpcpm_agreement_reinstate_' . $id ) );
+ck( 'Airtable was written first here too', array_slice( $GLOBALS['journal'], 0, 1 ), array( 'airtable' ) );
+ck( 'one PATCH, putting the status back and touching nothing else', array( count( $GLOBALS['patched'] ), patched_cells() ), array( 1, array( 'Agreement Status' => 'Accepted' ) ) );
+ck( 'the document is in force again, dated the day it came back', array(
+	get_post_meta( $id, '_wpcpm_agr_state', true ),
+	get_post_meta( $id, '_wpcpm_agr_decided_at', true ),
+), array( 'accepted', gmdate( 'Y-m-d' ) ) );
+ck( 'the option is written again, and says why', array(
+	WPCPM_Institution_Agreement::option( $rec_a )['site_state'],
+	WPCPM_Institution_Agreement::option( $rec_a )['airtable_status'],
+), array( 'accepted', 'Accepted' ) );
+ck( 'so the gate is open on this request, with no sync in between', WPCPM_Institution_Agreement::is_settled( $rec_a ), true );
+ck( 'every member was told, once each, under the acceptance context', mail_log(), array( 'agreement-accepted to ola@example.edu', 'agreement-accepted to bo@example.edu' ) );
+ck( 'in the reinstated wording, saying nothing was lost meanwhile', array(
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'put back in force' ),
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'open again' ),
+	false !== strpos( $GLOBALS['mail'][0]['body'], 'Nothing was removed while it was out of force' ),
+), array( true, true, true ) );
+ck( 'one audit row, on the manager ground', array(
+	$GLOBALS['audit'][0]['kind'],
+	$GLOBALS['audit'][0]['ground'],
+	$GLOBALS['audit'][0]['evidence'],
+), array( 'agreement_reinstate', 'manager', 'cache' ) );
+ck( 'the lock was released', array_key_exists( 'wpcpm_agreement_lock_' . $rec_a, $GLOBALS['opts'] ), false );
+ck( 'a second press finds nothing revoked to put back', run( 'handle_reinstate' ), 'agreement-not-revoked' );
+ck( 'and wrote nothing further', count( $GLOBALS['patched'] ), 1 );
+
+$id = revoked_world( 'legacy' );
+run( 'handle_reinstate' );
+ck( 'a legacy row goes back to On file rather than Accepted', patched_cells(), array( 'Agreement Status' => 'On file' ) );
+ck( 'and settles on the route it settled on before', array(
+	WPCPM_Institution_Agreement::is_settled( $rec_a ),
+	WPCPM_Institution_Agreement::summary( $rec_a )['state'],
+), array( true, 'on_file' ) );
+
+// The one gap this handler cannot hold, exactly as `handle_accept()` has it: it lets go
+// before the rebuild, which takes the same lock, so a sync working through this record gets
+// in and the rebuild skips. The reinstatement itself has landed and the gate is still shut,
+// which is what the manager has to be told rather than "the account is open".
+$id                     = revoked_world();
+$GLOBALS['lock_claims'] = 0;
+$GLOBALS['lock_steal']  = 2;
+$outcome                = run( 'handle_reinstate' );
+
+ck( 'a rebuild that finds the lock held is not reported as an open account', $outcome, 'agreement-later' );
+ck( 'the reinstatement itself stands', array( count( $GLOBALS['patched'] ), get_post_meta( $id, '_wpcpm_agr_state', true ) ), array( 1, 'accepted' ) );
+ck( 'the gate is shut until the next sync writes the option', WPCPM_Institution_Agreement::is_settled( $rec_a ), false );
+ck( 'and every member was told all the same', mail_log(), array( 'agreement-accepted to ola@example.edu', 'agreement-accepted to bo@example.edu' ) );
+
+/* ---- what the two handlers are, read from the source --------------------- */
+
+echo "\n=== Revoke and reinstate, read from the source ===\n";
+
+$phase4_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' );
+$revoke     = method_body( $phase4_src, 'handle_revoke' );
+$reinstate  = method_body( $phase4_src, 'handle_reinstate' );
+
+foreach ( array( 'ACTION_REVOKE', 'ACTION_REINSTATE' ) as $action ) {
+	ck( $action . ' is wired to admin_post_', false !== strpos( method_body( $phase4_src, 'init' ), "'admin_post_' . self::" . $action ), true );
+}
+
+// The order in the one handler on this page that takes access away is a property of the
+// text rather than of any one run, so it is asserted against the file.
+ck( 'revoke decides before it touches Airtable', strpos( $revoke, 'WPCPM_Institution_Policy::decide' ) < strpos( $revoke, 'WPCPM_Airtable' ), true );
+ck( 'and writes Airtable before it deletes the option', strpos( $revoke, 'update_records' ) < strpos( $revoke, 'delete_option' ), true );
+ck( 'the option is deleted once and never rewritten', array( substr_count( $revoke, 'delete_option' ), strpos( $revoke, 'self::rebuild(' ) ), array( 1, false ) );
+ck( 'and the stage is not touched, because the plugin does not guess Not Moving Forward', array(
+	strpos( $revoke, 'STAGE_CONFIRMED' ),
+	strpos( $revoke, '$fields[\'stage\']' ),
+), array( false, false ) );
+ck( 'reinstate decides before it touches Airtable too', strpos( $reinstate, 'WPCPM_Institution_Policy::decide' ) < strpos( $reinstate, 'WPCPM_Airtable' ), true );
+ck( 'and leaves the stage alone as well', strpos( $reinstate, '$fields[\'stage\']' ), false );
+
+foreach ( array( 'handle_revoke', 'handle_reinstate' ) as $handler ) {
+	$body_now = method_body( $phase4_src, $handler );
+	ck( $handler . '() reads the state again once the lock is its own', strpos( $body_now, 'self::lock(' ) < strrpos( $body_now, 'self::document_in_state( $post_id' ), true );
+}
+
 /* ---- the queue ---------------------------------------------------------- */
 
 echo "\n=== awaiting_review() and review_facts(): the queue, oldest first ===\n";
@@ -2211,6 +2562,7 @@ ck( 'every Agreement Status this phase writes is a choice the base has',
 			WPCPM_Institution_Agreement::AIRTABLE_AWAITING,
 			WPCPM_Institution_Agreement::AIRTABLE_RETURNED,
 			WPCPM_Institution_Agreement::AIRTABLE_ACCEPTED,
+			WPCPM_Institution_Agreement::AIRTABLE_REVOKED,
 		),
 		$fixture['choices']['Agreement Status']
 	) ),

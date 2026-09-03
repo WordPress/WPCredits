@@ -21,6 +21,19 @@
  * - **The base's spelling is the fixture's.** `update_records()` sends no `typecast`, so a
  *   choice or a column spelled any other way is a 422 for the whole record; every cell name and
  *   both choice values are checked against `bin/fixtures/institutions-table-fields.json`.
+ * - **`render_manager_upload()` decides everything for itself.** Its call site is one row in
+ *   a table of every institution, so the only thing it takes from the caller is the record ID:
+ *   the capability, the fence, and the state that would make the handler refuse are all read
+ *   here. A row drawn for B names B in the field and in the nonce and does not name A
+ *   anywhere; a row whose institution already has a copy in review is given the sentence and
+ *   the way out rather than a form that would be refused; a settled one still takes T10's
+ *   replacement.
+ * - **One mechanism per form for a manager acting on behalf.** The generate and Regenerate
+ *   forms put the switcher on the action URL, where `resolve_institution()` reads it, and
+ *   carry no record field, because that class stopped reading one. The upload and on-file
+ *   forms do the opposite, because their handlers read the posted record themselves. Both
+ *   sides of each pair are read here, off the two sources, since a mechanism only one half of
+ *   a pair implements is exactly the defect Phase 3 shipped.
  *
  * The other pieces are stood in for exactly at their contracts: the policy, the sync's field
  * map, the Airtable client, the manager screen's flash channel. Nothing else is loaded.
@@ -1608,6 +1621,144 @@ ck( 'the heading and the form arrive together', array(
 	substr_count( $on_behalf, 'Upload a signed agreement on the institution' ),
 	substr_count( $on_behalf, 'value="wpcpm_agreement_upload"' ),
 ), array( 1, 1 ) );
+
+// The call site is a row in a table of every institution, so the one thing this method takes
+// from its caller is the record, and everything drawn has to be that record's. A manager
+// belongs to no institution, so there is nothing of their own for a stale value to fall back
+// to; what a mixed-up row would produce is the *other* institution's paperwork under this
+// one's name, which is why the second record is seeded and then looked for by name.
+reset_world();
+seed_index( $rec_a, '' );
+seed_index( $rec_b, '' );
+$GLOBALS['caps'] = true;
+ob_start();
+WPCPM_Institution_Panel::render_manager_upload( $rec_b );
+$row_b = (string) ob_get_clean();
+
+ck( 'a manager on B\'s row uploads for B', array(
+	false !== strpos( $row_b, 'name="wpcpm_agreement_record" value="' . $rec_b . '"' ),
+	false !== strpos( $row_b, 'value="nonce-wpcpm_agreement_upload_' . $rec_b . '"' ),
+), array( true, true ) );
+ck( 'and A is named nowhere on it', false !== strpos( $row_b, $rec_a ), false );
+ck( 'the switcher argument is not on this form\'s action, because its handler reads the field',
+    false !== strpos( $row_b, WPCPM_Institution_Roster::ARG_VIEW ), false );
+
+// And the field really is what the handler on the other side reads for a manager: the posted
+// record first, then `resolve_institution()`. Two files, one mechanism per form, asserted
+// across the pair rather than assumed on either side of it - which is the check Phase 3 did
+// not have, and the reason the generate route shipped with two.
+$behalf_resolver = method_body( $agr_src, 'record_for_request' );
+
+ck( 'the upload handler honours the posted record for a manager and resolves otherwise', array(
+	false !== strpos( $behalf_resolver, "WPCPM_Request::posted_text( 'wpcpm_agreement_record' )" ),
+	false !== strpos( $behalf_resolver, 'current_user_can( WPCPM_Roles::CAP_MANAGE )' ),
+	false !== strpos( $behalf_resolver, 'WPCPM_Institution_Roster::resolve_institution(' ),
+), array( true, true, true ) );
+
+// One document in review at a time is `handle_upload()`'s rule, so a row for an institution
+// that already has one gets the sentence rather than a form that would be refused. The way
+// out of the state is drawn instead: the copy, and the control that takes it back.
+reset_world();
+seed_index( $rec_a, '' );
+$waiting = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Awaiting review' ) );
+$GLOBALS['caps'] = true;
+ob_start();
+WPCPM_Institution_Panel::render_manager_upload( $rec_a );
+$row_busy = (string) ob_get_clean();
+
+ck( 'a row whose institution has a copy in review is offered no second upload', forms_in( $row_busy )['upload'], 0 );
+ck( 'and is told why, in the words the handler would have refused with', false !== strpos( $row_busy, 'only one can be in review at a time' ), true );
+ck( 'with the way out of it: the copy, and the control that withdraws it', array(
+	forms_in( $row_busy )['download'],
+	forms_in( $row_busy )['withdraw'],
+	false !== strpos( $row_busy, 'value="nonce-wpcpm_agreement_withdraw_' . $waiting . '"' ),
+), array( 1, 1, true ) );
+ck( 'and the file is still named nowhere', false !== strpos( $row_busy, '0123456789abcdef' ), false );
+
+// An accepted agreement is not that case: a re-signed copy reaching the program by email is
+// T10, and the standing one stays in force until somebody accepts the new one. A row that
+// refused this would send a manager holding a renewal to ask the institution to upload it.
+reset_world();
+seed_index( $rec_a, '' );
+seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_ACCEPTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+WPCPM_Institution_Agreement::rebuild( $rec_a, block( 'Accepted' ) );
+$GLOBALS['caps'] = true;
+ob_start();
+WPCPM_Institution_Panel::render_manager_upload( $rec_a );
+$row_accepted = (string) ob_get_clean();
+
+ck( 'a settled institution\'s row still takes a replacement', forms_in( $row_accepted )['upload'], 1 );
+
+/* ---- withdrawing is two people's control, and they are asked differently -- */
+
+echo "\n=== Withdraw asks whoever is pressing it, in their own words ===\n";
+
+// `handle_withdraw()` takes a member or a manager on their behalf, so the control belongs on
+// both surfaces. What must not travel between them is the wording: the same dialog that reads
+// right to somebody taking back their own upload reads, on a manager's row, as though the
+// institution were pressing it - and what the manager is actually about to do is delete
+// another organisation's document, with nobody emailed about it. A control drawn on forty rows
+// has to name which one it belongs to as well.
+reset_world();
+seed_index( $rec_a, '' );
+$mine = seed_post( $rec_a, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+
+$GLOBALS['caps']      = false;
+$GLOBALS['member_of'] = array( $rec_a );
+ob_start();
+WPCPM_Institution_Panel::render_withdraw_form( $mine );
+$member_withdraw = (string) ob_get_clean();
+
+$GLOBALS['caps']      = true;
+$GLOBALS['member_of'] = array();
+ob_start();
+WPCPM_Institution_Panel::render_withdraw_form( $mine );
+$manager_withdraw = (string) ob_get_clean();
+
+ck( 'a member is asked about the document they uploaded', array(
+	false !== strpos( $member_withdraw, 'Withdraw the signed agreement waiting for review?' ),
+	false !== strpos( $member_withdraw, 'You can upload another whenever you are ready.' ),
+), array( true, true ) );
+ck( 'and is not handed a manager\'s sentence about somebody else\'s institution', array(
+	false !== strpos( $member_withdraw, 'Universidad Example' ),
+	false !== strpos( $member_withdraw, 'Nobody at the institution is emailed' ),
+), array( false, false ) );
+
+ck( 'a manager is asked about the institution whose row it is',
+    false !== strpos( $manager_withdraw, 'Withdraw the signed agreement from Universidad Example?' ), true );
+ck( 'told the thing only they need to know: nobody is emailed, so telling them is now their job',
+    false !== strpos( $manager_withdraw, 'Nobody at the institution is emailed, so tell them yourself' ), true );
+ck( 'and what the institution is left with', false !== strpos( $manager_withdraw, 'nothing for anyone to review' ), true );
+ck( 'the button says whose document it is', false !== strpos( $manager_withdraw, 'Withdraw it on the institution&#039;s behalf' ), true );
+ck( 'and the member\'s dialogue is not what they get',
+    false !== strpos( $manager_withdraw, 'You can upload another whenever you are ready.' ), false );
+
+// Same handler, same nonce, same field: only the words differ. A branch that changed the form
+// as well as the sentence would be a second route into a handler that knows about one.
+ck( 'both post the same action, keyed to the same document', array(
+	substr_count( $member_withdraw, 'value="nonce-wpcpm_agreement_withdraw_' . $mine . '"' ),
+	substr_count( $manager_withdraw, 'value="nonce-wpcpm_agreement_withdraw_' . $mine . '"' ),
+	substr_count( $member_withdraw, 'name="wpcpm_agreement_post" value="' . $mine . '"' ),
+	substr_count( $manager_withdraw, 'name="wpcpm_agreement_post" value="' . $mine . '"' ),
+), array( 1, 1, 1, 1 ) );
+
+// The manager's row is where the wording was wrong, so it is asserted where it is drawn and
+// not only through the method that draws it.
+ck( 'the manager\'s institution row asks the manager\'s question',
+    false !== strpos( $row_busy, 'Withdraw the signed agreement from Universidad Example?' ), true );
+
+// An institution the last sync has not read yet has no name to print. The record ID is a poor
+// name and a true one; a dialog naming the wrong institution would be worse than either.
+reset_world();
+$unnamed = seed_post( $rec_b, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, $file_meta );
+$GLOBALS['caps'] = true;
+ob_start();
+WPCPM_Institution_Panel::render_withdraw_form( $unnamed );
+$unnamed_withdraw = (string) ob_get_clean();
+
+ck( 'an institution the index has not read yet is named by its record',
+    false !== strpos( $unnamed_withdraw, 'Withdraw the signed agreement from ' . $rec_b . '?' ), true );
 
 /* ---- the reviewer's block ------------------------------------------------ */
 

@@ -383,7 +383,7 @@ class WPCPM_Mentors_Dashboard {
 				'isPast'      => ! empty( $mentee['is_past'] ),
 				'end'         => $stamp ? gmdate( 'Y-m-d', $stamp ) : '',
 				'endLabel'    => $stamp ? date_i18n( $format, $stamp ) : '',
-				'notes'       => (int) WPCPM_Mentor_Notes::count_notes( $record ),
+				'notes'       => (int) WPCPM_Mentor_Notes::count_notes( $record, WPCPM_Mentor_Notes::AUDIENCE_MENTOR ),
 				// Everything a mentor might type into the box, built here so the script never
 				// has to read it back out of the rendered row.
 				'search'      => self::search_haystack( $mentee, $institution, $team ),
@@ -1068,7 +1068,7 @@ class WPCPM_Mentors_Dashboard {
 
 		// Enough to identify a student while collapsed, so the list is useful
 		// without opening every row.
-		$note_count = ( '' !== $record ) ? WPCPM_Mentor_Notes::count_notes( $record ) : 0;
+		$note_count = ( '' !== $record ) ? WPCPM_Mentor_Notes::count_notes( $record, WPCPM_Mentor_Notes::AUDIENCE_MENTOR ) : 0;
 
 		$preview = array_filter(
 			array(

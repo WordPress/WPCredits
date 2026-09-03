@@ -320,7 +320,7 @@ ck( 'a post is placed by its own meta, never the form',
 ck( 'a post with no institution meta is institution-less',
     $P::subject_post( new WP_Post( 502, 'wpcpm_agreement' ), '_wpcpm_agr_institution' )['institution_ids'], array() );
 ck( 'a list in the meta places the post under each',
-    $P::subject_post( new WP_Post( 503, 'wpcpm_semester_report' ), '_wpcpm_sr_institution' ),
+    $P::subject_post( new WP_Post( 503, 'wpcpm_inst_report' ), '_wpcpm_sr_institution' ),
     array( 'type' => 'semester_report', 'id' => 503, 'institution_ids' => array( $A, $B ), 'evidence' => 'cache' ) );
 ck( 'the batch post type reads as batch',
     $P::subject_post( new WP_Post( 504, 'wpcpm_import_batch' ), '_wpcpm_batch_institution' )['type'], 'batch' );
@@ -405,7 +405,7 @@ ck( 'a student with no stamp is nobody\'s but a manager\'s', array( $P::decide( 
 ck( 'an index row under A is a member of A\'s to edit', $P::decide( $P::ACT_EDIT_STUDENT, $P::subject_index_row( $A, $S1 ), 2 ), allowed_as( 'member', $A ) );
 ck( 'a member of B posting A\'s agreement post is decided against A', $P::decide( $P::ACT_AGREEMENT, $P::subject_post( new WP_Post( 501, 'wpcpm_agreement' ), '_wpcpm_agr_institution' ), 3 ), refused_for( 'no-ground' ) );
 ck( 'while a member of A passes on the same post', $P::decide( $P::ACT_AGREEMENT, $P::subject_post( new WP_Post( 501, 'wpcpm_agreement' ), '_wpcpm_agr_institution' ), 2 ), allowed_as( 'member', $A ) );
-ck( 'a post placed under two institutions is either\'s', $P::decide( $P::ACT_VIEW_SEMESTER_REPORT, $P::subject_post( new WP_Post( 503, 'wpcpm_semester_report' ), '_wpcpm_sr_institution' ), 3 ), allowed_as( 'member', $B ) );
+ck( 'a post placed under two institutions is either\'s', $P::decide( $P::ACT_VIEW_SEMESTER_REPORT, $P::subject_post( new WP_Post( 503, 'wpcpm_inst_report' ), '_wpcpm_sr_institution' ), 3 ), allowed_as( 'member', $B ) );
 ck( 'a live subject is decided on the link claim() read', $P::decide( $P::ACT_VIEW_REPORT, $P::subject_live( 'report', $S1, array( $B ) ), 2 ), refused_for( 'no-ground' ) );
 
 /* ---- the Phase 1 demonstration, against the TEST record ------------------- */

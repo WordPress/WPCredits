@@ -450,6 +450,77 @@ class WPCPM_Roster_Index {
 	}
 
 	/**
+	 * Merge named keys into one stored row, keeping the roster's read time.
+	 *
+	 * For the edit form, so a date a school changed a moment ago is on its roster now rather
+	 * than after tomorrow's sync. The read time is deliberately left where it was: one row is
+	 * fresh and the other thirty-nine are as old as they were, and a page that moved the whole
+	 * roster's timestamp because one cell changed would say something untrue about all of them.
+	 *
+	 * Only the keys `KEYS` names are merged, which is the same fence `clean()` applies on every
+	 * other write to this index: a caller that hands over a wider row cannot widen the index,
+	 * and the accessibility disclosure has no way in through here either. Two of those keys are
+	 * refused even so. `record_id` is the row's identity, and moving it would leave the row
+	 * filed under a key that no longer names it; `institution` is the fence's anchor, and a
+	 * caller that could rewrite it could move a student onto another school's roster - which is
+	 * precisely the thing this module's fence exists to make impossible.
+	 *
+	 * @param string $record_id       Institutions record ID whose roster holds the row.
+	 * @param string $students_record Students record ID of the row.
+	 * @param array  $changes         Values to merge, keyed by the index's own key names.
+	 * @return bool Whether the option was written.
+	 */
+	public static function update( $record_id, $students_record, array $changes ) {
+		$record_id       = trim( (string) $record_id );
+		$students_record = trim( (string) $students_record );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) || ! WPCPM_Mentors_Sync::is_record_id( $students_record ) ) {
+			return false;
+		}
+
+		$stored = self::read( $record_id );
+
+		// An institution with no roster written yet, or a row this roster does not hold, is
+		// not something to insert: `insert()` is the call that adds a row, and a caller that
+		// reached here with a record this index has never seen is asking about somebody
+		// else's student or about a sync that has not run.
+		if ( ! isset( $stored['rows'][ $students_record ] ) || ! is_array( $stored['rows'][ $students_record ] ) ) {
+			return false;
+		}
+
+		$row     = $stored['rows'][ $students_record ];
+		$changed = false;
+
+		foreach ( $changes as $key => $value ) {
+			if ( ! in_array( $key, self::KEYS, true ) || 'record_id' === $key || 'institution' === $key ) {
+				continue;
+			}
+
+			$row[ $key ] = $value;
+			$changed     = true;
+		}
+
+		if ( ! $changed ) {
+			return false;
+		}
+
+		$row = self::clean( $row );
+
+		// `clean()` keeps whatever `record_id` the row carried, so this only fails if the
+		// stored row was already unfindable - in which case writing it back under a key it
+		// does not name would make the index disagree with itself.
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $row['record_id'] ) || 0 !== strcmp( $row['record_id'], $students_record ) ) {
+			return false;
+		}
+
+		$stored['rows'][ $students_record ] = $row;
+
+		update_option( self::option_name( $record_id ), $stored, false );
+
+		return true;
+	}
+
+	/**
 	 * Remove every roster option. Called on uninstall.
 	 *
 	 * The per-institution options are named by prefix rather than enumerable, so the names

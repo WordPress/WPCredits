@@ -189,9 +189,9 @@ final class WPCPM_Institution_Policy {
 		// `type` and should not have to know which post type holds what. A post type this
 		// map does not know passes through as itself rather than being mislabelled.
 		$types = array(
-			'wpcpm_agreement'       => 'agreement',
-			'wpcpm_semester_report' => 'semester_report',
-			'wpcpm_import_batch'    => 'batch',
+			'wpcpm_agreement'    => 'agreement',
+			'wpcpm_inst_report'  => 'semester_report',
+			'wpcpm_import_batch' => 'batch',
 		);
 
 		$post_type = (string) $post->post_type;

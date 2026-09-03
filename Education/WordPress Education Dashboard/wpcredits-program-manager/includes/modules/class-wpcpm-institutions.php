@@ -268,6 +268,10 @@ class WPCPM_Institutions extends WPCPM_Module {
 		WPCPM_Agreement_Generate::init();
 		WPCPM_Institutions_Dashboard::init();
 		WPCPM_Institution_People::init();
+		WPCPM_Institution_Student_Form::init();
+		WPCPM_Institution_Notes::init();
+		WPCPM_Institution_Invite::init();
+		WPCPM_Institution_Request::init();
 
 		WPCPM_Institutions_Sync::register_cron();
 
@@ -322,7 +326,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		// agreement files, and the reviewer's digest. All daily because all three settings are
 		// in days, and none on the sync's cadence: a base that is down must not stop a file
 		// being forgotten on time. An hour apart so they never land in one request.
-		$nightly = array( self::CRON_PURGE, WPCPM_Institution_Agreement::CRON_DISCARD, WPCPM_Institution_Agreement::CRON_REMINDERS );
+		$nightly = array( self::CRON_PURGE, WPCPM_Institution_Agreement::CRON_DISCARD, WPCPM_Institution_Agreement::CRON_REMINDERS, WPCPM_Institution_Invite::CRON_EXPIRE );
 
 		foreach ( $nightly as $offset => $hook ) {
 			if ( ! wp_next_scheduled( $hook ) ) {
@@ -363,6 +367,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		wp_clear_scheduled_hook( self::CRON_PURGE );
 		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_DISCARD );
 		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_REMINDERS );
+		wp_clear_scheduled_hook( WPCPM_Institution_Invite::CRON_EXPIRE );
 
 		delete_option( WPCPM_Institution_Application::OPT_PAGE );
 		delete_option( self::OPTION_APP_LOG );

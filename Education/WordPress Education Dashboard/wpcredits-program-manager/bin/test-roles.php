@@ -419,5 +419,35 @@ if ( file_exists( dirname( __DIR__ ) . '/' . $ceiling_file ) ) {
 } else {
 	echo "--   the ceiling has not landed yet: " . $ceiling_file . "\n";
 }
+/* ---- every post type this plugin declares is short enough to exist ------- */
+
+// `register_post_type()` refuses a name longer than twenty characters and returns a WP_Error
+// that nothing here was reading, so a too-long name is not a warning: the type simply does not
+// exist, silently, while `get_posts()` goes on querying it. That is how `wpcpm_institution_app`
+// shipped unregistered in 1.73.0. Read off the source rather than from a list kept by hand,
+// because the list that gets forgotten is the one that would have caught this.
+$declared = array();
+
+foreach ( glob( dirname( __DIR__ ) . '/includes/**/*.php' ) + glob( dirname( __DIR__ ) . '/includes/*.php' ) as $file ) {
+	if ( preg_match_all( "/const POST_TYPE\s*=\s*'([a-z0-9_]+)'/", (string) file_get_contents( $file ), $m ) ) {
+		foreach ( $m[1] as $name ) {
+			$declared[ $name ] = basename( $file );
+		}
+	}
+}
+
+ck( 'the plugin declares post types where this can see them', count( $declared ) > 4, true );
+
+$too_long = array();
+
+foreach ( $declared as $name => $file ) {
+	if ( strlen( $name ) > 20 ) {
+		$too_long[] = $name . ' (' . strlen( $name ) . ', ' . $file . ')';
+	}
+}
+
+ck( 'and every one of them is inside WordPress\'s twenty-character limit', $too_long, array() );
+
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

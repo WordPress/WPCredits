@@ -225,7 +225,7 @@ Specified once here. Every write, export, live disclosure and render in sections
 | `wpcpm_institution_active` | 1 while the membership may be exercised. Set to 0 by the sync's revoke and by `detach()` |
 | `wpcpm_institution_record_id_was` | Where the stamp goes when membership ends, so history survives and authorisation does not |
 | `wpcpm_institution_membership` | `array{ since, by, how, invite }`; `how` is `provisioned`, `approved`, `manager`, `invited`, `legacy`. Facts for the members card and the log; never read by the policy |
-| `wpcpm_institution_invited` | Stamped when the login invitation is sent |
+| `wpcpm_inst_invited` | Stamped when the login invitation is sent |
 | `wpcpm_institution_profile` | name, city, country name, stage, website, contact person, so the header needs no Airtable read |
 
 ```php
@@ -476,7 +476,7 @@ $cells = WPCPM_Institution_Policy::scope( $claim['decision'], $cells );
 
 | Step | Section | Actor | What exists afterwards |
 | --- | --- | --- | --- |
-| Apply | 7.1 | a stranger | a held `wpcpm_institution_app` post, a verification mail, an acknowledgement with the booking link |
+| Apply | 7.1 | a stranger | a held `wpcpm_inst_app` post, a verification mail, an acknowledgement with the booking link |
 | Reviewed | 7.2 | a program manager | a decision; a neutral or silent close, or a question |
 | Approved | 7.3 | a program manager | an Airtable record at `First Contact Made`, an index row, an agreement row at `Not started`, one account attached, one invitation |
 | Agreement | 7.4 | members and a manager | a `wpcpm_agreement` post in `accepted`, Airtable `Accepted` or `On file`, `Current Stage` at `Confirmed`, the account open |
@@ -484,7 +484,7 @@ $cells = WPCPM_Institution_Policy::scope( $claim['decision'], $cells );
 | Import | 7.6 | members, or a manager on behalf | Students rows, index rows, `add` requests |
 | Track | 7.7 | members | the cohort filter and the comparison strip |
 | Edit | 7.8 | members | Students and Students Reports cells, audit rows |
-| Report | 7.9 | members | a `wpcpm_semester_report` post, its revisions, a printed copy |
+| Report | 7.9 | members | a `wpcpm_inst_report` post, its revisions, a printed copy |
 | Graduate | 7.10 | members | a Students status, an Airtable email, an audit row |
 | Leave | 7.11 | the sync, members, a manager | stamps moved, files kept |
 
@@ -530,7 +530,7 @@ On `template_redirect` for this page only: `nocache_headers()` and `DONOTCACHEPA
 
 `WPCPM_Institutions::render_admin_page()` stops falling through to `render_placeholder()`. One page, view state in the query string, markup keeping `div.wrap.wpcpm-wrap > h1 > p.wpcpm-lede > .wpcpm-card`. The `[data-wpcpm-progress]` selector in `assets/js/admin.js` is widened, because this screen draws a sync panel and a provisioning run.
 
-**Storage**: `wpcpm_institution_app`, `post_status` always `private`, `post_author` 0 for a logged-out submission, `post_title` the institution name. Meta: `_wpcpm_app_fields` (immutable after insert, and never containing `Country`, `Current Stage` or `Privacy Policy Compliance`, which are server-held), `_wpcpm_app_state` (`new`, `held`, `spam`, `info`, `approved`, `rejected`), `_wpcpm_app_reference`, `_wpcpm_app_country` and `_wpcpm_app_country_name`, `_wpcpm_app_manager` (snapshot of `routing()`), `_wpcpm_app_consent`, `_wpcpm_app_signals`, `_wpcpm_app_email` (`wp_hash()` of the lowercased address, for duplicate flagging only), `_wpcpm_app_verified`, `_wpcpm_app_record`, `_wpcpm_app_user` (the **first member** approval created), `_wpcpm_app_event`.
+**Storage**: `wpcpm_inst_app`, `post_status` always `private`, `post_author` 0 for a logged-out submission, `post_title` the institution name. Meta: `_wpcpm_app_fields` (immutable after insert, and never containing `Country`, `Current Stage` or `Privacy Policy Compliance`, which are server-held), `_wpcpm_app_state` (`new`, `held`, `spam`, `info`, `approved`, `rejected`), `_wpcpm_app_reference`, `_wpcpm_app_country` and `_wpcpm_app_country_name`, `_wpcpm_app_manager` (snapshot of `routing()`), `_wpcpm_app_consent`, `_wpcpm_app_signals`, `_wpcpm_app_email` (`wp_hash()` of the lowercased address, for duplicate flagging only), `_wpcpm_app_verified`, `_wpcpm_app_record`, `_wpcpm_app_user` (the **first member** approval created), `_wpcpm_app_event`.
 
 **The "Waiting for review" card** is one list, oldest first, of two kinds of row: applications and agreement uploads (section 7.4), each with `human_time_diff()` age, the absolute date, an `is-overdue` class past `agreement_review_days` (3), the country and its `Person of contact (Team)` labelled *for information*, and the possible-duplicate flag. The Institutions menu entry carries a pending-count bubble: `WPCPM_Module` gains `menu_label()` defaulting to `label()`, the Institutions module returns the label plus `<span class="awaiting-mod count-N"><span class="pending-count">N</span></span>`, `WPCPM_Admin::register_menu()` passes `menu_label()` as the submenu title, and `label()` stays plain because it is also the `<h1>`.
 
@@ -581,7 +581,7 @@ approve( $application_id ):
 
 `array_merge()` and not `+`: `+` keeps the left operand, `$stored` would contain the applicant's own `Country` and consent value, and the checkbox column would 422 the whole record on a string. Airtable first, because the record ID is the account's identity and an account with no institution is the shape the fence cannot tolerate. There is no "partially approved" state: an application in `new` carrying a stamped record renders a half-done banner with "press Approve again to finish", and every half is stamped the moment it lands.
 
-**The invitation** is `WPCPM_Mail::welcome_email()`'s new institution branch, context `invite-institution`, previewed in tests by running the real filter against a stand-in body. It branches on `is_settled( $record )` at send time: for a new institution, *the first and only step is the Collaboration Agreement: generate ours or upload yours, sign it, upload the signed copy; a program manager then accepts it and the rest of the site opens*; for an institution whose agreement is on file, *your agreement is on file and your account is open*, with the dashboard link. `drain_queue()`'s role-to-meta map and `queue_invites()`'s already-invited test gain a third arm with `wpcpm_institution_invited`, in the same commit.
+**The invitation** is `WPCPM_Mail::welcome_email()`'s new institution branch, context `invite-institution`, previewed in tests by running the real filter against a stand-in body. It branches on `is_settled( $record )` at send time: for a new institution, *the first and only step is the Collaboration Agreement: generate ours or upload yours, sign it, upload the signed copy; a program manager then accepts it and the rest of the site opens*; for an institution whose agreement is on file, *your agreement is on file and your account is open*, with the dashboard link. `drain_queue()`'s role-to-meta map and `queue_invites()`'s already-invited test gain a third arm with `wpcpm_inst_invited`, in the same commit.
 
 ### 7.4 The agreement gate
 
@@ -807,7 +807,7 @@ The `exists-elsewhere`, `exists-unlinked` and `account-exists` verdicts of the i
 1. **Before every slice, whoever runs it**: `is_settled( $institution )` and the confirming member still a live member of `_wpcpm_batch_institution` (a manager-confirmed batch checks the manager still holds `CAP_MANAGE`). Either failing parks the batch as `blocked` with the reason and names it in the summary. A cron continuation has no acting user, and "enforced server-side in every handler" must include the continuation, or a revoke during a 300-row batch stops nothing.
 2. `add_option( 'wpcpm_import_lock_' . $institution )` with stale release after `LOCK_TIMEOUT`.
 3. `staged` becomes `creating`; steps 2 to 4 of the ladder re-run for `pending` rows; a changed verdict blocks the row and is named.
-4. For each `pending` row until `BUDGET` seconds: a row in state `creating` with no record ID searches `{Site import key} = '<key>'`, then email, before any create; state `creating` saved **before** the request; `create_records()` one row per call (a batch call returns a re-indexed list and mis-assigns IDs after the first dropped row, and the wrong ID stamped is the wrong person fenced); a `WP_Error` marks the row `failed` with the message verbatim and the loop continues; the ID stamped and saved immediately; `WPCPM_Roster_Index::insert()` so the roster shows the student now; a `wpcpm_institution_request` of kind `add`.
+4. For each `pending` row until `BUDGET` seconds: a row in state `creating` with no record ID searches `{Site import key} = '<key>'`, then email, before any create; state `creating` saved **before** the request; `create_records()` one row per call (a batch call returns a re-indexed list and mis-assigns IDs after the first dropped row, and the wrong ID stamped is the wrong person fenced); a `WP_Error` marks the row `failed` with the message verbatim and the loop continues; the ID stamped and saved immediately; `WPCPM_Roster_Index::insert()` so the roster shows the student now; a `wpcpm_inst_request` of kind `add`.
 5. Rows remaining: schedule `CRON_TICK` in 30 seconds and show progress with Continue. Otherwise `done`, one `wpcpm_audit_entry` for the batch, a summary flash naming created, blocked and failed.
 
 `Site import key` is `imp-<batch id>-<row index>`, the one new Students column, because email alone cannot tell "created a second ago, response lost" from "somebody else enrolled this student". Cancel deletes a `staged` batch; a `creating` or `done` batch cannot be cancelled and the screen says why. Batch posts are purged by `wpcpm_purge_applications` 30 days after `done` or 7 days after `staged`.
@@ -940,7 +940,7 @@ Not generated, each with its reason in the docblock: hours and targets (decision
 
 `ACTION_ASK` (`report-consent` mail): one message per student in the cohort with a candidate answer and no permission answer, through `WPCPM_Mail::send()`, never twice inside 30 days, stopping at 25 per press with the rest queued. Whether institutions may press it is open question 2.
 
-**Storage**: `wpcpm_semester_report`, one post per institution and cohort, `private`, `supports` title, editor, author, revisions; `_wpcpm_report_institution` (the policy's input), `_wpcpm_report_cohort`, `_wpcpm_report_data` (the snapshot, `'v' => 1`), `_wpcpm_report_sections` and `_wpcpm_report_choices` registered with `revisions_enabled` (WordPress 6.4, inside the plugin's 6.5 floor; the test asserts a restore brings back title, sections and choices together, with serialising the choices into `post_content` as the fallback), `_wpcpm_report_generated`, `_wpcpm_report_state` (`draft` | `final`), `_wpcpm_report_exported`. `post_content` holds a plain-text rendering of the narrative so the revision diff screen shows words.
+**Storage**: `wpcpm_inst_report`, one post per institution and cohort, `private`, `supports` title, editor, author, revisions; `_wpcpm_report_institution` (the policy's input), `_wpcpm_report_cohort`, `_wpcpm_report_data` (the snapshot, `'v' => 1`), `_wpcpm_report_sections` and `_wpcpm_report_choices` registered with `revisions_enabled` (WordPress 6.4, inside the plugin's 6.5 floor; the test asserts a restore brings back title, sections and choices together, with serialising the choices into `post_content` as the fallback), `_wpcpm_report_generated`, `_wpcpm_report_state` (`draft` | `final`), `_wpcpm_report_exported`. `post_content` holds a plain-text rendering of the narrative so the revision diff screen shows words.
 
 **Editing** at `?wpcpm_report=2026-H1` on the dashboard page, never wp-admin: each section as a card, the generated part read-only above a `<textarea>` (`MAX_TEXT` 5000), a hide toggle, the quote picker with include, translation and show-name (only when `named_allowed`). One form, `ACTION_SAVE`, `decide( ACT_EDIT_SEMESTER_REPORT, subject_post() )`. A hidden `post_modified_gmt` refuses a stale save with "someone at your institution saved this report after you opened it" and stashes the text: decision 13 puts several equal users on one institution. `ACTION_RESTORE` on a revision (its `post_parent` checked first), `ACTION_FINAL` and `ACTION_REOPEN`.
 
@@ -1030,13 +1030,13 @@ Both syncs page them; mentors see them under "Currently mentoring" with `Paused`
 
 | Type | One per | Meta |
 | --- | --- | --- |
-| `wpcpm_institution_app` | submission | section 7.2 |
+| `wpcpm_inst_app` | submission | section 7.2 |
 | `wpcpm_agreement` | document | `_wpcpm_agr_institution` (the queryable key), `_wpcpm_agr_state`, `_wpcpm_agr_kind` (`template` / `own` / `legacy`), `_wpcpm_agr_language`, `_wpcpm_agr_template_version`, `_wpcpm_agr_name_on_document`, `_wpcpm_agr_file` (`path`, `size`, `sha256`; absent on generated and legacy rows and after discard), `_wpcpm_agr_original_name` (display only), `_wpcpm_agr_flags`, `_wpcpm_agr_drive_url`, `_wpcpm_agr_signed_on`, `_wpcpm_agr_note`, `_wpcpm_agr_decided_by` / `_at`, `_wpcpm_agr_airtable_pending`, `_wpcpm_agr_event` (repeating) |
 | `wpcpm_import_batch` | staged batch | `_wpcpm_batch_institution`, `_wpcpm_batch_state`, `_wpcpm_batch_rows`, `_wpcpm_batch_values`, `_wpcpm_batch_confirmation` |
-| `wpcpm_institution_request` | `add`, `mentor`, `format` | `_wpcpm_req_kind`, `_wpcpm_req_institution`, `_wpcpm_req_student`, `_wpcpm_req_state` |
+| `wpcpm_inst_request` | `add`, `mentor`, `format` | `_wpcpm_req_kind`, `_wpcpm_req_institution`, `_wpcpm_req_student`, `_wpcpm_req_state` |
 | `wpcpm_audit_entry` | applied change or membership event | section 5.6 |
-| `wpcpm_semester_report` | institution and cohort | section 7.9 |
-| `wpcpm_institution_invite` | invitation (Phase 4) | section 12 |
+| `wpcpm_inst_report` | institution and cohort | section 7.9 |
+| `wpcpm_inst_invite` | invitation (Phase 4) | section 12 |
 
 `uninstall.php`'s `require_once` list gains every new class file (and `class-wpcpm-sponsors.php`, which it is missing today while `WPCPM_Modules::uninstall()` instantiates it), and `bin/test-roles.php` asserts the parallel lists.
 
@@ -1104,7 +1104,7 @@ Track A (A1 form and held posts, A2 the shared queue with the menu bubble, A3 ap
 
 ### Phase 4: editing, notes, requests, members' invitations, revoke and reminders
 
-The allowlist and `handle_save()`; `claim()` on every write; the audit log proper; institution notes; `wpcpm_institution_request` with the mentor kind and its queue; `wpcpm_institution_invite` with `handle_invite`, the `nopriv` `handle_accept`, cancel and resend, and the People card's invite form; `handle_revoke()` and `handle_reinstate()`; `CRON_REMINDERS`; the drift button; manager generate and upload on behalf.
+The allowlist and `handle_save()`; `claim()` on every write; the audit log proper; institution notes; `wpcpm_inst_request` with the mentor kind and its queue; `wpcpm_inst_invite` with `handle_invite`, the `nopriv` `handle_accept`, cancel and resend, and the People card's invite form; `handle_revoke()` and `handle_reinstate()`; `CRON_REMINDERS`; the drift button; manager generate and upload on behalf.
 
 **Demonstrates**: an end date edit lands in Students, the mirror carries it, the student's own Student Report Card shows it without a sync, one audit row names actor, field, both values and the `member` ground; a `curl` POST with a field outside the allowlist changes nothing and one naming another institution's student gets the same message as an unknown record; a student with three Students rows renders the Students half read-only; an invitation token is stored hashed, acceptance signed in as another address is refused, an expired and a cancelled token give one message, the eleventh pending invitation is refused; Revoke locks the member's next page load and deletes the option, Reinstate reopens it; a four-day-old item appears in the digest once and not the next day; the drift check against the unchanged Doc matches.
 
@@ -1134,7 +1134,7 @@ The allowlist and `handle_save()`; `claim()` on every write; the audit log prope
 
 ## 13. Deliberately not in scope
 
-- **In-app mentor acceptance.** The `wpcpm_institution_request` queue records that a mentor is wanted; it does not negotiate one.
+- **In-app mentor acceptance.** The `wpcpm_inst_request` queue records that a mentor is wanted; it does not negotiate one.
 - **Replacing the Sensei grading system.**
 - **Any electronic signature.** The product owner said offline signing; a drawn signature would make the plugin a party to a question of authority it cannot answer.
 - **Backfilling `Privacy Policy Compliance`** on the 63 historical records, or inventing 105 application posts. Writing "they consented" where there is no evidence is worse than the gap.

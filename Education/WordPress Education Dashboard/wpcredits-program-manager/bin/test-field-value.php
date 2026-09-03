@@ -10,6 +10,11 @@
  * the application form and the student import are built on the same class and a key that
  * quietly changed would misfile a rejection in every one of them.
  *
+ * The list of keys is **read out of the class's own docblock** rather than typed here. A copy
+ * kept by hand is a copy that goes stale the moment a type is added: it was seven names long
+ * while the class documented eight, so `bad_date` was asserted nowhere and the check that was
+ * supposed to notice a key appearing or disappearing was comparing a list with itself.
+ *
  * Run from the plugin root:  php bin/test-field-value.php
  */
 
@@ -272,14 +277,49 @@ ck( "and case matters, because Airtable's choices do", fv( 'yes', $select ), ref
 ck( 'a spec with no choices takes nothing', fv( 'Yes', array( 'type' => 'select' ) ), refused( 'bad_choice' ) );
 ck( 'an array is refused', fv( array( 'Yes' ), $select ), refused( 'not_scalar' ) );
 
+echo "\n=== date: YYYY-MM-DD on the calendar, cleared with null ===\n";
+
+$date = array( 'type' => 'date' );
+
+ck( 'a real date is taken as typed', fv( '2026-06-30', $date ), accepted( '2026-06-30' ) );
+ck( 'whitespace around it is not part of it', fv( ' 2026-06-30 ', $date ), accepted( '2026-06-30' ) );
+ck( 'an emptied box clears the column with null, which is how Airtable empties a date', fv( '', $date ), accepted( null ) );
+ck( 'a day that is not on the calendar is refused', fv( '2026-06-31', $date ), refused( 'bad_date' ) );
+ck( 'and so is 29 February in a common year', fv( '2025-02-29', $date ), refused( 'bad_date' ) );
+ck( 'but not in a leap year', fv( '2024-02-29', $date ), accepted( '2024-02-29' ) );
+ck( 'an unpadded date is refused rather than repaired', fv( '2026-6-3', $date ), refused( 'bad_date' ) );
+ck( 'a date with a time on the end is refused', fv( '2026-06-30T00:00:00Z', $date ), refused( 'bad_date' ) );
+ck( 'a date written the other way round is refused', fv( '30-06-2026', $date ), refused( 'bad_date' ) );
+ck( 'a word is refused', fv( 'next Tuesday', $date ), refused( 'bad_date' ) );
+ck( 'an array is refused before the pattern is looked at', fv( array( '2026-06-30' ), $date ), refused( 'not_scalar' ) );
+
 echo "\n=== Every refusal key the class documents has been seen ===\n";
 
-$keys = array( 'not_scalar', 'not_a_number', 'below_min', 'above_max', 'bad_email', 'bad_choice', 'out_of_range' );
+/*
+ * The class docblock is the list, and the source is where it is read from.
+ *
+ * `WPCPM_Field_Value::clean()` hands a caller a key and no sentence, so the keys are the
+ * contract; the docblock is where that contract is written down and the only place a reader
+ * looks it up. Reading it here means a key added to the class without a check for it fails
+ * this suite, a key removed from the class without its check going too fails it, and a key
+ * documented but never producible fails it. A list typed out below would do none of the
+ * three - it would just be a copy agreeing with itself.
+ */
+$class = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-field-value.php' );
+$doc   = substr( $class, 0, (int) strpos( $class, 'final class WPCPM_Field_Value' ) );
+$keys  = array();
+
+if ( preg_match( '/The keys are(.*?)\./s', $doc, $sentence ) ) {
+	preg_match_all( '/`([a-z_]+)`/', $sentence[1], $named );
+	$keys = $named[1];
+}
+
 sort( $keys );
 $produced = array_keys( $seen );
 sort( $produced );
 
-ck( 'the seven keys, and no others', $produced, $keys );
+ck( 'the class names its keys where a reader would look for them', count( $keys ) > 0, true );
+ck( 'every key it names has been produced by a check above, and no other key exists', $produced, $keys );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

@@ -42,11 +42,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * agreements that were never uploaded here.
  *
  * Phase 1 shipped the predicate, the summary and the reconcile path; Phase 2 added the on-file
- * route. Phase 3 adds the transitions an institution and a reviewer make between them: upload
+ * route. Phase 3 added the transitions an institution and a reviewer make between them: upload
  * (T3, T10), download, withdraw (T4), accept (T5) and return (T6), with the daily discard
- * (T11) and the reminder digest. Revoke (T8) and reinstate (T9) are Phase 4's; `STAGE_ORDER`
- * and `TERMINAL_STAGES` are declared here so the base's spelling is asserted once, in the
- * fixture, and `handle_accept()` is the one write that reads them.
+ * (T11) and the reminder digest. Phase 4 adds the two that take the account away and give it
+ * back: revoke (T8), the one action on this page that removes access, and reinstate (T9),
+ * which is what makes revoking a safe click. `STAGE_ORDER` and `TERMINAL_STAGES` are declared
+ * here so the base's spelling is asserted once, in the fixture, and `handle_accept()` is the
+ * one write that reads them: a revoke leaves the stage alone, because the plugin does not
+ * guess `Not Moving Forward`.
  */
 class WPCPM_Institution_Agreement {
 
@@ -217,6 +220,12 @@ class WPCPM_Institution_Agreement {
 	/** A member or a manager takes a submitted document back (T4). */
 	const ACTION_WITHDRAW = 'wpcpm_agreement_withdraw';
 
+	/** A manager takes an accepted agreement out of force, with a note (T8). */
+	const ACTION_REVOKE = 'wpcpm_agreement_revoke';
+
+	/** A manager puts the most recently revoked one back (T9). */
+	const ACTION_REINSTATE = 'wpcpm_agreement_reinstate';
+
 	/** Daily: forget the files of documents nobody is waiting on any more (T11). */
 	const CRON_DISCARD = 'wpcpm_agreement_discard';
 
@@ -236,6 +245,9 @@ class WPCPM_Institution_Agreement {
 	/** `Agreement Status` for a document in force. */
 	const AIRTABLE_ACCEPTED = 'Accepted';
 
+	/** `Agreement Status` for an agreement the program has taken out of force (T8). */
+	const AIRTABLE_REVOKED = 'Revoked';
+
 	/** `Agreement Kind` for a signed copy of the program's own template. */
 	const AIRTABLE_KIND_TEMPLATE = 'Program template';
 
@@ -251,6 +263,7 @@ class WPCPM_Institution_Agreement {
 	const MAIL_RETURNED = 'agreement-returned';
 	const MAIL_LANDED   = 'agreement-landed';
 	const MAIL_REMINDER = 'agreement-reminder';
+	const MAIL_REVOKED  = 'agreement-revoked';
 
 	/**
 	 * What the event rows on a document say, in the same voice as the two Phase 2 rows.
@@ -265,12 +278,16 @@ class WPCPM_Institution_Agreement {
 	const EVENT_WITHDRAWN  = 'withdrawn';
 	const EVENT_SUPERSEDED = 'superseded by a newer document';
 	const EVENT_DISCARDED  = 'file discarded';
+	const EVENT_REVOKED    = 'revoked, and the account closed';
+	const EVENT_REINSTATED = 'reinstated, and the account opened again';
 
 	/** Audit kinds, one per transition that changes state. */
-	const LOG_UPLOAD   = 'agreement_upload';
-	const LOG_ACCEPT   = 'agreement_accept';
-	const LOG_RETURN   = 'agreement_return';
-	const LOG_WITHDRAW = 'agreement_withdraw';
+	const LOG_UPLOAD    = 'agreement_upload';
+	const LOG_ACCEPT    = 'agreement_accept';
+	const LOG_RETURN    = 'agreement_return';
+	const LOG_WITHDRAW  = 'agreement_withdraw';
+	const LOG_REVOKE    = 'agreement_revoke';
+	const LOG_REINSTATE = 'agreement_reinstate';
 
 	/** A returned document's note, in characters. Long enough to say why, short enough to read. */
 	const MIN_NOTE = 20;
@@ -339,6 +356,8 @@ class WPCPM_Institution_Agreement {
 		add_action( 'admin_post_' . self::ACTION_ACCEPT, array( __CLASS__, 'handle_accept' ) );
 		add_action( 'admin_post_' . self::ACTION_RETURN, array( __CLASS__, 'handle_return' ) );
 		add_action( 'admin_post_' . self::ACTION_WITHDRAW, array( __CLASS__, 'handle_withdraw' ) );
+		add_action( 'admin_post_' . self::ACTION_REVOKE, array( __CLASS__, 'handle_revoke' ) );
+		add_action( 'admin_post_' . self::ACTION_REINSTATE, array( __CLASS__, 'handle_reinstate' ) );
 		add_action( self::CRON_DISCARD, array( __CLASS__, 'discard' ) );
 		add_action( self::CRON_REMINDERS, array( __CLASS__, 'remind' ) );
 	}
@@ -1574,6 +1593,301 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * Take an accepted agreement out of force, and close the account with it (T8).
+	 *
+	 * The one action on this page that takes access away, and three things about it are
+	 * different from every other transition here because of that.
+	 *
+	 * **Airtable first, and the whole thing refused when it fails.** Acceptance's rule read
+	 * the other way round, for the same reason: the base is the program's record of this
+	 * state, and an institution locked out on the site while the base still says `Accepted`
+	 * is a partner whose access was removed by a system nobody at the program can see it in.
+	 * If the PATCH lands and this request dies before the post changes, the two sides
+	 * disagree, which the predicate reads as locked and the manager screen lists by name;
+	 * pressing Revoke again writes the same cell and completes.
+	 *
+	 * **The stage is not touched.** `Not Moving Forward` is the program saying the
+	 * partnership is over, and a revoked agreement is not that: it is one document out of
+	 * force, which is as often the prelude to a new one as to an ending. The dialog says so
+	 * and asks the manager to change the stage themselves if the partnership has ended.
+	 *
+	 * **The option is deleted rather than rewritten.** Deleting is what closes the gate on
+	 * this request: `option()` finds nothing, `is_settled()` is false on the next line, and
+	 * the member's next page load is the agreement panel. A rewritten row would say the same
+	 * thing right up until the write is lost, and a lost write has to leave an institution
+	 * locked rather than open, which is the direction every failure in this class falls.
+	 *
+	 * The note is required and mailed verbatim. "Your access has been removed" with no reason
+	 * is what makes somebody ring a program manager, and there is nowhere else the
+	 * institution can read why.
+	 */
+	public static function handle_revoke() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$post_id = WPCPM_Request::posted_id( 'wpcpm_agreement_post' );
+
+		check_admin_referer( self::ACTION_REVOKE . '_' . $post_id );
+
+		$post = self::document_in_state( $post_id, self::STATE_ACCEPTED );
+
+		if ( ! $post instanceof WP_Post ) {
+			self::bounce( 'agreement-not-accepted' );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_AGREEMENT,
+			WPCPM_Institution_Policy::subject_post( $post, self::META_INSTITUTION )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		$note   = self::posted_note();
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $note ) : strlen( $note );
+
+		// Ahead of the lock, because this refusal needs nothing but the posted string, and a
+		// manager who pressed the button with an empty box must not find the institution's
+		// record locked for five minutes by their typo.
+		if ( $length < self::MIN_NOTE || $length > self::MAX_NOTE ) {
+			self::bounce( 'agreement-revoke-note' );
+		}
+
+		// Read from the document's own meta and never from the form. The nonce is keyed to
+		// the document, and a posted record would be this form's claim about what it is
+		// acting on rather than the state the site is holding.
+		$record = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
+
+		if ( ! self::lock( $record ) ) {
+			self::bounce( 'agreement-busy' );
+		}
+
+		// Read again under the lock, for the reason `handle_accept()` gives. Two managers
+		// pressing the same button, or a replacement accepted in the gap, would otherwise
+		// each revoke a document the other has already moved.
+		if ( ! self::document_in_state( $post_id, self::STATE_ACCEPTED ) instanceof WP_Post ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-not-accepted' );
+		}
+
+		$settings = WPCPM_Settings::get();
+		$fields   = WPCPM_Institutions_Sync::fields();
+		$airtable = new WPCPM_Airtable( $settings );
+
+		// T8: the status, and nothing else. Not the stage, not `Agreement Accepted On`, not
+		// the kind. The document is still the one the program accepted and still says what it
+		// said; what changed is that it is no longer in force.
+		$written = $airtable->update_records(
+			$settings['institutions_table'],
+			array(
+				array(
+					'id'     => $record,
+					'fields' => array( $fields['agr_status'] => self::AIRTABLE_REVOKED ),
+				),
+			)
+		);
+
+		// An empty result is a refusal too: `update_records()` drops a record it cannot send
+		// and answers with the ones it did, so "nothing was updated" must not read as success
+		// on the path where success closes an account.
+		if ( is_wp_error( $written ) || empty( $written ) ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-airtable' );
+		}
+
+		$today = wp_date( 'Y-m-d' );
+
+		update_post_meta( $post_id, self::META_STATE, self::STATE_REVOKED );
+		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
+		update_post_meta( $post_id, self::META_DECIDED_AT, $today );
+
+		// The note replaces whatever this document carried, which for a legacy row is the
+		// manager's own "second folder, the 2025 copy". That is the right way round: section
+		// 9 keeps one note per document, the panel prints it to the institution, and a note
+		// written for a colleague is not one an institution should be reading.
+		update_post_meta( $post_id, self::META_NOTE, $note );
+
+		// The line that closes the gate, and it is here rather than after the log or the mail
+		// for the same reason it is a delete and not a rewrite: nothing between this request
+		// and the member's next page load may leave the account open.
+		delete_option( self::option_name( $record ) );
+
+		// Every invitation still outstanding goes with the access it would have granted. The
+		// accept path asks the gate for itself as well, because a link already in somebody's
+		// mailbox is not recalled by a database write; this is so a manager is not shown a
+		// queue of pending invitations to an institution that cannot admit anybody.
+		if ( class_exists( 'WPCPM_Institution_Invite' ) && method_exists( 'WPCPM_Institution_Invite', 'cancel_for_institution' ) ) {
+			WPCPM_Institution_Invite::cancel_for_institution( $record );
+		}
+
+		self::add_event( $post_id, self::EVENT_REVOKED );
+
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => self::LOG_REVOKE,
+				'institution' => $record,
+				'subject'     => (string) $post_id,
+				'actor'       => get_current_user_id(),
+				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_CACHE,
+				'message'     => __( 'An accepted Collaboration Agreement was revoked, and the institution\'s account closed.', 'wpcredits-program-manager' ),
+				'data'        => array(
+					'kind'    => (string) get_post_meta( $post_id, self::META_KIND, true ),
+					'members' => count( WPCPM_Institution_Members::members_of( $record ) ),
+				),
+			)
+		);
+
+		// No rebuild, so the lock is released with nothing left to do under it: an option
+		// this handler deleted is one the next sync writes from the base, which now says
+		// `Revoked`, and rebuilding here would put a row back for the sake of putting one
+		// back.
+		self::unlock( $record );
+
+		self::mail_revoked( $record, $post_id, $note );
+
+		self::bounce( 'agreement-revoked' );
+	}
+
+	/**
+	 * Put the most recently revoked agreement back in force (T9).
+	 *
+	 * The abort that makes revoking a safe click. A manager who revokes the wrong institution,
+	 * or revokes the right one and is then told the paperwork was in hand all along, has one
+	 * button that undoes it rather than an upload the institution has to be asked for again.
+	 *
+	 * Airtable first, exactly as T8: the status goes back to what the document is, `On file`
+	 * for a legacy row and `Accepted` for anything this site accepted, and a failed PATCH
+	 * leaves both sides where they were. Then the post, then the option through `rebuild()`,
+	 * which is what opens the gate on this request.
+	 *
+	 * Two things have to be true, and both are read from stored state rather than from the
+	 * form: this is the institution's most recently revoked document, and no accepted one
+	 * stands. The second is what keeps "an accepted one stands" meaning one document, which
+	 * T3, T6 and T10 all rely on; the first is what stops a manager reinstating last year's
+	 * agreement from a page drawn before this year's was revoked.
+	 */
+	public static function handle_reinstate() {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$post_id = WPCPM_Request::posted_id( 'wpcpm_agreement_post' );
+
+		check_admin_referer( self::ACTION_REINSTATE . '_' . $post_id );
+
+		$post = self::document_in_state( $post_id, self::STATE_REVOKED );
+
+		if ( ! $post instanceof WP_Post ) {
+			self::bounce( 'agreement-not-revoked' );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_AGREEMENT,
+			WPCPM_Institution_Policy::subject_post( $post, self::META_INSTITUTION )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
+
+		$record = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
+
+		if ( ! self::lock( $record ) ) {
+			self::bounce( 'agreement-busy' );
+		}
+
+		// Read again under the lock, for the reason `handle_accept()` gives.
+		if ( ! self::document_in_state( $post_id, self::STATE_REVOKED ) instanceof WP_Post ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-not-revoked' );
+		}
+
+		// T9's "from" column, both halves of it, and both under the lock: the test and the
+		// write that acts on it are one decision.
+		if ( ! empty( self::summary( $record )['agreement_id'] ) ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-reinstate-standing' );
+		}
+
+		if ( self::latest_revoked( $record ) !== (int) $post_id ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-not-revoked' );
+		}
+
+		$kind   = (string) get_post_meta( $post_id, self::META_KIND, true );
+		$status = self::KIND_LEGACY === $kind ? self::AIRTABLE_ON_FILE : self::AIRTABLE_ACCEPTED;
+
+		$settings = WPCPM_Settings::get();
+		$fields   = WPCPM_Institutions_Sync::fields();
+		$airtable = new WPCPM_Airtable( $settings );
+		$written  = $airtable->update_records(
+			$settings['institutions_table'],
+			array(
+				array(
+					'id'     => $record,
+					'fields' => array( $fields['agr_status'] => $status ),
+				),
+			)
+		);
+
+		if ( is_wp_error( $written ) || empty( $written ) ) {
+			self::unlock( $record );
+			self::bounce( 'agreement-airtable' );
+		}
+
+		$today = wp_date( 'Y-m-d' );
+
+		update_post_meta( $post_id, self::META_STATE, self::STATE_ACCEPTED );
+		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
+
+		// Today, not the day it was first accepted. The revocation already overwrote that
+		// date with its own, because a document carries one decision's note and date at a
+		// time, and the honest answer to "in force since when" for a document that spent a
+		// fortnight out of force is the day it came back. The event rows keep every step.
+		update_post_meta( $post_id, self::META_DECIDED_AT, $today );
+
+		self::add_event( $post_id, self::EVENT_REINSTATED );
+
+		WPCPM_Institution_Audit::record(
+			array(
+				'kind'        => self::LOG_REINSTATE,
+				'institution' => $record,
+				'subject'     => (string) $post_id,
+				'actor'       => get_current_user_id(),
+				'ground'      => isset( $decision['ground'] ) ? (string) $decision['ground'] : '',
+				'evidence'    => WPCPM_Institution_Audit::EVIDENCE_CACHE,
+				'message'     => __( 'A revoked Collaboration Agreement was reinstated, and the institution\'s account opened again.', 'wpcredits-program-manager' ),
+				'data'        => array(
+					'kind'   => $kind,
+					'status' => $status,
+				),
+			)
+		);
+
+		// Released before the rebuild, which takes the same lock for its own critical
+		// section, exactly as `handle_accept()` does. Nothing is left unguarded: the post is
+		// accepted now, so a second reinstatement is refused by the state test.
+		self::unlock( $record );
+
+		$option = self::rebuild( $record, self::airtable_block( $record, array( 'status' => $status ) ) );
+
+		self::mail_reinstated( $record, $post_id );
+
+		// A held lock means a sync was rebuilding this very record and skipped rather than
+		// raced it. Both writes have landed and the gate is still shut, which is what the
+		// manager is told rather than "the account is open", for the reason `handle_accept()`
+		// gives at the same line.
+		if ( empty( $option ) ) {
+			self::bounce( 'agreement-later' );
+		}
+
+		self::bounce( 'agreement-reinstated' );
+	}
+
+	/**
 	 * Take a submitted document back before anybody has read it (T4).
 	 *
 	 * A member's control, and a manager's on their behalf. The file goes at once rather than
@@ -2680,6 +2994,61 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * One of this class's documents in the state a handler expects to find it, or null.
+	 *
+	 * `submitted_post()`'s sibling for the two states Phase 4 acts on: an accepted document
+	 * to revoke, a revoked one to put back. The three questions are the same three, and each
+	 * has to be asked again here. Another post type is somebody else's row; a state that has
+	 * moved since the page was drawn is a second manager having pressed the button first; and
+	 * an institution meta that is not a record ID is a document this handler must not carry
+	 * into a PATCH, because that string is what names the row Airtable would write.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $state   The `STATE_*` value the caller requires.
+	 * @return WP_Post|null
+	 */
+	private static function document_in_state( $post_id, $state ) {
+		$post = get_post( absint( $post_id ) );
+
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type ) {
+			return null;
+		}
+
+		$stored = (string) get_post_meta( $post->ID, self::META_STATE, true );
+
+		if ( (string) $state !== $stored ) {
+			return null;
+		}
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( get_post_meta( $post->ID, self::META_INSTITUTION, true ) ) ) {
+			return null;
+		}
+
+		return $post;
+	}
+
+	/**
+	 * The institution's most recently revoked document, or 0.
+	 *
+	 * `posts_for()` is newest first, so the first revoked row it hands back is the one the
+	 * manager's Reinstate button is drawn against. Reinstating any other would put an older
+	 * agreement back in force under a newer one's revocation, which is a state no screen in
+	 * this module knows how to describe.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return int
+	 */
+	private static function latest_revoked( $record ) {
+		foreach ( self::posts_for( $record ) as $post ) {
+			if ( self::STATE_REVOKED === (string) get_post_meta( $post->ID, self::META_STATE, true ) ) {
+				return (int) $post->ID;
+			}
+		}
+
+		return 0;
+	}
+
+	/**
 	 * The stored file a document points at, or null when it has none.
 	 *
 	 * A generated post and a legacy row both have none, and both are legitimate; the caller
@@ -3188,6 +3557,141 @@ class WPCPM_Institution_Agreement {
 		};
 
 		return self::mail_members( $record, self::MAIL_RETURNED, $build );
+	}
+
+	/**
+	 * Tell the institution its agreement was revoked, and why (T8).
+	 *
+	 * Verbatim, like the return note, and for a harder reason: this message is the whole of
+	 * what an institution is told about why the account it signed in to yesterday shows one
+	 * panel today. It says what is limited rather than what is gone, because nothing about
+	 * their students is deleted by a revocation, and it names the country contact so there is
+	 * somebody to write to who is not the address this mail was sent from.
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param int    $post_id The revoked document.
+	 * @param string $note    The note, as typed.
+	 * @return int How many members were mailed.
+	 */
+	private static function mail_revoked( $record, $post_id, $note ) {
+		$facts = self::review_facts( $post_id );
+
+		if ( empty( $facts ) ) {
+			return 0;
+		}
+
+		$site    = WPCPM_Mail::site_name();
+		$manager = wp_get_current_user();
+		$named   = $manager instanceof WP_User ? $manager->display_name : '';
+		$when    = wp_date( 'Y-m-d' );
+
+		$build = function () use ( $site, $note, $named, $when, $record ) {
+			$lines = array(
+				sprintf(
+					/* translators: 1: date, 2: the program manager's name. */
+					__( 'Your Collaboration Agreement was revoked on %1$s by %2$s, with this note:', 'wpcredits-program-manager' ),
+					$when,
+					$named
+				),
+				$note,
+				__( 'Your account on this site is limited to the agreement panel until an agreement is in force again. Nothing about your students has been deleted.', 'wpcredits-program-manager' ),
+				// Built here rather than above, because `WPCPM_Mail::send()` calls this
+				// builder inside the recipient's own locale and a sentence translated
+				// outside it would reach them in the site's language.
+				self::contact_line( $record ),
+			);
+
+			return array(
+				'subject' => sprintf(
+					/* translators: %s: site name. */
+					__( '[%s] Your agreement has been revoked', 'wpcredits-program-manager' ),
+					$site
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+			);
+		};
+
+		return self::mail_members( $record, self::MAIL_REVOKED, $build );
+	}
+
+	/**
+	 * Tell the institution its agreement is in force again (T9).
+	 *
+	 * The `agreement-accepted` context with the reinstated wording, because that is what this
+	 * is: the same account opening, and a manager searching the mail log for why an
+	 * institution was let back in should find it filed with every other acceptance. The
+	 * second line answers the question the first raises, which is what happened to everything
+	 * while the account was shut.
+	 *
+	 * @param string $record  Institutions record ID.
+	 * @param int    $post_id The reinstated document.
+	 * @return int How many members were mailed.
+	 */
+	private static function mail_reinstated( $record, $post_id ) {
+		$facts = self::review_facts( $post_id );
+
+		if ( empty( $facts ) ) {
+			return 0;
+		}
+
+		$site = WPCPM_Mail::site_name();
+		$when = wp_date( 'Y-m-d' );
+		$page = WPCPM_Institutions_Dashboard::page_url();
+
+		$build = function () use ( $site, $when, $page ) {
+			$lines = array(
+				sprintf(
+					/* translators: %s: date the agreement was put back in force. */
+					__( 'Your Collaboration Agreement was put back in force on %s. Your account on the site is open again.', 'wpcredits-program-manager' ),
+					$when
+				),
+				__( 'Nothing was removed while it was out of force: your students, their progress and your copy of the signed agreement are where they were.', 'wpcredits-program-manager' ),
+			);
+
+			if ( '' !== $page ) {
+				$lines[] = $page;
+			}
+
+			return array(
+				'subject' => sprintf(
+					/* translators: %s: site name. */
+					__( '[%s] Your agreement is in force again', 'wpcredits-program-manager' ),
+					$site
+				),
+				'body'    => implode( "\r\n\r\n", $lines ),
+			);
+		};
+
+		return self::mail_members( $record, self::MAIL_ACCEPTED, $build );
+	}
+
+	/**
+	 * Who to write to about a revoked agreement, in one sentence.
+	 *
+	 * The country contact when the base names one, and the panel's own neutral sentence when
+	 * it does not, so the two places an institution reads this read the same. Named in the
+	 * body and never added as a recipient: that is the rule design spec 7.4 sets for this
+	 * address everywhere it appears, and this mail is not the country contact's business
+	 * unless the institution decides it is.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string
+	 */
+	private static function contact_line( $record ) {
+		$row     = WPCPM_Institutions_Index::row( $record );
+		$country = is_array( $row ) ? (string) $row['country'] : '';
+		$routing = '' === $country ? null : WPCPM_Countries::routing( $country );
+
+		if ( null === $routing || '' === trim( (string) $routing['email'] ) ) {
+			return __( 'Write to the program manager who has been in touch with your institution.', 'wpcredits-program-manager' );
+		}
+
+		return sprintf(
+			/* translators: 1: country name, 2: the contact's email address. */
+			__( 'Your program contact for %1$s is %2$s.', 'wpcredits-program-manager' ),
+			WPCPM_Countries::name_of( $country ),
+			trim( (string) $routing['email'] )
+		);
 	}
 
 	/**

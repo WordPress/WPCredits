@@ -118,7 +118,7 @@ class WPCPM_Institution_Approval {
 	 * belongs to another request, and deleting it would be the one bug the lock exists to
 	 * prevent.
 	 *
-	 * @param int $application_id The `wpcpm_institution_app` post.
+	 * @param int $application_id The `wpcpm_inst_app` post.
 	 * @param int $manager_id     The program manager pressing Approve.
 	 * @return array|WP_Error `array( 'record' => string, 'user_id' => int, 'adopted' => bool )`.
 	 */

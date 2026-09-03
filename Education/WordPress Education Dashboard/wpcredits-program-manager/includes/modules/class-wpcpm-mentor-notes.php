@@ -22,6 +22,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Notes belong to the *student*, not to the mentor–student pair, and each one
  * shows who wrote it. A student normally has one mentor, but where they have two,
  * continuity of history is worth more than siloing it.
+ *
+ * **Every note names its audience, and an absent name means the mentor's.** A school
+ * keeps notes on its own students in this same post type, under `META_AUDIENCE`, drawn on
+ * the institution card by `WPCPM_Institution_Notes`. Nothing back-fills the rows written
+ * before that meta existed, so every one of them still means exactly what it meant, and
+ * `audience_of()` is the only place that sentence is written down. `get_notes()` takes the
+ * audience as a required argument for the same reason: "all of them" is the one answer
+ * neither card may have, and a default is a way to ask for it by accident.
  */
 class WPCPM_Mentor_Notes {
 
@@ -40,6 +48,21 @@ class WPCPM_Mentor_Notes {
 	 * than looking like the same text typed five times.
 	 */
 	const META_SESSION = '_wpcpm_note_session';
+
+	/**
+	 * Whose note this is: the mentor's history of calls, or the institution's own record.
+	 *
+	 * **Absent means `mentor`.** Every note written before this meta existed is a mentor's
+	 * note about their student and keeps that meaning; `audience_of()` holds the default,
+	 * and no migration writes it into the rows. Notes written from here on name themselves.
+	 */
+	const META_AUDIENCE = '_wpcpm_note_audience';
+
+	/** Audience: the mentor's running history of calls with their student. */
+	const AUDIENCE_MENTOR = 'mentor';
+
+	/** Audience: an institution's own notes about a student it sent. */
+	const AUDIENCE_INSTITUTION = 'institution';
 
 	const ACTION_ADD    = 'wpcpm_add_note';
 	const ACTION_DELETE = 'wpcpm_delete_note';
@@ -178,17 +201,66 @@ class WPCPM_Mentor_Notes {
 	}
 
 	/**
-	 * Every note about a student, newest first.
+	 * The audiences a note can be written for.
+	 *
+	 * The full list, so a caller passing anything else is answered with nothing rather than
+	 * with somebody's notes.
+	 *
+	 * @return string[]
+	 */
+	public static function audiences() {
+		return array( self::AUDIENCE_MENTOR, self::AUDIENCE_INSTITUTION );
+	}
+
+	/**
+	 * Whose note this is.
+	 *
+	 * The one place "absent means the mentor's" is written down, and the only reader of
+	 * `META_AUDIENCE` anywhere. Absent is the mentor's, and *only* absent: a value this
+	 * class did not write comes back as it stands, so it matches neither audience, is drawn
+	 * on neither card and is read by nobody. A hand-edited row fails closed rather than
+	 * landing in whichever list the default happens to name.
+	 *
+	 * @param int|WP_Post $note The note, or its ID.
+	 * @return string The note's audience.
+	 */
+	public static function audience_of( $note ) {
+		$note_id = $note instanceof WP_Post ? (int) $note->ID : (int) $note;
+		$stored  = sanitize_key( (string) get_post_meta( $note_id, self::META_AUDIENCE, true ) );
+
+		return '' === $stored ? self::AUDIENCE_MENTOR : $stored;
+	}
+
+	/**
+	 * Every note about a student for one audience, newest first.
+	 *
+	 * **The audience is required and has no default.** A mentor's notes and a school's are
+	 * the same post type about the same student, and this argument is the whole of what
+	 * separates them: a caller allowed to leave it out would be asking for all of them,
+	 * which is the one answer neither card may have.
+	 *
+	 * The audience is filtered here rather than in the `meta_query` because "absent means
+	 * mentor" is not a condition SQL can be handed without a second `NOT EXISTS` branch,
+	 * and one pass over one student's notes keeps that default in `audience_of()` alone.
+	 * The ceiling now spans both audiences, which for a student with two mentors and one
+	 * school is nowhere near it.
 	 *
 	 * @param string $student_record Airtable record ID of the student.
+	 * @param string $audience       One of `audiences()`. Required: see above.
 	 * @return WP_Post[]
 	 */
-	public static function get_notes( $student_record ) {
+	public static function get_notes( $student_record, $audience ) {
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $student_record ) ) {
 			return array();
 		}
 
-		return get_posts(
+		$audience = sanitize_key( (string) $audience );
+
+		if ( ! in_array( $audience, self::audiences(), true ) ) {
+			return array();
+		}
+
+		$posts = get_posts(
 			array(
 				'post_type'        => self::POST_TYPE,
 				'post_status'      => 'publish',
@@ -204,16 +276,75 @@ class WPCPM_Mentor_Notes {
 				),
 			)
 		);
+
+		$notes = array();
+
+		foreach ( $posts as $note ) {
+			if ( $note instanceof WP_Post && self::audience_of( $note ) === $audience ) {
+				$notes[] = $note;
+			}
+		}
+
+		return $notes;
 	}
 
 	/**
-	 * How many notes exist for a student.
+	 * How many notes exist for a student, for one audience.
 	 *
 	 * @param string $student_record Airtable record ID of the student.
+	 * @param string $audience       One of `audiences()`. Required, for get_notes()' reason.
 	 * @return int
 	 */
-	public static function count_notes( $student_record ) {
-		return count( self::get_notes( $student_record ) );
+	public static function count_notes( $student_record, $audience ) {
+		return count( self::get_notes( $student_record, $audience ) );
+	}
+
+	/**
+	 * Whether a user may read one particular note.
+	 *
+	 * The per-note gate, and the one that keeps the two audiences apart when a post ID
+	 * arrives from a request rather than from a list. It reads the *note's own* audience
+	 * meta, never the caller's opinion of it, and asks the reader for that audience: a
+	 * mentor's note goes to the mentee list, an institution's to the policy, through the
+	 * class that owns the institution card. So a mentor of this very student is refused
+	 * their school's note, a member of that school is refused the mentor's, and a program
+	 * manager passes both, which is what CAP_MANAGE means everywhere else in this plugin.
+	 *
+	 * A group session note carries a `META_STUDENT` row per attendee and shows on each of
+	 * their cards, so a mentor who may open any one of those cards may read it. Writing one
+	 * needs every attendee, which is `add_for_records()`'s rule and not this one.
+	 *
+	 * Fails closed twice over: a note whose audience is neither, and an institution note
+	 * reached in a checkout where that class is absent, are read by nobody.
+	 *
+	 * @param int|WP_Post      $note The note, or its ID.
+	 * @param int|WP_User|null $user Optional user; defaults to the current user.
+	 * @return bool
+	 */
+	public static function user_can_read_note( $note, $user = null ) {
+		$note = $note instanceof WP_Post ? $note : get_post( $note );
+
+		if ( ! $note instanceof WP_Post || self::POST_TYPE !== $note->post_type ) {
+			return false;
+		}
+
+		$audience = self::audience_of( $note );
+
+		if ( self::AUDIENCE_INSTITUTION === $audience ) {
+			return class_exists( 'WPCPM_Institution_Notes' ) && WPCPM_Institution_Notes::user_can_read( $note, $user );
+		}
+
+		if ( self::AUDIENCE_MENTOR !== $audience ) {
+			return false;
+		}
+
+		foreach ( (array) get_post_meta( $note->ID, self::META_STUDENT, false ) as $record ) {
+			if ( is_scalar( $record ) && self::user_can_access( (string) $record, $user ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -264,6 +395,11 @@ class WPCPM_Mentor_Notes {
 		}
 
 		update_post_meta( $post_id, self::META_STUDENT, $student );
+
+		// Written out rather than left to the absent-means-mentor default. Only the notes
+		// that predate the audience lean on that default, so a row somebody has to reason
+		// about later is one this release did not write.
+		update_post_meta( $post_id, self::META_AUDIENCE, self::AUDIENCE_MENTOR );
 
 		if ( '' !== $name ) {
 			update_post_meta( $post_id, self::META_STUDENT_NAME, $name );
@@ -341,6 +477,7 @@ class WPCPM_Mentor_Notes {
 		}
 
 		update_post_meta( $post_id, self::META_SESSION, (int) $call_id );
+		update_post_meta( $post_id, self::META_AUDIENCE, self::AUDIENCE_MENTOR );
 
 		return (int) $post_id;
 	}
@@ -364,7 +501,11 @@ class WPCPM_Mentor_Notes {
 
 		$student = (string) get_post_meta( $note->ID, self::META_STUDENT, true );
 
-		if ( ! self::user_can_access( $student ) ) {
+		// The mentor page deletes the mentor page's notes. A school's note about the same
+		// student is the same post type with the same key, so a note ID posted here could be
+		// one of theirs; the note's own audience says whose it is, and theirs is deleted from
+		// their own card by the handler that draws it.
+		if ( self::AUDIENCE_MENTOR !== self::audience_of( $note ) || ! self::user_can_access( $student ) ) {
 			wp_die( esc_html__( 'You cannot change notes for that student.', 'wpcredits-program-manager' ), 403 );
 		}
 
@@ -444,6 +585,10 @@ class WPCPM_Mentor_Notes {
 	/**
 	 * Render the notes history and the add-note form for one student.
 	 *
+	 * The mentor's notes, and only ever the mentor's: the audience is named here rather
+	 * than taken from anything the caller passes, so the school's notes about this same
+	 * student cannot reach this page however it is called.
+	 *
 	 * @param string $student_record Airtable record ID.
 	 * @param string $student_name   Student's name, stored with any new note.
 	 * @param int    $mentor_id      Mentor whose page is being viewed.
@@ -453,7 +598,7 @@ class WPCPM_Mentor_Notes {
 			return;
 		}
 
-		$notes   = self::get_notes( $student_record );
+		$notes   = self::get_notes( $student_record, self::AUDIENCE_MENTOR );
 		$focused = ( self::focused_student() === $student_record );
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag.
 		$status = $focused ? sanitize_key( (string) WPCPM_Flash::take( 'note' ) ) : '';

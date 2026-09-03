@@ -58,9 +58,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WPCPM_Institution_Application {
 
 	/** The post type one submission is stored as. Private, invisible, no admin UI. */
-	const POST_TYPE = 'wpcpm_institution_app';
+	/**
+	 * The post type.
+	 *
+	 * **Fourteen characters, and it matters.** `register_post_type()` refuses a name longer
+	 * than twenty and returns a `WP_Error` nothing in this plugin was reading, so the type it
+	 * was given first, `wpcpm_institution_app`, was never registered on any site running
+	 * 1.73.0: no capability mapping, no `private` declaration, nothing. The failure is silent
+	 * at every layer above it, because `get_posts()` will happily query a type that does not
+	 * exist. `bin/test-roles.php` now measures every post type this plugin declares.
+	 */
+	const POST_TYPE = 'wpcpm_inst_app';
 
-	const SHORTCODE = 'wpcpm_institution_application';
+	const SHORTCODE = 'wpcpm_inst_application';
 	const BLOCK     = 'wpcpm/institution-application';
 	const OPT_PAGE  = 'wpcpm_application_page_id';
 	const STYLE     = 'wpcpm-institution-application';
@@ -281,7 +291,7 @@ class WPCPM_Institution_Application {
 				'supports'            => array( 'title', 'author' ),
 				// A capability type nothing is granted, so no role reaches these through any
 				// generic post screen even if one were ever exposed.
-				'capability_type'     => array( 'wpcpm_institution_app', 'wpcpm_institution_apps' ),
+				'capability_type'     => array( 'wpcpm_inst_app', 'wpcpm_inst_apps' ),
 				'map_meta_cap'        => true,
 			)
 		);
