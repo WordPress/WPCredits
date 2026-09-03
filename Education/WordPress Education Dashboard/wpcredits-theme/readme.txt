@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.16.1
+Stable tag: 1.16.2
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.16.2 =
+* The foot of the Institution Dashboard clears the card. The page ends on the bordered agreement panel, whose border was landing 1px from the card's own while the title at the top sits 22px inside it. The page now carries the same 22px at the bottom.
 
 = 1.16.1 =
 * The Institution Dashboard's own blocks are inset from the card again. The dashboard shell carries no global padding, so when 1.16.0 moved the page onto that shell the identity header, the roster, the People card and the agreement panels came to rest against the card's border while the heading and the resources section stayed inset. They now carry the shell's 32px, narrowing to 20px below 900px like every other block in it.

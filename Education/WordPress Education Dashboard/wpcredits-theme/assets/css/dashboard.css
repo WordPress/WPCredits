@@ -517,6 +517,17 @@
 	margin-right: 32px;
 }
 
+/* The shell leaves the foot of the card to whatever block ends the page, and on the other
+   two dashboards that block is unbordered text carrying padding of its own, so it clears
+   the card's edge without being asked. The Institution Dashboard ends on the agreement
+   panel, which is bordered: its border came to rest 1px from the card's own, while the
+   title at the other end sits 22px inside. Taking the title's inset rather than inventing a
+   third number, and put on the root so it holds whichever block happens to be last - the
+   panel, the People card, or the notice a member sees before their agreement is settled. */
+.wpc-institution-page .wpcpm-institution {
+	padding-bottom: 22px;
+}
+
 .wpc-student-page .wpcpm-student__section:first-of-type {
 	border-top: 1px solid var( --wpc-line-soft );
 }
