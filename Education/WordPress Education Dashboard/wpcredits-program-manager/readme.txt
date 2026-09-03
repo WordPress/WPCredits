@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.73.2
+Stable tag: 1.73.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.73.3 =
+* **A collapsed group now looks like something you press.** Finished and Did not start were headings with a chevron pushed to the far side of the page, and nothing under the cursor changed; they are bordered rows that lift on hover, joining the panel they open. The Mentor Report Card gains the same, because it draws the same component.
+* **Each person with access is a card**, so who they are and how they got there stands out from the paragraph explaining the card, rather than reading as one more line of it.
+* A student's closed card shows their mentor's name. It was showing the Mentor column's full sentence about whether a mentor had been assigned, which under eight names in a row is noise.
 
 = 1.73.2 =
 * **The roster is no longer a table that scrolls sideways.** Each student is a card that opens, which is the component the Mentor Report Card already uses for the same job: the name, the program badge and the dates and mentor on the closed row, everything else inside. Nothing on the page scrolls horizontally at any width, and the cards need no separate mobile layout because they were built for one.

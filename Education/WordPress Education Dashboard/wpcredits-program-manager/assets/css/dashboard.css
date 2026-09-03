@@ -144,11 +144,42 @@
 
 /* The past group is itself collapsible — worth keeping, but not what a mentor
    opened the page for. */
+/*
+ * A collapsed group's summary.
+ *
+ * It has to look like something you press. It used to be a heading with a chevron pushed to
+ * the far right of the page, which on a wide screen put the only sign it was a control an
+ * inch of white away from the words, and nothing under the cursor changed. So it takes the
+ * shape the student cards on the same page already use for the same job: a bordered row with
+ * room in it, which lifts on hover.
+ */
 .wpcpm-group__summary {
 	align-items: center;
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
 	cursor: pointer;
 	display: flex;
 	gap: 0.5em;
+	padding: 0.85em 1.25em;
+}
+
+.wpcpm-group__summary:hover {
+	border-color: currentColor;
+}
+
+/* Open, the row is the body's header rather than a thing on its own, so it gives up its
+   rounded bottom to the panel it belongs to. */
+.wpcpm-group__disclosure[open] .wpcpm-group__summary {
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+.wpcpm-group__disclosure[open] .wpcpm-group__body {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 0 0 var( --wpcpm-radius ) var( --wpcpm-radius );
+	border-top: 0;
+	padding: 1.25em;
 }
 
 .wpcpm-group__summary::-webkit-details-marker {
@@ -174,6 +205,12 @@
 
 .wpcpm-group__body {
 	padding-top: 1em;
+}
+
+/* The count on a summary row sits on the surface behind it, so it needs its own ground to
+   stay legible rather than reading as a hole in the row. */
+.wpcpm-group__summary .wpcpm-group__count {
+	background: var( --wpcpm-surface );
 }
 
 /* Student cards. One per row: each carries a details table, which a narrow

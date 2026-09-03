@@ -317,15 +317,14 @@
 /*
  * The People card's rows.
  *
- * Flexbox and not a grid, because the row's parts are flat siblings in the markup: a name, an
- * address, a mark and a standing line, all spans, then the form. A grid would have to put
- * three of them in one cell to keep them on a line, and three things in one grid cell sit on
- * top of each other rather than flowing.
+ * A card each, the same shape a student gets, because these are the only people on the page
+ * who can be removed and the row that says who they are was reading as one more paragraph in
+ * the explanation above it. The name leads at the size of a heading, the address and the mark
+ * sit beside it, the control is at the end, and how they got here is the quiet line
+ * underneath.
  *
- * So they flow as a line, the control is pushed to the end where every other list on this
- * page puts one, and the standing line is ordered last with a full basis so it takes a line
- * of its own underneath. A run of members then reads down the names rather than through the
- * furniture between them.
+ * Flexbox and not a grid: the parts are flat sibling spans in the markup, and three of them
+ * in one grid cell sit on top of each other instead of flowing.
  */
 .wpcpm-people__list {
 	list-style: none;
@@ -335,19 +334,22 @@
 
 .wpcpm-people__member {
 	align-items: baseline;
-	border-top: 1px solid var( --wpcpm-border );
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.2em 0.75em;
-	padding: 0.9em 0;
+	gap: 0.3em 0.75em;
+	margin: 0 0 0.75em;
+	padding: 1em 1.25em;
 }
 
-.wpcpm-people__member:first-child {
-	border-top: 0;
+.wpcpm-people__member:last-child {
+	margin-bottom: 0;
 }
 
 .wpcpm-people__name {
-	font-weight: 600;
+	font-size: 1.05em;
+	font-weight: 700;
 }
 
 .wpcpm-people__email {
@@ -355,7 +357,7 @@
 	overflow-wrap: anywhere;
 }
 
-/* Ordered after the control so it drops to its own line, and given the whole width so
+/* Ordered after the control so it drops to a line of its own, and given the whole width so
    nothing can come up beside it. */
 .wpcpm-people__facts {
 	flex: 1 1 100%;

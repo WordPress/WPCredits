@@ -726,10 +726,14 @@ class WPCPM_Institution_Roster_View {
 
 		// Enough to tell one closed card from another without opening it: when they were here
 		// and who mentored them, which is what a school scans a roster for.
+		// The dates, and the mentor's name if there is one. The Mentor column's own cell is not
+		// what goes here: where there is no name it carries a sentence explaining whether one
+		// has been assigned, which is the right answer in a labelled row and, repeated under
+		// every name in a group of eight, is noise.
 		$preview = array_filter(
 			array(
 				self::plain( isset( $cells['students|Start Date'] ) ? $cells['students|Start Date'] : '' ),
-				self::plain( isset( $cells['students|Mentor'] ) ? $cells['students|Mentor'] : '' ),
+				self::mentor_name_of( $row ),
 			),
 			'strlen'
 		);
@@ -782,6 +786,29 @@ class WPCPM_Institution_Roster_View {
 		echo '</div>';
 		echo '</details>';
 		echo '</li>';
+	}
+
+	/**
+	 * The mentor's name for a card's preview line, or nothing.
+	 *
+	 * Read from the same cached block `cells()` reads, so the closed row and the Mentor row
+	 * inside cannot disagree about who it is.
+	 *
+	 * @param array $row The index row.
+	 * @return string
+	 */
+	private static function mentor_name_of( array $row ) {
+		$user_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
+
+		if ( $user_id < 1 ) {
+			return '';
+		}
+
+		$mentor = get_user_meta( $user_id, WPCPM_Students_Sync::META_MENTOR, true );
+
+		return ( is_array( $mentor ) && isset( $mentor['name'] ) && is_scalar( $mentor['name'] ) )
+			? trim( (string) $mentor['name'] )
+			: '';
 	}
 
 	/**
