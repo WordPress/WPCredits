@@ -107,6 +107,7 @@ function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function add_action( $h, $c = null, $p = 10, $n = 1 ) { $GLOBALS['hooks'][] = $h; }
+function remove_filter() { return true; }
 function add_filter() {}
 function register_post_type() {}
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }

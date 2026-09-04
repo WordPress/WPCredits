@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.91.1
+Stable tag: 1.91.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.91.2 =
+* **A vetted person's account is created even when the host's signup spam check would refuse the address.** On WordPress.com every new account passes through the platform's bkismet signup check, which answers "block" for some addresses, and WordPress reported that as "Not enough data to create this user." - so a mentor synced from Airtable on 4 September had no account, the sync notice named no cause, and Add New User in wp-admin failed the same way. Every account this plugin creates was vetted by a person first - a mentor or student from Airtable, an institution account from an approved application, a manager's import or invitation - and none is a self-signup, so all of them are now created through one helper that switches that check off for the length of the insert and no longer. A new test suite reproduces the host's refusal and refuses any account path in the plugin that does not go through the helper.
 
 = 1.91.1 =
 * A semester report stays on the Institution Dashboard and the manager's index when a sync re-dates or removes the roster rows it was written from; the card reads the reports themselves rather than the roster.

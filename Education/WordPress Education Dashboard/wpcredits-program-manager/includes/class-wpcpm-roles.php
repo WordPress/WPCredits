@@ -245,4 +245,39 @@ class WPCPM_Roles {
 
 		return ( $current instanceof WP_User && $current->exists() ) ? $current : null;
 	}
+
+	/**
+	 * Create an account the program has already vetted.
+	 *
+	 * Every account this plugin creates was vetted by a person first: a mentor or a student is a
+	 * row in Airtable, an institution account comes from an approved application, a manager's
+	 * import or an invitation a manager sent. None is a self-signup. The WordPress.com Atomic host
+	 * cannot tell the difference: its mu-plugin hooks `wp_pre_insert_user_data` for every new
+	 * account, asks the bkismet signup service about the login and the email, and answers `false`
+	 * on a "block" verdict - which core reports as `empty_data`, "Not enough data to create this
+	 * user.", a message that names no cause. wp-admin's Add New User and `wp user create` fail the
+	 * same way, so a blocked address could not be given an account by any route. A vetted mentor's
+	 * account failed exactly like that on 4 September 2026 (fixed in 1.91.2).
+	 *
+	 * The host's check returns before any request leaves the site when the
+	 * `atomic_bkismet_client_key` filter yields no key, so this answers that filter with false for
+	 * the length of one insert and no longer - the `finally` holds when core throws as well as
+	 * when it returns. On a host without that filter this is a plain `wp_insert_user()`. The
+	 * result is handed back exactly as core returned it, ID or WP_Error.
+	 *
+	 * This is the only place in the plugin that may call `wp_insert_user()`;
+	 * bin/test-insert-user.php refuses any other.
+	 *
+	 * @param array $userdata As for `wp_insert_user()`.
+	 * @return int|WP_Error User ID, or the error core returned.
+	 */
+	public static function insert_user( array $userdata ) {
+		add_filter( 'atomic_bkismet_client_key', '__return_false', PHP_INT_MAX );
+
+		try {
+			return wp_insert_user( $userdata );
+		} finally {
+			remove_filter( 'atomic_bkismet_client_key', '__return_false', PHP_INT_MAX );
+		}
+	}
 }

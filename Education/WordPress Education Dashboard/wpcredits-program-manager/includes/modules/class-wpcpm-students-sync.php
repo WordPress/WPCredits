@@ -1619,7 +1619,7 @@ class WPCPM_Students_Sync {
 		}
 
 		$login   = self::unique_login( $student );
-		$user_id = wp_insert_user(
+		$user_id = WPCPM_Roles::insert_user(
 			array(
 				'user_login'   => $login,
 				'user_email'   => $email,

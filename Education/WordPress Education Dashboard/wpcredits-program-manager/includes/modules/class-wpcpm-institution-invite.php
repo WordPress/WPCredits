@@ -1758,7 +1758,7 @@ class WPCPM_Institution_Invite {
 	 */
 	private static function create_account( $email ) {
 		$login   = WPCPM_Institution_People::unique_login( $email, '' );
-		$created = wp_insert_user(
+		$created = WPCPM_Roles::insert_user(
 			array(
 				'user_login'   => $login,
 				'user_email'   => $email,

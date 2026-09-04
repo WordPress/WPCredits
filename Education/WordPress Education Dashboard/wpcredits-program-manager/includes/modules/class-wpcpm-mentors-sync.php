@@ -1251,7 +1251,7 @@ class WPCPM_Mentors_Sync {
 	 * @return int User ID, or 0 on failure.
 	 */
 	private static function create_mentor_user( $login, $email, array $mentor, array &$state ) {
-		$user_id = wp_insert_user(
+		$user_id = WPCPM_Roles::insert_user(
 			array(
 				'user_login'   => $login,
 				'user_email'   => $email,

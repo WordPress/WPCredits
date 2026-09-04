@@ -1,0 +1,6 @@
+.superpowers/
+.DS_Store
+*.zip
+*.orig
+*.rej
+*.bak

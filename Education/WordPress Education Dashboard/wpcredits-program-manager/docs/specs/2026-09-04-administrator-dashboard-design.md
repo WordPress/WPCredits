@@ -117,9 +117,9 @@ None new. `agreement_review_days`, `report_notify` and `OVERDUE_DAYS` are read a
 
 ## 7. Data model additions
 
-- Options: `wpcpm_administrator_page_id`, `wpcpm_administrator_title_fixed`.
+- Options: `wpcpm_administrator_page_id`, `wpcpm_administrator_page_title_fixed` (named like the other dashboards' options).
 - No post type, no meta, no cron.
-- `uninstall.php` deletes the two options and the page like the other dashboards' pages.
+- `uninstall.php` deletes the two options; the page itself stays, as the other dashboards' pages do (uninstall never deletes content).
 - `docs/sections/34-admin-operations.md` gains the page and the two options.
 
 ---

@@ -560,7 +560,7 @@ class WPCPM_Institution_Approval {
 			}
 
 			$login   = self::unique_login( $email );
-			$created = wp_insert_user(
+			$created = WPCPM_Roles::insert_user(
 				array(
 					'user_login'   => $login,
 					'user_email'   => $email,

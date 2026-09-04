@@ -191,6 +191,8 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
  * @param array $a User fields.
  * @return int|WP_Error
  */
+function add_filter() { return true; }
+function remove_filter() { return true; }
 function wp_insert_user( $a ) {
 	if ( $GLOBALS['insert_dies'] ) {
 		$GLOBALS['insert_dies'] = false;

@@ -68,6 +68,7 @@ function is_email( $e ) { return false !== filter_var( (string) $e, FILTER_VALID
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function apply_filters( $t, $v ) { return $v; }
 function add_action( $hook, $cb ) { $GLOBALS['calls']['add_action'][] = $hook; }
+function remove_filter() { return true; }
 function add_filter() {}
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) {

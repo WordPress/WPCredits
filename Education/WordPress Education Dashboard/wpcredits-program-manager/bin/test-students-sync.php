@@ -107,7 +107,8 @@ function wp_generate_password() { return 'not-a-real-password'; }
 function absint( $v ) { return abs( (int) $v ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function apply_filters( $t, $v ) { return $v; }
-function add_action() {} function add_filter() {} function do_action() {}
+function add_action() {} function remove_filter() { return true; }
+function add_filter() {} function do_action() {}
 function number_format_i18n( $n, $d = 0 ) { return (string) round( $n, $d ); }
 function wp_date( $f, $t = null ) { return gmdate( $f, null === $t ? time() : $t ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
