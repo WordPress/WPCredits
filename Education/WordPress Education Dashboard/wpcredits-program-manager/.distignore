@@ -1,4 +1,4 @@
-# Excluded from the installable zip (bin/build is the only reader of this file).
+# Excluded from the installable zip (read by bin/build, the zip builder).
 .git
 .gitignore
 .distignore

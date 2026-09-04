@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Build the installable zip from .distignore.
+#
+#   bash bin/build            writes ../<slug>.zip (the file WordPress installs)
+#   bash bin/build out.zip    writes somewhere else, for a dry run or a diff
+#
+# Every non-comment line of .distignore is excluded, at the root and anywhere
+# below it. The archive holds a single top-level <slug>/ folder, which is what
+# the WordPress uploader requires, and the version printed at the end is read
+# back from inside the archive, not from the working tree.
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+slug="$(basename "$root")"
+parent="$(dirname "$root")"
+out="${1:-$parent/$slug.zip}"
+case "$out" in /*) ;; *) out="$PWD/$out" ;; esac
+
+excludes=()
+while IFS= read -r line || [ -n "$line" ]; do
+	line="${line%%#*}"
+	line="$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+	[ -z "$line" ] && continue
+	case "$line" in
+		*/*) excludes+=( "$slug/$line" "$slug/$line/*" ) ;;
+		*)   excludes+=( "$slug/$line" "$slug/$line/*" "$slug/*/$line" "$slug/*/$line/*" ) ;;
+	esac
+done < "$root/.distignore"
+
+cd "$parent"
+find "$slug" -name .DS_Store -delete
+rm -f "$out"
+zip -rqX "$out" "$slug" -x "${excludes[@]}"
+
+tops="$(unzip -Z1 "$out" | cut -d/ -f1 | sort -u | tr '\n' ' ')"
+version="$(unzip -p "$out" "$slug/$slug.php" 2>/dev/null | grep -m1 -E '^ \* Version:' | sed 's/.*Version:[[:space:]]*//')"
+[ -n "$version" ] || version="$(unzip -p "$out" "$slug/style.css" 2>/dev/null | grep -m1 -E '^Version:' | sed 's/Version:[[:space:]]*//')"
+printf 'built %s\n  top-level: %s\n  version inside: %s\n  entries: %s, size: %s\n' \
+	"$out" "$tops" "${version:-unknown}" "$(unzip -Z1 "$out" | wc -l | tr -d ' ')" "$(du -h "$out" | cut -f1)"
+[ "$tops" = "$slug " ] || { echo "ERROR: more than one top-level folder" >&2; exit 1; }
