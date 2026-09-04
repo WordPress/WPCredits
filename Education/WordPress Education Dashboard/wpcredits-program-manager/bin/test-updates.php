@@ -330,6 +330,20 @@ foreach ( array( 'student' => 'Students post', 'mentor' => 'Mentors post' ) as $
 	    $titles, array( 'Everyone post', $own ) );
 }
 
+// The Administrator Dashboard's own column: a manager's own level and the public posts,
+// exactly as `levels_for()` now maps it. Read through the rendered markup rather than
+// `posts()`, the way the leak check above does, because a leak in the column is the failure
+// that matters.
+$column = WPCPM_Updates::render_column( 'administrator' );
+
+ck( 'a manager on the administrator card sees the administrator view',
+    array(
+        false !== strpos( $column, 'Everyone post' ),
+        false !== strpos( $column, 'Students post' ),
+        false !== strpos( $column, 'Administrators post' ),
+    ),
+    array( true, false, true ) );
+
 // And the audience is a narrowing, never a widening: a student on a mentor-audience render must
 // still not get mentor content, because `can_view()` is underneath.
 $GLOBALS['uid'] = $people['student']['id'];

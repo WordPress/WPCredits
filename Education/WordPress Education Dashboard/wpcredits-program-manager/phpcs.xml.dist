@@ -19,6 +19,8 @@
 	<!-- Generated and vendored paths. -->
 	<exclude-pattern>*/node_modules/*</exclude-pattern>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<!-- The orchestration scratch (briefs, reports, review diffs, snapshots of the theme) is never plugin code. -->
+	<exclude-pattern>*/.superpowers/*</exclude-pattern>
 
 	<!--
 		Development scripts. They deliberately declare stand-ins for dozens of WordPress

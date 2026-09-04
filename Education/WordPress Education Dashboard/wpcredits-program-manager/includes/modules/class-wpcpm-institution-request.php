@@ -551,6 +551,41 @@ class WPCPM_Institution_Request {
 	}
 
 	/**
+	 * The requests somebody closed, newest edit first, capped.
+	 *
+	 * Handled and declined alike: the Administrator Dashboard shows the last few so a manager
+	 * can see what a colleague did this week, not to reopen anything (a closed request has
+	 * no transition, `transitions()` says so).
+	 *
+	 * @param int $limit Most rows to read, capped at QUEUE_MAX.
+	 * @return int[] Post IDs.
+	 */
+	public static function closed_requests( $limit = 20 ) {
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => self::POST_STATUS,
+				'numberposts'      => (int) $limit > 0 ? min( (int) $limit, self::QUEUE_MAX ) : 20,
+				'fields'           => 'ids',
+				'orderby'          => array(
+					'modified' => 'DESC',
+					'ID'       => 'DESC',
+				),
+				'suppress_filters' => false,
+				'meta_query'       => array(
+					array(
+						'key'     => self::META_STATE,
+						'value'   => array( self::STATE_DONE, self::STATE_DECLINED ),
+						'compare' => 'IN',
+					),
+				),
+			)
+		);
+
+		return array_map( 'intval', (array) $posts );
+	}
+
+	/**
 	 * What a queue row needs to know about one request.
 	 *
 	 * Facts only, in the shape the queue prints them, the way the agreement's
@@ -891,9 +926,10 @@ class WPCPM_Institution_Request {
 	 * A closed row draws nothing: the queue lists open rows, and a row somebody closed while
 	 * this screen was open should stop offering buttons that would now be refused.
 	 *
-	 * @param int $post_id The request.
+	 * @param int    $post_id The request.
+	 * @param string $return  WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard, else ''.
 	 */
-	public static function render_decisions( $post_id ) {
+	public static function render_decisions( $post_id, $return = '' ) {
 		$post = self::post( $post_id );
 
 		if ( ! $post instanceof WP_Post || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -932,10 +968,18 @@ class WPCPM_Institution_Request {
 			esc_html__( 'Assigning a mentor happens in Airtable, and this site learns about it at the next students sync. Closing the row here only says the queue has dealt with it.', 'wpcredits-program-manager' )
 		);
 
-		echo '<form class="wpcpm-request__decide" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		printf(
+			'<form class="wpcpm-request__decide" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Saving', 'wpcredits-program-manager' )
+		);
 		wp_nonce_field( self::ACTION_RESOLVE . '_' . (int) $post->ID );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RESOLVE ) );
 		printf( '<input type="hidden" name="request" value="%d" />', (int) $post->ID );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $return, 'requests' );
+		}
 
 		printf(
 			'<label class="screen-reader-text" for="wpcpm-request-note-%1$d">%2$s</label>',
@@ -1146,7 +1190,8 @@ class WPCPM_Institution_Request {
 	}
 
 	/**
-	 * Record the manager's outcome and return to the queue.
+	 * Record the manager's outcome and return to the queue, or to the Administrator Dashboard
+	 * when the decision was posted from there.
 	 *
 	 * **This does not return**, for the reason `bounce()` gives. The channel is the
 	 * Institutions screen's own, because that is the screen the queue is on and the one that
@@ -1157,7 +1202,11 @@ class WPCPM_Institution_Request {
 	private static function finish( $status ) {
 		WPCPM_Flash::set( WPCPM_Institutions::FLASH, (string) $status );
 
-		wp_safe_redirect( admin_url( 'admin.php?page=wpcpm-institutions' ) . '#wpcpm-queue' );
+		$queue = admin_url( 'admin.php?page=wpcpm-institutions' ) . '#wpcpm-queue';
+
+		// The Administrator Dashboard posts the same decision with a return field; the
+		// allowlist in `WPCPM_Return` decides, and a missing or foreign value is the queue.
+		wp_safe_redirect( class_exists( 'WPCPM_Return' ) ? WPCPM_Return::url( $queue ) : $queue );
 		exit;
 	}
 

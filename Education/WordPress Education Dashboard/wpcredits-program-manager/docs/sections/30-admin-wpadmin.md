@@ -33,3 +33,5 @@ module has screens of its own.
 The **Modules** submenu lists the parts of the program that are run and configured on their own
 rather than belonging to one audience - currently **Header notices**, **Need help?** and the **Mentor
 Status Checker**. Each has its own screen behind an *Open tool* button.
+
+Since 1.92.0 the Administrator Dashboard on the front end gathers every queue these screens hold; the Administrators screen links to it.

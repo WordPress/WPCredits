@@ -127,11 +127,14 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	/**
 	 * Back to the module's screen, with the outcome flashed for the person who pressed.
 	 *
+	 * The Administrator Dashboard posts the same decisions with a return field; the
+	 * allowlist in `WPCPM_Return` decides, and a missing or foreign value is this screen.
+	 *
 	 * @param string $status An outcome key the screen's message map knows.
 	 */
 	protected function redirect_back( $status ) {
 		WPCPM_Flash::set( $this->flash_key(), $status );
-		wp_safe_redirect( $this->admin_url() );
+		wp_safe_redirect( class_exists( 'WPCPM_Return' ) ? WPCPM_Return::url( $this->admin_url() ) : $this->admin_url() );
 		exit;
 	}
 

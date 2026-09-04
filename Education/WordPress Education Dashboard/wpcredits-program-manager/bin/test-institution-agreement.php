@@ -96,7 +96,10 @@ class WP_Error {
 	public function get_error_message() { return $this->message; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = '', $post_status = '', $post_author = 0, $post_title = '', $post_date = '';
+	// post_modified_gmt is declared, not left dynamic: PHP deprecates an undeclared property
+	// created by assignment, and the "newest edit first" fixtures below set this one directly
+	// on the stored post object.
+	public $ID = 0, $post_type = '', $post_status = '', $post_author = 0, $post_title = '', $post_date = '', $post_modified_gmt = '';
 	public function __construct( $id = 0, $type = '' ) { $this->ID = (int) $id; $this->post_type = (string) $type; }
 }
 class WP_User {
@@ -216,10 +219,16 @@ function get_posts( $a = array() ) {
 	// The queue asks for oldest first and everything else for newest first, so the direction
 	// is read from the arguments rather than fixed: a stub that always answered newest first
 	// would pass a queue that hands a manager the most recent upload as the one that has
-	// waited longest.
-	$up = isset( $a['orderby']['date'] ) && 'ASC' === strtoupper( (string) $a['orderby']['date'] );
-	usort( $out, function ( $x, $y ) use ( $up ) {
-		$by_date = $up ? strcmp( $x->post_date, $y->post_date ) : strcmp( $y->post_date, $x->post_date );
+	// waited longest. `modified` is a second axis a caller can sort by, alongside `date`: the
+	// state readers want the latest edit on top, which the upload date does not answer.
+	$by_modified = isset( $a['orderby']['modified'] );
+	$up          = $by_modified
+		? 'ASC' === strtoupper( (string) $a['orderby']['modified'] )
+		: ( isset( $a['orderby']['date'] ) && 'ASC' === strtoupper( (string) $a['orderby']['date'] ) );
+	usort( $out, function ( $x, $y ) use ( $up, $by_modified ) {
+		$by_date = $by_modified
+			? ( $up ? strcmp( $x->post_modified_gmt, $y->post_modified_gmt ) : strcmp( $y->post_modified_gmt, $x->post_modified_gmt ) )
+			: ( $up ? strcmp( $x->post_date, $y->post_date ) : strcmp( $y->post_date, $x->post_date ) );
 		if ( 0 !== $by_date ) { return $by_date; }
 		return $up ? $x->ID - $y->ID : $y->ID - $x->ID;
 	} );
@@ -2719,6 +2728,30 @@ $source = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-in
 ck( 'every option write is non-autoloaded', preg_match_all( '/update_option\(/', $source ), preg_match_all( '/update_option\([^;]*?,\s*false\s*\);/s', $source ) );
 ck( 'no institution ID is compared with === in the class', preg_match( '/===\s*\$record_id|\$record_id\s*===/', $source ), 0 );
 ck( 'no em dash or en dash anywhere in the class', preg_match( '/[\x{2013}\x{2014}]/u', $source ), 0 );
+
+echo "\n=== Documents by state, newest first ===\n";
+
+// Seed two returned and one revoked document for two institutions, with modified times a
+// minute apart, the way the suite's other seeds do (use its existing seeding helper if it
+// has one; otherwise wp_insert_post() + update_post_meta() with META_INSTITUTION and
+// META_STATE, and set post_modified_gmt on the stored post object).
+$r_old = wp_insert_post( array( 'post_type' => WPCPM_Institution_Agreement::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Returned, older' ) );
+update_post_meta( $r_old, WPCPM_Institution_Agreement::META_INSTITUTION, 'recINSTA000000001' );
+update_post_meta( $r_old, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_RETURNED );
+$GLOBALS['posts'][ $r_old ]->post_modified_gmt = '2026-09-01 10:00:00';
+$r_new = wp_insert_post( array( 'post_type' => WPCPM_Institution_Agreement::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Returned, newer' ) );
+update_post_meta( $r_new, WPCPM_Institution_Agreement::META_INSTITUTION, 'recINSTB000000002' );
+update_post_meta( $r_new, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_RETURNED );
+$GLOBALS['posts'][ $r_new ]->post_modified_gmt = '2026-09-02 10:00:00';
+$v_one = wp_insert_post( array( 'post_type' => WPCPM_Institution_Agreement::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Revoked' ) );
+update_post_meta( $v_one, WPCPM_Institution_Agreement::META_INSTITUTION, 'recINSTA000000001' );
+update_post_meta( $v_one, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_REVOKED );
+
+ck( 'returned documents, newest first', WPCPM_Institution_Agreement::in_state( WPCPM_Institution_Agreement::STATE_RETURNED ), array( $r_new, $r_old ) );
+ck( 'revoked documents', WPCPM_Institution_Agreement::in_state( WPCPM_Institution_Agreement::STATE_REVOKED ), array( $v_one ) );
+ck( 'the limit caps the list', WPCPM_Institution_Agreement::in_state( WPCPM_Institution_Agreement::STATE_RETURNED, 1 ), array( $r_new ) );
+ck( 'a state the class does not know is nobody', WPCPM_Institution_Agreement::in_state( 'lost' ), array() );
+ck( 'awaiting_review() is unchanged by the new reader: it lists submitted only', in_array( $r_new, WPCPM_Institution_Agreement::awaiting_review(), true ), false );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

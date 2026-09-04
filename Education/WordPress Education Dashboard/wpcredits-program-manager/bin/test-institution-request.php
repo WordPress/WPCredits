@@ -75,7 +75,10 @@ class WP_User {
 	public function exists() { return $this->ID > 0; }
 }
 class WP_Post {
-	public $ID = 0, $post_title = '', $post_content = '', $post_type = '', $post_status = 'publish', $post_author = 0, $post_date_gmt = '';
+	// post_modified_gmt is declared, not left dynamic: PHP deprecates an undeclared property
+	// created by assignment, and the closed-requests fixtures set this one directly on the
+	// stored post object.
+	public $ID = 0, $post_title = '', $post_content = '', $post_type = '', $post_status = 'publish', $post_author = 0, $post_date_gmt = '', $post_modified_gmt = '';
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
@@ -152,17 +155,34 @@ function get_posts( $a = array() ) {
 		$ok = true;
 		foreach ( (array) ( $a['meta_query'] ?? array() ) as $key => $clause ) {
 			if ( 'relation' === $key || ! is_array( $clause ) ) { continue; }
-			$value = $GLOBALS['pmeta'][ $post->ID ][ $clause['key'] ][0] ?? null;
-			if ( null === $value || 0 !== strcasecmp( (string) $value, (string) $clause['value'] ) ) { $ok = false; }
+			$value   = $GLOBALS['pmeta'][ $post->ID ][ $clause['key'] ][0] ?? null;
+			$compare = isset( $clause['compare'] ) ? strtoupper( (string) $clause['compare'] ) : '=';
+			if ( null === $value ) { $ok = false; continue; }
+			// IN is the closed-requests reader's own: one clause naming two states rather than
+			// two clauses ORed together, because meta_query has no OR between top-level rows.
+			if ( 'IN' === $compare ) {
+				$match = false;
+				foreach ( (array) $clause['value'] as $candidate ) {
+					if ( 0 === strcasecmp( (string) $value, (string) $candidate ) ) { $match = true; break; }
+				}
+				if ( ! $match ) { $ok = false; }
+			} elseif ( 0 !== strcasecmp( (string) $value, (string) $clause['value'] ) ) {
+				$ok = false;
+			}
 		}
 		if ( ! $ok ) { continue; }
 		$out[] = $post;
 	}
-	$direction = strtoupper( (string) ( $a['orderby']['date'] ?? 'DESC' ) );
+	// `modified` is a second field a caller can order by, alongside `date`: the closed-requests
+	// reader wants the most recently edited row on top, which the raised date does not answer.
+	$by_modified = isset( $a['orderby']['modified'] );
+	$direction   = strtoupper( (string) ( $by_modified ? $a['orderby']['modified'] : ( $a['orderby']['date'] ?? 'DESC' ) ) );
 	usort(
 		$out,
-		static function ( $one, $two ) use ( $direction ) {
-			$cmp = strcmp( $one->post_date_gmt, $two->post_date_gmt );
+		static function ( $one, $two ) use ( $direction, $by_modified ) {
+			$cmp = $by_modified
+				? strcmp( $one->post_modified_gmt, $two->post_modified_gmt )
+				: strcmp( $one->post_date_gmt, $two->post_date_gmt );
 			if ( 0 === $cmp ) { $cmp = $one->ID - $two->ID; }
 			return 'ASC' === $direction ? $cmp : -$cmp;
 		}
@@ -812,6 +832,21 @@ foreach ( array(
 }
 
 ck( 'no dash but the plain hyphen in either file', $dashes, array() );
+
+echo "\n=== Closed requests ===\n";
+
+// One handled and one declined, on top of the open fixture rows; the closed reader lists
+// only those two, newest edit first, and the open reader still ignores them.
+$done = wp_insert_post( array( 'post_type' => WPCPM_Institution_Request::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Handled' ) );
+update_post_meta( $done, WPCPM_Institution_Request::META_STATE, WPCPM_Institution_Request::STATE_DONE );
+$GLOBALS['posts'][ $done ]->post_modified_gmt = '2026-09-01 10:00:00';
+$declined = wp_insert_post( array( 'post_type' => WPCPM_Institution_Request::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Declined' ) );
+update_post_meta( $declined, WPCPM_Institution_Request::META_STATE, WPCPM_Institution_Request::STATE_DECLINED );
+$GLOBALS['posts'][ $declined ]->post_modified_gmt = '2026-09-02 10:00:00';
+
+ck( 'closed requests, newest first', WPCPM_Institution_Request::closed_requests(), array( $declined, $done ) );
+ck( 'capped', WPCPM_Institution_Request::closed_requests( 1 ), array( $declined ) );
+ck( 'and the open reader does not list them', array_intersect( WPCPM_Institution_Request::open_requests( 200 ), array( $done, $declined ) ), array() );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

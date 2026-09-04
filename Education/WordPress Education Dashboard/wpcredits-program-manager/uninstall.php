@@ -30,6 +30,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-wporg-profile.p
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-program.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-icons.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-request.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-return.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-flash.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ceiling.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-notices.php';
@@ -96,6 +97,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-semeste
 // Instantiated by `WPCPM_Modules::uninstall()` like the other four; it was missing here, which
 // would have been a fatal in the middle of cleanup on the day somebody uninstalled.
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-cards.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-modules.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-tool.php';

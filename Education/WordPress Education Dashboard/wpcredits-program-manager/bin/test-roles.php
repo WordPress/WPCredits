@@ -287,6 +287,19 @@ ck( 'and an unknown module ID still lands on the mentor wording it always did',
     array( WPCPM_Dashboards::nothing_to_show( 'nonsense', false ) ),
     array( 'This page is for program mentors. Your account does not hold the Mentor role.' ) );
 
+// The fourth audience. A non-manager is told whose page this is and never about the Mentor
+// role; a manager with nothing waiting is pointed at the Administrators screen.
+ck( 'a non-manager is told the Administrator Dashboard is for the program managers',
+    WPCPM_Dashboards::nothing_to_show( 'administrators', false ),
+    'This page is for the program managers. Your account cannot manage the program.' );
+$manager_admin_sees = WPCPM_Dashboards::nothing_to_show( 'administrators', true );
+ck( 'a manager with nothing waiting is sent to the Administrators screen',
+    array(
+        false !== strpos( $manager_admin_sees, 'Nothing is waiting for a manager right now.' ),
+        false !== strpos( $manager_admin_sees, 'admin.php?page=wpcpm-administrators' ),
+    ),
+    array( true, true ) );
+
 echo "\n=== A user ID out of whatever get_users() returned ===\n";
 
 // This site's stack returns `stdClass` rows even when the query asked for `'ID'`, so the shape is
@@ -379,6 +392,45 @@ if ( file_exists( dirname( __DIR__ ) . '/' . $dashboard_file ) ) {
 	ck( 'and its page option and title option are both deleted on uninstall', $deleted, array( true, true ) );
 } else {
 	echo "--   the institution dashboard has not landed yet: " . $dashboard_file . "\n";
+}
+
+// The administrator dashboard's own wiring, asserted the same way once the file exists: its
+// page ID and its title-version flag are two options a removed plugin must not leave behind.
+$dashboard_file = 'includes/modules/class-wpcpm-administrators-dashboard.php';
+
+if ( file_exists( dirname( __DIR__ ) . '/' . $dashboard_file ) ) {
+	ck( 'the administrator dashboard is loaded, and uninstall.php can see it',
+	    array(
+	        in_array( $dashboard_file, $anywhere[1], true ),
+	        in_array( $dashboard_file, $in_uninstall[1], true ),
+	    ),
+	    array( true, true ) );
+
+	// The deletes live in class-wpcpm-administrators.php's uninstall(), not in this class file
+	// itself, so the search reaches across everything uninstall.php pulls in, the same way the
+	// institution dashboard's check above does.
+	$reach = $uninstall_src;
+
+	foreach ( $in_uninstall[1] as $rel ) {
+		$path = dirname( __DIR__ ) . '/' . $rel;
+
+		if ( file_exists( $path ) ) {
+			$reach .= file_get_contents( $path );
+		}
+	}
+
+	$deleted = array();
+
+	foreach ( array( 'OPT_PAGE' => 'wpcpm_administrator_page_id', 'OPT_TITLE_FIXED' => 'wpcpm_administrator_page_title_fixed' ) as $constant => $option ) {
+		$deleted[] = (bool) preg_match(
+			'/delete_option\(\s*(?:WPCPM_Administrators_Dashboard::' . $constant . "|'" . $option . "')\s*\)/",
+			$reach
+		);
+	}
+
+	ck( 'and its page option and title option are both deleted on uninstall', $deleted, array( true, true ) );
+} else {
+	echo "--   the administrator dashboard has not landed yet: " . $dashboard_file . "\n";
 }
 // The ceiling's rows are `add_option()` claims named by a hash, one per key per window, and no
 // uninstall reaches them by name: they need the class's own `delete_all()` on the uninstall

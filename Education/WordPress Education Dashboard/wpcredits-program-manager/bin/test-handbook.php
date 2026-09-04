@@ -1057,10 +1057,12 @@ $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'nothing to show means no empty section',
     array( WPCPM_Handbook_Assistant::render_resources( 'nobody-in-particular' ) ), array( '' ) );
 
-// The three the plugin actually draws, each with a guide and a channel of its own.
+// The four the plugin actually draws, each with a guide and a channel of its own.
 $guides = WPCPM_Handbook_Assistant::guides();
-ck( 'and the audiences that do have a guide are the three that have a dashboard',
-    array_keys( $guides ), array( 'student', 'mentor', 'institution' ) );
+ck( 'and the audiences that do have a guide are the four that have a dashboard',
+    array_keys( $guides ), array( 'student', 'mentor', 'institution', 'administrator' ) );
+ck( 'the program managers\' guide is the handbook\'s education section', $guides['administrator']['url'], 'https://make.wordpress.org/community/handbook/education/credits/' );
+ck( 'and their channel is the program\'s', $guides['administrator']['slack'], $guides['institution']['slack'] );
 ck( 'the institution\'s guide is the handbook page written for them', $guides['institution']['url'], 'https://make.wordpress.org/community/handbook/education/credits/institutions/' );
 ck( 'and its channel is the program\'s own, not a student or mentor one',
     array(

@@ -569,8 +569,10 @@ final class WPCPM_Semester_Report_Screen {
 	 * @param string $record Institutions record ID.
 	 * @param string $cohort Cohort key.
 	 * @param string $label  The button; "Draft now" when empty.
+	 * @param string $return WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard,
+	 *                       else ''.
 	 */
-	public static function render_draft_form( $record, $cohort, $label = '' ) {
+	public static function render_draft_form( $record, $cohort, $label = '', $return = '' ) {
 		printf(
 			'<form class="wpcpm-report-card__generate" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
@@ -582,6 +584,11 @@ final class WPCPM_Semester_Report_Screen {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DRAFT ) );
 		printf( '<input type="hidden" name="institution" value="%s" />', esc_attr( $record ) );
 		printf( '<input type="hidden" name="cohort" value="%s" />', esc_attr( $cohort ) );
+
+		if ( '' !== $return && class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $return, 'reports' );
+		}
+
 		printf( '<button type="submit" class="button">%s</button>', esc_html( '' !== $label ? $label : __( 'Draft now', 'wpcredits-program-manager' ) ) );
 
 		echo '</form>';
@@ -3442,10 +3449,7 @@ final class WPCPM_Semester_Report_Screen {
 	 * @param string $record Institutions record ID to switch to, for a manager.
 	 */
 	private static function leave( $status, array $extra = array(), $cohort = '', $record = '' ) {
-		WPCPM_Flash::set(
-			self::FLASH,
-			array_merge( array( 'status' => (string) $status ), $extra )
-		);
+		self::set_flash( $status, $extra );
 
 		$url = WPCPM_Cohort::is_key( $cohort ) ? self::report_url( $cohort ) : '';
 
@@ -3463,7 +3467,26 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
+	 * Queue this screen's flash, the one step `leave()` and `bounce()`'s dashboard branch
+	 * both need before they redirect.
+	 *
+	 * @param string $status What happened.
+	 * @param array  $extra  Anything the message needs.
+	 */
+	private static function set_flash( $status, array $extra = array() ) {
+		WPCPM_Flash::set(
+			self::FLASH,
+			array_merge( array( 'status' => (string) $status ), $extra )
+		);
+	}
+
+	/**
 	 * Leave a refusal and go back.
+	 *
+	 * A successful draft never reaches this method - handle_draft() calls `leave()` directly
+	 * on success - so the branch below is refusals only, and a Draft now that actually wrote a
+	 * report keeps opening the editor exactly as it did before 1.92.0 (decision 2 of the final
+	 * review: success always opens the new draft where the manager reads it).
 	 *
 	 * @param string $status Why.
 	 * @param array  $detail Anything the sentence needs.
@@ -3471,7 +3494,23 @@ final class WPCPM_Semester_Report_Screen {
 	 * @param string $record Institutions record ID to switch to, for a manager.
 	 */
 	private static function bounce( $status, array $detail = array(), $cohort = '', $record = '' ) {
-		self::leave( $status, empty( $detail ) ? array() : array( 'detail' => $detail ), $cohort, $record );
+		$extra = empty( $detail ) ? array() : array( 'detail' => $detail );
+
+		// A refusal posted from the Administrator Dashboard comes back to it, with its message,
+		// rather than to this screen's own wp-admin default: WPCPM_Return::url( '' ) is '' both
+		// when the form said nothing about a dashboard and when the page does not exist, and
+		// either way the fall-through below is exactly what this method always did.
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			$url = WPCPM_Return::url( '' );
+
+			if ( '' !== $url ) {
+				self::set_flash( $status, $extra );
+				wp_safe_redirect( $url );
+				exit;
+			}
+		}
+
+		self::leave( $status, $extra, $cohort, $record );
 	}
 
 	/**
@@ -3480,10 +3519,35 @@ final class WPCPM_Semester_Report_Screen {
 	 * @param array $flash The flash `render()` read.
 	 */
 	private static function render_message( array $flash ) {
+		if ( empty( $flash['status'] ) ) {
+			return;
+		}
+
+		list( $class, $text ) = self::message_for( $flash );
+
+		printf(
+			'<p class="wpcpm-report-card__message wpcpm-report-card__message--%1$s">%2$s</p>',
+			esc_attr( $class ),
+			esc_html( $text )
+		);
+	}
+
+	/**
+	 * The `[ css_class, text ]` pair `render_message()` prints, for a caller that draws this
+	 * screen's messages somewhere else - the Administrator Dashboard, since 1.92.0, reads a
+	 * refused Draft now on its own flash channel and has to say the same thing this screen
+	 * would (final review, Important 2). One map, read by both, so a refusal is never spelled
+	 * two ways in two files.
+	 *
+	 * @param array $flash A flash this screen or `WPCPM_Flash::take( self::FLASH )` read.
+	 * @return array{0: string, 1: string} The class modifier and the sentence, both '' for an
+	 *                                     empty flash.
+	 */
+	public static function message_for( array $flash ) {
 		$key = ! empty( $flash['status'] ) ? (string) $flash['status'] : '';
 
 		if ( '' === $key ) {
-			return;
+			return array( '', '' );
 		}
 
 		$said   = self::messages();
@@ -3495,11 +3559,7 @@ final class WPCPM_Semester_Report_Screen {
 			$text = $sums;
 		}
 
-		printf(
-			'<p class="wpcpm-report-card__message wpcpm-report-card__message--%1$s">%2$s</p>',
-			esc_attr( sanitize_html_class( $key ) ),
-			esc_html( $text )
-		);
+		return array( sanitize_html_class( $key ), $text );
 	}
 
 	/**

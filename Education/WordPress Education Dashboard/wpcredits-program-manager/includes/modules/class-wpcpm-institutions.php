@@ -1289,20 +1289,24 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * One application's state.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @param WP_Post $post The application.
 	 * @return string One of `WPCPM_Institution_Application`'s `STATE_` values, or ''.
 	 */
-	private static function application_state( WP_Post $post ) {
+	public static function application_state( WP_Post $post ) {
 		return (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_STATE, true );
 	}
 
 	/**
 	 * One application's reference, e.g. `APP-2026-0007`.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @param WP_Post $post The application.
 	 * @return string
 	 */
-	private static function application_reference( WP_Post $post ) {
+	public static function application_reference( WP_Post $post ) {
 		$stored = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_REFERENCE, true );
 
 		// The stored one first, because it is what the acknowledgement quoted; the computed
@@ -1313,10 +1317,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * The answers as they were stored, keyed by Airtable column name.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @param WP_Post $post The application.
 	 * @return array
 	 */
-	private static function application_fields( WP_Post $post ) {
+	public static function application_fields( WP_Post $post ) {
 		$fields = get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_FIELDS, true );
 
 		return is_array( $fields ) ? $fields : array();
@@ -1328,10 +1334,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The column is named through the sync's map rather than as a literal, so the base's
 	 * spelling of it is asserted in one place and against one fixture.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @param WP_Post $post The application.
 	 * @return string
 	 */
-	private static function application_email( WP_Post $post ) {
+	public static function application_email( WP_Post $post ) {
 		$columns = WPCPM_Institutions_Sync::fields();
 		$key     = isset( $columns['contact_email'] ) ? $columns['contact_email'] : 'Contact Email';
 		$fields  = self::application_fields( $post );
@@ -1345,9 +1353,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * `held` is in the list on purpose: a submission the anti-spam checks degraded is one
 	 * nobody was told about, so if it is not in front of a manager nobody ever sees it.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @return string[]
 	 */
-	private static function open_states() {
+	public static function open_states() {
 		return array(
 			WPCPM_Institution_Application::STATE_NEW,
 			WPCPM_Institution_Application::STATE_HELD,
@@ -1358,9 +1368,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * The states a manager may put back to `new`.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @return string[]
 	 */
-	private static function reopen_states() {
+	public static function reopen_states() {
 		return array(
 			WPCPM_Institution_Application::STATE_HELD,
 			WPCPM_Institution_Application::STATE_INFO,
@@ -1375,9 +1387,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The same three the retention settings name, and never an open one: an application
 	 * waiting for a decision is somebody's unanswered letter.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @return string[]
 	 */
-	private static function purgeable_states() {
+	public static function purgeable_states() {
 		return array(
 			WPCPM_Institution_Application::STATE_SPAM,
 			WPCPM_Institution_Application::STATE_REJECTED,
@@ -1610,10 +1624,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * What the form's checks recorded against one application.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @param WP_Post $post The application.
 	 * @return string[] Signal slugs, in the order they were raised.
 	 */
-	private static function signals( WP_Post $post ) {
+	public static function signals( WP_Post $post ) {
 		$stored = get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_SIGNALS, true );
 
 		if ( ! is_array( $stored ) ) {
@@ -1695,11 +1711,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The stamp is the fallback and not the source: a country renamed in the base should
 	 * print its new name on a row submitted before the rename.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @param string $country_id Countries record ID.
 	 * @param string $stored     The name stored alongside it.
 	 * @return string
 	 */
-	private static function country_name( $country_id, $stored ) {
+	public static function country_name( $country_id, $stored ) {
 		$name = WPCPM_Countries::name_of( $country_id );
 
 		return '' !== $name ? $name : trim( (string) $stored );
@@ -1834,9 +1852,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * keeps the agreement route's. Every refusal opens by saying that nothing happened, since
 	 * the reader has just pressed a button and cannot see the server.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @return array<string, array>
 	 */
-	private static function queue_messages() {
+	public static function queue_messages() {
 		return array(
 			'app-approved'         => array( 'success', __( 'The application is approved. The Airtable record, the pipeline row and the account are created, and the invitation is queued.', 'wpcredits-program-manager' ) ),
 			'app-adopted'          => array( 'success', __( 'The application is approved. Airtable already held a record for this institution, so it was adopted rather than created; the account is made and the invitation is queued.', 'wpcredits-program-manager' ) ),
@@ -2298,9 +2318,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The question is printed as the applicant read it, with the Airtable column under it,
 	 * because the manager deciding this is the person who will look the record up in the base.
 	 *
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
 	 * @param WP_Post $post The application.
 	 */
-	private function render_application_answers( WP_Post $post ) {
+	public function render_application_answers( WP_Post $post ) {
 		$fields  = self::application_fields( $post );
 		$columns = WPCPM_Institutions_Sync::fields();
 		$country = (string) get_post_meta( (int) $post->ID, WPCPM_Institution_Application::META_COUNTRY, true );
@@ -2694,10 +2716,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * Which forms appear is the state's answer and the handlers ask it again: a form nobody
 	 * may post is a courtesy that saves a reader a refusal, never the check itself.
 	 *
-	 * @param WP_Post $post  The application.
-	 * @param string  $state Its state.
+	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
+	 *
+	 * @param WP_Post $post   The application.
+	 * @param string  $state  Its state.
+	 * @param string  $return WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard, else ''.
 	 */
-	private function render_application_actions( WP_Post $post, $state ) {
+	public function render_application_actions( WP_Post $post, $state, $return = '' ) {
 		echo '<h3>' . esc_html__( 'What happens next', 'wpcredits-program-manager' ) . '</h3>';
 
 		$name  = trim( (string) $post->post_title );
@@ -2711,6 +2736,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->render_decision_form(
 				$post,
 				array(
+					'return'  => (string) $return,
 					'action'  => self::ACTION_APPROVE,
 					'label'   => __( 'Approve', 'wpcredits-program-manager' ),
 					'class'   => 'button button-primary',
@@ -2726,6 +2752,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->render_decision_form(
 				$post,
 				array(
+					'return' => (string) $return,
 					'action' => self::ACTION_INFO,
 					'label'  => __( 'Send this question', 'wpcredits-program-manager' ),
 					'field'  => 'wpcpm_question',
@@ -2736,6 +2763,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->render_decision_form(
 				$post,
 				array(
+					'return'  => (string) $return,
 					'action'  => self::ACTION_REJECT,
 					'label'   => __( 'Reject', 'wpcredits-program-manager' ),
 					'field'   => 'wpcpm_reason',
@@ -2751,6 +2779,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->render_decision_form(
 				$post,
 				array(
+					'return'  => (string) $return,
 					'action'  => self::ACTION_SPAM,
 					'label'   => __( 'Reject as spam', 'wpcredits-program-manager' ),
 					'confirm' => sprintf(
@@ -2766,6 +2795,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->render_decision_form(
 				$post,
 				array(
+					'return' => (string) $return,
 					'action' => self::ACTION_REOPEN,
 					'label'  => __( 'Put back in the queue', 'wpcredits-program-manager' ),
 				)
@@ -2776,6 +2806,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$this->render_decision_form(
 				$post,
 				array(
+					'return'  => (string) $return,
 					'action'  => self::ACTION_PURGE,
 					'label'   => __( 'Delete for good', 'wpcredits-program-manager' ),
 					'confirm' => sprintf(
@@ -2794,12 +2825,17 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The nonce is keyed to the action and the application together, so a nonce harvested
 	 * from one row's Reject cannot approve another's.
 	 *
+	 * Since 1.92.0, forms.js's double-submit guard yields to a cancelled confirm: it checks
+	 * `event.defaultPrevented` before anything else, so a manager who presses Cancel on one of
+	 * these confirm-guarded forms is not left looking at a form stuck reading "Working".
+	 *
 	 * @param WP_Post $post The application.
-	 * @param array   $args `action`, `label`, `class`, `confirm`, `field`, `prompt`.
+	 * @param array   $args `return`, `action`, `label`, `class`, `confirm`, `field`, `prompt`.
 	 */
 	private function render_decision_form( WP_Post $post, array $args ) {
 		$args = array_merge(
 			array(
+				'return'  => '',
 				'action'  => '',
 				'label'   => '',
 				'class'   => 'button',
@@ -2810,14 +2846,22 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$args
 		);
 
+		// The double-submit guard, inert on wp-admin where forms.js is not loaded and live on
+		// the Administrator Dashboard, which enqueues it: two presses of Approve made two
+		// accounts once, on another form that lacked it.
 		printf(
-			'<form class="wpcpm-app-action" method="post" action="%1$s"%2$s>',
+			'<form class="wpcpm-app-action" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%3$s"%2$s>',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			'' !== $args['confirm'] ? ' onsubmit="return confirm(\'' . esc_js( $args['confirm'] ) . '\');"' : ''
+			'' !== $args['confirm'] ? ' onsubmit="return confirm(\'' . esc_js( $args['confirm'] ) . '\');"' : '',
+			esc_attr__( 'Working', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( $args['action'] . '_' . (int) $post->ID );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
 		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_APPLICATION ), (int) $post->ID );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $args['return'], 'applications' );
+		}
 
 		if ( '' !== $args['field'] ) {
 			printf(

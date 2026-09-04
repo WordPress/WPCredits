@@ -1,0 +1,182 @@
+/*
+ * The Administrator Dashboard's base layout: the attention strip, the cards' item rows,
+ * the tables. Theme-agnostic, so the page reads on any theme; the WPCredits theme's
+ * dashboard skin adds its type, its card and its insets on top.
+ */
+
+.wpcpm-administrator .wpcpm-administrator__card {
+	margin-bottom: 1.25em;
+}
+
+/* The base shape only: color is a theme's job (the WPCredits theme's dashboard skin paints
+   --success and --error), so a site with no skin still gets a readable, bordered message
+   rather than a bare paragraph nobody dressed. */
+.wpcpm-dashboard__message {
+	border-left: 4px solid currentColor;
+	margin: 0 0 16px;
+	padding: 12px 16px;
+}
+
+.wpcpm-attention__tiles {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat( auto-fit, minmax( 150px, 1fr ) );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-attention__tile {
+	border: 1px solid rgba( 0, 0, 0, 0.12 );
+	border-radius: 8px;
+}
+
+.wpcpm-attention__tile--zero {
+	opacity: 0.55;
+}
+
+.wpcpm-attention__link {
+	color: inherit;
+	display: block;
+	padding: 14px 16px;
+	text-decoration: none;
+}
+
+.wpcpm-attention__n {
+	display: block;
+	font-size: 1.75em;
+	font-weight: 700;
+	line-height: 1.1;
+}
+
+.wpcpm-attention__l {
+	display: block;
+	font-size: 0.8em;
+	letter-spacing: 0.04em;
+	opacity: 0.72;
+	text-transform: uppercase;
+}
+
+.wpcpm-administrator__item {
+	border-top: 1px solid rgba( 0, 0, 0, 0.08 );
+	padding: 1em 0;
+}
+
+.wpcpm-administrator__item:first-of-type {
+	border-top: 0;
+	padding-top: 0;
+}
+
+.wpcpm-administrator__item--overdue {
+	border-left: 4px solid #b3261e;
+	padding-left: 0.75em;
+}
+
+.wpcpm-administrator__item-title {
+	margin: 0 0 0.25em;
+}
+
+.wpcpm-administrator__facts {
+	margin: 0 0 0.5em;
+	opacity: 0.8;
+}
+
+.wpcpm-administrator__fact + .wpcpm-administrator__fact::before {
+	content: " \00b7 ";
+}
+
+.wpcpm-administrator__fact--overdue {
+	color: #b3261e;
+	font-weight: 600;
+}
+
+.wpcpm-administrator__note {
+	white-space: pre-wrap;
+}
+
+.wpcpm-administrator__actions .wpcpm-app-action,
+.wpcpm-administrator__actions .wpcpm-request__decide {
+	display: inline-block;
+	margin: 0 8px 8px 0;
+	vertical-align: top;
+}
+
+.wpcpm-administrator__closed > summary {
+	cursor: pointer;
+	font-weight: 600;
+	padding: 0.5em 0;
+}
+
+.wpcpm-administrator__subtitle {
+	margin: 1.25em 0 0.5em;
+}
+
+.wpcpm-administrator__empty,
+.wpcpm-administrator__quiet,
+.wpcpm-administrator__read {
+	opacity: 0.72;
+}
+
+.wpcpm-admin-table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.wpcpm-admin-table th,
+.wpcpm-admin-table td {
+	border-bottom: 1px solid rgba( 0, 0, 0, 0.08 );
+	padding: 0.5em 0.5em 0.5em 0;
+	text-align: left;
+	vertical-align: top;
+}
+
+.wpcpm-admin-table__n {
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+
+.wpcpm-admin-table__breakdown {
+	display: block;
+	font-size: 0.85em;
+	opacity: 0.72;
+}
+
+.wpcpm-programs__tiles {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat( auto-fit, minmax( 180px, 1fr ) );
+	list-style: none;
+	margin: 0 0 1em;
+	padding: 0;
+}
+
+.wpcpm-programs__tile {
+	border: 1px solid rgba( 0, 0, 0, 0.12 );
+	border-radius: 8px;
+	padding: 12px 14px;
+}
+
+.wpcpm-programs__name,
+.wpcpm-programs__l {
+	display: block;
+	font-size: 0.85em;
+	opacity: 0.8;
+}
+
+.wpcpm-programs__n {
+	display: block;
+	font-size: 1.5em;
+	font-weight: 700;
+}
+
+.wpcpm-administrator__list {
+	margin: 0;
+	padding-left: 1.25em;
+}
+
+@media ( max-width: 782px ) {
+	.wpcpm-admin-table {
+		display: block;
+		overflow-x: auto;
+	}
+}

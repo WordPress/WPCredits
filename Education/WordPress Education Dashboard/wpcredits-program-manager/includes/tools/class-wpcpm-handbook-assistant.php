@@ -374,14 +374,14 @@ class WPCPM_Handbook_Assistant {
 		return (array) apply_filters(
 			'wpcpm_handbook_guides',
 			array(
-				'student'     => array(
+				'student'       => array(
 					'label' => __( 'Student guide', 'wpcredits-program-manager' ),
 					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/student-guide/',
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					// Named for a screen reader, which gets no help at all from the icon.
 					'chat'  => __( 'Ask in the students Slack channel', 'wpcredits-program-manager' ),
 				),
-				'mentor'      => array(
+				'mentor'        => array(
 					'label' => __( 'Mentor guide', 'wpcredits-program-manager' ),
 					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/mentor-guide/',
 					'slack' => 'https://wordpress.slack.com/archives/C09KYQLS7F1',
@@ -390,9 +390,17 @@ class WPCPM_Handbook_Assistant {
 				// The institutions page of the same handbook, and the program's own channel
 				// rather than either of the two above: a school's question is about running
 				// the program, not about a student's work or a mentor's.
-				'institution' => array(
+				'institution'   => array(
 					'label' => __( 'Institution guide', 'wpcredits-program-manager' ),
 					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/institutions/',
+					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
+					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
+				),
+				// Program managers: the handbook's education section is theirs as a whole, and
+				// the program's own channel is where they talk.
+				'administrator' => array(
+					'label' => __( 'Program manager guide', 'wpcredits-program-manager' ),
+					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/',
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),

@@ -91,6 +91,21 @@ class WPCPM_Dashboards {
 			}
 		}
 
+		// Managers only, and guarded like the institution entry: the class lands with the
+		// Administrators module's front end and `links()` runs on every toolbar render.
+		if ( $can_manage && class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
+			$administrator_page = WPCPM_Administrators_Dashboard::page_url();
+
+			if ( '' !== $administrator_page ) {
+				$links[] = array(
+					'id'    => 'wpcpm-administrator-dashboard',
+					'title' => __( 'Administrator Dashboard', 'wpcredits-program-manager' ),
+					'href'  => $administrator_page,
+					'own'   => true,
+				);
+			}
+		}
+
 		/**
 		 * Filter the dashboards offered in the toolbar.
 		 *
@@ -157,25 +172,26 @@ class WPCPM_Dashboards {
 	 * which is both untrue and unactionable - the accounts simply do not exist. The
 	 * message has to name the real reason and point at the screen that fixes it.
 	 *
-	 * @param string $module     Module ID, `students`, `mentors` or `institutions`.
+	 * @param string $module     Module ID, `students`, `mentors`, `institutions` or `administrators`.
 	 * @param bool   $can_manage Whether the viewer manages the program.
 	 * @return string HTML.
 	 */
 	public static function nothing_to_show( $module, $can_manage ) {
 		$theirs = array(
-			'students'     => __( 'This page is for program students. Your account is not linked to a student record.', 'wpcredits-program-manager' ),
-			'mentors'      => __( 'This page is for program mentors. Your account does not hold the Mentor role.', 'wpcredits-program-manager' ),
+			'students'       => __( 'This page is for program students. Your account is not linked to a student record.', 'wpcredits-program-manager' ),
+			'mentors'        => __( 'This page is for program mentors. Your account does not hold the Mentor role.', 'wpcredits-program-manager' ),
 			// Membership, not the role, for the reason `WPCPM_Notices::applies_to()` gives: an
 			// account keeps the Institution role until a manager takes it away, so "you do not
 			// hold the role" would be false for exactly the people who have just lost access.
-			'institutions' => __( 'This page is for the institutions in the program. Your account does not act for an institution.', 'wpcredits-program-manager' ),
+			'institutions'   => __( 'This page is for the institutions in the program. Your account does not act for an institution.', 'wpcredits-program-manager' ),
+			'administrators' => __( 'This page is for the program managers. Your account cannot manage the program.', 'wpcredits-program-manager' ),
 		);
 
-		// Every audience is named, because what an unnamed one used to get was the mentor
-		// wording: the fall-through was written when `students` and `mentors` were the only
-		// two, and it told an institution it did not hold the Mentor role. Unknown IDs keep
-		// that old behaviour rather than inventing a fourth sentence for a caller that does
-		// not exist.
+		// Every audience is named - four of them now - because what an unnamed one used to get
+		// was the mentor wording: the fall-through was written when `students` and `mentors`
+		// were the only two, and it told an institution it did not hold the Mentor role.
+		// Unknown IDs keep that old behaviour rather than inventing a fifth sentence for a
+		// caller that does not exist.
 		$module = isset( $theirs[ $module ] ) ? $module : 'mentors';
 
 		if ( ! $can_manage ) {
@@ -183,18 +199,20 @@ class WPCPM_Dashboards {
 		}
 
 		$messages = array(
-			'students'     => __( 'No student accounts have been synced yet, so there is nothing to show. Run a sync on the Students screen and they will appear here.', 'wpcredits-program-manager' ),
-			'mentors'      => __( 'No mentor accounts have been synced yet, so there is nothing to show. Run a sync on the Mentors screen and they will appear here.', 'wpcredits-program-manager' ),
+			'students'       => __( 'No student accounts have been synced yet, so there is nothing to show. Run a sync on the Students screen and they will appear here.', 'wpcredits-program-manager' ),
+			'mentors'        => __( 'No mentor accounts have been synced yet, so there is nothing to show. Run a sync on the Mentors screen and they will appear here.', 'wpcredits-program-manager' ),
 			// Not "run a sync": the pipeline index can hold every institution in the base and
 			// this page still resolve to nothing, because a manager falls back to the first
 			// institution with a live member. What is missing is an account, not a read.
-			'institutions' => __( 'No institution has an account on this site yet, so there is nothing to show. Provision one on the Institutions screen and it will appear here.', 'wpcredits-program-manager' ),
+			'institutions'   => __( 'No institution has an account on this site yet, so there is nothing to show. Provision one on the Institutions screen and it will appear here.', 'wpcredits-program-manager' ),
+			'administrators' => __( 'Nothing is waiting for a manager right now.', 'wpcredits-program-manager' ),
 		);
 
 		$screens = array(
-			'students'     => 'wpcpm-students',
-			'mentors'      => 'wpcpm-mentors',
-			'institutions' => 'wpcpm-institutions',
+			'students'       => 'wpcpm-students',
+			'mentors'        => 'wpcpm-mentors',
+			'institutions'   => 'wpcpm-institutions',
+			'administrators' => 'wpcpm-administrators',
 		);
 
 		return esc_html( $messages[ $module ] ) . ' <a href="' . esc_url( admin_url( 'admin.php?page=' . $screens[ $module ] ) ) . '">'

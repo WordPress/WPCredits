@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/administrator-dashboard",
+	"version": "1.92.0",
+	"title": "Administrator Dashboard",
+	"category": "widgets",
+	"icon": "dashboard",
+	"description": "Shows program managers every queue on one page: institution applications, Collaboration Agreements, semester reports, mentor requests, the programs running and the syncs.",
+	"keywords": [ "administrator", "manager", "wpcredits", "program" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

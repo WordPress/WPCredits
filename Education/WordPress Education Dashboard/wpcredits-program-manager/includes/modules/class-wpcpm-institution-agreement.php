@@ -2028,6 +2028,48 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * Every document in one state, newest edit first, capped.
+	 *
+	 * `awaiting_review()` is this for `submitted`, oldest first, because a queue is worked
+	 * in order; the Administrator Dashboard's returned and revoked lists want the most
+	 * recent on top, which is the only difference. A state this class does not know
+	 * answers empty rather than everything.
+	 *
+	 * @param string $state One of the STATE_* values.
+	 * @param int    $limit Most rows to read.
+	 * @return int[] Post IDs.
+	 */
+	public static function in_state( $state, $limit = 50 ) {
+		$known = array( self::STATE_GENERATED, self::STATE_SUBMITTED, self::STATE_ACCEPTED, self::STATE_RETURNED, self::STATE_WITHDRAWN, self::STATE_SUPERSEDED, self::STATE_REVOKED );
+
+		if ( ! in_array( (string) $state, $known, true ) ) {
+			return array();
+		}
+
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => self::POST_STATUS,
+				'numberposts'      => (int) $limit > 0 ? (int) $limit : 50,
+				'fields'           => 'ids',
+				'orderby'          => array(
+					'modified' => 'DESC',
+					'ID'       => 'DESC',
+				),
+				'suppress_filters' => false,
+				'meta_query'       => array(
+					array(
+						'key'   => self::META_STATE,
+						'value' => (string) $state,
+					),
+				),
+			)
+		);
+
+		return array_map( 'intval', (array) $posts );
+	}
+
+	/**
 	 * What the reviewer's checklist needs to know about one document.
 	 *
 	 * Facts only, in the shape the review block prints them: nothing here decides anything

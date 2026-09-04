@@ -951,6 +951,156 @@
 	padding-right: 0;
 }
 
+/*
+ * The Administrator Dashboard nests its groups inside sections already inset by 32px, the
+ * way the Institution Dashboard does, so it needs the same answer: the clickable row loses
+ * its horizontal margin, or every row on the page steps 32px right of the strip above it
+ * (theme 1.16.5 and 1.16.6 were this bug on the institution page). Every group here is a
+ * disclosure, never drawn as an already-open plain heading, so the institution page's other
+ * rule - zeroing that heading's own padding - has nothing on this page to match and is not
+ * copied here (1.17.0 removed a copy of it that never did).
+ */
+.wpc-administrator-page .wpcpm-group__summary,
+.wpc-administrator-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
+	margin-left: 0;
+	margin-right: 0;
+}
+
+.wpc-administrator-page .wpcpm-administrator__card {
+	padding-left: 32px;
+	padding-right: 32px;
+}
+
+/* The attention strip: a row of tiles that wraps, in the card's own surface and line. */
+.wpc-administrator-page .wpcpm-attention__tile {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+}
+
+.wpc-administrator-page .wpcpm-attention__n {
+	font: 700 28px/32px var( --wpc-font );
+}
+
+.wpc-administrator-page .wpcpm-attention__l {
+	font: 600 12px/16px var( --wpc-font );
+	letter-spacing: 0.04em;
+}
+
+/* The programs tiles share the strip's surface. */
+.wpc-administrator-page .wpcpm-programs__tile {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+}
+
+.wpc-administrator-page .wpcpm-programs__n {
+	font: 700 24px/28px var( --wpc-font );
+}
+
+/* Tables: the theme's line, numbers right-aligned in tabular figures, a muted breakdown. */
+.wpc-administrator-page .wpcpm-admin-table th,
+.wpc-administrator-page .wpcpm-admin-table td {
+	border-bottom: 1px solid var( --wpc-line );
+}
+
+.wpc-administrator-page .wpcpm-admin-table th {
+	font: 700 12px/16px var( --wpc-font );
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+/*
+ * The six decisions, the request buttons and Draft now are drawn by the wp-admin queue with
+ * core's button classes, which the front end never loads. They take the theme's secondary
+ * button here, so a decision reads as a decision and not as unstyled text.
+ */
+.wpc-administrator-page .wpcpm-app-action .button,
+.wpc-administrator-page .wpcpm-request__decide .button,
+.wpc-administrator-page .wpcpm-report-card__generate .button {
+	background: none;
+	border: 1px solid var( --wpc-brand-border );
+	border-radius: 8px;
+	color: var( --wpc-brand );
+	cursor: pointer;
+	font: 600 15px/20px var( --wpc-font );
+	padding: 9px 18px;
+}
+
+.wpc-administrator-page .wpcpm-app-action .button-primary,
+.wpc-administrator-page .wpcpm-request__decide .button-primary {
+	background: var( --wpc-brand );
+	color: #fff;
+}
+
+.wpc-administrator-page .wpcpm-app-action textarea,
+.wpc-administrator-page .wpcpm-request__decide textarea {
+	border: 1px solid var( --wpc-line );
+	border-radius: 8px;
+	font: inherit;
+	padding: 8px 10px;
+	width: 100%;
+}
+
+/* wpcpm-dashboard__message: the plugin's own base rule (assets/css/administrator.css) draws
+   the shape; only the color is this theme's to paint, in its own status tokens. */
+.wpc-administrator-page .wpcpm-dashboard__message--success {
+	border-left-color: var( --wpc-green, #1a7f37 );
+}
+
+.wpc-administrator-page .wpcpm-dashboard__message--error {
+	border-left-color: var( --wpc-red, #b32d2e );
+}
+
+/*
+ * The Collaboration Agreement review block (WPCPM_Institution_Panel::render_review()), kept
+ * to the same five things assets/css/admin.css dresses for the wp-admin queue - the title,
+ * the facts, the checklist, the flags, and the two decision forms - repainted with this
+ * theme's tokens instead of wp-admin's own grays. No rule here that admin.css does not
+ * already have.
+ */
+.wpc-administrator-page .wpcpm-review {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-radius: var( --wpc-radius-card );
+	margin-top: 12px;
+	padding: 16px;
+}
+
+.wpc-administrator-page .wpcpm-review__title {
+	font: 700 14px/20px var( --wpc-font );
+	margin: 0 0 8px;
+}
+
+.wpc-administrator-page .wpcpm-review__facts,
+.wpc-administrator-page .wpcpm-review__kind,
+.wpc-administrator-page .wpcpm-review__flags,
+.wpc-administrator-page .wpcpm-review__courtesy {
+	margin: 0 0 4px;
+}
+
+.wpc-administrator-page .wpcpm-review__checklist {
+	list-style: disc;
+	margin: 0 0 12px 1.5em;
+}
+
+.wpc-administrator-page .wpcpm-review__checklist li {
+	margin-bottom: 4px;
+}
+
+/* Accept and Return read as two decisions, not one column of them: admin.css stacks them
+   with a divider because wp-admin's queue is narrow; this card has the width to put them
+   side by side instead, with the gap doing the separating. */
+.wpc-administrator-page .wpcpm-review__form {
+	display: inline-block;
+	margin-top: 12px;
+	vertical-align: top;
+}
+
+.wpc-administrator-page .wpcpm-review__form--accept {
+	margin-right: 16px;
+}
+
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every
    group's margin so the mentor page's headings sit where its inset expects them. A group
    that is a pressed row rather than a heading needs to be told apart from the next one. */
@@ -2113,6 +2263,7 @@
 	.wpcpm-dashboard__empty,
 	.wpc-institution-page .wpcpm-institution__identity,
 	.wpc-institution-page .wpcpm-institution__card,
+	.wpc-administrator-page .wpcpm-administrator__card,
 	.wpc-institution-page .wpcpm-roster {
 		padding-left: 20px;
 		padding-right: 20px;

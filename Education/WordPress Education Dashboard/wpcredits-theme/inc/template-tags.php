@@ -95,9 +95,38 @@ function wpcredits_is_institution_page() {
 }
 
 /**
+ * Whether this request is the Administrator Dashboard.
+ *
+ * Matched three ways, like the other three pages: the stored page ID, the block, or the
+ * shortcode, because the dashboard is reachable all three ways.
+ *
+ * @return bool
+ */
+function wpcredits_is_administrator_page() {
+	if ( ! wpcredits_plugin_active() || ! is_singular() || ! class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
+		return false;
+	}
+
+	$page_id = (int) get_option( WPCPM_Administrators_Dashboard::OPT_PAGE );
+
+	if ( $page_id && get_queried_object_id() === $page_id ) {
+		return true;
+	}
+
+	$post = get_post();
+
+	if ( ! $post instanceof WP_Post ) {
+		return false;
+	}
+
+	return has_block( WPCPM_Administrators_Dashboard::BLOCK, $post )
+		|| has_shortcode( (string) $post->post_content, WPCPM_Administrators_Dashboard::SHORTCODE );
+}
+
+/**
  * Whether this request is any of the dashboards.
  *
- * The three pages share a shell, so anything that dresses that shell - the card,
+ * The four pages share a shell, so anything that dresses that shell - the card,
  * the insets, the type - applies to all of them.
  *
  * **The institution page was missing from this for two releases**, which is why it
@@ -106,10 +135,13 @@ function wpcredits_is_institution_page() {
  * none of it was loading there. Anything added here has to be added to the body
  * class in functions.php as well, since every rule in the skin is prefixed with it.
  *
+ * The Administrator Dashboard joined in 1.17.0, added here and in
+ * `wpcredits_body_class()` in the same commit.
+ *
  * @return bool
  */
 function wpcredits_is_dashboard_page() {
-	return wpcredits_is_mentor_page() || wpcredits_is_student_page() || wpcredits_is_institution_page();
+	return wpcredits_is_mentor_page() || wpcredits_is_student_page() || wpcredits_is_institution_page() || wpcredits_is_administrator_page();
 }
 
 /**

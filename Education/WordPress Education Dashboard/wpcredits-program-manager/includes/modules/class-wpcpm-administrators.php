@@ -65,6 +65,29 @@ class WPCPM_Administrators extends WPCPM_Module {
 	}
 
 	/**
+	 * Boot the module's front end. The wp-admin screen needs no hooks of its own.
+	 */
+	public function boot() {
+		WPCPM_Administrators_Dashboard::init();
+	}
+
+	/**
+	 * Activation: the page exists and is gated before anybody can reach it.
+	 */
+	public function activate() {
+		WPCPM_Administrators_Dashboard::ensure_page();
+	}
+
+	/**
+	 * Uninstall: the page's two options. The page itself is content and stays, as the
+	 * other dashboards' pages do.
+	 */
+	public function uninstall() {
+		delete_option( WPCPM_Administrators_Dashboard::OPT_PAGE );
+		delete_option( WPCPM_Administrators_Dashboard::OPT_TITLE_FIXED );
+	}
+
+	/**
 	 * List the administrators and the program capabilities they hold.
 	 */
 	public function render_admin_page() {
@@ -79,6 +102,17 @@ class WPCPM_Administrators extends WPCPM_Module {
 		echo '<div class="wrap wpcpm-wrap">';
 		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
 		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
+
+		$dashboard = class_exists( 'WPCPM_Administrators_Dashboard' ) ? WPCPM_Administrators_Dashboard::page_url() : '';
+
+		if ( '' !== $dashboard ) {
+			printf(
+				'<p><a class="button button-primary" href="%1$s">%2$s</a> %3$s</p>',
+				esc_url( $dashboard ),
+				esc_html__( 'Open the Administrator Dashboard', 'wpcredits-program-manager' ),
+				esc_html__( 'Every queue on one page, with its decisions.', 'wpcredits-program-manager' )
+			);
+		}
 
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Program capabilities', 'wpcredits-program-manager' ) . '</h2>';

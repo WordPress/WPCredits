@@ -52,6 +52,12 @@ The site drafts a report for each institution semester once the semester has end
 
 Review a draft on the Institution Dashboard, reached through the switcher from the Semester reports card. Edit the narrative, choose the quotes, then press Approve. The institution sees the report from that moment, with a Download PDF button, and its accounts are mailed; an institution with no account is not mailed and the screen says so, so send the PDF by hand. Reopen takes the report back to a draft and out of the institution's view. Approval is refused while the students' consent answers cannot be read.
 
+## The Administrator Dashboard
+
+The Administrator Dashboard at /administrator-dashboard/ is the page to start the day on. It is gated to program managers and shows, in this order: a strip of eight counts (applications waiting, agreements to review and overdue, reports to review, semesters due for drafting, mentor requests open and overdue, locked accounts), then one card each for institution applications, Collaboration Agreements, semester reports, mentor requests, the programs running and the syncs' health. Every decision on the page is the same decision the wp-admin screen offers, posted to the same handler with the same safeguards, and it lands back on the page (Draft now opens the new draft in the editor, and a refusal comes back to the page). What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or provision accounts; those stay on the wp-admin screens the Syncs card links to.
+
+The programs card counts students in progress per track and per institution from the roster index, so its numbers are as old as the last students sync; the read time is printed under the table. "Finished this semester" counts graduates only, not everyone who left the program; a graduate's row no longer says which track they were on, so it is one number rather than one per track. "Signed up this semester" per track counts the students who started in the semester and are still on that track; a student who started and has since paused, graduated or left is in the semester's finished count or in no count. Mentors are counted by distinct name, not by their Airtable record, because a roster row carries no mentor record ID: two mentors who share a name count once.
+
 ### Where the plugin keeps its data
 
 Every option the plugin writes, by the name it has in the database and the constant that owns it
@@ -63,6 +69,8 @@ renaming a stored key is a migration, and nothing here warranted one.
 
 | Option | Constant |
 | --- | --- |
+| `wpcpm_administrator_page_id` | `WPCPM_Administrators_Dashboard::OPT_PAGE` |
+| `wpcpm_administrator_page_title_fixed` | `WPCPM_Administrators_Dashboard::OPT_TITLE_FIXED` |
 | `wpcpm_agreement_` | `WPCPM_Institution_Agreement::OPT_PREFIX` |
 | `wpcpm_agreement_drift` | `WPCPM_Agreement_Template::OPT_DRIFT` |
 | `wpcpm_agreement_on_file_all` | `WPCPM_Institution_Agreement::OPT_ON_FILE_ALL` |

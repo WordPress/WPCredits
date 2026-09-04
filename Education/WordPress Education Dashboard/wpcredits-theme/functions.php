@@ -278,6 +278,10 @@ function wpcredits_body_class( $classes ) {
 		$classes[] = 'wpc-institution-page';
 	}
 
+	if ( wpcredits_is_administrator_page() ) {
+		$classes[] = 'wpc-administrator-page';
+	}
+
 	if ( is_user_logged_in() ) {
 		$classes[] = 'wpc-signed-in';
 	}

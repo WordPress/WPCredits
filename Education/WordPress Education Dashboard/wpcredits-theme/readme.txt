@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.16.8
+Stable tag: 1.17.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.17.0 =
+* The Administrator Dashboard, the page plugin 1.92.0 gives program managers, has its template, its page predicate, its body class and its skin: the attention strip, the programs tiles, the tables, and the theme's secondary button on the decisions the wp-admin queue draws with core's button classes. As with the Institution Dashboard, the predicate and the body class were added together, because a page in one and not the other renders as an article with no skin.
 
 = 1.16.8 =
 * Nine rules in the dashboard stylesheet and one in the print stylesheet dressed classes the plugin no longer prints, left behind when the triage and the student edit form moved into the plugin. They are gone, and `php bin/check-selectors.php` now greps both trees for every class the theme dresses, so the next one is flagged the day it goes.

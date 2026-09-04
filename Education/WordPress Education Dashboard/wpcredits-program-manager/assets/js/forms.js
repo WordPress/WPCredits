@@ -90,6 +90,17 @@
 		} );
 
 		form.addEventListener( 'submit', function ( event ) {
+			// An inline `onsubmit="return confirm(...)"` - the Administrator Dashboard's Approve,
+			// Reject, Reject as spam and Delete for good all carry one - has already run by the
+			// time this listener does. When the manager presses Cancel, that handler already
+			// called preventDefault() and nothing was submitted; locking the form "Working" and
+			// disabling its buttons for a press that never went anywhere misreports the page's
+			// state, and the decisions with a confirm are exactly the destructive ones, where a
+			// wrong "Working" is worst.
+			if ( event.defaultPrevented ) {
+				return;
+			}
+
 			if ( form.getAttribute( 'data-wpcpm-sent' ) ) {
 				// Already on its way. Swallow the repeat rather than posting twice.
 				event.preventDefault();

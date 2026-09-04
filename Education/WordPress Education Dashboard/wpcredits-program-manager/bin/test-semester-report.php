@@ -743,6 +743,10 @@ class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
 }
 
+class WPCPM_Administrators_Dashboard {
+	public static function page_url() { return 'https://example.test/administrator-dashboard/'; }
+}
+
 class WPCPM_Institution_Audit {
 	const GROUND_MANAGER = 'manager';
 	const GROUND_MEMBER  = 'member';
@@ -898,6 +902,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
+// The real class, not a stand-in: WPCPM_Return::url() is what a refused Draft now (final
+// review, Important 2) has to resolve through, and a stub could quietly disagree with it.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 // WPCPM_Ceiling is stubbed above, so a test can pre-fill $GLOBALS['ceiling'] to make a claim
 // land full; the real option-backed class is not loaded here, and nothing this suite exercises
 // (class-wpcpm-student-report-form.php's fields() included) calls the real one.
@@ -2729,6 +2736,21 @@ ck( 'the manager lands on it, as that institution', has( $GLOBALS['redirect'], '
 ck( 'and it is logged to the account that pressed', array( WPCPM_Semester_Report::log_entries()[0]['event'], WPCPM_Semester_Report::log_entries()[0]['actor'] ), array( 'drafted', 3 ) );
 ck( 'nobody is mailed for a press', $GLOBALS['mail'], array() );
 ck( 'a second press finds the report', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $B, 'cohort' => '2026-H1' ) ), 'draft-exists' );
+
+// The same draft-exists refusal, posted with the dashboard's return fields: a refusal comes
+// back to the Administrator Dashboard, at the anchor render_draft_form() prints (final review,
+// Important 2), never to the wp-admin default.
+$GLOBALS['flash'] = array();
+$_POST = array( 'institution' => $B, 'cohort' => '2026-H1', 'wpcpm_return' => WPCPM_Return::DASHBOARD, 'wpcpm_return_to' => 'reports' );
+$_GET  = array();
+run_handler( WPCPM_Semester_Report_Screen::ACTION_DRAFT );
+ck( 'a refused Draft now with the dashboard field returns to the Administrator Dashboard', has( $GLOBALS['redirect'], 'https://example.test/administrator-dashboard/' ) && has( $GLOBALS['redirect'], 'wpcpm-reports' ), true );
+
+// Without the field, the same refusal still comes back to the Institution Dashboard, as it
+// always did: bounce() falls through to leave() when the form said nothing about a dashboard.
+ck( 'and without it, the refusal still finds the report', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $B, 'cohort' => '2026-H1' ) ), 'draft-exists' );
+ck( 'landing on the Institution Dashboard, not the Administrator Dashboard', has( $GLOBALS['redirect'], 'institution-dashboard' ) && ! has( $GLOBALS['redirect'], 'administrator-dashboard' ), true );
+
 ck( 'no start date is not a semester', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $B, 'cohort' => 'none' ) ), 'bad-cohort' );
 ck( 'a malformed record is refused', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => 'not-a-record', 'cohort' => '2025-H2' ) ), 'refused' );
 
@@ -2736,6 +2758,15 @@ $GLOBALS['ceiling'] = array( 'report-draft:3' => WPCPM_Semester_Report_Screen::D
 ck( 'the twenty-first press in a day is refused', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $A, 'cohort' => '2026-H1' ) ), 'draft-refused' );
 ck( 'and writes nothing', WPCPM_Semester_Report::find( $A, '2026-H1' ), null );
 $GLOBALS['ceiling'] = array();
+
+// leave() (the success path) is unchanged by decision 2's ruling: even with the dashboard
+// return posted, a successful Draft now still opens the new draft in the editor, because that
+// is where the manager reads it.
+$GLOBALS['flash'] = array();
+$_POST = array( 'institution' => $A, 'cohort' => '2026-H1', 'wpcpm_return' => WPCPM_Return::DASHBOARD, 'wpcpm_return_to' => 'reports' );
+$_GET  = array();
+run_handler( WPCPM_Semester_Report_Screen::ACTION_DRAFT );
+ck( 'a successful draft ignores the dashboard field and still opens the editor', has( $GLOBALS['redirect'], 'wpcpm_report=2026-H1' ) && has( $GLOBALS['redirect'], WPCPM_Institution_Roster::ARG_VIEW . '=' . $A ) && ! has( $GLOBALS['redirect'], 'administrator-dashboard' ), true );
 
 $GLOBALS['manage'] = false;
 $GLOBALS['acting'] = $A;
@@ -2890,6 +2921,14 @@ WPCPM_Semester_Report_Screen::render_draft_form( $B, '2024-H2' );
 $draft_form = ob_get_clean();
 ck( 'the Draft now form posts the action with the two IDs', has( $draft_form, 'value="' . WPCPM_Semester_Report_Screen::ACTION_DRAFT . '"' ) && has( $draft_form, 'name="institution" value="' . $B . '"' ) && has( $draft_form, 'name="cohort" value="2024-H2"' ), true );
 ck( 'guarded against a double press', has( $draft_form, 'data-wpcpm-once' ), true );
+ck( 'without a fourth argument it carries no return field', has( $draft_form, 'wpcpm_return' ), false );
+
+// Drawn with the dashboard return (final review, Important 2): a refusal has to come back to
+// the Administrator Dashboard, which needs both hidden fields WPCPM_Return::field() prints.
+ob_start();
+WPCPM_Semester_Report_Screen::render_draft_form( $B, '2026-H1', '', WPCPM_Return::DASHBOARD );
+$draft_form_dashboard = ob_get_clean();
+ck( 'given the dashboard return, Draft now carries both of WPCPM_Return\'s hidden fields', has( $draft_form_dashboard, 'name="wpcpm_return" value="dashboard"' ) && has( $draft_form_dashboard, 'name="wpcpm_return_to" value="reports"' ), true );
 
 echo "\n=== Printing ===\n";
 
