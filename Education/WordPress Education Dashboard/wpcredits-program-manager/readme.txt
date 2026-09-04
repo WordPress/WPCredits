@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.91.0
+Stable tag: 1.91.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.91.1 =
+* A semester report stays on the Institution Dashboard and the manager's index when a sync re-dates or removes the roster rows it was written from; the card reads the reports themselves rather than the roster.
+* The Institutions screen lists every draft, however old, and caps only the approved list at the sixty most recently edited.
+* A member following a link to a report that is still being prepared lands on an open card.
+* Test suites: the report suite's policy stand-in now refuses a member the edit action, as the real policy does; three assertions that could not fail were replaced.
 
 = 1.91.0 =
 * **The semester report is drafted by the site and approved by a program manager; the institution reads it.** A daily job drafts a report for every institution semester that has ended (after a grace of 45 days when students are still in progress, and never for a semester that ended before this release was installed), and tells the program managers. A manager can also press Draft now on the Institutions screen for any institution and semester. Managers edit the report on the Institution Dashboard as before and press Approve; only then does the institution see it, as a read-only document with a Download PDF button, and its accounts are mailed. Reopening takes it back to a draft and out of the institution's view. Institutions can no longer generate or edit reports (design of 4 September 2026).

@@ -1821,6 +1821,38 @@ ck( 'the draft says the site drafted it', false !== strpos( $report_rows[0], 'by
 ck( 'and the approved one that a manager did', false !== strpos( $report_rows[1], 'by a manager' ), true );
 ck( 'and an approved report says so', false !== strpos( $report_rows[1], 'Approved' ), true );
 ck( 'drafts come first whatever their date', false !== strpos( $report_rows[0], 'Draft' ), true );
+
+// A draft must never fall off this queue for being older than the newest sixty edits: sixty-one
+// further approved reports, every one newer than the draft 9101, prove the draft still holds row
+// 0 while it is the approved half below it that actually gets capped at REPORTS_SHOWN.
+for ( $i = 0; $i <= 60; $i++ ) {
+	seed_report( 9200 + $i, $report_record, '2020-H1', 'approved', 1758000000 + $i );
+}
+
+$capped = render_screen();
+
+ck( 'the heading counts every report fetched, not only the capped rows', false !== strpos( $capped, 'Semester reports <span class="wpcpm-count">63</span>' ), true );
+
+$capped_rows = array();
+
+if ( preg_match_all( '#<tr><td>(.*?)</tr>#s', $capped, $capped_found ) ) {
+	foreach ( $capped_found[1] as $row ) {
+		if ( false !== strpos( $row, WPCPM_Semester_Report_Screen::ACTION_ASK ) ) { $capped_rows[] = $row; }
+	}
+}
+
+ck( 'the draft is still row 0 among sixty-one newer approved reports', false !== strpos( $capped_rows[0], '2026-H1' ) && false !== strpos( $capped_rows[0], 'Draft' ), true );
+// One draft, kept whatever its date, plus the newest sixty of the now sixty-two approved
+// reports. The cap is on recency, not on which report was here first: the fixture's own
+// original approved 2025-H2 report is older than every one of the sixty-one just seeded, so
+// it is one of the two the cap leaves out, the other being the single oldest of the sixty-one.
+ck( 'every draft plus only the newest REPORTS_SHOWN approved reports', count( $capped_rows ), 1 + 60 );
+ck( 'the heading sentence names the approved list as what was capped', false !== strpos( $capped, 'most recently edited approved reports' ), true );
+
+foreach ( range( 9200, 9260 ) as $id ) {
+	unset( $GLOBALS['posts'][ $id ], $GLOBALS['pmeta'][ $id ] );
+}
+
 ck( 'the due list offers Draft now for the cohort the job would draft', false !== strpos( $html, 'name="cohort" value="2024-H2"' ) && false !== strpos( $html, 'value="' . WPCPM_Semester_Report_Screen::ACTION_DRAFT . '"' ), true );
 ck( 'and the picker for any semester is drawn', false !== strpos( $html, 'Draft any semester' ) && false !== strpos( $html, 'name="institution"' ), true );
 ck( 'and the log is drawn', false !== strpos( $html, 'Report log' ) && false !== strpos( $html, 'approved' ), true );

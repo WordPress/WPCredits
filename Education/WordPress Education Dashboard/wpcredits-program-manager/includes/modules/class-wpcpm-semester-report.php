@@ -1034,6 +1034,67 @@ final class WPCPM_Semester_Report {
 	}
 
 	/**
+	 * Every report this institution has, keyed by cohort, newest cohort first.
+	 *
+	 * The roster is one sync away from forgetting a cohort: a re-dated or removed row takes
+	 * the semester out of anything derived from `WPCPM_Roster_Index::rows()`. A report is not
+	 * such a derivative, it is a document the institution was already mailed a link to, so the
+	 * manager's index and the institution's own card read the reports themselves here rather
+	 * than walk the roster and look each cohort up.
+	 *
+	 * @param string $institution Airtable Institutions record ID.
+	 * @return WP_Post[] Keyed by cohort key; `array()` for a malformed ID.
+	 */
+	public static function reports_of( $institution ) {
+		$institution = trim( (string) $institution );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
+			return array();
+		}
+
+		$posts = get_posts(
+			array(
+				'post_type'      => self::POST_TYPE,
+				'post_status'    => 'private',
+				'posts_per_page' => -1,
+				'meta_query'     => array(
+					array(
+						'key'   => self::META_INSTITUTION,
+						'value' => $institution,
+					),
+				),
+			)
+		);
+
+		$by_cohort = array();
+
+		foreach ( $posts as $post ) {
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			$by_cohort[ self::cohort_of( $post ) ] = $post;
+		}
+
+		$keys = array_keys( $by_cohort );
+
+		usort(
+			$keys,
+			static function ( $a, $b ) {
+				return WPCPM_Cohort::compare( $b, $a );
+			}
+		);
+
+		$sorted = array();
+
+		foreach ( $keys as $key ) {
+			$sorted[ $key ] = $by_cohort[ $key ];
+		}
+
+		return $sorted;
+	}
+
+	/**
 	 * Plain rows for one state. No prose, no snapshot: the readers of this list draw a table.
 	 *
 	 * @param string $state          STATE_DRAFT or STATE_APPROVED.

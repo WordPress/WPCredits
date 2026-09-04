@@ -3940,43 +3940,52 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// `private` by name rather than `any`: it is the one status a report is ever written
 		// with, and `any` would also bring back a report somebody had trashed by hand, which
 		// is a document that has been withdrawn rather than one to list.
+		//
+		// `-1`: one report per institution per semester, so even every institution the program
+		// has ever had, reporting every semester it has run, is a few hundred rows at most, and
+		// a draft must never fall off the manager's queue for being older than the newest
+		// sixty edits.
 		$posts = get_posts(
 			array(
 				'post_type'        => WPCPM_Semester_Report::POST_TYPE,
 				'post_status'      => 'private',
-				'posts_per_page'   => self::REPORTS_SHOWN,
+				'posts_per_page'   => -1,
 				'orderby'          => 'modified',
 				'order'            => 'DESC',
 				'suppress_filters' => false,
 			)
 		);
 
+		$total = count( $posts );
+
+		// Partitioned rather than sorted in place, because the two halves are kept to different
+		// rules below: every draft, whatever its date, and only the newest REPORTS_SHOWN of the
+		// approved ones. Each half is sorted on its own so neither reading relies on the other.
+		$drafts   = array();
+		$approved = array();
+
+		foreach ( $posts as $post ) {
+			if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
+				$approved[] = $post;
+			} else {
+				$drafts[] = $post;
+			}
+		}
+
+		$by_modified_desc = static function ( $a, $b ) {
+			return strcmp( (string) $b->post_modified_gmt, (string) $a->post_modified_gmt );
+		};
+
+		usort( $drafts, $by_modified_desc );
+		usort( $approved, $by_modified_desc );
+
+		$approved_total = count( $approved );
+		$approved       = array_slice( $approved, 0, self::REPORTS_SHOWN );
+
 		// Drafts first, whatever their date: this card is the manager's queue since the
 		// approval design, and the thing waiting for them belongs above the thing that is done.
-		usort(
-			$posts,
-			static function ( $a, $b ) {
-				$a_draft = WPCPM_Semester_Report::STATE_APPROVED !== WPCPM_Semester_Report::state( $a );
-				$b_draft = WPCPM_Semester_Report::STATE_APPROVED !== WPCPM_Semester_Report::state( $b );
-
-				if ( $a_draft !== $b_draft ) {
-					return $a_draft ? -1 : 1;
-				}
-
-				return strcmp( (string) $b->post_modified_gmt, (string) $a->post_modified_gmt );
-			}
-		);
-
-		$total = 0;
-
-		// Counted rather than taken from the rows above, which are capped: a heading reading 60
-		// beside a list of 60 is a heading that stops being true the day the sixty-first report is
-		// written, and says nothing about it. Asked for only when there is something to count, so
-		// a site whose institutions have not started writing runs one query and not two.
-		if ( ! empty( $posts ) ) {
-			$tally = wp_count_posts( WPCPM_Semester_Report::POST_TYPE );
-			$total = isset( $tally->private ) ? (int) $tally->private : count( $posts );
-		}
+		// Every draft is here; only the approved half above was capped.
+		$posts = array_merge( $drafts, $approved );
 
 		echo '<div class="wpcpm-card">';
 		printf(
@@ -3989,14 +3998,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		if ( empty( $posts ) ) {
 			echo '<p>' . esc_html__( 'No report has been drafted yet.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
-			if ( $total > count( $posts ) ) {
+			if ( $approved_total > count( $approved ) ) {
 				printf(
 					'<p class="description">%s</p>',
 					esc_html(
 						sprintf(
-							/* translators: %s: how many reports are listed. */
-							__( 'The %s most recently edited are listed.', 'wpcredits-program-manager' ),
-							number_format_i18n( count( $posts ) )
+							/* translators: %s: how many approved reports are listed. */
+							__( 'Every draft is listed, and the %s most recently edited approved reports.', 'wpcredits-program-manager' ),
+							number_format_i18n( count( $approved ) )
 						)
 					)
 				);

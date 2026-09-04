@@ -245,6 +245,9 @@ final class WPCPM_Semester_Report_Screen {
 		$cohort = self::cohort_from_request();
 		$report = '' === $cohort ? null : WPCPM_Semester_Report::find( $record, $cohort );
 
+		// The reader followed a link, so the card they were sent to is open whatever it shows.
+		$asked = '' !== $cohort;
+
 		// **A draft does not exist for the institution.** An address naming its cohort lands
 		// on the list, which says the report is being prepared; the editor, the forms and the
 		// document are a manager's until approval.
@@ -263,7 +266,7 @@ final class WPCPM_Semester_Report_Screen {
 		// page is asking the reader for something rather than offering.
 		printf(
 			'<details class="wpcpm-group wpcpm-group__disclosure wpcpm-report-card__disclosure"%s>',
-			( '' !== $cohort || '' !== $said ) ? ' open' : ''
+			( $asked || '' !== $said ) ? ' open' : ''
 		);
 
 		printf(
@@ -323,11 +326,13 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * Every semester this institution has students in, and what it has written about each.
+	 * Every semester this institution has students in, or still has a report about, and what
+	 * it has written for each.
 	 *
-	 * The list of cohorts is derived here rather than read off the roster view, whose own
-	 * list is private: what matters is that the semesters offered are the semesters the
-	 * roster shows, and both are derived from the same index rows by the same function.
+	 * `cohorts_with_reports()` is the union of the roster's own cohorts and every cohort a
+	 * report still exists for: a report is a document the institution was already mailed a
+	 * link to, and a later sync re-dating or removing the roster rows it was drafted from
+	 * must not take that link off the card.
 	 *
 	 * @param string $record     Institutions record ID.
 	 * @param string $asked      The cohort the address named, when no report exists for it.
@@ -354,7 +359,7 @@ final class WPCPM_Semester_Report_Screen {
 			);
 		}
 
-		$cohorts = self::cohorts_of( $record );
+		$cohorts = self::cohorts_with_reports( $record );
 
 		if ( empty( $cohorts ) ) {
 			printf(
@@ -453,13 +458,11 @@ final class WPCPM_Semester_Report_Screen {
 		$approved = array();
 		$drafts   = array();
 
-		foreach ( self::cohorts_of( $record ) as $cohort ) {
-			$post = WPCPM_Semester_Report::find( $record, $cohort );
-
-			if ( ! $post instanceof WP_Post ) {
-				continue;
-			}
-
+		// Read off the reports themselves, not a per-cohort find() over the roster's list: a
+		// report a sync's re-dated rows would drop from cohorts_of() still belongs on this
+		// institution's own card, since it is a document the institution was already mailed
+		// a link to.
+		foreach ( WPCPM_Semester_Report::reports_of( $record ) as $cohort => $post ) {
 			if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
 				$approved[ $cohort ] = $post;
 			} else {
@@ -2039,9 +2042,12 @@ final class WPCPM_Semester_Report_Screen {
 	 * Draft one institution's cohort now, from the manager screens.
 	 *
 	 * The capability first, before anything posted is read: whether this account may press
-	 * the button must not depend on what it posted. Then the policy on the institution the
-	 * form names, then the nonce, then the shape of the cohort. A member reaching this by
-	 * hand gets the one refusal and the policy is never asked.
+	 * the button must not depend on what it posted. Then whether the index holds the record,
+	 * before the policy is asked: an ID the site never read is not a subject at all. Then the
+	 * policy on the institution the form names, then the nonce, then the shape of the cohort,
+	 * then whether a report already exists and whether the roster has a row in that semester,
+	 * then the day's ceiling and the lock. A member reaching this by hand gets the one refusal
+	 * and the policy is never asked.
 	 */
 	public static function handle_draft() {
 		if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
@@ -3240,6 +3246,40 @@ final class WPCPM_Semester_Report_Screen {
 		// has just ended, and the oldest semester at the top would make the newest the one
 		// they have to scroll for. NONE is already out of the list, so nothing has to be
 		// held at one end.
+		usort(
+			$keys,
+			static function ( $a, $b ) {
+				return WPCPM_Cohort::compare( $b, $a );
+			}
+		);
+
+		return $keys;
+	}
+
+	/**
+	 * Every semester `cohorts_of()` would list, plus every semester a report still exists for,
+	 * newest first.
+	 *
+	 * A sync that re-dates or removes a roster row takes the cohort out of `cohorts_of()`, but
+	 * the report itself does not stop existing and the institution was already mailed a link
+	 * to it: this union is what keeps that link live and the report on the manager's index.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string[] Cohort keys.
+	 */
+	private static function cohorts_with_reports( $record ) {
+		$keys = array();
+
+		foreach ( self::cohorts_of( $record ) as $key ) {
+			$keys[ $key ] = true;
+		}
+
+		foreach ( array_keys( WPCPM_Semester_Report::reports_of( $record ) ) as $key ) {
+			$keys[ $key ] = true;
+		}
+
+		$keys = array_keys( $keys );
+
 		usort(
 			$keys,
 			static function ( $a, $b ) {

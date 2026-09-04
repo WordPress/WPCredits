@@ -860,6 +860,12 @@ class WPCPM_Institution_Policy {
 			);
 		}
 
+		// The real map's row for this action holds only GROUND_MANAGER: the approval design
+		// of 4 September 2026, decision 1, gives the write to the program and not to a member.
+		if ( self::ACT_EDIT_SEMESTER_REPORT === $action ) {
+			return array( 'allowed' => false, 'ground' => '', 'institution' => '', 'fields' => array(), 'why' => 'no-ground' );
+		}
+
 		if ( '' !== (string) $GLOBALS['acting'] && in_array( (string) $GLOBALS['acting'], $ids, true ) ) {
 			return array(
 				'allowed'     => true,
@@ -2444,8 +2450,10 @@ $rev_own = wp_insert_post( array( 'post_type' => 'revision', 'post_status' => 'i
 $rev_a   = wp_insert_post( array( 'post_type' => 'revision', 'post_status' => 'inherit', 'post_parent' => $post_id ) );
 $GLOBALS['restored'] = array();
 
-ck( 'restoring a revision of this school\'s report restores it', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_RESTORE, array( 'revision' => $rev_own ) ), 'restored' );
-ck( 'and the revision restored is the one named', $GLOBALS['restored'], array( $rev_own ) );
+// Restoring a revision is an edit, and item 6's policy row gives that ground to a manager
+// only: a member is refused this school's own report exactly as it is refused another's.
+ck( 'restoring a revision, even of this school\'s own report, is refused to a member', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_RESTORE, array( 'revision' => $rev_own ) ), 'refused' );
+ck( 'and nothing was restored', $GLOBALS['restored'], array() );
 $GLOBALS['restored'] = array();
 ck( 'a revision of another school\'s report is refused', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_RESTORE, array( 'revision' => $rev_a ) ), 'refused' );
 ck( 'posting this school\'s report ID beside it changes nothing: the parent comes off the revision', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_RESTORE, array( 'revision' => $rev_a, 'report' => $e_post ) ), 'refused' );
@@ -2485,8 +2493,9 @@ ck( 'along with the live ones', get_post( $e_post ), null );
 
 echo "\n=== Airtable's own words reach a manager, not a member ===\n";
 
-// The client's error text carries the HTTP status and, on a credential fault, Airtable's hint
-// about the token's scopes. A member's screen said "That did not work: <all of it>".
+// The edit action became a manager's ground in item 6, so a member cannot reach the read at
+// all: ACTION_GENERATE refuses before Airtable is asked anything, and the only viewer who can
+// see Airtable's own words in the client's error is the one who can act on them.
 $GLOBALS['acting']     = $E;
 $GLOBALS['manage']     = false;
 $GLOBALS['uid']        = 7;
@@ -2497,14 +2506,15 @@ $_POST = array( 'cohort' => $COHORT, 'institution' => $E, 'report' => 0 );
 $_GET  = array();
 run_handler( WPCPM_Semester_Report_Screen::ACTION_GENERATE );
 $member_flash = wp_json_encode( $GLOBALS['flash'] );
-ck( 'a member is told the read failed', has( $member_flash, 'generate-failed' ), true );
-ck( 'and is not shown the client\'s message', has( $member_flash, 'HTTP' ) || has( $member_flash, 'token' ) || has( $member_flash, 'unavailable' ), false );
+ck( 'a member is refused before any read is attempted', has( $member_flash, 'refused' ), true );
+ck( 'carrying nothing of the read that never happened', has( $member_flash, 'generate-failed' ) || has( $member_flash, 'HTTP' ) || has( $member_flash, 'token' ), false );
 
 $GLOBALS['manage'] = true;
 $GLOBALS['flash']  = array();
 run_handler( WPCPM_Semester_Report_Screen::ACTION_GENERATE );
 $manager_flash = wp_json_encode( $GLOBALS['flash'] );
-ck( 'a manager is shown it, because a manager can act on it', has( $manager_flash, 'generate-failed' ) && strlen( $manager_flash ) > strlen( $member_flash ), true );
+ck( 'a manager is told the read failed', has( $manager_flash, 'generate-failed' ), true );
+ck( 'and is shown the client\'s message, because a manager can act on it', has( $manager_flash, 'the read was abandoned' ), true );
 $GLOBALS['fail_table'] = '';
 $GLOBALS['manage']     = false;
 
@@ -2564,7 +2574,7 @@ $prev_manage       = $GLOBALS['manage'];
 $GLOBALS['manage'] = true;
 $legacy_screen     = screen_html( $C, '2025-H2' );
 $GLOBALS['manage'] = $prev_manage;
-ck( 'an upgraded report says when it was approved and names nobody', has( $legacy_screen, 'Approved on' ) && ! has( $legacy_screen, 'Approved on ' . '' . 'by' ) && ! preg_match( '/Approved on [^<]* by /', $legacy_screen ), true );
+ck( 'an upgraded report says when it was approved and names nobody', has( $legacy_screen, 'Approved on' ) && ! preg_match( '/Approved on [^<]* by /', $legacy_screen ), true );
 
 ck( 'the vocabulary version is stamped', (int) get_option( WPCPM_Semester_Report::OPT_STATE_VERSION ), 2 );
 ck( 'and the since-date is today', get_option( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ), gmdate( 'Y-m-d' ) );
@@ -2751,12 +2761,16 @@ $GLOBALS['transients'] = array();
 
 // The first pair is being generated by somebody this minute.
 $first_pair = WPCPM_Semester_Report::due( gmdate( 'Y-m-d' ) )[0];
+// The job skips the locked first pair, so the first mail sent belongs to the second: capture
+// it now, before the lock changes what due() would return.
+$second_pair = WPCPM_Semester_Report::due( gmdate( 'Y-m-d' ) )[1];
 $GLOBALS['opts'][ 'wpcpm_report_gen_' . md5( $first_pair['institution'] . '|' . $first_pair['cohort'] ) ] = time();
 
 ck( 'one run drafts the cap, skipping the locked pair', WPCPM_Semester_Report_Screen::autodraft_tick(), WPCPM_Semester_Report_Screen::AUTODRAFT_PER_RUN );
 ck( 'and mails the managers once per draft, through the report setting', count( array_filter( $GLOBALS['mail'], static function ( $m ) { return 'report-drafted' === $m['context'] && 'managers:report_notify' === $m['to']; } ) ), WPCPM_Semester_Report_Screen::AUTODRAFT_PER_RUN );
 ck( 'the mail names the institution, the semester and the review link', has( $GLOBALS['mail'][0]['body'], 'Job University' ) && has( $GLOBALS['mail'][0]['body'], 'January to June 2026' ) && has( $GLOBALS['mail'][0]['body'], 'wpcpm_report=2026-H1' ), true );
-ck( 'and opens it as that institution', has( $GLOBALS['mail'][0]['body'], WPCPM_Institution_Roster::ARG_VIEW . '=' . $first_pair['institution'] ) || has( $GLOBALS['mail'][0]['body'], WPCPM_Institution_Roster::ARG_VIEW . '=' ), true );
+ck( 'and opens it as the institution it was drafted for, through the switcher', has( $GLOBALS['mail'][0]['body'], WPCPM_Institution_Roster::ARG_VIEW . '=' . $second_pair['institution'] ), true );
+ck( 'and names that institution in the subject', has( $GLOBALS['mail'][0]['subject'], 'Job University ' . (int) substr( $second_pair['institution'], -3 ) ), true );
 ck( 'each draft is the job\'s', WPCPM_Semester_Report::queue()[0]['origin'], 'auto' );
 ck( 'and logged to actor 0', WPCPM_Semester_Report::log_entries()[0]['actor'], 0 );
 unset( $GLOBALS['opts'][ 'wpcpm_report_gen_' . md5( $first_pair['institution'] . '|' . $first_pair['cohort'] ) ] );
@@ -2955,6 +2969,55 @@ $GLOBALS['ceiling'] = array( 'report-draft:3' => WPCPM_Semester_Report_Screen::D
 ck( 'and the same daily ceiling as Draft now refuses it too', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => '2025-H2' ) ), 'draft-refused' );
 ck( 'writing nothing', WPCPM_Semester_Report::find( $A, '2025-H2' ), null );
 $GLOBALS['ceiling'] = array();
+
+echo "\n=== A report outlives its roster rows ===\n";
+
+// A sync can re-date or remove a roster row long after a report was drafted and mailed to
+// the institution: the report is a document, not a live view of the roster, and neither the
+// manager's index nor the institution's own card may lose it because the row that produced
+// it moved (final review, item 4).
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['transients'] = array();
+$GLOBALS['flash']      = array();
+$GLOBALS['manage']     = true;
+$GLOBALS['acting']     = '';
+$GLOBALS['index'][ $B ]['rows'] = $finished;
+$outlives_post = WPCPM_Semester_Report::generate( $B, '2026-H1' );
+WPCPM_Semester_Report::approve( get_post( $outlives_post ), 3 );
+
+// The roster now knows only a semester the report was never about.
+$GLOBALS['index'][ $B ]['rows'] = array(
+	array( 'record_id' => 'recS0000000000007', 'email' => 'g@example.test', 'status' => 'Graduate', 'start' => '2025-09-10', 'end' => '2025-12-20' ),
+);
+
+ck( 'reports_of() still has the cohort a re-dated roster no longer offers', array_key_exists( '2026-H1', WPCPM_Semester_Report::reports_of( $B ) ), true );
+
+$GLOBALS['manage'] = false;
+$GLOBALS['acting'] = $B;
+$member_outlives   = screen_html( $B, '' );
+ck( 'a member still sees the semester the roster no longer lists', has( $member_outlives, 'January to June 2026' ), true );
+ck( 'with its Download PDF link', has( $member_outlives, '>Download PDF<' ), true );
+
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$manager_outlives  = screen_html( $B, '' );
+ck( 'a manager still sees it too', has( $manager_outlives, 'January to June 2026' ), true );
+ck( 'with an Open link', has( $manager_outlives, '>Open<' ), true );
+
+ck( 'a malformed institution has no reports to lose', WPCPM_Semester_Report::reports_of( 'not-a-record' ), array() );
+
+// The same re-dated roster still has a 2025-H2 row, which doubles as the fixture item 7
+// needs: a draft in a semester a member can reach by address.
+$draft_post = WPCPM_Semester_Report::generate( $B, '2025-H2' );
+
+$GLOBALS['manage'] = false;
+$GLOBALS['acting'] = $B;
+$asked_card        = screen_html( $B, '2025-H2' );
+ck( 'a member asking for a draft by address gets an open card', has( $asked_card, 'wpcpm-report-card__disclosure" open' ), true );
+$unasked_card = screen_html( $B, '' );
+ck( 'and the card stays folded when the address asks for nothing', has( $unasked_card, 'wpcpm-report-card__disclosure" open' ), false );
+
+$GLOBALS['index'] = $saved_index;
 
 echo "\n=== House rules ===\n";
 
