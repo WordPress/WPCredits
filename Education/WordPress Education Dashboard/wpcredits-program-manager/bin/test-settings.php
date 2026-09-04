@@ -223,6 +223,9 @@ $probe = array(
 	'agreement_notify'              => 'one@example.org,two@example.org',
 	'agreement_discard_days'        => '60',
 	'invite_retention_days'         => '45',
+	// The semester report approval flow.
+	'report_autodraft_grace_days'   => '30',
+	'report_notify'                 => 'one@example.org,two@example.org',
 );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
@@ -594,6 +597,20 @@ ck( 'and the notice reads that channel', false !== strpos( $settings_src, "WPCPM
 ck( 'the labels the notice prints are the three fields\' own', array_keys( WPCPM_Settings::never_blank() ), array( 'mentor_status', 'student_statuses', 'institution_active_stages' ) );
 $filled = WPCPM_Settings::save( array( 'mentor_status' => 'Active' ) );
 ck( 'a filled field is saved as given', WPCPM_Settings::get()['mentor_status'], 'Active' );
+
+echo "\n=== Semester report settings ===\n";
+
+$defaults = WPCPM_Settings::defaults();
+ck( 'the three report settings and their defaults', array( $defaults['report_autodraft'], $defaults['report_autodraft_grace_days'], $defaults['report_notify'] ), array( true, 45, '' ) );
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
+$saved = WPCPM_Settings::save( array( 'report_autodraft_grace_days' => '2', 'report_notify' => "one@example.org, junk\nmaciej@a8c.com" ) );
+ck( 'the grace has a floor of a week', $saved['report_autodraft_grace_days'], 7 );
+ck( 'the addresses are cleaned like the agreement ones', $saved['report_notify'], 'one@example.org,maciej@a8c.com' );
+ck( 'a save that does not carry the switch leaves it on', $saved['report_autodraft'], true );
+$saved = WPCPM_Settings::save( array( 'report_autodraft' => '', 'report_autodraft_grace_days' => '900' ) );
+ck( 'the switch carried empty is off', $saved['report_autodraft'], false );
+ck( 'and the grace has a ceiling of a year', $saved['report_autodraft_grace_days'], 365 );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

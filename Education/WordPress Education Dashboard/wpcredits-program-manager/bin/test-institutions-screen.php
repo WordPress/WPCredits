@@ -878,12 +878,18 @@ if ( ! class_exists( 'WPCPM_Mentors' ) ) {
  */
 if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
 	class WPCPM_Semester_Report {
-		const POST_TYPE   = 'wpcpm_inst_report';
-		const STATE_FINAL = 'final';
+		const POST_TYPE      = 'wpcpm_inst_report';
+		const STATE_DRAFT    = 'draft';
+		const STATE_APPROVED = 'approved';
+		const ORIGIN_AUTO    = 'auto';
 		public static function institution_of( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_institution', true ); }
 		public static function cohort_of( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_cohort', true ); }
 		public static function generated_at( WP_Post $post ) { return (int) get_post_meta( $post->ID, '_wpcpm_report_generated', true ); }
 		public static function state( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_state', true ); }
+		public static function origin_of( WP_Post $post ) { return (string) get_post_meta( $post->ID, '_wpcpm_report_origin', true ) === 'auto' ? 'auto' : 'manager'; }
+		public static function approved_at( WP_Post $post ) { $s = get_post_meta( $post->ID, '_wpcpm_report_approved', true ); return is_array( $s ) ? $s : array(); }
+		public static function due( $today ) { return isset( $GLOBALS['due'] ) ? $GLOBALS['due'] : array(); }
+		public static function log_entries() { return isset( $GLOBALS['report_log'] ) ? $GLOBALS['report_log'] : array(); }
 		public static function init() {}
 		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Semester_Report::delete_all' ); return 0; }
 	}
@@ -891,11 +897,13 @@ if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
 
 if ( ! class_exists( 'WPCPM_Semester_Report_Screen' ) ) {
 	class WPCPM_Semester_Report_Screen {
-		const ACTION_ASK  = 'wpcpm_report_ask';
-		const ASK_PER_RUN = 25;
-		const CRON_ASK    = 'wpcpm_report_ask_queue';
-		const META_ASKED  = 'wpcpm_report_consent_asked';
-		const META_STASH  = 'wpcpm_report_stash';
+		const ACTION_ASK     = 'wpcpm_report_ask';
+		const ASK_PER_RUN    = 25;
+		const CRON_ASK       = 'wpcpm_report_ask_queue';
+		const CRON_AUTODRAFT = 'wpcpm_report_autodraft';
+		const ACTION_DRAFT   = 'wpcpm_report_draft';
+		const META_ASKED     = 'wpcpm_report_consent_asked';
+		const META_STASH     = 'wpcpm_report_stash';
 		public static function report_url( $cohort ) { return '' === (string) $cohort ? '' : 'https://example.test/institution-dashboard/?wpcpm_report=' . $cohort; }
 		public static function render_ask_form( $post_id ) {
 			printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
@@ -903,6 +911,17 @@ if ( ! class_exists( 'WPCPM_Semester_Report_Screen' ) ) {
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_ASK ) );
 			printf( '<input type="hidden" name="report" value="%d" />', (int) $post_id );
 			echo '<button type="submit">Ask the students</button></form>';
+		}
+		public static function render_draft_form( $record, $cohort, $label = '' ) {
+			printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
+			printf( '<input type="hidden" name="action" value="%s" /><input type="hidden" name="institution" value="%s" /><input type="hidden" name="cohort" value="%s" />', esc_attr( self::ACTION_DRAFT ), esc_attr( $record ), esc_attr( $cohort ) );
+			echo '<button type="submit">Draft now</button></form>';
+		}
+		// Reduced to what the card is asserted to contain: a heading and a form naming the
+		// institution select. render_draft_picker()'s own contract is pinned in the report
+		// suite, against the real class.
+		public static function render_draft_picker() {
+			echo '<h3>Draft any semester</h3><form><select name="institution"></select></form>';
 		}
 		public static function init() {}
 		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Semester_Report_Screen::delete_all' ); return 0; }
@@ -1287,12 +1306,12 @@ echo "\n=== The screen, rendered from the seed fixture ===\n";
  * @param int    $id      Post ID.
  * @param string $record  Institutions record ID.
  * @param string $cohort  Cohort key.
- * @param string $state   `draft` or `final`.
+ * @param string $state   `draft` or `approved`.
  * @param int    $at      When it was generated and last edited, unix time.
  * @param string $status  Post status, so a trashed report can be seeded too.
  * @return WP_Post
  */
-function seed_report( $id, $record, $cohort, $state, $at, $status = 'private' ) {
+function seed_report( $id, $record, $cohort, $state, $at, $status = 'private', $origin = '' ) {
 	$post                    = new WP_Post();
 	$post->ID                = (int) $id;
 	$post->post_type         = WPCPM_Semester_Report::POST_TYPE;
@@ -1309,15 +1328,22 @@ function seed_report( $id, $record, $cohort, $state, $at, $status = 'private' ) 
 	update_post_meta( $id, '_wpcpm_report_state', $state );
 	update_post_meta( $id, '_wpcpm_report_generated', (int) $at );
 
+	if ( '' !== $origin ) {
+		update_post_meta( $id, '_wpcpm_report_origin', $origin );
+	}
+
 	return $post;
 }
 
 $report_record = (string) $seed['institutions'][1]['id'];
 
-seed_report( 9101, $report_record, '2026-H1', 'draft', 1756000000 );
-seed_report( 9102, $report_record, '2025-H2', 'final', 1755000000 );
+seed_report( 9101, $report_record, '2026-H1', 'draft', 1756000000, 'private', 'auto' );
+seed_report( 9102, $report_record, '2025-H2', 'approved', 1757000000 );
 // Trashed by hand: a document somebody withdrew, which is not a row to list.
 seed_report( 9103, $report_record, '2025-H1', 'draft', 1754000000, 'trash' );
+
+$GLOBALS['due']        = array( array( 'institution' => $report_record, 'cohort' => '2024-H2', 'in_progress' => 0, 'window_end' => '2024-12-31' ) );
+$GLOBALS['report_log'] = array( array( 'event' => 'approved', 'institution' => $report_record, 'cohort' => '2025-H2', 'actor' => 1, 'at' => 1755000000 ) );
 
 $html = render_screen();
 
@@ -1791,7 +1817,13 @@ if ( preg_match_all( '#<tr><td>(.*?)</tr>#s', $html, $found ) ) {
 ck( 'each report is a row', count( $report_rows ), 2 );
 ck( 'newest edit first', false !== strpos( $report_rows[0], '2026-H1' ), true );
 ck( 'a draft says so', false !== strpos( $report_rows[0], 'Draft' ), true );
-ck( 'and a final report says so', false !== strpos( $report_rows[1], 'Final' ), true );
+ck( 'the draft says the site drafted it', false !== strpos( $report_rows[0], 'by the site' ), true );
+ck( 'and the approved one that a manager did', false !== strpos( $report_rows[1], 'by a manager' ), true );
+ck( 'and an approved report says so', false !== strpos( $report_rows[1], 'Approved' ), true );
+ck( 'drafts come first whatever their date', false !== strpos( $report_rows[0], 'Draft' ), true );
+ck( 'the due list offers Draft now for the cohort the job would draft', false !== strpos( $html, 'name="cohort" value="2024-H2"' ) && false !== strpos( $html, 'value="' . WPCPM_Semester_Report_Screen::ACTION_DRAFT . '"' ), true );
+ck( 'and the picker for any semester is drawn', false !== strpos( $html, 'Draft any semester' ) && false !== strpos( $html, 'name="institution"' ), true );
+ck( 'and the log is drawn', false !== strpos( $html, 'Report log' ) && false !== strpos( $html, 'approved' ), true );
 
 // The switcher argument, and the reason it is asserted: the link goes to the institution's own
 // dashboard, and without it a manager lands on whichever institution is their fallback and
@@ -1805,7 +1837,7 @@ $GLOBALS['pmeta'] = array();
 
 $empty_card = render_screen();
 
-ck( 'with nothing written, the card says so', false !== strpos( $empty_card, 'No institution has generated a report yet.' ), true );
+ck( 'with nothing written, the card says so', false !== strpos( $empty_card, 'No report has been drafted yet.' ), true );
 ck( 'and offers nobody a request to send', false !== strpos( $empty_card, 'value="' . WPCPM_Semester_Report_Screen::ACTION_ASK . '"' ), false );
 
 /* ---- the storage card --------------------------------------------------- */
@@ -2789,16 +2821,17 @@ ck( 'boots the post types, then every module this screen owns, then hands the cr
 	array( 'invite_init' ),
 ) );
 
-// The five daily jobs are scheduled from boot as well as from activation, because the
+// The six daily jobs are scheduled from boot as well as from activation, because the
 // activation hook never fires on this site's deploy path (`wp plugin install --force` goes
 // through the upgrader's silent reactivation). Recorded, not run: the stub says nothing is
 // scheduled yet, so every job is put on the clock; a second call schedules nothing.
 $GLOBALS['calls'] = array();
 WPCPM_Institutions::schedule_cron();
 $scheduled = array_map( function ( $c ) { return $c[1]; }, array_filter( $GLOBALS['calls'], function ( $c ) { return 'schedule' === $c[0]; } ) );
-ck( 'schedule_cron() puts the five daily jobs on the clock', array_values( $scheduled ), array(
+ck( 'schedule_cron() puts the six daily jobs on the clock', array_values( $scheduled ), array(
 	WPCPM_Ceiling::CRON_SWEEP, WPCPM_Institutions::CRON_PURGE, WPCPM_Institution_Agreement::CRON_DISCARD,
 	WPCPM_Institution_Agreement::CRON_REMINDERS, WPCPM_Institution_Invite::CRON_EXPIRE,
+	WPCPM_Semester_Report_Screen::CRON_AUTODRAFT,
 ) );
 $institutions_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' );
 $boot_body        = substr( $institutions_src, strpos( $institutions_src, 'public function boot()' ), strpos( $institutions_src, 'public function activate()' ) - strpos( $institutions_src, 'public function boot()' ) );
@@ -2861,7 +2894,8 @@ ck( 'and takes the semester reports and their leftovers with it', array(
 	in_array( 'delete_metadata:' . WPCPM_Student_Feedback::META_REPORT_PERMISSIONS, $names, true ),
 	in_array( 'delete_metadata:' . WPCPM_Semester_Report_Screen::META_ASKED, $names, true ),
 	in_array( 'delete_metadata:' . WPCPM_Semester_Report_Screen::META_STASH, $names, true ),
-), array( true, true, true, true, true, true ) );
+	in_array( 'unschedule:' . WPCPM_Semester_Report_Screen::CRON_AUTODRAFT, $names, true ),
+), array( true, true, true, true, true, true, true ) );
 
 /* ---- clean up ----------------------------------------------------------- */
 

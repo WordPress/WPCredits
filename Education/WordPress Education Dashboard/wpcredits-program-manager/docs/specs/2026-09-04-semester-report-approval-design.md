@@ -108,7 +108,7 @@ No `<form>` is drawn for a member: no nonce, no post ID, no submit path in marku
 
 ### 6.2 The manager's editor
 
-Unchanged in substance: `render_editor()` with the generated part above the textarea, the quote picker, revisions, the preview. Two button changes: *Mark as final* becomes **Approve** (`ACTION_APPROVE = 'wpcpm_report_approve'`, replacing `ACTION_FINAL`, nonce keyed `ACTION_APPROVE . '_' . $post->ID`); *Reopen* stays (`ACTION_REOPEN`) and now clears `META_APPROVED`. The header shows the state, the origin ("Drafted automatically on <date>" or "Drafted by <manager> on <date>"), and, for an approved report, who approved it and when. A manager reaches the editor as today, through the switcher on the Institution Dashboard; the wp-admin "Semester reports" card and the Administrator Dashboard link there with `ARG_VIEW`.
+Unchanged in substance: `render_editor()` with the generated part above the textarea, the quote picker, revisions, the preview. Two button changes: *Mark as final* becomes **Approve** (`ACTION_APPROVE = 'wpcpm_report_approve'`, replacing `ACTION_FINAL`, nonce keyed `ACTION_APPROVE . '_' . $post->ID`); *Reopen* stays (`ACTION_REOPEN`) and now clears `META_APPROVED`. The header shows the state, the origin ("Drafted automatically when the semester ended." or "Drafted by a program manager."; the read date is its own fact line above, and the drafting manager is recorded in the log rather than on the post), and, for an approved report, who approved it and when. A manager reaches the editor as today, through the switcher on the Institution Dashboard; the wp-admin "Semester reports" card and the Administrator Dashboard link there with `ARG_VIEW`.
 
 ### 6.3 The wp-admin "Semester reports" card
 
@@ -137,7 +137,7 @@ Both through `WPCPM_Mail::send()`, so they are logged, masked and locale-switche
 
 An institution with no member accounts (40 of 42 confirmed institutions today) gets no mail, and the approval flash says so: "No institution account to notify; send the PDF by hand." The contact email in Airtable is a person who has not signed in anywhere, and the site does not mail people who have never met it, the rule the application form set.
 
-`report_notify` takes the semantics `agreement_notify` has: empty means every account that can manage the program, so the queue is never silently nobody's job. The recipient resolution moves into one helper, `WPCPM_Mail::managers( $setting_key )`, and `agreement_notify` uses it too.
+`report_notify` takes the semantics `agreement_notify` has: empty means every account that can manage the program, so the queue is never silently nobody's job. The recipient resolution stays in `WPCPM_Institutions::notify_managers()`, which gains a third argument naming the setting to read; `agreement_notify` is its default and the job passes `report_notify`.
 
 ---
 
@@ -168,7 +168,7 @@ Saved with the other settings; the two non-boolean keys go through the trimmed a
 ## 11. Data model additions
 
 - Meta on `wpcpm_inst_report`: `_wpcpm_report_approved`, `_wpcpm_report_origin`.
-- Options: `wpcpm_report_state_version`, `wpcpm_report_autodraft_since`, `wpcpm_report_log` (all `update_option( ..., false )`).
+- Options: `wpcpm_report_state_version`, autoloaded like the roles, settings and privacy version options because it is read on every request; `wpcpm_report_autodraft_since` and `wpcpm_report_log`, both `update_option( ..., false )`, because neither is.
 - Cron: `wpcpm_report_autodraft`.
 - Actions: `wpcpm_report_draft`, `wpcpm_report_approve` (replacing `wpcpm_report_final`).
 - Ceiling key: `report-draft:<user>`.

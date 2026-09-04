@@ -46,6 +46,12 @@ Airtable are untouched.
 | Invitations are not arriving | The **Mail** section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 
+## Semester reports
+
+The site drafts a report for each institution semester once the semester has ended and every student in it is finished, or 45 days after the end (the "Drafting grace" setting) if some are not. The job runs nightly and drafts at most ten reports a run; it never drafts a semester that ended before the feature was installed, so older semesters are drafted by hand with the Draft now button on the Institutions screen. Each draft is mailed to the addresses in "Who reviews reports", or to every program manager when that is empty.
+
+Review a draft on the Institution Dashboard, reached through the switcher from the Semester reports card. Edit the narrative, choose the quotes, then press Approve. The institution sees the report from that moment, with a Download PDF button, and its accounts are mailed; an institution with no account is not mailed and the screen says so, so send the PDF by hand. Reopen takes the report back to a draft and out of the institution's view. Approval is refused while the students' consent answers cannot be read.
+
 ### Where the plugin keeps its data
 
 Every option the plugin writes, by the name it has in the database and the constant that owns it
@@ -91,7 +97,10 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_privacy_version` | `WPCPM_Privacy_Guard::OPT_VERSION` |
 | `wpcpm_private_key` | `WPCPM_Private_Files::OPT_KEY` |
 | `wpcpm_private_probe` | `WPCPM_Private_Files::OPT_PROBE` |
+| `wpcpm_report_autodraft_since` | `WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE` |
 | `wpcpm_report_epoch` | `WPCPM_Semester_Report::OPT_EPOCH` |
+| `wpcpm_report_log` | `WPCPM_Semester_Report::OPT_LOG` |
+| `wpcpm_report_state_version` | `WPCPM_Semester_Report::OPT_STATE_VERSION` |
 | `wpcpm_roles_version` | `WPCPM_Roles::OPT_VERSION` |
 | `wpcpm_roster_` | `WPCPM_Roster_Index::OPT_PREFIX` |
 | `wpcpm_roster_counts` | `WPCPM_Roster_Index::OPT_COUNTS` |

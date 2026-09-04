@@ -411,17 +411,27 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * The ceiling's sweep is the ceiling's own housekeeping: its rows are hash-named claims
 	 * that nothing reads after their window, so a sweep is the only thing that ever removes
-	 * them. The four nightly jobs are retention on applications, retention on agreement
-	 * files, the reviewer's digest and invitation expiry. All daily because the settings
-	 * behind them are in days, and none on the sync's cadence: a base that is down must not
-	 * stop a file being forgotten on time. An hour apart so they never land in one request.
+	 * them. The five nightly jobs are retention on applications, retention on agreement
+	 * files, the reviewer's digest, invitation expiry and the semester report drafting. All
+	 * daily because the settings behind them are in days, and none on the sync's cadence: a
+	 * base that is down must not stop a file being forgotten on time. An hour apart so they
+	 * never land in one request.
 	 */
 	public static function schedule_cron() {
 		if ( ! wp_next_scheduled( WPCPM_Ceiling::CRON_SWEEP ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', WPCPM_Ceiling::CRON_SWEEP );
 		}
 
-		$nightly = array( self::CRON_PURGE, WPCPM_Institution_Agreement::CRON_DISCARD, WPCPM_Institution_Agreement::CRON_REMINDERS, WPCPM_Institution_Invite::CRON_EXPIRE );
+		$nightly = array(
+			self::CRON_PURGE,
+			WPCPM_Institution_Agreement::CRON_DISCARD,
+			WPCPM_Institution_Agreement::CRON_REMINDERS,
+			WPCPM_Institution_Invite::CRON_EXPIRE,
+			// The semester report job (design of 4 September 2026), one hour after the last
+			// of the others like every job in this list, so a slow night never has two of
+			// them reading the base at once.
+			WPCPM_Semester_Report_Screen::CRON_AUTODRAFT,
+		);
 
 		foreach ( $nightly as $offset => $hook ) {
 			if ( ! wp_next_scheduled( $hook ) ) {
@@ -464,6 +474,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		wp_clear_scheduled_hook( WPCPM_Institution_Agreement::CRON_REMINDERS );
 		wp_clear_scheduled_hook( WPCPM_Institution_Invite::CRON_EXPIRE );
 		wp_clear_scheduled_hook( WPCPM_Semester_Report_Screen::CRON_ASK );
+		wp_clear_scheduled_hook( WPCPM_Semester_Report_Screen::CRON_AUTODRAFT );
 
 		delete_option( WPCPM_Institution_Application::OPT_PAGE );
 		delete_option( self::OPT_APP_LOG );
@@ -1165,30 +1176,34 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * Tell the program managers something.
 	 *
-	 * The one mechanism for every queue event: recipients are the `agreement_notify` setting
-	 * when it names anybody, otherwise every account holding the management capability that
-	 * has an address. Program managers here are WordPress administrators, so the default
-	 * reaches the technical ones too; the setting narrows it and should be set before the
-	 * first real upload. Every send goes through `WPCPM_Mail`, so it is logged and filtered
-	 * like any other message: `send()` for an address that belongs to an account, so the
-	 * message is built in that person's language, and `send_to()` for a bare address.
+	 * The one mechanism for every queue event: recipients are the setting named by
+	 * `$setting_key` (`agreement_notify` for the agreement queue, `report_notify` for the
+	 * semester report job) when it names anybody, otherwise every account holding the
+	 * management capability that has an address. Program managers here are WordPress
+	 * administrators, so the default reaches the technical ones too; the setting narrows it
+	 * and should be set before the first real upload. Every send goes through `WPCPM_Mail`,
+	 * so it is logged and filtered like any other message: `send()` for an address that
+	 * belongs to an account, so the message is built in that person's language, and
+	 * `send_to()` for a bare address.
 	 *
 	 * The country contact is named in a body when a message is about their country, never
 	 * added here as a recipient: routing is information, not a mailing list.
 	 *
-	 * @param string   $context Short label for the mail log, e.g. `agreement-landed`.
-	 * @param callable $build   Builder in `WPCPM_Mail::send()`'s shape. It receives a `WP_User`
-	 *                          for an account and the address string for a bare address, and
-	 *                          returns `subject`, `body` and optionally `headers`.
+	 * @param string   $context     Short label for the mail log, e.g. `agreement-landed`.
+	 * @param callable $build       Builder in `WPCPM_Mail::send()`'s shape. It receives a
+	 *                              `WP_User` for an account and the address string for a bare
+	 *                              address, and returns `subject`, `body` and optionally
+	 *                              `headers`.
+	 * @param string   $setting_key The settings key naming the recipients.
 	 * @return int How many messages were handed off.
 	 */
-	public static function notify_managers( $context, $build ) {
+	public static function notify_managers( $context, $build, $setting_key = 'agreement_notify' ) {
 		if ( ! is_callable( $build ) ) {
 			return 0;
 		}
 
 		$sent    = 0;
-		$setting = trim( (string) WPCPM_Settings::get_value( 'agreement_notify', '' ) );
+		$setting = trim( (string) WPCPM_Settings::get_value( (string) $setting_key, '' ) );
 
 		if ( '' !== $setting ) {
 			$addresses = array_unique( array_filter( array_map( 'trim', explode( ',', $setting ) ) ) );
@@ -3917,7 +3932,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * second place to edit a document several people share is a second place for them to
 	 * overwrite each other.
 	 *
-	 * Both dates are shown because they answer different questions. *Generated* is how old the
+	 * Both dates are shown because they answer different questions. *Drafted* is how old the
 	 * numbers are; *last edited* is whether anybody has written anything since. A report
 	 * generated in July and never edited is one nobody has picked up.
 	 */
@@ -3936,12 +3951,28 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			)
 		);
 
+		// Drafts first, whatever their date: this card is the manager's queue since the
+		// approval design, and the thing waiting for them belongs above the thing that is done.
+		usort(
+			$posts,
+			static function ( $a, $b ) {
+				$a_draft = WPCPM_Semester_Report::STATE_APPROVED !== WPCPM_Semester_Report::state( $a );
+				$b_draft = WPCPM_Semester_Report::STATE_APPROVED !== WPCPM_Semester_Report::state( $b );
+
+				if ( $a_draft !== $b_draft ) {
+					return $a_draft ? -1 : 1;
+				}
+
+				return strcmp( (string) $b->post_modified_gmt, (string) $a->post_modified_gmt );
+			}
+		);
+
 		$total = 0;
 
 		// Counted rather than taken from the rows above, which are capped: a heading reading 60
-		// beside a list of 60 is a heading that stops being true the day the sixty-first report
-		// is written, and says nothing about it. Asked for only when there is something to
-		// count, so a site whose institutions have not started writing runs one query and not two.
+		// beside a list of 60 is a heading that stops being true the day the sixty-first report is
+		// written, and says nothing about it. Asked for only when there is something to count, so
+		// a site whose institutions have not started writing runs one query and not two.
 		if ( ! empty( $posts ) ) {
 			$tally = wp_count_posts( WPCPM_Semester_Report::POST_TYPE );
 			$total = isset( $tally->private ) ? (int) $tally->private : count( $posts );
@@ -3953,58 +3984,56 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html__( 'Semester reports', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( $total ) )
 		);
-		echo '<p class="description">' . esc_html__( 'What each institution has written about a semester, and where it has got to. Reports are edited on the institution dashboard, so each one opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'The site drafts a report when a semester ends; a program manager reviews and approves it on the institution dashboard, and only then does the institution see it. Each report opens there as that institution.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $posts ) ) {
-			echo '<p>' . esc_html__( 'No institution has generated a report yet.', 'wpcredits-program-manager' ) . '</p>';
-			echo '</div>';
+			echo '<p>' . esc_html__( 'No report has been drafted yet.', 'wpcredits-program-manager' ) . '</p>';
+		} else {
+			if ( $total > count( $posts ) ) {
+				printf(
+					'<p class="description">%s</p>',
+					esc_html(
+						sprintf(
+							/* translators: %s: how many reports are listed. */
+							__( 'The %s most recently edited are listed.', 'wpcredits-program-manager' ),
+							number_format_i18n( count( $posts ) )
+						)
+					)
+				);
+			}
 
-			return;
-		}
-
-		if ( $total > count( $posts ) ) {
+			// Design spec section 14, open question 2: the consent request is a program manager's
+			// to send and nobody else's, so this is the only screen it is offered on.
 			printf(
 				'<p class="description">%s</p>',
 				esc_html(
 					sprintf(
-						/* translators: %s: how many reports are listed. */
-						__( 'The %s most recently edited are listed.', 'wpcredits-program-manager' ),
-						number_format_i18n( count( $posts ) )
+						/* translators: %s: a number of messages. */
+						__( 'Asking writes one short message to each student in that semester who wrote feedback and has not said whether it may be used. Nobody is asked twice in thirty days, and at most %s go out at a time; the rest follow shortly.', 'wpcredits-program-manager' ),
+						number_format_i18n( WPCPM_Semester_Report_Screen::ASK_PER_RUN )
 					)
 				)
 			);
+
+			echo '<table class="widefat striped wpcpm-list"><thead><tr>';
+			echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
+			echo '<th scope="col">' . esc_html__( 'Semester', 'wpcredits-program-manager' ) . '</th>';
+			echo '<th scope="col">' . esc_html__( 'State', 'wpcredits-program-manager' ) . '</th>';
+			echo '<th scope="col">' . esc_html__( 'Drafted', 'wpcredits-program-manager' ) . '</th>';
+			echo '<th scope="col">' . esc_html__( 'Last edited', 'wpcredits-program-manager' ) . '</th>';
+			echo '<th scope="col">' . esc_html__( 'Consent', 'wpcredits-program-manager' ) . '</th>';
+			echo '</tr></thead><tbody>';
+
+			foreach ( $posts as $post ) {
+				$this->render_semester_report_row( $post );
+			}
+
+			echo '</tbody></table>';
 		}
 
-		// Design spec section 14, open question 2: the consent request is a program manager's
-		// to send and nobody else's, so this is the only screen it is offered on. The
-		// institution's own report says how many of its students have not answered and that a
-		// manager can write to them; it never offers the send, because the party that gains
-		// from a yes must not be the party that asks for it.
-		printf(
-			'<p class="description">%s</p>',
-			esc_html(
-				sprintf(
-					/* translators: %s: a number of messages. */
-					__( 'Asking writes one short message to each student in that semester who wrote feedback and has not said whether it may be used. Nobody is asked twice in thirty days, and at most %s go out at a time; the rest follow shortly.', 'wpcredits-program-manager' ),
-					number_format_i18n( WPCPM_Semester_Report_Screen::ASK_PER_RUN )
-				)
-			)
-		);
+		$this->render_report_due();
+		$this->render_report_log();
 
-		echo '<table class="widefat striped wpcpm-list"><thead><tr>';
-		echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Semester', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'State', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Generated', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Last edited', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Consent', 'wpcredits-program-manager' ) . '</th>';
-		echo '</tr></thead><tbody>';
-
-		foreach ( $posts as $post ) {
-			$this->render_semester_report_row( $post );
-		}
-
-		echo '</tbody></table>';
 		echo '</div>';
 	}
 
@@ -4020,43 +4049,118 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$name   = '' !== $name ? $name : __( '(institution not in the index)', 'wpcredits-program-manager' );
 
 		// The switcher argument, because `resolve_institution()` is what places a manager on
-		// somebody else's dashboard and it reads that one argument and nothing else. Without it
-		// the link lands the manager on whichever institution is their fallback, which is a
-		// different school's report under this row's name.
+		// somebody else's dashboard and it reads that one argument and nothing else.
 		$url = WPCPM_Semester_Report_Screen::report_url( $cohort );
 		$url = ( '' !== $url && '' !== $record ) ? add_query_arg( array( WPCPM_Institution_Roster::ARG_VIEW => $record ), $url ) : '';
 
 		$label     = '' !== $cohort ? WPCPM_Cohort::label( $cohort ) : __( '(no semester recorded)', 'wpcredits-program-manager' );
 		$generated = WPCPM_Semester_Report::generated_at( $post );
 		$edited    = (int) get_post_modified_time( 'U', true, $post );
-		$final     = WPCPM_Semester_Report::STATE_FINAL === WPCPM_Semester_Report::state( $post );
+		$approved  = WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post );
 		$format    = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+		$origin    = WPCPM_Semester_Report::ORIGIN_AUTO === WPCPM_Semester_Report::origin_of( $post )
+			? __( 'by the site', 'wpcredits-program-manager' )
+			: __( 'by a manager', 'wpcredits-program-manager' );
 
 		printf(
-			'<tr><td>%1$s<br /><code>%2$s</code></td><td>%3$s%4$s</td><td>%5$s</td><td>%6$s</td><td>%7$s</td><td>',
+			'<tr><td>%1$s<br /><code>%2$s</code></td><td>%3$s%4$s</td><td>%5$s</td><td>%6$s<br /><span class="description">%7$s</span></td><td>%8$s</td><td>',
 			'' !== $url
 				? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html( $name ) )
 				: esc_html( $name ),
 			esc_html( '' !== $record ? $record : '-' ),
 			esc_html( $label ),
 			'' !== $cohort ? sprintf( ' <code>%s</code>', esc_html( $cohort ) ) : '',
-			esc_html(
-				$final
-					? __( 'Final', 'wpcredits-program-manager' )
-					: __( 'Draft', 'wpcredits-program-manager' )
-			),
+			esc_html( $approved ? __( 'Approved', 'wpcredits-program-manager' ) : __( 'Draft', 'wpcredits-program-manager' ) ),
 			esc_html( $generated ? wp_date( $format, $generated ) : __( 'not yet', 'wpcredits-program-manager' ) ),
+			esc_html( $origin ),
 			esc_html( $edited ? wp_date( $format, $edited ) : __( 'never', 'wpcredits-program-manager' ) )
 		);
 
-		// Offered whatever state the report is in, including `final`, and deliberately: this
-		// asks students a question, it changes no word of the document, and a school that has
-		// marked a report final is exactly the school whose remaining students are worth
-		// asking before the next one. The answers reach the document through
-		// `ACTION_REFRESH_CONSENT`, which is allowed on a final report for the same reason.
+		// Offered whatever state the report is in, including approved, and deliberately: this
+		// asks students a question, it changes no word of the document, and the answers reach
+		// the document through the consent re-check every render makes.
 		WPCPM_Semester_Report_Screen::render_ask_form( $post->ID );
 
 		echo '</td></tr>';
+	}
+
+	/**
+	 * The cohorts the job would draft tonight, each with a Draft now button.
+	 */
+	private function render_report_due() {
+		$due = WPCPM_Semester_Report::due( wp_date( 'Y-m-d' ) );
+
+		printf( '<h3>%s</h3>', esc_html__( 'Due for drafting', 'wpcredits-program-manager' ) );
+
+		if ( empty( $due ) ) {
+			echo '<p class="description">' . esc_html__( 'Nothing is waiting: every finished semester has a report, or is not finished yet.', 'wpcredits-program-manager' ) . '</p>';
+		} else {
+			echo '<table class="widefat striped wpcpm-list"><thead><tr>';
+			echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
+			echo '<th scope="col">' . esc_html__( 'Semester', 'wpcredits-program-manager' ) . '</th>';
+			echo '<th scope="col">' . esc_html__( 'Still in progress', 'wpcredits-program-manager' ) . '</th>';
+			echo '<th scope="col"></th>';
+			echo '</tr></thead><tbody>';
+
+			foreach ( $due as $pair ) {
+				$name = self::institution_name( $pair['institution'] );
+
+				printf(
+					'<tr><td>%1$s<br /><code>%2$s</code></td><td>%3$s</td><td>%4$s</td><td>',
+					esc_html( '' !== $name ? $name : __( '(institution not in the index)', 'wpcredits-program-manager' ) ),
+					esc_html( $pair['institution'] ),
+					esc_html( WPCPM_Cohort::label( $pair['cohort'] ) ),
+					esc_html( number_format_i18n( (int) $pair['in_progress'] ) )
+				);
+
+				WPCPM_Semester_Report_Screen::render_draft_form( $pair['institution'], $pair['cohort'] );
+
+				echo '</td></tr>';
+			}
+
+			echo '</tbody></table>';
+		}
+
+		// Offered here too, whatever due() says tonight: a manager who wants a semester due()
+		// has not reached yet, or one it offered weeks ago that nobody pressed, should not have
+		// to wait for the job.
+		printf( '<h3>%s</h3>', esc_html__( 'Draft any semester', 'wpcredits-program-manager' ) );
+		WPCPM_Semester_Report_Screen::render_draft_picker();
+	}
+
+	/**
+	 * The last twenty things that happened to a report.
+	 */
+	private function render_report_log() {
+		$entries = array_slice( WPCPM_Semester_Report::log_entries(), 0, 20 );
+		$format  = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+
+		printf( '<h3>%s</h3>', esc_html__( 'Report log', 'wpcredits-program-manager' ) );
+
+		if ( empty( $entries ) ) {
+			echo '<p class="description">' . esc_html__( 'Nothing yet.', 'wpcredits-program-manager' ) . '</p>';
+
+			return;
+		}
+
+		echo '<ul class="wpcpm-log">';
+
+		foreach ( $entries as $entry ) {
+			$actor = ! empty( $entry['actor'] ) ? get_user_by( 'id', (int) $entry['actor'] ) : false;
+			$name  = self::institution_name( isset( $entry['institution'] ) ? $entry['institution'] : '' );
+
+			printf(
+				'<li>%1$s: <strong>%2$s</strong>, %3$s, %4$s, %5$s%6$s</li>',
+				esc_html( wp_date( $format, isset( $entry['at'] ) ? (int) $entry['at'] : 0 ) ),
+				esc_html( isset( $entry['event'] ) ? str_replace( '_', ' ', (string) $entry['event'] ) : '' ),
+				esc_html( '' !== $name ? $name : ( isset( $entry['institution'] ) ? $entry['institution'] : '' ) ),
+				esc_html( isset( $entry['cohort'] ) ? WPCPM_Cohort::label( $entry['cohort'] ) : '' ),
+				esc_html( $actor instanceof WP_User ? $actor->display_name : __( 'the site', 'wpcredits-program-manager' ) ),
+				! empty( $entry['why'] ) ? esc_html( ': ' . $entry['why'] ) : ''
+			);
+		}
+
+		echo '</ul>';
 	}
 
 	/**

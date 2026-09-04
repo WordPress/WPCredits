@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.90.0
+Stable tag: 1.91.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.91.0 =
+* **The semester report is drafted by the site and approved by a program manager; the institution reads it.** A daily job drafts a report for every institution semester that has ended (after a grace of 45 days when students are still in progress, and never for a semester that ended before this release was installed), and tells the program managers. A manager can also press Draft now on the Institutions screen for any institution and semester. Managers edit the report on the Institution Dashboard as before and press Approve; only then does the institution see it, as a read-only document with a Download PDF button, and its accounts are mailed. Reopening takes it back to a draft and out of the institution's view. Institutions can no longer generate or edit reports (design of 4 September 2026).
+* The two states are draft and approved. Reports marked final by the earlier flow read as approved after the upgrade, approved by nobody in particular. Approval is refused while the students' consent answers cannot be read, because a report that cannot be drawn in full must not be published.
+* The Institutions screen's Semester reports card lists drafts first, says whether the site or a manager drafted each report, lists the semesters due for drafting with a Draft now button each, and keeps a log of drafts, approvals and reopenings.
+* Three settings: whether the job runs, the grace, and who hears of a draft (empty means every program manager).
 
 = 1.90.0 =
 * **Every finding of the 3 September deep check is fixed, each with a test that fails without the fix.** Forty-one findings across seven review lenses, independently refuted before they were accepted; the release is those fixes and nothing else. The high and the eight mediums first.

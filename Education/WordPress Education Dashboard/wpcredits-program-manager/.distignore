@@ -11,3 +11,4 @@ phpcs.xml.dist
 *.rej
 *.bak
 *.zip
+.superpowers

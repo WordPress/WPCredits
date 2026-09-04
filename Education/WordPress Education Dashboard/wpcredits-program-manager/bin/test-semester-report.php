@@ -509,10 +509,15 @@ class WPCPM_Students_Dashboard {
 
 class WPCPM_Settings {
 	public static function get() {
-		return array(
-			'students_table' => 'tblStudents',
-			'reports_table'  => 'tblReports',
-			'feedback_table' => 'tblFeedback',
+		return array_merge(
+			array(
+				'students_table'            => 'tblStudents',
+				'reports_table'             => 'tblReports',
+				'feedback_table'            => 'tblFeedback',
+				'institution_active_stages' => array( 'Confirmed', 'Student' ),
+				'past_statuses'             => array( 'Graduate', 'Dropped out' ),
+			),
+			isset( $GLOBALS['settings_extra'] ) && is_array( $GLOBALS['settings_extra'] ) ? $GLOBALS['settings_extra'] : array()
 		);
 	}
 	public static function get_value( $key, $fallback = false ) {
@@ -686,14 +691,21 @@ class WPCPM_Institutions_Index {
 			'recINSTD000000004' => 'Universidad Delta',
 		);
 
+		// $GLOBALS['inst_rows'] is read first, because it is what a test just set up for this
+		// run; the map above is only the shared default the older fixtures rely on and never
+		// disagrees with it where the two overlap (A, B, C). The job's own fixtures (a dozen
+		// "Job University" rows, made up per run) exist only in $GLOBALS['inst_rows'].
+		$live = isset( $GLOBALS['inst_rows'][ (string) $record_id ]['name'] ) ? trim( (string) $GLOBALS['inst_rows'][ (string) $record_id ]['name'] ) : '';
+		$name = '' !== $live ? $live : ( isset( $names[ (string) $record_id ] ) ? $names[ (string) $record_id ] : '' );
+
 		return array(
 			'record_id' => (string) $record_id,
-			'name'      => isset( $names[ (string) $record_id ] ) ? $names[ (string) $record_id ] : '',
+			'name'      => $name,
 			'stage'     => 'Confirmed',
 			'country'   => 'PL',
 		);
 	}
-	public static function rows() { return array(); }
+	public static function rows() { return isset( $GLOBALS['inst_rows'] ) && is_array( $GLOBALS['inst_rows'] ) ? $GLOBALS['inst_rows'] : array(); }
 	public static function has( $record_id ) { return '' !== self::row( $record_id )['name']; }
 }
 
@@ -709,7 +721,9 @@ class WPCPM_Institution_Members {
 		return '' === (string) $GLOBALS['acting'] ? array() : array( (string) $GLOBALS['acting'] );
 	}
 	public static function is_member( $user = null ) { return '' !== (string) $GLOBALS['acting']; }
-	public static function members_of( $record_id ) { return array(); }
+	public static function members_of( $record_id ) {
+		return isset( $GLOBALS['members'][ (string) $record_id ] ) ? $GLOBALS['members'][ (string) $record_id ] : array();
+	}
 }
 
 class WPCPM_Institution_Roster {
@@ -764,6 +778,26 @@ class WPCPM_Mail {
 	public static function send_to( $email, $context, $build, $locale = '' ) {
 		$GLOBALS['mail'][] = array( 'to' => (string) $email, 'context' => (string) $context );
 		return true;
+	}
+}
+
+class WPCPM_Ceiling {
+	public static function claim( $key, $limit, $window, $amount = 1 ) {
+		$GLOBALS['ceiling'][ $key ] = ( isset( $GLOBALS['ceiling'][ $key ] ) ? $GLOBALS['ceiling'][ $key ] : 0 ) + max( 1, (int) $amount );
+		return $GLOBALS['ceiling'][ $key ] <= (int) $limit;
+	}
+}
+
+/**
+ * The module, reduced to the one thing the job asks of it: telling the managers. What is
+ * recorded is the context and which setting named the recipients, which is the whole of the
+ * contract the report has with it.
+ */
+class WPCPM_Institutions {
+	public static function notify_managers( $context, $build, $setting_key = 'agreement_notify' ) {
+		$message = is_callable( $build ) ? call_user_func( $build, new WP_User( 99, 'Manager', 'maciej@a8c.com' ) ) : array();
+		$GLOBALS['mail'][] = array( 'to' => 'managers:' . $setting_key, 'context' => (string) $context, 'subject' => isset( $message['subject'] ) ? $message['subject'] : '', 'body' => isset( $message['body'] ) ? $message['body'] : '' );
+		return 1;
 	}
 }
 
@@ -858,7 +892,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
-require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
+// WPCPM_Ceiling is stubbed above, so a test can pre-fill $GLOBALS['ceiling'] to make a claim
+// land full; the real option-backed class is not loaded here, and nothing this suite exercises
+// (class-wpcpm-student-report-form.php's fields() included) calls the real one.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
 
 $fails = 0;
@@ -1594,7 +1630,8 @@ $actions = array(
 	'generate'        => WPCPM_Semester_Report_Screen::ACTION_GENERATE,
 	'save'            => WPCPM_Semester_Report_Screen::ACTION_SAVE,
 	'refresh consent' => WPCPM_Semester_Report_Screen::ACTION_REFRESH_CONSENT,
-	'final'           => WPCPM_Semester_Report_Screen::ACTION_FINAL,
+	'draft'           => WPCPM_Semester_Report_Screen::ACTION_DRAFT,
+	'approve'         => WPCPM_Semester_Report_Screen::ACTION_APPROVE,
 	'reopen'          => WPCPM_Semester_Report_Screen::ACTION_REOPEN,
 	'restore'         => WPCPM_Semester_Report_Screen::ACTION_RESTORE,
 	'ask'             => WPCPM_Semester_Report_Screen::ACTION_ASK,
@@ -1743,10 +1780,13 @@ function form_fields( $html ) {
 	return array( 'fields' => $fields, 'textareas' => $textareas );
 }
 
-echo "\n=== The screen a member of this institution sees ===\n";
+echo "\n=== The screen a program manager sees ===\n";
 
+// The approval design of 4 September 2026, decision 1, made the editor a manager's; the
+// member's own card is asserted in the block Task 5 appended ("What the institution sees").
 $GLOBALS['acting'] = $A;
-$GLOBALS['manage'] = false;
+$prev_manage       = $GLOBALS['manage'];
+$GLOBALS['manage'] = true;
 $GLOBALS['uid']    = 7;
 
 $screen = screen_html( $A, $COHORT );
@@ -1772,6 +1812,8 @@ ck( 'and a narrative box to type into', count( $scraped['textareas'] ) > 0, true
 
 echo "\n=== Two people, one institution, one form ===\n";
 
+// The approval design of 4 September 2026, decision 1, made the editor a manager's; the
+// member's own card is asserted in the block Task 5 appended ("What the institution sees").
 $area_names = array_keys( $scraped['textareas'] );
 $first_area = $area_names[0];
 
@@ -1814,6 +1856,8 @@ ck( 'and they are told what happened in words', has( $screen_source, 'saved this
 
 echo "\n=== A withdrawal reaches a stored document ===\n";
 
+// The approval design of 4 September 2026, decision 1, made the editor a manager's; the
+// member's own card is asserted in the block Task 5 appended ("What the institution sees").
 $GLOBALS['flash'] = array();
 
 // The student opens her own Finishing-up form and changes her mind. Nothing regenerates.
@@ -1867,6 +1911,8 @@ ck( 'and the stored snapshot still says what it said when it was generated', $ev
 
 echo "\n=== The print document ===\n";
 
+// The approval design of 4 September 2026, decision 1, made the editor a manager's; the
+// member's own card is asserted in the block Task 5 appended ("What the institution sees").
 $print_link = '';
 
 if ( preg_match_all( '/href=["\']([^"\']+)["\']/i', $screen, $hrefs ) ) {
@@ -1933,7 +1979,14 @@ ck( 'and there is at least one to have checked', count( isset( $anchors ) ? $anc
 // The withdrawal reaches the exported document too, and by the same route.
 ck( 'the student who withdrew is not in the printed copy either', has( $document, 'Ana Fidelitas' ), false );
 
+// Restores the viewer this suite had before "The screen a program manager sees" switched it:
+// the sections from here on test a member's own boundaries again, not a manager's editor.
+$GLOBALS['manage'] = $prev_manage;
+
 echo "\n=== Another institution's report is not a report ===\n";
+
+// The approval design of 4 September 2026, decision 1, made the editor a manager's; the
+// member's own card is asserted in the block Task 5 appended ("What the institution sees").
 
 // A second institution with a report of its own, so there is a real post ID to point at.
 $GLOBALS['acting'] = $B;
@@ -2073,13 +2126,18 @@ $GLOBALS['manage'] = false;
 
 echo "\n=== Asking the students who have not answered ===\n";
 
+// The approval design of 4 September 2026, decision 1, made the editor a manager's; the
+// member's own card is asserted in the block Task 5 appended ("What the institution sees").
+
 /*
  * Open question 2, decided: **program managers only**. The institution is the party that
  * gains from a yes, so it is the wrong party to send the request; the addresses belong to the
  * program rather than to the school. Two halves are asserted here and both matter:
  *
- * - the institution's own report screen does not draw the control at all, and says instead
- *   that a manager can send it, so nobody presses a button that will refuse them;
+ * - the institution's own card never draws the control at all; for a draft, it says only
+ *   that the report is being prepared by the program team. The reassurance that a program
+ *   manager can send the request is drawn on the manager's editor, so nobody on the
+ *   institution's side presses a button that will refuse them;
  * - a member posting the action by hand sends nothing **and stamps nothing**. The stamp is
  *   the thirty-day clock: a refusal that still stamped would spend a student's one message a
  *   month on a request that never left.
@@ -2090,7 +2148,16 @@ $GLOBALS['mail']   = array();
 $member_screen = screen_html( $A, $COHORT );
 
 ck( 'the institution is not offered the ask control', form_for( $member_screen, WPCPM_Semester_Report_Screen::ACTION_ASK ), '' );
-ck( 'and is told a program manager can send it', has( strtolower( $member_screen ), 'program manager' ), true );
+
+// The reassurance that a program manager can send the request is drawn on the manager's own
+// editor now (design of 4 September 2026, decision 1): a member reading a draft's cohort never
+// reaches the report at all, so the sentence has nowhere left to stand on their card.
+$prev_manage       = $GLOBALS['manage'];
+$GLOBALS['manage'] = true;
+$manager_screen    = screen_html( $A, $COHORT );
+$GLOBALS['manage'] = $prev_manage;
+
+ck( 'and is told a program manager can send it', has( strtolower( $manager_screen ), 'program manager' ), true );
 
 // The form as the manager screen draws it, scraped rather than named, so this suite still does
 // not know what the handler's inputs are called.
@@ -2186,6 +2253,9 @@ ck( 'and the underscore is escaped, so a neighbour survives', isset( $GLOBALS['o
 
 
 echo "\n=== The findings the reviewers proved, held in place ===\n";
+
+// The approval design of 4 September 2026, decision 1, made the editor a manager's; the
+// member's own card is asserted in the block Task 5 appended ("What the institution sees").
 
 /*
  * Fourteen mutation-proved findings came out of Phase 6's review and the suite caught none of them.
@@ -2287,7 +2357,12 @@ ck( 'a trailing slash still tells two URLs apart, as the spec\'s "identical" say
 $screen_source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-semester-report-screen.php' );
 ck( 'the unmatched count is a sentence of its own', has( $screen_source, 'could not be matched to a single row, so no project links are shown' ), true );
 ck( 'and no longer an item in "not listed above"', has( $screen_source, 'could not be matched to a single record' ), false );
-$e_screen = screen_html( $E, $COHORT );
+// Ivo's records, and the sentence about them, are drawn in the editor; a draft is a manager's
+// to read in full (design of 4 September 2026, decision 1).
+$prev_manage       = $GLOBALS['manage'];
+$GLOBALS['manage'] = true;
+$e_screen          = screen_html( $E, $COHORT );
+$GLOBALS['manage'] = $prev_manage;
 ck( 'on the page, Ivo is named', has( $e_screen, 'Ivo Tworows' ), true );
 ck( 'and the sentence about his records does not say he is not listed', has( $e_screen, 'Students not listed above: 1 could not' ), false );
 
@@ -2297,23 +2372,34 @@ WPCPM_Semester_Report::save( get_post( $e_post ), WPCPM_Semester_Report::narrati
 	$ewa_quote => array( 'include' => true, 'translation' => 'Ewa o tym, co zbudowala.', 'show_name' => true ),
 ) );
 
+// The form the school would see on a bad read is a manager's editor too (design of 4
+// September 2026, decision 1): drawn with $GLOBALS['manage'] false, the card has no <form>
+// at all and the three checks below would pass on zero fields scraped from nothing.
+$prev = $GLOBALS['manage'];
+$GLOBALS['manage'] = true;
 $GLOBALS['fail_table'] = 'tblFeedback';
 $GLOBALS['transients'] = array();
 $blind = form_fields( form_for( screen_html( $E, $COHORT ), WPCPM_Semester_Report_Screen::ACTION_SAVE ) );
 $GLOBALS['fail_table'] = '';
 
+ck( 'the blind form is a form, not an empty string', count( $blind['fields'] ) > 0, true );
 ck( 'a form drawn while the answers could not be read carries no quote controls', has( wp_json_encode( $blind['fields'] ), 'quote_include_' ), false );
 
 $_POST = $blind['fields'];
 $_GET  = array();
 run_handler( WPCPM_Semester_Report_Screen::ACTION_SAVE );
+$GLOBALS['manage'] = $prev;
 $kept = WPCPM_Semester_Report::choices( get_post( $e_post ) );
 
 ck( 'saving it keeps the quote included', ! empty( $kept[ $ewa_quote ]['include'] ), true );
 ck( 'and keeps the translation the school typed', isset( $kept[ $ewa_quote ]['translation'] ) ? $kept[ $ewa_quote ]['translation'] : '', 'Ewa o tym, co zbudowala.' );
 
-// The same form drawn with the quotes in view, and the box unticked on purpose.
+// The same form drawn with the quotes in view, and the box unticked on purpose. Drawing the
+// quote picker and saving against it are both a manager's editor now (design of 4 September
+// 2026, decision 1).
 $GLOBALS['transients'] = array();
+$prev_manage           = $GLOBALS['manage'];
+$GLOBALS['manage']     = true;
 $seen_form = form_for( screen_html( $E, $COHORT ), WPCPM_Semester_Report_Screen::ACTION_SAVE );
 $seen      = form_fields( $seen_form );
 ck( 'a form that drew the quote says so', has( $seen_form, 'quote_offered_' ), true );
@@ -2321,6 +2407,7 @@ unset( $seen['fields'][ 'quote_include_' . sanitize_key( $ewa_quote ) ] );
 $_POST = $seen['fields'];
 $_GET  = array();
 run_handler( WPCPM_Semester_Report_Screen::ACTION_SAVE );
+$GLOBALS['manage'] = $prev_manage;
 $kept = WPCPM_Semester_Report::choices( get_post( $e_post ) );
 ck( 'and an unticked box on a form that drew the quote does exclude it', empty( $kept[ $ewa_quote ]['include'] ), true );
 
@@ -2340,7 +2427,7 @@ $GLOBALS['manage'] = false;
 
 foreach ( array(
 	'save'    => WPCPM_Semester_Report_Screen::ACTION_SAVE,
-	'final'   => WPCPM_Semester_Report_Screen::ACTION_FINAL,
+	'approve' => WPCPM_Semester_Report_Screen::ACTION_APPROVE,
 	'reopen'  => WPCPM_Semester_Report_Screen::ACTION_REOPEN,
 	'refresh' => WPCPM_Semester_Report_Screen::ACTION_REFRESH_CONSENT,
 	'ask'     => WPCPM_Semester_Report_Screen::ACTION_ASK,
@@ -2371,7 +2458,12 @@ $GLOBALS['index'][ $E ]['rows'] = array();
 $GLOBALS['transients']          = array();
 $unread = WPCPM_Semester_Report::consent_check( get_post( $e_post ) );
 ck( 'an empty index under a snapshot that names people is an error, not a withdrawal', is_wp_error( $unread ) ? $unread->get_error_code() : 'no error', 'wpcpm_report_no_index' );
-$e_screen = screen_html( $E, $COHORT );
+// The failed-read message is on the document itself, which only a manager's editor draws for
+// a draft (design of 4 September 2026, decision 1); the blanking is unconditional either way.
+$prev_manage       = $GLOBALS['manage'];
+$GLOBALS['manage'] = true;
+$e_screen          = screen_html( $E, $COHORT );
+$GLOBALS['manage'] = $prev_manage;
 ck( 'and the page says the answers could not be read', has( $e_screen, 'could not be read' ), true );
 ck( 'rather than that anybody withdrew', has( $e_screen, 'since this draft was generated' ), false );
 ck( 'and prints no student', has( $e_screen, 'Ewa Named' ), false );
@@ -2415,6 +2507,454 @@ $manager_flash = wp_json_encode( $GLOBALS['flash'] );
 ck( 'a manager is shown it, because a manager can act on it', has( $manager_flash, 'generate-failed' ) && strlen( $manager_flash ) > strlen( $member_flash ), true );
 $GLOBALS['fail_table'] = '';
 $GLOBALS['manage']     = false;
+
+echo "\n=== Two states: draft and approved ===\n";
+
+// Everything the earlier blocks generated was removed by delete_all() above, so this block
+// stands its own reports up. A manager, acting for nobody in particular.
+$GLOBALS['manage']     = true;
+$GLOBALS['acting']     = '';
+$GLOBALS['uid']        = 3;
+$GLOBALS['transients'] = array();
+$GLOBALS['fail_table'] = '';
+$GLOBALS['flash']      = array();
+$GLOBALS['mail']       = array();
+
+$s_post_id = WPCPM_Semester_Report::generate( $A, $COHORT );
+ck( 'a fresh report is a draft', WPCPM_Semester_Report::state( get_post( $s_post_id ) ), 'draft' );
+ck( 'and its origin is a manager, the default', WPCPM_Semester_Report::origin_of( get_post( $s_post_id ) ), 'manager' );
+ck( 'the vocabulary is draft and approved', array( WPCPM_Semester_Report::STATE_DRAFT, WPCPM_Semester_Report::STATE_APPROVED ), array( 'draft', 'approved' ) );
+ck( 'final is not a state any more', WPCPM_Semester_Report::set_state( get_post( $s_post_id ), 'final' ), false );
+ck( 'nothing on the class still names it', defined( 'WPCPM_Semester_Report::STATE_FINAL' ), false );
+
+ck( 'approve writes the state and the stamp', WPCPM_Semester_Report::approve( get_post( $s_post_id ), 3 ), true );
+$stamp = WPCPM_Semester_Report::approved_at( get_post( $s_post_id ) );
+ck( 'the stamp names the manager', isset( $stamp['by'] ) ? $stamp['by'] : null, 3 );
+ck( 'and a time', ! empty( $stamp['at'] ), true );
+ck( 'the state reads approved', WPCPM_Semester_Report::state( get_post( $s_post_id ) ), 'approved' );
+
+$again = WPCPM_Semester_Report::generate( $A, $COHORT );
+ck( 'generating an approved report is refused', is_wp_error( $again ) ? $again->get_error_code() : 'no error', 'wpcpm_report_approved' );
+
+ck( 'reopen makes it a draft', WPCPM_Semester_Report::reopen( get_post( $s_post_id ) ), true );
+ck( 'and the state says so', WPCPM_Semester_Report::state( get_post( $s_post_id ) ), 'draft' );
+ck( 'and the stamp is gone', WPCPM_Semester_Report::approved_at( get_post( $s_post_id ) ), array() );
+
+$auto_id = WPCPM_Semester_Report::generate( $B, $COHORT, WPCPM_Semester_Report::ORIGIN_AUTO );
+ck( 'the job\'s origin is recorded', WPCPM_Semester_Report::origin_of( get_post( $auto_id ) ), 'auto' );
+WPCPM_Semester_Report::generate( $B, $COHORT, WPCPM_Semester_Report::ORIGIN_MANAGER );
+ck( 'and a regeneration by hand does not rewrite it: the origin is how the report came to exist', WPCPM_Semester_Report::origin_of( get_post( $auto_id ) ), 'auto' );
+
+echo "\n=== The upgrade: final becomes approved, once ===\n";
+
+$legacy = wp_insert_post( array( 'post_type' => WPCPM_Semester_Report::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Legacy final' ) );
+update_post_meta( $legacy, WPCPM_Semester_Report::META_INSTITUTION, $C );
+update_post_meta( $legacy, WPCPM_Semester_Report::META_COHORT, '2025-H2' );
+update_post_meta( $legacy, WPCPM_Semester_Report::META_STATE, 'final' );
+unset( $GLOBALS['opts'][ WPCPM_Semester_Report::OPT_STATE_VERSION ], $GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] );
+
+WPCPM_Semester_Report::maybe_upgrade();
+ck( 'a final report reads approved after the upgrade', WPCPM_Semester_Report::state( get_post( $legacy ) ), 'approved' );
+$legacy_stamp = WPCPM_Semester_Report::approved_at( get_post( $legacy ) );
+ck( 'approved by nobody, because approval did not exist when it was marked', isset( $legacy_stamp['by'] ) ? $legacy_stamp['by'] : null, 0 );
+
+// The header prints "Approved on <date>." with no " by " clause when by is 0: rendered here
+// as a manager, because a member never sees a draft's editor and this stamp is drawn there.
+$prev_manage       = $GLOBALS['manage'];
+$GLOBALS['manage'] = true;
+$legacy_screen     = screen_html( $C, '2025-H2' );
+$GLOBALS['manage'] = $prev_manage;
+ck( 'an upgraded report says when it was approved and names nobody', has( $legacy_screen, 'Approved on' ) && ! has( $legacy_screen, 'Approved on ' . '' . 'by' ) && ! preg_match( '/Approved on [^<]* by /', $legacy_screen ), true );
+
+ck( 'the vocabulary version is stamped', (int) get_option( WPCPM_Semester_Report::OPT_STATE_VERSION ), 2 );
+ck( 'and the since-date is today', get_option( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ), gmdate( 'Y-m-d' ) );
+ck( 'the draft was left alone', WPCPM_Semester_Report::state( get_post( $s_post_id ) ), 'draft' );
+
+update_post_meta( $legacy, WPCPM_Semester_Report::META_STATE, 'final' );
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2020-01-01';
+WPCPM_Semester_Report::maybe_upgrade();
+ck( 'a second run does nothing', WPCPM_Semester_Report::state( get_post( $legacy ) ), 'final' );
+ck( 'and never moves the since-date', get_option( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ), '2020-01-01' );
+update_post_meta( $legacy, WPCPM_Semester_Report::META_STATE, 'approved' );
+
+echo "\n=== The log ===\n";
+
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_LOG ] = array();
+WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFTED, $A, $COHORT, 0, array( 'in_progress' => 2, 'email' => 'anna@example.test' ) );
+WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_APPROVED, $A, $COHORT, 3 );
+$entries = WPCPM_Semester_Report::log_entries();
+ck( 'newest first', array( $entries[0]['event'], $entries[1]['event'] ), array( 'approved', 'drafted' ) );
+ck( 'the job is actor 0', $entries[1]['actor'], 0 );
+ck( 'the in-progress count travels', $entries[1]['in_progress'], 2 );
+ck( 'and nothing else does: an address handed to the log is not kept', array_key_exists( 'email', $entries[1] ), false );
+for ( $i = 0; $i < WPCPM_Semester_Report::LOG_MAX + 5; $i++ ) {
+	WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_REOPENED, $A, $COHORT, 3 );
+}
+ck( 'the log is capped', count( WPCPM_Semester_Report::log_entries() ), WPCPM_Semester_Report::LOG_MAX );
+WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFT_FAILED, $A, $COHORT, 0, array( 'why' => str_repeat( 'x', 500 ) ) );
+ck( 'a reason is cut short', strlen( WPCPM_Semester_Report::log_entries()[0]['why'] ), 200 );
+
+WPCPM_Semester_Report::delete_all();
+ck( 'uninstall takes the log, the version and the since-date', array(
+	get_option( WPCPM_Semester_Report::OPT_LOG, 'gone' ),
+	get_option( WPCPM_Semester_Report::OPT_STATE_VERSION, 'gone' ),
+	get_option( WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE, 'gone' ),
+), array( 'gone', 'gone', 'gone' ) );
+
+echo "\n=== When a cohort is due ===\n";
+
+// The five conditions of design section 5.1, each flipped on its own.
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$today             = '2026-09-04';
+// The fixture's own rosters come back at the end of the job block: the approval block below
+// needs an institution whose snapshot names released students, which only the fixture has.
+$saved_index       = $GLOBALS['index'];
+// `email_key` alongside `email`: `cohort_rows()` reads the roster index by `email_key`
+// (never `email`), and Task 4's job tests need these rows to carry a real address there so
+// `generate()` makes its live Students Reports and Feedback reads instead of finding no
+// email and returning early - which is the only way a $GLOBALS['fail_table'] can be proven
+// to stop a draft.
+$finished          = array(
+	array( 'record_id' => 'recS0000000000001', 'email' => 'a@example.test', 'email_key' => 'a@example.test', 'status' => 'Graduate', 'start' => '2026-02-10', 'end' => '2026-06-20' ),
+	array( 'record_id' => 'recS0000000000002', 'email' => 'b@example.test', 'email_key' => 'b@example.test', 'status' => 'In Sensei', 'start' => '2026-03-01', 'end' => '2026-06-30' ),
+);
+$GLOBALS['inst_rows'] = array(
+	$A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łódzki', 'stage' => 'Confirmed' ),
+	$B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ),
+	$C => array( 'record_id' => $C, 'name' => 'Instituto Chunk', 'stage' => 'Interested' ),
+);
+$GLOBALS['index'] = array(
+	$A => array( 'read' => 1756000000, 'rows' => $finished ),
+	$B => array( 'read' => 1756000000, 'rows' => $finished ),
+	$C => array( 'read' => 1756000000, 'rows' => $finished ),
+);
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+
+$due = WPCPM_Semester_Report::due( $today );
+ck( 'two active institutions with a finished January-to-June cohort are due', array_map( static function ( $d ) { return $d['institution'] . ' ' . $d['cohort']; }, $due ), array( $A . ' 2026-H1', $B . ' 2026-H1' ) );
+ck( 'with nobody in progress and the window end named', array( $due[0]['in_progress'], $due[0]['window_end'] ), array( 0, '2026-06-30' ) );
+ck( 'an institution outside the active stages is not due', in_array( $C, array_column( $due, 'institution' ), true ), false );
+
+$GLOBALS['index'][ $A ]['rows'] = array();
+ck( 'an empty roster is not due', in_array( $A, array_column( WPCPM_Semester_Report::due( $today ), 'institution' ), true ), false );
+$GLOBALS['index'][ $A ]['rows'] = array( array( 'record_id' => 'recS0000000000003', 'email' => 'c@example.test', 'status' => 'In Sensei', 'start' => '', 'end' => '' ) );
+ck( 'rows with no start date are not a cohort', in_array( $A, array_column( WPCPM_Semester_Report::due( $today ), 'institution' ), true ), false );
+$GLOBALS['index'][ $A ]['rows'] = array( array( 'record_id' => 'recS0000000000004', 'email' => 'd@example.test', 'status' => 'Graduate', 'start' => '2026-08-01', 'end' => '2026-09-01' ) );
+ck( 'a window that has not closed is not due, however finished its rows', in_array( $A, array_column( WPCPM_Semester_Report::due( $today ), 'institution' ), true ), false );
+$GLOBALS['index'][ $A ]['rows'] = $finished;
+
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-07-15';
+ck( 'a window that closed before the since-date is history, not a draft', WPCPM_Semester_Report::due( $today ), array() );
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+
+WPCPM_Semester_Report::generate( $B, '2026-H1' );
+ck( 'a cohort with a report is not due again', array_column( WPCPM_Semester_Report::due( $today ), 'institution' ), array( $A ) );
+
+$late = $finished;
+$late[] = array( 'record_id' => 'recS0000000000005', 'email' => 'e@example.test', 'status' => 'In Sensei', 'start' => '2026-03-15', 'end' => '' );
+$GLOBALS['index'][ $A ]['rows'] = $late;
+ck( 'a row still in progress holds the cohort back inside the grace', WPCPM_Semester_Report::due( '2026-07-20' ), array() );
+$grace_due = WPCPM_Semester_Report::due( '2026-08-20' );
+ck( 'and the cohort is drafted anyway once the grace has run out', array_column( $grace_due, 'institution' ), array( $A ) );
+ck( 'saying how many rows were still in progress', $grace_due[0]['in_progress'], 1 );
+$GLOBALS['settings_extra'] = array( 'report_autodraft_grace_days' => 10 );
+ck( 'the grace is the setting', array_column( WPCPM_Semester_Report::due( '2026-07-20' ), 'institution' ), array( $A ) );
+$GLOBALS['settings_extra'] = array();
+$GLOBALS['index'][ $A ]['rows'] = $finished;
+
+$spam = $finished;
+$spam[] = array( 'record_id' => 'recS0000000000006', 'email' => 'f@example.test', 'status' => 'SPAM', 'start' => '2026-03-15', 'end' => '' );
+$GLOBALS['index'][ $A ]['rows'] = $spam;
+ck( 'a SPAM row is nobody in progress', WPCPM_Semester_Report::due( '2026-07-20' )[0]['in_progress'], 0 );
+$GLOBALS['index'][ $A ]['rows'] = $finished;
+
+$timed = $finished;
+$timed[] = array( 'record_id' => 'recS0000000000008', 'email' => 'h@example.test', 'status' => 'In Sensei', 'start' => '2026-03-15', 'end' => '2026-08-20 10:00:00' );
+$GLOBALS['index'][ $A ]['rows'] = $timed;
+ck( 'an end date carrying a time is finished on its own day', WPCPM_Semester_Report::due( '2026-08-20' )[0]['in_progress'], 0 );
+$timed[2]['end'] = 'not a date';
+$GLOBALS['index'][ $A ]['rows'] = $timed;
+ck( 'and an end that is not a date is unknown, which is in progress', WPCPM_Semester_Report::due( '2026-08-20' )[0]['in_progress'], 1 );
+$GLOBALS['index'][ $A ]['rows'] = $finished;
+
+ck( 'a malformed today is nothing due', WPCPM_Semester_Report::due( 'yesterday' ), array() );
+ck( 'and so is an impossible one', WPCPM_Semester_Report::due( '2026-13-45' ), array() );
+
+echo "\n=== The queue and the approved list ===\n";
+
+$q_draft = WPCPM_Semester_Report::generate( $A, '2026-H1', WPCPM_Semester_Report::ORIGIN_AUTO );
+update_post_meta( $q_draft, WPCPM_Semester_Report::META_IN_PROGRESS, 1 );
+$queue = WPCPM_Semester_Report::queue();
+ck( 'the queue lists the drafts, oldest first', array_column( $queue, 'post_id' ), array( WPCPM_Semester_Report::find( $B, '2026-H1' )->ID, $q_draft ) );
+ck( 'with institution, cohort, origin and the in-progress count', array( $queue[1]['institution'], $queue[1]['cohort'], $queue[1]['origin'], $queue[1]['in_progress'] ), array( $A, '2026-H1', 'auto', 1 ) );
+ck( 'and no approval stamp on a draft', array( $queue[1]['approved_at'], $queue[1]['approved_by'] ), array( 0, 0 ) );
+ck( 'nothing approved yet', WPCPM_Semester_Report::approved_since( 0 ), array() );
+WPCPM_Semester_Report::approve( get_post( $q_draft ), 3 );
+ck( 'the queue shrinks', array_column( WPCPM_Semester_Report::queue(), 'post_id' ), array( WPCPM_Semester_Report::find( $B, '2026-H1' )->ID ) );
+$approved = WPCPM_Semester_Report::approved_since( time() - 60 );
+ck( 'and the approved list has it, with the stamp', array( count( $approved ), $approved[0]['approved_by'] ), array( 1, 3 ) );
+ck( 'a later cut-off leaves it out', WPCPM_Semester_Report::approved_since( time() + 60 ), array() );
+$walk = wp_json_encode( array_merge( $queue, $approved, $due, WPCPM_Semester_Report::log_entries() ) );
+ck( 'none of the three, nor the log, carries an address', preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}/', $walk ), 0 );
+
+echo "\n=== Draft now ===\n";
+
+$GLOBALS['manage']  = true;
+$GLOBALS['acting']  = '';
+$GLOBALS['uid']     = 3;
+$GLOBALS['ceiling'] = array();
+$GLOBALS['flash']   = array();
+$GLOBALS['mail']    = array();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_LOG ] = array();
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+$GLOBALS['index'][ $B ]['rows'] = $finished;
+
+ck( 'drafting writes the report and says so', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $B, 'cohort' => '2026-H1' ) ), 'drafted' );
+$b_post = WPCPM_Semester_Report::find( $B, '2026-H1' );
+ck( 'as a manager\'s draft', $b_post instanceof WP_Post ? WPCPM_Semester_Report::origin_of( $b_post ) : 'no post', 'manager' );
+ck( 'the manager lands on it, as that institution', has( $GLOBALS['redirect'], 'wpcpm_report=2026-H1' ) && has( $GLOBALS['redirect'], WPCPM_Institution_Roster::ARG_VIEW . '=' . $B ), true );
+ck( 'and it is logged to the account that pressed', array( WPCPM_Semester_Report::log_entries()[0]['event'], WPCPM_Semester_Report::log_entries()[0]['actor'] ), array( 'drafted', 3 ) );
+ck( 'nobody is mailed for a press', $GLOBALS['mail'], array() );
+ck( 'a second press finds the report', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $B, 'cohort' => '2026-H1' ) ), 'draft-exists' );
+ck( 'no start date is not a semester', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $B, 'cohort' => 'none' ) ), 'bad-cohort' );
+ck( 'a malformed record is refused', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => 'not-a-record', 'cohort' => '2025-H2' ) ), 'refused' );
+
+$GLOBALS['ceiling'] = array( 'report-draft:3' => WPCPM_Semester_Report_Screen::DRAFTS_PER_DAY );
+ck( 'the twenty-first press in a day is refused', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $A, 'cohort' => '2026-H1' ) ), 'draft-refused' );
+ck( 'and writes nothing', WPCPM_Semester_Report::find( $A, '2026-H1' ), null );
+$GLOBALS['ceiling'] = array();
+
+$GLOBALS['manage'] = false;
+$GLOBALS['acting'] = $A;
+$GLOBALS['decisions'] = array();
+ck( 'a member is refused before the policy is asked', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $A, 'cohort' => '2026-H1' ) ), 'refused' );
+ck( 'the capability is the first gate, so the policy never saw the press', $GLOBALS['decisions'], array() );
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+
+echo "\n=== The daily job ===\n";
+
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+$GLOBALS['mail']      = array();
+$GLOBALS['inst_rows'] = array();
+$GLOBALS['index']     = array();
+for ( $i = 1; $i <= 12; $i++ ) {
+	$rec = sprintf( 'recJOB%011d', $i );
+	$GLOBALS['inst_rows'][ $rec ] = array( 'record_id' => $rec, 'name' => 'Job University ' . $i, 'stage' => 'Confirmed' );
+	$GLOBALS['index'][ $rec ]     = array( 'read' => 1756000000, 'rows' => $finished );
+}
+$GLOBALS['transients'] = array();
+
+// The first pair is being generated by somebody this minute.
+$first_pair = WPCPM_Semester_Report::due( gmdate( 'Y-m-d' ) )[0];
+$GLOBALS['opts'][ 'wpcpm_report_gen_' . md5( $first_pair['institution'] . '|' . $first_pair['cohort'] ) ] = time();
+
+ck( 'one run drafts the cap, skipping the locked pair', WPCPM_Semester_Report_Screen::autodraft_tick(), WPCPM_Semester_Report_Screen::AUTODRAFT_PER_RUN );
+ck( 'and mails the managers once per draft, through the report setting', count( array_filter( $GLOBALS['mail'], static function ( $m ) { return 'report-drafted' === $m['context'] && 'managers:report_notify' === $m['to']; } ) ), WPCPM_Semester_Report_Screen::AUTODRAFT_PER_RUN );
+ck( 'the mail names the institution, the semester and the review link', has( $GLOBALS['mail'][0]['body'], 'Job University' ) && has( $GLOBALS['mail'][0]['body'], 'January to June 2026' ) && has( $GLOBALS['mail'][0]['body'], 'wpcpm_report=2026-H1' ), true );
+ck( 'and opens it as that institution', has( $GLOBALS['mail'][0]['body'], WPCPM_Institution_Roster::ARG_VIEW . '=' . $first_pair['institution'] ) || has( $GLOBALS['mail'][0]['body'], WPCPM_Institution_Roster::ARG_VIEW . '=' ), true );
+ck( 'each draft is the job\'s', WPCPM_Semester_Report::queue()[0]['origin'], 'auto' );
+ck( 'and logged to actor 0', WPCPM_Semester_Report::log_entries()[0]['actor'], 0 );
+unset( $GLOBALS['opts'][ 'wpcpm_report_gen_' . md5( $first_pair['institution'] . '|' . $first_pair['cohort'] ) ] );
+ck( 'the next run drafts the rest', WPCPM_Semester_Report_Screen::autodraft_tick(), 2 );
+ck( 'and then there is nothing due', WPCPM_Semester_Report_Screen::autodraft_tick(), 0 );
+
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+$GLOBALS['fail_table'] = 'tblReports';
+$GLOBALS['transients'] = array();
+$GLOBALS['mail']       = array();
+ck( 'a read that fails drafts nothing and stops nothing', WPCPM_Semester_Report_Screen::autodraft_tick(), 0 );
+ck( 'each failure is a log line with the reason', array( WPCPM_Semester_Report::log_entries()[0]['event'], has( WPCPM_Semester_Report::log_entries()[0]['why'], 'tblReports' ) || '' !== WPCPM_Semester_Report::log_entries()[0]['why'] ), array( 'draft_failed', true ) );
+// Twelve institutions were due, the cap attempted ten, and every one of the ten failed: this
+// counts the whole log rather than entry 0 alone, which only a loop that kept going after the
+// first failure could produce.
+ck( 'and every attempted pair failed on its own, not the loop', count( array_filter( WPCPM_Semester_Report::log_entries(), static function ( $e ) { return 'draft_failed' === $e['event']; } ) ), WPCPM_Semester_Report_Screen::AUTODRAFT_PER_RUN );
+ck( 'and no mail', $GLOBALS['mail'], array() );
+$GLOBALS['fail_table'] = '';
+
+$GLOBALS['settings_extra'] = array( 'report_autodraft' => false );
+ck( 'switched off, the job does nothing', WPCPM_Semester_Report_Screen::autodraft_tick(), 0 );
+$GLOBALS['settings_extra'] = array();
+$GLOBALS['inst_rows']      = array( $A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łódzki', 'stage' => 'Confirmed' ), $B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ) );
+$GLOBALS['index']          = $saved_index;
+
+echo "\n=== Approve and reopen ===\n";
+
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['transients'] = array();
+$GLOBALS['mail']       = array();
+$GLOBALS['members']    = array( $E => array( new WP_User( 21, 'Rep One', 'maciej@a8c.com' ), new WP_User( 22, 'Rep Two', 'maciej@a8c.com' ) ) );
+// E's fixture snapshot names released students, so approval has to spend a consent read
+// and a Feedback read that fails is a refusal; an institution with nobody released would
+// pass without reading, which is the early return consent_check() makes on purpose.
+$ap_post = WPCPM_Semester_Report::generate( $E, $COHORT );
+
+$GLOBALS['fail_table'] = 'tblFeedback';
+$GLOBALS['transients'] = array();
+ck( 'approval is refused while the students\' answers cannot be read', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_APPROVE, array( 'report' => $ap_post ) ), 'approve-failed' );
+ck( 'and the report stays a draft', WPCPM_Semester_Report::state( get_post( $ap_post ) ), 'draft' );
+ck( 'with nobody told', $GLOBALS['mail'], array() );
+$GLOBALS['fail_table'] = '';
+$GLOBALS['transients'] = array();
+
+ck( 'approval approves', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_APPROVE, array( 'report' => $ap_post ) ), 'approved' );
+ck( 'stamped with the manager', WPCPM_Semester_Report::approved_at( get_post( $ap_post ) )['by'], 3 );
+ck( 'the institution\'s two accounts are told', array_map( static function ( $m ) { return $m['to'] . ':' . $m['context']; }, $GLOBALS['mail'] ), array( '21:report-approved', '22:report-approved' ) );
+ck( 'and the flash carries the count', $GLOBALS['flash'][ WPCPM_Semester_Report_Screen::FLASH ]['detail']['notified'], 2 );
+ck( 'logged', WPCPM_Semester_Report::log_entries()[0]['event'], 'approved' );
+ck( 'approving again is a refusal that names the state', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_APPROVE, array( 'report' => $ap_post ) ), 'is-approved' );
+
+$GLOBALS['mail']    = array();
+$GLOBALS['members'] = array();
+ck( 'reopen reopens', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_REOPEN, array( 'report' => $ap_post ) ), 'reopened' );
+ck( 'the stamp is gone', WPCPM_Semester_Report::approved_at( get_post( $ap_post ) ), array() );
+ck( 'and nobody is mailed for a reopen', $GLOBALS['mail'], array() );
+ck( 'approving with no institution account says so in the count', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_APPROVE, array( 'report' => $ap_post ) ) . ':' . $GLOBALS['flash'][ WPCPM_Semester_Report_Screen::FLASH ]['detail']['notified'], 'approved:0' );
+$ap_screen = screen_html( $E, $COHORT );
+ck( 'and the page tells the manager to send the PDF by hand', has( $ap_screen, 'by hand' ), true );
+
+echo "\n=== What the institution sees ===\n";
+
+// B with a roster of its own: one finished semester to approve, one older one left a draft.
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['transients'] = array();
+$GLOBALS['flash']      = array();
+$GLOBALS['index'][ $B ]['rows'] = array_merge( $finished, array(
+	array( 'record_id' => 'recS0000000000007', 'email' => 'g@example.test', 'status' => 'Graduate', 'start' => '2025-09-10', 'end' => '2025-12-20' ),
+) );
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$m_approved = WPCPM_Semester_Report::generate( $B, '2026-H1' );
+$m_draft    = WPCPM_Semester_Report::generate( $B, '2025-H2' );
+WPCPM_Semester_Report::approve( get_post( $m_approved ), 3 );
+
+$GLOBALS['manage'] = false;
+$GLOBALS['acting'] = $B;
+$GLOBALS['uid']    = 21;
+$member_card = screen_html( $B, '' );
+ck( 'the approved semester is listed', has( $member_card, 'January to June 2026' ), true );
+ck( 'with a View link and a PDF link', has( $member_card, '>View<' ) && has( $member_card, '>Download PDF<' ), true );
+ck( 'the draft is a sentence, not a report', has( $member_card, 'July to December 2025 is being prepared' ), true );
+ck( 'no form at all for a member', has( $member_card, '<form' ), false );
+foreach ( array( 'ACTION_GENERATE', 'ACTION_SAVE', 'ACTION_APPROVE', 'ACTION_REOPEN', 'ACTION_DRAFT', 'ACTION_REFRESH_CONSENT' ) as $constant ) {
+	ck( 'and no ' . $constant . ' field', has( $member_card, constant( 'WPCPM_Semester_Report_Screen::' . $constant ) ), false );
+}
+ck( 'no textarea either', has( $member_card, '<textarea' ), false );
+
+$member_reading = screen_html( $B, '2026-H1' );
+ck( 'the approved report opens read-only', has( $member_reading, 'Back to the other semesters' ) && has( $member_reading, 'Participation' ), true );
+ck( 'with the PDF button and no editor', has( $member_reading, '>Download PDF<' ) && ! has( $member_reading, '<textarea' ), true );
+$member_asks_draft = screen_html( $B, '2025-H2' );
+ck( 'asking for the draft by address lands on the list', has( $member_asks_draft, 'is being prepared' ) && ! has( $member_asks_draft, 'Participation' ), true );
+
+$GLOBALS['acting'] = $A;
+$other_card = screen_html( $A, '' );
+ck( 'another institution sees its own empty card', has( $other_card, 'No semester report has been published' ), true );
+ck( 'and nothing of B', has( $other_card, 'January to June 2026' ), false );
+
+echo "\n=== What the manager sees ===\n";
+
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$GLOBALS['uid']    = 3;
+$draft_editor = screen_html( $B, '2025-H2' );
+ck( 'a draft offers Approve and not Reopen', has( $draft_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_APPROVE . '"' ) && ! has( $draft_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_REOPEN . '"' ), true );
+ck( 'and the editing form', has( $draft_editor, '<textarea' ), true );
+ck( 'and says who drafted it', has( $draft_editor, 'Drafted by a program manager' ), true );
+$approved_editor = screen_html( $B, '2026-H1' );
+ck( 'an approved report offers Reopen and not Approve', has( $approved_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_REOPEN . '"' ) && ! has( $approved_editor, 'value="' . WPCPM_Semester_Report_Screen::ACTION_APPROVE . '"' ), true );
+ck( 'and no editing form', has( $approved_editor, '<textarea' ), false );
+ck( 'and says who approved it', has( $approved_editor, 'Approved on' ) && has( $approved_editor, 'Person 3' ), true );
+ck( 'the state word is Approved', has( $approved_editor, '>Approved<' ), true );
+ob_start();
+WPCPM_Semester_Report_Screen::render_draft_form( $B, '2024-H2' );
+$draft_form = ob_get_clean();
+ck( 'the Draft now form posts the action with the two IDs', has( $draft_form, 'value="' . WPCPM_Semester_Report_Screen::ACTION_DRAFT . '"' ) && has( $draft_form, 'name="institution" value="' . $B . '"' ) && has( $draft_form, 'name="cohort" value="2024-H2"' ), true );
+ck( 'guarded against a double press', has( $draft_form, 'data-wpcpm-once' ), true );
+
+echo "\n=== Printing ===\n";
+
+$GLOBALS['manage'] = false;
+$GLOBALS['acting'] = $B;
+$_POST = array();
+$_GET  = array( 'report' => $m_draft );
+$draft_print = run_handler( WPCPM_Semester_Report_Screen::ACTION_PRINT );
+$_GET  = array( 'report' => 999999 );
+$ghost_print = run_handler( WPCPM_Semester_Report_Screen::ACTION_PRINT );
+ck( 'a member printing a draft reads exactly as a ghost', $draft_print === $ghost_print && '' !== $draft_print, true );
+$_GET = array( 'report' => $m_approved );
+$approved_print = run_handler( WPCPM_Semester_Report_Screen::ACTION_PRINT );
+ck( 'and prints the approved one', has( $approved_print, '<!DOCTYPE html>' ) || has( $approved_print, '<html' ), true );
+$GLOBALS['manage'] = true;
+$GLOBALS['acting'] = '';
+$_GET = array( 'report' => $m_draft );
+ck( 'a manager prints a draft', has( run_handler( WPCPM_Semester_Report_Screen::ACTION_PRINT ), '<html' ), true );
+$_GET = array();
+
+echo "\n=== The Draft now picker ===\n";
+
+$GLOBALS['manage']    = true;
+$GLOBALS['acting']    = '';
+$GLOBALS['inst_rows'] = array(
+	$A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łódzki', 'stage' => 'Confirmed' ),
+	$B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ),
+	$C => array( 'record_id' => $C, 'name' => 'Instituto Chunk', 'stage' => 'Interested' ),
+);
+$GLOBALS['index'][ $A ]['rows'] = $finished;
+$GLOBALS['index'][ $B ]['rows'] = $finished;
+$GLOBALS['index'][ $C ]['rows'] = $finished;
+
+ob_start();
+WPCPM_Semester_Report_Screen::render_draft_picker();
+$picker = ob_get_clean();
+
+ck( 'the picker posts Draft now', has( $picker, 'value="' . WPCPM_Semester_Report_Screen::ACTION_DRAFT . '"' ), true );
+ck( 'the institution options list the two active institutions with a roster', has( $picker, 'value="' . $A . '"' ) && has( $picker, 'value="' . $B . '"' ), true );
+ck( 'and not the one outside the active stages', has( $picker, 'value="' . $C . '"' ), false );
+ck( 'the cohort options include the finished semester and the current one', has( $picker, '2026-H1' ) && has( $picker, WPCPM_Cohort::current() ), true );
+
+$GLOBALS['index'][ $B ]['rows'] = array();
+ob_start();
+WPCPM_Semester_Report_Screen::render_draft_picker();
+$picker_empty_b = ob_get_clean();
+ck( 'an institution with no roster rows drops out of the picker', has( $picker_empty_b, 'value="' . $B . '"' ), false );
+$GLOBALS['index'][ $B ]['rows'] = $finished;
+
+ck( 'a semester with none of the institution\'s rows is refused with no-rows', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => $A, 'cohort' => '2024-H2' ) ), 'no-rows' );
+ck( 'and creates no post', WPCPM_Semester_Report::find( $A, '2024-H2' ), null );
+
+$GLOBALS['decisions'] = array();
+ck( 'a well-formed record the index never held is refused', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_DRAFT, array( 'institution' => 'recZZZZZZZZZZZZZZ', 'cohort' => '2026-H1' ) ), 'refused' );
+ck( 'and the policy was never asked about it', $GLOBALS['decisions'], array() );
+
+$GLOBALS['index'] = $saved_index;
+
+echo "\n=== handle_generate() drafts, logs and meters like Draft now ===\n";
+
+// Decision 1's second drafting route: the dashboard button a manager already had, now held to
+// the same account as Draft now (final review, Important 3).
+WPCPM_Semester_Report::delete_all();
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE ] = '2026-05-01';
+$GLOBALS['opts'][ WPCPM_Semester_Report::OPT_LOG ]             = array();
+$GLOBALS['transients']          = array();
+$GLOBALS['manage']              = true;
+$GLOBALS['acting']              = $A;
+$GLOBALS['uid']                 = 3;
+$GLOBALS['ceiling']             = array();
+$GLOBALS['index'][ $A ]['rows'] = $finished;
+
+ck( 'the dashboard button generates', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => '2026-H1' ) ), 'generated' );
+ck( 'and is logged as a draft, to the manager who pressed it', array( WPCPM_Semester_Report::log_entries()[0]['event'], WPCPM_Semester_Report::log_entries()[0]['actor'] ), array( 'drafted', 3 ) );
+
+$GLOBALS['ceiling'] = array( 'report-draft:3' => WPCPM_Semester_Report_Screen::DRAFTS_PER_DAY );
+ck( 'and the same daily ceiling as Draft now refuses it too', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_GENERATE, array( 'cohort' => '2025-H2' ) ), 'draft-refused' );
+ck( 'writing nothing', WPCPM_Semester_Report::find( $A, '2025-H2' ), null );
+$GLOBALS['ceiling'] = array();
 
 echo "\n=== House rules ===\n";
 

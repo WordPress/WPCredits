@@ -91,9 +91,6 @@ final class WPCPM_Semester_Report {
 	/** When the snapshot was last generated, as a Unix time. */
 	const META_GENERATED = '_wpcpm_report_generated';
 
-	/** `draft` or `final`. */
-	const META_STATE = '_wpcpm_report_state';
-
 	/** When the print document was last opened, as a Unix time. */
 	const META_EXPORTED = '_wpcpm_report_exported';
 
@@ -137,11 +134,44 @@ final class WPCPM_Semester_Report {
 	 */
 	const VERSION = 1;
 
-	/** Being written. Everything may be edited, generated and regenerated. */
+	/** `draft` or `approved`. Version 2 of the vocabulary; `maybe_upgrade()` flips `final`. */
+	const META_STATE = '_wpcpm_report_state';
+	/**
+	 * Who approved the report and when: `array( 'at' => int, 'by' => int )`.
+	 *
+	 * `by` is 0 for a report that was `final` before approval existed and was flipped by
+	 * `maybe_upgrade()`: nobody pressed Approve on it, and a stamp naming the upgrading
+	 * request's user would be a claim about a person. Deleted on reopen.
+	 *
+	 * @var string
+	 */
+	const META_APPROVED = '_wpcpm_report_approved';
+	/**
+	 * How the report came to exist: `auto` (the daily job) or `manager` (a press).
+	 *
+	 * Written once, at the first generation, and never by a regeneration: the log answers
+	 * "did the site draft this or did somebody" and a regeneration is neither.
+	 *
+	 * @var string
+	 */
+	const META_ORIGIN = '_wpcpm_report_origin';
+	/** Rows still in progress when the job drafted it, so the notice can say how late the cohort ran. */
+	const META_IN_PROGRESS = '_wpcpm_report_in_progress';
+	/** The daily job drafted it. */
+	const ORIGIN_AUTO = 'auto';
+	/** A program manager pressed Draft now, or generated it on the Institution Dashboard. */
+	const ORIGIN_MANAGER = 'manager';
+	/** Being written. Everything may be edited, generated and regenerated. Invisible to the institution. */
 	const STATE_DRAFT = 'draft';
-
-	/** Issued. Only a consent refresh may still change it, because a withdrawal must reach it. */
-	const STATE_FINAL = 'final';
+	/**
+	 * Approved by a program manager. The institution reads and prints it.
+	 *
+	 * Replaces `final` (design of 4 September 2026, decision 1): the institution no longer
+	 * writes the document, so "final" stopped meaning "the school has stopped writing" and
+	 * started meaning "the program has said this may be read". Only a reopen changes it;
+	 * consent is still re-read on every render, so a withdrawal still reaches it.
+	 */
+	const STATE_APPROVED = 'approved';
 
 	/**
 	 * The Feedback column holding the student's release of their name and links.
@@ -212,6 +242,30 @@ final class WPCPM_Semester_Report {
 	 */
 	const OPT_EPOCH = 'wpcpm_report_epoch';
 
+	/** The version of the state vocabulary this site's reports are written in. */
+	const OPT_STATE_VERSION = 'wpcpm_report_state_version';
+	/** Version 2 renamed `final` to `approved`; `maybe_upgrade()` flips the rows once. */
+	const STATE_VERSION = 2;
+	/**
+	 * The day the drafting job was installed, as `Y-m-d`.
+	 *
+	 * Nothing whose semester window closed before this day is drafted by the job: the first
+	 * run on a site with forty institutions and two years of rosters would otherwise draft
+	 * eighty reports nobody asked for. A manager who wants an older one presses Draft now.
+	 *
+	 * @var string
+	 */
+	const OPT_AUTODRAFT_SINCE = 'wpcpm_report_autodraft_since';
+	/** The log of drafts, approvals and reopenings, newest first, capped at LOG_MAX. */
+	const OPT_LOG = 'wpcpm_report_log';
+	/** Entries the log keeps. */
+	const LOG_MAX = 200;
+	/** Log events. */
+	const LOG_DRAFTED      = 'drafted';
+	const LOG_DRAFT_FAILED = 'draft_failed';
+	const LOG_APPROVED     = 'approved';
+	const LOG_REOPENED     = 'reopened';
+
 	/*
 	 * --------------------------------------------------------------------
 	 * Registration
@@ -222,6 +276,10 @@ final class WPCPM_Semester_Report {
 	 * Hooks.
 	 */
 	public static function init() {
+		// Before the post type, on purpose: the flip queries by post type string and needs no
+		// registration, and running first means every later hook of this request sees the
+		// new vocabulary.
+		add_action( 'init', array( __CLASS__, 'maybe_upgrade' ), 5 );
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
 		add_action( 'init', array( __CLASS__, 'register_meta' ) );
 	}
@@ -437,17 +495,20 @@ final class WPCPM_Semester_Report {
 	/**
 	 * Which of the two states a report is in.
 	 *
-	 * Anything that is not the exact word `final` is a draft. A report whose state meta was
-	 * lost or never written is editable, which is the safe direction: the other reading would
-	 * lock a school out of its own document with no way back.
+	 * A report whose state meta was lost or never written is editable, which is the safe
+	 * direction: the other reading would lock a school out of its own document with no way
+	 * back. Any other stored value comes back unchanged rather than folded into `draft`: a
+	 * row `maybe_upgrade()` has not yet reached still reads as `final` here, and only the
+	 * upgrade decides when that changes. A comparison against `approved` still treats such a
+	 * row as a draft, because nothing but the exact word matches.
 	 *
 	 * @param WP_Post $post The report.
-	 * @return string `draft` or `final`.
+	 * @return string `draft`, `approved`, or a value only a not-yet-upgraded row still carries.
 	 */
 	public static function state( WP_Post $post ) {
 		$state = (string) get_post_meta( (int) $post->ID, self::META_STATE, true );
 
-		return self::STATE_FINAL === $state ? self::STATE_FINAL : self::STATE_DRAFT;
+		return '' === $state ? self::STATE_DRAFT : $state;
 	}
 
 	/**
@@ -567,20 +628,103 @@ final class WPCPM_Semester_Report {
 	}
 
 	/**
-	 * Move a report between draft and final.
+	 * Move a report between draft and approved.
 	 *
 	 * @param WP_Post $post  The report.
-	 * @param string  $state `draft` or `final`.
+	 * @param string  $state `draft` or `approved`.
 	 * @return bool Whether the state was written.
 	 */
 	public static function set_state( WP_Post $post, $state ) {
-		if ( self::STATE_DRAFT !== $state && self::STATE_FINAL !== $state ) {
+		if ( self::STATE_DRAFT !== $state && self::STATE_APPROVED !== $state ) {
 			return false;
 		}
 
 		update_post_meta( (int) $post->ID, self::META_STATE, $state );
 
 		return true;
+	}
+
+	/**
+	 * Approve a report: the state, and who did it when.
+	 *
+	 * @param WP_Post $post    The report.
+	 * @param int     $user_id The manager pressing Approve; 0 for nobody.
+	 * @return bool
+	 */
+	public static function approve( WP_Post $post, $user_id ) {
+		if ( ! self::set_state( $post, self::STATE_APPROVED ) ) {
+			return false;
+		}
+
+		update_post_meta(
+			(int) $post->ID,
+			self::META_APPROVED,
+			array(
+				'at' => time(),
+				'by' => max( 0, (int) $user_id ),
+			)
+		);
+
+		return true;
+	}
+
+	/**
+	 * Make an approved report a draft again. The stamp goes with the state, so a reopened
+	 * report never says who approved a version that no longer exists.
+	 *
+	 * @param WP_Post $post The report.
+	 * @return bool
+	 */
+	public static function reopen( WP_Post $post ) {
+		if ( ! self::set_state( $post, self::STATE_DRAFT ) ) {
+			return false;
+		}
+
+		delete_post_meta( (int) $post->ID, self::META_APPROVED );
+
+		return true;
+	}
+
+	/**
+	 * When and by whom a report was approved, or an empty array for a draft.
+	 *
+	 * @param WP_Post $post The report.
+	 * @return array `array()` or `array( 'at' => int, 'by' => int )`.
+	 */
+	public static function approved_at( WP_Post $post ) {
+		$stamp = get_post_meta( (int) $post->ID, self::META_APPROVED, true );
+
+		if ( ! is_array( $stamp ) || empty( $stamp['at'] ) ) {
+			return array();
+		}
+
+		return array(
+			'at' => (int) $stamp['at'],
+			'by' => isset( $stamp['by'] ) ? max( 0, (int) $stamp['by'] ) : 0,
+		);
+	}
+
+	/**
+	 * How the report came to exist. Anything but `auto` reads as a manager's, including
+	 * the empty value every report written before origins existed carries.
+	 *
+	 * @param WP_Post $post The report.
+	 * @return string ORIGIN_AUTO or ORIGIN_MANAGER.
+	 */
+	public static function origin_of( WP_Post $post ) {
+		return self::ORIGIN_AUTO === (string) get_post_meta( (int) $post->ID, self::META_ORIGIN, true )
+			? self::ORIGIN_AUTO
+			: self::ORIGIN_MANAGER;
+	}
+
+	/**
+	 * Rows still in progress when the job drafted the report; 0 for a report drafted by hand.
+	 *
+	 * @param WP_Post $post The report.
+	 * @return int
+	 */
+	public static function in_progress_of( WP_Post $post ) {
+		return max( 0, (int) get_post_meta( (int) $post->ID, self::META_IN_PROGRESS, true ) );
 	}
 
 	/**
@@ -627,8 +771,330 @@ final class WPCPM_Semester_Report {
 		}
 
 		delete_option( self::OPT_EPOCH );
+		delete_option( self::OPT_LOG );
+		delete_option( self::OPT_STATE_VERSION );
+		delete_option( self::OPT_AUTODRAFT_SINCE );
 
 		return $removed;
+	}
+
+	/**
+	 * Flip every `final` report to `approved`, once, and record the day the job arrived.
+	 *
+	 * Runs on `init` at priority 5 for sites updated by dropping in files, the way the roles
+	 * and settings upgrades do. Idempotent: the version option is what makes it once.
+	 */
+	public static function maybe_upgrade() {
+		if ( (int) get_option( self::OPT_STATE_VERSION ) >= self::STATE_VERSION ) {
+			return;
+		}
+
+		// Every status, for the reason delete_all() gives: a trashed report is still a report,
+		// and a `final` one left in the trash would read as a third state nothing knows.
+		$found = get_posts(
+			array(
+				'post_type'      => self::POST_TYPE,
+				'post_status'    => array( 'publish', 'private', 'draft', 'pending', 'future', 'trash', 'auto-draft', 'inherit' ),
+				'posts_per_page' => -1,
+				'meta_query'     => array(
+					array(
+						'key'   => self::META_STATE,
+						'value' => 'final',
+					),
+				),
+			)
+		);
+
+		foreach ( $found as $post ) {
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			update_post_meta( (int) $post->ID, self::META_STATE, self::STATE_APPROVED );
+
+			// `by` 0: nobody pressed Approve. `at` is the last edit, the closest fact to "when
+			// it was marked final" a version-1 row holds.
+			update_post_meta(
+				(int) $post->ID,
+				self::META_APPROVED,
+				array(
+					'at' => (int) get_post_modified_time( 'U', true, $post ),
+					'by' => 0,
+				)
+			);
+		}
+
+		// `add_option()` and not `update_option()`: the day the job was installed is a fact
+		// about this site that a later upgrade must not move.
+		add_option( self::OPT_AUTODRAFT_SINCE, wp_date( 'Y-m-d' ), '', false );
+
+		update_option( self::OPT_STATE_VERSION, self::STATE_VERSION );
+	}
+
+	/**
+	 * Record a draft, an approval, a reopening or a failed draft.
+	 *
+	 * Two facts a sentence may need travel with the entry and nothing else: no prose from
+	 * the report, no address, no name. A reason is cut to 200 characters because it is
+	 * Airtable's own message and is only there to say which read failed.
+	 *
+	 * @param string $event       One of the LOG_* values.
+	 * @param string $institution Institutions record ID.
+	 * @param string $cohort      Cohort key.
+	 * @param int    $actor       The account, or 0 for the job.
+	 * @param array  $extra       Optional `in_progress` (int) and `why` (string).
+	 */
+	public static function log( $event, $institution, $cohort, $actor, array $extra = array() ) {
+		$entries = get_option( self::OPT_LOG );
+		$entries = is_array( $entries ) ? $entries : array();
+
+		$entry = array(
+			'event'       => (string) $event,
+			'institution' => trim( (string) $institution ),
+			'cohort'      => (string) $cohort,
+			'actor'       => max( 0, (int) $actor ),
+			'at'          => time(),
+		);
+
+		if ( isset( $extra['in_progress'] ) ) {
+			$entry['in_progress'] = max( 0, (int) $extra['in_progress'] );
+		}
+
+		if ( isset( $extra['why'] ) ) {
+			$entry['why'] = mb_substr( sanitize_text_field( (string) $extra['why'] ), 0, 200 );
+		}
+
+		array_unshift( $entries, $entry );
+
+		update_option( self::OPT_LOG, array_slice( $entries, 0, self::LOG_MAX ), false );
+	}
+
+	/**
+	 * The log, newest first.
+	 *
+	 * @return array[]
+	 */
+	public static function log_entries() {
+		$entries = get_option( self::OPT_LOG );
+
+		return is_array( $entries ) ? array_values( $entries ) : array();
+	}
+
+	/*
+	 * --------------------------------------------------------------------
+	 * What the job and the Administrator Dashboard read
+	 * --------------------------------------------------------------------
+	 */
+
+	/**
+	 * The institution cohorts a draft is owed for (design section 5.1).
+	 *
+	 * Due when all five hold: the institution is in an active stage and has roster rows in
+	 * the cohort; the cohort is a semester (not NONE) whose window closed before today; the
+	 * window closed on or after the since-date; no report exists for the pair; and either
+	 * every row is finished or the window closed at least the grace ago. One function, read
+	 * by the cron and by the screens alike, so they cannot disagree about what "due" means.
+	 *
+	 * Dates are compared as `Y-m-d` strings, the cohort class's rule: a day boundary is a
+	 * calendar fact, and a timestamp would pin it to one timezone's midnight.
+	 *
+	 * @param string $today Today as `Y-m-d`.
+	 * @return array[] `institution`, `cohort`, `in_progress`, `window_end`; oldest window first.
+	 */
+	public static function due( $today ) {
+		$today = (string) $today;
+
+		// Pattern and checkdate(), the cohort class's rule: "2026-13-45" matches the pattern
+		// and would reach the day count below with a meaningless answer.
+		if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $today, $parts ) || ! checkdate( (int) $parts[2], (int) $parts[3], (int) $parts[1] ) ) {
+			return array();
+		}
+
+		$active = (array) WPCPM_Settings::get_value( 'institution_active_stages', array() );
+		$past   = (array) WPCPM_Settings::get_value( 'past_statuses', array() );
+		$grace  = max( 0, (int) WPCPM_Settings::get_value( 'report_autodraft_grace_days', 45 ) );
+		$since  = (string) get_option( self::OPT_AUTODRAFT_SINCE, '' );
+		$due    = array();
+
+		// An empty stage list is nobody active, not everybody: the sync reads the same list
+		// as the definition of the pipeline, and a report drafted for an institution the
+		// pipeline does not count is a report about nobody's partner.
+		if ( empty( $active ) ) {
+			return array();
+		}
+
+		foreach ( WPCPM_Institutions_Index::rows() as $institution ) {
+			if ( ! is_array( $institution ) || empty( $institution['record_id'] ) ) {
+				continue;
+			}
+
+			$record = (string) $institution['record_id'];
+			$stage  = isset( $institution['stage'] ) ? trim( (string) $institution['stage'] ) : '';
+
+			if ( ! in_array( $stage, $active, true ) ) {
+				continue;
+			}
+
+			$by_cohort = array();
+
+			foreach ( WPCPM_Roster_Index::rows( $record ) as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+
+				$status = isset( $row['status'] ) ? trim( (string) $row['status'] ) : '';
+
+				if ( in_array( $status, WPCPM_Cohort::NOT_SIGNED_UP, true ) ) {
+					continue;
+				}
+
+				$key = WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' );
+
+				if ( WPCPM_Cohort::NONE === $key ) {
+					continue;
+				}
+
+				if ( ! isset( $by_cohort[ $key ] ) ) {
+					$by_cohort[ $key ] = 0;
+				}
+
+				// The leading Y-m-d and nothing else, the guard WPCPM_Cohort::key() applies to
+				// `start`: "2026-06-30 00:00:00" compares as later than "2026-06-30" byte for
+				// byte, so a datetime would keep a finished row in progress on its own last
+				// day. A value with no date in it reads as unknown, and unknown is in progress:
+				// the job waits rather than drafting over somebody who may not be finished.
+				$end = isset( $row['end'] ) ? trim( (string) $row['end'] ) : '';
+				$end = preg_match( '/^(\d{4}-\d{2}-\d{2})/', $end, $found ) ? $found[1] : '';
+
+				if ( ! in_array( $status, $past, true ) && ( '' === $end || $end > $today ) ) {
+					++$by_cohort[ $key ];
+				}
+			}
+
+			foreach ( $by_cohort as $key => $in_progress ) {
+				$range = WPCPM_Cohort::range( $key );
+				$end   = $range['to'];
+
+				if ( '' === $end || $end >= $today ) {
+					continue;
+				}
+
+				if ( '' !== $since && $end < $since ) {
+					continue;
+				}
+
+				if ( self::find( $record, $key ) instanceof WP_Post ) {
+					continue;
+				}
+
+				$days = (int) floor( ( strtotime( $today . ' 00:00:00 UTC' ) - strtotime( $end . ' 00:00:00 UTC' ) ) / DAY_IN_SECONDS );
+
+				if ( $in_progress > 0 && $days < $grace ) {
+					continue;
+				}
+
+				$due[] = array(
+					'institution' => $record,
+					'cohort'      => (string) $key,
+					'in_progress' => (int) $in_progress,
+					'window_end'  => $end,
+				);
+			}
+		}
+
+		usort(
+			$due,
+			static function ( $a, $b ) {
+				$order = strcmp( $a['window_end'], $b['window_end'] );
+
+				return 0 !== $order ? $order : strcmp( $a['institution'], $b['institution'] );
+			}
+		);
+
+		return $due;
+	}
+
+	/**
+	 * Every draft, oldest generated first: what the Administrator Dashboard lists to review.
+	 *
+	 * @return array[]
+	 */
+	public static function queue() {
+		return self::rows_in_state( self::STATE_DRAFT, 0 );
+	}
+
+	/**
+	 * Every report approved at or after a moment, oldest generated first.
+	 *
+	 * @param int $timestamp Unix time; 0 for every approved report.
+	 * @return array[]
+	 */
+	public static function approved_since( $timestamp ) {
+		return self::rows_in_state( self::STATE_APPROVED, (int) $timestamp );
+	}
+
+	/**
+	 * Plain rows for one state. No prose, no snapshot: the readers of this list draw a table.
+	 *
+	 * @param string $state          STATE_DRAFT or STATE_APPROVED.
+	 * @param int    $approved_after Keep only reports approved at or after this; 0 keeps all.
+	 * @return array[]
+	 */
+	private static function rows_in_state( $state, $approved_after ) {
+		$posts = get_posts(
+			array(
+				'post_type'      => self::POST_TYPE,
+				'post_status'    => 'private',
+				'posts_per_page' => -1,
+				'meta_query'     => array(
+					array(
+						'key'   => self::META_STATE,
+						'value' => (string) $state,
+					),
+				),
+			)
+		);
+
+		$rows = array();
+
+		foreach ( $posts as $post ) {
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			$approved = self::approved_at( $post );
+
+			if ( $approved_after > 0 && ( empty( $approved['at'] ) || $approved['at'] < $approved_after ) ) {
+				continue;
+			}
+
+			$generated = self::generated_at( $post );
+
+			$rows[] = array(
+				'post_id'     => (int) $post->ID,
+				'institution' => self::institution_of( $post ),
+				'cohort'      => self::cohort_of( $post ),
+				'generated'   => $generated,
+				'origin'      => self::origin_of( $post ),
+				'in_progress' => self::in_progress_of( $post ),
+				'age_days'    => $generated > 0 ? (int) floor( ( time() - $generated ) / DAY_IN_SECONDS ) : 0,
+				'approved_at' => isset( $approved['at'] ) ? (int) $approved['at'] : 0,
+				'approved_by' => isset( $approved['by'] ) ? (int) $approved['by'] : 0,
+			);
+		}
+
+		usort(
+			$rows,
+			static function ( $a, $b ) {
+				// Two reports generated in one second sort by ID, so the order is the same on
+				// every read rather than whatever the query returned.
+				$order = $a['generated'] <=> $b['generated'];
+
+				return 0 !== $order ? $order : ( $a['post_id'] <=> $b['post_id'] );
+			}
+		);
+
+		return $rows;
 	}
 
 	/*
@@ -647,14 +1113,15 @@ final class WPCPM_Semester_Report {
 	 *
 	 * A regeneration keeps what the institution wrote: the narratives are theirs, and the only
 	 * thing thrown away is a quote choice whose quote is no longer in the document. It is
-	 * refused on a `final` report, because regenerating one would rewrite a document that has
+	 * refused on an `approved` report, because regenerating one would rewrite a document that has
 	 * been issued; reopening it is a deliberate act with a button of its own.
 	 *
 	 * @param string $institution Airtable Institutions record ID.
 	 * @param string $cohort      A `WPCPM_Cohort` key.
+	 * @param string $origin      ORIGIN_AUTO or ORIGIN_MANAGER; ORIGIN_MANAGER by default.
 	 * @return int|WP_Error The report's post ID.
 	 */
-	public static function generate( $institution, $cohort ) {
+	public static function generate( $institution, $cohort, $origin = self::ORIGIN_MANAGER ) {
 		$institution = trim( (string) $institution );
 
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
@@ -669,10 +1136,10 @@ final class WPCPM_Semester_Report {
 
 		$post = self::find( $institution, $cohort );
 
-		if ( $post instanceof WP_Post && self::STATE_FINAL === self::state( $post ) ) {
+		if ( $post instanceof WP_Post && self::STATE_APPROVED === self::state( $post ) ) {
 			return new WP_Error(
-				'wpcpm_report_final',
-				__( 'This report has been marked final. Reopen it before generating it again.', 'wpcredits-program-manager' )
+				'wpcpm_report_approved',
+				__( 'This report has been approved. Reopen it before generating it again.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -684,7 +1151,7 @@ final class WPCPM_Semester_Report {
 
 		$built['generated'] = time();
 
-		return self::store( $post, $institution, $cohort, $built );
+		return self::store( $post, $institution, $cohort, $built, $origin );
 	}
 
 	/**
@@ -732,9 +1199,10 @@ final class WPCPM_Semester_Report {
 	 * @param string       $institution Airtable Institutions record ID.
 	 * @param string       $cohort      A `WPCPM_Cohort` key.
 	 * @param array        $snapshot    The assembled snapshot.
+	 * @param string       $origin      ORIGIN_AUTO or ORIGIN_MANAGER; only written for a new report.
 	 * @return int|WP_Error The post ID.
 	 */
-	private static function store( $post, $institution, $cohort, array $snapshot ) {
+	private static function store( $post, $institution, $cohort, array $snapshot, $origin = self::ORIGIN_MANAGER ) {
 		$title = self::title_for( $institution, $cohort );
 
 		if ( $post instanceof WP_Post ) {
@@ -794,6 +1262,7 @@ final class WPCPM_Semester_Report {
 		update_post_meta( $post_id, self::META_CHOICES, array() );
 		update_post_meta( $post_id, self::META_GENERATED, (int) $snapshot['generated'] );
 		update_post_meta( $post_id, self::META_STATE, self::STATE_DRAFT );
+		update_post_meta( $post_id, self::META_ORIGIN, self::ORIGIN_AUTO === $origin ? self::ORIGIN_AUTO : self::ORIGIN_MANAGER );
 
 		return $post_id;
 	}

@@ -93,7 +93,11 @@ final class WPCPM_Institution_Policy {
 			self::ACT_ADD_STUDENT          => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_EXPORT               => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_VIEW_SEMESTER_REPORT => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
-			self::ACT_EDIT_SEMESTER_REPORT => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
+			// Managers only since the approval design of 4 September 2026: the site drafts the
+			// report and the program approves it, so a member's account has nothing to write.
+			// Viewing keeps the member ground, narrowed to approved reports by the screen, which
+			// is a fact about a document rather than about a person.
+			self::ACT_EDIT_SEMESTER_REPORT => array( self::GROUND_MANAGER ),
 			self::ACT_MANAGE_MEMBERS       => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 			self::ACT_AGREEMENT            => array( self::GROUND_MANAGER, self::GROUND_MEMBER ),
 		);

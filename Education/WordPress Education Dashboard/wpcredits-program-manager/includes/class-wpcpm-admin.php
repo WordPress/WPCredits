@@ -645,6 +645,30 @@ class WPCPM_Admin {
 		);
 
 		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="report_autodraft" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Semester reports', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['report_autodraft'] ), true, false ),
+			esc_html__( 'Draft each institution\'s semester report when the semester ends', 'wpcredits-program-manager' ),
+			esc_html__( 'A daily job drafts a report for every finished semester and tells the program managers. Off, drafts are written only when a manager presses Draft now.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><input type="number" class="small-text" name="report_autodraft_grace_days" min="7" max="365" value="%2$s"> %3$s<p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Drafting grace', 'wpcredits-program-manager' ),
+			esc_attr( (string) $settings['report_autodraft_grace_days'] ),
+			esc_html__( 'days', 'wpcredits-program-manager' ),
+			esc_html__( 'How long after a semester ends the job waits for students still in progress before drafting anyway. The draft says how many were still in progress.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><input type="text" class="regular-text" name="report_notify" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Who reviews reports', 'wpcredits-program-manager' ),
+			esc_attr( (string) $settings['report_notify'] ),
+			esc_attr__( 'one@example.org, two@example.org', 'wpcredits-program-manager' ),
+			esc_html__( 'Addresses told when the job drafts a report. Leave it empty and every program manager is written to.', 'wpcredits-program-manager' )
+		);
+
+		printf(
 			'<tr><th scope="row">%1$s</th><td><input type="url" class="regular-text" name="agreement_doc_url" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
 			esc_html__( 'The agreement wording', 'wpcredits-program-manager' ),
 			esc_attr( (string) $settings['agreement_doc_url'] ),

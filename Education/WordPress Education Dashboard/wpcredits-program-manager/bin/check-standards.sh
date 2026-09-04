@@ -39,8 +39,9 @@ fi
 
 # The house rule: plain hyphens only. An em dash (U+2014) or an en dash (U+2013) anywhere in the
 # plugin fails the check, except in the two places where the characters are somebody else's:
-# bin/fixtures (Airtable's own field names and choices) and the Foundation's agreement text.
-if grep -rIn --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=fixtures --exclude=collaboration-agreement-en.php -e $'\xe2\x80\x94' -e $'\xe2\x80\x93' . >/tmp/wpcpm-dashes.txt 2>/dev/null; then
+# bin/fixtures (Airtable's own field names and choices), the Foundation's agreement text, and
+# .superpowers (untracked scratch that never ships).
+if grep -rIn --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=fixtures --exclude-dir=.superpowers --exclude=collaboration-agreement-en.php -e $'\xe2\x80\x94' -e $'\xe2\x80\x93' . >/tmp/wpcpm-dashes.txt 2>/dev/null; then
 	echo "Em or en dashes found (the house rule is plain hyphens only):" >&2
 	head -20 /tmp/wpcpm-dashes.txt >&2
 	rm -f /tmp/wpcpm-dashes.txt

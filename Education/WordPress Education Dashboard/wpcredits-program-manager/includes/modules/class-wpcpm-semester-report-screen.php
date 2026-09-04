@@ -47,10 +47,25 @@ final class WPCPM_Semester_Report_Screen {
 	/** The `admin_post_` action that re-reads the students' consent. */
 	const ACTION_REFRESH_CONSENT = 'wpcpm_report_refresh_consent';
 
-	/** The `admin_post_` action that marks a report final. */
-	const ACTION_FINAL = 'wpcpm_report_final';
+	/** The `admin_post_` action that approves a draft, which is when the institution first sees it. */
+	const ACTION_APPROVE = 'wpcpm_report_approve';
+	/** The `admin_post_` action a program manager presses to draft one institution's cohort now. */
+	const ACTION_DRAFT = 'wpcpm_report_draft';
+	/** The daily job that drafts every cohort that is due. Scheduled by `WPCPM_Institutions::schedule_cron()`. */
+	const CRON_AUTODRAFT = 'wpcpm_report_autodraft';
+	/**
+	 * Drafts one run of the job writes; the rest wait for tomorrow.
+	 *
+	 * Each draft is a full set of Airtable reads, and a day on which twelve cohorts end at
+	 * once is a day the base should not be read twelve times in one request.
+	 *
+	 * @var int
+	 */
+	const AUTODRAFT_PER_RUN = 10;
+	/** Draft now presses one account may make in a day, for the same reason. */
+	const DRAFTS_PER_DAY = 20;
 
-	/** The `admin_post_` action that opens a final report for editing again. */
+	/** The `admin_post_` action that opens an approved report for editing again. */
 	const ACTION_REOPEN = 'wpcpm_report_reopen';
 
 	/** The `admin_post_` action that puts one revision back. */
@@ -101,8 +116,10 @@ final class WPCPM_Semester_Report_Screen {
 	/** User meta holding one editor's refused save, so a race cannot eat their paragraph. */
 	const META_STASH = 'wpcpm_report_stash';
 
-	/** The mail log's label for the consent request. */
-	const MAIL_CONTEXT = 'report-consent';
+	/** The mail log's labels: the consent request, a draft landing, an approval. */
+	const MAIL_CONTEXT  = 'report-consent';
+	const MAIL_DRAFTED  = 'report-drafted';
+	const MAIL_APPROVED = 'report-approved';
 
 	/**
 	 * Hooks.
@@ -118,13 +135,15 @@ final class WPCPM_Semester_Report_Screen {
 		add_action( 'admin_post_' . self::ACTION_GENERATE, array( __CLASS__, 'handle_generate' ) );
 		add_action( 'admin_post_' . self::ACTION_SAVE, array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_' . self::ACTION_REFRESH_CONSENT, array( __CLASS__, 'handle_refresh_consent' ) );
-		add_action( 'admin_post_' . self::ACTION_FINAL, array( __CLASS__, 'handle_final' ) );
+		add_action( 'admin_post_' . self::ACTION_APPROVE, array( __CLASS__, 'handle_approve' ) );
+		add_action( 'admin_post_' . self::ACTION_DRAFT, array( __CLASS__, 'handle_draft' ) );
 		add_action( 'admin_post_' . self::ACTION_REOPEN, array( __CLASS__, 'handle_reopen' ) );
 		add_action( 'admin_post_' . self::ACTION_RESTORE, array( __CLASS__, 'handle_restore' ) );
 		add_action( 'admin_post_' . self::ACTION_ASK, array( __CLASS__, 'handle_ask' ) );
 		add_action( 'admin_post_' . self::ACTION_PRINT, array( __CLASS__, 'handle_print' ) );
 
 		add_action( self::CRON_ASK, array( __CLASS__, 'drain_ask' ) );
+		add_action( self::CRON_AUTODRAFT, array( __CLASS__, 'autodraft_tick' ) );
 	}
 
 	/**
@@ -181,9 +200,10 @@ final class WPCPM_Semester_Report_Screen {
 	 * on the page rather than a fatal on the page a partner institution was invited to. That
 	 * is the same promise `WPCPM_Institutions_Dashboard::card()` makes about this class.
 	 *
-	 * `$context` is taken and read only for `can_manage`: every card on this page is called
-	 * the same way, and a section that took a different shape would be a special case in
-	 * that loop for no gain.
+	 * `$context` is accepted and not read: every card on this page's dashboard is called with
+	 * the same array, so the parameter is part of the card contract rather than this class's
+	 * own choice, and dropping it here would make this the one card the caller has to treat
+	 * differently. Who may manage is decided below from the policy, not from `can_manage`.
 	 *
 	 * @param string $record  Airtable Institutions record ID, already resolved by the page.
 	 * @param array  $context The dashboard's context.
@@ -208,6 +228,11 @@ final class WPCPM_Semester_Report_Screen {
 			return;
 		}
 
+		// The ground decides which page this is. A manager gets the editor and the index;
+		// an institution gets its approved reports and a sentence about the rest (design
+		// of 4 September 2026, decision 1).
+		$manager = isset( $decision['ground'] ) && WPCPM_Institution_Policy::GROUND_MANAGER === $decision['ground'];
+
 		wp_enqueue_style( self::STYLE );
 
 		// **Read once, here, and carried down**, the way the import form reads its flash:
@@ -219,6 +244,14 @@ final class WPCPM_Semester_Report_Screen {
 
 		$cohort = self::cohort_from_request();
 		$report = '' === $cohort ? null : WPCPM_Semester_Report::find( $record, $cohort );
+
+		// **A draft does not exist for the institution.** An address naming its cohort lands
+		// on the list, which says the report is being prepared; the editor, the forms and the
+		// document are a manager's until approval.
+		if ( ! $manager && $report instanceof WP_Post && WPCPM_Semester_Report::STATE_APPROVED !== WPCPM_Semester_Report::state( $report ) ) {
+			$report = null;
+			$cohort = '';
+		}
 
 		echo '<section class="wpcpm-institution__card wpcpm-report-card" id="wpcpm-report">';
 
@@ -243,9 +276,15 @@ final class WPCPM_Semester_Report_Screen {
 		self::render_message( $flash );
 
 		if ( $report instanceof WP_Post ) {
-			self::render_editor( $report, $record );
+			if ( $manager ) {
+				self::render_editor( $report, $record );
+			} else {
+				self::render_reading( $report );
+			}
+		} elseif ( $manager ) {
+			self::render_index( $record, $cohort, true );
 		} else {
-			self::render_index( $record, $cohort, ! empty( $context['can_manage'] ) );
+			self::render_member_index( $record );
 		}
 
 		echo '</div>';
@@ -403,6 +442,250 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
+	 * The institution's card: approved reports to read and print, and a sentence per draft.
+	 *
+	 * No `<form>` is drawn here: no nonce, no post ID, no submit path in markup nobody may
+	 * submit, the rule the Student Report Card follows for a viewer who may not save.
+	 *
+	 * @param string $record Institutions record ID.
+	 */
+	private static function render_member_index( $record ) {
+		$approved = array();
+		$drafts   = array();
+
+		foreach ( self::cohorts_of( $record ) as $cohort ) {
+			$post = WPCPM_Semester_Report::find( $record, $cohort );
+
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
+				$approved[ $cohort ] = $post;
+			} else {
+				$drafts[] = $cohort;
+			}
+		}
+
+		// An empty half under a heading reads as something that failed to load; the Updates
+		// column learned that, and so does this card.
+		if ( empty( $approved ) && empty( $drafts ) ) {
+			printf(
+				'<p class="wpcpm-report-card__empty">%s</p>',
+				esc_html__( 'No semester report has been published for your institution yet.', 'wpcredits-program-manager' )
+			);
+
+			return;
+		}
+
+		if ( ! empty( $approved ) ) {
+			$format = get_option( 'date_format' );
+
+			echo '<ul class="wpcpm-report-card__cohorts">';
+
+			foreach ( $approved as $cohort => $post ) {
+				$stamp = WPCPM_Semester_Report::approved_at( $post );
+				$url   = self::report_url( $cohort );
+
+				echo '<li class="wpcpm-report-card__cohort">';
+				printf( '<span class="wpcpm-report-card__cohort-name">%s</span>', esc_html( WPCPM_Cohort::label( $cohort ) ) );
+				printf(
+					'<span class="wpcpm-report-card__state">%s</span>',
+					esc_html(
+						empty( $stamp['at'] )
+							? __( 'Approved', 'wpcredits-program-manager' )
+							: sprintf(
+								/* translators: %s: a date. */
+								__( 'Approved on %s', 'wpcredits-program-manager' ),
+								wp_date( $format, (int) $stamp['at'] )
+							)
+					)
+				);
+
+				if ( '' !== $url ) {
+					printf( '<a class="wpcpm-report-card__open" href="%1$s">%2$s</a>', esc_url( $url ), esc_html__( 'View', 'wpcredits-program-manager' ) );
+				}
+
+				printf( '<a class="wpcpm-report-card__print" href="%1$s">%2$s</a>', esc_url( self::print_url( $post->ID ) ), esc_html__( 'Download PDF', 'wpcredits-program-manager' ) );
+				echo '</li>';
+			}
+
+			echo '</ul>';
+		}
+
+		foreach ( $drafts as $cohort ) {
+			printf(
+				'<p class="wpcpm-report-card__note">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: a semester, e.g. "January to June 2026". */
+						__( 'Your semester report for %s is being prepared by the program team.', 'wpcredits-program-manager' ),
+						WPCPM_Cohort::label( $cohort )
+					)
+				)
+			);
+		}
+	}
+
+	/**
+	 * One approved report, for the institution to read: the header, the PDF button, the document.
+	 *
+	 * @param WP_Post $post The report.
+	 */
+	private static function render_reading( WP_Post $post ) {
+		$page = class_exists( 'WPCPM_Institutions_Dashboard' ) ? WPCPM_Institutions_Dashboard::page_url() : '';
+
+		if ( '' !== $page ) {
+			printf(
+				'<p class="wpcpm-report-card__back"><a href="%1$s">%2$s</a></p>',
+				esc_url( remove_query_arg( self::ARG, $page ) . '#wpcpm-report' ),
+				esc_html__( 'Back to the other semesters', 'wpcredits-program-manager' )
+			);
+		}
+
+		self::render_header( $post, WPCPM_Semester_Report::state( $post ), WPCPM_Semester_Report::snapshot( $post ) );
+
+		printf(
+			'<p class="wpcpm-report-card__action"><a class="wpcpm-button" href="%1$s">%2$s</a></p>',
+			esc_url( self::print_url( $post->ID ) ),
+			esc_html__( 'Download PDF', 'wpcredits-program-manager' )
+		);
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_document() escapes every value it interpolates; escaping it again would print its own markup.
+		echo self::render_document( $post, false );
+	}
+
+	/**
+	 * The Draft now form, for the manager screens to draw beside a cohort that is due.
+	 *
+	 * Here rather than in `WPCPM_Institutions` so the action name and the nonce it is keyed
+	 * to are written once, beside the handler that checks them. The nonce is not keyed to the
+	 * record: the capability is the gate, and one form per due row is what the Administrator
+	 * Dashboard draws.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @param string $cohort Cohort key.
+	 * @param string $label  The button; "Draft now" when empty.
+	 */
+	public static function render_draft_form( $record, $cohort, $label = '' ) {
+		printf(
+			'<form class="wpcpm-report-card__generate" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Reading the program records', 'wpcredits-program-manager' )
+		);
+
+		wp_nonce_field( self::ACTION_DRAFT );
+
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DRAFT ) );
+		printf( '<input type="hidden" name="institution" value="%s" />', esc_attr( $record ) );
+		printf( '<input type="hidden" name="cohort" value="%s" />', esc_attr( $cohort ) );
+		printf( '<button type="submit" class="button">%s</button>', esc_html( '' !== $label ? $label : __( 'Draft now', 'wpcredits-program-manager' ) ) );
+
+		echo '</form>';
+	}
+
+	/**
+	 * The Draft now picker: every institution with students on its roster, any semester.
+	 *
+	 * Beside the due list of section 5.1, because a manager sometimes wants a semester
+	 * `due()` would not offer yet (nothing has closed), or one it offered weeks ago that
+	 * nobody pressed. The two selects are independent lists, not a cascade a script keeps in
+	 * step, because **the handler, not this picker, decides whether the pair it is handed can
+	 * actually be drafted** - a report may already exist for it, or the semester may hold none
+	 * of that institution's rows - and a decision drawn twice in two places is a decision that
+	 * can disagree with itself.
+	 */
+	public static function render_draft_picker() {
+		$active  = (array) WPCPM_Settings::get_value( 'institution_active_stages', array() );
+		$options = array();
+		$cohorts = array();
+
+		foreach ( WPCPM_Institutions_Index::rows() as $row ) {
+			if ( ! is_array( $row ) || empty( $row['record_id'] ) ) {
+				continue;
+			}
+
+			$stage = isset( $row['stage'] ) ? trim( (string) $row['stage'] ) : '';
+
+			if ( ! in_array( $stage, $active, true ) ) {
+				continue;
+			}
+
+			$record = (string) $row['record_id'];
+			$roster = WPCPM_Roster_Index::rows( $record );
+
+			if ( empty( $roster ) ) {
+				continue;
+			}
+
+			$options[ $record ] = trim( (string) ( isset( $row['name'] ) ? $row['name'] : '' ) );
+
+			foreach ( $roster as $student ) {
+				$key = WPCPM_Cohort::key( isset( $student['start'] ) ? $student['start'] : '' );
+
+				if ( WPCPM_Cohort::NONE !== $key ) {
+					$cohorts[ $key ] = true;
+				}
+			}
+		}
+
+		if ( empty( $options ) ) {
+			printf(
+				'<p class="description">%s</p>',
+				esc_html__( 'No institution has students on its roster yet.', 'wpcredits-program-manager' )
+			);
+
+			return;
+		}
+
+		// Offered whether or not either is due today: the current and the previous semester
+		// are the two a partner most often asks about.
+		$cohorts[ WPCPM_Cohort::current() ]                           = true;
+		$cohorts[ WPCPM_Cohort::previous( WPCPM_Cohort::current() ) ] = true;
+
+		uasort( $options, 'strcasecmp' );
+
+		$cohort_keys = array_keys( $cohorts );
+
+		usort(
+			$cohort_keys,
+			static function ( $a, $b ) {
+				return WPCPM_Cohort::compare( $b, $a );
+			}
+		);
+
+		printf(
+			'<form class="wpcpm-report-card__generate" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Reading the program records', 'wpcredits-program-manager' )
+		);
+
+		wp_nonce_field( self::ACTION_DRAFT );
+
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_DRAFT ) );
+
+		echo '<select name="institution">';
+
+		foreach ( $options as $record => $name ) {
+			printf( '<option value="%1$s">%2$s</option>', esc_attr( $record ), esc_html( $name ) );
+		}
+
+		echo '</select>';
+
+		echo '<select name="cohort">';
+
+		foreach ( $cohort_keys as $key ) {
+			printf( '<option value="%1$s">%2$s</option>', esc_attr( $key ), esc_html( WPCPM_Cohort::label( $key ) ) );
+		}
+
+		echo '</select>';
+
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Draft now', 'wpcredits-program-manager' ) );
+
+		echo '</form>';
+	}
+
+	/**
 	 * One report, open for editing, with the document under the form that shapes it.
 	 *
 	 * The manager flag the other cards take is not among the arguments: nothing on this
@@ -415,7 +698,7 @@ final class WPCPM_Semester_Report_Screen {
 	private static function render_editor( WP_Post $post, $record ) {
 		$state    = WPCPM_Semester_Report::state( $post );
 		$snapshot = WPCPM_Semester_Report::snapshot( $post );
-		$may_edit = self::may_edit( $record ) && 'final' !== $state;
+		$may_edit = self::may_edit( $record ) && WPCPM_Semester_Report::STATE_APPROVED !== $state;
 		$page     = class_exists( 'WPCPM_Institutions_Dashboard' ) ? WPCPM_Institutions_Dashboard::page_url() : '';
 
 		if ( '' !== $page ) {
@@ -446,9 +729,9 @@ final class WPCPM_Semester_Report_Screen {
 		} else {
 			printf(
 				'<p class="wpcpm-report-card__note">%s</p>',
-				'final' === $state
-					? esc_html__( 'This report is final. Reopen it to change anything.', 'wpcredits-program-manager' )
-					: esc_html__( 'You can read this report here. Changing it is something a colleague with editing rights does.', 'wpcredits-program-manager' )
+				WPCPM_Semester_Report::STATE_APPROVED === $state
+					? esc_html__( 'This report is approved and the institution can read it. Reopen it to change anything.', 'wpcredits-program-manager' )
+					: esc_html__( 'You can read this report here. Changing it is something a program manager does.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -468,7 +751,7 @@ final class WPCPM_Semester_Report_Screen {
 	 * What the report is: the semester, the state, when it was generated and last edited.
 	 *
 	 * @param WP_Post $post     The report.
-	 * @param string  $state    `draft` or `final`.
+	 * @param string  $state    `draft` or `approved`.
 	 * @param array   $snapshot The stored snapshot.
 	 */
 	private static function render_header( WP_Post $post, $state, array $snapshot ) {
@@ -491,6 +774,39 @@ final class WPCPM_Semester_Report_Screen {
 						__( 'Read from the program records on %s.', 'wpcredits-program-manager' ),
 						wp_date( $format, $generated )
 					)
+				)
+			);
+		}
+
+		printf(
+			'<p class="wpcpm-report-card__fact">%s</p>',
+			esc_html(
+				WPCPM_Semester_Report::ORIGIN_AUTO === WPCPM_Semester_Report::origin_of( $post )
+					? __( 'Drafted automatically when the semester ended.', 'wpcredits-program-manager' )
+					: __( 'Drafted by a program manager.', 'wpcredits-program-manager' )
+			)
+		);
+
+		$approved = WPCPM_Semester_Report::approved_at( $post );
+
+		if ( ! empty( $approved['at'] ) ) {
+			$by = ! empty( $approved['by'] ) ? get_user_by( 'id', (int) $approved['by'] ) : false;
+
+			printf(
+				'<p class="wpcpm-report-card__fact">%s</p>',
+				esc_html(
+					$by instanceof WP_User
+						? sprintf(
+							/* translators: 1: date and time, 2: a program manager's name. */
+							__( 'Approved on %1$s by %2$s.', 'wpcredits-program-manager' ),
+							wp_date( $format, (int) $approved['at'] ),
+							$by->display_name
+						)
+						: sprintf(
+							/* translators: %s: date and time. */
+							__( 'Approved on %s.', 'wpcredits-program-manager' ),
+							wp_date( $format, (int) $approved['at'] )
+						)
 				)
 			);
 		}
@@ -735,10 +1051,11 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * The four buttons beside the form: print, re-read consent, final, reopen, ask.
+	 * The buttons beside the form: print, re-read consent, and approve or reopen depending
+	 * on the report's state.
 	 *
 	 * @param WP_Post $post   The report.
-	 * @param string  $state  `draft` or `final`.
+	 * @param string  $state  `draft` or `approved`.
 	 * @param string  $record Institutions record ID.
 	 */
 	private static function render_actions( WP_Post $post, $state, $record ) {
@@ -758,9 +1075,9 @@ final class WPCPM_Semester_Report_Screen {
 			return;
 		}
 
-		// **Allowed on a final report, deliberately.** A student who withdraws their consent
-		// has to be able to reach a document that has already been marked done, or "final"
-		// would be a way of freezing an answer somebody has since changed.
+		// **Allowed on an approved report, deliberately.** A student who withdraws their
+		// consent has to be able to reach a document that has already been approved, or
+		// approval would be a way of freezing an answer somebody has since changed.
 		self::render_button_form(
 			self::ACTION_REFRESH_CONSENT,
 			$post->ID,
@@ -768,7 +1085,7 @@ final class WPCPM_Semester_Report_Screen {
 			__( 'Check the students\' answers again', 'wpcredits-program-manager' )
 		);
 
-		if ( 'final' === $state ) {
+		if ( WPCPM_Semester_Report::STATE_APPROVED === $state ) {
 			self::render_button_form(
 				self::ACTION_REOPEN,
 				$post->ID,
@@ -777,10 +1094,10 @@ final class WPCPM_Semester_Report_Screen {
 			);
 		} else {
 			self::render_button_form(
-				self::ACTION_FINAL,
+				self::ACTION_APPROVE,
 				$post->ID,
-				__( 'Marking final', 'wpcredits-program-manager' ),
-				__( 'Mark this report final', 'wpcredits-program-manager' )
+				__( 'Approving', 'wpcredits-program-manager' ),
+				__( 'Approve this report', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -1580,6 +1897,12 @@ final class WPCPM_Semester_Report_Screen {
 			self::bounce( 'already-generated', array(), $cohort );
 		}
 
+		// The dashboard's button is a manager's second drafting route since decision 1, and the
+		// log below and this ceiling count a press here exactly as a Draft now press would.
+		if ( ! WPCPM_Ceiling::claim( 'report-draft:' . get_current_user_id(), self::DRAFTS_PER_DAY, DAY_IN_SECONDS ) ) {
+			self::bounce( 'draft-refused', array(), $cohort );
+		}
+
 		if ( ! self::lock( $institution, $cohort ) ) {
 			self::bounce( 'locked', array(), $cohort );
 		}
@@ -1595,6 +1918,8 @@ final class WPCPM_Semester_Report_Screen {
 		if ( is_wp_error( $generated ) ) {
 			self::bounce( 'generate-failed', array( 'why' => self::why_for_viewer( $generated ) ), $cohort );
 		}
+
+		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFTED, $institution, $cohort, get_current_user_id() );
 
 		self::leave( 'generated', array(), $cohort );
 	}
@@ -1634,8 +1959,8 @@ final class WPCPM_Semester_Report_Screen {
 
 		check_admin_referer( self::ACTION_SAVE . '_' . $post->ID );
 
-		if ( 'final' === WPCPM_Semester_Report::state( $post ) ) {
-			self::bounce( 'is-final', array(), self::cohort_of( $post ) );
+		if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
+			self::bounce( 'is-approved', array(), self::cohort_of( $post ) );
 		}
 
 		$values = self::submitted_values( $post );
@@ -1675,10 +2000,11 @@ final class WPCPM_Semester_Report_Screen {
 	/**
 	 * Re-read the students' answers into a stored report.
 	 *
-	 * **Allowed on a final report.** Every other write is refused once a report is marked
-	 * done, and this one is not, because a student withdrawing their consent must be able to
-	 * reach a document that has already been finished. "Final" is the institution saying it
-	 * has stopped writing, not the students losing the ability to change their minds.
+	 * **Allowed on an approved report.** Every other write is refused once a report is
+	 * approved, and this one is not, because a student withdrawing their consent must be
+	 * able to reach a document that has already been approved. Approval is the institution
+	 * saying it has stopped writing, not the students losing the ability to change their
+	 * minds.
 	 */
 	public static function handle_refresh_consent() {
 		$post = self::posted_report();
@@ -1710,37 +2036,226 @@ final class WPCPM_Semester_Report_Screen {
 	}
 
 	/**
-	 * Mark a report final.
+	 * Draft one institution's cohort now, from the manager screens.
+	 *
+	 * The capability first, before anything posted is read: whether this account may press
+	 * the button must not depend on what it posted. Then the policy on the institution the
+	 * form names, then the nonce, then the shape of the cohort. A member reaching this by
+	 * hand gets the one refusal and the policy is never asked.
 	 */
-	public static function handle_final() {
-		self::change_state( self::ACTION_FINAL, 'final', 'marked-final' );
+	public static function handle_draft() {
+		if ( ! class_exists( 'WPCPM_Semester_Report' ) ) {
+			self::bounce( 'unavailable' );
+		}
+
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			self::bounce( 'refused' );
+		}
+
+		$institution = WPCPM_Request::posted_text( 'institution' );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
+			self::bounce( 'refused' );
+		}
+
+		// An ID the index never held is not a subject at all: asking the policy about it would
+		// be asking a question about nobody, and the one refusal below answers it just as well
+		// without a subject array built for a record that does not exist.
+		if ( ! WPCPM_Institutions_Index::has( $institution ) ) {
+			self::bounce( 'refused' );
+		}
+
+		$decision = WPCPM_Institution_Policy::decide(
+			WPCPM_Institution_Policy::ACT_EDIT_SEMESTER_REPORT,
+			WPCPM_Institution_Policy::subject_institution( $institution )
+		);
+
+		if ( empty( $decision['allowed'] ) ) {
+			self::bounce( 'refused' );
+		}
+
+		check_admin_referer( self::ACTION_DRAFT );
+
+		$cohort = WPCPM_Request::posted_text( 'cohort' );
+
+		if ( ! WPCPM_Cohort::is_key( $cohort ) || WPCPM_Cohort::NONE === $cohort ) {
+			self::bounce( 'bad-cohort', array(), '', $institution );
+		}
+
+		// The existing report opens: the redirect names the cohort, and the message says why.
+		if ( WPCPM_Semester_Report::find( $institution, $cohort ) instanceof WP_Post ) {
+			self::bounce( 'draft-exists', array(), $cohort, $institution );
+		}
+
+		// A semester with none of this institution's rows in it is not a report waiting to be
+		// written, it is nothing to write about, and generate() would only produce a document
+		// with every section empty for a "semester" the roster never had.
+		$in_cohort = 0;
+
+		foreach ( WPCPM_Roster_Index::rows( $institution ) as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			if ( WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' ) === $cohort ) {
+				++$in_cohort;
+			}
+		}
+
+		if ( 0 === $in_cohort ) {
+			self::bounce( 'no-rows', array(), '', $institution );
+		}
+
+		if ( ! WPCPM_Ceiling::claim( 'report-draft:' . get_current_user_id(), self::DRAFTS_PER_DAY, DAY_IN_SECONDS ) ) {
+			self::bounce( 'draft-refused', array(), '', $institution );
+		}
+
+		if ( ! self::lock( $institution, $cohort ) ) {
+			self::bounce( 'locked', array(), $cohort, $institution );
+		}
+
+		$generated = WPCPM_Semester_Report::generate( $institution, $cohort, WPCPM_Semester_Report::ORIGIN_MANAGER );
+
+		self::unlock( $institution, $cohort );
+
+		if ( is_wp_error( $generated ) ) {
+			WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFT_FAILED, $institution, $cohort, get_current_user_id(), array( 'why' => $generated->get_error_message() ) );
+			self::bounce( 'generate-failed', array( 'why' => self::why_for_viewer( $generated ) ), '', $institution );
+		}
+
+		// No mail: the manager who pressed the button is the audience of that mail.
+		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFTED, $institution, $cohort, get_current_user_id() );
+
+		self::leave( 'drafted', array(), $cohort, $institution );
 	}
 
 	/**
-	 * Open a final report for editing again.
+	 * The daily job: draft every cohort that is due, up to the cap, and tell the managers.
+	 *
+	 * One failure is one log line and the next pair still runs; a pair somebody is generating
+	 * by hand this minute is left to them and is due again tomorrow if they gave up. Nothing
+	 * here is mailed to an institution: a draft is invisible to it until approval.
+	 *
+	 * @return int How many drafts were written.
+	 */
+	public static function autodraft_tick() {
+		if ( ! class_exists( 'WPCPM_Semester_Report' ) || ! WPCPM_Settings::get_value( 'report_autodraft', true ) ) {
+			return 0;
+		}
+
+		$drafted   = 0;
+		$attempted = 0;
+
+		foreach ( WPCPM_Semester_Report::due( wp_date( 'Y-m-d' ) ) as $pair ) {
+			// The cap counts attempts, because an attempt is what reads the base; a pair
+			// somebody else holds the lock on costs nothing and takes no slot.
+			if ( $attempted >= self::AUTODRAFT_PER_RUN ) {
+				break;
+			}
+
+			$institution = (string) $pair['institution'];
+			$cohort      = (string) $pair['cohort'];
+
+			if ( ! self::lock( $institution, $cohort ) ) {
+				continue;
+			}
+
+			++$attempted;
+
+			$generated = WPCPM_Semester_Report::generate( $institution, $cohort, WPCPM_Semester_Report::ORIGIN_AUTO );
+
+			self::unlock( $institution, $cohort );
+
+			if ( is_wp_error( $generated ) ) {
+				WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFT_FAILED, $institution, $cohort, 0, array( 'why' => $generated->get_error_message() ) );
+				continue;
+			}
+
+			update_post_meta( (int) $generated, WPCPM_Semester_Report::META_IN_PROGRESS, (int) $pair['in_progress'] );
+			WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_DRAFTED, $institution, $cohort, 0, array( 'in_progress' => (int) $pair['in_progress'] ) );
+
+			if ( class_exists( 'WPCPM_Institutions' ) ) {
+				WPCPM_Institutions::notify_managers(
+					self::MAIL_DRAFTED,
+					self::drafted_message( $institution, $cohort, (int) $pair['in_progress'] ),
+					'report_notify'
+				);
+			}
+
+			++$drafted;
+		}
+
+		return $drafted;
+	}
+
+	/**
+	 * Approve a draft. From here the institution reads it and prints it.
+	 *
+	 * A report whose consent read fails at this moment is not approved: that read is the half
+	 * of the document that decides who is named in it, and a report that cannot be drawn in
+	 * full must not be published on the strength of a draft that could.
+	 */
+	public static function handle_approve() {
+		$post   = self::state_target( self::ACTION_APPROVE );
+		$cohort = self::cohort_of( $post );
+
+		if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
+			self::bounce( 'is-approved', array(), $cohort );
+		}
+
+		$consent = WPCPM_Semester_Report::consent_check( $post );
+
+		if ( is_wp_error( $consent ) ) {
+			self::bounce( 'approve-failed', array( 'why' => self::why_for_viewer( $consent ) ), $cohort );
+		}
+
+		WPCPM_Semester_Report::approve( $post, get_current_user_id() );
+
+		$record = WPCPM_Semester_Report::institution_of( $post );
+
+		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_APPROVED, $record, $cohort, get_current_user_id() );
+
+		// Accounts, never the contact address in Airtable: the site does not write to people
+		// who have never signed in to it. Forty of forty-two institutions have no account
+		// today, and the flash says so, so the manager sends the PDF by hand.
+		$notified = 0;
+
+		foreach ( WPCPM_Institution_Members::members_of( $record ) as $member ) {
+			if ( $member instanceof WP_User && WPCPM_Mail::send( $member, self::MAIL_APPROVED, self::approved_message( $cohort ) ) ) {
+				++$notified;
+			}
+		}
+
+		self::leave( 'approved', array( 'detail' => array( 'notified' => $notified ) ), $cohort );
+	}
+
+	/**
+	 * Make an approved report a draft again. The institution's card drops it on its next load;
+	 * a copy already downloaded is theirs, which is why nothing here pretends to recall it.
 	 */
 	public static function handle_reopen() {
-		self::change_state( self::ACTION_REOPEN, 'draft', 'reopened' );
+		$post = self::state_target( self::ACTION_REOPEN );
+
+		WPCPM_Semester_Report::reopen( $post );
+		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_REOPENED, WPCPM_Semester_Report::institution_of( $post ), self::cohort_of( $post ), get_current_user_id() );
+
+		self::leave( 'reopened', array(), self::cohort_of( $post ) );
 	}
 
 	/**
-	 * The two state buttons, which differ in one word each.
+	 * The checks the two state buttons share, in the order that has to be identical.
 	 *
-	 * Written once because two copies of four checks is two chances for one of them to lose
-	 * the fence, and because the order of those checks is the thing that has to be identical.
+	 * The report first, because everything else is derived from it: the institution comes
+	 * off the post's own meta and never off the form, so another school's report ID is decided
+	 * against that school and gets the one refusal. The decision is cheap and is made before
+	 * the nonce, and the nonce is keyed to the report.
 	 *
 	 * @param string $action The `admin_post_` action, for the nonce.
-	 * @param string $state  The state to write.
-	 * @param string $said   What to tell the reader afterwards.
+	 * @return WP_Post The report; a refusal never returns.
 	 */
-	private static function change_state( $action, $state, $said ) {
+	private static function state_target( $action ) {
 		$post = self::posted_report();
 
-		// The same word for a report that is not here and one that is not this reader's: the
-		// difference between the two is exactly the fact the fence keeps, and post IDs count
-		// upwards, so a handler that said "no longer here" for a stranger's guess and "not
-		// something you can do" for a real one would let any member count every other
-		// school's reports. `handle_print()` makes the same choice with `unknown()`.
 		if ( ! $post instanceof WP_Post ) {
 			self::bounce( 'refused' );
 		}
@@ -1753,9 +2268,83 @@ final class WPCPM_Semester_Report_Screen {
 
 		check_admin_referer( $action . '_' . $post->ID );
 
-		update_post_meta( $post->ID, WPCPM_Semester_Report::META_STATE, $state );
+		return $post;
+	}
 
-		self::leave( $said, array(), self::cohort_of( $post ) );
+	/**
+	 * The message to the managers when the job drafts a report.
+	 *
+	 * @param string $institution Institutions record ID.
+	 * @param string $cohort      Cohort key.
+	 * @param int    $in_progress Rows still in progress when it was drafted.
+	 * @return callable A builder for `WPCPM_Mail::send()`.
+	 */
+	private static function drafted_message( $institution, $cohort, $in_progress ) {
+		return function () use ( $institution, $cohort, $in_progress ) {
+			// row() answers null for a record the index has since dropped between due() and
+			// this mail being built; the institution's own ID is what the sentence falls back
+			// to; a name is never worth a fatal over.
+			$row  = class_exists( 'WPCPM_Institutions_Index' ) ? WPCPM_Institutions_Index::row( $institution ) : null;
+			$name = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+			$name = '' !== $name ? $name : $institution;
+			$url  = self::report_url( $cohort );
+			$url  = '' !== $url ? add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $institution, $url ) : '';
+
+			$body = sprintf(
+				/* translators: 1: institution name, 2: a semester, e.g. "January to June 2026". */
+				__( 'A semester report has been drafted for %1$s, covering %2$s. It is waiting for a program manager to review and approve it; the institution cannot see it until then.', 'wpcredits-program-manager' ),
+				$name,
+				WPCPM_Cohort::label( $cohort )
+			) . "\n\n";
+
+			if ( $in_progress > 0 ) {
+				$body .= sprintf(
+					/* translators: %s: a number of students. */
+					_n( '%s student in this semester was still in progress when the draft was written.', '%s students in this semester were still in progress when the draft was written.', $in_progress, 'wpcredits-program-manager' ),
+					number_format_i18n( $in_progress )
+				) . "\n\n";
+			}
+
+			if ( '' !== $url ) {
+				$body .= __( 'Review it here:', 'wpcredits-program-manager' ) . "\n" . $url . "\n";
+			}
+
+			return array(
+				'subject' => sprintf(
+					/* translators: %s: institution name. */
+					__( 'Semester report drafted: %s', 'wpcredits-program-manager' ),
+					$name
+				),
+				'body'    => $body,
+			);
+		};
+	}
+
+	/**
+	 * The message to an institution's accounts when a report is approved.
+	 *
+	 * @param string $cohort Cohort key.
+	 * @return callable A builder for `WPCPM_Mail::send()`.
+	 */
+	private static function approved_message( $cohort ) {
+		return function () use ( $cohort ) {
+			$url = self::report_url( $cohort );
+
+			$body = sprintf(
+				/* translators: %s: a semester, e.g. "January to June 2026". */
+				__( 'The semester report on %s has been approved by the WordPress Credits program. You can read it on your Institution Dashboard and download it as a PDF.', 'wpcredits-program-manager' ),
+				WPCPM_Cohort::label( $cohort )
+			) . "\n\n";
+
+			if ( '' !== $url ) {
+				$body .= $url . "\n";
+			}
+
+			return array(
+				'subject' => __( 'Your semester report is ready', 'wpcredits-program-manager' ),
+				'body'    => $body,
+			);
+		};
 	}
 
 	/**
@@ -1797,8 +2386,8 @@ final class WPCPM_Semester_Report_Screen {
 
 		check_admin_referer( self::ACTION_RESTORE . '_' . $revision->ID );
 
-		if ( 'final' === WPCPM_Semester_Report::state( $post ) ) {
-			self::bounce( 'is-final', array(), self::cohort_of( $post ) );
+		if ( WPCPM_Semester_Report::STATE_APPROVED === WPCPM_Semester_Report::state( $post ) ) {
+			self::bounce( 'is-approved', array(), self::cohort_of( $post ) );
 		}
 
 		$restored = wp_restore_post_revision( $revision->ID );
@@ -1917,6 +2506,15 @@ final class WPCPM_Semester_Report_Screen {
 		);
 
 		if ( empty( $decision['allowed'] ) ) {
+			self::unknown();
+		}
+
+		// A member reads approved reports and nothing else, and a draft's print route answers
+		// exactly as a nonexistent post's does. The card says a draft is being prepared, in
+		// words, on the institution's own page; a route that confirmed it would confirm it to
+		// anyone holding a guessed ID.
+		if ( ( ! isset( $decision['ground'] ) || WPCPM_Institution_Policy::GROUND_MANAGER !== $decision['ground'] )
+			&& WPCPM_Semester_Report::STATE_APPROVED !== WPCPM_Semester_Report::state( $post ) ) {
 			self::unknown();
 		}
 
@@ -2721,12 +3319,12 @@ final class WPCPM_Semester_Report_Screen {
 	/**
 	 * What a state is called on screen.
 	 *
-	 * @param string $state `draft` or `final`.
+	 * @param string $state `draft` or `approved`.
 	 * @return string
 	 */
 	private static function state_label( $state ) {
-		return 'final' === $state
-			? __( 'Final', 'wpcredits-program-manager' )
+		return WPCPM_Semester_Report::STATE_APPROVED === $state
+			? __( 'Approved', 'wpcredits-program-manager' )
 			: __( 'Draft', 'wpcredits-program-manager' );
 	}
 
@@ -2892,10 +3490,24 @@ final class WPCPM_Semester_Report_Screen {
 			);
 		}
 
+		if ( 'approved' === $key && array_key_exists( 'notified', $detail ) ) {
+			$notified = (int) $detail['notified'];
+
+			if ( $notified < 1 ) {
+				return __( 'Approved. No institution account to notify; send the PDF by hand.', 'wpcredits-program-manager' );
+			}
+
+			return sprintf(
+				/* translators: %s: a number of accounts. */
+				_n( 'Approved. The institution can now read and download it; %s of its accounts was told.', 'Approved. The institution can now read and download it; %s of its accounts were told.', $notified, 'wpcredits-program-manager' ),
+				number_format_i18n( $notified )
+			);
+		}
+
 		// **The generation's own words, verbatim.** `WPCPM_Airtable` says which read failed
 		// and why, and a school looking at "the report could not be written" with no reason
 		// has nothing to tell the person they are about to ask for help.
-		if ( ( 'generate-failed' === $key || 'consent-failed' === $key || 'ask-unread' === $key ) && ! empty( $detail['why'] ) ) {
+		if ( ( 'generate-failed' === $key || 'consent-failed' === $key || 'ask-unread' === $key || 'approve-failed' === $key ) && ! empty( $detail['why'] ) ) {
 			return sprintf(
 				/* translators: %s: the reason, from the program records. */
 				__( 'That did not work: %s', 'wpcredits-program-manager' ),
@@ -2951,9 +3563,14 @@ final class WPCPM_Semester_Report_Screen {
 			// out: the reader has words on screen that the site does not hold, and the next
 			// sentence they read has to be about getting them back.
 			'stale'             => __( 'Someone at your institution saved this report after you opened it. Nothing you sent was lost: your words are in the boxes below, above the version that was saved.', 'wpcredits-program-manager' ),
-			'is-final'          => __( 'That report is final. Reopen it before changing anything.', 'wpcredits-program-manager' ),
-			'marked-final'      => __( 'This report is marked final. Students can still withdraw their consent, and it will still be taken out of the document when they do.', 'wpcredits-program-manager' ),
-			'reopened'          => __( 'This report is open for editing again.', 'wpcredits-program-manager' ),
+			'drafted'           => __( 'The draft is ready for review. Nothing in it has been sent anywhere, and the institution cannot see it until it is approved.', 'wpcredits-program-manager' ),
+			'draft-exists'      => __( 'There is already a report for that semester. It is open below.', 'wpcredits-program-manager' ),
+			'no-rows'           => __( 'That institution has no students in that semester, so there is nothing to report on.', 'wpcredits-program-manager' ),
+			'draft-refused'     => __( 'That is enough drafts for one day. Try again tomorrow.', 'wpcredits-program-manager' ),
+			'is-approved'       => __( 'That report is approved. Reopen it before changing anything.', 'wpcredits-program-manager' ),
+			'approved'          => __( 'Approved. The institution can now read and download it.', 'wpcredits-program-manager' ),
+			'approve-failed'    => __( 'The report was not approved, because the students\' answers could not be read just now. Nothing changed. Try again shortly.', 'wpcredits-program-manager' ),
+			'reopened'          => __( 'This report is a draft again. The institution no longer sees it until it is approved once more.', 'wpcredits-program-manager' ),
 			'restored'          => __( 'That version is back.', 'wpcredits-program-manager' ),
 			'not-restored'      => __( 'That version could not be put back.', 'wpcredits-program-manager' ),
 			'consent-refreshed' => __( 'The students\' answers have been read again, and the report shows what they say now.', 'wpcredits-program-manager' ),

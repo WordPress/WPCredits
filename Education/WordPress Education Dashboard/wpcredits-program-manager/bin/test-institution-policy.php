@@ -261,7 +261,9 @@ $expected_map = array(
 	'add_student'          => array( 'manager', 'member' ),
 	'export'               => array( 'manager', 'member' ),
 	'view_semester_report' => array( 'manager', 'member' ),
-	'edit_semester_report' => array( 'manager', 'member' ),
+	// Design of 4 September 2026, decision 1: the institution reads the report and never
+	// writes it. The member ground stays on viewing, behind the agreement gate as before.
+	'edit_semester_report' => array( 'manager' ),
 	'manage_members'       => array( 'manager', 'member' ),
 	'agreement'            => array( 'manager', 'member' ),
 );
@@ -363,7 +365,12 @@ ck( 'and no user is decided before the subject is examined', $P::decide( $P::ACT
 foreach ( $expected_map as $action => $grounds ) {
 	ck( "a manager passes $action on A, as a manager", $P::decide( $action, $inst_a, 1 ), allowed_as( 'manager', $A ) );
 	ck( "a manager passes $action on an institution-less subject, naming no institution", $P::decide( $action, $nowhere, 1 ), allowed_as( 'manager', '' ) );
-	ck( "a member of A passes $action on A, as a member", $P::decide( $action, $inst_a, 2 ), allowed_as( 'member', $A ) );
+	// Test member pass only if member is in the grounds for this action.
+	if ( in_array( 'member', $grounds, true ) ) {
+		ck( "a member of A passes $action on A, as a member", $P::decide( $action, $inst_a, 2 ), allowed_as( 'member', $A ) );
+	} else {
+		ck( "a member of A is refused $action on A with no ground", $P::decide( $action, $inst_a, 2 ), refused_for( 'no-ground' ) );
+	}
 	ck( "a member of B is refused $action on A with no ground", $P::decide( $action, $inst_a, 3 ), refused_for( 'no-ground' ) );
 	ck( "a member of A is refused $action on an institution-less subject", $P::decide( $action, $nowhere, 2 ), refused_for( 'no-ground' ) );
 	ck( "an account with no membership is refused $action", $P::decide( $action, $inst_a, 4 ), refused_for( 'no-ground' ) );

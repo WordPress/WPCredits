@@ -145,6 +145,11 @@ class WPCPM_Settings {
 			'agreement_generations_per_day' => 10,
 			'agreement_review_days'         => 3,
 			'agreement_notify'              => '',
+			// The semester report approval flow (design of 4 September 2026): the daily
+			// drafting job, how long a semester with unfinished rows waits, who hears of a draft.
+			'report_autodraft'              => true,
+			'report_autodraft_grace_days'   => 45,
+			'report_notify'                 => '',
 			// Where the wording actually lives, for the manager screen's link and for the drift
 			// check that compares the plugin's copy against it. Deliberately empty by default and
 			// deliberately not in the code: the document is editable by anyone holding its link,
@@ -319,8 +324,12 @@ class WPCPM_Settings {
 			$clean['agreement_doc_url'] = in_array( $host, array( 'docs.google.com', 'drive.google.com' ), true ) ? $url : '';
 		}
 
-		if ( isset( $input['agreement_notify'] ) ) {
-			$raw       = wp_unslash( $input['agreement_notify'] );
+		foreach ( array( 'agreement_notify', 'report_notify' ) as $notify_key ) {
+			if ( ! isset( $input[ $notify_key ] ) ) {
+				continue;
+			}
+
+			$raw       = wp_unslash( $input[ $notify_key ] );
 			$raw       = is_array( $raw ) ? $raw : preg_split( '/[\s,]+/', (string) $raw );
 			$addresses = array();
 			foreach ( $raw as $address ) {
@@ -329,13 +338,13 @@ class WPCPM_Settings {
 				}
 
 				// Lowercased before the de-duplication below: an address is one mailbox however
-				// it was typed, and the upload notice must not reach it twice.
+				// it was typed, and the notice must not reach it twice.
 				$address = sanitize_email( strtolower( trim( $address ) ) );
 				if ( '' !== $address && is_email( $address ) ) {
 					$addresses[] = $address;
 				}
 			}
-			$clean['agreement_notify'] = implode( ',', array_unique( $addresses ) );
+			$clean[ $notify_key ] = implode( ',', array_unique( $addresses ) );
 		}
 
 		// The one connecting address whose forwarded header the application form believes.
@@ -358,7 +367,7 @@ class WPCPM_Settings {
 		// what a filter or a later screen set. Absent means "leave alone" - which only
 		// holds while the save handler forwards booleans the form renders, not every
 		// boolean in the defaults.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}
@@ -394,6 +403,8 @@ class WPCPM_Settings {
 			'agreement_review_days'         => array( 1, 60 ),
 			'agreement_discard_days'        => array( 7, 365 ),
 			'invite_retention_days'         => array( 7, 365 ),
+			// A week's floor keeps a typo from drafting every unfinished semester tonight.
+			'report_autodraft_grace_days'   => array( 7, 365 ),
 		);
 
 		foreach ( $limits as $key => $range ) {
