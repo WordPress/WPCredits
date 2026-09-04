@@ -2,8 +2,8 @@
 /**
  * Does pressing Save actually save?
  *
- * This exists because it did not. Adding a field took three edits — render it, sanitise it in
- * `WPCPM_Settings::save()`, and add it to a hand-written allowlist in the save handler — and
+ * This exists because it did not. Adding a field took three edits - render it, sanitise it in
+ * `WPCPM_Settings::save()`, and add it to a hand-written allowlist in the save handler - and
  * forgetting the third produced a field that renders, accepts what you type, posts it, and
  * discards it without a word. Twenty-one settings were in that state, including the AI
  * provider and its key, which is how it was found: somebody entered a key and it vanished.
@@ -99,7 +99,8 @@ function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; retur
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function wp_parse_url( $u, $c = -1 ) { return parse_url( (string) $u, $c ); }
 function wp_timezone_string() { return 'UTC'; }
-function current_user_can( $c ) { return true; }
+require_once __DIR__ . '/stubs/caps.php';
+$GLOBALS['caps'] = true; // the settings screen is a manager's
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { return true; }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect' ); }
 function wp_die( $m = '' ) { throw new Exception( 'wp_die: ' . $m ); }
@@ -113,8 +114,6 @@ function update_user_meta( $id, $k, $v ) { return true; }
 function delete_user_meta( $id, $k ) { return true; }
 function get_current_user_id() { return 1; }
 function wp_get_current_user() { return new WP_User( 1 ); }
-function user_can( $u, $c ) { return true; }
-
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
@@ -226,7 +225,7 @@ $probe = array(
 	'invite_retention_days'         => '45',
 );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
 $saved = WPCPM_Settings::save( $probe );
 
@@ -304,7 +303,7 @@ echo "\n=== Institutions settings ===\n";
 // The settings screen does not render the four institution switches yet, so a save of the
 // existing form omits them. That must leave them alone - the same input switches off a
 // checkbox the form does render, which is the contrast being pinned.
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array_merge(
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge(
 	WPCPM_Settings::defaults(),
 	array(
 		'institution_provision' => true,
@@ -425,9 +424,9 @@ ck( 'every switch is either rendered by the form or declared unrendered',
 ck( 'and none is both', array_values( array_intersect( $rendered[1], $listed[1] ) ), array() );
 
 $keep = $GLOBALS['opts'];
-$GLOBALS['opts'] = array( WPCPM_Settings::OPTION => array( 'student_statuses' => array() ) );
+$GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'student_statuses' => array() ) );
 WPCPM_Settings::maybe_upgrade();
-ck( 'a saved but empty status list is given both statuses', $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['student_statuses'], array( 'Paused', 'Pending graduation' ) );
+ck( 'a saved but empty status list is given both statuses', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], array( 'Paused', 'Pending graduation' ) );
 $GLOBALS['opts'] = $keep;
 
 // The stage list goes through the same loop as the status lists.
@@ -448,7 +447,7 @@ $three = array( 'In Sensei', 'In Sensei 50h', 'Developer Track' );
 $five  = array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' );
 
 $GLOBALS['opts'] = array(
-	WPCPM_Settings::OPTION => array(
+	WPCPM_Settings::OPT_NAME => array(
 		'student_statuses' => $three,
 		'base_id'          => 'appSAVED0000000001',
 	),
@@ -456,33 +455,33 @@ $GLOBALS['opts'] = array(
 
 WPCPM_Settings::maybe_upgrade();
 
-ck( 'both are appended to a saved list of three, in order', $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['student_statuses'], $five );
-ck( 'the rest of the option is untouched', $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['base_id'], 'appSAVED0000000001' );
+ck( 'both are appended to a saved list of three, in order', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], $five );
+ck( 'the rest of the option is untouched', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['base_id'], 'appSAVED0000000001' );
 ck( 'and the version is stamped', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
 
 $GLOBALS['opts'] = array(
-	WPCPM_Settings::OPTION => array( 'student_statuses' => array( 'In Sensei', 'Pending graduation' ) ),
+	WPCPM_Settings::OPT_NAME => array( 'student_statuses' => array( 'In Sensei', 'Pending graduation' ) ),
 );
 
 WPCPM_Settings::maybe_upgrade();
 
 ck( 'only the missing one is appended, after what was there',
-    $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['student_statuses'], array( 'In Sensei', 'Pending graduation', 'Paused' ) );
+    $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], array( 'In Sensei', 'Pending graduation', 'Paused' ) );
 
 // Already has them: nothing is written to the option at all.
 $GLOBALS['opts'] = array(
-	WPCPM_Settings::OPTION => array( 'student_statuses' => $five ),
+	WPCPM_Settings::OPT_NAME => array( 'student_statuses' => $five ),
 );
-$before = $GLOBALS['opts'][ WPCPM_Settings::OPTION ];
+$before = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ];
 
 WPCPM_Settings::maybe_upgrade();
 
-ck( 'a list that already has them is left alone', $GLOBALS['opts'][ WPCPM_Settings::OPTION ], $before );
+ck( 'a list that already has them is left alone', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ], $before );
 ck( 'but the version is still stamped', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
 
 // Idempotent: a second run on an upgraded site changes nothing.
 $GLOBALS['opts'] = array(
-	WPCPM_Settings::OPTION => array( 'student_statuses' => $three ),
+	WPCPM_Settings::OPT_NAME => array( 'student_statuses' => $three ),
 );
 WPCPM_Settings::maybe_upgrade();
 $after_once = $GLOBALS['opts'];
@@ -495,24 +494,24 @@ $GLOBALS['opts'] = array();
 WPCPM_Settings::maybe_upgrade();
 
 ck( 'with no saved option, the version is stamped', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
-ck( 'and no option is invented', array_key_exists( WPCPM_Settings::OPTION, $GLOBALS['opts'] ), false );
+ck( 'and no option is invented', array_key_exists( WPCPM_Settings::OPT_NAME, $GLOBALS['opts'] ), false );
 ck( 'the default carries both', WPCPM_Settings::get_value( 'student_statuses' ), $five );
 
 // A saved option from before the list existed at all inherits the default rather than
 // getting a two-item list written over it.
 $GLOBALS['opts'] = array(
-	WPCPM_Settings::OPTION => array( 'base_id' => 'appSAVED0000000002' ),
+	WPCPM_Settings::OPT_NAME => array( 'base_id' => 'appSAVED0000000002' ),
 );
 
 WPCPM_Settings::maybe_upgrade();
 
-ck( 'a saved option with no list is not given one', array_key_exists( 'student_statuses', $GLOBALS['opts'][ WPCPM_Settings::OPTION ] ), false );
+ck( 'a saved option with no list is not given one', array_key_exists( 'student_statuses', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ), false );
 ck( 'so it reads the default', WPCPM_Settings::get_value( 'student_statuses' ), $five );
 
 // The point of the version key: a manager who removes a status on purpose must not find it
 // back after the next request.
 $GLOBALS['opts'] = array(
-	WPCPM_Settings::OPTION => array( 'student_statuses' => $three ),
+	WPCPM_Settings::OPT_NAME => array( 'student_statuses' => $three ),
 );
 
 WPCPM_Settings::maybe_upgrade();
@@ -575,5 +574,27 @@ ck( 'the two switches that gained a control are off the unrendered list', array(
 ), array( false, false ) );
 
 
+echo "\n=== Three fields that must never be blank ===\n";
+
+// formula_in() turns an empty list into no filter at all, so a blank status setting does not
+// fetch nobody, it fetches every row of the table: an account and a role for every SPAM and
+// rejected row, or, for the current-student list alone, the revocation of every current student.
+// The default goes back in and the screen is told.
+$GLOBALS['flash'] = array();
+$blank = WPCPM_Settings::save( array( 'mentor_status' => '', 'student_statuses' => '', 'institution_active_stages' => '' ) );
+$saved = WPCPM_Settings::get();
+ck( 'a blank mentor status is put back to the default', $saved['mentor_status'], WPCPM_Settings::defaults()['mentor_status'] );
+ck( 'so is a blank current-student list', $saved['student_statuses'], WPCPM_Settings::defaults()['student_statuses'] );
+ck( 'and the blank institution stages', $saved['institution_active_stages'], WPCPM_Settings::defaults()['institution_active_stages'] );
+// This suite's user-meta stubs keep nothing, so the flash itself cannot be read back here; what
+// is asserted is that save() queues it and the notice reads the same channel with the labels.
+$settings_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php' );
+ck( 'save() tells the screen which fields it restored', false !== strpos( $settings_src, "WPCPM_Flash::set( 'settings-defaults', \$restored );" ), true );
+ck( 'and the notice reads that channel', false !== strpos( $settings_src, "WPCPM_Flash::take( 'settings-defaults' )" ), true );
+ck( 'the labels the notice prints are the three fields\' own', array_keys( WPCPM_Settings::never_blank() ), array( 'mentor_status', 'student_statuses', 'institution_active_stages' ) );
+$filled = WPCPM_Settings::save( array( 'mentor_status' => 'Active' ) );
+ck( 'a filled field is saved as given', WPCPM_Settings::get()['mentor_status'], 'Active' );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+
 exit( $fail ? 1 : 0 );

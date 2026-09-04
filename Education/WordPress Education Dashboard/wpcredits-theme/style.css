@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.16.7
+Version: 1.16.8
 Requires at least: 6.6
 Tested up to: 6.8
 Requires PHP: 7.4
@@ -18,7 +18,7 @@ Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, 
 /* ==========================================================================
    Token aliases
 
-   theme.json owns the values — these are short names for the ones this
+   theme.json owns the values - these are short names for the ones this
    stylesheet reaches for often, so a rule reads as design intent rather than as
    a preset path. Nothing here introduces a color theme.json does not define.
    ========================================================================== */
@@ -68,7 +68,7 @@ Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, 
 	--wpc-shadow-card: var( --wp--custom--shadow--card );
 	--wpc-shadow-float: var( --wp--custom--shadow--float );
 
-	/* The sticky bar's height — the reference site's 76px — so anything else that
+	/* The sticky bar's height - the reference site's 76px - so anything else that
 	   sticks knows where to stop. Kept here rather than in theme.json because it is
 	   a measurement the layout depends on, not a value anyone should be offered in
 	   the editor. */
@@ -101,7 +101,7 @@ h4 {
 
 /* The reference site's skip link, which slides in at the top-left corner.
    Block themes get their skip link from core, which prints its own focus styles
-   in an inline <style> in the footer — later in the document than this file — so
+   in an inline <style> in the footer - later in the document than this file - so
    `body` is prepended to outrank it rather than to add meaning. */
 body .skip-link.screen-reader-text:focus {
 	background: var( --wpc-surface );
@@ -124,7 +124,7 @@ body .skip-link.screen-reader-text:focus {
    Chrome tokens
 
    The header and footer reproduce the WordPress Education Initiatives theme
-   exactly. Its measure and gutter — 1240px and 40px — are theme.json's wideSize
+   exactly. Its measure and gutter - 1240px and 40px - are theme.json's wideSize
    and root padding too, so the brand lines up with the content below it rather
    than sitting 60px to its left.
 
@@ -140,7 +140,7 @@ body .skip-link.screen-reader-text:focus {
 	/* The header's outer box. Its gutters have to sit *outside* the measure, or the
 	   brand and the navigation end up inset a further 40px from the content below
 	   them: `wideSize` is the width of the content box, not of a box with padding
-	   added. The reference theme has no such problem — there the page sections carry
+	   added. The reference theme has no such problem - there the page sections carry
 	   the same padding as the bar, so everything shares one indent. */
 	--wpc-chrome-shell: calc( var( --wpc-chrome-maxw ) + 2 * var( --wpc-chrome-gutter ) );
 
@@ -158,12 +158,12 @@ body .skip-link.screen-reader-text:focus {
 }
 
 /* ==========================================================================
-   Site header — sticky white bar, 76px, centered navigation
+   Site header - sticky white bar, 76px, centered navigation
    ========================================================================== */
 /* The bar sticks from its wrapper, not from itself.
 
    A template part is rendered inside a wrapper element whose height is exactly the
-   part's, and a sticky element can only travel inside its containing block — so
+   part's, and a sticky element can only travel inside its containing block - so
    `position: sticky` on the `<header>` had nowhere to go and the bar scrolled away
    with the page. That was easy to misread as the dashboard's group headings being
    the thing at fault, since once the bar had gone they were the only thing pinned.
@@ -186,13 +186,13 @@ body .skip-link.screen-reader-text:focus {
 }
 
 /* Core spaces every top-level block: `:where(.wp-site-blocks) > * { margin-block-start: 20px }`.
-   On a `main` that paints its own background that gap is a white stripe — it is margin, so it
+   On a `main` that paints its own background that gap is a white stripe - it is margin, so it
    falls outside the background, between the header's rule and the page. Padding inside the
    element cannot close it, and adding padding on top of it only moves the content further down
    the stripe.
 
    So the gap goes. The space those pages want above their card is padding on the element
-   itself, where the background covers it — see `.wpc-main--content` below and
+   itself, where the background covers it - see `.wpc-main--content` below and
    `.wpc-main--dashboard` in assets/css/dashboard.css.
 
    The gap above the wordpress.org global footer goes with it, or the identical stripe
@@ -250,7 +250,7 @@ body .skip-link.screen-reader-text:focus {
 	font-style: normal;
 }
 
-/* Whatever follows the accent word — "Initiatives" — is muted and unbolded. */
+/* Whatever follows the accent word - "Initiatives" - is muted and unbolded. */
 .wpc-brand__name i {
 	color: var( --wpc-chrome-muted );
 	font-style: normal;
@@ -258,8 +258,8 @@ body .skip-link.screen-reader-text:focus {
 }
 
 /* --- navigation -------------------------------------------------------- */
-/* Pushed to the right edge of the content, so the last thing in the bar — the
-   profile photo — lines up with the right edge of everything below it. The
+/* Pushed to the right edge of the content, so the last thing in the bar - the
+   profile photo - lines up with the right edge of everything below it. The
    reference centers this group because its own last item is a wide blue button
    that reads as deliberate in the middle; an avatar floating there just looks
    unaligned. */
@@ -322,7 +322,7 @@ body .skip-link.screen-reader-text:focus {
 /* Dropdown panels: 240px, white, hairline border, 8px corners, soft shadow.
 
    The navigation block ships opinionated defaults for all of this, at specificities
-   that a single class cannot reach — hence the compound selectors through the rest
+   that a single class cannot reach - hence the compound selectors through the rest
    of this section. `.wpc-nav.wp-block-navigation` is one element wearing both
    classes, which buys a point without inventing a wrapper. */
 .wpc-header .wpc-nav.wp-block-navigation .wp-block-navigation__submenu-container {
@@ -347,7 +347,7 @@ body .skip-link.screen-reader-text:focus {
 }
 
 /* Shown and hidden with `display`, the way the reference toggles its panels with
-   the `hidden` attribute — not with core's `opacity`/`visibility` pair.
+   the `hidden` attribute - not with core's `opacity`/`visibility` pair.
 
    Core fades submenus in and out, and its reveal rule also resets `width` to
    `auto`. Restating the whole chain with the theme's classes in front outranks it,
@@ -509,7 +509,7 @@ body .skip-link.screen-reader-text:focus {
 }
 
 /* ==========================================================================
-   Buttons — core's block, this design's shapes
+   Buttons - core's block, this design's shapes
    ========================================================================== */
 .wp-block-button.wpc-button--large .wp-block-button__link {
 	font-size: 14px;
@@ -577,7 +577,7 @@ p.is-style-pill {
 }
 
 /* ==========================================================================
-   Landing — hero
+   Landing - hero
    ========================================================================== */
 .wpc-hero__cols {
 	gap: 44px;
@@ -629,8 +629,8 @@ p.is-style-pill {
 /* Overhung further off the photo's left edge than it looks like it should be: the
    card is the one number on the page, and at `left: -16px` it read as a caption
    stuck to the corner of the image. Out here it sits in the white between the two
-   columns and reads as its own object. There is room for it — the lede above ends
-   well short of the photo — and the 900px rule below re-anchors it to the right
+   columns and reads as its own object. There is room for it - the lede above ends
+   well short of the photo - and the 900px rule below re-anchors it to the right
    before the columns stack, where there is none. */
 .wpc-hero__stat {
 	background: var( --wpc-surface );
@@ -644,8 +644,8 @@ p.is-style-pill {
 	width: 260px;
 }
 
-/* Room between the number and what it counts. At the sizes the pattern sets — the
-   hero's own title size over its own body size — a couple of pixels read as one
+/* Room between the number and what it counts. At the sizes the pattern sets - the
+   hero's own title size over its own body size - a couple of pixels read as one
    crowded block rather than as a figure with a caption. */
 .wpc-hero__stat > * + * {
 	margin-top: 10px;
@@ -653,7 +653,7 @@ p.is-style-pill {
 
 /* The number borrows the hero title's size and color from the pattern, so it also
    borrows the title's tracking: 44px at the default spacing reads loose beside it.
-   Tabular figures so the card does not reflow as the count changes — 11 and 92 are
+   Tabular figures so the card does not reflow as the count changes - 11 and 92 are
    the same width. */
 .wpc-hero__stat-number {
 	font-variant-numeric: tabular-nums;
@@ -667,7 +667,7 @@ p.is-style-pill {
 }
 
 /* ==========================================================================
-   Landing — audiences band
+   Landing - audiences band
    ========================================================================== */
 .wpc-audiences {
 	border-bottom: 1px solid var( --wpc-line );
@@ -729,7 +729,7 @@ p.is-style-pill {
 }
 
 /* ==========================================================================
-   Landing — how it runs
+   Landing - how it runs
    ========================================================================== */
 .wpc-section__head {
 	gap: 20px;
@@ -749,7 +749,7 @@ p.is-style-pill {
 }
 
 /* ==========================================================================
-   Landing — call to action
+   Landing - call to action
    ========================================================================== */
 .wpc-cta {
 	gap: 32px;
@@ -771,7 +771,7 @@ p.is-style-pill {
 
    The space above and below is padding here, not margin on the card: as margin it collapses
    straight out of a `main` that has no padding or border of its own, taking those bands
-   outside the background — the same bug that put a white stripe above and below the
+   outside the background - the same bug that put a white stripe above and below the
    dashboard card. */
 /* The same even 16px the dashboard card uses, so every view insets from the chrome above and
    below it by the same amount. */
@@ -884,13 +884,13 @@ p.is-style-pill {
    Plugin notices that can appear on any page
 
    WPCredits Program Manager gates ordinary pages too, so its restricted notice
-   and its button have to be styled by the stylesheet that always loads — not by
+   and its button have to be styled by the stylesheet that always loads - not by
    the dashboard skin, which only loads where the mentor list renders. The header
    notices below are here for the same reason.
    ========================================================================== */
 
 /* The plugin prints these on `wp_body_open`, so they land above the sticky header and
-   scroll away with the page — which is right for a notice: it is read once, where the
+   scroll away with the page - which is right for a notice: it is read once, where the
    header has to stay reachable. Measured to the chrome's own shell, so the text lines up
    with the brand directly above it rather than starting at the window edge. */
 .wpcpm-notices__item {
@@ -913,7 +913,7 @@ p.is-style-pill {
 	padding-right: var( --wpc-chrome-gutter );
 }
 
-/* Two notices — somebody in two audiences — separate with a hairline instead of
+/* Two notices - somebody in two audiences - separate with a hairline instead of
    repeating the band's own edge. */
 .wpcpm-notices__item + .wpcpm-notices__item {
 	border-top: 1px solid var( --wpc-amber-border );
@@ -992,7 +992,7 @@ p.is-style-pill {
    the plugin's own <summary> and the tile above a gated notice. Everything else is
    inline SVG from inc/icons.php.
 
-   Masks take their color from the element. The notice tile is the exception —
+   Masks take their color from the element. The notice tile is the exception -
    there the glyph is a background image over a tint, so its color is baked in.
    ========================================================================== */
 :root {
@@ -1002,7 +1002,7 @@ p.is-style-pill {
 }
 
 /* ==========================================================================
-   Responsive — the reference site's breakpoints
+   Responsive - the reference site's breakpoints
 
    960: the navigation collapses behind a toggle. 640: gutters halve. The page's own sections follow at 900/600, which is
    where their four-up grids stop fitting.
@@ -1120,7 +1120,7 @@ p.is-style-pill {
 	}
 
 	/* The number takes the title's size, so it takes the title's smaller size here
-	   too — otherwise the card's figure ends up larger than the headline above it.
+	   too - otherwise the card's figure ends up larger than the headline above it.
 	   Two classes deep to outrank `.has-display-font-size`, which the pattern sets
 	   and which core prints from global styles rather than from this file. */
 	.wpc-hero__stat .wpc-hero__stat-number {

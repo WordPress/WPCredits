@@ -1,4 +1,4 @@
-# Developer Track — a third program
+# Developer Track - a third program
 
 **Date:** 26 August 2026
 **Component:** `wpcredits-program-manager`
@@ -15,8 +15,8 @@ Everything below was read from the base (`appIzQKfwTn5dyPVp`), not assumed.
 | | Students (`tbla8GZg5x6NY7aWt`) | Students Reports (`tbljYkkVGbeoaWEtY`) |
 | --- | --- | --- |
 | Status choice | `Developer Track` | `Developer Track` |
-| Report form view | — | `viwox0pWsBBzbfvYH` "Temporal view for dev track", 34 fields |
-| Personal link | — | `Dev Track ONLY personal link` |
+| Report form view | - | `viwox0pWsBBzbfvYH` "Temporal view for dev track", 34 fields |
+| Personal link | - | `Dev Track ONLY personal link` |
 
 The base treats this as a third parallel track, laid out exactly like the other two:
 
@@ -24,28 +24,28 @@ The base treats this as a third parallel track, laid out exactly like the other 
 | --- | --- | --- | --- |
 | 150-hour | `viwq0RmkdJWQkkoPo` "Temporal view for the normal course report form" | 26 | `Personal link` |
 | 50-hour | `viwuHlJ2dqHOM8RhT` "Temporal view for the 50h course" | 13 | `50h personal link` |
-| **Developer** | `viwox0pWsBBzbfvYH` "Temporal view for dev track" | **34** (35 before field 27 was deleted — see below) | `Dev Track ONLY personal link` |
+| **Developer** | `viwox0pWsBBzbfvYH` "Temporal view for dev track" | **34** (35 before field 27 was deleted - see below) | `Dev Track ONLY personal link` |
 
 **The dev-track field set is a strict superset of the 150-hour one.** Every field the 150h form
 asks for is in the dev view, plus nine more. The only field the dev track does not take that another
 track does is `Final Contribution Project Report`, which belongs to the 50-hour form.
 
-The view is currently empty — no student holds the status yet — so nothing here can be derived from
+The view is currently empty - no student holds the status yet - so nothing here can be derived from
 records, and nothing is at risk from getting it wrong on the first pass.
 
 ## The one architectural decision
 
 `is_50h` is a boolean, in four files. A third track does not fit a boolean.
 
-**Rejected — add `is_dev` beside it.** Two booleans give four states for three tracks. "Both true"
+**Rejected - add `is_dev` beside it.** Two booleans give four states for three tracks. "Both true"
 is representable and meaningless, and every future track adds another flag and another way to be
 wrong.
 
-**Rejected — store `'track' => '150h'|'50h'|'dev'` on each synced row.** One value, three states,
+**Rejected - store `'track' => '150h'|'50h'|'dev'` on each synced row.** One value, three states,
 but rows already stored by earlier syncs have no `track`, so every reader needs a fallback until a
 full re-sync has run.
 
-**Chosen — derive the track from the status, and delete the boolean.** Both syncs already store the
+**Chosen - derive the track from the status, and delete the boolean.** Both syncs already store the
 raw Airtable status on every row (`program` in the student sync, `status` in the mentor sync), and
 `is_50h` is computed from it with `stripos( $status, '50h' )`. The boolean is duplicated data. A
 `WPCPM_Program::track( $status )` returning `150h` / `50h` / `dev` / `''` lets every caller derive
@@ -70,7 +70,7 @@ membership of the labels map, and that is what gates the feedback surveys and th
 needs a comment saying so, or somebody will tidy it away and silently turn the surveys off for this
 track.
 
-Chosen over "WordPress Credits Program — Developer Track" so that screen and base say the same
+Chosen over "WordPress Credits Program - Developer Track" so that screen and base say the same
 thing and nobody has to translate between them.
 
 ### 2. Settings
@@ -80,7 +80,7 @@ thing and nobody has to translate between them.
 
 **The saved setting on the live site needs it too.** The student sync builds its Airtable formula
 from `student_statuses`, so until `Developer Track` is in the saved value, no dev-track student is
-fetched at all — the feature would look entirely broken while every line of code was correct.
+fetched at all - the feature would look entirely broken while every line of code was correct.
 
 ### 3. Both syncs
 
@@ -89,7 +89,7 @@ instead of two, and stop writing `is_50h` onto the row.
 
 ### 4. The report form
 
-`fields( $is_50h )` becomes `fields( $track )` — three call sites in the class, plus seven in
+`fields( $is_50h )` becomes `fields( $track )` - three call sites in the class, plus seven in
 `bin/test-report-form.php` which pass the boolean directly. The dev-track set is the 150-hour set
 plus seven fields, grouped by where the Airtable view itself puts them:
 
@@ -103,18 +103,18 @@ plus seven fields, grouped by where the Airtable view itself puts them:
 | `Alumni program: personal email` | Project | email |
 | `Alumni program: mentoring opt-in` | Project | checkbox |
 
-Note the inconsistent capitalisation of `Developer Basics:` and `Developer basics:` — that is how
+Note the inconsistent capitalisation of `Developer Basics:` and `Developer basics:` - that is how
 the base spells them, and the keys are what a write has to name, so both are copied exactly.
 
 Nine of the view's fields appeared in neither existing form. Seven become form fields: `Email` and
-field 27 are the two that do not — `Email` for the reason below, field 27 because it was a
+field 27 are the two that do not - `Email` for the reason below, field 27 because it was a
 duplicate and has since been deleted from the base.
 
 `Email` (field 2 of the view) is **not** a form field. It is the account identity and the key both
 syncs join on; letting a student edit it would detach their own record from their account.
 
 The `email` control type does not exist in the form yet and needs adding to `render_field()` and
-`clean()` — validate with `sanitize_email()` + `is_email()`, empty string clears.
+`clean()` - validate with `sanitize_email()` + `is_email()`, empty string clears.
 
 The `Alumni program: mentoring opt-in` checkbox collects consent, so its label must state what is
 being agreed to rather than repeating the column name. Proposed: *"Yes, I'm happy to be contacted
@@ -133,7 +133,7 @@ two ways: the name appears nowhere in the table's schema, and 0 of 25 sampled 15
 it while 13 carry `Contribution Project Summary`.
 
 So a student's project summary is never loaded into the form. What happens on save could not be
-established without writing to a real student's record, which was not done — Airtable validates the
+established without writing to a real student's record, which was not done - Airtable validates the
 record ID before field names, so the safe probe against a non-existent record could not distinguish
 the two. Either the whole PATCH is rejected or the field is dropped; in both cases the answer does
 not reach the column.
@@ -154,7 +154,7 @@ Extending the existing suites rather than adding one:
 - `label()` and `course_url()` answer for all three; `is_track()` is true for all three.
 
 `bin/test-report-form.php`
-- The dev field set is a strict superset of the 150-hour set — asserted as a set relation, so it
+- The dev field set is a strict superset of the 150-hour set - asserted as a set relation, so it
   keeps holding when either form changes.
 - The eight new fields are present with the right group and control.
 - `Email` is absent from the form's fields.
@@ -174,7 +174,7 @@ field is duplicated. It was left out of the form pending an answer about whether
 second question.
 
 **Celi Garoe confirmed on 28 August 2026 that it was a duplicate, and deleted it from the base.**
-The dev-track view is 34 fields now rather than 35, and the seven the form adds are unchanged — it
+The dev-track view is 34 fields now rather than 35, and the seven the form adds are unchanged - it
 was never one of them. `bin/fixtures/reports-table-fields.json` was refreshed to the table's 52
 remaining field names, which is what now stops anybody adding it back: a field name the base does
 not have fails `every dev field name exists in Airtable`.

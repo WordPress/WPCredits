@@ -3,7 +3,7 @@
  * Server render for a program figure.
  *
  * **The number on the landing page was typed in.** It said 92 mentors; the site had 88, and nothing
- * would ever have said so — a figure nobody can see going stale is the kind that gets quoted in a
+ * would ever have said so - a figure nobody can see going stale is the kind that gets quoted in a
  * pitch deck a year later.
  *
  * Counted from the accounts holding the program role, which is the same thing the Mentors screen in

@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
- * Description:       Runs the WPCredits program on WordPress in five modules — Students, Mentors, Institutions, Sponsors and Administrators — plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a private page listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.89.0
+ * Description:       Runs the WPCredits program on WordPress in five modules - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a private page listing the students assigned to them, and includes the Mentor Status Checker.
+ * Version:           1.90.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.89.0' );
+define( 'WPCPM_VERSION', '1.90.0' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -28,6 +28,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-content-access.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-privacy-guard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-wporg-profile.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-icons.php';
@@ -46,6 +47,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
@@ -111,16 +113,19 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
  */
 function wpcpm_bootstrap() {
 	// Role labels are translated and get stored in the database, so the upgrade
-	// check waits for `init` — calling __() on plugins_loaded triggers WordPress's
+	// check waits for `init` - calling __() on plugins_loaded triggers WordPress's
 	// "translations loaded too early" warning and would store an untranslated label.
 	add_action( 'init', 'wpcpm_load_textdomain', 1 );
 	add_action( 'init', array( 'WPCPM_Roles', 'maybe_upgrade' ), 5 );
 	// Same moment for the settings: `save()` stamps the version, and a settings form posted
 	// before this ran would stamp it without the statuses the upgrade exists to add.
 	add_action( 'init', array( 'WPCPM_Settings', 'maybe_upgrade' ), 5 );
+	// A save that had to put a default back says so on the screen it redirects to.
+	add_action( 'admin_notices', array( 'WPCPM_Settings', 'render_notices' ) );
 
 	WPCPM_Two_Factor::init();
 	WPCPM_Content_Access::init();
+	WPCPM_Privacy_Guard::init();
 	WPCPM_Notices::init();
 	WPCPM_Mail::init();
 	WPCPM_Modules::boot();
@@ -158,7 +163,7 @@ function wpcpm_activate() {
 register_activation_hook( __FILE__, 'wpcpm_activate' );
 
 /**
- * Stop scheduled work on deactivation. Roles and users are left in place — they
+ * Stop scheduled work on deactivation. Roles and users are left in place - they
  * are program data, not plugin state, and are only removed on uninstall.
  */
 function wpcpm_deactivate() {

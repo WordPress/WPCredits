@@ -177,7 +177,7 @@ function get_user_by( $by, $value ) {
 	return false;
 }
 function username_exists( $login ) { return false !== get_user_by( 'login', $login ); }
-function user_can( $user_id, $cap ) { return (bool) $GLOBALS['manager_can'] && absint( $user_id ) > 0; }
+require_once __DIR__ . '/stubs/caps.php';
 function get_user_meta( $id, $k = '', $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ( $single ? '' : array() ); }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 
@@ -364,14 +364,14 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 	 * the site half would refuse everything and prove nothing.
 	 */
 	class WPCPM_Institution_Agreement {
-		const OPTION_PREFIX   = 'wpcpm_agreement_';
+		const OPT_PREFIX   = 'wpcpm_agreement_';
 		const POST_TYPE       = 'wpcpm_agreement';
 		const SUMMARY_NONE    = 'none';
 		const STAGE_ORDER     = array( 'First Contact Made', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Call Scheduled', 'Agreement Sent', 'Confirmed', 'Student' );
 		const TERMINAL_STAGES = array( 'Not Moving Forward', 'SPAM', 'Revisit Later' );
 		const AIRTABLE_SETTLED = array( 'Accepted', 'On file' );
 		public static function option_name( $record_id ) {
-			return self::OPTION_PREFIX . trim( (string) $record_id );
+			return self::OPT_PREFIX . trim( (string) $record_id );
 		}
 		public static function option( $record_id ) {
 			$row = get_option( self::option_name( $record_id ) );
@@ -569,7 +569,7 @@ function reset_world() {
 	$GLOBALS['next_user']     = 40;
 
 	update_option(
-		WPCPM_Countries::OPTION,
+		WPCPM_Countries::OPT_NAME,
 		array(
 			'v'    => WPCPM_Countries::VERSION,
 			'read' => time(),

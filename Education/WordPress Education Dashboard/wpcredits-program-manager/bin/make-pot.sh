@@ -3,7 +3,7 @@
 #
 # WP-CLI's `wp i18n make-pot` is the canonical tool and is what to use if it is
 # installed. This exists so the template can be rebuilt with nothing but GNU
-# gettext, which is already on most machines — a translation template that can only
+# gettext, which is already on most machines - a translation template that can only
 # be regenerated on one laptop stops being regenerated.
 #
 # Usage:  sh bin/make-pot.sh        (run from the plugin root)
@@ -20,7 +20,7 @@ if [ ! -f "$SLUG.php" ]; then
 fi
 
 if command -v wp >/dev/null 2>&1; then
-	echo "WP-CLI found — using it, which is the canonical path."
+	echo "WP-CLI found - using it, which is the canonical path."
 	wp i18n make-pot . "$OUT" --slug="$SLUG" --domain="$SLUG"
 	exit 0
 fi
@@ -29,8 +29,8 @@ mkdir -p languages
 
 # Every WordPress translation function, with the argument positions gettext needs:
 # `:1,2c` marks argument 2 as the context, `:1,2` marks a singular/plural pair.
-# Getting one of these wrong does not error — it silently mistranslates or drops a
-# string — so they are listed in full rather than abbreviated.
+# Getting one of these wrong does not error - it silently mistranslates or drops a
+# string - so they are listed in full rather than abbreviated.
 KEYWORDS="
 --keyword=__
 --keyword=_e
@@ -77,11 +77,11 @@ xgettext $KEYWORDS \
 # Merged *without* `--use-first`, which is the obvious flag here and the wrong one: for a
 # string that appears in both PHP and JS it keeps the PHP entry whole and throws the JS one
 # away, references and all. The string is still translatable, but the template then tells a
-# translator it only lives in PHP — so a string whose two uses need different wording reads
+# translator it only lives in PHP - so a string whose two uses need different wording reads
 # as having one use. Plain msgcat combines the references instead.
 #
 # The tradeoff is conflict markers where two entries disagree. In a template every msgstr is
-# empty, so the only disagreement is between the two generated headers — and the header is
+# empty, so the only disagreement is between the two generated headers - and the header is
 # replaced wholesale below, which discards them.
 msgcat /tmp/wpcpm-php.pot /tmp/wpcpm-js.pot --output-file=/tmp/wpcpm-merged.pot
 

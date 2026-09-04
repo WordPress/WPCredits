@@ -123,8 +123,7 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
-function user_can( $u, $c ) { $id = is_object( $u ) ? $u->ID : (int) $u; return in_array( $id, $GLOBALS['manage'], true ); }
-function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
+require_once __DIR__ . '/stubs/caps.php';
 function get_user_by( $field, $value ) {
 	foreach ( $GLOBALS['users'] as $user ) {
 		if ( 'id' === $field && $user->ID === (int) $value ) { return $user; }
@@ -344,6 +343,7 @@ if ( ! class_exists( 'WPCPM_Airtable' ) ) {
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 
 /* ---- runner ------------------------------------------------------------- */
@@ -713,7 +713,8 @@ echo "\n=== Capability, nonce, policy, and only then the network ===\n";
 
 $src     = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' );
 $handler = method_body( $src, 'handle_link' );
-$verify  = method_body( $src, 'verify' );
+// verify() is the shared sync module's since 1.90.0: one copy for the three modules that own a sync.
+$verify  = method_body( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ), 'verify' );
 
 ck( 'the handler carries the nonce and the policy, and verify() carries the capability', array(
 	has( $handler, '$this->verify(' ),

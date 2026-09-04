@@ -29,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WPCPM_Institutions_Index {
 
-	const OPTION = 'wpcpm_institutions_index';
+	const OPT_NAME = 'wpcpm_institutions_index';
 
 	const VERSION = 1;
 
@@ -83,7 +83,7 @@ class WPCPM_Institutions_Index {
 			'read' => 0,
 			'rows' => array(),
 		);
-		$stored = get_option( self::OPTION );
+		$stored = get_option( self::OPT_NAME );
 
 		if ( ! is_array( $stored ) || ! isset( $stored['v'] ) || self::VERSION !== (int) $stored['v'] ) {
 			return $empty;
@@ -169,7 +169,7 @@ class WPCPM_Institutions_Index {
 		}
 
 		update_option(
-			self::OPTION,
+			self::OPT_NAME,
 			array(
 				'v'    => self::VERSION,
 				'read' => (int) $read,
@@ -198,7 +198,7 @@ class WPCPM_Institutions_Index {
 		$index                              = self::read();
 		$index['rows'][ $row['record_id'] ] = $row;
 
-		update_option( self::OPTION, $index, false );
+		update_option( self::OPT_NAME, $index, false );
 	}
 
 	/**

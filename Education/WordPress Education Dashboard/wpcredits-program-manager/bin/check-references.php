@@ -134,7 +134,7 @@ foreach ( $files as $path ) {
  *
  * `WPCPM_Request::key()`, `text()` and `id()` read `$_GET`. A handler wired to
  * `admin_post_*` receives its fields in `$_POST`, so one of those inside a handler does not
- * error — it silently returns the fallback, and the feature keeps working while doing the
+ * error - it silently returns the fallback, and the feature keeps working while doing the
  * wrong thing. That is how the sample-invitation control came to send the student template
  * whichever of its two buttons was pressed: no warning, no failure, nothing on screen.
  *
@@ -182,7 +182,7 @@ foreach ( $files as $path ) {
 			if ( preg_match( '/WPCPM_Request::' . $reader . '\s*\(\s*[\'"]([^\'"]+)/', $body, $m ) ) {
 				printf(
 					"GET READ IN A POST HANDLER  WPCPM_Request::%s( '%s' ) inside %s()\n"
-					. "                            %s — use posted_%s() or the field is always the fallback\n",
+					. "                            %s - use posted_%s() or the field is always the fallback\n",
 					$reader,
 					$m[1],
 					$name,
@@ -196,7 +196,7 @@ foreach ( $files as $path ) {
 }
 
 printf(
-	"\n%d classes, %d references checked, %d form handlers scanned — %s\n",
+	"\n%d classes, %d references checked, %d form handlers scanned - %s\n",
 	count( $declared ),
 	$checked,
 	$handlers,

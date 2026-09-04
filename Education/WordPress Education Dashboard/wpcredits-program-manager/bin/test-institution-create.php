@@ -273,9 +273,23 @@ class WPCPM_Airtable {
 			// A refusal that is about the base rather than this record: the client hands the
 			// same object back for every call that follows, so the slice has to stop.
 			if ( ! empty( $GLOBALS['base_refusal'] ) ) {
-				return 'unsent' === $GLOBALS['base_refusal']
-					? new WP_Error( 'wpcpm_airtable_rate_limited', 'Airtable asked us to wait 30 seconds before sending more requests.' )
-					: new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 503): the service is unavailable', array( 'status' => 503 ) );
+				// Four shapes of "the whole import, not this row": a backoff the client honours
+				// before sending, the base being unwell, a table that is not there (a wrong
+				// students-table setting), and a request the client built too large.
+				switch ( $GLOBALS['base_refusal'] ) {
+					case 'unsent':
+						return new WP_Error( 'wpcpm_airtable_rate_limited', 'Airtable asked us to wait 30 seconds before sending more requests.' );
+					case 'not-found':
+						return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 404): NOT_FOUND: Could not find table tblNOPE in application appX', array( 'status' => 404 ) );
+					case 'too-large':
+						return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 413): REQUEST_TOO_LARGE', array( 'status' => 413 ) );
+					default:
+						return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 503): the service is unavailable', array( 'status' => 503 ) );
+				}
+			}
+
+			if ( ! empty( $GLOBALS['on_create'] ) && is_callable( $GLOBALS['on_create'] ) ) {
+				call_user_func( $GLOBALS['on_create'], count( $GLOBALS['base'] ) );
 			}
 
 			$id            = sprintf( 'rec%014d', count( $GLOBALS['base'] ) + 1 );
@@ -791,7 +805,10 @@ echo "\n=== A refusal that is not this row's stops the slice ===\n";
  * marked three hundred students terminally failed in one pass and finished the batch, leaving
  * nothing pending for a later slice. A reviewer traced it; these pin the difference.
  */
-foreach ( array( 'unsent' => 'pending', 'base' => 'creating' ) as $kind => $expected ) {
+// A 404 (the table or base is not there) and a 413 refuse the next row exactly as a 5xx does;
+// filing them as the row's own fault terminally failed every row of an import whose only
+// fault was a setting, where a halt keeps the list recoverable.
+foreach ( array( 'unsent' => 'pending', 'base' => 'creating', 'not-found' => 'creating', 'too-large' => 'creating' ) as $kind => $expected ) {
 	fresh();
 	$batch_id = stage(
 		$HERE,
@@ -817,6 +834,40 @@ foreach ( array( 'unsent' => 'pending', 'base' => 'creating' ) as $kind => $expe
 	// it failed would strand a student who exists in Airtable and is on nobody's roster.
 	ck( sprintf( 'the first row is left %s', $expected ), row_states( $batch_id )[0], $expected );
 }
+
+// The lock a slice holds is a heartbeat with a token, released only by its holder. A slice of a
+// full batch can outlive the 120-second timeout while still working; before this the next tick
+// took the lock and both slices created the same students.
+fresh();
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ), row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ) ) );
+$lock     = WPCPM_Institution_Create::LOCK_PREFIX . $HERE;
+$seen     = array();
+$GLOBALS['on_create'] = function () use ( $lock, &$seen ) { $seen[] = (string) get_option( $lock ); };
+WPCPM_Institution_Create::create_slice( $batch_id );
+$GLOBALS['on_create'] = null;
+ck( 'the lock is written before every row, carrying a time and a token', count( $seen ) === 2 && preg_match( '/^\d+:[A-Za-z0-9]{12}$/', $seen[0] ) === 1, true );
+ck( 'the same token for the whole slice', substr( $seen[0], strpos( $seen[0], ':' ) ), substr( $seen[1], strpos( $seen[1], ':' ) ) );
+ck( 'and released when the slice ends', get_option( $lock ), false );
+
+// A newcomer that took the lock over mid-slice keeps it: the finishing slice sees a token that
+// is not its own and leaves the option alone.
+fresh();
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ), row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ) ) );
+$GLOBALS['on_create'] = function ( $n ) use ( $lock ) { if ( 1 === $n ) { update_option( $lock, time() . ':newcomer0000' ); } };
+WPCPM_Institution_Create::create_slice( $batch_id );
+$GLOBALS['on_create'] = null;
+ck( "a lock another slice took over is not released by the one that lost it", (string) get_option( $lock ), time() . ':newcomer0000' );
+delete_option( $lock );
+
+// A stale lock is still taken over, which is what keeps a killed request from stranding a batch.
+fresh();
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ) );
+update_option( $lock, ( time() - WPCPM_Institution_Create::LOCK_TIMEOUT - 5 ) . ':deadslice000' );
+$out = WPCPM_Institution_Create::create_slice( $batch_id );
+ck( 'a lock older than the timeout is taken over', $out['problem'], 'created' );
+update_option( $lock, time() . ':liveslice000' );
+ck( 'while a fresh one is honoured', WPCPM_Institution_Create::create_slice( stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ) ) )['problem'], 'locked' );
+delete_option( $lock );
 
 // The reverse, so the two branches are told apart rather than both landing on "stop": a 422
 // names this record, and the next row may be perfectly good.

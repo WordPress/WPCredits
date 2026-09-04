@@ -4,12 +4,12 @@
  *
  * **The field lists are pinned here on purpose.** Airtable exposes no way to read a view's visible
  * fields, so the two sets are maintained by hand in `WPCPM_Student_Report_Form::fields()`. That makes
- * them the kind of thing that drifts silently — a field renamed in the base, or one dropped from a
+ * them the kind of thing that drifts silently - a field renamed in the base, or one dropped from a
  * view, shows up as a box nobody fills in rather than as an error. Asserting the exact names against
  * what the program said the views hold turns that into a test failure.
  *
  * The other half is `clean()`. Every value goes to a live Airtable PATCH, and **one unusable value
- * fails the whole request** — so a mistyped grade must not be able to take the other twenty-one
+ * fails the whole request** - so a mistyped grade must not be able to take the other twenty-one
  * answers down with it, and "cleared" must never be confused with "rejected".
  *
  * Run from the plugin root:  php bin/test-report-form.php
@@ -83,8 +83,7 @@ function get_users( $a = array() ) { return array(); }
 function get_user_by( $f, $v ) { return new WP_User( (int) $v ); }
 function get_current_user_id() { return $GLOBALS['uid'] ?? 0; }
 function is_user_logged_in() { return ! empty( $GLOBALS['uid'] ); }
-function current_user_can( $c ) { return ! empty( $GLOBALS['caps'] ); }
-function user_can( $u, $c ) { return ! empty( $GLOBALS['caps'] ); }
+require_once __DIR__ . '/stubs/caps.php';
 function is_admin() { return false; }
 function get_post( $id = null ) { return null; }
 function get_posts( $a = array() ) { return array(); }
@@ -256,7 +255,7 @@ ck( 'and sits in the project group',
     array( $sensei_specs['Main Contribution Team']['group'], $fifty_specs['Main Contribution Team']['group'] ),
     array( 'project', 'project' ) );
 
-// Above "What you contributed" — the order the fields are declared in is the order they render in.
+// Above "What you contributed" - the order the fields are declared in is the order they render in.
 $order = static function ( array $specs, $name ) {
 	return array_search( $name, array_keys( $specs ), true );
 };
@@ -269,7 +268,7 @@ ck( 'above the project description, on both tracks',
     array( true, true ) );
 
 // The other half of "once": nothing else may offer it. The profile editor did, and was deleted
-// when its last three fields moved here — so the assertion is that the file itself is gone, which
+// when its last three fields moved here - so the assertion is that the file itself is gone, which
 // is the only way "asked once" can be guaranteed rather than hoped for.
 ck( 'and the profile editor that used to offer it is gone',
     file_exists( __DIR__ . '/../includes/modules/class-wpcpm-student-profile.php' ), false );
@@ -332,7 +331,7 @@ ck( 'and sits between the voice course and the user levels',
     array( true, true ) );
 
 // Onboarding is four runs, and each says what it is one way or the other: a heading over the
-// fields, or a note under them. The assertion is that none of them is unmarked — a run with
+// fields, or a note under them. The assertion is that none of them is unmarked - a run with
 // neither reads as a continuation of the one above it, which is how the marks and the two
 // contact questions ran together before 1.52.0.
 ck( 'every run in Onboarding is marked, by a heading or a note',
@@ -359,7 +358,7 @@ ck( 'the reflection posts belong to In Sensei alone',
 echo "\n=== Every field belongs to a group ===\n";
 
 // The form renders group by group, so a field with an unknown group is a field that renders
-// nowhere — invisible on the page and impossible to fill in, with nothing to show it went missing.
+// nowhere - invisible on the page and impossible to fill in, with nothing to show it went missing.
 $groups = array_keys( WPCPM_Student_Report_Form::groups() );
 
 foreach ( array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev' ) as $label => $track ) {
@@ -429,7 +428,7 @@ echo "\n=== Read only ===\n";
 
 /*
  * **This is the half that shipped wrong.** The form was gated on `user_can_edit()` alone, which is
- * true for a program manager — so a manager opening a report from a *mentor's* page got live boxes
+ * true for a program manager - so a manager opening a report from a *mentor's* page got live boxes
  * and a Save button over somebody else's answers. The capability says who may ever edit; the view
  * says whether this place is one where editing happens, and on a mentee card it is not.
  *
@@ -521,7 +520,7 @@ echo "\n=== Every field name is a real Airtable column ===\n";
 // Airtable sees it.
 //
 // The fixture is the table's field list, read from the metadata API. It has to be refreshed when
-// the table changes, which is the point — a rename in Airtable should break a test here rather
+// the table changes, which is the point - a rename in Airtable should break a test here rather
 // than a student's report there.
 $fixture = json_decode( file_get_contents( __DIR__ . '/fixtures/reports-table-fields.json' ), true );
 $real    = isset( $fixture['fields'] ) ? $fixture['fields'] : array();
@@ -587,7 +586,7 @@ ck( 'the email column is not a form field', isset( $dev['Email'] ), false );
 
 // `Post Reflection: Choosing Your Team and Project copy` was field 27 of the dev-track view and was
 // left out of the form pending an answer about it. Celi Garoe confirmed on 28 August 2026 that it
-// was a duplicated field, and it has been deleted from the base — so there is no assertion here any
+// was a duplicated field, and it has been deleted from the base - so there is no assertion here any
 // more. Adding it to the form now fails "every dev field name exists in Airtable" above, which is
 // the stronger check and the one that catches the whole class rather than this one instance.
 
@@ -602,13 +601,13 @@ ck( 'the developer modules follow the user levels',
     $at( $dev, 'Developer Basics: modules completed' ) === $at( $dev, 'Advance WordPress User - final grade' ) + 1, true );
 
 // Lesson 3, "Practical: Patch Testing", which the course puts in the project run rather than among
-// the course grades. It was in Onboarding while the Airtable view was the only guide — the view
+// the course grades. It was in Onboarding while the Airtable view was the only guide - the view
 // lists columns in table order, the course is the order a student actually works through.
 ck( 'patch testing is in the project section, not with the course grades',
     $dev['Patch Testing: Trac ticket comments']['group'], 'project' );
 
 // It heads the section, under a heading of its own. A subgroup heading closes whatever row is
-// open — `render_body()` has to, or the heading would print inside the pair's grid — so a field
+// open - `render_body()` has to, or the heading would print inside the pair's grid - so a field
 // carrying one cannot also sit in the stacked column beside the team list.
 ck( 'and heads the section, on a full-width row of its own',
     array(
@@ -636,7 +635,7 @@ ck( 'the discussions open the alumni run rather than the project column',
     array( false, 'project' ) );
 
 // **Moved on one track, not on all of them.** The other two courses ask it with the project
-// questions, and the field is one Airtable column — a copy left behind would be two boxes writing
+// questions, and the field is one Airtable column - a copy left behind would be two boxes writing
 // to it, which is the bug the contribution teams had.
 $one = WPCPM_Student_Report_Form::fields( '150h' );
 
@@ -711,7 +710,7 @@ echo "\n=== Paired fields stay together ===\n";
 //
 // `render_body()` opens a `.wpcpm-report__pair` at the first field carrying a `row` and closes it
 // at the first field that does not. So a field inserted into the middle of a paired run ends the
-// pair, and the fields after it open a *second* pair — which, at two columns, renders as a run of
+// pair, and the fields after it open a *second* pair - which, at two columns, renders as a run of
 // half-width boxes with an empty column beside them. Nothing errors; it just looks wrong, and only
 // on the one track whose form has the extra field.
 //
@@ -754,7 +753,7 @@ ck( 'the second project summary is in the stacked column, not loose in the group
 
 // Everything the group lays out itself gets either the number treatment or a row to itself, which
 // is the form's whole layout rule. A control type missing from that CSS list becomes a narrow cell
-// with whatever fits beside it — how the alumni address first rendered.
+// with whatever fits beside it - how the alumni address first rendered.
 //
 // Fields inside a pair are exempt: the pair sets its own columns, which is why `Slack Name` can be
 // a plain text box without a full-width rule.
@@ -782,6 +781,25 @@ foreach ( $full_width as $type ) {
 	        || false !== strpos( $css, '.wpcpm-report__group > .wpcpm-field--' . $type . ' {' ), true );
 }
 
+echo "\n=== What an institution's copy of the card leaves out ===\n";
+
+// The institution's student card fetches this body over REST, and it used to draw every field
+// of the track: for a Developer Track student that included the personal alumni address and
+// the post-programme plans, on a card whose docblock promises the school sees no address.
+$dev  = WPCPM_Student_Report_Form::fields( 'dev' );
+$for  = WPCPM_Student_Report_Form::for_institution( $dev );
+$gone = array_diff( array_keys( $dev ), array_keys( $for ) );
+sort( $gone );
+ck( 'the three alumni answers and every email field are left out', $gone, array( 'Alumni program: mentoring opt-in', 'Alumni program: personal email', 'Contributing beyond WP Credits' ) );
+ck( 'and no email-typed field survives', array_filter( $for, function ( $spec ) { return isset( $spec['type'] ) && 'email' === $spec['type']; } ), array() );
+ck( 'while the contribution links a school does see are kept', isset( $for['Personal Website URL'], $for['Closing post URL'] ), true );
+ck( 'the In Sensei track has nothing to hide, and loses nothing', array_keys( WPCPM_Student_Report_Form::for_institution( WPCPM_Student_Report_Form::fields( '150h' ) ) ), array_keys( WPCPM_Student_Report_Form::fields( '150h' ) ) );
+$route = (string) file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-student-report-form.php' );
+$rest  = substr( $route, strpos( $route, 'public static function rest_report(' ) );
+$rest  = substr( $rest, 0, strpos( $rest, "return new WP_REST_Response( array( 'html'" ) );
+ck( 'and the REST route draws the body for the audience it resolved', false !== strpos( $rest, 'self::render_body( $student, $program, true, self::audience_for( $record ) )' ), true );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
+
 
 exit( $fails ? 1 : 0 );

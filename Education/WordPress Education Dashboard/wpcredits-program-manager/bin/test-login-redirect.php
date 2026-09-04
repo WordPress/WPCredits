@@ -4,7 +4,7 @@
  *
  * This suite exists because the claim "they are redirected to their Report Card" was made,
  * believed, and false. `login_redirect` stepped aside whenever `$requested_redirect_to` was
- * non-empty — and core's login form carries a hidden `redirect_to` whose default value is
+ * non-empty - and core's login form carries a hidden `redirect_to` whose default value is
  * `admin_url()`, so it was non-empty on every ordinary login and the filter never once
  * redirected anybody. The `admin_init` fallback quietly covered for it, which is why the
  * outcome looked right and nothing complained.
@@ -122,7 +122,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-dashboard.php';
 
 /* ---- fixtures ----------------------------------------------------------- */
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
 // Both pages exist and are published.
 $GLOBALS['opts'][ WPCPM_Mentors_Dashboard::OPT_PAGE ]  = 20;
@@ -135,7 +135,7 @@ $student = new WP_User( 3, 'Moldir', array( WPCPM_Roles::ROLE_STUDENT ) );
 $admin   = new WP_User( 4, 'Admin', array( 'administrator' ) );
 $editor  = new WP_User( 5, 'Mentor who edits', array( WPCPM_Roles::ROLE_MENTOR, 'editor' ) );
 
-// Recognised by their Airtable link and nothing else — no role. This is the shape the
+// Recognised by their Airtable link and nothing else - no role. This is the shape the
 // reported bug had: the toolbar offered them the Mentor Report Card while the redirects
 // treated them as a stranger, so they logged in and sat on the wp-admin dashboard. The
 // first version of this suite gave every fixture the role and therefore agreed with the
@@ -147,7 +147,7 @@ $linked_student = new WP_User( 7, 'Linked student', array( 'subscriber' ) );
 // link stays behind by design.
 $former_mentor = new WP_User( 8, 'Former mentor', array( 'subscriber' ) );
 
-// An administrator who also mentors — the sync never gives them the role, only the link.
+// An administrator who also mentors - the sync never gives them the role, only the link.
 $admin_mentor = new WP_User( 9, 'Admin who mentors', array( 'administrator' ) );
 
 $GLOBALS['users'] = array(
@@ -277,9 +277,9 @@ echo "\n=== When the switch is off, or the page is gone ===\n";
 
 $settings                = WPCPM_Settings::defaults();
 $settings['mentor_home'] = false;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'mentor routing off means wp-admin', array( plain_login( 'mentor', $mentor ) ), array( ADMIN_ROOT ) );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
 // A trashed page is truthy from `get_post_status()`, which is why this is checked: sending
 // every mentor to a 404 would be worse than sending them to wp-admin.
@@ -311,7 +311,7 @@ echo "\n=== Password reset links survive support-session detection ===\n";
 // A reset link is a plain `/wp-login.php?action=rp&key=...` URL. On this host wpcomsh redirects
 // logged-out login requests to `/_wpcomsh_detect_support_session?redirect=...`, and that path is
 // only served while the request is proxied AND no detection cookie is set yet. Re-open the wrapped
-// URL later — from a mailbox, a chat, the back button — and nothing handles it, so WordPress 404s.
+// URL later - from a mailbox, a chat, the back button - and nothing handles it, so WordPress 404s.
 // Reported for peiraisotta and others on 28 August 2026.
 //
 // wpcomsh's own `need_to_detect()` short-circuits on a query parameter it defines for the purpose,

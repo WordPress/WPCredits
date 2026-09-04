@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Module 4 — Administrators.
+ * Module 4 - Administrators.
  *
  * Program managers use the built-in Administrator role rather than a custom one,
  * so this module adds no role: it grants the program capabilities to
@@ -112,7 +112,7 @@ class WPCPM_Administrators extends WPCPM_Module {
 					esc_url( get_edit_user_link( $admin->ID ) ),
 					esc_html( $admin->display_name ),
 					esc_html( $admin->user_login ),
-					user_can( $admin->ID, WPCPM_Roles::CAP_MANAGE ) ? esc_html__( 'Yes', 'wpcredits-program-manager' ) : esc_html__( 'No — re-activate the plugin', 'wpcredits-program-manager' )
+					user_can( $admin->ID, WPCPM_Roles::CAP_MANAGE ) ? esc_html__( 'Yes', 'wpcredits-program-manager' ) : esc_html__( 'No - re-activate the plugin', 'wpcredits-program-manager' )
 				);
 			}
 

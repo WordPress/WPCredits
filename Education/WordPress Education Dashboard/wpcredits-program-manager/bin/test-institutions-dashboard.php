@@ -224,6 +224,7 @@ function wp_register_style( $handle, $src, $deps = array(), $ver = false ) {
 	$GLOBALS['styles'][ $handle ] = array( 'src' => $src, 'deps' => $deps, 'on' => false );
 }
 function wp_enqueue_style( $handle ) { if ( isset( $GLOBALS['styles'][ $handle ] ) ) { $GLOBALS['styles'][ $handle ]['on'] = true; } }
+function wp_enqueue_script( $handle ) { $GLOBALS['scripts'][] = $handle; }
 function wp_script_is( $handle, $list = 'enqueued' ) { return false; }
 function wp_register_script( $handle, $src, $deps = array(), $ver = false, $footer = false ) {}
 
@@ -307,10 +308,10 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 
 if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 	class WPCPM_Institutions_Index {
-		const OPTION  = 'wpcpm_institutions_index';
+		const OPT_NAME  = 'wpcpm_institutions_index';
 		const VERSION = 1;
 		public static function read() {
-			$o = get_option( self::OPTION );
+			$o = get_option( self::OPT_NAME );
 			return ( is_array( $o ) && isset( $o['v'] ) && self::VERSION === $o['v'] ) ? $o : array( 'v' => 1, 'read' => 0, 'rows' => array() );
 		}
 		public static function rows() { $r = self::read(); return $r['rows']; }
@@ -325,9 +326,9 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 
 if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
 	class WPCPM_Roster_Index {
-		const OPTION_PREFIX = 'wpcpm_roster_';
+		const OPT_PREFIX = 'wpcpm_roster_';
 		const VERSION       = 1;
-		public static function option_name( $id ) { return self::OPTION_PREFIX . $id; }
+		public static function option_name( $id ) { return self::OPT_PREFIX . $id; }
 		public static function read( $id ) {
 			$o = get_option( self::option_name( $id ) );
 			return is_array( $o ) ? $o : array( 'v' => 1, 'read' => 0, 'rows' => array() );
@@ -525,7 +526,7 @@ ck(
 	array( true, true )
 );
 
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ] = array(
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array(
 	'v'    => 1,
 	'read' => 1756000000,
 	'rows' => array(
@@ -773,7 +774,7 @@ ck( 'and still sees their own', false !== strpos( $out, 'Krakowska' ), true );
 // version it does not know, so between a shape change and the next sync no institution has
 // a row at all - and a header that went blank at that moment would be a worse answer than a
 // header a few weeks old.
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['v'] = 99;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 99;
 $out = render_as( 2 );
 ck( 'with no index row the stamp draws the header', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Krakowska</p>' ), true );
 ck( 'stage and all', false !== strpos( $out, 'Stage: Agreement Sent<' ), true );
@@ -790,7 +791,7 @@ ck( 'the header puts each fact on its own line, in that order', array(
 	strpos( $out, 'wpcpm-institution__stage' ) < strpos( $out, 'wpcpm-institution__contact' ),
 ), array( true, true, true, true ) );
 ck( 'and no longer runs them together in a sentence', false !== strpos( $out, 'Poland Stage:' ), false );
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['v'] = 1;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 1;
 
 /* ---- a manager on the same unsettled institution ------------------------- */
 
@@ -801,7 +802,11 @@ $GLOBALS['opts'][ 'wpcpm_agreement_' . $krakow ] = array(
 	'airtable_status' => 'Awaiting review',
 );
 
+$GLOBALS['scripts'] = array();
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
+// Every form on the page carries data-wpcpm-once; the page has to load the script that reads it,
+// or two presses of Upload file two agreements.
+ck( 'the dashboard arms the double-submit guard its forms carry', in_array( 'wpcpm-forms', $GLOBALS['scripts'], true ), true );
 
 ck( 'a manager sees the banner', false !== strpos( $out, 'wpcpm-institution__banner' ), true );
 ck( 'naming the state in words', false !== strpos( $out, 'not settled: a signed copy is waiting for review' ), true );
@@ -947,14 +952,14 @@ ck( 'and asking for one by record ID changes nothing', false !== strpos( $out, '
 // resolver falls back to the first institution *with a live member*, so an index full of
 // institutions can still resolve to nothing, and the sentence points at the screen that
 // provisions rather than telling anybody to run a sync.
-$rows = $GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'];
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'] = array();
+$rows = $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'];
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = array();
 $out = render_as( 4 );
 ck( 'a manager with no institution to show gets the shared wording too', false !== strpos( $out, WPCPM_Dashboards::nothing_to_show( 'institutions', true ) ), true );
 ck( 'which is a link to the Institutions screen', false !== strpos( $out, 'admin.php?page=wpcpm-institutions' ), true );
 ck( 'and never says "add one from"', false !== strpos( $out, 'Add one from' ), false );
 ck( 'and no card ran for them either', cards_run(), array() );
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'] = $rows;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- what the cards are handed ------------------------------------------- */
 
@@ -1026,13 +1031,13 @@ ck(
 	'https://example.test/wp-admin/'
 );
 // The setting is what turns the routing off, and it turns off both halves.
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'institution_home' => false );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'institution_home' => false );
 ck(
 	'and nobody is routed when institution_home is off',
 	WPCPM_Institutions_Dashboard::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][2] ),
 	'https://example.test/wp-admin/'
 );
-unset( $GLOBALS['opts'][ WPCPM_Settings::OPTION ] );
+unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] );
 
 /* ---- the admin dashboard ------------------------------------------------- */
 

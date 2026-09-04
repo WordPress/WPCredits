@@ -170,7 +170,7 @@ ck( 'and init() registered both filters', array(
 	count( $GLOBALS['filters']['two_factor_primary_provider_for_user'] ),
 ), array( 1, 1 ) );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'two_factor_roles' => array( 'administrator', 'wpcpm_institution' ) );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'two_factor_roles' => array( 'administrator', 'wpcpm_institution' ) );
 
 user( 10, array( 'administrator' ) );
 user( 20, array( 'wpcpm_institution' ) );
@@ -223,13 +223,13 @@ unset( $GLOBALS['no_email'] );
 
 echo "\n=== The policy is a setting, and a filter ===\n";
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['two_factor_roles'] = array( 'administrator', 'wpcpm_mentor' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['two_factor_roles'] = array( 'administrator', 'wpcpm_mentor' );
 ck( 'widening it to mentors takes effect at once', array( WPCPM_Two_Factor::is_required( 30 ), WPCPM_Two_Factor::is_required( 20 ) ), array( true, false ) );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['two_factor_roles'] = array();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['two_factor_roles'] = array();
 ck( 'an empty list requires it of nobody', array( WPCPM_Two_Factor::is_required( 10 ), WPCPM_Two_Factor::required_roles() ), array( false, array() ) );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['two_factor_roles'] = array( 'administrator', 'wpcpm_ghost', '', 'ADMINISTRATOR' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['two_factor_roles'] = array( 'administrator', 'wpcpm_ghost', '', 'ADMINISTRATOR' );
 ck( 'a role slug nothing registers is dropped, and the rest still stands', WPCPM_Two_Factor::required_roles(), array( 'administrator' ) );
 
 $GLOBALS['filters']['wpcpm_two_factor_roles'][] = function ( $roles ) { return array( 'wpcpm_student' ); };
@@ -240,7 +240,7 @@ unset( $GLOBALS['filters']['wpcpm_two_factor_roles'] );
 
 echo "\n=== What each person is told ===\n";
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['two_factor_roles'] = array( 'administrator', 'wpcpm_institution' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['two_factor_roles'] = array( 'administrator', 'wpcpm_institution' );
 $GLOBALS['enabled'] = array();
 
 $required = prompt_for( 20 );

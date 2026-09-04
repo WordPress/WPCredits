@@ -1,0 +1,13 @@
+# Excluded from the installable zip (bin/build is the only reader of this file).
+.git
+.gitignore
+.distignore
+.DS_Store
+node_modules
+bin
+docs
+phpcs.xml.dist
+*.orig
+*.rej
+*.bak
+*.zip

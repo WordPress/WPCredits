@@ -1,6 +1,6 @@
 # Program manager guide
 
-*The plugin in wp-admin — settings, modules, access levels and the sync — plus everything mentors and students are told.*
+*The plugin in wp-admin - settings, modules, access levels and the sync - plus everything mentors and students are told.*
 
 This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.
 
@@ -30,8 +30,8 @@ If Airtable is not connected yet, this screen says so and links straight to the 
 | --- | --- |
 | **Students** | The student list, the sync report, and one-at-a-time invitations. |
 | **Mentors** | The mentor list, the sync report, and one-at-a-time invitations. |
-| **Institutions** | Role only — registers `wpcpm_institution` and reserves the screen. |
-| **Sponsors** | Role only — registers `wpcpm_sponsor` and reserves the screen. |
+| **Institutions** | Role only - registers `wpcpm_institution` and reserves the screen. |
+| **Sponsors** | Role only - registers `wpcpm_sponsor` and reserves the screen. |
 | **Administrators** | Lists the program capabilities granted to Administrator, and who holds the role. |
 
 A role-only screen tells you the role slug, whether it is registered, and how many accounts hold it.
@@ -41,7 +41,7 @@ module has screens of its own.
 ### Modules
 
 The **Modules** submenu lists the parts of the program that are run and configured on their own
-rather than belonging to one audience — currently **Header notices**, **Need help?** and the **Mentor
+rather than belonging to one audience - currently **Header notices**, **Need help?** and the **Mentor
 Status Checker**. Each has its own screen behind an *Open tool* button.
 
 ## Settings
@@ -59,7 +59,7 @@ Status Checker**. Each has its own screen behind an *Open tool* button.
 | **Personal Access Token** | Stored in the database and never sent back to the browser. Leave blank to keep the current token. |
 | **Base ID** | The Airtable base holding the program. |
 | **Mentors table** | Where mentor records live. |
-| **Students Reports table** | Internship dates, links and contribution teams — what the mentor page shows. |
+| **Students Reports table** | Internship dates, links and contribution teams - what the mentor page shows. |
 | **Students table** | Read only for the Tutor column, which does not exist on Students Reports. |
 | **Feedback table** | Where the students' survey answers are written. One row per student, with a column per question. |
 
@@ -67,53 +67,53 @@ Status Checker**. Each has its own screen behind an *Open tool* button.
 
 Airtable sends linked-record fields as record IDs rather than names, so two more tables are read to
 turn those IDs into names: **Institutions** and **Contribution areas**. Each has a name-column
-setting, used only when the token lacks the `schema.bases:read` scope — with that scope the primary
+setting, used only when the token lacks the `schema.bases:read` scope - with that scope the primary
 column is detected automatically.
 
 ### Mentors module
 
-- **Mentor status to sync** — only mentors holding this Airtable status get an account.
-- **Currently mentoring** — one status per line. Students holding any of these appear under
+- **Mentor status to sync** - only mentors holding this Airtable status get an account.
+- **Currently mentoring** - one status per line. Students holding any of these appear under
   "Currently mentoring" on their mentor's page.
-- **Past students** — statuses that mean mentoring has finished. Those students appear in a separate,
+- **Past students** - statuses that mean mentoring has finished. Those students appear in a separate,
   collapsed section. Leave empty to show only current students; a status in both boxes counts as
   current.
-- **When a mentor is no longer active** — remove the Mentor role and clear their student list, or
+- **When a mentor is no longer active** - remove the Mentor role and clear their student list, or
   leave the role in place. The account itself is never deleted either way.
-- **Invitation emails** — off by default, and worth leaving off: a first sync creates around ninety
+- **Invitation emails** - off by default, and worth leaving off: a first sync creates around ninety
   accounts at once. Invitations are queued and sent a few at a time rather than all inside the sync,
   so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time
   from the Mentors and Students screens.
-- **Automatic sync** — read Airtable on a schedule. **Students every three hours, mentors once a
+- **Automatic sync** - read Airtable on a schedule. **Students every three hours, mentors once a
   day**: the student rows carry what people are shown on their cards, while the mentors run costs
   one WordPress.org profile read per mentor. A run already in progress is left to finish rather than
   restarted. Either can also be run by hand from the Students and Mentors screens.
-- **Mentor landing page** — send mentors to their Report Card on login and in place of the wp-admin
+- **Mentor landing page** - send mentors to their Report Card on login and in place of the wp-admin
   Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who followed a
   link somewhere specific still lands there. Administrators are unaffected.
 
 ### Students module
 
-Uses the same status lists as the Mentors module — a current student is anyone a mentor is currently
+Uses the same status lists as the Mentors module - a current student is anyone a mentor is currently
 mentoring.
 
-- **When a student leaves the program** — remove the Student role, so they lose access to
+- **When a student leaves the program** - remove the Student role, so they lose access to
   Student-level content, or leave it in place. The account is never deleted, and their program
   details are kept.
-- **Student landing page** — the same arrangement as for mentors, pointing at the Student Report Card.
+- **Student landing page** - the same arrangement as for mentors, pointing at the Student Report Card.
 
 ### Need help?
 
 The question box over the WordPress documentation.
 
-- **Switch it on** — off means the box answers nobody, the header button disappears and the page it
+- **Switch it on** - off means the box answers nobody, the header button disappears and the page it
   lives on is unpublished. Nothing is deleted, so switching it back on restores all of it.
-- **Answer provider** and **API key** — leaving the provider as *None* keeps everything on this site
+- **Answer provider** and **API key** - leaving the provider as *None* keeps everything on this site
   and means there are no answers at all. Choosing one sends each question, and the extracts that
   match it, to that company.
-- **Model** — leave as `gemini-flash-latest` unless you have a reason not to. It is an alias that
+- **Model** - leave as `gemini-flash-latest` unless you have a reason not to. It is an alias that
   always points at the current Gemini Flash, so it cannot be retired out from under the site.
-- **Who can ask** — mentors and program managers by default; optionally students and institutions as
+- **Who can ask** - mentors and program managers by default; optionally students and institutions as
   well, anybody logged in, or program managers only. Never anybody logged out, whatever this says.
 - **Questions per person per hour** - so a free tier cannot be spent in an afternoon. `0` removes the
   limit.
@@ -129,8 +129,8 @@ delivered or read.
 
 ### Header notices
 
-**WPCredits Program → Modules → Header notices.** One notice per audience — Students, Mentors,
-Institutions, Sponsors, Administrators — each in its own editor on one screen, with a single Save
+**WPCredits Program → Modules → Header notices.** One notice per audience - Students, Mentors,
+Institutions, Sponsors, Administrators - each in its own editor on one screen, with a single Save
 button underneath.
 
 ![One editor per audience. An empty notice is not shown; there is no separate switch.](images/admin-header-notices.png)
@@ -144,7 +144,7 @@ button underneath.
   dashboards do, so an administrator matched to an Airtable mentor record counts as a mentor even
   though the sync never gives them the role.
 - A notice appears at the top of the content, which in this program's theme is the top of the
-  dashboard card — not above the site header.
+  dashboard card - not above the site header.
 - Links and simple emphasis survive; scripts and other markup are stripped **on save**, so nothing
   dangerous is stored rather than merely hidden at render time.
 
@@ -190,7 +190,7 @@ explanation, the rendered content and excerpt are filtered, and the REST API is 
 ### Program updates and announcements
 
 The column at the foot of both Report Cards lists recent posts from the *Updates* category, filtered
-by the same access levels — so a post set to Mentor level appears on the mentor's card and on nobody
+by the same access levels - so a post set to Mentor level appears on the mentor's card and on nobody
 else's. Set the access level on the post and it lands in the right place; there is nothing else to
 configure.
 
@@ -200,7 +200,7 @@ configure.
 
 Both syncs read Airtable and reconcile accounts: create what is missing, update what has changed,
 and apply your *when they are no longer active* setting to the rest. Run one by hand from the
-Students or Mentors screen, or leave **Automatic sync** on — students every three hours, mentors
+Students or Mentors screen, or leave **Automatic sync** on - students every three hours, mentors
 once a day.
 
 They run on different clocks on purpose. The student rows carry what students and mentors are shown
@@ -209,7 +209,7 @@ per mentor, which is the expensive half. A run still going when the next one is 
 finish rather than restarted.
 
 Accounts are matched by WordPress.org username where there is one, and by email otherwise. **No
-account is ever deleted by a sync** — the most it will do is remove a role.
+account is ever deleted by a sync** - the most it will do is remove a role.
 
 The sync report on each screen says what happened rather than only that it finished: created,
 updated, skipped and why.
@@ -217,7 +217,7 @@ updated, skipped and why.
 ### Invitations
 
 An invitation is a password-reset link. Send them in bulk by switching **Invitation emails** on
-before a sync, or one at a time from the Students and Mentors screens — which is the safer habit,
+before a sync, or one at a time from the Students and Mentors screens - which is the safer habit,
 because a first sync creates around ninety accounts at once.
 
 ### Pages the plugin owns
@@ -242,9 +242,69 @@ Airtable are untouched.
 | Invitations are not arriving | The **Mail** section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 
+### Where the plugin keeps its data
+
+Every option the plugin writes, by the name it has in the database and the constant that owns it
+in the code. Every option constant is spelled `OPT_` since 1.90.0 (three spellings coexisted
+before, which is how a search for one of them missed the others). Options named after a record
+or a batch (`wpcpm_roster_<record>`, `wpcpm_agreement_<record>`, the import and report locks)
+are formed from the prefix constants listed here. Post meta and user meta keep the keys they had:
+renaming a stored key is a migration, and nothing here warranted one.
+
+| Option | Constant |
+| --- | --- |
+| `wpcpm_agreement_` | `WPCPM_Institution_Agreement::OPT_PREFIX` |
+| `wpcpm_agreement_drift` | `WPCPM_Agreement_Template::OPT_DRIFT` |
+| `wpcpm_agreement_on_file_all` | `WPCPM_Institution_Agreement::OPT_ON_FILE_ALL` |
+| `wpcpm_agreement_reminded` | `WPCPM_Institution_Agreement::OPT_REMINDED` |
+| `wpcpm_application_log` | `WPCPM_Institutions::OPT_APP_LOG` |
+| `wpcpm_application_page_id` | `WPCPM_Institution_Application::OPT_PAGE` |
+| `wpcpm_countries` | `WPCPM_Countries::OPT_NAME` |
+| `wpcpm_handbook_model_fixed` | `WPCPM_Handbook::OPT_MODEL_FIXED` |
+| `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
+| `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |
+| `wpcpm_import_log` | `WPCPM_Institution_Import::OPT_LOG` |
+| `wpcpm_institution_page_id` | `WPCPM_Institutions_Dashboard::OPT_PAGE` |
+| `wpcpm_institution_page_title_fixed` | `WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_institutions_index` | `WPCPM_Institutions_Index::OPT_NAME` |
+| `wpcpm_institutions_last_error` | `WPCPM_Institutions_Sync::OPT_ERROR` |
+| `wpcpm_institutions_last_sync` | `WPCPM_Institutions_Sync::OPT_LAST` |
+| `wpcpm_institutions_lock` | `WPCPM_Institutions_Sync::OPT_LOCK` |
+| `wpcpm_institutions_report` | `WPCPM_Institutions_Sync::OPT_REPORT` |
+| `wpcpm_institutions_state` | `WPCPM_Institutions_Sync::OPT_STATE` |
+| `wpcpm_mentor_page_id` | `WPCPM_Mentors_Dashboard::OPT_PAGE` |
+| `wpcpm_mentor_page_title_fixed` | `WPCPM_Mentors_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_mentors_field_meta` | `WPCPM_Mentors_Sync::OPT_FIELDS` |
+| `wpcpm_mentors_last_error` | `WPCPM_Mentors_Sync::OPT_ERROR` |
+| `wpcpm_mentors_last_sync` | `WPCPM_Mentors_Sync::OPT_LAST` |
+| `wpcpm_mentors_lock` | `WPCPM_Mentors_Sync::OPT_LOCK` |
+| `wpcpm_mentors_lookups` | `WPCPM_Mentors_Sync::OPT_LOOKUPS` |
+| `wpcpm_mentors_report` | `WPCPM_Mentors_Sync::OPT_REPORT` |
+| `wpcpm_mentors_state` | `WPCPM_Mentors_Sync::OPT_STATE` |
+| `wpcpm_notices` | `WPCPM_Notices::OPT_NAME` |
+| `wpcpm_notices_migrated` | `WPCPM_Notices::OPT_MIGRATED` |
+| `wpcpm_notices_plain` | `WPCPM_Notices::OPT_PLAIN` |
+| `wpcpm_privacy_version` | `WPCPM_Privacy_Guard::OPT_VERSION` |
+| `wpcpm_private_key` | `WPCPM_Private_Files::OPT_KEY` |
+| `wpcpm_private_probe` | `WPCPM_Private_Files::OPT_PROBE` |
+| `wpcpm_report_epoch` | `WPCPM_Semester_Report::OPT_EPOCH` |
+| `wpcpm_roles_version` | `WPCPM_Roles::OPT_VERSION` |
+| `wpcpm_roster_` | `WPCPM_Roster_Index::OPT_PREFIX` |
+| `wpcpm_roster_counts` | `WPCPM_Roster_Index::OPT_COUNTS` |
+| `wpcpm_roster_unlinked` | `WPCPM_Roster_Index::OPT_UNLINKED` |
+| `wpcpm_settings` | `WPCPM_Settings::OPT_NAME` |
+| `wpcpm_settings_version` | `WPCPM_Settings::OPT_VERSION` |
+| `wpcpm_student_page_id` | `WPCPM_Students_Dashboard::OPT_PAGE` |
+| `wpcpm_student_page_title_fixed` | `WPCPM_Students_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_students_last_error` | `WPCPM_Students_Sync::OPT_ERROR` |
+| `wpcpm_students_last_sync` | `WPCPM_Students_Sync::OPT_LAST` |
+| `wpcpm_students_lock` | `WPCPM_Students_Sync::OPT_LOCK` |
+| `wpcpm_students_report` | `WPCPM_Students_Sync::OPT_REPORT` |
+| `wpcpm_students_state` | `WPCPM_Students_Sync::OPT_STATE` |
+
 ## The feedback surveys
 
-Students are asked how the program is going three times — at the start, half way, and at the end —
+Students are asked how the program is going three times - at the start, half way, and at the end -
 from their own Report Card, under their report form. Anyone who leaves without finishing is asked a
 fourth set instead: four questions about how far they got and what stopped them.
 
@@ -267,7 +327,7 @@ appearing in an analysis six months later.
 
 ### The retired questions
 
-Eight questions were dropped by that analysis — for duplicating the question beside them, or for
+Eight questions were dropped by that analysis - for duplicating the question beside them, or for
 returning the highest rate of empty answers. They still exist as columns in the table, so nothing
 but a test stops one being added back. `bin/test-feedback.php` names all eight.
 
@@ -283,19 +343,19 @@ not count as unanswered, so a form cannot sit one question short of complete for
 was asked; and a form somebody has already written in is never taken away, however incomplete the
 one before it is.
 
-The optional permissions at the end of Form 3 are not required either — a student who declines both
+The optional permissions at the end of Form 3 are not required either - a student who declines both
 has still finished.
 
 ### Where the answers go
 
 One row per student in the **Feedback table**, matched on email address, with a column per question
-prefixed `F1`–`F4` for the stage that asked it. A stage fills in its own columns and leaves the rest
+prefixed `F1`-`F4` for the stage that asked it. A stage fills in its own columns and leaves the rest
 alone, so one row is one student's account of the program from beginning to end.
 
 Two consequences:
 
 - **Mentors do not see any of it.** The answers are not on the mentor's page, and several questions
-  are about the mentor. Keep it that way — a student who thinks their mentor is reading writes
+  are about the mentor. Keep it that way - a student who thinks their mentor is reading writes
   something politer than the truth.
 - **The row is matched by email.** A student whose feedback email differs from the one on their
   roster record gets a second row. The table's `Students` link would be the better key and nothing
@@ -305,7 +365,7 @@ Two consequences:
 
 Questions live in `WPCPM_Student_Feedback::forms()`, keyed by the exact Airtable column name.
 Airtable refuses a whole record when one field name does not match, so a typo does not spoil one
-answer — it loses the student's entire submission, and they are told only that it could not be sent.
+answer - it loses the student's entire submission, and they are told only that it could not be sent.
 
 `bin/test-feedback.php` pins all 44 column names and every single-select's choices against the
 base's own schema. Run it after any change to the base:
@@ -319,22 +379,22 @@ a hand-edited form cannot add an option to the base or take a submission down wi
 
 ## What is on your Report Card
 
-The page you land on after logging in lists the students assigned to you and nothing else — it is
+The page you land on after logging in lists the students assigned to you and nothing else - it is
 built from the program records, so there is no list to keep and nobody to ask for access.
 
-![The counts at the top are also filters — press one to see only that group. Names shown are examples.](images/mentor-report-card-triaged-list.png)
+![The counts at the top are also filters - press one to see only that group. Names shown are examples.](images/mentor-report-card-triaged-list.png)
 
-*The counts at the top are also filters — press one to see only that group. Names shown are examples.*
+*The counts at the top are also filters - press one to see only that group. Names shown are examples.*
 
 ### Your students, triaged
 
 Rather than one long list, your students are grouped by what needs your attention, and the counts
 at the top double as filters:
 
-- **Need a call** — no note for longer than the program's window, so nobody knows how they are
+- **Need a call** - no note for longer than the program's window, so nobody knows how they are
   getting on.
-- **Ending soon** — the internship end date is close.
-- **On track** — everybody else.
+- **Ending soon** - the internship end date is close.
+- **On track** - everybody else.
 
 A student falls into the first group they match, so somebody who needs a call is never filed under
 "ending soon" instead. Within each group they are ordered by internship end date, soonest first.
@@ -345,8 +405,8 @@ A student falls into the first group they match, so somebody who needs a call is
 Opening a student shows their full record: program and track, internship duration, educational
 institution, tutor, field of study, contribution teams, accessibility needs and their contact links.
 
-Under it, **Report form** opens the student's own report where it stands — their hours, grades,
-project and posts — without leaving the page. It is read only; see *Their report form* below for
+Under it, **Report form** opens the student's own report where it stands - their hours, grades,
+project and posts - without leaving the page. It is read only; see *Their report form* below for
 why. The first time you open one it is fetched, so it takes a moment: a page listing sixty students
 does not read sixty reports nobody asked for.
 
@@ -356,20 +416,20 @@ does not read sixty reports nobody asked for.
 
 **Expand all** and **Collapse all** work on the whole list. Two things worth knowing: some browsers
 will not find text with Ctrl+F inside collapsed sections, so expand first if you are hunting for
-something specific — and printing opens every student for you automatically, so a printed list is
+something specific - and printing opens every student for you automatically, so a printed list is
 always the complete one.
 
 ### Notes
 
 Every student takes notes: what you discussed, what they are working on, what to follow up. **Add a
-note** after each call — that is also what keeps them out of the "Need a call" group. You can delete
+note** after each call - that is also what keeps them out of the "Need a call" group. You can delete
 your own notes; notes written by somebody else stay theirs. Once a student's mentoring has finished,
 their notes are kept as a record but no new ones can be added.
 
 ### Resources
 
 At the foot of the page: the mentors Slack channel, the Mentor guide in the handbook, and **Need
-help?** — a question box answered from the WordPress documentation. Beside them, **Program updates
+help?** - a question box answered from the WordPress documentation. Beside them, **Program updates
 and announcements** carries anything recently posted for mentors.
 
 ## Setting your availability so students can book
@@ -383,18 +443,18 @@ availability set, so you cannot book a call yet" and have no way to reach you ex
 
 Open **Your availability for calls** on your Report Card and set:
 
-- **The hours you are free, each week** — a start and end time per weekday. Leave a day blank to
+- **The hours you are free, each week** - a start and end time per weekday. Leave a day blank to
   offer nothing on it. The slots are generated from these windows, so you are publishing hours, not
   individual appointments.
-- **Call length** — how long one call runs, which decides how many slots a window holds.
-- **Shortest notice** — hours. Slots closer than this are not offered, so nobody books you for
+- **Call length** - how long one call runs, which decides how many slots a window holds.
+- **Shortest notice** - hours. Slots closer than this are not offered, so nobody books you for
   twenty minutes from now.
-- **How far ahead** — days. How far into the future students can book.
-- **Bookings per student** — how many upcoming calls one student may hold at once.
-- **Days off** — one date per line, as `2026-12-24`. Nothing is offered on those days, which is how
+- **How far ahead** - days. How far into the future students can book.
+- **Bookings per student** - how many upcoming calls one student may hold at once.
+- **Days off** - one date per line, as `2026-12-24`. Nothing is offered on those days, which is how
   you take a holiday without clearing your weekly hours.
-- **Where we meet** — your meeting link, sent to the student with the booking.
-- **Note for students** — shown above the slots on the booking calendar. A good place for "bring a
+- **Where we meet** - your meeting link, sent to the student with the booking.
+- **Note for students** - shown above the slots on the booking calendar. A good place for "bring a
   link to whatever you are working on".
 
 Press **Save availability** and the slots it opens are immediately bookable.
@@ -404,7 +464,7 @@ Everything is in your own timezone, and each student sees the same call in their
 ## When a student books
 
 You both get an email with a calendar invitation attached, so the call lands in your calendar rather
-than only on the page. A reminder goes out 24 hours before, and either of you can cancel — which
+than only on the page. A reminder goes out 24 hours before, and either of you can cancel - which
 puts the slot straight back on the calendar.
 
 Booked calls appear under **Upcoming calls** beside your availability, so you can see what is coming
@@ -413,14 +473,14 @@ student wrote when booking.
 
 ## Group sessions
 
-Sometimes the useful thing is one call with several students rather than five separate ones — a
+Sometimes the useful thing is one call with several students rather than five separate ones - a
 walkthrough, a question hour, a session for everybody starting the same week.
 
 **Plan a group session** under *Group sessions* on your Report Card. You choose:
 
 - **Date and start time**, in your own timezone. Your students see it in theirs.
 - **Length** in minutes.
-- **Places** — how many students may join, between 2 and 50.
+- **Places** - how many students may join, between 2 and 50.
 - **What it is about**. Your students read this beside the session, so it is how they decide
   whether it is for them.
 
@@ -429,7 +489,7 @@ offer for private calls. It does **block that time from one-to-one booking**, so
 privately over a session you are running.
 
 Your students see it under *My mentor call* and can **join** while there are places left, and
-**leave** again if something changes — which frees their place for somebody else. Joining counts
+**leave** again if something changes - which frees their place for somebody else. Joining counts
 towards the limit you set for how many upcoming calls one student may hold.
 
 Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes
@@ -438,7 +498,7 @@ to all of them. If you cancel the session, every student on it is told.
 ### One note for the whole group
 
 Under a session you have run, **Add a note for everybody on this session**. You write it once and it
-appears on every attendee's card — and it counts for each of them, so nobody who was there is left
+appears on every attendee's card - and it counts for each of them, so nobody who was there is left
 sitting in *Need a call*. Deleting it removes it from everyone.
 
 ## If something looks wrong
@@ -455,7 +515,7 @@ the program records. That is one for the program managers.
 
 ## What your students see
 
-Your students have their own page — a Student Report Card — and it is worth knowing what is on it,
+Your students have their own page - a Student Report Card - and it is worth knowing what is on it,
 because most of what they ask you about is on it somewhere. You cannot open theirs (the gating is by
 role, not by seniority), so here it is.
 
@@ -464,12 +524,12 @@ decided by the availability you publish.
 
 ## Their report form
 
-A student's *Report form* section holds the fields they fill in — hours, grades, what they
+A student's *Report form* section holds the fields they fill in - hours, grades, what they
 contributed, their reflection posts. You can read it on their card, but not type in it: the report is
 the student's own account of their work, and a mentor filling it in would make the record say
 something it does not mean. If something in it is wrong, that is a conversation rather than an edit.
 
-A program manager can edit it — but from the student's own card, not from yours. Opened from a
+A program manager can edit it - but from the student's own card, not from yours. Opened from a
 mentor's page a report is a record whoever is reading it, so a manager helping you with a student
 sees exactly what you see.
 
@@ -478,8 +538,8 @@ sees exactly what you see.
 Under the report are three short forms asking the student how the program is going: at the start,
 half way, and at the end. Two things about them are worth knowing.
 
-They ask about your support by name — how much it is helping, what was most helpful, what could be
-better — and **you do not see the answers**, on your page or anywhere else on this site. They are
+They ask about your support by name - how much it is helping, what was most helpful, what could be
+better - and **you do not see the answers**, on your page or anywhere else on this site. They are
 read by the program managers in aggregate. That is deliberate: a student who thinks their mentor is
 reading over their shoulder writes something politer than the truth, and the answers stop being
 worth collecting.
@@ -499,9 +559,9 @@ Your program details as the program records hold them: your track, your internsh
 educational institution, your tutor and your field of study, followed by your WordPress.org profile,
 your Slack name, your contribution teams and your personal website.
 
-Nothing here is typed in on this table. The last four come from your **report form** below — fill
-them in there and they appear here as soon as you save. The rest — your dates, your institution,
-your tutor — come from the program records and cannot be changed from this site at all. If one of
+Nothing here is typed in on this table. The last four come from your **report form** below - fill
+them in there and they appear here as soon as you save. The rest - your dates, your institution,
+your tutor - come from the program records and cannot be changed from this site at all. If one of
 them is wrong, see *If something looks wrong* below.
 
 ### My mentor
@@ -512,7 +572,7 @@ to do with your contributions.
 
 ### My course
 
-**Open your course** takes you to your course on Learn WordPress — the syllabus for the track you
+**Open your course** takes you to your course on Learn WordPress - the syllabus for the track you
 are on.
 
 Beside it is **Hours contributed**: the running total of the hours you have put in. It is the one
@@ -526,16 +586,16 @@ what your mentor reads.
 
 Open **Your report form** and the questions are grouped in the order you meet them:
 
-- **Onboarding** — your WordPress.org profile and Slack name, the final grade for each course
+- **Onboarding** - your WordPress.org profile and Slack name, the final grade for each course
   module, and your personal website with the reflection post about building it.
-- **Project** — your **contribution team**, what you contributed, the meetings and discussions you
+- **Project** - your **contribution team**, what you contributed, the meetings and discussions you
   took part in, and the reflection posts for each stage.
-- **Wrap-up** — your closing post.
+- **Wrap-up** - your closing post.
 
 What is asked depends on your track: the 150-hour course asks for the reflection posts and the
 module grades; the 50-hour course asks instead for one final project report.
 
-The grades are yours to copy across from wherever you were marked — this form records them, it does
+The grades are yours to copy across from wherever you were marked - this form records them, it does
 not decide them. Fill in what you have and press **Save my report**; you can come back and add the
 rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
 you save, and the four fields that also appear in *My profile* above update there at the same time.
@@ -548,7 +608,7 @@ you. See *Telling us how it is going* below.
 ### Resources
 
 At the foot of the page: the students Slack channel, the Student guide in the handbook, and **Need
-help?** — a question box answered from the WordPress documentation, if the program has switched it
+help?** - a question box answered from the WordPress documentation, if the program has switched it
 on. Beside them, **Program updates and announcements** lists anything recently posted for you.
 
 ## Booking a call with your mentor
@@ -561,7 +621,7 @@ forth about what suits.
 *Days with times available are highlighted. Pick a day, then a time.*
 
 Days with something open carry a count. Press one and the times for that day appear underneath.
-Booking is a single press, with an optional note about what you would like to discuss — worth
+Booking is a single press, with an optional note about what you would like to discuss - worth
 writing, because it is what lets your mentor prepare.
 
 Both of you get an email with a calendar invitation attached, so the call lands in your calendar
@@ -580,11 +640,11 @@ A few things worth knowing:
   do the arithmetic.
 
 **If your mentor has published nothing yet**, the section says so. That is not a fault on your
-side — ask them in Slack to set their hours.
+side - ask them in Slack to set their hours.
 
 ## Group sessions
 
-Your mentor may run a session for several students at once — a walkthrough, a question hour,
+Your mentor may run a session for several students at once - a walkthrough, a question hour,
 something for everybody who started the same week. Those appear under *My mentor call* with what the
 session is about and how many places are left.
 
@@ -664,11 +724,11 @@ is the part of the program we hear about least, and the part most worth hearing 
 ## If something looks wrong
 
 Your program details come from the program records, so if your dates, institution or tutor are not
-right, that is where it has to be corrected — changing it here would be overwritten at the next
+right, that is where it has to be corrected - changing it here would be overwritten at the next
 sync. Ask your mentor, or whoever runs the program.
 
 Your WordPress.org profile, Slack name, contribution team and personal website are the exceptions.
-Those four are asked for on your **report form**, and saving it writes them back to the records — so
+Those four are asked for on your **report form**, and saving it writes them back to the records - so
 they are yours to keep current, and the way to correct them is to correct them there.
 
 If the page shows nothing at all, or says it cannot find your record, your account exists but is

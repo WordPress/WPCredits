@@ -74,8 +74,8 @@
 	margin-bottom: 0;
 }
 
-/* The line that says the good answer could not be produced. Not an error — the reader
-   still has an answer — so it is set as an aside rather than a warning. */
+/* The line that says the good answer could not be produced. Not an error - the reader
+   still has an answer - so it is set as an aside rather than a warning. */
 .wpcpm-handbook__degraded {
 	font-size: 0.9em;
 	font-style: italic;
@@ -377,7 +377,7 @@
 }
 
 /* The address under each citation. Google supplies no page title, so the path is what
-   identifies a handbook page four levels deep — and it has to be able to break, because
+   identifies a handbook page four levels deep - and it has to be able to break, because
    those paths are long. */
 .wpcpm-handbook__source-url,
 .wpcpm-hb-panel__source-url {

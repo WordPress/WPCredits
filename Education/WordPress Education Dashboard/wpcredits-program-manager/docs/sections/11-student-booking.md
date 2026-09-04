@@ -6,7 +6,7 @@ forth about what suits.
 {{image:student-report-card-booking-a-call|Days with times available are highlighted. Pick a day, then a time.}}
 
 Days with something open carry a count. Press one and the times for that day appear underneath.
-Booking is a single press, with an optional note about what you would like to discuss — worth
+Booking is a single press, with an optional note about what you would like to discuss - worth
 writing, because it is what lets your mentor prepare.
 
 Both of you get an email with a calendar invitation attached, so the call lands in your calendar
@@ -25,11 +25,11 @@ A few things worth knowing:
   do the arithmetic.
 
 **If your mentor has published nothing yet**, the section says so. That is not a fault on your
-side — ask them in Slack to set their hours.
+side - ask them in Slack to set their hours.
 
 ## Group sessions
 
-Your mentor may run a session for several students at once — a walkthrough, a question hour,
+Your mentor may run a session for several students at once - a walkthrough, a question hour,
 something for everybody who started the same week. Those appear under *My mentor call* with what the
 session is about and how many places are left.
 

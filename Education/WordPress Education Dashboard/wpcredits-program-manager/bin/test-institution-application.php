@@ -147,7 +147,7 @@ function wp_register_style( $h, $s, $d = array(), $v = false ) {}
 function wp_register_script( $h, $s, $d = array(), $v = false, $f = false ) {}
 function wp_enqueue_style( $h ) { $GLOBALS['enqueued'][] = $h; }
 function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
-function current_user_can( $c ) { return (bool) $GLOBALS['caps']; }
+require_once __DIR__ . '/stubs/caps.php';
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
@@ -395,7 +395,7 @@ function reset_world() {
 
 /** Two countries: one that routes to a manager with a booking link, one that routes nowhere. */
 function seed_countries() {
-	$GLOBALS['opts'][ WPCPM_Countries::OPTION ] = array(
+	$GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ] = array(
 		'v'    => WPCPM_Countries::VERSION,
 		'read' => 1788322400,
 		'rows' => array(
@@ -711,7 +711,7 @@ $GLOBALS['caps'] = true;
 ck( 'and a manager is told it is switched off', false !== strpos( WPCPM_Institution_Application::render(), 'switched off' ), true );
 
 reset_world();
-unset( $GLOBALS['opts'][ WPCPM_Countries::OPTION ] );
+unset( $GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ] );
 
 ck( 'with no countries map the public are shown nothing', WPCPM_Institution_Application::render(), '' );
 
@@ -1444,8 +1444,20 @@ ck( 'a forwarded header from nowhere in particular is ignored', WPCPM_Institutio
 $GLOBALS['settings']['application_trusted_proxy'] = '192.0.2.1';
 ck( 'and so is one from an address that is not the known edge', WPCPM_Institution_Application::client_ip(), '203.0.113.7' );
 
+// The edge appends the address it saw, so its own word is the RIGHTMOST entry and the
+// leftmost is whatever the client wrote. Believing the left end let an applicant pick their
+// own limiter bucket and spam the form once a proxy was configured.
 $GLOBALS['settings']['application_trusted_proxy'] = '203.0.113.7';
-ck( 'the known edge is believed, leftmost first', WPCPM_Institution_Application::client_ip(), '198.51.100.5' );
+ck( 'the known edge is believed, and its own entry is the rightmost', WPCPM_Institution_Application::client_ip(), '10.0.0.1' );
+
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '1.2.3.4, 10.0.0.1';
+ck( 'so an address the client wrote in front of it changes nothing', WPCPM_Institution_Application::client_ip(), '10.0.0.1' );
+
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '10.0.0.1, 203.0.113.7';
+ck( 'the edge itself, appearing in the chain, is skipped for the entry before it', WPCPM_Institution_Application::client_ip(), '10.0.0.1' );
+
+$_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.5, not an address';
+ck( 'an entry that is not an address is skipped for the next', WPCPM_Institution_Application::client_ip(), '198.51.100.5' );
 
 $_SERVER['HTTP_X_FORWARDED_FOR'] = 'not an address at all';
 ck( 'a header the edge sent that is not an address falls back', WPCPM_Institution_Application::client_ip(), '203.0.113.7' );

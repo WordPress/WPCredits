@@ -1,5 +1,5 @@
 /**
- * Mentor Report Card — the triage, counts and search the script lays over the list.
+ * Mentor Report Card - the triage, counts and search the script lays over the list.
  *
  * A **baseline**, deliberately, not a copy of what wpcredits-theme draws. The script moved into
  * this plugin in 1.64.0 so that a theme change could not take the triage and the search with it;
@@ -7,7 +7,7 @@
  * band, the counts and the search box are legible and usable on their own.
  *
  * It is registered as depending on the dashboard stylesheet and therefore prints before a theme's
- * own skin, so a theme that wants a richer treatment — as wpcredits-theme does — overrides these
+ * own skin, so a theme that wants a richer treatment - as wpcredits-theme does - overrides these
  * on a plain tie rather than having to outrank them. Nothing here uses `!important`, and nothing
  * is prefixed with a page class, for that reason.
  *
@@ -87,7 +87,7 @@
 }
 
 /* The glyph sits inside the field, so the field is padded to leave room for it rather than the
-   two being laid out side by side — a flex row would let the box slide off the icon at any width
+   two being laid out side by side - a flex row would let the box slide off the icon at any width
    the theme happens to give this column. */
 .wpc-search .wpcpm-icon {
 	position: absolute;
@@ -129,8 +129,8 @@
 
 /* A group heading, inserted into the list ahead of the students in that pile.
  *
- * **Single-class, like every rule in this sheet.** wpcredits-theme styles `.wpc-group` too — as a
- * sticky uppercase bar with a 32px inset — and this sheet prints first, so a plain tie hands the
+ * **Single-class, like every rule in this sheet.** wpcredits-theme styles `.wpc-group` too - as a
+ * sticky uppercase bar with a 32px inset - and this sheet prints first, so a plain tie hands the
  * theme the win. Written as `.wpc-dash-enhanced .wpc-group` it out-ranked the theme instead and
  * took the inset off the bar, which put the count out past the edge of the cards. Anything here
  * that needs to beat a theme is a bug in this sheet, not a case for more specificity. */
@@ -159,7 +159,7 @@
 	display: none;
 }
 
-/* The per-row action the script adds — "Add a note", "Details". */
+/* The per-row action the script adds - "Add a note", "Details". */
 .wpc-row__action {
 	background: none;
 	border: 0;

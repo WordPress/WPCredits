@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **The fields differ by track, and the lists are the program's, not a guess.** A student on
  * *In Sensei* files twenty-two things; one on *In Sensei 50h* files ten. The two sets come from two
  * grid views in the base built for exactly this, and they are declared here in code rather than read
- * from those views because **Airtable exposes no way to read a view's visible fields** — the
+ * from those views because **Airtable exposes no way to read a view's visible fields** - the
  * metadata API returns a view's id, name and type, and asking for records with `view=` returned the
  * same forty-two fields for both. So the lists have to be maintained by hand, and `bin/test-report-form.php`
  * pins them so a silent drift shows up as a failure rather than as a missing field on somebody's card.
@@ -26,13 +26,25 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **The current values are read live from Airtable, not from the synced row.** The sync carries a
  * dozen fields for the cards; these twenty-two are not among them, and adding them would mean a page
- * that shows "Not set" for everything until the next sync runs — the trap that hid *Field of study*
+ * that shows "Not set" for everything until the next sync runs - the trap that hid *Field of study*
  * on every student card for two days. A short transient keeps the page quick, and saving clears it,
  * so a student always sees what they just typed.
  */
 class WPCPM_Student_Report_Form {
 
-	const ACTION_SAVE = 'wpcpm_save_report';
+	/**
+	 * The Developer Track's alumni-programme answers, which an institution's card never shows.
+	 *
+	 * Named here rather than by group, because they share the `project` group with the
+	 * student's contribution links, which the school does see.
+	 */
+	const ALUMNI_FIELDS = array(
+		'Contributing beyond WP Credits',
+		'Alumni program: personal email',
+		'Alumni program: mentoring opt-in',
+	);
+
+	const ACTION_SAVE = 'wpcpm_student_report_save';
 
 	/** How long a fetched record is reused, in seconds. */
 	const CACHE_TTL = 300;
@@ -61,7 +73,7 @@ class WPCPM_Student_Report_Form {
 	 *
 	 * Keys are the **Airtable field names**, because those are what a write has to name and having
 	 * one identifier rather than two is one fewer thing to keep in step. `Company ` carries a
-	 * trailing space in the base — the same trap as `Tutor ` on the Students table, and dropping it
+	 * trailing space in the base - the same trap as `Tutor ` on the Students table, and dropping it
 	 * makes the write silently do nothing.
 	 *
 	 * `step` mirrors the column's own precision: the grades allow two decimals, hours and the three
@@ -69,7 +81,7 @@ class WPCPM_Student_Report_Form {
 	 *
 	 * @param string $track Track key from `WPCPM_Program::track()`: `150h`, `50h` or `dev`. Anything
 	 *                      else, including the empty string a finished student has, gets the
-	 *                      150-hour form — the one most of them filled in.
+	 *                      150-hour form - the one most of them filled in.
 	 * @return array<string, array> Airtable field name => spec.
 	 */
 	public static function fields( $track ) {
@@ -102,7 +114,7 @@ class WPCPM_Student_Report_Form {
 		);
 
 		// The first two lessons of Onboarding. They were rows in *My profile* until 1.48.0, which
-		// meant the personal website was editable from two controls writing one Airtable column —
+		// meant the personal website was editable from two controls writing one Airtable column -
 		// the thing that had already been fixed for contribution teams. The form owns all three
 		// now, and the profile shows them without an editor.
 		$contact = array(
@@ -132,7 +144,7 @@ class WPCPM_Student_Report_Form {
 		);
 
 		// Conflict resolution is asked on both courses. It lived in `$fifty_grades` alone because the
-		// 50-hour form was built first — the long course asks it too, between the voice course and
+		// 50-hour form was built first - the long course asks it too, between the voice course and
 		// the three user levels, which is the order its own form uses.
 		$conflict = array(
 			'Basic principles of conflict resolution - final grade' => array( 'label' => __( 'Basic principles of conflict resolution', 'wpcredits-program-manager' ) ) + $grade,
@@ -167,7 +179,7 @@ class WPCPM_Student_Report_Form {
 
 		$fifty_grades = $conflict;
 
-		// Developer track only. Long text in the base, so long text here — these are lists a
+		// Developer track only. Long text in the base, so long text here - these are lists a
 		// student writes out (modules taken, tickets commented on) rather than single values.
 		$dev_basics = array(
 			'Developer Basics: modules completed'      => array(
@@ -205,7 +217,7 @@ class WPCPM_Student_Report_Form {
 				'group' => 'project',
 				// It is inserted into the middle of the team/project pair, so it has to belong to
 				// that pair's stacked column. A field without the row *ends* the pair, and the
-				// questions after it open a second one with an empty right half — which is what
+				// questions after it open a second one with an empty right half - which is what
 				// scattered the Project section when this was first added.
 				'row'   => 'project',
 				'stack' => true,
@@ -215,7 +227,7 @@ class WPCPM_Student_Report_Form {
 
 		// In *Project*, between the first-contribution post and the halfway one, which is where the
 		// base's own dev-track view puts them. They read as end-of-programme questions and were in
-		// Wrap-up until 1.63.0 — but where a question is asked is the program's decision, not an
+		// Wrap-up until 1.63.0 - but where a question is asked is the program's decision, not an
 		// inference from what it sounds like, and the view is where that decision is recorded.
 		$dev_alumni = array(
 			'Contributing beyond WP Credits'   => array(
@@ -239,7 +251,7 @@ class WPCPM_Student_Report_Form {
 		);
 
 		// `Contribution Project Summary` is the column's name in the base. It was
-		// `Contribution Project Description` here until 1.61.0 — a name matching no field, so the
+		// `Contribution Project Description` here until 1.61.0 - a name matching no field, so the
 		// answer neither loaded nor saved. The same class of failure as the trailing space on
 		// `Company `, and the reason `bin/test-report-form.php` now checks every key against a
 		// fixture of the table's real field names.
@@ -295,7 +307,7 @@ class WPCPM_Student_Report_Form {
 
 		// Asked for here rather than in *My profile*: it is a question about the project, and the
 		// Airtable form this replaces asks it at the head of the Project section. One control, one
-		// column — the profile no longer offers it, so there is still only one place to answer.
+		// column - the profile no longer offers it, so there is still only one place to answer.
 		$teams = array(
 			'Main Contribution Team' => array(
 				'label' => __( 'Main contribution team', 'wpcredits-program-manager' ),
@@ -373,7 +385,7 @@ class WPCPM_Student_Report_Form {
 			// **The anchors follow the Learn course, not the Airtable view.** The view lists the
 			// fields in the order the columns happen to sit in the table; the course is the order
 			// the student works through, and that is what a form should follow. The two disagree
-			// twice — patch testing is lesson 3 and belongs with the project rather than among the
+			// twice - patch testing is lesson 3 and belongs with the project rather than among the
 			// course grades, and the alumni programme is lesson 7, ahead of the first-contribution
 			// reflection at lesson 9 rather than after it.
 			if ( 'dev' === $track ) {
@@ -382,7 +394,7 @@ class WPCPM_Student_Report_Form {
 				$fields = self::insert_after( $fields, 'Contribution Project Summary', $dev_project );
 
 				// On this course the meetings and discussions are asked inside the Alumni Program
-				// lesson, not with the project questions — so on this track alone the field moves
+				// lesson, not with the project questions - so on this track alone the field moves
 				// out of the column beside the team list and heads that run instead. It carries the
 				// heading because it is the lesson's first question.
 				//
@@ -407,7 +419,7 @@ class WPCPM_Student_Report_Form {
 
 				// A rule above the team list, where the next lesson starts. The heading over patch
 				// testing draws its own, but that one sits directly under the section's legend and
-				// rules nothing off — see the stylesheet, which hides it there.
+				// rules nothing off - see the stylesheet, which hides it there.
 				$fields['Main Contribution Team']['divider'] = true;
 			}
 		}
@@ -424,8 +436,8 @@ class WPCPM_Student_Report_Form {
 	/**
 	 * Put fields straight after a named one, keeping every other key where it was.
 	 *
-	 * Order inside a group is the array's own order — `render_body()` groups with `array_filter()`,
-	 * which preserves it — so where a field sits in this array is where a student sees it.
+	 * Order inside a group is the array's own order - `render_body()` groups with `array_filter()`,
+	 * which preserves it - so where a field sits in this array is where a student sees it.
 	 *
 	 * A missing anchor appends rather than throws: a form with a question in the wrong place is
 	 * recoverable, a fatal on the Student Report Card is not. `bin/test-report-form.php` asserts
@@ -460,7 +472,7 @@ class WPCPM_Student_Report_Form {
 	 * The groups the fields are shown in, in order.
 	 *
 	 * **Twenty boxes in one run is a wall, not a form.** These are the sections of the Airtable form
-	 * this replaces — Total hours, Onboarding, Project, Wrap-up — so a student who has filled that in
+	 * this replaces - Total hours, Onboarding, Project, Wrap-up - so a student who has filled that in
 	 * before finds the same shape here, and the two can be read side by side while both exist.
 	 *
 	 * The numbers sit several to a row because they are two characters wide; the prose gets the full
@@ -487,7 +499,7 @@ class WPCPM_Student_Report_Form {
 	 *
 	 * Cached briefly and cleared on save. A failure returns the `WP_Error` rather than an empty
 	 * array, so the form can say the record could not be read instead of showing every field blank
-	 * — which a student would read as their work having been lost.
+	 * - which a student would read as their work having been lost.
 	 *
 	 * @param string $record Airtable record ID.
 	 * @return array|WP_Error Field name => value.
@@ -533,7 +545,7 @@ class WPCPM_Student_Report_Form {
 	/**
 	 * Whether this person may fill in that student's form.
 	 *
-	 * The student themselves, or a program manager — the same rule the profile fields use. A mentor
+	 * The student themselves, or a program manager - the same rule the profile fields use. A mentor
 	 * deliberately cannot: the report is the student's own account of their work, and a mentor typing
 	 * it for them would make the record say something it does not mean.
 	 *
@@ -572,14 +584,14 @@ class WPCPM_Student_Report_Form {
 
 		// Closed by default: it is a long form somebody opens deliberately, and a Report Card that
 		// begins with twenty boxes buries everything under it. **Open when there is something to
-		// say** — a "Saved" or a rejected grade behind a closed disclosure is a message nobody
+		// say** - a "Saved" or a rejected grade behind a closed disclosure is a message nobody
 		// reads, which is the same reasoning that reopens a student's card after a note is saved.
 		printf(
 			'<details class="wpcpm-report__disclosure"%s>',
 			empty( $message ) ? '' : ' open'
 		);
 		// No field count beside it. It was there to say how much was behind the disclosure, and
-		// what it actually said was "twenty-four things to do" — which is the opposite of the
+		// what it actually said was "twenty-four things to do" - which is the opposite of the
 		// reason the form is grouped and headed at all.
 		printf(
 			'<summary class="wpcpm-report__toggle">%s</summary>',
@@ -599,17 +611,31 @@ class WPCPM_Student_Report_Form {
 	 *
 	 * `$read_only` is the *view's* decision, separate from the capability check. A program manager
 	 * may edit any report, but not from a mentor's page: there the report is somebody else's record
-	 * being read, and an editable copy of it — with a Save button — is an invitation to answer a
+	 * being read, and an editable copy of it - with a Save button - is an invitation to answer a
 	 * question on the student's behalf. The capability still governs where a manager does edit, on
 	 * the student's own card.
+	 *
+	 * `$audience` is who is reading, and it decides what is drawn at all. A student, their
+	 * mentor and a program manager see the whole card. An institution sees the card with two
+	 * things left out: every field of type `email`, and the three alumni-programme answers on
+	 * the Developer Track (a personal address the student gave so the program can reach them
+	 * after their student address dies, their plans, and the mentoring opt-in). Those are
+	 * between the student and the program; the institution's card promises the school sees no
+	 * address of the student's, and design spec 7.5 says the same. Filtered here, before any
+	 * group is drawn, so no branch below can print what the audience was not to see.
 	 *
 	 * @param WP_User $student   The student whose report this is.
 	 * @param array   $program   Their cached program row, for the track.
 	 * @param bool    $read_only Force a record rather than a form, whatever the viewer may do.
+	 * @param string  $audience  `own`, `mentor`, `manager` or `institution`.
 	 */
-	private static function render_body( WP_User $student, array $program, $read_only = false ) {
+	private static function render_body( WP_User $student, array $program, $read_only = false, $audience = 'own' ) {
 		$track  = WPCPM_Program::track( isset( $program['program'] ) ? $program['program'] : '' );
 		$fields = self::fields( $track );
+
+		if ( 'institution' === $audience ) {
+			$fields = self::for_institution( $fields );
+		}
 		$record = WPCPM_Mentor_Calls::student_record( $student->ID );
 		$values = self::values( $record );
 		$can    = ! $read_only && self::user_can_edit( $student->ID );
@@ -627,7 +653,7 @@ class WPCPM_Student_Report_Form {
 				esc_html(
 					sprintf(
 						/* translators: %s: the reason the record could not be read. */
-						__( 'Your report form could not be loaded just now: %s Nothing has been lost — try reloading the page.', 'wpcredits-program-manager' ),
+						__( 'Your report form could not be loaded just now: %s Nothing has been lost - try reloading the page.', 'wpcredits-program-manager' ),
 						$values->get_error_message()
 					)
 				)
@@ -646,7 +672,7 @@ class WPCPM_Student_Report_Form {
 		}
 
 		// Not a `<form>` at all when it cannot be saved. Disabled fields post nothing and the save
-		// handler checks the capability again, so a form here would be harmless — but it would still
+		// handler checks the capability again, so a form here would be harmless - but it would still
 		// be a form, and the reason to leave it out is what it says: a reader of somebody else's
 		// report is looking at a record, not at something addressed to them. It also means there is
 		// no nonce, no student ID and no submit path in markup nobody may submit.
@@ -667,7 +693,7 @@ class WPCPM_Student_Report_Form {
 
 		// Grouped, so the form reads as four short questions rather than twenty boxes. `hours`
 		// is skipped: it is rendered in *My course*, beside the course button, by
-		// `render_hours()` — one field, posting to this same handler.
+		// `render_hours()` - one field, posting to this same handler.
 		foreach ( self::groups() as $group => $legend ) {
 			if ( 'hours' === $group ) {
 				continue;
@@ -824,6 +850,59 @@ class WPCPM_Student_Report_Form {
 	}
 
 	/**
+	 * Who the current user is to this record's student, for `render_body()`.
+	 *
+	 * The same three grounds `rest_permission()` accepts, in the same order: a manager, the
+	 * mentor whose synced list holds the record, and otherwise the institution whose claim
+	 * let the request through. Never `own`: the REST route is not how a student reads their
+	 * own card.
+	 *
+	 * @param string $record Students Reports record ID.
+	 * @return string `manager`, `mentor` or `institution`.
+	 */
+	public static function audience_for( $record ) {
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return 'manager';
+		}
+
+		foreach ( WPCPM_Mentors_Dashboard::get_mentees( get_current_user_id() ) as $mentee ) {
+			if ( isset( $mentee['record_id'] ) && (string) $mentee['record_id'] === (string) $record ) {
+				return 'mentor';
+			}
+		}
+
+		return 'institution';
+	}
+
+	/**
+	 * The card's fields with everything an institution is not shown removed.
+	 *
+	 * Every field of type `email`, and the three alumni-programme fields by name: they are
+	 * the student's arrangement with the program for after the course, not part of what a
+	 * school sent them to do. Public so the suite can hold the list to the promise.
+	 *
+	 * @param array $fields Field specs, keyed by Airtable column name.
+	 * @return array The same array with those fields removed.
+	 */
+	public static function for_institution( array $fields ) {
+		$out = array();
+
+		foreach ( $fields as $name => $spec ) {
+			if ( isset( $spec['type'] ) && 'email' === $spec['type'] ) {
+				continue;
+			}
+
+			if ( in_array( $name, self::ALUMNI_FIELDS, true ) ) {
+				continue;
+			}
+
+			$out[ $name ] = $spec;
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Who may read a report over the route.
 	 *
 	 * A program manager may read any; a mentor may read the students assigned to them and nobody
@@ -903,8 +982,10 @@ class WPCPM_Student_Report_Form {
 
 		ob_start();
 		// Read only for everyone, including a program manager: this route exists to show a mentor
-		// the report their student wrote, and the answers are the student's to give.
-		self::render_body( $student, $program, true );
+		// the report their student wrote, and the answers are the student's to give. Who is
+		// reading decides what is drawn: a manager or the student's own mentor sees the card
+		// whole, and anybody else the permission callback let through is an institution.
+		self::render_body( $student, $program, true, self::audience_for( $record ) );
 
 		return new WP_REST_Response( array( 'html' => ob_get_clean() ), 200 );
 	}
@@ -913,7 +994,7 @@ class WPCPM_Student_Report_Form {
 	 * The hours box, for *My course* rather than for the form.
 	 *
 	 * The one number a student updates most often, and the only one they update without having
-	 * anything else to report — so it sits beside the course button rather than behind a
+	 * anything else to report - so it sits beside the course button rather than behind a
 	 * disclosure with twenty other questions.
 	 *
 	 * Its own `<form>`, posting to the same handler with the same nonce. Two forms, one field
@@ -957,7 +1038,7 @@ class WPCPM_Student_Report_Form {
 		printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
 
 		// Drawn here rather than through `render_field()`. That renders one `<p>` holding label,
-		// input and hint, which leaves the Save button an outsider beside all three — the label
+		// input and hint, which leaves the Save button an outsider beside all three - the label
 		// above it, the hint below, and nothing lining up with anything. This is a box and a
 		// button on one line, with the label over them and the hint under: three rows, one column,
 		// left aligned.
@@ -1016,7 +1097,7 @@ class WPCPM_Student_Report_Form {
 
 		// A `<div>` for the checkbox list, a `<p>` for everything else. **A `<p>` cannot contain a
 		// `<fieldset>`**: the parser closes the paragraph the moment one opens, so the list and the
-		// hint after it became siblings of the field rather than its children — and, in a grid,
+		// hint after it became siblings of the field rather than its children - and, in a grid,
 		// separate items. That is what scattered the team block across the row.
 		//
 		// A checkbox list also has no single control to point `for` at, so its name is a plain
@@ -1028,7 +1109,7 @@ class WPCPM_Student_Report_Form {
 		// unlabelled tick under it.
 		if ( 'checkbox' === $type ) {
 			// **The hidden zero is what makes unticking possible.** A cleared checkbox posts
-			// nothing at all, and `handle_save()` skips any field the browser did not send — so
+			// nothing at all, and `handle_save()` skips any field the browser did not send - so
 			// without this a student could tick the box once and never take it back. It is a
 			// consent checkbox, so that is the one direction that must work.
 			printf(
@@ -1091,7 +1172,7 @@ class WPCPM_Student_Report_Form {
 			);
 		} else {
 			// `type="text"` even for the URLs, for the reason the profile editor gives: `type="url"`
-			// refuses a scheme-less address, and Airtable's url columns are full of them — the
+			// refuses a scheme-less address, and Airtable's url columns are full of them - the
 			// browser would block the save with a message a student cannot act on.
 			// `WPCPM_Field_Value::clean_url()` adds the scheme instead.
 			printf(
@@ -1173,8 +1254,8 @@ class WPCPM_Student_Report_Form {
 			printf(
 				// The team's own icon, the same one the student's card and the mentor's table
 				// show for it, so a team is recognisable here by the mark rather than only by
-				// reading the name. `label_icon()` escapes what it builds and is decorative —
-				// `aria-hidden` — because the name beside it already says which team this is.
+				// reading the name. `label_icon()` escapes what it builds and is decorative -
+				// `aria-hidden` - because the name beside it already says which team this is.
 				'<label class="wpcpm-report__check"><input type="checkbox" name="report[%1$s][]" value="%2$s"%3$s%4$s />%5$s <span>%6$s</span></label>',
 				esc_attr( $key ),
 				esc_attr( $record_id ),
@@ -1186,7 +1267,7 @@ class WPCPM_Student_Report_Form {
 		}
 
 		// Unchecking every box posts nothing at all for `report[team]`, and the save loop skips a
-		// key it was not sent — so clearing the last team would silently do nothing. This empty
+		// key it was not sent - so clearing the last team would silently do nothing. This empty
 		// value is always posted, so the array always arrives.
 		//
 		// Only where there is something to post to. In a read-only view it is the one control left
@@ -1225,7 +1306,7 @@ class WPCPM_Student_Report_Form {
 	 * Write the submitted answers back to Airtable.
 	 */
 	public static function handle_save() {
-		$student_id = isset( $_POST['student'] ) ? absint( wp_unslash( $_POST['student'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+		$student_id = isset( $_POST['student'] ) ? absint( wp_unslash( $_POST['student'] ) ) : 0;
 
 		check_admin_referer( self::ACTION_SAVE . '_' . $student_id );
 
@@ -1259,7 +1340,7 @@ class WPCPM_Student_Report_Form {
 			list( $ok, $value ) = self::clean( $posted[ $key ], $spec );
 
 			// **"Rejected" and "cleared" cannot be the same answer.** Airtable empties a number
-			// column with `null`, so `null` is a legitimate value to send — and a first draft used
+			// column with `null`, so `null` is a legitimate value to send - and a first draft used
 			// it for "could not be understood" as well, which would have made an unreadable grade
 			// silently erase the stored one. Hence the pair: whether to write, and what.
 			if ( $ok ) {
@@ -1292,7 +1373,7 @@ class WPCPM_Student_Report_Form {
 		// The cache holds what Airtable had a moment ago, which is now wrong.
 		self::forget( $record );
 
-		// Four of these answers are also shown on the cards, from a copy the sync leaves behind —
+		// Four of these answers are also shown on the cards, from a copy the sync leaves behind -
 		// so without this a student who chose their team saw *Not set* on their own card until the
 		// next sync, with the answer sitting in Airtable the whole time.
 		WPCPM_Students_Sync::apply_report( $student_id, $cells );
@@ -1325,7 +1406,7 @@ class WPCPM_Student_Report_Form {
 	/**
 	 * A form key for an Airtable field name.
 	 *
-	 * Airtable names contain spaces, slashes and colons, none of which belong in a form key — and
+	 * Airtable names contain spaces, slashes and colons, none of which belong in a form key - and
 	 * `Company ` ends in a space, which would be lost in transit and take the field with it.
 	 *
 	 * @param string $name Airtable field name.

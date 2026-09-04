@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Carries "Saved", "Canceled" and the rest across the redirect that follows a form post.
  *
- * These used to travel as a query argument — `?wpcpm_call=cancelled`. That works exactly
+ * These used to travel as a query argument - `?wpcpm_call=cancelled`. That works exactly
  * once: the argument is still in the address bar afterwards, so **reloading the page shows
  * the message again**, and so does going back to it, and so does anyone the URL is sent to.
  * "That call is canceled" then sits there permanently, describing something that happened
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * transient keyed by session, because these flows all require a logged-in user and user
  * meta cannot be read by the wrong person.
  *
- * View state — which mentor a manager is inspecting, which student card is focused — stays
+ * View state - which mentor a manager is inspecting, which student card is focused - stays
  * in the URL, where it belongs: that is a description of the page, and it *should* survive
  * a reload.
  */
@@ -56,8 +56,8 @@ class WPCPM_Flash {
 	/**
 	 * Read a message and clear it.
 	 *
-	 * Memoized per request: a renderer may reasonably ask twice — once to decide whether
-	 * to draw a message area at all, once for the text — and the second ask must not come
+	 * Memoized per request: a renderer may reasonably ask twice - once to decide whether
+	 * to draw a message area at all, once for the text - and the second ask must not come
 	 * back empty because the first consumed it.
 	 *
 	 * @param string $channel Message channel.

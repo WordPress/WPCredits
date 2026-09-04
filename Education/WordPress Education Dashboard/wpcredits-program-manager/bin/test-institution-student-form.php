@@ -119,8 +119,7 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
-function user_can( $u, $c ) { $id = is_object( $u ) ? $u->ID : (int) $u; return in_array( $id, $GLOBALS['manage'], true ); }
-function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
+require_once __DIR__ . '/stubs/caps.php';
 function get_user_by( $field, $value ) {
 	foreach ( $GLOBALS['users'] as $user ) {
 		if ( 'id' === $field && $user->ID === (int) $value ) { return $user; }
@@ -137,6 +136,7 @@ function get_users( $a = array() ) {
 	return $out;
 }
 function wp_insert_post( $a, $error = false ) {
+	if ( ! empty( $GLOBALS['insert_fails'] ) ) { return new WP_Error( 'db_insert_error', 'Could not insert post into the database.' ); }
 	static $next = 500;
 	$post                          = new WP_Post();
 	$post->ID                      = ++$next;
@@ -723,6 +723,19 @@ ck( 'a forbidden field alongside an allowed one is still dropped', writes_to( 't
 ) );
 ck( 'and the allowed one still saves', flash_status(), 'student-saved' );
 
+// The one branch no suite had ever executed: the change reached the base and the audit row
+// would not insert. "Saved." over a change nobody can be held to is the sentence the log
+// exists to prevent, so the reader is told the row is missing.
+reset_world();
+$GLOBALS['insert_fails'] = true;
+save( 2, $report, array( k( 'students', 'End Date' ) => '2026-08-31' ) );
+$GLOBALS['insert_fails'] = false;
+ck( 'a save whose audit row will not insert says so', flash_status(), 'student-unlogged' );
+ck( 'after the change reached the base', writes_to( 'tblSTUDENTS' ), array(
+	array( 'table' => 'tblSTUDENTS', 'id' => $student, 'fields' => array( 'End Date' => '2026-08-31' ) ),
+) );
+ck( 'and no row was logged', WPCPM_Institution_Audit::entries_for( $inst_a ), array() );
+
 
 /* ---- the fence ----------------------------------------------------------- */
 
@@ -1165,7 +1178,12 @@ reset_world();
 // is drawn blank while the live Students row is full. Reading those blanks as answers would
 // clear the record on a press that changed nothing.
 $GLOBALS['umeta'][10]['wpcpm_student_program'] = array();
-WPCPM_Roster_Index::write_all( array( $inst_a => array() ), array(), array( $inst_a => array() ), array(), array(), 1756000000 );
+// Read time in the future of every edit this suite made, because write_all() now keeps a row
+// touched after the run began (a school's edit must survive a sync that started before it);
+// a run that read after those edits replaces the roster wholesale, which is the case here.
+// Five arguments: the call used to pass six, and the stray one landed in $read as 0, which
+// nothing noticed until write_all() started keeping rows touched after the read.
+WPCPM_Roster_Index::write_all( array( $inst_a => array() ), array(), array( $inst_a => array() ), array(), time() + 60 );
 
 $posted = drawn_values( draw( 2, $report, $inst_a, 10 ) );
 

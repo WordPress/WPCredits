@@ -190,6 +190,8 @@ function get_users( $args = array() ) {
  * filtered by the status formula, so a row in an untracked status is never seen.
  */
 class WPCPM_Airtable {
+	const RECORD_ID_PATTERN = '/^rec[A-Za-z0-9]{14}$/';
+	public static function is_record_id( $value ) { return is_scalar( $value ) && 1 === preg_match( self::RECORD_ID_PATTERN, trim( (string) $value ) ); }
 	public function __construct( $settings = null ) {}
 	public function formula_in( $field, array $values, $lower = false ) {
 		return 'IN:' . json_encode( array( 'field' => $field, 'values' => array_values( $values ) ) );
@@ -340,7 +342,7 @@ $students_table = $defaults['students_table'];
 $reports_table  = $defaults['reports_table'];
 $fields         = WPCPM_Mentors_Sync::fields();
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array(
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array(
 	'api_token'           => 'patTEST',
 	'base_id'             => 'appTEST',
 	'auto_sync'           => true,
@@ -562,15 +564,19 @@ ck( 'created as a Student', $vic->roles, array( WPCPM_Roles::ROLE_STUDENT ) );
 
 echo "\n=== The count a manager reads ===\n";
 
-// Six refusals from the new rule plus Wes, the account linked to a different student record,
-// which has always been counted here. One number, because the reconciliation card asks one
-// question: how many addresses could not be resolved to an account this run.
-ck( 'eight conflicts were counted', $stats['conflicts'], 8 );
-ck( 'the older conflict still counts', has( notice_about( $report, 'Wes Wrong' ), 'already linked to a different student record' ), true );
-ck( 'and Wes gains no second link', meta( 17, WPCPM_Students_Sync::META_RECORD_ID ), 'recOTHERSTUDENT01' );
+// Seven refusals from the adoption rule (two mentors, a manager, an editor, a subscriber who
+// is also an editor, a live institution member and a former one). Wes, whose account was
+// stamped with a report record the run no longer fetches, used to be an eighth conflict on
+// every run forever; the account now follows the row his address arrived on, and the notice
+// says so. One number, because the reconciliation card asks one question: how many addresses
+// could not be resolved to an account this run.
+ck( 'seven conflicts were counted', $stats['conflicts'], 7 );
+ck( 'a stale link to a record the run no longer sees is followed, and the notice explains it',
+	has( notice_about( $report, 'Wes Wrong' ), 'no longer among the tracked records, so it now follows' ), true );
+ck( 'and Wes follows the record his address arrived on', meta( 17, WPCPM_Students_Sync::META_RECORD_ID ), 'recR0000000000016' );
 ck( 'one account was created', $stats['created'], 1 );
 ck( 'one was adopted', $stats['linked'], 1 );
-ck( 'two were refreshed', $stats['updated'], 2 );
+ck( 'three were refreshed, Wes among them', $stats['updated'], 3 );
 // Refusals are not skips: `skipped` is for a row this sync could not use at all, and counting
 // a conflict there would hide it from the number the manager screen prints.
 ck( 'nothing was counted as skipped', $stats['skipped'], 0 );

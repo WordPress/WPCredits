@@ -3,12 +3,12 @@
  *
  * Progressive enhancement, the same way the booking calendar works. Without this script the
  * inline block is a form that submits the question as a query argument and the page comes
- * back with the answer on it — slower, but complete. With it, the launcher in the header
+ * back with the answer on it - slower, but complete. With it, the launcher in the header
  * opens a panel and the answer arrives without leaving the page.
  *
  * The launcher lives in the theme and this lives in the plugin. They know about each other
- * through one data attribute and nothing else, so a theme can put the button anywhere — or
- * nowhere — without either side needing to change.
+ * through one data attribute and nothing else, so a theme can put the button anywhere - or
+ * nowhere - without either side needing to change.
  */
 ( function () {
 	'use strict';
@@ -88,7 +88,7 @@
 	/**
 	 * Show that something is happening, for as long as it takes.
 	 *
-	 * A grounded answer takes between ten and twenty-five seconds — the model searches, reads
+	 * A grounded answer takes between ten and twenty-five seconds - the model searches, reads
 	 * what it finds, then writes. A line of text for that long reads as a page that has
 	 * stopped, so this is a bar that visibly moves and a count of seconds that proves it.
 	 *
@@ -220,7 +220,7 @@
 	function ask( question ) {
 		// One question at a time. Without this, a second press while the first is in flight
 		// races it, and whichever answer arrives last wins regardless of which was asked
-		// last — which reads as the assistant answering the wrong question.
+		// last - which reads as the assistant answering the wrong question.
 		if ( pending ) {
 			pending.abort();
 		}

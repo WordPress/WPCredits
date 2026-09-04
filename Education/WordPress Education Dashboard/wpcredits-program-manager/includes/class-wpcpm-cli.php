@@ -59,7 +59,7 @@ class WPCPM_CLI {
 			// One line per slice, so a long run visibly advances instead of
 			// sitting silent for minutes.
 			$line = sprintf(
-				'[%3d%%] %s — %s',
+				'[%3d%%] %s - %s',
 				(int) $progress['percent'],
 				$progress['label'] ? rtrim( $progress['label'], '…' ) : $progress['phase'],
 				$progress['detail']
@@ -131,7 +131,7 @@ class WPCPM_CLI {
 
 		$mentees = WPCPM_Mentors_Dashboard::get_mentees( $user->ID );
 
-		WP_CLI::log( sprintf( '%s (%s) — %d student(s)', $user->display_name, $user->user_login, count( $mentees ) ) );
+		WP_CLI::log( sprintf( '%s (%s) - %d student(s)', $user->display_name, $user->user_login, count( $mentees ) ) );
 
 		if ( empty( $mentees ) ) {
 			return;
@@ -196,7 +196,7 @@ class WPCPM_CLI {
 				'Checking mentors with status "%s" for "%s"%s',
 				$settings['source_status'],
 				$settings['course_title'],
-				$promote ? sprintf( ' — will promote to "%s".', $settings['target_status'] ) : ' — report only.'
+				$promote ? sprintf( ' - will promote to "%s".', $settings['target_status'] ) : ' - report only.'
 			)
 		);
 
@@ -308,6 +308,6 @@ class WPCPM_CLI {
 		WP_CLI::log( sprintf( '  without a usable name:  %d', $unusable ) );
 		WP_CLI::log( sprintf( 'Student reports in scope:  %d', count( $reports ) ) );
 		WP_CLI::log( sprintf( '  with no mentor linked:  %d', $unassigned ) );
-		WP_CLI::success( 'Dry run complete — nothing was written.' );
+		WP_CLI::success( 'Dry run complete - nothing was written.' );
 	}
 }

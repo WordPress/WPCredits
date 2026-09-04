@@ -12,12 +12,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Shows a program manager's notice to the people it is for, and nobody else.
  *
- * One notice per audience — students, mentors, institutions, administrators. An empty
+ * One notice per audience - students, mentors, institutions, administrators. An empty
  * notice is simply off, so there is no separate switch to forget to turn back on.
  *
  * **A person can be in more than one audience, and sees every notice that applies.** An
- * administrator who also mentors gets both, in that order. The alternative — picking the
- * "most specific" audience — would silently withhold a notice from exactly the people who
+ * administrator who also mentors gets both, in that order. The alternative - picking the
+ * "most specific" audience - would silently withhold a notice from exactly the people who
  * hold two roles, which is the group most likely to need it.
  *
  * **Each notice is a piece of markup in one option, edited in the classic editor.** A notice
@@ -30,7 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WPCPM_Notices {
 
 	/** Option holding audience slug → notice markup. */
-	const OPTION = 'wpcpm_notices';
+	const OPT_NAME = 'wpcpm_notices';
 
 	/** Records which recovery revision this site has been brought up to. */
 	const OPT_PLAIN = 'wpcpm_notices_plain';
@@ -41,7 +41,7 @@ class WPCPM_Notices {
 	 * A counter rather than a boolean, for the reason the page-title migration found out the
 	 * hard way: a flag records only *that* it ran, so a site it did not fully recover can
 	 * never be revisited. Revision 2 adds the fallback to the old settings keys, which
-	 * revision 1 ignored — and which on at least one site were the only surviving copy.
+	 * revision 1 ignored - and which on at least one site were the only surviving copy.
 	 */
 	const MIGRATION_VERSION = 2;
 
@@ -99,8 +99,8 @@ class WPCPM_Notices {
 		 */
 		if ( apply_filters( 'wpcpm_notices_auto_render', true ) ) {
 			// Prepended to the content rather than printed on `wp_body_open`. On
-			// `wp_body_open` a notice lands above the site header — outside the page, over
-			// the chrome — where what a reader wants is a notice at the top of the page they
+			// `wp_body_open` a notice lands above the site header - outside the page, over
+			// the chrome - where what a reader wants is a notice at the top of the page they
 			// are actually on. `the_content` puts it inside the content area, which in this
 			// program's theme is the top of the dashboard card.
 			add_filter( 'the_content', array( __CLASS__, 'prepend' ), 5 );
@@ -116,7 +116,7 @@ class WPCPM_Notices {
 	 *
 	 * `do_blocks()` is applied here rather than at render time: a notice written in the block
 	 * editor is block markup, and this is the last moment anything knows that. Converting it
-	 * on the way in means the stored value is plain HTML — which is what the classic editor
+	 * on the way in means the stored value is plain HTML - which is what the classic editor
 	 * expects to be handed, and what everything downstream now assumes.
 	 *
 	 * The posts are left in place. They are invisible with the type unregistered, and
@@ -137,7 +137,7 @@ class WPCPM_Notices {
 			// Anything written since the upgrade wins over every older copy. This is what
 			// makes the recovery safe to re-run: a notice somebody has rewritten is never
 			// reverted, and one they deliberately emptied is only refilled if an older copy
-			// still exists — which, for a notice that has been through the new editor, it
+			// still exists - which, for a notice that has been through the new editor, it
 			// does not.
 			if ( isset( $stored[ $slug ] ) && '' !== $stored[ $slug ] ) {
 				continue;
@@ -145,8 +145,8 @@ class WPCPM_Notices {
 
 			// Newest surviving copy first: the post the block-editor version wrote, then the
 			// settings key that predates all of this. Revision 1 read only the post, so a
-			// site whose posts were created empty — because the post-backed migration set its
-			// own flag before the content was in place — lost sight of text that was sitting
+			// site whose posts were created empty - because the post-backed migration set its
+			// own flag before the content was in place - lost sight of text that was sitting
 			// in the settings option the whole time.
 			$body = self::legacy_body( $slug );
 
@@ -162,7 +162,7 @@ class WPCPM_Notices {
 			}
 		}
 
-		update_option( self::OPTION, $stored, true );
+		update_option( self::OPT_NAME, $stored, true );
 	}
 
 	/**
@@ -199,7 +199,7 @@ class WPCPM_Notices {
 	 * @return array<string, string>
 	 */
 	public static function bodies() {
-		$stored = get_option( self::OPTION, array() );
+		$stored = get_option( self::OPT_NAME, array() );
 
 		if ( ! is_array( $stored ) ) {
 			return array();
@@ -232,7 +232,7 @@ class WPCPM_Notices {
 	 * Replace the stored notices.
 	 *
 	 * Each body is filtered through `wp_kses_post()` here, so what is stored is already safe
-	 * — the same filter runs again at render time, because a value that reaches the database
+	 * - the same filter runs again at render time, because a value that reaches the database
 	 * some other way must not be trusted either.
 	 *
 	 * @param array<string, string> $input Audience slug → markup, unslashed.
@@ -246,7 +246,7 @@ class WPCPM_Notices {
 			$out[ $slug ] = trim( wp_kses_post( $body ) );
 		}
 
-		update_option( self::OPTION, $out, true );
+		update_option( self::OPT_NAME, $out, true );
 	}
 
 	/**
@@ -272,7 +272,7 @@ class WPCPM_Notices {
 	 *
 	 * Deliberately delegating: `is_student()` and `is_mentor()` each count somebody matched
 	 * to an Airtable record without holding the role, which is how an administrator who
-	 * mentors is recognised — the sync never gives an administrator the Mentor role.
+	 * mentors is recognised - the sync never gives an administrator the Mentor role.
 	 * Testing roles here instead would miss exactly those people.
 	 *
 	 * @param string           $slug Audience slug.
@@ -314,8 +314,8 @@ class WPCPM_Notices {
 	 * @return array<string, string> Audience slug → rendered notice HTML.
 	 */
 	public static function current() {
-		// Asked twice per request — once to decide whether the stylesheet is needed, once to
-		// render — and each call runs four audience checks.
+		// Asked twice per request - once to decide whether the stylesheet is needed, once to
+		// render - and each call runs four audience checks.
 		static $cached = null;
 
 		if ( null !== $cached ) {
@@ -415,7 +415,7 @@ class WPCPM_Notices {
 	 * Delete the notices, and anything the post-backed version left. Called on uninstall.
 	 */
 	public static function delete_all() {
-		delete_option( self::OPTION );
+		delete_option( self::OPT_NAME );
 
 		global $wpdb;
 

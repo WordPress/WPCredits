@@ -4,8 +4,8 @@
  *
  * Four short forms rather than one long one, because they are asked at four different moments and
  * the point of them is to be comparable *over time*: three questions repeat word for word in Forms
- * 1, 2 and 3 — overall experience, confidence contributing, and how much the mentor's support is
- * helping — so the same student's answers can be plotted across the program, and mentor support
+ * 1, 2 and 3 - overall experience, confidence contributing, and how much the mentor's support is
+ * helping - so the same student's answers can be plotted across the program, and mentor support
  * correlated against belonging and intent to keep contributing. Those three are the anchors, and
  * they are the reason each stage is its own form: merging them would leave one answer per student
  * per question and nothing to compare.
@@ -15,7 +15,7 @@
  * in next:
  *
  * - **Conditional follow-ups.** Two questions are only worth asking when the answer above them was
- *   poor — "what slowed you down" after a low *how easy was it to get started*, and "what is making
+ *   poor - "what slowed you down" after a low *how easy was it to get started*, and "what is making
  *   the hours hard to reach" after an unsure or no. Asked of everybody they collect mostly blanks;
  *   asked of the people who had trouble they collect the reason.
  * - **Questions that were retired** because they duplicated their neighbour and returned the most
@@ -471,7 +471,7 @@ class WPCPM_Student_Feedback {
 			array(
 				// Case-insensitively: an address typed into a survey form and one held on the
 				// roster differ by case often enough to matter, and a miss here does not read as a
-				// miss — it silently starts a second row.
+				// miss - it silently starts a second row.
 				'formula' => sprintf( 'LOWER({Email}) = LOWER(%s)', self::quote( $email ) ),
 				// `Institution` comes back in the same read rather than a second one, because the
 				// answer to "which of these rows is this student's" is on it. See `preferred()`.
@@ -695,7 +695,7 @@ class WPCPM_Student_Feedback {
 	/**
 	 * Every form this student is asked, each in a disclosure of its own.
 	 *
-	 * **One Airtable read for all of them**, because they are four views of one record — so
+	 * **One Airtable read for all of them**, because they are four views of one record - so
 	 * opening the section costs what opening one form costs, and the answers a student already gave
 	 * are in the boxes rather than asked for twice.
 	 *
@@ -721,7 +721,7 @@ class WPCPM_Student_Feedback {
 		$is_self = self::is_self( $student->ID );
 
 		// A record that could not be read is not the same as a student who has not answered yet.
-		// The forms still render — they are blank either way — but a failed read must not be shown
+		// The forms still render - they are blank either way - but a failed read must not be shown
 		// as "you have answered nothing", which invites somebody to type it all in again over
 		// answers that are already there.
 		$unread = is_wp_error( $values );
@@ -740,7 +740,7 @@ class WPCPM_Student_Feedback {
 
 		// Said once, under the heading. They sit in the same section as the report form and look
 		// the same, so without this a student would reasonably assume these count towards their
-		// credits — and answer them the way somebody answers a marked question.
+		// credits - and answer them the way somebody answers a marked question.
 		//
 		// **The exception is named here rather than left to be discovered.** The permissions box
 		// at the end of the last form is the one place an answer can reach the institution, and a
@@ -756,7 +756,7 @@ class WPCPM_Student_Feedback {
 				esc_html(
 					sprintf(
 						/* translators: %s: the reason the record could not be read. */
-						__( 'Your earlier answers could not be loaded just now: %s Anything you have already sent is safe — try reloading the page before filling these in again.', 'wpcredits-program-manager' ),
+						__( 'Your earlier answers could not be loaded just now: %s Anything you have already sent is safe - try reloading the page before filling these in again.', 'wpcredits-program-manager' ),
 						$values instanceof WP_Error ? $values->get_error_message() : ''
 					)
 				)
@@ -764,7 +764,7 @@ class WPCPM_Student_Feedback {
 		}
 
 		// **One stage at a time.** A form appears once the one before it is finished, so the answers
-		// arrive in the order they are asked about rather than all at the end — which is the whole
+		// arrive in the order they are asked about rather than all at the end - which is the whole
 		// point of asking the same three questions three times. See `unlocked()`.
 		$unlocked = self::unlocked( $keys, $forms, $values );
 
@@ -779,7 +779,7 @@ class WPCPM_Student_Feedback {
 		if ( $can && count( $unlocked ) < count( $keys ) ) {
 			printf(
 				'<p class="wpcpm-student__note wpcpm-feedback__locked">%s</p>',
-				esc_html__( 'The next form appears once you have answered everything in this one. There is no rush — they are asked at different points in the program.', 'wpcredits-program-manager' )
+				esc_html__( 'The next form appears once you have answered everything in this one. There is no rush - they are asked at different points in the program.', 'wpcredits-program-manager' )
 			);
 		}
 	}
@@ -788,8 +788,8 @@ class WPCPM_Student_Feedback {
 	 * Which of a student's forms are open to them.
 	 *
 	 * Each stage waits for the one before it to be finished. The surveys are meant to be answered
-	 * *at* each stage — the three repeated questions only mean something if the answers are months
-	 * apart — and a student who opens all three on their last day gives three copies of one opinion.
+	 * *at* each stage - the three repeated questions only mean something if the answers are months
+	 * apart - and a student who opens all three on their last day gives three copies of one opinion.
 	 *
 	 * **A form that has already been started is never taken away.** Answers given before this rule
 	 * existed, or given in a different order, would otherwise be stranded behind a form somebody had
@@ -844,7 +844,7 @@ class WPCPM_Student_Feedback {
 		// The count says what is done, not how much there is to do: "6 of 9 answered" is progress,
 		// while the field count the report form used to carry read as a list of chores. It counts
 		// **the questions being asked**, so a finished form says "9 of 9" rather than sitting a
-		// question short for a follow-up nobody triggered — which now decides whether the next form
+		// question short for a follow-up nobody triggered - which now decides whether the next form
 		// appears, and would be an unfixable "not finished" if it counted the wrong total.
 		printf(
 			'<summary class="wpcpm-report__toggle">%1$s%2$s</summary>',
@@ -879,7 +879,7 @@ class WPCPM_Student_Feedback {
 
 			// A nonce field of its own name per form, not the default `_wpnonce`. The name is also
 			// the input's `id`, and three surveys plus the report and hours forms on one page
-			// would otherwise put five elements with `id="_wpnonce"` in the document — which is
+			// would otherwise put five elements with `id="_wpnonce"` in the document - which is
 			// invalid, and makes `getElementById` on this page a coin toss.
 			wp_nonce_field( self::ACTION_SAVE . '_' . (int) $student->ID . '_' . $key, self::nonce_name( $key ) );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
@@ -994,7 +994,7 @@ class WPCPM_Student_Feedback {
 	 *
 	 * **Only the questions that actually apply are counted**, on both sides of the count. A
 	 * conditional follow-up nobody triggered is not a question this student has left blank, and a
-	 * form stuck at "8 of 9" for a question that will never be asked reads as unfinished forever —
+	 * form stuck at "8 of 9" for a question that will never be asked reads as unfinished forever -
 	 * which matters more since the next stage waits on this one being finished.
 	 *
 	 * The optional permissions are left out entirely. They say they are optional, and a student who
@@ -1108,7 +1108,7 @@ class WPCPM_Student_Feedback {
 		$dis  = $can ? '' : ' disabled="disabled"';
 
 		// The conditional questions carry their rule in the markup rather than in the script, so
-		// the script is one rule reader instead of one branch per question — and so a rule changed
+		// the script is one rule reader instead of one branch per question - and so a rule changed
 		// in `forms()` cannot go out of step with a copy of it in JavaScript.
 		$conditional = '';
 
@@ -1132,7 +1132,7 @@ class WPCPM_Student_Feedback {
 			$conditional // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built and escaped above.
 		);
 
-		// A rating and a checkbox have no single control to point a `for` at — the rating is a row
+		// A rating and a checkbox have no single control to point a `for` at - the rating is a row
 		// of radios, and the checkbox's own label is the question. Both carry the accessible
 		// grouping on the `<fieldset>` inside instead.
 		if ( 'rating' === $type ) {
@@ -1193,7 +1193,7 @@ class WPCPM_Student_Feedback {
 	 * A one-to-five scale.
 	 *
 	 * Radio buttons rather than stars: they work without JavaScript, they are operable from the
-	 * keyboard, a screen reader announces which of five is chosen, and the ends are labelled — so
+	 * keyboard, a screen reader announces which of five is chosen, and the ends are labelled - so
 	 * nobody has to guess whether 1 is the good end.
 	 *
 	 * @param string $key   Field key.
@@ -1207,7 +1207,7 @@ class WPCPM_Student_Feedback {
 
 		// **Stars, because the column is a star column.** Every one of these is an Airtable `rating`
 		// field with `icon: star`, so a row of numbered boxes here and five stars in the base are two
-		// renderings of one answer — and the person reading the answers sees the stars.
+		// renderings of one answer - and the person reading the answers sees the stars.
 		//
 		// The star is decorative and the number is not: the glyph carries `aria-hidden`, and the
 		// radio's accessible name comes from the text beside it. A screen reader announces "3 of 5",
@@ -1282,8 +1282,8 @@ class WPCPM_Student_Feedback {
 	 * Write one form's answers to Airtable.
 	 */
 	public static function handle_save() {
-		$student_id = isset( $_POST['student'] ) ? absint( wp_unslash( $_POST['student'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
-		$form_key   = isset( $_POST['form'] ) ? sanitize_key( wp_unslash( $_POST['form'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+		$student_id = isset( $_POST['student'] ) ? absint( wp_unslash( $_POST['student'] ) ) : 0;
+		$form_key   = isset( $_POST['form'] ) ? sanitize_key( wp_unslash( $_POST['form'] ) ) : '';
 
 		check_admin_referer( self::ACTION_SAVE . '_' . $student_id . '_' . $form_key, self::nonce_name( $form_key ) );
 
@@ -1338,7 +1338,7 @@ class WPCPM_Student_Feedback {
 			}
 
 			// A checkbox posts nothing when it is unticked, so it is read whether or not it is
-			// there — otherwise consent could be given and never withdrawn.
+			// there - otherwise consent could be given and never withdrawn.
 			if ( ! isset( $posted[ $key ] ) && 'checkbox' !== ( isset( $spec['type'] ) ? $spec['type'] : '' ) ) {
 				continue;
 			}
@@ -1535,9 +1535,9 @@ class WPCPM_Student_Feedback {
 	 */
 	public static function message( $status ) {
 		$messages = array(
-			'feedback-saved'     => array( 'success', __( 'Thank you — your answers have been sent. You can change them at any time.', 'wpcredits-program-manager' ) ),
+			'feedback-saved'     => array( 'success', __( 'Thank you - your answers have been sent. You can change them at any time.', 'wpcredits-program-manager' ) ),
 			'feedback-nothing'   => array( 'error', __( 'Nothing was filled in, so nothing was sent.', 'wpcredits-program-manager' ) ),
-			'feedback-refused'   => array( 'error', __( 'Airtable would not take your answers. Nothing has been lost — try again in a moment.', 'wpcredits-program-manager' ) ),
+			'feedback-refused'   => array( 'error', __( 'Airtable would not take your answers. Nothing has been lost - try again in a moment.', 'wpcredits-program-manager' ) ),
 			'feedback-failed'    => array( 'error', __( 'Your feedback could not be matched to your program record, so nothing was sent.', 'wpcredits-program-manager' ) ),
 			'feedback-unknown'   => array( 'error', __( 'That form does not exist.', 'wpcredits-program-manager' ) ),
 			// Seen by a manager, and it names the rule rather than the failure: the answers were

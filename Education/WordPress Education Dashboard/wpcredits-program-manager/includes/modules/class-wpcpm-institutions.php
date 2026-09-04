@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * read live cannot say when it was true. Every card prints the read time its numbers came
  * from instead.
  */
-class WPCPM_Institutions extends WPCPM_Module {
+class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 	const ACTION_SYNC   = 'wpcpm_institutions_sync';
 	const ACTION_CANCEL = 'wpcpm_institutions_cancel';
@@ -147,7 +147,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 	 * a log that survives the thing it describes must not become the copy of it that the
 	 * retention rule was there to remove.
 	 */
-	const OPTION_APP_LOG = 'wpcpm_application_log';
+	const OPT_APP_LOG = 'wpcpm_application_log';
 
 	/** How many rows that log keeps. */
 	const APP_LOG_MAX = 200;
@@ -321,6 +321,9 @@ class WPCPM_Institutions extends WPCPM_Module {
 		WPCPM_Institution_Agreement::init();
 		WPCPM_Institution_Audit::init();
 
+		// The daily jobs, put back on the clock whenever they are missing: see the method.
+		add_action( 'init', array( __CLASS__, 'schedule_cron' ), 20 );
+
 		// The institution's own page, and the three membership handlers behind the People card
 		// and this screen's backstop.
 		WPCPM_Ceiling::init();
@@ -387,19 +390,37 @@ class WPCPM_Institutions extends WPCPM_Module {
 		WPCPM_Institutions_Sync::activate();
 		WPCPM_Institutions_Dashboard::ensure_page();
 
-		// The ceiling's own housekeeping: its rows are hash-named claims that nothing reads
-		// after their window, so a sweep is the only thing that ever removes them.
+		// The application form's page, and deliberately not gated: see `ensure_page()`.
+		WPCPM_Institution_Application::ensure_page();
+
+		self::schedule_cron();
+	}
+
+	/**
+	 * Put the module's five daily jobs on the clock, if they are not there already.
+	 *
+	 * **Called from `boot()` on every load, not only from `activate()`.** The activation hook
+	 * fires on an explicit activation and on nothing else: not on the files being replaced,
+	 * and not on the upgrader's silent reactivation, which is how this site is deployed
+	 * (`wp plugin install --force`). Until this method existed the five jobs were scheduled
+	 * only in `activate()`, so a site whose schedule had gone, or was installed through the
+	 * upgrader, would never purge an application or expire an invitation again and nothing
+	 * on any screen would say so. The three syncs already self-heal this way on every boot;
+	 * this is the same rule for the rest. `wp_next_scheduled()` makes it cheap and
+	 * idempotent: five cache reads on a normal load, one write when a job is missing.
+	 *
+	 * The ceiling's sweep is the ceiling's own housekeeping: its rows are hash-named claims
+	 * that nothing reads after their window, so a sweep is the only thing that ever removes
+	 * them. The four nightly jobs are retention on applications, retention on agreement
+	 * files, the reviewer's digest and invitation expiry. All daily because the settings
+	 * behind them are in days, and none on the sync's cadence: a base that is down must not
+	 * stop a file being forgotten on time. An hour apart so they never land in one request.
+	 */
+	public static function schedule_cron() {
 		if ( ! wp_next_scheduled( WPCPM_Ceiling::CRON_SWEEP ) ) {
 			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', WPCPM_Ceiling::CRON_SWEEP );
 		}
 
-		// The application form's page, and deliberately not gated: see `ensure_page()`.
-		WPCPM_Institution_Application::ensure_page();
-
-		// The three nightly jobs this phase adds: retention on applications, retention on
-		// agreement files, and the reviewer's digest. All daily because all three settings are
-		// in days, and none on the sync's cadence: a base that is down must not stop a file
-		// being forgotten on time. An hour apart so they never land in one request.
 		$nightly = array( self::CRON_PURGE, WPCPM_Institution_Agreement::CRON_DISCARD, WPCPM_Institution_Agreement::CRON_REMINDERS, WPCPM_Institution_Invite::CRON_EXPIRE );
 
 		foreach ( $nightly as $offset => $hook ) {
@@ -431,9 +452,9 @@ class WPCPM_Institutions extends WPCPM_Module {
 		delete_option( WPCPM_Institutions_Sync::OPT_ERROR );
 		delete_option( WPCPM_Institutions_Sync::OPT_LOCK );
 
-		delete_option( WPCPM_Institutions_Index::OPTION );
-		delete_option( WPCPM_Countries::OPTION );
-		delete_option( WPCPM_Private_Files::OPTION_PROBE );
+		delete_option( WPCPM_Institutions_Index::OPT_NAME );
+		delete_option( WPCPM_Countries::OPT_NAME );
+		delete_option( WPCPM_Private_Files::OPT_PROBE );
 		delete_option( WPCPM_Institutions_Dashboard::OPT_PAGE );
 		delete_option( WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED );
 
@@ -445,14 +466,22 @@ class WPCPM_Institutions extends WPCPM_Module {
 		wp_clear_scheduled_hook( WPCPM_Semester_Report_Screen::CRON_ASK );
 
 		delete_option( WPCPM_Institution_Application::OPT_PAGE );
-		delete_option( self::OPTION_APP_LOG );
+		delete_option( self::OPT_APP_LOG );
 
 		WPCPM_Ceiling::delete_all();
 		WPCPM_Institution_Application::delete_all();
 		WPCPM_Institution_Approval::delete_all();
 		WPCPM_Roster_Index::delete_all();
+		// The signed files and their key stay (spec 7.11: they are legal records); the posts
+		// that named them go, so the inventory is mailed first, while the names still exist.
+		WPCPM_Institution_Agreement::manifest_kept_files();
 		WPCPM_Institution_Agreement::delete_all();
 		WPCPM_Institution_Audit::delete_all();
+		// Both documented as "called on uninstall" for two releases without a caller: the
+		// invitations carry the invitee's address and the token hash, the requests a student's
+		// record ID, and both outlived the plugin.
+		WPCPM_Institution_Invite::delete_all();
+		WPCPM_Institution_Request::delete_all();
 		// The batch posts hold a school's list of names and addresses, so they go with the
 		// rest rather than outliving the plugin that made them.
 		WPCPM_Institution_Import::delete_all();
@@ -487,42 +516,30 @@ class WPCPM_Institutions extends WPCPM_Module {
 	 */
 
 	/**
-	 * Advance the sync one slice and report progress.
+	 * The sync this module owns.
+	 *
+	 * @return string
 	 */
-	public function handle_tick() {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_send_json_error( array( 'message' => __( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ) ), 403 );
-		}
-
-		check_ajax_referer( self::ACTION_TICK, 'nonce' );
-
-		if ( WPCPM_Institutions_Sync::is_running() ) {
-			WPCPM_Institutions_Sync::tick( WPCPM_Institutions_Sync::BUDGET_AJAX );
-		}
-
-		wp_send_json_success( WPCPM_Institutions_Sync::progress() );
+	protected function sync_class() {
+		return 'WPCPM_Institutions_Sync';
 	}
 
 	/**
-	 * Start a sync.
+	 * The flash channel this screen reads its outcomes from.
+	 *
+	 * @return string
 	 */
-	public function handle_sync() {
-		$this->verify( self::ACTION_SYNC );
-
-		$result = WPCPM_Institutions_Sync::start();
-
-		$this->redirect_back( is_wp_error( $result ) ? 'error' : 'started' );
+	protected function flash_key() {
+		return self::FLASH;
 	}
 
 	/**
-	 * Abandon a stuck sync.
+	 * The Institutions sync calls its slice `tick()`.
+	 *
+	 * @param int $budget Seconds.
 	 */
-	public function handle_cancel() {
-		$this->verify( self::ACTION_CANCEL );
-
-		WPCPM_Institutions_Sync::cancel();
-
-		$this->redirect_back( 'cancelled' );
+	protected function run_sync_tick( $budget ) {
+		WPCPM_Institutions_Sync::tick( $budget );
 	}
 
 	/**
@@ -1139,33 +1156,6 @@ class WPCPM_Institutions extends WPCPM_Module {
 		$this->redirect_back( 'app-purged' );
 	}
 
-	/**
-	 * Capability and nonce check, in that order.
-	 *
-	 * @param string $action Nonce action.
-	 */
-	private function verify( $action ) {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
-		}
-
-		check_admin_referer( $action );
-	}
-
-	/**
-	 * Return to the module screen with a one-shot outcome.
-	 *
-	 * A flash rather than a query argument, so the outcome shows once and a reload of the
-	 * screen does not say "Sync started" a second time.
-	 *
-	 * @param string $status Outcome slug.
-	 */
-	private function redirect_back( $status ) {
-		WPCPM_Flash::set( self::FLASH, $status );
-
-		wp_safe_redirect( $this->admin_url() );
-		exit;
-	}
 
 	/*
 	 * Notifications
@@ -1808,7 +1798,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 			$log = array_slice( $log, -self::APP_LOG_MAX );
 		}
 
-		update_option( self::OPTION_APP_LOG, $log, false );
+		update_option( self::OPT_APP_LOG, $log, false );
 	}
 
 	/**
@@ -1817,7 +1807,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 	 * @return array[]
 	 */
 	public static function application_log() {
-		$log = get_option( self::OPTION_APP_LOG, array() );
+		$log = get_option( self::OPT_APP_LOG, array() );
 
 		return is_array( $log ) ? array_values( $log ) : array();
 	}
@@ -1875,11 +1865,8 @@ class WPCPM_Institutions extends WPCPM_Module {
 		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
 		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
 
-		$status = sanitize_key( (string) WPCPM_Flash::take( self::FLASH ) );
-
+		// This screen's own outcomes; the three every sync screen shares come from the module.
 		$messages = array(
-			'started'           => array( 'success', __( 'Sync started. Progress is shown below and updates as it runs.', 'wpcredits-program-manager' ) ),
-			'cancelled'         => array( 'info', __( 'Sync canceled.', 'wpcredits-program-manager' ) ),
 			'probed'            => array( 'success', __( 'The probe ran. The storage card says what the host did.', 'wpcredits-program-manager' ) ),
 			'probe-failed'      => array( 'error', __( 'The probe could not be completed. The storage card says why.', 'wpcredits-program-manager' ) ),
 			'provisioned'       => array( 'success', __( 'The accounts were created, each with an invitation queued. The provisioning card says what is left.', 'wpcredits-program-manager' ) ),
@@ -1887,7 +1874,6 @@ class WPCPM_Institutions extends WPCPM_Module {
 			'provision-refused' => array( 'error', __( 'That institution cannot be given an account yet. The provisioning card says why.', 'wpcredits-program-manager' ) ),
 			'provision-failed'  => array( 'error', __( 'Not every account could be created. The provisioning card names what is left.', 'wpcredits-program-manager' ) ),
 			'provision-none'    => array( 'info', __( 'There was nothing to create.', 'wpcredits-program-manager' ) ),
-			'error'             => array( 'error', __( 'That action could not be completed.', 'wpcredits-program-manager' ) ),
 		);
 
 		// The on-file route's outcomes, named once in the class that draws its form: the same form
@@ -1901,13 +1887,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		// the panel keeps the agreement route's: one list, in the words the reader gets.
 		$messages = array_merge( $messages, self::queue_messages() );
 
-		if ( isset( $messages[ $status ] ) ) {
-			printf(
-				'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-				esc_attr( $messages[ $status ][0] ),
-				esc_html( $messages[ $status ][1] )
-			);
-		}
+		$this->render_status_notice( $messages );
 
 		if ( ! WPCPM_Settings::is_connected() ) {
 			printf(
@@ -1926,6 +1906,8 @@ class WPCPM_Institutions extends WPCPM_Module {
 			);
 		}
 
+		$this->render_locked_accounts();
+
 		// Read once for the whole screen: the two membership counts live on two different
 		// cards, and `members_of()` is a query per institution, so computing them twice
 		// would double every one of them for a number that cannot have changed in between.
@@ -1943,6 +1925,46 @@ class WPCPM_Institutions extends WPCPM_Module {
 		$this->render_storage();
 
 		echo '</div>';
+	}
+
+	/**
+	 * The institution accounts whose roster write path is locked for the rest of today.
+	 *
+	 * The fence meters refused claims per acting account and locks the account when the
+	 * day's ceiling fills (design spec 5.3). The lock is recorded once in that institution's
+	 * log; this is where a manager sees every locked account at a glance, read from the same
+	 * ceiling buckets that enforce it, so the notice and the lock cannot disagree.
+	 */
+	private function render_locked_accounts() {
+		$locked = WPCPM_Institution_Roster::locked_today();
+
+		if ( empty( $locked ) ) {
+			return;
+		}
+
+		$names = array();
+
+		foreach ( $locked as $user ) {
+			$names[] = sprintf( '%1$s (%2$s)', $user->display_name, $user->user_login );
+		}
+
+		printf(
+			'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %d: how many accounts. */
+					_n( '%d institution account is locked out of roster changes for the rest of today.', '%d institution accounts are locked out of roster changes for the rest of today.', count( $locked ), 'wpcredits-program-manager' ),
+					count( $locked )
+				)
+			),
+			esc_html(
+				sprintf(
+					/* translators: %s: the accounts, as display name (username), comma-separated. */
+					__( 'Each was refused more claims than the daily ceiling allows: %s. The institution\'s log has the row, and the lock lifts by itself tomorrow.', 'wpcredits-program-manager' ),
+					implode( ', ', $names )
+				)
+			)
+		);
 	}
 
 	/**
@@ -2776,7 +2798,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		printf(
 			'<form class="wpcpm-app-action" method="post" action="%1$s"%2$s>',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			'' !== $args['confirm'] ? ' onsubmit="return confirm(\'' . esc_js( $args['confirm'] ) . '\');"' : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped inline.
+			'' !== $args['confirm'] ? ' onsubmit="return confirm(\'' . esc_js( $args['confirm'] ) . '\');"' : ''
 		);
 		wp_nonce_field( $args['action'] . '_' . (int) $post->ID );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
@@ -3290,7 +3312,7 @@ class WPCPM_Institutions extends WPCPM_Module {
 		printf(
 			'<form method="post" action="%1$s"%2$s>',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			$enabled ? ' onsubmit="return confirm(\'' . esc_js( $confirm ) . '\');"' : '' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped inline.
+			$enabled ? ' onsubmit="return confirm(\'' . esc_js( $confirm ) . '\');"' : ''
 		);
 		wp_nonce_field( self::ACTION_PROVISION );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_PROVISION ) );

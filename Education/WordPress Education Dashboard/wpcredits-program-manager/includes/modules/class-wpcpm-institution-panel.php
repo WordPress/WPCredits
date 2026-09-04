@@ -190,7 +190,7 @@ class WPCPM_Institution_Panel {
 		// locked account has come to act on, so it must not start folded, but it folds like
 		// the rest, because a chevron on every row but one is a control that is missing.
 		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%s</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
+			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
 			esc_html__( 'Collaboration Agreement', 'wpcredits-program-manager' )
 		);
 
@@ -384,13 +384,14 @@ class WPCPM_Institution_Panel {
 	 * a broken server rather than like a missing attribute.
 	 *
 	 * **`data-wpcpm-once` is an attribute, and the guard is a script.** What reads it is
-	 * `assets/js/forms.js`, registered as `wpcpm-forms`, and neither screen these forms are
-	 * drawn on enqueues it today: not the institution dashboard, which enqueues its
-	 * stylesheet alone, and not the Institutions screen, which enqueues `admin.js`. So the
-	 * attribute is inert here and a second press posts a second time. What stops the second
-	 * press is on the other side - the daily ceiling, the institution's own lock, and "one
-	 * document in review at a time" - and the attribute is printed so that adding the
-	 * enqueue is the whole of the work when a screen takes it on. Written down rather than
+	 * `assets/js/forms.js`, registered as `wpcpm-forms`. The institution dashboard enqueues
+	 * it since 1.90.0, so the attribute is live on every form drawn there; the Institutions
+	 * screen in wp-admin, which enqueues `admin.js`, still does not, so a manager's upload
+	 * from that screen relies on the other side alone. That other side is what actually
+	 * stops a second press wherever the script is missing: the daily ceiling, the
+	 * institution's own lock, and "one document in review at a time" - and since 1.90.0 the
+	 * upload handler holds the lock across its read and its insert, which is what turned two
+	 * presses into two documents before. Written down rather than
 	 * promised, because a reader who believes the guard is running does not go looking for
 	 * the enqueue that is missing.
 	 *
@@ -1622,7 +1623,7 @@ class WPCPM_Institution_Agreement_Card {
 		// school is used to finding it; it is the foot of the page, so nothing sits under it
 		// for an open card to push away.
 		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%s</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
+			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
 			esc_html__( 'Collaboration Agreement', 'wpcredits-program-manager' )
 		);
 

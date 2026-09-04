@@ -81,7 +81,7 @@ function check_admin_referer( $action = -1, $q = '_wpnonce' ) { $GLOBALS['refere
 function wp_safe_redirect( $url ) { $GLOBALS['redirect'] = $url; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function wp_get_current_user() { return (object) array( 'ID' => (int) $GLOBALS['uid'] ); }
-function current_user_can( $cap ) { return (bool) $GLOBALS['manage']; }
+require_once __DIR__ . '/stubs/caps.php';
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function add_option( $k, $v, $x = '', $a = null ) { if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; } $GLOBALS['opts'][ $k ] = $v; return true; }

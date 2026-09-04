@@ -45,7 +45,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WPCPM_Countries {
 
 	/** The option holding the map. Written with `update_option( ..., false )`, never autoloaded. */
-	const OPTION = 'wpcpm_countries';
+	const OPT_NAME = 'wpcpm_countries';
 
 	/** Bump when the row shape changes; a stored map with another version is discarded on read. */
 	const VERSION = 1;
@@ -81,7 +81,7 @@ class WPCPM_Countries {
 	 * @return array `array( 'v' => int, 'read' => int, 'rows' => array( record ID => row ) )`.
 	 */
 	public static function read() {
-		$stored = get_option( self::OPTION );
+		$stored = get_option( self::OPT_NAME );
 
 		if ( ! is_array( $stored ) || (int) ( isset( $stored['v'] ) ? $stored['v'] : 0 ) !== self::VERSION ) {
 			return self::EMPTY_SHAPE;
@@ -314,7 +314,7 @@ class WPCPM_Countries {
 		}
 
 		update_option(
-			self::OPTION,
+			self::OPT_NAME,
 			array(
 				'v'    => self::VERSION,
 				'read' => time(),

@@ -100,7 +100,7 @@ class WPCPM_Admin {
 				$tool->label(),
 				// Indented so the submenu reads as a tool belonging to Tools rather
 				// than as a fifth module.
-				'— ' . $tool->label(),
+				'- ' . $tool->label(),
 				WPCPM_Roles::CAP_MANAGE,
 				$tool->page_slug(),
 				array( $tool, 'render_admin_page' )
@@ -318,7 +318,7 @@ class WPCPM_Admin {
 
 		// Derived from the defaults rather than hand-listed. The hand-written list was a
 		// standing invitation to add a field to the form, add its sanitiser to
-		// `WPCPM_Settings::save()`, and forget the third place — at which point the field
+		// `WPCPM_Settings::save()`, and forget the third place - at which point the field
 		// renders, accepts input, posts it, and is silently discarded. Twenty-one fields were
 		// in that state, including the whole mentor-checker card and the AI provider.
 		//
@@ -344,7 +344,7 @@ class WPCPM_Admin {
 
 		foreach ( $defaults as $key => $default ) {
 			if ( is_bool( $default ) && ! in_array( $key, self::UNRENDERED_SWITCHES, true ) ) {
-				$input[ $key ] = ! empty( $_POST[ $key ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Cast to bool on the spot.
+				$input[ $key ] = ! empty( $_POST[ $key ] );
 			}
 		}
 
@@ -368,7 +368,7 @@ class WPCPM_Admin {
 		$status   = (string) WPCPM_Flash::take( 'settings' );
 
 		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html__( 'WPCredits Program — Settings', 'wpcredits-program-manager' ) . '</h1>';
+		echo '<h1>' . esc_html__( 'WPCredits Program - Settings', 'wpcredits-program-manager' ) . '</h1>';
 
 		$messages = array(
 			'saved'       => array( 'success', __( 'Settings saved.', 'wpcredits-program-manager' ) ),
@@ -396,7 +396,7 @@ class WPCPM_Admin {
 			'api_token',
 			__( 'Personal Access Token', 'wpcredits-program-manager' ),
 			WPCPM_Settings::masked_token(),
-			__( 'Stored in the database and never sent to the browser — leave blank to keep the current token.', 'wpcredits-program-manager' ),
+			__( 'Stored in the database and never sent to the browser - leave blank to keep the current token.', 'wpcredits-program-manager' ),
 			'password'
 		);
 
@@ -482,7 +482,7 @@ class WPCPM_Admin {
 			esc_html__( 'Mentors go there when they log in and in place of the wp-admin Dashboard, and get a "Mentor Report Card" link in the toolbar. They keep access to their own profile screen, and a mentor who followed a link to somewhere specific still lands there instead. Administrators are unaffected.', 'wpcredits-program-manager' ),
 			WPCPM_Mentors_Dashboard::page_url()
 				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( WPCPM_Mentors_Dashboard::page_url() ) )
-				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing — re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
+				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing - re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
 		);
 
 		echo '</tbody></table>';
@@ -492,7 +492,7 @@ class WPCPM_Admin {
 		// decide who is a current student and who has finished.
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Students module', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Uses the same status lists as the Mentors module above — a current student is anyone a mentor is currently mentoring.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Uses the same status lists as the Mentors module above - a current student is anyone a mentor is currently mentoring.', 'wpcredits-program-manager' ) . '</p>';
 		echo '<table class="form-table" role="presentation"><tbody>';
 
 		printf(
@@ -513,7 +513,7 @@ class WPCPM_Admin {
 			esc_html__( 'Students go there when they log in and in place of the wp-admin Dashboard, and get a "My Program" link in the toolbar. Same exceptions as for mentors: a requested destination wins, their own profile screen stays reachable, and anyone who can write posts is left alone.', 'wpcredits-program-manager' ),
 			WPCPM_Students_Dashboard::page_url()
 				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( WPCPM_Students_Dashboard::page_url() ) )
-				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing — re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
+				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing - re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
 		);
 
 		echo '</tbody></table>';
@@ -760,7 +760,7 @@ class WPCPM_Admin {
 		echo '<h2>' . esc_html__( 'Need help?', 'wpcredits-program-manager' ) . '</h2>';
 		printf(
 			'<p>%s</p>',
-			esc_html__( 'A question box for people on the program, answered from the WordPress documentation. The AI provider below does the searching, so nothing is stored on this site — and without a provider there is no answer at all. Each question, and the pages found for it, go to that company.', 'wpcredits-program-manager' )
+			esc_html__( 'A question box for people on the program, answered from the WordPress documentation. The AI provider below does the searching, so nothing is stored on this site - and without a provider there is no answer at all. Each question, and the pages found for it, go to that company.', 'wpcredits-program-manager' )
 		);
 
 		echo '<table class="form-table" role="presentation"><tbody>';
@@ -776,7 +776,7 @@ class WPCPM_Admin {
 		printf(
 			'<tr><th scope="row">%1$s</th><td><p class="description">%2$s</p></td></tr>',
 			esc_html__( 'Where answers come from', 'wpcredits-program-manager' ),
-			esc_html__( 'The provider searches wordpress.org, make.wordpress.org, learn.wordpress.org and developer.wordpress.org itself. Nothing is copied to this site, so there is nothing to configure and nothing to refresh — and equally, no answer at all without a provider below.', 'wpcredits-program-manager' )
+			esc_html__( 'The provider searches wordpress.org, make.wordpress.org, learn.wordpress.org and developer.wordpress.org itself. Nothing is copied to this site, so there is nothing to configure and nothing to refresh - and equally, no answer at all without a provider below.', 'wpcredits-program-manager' )
 		);
 
 		// Provider, key and model together: they are useless apart, and a key entered
@@ -803,7 +803,7 @@ class WPCPM_Admin {
 			'handbook_key',
 			__( 'Provider API key', 'wpcredits-program-manager' ),
 			WPCPM_Settings::masked_handbook_key(),
-			__( 'Stored in the database and never sent to the browser — leave blank to keep the current key. Get one free at aistudio.google.com for the Gemini provider.', 'wpcredits-program-manager' ),
+			__( 'Stored in the database and never sent to the browser - leave blank to keep the current key. Get one free at aistudio.google.com for the Gemini provider.', 'wpcredits-program-manager' ),
 			'password'
 		);
 
@@ -811,7 +811,7 @@ class WPCPM_Admin {
 			'handbook_model',
 			__( 'Model', 'wpcredits-program-manager' ),
 			$settings['handbook_model'],
-			__( 'Leave as gemini-flash-latest unless you have a reason not to. It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under this site — which has already happened twice to specific version numbers.', 'wpcredits-program-manager' )
+			__( 'Leave as gemini-flash-latest unless you have a reason not to. It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under this site - which has already happened twice to specific version numbers.', 'wpcredits-program-manager' )
 		);
 
 		$audiences = array(
@@ -906,7 +906,7 @@ class WPCPM_Admin {
 	/**
 	 * The recent-mail log.
 	 *
-	 * Exists to answer one question — "the student says they got nothing" — which was
+	 * Exists to answer one question - "the student says they got nothing" - which was
 	 * previously unanswerable, because every caller threw away what `wp_mail()` told them.
 	 */
 	private function render_mail_log() {
@@ -966,7 +966,7 @@ class WPCPM_Admin {
 							__( '%s ago', 'wpcredits-program-manager' ),
 							human_time_diff( $when )
 						)
-						: '—'
+						: '-'
 				)
 			);
 			printf( '<td>%s</td>', esc_html( isset( $entry['to'] ) ? $entry['to'] : '' ) );
@@ -988,7 +988,7 @@ class WPCPM_Admin {
 
 		printf(
 			'<p class="description">%s</p>',
-			esc_html__( '"Accepted" means the site handed the message off without complaint. It cannot tell you the message was delivered, or read — no sender can.', 'wpcredits-program-manager' )
+			esc_html__( '"Accepted" means the site handed the message off without complaint. It cannot tell you the message was delivered, or read - no sender can.', 'wpcredits-program-manager' )
 		);
 	}
 
@@ -1069,7 +1069,7 @@ class WPCPM_Admin {
 			esc_html__( 'Course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages. Switch to all contributions only if WordPress.org changes and completions stop being found.', 'wpcredits-program-manager' )
 		);
 
-		$this->number_row( 'checker_max_pages', __( 'Maximum history pages per mentor', 'wpcredits-program-manager' ), $settings['checker_max_pages'], 1, 100, __( 'A mentor whose history is longer than this is reported as "could not check", never as "not completed" — a false negative would leave them waiting.', 'wpcredits-program-manager' ) );
+		$this->number_row( 'checker_max_pages', __( 'Maximum history pages per mentor', 'wpcredits-program-manager' ), $settings['checker_max_pages'], 1, 100, __( 'A mentor whose history is longer than this is reported as "could not check", never as "not completed" - a false negative would leave them waiting.', 'wpcredits-program-manager' ) );
 		$this->number_row( 'checker_batch_size', __( 'Mentors per batch', 'wpcredits-program-manager' ), $settings['checker_batch_size'], 1, 25, __( 'Each mentor can cost several requests to WordPress.org, so smaller batches keep the screen responsive.', 'wpcredits-program-manager' ) );
 		$this->number_row( 'checker_request_delay', __( 'Delay between requests (ms)', 'wpcredits-program-manager' ), $settings['checker_request_delay'], 0, 5000 );
 		$this->number_row( 'checker_cache_ttl', __( 'Cache profile results for (seconds)', 'wpcredits-program-manager' ), $settings['checker_cache_ttl'], 0, MONTH_IN_SECONDS, __( 'Only settled answers are cached; a failed read is always retried. Set to 0 to disable.', 'wpcredits-program-manager' ) );

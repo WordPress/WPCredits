@@ -48,7 +48,7 @@ body.login {
    masthead, the intro, the form, the two links, and the note after it. Each
    carries the card's left and right edges and none carries a top or bottom one,
    so they stack into a single outline whatever else WordPress inserts between
-   them — a logged-out message, an error, a password-reset notice. */
+   them - a logged-out message, an error, a password-reset notice. */
 #login form {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line );
@@ -62,7 +62,7 @@ body.login {
 
 /* WordPress's own W logo. Dropped rather than restyled: the masthead below is
    the same link with the same destination, and core already marks this heading
-   `role="presentation"` — the page's real h1 is the screen-reader-only title, so
+   `role="presentation"` - the page's real h1 is the screen-reader-only title, so
    nothing is lost from the outline. The footer's "Go to site" link remains. */
 .login .wp-login-logo {
 	display: none;
@@ -93,7 +93,7 @@ body.login {
    this card is 360px wide where the header has the whole page: at the header's sizes
    "WordPress Education Dashboard" plus the mark measured about 347px against the
    294px between the card's 32px insets, and `white-space: nowrap` made it overhang
-   the card rather than wrap — so the brand read as wider than everything under it. */
+   the card rather than wrap - so the brand read as wider than everything under it. */
 .wpc-login__brand .wpc-logo {
 	color: var( --wpc-brand );
 	display: block;
@@ -108,7 +108,7 @@ body.login {
 	letter-spacing: -.01em;
 	margin: 0;
 	/* The sizes above fit this site's name on one line. A longer one wraps inside the
-	   padding now instead of hanging off the card — the row is centered, so two lines
+	   padding now instead of hanging off the card - the row is centered, so two lines
 	   beside the mark still read as a brand. */
 	min-width: 0;
 }
@@ -118,7 +118,7 @@ body.login {
 	font-style: normal;
 }
 
-/* Whatever follows the accent word is muted and unbolded — and, like the header,
+/* Whatever follows the accent word is muted and unbolded - and, like the header,
    upright. `<i>` is the tag the title filter uses; it is a hook, not a request to
    italicise. */
 .wpc-login__name i {
@@ -186,14 +186,14 @@ body.login {
    Addressed through `#login` because core's own two rules cannot be outranked from
    a class: `.login form .forgetmenot` floats the row left, and `#login form p` zeroes
    every paragraph margin on the page. A floated row is out of flow, so the submit
-   paragraph rode up into it and the Log in button was drawn across "Remember Me" —
+   paragraph rode up into it and the Log in button was drawn across "Remember Me" -
    which is what the too-small gap underneath actually was. An ID is not a habit worth
    picking up; here it is the specificity core set, matched.
 
    Then more space under the row than over it, deliberately: "Remember me" is the last
    thing the form asks, so it belongs with the fields above and wants a clear step down
    to the button that submits them. The space above is the preceding element's own
-   margin — whatever `login_form` printed there, a captcha on this site — and at 20px
+   margin - whatever `login_form` printed there, a captcha on this site - and at 20px
    against this 24px the two read as balanced, so the row is not fighting it. */
 #login form p.forgetmenot {
 	align-items: center;
@@ -297,7 +297,7 @@ body.login {
 }
 
 /* Printed after wp-login.php closes #login, so these two carry the card's
-   bottom edge themselves — and need border-box, or the padding would push them
+   bottom edge themselves - and need border-box, or the padding would push them
    wider than the card above. */
 .wpc-login__note,
 .wpc-login__poetry {
@@ -341,7 +341,7 @@ body.login {
    Notices
    ========================================================================== */
 /* Notices sit between the intro and the form, so they carry the card's side
-   edges too — a notice with no left and right border cuts the outline in half. */
+   edges too - a notice with no left and right border cuts the outline in half. */
 .login .message,
 .login .success,
 .login #login_error {

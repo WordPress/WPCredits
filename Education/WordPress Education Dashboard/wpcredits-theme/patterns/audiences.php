@@ -3,7 +3,7 @@
  * Title: Four audiences
  * Slug: wpcredits/audiences
  * Categories: wpcredits
- * Description: A pale band with one column per audience the program serves — students, mentors, institutions and program managers.
+ * Description: A pale band with one column per audience the program serves - students, mentors, institutions and program managers.
  * Keywords: audiences, roles, students, mentors
  * Viewport Width: 1400
  *
@@ -18,7 +18,7 @@ $wpcredits_audiences = array(
 		'icon'  => 'people',
 		'tone'  => 'blue',
 		'title' => __( 'Students', 'wpcredits-theme' ),
-		'text'  => __( 'Join an internship track — In Sensei or In Sensei 50h — with a mentor assigned to you.', 'wpcredits-theme' ),
+		'text'  => __( 'Join an internship track - In Sensei or In Sensei 50h - with a mentor assigned to you.', 'wpcredits-theme' ),
 	),
 	array(
 		'icon'  => 'comment',

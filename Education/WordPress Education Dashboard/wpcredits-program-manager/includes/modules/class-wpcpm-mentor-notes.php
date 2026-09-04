@@ -1,6 +1,6 @@
 <?php
 /**
- * Mentors module — call notes against a student.
+ * Mentors module - call notes against a student.
  *
  * @package WPCreditsProgramManager
  */
@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Lets a mentor keep a running history of notes against each of their students —
+ * Lets a mentor keep a running history of notes against each of their students -
  * one per call, typically.
  *
  * Stored as a private post type rather than in user meta. Two reasons decide it.
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * grows without limit, which wants rows that can be ordered, paged and attributed
  * rather than one ever-growing serialized array that two browser tabs can clobber.
  *
- * Notes belong to the *student*, not to the mentor–student pair, and each one
+ * Notes belong to the *student*, not to the mentor-student pair, and each one
  * shows who wrote it. A student normally has one mentor, but where they have two,
  * continuity of history is worth more than siloing it.
  *
@@ -86,6 +86,14 @@ class WPCPM_Mentor_Notes {
 	 * in search, no admin UI. These are private records about named students, and
 	 * the only route to them is the mentor page, which checks the reader against
 	 * that student's assignment first.
+	 *
+	 * Rows are inserted and read as `private`, never `publish`, here and in
+	 * `WPCPM_Institution_Notes`, which writes the same type. A published row of any
+	 * type is published work by its author as far as WordPress is concerned, and
+	 * `redirect_canonical()` then answers `?author=N` with a 301 to `/author/<login>/`
+	 * for the mentor or institution member who wrote the note. Every read names the
+	 * status, because `get_posts()` defaults to `publish` and would return nothing.
+	 * `WPCPM_Privacy_Guard` flips the rows written before this on upgrade.
 	 */
 	public static function register_post_type() {
 		register_post_type(
@@ -175,8 +183,8 @@ class WPCPM_Mentor_Notes {
 	/**
 	 * Whether a *new* note may be added for a student.
 	 *
-	 * Reading and deleting stay available for finished students — the history is
-	 * worth keeping — but a graduated student is not going to be called again, so
+	 * Reading and deleting stay available for finished students - the history is
+	 * worth keeping - but a graduated student is not going to be called again, so
 	 * nothing new gets written against them. Enforced here and not only by hiding
 	 * the form, since a hidden form is not a restriction.
 	 *
@@ -263,12 +271,12 @@ class WPCPM_Mentor_Notes {
 		$posts = get_posts(
 			array(
 				'post_type'        => self::POST_TYPE,
-				'post_status'      => 'publish',
+				'post_status'      => 'private',
 				'numberposts'      => 200,
 				'orderby'          => 'date',
 				'order'            => 'DESC',
 				'suppress_filters' => false,
-				'meta_query'       => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- Indexed by meta value; the set is per student.
+				'meta_query'       => array(
 					array(
 						'key'   => self::META_STUDENT,
 						'value' => $student_record,
@@ -351,7 +359,7 @@ class WPCPM_Mentor_Notes {
 	 * Save a new note.
 	 */
 	public static function handle_add() {
-		$student = isset( $_POST['student'] ) ? sanitize_text_field( wp_unslash( $_POST['student'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+		$student = isset( $_POST['student'] ) ? sanitize_text_field( wp_unslash( $_POST['student'] ) ) : '';
 
 		check_admin_referer( self::ACTION_ADD . '_' . $student );
 
@@ -377,12 +385,12 @@ class WPCPM_Mentor_Notes {
 		$post_id = wp_insert_post(
 			array(
 				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'publish',
+				'post_status'  => 'private',
 				'post_author'  => get_current_user_id(),
 				'post_content' => $note,
 				'post_title'   => sprintf(
 					/* translators: 1: student name, 2: date and time. */
-					__( 'Note on %1$s — %2$s', 'wpcredits-program-manager' ),
+					__( 'Note on %1$s - %2$s', 'wpcredits-program-manager' ),
 					'' !== $name ? $name : $student,
 					wp_date( 'Y-m-d H:i' )
 				),
@@ -413,7 +421,7 @@ class WPCPM_Mentor_Notes {
 	 *
 	 * **One post with a `META_STUDENT` row per attendee, not one post each.** `get_notes()` matches
 	 * a meta *value*, so repeated rows put the same note on every attendee's card, count for each
-	 * of them in the triage — so nobody is stranded in *Need a call* after a session they were at —
+	 * of them in the triage - so nobody is stranded in *Need a call* after a session they were at -
 	 * and one deletion removes it from everybody. Writing a copy per student would have left the
 	 * mentor deleting the same note five times, and five chances to miss one.
 	 *
@@ -429,7 +437,7 @@ class WPCPM_Mentor_Notes {
 		$note = trim( (string) $note );
 
 		if ( '' === $note ) {
-			return new WP_Error( 'wpcpm_note_empty', __( 'Nothing was saved — the note was empty.', 'wpcredits-program-manager' ) );
+			return new WP_Error( 'wpcpm_note_empty', __( 'Nothing was saved - the note was empty.', 'wpcredits-program-manager' ) );
 		}
 
 		$clean = array();
@@ -455,12 +463,12 @@ class WPCPM_Mentor_Notes {
 		$post_id = wp_insert_post(
 			array(
 				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'publish',
+				'post_status'  => 'private',
 				'post_author'  => get_current_user_id(),
 				'post_content' => $note,
 				'post_title'   => sprintf(
 					/* translators: 1: number of students, 2: date and time. */
-					__( 'Group session note, %1$s students — %2$s', 'wpcredits-program-manager' ),
+					__( 'Group session note, %1$s students - %2$s', 'wpcredits-program-manager' ),
 					number_format_i18n( count( $clean ) ),
 					wp_date( 'Y-m-d H:i' )
 				),
@@ -485,11 +493,11 @@ class WPCPM_Mentor_Notes {
 	/**
 	 * Delete a note.
 	 *
-	 * Only its author, or a program manager, may remove one — a mentor should not
+	 * Only its author, or a program manager, may remove one - a mentor should not
 	 * be able to erase a colleague's record of a call.
 	 */
 	public static function handle_delete() {
-		$note_id = isset( $_POST['note_id'] ) ? absint( wp_unslash( $_POST['note_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+		$note_id = isset( $_POST['note_id'] ) ? absint( wp_unslash( $_POST['note_id'] ) ) : 0;
 
 		check_admin_referer( self::ACTION_DELETE . '_' . $note_id );
 
@@ -570,13 +578,12 @@ class WPCPM_Mentor_Notes {
 	 * Which student the request is focused on, if any.
 	 *
 	 * A fragment never reaches the server, so the record ID travels as a query
-	 * argument too — that is what lets the right card be rendered already open
+	 * argument too - that is what lets the right card be rendered already open
 	 * after a note is saved, with no JavaScript involved.
 	 *
 	 * @return string Airtable record ID, or an empty string.
 	 */
 	public static function focused_student() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view state.
 		$student = WPCPM_Request::text( 'wpcpm_student' );
 
 		return WPCPM_Mentors_Sync::is_record_id( $student ) ? $student : '';
@@ -600,7 +607,6 @@ class WPCPM_Mentor_Notes {
 
 		$notes   = self::get_notes( $student_record, self::AUDIENCE_MENTOR );
 		$focused = ( self::focused_student() === $student_record );
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag.
 		$status = $focused ? sanitize_key( (string) WPCPM_Flash::take( 'note' ) ) : '';
 
 		echo '<section class="wpcpm-notes">';
@@ -614,7 +620,7 @@ class WPCPM_Mentor_Notes {
 		$messages = array(
 			'saved'   => array( 'success', __( 'Note saved.', 'wpcredits-program-manager' ) ),
 			'deleted' => array( 'success', __( 'Note deleted.', 'wpcredits-program-manager' ) ),
-			'empty'   => array( 'error', __( 'Nothing was saved — the note was empty.', 'wpcredits-program-manager' ) ),
+			'empty'   => array( 'error', __( 'Nothing was saved - the note was empty.', 'wpcredits-program-manager' ) ),
 			'error'   => array( 'error', __( 'That note could not be saved.', 'wpcredits-program-manager' ) ),
 		);
 
@@ -686,7 +692,7 @@ class WPCPM_Mentor_Notes {
 		);
 		echo '</div>';
 
-		// Stored as plain text, so escaping then adding paragraphs is enough — no
+		// Stored as plain text, so escaping then adding paragraphs is enough - no
 		// markup is ever accepted from the form.
 		echo '<div class="wpcpm-note__body">' . wp_kses_post( wpautop( esc_html( $note->post_content ) ) ) . '</div>';
 

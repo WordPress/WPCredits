@@ -1,6 +1,6 @@
 <?php
 /**
- * Mentors module — when a mentor is available for calls.
+ * Mentors module - when a mentor is available for calls.
  *
  * @package WPCreditsProgramManager
  */
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * A mentor's weekly availability, and the bookable slots that fall out of it.
  *
- * The schedule is a *recurring* shape — "Tuesdays and Thursdays, 09:00 to 12:00" —
+ * The schedule is a *recurring* shape - "Tuesdays and Thursdays, 09:00 to 12:00" -
  * rather than a list of dated openings. A mentor sets it once and it keeps producing
  * slots; a list of dates would have to be topped up every few weeks and would go
  * quietly empty when it was not.
@@ -43,8 +43,8 @@ class WPCPM_Mentor_Availability {
 	/**
 	 * Windows offered per day in the editor.
 	 *
-	 * The model takes any number; two is what the form draws, because a split day —
-	 * before work and after it — is the common case and a third row is not.
+	 * The model takes any number; two is what the form draws, because a split day -
+	 * before work and after it - is the common case and a third row is not.
 	 */
 	const WINDOWS_PER_DAY = 2;
 
@@ -129,7 +129,7 @@ class WPCPM_Mentor_Availability {
 	/**
 	 * Force a stored schedule into a shape the rest of the class can trust.
 	 *
-	 * Everything downstream — slot generation especially — assumes windows are sane,
+	 * Everything downstream - slot generation especially - assumes windows are sane,
 	 * ordered pairs of `H:i` on days 1 to 7. Validating once on the way out of the
 	 * database means a hand-edited or part-migrated value degrades to "no
 	 * availability" rather than to a loop that never terminates.
@@ -168,7 +168,7 @@ class WPCPM_Mentor_Availability {
 				$end   = self::time_string( isset( $window['end'] ) ? $window['end'] : '' );
 
 				// A window that ends before it starts, or is shorter than one slot, can
-				// only produce nothing — dropped here so it is not carried around.
+				// only produce nothing - dropped here so it is not carried around.
 				if ( '' === $start || '' === $end || $end <= $start ) {
 					continue;
 				}
@@ -448,7 +448,7 @@ class WPCPM_Mentor_Availability {
 
 			// Wall-clock times already offered on this day. On the night the clocks go
 			// back, an hour of local time happens twice, and stepping by absolute time
-			// through it produces two distinct instants that both render "03:00" — two
+			// through it produces two distinct instants that both render "03:00" - two
 			// buttons a student cannot tell apart. A schedule is written in wall-clock
 			// terms, so "Sunday 03:00" is one appointment; the second pass is dropped.
 			$offered = array();
@@ -522,7 +522,7 @@ class WPCPM_Mentor_Availability {
 	 * A local time on a given day, or null if the clock skipped it.
 	 *
 	 * Spring-forward deletes an hour from the local day, and PHP resolves a time
-	 * inside it by rolling forward — which would put a 02:30 slot at 03:30 and out of
+	 * inside it by rolling forward - which would put a 02:30 slot at 03:30 and out of
 	 * its own window. Comparing the formatted result catches that.
 	 *
 	 * @param DateTimeImmutable $day  Midnight on the day, in the target zone.
@@ -587,7 +587,7 @@ class WPCPM_Mentor_Availability {
 	 * Save a schedule.
 	 */
 	public static function handle_save() {
-		$mentor = isset( $_POST['mentor'] ) ? absint( wp_unslash( $_POST['mentor'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+		$mentor = isset( $_POST['mentor'] ) ? absint( wp_unslash( $_POST['mentor'] ) ) : 0;
 
 		check_admin_referer( self::ACTION_SAVE . '_' . $mentor );
 
@@ -651,7 +651,7 @@ class WPCPM_Mentor_Availability {
 			$schedule['meeting_url'] = self::meeting_url( self::scalar( $posted['meeting_url'] ) );
 		}
 
-		// Blocked days arrive as free text — one date per line is the only thing a
+		// Blocked days arrive as free text - one date per line is the only thing a
 		// mentor can type without a date picker for each.
 		if ( isset( $posted['blocked'] ) ) {
 			$dates = preg_split( '/[\s,;]+/', self::scalar( $posted['blocked'] ) );
@@ -722,7 +722,7 @@ class WPCPM_Mentor_Availability {
 			$times = array();
 
 			foreach ( $windows as $window ) {
-				$times[] = $window['start'] . '–' . $window['end'];
+				$times[] = $window['start'] . '-' . $window['end'];
 			}
 
 			$days[] = sprintf(
@@ -765,12 +765,11 @@ class WPCPM_Mentor_Availability {
 		$schedule = self::get( $mentor->ID );
 		$names    = self::weekdays();
 		$is_self  = ( get_current_user_id() === (int) $mentor->ID );
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag.
 		$status = sanitize_key( (string) WPCPM_Flash::take( 'availability' ) );
 
 		$published = self::is_published( $mentor->ID );
 
-		// The unset state is a class, not a colour decided here — the stylesheets say what
+		// The unset state is a class, not a colour decided here - the stylesheets say what
 		// it looks like, and one of them is a theme's.
 		printf(
 			'<section class="wpcpm-availability%s" id="wpcpm-availability">',
@@ -779,7 +778,7 @@ class WPCPM_Mentor_Availability {
 
 		// The confirmation sits *outside* the disclosure, so it is readable with the panel
 		// shut. It used to be in the body, which is the only reason the panel had to spring
-		// open after every save — and springing open after every save is the thing this is
+		// open after every save - and springing open after every save is the thing this is
 		// closed by default to avoid.
 		if ( 'saved' === $status ) {
 			printf(
@@ -788,10 +787,10 @@ class WPCPM_Mentor_Availability {
 			);
 		}
 
-		// Closed. Always — at rest, with nothing published, and after a save. A panel that
+		// Closed. Always - at rest, with nothing published, and after a save. A panel that
 		// unfolds on arrival is a panel that has to be folded away again, and the summary
 		// line beside the title already says what the schedule is.
-		// The way in first, then what is published under it — the heading-then-content order the
+		// The way in first, then what is published under it - the heading-then-content order the
 		// booked calls beside it use. The state is out of the summary either way, so it stays put
 		// whether the form is open or shut.
 		echo '<details class="wpcpm-availability__disclosure">';
@@ -881,7 +880,7 @@ class WPCPM_Mentor_Availability {
 					esc_attr( $base ),
 					esc_attr( $start )
 				);
-				echo '<span class="wpcpm-availability__to" aria-hidden="true">–</span>';
+				echo '<span class="wpcpm-availability__to" aria-hidden="true">-</span>';
 				printf(
 					'<label class="screen-reader-text" for="%1$s-end">%2$s</label>',
 					esc_attr( $id ),
@@ -914,7 +913,7 @@ class WPCPM_Mentor_Availability {
 	}
 
 	/**
-	 * "Copy Monday to weekdays" — filling in the week without retyping it.
+	 * "Copy Monday to weekdays" - filling in the week without retyping it.
 	 *
 	 * Scripted by nature, and rendered `hidden` because of it: all it does is write values
 	 * into inputs this form already posts, so there is no handler behind it and nothing
@@ -922,7 +921,7 @@ class WPCPM_Mentor_Availability {
 	 * do nothing; they type the days out, which is what they did before this existed.
 	 *
 	 * Nothing is saved by copying. The values land in the form and the mentor still presses
-	 * Save — so a copy that went to the wrong days is undone by not saving, which is a much
+	 * Save - so a copy that went to the wrong days is undone by not saving, which is a much
 	 * better escape hatch than an undo button.
 	 *
 	 * @param array $names Weekday names.

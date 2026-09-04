@@ -110,7 +110,7 @@ msgstr ""
 
 #: patterns/audiences.php:21
 msgid ""
-"Join an internship track — In Sensei or In Sensei 50h — with a mentor "
+"Join an internship track - In Sensei or In Sensei 50h - with a mentor "
 "assigned to you."
 msgstr ""
 
@@ -242,7 +242,7 @@ msgstr ""
 #: patterns/audiences.php
 msgctxt "Pattern description"
 msgid ""
-"A pale band with one column per audience the program serves — students, "
+"A pale band with one column per audience the program serves - students, "
 "mentors, institutions and program managers."
 msgstr ""
 

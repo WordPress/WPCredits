@@ -32,6 +32,17 @@ class WPCPM_Airtable {
 	const PAGE_SIZE = 100;
 
 	/**
+	 * The shape of an Airtable record ID: `rec` and fourteen alphanumerics.
+	 *
+	 * Held on the client because it is a fact about Airtable, and every module that stores,
+	 * receives or fences on a record ID tests it. The only shared copy used to live on the
+	 * Mentors sync, which made the Institutions policy depend on the Mentors module for the
+	 * one check its whole fence rests on; `WPCPM_Mentors_Sync::is_record_id()` is an alias of
+	 * `is_record_id()` below for one release.
+	 */
+	const RECORD_ID_PATTERN = '/^rec[A-Za-z0-9]{14}$/';
+
+	/**
 	 * Airtable's published ceiling: five requests per second per base.
 	 *
 	 * The sixth is not queued, it is answered 429, and from that moment the base
@@ -136,10 +147,10 @@ class WPCPM_Airtable {
 			$query['offset'] = $args['offset'];
 		}
 
-		$url = add_query_arg( $query, $this->table_url( $table ) );
+		$url = $this->query_url( $table, $query );
 
-		// Airtable expects repeated `fields[]=` params, which add_query_arg()
-		// cannot express, so they are appended by hand.
+		// Airtable expects repeated `fields[]=` params, which http_build_query() would
+		// write as `fields[0]=`, so they are appended by hand, encoded the same way.
 		if ( ! empty( $args['fields'] ) ) {
 			foreach ( (array) $args['fields'] as $field ) {
 				$url .= '&fields%5B%5D=' . rawurlencode( $field );
@@ -320,7 +331,7 @@ class WPCPM_Airtable {
 	 *
 	 * Field descriptions live on the schema endpoint, not on records, so they
 	 * need this separate call. It needs the `schema.bases:read` scope on the
-	 * token — a scope a records-only token will not have, which is why callers
+	 * token - a scope a records-only token will not have, which is why callers
 	 * are expected to treat a failure here as cosmetic and carry on.
 	 *
 	 * @return array|WP_Error Map of table ID => array( 'name' => string, 'primary' => string, 'fields' => array( field name => description ) ).
@@ -397,8 +408,7 @@ class WPCPM_Airtable {
 			return $guard;
 		}
 
-		$url      = add_query_arg( array( 'maxRecords' => 1 ), $this->table_url( $table ) );
-		$response = $this->request( $url );
+		$response = $this->request( $this->query_url( $table, array( 'maxRecords' => 1 ) ) );
 
 		return is_wp_error( $response ) ? $response : true;
 	}
@@ -512,7 +522,7 @@ class WPCPM_Airtable {
 	public static function flatten( $value, $glue = ', ' ) {
 		if ( is_array( $value ) ) {
 			// A single-select read through the REST API is a plain string, but a
-			// linked record or lookup is an array — of scalars or of objects.
+			// linked record or lookup is an array - of scalars or of objects.
 			if ( isset( $value['name'] ) && is_scalar( $value['name'] ) ) {
 				return (string) $value['name'];
 			}
@@ -534,6 +544,20 @@ class WPCPM_Airtable {
 		}
 
 		return '';
+	}
+
+	/**
+	 * Whether a value is an Airtable record ID.
+	 *
+	 * Surrounding whitespace is forgiven, because IDs arrive out of cells, query strings and
+	 * pasted CSVs. A non-scalar is not one, rather than a string-conversion warning followed
+	 * by the same answer.
+	 *
+	 * @param mixed $value Value to test.
+	 * @return bool
+	 */
+	public static function is_record_id( $value ) {
+		return is_scalar( $value ) && 1 === preg_match( self::RECORD_ID_PATTERN, trim( (string) $value ) );
 	}
 
 	/**
@@ -955,6 +979,25 @@ class WPCPM_Airtable {
 	 */
 	private function table_url( $table ) {
 		return trailingslashit( self::API_BASE ) . rawurlencode( $this->settings['base_id'] ) . '/' . rawurlencode( $table );
+	}
+
+	/**
+	 * A table URL with a query string, every value percent-encoded.
+	 *
+	 * Not `add_query_arg()`. That function does not encode the values it is handed (core
+	 * says the caller must), and the URL normaliser WP_Http then runs leaves `+`, `&` and
+	 * `=` exactly as they are. So a formula built from a plus-addressed email reached
+	 * Airtable with the plus decoded as a space: `anna+wp@example.org` matched no row, and
+	 * the roster fence told an institution a real student was not on its roster. An
+	 * ampersand inside a value ended the parameter and started another. RFC 3986 encoding
+	 * makes a value a value whatever is in it, which is the treatment `fields[]` always had.
+	 *
+	 * @param string $table Table ID or name.
+	 * @param array  $query Query parameters, unencoded.
+	 * @return string
+	 */
+	private function query_url( $table, array $query ) {
+		return $this->table_url( $table ) . '?' . http_build_query( $query, '', '&', PHP_QUERY_RFC3986 );
 	}
 
 	/**

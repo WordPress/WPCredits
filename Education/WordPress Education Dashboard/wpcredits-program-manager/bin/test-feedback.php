@@ -3,15 +3,15 @@
  * The feedback surveys: the columns they write to, and what may reach Airtable.
  *
  * **The column names are pinned here against the base's own schema**, read from the Airtable
- * metadata endpoint on 6 August 2026. They are long, inconsistently spaced — Form 1's were created
- * without the space after `F1` — and one of them is 108 characters. A name that does not match its
+ * metadata endpoint on 6 August 2026. They are long, inconsistently spaced - Form 1's were created
+ * without the space after `F1` - and one of them is 108 characters. A name that does not match its
  * column is not a visible failure: Airtable refuses the whole record, so one typo takes the other
  * eight answers down with it, and the student is told their feedback could not be sent with nothing
  * to say which question was to blame.
  *
  * The single-select choices are pinned for the same reason. `clean()` will not send a value that is
  * not on the list, so a list that has drifted from the base silently drops answers rather than
- * writing bad ones — which is safer, and completely invisible.
+ * writing bad ones - which is safer, and completely invisible.
  *
  * **The permissions box is checked against the live client, not against a stand-in.** Two of its
  * questions decide whether a named student appears in a document their university sends out, and
@@ -89,8 +89,7 @@ function get_users( $a = array() ) { return array(); }
 function get_user_by( $f, $v ) { return new WP_User( (int) $v ); }
 function get_current_user_id() { return $GLOBALS['uid'] ?? 0; }
 function is_user_logged_in() { return ! empty( $GLOBALS['uid'] ); }
-function current_user_can( $c ) { return ! empty( $GLOBALS['caps'] ); }
-function user_can( $u, $c ) { return ! empty( $GLOBALS['caps'] ); }
+require_once __DIR__ . '/stubs/caps.php';
 function is_admin() { return false; }
 function get_post( $id = null ) { return null; }
 function get_posts( $a = array() ) { return array(); }
@@ -341,7 +340,7 @@ ck( 'Form 4 asks four', count( $forms['f4']['fields'] ), 4 );
 
 echo "\n=== The retired questions stay retired ===\n";
 
-// Each of these was dropped by the analysis for a stated reason — duplication, or the highest rate
+// Each of these was dropped by the analysis for a stated reason - duplication, or the highest rate
 // of empty answers. They still exist as columns, so nothing but this stops one being added back.
 $retired = array(
 	'How to make onboarding smoother',
@@ -387,7 +386,7 @@ ck( 'three anchors in each of the three stage forms',
     array_map( 'count', $anchor_specs ), array( 'f1' => 3, 'f2' => 3, 'f3' => 3 ) );
 ck( 'asked identically in Forms 1 and 2', $anchor_specs['f1'], $anchor_specs['f2'] );
 ck( 'and identically in Form 3', $anchor_specs['f1'], $anchor_specs['f3'] );
-ck( 'the exit survey has none — it asks a different thing entirely',
+ck( 'the exit survey has none - it asks a different thing entirely',
     count( array_filter( $forms['f4']['fields'], function ( $s ) { return ! empty( $s['anchor'] ); } ) ), 0 );
 
 echo "\n=== The conditional follow-ups ===\n";
@@ -403,7 +402,7 @@ foreach ( $forms as $key => $form ) {
 		$conditionals[] = $name;
 
 		foreach ( $spec['when'] as $rule ) {
-			// A rule pointing at a question in another form — or at a column that was renamed —
+			// A rule pointing at a question in another form - or at a column that was renamed -
 			// never fires, so the follow-up would be hidden for everybody and nobody would notice.
 			ck( sprintf( 'the rule on "%s" watches a question in the same form', $name ),
 			    isset( $form['fields'][ $rule['field'] ] ), true );
@@ -501,7 +500,7 @@ echo "\n=== One stage at a time ===\n";
 
 /*
  * A form appears once the one before it is finished. The surveys are meant to be answered *at* each
- * stage — three repeated questions only mean something if the answers are months apart — and a
+ * stage - three repeated questions only mean something if the answers are months apart - and a
  * student who opens all three on their last day gives three copies of one opinion.
  *
  * The rule is asserted through `unlocked()` rather than through the rendered page, because what is

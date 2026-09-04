@@ -6,7 +6,7 @@
  *
  * The one that matters: a *disabled* control is not serialized, and the slot buttons carry
  * the value being submitted (`name="start" value="…"`). Disabling the pressed button inside
- * the submit handler would post the form with no slot in it — booking would break outright,
+ * the submit handler would post the form with no slot in it - booking would break outright,
  * which is worse than the confusion this fixes. So the pressed button must only be disabled
  * from a deferred callback, and the others (which carry nothing) immediately.
  *

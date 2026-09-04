@@ -301,6 +301,16 @@ class WPCPM_Institutions_Dashboard {
 
 		wp_enqueue_style( self::STYLE );
 
+		// Every form on this page prints `data-wpcpm-once`, and until now no screen the page is
+		// drawn on loaded the script that reads it, so the guard was inert exactly where it
+		// mattered most: two presses of Upload filed two agreements. Registered the way the
+		// calendar registers it, so whichever runs first wins and the handle stays one.
+		if ( ! wp_script_is( 'wpcpm-forms', 'registered' ) ) {
+			wp_register_script( 'wpcpm-forms', WPCPM_PLUGIN_URL . 'assets/js/forms.js', array(), WPCPM_VERSION, true );
+		}
+
+		wp_enqueue_script( 'wpcpm-forms' );
+
 		if ( ! is_user_logged_in() ) {
 			return self::notice(
 				__( 'Please log in to see your institution on this site.', 'wpcredits-program-manager' ),

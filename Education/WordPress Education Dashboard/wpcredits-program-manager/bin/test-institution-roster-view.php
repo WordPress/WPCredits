@@ -846,6 +846,18 @@ ck( 'and the explanation of whose job the missing record is',
 	has( $with_fifth, 'A program manager needs to complete the record.' ), true );
 ck( 'they are not in any of the four groups', group_count( $with_fifth, 'Current' ), 1 );
 
+// A student's address is a manager's to see, not the school's: the export has no email column
+// and the student card prints the mentor's address as the only one. This list printed one per
+// account-bearing student to the institution, and the search box matched on it.
+ck( 'a member is not shown the address', has( $with_fifth, '@example' ), false );
+$as_manager = render( array(), 'recINSTAAA0000001', array( 'can_manage' => true ) );
+ck( 'a manager is', has( $as_manager, 'nia.example@example' ), true );
+$by_address = render( array( 'wpcpm_roster_search' => 'nia.example@' ) );
+ck( 'a member searching by address finds nobody', has( $by_address, 'Nia Example' ), false );
+$by_address = render( array( 'wpcpm_roster_search' => 'nia.example@' ), 'recINSTAAA0000001', array( 'can_manage' => true ) );
+ck( 'while a manager searching by address does', has( $by_address, 'Nia Example' ), true );
+ck( 'and a member searching by name still finds her', has( render( array( 'wpcpm_roster_search' => 'Nia' ) ), 'Nia Example' ), true );
+
 echo "\n=== The filter bar ===\n";
 
 $waiting = render( array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_status' => 'waiting' ) );

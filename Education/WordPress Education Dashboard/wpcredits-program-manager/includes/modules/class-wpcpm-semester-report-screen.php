@@ -42,7 +42,7 @@ final class WPCPM_Semester_Report_Screen {
 	const ACTION_GENERATE = 'wpcpm_report_generate';
 
 	/** The `admin_post_` action the editing form posts to. */
-	const ACTION_SAVE = 'wpcpm_report_save';
+	const ACTION_SAVE = 'wpcpm_semester_report_save';
 
 	/** The `admin_post_` action that re-reads the students' consent. */
 	const ACTION_REFRESH_CONSENT = 'wpcpm_report_refresh_consent';
@@ -234,7 +234,7 @@ final class WPCPM_Semester_Report_Screen {
 		);
 
 		printf(
-			'<summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html__( 'Semester report', 'wpcredits-program-manager' )
 		);
 
@@ -1593,7 +1593,7 @@ final class WPCPM_Semester_Report_Screen {
 		// the reader has to be told which half of the world was unreachable so they know
 		// whether to try again or to ask somebody.
 		if ( is_wp_error( $generated ) ) {
-			self::bounce( 'generate-failed', array( 'why' => $generated->get_error_message() ), $cohort );
+			self::bounce( 'generate-failed', array( 'why' => self::why_for_viewer( $generated ) ), $cohort );
 		}
 
 		self::leave( 'generated', array(), $cohort );
@@ -1703,7 +1703,7 @@ final class WPCPM_Semester_Report_Screen {
 		$refreshed = WPCPM_Semester_Report::refresh_consent( $post );
 
 		if ( is_wp_error( $refreshed ) ) {
-			self::bounce( 'consent-failed', array( 'why' => $refreshed->get_error_message() ), self::cohort_of( $post ) );
+			self::bounce( 'consent-failed', array( 'why' => self::why_for_viewer( $refreshed ) ), self::cohort_of( $post ) );
 		}
 
 		self::leave( 'consent-refreshed', array(), self::cohort_of( $post ) );
@@ -1858,7 +1858,7 @@ final class WPCPM_Semester_Report_Screen {
 		$candidates = self::ask_list( $post );
 
 		if ( is_wp_error( $candidates ) ) {
-			self::bounce( 'ask-unread', array( 'why' => $candidates->get_error_message() ), $cohort, $record );
+			self::bounce( 'ask-unread', array( 'why' => self::why_for_viewer( $candidates ) ), $cohort, $record );
 		}
 
 		if ( empty( $candidates ) ) {
@@ -2901,6 +2901,32 @@ final class WPCPM_Semester_Report_Screen {
 				__( 'That did not work: %s', 'wpcredits-program-manager' ),
 				(string) $detail['why']
 			);
+		}
+
+		return '';
+	}
+
+	/**
+	 * The "why" a reader may be shown beside a failed read: Airtable's own words for a
+	 * manager, a fixed sentence for anybody else.
+	 *
+	 * The client's messages quote the HTTP status and, on a 401 or 403, Airtable's hint
+	 * about the token's scopes. A program manager can act on that; an institution member
+	 * cannot, and the export module already refuses to print it to them for the reason that
+	 * a partner's screen is not the place for the program's credentials to be described. The
+	 * generic sentence the status key already carries says the records could not be read;
+	 * this adds only what a member can use, which is whether waiting a minute will help.
+	 *
+	 * @param WP_Error $error The failed read.
+	 * @return string What to print after the status sentence, or '' for nothing more.
+	 */
+	private static function why_for_viewer( WP_Error $error ) {
+		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return $error->get_error_message();
+		}
+
+		if ( 'wpcpm_airtable_rate_limited' === $error->get_error_code() ) {
+			return __( 'The program records are busy at the moment. Try again in a minute.', 'wpcredits-program-manager' );
 		}
 
 		return '';

@@ -4,7 +4,7 @@
  *
  * A module is not one file. Adding an audience means a role slug, a marker capability, a
  * grant to Administrator, a matching removal on uninstall, an access level in the editor, a
- * notice audience, an entry in the module registry — and every one of those is somewhere
+ * notice audience, an entry in the module registry - and every one of those is somewhere
  * else. Nothing fails loudly when one is missed: the role simply cannot read its own
  * content, or a capability survives an uninstall on a site that removed the plugin.
  *
@@ -31,8 +31,7 @@ function sprintf_noop() {}
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_url( $s ) { return (string) $s; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
-function current_user_can( $cap ) { return (bool) $GLOBALS['can_manage']; }
-
+require_once __DIR__ . '/stubs/caps.php';
 class WP_Role {
 	public $name, $capabilities;
 	public function __construct( $name = '', $caps = array() ) {
@@ -76,8 +75,8 @@ ck( 'every audience has a role',
         WPCPM_Roles::ROLE_SPONSOR,
     ) );
 
-// Bare `student` or `sponsor` would be shared with whatever else claims it — an LMS, a
-// donations plugin — and sharing a slug means sharing its capability set.
+// Bare `student` or `sponsor` would be shared with whatever else claims it - an LMS, a
+// donations plugin - and sharing a slug means sharing its capability set.
 $unprefixed = array();
 $unlabelled = array();
 $capless    = array();
@@ -144,7 +143,7 @@ foreach ( array( 'sponsors' => 'WPCPM_Sponsors', 'institutions' => 'WPCPM_Instit
 }
 
 // A notice aimed at Sponsors would silently reach nobody if the audience were listed
-// without a matching membership test — the switch returns false for anything it does not
+// without a matching membership test - the switch returns false for anything it does not
 // recognise, so the notice just never appears.
 ck( 'Sponsors are a notice audience, and membership is actually tested',
     array(
@@ -298,7 +297,7 @@ $row->ID = 42;
 
 ck( 'an int passes through', WPCPM_Roles::id_of( 7 ), 7 );
 ck( 'a numeric string is an ID too', WPCPM_Roles::id_of( '7' ), 7 );
-ck( 'a row object yields its ID — stdClass or WP_User, the branch is the same', WPCPM_Roles::id_of( $row ), 42 );
+ck( 'a row object yields its ID - stdClass or WP_User, the branch is the same', WPCPM_Roles::id_of( $row ), 42 );
 ck( 'anything else is nobody',
     array( WPCPM_Roles::id_of( null ), WPCPM_Roles::id_of( 'abc' ), WPCPM_Roles::id_of( new stdClass() ) ),
     array( 0, 0, 0 ) );

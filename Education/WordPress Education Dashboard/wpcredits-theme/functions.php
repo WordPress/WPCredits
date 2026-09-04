@@ -1,6 +1,6 @@
 <?php
 /**
- * WPCredits — a block theme, and the front end for the WPCredits Program Manager
+ * WPCredits - a block theme, and the front end for the WPCredits Program Manager
  * plugin.
  *
  * Everything the site owner can arrange lives in theme.json, the templates and
@@ -25,12 +25,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **A hand-kept copy of the version drifts, and the drift is invisible.** This one sat at 1.7.1
  * through ten releases, and since it is the `ver` on every stylesheet and script the theme
  * enqueues, every browser and every edge cache kept serving whatever they had from the last time
- * that number changed. The symptom is not a broken page — it is a fix that "did not work", on a
+ * that number changed. The symptom is not a broken page - it is a fix that "did not work", on a
  * page that is being drawn by CSS from months ago.
  *
  * `wp_get_theme()` reads the header WordPress has already parsed and caches it, so this costs
  * nothing per request and cannot disagree with `style.css`. No argument, so it is the *stylesheet*
- * theme's version — which is the one that matches the files, since `get_theme_file_uri()` and
+ * theme's version - which is the one that matches the files, since `get_theme_file_uri()` and
  * `get_stylesheet_uri()` both prefer a child theme's copy.
  */
 if ( ! defined( 'WPCREDITS_VERSION' ) ) {
@@ -153,7 +153,7 @@ add_action( 'init', 'wpcredits_register_block_styles' );
  * Pick the word "Education" out of the site title in brand blue.
  *
  * Filtered rather than hard-coded into the header part so the block stays a real
- * Site Title block — renaming the site in Settings keeps working, and a site
+ * Site Title block - renaming the site in Settings keeps working, and a site
  * without the word simply loses the accent.
  *
  * @param string $content Rendered block HTML.
@@ -290,7 +290,7 @@ add_filter( 'body_class', 'wpcredits_body_class' );
  * No sharing buttons under a post.
  *
  * Jetpack prints "Share this: X / Facebook / Customize buttons" after the content on
- * every post. This site is a signed-in intranet for a program's students and mentors —
+ * every post. This site is a signed-in intranet for a program's students and mentors -
  * nothing on it is public, so every one of those buttons shares a page the recipient
  * cannot open, and "Customize buttons" is an admin control shown to readers.
  *

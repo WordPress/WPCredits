@@ -1,5 +1,5 @@
 /**
- * Mentor Report Card — triage groups, counts, search.
+ * Mentor Report Card - triage groups, counts, search.
  *
  * Progressive enhancement over what has already been rendered. Every value used here is
  * either in the DOM already or was handed over in `wpcpmTriage`; nothing is fetched, nothing
@@ -10,7 +10,7 @@
  * **This lived in wpcredits-theme until plugin 1.64.0.** It was the one piece of the Mentor
  * Report Card that a theme carried, which meant a theme switch took the triage and the search
  * with it. It reads only the DOM and its own localized data, so it had no theme dependencies
- * to unpick — it simply belonged here.
+ * to unpick - it simply belonged here.
  */
 ( function () {
 	'use strict';
@@ -32,7 +32,7 @@
 	document.addEventListener( 'DOMContentLoaded', function () {
 		var root = document.querySelector( '.wpcpm-dashboard' );
 
-		// The notice variants — logged out, wrong role — have no list to group.
+		// The notice variants - logged out, wrong role - have no list to group.
 		if ( ! root || root.classList.contains( 'wpcpm-dashboard--notice' ) ) {
 			return;
 		}
@@ -70,7 +70,7 @@
 
 		// Past students are still rows: they get the same columns, the same report-form
 		// button up in the bar, and the search runs over them. They are only kept out of
-		// the triage groups and their counts — someone who has finished is not a chore to
+		// the triage groups and their counts - someone who has finished is not a chore to
 		// work through.
 		var past = collectPast( root, list );
 
@@ -148,7 +148,7 @@
 			disclosure: disclosure,
 			count: count,
 			// The total to put back once the search is cleared, and whether the section
-			// was open to begin with — the plugin opens it when a note was just saved
+			// was open to begin with - the plugin opens it when a note was just saved
 			// against a past student, and a search must not close it behind them.
 			label: count ? count.textContent : '',
 			wasOpen: disclosure ? disclosure.open : false,
@@ -178,7 +178,7 @@
 		if ( 0 === row.notes ) {
 			stale = true;
 		} else if ( null === row.lastNoteDays ) {
-			// Notes exist but their dates are not on the page — a viewer who may not
+			// Notes exist but their dates are not on the page - a viewer who may not
 			// read them, for instance. Unknown is not the same as overdue.
 			stale = false;
 		} else {
@@ -269,7 +269,7 @@
 	 * The plugin renders the institution, the end date and the note count as one
 	 * run-on line, which is right for a list of six and unreadable at sixty. The
 	 * same three facts are split into columns here and the original line is hidden
-	 * by the stylesheet — nothing is added and nothing is dropped.
+	 * by the stylesheet - nothing is added and nothing is dropped.
 	 *
 	 * @param {Object} row Row.
 	 */
@@ -354,8 +354,8 @@
 	 * The most recent note's date, short.
 	 *
 	 * Taken from the `datetime` attribute rather than the printed text, because
-	 * the plugin prints the site's full date *and* time — "June 12, 2026 10:34 am"
-	 * — which in an 88px column wraps to two lines and makes every row a different
+	 * the plugin prints the site's full date *and* time - "June 12, 2026 10:34 am"
+	 * - which in an 88px column wraps to two lines and makes every row a different
 	 * height. The full stamp is still on the note itself, one click away.
 	 *
 	 * @param {Object} row Row.
@@ -388,14 +388,14 @@
 	 * The row's right-hand action.
 	 *
 	 * **The report form link is left where the plugin puts it.** It used to be hoisted out of
-	 * the card body into the row, back when it opened the student's Airtable form — one link,
+	 * the card body into the row, back when it opened the student's Airtable form - one link,
 	 * reachable without opening the card. Since plugin 1.55.0 it opens that student's report
 	 * *on this page*, at the foot of their own card, which is where the answer appears; a
 	 * control in the row that scrolls you into the card below it is a worse version of the
 	 * disclosure triangle already there.
 	 *
 	 * So the only row action left is the one for a student who needs a call: it opens the card
-	 * and puts the cursor in the note field — the thing the mentor came to do.
+	 * and puts the cursor in the note field - the thing the mentor came to do.
 	 *
 	 * Rows nobody has to act on get nothing: the disclosure triangle already says the row
 	 * opens, and a second control that does the same is noise.
@@ -524,7 +524,7 @@
 
 		// The page title is *not* moved in here, though it once was. It sits above the card
 		// as "Mentor Report Card", matching the student page, and the mentor's name is the
-		// identity line beneath it — two different things, and folding one into the other
+		// identity line beneath it - two different things, and folding one into the other
 		// made the page's own title read as a label on the mentor.
 		var updated = root.querySelector( '.wpcpm-dashboard__updated' );
 
@@ -630,7 +630,7 @@
 			bar.appendChild( bulk );
 		}
 
-		// Above the group headings, directly under the band — not inside the current
+		// Above the group headings, directly under the band - not inside the current
 		// group, which is where anchoring on the list itself would put it. That also
 		// means the toolbar has somewhere to go when there is no current list at all.
 		var anchor = root.querySelector( '.wpcpm-group' )
@@ -800,8 +800,8 @@
 	 * the count beside the search box used to say: searching for someone a mentor
 	 * finished with last term answered "No students match that search."
 	 *
-	 * The triage filters are a different matter — "Need a call" and "Ending soon" name
-	 * states only a current student can be in — so the section drops out of a filtered
+	 * The triage filters are a different matter - "Need a call" and "Ending soon" name
+	 * states only a current student can be in - so the section drops out of a filtered
 	 * view entirely rather than sitting under it unfiltered.
 	 *
 	 * @param {Object} past  The past students' section.

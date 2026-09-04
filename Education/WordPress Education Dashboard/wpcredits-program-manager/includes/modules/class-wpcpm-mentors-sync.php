@@ -1,6 +1,6 @@
 <?php
 /**
- * Mentors module — Airtable sync.
+ * Mentors module - Airtable sync.
  *
  * @package WPCreditsProgramManager
  */
@@ -76,7 +76,7 @@ class WPCPM_Mentors_Sync {
 	 *
 	 * `weight` is that phase's share of the progress bar. `steps` is a rough
 	 * expected number of slices, used only to interpolate the bar *within* a
-	 * phase — Airtable's list endpoint never reports a total record count, so a
+	 * phase - Airtable's list endpoint never reports a total record count, so a
 	 * genuinely exact percentage is not available. The bar is therefore honest at
 	 * phase boundaries and an estimate in between, which is why the live record
 	 * counts are shown alongside it rather than instead of it.
@@ -128,7 +128,7 @@ class WPCPM_Mentors_Sync {
 	 *
 	 * Names rather than IDs because `filterByFormula` only accepts names. Note
 	 * that the Students table's tutor column really is called `Tutor ` with a
-	 * trailing space — dropping it silently returns no tutor at all.
+	 * trailing space - dropping it silently returns no tutor at all.
 	 *
 	 * @return array<string, string>
 	 */
@@ -200,7 +200,7 @@ class WPCPM_Mentors_Sync {
 	 * Which `fields()` key holds a track's reporting-form link.
 	 *
 	 * The three formula columns are all populated on every record, so reading the wrong one gives a
-	 * working link to the wrong form — a failure that looks like success until a student fills in
+	 * working link to the wrong form - a failure that looks like success until a student fills in
 	 * somebody else's questions. Hence a map rather than a conditional.
 	 *
 	 * A finished student has no track. They keep the 150-hour link, which is the form most of them
@@ -262,7 +262,7 @@ class WPCPM_Mentors_Sync {
 	 *
 	 * No work happens here on purpose. Doing the first slice inline would block
 	 * the click that started the sync for up to a full budget with nothing on
-	 * screen — exactly the "is it stuck?" moment this is meant to avoid. Instead
+	 * screen - exactly the "is it stuck?" moment this is meant to avoid. Instead
 	 * the state is written, a cron tick is queued as a safety net, and the caller
 	 * redirects straight to a screen that reports progress and drives the
 	 * remaining ticks itself.
@@ -274,6 +274,17 @@ class WPCPM_Mentors_Sync {
 	public static function start( $run_first_tick = false ) {
 		if ( ! WPCPM_Settings::is_connected() ) {
 			$error = new WP_Error( 'wpcpm_not_connected', __( 'Add an Airtable Personal Access Token and Base ID before syncing.', 'wpcredits-program-manager' ) );
+			update_option( self::OPT_ERROR, $error->get_error_message(), false );
+
+			return $error;
+		}
+
+		// Refused before any state is written, like the missing token: a run with no status
+		// to filter by would read the whole base, and the screen has to say so rather than
+		// count it as a run that finished.
+		$error = self::empty_statuses_error( WPCPM_Settings::get(), true );
+
+		if ( is_wp_error( $error ) ) {
 			update_option( self::OPT_ERROR, $error->get_error_message(), false );
 
 			return $error;
@@ -292,7 +303,7 @@ class WPCPM_Mentors_Sync {
 				'mentors' => array(),
 				'reports' => array(),
 				// All three are email-keyed maps filled by the same pass over the Students
-				// table. They auto-vivify, so leaving two of them out worked — but the
+				// table. They auto-vivify, so leaving two of them out worked - but the
 				// asymmetry is what made a missing "Field of study" read as a code difference
 				// between it and the tutor rather than as two caches of different ages.
 				'tutors'  => array(),
@@ -374,7 +385,7 @@ class WPCPM_Mentors_Sync {
 	 * claims a phase is finished before it is.
 	 *
 	 * @param array $state Sync state.
-	 * @return int 0–100.
+	 * @return int 0-100.
 	 */
 	private static function percent( array $state ) {
 		$phase = isset( $state['phase'] ) ? (string) $state['phase'] : '';
@@ -599,7 +610,7 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
-	 * Phase 0 — read each field's description straight from Airtable.
+	 * Phase 0 - read each field's description straight from Airtable.
 	 *
 	 * One request, and deliberately non-fatal: descriptions are documentation, so
 	 * a token without the `schema.bases:read` scope should degrade to the built-in
@@ -655,10 +666,10 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
-	 * Phase 0b — build record ID → name maps for the linked-record fields.
+	 * Phase 0b - build record ID → name maps for the linked-record fields.
 	 *
-	 * The REST API returns a linked-record cell as an array of bare record IDs —
-	 * `["recGzpWO43cQnVYEw"]` — not as objects carrying the linked record's name.
+	 * The REST API returns a linked-record cell as an array of bare record IDs -
+	 * `["recGzpWO43cQnVYEw"]` - not as objects carrying the linked record's name.
 	 * Without this phase the mentor page shows raw `rec…` IDs where the
 	 * institution and contribution team should be.
 	 *
@@ -671,7 +682,7 @@ class WPCPM_Mentors_Sync {
 		$tables = array(
 			'institutions' => array( $settings['institutions_table'], $settings['institutions_name_field'] ),
 			'teams'        => array( $settings['teams_table'], $settings['teams_name_field'] ),
-			// Sponsors, for the report form's Company field — a linked record like the other two,
+			// Sponsors, for the report form's Company field - a linked record like the other two,
 			// so it needs the same record-ID-to-name catalog before a student can be offered a
 			// choice that is safe to write back.
 			'companies'    => array( $settings['sponsors_table'], $settings['sponsors_name_field'] ),
@@ -690,7 +701,7 @@ class WPCPM_Mentors_Sync {
 
 			list( $table, $fallback_field ) = $config;
 
-			// Ask for exactly one column — the table's primary field, whose name
+			// Ask for exactly one column - the table's primary field, whose name
 			// comes from the schema when available and from a setting otherwise.
 			// An earlier version requested every field and took the first string it
 			// found, on the assumption that the primary field is returned first.
@@ -780,7 +791,7 @@ class WPCPM_Mentors_Sync {
 		$ids = WPCPM_Airtable::link_ids( $value );
 
 		if ( empty( $ids ) ) {
-			// Not a link cell after all — a lookup or plain text field.
+			// Not a link cell after all - a lookup or plain text field.
 			return WPCPM_Airtable::flatten( $value );
 		}
 
@@ -819,11 +830,16 @@ class WPCPM_Mentors_Sync {
 	/**
 	 * Whether a string is an Airtable record ID.
 	 *
+	 * An alias of `WPCPM_Airtable::is_record_id()`, kept for one release. The pattern lived
+	 * here first, which meant the whole plugin, the Institutions policy included, was reading a
+	 * fact about Airtable off the Mentors sync; the client now owns it and new code calls the
+	 * client. Removed with the next major version.
+	 *
 	 * @param string $value Value to test.
 	 * @return bool
 	 */
 	public static function is_record_id( $value ) {
-		return (bool) preg_match( '/^rec[A-Za-z0-9]{14}$/', trim( (string) $value ) );
+		return WPCPM_Airtable::is_record_id( $value );
 	}
 
 	/**
@@ -831,7 +847,7 @@ class WPCPM_Mentors_Sync {
 	 *
 	 * Applied when rendering, not only when syncing. Mentee rows are cached in
 	 * user meta, so rows written before linked-record resolution existed still hold
-	 * raw IDs — and fixing the sync alone would leave those on screen until someone
+	 * raw IDs - and fixing the sync alone would leave those on screen until someone
 	 * happened to re-sync. An ID with no name is dropped rather than printed, so the
 	 * row reads "Not set" instead of leaking `recXXXXXXXXXXXXXX`.
 	 *
@@ -892,7 +908,7 @@ class WPCPM_Mentors_Sync {
 					'role'       => WPCPM_Roles::ROLE_MENTOR,
 					'number'     => 1,
 					'fields'     => 'ID',
-					'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- One row, bounded.
+					'meta_query' => array(
 						array(
 							'key'     => self::META_MENTEES,
 							'compare' => 'EXISTS',
@@ -908,7 +924,43 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
+	 * The refusal a sync answers when it has no statuses to filter the base by.
+	 *
+	 * `formula_in()` turns an empty list into an empty formula, and `fetch_page()` reads an
+	 * empty formula as "no filter": a blank status setting does not fetch nobody, it fetches
+	 * every row of the table. For the Students Reports table that is an account, a Student role
+	 * and an institution stamp for every SPAM and rejected row; for the mentors table, a Mentor
+	 * role for everyone who ever applied; and a blanked current-student list on its own revokes
+	 * every current student on the next run, because none of them is fetched any more. Each of
+	 * those runs would finish with no error recorded. `WPCPM_Settings::save()` puts the default
+	 * back when a manager blanks a field; this is for an option stored before that guard, and
+	 * it takes the shape of the missing-token refusal so every caller that reports that one
+	 * reports this one too.
+	 *
+	 * @param array $settings      Plugin settings.
+	 * @param bool  $mentor_status Whether the caller also filters mentors and so needs `mentor_status`.
+	 * @return WP_Error|null Null when the lists are usable.
+	 */
+	public static function empty_statuses_error( array $settings, $mentor_status = false ) {
+		if ( empty( self::tracked_statuses( $settings )['active'] ) ) {
+			return new WP_Error( 'wpcpm_no_statuses', __( 'No current student status is set, so a sync would read every row of the Students Reports table as a current student. Add at least one under "Currently mentoring" on the Settings screen before syncing.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( $mentor_status && '' === trim( isset( $settings['mentor_status'] ) ? (string) $settings['mentor_status'] : '' ) ) {
+			return new WP_Error( 'wpcpm_no_statuses', __( 'The mentor status to sync is blank, so a sync would give every row of the mentors table a Mentor account whatever its status. Set it on the Settings screen before syncing.', 'wpcredits-program-manager' ) );
+		}
+
+		return null;
+	}
+
+	/**
 	 * The Airtable statuses this module tracks, split into current and finished.
+	 *
+	 * A pure reading of the settings: an empty `active` list is returned as empty, not
+	 * defaulted, because two other places already refuse it. `WPCPM_Settings::save()` puts the
+	 * default back when a manager blanks the field, and both syncs' `start()` refuse to run on
+	 * an empty list through `empty_statuses_error()`, since an empty list is an empty formula
+	 * and an empty formula fetches the whole table.
 	 *
 	 * @param array|null $settings Optional settings override.
 	 * @return array{active: string[], past: string[], all: string[]}
@@ -955,7 +1007,7 @@ class WPCPM_Mentors_Sync {
 	 * fallbacks below used until then.
 	 *
 	 * Nothing renders these since the Description column was dropped from the
-	 * student table in 1.9.0. Kept as a public API — the `wpcpm_field_descriptions`
+	 * student table in 1.9.0. Kept as a public API - the `wpcpm_field_descriptions`
 	 * filter is documented, and the schema read that feeds it is needed anyway for
 	 * `primary_fields()`, which is how linked records resolve to names.
 	 *
@@ -1003,7 +1055,7 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
-	 * Phase 1 — page through active mentors, provisioning an account for each.
+	 * Phase 1 - page through active mentors, provisioning an account for each.
 	 *
 	 * @param array          $state    Sync state, by reference.
 	 * @param WPCPM_Airtable $airtable Client.
@@ -1074,7 +1126,7 @@ class WPCPM_Mentors_Sync {
 		if ( '' === $login ) {
 			$state['notices'][] = sprintf(
 				/* translators: 1: mentor name, 2: raw profile value from Airtable. */
-				__( 'Skipped %1$s — no WordPress.org username could be read from "%2$s".', 'wpcredits-program-manager' ),
+				__( 'Skipped %1$s - no WordPress.org username could be read from "%2$s".', 'wpcredits-program-manager' ),
 				$mentor['name'] ? $mentor['name'] : $mentor['record_id'],
 				$mentor['profile']
 			);
@@ -1086,7 +1138,7 @@ class WPCPM_Mentors_Sync {
 		if ( ! is_email( $email ) ) {
 			$state['notices'][] = sprintf(
 				/* translators: %s: mentor name. */
-				__( 'Skipped %s — Airtable has no valid email address, and WordPress cannot create an account without one.', 'wpcredits-program-manager' ),
+				__( 'Skipped %s - Airtable has no valid email address, and WordPress cannot create an account without one.', 'wpcredits-program-manager' ),
 				$mentor['name'] ? $mentor['name'] : $login
 			);
 			++$state['stats']['skipped'];
@@ -1112,13 +1164,13 @@ class WPCPM_Mentors_Sync {
 
 		if ( $user instanceof WP_User ) {
 			// A login already claimed by a different mentor record is a genuine
-			// clash — two people cannot share one account.
+			// clash - two people cannot share one account.
 			$claimed = (string) get_user_meta( $user->ID, self::META_RECORD_ID, true );
 
 			if ( '' !== $claimed && $claimed !== $mentor['record_id'] ) {
 				$state['notices'][] = sprintf(
 					/* translators: 1: mentor name, 2: WordPress username. */
-					__( 'Skipped %1$s — the account "%2$s" is already linked to a different Airtable mentor record. Resolve the duplicate in Airtable.', 'wpcredits-program-manager' ),
+					__( 'Skipped %1$s - the account "%2$s" is already linked to a different Airtable mentor record. Resolve the duplicate in Airtable.', 'wpcredits-program-manager' ),
 					$mentor['name'] ? $mentor['name'] : $login,
 					$user->user_login
 				);
@@ -1230,7 +1282,7 @@ class WPCPM_Mentors_Sync {
 		++$state['stats']['created'];
 
 		// wp_insert_user() sends nothing on its own. Accounts are created with a
-		// random password, so an invite is the only way in — but sending ~90 of
+		// random password, so an invite is the only way in - but sending ~90 of
 		// them is a decision for a human, hence the opt-in setting.
 		if ( WPCPM_Settings::get_value( 'send_welcome_email' ) ) {
 			// Queued, not sent. A first sync creates around ninety accounts inside one
@@ -1244,7 +1296,7 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
-	 * Phase 2 — handle mentors that are no longer Active in Airtable.
+	 * Phase 2 - handle mentors that are no longer Active in Airtable.
 	 *
 	 * @param array $state    Sync state, by reference.
 	 * @param array $settings Plugin settings.
@@ -1257,7 +1309,7 @@ class WPCPM_Mentors_Sync {
 			array(
 				'number'     => -1,
 				'fields'     => 'ID',
-				'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- Bounded by the number of provisioned mentors.
+				'meta_query' => array(
 					array(
 						'key'     => self::META_RECORD_ID,
 						'compare' => 'EXISTS',
@@ -1301,7 +1353,7 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
-	 * Phase 3 — page through the student reports that belong to the program.
+	 * Phase 3 - page through the student reports that belong to the program.
 	 *
 	 * @param array          $state    Sync state, by reference.
 	 * @param WPCPM_Airtable $airtable Client.
@@ -1418,7 +1470,7 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
-	 * Phase 4 — build an email → tutor map from the Students table.
+	 * Phase 4 - build an email → tutor map from the Students table.
 	 *
 	 * Tutor lives only on Students, while every other field the mentor page shows
 	 * lives on Students Reports, so the two have to be joined on email. The whole
@@ -1497,7 +1549,7 @@ class WPCPM_Mentors_Sync {
 	}
 
 	/**
-	 * Phase 5 — group the reports by mentor and write them to user meta.
+	 * Phase 5 - group the reports by mentor and write them to user meta.
 	 *
 	 * @param array $state Sync state, by reference.
 	 * @return true
@@ -1523,7 +1575,7 @@ class WPCPM_Mentors_Sync {
 
 			foreach ( $mentor_ids as $mentor_id ) {
 				if ( ! isset( $state['mentors'][ $mentor_id ] ) ) {
-					// A student assigned to a mentor who is not Active — real, and
+					// A student assigned to a mentor who is not Active - real, and
 					// worth surfacing rather than dropping on the floor.
 					++$state['stats']['orphaned'];
 					continue;
@@ -1581,7 +1633,7 @@ class WPCPM_Mentors_Sync {
 	/**
 	 * Sort mentees by internship end date, soonest first, then by name.
 	 *
-	 * Rows with no end date sort last — an unknown date is not an urgent one.
+	 * Rows with no end date sort last - an unknown date is not an urgent one.
 	 *
 	 * @param array $a First row.
 	 * @param array $b Second row.

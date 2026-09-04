@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Two people agree a half-hour slot across two timezones. Without this they each read a
  * date out of an email and type it into a calendar by hand, which is exactly where the
- * off-by-one-hour mistakes come from — and it has to happen twice, correctly, or the call
+ * off-by-one-hour mistakes come from - and it has to happen twice, correctly, or the call
  * does not happen.
  *
  * **Attached as a file rather than sent as a `text/calendar` body part.** A true iTIP
@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * The UID is derived from the call's post ID, so the cancellation names the same event the
  * booking created and a calendar can match them. That is the whole reason cancellations
- * work at all — a fresh UID would add a second event rather than remove the first.
+ * work at all - a fresh UID would add a second event rather than remove the first.
  */
 class WPCPM_ICS {
 
@@ -243,7 +243,7 @@ class WPCPM_ICS {
 
 		// A directory per send, so the file keeps the name the recipient should see. Two
 		// concurrent bookings would otherwise race for one path, and the loser would attach
-		// the winner's calendar — a real possibility with two students booking at once.
+		// the winner's calendar - a real possibility with two students booking at once.
 		$unique = $dir . 'wpcpm-' . wp_generate_password( 12, false, false ) . '/';
 
 		if ( ! wp_mkdir_p( $unique ) ) {

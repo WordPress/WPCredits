@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **Logged in only, and narrower than that by default.** The page is gated by capability
  * before anything is rendered, and the shortcode refuses to draw for a visitor even if
- * somebody drops it on a public page by accident — a private handbook assistant that leaks
+ * somebody drops it on a public page by accident - a private handbook assistant that leaks
  * because the page was set to public would be the whole feature failing at once.
  */
 class WPCPM_Handbook_Assistant {
@@ -44,7 +44,7 @@ class WPCPM_Handbook_Assistant {
 		add_action( 'rest_api_init', array( __CLASS__, 'register_route' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
 		// The panel is printed once per page, at the end, for anybody who may use it. The
-		// launcher that opens it is somewhere else entirely — in the theme's header — and
+		// launcher that opens it is somewhere else entirely - in the theme's header - and
 		// the two only know about each other through a data attribute.
 		add_action( 'wp_footer', array( __CLASS__, 'render_panel' ) );
 	}
@@ -206,7 +206,7 @@ class WPCPM_Handbook_Assistant {
 		<p class="wpcpm-hb-panel__foot">
 			<?php
 			// No branch on whether a provider is configured. There is no longer a version of
-			// this that keeps the question on the site — without a provider there is no answer
+			// this that keeps the question on the site - without a provider there is no answer
 			// at all, so the only true thing to say is that questions leave.
 			esc_html_e( 'NOTE: Your question is sent to an external AI service, which searches the WordPress documentation to answer it. Do not type anything confidential.', 'wpcredits-program-manager' );
 			?>
@@ -281,8 +281,8 @@ class WPCPM_Handbook_Assistant {
 				|| user_can( $user->ID, WPCPM_Roles::CAP_MANAGE );
 		}
 
-		// The default. The handbook is written for the people running the program — most of it
-		// describes work a student never does — so mentors and program managers, and nobody
+		// The default. The handbook is written for the people running the program - most of it
+		// describes work a student never does - so mentors and program managers, and nobody
 		// else, until somebody widens it deliberately.
 		return WPCPM_Mentors_Dashboard::is_mentor( $user )
 			|| user_can( $user->ID, WPCPM_Roles::CAP_MANAGE );
@@ -292,7 +292,7 @@ class WPCPM_Handbook_Assistant {
 	 * Whether the configured audience includes students.
 	 *
 	 * The Resources section on the Student Report Card is *for students*, so it follows this
-	 * rather than "can the person looking at it ask" — which on the default setting would put
+	 * rather than "can the person looking at it ask" - which on the default setting would put
 	 * it on a student's page for a program manager inspecting them, and never for the student
 	 * whose page it is.
 	 *
@@ -324,7 +324,7 @@ class WPCPM_Handbook_Assistant {
 	 */
 	public static function render() {
 		// Switched off is switched off: nothing rendered, for anybody, including a manager.
-		// The page itself is unpublished as well — see `apply_visibility()` — so this only
+		// The page itself is unpublished as well - see `apply_visibility()` - so this only
 		// matters where the shortcode has been dropped somewhere else.
 		if ( ! WPCPM_Handbook::is_enabled() ) {
 			return '';
@@ -403,14 +403,14 @@ class WPCPM_Handbook_Assistant {
 	/**
 	 * A "Resources" section for the foot of a dashboard.
 	 *
-	 * Built from the same classes as the Student Report Card's "My course" section —
-	 * `wpcpm-student__section`, `__heading`, `__actions` — rather than a look-alike of its own.
+	 * Built from the same classes as the Student Report Card's "My course" section -
+	 * `wpcpm-student__section`, `__heading`, `__actions` - rather than a look-alike of its own.
 	 * The theme already dresses those, so this is the same section rather than a second one
 	 * that resembles it and drifts the first time either is restyled.
 	 *
 	 * **The guide link does not depend on the assistant.** It is a link to a handbook page, so
 	 * it shows whether or not an AI provider is configured and whether or not this audience may
-	 * ask questions — those govern the "Need help?" button beside it and nothing else. Hiding a
+	 * ask questions - those govern the "Need help?" button beside it and nothing else. Hiding a
 	 * handbook link because an API key is missing would make no sense to anybody.
 	 *
 	 * @param string $audience `student`, `mentor` or `institution`, deciding which guide is
@@ -427,10 +427,10 @@ class WPCPM_Handbook_Assistant {
 		$guide  = isset( $guides[ $audience ] ) ? $guides[ $audience ] : null;
 
 		// On a student's own card the question is whether *students* may ask, not whether the
-		// person looking at it may — otherwise a program manager inspecting a student would see
+		// person looking at it may - otherwise a program manager inspecting a student would see
 		// the button on a page the student never would.
 		// A provider as well as permission. Without one the panel can only apologise, so the
-		// button would be an invitation to a dead end — and this guard was in the version
+		// button would be an invitation to a dead end - and this guard was in the version
 		// before the section grew a guide beside it.
 		$may_ask = WPCPM_Handbook_Answer::provider_ready()
 			&& ( 'student' === $audience
@@ -465,7 +465,7 @@ class WPCPM_Handbook_Assistant {
 		$out .= '<p class="wpcpm-student__actions">';
 
 		if ( $guide && ! empty( $guide['slack'] ) ) {
-			// Slack's published logo — mark and wordmark — as a bare link and not a button:
+			// Slack's published logo - mark and wordmark - as a bare link and not a button:
 			// deliberately none of the `wpcpm-button` classes the two beside it carry, so no
 			// border or fill is drawn around it. A box around a logo fights the logo, and the
 			// artwork is recognisable enough on its own to read as somewhere to go.
@@ -478,7 +478,7 @@ class WPCPM_Handbook_Assistant {
 				esc_attr( $guide['chat'] ),
 				// 56px: the height of the buttons beside it, which the theme builds from a 1px
 				// border, 15px of padding, a 24px line and the same again. The theme repeats the
-				// number in its own stylesheet, since the height is its decision — this is the
+				// number in its own stylesheet, since the height is its decision - this is the
 				// size for anywhere the theme is not.
 				WPCPM_Icons::slack_logo( 56 )
 			);
@@ -606,7 +606,7 @@ class WPCPM_Handbook_Assistant {
 
 		$out = sprintf(
 			'<p class="wpcpm-handbook__hint">%s</p>',
-			esc_html__( 'Answers are looked up in the WordPress documentation — the Education Handbook, Learn WordPress, the developer handbooks and wordpress.org — and link back to the pages they came from.', 'wpcredits-program-manager' )
+			esc_html__( 'Answers are looked up in the WordPress documentation - the Education Handbook, Learn WordPress, the developer handbooks and wordpress.org - and link back to the pages they came from.', 'wpcredits-program-manager' )
 		);
 
 		$examples = array(
@@ -695,7 +695,7 @@ class WPCPM_Handbook_Assistant {
 	 */
 	private static function render_footnote() {
 		// Said plainly and on the page, not in a policy somewhere. There is no local copy any
-		// more, so every question goes out — and somebody typing one about a named student
+		// more, so every question goes out - and somebody typing one about a named student
 		// deserves to know that before they press the button, not after.
 		return sprintf(
 			'<p class="wpcpm-handbook__footnote">%s</p>',
@@ -748,7 +748,7 @@ class WPCPM_Handbook_Assistant {
 	/**
 	 * Bring the page's visibility into line with the setting, when the setting changes.
 	 *
-	 * Switched off has to mean the page is not on the site at all — not a published page that
+	 * Switched off has to mean the page is not on the site at all - not a published page that
 	 * renders nothing, which is still in menus, still in the sitemap, and still a URL somebody
 	 * can land on. Unpublishing is what actually removes it: WordPress drops unpublished pages
 	 * from navigation menus and returns 404 for anybody without permission to preview.

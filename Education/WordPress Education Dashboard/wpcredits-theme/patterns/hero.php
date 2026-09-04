@@ -10,7 +10,7 @@
  * The photo ships with the theme rather than being a dashed placeholder: a landing
  * page whose main image is an empty box reads as broken, and every install had to
  * do the same first job before the page was showable. Replace it with an Image
- * block from the media library to use your own — 1240x745 is the size it is drawn
+ * block from the media library to use your own - 1240x745 is the size it is drawn
  * at, and anything of that shape will do.
  *
  * @package WPCredits_Theme

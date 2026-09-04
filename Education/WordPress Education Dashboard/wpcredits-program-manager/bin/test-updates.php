@@ -7,7 +7,7 @@
  * and a mentor never sees an announcement written for them, too loose and a student reads
  * something meant for administrators.
  *
- * So the real `WPCPM_Content_Access::can_view()` runs here — it is not stubbed. Only WordPress
+ * So the real `WPCPM_Content_Access::can_view()` runs here - it is not stubbed. Only WordPress
  * is faked, and `user_can()` is driven by an explicit per-user capability map rather than by
  * anything the implementation decides, so the assertions cannot be satisfied by the code under
  * test agreeing with itself.
@@ -109,7 +109,7 @@ function get_term_by( $field, $value, $taxonomy = 'category' ) {
  *
  * Deliberately does **not** apply the access meta query. `WPCPM_Content_Access::filter_queries()`
  * would do that on a real site, and stubbing it in would hide whether `WPCPM_Updates` filters
- * for itself — which is the property worth testing, since it is what still holds when the query
+ * for itself - which is the property worth testing, since it is what still holds when the query
  * filter is bypassed.
  */
 function get_posts( $args = array() ) {
@@ -237,7 +237,7 @@ foreach ( $levels as $level => $title ) {
 	seed_post( ++$id, $title, sprintf( '2026-07-%02d 10:00:00', $id - 100 ), $level );
 }
 
-// The matrix, written out in full rather than derived — a table generated from `levels()` would
+// The matrix, written out in full rather than derived - a table generated from `levels()` would
 // pass whatever the implementation happens to do.
 $expected = array(
 	// who          => public, student, mentor, institution, administrator
@@ -363,7 +363,7 @@ ck( 'newest first',
     false !== strpos( $column, 'Filler 8' ) && false === strpos( $column, 'Filler 1' ), true );
 ck( 'and offers the archive when there is more', false !== strpos( $column, 'All updates' ), true );
 
-// The "All updates" link must follow what *this* reader can see, not the term's own count —
+// The "All updates" link must follow what *this* reader can see, not the term's own count -
 // which includes levels they may not read.
 $GLOBALS['posts'] = array();
 $GLOBALS['pmeta'] = array();

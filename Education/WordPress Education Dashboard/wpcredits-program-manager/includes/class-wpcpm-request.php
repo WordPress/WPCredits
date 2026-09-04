@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Collecting it here buys two things. The `unslash → sanitize → default` sequence is
  * written once instead of eleven times, so it cannot be got subtly wrong in the twelfth
  * place; and the `phpcs:ignore` that says "this is view state, not form data" lives beside
- * the three reads it describes rather than being copied next to every caller — where, as it
+ * the three reads it describes rather than being copied next to every caller - where, as it
  * turned out, several had drifted onto the wrong line and stopped applying at all.
  *
  * **This is not a substitute for verifying a nonce.** Nothing here proves the request was
@@ -49,7 +49,7 @@ class WPCPM_Request {
 	/**
 	 * A free-text argument, such as a date or an Airtable record ID.
 	 *
-	 * The caller still validates the shape — `sanitize_text_field()` only guarantees this
+	 * The caller still validates the shape - `sanitize_text_field()` only guarantees this
 	 * is a harmless string, never that it is a date or a record that exists.
 	 *
 	 * @param string $name     Query argument name.
@@ -70,14 +70,16 @@ class WPCPM_Request {
 	 * A positive integer argument, such as a user ID being inspected.
 	 *
 	 * Returns 0 when absent or not a number, which every caller already treats as "no
-	 * selection" — so there is no separate absent-versus-zero case to handle.
+	 * selection" - so there is no separate absent-versus-zero case to handle. An array is
+	 * not a number either: `absint()` casts a non-empty array to 1, so without the scalar
+	 * check `?wpcpm_export_student_id[]=x` named user 1 while this docblock said 0.
 	 *
 	 * @param string $name Query argument name.
 	 * @return int
 	 */
 	public static function id( $name ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view state; see the class docblock.
-		if ( ! isset( $_GET[ $name ] ) ) {
+		if ( ! isset( $_GET[ $name ] ) || ! is_scalar( $_GET[ $name ] ) ) {
 			return 0;
 		}
 
@@ -88,15 +90,15 @@ class WPCPM_Request {
 	/**
 	 * Whether a login actually asked to be sent somewhere in particular.
 	 *
-	 * `login_redirect` hands over a `$requested_redirect_to`, and the obvious reading — "if
-	 * it is not empty, the visitor asked for somewhere, so honour it" — is wrong. Core's
+	 * `login_redirect` hands over a `$requested_redirect_to`, and the obvious reading - "if
+	 * it is not empty, the visitor asked for somewhere, so honour it" - is wrong. Core's
 	 * login form carries a hidden `redirect_to` field, and when the visitor did not ask for
 	 * anywhere its value is `admin_url()`. So *every* ordinary login arrives looking like an
 	 * explicit request for the admin dashboard, and a filter that steps aside for a non-empty
 	 * value steps aside always.
 	 *
-	 * The admin root therefore counts as "nothing was asked for". Anything else — a gated
-	 * page somebody was bounced off, a specific admin screen — is a real request and is
+	 * The admin root therefore counts as "nothing was asked for". Anything else - a gated
+	 * page somebody was bounced off, a specific admin screen - is a real request and is
 	 * honoured, which is what the guard was for in the first place.
 	 *
 	 * @param string $requested The `$requested_redirect_to` passed to `login_redirect`.
@@ -125,7 +127,7 @@ class WPCPM_Request {
 	 *
 	 * The counterpart to `key()`, and needed for the same reason `posted_id()` is: a form
 	 * that posts to `admin-post.php` puts its fields in `$_POST`, and reading `$_GET` for one
-	 * of them does not fail — it silently returns the fallback, so the feature works and
+	 * of them does not fail - it silently returns the fallback, so the feature works and
 	 * quietly does the wrong thing. That is exactly how the sample-invitation control came to
 	 * send the student template whichever button was pressed.
 	 *
@@ -149,16 +151,17 @@ class WPCPM_Request {
 	/**
 	 * A positive integer from a posted form.
 	 *
-	 * Only for reading *view state* back off a form — which student a manager was looking
-	 * at when they saved — inside a handler that has already verified its nonce and
-	 * capability. It does not verify anything itself.
+	 * Only for reading *view state* back off a form - which student a manager was looking
+	 * at when they saved - inside a handler that has already verified its nonce and
+	 * capability. It does not verify anything itself. Like `id()`, an array is 0, not the 1
+	 * that `absint()` would make of it.
 	 *
 	 * @param string $name Field name.
 	 * @return int
 	 */
 	public static function posted_id( $name ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
-		if ( ! isset( $_POST[ $name ] ) ) {
+		if ( ! isset( $_POST[ $name ] ) || ! is_scalar( $_POST[ $name ] ) ) {
 			return 0;
 		}
 
@@ -170,7 +173,7 @@ class WPCPM_Request {
 	 * Free text from a posted form.
 	 *
 	 * The counterpart to `text()`, for a filter that has to survive the round trip through
-	 * `admin-post.php` — which sees the form's fields and not the query string of the screen the
+	 * `admin-post.php` - which sees the form's fields and not the query string of the screen the
 	 * form was on. `sanitize_key()` would not do: an institution's name has spaces, capitals and
 	 * punctuation in it.
 	 *

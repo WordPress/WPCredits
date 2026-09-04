@@ -1,9 +1,9 @@
 /**
- * Student program page — front-end styles.
+ * Student program page - front-end styles.
  *
  * Loaded after the mentor stylesheet, which it depends on. Everything the two
- * pages share — the color tokens, the identity header, the "view as" switcher,
- * avatars, badges, buttons, the muted-text treatment — comes from there, so this
+ * pages share - the color tokens, the identity header, the "view as" switcher,
+ * avatars, badges, buttons, the muted-text treatment - comes from there, so this
  * file only carries what is specific to the student page. Anything defined twice
  * is a chance for the two pages to drift apart.
  */
@@ -80,7 +80,7 @@
 	margin: 0;
 }
 
-/* Two buttons, and one of them is the course — the thing a student is actually working
+/* Two buttons, and one of them is the course - the thing a student is actually working
    through. The report form is the second errand, so it is outlined rather than filled. */
 .wpcpm-button--secondary {
 	background: none;
@@ -113,7 +113,7 @@
    column should not leave the sentence floating halfway up beside a long list of updates.
    In practice the column is as tall as the updates beside it, so the sentence sat a long
    way under the buttons it describes and read as belonging to nothing. It follows the
-   buttons now — its own `margin: 1em 0 0` — and a short column simply ends early. */
+   buttons now - its own `margin: 1em 0 0` - and a short column simply ends early. */
 .wpcpm-resources__col .wpcpm-student__note:last-child {
 	margin-top: 1em;
 }
@@ -251,14 +251,14 @@
    forms stacked with nothing between them read as one long form with three headings in it, and the
    button that ends one sat directly above the summary that begins the next. Drawn under the whole
    disclosure rather than under the button, so a collapsed survey is separated from its neighbour
-   too — otherwise the rules appear and disappear as forms are opened. */
+   too - otherwise the rules appear and disappear as forms are opened. */
 .wpcpm-feedback {
 	margin-top: 1em;
 	padding-bottom: 1.25em;
 }
 
 /* The surveys' own heading, and the sentence under it. The heading carries the rule that separates
-   them from the report form — see the theme's note — so the space above belongs to it. */
+   them from the report form - see the theme's note - so the space above belongs to it. */
 .wpcpm-feedback__title {
 	margin-top: 1.75em;
 }
@@ -267,12 +267,12 @@
 	margin: 0 0 0.75em;
 }
 
-/* Room to breathe between the parts of a survey. Left to the defaults these ran into each other —
+/* Room to breathe between the parts of a survey. Left to the defaults these ran into each other -
    the line explaining what a form is for sat flush against the first group of questions, with no
    gap at all, and the whole thing read as one dense block rather than as a short form with a
    sentence above it. */
 /* In rem, not em. These sit against explanatory notes set at 11px, so an em value gives 14px of
-   space where it reads as 20 — which is how the whole survey ended up looking condensed while
+   space where it reads as 20 - which is how the whole survey ended up looking condensed while
    every gap in it was nominally "1.25". */
 .wpcpm-feedback > .wpcpm-report__body {
 	margin-top: 1rem;
@@ -297,12 +297,12 @@
 /* A layout of its own, not the report form's.
 
    **Two classes deep on purpose.** The report form's groups set their own columns, and
-   `calendar.css` is enqueued *after* this file — so a rule of equal weight here loses, however it
+   `calendar.css` is enqueued *after* this file - so a rule of equal weight here loses, however it
    is written. That is what left every 1-to-5 scale wrapped onto two lines inside a 208px column
    while 1,176px of card sat empty beside it.
 
    The report form asks for grades and links: short answers whose labels are shorter still, and
-   four to a row reads as the mark sheet it is. A survey is the opposite — the *question* is the
+   four to a row reads as the mark sheet it is. A survey is the opposite - the *question* is the
    long part, and the answer is a scale that needs one unbroken line.
 
    So: questions on the left, answers on the right, all of them aligned down the card. A scale, a
@@ -312,7 +312,7 @@
 .wpcpm-report__group.wpcpm-feedback__group {
 	/* The answer column's own indent: the width of a scale's low-end label, and the space after it.
 	   **In rem, not em.** A custom property resolves where it is *used*, so an em value would be
-	   66px inside the 12px label and 85px against the 13px dropdown beside it — which is exactly the
+	   66px inside the 12px label and 85px against the 13px dropdown beside it - which is exactly the
 	   misalignment this exists to prevent. Against the root size both come out the same. */
 	--wpcpm-scale-end: 4.25rem;
 	--wpcpm-scale-gap: 0.5rem;
@@ -322,7 +322,7 @@
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
 	/* The gap does the spacing, not margins on the fields: `calendar.css` zeroes those and is read
 	   after this file, and a row of questions with nothing between them is a wall. In rem for the
-	   reason given below — an em here is measured against whichever question happens to be first. */
+	   reason given below - an em here is measured against whichever question happens to be first. */
 	padding-bottom: 1.25rem;
 	padding-top: 1rem;
 	row-gap: 1.5rem;
@@ -330,7 +330,7 @@
 
 /* **`display` has to be given back when a field is hidden.** The rules below set `display: grid`
    and `display: flex` on fields, and an author `display` beats the `[hidden] { display: none }`
-   every browser ships — so the two conditional follow-ups were shown to everybody however the
+   every browser ships - so the two conditional follow-ups were shown to everybody however the
    script set `hidden`. */
 .wpcpm-report__group.wpcpm-feedback__group > .wpcpm-field[hidden] {
 	display: none;
@@ -348,7 +348,7 @@
 }
 
 /* Scales and dropdowns: the question beside its answer, across the whole width. `22em` rather
-   than a fraction so the answers stay put as the card narrows — a scale that slides left and
+   than a fraction so the answers stay put as the card narrows - a scale that slides left and
    right between questions is harder to read than one that does not move. */
 .wpcpm-feedback__group > .wpcpm-field--rating,
 .wpcpm-feedback__group > .wpcpm-field--select,
@@ -371,7 +371,7 @@
 }
 
 /* Prose: two to a row, each filling its column. Three classes deep for the same reason as the
-   group itself — `calendar.css` sends every textarea in a report group across the full width, and
+   group itself - `calendar.css` sends every textarea in a report group across the full width, and
    it is read after this file. */
 .wpcpm-report__group.wpcpm-feedback__group > .wpcpm-field--textarea {
 	display: flex;
@@ -387,7 +387,7 @@
 /* Dropdowns line up with the scales: indented past the low-end label so the answers start at one
    x whatever kind of answer they are, and as wide as a scale rather than as wide as the card. The
    longest option in any of these columns is "Neither likely nor unlikely", which fits inside this
-   with room to spare — a dropdown wide enough for a sentence looks like it wants one. */
+   with room to spare - a dropdown wide enough for a sentence looks like it wants one. */
 .wpcpm-feedback__group > .wpcpm-field--select select {
 	/* Both boxes are border-box, so a step is exactly `--wpcpm-scale-step` wide and the arithmetic
 	   below lands on the pixel rather than two borders short of it. */
@@ -412,7 +412,7 @@
 
    This is the one control on the page that is an answer written as a label, and two rules further
    up the cascade take it apart: the treatment that makes every question a block kills the flex,
-   and `calendar.css` — read after this file — gives every input in a field `width: 100%`, which
+   and `calendar.css` - read after this file - gives every input in a field `width: 100%`, which
    stretches a checkbox across the line and pushes its own words onto the next one. The result is a
    consent box floating at the right edge above the sentence it belongs to.
 
@@ -433,7 +433,7 @@
 	width: auto;
 }
 
-/* Narrow: one column, and the question above its answer rather than beside it — 22em of label
+/* Narrow: one column, and the question above its answer rather than beside it - 22em of label
    and a scale is more than a phone has. */
 @media ( max-width: 782px ) {
 
@@ -450,7 +450,7 @@
 		grid-column: 1 / -1;
 	}
 
-	/* No question column to line up with, so no indent — and a dropdown takes the width it has. */
+	/* No question column to line up with, so no indent - and a dropdown takes the width it has. */
 	.wpcpm-feedback__group > .wpcpm-field--select select {
 		margin-left: 0;
 		width: 100%;
@@ -462,7 +462,7 @@
 
    Radios, laid out as a row with both ends named. Wrapping is allowed rather
    than scrolling: on a narrow screen the labels fall onto their own line, which
-   is legible — a scrolling scale hides the end somebody is looking for.
+   is legible - a scrolling scale hides the end somebody is looking for.
    -------------------------------------------------------------------------- */
 .wpcpm-rating {
 	align-items: center;
@@ -480,7 +480,7 @@
 }
 
 /* **A fixed column for the low end, so every scale starts at the same x.** The label is part of
-   the scale, not a heading for it, so its width was setting where the steps began — "Poor",
+   the scale, not a heading for it, so its width was setting where the steps began - "Poor",
    "Not at all" and "Very hard" put three rows of steps at three different places, 556px, 585px
    and 588px down the same card. Right-aligned, so the label still sits against the 1 it labels.
 
@@ -497,13 +497,13 @@
    these boxes, so a step whose width depends on its padding and the digit inside it is a step the
    rest of the row cannot line up with.
 
-   The digit takes the whole box and centres inside it. `justify-content` alone did not do it — the
+   The digit takes the whole box and centres inside it. `justify-content` alone did not do it - the
    box carries a hidden radio as well as the number, and the number sat 8px from the left edge with
    35px of space after it. Centring the text inside a span that fills the box does not care what
    else is in there. */
 .wpcpm-feedback__group .wpcpm-rating__step {
 	/* `.wpcpm-field label { display: block }` in `calendar.css` is more specific than the rule that
-	   makes a step a flex box, so the step was not one — which is why `justify-content: center` did
+	   makes a step a flex box, so the step was not one - which is why `justify-content: center` did
 	   nothing and the digit sat against the left edge. */
 	box-sizing: border-box;
 	display: inline-flex;
@@ -522,8 +522,8 @@
 	width: 1.5rem;
 }
 
-/* **Outline until chosen, then filled up to the one you picked.** A star rating is cumulative —
-   three stars means three, not "the third" — so the fill runs from the left, which is what
+/* **Outline until chosen, then filled up to the one you picked.** A star rating is cumulative -
+   three stars means three, not "the third" - so the fill runs from the left, which is what
    `:has( ~ … input:checked )` does: any step with a checked step *after* it is also filled.
    Hovering previews the same way. */
 .wpcpm-rating__step .wpcpm-rating__star {
@@ -538,7 +538,7 @@
 	stroke: none;
 }
 
-/* The preview, while the pointer is over the row. Only where the scale can still be answered —
+/* The preview, while the pointer is over the row. Only where the scale can still be answered -
    a read-only report should not light up under the mouse. */
 .wpcpm-rating__step:hover .wpcpm-rating__star,
 .wpcpm-rating__step:has( ~ .wpcpm-rating__step:hover ) .wpcpm-rating__star {

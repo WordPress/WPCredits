@@ -21,7 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - **A reply that goes somewhere.** Mail otherwise leaves as `wordpress@…`, so a mentor
  *   answering "Call booked with Moldir" is writing to a mailbox nobody reads.
  * - **A record.** `wp_mail()` returns a boolean that every caller discarded, so "the student
- *   says they got nothing" was unanswerable.
+ *   says they got nothing" was unanswerable. The record holds a masked address and the
+ *   template's context, never the subject: see `record()`.
  * - **One filter.** `wpcpm_mail` sees subject, body and headers together, so a site can
  *   change any of it without patching a template.
  */
@@ -47,7 +48,7 @@ class WPCPM_Mail {
 	 *
 	 * The queue only knows who is *left*. Sending 241 invitations ten at a time takes the better
 	 * part of an hour, and a screen that can only say "231 waiting" leaves somebody with no idea
-	 * whether anything is happening — which is how a bulk send gets pressed twice. Holding the
+	 * whether anything is happening - which is how a bulk send gets pressed twice. Holding the
 	 * total it started with turns that into "10 of 241 sent".
 	 */
 	const RUN_OPTION = 'wpcpm_invite_run';
@@ -66,7 +67,7 @@ class WPCPM_Mail {
 	 *
 	 * Set immediately before handing a message to `wp_mail()` and read by the outcome hooks.
 	 * Empty means the message belongs to WordPress or another plugin, and is none of this
-	 * log's business — the log exists to answer "did *our* mail arrive", and a site's entire
+	 * log's business - the log exists to answer "did *our* mail arrive", and a site's entire
 	 * mail volume would bury that.
 	 *
 	 * @var string
@@ -141,7 +142,7 @@ class WPCPM_Mail {
 		}
 
 		// Guarded because `switch_to_user_locale()` arrived in WordPress 6.2 and this plugin
-		// supports 6.5 — but a site can be on a version where the function is absent for
+		// supports 6.5 - but a site can be on a version where the function is absent for
 		// other reasons, and mail in the wrong language beats no mail.
 		$switched = function_exists( 'switch_to_user_locale' ) ? switch_to_user_locale( $user->ID ) : false;
 
@@ -284,7 +285,7 @@ class WPCPM_Mail {
 		}
 
 		// The display name is quoted and stripped of the characters that would end the quoted
-		// string early — a name is user data and this is a header.
+		// string early - a name is user data and this is a header.
 		$name = str_replace( array( '"', '\\', "\r", "\n", ',', ';' ), ' ', (string) $person->display_name );
 		$name = trim( preg_replace( '/\s+/', ' ', $name ) );
 
@@ -312,6 +313,14 @@ class WPCPM_Mail {
 	/**
 	 * Remember one send, if it was ours.
 	 *
+	 * The row is when, a masked address, the context and the outcome. Not the subject, and
+	 * not the address as written: the log exists to answer "did our mail leave", and the
+	 * hundred rows it keeps would otherwise be a contact list in `wp_options`. Recipients
+	 * include applicants and invitees who never became users, and subjects carry other
+	 * people's names ("Call booked with <student>"). The context names the template that
+	 * went out, which is what tracing a missing message needs, and `a***@example.org` is
+	 * enough to tell whose it was next to the account it belongs to.
+	 *
 	 * @param array $mail_data The message, as `wp_mail()` saw it.
 	 * @param bool  $sent      Outcome.
 	 */
@@ -327,23 +336,73 @@ class WPCPM_Mail {
 		// site sends next.
 		self::$context = '';
 
-		$to = isset( $mail_data['to'] ) ? $mail_data['to'] : '';
-		$to = is_array( $to ) ? implode( ', ', $to ) : (string) $to;
-
 		$log = self::log();
 
 		array_unshift(
 			$log,
 			array(
 				'time'    => time(),
-				'to'      => sanitize_text_field( $to ),
+				'to'      => self::mask_recipients( isset( $mail_data['to'] ) ? $mail_data['to'] : '' ),
 				'context' => $context,
-				'subject' => sanitize_text_field( isset( $mail_data['subject'] ) ? (string) $mail_data['subject'] : '' ),
 				'sent'    => (bool) $sent,
 			)
 		);
 
 		update_option( self::LOG_OPTION, array_slice( $log, 0, self::LOG_MAX ), false );
+	}
+
+	/**
+	 * The `to` of a message as the log keeps it: every address masked.
+	 *
+	 * @param string|string[] $to What `wp_mail()` was given: one address, a comma-separated list
+	 *                            or an array, any of them possibly in `Name <address>` form.
+	 * @return string Masked addresses, comma-separated.
+	 */
+	private static function mask_recipients( $to ) {
+		$list = is_array( $to ) ? $to : explode( ',', (string) $to );
+		$out  = array();
+
+		foreach ( $list as $address ) {
+			$masked = self::mask_address( $address );
+
+			if ( '' !== $masked ) {
+				$out[] = $masked;
+			}
+		}
+
+		return implode( ', ', $out );
+	}
+
+	/**
+	 * An address reduced to what identifies it without disclosing it: `a***@example.org`.
+	 *
+	 * The first character of the mailbox and the whole domain. Enough to tell a student's
+	 * address from their mentor's when both got the same message, and to see which mail host
+	 * is refusing, which is the delivery question the log is for. A `Name <address>` form is
+	 * masked by its address and the name dropped; anything that is not an address at all
+	 * becomes `***`, so a malformed recipient still shows as a row.
+	 *
+	 * @param string $address One recipient, as handed to `wp_mail()`.
+	 * @return string The masked form, or an empty string for a blank.
+	 */
+	public static function mask_address( $address ) {
+		$address = trim( (string) $address );
+
+		if ( preg_match( '/<([^>]*)>/', $address, $m ) ) {
+			$address = trim( $m[1] );
+		}
+
+		if ( '' === $address ) {
+			return '';
+		}
+
+		$at = strrpos( $address, '@' );
+
+		if ( false === $at || 0 === $at ) {
+			return '***';
+		}
+
+		return sanitize_text_field( mb_substr( $address, 0, 1 ) . '***' . substr( $address, $at ) );
 	}
 
 	/**
@@ -391,7 +450,7 @@ class WPCPM_Mail {
 	 *
 	 * A first sync provisions around ninety accounts in one request. Sending ninety messages
 	 * from inside that request means a timeout or a host's hourly mail limit somewhere in the
-	 * middle, and no way to know how far it got — so the sync records who needs one and cron
+	 * middle, and no way to know how far it got - so the sync records who needs one and cron
 	 * sends them a batch at a time.
 	 *
 	 * @param int $user_id User ID.
@@ -427,7 +486,7 @@ class WPCPM_Mail {
 	 * of a growing array is a lot of work to do inside one admin request.
 	 *
 	 * **Anyone already invited is dropped here, not only by the caller.** The screen builds its
-	 * list from `never_invited()`, so in practice the two agree — but the list is built when the
+	 * list from `never_invited()`, so in practice the two agree - but the list is built when the
 	 * page renders and acted on when the button is pressed, and a batch can go out in between. The
 	 * caller being careful is not the same as the send being safe, and this is the send.
 	 *
@@ -547,8 +606,8 @@ class WPCPM_Mail {
 
 		$batch = array_splice( $queue, 0, self::QUEUE_BATCH );
 
-		// Written back *before* sending. If the batch dies halfway — a fatal, a timeout, a
-		// mail host refusing the connection — the names in it are already out of the queue,
+		// Written back *before* sending. If the batch dies halfway - a fatal, a timeout, a
+		// mail host refusing the connection - the names in it are already out of the queue,
 		// so the next run moves on instead of retrying the same ten for ever.
 		if ( empty( $queue ) ) {
 			delete_option( self::QUEUE_OPTION );
@@ -582,7 +641,7 @@ class WPCPM_Mail {
 			wp_schedule_single_event( time() + 120, self::CRON_QUEUE );
 		} else {
 			// Stamped only once the last batch has actually been sent, not when the queue option
-			// was emptied above — that happens *before* sending, so the two are not the same
+			// was emptied above - that happens *before* sending, so the two are not the same
 			// moment and a screen reading the earlier one would say "finished" mid-send.
 			self::finish_run();
 		}
@@ -594,7 +653,7 @@ class WPCPM_Mail {
 	 * **The problem this solves.** Every invitation and every "lost your password" mail sends
 	 * somebody to a plain `/wp-login.php?action=rp&key=…` address. On a WordPress.com Atomic host
 	 * with Jetpack SSO switched off, `WPCOMSH_Support_Session_Detect` redirects logged-out login
-	 * requests to `/_wpcomsh_detect_support_session?redirect=…&nonce=…` — and that path is only
+	 * requests to `/_wpcomsh_detect_support_session?redirect=…&nonce=…` - and that path is only
 	 * served while two things are true at once: the request is proxied, and no detection cookie has
 	 * been set yet. Outside that window nothing handles the path, so WordPress 404s and the person
 	 * resetting their password gets "That page could not be found" instead.
@@ -610,7 +669,7 @@ class WPCPM_Mail {
 	 *
 	 * Setting a query parameter to steer another plugin is not pretty. It is done this way because
 	 * `QUERY_PARAM_TO_SHORT_CIRCUIT` is the opt-out wpcomsh defines for the purpose, so it survives
-	 * them renaming or re-prioritising the callback — which `remove_action()` on their class name
+	 * them renaming or re-prioritising the callback - which `remove_action()` on their class name
 	 * would not.
 	 *
 	 * Only the password screens are exempted. Detection exists to stop a support session acting on
@@ -624,7 +683,6 @@ class WPCPM_Mail {
 			return;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- A flag wpcomsh tests for presence; its value is never read.
 		$_GET['disable-support-session-detection'] = '';
 	}
 
@@ -772,7 +830,7 @@ class WPCPM_Mail {
 				esc_html(
 					sprintf(
 						/* translators: 1: how many are left, 2: batch size, 3: human time until the next batch. */
-						__( '%1$d still to go. They go out %2$d at a time, so this finishes on its own — you can leave this page. Next batch %3$s.', 'wpcredits-program-manager' ),
+						__( '%1$d still to go. They go out %2$d at a time, so this finishes on its own - you can leave this page. Next batch %3$s.', 'wpcredits-program-manager' ),
 						$waiting,
 						self::QUEUE_BATCH,
 						$next ? sprintf( /* translators: %s: human time difference. */ __( 'in about %s', 'wpcredits-program-manager' ), human_time_diff( time(), $next ) ) : __( 'shortly', 'wpcredits-program-manager' )
@@ -781,7 +839,7 @@ class WPCPM_Mail {
 				esc_attr__( 'Invitations sent', 'wpcredits-program-manager' )
 			);
 
-			// The abort. The batches already sent cannot be recalled, but the rest can — which is
+			// The abort. The batches already sent cannot be recalled, but the rest can - which is
 			// worth more than the confirmation dialog, because it is the only remedy that exists
 			// after the mistake rather than before it.
 			printf(
@@ -804,7 +862,7 @@ class WPCPM_Mail {
 			echo '</form>';
 
 			// Cron runs on requests, so the page has to come back for the count to move. Only
-			// while something is actually in flight — a page that reloads for ever is its own bug.
+			// while something is actually in flight - a page that reloads for ever is its own bug.
 			echo '<script>window.setTimeout(function(){window.location.reload();},30000);</script>';
 			echo '</div>';
 
@@ -920,7 +978,6 @@ class WPCPM_Mail {
 					'number'      => -1,
 					'orderby'     => 'ID',
 					'count_total' => false,
-					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Run once, from an admin screen, over a few hundred users.
 					'meta_query'  => array(
 						array(
 							'key'     => $meta,
@@ -973,7 +1030,7 @@ class WPCPM_Mail {
 	 * and get different copy.
 	 *
 	 * The reset link's one-day expiry is left exactly as WordPress sets it. Extending it here
-	 * would lengthen the window on every password reset on the site, not just these — so
+	 * would lengthen the window on every password reset on the site, not just these - so
 	 * instead the mail says what to do when the link has gone stale, which is the case that
 	 * actually bites when ninety invitations go out and some are opened on Thursday.
 	 *
@@ -1067,8 +1124,8 @@ class WPCPM_Mail {
 			// that link arrives here on its own.
 			rtrim( (string) $email['message'] ),
 			'',
-			// Names both addresses rather than saying "the link above". WordPress prints two —
-			// the keyed reset link and then the plain login page — and unlabelled they read as
+			// Names both addresses rather than saying "the link above". WordPress prints two -
+			// the keyed reset link and then the plain login page - and unlabelled they read as
 			// the same address twice, which is what prompted this wording.
 			__( 'Of the two addresses above, the long one sets your password and stops working after a day. The short one is the login page, for every time after that. If the password link has expired, open the login page, choose "Lost your password?" and enter this username or your email address to get a fresh one.', 'wpcredits-program-manager' ),
 		);
@@ -1137,7 +1194,7 @@ class WPCPM_Mail {
 				// key, then the plain login page. Standing the login URL in for both made the
 				// sample print the same address twice, which reads as a bug in the template
 				// rather than a shortcut in the preview. The stand-in below keeps the real
-				// shape — same two lines, visibly an example, and not a live reset link,
+				// shape - same two lines, visibly an example, and not a live reset link,
 				// because generating one would invalidate the reader's own password.
 				$example_reset = add_query_arg(
 					array(

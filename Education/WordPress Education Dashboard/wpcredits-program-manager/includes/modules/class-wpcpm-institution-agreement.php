@@ -190,7 +190,7 @@ class WPCPM_Institution_Agreement {
 	const ACTION_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
 
 	/** Where the last bulk recording's tally is kept, for the screen to read back. Non-autoloaded. */
-	const OPTION_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
+	const OPT_ON_FILE_ALL = 'wpcpm_agreement_on_file_all';
 
 	/** Seconds a bulk recording spends before it stops and says how far it got. */
 	const ON_FILE_ALL_BUDGET = 20;
@@ -198,7 +198,7 @@ class WPCPM_Institution_Agreement {
 	/** Longest location note the on-file form keeps, in characters. */
 	const MAX_LOCATION = 200;
 
-	const OPTION_PREFIX = 'wpcpm_agreement_';
+	const OPT_PREFIX = 'wpcpm_agreement_';
 	const LOCK_PREFIX   = 'wpcpm_agreement_lock_';
 	const VERSION       = 1;
 
@@ -327,7 +327,7 @@ class WPCPM_Institution_Agreement {
 	const SCAN_MAX_TOTAL   = 8388608;
 
 	/** Remembers the day the reminder digest went out, so it goes out once. */
-	const OPTION_REMINDED = 'wpcpm_agreement_reminded';
+	const OPT_REMINDED = 'wpcpm_agreement_reminded';
 
 	/**
 	 * Hooks.
@@ -403,7 +403,7 @@ class WPCPM_Institution_Agreement {
 	 * @return string
 	 */
 	public static function option_name( $record_id ) {
-		return self::OPTION_PREFIX . trim( (string) $record_id );
+		return self::OPT_PREFIX . trim( (string) $record_id );
 	}
 
 	/**
@@ -1012,7 +1012,7 @@ class WPCPM_Institution_Agreement {
 			}
 		}
 
-		update_option( self::OPTION_ON_FILE_ALL, $tally, false );
+		update_option( self::OPT_ON_FILE_ALL, $tally, false );
 
 		self::bounce_on_file( 'agreement-on-file-all' );
 	}
@@ -1043,6 +1043,14 @@ class WPCPM_Institution_Agreement {
 		}
 
 		$record = self::record_for_request();
+
+		// An unresolved institution is refused outright rather than treated as "any
+		// institution", the rule `resolve_institution()`'s docblock states and the generate
+		// route already keeps. Without this a manager with no switcher value could file a
+		// document under an empty record ID, where no roster and no card would ever show it.
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+			wp_die( esc_html( WPCPM_Institution_Policy::refusal()->get_error_message() ), 403 );
+		}
 
 		check_admin_referer( self::ACTION_UPLOAD . '_' . $record );
 
@@ -1076,9 +1084,20 @@ class WPCPM_Institution_Agreement {
 		// One in review at a time. Two documents waiting would make "the submitted post" mean
 		// two things to accept, return and withdraw, and a reviewer would have to guess which
 		// of them the institution meant.
+		// **One document in review at a time, held by a lock and not only by a read.** The
+		// "in review" check below reads and the insert further down writes, and two presses of
+		// Upload (the client guard was inert on this page until 1.90.0) ran both through that
+		// gap: two submitted documents, two rounds of mail, and an orphan the institution could
+		// not see or withdraw. The lock is the one the other agreement handlers take, released
+		// on every exit below and left to its own timeout only if the request dies.
+		if ( ! self::lock( $record ) ) {
+			self::bounce( 'agreement-busy' );
+		}
+
 		$summary = self::summary( $record );
 
 		if ( ! empty( $summary['pending_id'] ) ) {
+			self::unlock( $record );
 			self::bounce( 'agreement-in-review' );
 		}
 
@@ -1086,10 +1105,12 @@ class WPCPM_Institution_Agreement {
 		$maximum = self::upload_bytes();
 
 		if ( UPLOAD_ERR_INI_SIZE === $file['error'] || UPLOAD_ERR_FORM_SIZE === $file['error'] || $file['size'] > $maximum ) {
+			self::unlock( $record );
 			self::bounce( 'agreement-too-big' );
 		}
 
 		if ( UPLOAD_ERR_OK !== $file['error'] || $file['size'] < 1 || '' === $file['tmp_name'] || ! self::arrived_by_post( $file['tmp_name'] ) ) {
+			self::unlock( $record );
 			self::bounce( 'agreement-no-file' );
 		}
 
@@ -1097,6 +1118,7 @@ class WPCPM_Institution_Agreement {
 		// went as it should. The one on disk decides, because it is the one about to be read
 		// into this process's memory a few lines below.
 		if ( self::disk_size( $file['tmp_name'] ) > $maximum ) {
+			self::unlock( $record );
 			self::bounce( 'agreement-too-big' );
 		}
 
@@ -1106,6 +1128,7 @@ class WPCPM_Institution_Agreement {
 		$checked = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'], array( 'pdf' => 'application/pdf' ) );
 
 		if ( 'pdf' !== ( isset( $checked['ext'] ) ? $checked['ext'] : '' ) || 'application/pdf' !== ( isset( $checked['type'] ) ? $checked['type'] : '' ) ) {
+			self::unlock( $record );
 			self::bounce( 'agreement-not-pdf' );
 		}
 
@@ -1116,18 +1139,21 @@ class WPCPM_Institution_Agreement {
 		// above still run, so the refusal that matters still happens; a host without fileinfo
 		// is not told it may never send an agreement.
 		if ( self::PDF_MAGIC !== substr( $bytes, 0, strlen( self::PDF_MAGIC ) ) || ( '' !== $mime && 'application/pdf' !== $mime ) ) {
+			self::unlock( $record );
 			self::bounce( 'agreement-not-pdf' );
 		}
 
 		$scan = self::inspect_pdf( $bytes );
 
 		if ( empty( $scan['ok'] ) ) {
+			self::unlock( $record );
 			self::bounce( $scan['reason'] );
 		}
 
 		$stored = WPCPM_Private_Files::store( $bytes, 'pdf' );
 
 		if ( is_wp_error( $stored ) ) {
+			self::unlock( $record );
 			self::bounce( 'agreement-file' );
 		}
 
@@ -1149,6 +1175,7 @@ class WPCPM_Institution_Agreement {
 			// The bytes are already in the store and nothing points at them, so they are
 			// removed here rather than left as a file no route could ever reach again.
 			WPCPM_Private_Files::forget( $stored['path'] );
+			self::unlock( $record );
 			self::bounce( 'agreement-file' );
 		}
 
@@ -1163,6 +1190,7 @@ class WPCPM_Institution_Agreement {
 		update_post_meta( $post_id, self::META_FLAGS, $scan['flags'] );
 
 		self::add_event( $post_id, self::EVENT_UPLOADED );
+		self::unlock( $record );
 
 		// A template the institution generated and then signed is the same agreement, so the
 		// generated row stops being an outstanding step and becomes history. So does one an
@@ -2152,7 +2180,7 @@ class WPCPM_Institution_Agreement {
 	public static function remind() {
 		$today = wp_date( 'Y-m-d' );
 
-		if ( (string) get_option( self::OPTION_REMINDED, '' ) === $today ) {
+		if ( (string) get_option( self::OPT_REMINDED, '' ) === $today ) {
 			return 0;
 		}
 
@@ -2228,7 +2256,7 @@ class WPCPM_Institution_Agreement {
 
 		$sent = (int) WPCPM_Institutions::notify_managers( self::MAIL_REMINDER, $build );
 
-		update_option( self::OPTION_REMINDED, $today, false );
+		update_option( self::OPT_REMINDED, $today, false );
 
 		return $sent;
 	}
@@ -2291,9 +2319,104 @@ class WPCPM_Institution_Agreement {
 	 * @return array|null
 	 */
 	public static function last_on_file_all() {
-		$tally = get_option( self::OPTION_ON_FILE_ALL, null );
+		$tally = get_option( self::OPT_ON_FILE_ALL, null );
 
 		return is_array( $tally ) ? $tally : null;
+	}
+
+	/**
+	 * Mail the site owner an inventory of the signed files an uninstall leaves behind.
+	 *
+	 * Design spec 7.11: uninstall keeps the encrypted signed agreements and the key that
+	 * opens them, because they are the program's legal records and a plugin being removed
+	 * is no reason to lose a signature; what it must not do is leave them behind unlisted,
+	 * with the posts that named them gone. So, before the posts go, every document with a
+	 * file is written out as one line (institution, record ID, state, the date it was
+	 * decided, the path under the private directory, the sha256 of the plaintext) and the
+	 * list is mailed to the site's admin address. It is also written beside the files, but
+	 * only when the last probe found the directory blocked from the web: an inventory of
+	 * legal documents is not something to leave on a directory the host serves.
+	 *
+	 * Called from `WPCPM_Institutions::uninstall()`, before `delete_all()`. A site with no
+	 * files sends nothing.
+	 *
+	 * @return array{files:int,mailed:bool,written:string} What was done.
+	 */
+	public static function manifest_kept_files() {
+		$lines = array();
+
+		$posts = get_posts(
+			array(
+				'post_type'   => self::POST_TYPE,
+				'post_status' => 'any',
+				'numberposts' => -1,
+				'fields'      => 'ids',
+			)
+		);
+
+		foreach ( $posts as $post_id ) {
+			$file = get_post_meta( (int) $post_id, self::META_FILE, true );
+
+			if ( ! is_array( $file ) || empty( $file['path'] ) ) {
+				continue;
+			}
+
+			$record = (string) get_post_meta( (int) $post_id, self::META_INSTITUTION, true );
+			$row    = WPCPM_Institutions_Index::row( $record );
+
+			$lines[] = implode(
+				"\t",
+				array(
+					is_array( $row ) && ! empty( $row['name'] ) ? (string) $row['name'] : '',
+					$record,
+					(string) get_post_meta( (int) $post_id, self::META_STATE, true ),
+					(string) get_post_meta( (int) $post_id, self::META_DECIDED_AT, true ),
+					(string) $file['path'],
+					isset( $file['sha256'] ) ? (string) $file['sha256'] : '',
+				)
+			);
+		}
+
+		if ( empty( $lines ) ) {
+			return array(
+				'files'   => 0,
+				'mailed'  => false,
+				'written' => '',
+			);
+		}
+
+		$text = implode( "\n", array_merge( array( implode( "\t", array( 'institution', 'record', 'state', 'decided', 'path', 'sha256' ) ) ), $lines ) ) . "\n";
+
+		$body = sprintf(
+			/* translators: 1: number of files, 2: the private directory's path, 3: the option holding the key. */
+			__( 'The WPCredits Program Manager plugin has been uninstalled. It has left %1$d signed Collaboration Agreement file(s) in place under %2$s, encrypted with the key in the option %3$s. Both were kept on purpose: they are the program\'s legal records. Below, one line per file: institution, record ID, state, the date it was decided, the file, and the sha256 of the document.', 'wpcredits-program-manager' ),
+			count( $lines ),
+			WPCPM_Private_Files::base(),
+			WPCPM_Private_Files::OPT_KEY
+		) . "\n\n" . $text;
+
+		$mailed = (bool) wp_mail(
+			(string) get_option( 'admin_email' ),
+			__( '[WPCredits] Signed agreements kept after uninstall', 'wpcredits-program-manager' ),
+			$body
+		);
+
+		$written = '';
+		$probe   = WPCPM_Private_Files::probe_result();
+
+		if ( is_array( $probe ) && 'blocked' === WPCPM_Private_Files::verdict( $probe ) ) {
+			$note = WPCPM_Private_Files::write_note( 'kept-agreements-' . gmdate( 'Y-m-d' ) . '.txt', $text );
+
+			if ( ! is_wp_error( $note ) ) {
+				$written = (string) $note;
+			}
+		}
+
+		return array(
+			'files'   => count( $lines ),
+			'mailed'  => $mailed,
+			'written' => $written,
+		);
 	}
 
 	/**
@@ -2304,7 +2427,7 @@ class WPCPM_Institution_Agreement {
 
 		// Locks share the option prefix, so one pattern removes both.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Options are addressable only by exact name; there is one per institution. Uninstall only.
-		$names = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::OPTION_PREFIX ) . '%' ) );
+		$names = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::OPT_PREFIX ) . '%' ) );
 
 		foreach ( (array) $names as $name ) {
 			delete_option( (string) $name );
@@ -2340,12 +2463,12 @@ class WPCPM_Institution_Agreement {
 		global $wpdb;
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Options are addressable only by exact name; there is one per institution and the screen reads them once.
-		$names = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::OPTION_PREFIX ) . '%' ) );
+		$names = $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( self::OPT_PREFIX ) . '%' ) );
 
 		$records = array();
 
 		foreach ( (array) $names as $name ) {
-			$suffix = substr( (string) $name, strlen( self::OPTION_PREFIX ) );
+			$suffix = substr( (string) $name, strlen( self::OPT_PREFIX ) );
 
 			if ( WPCPM_Mentors_Sync::is_record_id( $suffix ) ) {
 				$records[] = $suffix;

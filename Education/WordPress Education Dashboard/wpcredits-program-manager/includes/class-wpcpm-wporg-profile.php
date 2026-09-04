@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * an email and a profile URL and nothing else, so a mentor's Slack handle, job
  * line, website and teams can only come from their profile.
  *
- * Everything is read from the profile hero — the block at the top of
+ * Everything is read from the profile hero - the block at the top of
  * `profiles.wordpress.org/<user>/`. Parsing HTML is a contract with someone
  * else's markup, so every field is independent: a change to one class costs that
  * one field and leaves the rest, and a profile that cannot be read at all yields
@@ -62,7 +62,7 @@ class WPCPM_WPorg_Profile {
 			$cached = get_transient( $key );
 
 			// An empty array is a cached "no profile", which is worth remembering
-			// too — otherwise every sync retries every dead username.
+			// too - otherwise every sync retries every dead username.
 			if ( is_array( $cached ) ) {
 				return empty( $cached ) ? null : $cached;
 			}
@@ -179,7 +179,7 @@ class WPCPM_WPorg_Profile {
 	 */
 	private static function text( $hero, $selector ) {
 		// Both quote styles: the profile's own templates use double quotes, but
-		// anything WordPress renders for it — `get_avatar()` in particular — emits
+		// anything WordPress renders for it - `get_avatar()` in particular - emits
 		// single ones, and a pattern that assumes double silently finds nothing.
 		$pattern = '#<([a-z0-9]+)[^>]*\bclass=(["\'])[^"\']*\b' . preg_quote( $selector, '#' ) . '\b[^"\']*\2[^>]*>(.*?)</\1>#s';
 
@@ -248,7 +248,7 @@ class WPCPM_WPorg_Profile {
 			}
 
 			// Their own site is served through a redirect, so the href never carries
-			// the domain — that is only in the link text.
+			// the domain - that is only in the link text.
 			if ( false !== stripos( $href, 'website-redirect' ) && '' === $out['website'] ) {
 				$out['website']       = $href;
 				$out['website_label'] = $label;

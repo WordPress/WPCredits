@@ -3,7 +3,7 @@
  * The branded login screen.
  *
  * `wp-login.php` is not a template, so a block theme cannot reach it through
- * templates or patterns — the login hooks are the only way in. Everything here is
+ * templates or patterns - the login hooks are the only way in. Everything here is
  * presentation, plus the one thing worth saying to someone arriving on this page:
  * these accounts were created by the program, so a first password comes from
  * "Lost your password?".
@@ -129,8 +129,8 @@ add_filter( 'login_message', 'wpcredits_login_message' );
 /**
  * How to get a first password, and the site's sign-off.
  *
- * Printed after the card. Most people arriving here have never set a password —
- * the program created their account — so saying so beside "Lost your password?"
+ * Printed after the card. Most people arriving here have never set a password -
+ * the program created their account - so saying so beside "Lost your password?"
  * saves a support message.
  */
 function wpcredits_login_footer() {

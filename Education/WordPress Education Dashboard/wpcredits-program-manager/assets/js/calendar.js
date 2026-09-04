@@ -1,5 +1,5 @@
 /**
- * Call calendar — the two small things it wants a script for.
+ * Call calendar - the two small things it wants a script for.
  *
  * The calendar itself works without this: months and days are links, and booking is a
  * form post. Both jobs below are additions to a page that already works, and both are
@@ -8,12 +8,12 @@
  *
  * **Offering the browser's timezone**, on the student's booking calendar. A student who
  * has never set one is otherwise shown the site's clock with nothing to suggest it is not
- * theirs — the one mistake in a booking calendar that cannot be undone by looking harder.
+ * theirs - the one mistake in a booking calendar that cannot be undone by looking harder.
  * It only ever *offers*: silently switching would mean a student on holiday, or behind a
  * VPN, quietly booking against a clock they never chose.
  *
  * **Copying hours between days**, in the mentor's availability editor. It writes into
- * inputs the form already posts, so there is no handler behind it — and nothing is saved
+ * inputs the form already posts, so there is no handler behind it - and nothing is saved
  * by copying. The mentor still presses Save, which means a copy that went to the wrong
  * days is undone by not saving.
  *
@@ -116,7 +116,7 @@
 			}
 
 			// Refuse to copy a day with nothing in it. Copying blanks over the week is a
-			// legitimate reading of "copy", and a destructive surprise — a mentor reaching
+			// legitimate reading of "copy", and a destructive surprise - a mentor reaching
 			// for this wants to fill days in, not empty them. Days are still cleared one at
 			// a time by hand.
 			var filled = pairs.some( function ( pair ) {

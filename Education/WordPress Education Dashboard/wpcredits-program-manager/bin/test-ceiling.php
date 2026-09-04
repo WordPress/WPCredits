@@ -387,5 +387,27 @@ ck( 'the default claim is still one', array( WPCPM_Ceiling::claim( 'events', 2, 
 
 ck( 'no dash but the hyphen', preg_match( '/[\x{2013}\x{2014}]/u', $source ), 0 );
 
+echo "\n=== A claim for more than one place keeps the first row byte-identical ===\n";
+
+// The first-claim path leans on two concurrent first claims writing the same row so the second
+// is told the truth by add_option(). A row that carried the amount broke that: two different
+// rows, both told they won, the window undercounted. The marker row is one place, whatever the
+// amount, and the rest goes through the same read-modify-write every later claim uses.
+$GLOBALS['opts'] = array();
+$GLOBALS['add_fails'] = false;
+ck( 'a first claim of three places is admitted', WPCPM_Ceiling::claim( 'rows', 5, HOUR_IN_SECONDS, 3 ), true );
+ck( 'and counts as three', WPCPM_Ceiling::count( 'rows', HOUR_IN_SECONDS ), 3 );
+ck( 'a second three does not fit in five', WPCPM_Ceiling::claim( 'rows', 5, HOUR_IN_SECONDS, 3 ), false );
+ck( 'two does', WPCPM_Ceiling::claim( 'rows', 5, HOUR_IN_SECONDS, 2 ), true );
+ck( 'and the window is full', array( WPCPM_Ceiling::count( 'rows', HOUR_IN_SECONDS ), WPCPM_Ceiling::claim( 'rows', 5, HOUR_IN_SECONDS ) ), array( 5, false ) );
+// The race the marker row exists for: another request's INSERT lands between this one's read and
+// write. The stub's flag stands in for it. A first claim that loses the INSERT is refused rather
+// than admitted on top of a row it just overwrote.
+$GLOBALS['opts'] = array();
+$GLOBALS['add_fails'] = true;
+ck( 'a first claim whose INSERT lost the race is refused, amount or no amount', array( WPCPM_Ceiling::claim( 'race', 5, HOUR_IN_SECONDS, 3 ), WPCPM_Ceiling::claim( 'race', 5, HOUR_IN_SECONDS ) ), array( false, false ) );
+$GLOBALS['add_fails'] = false;
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+
 exit( $fail ? 1 : 0 );

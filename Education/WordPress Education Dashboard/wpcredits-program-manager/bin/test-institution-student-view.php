@@ -219,6 +219,7 @@ class WPCPM_Institution_Agreement {
 class WPCPM_Mentors_Dashboard {
 	const SCRIPT = 'wpcpm-mentor-dashboard';
 	public static function avatar_url( $username, $email, $size = 64 ) {
+		$GLOBALS['avatar_emails'][] = (string) $email;
 		return '' !== trim( (string) $username ) ? 'https://wordpress.org/grav-redirect.php?user=' . rawurlencode( $username ) : '';
 	}
 	public static function format_dates( $start, $end ) {
@@ -669,6 +670,10 @@ $dashboard_css   = css_rules( 'assets/css/dashboard.css' );
 // avatar sat in an outer wrapper the stylesheet had no rule for, so it stacked above the
 // name instead of standing beside it.
 ck( 'the avatar opens the row the stylesheet paints', false !== strpos( $html, '<div class="wpcpm-institution__student-identity"><img class="wpcpm-avatar"' ), true );
+// The Gravatar fallback is a URL carrying a hash of the student's address: an identifier of the
+// student handed to a third party's page and a third party's server. The card asks for the
+// WordPress.org portrait only.
+ck( 'the card never hands the student\'s address to the avatar service', array_unique( (array) ( $GLOBALS['avatar_emails'] ?? array() ) ), array( '' ) );
 ck( 'and no wrapper the stylesheet has never heard of', false === strpos( $html, 'wpcpm-institution__student-card' ), true );
 
 foreach ( array( 'wpcpm-institution__student-identity', 'wpcpm-institution__student-name' ) as $class ) {

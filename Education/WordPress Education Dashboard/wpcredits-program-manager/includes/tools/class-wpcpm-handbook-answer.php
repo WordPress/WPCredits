@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Answers a question by having the provider search the WordPress documentation.
  *
  * **One layer, deliberately, and with a floor removed.** An earlier version kept a local copy
- * of every page and quoted it, which meant an answer was always available — with no provider,
+ * of every page and quoted it, which meant an answer was always available - with no provider,
  * with a wrong key, with the provider down, out of quota. That copy was a table, a resumable
  * sync, two cron hooks and a progress bar, and it was traded away for this: the provider does
  * its own searching and there is nothing to keep in step.
@@ -48,7 +48,7 @@ class WPCPM_Handbook_Answer {
 	 *
 	 * Generous because a grounded request is not one call: the model searches, reads what it
 	 * finds, and only then writes. Measured against this site's own key, the same three
-	 * questions took 9.4, 18.7 and 24.1 seconds — so the previous 25 was not a margin, it was
+	 * questions took 9.4, 18.7 and 24.1 seconds - so the previous 25 was not a margin, it was
 	 * a coin toss, and it lost. The failure is a cURL 28 and no answer.
 	 *
 	 * Below PHP's `default_socket_timeout` of 60 on this host would be pointless; above it,
@@ -106,8 +106,8 @@ class WPCPM_Handbook_Answer {
 	 * What to tell the reader about a failure.
 	 *
 	 * Decided on the HTTP status rather than on the words in the message. Matching words was
-	 * how "this model is currently experiencing high demand" — a busy model, which succeeds on
-	 * the next attempt — came to be reported as "no longer available, change it in settings":
+	 * how "this model is currently experiencing high demand" - a busy model, which succeeds on
+	 * the next attempt - came to be reported as "no longer available, change it in settings":
 	 * the message contained "model", and that was the whole test.
 	 *
 	 * @param WP_Error $error The failure.
@@ -151,7 +151,7 @@ class WPCPM_Handbook_Answer {
 	 * Providers answer in Markdown whatever the instructions ask for, and `wpautop` alone
 	 * knows nothing about it: the panel printed literal `**During weekly syncs:**` and a
 	 * column of asterisks where a list belonged. Only the two constructs that actually turn
-	 * up are handled — bold and bullets — because anything more is a Markdown parser, and a
+	 * up are handled - bold and bullets - because anything more is a Markdown parser, and a
 	 * wrong one is worse than none.
 	 *
 	 * The result still goes through `wp_kses_post()` at every call site: this adds tags to
@@ -205,7 +205,7 @@ class WPCPM_Handbook_Answer {
 	/**
 	 * The sites an answer is supposed to come from.
 	 *
-	 * Google's search tool has no site filter, so this cannot be enforced on the way out —
+	 * Google's search tool has no site filter, so this cannot be enforced on the way out -
 	 * only asked for in the instructions and checked on the way back. That check is the whole
 	 * reason this list exists: an answer whose citations are all from somewhere else is not a
 	 * WordPress documentation answer, and the reader is told so rather than left to assume.
@@ -233,7 +233,7 @@ class WPCPM_Handbook_Answer {
 	 * Whether a URL is on one of those sites.
 	 *
 	 * Matched on the host's tail, so `developer.wordpress.org` counts for `wordpress.org` and
-	 * `notwordpress.org` does not — which a bare `strpos` would wave through.
+	 * `notwordpress.org` does not - which a bare `strpos` would wave through.
 	 *
 	 * @param string $url URL to test.
 	 * @return bool
@@ -259,7 +259,7 @@ class WPCPM_Handbook_Answer {
 	 *
 	 * **There is no local copy any more.** The provider searches the web itself and is told
 	 * which sites to use; what comes back is its answer plus the pages it read. That removed a
-	 * table, a resumable sync, two cron hooks and a progress bar — and it removed the floor
+	 * table, a resumable sync, two cron hooks and a progress bar - and it removed the floor
 	 * underneath them too. Without a provider configured there is nothing to fall back on, and
 	 * this says so plainly rather than returning an empty answer.
 	 *
@@ -318,8 +318,8 @@ class WPCPM_Handbook_Answer {
 		$answer['sources']   = $generated['sources'];
 		$answer['generated'] = true;
 
-		// Grounded in nothing we recognise. The answer still shows — the model may simply not
-		// have cited anything — but it is marked, because an uncited answer from a model that
+		// Grounded in nothing we recognise. The answer still shows - the model may simply not
+		// have cited anything - but it is marked, because an uncited answer from a model that
 		// was asked to cite is the one most likely to be invented.
 		$answer['unsourced'] = empty( $generated['sources'] );
 
@@ -347,7 +347,7 @@ class WPCPM_Handbook_Answer {
 		return (array) apply_filters(
 			'wpcpm_handbook_providers',
 			array(
-				''       => __( 'None — questions cannot be answered', 'wpcredits-program-manager' ),
+				''       => __( 'None - questions cannot be answered', 'wpcredits-program-manager' ),
 				'gemini' => __( 'Google AI Studio (Gemini)', 'wpcredits-program-manager' ),
 			)
 		);
@@ -408,14 +408,14 @@ class WPCPM_Handbook_Answer {
 		if ( 'gemini' === $provider ) {
 			$answer = self::gemini( $question );
 
-			// One retry when the provider said it was busy — but **against a different model**.
+			// One retry when the provider said it was busy - but **against a different model**.
 			// "High demand" is a statement about one model's capacity, so asking the same one
 			// again is asking the thing that is full: `gemini-flash-latest` answered 503 twice
 			// in a row while `gemini-flash-lite-latest` answered in three seconds.
 			//
 			// Guarded on the budget that is actually left rather than on a fixed number of
 			// seconds. The old guard was "only if the first attempt took under 15s", on the
-			// reasoning that a busy provider fails fast — but a grounded request takes 20 to 60
+			// reasoning that a busy provider fails fast - but a grounded request takes 20 to 60
 			// seconds even when it succeeds, so the retry never once fired and the reader saw
 			// the error on the first failure.
 			if ( is_wp_error( $answer ) && self::is_busy( $answer ) ) {
@@ -446,7 +446,7 @@ class WPCPM_Handbook_Answer {
 	 *
 	 * These carry more weight than they used to. With a local copy there was a hard floor: the
 	 * model was handed the only text it was allowed to use. Searching the web, the restriction
-	 * to wordpress.org exists only because it is asked for here — so it is asked for plainly,
+	 * to wordpress.org exists only because it is asked for here - so it is asked for plainly,
 	 * repeated, and checked afterwards against the citations that come back.
 	 *
 	 * @return string
@@ -476,9 +476,9 @@ class WPCPM_Handbook_Answer {
 	 * @return array|WP_Error `text` and `sources`.
 	 */
 	private static function gemini( $question, $override = '' ) {
-		$key   = (string) WPCPM_Settings::get_value( 'handbook_key', '' );
+		$key = (string) WPCPM_Settings::get_value( 'handbook_key', '' );
 		// The fallback matches the settings default. It used to be `gemini-2.5-flash`, which Google
-		// has since retired — so on a site with no model saved, every question failed with "no
+		// has since retired - so on a site with no model saved, every question failed with "no
 		// longer available" rather than falling back to anything.
 		$model = '' !== $override
 			? $override
@@ -517,7 +517,7 @@ class WPCPM_Handbook_Answer {
 							// Generous on purpose. A grounded request spends tokens searching
 							// and reasoning before it writes a word, and a response cut off by
 							// this ceiling comes back with `finishReason: MAX_TOKENS` and its
-							// `groundingMetadata` **empty** — so a low limit does not shorten
+							// `groundingMetadata` **empty** - so a low limit does not shorten
 							// the answer, it silently destroys every citation and marks the
 							// result unverified. 800 was doing exactly that.
 							'maxOutputTokens' => 2048,
@@ -543,7 +543,7 @@ class WPCPM_Handbook_Answer {
 
 			// The status travels with the error. Guessing from the message text is how "this
 			// model is currently experiencing high demand" came to be reported as "the model is
-			// no longer available" — a busy model told to be replaced.
+			// no longer available" - a busy model told to be replaced.
 			return new WP_Error(
 				'wpcpm_handbook_http',
 				'' !== $message
@@ -581,13 +581,15 @@ class WPCPM_Handbook_Answer {
 	 * The pages a grounded answer actually read, filtered to the sites we asked for.
 	 *
 	 * Google returns its own redirect URLs for grounding chunks, so the host to judge is the
-	 * one in the chunk's title-ish `domain` where it is given, and the URI otherwise. Anything
-	 * that cannot be placed on an allowed site is dropped rather than shown — a citation the
-	 * reader would follow to somebody's blog is worse than no citation, because it looks
-	 * like corroboration.
+	 * one the redirect resolves to, and failing that the one in the chunk's `domain` or its
+	 * hostname-like `title`; the `uri` itself never says where a page is. Anything that cannot
+	 * be placed on an allowed site is dropped rather than shown - a citation the reader would
+	 * follow to somebody's blog is worse than no citation, because it looks like
+	 * corroboration. So is an address that does not survive `esc_url_raw()`: every `link`
+	 * here goes out through REST unescaped, so it leaves this method safe for an `href`.
 	 *
 	 * @param array $metadata Gemini's `groundingMetadata`.
-	 * @return array List of `title`, `link`.
+	 * @return array List of `title`, `link`, `extract`.
 	 */
 	private static function grounding( array $metadata ) {
 		$sources = array();
@@ -611,7 +613,18 @@ class WPCPM_Handbook_Answer {
 				continue;
 			}
 
-			$link = '' !== $resolved ? $resolved : (string) $web['uri'];
+			// Made safe here, once, where it is made: the shortcode wraps the address in
+			// `esc_url()` on the way out, but `rest_ask()` hands the list over as built and
+			// handbook.js puts `link` straight into an `href`. A redirect has been through
+			// `esc_url_raw()` in `resolve()` already; this branch kept the chunk's `uri`
+			// verbatim, while the host it was judged on came from the chunk's `domain` or
+			// `title`, so nothing had ever looked at the `uri` itself. An address that does
+			// not survive is not a citation, and is dropped like an unplaceable host.
+			$link = esc_url_raw( '' !== $resolved ? $resolved : (string) $web['uri'] );
+
+			if ( '' === $link ) {
+				continue;
+			}
 
 			// Keyed on the resolved address, so the same page cited several times appears once
 			// even though each citation arrives with its own redirect.
@@ -638,7 +651,7 @@ class WPCPM_Handbook_Answer {
 	 *
 	 * The `uri` on a grounding chunk is a `vertexaisearch.cloud.google.com` redirect that says
 	 * nothing about where it goes. One request with redirects switched off returns a 302 whose
-	 * `Location` is the page itself — measured at about 0.2 seconds each against this site.
+	 * `Location` is the page itself - measured at about 0.2 seconds each against this site.
 	 *
 	 * Not cached: each citation arrives with a freshly minted redirect, so a cache keyed on it
 	 * would never be hit and would only add machinery.
@@ -679,7 +692,7 @@ class WPCPM_Handbook_Answer {
 	/**
 	 * A readable name for a page, from its address.
 	 *
-	 * Google gives no page title — only the domain — so the last meaningful part of the path
+	 * Google gives no page title - only the domain - so the last meaningful part of the path
 	 * is used instead. "certificate-graduation" reads better than a bare hostname repeated
 	 * four times, which is what the list looked like before.
 	 *
@@ -707,7 +720,7 @@ class WPCPM_Handbook_Answer {
 
 		return sprintf(
 			/* translators: 1: page name, 2: hostname. */
-			_x( '%1$s — %2$s', 'handbook citation', 'wpcredits-program-manager' ),
+			_x( '%1$s - %2$s', 'handbook citation', 'wpcredits-program-manager' ),
 			$name,
 			$host
 		);
@@ -717,13 +730,13 @@ class WPCPM_Handbook_Answer {
 	 * The host a grounding chunk actually came from.
 	 *
 	 * Google returns its own `vertexaisearch.cloud.google.com` redirect as the `uri`, so the
-	 * URI's host says nothing about where the page lives — judging it would refuse every
+	 * URI's host says nothing about where the page lives - judging it would refuse every
 	 * citation ever returned.
 	 *
 	 * What it does return is the source's domain, and **in `title`** rather than in the
 	 * `domain` field the documentation describes. This reads `domain` first in case that
 	 * changes back, then falls back to `title` when it looks like a hostname: no spaces and at
-	 * least one dot. A real page title fails that test, which is the safe way round — an
+	 * least one dot. A real page title fails that test, which is the safe way round - an
 	 * unplaceable citation is dropped rather than trusted.
 	 *
 	 * @param array $web One chunk's `web` object.

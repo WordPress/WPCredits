@@ -69,6 +69,8 @@ class WPCPM_Institution_Roster_View {
 	 *                          does not supply it, so this renders correctly on its own.
 	 */
 	public static function render( $record_id, array $context ) {
+		self::$manages = ! empty( $context['can_manage'] );
+
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
 			return;
 		}
@@ -628,6 +630,18 @@ class WPCPM_Institution_Roster_View {
 	const OPEN_MAX = 12;
 
 	/**
+	 * Whether the reader of the render in progress is a program manager.
+	 *
+	 * Set once by `render()` from the dashboard's context, which already asked the
+	 * capability, and read where a student's address would be printed or searched: those
+	 * two places are several private calls deep, and the flag is what the page knows rather
+	 * than a second capability check that a suite would have to stub.
+	 *
+	 * @var bool
+	 */
+	private static $manages = false;
+
+	/**
 	 * One of the four groups: its heading, its count, its explanation and its table.
 	 *
 	 * **Every group is a disclosure.** Finished and Did not start start closed, as design spec
@@ -667,7 +681,7 @@ class WPCPM_Institution_Roster_View {
 
 		printf( '<details class="wpcpm-group__disclosure"%s>', $open ? ' open' : '' );
 		printf(
-			'<summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html( $label ),
 			esc_html( number_format_i18n( $count ) )
 		);
@@ -1348,13 +1362,30 @@ class WPCPM_Institution_Roster_View {
 			esc_html__( 'These students are reporting on the program, but the program records have no enrolment row for them yet, so they are not counted in the groups above. A program manager needs to complete the record.', 'wpcredits-program-manager' )
 		);
 
+		// **A student's address is a manager's to see, not the school's.** The export has no
+		// email column and the student card shows the mentor's address as the only one, both
+		// on the rule that reaching its own students is not what the program's roster is for;
+		// this list printed one per account-bearing student and contradicted both. A member
+		// sees the name, or the username where there is no name, and never the address.
+		$manages = self::$manages;
+
 		echo '<ul class="wpcpm-roster__unlinked">';
 
 		foreach ( $people as $person ) {
-			echo '<li>';
-			printf( '<span class="wpcpm-roster__student">%s</span>', esc_html( '' !== $person['name'] ? $person['name'] : $person['email'] ) );
+			$label = $person['name'];
 
-			if ( '' !== $person['email'] && '' !== $person['name'] ) {
+			if ( '' === $label ) {
+				$label = $manages && '' !== $person['email'] ? $person['email'] : $person['username'];
+			}
+
+			if ( '' === $label ) {
+				$label = __( 'A student whose name is not recorded yet', 'wpcredits-program-manager' );
+			}
+
+			echo '<li>';
+			printf( '<span class="wpcpm-roster__student">%s</span>', esc_html( $label ) );
+
+			if ( $manages && '' !== $person['email'] && '' !== $person['name'] ) {
 				printf( ' <span class="wpcpm-muted">%s</span>', esc_html( $person['email'] ) );
 			}
 
@@ -1459,7 +1490,14 @@ class WPCPM_Institution_Roster_View {
 	 * @return bool
 	 */
 	private static function matches( array $row, $search ) {
-		foreach ( array( 'name', 'email', 'username', 'tutor', 'field_of_study' ) as $field ) {
+		// The address is searchable by a manager only, for the reason `render_unlinked()`
+		// gives: a search box that answers "does anyone here have this address" is a directory
+		// lookup, whatever the list beside it prints.
+		$fields = self::$manages
+			? array( 'name', 'email', 'username', 'tutor', 'field_of_study' )
+			: array( 'name', 'username', 'tutor', 'field_of_study' );
+
+		foreach ( $fields as $field ) {
 			if ( ! isset( $row[ $field ] ) || ! is_scalar( $row[ $field ] ) ) {
 				continue;
 			}

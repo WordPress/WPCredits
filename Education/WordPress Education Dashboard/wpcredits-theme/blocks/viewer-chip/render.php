@@ -6,8 +6,8 @@
  * mentor page exists are all request-time facts, which is why the header carries
  * a dynamic block here rather than static links.
  *
- * The link's label follows the plugin's own wording — "My Students" for mentors,
- * "Mentor Dashboard" for program managers inspecting it — so the header and the admin
+ * The link's label follows the plugin's own wording - "My Students" for mentors,
+ * "Mentor Dashboard" for program managers inspecting it - so the header and the admin
  * bar never disagree about what the same page is called.
  *
  * @package WPCredits_Theme

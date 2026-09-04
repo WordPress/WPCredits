@@ -265,8 +265,7 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function is_user_logged_in() { return (int) $GLOBALS['uid'] > 0; }
-function current_user_can( $cap ) { return (bool) $GLOBALS['manage']; }
-function user_can( $user, $cap ) { return (bool) $GLOBALS['manage']; }
+require_once __DIR__ . '/stubs/caps.php';
 function wp_get_current_user() { return new WP_User( (int) $GLOBALS['uid'], 'Member One', 'member@example.test' ); }
 function get_user_by( $by, $value ) {
 	if ( 'id' === $by ) {
@@ -1294,6 +1293,14 @@ ck( 'nothing is found before anything is generated', WPCPM_Semester_Report::find
 $post_id = WPCPM_Semester_Report::generate( $A, $COHORT );
 
 ck( 'generating returns a post ID', is_int( $post_id ) && $post_id > 0, true );
+
+// The five-minute cache holds what the report may use, not Airtable's raw rows: a quote nobody
+// has released is held nowhere on this site, while the released ones are cached as read.
+$cache_json = wp_json_encode( $GLOBALS['transients'] );
+ck( 'the read cache holds no unreleased words', has( $cache_json, 'A quote nobody has released' ), false );
+ck( 'but does hold a released quote, as read', has( $cache_json, 'changed how I read code' ), true );
+ck( 'and no raw Airtable record shape', has( $cache_json, '"fields"' ), false );
+ck( 'while the student who wrote and did not answer is still somebody to ask', in_array( 14, (array) WPCPM_Semester_Report::consent_candidates( get_post( $post_id ) ), true ), true );
 
 $report = get_post( $post_id );
 $snap   = WPCPM_Semester_Report::snapshot( $report );
@@ -2383,6 +2390,31 @@ ck( 'a query for "any" status does not see a trashed post here either', in_array
 WPCPM_Semester_Report::delete_all();
 ck( 'yet uninstall removes it, with the students\' names and words in it', get_post( $trashed ), null );
 ck( 'along with the live ones', get_post( $e_post ), null );
+
+echo "\n=== Airtable's own words reach a manager, not a member ===\n";
+
+// The client's error text carries the HTTP status and, on a credential fault, Airtable's hint
+// about the token's scopes. A member's screen said "That did not work: <all of it>".
+$GLOBALS['acting']     = $E;
+$GLOBALS['manage']     = false;
+$GLOBALS['uid']        = 7;
+$GLOBALS['transients'] = array();
+$GLOBALS['fail_table'] = 'tblReports';
+$GLOBALS['flash']      = array();
+$_POST = array( 'cohort' => $COHORT, 'institution' => $E, 'report' => 0 );
+$_GET  = array();
+run_handler( WPCPM_Semester_Report_Screen::ACTION_GENERATE );
+$member_flash = wp_json_encode( $GLOBALS['flash'] );
+ck( 'a member is told the read failed', has( $member_flash, 'generate-failed' ), true );
+ck( 'and is not shown the client\'s message', has( $member_flash, 'HTTP' ) || has( $member_flash, 'token' ) || has( $member_flash, 'unavailable' ), false );
+
+$GLOBALS['manage'] = true;
+$GLOBALS['flash']  = array();
+run_handler( WPCPM_Semester_Report_Screen::ACTION_GENERATE );
+$manager_flash = wp_json_encode( $GLOBALS['flash'] );
+ck( 'a manager is shown it, because a manager can act on it', has( $manager_flash, 'generate-failed' ) && strlen( $manager_flash ) > strlen( $member_flash ), true );
+$GLOBALS['fail_table'] = '';
+$GLOBALS['manage']     = false;
 
 echo "\n=== House rules ===\n";
 

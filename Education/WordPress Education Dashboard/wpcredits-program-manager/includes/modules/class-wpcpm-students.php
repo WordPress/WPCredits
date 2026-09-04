@@ -10,12 +10,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Module 1 — Students.
+ * Module 1 - Students.
  *
  * Provisions Student accounts from Airtable and gives each student a Student-level
  * page with their own program details and the mentor assigned to them.
  */
-class WPCPM_Students extends WPCPM_Module {
+class WPCPM_Students extends WPCPM_Sync_Module {
 
 	const ACTION_SYNC   = 'wpcpm_students_sync';
 	const ACTION_CANCEL = 'wpcpm_students_cancel';
@@ -130,42 +130,21 @@ class WPCPM_Students extends WPCPM_Module {
 	}
 
 	/**
-	 * Advance the sync one slice and report progress.
+	 * The sync this module owns.
+	 *
+	 * @return string
 	 */
-	public function handle_tick() {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_send_json_error( array( 'message' => __( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ) ), 403 );
-		}
-
-		check_ajax_referer( self::ACTION_TICK, 'nonce' );
-
-		if ( WPCPM_Students_Sync::is_running() ) {
-			WPCPM_Students_Sync::run_tick( WPCPM_Students_Sync::BUDGET_AJAX );
-		}
-
-		wp_send_json_success( WPCPM_Students_Sync::progress() );
+	protected function sync_class() {
+		return 'WPCPM_Students_Sync';
 	}
 
 	/**
-	 * Start a sync.
+	 * The flash channel the Students screen reads its outcomes from.
+	 *
+	 * @return string
 	 */
-	public function handle_sync() {
-		$this->verify( self::ACTION_SYNC );
-
-		$result = WPCPM_Students_Sync::start();
-
-		$this->redirect_back( is_wp_error( $result ) ? 'error' : 'started' );
-	}
-
-	/**
-	 * Abandon a stuck sync.
-	 */
-	public function handle_cancel() {
-		$this->verify( self::ACTION_CANCEL );
-
-		WPCPM_Students_Sync::cancel();
-
-		$this->redirect_back( 'cancelled' );
+	protected function flash_key() {
+		return 'students_admin';
 	}
 
 	/**
@@ -208,29 +187,6 @@ class WPCPM_Students extends WPCPM_Module {
 	}
 
 	/**
-	 * Capability and nonce check.
-	 *
-	 * @param string $action Nonce action.
-	 */
-	private function verify( $action ) {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
-		}
-
-		check_admin_referer( $action );
-	}
-
-	/**
-	 * Return to the module screen.
-	 *
-	 * @param string $status Status slug.
-	 */
-	private function redirect_back( $status ) {
-		wp_safe_redirect( add_query_arg( 'wpcpm_status', $status, $this->admin_url() ) );
-		exit;
-	}
-
-	/**
 	 * Render the Students screen.
 	 */
 	public function render_admin_page() {
@@ -243,25 +199,15 @@ class WPCPM_Students extends WPCPM_Module {
 		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
 		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
 
-		$status = WPCPM_Request::key( 'wpcpm_status' );
-
-		$messages = array(
-			'started'   => array( 'success', __( 'Sync started — progress is shown below and updates as it runs.', 'wpcredits-program-manager' ) ),
-			'cancelled' => array( 'info', __( 'Sync canceled.', 'wpcredits-program-manager' ) ),
-			'invited'   => array( 'success', __( 'Invitation email sent.', 'wpcredits-program-manager' ) ),
-			'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background — the progress is shown below.', 'wpcredits-program-manager' ) ),
-			'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
-			'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
-			'error'     => array( 'error', __( 'That action could not be completed.', 'wpcredits-program-manager' ) ),
+		// The three sync outcomes come from the shared module; these are this screen's own.
+		$this->render_status_notice(
+			array(
+				'invited'         => array( 'success', __( 'Invitation email sent.', 'wpcredits-program-manager' ) ),
+				'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background - the progress is shown below.', 'wpcredits-program-manager' ) ),
+				'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
+				'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
+			)
 		);
-
-		if ( isset( $messages[ $status ] ) ) {
-			printf(
-				'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-				esc_attr( $messages[ $status ][0] ),
-				esc_html( $messages[ $status ][1] )
-			);
-		}
 
 		if ( ! WPCPM_Settings::is_connected() ) {
 			printf(
@@ -321,7 +267,7 @@ class WPCPM_Students extends WPCPM_Module {
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Airtable sync', 'wpcredits-program-manager' ) . '</h2>';
 
-		echo '<p class="description">' . esc_html__( 'Reads each student\'s program details, then their mentor\'s contact details — partly from Airtable, and the rest from the mentor\'s WordPress.org profile. Profile reads are cached for twelve hours.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Reads each student\'s program details, then their mentor\'s contact details - partly from Airtable, and the rest from the mentor\'s WordPress.org profile. Profile reads are cached for twelve hours.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( $progress['running'] ) {
 			printf(
@@ -356,7 +302,7 @@ class WPCPM_Students extends WPCPM_Module {
 			printf(
 				'<p class="wpcpm-progress__stalled" data-wpcpm-stalled%1$s>%2$s</p>',
 				$progress['stalled'] ? '' : ' hidden',
-				esc_html__( 'No progress for over two minutes. The run may have been interrupted — cancel it and start again.', 'wpcredits-program-manager' )
+				esc_html__( 'No progress for over two minutes. The run may have been interrupted - cancel it and start again.', 'wpcredits-program-manager' )
 			);
 
 			echo '<noscript><meta http-equiv="refresh" content="15" /></noscript>';
@@ -489,7 +435,7 @@ class WPCPM_Students extends WPCPM_Module {
 	/**
 	 * The institution picker.
 	 *
-	 * A GET form, so a narrowed list is a URL somebody can bookmark or send to a colleague — which
+	 * A GET form, so a narrowed list is a URL somebody can bookmark or send to a colleague - which
 	 * matters here, because the next thing they do with it may be to email a few dozen people.
 	 *
 	 * @param array<string, int> $institutions Name => count.
@@ -618,9 +564,9 @@ class WPCPM_Students extends WPCPM_Module {
 				esc_html( $student->display_name )
 			);
 			printf( '<td><code>%s</code></td>', esc_html( $student->user_login ) );
-			printf( '<td>%s</td>', esc_html( ! empty( $program['program'] ) ? $program['program'] : '—' ) );
-			printf( '<td>%s</td>', esc_html( ! empty( $program['institution'] ) ? $program['institution'] : '—' ) );
-			printf( '<td>%s</td>', esc_html( ! empty( $mentor['name'] ) ? $mentor['name'] : '—' ) );
+			printf( '<td>%s</td>', esc_html( ! empty( $program['program'] ) ? $program['program'] : '-' ) );
+			printf( '<td>%s</td>', esc_html( ! empty( $program['institution'] ) ? $program['institution'] : '-' ) );
+			printf( '<td>%s</td>', esc_html( ! empty( $mentor['name'] ) ? $mentor['name'] : '-' ) );
 
 			echo '<td class="wpcpm-list__actions">';
 

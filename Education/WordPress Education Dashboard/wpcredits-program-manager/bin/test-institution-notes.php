@@ -70,7 +70,7 @@ class WP_User {
 	public function exists() { return $this->ID > 0; }
 }
 class WP_Post {
-	public $ID = 0, $post_title = '', $post_content = '', $post_type = '', $post_status = 'publish', $post_author = 0, $post_date_gmt = '';
+	public $ID = 0, $post_title = '', $post_content = '', $post_type = '', $post_status = 'private', $post_author = 0, $post_date_gmt = '';
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
@@ -104,8 +104,7 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
-function user_can( $u, $c ) { $id = is_object( $u ) ? $u->ID : (int) $u; return in_array( $id, $GLOBALS['manage'], true ); }
-function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
+require_once __DIR__ . '/stubs/caps.php';
 function get_user_by( $field, $value ) {
 	foreach ( $GLOBALS['users'] as $user ) {
 		if ( 'id' === $field && $user->ID === (int) $value ) { return $user; }
@@ -121,7 +120,7 @@ function wp_insert_post( $a, $error = false ) {
 	$post->post_title              = $a['post_title'] ?? '';
 	$post->post_content            = $a['post_content'] ?? '';
 	$post->post_type               = $a['post_type'] ?? 'post';
-	$post->post_status             = $a['post_status'] ?? 'publish';
+	$post->post_status             = $a['post_status'] ?? 'private';
 	$post->post_author             = (int) ( $a['post_author'] ?? 0 );
 	$post->post_date_gmt           = gmdate( 'Y-m-d H:i:s', 1700000000 + $post->ID );
 	$GLOBALS['posts'][ $post->ID ] = $post;

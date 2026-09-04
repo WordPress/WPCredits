@@ -34,6 +34,10 @@
  *   forms do the opposite, because their handlers read the posted record themselves. Both
  *   sides of each pair are read here, off the two sources, since a mechanism only one half of
  *   a pair implements is exactly the defect Phase 3 shipped.
+ * - **The stylesheets parse the way their comments read.** A comment between two selectors is
+ *   a descendant combinator that welds two rules into one; a physical side in a file whose
+ *   convention is logical puts a bar on the wrong edge in an RTL locale; free text on paper
+ *   has to wrap. Each was found by hand once, and each is read off the source here.
  *
  * The other pieces are stood in for exactly at their contracts: the policy, the sync's field
  * map, the Airtable client, the manager screen's flash channel. Nothing else is loaded.
@@ -145,7 +149,7 @@ function add_action( $h, $c, $p = 10, $a = 1 ) {}
 function register_post_type( $t, $a = array() ) { $GLOBALS['post_types'][ $t ] = $a; return (object) $a; }
 function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( 'nonce-' . $a ) . '" />'; }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['nonces'][] = $a; return true; }
-function current_user_can( $c ) { return (bool) $GLOBALS['caps']; }
+require_once __DIR__ . '/stubs/caps.php';
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
@@ -813,7 +817,7 @@ $ledes['returned'] = $returned;
 
 reset_world();
 seed_index( $rec_a, $country );
-$GLOBALS['opts'][ WPCPM_Countries::OPTION ] = array(
+$GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ] = array(
 	'v'    => WPCPM_Countries::VERSION,
 	'read' => 1756600000,
 	'rows' => array( $country => array( 'name' => 'Poland', 'manager' => 'recTEAMAAAAAAAA1', 'email' => 'poland@example.org', 'calendly' => '' ) ),
@@ -887,7 +891,7 @@ echo "\n=== Neither half draws another institution's agreement ===\n";
 
 reset_world();
 seed_index( $rec_a, $country );
-$GLOBALS['opts'][ WPCPM_Countries::OPTION ] = array(
+$GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ] = array(
 	'v'    => WPCPM_Countries::VERSION,
 	'read' => 1756600000,
 	'rows' => array( $country => array( 'name' => 'Poland', 'manager' => 'recTEAMAAAAAAAA1', 'email' => 'poland@example.org', 'calendly' => '' ) ),
@@ -1217,7 +1221,7 @@ ck( 'and wrote one audit row per institution, on the manager ground, of the on-f
 ck( 'both are settled afterwards, and the third is as it was', array( WPCPM_Institution_Agreement::is_settled( $bulk_a ), WPCPM_Institution_Agreement::is_settled( $bulk_b ), WPCPM_Institution_Agreement::is_settled( $bulk_c ) ), array( true, true, true ) );
 $tally = WPCPM_Institution_Agreement::last_on_file_all();
 ck( 'the tally says two recorded, none skipped, none failed, none left', array( $tally['recorded'], $tally['skipped'], $tally['failed'], $tally['left'], $tally['actor'] ), array( 2, 0, array(), 0, 9 ) );
-ck( 'and the tally is stored without autoload', $GLOBALS['opts_autoload'][ WPCPM_Institution_Agreement::OPTION_ON_FILE_ALL ] ?? 'unset', false );
+ck( 'and the tally is stored without autoload', $GLOBALS['opts_autoload'][ WPCPM_Institution_Agreement::OPT_ON_FILE_ALL ] ?? 'unset', false );
 ck( 'the outcome message reads the tally back', false !== strpos( WPCPM_Institution_Panel::on_file_all_summary(), '2 institutions recorded as signed' ), true );
 
 ck( 'pressed again with nothing left to record, it says so and patches nothing', array( on_file_all( $drive ), flashed(), count( $GLOBALS['patched'] ) ), array( 'redirect: https://example.test/institution-dashboard/', 'agreement-all-none', 0 ) );
@@ -1345,7 +1349,7 @@ function forms_in( $html ) {
 function state_panel( $record, $state, $status, array $meta = array() ) {
 	reset_world();
 	seed_index( $record, 'recCOUNTRYAAAAAAA' );
-	$GLOBALS['opts'][ WPCPM_Countries::OPTION ] = array(
+	$GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ] = array(
 		'v'    => WPCPM_Countries::VERSION,
 		'read' => 1756600000,
 		'rows' => array( 'recCOUNTRYAAAAAAA' => array( 'name' => 'Poland', 'manager' => 'recTEAMAAAAAAAA1', 'email' => 'poland@example.org', 'calendly' => '' ) ),
@@ -2039,6 +2043,204 @@ ck( 'nor writes an em dash or an en dash, the way the two PHP files do not', arr
 	preg_match( '/[\x{2013}\x{2014}]/u', $admin_css ),
 ), array( 0, 0 ) );
 
+/* ---- the stylesheets parse the way their comments read ------------------ */
+
+echo "\n=== Every disclosure title on the institution page is a heading ===\n";
+
+// A screen reader stepping through headings found the page title and the report legends and
+// nothing else: the six folded sections wrapped their titles in a span inside the summary,
+// while the mentor page prints the same component's title as an h3. Read off the source, file
+// by file, so a seventh section added later either uses the heading or fails here.
+$title_files = array(
+	'includes/modules/class-wpcpm-institution-panel.php',
+	'includes/modules/class-wpcpm-institution-people.php',
+	'includes/modules/class-wpcpm-institution-roster-view.php',
+	'includes/modules/class-wpcpm-institution-import-form.php',
+	'includes/modules/class-wpcpm-semester-report-screen.php',
+	'includes/modules/class-wpcpm-mentors-dashboard.php',
+);
+$span_titles = array();
+$h3_titles   = 0;
+foreach ( $title_files as $file ) {
+	$src = (string) file_get_contents( WPCPM_PLUGIN_DIR . $file );
+	if ( false !== strpos( $src, '<summary class="wpcpm-group__summary"><span class="wpcpm-group__title">' ) ) {
+		$span_titles[] = basename( $file );
+	}
+	$h3_titles += substr_count( $src, '<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">' );
+}
+ck( 'no summary wraps its title in a span', $span_titles, array() );
+ck( 'and the seven disclosures print an h3, which heading navigation reaches', $h3_titles, 7 );
+
+echo "\n=== The stylesheets parse the way their comments read ===\n";
+
+// A comment is whitespace to the parser, and whitespace between two selectors is a descendant
+// combinator. So a comment written between two selectors that were meant to open two rules
+// welds them into one rule carrying the second's declarations, and the first is gone without
+// a trace: the file still reads as two rules. institution.css shipped exactly that for the
+// file input, which left four of the five upload forms undressed. Every plugin stylesheet is
+// walked here, because the slip is one anybody tidying a comment can make.
+
+/**
+ * Selector lists with a comment between two selectors, as `file:line` strings.
+ *
+ * A comment before a selector list, or after a comma inside one, is ordinary in these files;
+ * the one that is not is a comment between two selectors with no comma between them, which
+ * the parser reads as a descendant combinator. Comments are blanked line for line first, so
+ * a brace inside one is not a brace and the line numbers still point into the file.
+ *
+ * @param string $css  The stylesheet.
+ * @param string $name Its basename, for the report.
+ * @return string[]
+ */
+function welded_in( $css, $name ) {
+	$marked = preg_replace_callback(
+		'#/\*.*?\*/#s',
+		function ( $m ) {
+			return "\x01" . str_repeat( "\n", substr_count( $m[0], "\n" ) );
+		},
+		$css
+	);
+
+	preg_match_all( '/([^{}]*)\{/', $marked, $preludes, PREG_OFFSET_CAPTURE );
+
+	$welded = array();
+
+	foreach ( $preludes[1] as $prelude ) {
+		$text = preg_replace( '/^[\s\x01]+/', '', $prelude[0] );
+
+		if ( '' === $text || '@' === $text[0] ) {
+			continue;
+		}
+
+		if ( preg_match( '/[^,\s\x01]\s*\x01/', $text ) ) {
+			$welded[] = $name . ':' . ( substr_count( $marked, "\n", 0, $prelude[1] ) + 1 );
+		}
+	}
+
+	return $welded;
+}
+
+/**
+ * A stylesheet's rules, comment-stripped, as selector => declarations.
+ *
+ * One entry per selector: a list opening one rule is split on its commas, so a rule can be
+ * asked about by any name it carries, and a selector opening two rules gets both bodies.
+ * Whitespace is collapsed on both sides, so `display: block` is how a declaration reads.
+ *
+ * @param string $css The stylesheet.
+ * @return string[]
+ */
+function rules_in( $css ) {
+	$bare = preg_replace( '#/\*.*?\*/#s', '', $css );
+
+	preg_match_all( '/([^{}]+)\{([^{}]*)\}/', $bare, $found, PREG_SET_ORDER );
+
+	$rules = array();
+
+	foreach ( $found as $rule ) {
+		$body = trim( preg_replace( '/\s+/', ' ', $rule[2] ) );
+
+		foreach ( explode( ',', $rule[1] ) as $selector ) {
+			$selector = trim( preg_replace( '/\s+/', ' ', $selector ) );
+
+			if ( '' !== $selector && '@' !== $selector[0] ) {
+				$rules[ $selector ] = isset( $rules[ $selector ] ) ? $rules[ $selector ] . ' ' . $body : $body;
+			}
+		}
+	}
+
+	return $rules;
+}
+
+$welded = array();
+
+foreach ( glob( WPCPM_PLUGIN_DIR . 'assets/css/*.css' ) as $sheet ) {
+	$welded = array_merge( $welded, welded_in( (string) file_get_contents( $sheet ), basename( $sheet ) ) );
+}
+
+ck( 'no plugin stylesheet has a comment between two selectors', $welded, array() );
+
+// The two rules the weld hid, each on its own. The file input's room is not scoped to the
+// steps list, because the same form is drawn on five surfaces and only one of them is a step;
+// the tighter margin is, because the step is what it is about - and it is the step's alone,
+// so the plain form keeps the 1em the comment above it promises rather than a second rule
+// quietly taking it back to 0.5em for every form on the page.
+$sheets = array(
+	'institution.css'  => (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/institution.css' ),
+	'report-print.css' => (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/report-print.css' ),
+);
+
+$inst_rules = rules_in( $sheets['institution.css'] );
+
+ck( 'the file input is dressed wherever the upload form is drawn', array(
+	isset( $inst_rules['.wpcpm-agreement-panel__field input[type="file"]'] ),
+	false !== strpos( $inst_rules['.wpcpm-agreement-panel__field input[type="file"]'] ?? '', 'display: block' ),
+), array( true, true ) );
+ck( 'a form inside a numbered step has room of its own', false !== strpos( $inst_rules['.wpcpm-agreement-panel__steps .wpcpm-agreement-panel__form'] ?? '', 'margin-top: 0.5em' ), true );
+ck( 'and the plain form keeps the room its comment promises', array(
+	false !== strpos( $inst_rules['.wpcpm-agreement-panel__form'] ?? '', 'margin: 1em 0 0' ),
+	false === strpos( $inst_rules['.wpcpm-agreement-panel__form'] ?? '', 'margin-top: 0.5em' ),
+), array( true, true ) );
+
+// Leading-edge markers are logical in both of these files: the banner and the flash say
+// `border-inline-start-width`, so a school reading in an RTL locale gets the bar on the side
+// the text starts from. One strip said `border-left-width` and put its bar on the far side,
+// and five quote-like rules paired a logical border with a four-value `padding` shorthand,
+// which put the quoted words flush against their bar. A physical side is refused outright:
+// the convention here is logical, so one physical property is a slip and not a choice.
+$physical  = array();
+$shorthand = array();
+$unpadded  = array();
+$quoted    = array(
+	'institution.css'  => array( '.wpcpm-agreement-panel__note' ),
+	'report-print.css' => array( '.wpcpm-report-card__stash', '.wpcpm-report-card__quote', '.wpcpm-report-doc__unreadable', '.wpcpm-report-doc__quote' ),
+);
+
+foreach ( $sheets as $name => $css ) {
+	preg_match_all( '/\b(?:border|padding|margin)-(?:left|right)\b[^;]*/', $declarations( $css ), $found );
+
+	foreach ( $found[0] as $hit ) {
+		$physical[] = $name . ': ' . $hit;
+	}
+
+	$rules = rules_in( $css );
+
+	// A four-value shorthand whose second and fourth values differ: the bar is on the inline
+	// start, so unequal left and right padding is the padding sitting on the wrong side of it
+	// in one of the two directions.
+	foreach ( $rules as $selector => $body ) {
+		if ( false !== strpos( $body, 'border-inline-start' ) && preg_match( '/(?<![\w-])padding: ([^;\s]+) ([^;\s]+) ([^;\s]+) ([^;\s]+);/', $body, $sides ) && $sides[2] !== $sides[4] ) {
+			$shorthand[] = $name . ' ' . $selector;
+		}
+	}
+
+	foreach ( $quoted[ $name ] as $selector ) {
+		if ( false === strpos( $rules[ $selector ] ?? '', 'padding-inline: 1em 0' ) ) {
+			$unpadded[] = $name . ' ' . $selector;
+		}
+	}
+}
+
+ck( 'neither stylesheet draws on a physical side', $physical, array() );
+ck( 'no rule with a leading-edge bar pads its two sides unequally', $shorthand, array() );
+ck( 'and the five quote-like rules pad on the inline axis', $unpadded, array() );
+ck( 'the roster strip puts its bar where the banner does', false !== strpos( $inst_rules['.wpcpm-roster__strip'] ?? '', 'border-inline-start-width: 4px' ), true );
+
+// Free text on the printed report wraps anywhere, as the link already did: the narrative the
+// school typed and a student's quoted words can carry a pasted address, and the column is
+// 174mm of paper with no scrollbar. The report is the institution dashboard's own document,
+// and this is the suite that reads its stylesheets, so its sheet is read here too.
+$print_rules = rules_in( $sheets['report-print.css'] );
+$clipped     = array();
+
+foreach ( array( '.wpcpm-report-doc__p', '.wpcpm-report-doc__quote-text', '.wpcpm-report-doc__translation', '.wpcpm-report-doc__student-name', '.wpcpm-report-doc__link' ) as $selector ) {
+	if ( false === strpos( $print_rules[ $selector ] ?? '', 'overflow-wrap: anywhere' ) ) {
+		$clipped[] = $selector;
+	}
+}
+
+ck( 'every free-text block on the printed report wraps an unbroken run', $clipped, array() );
+
 /* ---- the submit guard is an attribute, and the guard is a script ---------- */
 
 echo "\n=== The once attribute is printed, and the docblock says what reads it ===\n";
@@ -2052,18 +2254,20 @@ $form_doc = substr( $panel_src, 0, (int) strpos( $panel_src, 'private static fun
 $form_doc = substr( $form_doc, (int) strrpos( $form_doc, '/**' ) );
 
 ck( 'the docblock names the script the attribute needs', false !== strpos( $form_doc, 'wpcpm-forms' ), true );
-ck( 'and says the screens do not enqueue it', false !== strpos( $form_doc, 'enqueue' ), true );
+ck( 'and says which screen enqueues it', false !== strpos( $form_doc, 'dashboard enqueues' ), true );
 ck( 'and the attribute is still the one that script reads', false !== strpos( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/forms.js' ), 'form[data-wpcpm-once]' ), true );
 
-// The tripwire on the sentence above: when a screen does enqueue the guard, this fails, and
-// the docblock that says nothing enqueues it is one line away from the failure.
+// The tripwire on the sentence above: the institution dashboard enqueues the guard and the
+// Institutions screen does not. A change on either side fails here, and the docblock that
+// names the screens is one line away from the failure.
 $enqueues = 0;
 
 foreach ( array( 'includes/class-wpcpm-admin.php', 'includes/modules/class-wpcpm-institutions.php', 'includes/modules/class-wpcpm-institutions-dashboard.php' ) as $file ) {
 	$enqueues += substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . $file ), "wp_enqueue_script( 'wpcpm-forms' )" );
 }
 
-ck( 'no screen these forms are drawn on enqueues it yet, which is what the docblock says', $enqueues, 0 );
+ck( 'the dashboard enqueues it, and only the dashboard, which is what the docblock says', $enqueues, 1 );
+ck( 'and it is the dashboard', substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-dashboard.php' ), "wp_enqueue_script( 'wpcpm-forms' )" ), 1 );
 
 /* ---- every outcome the handlers flash has words --------------------------- */
 

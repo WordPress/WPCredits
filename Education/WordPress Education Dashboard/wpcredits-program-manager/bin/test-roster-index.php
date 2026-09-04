@@ -81,6 +81,8 @@ define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
+// The record-ID check the Mentors sync aliases lives on the Airtable client now.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 
@@ -172,11 +174,11 @@ $GLOBALS['opts'][ 'wpcpm_roster_' . $inst_a ] = 'garbage';
 
 ck( 'and so does a value that is not an array', WPCPM_Roster_Index::read( $inst_a ), $empty );
 
-$GLOBALS['opts'][ WPCPM_Roster_Index::OPTION_COUNTS ] = array( 'v' => 0, 'read' => 5, 'institutions' => array( $inst_a => array() ) );
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = array( 'v' => 0, 'read' => 5, 'institutions' => array( $inst_a => array() ) );
 
 ck( 'counts from another version are discarded', WPCPM_Roster_Index::counts()['institutions'], array() );
 
-$GLOBALS['opts'][ WPCPM_Roster_Index::OPTION_UNLINKED ] = array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 5, 'rows' => array( 'recSTUDENT0000009' => array( 'record_id' => 'recSTUDENT0000009' ) ) );
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_UNLINKED ] = array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 5, 'rows' => array( 'recSTUDENT0000009' => array( 'record_id' => 'recSTUDENT0000009' ) ) );
 
 ck( 'this version\'s unlinked rows read back',
 	array_keys( WPCPM_Roster_Index::unlinked() ), array( 'recSTUDENT0000009' ) );
@@ -249,7 +251,7 @@ ck( 'and its falsy values keep their types',
 ck( 'institution B got its option', array_keys( WPCPM_Roster_Index::rows( $inst_b ) ), array( 'recSTUDENT0000003' ) );
 ck( 'a key that is not a record ID is not an option', isset( $GLOBALS['opts']['wpcpm_roster_krakow'] ), false );
 ck( 'the unlinked rows are written', array_keys( WPCPM_Roster_Index::unlinked() ), array( 'recSTUDENT0000005' ) );
-ck( 'with the same read time', get_option( WPCPM_Roster_Index::OPTION_UNLINKED )['read'], 1700000000 );
+ck( 'with the same read time', get_option( WPCPM_Roster_Index::OPT_UNLINKED )['read'], 1700000000 );
 ck( 'the counts are written whole',
 	WPCPM_Roster_Index::counts(),
 	array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 1700000000, 'institutions' => $counts, 'reconciliation' => $recon ) );
@@ -273,16 +275,21 @@ ck( 'and padding around a value is trimmed off', WPCPM_Roster_Index::rows( $inst
 
 echo "\n=== An institution that lost every row is emptied, not left stale ===\n";
 
+// The three hours rows above were inserted a moment ago, which is years after a run dated
+// 1700000100 read the table, so that run would keep them (the `touched` section below is
+// about exactly that). This run is dated after the inserts, so the sweep is what is tested.
+$second_read = time() + 5;
+
 WPCPM_Roster_Index::write_all(
 	array( $inst_a => array( row( 'recSTUDENT0000001', 'ada@example.test' ) ) ),
 	array(),
 	array( $inst_a => array() ),
 	array(),
-	1700000100
+	$second_read
 );
 
 ck( 'B, known from last run\'s counts, is rewritten empty',
-	WPCPM_Roster_Index::read( $inst_b ), array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => 1700000100, 'rows' => array() ) );
+	WPCPM_Roster_Index::read( $inst_b ), array( 'v' => WPCPM_Roster_Index::VERSION, 'read' => $second_read, 'rows' => array() ) );
 ck( 'A keeps its row', array_keys( WPCPM_Roster_Index::rows( $inst_a ) ), array( 'recSTUDENT0000001' ) );
 ck( 'the unlinked list is now empty', WPCPM_Roster_Index::unlinked(), array() );
 
@@ -316,7 +323,7 @@ WPCPM_Roster_Index::insert( $inst_b, row( 'recSTUDENT0000008', 'ia@example.test'
 
 ck( 'inserting into an emptied roster works and keeps its read time',
 	array( array_keys( WPCPM_Roster_Index::rows( $inst_b ) ), WPCPM_Roster_Index::read( $inst_b )['read'] ),
-	array( array( 'recSTUDENT0000008' ), 1700000100 ) );
+	array( array( 'recSTUDENT0000008' ), $second_read ) );
 
 $GLOBALS['opts'] = array();
 
@@ -324,14 +331,110 @@ WPCPM_Roster_Index::insert( 'recINSTCCC0000001', row( 'recSTUDENT0000009', 'jo@e
 
 ck( 'inserting where nothing was written yet creates the envelope with no read time',
 	WPCPM_Roster_Index::read( 'recINSTCCC0000001' )['read'], 0 );
+ck( 'and registers the institution in the counts, with no participation to report yet',
+	WPCPM_Roster_Index::counts()['institutions'], array( 'recINSTCCC0000001' => array() ) );
+
+echo "\n=== touched: what was written here since the read survives the sync's rewrite ===\n";
+
+// The students run reads the Students table minutes before it finishes, and a graduate press
+// or an import slice that lands in between has already changed Airtable and the roster. The
+// run's copy of that row is the older of the two, and used to win.
+$GLOBALS['opts'] = array();
+$first_read      = 1700000000;
+$rec_1           = 'recSTUDENT0000001';
+$rec_2           = 'recSTUDENT0000002';
+$rec_3           = 'recSTUDENT0000003';
+
+WPCPM_Roster_Index::write_all(
+	array( $inst_a => array( row( $rec_1, 'ada@example.test' ), row( $rec_2, 'bo@example.test', array( 'touched' => 1700000001 ) ) ) ),
+	array(),
+	array( $inst_a => array( '2026-H1' => array() ) ),
+	array(),
+	$first_read
+);
+
+ck( 'the sync\'s own rows carry no stamp', WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['touched'], 0 );
+ck( 'even when the caller handed one over: the sync\'s copy is not a write made here', WPCPM_Roster_Index::rows( $inst_a )[ $rec_2 ]['touched'], 0 );
+
+$now = time();
+
+ck( 'update() stamps the row it changed with the time of the write',
+	array( WPCPM_Roster_Index::update( $inst_a, $rec_1, array( 'status' => 'Graduate' ) ), WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['touched'] >= $now ),
+	array( true, true ) );
+ck( 'and leaves the row it did not change unstamped', WPCPM_Roster_Index::rows( $inst_a )[ $rec_2 ]['touched'], 0 );
+ck( 'a caller cannot date the stamp itself: that is not a change', WPCPM_Roster_Index::update( $inst_a, $rec_2, array( 'touched' => 5 ) ), false );
+ck( 'nor smuggle a date in beside a real change',
+	array( WPCPM_Roster_Index::update( $inst_a, $rec_2, array( 'end' => '2026-07-01', 'touched' => 5 ) ), WPCPM_Roster_Index::rows( $inst_a )[ $rec_2 ]['touched'] >= $now ),
+	array( true, true ) );
+
+WPCPM_Roster_Index::insert( $inst_b, row( $rec_3, 'cy@example.test', array( 'institution' => $inst_b, 'touched' => 5 ) ) );
+
+ck( 'insert() stamps the row whatever the caller sent under the key', WPCPM_Roster_Index::rows( $inst_b )[ $rec_3 ]['touched'] >= $now, true );
+
+// A run that began a second before those writes: its copy of the first row still says In
+// Sensei, its copy of the second has last term's end date, and it found no rows for B at all.
+WPCPM_Roster_Index::write_all(
+	array( $inst_a => array( row( $rec_1, 'ada@example.test' ), row( $rec_2, 'bo@example.test' ) ) ),
+	array(),
+	array( $inst_a => array( '2026-H1' => array() ) ),
+	array(),
+	$now - 1
+);
+
+ck( 'a row edited since the run began keeps the edit over the run\'s copy', WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['status'], 'Graduate' );
+ck( 'and keeps its stamp, so the run after this one can tell as well', WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['touched'] >= $now, true );
+ck( 'the second edited row too', WPCPM_Roster_Index::rows( $inst_a )[ $rec_2 ]['end'], '2026-07-01' );
+ck( 'a row inserted on a roster the run would have emptied stays on it', array_keys( WPCPM_Roster_Index::rows( $inst_b ) ), array( $rec_3 ) );
+ck( 'and that institution stays in the counts, with nothing to report', WPCPM_Roster_Index::counts()['institutions'][ $inst_b ], array() );
+ck( 'the read time is the run\'s, because the rest of the roster is the run\'s', WPCPM_Roster_Index::read( $inst_a )['read'], $now - 1 );
+
+// A row edited in the same second the run began is kept as well: the run read the table
+// some minutes after it began, so the edit was after the read whichever way the second fell.
+$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $rec_2 ]['touched'] = $now;
+WPCPM_Roster_Index::write_all(
+	array( $inst_a => array( row( $rec_1, 'ada@example.test' ), row( $rec_2, 'bo@example.test' ) ) ),
+	array(),
+	array( $inst_a => array( '2026-H1' => array() ) ),
+	array(),
+	$now
+);
+ck( 'a row stamped in the very second the run began is kept', WPCPM_Roster_Index::rows( $inst_a )[ $rec_2 ]['end'], '2026-07-01' );
+
+// The run after that began after the edits, read the table with them in it, and its copy wins.
+WPCPM_Roster_Index::write_all(
+	array( $inst_a => array( row( $rec_1, 'ada@example.test', array( 'status' => 'Graduate' ) ), row( $rec_2, 'bo@example.test' ) ) ),
+	array(),
+	array( $inst_a => array( '2026-H1' => array() ) ),
+	array(),
+	$now + 5
+);
+
+ck( 'a run that read the table after the edits replaces the kept rows with its own copies, which carry no stamp',
+	array( WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['touched'], WPCPM_Roster_Index::rows( $inst_a )[ $rec_2 ]['touched'] ), array( 0, 0 ) );
+ck( 'and say what the table says', array( WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['status'], WPCPM_Roster_Index::rows( $inst_a )[ $rec_2 ]['end'] ), array( 'Graduate', '2026-06-30' ) );
+ck( 'the roster the run found no rows for is emptied now', WPCPM_Roster_Index::rows( $inst_b ), array() );
+ck( 'and leaves the counts', array_keys( WPCPM_Roster_Index::counts()['institutions'] ), array( $inst_a ) );
+
+// A row stored before the key existed has no `touched` at all, and reads as never written here.
+unset( $GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $rec_1 ]['touched'] );
+$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $inst_a ) ]['rows'][ $rec_1 ]['status'] = 'Paused';
+WPCPM_Roster_Index::write_all(
+	array( $inst_a => array( row( $rec_1, 'ada@example.test', array( 'status' => 'Graduate' ) ) ) ),
+	array(),
+	array( $inst_a => array() ),
+	array(),
+	$now + 6
+);
+ck( 'a stored row from before the key existed is replaced like an unstamped one', WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['status'], 'Graduate' );
+ck( 'rubbish under the key cleans to 0', WPCPM_Roster_Index::rows( $inst_a )[ $rec_1 ]['touched'], 0 );
 
 echo "\n=== delete_all() sweeps by prefix and by name ===\n";
 
 $GLOBALS['opts'] = array(
 	'wpcpm_roster_' . $inst_a               => array( 'v' => 1 ),
 	'wpcpm_roster_' . $inst_b               => array( 'v' => 1 ),
-	WPCPM_Roster_Index::OPTION_UNLINKED     => array( 'v' => 1 ),
-	WPCPM_Roster_Index::OPTION_COUNTS       => array( 'v' => 1 ),
+	WPCPM_Roster_Index::OPT_UNLINKED     => array( 'v' => 1 ),
+	WPCPM_Roster_Index::OPT_COUNTS       => array( 'v' => 1 ),
 	// A neighbour an unescaped LIKE would match, since `_` matches any one character.
 	'wpcpm-roster-' . $inst_a               => 'decoy',
 	'wpcpm_settings'                        => array( 'api_token' => 'keep' ),

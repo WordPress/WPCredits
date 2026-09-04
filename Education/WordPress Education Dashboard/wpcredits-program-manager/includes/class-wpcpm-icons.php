@@ -12,8 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Inline SVG icons for the contact fields on both dashboards.
  *
- * Drawn from primitives — circles, rectangles and short paths on a 24×24 box, stroked
- * in `currentColor` — rather than copied from a brand's own artwork. Two reasons. A
+ * Drawn from primitives - circles, rectangles and short paths on a 24×24 box, stroked
+ * in `currentColor` - rather than copied from a brand's own artwork. Two reasons. A
  * stroked line icon inherits the text colour it sits beside, so it cannot end up the
  * wrong colour in a theme nobody has seen; and a plugin that ships Slack's or GitHub's
  * logo is redistributing a trademark, which is a licensing question this feature does
@@ -55,22 +55,22 @@ class WPCPM_Icons {
 	/**
 	 * Slack's logo, from Slack's own brand assets.
 	 *
-	 * This is `Slack_RGB.svg` as published in Slack's Brandfolder — the four-colour mark
-	 * followed by the wordmark — with two mechanical changes and no visual ones. The class-based
+	 * This is `Slack_RGB.svg` as published in Slack's Brandfolder - the four-colour mark
+	 * followed by the wordmark - with two mechanical changes and no visual ones. The class-based
 	 * `<style>` block is flattened into a `fill` on each shape, and the wordmark's shapes are
 	 * given an explicit black rather than relying on the default. Both are necessary for an
 	 * inline SVG: class names like `.st0` inside a page would collide with whatever else uses
-	 * them, and an unspecified fill inherits the surrounding text colour — recolouring the
+	 * them, and an unspecified fill inherits the surrounding text colour - recolouring the
 	 * logo, which is the one thing the licence does not allow.
 	 *
 	 * Every drawable element is kept, and not only the eleven `<path>`s: the wordmark's "l" is
 	 * a `<rect>` and its "k" a `<polygon>`, so a paths-only copy of this file renders as
-	 * "s ac" — wrong, but close enough to right to go unnoticed.
+	 * "s ac" - wrong, but close enough to right to go unnoticed.
 	 *
 	 * Wide, not square: the asset is a 622.3 × 254.4 lockup, so this is a logo rather than an
 	 * icon. Sized by height, with the width following from the artwork's own proportions.
 	 *
-	 * Returned rather than echoed, and callers must not pass it through `wp_kses_post()` —
+	 * Returned rather than echoed, and callers must not pass it through `wp_kses_post()` -
 	 * that strips `<svg>` outright and lowercases `viewBox` into meaninglessness.
 	 *
 	 * @param int $height Rendered height in pixels.
@@ -123,7 +123,7 @@ class WPCPM_Icons {
 			'<svg class="wpcpm-icon wpcpm-icon--%1$s" width="%2$d" height="%2$d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">%3$s</svg>',
 			esc_attr( $name ),
 			$size,
-			$shapes[ $name ] // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static path data from shapes(), not input.
+			$shapes[ $name ]
 		);
 	}
 
@@ -131,7 +131,7 @@ class WPCPM_Icons {
 	 * The three flat glyphs the Mentor Report Card's triage needs.
 	 *
 	 * Filled rather than stroked, so they are kept apart from `shapes()` above: a magnifying
-	 * glass and a cross at 15–16px read better as solid shapes than as 1.6px strokes, and
+	 * glass and a cross at 15-16px read better as solid shapes than as 1.6px strokes, and
 	 * mixing the two rendering styles in one set would mean every caller having to know which
 	 * kind it was asking for.
 	 *
@@ -165,8 +165,8 @@ class WPCPM_Icons {
 			'<svg class="wpcpm-icon wpcpm-icon--%1$s" width="%2$d" height="%2$d" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="%3$s"%4$s /></svg>',
 			esc_attr( $name ),
 			$size,
-			$paths[ $name ], // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static path data, not input.
-			$rule // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+			$paths[ $name ],
+			$rule
 		);
 	}
 
@@ -175,7 +175,7 @@ class WPCPM_Icons {
 	 *
 	 * There is nothing to sanitize: every byte comes from `shapes()`, which is a static
 	 * array in this file, and no part of it is built from input. And filtering would do
-	 * harm — `wp_kses()` lowercases attribute names, SVG is case-sensitive, so `viewBox`
+	 * harm - `wp_kses()` lowercases attribute names, SVG is case-sensitive, so `viewBox`
 	 * would come back as `viewbox` and every icon would lose its scaling. If a caller
 	 * ever needs to pass one through `wp_kses_post()` for an unrelated reason, the SVG
 	 * has to be added back afterwards, not whitelisted.

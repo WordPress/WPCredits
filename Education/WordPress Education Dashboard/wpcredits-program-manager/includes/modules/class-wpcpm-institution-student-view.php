@@ -307,7 +307,12 @@ class WPCPM_Institution_Student_View {
 		$name     = self::name( $student, $program, $row );
 		$username = self::first( array( isset( $program['username'] ) ? $program['username'] : '', isset( $row['username'] ) ? $row['username'] : '' ) );
 		$status   = self::status( $program );
-		$avatar   = WPCPM_Mentors_Dashboard::avatar_url( $username, $student->user_email, 176 );
+		// The WordPress.org portrait only, never the Gravatar fallback: that fallback is a URL
+		// carrying a hash of the student's address, which put an address-derived identifier of
+		// the student into a page drawn for a third party and sent the school's browser to
+		// gravatar.com with it. With no username there is no portrait, and the row is drawn
+		// without one.
+		$avatar   = WPCPM_Mentors_Dashboard::avatar_url( $username, '', 176 );
 
 		// The row institution.css lays out, on the element it names. The photo used to sit in
 		// an outer wrapper of its own, which the stylesheet had never heard of, so the row rule

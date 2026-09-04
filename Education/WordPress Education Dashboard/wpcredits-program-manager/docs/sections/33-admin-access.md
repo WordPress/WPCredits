@@ -26,6 +26,6 @@ explanation, the rendered content and excerpt are filtered, and the REST API is 
 ### Program updates and announcements
 
 The column at the foot of both Report Cards lists recent posts from the *Updates* category, filtered
-by the same access levels — so a post set to Mentor level appears on the mentor's card and on nobody
+by the same access levels - so a post set to Mentor level appears on the mentor's card and on nobody
 else's. Set the access level on the post and it lands in the right place; there is nothing else to
 configure.

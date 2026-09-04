@@ -20,7 +20,19 @@
  *   keeps every key it had, plus `institution_source`;
  * - `Hours` is asked for, carried onto the roster row and into the cached program block, and
  *   arrives as the base holds it: fractional values undivided, a logged 0 told apart from a
- *   cell nobody has filled in, and a count past the target neither clamped nor doubted.
+ *   cell nobody has filled in, and a count past the target neither clamped nor doubted;
+ * - a roster edit or an import that lands between the run's Students-table read and its
+ *   `finish()` survives the rewrite, on a roster the run refilled and on one it would have
+ *   emptied, and the run after it - which read the table with the edit in it - replaces it;
+ * - which of two report rows for one address an account follows is decided, not inherited
+ *   from arrival order: a re-enrolled student moves to this term's row, a fresh pair follows
+ *   the row created last whichever came back first, an account on a live row stays on it, a
+ *   stamp for a record the run no longer fetches is replaced, and one account under two
+ *   addresses is still the conflict it was;
+ * - a mentor read refused for the run (a rate limit) stops the tick and is resumed, while a
+ *   404 for one mentor is that one mentor's; and a refused page read is retried when the
+ *   base said to come back, not when a stalled-run timer happens to fire, while a credential
+ *   error stops the run for good.
  *
  * Every address is under example.test and every name is invented.
  *
@@ -45,10 +57,11 @@ $GLOBALS['fetches']  = array();
 $GLOBALS['states']   = array();
 
 class WP_Error {
-	private $code, $message;
-	public function __construct( $c = '', $m = '' ) { $this->code = $c; $this->message = $m; }
+	private $code, $message, $data;
+	public function __construct( $c = '', $m = '', $d = null ) { $this->code = $c; $this->message = $m; $this->data = $d; }
 	public function get_error_message() { return $this->message; }
 	public function get_error_code() { return $this->code; }
+	public function get_error_data() { return $this->data; }
 }
 
 /**
@@ -199,17 +212,53 @@ function get_users( $args = array() ) {
  * reports table is filtered by the status formula, so a reports row in a status the
  * settings do not track is never seen, which is the production truth the reconciliation
  * numbers have to be read against.
+ *
+ * Three more things can be arranged. `$GLOBALS['fetch_error'][ table ]` and
+ * `$GLOBALS['get_record_error']` are answered instead of a page or a record, so a run can be
+ * shown a rate limit or a dead connection. `$GLOBALS['after_read'][ table ]` is a callback
+ * fired once, the moment that table's page has been built and before it is returned: what a
+ * school member or an import does on the site while the sync is between its read and its
+ * finish. And a fixture record's own `createdTime` is honoured, because which of two report
+ * rows for one address was created last is now something the sync decides on.
  */
 class WPCPM_Airtable {
+	const RECORD_ID_PATTERN = '/^rec[A-Za-z0-9]{14}$/';
+	public static function is_record_id( $value ) { return is_scalar( $value ) && 1 === preg_match( self::RECORD_ID_PATTERN, trim( (string) $value ) ); }
 	public function __construct( $settings = null ) {}
 	public function formula_in( $field, array $values, $lower = false ) {
 		return 'IN:' . json_encode( array( 'field' => $field, 'values' => array_values( $values ) ) );
+	}
+	/**
+	 * One record by ID, as `phase_mentors()` reads mentor cards.
+	 *
+	 * A record the table does not hold is a 404 the way the real client answers one:
+	 * `wpcpm_airtable_error` with the status in the error data, which is the shape the sync
+	 * tells "this one record is gone" from "the base is refusing me" by.
+	 */
+	public function get_record( $table, $id ) {
+		$GLOBALS['fetches'][] = array( 'table' => $table, 'get' => $id );
+
+		if ( isset( $GLOBALS['get_record_error'] ) && $GLOBALS['get_record_error'] instanceof WP_Error ) {
+			return $GLOBALS['get_record_error'];
+		}
+
+		foreach ( $GLOBALS['airtable'][ $table ] ?? array() as $record ) {
+			if ( $record['id'] === $id ) {
+				return array( 'id' => $record['id'], 'createdTime' => $record['createdTime'] ?? '2026-01-05T10:00:00.000Z', 'fields' => $record['fields'] );
+			}
+		}
+
+		return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 404): NOT_FOUND', array( 'status' => 404 ) );
 	}
 	public function fetch_page( $table, array $args = array() ) {
 		$wanted = isset( $args['fields'] ) ? (array) $args['fields'] : array();
 		$filter = null;
 
 		$GLOBALS['fetches'][] = array( 'table' => $table, 'fields' => $wanted );
+
+		if ( isset( $GLOBALS['fetch_error'][ $table ] ) && $GLOBALS['fetch_error'][ $table ] instanceof WP_Error ) {
+			return $GLOBALS['fetch_error'][ $table ];
+		}
 
 		if ( ! empty( $args['formula'] ) && 0 === strpos( $args['formula'], 'IN:' ) ) {
 			$filter = json_decode( substr( $args['formula'], 3 ), true );
@@ -228,7 +277,14 @@ class WPCPM_Airtable {
 				$cells = array_intersect_key( $cells, array_flip( $wanted ) );
 			}
 
-			$out[] = array( 'id' => $record['id'], 'createdTime' => '2026-01-05T10:00:00.000Z', 'fields' => $cells );
+			$out[] = array( 'id' => $record['id'], 'createdTime' => $record['createdTime'] ?? '2026-01-05T10:00:00.000Z', 'fields' => $cells );
+		}
+
+		// Fires once and forgets itself, so what it does lands inside exactly one run.
+		if ( isset( $GLOBALS['after_read'][ $table ] ) && is_callable( $GLOBALS['after_read'][ $table ] ) ) {
+			$callback = $GLOBALS['after_read'][ $table ];
+			unset( $GLOBALS['after_read'][ $table ] );
+			$callback();
 		}
 
 		return array( 'records' => $out, 'offset' => null );
@@ -331,7 +387,7 @@ $students_table = $defaults['students_table'];
 $reports_table  = $defaults['reports_table'];
 $fields         = WPCPM_Mentors_Sync::fields();
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array(
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array(
 	'api_token'          => 'patTEST',
 	'base_id'            => 'appTEST',
 	'auto_sync'          => true,
@@ -399,9 +455,9 @@ function student_row( $name, $email, $status, $institution, $start, array $extra
 }
 
 /**
- * A Students Reports row.
+ * A Students Reports row. `$created` is Airtable's `createdTime`; '' takes the fake's default.
  */
-function report_row( $name, $email, $status, $institution, array $extra = array() ) {
+function report_row( $name, $email, $status, $institution, array $extra = array(), $created = '' ) {
 	global $reports_table, $fields;
 
 	$cells = array(
@@ -412,9 +468,12 @@ function report_row( $name, $email, $status, $institution, array $extra = array(
 
 	if ( '' !== $institution ) { $cells[ $fields['report_instituton'] ] = array( $institution ); }
 
-	$id = next_record( 'recR' );
+	$id     = next_record( 'recR' );
+	$record = array( 'id' => $id, 'fields' => array_merge( $cells, $extra ) );
 
-	$GLOBALS['airtable'][ $reports_table ][] = array( 'id' => $id, 'fields' => array_merge( $cells, $extra ) );
+	if ( '' !== $created ) { $record['createdTime'] = $created; }
+
+	$GLOBALS['airtable'][ $reports_table ][] = $record;
 
 	return $id;
 }
@@ -738,10 +797,10 @@ ck( 'a row without a report has neither',
 
 $leak = false;
 foreach ( $GLOBALS['opts'] as $name => $value ) {
-	if ( 0 === strpos( (string) $name, WPCPM_Roster_Index::OPTION_PREFIX ) && false !== strpos( wp_json_encode( $value ), 'accessibility' ) ) {
+	if ( 0 === strpos( (string) $name, WPCPM_Roster_Index::OPT_PREFIX ) && false !== strpos( wp_json_encode( $value ), 'accessibility' ) ) {
 		$leak = $name;
 	}
-	if ( 0 === strpos( (string) $name, WPCPM_Roster_Index::OPTION_PREFIX ) && false !== strpos( wp_json_encode( $value ), 'Screen reader' ) ) {
+	if ( 0 === strpos( (string) $name, WPCPM_Roster_Index::OPT_PREFIX ) && false !== strpos( wp_json_encode( $value ), 'Screen reader' ) ) {
 		$leak = $name;
 	}
 }
@@ -886,7 +945,7 @@ ck( 'and reads as of the second run', WPCPM_Roster_Index::read( $krakow )['read'
 echo "\n=== A run started under the previous version ===\n";
 
 // Its state has no `rows`; finishing it must not replace the index with an empty one.
-$snapshot = array_filter( $GLOBALS['opts'], static function ( $name ) { return 0 === strpos( (string) $name, WPCPM_Roster_Index::OPTION_PREFIX ); }, ARRAY_FILTER_USE_KEY );
+$snapshot = array_filter( $GLOBALS['opts'], static function ( $name ) { return 0 === strpos( (string) $name, WPCPM_Roster_Index::OPT_PREFIX ); }, ARRAY_FILTER_USE_KEY );
 
 $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] = array(
 	'phase'    => 'provision',
@@ -907,10 +966,332 @@ $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] = array(
 
 WPCPM_Students_Sync::run_tick( 60 );
 
-$after = array_filter( $GLOBALS['opts'], static function ( $name ) { return 0 === strpos( (string) $name, WPCPM_Roster_Index::OPTION_PREFIX ); }, ARRAY_FILTER_USE_KEY );
+$after = array_filter( $GLOBALS['opts'], static function ( $name ) { return 0 === strpos( (string) $name, WPCPM_Roster_Index::OPT_PREFIX ); }, ARRAY_FILTER_USE_KEY );
 
 ck( 'the old run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
 ck( 'and left every roster option exactly as it was', $after, $snapshot );
+
+echo "\n=== A roster edit and an import landing while a run is in flight ===\n";
+
+/**
+ * The Students record ID behind an address in the fixture.
+ */
+function student_record_for( $email ) {
+	global $students_table, $fields;
+
+	foreach ( $GLOBALS['airtable'][ $students_table ] as $record ) {
+		if ( strtolower( $record['fields'][ $fields['student_email'] ] ?? '' ) === strtolower( $email ) ) {
+			return $record['id'];
+		}
+	}
+
+	return '';
+}
+
+$edited   = student_record_for( 'dee-current-1@example.test' );
+$stale    = student_record_for( 'dee-current-2@example.test' );
+$imported = 'recIMPORTED000001';
+$new_inst = 'recINSTNEW0000001';
+
+// A row an import wrote a minute before this run: stamped, but before the run's read, so it is
+// the sync's to replace. Its stored copy is given a status the table does not say.
+$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $dee ) ]['rows'][ $stale ]['status']  = 'Paused';
+$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $dee ) ]['rows'][ $stale ]['touched'] = time() - 60;
+
+$GLOBALS['seen'] = array();
+$GLOBALS['after_read'][ $students_table ] = static function () use ( $dee, $edited, $imported, $new_inst, $students_table, $fields ) {
+	// A school member presses "Mark as graduated": Airtable is written first, then
+	// WPCPM_Institution_Students::forget() writes the roster through update().
+	foreach ( $GLOBALS['airtable'][ $students_table ] as $i => $record ) {
+		if ( $record['id'] === $edited ) {
+			$GLOBALS['airtable'][ $students_table ][ $i ]['fields'][ $fields['student_status'] ] = 'Graduate';
+		}
+	}
+
+	$updated = WPCPM_Roster_Index::update( $dee, $edited, array( 'status' => 'Graduate' ) );
+
+	// An import slice creates a student for an institution the run found no Students rows
+	// for at all: WPCPM_Institution_Create::announce() writes the roster through insert().
+	WPCPM_Roster_Index::insert( $new_inst, array( 'record_id' => $imported, 'name' => 'Imported Student', 'email' => 'imported@example.test', 'status' => 'In Sensei', 'institution' => $new_inst, 'start' => '2026-09-01' ) );
+
+	$GLOBALS['seen'] = array(
+		'updated'  => $updated,
+		'status'   => WPCPM_Roster_Index::rows( $dee )[ $edited ]['status'],
+		'imported' => isset( WPCPM_Roster_Index::rows( $new_inst )[ $imported ] ),
+	);
+};
+
+$third    = run_sync();
+$dee_rows = WPCPM_Roster_Index::rows( $dee );
+
+ck( 'the edit and the import landed after the Students table was read, and were on the rosters at once',
+	$GLOBALS['seen'], array( 'updated' => true, 'status' => 'Graduate', 'imported' => true ) );
+ck( 'when the run finished, the graduate press stood', $dee_rows[ $edited ]['status'], 'Graduate' );
+ck( 'with its stamp, dated inside the run', $dee_rows[ $edited ]['touched'] >= $third, true );
+ck( "the imported student is on the new institution's roster, which the run would otherwise have emptied",
+	isset( WPCPM_Roster_Index::rows( $new_inst )[ $imported ] ), true );
+ck( 'and that institution is in the counts, with no participation to report yet',
+	WPCPM_Roster_Index::counts()['institutions'][ $new_inst ], array() );
+ck( "the row written before the run began was replaced by the run's copy",
+	array( $dee_rows[ $stale ]['status'], $dee_rows[ $stale ]['touched'] ), array( 'In Sensei', 0 ) );
+ck( "the rest of the roster is the run's and carries no stamp", $dee_rows[ $ids['dev'] ]['touched'], 0 );
+ck( 'the roster reads as of this run', WPCPM_Roster_Index::read( $dee )['read'], $third );
+
+// The next run began after the edit and read the table with it in it, so its copy wins: the
+// press is in the table now, and the imported student, whom this fixture's table never gets,
+// is off the roster again. A second has to pass, or the run begins in the stamp's own second.
+sleep( 1 );
+run_sync();
+
+ck( "the next run's copy of the graduated student is the table's, unstamped",
+	array( WPCPM_Roster_Index::rows( $dee )[ $edited ]['status'], WPCPM_Roster_Index::rows( $dee )[ $edited ]['touched'] ), array( 'Graduate', 0 ) );
+ck( 'and the student the table never had is off the roster', WPCPM_Roster_Index::rows( $new_inst ), array() );
+ck( 'whose institution left the counts with them', isset( WPCPM_Roster_Index::counts()['institutions'][ $new_inst ] ), false );
+
+echo "\n=== Two report rows for one address ===\n";
+
+/**
+ * The account behind an address, or 0.
+ */
+function user_id_for( $email ) {
+	foreach ( $GLOBALS['users'] as $id => $user ) {
+		if ( $user['email'] === $email ) {
+			return $id;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * Delete the account behind an address, meta and all.
+ */
+function forget_user( $email ) {
+	$id = user_id_for( $email );
+
+	unset( $GLOBALS['users'][ $id ], $GLOBALS['umeta'][ $id ] );
+}
+
+$mentors_table = $defaults['mentors_table'];
+
+// Two mentors, neither with a WordPress.org profile, so no profile is fetched.
+$GLOBALS['airtable'][ $mentors_table ] = array(
+	array( 'id' => 'recMENTOR00000001', 'fields' => array( $fields['mentor_name'] => 'Mentor Example', $fields['mentor_email'] => 'mentor@example.test' ) ),
+	array( 'id' => 'recMENTOR00000002', 'fields' => array( $fields['mentor_name'] => 'Second Mentor', $fields['mentor_email'] => 'second@example.test' ) ),
+);
+
+// A re-enrolment: last term's row, created first and now Dropped out, and this term's, In
+// Sensei with a mentor. The account last term's sync made is stamped with the old row.
+$email = 're-enrolled@example.test';
+$s_re  = student_row( 'Re-enrolled Student', $email, 'In Sensei', $dee, '2026-08-03' );
+$r_old = report_row( 'Re-enrolled Student', $email, 'Dropped out', $dee, array(), '2025-09-01T09:00:00.000Z' );
+$r_new = report_row( 'Re-enrolled Student', $email, 'In Sensei', $dee, array( $fields['report_mentor'] => array( 'recMENTOR00000001' ) ), '2026-08-20T09:00:00.000Z' );
+
+$GLOBALS['users'][200] = array( 'login' => 're-enrolled', 'email' => $email, 'name' => 'Re-enrolled Student', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][200] = array( WPCPM_Students_Sync::META_RECORD_ID => $r_old, WPCPM_Students_Sync::META_ACTIVE => 1 );
+
+// A fresh pair, both In Sensei, the mentor only on the row created second.
+$pair = 'pair@example.test';
+student_row( 'Pair Student', $pair, 'In Sensei', $dee, '2026-08-03' );
+$p_1 = report_row( 'Pair Student', $pair, 'In Sensei', $dee, array(), '2026-08-01T09:00:00.000Z' );
+$p_2 = report_row( 'Pair Student', $pair, 'In Sensei', $dee, array( $fields['report_mentor'] => array( 'recMENTOR00000001' ) ), '2026-08-02T09:00:00.000Z' );
+
+// An account stamped with a row the run no longer fetches: marked Duplicated, say.
+$moved = 'moved@example.test';
+student_row( 'Moved Student', $moved, 'In Sensei', $dee, '2026-08-03' );
+$r_moved = report_row( 'Moved Student', $moved, 'In Sensei', $dee );
+
+$GLOBALS['users'][201] = array( 'login' => 'moved', 'email' => $moved, 'name' => 'Moved Student', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][201] = array( WPCPM_Students_Sync::META_RECORD_ID => 'recRGONE000000001', WPCPM_Students_Sync::META_ACTIVE => 1 );
+
+// Two live rows, the account stamped with the older; the newer names a second mentor.
+$steady = 'steady@example.test';
+student_row( 'Steady Student', $steady, 'In Sensei', $dee, '2026-08-03' );
+$d_old = report_row( 'Steady Student', $steady, 'In Sensei', $dee, array(), '2026-01-10T09:00:00.000Z' );
+$d_new = report_row( 'Steady Student', $steady, 'In Sensei', $dee, array( $fields['report_mentor'] => array( 'recMENTOR00000002' ) ), '2026-06-10T09:00:00.000Z' );
+
+$GLOBALS['users'][202] = array( 'login' => 'steady', 'email' => $steady, 'name' => 'Steady Student', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][202] = array( WPCPM_Students_Sync::META_RECORD_ID => $d_old, WPCPM_Students_Sync::META_ACTIVE => 1 );
+
+// One account, two rows under two addresses: the conflict that is still a conflict.
+student_row( 'Two Addresses', 'two-a@example.test', 'In Sensei', $dee, '2026-08-03' );
+$e_a = report_row( 'Two Addresses', 'two-a@example.test', 'In Sensei', $dee );
+$e_b = report_row( 'Two Addresses (again)', 'two-b@example.test', 'In Sensei', $dee );
+
+$GLOBALS['users'][203] = array( 'login' => 'two', 'email' => 'two-b@example.test', 'name' => 'Two Addresses', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][203] = array( WPCPM_Students_Sync::META_RECORD_ID => $e_a, WPCPM_Students_Sync::META_ACTIVE => 1 );
+
+run_sync();
+$report  = get_option( WPCPM_Students_Sync::OPT_REPORT );
+$notices = implode( "\n", $report['notices'] );
+
+ck( 'the run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
+
+echo "--- a re-enrolled student follows this term's row ---\n";
+
+ck( 'the account is re-stamped with the active row', get_user_meta( 200, WPCPM_Students_Sync::META_RECORD_ID, true ), $r_new );
+ck( 'and is active', get_user_meta( 200, WPCPM_Students_Sync::META_ACTIVE, true ), 1 );
+ck( 'its program row says In Sensei', get_user_meta( 200, WPCPM_Students_Sync::META_PROGRAM, true )['program'], 'In Sensei' );
+ck( 'with the mentor the new row names', get_user_meta( 200, WPCPM_Students_Sync::META_MENTOR, true )['name'] ?? '', 'Mentor Example' );
+ck( 'and the Student role kept', in_array( WPCPM_Roles::ROLE_STUDENT, $GLOBALS['users'][200]['roles'], true ), true );
+ck( 'the move is named once, with the reason', substr_count( $notices, 'Re-enrolled Student: the account "re-enrolled" now follows report record ' . $r_new . ' rather than ' . $r_old . ', a record with the same address and a past status.' ), 1 );
+ck( 'and the choice is logged', substr_count( $notices, 'Re-enrolled Student has 2 report records with the same address. The account follows ' . $r_new . ', the most recently created one with a current status; the others were left as they are.' ), 1 );
+ck( 'the old row is no conflict', strpos( $notices, 'Skipped Re-enrolled Student' ), false );
+ck( 'the roster row joins both report rows to the student, and the account',
+	array( WPCPM_Roster_Index::rows( $dee )[ $s_re ]['reports'], WPCPM_Roster_Index::rows( $dee )[ $s_re ]['user_id'] ), array( array( $r_old, $r_new ), 200 ) );
+
+echo "--- a fresh pair follows the most recently created row, whichever came back first ---\n";
+
+$uid = user_id_for( $pair );
+
+ck( 'an account was created for the pair', $uid > 0, true );
+ck( 'stamped with the row created second', get_user_meta( $uid, WPCPM_Students_Sync::META_RECORD_ID, true ), $p_2 );
+ck( 'so the student has the mentor that row names', get_user_meta( $uid, WPCPM_Students_Sync::META_MENTOR, true )['name'] ?? '', 'Mentor Example' );
+ck( 'the first row is no conflict', strpos( $notices, 'Skipped Pair Student' ), false );
+
+echo "--- an account whose row left the tracked set follows the row that remains ---\n";
+
+ck( 'the account is re-stamped', get_user_meta( 201, WPCPM_Students_Sync::META_RECORD_ID, true ), $r_moved );
+ck( 'active', get_user_meta( 201, WPCPM_Students_Sync::META_ACTIVE, true ), 1 );
+ck( 'with the Student role', in_array( WPCPM_Roles::ROLE_STUDENT, $GLOBALS['users'][201]['roles'], true ), true );
+ck( 'and the move is named', substr_count( $notices, 'Moved Student: the account "moved" was linked to report record recRGONE000000001, which is no longer among the tracked records, so it now follows ' . $r_moved . '.' ), 1 );
+
+echo "--- an account on a live row stays on it ---\n";
+
+ck( 'the account keeps the row it had, although a newer live row exists', get_user_meta( 202, WPCPM_Students_Sync::META_RECORD_ID, true ), $d_old );
+ck( 'so its mentor card is still empty: the old row names none', get_user_meta( 202, WPCPM_Students_Sync::META_MENTOR, true ), array() );
+ck( 'and the choice says why', substr_count( $notices, 'Steady Student has 2 report records with the same address. The account follows ' . $d_old . ', the record the account was already linked to; the others were left as they are.' ), 1 );
+ck( 'the newer row is no conflict', strpos( $notices, 'Skipped Steady Student' ), false );
+
+echo "--- one account under two addresses is still a conflict ---\n";
+
+ck( 'the account keeps its own row', get_user_meta( 203, WPCPM_Students_Sync::META_RECORD_ID, true ), $e_a );
+ck( 'the row under the other address is skipped as a conflict', substr_count( $notices, 'Skipped Two Addresses (again)' ), 1 );
+ck( 'and counted: the shared-address conflict of the first run, plus this one', $report['stats']['conflicts'], 2 );
+
+// The order the base returns the pair in changes nothing.
+forget_user( $pair );
+
+$rows = $GLOBALS['airtable'][ $reports_table ];
+$i1   = array_search( $p_1, array_column( $rows, 'id' ), true );
+$i2   = array_search( $p_2, array_column( $rows, 'id' ), true );
+
+list( $rows[ $i1 ], $rows[ $i2 ] ) = array( $rows[ $i2 ], $rows[ $i1 ] );
+
+$GLOBALS['airtable'][ $reports_table ] = $rows;
+
+run_sync();
+$uid     = user_id_for( $pair );
+$notices = implode( "\n", get_option( WPCPM_Students_Sync::OPT_REPORT )['notices'] );
+
+ck( 'with the pair returned in the other order the account follows the same row', get_user_meta( $uid, WPCPM_Students_Sync::META_RECORD_ID, true ), $p_2 );
+ck( 'and has the same mentor', get_user_meta( $uid, WPCPM_Students_Sync::META_MENTOR, true )['name'] ?? '', 'Mentor Example' );
+ck( 'the re-enrolled account, found by its new stamp, is not moved again', strpos( $notices, 'now follows report record ' . $r_new ), false );
+ck( 'and still follows it', get_user_meta( 200, WPCPM_Students_Sync::META_RECORD_ID, true ), $r_new );
+
+echo "\n=== A mentor read that fails for the run, not for one mentor ===\n";
+
+$before_card                 = get_user_meta( 200, WPCPM_Students_Sync::META_MENTOR, true );
+$GLOBALS['get_record_error'] = new WP_Error( 'wpcpm_airtable_rate_limited', 'Airtable asked us to wait 30 seconds before sending more requests.', array( 'status' => 429, 'retry_after' => 30 ) );
+$GLOBALS['fetches']          = array();
+
+WPCPM_Students_Sync::start();
+unset( $GLOBALS['cron'][ WPCPM_Students_Sync::CRON_TICK ] );
+$now = time();
+WPCPM_Students_Sync::run_tick( 60 );
+
+ck( 'the tick stopped in the mentors phase', $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ]['phase'] ?? '', 'mentors' );
+ck( 'after one refused read, not after burning through every pending mentor',
+	count( array_filter( $GLOBALS['fetches'], static function ( $f ) { return isset( $f['get'] ); } ) ), 1 );
+ck( 'the error is recorded for the screen', get_option( WPCPM_Students_Sync::OPT_ERROR ), 'Airtable asked us to wait 30 seconds before sending more requests.' );
+ck( 'the mentor cards were not touched', get_user_meta( 200, WPCPM_Students_Sync::META_MENTOR, true ), $before_card );
+$when = wp_next_scheduled( WPCPM_Students_Sync::CRON_TICK );
+ck( 'and the tick is back in half a minute', $when >= $now + 30 && $when <= $now + 32, true );
+
+unset( $GLOBALS['get_record_error'] );
+WPCPM_Students_Sync::run_tick( 60 );
+$report = get_option( WPCPM_Students_Sync::OPT_REPORT );
+
+ck( 'the resumed run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
+ck( 'with every mentor card in place', get_user_meta( 200, WPCPM_Students_Sync::META_MENTOR, true )['name'] ?? '', 'Mentor Example' );
+ck( 'the error cleared', get_option( WPCPM_Students_Sync::OPT_ERROR, '' ), '' );
+ck( 'and the run report saying a read was refused and waited out',
+	substr_count( implode( "\n", $report['notices'] ), 'A read was refused during this run (Airtable asked us to wait 30 seconds before sending more requests.). The run waited and carried on from where it stopped.' ), 1 );
+
+echo "--- one mentor the base does not have is one mentor ---\n";
+
+$GLOBALS['airtable'][ $mentors_table ] = array_slice( $GLOBALS['airtable'][ $mentors_table ], 0, 1 );
+
+run_sync();
+$report = get_option( WPCPM_Students_Sync::OPT_REPORT );
+
+ck( 'the run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
+ck( 'the missing mentor is named', substr_count( implode( "\n", $report['notices'] ), 'Could not read mentor recMENTOR00000002' ), 1 );
+ck( "and the other mentor's card is written", get_user_meta( 200, WPCPM_Students_Sync::META_MENTOR, true )['name'] ?? '', 'Mentor Example' );
+
+echo "\n=== A refused page read is resumed; a credential error is not ===\n";
+
+$GLOBALS['fetch_error'][ $reports_table ] = new WP_Error( 'wpcpm_airtable_rate_limited', 'Airtable asked us to wait 45 seconds before sending more requests.', array( 'status' => 429, 'retry_after' => 45 ) );
+
+WPCPM_Students_Sync::start();
+unset( $GLOBALS['cron'][ WPCPM_Students_Sync::CRON_TICK ] );
+$now = time();
+WPCPM_Students_Sync::run_tick( 60 );
+$progress = WPCPM_Students_Sync::progress();
+
+ck( 'the tick stopped on the first page', $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ]['phase'] ?? '', 'reports' );
+ck( 'the run is still running, and not stalled', array( $progress['running'], $progress['stalled'] ), array( true, false ) );
+$when = wp_next_scheduled( WPCPM_Students_Sync::CRON_TICK );
+ck( 'and the next tick is scheduled for when Airtable said, not the half-minute default', $when >= $now + 45 && $when <= $now + 47, true );
+
+unset( $GLOBALS['fetch_error'], $GLOBALS['cron'][ WPCPM_Students_Sync::CRON_TICK ] );
+WPCPM_Students_Sync::run_tick( 60 );
+
+ck( 'the resumed run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
+ck( 'with the error cleared', get_option( WPCPM_Students_Sync::OPT_ERROR, '' ), '' );
+
+$transient = array(
+	'a 502 from Airtable'          => new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 502): Bad Gateway', array( 'status' => 502 ) ),
+	'a transport failure'          => new WP_Error( 'http_request_failed', 'cURL error 28: Operation timed out' ),
+	'a body that would not decode' => new WP_Error( 'wpcpm_airtable_bad_response', 'Airtable returned an unexpected response.' ),
+);
+
+foreach ( $transient as $what => $error ) {
+	$GLOBALS['fetch_error'][ $reports_table ] = $error;
+
+	WPCPM_Students_Sync::start();
+	unset( $GLOBALS['cron'][ WPCPM_Students_Sync::CRON_TICK ] );
+	$now = time();
+	WPCPM_Students_Sync::run_tick( 60 );
+	$when = wp_next_scheduled( WPCPM_Students_Sync::CRON_TICK );
+
+	ck( "$what is retried in half a minute", $when >= $now + 30 && $when <= $now + 32, true );
+
+	WPCPM_Students_Sync::cancel();
+}
+
+$lasting = array(
+	'a missing token'             => new WP_Error( 'wpcpm_no_token', 'No Airtable Personal Access Token is configured.' ),
+	'a 403 from Airtable'         => new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 403): NOT_AUTHORIZED', array( 'status' => 403 ) ),
+	'a table the base does not have' => new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 404): TABLE_NOT_FOUND', array( 'status' => 404 ) ),
+);
+
+foreach ( $lasting as $what => $error ) {
+	$GLOBALS['fetch_error'][ $reports_table ] = $error;
+
+	WPCPM_Students_Sync::start();
+	unset( $GLOBALS['cron'][ WPCPM_Students_Sync::CRON_TICK ] );
+	WPCPM_Students_Sync::run_tick( 60 );
+
+	ck( "$what stops the run: no tick is scheduled", wp_next_scheduled( WPCPM_Students_Sync::CRON_TICK ), false );
+	ck( 'and the state is kept for the screen, with the error',
+		array( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ]['phase'] ?? '', get_option( WPCPM_Students_Sync::OPT_ERROR ) ),
+		array( 'reports', $error->get_error_message() ) );
+
+	WPCPM_Students_Sync::cancel();
+}
+
+unset( $GLOBALS['fetch_error'] );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

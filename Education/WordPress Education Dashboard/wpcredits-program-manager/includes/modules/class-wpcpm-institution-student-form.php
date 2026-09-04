@@ -530,6 +530,42 @@ final class WPCPM_Institution_Student_Form {
 
 		check_admin_referer( self::ACTION_SAVE . '_' . $record );
 
+		// Four steps, each returning either what the next one needs or the one word the
+		// reader is told. Split this way so a suite can drive each step and read its answer:
+		// the 215-line handler this replaces had twelve exits woven through one body, and the
+		// branch that fires when the audit row will not insert had never been executed by any
+		// test. Behaviour is unchanged; only the seams are new.
+		$claim = self::resolve_claim( $record );
+
+		if ( isset( $claim['outcome'] ) ) {
+			self::bounce( $claim['outcome'], '', $record );
+		}
+
+		$diff = self::diff_cells( $record, $claim );
+
+		if ( isset( $diff['outcome'] ) ) {
+			self::bounce( $diff['outcome'], self::listing( $diff['rejected'] ), $record );
+		}
+
+		$written = self::write_cells( $record, $diff );
+
+		if ( isset( $written['outcome'] ) ) {
+			self::bounce( $written['outcome'], '', $record );
+		}
+
+		$final = self::record_outcome( $record, $claim, $written );
+
+		self::bounce( $final['outcome'], $final['listing'], $record );
+	}
+
+	/**
+	 * Step one: who may write, to which row, filed under which institution.
+	 *
+	 * @param string $record Students Reports record ID, as posted.
+	 * @return array Either `outcome` (a slug to bounce with) or `decision`, `before`,
+	 *               `students_id`, `institution` and `user_id`.
+	 */
+	private static function resolve_claim( $record ) {
 		$claim = WPCPM_Institution_Roster::claim(
 			$record,
 			WPCPM_Institution_Policy::ACT_EDIT_STUDENT,
@@ -541,15 +577,12 @@ final class WPCPM_Institution_Student_Form {
 			// being unreachable, which is a different sentence: a reader told "that record is
 			// not on your roster" because Airtable timed out goes looking for a permissions
 			// fault that does not exist.
-			self::bounce(
-				WPCPM_Institution_Policy::REFUSAL_CODE === $claim->get_error_code() ? 'student-refused' : 'student-unreadable',
-				'',
-				$record
+			return array(
+				'outcome' => WPCPM_Institution_Policy::REFUSAL_CODE === $claim->get_error_code() ? 'student-refused' : 'student-unreadable',
 			);
 		}
 
 		$decision = isset( $claim['decision'] ) && is_array( $claim['decision'] ) ? $claim['decision'] : array();
-		$before   = isset( $claim['record']['fields'] ) && is_array( $claim['record']['fields'] ) ? $claim['record']['fields'] : array();
 
 		// **The identity of what is about to be written.** `claim()` read this Students row
 		// live and allowed the action on the `Educational Institutions` link that row carries,
@@ -571,13 +604,36 @@ final class WPCPM_Institution_Student_Form {
 		// all. There is nothing honest to put in that row's place either - the roster index's
 		// answer would be a guess, and a guess in this log is worse than an empty log.
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
-			self::bounce( 'student-unfiled', '', $record );
+			return array( 'outcome' => 'student-unfiled' );
 		}
 
 		// The student's account, resolved once: it names the two caches the form was drawn
 		// from, and it is what `forget()` writes them back through.
-		$user    = WPCPM_Students_Sync::user_for_record( $record );
-		$user_id = $user instanceof WP_User ? (int) $user->ID : 0;
+		$user = WPCPM_Students_Sync::user_for_record( $record );
+
+		return array(
+			'decision'    => $decision,
+			'before'      => isset( $claim['record']['fields'] ) && is_array( $claim['record']['fields'] ) ? $claim['record']['fields'] : array(),
+			'students_id' => $students_id,
+			'institution' => $institution,
+			'user_id'     => $user instanceof WP_User ? (int) $user->ID : 0,
+		);
+	}
+
+	/**
+	 * Step two: what the person changed, split by table, with the Students half proved.
+	 *
+	 * @param string $record Students Reports record ID.
+	 * @param array  $claim  Step one's answer.
+	 * @return array Either `outcome` and `rejected`, or `changes`, `rejected`, `students_cells`,
+	 *               `reports_cells`, `blocked` and `students_id` (emptied when blocked).
+	 */
+	private static function diff_cells( $record, array $claim ) {
+		$decision    = $claim['decision'];
+		$before      = $claim['before'];
+		$students_id = $claim['students_id'];
+		$institution = $claim['institution'];
+		$user_id     = $claim['user_id'];
 
 		// **What the form was drawn from, recomputed here rather than carried in the request.**
 		// `render_form()` fills every control from `current()`, and this is that same call on
@@ -598,7 +654,10 @@ final class WPCPM_Institution_Student_Form {
 		$report = WPCPM_Student_Report_Form::values( $record );
 
 		if ( is_wp_error( $report ) ) {
-			self::bounce( 'student-unreadable', '', $record );
+			return array(
+				'outcome'  => 'student-unreadable',
+				'rejected' => array(),
+			);
 		}
 
 		$rejected = array();
@@ -609,7 +668,10 @@ final class WPCPM_Institution_Student_Form {
 		$changes = self::changes( $accepted, $shown, $before, $report );
 
 		if ( empty( $changes ) ) {
-			self::bounce( empty( $rejected ) ? 'student-nothing' : 'student-rejected', self::listing( $rejected ), $record );
+			return array(
+				'outcome'  => empty( $rejected ) ? 'student-nothing' : 'student-rejected',
+				'rejected' => $rejected,
+			);
 		}
 
 		$students_cells = self::cells( $changes, 'students' );
@@ -635,7 +697,10 @@ final class WPCPM_Institution_Student_Form {
 
 					// A base that could not be read is not a half-save; nothing is written at all.
 					if ( self::CODE_MANY !== $code && self::CODE_NONE !== $code ) {
-						self::bounce( 'student-unreadable', '', $record );
+						return array(
+							'outcome'  => 'student-unreadable',
+							'rejected' => array(),
+						);
 					}
 
 					$blocked = self::CODE_MANY === $code ? 'merge' : 'no-row';
@@ -661,38 +726,61 @@ final class WPCPM_Institution_Student_Form {
 		// because an outcome slug nothing has words for prints no sentence at all, and a save
 		// that redirects in silence is the one failure a person cannot report.
 		if ( empty( $changes ) ) {
-			self::bounce( '' !== $blocked ? 'student-' . $blocked . '-only' : 'student-nothing', self::listing( $rejected ), $record );
+			return array(
+				'outcome'  => '' !== $blocked ? 'student-' . $blocked . '-only' : 'student-nothing',
+				'rejected' => $rejected,
+			);
 		}
 
+		return array(
+			'changes'        => $changes,
+			'rejected'       => $rejected,
+			'students_cells' => $students_cells,
+			'reports_cells'  => $reports_cells,
+			'blocked'        => $blocked,
+			'students_id'    => $students_id,
+		);
+	}
+
+	/**
+	 * Step three: the writes, reports half first.
+	 *
+	 * @param string $record Students Reports record ID.
+	 * @param array  $diff   Step two's answer.
+	 * @return array Either `outcome`, or step two's answer with `partial` set and the Students
+	 *               half dropped where it did not land.
+	 */
+	private static function write_cells( $record, array $diff ) {
 		$settings = WPCPM_Settings::get();
 		$airtable = new WPCPM_Airtable( $settings );
-		$partial  = false;
+
+		$diff['partial'] = false;
 
 		// The reports half first, so the merge case above and a failure here read the same
 		// way round: what landed is always the half named first in the message.
-		if ( ! empty( $reports_cells ) ) {
+		if ( ! empty( $diff['reports_cells'] ) ) {
 			$result = $airtable->update_records(
 				$settings['reports_table'],
 				array(
 					array(
 						'id'     => $record,
-						'fields' => $reports_cells,
+						'fields' => $diff['reports_cells'],
 					),
 				)
 			);
 
 			if ( is_wp_error( $result ) ) {
-				self::bounce( 'student-airtable', '', $record );
+				return array( 'outcome' => 'student-airtable' );
 			}
 		}
 
-		if ( ! empty( $students_cells ) ) {
+		if ( ! empty( $diff['students_cells'] ) ) {
 			$result = $airtable->update_records(
 				$settings['students_table'],
 				array(
 					array(
-						'id'     => $students_id,
-						'fields' => $students_cells,
+						'id'     => $diff['students_id'],
+						'fields' => $diff['students_cells'],
 					),
 				)
 			);
@@ -701,43 +789,67 @@ final class WPCPM_Institution_Student_Form {
 				// Nothing else was written either, so this is not a half-save and must not
 				// say it is: "part of this was saved" over a save where nothing landed is
 				// how somebody comes to believe a date exists that does not.
-				if ( empty( $reports_cells ) ) {
-					self::bounce( 'student-airtable', '', $record );
+				if ( empty( $diff['reports_cells'] ) ) {
+					return array( 'outcome' => 'student-airtable' );
 				}
 
 				// The name landed and the rest did not. The audit row records what was
 				// written and not what was attempted, so the half that failed is dropped here,
 				// record and all: a row naming a Students record beside no Students change
 				// reads as a write that happened.
-				$partial        = true;
-				$students_id    = '';
-				$students_cells = array();
-				$changes        = array_diff_key( $changes, self::slots( 'students' ) );
+				$diff['partial']        = true;
+				$diff['students_id']    = '';
+				$diff['students_cells'] = array();
+				$diff['changes']        = array_diff_key( $diff['changes'], self::slots( 'students' ) );
 			}
 		}
 
-		$logged = self::log( $record, $students_id, $changes, $decision );
+		return $diff;
+	}
 
-		self::forget( $record, $students_id, $changes, $institution, $user_id );
+	/**
+	 * Step four: the log, the caches, and the one word the reader is told.
+	 *
+	 * @param string $record  Students Reports record ID.
+	 * @param array  $claim   Step one's answer.
+	 * @param array  $written Step three's answer.
+	 * @return array `outcome` and `listing`.
+	 */
+	private static function record_outcome( $record, array $claim, array $written ) {
+		$logged = self::log( $record, $written['students_id'], $written['changes'], $claim['decision'] );
 
-		// The guard above rules out the one refusal this handler can cause, so reaching here
-		// means the log itself failed - a post that would not insert. Said out loud rather
-		// than swallowed: the change is in the base and "Saved." over a change nobody can be
-		// held to is the sentence the log exists to prevent, and the person at the screen is
-		// the only one who can tell anybody the row is missing.
+		self::forget( $record, $written['students_id'], $written['changes'], $claim['institution'], $claim['user_id'] );
+
+		// Step one rules out the one refusal this handler can cause, so reaching here means
+		// the log itself failed - a post that would not insert. Said out loud rather than
+		// swallowed: the change is in the base and "Saved." over a change nobody can be held
+		// to is the sentence the log exists to prevent, and the person at the screen is the
+		// only one who can tell anybody the row is missing.
 		if ( is_wp_error( $logged ) ) {
-			self::bounce( 'student-unlogged', '', $record );
+			return array(
+				'outcome' => 'student-unlogged',
+				'listing' => '',
+			);
 		}
 
-		if ( $partial ) {
-			self::bounce( 'student-part-airtable', '', $record );
+		if ( $written['partial'] ) {
+			return array(
+				'outcome' => 'student-part-airtable',
+				'listing' => '',
+			);
 		}
 
-		if ( '' !== $blocked ) {
-			self::bounce( 'student-' . $blocked, self::listing( $rejected ), $record );
+		if ( '' !== $written['blocked'] ) {
+			return array(
+				'outcome' => 'student-' . $written['blocked'],
+				'listing' => self::listing( $written['rejected'] ),
+			);
 		}
 
-		self::bounce( empty( $rejected ) ? 'student-saved' : 'student-partly', self::listing( $rejected ), $record );
+		return array(
+			'outcome' => empty( $written['rejected'] ) ? 'student-saved' : 'student-partly',
+			'listing' => self::listing( $written['rejected'] ),
+		);
 	}
 
 	/**

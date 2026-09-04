@@ -10,12 +10,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Module 2 — Mentors.
+ * Module 2 - Mentors.
  *
  * Provisions Mentor accounts from Airtable, gives each mentor a private page
  * listing their assigned students, and reports on the last sync.
  */
-class WPCPM_Mentors extends WPCPM_Module {
+class WPCPM_Mentors extends WPCPM_Sync_Module {
 
 	const ACTION_SYNC   = 'wpcpm_mentors_sync';
 	const ACTION_CANCEL = 'wpcpm_mentors_cancel';
@@ -82,32 +82,16 @@ class WPCPM_Mentors extends WPCPM_Module {
 		WPCPM_Call_Calendar::init();
 		WPCPM_Group_Sessions::init();
 
+		// The hourly call reminders, put back on the clock whenever they are missing, as the
+		// sync above does for its own job: the activation hook is the only other caller and
+		// it never fires on this site's deploy path.
+		add_action( 'init', array( 'WPCPM_Mentor_Calls', 'schedule' ), 20 );
+
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_INVITE, array( $this, 'handle_invite' ) );
 		add_action( 'admin_post_' . self::ACTION_BULK, array( $this, 'handle_bulk_invite' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
-	}
-
-	/**
-	 * Advance the sync by one slice and return the current progress.
-	 *
-	 * The admin screen polls this while a run is in flight, which does double
-	 * duty: it drives the work without depending on WP-Cron, and it keeps the
-	 * progress numbers on screen moving.
-	 */
-	public function handle_tick() {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_send_json_error( array( 'message' => __( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ) ), 403 );
-		}
-
-		check_ajax_referer( self::ACTION_TICK, 'nonce' );
-
-		if ( WPCPM_Mentors_Sync::is_running() ) {
-			WPCPM_Mentors_Sync::run_tick( WPCPM_Mentors_Sync::BUDGET_AJAX );
-		}
-
-		wp_send_json_success( WPCPM_Mentors_Sync::progress() );
 	}
 
 	/**
@@ -131,7 +115,7 @@ class WPCPM_Mentors extends WPCPM_Module {
 	/**
 	 * Uninstall: drop the module's own options, user meta and notes.
 	 *
-	 * Accounts are left alone — they are people, not plugin state.
+	 * Accounts are left alone - they are people, not plugin state.
 	 */
 	public function uninstall() {
 		WPCPM_Mentor_Notes::delete_all();
@@ -169,27 +153,6 @@ class WPCPM_Mentors extends WPCPM_Module {
 		}
 	}
 
-	/**
-	 * Start a sync.
-	 */
-	public function handle_sync() {
-		$this->verify( self::ACTION_SYNC );
-
-		$result = WPCPM_Mentors_Sync::start();
-
-		$this->redirect_back( is_wp_error( $result ) ? 'error' : 'started' );
-	}
-
-	/**
-	 * Abandon a stuck sync.
-	 */
-	public function handle_cancel() {
-		$this->verify( self::ACTION_CANCEL );
-
-		WPCPM_Mentors_Sync::cancel();
-
-		$this->redirect_back( 'cancelled' );
-	}
 
 	/**
 	 * Email one mentor their login invitation.
@@ -225,29 +188,6 @@ class WPCPM_Mentors extends WPCPM_Module {
 	}
 
 	/**
-	 * Capability and nonce check shared by the admin actions.
-	 *
-	 * @param string $action Action name, used as the nonce action.
-	 */
-	private function verify( $action ) {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
-		}
-
-		check_admin_referer( $action );
-	}
-
-	/**
-	 * Return to the module screen with a status flag.
-	 *
-	 * @param string $status Status slug.
-	 */
-	private function redirect_back( $status ) {
-		wp_safe_redirect( add_query_arg( 'wpcpm_status', $status, $this->admin_url() ) );
-		exit;
-	}
-
-	/**
 	 * Render the Mentors screen.
 	 */
 	public function render_admin_page() {
@@ -260,7 +200,7 @@ class WPCPM_Mentors extends WPCPM_Module {
 		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
 		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
 
-		$this->render_status_notice();
+		$this->render_mentor_notice();
 
 		if ( ! WPCPM_Settings::is_connected() ) {
 			printf(
@@ -285,7 +225,7 @@ class WPCPM_Mentors extends WPCPM_Module {
 			printf(
 				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s</p></div>',
 				esc_html__( 'Institution and team names have not been read yet.', 'wpcredits-program-manager' ),
-				esc_html__( 'Airtable sends those two fields as record IDs, which the sync turns into names. Run a sync to fill them in — until then the mentor page leaves them blank rather than showing an ID.', 'wpcredits-program-manager' )
+				esc_html__( 'Airtable sends those two fields as record IDs, which the sync turns into names. Run a sync to fill them in - until then the mentor page leaves them blank rather than showing an ID.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -301,29 +241,34 @@ class WPCPM_Mentors extends WPCPM_Module {
 	}
 
 	/**
-	 * Show the outcome of an admin action.
+	 * The sync this module owns.
+	 *
+	 * @return string
 	 */
-	private function render_status_notice() {
-		$status = WPCPM_Request::key( 'wpcpm_status' );
+	protected function sync_class() {
+		return 'WPCPM_Mentors_Sync';
+	}
 
-		$messages = array(
-			'started'   => array( 'success', __( 'Sync started — progress is shown below and updates as it runs.', 'wpcredits-program-manager' ) ),
-			'cancelled' => array( 'info', __( 'Sync canceled.', 'wpcredits-program-manager' ) ),
-			'invited'   => array( 'success', __( 'Invitation email sent.', 'wpcredits-program-manager' ) ),
-			'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background — the progress is shown below.', 'wpcredits-program-manager' ) ),
-			'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
-			'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
-			'error'     => array( 'error', __( 'That action could not be completed. See the error below.', 'wpcredits-program-manager' ) ),
-		);
+	/**
+	 * The flash channel the Mentors screen reads its outcomes from.
+	 *
+	 * @return string
+	 */
+	protected function flash_key() {
+		return 'mentors_admin';
+	}
 
-		if ( ! isset( $messages[ $status ] ) ) {
-			return;
-		}
-
-		printf(
-			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-			esc_attr( $messages[ $status ][0] ),
-			esc_html( $messages[ $status ][1] )
+	/**
+	 * This screen's own outcomes, over the three every sync screen shares.
+	 */
+	private function render_mentor_notice() {
+		$this->render_status_notice(
+			array(
+				'invited'         => array( 'success', __( 'Invitation email sent.', 'wpcredits-program-manager' ) ),
+				'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background - the progress is shown below.', 'wpcredits-program-manager' ) ),
+				'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
+				'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
+			)
 		);
 	}
 
@@ -402,7 +347,7 @@ class WPCPM_Mentors extends WPCPM_Module {
 	 * The live progress readout.
 	 *
 	 * Rendered server-side with the current values so it is already populated on
-	 * first paint — and so it still reports real progress with JavaScript off,
+	 * first paint - and so it still reports real progress with JavaScript off,
 	 * where cron drives the run and the meta-refresh fallback updates the page.
 	 *
 	 * @param array $progress Progress payload from WPCPM_Mentors_Sync::progress().
@@ -449,7 +394,7 @@ class WPCPM_Mentors extends WPCPM_Module {
 		printf(
 			'<p class="wpcpm-progress__stalled" data-wpcpm-stalled%1$s>%2$s</p>',
 			$progress['stalled'] ? '' : ' hidden',
-			esc_html__( 'No progress for over two minutes. The run may have been interrupted — cancel it and start again.', 'wpcredits-program-manager' )
+			esc_html__( 'No progress for over two minutes. The run may have been interrupted - cancel it and start again.', 'wpcredits-program-manager' )
 		);
 
 		echo '<p class="description">' . esc_html__( 'The sync works in short bursts so it never hits a PHP timeout. Progress above updates every few seconds; you can safely leave this page and come back.', 'wpcredits-program-manager' ) . '</p>';

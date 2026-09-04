@@ -19,7 +19,7 @@
 
 	<!--
 		Development scripts. They run on the command line, outside WordPress, and read and
-		write files directly — which is the opposite of what the standard is for and would
+		write files directly - which is the opposite of what the standard is for and would
 		drown the report in violations that are correct for a theme and meaningless for a
 		build script.
 	-->
@@ -27,7 +27,7 @@
 
 	<rule ref="WordPress">
 		<!--
-			A block's asset file must be named `index.asset.php` — that is the filename
+			A block's asset file must be named `index.asset.php` - that is the filename
 			WordPress derives from `block.json`'s script reference. Renaming it to satisfy the
 			sniff would stop the block registering.
 		-->

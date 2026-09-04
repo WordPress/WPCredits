@@ -13,13 +13,20 @@ if ( ! defined( 'ABSPATH' ) ) {
  * One option per institution holding that institution's Students rows, plus the two
  * program-wide ones: the rows that name no institution, and the counts.
  *
- * Written by the students sync's `finish()` and by nothing else during a sync (design
- * spec section 8.1). A `WP_User_Query` cannot return a student who has no account, and
- * the institution side needs exactly those: the imported row whose account does not
- * exist yet, the applicant who never started, the graduate whose account was never
- * made. So the roster is the Students table, read once per run into these options, and
- * every institution-side surface reads the index and prints its read time rather than
- * paging Airtable per render.
+ * Rebuilt by the students sync's `finish()` (design spec section 8.1). A `WP_User_Query`
+ * cannot return a student who has no account, and the institution side needs exactly
+ * those: the imported row whose account does not exist yet, the applicant who never
+ * started, the graduate whose account was never made. So the roster is the Students
+ * table, read once per run into these options, and every institution-side surface reads
+ * the index and prints its read time rather than paging Airtable per render.
+ *
+ * Two other writers touch single rows between runs, and during them: `insert()` for a
+ * student an import or a manager's link just created, `update()` for a status or a date a
+ * school just changed. Both stamp the row with the time they wrote it, and `write_all()`
+ * keeps a stamped row over the sync's copy when the stamp is later than the run's read
+ * time. A students run takes minutes and reads the Students table in the middle of them;
+ * without that rule a graduate press made during the provision phase was reverted when
+ * the run finished, and the page then called the reverted row fresh.
  *
  * The rows hold what the roster needs and nothing a student told the program in
  * confidence: no accessibility disclosure, no free text. `clean()` enforces that at
@@ -28,13 +35,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WPCPM_Roster_Index {
 
 	/** One option per institution: the prefix followed by the Institutions record ID. */
-	const OPTION_PREFIX = 'wpcpm_roster_';
+	const OPT_PREFIX = 'wpcpm_roster_';
 
 	/** The rows that name no institution. Manager screen only. */
-	const OPTION_UNLINKED = 'wpcpm_roster_unlinked';
+	const OPT_UNLINKED = 'wpcpm_roster_unlinked';
 
 	/** Participation per institution per cohort, and the reconciliation summary. */
-	const OPTION_COUNTS = 'wpcpm_roster_counts';
+	const OPT_COUNTS = 'wpcpm_roster_counts';
 
 	/**
 	 * Envelope version; an option written by another version is discarded on read.
@@ -90,6 +97,14 @@ class WPCPM_Roster_Index {
 		'import_key',
 		'reports',
 		'user_id',
+		// **Unix time of the last write this site made to the row, 0 for a row as the sync
+		// read it.** Stamped by `insert()` and `update()` and by nothing a caller passes, and
+		// read by `write_all()`, which keeps a row stamped at or after the run's read time
+		// over the sync's copy: the sync read the table before the edit and would otherwise
+		// put the old value back. Added without a `VERSION` bump on purpose - a stored row
+		// without the key reads as 0, which is the truth about it, and a bump would have
+		// emptied every roster on the site until the next run finished.
+		'touched',
 	);
 
 	/**
@@ -109,7 +124,7 @@ class WPCPM_Roster_Index {
 	 * @return string
 	 */
 	public static function option_name( $record_id ) {
-		return self::OPTION_PREFIX . trim( (string) $record_id );
+		return self::OPT_PREFIX . trim( (string) $record_id );
 	}
 
 	/**
@@ -175,7 +190,7 @@ class WPCPM_Roster_Index {
 	 * @return array Rows keyed by Students record ID.
 	 */
 	public static function unlinked() {
-		return self::read_option( self::OPTION_UNLINKED )['rows'];
+		return self::read_option( self::OPT_UNLINKED )['rows'];
 	}
 
 	/**
@@ -184,7 +199,7 @@ class WPCPM_Roster_Index {
 	 * @return array{v: int, read: int, institutions: array, reconciliation: array}
 	 */
 	public static function counts() {
-		$stored = get_option( self::OPTION_COUNTS );
+		$stored = get_option( self::OPT_COUNTS );
 
 		if ( ! is_array( $stored ) || ! isset( $stored['v'] ) || self::VERSION !== (int) $stored['v'] ) {
 			$stored = array();
@@ -373,11 +388,22 @@ class WPCPM_Roster_Index {
 	/**
 	 * Write every option from one completed sync.
 	 *
-	 * The only writer during a sync, so a run that fails part-way leaves last run's
+	 * Called once, at the end of a run, so a run that fails part-way leaves last run's
 	 * options in place rather than a half-written index. An institution that had rows last
 	 * run and has none now is written empty with this run's read time, not deleted: a
 	 * roster that reads "0 students as of today" is the truth, and one that reads "never
 	 * read" is not.
+	 *
+	 * **A row written on this site since the run began is kept, not replaced.** The run's
+	 * rows are the Students table as it stood when the `tutors` phase paged it, and the
+	 * provision phase that follows takes minutes; a graduate press or an import slice that
+	 * lands in those minutes has already changed Airtable and the roster, and the sync's
+	 * copy of that row is the older of the two. So each stored row's `touched` stamp is
+	 * compared with the run's read time, and a row stamped at or after it stands, on the
+	 * roster the sync would have emptied as well as on the ones it refilled. The next run
+	 * reads the table after the edit and replaces the kept row with its own. An
+	 * institution whose only rows are kept ones stays in the counts, with no participation
+	 * to report yet, so `index_subject()`'s walk and the sweep below both still reach it.
 	 *
 	 * @param array $by_institution Rows grouped by Institutions record ID, each keyed by Students record ID.
 	 * @param array $unlinked       Rows with no institution, keyed by Students record ID.
@@ -386,8 +412,8 @@ class WPCPM_Roster_Index {
 	 * @param int   $read           Unix time the Students table was read.
 	 */
 	public static function write_all( array $by_institution, array $unlinked, array $counts, array $reconciliation, $read ) {
-		$read    = (int) $read;
-		$written = array();
+		$read = (int) $read;
+		$kept = array();
 
 		foreach ( $by_institution as $record_id => $rows ) {
 			if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
@@ -396,39 +422,27 @@ class WPCPM_Roster_Index {
 
 			$record_id = trim( (string) $record_id );
 
-			update_option(
-				self::option_name( $record_id ),
-				array(
-					'v'    => self::VERSION,
-					'read' => $read,
-					'rows' => self::clean_rows( is_array( $rows ) ? $rows : array() ),
-				),
-				false
-			);
-
-			$written[ $record_id ] = true;
+			$kept[ $record_id ] = self::write_institution( $record_id, is_array( $rows ) ? $rows : array(), $read );
 		}
 
 		// Last run's institutions, from the counts option, so a stale roster is emptied
 		// without a LIKE query over the options table on every run.
 		foreach ( array_keys( self::counts()['institutions'] ) as $record_id ) {
-			if ( isset( $written[ $record_id ] ) || ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			if ( isset( $kept[ $record_id ] ) || ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
 				continue;
 			}
 
-			update_option(
-				self::option_name( $record_id ),
-				array(
-					'v'    => self::VERSION,
-					'read' => $read,
-					'rows' => array(),
-				),
-				false
-			);
+			$kept[ $record_id ] = self::write_institution( $record_id, array(), $read );
+		}
+
+		foreach ( $kept as $record_id => $count ) {
+			if ( $count > 0 && ! isset( $counts[ $record_id ] ) ) {
+				$counts[ $record_id ] = array();
+			}
 		}
 
 		update_option(
-			self::OPTION_UNLINKED,
+			self::OPT_UNLINKED,
 			array(
 				'v'    => self::VERSION,
 				'read' => $read,
@@ -438,7 +452,7 @@ class WPCPM_Roster_Index {
 		);
 
 		update_option(
-			self::OPTION_COUNTS,
+			self::OPT_COUNTS,
 			array(
 				'v'              => self::VERSION,
 				'read'           => $read,
@@ -450,21 +464,84 @@ class WPCPM_Roster_Index {
 	}
 
 	/**
+	 * Write one institution's roster from the sync's rows, keeping what was written since the read.
+	 *
+	 * @param string $record_id Institutions record ID, well-formed.
+	 * @param array  $rows      The sync's rows for it, in any key order; empty for a roster the run found no rows for.
+	 * @param int    $read      Unix time the Students table was read.
+	 * @return int How many stored rows were kept over the sync's copy.
+	 */
+	private static function write_institution( $record_id, array $rows, $read ) {
+		$rows = self::clean_rows( $rows );
+		$kept = 0;
+
+		// The sync's copy is by definition not a write made here, whatever the caller put
+		// under the key: a stamp that arrived with it would make the next run keep a row
+		// nobody on this site had touched.
+		foreach ( $rows as $students_record => $row ) {
+			$rows[ $students_record ]['touched'] = 0;
+		}
+
+		foreach ( self::read_option( self::option_name( $record_id ) )['rows'] as $students_record => $stored ) {
+			if ( ! is_array( $stored ) ) {
+				continue;
+			}
+
+			// At or after, not strictly after: the read time is the run's start, and the
+			// table was paged some minutes into it, so a row written in the run's first
+			// second was written before the read as well as after the start.
+			$touched = isset( $stored['touched'] ) ? (int) $stored['touched'] : 0;
+
+			if ( $touched < $read ) {
+				continue;
+			}
+
+			$rows[ $students_record ] = $stored;
+			++$kept;
+		}
+
+		update_option(
+			self::option_name( $record_id ),
+			array(
+				'v'    => self::VERSION,
+				'read' => $read,
+				'rows' => $rows,
+			),
+			false
+		);
+
+		return $kept;
+	}
+
+	/**
 	 * Add or replace one row on one institution's roster, keeping its read time.
 	 *
 	 * For the import path, so a student created a moment ago is on the roster now rather
 	 * than after the next sync. The read time is the sync's, deliberately: the rest of the
-	 * roster is still as old as it was.
+	 * roster is still as old as it was. The row itself is stamped `touched` with the time
+	 * of this write, whatever the caller sent under that key, which is what lets a run
+	 * already in flight keep it rather than write the row out of the roster it was just put on.
+	 *
+	 * **The institution is registered in the counts option as well**, with no participation
+	 * to report yet. The counts name the rosters the last sync wrote, and they are the only
+	 * list of rosters the site has: `WPCPM_Institution_Roster::index_subject()` walks them to
+	 * place a Students record and `write_all()` walks them to sweep stale rosters. An
+	 * institution that had no Students rows at the last sync, which is exactly the newly
+	 * approved one running its first import, was on neither walk, so every student it
+	 * created was on its roster page and unknown to the fence until the next run.
 	 *
 	 * @param string $record_id Institutions record ID.
 	 * @param array  $row       Row in the index shape; `record_id` is the Students record ID.
 	 */
 	public static function insert( $record_id, array $row ) {
+		$record_id = trim( (string) $record_id );
+
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
 			return;
 		}
 
-		$row = self::clean( $row );
+		$row['touched'] = time();
+		$row            = self::clean( $row );
 
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $row['record_id'] ) ) {
 			return;
@@ -475,6 +552,14 @@ class WPCPM_Roster_Index {
 		$stored['rows'][ $row['record_id'] ] = $row;
 
 		update_option( self::option_name( $record_id ), $stored, false );
+
+		$counts = self::counts();
+
+		if ( ! isset( $counts['institutions'][ $record_id ] ) ) {
+			$counts['institutions'][ $record_id ] = array();
+
+			update_option( self::OPT_COUNTS, $counts, false );
+		}
 	}
 
 	/**
@@ -487,11 +572,13 @@ class WPCPM_Roster_Index {
 	 *
 	 * Only the keys `KEYS` names are merged, which is the same fence `clean()` applies on every
 	 * other write to this index: a caller that hands over a wider row cannot widen the index,
-	 * and the accessibility disclosure has no way in through here either. Two of those keys are
-	 * refused even so. `record_id` is the row's identity, and moving it would leave the row
+	 * and the accessibility disclosure has no way in through here either. Three of those keys
+	 * are refused even so. `record_id` is the row's identity, and moving it would leave the row
 	 * filed under a key that no longer names it; `institution` is the fence's anchor, and a
 	 * caller that could rewrite it could move a student onto another school's roster - which is
-	 * precisely the thing this module's fence exists to make impossible.
+	 * precisely the thing this module's fence exists to make impossible; `touched` is this
+	 * index's own word about when the row was last written here, set below to the time of this
+	 * write, and a caller that could date it could make `write_all()` keep a stale row forever.
 	 *
 	 * @param string $record_id       Institutions record ID whose roster holds the row.
 	 * @param string $students_record Students record ID of the row.
@@ -520,7 +607,7 @@ class WPCPM_Roster_Index {
 		$changed = false;
 
 		foreach ( $changes as $key => $value ) {
-			if ( ! in_array( $key, self::KEYS, true ) || 'record_id' === $key || 'institution' === $key ) {
+			if ( ! in_array( $key, self::KEYS, true ) || in_array( $key, array( 'record_id', 'institution', 'touched' ), true ) ) {
 				continue;
 			}
 
@@ -532,7 +619,8 @@ class WPCPM_Roster_Index {
 			return false;
 		}
 
-		$row = self::clean( $row );
+		$row['touched'] = time();
+		$row            = self::clean( $row );
 
 		// `clean()` keeps whatever `record_id` the row carried, so this only fails if the
 		// stored row was already unfindable - in which case writing it back under a key it
@@ -563,7 +651,7 @@ class WPCPM_Roster_Index {
 		$names = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				"SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
-				$wpdb->esc_like( self::OPTION_PREFIX ) . '%'
+				$wpdb->esc_like( self::OPT_PREFIX ) . '%'
 			)
 		);
 
@@ -571,8 +659,8 @@ class WPCPM_Roster_Index {
 			delete_option( (string) $name );
 		}
 
-		delete_option( self::OPTION_UNLINKED );
-		delete_option( self::OPTION_COUNTS );
+		delete_option( self::OPT_UNLINKED );
+		delete_option( self::OPT_COUNTS );
 	}
 
 	/**
@@ -644,6 +732,11 @@ class WPCPM_Roster_Index {
 
 				case 'user_id':
 					$out[ $key ] = (int) $value;
+					break;
+
+				case 'touched':
+					// A row without the key, or with rubbish under it, was never written here.
+					$out[ $key ] = max( 0, (int) $value );
 					break;
 
 				case 'reports':

@@ -1,6 +1,6 @@
 <?php
 /**
- * Students module — Airtable sync.
+ * Students module - Airtable sync.
  *
  * @package WPCreditsProgramManager
  */
@@ -18,8 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * read for every mentor, is far more than one request can carry.
  *
  * The expensive phase is `mentors`. A mentor's contact details are only partly in
- * Airtable — the Mentors table has a name, an email and a profile URL and nothing
- * else — so their Slack handle, job line, site and teams come from their
+ * Airtable - the Mentors table has a name, an email and a profile URL and nothing
+ * else - so their Slack handle, job line, site and teams come from their
  * WordPress.org profile. That is one HTTP request per mentor, so the results are
  * gathered once per run and shared by every student assigned to them.
  *
@@ -36,7 +36,7 @@ class WPCPM_Students_Sync {
 	 *
 	 * The hook keeps its old name although the run is no longer daily: the string is what WordPress
 	 * stored in the cron array on every site already running this, and renaming it would leave that
-	 * event behind with nothing listening to it — a sync that never fires and no error to say so.
+	 * event behind with nothing listening to it - a sync that never fires and no error to say so.
 	 */
 	const CRON_AUTO = 'wpcpm_students_daily';
 
@@ -82,6 +82,16 @@ class WPCPM_Students_Sync {
 	const LOCK_TIMEOUT = 120;
 
 	/**
+	 * Seconds before a tick that a transient read failure stopped is tried again.
+	 *
+	 * Thirty seconds is what an Airtable 429 means and is the client's own default backoff.
+	 * The run's schedule states the number for itself because it also covers failures the
+	 * client never saw - a timeout is answered by WordPress's HTTP layer, not by Airtable -
+	 * and a 429 that asks for longer is honoured over it (`retry_delay()`).
+	 */
+	const RETRY_DELAY = 30;
+
+	/**
 	 * Phases, in order. See WPCPM_Mentors_Sync::phases() for how the weights are
 	 * used; `mentors` is weighted heavily because it is the only phase that leaves
 	 * the site.
@@ -122,7 +132,7 @@ class WPCPM_Students_Sync {
 		// Before `schedule()`, and on every request rather than only when scheduling: cron reads
 		// the interval back when it decides what to run next, and an event on a schedule WordPress
 		// cannot find is silently dropped from the queue.
-		add_filter( 'cron_schedules', array( __CLASS__, 'cron_interval' ) ); // phpcs:ignore WordPress.WP.CronInterval.ChangeDetected -- Three hours, well above the 15-minute floor the sniff guards.
+		add_filter( 'cron_schedules', array( __CLASS__, 'cron_interval' ) );
 
 		add_action( self::CRON_AUTO, array( __CLASS__, 'cron_auto' ) );
 		add_action( self::CRON_TICK, array( __CLASS__, 'run_tick' ) );
@@ -151,7 +161,7 @@ class WPCPM_Students_Sync {
 	 * Ensure the recurring event exists, on the interval this version wants.
 	 *
 	 * **The recurrence is checked, not just the existence.** An event already in the cron array
-	 * keeps whatever schedule it was created with — so a site that has been running the daily sync
+	 * keeps whatever schedule it was created with - so a site that has been running the daily sync
 	 * would have gone on running it daily forever, with the code here saying three hours and no
 	 * sign of the disagreement anywhere.
 	 */
@@ -167,8 +177,8 @@ class WPCPM_Students_Sync {
 		}
 
 		// Offset from the mentors sync so the two never contend for the same Airtable rate limit or
-		// the same PHP worker. It only holds for the first run — after that the two cadences drift
-		// apart anyway — but it keeps them off each other on the one run that follows an upgrade,
+		// the same PHP worker. It only holds for the first run - after that the two cadences drift
+		// apart anyway - but it keeps them off each other on the one run that follows an upgrade,
 		// which is when both are most likely to have work to do.
 		wp_schedule_event( time() + ( 30 * MINUTE_IN_SECONDS ), self::EVERY_THREE_HOURS, self::CRON_AUTO );
 	}
@@ -190,7 +200,7 @@ class WPCPM_Students_Sync {
 		}
 
 		// **A run in progress is left alone.** `start()` wipes the state and begins again, which was
-		// harmless while this fired once a day and a run finished in minutes — at three hours it is
+		// harmless while this fired once a day and a run finished in minutes - at three hours it is
 		// not: a slow run would be restarted from the top by the next tick, and a site whose runs
 		// take longer than the gap would sync forever without ever finishing one.
 		//
@@ -214,6 +224,17 @@ class WPCPM_Students_Sync {
 	public static function start( $run_first_tick = false ) {
 		if ( ! WPCPM_Settings::is_connected() ) {
 			$error = new WP_Error( 'wpcpm_not_connected', __( 'Add an Airtable Personal Access Token and Base ID before syncing.', 'wpcredits-program-manager' ) );
+			update_option( self::OPT_ERROR, $error->get_error_message(), false );
+
+			return $error;
+		}
+
+		// Refused before any state is written, like the missing token: with no current status
+		// to filter by, `phase_reports()` would read every row of the table as a student, and
+		// `revoke_departed()` would then treat every current student as gone.
+		$error = WPCPM_Mentors_Sync::empty_statuses_error( WPCPM_Settings::get() );
+
+		if ( is_wp_error( $error ) ) {
 			update_option( self::OPT_ERROR, $error->get_error_message(), false );
 
 			return $error;
@@ -477,8 +498,35 @@ class WPCPM_Students_Sync {
 
 			if ( is_wp_error( $result ) ) {
 				update_option( self::OPT_ERROR, $result->get_error_message(), false );
+
+				$delay = self::retry_delay( $result );
+
+				// A refusal the base will take back - its own half-minute backoff, a server
+				// error, a timeout - used to end the tick with the state saved and nothing
+				// scheduled to pick it up: `cron_auto()` leaves a running run alone until it
+				// has been idle past LOCK_TIMEOUT and then starts over from the first page,
+				// so one 429 cost up to three hours of a stale index and re-read every page
+				// already read. The stored offset is resumed instead, once the wait is over.
+				// A credential or configuration error is not going to take itself back, so
+				// the run still stops on it and the screen says why.
+				if ( $delay > 0 ) {
+					if ( empty( $state['retried'] ) ) {
+						$state['notices'][] = sprintf(
+							/* translators: %s: the error message Airtable, or the HTTP client, returned. */
+							__( 'A read was refused during this run (%s). The run waited and carried on from where it stopped.', 'wpcredits-program-manager' ),
+							$result->get_error_message()
+						);
+					}
+
+					$state['retried'] = ( isset( $state['retried'] ) ? (int) $state['retried'] : 0 ) + 1;
+				}
+
 				update_option( self::OPT_STATE, $state, false );
 				self::release_lock();
+
+				if ( $delay > 0 && ! wp_next_scheduled( self::CRON_TICK ) ) {
+					wp_schedule_single_event( time() + $delay, self::CRON_TICK );
+				}
 
 				return;
 			}
@@ -500,7 +548,42 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
-	 * Phase 1 — page through the student records in scope.
+	 * How long to wait before the tick that resumes a run a read failure stopped; 0 to stop for good.
+	 *
+	 * A rate limit carries its own answer, and never less than `RETRY_DELAY`, since that is
+	 * how long the client itself will refuse to send anything. A server error, a body that
+	 * would not decode and a transport failure (WordPress's own HTTP codes, the ones without
+	 * the plugin's prefix) get the default: none of them is this site's doing and every one
+	 * of them is usually gone half a minute later. A 4xx from Airtable - the token, its
+	 * scopes, a table or a record the base does not have - and a missing token or base ID
+	 * are not going to change on their own, and a tick that retried them every half minute
+	 * would send the base the same refused request until somebody noticed.
+	 *
+	 * @param WP_Error $error What stopped the phase.
+	 * @return int Seconds, or 0.
+	 */
+	private static function retry_delay( WP_Error $error ) {
+		$code   = (string) $error->get_error_code();
+		$data   = $error->get_error_data();
+		$status = ( is_array( $data ) && isset( $data['status'] ) ) ? (int) $data['status'] : 0;
+
+		if ( 'wpcpm_airtable_rate_limited' === $code ) {
+			return max( self::RETRY_DELAY, ( is_array( $data ) && isset( $data['retry_after'] ) ) ? (int) $data['retry_after'] : 0 );
+		}
+
+		if ( 'wpcpm_airtable_error' === $code ) {
+			return $status >= 500 ? self::RETRY_DELAY : 0;
+		}
+
+		if ( in_array( $code, array( 'wpcpm_no_token', 'wpcpm_no_base', 'wpcpm_no_table', 'wpcpm_not_connected' ), true ) ) {
+			return 0;
+		}
+
+		return self::RETRY_DELAY;
+	}
+
+	/**
+	 * Phase 1 - page through the student records in scope.
 	 *
 	 * @param array          $state    Sync state, by reference.
 	 * @param WPCPM_Airtable $airtable Client.
@@ -604,6 +687,12 @@ class WPCPM_Students_Sync {
 				// the stamp of last resort for an account whose Students row the email join
 				// cannot find. Stripped before the row becomes `wpcpm_student_program`.
 				'institution_id' => ( ! empty( $institution_ids ) && WPCPM_Mentors_Sync::is_record_id( $institution_ids[0] ) ) ? (string) $institution_ids[0] : '',
+				// When Airtable created the row, as the API sends it with every record (ISO
+				// 8601, UTC). Read by `choose_report()` when one address has several report
+				// rows: the most recently created active one is the row the account follows.
+				// Stripped before the row becomes `wpcpm_student_program`, like `mentor_id`
+				// and `institution_id` above it.
+				'created'        => isset( $record['createdTime'] ) ? (string) $record['createdTime'] : '',
 			);
 
 			++$state['stats']['students_seen'];
@@ -626,10 +715,10 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
-	 * Phase 2 — build each mentor's contact card.
+	 * Phase 2 - build each mentor's contact card.
 	 *
 	 * Airtable gives a name, an email and a profile URL. Everything else a student
-	 * would use to reach their mentor — Slack handle, job line, site, teams — comes
+	 * would use to reach their mentor - Slack handle, job line, site, teams - comes
 	 * from the WordPress.org profile, one request each. A handful per slice keeps
 	 * any single tick short.
 	 *
@@ -655,8 +744,17 @@ class WPCPM_Students_Sync {
 			$record = $airtable->get_record( $settings['mentors_table'], $record_id );
 
 			if ( is_wp_error( $record ) ) {
-				// One unreadable mentor should not stop the run; the students who
-				// have them keep everything else and lose only the contact card.
+				// Only a refusal about this one record is this one mentor's problem, and then
+				// the students who have them keep everything else and lose only the contact
+				// card. A rate limit, a credential refusal, a server error or a transport
+				// failure is about the run: treated as one unreadable mentor it burned through
+				// the whole pending list in one tick, wrote an empty mentor card onto every
+				// student and reported a clean run. Returned instead, so the tick stops where
+				// the paging phases stop and `run_tick()` decides whether to come back to it.
+				if ( ! self::about_one_record( $record ) ) {
+					return $record;
+				}
+
 				$state['notices'][] = sprintf(
 					/* translators: 1: Airtable record ID, 2: error message. */
 					__( 'Could not read mentor %1$s: %2$s', 'wpcredits-program-manager' ),
@@ -694,7 +792,7 @@ class WPCPM_Students_Sync {
 			if ( is_array( $read ) ) {
 				++$state['stats']['profiles_read'];
 
-				// Airtable is authoritative for name and email — a program manager
+				// Airtable is authoritative for name and email - a program manager
 				// maintains those. The profile only fills what Airtable has no column
 				// for, and never overwrites a value already present.
 				$card['name']          = '' !== $card['name'] ? $card['name'] : $read['name'];
@@ -726,6 +824,31 @@ class WPCPM_Students_Sync {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether a failed record read says something about that record rather than about the run.
+	 *
+	 * The client answers a plain HTTP failure with `wpcpm_airtable_error` and the status in
+	 * the error data. A 404 is a record that is gone and a 400 or 422 a record ID the base
+	 * would not take: both are about the one row asked for. A 401 or 403 is the token, a 429
+	 * is the whole base for the next half minute (the client answers those with its own code,
+	 * and the status is checked as well so the answer does not depend on which it sends), and
+	 * every 5xx and every code that is not the client's own - a timeout, a missing token - is
+	 * about every request the tick would make next.
+	 *
+	 * @param WP_Error $error What the client returned.
+	 * @return bool
+	 */
+	private static function about_one_record( WP_Error $error ) {
+		if ( 'wpcpm_airtable_error' !== $error->get_error_code() ) {
+			return false;
+		}
+
+		$data   = $error->get_error_data();
+		$status = ( is_array( $data ) && isset( $data['status'] ) ) ? (int) $data['status'] : 0;
+
+		return $status >= 400 && $status < 500 && ! in_array( $status, array( 401, 403, 429 ), true );
 	}
 
 	/**
@@ -799,7 +922,7 @@ class WPCPM_Students_Sync {
 
 			// Both live only in the Students table, so this email-keyed pass is the only
 			// place they can be picked up. Parallel maps, so a run already in flight when
-			// this shipped keeps working — a missing key reads as absent.
+			// this shipped keeps working - a missing key reads as absent.
 			$study  = $read( 'student_study' );
 			$access = $read( 'student_access' );
 
@@ -858,6 +981,10 @@ class WPCPM_Students_Sync {
 				// accounts are; declared here so every row has the same shape.
 				'reports'        => array(),
 				'user_id'        => 0,
+				// Never written on this site: the sync's own rows carry 0, and `WPCPM_Roster_Index`
+				// stamps the key on the rows an import or an edit writes between runs, which is
+				// how `write_all()` tells those apart from the copy this pass read.
+				'touched'        => 0,
 			);
 
 			// Not `++`: a run that started under the previous version has no such key yet.
@@ -876,11 +1003,16 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
-	 * Phase 4 — create or update each student's account and write their details.
+	 * Phase 4 - create or update each student's account and write their details.
 	 *
 	 * Resumable by index: creating a few hundred users is well past one request,
 	 * and a tick that runs out mid-list must carry on where it stopped rather than
 	 * start again.
+	 *
+	 * Which report row an account follows is settled before the first slice, once per run,
+	 * for every address the run fetched more than one row for (`governing_reports()`), and
+	 * kept in the state: the choice reads the accounts' stamps, which the slices move, and a
+	 * choice re-made each tick would log itself each tick.
 	 *
 	 * @param array $state    Sync state, by reference.
 	 * @param array $settings Plugin settings.
@@ -900,6 +1032,11 @@ class WPCPM_Students_Sync {
 		}
 
 		$by_email = self::rows_by_email( $state );
+		$fetched  = self::reports_by_record( $state );
+
+		if ( ! isset( $state['governing'] ) || ! is_array( $state['governing'] ) ) {
+			$state['governing'] = self::governing_reports( $state );
+		}
 
 		foreach ( $slice as $index => $student ) {
 			$state['cursor'] = $index + 1;
@@ -916,7 +1053,7 @@ class WPCPM_Students_Sync {
 
 			// Past students keep the account they already have but are not newly
 			// provisioned: an account is for someone who needs to sign in.
-			$user_id = self::provision_student( $student, $state, ! $student['is_past'] );
+			$user_id = self::provision_student( $student, $state, $fetched, ! $student['is_past'] );
 
 			if ( ! $user_id ) {
 				continue;
@@ -943,7 +1080,7 @@ class WPCPM_Students_Sync {
 			}
 
 			$program = $student;
-			unset( $program['email_key'], $program['mentor_id'], $program['institution_id'] );
+			unset( $program['email_key'], $program['mentor_id'], $program['institution_id'], $program['created'] );
 
 			// Whose word the stamp below is on, beside the resolved name the cards print.
 			$program['institution_source'] = $join['source'];
@@ -978,6 +1115,212 @@ class WPCPM_Students_Sync {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Every report record the run fetched, by record ID, with the address it was fetched under.
+	 *
+	 * Built once per tick, for `may_follow()`: whether an account's stamped record is still
+	 * among the tracked records at all, and under which address, is what decides whether
+	 * another row may take the account over.
+	 *
+	 * @param array $state Sync state.
+	 * @return array<string, string> Record ID to email key.
+	 */
+	private static function reports_by_record( array $state ) {
+		$fetched = array();
+
+		foreach ( (array) $state['students'] as $student ) {
+			if ( ! empty( $student['record_id'] ) ) {
+				$fetched[ (string) $student['record_id'] ] = isset( $student['email_key'] ) ? (string) $student['email_key'] : '';
+			}
+		}
+
+		return $fetched;
+	}
+
+	/**
+	 * Which report row governs each address the run fetched more than one row for.
+	 *
+	 * @param array $state Sync state, by reference, for the notices `choose_report()` writes.
+	 * @return array<string, string> Email key to the governing record ID; an address with one row is absent.
+	 */
+	private static function governing_reports( array &$state ) {
+		$by_address = array();
+
+		foreach ( (array) $state['students'] as $student ) {
+			$key = isset( $student['email_key'] ) ? (string) $student['email_key'] : '';
+
+			if ( '' === $key || empty( $student['record_id'] ) ) {
+				continue;
+			}
+
+			$by_address[ $key ][] = $student;
+		}
+
+		$governing = array();
+
+		foreach ( $by_address as $key => $rows ) {
+			if ( count( $rows ) > 1 ) {
+				$governing[ $key ] = self::choose_report( $rows, $state );
+			}
+		}
+
+		return $governing;
+	}
+
+	/**
+	 * The report row an address's account follows, when the run fetched more than one.
+	 *
+	 * Twenty-three students today have two Students Reports rows for one address: a
+	 * re-enrolment whose first row now says Dropped out, a pair an automation created twice.
+	 * Until this the account went to whichever row Airtable returned first and every other
+	 * row for the address was a conflict on every run, so a re-enrolled student stayed bound
+	 * to last term's row - inactive, with no mentor and no Student role - while the active
+	 * row was reported as a conflict, and a fresh pair got a mentor or not depending on the
+	 * order the page came back in. The choice is made here, once per run and per address:
+	 *
+	 * 1. The row the account is already stamped with, when it is one of these and still
+	 *    active, or when none of them is. An account does not move between two live rows
+	 *    because one was created a minute after the other.
+	 * 2. Otherwise the most recently created active row, by Airtable's `createdTime`, the
+	 *    one date every row carries (the base has no last-modified column the sync reads).
+	 *    When nothing is active, the most recently created row of all, which only decides
+	 *    which past row a graduate's account keeps. Two rows created in the same millisecond
+	 *    are ordered by record ID, so nothing here depends on arrival order.
+	 *
+	 * The choice is logged once per run: a manager reading the run report should be able to
+	 * see which record a student's account is following and why, and the second row is a
+	 * data fault somebody may want to mark Duplicated.
+	 *
+	 * @param array $rows  The fetched report rows for one address, in arrival order, at least two.
+	 * @param array $state Sync state, by reference: the choice is appended to `notices`.
+	 * @return string The record ID of the governing row.
+	 */
+	private static function choose_report( array $rows, array &$state ) {
+		$account = null;
+
+		foreach ( $rows as $row ) {
+			$account = self::find_by_record_id( $row['record_id'] );
+
+			if ( $account instanceof WP_User ) {
+				break;
+			}
+		}
+
+		$email = sanitize_email( $rows[0]['email'] );
+
+		if ( ! $account instanceof WP_User && is_email( $email ) ) {
+			$found   = get_user_by( 'email', $email );
+			$account = ( $found instanceof WP_User ) ? $found : null;
+		}
+
+		$stamped = ( $account instanceof WP_User ) ? (string) get_user_meta( $account->ID, self::META_RECORD_ID, true ) : '';
+		$by_id   = array();
+		$active  = array();
+
+		foreach ( $rows as $row ) {
+			$by_id[ (string) $row['record_id'] ] = $row;
+
+			if ( empty( $row['is_past'] ) ) {
+				$active[ (string) $row['record_id'] ] = $row;
+			}
+		}
+
+		if ( isset( $by_id[ $stamped ] ) && ( isset( $active[ $stamped ] ) || empty( $active ) ) ) {
+			$chosen = $stamped;
+			$why    = __( 'the record the account was already linked to', 'wpcredits-program-manager' );
+		} elseif ( ! empty( $active ) ) {
+			$chosen = self::newest( $active );
+			$why    = __( 'the most recently created one with a current status', 'wpcredits-program-manager' );
+		} else {
+			$chosen = self::newest( $by_id );
+			$why    = __( 'the most recently created one', 'wpcredits-program-manager' );
+		}
+
+		$state['notices'][] = sprintf(
+			/* translators: 1: student name, 2: number of report records, 3: Airtable record ID, 4: why that record was chosen. */
+			__( '%1$s has %2$d report records with the same address. The account follows %3$s, %4$s; the others were left as they are.', 'wpcredits-program-manager' ),
+			$by_id[ $chosen ]['name'] ? $by_id[ $chosen ]['name'] : $chosen,
+			count( $rows ),
+			$chosen,
+			$why
+		);
+
+		return $chosen;
+	}
+
+	/**
+	 * The record ID of the most recently created row; by record ID when the times tie.
+	 *
+	 * `createdTime` is ISO 8601 in UTC with a fixed width, so the strings order as the
+	 * moments do. A row without one (a run already in flight when this shipped) sorts first.
+	 *
+	 * @param array $rows Report rows keyed by record ID.
+	 * @return string
+	 */
+	private static function newest( array $rows ) {
+		$chosen  = '';
+		$created = '';
+
+		foreach ( $rows as $record_id => $row ) {
+			$when = isset( $row['created'] ) ? (string) $row['created'] : '';
+			$cmp  = strcmp( $when, $created );
+
+			if ( '' === $chosen || $cmp > 0 || ( 0 === $cmp && strcmp( (string) $record_id, $chosen ) > 0 ) ) {
+				$chosen  = (string) $record_id;
+				$created = $when;
+			}
+		}
+
+		return $chosen;
+	}
+
+	/**
+	 * Whether this report row is the one its address's account follows.
+	 *
+	 * True for every row of an address the run fetched once; for the rest, the answer
+	 * `governing_reports()` settled for the run, the same whichever row Airtable returned first.
+	 *
+	 * @param array $student The reports row.
+	 * @param array $state   Sync state.
+	 * @return bool
+	 */
+	private static function governs( array $student, array $state ) {
+		$key = isset( $student['email_key'] ) ? (string) $student['email_key'] : '';
+
+		if ( '' === $key || ! isset( $state['governing'][ $key ] ) ) {
+			return true;
+		}
+
+		return $state['governing'][ $key ] === (string) $student['record_id'];
+	}
+
+	/**
+	 * Whether an account stamped with another report record may follow this one.
+	 *
+	 * It may when the stamped record is not among the records this run fetched at all - it
+	 * was deleted, marked Duplicated or moved to a status the settings do not track, and an
+	 * account bound to it was a conflict on every run and inactive by the end of each - and
+	 * when the stamped record is another fetched record with this row's address, because this
+	 * row is then the one `governing_reports()` chose for the address (a row it did not choose
+	 * never gets this far). A stamped record fetched under another address is one account
+	 * claimed by two people's rows, or by one person's under two addresses, and nobody here
+	 * can say which; that stays the conflict it always was.
+	 *
+	 * @param string $claimed The record ID the account is stamped with.
+	 * @param array  $student The reports row asking.
+	 * @param array  $fetched Every fetched record ID, with its email key.
+	 * @return bool
+	 */
+	private static function may_follow( $claimed, array $student, array $fetched ) {
+		if ( ! isset( $fetched[ $claimed ] ) ) {
+			return true;
+		}
+
+		$key = isset( $student['email_key'] ) ? (string) $student['email_key'] : '';
+
+		return '' !== $key && $fetched[ $claimed ] === $key;
 	}
 
 	/**
@@ -1151,13 +1494,31 @@ class WPCPM_Students_Sync {
 	 * it is a conflict rather than a match: counted, named, and left exactly as it was. Real
 	 * students never reach that test, because their own stamp finds them first.
 	 *
-	 * @param array $student Student row.
-	 * @param array $state   Sync state, by reference.
+	 * **An account stamped with another report record is not, by itself, a conflict.** It was:
+	 * the first row to claim an address kept the account for good, and a second row for the
+	 * same person - the re-enrolment, the pair an automation made twice - was refused on every
+	 * run while the account followed the stale row into inactivity. Now a row the address's
+	 * account should follow (`governs()`) takes the account over when the stamped record has
+	 * left the tracked set or is a same-address row that lost the choice (`may_follow()`), and
+	 * the move is named once in the run report. The stamp, the program row and the mentor card
+	 * are then rewritten from this row by `phase_provision()`, as for any account.
+	 *
+	 * @param array $student    Student row.
+	 * @param array $state      Sync state, by reference.
+	 * @param array $fetched    Every report record the run fetched, from `reports_by_record()`.
 	 * @param bool  $may_create Whether a missing account may be created.
 	 * @return int User ID, or 0.
 	 */
-	private static function provision_student( array $student, array &$state, $may_create = true ) {
+	private static function provision_student( array $student, array &$state, array $fetched, $may_create = true ) {
 		$email = sanitize_email( $student['email'] );
+
+		// A second report row for an address whose account another fetched row governs was
+		// joined to its Students rows before this call and is given nothing else: no
+		// account, no stamp, and no conflict notice each run. Which row governs was settled
+		// once for the run, so the answer is the same whichever row Airtable returned first.
+		if ( ! self::governs( $student, $state ) ) {
+			return 0;
+		}
 
 		// Identify by the record we stored, then by email. Never by login: student
 		// logins are derived from an email address when there is no WordPress.org
@@ -1177,15 +1538,35 @@ class WPCPM_Students_Sync {
 			$claimed = (string) get_user_meta( $user->ID, self::META_RECORD_ID, true );
 
 			if ( '' !== $claimed && $claimed !== $student['record_id'] ) {
-				$state['notices'][] = sprintf(
-					/* translators: 1: student name, 2: WordPress username. */
-					__( 'Skipped %1$s — the account "%2$s" is already linked to a different student record.', 'wpcredits-program-manager' ),
-					$student['name'] ? $student['name'] : $student['record_id'],
-					$user->user_login
-				);
-				++$state['stats']['conflicts'];
+				if ( ! self::may_follow( $claimed, $student, $fetched ) ) {
+					$state['notices'][] = sprintf(
+						/* translators: 1: student name, 2: WordPress username. */
+						__( 'Skipped %1$s - the account "%2$s" is already linked to a different student record.', 'wpcredits-program-manager' ),
+						$student['name'] ? $student['name'] : $student['record_id'],
+						$user->user_login
+					);
+					++$state['stats']['conflicts'];
 
-				return 0;
+					return 0;
+				}
+
+				$state['notices'][] = isset( $fetched[ $claimed ] )
+					? sprintf(
+						/* translators: 1: student name, 2: WordPress username, 3: Airtable record ID now followed, 4: Airtable record ID followed before. */
+						__( '%1$s: the account "%2$s" now follows report record %3$s rather than %4$s, a record with the same address and a past status.', 'wpcredits-program-manager' ),
+						$student['name'] ? $student['name'] : $student['record_id'],
+						$user->user_login,
+						$student['record_id'],
+						$claimed
+					)
+					: sprintf(
+						/* translators: 1: student name, 2: WordPress username, 3: Airtable record ID followed before, 4: Airtable record ID now followed. */
+						__( '%1$s: the account "%2$s" was linked to report record %3$s, which is no longer among the tracked records, so it now follows %4$s.', 'wpcredits-program-manager' ),
+						$student['name'] ? $student['name'] : $student['record_id'],
+						$user->user_login,
+						$claimed,
+						$student['record_id']
+					);
 			}
 
 			$block = $adopting ? self::adoption_block( $user ) : '';
@@ -1229,7 +1610,7 @@ class WPCPM_Students_Sync {
 		if ( ! is_email( $email ) ) {
 			$state['notices'][] = sprintf(
 				/* translators: %s: student name. */
-				__( 'Skipped %s — Airtable has no valid email address, and WordPress cannot create an account without one.', 'wpcredits-program-manager' ),
+				__( 'Skipped %s - Airtable has no valid email address, and WordPress cannot create an account without one.', 'wpcredits-program-manager' ),
 				$student['name'] ? $student['name'] : $student['record_id']
 			);
 			++$state['stats']['skipped'];
@@ -1392,7 +1773,7 @@ class WPCPM_Students_Sync {
 	/**
 	 * Take the Student role away from anyone no longer in the synced set.
 	 *
-	 * The account is kept — it is a person, not plugin state — but their access to
+	 * The account is kept - it is a person, not plugin state - but their access to
 	 * Student-level content is not.
 	 *
 	 * @param array $state    Sync state, by reference.
@@ -1421,7 +1802,7 @@ class WPCPM_Students_Sync {
 			array(
 				'number'     => -1,
 				'fields'     => 'ID',
-				'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- Bounded by provisioned students.
+				'meta_query' => array(
 					array(
 						'key'     => self::META_RECORD_ID,
 						'compare' => 'EXISTS',
@@ -1523,6 +1904,12 @@ class WPCPM_Students_Sync {
 		if ( isset( $state['rows'] ) && is_array( $state['rows'] ) ) {
 			self::write_roster( $state );
 		}
+
+		// A run that got here got past whatever `run_tick()` recorded and waited out on the
+		// way: the notice in the report says a read was refused, and "last error" is for a
+		// run that stopped. Left in place, the screen would show a half-minute 429 from the
+		// middle of a run as the state of a sync that finished.
+		delete_option( self::OPT_ERROR );
 
 		update_option( self::OPT_LAST, time(), false );
 		delete_option( self::OPT_STATE );
@@ -1743,7 +2130,7 @@ class WPCPM_Students_Sync {
 	 * **Two syncs write two caches of the same student, and they are not run together.** The
 	 * mentors sync fills `wpcpm_mentees` on the mentor; this one fills `wpcpm_student_program` on
 	 * the student. Whenever a field is added to both, whichever sync has not been run since is a
-	 * page showing "Not set" for data that is sitting in the other cache — which is how *Field of
+	 * page showing "Not set" for data that is sitting in the other cache - which is how *Field of
 	 * study* came to be missing from every one of 301 student rows while 546 of 558 mentor rows
 	 * had it.
 	 *
@@ -1757,7 +2144,7 @@ class WPCPM_Students_Sync {
 	 * Fill blanks in a student's own row from the mentor's copy of the same student.
 	 *
 	 * Only ever fills what is missing or empty, so a value this sync wrote always wins, and it
-	 * costs nothing on a row that is already complete — the common case returns before looking
+	 * costs nothing on a row that is already complete - the common case returns before looking
 	 * anything up.
 	 *
 	 * @param array $program The student's stored row.
@@ -1829,7 +2216,7 @@ class WPCPM_Students_Sync {
 	 * The WordPress account of a student's mentor, or 0.
 	 *
 	 * The student's card names the mentor by Airtable record, and the mentors sync stamps that
-	 * record on the mentor's WordPress account — so this is the join between the two caches.
+	 * record on the mentor's WordPress account - so this is the join between the two caches.
 	 *
 	 * @param int $user_id Student user ID.
 	 * @return int
@@ -1844,8 +2231,8 @@ class WPCPM_Students_Sync {
 
 		$users = get_users(
 			array(
-				'meta_key'   => WPCPM_Mentors_Sync::META_RECORD_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_key -- Indexed, and one row.
-				'meta_value' => $mentor, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_value -- Exact match on a record ID.
+				'meta_key'   => WPCPM_Mentors_Sync::META_RECORD_ID,
+				'meta_value' => $mentor,
 				'number'     => 1,
 				// A flat list of IDs, for the reason given in `WPCPM_Mentor_Calls::scan_for_mentor()`:
 				// asking for rows makes core's user-meta cache warn on this site's stack.
@@ -1863,7 +2250,7 @@ class WPCPM_Students_Sync {
 	 * time.** *WordPress Profile*, *Slack Name*, *Main Contribution Team* and *Personal Website
 	 * URL* live in the Students Reports table; the form writes them live, while the cards read the
 	 * copy this sync left behind. So a student who filled in their team saw *Not set* on their own
-	 * card until the next sync ran — the answer was in Airtable, and the page was showing a
+	 * card until the next sync ran - the answer was in Airtable, and the page was showing a
 	 * week-old snapshot of it.
 	 *
 	 * Both copies are updated, because there are two: the student's own `wpcpm_student_program`,
@@ -1881,7 +2268,7 @@ class WPCPM_Students_Sync {
 		$fields  = WPCPM_Mentors_Sync::fields();
 
 		// Keyed by the *configured* column names rather than by literals, so a base that renames a
-		// column renames it here too — the same map the sync itself reads.
+		// column renames it here too - the same map the sync itself reads.
 		$map = array(
 			$fields['report_profile'] => 'profile',
 			$fields['report_slack']   => 'slack',

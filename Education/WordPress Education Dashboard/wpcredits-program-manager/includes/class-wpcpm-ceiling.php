@@ -29,10 +29,17 @@ if ( ! defined( 'ABSPATH' ) ) {
  * under a burst. That is the price of not taking a lock on every submission, and every
  * ceiling here is a nuisance control rather than an entitlement.
  *
- * The first-claim row carries no timestamp, deliberately. `add_option()` is an
+ * The first-claim row carries no timestamp and no amount, deliberately. `add_option()` is an
  * `INSERT ... ON DUPLICATE KEY UPDATE` that reports success by rows affected, so a second
  * first claim writing a different value would overwrite the winner's row and be told it won.
- * Two first claims write byte-identical rows, and the second is told the truth.
+ * Two first claims write byte-identical rows - one place taken, whatever the amount - and the
+ * second is told the truth. A claim for more than one place then raises the row to its amount
+ * with the same write every later claim uses, and that write reopens the race above for the
+ * moment it takes: a second first claim whose INSERT lands after it overwrites the count and
+ * is told it won. That is the read-and-write race in a different order, not a new one, and the
+ * one ceiling counted in things rather than events (the import's rows a day) is a nuisance
+ * control like the rest. What the marker row buys is that the second claim is refused in every
+ * ordering where it used to be admitted on top of a row it had just overwritten.
  *
  * Nothing here is autoloaded. There is a row per key per window and each lives for a few
  * hours, and a row that loads on every page of the site to say how many times a form was
@@ -114,16 +121,36 @@ class WPCPM_Ceiling {
 			// The first claim in this window. `add_option()` is the test-and-set: one INSERT
 			// that fails when the row is already there, so two first claims arriving together
 			// cannot both succeed, and a limit of 1 is exact. Never autoloaded.
-			return (bool) add_option( $name, self::row( $window, $bucket, $amount ), '', false );
+			//
+			// The row is one place taken, whatever the amount. add_option() reports success by
+			// rows affected, and a row carrying the amount let a second first claim of a
+			// different size overwrite the winner's row and be told it won (class docblock).
+			// A refusal here is another request's row landing in the same instant: that
+			// claim counts and this one does not, which is wrong only in the safe direction.
+			if ( ! add_option( $name, self::row( $window, $bucket, 1 ), '', false ) ) {
+				return false;
+			}
+
+			if ( 1 === $amount ) {
+				return true;
+			}
+
+			// The rest of the amount, through the same write as every later claim. This
+			// request holds the row, so the count is known without reading it back, which
+			// also keeps clear of the "not there" answer WordPress caches for a name it was
+			// just asked about.
+			$total = $amount;
+		} else {
+			$count = self::count_of( $row );
+
+			if ( $count + $amount > $limit ) {
+				return false;
+			}
+
+			$total = $count + $amount;
 		}
 
-		$count = self::count_of( $row );
-
-		if ( $count + $amount > $limit ) {
-			return false;
-		}
-
-		update_option( $name, self::row( $window, $bucket, $count + $amount ), false );
+		update_option( $name, self::row( $window, $bucket, $total ), false );
 
 		return true;
 	}

@@ -12,7 +12,7 @@
  *   - the theme's own `Name`, `Description`, `Tags` and `Author` from `style.css`, via
  *     `WP_Theme::translate_header()`.
  *
- * Each one is translated *with a context*, and the context is not decoration — a translator
+ * Each one is translated *with a context*, and the context is not decoration - a translator
  * looking at the word "Small" needs to know it names a font size. Getting the context wrong
  * means the string is never found at run time, which looks exactly like a missing
  * translation and is much harder to explain.

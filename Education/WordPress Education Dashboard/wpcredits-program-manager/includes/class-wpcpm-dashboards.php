@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Collects the dashboards the current user can reach and puts them in the toolbar.
  *
- * Each module owns its own page, but a person can reach more than one of them —
+ * Each module owns its own page, but a person can reach more than one of them -
  * an administrator reaches every page, and somebody can genuinely be both a mentor
  * and a student. Registering them from one place means an administrator gets them
  * grouped under a single menu instead of a row of unrelated top-level items, while
@@ -154,7 +154,7 @@ class WPCPM_Dashboards {
 	 * Why a dashboard has nothing to show, phrased for who is asking.
 	 *
 	 * An administrator who has not synced yet used to be told they lacked a role,
-	 * which is both untrue and unactionable — the accounts simply do not exist. The
+	 * which is both untrue and unactionable - the accounts simply do not exist. The
 	 * message has to name the real reason and point at the screen that fixes it.
 	 *
 	 * @param string $module     Module ID, `students`, `mentors` or `institutions`.

@@ -238,7 +238,8 @@
 .wpcpm-agreement-panel__note {
 	border-inline-start: 3px solid var( --wpcpm-border );
 	margin: 0 0 1em;
-	padding: 0.25em 0 0.25em 1em;
+	padding-block: 0.25em;
+	padding-inline: 1em 0;
 }
 
 .wpcpm-agreement-panel__contact,
@@ -302,8 +303,15 @@
 
 /* Inside a numbered step the form *is* the step: it sits under the sentence
    that numbers it, and the list has already spaced the item around both. */
-.wpcpm-agreement-panel__steps /* A file input is the one control on this page nobody can style much; what it can be given
-   is room, so it does not sit flush against the sentence that asks for it. */
+.wpcpm-agreement-panel__steps .wpcpm-agreement-panel__form {
+	margin-top: 0.5em;
+}
+
+/* A file input is the one control on this page nobody can style much; what it
+   can be given is room, so it does not sit flush against the sentence that asks
+   for it. Not scoped to the steps list: the same form is drawn on three of the
+   panel's states, on the settled card and in the manager's row, and only one of
+   those places is a numbered step. */
 .wpcpm-agreement-panel__field input[type="file"] {
 	display: block;
 	margin-top: 0.35em;
@@ -313,10 +321,6 @@
 .wpcpm-agreement-panel__choices label {
 	display: inline;
 	font-weight: 400;
-}
-
-.wpcpm-agreement-panel__form {
-	margin-top: 0.5em;
 }
 
 /* The sentence a step opens with, above the control that does it. */
@@ -530,19 +534,21 @@
  *
  * A notice, not a paragraph. It answers the question a school opens this page with, and as
  * plain text between the filter bar and the list it read as more body copy. The shape is the
- * one this page already uses for a notice, `.wpcpm-2fa`: a tinted panel with a weighted left
- * edge, so it is recognisably the same kind of thing rather than a second invention.
+ * one this page already uses for a notice, `.wpcpm-2fa`: a tinted panel with a weighted
+ * leading edge, so it is recognisably the same kind of thing rather than a second invention.
+ * Leading rather than left, as the banner and the messages above are: a school reading in an
+ * RTL locale gets the bar on the side the text starts from.
  */
 .wpcpm-roster__strip {
 	background: rgba( 30, 64, 175, 0.05 );
 	border: 1px solid rgba( 30, 64, 175, 0.25 );
-	border-left-width: 4px;
+	border-inline-start-width: 4px;
 	border-radius: var( --wpcpm-radius );
 	margin: 0 0 1.75em;
 
 	/* The same room inside as the agreement panel at the foot of the page. They are the two
 	   bordered blocks a school sees, and a block that is tighter than the other reads as a
-	   different kind of thing rather than as the same page. The left edge is 4px of the 1.5em,
+	   different kind of thing rather than as the same page. The leading edge is 4px of the 1.5em,
 	   so the text still starts where the card's does. */
 	padding: 1.5em;
 }

@@ -83,6 +83,12 @@ class WPCPM_Institution_Audit {
 	 * in REST, not in search, no admin UI. The rows name people and the institutions they
 	 * act for, and the only route to them is the Institutions screen, which checks the
 	 * reader first.
+	 *
+	 * Rows are inserted and read as `private`, never `publish`. The author of a row is the
+	 * manager who acted, and WordPress reads a published row of any type as published work
+	 * by its author: `redirect_canonical()` then answers `?author=N` with a 301 to
+	 * `/author/<login>/`. Every read names the status, because `get_posts()` defaults to
+	 * `publish`. `WPCPM_Privacy_Guard` flips the rows written before this on upgrade.
 	 */
 	public static function register_post_type() {
 		register_post_type(
@@ -176,7 +182,7 @@ class WPCPM_Institution_Audit {
 		$post_id = wp_insert_post(
 			array(
 				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'publish',
+				'post_status'  => 'private',
 				'post_author'  => $actor,
 				'post_content' => $message,
 				'post_title'   => sprintf(
@@ -225,7 +231,7 @@ class WPCPM_Institution_Audit {
 		$posts = get_posts(
 			array(
 				'post_type'        => self::POST_TYPE,
-				'post_status'      => 'publish',
+				'post_status'      => 'private',
 				'numberposts'      => $limit > 0 ? $limit : -1,
 				// ID breaks the tie: attach and detach in one request, or the revoke loop's rows,
 				// share a second, and date alone leaves their order to the database.

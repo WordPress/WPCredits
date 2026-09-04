@@ -11,8 +11,8 @@
  * them here. Change the student booking section and it changes in all three.
  *
  * Two outputs per guide:
- *   docs/<audience>.md          — for reading in the repository.
- *   docs/build/<audience>.html  — block markup, for publishing as a page.
+ *   docs/<audience>.md          - for reading in the repository.
+ *   docs/build/<audience>.html  - block markup, for publishing as a page.
  *
  * The image token resolves differently for each: a relative path in the Markdown, the
  * uploaded URL in the block markup. Run with --base to set that URL.
@@ -44,7 +44,7 @@ foreach ( $argv as $arg ) {
  * Attachment IDs for the published pages, keyed by image slug.
  *
  * An `<!-- wp:image -->` block without an `id` still renders, but the media library never
- * learns the picture is in use — so deleting it later looks safe when it is not.
+ * learns the picture is in use - so deleting it later looks safe when it is not.
  */
 $ids = array(
 	'student-report-card-profile'            => 550,
@@ -58,7 +58,7 @@ $ids = array(
 	'admin-access-level'                     => 554,
 );
 
-// Each guide: its title, its lead-in, and the sections it is made of. Order matters — this
+// Each guide: its title, its lead-in, and the sections it is made of. Order matters - this
 // is the reading order.
 $guides = array(
 	'students'       => array(
@@ -70,7 +70,7 @@ $guides = array(
 	'mentors'        => array(
 		'title' => 'Mentor guide',
 		'lede'  => 'Your Mentor Report Card, setting the hours students can book, and what your students see on their own page.',
-		'intro' => "Thank you for mentoring on the WordPress Credits Program. This guide covers your own Report Card and, at the end, what your students see on theirs — you cannot open a student's page yourself, so the whole of it is repeated here.\n\nIf you read one section today, make it *Setting your availability*: until you publish some hours, nobody can book a call with you.",
+		'intro' => "Thank you for mentoring on the WordPress Credits Program. This guide covers your own Report Card and, at the end, what your students see on theirs - you cannot open a student's page yourself, so the whole of it is repeated here.\n\nIf you read one section today, make it *Setting your availability*: until you publish some hours, nobody can book a call with you.",
 		'parts' => array(
 			'00-signing-in',
 			'20-mentor-card',
@@ -85,7 +85,7 @@ $guides = array(
 	),
 	'administrators' => array(
 		'title' => 'Program manager guide',
-		'lede'  => 'The plugin in wp-admin — settings, modules, access levels and the sync — plus everything mentors and students are told.',
+		'lede'  => 'The plugin in wp-admin - settings, modules, access levels and the sync - plus everything mentors and students are told.',
 		'intro' => "This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.\n\nIt also contains the mentor and student guides in full. Program managers are the people other people ask, and the access levels mean you cannot open either of those pages yourself.",
 		'parts' => array(
 			'30-admin-wpadmin',
@@ -283,7 +283,7 @@ function wpcpm_docs_to_blocks( $md ) {
 			// **Every heading carries an anchor.** The published guides are long enough to need a
 			// table of contents, and a contents entry has to have somewhere to jump to. Written in
 			// at build time rather than added by the theme at render time, because an anchor is
-			// part of the document — it is what a link somebody shares points at, and it should not
+			// part of the document - it is what a link somebody shares points at, and it should not
 			// change because a stylesheet did.
 			//
 			// Uniquified, because the guides repeat sections on purpose: the mentor guide carries

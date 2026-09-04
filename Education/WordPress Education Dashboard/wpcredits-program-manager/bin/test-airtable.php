@@ -472,5 +472,30 @@ ck( 'none of which recorded a backoff',
 	array( WPCPM_Airtable::backoff_remaining(), array_key_exists( 'wpcpm_airtable_backoff', $GLOBALS['opts'] ) ),
 	array( 0, false ) );
 
+echo "\n=== The formula travels percent-encoded, and the record-ID check lives here ===\n";
+
+// add_query_arg() does not encode the values it is handed and the HTTP layer leaves + & = as
+// they are, so a formula built from a plus-addressed email reached Airtable with the plus
+// decoded as a space and matched nobody: the roster refused a real student, the report withheld
+// them, the import created a duplicate, all silently.
+$GLOBALS['sent']  = array();
+$GLOBALS['queue'] = array( array( 'response' => array( 'code' => 200 ), 'headers' => array(), 'body' => json_encode( array( 'records' => array() ) ) ) );
+$client = new WPCPM_Airtable( array( 'api_token' => 'pat-test', 'base_id' => 'appTest' ) );
+$client->fetch_page( 'tblX', array( 'formula' => $client->formula_in( 'Email', array( 'anna+wp@example.org', 'b&c@example.org' ), true ), 'fields' => array( 'Email' ) ) );
+$url = (string) ( $GLOBALS['sent'][0]['url'] ?? '' );
+parse_str( (string) parse_url( $url, PHP_URL_QUERY ), $query );
+ck( 'the plus sign survives the trip as itself', false !== strpos( (string) ( $query['filterByFormula'] ?? '' ), 'anna+wp@example.org' ), true );
+ck( 'and so does the ampersand, inside one parameter rather than starting another', false !== strpos( (string) ( $query['filterByFormula'] ?? '' ), "'b&c@example.org'" ), true );
+ck( 'because the value is RFC 3986 encoded on the wire', false !== strpos( $url, 'anna%2Bwp%40example.org' ) && false !== strpos( $url, 'b%26c%40example.org' ), true );
+ck( 'the fields are still repeated the way Airtable reads them', false !== strpos( $url, 'fields%5B%5D=Email' ), true );
+
+// The record-ID shape is a fact about Airtable, so the client owns it; the Mentors sync keeps an
+// alias for one release and the policy no longer depends on that module for its one check.
+ck( 'the client declares the record-ID pattern', WPCPM_Airtable::RECORD_ID_PATTERN, '/^rec[A-Za-z0-9]{14}$/' );
+ck( 'and tests a value against it', array( WPCPM_Airtable::is_record_id( 'recABCDEFGHIJKLMN' ), WPCPM_Airtable::is_record_id( ' recABCDEFGHIJKLMN ' ), WPCPM_Airtable::is_record_id( 'recABC' ), WPCPM_Airtable::is_record_id( array( 'recABCDEFGHIJKLMN' ) ) ), array( true, true, false, false ) );
+$mentors_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php' );
+ck( 'the Mentors sync aliases it rather than keeping its own copy', false !== strpos( $mentors_src, 'return WPCPM_Airtable::is_record_id( $value );' ), true );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+
 exit( $fail ? 1 : 0 );

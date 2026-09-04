@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * capabilities that drive content gating.
  *
  * Role slugs are prefixed (`wpcpm_mentor`, not `mentor`) because bare `student`
- * and `teacher` slugs are commonly claimed by LMS plugins — Sensei among them —
+ * and `teacher` slugs are commonly claimed by LMS plugins - Sensei among them -
  * and silently sharing a role slug means sharing its capability set.
  */
 class WPCPM_Roles {
@@ -106,8 +106,8 @@ class WPCPM_Roles {
 	 * Every capability the Administrator role is granted by this plugin.
 	 *
 	 * Derived from the roles rather than listed by hand: adding a module used to
-	 * mean remembering to add its marker cap in two places — grant on activation
-	 * and remove on uninstall — and missing the second leaves the cap behind on a
+	 * mean remembering to add its marker cap in two places - grant on activation
+	 * and remove on uninstall - and missing the second leaves the cap behind on a
 	 * site that has removed the plugin.
 	 *
 	 * @return string[]
@@ -206,7 +206,7 @@ class WPCPM_Roles {
 	 * A user ID out of whatever `get_users()` handed back.
 	 *
 	 * **The `fields` argument cannot be trusted on every stack.** Asked for `'ID'`, WordPress is
-	 * documented to return a flat list of IDs — and on this program's site it returns `stdClass`
+	 * documented to return a flat list of IDs - and on this program's site it returns `stdClass`
 	 * rows anyway, because something in the stack filters the query. Casting the entry straight to
 	 * `int` then raises "Object of class stdClass could not be converted to int" on every render,
 	 * which is exactly the warning this was introduced to stop.

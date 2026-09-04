@@ -3,7 +3,7 @@
  * The mentor dashboard skin.
  *
  * The plugin renders the page and, since its 1.64.0, groups and searches it too. All this file
- * does now is load the stylesheets that dress the result — the theme's own richer treatment over
+ * does now is load the stylesheets that dress the result - the theme's own richer treatment over
  * the baseline the plugin ships.
  *
  * It used to own the triage script and the payload behind it, which meant a theme change took the
@@ -22,8 +22,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * The plugin renders the handle as a link itself, to a target its own
  * `wpcpm_slack_url` filter owns. The script's `linkSlack()` had become unreachable
- * either way — it bailed when the cell already held an `<a>`, and bailed again when
- * the cell was "Not set" — so it was doing nothing but keeping a reason to call
+ * either way - it bailed when the cell already held an `<a>`, and bailed again when
+ * the cell was "Not set" - so it was doing nothing but keeping a reason to call
  * `__()` against the *plugin's* text domain, which a theme should not do: the string
  * is not in the theme's own catalog, and matching a translated label to find a
  * table row breaks on any wording change.
@@ -40,8 +40,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Load the skin and the script on any dashboard page.
  *
  * Registered at priority 20 so the plugin's own stylesheet is already registered
- * and can be declared a dependency. Without that the plugin's CSS — enqueued from
- * inside its render callback, and therefore printed late — would land after this
+ * and can be declared a dependency. Without that the plugin's CSS - enqueued from
+ * inside its render callback, and therefore printed late - would land after this
  * one and win every tie.
  */
 function wpcredits_dashboard_assets() {
@@ -65,7 +65,7 @@ function wpcredits_dashboard_assets() {
 		$deps[] = WPCPM_Institutions_Dashboard::STYLE;
 	}
 
-	// The call calendar, for the same reason as the two above — and it is the sharpest
+	// The call calendar, for the same reason as the two above - and it is the sharpest
 	// case of it. The plugin enqueues this one from inside a render callback that runs
 	// during `the_content`, long after this hook, so without the dependency it prints
 	// *after* the theme's sheet and wins every tie. Nothing looks wrong today only
@@ -92,7 +92,7 @@ function wpcredits_dashboard_assets() {
 	);
 
 	// The triage, the counts and the search used to be enqueued here. They moved into
-	// wpcredits-program-manager 1.64.0, which is where the list they regroup is rendered — a
+	// wpcredits-program-manager 1.64.0, which is where the list they regroup is rendered - a
 	// theme carrying that meant a theme change took the feature with it. This file dresses the
 	// result; it no longer decides whether there is one.
 }
@@ -105,7 +105,7 @@ add_action( 'wp_enqueue_scripts', 'wpcredits_dashboard_assets', 20 );
  *
  * One question, asked of the plugin, rather than the theme reimplementing the answer. The
  * plugin's own check already covers the assistant being switched off, the handbook never
- * having been synced, the reader being logged out and the configured audience — and any of
+ * having been synced, the reader being logged out and the configured audience - and any of
  * those reimplemented here would be a second copy to keep in step, which is exactly how the
  * mentor-page mismatch happened.
  *

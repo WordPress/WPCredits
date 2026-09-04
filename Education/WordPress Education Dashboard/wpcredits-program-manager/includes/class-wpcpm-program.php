@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Airtable calls the two tracks `In Sensei` and `In Sensei 50h`, which is internal
  * shorthand from an earlier name for the program. Students and mentors know them as
  * the 150-hour and 50-hour WordPress Credits Program, and that is what every screen
- * says. The raw values stay the storage format — the sync matches on them, the
+ * says. The raw values stay the storage format - the sync matches on them, the
  * settings list them, and nothing here rewrites what is saved.
  *
  * Kept in one place because the mapping is needed on both dashboards and in two
@@ -182,7 +182,7 @@ class WPCPM_Program {
 	 * **This replaced an `is_50h` boolean carried on every synced row.** Two tracks fit a boolean;
 	 * three do not, and a second flag beside the first would give four states for three tracks with
 	 * "both true" representable and meaningless. The status is already stored on every row by both
-	 * syncs, and the boolean was derived from it anyway — so the track is derived where it is
+	 * syncs, and the boolean was derived from it anyway - so the track is derived where it is
 	 * needed and nothing has to be kept in step. A fourth track is one entry in this map.
 	 *
 	 * @param string $status Airtable status.

@@ -4,14 +4,14 @@
  *
  * The button and the panel it opens live on opposite sides of the plugin/theme line: the
  * plugin owns the assistant and prints the panel, the theme decides where the way in
- * belongs. They meet at one data attribute, `data-wpcpm-handbook-open`, and nothing else —
+ * belongs. They meet at one data attribute, `data-wpcpm-handbook-open`, and nothing else -
  * so this theme can move the button, and another theme can leave it out, without either
  * side changing.
  *
  * Renders nothing at all unless the plugin says this reader can use the assistant. That
  * single call covers the plugin being inactive, the assistant being switched off, the
  * handbook never having been synced, and the reader being logged out or outside the
- * configured audience — none of which the theme should be second-guessing on its own.
+ * configured audience - none of which the theme should be second-guessing on its own.
  *
  * @package WPCredits_Theme
  */

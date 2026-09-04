@@ -1,5 +1,5 @@
 /**
- * WPCredits Program Manager — admin behavior.
+ * WPCredits Program Manager - admin behavior.
  *
  * Drives every running sync on the page and reports its progress. Each poll does
  * two jobs: it advances the sync by one slice (so the work does not depend on
@@ -169,7 +169,7 @@
 				} )
 				.then( function ( result ) {
 					if ( ! result || ! result.success || ! result.data ) {
-						// Something rejected the request — reload so the server can
+						// Something rejected the request - reload so the server can
 						// render whatever the real state is, including any error.
 						window.location.reload();
 						return;
@@ -186,7 +186,7 @@
 					}
 				} )
 				.catch( function () {
-					// A dropped request is not fatal — cron is still running the
+					// A dropped request is not fatal - cron is still running the
 					// sync, so back off and try again rather than giving up.
 					window.setTimeout( tick, poll * 2000 );
 				} );

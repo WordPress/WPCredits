@@ -1,6 +1,6 @@
 <?php
 /**
- * Tool — Header notices.
+ * Tool - Header notices.
  *
  * @package WPCreditsProgramManager
  */
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * The editors are deliberately *not* `teeny`. The small editor drops the media button, and
  * the combination of `teeny` with a custom toolbar cancels both the toolbar and the media
- * button — which would leave a notice unable to hold the images the feature was asked for.
+ * button - which would leave a notice unable to hold the images the feature was asked for.
  */
 class WPCPM_Header_Notices extends WPCPM_Tool {
 
@@ -52,7 +52,7 @@ class WPCPM_Header_Notices extends WPCPM_Tool {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'Write a notice for one audience — students, mentors, institutions, sponsors or administrators. Each one appears at the top of the page for the people it is addressed to, and for nobody else.', 'wpcredits-program-manager' );
+		return __( 'Write a notice for one audience - students, mentors, institutions, sponsors or administrators. Each one appears at the top of the page for the people it is addressed to, and for nobody else.', 'wpcredits-program-manager' );
 	}
 
 	/**
@@ -66,7 +66,7 @@ class WPCPM_Header_Notices extends WPCPM_Tool {
 	 * Always ready.
 	 *
 	 * The base class treats "ready" as "Airtable is connected", which every other tool needs
-	 * and this one does not — a notice is written by hand and reads nothing.
+	 * and this one does not - a notice is written by hand and reads nothing.
 	 *
 	 * @return bool
 	 */
@@ -156,7 +156,7 @@ class WPCPM_Header_Notices extends WPCPM_Tool {
 		foreach ( WPCPM_Notices::audiences() as $slug => $label ) {
 			$body = isset( $bodies[ $slug ] ) ? $bodies[ $slug ] : '';
 
-			// The editor ID has to be lowercase letters and underscores only — TinyMCE is
+			// The editor ID has to be lowercase letters and underscores only - TinyMCE is
 			// initialised by that ID, and a hyphen in it breaks the editor rather than
 			// degrading it.
 			$editor_id = 'wpcpm_notice_' . $slug;

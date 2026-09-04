@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Everything the theme adds around the mentor page is guarded on this. A theme
  * that assumes its companion plugin is present breaks the site the moment the
- * plugin is deactivated — which is exactly when somebody is debugging.
+ * plugin is deactivated - which is exactly when somebody is debugging.
  *
  * @return bool
  */
@@ -38,8 +38,8 @@ function wpcredits_mentor_page_url() {
 /**
  * Whether this request is the student program page.
  *
- * Matched the same three ways as the mentor page — the page the plugin creates,
- * the block on any page, or the shortcode — and guarded on the class so a plugin
+ * Matched the same three ways as the mentor page - the page the plugin creates,
+ * the block on any page, or the shortcode - and guarded on the class so a plugin
  * older than the Students module does not fatal.
  *
  * @return bool
@@ -97,8 +97,8 @@ function wpcredits_is_institution_page() {
 /**
  * Whether this request is any of the dashboards.
  *
- * The three pages share a shell, so anything that dresses that shell — the card,
- * the insets, the type — applies to all of them.
+ * The three pages share a shell, so anything that dresses that shell - the card,
+ * the insets, the type - applies to all of them.
  *
  * **The institution page was missing from this for two releases**, which is why it
  * did not look like the other two however much its own stylesheet was worked on:
@@ -129,8 +129,8 @@ function wpcredits_student_page_url() {
  * Whether this request is the mentor page.
  *
  * Matched on the plugin's own stored page ID and then on the block or shortcode,
- * because the dashboard is reachable three ways — the page the plugin creates,
- * the block dropped on any page, or the shortcode — and the skin has to load for
+ * because the dashboard is reachable three ways - the page the plugin creates,
+ * the block dropped on any page, or the shortcode - and the skin has to load for
  * all three.
  *
  * @return bool
@@ -167,7 +167,7 @@ function wpcredits_viewer_is_mentor() {
 	}
 
 	// The plugin's own test, which also counts an administrator matched to an
-	// Airtable mentor record — the sync never gives an administrator the Mentor
+	// Airtable mentor record - the sync never gives an administrator the Mentor
 	// role, so a role check alone would call them a non-mentor and label their own
 	// list as somebody else's. Guarded so an older plugin still works.
 	if ( method_exists( 'WPCPM_Mentors_Dashboard', 'is_mentor' ) ) {
@@ -181,7 +181,7 @@ function wpcredits_viewer_is_mentor() {
  * Set the site title the way the reference site sets it: the accent word in brand
  * blue, and whatever follows it in muted gray at normal weight.
  *
- * "WordPress **Education** Initiatives" — bold ink, brand blue, muted gray. The
+ * "WordPress **Education** Initiatives" - bold ink, brand blue, muted gray. The
  * reference theme hard-codes those three spans; here they are derived from the
  * real site title, so renaming the site in Settings keeps working and a title
  * without the accent word simply comes out plain.
@@ -257,7 +257,7 @@ function wpcredits_initials( $name ) {
  * How many accounts hold one of the program's roles.
  *
  * The count behind the landing page's figure. Cached for an hour because it only changes when a
- * sync runs, and read with `count_total` rather than by fetching the users — the page needs the
+ * sync runs, and read with `count_total` rather than by fetching the users - the page needs the
  * number, not the people.
  *
  * @param string $role Role slug.

@@ -1,6 +1,6 @@
 <?php
 /**
- * Mentors module — booked mentor calls.
+ * Mentors module - booked mentor calls.
  *
  * @package WPCreditsProgramManager
  */
@@ -18,13 +18,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * queried rather than one array two browser tabs can clobber.
  *
  * The start time lives in post meta as a UTC timestamp rather than in `post_date`.
- * `post_date` is when the booking was *made* — worth keeping distinct, because "you
+ * `post_date` is when the booking was *made* - worth keeping distinct, because "you
  * booked this three weeks ago" and "this call is on Thursday" are different facts, and
  * conflating them would make `get_post_time()` lie about one of them.
  *
  * Canceling trashes the post rather than deleting it. A trashed booking drops out of
- * every `publish` query, so it frees its slot immediately, but it is still there if
- * anyone has to work out what happened to a call somebody swears they booked.
+ * every query for live rows (they ask for `private`), so it frees its slot immediately,
+ * but it is still there if anyone has to work out what happened to a call somebody
+ * swears they booked.
  */
 class WPCPM_Mentor_Calls {
 
@@ -42,7 +43,7 @@ class WPCPM_Mentor_Calls {
 	/** Post meta: the student's WP user ID. */
 	const META_STUDENT = '_wpcpm_call_student';
 
-	/** Post meta: the student's Airtable record ID — the durable identity. */
+	/** Post meta: the student's Airtable record ID - the durable identity. */
 	const META_RECORD = '_wpcpm_call_student_record';
 
 	/** Post meta: the student's name when they booked, for listings. */
@@ -61,7 +62,7 @@ class WPCPM_Mentor_Calls {
 	 * How many students a call has room for.
 	 *
 	 * Absent or 1 means a one-to-one call, which is every call that existed before group
-	 * sessions — so nothing has to be migrated and an unmarked call keeps behaving exactly
+	 * sessions - so nothing has to be migrated and an unmarked call keeps behaving exactly
 	 * as it did.
 	 */
 	const META_CAPACITY = '_wpcpm_call_capacity';
@@ -118,6 +119,14 @@ class WPCPM_Mentor_Calls {
 	 * Invisible everywhere, like notes: these are private appointments between named
 	 * people, and the only routes to them are the two dashboards, each of which checks
 	 * the reader against the assignment first.
+	 *
+	 * Rows are inserted and read as `private`, never `publish`, and every read names the
+	 * status because `get_posts()` defaults to `publish`. WordPress treats a published row
+	 * of any post type as published work by its author: `redirect_canonical()` answers
+	 * `?author=N` with a 301 to `/author/<login>/` for every account with one, and the
+	 * users REST route and sitemap count them too. The author here is the student who
+	 * booked, so a `publish` call handed out their login. `WPCPM_Privacy_Guard` flips the
+	 * rows written before this on upgrade.
 	 */
 	public static function register_post_type() {
 		register_post_type(
@@ -166,7 +175,7 @@ class WPCPM_Mentor_Calls {
 	 *
 	 * Two routes, because the two sides of the link are written by two different syncs
 	 * and either can be the stale one. The student's own mentor card is authoritative
-	 * when it resolves — it is what the student is shown as "your mentor" — and the
+	 * when it resolves - it is what the student is shown as "your mentor" - and the
 	 * mentor's mentee list is the fallback, which covers a student whose card has not
 	 * been rebuilt since their mentor's account was created.
 	 *
@@ -176,7 +185,7 @@ class WPCPM_Mentor_Calls {
 	public static function mentor_for_student( $student_id ) {
 		$student_id = (int) $student_id;
 
-		// Resolved more than once per request — the calendar asks, and so does every
+		// Resolved more than once per request - the calendar asks, and so does every
 		// check that takes a mentor argument it might not have been given.
 		static $resolved = array();
 
@@ -190,13 +199,13 @@ class WPCPM_Mentor_Calls {
 		if ( '' !== $record ) {
 			// `'ID'` as a string, not `array( 'ID' )` and not `'all'`. Both of those make
 			// `WP_User_Query` hand core's `cache_users()` whole rows, and on this site something
-			// in the stack leaves them as raw `stdClass` — so `update_meta_cache()` tries to
+			// in the stack leaves them as raw `stdClass` - so `update_meta_cache()` tries to
 			// `intval()` an object and raises a warning on every student card render. Asking for
 			// a flat list of IDs and hydrating one of them here avoids the path entirely.
 			$found = get_users(
 				array(
-					'meta_key'   => WPCPM_Mentors_Sync::META_RECORD_ID, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_key -- Indexed lookup of one account.
-					'meta_value' => $record, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_value -- As above.
+					'meta_key'   => WPCPM_Mentors_Sync::META_RECORD_ID,
+					'meta_value' => $record,
 					'number'     => 1,
 					'fields'     => 'ID',
 				)
@@ -224,7 +233,7 @@ class WPCPM_Mentor_Calls {
 	 * The fallback, and an expensive one: mentee lists are serialized user meta, so
 	 * there is no way to query into them and the only route is to read all of them. That
 	 * is fine as a rescue for a stale student card and unacceptable on every page load,
-	 * which is what it would be otherwise — a student whose mentor genuinely cannot be
+	 * which is what it would be otherwise - a student whose mentor genuinely cannot be
 	 * resolved would pay for the full scan every time they opened their dashboard. So
 	 * the answer is cached, *including* the answer "nobody", which is the case that
 	 * would otherwise never stop scanning.
@@ -286,7 +295,7 @@ class WPCPM_Mentor_Calls {
 	 * Why a student cannot book, or an empty string if they can.
 	 *
 	 * Returns the reason rather than a boolean because every one of these is worth
-	 * telling the student — "no slots" and "you already have a call" and "mentoring has
+	 * telling the student - "no slots" and "you already have a call" and "mentoring has
 	 * finished" all look like a broken calendar otherwise.
 	 *
 	 * @param int          $student_id Student user ID.
@@ -362,7 +371,7 @@ class WPCPM_Mentor_Calls {
 	/**
 	 * Start timestamps already booked with a mentor in a window.
 	 *
-	 * Keyed by timestamp so the caller can test membership rather than search — slot
+	 * Keyed by timestamp so the caller can test membership rather than search - slot
 	 * generation asks this several hundred times per calendar.
 	 *
 	 * @param int $mentor_id Mentor user ID.
@@ -374,11 +383,11 @@ class WPCPM_Mentor_Calls {
 		$calls = get_posts(
 			array(
 				'post_type'        => self::POST_TYPE,
-				'post_status'      => 'publish',
+				'post_status'      => 'private',
 				'numberposts'      => 500,
 				'fields'           => 'ids',
 				'suppress_filters' => false,
-				'meta_query'       => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- Bounded to one mentor and one window.
+				'meta_query'       => array(
 					'relation' => 'AND',
 					array(
 						'key'   => self::META_MENTOR,
@@ -491,13 +500,13 @@ class WPCPM_Mentor_Calls {
 		return get_posts(
 			array(
 				'post_type'        => self::POST_TYPE,
-				'post_status'      => 'publish',
+				'post_status'      => 'private',
 				'numberposts'      => 200,
 				'orderby'          => 'meta_value_num',
-				'meta_key'         => self::META_START, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_key -- Needed to order by start time.
+				'meta_key'         => self::META_START,
 				'order'            => $upcoming ? 'ASC' : 'DESC',
 				'suppress_filters' => false,
-				'meta_query'       => $clauses, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- Bounded to one person.
+				'meta_query'       => $clauses,
 			)
 		);
 	}
@@ -538,8 +547,8 @@ class WPCPM_Mentor_Calls {
 	 * **A call's attendees are repeated `META_STUDENT` rows, not one serialized list.** That is
 	 * the whole reason group sessions needed no new queries: `for_student()` and `for_record()`
 	 * match a meta *value*, so a student finds a session they joined with the same query that
-	 * finds their own one-to-one calls, and `taken_starts()` — which is what stops a private
-	 * call being booked over a group session — needs no change either.
+	 * finds their own one-to-one calls, and `taken_starts()` - which is what stops a private
+	 * call being booked over a group session - needs no change either.
 	 *
 	 * `get_post_meta( …, true )` returns the first row, so a one-to-one call still reads as it
 	 * always did.
@@ -704,7 +713,7 @@ class WPCPM_Mentor_Calls {
 
 		$student_id = get_current_user_id();
 
-		// A program manager booking on a student's behalf is a real need — a student
+		// A program manager booking on a student's behalf is a real need - a student
 		// who cannot get into their account still has to be seen.
 		if ( current_user_can( WPCPM_Roles::CAP_MANAGE ) && isset( $_POST['student'] ) ) {
 			$requested = absint( wp_unslash( $_POST['student'] ) );
@@ -764,12 +773,12 @@ class WPCPM_Mentor_Calls {
 		$post_id = wp_insert_post(
 			array(
 				'post_type'    => self::POST_TYPE,
-				'post_status'  => 'publish',
+				'post_status'  => 'private',
 				'post_author'  => get_current_user_id(),
 				'post_content' => $topic,
 				'post_title'   => sprintf(
 					/* translators: 1: student name, 2: call date and time. */
-					__( 'Call with %1$s — %2$s', 'wpcredits-program-manager' ),
+					__( 'Call with %1$s - %2$s', 'wpcredits-program-manager' ),
 					'' !== $name ? $name : $record,
 					wp_date( 'Y-m-d H:i', $slot['start'] )
 				),
@@ -824,13 +833,13 @@ class WPCPM_Mentor_Calls {
 		$calls = get_posts(
 			array(
 				'post_type'        => self::POST_TYPE,
-				'post_status'      => 'publish',
+				'post_status'      => 'private',
 				'numberposts'      => 5,
 				'fields'           => 'ids',
 				'orderby'          => 'ID',
 				'order'            => 'ASC',
 				'suppress_filters' => false,
-				'meta_query'       => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- One slot.
+				'meta_query'       => array(
 					'relation' => 'AND',
 					array(
 						'key'   => self::META_MENTOR,
@@ -853,7 +862,7 @@ class WPCPM_Mentor_Calls {
 	 * Cancel a booking.
 	 */
 	public static function handle_cancel() {
-		$call_id = isset( $_POST['call'] ) ? absint( wp_unslash( $_POST['call'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+		$call_id = isset( $_POST['call'] ) ? absint( wp_unslash( $_POST['call'] ) ) : 0;
 
 		check_admin_referer( self::ACTION_CANCEL . '_' . $call_id );
 
@@ -869,8 +878,8 @@ class WPCPM_Mentor_Calls {
 
 		update_post_meta( $call->ID, self::META_CANCELLED_BY, get_current_user_id() );
 
-		// Trashed, not deleted: it leaves every `publish` query at once, so the slot is
-		// free again immediately, but the record of it survives.
+		// Trashed, not deleted: it leaves every query for live (`private`) rows at once, so
+		// the slot is free again immediately, but the record of it survives.
 		wp_trash_post( $call->ID );
 
 		self::notify_cancelled( $call );
@@ -909,7 +918,7 @@ class WPCPM_Mentor_Calls {
 
 		// Where they came from is the only reliable answer to where they want to be. One
 		// person can be a student, a mentor and a manager at once, so any rule based on
-		// who they are gets somebody wrong — a manager booking on a student's behalf was
+		// who they are gets somebody wrong - a manager booking on a student's behalf was
 		// being returned to the mentor dashboard.
 		//
 		// The referer is only ever *matched against* the two pages already known here,
@@ -939,7 +948,7 @@ class WPCPM_Mentor_Calls {
 			$page = '' !== $student_page ? $student_page : home_url( '/' );
 		}
 
-		// The outcome goes in a flash, not the URL. In the URL it survived every reload —
+		// The outcome goes in a flash, not the URL. In the URL it survived every reload -
 		// "That call is canceled and the slot is free again" stayed on the page for good.
 		WPCPM_Flash::set( 'call', $status );
 
@@ -951,7 +960,7 @@ class WPCPM_Mentor_Calls {
 		//
 		// Safe to echo back even though a referer is forgeable: both arguments are
 		// re-validated against `WPCPM_Roles::CAP_MANAGE` by the page that reads them, so
-		// this cannot grant a view the viewer does not already have — and it is only read
+		// this cannot grant a view the viewer does not already have - and it is only read
 		// for somebody who has that capability in the first place.
 		if ( $referer && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			$query = (string) wp_parse_url( $referer, PHP_URL_QUERY );
@@ -965,7 +974,7 @@ class WPCPM_Mentor_Calls {
 			}
 		}
 
-		// `WPCPM_Call_Calendar::ANCHOR`, not `self::` — the anchor belongs to the section the
+		// `WPCPM_Call_Calendar::ANCHOR`, not `self::` - the anchor belongs to the section the
 		// calendar renders, and this class has no constant of that name. `self::` here was a
 		// fatal on every booking, cancellation and timezone change from 1.13.1 until 1.17.1.
 		wp_safe_redirect( add_query_arg( $args, $page ) . '#' . WPCPM_Call_Calendar::ANCHOR );
@@ -1117,7 +1126,7 @@ class WPCPM_Mentor_Calls {
 	 * Tell one student their place on a session is released.
 	 *
 	 * Only them: the session goes ahead for everybody else, so telling the rest that somebody left
-	 * would be noise — and telling them *who* left would be worse.
+	 * would be noise - and telling them *who* left would be worse.
 	 *
 	 * @param int $call_id    Session post ID.
 	 * @param int $student_id Who left.
@@ -1212,7 +1221,6 @@ class WPCPM_Mentor_Calls {
 	 * @return string
 	 */
 	public static function status() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag.
 		return sanitize_key( (string) WPCPM_Flash::take( 'call' ) );
 	}
 
@@ -1309,7 +1317,7 @@ class WPCPM_Mentor_Calls {
 	/**
 	 * Everybody a message about this call should go to: the mentor, then every attendee.
 	 *
-	 * One list, so a cancellation and a reminder can never disagree about who is on a session —
+	 * One list, so a cancellation and a reminder can never disagree about who is on a session -
 	 * exactly the kind of split that leaves one student turning up to a call the others were told
 	 * was off.
 	 *
@@ -1445,13 +1453,13 @@ class WPCPM_Mentor_Calls {
 		$calls = get_posts(
 			array(
 				'post_type'        => self::POST_TYPE,
-				'post_status'      => 'publish',
+				'post_status'      => 'private',
 				'numberposts'      => 100,
 				'orderby'          => 'meta_value_num',
-				'meta_key'         => self::META_START, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_key -- Needed to order by start time.
+				'meta_key'         => self::META_START,
 				'order'            => 'ASC',
 				'suppress_filters' => false,
-				'meta_query'       => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- Bounded to one time window.
+				'meta_query'       => array(
 					'relation' => 'AND',
 					array(
 						'key'     => self::META_START,
@@ -1552,7 +1560,7 @@ class WPCPM_Mentor_Calls {
 	private static function calendar( array $facts, $method, $mentor, $student, WP_User $recipient, $sequence = null ) {
 		static $built = array();
 
-		// Called twice per message by design — once for `attachments`, once for `cleanup` —
+		// Called twice per message by design - once for `attachments`, once for `cleanup` -
 		// and writing the file twice would leak the first one. The revision is part of the key
 		// too: a session moved twice in one request would otherwise hand back the first file.
 		$memo = $facts['id'] . '|' . $method . '|' . $recipient->ID . '|' . (string) $sequence;
@@ -1591,7 +1599,7 @@ class WPCPM_Mentor_Calls {
 	 * The body of a booking, reminder or calendar description.
 	 *
 	 * Built here rather than at each caller so the facts are stated in the same order and
-	 * the same clock every time — and, because this runs inside the recipient's locale, in
+	 * the same clock every time - and, because this runs inside the recipient's locale, in
 	 * the same language as everything else they are sent.
 	 *
 	 * @param array   $facts     Call facts.
@@ -1701,8 +1709,8 @@ class WPCPM_Mentor_Calls {
 
 		$from = wp_date( $date_format . ' ' . $time_format, (int) $start, $zone );
 
-		// The end usually needs no date — it is minutes after the start. But a call late in
-		// the evening on one clock is a call after midnight on another, and "11:45 pm –
+		// The end usually needs no date - it is minutes after the start. But a call late in
+		// the evening on one clock is a call after midnight on another, and "11:45 pm -
 		// 12:15 am" then reads as ending fourteen hours before it starts. Compared in the
 		// *viewer's* zone, because that is the only clock this string is read on.
 		$crosses = wp_date( 'Y-m-d', (int) $start, $zone ) !== wp_date( 'Y-m-d', (int) $end, $zone );
@@ -1713,7 +1721,7 @@ class WPCPM_Mentor_Calls {
 
 		return sprintf(
 			/* translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. */
-			__( '%1$s – %2$s', 'wpcredits-program-manager' ),
+			__( '%1$s - %2$s', 'wpcredits-program-manager' ),
 			$from,
 			$to
 		);

@@ -8,7 +8,7 @@ This guide is written for students. Your mentor and the program managers have th
 
 ## Signing in
 
-Your account was created for you from the program records — you never registered, and there is
+Your account was created for you from the program records - you never registered, and there is
 no sign-up form. That means two things on your first visit:
 
 1. Go to the site's login page and use **Lost your password?** with the email address held in
@@ -16,7 +16,7 @@ no sign-up form. That means two things on your first visit:
 2. Set a password, and you are in.
 
 If the reset email never arrives, the address on your record is probably not the one you are
-checking. That is fixed in the program records rather than here — ask whoever runs the program.
+checking. That is fixed in the program records rather than here - ask whoever runs the program.
 
 Once you are signed in, the link in the header takes you to your own page. Nobody else can open
 it: the page renders against whoever is logged in, so there is no version of it that shows
@@ -34,9 +34,9 @@ Your program details as the program records hold them: your track, your internsh
 educational institution, your tutor and your field of study, followed by your WordPress.org profile,
 your Slack name, your contribution teams and your personal website.
 
-Nothing here is typed in on this table. The last four come from your **report form** below — fill
-them in there and they appear here as soon as you save. The rest — your dates, your institution,
-your tutor — come from the program records and cannot be changed from this site at all. If one of
+Nothing here is typed in on this table. The last four come from your **report form** below - fill
+them in there and they appear here as soon as you save. The rest - your dates, your institution,
+your tutor - come from the program records and cannot be changed from this site at all. If one of
 them is wrong, see *If something looks wrong* below.
 
 ### My mentor
@@ -47,7 +47,7 @@ to do with your contributions.
 
 ### My course
 
-**Open your course** takes you to your course on Learn WordPress — the syllabus for the track you
+**Open your course** takes you to your course on Learn WordPress - the syllabus for the track you
 are on.
 
 Beside it is **Hours contributed**: the running total of the hours you have put in. It is the one
@@ -61,16 +61,16 @@ what your mentor reads.
 
 Open **Your report form** and the questions are grouped in the order you meet them:
 
-- **Onboarding** — your WordPress.org profile and Slack name, the final grade for each course
+- **Onboarding** - your WordPress.org profile and Slack name, the final grade for each course
   module, and your personal website with the reflection post about building it.
-- **Project** — your **contribution team**, what you contributed, the meetings and discussions you
+- **Project** - your **contribution team**, what you contributed, the meetings and discussions you
   took part in, and the reflection posts for each stage.
-- **Wrap-up** — your closing post.
+- **Wrap-up** - your closing post.
 
 What is asked depends on your track: the 150-hour course asks for the reflection posts and the
 module grades; the 50-hour course asks instead for one final project report.
 
-The grades are yours to copy across from wherever you were marked — this form records them, it does
+The grades are yours to copy across from wherever you were marked - this form records them, it does
 not decide them. Fill in what you have and press **Save my report**; you can come back and add the
 rest whenever. Everything goes straight into the program records, so your mentor sees it as soon as
 you save, and the four fields that also appear in *My profile* above update there at the same time.
@@ -83,7 +83,7 @@ you. See *Telling us how it is going* below.
 ### Resources
 
 At the foot of the page: the students Slack channel, the Student guide in the handbook, and **Need
-help?** — a question box answered from the WordPress documentation, if the program has switched it
+help?** - a question box answered from the WordPress documentation, if the program has switched it
 on. Beside them, **Program updates and announcements** lists anything recently posted for you.
 
 ## Booking a call with your mentor
@@ -96,7 +96,7 @@ forth about what suits.
 *Days with times available are highlighted. Pick a day, then a time.*
 
 Days with something open carry a count. Press one and the times for that day appear underneath.
-Booking is a single press, with an optional note about what you would like to discuss — worth
+Booking is a single press, with an optional note about what you would like to discuss - worth
 writing, because it is what lets your mentor prepare.
 
 Both of you get an email with a calendar invitation attached, so the call lands in your calendar
@@ -115,11 +115,11 @@ A few things worth knowing:
   do the arithmetic.
 
 **If your mentor has published nothing yet**, the section says so. That is not a fault on your
-side — ask them in Slack to set their hours.
+side - ask them in Slack to set their hours.
 
 ## Group sessions
 
-Your mentor may run a session for several students at once — a walkthrough, a question hour,
+Your mentor may run a session for several students at once - a walkthrough, a question hour,
 something for everybody who started the same week. Those appear under *My mentor call* with what the
 session is about and how many places are left.
 
@@ -199,11 +199,11 @@ is the part of the program we hear about least, and the part most worth hearing 
 ## If something looks wrong
 
 Your program details come from the program records, so if your dates, institution or tutor are not
-right, that is where it has to be corrected — changing it here would be overwritten at the next
+right, that is where it has to be corrected - changing it here would be overwritten at the next
 sync. Ask your mentor, or whoever runs the program.
 
 Your WordPress.org profile, Slack name, contribution team and personal website are the exceptions.
-Those four are asked for on your **report form**, and saving it writes them back to the records — so
+Those four are asked for on your **report form**, and saving it writes them back to the records - so
 they are yours to keep current, and the way to correct them is to correct them there.
 
 If the page shows nothing at all, or says it cannot find your record, your account exists but is

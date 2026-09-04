@@ -3,9 +3,16 @@
  * Uninstall cleanup.
  *
  * Removes plugin state: settings, sync state, module options, custom roles and
- * the user meta this plugin wrote. User *accounts* are deliberately left behind —
+ * the user meta this plugin wrote. User *accounts* are deliberately left behind -
  * they belong to real mentors, and a plugin removal is not a reason to delete
  * people. Accounts holding only a program role are moved to Subscriber.
+ *
+ * Two things are kept on purpose, and an inventory of them is mailed to the site's admin
+ * address as the plugin goes (WPCPM_Institution_Agreement::manifest_kept_files()): the signed
+ * Collaboration Agreements under uploads/.wpcpm-private/, encrypted, and the key that opens
+ * them in the option `wpcpm_private_key`. They are the program's legal records, and a plugin
+ * being removed is no reason to lose a signature. Delete both by hand if they are truly not
+ * wanted; nothing else reads them.
  *
  * @package WPCreditsProgramManager
  */
@@ -18,6 +25,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roles.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-airtable.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-content-access.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-privacy-guard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-wporg-profile.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-program.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-icons.php';
@@ -36,6 +44,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-cohort.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roster-index.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-private-files.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sync-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-sync.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-dashboard.php';
@@ -48,7 +57,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-
 // The calendar's three classes are required here for one reason: `WPCPM_Mentors`
 // names them in its own `uninstall()`. This file builds its dependencies by hand
 // rather than booting the plugin, so a class the modules reach for and this list
-// forgets is a fatal in the middle of cleanup — which leaves everything behind and
+// forgets is a fatal in the middle of cleanup - which leaves everything behind and
 // says nothing.
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-availability.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-mentor-calls.php';
@@ -109,12 +118,15 @@ delete_metadata( 'user', 0, WPCPM_Students_Sync::META_INSTITUTION, '', true );
 WPCPM_Tools::uninstall();
 WPCPM_Roles::unregister();
 
-delete_option( WPCPM_Settings::OPTION );
+delete_option( WPCPM_Settings::OPT_NAME );
 delete_option( WPCPM_Settings::OPT_VERSION );
+// The one-time flip of the plugin's private records to `private` status has run; the rows it
+// flipped go with their modules above.
+delete_option( WPCPM_Privacy_Guard::OPT_VERSION );
 // The wait Airtable last asked for, if the plugin is removed inside one.
 delete_option( WPCPM_Airtable::BACKOFF_OPTION );
 // The Countries routing map, rebuilt from the base by the next sync or by the button.
-delete_option( WPCPM_Countries::OPTION );
+delete_option( WPCPM_Countries::OPT_NAME );
 
 // Pending one-shot messages. Nobody is going to read "Saved." after the plugin is gone.
 delete_metadata( 'user', 0, WPCPM_Flash::META, '', true );
@@ -133,7 +145,7 @@ delete_metadata( 'post', 0, WPCPM_Content_Access::META_KEY, '', true );
 
 // Both syncs, not just the mentors one. The students module clears its own in
 // `deactivate()`, which WordPress does run in the ordinary deactivate-then-delete
-// flow — but a plugin can also be deleted from a state where that never fired, and
+// flow - but a plugin can also be deleted from a state where that never fired, and
 // a scheduled hook whose callback no longer exists is a cron entry that fails
 // silently forever. The mentors hooks were already cleared here; the asymmetry was
 // the bug.

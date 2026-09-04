@@ -1,5 +1,5 @@
 /**
- * Mentor dashboard — expand/collapse all, and printing.
+ * Mentor dashboard - expand/collapse all, and printing.
  *
  * Each student is a native <details>, so collapsing already works with no
  * JavaScript at all. This only adds the bulk controls, which is why the markup
@@ -17,7 +17,7 @@
 		}
 
 		/**
-		 * Every disclosure on the page — individual students and the group that
+		 * Every disclosure on the page - individual students and the group that
 		 * wraps past students, so "expand all" really does reveal everything.
 		 *
 		 * @return {Element[]} The <details> elements.
@@ -82,7 +82,7 @@
 		 * A student's report form, fetched the first time its disclosure is opened.
 		 *
 		 * Not rendered with the page: reading one costs an Airtable request, and a mentor with
-		 * sixty students would pay for sixty of them to look at one. Fetched once and kept —
+		 * sixty students would pay for sixty of them to look at one. Fetched once and kept -
 		 * closing and reopening does not ask again.
 		 */
 		( function reports() {
@@ -124,7 +124,7 @@
 						body.outerHTML = data.html;
 					} )
 					.catch( function () {
-						// The attribute is cleared so the next open tries again — a report that
+						// The attribute is cleared so the next open tries again - a report that
 						// failed once because the network blinked should not stay broken until
 						// the page is reloaded.
 						delete box.dataset.wpcpmLoaded;

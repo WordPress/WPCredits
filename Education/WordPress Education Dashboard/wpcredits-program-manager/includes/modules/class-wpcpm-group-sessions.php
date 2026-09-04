@@ -12,15 +12,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * A mentor announces a session; their students join it.
  *
- * **An office hour, not a slot.** A one-to-one call is something a student *finds* — they open the
+ * **An office hour, not a slot.** A one-to-one call is something a student *finds* - they open the
  * calendar, see the hours their mentor published, and take one. A group session is something a
  * mentor *announces*: they pick the time, say what it is about, and say how many people it holds.
  * So this does not read the weekly availability at all, and a mentor can run a session at a time
  * they would never offer for private calls.
  *
  * **It does block that time from private booking**, though, and gets that for free: a session is a
- * `wpcpm_mentor_call` post like any other, so `WPCPM_Mentor_Calls::taken_starts()` — which the slot
- * generator subtracts — already counts it. Reusing the post type rather than inventing a second one
+ * `wpcpm_mentor_call` post like any other, so `WPCPM_Mentor_Calls::taken_starts()` - which the slot
+ * generator subtracts - already counts it. Reusing the post type rather than inventing a second one
  * is what keeps the diary, the reminder sweep, the cancellation mail and the ICS builder working
  * with no changes at all.
  *
@@ -29,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * before any of this existed, which is why nothing needed migrating.
  *
  * Joining counts against the mentor's per-student limit, because an upcoming session is an upcoming
- * call — a student holding three of them has three calls to prepare for.
+ * call - a student holding three of them has three calls to prepare for.
  */
 class WPCPM_Group_Sessions {
 
@@ -67,7 +67,7 @@ class WPCPM_Group_Sessions {
 	 * Shortest a session may run, in minutes, and the grid the length field steps on.
 	 *
 	 * The two are the same number on purpose. A number field's `step` counts from its `min`, not
-	 * from zero, so `min="1" step="5"` made the valid lengths 1, 6, 11 … 56, 61 — and rejected 60,
+	 * from zero, so `min="1" step="5"` made the valid lengths 1, 6, 11 … 56, 61 - and rejected 60,
 	 * which was the field's own default value. Reported by Celi Garoe in prerelease testing
 	 * (WordPress/WPCredits#166): "It does not allow for 60 minutes (but yes more or less than
 	 * that)." Keeping the floor on the grid is what makes every multiple of it valid.
@@ -111,7 +111,7 @@ class WPCPM_Group_Sessions {
 	/**
 	 * The sessions one student may see: their own mentor's, upcoming.
 	 *
-	 * Only their mentor's. A session is not public — it is an office hour for the students that
+	 * Only their mentor's. A session is not public - it is an office hour for the students that
 	 * mentor is responsible for, and listing somebody else's would tell a student who else is on
 	 * the program.
 	 *
@@ -160,7 +160,7 @@ class WPCPM_Group_Sessions {
 
 		// Sanitized *and* validated: `sanitize_text_field()` for the shape, then `date_string()` and
 		// `time_string()`, which return an empty string for anything that is not a real date or a
-		// real time. The sanitizer is not redundant — it is what makes the validator's input a
+		// real time. The sanitizer is not redundant - it is what makes the validator's input a
 		// plain string rather than whatever was posted.
 		$date     = isset( $_POST['date'] ) ? WPCPM_Mentor_Availability::date_string( sanitize_text_field( wp_unslash( $_POST['date'] ) ) ) : '';
 		$time     = isset( $_POST['time'] ) ? WPCPM_Mentor_Availability::time_string( sanitize_text_field( wp_unslash( $_POST['time'] ) ) ) : '';
@@ -181,7 +181,7 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-capacity' );
 		}
 
-		// Entered in the mentor's own clock — the one they mean when they say "Tuesday at two" —
+		// Entered in the mentor's own clock - the one they mean when they say "Tuesday at two" -
 		// and stored as UTC, exactly as the weekly hours are.
 		$zone  = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( $mentor_id )['timezone'] );
 		$start = DateTimeImmutable::createFromFormat( 'Y-m-d H:i', $date . ' ' . $time, $zone );
@@ -203,15 +203,17 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-clash' );
 		}
 
+		// `private`, like every call: see `WPCPM_Mentor_Calls::register_post_type()`. A
+		// `publish` row here handed out the mentor's login through `?author=N`.
 		$post_id = wp_insert_post(
 			array(
 				'post_type'    => WPCPM_Mentor_Calls::POST_TYPE,
-				'post_status'  => 'publish',
+				'post_status'  => 'private',
 				'post_author'  => get_current_user_id(),
 				'post_content' => $topic,
 				'post_title'   => sprintf(
 					/* translators: %s: session date and time. */
-					__( 'Group session — %s', 'wpcredits-program-manager' ),
+					__( 'Group session - %s', 'wpcredits-program-manager' ),
 					wp_date( 'Y-m-d H:i', $start_ts )
 				),
 			),
@@ -250,7 +252,7 @@ class WPCPM_Group_Sessions {
 	 * is now wrong and no reason to look again.
 	 */
 	public static function handle_edit() {
-		$call_id = isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+		$call_id = isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0;
 
 		check_admin_referer( self::ACTION_EDIT . '_' . $call_id );
 
@@ -325,7 +327,7 @@ class WPCPM_Group_Sessions {
 				'post_content' => $topic,
 				'post_title'   => sprintf(
 					/* translators: %s: session date and time. */
-					__( 'Group session — %s', 'wpcredits-program-manager' ),
+					__( 'Group session - %s', 'wpcredits-program-manager' ),
 					wp_date( 'Y-m-d H:i', $start_ts )
 				),
 			)
@@ -365,7 +367,7 @@ class WPCPM_Group_Sessions {
 		$others = get_posts(
 			array(
 				'post_type'        => WPCPM_Mentor_Calls::POST_TYPE,
-				'post_status'      => 'publish',
+				'post_status'      => 'private',
 				'numberposts'      => -1,
 				'fields'           => 'ids',
 				'exclude'          => array( (int) $except ),
@@ -412,7 +414,7 @@ class WPCPM_Group_Sessions {
 		$mentor = get_user_by( 'id', (int) get_post_meta( $call->ID, WPCPM_Mentor_Calls::META_MENTOR, true ) );
 
 		// Their own mentor's session and nobody else's, checked on the server rather than trusted
-		// from the form — the session ID is a number anybody could change.
+		// from the form - the session ID is a number anybody could change.
 		$theirs = WPCPM_Mentor_Calls::mentor_for_student( $student_id );
 
 		if ( ! $mentor instanceof WP_User || ! $theirs instanceof WP_User || (int) $theirs->ID !== (int) $mentor->ID ) {
@@ -424,7 +426,7 @@ class WPCPM_Group_Sessions {
 		}
 
 		// An upcoming session is an upcoming call, so it counts against the mentor's per-student
-		// limit — read before the lock, and again inside it.
+		// limit - read before the lock, and again inside it.
 		if ( '' !== WPCPM_Mentor_Calls::why_not_bookable( $student_id, $mentor ) ) {
 			self::bounce( 'blocked' );
 		}
@@ -458,7 +460,7 @@ class WPCPM_Group_Sessions {
 	 * Leave a session.
 	 *
 	 * Leaving is not cancelling. The session goes on for everybody else, so only the person
-	 * leaving is told — and the place they free goes straight back.
+	 * leaving is told - and the place they free goes straight back.
 	 */
 	public static function handle_leave() {
 		check_admin_referer( self::ACTION_LEAVE );
@@ -485,7 +487,7 @@ class WPCPM_Group_Sessions {
 	 * Write one note against everybody who attended a session.
 	 */
 	public static function handle_note() {
-		$call_id = isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below.
+		$call_id = isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0;
 
 		check_admin_referer( self::ACTION_NOTE . '_' . $call_id );
 
@@ -558,7 +560,7 @@ class WPCPM_Group_Sessions {
 	 * The panel that plans one, for the column beside the diary.
 	 *
 	 * Split from the list on purpose: what is in the calendar reads down the left with the booked
-	 * calls, and the two controls that change the calendar — the hours, and this — sit together on
+	 * calls, and the two controls that change the calendar - the hours, and this - sit together on
 	 * the right. The explanation travels with the control rather than with the list, because it
 	 * describes what pressing it does.
 	 *
@@ -753,7 +755,7 @@ class WPCPM_Group_Sessions {
 	/**
 	 * Who is coming, for the mentor.
 	 *
-	 * Named, because the mentor needs to know who to expect — and the mentor is the one person
+	 * Named, because the mentor needs to know who to expect - and the mentor is the one person
 	 * who is already entitled to every one of these names.
 	 *
 	 * @param array $facts From `details()`.
@@ -785,7 +787,7 @@ class WPCPM_Group_Sessions {
 	 * One note for everybody who came.
 	 *
 	 * Offered whether or not the session has happened, because a mentor writing up three sessions on
-	 * a Friday should not be blocked by the clock — and hidden when nobody has joined, since there
+	 * a Friday should not be blocked by the clock - and hidden when nobody has joined, since there
 	 * would be nobody for the note to land on.
 	 *
 	 * @param WP_Post $session The session.
@@ -966,7 +968,7 @@ class WPCPM_Group_Sessions {
 	 * The mentor's controls for a session: change it, or cancel it.
 	 *
 	 * Cancelling is the existing call cancellation, which trashes the post and tells every
-	 * attendee — there is nothing group-specific to add. Changing it is this module's own, and
+	 * attendee - there is nothing group-specific to add. Changing it is this module's own, and
 	 * comes first because cancelling on everybody used to be the only way to move a session.
 	 *
 	 * @param WP_Post $session The session.
@@ -1050,7 +1052,7 @@ class WPCPM_Group_Sessions {
 	/**
 	 * Whose place is being taken.
 	 *
-	 * A program manager may act for a student who cannot get into their account — the same
+	 * A program manager may act for a student who cannot get into their account - the same
 	 * allowance one-to-one booking makes, and for the same reason.
 	 *
 	 * @return int User ID.
@@ -1078,7 +1080,7 @@ class WPCPM_Group_Sessions {
 	private static function session( $call_id ) {
 		$call = get_post( (int) $call_id );
 
-		if ( ! $call instanceof WP_Post || WPCPM_Mentor_Calls::POST_TYPE !== $call->post_type || 'publish' !== $call->post_status ) {
+		if ( ! $call instanceof WP_Post || WPCPM_Mentor_Calls::POST_TYPE !== $call->post_type || 'private' !== $call->post_status ) {
 			return null;
 		}
 
@@ -1097,7 +1099,7 @@ class WPCPM_Group_Sessions {
 	/**
 	 * Back where they came from, with a message.
 	 *
-	 * Which mentor a manager was inspecting rides on the referer, which the redirect preserves —
+	 * Which mentor a manager was inspecting rides on the referer, which the redirect preserves -
 	 * so this needs no mentor argument, and an earlier draft's was doing nothing.
 	 *
 	 * @param string $status Message key.

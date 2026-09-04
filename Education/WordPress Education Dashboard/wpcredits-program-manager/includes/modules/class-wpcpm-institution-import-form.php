@@ -135,7 +135,7 @@ final class WPCPM_Institution_Import_Form {
 		);
 
 		printf(
-			'<summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s</span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html__( 'Enrol students', 'wpcredits-program-manager' )
 		);
 

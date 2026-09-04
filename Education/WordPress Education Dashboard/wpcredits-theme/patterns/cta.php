@@ -8,7 +8,7 @@
  * Viewport Width: 1400
  *
  * The button goes to the mentor page for someone already signed in, and to the
- * login form for everyone else — the plugin sends mentors to "My Students" on
+ * login form for everyone else - the plugin sends mentors to "My Students" on
  * login, so both routes end in the same place. With the plugin inactive there is
  * no page to point at, so the band links home rather than to a 404.
  *

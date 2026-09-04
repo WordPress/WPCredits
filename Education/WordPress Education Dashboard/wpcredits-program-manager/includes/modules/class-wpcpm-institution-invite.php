@@ -938,7 +938,6 @@ class WPCPM_Institution_Invite {
 	 * @return bool
 	 */
 	private static function nonce_ok( $token ) {
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- This *is* the nonce, read here to verify it on the next line.
 		$nonce = isset( $_POST['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ) : '';
 
 		return (bool) wp_verify_nonce( $nonce, self::ACTION_ACCEPT . '_' . (string) $token );

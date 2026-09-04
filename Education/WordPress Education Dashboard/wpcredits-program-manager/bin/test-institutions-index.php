@@ -161,7 +161,7 @@ ck( 'row() is null', WPCPM_Institutions_Index::row( 'rec1ZgEtczDKjRNP4' ), null 
 ck( 'has() is false', WPCPM_Institutions_Index::has( 'rec1ZgEtczDKjRNP4' ), false );
 ck( 'stage_counts() is empty', WPCPM_Institutions_Index::stage_counts(), array() );
 ck( 'by_stage() is empty', WPCPM_Institutions_Index::by_stage(), array() );
-ck( 'OPTION and VERSION are the contract', array( WPCPM_Institutions_Index::OPTION, WPCPM_Institutions_Index::VERSION ), array( 'wpcpm_institutions_index', 1 ) );
+ck( 'OPTION and VERSION are the contract', array( WPCPM_Institutions_Index::OPT_NAME, WPCPM_Institutions_Index::VERSION ), array( 'wpcpm_institutions_index', 1 ) );
 
 /* ---- seeded from the fixture ------------------------------------------- */
 
@@ -170,8 +170,8 @@ echo "\n=== Seeded from the fixture ===\n";
 $read_at = 1756800000;
 WPCPM_Institutions_Index::write( $rows, $read_at );
 
-$stored = get_option( WPCPM_Institutions_Index::OPTION );
-ck( 'written with autoload off', $GLOBALS['autoload'][ WPCPM_Institutions_Index::OPTION ], false );
+$stored = get_option( WPCPM_Institutions_Index::OPT_NAME );
+ck( 'written with autoload off', $GLOBALS['autoload'][ WPCPM_Institutions_Index::OPT_NAME ], false );
 ck( 'the envelope carries the version and the read time', array( $stored['v'], $stored['read'] ), array( 1, $read_at ) );
 ck( 'read() hands the envelope back', WPCPM_Institutions_Index::read()['read'], $read_at );
 
@@ -378,21 +378,21 @@ ck( 'stage_counts() names the empty stage as \'\'', WPCPM_Institutions_Index::st
 
 echo "\n=== Versioning ===\n";
 
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['v'] = 99;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 99;
 ck( 'a version mismatch reads as empty', WPCPM_Institutions_Index::read(), array( 'v' => 1, 'read' => 0, 'rows' => array() ) );
 ck( 'so rows() is empty', WPCPM_Institutions_Index::rows(), array() );
 ck( 'and has() is false', WPCPM_Institutions_Index::has( 'rec1ZgEtczDKjRNP4' ), false );
 
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ] = 'a string somebody stored';
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = 'a string somebody stored';
 ck( 'a malformed option reads as empty', WPCPM_Institutions_Index::rows(), array() );
 
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ] = array( 'v' => 1, 'read' => 7, 'rows' => 'not rows' );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => 1, 'read' => 7, 'rows' => 'not rows' );
 ck( 'a malformed rows member reads as empty', WPCPM_Institutions_Index::read(), array( 'v' => 1, 'read' => 7, 'rows' => array() ) );
 
 // insert() on a stale version starts a fresh index rather than grafting a new row onto
 // an old shape.
 WPCPM_Institutions_Index::write( $rows, $read_at );
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['v'] = 0;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 0;
 WPCPM_Institutions_Index::insert( $rows['rec1ZgEtczDKjRNP4'] );
 ck( 'insert() over a stale version writes a fresh index', array( WPCPM_Institutions_Index::read()['v'], count( WPCPM_Institutions_Index::rows() ) ), array( 1, 1 ) );
 

@@ -1,5 +1,5 @@
 /**
- * Feedback surveys — the follow-up questions that only apply to some answers.
+ * Feedback surveys - the follow-up questions that only apply to some answers.
  *
  * Two questions are worth asking only when the answer above them was poor: what slowed you down,
  * after a low "how easy was it to get started", and what is making the hours hard to reach, after
@@ -7,7 +7,7 @@
  *
  * **They are visible until this runs, not hidden until this runs.** A conditional question hidden
  * by CSS would be missing outright for anyone whose JavaScript did not load, and a question nobody
- * can see is worse than one shown to somebody it does not apply to — who simply leaves it empty.
+ * can see is worse than one shown to somebody it does not apply to - who simply leaves it empty.
  *
  * The rules live in the markup, as `data-wpcpm-when` on the field. PHP owns which answers count as
  * poor; this file only reads what it is told, so a rule changed in one place cannot go out of step
@@ -83,7 +83,7 @@
 			 * Show or hide, unless it already has an answer.
 			 *
 			 * A student who answered the follow-up and then changed the answer above it would
-			 * otherwise watch their words disappear — and, since a hidden field still posts,
+			 * otherwise watch their words disappear - and, since a hidden field still posts,
 			 * would have no way to tell that what they wrote is still being sent.
 			 */
 			function update() {

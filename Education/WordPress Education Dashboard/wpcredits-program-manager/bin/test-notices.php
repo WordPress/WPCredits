@@ -59,7 +59,7 @@ function add_action() {} function add_filter() {}
  * Stands in for `wp_kses_post()`, with the tag list WordPress allows in the post context.
  *
  * The list matters: a narrower stub would have this suite asserting *its own* behaviour
- * rather than WordPress's — the first version kept only `a`, `strong`, `em` and reported
+ * rather than WordPress's - the first version kept only `a`, `strong`, `em` and reported
  * that images and lists were being stripped when they are not. What this plugin actually
  * controls is *which* filter it calls, and that is pinned by a static assertion further
  * down rather than by this stub.
@@ -144,7 +144,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php';
 
 /* ---- fixtures ----------------------------------------------------------- */
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
 /**
  * Write the four notices the way the plugin stores them: one option, keyed by audience.
@@ -155,7 +155,7 @@ $GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
  * @param array $bodies Audience slug => markup.
  */
 function set_notices( array $bodies ) {
-	$GLOBALS['opts'][ WPCPM_Notices::OPTION ] = $bodies;
+	$GLOBALS['opts'][ WPCPM_Notices::OPT_NAME ] = $bodies;
 }
 
 set_notices(
@@ -169,7 +169,7 @@ set_notices(
 
 // 10 plain student. 20 plain mentor. 30 institution. 40 administrator.
 $GLOBALS['institution_members'] = array( 30 );
-// 50 administrator who also mentors — recognised by an Airtable record, never by role.
+// 50 administrator who also mentors - recognised by an Airtable record, never by role.
 // 60 student who also mentors. 70 subscriber in no audience.
 // 80 holds the Institution role with no live membership, 90 acts for an institution with no
 // role yet: the two accounts that tell membership and the role apart.
@@ -202,7 +202,7 @@ function ck( $label, $actual, $expected ) {
 /**
  * Which notices a user sees.
  *
- * `current()` memoizes per request, which a single-process harness cannot reset — so
+ * `current()` memoizes per request, which a single-process harness cannot reset - so
  * audience membership is exercised through `applies_to()` directly, against the same stored
  * bodies. That is the part this plugin decides; `current()` only joins it to the option.
  */
@@ -278,7 +278,7 @@ ck( 'an audience left blank is stored blank, and an unknown one is dropped',
 set_notices( $saved );
 
 // Storage and the render pipeline. A notice is markup in an option, edited in the classic
-// editor — so the assertions that used to pin the post type now pin its absence, because
+// editor - so the assertions that used to pin the post type now pin its absence, because
 // leaving `register_post_type()` behind would re-register a type nothing reads.
 $pipeline = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-notices.php' );
 $tool_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-header-notices.php' );
@@ -295,7 +295,7 @@ ck( 'no post type is registered any more',
     array( (bool) strpos( $pipeline, 'register_post_type(' ) ), array( false ) );
 // `do_blocks()` survives in exactly one place: the one-time move of content off the old
 // posts, where block markup is converted on the way into the option. Counted as the call
-// with its argument, not as the bare name — the docblock above it says `do_blocks()` too,
+// with its argument, not as the bare name - the docblock above it says `do_blocks()` too,
 // and matching that would make this assertion pass on the prose alone.
 ck( 'blocks are converted once, on the way in, not on every render',
     array( substr_count( $pipeline, 'do_blocks( $body )' ), (bool) strpos( $pipeline, 'do_blocks' ) ),
@@ -322,10 +322,10 @@ function recover( array $posts, array $legacy, array $current = array(), $revisi
 		$settings[ 'notice_' . $slug ] = $body;
 	}
 
-	$GLOBALS['opts'][ WPCPM_Settings::OPTION ]     = $settings;
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]     = $settings;
 	$GLOBALS['opts'][ WPCPM_Notices::OPT_MIGRATED ] = 1;
 	$GLOBALS['opts'][ WPCPM_Notices::OPT_PLAIN ]    = $revision;
-	$GLOBALS['opts'][ WPCPM_Notices::OPTION ]       = $current;
+	$GLOBALS['opts'][ WPCPM_Notices::OPT_NAME ]       = $current;
 
 	WPCPM_Notices::maybe_migrate();
 
@@ -385,7 +385,7 @@ $GLOBALS['notice_posts'] = array();
 set_notices( $saved );
 
 // The editor the tool mounts. `teeny` drops the media button, and `teeny` together with a
-// custom toolbar cancels both — which would leave a notice unable to hold an image.
+// custom toolbar cancels both - which would leave a notice unable to hold an image.
 ck( 'the tool mounts the full classic editor with its media button',
     array(
         (bool) strpos( $tool_src, 'wp_editor(' ),

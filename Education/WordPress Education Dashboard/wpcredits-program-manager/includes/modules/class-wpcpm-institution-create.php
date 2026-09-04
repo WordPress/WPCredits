@@ -450,6 +450,9 @@ final class WPCPM_Institution_Create {
 				break;
 			}
 
+			// Every row is a heartbeat: see `touch_lock()`.
+			self::touch_lock( $institution );
+
 			$state = self::state_of( $row );
 
 			if ( ! in_array( $state, array( self::ROW_PENDING, self::ROW_CREATING ), true ) ) {
@@ -600,11 +603,15 @@ final class WPCPM_Institution_Create {
 			$data   = $error instanceof WP_Error ? $error->get_error_data() : array();
 			$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
 
-			// Airtable answered and named this record: an unknown field, a value outside a
-			// single select, a malformed date. The next row may be perfectly good, so the loop
-			// carries on. 401, 403 and 429 are about the credential rather than the record, and
-			// a 5xx is the base being unwell; all of those refuse the next row too.
-			if ( $status >= 400 && $status < 500 && ! in_array( $status, array( 401, 403, 429 ), true ) ) {
+			// Airtable answered and named this record's content: a 422 (a value outside a single
+			// select, a malformed date, an unknown field) or a 400 (a malformed body). The next
+			// row may be perfectly good, so the loop carries on. Everything else a 4xx can say is
+			// about the whole import and refuses the next row exactly as it refused this one:
+			// 401 and 403 are the credential, 429 the rate, 404 a table or base that is not
+			// there (a wrong students-table setting answered 404 for every row and terminally
+			// failed the whole list where a halt would have kept it recoverable), 413 a request
+			// this client built too large. A 5xx is the base being unwell.
+			if ( in_array( $status, array( 400, 422 ), true ) ) {
 				return self::BLAME_ROW;
 			}
 
@@ -1061,34 +1068,96 @@ final class WPCPM_Institution_Create {
 	 * @param string $institution Institutions record ID.
 	 * @return bool
 	 */
-	private static function acquire_lock( $institution ) {
-		$name = self::LOCK_PREFIX . trim( (string) $institution );
+	/**
+	 * The token this request wrote into each institution's lock it holds.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $held = array();
 
-		if ( add_option( $name, time(), '', false ) ) {
+	/**
+	 * Take the institution's import lock for this request, or say that another holds it.
+	 *
+	 * The value is the time the lock was taken and a token this request generated, joined by
+	 * a colon: the time is what tells a dead holder from a live one (see `touch_lock()`), the
+	 * token is what lets `release_lock()` know the lock is still this request's to release.
+	 * Twelve hex characters from the CSPRNG are unguessable enough to tell two requests apart,
+	 * with no WordPress function in the way of a suite that stubs only what it needs.
+	 *
+	 * @param string $institution Institutions record ID.
+	 * @return bool Whether this request now holds the lock.
+	 */
+	private static function acquire_lock( $institution ) {
+		$name  = self::LOCK_PREFIX . trim( (string) $institution );
+		$token = bin2hex( random_bytes( 6 ) );
+		$value = time() . ':' . $token;
+
+		if ( add_option( $name, $value, '', false ) ) {
+			self::$held[ $institution ] = $token;
+
 			return true;
 		}
 
-		$held = (int) get_option( $name );
+		$stored = (string) get_option( $name );
+		$held   = (int) strtok( $stored, ':' );
 
 		if ( $held && ( time() - $held ) < self::LOCK_TIMEOUT ) {
 			return false;
 		}
 
-		// Older than a slice can possibly take, so the request that took it is gone. Left
-		// alone, a lock a killed request was holding would strand the batch until somebody
-		// noticed a school's import had stopped.
-		update_option( $name, time(), false );
+		// Older than a slice goes without refreshing it (`touch_lock()` runs after every
+		// row), so the request that took it is gone. Left alone, a lock a killed request was
+		// holding would strand the batch until somebody noticed a school's import had stopped.
+		// A live but slow slice is not this case any more: it touches the lock as it works.
+		update_option( $name, $value, false );
+		self::$held[ $institution ] = $token;
 
 		return true;
 	}
 
 	/**
-	 * Let go of one institution's lock.
+	 * Refresh the lock this request holds, so a slow slice is not mistaken for a dead one.
+	 *
+	 * Called after every row. Before this the lock carried the time it was taken and nothing
+	 * else, and a slice of a full batch, whose recheck alone is two dozen Airtable requests,
+	 * could still be working when the next tick declared it abandoned after 120 seconds and
+	 * took the lock: two slices then created the same students twice. A heartbeat every row
+	 * keeps a live slice's lock younger than the timeout for as long as it lives.
+	 *
+	 * @param string $institution Institutions record ID.
+	 */
+	private static function touch_lock( $institution ) {
+		if ( ! isset( self::$held[ $institution ] ) ) {
+			return;
+		}
+
+		update_option( self::LOCK_PREFIX . trim( (string) $institution ), time() . ':' . self::$held[ $institution ], false );
+	}
+
+	/**
+	 * Release the lock, but only if this request is still the one holding it.
+	 *
+	 * The value carries a token this request generated, and the delete happens only when the
+	 * stored token is ours. A newcomer that took the lock over after the timeout has written
+	 * its own token, and an unconditional delete here would hand the batch to a third slice
+	 * while the second was still creating rows.
 	 *
 	 * @param string $institution Institutions record ID.
 	 */
 	private static function release_lock( $institution ) {
-		delete_option( self::LOCK_PREFIX . trim( (string) $institution ) );
+		$name  = self::LOCK_PREFIX . trim( (string) $institution );
+		$token = isset( self::$held[ $institution ] ) ? self::$held[ $institution ] : '';
+		unset( self::$held[ $institution ] );
+
+		if ( '' === $token ) {
+			return;
+		}
+
+		$stored = (string) get_option( $name );
+
+		if ( substr( $stored, strpos( $stored, ':' ) + 1 ) === $token ) {
+			delete_option( $name );
+		}
 	}
 
 	/**

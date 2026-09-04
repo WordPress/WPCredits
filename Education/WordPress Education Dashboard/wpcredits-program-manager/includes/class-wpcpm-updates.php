@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - `can_view()` is called again on every post that survives.
  *
  * The second pass is not redundant. It is the check that still holds if the query filter is
- * ever bypassed — `suppress_filters`, a caching layer that hands back somebody else's rows, a
+ * ever bypassed - `suppress_filters`, a caching layer that hands back somebody else's rows, a
  * future caller that builds the list a different way. An access list with one enforcement point
  * fails silently and completely; this one fails closed.
  */
@@ -73,7 +73,7 @@ class WPCPM_Updates {
 	/**
 	 * The access levels a card shows, given whose card it is.
 	 *
-	 * Public plus that audience's own level, and nothing else — so the Mentor Report Card lists
+	 * Public plus that audience's own level, and nothing else - so the Mentor Report Card lists
 	 * mentor announcements and the Student Report Card lists student ones.
 	 *
 	 * @param string $audience `student`, `mentor` or `institution`.
@@ -98,7 +98,7 @@ class WPCPM_Updates {
 	 *
 	 * **Two gates, and they are not the same question.**
 	 *
-	 * `$audience` asks *whose card is this* — the same thing the "Need help?" button asks, and
+	 * `$audience` asks *whose card is this* - the same thing the "Need help?" button asks, and
 	 * for the same reason. `can_view()` asks *may this person read it*, and program managers may
 	 * read every level. Asking only that put mentor announcements on the Student Report Card
 	 * whenever a manager looked at one, and the manager had no way of telling which of the two
@@ -168,7 +168,7 @@ class WPCPM_Updates {
 	 */
 	public static function render_column( $audience = '' ) {
 		// One more than are shown, which is what says whether there is anything past the column
-		// without a second query — and says it about posts *this* reader may see. The term's own
+		// without a second query - and says it about posts *this* reader may see. The term's own
 		// count includes levels they cannot read, so it would offer "All updates" to somebody
 		// whose archive holds exactly what they are already looking at.
 		$posts = self::posts( self::LIMIT + 1, $audience );

@@ -2,8 +2,8 @@
 /**
  * Need help?: who may ask, what the provider is told, and what comes back.
  *
- * There is no local copy of the documentation any more — the provider searches the web
- * itself — so the assertions that used to check a corpus now check the two things that
+ * There is no local copy of the documentation any more - the provider searches the web
+ * itself - so the assertions that used to check a corpus now check the two things that
  * replaced it:
  *
  * - the **host matcher**, which decides whether a citation is really from wordpress.org, and
@@ -99,6 +99,11 @@ function set_transient( $k, $v, $e = 0 ) { $GLOBALS['opts'][ 'T_' . $k ] = $v; r
 function delete_transient( $k ) { unset( $GLOBALS['opts'][ 'T_' . $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+/** Settings::save() flashes the fields it put back to their defaults; the stand-in just holds the value. */
+class WPCPM_Flash {
+	public static function set( $channel, $value, $user = 0 ) { $GLOBALS['flash'][ $channel ] = $value; }
+	public static function take( $channel, $user = 0 ) { $v = $GLOBALS['flash'][ $channel ] ?? null; unset( $GLOBALS['flash'][ $channel ] ); return $v; }
+}
 function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
 function update_meta_cache( $type, $ids ) { return true; }
@@ -111,8 +116,7 @@ function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; 
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
-function user_can( $u, $c ) { $id = is_object( $u ) ? $u->ID : (int) $u; return in_array( $id, $GLOBALS['manage'], true ); }
-function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
+require_once __DIR__ . '/stubs/caps.php';
 function get_posts( $a = array() ) { return $GLOBALS['posts']; }
 function wp_count_posts( $t ) { $o = new stdClass(); $o->publish = count( $GLOBALS['posts'] ); return $o; }
 function is_admin() { return false; }
@@ -207,7 +211,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
 
 class WPCPM_Admin { public static function settings_url() { return 'https://example.test/wp-admin/admin.php?page=wpcpm-settings'; } }
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
 /* ---- runner ------------------------------------------------------------- */
 $fail = 0;
@@ -256,7 +260,7 @@ echo "\n=== Markdown in an answer ===\n";
 // Providers answer in Markdown whichever way the instructions are worded, and the panel
 // printed it raw: literal `**During weekly syncs:**` and a column of asterisks. Only bold
 // and bullets are handled, so the cases that matter are the ones that must *not* be
-// touched — a lone asterisk mid-sentence, and a line that opens on emphasis rather than
+// touched - a lone asterisk mid-sentence, and a line that opens on emphasis rather than
 // on a bullet.
 foreach ( array(
 	'bold becomes strong'      => array(
@@ -328,7 +332,7 @@ ck( 'with no provider it says so plainly',
 $settings                      = WPCPM_Settings::defaults();
 $settings['handbook_provider'] = 'gemini';
 $settings['handbook_key']      = 'test-key';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 ck( 'a provider with a key is ready', array( WPCPM_Handbook_Answer::provider_ready() ), array( true ) );
 
@@ -337,7 +341,7 @@ ck( 'a provider with a key is ready', array( WPCPM_Handbook_Answer::provider_rea
  *
  * The domain arrives in `web.title`, not in the `web.domain` field the documentation
  * describes, and the `uri` is always a `vertexaisearch` redirect. The first version of this
- * helper invented `domain` — so it validated a shape that never occurs, and the host filter
+ * helper invented `domain` - so it validated a shape that never occurs, and the host filter
  * it was testing would have dropped every real citation and marked every real answer
  * unverified. That is why this fixture is copied from an actual response.
  *
@@ -388,7 +392,7 @@ ck( 'its citation survives, with the redirect kept as the link and the host as t
     array( count( $grounded['sources'] ), $grounded['sources'][0]['title'], 0 === strpos( $grounded['sources'][0]['link'], 'https://vertexaisearch.cloud.google.com/' ) ),
     array( 1, 'make.wordpress.org', true ) );
 
-// The judgement has to be made on `domain`, because Google returns its own redirect URL —
+// The judgement has to be made on `domain`, because Google returns its own redirect URL -
 // whose host says nothing about where the page actually is. Judging the URI would refuse
 // every citation Gemini ever returns.
 $GLOBALS['http'] = gemini_reply( 'From a blog.', array( 'wpbeginner.example' ) );
@@ -413,7 +417,7 @@ echo "\n=== Citations resolve to real pages ===\n";
 
 // Google's `uri` is an opaque redirect and its `title` is only the domain, so a list of
 // citations read "wordpress.org" four times over. Following the redirect one hop gives the
-// page — and the host check is then made against where the page *is* rather than against a
+// page - and the host check is then made against where the page *is* rather than against a
 // label Google supplied, which is the stronger of the two checks.
 $GLOBALS['redirects'] = array(
 	0 => 'https://make.wordpress.org/community/handbook/education/credits/program-manager-guide/students-management/certificate-graduation/',
@@ -431,10 +435,10 @@ ck( 'the address is shown, without the scheme',
     array( 'make.wordpress.org/community/handbook/education/credits/program-manager-guide/students-management/certificate-graduation' ) );
 ck( 'and the name comes from the page, not the domain',
     array( $resolved['sources'][0]['title'] ),
-    array( 'Certificate graduation — make.wordpress.org' ) );
+    array( 'Certificate graduation - make.wordpress.org' ) );
 ck( 'a second page on another site resolves too',
     array( $resolved['sources'][1]['title'] ),
-    array( 'Get your certificate — learn.wordpress.org' ) );
+    array( 'Get your certificate - learn.wordpress.org' ) );
 
 // The resolved address is what the host check now judges, so a redirect that lands somewhere
 // else is refused however Google labelled it.
@@ -491,7 +495,7 @@ $titled = WPCPM_Handbook_Answer::ask( 'anything', 52 );
 ck( 'a page title is not treated as a host',
     array( count( $titled['sources'] ), $titled['unsourced'] ), array( 0, true ) );
 
-// Three chunks on one host are three *pages* — Google gives each its own redirect — so all
+// Three chunks on one host are three *pages* - Google gives each its own redirect - so all
 // three are kept. Only a genuinely repeated URI collapses.
 $GLOBALS['http'] = gemini_reply( 'Three pages.', array( 'wordpress.org', 'wordpress.org', 'wordpress.org' ) );
 $three = WPCPM_Handbook_Answer::ask( 'anything', 53 );
@@ -540,8 +544,8 @@ ck( 'an unreachable provider explains itself',
     array( true, false, true ) );
 
 // The message the reader sees is decided by the status, not by the words in it. Matching words
-// is how "this model is currently experiencing high demand" — a busy model, which works on the
-// next attempt — came to be reported as "no longer available, change it in settings".
+// is how "this model is currently experiencing high demand" - a busy model, which works on the
+// next attempt - came to be reported as "no longer available, change it in settings".
 $GLOBALS['http'] = array( 'code' => 503, 'body' => json_encode( array( 'error' => array( 'message' => 'This model is currently experiencing high demand.' ) ) ) );
 $busy = WPCPM_Handbook_Answer::ask( 'anything', 7 );
 ck( 'a busy provider is reported as busy, not as a model to replace',
@@ -582,7 +586,7 @@ echo "\n=== Rate limits ===\n";
 // returns the quoted answer before the limits are ever consulted.
 $settings['handbook_provider'] = 'openai';
 $settings['handbook_key']      = 'test-key';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 ck( 'a fresh user is within limits', array( true === WPCPM_Handbook_Answer::within_limits( 7 ) ), array( true ) );
 
@@ -603,7 +607,7 @@ delete_transient( WPCPM_Handbook_Answer::RATE_PREFIX . 7 );
 
 $settings['handbook_provider'] = '';
 $settings['handbook_key']      = '';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 /* ---- who may ask -------------------------------------------------------- */
 
@@ -618,7 +622,7 @@ $GLOBALS['manage']   = array( 4 );
 // The shipped default: the handbook describes running the program, so mentors and managers
 // see it and students do not until somebody widens it deliberately.
 $settings['handbook_access'] = WPCPM_Settings::defaults()['handbook_access'];
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 ck( 'the default audience is mentors', array( $settings['handbook_access'] ), array( 'mentor' ) );
 ck( 'a mentor may ask',   array( WPCPM_Handbook_Assistant::user_can_ask( $GLOBALS['users'][2] ) ), array( true ) );
@@ -629,23 +633,23 @@ ck( 'nor a plain subscriber',
     array( WPCPM_Handbook_Assistant::user_can_ask( $GLOBALS['users'][5] ) ), array( false ) );
 
 $settings['handbook_access'] = 'program';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'widening it to the program lets a student in',
     array( WPCPM_Handbook_Assistant::user_can_ask( $GLOBALS['users'][3] ) ), array( true ) );
 
 $settings['handbook_access'] = 'any';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'on "any", a subscriber may',
     array( WPCPM_Handbook_Assistant::user_can_ask( $GLOBALS['users'][5] ) ), array( true ) );
 
 $settings['handbook_access'] = 'manage';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'on "manage", a mentor may not',
     array( WPCPM_Handbook_Assistant::user_can_ask( $GLOBALS['users'][2] ) ), array( false ) );
 
 // The one that matters most: whatever the setting, logged out is never allowed.
 $settings['handbook_access'] = 'any';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'nobody logged out may ask, on any setting',
     array( WPCPM_Handbook_Assistant::user_can_ask( new WP_User( 0 ) ) ), array( false ) );
 
@@ -664,7 +668,7 @@ echo "\n=== Switched off ===\n";
 
 $settings['handbook_access']  = 'program';
 $settings['handbook_enabled'] = true;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 $tool = new WPCPM_Handbook();
 
@@ -672,9 +676,9 @@ ck( 'on by default', array( WPCPM_Handbook::is_enabled() ), array( true ) );
 ck( 'and a mentor may ask', array( WPCPM_Handbook_Assistant::user_can_ask( $GLOBALS['users'][2] ) ), array( true ) );
 
 $settings['handbook_enabled'] = false;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
-ck( 'switched off, nobody may ask — not even a manager',
+ck( 'switched off, nobody may ask - not even a manager',
     array(
         WPCPM_Handbook_Assistant::user_can_ask( $GLOBALS['users'][2] ),
         WPCPM_Handbook_Assistant::user_can_ask( $GLOBALS['users'][4] ),
@@ -693,7 +697,7 @@ $GLOBALS['uid'] = 0;
 ck( 'and neither does a visitor',
     array( WPCPM_Handbook_Assistant::render() ), array( '' ) );
 
-// Including a manager. Switched off means nothing is rendered for anybody — the page is
+// Including a manager. Switched off means nothing is rendered for anybody - the page is
 // unpublished as well, and a page that is gone cannot carry an explanation. The tool screen
 // in wp-admin is where a manager is told why.
 $GLOBALS['uid'] = 4;
@@ -703,11 +707,11 @@ ck( 'a manager gets nothing either',
 $GLOBALS['uid'] = 0;
 
 // The handler now supplies every boolean on every save, because an unchecked checkbox posts
-// nothing and "absent" would otherwise be indistinguishable from "off". An unrelated save —
-// one that never mentions the key — must still leave it alone. `bin/test-settings.php` drives
+// nothing and "absent" would otherwise be indistinguishable from "off". An unrelated save -
+// one that never mentions the key - must still leave it alone. `bin/test-settings.php` drives
 // the whole round trip; this only pins the two outcomes this module depends on.
 $settings['handbook_enabled'] = true;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 $saved = WPCPM_Settings::save( array( 'base_id' => 'appOTHER' ) );
 ck( 'a save that never mentions it leaves it alone',
@@ -727,7 +731,7 @@ echo "\n=== The endpoint the panel calls ===\n";
 
 $settings['handbook_enabled'] = true;
 $settings['handbook_access']  = 'program';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 // Permission is the whole security boundary for the panel: the endpoint is reachable by
 // anybody who can find the URL, so it has to make the same decision the page does.
@@ -743,18 +747,18 @@ $GLOBALS['uid'] = 2;
 ck( 'a mentor may call it', array( WPCPM_Handbook_Assistant::rest_permission() ), array( true ) );
 
 $settings['handbook_enabled'] = false;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'switched off, the endpoint refuses everybody',
     array( WPCPM_Handbook_Assistant::rest_permission() ), array( false ) );
 
 $settings['handbook_enabled'] = true;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 // A provider, because an earlier section cleared it and the endpoint has nothing to say
 // without one.
 $settings['handbook_provider'] = 'gemini';
 $settings['handbook_key']      = 'test-key';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 $GLOBALS['http'] = gemini_reply( 'Approve the quiz.', array( 'make.wordpress.org' ) );
 
@@ -794,10 +798,10 @@ ck( 'the plugin tells the theme when there is something to open',
     array( WPCPM_Handbook_Assistant::is_available() ), array( true ) );
 
 $settings['handbook_enabled'] = false;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'and when there is not', array( WPCPM_Handbook_Assistant::is_available() ), array( false ) );
 $settings['handbook_enabled'] = true;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 $js = file_get_contents( WPCPM_PLUGIN_DIR . 'assets/js/handbook.js' );
 ck( 'the panel opens from any element carrying the agreed attribute',
@@ -824,7 +828,7 @@ $settings                      = WPCPM_Settings::defaults();
 $settings['handbook_provider'] = 'gemini';
 $settings['handbook_key']      = 'test-key';
 $settings['handbook_access']   = 'program';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 $GLOBALS['uid'] = 2;
 
 $student_section = WPCPM_Handbook_Assistant::render_resources( 'student' );
@@ -865,7 +869,7 @@ ck( 'the student card links the students Slack channel',
 
 // A link and not a button: none of the `wpcpm-button` classes, so nothing the theme or the
 // plugin draws borders and fills with can reach it. Pinned here because the class list is the
-// whole mechanism — one stray `wpcpm-button` and the box is back.
+// whole mechanism - one stray `wpcpm-button` and the box is back.
 ck( 'the logo is a bare link, not a button',
     array(
         false !== strpos( $student_section, 'wpcpm-resources__slack" href' ),
@@ -924,8 +928,8 @@ ck( 'the lockup is asked for by height and keeps its proportions',
     ),
     array( true, true ) );
 
-// The height of the buttons beside it — their 1px border, 15px padding and 24px line, twice
-// over — so the three read as one row rather than a logo tucked in beside two big buttons.
+// The height of the buttons beside it - their 1px border, 15px padding and 24px line, twice
+// over - so the three read as one row rather than a logo tucked in beside two big buttons.
 // The Student Report Card's course and report form are two sections now, not one holding two
 // buttons. Asserted on the source because rendering that page needs the whole student record;
 // this suite already guards the card's copy the same way, and the alternative is no cover at all.
@@ -936,7 +940,7 @@ ck( 'the course and the report form are separate sections',
         false !== strpos( $student_page_src, "__( 'My course', 'wpcredits-program-manager' )" ),
         false !== strpos( $student_page_src, "__( 'Report form', 'wpcredits-program-manager' )" ),
         false !== strpos( $student_page_src, 'My course and report form' ),
-        // My course draws itself since 1.49.0 — it has two columns, the button and the hours box —
+        // My course draws itself since 1.49.0 - it has two columns, the button and the hours box -
         // so the shared link-section helper is gone. What still has to hold is that the course
         // section and the report form are separate things, which the two calls below say.
         false === strpos( $student_page_src, 'render_link_section' ),
@@ -989,7 +993,7 @@ ck( 'both halves are headed, and the updates half comes first',
     ),
     array( true, true, true ) );
 
-// The student card gets the same split. Its updates are its own — the column reads the access
+// The student card gets the same split. Its updates are its own - the column reads the access
 // level on each post rather than being told who is looking.
 ck( 'the student card is split the same way',
     array(
@@ -1020,7 +1024,7 @@ ck( 'the two labelled links are the card\'s own buttons',
 // because an API key is missing would make no sense to anybody looking at the page.
 $settings['handbook_provider'] = '';
 $settings['handbook_key']      = '';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 $no_provider = WPCPM_Handbook_Assistant::render_resources( 'student' );
 ck( 'the guide still shows with no provider configured, and the button does not',
@@ -1034,7 +1038,7 @@ ck( 'the guide still shows with no provider configured, and the button does not'
 $settings['handbook_provider'] = 'gemini';
 $settings['handbook_key']      = 'test-key';
 $settings['handbook_access']   = 'mentor';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 $narrowed = WPCPM_Handbook_Assistant::render_resources( 'student' );
 ck( 'and it survives the audience being narrowed to mentors',
@@ -1049,7 +1053,7 @@ ck( 'and it survives the audience being narrowed to mentors',
 // its own since the Institution Dashboard grew a Resources section.
 $settings['handbook_provider'] = '';
 $settings['handbook_key']      = '';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'nothing to show means no empty section',
     array( WPCPM_Handbook_Assistant::render_resources( 'nobody-in-particular' ) ), array( '' ) );
 
@@ -1074,7 +1078,7 @@ ck( 'an audience with nothing but a block of its own still gets a section',
 $settings['handbook_provider'] = 'gemini';
 $settings['handbook_key']      = 'test-key';
 $settings['handbook_access']   = 'program';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 $GLOBALS['uid'] = 0;
 // A second question while the first is in flight must not be answered by whichever reply
 // happens to land last.
@@ -1086,17 +1090,17 @@ ck( 'an in-flight question is abandoned when another is asked',
 echo "\n=== The Resources section follows the audience ===\n";
 
 // Removing the section from the Student Report Card outright meant that widening the audience
-// to include students changed nothing there — the setting and the page disagreed, and the page
+// to include students changed nothing there - the setting and the page disagreed, and the page
 // won. Asked of the audience, not of the viewer, so a manager inspecting a student does not see
 // it on the student's own page while the student never would.
 $settings = WPCPM_Settings::defaults();
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 ck( 'on the default audience, students are not included',
     array( WPCPM_Handbook_Assistant::audience_includes_students() ), array( false ) );
 
 foreach ( array( 'program' => true, 'any' => true, 'mentor' => false, 'manage' => false ) as $access => $expected ) {
 	$settings['handbook_access'] = $access;
-	$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 	ck( sprintf( 'audience "%s" includes students: %s', $access, $expected ? 'yes' : 'no' ),
 	    array( WPCPM_Handbook_Assistant::audience_includes_students() ), array( $expected ) );
@@ -1109,7 +1113,7 @@ $settings = WPCPM_Settings::defaults();
 $settings['handbook_provider'] = 'gemini';
 $settings['handbook_key']      = 'test-key';
 $settings['handbook_access']   = 'mentor';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 $GLOBALS['uid'] = 2;
 
 $excluded = WPCPM_Handbook_Assistant::render_resources( 'student' );
@@ -1118,7 +1122,7 @@ ck( 'with students excluded, their card keeps the guide and loses the button',
     array( true, false ) );
 
 $settings['handbook_access'] = 'program';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 
 $included = WPCPM_Handbook_Assistant::render_resources( 'student' );
 ck( 'and with students included it gains the button',
@@ -1137,8 +1141,8 @@ ck( 'a provider that no longer exists is not accepted',
     array( $saved['handbook_provider'] ), array( '' ) );
 
 // A grounded answer truncated by the token ceiling comes back with its citations *gone*, so
-// the ceiling has to be generous. This pins that it was raised, because the symptom — every
-// answer marked unverified — looks like a filter bug rather than a limit.
+// the ceiling has to be generous. This pins that it was raised, because the symptom - every
+// answer marked unverified - looks like a filter bug rather than a limit.
 $answer_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php' );
 // Measured on the live site: the same three questions took 9.4, 18.7 and 24.1 seconds. The
 // old 25-second limit was not a margin, it was a coin toss, and the failure is a cURL 28 with
@@ -1165,7 +1169,7 @@ ck( 'and there is no OpenAI-compatible path left',
 echo "\n=== The copy describes what the module actually does ===\n";
 
 // Every one of these sentences was true of the version that kept a local copy, and false the
-// moment that copy was deleted — and a settings screen that describes a design the plugin no
+// moment that copy was deleted - and a settings screen that describes a design the plugin no
 // longer has is worse than no description, because somebody will rely on it. Two of them
 // survived three releases and were spotted by a reader, not by a test.
 $copy = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php' )
@@ -1193,7 +1197,7 @@ echo "\n=== Moving off a retired model ===\n";
 // settings, so an install carries its old model for ever and the provider simply refuses.
 $settings                   = WPCPM_Settings::defaults();
 $settings['handbook_model'] = 'gemini-2.0-flash';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 delete_option( WPCPM_Handbook::OPT_MODEL_FIXED );
 
 WPCPM_Handbook::maybe_update_model();
@@ -1201,10 +1205,10 @@ ck( 'a retired default is replaced with the current one',
     array( WPCPM_Settings::get_value( 'handbook_model' ) ),
     array( WPCPM_Settings::defaults()['handbook_model'] ) );
 
-// A model somebody chose is theirs, even if it is retired — they may be waiting on a
+// A model somebody chose is theirs, even if it is retired - they may be waiting on a
 // replacement, or pointing at something this plugin has never heard of.
 $settings['handbook_model'] = 'some-model-they-chose';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 delete_option( WPCPM_Handbook::OPT_MODEL_FIXED );
 
 WPCPM_Handbook::maybe_update_model();
@@ -1213,17 +1217,17 @@ ck( 'a model chosen by hand is left alone',
 
 // Once per revision, so a site that has since chosen its own is not overruled on every load.
 $settings['handbook_model'] = 'gemini-2.0-flash';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 WPCPM_Handbook::maybe_update_model();
 ck( 'and it does not run twice',
     array( WPCPM_Settings::get_value( 'handbook_model' ) ), array( 'gemini-2.0-flash' ) );
 
 // The failure a retired model produces says nothing about where to change it, so the answer
-// does. Asserted because "try again" is actively wrong advice here — it will never work.
+// does. Asserted because "try again" is actively wrong advice here - it will never work.
 $settings['handbook_model']    = 'gemini-2.0-flash';
 $settings['handbook_provider'] = 'gemini';
 $settings['handbook_key']      = 'test-key';
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = $settings;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings;
 $GLOBALS['http'] = array(
 	'code' => 400,
 	'body' => json_encode( array( 'error' => array( 'message' => 'This model models/gemini-2.0-flash is no longer available.' ) ) ),
@@ -1248,7 +1252,7 @@ $GLOBALS['http'] = null;
 echo "\n=== Removing the module ===\n";
 
 // Read from the source rather than executed: uninstall needs a real database, and the mistake
-// this catches is not a broken query but a *forgotten* one — a name the module ever wrote and
+// this catches is not a broken query but a *forgotten* one - a name the module ever wrote and
 // the removal path never mentions.
 //
 // Every name below is now a literal, because the classes that owned them as constants have
@@ -1289,7 +1293,7 @@ echo "\n=== When the model says it is busy ===\n";
 
 /*
  * "This model is currently experiencing high demand" is a statement about *one model's* capacity, so
- * the retry has to ask a different one — `gemini-flash-latest` answered 503 twice in a row on
+ * the retry has to ask a different one - `gemini-flash-latest` answered 503 twice in a row on
  * 6 August 2026 while `gemini-flash-lite-latest` answered the same grounded question in three
  * seconds. Both halves are asserted here: which model is chosen, and which statuses count as busy
  * at all.
@@ -1321,13 +1325,13 @@ foreach ( array( 400, 401, 403, 404 ) as $status ) {
 	ck( "$status is not busy", array( $busy->invoke( null, failure( $status ) ) ), array( false ) );
 }
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'handbook_model' => 'gemini-flash-latest' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'handbook_model' => 'gemini-flash-latest' );
 
 ck( 'a busy Flash falls back to the lighter model',
     array( $pick->invoke( null ) ), array( 'gemini-flash-lite-latest' ) );
 
 // Falling back to itself would be asking the thing that is full.
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'handbook_model' => 'gemini-flash-lite-latest' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'handbook_model' => 'gemini-flash-lite-latest' );
 
 ck( 'a site already on the light model falls back to the other one',
     array( $pick->invoke( null ) ), array( 'gemini-flash-latest' ) );
@@ -1337,7 +1341,7 @@ ck( 'the fallback is never the model that just failed',
 
 // The default matters: it used to be a model Google has retired, so a site with nothing saved got a
 // 404 rather than an answer.
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array();
 
 ck( 'the shipped default is not a retired model',
     array( in_array( WPCPM_Settings::get_value( 'handbook_model', 'gemini-flash-latest' ), array( 'gemini-2.5-flash', 'gemini-1.5-flash' ), true ) ),

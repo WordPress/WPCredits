@@ -37,6 +37,7 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 define( 'ABSPATH', __DIR__ . '/' );
+define( 'DAY_IN_SECONDS', 86400 );
 
 $GLOBALS['users']       = array();
 $GLOBALS['uid']         = 0;
@@ -87,6 +88,7 @@ function is_multisite() { return false; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/' ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
+function add_option( $k, $v, $x = '', $a = null ) { if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; } $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_user_by( $f, $v ) { return isset( $GLOBALS['users'][ (int) $v ] ) ? $GLOBALS['users'][ (int) $v ] : false; }
 function get_current_user_id() { return $GLOBALS['uid']; }
@@ -383,6 +385,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
@@ -667,8 +670,9 @@ ck( 'every fixture record ID is well-formed',
 	array_map( array( 'WPCPM_Mentors_Sync', 'is_record_id' ), array( $A, $B, $MIX, $EMPTY, $GHOST, $S_CURRENT, $R_CURRENT ) ),
 	array( true, true, true, true, true, true, true ) );
 
-$mentors_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php' );
-preg_match( "/function is_record_id\([^)]*\)\s*\{\s*return \(bool\) preg_match\( '([^']+)'/", $mentors_src, $m );
+// The pattern is declared on the Airtable client now; the Mentors sync keeps a one-release alias.
+$airtable_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php' );
+preg_match( "/const RECORD_ID_PATTERN\s*=\s*'([^']+)'/", $airtable_src, $m );
 ck( 'the record-ID pattern is the one the plugin uses', isset( $m[1] ) ? $m[1] : '', WPCPM_Mentors_Sync::RECORD_ID_PATTERN );
 
 $airtable_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php' );
@@ -1070,6 +1074,185 @@ ck( 'it answers exactly what the policy answers',
 	WPCPM_Institution_Roster::owns( $P::subject_institution( $A ), $P::ACT_VIEW_ROSTER, 2 ),
 	$P::decide( $P::ACT_VIEW_ROSTER, $P::subject_institution( $A ), 2 ) );
 ck( 'and asks Airtable nothing', count( $GLOBALS['air']['calls'] ), 0 );
+
+/* ---- a roster the counts did not name: the first import of a new institution ---- */
+
+echo "\n=== A roster the last sync wrote no counts for ===\n";
+
+// C is the newly approved institution: agreement settled, one member, and no Students rows
+// when the last sync ran, so no roster and no entry in the counts. Its first import creates
+// Bea, exactly as WPCPM_Institution_Create::announce() does.
+$C   = 'rec' . str_repeat( 'C', 14 );
+$S_C = 'recS' . str_repeat( 'C', 13 );
+
+$GLOBALS['users'][30]       = new WP_User( 30, 'Member of C', 'c@example.org' );
+$GLOBALS['memberships'][30] = array( $C );
+$GLOBALS['settled'][]       = $C;
+$GLOBALS['umeta'][30]       = array( WPCPM_Institution_Members::META_ACTIVE => 1 );
+
+ck( 'the counts do not name C', isset( WPCPM_Roster_Index::counts()['institutions'][ $C ] ), false );
+
+WPCPM_Roster_Index::insert( $C, roster_row( $S_C, array( 'institution' => $C, 'start' => '2026-09-01' ) ) );
+
+ck( 'insert() registers C among the rosters, with no participation to report yet',
+	WPCPM_Roster_Index::counts()['institutions'][ $C ], array() );
+ck( 'so the imported student is placed with C from cache, with nothing but the record to go on',
+	WPCPM_Institution_Roster::cached_subject( $S_C, 'student' )['institution_ids'], array( $C ) );
+ck( 'and the member of C may draw the graduate and withdraw controls for her',
+	$P::decide( $P::ACT_CHANGE_STATUS, WPCPM_Institution_Roster::cached_subject( $S_C, 'student' ), 30 )['allowed'], true );
+
+$GLOBALS['air']['students'][ $S_C ] = array( 'Email' => 'bea@example.org', 'Educational Institutions' => array( $C ) );
+$GLOBALS['air']['records'][ $S_C ]  = $GLOBALS['air']['students'][ $S_C ];
+
+reset_calls();
+ck( "a claim by the member of C for their own imported student gets past step 2 to the live read",
+	array( is_array( WPCPM_Institution_Roster::claim( $S_C, $P::ACT_EDIT_STUDENT, 'student', 30 ) ), count( $GLOBALS['air']['calls'] ) ),
+	array( true, 1 ) );
+
+echo "\n--- the caller's own roster is opened first, whatever the counts say ---\n";
+
+// A roster the counts have never heard of, written straight into its option: the shape a
+// site holds when a roster was written by an older insert() before the counts were kept.
+$D   = 'rec' . str_repeat( 'D', 14 );
+$S_D = 'recS' . str_repeat( 'D', 13 );
+
+$GLOBALS['opts'][ WPCPM_Roster_Index::option_name( $D ) ] = array(
+	'v'    => WPCPM_Roster_Index::VERSION,
+	'read' => 0,
+	'rows' => array( $S_D => roster_row( $S_D, array( 'institution' => $D ) ) ),
+);
+
+ck( 'the counts do not name D', isset( WPCPM_Roster_Index::counts()['institutions'][ $D ] ), false );
+ck( 'so without a hint the walk cannot place the row', WPCPM_Institution_Roster::cached_subject( $S_D, 'student' )['institution_ids'], array() );
+ck( "with the caller's institution as the hint it is placed from D's own roster",
+	WPCPM_Institution_Roster::cached_subject( $S_D, 'student', $D )['institution_ids'], array( $D ) );
+ck( 'the hint says which roster to open, and the row says whose the student is: a hint naming A places nothing',
+	WPCPM_Institution_Roster::cached_subject( $S_D, 'student', $A )['institution_ids'], array() );
+ck( 'a hint that is not a record ID opens nothing',
+	WPCPM_Institution_Roster::cached_subject( $S_D, 'student', 'pasted' )['institution_ids'], array() );
+ck( 'a report record is found through the hinted roster the same way',
+	WPCPM_Institution_Roster::cached_subject( $R_CURRENT, 'report', $A )['institution_ids'], array( $A ) );
+
+$GLOBALS['users'][31]       = new WP_User( 31, 'Member of D', 'd@example.org' );
+$GLOBALS['memberships'][31] = array( $D );
+$GLOBALS['settled'][]       = $D;
+$GLOBALS['umeta'][31]       = array( WPCPM_Institution_Members::META_ACTIVE => 1 );
+
+$GLOBALS['air']['students'][ $S_D ] = array( 'Email' => 'dee@example.org', 'Educational Institutions' => array( $D ) );
+$GLOBALS['air']['records'][ $S_D ]  = $GLOBALS['air']['students'][ $S_D ];
+
+reset_calls();
+ck( "claim() hands the actor's own institution over as the hint, so the member of D reaches the live read",
+	array( is_array( WPCPM_Institution_Roster::claim( $S_D, $P::ACT_EDIT_STUDENT, 'student', 31 ) ), count( $GLOBALS['air']['calls'] ) ),
+	array( true, 1 ) );
+
+reset_calls();
+ck( "while the member of A, whose own roster does not hold it, is refused before any request",
+	array( refusal_of( WPCPM_Institution_Roster::claim( $S_D, $P::ACT_EDIT_STUDENT, 'student', 2 ) ), count( $GLOBALS['air']['calls'] ) ),
+	array( $P::REFUSAL_CODE . '|That record is not on your roster.', 0 ) );
+
+/* ---- 5.3: the per-acting-user ceiling on refused cheap claims -------------- */
+
+echo "\n=== The ceiling on refused cheap claims ===\n";
+
+/**
+ * Forget every ceiling bucket, so a section starts with nobody metered.
+ */
+function forget_ceilings() {
+	foreach ( array_keys( $GLOBALS['opts'] ) as $name ) {
+		if ( 0 === strpos( (string) $name, WPCPM_Ceiling::PREFIX ) ) {
+			unset( $GLOBALS['opts'][ $name ] );
+		}
+	}
+}
+
+/**
+ * How many refused claims the ceiling holds against one account today.
+ *
+ * @param int $user_id The account.
+ * @return int
+ */
+function refusals_of( $user_id ) {
+	return WPCPM_Ceiling::count( WPCPM_Ceiling::key( WPCPM_Institution_Roster::CEILING_REFUSED, (string) $user_id ), DAY_IN_SECONDS );
+}
+
+forget_ceilings();
+$GLOBALS['audit'] = array();
+
+ck( 'the ceiling is twenty refused claims a day', WPCPM_Institution_Roster::REFUSALS_PER_DAY, 20 );
+ck( 'and the two key stems are what the spec names them', array( WPCPM_Institution_Roster::CEILING_REFUSED, WPCPM_Institution_Roster::CEILING_LOCKED ), array( 'claim-refused', 'claim-locked' ) );
+
+reset_calls();
+ck( 'before any refusal, the member of B claims their own student', is_array( WPCPM_Institution_Roster::claim( $S_B1, $P::ACT_EDIT_STUDENT, 'student', 3 ) ), true );
+ck( 'and an allowed claim counts nothing', refusals_of( 3 ), 0 );
+
+// Nineteen refusals: nine at step 1, on the shape, and ten at step 2, on another institution's student.
+for ( $i = 0; $i < 9; $i++ ) {
+	WPCPM_Institution_Roster::claim( 'not a record', $P::ACT_EDIT_STUDENT, 'student', 3 );
+}
+for ( $i = 0; $i < 10; $i++ ) {
+	WPCPM_Institution_Roster::claim( $S_CURRENT, $P::ACT_EDIT_STUDENT, 'student', 3 );
+}
+
+ck( 'nineteen refusals, at step 1 and at step 2, are counted against the acting account', refusals_of( 3 ), 19 );
+ck( 'none of them is logged', count( $GLOBALS['audit'] ), 0 );
+ck( 'the account is not locked: its own student is still claimable', is_array( WPCPM_Institution_Roster::claim( $S_B1, $P::ACT_EDIT_STUDENT, 'student', 3 ) ), true );
+ck( 'and nobody is listed as locked', WPCPM_Institution_Roster::locked_today(), array() );
+
+WPCPM_Institution_Roster::claim( $S_CURRENT, $P::ACT_EDIT_STUDENT, 'student', 3 );
+
+ck( 'the twentieth fills the bucket', refusals_of( 3 ), 20 );
+ck( 'and is the one that writes the audit row', count( $GLOBALS['audit'] ), 1 );
+ck( "filed under the actor's own institution, about the actor, on the member ground, against cache",
+	array(
+		$GLOBALS['audit'][0]['kind'],
+		$GLOBALS['audit'][0]['institution'],
+		$GLOBALS['audit'][0]['subject'],
+		$GLOBALS['audit'][0]['actor'],
+		$GLOBALS['audit'][0]['ground'],
+		$GLOBALS['audit'][0]['evidence'],
+		$GLOBALS['audit'][0]['data'],
+	),
+	array( WPCPM_Institution_Roster::LOG_LOCKED, $B, '3', 3, 'member', 'cache', array( 'refusals' => 20, 'window' => DAY_IN_SECONDS ) ) );
+
+reset_calls();
+ck( 'from then on the member is refused their own student too, with the one refusal',
+	refusal_of( WPCPM_Institution_Roster::claim( $S_B1, $P::ACT_EDIT_STUDENT, 'student', 3 ) ),
+	$P::REFUSAL_CODE . '|That record is not on your roster.' );
+ck( 'before any request', count( $GLOBALS['air']['calls'] ), 0 );
+
+WPCPM_Institution_Roster::claim( 'not a record', $P::ACT_EDIT_STUDENT, 'student', 3 );
+WPCPM_Institution_Roster::claim( $S_CURRENT, $P::ACT_EDIT_STUDENT, 'student', 3 );
+
+ck( 'refusals past the ceiling are not counted: the lock refuses before the meter', refusals_of( 3 ), 20 );
+ck( 'and the lock is logged once', count( $GLOBALS['audit'] ), 1 );
+ck( 'the manager screen lists the locked account, and only it',
+	array_map( static function ( $user ) { return $user->ID; }, WPCPM_Institution_Roster::locked_today() ), array( 3 ) );
+
+reset_calls();
+ck( 'the member of A, with no refusals today, is untouched by it',
+	is_array( WPCPM_Institution_Roster::claim( $R_CURRENT, $P::ACT_VIEW_REPORT, 'report', 2 ) ), true );
+
+echo "\n--- managers and nobody are not metered ---\n";
+
+for ( $i = 0; $i < 21; $i++ ) {
+	WPCPM_Institution_Roster::claim( 'not a record', $P::ACT_EDIT_STUDENT, 'student', 1 );
+}
+
+ck( 'twenty-one malformed claims by a manager count nothing', refusals_of( 1 ), 0 );
+ck( 'and the manager still claims', is_array( WPCPM_Institution_Roster::claim( $S_B1, $P::ACT_EDIT_STUDENT, 'student', 1 ) ), true );
+
+$buckets = count( array_filter( array_keys( $GLOBALS['opts'] ), static function ( $name ) { return 0 === strpos( (string) $name, WPCPM_Ceiling::PREFIX ); } ) );
+viewing( 0 );
+WPCPM_Institution_Roster::claim( 'not a record', $P::ACT_EDIT_STUDENT, 'student', null );
+ck( 'a claim by nobody opens no bucket',
+	count( array_filter( array_keys( $GLOBALS['opts'] ), static function ( $name ) { return 0 === strpos( (string) $name, WPCPM_Ceiling::PREFIX ); } ) ), $buckets );
+
+forget_ceilings();
+$GLOBALS['audit'] = array();
+
+ck( 'with the buckets gone, as they are when the day turns, the member of B is themselves again',
+	is_array( WPCPM_Institution_Roster::claim( $S_B1, $P::ACT_EDIT_STUDENT, 'student', 3 ) ), true );
 
 /* ---- 7.5: the four groups ------------------------------------------------- */
 

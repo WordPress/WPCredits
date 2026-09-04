@@ -44,7 +44,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WPCPM_Private_Files {
 
 	/** Option holding the last probe's result: `status`, `time`, `blocked`, `error`. */
-	const OPTION_PROBE = 'wpcpm_private_probe';
+	const OPT_PROBE = 'wpcpm_private_probe';
 
 	/**
 	 * The directory's name under the uploads base.
@@ -59,7 +59,7 @@ class WPCPM_Private_Files {
 	const LEGACY_DIRECTORY = 'wpcpm-private';
 
 	/** The per-site key that encrypts stored files. Not autoloaded, never printed. */
-	const OPTION_KEY = 'wpcpm_private_key';
+	const OPT_KEY = 'wpcpm_private_key';
 
 	/** Authenticated encryption: a tampered file fails to decrypt rather than decrypting wrongly. */
 	const CIPHER = 'aes-256-gcm';
@@ -207,7 +207,7 @@ class WPCPM_Private_Files {
 		if ( is_wp_error( $ensured ) ) {
 			$result['error'] = $ensured->get_error_message();
 
-			update_option( self::OPTION_PROBE, $result, false );
+			update_option( self::OPT_PROBE, $result, false );
 
 			return $result;
 		}
@@ -221,7 +221,7 @@ class WPCPM_Private_Files {
 		if ( false === file_put_contents( $path, "probe\n" ) ) {
 			$result['error'] = __( 'The probe file could not be written.', 'wpcredits-program-manager' );
 
-			update_option( self::OPTION_PROBE, $result, false );
+			update_option( self::OPT_PROBE, $result, false );
 
 			return $result;
 		}
@@ -248,7 +248,7 @@ class WPCPM_Private_Files {
 
 		$result['control_status'] = self::probe_control( $name );
 
-		update_option( self::OPTION_PROBE, $result, false );
+		update_option( self::OPT_PROBE, $result, false );
 
 		return $result;
 	}
@@ -302,7 +302,7 @@ class WPCPM_Private_Files {
 	 * @return array{status: int, time: int, blocked: bool, error: string}|null
 	 */
 	public static function probe_result() {
-		$stored = get_option( self::OPTION_PROBE );
+		$stored = get_option( self::OPT_PROBE );
 
 		if ( ! is_array( $stored ) || ! isset( $stored['status'], $stored['time'], $stored['blocked'] ) ) {
 			return null;
@@ -449,6 +449,44 @@ class WPCPM_Private_Files {
 	}
 
 	/**
+	 * Write a plain-text note into the private directory, for a person to read later.
+	 *
+	 * Not encrypted, deliberately: the one thing written this way is the inventory of signed
+	 * agreements an uninstall leaves behind, and a list nobody can open without the plugin
+	 * that is being removed is no inventory. It is only written when the last probe recorded
+	 * the directory as blocked from the web, which is the caller's check to make; the file
+	 * name is the caller's, under the directory's own root, so nothing here takes a path.
+	 *
+	 * @param string $name Bare file name, letters, digits, dots, hyphens and underscores.
+	 * @param string $text The note.
+	 * @return string|WP_Error The relative path written.
+	 */
+	public static function write_note( $name, $text ) {
+		$name = (string) preg_replace( '/[^A-Za-z0-9._-]/', '', (string) $name );
+
+		if ( '' === $name || '.' === $name[0] ) {
+			return new WP_Error( 'wpcpm_private_name', __( 'That is not a name this store accepts.', 'wpcredits-program-manager' ) );
+		}
+
+		$ensured = self::ensure();
+
+		if ( is_wp_error( $ensured ) ) {
+			return $ensured;
+		}
+
+		$absolute = self::base() . $name;
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- The plugin's own store, under uploads, on the same terms as store().
+		if ( false === file_put_contents( $absolute, (string) $text ) ) {
+			return new WP_Error( 'wpcpm_private_write', __( 'The file could not be written.', 'wpcredits-program-manager' ) );
+		}
+
+		@chmod( $absolute, 0640 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- A best effort on hosts that honour it.
+
+		return $name;
+	}
+
+	/**
 	 * Read a stored file back, decrypted, or say why not.
 	 *
 	 * The counterpart of `store()`, and the only reader. A file whose tag does not verify is
@@ -586,7 +624,7 @@ class WPCPM_Private_Files {
 	 * @return string|WP_Error 32 raw bytes.
 	 */
 	private static function key() {
-		$stored = get_option( self::OPTION_KEY );
+		$stored = get_option( self::OPT_KEY );
 
 		if ( is_string( $stored ) && '' !== $stored ) {
 			$key = self::from_hex( $stored );
@@ -606,8 +644,8 @@ class WPCPM_Private_Files {
 		// `add_option()` and not `update_option()`: two requests arriving together must not each
 		// make a key and have the second overwrite the first, which would orphan whatever the
 		// first one had already encrypted.
-		if ( ! add_option( self::OPTION_KEY, bin2hex( $key ), '', false ) ) {
-			$stored = get_option( self::OPTION_KEY );
+		if ( ! add_option( self::OPT_KEY, bin2hex( $key ), '', false ) ) {
+			$stored = get_option( self::OPT_KEY );
 			$key    = is_string( $stored ) ? self::from_hex( $stored ) : '';
 
 			if ( '' === $key ) {

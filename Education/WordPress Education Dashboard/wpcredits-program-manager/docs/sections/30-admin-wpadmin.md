@@ -20,8 +20,8 @@ If Airtable is not connected yet, this screen says so and links straight to the 
 | --- | --- |
 | **Students** | The student list, the sync report, and one-at-a-time invitations. |
 | **Mentors** | The mentor list, the sync report, and one-at-a-time invitations. |
-| **Institutions** | Role only — registers `wpcpm_institution` and reserves the screen. |
-| **Sponsors** | Role only — registers `wpcpm_sponsor` and reserves the screen. |
+| **Institutions** | Role only - registers `wpcpm_institution` and reserves the screen. |
+| **Sponsors** | Role only - registers `wpcpm_sponsor` and reserves the screen. |
 | **Administrators** | Lists the program capabilities granted to Administrator, and who holds the role. |
 
 A role-only screen tells you the role slug, whether it is registered, and how many accounts hold it.
@@ -31,5 +31,5 @@ module has screens of its own.
 ### Modules
 
 The **Modules** submenu lists the parts of the program that are run and configured on their own
-rather than belonging to one audience — currently **Header notices**, **Need help?** and the **Mentor
+rather than belonging to one audience - currently **Header notices**, **Need help?** and the **Mentor
 Status Checker**. Each has its own screen behind an *Open tool* button.

@@ -86,7 +86,8 @@
 .wpcpm-report-card__stash {
 	border-inline-start: 4px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
 	margin: 0 0 1.5em;
-	padding: 0.25em 0 0.25em 1em;
+	padding-block: 0.25em;
+	padding-inline: 1em 0;
 }
 
 /* -------------------------------------------------------------------------
@@ -160,7 +161,8 @@
 .wpcpm-report-card__quote {
 	border-inline-start: 3px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
 	margin: 1.25em 0 0;
-	padding: 0.25em 0 0.25em 1em;
+	padding-block: 0.25em;
+	padding-inline: 1em 0;
 }
 
 .wpcpm-report-card__quote-text {
@@ -273,8 +275,13 @@
 	margin: 0 0 0.6em;
 }
 
+/* Free text, as typed: a pasted address or an unbroken token wraps rather than running past
+   the 174mm column, where paper would clip it. The link further down does the same, and says
+   why; so do the quoted words, their translation and the student's name, which are free text
+   from the base and the school. */
 .wpcpm-report-doc__p {
 	margin: 0 0 0.8em;
+	overflow-wrap: anywhere;
 }
 
 .wpcpm-report-doc__note,
@@ -293,7 +300,8 @@
 .wpcpm-report-doc__unreadable {
 	border-inline-start: 4px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
 	margin: 1em 0 0;
-	padding: 0.25em 0 0.25em 1em;
+	padding-block: 0.25em;
+	padding-inline: 1em 0;
 }
 
 /* Participation: labels in a column, numbers beside them, every row printed. The shape the
@@ -355,6 +363,7 @@
 .wpcpm-report-doc__student-name {
 	font-weight: 600;
 	margin: 0;
+	overflow-wrap: anywhere;
 }
 
 /* Every link prints its address as its own text, as the reference report does: this document is
@@ -375,18 +384,21 @@
 .wpcpm-report-doc__quote {
 	border-inline-start: 3px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
 	margin: 0 0 1.25em;
-	padding: 0.25em 0 0.25em 1em;
+	padding-block: 0.25em;
+	padding-inline: 1em 0;
 }
 
 .wpcpm-report-doc__quote-text {
 	border: 0;
 	font-style: italic;
 	margin: 0;
+	overflow-wrap: anywhere;
 	padding: 0;
 }
 
 .wpcpm-report-doc__translation {
 	margin: 0.5em 0 0;
+	overflow-wrap: anywhere;
 }
 
 .wpcpm-report-doc__translation-label {

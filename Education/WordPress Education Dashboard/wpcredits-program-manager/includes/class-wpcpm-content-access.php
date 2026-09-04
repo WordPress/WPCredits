@@ -18,10 +18,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Students, Institutions or Administrators.
  *
  * Gating is applied in four places on purpose. The query filter hides restricted
- * posts from listings, the template guard stops direct URL access, the content
- * filter covers anything that renders a post outside a gated query (related-post
- * widgets, hand-rolled `WP_Query` with `suppress_filters`), and the REST filter
- * covers the same ground for headless and block-editor reads.
+ * posts from listings, feeds and search, the template guard stops direct URL access,
+ * the content filter covers anything that renders a post outside a gated query
+ * (related-post widgets, hand-rolled `WP_Query` with `suppress_filters`, the feed
+ * body and excerpt hooks), and the REST filter covers the same ground for headless
+ * and block-editor reads.
  */
 class WPCPM_Content_Access {
 
@@ -42,6 +43,12 @@ class WPCPM_Content_Access {
 		add_filter( 'the_content', array( __CLASS__, 'filter_content' ), 5 );
 		add_filter( 'the_excerpt', array( __CLASS__, 'filter_excerpt' ), 5 );
 
+		// Feeds render through their own hooks. `the_content_feed` runs `the_content` first,
+		// but `the_excerpt_rss` reads `get_the_excerpt()` and never passes `the_excerpt`, so
+		// without these a gated post that reached a feed would carry its excerpt out.
+		add_filter( 'the_content_feed', array( __CLASS__, 'filter_content' ), 5 );
+		add_filter( 'the_excerpt_rss', array( __CLASS__, 'filter_excerpt' ), 5 );
+
 		foreach ( self::post_types() as $post_type ) {
 			add_filter( "rest_prepare_{$post_type}", array( __CLASS__, 'filter_rest' ), 10, 3 );
 		}
@@ -56,7 +63,7 @@ class WPCPM_Content_Access {
 		$levels = array(
 			'public' => array(
 				// Short label; "everyone" is spelled out in the description under the
-				// control instead. This is for tidiness, not width — "Administrators
+				// control instead. This is for tidiness, not width - "Administrators
 				// only" is the longest option either way, and the control is kept
 				// inside the sidebar by assets/css/editor.css.
 				'label' => __( 'Public', 'wpcredits-program-manager' ),
@@ -211,7 +218,7 @@ class WPCPM_Content_Access {
 	}
 
 	/**
-	 * Hide restricted posts from front-end listings.
+	 * Hide restricted posts from front-end listings, feeds and search.
 	 *
 	 * @param WP_Query $query Query being prepared.
 	 */
@@ -232,7 +239,14 @@ class WPCPM_Content_Access {
 			return;
 		}
 
-		$post_types = (array) $query->get( 'post_type' );
+		// Only a query that names other post types and none of ours is left alone. An unset
+		// `post_type` is the main query on the blog index, the Updates category, every feed and
+		// front-end search: WordPress fills it in with `post` (or every searchable type) after
+		// `pre_get_posts` has fired, so at this point it reads as an empty string, and treating
+		// that as "not ours" listed every gated title and let `?s=` confirm phrases inside
+		// gated bodies to anybody.
+		$post_types = array_filter( array_map( 'strval', (array) $query->get( 'post_type' ) ), 'strlen' );
+
 		if ( ! empty( $post_types ) && ! array_intersect( $post_types, self::post_types() ) && ! in_array( 'any', $post_types, true ) ) {
 			return;
 		}
@@ -476,7 +490,7 @@ class WPCPM_Content_Access {
 	 */
 	public static function save_meta_box( $post_id, $post ) {
 		if ( ! isset( $_POST[ self::NONCE ] ) ) {
-			return; // Not our form — a REST/block-editor save goes through register_post_meta().
+			return; // Not our form - a REST/block-editor save goes through register_post_meta().
 		}
 
 		if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST[ self::NONCE ] ) ), self::NONCE ) ) {

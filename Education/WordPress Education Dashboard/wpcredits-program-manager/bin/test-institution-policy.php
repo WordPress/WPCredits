@@ -232,8 +232,10 @@ ck( 'every fixture ID is well-formed',
 // A stub that drifted from the real file would prove nothing, so each is read back from the
 // real source and compared. When the real file does not declare the member yet, that is
 // reported rather than failed: the students sync's meta key lands in the same phase.
-$mentors_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php' );
-preg_match( "/function is_record_id\([^)]*\)\s*\{\s*return \(bool\) preg_match\( '([^']+)'/", $mentors_src, $m );
+// The pattern is the Airtable client's now (WPCPM_Airtable::RECORD_ID_PATTERN); the Mentors sync
+// keeps a one-release alias, so the stub is compared with the client's declaration.
+$airtable_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php' );
+preg_match( "/const RECORD_ID_PATTERN\s*=\s*'([^']+)'/", $airtable_src, $m );
 ck( 'the stub record-ID pattern is the real one', $m[1] ?? '', WPCPM_Mentors_Sync::RECORD_ID_PATTERN );
 
 $students_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php' );
@@ -487,6 +489,36 @@ sort( $inst_files );
 $scanned    = array();
 $unresolved = array();
 
+/**
+ * Where a handler body first reaches WPCPM_Airtable: directly, or through one call into a
+ * method of the same file whose body reaches it. Returns array( 'at' => offset in $body,
+ * 'via' => the helper's name or '' ) or false.
+ *
+ * @param string $source The whole class file.
+ * @param string $body   The handler's body.
+ * @return array|false
+ */
+function airtable_reach( $source, $body ) {
+	$best = false;
+	$direct = strpos( $body, 'WPCPM_Airtable' );
+	if ( false !== $direct ) {
+		$best = array( 'at' => $direct, 'via' => '' );
+	}
+	if ( preg_match_all( '/(?:self|static)::([A-Za-z_][A-Za-z0-9_]*)\s*\(/', $body, $calls, PREG_OFFSET_CAPTURE ) ) {
+		foreach ( $calls[1] as $call ) {
+			$callee = $call[0];
+			if ( in_array( $callee, array( 'bounce', 'leave', 'unknown' ), true ) ) { continue; }
+			$callee_body = method_body( $source, $callee );
+			if ( null === $callee_body || false === strpos( $callee_body, 'WPCPM_Airtable' ) ) { continue; }
+			$at = $call[1];
+			if ( false === $best || $at < $best['at'] ) {
+				$best = array( 'at' => $at, 'via' => $callee );
+			}
+		}
+	}
+	return $best;
+}
+
 foreach ( $inst_files as $path ) {
 	$source = (string) file_get_contents( $path );
 	$class  = preg_match( '/^(?:final |abstract )?class ([A-Za-z_]+)/m', $source, $cm ) ? $cm[1] : basename( $path );
@@ -514,18 +546,27 @@ foreach ( $inst_files as $path ) {
 
 		$body = method_body( $source, $method );
 
+		// The three sync handlers are WPCPM_Sync_Module's since 1.90.0, one copy for the three
+		// modules that own a sync; a registration that names one resolves through that file.
+		if ( null === $body ) {
+			$body = method_body( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ), $method );
+		}
+
 		if ( null === $body ) {
 			$unresolved[] = $class . '::' . $method . '() is registered but not defined in the same file';
 			continue;
 		}
 
-		$airtable = strpos( $body, 'WPCPM_Airtable' );
+		// Transitive one hop: a handler that reaches Airtable through a helper it calls is
+		// treated as reaching it at the call. Without this, 36 of 46 handlers passed on the
+		// short-circuit "no Airtable use" because the literal class name sat one method away.
+		$airtable = airtable_reach( $source, $body );
 		$fences   = array_filter( array( strpos( $body, 'decide(' ), strpos( $body, 'claim(' ) ), 'is_int' );
 		$fence    = $fences ? min( $fences ) : false;
-		$ok       = false === $airtable || ( false !== $fence && $fence < $airtable );
+		$ok       = false === $airtable ? true : ( false !== $fence && $fence < $airtable['at'] );
 
 		$scanned[] = $class . '::' . $method . '()';
-		ck( sprintf( '%s::%s() decides before it touches Airtable%s', $class, $method, false === $airtable ? ' (no Airtable use)' : '' ), $ok, true );
+		ck( sprintf( '%s::%s() decides before it touches Airtable%s', $class, $method, false === $airtable ? ' (no Airtable use, directly or one call away)' : ( '' !== $airtable['via'] ? ' (through ' . $airtable['via'] . '())' : '' ) ), $ok, true );
 	}
 }
 

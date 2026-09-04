@@ -3,8 +3,8 @@
  * Group sessions: capacity, attendees, and the note that lands on all of them.
  *
  * The interesting property is that **a session is the same post type as a one-to-one call**, with a
- * capacity and repeated attendee rows. That is what made the feature small — the diary, the reminder
- * sweep and the slot blocking all needed no changes — and it is also what could break the calls that
+ * capacity and repeated attendee rows. That is what made the feature small - the diary, the reminder
+ * sweep and the slot blocking all needed no changes - and it is also what could break the calls that
  * came before it. So the first thing asserted here is that an unmarked call still reads as a
  * one-to-one call with one attendee.
  *
@@ -75,8 +75,7 @@ function add_option( $k, $v, $x = '', $a = 'yes' ) {
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return new WP_User( $GLOBALS['uid'], 'Viewer' ); }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
-function current_user_can( $c ) { return ! empty( $GLOBALS['caps'] ); }
-function user_can( $u, $c ) { return ! empty( $GLOBALS['caps'] ); }
+require_once __DIR__ . '/stubs/caps.php';
 function get_user_by( $f, $v ) { return new WP_User( (int) $v, 'User ' . (int) $v ); }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
@@ -147,7 +146,7 @@ require_once __DIR__ . '/../includes/class-wpcpm-wporg-profile.php';
 require_once __DIR__ . '/../includes/class-wpcpm-program.php';
 require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
 // `user_can_access()` validates a record ID through the mentors sync, so the real one is loaded
-// rather than stubbed — a stub would decide the access question this suite is asking about.
+// rather than stubbed - a stub would decide the access question this suite is asking about.
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-notes.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
@@ -292,7 +291,7 @@ ck( 'a writer without access to everybody is refused',
 // The length field's grid.
 //
 // A number input's `step` counts from its `min`, not from zero. With `min="1" step="5"` the valid
-// lengths were 1, 6, 11 … 56, 61 — so a browser refused **60**, which was the field's own default
+// lengths were 1, 6, 11 … 56, 61 - so a browser refused **60**, which was the field's own default
 // value, while 61 and 56 went through. Reported by Celi Garoe in prerelease testing
 // (WordPress/WPCredits#166). Asserting the grid rather than the attributes, because the property
 // that matters is which numbers a mentor can actually type.
@@ -322,11 +321,11 @@ ck( 'a length off the grid is refused', grid_accepts( 61 ), false );
 ck( 'nothing shorter than the floor', grid_accepts( 1 ), false );
 ck( 'nothing past the ceiling', grid_accepts( WPCPM_Group_Sessions::MAX_MINUTES + 5 ), false );
 
-// The form's default has to be a length the form itself accepts — that was the whole of the bug.
+// The form's default has to be a length the form itself accepts - that was the whole of the bug.
 ck( 'the default length the form offers is one it accepts', grid_accepts( 60 ), true );
 
 // The checks above only hold while the field's `min` and `step` are the *same* number, so that is
-// asserted on the markup itself — the grid maths cannot see a template edited back to two literals.
+// asserted on the markup itself - the grid maths cannot see a template edited back to two literals.
 $field = '';
 
 if ( preg_match( '/<input type="number" id="wpcpm-session-minutes"[^>]*>/', file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-group-sessions.php' ), $m ) ) {

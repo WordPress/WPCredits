@@ -47,7 +47,7 @@
 								components.Placeholder,
 								{ label: __( 'My Program', 'wpcredits-program-manager' ) },
 								__(
-									'Nothing to preview — this list is built from the student viewing the page.',
+									'Nothing to preview - this list is built from the student viewing the page.',
 									'wpcredits-program-manager'
 								)
 							);

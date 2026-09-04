@@ -1,10 +1,10 @@
 /**
- * Call calendar — front-end styles.
+ * Call calendar - front-end styles.
  *
  * Same rules as the rest of the plugin's front end: structure and spacing only,
  * every color derived from `currentColor` so it cannot collide with a theme's
  * background, and `em` sizing so it takes the theme's type scale. A theme that wants
- * this to look like its own can restate any of it — this stylesheet is registered
+ * this to look like its own can restate any of it - this stylesheet is registered
  * with the dashboard stylesheet as a dependency, so a theme loading after both wins.
  */
 
@@ -120,8 +120,8 @@
 
 .wpcpm-calls__zone select {
 	max-width: 100%;
-	/* A select will not shrink below its longest option — and the timezone list has
-	   some very long ones — so it needs an explicit floor to stay in a narrow card. */
+	/* A select will not shrink below its longest option - and the timezone list has
+	   some very long ones - so it needs an explicit floor to stay in a narrow card. */
 	min-width: 0;
 }
 
@@ -201,7 +201,7 @@
 	text-decoration: none;
 }
 
-/* A day with nothing open is still a date, so it is shown — just not as something
+/* A day with nothing open is still a date, so it is shown - just not as something
    that can be pressed. */
 .wpcpm-calendar__day.is-empty {
 	opacity: 0.4;
@@ -305,7 +305,7 @@
 /* --------------------------------------------------------------------------
    The mentor's availability editor
    -------------------------------------------------------------------------- */
-/* The same box the booked calls beside it sit in — same border, radius and inset — so the two
+/* The same box the booked calls beside it sit in - same border, radius and inset - so the two
    halves of this section read as one thing rather than as a list next to a panel. */
 .wpcpm-availability {
 	border: 1px solid var( --wpcpm-border );
@@ -315,7 +315,7 @@
 }
 
 /* The save confirmation sits between the section's border and the disclosure, so it needs
-   the same horizontal inset the summary has — otherwise it touches the border on both
+   the same horizontal inset the summary has - otherwise it touches the border on both
    sides. It lives out here so it can be read with the panel shut. */
 .wpcpm-availability > .wpcpm-notes__message {
 	margin: 0;
@@ -332,7 +332,7 @@
 }
 
 /* What is published, under the control's own label and inside it, so it is readable whether
-   the form is open or shut. Its own weight and size — the summary is a heading, this is not. */
+   the form is open or shut. Its own weight and size - the summary is a heading, this is not. */
 .wpcpm-availability__state {
 	color: inherit;
 	display: block;
@@ -547,8 +547,8 @@
 .wpcpm-edit__form select {
 	box-sizing: border-box;
 	flex: 1 1 12em;
-	/* A select will not shrink below its longest option — the team list has some long
-	   ones — so it needs an explicit floor to stay inside a table cell. */
+	/* A select will not shrink below its longest option - the team list has some long
+	   ones - so it needs an explicit floor to stay inside a table cell. */
 	min-width: 0;
 }
 
@@ -574,7 +574,7 @@
 }
 
 .wpcpm-edit__check input {
-	/* Not the `flex: 1 1 12em` the text inputs take — a checkbox that stretches is a bug. */
+	/* Not the `flex: 1 1 12em` the text inputs take - a checkbox that stretches is a bug. */
 	flex: none;
 	margin: 0;
 }
@@ -613,7 +613,7 @@
 
 .wpcpm-availability__copy select {
 	/* A select will not shrink below its longest option, and the weekday names are long
-	   in several locales — so it needs an explicit floor to stay inside the panel. */
+	   in several locales - so it needs an explicit floor to stay inside the panel. */
 	min-width: 0;
 }
 
@@ -634,7 +634,7 @@
    A form that is on its way
 
    Pressing a time slot used to look like nothing had happened until the page came
-   back, so students pressed again — and a second press can hit the booking lock and
+   back, so students pressed again - and a second press can hit the booking lock and
    be told somebody else was booking, when their own first press was.
    -------------------------------------------------------------------------- */
 .is-sending {
@@ -858,7 +858,7 @@
 
 /* Numbers are short; several to a row on a wide card reads as a mark sheet rather than as a
    column of unrelated questions. The columns are wider than the boxes because the question is
-   beside the box now, not above it — a mark sheet is a list of names with a number against
+   beside the box now, not above it - a mark sheet is a list of names with a number against
    each, and a two-character answer under a three-line label was mostly label. */
 .wpcpm-report__group--onboarding,
 .wpcpm-report__group--hours {
@@ -900,7 +900,7 @@
    length has a row to itself.
 
    **Direct children only.** As a descendant rule this also caught the fields inside a pair,
-   where it told each of them to span the pair — so the two halves stacked and the pair was a
+   where it told each of them to span the pair - so the two halves stacked and the pair was a
    pair in the markup only. A pair sets its own columns; this is for the fields the group
    places itself. */
 .wpcpm-report__group > .wpcpm-field--textarea,
@@ -946,7 +946,7 @@
 	margin-top: -0.35em;
 }
 
-/* A pair of fields that belong together — the two contact lessons, the website and the post
+/* A pair of fields that belong together - the two contact lessons, the website and the post
    about building it, the team and the project it is for. Its own grid inside the group's, so
    the group cannot pack a short box in beside them. */
 .wpcpm-report__pair {
@@ -965,8 +965,8 @@
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
 }
 
-/* The questions about the project — describe it, link the post about choosing it, list the
-   discussions — share one column beside the team list.
+/* The questions about the project - describe it, link the post about choosing it, list the
+   discussions - share one column beside the team list.
 
    A column of their own rather than rows of the pair's grid: a tall list spanned across N
    rows has its height divided between them, so each question floated a third of the way down
@@ -990,19 +990,19 @@
 }
 
 /* The textareas take their own height. They were stretched to `min-height: 100%` back when the
-   description was the only thing beside the team list and had to fill it — with three questions
+   description was the only thing beside the team list and had to fill it - with three questions
    stacked in that column, a percentage of an auto-height box resolved against the whole row and
    pushed the last hint out through the bottom of the pair, under the rule that follows it. */
 
-/* A lesson heading inside a group — "Optional courses", "Create your personal website".
+/* A lesson heading inside a group - "Optional courses", "Create your personal website".
    **It has to outrank the labels under it.** At 0.85em and 0.75 opacity it was quieter than the
    field labels it introduced, so it read as a stray line of text rather than as a heading and
    the fields under it looked like they belonged to whatever came before.
 
    Three things say "heading" together: the rule that opens the section, the uppercase tracking
-   the card uses for every other heading, and the space — generous above it, tight below, so it
+   the card uses for every other heading, and the space - generous above it, tight below, so it
    sits with what it introduces rather than floating between two groups of fields. */
-/* A section that starts with a rule and no heading. Same line, same space above it — the two
+/* A section that starts with a rule and no heading. Same line, same space above it - the two
    have to be one thing, or a form of them reads as two kinds of divider. */
 .wpcpm-report__rule {
 	border-top: 1px solid rgba( 0, 0, 0, 0.12 );
@@ -1011,7 +1011,7 @@
 	padding-top: 0.9em;
 }
 
-/* A condition on the answers above it — "complete one of the following" — set as the field
+/* A condition on the answers above it - "complete one of the following" - set as the field
    hints are, because that is what it is: a note about how to fill something in. */
 .wpcpm-report__note {
 	font-size: 0.85em;
@@ -1063,7 +1063,7 @@
 }
 
 /* The label is the hit area, so the whole "☐ Documentation" reads and clicks as one thing.
-   Two classes deep because `.wpcpm-field label` — which every other field in this form wants —
+   Two classes deep because `.wpcpm-field label` - which every other field in this form wants -
    is `display: block`, and would otherwise stand each checkbox above its own name. */
 .wpcpm-field .wpcpm-report__check {
 	align-items: center;
@@ -1073,13 +1073,13 @@
 	line-height: 1.4;
 	margin-bottom: 0;
 	/* Two lines' worth, so a team whose name wraps does not make its row taller than the
-	   rest — the checkboxes and marks then step evenly down every column. */
+	   rest - the checkboxes and marks then step evenly down every column. */
 	min-height: 2.8em;
 }
 
 /* `width: 100%` is right for the text boxes in this form and wrong for a checkbox: it made
    each one as wide as its column, with the glyph at the left of it and the team's name pushed
-   to the far side. Both are needed — `flex: none` stops it growing, `width: auto` stops it
+   to the far side. Both are needed - `flex: none` stops it growing, `width: auto` stops it
    starting wide. */
 .wpcpm-field .wpcpm-report__check input {
 	flex: none;
@@ -1109,7 +1109,7 @@
 
 /* Centred, and it is the one control in the form that is. Every question in these forms is
    left-aligned against the same edge, so a button on that edge reads as one more row of the last
-   group rather than as the end of the form — which is what it is, and the only thing left to do
+   group rather than as the end of the form - which is what it is, and the only thing left to do
    once the questions are answered. */
 .wpcpm-report__submit {
 	margin: 0.5em 0 0;
@@ -1134,7 +1134,7 @@
 }
 
 /* The box and the button, on one line and the same height as each other *and* as every other
-   number box in the report — `stretch` made the input grow to the button's height instead, so
+   number box in the report - `stretch` made the input grow to the button's height instead, so
    the one field outside the form was the tallest thing on the card. Baselines rather than
    stretch, and the button is stopped from wrapping "Save hours" onto two lines, which is what
    made it tall in the first place. */

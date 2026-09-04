@@ -1,6 +1,6 @@
 <?php
 /**
- * Students module — the student's own program page.
+ * Students module - the student's own program page.
  *
  * @package WPCreditsProgramManager
  */
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Renders the page each student sees: their own program details, and the mentor
  * assigned to them with enough contact detail to actually reach them.
  *
- * One page for everyone, rendered against the logged-in user — the same shape as
+ * One page for everyone, rendered against the logged-in user - the same shape as
  * the mentor page, and for the same reason: a per-student permalink would invite
  * reading somebody else's. Program managers can inspect any student's view via
  * `?wpcpm_student_view=<id>`.
@@ -45,7 +45,7 @@ class WPCPM_Students_Dashboard {
 	/**
 	 * Page titles this plugin has shipped for the student page.
 	 *
-	 * Only a title the plugin itself created is ever replaced — anything a site has
+	 * Only a title the plugin itself created is ever replaced - anything a site has
 	 * renamed by hand is theirs and is left alone. Every past title stays on this list,
 	 * so a site on any earlier revision converges on the current one.
 	 */
@@ -58,7 +58,7 @@ class WPCPM_Students_Dashboard {
 		add_action( 'init', array( __CLASS__, 'register' ) );
 		// After `register`, and once only. `ensure_page()` sets a title when it *creates*
 		// the page, so an install that predates a wording change keeps the old one for
-		// ever — which is how "My Programme" survived the switch to American spelling.
+		// ever - which is how "My Programme" survived the switch to American spelling.
 		add_action( 'init', array( __CLASS__, 'maybe_rename_page' ), 20 );
 		add_filter( 'login_redirect', array( __CLASS__, 'login_redirect' ), 10, 3 );
 		add_action( 'admin_init', array( __CLASS__, 'replace_admin_dashboard' ) );
@@ -99,9 +99,9 @@ class WPCPM_Students_Dashboard {
 	 * Register the shortcode, block and stylesheet.
 	 */
 	public static function register() {
-		// Depends on the mentor stylesheet on purpose. The two pages share a shell —
+		// Depends on the mentor stylesheet on purpose. The two pages share a shell -
 		// the identity header, the "view as" switcher, the detail tables, badges and
-		// buttons — and defining that once means they cannot drift apart, and that a
+		// buttons - and defining that once means they cannot drift apart, and that a
 		// theme styling one page has already styled the other.
 		WPCPM_Mentors_Dashboard::register_assets();
 
@@ -220,7 +220,7 @@ class WPCPM_Students_Dashboard {
 		echo '<div class="wpcpm-student__grid">';
 
 		// Unconditional now. The section owns the student's own identity card, so it has to
-		// render even when there is no program data yet — otherwise a student waiting on
+		// render even when there is no program data yet - otherwise a student waiting on
 		// their first sync sees a page with nobody on it.
 		self::render_program( $program, $student );
 
@@ -231,7 +231,7 @@ class WPCPM_Students_Dashboard {
 		// The page's actions, directly under the reference columns. Not part of either
 		// column, and above the calendar rather than below it: the course and the report
 		// form are what a student opens this page to reach, and they were sitting at the
-		// foot of a section tall enough — a month grid and a day's worth of slots — to
+		// foot of a section tall enough - a month grid and a day's worth of slots - to
 		// push them off the screen.
 		if ( ! empty( $program ) ) {
 			self::render_links( $program, $student );
@@ -239,13 +239,13 @@ class WPCPM_Students_Dashboard {
 		}
 
 		// Outside the grid, spanning the card. It holds a month calendar, which wants more
-		// width than half a card gives it — and it splits into its own two columns, booked
+		// width than half a card gives it - and it splits into its own two columns, booked
 		// calls beside the picker.
 		WPCPM_Call_Calendar::render_student( $student, $can_manage );
 
 		// Always rendered: the section holds the Student guide, which is a handbook link and
 		// has nothing to do with whether an AI provider is configured. Whether the "Need help?"
-		// button appears beside it is decided inside, from the audience setting — asked of the
+		// button appears beside it is decided inside, from the audience setting - asked of the
 		// audience rather than of the viewer, so a manager inspecting a student does not see it
 		// on the student's own page while the student never would.
 		// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently
@@ -316,7 +316,7 @@ class WPCPM_Students_Dashboard {
 				'orderby'    => 'display_name',
 				'order'      => 'ASC',
 				'number'     => 1000,
-				'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- Bounded by provisioned students.
+				'meta_query' => array(
 					array(
 						'key'     => WPCPM_Students_Sync::META_RECORD_ID,
 						'compare' => 'EXISTS',
@@ -376,7 +376,7 @@ class WPCPM_Students_Dashboard {
 	private static function render_identity( WP_User $student, array $program ) {
 		$username = isset( $program['username'] ) ? (string) $program['username'] : '';
 
-		// The same three-element shape as the mentor card — portrait, body, name — and the
+		// The same three-element shape as the mentor card - portrait, body, name - and the
 		// same classes on the portrait, so the two columns are built the same way rather
 		// than merely looking similar. It used to be a full-width `<header>` above both
 		// columns, which is why it was sized like a page header.
@@ -399,7 +399,7 @@ class WPCPM_Students_Dashboard {
 		echo '<div class="wpcpm-student__card-body">';
 		// A paragraph, not a heading. It sits *inside* the section whose `<h3>` is directly
 		// above it, and the `<h2>` it used to be would have nested a higher level inside a
-		// lower one — which is a real outline error, not a styling preference.
+		// lower one - which is a real outline error, not a styling preference.
 		printf( '<p class="wpcpm-student__name">%s</p>', esc_html( $student->display_name ) );
 		echo '</div>';
 
@@ -460,7 +460,7 @@ class WPCPM_Students_Dashboard {
 			),
 			array(
 				'label'    => __( 'Email', 'wpcredits-program-manager' ),
-				// Airtable's value when there is one, and the account's own otherwise —
+				// Airtable's value when there is one, and the account's own otherwise -
 				// about three in ten students have no email in the program records, and the
 				// account they are reading this page from always has one.
 				'value'    => '' !== $get( 'email' ) ? $get( 'email' ) : $student->user_email,
@@ -499,7 +499,7 @@ class WPCPM_Students_Dashboard {
 		self::render_identity( $student, $program );
 
 		// Nothing synced yet. The identity card above still stands, so the section is not
-		// empty — and rendering the table here would draw ten rows of "Not set", which
+		// empty - and rendering the table here would draw ten rows of "Not set", which
 		// looks like missing data rather than data that has not arrived.
 		if ( empty( $program ) ) {
 			echo '<p class="wpcpm-dashboard__empty">' . esc_html__( 'Your program details have not been read from Airtable yet. They appear here after the next sync.', 'wpcredits-program-manager' ) . '</p>';
@@ -522,13 +522,13 @@ class WPCPM_Students_Dashboard {
 	 * The two places a student actually goes: their course, and their report form.
 	 *
 	 * Its own section, below the two columns rather than tucked under the program table.
-	 * They are the only *actions* on this page — everything above is reference — and a
+	 * They are the only *actions* on this page - everything above is reference - and a
 	 * button at the foot of one column reads as belonging to that column rather than to
 	 * the page.
 	 *
 	 * Two sections, one per errand: **My course** and **Report form**. They were one section
 	 * holding both buttons, which read as a single task with two links rather than as the two
-	 * separate things a student does — the course is what they work through, the report form is
+	 * separate things a student does - the course is what they work through, the report form is
 	 * what they file.
 	 *
 	 * Stacked, and each renders only if its own link exists, so a student with no report form
@@ -566,7 +566,7 @@ class WPCPM_Students_Dashboard {
 			echo '</div></section>';
 		}
 
-		// The report form is a section of its own with the fields in it, rendered by the caller —
+		// The report form is a section of its own with the fields in it, rendered by the caller -
 		// `render_links()` only owns the two link sections.
 	}
 
@@ -579,13 +579,13 @@ class WPCPM_Students_Dashboard {
 	private static function render_report_form( array $program, WP_User $student ) {
 		// The prefilled Airtable form is deliberately *not* linked from here any more. The fields
 		// below are the report now, and offering a second route to the same record invited two
-		// people — or one person twice — to fill the same thing in two ways.
+		// people - or one person twice - to fill the same thing in two ways.
 		echo '<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--report" id="wpcpm-report-form">';
 		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'Report form', 'wpcredits-program-manager' ) . '</h3>';
 
 		WPCPM_Student_Report_Form::render( $student, $program );
 
-		// Under the report, in the same section and in disclosures of the same kind — because to a
+		// Under the report, in the same section and in disclosures of the same kind - because to a
 		// student they are the same errand: the things this page asks them to fill in. They are not
 		// the same record, though, and the note below the first one says so: the report is what
 		// counts towards their credits, and the surveys are not marked, not seen by their
@@ -605,7 +605,7 @@ class WPCPM_Students_Dashboard {
 		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'My mentor', 'wpcredits-program-manager' ) . '</h3>';
 
 		// Parenthesized deliberately. PHP binds `&&` tighter than `||`, so this already
-		// meant "no mentor at all, or one with neither a name nor a handle" — but a reader
+		// meant "no mentor at all, or one with neither a name nor a handle" - but a reader
 		// has to know the precedence table to be sure, and a later edit that adds a third
 		// clause would change the meaning silently.
 		if ( empty( $mentor ) || ( empty( $mentor['name'] ) && empty( $mentor['username'] ) ) ) {
@@ -727,10 +727,10 @@ class WPCPM_Students_Dashboard {
 		$empty    = ( '' === $value );
 
 		// A cell the caller built itself, for a value that is several links rather than
-		// one — see the note on the mentor table's own version.
+		// one - see the note on the mentor table's own version.
 		$html = isset( $field['html'] ) ? (string) $field['html'] : '';
 
-		// `icon_html` for a row whose icon depends on its value — the contribution team's
+		// `icon_html` for a row whose icon depends on its value - the contribution team's
 		// changes with the team, and is a question mark when none is chosen. `icon` is the
 		// fixed case, a key into WPCPM_Icons.
 		$icon = isset( $field['icon_html'] )
@@ -810,7 +810,7 @@ class WPCPM_Students_Dashboard {
 			return false;
 		}
 
-		// The same test the toolbar link uses — the role *or* an Airtable link — and not the
+		// The same test the toolbar link uses - the role *or* an Airtable link - and not the
 		// role alone. `is_student()` counts somebody matched to a record without holding the role,
 		// which is how a student provisioned before the role existed, or one whose role was
 		// removed and restored by hand, is still recognised. Testing the role here meant the
@@ -822,7 +822,7 @@ class WPCPM_Students_Dashboard {
 
 		// ...but not somebody whose studenting has ended. Going inactive removes the role and sets
 		// this flag to 0 while deliberately leaving the Airtable link in place, so
-		// `is_student()` still says yes — and the page it would send them to has nothing on it.
+		// `is_student()` still says yes - and the page it would send them to has nothing on it.
 		// A held role outranks the flag: that is an explicit grant, and an account given the
 		// role by hand has no flag at all.
 		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_STUDENT )
@@ -856,7 +856,7 @@ class WPCPM_Students_Dashboard {
 			return $redirect_to;
 		}
 
-		// A specific destination was asked for — typically because they followed a link to
+		// A specific destination was asked for - typically because they followed a link to
 		// gated content and were bounced through the login form. Honour it; overriding would
 		// take them somewhere they did not ask to go.
 		//

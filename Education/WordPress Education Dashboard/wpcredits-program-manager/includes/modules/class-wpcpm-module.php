@@ -154,7 +154,7 @@ abstract class WPCPM_Module {
 			'<tr><th scope="row">%1$s</th><td><code>%2$s</code> %3$s</td></tr>',
 			esc_html__( 'Role slug', 'wpcredits-program-manager' ),
 			esc_html( $this->role() ),
-			$exists ? esc_html__( '(registered)', 'wpcredits-program-manager' ) : esc_html__( '(missing — re-activate the plugin)', 'wpcredits-program-manager' )
+			$exists ? esc_html__( '(registered)', 'wpcredits-program-manager' ) : esc_html__( '(missing - re-activate the plugin)', 'wpcredits-program-manager' )
 		);
 
 		printf(

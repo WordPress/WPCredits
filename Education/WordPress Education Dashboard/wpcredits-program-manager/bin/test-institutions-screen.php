@@ -183,8 +183,7 @@ function get_users( $args = array() ) {
 	}
 	return array_values( $GLOBALS['users'] );
 }
-function user_can( $u, $c ) { $id = is_object( $u ) ? $u->ID : (int) $u; return in_array( $id, $GLOBALS['manage'], true ); }
-function current_user_can( $c ) { return (bool) $GLOBALS['caps']; }
+require_once __DIR__ . '/stubs/caps.php';
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { $GLOBALS['referer'][] = $a; return true; }
@@ -316,23 +315,24 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
 if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 	class WPCPM_Institutions_Index {
-		const OPTION  = 'wpcpm_institutions_index';
+		const OPT_NAME  = 'wpcpm_institutions_index';
 		const VERSION = 1;
 		public static function read() {
-			$o = get_option( self::OPTION );
+			$o = get_option( self::OPT_NAME );
 			return ( is_array( $o ) && isset( $o['v'] ) && self::VERSION === $o['v'] ) ? $o : array( 'v' => 1, 'read' => 0, 'rows' => array() );
 		}
 		public static function rows() { $r = self::read(); return $r['rows']; }
 		public static function row( $id ) { $rows = self::rows(); return isset( $rows[ $id ] ) ? $rows[ $id ] : null; }
 		public static function has( $id ) { return null !== self::row( $id ); }
-		public static function write( array $rows, $read ) { update_option( self::OPTION, array( 'v' => 1, 'read' => (int) $read, 'rows' => $rows ), false ); }
-		public static function insert( array $row ) { $r = self::read(); $r['rows'][ $row['record_id'] ] = $row; update_option( self::OPTION, $r, false ); }
+		public static function write( array $rows, $read ) { update_option( self::OPT_NAME, array( 'v' => 1, 'read' => (int) $read, 'rows' => $rows ), false ); }
+		public static function insert( array $row ) { $r = self::read(); $r['rows'][ $row['record_id'] ] = $row; update_option( self::OPT_NAME, $r, false ); }
 		public static function stage_counts() {
 			$counts = array();
 			foreach ( self::rows() as $row ) { $counts[ $row['stage'] ] = ( $counts[ $row['stage'] ] ?? 0 ) + 1; }
@@ -352,10 +352,10 @@ if ( ! class_exists( 'WPCPM_Institutions_Index' ) ) {
 
 if ( ! class_exists( 'WPCPM_Countries' ) ) {
 	class WPCPM_Countries {
-		const OPTION  = 'wpcpm_countries';
+		const OPT_NAME  = 'wpcpm_countries';
 		const VERSION = 1;
 		public static function read() {
-			$o = get_option( self::OPTION );
+			$o = get_option( self::OPT_NAME );
 			return ( is_array( $o ) && isset( $o['v'] ) && self::VERSION === $o['v'] ) ? $o : array( 'v' => 1, 'read' => 0, 'rows' => array() );
 		}
 		public static function all() { $r = self::read(); return $r['rows']; }
@@ -377,16 +377,16 @@ if ( ! class_exists( 'WPCPM_Countries' ) ) {
 
 if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
 	class WPCPM_Roster_Index {
-		const OPTION_PREFIX   = 'wpcpm_roster_';
-		const OPTION_UNLINKED = 'wpcpm_roster_unlinked';
-		const OPTION_COUNTS   = 'wpcpm_roster_counts';
+		const OPT_PREFIX   = 'wpcpm_roster_';
+		const OPT_UNLINKED = 'wpcpm_roster_unlinked';
+		const OPT_COUNTS   = 'wpcpm_roster_counts';
 		const VERSION         = 1;
-		public static function option_name( $id ) { return self::OPTION_PREFIX . $id; }
+		public static function option_name( $id ) { return self::OPT_PREFIX . $id; }
 		public static function read( $id ) { $o = get_option( self::option_name( $id ) ); return is_array( $o ) ? $o : array( 'v' => 1, 'read' => 0, 'rows' => array() ); }
 		public static function rows( $id ) { $r = self::read( $id ); return $r['rows']; }
-		public static function unlinked() { $o = get_option( self::OPTION_UNLINKED ); return is_array( $o ) && isset( $o['rows'] ) ? $o['rows'] : array(); }
+		public static function unlinked() { $o = get_option( self::OPT_UNLINKED ); return is_array( $o ) && isset( $o['rows'] ) ? $o['rows'] : array(); }
 		public static function counts() {
-			$o = get_option( self::OPTION_COUNTS );
+			$o = get_option( self::OPT_COUNTS );
 			return is_array( $o ) ? $o : array( 'v' => 1, 'read' => 0, 'institutions' => array(), 'reconciliation' => array() );
 		}
 		public static function write_all( array $b, array $u, array $c, array $r, $read ) {}
@@ -457,6 +457,7 @@ if ( ! class_exists( 'WPCPM_Institution_Invite' ) ) {
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'invite_init' );
 		}
+		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Invite::delete_all' ); return 0; }
 	}
 }
 
@@ -511,6 +512,7 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 		public static function open_requests( $limit = 200 ) {
 			return array();
 		}
+		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Request::delete_all' ); return 0; }
 	}
 }
 
@@ -574,14 +576,14 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const AIRTABLE_SETTLED  = array( 'Accepted', 'On file' );
 		const META_INSTITUTION  = '_wpcpm_agr_institution';
 		const META_STATE        = '_wpcpm_agr_state';
-		const OPTION_PREFIX     = 'wpcpm_agreement_';
+		const OPT_PREFIX     = 'wpcpm_agreement_';
 		const LOCK_PREFIX       = 'wpcpm_agreement_lock_';
 		const VERSION           = 1;
 		public static function init() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Agreement::init' ); }
 		public static function register_post_type() {}
 		public static function is_settled( $id ) { $s = self::summary( $id ); return in_array( $s['state'], array( self::SUMMARY_ACCEPTED, self::SUMMARY_ON_FILE ), true ); }
 		public static function option( $id ) { return null; }
-		public static function option_name( $id ) { return self::OPTION_PREFIX . $id; }
+		public static function option_name( $id ) { return self::OPT_PREFIX . $id; }
 		public static function summary( $id ) {
 			$GLOBALS['summary_reads'][] = $id;
 			$none = array( 'state' => self::SUMMARY_NONE, 'kind' => '', 'accepted_at' => '', 'agreement_id' => 0, 'pending_id' => 0, 'generated_id' => 0, 'airtable_status' => '', 'route' => '' );
@@ -593,6 +595,7 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		public static function posts_for( $id ) { return array(); }
 		public static function awaiting_review() { return $GLOBALS['awaiting'] ?? array(); }
 		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Agreement::delete_all' ); }
+		public static function manifest_kept_files() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Agreement::manifest_kept_files' ); return array( 'files' => 0, 'mailed' => false, 'written' => '' ); }
 	}
 }
 
@@ -914,6 +917,7 @@ if ( ! class_exists( 'WPCPM_Student_Feedback' ) ) {
 
 if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
 	class WPCPM_Institution_Roster {
+		public static function locked_today() { return array(); }
 		const ARG_VIEW = 'wpcpm_institution_view';
 	}
 }
@@ -1129,10 +1133,10 @@ foreach ( $seed['institutions'] as $institution ) {
 	);
 }
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]        = array_merge( WPCPM_Settings::defaults(), array( 'api_token' => 'pat', 'base_id' => 'appIzQKfwTn5dyPVp' ) );
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows );
-$GLOBALS['opts'][ WPCPM_Countries::OPTION ]          = array( 'v' => 1, 'read' => $read_at - 600, 'rows' => $countries );
-$GLOBALS['opts'][ WPCPM_Roster_Index::OPTION_COUNTS ] = array(
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]        = array_merge( WPCPM_Settings::defaults(), array( 'api_token' => 'pat', 'base_id' => 'appIzQKfwTn5dyPVp' ) );
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array( 'v' => 1, 'read' => $read_at, 'rows' => $rows );
+$GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ]          = array( 'v' => 1, 'read' => $read_at - 600, 'rows' => $countries );
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = array(
 	'v'              => 1,
 	'read'           => $read_at - 3600,
 	'institutions'   => array(),
@@ -1145,7 +1149,7 @@ $GLOBALS['opts'][ WPCPM_Roster_Index::OPTION_COUNTS ] = array(
 		'no_start_date'            => array( 'Not moving forward' => 4, '' => 2, 'Developer Track' => 1 ),
 	),
 );
-$GLOBALS['opts'][ WPCPM_Roster_Index::OPTION_UNLINKED ] = array(
+$GLOBALS['opts'][ WPCPM_Roster_Index::OPT_UNLINKED ] = array(
 	'v'    => 1,
 	'read' => $read_at - 3600,
 	'rows' => array(
@@ -1188,18 +1192,23 @@ ck( 'is_implemented() is true', ( new WPCPM_Institutions() )->is_implemented(), 
 
 // Every handler: the capability is decided before the nonce is read, so an anonymous request
 // gets the 403 the design names rather than a nonce failure that tells it the handler exists.
-preg_match_all( '/public function (handle_[a-z_]+)\s*\(/', $src, $handlers );
+// The three sync handlers and verify() live on WPCPM_Sync_Module since 1.90.0, shared with the
+// Students and Mentors modules; the scan reads that source after this module's own.
+$handler_src = $src . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' );
+preg_match_all( '/public function (handle_[a-z_]+)\s*\(/', $handler_src, $handlers );
 ck( 'the thirteen handlers exist', $handlers[1], array(
-	'handle_tick', 'handle_sync', 'handle_cancel', 'handle_probe', 'handle_provision', 'handle_provision_one',
+	'handle_probe', 'handle_provision', 'handle_provision_one',
 	// Linking an unlinked Students row to an institution, which used to be a sentence saying
 	// it would ship later. Registered beside the other provisioning controls, which is where
 	// the reader meets it, so it sits here rather than at the end.
 	'handle_link',
 	'handle_approve', 'handle_info', 'handle_reject', 'handle_spam', 'handle_reopen', 'handle_purge',
+	// From the shared sync module.
+	'handle_tick', 'handle_sync', 'handle_cancel',
 ) );
 
 foreach ( $handlers[1] as $handler ) {
-	$body  = function_body( $src, $handler );
+	$body  = function_body( $handler_src, $handler );
 	$cap   = strpos( $body, 'current_user_can' );
 	$via   = strpos( $body, '$this->verify(' );
 	$nonce = strpos( $body, 'check_admin_referer' );
@@ -1214,7 +1223,7 @@ foreach ( $handlers[1] as $handler ) {
 	), array( true, true, true ) );
 }
 
-$verify = function_body( $src, 'verify' );
+$verify = function_body( $handler_src, 'verify' );
 ck( 'verify() itself checks the capability first', array(
 	false !== strpos( $verify, 'current_user_can( WPCPM_Roles::CAP_MANAGE )' ),
 	strpos( $verify, 'current_user_can' ) < strpos( $verify, 'check_admin_referer( $action )' ),
@@ -1351,12 +1360,12 @@ ck( 'the two nameless records are marked, not printed blank', substr_count( $htm
 // Proven with a row the suite empties: the two records that had no name on 2 September were
 // deleted by a program manager the same day, and this has to keep working for the next one.
 $blank_id   = $seed['institutions'][0]['id'];
-$kept       = get_option( WPCPM_Institutions_Index::OPTION );
+$kept       = get_option( WPCPM_Institutions_Index::OPT_NAME );
 $with_blank = $kept;
 $with_blank['rows'][ $blank_id ]['name'] = '';
-update_option( WPCPM_Institutions_Index::OPTION, $with_blank, false );
+update_option( WPCPM_Institutions_Index::OPT_NAME, $with_blank, false );
 $blank_html = render_screen();
-update_option( WPCPM_Institutions_Index::OPTION, $kept, false );
+update_option( WPCPM_Institutions_Index::OPT_NAME, $kept, false );
 ck( 'a nameless record is marked rather than printed blank', substr_count( $blank_html, 'wpcpm-inst-mark--empty' ), 1 );
 ck( 'and shows its record id so it can be found in the grid', false !== strpos( $blank_html, '<code class="wpcpm-inst-record">' . $blank_id . '</code>' ), true );
 
@@ -1442,10 +1451,10 @@ ck( 'nor in the module source', stripos( $src, 'lost' ), false );
 $boundary = $rows;
 $boundary['recBOUNDARY0000001'] = array_merge( reset( $rows ), array( 'record_id' => 'recBOUNDARY0000001', 'name' => 'Boundary', 'stage' => 'Confirmed', 'created' => '2026-07-20', 'consent' => false ) );
 $boundary['recEVE000000000001'] = array_merge( reset( $rows ), array( 'record_id' => 'recEVE000000000001', 'name' => 'Eve', 'stage' => 'Confirmed', 'created' => '2026-07-19', 'consent' => false ) );
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'] = $boundary;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $boundary;
 $edge = render_screen();
 ck( '20 July itself is after the question, 19 July before it', false !== strpos( $edge, sprintf( '%d institution records were collected before the consent question was added on 20 July 2026, %d of them at Confirmed.', $seed['counts']['created_before_consent_question'] + 1, $seed['counts']['created_before_consent_question_confirmed'] + 1 ) ), true );
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'] = $rows;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- the reconciliation card -------------------------------------------- */
 
@@ -1659,9 +1668,9 @@ ck( 'no address reaches the card, only whether there is one', array(
 ), array( 0, true ) );
 
 ck( 'the card says the nightly sync is not doing this too', false !== strpos( $open, 'The nightly sync does not create accounts' ), true );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 ck( 'and says so when it is', false !== strpos( render_screen(), 'The nightly sync creates these accounts too' ), true );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = false;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = false;
 
 $GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
 $done              = render_screen();
@@ -1705,9 +1714,9 @@ ck( 'with no address given, the card says where the address lives and prints non
 	false !== strpos( $html, 'docs.google.com' ),
 ), array( true, false ) );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['agreement_doc_url'] = 'https://docs.google.com/document/d/EXAMPLEDOCID/edit';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_doc_url'] = 'https://docs.google.com/document/d/EXAMPLEDOCID/edit';
 $with_doc = render_screen();
-unset( $GLOBALS['opts'][ WPCPM_Settings::OPTION ]['agreement_doc_url'] );
+unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_doc_url'] );
 
 ck( 'and links it once the site has been given one', array(
 	false !== strpos( $with_doc, 'href="https://docs.google.com/document/d/EXAMPLEDOCID/edit"' ),
@@ -1734,7 +1743,7 @@ $signed[ $ids[1] ]['agreement'] = array_merge( $signed[ $ids[1] ]['agreement'], 
 $signed[ $ids[2] ]['agreement'] = array_merge( $signed[ $ids[2] ]['agreement'], array( 'status' => 'Accepted', 'kind' => 'Program template', 'template_version' => '2025-06-12' ) );
 $signed[ $ids[3] ]['agreement'] = array_merge( $signed[ $ids[3] ]['agreement'], array( 'status' => 'On file', 'kind' => 'Legacy' ) );
 
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'] = $signed;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $signed;
 $versioned = render_screen();
 
 preg_match_all(
@@ -1758,7 +1767,7 @@ ck( 'and the ones with no version are named for what they are, never called unkn
 	false !== strpos( $listed[2][0], 'the bespoke and legacy agreements' ),
 ), array( false, true ) );
 
-$GLOBALS['opts'][ WPCPM_Institutions_Index::OPTION ]['rows'] = $rows;
+$GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- the semester reports card ------------------------------------------ */
 
@@ -1887,22 +1896,22 @@ ck( 'the manager with no address is skipped, not failed', in_array( 3, array_col
 ck( 'and the builder saw the account', $GLOBALS['mail'][0][3]['body'], 'Hello Ada Admin' );
 ck( 'the context reaches the log', $GLOBALS['mail'][0][2], 'agreement-landed' );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['agreement_notify'] = 'one@example.org,two@example.org';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_notify'] = 'one@example.org,two@example.org';
 $GLOBALS['mail'] = array();
 $sent = WPCPM_Institutions::notify_managers( 'agreement-landed', $build );
 ck( 'with the setting set, only the listed addresses are reached, through send_to()', array( $sent, array_map( function ( $s ) { return array( $s[0], $s[1] ); }, $GLOBALS['mail'] ) ), array( 2, array( array( 'send_to', 'one@example.org' ), array( 'send_to', 'two@example.org' ) ) ) );
 ck( 'and the builder saw the bare address', $GLOBALS['mail'][0][3]['body'], 'Hello one@example.org' );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['agreement_notify'] = 'max@example.test, stranger@example.org';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_notify'] = 'max@example.test, stranger@example.org';
 $GLOBALS['mail'] = array();
 WPCPM_Institutions::notify_managers( 'agreement-landed', $build );
 ck( 'a listed address that belongs to an account goes through send(), so it is built in their language', array_map( function ( $s ) { return array( $s[0], $s[1] ); }, $GLOBALS['mail'] ), array( array( 'send', 2 ), array( 'send_to', 'stranger@example.org' ) ) );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['agreement_notify'] = 'not-an-address';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_notify'] = 'not-an-address';
 $GLOBALS['mail'] = array();
 ck( 'junk in the setting sends nothing and does not fall back to every manager', array( WPCPM_Institutions::notify_managers( 'agreement-landed', $build ), $GLOBALS['mail'] ), array( 0, array() ) );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['agreement_notify'] = '';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_notify'] = '';
 ck( 'a builder that is not callable sends nothing', WPCPM_Institutions::notify_managers( 'agreement-landed', 'nope' ), 0 );
 
 /* ---- handlers ----------------------------------------------------------- */
@@ -2696,7 +2705,7 @@ ck( 'the log is not autoloaded', in_array( array( 'update_option', 'wpcpm_applic
 
 echo "\n=== The retention cron ===\n";
 
-$GLOBALS['opts'][ WPCPM_Institutions::OPTION_APP_LOG ] = array();
+$GLOBALS['opts'][ WPCPM_Institutions::OPT_APP_LOG ] = array();
 
 seed_application( 504, 'Old Rejection', WPCPM_Institution_Application::STATE_REJECTED, $now - ( 400 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2025-0001' ) );
 seed_application( 505, 'Old Spam', WPCPM_Institution_Application::STATE_SPAM, $now - ( 400 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0002' ) );
@@ -2727,11 +2736,11 @@ ck( 'each deletion is logged with the rule that removed it and nobody who presse
 	$log[1]['days'],
 ), array( 2, 'APP-2026-0002', 'spam', 30, 0, 'APP-2025-0001', 365 ) );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['application_approved_days'] = 30;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['application_approved_days'] = 30;
 ck( 'and takes the approved one as soon as the setting names a number of days', array( WPCPM_Institutions::purge_applications(), null === get_post( 506 ) ), array( 1, true ) );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['application_approved_days'] = 0;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['application_approved_days'] = 0;
 
-$GLOBALS['opts'][ WPCPM_Institutions::OPTION_APP_LOG ] = array_fill( 0, WPCPM_Institutions::APP_LOG_MAX, array( 'at' => 1, 'id' => 1, 'reference' => 'APP-0000-0000', 'state' => 'spam', 'days' => 30, 'actor' => 0 ) );
+$GLOBALS['opts'][ WPCPM_Institutions::OPT_APP_LOG ] = array_fill( 0, WPCPM_Institutions::APP_LOG_MAX, array( 'at' => 1, 'id' => 1, 'reference' => 'APP-0000-0000', 'state' => 'spam', 'days' => 30, 'actor' => 0 ) );
 seed_application( 508, 'One More', WPCPM_Institution_Application::STATE_SPAM, $now - ( 400 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0005' ) );
 WPCPM_Institutions::purge_applications();
 $log = WPCPM_Institutions::application_log();
@@ -2749,6 +2758,8 @@ $hooks = array_map( function ( $c ) { return $c[1]; }, array_filter( $GLOBALS['c
 // and an unhooked `admin_post_` action is a decision that answers nothing, while an unhooked
 // cron is a retention rule that never runs.
 $wanted = array(
+	// First of all: the daily jobs, put back on the clock on every load (schedule_cron()).
+	'init',
 	'admin_post_wpcpm_institutions_sync', 'admin_post_wpcpm_institutions_cancel', 'admin_post_wpcpm_institutions_probe',
 	'admin_post_wpcpm_institutions_provision', 'admin_post_wpcpm_institutions_provision_one',
 	// Linking an unlinked Students row, beside the other provisioning controls.
@@ -2764,9 +2775,10 @@ ck( 'boot() wires every handler this module has and the retention cron', array_v
 // Everything `boot()` starts, in order. Read as a slice so a handler added later fails here
 // rather than passing unnoticed: this assertion is the only thing that says the module's
 // pieces are actually started, and a subset check would say nothing.
-ck( 'boots the post types, then every module this screen owns, then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 10 ), array(
+ck( 'boots the post types, then every module this screen owns, then hands the cron to the sync', array_slice( $GLOBALS['calls'], 0, 11 ), array(
 	array( 'WPCPM_Institution_Agreement::init' ),
 	array( 'WPCPM_Institution_Audit::init' ),
+	array( 'add_action', 'init' ),
 	array( 'ceiling_init' ),
 	array( 'application_init' ),
 	array( 'generate_init' ),
@@ -2776,6 +2788,23 @@ ck( 'boots the post types, then every module this screen owns, then hands the cr
 	array( 'notes_init' ),
 	array( 'invite_init' ),
 ) );
+
+// The five daily jobs are scheduled from boot as well as from activation, because the
+// activation hook never fires on this site's deploy path (`wp plugin install --force` goes
+// through the upgrader's silent reactivation). Recorded, not run: the stub says nothing is
+// scheduled yet, so every job is put on the clock; a second call schedules nothing.
+$GLOBALS['calls'] = array();
+WPCPM_Institutions::schedule_cron();
+$scheduled = array_map( function ( $c ) { return $c[1]; }, array_filter( $GLOBALS['calls'], function ( $c ) { return 'schedule' === $c[0]; } ) );
+ck( 'schedule_cron() puts the five daily jobs on the clock', array_values( $scheduled ), array(
+	WPCPM_Ceiling::CRON_SWEEP, WPCPM_Institutions::CRON_PURGE, WPCPM_Institution_Agreement::CRON_DISCARD,
+	WPCPM_Institution_Agreement::CRON_REMINDERS, WPCPM_Institution_Invite::CRON_EXPIRE,
+) );
+$institutions_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' );
+$boot_body        = substr( $institutions_src, strpos( $institutions_src, 'public function boot()' ), strpos( $institutions_src, 'public function activate()' ) - strpos( $institutions_src, 'public function boot()' ) );
+ck( 'and boot() is what hooks it, on init', false !== strpos( $boot_body, "add_action( 'init', array( __CLASS__, 'schedule_cron' )" ), true );
+$mentors_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php' );
+ck( 'the Mentors module does the same for the hourly call reminders', false !== strpos( $mentors_src, "add_action( 'init', array( 'WPCPM_Mentor_Calls', 'schedule' )" ), true );
 
 $GLOBALS['calls'] = array();
 $GLOBALS['head']  = array( 'response' => array( 'code' => 403 ) );
@@ -2787,11 +2816,11 @@ ck( 'activate() probes, refreshes the countries and schedules the sync', array(
 	in_array( 'WPCPM_Institutions_Sync::activate', $names, true ),
 ), array( true, true, true ) );
 
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['api_token'] = '';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = '';
 $GLOBALS['calls'] = array();
 $module->activate();
 ck( 'but does not touch Airtable when nothing is connected', in_array( 'WPCPM_Countries::refresh', array_map( function ( $c ) { return $c[0]; }, $GLOBALS['calls'] ), true ), false );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['api_token'] = 'pat';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = 'pat';
 
 $GLOBALS['calls'] = array();
 $module->deactivate();
@@ -2807,11 +2836,16 @@ ck( 'uninstall() drops the three options, every delete_all() and the membership 
 	in_array( 'WPCPM_Roster_Index::delete_all', $names, true ),
 	in_array( 'WPCPM_Institution_Agreement::delete_all', $names, true ),
 	in_array( 'WPCPM_Institution_Audit::delete_all', $names, true ),
+	// The inventory of kept files goes out before the posts that name them are deleted.
+	array_search( 'WPCPM_Institution_Agreement::manifest_kept_files', $names, true ) < array_search( 'WPCPM_Institution_Agreement::delete_all', $names, true ),
+	// Two delete_all() methods documented as "called on uninstall" that nothing called.
+	in_array( 'WPCPM_Institution_Invite::delete_all', $names, true ),
+	in_array( 'WPCPM_Institution_Request::delete_all', $names, true ),
 	in_array( 'delete_option:wpcpm_institutions_state', $names, true ) && in_array( 'delete_option:wpcpm_institutions_report', $names, true ) && in_array( 'delete_option:wpcpm_institutions_last_sync', $names, true ) && in_array( 'delete_option:wpcpm_institutions_last_error', $names, true ) && in_array( 'delete_option:wpcpm_institutions_lock', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_record_id', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_record_id_was', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_profile', $names, true ),
-), array( true, true, true, true, true, true, true, true, true, true ) );
+), array( true, true, true, true, true, true, true, true, true, true, true, true, true ) );
 ck( 'and leaves the signed files where they are', is_file( $base . 'agreements/2026/abc.pdf' ), true );
 
 /*

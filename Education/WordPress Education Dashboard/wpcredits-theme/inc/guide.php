@@ -1,9 +1,9 @@
 <?php
 /**
- * The Documentation template — its contents list, and its anchors.
+ * The Documentation template - its contents list, and its anchors.
  *
  * **Why the theme carries a contents block at all.** WordPress does have one, `core/table-of-contents`,
- * and it is registered on this site — but by the Gutenberg plugin rather than by core, and its render
+ * and it is registered on this site - but by the Gutenberg plugin rather than by core, and its render
  * callback returns nothing at all unless it is running inside `the_content`:
  *
  *     if ( ! in_array( 'the_content', $wp_current_filter, true ) ) { return $content; }
@@ -15,7 +15,7 @@
  *
  * The list is read from the page's own headings. `bin/build-docs.php` writes an anchor onto every
  * heading in the three program guides, so the ids are part of the document rather than something a
- * stylesheet invents at render time — a shared link keeps working. `wpcredits_guide_anchor_ids()`
+ * stylesheet invents at render time - a shared link keeps working. `wpcredits_guide_anchor_ids()`
  * below is the safety net for a heading typed into the editor afterwards, which will have none.
  *
  * @package WPCredits_Theme
@@ -67,7 +67,7 @@ function wpcredits_guide_slug( $text, array &$taken ) {
  * The headings of a page, in document order.
  *
  * Read from the stored content rather than from the rendered page, because the sidebar is drawn
- * before the content it describes — there is nothing rendered to read yet.
+ * before the content it describes - there is nothing rendered to read yet.
  *
  * A heading with no id is listed with the slug it *would* have; `wpcredits_guide_anchor_ids()`
  * puts that same id on the heading itself, so the two agree without either knowing about the other.
@@ -94,7 +94,7 @@ function wpcredits_guide_headings( $post_id, $max = 3 ) {
 	$found = array();
 	$taken = array();
 
-	// The stored content is block markup, and a heading block stores the real `<h2>` inside it — so
+	// The stored content is block markup, and a heading block stores the real `<h2>` inside it - so
 	// the tags are here to be read without rendering anything.
 	if ( preg_match_all( '#<h([2-6])\b([^>]*)>(.*?)</h\1>#is', $post->post_content, $matches, PREG_SET_ORDER ) ) {
 		foreach ( $matches as $match ) {
@@ -136,7 +136,7 @@ function wpcredits_guide_headings( $post_id, $max = 3 ) {
 /**
  * Give any heading without an id the one the contents list is pointing at.
  *
- * Only on this template, and only for headings that have none — the guides' own anchors are written
+ * Only on this template, and only for headings that have none - the guides' own anchors are written
  * at build time and are left exactly as they are.
  *
  * @param string $content Post content.

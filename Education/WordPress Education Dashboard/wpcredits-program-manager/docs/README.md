@@ -11,7 +11,7 @@ Three guides, one per audience:
 ## Why each guide repeats the ones below it
 
 The plugin's access levels do not nest. A mentor holds `wpcpm_view_mentor_content` and nothing
-else, so a mentor opening a Student-level page gets the restricted notice — a mentor guide that
+else, so a mentor opening a Student-level page gets the restricted notice - a mentor guide that
 *linked* to the student guide would be sending them somewhere they cannot go. Each guide is
 therefore complete on its own.
 
@@ -47,5 +47,5 @@ site**: each one is the plugin's own markup and the theme's real stylesheets, fi
 invented people. Real Report Cards carry students' names, emails, photos and call notes, and
 these documents are read by every mentor and student on the program.
 
-The sources are not in this repository — they are rebuilt from the plugin's CSS whenever the UI
+The sources are not in this repository - they are rebuilt from the plugin's CSS whenever the UI
 moves. Attachment IDs for the published copies are in `bin/build-docs.php`.

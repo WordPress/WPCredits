@@ -136,7 +136,7 @@ class WPCPM_Institution_People {
 		// on one row and is missing on the next. Same classes on purpose, so the theme's one
 		// set of rules for the fold, the chevron and the inset applies here without a copy.
 		printf(
-			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s <span class="wpcpm-group__count wpcpm-people__count">%2$s</span></span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
+			'<details class="wpcpm-group wpcpm-group__disclosure" open><summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count wpcpm-people__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary><div class="wpcpm-group__body">',
 			esc_html__( 'Institution representatives', 'wpcredits-program-manager' ),
 			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
 		);

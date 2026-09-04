@@ -6,8 +6,8 @@
  *
  * The gap this closes: `php -l` parses, and a static scan can check that a name exists,
  * but neither *executes* a handler. The `WPCPM_Mentor_Calls::ANCHOR` fatal lived in
- * `bounce()` — which every path through booking, cancelling and setting a timezone ends
- * at — and survived four releases because nothing here ever called them.
+ * `bounce()` - which every path through booking, cancelling and setting a timezone ends
+ * at - and survived four releases because nothing here ever called them.
  *
  * A handler "passes" if it reaches a redirect or a `wp_die()`. Both are normal outcomes.
  * A PHP `Error` is not.
@@ -123,8 +123,7 @@ function wp_verify_nonce( $n, $a = '' ) { return 1; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
-function current_user_can( $c ) { return (bool) $GLOBALS['caps']; }
-function user_can( $u, $c ) { return (bool) $GLOBALS['caps']; }
+require_once __DIR__ . '/stubs/caps.php';
 function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; }
 function get_users( $a = array() ) {
 	if ( isset( $a['meta_key'] ) ) {
@@ -173,7 +172,7 @@ function wp_mail( $to, $subj, $body, $headers = array(), $attachments = array() 
 	$GLOBALS['mail'][] = compact( 'to', 'subj', 'body', 'headers', 'attachments' );
 
 	// Real `wp_mail()` fires one of these, and the plugin's log listens to them rather than
-	// to the return value — so a harness that stayed silent here would exercise the send
+	// to the return value - so a harness that stayed silent here would exercise the send
 	// path and never the recording path.
 	do_action( 'wp_mail_succeeded', compact( 'to', 'subj', 'body', 'headers', 'attachments' ) );
 
@@ -183,7 +182,7 @@ function wp_mail( $to, $subj, $body, $headers = array(), $attachments = array() 
 /*
  * The mail and calendar path. Booking a call now writes an `.ics` file and hands it to
  * `wp_mail()`, so these are reached by the ordinary booking test rather than by a test
- * about mail — which is how their absence was found.
+ * about mail - which is how their absence was found.
  */
 function get_temp_dir() { return sys_get_temp_dir() . '/'; }
 function wp_mkdir_p( $dir ) { return is_dir( $dir ) || mkdir( $dir, 0777, true ); }
@@ -303,7 +302,7 @@ function run( $label, callable $fn ) {
 	$GLOBALS['mail'] = array();
 	try {
 		$fn();
-		echo "FAIL $label — returned without redirecting or dying\n";
+		echo "FAIL $label - returned without redirecting or dying\n";
 		$fail++;
 	} catch ( RedirectSignal $e ) {
 		printf( "ok   %-46s redirect -> %s\n", $label, $e->getMessage() );
@@ -372,7 +371,7 @@ run( 'handle_save (student cannot edit a mentor)', array( 'WPCPM_Mentor_Availabi
 
 echo "\n=== WPCPM_Student_Report_Form ===\n";
 $GLOBALS['uid'] = 30; $GLOBALS['caps'] = false;
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'api_token' => '', 'base_id' => '' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'api_token' => '', 'base_id' => '' );
 
 $_POST = array( 'student' => 30, 'report' => array() );
 run( 'handle_save (nothing submitted)', array( 'WPCPM_Student_Report_Form', 'handle_save' ) );
@@ -389,7 +388,7 @@ run( 'handle_save (a readable number, no credentials)', array( 'WPCPM_Student_Re
 
 // Teams post as an array, including the empty value the form always carries so that unchecking
 // everything still reaches the handler. A version that read every field through `is_scalar()`
-// turned this into '' and saved nothing — the bug this shape is here to keep out.
+// turned this into '' and saved nothing - the bug this shape is here to keep out.
 $team = WPCPM_Student_Report_Form::key( 'Main Contribution Team' );
 
 $_POST = array( 'student' => 30, 'report' => array( $team => array( 'recTEAM0000000001', '' ) ) );

@@ -1,6 +1,6 @@
 <?php
 /**
- * Tool — Mentor Status Checker.
+ * Tool - Mentor Status Checker.
  *
  * @package WPCreditsProgramManager
  */
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * mentor's course completion.
  *
  * Was the standalone "Credits Program Mentor Checker" plugin. Folded in here so
- * there is one Airtable connection, one settings screen and one place to look —
+ * there is one Airtable connection, one settings screen and one place to look -
  * the runner and profile reader are that plugin's, largely unchanged; what
  * changed is that they now read the shared connection instead of their own.
  */
@@ -156,7 +156,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 		return sprintf(
 			/* translators: 1: human-readable time difference, 2: number checked, 3: number awaiting promotion. */
-			__( 'Last run %1$s ago — %2$s checked, %3$s awaiting promotion.', 'wpcredits-program-manager' ),
+			__( 'Last run %1$s ago - %2$s checked, %3$s awaiting promotion.', 'wpcredits-program-manager' ),
 			human_time_diff( (int) $run['started'], time() ),
 			number_format_i18n( $summary['checked'] ),
 			number_format_i18n( $summary['eligible'] )
@@ -279,7 +279,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in verify_ajax().
 		// Not sanitize_key(): it lower-cases, which would no longer match the run ID
-		// the queue was stored under. Stripping to the alphanumerics is the sanitizer here —
+		// the queue was stored under. Stripping to the alphanumerics is the sanitizer here -
 		// phpcs does not recognise preg_replace() as one, hence the annotation.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized by the preg_replace() on this line.
 		$run_id = isset( $_POST['run_id'] ) ? preg_replace( '/[^A-Za-z0-9]/', '', wp_unslash( $_POST['run_id'] ) ) : '';
@@ -310,7 +310,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 		$record_id = isset( $_POST['record_id'] ) ? sanitize_text_field( wp_unslash( $_POST['record_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in verify_ajax().
 
-		if ( ! preg_match( '/^rec[A-Za-z0-9]{14}$/', $record_id ) ) {
+		if ( ! WPCPM_Airtable::is_record_id( $record_id ) ) {
 			wp_send_json_error( array( 'message' => __( 'That does not look like an Airtable record ID.', 'wpcredits-program-manager' ) ) );
 		}
 
@@ -408,8 +408,8 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	/**
 	 * Fill in any keys a result row is missing.
 	 *
-	 * Rows come from three places — a batch, a manual promotion, and the stored log
-	 * of an earlier run — so nothing downstream should assume a complete shape.
+	 * Rows come from three places - a batch, a manual promotion, and the stored log
+	 * of an earlier run - so nothing downstream should assume a complete shape.
 	 *
 	 * @param array $row Result row.
 	 * @return array
@@ -473,7 +473,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 
 		$actions = array(
 			'none'     => array(
-				'label' => '—',
+				'label' => '-',
 				'class' => '',
 			),
 			'eligible' => array(
@@ -579,7 +579,7 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 		$run        = WPCPM_Mentor_Checker_Runner::get_last_run();
 		$rows       = isset( $run['rows'] ) ? $run['rows'] : array();
 		$summary    = WPCPM_Mentor_Checker_Runner::summarize( $rows );
-		$notice     = WPCPM_Request::key( 'wpcpm_notice' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display flag.
+		$notice     = WPCPM_Request::key( 'wpcpm_notice' );
 		?>
 		<div class="wrap wpcpm-wrap wpcpm-checker-wrap">
 			<h1><?php echo esc_html( $this->label() ); ?></h1>

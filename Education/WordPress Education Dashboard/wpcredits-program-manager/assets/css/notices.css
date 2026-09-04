@@ -1,5 +1,5 @@
 /**
- * Header notices — front-end styles.
+ * Header notices - front-end styles.
  *
  * Loaded on any page where a notice will actually appear, which is why this is its own
  * small stylesheet rather than a few rules inside the dashboard one: the dashboard
@@ -48,7 +48,7 @@
    Richer notice content
 
    Each notice is a post edited in the block editor, so it can hold anything a page can.
-   These rules stop that behaving badly in a band a few lines tall — a notice is read at
+   These rules stop that behaving badly in a band a few lines tall - a notice is read at
    a glance, and a block that expects a full column of page will not get one here.
    -------------------------------------------------------------------------- */
 
@@ -87,7 +87,7 @@
 .wpcpm-notices__item h2,
 .wpcpm-notices__item h3,
 .wpcpm-notices__item h4 {
-	/* A heading inside a notice is emphasis, not document structure — the notice sits
+	/* A heading inside a notice is emphasis, not document structure - the notice sits
 	   above the page's own H1 and must not compete with it. */
 	font-size: 1em;
 	margin: 0 0 0.25em;

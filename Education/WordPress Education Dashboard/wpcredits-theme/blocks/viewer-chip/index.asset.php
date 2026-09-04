@@ -2,7 +2,7 @@
 /**
  * Dependencies for blocks/viewer-chip/index.js.
  *
- * Hand-maintained because the theme has no build step — this is the file
+ * Hand-maintained because the theme has no build step - this is the file
  * `@wordpress/scripts` would otherwise generate. Without it WordPress registers
  * the editor script with no dependencies and `wp.blocks` is undefined by the time
  * it runs.

@@ -187,7 +187,7 @@ $empty_shape = array( 'v' => 1, 'read' => 0, 'rows' => array() );
 
 echo "=== The stored shape ===\n";
 
-ck( 'the option name is the one the spec lists', WPCPM_Countries::OPTION, 'wpcpm_countries' );
+ck( 'the option name is the one the spec lists', WPCPM_Countries::OPT_NAME, 'wpcpm_countries' );
 ck( 'and the shape is version 1', WPCPM_Countries::VERSION, 1 );
 ck( 'the three columns are spelled as the base spells them',
     array( $contact, $email, $calendly ),

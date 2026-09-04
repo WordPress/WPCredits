@@ -12,13 +12,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Reads and writes the single settings option shared by all four modules.
  *
- * Airtable *field* names are not settings — they live as constants on the module
+ * Airtable *field* names are not settings - they live as constants on the module
  * that consumes them (filterable via `wpcpm_mentors_fields`), because twenty text
  * inputs for a schema that changes once a year is worse than one filter.
  */
 class WPCPM_Settings {
 
-	const OPTION = 'wpcpm_settings';
+	const OPT_NAME = 'wpcpm_settings';
 
 	/** Option holding the settings schema version, so `maybe_upgrade()` runs once per change. */
 	const OPT_VERSION = 'wpcpm_settings_version';
@@ -73,7 +73,7 @@ class WPCPM_Settings {
 			'send_welcome_email'            => false,
 			'auto_sync'                     => true,
 			// The handbook assistant, and whether it exists at all. Off means no page, no
-			// daily fetch of somebody else's site, and no question box — the stored copy is
+			// daily fetch of somebody else's site, and no question box - the stored copy is
 			// kept, so switching it back on does not mean waiting for a sync.
 			'handbook_enabled'              => true,
 			// The handbook assistant. The source defaults to the WordPress Education
@@ -87,7 +87,7 @@ class WPCPM_Settings {
 			// a refused request and no answer. `gemini-flash-latest` cannot be retired out
 			// from under a site.
 			'handbook_model'                => 'gemini-flash-latest',
-			// Who may ask. `mentor` — mentors and program managers — is the default: the
+			// Who may ask. `mentor` - mentors and program managers - is the default: the
 			// handbook is written for the people running the program, and most of it describes
 			// work students do not do. `program` widens it to students and institutions,
 			// `any` to anybody logged in, `manage` to program managers alone.
@@ -165,7 +165,7 @@ class WPCPM_Settings {
 			// left to choose for themselves. An empty list requires it of nobody.
 			'two_factor_roles'              => array( 'administrator', 'wpcpm_institution' ),
 
-			// Tool — Mentor Status Checker. Prefixed so the tool's settings stay
+			// Tool - Mentor Status Checker. Prefixed so the tool's settings stay
 			// visibly separate from the modules' in one shared option.
 			'checker_source_status'         => 'Vetted - positive',
 			'checker_target_status'         => 'Active',
@@ -189,7 +189,7 @@ class WPCPM_Settings {
 	 * @return array
 	 */
 	public static function get() {
-		$stored = get_option( self::OPTION, array() );
+		$stored = get_option( self::OPT_NAME, array() );
 
 		if ( ! is_array( $stored ) ) {
 			$stored = array();
@@ -221,7 +221,7 @@ class WPCPM_Settings {
 		$current = self::get();
 		$clean   = $current;
 
-		// An empty token field means "leave the stored token alone" — the UI only
+		// An empty token field means "leave the stored token alone" - the UI only
 		// ever renders a masked placeholder, so blank must not wipe the secret.
 		if ( isset( $input['api_token'] ) ) {
 			$token = trim( wp_unslash( $input['api_token'] ) );
@@ -405,7 +405,27 @@ class WPCPM_Settings {
 		$clean['checker_cron_enabled']  = ! empty( $input['checker_cron_enabled'] );
 		$clean['checker_cron_promotes'] = ! empty( $input['checker_cron_promotes'] );
 
-		update_option( self::OPTION, $clean );
+		// Three fields that must never be blank, because each is what a sync filters the
+		// base by and `WPCPM_Airtable::formula_in()` turns an empty list into no filter at
+		// all. A blank saved here would make the next run read every row of the table: an
+		// account, a role and an institution stamp for every SPAM and rejected row, or, for
+		// the current-student list on its own, the revocation of every current student. The
+		// default goes back in and the screen says so (`render_notices()`); a blank already
+		// stored before this guard is refused by both syncs' `start()`.
+		$restored = array();
+
+		foreach ( array_keys( self::never_blank() ) as $key ) {
+			if ( empty( $clean[ $key ] ) ) {
+				$clean[ $key ] = self::defaults()[ $key ];
+				$restored[]   = $key;
+			}
+		}
+
+		update_option( self::OPT_NAME, $clean );
+
+		if ( ! empty( $restored ) ) {
+			WPCPM_Flash::set( 'settings-defaults', $restored );
+		}
 
 		// A save carries the manager's current lists, so it is by definition up to date:
 		// stamping here means `maybe_upgrade()` can never follow a save and put back a
@@ -443,7 +463,7 @@ class WPCPM_Settings {
 			return;
 		}
 
-		$stored = get_option( self::OPTION, array() );
+		$stored = get_option( self::OPT_NAME, array() );
 
 		if ( is_array( $stored ) && isset( $stored['student_statuses'] ) && is_array( $stored['student_statuses'] ) ) {
 			$statuses = $stored['student_statuses'];
@@ -456,11 +476,72 @@ class WPCPM_Settings {
 
 			if ( $statuses !== $stored['student_statuses'] ) {
 				$stored['student_statuses'] = $statuses;
-				update_option( self::OPTION, $stored );
+				update_option( self::OPT_NAME, $stored );
 			}
 		}
 
 		update_option( self::OPT_VERSION, self::SETTINGS_VERSION );
+	}
+
+	/**
+	 * The settings `save()` never leaves blank, with the label each wears on the screen.
+	 *
+	 * @return array<string, string> Setting key => translated label.
+	 */
+	public static function never_blank() {
+		return array(
+			'mentor_status'             => __( 'Mentor status to sync', 'wpcredits-program-manager' ),
+			'student_statuses'          => __( 'Currently mentoring', 'wpcredits-program-manager' ),
+			'institution_active_stages' => __( 'Institution pipeline stages', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * Tell the manager which fields the last save put back to their defaults.
+	 *
+	 * Hooked on `admin_notices` from the bootstrap. `save()` queues the list inside the
+	 * admin-post request, and the handler then redirects to the settings screen, so the
+	 * notice appears once, beside "Settings saved.", and is gone on the next reload.
+	 */
+	public static function render_notices() {
+		$restored = WPCPM_Flash::take( 'settings-defaults' );
+
+		if ( ! is_array( $restored ) || empty( $restored ) ) {
+			return;
+		}
+
+		$labels   = self::never_blank();
+		$defaults = self::defaults();
+		$parts    = array();
+
+		foreach ( $restored as $key ) {
+			if ( ! isset( $labels[ $key ] ) ) {
+				continue;
+			}
+
+			$value   = $defaults[ $key ];
+			$parts[] = sprintf(
+				/* translators: 1: setting label, 2: its default value. */
+				__( '%1$s (now %2$s)', 'wpcredits-program-manager' ),
+				$labels[ $key ],
+				is_array( $value ) ? implode( ', ', $value ) : $value
+			);
+		}
+
+		if ( empty( $parts ) ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %s: the settings that were reset, with their defaults. */
+					__( 'These settings cannot be left blank, so their defaults were put back: %s. With nothing to filter by, a sync would read every row of the Airtable table and treat each one as current.', 'wpcredits-program-manager' ),
+					implode( '; ', $parts )
+				)
+			)
+		);
 	}
 
 	/**

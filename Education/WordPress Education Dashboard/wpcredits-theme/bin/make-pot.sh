@@ -3,7 +3,7 @@
 #
 # WP-CLI's `wp i18n make-pot` is the canonical tool and is what to use if it is
 # installed. This exists so the template can be rebuilt with nothing but GNU
-# gettext, which is already on most machines — a translation template that can only
+# gettext, which is already on most machines - a translation template that can only
 # be regenerated on one laptop stops being regenerated.
 #
 # Usage:  sh bin/make-pot.sh        (run from the theme root)
@@ -20,7 +20,7 @@ if [ ! -f "style.css" ]; then
 fi
 
 if command -v wp >/dev/null 2>&1; then
-	echo "WP-CLI found — using it, which is the canonical path."
+	echo "WP-CLI found - using it, which is the canonical path."
 	wp i18n make-pot . "$OUT" --slug="$SLUG" --domain="$SLUG"
 	exit 0
 fi
@@ -29,8 +29,8 @@ mkdir -p languages
 
 # Every WordPress translation function, with the argument positions gettext needs:
 # `:1,2c` marks argument 2 as the context, `:1,2` marks a singular/plural pair.
-# Getting one of these wrong does not error — it silently mistranslates or drops a
-# string — so they are listed in full rather than abbreviated.
+# Getting one of these wrong does not error - it silently mistranslates or drops a
+# string - so they are listed in full rather than abbreviated.
 KEYWORDS="
 --keyword=__
 --keyword=_e
@@ -61,15 +61,15 @@ xgettext $KEYWORDS \
 	--force-po
 
 # Pattern headers, theme.json names and the style.css headers. None of these is a function
-# call, so xgettext cannot see any of them — and between them they are most of what a
+# call, so xgettext cannot see any of them - and between them they are most of what a
 # translator working on a block theme actually sees.
 php bin/extract-meta.php > /tmp/wpct-meta.pot
 
 # Merged *without* `--use-first`: for a string that appears in two places that flag keeps
 # the first entry whole and throws the second away, references and all, so the template
 # would claim a string has one home when it has two. Plain msgcat combines the references.
-# It writes conflict markers where two entries disagree, and in a template — every msgstr
-# empty — the only disagreement is between the generated headers, which are replaced below.
+# It writes conflict markers where two entries disagree, and in a template - every msgstr
+# empty - the only disagreement is between the generated headers, which are replaced below.
 msgcat /tmp/wpct-php.pot /tmp/wpct-meta.pot --output-file=/tmp/wpct-merged.pot
 
 # gettext writes a generic header; WordPress tooling and translate.wordpress.org

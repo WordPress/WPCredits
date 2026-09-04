@@ -251,17 +251,17 @@ if ( ! class_exists( 'WPCPM_Students_Sync' ) ) {
 
 if ( ! class_exists( 'WPCPM_Countries' ) ) {
 	class WPCPM_Countries {
-		const OPTION = 'wpcpm_countries';
+		const OPT_NAME = 'wpcpm_countries';
 		public static function refresh( $airtable = null ) {
 			$GLOBALS['calls']['countries_refresh'][] = $airtable instanceof WPCPM_Airtable;
 			if ( ! empty( $GLOBALS['countries_error'] ) ) {
 				return new WP_Error( 'wpcpm_countries_http', 'Countries unreadable' );
 			}
-			update_option( self::OPTION, array( 'v' => 1, 'read' => time(), 'rows' => $GLOBALS['countries'] ), false );
+			update_option( self::OPT_NAME, array( 'v' => 1, 'read' => time(), 'rows' => $GLOBALS['countries'] ), false );
 			return true;
 		}
 		public static function all() {
-			$stored = get_option( self::OPTION );
+			$stored = get_option( self::OPT_NAME );
 			return isset( $stored['rows'] ) ? $stored['rows'] : array();
 		}
 		public static function name_of( $record_id ) {
@@ -276,8 +276,8 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const STAGE_ORDER      = array( 'First Contact Made', 'Call Scheduled', 'Info Sent', 'Waiting on Reply', 'Under Review', 'Agreement Sent', 'Confirmed', 'Student' );
 		const TERMINAL_STAGES  = array( 'Not Moving Forward', 'SPAM', 'Revisit Later' );
 		const AIRTABLE_SETTLED = array( 'Accepted', 'On file' );
-		const OPTION_PREFIX    = 'wpcpm_agreement_';
-		public static function option_name( $record_id ) { return self::OPTION_PREFIX . $record_id; }
+		const OPT_PREFIX    = 'wpcpm_agreement_';
+		public static function option_name( $record_id ) { return self::OPT_PREFIX . $record_id; }
 		public static function rebuild( $record_id, array $airtable ) {
 			$GLOBALS['calls']['rebuild'][ $record_id ] = $airtable;
 			$settled = in_array( $airtable['status'], self::AIRTABLE_SETTLED, true ) && ( 'On file' !== $airtable['status'] || '' !== $airtable['document'] );
@@ -292,8 +292,8 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		public static function stored_records() {
 			$out = array();
 			foreach ( array_keys( $GLOBALS['opts'] ) as $name ) {
-				if ( 0 === strpos( $name, self::OPTION_PREFIX ) ) {
-					$suffix = substr( $name, strlen( self::OPTION_PREFIX ) );
+				if ( 0 === strpos( $name, self::OPT_PREFIX ) ) {
+					$suffix = substr( $name, strlen( self::OPT_PREFIX ) );
 					if ( WPCPM_Mentors_Sync::is_record_id( $suffix ) ) {
 						$out[] = $suffix;
 					}
@@ -478,7 +478,7 @@ function reset_site( array $seed, array $override = array() ) {
 	$GLOBALS['insert_dies']     = 0;
 	$GLOBALS['attach_fails']    = false;
 
-	$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array_merge(
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge(
 		WPCPM_Settings::defaults(),
 		array(
 			'api_token' => 'patTESTTOKEN',
@@ -650,7 +650,7 @@ ck( 'the last-run time is stamped', array( WPCPM_Institutions_Sync::last_read() 
 ck( 'the state and lock are gone', array( get_option( WPCPM_Institutions_Sync::OPT_STATE ), get_option( WPCPM_Institutions_Sync::OPT_LOCK ) ), array( false, false ) );
 ck( 'the tick event is cleared', isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_TICK ] ), false );
 ck( 'every option was written with autoload off',
-	array( $GLOBALS['autoload'][ WPCPM_Institutions_Sync::OPT_REPORT ], $GLOBALS['autoload'][ WPCPM_Institutions_Sync::OPT_LAST ], $GLOBALS['autoload'][ WPCPM_Institutions_Index::OPTION ] ),
+	array( $GLOBALS['autoload'][ WPCPM_Institutions_Sync::OPT_REPORT ], $GLOBALS['autoload'][ WPCPM_Institutions_Sync::OPT_LAST ], $GLOBALS['autoload'][ WPCPM_Institutions_Index::OPT_NAME ] ),
 	array( false, false, false ) );
 
 /* ---- a nameless record ---------------------------------------------------- */
@@ -697,7 +697,7 @@ function ready_cells( $email, $person = 'A Rector' ) {
 $CONFIRMED_ROWS = (int) $seed['counts']['by_stage']['Confirmed'];
 
 reset_site( $seed, array( $confirmed => ready_cells( 'Rector@Example.EDU' ) ) );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 
 WPCPM_Institutions_Sync::start();
 run_to_end();
@@ -733,7 +733,7 @@ ck( 'a second run creates nothing for an institution that now has a member',
 echo "\n=== An address that already has an account is a conflict ===\n";
 
 reset_site( $seed, array( $confirmed => ready_cells( 'rector@example.edu' ) ) );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 // Somebody who registered here for something else, in the case the base does not use.
 $GLOBALS['users'][9] = array( 'roles' => array( 'subscriber' ), 'email' => 'Rector@Example.EDU', 'login' => 'rector' );
 
@@ -751,7 +751,7 @@ ck( 'and named, with the institution and what a conflict is', array(
 echo "\n=== The history rule, and the gate ===\n";
 
 reset_site( $seed, array( $confirmed => ready_cells( 'rector@example.edu' ) ) );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 $GLOBALS['former'][77] = $confirmed;
 WPCPM_Institutions_Sync::start();
 run_to_end();
@@ -760,7 +760,7 @@ ck( 'an institution with a former member is skipped, not provisioned again',
 	array( false, 0, $CONFIRMED_ROWS ) );
 
 reset_site( $seed, array( $confirmed => array( 'Contact Email' => 'rector@example.edu', 'Contact Person' => 'A Rector' ) ) );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 WPCPM_Institutions_Sync::start();
 run_to_end();
 ck( 'nor is one whose agreement is not recorded', array( isset( $GLOBALS['calls']['wp_insert_user'] ), get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['provisioned'] ), array( false, 0 ) );
@@ -809,7 +809,7 @@ reset_site(
 		$second    => array( 'Contact Email' => 'dean@example.edu', 'Contact Person' => 'A Dean' ),
 	)
 );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 WPCPM_Institutions_Sync::start();
 run_to_end();
 
@@ -884,7 +884,7 @@ foreach ( $six as $n => $id ) {
 }
 
 reset_site( $seed, $override );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 $GLOBALS['insert_dies'] = WPCPM_Institutions_Sync::PROVISION_BATCH + 1;
 
 WPCPM_Institutions_Sync::start();
@@ -919,7 +919,7 @@ ck( 'and the ones with no address were skipped', $report['stats']['provision_ski
 echo "\n=== An account that cannot be created, and one that cannot be stamped ===\n";
 
 reset_site( $seed, array( $confirmed => ready_cells( 'rector@example.edu' ) ) );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 $GLOBALS['insert_fails'] = 1;
 WPCPM_Institutions_Sync::start();
 run_to_end();
@@ -929,7 +929,7 @@ ck( 'a refused insert is counted and named, and nothing is stamped',
 	array( 1, 0, false, true ) );
 
 reset_site( $seed, array( $confirmed => ready_cells( 'rector@example.edu' ) ) );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_provision'] = true;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
 $GLOBALS['attach_fails'] = true;
 WPCPM_Institutions_Sync::start();
 run_to_end();
@@ -951,7 +951,7 @@ ck( 'and the next run names it as a conflict rather than trying again', get_opti
 echo "\n=== institution_on_inactive = keep ===\n";
 
 reset_site( $seed );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['institution_on_inactive'] = 'keep';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_on_inactive'] = 'keep';
 member( 40, $not_moving );
 $GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $not_moving ) ] = array( 'v' => 1, 'settled' => true );
 
@@ -1041,7 +1041,7 @@ WPCPM_Institutions_Sync::tick( 1 );
 ck( 'a stale lock is taken over', array( isset( $GLOBALS['calls']['countries_refresh'] ) ), array( true ) );
 
 reset_site( $seed );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['api_token'] = '';
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = '';
 $result = WPCPM_Institutions_Sync::start();
 ck( 'start() refuses an unconnected site', array( is_wp_error( $result ), WPCPM_Institutions_Sync::is_running() ), array( true, false ) );
 ck( 'and records why', array( '' !== get_option( WPCPM_Institutions_Sync::OPT_ERROR ) ), array( true ) );
@@ -1120,7 +1120,7 @@ ck( 'register_cron() listens on both hooks and schedules', array( $GLOBALS['call
 
 // The daily entry point: off when auto_sync is off, and never on top of a live run.
 reset_site( $seed );
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ]['auto_sync'] = false;
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['auto_sync'] = false;
 WPCPM_Institutions_Sync::cron_daily();
 ck( 'cron_daily() does nothing with auto_sync off', WPCPM_Institutions_Sync::is_running(), false );
 

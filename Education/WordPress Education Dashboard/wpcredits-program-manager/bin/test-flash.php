@@ -3,7 +3,7 @@
  * One-shot messages appear once.
  *
  * The bug this covers: outcomes used to travel as `?wpcpm_call=cancelled`, so the message
- * came back on every reload of that URL — "That call is canceled and the slot is free
+ * came back on every reload of that URL - "That call is canceled and the slot is free
  * again" sat on the page permanently, describing something that happened once. Reported on
  * both dashboards.
  *
@@ -35,14 +35,14 @@ function ck( $l, $a, $e ) {
 
 // NOTE ON SCENARIOS: `take()` memoizes per request, and a function static cannot be
 // reset from outside. Each scenario below therefore uses its own channel name rather
-// than re-reading one — do not consolidate them into a single channel.
+// than re-reading one - do not consolidate them into a single channel.
 
 WPCPM_Flash::set( 'call', 'cancelled' );
 ck( 'the message is there on the page the redirect lands on', WPCPM_Flash::take( 'call' ), 'cancelled' );
 ck( 'asking twice in one request gives the same answer', WPCPM_Flash::take( 'call' ), 'cancelled' );
 ck( 'and it is gone from storage immediately', $GLOBALS['umeta'][7]['wpcpm_flash'] ?? array(), array() );
 
-// A second request cannot see it — simulated with a channel that has never been set.
+// A second request cannot see it - simulated with a channel that has never been set.
 ck( 'a reload shows nothing', WPCPM_Flash::take( 'never-set' ), '' );
 
 // Channels are independent: one message must not consume another.

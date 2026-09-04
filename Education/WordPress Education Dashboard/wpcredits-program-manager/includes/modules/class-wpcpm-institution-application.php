@@ -1477,13 +1477,21 @@ class WPCPM_Institution_Application {
 			$forwarded = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
 		}
 
-		foreach ( explode( ',', $forwarded ) as $candidate ) {
-			$candidate = trim( $candidate );
+		// **From the right, not the left.** Every standard edge appends the address it saw the
+		// request arrive from, so the header reads `<whatever the client sent>, <what the edge
+		// saw>`: the rightmost entry is the edge's own word and the leftmost is the client's,
+		// who can write anything there. Reading the left end let an applicant choose their own
+		// limiter bucket and spam the public form once a proxy was configured. The edge itself
+		// is skipped when it appears (a chain of two of ours), and an entry that is not an
+		// address at all is ignored; a header with nothing usable falls back to REMOTE_ADDR.
+		$entries = array_reverse( array_map( 'trim', explode( ',', $forwarded ) ) );
 
-			// The leftmost entry: the address the trusted edge saw the request arrive from.
-			if ( filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
-				return $candidate;
+		foreach ( $entries as $candidate ) {
+			if ( $candidate === $proxy || ! filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+				continue;
 			}
+
+			return $candidate;
 		}
 
 		return $remote;
@@ -1557,12 +1565,10 @@ class WPCPM_Institution_Application {
 	 * the class docblock and is asserted as an order by `bin/test-institution-application.php`.
 	 */
 	public static function handle_submit() {
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- This *is* the nonce, read to verify it on the next lines.
 		$nonce = isset( $_POST['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ) : '';
 
 		$posted = array();
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified immediately below; the values are cleaned one by one by `clean()` before any of them is used.
 		if ( isset( $_POST[ self::FIELD_ANSWERS ] ) && is_array( $_POST[ self::FIELD_ANSWERS ] ) ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above; every value is validated by type in `clean()`.
 			$posted = wp_unslash( $_POST[ self::FIELD_ANSWERS ] );

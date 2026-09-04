@@ -1,6 +1,6 @@
 <?php
 /**
- * Mentors module — the mentor's own students page.
+ * Mentors module - the mentor's own students page.
  *
  * @package WPCreditsProgramManager
  */
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * There is one page, not one page per mentor. The page renders against the
  * logged-in user, so every mentor gets their own view of it and no mentor can
- * reach another's list by guessing a URL — which a per-mentor permalink would
+ * reach another's list by guessing a URL - which a per-mentor permalink would
  * invite. Program managers can inspect any mentor's view via `?wpcpm_mentor=<id>`.
  */
 class WPCPM_Mentors_Dashboard {
@@ -44,7 +44,7 @@ class WPCPM_Mentors_Dashboard {
 	/**
 	 * Page titles this plugin has shipped for the mentor page.
 	 *
-	 * Only a title the plugin itself created is ever replaced — anything a site has
+	 * Only a title the plugin itself created is ever replaced - anything a site has
 	 * renamed by hand is theirs and is left alone.
 	 */
 	const OLD_TITLES = array( 'My Students' );
@@ -111,7 +111,7 @@ class WPCPM_Mentors_Dashboard {
 	 *
 	 * Recognised the same way the toolbar link recognises them, then narrowed twice.
 	 *
-	 * Program managers are excluded — they need wp-admin. So is anyone who can write posts:
+	 * Program managers are excluded - they need wp-admin. So is anyone who can write posts:
 	 * an account that happens to hold the Mentor role *and* an editor or author role has a
 	 * legitimate reason to be in the admin, and bouncing them out of it would be worse than
 	 * the problem being solved. Those two exclusions are also what makes it safe to start
@@ -127,7 +127,7 @@ class WPCPM_Mentors_Dashboard {
 			return false;
 		}
 
-		// The same test the toolbar link uses — the role *or* an Airtable link — and not the
+		// The same test the toolbar link uses - the role *or* an Airtable link - and not the
 		// role alone. `is_mentor()` counts somebody matched to a record without holding the role,
 		// which is how a mentor provisioned before the role existed, or one whose role was
 		// removed and restored by hand, is still recognised. Testing the role here meant the
@@ -139,7 +139,7 @@ class WPCPM_Mentors_Dashboard {
 
 		// ...but not somebody whose mentoring has ended. Going inactive removes the role and sets
 		// this flag to 0 while deliberately leaving the Airtable link in place, so
-		// `is_mentor()` still says yes — and the page it would send them to has nothing on it.
+		// `is_mentor()` still says yes - and the page it would send them to has nothing on it.
 		// A held role outranks the flag: that is an explicit grant, and an account given the
 		// role by hand has no flag at all.
 		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR )
@@ -173,7 +173,7 @@ class WPCPM_Mentors_Dashboard {
 			return $redirect_to;
 		}
 
-		// A specific destination was asked for — typically because they followed a link to
+		// A specific destination was asked for - typically because they followed a link to
 		// gated content and were bounced through the login form. Honour it; overriding would
 		// take them somewhere they did not ask to go.
 		//
@@ -333,14 +333,14 @@ class WPCPM_Mentors_Dashboard {
 	/**
 	 * What the triage script needs to group, count and search the rendered list.
 	 *
-	 * Everything here is already on the page or already in this plugin — the script fetches
+	 * Everything here is already on the page or already in this plugin - the script fetches
 	 * nothing and writes nothing, and no student appears who was not rendered. It is handed over
 	 * as data rather than scraped out of the markup so that changing a column's wording does not
 	 * quietly change which pile a student lands in.
 	 *
 	 * Which mentor's list this is comes from `current_mentor()`, the same answer the render
 	 * uses. The theme used to work it out for itself and the two disagreed for an administrator
-	 * who also mentors — the rows are joined on Airtable record ID, so nothing matched and every
+	 * who also mentors - the rows are joined on Airtable record ID, so nothing matched and every
 	 * row lost its end date and note count. There is only one answer now, by construction.
 	 *
 	 * @param int $mentor_id Mentor whose list is on screen.
@@ -405,7 +405,7 @@ class WPCPM_Mentors_Dashboard {
 				/**
 				 * Filter how long a student can go without a note before they need a call.
 				 *
-				 * Matches the wording on the card — "no note in the last 30 days" — so the
+				 * Matches the wording on the card - "no note in the last 30 days" - so the
 				 * grouping and the notice cannot contradict each other.
 				 *
 				 * @param int $days Default 30.
@@ -605,7 +605,7 @@ class WPCPM_Mentors_Dashboard {
 		);
 
 		echo '<div class="wpcpm-dashboard__mentor-identity">';
-		// A paragraph, not a heading — the same shape as the student card's own name. This
+		// A paragraph, not a heading - the same shape as the student card's own name. This
 		// was an `<h1>` while the page had no title of its own; the page is "Mentor Report
 		// Card" now, and that `<h1>` is the page's. Two of them is not a document outline.
 		printf(
@@ -626,7 +626,7 @@ class WPCPM_Mentors_Dashboard {
 			}
 		}
 
-		// One line, both facts. They answer the same question — "is this list current?" —
+		// One line, both facts. They answer the same question - "is this list current?" -
 		// and `updated` used to sit alone at the foot of the card, which is why the theme
 		// had to lift it up here with JavaScript.
 		$facts = array(
@@ -660,7 +660,7 @@ class WPCPM_Mentors_Dashboard {
 
 		// Before the student list: a diary and the hours behind it are what a mentor
 		// acts on, where the list is what they refer to. It sits outside the groups on
-		// purpose — see the note in WPCPM_Call_Calendar::render_mentor().
+		// purpose - see the note in WPCPM_Call_Calendar::render_mentor().
 		WPCPM_Call_Calendar::render_mentor( $mentor );
 
 		if ( empty( $mentees ) ) {
@@ -702,7 +702,7 @@ class WPCPM_Mentors_Dashboard {
 					$open ? ' open' : ''
 				);
 				printf(
-					'<summary class="wpcpm-group__summary"><span class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></span><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+					'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 					esc_html__( 'Past students', 'wpcredits-program-manager' ),
 					esc_html( number_format_i18n( count( $past ) ) )
 				);
@@ -734,7 +734,7 @@ class WPCPM_Mentors_Dashboard {
 	 *
 	 * Public API, and the only supported answer to the question. A theme dressing this
 	 * page has to be handed data for the same mentor the page is rendering, and while
-	 * this was private the theme reimplemented it — with a role-only mentor test, which
+	 * this was private the theme reimplemented it - with a role-only mentor test, which
 	 * silently disagreed for an administrator who also mentors. The sync never gives an
 	 * administrator the Mentor role, so the plugin resolved them to themselves and the
 	 * copy resolved them to whichever mentor sorted first.
@@ -770,8 +770,8 @@ class WPCPM_Mentors_Dashboard {
 		}
 
 		// Their own list first, always. An administrator who is also an Active
-		// mentor in Airtable never receives the Mentor *role* — the sync refuses to
-		// touch an administrator's roles — so a role check alone dropped them
+		// mentor in Airtable never receives the Mentor *role* - the sync refuses to
+		// touch an administrator's roles - so a role check alone dropped them
 		// through to the branch below and showed them somebody else's students.
 		if ( self::is_mentor( $viewer ) ) {
 			return $viewer;
@@ -806,7 +806,7 @@ class WPCPM_Mentors_Dashboard {
 	 * Whether a user has a student list of their own.
 	 *
 	 * True for anyone holding the Mentor role, and for anyone the sync matched to
-	 * an Airtable mentor record whatever their role — which is how administrators
+	 * an Airtable mentor record whatever their role - which is how administrators
 	 * who also mentor are recognized.
 	 *
 	 * @param int|WP_User|null $user Optional user; defaults to the current user.
@@ -841,7 +841,7 @@ class WPCPM_Mentors_Dashboard {
 		echo '<form class="wpcpm-dashboard__switcher" method="get">';
 
 		// Without pretty permalinks the page is addressed by query string, which a
-		// GET form would otherwise discard — resubmitting to the site root.
+		// GET form would otherwise discard - resubmitting to the site root.
 		if ( ! get_option( 'permalink_structure' ) ) {
 			$queried = get_queried_object_id();
 
@@ -887,7 +887,7 @@ class WPCPM_Mentors_Dashboard {
 			)
 		);
 
-		// Anyone linked to an Airtable mentor record but without the role —
+		// Anyone linked to an Airtable mentor record but without the role -
 		// administrators, whose roles the sync leaves alone. Without this they were
 		// missing from the switcher and could not select their own list.
 		$linked = get_users(
@@ -895,7 +895,7 @@ class WPCPM_Mentors_Dashboard {
 				'orderby'    => 'display_name',
 				'order'      => 'ASC',
 				'number'     => 500,
-				'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_meta_query -- Bounded by the number of provisioned mentors.
+				'meta_query' => array(
 					array(
 						'key'     => WPCPM_Mentors_Sync::META_RECORD_ID,
 						'compare' => 'EXISTS',
@@ -1028,7 +1028,7 @@ class WPCPM_Mentors_Dashboard {
 		$record  = $get( 'record_id' );
 		$focused = ( '' !== $record && WPCPM_Mentor_Notes::focused_student() === $record );
 
-		// The anchor is omitted without a record ID — an empty `id` would repeat on
+		// The anchor is omitted without a record ID - an empty `id` would repeat on
 		// every such card, and nothing can link to it anyway.
 		printf(
 			'<article class="wpcpm-mentee"%s>',
@@ -1039,7 +1039,7 @@ class WPCPM_Mentors_Dashboard {
 		// JavaScript, is keyboard operable and screen-reader announced for free, and
 		// a mentor with sixty students gets a list they can actually scan. Opened by
 		// default only when there is a single student, where collapsing helps nobody,
-		// or when a note was just saved against this one — a fragment never reaches
+		// or when a note was just saved against this one - a fragment never reaches
 		// the server, so returning to a closed card would hide the result.
 		printf(
 			'<details class="wpcpm-mentee__disclosure"%s>',
@@ -1101,7 +1101,7 @@ class WPCPM_Mentors_Dashboard {
 		echo '<div class="wpcpm-mentee__body">';
 
 		// Declared as data so each field is one line to read. Rows are rendered even
-		// when empty — silently dropping a blank value is indistinguishable from the
+		// when empty - silently dropping a blank value is indistinguishable from the
 		// page forgetting the field, which is exactly how a missing institution
 		// reads as a bug.
 		$fields = array(
@@ -1141,7 +1141,7 @@ class WPCPM_Mentors_Dashboard {
 				'label'    => __( 'Email', 'wpcredits-program-manager' ),
 				'value'    => $get( 'email' ),
 				// A mailto: link, so the obvious next action is one click away. Not
-				// opened in a new tab — that leaves an empty one behind once the mail
+				// opened in a new tab - that leaves an empty one behind once the mail
 				// client takes over.
 				'url'      => $get( 'email' ) ? 'mailto:' . $get( 'email' ) : '',
 				'external' => false,
@@ -1202,8 +1202,8 @@ class WPCPM_Mentors_Dashboard {
 		echo '</tbody></table>';
 
 		// The mentor's own notes on this student, beside the table. Rendered before the report so
-		// that the source order matches what the grid draws — table and notes side by side, the
-		// report underneath both — and so the single-column layout on a phone reads the same way.
+		// that the source order matches what the grid draws - table and notes side by side, the
+		// report underneath both - and so the single-column layout on a phone reads the same way.
 		WPCPM_Mentor_Notes::render( $record, $name, $mentor_id );
 
 		// The student's own report form, **read only**, in a disclosure of its own. The route it is
@@ -1213,11 +1213,11 @@ class WPCPM_Mentors_Dashboard {
 		// own card, where the form belongs to the student it is about.
 		//
 		// **The body arrives when it is opened.** Reading a report costs an Airtable request, and a
-		// mentor with sixty students would pay for sixty of them to look at one — so the card
+		// mentor with sixty students would pay for sixty of them to look at one - so the card
 		// ships the disclosure and the script fetches the one that gets opened.
 		//
 		// This is the one control on the page that needs JavaScript, and it says so rather than
-		// spinning: everything else here — the disclosures, the notes form, printing — works
+		// spinning: everything else here - the disclosures, the notes form, printing - works
 		// without it, so a silent "Loading…" would be the only dead thing on the page.
 		if ( '' !== $record && WPCPM_Students_Sync::user_for_record( $record ) instanceof WP_User ) {
 			printf(
@@ -1263,7 +1263,7 @@ class WPCPM_Mentors_Dashboard {
 	 * Render a profile photo from the person's WordPress.org profile.
 	 *
 	 * WordPress.org serves profile photos from Gravatar keyed on the hash of the
-	 * *wordpress.org* account email, which this plugin never sees — so the hash
+	 * *wordpress.org* account email, which this plugin never sees - so the hash
 	 * cannot be derived locally. `grav-redirect.php` is wordpress.org's own
 	 * username → avatar redirect, which avoids both scraping the profile page and
 	 * storing a hash that would go stale when someone changes their photo. It
@@ -1299,7 +1299,7 @@ class WPCPM_Mentors_Dashboard {
 			esc_attr(
 				$username
 					? __( 'Photo from their WordPress.org profile', 'wpcredits-program-manager' )
-					: __( 'Photo from Gravatar — no WordPress.org profile recorded', 'wpcredits-program-manager' )
+					: __( 'Photo from Gravatar - no WordPress.org profile recorded', 'wpcredits-program-manager' )
 			)
 		);
 	}
@@ -1419,7 +1419,7 @@ class WPCPM_Mentors_Dashboard {
 
 		if ( '' !== $from && '' !== $to ) {
 			/* translators: 1: start date, 2: end date. */
-			return sprintf( __( '%1$s – %2$s', 'wpcredits-program-manager' ), $from, $to );
+			return sprintf( __( '%1$s - %2$s', 'wpcredits-program-manager' ), $from, $to );
 		}
 
 		if ( '' !== $from ) {
@@ -1467,7 +1467,7 @@ class WPCPM_Mentors_Dashboard {
 		$blank    = isset( $field['blank'] ) ? trim( (string) $field['blank'] ) : '';
 
 		// **An empty value is not always missing data.** Most blanks on this card are something to
-		// chase — an unset institution is a gap in the records — and the amber row says so. But a
+		// chase - an unset institution is a gap in the records - and the amber row says so. But a
 		// student who wrote nothing under *Accessibility needs* has answered: they do not have any.
 		// Showing that as "Not set" in amber asks a mentor to go and get an answer that is already
 		// in, and quietly suggests the student left a form half-finished.
@@ -1480,7 +1480,7 @@ class WPCPM_Mentors_Dashboard {
 
 		$empty = ( '' === $value );
 
-		// `html` is for a value that is several links rather than one — a student can be
+		// `html` is for a value that is several links rather than one - a student can be
 		// on more than one contribution team, so the whole cell is built by the caller
 		// and already escaped. `value` still has to be set: it is what decides whether
 		// the row counts as empty, and it is what a plain-text context would show.
@@ -1488,7 +1488,7 @@ class WPCPM_Mentors_Dashboard {
 
 		printf( '<tr class="wpcpm-mentee__row%s">', $empty ? ' is-empty' : '' );
 
-		// `icon_html` for a row whose icon depends on its value — the contribution team's
+		// `icon_html` for a row whose icon depends on its value - the contribution team's
 		// changes with the team, and is a question mark when none is chosen. `icon` is the
 		// fixed case, a key into WPCPM_Icons.
 		$icon = isset( $field['icon_html'] )
@@ -1632,7 +1632,7 @@ class WPCPM_Mentors_Dashboard {
 		$page_id = (int) get_option( self::OPT_PAGE );
 
 		// Must be published, not merely existing: `get_post_status()` returns
-		// 'trash' for a trashed page, which is truthy — and now that logins redirect
+		// 'trash' for a trashed page, which is truthy - and now that logins redirect
 		// here, that would land every mentor on a 404.
 		if ( ! $page_id || 'publish' !== get_post_status( $page_id ) ) {
 			return '';

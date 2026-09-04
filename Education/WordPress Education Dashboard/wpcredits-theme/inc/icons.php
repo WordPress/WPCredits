@@ -5,7 +5,7 @@
  * Inlined rather than referenced from a sprite file with `<use href="…#id">`.
  * A cross-document `<use>` costs a second request before anything paints, and
  * styling its shadow content relies on inheritance quirks that differ between
- * engines — which matters here because every icon takes its color from the
+ * engines - which matters here because every icon takes its color from the
  * element around it.
  *
  * Paths are the WordPress `@wordpress/icons` set, all on a 24×24 grid.
@@ -51,8 +51,8 @@ function wpcredits_icon_paths() {
 }
 
 /**
- * Icons whose paths cut holes in themselves — the ring of a cog, the bowl of a
- * bell — and so need the even-odd fill rule. Without it they render as blobs.
+ * Icons whose paths cut holes in themselves - the ring of a cog, the bowl of a
+ * bell - and so need the even-odd fill rule. Without it they render as blobs.
  *
  * Listed rather than applied to everything: even-odd changes what overlapping
  * subpaths look like, and several of these glyphs rely on the default.

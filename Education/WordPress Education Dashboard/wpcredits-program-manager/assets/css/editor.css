@@ -4,7 +4,7 @@
  * The block editor renders classic meta boxes in a narrow column, and a <select>
  * is sized from its widest option. `width: 100%` alone does not stop it: a select
  * has an automatic minimum width, so it refuses to shrink below its content and
- * pushes past the column — which the editor answers with a horizontal scrollbar
+ * pushes past the column - which the editor answers with a horizontal scrollbar
  * on the whole sidebar rather than by clipping the one control. `min-width: 0` is
  * the declaration that actually fixes it; the rest keeps padding and borders
  * inside the width.

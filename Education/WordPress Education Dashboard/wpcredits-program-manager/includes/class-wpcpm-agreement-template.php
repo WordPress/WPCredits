@@ -54,7 +54,7 @@ class WPCPM_Agreement_Template {
 	const BLANK = '____';
 
 	/** Where the last drift check is remembered, one row per language. */
-	const OPTION_DRIFT = 'wpcpm_agreement_drift';
+	const OPT_DRIFT = 'wpcpm_agreement_drift';
 
 	/** How long to wait for the Doc's plain-text export. */
 	const DRIFT_TIMEOUT = 20;
@@ -391,7 +391,7 @@ class WPCPM_Agreement_Template {
 	 */
 	public static function cached( $language = 'en' ) {
 		$language = strtolower( trim( (string) $language ) );
-		$rows     = get_option( self::OPTION_DRIFT, array() );
+		$rows     = get_option( self::OPT_DRIFT, array() );
 
 		if ( ! is_array( $rows ) || empty( $rows[ $language ] ) || ! is_array( $rows[ $language ] ) ) {
 			return null;
@@ -435,7 +435,7 @@ class WPCPM_Agreement_Template {
 	 * What differs between two normalised texts, in something the card can hold and redraw.
 	 *
 	 * **Bounded, and bounded to a sentence rather than to a cut.** The report is stored in
-	 * `OPTION_DRIFT` and drawn again on every load of the screen that shows it, and the Doc is
+	 * `OPT_DRIFT` and drawn again on every load of the screen that shows it, and the Doc is
 	 * editable by anyone holding its link, so one press against a vandalised copy would
 	 * otherwise write half a megabyte of table markup into an option and redraw it for ever
 	 * after. Cutting the markup at a byte count would be worse than not keeping it: an unclosed
@@ -511,7 +511,7 @@ class WPCPM_Agreement_Template {
 	 * @param array  $result   What `drift()` is about to return.
 	 */
 	private static function remember( $language, array $result ) {
-		$rows = get_option( self::OPTION_DRIFT, array() );
+		$rows = get_option( self::OPT_DRIFT, array() );
 
 		if ( ! is_array( $rows ) ) {
 			$rows = array();
@@ -520,7 +520,7 @@ class WPCPM_Agreement_Template {
 		$rows[ $language ] = $result;
 
 		// Not autoloaded: a diff nobody is reading has no business on every request.
-		update_option( self::OPTION_DRIFT, $rows, false );
+		update_option( self::OPT_DRIFT, $rows, false );
 	}
 
 	/**
@@ -529,7 +529,7 @@ class WPCPM_Agreement_Template {
 	 * @param string $language Language code.
 	 */
 	private static function forget_drift( $language ) {
-		$rows = get_option( self::OPTION_DRIFT, array() );
+		$rows = get_option( self::OPT_DRIFT, array() );
 
 		if ( ! is_array( $rows ) || ! array_key_exists( $language, $rows ) ) {
 			return;
@@ -538,12 +538,12 @@ class WPCPM_Agreement_Template {
 		unset( $rows[ $language ] );
 
 		if ( empty( $rows ) ) {
-			delete_option( self::OPTION_DRIFT );
+			delete_option( self::OPT_DRIFT );
 
 			return;
 		}
 
-		update_option( self::OPTION_DRIFT, $rows, false );
+		update_option( self::OPT_DRIFT, $rows, false );
 	}
 
 	/**

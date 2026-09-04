@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Module 4 — Sponsors.
+ * Module 4 - Sponsors.
  *
  * Registers the Sponsor role. Sponsor-facing screens and whatever a sponsor is
  * shown about the students they fund are not built yet, so the module reserves

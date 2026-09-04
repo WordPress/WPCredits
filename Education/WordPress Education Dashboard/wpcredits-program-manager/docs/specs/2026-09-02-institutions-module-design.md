@@ -435,7 +435,7 @@ public static function claim( $record, $action, $type = 'student', $user = null 
 }
 ```
 
-Steps 1 and 2 count into a per-acting-user ceiling that locks that account's write path and raises a manager notice; only step 4 writes a log row. Refusal logging of cheap shapes was a denial of service in an earlier design and stays out.
+Steps 1 and 2 count into a per-acting-user ceiling (`WPCPM_Institution_Roster::REFUSALS_PER_DAY`, twenty refused cheap claims a day, keyed on the acting account through `WPCPM_Ceiling`; built in 1.90.0). When the twentieth refusal fills the bucket the account's write path is locked for the rest of the day: every later `claim()` by that account is refused before the meter, with the one refusal wording, and the lock writes one audit row (`claim_locked`, filed under the actor's own institution). The Institutions screen lists the accounts locked today. Managers are never metered. Only step 4 writes a log row per refusal; refusal logging of cheap shapes was a denial of service in an earlier design and stays out.
 
 ### 5.4 The three call patterns
 

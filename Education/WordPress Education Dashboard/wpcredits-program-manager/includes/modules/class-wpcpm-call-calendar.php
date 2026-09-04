@@ -1,6 +1,6 @@
 <?php
 /**
- * Mentors module — the call calendar, on both dashboards.
+ * Mentors module - the call calendar, on both dashboards.
  *
  * @package WPCreditsProgramManager
  */
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Everything is rendered on the *viewer's* clock. The mentor's schedule is stored in
  * the mentor's timezone and slots come back from it as UTC timestamps; which calendar
- * day a slot falls on is then a question about the viewer's zone, not the mentor's — a
+ * day a slot falls on is then a question about the viewer's zone, not the mentor's - a
  * 23:00 slot in Riga is the small hours of the next day in Kathmandu, and putting it on
  * the wrong square is how somebody misses a call.
  */
@@ -122,8 +122,8 @@ class WPCPM_Call_Calendar {
 		// either of them.
 		self::render_message();
 
-		// Two columns: what is booked, and what can be. They answer different questions —
-		// "when am I speaking to my mentor" and "when could I" — and the second needs the
+		// Two columns: what is booked, and what can be. They answer different questions -
+		// "when am I speaking to my mentor" and "when could I" - and the second needs the
 		// width a month grid wants, which is why this section spans the card rather than
 		// sitting in one of the page's own columns.
 		echo '<div class="wpcpm-calls__cols">';
@@ -207,7 +207,7 @@ class WPCPM_Call_Calendar {
 		if ( empty( $slots ) ) {
 			printf(
 				'<p class="wpcpm-calls__empty">%s</p>',
-				esc_html__( 'Your mentor has availability set but nothing is open at the moment — every slot in the current window is taken. Check back in a few days.', 'wpcredits-program-manager' )
+				esc_html__( 'Your mentor has availability set but nothing is open at the moment - every slot in the current window is taken. Check back in a few days.', 'wpcredits-program-manager' )
 			);
 			self::close_student( $student, $viewer_is_student );
 
@@ -227,12 +227,12 @@ class WPCPM_Call_Calendar {
 	/**
 	 * Close the picking column, the column pair and the section.
 	 *
-	 * Four different paths through `render_student()` finish early — no mentor, not
-	 * bookable, nothing open, or a full calendar — and every one of them is inside two
+	 * Four different paths through `render_student()` finish early - no mentor, not
+	 * bookable, nothing open, or a full calendar - and every one of them is inside two
 	 * open `<div>`s. Closing them by hand at each exit is how one of them eventually
 	 * does not, and unbalanced markup on this page pulls the whole card apart.
 	 *
-	 * Being the single funnel, it is also where the group sessions render — so they appear on the
+	 * Being the single funnel, it is also where the group sessions render - so they appear on the
 	 * three early exits too, which is where they matter most: a student whose mentor has published
 	 * no private hours can still be invited to a session.
 	 *
@@ -305,11 +305,10 @@ class WPCPM_Call_Calendar {
 
 		$months = array_keys( $months );
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view state.
 		$asked = WPCPM_Request::text( self::ARG_MONTH );
 
-		// Only a month the calendar actually spans. Anything else — a hand-typed
-		// argument, a stale bookmark — falls back rather than drawing an empty grid the
+		// Only a month the calendar actually spans. Anything else - a hand-typed
+		// argument, a stale bookmark - falls back rather than drawing an empty grid the
 		// navigation cannot escape from.
 		if ( preg_match( '/^\d{4}-\d{2}$/', $asked ) && in_array( $asked, $months, true ) ) {
 			return $asked;
@@ -330,7 +329,6 @@ class WPCPM_Call_Calendar {
 	 * @return string `Y-m-d`, or an empty string.
 	 */
 	private static function resolve_day( array $by_day, $month ) {
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only view state.
 		$asked = WPCPM_Request::text( self::ARG_DAY );
 
 		if ( '' !== WPCPM_Mentor_Availability::date_string( $asked ) && isset( $by_day[ $asked ] ) ) {
@@ -357,7 +355,7 @@ class WPCPM_Call_Calendar {
 	private static function url( array $args ) {
 		// `wpcpm_call` used to be stripped here too, because the outcome travelled in the
 		// URL and a month link had to shed it. It is a flash now, so there is nothing to
-		// strip — and leaving the name here would suggest otherwise.
+		// strip - and leaving the name here would suggest otherwise.
 		$base = remove_query_arg(
 			array( self::ARG_MONTH, self::ARG_DAY ),
 			self::current_url()
@@ -377,12 +375,12 @@ class WPCPM_Call_Calendar {
 		$path = isset( $wp->request ) ? $wp->request : '';
 		$url  = home_url( '' !== $path ? user_trailingslashit( $path ) : '/' );
 
-		// Keep the view state a manager is holding — which mentor or student they are
-		// inspecting — rather than dropping them back to their own page on every click.
+		// Keep the view state a manager is holding - which mentor or student they are
+		// inspecting - rather than dropping them back to their own page on every click.
 		//
 		// `wpcpm_student_view`, not `wpcpm_student`: the latter is the *notes* focus on the
 		// mentor page and carries an Airtable record ID, so keeping it did nothing here
-		// while the argument that actually selects a student was being dropped — a manager
+		// while the argument that actually selects a student was being dropped - a manager
 		// paging the calendar on somebody else's page landed back on their own.
 		foreach ( array( 'wpcpm_mentor', 'wpcpm_student_view' ) as $keep ) {
 			$id = WPCPM_Request::id( $keep );
@@ -596,7 +594,7 @@ class WPCPM_Call_Calendar {
 			'<form class="wpcpm-slots__form" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s" data-wpcpm-status="%3$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Booking…', 'wpcredits-program-manager' ),
-			esc_attr__( 'Booking your call — one moment.', 'wpcredits-program-manager' )
+			esc_attr__( 'Booking your call - one moment.', 'wpcredits-program-manager' )
 		);
 		wp_nonce_field( WPCPM_Mentor_Calls::ACTION_BOOK );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Mentor_Calls::ACTION_BOOK ) . '" />';
@@ -682,12 +680,12 @@ class WPCPM_Call_Calendar {
 
 		// The nudge is only worth making to somebody who has never chosen: replacing a
 		// deliberate choice with the browser's guess would be worse than not helping.
-		// Rendered hidden and unhidden by the script, which also pre-selects the guess —
+		// Rendered hidden and unhidden by the script, which also pre-selects the guess -
 		// so with no JavaScript there is no promise here that nothing kept.
 		if ( ! WPCPM_Mentor_Availability::has_timezone( $user_id ) ) {
 			printf(
 				'<span class="wpcpm-calls__zone-hint" data-wpcpm-zone-hint hidden>%s</span>',
-				esc_html__( 'This is your device\'s timezone — save it to show every time on your own clock.', 'wpcredits-program-manager' )
+				esc_html__( 'This is your device\'s timezone - save it to show every time on your own clock.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -707,7 +705,7 @@ class WPCPM_Call_Calendar {
 	public static function render_mentor( WP_User $mentor ) {
 		wp_enqueue_style( self::STYLE );
 		// The availability editor's "copy hours" control is scripted, and this is the only
-		// page it appears on. The script's other job — offering the browser's timezone —
+		// page it appears on. The script's other job - offering the browser's timezone -
 		// no-ops here, because the element it looks for is on the student page.
 		wp_enqueue_script( self::SCRIPT );
 
@@ -720,8 +718,8 @@ class WPCPM_Call_Calendar {
 		// would put the toolbar above this section and offer to search a diary.
 		echo '<section class="wpcpm-calls wpcpm-calls--mentor" id="' . esc_attr( self::ANCHOR ) . '">';
 
-		// Two columns: the diary, and the hours behind it. They are read as one question —
-		// "am I getting calls, and are the hours I published the reason?" — so each half
+		// Two columns: the diary, and the hours behind it. They are read as one question -
+		// "am I getting calls, and are the hours I published the reason?" - so each half
 		// is wrapped for the stylesheet to place. With no CSS they stack, which is the
 		// right fallback and what happens below 900px anyway.
 		// The diary and the sessions share the left-hand side, in one box. **Not two rows of the
@@ -745,14 +743,14 @@ class WPCPM_Call_Calendar {
 			// `wpcpm-calls__empty`, never the shared `wpcpm-dashboard__empty`. The theme's
 			// dashboard script anchors its search toolbar on the first
 			// `.wpcpm-dashboard__empty` when a mentor has no students and there is no
-			// `.wpcpm-group` to anchor on — and this section renders before that, so the
+			// `.wpcpm-group` to anchor on - and this section renders before that, so the
 			// shared class here would drop the toolbar inside the diary.
 			printf(
 				'<p class="wpcpm-calls__empty">%s</p>',
 				esc_html(
 					WPCPM_Mentor_Availability::is_published( $mentor->ID )
 						? __( 'Nothing booked yet. Students pick from the hours you set beside this.', 'wpcredits-program-manager' )
-						: __( 'Nothing booked yet — set your availability beside this and your students can start picking times.', 'wpcredits-program-manager' )
+						: __( 'Nothing booked yet - set your availability beside this and your students can start picking times.', 'wpcredits-program-manager' )
 				)
 			);
 		} else {
@@ -762,7 +760,7 @@ class WPCPM_Call_Calendar {
 		echo '</div>';
 
 		// Under the diary, in the same side: a group session is neither a booked call nor an hour
-		// they published, but it is the same kind of thing — what is in the calendar — and it
+		// they published, but it is the same kind of thing - what is in the calendar - and it
 		// reads with them rather than under a form somewhere to the right.
 		echo '<div class="wpcpm-calls__col wpcpm-calls__col--sessions">';
 		WPCPM_Group_Sessions::render_mentor_panel( $mentor );

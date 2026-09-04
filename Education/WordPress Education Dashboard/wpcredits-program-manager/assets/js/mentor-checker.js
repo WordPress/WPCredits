@@ -1,7 +1,7 @@
 /**
  * Drives the Mentor Checker screen: batched runs and promotions over admin-ajax.
  *
- * The run is deliberately batched — each mentor can cost several requests to
+ * The run is deliberately batched - each mentor can cost several requests to
  * WordPress.org, so one long PHP request would risk a timeout. Because a batch can
  * take tens of seconds, the whole queue is listed up front and each row resolves in
  * place, so the screen is never blank while work is happening.

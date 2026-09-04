@@ -82,8 +82,7 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
 function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
-function user_can( $u, $c ) { $id = is_object( $u ) ? $u->ID : (int) $u; return in_array( $id, $GLOBALS['manage'], true ); }
-function current_user_can( $c ) { return user_can( $GLOBALS['uid'], $c ); }
+require_once __DIR__ . '/stubs/caps.php';
 function number_format_i18n( $n ) { return (string) $n; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
 function wp_timezone_string() { return 'UTC'; }
@@ -185,7 +184,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-availabilit
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
 
 /* ---- fixtures ----------------------------------------------------------- */
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = WPCPM_Settings::defaults();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
 $GLOBALS['users'][20] = new WP_User( 20, 'Kel Santiago-Pilarski', 'kel@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
 $GLOBALS['users'][30] = new WP_User( 30, 'Moldir Bekezhanova', 'moldir@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
@@ -282,7 +281,8 @@ ck( 'the template is built inside the locale the caller named', array( $seen_loc
 ck( 'and that locale is restored afterwards', $GLOBALS['locales'], array() );
 ck( 'the send is logged under its context',
     array( WPCPM_Mail::log()[0]['context'], WPCPM_Mail::log()[0]['to'] ),
-    array( 'institution-applied', 'applicant@example.test' ) );
+    // The log keeps a masked address: enough to tell whose it was, never a contact list.
+    array( 'institution-applied', 'a***@example.test' ) );
 ck( 'the filter runs, with nobody as the recipient', array( $seen_recipient ), array( null ) );
 
 // Null is the exception for an address with no account, not a change: the same filter still
@@ -340,7 +340,7 @@ WPCPM_Mail::send( 30, 'call-booked', function () { return array( 'subject' => 'B
 $log = WPCPM_Mail::log();
 ck( 'a send is recorded with its outcome and context',
     array( count( $log ), $log[0]['context'], $log[0]['sent'], $log[0]['to'] ),
-    array( 1, 'call-booked', true, 'moldir@example.test' ) );
+    array( 1, 'call-booked', true, 'm***@example.test' ) );
 
 $GLOBALS['mail_fails'] = true;
 WPCPM_Mail::send( 30, 'call-booked', function () { return array( 'subject' => 'Booked', 'body' => 'x' ); } );
@@ -440,7 +440,7 @@ ck( 'dismissing forgets it', WPCPM_Mail::run(), array() );
 // that exists after the mistake rather than before it.
 //
 // A fresh range, because everybody in `$bulk` now carries an invited stamp and `queue_invites()`
-// refuses those — which is the previous assertion, from the other side.
+// refuses those - which is the previous assertion, from the other side.
 WPCPM_Mail::clear_queue();
 $GLOBALS['invited'] = array();
 $abort = range( 300, 340 );
@@ -541,7 +541,7 @@ foreach ( array(
 	update_user_meta( $id, WPCPM_Students_Sync::META_PROGRAM, array( 'institution' => $institution ) );
 }
 
-// 705 gets no row at all — the other way a student can be incomplete.
+// 705 gets no row at all - the other way a student can be incomplete.
 
 $everyone = array( 701, 702, 703, 704, 705 );
 
@@ -557,12 +557,12 @@ ck( 'no filter means no narrowing', WPCPM_Mail::only_institution( $everyone, '' 
 ck( 'and whitespace is no filter either', WPCPM_Mail::only_institution( $everyone, '   ' ), $everyone );
 
 // A name nobody carries reaches nobody. It arrives from a posted field, so it is matched against
-// what the site holds rather than trusted — the failure has to be an empty send, not a wide one.
+// what the site holds rather than trusted - the failure has to be an empty send, not a wide one.
 ck( 'an institution nobody is at reaches nobody',
     WPCPM_Mail::only_institution( $everyone, 'Somewhere Else' ), array() );
 
 // A student with no institution, or no program row at all, is not swept into somebody else's
-// cohort — the two ways a row can be incomplete.
+// cohort - the two ways a row can be incomplete.
 ck( 'a student with no institution is in no institution',
     WPCPM_Mail::only_institution( array( 704, 705 ), 'IES Azarquiel' ), array() );
 
@@ -822,7 +822,7 @@ $same = WPCPM_Mentor_Calls::format_range( 1786000000, 1786001800, $tokyo );
 ck( 'a call inside one day states the end as a time only',
     array( 1 === substr_count( $same, ',' ) ), array( true ) );
 
-// The same call read on a clock where it crosses midnight has to say so, or "11:45 pm –
+// The same call read on a clock where it crosses midnight has to say so, or "11:45 pm -
 // 12:15 am" reads as ending fourteen hours before it starts.
 $start = strtotime( '2026-08-03 23:45:00 UTC' );
 $cross = WPCPM_Mentor_Calls::format_range( $start, $start + 1800, new DateTimeZone( 'UTC' ) );
@@ -839,7 +839,7 @@ echo "\n=== The sample invitation ===\n";
 // were found by somebody pressing the button, which is the wrong way to find out.
 //
 // **Driven through `$_POST`**, because that is where the real form puts the field. The first
-// version of this test set `$_GET` by hand and passed against the broken code — a harness
+// version of this test set `$_GET` by hand and passed against the broken code - a harness
 // that arranges the world to suit the implementation tests nothing.
 $GLOBALS['uid']    = 20;
 $GLOBALS['manage'] = array( 20 );
@@ -923,5 +923,13 @@ ck( 'a javascript URL is not',  array( WPCPM_Mentor_Availability::meeting_url( '
 ck( 'nor a data URL',           array( WPCPM_Mentor_Availability::meeting_url( 'data:text/html,<script>' ) ), array( '' ) );
 ck( 'blank stays blank',        array( WPCPM_Mentor_Availability::meeting_url( '   ' ) ), array( '' ) );
 
+echo "\n=== The log's masked address ===\n";
+
+ck( 'a bare address keeps its first letter and its domain', WPCPM_Mail::mask_address( 'moldir@example.test' ), 'm***@example.test' );
+ck( 'a display name is dropped and the address inside the brackets masked', WPCPM_Mail::mask_address( 'Moldir Example <moldir@example.test>' ), 'm***@example.test' );
+ck( 'something that is not an address masks to nothing identifying', WPCPM_Mail::mask_address( 'not an address' ), '***' );
+ck( 'and an empty one to nothing', WPCPM_Mail::mask_address( '' ), '' );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+
 exit( $fail ? 1 : 0 );

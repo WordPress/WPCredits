@@ -1,6 +1,6 @@
 <?php
 /**
- * Tool — Handbook assistant.
+ * Tool - Handbook assistant.
  *
  * @package WPCreditsProgramManager
  */
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * The Education Handbook assistant: sync it, search it, answer from it.
  *
- * **A tool rather than a fifth module.** A module in this plugin is an audience — it owns a
+ * **A tool rather than a fifth module.** A module in this plugin is an audience - it owns a
  * role and the content the people holding it see, and the Overview screen prints that role
  * beside its name. The assistant owns no audience: students, mentors, institutions and
  * program managers all use the same one. Registering it as a module would mean inventing a
@@ -36,7 +36,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * Model names this plugin has shipped as its default.
 	 *
 	 * Only a value the plugin itself put there is ever replaced. A model somebody typed
-	 * deliberately is theirs, even if it is retired — they may be waiting on a replacement, or
+	 * deliberately is theirs, even if it is retired - they may be waiting on a replacement, or
 	 * pointing at something this list has never heard of.
 	 *
 	 * Providers retire models on their own schedule and the failure is not subtle: the request
@@ -140,7 +140,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	/**
 	 * Ready once a provider can actually answer something.
 	 *
-	 * There is no local copy any more, so "ready" is no longer "has it been synced" — it is
+	 * There is no local copy any more, so "ready" is no longer "has it been synced" - it is
 	 * whether anything at all can produce an answer.
 	 *
 	 * @return bool
@@ -174,7 +174,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * Activation: nothing to build.
 	 *
 	 * There is no table, no schedule and no page. That is the whole point of the arrangement
-	 * — and it is why this method is empty rather than missing.
+	 * - and it is why this method is empty rather than missing.
 	 */
 	public function activate() {}
 
@@ -233,7 +233,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 		);
 
 		// Everything the versions that kept a local copy created. None of these classes
-		// exists now, so every name here is a literal — and every one of them is still on a
+		// exists now, so every name here is a literal - and every one of them is still on a
 		// site that upgraded through those versions.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.NotPrepared -- Our own table, on uninstall; the name is built from the site prefix.
 		$wpdb->query( 'DROP TABLE IF EXISTS ' . $wpdb->prefix . 'wpcpm_handbook' );
@@ -306,7 +306,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 				? esc_html( WPCPM_Handbook_Answer::provider_label() )
 				: sprintf(
 					'<span class="wpcpm-warning">%1$s</span> <a href="%2$s">%3$s</a>',
-					esc_html__( 'None configured — nothing can be answered.', 'wpcredits-program-manager' ),
+					esc_html__( 'None configured - nothing can be answered.', 'wpcredits-program-manager' ),
 					esc_url( WPCPM_Admin::settings_url() ),
 					esc_html__( 'Add one in Settings', 'wpcredits-program-manager' )
 				)
@@ -330,7 +330,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 		printf(
 			'<tr><th scope="row">%1$s</th><td>%2$s</td></tr>',
 			esc_html__( 'Stored on this site', 'wpcredits-program-manager' ),
-			esc_html__( 'Nothing. There is no copy of the documentation, no index, and no scheduled reading — so nothing to refresh and nothing to go stale. The trade is that without a provider there is no answer at all.', 'wpcredits-program-manager' )
+			esc_html__( 'Nothing. There is no copy of the documentation, no index, and no scheduled reading - so nothing to refresh and nothing to go stale. The trade is that without a provider there is no answer at all.', 'wpcredits-program-manager' )
 		);
 
 		printf(

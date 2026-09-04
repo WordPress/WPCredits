@@ -926,14 +926,14 @@ final class WPCPM_Semester_Report {
 				// `Hours`, `Status`, every grade column and `Contribution Project Summary` are
 				// absent from this list on purpose. See the class docblock: what is not read
 				// cannot end up in a document a university publishes.
-			)
+			),
+			static function ( array $records ) use ( $institution ) {
+				return self::shape_reports_rows( $records, $institution, WPCPM_Mentors_Sync::lookups()['teams'] );
+			}
 		);
 
-		if ( is_wp_error( $records ) ) {
-			return $records;
-		}
-
-		return self::shape_reports_rows( $records, $institution, WPCPM_Mentors_Sync::lookups()['teams'] );
+		// Shaped rows already, from the cache or from the read: see `fetch_by_email()`.
+		return $records;
 	}
 
 	/**
@@ -960,14 +960,14 @@ final class WPCPM_Semester_Report {
 				self::FIELD_QUOTE_PERMISSION,
 				self::FIELD_QUOTE,
 				// Not one rating column, not even to average. See the class docblock.
-			)
+			),
+			static function ( array $records ) use ( $institution ) {
+				return self::shape_feedback_rows( $records, $institution );
+			}
 		);
 
-		if ( is_wp_error( $records ) ) {
-			return $records;
-		}
-
-		return self::shape_feedback_rows( $records, $institution );
+		// Shaped rows already, from the cache or from the read: see `fetch_by_email()`.
+		return $records;
 	}
 
 	/**
@@ -984,9 +984,10 @@ final class WPCPM_Semester_Report {
 	 * @param string   $table       Table ID.
 	 * @param string   $column      The email column's name in that table.
 	 * @param string[] $wanted      Columns to read back.
-	 * @return array|WP_Error Raw Airtable records.
+	 * @param callable $shape       Turns the raw records into the rows the report uses; its output is what is cached.
+	 * @return array|WP_Error Shaped rows.
 	 */
-	private static function fetch_by_email( $kind, $institution, array $emails, $table, $column, array $wanted ) {
+	private static function fetch_by_email( $kind, $institution, array $emails, $table, $column, array $wanted, $shape ) {
 		$emails = array_values( array_unique( array_filter( $emails, 'strlen' ) ) );
 
 		if ( empty( $emails ) ) {
@@ -1023,9 +1024,14 @@ final class WPCPM_Semester_Report {
 			$records = array_merge( $records, $page );
 		}
 
-		set_transient( $key, $records, self::CACHE_TTL );
+		// **Shaped before it is cached.** The transient used to hold Airtable's raw records,
+		// which for the Feedback table meant every cohort student's unreleased words and every
+		// address, for five minutes, in an option. What is cached is what the report may use.
+		$shaped = call_user_func( $shape, $records );
 
-		return $records;
+		set_transient( $key, $shaped, self::CACHE_TTL );
+
+		return $shaped;
 	}
 
 	/**
@@ -1192,8 +1198,24 @@ final class WPCPM_Semester_Report {
 				'linked'     => in_array( $institution, self::institution_ids( $cell ), true ),
 				'list'       => trim( WPCPM_Airtable::flatten( isset( $cells[ self::FIELD_LIST ] ) ? $cells[ self::FIELD_LIST ] : '' ) ),
 				'permission' => trim( WPCPM_Airtable::flatten( isset( $cells[ self::FIELD_QUOTE_PERMISSION ] ) ? $cells[ self::FIELD_QUOTE_PERMISSION ] : '' ) ),
-				'quote'      => self::cap( WPCPM_Airtable::flatten( isset( $cells[ self::FIELD_QUOTE ] ) ? $cells[ self::FIELD_QUOTE ] : '' ) ),
+				'quote'      => '',
+				'has_quote'  => false,
 			);
+
+			// **The words themselves are kept only once the student released them.** Until then
+			// the row records that there is something to release and nothing more, so a quote
+			// nobody has released is held nowhere on this site: not in the snapshot, and not in
+			// the five-minute cache these rows go into, which used to carry every unreleased
+			// answer of the cohort in an option anybody with database access could read. The
+			// flag is what `consent_candidates()` needs to know whom to write to.
+			$quote = self::cap( WPCPM_Airtable::flatten( isset( $cells[ self::FIELD_QUOTE ] ) ? $cells[ self::FIELD_QUOTE ] : '' ) );
+			$last  = count( $out ) - 1;
+
+			$out[ $last ]['has_quote'] = '' !== trim( $quote );
+
+			if ( in_array( $out[ $last ]['permission'], array( self::QUOTE_NAMED, self::QUOTE_ANONYMOUS ), true ) ) {
+				$out[ $last ]['quote'] = $quote;
+			}
 		}
 
 		return $out;
@@ -2044,7 +2066,7 @@ final class WPCPM_Semester_Report {
 				continue;
 			}
 
-			if ( '' === trim( (string) $row['quote'] ) ) {
+			if ( empty( $row['has_quote'] ) ) {
 				continue;
 			}
 

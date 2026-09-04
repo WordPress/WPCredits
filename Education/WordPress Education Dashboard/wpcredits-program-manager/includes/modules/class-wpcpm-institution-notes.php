@@ -531,10 +531,12 @@ class WPCPM_Institution_Notes {
 		$student = get_user_by( 'id', $student_id );
 		$name    = $student instanceof WP_User ? (string) $student->display_name : '';
 
+		// `private`, like every note: see `WPCPM_Mentor_Notes::register_post_type()`. A
+		// `publish` row here handed out the member's login through `?author=N`.
 		$post_id = wp_insert_post(
 			array(
 				'post_type'    => WPCPM_Mentor_Notes::POST_TYPE,
-				'post_status'  => 'publish',
+				'post_status'  => 'private',
 				'post_author'  => get_current_user_id(),
 				'post_content' => $note,
 				'post_title'   => sprintf(

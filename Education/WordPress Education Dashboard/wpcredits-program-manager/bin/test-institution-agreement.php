@@ -252,7 +252,7 @@ function wp_login_url( $to = '' ) { return 'https://example.test/wp-login.php?re
 function add_query_arg( $args, $url = '' ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args ); }
 function nocache_headers() { $GLOBALS['journal'][] = 'nocache'; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
-function current_user_can( $c ) { return (bool) $GLOBALS['caps']; }
+require_once __DIR__ . '/stubs/caps.php';
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
@@ -490,7 +490,15 @@ if ( ! class_exists( 'WPCPM_Private_Files' ) ) {
 			unset( $GLOBALS['files'][ $relative ] );
 			return true;
 		}
+		const OPT_KEY = 'wpcpm_private_key';
+		public static function base() { return '/srv/uploads/.wpcpm-private/'; }
+		public static function probe_result() { return $GLOBALS['probe'] ?? null; }
+		public static function verdict( array $result ) { return ! empty( $result['blocked'] ) ? 'blocked' : 'served'; }
+		public static function write_note( $name, $text ) { $GLOBALS['notes'][ $name ] = $text; return $name; }
 	}
+}
+if ( ! function_exists( 'wp_mail' ) ) {
+	function wp_mail( $to, $subject, $body, $headers = array() ) { $GLOBALS['wp_mail'][] = array( 'to' => $to, 'subject' => $subject, 'body' => $body ); return true; }
 }
 
 if ( ! class_exists( 'WPCPM_Ceiling' ) ) {
@@ -1053,7 +1061,7 @@ ck( 'every AIRTABLE_SETTLED value is an Agreement Status choice',
 ck( 'AIRTABLE_ON_FILE is one of the settled values', in_array( WPCPM_Institution_Agreement::AIRTABLE_ON_FILE, WPCPM_Institution_Agreement::AIRTABLE_SETTLED, true ), true );
 ck( 'Revoked and Awaiting review, which the assertions below type, are choices',
     array_values( array_diff( array( 'Revoked', 'Awaiting review' ), $fixture['choices']['Agreement Status'] ) ), array() );
-ck( 'the option prefix and the lock prefix', array( WPCPM_Institution_Agreement::OPTION_PREFIX, WPCPM_Institution_Agreement::LOCK_PREFIX ), array( 'wpcpm_agreement_', 'wpcpm_agreement_lock_' ) );
+ck( 'the option prefix and the lock prefix', array( WPCPM_Institution_Agreement::OPT_PREFIX, WPCPM_Institution_Agreement::LOCK_PREFIX ), array( 'wpcpm_agreement_', 'wpcpm_agreement_lock_' ) );
 ck( 'option_name() builds from the prefix', WPCPM_Institution_Agreement::option_name( $rec_a ), 'wpcpm_agreement_' . $rec_a );
 ck( 'the post type is the one section 9 names', WPCPM_Institution_Agreement::POST_TYPE, 'wpcpm_agreement' );
 
@@ -1574,6 +1582,88 @@ WPCPM_Ceiling::claim( 'agreement-upload:recAAAAAAAAAAAAA1', 2, DAY_IN_SECONDS );
 ck( 'the setting is what the ceiling reads, not the default', run( 'handle_upload' ), 'agreement-busy' );
 
 /* ---- a good upload ------------------------------------------------------ */
+
+echo "\n=== handle_upload(): one document in review at a time, held by the lock ===\n";
+
+// Two presses of Upload used to run the "in review" read and the insert through the same gap
+// and file two documents. The handler now takes the institution's lock across both, so the
+// second press is turned away with the same word the ceiling uses, and stores nothing.
+upload_world();
+$GLOBALS['opts'][ WPCPM_Institution_Agreement::lock_name( 'recAAAAAAAAAAAAA1' ) ] = time();
+ck( 'an upload while the lock is held is refused as busy', run( 'handle_upload' ), 'agreement-busy' );
+ck( 'and nothing reached the store', $GLOBALS['stored'], array() );
+unset( $GLOBALS['opts'][ WPCPM_Institution_Agreement::lock_name( 'recAAAAAAAAAAAAA1' ) ] );
+
+upload_world();
+ck( 'with the lock free the upload goes through', run( 'handle_upload' ), 'agreement-uploaded' );
+ck( 'and releases the lock behind it', isset( $GLOBALS['opts'][ WPCPM_Institution_Agreement::lock_name( 'recAAAAAAAAAAAAA1' ) ] ), false );
+
+upload_world();
+$_POST['wpcpm_agreement_signed'] = '0';
+run( 'handle_upload' );
+ck( 'a refusal on the way releases it too', isset( $GLOBALS['opts'][ WPCPM_Institution_Agreement::lock_name( 'recAAAAAAAAAAAAA1' ) ] ), false );
+
+echo "\n=== handle_upload(): an institution that cannot be resolved is refused, before the nonce ===\n";
+
+// A manager with no switcher value and no posted record resolves to '' - and the fence passes
+// a manager for any subject, '' included, so the document would have been filed under an empty
+// record ID where no roster and no card would ever show it. The generate route refused this
+// from the start; the upload route now refuses it the same way, before anything else runs.
+reset_world();
+seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example' );
+sign_in( 1, 'Program Manager', 'pm@example.org', true );
+$GLOBALS['managers'] = array( $GLOBALS['users'][1] );
+$_POST               = array(
+	'wpcpm_agreement_signed' => '1',
+	'wpcpm_agreement_kind'   => 'own',
+);
+post_file( temp_file( pdf_bytes() ) );
+ck( 'a manager resolving to no institution is refused', run( 'handle_upload' ), 'died: That record is not on your roster.' );
+ck( 'before the nonce was even looked at', $GLOBALS['nonces'], array() );
+ck( 'and nothing reached the store', $GLOBALS['stored'], array() );
+
+echo "\n=== manifest_kept_files(): what an uninstall leaves behind is listed, not lost ===\n";
+
+// Spec 7.11: the signed files and their key stay, the posts go, and the site owner is mailed
+// one line per kept file while the posts still name them. The note beside the files is written
+// only when the last probe found the directory blocked from the web.
+reset_world();
+seed_index( 'recAAAAAAAAAAAAA1', 'Universidad Example' );
+seed_index( 'recBBBBBBBBBBBBB2', 'Politechnika Example' );
+$GLOBALS['opts']['admin_email'] = 'owner@example.org';
+$GLOBALS['wp_mail'] = array();
+$GLOBALS['notes']   = array();
+$GLOBALS['probe']   = array( 'status' => 403, 'time' => 1, 'blocked' => true );
+seed_post( 'recAAAAAAAAAAAAA1', 'accepted', 'own', array(
+	WPCPM_Institution_Agreement::META_FILE       => array( 'path' => '2026/aaaa.pdf', 'sha256' => str_repeat( 'a', 64 ), 'size' => 10 ),
+	WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-09-03',
+) );
+seed_post( 'recBBBBBBBBBBBBB2', 'submitted', 'template', array(
+	WPCPM_Institution_Agreement::META_FILE => array( 'path' => '2026/bbbb.pdf', 'sha256' => str_repeat( 'b', 64 ), 'size' => 12 ),
+) );
+seed_post( 'recBBBBBBBBBBBBB2', 'generated', 'template', array() );
+
+$done = WPCPM_Institution_Agreement::manifest_kept_files();
+ck( 'two documents have files; the generated one does not count', $done['files'], 2 );
+ck( 'the inventory is mailed to the site owner', array( count( $GLOBALS['wp_mail'] ), $GLOBALS['wp_mail'][0]['to'] ), array( 1, 'owner@example.org' ) );
+$body = $GLOBALS['wp_mail'][0]['body'];
+ck( 'one line per file, naming the institution, the record, the state, the date, the path and the hash',
+	false !== strpos( $body, "Universidad Example\trecAAAAAAAAAAAAA1\taccepted\t2026-09-03\t2026/aaaa.pdf\t" . str_repeat( 'a', 64 ) )
+	&& false !== strpos( $body, "Politechnika Example\trecBBBBBBBBBBBBB2\tsubmitted\t\t2026/bbbb.pdf\t" . str_repeat( 'b', 64 ) ), true );
+ck( 'and it says where the files and the key are', false !== strpos( $body, '/srv/uploads/.wpcpm-private/' ) && false !== strpos( $body, 'wpcpm_private_key' ), true );
+ck( 'the note is written beside the files when the directory is blocked from the web', array_keys( $GLOBALS['notes'] ), array( 'kept-agreements-' . gmdate( 'Y-m-d' ) . '.txt' ) );
+ck( 'and the note is the same list', false !== strpos( reset( $GLOBALS['notes'] ), '2026/bbbb.pdf' ), true );
+
+$GLOBALS['wp_mail'] = array();
+$GLOBALS['notes']   = array();
+$GLOBALS['probe']   = array( 'status' => 200, 'time' => 1, 'blocked' => false );
+WPCPM_Institution_Agreement::manifest_kept_files();
+ck( 'when the host serves the directory the list is mailed', count( $GLOBALS['wp_mail'] ), 1 );
+ck( 'but not written where the web could read it', $GLOBALS['notes'], array() );
+
+reset_world();
+$GLOBALS['wp_mail'] = array();
+ck( 'a site with no files sends nothing', array( WPCPM_Institution_Agreement::manifest_kept_files()['files'], count( $GLOBALS['wp_mail'] ) ), array( 0, 0 ) );
 
 echo "\n=== handle_upload(): what a good one leaves behind ===\n";
 

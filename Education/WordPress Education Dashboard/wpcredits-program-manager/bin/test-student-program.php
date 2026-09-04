@@ -141,8 +141,8 @@ function get_users( $args = array() ) {
 
 		// `fields` decides the shape, the way WordPress does it: `'ID'` gives a flat list of IDs,
 		// `array( 'ID' )` gives rows, anything else gives users. Honoured rather than ignored
-		// because the production code asks for `'ID'` specifically — to keep core's user-meta
-		// cache from warning — and a stub that always returned objects would pass whichever shape
+		// because the production code asks for `'ID'` specifically - to keep core's user-meta
+		// cache from warning - and a stub that always returned objects would pass whichever shape
 		// the code used and prove nothing.
 		if ( 'ID' === ( $args['fields'] ?? 'all' ) ) {
 			$out[] = (int) $id;
@@ -199,7 +199,7 @@ function ck( $label, $got, $want ) {
  * Build the two caches for one student, and return their user ID.
  *
  * **A fresh ID per scenario, deliberately.** `mentor_side_row()` memoizes per user for the life of
- * the request, which is right in production and wrong for a test that reuses an ID — the second
+ * the request, which is right in production and wrong for a test that reuses an ID - the second
  * scenario would silently read the first one's answer. Getting this wrong is what made two of these
  * assertions fail on first run.
  *
@@ -304,8 +304,8 @@ ck( 'a student with no row at all gets an empty array, not a warning',
 echo "\n=== Which teams may be written to Airtable ===\n";
 
 // `clean_teams()` is the only thing standing between a posted checkbox value and a linked-record
-// write. An unknown record ID is not merely ignored by Airtable — it either errors or links the
-// wrong record — so this is tested directly rather than through the handler, which cannot show
+// write. An unknown record ID is not merely ignored by Airtable - it either errors or links the
+// wrong record - so this is tested directly rather than through the handler, which cannot show
 // what the payload ended up being.
 $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ] = array(
 	'v'     => WPCPM_Mentors_Sync::LOOKUPS_VERSION,
@@ -321,7 +321,7 @@ ck( 'the fixture record IDs are the shape Airtable actually uses',
     array( true ) );
 
 // The validator moved with the control: the contribution team is asked for on the report form
-// since 1.46.0, not in the profile editor. The assertions below are unchanged — what has to hold
+// since 1.46.0, not in the profile editor. The assertions below are unchanged - what has to hold
 // about a hand-edited linked-record field does not depend on which form posted it.
 $clean = new ReflectionMethod( 'WPCPM_Student_Report_Form', 'clean' );
 
@@ -377,8 +377,8 @@ ck( 'with no team catalog, nothing is accepted', teams( array( 'recTEAM000000000
 echo "\n=== What a saved report carries back to the cards ===\n";
 
 /*
- * **The bug this exists to prevent.** Four of the report form's answers — profile, Slack, team,
- * website — are also rows on the cards, and the cards read the copy the sync left behind. Saving
+ * **The bug this exists to prevent.** Four of the report form's answers - profile, Slack, team,
+ * website - are also rows on the cards, and the cards read the copy the sync left behind. Saving
  * wrote them to Airtable and stopped there, so a student who had just chosen their team was shown
  * *Not set* on their own card until the next weekly sync. Both cached copies are asserted, because
  * there are two of them and updating one is the failure that looks fixed.
@@ -421,7 +421,7 @@ ck( 'the rest of the row is left alone', $program['name'], 'Celi' );
 $mentees = $GLOBALS['umeta'][ $id + 1 ][ WPCPM_Mentors_Sync::META_MENTEES ];
 
 ck( 'the mentor\'s copy is updated too', $mentees[1]['team'], 'Documentation' );
-ck( 'and the right row in it — not the first', $mentees[0]['record_id'], 'recOTHER123456789' );
+ck( 'and the right row in it - not the first', $mentees[0]['record_id'], 'recOTHER123456789' );
 ck( 'the other student is untouched', isset( $mentees[0]['team'] ), false );
 
 // Clearing every box posts an empty array, and "" is the answer, not a reason to skip the write.
@@ -446,7 +446,7 @@ WPCPM_Students_Sync::apply_report( $id, array( $fields['report_hours'] => 0 ) );
 ck( 'zero hours are written rather than skipped',
     $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['hours'], '0' );
 
-// A save of nothing this touches — a grade, say — must not write user meta at all.
+// A save of nothing this touches - a grade, say - must not write user meta at all.
 $id = seed( array( 'name' => 'Moldir', 'team' => 'Core' ), array( 'name' => 'Moldir' ) );
 
 ck( 'a report with none of these five columns changes nothing',
@@ -459,7 +459,7 @@ echo "\n=== When the sync runs ===\n";
 
 /*
  * **A recurring event keeps the schedule it was created with.** Changing the interval in the code
- * changes nothing for a site that already has the event — `wp_next_scheduled()` answers "yes, it
+ * changes nothing for a site that already has the event - `wp_next_scheduled()` answers "yes, it
  * exists" and the old recurrence stays. So the upgrade path is the thing worth asserting: an
  * existing daily event has to be replaced, not left alone.
  */
@@ -500,7 +500,7 @@ ck( 'a correct event is left where it is',
 echo "\n=== A run in progress is not restarted ===\n";
 
 // Connected, or `start()` refuses before it gets as far as the guard being tested.
-$GLOBALS['opts'][ WPCPM_Settings::OPTION ] = array( 'auto_sync' => true, 'api_token' => 'patTEST', 'base_id' => 'appTEST' );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'auto_sync' => true, 'api_token' => 'patTEST', 'base_id' => 'appTEST' );
 
 /**
  * Put the sync into a given state and report whether `cron_auto()` started a new run.
@@ -589,7 +589,7 @@ ck( 'the developer track is named after its status',
 ck( 'and is in the labels map, which is what gates the surveys',
     isset( WPCPM_Program::labels()['Developer Track'] ), true );
 
-// Reading the wrong formula column gives a working link to the wrong form — a failure that looks
+// Reading the wrong formula column gives a working link to the wrong form - a failure that looks
 // like success until a student fills in another track's questions.
 ck( 'each track reads its own reporting-form link',
     array(
