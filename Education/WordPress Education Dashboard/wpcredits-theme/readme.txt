@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.19.4
+Stable tag: 1.19.5
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.19.5 =
+* Student Report Card, My profile and My mentor: the same type fixes as the rest of phase one. The mentor's job line and location, the profile and contact rows and their links are 14px; the Teams eyebrow is 12px in the label gray instead of 10px of light gray capitals, and the team names take the row text size.
 
 = 1.19.4 =
 * The Sponsor Dashboard's mentor tiles follow the plugin's new block name (`wpcpm-mentor-tile`, plugin 1.94.5), so the Student Report Card's "My mentor" card is dressed by its own rules alone again.

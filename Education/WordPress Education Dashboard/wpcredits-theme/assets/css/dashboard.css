@@ -647,7 +647,8 @@
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line-card );
 	border-collapse: collapse;
-	font: 13px/20px var( --wpc-font );
+	/* 14px: the label and the value on every row of My profile and My mentor (13px until 1.19.5). */
+	font: 14px/20px var( --wpc-font );
 	width: 100%;
 }
 
@@ -660,7 +661,7 @@
 
 .wpc-dashboard-page .wpcpm-student__table th {
 	color: var( --wpc-ink-70 );
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 	width: 170px;
 }
 
@@ -722,7 +723,7 @@
 .wpc-dashboard-page .wpcpm-mentor-card__jobline,
 .wpc-dashboard-page .wpcpm-mentor-card__location {
 	color: var( --wpc-ink-60 );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin: 0;
 	opacity: 1;
 }
@@ -732,8 +733,18 @@
 }
 
 .wpc-dashboard-page .wpcpm-mentor-card__teams-label {
-	color: var( --wpc-ink-60 );
+	color: var( --wpc-ink-70 );
+	/* Twelve pixels is the floor for a chip-sized label; it was 0.78em of a 13px line, about
+	   10px of light gray capitals (the type review of 5 September 2026; 1.19.5). */
+	font: 700 12px/20px var( --wpc-font );
+	letter-spacing: .04em;
 	opacity: 1;
+}
+
+/* The team names are links a person reads and presses: the row text size, no tracking. */
+.wpc-dashboard-page .wpcpm-mentor-card__teams a {
+	font: 500 14px/20px var( --wpc-font );
+	letter-spacing: 0;
 }
 
 .wpc-dashboard-page .wpcpm-student__note {
