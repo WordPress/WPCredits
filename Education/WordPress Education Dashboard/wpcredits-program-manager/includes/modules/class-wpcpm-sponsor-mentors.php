@@ -299,7 +299,7 @@ final class WPCPM_Sponsor_Mentors {
 			echo '<p>' . esc_html__( 'No mentor is linked to your company yet.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
 			if ( ! empty( $linked['mentors'] ) ) {
-				echo '<div class="wpcpm-mentor-grid">';
+				echo '<div class="wpcpm-mentor-tiles">';
 
 				foreach ( $linked['mentors'] as $mentor ) {
 					self::render_mentor_card( $mentor, $record, false );
@@ -337,7 +337,7 @@ final class WPCPM_Sponsor_Mentors {
 			echo '<p>' . esc_html__( 'Nobody is on the list right now.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
 			echo '<p class="wpcpm-student__note">' . esc_html__( 'Active mentors who asked to be listed. One press tells your program contact you would like to sponsor one of them.', 'wpcredits-program-manager' ) . '</p>';
-			echo '<div class="wpcpm-mentor-grid">';
+			echo '<div class="wpcpm-mentor-tiles">';
 
 			foreach ( $looking as $mentor ) {
 				self::render_mentor_card( $mentor, $record, true );
@@ -362,12 +362,12 @@ final class WPCPM_Sponsor_Mentors {
 		$profile  = isset( $mentor['profile'] ) ? WPCPM_Field_Value::clean_url( (string) $mentor['profile'] ) : '';
 		$username = self::username_from_profile( $profile );
 
-		echo '<article class="wpcpm-mentor-card">';
-		echo '<div class="wpcpm-mentor-card__photo">';
+		echo '<article class="wpcpm-mentor-tile">';
+		echo '<div class="wpcpm-mentor-tile__photo">';
 
 		if ( '' !== $username ) {
 			printf(
-				'<img class="wpcpm-mentor-card__img" src="%1$s" srcset="%2$s 2x" width="%3$d" height="%3$d" alt="%4$s" loading="lazy" decoding="async" />',
+				'<img class="wpcpm-mentor-tile__img" src="%1$s" srcset="%2$s 2x" width="%3$d" height="%3$d" alt="%4$s" loading="lazy" decoding="async" />',
 				esc_url( WPCPM_Mentors_Dashboard::avatar_url( $username, '', self::PHOTO_SIZE ) ),
 				esc_url( WPCPM_Mentors_Dashboard::avatar_url( $username, '', self::PHOTO_SIZE * 2 ) ),
 				(int) self::PHOTO_SIZE,
@@ -376,20 +376,20 @@ final class WPCPM_Sponsor_Mentors {
 			);
 		} else {
 			// No WordPress.org profile on record: the initials stand in, so the grid keeps its shape.
-			printf( '<span class="wpcpm-mentor-card__initials" aria-hidden="true">%s</span>', esc_html( mb_substr( $name, 0, 1 ) ) );
+			printf( '<span class="wpcpm-mentor-tile__initials" aria-hidden="true">%s</span>', esc_html( mb_substr( $name, 0, 1 ) ) );
 		}
 
 		echo '</div>';
 
 		if ( '' !== $profile ) {
-			printf( '<h4 class="wpcpm-mentor-card__name"><a href="%1$s" rel="external noopener">%2$s</a></h4>', esc_url( $profile ), esc_html( $name ) );
+			printf( '<h4 class="wpcpm-mentor-tile__name"><a href="%1$s" rel="external noopener">%2$s</a></h4>', esc_url( $profile ), esc_html( $name ) );
 		} else {
-			printf( '<h4 class="wpcpm-mentor-card__name">%s</h4>', esc_html( $name ) );
+			printf( '<h4 class="wpcpm-mentor-tile__name">%s</h4>', esc_html( $name ) );
 		}
 
 		if ( (int) $mentor['user_id'] > 0 ) {
 			printf(
-				'<p class="wpcpm-mentor-card__stats">%s</p>',
+				'<p class="wpcpm-mentor-tile__stats">%s</p>',
 				esc_html(
 					sprintf(
 						/* translators: 1: students now, 2: students before. */
@@ -402,21 +402,21 @@ final class WPCPM_Sponsor_Mentors {
 		} else {
 			// A mentor the sync has not matched to a site account has no count to show honestly:
 			// "0 now, 0 before" reads as an inactive mentor, not as one whose account is not linked.
-			echo '<p class="wpcpm-mentor-card__stats">' . esc_html__( 'No site account yet', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p class="wpcpm-mentor-tile__stats">' . esc_html__( 'No site account yet', 'wpcredits-program-manager' ) . '</p>';
 		}
 
 		if ( ! empty( $mentor['expertise'] ) ) {
-			echo '<p class="wpcpm-mentor-card__tags">';
+			echo '<p class="wpcpm-mentor-tile__tags">';
 
 			foreach ( (array) $mentor['expertise'] as $area ) {
-				printf( '<span class="wpcpm-mentor-card__tag">%s</span>', esc_html( (string) $area ) );
+				printf( '<span class="wpcpm-mentor-tile__tag">%s</span>', esc_html( (string) $area ) );
 			}
 
 			echo '</p>';
 		}
 
 		if ( '' !== $profile ) {
-			printf( '<p class="wpcpm-mentor-card__link"><a href="%1$s" rel="external noopener">%2$s</a></p>', esc_url( $profile ), esc_html__( 'WordPress.org profile', 'wpcredits-program-manager' ) );
+			printf( '<p class="wpcpm-mentor-tile__link"><a href="%1$s" rel="external noopener">%2$s</a></p>', esc_url( $profile ), esc_html__( 'WordPress.org profile', 'wpcredits-program-manager' ) );
 		}
 
 		if ( $with_form ) {

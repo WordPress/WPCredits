@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.94.4
+Stable tag: 1.94.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.94.5 =
+* Student Report Card: the "My mentor" card looks as it did before 1.94.1 again. The Sponsor Dashboard's mentor tiles had reused the card's class name, and because every dashboard page loads every dashboard stylesheet, the tile rules reached the student's card. The tiles are their own block now (`wpcpm-mentor-tile`), and only the Sponsor Dashboard shows mentors that way. With theme 1.19.4.
 
 = 1.94.4 =
 * Form controls in the plugin's own stylesheets (the Institution Dashboard's student and import forms, the application form, the mentor notes box) take a control border at 3:1 against the page instead of the card hairline, the boundary WCAG 1.4.11 asks for. With theme 1.19.3, which does the same for the Sponsor Dashboard's and the Administrator Dashboard's controls.

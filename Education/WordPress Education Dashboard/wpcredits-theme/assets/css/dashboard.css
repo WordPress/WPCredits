@@ -1196,7 +1196,7 @@
  * (a grid of centred columns); the theme puts its tokens on them and the lift the mentors
  * page has on hover, so the two pages read as one program.
  */
-.wpc-sponsor-page .wpcpm-mentor-card {
+.wpc-sponsor-page .wpcpm-mentor-tile {
 	background: var( --wpc-surface );
 	border-color: var( --wpc-line-card );
 	border-radius: var( --wpc-radius-card );
@@ -1204,52 +1204,52 @@
 	transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card:hover {
+.wpc-sponsor-page .wpcpm-mentor-tile:hover {
 	box-shadow: 0 12px 28px rgba( 16, 24, 43, 0.1 );
 	transform: translateY( -3px );
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card__initials {
+.wpc-sponsor-page .wpcpm-mentor-tile__initials {
 	background: var( --wpc-surface-soft );
 	border-color: var( --wpc-line-card );
 	color: var( --wpc-brand );
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card__name {
+.wpc-sponsor-page .wpcpm-mentor-tile__name {
 	font: 700 16px/22px var( --wpc-font );
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card__name a {
+.wpc-sponsor-page .wpcpm-mentor-tile__name a {
 	color: var( --wpc-ink );
 	text-decoration: none;
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card__name a:hover,
-.wpc-sponsor-page .wpcpm-mentor-card__name a:focus {
+.wpc-sponsor-page .wpcpm-mentor-tile__name a:hover,
+.wpc-sponsor-page .wpcpm-mentor-tile__name a:focus {
 	text-decoration: underline;
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card__stats {
+.wpc-sponsor-page .wpcpm-mentor-tile__stats {
 	color: var( --wpc-ink-70 );
 	font: 400 13px/20px var( --wpc-font );
 	opacity: 1;
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card__tag {
+.wpc-sponsor-page .wpcpm-mentor-tile__tag {
 	background: var( --wpc-surface-soft );
 	border-color: var( --wpc-line-soft );
 	color: var( --wpc-ink );
 	font: 500 12px/18px var( --wpc-font );
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card__link a {
+.wpc-sponsor-page .wpcpm-mentor-tile__link a {
 	color: var( --wpc-brand );
 	font: 600 13px/20px var( --wpc-font );
 	text-decoration: none;
 }
 
-.wpc-sponsor-page .wpcpm-mentor-card__link a:hover,
-.wpc-sponsor-page .wpcpm-mentor-card__link a:focus {
+.wpc-sponsor-page .wpcpm-mentor-tile__link a:hover,
+.wpc-sponsor-page .wpcpm-mentor-tile__link a:focus {
 	text-decoration: underline;
 }
 

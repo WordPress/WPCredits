@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.19.3
+Stable tag: 1.19.4
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.19.4 =
+* The Sponsor Dashboard's mentor tiles follow the plugin's new block name (`wpcpm-mentor-tile`, plugin 1.94.5), so the Student Report Card's "My mentor" card is dressed by its own rules alone again.
 
 = 1.19.3 =
 * The Sponsor Dashboard's form controls and the Administrator Dashboard's note fields take the control border (3:1 against the page) instead of the card hairline, the boundary WCAG 1.4.11 asks for. With plugin 1.94.4, which does the same for the Institution Dashboard's forms.
