@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.19.5
+Stable tag: 1.20.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,12 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.20.0 =
+* The type and color review of 5 September 2026, phases two and three. The type scale is complete across the last small rules: nothing on the page is smaller than 12px; chips, counts and eyebrows are 12px or 13px; every control, label, table cell, note and meta line is 14px; intros and empty states are 16px. The calendar's day numbers, the search field, the notes box, the availability editor, the calls list, the triage labels and the mentee table's stacked row labels all take these sizes now.
+* The inks move onto the WordPress.org charcoal scale - ink-70 #40464d, ink-60 #656a71, and ink-50 #979aa1, reserved for icons - and the tints move onto the blueberry scale: brand-tint #eff2ff, brand-border #c7d1ff, and brand-dark #213fd4. The control border stays #8d8d8d. The border tint decorates panels and accents only: outlined buttons and the active filter take the brand color as their border, because the tint is too light to bound a control.
+* Every checkbox and radio label is a 24px target with a 16px glyph inside it, the team tiles and the rating stars excepted, both of which size their own. The report's consent row, whose box sits beside its label rather than inside it, stands 24px too.
+* The Student Report Card's read-only rows and the "Required" mark are styled here too, and the card's last hairline rule is gone. With plugin 1.94.6, which styles the same rows and mark in its own stylesheets.
 
 = 1.19.5 =
 * Student Report Card, My profile and My mentor: the same type fixes as the rest of phase one. The mentor's job line and location, the profile and contact rows and their links are 14px; the Teams eyebrow is 12px in the label gray instead of 10px of light gray capitals, and the team names take the row text size.

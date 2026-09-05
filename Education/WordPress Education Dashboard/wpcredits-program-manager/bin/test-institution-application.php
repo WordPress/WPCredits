@@ -734,6 +734,32 @@ foreach ( $keys as $key ) {
 }
 
 ck( 'all thirteen questions are drawn', $drawn, 13 );
+
+echo "\n-- required fields say so ----------------------------------------------\n";
+
+// Every rendered `required` attribute pairs with exactly one visible mark: both come from the
+// same boolean in render_field(), so a field that is not required prints neither and one that
+// is prints both. The internship checklist is the one exception - it is required by the spec,
+// but a checkbox array has no native `required` that means "at least one", so render_field()
+// never emits the attribute for it; there is nothing here for a label to point at, and it is
+// checked by name below instead of by count.
+ck(
+	'one visible mark for every rendered `required` attribute, ten in all',
+	array( substr_count( $form, ' required="required"' ), substr_count( $form, 'wpcpm-field__required' ) ),
+	array( 10, 10 )
+);
+
+$name_key = WPCPM_Institution_Application::form_key( 'Name' );
+$country_key = WPCPM_Institution_Application::form_key( 'Country' );
+$why_key = WPCPM_Institution_Application::form_key( 'Why are you interested in offering WordPress Credits to your students?' );
+
+ck( 'a required text field\'s label carries the mark', false !== strpos( $form, '<label for="wpcpm-application-' . $name_key . '">Name of your institution <span class="wpcpm-field__required">Required</span></label>' ), true );
+ck( 'so does a required select\'s', false !== strpos( $form, '<label for="wpcpm-application-' . $country_key . '">Country <span class="wpcpm-field__required">Required</span></label>' ), true );
+ck( 'and a required textarea\'s', false !== strpos( $form, '<label for="wpcpm-application-' . $why_key . '">Why are you interested in offering WordPress Credits to your students? <span class="wpcpm-field__required">Required</span></label>' ), true );
+ck( 'the consent label ends with the mark, after the whole sentence', false !== strpos( $form, "students&#039; details with the program under it. <span class=\"wpcpm-field__required\">Required</span></label>" ), true );
+ck( 'an optional textarea carries no mark', false !== strpos( $form, 'please tell us how</label>' ), true );
+ck( 'the internship checklist is required with no native attribute to point at, and carries no mark', false !== strpos( $form, '<span class="wpcpm-field__label">How do your internships or practices typically work?</span>' ), true );
+
 ck( 'the five groups are drawn as fieldsets', substr_count( $form, '<fieldset' ), 5 );
 ck( 'the country select offers the map, with a record ID as the value', false !== strpos( $form, '<option value="recCR000000000001">Costa Rica</option>' ), true );
 ck( 'the U+2019 label survives to the page', false !== strpos( $form, "Anything else you\xE2\x80\x99d like us to know?" ), true );

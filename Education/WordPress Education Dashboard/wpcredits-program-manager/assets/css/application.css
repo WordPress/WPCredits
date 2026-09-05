@@ -101,6 +101,12 @@
 	margin-bottom: 0.3em;
 }
 
+/* "Required" beside a label: the label's voice, not a red asterisk nobody can read. */
+.wpcpm-field__required {
+	font-weight: 400;
+	opacity: 0.72;
+}
+
 .wpcpm-field input[type="text"],
 .wpcpm-field input[type="email"],
 .wpcpm-field input[type="number"],

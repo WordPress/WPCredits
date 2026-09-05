@@ -657,6 +657,16 @@ ck( 'carrying the class the open state hangs off', false !== strpos( $closed, 'w
 ck( 'and it is folded when there is nothing to answer', false !== strpos( $closed, 'wpcpm-import__disclosure" open' ), false );
 ck( 'its summary is the shared one, not a fifth kind of heading', false !== strpos( $closed, 'class="wpcpm-group__summary"' ), true );
 
+echo "\n=== Required fields say so ===\n";
+
+// The form itself is drawn into $closed above: nothing is staged and fresh_world() left no
+// flash, so render() takes the render_form() branch rather than the preview or the outcome.
+ck( 'the start date label carries the mark, and the input keeps the attribute', false !== strpos( $closed, '<label for="wpcpm-import-start">Start date <span class="wpcpm-field__required">Required</span></label><input type="date" id="wpcpm-import-start" name="start" required' ), true );
+// The sentence and the mark share a `<span>` so the flex label sets them as one text run rather
+// than as two columns; asserted here because the wrapper is the whole of that fix.
+ck( 'so does the notified confirmation, right after its sentence and inside its own run', false !== strpos( $closed, 'for the WordPress Credits Program. <span class="wpcpm-field__required">Required</span></span></label>' ), true );
+ck( 'and every other field is left alone: the program picker is not marked', false !== strpos( $closed, '<label for="wpcpm-import-program">Program</label>' ), true );
+
 // A list waiting to be looked at is the page asking the reader for something.
 post_check( batch_fields() );
 $with_batch = draw_section( $HERE );

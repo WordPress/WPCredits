@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.94.5
+Stable tag: 1.94.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.94.6 =
+* Student Report Card: every hint is tied to its control with an id and `aria-describedby`, the team list included. A mentor or a program manager reading a student's card now sees text rows - a label and a value, "Not filled in" for an empty answer, and links that open in a new tab - instead of disabled boxes, with the team tiles kept so the chosen teams still show. The marks stack their label over the box, with the heading above a run of marks stating the scale, "Enter your final grade, 0 to 100"; the card's last hairline divider is gone. The reflection posts are named "Your reflection posts", and on the Developer Track the team and project pair is named "Your contribution team and project". Whoever reads the card gets the line breaks of the final project report back, so a multi-paragraph write-up reads as it was written.
+* Sponsor Dashboard, offers: the codes box and the file field on the offer form each carry their own hint under them, described to a screen reader; the fixed kind's note stays a plain note, not a description; and the Title field says "Required" in its label.
+* Institution Dashboard: required fields on the import form and the application form say "Required" in their labels.
+* The plugin's own stylesheets gain the `.wpcpm-field__required` mark and the `.wpcpm-field--read` rows.
+* With theme 1.20.0, phases two and three of the type and color review of 5 September 2026.
 
 = 1.94.5 =
 * Student Report Card: the "My mentor" card looks as it did before 1.94.1 again. The Sponsor Dashboard's mentor tiles had reused the card's class name, and because every dashboard page loads every dashboard stylesheet, the tile rules reached the student's card. The tiles are their own block now (`wpcpm-mentor-tile`), and only the Sponsor Dashboard shows mentors that way. With theme 1.19.4.

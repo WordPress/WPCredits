@@ -8,7 +8,7 @@
  * columns. Below 900px that line comes back and the columns go away, because at
  * that width one line reads better than four.
  *
- * Inside the card the patterns are wp-admin native - 13px body, sentence case,
+ * Inside the card the patterns are wp-admin native - 14px body, sentence case,
  * 2px radii on controls, flat notices, no shadows.
  */
 
@@ -71,7 +71,7 @@
 
 .wpc-dashboard-page .wpcpm-dashboard,
 .wpc-dashboard-page .wpc-dash__content {
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 }
 
 .wpc-dash__content > * {
@@ -228,7 +228,7 @@
 
 .wpc-triage__item.is-active {
 	background: var( --wpc-brand-tint );
-	box-shadow: inset 0 0 0 1px var( --wpc-brand-border );
+	box-shadow: inset 0 0 0 1px var( --wpc-brand );
 }
 
 .wpc-triage__count {
@@ -251,7 +251,7 @@
 .wpc-triage__label {
 	color: var( --wpc-ink-60 );
 	display: block;
-	font: 12px/16px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	white-space: nowrap;
 }
 
@@ -306,7 +306,7 @@
 	background: none;
 	border: 0;
 	flex: 1;
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	min-width: 0;
 	padding: 1px 0;
 }
@@ -412,14 +412,14 @@
 }
 
 .wpcpm-dashboard__switcher label {
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 }
 
 .wpcpm-dashboard__switcher select {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	min-width: 230px;
 	padding: 6px 8px;
 }
@@ -437,7 +437,7 @@
    scrolling through disappears behind it. */
 .wpc-group {
 	display: flex;
-	font: 500 11px/16px var( --wpc-font );
+	font: 500 12px/18px var( --wpc-font );
 	justify-content: space-between;
 	letter-spacing: .06em;
 	padding: 8px 32px;
@@ -825,7 +825,7 @@
    and clearly the second one. */
 .wpc-dashboard-page .wpcpm-button--secondary {
 	background: none;
-	border-color: var( --wpc-brand-border );
+	border-color: var( --wpc-brand );
 	color: var( --wpc-brand );
 }
 
@@ -1034,7 +1034,7 @@
 }
 
 .wpc-administrator-page .wpcpm-attention__l {
-	font: 600 12px/16px var( --wpc-font );
+	font: 600 13px/18px var( --wpc-font );
 	letter-spacing: 0.04em;
 }
 
@@ -1056,7 +1056,7 @@
 }
 
 .wpc-administrator-page .wpcpm-admin-table th {
-	font: 700 12px/16px var( --wpc-font );
+	font: 700 13px/18px var( --wpc-font );
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 }
@@ -1070,7 +1070,7 @@
 .wpc-administrator-page .wpcpm-request__decide .button,
 .wpc-administrator-page .wpcpm-report-card__generate .button {
 	background: none;
-	border: 1px solid var( --wpc-brand-border );
+	border: 1px solid var( --wpc-brand );
 	border-radius: 8px;
 	color: var( --wpc-brand );
 	cursor: pointer;
@@ -1242,7 +1242,7 @@
 
 .wpc-sponsor-page .wpcpm-mentor-tile__stats {
 	color: var( --wpc-ink-70 );
-	font: 400 13px/20px var( --wpc-font );
+	font: 400 14px/20px var( --wpc-font );
 	opacity: 1;
 }
 
@@ -1255,7 +1255,7 @@
 
 .wpc-sponsor-page .wpcpm-mentor-tile__link a {
 	color: var( --wpc-brand );
-	font: 600 13px/20px var( --wpc-font );
+	font: 600 14px/20px var( --wpc-font );
 	text-decoration: none;
 }
 
@@ -1306,7 +1306,7 @@
 
 .wpc-sponsor-page .wpcpm-sponsor__form input[type="file"]::file-selector-button {
 	background: none;
-	border: 1px solid var( --wpc-brand-border );
+	border: 1px solid var( --wpc-brand );
 	border-radius: var( --wpc-radius-control );
 	color: var( --wpc-brand );
 	cursor: pointer;
@@ -1376,7 +1376,7 @@
 
 .wpc-dashboard-page .wpcpm-tools__sponsor {
 	color: var( --wpc-ink-70 );
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-tools__title {
@@ -1439,7 +1439,7 @@
 .wpc-sponsor-page .wpcpm-offer__primary {
 	border: 1px solid var( --wpc-line );
 	border-radius: 999px;
-	font: 600 11px/18px var( --wpc-font );
+	font: 600 12px/18px var( --wpc-font );
 	letter-spacing: .04em;
 	margin-left: 6px;
 	padding: 0 7px;
@@ -1590,7 +1590,7 @@
 .wpcpm-mentee__name {
 	color: var( --wpc-ink );
 	flex: none;
-	font: 500 13px/20px var( --wpc-font );
+	font: 700 14px/20px var( --wpc-font );
 	margin: 0;
 	min-width: 160px;
 	/* The plugin allows a break anywhere so a long name cannot burst a narrow
@@ -1611,7 +1611,7 @@
 	border: 0;
 	border-radius: var( --wpc-radius-control );
 	flex: none;
-	font: 500 11px/16px var( --wpc-font );
+	font: 500 12px/18px var( --wpc-font );
 	padding: 2px 7px;
 	white-space: nowrap;
 }
@@ -1634,7 +1634,7 @@
 
 .wpcpm-mentee__preview {
 	color: var( --wpc-ink-60 );
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 }
 
 .wpc-row__where {
@@ -1667,7 +1667,7 @@
 	border-radius: var( --wpc-radius-control );
 	box-sizing: border-box;
 	flex: none;
-	font: 500 11px/16px var( --wpc-font );
+	font: 500 12px/18px var( --wpc-font );
 	padding: 2px 7px;
 	text-align: center;
 	width: 88px;
@@ -1695,12 +1695,12 @@
 
 .wpc-row__action {
 	background: var( --wpc-surface );
-	border: 1px solid var( --wpc-brand-border );
+	border: 1px solid var( --wpc-brand );
 	border-radius: var( --wpc-radius-control );
 	color: var( --wpc-brand );
 	cursor: pointer;
 	flex: none;
-	font: 500 12px/18px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 	padding: 5px 10px;
 	text-decoration: none;
 	white-space: nowrap;
@@ -1847,7 +1847,7 @@
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line-card );
 	border-collapse: collapse;
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	width: 100%;
 }
 
@@ -1856,7 +1856,7 @@
    themselves off whichever row happened to be longest. */
 .wpcpm-mentee__table tbody th {
 	width: 170px;
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 	text-align: left;
 	vertical-align: top;
 }
@@ -1911,7 +1911,7 @@
 .wpcpm-notes__title {
 	align-items: baseline;
 	display: flex;
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 	gap: 6px;
 	justify-content: space-between;
 	margin: 0 0 10px;
@@ -1919,12 +1919,12 @@
 
 .wpcpm-notes__count {
 	color: var( --wpc-ink-60 );
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 }
 
 .wpcpm-notes__message {
 	border-radius: var( --wpc-radius-card );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin: 0 0 12px;
 	padding: 12px 14px;
 }
@@ -1941,7 +1941,7 @@
 
 .wpcpm-notes__empty {
 	color: var( --wpc-ink-60 );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin: 0 0 14px;
 }
 
@@ -1976,7 +1976,7 @@
 	color: var( --wpc-ink-60 );
 	display: flex;
 	flex-wrap: wrap;
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	gap: 6px;
 	grid-column: 1;
 	grid-row: 1;
@@ -1990,7 +1990,7 @@
 }
 
 .wpcpm-note__body {
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	grid-column: 1 / -1;
 }
 
@@ -2013,7 +2013,7 @@
 	border: 0;
 	color: var( --wpc-red );
 	cursor: pointer;
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	padding: 0;
 }
 
@@ -2023,7 +2023,7 @@
 
 .wpcpm-notes__label {
 	display: block;
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 	margin-bottom: 6px;
 }
 
@@ -2031,7 +2031,7 @@
 	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
 	box-sizing: border-box;
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	padding: 9px 10px;
 	resize: vertical;
 	width: 100%;
@@ -2108,7 +2108,7 @@
 .wpc-dashboard-page .wpcpm-availability__note,
 .wpc-dashboard-page .wpcpm-availability__state {
 	color: var( --wpc-ink-70 );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	opacity: 1;
 }
 
@@ -2129,7 +2129,7 @@
 	border-left-width: 3px;
 	border-radius: var( --wpc-radius-panel );
 	color: var( --wpc-ink );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin: 0 0 14px;
 	padding: 10px 12px;
 }
@@ -2146,17 +2146,17 @@
 
 .wpc-dashboard-page .wpcpm-call__time {
 	color: var( --wpc-ink );
-	font: 700 13px/20px var( --wpc-font );
+	font: 700 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-call__who {
 	color: var( --wpc-ink );
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-call__topic {
 	color: var( --wpc-ink-70 );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 }
 
 /* Canceling a call is destructive and reads as the notes' delete does - a red
@@ -2165,7 +2165,7 @@
 	background: none;
 	border: 0;
 	color: var( --wpc-red );
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	padding: 0;
 }
 
@@ -2187,12 +2187,12 @@
 
 .wpc-dashboard-page .wpcpm-calendar__month {
 	color: var( --wpc-ink );
-	font: 700 13px/20px var( --wpc-font );
+	font: 700 16px/24px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-calendar__nav {
 	color: var( --wpc-brand );
-	font: 500 12px/18px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 	text-decoration: none;
 }
 
@@ -2209,7 +2209,7 @@
 .wpc-dashboard-page .wpcpm-calendar__day {
 	border-radius: var( --wpc-radius-control );
 	color: var( --wpc-ink-70 );
-	font: 13px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 }
 
 /* A bookable day is the only thing on the grid that looks pressable. */
@@ -2252,18 +2252,18 @@
    ------------------------------------------------------------------------- */
 .wpc-dashboard-page .wpcpm-slots__title {
 	color: var( --wpc-ink );
-	font: 700 13px/20px var( --wpc-font );
+	font: 700 14px/20px var( --wpc-font );
 	margin: 0 0 2px;
 }
 
 .wpc-dashboard-page .wpcpm-slots__label {
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-slots__topic {
 	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	padding: 8px 10px;
 	resize: vertical;
 }
@@ -2284,12 +2284,12 @@
 }
 
 .wpc-dashboard-page .wpcpm-slots__time {
-	font: 700 13px/18px var( --wpc-font );
+	font: 700 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-slots__until {
 	color: var( --wpc-ink-70 );
-	font: 11px/14px var( --wpc-font );
+	font: 12px/16px var( --wpc-font );
 	opacity: 1;
 }
 
@@ -2305,7 +2305,7 @@
 	background: var( --wpc-surface-soft );
 	border: 1px solid var( --wpc-line-card );
 	border-radius: var( --wpc-radius-panel );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin: 0 0 16px;
 	padding: 10px 12px;
 }
@@ -2341,7 +2341,7 @@
 
 .wpc-dashboard-page .wpcpm-slots__busy {
 	color: var( --wpc-ink-70 );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	opacity: 1;
 }
 
@@ -2364,13 +2364,13 @@
 
 .wpc-dashboard-page .wpcpm-availability__copy-label {
 	color: var( --wpc-ink-70 );
-	font: 500 12px/18px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-availability__copy select {
 	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	min-width: 0;
 	padding: 4px 6px;
 }
@@ -2378,13 +2378,13 @@
 /* The button is small here - it is a step in filling the form in, not the form's own
    submit, and the two should not look interchangeable. */
 .wpc-dashboard-page .wpcpm-availability__copy .wpcpm-button {
-	font: 500 12px/18px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 	padding: 4px 10px;
 }
 
 .wpc-dashboard-page .wpcpm-availability__copy-status {
 	color: var( --wpc-ink-70 );
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	opacity: 1;
 }
 
@@ -2406,19 +2406,19 @@
 
 .wpc-dashboard-page .wpcpm-availability__legend {
 	color: var( --wpc-ink-70 );
-	font: 700 11px/16px var( --wpc-font );
+	font: 700 12px/18px var( --wpc-font );
 	letter-spacing: .06em;
 	text-transform: uppercase;
 }
 
 .wpc-dashboard-page .wpcpm-availability__table th {
 	color: var( --wpc-ink );
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 	width: 110px;
 }
 
 .wpc-dashboard-page .wpcpm-availability__field label {
-	font: 500 13px/20px var( --wpc-font );
+	font: 500 14px/20px var( --wpc-font );
 }
 
 /* `min-width: 0` is the operative half. A `<select>` will not shrink below its
@@ -2431,7 +2431,7 @@
 .wpc-dashboard-page .wpcpm-availability__windows input {
 	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	min-width: 0;
 	padding: 5px 8px;
 }
@@ -2590,7 +2590,7 @@
 	background: var( --wpc-surface-soft );
 	border-top: 1px solid var( --wpc-line-soft );
 	color: var( --wpc-ink-70 );
-	font: 13px/20px var( --wpc-font );
+	font: 16px/24px var( --wpc-font );
 	margin: 0;
 	padding: 24px 32px;
 	text-align: center;
@@ -2794,9 +2794,8 @@
 	}
 
 	.wpcpm-mentee__table td::before {
-		color: var( --wpc-ink-50 );
+		color: var( --wpc-ink-60 );
 		content: attr( data-label ) ": ";
-		font-size: 12px;
 	}
 }
 
@@ -2830,7 +2829,7 @@
 
 .wpc-dashboard-page .wpcpm-sessions__places {
 	color: var( --wpc-ink );
-	font: 600 13px/20px var( --wpc-font );
+	font: 600 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-sessions__attendees,
@@ -2846,12 +2845,35 @@
 .wpc-dashboard-page .wpcpm-sessions__note-toggle,
 .wpc-dashboard-page .wpcpm-availability__summary {
 	color: var( --wpc-brand );
-	font: 600 13px/20px var( --wpc-font );
+	font: 600 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-field label {
 	color: var( --wpc-ink-70 );
 	font: 600 14px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-field__required {
+	color: var( --wpc-ink-60 );
+	font: 14px/20px var( --wpc-font );
+	opacity: 1;
+}
+
+/* The read-only card (a mentor's or a manager's view, plugin 1.94.6): label and value as a
+   row, in the profile table's voice. */
+.wpc-dashboard-page .wpcpm-field--read .wpcpm-field__label {
+	color: var( --wpc-ink-70 );
+	font: 600 14px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-field--read .wpcpm-field__value {
+	color: var( --wpc-ink );
+	font: 14px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-field--read .wpcpm-field__value--empty {
+	color: var( --wpc-ink-60 );
+	opacity: 1;
 }
 
 /* The controls follow the availability editor's, so the two forms on this card do not
@@ -2875,12 +2897,12 @@
    availability editor and the session forms rather than looking like a third kind of
    form on the same site.
    ------------------------------------------------------------------------- */
-/* The Save button matches the box beside it: the same 13px/20px and 6px of padding the
+/* The Save button matches the box beside it: the same 14px/20px and 6px of padding the
    controls take, plus a border of its own width, so the two are one row rather than a field
    with something taller stuck to it. */
 .wpc-dashboard-page .wpcpm-hours__entry .wpcpm-button {
 	border-width: 1px;
-	font: 600 13px/20px var( --wpc-font );
+	font: 600 14px/20px var( --wpc-font );
 	padding: 6px 12px;
 }
 
@@ -2904,6 +2926,33 @@
 	padding: 0;
 }
 
+/* A choice is a 24px target (WCAG 2.5.8): the label is the hit area, so it gets the height,
+   and the glyph is 16px rather than the browser's 13. The rating stars and the team tiles are
+   left out: both lay themselves out, and a tile sizes its own box at 1.35em. The flex is block
+   level rather than inline, because the Sponsor Dashboard stacks its choice lists one label to
+   a line and an inline box would run them together. */
+.wpc-dashboard-page label:has( > input[type="checkbox"] ):not( .wpcpm-report__check ):not( .wpcpm-rating__step ),
+.wpc-dashboard-page label:has( > input[type="radio"] ):not( .wpcpm-report__check ):not( .wpcpm-rating__step ) {
+	align-items: center;
+	display: flex;
+	gap: 8px;
+	min-height: 24px;
+	padding: 3px 0;
+}
+
+.wpc-dashboard-page input[type="checkbox"]:not( .wpcpm-rating__step input ):not( .wpcpm-report__check input ),
+.wpc-dashboard-page input[type="radio"]:not( .wpcpm-rating__step input ):not( .wpcpm-report__check input ) {
+	height: 16px;
+	margin: 0;
+	width: 16px;
+}
+
+/* The report's consent row puts the box outside its label, so the rule above never reaches it
+   and the row would stand 20px tall. */
+.wpc-dashboard-page .wpcpm-report__group .wpcpm-field--checkbox {
+	align-items: center;
+	min-height: 24px;
+}
 
 .wpc-dashboard-page .wpcpm-report__error {
 	color: var( --wpc-red, #b32d2e );
@@ -2934,12 +2983,12 @@
    is given the same muted treatment every other field label on this card has. */
 .wpc-dashboard-page .wpcpm-hours__label {
 	color: var( --wpc-ink-70 );
-	font: 600 12px/16px var( --wpc-font );
+	font: 600 14px/20px var( --wpc-font );
 }
 
-/* A team's name is an answer, not a field label: the card's own label treatment - 12px, bold,
-   muted - is for the question above the list, and reads as shouting on two dozen checkboxes.
-   The tile takes the card line and the control radius, like the boxes around it (1.19.1). */
+/* A team's name is an answer, not a field label: the card's own label treatment - 14px, semibold,
+   muted - is for the question above the list, and reads as shouting on two dozen checkboxes. The
+   tile takes the card line and the control radius, like the boxes around it (1.19.1). */
 .wpc-dashboard-page .wpcpm-field .wpcpm-report__check {
 	background: var( --wpc-surface );
 	border-color: var( --wpc-line-card );
@@ -2983,10 +3032,6 @@
 /* The lesson headings inside a group. One step down from the group's own legend - same
    uppercase tracking, a shade lighter - so the order reads group, lesson, field rather than
    three things shouting at the same volume. */
-.wpc-dashboard-page .wpcpm-report__rule {
-	border-top-color: var( --wpc-line-strong );
-}
-
 .wpc-dashboard-page .wpcpm-report__note {
 	color: var( --wpc-ink-60 );
 	font: 14px/20px var( --wpc-font );
@@ -3070,7 +3115,7 @@
 
 .wpc-dashboard-page .wpcpm-updates__date {
 	color: var( --wpc-ink-60 );
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin-top: 2px;
 }
 
@@ -3147,7 +3192,7 @@
 
 .wpc-dashboard-page .wpcpm-feedback__consent {
 	color: var( --wpc-ink );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 }
 
 /* A survey question is read, not scanned like a field label - so it takes the card's body size
@@ -3219,7 +3264,7 @@
 
 .wpc-dashboard-page .wpcpm-rating__end {
 	color: var( --wpc-ink-70 );
-	font: 12px/16px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 }
 
 /* Disabled means a mentor or manager reading somebody else's answers: it should

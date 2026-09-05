@@ -1139,8 +1139,13 @@ class WPCPM_Institution_Application {
 		$name     = self::FIELD_ANSWERS . '[' . $key . ']';
 		$type     = $spec['type'];
 		$required = ! empty( $spec['required'] ) ? ' required="required"' : '';
-		$invalid  = '' !== $problem ? ' aria-invalid="true"' : '';
-		$says     = array();
+		// The label's own mark, printed only where $required is: the internship checklist is
+		// required too, but a checkbox array has no native `required` that means "at least one",
+		// so it is never given this attribute and its label is left to say nothing rather than
+		// point at a control that carries no such thing.
+		$required_mark = '' !== $required ? ' <span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>' : '';
+		$invalid       = '' !== $problem ? ' aria-invalid="true"' : '';
+		$says          = array();
 
 		if ( ! empty( $spec['help'] ) ) {
 			$says[] = $id . '-help';
@@ -1167,12 +1172,13 @@ class WPCPM_Institution_Application {
 
 		if ( 'consent' === $type ) {
 			printf(
-				'<span class="wpcpm-field__consent"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s%4$s /><label for="%1$s">%5$s</label></span>',
+				'<span class="wpcpm-field__consent"><input type="checkbox" id="%1$s" name="%2$s" value="1"%3$s%4$s /><label for="%1$s">%5$s%6$s</label></span>',
 				esc_attr( $id ),
 				esc_attr( $name ),
 				$required, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- A literal above.
 				$describedby, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from the escaped id above.
-				esc_html( $spec['label'] )
+				esc_html( $spec['label'] ),
+				$required_mark // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
 			);
 
 			self::render_policy_line();
@@ -1193,7 +1199,12 @@ class WPCPM_Institution_Application {
 				);
 			}
 		} else {
-			printf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $spec['label'] ) );
+			printf(
+				'<label for="%1$s">%2$s%3$s</label>',
+				esc_attr( $id ),
+				esc_html( $spec['label'] ),
+				$required_mark // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from a literal and esc_html__() above.
+			);
 
 			if ( 'country' === $type ) {
 				printf(

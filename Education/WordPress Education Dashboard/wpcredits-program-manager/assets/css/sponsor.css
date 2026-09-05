@@ -33,7 +33,12 @@
 
 /* The forms. The text controls take the agreement panel's width (.wpcpm-agreement-panel__input). */
 .wpcpm-sponsor__form .wpcpm-sponsor__field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 1em; }
+/* "Required" beside a label: the label's voice, not a red asterisk nobody can read. */
+.wpcpm-sponsor__field .wpcpm-field__required { font-weight: 400; opacity: 0.72; }
 .wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form input[type="number"], .wpcpm-sponsor__form input[type="date"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 32em; width: 100%; }
+/* A hint wraps at its control's own width, not the full card - the codes box and the file field
+   sit side by side (.wpcpm-offer__file), each now with its own note under it (1.94.6). */
+.wpcpm-sponsor__field .wpcpm-student__note { max-width: 32em; margin-top: 0.25em; }
 .wpcpm-sponsor__choices { border: 0; padding: 0; margin: 0 0 1em; }
 .wpcpm-sponsor__choices label { display: block; margin: 0 0 6px; }
 

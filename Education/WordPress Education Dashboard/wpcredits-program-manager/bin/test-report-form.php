@@ -119,6 +119,11 @@ function esc_url_raw( $url, $protocols = null ) {
 	return $url;
 }
 
+// Needed once the Developer Track's checkbox field renders live, in `$edit` below (phase two of
+// the type review, 1.94.6): the consent box still goes through the real `checked()` call.
+function checked( $a, $b = true, $echo = true ) { $r = ( (string) $a === (string) $b ) ? ' checked="checked"' : ''; if ( $echo ) { echo $r; } return $r; }
+function wp_kses_post( $s ) { return $s; }
+
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-settings.php';
 require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
@@ -434,26 +439,56 @@ echo "\n=== Read only ===\n";
  *
  * Asserted on the markup rather than on the flag, because "disabled" that reaches one field type
  * and not another looks read only until somebody types in the box it missed.
+ *
+ * Since 1.94.6 a read-only field is a label-and-value row, not a disabled box: `$read` below has
+ * no `<input>` or `<textarea>` left at all except the team tiles, which stay behind - disabled -
+ * so the chosen teams still show as a group. `body()` renders the Developer Track on purpose: it
+ * is the one track with a checkbox field. The one type it does not reach is the richtext field,
+ * which only the 50h track has, so `body_50h()` renders that track read only as well; between
+ * them the two cover every control type `render_read_only()` has a branch for.
  */
 $record = 'recStudent0000001';
 $sid    = 7;
 
 $GLOBALS['umeta'][ $sid ][ WPCPM_Students_Sync::META_RECORD_ID ] = $record;
 
-// Seeded through the cache `values()` reads first, so nothing here reaches Airtable.
+// Seeded through the cache `values()` reads first, so nothing here reaches Airtable. `Slack Name`
+// and `Personal Website URL` are real Airtable columns - the other two keys here are not, and are
+// never read by any field this form asks for - so those two are the fields below with a value to
+// show rather than "Not filled in", which is what tells the two states apart in the read-only
+// card. `Personal Website URL`'s value is schemeless, the way Airtable actually stores a url
+// column, which is what the read-only card's link branch must add a scheme to before it links out.
 set_transient(
 	'wpcpm_report_' . md5( $record ),
 	array(
-		'Total hours'     => 42,
-		'Personal site'   => 'https://example.test/me',
-		'Contribution to' => array( 'recTeam0000000001' ),
+		'Total hours'          => 42,
+		'Personal Website URL' => 'example.org/me',
+		'Contribution to'      => array( 'recTeam0000000001' ),
+		'Slack Name'           => 'creditsstudent',
+
+		// The 50h track's one richtext field, read by `body_50h()` below. Two lines, because
+		// that column holds what a student typed into a textarea rather than markup: the
+		// paragraphs are newlines, and a reader has to get them back.
+		'Final Contribution Project Report' => "First paragraph.\nSecond paragraph.",
 	)
 );
 
-// One real team, so the checkbox branch renders rather than printing its "run a sync" hint.
+// More teams than the read-only card could show by luck: the twenty-some teams Make WordPress
+// actually has, so counting more than twenty tiles in the read-only view is a real assertion
+// rather than one that would have passed with a single team.
+$fake_teams = array();
+
+foreach ( array(
+	'Documentation', 'Design', 'Marketing', 'Meta', 'Mobile', 'Plugins', 'Polyglots', 'Security',
+	'Support', 'Test', 'Theme Review', 'Themes', 'Training', 'TV', 'Accessibility', 'Community',
+	'Core', 'Hosting', 'Openverse', 'Performance', 'Photos', 'Sustainability', 'CLI', 'Trademark',
+) as $n => $name ) {
+	$fake_teams[ sprintf( 'recTeam%010d', $n + 1 ) ] = $name;
+}
+
 update_option(
 	WPCPM_Mentors_Sync::OPT_LOOKUPS,
-	array( 'v' => WPCPM_Mentors_Sync::LOOKUPS_VERSION, 'teams' => array( 'recTeam0000000001' => 'Documentation' ) )
+	array( 'v' => WPCPM_Mentors_Sync::LOOKUPS_VERSION, 'teams' => $fake_teams )
 );
 
 /**
@@ -476,7 +511,43 @@ function body( $read_only, $manager ) {
 	}
 
 	ob_start();
-	$method->invoke( null, new WP_User( $sid ), array( 'is_50h' => false, 'record_id' => $GLOBALS['rec'] ), $read_only );
+	$method->invoke(
+		null,
+		new WP_User( $sid ),
+		array( 'is_50h' => false, 'record_id' => $GLOBALS['rec'], 'program' => WPCPM_Program::STATUS_DEV ),
+		$read_only
+	);
+
+	return (string) ob_get_clean();
+}
+
+/**
+ * Render the 50h track's report body, read only.
+ *
+ * The track matters because `render_body()` picks its fields from the program row, and the
+ * richtext field - the final project report - is on this track alone.
+ *
+ * @return string
+ */
+function body_50h() {
+	global $sid;
+
+	$GLOBALS['uid']  = 99;      // Somebody other than the student.
+	$GLOBALS['caps'] = true;
+
+	$method = new ReflectionMethod( 'WPCPM_Student_Report_Form', 'render_body' );
+
+	if ( PHP_VERSION_ID < 80100 ) {
+		$method->setAccessible( true );
+	}
+
+	ob_start();
+	$method->invoke(
+		null,
+		new WP_User( $sid ),
+		array( 'is_50h' => true, 'record_id' => $GLOBALS['rec'], 'program' => WPCPM_Program::STATUS_50H ),
+		true
+	);
 
 	return (string) ob_get_clean();
 }
@@ -491,16 +562,38 @@ ck( 'no save button',                          false !== strpos( $read, 'Save my
 ck( 'no nonce to post with',                   false !== strpos( $read, 'name="_wpnonce"' ), false );
 
 // Counted rather than searched: one enabled box among twenty disabled ones is the failure worth
-// catching, and "contains disabled" would pass with nineteen.
+// catching, and "contains disabled" would pass with nineteen. Since 1.94.6 the count itself is
+// smaller than it once was: a reader gets a row, not a disabled box, so the only `<input>` or
+// `<textarea>` left in a read-only card belongs to the team tiles.
 preg_match_all( '/<(input|textarea)\b[^>]*/', $read, $m );
 
 $controls = $m[0];
 $enabled  = array_values( array_filter( $controls, function ( $tag ) { return false === strpos( $tag, 'disabled' ); } ) );
 
-ck( 'the fields did render',            count( $controls ) > 10, true );
-ck( 'every control is disabled',        $enabled, array() );
+ck( 'the fields render as read-only rows, not as disabled boxes',
+    substr_count( $read, 'class="wpcpm-field wpcpm-field--read' ) > 10, true );
+ck( 'and the only controls left are team checkboxes, every one disabled',
+    array( count( preg_grep( '/type="checkbox"/', $controls ) ) === count( $controls ), $enabled ),
+    array( true, array() ) );
 ck( 'the team checkboxes are among them', count( preg_grep( '/type="checkbox"/', $controls ) ) > 0, true );
 ck( 'it says why it cannot be edited',  false !== strpos( $read, 'not editable' ), true );
+
+// A mentor or a manager reads the card; they do not fill it in. Disabled boxes made the card
+// read as broken and dropped its contrast; text rows are what a reader needs.
+ck( 'the read-only card has no text boxes', array( strpos( $read, '<textarea' ), strpos( $read, 'inputmode="url"' ), strpos( $read, 'type="number"' ) ), array( false, false, false ) );
+ck( 'and prints the label and the value as a row', preg_match( '/<p class="wpcpm-field wpcpm-field--read wpcpm-field--text" id="[^"]+"><span class="wpcpm-field__label">Your Slack name<\/span><span class="wpcpm-field__value">/', $read ) === 1, true );
+ck( 'an empty answer says so', false !== strpos( $read, '<span class="wpcpm-field__value wpcpm-field__value--empty">Not filled in</span>' ), true );
+ck( 'the team tiles stay, disabled, so the chosen teams still show', substr_count( $read, 'class="wpcpm-report__check"' ) > 20 && false !== strpos( $read, 'disabled="disabled"' ), true );
+ck( 'the consent answer is a word', preg_match( '/mentoring future WordPress Credits students\.<\/span><span class="wpcpm-field__value">(Yes|No)<\/span>/', $read ) === 1, true );
+
+// The 50h track's final project report is the form's one richtext field, and it is stored as the
+// student typed it: line breaks, not markup. `wp_kses_post()` alone kept the tags a rich value
+// might carry and threw the breaks away, so a mentor read a multi-paragraph report as one block.
+$read_50h = body_50h();
+
+ck( 'the 50h card asks for the final project report', false !== strpos( $read_50h, 'Your final project report' ), true );
+ck( 'and a two-paragraph report keeps its break when it is read',
+    false !== strpos( $read_50h, "First paragraph.<br />\nSecond paragraph." ), true );
 
 // The other half of the same rule: forcing read only must not have disabled the form for the
 // people who are meant to fill it in.
@@ -646,14 +739,23 @@ ck( 'and the 150-hour form still asks it where it always did',
     ),
     array( true, false ) );
 
-// A rule where the next lesson starts. Only on this track: on the others the team list is the
-// first thing in the section, and a rule directly under the legend divides nothing.
-ck( 'a rule opens the team lesson on the developer track only',
+// The divider mechanism itself went with Task 8, but on this track the pair still follows the
+// Practical lesson rather than sitting under the section legend, so it carries a `lead` of its
+// own now, where a `divider` used to open it; the other tracks do not.
+ck( 'the team pair is named on the developer track, where the divider used to open it',
     array(
-        ! empty( $dev['Main Contribution Team']['divider'] ),
-        ! empty( $one['Main Contribution Team']['divider'] ),
+        $dev['Main Contribution Team']['lead'],
+        isset( $one['Main Contribution Team']['lead'] ),
     ),
-    array( true, false ) );
+    array( 'Your contribution team and project', false ) );
+
+$lead_team = strpos( $edit, '<h4 class="wpcpm-report__lead">Your contribution team and project</h4>' );
+
+// Printed in place, not merely present in the spec: the heading has to open between the practical
+// lesson above it and the team list's own label, the same position the divider rule used to hold.
+ck( 'and it prints between the practical lesson and the team list it names',
+    false !== $lead_team && $lead_team > strpos( $edit, 'Patch testing' ) && $lead_team < strpos( $edit, 'Main contribution team' ),
+    true );
 
 ck( 'the second project summary follows the first',
     $at( $dev, 'Optional: Additional Contribution Project Summary' ) === $at( $dev, 'Contribution Project Summary' ) + 1, true );
@@ -806,8 +908,48 @@ $lead_b = strpos( $edit, '<h4 class="wpcpm-report__lead">Optional courses</h4>' 
 ck( 'the condition on the user-level marks is a heading printed before the first of them', false !== $lead_a && $lead_a < strpos( $edit, 'Beginner WordPress User' ) && $lead_a > strpos( $edit, 'Basic principles of conflict resolution' ), true );
 ck( 'and the optional courses are named before their first mark', false !== $lead_b && $lead_b < strpos( $edit, 'Beginner WordPress Developer' ) && $lead_b > $lead_a, true );
 ck( 'no note trails a run any more', strpos( $edit, 'wpcpm-report__note' ), false );
-ck( 'lesson sub-headings are headings', array( false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Enter your final grade</h4>' ), strpos( $edit, '<p class="wpcpm-report__sub"' ) ), array( true, false ) );
+ck( 'lesson sub-headings are headings', array( false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Enter your final grade, 0 to 100</h4>' ), strpos( $edit, '<p class="wpcpm-report__sub"' ) ), array( true, false ) );
+ck( 'the marks say their scale once, in the heading over them', false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Enter your final grade, 0 to 100</h4>' ), true );
 ck( 'the read-only card has the same headings', false !== strpos( $read, '<h4 class="wpcpm-report__lead">Optional courses</h4>' ), true );
+
+// The last hairline becomes a heading (Task 8): the one run that still opened with a bare rule
+// now names itself, like every other run on the card.
+ck( 'the reflection posts are named, and no hairline is left', array( false !== strpos( $edit, '<h4 class="wpcpm-report__lead">Your reflection posts</h4>' ), strpos( $edit, 'wpcpm-report__rule' ) ), array( true, false ) );
+
+echo "\n=== Every hint is tied to its control ===\n";
+
+// Phase two of the type review: a hint is a description of its control for a screen reader too.
+preg_match_all( '/<span class="wpcpm-field__hint" id="([^"]+)-hint">/', $edit, $hint_ids );
+preg_match_all( '/aria-describedby="([^"]+)-hint"/', $edit, $described );
+$hint_list      = $hint_ids[1];
+$described_list = $described[1];
+sort( $hint_list );
+sort( $described_list );
+
+// `$edit` skips the `hours` group - `render_body()` leaves it to `render_hours()` - so of the
+// fields with `help` on the Developer Track, several render here: WordPress Profile, Slack Name,
+// Main Contribution Team, the meetings/discussions field and the developer-only fields with their
+// own hints. The floor below is a sanity check against the regexes matching nothing, not an exact
+// count another task is free to change.
+ck( 'every hint has an id, and every id is a control the form describes', array( count( $hint_list ) > 3, $hint_list === $described_list ), array( true, true ) );
+
+// `self::key( 'WordPress Profile' )` and `self::key( 'Main Contribution Team' )`: `key()` hashes
+// the Airtable field name, so these are not readable slugs, and were confirmed by printing
+// `array_keys( WPCPM_Student_Report_Form::fields( '150h' ) )` through `key()` once.
+ck( 'the WordPress profile field points at its own hint', false !== strpos( $edit, 'id="wpcpm-report-f530f19efdee8" name="report[f530f19efdee8]"' ) && preg_match( '/id="wpcpm-report-f530f19efdee8"[^>]*aria-describedby="wpcpm-report-f530f19efdee8-hint"/', $edit ) === 1, true );
+ck( 'the team list is described by its hint as a group', preg_match( '/<fieldset class="wpcpm-report__teams" aria-describedby="wpcpm-report-f6235011762aa-hint">/', $edit ) === 1, true );
+
+// "Open source basics and WordPress - final grade" carries no `help`: there is no Tutor field
+// on this form, so this is the stand-in the brief asked for when that one is not present.
+ck( 'a field without help has no describedby', preg_match( '/id="wpcpm-report-fde56a8201fd1"[^>]*aria-describedby/', $edit ) === 0, true );
+
+echo "\n=== A read-only URL links out with a scheme ===\n";
+
+// Airtable's url columns hold schemeless addresses ("example.org/me"), and `esc_url()` alone
+// leaves such a value relative - a broken link that stays inside this site instead of leaving it.
+// `Personal Website URL` above is seeded with exactly that shape, so this proves the read-only
+// card's link branch runs it through `WPCPM_Field_Value::clean_url()` first.
+ck( 'a schemeless address stored by Airtable links out with a scheme, and shows as it was typed', preg_match( '#<span class="wpcpm-field__value"><a href="https://example\.org/me" target="_blank" rel="noopener noreferrer">example\.org/me</a></span>#', $read ) === 1, true );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

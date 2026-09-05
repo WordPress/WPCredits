@@ -791,6 +791,25 @@
 	opacity: 0.72;
 }
 
+/* A read-only field is a row: the label in the label's voice, the value under it, the
+   full column width for a long answer. */
+.wpcpm-field--read .wpcpm-field__label {
+	display: block;
+	font-size: 0.875em;
+	font-weight: 600;
+	margin-bottom: 0.2em;
+}
+
+.wpcpm-field--read .wpcpm-field__value {
+	display: block;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-field--read .wpcpm-field__value--empty {
+	font-style: italic;
+	opacity: 0.72;
+}
+
 .wpcpm-sessions__note textarea {
 	box-sizing: border-box;
 	margin-top: 0.4em;
@@ -857,35 +876,32 @@
 }
 
 /* Numbers are short; several to a row on a wide card reads as a mark sheet rather than as a
-   column of unrelated questions. The columns are wider than the boxes because the question is
-   beside the box now, not above it - a mark sheet is a list of names with a number against
-   each, and a two-character answer under a three-line label was mostly label. */
+   column of unrelated questions. The question sits over its box (1.94.6), and the columns stay
+   at 19em so that a long course name has a line to itself rather than three. The row aligns to
+   its end so a mark whose name wraps to two lines keeps its box level with its neighbors'. */
 .wpcpm-report__group--onboarding,
 .wpcpm-report__group--hours {
+	align-items: end;
 	grid-template-columns: repeat( auto-fit, minmax( 19em, 1fr ) );
 }
 
-/* Every number box the same width, and narrow: the widest answer any of them takes is three
-   digits. The question takes the room left over. */
+/* A mark is read like every other field: the course name over the box, not beside it. Four
+   pairs to a row read as a zigzag, the label of one mark sitting against the box of the
+   previous one (the type review of 5 September 2026, phase two). */
 .wpcpm-report__group .wpcpm-field--number {
-	align-items: center;
-	display: flex;
-	gap: 0.75em;
-	justify-content: space-between;
-	/* Capped, so a box in a wide column stays near the question it answers. Without it the
-	   three user levels sat a third of a card away from their own labels. */
-	max-width: 24em;
+	display: block;
 }
 
 .wpcpm-report__group .wpcpm-field--number label {
-	margin-bottom: 0;
+	display: block;
+	margin-bottom: 0.2em;
 }
 
 .wpcpm-report__group .wpcpm-field--number input {
 	appearance: textfield;
-	flex: none;
 	-moz-appearance: textfield;
-	width: 4em;
+	text-align: left;
+	width: 5.5em;
 }
 
 .wpcpm-report__group .wpcpm-field--number input::-webkit-outer-spin-button,
@@ -996,15 +1012,6 @@
    Three things say "heading" together: the rule that opens the section, the uppercase tracking
    the card uses for every other heading, and the space - generous above it, tight below, so it
    sits with what it introduces rather than floating between two groups of fields. */
-/* A section that starts with a rule and no heading. Same line, same space above it - the two
-   have to be one thing, or a form of them reads as two kinds of divider. */
-.wpcpm-report__rule {
-	border-top: 1px solid rgba( 0, 0, 0, 0.12 );
-	grid-column: 1 / -1;
-	margin: 1em 0 0;
-	padding-top: 0.9em;
-}
-
 /* A condition on the answers above it - "complete one of the following" - set as the field
    hints are, because that is what it is: a note about how to fill something in. */
 .wpcpm-report__note {
@@ -1050,8 +1057,7 @@
 /* The first row under a heading sits close to it. Everything in this grid has a row gap; this
    takes it back for the one row that should read as attached. */
 .wpcpm-report__sub + *,
-.wpcpm-report__lead + *,
-.wpcpm-report__rule + * {
+.wpcpm-report__lead + * {
 	margin-top: -0.35em;
 }
 

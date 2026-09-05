@@ -197,9 +197,10 @@ final class WPCPM_Institution_Import_Form {
 		echo '</select></p>';
 
 		printf(
-			'<p class="wpcpm-field"><label for="wpcpm-import-start">%1$s</label><input type="date" id="wpcpm-import-start" name="start" required /><span class="wpcpm-field__hint">%2$s</span></p>',
+			'<p class="wpcpm-field"><label for="wpcpm-import-start">%1$s <span class="wpcpm-field__required">%3$s</span></label><input type="date" id="wpcpm-import-start" name="start" required /><span class="wpcpm-field__hint">%2$s</span></p>',
 			esc_html__( 'Start date', 'wpcredits-program-manager' ),
-			esc_html__( 'The term these students begin. A date more than a year either side of today is refused as a typo.', 'wpcredits-program-manager' )
+			esc_html__( 'The term these students begin. A date more than a year either side of today is refused as a typo.', 'wpcredits-program-manager' ),
+			esc_html__( 'Required', 'wpcredits-program-manager' )
 		);
 
 		printf(
@@ -217,9 +218,13 @@ final class WPCPM_Institution_Import_Form {
 		// shared at this point because there is none to share: getting one is the student's own
 		// first step after enrolment, so a school confirming it had been notified about would
 		// be confirming something that has not happened.
+		// The sentence and its mark share one `<span>`: the label is a flex row (institution.css),
+		// where a bare text node and the mark beside it are two items with a gap between them, so
+		// "Required" was set as a third column instead of ending the sentence.
 		printf(
-			'<p class="wpcpm-field wpcpm-field--check"><label><input type="checkbox" name="notified" value="1" required /> %s</label></p>',
-			esc_html__( 'These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program.', 'wpcredits-program-manager' )
+			'<p class="wpcpm-field wpcpm-field--check"><label><input type="checkbox" name="notified" value="1" required /> <span>%1$s <span class="wpcpm-field__required">%2$s</span></span></label></p>',
+			esc_html__( 'These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program.', 'wpcredits-program-manager' ),
+			esc_html__( 'Required', 'wpcredits-program-manager' )
 		);
 
 		echo '</div>';

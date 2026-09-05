@@ -1356,16 +1356,27 @@ final class WPCPM_Sponsor_Offers {
 		$is_new = null === $offer;
 		$offer  = $is_new ? self::empty_offer() : $offer;
 		$id     = $is_new ? 'new' : (string) $offer['id'];
-		$field  = static function ( $key, $label, $control ) use ( $id ) {
-			printf( '<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-%2$s">%3$s</label>%4$s</p>', esc_attr( $id ), esc_attr( $key ), esc_html( $label ), $control ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $control is built below with every value escaped.
+		$field = static function ( $key, $label, $control, $required = false ) use ( $id ) {
+			printf(
+				'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-%2$s">%3$s%4$s</label>%5$s</p>',
+				esc_attr( $id ),
+				esc_attr( $key ),
+				esc_html( $label ),
+				$required ? ' <span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>' : '',
+				$control // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped by the caller.
+			);
 		};
 
-		$field( 'title', __( 'Title', 'wpcredits-program-manager' ), sprintf( '<input type="text" id="wpcpm-offer-%1$s-title" name="wpcpm_title" value="%2$s" maxlength="%3$d" required />', esc_attr( $id ), esc_attr( $offer['title'] ), (int) self::MAX_TITLE ) );
+		$field( 'title', __( 'Title', 'wpcredits-program-manager' ), sprintf( '<input type="text" id="wpcpm-offer-%1$s-title" name="wpcpm_title" value="%2$s" maxlength="%3$d" required />', esc_attr( $id ), esc_attr( $offer['title'] ), (int) self::MAX_TITLE ), true );
 		$field( 'text', __( 'What you get, in a sentence or two', 'wpcredits-program-manager' ), sprintf( '<textarea id="wpcpm-offer-%1$s-text" name="wpcpm_text" rows="2" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) self::MAX_OFFER, esc_textarea( $offer['text'] ) ) );
 		$field( 'instructions', __( 'How to redeem it', 'wpcredits-program-manager' ), sprintf( '<textarea id="wpcpm-offer-%1$s-instructions" name="wpcpm_instructions" rows="4" maxlength="%2$d">%3$s</textarea>', esc_attr( $id ), (int) self::MAX_TEXT, esc_textarea( $offer['instructions'] ) ) );
 		$field( 'url', __( 'Link with more information, or where to redeem', 'wpcredits-program-manager' ), sprintf( '<input type="url" id="wpcpm-offer-%1$s-url" name="wpcpm_url" value="%2$s" maxlength="%3$d" />', esc_attr( $id ), esc_attr( $offer['url'] ), (int) WPCPM_Sponsor_Codes::LINE_MAX ) );
 
 		if ( $fixed ) {
+			// The kind shown here is a static value, not a control, so the note stays a plain
+			// aside rather than an aria-describedby pairing (that pattern is for a control the
+			// note describes; a <strong> has nothing for a screen reader to attach it to, and the
+			// note is already read right after it).
 			printf(
 				'<p class="wpcpm-sponsor__field wpcpm-offer__kind-fixed"><span>%1$s</span> <strong>%2$s</strong> <span class="wpcpm-student__note">%3$s</span></p>',
 				esc_html__( 'Kind', 'wpcredits-program-manager' ),
@@ -1484,23 +1495,24 @@ final class WPCPM_Sponsor_Offers {
 	 */
 	private static function render_codes_box( $id, $label ) {
 		printf(
-			'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-codes">%2$s</label><textarea id="wpcpm-offer-%1$s-codes" name="wpcpm_codes" rows="6" placeholder="%3$s"></textarea></p>',
+			'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-codes">%2$s</label><textarea id="wpcpm-offer-%1$s-codes" name="wpcpm_codes" rows="6" placeholder="%3$s" aria-describedby="wpcpm-offer-%1$s-codes-hint"></textarea><span class="wpcpm-student__note" id="wpcpm-offer-%1$s-codes-hint">%4$s</span></p>',
 			esc_attr( $id ),
 			esc_html( $label ),
-			esc_attr__( 'Paste codes here, one per line', 'wpcredits-program-manager' )
-		);
-		printf(
-			'<p class="wpcpm-sponsor__field wpcpm-offer__file"><label for="wpcpm-offer-%1$s-codes-file">%2$s</label><input type="file" id="wpcpm-offer-%1$s-codes-file" name="wpcpm_codes_file" accept=".txt,.csv,text/plain,text/csv" /><span class="wpcpm-student__note">%3$s</span></p>',
-			esc_attr( $id ),
-			esc_html__( 'Or upload a .txt or .csv file', 'wpcredits-program-manager' ),
+			esc_attr__( 'Paste codes here, one per line', 'wpcredits-program-manager' ),
 			esc_html(
 				sprintf(
 					/* translators: 1: the longest line allowed, 2: the most codes an offer holds. */
-					__( 'One code per line, or a CSV with the code in the first column and no header row. A code can be a whole checkout link. Up to %1$d characters a line and %2$d codes an offer. Codes are stored encrypted and shown only to the person who claims one.', 'wpcredits-program-manager' ),
+					__( 'One code per line, or a CSV with the code in the first column and no header row. A code can be a whole checkout link. Up to %1$d characters a line and %2$d codes an offer.', 'wpcredits-program-manager' ),
 					WPCPM_Sponsor_Codes::LINE_MAX,
 					WPCPM_Sponsor_Codes::CODES_MAX
 				)
 			)
+		);
+		printf(
+			'<p class="wpcpm-sponsor__field wpcpm-offer__file"><label for="wpcpm-offer-%1$s-codes-file">%2$s</label><input type="file" id="wpcpm-offer-%1$s-codes-file" name="wpcpm_codes_file" accept=".txt,.csv,text/plain,text/csv" aria-describedby="wpcpm-offer-%1$s-codes-file-hint" /><span class="wpcpm-student__note" id="wpcpm-offer-%1$s-codes-file-hint">%3$s</span></p>',
+			esc_attr( $id ),
+			esc_html__( 'Or upload a .txt or .csv file', 'wpcredits-program-manager' ),
+			esc_html__( 'A .txt or .csv file, up to a megabyte. Codes are stored encrypted and shown only to the person who claims one.', 'wpcredits-program-manager' )
 		);
 	}
 

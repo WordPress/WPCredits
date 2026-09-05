@@ -23,17 +23,17 @@
 				},
 				{
 					"slug": "brand-dark",
-					"color": "#2e49d9",
+					"color": "#213fd4",
 					"name": "WordPress blue, pressed"
 				},
 				{
 					"slug": "brand-tint",
-					"color": "#ecf0fa",
+					"color": "#eff2ff",
 					"name": "Pale indigo"
 				},
 				{
 					"slug": "brand-border",
-					"color": "#a3b1d4",
+					"color": "#c7d1ff",
 					"name": "Indigo rule"
 				},
 				{
@@ -43,18 +43,18 @@
 				},
 				{
 					"slug": "ink-70",
-					"color": "#4a4a4a",
+					"color": "#40464d",
 					"name": "Ink, secondary"
 				},
 				{
 					"slug": "ink-60",
-					"color": "#757575",
+					"color": "#656a71",
 					"name": "Muted text"
 				},
 				{
 					"slug": "ink-50",
-					"color": "#8d8d8d",
-					"name": "Placeholder text"
+					"color": "#979aa1",
+					"name": "Icon gray"
 				},
 				{
 					"slug": "line",

@@ -138,7 +138,7 @@ class WPCPM_Student_Report_Form {
 		$common_grades = array(
 			'Open source basics and WordPress - final grade' => array(
 				'label'    => __( 'Open source basics and WordPress', 'wpcredits-program-manager' ),
-				'subgroup' => __( 'Enter your final grade', 'wpcredits-program-manager' ),
+				'subgroup' => __( 'Enter your final grade, 0 to 100', 'wpcredits-program-manager' ),
 			) + $grade,
 			'How decisions are made in the WordPress project - final grade' => array( 'label' => __( 'How decisions are made in the WordPress project', 'wpcredits-program-manager' ) ) + $grade,
 		);
@@ -363,7 +363,7 @@ class WPCPM_Student_Report_Form {
 					'row'   => 'project',
 					'stack' => true,
 				) + $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' ),
-				'Post Reflection: Your First Contribution' => array( 'divider' => true )
+				'Post Reflection: Your First Contribution' => array( 'lead' => __( 'Your reflection posts', 'wpcredits-program-manager' ) )
 					+ $in( $posts['Post Reflection: Your First Contribution'], 'project' ),
 				'Post Reflection: Halfway Check-In'        => $in( $posts['Post Reflection: Halfway Check-In'], 'project' ),
 				'WP event participation URL'               => array(
@@ -413,10 +413,9 @@ class WPCPM_Student_Report_Form {
 					array( $meetings => $moved ) + $dev_alumni
 				);
 
-				// A rule above the team list, where the next lesson starts. The heading over patch
-				// testing draws its own, but that one sits directly under the section's legend and
-				// rules nothing off - see the stylesheet, which hides it there.
-				$fields['Main Contribution Team']['divider'] = true;
+				// On this track the pair follows the Practical lesson rather than sitting under
+				// the section legend, so it needs a heading of its own; the other tracks do not.
+				$fields['Main Contribution Team']['lead'] = __( 'Your contribution team and project', 'wpcredits-program-manager' );
 			}
 		}
 
@@ -757,22 +756,6 @@ class WPCPM_Student_Report_Form {
 					printf( '<h4 class="wpcpm-report__lead">%s</h4>', esc_html( $spec['lead'] ) );
 				}
 
-				// A rule with no heading over it: a run of fields that starts a section of its own
-				// but needs no naming, because its own labels already say what it is.
-				if ( ! empty( $spec['divider'] ) ) {
-					if ( '' !== $row ) {
-						if ( $stacked ) {
-							echo '</div>';
-							$stacked = false;
-						}
-
-						echo '</div>';
-						$row = '';
-					}
-
-					echo '<p class="wpcpm-report__rule" aria-hidden="true"></p>';
-				}
-
 				$wants = isset( $spec['row'] ) ? (string) $spec['row'] : '';
 
 				if ( $wants !== $row ) {
@@ -1062,6 +1045,10 @@ class WPCPM_Student_Report_Form {
 		$value = isset( $values['Hours'] ) ? $values['Hours'] : '';
 		$id    = 'wpcpm-report-' . self::key( 'Hours' );
 
+		// Same id scheme as render_field(), so a screen reader hears this box described the same
+		// way as every other control on the card (phase two of the type review, 1.94.6).
+		$hint_id = $id . '-hint';
+
 		printf(
 			'<label class="wpcpm-hours__label" for="%1$s">%2$s</label>',
 			esc_attr( $id ),
@@ -1071,14 +1058,15 @@ class WPCPM_Student_Report_Form {
 		echo '<span class="wpcpm-hours__entry">';
 
 		printf(
-			'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="numeric"%7$s />',
+			'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="numeric"%7$s%8$s />',
 			esc_attr( $id ),
 			esc_attr( self::key( 'Hours' ) ),
 			esc_attr( is_scalar( $value ) ? (string) $value : '' ),
 			esc_attr( isset( $spec['step'] ) ? $spec['step'] : 'any' ),
 			esc_attr( isset( $spec['min'] ) ? (string) $spec['min'] : '' ),
 			esc_attr( isset( $spec['max'] ) ? (string) $spec['max'] : '' ),
-			$can ? '' : ' disabled="disabled"'
+			$can ? '' : ' disabled="disabled"',
+			empty( $spec['help'] ) ? '' : ' aria-describedby="' . esc_attr( $hint_id ) . '"'
 		);
 
 		if ( $can ) {
@@ -1091,7 +1079,7 @@ class WPCPM_Student_Report_Form {
 		echo '</span>';
 
 		if ( ! empty( $spec['help'] ) ) {
-			printf( '<span class="wpcpm-field__hint">%s</span>', esc_html( $spec['help'] ) );
+			printf( '<span class="wpcpm-field__hint" id="%1$s">%2$s</span>', esc_attr( $hint_id ), esc_html( $spec['help'] ) );
 		}
 
 		echo '</form>';
@@ -1111,6 +1099,22 @@ class WPCPM_Student_Report_Form {
 		$type = isset( $spec['type'] ) ? $spec['type'] : 'text';
 		$dis  = $can ? '' : ' disabled="disabled"';
 
+		// A hint is a description of its control, for a screen reader as for the eye: the span
+		// gets an id and the control names it. One id scheme for the whole form, so a test can
+		// pair every hint with its control (phase two of the type review, 1.94.6).
+		$hint_id   = $id . '-hint';
+		$described = empty( $spec['help'] ) ? '' : ' aria-describedby="' . esc_attr( $hint_id ) . '"';
+
+		// A reader, not a writer: a mentor or a manager reading somebody else's card never fills
+		// it in, and a disabled box said "something is wrong here" while lowering the contrast of
+		// what it holds. The team list is the one exception - its tiles stay so the chosen teams
+		// still show as a group - which is why it is excluded here rather than inside
+		// `render_read_only()` itself.
+		if ( ! $can && 'team' !== $type ) {
+			self::render_read_only( $id, $spec, $value, $type );
+			return;
+		}
+
 		// A `<div>` for the checkbox list, a `<p>` for everything else. **A `<p>` cannot contain a
 		// `<fieldset>`**: the parser closes the paragraph the moment one opens, so the list and the
 		// hint after it became siblings of the field rather than its children - and, in a grid,
@@ -1129,16 +1133,17 @@ class WPCPM_Student_Report_Form {
 			// without this a student could tick the box once and never take it back. It is a
 			// consent checkbox, so that is the one direction that must work.
 			printf(
-				'<p class="wpcpm-field wpcpm-field--checkbox"><input type="hidden" name="report[%2$s]" value="0" /><input type="checkbox" id="%1$s" name="report[%2$s]" value="1"%3$s%4$s /><label for="%1$s">%5$s</label>',
+				'<p class="wpcpm-field wpcpm-field--checkbox"><input type="hidden" name="report[%2$s]" value="0" /><input type="checkbox" id="%1$s" name="report[%2$s]" value="1"%3$s%4$s%6$s /><label for="%1$s">%5$s</label>',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				checked( self::is_ticked( $value ), true, false ),
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
-				esc_html( $spec['label'] )
+				esc_html( $spec['label'] ),
+				$described // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
 			);
 
 			if ( ! empty( $spec['help'] ) ) {
-				printf( '<span class="wpcpm-field__hint">%s</span>', esc_html( $spec['help'] ) );
+				printf( '<span class="wpcpm-field__hint" id="%1$s">%2$s</span>', esc_attr( $hint_id ), esc_html( $spec['help'] ) );
 			}
 
 			echo '</p>';
@@ -1159,32 +1164,35 @@ class WPCPM_Student_Report_Form {
 			self::render_teams( $key, $value, $can, $spec );
 		} elseif ( 'number' === $type ) {
 			printf(
-				'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="decimal"%7$s />',
+				'<input type="number" id="%1$s" name="report[%2$s]" value="%3$s" step="%4$s" min="%5$s" max="%6$s" inputmode="decimal"%7$s%8$s />',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				esc_attr( is_scalar( $value ) ? (string) $value : '' ),
 				esc_attr( isset( $spec['step'] ) ? $spec['step'] : 'any' ),
 				esc_attr( isset( $spec['min'] ) ? (string) $spec['min'] : '' ),
 				esc_attr( isset( $spec['max'] ) ? (string) $spec['max'] : '' ),
-				$dis // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				$described // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
 			);
 		} elseif ( 'textarea' === $type || 'richtext' === $type ) {
 			printf(
-				'<textarea id="%1$s" name="report[%2$s]" rows="%3$d" maxlength="%4$d"%5$s>%6$s</textarea>',
+				'<textarea id="%1$s" name="report[%2$s]" rows="%3$d" maxlength="%4$d"%5$s%7$s>%6$s</textarea>',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				'richtext' === $type ? 8 : 4,
 				(int) self::MAX_TEXT,
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
-				esc_textarea( is_scalar( $value ) ? (string) $value : '' )
+				esc_textarea( is_scalar( $value ) ? (string) $value : '' ),
+				$described // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
 			);
 		} elseif ( 'email' === $type ) {
 			printf(
-				'<input type="email" id="%1$s" name="report[%2$s]" value="%3$s" inputmode="email" autocomplete="email"%4$s />',
+				'<input type="email" id="%1$s" name="report[%2$s]" value="%3$s" inputmode="email" autocomplete="email"%4$s%5$s />',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				esc_attr( is_scalar( $value ) ? (string) $value : '' ),
-				$dis // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				$described // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
 			);
 		} else {
 			// `type="text"` even for the URLs, for the reason the profile editor gives: `type="url"`
@@ -1192,19 +1200,63 @@ class WPCPM_Student_Report_Form {
 			// browser would block the save with a message a student cannot act on.
 			// `WPCPM_Field_Value::clean_url()` adds the scheme instead.
 			printf(
-				'<input type="text" id="%1$s" name="report[%2$s]" value="%3$s" inputmode="url"%4$s />',
+				'<input type="text" id="%1$s" name="report[%2$s]" value="%3$s" inputmode="url"%4$s%5$s />',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				esc_attr( is_scalar( $value ) ? (string) $value : '' ),
-				$dis // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
+				$described // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
 			);
 		}
 
 		if ( ! empty( $spec['help'] ) ) {
-			printf( '<span class="wpcpm-field__hint">%s</span>', esc_html( $spec['help'] ) );
+			printf( '<span class="wpcpm-field__hint" id="%1$s">%2$s</span>', esc_attr( $hint_id ), esc_html( $spec['help'] ) );
 		}
 
 		printf( '</%s>', esc_attr( $wrapper ) );
+	}
+
+	/**
+	 * A field for a reader, not a writer: the label and the value as a row.
+	 *
+	 * A mentor or a manager reads the card and never fills it in, and a disabled box says
+	 * "something is wrong here" while lowering the contrast of what it holds. The row is the
+	 * shape the profile table already has (phase two of the type review, 1.94.6).
+	 *
+	 * @param string $id    Control id, kept as the row's id so links to a field still land.
+	 * @param array  $spec  Field spec.
+	 * @param mixed  $value Stored value.
+	 * @param string $type  Field type.
+	 */
+	private static function render_read_only( $id, array $spec, $value, $type ) {
+		$text = is_scalar( $value ) ? trim( (string) $value ) : '';
+
+		if ( 'checkbox' === $type ) {
+			$text = self::is_ticked( $value ) ? __( 'Yes', 'wpcredits-program-manager' ) : __( 'No', 'wpcredits-program-manager' );
+		}
+
+		if ( '' === $text ) {
+			$html = '<span class="wpcpm-field__value wpcpm-field__value--empty">' . esc_html__( 'Not filled in', 'wpcredits-program-manager' ) . '</span>';
+		} elseif ( 'url' === $type ) {
+			// Airtable's url columns hold schemeless addresses ("example.org/me"), and `esc_url()`
+			// alone leaves one relative - a link that stays inside this site instead of leaving it.
+			$html = sprintf( '<span class="wpcpm-field__value"><a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></span>', esc_url( WPCPM_Field_Value::clean_url( $text ) ), esc_html( $text ) );
+		} elseif ( 'richtext' === $type ) {
+			// The one richtext field holds what the student typed into a textarea, not markup: its
+			// paragraphs are newlines, so `wp_kses_post()` alone - which keeps the tags a rich value
+			// might carry - would run a multi-paragraph final project report into one block.
+			$html = '<span class="wpcpm-field__value">' . nl2br( wp_kses_post( $text ) ) . '</span>';
+		} else {
+			$html = '<span class="wpcpm-field__value">' . nl2br( esc_html( $text ) ) . '</span>';
+		}
+
+		printf(
+			'<p class="wpcpm-field wpcpm-field--read wpcpm-field--%1$s" id="%2$s"><span class="wpcpm-field__label">%3$s</span>%4$s</p>',
+			esc_attr( $type ),
+			esc_attr( $id ),
+			esc_html( $spec['label'] ),
+			$html // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from escaped parts.
+		);
 	}
 
 
@@ -1261,8 +1313,11 @@ class WPCPM_Student_Report_Form {
 			}
 		}
 
+		// Same id scheme as a single control: the fieldset stands in for one, so its hint points
+		// at it the same way (phase two of the type review, 1.94.6).
 		printf(
-			'<fieldset class="wpcpm-report__teams"><legend class="screen-reader-text">%s</legend>',
+			'<fieldset class="wpcpm-report__teams"%1$s><legend class="screen-reader-text">%2$s</legend>',
+			empty( $spec['help'] ) ? '' : ' aria-describedby="' . esc_attr( 'wpcpm-report-' . $key . '-hint' ) . '"',
 			esc_html( $spec['label'] )
 		);
 

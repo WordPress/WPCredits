@@ -57,7 +57,8 @@ report form. Type the new total, press **Save hours**, and that is the whole err
 ### Report form
 
 Your report, filled in here on the page. It is the record of your work on the program, and it is
-what your mentor reads.
+what your mentor reads. When a mentor or a program manager opens your card, your report appears as
+plain text rows rather than as a form, so nothing there can be edited by mistake.
 
 Open **Your report form** and the questions are grouped in the order you meet them:
 

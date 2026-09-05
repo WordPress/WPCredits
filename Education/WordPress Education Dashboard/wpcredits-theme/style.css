@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.19.5
+Version: 1.20.0
 Requires at least: 6.6
 Tested up to: 6.8
 Requires PHP: 7.4
@@ -21,6 +21,19 @@ Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, 
    theme.json owns the values - these are short names for the ones this
    stylesheet reaches for often, so a rule reads as design intent rather than as
    a preset path. Nothing here introduces a color theme.json does not define.
+
+   ink-70, ink-60, ink-50, brand-tint, brand-border and brand-dark are WordPress.org's
+   own charcoal and blueberry scale (theme 1.20.0): ink-70 #40464d (charcoal-3, 9.54:1
+   on white), ink-60 #656a71 (charcoal-4, 5.45:1), ink-50 #979aa1 (charcoal-5, icons
+   only now - it is no longer a text color anywhere), brand-tint #eff2ff (blueberry-4;
+   brand text on it still clears 5.03:1), brand-border #c7d1ff (blueberry-3), brand-dark
+   #213fd4 (deep-blueberry, 7.70:1). --wpc-control-border keeps the old ink-50 value,
+   #8d8d8d, through custom.line.control rather than following ink-50 to charcoal-5,
+   which at 2.82:1 would fail a control border's 3:1 minimum (WCAG 1.4.11). For the
+   same reason brand-border decorates only - a panel, a tint, an accent. Where the
+   line is the whole of a control's boundary or the only cue of a state (the outlined
+   buttons, the file button, the active triage filter) the border takes --wpc-brand,
+   because #c7d1ff is 1.50:1 on white and bounds nothing.
    ========================================================================== */
 :root {
 	--wpc-brand: var( --wp--preset--color--brand );
@@ -559,7 +572,7 @@ body .skip-link.screen-reader-text:focus {
 .wpc-eyebrow,
 p.is-style-eyebrow {
 	color: var( --wpc-ink-60 );
-	font: 500 11px/16px var( --wpc-font );
+	font: 500 12px/18px var( --wpc-font );
 	letter-spacing: .06em;
 	text-transform: uppercase;
 }
@@ -570,7 +583,7 @@ p.is-style-pill {
 	border-radius: var( --wpc-radius-pill );
 	color: var( --wpc-ink-70 );
 	display: inline-block;
-	font: 500 11px/16px var( --wpc-font );
+	font: 500 12px/18px var( --wpc-font );
 	letter-spacing: .06em;
 	padding: 4px 11px;
 	text-transform: uppercase;
