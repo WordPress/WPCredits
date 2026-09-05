@@ -330,20 +330,20 @@ ck( 'and sits between the voice course and the user levels',
     ),
     array( true, true ) );
 
-// Onboarding is four runs, and each says what it is one way or the other: a heading over the
-// fields, or a note under them. The assertion is that none of them is unmarked - a run with
-// neither reads as a continuation of the one above it, which is how the marks and the two
-// contact questions ran together before 1.52.0.
-ck( 'every run in Onboarding is marked, by a heading or a note',
+// Onboarding is four runs, and each says what it is with a heading over its first field: a
+// lesson sub-heading or the lead-in sentence (1.94.3; until then two of them were marked by a
+// note under their last field, which read as an orphan). The assertion is that none of them is
+// unmarked - a run with nothing over it reads as a continuation of the one above it, which is
+// how the marks and the two contact questions ran together before 1.52.0.
+ck( 'every run in Onboarding is marked by a heading over its first field',
     array(
         isset( $sensei_specs['Open source basics and WordPress - final grade']['subgroup'] ),
-        isset( $sensei_specs['Beginner WordPress User - final grade']['divider'] ),
-        isset( $sensei_specs['Advance WordPress User - final grade']['note'] ),
-        isset( $sensei_specs['Beginner WordPress Developer']['divider'] ),
-        isset( $sensei_specs['Beginner WordPress Designer']['note'] ),
+        isset( $sensei_specs['Beginner WordPress User - final grade']['lead'] ),
+        isset( $sensei_specs['Beginner WordPress Developer']['lead'] ),
         isset( $sensei_specs['Personal Website URL']['subgroup'] ),
+        isset( $sensei_specs['Advance WordPress User - final grade']['note'] ) || isset( $sensei_specs['Beginner WordPress Designer']['note'] ),
     ),
-    array( true, true, true, true, true, true ) );
+    array( true, true, true, true, false ) );
 
 ck( 'the final project report belongs to the 50h track alone',
     array(
@@ -798,6 +798,16 @@ $route = (string) file_get_contents( dirname( __DIR__ ) . '/includes/modules/cla
 $rest  = substr( $route, strpos( $route, 'public static function rest_report(' ) );
 $rest  = substr( $rest, 0, strpos( $rest, "return new WP_REST_Response( array( 'html'" ) );
 ck( 'and the REST route draws the body for the audience it resolved', false !== strpos( $rest, 'self::render_body( $student, $program, true, self::audience_for( $record ) )' ), true );
+
+// The type review of 5 September 2026 (1.94.3): the sentence over a run of marks is a heading
+// printed before the run, not a note after it, and lesson sub-headings are headings.
+$lead_a = strpos( $edit, '<h4 class="wpcpm-report__lead">Complete one of the following courses</h4>' );
+$lead_b = strpos( $edit, '<h4 class="wpcpm-report__lead">Optional courses</h4>' );
+ck( 'the condition on the user-level marks is a heading printed before the first of them', false !== $lead_a && $lead_a < strpos( $edit, 'Beginner WordPress User' ) && $lead_a > strpos( $edit, 'Basic principles of conflict resolution' ), true );
+ck( 'and the optional courses are named before their first mark', false !== $lead_b && $lead_b < strpos( $edit, 'Beginner WordPress Developer' ) && $lead_b > $lead_a, true );
+ck( 'no note trails a run any more', strpos( $edit, 'wpcpm-report__note' ), false );
+ck( 'lesson sub-headings are headings', array( false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Enter your final grade</h4>' ), strpos( $edit, '<p class="wpcpm-report__sub"' ) ), array( true, false ) );
+ck( 'the read-only card has the same headings', false !== strpos( $read, '<h4 class="wpcpm-report__lead">Optional courses</h4>' ), true );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

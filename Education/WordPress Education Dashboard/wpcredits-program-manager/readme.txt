@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.94.2
+Stable tag: 1.94.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -291,6 +291,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 
 == Changelog ==
 
+= 1.94.4 =
+* Form controls in the plugin's own stylesheets (the Institution Dashboard's student and import forms, the application form, the mentor notes box) take a control border at 3:1 against the page instead of the card hairline, the boundary WCAG 1.4.11 asks for. With theme 1.19.3, which does the same for the Sponsor Dashboard's and the Administrator Dashboard's controls.
+
+= 1.94.3 =
+* Student Report Card and Mentor Report Card: the sentence that opens a run of marks ("Complete one of the following courses", "Optional courses") is a heading printed above the run, not a note under it, and lesson sub-headings are headings for a screen reader too. Hints and notes in the plugin's own stylesheet are one step under the body size instead of two.
+* Sponsor Dashboard: the number and date fields on the offer forms take the same width as the text fields.
+* Writing: US English throughout the interface, as the WordPress writing style guide asks (program, color, canceled, enrollment), and `bin/check-standards.sh` now fails on the British spellings.
+* With theme 1.19.2, phase one of the type and color review of 5 September 2026.
+
 = 1.94.2 =
 * Student Report Card and Mentor Report Card: the team icons on the tiles are 24px, half of 1.94.1's size, on the owner's request after seeing them on the page.
 
@@ -345,7 +354,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * **An account follows the report record that governs it, not the first one that arrived.** Twenty-three students have two Students Reports rows for one address. The account was bound forever to whichever row Airtable returned first, so a re-enrolled student whose old row said Dropped out stayed inactive with no mentor while the active row was reported as a conflict on every run. When the stamped row is past, or is no longer among the tracked records, and another row for the address is active, the account follows the active row; two active rows prefer the most recently created; every move is written into the run report.
 * **A newly approved institution can act on its own imported students at once.** Inserting a student into a roster the last sync wrote no counts for left the row visible but unplaceable, so edits and status changes were refused until the next sync. An insert registers the institution in the counts, and the policy opens the caller's own roster first.
 * **Two presses of Upload file one agreement.** The Institution Dashboard never loaded the script behind the double-submit guard its forms carry, and the upload handler had no lock between reading "nothing in review" and inserting. The dashboard loads the guard now, and the upload holds the institution's lock across the read and the insert, releasing it on every exit.
-* **The Student Report Card an institution reads leaves out what is between the student and the program.** For a Developer Track student the read-only card included the personal alumni address, the post-programme plans and the mentoring opt-in. The card knows who is reading: a manager and the student's own mentor see all of it, an institution sees none of those three and no field of type email.
+* **The Student Report Card an institution reads leaves out what is between the student and the program.** For a Developer Track student the read-only card included the personal alumni address, the post-program plans and the mentoring opt-in. The card knows who is reading: a manager and the student's own mentor see all of it, an institution sees none of those three and no field of type email.
 * **A blank status setting no longer makes a sync read the whole table.** An empty list turned into no filter, so a manager saving the settings screen with a status box blank would have provisioned every SPAM and rejected row, or revoked every current student. The three fields that must never be blank go back to their defaults on save, the screen says so, and both syncs refuse to start on an empty list.
 * The five Institutions cron jobs (application retention, agreement discard and reminders, invitation expiry, the ceiling sweep) and the call reminders are put on the clock on every load, not only at activation, which never fires on this site's deploy path. They happened to be scheduled here; a site that lost them would never have got them back.
 * Uploading an agreement refuses an unresolved institution before the nonce, as generating one already did, so a manager with no switcher value cannot file a document under an empty record. The public application form reads X-Forwarded-For from the edge's end, not the client's, so an applicant cannot pick their own limiter bucket. The roster's "Not yet in the Students table" list and search no longer show or match students' addresses to institution members. The student card no longer falls back to a Gravatar URL built from the student's address. Institution members are told a read failed in a fixed sentence rather than shown Airtable's own error text.
@@ -365,7 +374,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * Fixes to the report before it shipped, each with a test that fails without it: a student's remembered feedback row is resolved again when the site learns which institution they belong to, so a withdrawal typed by a student lands on the row their school's report reads rather than on a duplicate linked elsewhere; a website address carrying a user name, which is how an email address typed into the website box arrives, is dropped whole rather than printed under the heading of the one path meant not to name the student; a save made while the students' answers could not be read, or after a colleague refreshed them, keeps the quotes and translations the form could not see instead of unticking every one; every handler answers a report that is not the reader's exactly as it answers one that does not exist, so nobody can count another school's reports by trying numbers; a report whose roster index has gone reads as "the answers could not be checked" rather than as every student having withdrawn; a student with no program record is no longer counted as one whose records could not be matched, and that count is its own sentence rather than an item in the list of students not shown; a lead who never enrolled is neither listed nor counted, so the report and the roster's participation numbers agree; a semester holding only a spam row is a semester with no students rather than one with zero; the same WordCamp typed with a capital letter is one event; and uninstall removes a trashed report as well as the live ones.
 
 = 1.88.1 =
-* A list pasted into the enrolment form is read with its lines intact. It was read through the sanitiser that collapses whitespace, so a pasted CSV arrived as a single line: the header ran into the first student's name and the file was refused for having no email column. Every test had fed the parser a string directly and none had come through a posted form, so nothing caught it until a real import did.
+* A list pasted into the enrollment form is read with its lines intact. It was read through the sanitiser that collapses whitespace, so a pasted CSV arrived as a single line: the header ran into the first student's name and the file was refused for having no email column. Every test had fed the parser a string directly and none had come through a posted form, so nothing caught it until a real import did.
 
 = 1.88.0 =
 * A school's uploaded list of students is no longer kept forever. Each import batch holds names and email addresses, and nothing removed one: a check run once left those names on the site indefinitely. A finished batch is now kept for thirty days and one nobody confirmed for seven, on the same daily job the application retention runs on. A batch still being created is never swept, however old, because rows of it may be in flight.
@@ -374,36 +383,36 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 
 = 1.87.0 =
 * Phase 5 of the Institutions module is complete. An institution can now send a list of students, see what it was understood to say, and confirm it; the records are created a slice at a time, and an import that runs long carries on by itself.
-* Creating is written to survive being interrupted. A row's state is saved before the request and not after, so a row whose answer was lost is identifiable afterwards and is searched for by its `Site import key` before anything is created again: a killed request costs a retry, never a second student. Records are created one call at a time, because a batch call returns a re-indexed list and would stamp the wrong record on the wrong person after the first refusal.
+* Creating is written to survive being interrupted. A row's state is saved before the request and not after, so a row whose answer was lost is identifiable afterward and is searched for by its `Site import key` before anything is created again: a killed request costs a retry, never a second student. Records are created one call at a time, because a batch call returns a re-indexed list and would stamp the wrong record on the wrong person after the first refusal.
 * A refusal that is not the row's own no longer writes off the batch. A missing token, an open rate-limit window or a 500 refuses every call that follows, and marking each row failed in turn would have ended a three hundred row import with three hundred students terminally failed. The slice stops and is rescheduled; rows that were never sent go back to pending, and a row whose answer may have been lost stays recoverable.
 * The guard runs before every slice and reads the member who confirmed rather than whoever is present, so a revoke or an unsettled agreement stops an import that is continuing on cron with nobody signed in.
 * A student's logged hours are on the roster and in both exports, reading "12 of 150" against a track with a target and "12 h" against one without, never "12 of 0". Fractional hours are kept: the base holds 6.2 and 135.5 for real students.
 
 = 1.86.4 =
-* The enrolment section's chevron matches the roster's, and the open form is the bordered panel the theme hangs off an open row, which is what says the section is open. The section had its own left padding to line the form up by hand; the theme zeroes that padding at a higher specificity, so it never applied and the alignment came from the theme all along. Handed back rather than left as a rule that looks load-bearing and is not.
+* The enrollment section's chevron matches the roster's, and the open form is the bordered panel the theme hangs off an open row, which is what says the section is open. The section had its own left padding to line the form up by hand; the theme zeroes that padding at a higher specificity, so it never applied and the alignment came from the theme all along. Handed back rather than left as a rule that looks load-bearing and is not.
 
 = 1.86.3 =
 * The consent tick is beside its own words again. Every input on the dashboard is given a full width, and a checkbox obeying that became a control the width of the page with the tick drawn in the middle of it and its label pushed into a narrow column at the far right.
-* The enrolment form lines up with the row that opens it. The shared group summary carries its own inset, so the form beneath it sat 32px to the left of the heading it belongs to.
+* The enrollment form lines up with the row that opens it. The shared group summary carries its own inset, so the form beneath it sat 32px to the left of the heading it belongs to.
 * The row now shows whether the section is open: it was missing the class the shared disclosure hangs its open state on, so the chevron never turned.
 * Tutor is a picker whether or not the base has any for that institution. A free-text box invites a name matching nothing in the Tutors table, which is how that column filled with spellings; an institution with none recorded now gets an empty picker and a sentence saying who to ask.
 
 = 1.86.2 =
-* The enrolment form no longer mentions a WordPress.org profile anywhere. The confirmation a school gives now reads "These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program", which is what is actually shared at that point: a profile is not, because the student does not have one until after they are enrolled. The file hint stopped listing it as a column too.
+* The enrollment form no longer mentions a WordPress.org profile anywhere. The confirmation a school gives now reads "These students have been notified that their name and email address are shared with the WordPress Foundation for the WordPress Credits Program", which is what is actually shared at that point: a profile is not, because the student does not have one until after they are enrolled. The file hint stopped listing it as a column too.
 * "Told" is "notified" throughout that form, in the confirmation, in the refusal when it is not ticked, and in the field the two are recorded under.
 
 = 1.86.1 =
 * The tutor picker finds its tutors. 1.86.0 asked Airtable for them with a formula, and a formula reading a linked-record column sees the linked rows' name rather than their record ID, so matching on the ID found nothing for every institution and every picker was empty. The whole table is fourteen rows across the program, so it is read once and filtered here, where the record IDs are what the data actually holds.
 
 = 1.86.0 =
-* The enrolment section folds, using the same disclosure the roster's own groups use, and opens by itself when a list is waiting or the last attempt left something to say. It is the longest thing on the page and the rarest thing anybody comes for.
+* The enrollment section folds, using the same disclosure the roster's own groups use, and opens by itself when a list is waiting or the last attempt left something to say. It is the longest thing on the page and the rarest thing anybody comes for.
 * It is styled. Every class it prints now has a rule on this page: the field styling it was relying on lives in the application form's stylesheet, which is not loaded on the dashboard, so labels, boxes and the consent tick came out as the browser's own.
 * The form no longer asks for a WordPress.org profile. Getting one is the student's own first step of onboarding, after they are enrolled, so nobody has one to give at the moment a school fills this in. A CSV that happens to carry the column is still read.
 * Field of study is a picker of the base's own nine values rather than a text box. It is a single-select in Airtable and records are written without typecast, so a value spelled any other way was a refusal of the whole record.
 * Tutor is a picker of this institution's own tutors, read from the Tutors table and cached for half a day. Never the program's whole list: that would tell one school who tutors at another. A school with none recorded gets a text box.
 
 = 1.85.1 =
-* The switch that turns enrolment lists on is on the settings screen, under Institutions, beside the applications switch. It had been deliberately left off the form while the import had no screen of its own, which was right until the screen shipped in 1.85.0 and wrong from that moment: the setting existed, defaulted to off, and had nowhere to be turned on. The row names the ceilings, so nobody has to read the source to learn what a school is allowed to send.
+* The switch that turns enrollment lists on is on the settings screen, under Institutions, beside the applications switch. It had been deliberately left off the form while the import had no screen of its own, which was right until the screen shipped in 1.85.0 and wrong from that moment: the setting existed, defaulted to off, and had nowhere to be turned on. The row names the ceilings, so nobody has to read the source to learn what a school is allowed to send.
 
 = 1.85.0 =
 * An institution can send a list of students to be enrolled. Choose the program and the term once, then add one student through five boxes or send a CSV, and the site reads it and shows what it understood before anything is created: which rows are ready, which are already on your roster, which cannot be imported from here, and which could not be read and why. Nothing is created yet; that is the next release, and the screen says so. The whole section is behind a setting that is off by default.
@@ -465,7 +474,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * **A long group of students starts closed, whichever group it is.** One institution has forty-two students on the program at once, and an open list of forty-two buried everything under it: the other groups, the people, the agreement. Past twelve the group opens on its count with one press to see inside; below that it stays open, because a short list that has to be opened has been hidden for no reason. The students are all still on the page, so the browser's own find still reaches them.
 
 = 1.77.2 =
-* The facts under an institution's name lose their full stops. They are labelled values on their own lines now rather than a sentence, and a trailing point on "Stage: Confirmed" reads as a typo rather than as grammar.
+* The facts under an institution's name lose their full stops. They are labeled values on their own lines now rather than a sentence, and a trailing point on "Stage: Confirmed" reads as a typo rather than as grammar.
 
 = 1.77.1 =
 * The institution's header reads a fact to a line: the name, where it is, its website, the stage the program has it at, and who the program writes to. They used to run together in one sentence.
@@ -541,11 +550,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * **The address of the Collaboration Agreement wording is now a setting rather than a value in the code.** The document it was copied from is editable by anyone holding its link, and this plugin's source is public, so carrying the link in the code handed out write access to the wording institutions sign. The template says in words where it came from; a site that needs the address is given it in Settings, where it is held to https and to Google's own hosts.
 
 = 1.70.1 =
-* Translation template regenerated: 1,146 strings, against 1.70.0's behaviour. It had not been rebuilt since 19 August, so everything added since then was untranslatable.
+* Translation template regenerated: 1,146 strings, against 1.70.0's behavior. It had not been rebuilt since 19 August, so everything added since then was untranslatable.
 * Coding standards: the tree now reports no errors at all.
 
 = 1.70.0 =
-* **A group session can be changed, not only cancelled.** Moving one used to mean cancelling on everybody and asking them to join again. The mentor can now change the time, the length, the places and what it is about, from the session itself.
+* **A group session can be changed, not only canceled.** Moving one used to mean canceling on everybody and asking them to join again. The mentor can now change the time, the length, the places and what it is about, from the session itself.
 * **Everybody on a moved session is emailed a new invitation that replaces the one in their calendar**, and only when the time actually changed. The invitation counts up each time it is sent, which is what makes a calendar move the entry it already holds instead of adding a second one beside it.
 * Places cannot be set below the number of students already on the session, and the form will not let a mentor try. A session no longer clashes with itself when it is saved without being moved.
 
@@ -592,10 +601,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * Names the Developer Track's two new runs of questions after the lessons they answer: **Practical**, with the patch-testing question under it, and **Alumni Program**. Patch testing takes a full-width row at the head of the project section, because a section heading closes the two-column pair it would otherwise sit in.
 
 = 1.64.2 =
-* Puts two Developer Track questions where the Learn course asks them. Patch testing is lesson 3 and moves out of the course grades into the project section; the alumni programme is lesson 7 and moves ahead of the first-contribution reflection at lesson 9, rather than after it. The Airtable view lists columns in table order, which is not the order a student works through.
+* Puts two Developer Track questions where the Learn course asks them. Patch testing is lesson 3 and moves out of the course grades into the project section; the alumni program is lesson 7 and moves ahead of the first-contribution reflection at lesson 9, rather than after it. The Airtable view lists columns in table order, which is not the order a student works through.
 
 = 1.64.1 =
-* More air between one question and the next on the report form. A field's grey hint sat 3px under the answer it describes and 8px above the next question's title, so it read as belonging to whichever one you looked at first. It is 6px and 28px now, and the vertical rhythm is set in `rem` so the three containers that lay out fields actually agree - in `em` they resolved differently and did not.
+* More air between one question and the next on the report form. A field's gray hint sat 3px under the answer it describes and 8px above the next question's title, so it read as belonging to whichever one you looked at first. It is 6px and 28px now, and the vertical rhythm is set in `rem` so the three containers that lay out fields actually agree - in `em` they resolved differently and did not.
 
 = 1.64.0 =
 * The Mentor Report Card's triage, counts and search now live in the plugin. They were in wpcredits-theme, which meant a theme change would have taken them with it - the one piece of the card a theme was carrying that was function rather than decoration.
@@ -615,7 +624,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * Tests now assert that fields sharing a row stay contiguous, and that every control the group lays out itself has a width rule - the two properties whose absence let the section come out scattered.
 
 = 1.63.0 =
-* Moves the Developer Track's three end-of-programme questions - how you plan to keep contributing, the alumni personal email, and the mentoring opt-in - out of Wrap-up and into Project, between the first-contribution post and the halfway one, which is the order the Airtable view asks them in.
+* Moves the Developer Track's three end-of-program questions - how you plan to keep contributing, the alumni personal email, and the mentoring opt-in - out of Wrap-up and into Project, between the first-contribution post and the halfway one, which is the order the Airtable view asks them in.
 
 = 1.62.1 =
 * Refreshes the Airtable field-name fixture: `Post Reflection: Choosing Your Team and Project copy` was confirmed a duplicated field and deleted from the base, so the table is 52 columns rather than 53. The report form never used it; this keeps the check that guards every field name honest.
@@ -721,7 +730,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   line and pushed its own words underneath it.
 * *Feedback forms* moves below the rule that separates the surveys from the report. The rule
   belonged to the paragraph under the heading, so it was drawn between the heading and the text it
-  introduces, leaving the heading up against the report form and labelling the wrong thing.
+  introduces, leaving the heading up against the report form and labeling the wrong thing.
 * *Save my report* and *Send my answers* are centred. Every question in these forms is left-aligned
   against one edge, so a button on that edge read as one more row of the last group rather than as
   the end of the form.
@@ -1099,7 +1108,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   * Students join and leave from *My mentor call*; leaving frees the place. Joining counts towards
     the mentor's per-student limit on upcoming calls, because an upcoming session is one.
   * Everybody who joins gets a calendar invitation, the 24-hour reminder goes to all of them, and
-    cancelling the session tells everybody on it.
+    canceling the session tells everybody on it.
   * **One note for the whole group.** The mentor writes it once and it appears on every attendee's
     card, counts for each of them in the triage - so nobody who attended is left in *Need a call* -
     and one deletion removes it from everyone.
@@ -1165,7 +1174,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   activation *and* remove it on uninstall, and missing the second left the capability behind on
   a site that had removed the plugin.
 * Adds `bin/test-roles.php`, which asserts the wiring a new audience needs rather than any one
-  behaviour: unique prefixed slugs, one marker capability each, grant and removal reading the
+  behavior: unique prefixed slugs, one marker capability each, grant and removal reading the
   same list, the module loaded and registered, and the notice audience actually tested. It loops
   over the roles, so the next audience is covered the day it is added.
 
@@ -1235,17 +1244,17 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * Drawn a little larger to make up for having no button around it.
 
 = 1.35.0 =
-* The Resources section's Slack button now carries Slack's published logo - the four-colour mark
+* The Resources section's Slack button now carries Slack's published logo - the four-color mark
   and the "slack" wordmark together - taken from Slack's own brand asset rather than drawn here.
-* Still exactly the height of the labelled buttons beside it, scaled from the logo's own
+* Still exactly the height of the labeled buttons beside it, scaled from the logo's own
   proportions so it is never stretched.
 
 = 1.34.0 =
 * The Resources section on each Report Card now opens with a Slack button carrying Slack's own
   mark, before the guide: the students channel on the Student Report Card, the mentors channel
   on the Mentor Report Card.
-* Icon only and the same height as the labelled buttons beside it - 54px either way - and
-  outlined rather than filled, because Slack's mark keeps its own four colours and needs a
+* Icon only and the same height as the labeled buttons beside it - 54px either way - and
+  outlined rather than filled, because Slack's mark keeps its own four colors and needs a
   light background to read against. It is named for screen readers, which get nothing from an
   icon.
 * This is the one brand mark the plugin ships. `WPCPM_Icons` otherwise draws its own line
@@ -1276,7 +1285,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   make.wordpress.org", with the full path beneath it. Links go straight to the page rather
   than through Google.
 * That also makes the site check stronger: it is now made against where the page actually is,
-  rather than against a label the provider supplied. A citation labelled wordpress.org that
+  rather than against a label the provider supplied. A citation labeled wordpress.org that
   resolves somewhere else is refused. A redirect that cannot be followed still yields a
   citation, named by its host.
 * The same page cited twice arrives as two different redirects; it is now shown once.
@@ -1489,7 +1498,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * Fixes mentors and students who are linked to an Airtable record but do not hold the
   Mentor or Student role still landing on the wp-admin dashboard. Both redirects tested the
   role alone, while everything else in the plugin - including the toolbar link to the page -
-  counts the record link too. The result was an account the plugin recognised as a mentor
+  counts the record link too. The result was an account the plugin recognized as a mentor
   everywhere except the one place that would have taken them to their page.
 * Somebody whose mentoring has ended is still not redirected. Going inactive removes the
   role and leaves the Airtable link in place on purpose, and the page it would send them to
@@ -1538,7 +1547,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   booking's own event ID, so it withdraws the call rather than adding a second one.
 * **Mentors can say where the call happens.** A "Where we meet" link beside your
   availability goes into both confirmations and the calendar invitation, so nobody has to
-  arrange the video room separately afterwards. A mentor who has not set one is told so in
+  arrange the video room separately afterward. A mentor who has not set one is told so in
   their own confirmation, where it is still fixable.
 * **A reminder goes out the day before.** A call booked four weeks ahead is a call somebody
   forgets, and the confirmation was read a month earlier. Nothing is sent for a call booked
@@ -1550,7 +1559,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   answering "Call booked with Moldir" reaches Moldir instead of `wordpress@`.
 * **The invitation email says what it is.** Students and mentors get different copy naming
   the program, what they are to it and what to do first, around the username and reset link
-  WordPress generates. A bare "Login Details" from a site you do not recognise reads as
+  WordPress generates. A bare "Login Details" from a site you do not recognize reads as
   phishing. It also says how to get a fresh link once the old one has expired.
 * Invitations are queued and sent a few at a time instead of ninety inside one sync request,
   where a timeout or a mail limit could swallow an unknown number of them.
@@ -1655,7 +1664,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 
 = 1.19.1 =
 * **Fixed: "That call is canceled and the slot is free again" never went away.** Outcome
-  messages travelled as a query argument - `?wpcpm_call=cancelled` - so the argument stayed
+  messages traveled as a query argument - `?wpcpm_call=canceled` - so the argument stayed
   in the address bar and the message came back on every reload, and for anyone the URL was
   shared with. On both dashboards, as reported.
 * They are **one-shot messages** now: queued for the user, read and deleted by the page the
@@ -1671,7 +1680,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   own otherwise - about three in ten students have no email in the program records. Not
   editable there: it is the account's email, and writing it back to Airtable from this page
   would put the two out of step with no way to tell which is right.
-* `php bin/test-flash.php` covers the behaviour: shown once, gone on reload, channels
+* `php bin/test-flash.php` covers the behavior: shown once, gone on reload, channels
   independent, one user's message invisible to another, and no status argument left in any
   redirect.
 * `bin/test-handlers.php` now reads the plugin's require list from the bootstrap instead of
@@ -1831,7 +1840,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   is a job to do - but it sits beside the diary now, and a form that opens on arrival
   every time is a form that has to be closed every time. It still opens after a save,
   because the confirmation renders inside it.
-* An empty schedule says so in `#daa39b` rather than the same grey as the rest of the
+* An empty schedule says so in `#daa39b` rather than the same gray as the rest of the
   supporting text. With the panel closed by default that summary line is the only thing
   that will tell a mentor they are not receiving calls, so it stops reading as a footnote.
   Set on `--wpcpm-attention`, so a theme can restate it in one place.
@@ -1867,7 +1876,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * The contact rows carry small icons - Email, Slack, WordPress.org, Website,
   GitHub, and the internship dates - on both the mentor's student details and the
   student's own two tables. They are drawn from primitives and stroked in
-  `currentColor`, so they take the colour of the text beside them and cannot come out
+  `currentColor`, so they take the color of the text beside them and cannot come out
   wrong in a theme nobody has seen. None is a brand mark: Slack gets a channel hash,
   GitHub gets code brackets. Shipping a service's own logo would mean redistributing a
   trademark, which this does not need to do.
@@ -1900,7 +1909,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   student's.
 
 = 1.14.0 =
-* **American English throughout**, in the interface and in the code's own comments. "Programme" is "Program" everywhere, including the student page's title and the *My Program* menu item, along with the other British spellings the codebase had picked up (organised, recognised, normalised, behaviour, colour, centred, grey, labelled, travelling, cancelled).
+* **American English throughout**, in the interface and in the code's own comments. "Programme" is "Program" everywhere, including the student page's title and the *My Program* menu item, along with the other British spellings the codebase had picked up.
   *One thing this does not change:* the student page's stored title. `ensure_page()` only sets a title when it creates the page, so an existing install keeps "My Programme" until it is renamed under **Pages**. The slug is `student-dashboard` and is untouched, so nothing breaks either way. Identifiers, database keys and query values were deliberately left alone - `_wpcpm_call_cancelled_by` names live data, and renaming it would orphan every canceled booking on disk.
 * **Students maintain four of their own details**, and the changes go back to Airtable: WordPress.org profile, Slack name, contribution team and personal website. Airtable is written first and the local cache updated only if that succeeded - the other order would show a student their change and then lose it on the next sync, which is worse than refusing the save. Contribution team is a *linked-record* field in Airtable, so it is a select of the teams the sync has cataloged rather than a text box; an unknown value is refused rather than written. Needs `data.records:write` on the token.
 * Airtable's `In Sensei` and `In Sensei 50h` are shown as **WordPress Credits Program 150h** and **WordPress Credits Program 50h** everywhere, with a link to that track's Learn WordPress course. The raw values stay the storage format - the sync still matches on them and the settings still list them. Filters: `wpcpm_program_labels`, `wpcpm_program_courses`.
@@ -1950,7 +1959,7 @@ Cross-check against the WPCredits theme, plus a hardening pass over the calendar
 = 1.13.0 =
 * **New: a call calendar for the Mentors module.** A mentor sets their weekly availability on their own dashboard; the students assigned to them pick a date and time from it. See *Call calendar* above for the whole feature.
 * A mentor's hours are stored in the mentor's timezone and shown to everybody on their own, chosen once and remembered - a program running across a dozen countries has no single right clock. Daylight saving is handled: nothing is offered in an hour the clocks skip, and a wall-clock time in a repeated hour is offered once.
-* Double-booking is prevented at the database, not in the interface: a short lock, a re-check of the slot inside it, and a clash check on the table afterwards that undoes the later of two bookings.
+* Double-booking is prevented at the database, not in the interface: a short lock, a re-check of the slot inside it, and a clash check on the table afterward that undoes the later of two bookings.
 * Booking and canceling both email the other person. Filter `wpcpm_send_call_mail` to stop that.
 * Filter `wpcpm_availability_defaults` sets the program-wide starting point for call length, notice, horizon and bookings per student. Availability itself is deliberately empty until a mentor sets it - a default nine-to-five nobody chose would still take bookings.
 * Matching theme update (WPCredits theme 1.5.0), which dresses the calendar, the diary and the availability editor in the dashboard's own grays and control shapes. Without it the calendar works but is styled by the plugin's theme-agnostic fallback.
@@ -2052,7 +2061,7 @@ Cross-check against the WPCredits theme, plus a hardening pass over the calendar
 * A permissions error from Airtable now names the scope that is missing - write, schema or read - depending on what the request was, rather than passing Airtable's generic message through.
 
 = 1.3.1 =
-* Fixed: **Educational institution** and **Main contribution team** still showed raw record IDs after 1.3.0. Two reasons. The mentor page renders student rows cached in user meta, so resolving them only at sync time left every already-stored row unchanged until someone happened to re-sync; and the ID → name maps were held in the sync state, which is deleted when a run finishes, so nothing was left to resolve with afterwards. The maps are now stored in their own option, and the page resolves record IDs as it renders - so existing rows are corrected immediately.
+* Fixed: **Educational institution** and **Main contribution team** still showed raw record IDs after 1.3.0. Two reasons. The mentor page renders student rows cached in user meta, so resolving them only at sync time left every already-stored row unchanged until someone happened to re-sync; and the ID → name maps were held in the sync state, which is deleted when a run finishes, so nothing was left to resolve with afterward. The maps are now stored in their own option, and the page resolves record IDs as it renders - so existing rows are corrected immediately.
 * A record ID that cannot be resolved is left blank rather than printed, so a raw `rec…` never reaches the page.
 * The Mentors screen now says when institution and team names have not been read yet, and that a sync will fill them in.
 

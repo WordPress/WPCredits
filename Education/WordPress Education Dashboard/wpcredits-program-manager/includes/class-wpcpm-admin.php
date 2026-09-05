@@ -588,10 +588,10 @@ class WPCPM_Admin {
 		// wants one may well not want the other.
 		printf(
 			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="import_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p><p class="description">%5$s</p></td></tr>',
-			esc_html__( 'Enrolment lists from institutions', 'wpcredits-program-manager' ),
+			esc_html__( 'Enrollment lists from institutions', 'wpcredits-program-manager' ),
 			checked( ! empty( $settings['import_enabled'] ), true, false ),
-			esc_html__( 'Let an institution send a list of students to enrol', 'wpcredits-program-manager' ),
-			esc_html__( 'Adds an "Enrol students" section to the Institution Dashboard, where a school chooses the program and the term and then adds one student or sends a CSV. The list is read and checked against the program records, and the school sees what was understood before anything is created. While this is off the section does not appear at all.', 'wpcredits-program-manager' ),
+			esc_html__( 'Let an institution send a list of students to enroll', 'wpcredits-program-manager' ),
+			esc_html__( 'Adds an "Enroll students" section to the Institution Dashboard, where a school chooses the program and the term and then adds one student or sends a CSV. The list is read and checked against the program records, and the school sees what was understood before anything is created. While this is off the section does not appear at all.', 'wpcredits-program-manager' ),
 			esc_html(
 				sprintf(
 					/* translators: 1: checks per hour, 2: rows per day. */

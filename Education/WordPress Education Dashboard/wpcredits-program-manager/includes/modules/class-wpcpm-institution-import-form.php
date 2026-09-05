@@ -136,7 +136,7 @@ final class WPCPM_Institution_Import_Form {
 
 		printf(
 			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Enrol students', 'wpcredits-program-manager' )
+			esc_html__( 'Enroll students', 'wpcredits-program-manager' )
 		);
 
 		echo '<div class="wpcpm-group__body wpcpm-import__body">';
@@ -676,7 +676,7 @@ final class WPCPM_Institution_Import_Form {
 
 		if ( WPCPM_Institution_Import::EXISTS_HERE === $verdict ) {
 			if ( ! empty( $detail['reports_only'] ) ) {
-				return __( 'This student has a program record but no enrolment record. A program manager needs to complete it.', 'wpcredits-program-manager' );
+				return __( 'This student has a program record but no enrollment record. A program manager needs to complete it.', 'wpcredits-program-manager' );
 			}
 
 			return sprintf(

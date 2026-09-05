@@ -802,7 +802,7 @@
 .wpcpm-import .wpcpm-field input[type="date"],
 .wpcpm-import .wpcpm-field select,
 .wpcpm-import .wpcpm-field textarea {
-	border: 1px solid var( --wpcpm-border );
+	border: 1px solid var( --wpcpm-control-border, var( --wpcpm-border ) );
 	border-radius: var( --wpcpm-radius );
 	box-sizing: border-box;
 	display: block;

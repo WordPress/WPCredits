@@ -543,7 +543,7 @@ class WPCPM_Institution_Invite {
 			),
 			'invite-unsent'    => array( 'error', __( 'The invitation was recorded and this site could not hand the message to its mail server, which is this site\'s fault and not yours. Press Resend in a few minutes, and tell your program contact if it happens again.', 'wpcredits-program-manager' ) ),
 			'invite-resent'    => array( 'success', __( 'The invitation was sent again, with a new link. The link in the earlier message has stopped working.', 'wpcredits-program-manager' ) ),
-			'invite-cancelled' => array( 'success', __( 'That invitation is cancelled and its link no longer works.', 'wpcredits-program-manager' ) ),
+			'invite-cancelled' => array( 'success', __( 'That invitation is canceled and its link no longer works.', 'wpcredits-program-manager' ) ),
 			'invite-member'    => array( 'error', __( 'Nothing was sent. That address already has access to this institution and is on the list above.', 'wpcredits-program-manager' ) ),
 			'invite-waiting'   => array( 'error', __( 'Nothing was sent. That address already has an invitation waiting. Resend it if it has not arrived.', 'wpcredits-program-manager' ) ),
 			'invite-full'      => array(
@@ -564,7 +564,7 @@ class WPCPM_Institution_Invite {
 			),
 			'invite-bad-email' => array( 'error', __( 'Nothing was sent. That is not an address an invitation can go to.', 'wpcredits-program-manager' ) ),
 			'invite-unknown'   => array( 'error', __( 'Nothing was sent. This institution is not in the program\'s index on this site yet, so nobody can be added to it. Tell your program contact.', 'wpcredits-program-manager' ) ),
-			'invite-gone'      => array( 'info', __( 'Nothing happened. That invitation is no longer waiting: somebody has accepted or cancelled it since this page was drawn, or it has expired.', 'wpcredits-program-manager' ) ),
+			'invite-gone'      => array( 'info', __( 'Nothing happened. That invitation is no longer waiting: somebody has accepted or canceled it since this page was drawn, or it has expired.', 'wpcredits-program-manager' ) ),
 			'invite-joined'    => array( 'success', __( 'You are now a member of this institution and can see its students.', 'wpcredits-program-manager' ) ),
 			'invite-error'     => array( 'error', __( 'That could not be done.', 'wpcredits-program-manager' ) ),
 		);
@@ -1103,7 +1103,7 @@ class WPCPM_Institution_Invite {
 			WPCPM_Institution_Audit::EVIDENCE_CACHE,
 			sprintf(
 				/* translators: 1: who cancelled it, 2: the address it had gone to. */
-				__( '%1$s cancelled the invitation to %2$s.', 'wpcredits-program-manager' ),
+				__( '%1$s canceled the invitation to %2$s.', 'wpcredits-program-manager' ),
 				self::actor_name( get_current_user_id() ),
 				$email
 			)
@@ -1268,7 +1268,7 @@ class WPCPM_Institution_Invite {
 
 		foreach ( self::pending_for( $record_id ) as $post_id ) {
 			self::settle( $post_id, self::STATE_CANCELLED );
-			self::log_system_cancel( $post_id, __( 'The invitation was cancelled: no member is left to act for this institution.', 'wpcredits-program-manager' ) );
+			self::log_system_cancel( $post_id, __( 'The invitation was canceled: no member is left to act for this institution.', 'wpcredits-program-manager' ) );
 			++$cancelled;
 		}
 
@@ -1301,7 +1301,7 @@ class WPCPM_Institution_Invite {
 			}
 
 			self::settle( $post_id, self::STATE_CANCELLED );
-			self::log_system_cancel( $post_id, __( 'The invitation was cancelled: the member who sent it is no longer one.', 'wpcredits-program-manager' ) );
+			self::log_system_cancel( $post_id, __( 'The invitation was canceled: the member who sent it is no longer one.', 'wpcredits-program-manager' ) );
 			++$cancelled;
 		}
 
@@ -1891,7 +1891,7 @@ class WPCPM_Institution_Invite {
 	 */
 	private static function refuse_accept() {
 		wp_die(
-			esc_html__( 'That invitation cannot be used. It may have been accepted already, cancelled, or expired, or it may have been sent to a different address than the one you are signed in with. Ask whoever invited you to send a new one.', 'wpcredits-program-manager' ),
+			esc_html__( 'That invitation cannot be used. It may have been accepted already, canceled, or expired, or it may have been sent to a different address than the one you are signed in with. Ask whoever invited you to send a new one.', 'wpcredits-program-manager' ),
 			403
 		);
 	}

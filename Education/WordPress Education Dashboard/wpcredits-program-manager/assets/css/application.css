@@ -20,6 +20,9 @@
 	--wpcpm-border: color-mix( in srgb, currentColor 18%, transparent );
 	--wpcpm-surface: color-mix( in srgb, currentColor 5%, transparent );
 	--wpcpm-radius: 8px;
+	/* The control edge, as dashboard.css defines it: this form is drawn on pages without the
+	   dashboard root, so the token is declared here too (1.94.4). */
+	--wpcpm-control-border: color-mix( in srgb, currentColor 48%, transparent );
 }
 
 /* Fallback for anything without color-mix(): a mid gray reads acceptably on both light and
@@ -29,6 +32,7 @@
 	.wpcpm-application {
 		--wpcpm-border: rgba( 128, 128, 128, 0.4 );
 		--wpcpm-surface: rgba( 128, 128, 128, 0.08 );
+		--wpcpm-control-border: rgba( 128, 128, 128, 0.9 );
 	}
 }
 
@@ -102,7 +106,7 @@
 .wpcpm-field input[type="number"],
 .wpcpm-field select,
 .wpcpm-field textarea {
-	border: 1px solid var( --wpcpm-border );
+	border: 1px solid var( --wpcpm-control-border, var( --wpcpm-border ) );
 	border-radius: var( --wpcpm-radius );
 	box-sizing: border-box;
 	display: block;

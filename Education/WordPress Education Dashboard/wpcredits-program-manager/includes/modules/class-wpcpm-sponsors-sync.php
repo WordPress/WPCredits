@@ -656,7 +656,7 @@ final class WPCPM_Sponsors_Sync {
 			0,
 			sprintf(
 				/* translators: %s: company name. */
-				__( '%s logo (colour)', 'wpcredits-program-manager' ),
+				__( '%s logo (color)', 'wpcredits-program-manager' ),
 				trim( (string) $row['name'] )
 			)
 		);

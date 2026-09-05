@@ -182,6 +182,33 @@ printf(
 	$misses
 );
 
+// Every custom property the theme reads must be one it declares. A `var( --wpc-x )` that is
+// never defined resolves to its fallback or to nothing, and the browser says nothing: 1.19.2
+// found the report card's input borders drawn in the card hairline and the rating stars
+// without a focus ring for exactly this reason.
+$token_files = array_merge( glob( $theme . '/*.css' ) ?: array(), glob( $theme . '/assets/css/*.css' ) ?: array() );
+$tokens_used = array();
+$tokens_set  = array();
+foreach ( $token_files as $path ) {
+	$css = (string) file_get_contents( $path );
+	preg_match_all( '/var\(\s*(--wpc-[a-z0-9-]+)/', $css, $m );
+	foreach ( $m[1] as $token ) {
+		$tokens_used[ $token ][ basename( $path ) ] = true;
+	}
+	preg_match_all( '/(--wpc-[a-z0-9-]+)\s*:/', $css, $m );
+	foreach ( $m[1] as $token ) {
+		$tokens_set[ $token ] = true;
+	}
+}
+$undefined = array_diff_key( $tokens_used, $tokens_set );
+foreach ( $undefined as $token => $where ) {
+	printf( "  TOKEN  %-44s read but never declared  (%s)\n", $token, implode( ', ', array_keys( $where ) ) );
+}
+printf( "%d tokens read, %d declared, %d undefined.\n", count( $tokens_used ), count( $tokens_set ), count( $undefined ) );
+if ( $undefined ) {
+	exit( 1 );
+}
+
 // The house rule, enforced here too: plain hyphens only, in every text file of the theme.
 $dashes = array();
 $walk   = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $theme, FilesystemIterator::SKIP_DOTS ) );

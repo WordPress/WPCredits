@@ -275,7 +275,7 @@ Codes are encrypted at rest with the site key the stored agreements use and are 
 
 Sponsors read numbers, managers read names. The sponsor's Usage card counts claims by month and offer (and a CSV of the same); the Sponsors screen's *Offers and codes* card lists every offer with its counts and, for support, who claimed from it (name, address, date, the code's last four characters) with a *Void* button: voiding frees the person to claim again and keeps the code void for the count. A claimant's *Report a problem* mails the sponsor's assigned program manager (else `sponsor_notify`, else every manager) the name, the offer and the last four characters, three a day per person. When a pool falls below its threshold, one mail goes to the sponsor's accounts and one to the manager, once, re-armed by adding codes. Nothing about a claim reaches Airtable.
 
-The Tools section is drawn on a person's own Student Report Card (setting *Tools from our sponsors*, on by default), on their own Mentor Report Card (off by default) and on the Administrator Dashboard (every live offer, labelled with its audience). On a manager's view of a student it is one line, "N tools claimed".
+The Tools section is drawn on a person's own Student Report Card (setting *Tools from our sponsors*, on by default), on their own Mentor Report Card (off by default) and on the Administrator Dashboard (every live offer, labeled with its audience). On a manager's view of a student it is one line, "N tools claimed".
 
 ## Where the plugin keeps its data
 

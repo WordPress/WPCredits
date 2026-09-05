@@ -33,7 +33,7 @@
 
 /* The forms. The text controls take the agreement panel's width (.wpcpm-agreement-panel__input). */
 .wpcpm-sponsor__form .wpcpm-sponsor__field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 1em; }
-.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 32em; width: 100%; }
+.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form input[type="number"], .wpcpm-sponsor__form input[type="date"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 32em; width: 100%; }
 .wpcpm-sponsor__choices { border: 0; padding: 0; margin: 0 0 1em; }
 .wpcpm-sponsor__choices label { display: block; margin: 0 0 6px; }
 

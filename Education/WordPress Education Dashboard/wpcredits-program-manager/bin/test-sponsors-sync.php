@@ -549,7 +549,7 @@ ck( 'last_read() is stamped', WPCPM_Sponsors_Sync::last_read() > 0, true );
 
 echo "\n=== Logos ===\n";
 ck( 'one logo was copied: the Approved PNG that the site did not hold', array_map( function ( $s ) { return $s[1]; }, $GLOBALS['sideloads'] ), array( 'miniorange-300w.png' ) );
-ck( 'by the sync, with no author and the company\'s title', array( $GLOBALS['sideloads'][0][2], $GLOBALS['sideloads'][0][3] ), array( 0, 'miniOrange logo (colour)' ) );
+ck( 'by the sync, with no author and the company\'s title', array( $GLOBALS['sideloads'][0][2], $GLOBALS['sideloads'][0][3] ), array( 0, 'miniOrange logo (color)' ) );
 ck( 'and recorded as Airtable\'s', WPCPM_Sponsors_Index::logo_record( $A ), array( 'colour' => 501, 'white' => 0, 'source' => 'airtable', 'airtable_id' => 'attA' ) );
 ck( 'the SVG was refused, with a notice that names the format', $report['stats']['logos_refused'] === 1 && false !== strpos( implode( "\n", $report['notices'] ), 'Wetopi' ) && false !== strpos( implode( "\n", $report['notices'] ), 'image/svg+xml' ), true );
 ck( 'the already-copied logo was kept, the Paused sponsor\'s never fetched', array( $report['stats']['logos_kept'], WPCPM_Sponsors_Index::logo_record( $D )['colour'] ), array( 1, 0 ) );

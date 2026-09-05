@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.19.1
+Stable tag: 1.19.3
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,12 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.19.3 =
+* The Sponsor Dashboard's form controls and the Administrator Dashboard's note fields take the control border (3:1 against the page) instead of the card hairline, the boundary WCAG 1.4.11 asks for. With plugin 1.94.4, which does the same for the Institution Dashboard's forms.
+
+= 1.19.2 =
+* The type review of 5 September 2026, phase one. Two undefined tokens fixed: every input on the Student Report Card and the call forms had a 1.27:1 border because `--wpc-line-control` never existed (the token is `--wpc-control-border`), and the feedback rating stars had no focus ring because `--wpc-blue` never existed. Reading text is never smaller than 14px and never in the lightest gray any more: hints, notes, the switcher note, the updated line and the calendar's day numbers move to 14px in `ink-60` or `ink-70`, the page intro to 16px. Section names stop being the smallest text on the page: card and section titles 14px, group legends and lesson sub-headings 13px, count pills 12px. The Sponsor Dashboard's number, date and file fields take the same border, radius and font as the text fields, the file button is dressed as the secondary button, and the Kind and Also open to legends take the label treatment. A new heading style for the sentence over a run of marks on the Student Report Card (plugin 1.94.3). `bin/check-selectors.php` now also fails on a `var( --wpc-* )` the theme never declares.
 
 = 1.19.1 =
 * The Sponsor Dashboard's two mentor lists are mentor cards in a grid, the shape the Credits Program Mentors plugin gives the program's mentors, in the theme's tokens with the same lift on hover. The page's own blocks on a dashboard page (a welcome text above the Administrator Dashboard) take the dashboards' 32px inset, which the theme had zeroed along with the plugin root's. The note fields on the Administrator Dashboard and the sponsor forms are border-box, so a 100% width no longer runs past the column. Every inset narrows at one breakpoint, 900px; the shared sections and the count line narrowed at 782px before. The Student Report Card's team tiles (plugin 1.94.1) take the card line, the control radius and, once chosen, the brand tint with the icon in brand blue; every checkbox in the report is brand blue when ticked.

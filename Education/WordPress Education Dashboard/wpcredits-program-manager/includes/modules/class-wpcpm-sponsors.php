@@ -784,7 +784,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			);
 			echo '<noscript><meta http-equiv="refresh" content="15" /></noscript>';
 			echo '</div>';
-			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" data-wpcpm-once data-wpcpm-busy="' . esc_attr__( 'Cancelling', 'wpcredits-program-manager' ) . '">';
+			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" data-wpcpm-once data-wpcpm-busy="' . esc_attr__( 'Canceling', 'wpcredits-program-manager' ) . '">';
 			wp_nonce_field( self::ACTION_CANCEL );
 			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_CANCEL ) . '" />';
 			submit_button( __( 'Cancel sync', 'wpcredits-program-manager' ), 'secondary', 'submit', false );

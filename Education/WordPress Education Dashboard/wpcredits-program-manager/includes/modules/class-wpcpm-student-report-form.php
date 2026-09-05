@@ -155,26 +155,22 @@ class WPCPM_Student_Report_Form {
 			'Writing in the WordPress voice - final grade' => array( 'label' => __( 'Writing in the WordPress voice', 'wpcredits-program-manager' ) ) + $grade,
 		) + $conflict + array(
 			'Beginner WordPress User - final grade'     => array(
-				'label'   => __( 'Beginner WordPress User', 'wpcredits-program-manager' ),
-				'divider' => true,
+				'label' => __( 'Beginner WordPress User', 'wpcredits-program-manager' ),
+				// The condition on the three user-level marks, as a heading over them (`lead`):
+				// it was a `note` under the last of them until 1.94.3, where it read as an orphan.
+				'lead'  => __( 'Complete one of the following courses', 'wpcredits-program-manager' ),
 			) + $grade,
 			'Intermediate WordPress User - final grade' => array( 'label' => __( 'Intermediate WordPress User', 'wpcredits-program-manager' ) ) + $grade,
-			'Advance WordPress User - final grade'      => array(
-				'label' => __( 'Advanced WordPress User', 'wpcredits-program-manager' ),
-				'note'  => __( 'Complete one of the following courses', 'wpcredits-program-manager' ),
-			) + $grade,
+			'Advance WordPress User - final grade'      => array( 'label' => __( 'Advanced WordPress User', 'wpcredits-program-manager' ) ) + $grade,
 		);
 
 		// Named on the form, because a mark for a course nobody had to take should not look like a
-		// missing answer. The heading is printed above the first field carrying it.
+		// missing answer. The lead-in is printed above the first field carrying it.
 		$sensei_courses = array(
-			'Beginner WordPress Developer' => array( 'divider' => true )
+			'Beginner WordPress Developer' => array( 'lead' => __( 'Optional courses', 'wpcredits-program-manager' ) )
 				+ $mark + array( 'label' => __( 'Beginner WordPress Developer', 'wpcredits-program-manager' ) ),
 			'Intermediate Theme Developer' => array( 'label' => __( 'Intermediate Theme Developer', 'wpcredits-program-manager' ) ) + $mark,
-			'Beginner WordPress Designer'  => array(
-				'label' => __( 'Beginner WordPress Designer', 'wpcredits-program-manager' ),
-				'note'  => __( 'Optional courses', 'wpcredits-program-manager' ),
-			) + $mark,
+			'Beginner WordPress Designer'  => array( 'label' => __( 'Beginner WordPress Designer', 'wpcredits-program-manager' ) ) + $mark,
 		);
 
 		$fifty_grades = $conflict;
@@ -236,7 +232,7 @@ class WPCPM_Student_Report_Form {
 				'group' => 'project',
 			),
 			'Alumni program: personal email'   => array(
-				'label' => __( 'A personal email address for the alumni programme', 'wpcredits-program-manager' ),
+				'label' => __( 'A personal email address for the alumni program', 'wpcredits-program-manager' ),
 				'type'  => 'email',
 				'group' => 'project',
 				'help'  => __( 'Somewhere that still reaches you once your student address stops working.', 'wpcredits-program-manager' ),
@@ -735,10 +731,30 @@ class WPCPM_Student_Report_Form {
 						$row = '';
 					}
 
+					// A heading element, not a styled paragraph: a screen reader moving by headings
+					// lands on the lesson, as a sighted reader's eye does (1.94.3).
 					printf(
-						'<p class="wpcpm-report__sub">%s</p>',
+						'<h4 class="wpcpm-report__sub">%s</h4>',
 						esc_html( $subgroup )
 					);
+				}
+
+				// The sentence that opens a run of marks, "Complete one of the following courses": a
+				// heading over the run in the label's voice, so a reader meets the condition before
+				// the boxes it governs. It was a `note` under the run's last field until 1.94.3,
+				// where it read as an orphan (the type review of 5 September 2026).
+				if ( ! empty( $spec['lead'] ) ) {
+					if ( '' !== $row ) {
+						if ( $stacked ) {
+							echo '</div>';
+							$stacked = false;
+						}
+
+						echo '</div>';
+						$row = '';
+					}
+
+					printf( '<h4 class="wpcpm-report__lead">%s</h4>', esc_html( $spec['lead'] ) );
 				}
 
 				// A rule with no heading over it: a run of fields that starts a section of its own

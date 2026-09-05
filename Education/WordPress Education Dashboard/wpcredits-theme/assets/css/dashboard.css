@@ -179,10 +179,18 @@
 	margin: 0 0 2px;
 }
 
-.wpcpm-dashboard__intro,
+/* The intro is the page's own voice: prose, at the body size. The updated line is a
+   timestamp: one step down and one shade lighter (the type review of 5 September 2026 -
+   both were 13px meta before). */
+.wpcpm-dashboard__intro {
+	color: var( --wpc-ink-70 );
+	font: 16px/24px var( --wpc-font );
+	margin: 0;
+}
+
 .wpcpm-dashboard__updated {
 	color: var( --wpc-ink-60 );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin: 0;
 }
 
@@ -308,7 +316,7 @@
 }
 
 .wpc-search__input::placeholder {
-	color: var( --wpc-ink-50 );
+	color: var( --wpc-ink-60 );
 	opacity: 1;
 }
 
@@ -361,7 +369,7 @@
 .wpc-dash__hint,
 .wpc-dash__ordering {
 	color: var( --wpc-ink-60 );
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin: 0;
 	padding: 14px 32px;
 }
@@ -418,7 +426,7 @@
 
 .wpcpm-dashboard__switcher-note {
 	color: var( --wpc-ink-70 );
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	margin-left: auto;
 }
 
@@ -595,8 +603,8 @@
 
 .wpc-dashboard-page .wpcpm-student__heading {
 	color: var( --wpc-ink-70 );
-	font: 700 12px/16px var( --wpc-font );
-	letter-spacing: .06em;
+	font: 700 14px/20px var( --wpc-font );
+	letter-spacing: .04em;
 	margin: 0 0 12px;
 	text-transform: uppercase;
 }
@@ -683,7 +691,7 @@
 }
 
 .wpc-dashboard-page .wpcpm-student__missing {
-	color: var( --wpc-ink-50 );
+	color: var( --wpc-ink-60 );
 	font-style: italic;
 }
 
@@ -729,7 +737,8 @@
 }
 
 .wpc-dashboard-page .wpcpm-student__note {
-	color: var( --wpc-ink-50 );
+	color: var( --wpc-ink-60 );
+	font: 14px/20px var( --wpc-font );
 	opacity: 1;
 }
 
@@ -821,7 +830,7 @@
    the shared rule's `margin: 0` it sits flush against the card edge. */
 .wpc-student-page .wpcpm-dashboard__updated {
 	border-top: 1px solid var( --wpc-line-soft );
-	color: var( --wpc-ink-50 );
+	color: var( --wpc-ink-60 );
 	margin: 0;
 	padding: 14px 32px 18px;
 }
@@ -886,9 +895,9 @@
 	color: var( --wpc-ink-70 );
 	display: flex;
 	flex-wrap: wrap;
-	font: 700 12px/16px var( --wpc-font );
+	font: 700 14px/20px var( --wpc-font );
 	gap: 8px;
-	letter-spacing: .06em;
+	letter-spacing: .04em;
 	margin: 0;
 	padding: 20px 32px 10px;
 	text-transform: uppercase;
@@ -897,7 +906,7 @@
 .wpc-dashboard-page .wpcpm-group__count {
 	border: 1px solid var( --wpc-line );
 	border-radius: 999px;
-	font: 700 11px/18px var( --wpc-font );
+	font: 700 12px/18px var( --wpc-font );
 	letter-spacing: 0;
 	padding: 0 7px;
 }
@@ -1066,7 +1075,8 @@
 
 .wpc-administrator-page .wpcpm-app-action textarea,
 .wpc-administrator-page .wpcpm-request__decide textarea {
-	border: 1px solid var( --wpc-line );
+	/* The control border, not the card hairline: 3:1 against the page (WCAG 1.4.11; 1.19.3). */
+	border: 1px solid var( --wpc-control-border );
 	border-radius: 8px;
 	/* Border-box, or the padding and the border add 22px to a 100% width and the field runs past
 	   the column's right edge (the mentor requests card, 5 September 2026). */
@@ -1253,9 +1263,13 @@
 .wpc-sponsor-page .wpcpm-sponsor__form input[type="text"],
 .wpc-sponsor-page .wpcpm-sponsor__form input[type="url"],
 .wpc-sponsor-page .wpcpm-sponsor__form input[type="email"],
+.wpc-sponsor-page .wpcpm-sponsor__form input[type="number"],
+.wpc-sponsor-page .wpcpm-sponsor__form input[type="date"],
 .wpc-sponsor-page .wpcpm-sponsor__form select,
 .wpc-sponsor-page .wpcpm-sponsor__form textarea {
-	border: 1px solid var( --wpc-line );
+	/* The control border, not the card hairline: 3:1 against the page (WCAG 1.4.11; 1.19.3).
+	   The Institution Dashboard's forms take the same edge from the plugin's own token. */
+	border: 1px solid var( --wpc-control-border );
 	border-radius: 8px;
 	box-sizing: border-box;
 	font: inherit;
@@ -1265,6 +1279,48 @@
 
 .wpc-sponsor-page .wpcpm-sponsor__field > label {
 	font: 600 14px/20px var( --wpc-font );
+}
+
+/* The number, date and file fields joined the list above in 1.19.2: they had the browser's own
+   border and font (the date field showed dd.mm.yyyy in a monospace fallback) beside the theme's
+   text boxes. The file control keeps its native input, for the keyboard and the screen reader,
+   and dresses its button as the secondary button. */
+.wpc-sponsor-page .wpcpm-sponsor__form input[type="file"] {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+	max-width: 32em;
+	padding: 4px 0;
+	width: 100%;
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__form input[type="file"]::file-selector-button {
+	background: none;
+	border: 1px solid var( --wpc-brand-border );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-brand );
+	cursor: pointer;
+	font: 600 14px/20px var( --wpc-font );
+	margin-right: 12px;
+	padding: 6px 14px;
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__form input[type="file"]::file-selector-button:hover {
+	background: var( --wpc-brand-tint );
+}
+
+/* A group's name (Kind, Also open to) is a legend and had no rule: it inherited the body's
+   regular 16px and sat lighter than the bold 14px labels around it, so the hierarchy read
+   backwards. The same treatment as a field label; the choices under it read at the control
+   size and are padded to a 26px row, the target size WCAG 2.5.8 asks for. */
+.wpc-sponsor-page .wpcpm-sponsor__choices legend {
+	font: 600 14px/20px var( --wpc-font );
+	margin: 0 0 4px;
+	padding: 0;
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__choices label {
+	font: 14px/20px var( --wpc-font );
+	padding: 3px 0;
 }
 
 .wpc-sponsor-page .wpcpm-dashboard__message--success {
@@ -1811,7 +1867,7 @@
 
 /* A gap in Airtable reads as a gap in Airtable, not as a row the page forgot. */
 .wpcpm-mentee__missing {
-	color: var( --wpc-ink-50 );
+	color: var( --wpc-ink-60 );
 	font-style: italic;
 }
 
@@ -2011,7 +2067,7 @@
 .wpc-dashboard-page .wpcpm-calls__heading {
 	align-items: center;
 	color: var( --wpc-ink-70 );
-	font: 700 12px/16px var( --wpc-font );
+	font: 700 14px/20px var( --wpc-font );
 	gap: 8px;
 	letter-spacing: .06em;
 	margin: 0 0 12px;
@@ -2023,7 +2079,7 @@
 	border: 1px solid var( --wpc-line-card );
 	border-radius: var( --wpc-radius-pill );
 	color: var( --wpc-ink-70 );
-	font: 500 11px/16px var( --wpc-font );
+	font: 500 12px/18px var( --wpc-font );
 	letter-spacing: 0;
 	padding: 0 7px;
 }
@@ -2134,14 +2190,14 @@
 }
 
 .wpc-dashboard-page .wpcpm-calendar__grid th {
-	color: var( --wpc-ink-50 );
-	font: 500 11px/16px var( --wpc-font );
+	color: var( --wpc-ink-60 );
+	font: 500 12px/16px var( --wpc-font );
 	opacity: 1;
 }
 
 .wpc-dashboard-page .wpcpm-calendar__day {
 	border-radius: var( --wpc-radius-control );
-	color: var( --wpc-ink-50 );
+	color: var( --wpc-ink-70 );
 	font: 13px/18px var( --wpc-font );
 }
 
@@ -2160,7 +2216,7 @@
 }
 
 .wpc-dashboard-page .wpcpm-calendar__day.is-empty {
-	color: var( --wpc-ink-50 );
+	color: var( --wpc-ink-60 );
 	opacity: 1;
 }
 
@@ -2172,7 +2228,7 @@
 
 .wpc-dashboard-page .wpcpm-calendar__slots {
 	color: var( --wpc-ink-70 );
-	font: 500 10px/12px var( --wpc-font );
+	font: 500 12px/14px var( --wpc-font );
 	opacity: 1;
 }
 
@@ -2376,7 +2432,7 @@
 }
 
 .wpc-dashboard-page .wpcpm-availability__to {
-	color: var( --wpc-ink-50 );
+	color: var( --wpc-ink-60 );
 }
 
 /* -------------------------------------------------------------------------
@@ -2771,7 +2827,7 @@
 .wpc-dashboard-page .wpcpm-sessions__note-hint,
 .wpc-dashboard-page .wpcpm-field__hint {
 	color: var( --wpc-ink-60 );
-	font: 12px/18px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	opacity: 1;
 }
 
@@ -2784,7 +2840,7 @@
 
 .wpc-dashboard-page .wpcpm-field label {
 	color: var( --wpc-ink-70 );
-	font: 600 12px/16px var( --wpc-font );
+	font: 600 14px/20px var( --wpc-font );
 }
 
 /* The controls follow the availability editor's, so the two forms on this card do not
@@ -2792,9 +2848,12 @@
 .wpc-dashboard-page .wpcpm-sessions__form input,
 .wpc-dashboard-page .wpcpm-sessions__form textarea,
 .wpc-dashboard-page .wpcpm-sessions__note textarea {
-	border: 1px solid var( --wpc-line-control, var( --wpc-line-card ) );
+	/* --wpc-control-border is the token; `--wpc-line-control` never existed, and the fallback
+	   drew every box in the card hairline, 1.27:1 against white (found by the type review of
+	   5 September 2026; controls need 3:1). */
+	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	padding: 6px 8px;
 }
 
@@ -2817,9 +2876,12 @@
 .wpc-dashboard-page .wpcpm-report input,
 .wpc-dashboard-page .wpcpm-report textarea,
 .wpc-dashboard-page .wpcpm-hours input {
-	border: 1px solid var( --wpc-line-control, var( --wpc-line-card ) );
+	/* --wpc-control-border is the token; `--wpc-line-control` never existed, and the fallback
+	   drew every box in the card hairline, 1.27:1 against white (found by the type review of
+	   5 September 2026; controls need 3:1). */
+	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
-	font: 13px/20px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	padding: 6px 8px;
 }
 
@@ -2872,7 +2934,7 @@
 	border-color: var( --wpc-line-card );
 	border-radius: var( --wpc-radius-control );
 	color: var( --wpc-ink );
-	font: 500 13px/1.35 var( --wpc-font );
+	font: 500 14px/1.35 var( --wpc-font );
 	transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -2903,7 +2965,7 @@
 
 .wpc-dashboard-page .wpcpm-report__group > legend {
 	color: var( --wpc-ink-70 );
-	font: 700 11px/16px var( --wpc-font );
+	font: 700 13px/18px var( --wpc-font );
 	letter-spacing: .06em;
 }
 
@@ -2911,25 +2973,34 @@
    uppercase tracking, a shade lighter - so the order reads group, lesson, field rather than
    three things shouting at the same volume. */
 .wpc-dashboard-page .wpcpm-report__rule {
-	border-top-color: var( --wpc-line-soft );
+	border-top-color: var( --wpc-line-strong );
 }
 
 .wpc-dashboard-page .wpcpm-report__note {
 	color: var( --wpc-ink-60 );
-	font: 12px/16px var( --wpc-font );
+	font: 14px/20px var( --wpc-font );
 	opacity: 1;
 }
 
 .wpc-dashboard-page .wpcpm-report__sub {
 	border-top-color: var( --wpc-line-soft );
-	color: var( --wpc-ink-60 );
-	font: 700 11px/16px var( --wpc-font );
+	color: var( --wpc-ink-70 );
+	font: 700 13px/18px var( --wpc-font );
 	letter-spacing: .06em;
+}
+
+/* The sentence that opens a run of marks ("Complete one of the following courses") is a
+   heading over the run, in the label's voice and size. It was a 12px note printed under the
+   run, where it read as an orphan (the type review of 5 September 2026; plugin 1.94.3). */
+.wpc-dashboard-page .wpcpm-report__lead {
+	color: var( --wpc-ink-70 );
+	font: 600 14px/20px var( --wpc-font );
+	margin: 8px 0 0;
 }
 
 .wpc-dashboard-page .wpcpm-report__toggle {
 	color: var( --wpc-brand );
-	font: 600 13px/20px var( --wpc-font );
+	font: 600 14px/20px var( --wpc-font );
 }
 
 .wpc-dashboard-page .wpcpm-report__count {
@@ -3100,7 +3171,7 @@
 /* Keyboard focus lands on a radio that is not drawn, so the star around it shows the ring. */
 .wpc-dashboard-page .wpcpm-rating__step:has( input:focus-visible ) {
 	border-radius: var( --wpc-radius-control );
-	outline: 2px solid var( --wpc-blue );
+	outline: 2px solid var( --wpc-brand );
 	outline-offset: 2px;
 }
 

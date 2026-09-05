@@ -1110,7 +1110,7 @@ class WPCPM_Mentor_Availability {
 		);
 		printf(
 			'<span class="wpcpm-availability__note">%s</span>',
-			esc_html__( 'Your video room. It goes in the booking confirmation and the calendar invitation, so neither of you has to arrange it afterwards.', 'wpcredits-program-manager' )
+			esc_html__( 'Your video room. It goes in the booking confirmation and the calendar invitation, so neither of you has to arrange it afterward.', 'wpcredits-program-manager' )
 		);
 		echo '</p>';
 

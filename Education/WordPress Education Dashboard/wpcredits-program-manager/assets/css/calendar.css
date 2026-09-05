@@ -786,7 +786,7 @@
 
 .wpcpm-field__hint {
 	display: block;
-	font-size: 0.85em;
+	font-size: 0.875em;
 	margin-top: 0.2rem;
 	opacity: 0.72;
 }
@@ -1008,7 +1008,7 @@
 /* A condition on the answers above it - "complete one of the following" - set as the field
    hints are, because that is what it is: a note about how to fill something in. */
 .wpcpm-report__note {
-	font-size: 0.85em;
+	font-size: 0.875em;
 	grid-column: 1 / -1;
 	margin: 0.4em 0 0;
 	opacity: 0.72;
@@ -1027,7 +1027,10 @@
 	/* The rule is the section's, not the text's, so it is drawn in its own light gray rather
 	   than in `currentColor`, which would give it the heading's weight. */
 	border-top: 1px solid rgba( 0, 0, 0, 0.12 );
-	font-size: 0.75em;
+	/* 13px at the body's 16: the floor for anything set in capitals (the type review of
+	   5 September 2026; it was 0.75em, 12px). An <h4> since 1.94.3, so the margin is set here
+	   rather than left to the browser's heading margins. */
+	font-size: 0.8125em;
 	font-weight: 700;
 	grid-column: 1 / -1;
 	letter-spacing: 0.06em;
@@ -1036,9 +1039,18 @@
 	text-transform: uppercase;
 }
 
+/* The sentence over a run of marks: the label's weight, one step under the body, the full row. */
+.wpcpm-report__lead {
+	font-size: 0.875em;
+	font-weight: 600;
+	grid-column: 1 / -1;
+	margin: 0.75em 0 0;
+}
+
 /* The first row under a heading sits close to it. Everything in this grid has a row gap; this
    takes it back for the one row that should read as attached. */
 .wpcpm-report__sub + *,
+.wpcpm-report__lead + *,
 .wpcpm-report__rule + * {
 	margin-top: -0.35em;
 }

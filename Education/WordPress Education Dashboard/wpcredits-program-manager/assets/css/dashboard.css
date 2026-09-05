@@ -18,6 +18,11 @@
 	--wpcpm-border: color-mix( in srgb, currentColor 18%, transparent );
 	--wpcpm-surface: color-mix( in srgb, currentColor 5%, transparent );
 	--wpcpm-radius: 8px;
+	/* A form control's edge, not a card's: 18% of the ink is a hairline at about 1.5:1 against
+	   white, and WCAG 1.4.11 asks 3:1 of the boundary of anything a person operates. Half the
+	   ink lands near #8d8d8d on a white page, the border WordPress itself gives its inputs
+	   (the type review of 5 September 2026; 1.94.4). */
+	--wpcpm-control-border: color-mix( in srgb, currentColor 48%, transparent );
 }
 
 /* Fallback for anything without color-mix(): a mid gray reads acceptably on
@@ -27,6 +32,7 @@
 	.wpcpm-dashboard {
 		--wpcpm-border: rgba( 128, 128, 128, 0.4 );
 		--wpcpm-surface: rgba( 128, 128, 128, 0.08 );
+		--wpcpm-control-border: rgba( 128, 128, 128, 0.9 );
 	}
 }
 
@@ -532,7 +538,7 @@
 }
 
 .wpcpm-notes__input {
-	border: 1px solid var( --wpcpm-border );
+	border: 1px solid var( --wpcpm-control-border, var( --wpcpm-border ) );
 	border-radius: 4px;
 	font: inherit;
 	padding: 0.6em;

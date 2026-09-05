@@ -49,4 +49,7 @@ if grep -rIn --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=fixture
 fi
 rm -f /tmp/wpcpm-dashes.txt
 
+# US English in the text people read, as the WordPress writing style guide asks.
+php bin/check-spelling.php
+
 "$PHPCS"

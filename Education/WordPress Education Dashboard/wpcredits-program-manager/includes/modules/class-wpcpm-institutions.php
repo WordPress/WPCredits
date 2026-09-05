@@ -4431,7 +4431,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 						esc_html(
 							sprintf(
 								/* translators: %d: HTTP status code. */
-								__( 'The same file in a folder without the leading dot answers HTTP %d on this host, so the dot is what makes the difference. It is a host behaviour rather than a promise, which is why the files are encrypted as well.', 'wpcredits-program-manager' ),
+								__( 'The same file in a folder without the leading dot answers HTTP %d on this host, so the dot is what makes the difference. It is a host behavior rather than a promise, which is why the files are encrypted as well.', 'wpcredits-program-manager' ),
 								$control
 							)
 						)

@@ -1359,7 +1359,7 @@ class WPCPM_Institution_Roster_View {
 		);
 		printf(
 			'<p class="wpcpm-muted wpcpm-roster__note">%s</p>',
-			esc_html__( 'These students are reporting on the program, but the program records have no enrolment row for them yet, so they are not counted in the groups above. A program manager needs to complete the record.', 'wpcredits-program-manager' )
+			esc_html__( 'These students are reporting on the program, but the program records have no enrollment row for them yet, so they are not counted in the groups above. A program manager needs to complete the record.', 'wpcredits-program-manager' )
 		);
 
 		// **A student's address is a manager's to see, not the school's.** The export has no
