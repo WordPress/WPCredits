@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.18.0
+Stable tag: 1.18.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,10 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.18.1 =
+* The Sponsor Dashboard's identity block: the theme no longer sizes the name, the website and the facts beside the logo. Plugin 1.93.1 gives them the Institution Dashboard's rules, and the theme sizing neither is what makes the two headers read as the same header.
+* The hairline under the identity header, which the Institution Dashboard has carried since the page moved onto the dashboard template, now runs under the Sponsor Dashboard's header too: on both pages the first section sits under a header rather than at the top of the card, so it wants the rule the student page's first section does without.
 
 = 1.18.0 =
 * The Sponsor Dashboard, the page plugin 1.93.0 gives sponsors, has its template, its page predicate, its body class and its skin: the identity block with the logo on a white ground, the program-contact block, the profile and interests forms, the mentor lists and the message tones. As with the other dashboards, the predicate and the body class were added together.

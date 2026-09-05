@@ -499,8 +499,10 @@
 /* The institution page opens on the same shape as the student page: the switcher, the
    identity header, and then a section. So it wants the rule back for the same reason - the
    section that follows is not the first thing on the page, and without the hairline the
-   announcements read as part of the header above them. */
-.wpc-institution-page .wpcpm-student__section:first-of-type {
+   announcements read as part of the header above them. The sponsor page (theme 1.18.1) opens
+   the same way, header then section, and shares the rule for the same reason. */
+.wpc-institution-page .wpcpm-student__section:first-of-type,
+.wpc-sponsor-page .wpcpm-student__section:first-of-type {
 	border-top: 1px solid var( --wpc-line-soft );
 }
 
@@ -1141,14 +1143,11 @@
 	font: 700 32px/1 var( --wpc-font );
 }
 
-.wpc-sponsor-page .wpcpm-sponsor__name {
-	font: 700 28px/34px var( --wpc-font );
-}
-
-.wpc-sponsor-page .wpcpm-sponsor__fact,
-.wpc-sponsor-page .wpcpm-sponsor__website {
-	font: 400 15px/22px var( --wpc-font );
-}
+/* The details beside the logo (the name, the website, the facts) are not sized here, on
+   purpose. Theme 1.18.0 gave the name 28px and the facts 15px, which made this header heavier
+   than the Institution Dashboard's one page over. That header is dressed by the plugin's own
+   rules alone, and plugin 1.93.1 copies those rules into the sponsor stylesheet, so the theme
+   sizing neither is what makes the two headers match value for value. */
 
 /* The program-contact block sits in the resources section's right column, like the institution's. */
 .wpc-sponsor-page .wpcpm-resources__contact {

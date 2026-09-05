@@ -4,8 +4,15 @@
 .wpcpm-sponsor__logo { flex: 0 0 176px; width: 176px; height: 96px; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
 .wpcpm-sponsor__logo-image { max-width: 160px; max-height: 80px; width: auto; height: auto; object-fit: contain; }
 .wpcpm-sponsor__initials { font-size: 32px; font-weight: 700; letter-spacing: 0.04em; color: #1e1e1e; }
-.wpcpm-sponsor__name { margin: 0 0 4px; font-size: 24px; font-weight: 700; }
-.wpcpm-sponsor__fact, .wpcpm-sponsor__website { margin: 0 0 2px; }
+/* The details beside the logo take the Institution Dashboard's rules value for value (see
+   institution.css), so the two headers read as the same header: the name at 1.2em bold with no
+   margin, the facts a quiet line each and tight to one another, the website a plain line.
+   `min-width: 0` so a long name or address wraps inside the flex item instead of pushing the
+   logo off the card. */
+.wpcpm-sponsor__details { min-width: 0; }
+.wpcpm-sponsor__name { font-size: 1.2em; font-weight: 700; margin: 0; }
+.wpcpm-sponsor__fact { margin: 0.15em 0 0; opacity: 0.75; }
+.wpcpm-sponsor__website { margin: 0.15em 0 0; }
 .wpcpm-sponsor__card { margin: 0 0 16px; }
 .wpcpm-sponsor__form .wpcpm-sponsor__field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; }
 .wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 640px; }

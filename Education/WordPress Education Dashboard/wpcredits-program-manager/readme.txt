@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.93.0
+Stable tag: 1.93.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.93.1 =
+* The Sponsor Dashboard's identity block takes the Institution Dashboard's rules for the details beside the logo: the name at the size the institution's name has, the website a plain line, the facts a quiet line each. Theme 1.18.1 stops sizing them itself, so the two headers read as the same header.
 
 = 1.93.0 =
 * **The Sponsors module, phase one: accounts, sync and the Sponsor Dashboard.** A nightly sync reads the Team Members and Sponsors tables into an index and copies each Approved sponsor's logo into the Media Library (an Airtable attachment URL expires within hours). A program manager creates each sponsor's account one at a time from the Sponsors screen, from the contact address, with the welcome through the invitation queue; accounts are attached and removed there too, and the base's Dashboard account checkbox follows. Sponsors get a Sponsor Dashboard at /sponsor-dashboard/: logo, name, website, product type and contact; their contact at the program; a profile they can save back to Airtable through an allowlist with an audit row; their sponsored mentors with student counts and never a student's name; the mentors looking for a sponsor, with one press to say they would like to sponsor one; and a form to say what else they would like to support, which mails their program contact and appends a dated line to the base's Sponsorship interests column. One policy decides every sponsor action; every refusal of a member is metered, twenty a day.
