@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.19.0
+Stable tag: 1.19.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.19.1 =
+* The Sponsor Dashboard's two mentor lists are mentor cards in a grid, the shape the Credits Program Mentors plugin gives the program's mentors, in the theme's tokens with the same lift on hover. The page's own blocks on a dashboard page (a welcome text above the Administrator Dashboard) take the dashboards' 32px inset, which the theme had zeroed along with the plugin root's. The note fields on the Administrator Dashboard and the sponsor forms are border-box, so a 100% width no longer runs past the column. Every inset narrows at one breakpoint, 900px; the shared sections and the count line narrowed at 782px before. The Student Report Card's team tiles (plugin 1.94.1) take the card line, the control radius and, once chosen, the brand tint with the icon in brand blue; every checkbox in the report is brand blue when ticked.
 
 = 1.19.0 =
 * The "Tools from our sponsors" section plugin 1.94.0 adds to the Student Report Card, the Mentor Report Card and the Administrator Dashboard, and the Offers and Usage cards on the Sponsor Dashboard, take the theme's tokens: the offer cards, the logo box, the monospaced code a click selects, the state pills, the usage table, the muted count line a manager sees on somebody else's card.

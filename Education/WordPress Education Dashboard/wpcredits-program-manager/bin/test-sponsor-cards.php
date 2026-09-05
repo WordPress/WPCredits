@@ -222,7 +222,11 @@ class WPCPM_Mentors_Sync {
 	public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); }
 	public static function sponsorship() { return $GLOBALS['sponsorship']; }
 }
-class WPCPM_Mentors_Dashboard { public static function get_mentees( $user_id ) { return isset( $GLOBALS['mentees'][ $user_id ] ) ? $GLOBALS['mentees'][ $user_id ] : array(); } }
+class WPCPM_Mentors_Dashboard {
+	public static function get_mentees( $user_id ) { return isset( $GLOBALS['mentees'][ $user_id ] ) ? $GLOBALS['mentees'][ $user_id ] : array(); }
+	/* The real helper's shape (includes/modules/class-wpcpm-mentors-dashboard.php): the WordPress.org photo redirect by username. */
+	public static function avatar_url( $username, $email, $size = 64 ) { return 'https://wordpress.org/grav-redirect.php?user=' . rawurlencode( (string) $username ) . '&s=' . (int) $size . '&d=mm'; }
+}
 class WPCPM_Sponsor_Offers { public static function offers_of( $record ) { return isset( $GLOBALS['offers'][ $record ] ) ? $GLOBALS['offers'][ $record ] : array(); } }
 class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
@@ -400,12 +404,24 @@ echo "\n=== Sponsored mentors ===\n";
 $linked = WPCPM_Sponsor_Mentors::linked( $A );
 ck( 'the linked mentors are named with their student counts, never a student\'s name', array( array_column( $linked['mentors'], 'name' ), $linked['mentors'][0]['current'], $linked['mentors'][0]['past'], $linked['others'] ), array( array( 'Emilia Pustelnik', 'Nilo Velez' ), 2, 1, 1 ) );
 ck( 'linked() carries user_id, 0 for a mentor with no site account', array( $linked['mentors'][0]['user_id'], $linked['mentors'][1]['user_id'] ), array( 42, 0 ) );
-ck( 'the mentors looking for a sponsor: Active, wanting, unsponsored', array_column( WPCPM_Sponsor_Mentors::looking(), 'name' ), array( 'Ana Looking' ) );
+ck( 'linked() carries the expertise for the chips', $linked['mentors'][0]['expertise'], array( 'Core' ) );
+// The looking list carries the same counts the linked list does (owner request of 5 September 2026): give Ana a site account with one student.
+$GLOBALS['sponsorship'][ $M3 ]['user_id'] = 43;
+$GLOBALS['mentees'][43]                   = array( array( 'name' => 'Student Three', 'is_past' => false ) );
+$looking = WPCPM_Sponsor_Mentors::looking();
+ck( 'the mentors looking for a sponsor: Active, wanting, unsponsored', array_column( $looking, 'name' ), array( 'Ana Looking' ) );
+ck( 'and each carries their account and their student counts', array( $looking[0]['user_id'], $looking[0]['current'], $looking[0]['past'], $looking[0]['expertise'] ), array( 43, 1, 0, array( 'Polyglots', 'Community' ) ) );
 $html = card( 'WPCPM_Sponsor_Mentors', $A, $context );
-ck( 'the card prints the mentors and the counts, and the one looking with a form', false !== strpos( $html, 'Emilia Pustelnik' ) && false !== strpos( $html, 'Ana Looking' ) && false !== strpos( $html, 'Polyglots' ) && 1 === substr_count( $html, 'value="' . WPCPM_Sponsor_Mentors::ACTION_INTEREST_MENTOR . '"' ), true );
-ck( 'and no student is named anywhere on it', strpos( $html, 'Student One' ) === false && strpos( $html, 'Old Student' ) === false, true );
-ck( 'a linked mentor with no site account yet says so, instead of a false zero', substr_count( $html, 'no site account yet' ), 1 );
-ck( 'a linked mentor with an account still shows real counts', false !== strpos( $html, '2 students now, 1 before' ), true );
+ck( 'two cards: Your mentors and Mentors looking for a sponsor, each its own section and disclosure', array( substr_count( $html, '<section class="wpcpm-sponsor__card">' ), false !== strpos( $html, 'id="wpcpm-sponsor-mentors"' ), false !== strpos( $html, 'id="wpcpm-sponsor-looking"' ), strpos( $html, 'id="wpcpm-sponsor-mentors"' ) < strpos( $html, 'id="wpcpm-sponsor-looking"' ), strpos( $html, 'wpcpm-sponsor__subheading' ) ), array( 2, true, true, true, false ) );
+ck( 'the summaries count the linked records and the mentors looking', array( false !== strpos( $html, 'Your mentors <span class="wpcpm-group__count">3</span>' ), false !== strpos( $html, 'Mentors looking for a sponsor <span class="wpcpm-group__count">1</span>' ) ), array( true, true ) );
+ck( 'every mentor is a card in a grid: two linked, one looking', array( substr_count( $html, '<article class="wpcpm-mentor-card">' ), substr_count( $html, '<div class="wpcpm-mentor-grid">' ) ), array( 3, 2 ) );
+ck( 'the photo comes from the WordPress.org profile, by the username in the profile address', array( false !== strpos( $html, 'grav-redirect.php?user=emilia&#038;s=116' ) || false !== strpos( $html, 'grav-redirect.php?user=emilia&s=116' ), false !== strpos( $html, 'Profile photo of Emilia Pustelnik' ) ), array( true, true ) );
+ck( 'the name links to the profile, the expertise is chips, the profile link is spelled out', array( false !== strpos( $html, '<h4 class="wpcpm-mentor-card__name"><a href="https://profiles.wordpress.org/emilia/" rel="external noopener">Emilia Pustelnik</a></h4>' ), false !== strpos( $html, '<span class="wpcpm-mentor-card__tag">Core</span>' ), false !== strpos( $html, '<span class="wpcpm-mentor-card__tag">Polyglots</span>' ), substr_count( $html, 'WordPress.org profile' ) ), array( true, true, true, 3 ) );
+ck( 'the one looking has the form, the linked ones do not', array( substr_count( $html, 'value="' . WPCPM_Sponsor_Mentors::ACTION_INTEREST_MENTOR . '"' ), strpos( $html, 'value="' . WPCPM_Sponsor_Mentors::ACTION_INTEREST_MENTOR . '"' ) > strpos( $html, 'id="wpcpm-sponsor-looking"' ) ), array( 1, true ) );
+ck( 'and no student is named anywhere on it', strpos( $html, 'Student One' ) === false && strpos( $html, 'Old Student' ) === false && strpos( $html, 'Student Three' ) === false, true );
+ck( 'a linked mentor with no site account yet says so, instead of a false zero', substr_count( $html, 'No site account yet' ), 1 );
+ck( 'a linked mentor with an account shows real counts, and so does the one looking', array( false !== strpos( $html, '2 students now, 1 before' ), false !== strpos( $html, '1 student now, 0 before' ) ), array( true, true ) );
+ck( 'the linked mentors who are not active are still counted under the grid', false !== strpos( $html, 'And 1 mentor who is not currently active.' ), true );
 $saved_sponsorship      = $GLOBALS['sponsorship'];
 $GLOBALS['sponsorship'] = array();
 $stale = card( 'WPCPM_Sponsor_Mentors', $A, $context );
@@ -415,7 +431,7 @@ $GLOBALS['sponsorship'] = $saved_sponsorship;
 $GLOBALS['buckets'] = array(); $GLOBALS['sent'] = array();
 WPCPM_Sponsors_Index::patch( $A, array( 'manager' => 'recTEAM0000000001' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
-ck( 'interest in a mentor is sent to the manager and logged', array( $r[0], $GLOBALS['sent'][0][2], end( $GLOBALS['audit'] )['kind'] ), array( 'mentor-interest-sent', 'sponsor-interest', 'sponsor_interest_mentor' ) );
+ck( 'interest in a mentor is sent to the manager and logged, and lands on the looking card', array( $r[0], $r[1], $GLOBALS['sent'][0][2], end( $GLOBALS['audit'] )['kind'] ), array( 'mentor-interest-sent', 'looking', 'sponsor-interest', 'sponsor_interest_mentor' ) );
 ck( 'the mail names the mentor', false !== strpos( $GLOBALS['sent'][0][3]['body'], 'Ana Looking' ), true );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M1 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
 ck( 'a mentor who is not looking cannot be asked for', $r[0], 'mentor-interest-unknown' );

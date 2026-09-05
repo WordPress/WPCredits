@@ -22,7 +22,9 @@
  * - `data-wpcpm-busy` is the label the pressed control shows while the request is in flight;
  * - `data-wpcpm-status`, optional, is a sentence for the form's `[data-wpcpm-busy-status]`
  *   live region, for a screen reader that cannot see the button change;
- * - `data-wpcpm-select` on an element selects its text on click (a claimed sponsor code).
+ * - `data-wpcpm-select` on an element selects its text on click (a claimed sponsor code);
+ * - `data-wpcpm-shows-for="codes|shared"` on an element shows it while the form's checked
+ *   `wpcpm_kind` radio has that value (the offer forms on the Sponsor Dashboard).
  */
 ( function () {
 	'use strict';
@@ -241,9 +243,60 @@
 		} );
 	}
 
+	/**
+	 * Show the box that belongs to the kind of offer chosen.
+	 *
+	 * The offer forms ask for one thing a pool needs (the codes) and one thing a shared offer
+	 * needs (the code or link); showing both left sponsors filling in the wrong one. Every
+	 * element marked `data-wpcpm-shows-for` inside a form is shown while the form's checked
+	 * `wpcpm_kind` radio has that value and hidden otherwise, on load and on every change.
+	 *
+	 * A convenience, never a control: with JavaScript off both boxes stay visible, a form with
+	 * no such radio (the kind is fixed once the pool holds anything) shows everything, and the
+	 * handler reads only the box that belongs to the kind posted.
+	 */
+	function showForKind() {
+		var forms = document.querySelectorAll( 'form' );
+		var i;
+
+		for ( i = 0; i < forms.length; i++ ) {
+			bindShowForKind( forms[ i ] );
+		}
+	}
+
+	/**
+	 * @param {HTMLFormElement} form A form that may carry kind radios and marked boxes.
+	 */
+	function bindShowForKind( form ) {
+		var marked = form.querySelectorAll( '[data-wpcpm-shows-for]' );
+		var radios = form.querySelectorAll( 'input[type="radio"][name="wpcpm_kind"]' );
+		var i;
+
+		if ( ! marked.length || ! radios.length ) {
+			return;
+		}
+
+		function apply() {
+			var checked = form.querySelector( 'input[type="radio"][name="wpcpm_kind"]:checked' );
+			var kind = checked ? checked.value : '';
+			var j;
+
+			for ( j = 0; j < marked.length; j++ ) {
+				marked[ j ].hidden = '' !== kind && marked[ j ].getAttribute( 'data-wpcpm-shows-for' ) !== kind;
+			}
+		}
+
+		for ( i = 0; i < radios.length; i++ ) {
+			radios[ i ].addEventListener( 'change', apply );
+		}
+
+		apply();
+	}
+
 	ready( function () {
 		guardForms();
 		releaseOnRestore();
 		selectOnClick();
+		showForKind();
 	} );
 }() );

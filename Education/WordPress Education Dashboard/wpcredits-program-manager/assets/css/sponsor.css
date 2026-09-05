@@ -44,14 +44,29 @@
    .wpcpm-people__member: bordered, rounded, the facts on their own line under the name, the
    row's form at the far end. The interests history is a log, and takes the agreement panel's
    steps list: a rule between lines and none above the first. */
-.wpcpm-sponsor__mentors, .wpcpm-sponsor__looking, .wpcpm-sponsor__people, .wpcpm-sponsor__history { list-style: none; margin: 0; padding: 0; }
-.wpcpm-sponsor__mentors li, .wpcpm-sponsor__looking li, .wpcpm-sponsor__people li { align-items: baseline; border: 1px solid var( --wpcpm-border ); border-radius: var( --wpcpm-radius ); display: flex; flex-wrap: wrap; gap: 0.3em 0.75em; margin: 0 0 0.75em; padding: 1em 1.25em; }
-.wpcpm-sponsor__mentors li:last-child, .wpcpm-sponsor__looking li:last-child, .wpcpm-sponsor__people li:last-child { margin-bottom: 0; }
+.wpcpm-sponsor__people, .wpcpm-sponsor__history { list-style: none; margin: 0; padding: 0; }
+.wpcpm-sponsor__people li { align-items: baseline; border: 1px solid var( --wpcpm-border ); border-radius: var( --wpcpm-radius ); display: flex; flex-wrap: wrap; gap: 0.3em 0.75em; margin: 0 0 0.75em; padding: 1em 1.25em; }
+.wpcpm-sponsor__people li:last-child { margin-bottom: 0; }
+
+/* The mentor cards (1.94.1): the shape the Credits Program Mentors plugin gives the program's
+   mentors, so a sponsor who has seen that page recognises these. A grid of three, then two,
+   then one; each card a centred column of photo, name, counts, chips and link. */
+.wpcpm-mentor-grid { display: grid; gap: 1em; grid-template-columns: repeat( 3, minmax( 0, 1fr ) ); }
+.wpcpm-mentor-card { align-items: center; background: var( --wpcpm-surface ); border: 1px solid var( --wpcpm-border ); border-radius: var( --wpcpm-radius ); display: flex; flex-direction: column; gap: 0.5em; margin: 0; padding: 1.5em 1.25em 1.25em; text-align: center; }
+.wpcpm-mentor-card__photo { line-height: 0; }
+.wpcpm-mentor-card__img, .wpcpm-mentor-card__initials { border-radius: 50%; height: 116px; object-fit: cover; width: 116px; }
+.wpcpm-mentor-card__initials { align-items: center; border: 1px solid var( --wpcpm-border ); display: inline-flex; font-size: 2.2em; font-weight: 700; justify-content: center; line-height: 1; }
+.wpcpm-mentor-card__name { font-size: 1.05em; margin: 0; }
+.wpcpm-mentor-card__stats { margin: 0; opacity: 0.75; }
+.wpcpm-mentor-card__tags { display: flex; flex-wrap: wrap; gap: 0.35em; justify-content: center; margin: 0; }
+.wpcpm-mentor-card__tag { border: 1px solid var( --wpcpm-border ); border-radius: 999px; font-size: 0.8em; padding: 0.1em 0.6em; white-space: nowrap; }
+.wpcpm-mentor-card__link { margin: 0; }
+.wpcpm-mentor-card .wpcpm-inline-form { margin-top: 0.5em; }
+@media ( max-width: 1024px ) { .wpcpm-mentor-grid { grid-template-columns: repeat( 2, minmax( 0, 1fr ) ); } }
+@media ( max-width: 600px ) { .wpcpm-mentor-grid { grid-template-columns: minmax( 0, 1fr ); } }
 .wpcpm-sponsor__history li { border-top: 1px solid var( --wpcpm-border ); padding: 0.75em 0; }
 .wpcpm-sponsor__history li:first-child { border-top: 0; padding-top: 0; }
 .wpcpm-sponsor__muted { opacity: 0.75; overflow-wrap: anywhere; }
-.wpcpm-sponsor__counts, .wpcpm-sponsor__expertise { flex: 1 1 100%; font-size: 0.9em; opacity: 0.72; order: 2; }
-.wpcpm-sponsor__looking .wpcpm-inline-form { margin: 0 0 0 auto; order: 1; }
 
 /* The message under the switcher: the institution's one way of saying something out of band
    (.wpcpm-people__message). Scoped to this page because administrator.css draws the same class

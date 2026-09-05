@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.94.0
+Stable tag: 1.94.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.94.2 =
+* Student Report Card and Mentor Report Card: the team icons on the tiles are 24px, half of 1.94.1's size, on the owner's request after seeing them on the page.
+
+= 1.94.1 =
+* Sponsor Dashboard: "Your mentors" and "Mentors looking for a sponsor" are two sections of mentor cards, the shape the Credits Program Mentors plugin gives the program's mentors: photo, name linked to the WordPress.org profile, how many students the mentor works with now and worked with before, and their expertise.
+* Offers and codes: a pool's codes can be uploaded as a .txt or .csv file (one code per line, or the first column) as well as pasted, on the new-offer form and on the pool's own box, so a pool and its codes are one step. The kind of offer is two plain choices, and the form shows only the box that belongs to the kind chosen.
+* Student Report Card and Mentor Report Card: the contribution teams are tiles across the full width of the Project section, the team icon three times its old size and the tick blue once chosen; the project questions follow under the list, full width.
+* Administrator Dashboard: the page's own text takes the dashboards' inset and the note fields fit their column (with theme 1.19.1).
 
 = 1.94.0 =
 * **The Sponsors module, phase two: offers, codes and "Tools from our sponsors".** A sponsor publishes offers from the Sponsor Dashboard: a pool of one-time codes pasted in (all or nothing, refused by line number, encrypted at rest with the site key) or one shared code or link, with what you get, how to redeem it, a link, the audience (current students always; mentors and the program team when the sponsor says so), a low-stock threshold and an optional last day. The first offer is seeded from the base on provisioning (or from a button on the Sponsors screen) and mirrors its text, instructions and link back to the base on every save. Current students claim a code from a new "Tools from our sponsors" section on their own Student Report Card (mentors on theirs when the program switches it on; managers see every live offer on the Administrator Dashboard); a second press returns the same code, a code once given stays under "Your codes", and "Report a problem" tells the sponsor's program manager. The sponsor's Usage card counts claims by month and offer, with a CSV; the Sponsors screen lists who claimed, for support, with a Void button. Below the threshold, the sponsor and the manager are mailed once. Nobody is ever sent a code by mail, sponsors never see a name, and nothing about a claim reaches Airtable.

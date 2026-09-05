@@ -956,13 +956,14 @@
 	grid-template-columns: repeat( auto-fit, minmax( 16em, 1fr ) );
 }
 
-/* The team list is the tall one: a column of checkboxes beside the project it is for, rather
-   than above it, so the section does not run off the screen before the next question.
-   Halves, like every other pair, so the description begins on the same line as the right-hand
-   field of every group above it rather than a little to the left of it. */
+/* The team list takes the whole width and the project questions follow under it, in one
+   column (polish of 1.94.1). It was a column of 16px checkboxes in the left half, beside the
+   project it is for, and the owner found it hard to pick a team there and to see what was
+   picked. The list is now tiles with a larger icon, and the width the tiles need is the width
+   the half could not give; the questions lose nothing by following. */
 .wpcpm-report__pair--project {
 	align-items: start;
-	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	grid-template-columns: minmax( 0, 1fr );
 }
 
 /* The questions about the project - describe it, link the post about choosing it, list the
@@ -980,13 +981,6 @@
 .wpcpm-report__stack .wpcpm-field {
 	margin: 0;
 	min-width: 0;
-}
-
-@media ( max-width: 782px ) {
-
-	.wpcpm-report__pair--project {
-		grid-template-columns: minmax( 0, 1fr );
-	}
 }
 
 /* The textareas take their own height. They were stretched to `min-height: 100%` back when the
@@ -1050,55 +1044,83 @@
 }
 
 /* The contribution teams, the same control the profile editor had before this form took the
-   question over. A dozen teams need the full width to stack in, so the checkboxes lay
-   themselves out in as many columns as fit rather than in one long list. */
+   question over. Two dozen teams as tiles, in as many columns as fit: twelve ems is the icon,
+   a tick and a two-word name with room to breathe. */
 .wpcpm-report__teams {
 	border: 0;
 	display: grid;
-	gap: 0.5em 1em;
-	grid-template-columns: repeat( auto-fit, minmax( 10em, 1fr ) );
+	gap: 0.6em 0.75em;
+	grid-template-columns: repeat( auto-fit, minmax( 12em, 1fr ) );
 	margin: 0.25em 0 0;
 	min-width: 0;
 	padding: 0;
 }
 
-/* The label is the hit area, so the whole "☐ Documentation" reads and clicks as one thing.
-   Two classes deep because `.wpcpm-field label` - which every other field in this form wants -
-   is `display: block`, and would otherwise stand each checkbox above its own name. */
+/* The label is the hit area, so the whole tile - tick, icon and name - reads and clicks as
+   one thing. A tile rather than a bare row (polish of 1.94.1): a 16px tick in a run of two
+   dozen was hard to hit and harder to find again once ticked. Two classes deep because
+   `.wpcpm-field label` - which every other field in this form wants - is `display: block`,
+   and would otherwise stand each checkbox above its own name. */
 .wpcpm-field .wpcpm-report__check {
 	align-items: center;
+	border: 1px solid var( --wpcpm-border, rgba( 128, 128, 128, 0.4 ) );
+	border-radius: var( --wpcpm-radius, 8px );
+	box-sizing: border-box;
+	cursor: pointer;
 	display: flex;
 	font-weight: 400;
-	gap: 0.4em;
-	line-height: 1.4;
+	gap: 0.6em;
+	line-height: 1.3;
 	margin-bottom: 0;
-	/* Two lines' worth, so a team whose name wraps does not make its row taller than the
-	   rest - the checkboxes and marks then step evenly down every column. */
-	min-height: 2.8em;
+	/* Two lines of name plus the padding, so a name that wraps does not make its tile taller
+	   than the rest of the row. */
+	min-height: 3.6em;
+	padding: 0.5em 0.75em;
+}
+
+/* A chosen tile says so as a whole, not only with the tick. `:has()` is a progressive touch:
+   a browser without it still shows the tick in blue. */
+.wpcpm-field .wpcpm-report__check:has( input:checked ) {
+	background: var( --wpcpm-surface, rgba( 128, 128, 128, 0.08 ) );
+	border-color: currentColor;
+}
+
+/* A read-only card (a mentor's or a manager's view) keeps the tiles and their picks, without
+   the hand that promises a change. */
+.wpcpm-field .wpcpm-report__check:has( input:disabled ) {
+	cursor: default;
 }
 
 /* `width: 100%` is right for the text boxes in this form and wrong for a checkbox: it made
    each one as wide as its column, with the glyph at the left of it and the team's name pushed
-   to the far side. Both are needed - `flex: none` stops it growing, `width: auto` stops it
-   starting wide. */
+   to the far side. A little larger than the browser's 13px, and blue once ticked, on the
+   owner's request: the tick is what says "chosen", and it has to be seen from across a list. */
 .wpcpm-field .wpcpm-report__check input {
+	accent-color: #3858e9;
 	flex: none;
+	height: 1.35em;
 	margin: 0;
-	width: auto;
+	width: 1.35em;
 }
 
-/* The team's own icon, so the list reads the way the teams do everywhere else on the card. */
+/* The team's own icon, half again the size it has on the card's rows: here it is the thing a
+   person recognises the team by, not a mark beside a label. 48px in 1.94.1, which the owner
+   found too much once it was on the page; 24px is the size they asked for (1.94.2). */
 .wpcpm-report__check .wpcpm-team__icon {
 	align-items: center;
 	display: inline-flex;
 	flex: none;
-	font-size: 16px;
-	height: 16px;
+	font-size: 24px;
+	height: 24px;
 	justify-content: center;
 	line-height: 1;
-	margin-right: 0.15em;
+	margin-right: 0;
 	opacity: 0.75;
-	width: 16px;
+	width: 24px;
+}
+
+.wpcpm-field .wpcpm-report__check:has( input:checked ) .wpcpm-team__icon {
+	opacity: 1;
 }
 
 /* The name of the group, where every other field has a `<label>`. */

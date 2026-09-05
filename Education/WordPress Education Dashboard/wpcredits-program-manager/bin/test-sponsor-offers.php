@@ -80,6 +80,8 @@ function sanitize_text_field( $s ) { return wpcpm_test_strip_percent( trim( stri
 function sanitize_textarea_field( $s ) { return wpcpm_test_strip_percent( trim( strip_tags( (string) $s ) ) ); }
 function wp_check_invalid_utf8( $s, $strip = false ) { return (string) $s; }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
+function wp_delete_file_stub( $f ) { if ( is_file( $f ) ) { unlink( $f ); } }
+function sanitize_file_name( $s ) { return preg_replace( '/[^A-Za-z0-9._-]/', '-', (string) $s ); }
 function sanitize_title( $s ) { return trim( preg_replace( '/[^a-z0-9]+/', '-', strtolower( (string) $s ) ), '-' ); }
 function sanitize_email( $e ) { return trim( (string) $e ); }
 function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE_EMAIL ); }
@@ -499,10 +501,12 @@ ck( 'the card is the canonical section around a disclosure, with the count of of
 ck( 'each offer has an edit form with its own nonce, the state buttons it may press, and the codes box for a pool', array( false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Offers::ACTION_SAVE . '_' . $a1 ), false !== strpos( $html, 'name="wpcpm_state" value="paused"' ), false !== strpos( $html, 'name="wpcpm_codes"' ), false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Offers::ACTION_CODES_ADD . '_' . $a1 ) ), array( true, true, true, true ) );
 ck( 'the counts are drawn, and the pool never shows a code', array( false !== strpos( $html, '0 available' ), strpos( $html, 'LATE-' ), strpos( $html, 'WPCE-' ) ), array( true, false, false ) );
 ck( 'a live pool below its threshold warns', false !== strpos( $html, 'wpcpm-offer__warning' ), true );
-ck( 'the kind is fixed once the pool holds anything: the live pool shows it fixed, the two empty offers and the new form still choose', array( false !== strpos( $html, 'wpcpm-offer__kind-fixed' ), substr_count( $html, 'name="wpcpm_kind"' ) ), array( true, 3 ) );
+ck( 'the kind is fixed once the pool holds anything: the live pool shows it fixed, the two empty offers and the new form still choose, with two radios each', array( false !== strpos( $html, 'wpcpm-offer__kind-fixed' ), substr_count( $html, 'type="radio" name="wpcpm_kind"' ), strpos( $html, '<select id="wpcpm-offer-new-kind"' ) ), array( true, 6, false ) );
+ck( 'the new-offer form takes a file, shows the shared field for a shared offer only and the codes box for a pool only', array( false !== strpos( $html, 'wpcpm-offer__form--new" enctype="multipart/form-data"' ), false !== strpos( $html, 'data-wpcpm-shows-for="shared"' ), false !== strpos( $html, 'data-wpcpm-shows-for="codes"' ), false !== strpos( $html, 'name="wpcpm_codes_file"' ), false !== strpos( $html, 'accept=".txt,.csv,text/plain,text/csv"' ) ), array( true, true, true, true, true ) );
+ck( 'and the codes box of an existing pool takes a file too', substr_count( $html, 'name="wpcpm_codes_file"' ) >= 2, true );
 ck( 'and the new-offer form is at the end with the "new" nonce and a kind to choose', array( false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Offers::ACTION_SAVE . '_new' ), substr_count( $html, 'name="wpcpm_kind"' ) >= 1 ), array( true, true ) );
 $html_b = card( 'WPCPM_Sponsor_Offers', $B, $context );
-ck( 'a shared offer shows its own link in the form and no codes box', array( false !== strpos( $html_b, 'value="https://cloud86.example/checkout?code=WPCREDITS"' ), strpos( $html_b, 'name="wpcpm_codes"' ) ), array( true, false ) );
+ck( 'a shared offer shows its own link in the form and no codes box of its own: the one codes box on the page is the new-offer form\'s', array( false !== strpos( $html_b, 'value="https://cloud86.example/checkout?code=WPCREDITS"' ), substr_count( $html_b, 'name="wpcpm_codes"' ), false !== strpos( $html_b, 'id="wpcpm-offer-new-codes"' ) ), array( true, 1, true ) );
 
 echo "\n=== The Offers card: saving ===\n";
 $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
@@ -528,6 +532,24 @@ $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $new_id, 'wpcpm_title'
 ck( 'and an existing one keeps its title and its code when the new code is too long', array( $r[0], WPCPM_Sponsor_Offers::read( $new_id )['title'], WPCPM_Sponsor_Codes::shared( $new_id ) ), array( 'offer-rejected', 'Second offer', 'TEAM-2026' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $new_id, 'wpcpm_title' => 'Second offer', 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TEAM%2F2026' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 ck( 'a shared code is stored exactly as it was typed, percent-encoding and all', array( $r[0], WPCPM_Sponsor_Codes::shared( $new_id ) ), array( 'offer-saved', 'TEAM%2F2026' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'Pool with codes', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "N-1\nN-2", 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$with_codes = max( array_keys( WPCPM_Sponsor_Offers::offers_of( $A ) ) );
+ck( 'a pool can be created with its codes in one step, and the flash says how many went in', array( $r[0], $r[3], WPCPM_Sponsor_Codes::counts( $with_codes )['available'] ), array( 'offer-created', '2 codes added.', 2 ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'Pool with a bad paste', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "R-1\nR-1", 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$bad_paste = max( array_keys( WPCPM_Sponsor_Offers::offers_of( $A ) ) );
+ck( 'a bad paste at creation keeps the offer and says the codes were not added, by line', array( $r[0], $r[3], WPCPM_Sponsor_Codes::counts( $bad_paste )['total'], $bad_paste > $with_codes ), array( 'offer-created-no-codes', 'Line 2 repeats line 1.', 0, true ) );
+$_FILES = array( 'wpcpm_codes_file' => array( 'name' => 'codes.csv', 'type' => 'text/csv', 'tmp_name' => tempnam( sys_get_temp_dir(), 'wpcpm' ), 'error' => UPLOAD_ERR_OK, 'size' => 12 ) );
+$upload = WPCPM_Sponsor_Offers::uploaded_codes_text();
+ck( 'a file PHP did not receive as an upload is refused, not read', array( is_wp_error( $upload ), $upload->get_error_code() ), array( true, 'wpcpm_codes_upload' ) );
+$_FILES['wpcpm_codes_file']['name'] = 'codes.pdf';
+ck( 'only .txt and .csv are taken', WPCPM_Sponsor_Offers::uploaded_codes_text()->get_error_code(), 'wpcpm_codes_upload' );
+$_FILES['wpcpm_codes_file']['name'] = 'codes.txt'; $_FILES['wpcpm_codes_file']['size'] = WPCPM_Sponsor_Offers::UPLOAD_MAX + 1;
+ck( 'and nothing over a megabyte', WPCPM_Sponsor_Offers::uploaded_codes_text()->get_error_code(), 'wpcpm_codes_upload' );
+$_FILES['wpcpm_codes_file']['error'] = UPLOAD_ERR_NO_FILE;
+ck( 'no file chosen is simply no text', WPCPM_Sponsor_Offers::uploaded_codes_text(), '' );
+wp_delete_file_stub( $_FILES['wpcpm_codes_file']['tmp_name'] );
+$_FILES = array();
+ck( 'an uploaded file is cleaned like a paste: the BOM and control characters go, the percent signs stay', WPCPM_Sponsor_Offers::clean_upload_text( "\xEF\xBB\xBFA-1\r\nB%202\x07\n" ), "A-1\r\nB%202\n" );
 $GLOBALS['uid'] = 5;
 $GLOBALS['airtable_fail'] = true;
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $a1, 'wpcpm_title' => 'Premium plugin, one year', 'wpcpm_text' => 'Two years free' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
@@ -596,6 +618,10 @@ foreach ( array( 'class-wpcpm-sponsor-codes.php', 'class-wpcpm-sponsor-offers.ph
 }
 $codes_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php' );
 ck( 'the pool never hashes a code without the key', preg_match( '/\bhash\(|\bmd5\(|\bsha1\(|\bcrc32\(/', $codes_src ), 0 );
+$offers_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php' );
+ck( 'an uploaded file is read only after is_uploaded_file() vouched for it', strpos( $offers_src, 'is_uploaded_file( $tmp )' ) < strpos( $offers_src, 'file_get_contents( $tmp )' ), true );
+$forms_js = (string) file_get_contents( __DIR__ . '/../assets/js/forms.js' );
+ck( 'forms.js shows the shared field or the codes box for the kind chosen', false !== strpos( $forms_js, 'data-wpcpm-shows-for' ), true );
 ck( 'and never writes its option autoloaded', preg_match( '/add_option\([^;]*(\'yes\'|true)\s*\)/', $codes_src ), 0 );
 $claims_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php' );
 ck( 'no em or en dash in the claims class', preg_match( '/\x{2013}|\x{2014}/u', $claims_src ), 0 );

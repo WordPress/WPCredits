@@ -332,7 +332,7 @@ $GLOBALS['uid'] = 5; $GLOBALS['resources'] = array(); $GLOBALS['styles'] = array
 $D::register();
 $out = $D::render();
 $order = array();
-foreach ( array( 'wpcpm-two-factor-marker', 'wpcpm-sponsor__identity', 'wpcpm-handbook__resources', 'id="wpcpm-sponsor-profile"', 'id="wpcpm-sponsor-mentors"', 'id="wpcpm-sponsor-interests"', 'id="wpcpm-sponsor-people"' ) as $needle ) { $order[] = strpos( $out, $needle ); }
+foreach ( array( 'wpcpm-two-factor-marker', 'wpcpm-sponsor__identity', 'wpcpm-handbook__resources', 'id="wpcpm-sponsor-profile"', 'id="wpcpm-sponsor-mentors"', 'id="wpcpm-sponsor-looking"', 'id="wpcpm-sponsor-interests"', 'id="wpcpm-sponsor-people"' ) as $needle ) { $order[] = strpos( $out, $needle ); }
 $sorted = $order; sort( $sorted );
 ck( 'a member sees the prompt, the identity, the resources, then the four cards in the spec\'s order', ! in_array( false, $order, true ) && $order === $sorted, true );
 ck( 'the resources are the sponsor audience', $GLOBALS['resources'], array( 'sponsor' ) );

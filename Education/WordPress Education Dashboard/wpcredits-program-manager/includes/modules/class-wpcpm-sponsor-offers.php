@@ -54,6 +54,10 @@ final class WPCPM_Sponsor_Offers {
 	const MAX_OFFER = 500;
 	const MAX_TEXT  = 4000;
 
+	// The most an uploaded codes file may weigh. Five thousand checkout links of two hundred
+	// characters are a megabyte; a bigger file is not a code list, whatever its name says.
+	const UPLOAD_MAX = 1048576;
+
 	const ACTION_SAVE       = 'wpcpm_offer_save';
 	const ACTION_STATE      = 'wpcpm_offer_state';
 	const ACTION_CODES_ADD  = 'wpcpm_offer_codes_add';
@@ -691,6 +695,118 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
+	 * The codes a form carries: the paste box and the uploaded file, as one text.
+	 *
+	 * A sponsor with a spreadsheet of five hundred codes should not have to paste them, and a
+	 * sponsor with three should not have to make a file. Both arrive here one code a line and
+	 * go through the same parse, so a file gets exactly the paste's rules (the line ceiling,
+	 * the all-or-nothing refusal that names the line) and nothing new to learn. The paste comes
+	 * first, so a line number in a refusal counts the paste's lines before the file's.
+	 *
+	 * @return string|WP_Error The text, '' when neither was given, or the upload's refusal.
+	 */
+	public static function codes_text() {
+		$upload = self::uploaded_codes_text();
+
+		if ( is_wp_error( $upload ) ) {
+			return $upload;
+		}
+
+		// Verbatim, not sanitize_textarea_field(): a pasted pool is codes and checkout links, and
+		// core's percent stripping would corrupt every line with a `%XX` in it (finding 1).
+		$pasted = WPCPM_Request::posted_verbatim_lines( 'wpcpm_codes' );
+
+		return trim( $pasted . "\n" . $upload, "\r\n" );
+	}
+
+	/**
+	 * The text of the codes file, when one came with the request.
+	 *
+	 * Taken only when PHP itself received it as an upload (is_uploaded_file()), it is named
+	 * .txt or .csv and it weighs under UPLOAD_MAX. wp_handle_upload() is not used on purpose:
+	 * the file is read once and never kept. Codes are stored sealed, and a plain-text copy in
+	 * the uploads directory would undo that.
+	 *
+	 * @return string|WP_Error The file's text, '' when no file was chosen, or the refusal.
+	 */
+	public static function uploaded_codes_text() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The handler verified the nonce before reaching here.
+		if ( empty( $_FILES['wpcpm_codes_file'] ) || ! is_array( $_FILES['wpcpm_codes_file'] ) ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above; every member is checked below before it is used.
+		$file  = $_FILES['wpcpm_codes_file'];
+		$error = isset( $file['error'] ) ? (int) $file['error'] : UPLOAD_ERR_NO_FILE;
+
+		if ( UPLOAD_ERR_NO_FILE === $error ) {
+			return '';
+		}
+
+		if ( UPLOAD_ERR_OK !== $error ) {
+			return new WP_Error( 'wpcpm_codes_upload', __( 'The file did not arrive whole. Try the upload again.', 'wpcredits-program-manager' ) );
+		}
+
+		$name = isset( $file['name'] ) ? sanitize_file_name( (string) $file['name'] ) : '';
+
+		if ( ! preg_match( '/\.(txt|csv)$/i', $name ) ) {
+			return new WP_Error( 'wpcpm_codes_upload', __( 'Upload a .txt or .csv file with one code per line.', 'wpcredits-program-manager' ) );
+		}
+
+		$tmp  = isset( $file['tmp_name'] ) ? (string) $file['tmp_name'] : '';
+		$size = isset( $file['size'] ) ? (int) $file['size'] : 0;
+
+		if ( $size > self::UPLOAD_MAX || ( '' !== $tmp && is_file( $tmp ) && filesize( $tmp ) > self::UPLOAD_MAX ) ) {
+			return new WP_Error( 'wpcpm_codes_upload', __( 'The file is larger than a megabyte. A list of codes is far smaller than that.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( '' === $tmp || ! is_uploaded_file( $tmp ) ) {
+			return new WP_Error( 'wpcpm_codes_upload', __( 'The file could not be read. Try the upload again.', 'wpcredits-program-manager' ) );
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- A form upload PHP just received, read once and never stored; WP_Filesystem is for files the site keeps.
+		$bytes = file_get_contents( $tmp );
+
+		return self::clean_upload_text( false === $bytes ? '' : $bytes );
+	}
+
+	/**
+	 * An uploaded file cleaned the way a paste is (WPCPM_Request::posted_verbatim()): the
+	 * byte-order mark a spreadsheet export carries, invalid UTF-8 and control characters go;
+	 * percent signs and everything else a code or checkout link is made of stay (finding 1).
+	 * Line breaks are kept: the parser counts them.
+	 *
+	 * @param string $bytes The file's bytes.
+	 * @return string
+	 */
+	public static function clean_upload_text( $bytes ) {
+		$bytes = (string) $bytes;
+
+		if ( "\xEF\xBB\xBF" === substr( $bytes, 0, 3 ) ) {
+			$bytes = substr( $bytes, 3 );
+		}
+
+		$text = wp_check_invalid_utf8( $bytes, true );
+
+		return (string) preg_replace( '/[^\P{C}\n\r\t]+/u', '', (string) $text );
+	}
+
+	/**
+	 * The words for a refused list: the lines at fault for a parse refusal, the sentence for
+	 * anything else (an upload that was not a text file, a full pool, a busy lock).
+	 *
+	 * @param WP_Error $refusal From codes_text() or add_codes().
+	 * @return string
+	 */
+	private static function codes_refusal_detail( WP_Error $refusal ) {
+		if ( 'wpcpm_codes_refused' === $refusal->get_error_code() ) {
+			return implode( ' ', (array) $refusal->get_error_data() );
+		}
+
+		return (string) $refusal->get_error_message();
+	}
+
+	/**
 	 * Live, and not past its last day. The day is inclusive and the comparison is on strings
 	 * (the cohort rule): no timestamp, no timezone, no midnight.
 	 *
@@ -765,6 +881,9 @@ final class WPCPM_Sponsor_Offers {
 	public static function messages() {
 		return array(
 			'offer-created'       => array( 'success', __( 'Your offer was created. Switch it on when it is ready.', 'wpcredits-program-manager' ) ),
+			// The offer stands and the codes do not: the detail names the line or the file's fault,
+			// and the pool's own box on the card takes the corrected list (polish of 1.94.1).
+			'offer-created-no-codes' => array( 'error', __( 'Your offer was created, but the codes were not added. Add them to the offer below.', 'wpcredits-program-manager' ) ),
 			'offer-saved'         => array( 'success', __( 'Your offer was saved.', 'wpcredits-program-manager' ) ),
 			'offer-mirror-failed' => array( 'info', __( 'Your offer was saved here, but the program records could not be updated right now. They will be on your next save.', 'wpcredits-program-manager' ) ),
 			'offer-rejected'      => array( 'error', __( 'The offer could not be saved.', 'wpcredits-program-manager' ) ),
@@ -779,7 +898,7 @@ final class WPCPM_Sponsor_Offers {
 			'offer-busy'          => array( 'info', __( 'Another change to this offer was going through. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'codes-added'         => array( 'success', __( 'Codes added.', 'wpcredits-program-manager' ) ),
 			'codes-refused'       => array( 'error', __( 'Nothing was added.', 'wpcredits-program-manager' ) ),
-			'codes-none'          => array( 'error', __( 'No codes were found in what you pasted.', 'wpcredits-program-manager' ) ),
+			'codes-none'          => array( 'error', __( 'No codes were found in what you pasted or uploaded.', 'wpcredits-program-manager' ) ),
 			'codes-max'           => array( 'error', __( 'An offer holds at most 5000 codes. Talk to the program about a larger pool.', 'wpcredits-program-manager' ) ),
 			'codes-voided'        => array( 'success', __( 'Unclaimed codes were voided.', 'wpcredits-program-manager' ) ),
 		);
@@ -921,12 +1040,36 @@ final class WPCPM_Sponsor_Offers {
 			}
 		}
 
+		// What happened to the codes handed in with a new pool: how many went in, or why none did.
+		$codes_note = '';
+		$codes_fail = '';
+
 		if ( null === $existing ) {
 			// The first offer a sponsor gets is the one the base sees.
 			$offer_id = self::create( $record, $cleaned['fields'], empty( self::offers_of( $record ) ) );
 
 			if ( is_wp_error( $offer_id ) ) {
 				self::leave( 'offer-failed', $record );
+			}
+
+			// A pool and its codes in one step (polish of 1.94.1). After create(), not before: a
+			// refused list is a fault in the list, and the sponsor fixes it in the pool's own box on
+			// the card that now exists, rather than filling the whole form in again.
+			if ( self::KIND_CODES === $cleaned['fields']['kind'] ) {
+				$text = self::codes_text();
+
+				if ( is_wp_error( $text ) ) {
+					$codes_fail = self::codes_refusal_detail( $text );
+				} elseif ( '' !== $text ) {
+					$added = self::add_codes( $offer_id, $text );
+
+					if ( is_wp_error( $added ) ) {
+						$codes_fail = self::codes_refusal_detail( $added );
+					} else {
+						/* translators: %s: how many codes. */
+						$codes_note = sprintf( _n( '%s code added.', '%s codes added.', $added, 'wpcredits-program-manager' ), number_format_i18n( $added ) );
+					}
+				}
 			}
 		} else {
 			$offer_id = $existing['id'];
@@ -963,15 +1106,22 @@ final class WPCPM_Sponsor_Offers {
 					'created'  => null === $existing,
 					'fields'   => array_keys( $cleaned['fields'] ),
 					'mirrored' => $mirrored,
+					'codes'    => '' !== $codes_note,
 				),
 			)
 		);
+
+		// The refused list first: it is the one thing here the sponsor has to act on now. A
+		// mirror that did not go through repeats itself on the next save without anyone's help.
+		if ( '' !== $codes_fail ) {
+			self::leave( 'offer-created-no-codes', $record, $codes_fail );
+		}
 
 		if ( ! $mirrored ) {
 			self::leave( 'offer-mirror-failed', $record );
 		}
 
-		self::leave( null === $existing ? 'offer-created' : 'offer-saved', $record );
+		self::leave( null === $existing ? 'offer-created' : 'offer-saved', $record, $codes_note );
 	}
 
 	/**
@@ -1027,21 +1177,22 @@ final class WPCPM_Sponsor_Offers {
 			self::leave( 'offer-rejected', $record, __( 'This offer has one shared code; there is no pool to add to.', 'wpcredits-program-manager' ) );
 		}
 
-		// Verbatim, not sanitize_textarea_field(): a pasted pool is codes and checkout links, and
-		// core's percent stripping would corrupt every line with a `%XX` in it (finding 1).
-		$added = self::add_codes( $offer['id'], WPCPM_Request::posted_verbatim_lines( 'wpcpm_codes' ) );
+		// The paste box, the uploaded file or both, read verbatim (see codes_text()).
+		$text  = self::codes_text();
+		$added = is_wp_error( $text ) ? $text : self::add_codes( $offer['id'], $text );
 
 		if ( is_wp_error( $added ) ) {
 			$statuses = array(
 				'wpcpm_codes_refused' => 'codes-refused',
+				'wpcpm_codes_upload'  => 'codes-refused',
 				'wpcpm_codes_none'    => 'codes-none',
 				'wpcpm_codes_max'     => 'codes-max',
 				'wpcpm_codes_busy'    => 'offer-busy',
 			);
 			$code     = $added->get_error_code();
-			$lines    = 'wpcpm_codes_refused' === $code ? implode( ' ', (array) $added->get_error_data() ) : '';
+			$detail   = in_array( $code, array( 'wpcpm_codes_refused', 'wpcpm_codes_upload' ), true ) ? self::codes_refusal_detail( $added ) : '';
 
-			self::leave( isset( $statuses[ $code ] ) ? $statuses[ $code ] : 'offer-failed', $record, $lines );
+			self::leave( isset( $statuses[ $code ] ) ? $statuses[ $code ] : 'offer-failed', $record, $detail );
 		}
 
 		WPCPM_Institution_Audit::record_sponsor(
@@ -1124,7 +1275,7 @@ final class WPCPM_Sponsor_Offers {
 			esc_html( number_format_i18n( count( $offers ) ) )
 		);
 		echo '<div class="wpcpm-group__body">';
-		echo '<p class="wpcpm-student__note">' . esc_html__( 'What students get from you and how. An offer is a pool of one-time codes you paste here, or one code or link everyone uses. Switch it on when it is ready: students see it on their Student Report Card the same minute, and only the person who claims a code ever sees it.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="wpcpm-student__note">' . esc_html__( 'What students get from you and how. An offer is a pool of one-time codes you paste or upload here, or one code or link everyone uses. Switch it on when it is ready: students see it on their Student Report Card the same minute, and only the person who claims a code ever sees it.', 'wpcredits-program-manager' ) . '</p>';
 
 		foreach ( $offers as $offer ) {
 			self::render_offer( $offer, $record );
@@ -1222,22 +1373,31 @@ final class WPCPM_Sponsor_Offers {
 				esc_html__( 'Fixed once the offer holds codes or claims.', 'wpcredits-program-manager' )
 			);
 		} else {
-			$field(
-				'kind',
-				__( 'Kind', 'wpcredits-program-manager' ),
-				sprintf(
-					'<select id="wpcpm-offer-%1$s-kind" name="wpcpm_kind"><option value="codes"%2$s>%3$s</option><option value="shared"%4$s>%5$s</option></select>',
-					esc_attr( $id ),
-					selected( self::KIND_CODES, $offer['kind'], false ),
-					esc_html__( 'A pool of one-time codes, one per person', 'wpcredits-program-manager' ),
-					selected( self::KIND_SHARED, $offer['kind'], false ),
-					esc_html__( 'One code or link everyone uses', 'wpcredits-program-manager' )
-				)
+			// Two radios rather than a select: both kinds are read at once, and forms.js shows the
+			// box that belongs to the one chosen (polish of 1.94.1).
+			printf(
+				'<fieldset class="wpcpm-sponsor__choices wpcpm-offer__kind"><legend>%1$s</legend><label><input type="radio" name="wpcpm_kind" value="codes"%2$s /> %3$s</label><label><input type="radio" name="wpcpm_kind" value="shared"%4$s /> %5$s</label></fieldset>',
+				esc_html__( 'Kind', 'wpcredits-program-manager' ),
+				checked( self::KIND_CODES, $offer['kind'], false ),
+				esc_html__( 'A pool of one-time codes, one per person', 'wpcredits-program-manager' ),
+				checked( self::KIND_SHARED, $offer['kind'], false ),
+				esc_html__( 'One code or link everyone uses', 'wpcredits-program-manager' )
 			);
 		}
 
+		// Each kind's own box, in a wrapper forms.js shows for that kind and hides for the other.
+		// With JavaScript off both stay visible, and the handler reads only the box that belongs
+		// to the kind posted, so a filled-in wrong box is ignored rather than stored.
+		if ( $is_new ) {
+			echo '<div class="wpcpm-offer__for" data-wpcpm-shows-for="codes">';
+			self::render_codes_box( 'new', __( 'The codes', 'wpcredits-program-manager' ) );
+			echo '</div>';
+		}
+
 		if ( $is_new || self::KIND_SHARED === $offer['kind'] ) {
-			$field( 'shared', __( 'The shared code or link (shared offers only)', 'wpcredits-program-manager' ), sprintf( '<input type="text" id="wpcpm-offer-%1$s-shared" name="wpcpm_shared" value="%2$s" maxlength="%3$d" />', esc_attr( $id ), esc_attr( $is_new ? '' : WPCPM_Sponsor_Codes::shared( $offer['id'] ) ), (int) WPCPM_Sponsor_Codes::LINE_MAX ) );
+			echo '<div class="wpcpm-offer__for" data-wpcpm-shows-for="shared">';
+			$field( 'shared', __( 'The shared code or link', 'wpcredits-program-manager' ), sprintf( '<input type="text" id="wpcpm-offer-%1$s-shared" name="wpcpm_shared" value="%2$s" maxlength="%3$d" />', esc_attr( $id ), esc_attr( $is_new ? '' : WPCPM_Sponsor_Codes::shared( $offer['id'] ) ), (int) WPCPM_Sponsor_Codes::LINE_MAX ) );
+			echo '</div>';
 		}
 
 		echo '<fieldset class="wpcpm-sponsor__choices"><legend>' . esc_html__( 'Also open to', 'wpcredits-program-manager' ) . '</legend>';
@@ -1316,27 +1476,23 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
-	 * The paste box and the void button, for a pool.
+	 * The two ways codes come in, side by side: a box to paste into and a file to upload. One
+	 * routine for the new-offer form and the pool's own form, so the two never drift apart.
 	 *
-	 * @param array  $offer  The offer.
-	 * @param string $record Sponsor record ID.
-	 * @param array  $counts The pool's counts.
+	 * @param string $id    'new', or the offer's ID, for the control IDs.
+	 * @param string $label The paste box's label.
 	 */
-	private static function render_codes_forms( array $offer, $record, array $counts ) {
+	private static function render_codes_box( $id, $label ) {
 		printf(
-			'<form method="post" action="%1$s" class="wpcpm-sponsor__form wpcpm-offer__codes-form" data-wpcpm-once data-wpcpm-busy="%2$s">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Adding', 'wpcredits-program-manager' )
+			'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$s-codes">%2$s</label><textarea id="wpcpm-offer-%1$s-codes" name="wpcpm_codes" rows="6" placeholder="%3$s"></textarea></p>',
+			esc_attr( $id ),
+			esc_html( $label ),
+			esc_attr__( 'Paste codes here, one per line', 'wpcredits-program-manager' )
 		);
-		wp_nonce_field( self::ACTION_CODES_ADD . '_' . $offer['id'] );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CODES_ADD ) );
-		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
-		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
 		printf(
-			'<p class="wpcpm-sponsor__field"><label for="wpcpm-offer-%1$d-codes">%2$s</label><textarea id="wpcpm-offer-%1$d-codes" name="wpcpm_codes" rows="6" placeholder="%3$s"></textarea><span class="wpcpm-student__note">%4$s</span></p>',
-			(int) $offer['id'],
-			esc_html__( 'Add codes', 'wpcredits-program-manager' ),
-			esc_attr__( 'One code per line', 'wpcredits-program-manager' ),
+			'<p class="wpcpm-sponsor__field wpcpm-offer__file"><label for="wpcpm-offer-%1$s-codes-file">%2$s</label><input type="file" id="wpcpm-offer-%1$s-codes-file" name="wpcpm_codes_file" accept=".txt,.csv,text/plain,text/csv" /><span class="wpcpm-student__note">%3$s</span></p>',
+			esc_attr( $id ),
+			esc_html__( 'Or upload a .txt or .csv file', 'wpcredits-program-manager' ),
 			esc_html(
 				sprintf(
 					/* translators: 1: the longest line allowed, 2: the most codes an offer holds. */
@@ -1346,6 +1502,26 @@ final class WPCPM_Sponsor_Offers {
 				)
 			)
 		);
+	}
+
+	/**
+	 * The paste box, the file field and the void button, for a pool.
+	 *
+	 * @param array  $offer  The offer.
+	 * @param string $record Sponsor record ID.
+	 * @param array  $counts The pool's counts.
+	 */
+	private static function render_codes_forms( array $offer, $record, array $counts ) {
+		printf(
+			'<form method="post" action="%1$s" class="wpcpm-sponsor__form wpcpm-offer__codes-form" enctype="multipart/form-data" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Adding', 'wpcredits-program-manager' )
+		);
+		wp_nonce_field( self::ACTION_CODES_ADD . '_' . $offer['id'] );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CODES_ADD ) );
+		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
+		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
+		self::render_codes_box( (string) $offer['id'], __( 'Add codes', 'wpcredits-program-manager' ) );
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Add codes', 'wpcredits-program-manager' ) );
 		echo '</form>';
 
@@ -1373,7 +1549,7 @@ final class WPCPM_Sponsor_Offers {
 	private static function render_new_form( $record ) {
 		echo '<h4 class="wpcpm-sponsor__subheading">' . esc_html__( 'New offer', 'wpcredits-program-manager' ) . '</h4>';
 		printf(
-			'<form method="post" action="%1$s" class="wpcpm-sponsor__form wpcpm-offer__form wpcpm-offer__form--new" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form method="post" action="%1$s" class="wpcpm-sponsor__form wpcpm-offer__form wpcpm-offer__form--new" enctype="multipart/form-data" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
 			esc_attr__( 'Creating', 'wpcredits-program-manager' )
 		);

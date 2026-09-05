@@ -78,6 +78,25 @@
 	margin: 0;
 }
 
+/* The page's own blocks (a welcome text, a quote, a list typed into the page above the
+   dashboard block) are children of the same content div as the plugin's root, and the rule
+   above zeroed every child's margin so the root could run the card's full width and inset its
+   own blocks by 32px. The page's blocks had no inset at all and sat against the card's edges
+   (the Administrator Dashboard, 5 September 2026). They take the dashboards' inset here; the
+   root is excluded because it insets itself. Top and bottom stay at zero: the spacers rule
+   the rhythm. Narrowed with everything else at 900px, right below, after this rule so it wins. */
+.wpc-dashboard-page .wpc-dash__content > :not( .wpcpm-dashboard ) {
+	margin-left: 32px;
+	margin-right: 32px;
+}
+
+@media ( max-width: 900px ) {
+	.wpc-dashboard-page .wpc-dash__content > :not( .wpcpm-dashboard ) {
+		margin-left: 20px;
+		margin-right: 20px;
+	}
+}
+
 /* Before the script runs the title is an ordinary page heading; afterwards it
    sits inside the band. Both need the same size. */
 .wpc-dash__title {
@@ -834,7 +853,10 @@
 	}
 }
 
-@media ( max-width: 782px ) {
+/* 900px, the breakpoint the mentor page's bands and every dashboard card narrow at (the
+   responsive block near the end of this file). This block said 782px until theme 1.19.1, so
+   between 783 and 900px the shared sections kept 32px while the cards beside them had 20px. */
+@media ( max-width: 900px ) {
 
 	.wpc-dashboard-page .wpcpm-student__section,
 	.wpc-student-page .wpcpm-dashboard__updated {
@@ -1046,6 +1068,9 @@
 .wpc-administrator-page .wpcpm-request__decide textarea {
 	border: 1px solid var( --wpc-line );
 	border-radius: 8px;
+	/* Border-box, or the padding and the border add 22px to a 100% width and the field runs past
+	   the column's right edge (the mentor requests card, 5 September 2026). */
+	box-sizing: border-box;
 	font: inherit;
 	padding: 8px 10px;
 	width: 100%;
@@ -1156,6 +1181,68 @@
    rules alone, and plugin 1.93.1 copies those rules into the sponsor stylesheet, so the theme
    sizing neither is what makes the two headers match value for value. */
 
+/*
+ * The mentor cards (plugin 1.94.1): the plugin gives them the Credits Program Mentors shape
+ * (a grid of centred columns); the theme puts its tokens on them and the lift the mentors
+ * page has on hover, so the two pages read as one program.
+ */
+.wpc-sponsor-page .wpcpm-mentor-card {
+	background: var( --wpc-surface );
+	border-color: var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	box-shadow: var( --wpc-shadow-card );
+	transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card:hover {
+	box-shadow: 0 12px 28px rgba( 16, 24, 43, 0.1 );
+	transform: translateY( -3px );
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card__initials {
+	background: var( --wpc-surface-soft );
+	border-color: var( --wpc-line-card );
+	color: var( --wpc-brand );
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card__name {
+	font: 700 16px/22px var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card__name a {
+	color: var( --wpc-ink );
+	text-decoration: none;
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card__name a:hover,
+.wpc-sponsor-page .wpcpm-mentor-card__name a:focus {
+	text-decoration: underline;
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card__stats {
+	color: var( --wpc-ink-70 );
+	font: 400 13px/20px var( --wpc-font );
+	opacity: 1;
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card__tag {
+	background: var( --wpc-surface-soft );
+	border-color: var( --wpc-line-soft );
+	color: var( --wpc-ink );
+	font: 500 12px/18px var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card__link a {
+	color: var( --wpc-brand );
+	font: 600 13px/20px var( --wpc-font );
+	text-decoration: none;
+}
+
+.wpc-sponsor-page .wpcpm-mentor-card__link a:hover,
+.wpc-sponsor-page .wpcpm-mentor-card__link a:focus {
+	text-decoration: underline;
+}
+
 /* The program-contact block, the sub-headings and the list rows are not dressed here, on
    purpose. The plugin's sponsor stylesheet draws them with the Institution Dashboard's rules
    (institution.css loads on this page too, through the dependency list in inc/dashboard.php), and
@@ -1170,6 +1257,7 @@
 .wpc-sponsor-page .wpcpm-sponsor__form textarea {
 	border: 1px solid var( --wpc-line );
 	border-radius: 8px;
+	box-sizing: border-box;
 	font: inherit;
 	padding: 8px 10px;
 	width: 100%;
@@ -1249,11 +1337,10 @@
 	margin: 0 32px 16px;
 }
 
-/* The count line sits between two sections, so it narrows where they do (782px, the block
-   near the top of this file), not where the sponsor page's cards do (900px). Written here,
-   after the rule above, because a same-specificity rule earlier in the file loses to it
-   whatever the viewport (the first placement of this rule was dead for that reason). */
-@media ( max-width: 782px ) {
+/* The count line sits between two sections, so it narrows where they do (900px since 1.19.1,
+   the block near the top of this file). Written here, after the rule above, because a
+   same-specificity rule earlier in the file loses to it whatever the viewport. */
+@media ( max-width: 900px ) {
 	.wpc-dashboard-page .wpcpm-tools__count {
 		margin: 0 20px 16px;
 	}
@@ -2736,8 +2823,10 @@
 	padding: 6px 8px;
 }
 
-/* Checkboxes are not text boxes, and a bordered one looks broken. */
+/* Checkboxes are not text boxes, and a bordered one looks broken. Brand blue once ticked, on
+   every checkbox in the form - the team tiles and the consent line alike (1.19.1). */
 .wpc-dashboard-page .wpcpm-report input[type="checkbox"] {
+	accent-color: var( --wpc-brand );
 	border-radius: 0;
 	padding: 0;
 }
@@ -2776,10 +2865,34 @@
 }
 
 /* A team's name is an answer, not a field label: the card's own label treatment - 12px, bold,
-   muted - is for the question above the list, and reads as shouting on two dozen checkboxes. */
+   muted - is for the question above the list, and reads as shouting on two dozen checkboxes.
+   The tile takes the card line and the control radius, like the boxes around it (1.19.1). */
 .wpc-dashboard-page .wpcpm-field .wpcpm-report__check {
+	background: var( --wpc-surface );
+	border-color: var( --wpc-line-card );
+	border-radius: var( --wpc-radius-control );
 	color: var( --wpc-ink );
-	font: 13px/1.4 var( --wpc-font );
+	font: 500 13px/1.35 var( --wpc-font );
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.wpc-dashboard-page .wpcpm-field .wpcpm-report__check:hover {
+	border-color: var( --wpc-line-strong );
+}
+
+/* Chosen: the brand tint behind the tile and the icon in brand blue, so the picks read from
+   across the list and not only from the ticks. */
+.wpc-dashboard-page .wpcpm-field .wpcpm-report__check:has( input:checked ) {
+	background: var( --wpc-brand-tint );
+	border-color: var( --wpc-brand-border );
+}
+
+.wpc-dashboard-page .wpcpm-report__check .wpcpm-team__icon {
+	color: var( --wpc-ink-60 );
+}
+
+.wpc-dashboard-page .wpcpm-field .wpcpm-report__check:has( input:checked ) .wpcpm-team__icon {
+	color: var( --wpc-brand );
 }
 
 .wpc-dashboard-page .wpcpm-report__group {
