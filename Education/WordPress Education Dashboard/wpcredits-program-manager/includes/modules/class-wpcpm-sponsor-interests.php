@@ -265,7 +265,7 @@ final class WPCPM_Sponsor_Interests {
 		$row  = is_array( $row ) ? $row : WPCPM_Sponsors_Index::empty_row();
 		$open = isset( $context['open'] ) && self::CARD === $context['open'];
 
-		printf( '<details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure wpcpm-sponsor__card"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
+		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
 		printf(
 			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html__( 'What else would you like to support?', 'wpcredits-program-manager' )
@@ -321,7 +321,7 @@ final class WPCPM_Sponsor_Interests {
 			echo '</ul>';
 		}
 
-		echo '</div></details>';
+		echo '</div></details></section>';
 	}
 
 	/**

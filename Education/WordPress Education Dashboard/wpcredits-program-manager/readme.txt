@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.93.1
+Stable tag: 1.93.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.93.2 =
+* The Sponsor Dashboard takes the Institution Dashboard's spacing everywhere the two pages share a shape. Each card is now a section with the rule above it and the room the institution's cards have, and the disclosure inside it only folds; the switcher, the message under it, the program-contact block, the sub-headings, the list rows and the foot of the page carry the institution's values, copied value for value into the sponsor stylesheet. Theme 1.18.2 stops sizing those parts itself.
 
 = 1.93.1 =
 * The Sponsor Dashboard's identity block takes the Institution Dashboard's rules for the details beside the logo: the name at the size the institution's name has, the website a plain line, the facts a quiet line each. Theme 1.18.1 stops sizing them itself, so the two headers read as the same header.

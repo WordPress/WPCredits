@@ -790,7 +790,10 @@ final class WPCPM_Sponsors_Dashboard {
 	private static function render_people( $record, array $context ) {
 		$members = WPCPM_Sponsor_Members::members_of( $record );
 
-		echo '<details id="wpcpm-sponsor-people" class="wpcpm-group wpcpm-group__disclosure wpcpm-sponsor__card">';
+		// A section around the disclosure, as every card on this page and the Institution Dashboard's
+		// semester report: the section owns the card rhythm (the rule above it, the room), the
+		// disclosure only folds. The same shape on both pages is what lets them share one skin.
+		echo '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-people" class="wpcpm-group wpcpm-group__disclosure">';
 		printf(
 			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html__( 'People', 'wpcredits-program-manager' ),
@@ -820,7 +823,7 @@ final class WPCPM_Sponsors_Dashboard {
 			echo '<p class="wpcpm-student__note">' . esc_html__( 'To add a colleague, write to your contact at the program.', 'wpcredits-program-manager' ) . '</p>';
 		}
 
-		echo '</div></details>';
+		echo '</div></details></section>';
 	}
 
 	/**

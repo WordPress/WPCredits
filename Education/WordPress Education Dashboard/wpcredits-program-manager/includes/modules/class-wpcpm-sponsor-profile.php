@@ -296,7 +296,7 @@ final class WPCPM_Sponsor_Profile {
 		$labels = self::labels();
 		$open   = isset( $context['open'] ) && self::CARD === $context['open'];
 
-		printf( '<details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure wpcpm-sponsor__card"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
+		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
 		printf(
 			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html__( 'Your profile', 'wpcredits-program-manager' )
@@ -349,7 +349,7 @@ final class WPCPM_Sponsor_Profile {
 
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save profile', 'wpcredits-program-manager' ) );
 		echo '</form>';
-		echo '</div></details>';
+		echo '</div></details></section>';
 	}
 
 	/**

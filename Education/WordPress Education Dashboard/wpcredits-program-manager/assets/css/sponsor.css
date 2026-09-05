@@ -1,6 +1,13 @@
-/* The Sponsor Dashboard's base styles: enough shape to read without the theme; the theme's
-   skin (wpcredits-theme 1.18.0) dresses everything under .wpc-sponsor-page. */
-.wpcpm-sponsor__identity { display: flex; gap: 24px; align-items: center; margin: 0 0 24px; }
+/* The Sponsor Dashboard's base styles. Every value here that the Institution Dashboard also
+   has is copied from institution.css, value for value, so the two pages read as one product:
+   the header, the switcher, the card rhythm, the program-contact block, the list rows, the
+   sub-headings and the out-of-band message. The theme (wpcredits-theme 1.18.x) dresses the rest
+   under .wpc-sponsor-page and loads both plugin stylesheets on both pages, so nothing below
+   redefines a class institution.css owns - the two files would then win on different pages. */
+
+/* The identity header: the logo on the left, the details beside it, aligned at the top as the
+   institution's icon and details are. */
+.wpcpm-sponsor__identity { align-items: flex-start; display: flex; gap: 1em; margin: 0 0 1.5em; }
 .wpcpm-sponsor__logo { flex: 0 0 176px; width: 176px; height: 96px; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
 .wpcpm-sponsor__logo-image { max-width: 160px; max-height: 80px; width: auto; height: auto; object-fit: contain; }
 .wpcpm-sponsor__initials { font-size: 32px; font-weight: 700; letter-spacing: 0.04em; color: #1e1e1e; }
@@ -13,18 +20,44 @@
 .wpcpm-sponsor__name { font-size: 1.2em; font-weight: 700; margin: 0; }
 .wpcpm-sponsor__fact { margin: 0.15em 0 0; opacity: 0.75; }
 .wpcpm-sponsor__website { margin: 0.15em 0 0; }
-.wpcpm-sponsor__card { margin: 0 0 16px; }
-.wpcpm-sponsor__form .wpcpm-sponsor__field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; }
-.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 640px; }
-.wpcpm-sponsor__choices { border: 0; padding: 0; margin: 0 0 12px; }
+
+/* The switcher's first and last child lose their block margins, as under .wpcpm-institution. */
+.wpcpm-sponsor .wpcpm-dashboard__switcher > :first-child { margin-block-start: 0; }
+.wpcpm-sponsor .wpcpm-dashboard__switcher > :last-child { margin-block-end: 0; }
+
+/* The cards: the institution's section rhythm (.wpcpm-roster, .wpcpm-people, .wpcpm-report-card
+   and .wpcpm-institution__card) - a rule above, room to breathe, nothing drawn around, 1.25em
+   below and none after the last. The disclosure inside only folds. */
+.wpcpm-sponsor__card { border-top: 1px solid var( --wpcpm-border ); margin: 2.5em 0 1.25em; padding: 2em 0 0; }
+.wpcpm-sponsor__card:last-of-type { margin-bottom: 0; }
+
+/* The forms. The text controls take the agreement panel's width (.wpcpm-agreement-panel__input). */
+.wpcpm-sponsor__form .wpcpm-sponsor__field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 1em; }
+.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 32em; width: 100%; }
+.wpcpm-sponsor__choices { border: 0; padding: 0; margin: 0 0 1em; }
 .wpcpm-sponsor__choices label { display: block; margin: 0 0 6px; }
-.wpcpm-sponsor__subheading { margin: 20px 0 8px; font-size: 16px; }
+
+/* A sub-heading inside a card: .wpcpm-people__subtitle's margin, the theme's heading size. */
+.wpcpm-sponsor__subheading { margin: 0 0 1em; }
+
+/* The lists. A mentor, a mentor looking for a sponsor and a member are each a row drawn like
+   .wpcpm-people__member: bordered, rounded, the facts on their own line under the name, the
+   row's form at the far end. The interests history is a log, and takes the agreement panel's
+   steps list: a rule between lines and none above the first. */
 .wpcpm-sponsor__mentors, .wpcpm-sponsor__looking, .wpcpm-sponsor__people, .wpcpm-sponsor__history { list-style: none; margin: 0; padding: 0; }
-.wpcpm-sponsor__mentors li, .wpcpm-sponsor__looking li, .wpcpm-sponsor__people li, .wpcpm-sponsor__history li { padding: 8px 0; border-top: 1px solid #eee; }
-.wpcpm-sponsor__counts, .wpcpm-sponsor__expertise, .wpcpm-sponsor__muted { color: #555; font-size: 14px; }
-.wpcpm-sponsor__looking .wpcpm-inline-form { display: inline-block; margin-left: 8px; }
-.wpcpm-dashboard__message { padding: 12px 16px; border-left: 4px solid #999; margin: 0 0 16px; }
-.wpcpm-dashboard__message--success { border-left-color: #1a7f37; }
-.wpcpm-dashboard__message--error { border-left-color: #b32d2e; }
-.wpcpm-dashboard__message--info { border-left-color: #2271b1; }
-.wpcpm-dashboard__message--warning { border-left-color: #996800; }
+.wpcpm-sponsor__mentors li, .wpcpm-sponsor__looking li, .wpcpm-sponsor__people li { align-items: baseline; border: 1px solid var( --wpcpm-border ); border-radius: var( --wpcpm-radius ); display: flex; flex-wrap: wrap; gap: 0.3em 0.75em; margin: 0 0 0.75em; padding: 1em 1.25em; }
+.wpcpm-sponsor__mentors li:last-child, .wpcpm-sponsor__looking li:last-child, .wpcpm-sponsor__people li:last-child { margin-bottom: 0; }
+.wpcpm-sponsor__history li { border-top: 1px solid var( --wpcpm-border ); padding: 0.75em 0; }
+.wpcpm-sponsor__history li:first-child { border-top: 0; padding-top: 0; }
+.wpcpm-sponsor__muted { opacity: 0.75; overflow-wrap: anywhere; }
+.wpcpm-sponsor__counts, .wpcpm-sponsor__expertise { flex: 1 1 100%; font-size: 0.9em; opacity: 0.72; order: 2; }
+.wpcpm-sponsor__looking .wpcpm-inline-form { margin: 0 0 0 auto; order: 1; }
+
+/* The message under the switcher: the institution's one way of saying something out of band
+   (.wpcpm-people__message). Scoped to this page because administrator.css draws the same class
+   for its own page and both stylesheets load everywhere. */
+.wpcpm-sponsor .wpcpm-dashboard__message { border: 1px solid var( --wpcpm-border ); border-inline-start-width: 4px; border-radius: var( --wpcpm-radius ); margin: 0 0 1em; padding: 0.6em 0.9em; }
+.wpcpm-sponsor .wpcpm-dashboard__message--success { border-left-color: #1a7f37; }
+.wpcpm-sponsor .wpcpm-dashboard__message--error { border-left-color: #b32d2e; }
+.wpcpm-sponsor .wpcpm-dashboard__message--info { border-left-color: #2271b1; }
+.wpcpm-sponsor .wpcpm-dashboard__message--warning { border-left-color: #996800; }

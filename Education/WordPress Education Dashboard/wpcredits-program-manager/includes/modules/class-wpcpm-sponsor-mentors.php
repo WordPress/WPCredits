@@ -223,7 +223,7 @@ final class WPCPM_Sponsor_Mentors {
 		$open    = isset( $context['open'] ) && self::CARD === $context['open'];
 		$count   = count( $linked['mentors'] ) + (int) $linked['others'];
 
-		printf( '<details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure wpcpm-sponsor__card"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
+		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
 		printf(
 			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%1$s <span class="wpcpm-group__count">%2$s</span></h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
 			esc_html__( 'Your mentors', 'wpcredits-program-manager' ),
@@ -315,7 +315,7 @@ final class WPCPM_Sponsor_Mentors {
 			echo '</ul>';
 		}
 
-		echo '</div></details>';
+		echo '</div></details></section>';
 	}
 
 	/**

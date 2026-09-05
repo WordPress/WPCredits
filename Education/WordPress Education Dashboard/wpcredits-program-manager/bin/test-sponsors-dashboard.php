@@ -279,7 +279,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-dashboard.php'
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
-	global $fail;
+	global $fail, $checks;
+	$checks++;
 	$ok = $actual === $expected;
 	if ( ! $ok ) { $fail++; }
 	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
@@ -361,7 +362,14 @@ $GLOBALS['uid'] = 5;
 $GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'profile-saved', 'card' => 'profile' );
 $out = $D::render();
 ck( 'a flash prints its sentence with the success tone', false !== strpos( $out, 'wpcpm-dashboard__message--success' ) && false !== strpos( $out, 'Your profile was saved' ), true );
-ck( 'and opens the card it names', false !== strpos( $out, 'id="wpcpm-sponsor-profile" class="wpcpm-group wpcpm-group__disclosure wpcpm-sponsor__card" open' ), true );
+ck( 'and opens the card it names', false !== strpos( $out, 'id="wpcpm-sponsor-profile" class="wpcpm-group wpcpm-group__disclosure" open' ), true );
+// Every card is a section with the disclosure inside it, the way the Institution Dashboard wraps its
+// semester report: the section carries the card rhythm (the rule above, the room), the disclosure only
+// folds (1.93.2). A card class left on the disclosure would draw that rhythm on the wrong box.
+ck( 'every card is a section wrapping its disclosure', preg_match_all( '#<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-#', $out ), substr_count( $out, '<details id="wpcpm-sponsor-' ) );
+ck( 'and at least the profile and the people cards render that way', preg_match_all( '#<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-#', $out ) >= 2, true );
+ck( 'the disclosure itself no longer carries the card class', strpos( $out, 'wpcpm-group__disclosure wpcpm-sponsor__card"' ), false );
+ck( 'each section closes right after its disclosure', substr_count( $out, '</details></section>' ), substr_count( $out, '<section class="wpcpm-sponsor__card">' ) );
 ck( 'taken, so it shows once', isset( $GLOBALS['flash'][ $D::FLASH ] ), false );
 $GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'refused', 'card' => '' );
 ck( 'a refusal prints with the error tone', false !== strpos( $D::render(), 'wpcpm-dashboard__message--error' ), true );
@@ -390,7 +398,7 @@ ck( 'no em or en dash in the class or the stylesheet', preg_match( '/\x{2013}|\x
 ck( 'the gate is metadata_exists(), never the value', false !== strpos( $src, 'metadata_exists(' ), true );
 ck( 'the block carries the version', json_decode( file_get_contents( __DIR__ . '/../blocks/sponsor-dashboard/block.json' ), true )['version'], '1.93.0' );
 
-// The plan's arithmetic said 42; the suite above carries 45 ck() calls (counted by hand against
-// this file), so the real count is printed rather than the plan's guess.
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 45 );
+// Counted by ck() itself: a literal here read 45 while the file carried 49 (1.93.2), and a count
+// nobody maintains is a count nobody should trust.
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', (int) $checks );
 exit( $fail ? 1 : 0 );

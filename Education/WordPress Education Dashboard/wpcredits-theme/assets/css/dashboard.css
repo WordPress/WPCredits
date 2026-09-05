@@ -376,9 +376,11 @@
    straight into the two-column grid, whose first section carries a top rule - so the
    hairline was drawn hard against the bottom of the switcher box with nothing between
    them. Matching the mentor page's gap here rather than adding it to the shared rule:
-   there it would land on top of padding that already exists. */
+   there it would land on top of padding that already exists. The sponsor page opens the way the
+   institution page does, switcher then header, and takes the same gap (theme 1.18.2). */
 .wpc-student-page .wpcpm-dashboard__switcher,
-.wpc-institution-page .wpcpm-dashboard__switcher {
+.wpc-institution-page .wpcpm-dashboard__switcher,
+.wpc-sponsor-page .wpcpm-dashboard__switcher {
 	margin-bottom: 18px;
 }
 
@@ -532,7 +534,10 @@
    the page: the identity header reuses it for the city and country line, which already sits
    inside the header's own inset. Insetting it by class gave that one line 32px twice, so it
    hung off to the right of the name above it and the website below. */
-.wpc-institution-page .wpcpm-institution > .wpcpm-dashboard__intro {
+.wpc-institution-page .wpcpm-institution > .wpcpm-dashboard__intro,
+/* The sponsor page's message under the switcher is its one bordered block outside a section,
+   the institution banner's counterpart, so it takes the banner's inset (theme 1.18.2). */
+.wpc-sponsor-page .wpcpm-dashboard__message {
 	margin-left: 32px;
 	margin-right: 32px;
 }
@@ -543,8 +548,10 @@
    panel, which is bordered: its border came to rest 1px from the card's own, while the
    title at the other end sits 22px inside. Taking the title's inset rather than inventing a
    third number, and put on the root so it holds whichever block happens to be last - the
-   panel, the People card, or the notice a member sees before their agreement is settled. */
-.wpc-institution-page .wpcpm-institution {
+   panel, the People card, or the notice a member sees before their agreement is settled. The
+   sponsor page ends on its People card, a bordered disclosure, and takes the same inset (1.18.2). */
+.wpc-institution-page .wpcpm-institution,
+.wpc-sponsor-page .wpcpm-sponsor {
 	padding-bottom: 22px;
 }
 
@@ -1149,12 +1156,11 @@
    rules alone, and plugin 1.93.1 copies those rules into the sponsor stylesheet, so the theme
    sizing neither is what makes the two headers match value for value. */
 
-/* The program-contact block sits in the resources section's right column, like the institution's. */
-.wpc-sponsor-page .wpcpm-resources__contact {
-	border-top: 1px solid var( --wpc-line-soft );
-	padding-top: 16px;
-	margin-top: 16px;
-}
+/* The program-contact block, the sub-headings and the list rows are not dressed here, on
+   purpose. The plugin's sponsor stylesheet draws them with the Institution Dashboard's rules
+   (institution.css loads on this page too, through the dependency list in inc/dashboard.php), and
+   theme 1.18.0's own 16px contact inset, 16px sub-heading and hairline rows were what set the two
+   pages apart (1.18.2). */
 
 /* The forms: the theme's field treatment, the theme's buttons. */
 .wpc-sponsor-page .wpcpm-sponsor__form input[type="text"],
@@ -1171,17 +1177,6 @@
 
 .wpc-sponsor-page .wpcpm-sponsor__field > label {
 	font: 600 14px/20px var( --wpc-font );
-}
-
-.wpc-sponsor-page .wpcpm-sponsor__subheading {
-	font: 700 16px/22px var( --wpc-font );
-}
-
-.wpc-sponsor-page .wpcpm-sponsor__mentors li,
-.wpc-sponsor-page .wpcpm-sponsor__looking li,
-.wpc-sponsor-page .wpcpm-sponsor__people li,
-.wpc-sponsor-page .wpcpm-sponsor__history li {
-	border-top: 1px solid var( --wpc-line-soft );
 }
 
 .wpc-sponsor-page .wpcpm-dashboard__message--success {
@@ -2371,7 +2366,8 @@
 	.wpc-institution-page .wpcpm-agreement-card,
 	.wpc-institution-page .wpcpm-agreement-panel,
 	.wpc-institution-page .wpcpm-institution__banner,
-	.wpc-institution-page .wpcpm-institution > .wpcpm-dashboard__intro {
+	.wpc-institution-page .wpcpm-institution > .wpcpm-dashboard__intro,
+	.wpc-sponsor-page .wpcpm-dashboard__message {
 		margin-left: 20px;
 		margin-right: 20px;
 	}
