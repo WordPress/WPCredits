@@ -749,7 +749,7 @@ ck( 'the team pair is named on the developer track, where the divider used to op
     ),
     array( 'Your contribution team and project', false ) );
 
-$lead_team = strpos( $edit, '<h4 class="wpcpm-report__lead">Your contribution team and project</h4>' );
+$lead_team = strpos( $edit, '<h4 class="wpcpm-report__sub">Your contribution team and project</h4>' );
 
 // Printed in place, not merely present in the spec: the heading has to open between the practical
 // lesson above it and the team list's own label, the same position the divider rule used to hold.
@@ -903,18 +903,23 @@ ck( 'and the REST route draws the body for the audience it resolved', false !== 
 
 // The type review of 5 September 2026 (1.94.3): the sentence over a run of marks is a heading
 // printed before the run, not a note after it, and lesson sub-headings are headings.
-$lead_a = strpos( $edit, '<h4 class="wpcpm-report__lead">Complete one of the following courses</h4>' );
-$lead_b = strpos( $edit, '<h4 class="wpcpm-report__lead">Optional courses</h4>' );
+$lead_a = strpos( $edit, '<h4 class="wpcpm-report__sub">Complete one of the following courses</h4>' );
+$lead_b = strpos( $edit, '<h4 class="wpcpm-report__sub">Optional courses</h4>' );
 ck( 'the condition on the user-level marks is a heading printed before the first of them', false !== $lead_a && $lead_a < strpos( $edit, 'Beginner WordPress User' ) && $lead_a > strpos( $edit, 'Basic principles of conflict resolution' ), true );
 ck( 'and the optional courses are named before their first mark', false !== $lead_b && $lead_b < strpos( $edit, 'Beginner WordPress Developer' ) && $lead_b > $lead_a, true );
 ck( 'no note trails a run any more', strpos( $edit, 'wpcpm-report__note' ), false );
 ck( 'lesson sub-headings are headings', array( false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Enter your final grade, 0 to 100</h4>' ), strpos( $edit, '<p class="wpcpm-report__sub"' ) ), array( true, false ) );
 ck( 'the marks say their scale once, in the heading over them', false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Enter your final grade, 0 to 100</h4>' ), true );
-ck( 'the read-only card has the same headings', false !== strpos( $read, '<h4 class="wpcpm-report__lead">Optional courses</h4>' ), true );
+ck( 'the read-only card has the same headings', false !== strpos( $read, '<h4 class="wpcpm-report__sub">Optional courses</h4>' ), true );
 
 // The last hairline becomes a heading (Task 8): the one run that still opened with a bare rule
 // now names itself, like every other run on the card.
-ck( 'the reflection posts are named, and no hairline is left', array( false !== strpos( $edit, '<h4 class="wpcpm-report__lead">Your reflection posts</h4>' ), strpos( $edit, 'wpcpm-report__rule' ) ), array( true, false ) );
+ck( 'the reflection posts are named, and no hairline is left', array( false !== strpos( $edit, '<h4 class="wpcpm-report__sub">Your reflection posts</h4>' ), strpos( $edit, 'wpcpm-report__rule' ) ), array( true, false ) );
+
+// One heading treatment for every run (the consistency pass of 6 September 2026): a run's
+// opening sentence used to print a class of its own, so proving the new class is used above is
+// not enough - the old one has to be gone as well, or the card would still be two kinds of run.
+ck( 'no heading of a second kind is left', strpos( $edit, 'wpcpm-report__lead' ), false );
 
 echo "\n=== Every hint is tied to its control ===\n";
 

@@ -3085,8 +3085,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * their own roster, upload their signed agreement, or answer for it.
 	 *
 	 * The third count the design asks for, invitations older than seven days, is a line and
-	 * not a number: the invitation post type ships with a later phase, and a zero printed
-	 * beside two real counts would read as "none are overdue" rather than "none exist".
+	 * not a number: invitations expire on their own (WPCPM_Institution_Invite) and the pending
+	 * ones are listed on the institution's own dashboard, so a count here would be a second
+	 * place to watch the same thing.
 	 *
 	 * @param array $gaps From `membership_gaps()`.
 	 * @param int   $read Unix time the pipeline index was read.
@@ -3099,8 +3100,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html( self::membership_read_line( $read ) )
 		);
 
-		echo '<p class="description">' . esc_html__( 'Nobody at these schools can act for them on this site. Adding an account by hand ships with the accounts phase; today the only route in is the sync provisioning an institution\'s Contact Email.', 'wpcredits-program-manager' ) . '</p>';
-		echo '<p class="description">' . esc_html__( 'Invitations ship with a later phase, so the third backstop count, invitations older than seven days, is not shown: there are none to count yet.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Nobody at these schools can act for them on this site. Add an account from the institution\'s card on this screen, or let the sync provision the institution\'s Contact Email; once one member is in, they can invite colleagues from their own dashboard.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Invitations older than seven days are not counted here: pending invitations are listed on the institution\'s own dashboard, where its members can resend or cancel them.', 'wpcredits-program-manager' ) . '</p>';
 	}
 
 	/**
@@ -3607,7 +3608,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		echo '</tbody></table>';
 
-		echo '<p class="description">' . esc_html__( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for them here. Adding that person in one click ships with the accounts phase; until then the sync provisions the address only for an institution that has never had a member, so a removed contact is not re-created every night.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for them here. Add that person from the institution\'s card, name and address; the sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created every night.', 'wpcredits-program-manager' ) . '</p>';
 
 		$unlinked = WPCPM_Roster_Index::unlinked();
 

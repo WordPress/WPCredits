@@ -926,7 +926,8 @@
 	}
 
 	/**
-	 * Say how the list is ordered, once, under it.
+	 * Say how the list is ordered, once, above it: it says how what follows is ordered, which a
+	 * reader wants before the list, not after.
 	 *
 	 * @param {Element} list The list.
 	 */
@@ -939,7 +940,7 @@
 
 		el.className = 'wpc-dash__ordering';
 		el.textContent = TEXT.ordering;
-		list.parentNode.insertBefore( el, list.nextSibling );
+		list.parentNode.insertBefore( el, list );
 	}
 
 	/**

@@ -179,10 +179,13 @@ class WPCPM_Institution_People {
 			);
 		}
 
-		printf(
-			'<p class="wpcpm-people__note">%s</p>',
-			esc_html__( 'Inviting a colleague from this page ships with a later release. Until then a program manager adds an account for them.', 'wpcredits-program-manager' )
-		);
+		// The invite flow shipped with the module's handlers and suite but was never drawn here;
+		// the card said a later release would. This is that release (1.94.7). Each renderer
+		// decides for itself through the policy, so a viewer who may not manage members sees
+		// nothing of it.
+		WPCPM_Institution_Invite::render_message( $record_id );
+		WPCPM_Institution_Invite::render_pending( $record_id );
+		WPCPM_Institution_Invite::render_form( $record_id );
 
 		if ( $can_manage ) {
 			printf(
@@ -567,7 +570,7 @@ class WPCPM_Institution_People {
 
 		printf(
 			'<p class="wpcpm-people__note">%s</p>',
-			esc_html__( 'Pending invitations appear here once invitations ship. There are none to count yet, which is not the same as none being overdue.', 'wpcredits-program-manager' )
+			esc_html__( 'Pending invitations do not appear on this screen. They are on the institution\'s own dashboard, where they can be resent or canceled.', 'wpcredits-program-manager' )
 		);
 
 		self::render_read_line( self::index_read() );

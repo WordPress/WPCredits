@@ -281,6 +281,9 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-members.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
+// The real class, not a stub: the card now draws its three renderers directly, so a stand-in
+// that answered every call would let the card drift from what `render_form()` actually checks.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-invite.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-people.php';
 
 $fail = 0;
@@ -416,6 +419,14 @@ ck( 'the institution name prints trimmed', has( $card, 'TEST - WordPress Educati
 ck( 'the read time of the facts that are not live', has( $card, 'were read ' . gmdate( 'Y-m-d H:i', 1756000000 ) ), true );
 ck( 'and it never renders accessibility', has( $card, 'accessibility' ), false );
 
+echo "\n=== The invite flow the module already had is what the card draws now ===\n";
+
+// Viewer 7 is a live member of A, so `ACT_VIEW_ROSTER` (drawing the card at all) and
+// `ACT_MANAGE_MEMBERS` (drawing the invite form) both allow them: this is the member who
+// may manage members, the same fixture the section above already renders.
+ck( 'the stale sentence about a later release is gone', has( $card, 'Inviting a colleague from this page ships with a later release' ), false );
+ck( 'the invite form is drawn in its place', has( $card, 'name="action" value="' . WPCPM_Institution_Invite::ACTION_INVITE . '"' ), true );
+
 echo "\n=== The contact Airtable names is a representative, account or no account ===\n";
 
 // The card used to count accounts and list accounts, so an institution whose contact has
@@ -487,7 +498,12 @@ ck( 'leaving says the same about your own account', has( $card, 'your account is
 echo "\n=== A member whose agreement is not settled sees no card at all ===\n";
 
 $GLOBALS['settled'] = array( $B );
-ck( 'nothing is drawn', render_card( 7, $A ), '' );
+$refused             = render_card( 7, $A );
+ck( 'nothing is drawn', $refused, '' );
+// `render_form()` decides the same action on the same subject, so a viewer this policy
+// refuses never reaches it either; asked directly here rather than trusted from the empty
+// string above, since the two gates are meant to agree and not merely to happen to.
+ck( 'the invite form is not among what is not drawn', has( $refused, 'name="action" value="' . WPCPM_Institution_Invite::ACTION_INVITE . '"' ), false );
 ck( 'and a manager still sees it', has( render_card( 1, $A, true ), 'Institution representatives' ), true );
 $GLOBALS['settled'] = array( $A, $B );
 

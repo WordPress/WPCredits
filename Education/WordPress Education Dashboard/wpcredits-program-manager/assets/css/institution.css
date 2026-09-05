@@ -391,7 +391,8 @@
  * Flexbox and not a grid: the parts are flat sibling spans in the markup, and three of them
  * in one grid cell sit on top of each other instead of flowing.
  */
-.wpcpm-people__list {
+.wpcpm-people__list,
+.wpcpm-people__invites {
 	list-style: none;
 	margin: 0;
 	padding: 0;
@@ -460,6 +461,58 @@
 
 .wpcpm-people__form {
 	margin-top: 1em;
+}
+
+/* A waiting invitation: the address and its two controls on one line, the facts on a line of
+   their own under them. The controls are forms, not links (see render_control()), so the
+   inline modifier undoes the block form's margin and pushes the first one to the right edge. */
+.wpcpm-people__invite {
+	align-items: baseline;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3em 0.75em;
+	padding: 0.75em 0;
+}
+
+.wpcpm-people__invite + .wpcpm-people__invite {
+	border-top: 1px solid var( --wpcpm-border );
+}
+
+.wpcpm-people__invite-email {
+	font-weight: 700;
+	overflow-wrap: anywhere;
+}
+
+.wpcpm-people__invite-facts {
+	flex-basis: 100%;
+	order: 2;
+}
+
+.wpcpm-people__form--inline {
+	display: inline;
+	margin: 0;
+}
+
+.wpcpm-people__form--inline:first-of-type {
+	margin-inline-start: auto;
+}
+
+/* The invite form: the address box and its button on one row, the sentence under them. */
+.wpcpm-people__form--invite {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+.wpcpm-people__form--invite input[type="email"] {
+	flex: 1 1 16em;
+	min-width: 0;
+}
+
+.wpcpm-people__form--invite .description {
+	flex-basis: 100%;
+	margin: 0;
 }
 
 /* The cohort picker and the filter bar. A row that wraps rather than a grid: the

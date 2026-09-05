@@ -738,10 +738,12 @@ class WPCPM_Student_Report_Form {
 					);
 				}
 
-				// The sentence that opens a run of marks, "Complete one of the following courses": a
-				// heading over the run in the label's voice, so a reader meets the condition before
-				// the boxes it governs. It was a `note` under the run's last field until 1.94.3,
-				// where it read as an orphan (the type review of 5 September 2026).
+				// A run's opening sentence and a lesson's name are the same kind of heading: both
+				// introduce what follows, and printing them as two different classes read as two
+				// rules rather than one. The owner asked for a single treatment - capitals, the
+				// rule above - for both, so this prints the same class `subgroup` does above (the
+				// consistency pass of 6 September 2026; this heading had a class of its own from
+				// 1.94.3 until here).
 				if ( ! empty( $spec['lead'] ) ) {
 					if ( '' !== $row ) {
 						if ( $stacked ) {
@@ -753,7 +755,7 @@ class WPCPM_Student_Report_Form {
 						$row = '';
 					}
 
-					printf( '<h4 class="wpcpm-report__lead">%s</h4>', esc_html( $spec['lead'] ) );
+					printf( '<h4 class="wpcpm-report__sub">%s</h4>', esc_html( $spec['lead'] ) );
 				}
 
 				$wants = isset( $spec['row'] ) ? (string) $spec['row'] : '';

@@ -790,6 +790,19 @@ class WPCPM_Institution_Roster_View {
 		echo '<li class="wpcpm-mentee wpcpm-roster__student-item">';
 		printf( '<details class="wpcpm-mentee__disclosure wpcpm-roster__card"%s>', 1 === (int) $total ? ' open' : '' );
 		echo '<summary class="wpcpm-mentee__summary">';
+
+		// No email fallback here: the Institution Dashboard never shows a student's address to
+		// institution members (columns() has no email column, and the search fence refuses an
+		// address lookup), but a Gravatar URL is keyed on the address's MD5 hash, so printing
+		// one would hand institution members a stable lookup key for the address the page
+		// withholds. A row without a username simply prints no portrait (consistency pass, 1.94.7).
+		WPCPM_Mentors_Dashboard::render_avatar(
+			isset( $row['username'] ) ? (string) $row['username'] : '',
+			'',
+			$name,
+			44
+		);
+
 		echo '<div class="wpcpm-mentee__identity">';
 
 		// The name is a heading and, where the student has an account, the way into their own

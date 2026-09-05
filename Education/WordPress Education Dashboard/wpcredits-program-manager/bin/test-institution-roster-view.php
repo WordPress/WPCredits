@@ -200,6 +200,42 @@ class WPCPM_Mentors_Dashboard {
 		if ( '' === $end ) { return 'From ' . $start; }
 		return $start . ' to ' . $end;
 	}
+
+	/**
+	 * The mentor page's own avatar, stubbed to the real one's markup so the roster's
+	 * call to it - and the silence of a row with neither a username nor an email - can
+	 * both be asserted here without pulling in the whole mentors dashboard class.
+	 */
+	public static function render_avatar( $username, $email, $name, $size = 64 ) {
+		$url = self::avatar_url( $username, $email, $size );
+
+		if ( '' === $url ) {
+			return;
+		}
+
+		printf(
+			'<img class="wpcpm-avatar" src="%1$s" srcset="%2$s 2x" width="%3$d" height="%3$d" alt="%4$s" title="%5$s" loading="lazy" decoding="async" />',
+			esc_url( $url ),
+			esc_url( self::avatar_url( $username, $email, $size * 2 ) ),
+			(int) $size,
+			esc_attr( $name ),
+			esc_attr( $username ? 'Photo from their WordPress.org profile' : 'Photo from Gravatar' )
+		);
+	}
+
+	public static function avatar_url( $username, $email, $size = 64 ) {
+		$username = trim( (string) $username );
+
+		if ( '' !== $username ) {
+			return 'https://wordpress.org/grav-redirect.php?user=' . rawurlencode( $username ) . '&s=' . (int) $size;
+		}
+
+		$email = trim( (string) $email );
+
+		return ( '' !== $email && false !== strpos( $email, '@' ) )
+			? 'https://gravatar.example/avatar/' . md5( strtolower( $email ) ) . '?s=' . (int) $size
+			: '';
+	}
 }
 
 /**
@@ -381,19 +417,29 @@ $GLOBALS['index'] = array(
 			// `Interested` lead, which is on the roster but is not somebody who signed up.
 			'recSTU00000000001' => row( 'recSTU00000000001', 'Ada Example', 'In Sensei', '2026-02-16', array(
 				'end' => '2026-09-30', 'has_mentor' => true, 'reports' => array( 'recREP00000000001' ),
-				'username' => 'adaexample', 'tutor' => 'Tutor Example', 'field_of_study' => 'Technology & Engineering',
+				// The WordPress.org username and the account email the roster's avatar is
+				// drawn from - the mentor page's own test address, so it is recognizable as
+				// a fixture rather than a real person's.
+				'username' => 'adaexample', 'email' => 'maciej@a8c.com',
+				'tutor' => 'Tutor Example', 'field_of_study' => 'Technology & Engineering',
 				'user_id' => 21,
 				// The Students table carries this column; the index drops it and the roster
 				// must never print it whatever a caller hands over.
 				'accessibility' => 'Screen reader user',
 			) ),
-			'recSTU00000000002' => row( 'recSTU00000000002', 'Bo Example', 'In Sensei', '2026-02-16', array( 'has_mentor' => true ) ),
+			// No username and no account email: the row an avatar cannot be drawn for.
+			'recSTU00000000002' => row( 'recSTU00000000002', 'Bo Example', 'In Sensei', '2026-02-16', array( 'has_mentor' => true, 'email' => '' ) ),
 			'recSTU00000000003' => row( 'recSTU00000000003', 'Cy Example', 'In Sensei 50h', '2026-03-01' ),
 			'recSTU00000000004' => row( 'recSTU00000000004', 'Dee Example', 'Graduate', '2026-01-20' ),
 			'recSTU00000000005' => row( 'recSTU00000000005', 'Eve Example', 'Not moving forward', '2026-02-16' ),
 			'recSTU00000000006' => row( 'recSTU00000000006', 'Spammy Example', 'SPAM', '2026-02-16' ),
 			'recSTU00000000007' => row( 'recSTU00000000007', 'Dup Example', 'Duplicated', '2026-02-16' ),
 			'recSTU00000000008' => row( 'recSTU00000000008', 'Fi Example', 'Interested', '2026-02-16' ),
+			// An account email and no WordPress.org username: enough for the old fallback to
+			// leak a Gravatar, which is exactly what this row is here to catch. Interested keeps
+			// her out of the signed-up count the same way Fi is, so the cohort's (5) and the
+			// strip's two numbers do not move.
+			'recSTU00000000013' => row( 'recSTU00000000013', 'Lu Example', 'Interested', '2026-02-16', array( 'email' => 'maciej@a8c.com' ) ),
 			// 2025-H2, the semester the strip compares 2026-H1 against.
 			'recSTU00000000009' => row( 'recSTU00000000009', 'Gus Example', 'Graduate', '2025-09-01' ),
 			'recSTU00000000010' => row( 'recSTU00000000010', 'Hal Example', 'In Sensei', '2025-09-01' ),
@@ -490,7 +536,7 @@ echo "\n=== The four groups ===\n";
 ck( 'Current holds the student with a report record', group_count( $html, 'Current' ), 1 );
 ck( 'Waiting for a mentor holds both students without one', group_count( $html, 'Waiting for a mentor' ), 2 );
 ck( 'Finished holds the graduate', group_count( $html, 'Finished' ), 1 );
-ck( 'Did not start holds the applicant and the lead', group_count( $html, 'Did not start' ), 2 );
+ck( 'Did not start holds the applicant and both leads', group_count( $html, 'Did not start' ), 3 );
 ck( 'Ada is in Current', has( group_rows( $html, 'current' ), 'Ada Example' ), true );
 ck( 'Bo is not', has( group_rows( $html, 'current' ), 'Bo Example' ), false );
 ck( 'Bo is waiting, and the row says a mentor is assigned',
@@ -576,6 +622,19 @@ ck( 'and none of them names accessibility',
 echo "\n=== One student's row ===\n";
 
 $ada = group_rows( $html, 'current' );
+
+// The avatar sits before the name, the same shape the mentor page draws it in - one
+// student, one face, on both pages (consistency pass, 1.94.7).
+ck( 'a student row carries the same 44px avatar as the mentor page, before the name',
+	preg_match( '#<summary class="wpcpm-mentee__summary"><img class="wpcpm-avatar" src="[^"]*adaexample[^"]*" srcset="[^"]*" width="44" height="44" alt="[^"]*" title="[^"]*" loading="lazy" decoding="async" /><div class="wpcpm-mentee__identity">#', $html ) === 1, true );
+ck( 'a row with neither a username nor an account email prints no avatar',
+	preg_match( '#<summary class="wpcpm-mentee__summary"><div class="wpcpm-mentee__identity"><h4 class="wpcpm-mentee__name">Bo Example#', $html ) === 1, true );
+// Lu has an account email and no username: the case the old fallback used to draw a Gravatar
+// for, keyed on the address the Institution Dashboard otherwise never shows a member.
+ck( 'a row with an account email but no username prints no avatar either',
+	preg_match( '#<summary class="wpcpm-mentee__summary"><div class="wpcpm-mentee__identity"><h4 class="wpcpm-mentee__name">Lu Example#', $html ) === 1, true );
+ck( 'so nothing on the page is a Gravatar URL a member could read as a lookup key',
+	has( $html, 'gravatar' ), false );
 
 ck( 'the program is the name people use, with its badge',
 	has( $ada, '<span class="wpcpm-badge wpcpm-badge--sensei">WordPress Credits Program 150h</span>' ), true );
@@ -892,7 +951,7 @@ $junk = render( array( 'wpcpm_cohort' => 'summer', 'wpcpm_roster_status' => 'eve
 
 ck( 'a cohort that is not a key falls back to the default', chosen( $junk, 'wpcpm_cohort' ), '2026-H1' );
 ck( 'a group that is not one of the four is no filter at all', chosen( $junk, 'wpcpm_roster_status' ), '' );
-ck( 'so every group is drawn', group_count( $junk, 'Did not start' ), 2 );
+ck( 'so every group is drawn', group_count( $junk, 'Did not start' ), 3 );
 
 $posted = render( array(), $A, array( 'cohort' => '2025-H1', 'filters' => array( 'status' => 'finished', 'search' => '' ) ) );
 

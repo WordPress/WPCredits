@@ -1046,18 +1046,9 @@
 	text-transform: uppercase;
 }
 
-/* The sentence over a run of marks: the label's weight, one step under the body, the full row. */
-.wpcpm-report__lead {
-	font-size: 0.875em;
-	font-weight: 600;
-	grid-column: 1 / -1;
-	margin: 0.75em 0 0;
-}
-
 /* The first row under a heading sits close to it. Everything in this grid has a row gap; this
    takes it back for the one row that should read as attached. */
-.wpcpm-report__sub + *,
-.wpcpm-report__lead + * {
+.wpcpm-report__sub + * {
 	margin-top: -0.35em;
 }
 

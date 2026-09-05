@@ -1278,12 +1278,17 @@ class WPCPM_Mentors_Dashboard {
 	 * Falls back to the program email's Gravatar for the students who have no
 	 * WordPress.org profile recorded yet.
 	 *
+	 * Shared with the Institution Dashboard's roster, so both pages draw one avatar.
+	 * That page passes an empty email on purpose: it withholds student addresses, and a
+	 * Gravatar URL carries a hash of the address, so its rows draw the profile photo or
+	 * nothing (consistency pass, 1.94.7).
+	 *
 	 * @param string $username WordPress.org username.
 	 * @param string $email    Email address, used only as a fallback.
 	 * @param string $name     Person's name, for the alt text.
 	 * @param int    $size     Requested pixel size.
 	 */
-	private static function render_avatar( $username, $email, $name, $size = 64 ) {
+	public static function render_avatar( $username, $email, $name, $size = 64 ) {
 		$size = max( 24, (int) $size );
 		$url  = self::avatar_url( $username, $email, $size );
 

@@ -2,9 +2,9 @@
 Contributors: gomp
 Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.94.6
+Stable tag: 1.94.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,14 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.94.7 =
+* Student Report Card: the sentence that opens a run of marks ("Complete one of the following courses", "Optional courses", "Your contribution team and project", "Your reflection posts") is a lesson sub-heading like "Enter your final grade, 0 to 100": capitals and the rule above, one treatment for every run.
+* Mentor Report Card: the sentence saying how the student list is ordered sits above the list, under its heading, instead of after the list under a rule.
+* Institution Dashboard: each student row carries the same 44px portrait the Mentor Report Card shows for that student; the People card shows the colleague-invite flow (invite a colleague by email, see and resend or cancel pending invitations) that the module already had, in place of the sentence saying it would ship later.
+* Institution Dashboard: a student's portrait comes from their WordPress.org profile only, with no Gravatar fallback, because the page withholds the address the fallback is derived from.
+* The Institutions screen's note about an institution's pending invitations now says where to find them: the institution's own dashboard, where they can be resent or canceled.
+* With theme 1.21.0, the dashboard consistency pass of 6 September 2026: one button size on every dashboard, the Mentor Report Card's band, ordering note and past-students box aligned, the Administrator Dashboard's rows centered on their buttons, the Institution Dashboard's student rows laid out like the Mentor Report Card's.
 
 = 1.94.6 =
 * Student Report Card: every hint is tied to its control with an id and `aria-describedby`, the team list included. A mentor or a program manager reading a student's card now sees text rows - a label and a value, "Not filled in" for an empty answer, and links that open in a new tab - instead of disabled boxes, with the team tiles kept so the chosen teams still show. The marks stack their label over the box, with the heading above a run of marks stating the scale, "Enter your final grade, 0 to 100"; the card's last hairline divider is gone. The reflection posts are named "Your reflection posts", and on the Developer Track the team and project pair is named "Your contribution team and project". Whoever reads the card gets the line breaks of the final project report back, so a multi-paragraph write-up reads as it was written.

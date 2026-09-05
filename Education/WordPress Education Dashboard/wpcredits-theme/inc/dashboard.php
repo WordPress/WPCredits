@@ -84,6 +84,17 @@ function wpcredits_dashboard_assets() {
 		$deps[] = WPCPM_Call_Calendar::STYLE;
 	}
 
+	// The triage sheet, for the same kind of tie: this theme's `.wpc-dash__band { margin-bottom:
+	// 0 }` beats triage.css's own `margin: 0 0 1em` only by print order today, and the dependency
+	// makes that a certainty rather than an accident. Every selector in triage.css is prefixed
+	// `.wpc-dash`, `.wpc-triage` or `.wpc-row`, except the ones the triage script itself
+	// assembles at run time (`.wpc-search*`, `.wpc-group*`) - nothing else in the plugin or the
+	// theme ever prints that markup, so this costs nothing on a page the triage script never
+	// runs on. The sheet now loads on every dashboard page, as the calendar's already does.
+	if ( class_exists( 'WPCPM_Mentors_Dashboard' ) && wp_style_is( WPCPM_Mentors_Dashboard::TRIAGE_STYLE, 'registered' ) ) {
+		$deps[] = WPCPM_Mentors_Dashboard::TRIAGE_STYLE;
+	}
+
 	wp_enqueue_style(
 		'wpcredits-dashboard',
 		get_theme_file_uri( 'assets/css/dashboard.css' ),

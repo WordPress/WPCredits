@@ -2,9 +2,9 @@
 
 Contributors: gomp
 Requires at least: 6.6
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.20.0
+Stable tag: 1.21.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,14 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.21.0 =
+* One button on every dashboard: 600 14px/20px, 6px 14px padding, 8px radius (the Sponsor Dashboard's buttons were 13px); the Student Report Card's two large buttons keep their size.
+* Mentor Report Card: the header band meets the first section with one line; the past-students box lines up with the student cards (20px inset) and leaves 20px below; its notice is a plain note; the ordering note has no rule above it.
+* Administrator Dashboard: table rows centered on their buttons; 12px between a request's note field and its buttons; 18px between request cards; the decision buttons take the shared button size instead of their own, larger one; the line between requests takes the theme's soft line color.
+* Institution Dashboard: student rows laid out like the Mentor Report Card's, one line with the portrait, the facts in the middle and the badge at the right; that one line now holds down to 900px, then takes the Mentor Report Card's two-line treatment below it instead of a cramped line with a dropped badge. The People card's invite form, Resend, Cancel, Remove and the flash messages are dressed now too, rather than left in the browser's own defaults.
+* Student Report Card: the run headings are one class; the feedback form's selects take the theme's control treatment.
+* The plugin's Mentor Report Card triage stylesheet is a declared dependency of the theme's dashboard sheet, so it loads on every dashboard page and the theme's rules always print after it.
 
 = 1.20.0 =
 * The type and color review of 5 September 2026, phases two and three. The type scale is complete across the last small rules: nothing on the page is smaller than 12px; chips, counts and eyebrows are 12px or 13px; every control, label, table cell, note and meta line is 14px; intros and empty states are 16px. The calendar's day numbers, the search field, the notes box, the availability editor, the calls list, the triage labels and the mentee table's stacked row labels all take these sizes now.

@@ -1605,10 +1605,12 @@ ck( 'the no-member count is in the pipeline card and the contacts count on the r
 $provenance = '(from the pipeline index read ' . gmdate( 'Y-m-d H:i', $read_at ) . '; memberships counted now)';
 ck( 'each count says which half is as old as the sync and which was read now', substr_count( $html, $provenance ), 3 );
 
-ck( 'the two pieces this phase does not build are named, not printed as a zero', array(
-	false !== strpos( $html, 'Invitations ship with a later phase, so the third backstop count, invitations older than seven days, is not shown: there are none to count yet.' ),
-	false !== strpos( $html, 'Adding that person in one click ships with the accounts phase' ),
-	false !== strpos( $html, 'Adding an account by hand ships with the accounts phase' ),
+// The routes in are named rather than printed as a zero: the add form on the card, the sync,
+// and the invitations the institution's own dashboard lists (they are not counted here).
+ck( 'the routes in are named, not printed as a zero', array(
+	false !== strpos( $html, 'Invitations older than seven days are not counted here' ),
+	false !== strpos( $html, 'Add that person from the institution' ),
+	false !== strpos( $html, 'Add an account from the institution' ),
 ), array( true, true, true ) );
 
 // Two institutions acquire a member: one is the contact herself, recorded in another case

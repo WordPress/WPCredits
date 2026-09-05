@@ -115,6 +115,9 @@
 /* ==========================================================================
    Header band - who this list belongs to, and the triage counts
    ========================================================================== */
+/* The plugin's own triage.css gives this a 1em (14px) bottom margin as its theme-agnostic
+   baseline; zeroed here so the border above is the one line before the first section, not
+   a bar with a white gap and a second line after it (consistency pass, 1.21.0). */
 .wpc-dash__band {
 	align-items: center;
 	background: var( --wpc-surface-soft );
@@ -122,6 +125,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: 16px;
+	margin-bottom: 0;
 	padding: 22px 32px;
 }
 
@@ -349,6 +353,20 @@
 	margin: 0;
 }
 
+/* The 13px this replaces came from the theme's own style.css, not the plugin: its
+   `.wpcpm-button, .wpcpm-restricted__action a` rule (~line 979) already outprints the plugin's
+   own 0.9em (12.6px on a 14px card) everywhere the class loads. One size for every button on a
+   dashboard page, the size the Administrator Dashboard's decisions already use. Radius is a
+   literal 8px, not var( --wpc-radius-control ) (2px, meant for text inputs and selects): the
+   Administrator Dashboard's .button rule and the sponsor form's inputs are already hardcoded to
+   8px, and the Student Report Card's course and submit buttons below match it too, keeping only
+   their own font and padding. */
+.wpc-dashboard-page .wpcpm-button {
+	border-radius: 8px;
+	font: 600 14px/20px var( --wpc-font );
+	padding: 6px 14px;
+}
+
 /* The plugin's button, in wp-admin's secondary shape where the design calls for
    it. The primary treatment is in style.css, which loads everywhere the plugin
    might print one. */
@@ -379,8 +397,12 @@
 	border-bottom: 1px solid var( --wpc-line-soft );
 }
 
+/* Above the list now, not under it (triage.js inserts it before the list as of the
+   consistency pass, 1.21.0) - sits right under the group heading, whose 10px bottom
+   padding gives room above; the shared rule's bottom padding gives room below; no rule
+   divides it from anything. */
 .wpc-dash__ordering {
-	border-top: 1px solid var( --wpc-line-soft );
+	padding-top: 0;
 }
 
 /* ==========================================================================
@@ -764,10 +786,10 @@
 /* Deliberately much larger than the plugin's 13px/7px-14px button. Everything above this
    section is reference - what the program records, who the mentor is - and these two links
    are the only things on the page a student actually does. At the shared size they read as
-   two more table controls; at this size they read as the point of the page. */
+   two more table controls; at this size they read as the point of the page. Radius is not
+   repeated here - the shared rule above is already 8px. */
 .wpc-dashboard-page .wpcpm-student__actions .wpcpm-button,
 .wpc-dashboard-page .wpcpm-report__submit .wpcpm-button {
-	border-radius: 8px;
 	font: 600 17px/24px var( --wpc-font );
 	padding: 15px 32px;
 }
@@ -922,16 +944,11 @@
 	padding: 0 7px;
 }
 
-/* The past group is a disclosure, so its heading lives in a summary rather than in
-   an h3 - but it is still a peer of "Currently mentoring" and has to start on the
-   same 32px line. Two things were pushing it right: the summary had no left
-   padding, and the title inside it kept the 32px of its own from the rule above, on
-   top of the leading disclosure triangle.
-
-   So the padding moves to the summary, the title loses its own, and the triangle
-   follows the title instead of leading it. A leading arrow would put the label at
-   56px while the heading above sat at 32px; trailing, both labels line up and the
-   arrow reads as part of the heading it opens. */
+/* The past group is a disclosure, so its heading lives in a summary rather than in an h3 - but
+   it is still a peer of "Currently mentoring" and has to start at the same edge. The padding
+   that places it lives on the summary, not on the title inside it, and the triangle trails the
+   title instead of leading it, so both labels line up and the arrow reads as part of the
+   heading it opens. */
 /* A collapsed group is a control, and it has to look like one. This used to be a heading
    with a hairline above it and a chevron pushed to the far side of the page, so on a wide
    screen the only sign it could be pressed was an inch of white away from the words it
@@ -946,7 +963,8 @@
 	cursor: pointer;
 	display: flex;
 	gap: 8px;
-	margin: 0 32px;
+	margin-left: 0;
+	margin-right: 0;
 	padding: 14px 18px;
 }
 
@@ -960,11 +978,14 @@
 	border-bottom-right-radius: 0;
 }
 
+/* Same reasoning as the summary above: the 20px inset is the section's job now
+   (`.wpc-dashboard-page .wpcpm-group--past`, further down), not this box's. */
 .wpc-dashboard-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
 	border: 1px solid var( --wpc-line-card );
 	border-radius: 0 0 var( --wpc-radius-card ) var( --wpc-radius-card );
 	border-top: 0;
-	margin: 0 32px;
+	margin-left: 0;
+	margin-right: 0;
 	padding: 16px 18px;
 }
 
@@ -979,6 +1000,10 @@
  * the row a reader clicks.
  *
  * Measured before this rule: every one of those at 353, the summaries alone at 385.
+ *
+ * The shared rule above has carried its own margin-left/margin-right: 0 since 1.21.0, so this
+ * copy now changes nothing on this page; it stays as a guard against that shared zero moving
+ * or being overridden, not because this page still needs its own.
  */
 .wpc-institution-page .wpcpm-group__summary,
 .wpc-institution-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
@@ -1010,6 +1035,9 @@
  * disclosure, never drawn as an already-open plain heading, so the institution page's other
  * rule - zeroing that heading's own padding - has nothing on this page to match and is not
  * copied here (1.17.0 removed a copy of it that never did).
+ *
+ * The shared rule above has carried this same zero since 1.21.0, so this copy now guards
+ * rather than fixes - kept in case that ever changes.
  */
 .wpc-administrator-page .wpcpm-group__summary,
 .wpc-administrator-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
@@ -1061,10 +1089,16 @@
 	text-transform: uppercase;
 }
 
+/* A row's text sits on the same line as its button, not at the top of a 55px cell. */
+.wpc-administrator-page .wpcpm-admin-table td {
+	vertical-align: middle;
+}
+
 /*
  * The six decisions, the request buttons and Draft now are drawn by the wp-admin queue with
  * core's button classes, which the front end never loads. They take the theme's secondary
- * button here, so a decision reads as a decision and not as unstyled text.
+ * button here, at the shared `.wpcpm-button` size (~line 362), so a decision reads as a decision
+ * and not as unstyled text, and matches every other button on a dashboard page.
  */
 .wpc-administrator-page .wpcpm-app-action .button,
 .wpc-administrator-page .wpcpm-request__decide .button,
@@ -1074,8 +1108,8 @@
 	border-radius: 8px;
 	color: var( --wpc-brand );
 	cursor: pointer;
-	font: 600 15px/20px var( --wpc-font );
-	padding: 9px 18px;
+	font: 600 14px/20px var( --wpc-font );
+	padding: 6px 14px;
 }
 
 .wpc-administrator-page .wpcpm-app-action .button-primary,
@@ -1097,6 +1131,23 @@
 	width: 100%;
 }
 
+/* Only the request form's textarea needs this: the application decision forms wrap theirs in a
+   <p>, which already carries a margin, so they were getting about 26px here to the request
+   form's 12px. The same 12px every form on the site puts between a control and its button
+   row. */
+.wpc-administrator-page .wpcpm-request__decide textarea {
+	margin-bottom: 12px;
+}
+
+/* One request from the next: room, as the institution's people rows have. The line itself
+   stays the plugin's single border (border-top on every .wpcpm-administrator__item after the
+   first, assets/css/administrator.css) - repeating it here would draw it twice - only its
+   color is repainted, to the theme's soft line rather than the plugin's own. */
+.wpc-administrator-page .wpcpm-administrator__item + .wpcpm-administrator__item {
+	border-top-color: var( --wpc-line-soft );
+	padding-top: 18px;
+}
+
 /* wpcpm-dashboard__message: the plugin's own base rule (assets/css/administrator.css) draws
    the shape; only the color is this theme's to paint, in its own status tokens. */
 .wpc-administrator-page .wpcpm-dashboard__message--success {
@@ -1105,6 +1156,14 @@
 
 .wpc-administrator-page .wpcpm-dashboard__message--error {
 	border-left-color: var( --wpc-red, #b32d2e );
+}
+
+/* Core's `.description` never loads on the front end; the request queue prints one above each
+   decide form ("Assigning a mentor happens in Airtable..."), so it takes the note treatment the
+   Institution Dashboard's People card gives its own (consistency pass, 1.21.0). */
+.wpc-administrator-page .description {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
 }
 
 /*
@@ -1161,6 +1220,10 @@
  * administrator pages, because its groups sit inside a section already inset by 32px: the
  * clickable row loses its horizontal margin and the open body its, or every row steps 32px
  * right of the identity block above it (theme 1.16.5 and 1.16.6 were this bug).
+ *
+ * The shared rule above has carried this same zero since 1.21.0, so this copy now guards
+ * rather than fixes too - kept for the same reason the institution and administrator copies
+ * are.
  */
 .wpc-sponsor-page .wpcpm-group__summary,
 .wpc-sponsor-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
@@ -1486,6 +1549,25 @@
 	margin-top: 10px;
 }
 
+/* The institution's student rows take the mentor page's row: avatar, name, the facts in the
+   middle, the badge at the right, one line tall. The markup is the same; only the mentor
+   page had the layout (consistency pass, 1.21.0). */
+.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-mentee__identity {
+	display: contents;
+}
+
+.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-mentee__preview {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-badge {
+	order: 3;
+}
+
 .wpc-dashboard-page .wpcpm-group__summary .wpcpm-group__title {
 	margin: 0;
 	padding: 0;
@@ -1500,13 +1582,68 @@
 	padding: 0;
 }
 
-/* The people on an institution's card are a list of cards, not a bulleted list. The plugin
-   resets the padding, and a core list rule out-specifies it, so the first card sat indented
-   from the paragraph above it while nothing else on the page did. */
-.wpc-dashboard-page .wpcpm-people__list {
+/* The people on an institution's card, and the invitations waiting behind them, are a list of
+   cards, not a bulleted list. The plugin resets the padding, and a core list rule out-specifies
+   it, so the first card sat indented from the paragraph above it while nothing else on the page
+   did. */
+.wpc-dashboard-page .wpcpm-people__list,
+.wpc-dashboard-page .wpcpm-people__invites {
 	list-style: none;
 	margin: 0;
 	padding: 0;
+}
+
+/* Core's `.button` and `.description` classes never load on the front end, so the invite form,
+   Resend, Cancel and Remove would otherwise print as browser defaults. The values are the shared
+   `.wpcpm-button` rule's (~line 362) and the Administrator Dashboard's `.button` rule's outline
+   treatment. */
+.wpc-institution-page .wpcpm-people__form .button,
+.wpc-institution-page .wpcpm-people__remove {
+	background: none;
+	border: 1px solid var( --wpc-brand );
+	border-radius: 8px;
+	color: var( --wpc-brand );
+	cursor: pointer;
+	font: 600 14px/20px var( --wpc-font );
+	padding: 6px 14px;
+}
+
+.wpc-institution-page .wpcpm-people__form .button-primary {
+	background: var( --wpc-brand );
+	color: #fff;
+}
+
+/* Resend and Cancel are forms for a reason the plugin explains (a link that changes state is
+   followed by mail scanners), drawn as text links so a waiting invitation is one line. */
+.wpc-institution-page .wpcpm-people__form--inline .button-link {
+	background: none;
+	border: 0;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.wpc-institution-page .wpcpm-people__form input[type="email"] {
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	font: 14px/20px var( --wpc-font );
+	padding: 6px 8px;
+}
+
+.wpc-institution-page .wpcpm-people__form .description,
+.wpc-institution-page .wpcpm-people__invite-facts {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+}
+
+/* The plugin's base rule draws the flash's shape (assets/css/institution.css) with a logical
+   `border-inline-start-width`, so the color is painted on the same logical side and the bar stays
+   one color in a right-to-left locale; the tokens are the Administrator Dashboard's messages'. */
+.wpc-institution-page .wpcpm-people__message.is-success {
+	border-inline-start-color: var( --wpc-green, #1a7f37 );
+}
+
+.wpc-institution-page .wpcpm-people__message.is-error {
+	border-inline-start-color: var( --wpc-red, #b32d2e );
 }
 
 /* The "no students" and "mentoring has finished" lines sit in the same column as
@@ -1515,6 +1652,28 @@
 .wpc-dashboard-page .wpcpm-group .wpcpm-dashboard__empty {
 	margin: 0;
 	padding: 20px 32px;
+}
+
+/* The past-students box lines up with the student cards above it (their inset is 20px) and
+   leaves the same room below that a card leaves, instead of touching the section line
+   (consistency pass, 1.21.0). Same specificity as the rule above (`.wpc-dashboard-page
+   .wpcpm-group`) and placed after it, so this is the one the tie goes to. */
+.wpc-dashboard-page .wpcpm-group--past {
+	margin: 0 20px 20px;
+}
+
+/* Its notice is a note like every other note on the page, not a centered band. Same
+   specificity as `.wpc-dashboard-page .wpcpm-group .wpcpm-dashboard__empty` above and
+   placed after it, so this wins the tie on padding; the rest of that rule's properties
+   (background, border-top, text-align) are not touched there, so they come from the base
+   `.wpcpm-dashboard__empty` rule unless overridden below. */
+.wpc-dashboard-page .wpcpm-group--past .wpcpm-dashboard__empty {
+	background: none;
+	border-top: 0;
+	color: var( --wpc-ink-60 );
+	font: 14px/20px var( --wpc-font );
+	padding: 12px 12px 4px;
+	text-align: left;
 }
 
 /* ==========================================================================
@@ -2060,6 +2219,14 @@
 	border-top: 1px solid var( --wpc-line-soft );
 	margin: 0;
 	padding: 20px 32px 24px;
+}
+
+/* Without this the section drew its own top rule right under the band's bottom border
+   (above, `.wpc-dash__band`), so a mentor saw two hairlines touching rather than one.
+   Same specificity as the rule above (two classes each), so it has to come after it in
+   the file to win the tie - consistency pass, 1.21.0. */
+.wpc-dash__band + .wpcpm-calls {
+	border-top: 0;
 }
 
 /* Two sections, one row: the program on the left, the mentor on the right. The call
@@ -2614,6 +2781,13 @@
 	.wpcpm-mentee__name {
 		width: 150px;
 	}
+
+	/* The 150px cap above makes room for the mentor page's columns. The institution row has no
+	   columns, and the cap only sent a long name over the facts beside it: the name keeps its
+	   own width here (consistency pass, 1.21.0). */
+	.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-mentee__name {
+		width: auto;
+	}
 }
 
 /* ==========================================================================
@@ -2743,6 +2917,20 @@
 		flex-basis: 100%;
 		order: 9;
 		padding-left: 60px;
+	}
+
+	/* The institution row takes the mentor page's two lines here: identity and badge on the
+	   first, the facts on the second, indented past the triangle and the portrait the same 60px
+	   (consistency pass, 1.21.0). */
+	.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-mentee__preview {
+		flex-basis: 100%;
+		order: 9;
+		padding-left: 60px;
+		white-space: normal;
+	}
+
+	.wpc-institution-page .wpcpm-roster__card > .wpcpm-mentee__summary .wpcpm-badge {
+		order: 0;
 	}
 
 	.wpc-row__flag {
@@ -2897,12 +3085,12 @@
    availability editor and the session forms rather than looking like a third kind of
    form on the same site.
    ------------------------------------------------------------------------- */
-/* The Save button matches the box beside it: the same 14px/20px and 6px of padding the
-   controls take, plus a border of its own width, so the two are one row rather than a field
-   with something taller stuck to it. */
+/* The Save button lines up with the box beside it: the same 14px/20px (already the shared
+   rule's font), 6px of padding the controls take, and a border of its own width, so the two
+   are one row rather than a field with something taller stuck to it. Not the radius - this
+   keeps the shared button's 8px, beside the box's 2px control radius. */
 .wpc-dashboard-page .wpcpm-hours__entry .wpcpm-button {
 	border-width: 1px;
-	font: 600 14px/20px var( --wpc-font );
 	padding: 6px 12px;
 }
 
@@ -2912,6 +3100,16 @@
 	/* --wpc-control-border is the token; `--wpc-line-control` never existed, and the fallback
 	   drew every box in the card hairline, 1.27:1 against white (found by the type review of
 	   5 September 2026; controls need 3:1). */
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	font: 14px/20px var( --wpc-font );
+	padding: 6px 8px;
+}
+
+/* The feedback form's selects were the browser's own beside the theme's text boxes: the same
+   control treatment as every other field (consistency pass, 1.21.0). */
+.wpc-dashboard-page .wpcpm-feedback select {
+	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
 	font: 14px/20px var( --wpc-font );
@@ -3043,15 +3241,6 @@
 	color: var( --wpc-ink-70 );
 	font: 700 13px/18px var( --wpc-font );
 	letter-spacing: .06em;
-}
-
-/* The sentence that opens a run of marks ("Complete one of the following courses") is a
-   heading over the run, in the label's voice and size. It was a 12px note printed under the
-   run, where it read as an orphan (the type review of 5 September 2026; plugin 1.94.3). */
-.wpc-dashboard-page .wpcpm-report__lead {
-	color: var( --wpc-ink-70 );
-	font: 600 14px/20px var( --wpc-font );
-	margin: 8px 0 0;
 }
 
 .wpc-dashboard-page .wpcpm-report__toggle {
