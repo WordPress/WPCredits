@@ -71,6 +71,10 @@ note** after each call - that is also what keeps them out of the "Need a call" g
 your own notes; notes written by somebody else stay theirs. Once a student's mentoring has finished,
 their notes are kept as a record but no new ones can be added.
 
+### Tools from our sponsors
+
+When the program switches the section on for mentors, offers a sponsor opened to mentors appear on your card too, with the same *Get my code* button and the same *Your codes* list students have. Offers for students only are not shown here.
+
 ### Resources
 
 At the foot of the page: the mentors Slack channel, the Mentor guide in the handbook, and **Need
@@ -250,6 +254,12 @@ you save, and the four fields that also appear in *My profile* above update ther
 Under your report, and nothing to do with it: three short forms asking how the program is going for
 you. See *Telling us how it is going* below.
 
+### Tools from our sponsors
+
+The program's sponsors offer their tools to current students: a year of hosting, a premium plugin, a course. When a sponsor switches an offer on, it appears here with the sponsor's logo, what you get and how to redeem it. Press *Get my code* and your code appears in place, yours to keep; where the sponsor gives one link for everyone, *Show me the code* shows it. Everything you have claimed stays under *Your codes*, even after an offer ends.
+
+Only you see your codes. Nobody is sent a code by mail, and sponsors see how many people claimed, never who. If a code does not work, press *Report a problem with this code*: your program contact is told the offer and the last four characters and gets back to you. A program manager looking at your card sees only how many tools you claimed.
+
 ### Resources
 
 At the foot of the page: the students Slack channel, the Student guide in the handbook, and **Need
@@ -315,9 +325,10 @@ does not see them apart from the one exception below, and leaving them alone has
 place on the program or on your credits. That is the whole reason they are separate: they are only
 useful if you say what you actually think.
 
-**The exception is yours to grant, and nobody can grant it for you.** At the end of a term your
-institution can generate a semester report about the students it sent: how many took part, which
-teams they contributed to, and what they published. Two questions on the *Finishing up* form, and
+**The exception is yours to grant, and nobody can grant it for you.** At the end of a term the
+program drafts a semester report about the students your institution sent - how many took part,
+which teams they contributed to, and what they published. A program manager reviews and approves
+it, and only then can your institution read it. Two questions on the *Finishing up* form, and
 only those two, decide what of yours goes into it - whether your institution may list you (by name,
 or by your blog address alone), and whether it may quote your feedback (with your name, or without
 it). Nothing else you write in these forms is shown to your institution, and a quote you have not

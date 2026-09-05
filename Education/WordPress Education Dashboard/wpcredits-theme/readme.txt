@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.18.2
+Stable tag: 1.19.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.19.0 =
+* The "Tools from our sponsors" section plugin 1.94.0 adds to the Student Report Card, the Mentor Report Card and the Administrator Dashboard, and the Offers and Usage cards on the Sponsor Dashboard, take the theme's tokens: the offer cards, the logo box, the monospaced code a click selects, the state pills, the usage table, the muted count line a manager sees on somebody else's card.
 
 = 1.18.2 =
 * The Sponsor Dashboard's spacing is the Institution Dashboard's: the switcher keeps the same gap beneath it, the message under it takes the banner's inset, the page carries the same inset at its foot, and the theme no longer sizes the program-contact block, the sub-headings or the list rows, which the plugin now draws with the institution's rules.

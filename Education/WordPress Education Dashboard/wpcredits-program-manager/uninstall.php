@@ -44,6 +44,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-agreement-templ
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-two-factor.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-cohort.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roster-index.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-secret.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-private-files.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-image-upload.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
@@ -104,6 +105,11 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-roster.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-index.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-sync.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-codes.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-offers.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-claims.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-tools.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-usage.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-profile.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-interests.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-mentors.php';

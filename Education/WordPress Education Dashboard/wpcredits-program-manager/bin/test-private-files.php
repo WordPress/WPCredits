@@ -92,6 +92,7 @@ function wp_remote_head( $url, $args = array() ) {
 }
 function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) ? $r['response']['code'] : 0; }
 
+require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php';
 
 $fail = 0;

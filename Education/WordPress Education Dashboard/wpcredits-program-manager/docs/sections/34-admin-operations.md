@@ -32,8 +32,8 @@ plugin recreates it; the settings screen warns you when a page it expects is not
 ### Uninstall
 
 Uninstall removes the settings, the sync state, the access-level meta and the custom roles, and moves
-affected accounts back to Subscriber. **Accounts are never deleted**, and their program details in
-Airtable are untouched.
+affected accounts back to Subscriber; it also deletes the sponsors' offers, pools and locks, and the
+claims meta. **Accounts are never deleted**, and their program details in Airtable are untouched.
 
 ### When something is wrong
 
@@ -64,6 +64,14 @@ The Sponsors screen is where a sponsor's account begins. The nightly sync (four 
 
 On the Sponsor Dashboard a sponsor can save eight profile fields back to Airtable (website, contact person and email, product type, offer, instructions, more-info link and the free-text field); every save writes an audit row naming the fields changed and nothing else. Interests, and interest in a mentor from the looking-for-a-sponsor list, mail the assigned program manager (the Person of contact in Airtable), or the addresses in the "Interest mail" setting, or every program manager, in that order of preference; five a day per account. What sponsors can never read is a student's name: their mentors card shows mentor names and student counts only.
 
+**Offers, codes and the Tools section (1.94.0).** A sponsor's offers live on the site, not in the base. Each is a pool of one-time codes the sponsor pastes on the Sponsor Dashboard (one per line, or a CSV's first column; a code can be a whole checkout link; all or nothing, refused by line number; up to 5000), or one shared code or link for everyone. The first offer is seeded from the base when an account is provisioned (title: the sponsor's name; text, instructions and link from `Offer`, `Brief instructions` and `More info link`; a checkout link that is not the coupon sheet becomes the shared code, the sheet itself is never stored); for sponsors provisioned before 1.94.0 the Sponsors screen has a *Seed the first offer* button. That first offer is the one mirrored back to the three base fields on every save, so managers keep seeing it in the grid; `Coupon code/discount link` is never written, and a manager clears the sheet links by hand once a sponsor is live. An offer goes live only with something to give (a code in the pool, or the shared link); ended is final; the kind cannot change once the pool holds anything.
+
+Codes are encrypted at rest with the site key the stored agreements use and are shown only to the person who claimed one, on their own Report Card; nothing sends a code by mail. Who may claim is one function with five clauses: the offer is live and not past its last day; the person is a current student (their synced status is one of the student statuses and not a past one), or a mentor when the offer opens to mentors, or a manager when it opens to managers; they have not claimed it; a pool has a code left; a shared offer has something to share. A second press returns the same code. A claim is written under a per-offer lock, so two students pressing together get two codes.
+
+Sponsors read numbers, managers read names. The sponsor's Usage card counts claims by month and offer (and a CSV of the same); the Sponsors screen's *Offers and codes* card lists every offer with its counts and, for support, who claimed from it (name, address, date, the code's last four characters) with a *Void* button: voiding frees the person to claim again and keeps the code void for the count. A claimant's *Report a problem* mails the sponsor's assigned program manager (else `sponsor_notify`, else every manager) the name, the offer and the last four characters, three a day per person. When a pool falls below its threshold, one mail goes to the sponsor's accounts and one to the manager, once, re-armed by adding codes. Nothing about a claim reaches Airtable.
+
+The Tools section is drawn on a person's own Student Report Card (setting *Tools from our sponsors*, on by default), on their own Mentor Report Card (off by default) and on the Administrator Dashboard (every live offer, labelled with its audience). On a manager's view of a student it is one line, "N tools claimed".
+
 ## Where the plugin keeps its data
 
 Every option the plugin writes, by the name it has in the database and the constant that owns it
@@ -83,6 +91,9 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_agreement_reminded` | `WPCPM_Institution_Agreement::OPT_REMINDED` |
 | `wpcpm_application_log` | `WPCPM_Institutions::OPT_APP_LOG` |
 | `wpcpm_application_page_id` | `WPCPM_Institution_Application::OPT_PAGE` |
+| `wpcpm_claim_` | `WPCPM_Sponsor_Codes::LOCK_PREFIX` |
+| `wpcpm_claims` | `WPCPM_Sponsor_Claims::META_CLAIMS` |
+| `wpcpm_codes_` | `WPCPM_Sponsor_Codes::OPT_PREFIX` |
 | `wpcpm_countries` | `WPCPM_Countries::OPT_NAME` |
 | `wpcpm_handbook_model_fixed` | `WPCPM_Handbook::OPT_MODEL_FIXED` |
 | `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
@@ -109,8 +120,9 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_notices` | `WPCPM_Notices::OPT_NAME` |
 | `wpcpm_notices_migrated` | `WPCPM_Notices::OPT_MIGRATED` |
 | `wpcpm_notices_plain` | `WPCPM_Notices::OPT_PLAIN` |
+| `wpcpm_offer` | `WPCPM_Sponsor_Offers::POST_TYPE` |
 | `wpcpm_privacy_version` | `WPCPM_Privacy_Guard::OPT_VERSION` |
-| `wpcpm_private_key` | `WPCPM_Private_Files::OPT_KEY` |
+| `wpcpm_private_key` | `WPCPM_Secret::OPT_KEY` (aliased by `WPCPM_Private_Files::OPT_KEY`) |
 | `wpcpm_private_probe` | `WPCPM_Private_Files::OPT_PROBE` |
 | `wpcpm_report_autodraft_since` | `WPCPM_Semester_Report::OPT_AUTODRAFT_SINCE` |
 | `wpcpm_report_epoch` | `WPCPM_Semester_Report::OPT_EPOCH` |

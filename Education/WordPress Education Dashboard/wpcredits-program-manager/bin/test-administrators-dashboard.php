@@ -311,8 +311,11 @@ class WPCPM_Students_Dashboard {
 	public static function is_student() { return false; }
 }
 class WPCPM_Mentors_Dashboard {
+	const STYLE = 'wpcpm-mentor-dashboard';
 	public static function page_url() { return ''; }
 	public static function is_mentor() { return false; }
+	/** The real one registers dashboard.css; here it need only be registerable as a dependency. */
+	public static function register_assets() { wp_register_style( self::STYLE, 'dashboard.css', array(), '1' ); }
 }
 class WPCPM_Institutions_Dashboard {
 	public static function page_url() { return 'https://example.test/institution-dashboard/'; }
@@ -451,6 +454,10 @@ class WPCPM_Mail {
 }
 class WPCPM_Handbook_Assistant {
 	public static function render_resources( $audience = '', $extra = '' ) { $GLOBALS['resources'][] = $audience; return '<section class="wpcpm-handbook__resources" data-audience="' . esc_attr( $audience ) . '"></section>'; }
+}
+class WPCPM_Sponsor_Tools {
+	const AUDIENCE_MANAGERS = 'managers';
+	public static function render( $audience, $viewer ) { $GLOBALS['tools'][] = array( $audience, $viewer instanceof WP_User ? $viewer->ID : 0 ); echo '<section class="wpcpm-student__section wpcpm-tools" id="wpcpm-tools"></section>'; }
 }
 abstract class WPCPM_Sync_Module {
 	public static function sync_messages() { return array( 'started' => array( 'success', 'Sync started.' ) ); }
@@ -746,6 +753,9 @@ echo "\n=== The render ===\n";
 // dashboard's register() the same way before testing its enqueue.
 WPCPM_Administrators_Dashboard::register();
 
+$admin_style = $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ];
+ck( 'administrator.css is registered on the mentors\' stylesheet, where the Tools section is laid out', array( false !== strpos( $admin_style['src'], 'administrator.css' ), in_array( WPCPM_Mentors_Dashboard::STYLE, $admin_style['deps'], true ) ), array( true, true ) );
+
 $GLOBALS['uid']    = 0;
 // An array of allowed IDs, not a bare flag: user_can() above tests it with in_array(), the
 // same contract bin/test-institutions-dashboard.php's stub uses.
@@ -766,6 +776,7 @@ $GLOBALS['manage']    = array( 3 );
 $GLOBALS['flash']     = array( 'institutions' => 'app-approved' );
 $GLOBALS['prompted']  = array();
 $GLOBALS['resources'] = array();
+$GLOBALS['tools']     = array();
 $GLOBALS['reviews']   = array();
 $out = WPCPM_Administrators_Dashboard::render( array( 'title' => 'Today' ) );
 ck( 'the manager gets the page with the title', has( $out, 'class="wpcpm-dashboard wpcpm-administrator"' ) && has( $out, '<h2 class="wpcpm-dashboard__title">Today</h2>' ), true );
@@ -773,12 +784,13 @@ ck( 'the two-factor prompt is for the viewer', $GLOBALS['prompted'], array( 3 ) 
 ck( 'the flash on the institutions channel is drawn in the queue\'s words', has( $out, 'The application is approved.' ) && has( $out, 'wpcpm-dashboard__message--success' ), true );
 ck( 'and taken, so it shows once', isset( $GLOBALS['flash']['institutions'] ), false );
 $positions = array();
-foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-programs"', 'id="wpcpm-health"', 'wpcpm-handbook__resources' ) as $needle ) {
+foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-programs"', 'id="wpcpm-health"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) as $needle ) {
 	$positions[] = strpos( $out, $needle );
 }
 $sorted = $positions;
 sort( $sorted );
 ck( 'every card is drawn, in the spec\'s order, the resources last', ! in_array( false, $positions, true ) && $positions === $sorted, true );
+ck( 'the Tools section is drawn for the manager viewing, as the managers audience', $GLOBALS['tools'], array( array( 'managers', $GLOBALS['uid'] ) ) );
 ck( 'the resources are the administrator audience', $GLOBALS['resources'], array( 'administrator' ) );
 ck( 'the agreement reviews were drawn once each', $GLOBALS['reviews'], array( 601, 602 ) );
 ck( 'the stylesheet is registered from assets/css/administrator.css', isset( $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ] ) && false !== strpos( $GLOBALS['styles'][ WPCPM_Administrators_Dashboard::STYLE ]['src'], 'assets/css/administrator.css' ), true );

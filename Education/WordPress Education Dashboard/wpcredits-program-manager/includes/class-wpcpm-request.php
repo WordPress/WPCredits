@@ -220,4 +220,60 @@ class WPCPM_Request {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- As above.
 		return trim( sanitize_textarea_field( wp_unslash( $_POST[ $name ] ) ) );
 	}
+
+	/**
+	 * A posted value kept as typed: unslashed, valid UTF-8, control characters dropped, trimmed.
+	 *
+	 * No tag stripping and no percent-decoding or stripping, because this is for a value that
+	 * is a code, not text: a coupon code or a checkout link with `%20` in its query. Core's
+	 * sanitize_text_field() removes every percent-encoded character, which silently corrupts
+	 * such a value (final review of Phase S2, finding 1). Safe because every caller escapes the
+	 * value on output and never prints it raw.
+	 *
+	 * @param string $name     Key in the posted fields.
+	 * @param string $fallback Fallback when the key is absent.
+	 * @return string
+	 */
+	public static function posted_verbatim( $name, $fallback = '' ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
+		if ( ! isset( $_POST[ $name ] ) || ! is_scalar( $_POST[ $name ] ) ) {
+			return $fallback;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above; cleaned below without touching the characters a code is made of.
+		$value = wp_check_invalid_utf8( wp_unslash( $_POST[ $name ] ) );
+
+		return trim( (string) preg_replace( '/[^\P{C}\n\r\t]+/u', '', (string) $value ) );
+	}
+
+	/**
+	 * The lines variant of posted_verbatim(): line breaks kept.
+	 *
+	 * Each line is trimmed, empty lines are dropped and the rest are joined back with "\n" -
+	 * the contract posted_lines() has, so a caller that parses a pasted list can swap one for
+	 * the other and only the character-level cleaning changes.
+	 *
+	 * @param string $name     Key in the posted fields.
+	 * @param string $fallback Fallback when the key is absent.
+	 * @return string
+	 */
+	public static function posted_verbatim_lines( $name, $fallback = '' ) {
+		$value = self::posted_verbatim( $name, $fallback );
+
+		if ( $value === $fallback ) {
+			return $fallback;
+		}
+
+		$lines = array();
+
+		foreach ( preg_split( '/\r\n|\r|\n/', $value ) as $line ) {
+			$line = trim( $line );
+
+			if ( '' !== $line ) {
+				$lines[] = $line;
+			}
+		}
+
+		return implode( "\n", $lines );
+	}
 }

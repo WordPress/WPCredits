@@ -707,3 +707,120 @@
 	font-size: 0.875rem;
 	opacity: 0.8;
 }
+
+/* ==========================================================================
+   Tools from our sponsors (plugin 1.94.0)
+   The section prints on the Student Report Card, the Mentor Report Card and the
+   Administrator Dashboard, so its base look is here, in the one stylesheet every
+   dashboard page loads (plan ruling 12); the theme dresses it under .wpc-dashboard-page.
+   ========================================================================== */
+.wpcpm-tools__list {
+	display: grid;
+	gap: 1em;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-tools__offer {
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	display: flex;
+	gap: 1em;
+	padding: 1em 1.25em;
+}
+
+/* The logo box: contained, on a white ground, because half the sponsors drew their logo for
+   a dark background. */
+.wpcpm-tools__logo {
+	align-items: center;
+	background: #fff;
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	display: flex;
+	flex: 0 0 96px;
+	height: 56px;
+	justify-content: center;
+	overflow: hidden;
+	width: 96px;
+}
+
+.wpcpm-tools__logo img {
+	height: auto;
+	max-height: 48px;
+	max-width: 88px;
+	object-fit: contain;
+	width: auto;
+}
+
+.wpcpm-tools__initials {
+	font-size: 1.4em;
+	font-weight: 700;
+}
+
+.wpcpm-tools__body {
+	min-width: 0;
+}
+
+.wpcpm-tools__sponsor,
+.wpcpm-tools__text,
+.wpcpm-tools__instructions,
+.wpcpm-tools__more,
+.wpcpm-tools__claimed {
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-tools__title {
+	font-size: 1.05em;
+	margin: 0 0 0.35em;
+}
+
+/* Monospaced and selectable as one: forms.js selects it on click. */
+.wpcpm-tools__code {
+	background: var( --wpcpm-surface );
+	border: 1px solid var( --wpcpm-border );
+	border-radius: 6px;
+	cursor: pointer;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	padding: 0.1em 0.5em;
+	user-select: all;
+}
+
+.wpcpm-tools__form {
+	display: inline-block;
+	margin: 0.25em 0.5em 0 0;
+}
+
+.wpcpm-tools__warning,
+.wpcpm-tools__count,
+.wpcpm-tools__when,
+.wpcpm-tools__audience {
+	opacity: 0.75;
+}
+
+.wpcpm-tools__subheading {
+	margin: 1.5em 0 0.5em;
+}
+
+.wpcpm-tools__codes {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpcpm-tools__codes li {
+	border-top: 1px solid var( --wpcpm-border );
+	padding: 0.5em 0;
+}
+
+.wpcpm-tools__codes li:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+@media ( max-width: 782px ) {
+	.wpcpm-tools__list {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}

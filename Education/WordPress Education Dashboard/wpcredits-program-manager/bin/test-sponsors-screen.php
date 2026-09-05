@@ -58,6 +58,9 @@ $GLOBALS['umeta']         = array();
 $GLOBALS['users']         = array();
 $GLOBALS['nonce_checked'] = array();
 $GLOBALS['inserted']      = array();
+$GLOBALS['posts']         = array();
+$GLOBALS['pmeta']         = array();
+$GLOBALS['next_post']     = 900;
 
 class WP_Error {
 	private $c, $m;
@@ -100,6 +103,16 @@ class WP_User {
 }
 
 /**
+ * Enough of `WP_Post` for the post store below: the offers module reads and writes these five
+ * properties alone, so nothing else is stood in for it (added for S2: the file had no post
+ * store at all before, since nothing before it needed one).
+ */
+class WP_Post {
+	public $ID = 0, $post_type = '', $post_title = '', $post_status = 'private', $post_author = 0;
+	public function __construct( array $a ) { foreach ( $a as $k => $v ) { $this->$k = $v; } }
+}
+
+/**
  * The two outcomes `post()` tells apart. The institutions screen suite this file's other stubs
  * are copied from throws a plain `Exception` for both `wp_die()` and `wp_safe_redirect()` and
  * tells them apart by a string prefix on the message; that will not do here, because `post()`
@@ -119,8 +132,12 @@ function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
 function esc_url( $s ) { return (string) $s; }
+function esc_url_raw( $url, $protocols = null ) { return preg_match( '#^https?://#i', (string) $url ) ? $url : ''; }
+function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
+function esc_js( $s ) { return addslashes( (string) $s ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_email( $e ) { return trim( (string) $e ); }
 function sanitize_user( $u, $strict = false ) { return preg_replace( '/[^a-z0-9 _.\-@]/i', '', (string) $u ); }
@@ -130,9 +147,17 @@ function absint( $v ) { return abs( (int) $v ); }
 function apply_filters( $t, $v ) { return $v; }
 function add_action( $h, $c, $p = 10, $n = 1 ) {}
 function add_filter() {}
+function register_post_type( $type, $args ) {}
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+/** The pool's lock and WPCPM_Secret's key both need the test-and-set add_option() makes: the
+ * write only happens when the row does not exist yet, which update_option() alone cannot tell. */
+function add_option( $k, $v, $deprecated = '', $autoload = 'yes' ) {
+	if ( array_key_exists( $k, $GLOBALS['opts'] ) ) { return false; }
+	$GLOBALS['opts'][ $k ] = $v;
+	return true;
+}
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
@@ -194,7 +219,35 @@ function wp_mail( $to, $subject, $message = '', $headers = '', $attachments = ar
 	$GLOBALS['mailed'][] = array( $to, $subject );
 	return true;
 }
-function get_post( $id ) { return null; }
+// The post store: enough of posts, meta and get_posts() for the offers to live in.
+function wp_insert_post( array $args, $wp_error = false ) {
+	$id = $GLOBALS['next_post']++;
+	$GLOBALS['posts'][ $id ] = new WP_Post( array( 'ID' => $id, 'post_type' => $args['post_type'] ?? 'post', 'post_title' => $args['post_title'] ?? '', 'post_status' => $args['post_status'] ?? 'publish', 'post_author' => $args['post_author'] ?? 0 ) );
+	return $id;
+}
+function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = $args['post_title']; } return $id; }
+function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
+function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
+function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
+function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
+function get_posts( array $args ) {
+	$out = array();
+	foreach ( $GLOBALS['posts'] as $id => $post ) {
+		if ( isset( $args['post_type'] ) && $post->post_type !== $args['post_type'] ) { continue; }
+		if ( isset( $args['post_status'] ) && $post->post_status !== $args['post_status'] ) { continue; }
+		$ok = true;
+		foreach ( (array) ( $args['meta_query'] ?? array() ) as $clause ) {
+			if ( ! is_array( $clause ) || ! isset( $clause['key'] ) ) { continue; }
+			$have = array_key_exists( $clause['key'], $GLOBALS['pmeta'][ $id ] ?? array() );
+			if ( isset( $clause['compare'] ) && 'EXISTS' === $clause['compare'] ) { if ( ! $have ) { $ok = false; } continue; }
+			if ( ! $have || (string) $GLOBALS['pmeta'][ $id ][ $clause['key'] ] !== (string) $clause['value'] ) { $ok = false; }
+		}
+		if ( $ok ) { $out[] = $post; }
+	}
+	usort( $out, static function ( $a, $b ) { return $a->ID - $b->ID; } );
+	return $out;
+}
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) {
@@ -235,8 +288,15 @@ class WPCPM_Mail {
 	public static function queue_invites( array $ids ) { $GLOBALS['queued'] = array_merge( isset( $GLOBALS['queued'] ) ? $GLOBALS['queued'] : array(), $ids ); return count( $ids ); }
 	public static function mask_address( $a ) { return substr( $a, 0, 1 ) . '***' . strstr( $a, '@' ); }
 }
-class WPCPM_Mentors_Sync { public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); } }
-class WPCPM_Students_Sync { const META_RECORD_ID = 'wpcpm_student_record_id'; }
+class WPCPM_Mentors_Sync {
+	public static function is_record_id( $v ) { return 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $v ); }
+	public static function sponsorship() { return array(); }
+}
+class WPCPM_Students_Sync {
+	const META_RECORD_ID = 'wpcpm_student_record_id';
+	public static function get_program( $user_id ) { return array(); }
+}
+class WPCPM_Institutions { public static function notify_managers( $context, $build, $key = 'agreement_notify' ) { $GLOBALS['sent'][] = array( 'managers', $key, $context, call_user_func( $build, null ) ); return 1; } }
 class WPCPM_Institution_Members { const META_RECORD_ID = 'wpcpm_institution_record_id'; const META_ACTIVE = 'wpcpm_institution_active'; public static function institution_of( $user = null ) { return ''; } }
 class WPCPM_Institution_Audit {
 	const GROUND_MANAGER = 'manager'; const GROUND_MEMBER = 'member'; const GROUND_SYSTEM = 'system'; const EVIDENCE_INDEX = 'index'; const EVIDENCE_CACHE = 'cache';
@@ -264,6 +324,13 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php';
+require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
+require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php';
 
 // ck(), then the fixture: an index of three sponsors written through the real index class.
@@ -292,9 +359,11 @@ function post( array $fields, $action ) {
 	return array( 'fell-through' );
 }
 
-$fail = 0;
+$fail   = 0;
+$checks = 0;
 function ck( $label, $actual, $expected ) {
-	global $fail;
+	global $fail, $checks;
+	++$checks;
 	$ok = $actual === $expected;
 	if ( ! $ok ) { $fail++; }
 	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
@@ -318,6 +387,11 @@ $new = end( $GLOBALS['users'] );
 ck( 'with the sponsor role, the contact\'s name and address', array( $new->roles, $new->display_name, $new->user_email ), array( array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ) );
 ck( 'stamped for the sponsor, provisioned', array( WPCPM_Sponsor_Members::sponsor_of( $new ), get_user_meta( $new->ID, WPCPM_Sponsor_Members::META_MEMBERSHIP, true )['how'] ), array( $A, 'provisioned' ) );
 ck( 'the welcome is queued, never sent here', array( $GLOBALS['queued'], isset( $GLOBALS['mailed'] ) ? $GLOBALS['mailed'] : array() ), array( array( $new->ID ), array() ) );
+
+echo "\n=== S2: provisioning seeds the first offer ===\n";
+$seeded = WPCPM_Sponsor_Offers::offers_of( $A );
+ck( 'provisioning seeded one draft offer from the index, marked primary', array( count( $seeded ), reset( $seeded )['state'], reset( $seeded )['primary'] ), array( 1, 'draft', true ) );
+
 ck( 'the base is told: Dashboard account, true', $GLOBALS['patched'][0], array( 'tblSPONSORS', array( array( 'id' => $A, 'fields' => array( 'Dashboard account' => true ) ) ) ) );
 ck( 'and the index row says so at once', WPCPM_Sponsors_Index::row( $A )['dashboard_account'], true );
 ck( 'and it is logged', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['sponsor'], end( $GLOBALS['audit'] )['ground'] ), array( 'provisioned', $A, 'manager' ) );
@@ -404,6 +478,74 @@ ck( 'mark_dashboard_account() hands back the client\'s error', is_wp_error( WPCP
 unset( $GLOBALS['airtable_fail'] );
 ck( 'and refuses a malformed record before any request', is_wp_error( WPCPM_Sponsors::mark_dashboard_account( 'nope', true ) ), true );
 
+echo "\n=== S2: the Offers card and its handlers ===\n";
+// Run here, before Uninstall: the Uninstall section below calls the real uninstall(), which
+// (from this task on) also deletes every offer, pool and claim, so the offer seeded above must
+// be exercised before that happens. The uninstall-side check on this same offer is appended
+// after the Uninstall section's own call instead of calling uninstall() a second time here,
+// which would both double-count that section's $GLOBALS['deleted_meta'] tally and erase every
+// account's sponsor-member stamp before its "some account still carries this module's stamps
+// before uninstall" check runs.
+// Finding 1's fix (review of 4 September 2026): B gets a live account, attached directly
+// through WPCPM_Sponsor_Members::attach() rather than through WPCPM_Sponsors::provision(), so
+// no offer is seeded for it and the Seed button's own condition (an account, no offer) is
+// genuinely met by someone. Without this, accounts_by_sponsor() holds nothing for any sponsor
+// at this point in the run (A's own account was detached above and never reattached), so the
+// button never rendered for anybody and the old check's substr_count( ... ) >= 0 could not
+// have caught that.
+WPCPM_Sponsors_Index::patch( $B, array( 'contact_email' => 'maciej@a8c.com' ) );
+$rep_b                      = 60;
+$GLOBALS['users'][ $rep_b ] = new WP_User( $rep_b, array( 'subscriber' ), 'Rep B', 'repb@example.test' );
+WPCPM_Sponsor_Members::attach( $rep_b, $B, WPCPM_Sponsor_Members::HOW_MANAGER, 1 );
+ob_start();
+$module->render_admin_page();
+$screen = ob_get_clean();
+ck( 'the screen has an Offers card with the seeded offer and its counts', array( false !== strpos( $screen, 'id="wpcpm-sponsor-offers"' ), false !== strpos( $screen, 'Not switched on yet' ), false !== strpos( $screen, '<td>0</td>' ) ), array( true, true, true ) );
+ck( 'a sponsor with an account and no offer gets a Seed button with its own nonce', false !== strpos( $screen, 'nonce-' . WPCPM_Sponsors::ACTION_SEED . '_' . $B ), true );
+ck( 'and one with an offer does not', strpos( $screen, 'nonce-' . WPCPM_Sponsors::ACTION_SEED . '_' . $A ), false );
+$r        = post( array( 'wpcpm_sponsor' => $B ), array( $module, 'handle_seed' ) );
+$seeded_b = WPCPM_Sponsor_Offers::offers_of( $B );
+ck( 'the manager seeds B through the handler: one draft offer, marked primary, logged as seeded', array( $r[2], count( $seeded_b ), reset( $seeded_b )['state'], reset( $seeded_b )['primary'], end( $GLOBALS['audit'] )['kind'] ), array( 'offer-seeded', 1, 'draft', true, WPCPM_Sponsor_Offers::LOG_SEEDED ) );
+$r = post( array( 'wpcpm_sponsor' => $B ), array( $module, 'handle_seed' ) );
+ck( 'seeding it again does nothing, since it already has one', $r[2], 'offer-seed-none' );
+$r = post( array( 'wpcpm_sponsor' => 'recNOTINDEXED0001' ), array( $module, 'handle_seed' ) );
+ck( 'an unindexed record is refused before seeding', $r[2], 'refused' );
+$offer_id = (int) key( WPCPM_Sponsor_Offers::offers_of( $A ) );
+WPCPM_Sponsor_Offers::add_codes( $offer_id, "S-1\nS-2" );
+WPCPM_Sponsor_Offers::set_state( $offer_id, 'live' );
+$GLOBALS['program'] = array();
+$claimant = ( new WP_User( 77, array( 'wpcpm_student' ), 'Student Seven', 'maciej@a8c.com' ) );
+$GLOBALS['users'][77] = $claimant;
+WPCPM_Sponsor_Codes::take( $offer_id, 77 );
+update_user_meta( 77, WPCPM_Sponsor_Claims::META_CLAIMS, array( $offer_id => array( 'i' => 0, 'at' => time() ) ) );
+ob_start();
+$module->render_admin_page();
+$screen = ob_get_clean();
+ck( 'a claimant is listed to the manager with name, address, the last four characters and a Void button', array( false !== strpos( $screen, 'Student Seven' ), false !== strpos( $screen, 'maciej@a8c.com' ), false !== strpos( $screen, '>S-1<' ) || false !== strpos( $screen, 'S-1' ), false !== strpos( $screen, 'nonce-' . WPCPM_Sponsors::ACTION_CLAIM_VOID . '_' . $offer_id . '_77' ) ), array( true, true, true, true ) );
+$GLOBALS['uid'] = 1;
+// post()'s redirect outcome here is array( 'redirect', <url>, <flashed status> ) (see post()
+// below), not the array( 'redirect', <status> ) pair the brief's own draft assumed, so $r[2] is
+// what carries the flashed status.
+$r = post( array( 'wpcpm_offer' => $offer_id, 'wpcpm_user' => 77 ), array( $module, 'handle_claim_void' ) );
+ck( 'a manager voids the claim and is told', array( $r[2], WPCPM_Sponsor_Claims::has_claimed( 77, $offer_id ), WPCPM_Sponsor_Codes::counts( $offer_id )['void'] ), array( 'claim-voided', false, 1 ) );
+$r = post( array( 'wpcpm_offer' => $offer_id, 'wpcpm_user' => 77 ), array( $module, 'handle_claim_void' ) );
+ck( 'voiding again finds nothing', $r[2], 'claim-void-none' );
+$r = post( array( 'wpcpm_sponsor' => $A ), array( $module, 'handle_seed' ) );
+ck( 'seeding a sponsor that has an offer does nothing', $r[2], 'offer-seed-none' );
+$GLOBALS['uid'] = 5;
+ck( 'a sponsor member cannot void a claim', post( array( 'wpcpm_offer' => $offer_id, 'wpcpm_user' => 77 ), array( $module, 'handle_claim_void' ) )[0], 'die' );
+// Finding 2's fix: handle_seed() gets the same capability check handle_claim_void() already
+// had, using the fixture's one real sponsor member (Rep B, attached to B above) rather than a
+// bare non-manager ID, and both handlers get the bad-nonce check neither had before.
+$GLOBALS['uid'] = $rep_b;
+ck( 'a sponsor member cannot seed an offer either', post( array( 'wpcpm_sponsor' => $B ), array( $module, 'handle_seed' ) )[0], 'die' );
+$GLOBALS['uid']      = 1;
+$GLOBALS['nonce_ok'] = false;
+ck( 'a bad nonce dies for seeding too', post( array( 'wpcpm_sponsor' => $B ), array( $module, 'handle_seed' ) )[0], 'die' );
+ck( 'and for voiding a claim, with a real offer and claimant so the nonce alone explains it', post( array( 'wpcpm_offer' => $offer_id, 'wpcpm_user' => 77 ), array( $module, 'handle_claim_void' ) )[0], 'die' );
+$GLOBALS['nonce_ok'] = true;
+$GLOBALS['uid']      = 1;
+
 echo "\n=== Uninstall ===\n";
 $meta_keys = array( WPCPM_Sponsor_Members::META_RECORD_ID, WPCPM_Sponsor_Members::META_ACTIVE, WPCPM_Sponsor_Members::META_RECORD_ID_WAS, WPCPM_Sponsor_Members::META_MEMBERSHIP, WPCPM_Sponsor_Members::META_INVITED, WPCPM_Sponsor_Members::META_PROFILE );
 $before_users = count( $GLOBALS['users'] );
@@ -417,7 +559,10 @@ foreach ( $GLOBALS['users'] as $id => $user ) {
 }
 ck( 'some account still carries this module\'s stamps before uninstall (the scenario is real)', empty( $stamped_before ), false );
 $module->uninstall();
-ck( 'uninstall() asks to delete every stamp this module owns', $GLOBALS['deleted_meta'], $meta_keys );
+// Since S2, uninstall() also clears WPCPM_Sponsor_Claims::META_CLAIMS (its own check is below,
+// "uninstall removes the offers, their pools and the claims"); filtered out here so this check
+// still pins exactly the six WPCPM_Sponsor_Members stamps this module's own loop deletes.
+ck( 'uninstall() asks to delete every stamp this module owns', array_values( array_diff( $GLOBALS['deleted_meta'], array( WPCPM_Sponsor_Claims::META_CLAIMS ) ) ), $meta_keys );
 $stamped_after = array();
 foreach ( $GLOBALS['users'] as $id => $user ) {
 	foreach ( $meta_keys as $key ) {
@@ -428,6 +573,7 @@ foreach ( $GLOBALS['users'] as $id => $user ) {
 }
 ck( 'and every stamp is gone after uninstall, on every account', $stamped_after, array() );
 ck( 'but no account was deleted', count( $GLOBALS['users'] ), $before_users );
+ck( 'uninstall removes the offers, their pools and the claims', array( WPCPM_Sponsor_Offers::all(), get_option( WPCPM_Sponsor_Codes::option_name( $offer_id ) ), get_user_meta( 77, WPCPM_Sponsor_Claims::META_CLAIMS, true ) ), array( array(), false, '' ) );
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
@@ -435,5 +581,5 @@ ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'accounts come from WPCPM_Roles::insert_user() alone', strpos( $src, 'wp_insert_user(' ), false );
 ck( 'every handler decides through the policy or the capability before it writes', preg_match_all( '/public function handle_(provision|members)\(/', $src ) === 2 && substr_count( $src, 'WPCPM_Sponsor_Policy::decide(' ) >= 2, true );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 41 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

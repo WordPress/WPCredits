@@ -730,6 +730,23 @@ class WPCPM_Admin {
 			esc_html__( 'Applies to the logos the sync copies from Airtable and, later, to the ones sponsors upload. PNG, JPEG and WebP only; never SVG.', 'wpcredits-program-manager' )
 		);
 
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="tools_students" value="1"%2$s> %3$s</label><br /><label><input type="checkbox" name="tools_mentors" value="1"%4$s> %5$s</label><p class="description">%6$s</p></td></tr>',
+			esc_html__( 'Tools from our sponsors', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['tools_students'] ), true, false ),
+			esc_html__( 'Show the section on the Student Report Card', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['tools_mentors'] ), true, false ),
+			esc_html__( 'Show the section on the Mentor Report Card', 'wpcredits-program-manager' ),
+			esc_html__( 'Live offers, each with its claim button. A student always sees offers open to students; a mentor sees the offers whose sponsor opened them to mentors. The Administrator Dashboard shows every live offer whatever these say.', 'wpcredits-program-manager' )
+		);
+		printf(
+			'<tr><th scope="row"><label for="offer_low_stock">%1$s</label></th><td><input type="number" min="1" max="1000" step="1" id="offer_low_stock" name="offer_low_stock" value="%2$d" /> %3$s<p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Low-stock warning', 'wpcredits-program-manager' ),
+			isset( $settings['offer_low_stock'] ) ? (int) $settings['offer_low_stock'] : 10,
+			esc_html__( 'codes left', 'wpcredits-program-manager' ),
+			esc_html__( 'When a pool of one-time codes falls below this many, the sponsor and its program manager are mailed once. The default for new offers; each offer can set its own.', 'wpcredits-program-manager' )
+		);
+
 		echo '</tbody></table>';
 		echo '</div>';
 	}

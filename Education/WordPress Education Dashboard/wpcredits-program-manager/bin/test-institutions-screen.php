@@ -313,6 +313,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
@@ -1281,12 +1282,18 @@ ck( 'no em or en dash anywhere in the module', preg_match( "/\xE2\x80\x93|\xE2\x
 $files_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php' );
 ck( 'nor in the private-files class', preg_match( "/\xE2\x80\x93|\xE2\x80\x94/", $files_src ), 0 );
 ck( 'nor in the CSS section', preg_match( "/\xE2\x80\x93|\xE2\x80\x94/", substr( file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' ), strpos( file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/admin.css' ), 'Institutions screen' ) ) ), 0 );
-// Comment lines stripped first: both writers explain themselves in prose that names the
-// function, and counting those would make this assertion pass or fail for the wrong reason.
-$files_code = implode( "\n", array_filter( explode( "\n", $files_src ), function ( $line ) {
-	$t = ltrim( $line );
-	return '' !== $t && 0 !== strpos( $t, '*' ) && 0 !== strpos( $t, '//' ) && 0 !== strpos( $t, '/*' );
-} ) );
+// The key's own add_option() moved into WPCPM_Secret in 1.94.0 (Sponsors S2 task 1), so the
+// option-writing this assertion is about now spans both files; comment lines are stripped
+// first from each, because both writers explain themselves in prose that names the function,
+// and counting that prose would make this assertion pass or fail for the wrong reason.
+$secret_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php' );
+$strip_comments = function ( $src ) {
+	return implode( "\n", array_filter( explode( "\n", $src ), function ( $line ) {
+		$t = ltrim( $line );
+		return '' !== $t && 0 !== strpos( $t, '*' ) && 0 !== strpos( $t, '//' ) && 0 !== strpos( $t, '/*' );
+	} ) );
+};
+$files_code = $strip_comments( $files_src ) . "\n" . $strip_comments( $secret_src );
 ck( 'every option the store writes is kept out of the autoloaded set', array(
 	preg_match_all( '/update_option\(/', $files_code ),
 	preg_match_all( '/update_option\([^;]*,\s*false\s*\);/s', $files_code ),

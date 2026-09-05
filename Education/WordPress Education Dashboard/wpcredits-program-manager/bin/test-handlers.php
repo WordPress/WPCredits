@@ -489,5 +489,34 @@ run( 'handle_members (no capability)', array( $sponsors, 'handle_members' ) );
 
 $GLOBALS['caps'] = true;
 
+echo "\n=== The Sponsors module's offers, codes, claims and usage (Phase S2) ===\n";
+
+// None of the nine was in this net. They all end at a refusal here, because the sponsors index
+// is empty in this fixture: what is being proved is that each one *reaches* its redirect or its
+// wp_die() rather than fatally on the way (queued item E).
+$GLOBALS['uid']  = 1;
+$GLOBALS['caps'] = true;
+$_POST           = array( 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_offer' => 0, 'wpcpm_title' => 'An offer' );
+
+run( 'handle_save (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+run( 'handle_state (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Offers', 'handle_state' ) );
+run( 'handle_codes_add (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Offers', 'handle_codes_add' ) );
+run( 'handle_codes_void (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Offers', 'handle_codes_void' ) );
+run( 'handle_export (sponsor not yet indexed)', array( 'WPCPM_Sponsor_Usage', 'handle_export' ) );
+run( 'handle_seed (sponsor not yet indexed)', array( $sponsors, 'handle_seed' ) );
+
+$_POST = array( 'wpcpm_offer' => 0, 'wpcpm_user' => 30 );
+
+run( 'handle_claim_void (no such offer)', array( $sponsors, 'handle_claim_void' ) );
+
+$GLOBALS['uid']  = 30;
+$GLOBALS['caps'] = false;
+$_POST           = array( 'wpcpm_offer' => 0 );
+
+run( 'handle_claim (student, no such offer)', array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
+run( 'handle_problem (student, no such offer)', array( 'WPCPM_Sponsor_Tools', 'handle_problem' ) );
+
+$GLOBALS['caps'] = true;
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL HANDLERS REACHED A NORMAL OUTCOME\n" );
 exit( $fail ? 1 : 0 );

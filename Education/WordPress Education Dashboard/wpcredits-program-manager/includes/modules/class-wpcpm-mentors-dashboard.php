@@ -718,6 +718,12 @@ class WPCPM_Mentors_Dashboard {
 			}
 		}
 
+		// Tools from our sponsors, when the program switched the mentors' section on and the
+		// viewer is the mentor whose card this is (spec 6.5): never on a manager's view.
+		if ( class_exists( 'WPCPM_Sponsor_Tools' ) && $viewer->ID === $mentor->ID ) {
+			WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MENTORS, $viewer );
+		}
+
 		// Offered where these people already are, rather than only from a link in the header
 		// they may never have noticed.
 		// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently

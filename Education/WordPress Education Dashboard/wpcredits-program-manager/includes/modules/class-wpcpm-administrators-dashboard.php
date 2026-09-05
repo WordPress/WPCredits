@@ -50,7 +50,20 @@ final class WPCPM_Administrators_Dashboard {
 	 * The stylesheet, the shortcode and the block.
 	 */
 	public static function register() {
-		wp_register_style( self::STYLE, WPCPM_PLUGIN_URL . 'assets/css/administrator.css', array(), WPCPM_VERSION );
+		// The Tools section's whole base look lives in the mentors' stylesheet, as it does for
+		// the other three dashboards; without this dependency it drew as a plain bulleted list
+		// with full-size logos (final review of Phase S2, finding 3).
+		WPCPM_Mentors_Dashboard::register_assets();
+
+		if ( ! wp_style_is( self::STYLE, 'registered' ) ) {
+			wp_register_style(
+				self::STYLE,
+				WPCPM_PLUGIN_URL . 'assets/css/administrator.css',
+				array( WPCPM_Mentors_Dashboard::STYLE ),
+				WPCPM_VERSION
+			);
+		}
+
 		add_shortcode( self::SHORTCODE, array( __CLASS__, 'render' ) );
 
 		$block_dir = WPCPM_PLUGIN_DIR . 'blocks/administrator-dashboard';
@@ -249,6 +262,11 @@ final class WPCPM_Administrators_Dashboard {
 		WPCPM_Administrators_Cards::render_requests( $data['requests'] );
 		WPCPM_Administrators_Cards::render_programs( $data['programs'] );
 		WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] );
+
+		// Every live offer with its audience, for the program (spec 6.5). No switch for managers.
+		if ( class_exists( 'WPCPM_Sponsor_Tools' ) ) {
+			WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MANAGERS, $viewer );
+		}
 
 		self::render_help();
 

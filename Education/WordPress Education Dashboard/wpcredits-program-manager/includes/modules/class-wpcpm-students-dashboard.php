@@ -238,6 +238,17 @@ class WPCPM_Students_Dashboard {
 			self::render_report_form( $program, $student );
 		}
 
+		// Tools from our sponsors (spec 6.5): on the student's own card only. On a manager's view
+		// of somebody else's card one muted line says how many they claimed, because support needs
+		// the count and nobody needs the codes. Guarded so this page renders without the module.
+		if ( class_exists( 'WPCPM_Sponsor_Tools' ) ) {
+			if ( $viewer->ID === $student->ID ) {
+				WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_STUDENTS, $viewer );
+			} elseif ( $can_manage ) {
+				WPCPM_Sponsor_Tools::render_count_line( $student );
+			}
+		}
+
 		// Outside the grid, spanning the card. It holds a month calendar, which wants more
 		// width than half a card gives it - and it splits into its own two columns, booked
 		// calls beside the picker.

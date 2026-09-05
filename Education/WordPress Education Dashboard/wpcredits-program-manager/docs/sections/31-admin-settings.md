@@ -54,6 +54,11 @@ mentoring.
   details are kept.
 - **Student landing page** - the same arrangement as for mentors, pointing at the Student Report Card.
 
+### Sponsors module
+
+- **Tools from our sponsors**: two checkboxes. Show the section on the Student Report Card (on by default) and on the Mentor Report Card (off by default). The Administrator Dashboard shows every live offer whatever these say.
+- **Low-stock warning**: how many codes must be left in a pool before the sponsor and its program manager are mailed, once per crossing. Ten by default; each offer can set its own.
+
 ### Need help?
 
 The question box over the WordPress documentation.

@@ -21,7 +21,8 @@
  * - `data-wpcpm-once` on the form opts it in;
  * - `data-wpcpm-busy` is the label the pressed control shows while the request is in flight;
  * - `data-wpcpm-status`, optional, is a sentence for the form's `[data-wpcpm-busy-status]`
- *   live region, for a screen reader that cannot see the button change.
+ *   live region, for a screen reader that cannot see the button change;
+ * - `data-wpcpm-select` on an element selects its text on click (a claimed sponsor code).
  */
 ( function () {
 	'use strict';
@@ -191,8 +192,58 @@
 		} );
 	}
 
+	/**
+	 * Select everything inside one element. The one routine both listeners below call, so a
+	 * click and a key press cannot drift apart.
+	 *
+	 * @param {Element|null} target The element to select, or null.
+	 */
+	function selectContents( target ) {
+		if ( ! target || ! window.getSelection || ! document.createRange ) {
+			return;
+		}
+
+		var range = document.createRange();
+		var selection = window.getSelection();
+
+		range.selectNodeContents( target );
+		selection.removeAllRanges();
+		selection.addRange( range );
+	}
+
+	/**
+	 * A claimed code is a `<code data-wpcpm-select tabindex="0">`: one click, or Enter or Space
+	 * while it has focus, selects the whole thing, so a person copies it with the shortcut they
+	 * already know. No clipboard API, which asks for a permission on some browsers and silently
+	 * does nothing on others; a selection works everywhere and the person sees what they are
+	 * about to copy.
+	 */
+	function selectOnClick() {
+		document.addEventListener( 'click', function ( event ) {
+			selectContents( event.target && event.target.closest ? event.target.closest( '[data-wpcpm-select]' ) : null );
+		} );
+
+		// The block is focusable, so a keyboard user reaches it and then had no way to act on
+		// it (queued item B). preventDefault() so Space selects instead of scrolling the page.
+		document.addEventListener( 'keydown', function ( event ) {
+			if ( 'Enter' !== event.key && ' ' !== event.key ) {
+				return;
+			}
+
+			var target = event.target && event.target.closest ? event.target.closest( '[data-wpcpm-select]' ) : null;
+
+			if ( ! target ) {
+				return;
+			}
+
+			selectContents( target );
+			event.preventDefault();
+		} );
+	}
+
 	ready( function () {
 		guardForms();
 		releaseOnRestore();
+		selectOnClick();
 	} );
 }() );

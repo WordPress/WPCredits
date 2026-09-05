@@ -51,14 +51,18 @@ final class WPCPM_Sponsor_Mentors {
 	 * The mentors linked to a sponsor, resolved through the sponsorship index.
 	 *
 	 * @param string $record Sponsor record ID.
-	 * @return array `mentors` (each `record`, `name`, `profile`, `current`, `past`) and `others` (linked mentors the index does not hold: not Active).
+	 * @return array `mentors` (each `record`, `name`, `profile`, `current`, `past`), `others` (linked mentors the index does not hold: not Active) and `index_empty` (the sponsorship index has not been built yet, so `others` means nothing).
 	 */
 	public static function linked( $record ) {
 		$row   = WPCPM_Sponsors_Index::row( $record );
 		$known = WPCPM_Mentors_Sync::sponsorship();
 		$out   = array(
-			'mentors' => array(),
-			'others'  => 0,
+			'mentors'     => array(),
+			'others'      => 0,
+			// An index the mentors sync has not written yet is not the same as every linked
+			// mentor being inactive, and the card said the second (queued item A, found live on
+			// 5 September 2026). Reported so the two cases can be told apart.
+			'index_empty' => empty( $known ),
 		);
 
 		if ( ! is_array( $row ) ) {
@@ -233,6 +237,10 @@ final class WPCPM_Sponsor_Mentors {
 
 		if ( empty( $linked['mentors'] ) && 0 === $linked['others'] ) {
 			echo '<p>' . esc_html__( 'No mentor is linked to your company yet.', 'wpcredits-program-manager' ) . '</p>';
+		} elseif ( ! empty( $linked['index_empty'] ) ) {
+			// Every linked record fell into `others` only because the index is empty; naming
+			// them "not currently active" would be a statement the site cannot make yet.
+			echo '<p class="wpcpm-student__note">' . esc_html__( 'The mentor list refreshes with the next program sync.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
 			echo '<ul class="wpcpm-sponsor__mentors">';
 

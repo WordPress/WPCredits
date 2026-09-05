@@ -43,6 +43,10 @@ note** after each call - that is also what keeps them out of the "Need a call" g
 your own notes; notes written by somebody else stay theirs. Once a student's mentoring has finished,
 their notes are kept as a record but no new ones can be added.
 
+### Tools from our sponsors
+
+When the program switches the section on for mentors, offers a sponsor opened to mentors appear on your card too, with the same *Get my code* button and the same *Your codes* list students have. Offers for students only are not shown here.
+
 ### Resources
 
 At the foot of the page: the mentors Slack channel, the Mentor guide in the handbook, and **Need

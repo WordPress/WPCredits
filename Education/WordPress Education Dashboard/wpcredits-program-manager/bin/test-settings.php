@@ -231,6 +231,7 @@ $probe = array(
 	'sponsor_on_inactive'           => 'revoke',
 	'sponsor_notify'                => 'probe-one@example.org,probe-two@example.org',
 	'logo_max_kb'                   => '2048',
+	'offer_low_stock'               => '250',
 );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
@@ -635,6 +636,27 @@ ck( 'and cleaned like its siblings: split, lowered, the non-addresses dropped, d
 	WPCPM_Settings::save( array( 'sponsor_notify' => 'Maciej@a8c.com, not-an-address maciej@a8c.com' ) )['sponsor_notify'],
 	'maciej@a8c.com' );
 ck( 'the table ID is saved as text', $saved['team_members_table'], 'tblX' );
+
+echo "\n=== S2: the tools switches and the low-stock default ===\n";
+$defaults = WPCPM_Settings::defaults();
+ck( 'students see the Tools section by default, mentors do not', array( $defaults['tools_students'], $defaults['tools_mentors'] ), array( true, false ) );
+ck( 'the low-stock threshold defaults to ten codes', $defaults['offer_low_stock'], 10 );
+
+$saved = WPCPM_Settings::save( array( 'offer_low_stock' => '0' ) );
+ck( 'a low-stock threshold of zero is floored at one', $saved['offer_low_stock'], 1 );
+$saved = WPCPM_Settings::save( array( 'offer_low_stock' => '5000' ) );
+ck( 'and five thousand is capped at a thousand', $saved['offer_low_stock'], 1000 );
+$saved = WPCPM_Settings::save( array( 'offer_low_stock' => '19' ) );
+ck( 'while an ordinary value is kept as given', $saved['offer_low_stock'], 19 );
+
+// tools_students and tools_mentors join the same guarded flags list sponsor_home is in
+// (see save()): absent from an input means "leave it as it was", not "off". A checkbox
+// already off - set here explicitly, since a fresh run starts every flag at its default
+// of on - stays off when a later save does not mention it, exactly like sponsor_home.
+WPCPM_Settings::save( array( 'tools_students' => '' ) );
+$saved = WPCPM_Settings::save( array( 'tools_mentors' => '1' ) );
+ck( 'tools_students stays off when a save omits it, like sponsor_home', $saved['tools_students'], false );
+ck( 'tools_mentors carried as 1 reads as on', $saved['tools_mentors'], true );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

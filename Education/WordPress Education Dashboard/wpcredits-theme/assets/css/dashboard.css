@@ -1192,6 +1192,139 @@
 	border-left-color: var( --wpc-amber );
 }
 
+/*
+ * Tools from our sponsors (plugin 1.94.0). The section is a `.wpcpm-student__section`, so the
+ * hairline and the 32px inset above come for free; the plugin's dashboard.css gives the offer
+ * cards their shape (a two-column grid, the logo box, the monospaced code), and this puts the
+ * theme's tokens on it. The one thing outside the section is the count line a manager sees on
+ * somebody else's card: a bare paragraph between two sections, so it takes the sections' inset.
+ */
+.wpc-dashboard-page .wpcpm-tools__list {
+	gap: 16px;
+}
+
+.wpc-dashboard-page .wpcpm-tools__offer {
+	border-color: var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	padding: 16px 18px;
+}
+
+.wpc-dashboard-page .wpcpm-tools__logo {
+	border-color: var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+}
+
+.wpc-dashboard-page .wpcpm-tools__initials {
+	color: var( --wpc-brand );
+	font: 700 22px/1 var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-tools__sponsor {
+	color: var( --wpc-ink-70 );
+	font: 500 13px/20px var( --wpc-font );
+}
+
+.wpc-dashboard-page .wpcpm-tools__title {
+	font: 700 16px/22px var( --wpc-font );
+	margin: 0 0 6px;
+}
+
+.wpc-dashboard-page .wpcpm-tools__code {
+	background: var( --wpc-surface-soft );
+	border-color: var( --wpc-line-soft );
+	font-size: 14px;
+}
+
+.wpc-dashboard-page .wpcpm-tools__warning {
+	color: var( --wpc-amber );
+	opacity: 1;
+}
+
+.wpc-dashboard-page .wpcpm-tools__codes li {
+	border-top-color: var( --wpc-line-soft );
+}
+
+.wpc-dashboard-page .wpcpm-tools__count {
+	color: var( --wpc-ink-70 );
+	margin: 0 32px 16px;
+}
+
+/* The count line sits between two sections, so it narrows where they do (782px, the block
+   near the top of this file), not where the sponsor page's cards do (900px). Written here,
+   after the rule above, because a same-specificity rule earlier in the file loses to it
+   whatever the viewport (the first placement of this rule was dead for that reason). */
+@media ( max-width: 782px ) {
+	.wpc-dashboard-page .wpcpm-tools__count {
+		margin: 0 20px 16px;
+	}
+}
+
+/*
+ * The Offers and Usage cards on the Sponsor Dashboard (plugin 1.94.0). One offer is a block
+ * under a hairline inside the card body; its state and "in the base" marks are the pills the
+ * group counts use, so a reader who knows one knows the other.
+ */
+.wpc-sponsor-page .wpcpm-offer {
+	border-top: 1px solid var( --wpc-line-soft );
+	margin: 16px 0 0;
+	padding: 16px 0 0;
+}
+
+.wpc-sponsor-page .wpcpm-offer:first-of-type {
+	border-top: 0;
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.wpc-sponsor-page .wpcpm-offer__title {
+	font: 700 16px/22px var( --wpc-font );
+	margin: 0 0 4px;
+}
+
+.wpc-sponsor-page .wpcpm-offer__state,
+.wpc-sponsor-page .wpcpm-offer__primary {
+	border: 1px solid var( --wpc-line );
+	border-radius: 999px;
+	font: 600 11px/18px var( --wpc-font );
+	letter-spacing: .04em;
+	margin-left: 6px;
+	padding: 0 7px;
+	text-transform: uppercase;
+	vertical-align: middle;
+}
+
+.wpc-sponsor-page .wpcpm-offer__counts {
+	color: var( --wpc-ink-70 );
+	margin: 0 0 8px;
+}
+
+.wpc-sponsor-page .wpcpm-offer__warning {
+	color: var( --wpc-amber );
+	margin: 0 0 8px;
+}
+
+.wpc-sponsor-page .wpcpm-usage {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.wpc-sponsor-page .wpcpm-usage th,
+.wpc-sponsor-page .wpcpm-usage td {
+	border-bottom: 1px solid var( --wpc-line-soft );
+	padding: 6px 10px;
+	text-align: left;
+}
+
+.wpc-sponsor-page .wpcpm-usage__totals th,
+.wpc-sponsor-page .wpcpm-usage__totals td {
+	font-weight: 700;
+}
+
+.wpc-sponsor-page .wpcpm-dashboard__detail {
+	display: block;
+	margin-top: 4px;
+}
+
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every
    group's margin so the mentor page's headings sit where its inset expects them. A group
    that is a pressed row rather than a heading needs to be told apart from the next one. */

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.93.2
+Stable tag: 1.94.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -280,7 +280,7 @@ No. The page renders against the logged-in user. Only accounts with `wpcpm_manag
 
 = Does uninstalling delete the mentor accounts? =
 
-No. Uninstall removes settings, sync state, access-level meta and the custom roles, and moves affected accounts to Subscriber. Accounts are never deleted.
+No. Uninstall removes settings, sync state, access-level meta and the custom roles, and moves affected accounts to Subscriber. Sponsor offers, their code pools and the pools' locks, and the claims meta on every account, are deleted with them. Accounts are never deleted.
 
 == Screenshots ==
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.94.0 =
+* **The Sponsors module, phase two: offers, codes and "Tools from our sponsors".** A sponsor publishes offers from the Sponsor Dashboard: a pool of one-time codes pasted in (all or nothing, refused by line number, encrypted at rest with the site key) or one shared code or link, with what you get, how to redeem it, a link, the audience (current students always; mentors and the program team when the sponsor says so), a low-stock threshold and an optional last day. The first offer is seeded from the base on provisioning (or from a button on the Sponsors screen) and mirrors its text, instructions and link back to the base on every save. Current students claim a code from a new "Tools from our sponsors" section on their own Student Report Card (mentors on theirs when the program switches it on; managers see every live offer on the Administrator Dashboard); a second press returns the same code, a code once given stays under "Your codes", and "Report a problem" tells the sponsor's program manager. The sponsor's Usage card counts claims by month and offer, with a CSV; the Sponsors screen lists who claimed, for support, with a Void button. Below the threshold, the sponsor and the manager are mailed once. Nobody is ever sent a code by mail, sponsors never see a name, and nothing about a claim reaches Airtable.
+* `WPCPM_Secret`, extracted from the private files store: the site key, the seal and the unseal every store uses, plus a base64 form for options and a keyed fingerprint for finding duplicates without unsealing.
+* Settings: the two Tools switches and the low-stock default. `forms.js` selects a claimed code on click.
 
 = 1.93.2 =
 * The Sponsor Dashboard takes the Institution Dashboard's spacing everywhere the two pages share a shape. Each card is now a section with the rule above it and the room the institution's cards have, and the disclosure inside it only folds; the switcher, the message under it, the program-contact block, the sub-headings, the list rows and the foot of the page carry the institution's values, copied value for value into the sponsor stylesheet. Theme 1.18.2 stops sizing those parts itself.

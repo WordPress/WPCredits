@@ -20,6 +20,7 @@ function absint( $v ) { return abs( (int) $v ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
+function wp_check_invalid_utf8( $s, $strip = false ) { return (string) $s; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function network_admin_url( $p = '' ) { return 'https://example.test/wp-admin/network/' . $p; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/' ); }
@@ -54,6 +55,22 @@ ck( 'and an absent argument is 0', WPCPM_Request::id( 'missing' ), 0 );
 ck( 'the same on a posted number', WPCPM_Request::posted_id( 'n' ), 17 );
 ck( 'a posted array is 0 even when its one value is a number', WPCPM_Request::posted_id( 'arr' ), 0 );
 ck( 'a posted blank is 0', WPCPM_Request::posted_id( 'blank' ), 0 );
+
+echo "\n=== posted_verbatim(): a code is kept as it was typed ===\n";
+
+$_POST = array(
+	'link'    => 'https://shop.example/?code=WP%20CREDITS&next=%2Fcart',
+	'control' => "ABC\x07DEF",
+	'tabbed'  => "  A\tB  ",
+	'lines'   => " A-1 \r\n\r\nB%202 \n",
+);
+
+ck( 'a percent-encoded checkout link survives whole', WPCPM_Request::posted_verbatim( 'link' ), 'https://shop.example/?code=WP%20CREDITS&next=%2Fcart' );
+ck( 'a control character is dropped', WPCPM_Request::posted_verbatim( 'control' ), 'ABCDEF' );
+ck( 'a tab inside is kept and the ends are trimmed', WPCPM_Request::posted_verbatim( 'tabbed' ), "A\tB" );
+ck( 'an absent field is the fallback', WPCPM_Request::posted_verbatim( 'missing', 'none' ), 'none' );
+ck( 'the lines variant trims each line and drops the empty ones', WPCPM_Request::posted_verbatim_lines( 'lines' ), "A-1\nB%202" );
+ck( 'and its absent field is the fallback too', WPCPM_Request::posted_verbatim_lines( 'missing', 'none' ), 'none' );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 exit( $fails ? 1 : 0 );

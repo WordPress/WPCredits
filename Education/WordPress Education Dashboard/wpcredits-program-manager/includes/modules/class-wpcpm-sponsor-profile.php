@@ -19,6 +19,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * One rejected field rejects the whole save, for the same reason: what the base would refuse
  * as a whole is refused here as a whole. Changing `Contact Email` changes the Airtable field
  * and nothing about accounts, and the form says so.
+ *
+ * Three of the eight fields (`OFFER_FIELDS`) are also written by the primary offer's mirror.
+ * Two writers of the same base columns is one too many, and the offer is the text students
+ * actually see, so once a primary offer exists this card shows those three read-only and
+ * ignores a posted value for them (final review of Phase S2, finding 2).
  */
 final class WPCPM_Sponsor_Profile {
 
@@ -64,6 +69,9 @@ final class WPCPM_Sponsor_Profile {
 		),
 	);
 
+	/** The three fields the primary offer's mirror owns once one exists. */
+	const OFFER_FIELDS = array( 'offer', 'instructions', 'more_info' );
+
 	/** The single selects' choices, as the base spells them. */
 	const CHOICES = array(
 		'Type of product' => array( 'Hosting', 'Plugin', 'Service' ),
@@ -107,6 +115,30 @@ final class WPCPM_Sponsor_Profile {
 			'profile-failed'    => array( 'error', __( 'The program records could not be updated right now. Try again later.', 'wpcredits-program-manager' ) ),
 			'refused'           => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
+	}
+
+	/**
+	 * Whether a primary offer already owns the three fields in `OFFER_FIELDS`.
+	 *
+	 * Guarded by class_exists(): the Offers module is a later phase's file and this card is
+	 * loaded on its own by bin/test-sponsor-cards.php, so an absent Offers class means no
+	 * offer owns anything and all eight fields stay editable.
+	 *
+	 * @param string $record Sponsor record ID.
+	 * @return bool
+	 */
+	private static function owned_by_offer( $record ) {
+		if ( ! class_exists( 'WPCPM_Sponsor_Offers' ) || ! method_exists( 'WPCPM_Sponsor_Offers', 'offers_of' ) ) {
+			return false;
+		}
+
+		foreach ( WPCPM_Sponsor_Offers::offers_of( $record ) as $offer ) {
+			if ( ! empty( $offer['primary'] ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -212,8 +244,16 @@ final class WPCPM_Sponsor_Profile {
 		$row   = $claim['row'];
 		$cells = array();
 		$keys  = array();
+		$owned = self::owned_by_offer( $record );
 
 		foreach ( self::FIELDS as $key => $spec ) {
+			// The primary offer writes these three cells on every save of the Offers card, so a
+			// value posted here would be overwritten by the next one and read as "it did not
+			// save" (finding 2). Ignored, never written, and the card draws them read-only.
+			if ( $owned && in_array( $key, self::OFFER_FIELDS, true ) ) {
+				continue;
+			}
+
 			if ( ! isset( $_POST[ 'wpcpm_' . $key ] ) ) {
 				continue;
 			}
@@ -295,6 +335,8 @@ final class WPCPM_Sponsor_Profile {
 		$row    = is_array( $row ) ? $row : WPCPM_Sponsors_Index::empty_row();
 		$labels = self::labels();
 		$open   = isset( $context['open'] ) && self::CARD === $context['open'];
+		$owned  = self::owned_by_offer( $record );
+		$said   = false;
 
 		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
 		printf(
@@ -316,6 +358,23 @@ final class WPCPM_Sponsor_Profile {
 		foreach ( self::FIELDS as $key => $spec ) {
 			$id    = 'wpcpm-profile-' . $key;
 			$value = isset( $row[ $key ] ) ? (string) $row[ $key ] : '';
+
+			if ( $owned && in_array( $key, self::OFFER_FIELDS, true ) ) {
+				// Said once, above the first of the three, rather than three times.
+				if ( ! $said ) {
+					echo '<p class="wpcpm-student__note">' . esc_html__( "Your offer's text, instructions and link are edited on the Offers card: that is the offer students see.", 'wpcredits-program-manager' ) . '</p>';
+
+					$said = true;
+				}
+
+				printf(
+					'<p class="wpcpm-sponsor__field wpcpm-sponsor__field--owned"><span>%1$s</span> <strong>%2$s</strong></p>',
+					esc_html( $labels[ $key ] ),
+					esc_html( '' !== $value ? $value : __( 'Not set', 'wpcredits-program-manager' ) )
+				);
+
+				continue;
+			}
 
 			echo '<p class="wpcpm-sponsor__field">';
 			printf( '<label for="%1$s">%2$s</label>', esc_attr( $id ), esc_html( $labels[ $key ] ) );

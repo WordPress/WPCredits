@@ -43,6 +43,15 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	/** How many interest rows the log card shows. */
 	const INTERESTS_SHOWN = 50;
 
+	/** Seed a sponsor's first offer from the index, for the accounts provisioned before offers existed (plan ruling 7). */
+	const ACTION_SEED = 'wpcpm_offer_seed';
+
+	/** Void a claimed code so the person may claim again. */
+	const ACTION_CLAIM_VOID = 'wpcpm_claim_void';
+
+	/** The Offers card lists this many offers at most. */
+	const OFFERS_SHOWN = 100;
+
 	/**
 	 * Module ID.
 	 *
@@ -113,7 +122,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	public function boot() {
 		WPCPM_Ceiling::init();
 
-		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors' ) as $front ) {
+		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors' ) as $front ) {
 			if ( class_exists( $front ) && method_exists( $front, 'init' ) ) {
 				call_user_func( array( $front, 'init' ) );
 			}
@@ -125,6 +134,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_PROVISION, array( $this, 'handle_provision' ) );
 		add_action( 'admin_post_' . self::ACTION_MEMBERS, array( $this, 'handle_members' ) );
+		add_action( 'admin_post_' . self::ACTION_SEED, array( $this, 'handle_seed' ) );
+		add_action( 'admin_post_' . self::ACTION_CLAIM_VOID, array( $this, 'handle_claim_void' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
 	}
 
@@ -158,6 +169,14 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Sponsors_Sync::OPT_LOCK );
 
 		WPCPM_Sponsors_Index::delete_all();
+
+		if ( class_exists( 'WPCPM_Sponsor_Offers' ) ) {
+			WPCPM_Sponsor_Offers::delete_all();
+		}
+
+		if ( class_exists( 'WPCPM_Sponsor_Claims' ) ) {
+			WPCPM_Sponsor_Claims::delete_all();
+		}
 
 		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
 			delete_option( WPCPM_Sponsors_Dashboard::OPT_PAGE );
@@ -202,6 +221,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'detached'           => array( 'success', __( 'The account no longer acts for the sponsor.', 'wpcredits-program-manager' ) ),
 			'detach-refused'     => array( 'error', __( 'That account could not be detached.', 'wpcredits-program-manager' ) ),
 			'refused'            => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
+			'offer-seeded'       => array( 'success', __( 'The first offer was seeded from the base; the sponsor completes it and switches it on from the Sponsor Dashboard.', 'wpcredits-program-manager' ) ),
+			'offer-seed-none'    => array( 'info', __( 'That sponsor already has an offer; nothing was seeded.', 'wpcredits-program-manager' ) ),
+			'offer-seed-failed'  => array( 'error', __( 'The offer could not be seeded: the index does not hold that sponsor.', 'wpcredits-program-manager' ) ),
+			'claim-voided'       => array( 'success', __( 'The claim was voided. The person may claim again; the code stays void for the count.', 'wpcredits-program-manager' ) ),
+			'claim-void-none'    => array( 'info', __( 'That person holds no claim on that offer.', 'wpcredits-program-manager' ) ),
+			'claim-void-busy'    => array( 'info', __( 'Another change to that offer was going through. Try again in a moment.', 'wpcredits-program-manager' ) ),
 		);
 	}
 
@@ -325,6 +350,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		// built on, and `queue_invites()` drops an account already invited once.
 		WPCPM_Mail::queue_invites( array( $user_id ) );
 
+		// The first offer, from the index (spec 6.1). seed() refuses a sponsor that has one, so an
+		// account attached to a sponsor already provisioned does not make a second.
+		if ( class_exists( 'WPCPM_Sponsor_Offers' ) ) {
+			WPCPM_Sponsor_Offers::seed( $record );
+		}
+
 		$marked = self::mark_dashboard_account( $record, true );
 
 		WPCPM_Institution_Audit::record_sponsor(
@@ -414,6 +445,185 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * Seed a sponsor's first offer from the index. A manager's action: the sponsors
+	 * provisioned in S1 predate offers, and the button is how they get theirs.
+	 */
+	public function handle_seed() {
+		$record = WPCPM_Request::posted_text( 'wpcpm_sponsor' );
+		$this->verify( self::ACTION_SEED . '_' . $record );
+
+		// Spec section 4: every sponsor action is decided by the policy, and this was the one
+		// that was not (final review of Phase S2, finding 9). The capability check above already
+		// held it to managers; the claim adds the index check and the recorded ground.
+		$claim = WPCPM_Sponsor_Roster::claim( $record, WPCPM_Sponsor_Policy::ACT_MANAGE_OFFERS );
+
+		if ( is_wp_error( $claim ) ) {
+			$this->redirect_back( 'refused' );
+		}
+
+		$record = $claim['record'];
+		$seeded = WPCPM_Sponsor_Offers::seed( $record );
+
+		if ( is_wp_error( $seeded ) ) {
+			$this->redirect_back( 'offer-seed-failed' );
+		}
+
+		if ( false === $seeded ) {
+			$this->redirect_back( 'offer-seed-none' );
+		}
+
+		WPCPM_Institution_Audit::record_sponsor(
+			array(
+				'kind'     => WPCPM_Sponsor_Offers::LOG_SEEDED,
+				'sponsor'  => $record,
+				'subject'  => (string) $seeded,
+				'actor'    => get_current_user_id(),
+				'ground'   => WPCPM_Institution_Audit::GROUND_MANAGER,
+				'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
+				'message'  => __( 'The first offer was seeded from the base by a manager.', 'wpcredits-program-manager' ),
+				'data'     => array( 'offer' => (int) $seeded ),
+			)
+		);
+
+		$this->redirect_back( 'offer-seeded' );
+	}
+
+	/**
+	 * Void a person's claim. The capability and the nonce, then the sponsor is read from the
+	 * offer (never from the form) and claimed with ACT_VIEW_CLAIMANTS: a manager's ground.
+	 */
+	public function handle_claim_void() {
+		$offer_id = WPCPM_Request::posted_id( 'wpcpm_offer' );
+		$user_id  = WPCPM_Request::posted_id( 'wpcpm_user' );
+		$this->verify( self::ACTION_CLAIM_VOID . '_' . $offer_id . '_' . $user_id );
+
+		$offer = WPCPM_Sponsor_Offers::read( $offer_id );
+
+		if ( null === $offer ) {
+			$this->redirect_back( 'refused' );
+		}
+
+		$claim = WPCPM_Sponsor_Roster::claim( $offer['sponsor'], WPCPM_Sponsor_Policy::ACT_VIEW_CLAIMANTS );
+
+		if ( is_wp_error( $claim ) ) {
+			$this->redirect_back( 'refused' );
+		}
+
+		// void_claim() answers true, false or a WP_Error (Task 4's fix round: the pool's lock can
+		// be another request's for a moment), which is not the same "nothing to void" as a person
+		// holding no claim, so the busy answer gets its own status rather than folding into
+		// 'claim-void-none'.
+		$voided = WPCPM_Sponsor_Claims::void_claim( $offer_id, $user_id, get_current_user_id() );
+
+		if ( is_wp_error( $voided ) ) {
+			$this->redirect_back( 'claim-void-busy' );
+		}
+
+		$this->redirect_back( $voided ? 'claim-voided' : 'claim-void-none' );
+	}
+
+	/**
+	 * Every offer with its state and counts, who claimed from it (decision 7: managers read
+	 * names), a Void button per claim, and a Seed button for a sponsor with an account and no
+	 * offer.
+	 *
+	 * @param array $rows     The index rows, by record.
+	 * @param array $accounts Accounts by sponsor (accounts_by_sponsor()).
+	 */
+	private function render_offers( array $rows, array $accounts ) {
+		$offers = WPCPM_Sponsor_Offers::all();
+
+		echo '<div class="wpcpm-card" id="wpcpm-sponsor-offers">';
+		printf( '<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>', esc_html__( 'Offers and codes', 'wpcredits-program-manager' ), esc_html( number_format_i18n( count( $offers ) ) ) );
+		echo '<p class="description">' . esc_html__( 'Every sponsor offer, its state and its codes, and who claimed one, for support. Sponsors see counts only. Voiding a claim lets the person claim again; the code stays void for the count.', 'wpcredits-program-manager' ) . '</p>';
+
+		foreach ( $rows as $record => $row ) {
+			if ( empty( $accounts[ $record ] ) || ! empty( WPCPM_Sponsor_Offers::offers_of( $record ) ) ) {
+				continue;
+			}
+
+			printf( '<form method="post" action="%s" class="wpcpm-inline-form">', esc_url( admin_url( 'admin-post.php' ) ) );
+			wp_nonce_field( self::ACTION_SEED . '_' . $record );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SEED ) );
+			printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
+			/* translators: %s: sponsor name. */
+			printf( '<button type="submit" class="button">%s</button>', esc_html( sprintf( __( 'Seed the first offer for %s from the base', 'wpcredits-program-manager' ), '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : $record ) ) );
+			echo '</form> ';
+		}
+
+		if ( empty( $offers ) ) {
+			echo '<p>' . esc_html__( 'Nothing yet.', 'wpcredits-program-manager' ) . '</p></div>';
+			return;
+		}
+
+		echo '<table class="wpcpm-table widefat striped"><thead><tr>';
+
+		foreach ( array( __( 'Sponsor', 'wpcredits-program-manager' ), __( 'Offer', 'wpcredits-program-manager' ), __( 'Kind', 'wpcredits-program-manager' ), __( 'State', 'wpcredits-program-manager' ), __( 'Available', 'wpcredits-program-manager' ), __( 'Claimed', 'wpcredits-program-manager' ), __( 'Void', 'wpcredits-program-manager' ), __( 'Warns at', 'wpcredits-program-manager' ), __( 'Last day', 'wpcredits-program-manager' ), __( 'Claimed by', 'wpcredits-program-manager' ) ) as $head ) {
+			echo '<th scope="col">' . esc_html( $head ) . '</th>';
+		}
+
+		echo '</tr></thead><tbody>';
+
+		foreach ( array_slice( $offers, 0, self::OFFERS_SHOWN, true ) as $offer ) {
+			$counts  = WPCPM_Sponsor_Codes::counts( $offer['id'] );
+			$sponsor = isset( $rows[ $offer['sponsor'] ] ) ? trim( (string) $rows[ $offer['sponsor'] ]['name'] ) : $offer['sponsor'];
+
+			echo '<tr>';
+			echo '<td>' . esc_html( '' === $sponsor ? $offer['sponsor'] : $sponsor ) . '</td>';
+			echo '<td>' . esc_html( $offer['title'] ) . ( $offer['primary'] ? ' <span class="description">' . esc_html__( '(in the base)', 'wpcredits-program-manager' ) . '</span>' : '' ) . '</td>';
+			echo '<td>' . esc_html( WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] ? __( 'Codes', 'wpcredits-program-manager' ) : __( 'Shared', 'wpcredits-program-manager' ) ) . '</td>';
+			echo '<td>' . esc_html( WPCPM_Sponsor_Offers::state_label( $offer['state'] ) ) . '</td>';
+			echo '<td>' . esc_html( number_format_i18n( $counts['available'] ) ) . '</td>';
+			echo '<td>' . esc_html( number_format_i18n( $counts['claimed'] ) ) . '</td>';
+			echo '<td>' . esc_html( number_format_i18n( $counts['void'] ) ) . '</td>';
+			echo '<td>' . esc_html( number_format_i18n( (int) $offer['low'] ) ) . '</td>';
+			echo '<td>' . esc_html( '' !== $offer['expires'] ? $offer['expires'] : '' ) . '</td>';
+			echo '<td>';
+
+			$claimants = WPCPM_Sponsor_Claims::claimants( $offer['id'] );
+
+			if ( empty( $claimants ) ) {
+				echo esc_html__( 'Nobody yet', 'wpcredits-program-manager' );
+			} else {
+				echo '<ul class="wpcpm-list">';
+
+				foreach ( $claimants as $who ) {
+					echo '<li>';
+					printf(
+						'%1$s <span class="description">%2$s</span> %3$s <code>%4$s</code> ',
+						esc_html( '' !== $who['name'] ? $who['name'] : (string) $who['user_id'] ),
+						esc_html( $who['email'] ),
+						esc_html( wp_date( 'Y-m-d', (int) $who['at'] ) ),
+						/* translators: %s: the code's last four characters. */
+						esc_html( sprintf( __( 'ending %s', 'wpcredits-program-manager' ), $who['last4'] ) )
+					);
+					printf( '<form method="post" action="%s" class="wpcpm-inline-form" onsubmit="return confirm( \'%s\' );">', esc_url( admin_url( 'admin-post.php' ) ), esc_js( __( 'Void this claim? The person may then claim again.', 'wpcredits-program-manager' ) ) );
+					wp_nonce_field( self::ACTION_CLAIM_VOID . '_' . $offer['id'] . '_' . $who['user_id'] );
+					printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CLAIM_VOID ) );
+					printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
+					printf( '<input type="hidden" name="wpcpm_user" value="%d" />', (int) $who['user_id'] );
+					printf( '<button type="submit" class="button button-small">%s</button>', esc_html__( 'Void', 'wpcredits-program-manager' ) );
+					echo '</form>';
+					echo '</li>';
+				}
+
+				echo '</ul>';
+			}
+
+			echo '</td></tr>';
+		}
+
+		echo '</tbody></table>';
+
+		if ( count( $offers ) > self::OFFERS_SHOWN ) {
+			/* translators: %d: how many offers are listed. */
+			echo '<p class="description">' . esc_html( sprintf( __( 'The oldest %d are listed.', 'wpcredits-program-manager' ), self::OFFERS_SHOWN ) ) . '</p>';
+		}
+
+		echo '</div>';
+	}
+
+	/**
 	 * Tell the base whether a sponsor has a site account, and the index at once.
 	 *
 	 * The one place the `Dashboard account` column is written (spec section 12): the provision
@@ -488,6 +698,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$this->render_sync_panel( $progress, $last );
 		$this->render_index( $rows, $accounts );
 		$this->render_members( $rows, $accounts );
+		$this->render_offers( $rows, $accounts );
 		$this->render_interests( $rows );
 
 		echo '</div>';

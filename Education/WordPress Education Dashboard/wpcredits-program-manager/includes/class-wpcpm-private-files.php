@@ -59,13 +59,13 @@ class WPCPM_Private_Files {
 	const LEGACY_DIRECTORY = 'wpcpm-private';
 
 	/** The per-site key that encrypts stored files. Not autoloaded, never printed. */
-	const OPT_KEY = 'wpcpm_private_key';
+	const OPT_KEY = WPCPM_Secret::OPT_KEY;
 
 	/** Authenticated encryption: a tampered file fails to decrypt rather than decrypting wrongly. */
-	const CIPHER = 'aes-256-gcm';
+	const CIPHER = WPCPM_Secret::CIPHER;
 
 	/** One byte of format version at the head of every stored file, so the format can change. */
-	const FORMAT = 1;
+	const FORMAT = WPCPM_Secret::FORMAT;
 
 	/**
 	 * The extensions this store will write, by name.
@@ -538,138 +538,29 @@ class WPCPM_Private_Files {
 	 * @return bool
 	 */
 	public static function can_encrypt() {
-		return function_exists( 'openssl_encrypt' )
-			&& function_exists( 'openssl_decrypt' )
-			&& in_array( self::CIPHER, (array) openssl_get_cipher_methods(), true );
+		return WPCPM_Secret::can_encrypt();
 	}
 
 	/**
-	 * Encrypt, and lay the result out so `unseal()` can take it apart without guessing.
-	 *
-	 * Format: one version byte, then the 12-byte nonce, then the 16-byte tag, then the
-	 * ciphertext. The version byte is what makes a future format change possible without a
-	 * migration that has to guess which files are which.
+	 * Encrypt. The cipher and the format are WPCPM_Secret's since 1.94.0; this store keeps
+	 * the name so the read and write paths above read as they always did.
 	 *
 	 * @param string $bytes Plaintext.
 	 * @return string|WP_Error
 	 */
 	private static function seal( $bytes ) {
-		if ( ! self::can_encrypt() ) {
-			return new WP_Error(
-				'wpcpm_private_cipher',
-				__( 'This site cannot encrypt stored files: PHP has no OpenSSL support for AES-256-GCM. Uploads are refused rather than stored in the clear.', 'wpcredits-program-manager' )
-			);
-		}
-
-		$key = self::key();
-
-		if ( is_wp_error( $key ) ) {
-			return $key;
-		}
-
-		$nonce  = random_bytes( 12 );
-		$tag    = '';
-		$cipher = openssl_encrypt( $bytes, self::CIPHER, $key, OPENSSL_RAW_DATA, $nonce, $tag );
-
-		if ( false === $cipher ) {
-			return new WP_Error( 'wpcpm_private_cipher', __( 'The file could not be encrypted.', 'wpcredits-program-manager' ) );
-		}
-
-		return chr( self::FORMAT ) . $nonce . $tag . $cipher;
+		return WPCPM_Secret::seal( $bytes );
 	}
 
 	/**
-	 * Take a stored file apart and decrypt it.
+	 * Decrypt. The cipher and the format are WPCPM_Secret's since 1.94.0; this store keeps
+	 * the name so the read and write paths above read as they always did.
 	 *
 	 * @param string $sealed What is on disk.
 	 * @return string|WP_Error
 	 */
 	private static function unseal( $sealed ) {
-		if ( ! self::can_encrypt() ) {
-			return new WP_Error( 'wpcpm_private_cipher', __( 'This site cannot decrypt stored files: PHP has no OpenSSL support for AES-256-GCM.', 'wpcredits-program-manager' ) );
-		}
-
-		// One version byte, twelve of nonce, sixteen of tag, and at least one of ciphertext.
-		if ( strlen( $sealed ) < 30 || self::FORMAT !== ord( $sealed[0] ) ) {
-			return new WP_Error( 'wpcpm_private_format', __( 'That file is not in a format this store wrote.', 'wpcredits-program-manager' ) );
-		}
-
-		$key = self::key();
-
-		if ( is_wp_error( $key ) ) {
-			return $key;
-		}
-
-		$plain = openssl_decrypt( substr( $sealed, 29 ), self::CIPHER, $key, OPENSSL_RAW_DATA, substr( $sealed, 1, 12 ), substr( $sealed, 13, 16 ) );
-
-		if ( false === $plain ) {
-			return new WP_Error(
-				'wpcpm_private_tampered',
-				__( 'That file did not decrypt. Either it was changed after it was stored, or the site key has been replaced.', 'wpcredits-program-manager' )
-			);
-		}
-
-		return $plain;
-	}
-
-	/**
-	 * The site's file key, made once and kept out of the autoloaded options.
-	 *
-	 * In the database, while the files are on disk, so that reaching a stored agreement means
-	 * reaching both stores: a leaked file is ciphertext and a leaked database row is a key with
-	 * nothing to open. Never printed, never sent, and deliberately not derived from the
-	 * WordPress salts, because rotating those is a routine security step that would otherwise
-	 * make every stored agreement unreadable.
-	 *
-	 * @return string|WP_Error 32 raw bytes.
-	 */
-	private static function key() {
-		$stored = get_option( self::OPT_KEY );
-
-		if ( is_string( $stored ) && '' !== $stored ) {
-			$key = self::from_hex( $stored );
-
-			if ( '' !== $key ) {
-				return $key;
-			}
-
-			return new WP_Error(
-				'wpcpm_private_key',
-				__( 'The site key for stored files is not readable. Stored files cannot be opened until it is restored from a backup.', 'wpcredits-program-manager' )
-			);
-		}
-
-		$key = random_bytes( 32 );
-
-		// `add_option()` and not `update_option()`: two requests arriving together must not each
-		// make a key and have the second overwrite the first, which would orphan whatever the
-		// first one had already encrypted.
-		if ( ! add_option( self::OPT_KEY, bin2hex( $key ), '', false ) ) {
-			$stored = get_option( self::OPT_KEY );
-			$key    = is_string( $stored ) ? self::from_hex( $stored ) : '';
-
-			if ( '' === $key ) {
-				return new WP_Error( 'wpcpm_private_key', __( 'The site key for stored files could not be made.', 'wpcredits-program-manager' ) );
-			}
-		}
-
-		return $key;
-	}
-
-	/**
-	 * A stored key back as raw bytes, or '' when it is not one.
-	 *
-	 * @param string $hex What the option holds.
-	 * @return string 32 raw bytes, or ''.
-	 */
-	private static function from_hex( $hex ) {
-		if ( ! preg_match( '/^[0-9a-f]{64}$/', (string) $hex ) ) {
-			return '';
-		}
-
-		$key = hex2bin( $hex );
-
-		return ( is_string( $key ) && 32 === strlen( $key ) ) ? $key : '';
+		return WPCPM_Secret::unseal( $sealed );
 	}
 
 	/**

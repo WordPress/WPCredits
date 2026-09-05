@@ -363,6 +363,14 @@ $GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'profile-saved', 'card' => '
 $out = $D::render();
 ck( 'a flash prints its sentence with the success tone', false !== strpos( $out, 'wpcpm-dashboard__message--success' ) && false !== strpos( $out, 'Your profile was saved' ), true );
 ck( 'and opens the card it names', false !== strpos( $out, 'id="wpcpm-sponsor-profile" class="wpcpm-group wpcpm-group__disclosure" open' ), true );
+$GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'refused', 'card' => '', 'detail' => 'Line 3 repeats line 1.' );
+ck( 'a flash may carry a detail, printed after the sentence', false !== strpos( $D::render(), '<span class="wpcpm-dashboard__detail">Line 3 repeats line 1.</span>' ), true );
+try { $D::leave( 'codes-refused', 'offers', $A, str_repeat( 'x', 400 ) ); } catch ( WPCPM_Test_Redirect $e ) {}
+ck( 'leave() stores the detail trimmed to three hundred characters', mb_strlen( $GLOBALS['flash'][ $D::FLASH ]['detail'] ), 300 );
+// leave() always flashes before it redirects, so the call above left one sitting on the channel
+// again; drained here rather than left for the "taken, so it shows once" check below to trip
+// over; a real request would have consumed it on the next page load, not this one.
+unset( $GLOBALS['flash'][ $D::FLASH ] );
 // Every card is a section with the disclosure inside it, the way the Institution Dashboard wraps its
 // semester report: the section carries the card rhythm (the rule above, the room), the disclosure only
 // folds (1.93.2). A card class left on the disclosure would draw that rhythm on the wrong box.
@@ -374,7 +382,8 @@ ck( 'taken, so it shows once', isset( $GLOBALS['flash'][ $D::FLASH ] ), false );
 $GLOBALS['flash'][ $D::FLASH ] = array( 'status' => 'refused', 'card' => '' );
 ck( 'a refusal prints with the error tone', false !== strpos( $D::render(), 'wpcpm-dashboard__message--error' ), true );
 try { $D::leave( 'interest-sent', 'interests', $A ); } catch ( WPCPM_Test_Redirect $e ) {}
-ck( 'leave() flashes the status and the card', $GLOBALS['flash'][ $D::FLASH ], array( 'status' => 'interest-sent', 'card' => 'interests' ) );
+// leave() now always writes a 'detail' key too (Task 6), empty or not: this call passes none, so it is ''.
+ck( 'leave() flashes the status and the card', $GLOBALS['flash'][ $D::FLASH ], array( 'status' => 'interest-sent', 'card' => 'interests', 'detail' => '' ) );
 ck( 'and sends a member to the page and the card, without the switcher argument', $GLOBALS['redirected'], get_permalink( $page_id ) . '#wpcpm-sponsor-interests' );
 $GLOBALS['uid'] = 1;
 try { $D::leave( 'interest-sent', 'interests', $A ); } catch ( WPCPM_Test_Redirect $e ) {}

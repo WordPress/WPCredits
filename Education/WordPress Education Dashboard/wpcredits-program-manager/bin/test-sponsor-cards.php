@@ -223,6 +223,7 @@ class WPCPM_Mentors_Sync {
 	public static function sponsorship() { return $GLOBALS['sponsorship']; }
 }
 class WPCPM_Mentors_Dashboard { public static function get_mentees( $user_id ) { return isset( $GLOBALS['mentees'][ $user_id ] ) ? $GLOBALS['mentees'][ $user_id ] : array(); } }
+class WPCPM_Sponsor_Offers { public static function offers_of( $record ) { return isset( $GLOBALS['offers'][ $record ] ) ? $GLOBALS['offers'][ $record ] : array(); } }
 class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
@@ -263,9 +264,11 @@ $context = array( 'can_manage' => false, 'open' => '', 'viewer' => $GLOBALS['use
 function post( array $fields, $action ) { $_POST = $fields; $GLOBALS['left'] = null; try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return $GLOBALS['left']; } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); } return array( 'fell-through' ); }
 function card( $class, $record, $context ) { ob_start(); call_user_func( array( $class, 'render' ), $record, $context ); return ob_get_clean(); }
 
-$fail = 0;
+$fail   = 0;
+$checks = 0;
 function ck( $label, $actual, $expected ) {
-	global $fail;
+	global $fail, $checks;
+	++$checks;
 	$ok = $actual === $expected;
 	if ( ! $ok ) { $fail++; }
 	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
@@ -318,6 +321,18 @@ ck( 'the card is the canonical disclosure with the eight fields prefilled', subs
 ck( 'closed until a flash names it', strpos( $html, '<details' ) !== false && strpos( $html, ' open>' ) === false, true );
 ck( 'and open when one does', strpos( card( 'WPCPM_Sponsor_Profile', $A, array_merge( $context, array( 'open' => 'profile' ) ) ), ' open>' ) !== false, true );
 ck( 'the form says what changing the address does, and carries the guard', false !== strpos( $html, 'changes the address Airtable holds' ) && false !== strpos( $html, 'data-wpcpm-once' ), true );
+
+echo "\n=== Profile: the three fields the primary offer owns ===\n";
+$GLOBALS['offers'][ $A ] = array( 900 => array( 'id' => 900, 'primary' => true ) );
+$owned = card( 'WPCPM_Sponsor_Profile', $A, $context );
+ck( 'with a primary offer the three fields it owns are not inputs here', array( strpos( $owned, 'name="wpcpm_offer"' ), strpos( $owned, 'name="wpcpm_instructions"' ), strpos( $owned, 'name="wpcpm_more_info"' ) ), array( false, false, false ) );
+ck( 'and the card says where they are edited instead', false !== strpos( $owned, 'edited on the Offers card' ), true );
+$before_patched = count( $GLOBALS['patched'] );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.miniorange.com/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin', 'wpcpm_anything' => 'We can offer licences.', 'wpcpm_offer' => 'Changed by the profile' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+ck( 'a posted offer is ignored, so the save writes nothing', array( $r[0], count( $GLOBALS['patched'] ), WPCPM_Sponsors_Index::row( $A )['offer'] ), array( 'profile-unchanged', $before_patched, 'One year free' ) );
+unset( $GLOBALS['offers'] );
+$unowned = card( 'WPCPM_Sponsor_Profile', $A, $context );
+ck( 'and without an offer the three inputs are back', array( false !== strpos( $unowned, 'name="wpcpm_offer"' ), false !== strpos( $unowned, 'name="wpcpm_instructions"' ), false !== strpos( $unowned, 'name="wpcpm_more_info"' ) ), array( true, true, true ) );
 
 echo "\n=== Interests ===\n";
 // The append now reads the base's own current value first (item 1 of the final review fix
@@ -391,6 +406,12 @@ ck( 'the card prints the mentors and the counts, and the one looking with a form
 ck( 'and no student is named anywhere on it', strpos( $html, 'Student One' ) === false && strpos( $html, 'Old Student' ) === false, true );
 ck( 'a linked mentor with no site account yet says so, instead of a false zero', substr_count( $html, 'no site account yet' ), 1 );
 ck( 'a linked mentor with an account still shows real counts', false !== strpos( $html, '2 students now, 1 before' ), true );
+$saved_sponsorship      = $GLOBALS['sponsorship'];
+$GLOBALS['sponsorship'] = array();
+$stale = card( 'WPCPM_Sponsor_Mentors', $A, $context );
+ck( 'before the mentors sync has filled the index the card says so, instead of calling every linked mentor inactive', array( false !== strpos( $stale, 'The mentor list refreshes with the next program sync.' ), strpos( $stale, 'not currently active' ) ), array( true, false ) );
+ck( 'and the summary still counts the linked records', false !== strpos( $stale, '<span class="wpcpm-group__count">3</span>' ), true );
+$GLOBALS['sponsorship'] = $saved_sponsorship;
 $GLOBALS['buckets'] = array(); $GLOBALS['sent'] = array();
 WPCPM_Sponsors_Index::patch( $A, array( 'manager' => 'recTEAM0000000001' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_mentor' => $M3 ), array( 'WPCPM_Sponsor_Mentors', 'handle_interest' ) );
@@ -412,5 +433,5 @@ ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $all ), 0 );
 ck( 'every handler claims before it writes', substr_count( $all, 'WPCPM_Sponsor_Roster::claim(' ) >= 3, true );
 ck( 'the messages maps cover every status the handlers flash', array_values( array_diff( array( 'profile-saved', 'profile-unchanged', 'profile-rejected', 'profile-failed', 'interest-sent', 'interest-unsent', 'interest-empty', 'interest-ceiling', 'interest-failed', 'mentor-interest-sent', 'mentor-interest-unknown', 'mentor-interest-ceiling', 'mentor-interest-failed', 'refused' ), array_merge( array_keys( WPCPM_Sponsor_Profile::messages() ), array_keys( WPCPM_Sponsor_Interests::messages() ), array_keys( WPCPM_Sponsor_Mentors::messages() ) ) ) ), array() );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 56 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

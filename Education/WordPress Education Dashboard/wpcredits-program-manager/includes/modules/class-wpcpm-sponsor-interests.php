@@ -234,24 +234,28 @@ final class WPCPM_Sponsor_Interests {
 	/**
 	 * Mail the sponsor's assigned program manager, or every manager when none is assigned.
 	 *
-	 * @param string   $record Sponsor record ID.
-	 * @param callable $build  The mail builder `WPCPM_Mail::send()` takes.
+	 * @param string   $record  Sponsor record ID.
+	 * @param callable $build   The mail builder `WPCPM_Mail::send()` takes.
+	 * @param string   $context The mail log's context; this card's own by default. The low-stock
+	 *                          and claim-problem mails (WPCPM_Sponsor_Claims) route through here
+	 *                          with their own, so every mail to a sponsor's manager takes the one
+	 *                          road: the assigned manager, else `sponsor_notify`, else every manager.
 	 * @return int How many were sent.
 	 */
-	public static function mail_manager( $record, $build ) {
+	public static function mail_manager( $record, $build, $context = self::MAIL_CONTEXT ) {
 		$manager = WPCPM_Sponsors_Index::manager_of( $record );
 
 		if ( is_array( $manager ) && is_email( $manager['email'] ) ) {
 			$user = get_user_by( 'email', $manager['email'] );
 
 			if ( $user instanceof WP_User && $user->exists() ) {
-				return WPCPM_Mail::send( $user, self::MAIL_CONTEXT, $build ) ? 1 : 0;
+				return WPCPM_Mail::send( $user, $context, $build ) ? 1 : 0;
 			}
 
-			return WPCPM_Mail::send_to( $manager['email'], self::MAIL_CONTEXT, $build ) ? 1 : 0;
+			return WPCPM_Mail::send_to( $manager['email'], $context, $build ) ? 1 : 0;
 		}
 
-		return (int) WPCPM_Institutions::notify_managers( self::MAIL_CONTEXT, $build, 'sponsor_notify' );
+		return (int) WPCPM_Institutions::notify_managers( $context, $build, 'sponsor_notify' );
 	}
 
 	/**

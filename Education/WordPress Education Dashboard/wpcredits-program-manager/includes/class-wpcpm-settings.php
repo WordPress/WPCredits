@@ -124,6 +124,14 @@ class WPCPM_Settings {
 			'sponsor_on_inactive'           => 'keep',
 			'sponsor_notify'                => '',
 			'logo_max_kb'                   => 1024,
+			// The Tools section: students see it by default, mentors only when the program says
+			// so (sponsors design spec of 4 September 2026, section 6.5). There is no switch for
+			// managers: the Administrator Dashboard shows every live offer with its audience.
+			'tools_students'                => true,
+			'tools_mentors'                 => false,
+			// Below this many available codes, one mail to the sponsor and one to the assigned
+			// manager, once per crossing (section 6.6). Each offer can set its own.
+			'offer_low_stock'               => 10,
 			// The public application form. Off until the page that hosts it exists,
 			// because on means accepting submissions from anybody on the internet.
 			'applications_enabled'          => false,
@@ -279,6 +287,12 @@ class WPCPM_Settings {
 			$clean['logo_max_kb'] = max( 100, min( 8192, (int) $input['logo_max_kb'] ) );
 		}
 
+		if ( isset( $input['offer_low_stock'] ) ) {
+			// One is the smallest threshold that means anything; a thousand is above any pool
+			// the program has seen (section 6.2 caps a pool at five thousand codes).
+			$clean['offer_low_stock'] = max( 1, min( 1000, (int) $input['offer_low_stock'] ) );
+		}
+
 		// The key is write-only from the form's point of view, exactly like the Airtable
 		// token: the screen shows a masked value, and submitting that mask must not
 		// overwrite the real key with a row of dots.
@@ -375,14 +389,14 @@ class WPCPM_Settings {
 			$clean['application_trusted_proxy'] = ( '' !== $proxy && false !== filter_var( $proxy, FILTER_VALIDATE_IP ) ) ? $proxy : '';
 		}
 
-		// Guarded like `handbook_enabled`, unlike the checkboxes above: the settings
-		// screen does not render these four yet, so they are absent from every save of
-		// the existing form, and reading them unconditionally would switch the home
-		// redirect off and keep provisioning, applications and import off no matter
-		// what a filter or a later screen set. Absent means "leave alone" - which only
-		// holds while the save handler forwards booleans the form renders, not every
-		// boolean in the defaults.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home' ) as $flag ) {
+		// Guarded like `handbook_enabled`, unlike the checkboxes above: `save()` has callers
+		// other than the settings form - WP-CLI, filters, a future screen - that post partial
+		// input, and a flag this loop finds absent from that input must stay whatever it
+		// already was, not flip to false. The settings form's own handler never hits that
+		// case: it forwards every checkbox it renders as a boolean, ticked or not, so
+		// unticking one still switches it off through this same guarded read. Absent means
+		// "leave alone" only for callers narrower than the form.
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

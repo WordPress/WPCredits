@@ -39,8 +39,8 @@ function ck( $l, $a, $e = true ) {
 // Where the guard lives: forms.js, and nowhere else.
 ck( 'forms.js exists and defines the guard',
     (bool) strpos( $js, 'function guardForms()' ) && (bool) strpos( $js, 'function guardForm( form )' ) );
-ck( 'and wires it, with the bfcache release, once the DOM is ready',
-    (bool) preg_match( '/ready\( function \(\) \{\s*guardForms\(\);\s*releaseOnRestore\(\);\s*\} \);/', $js ) );
+ck( 'and wires it, with the bfcache release and the code-selector, once the DOM is ready',
+    (bool) preg_match( '/ready\( function \(\) \{\s*guardForms\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*\} \);/', $js ) );
 ck( 'calendar.js no longer defines the guard', false === strpos( $calendar, 'function guardForm' ) );
 ck( 'nor calls it',
     false === strpos( $calendar, 'guardForms()' ) && false === strpos( $calendar, 'releaseOnRestore()' ) );

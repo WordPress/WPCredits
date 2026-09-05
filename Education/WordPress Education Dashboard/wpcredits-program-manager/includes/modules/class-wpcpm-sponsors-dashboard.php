@@ -335,13 +335,17 @@ final class WPCPM_Sponsors_Dashboard {
 	 * @param string $status A key of `messages()`.
 	 * @param string $card   The card to open, or ''.
 	 * @param string $record The sponsor a manager was looking at, or ''.
+	 * @param string $detail A sentence for the reader after the status's own, or ''. Trimmed
+	 *                       to three hundred characters: a status names the outcome, the
+	 *                       detail names the line (plan ruling 10).
 	 */
-	public static function leave( $status, $card, $record = '' ) {
+	public static function leave( $status, $card, $record = '', $detail = '' ) {
 		WPCPM_Flash::set(
 			self::FLASH,
 			array(
 				'status' => sanitize_key( (string) $status ),
 				'card'   => sanitize_key( (string) $card ),
+				'detail' => mb_substr( sanitize_text_field( (string) $detail ), 0, 300 ),
 			)
 		);
 
@@ -375,7 +379,7 @@ final class WPCPM_Sponsors_Dashboard {
 			'refused' => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
 
-		foreach ( array( 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors' ) as $card ) {
+		foreach ( array( 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors' ) as $card ) {
 			if ( class_exists( $card ) && method_exists( $card, 'messages' ) ) {
 				$messages = array_merge( $messages, (array) call_user_func( array( $card, 'messages' ) ) );
 			}
@@ -568,10 +572,13 @@ final class WPCPM_Sponsors_Dashboard {
 			return;
 		}
 
+		$detail = isset( $flash['detail'] ) ? trim( (string) $flash['detail'] ) : '';
+
 		printf(
-			'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--%1$s">%2$s</p>',
+			'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--%1$s">%2$s%3$s</p>',
 			esc_attr( (string) $messages[ $status ][0] ),
-			esc_html( (string) $messages[ $status ][1] )
+			esc_html( (string) $messages[ $status ][1] ),
+			'' !== $detail ? ' <span class="wpcpm-dashboard__detail">' . esc_html( $detail ) . '</span>' : ''
 		);
 	}
 
