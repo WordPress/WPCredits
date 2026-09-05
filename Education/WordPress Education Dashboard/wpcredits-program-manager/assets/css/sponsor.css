@@ -1,0 +1,23 @@
+/* The Sponsor Dashboard's base styles: enough shape to read without the theme; the theme's
+   skin (wpcredits-theme 1.18.0) dresses everything under .wpc-sponsor-page. */
+.wpcpm-sponsor__identity { display: flex; gap: 24px; align-items: center; margin: 0 0 24px; }
+.wpcpm-sponsor__logo { flex: 0 0 176px; width: 176px; height: 96px; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+.wpcpm-sponsor__logo-image { max-width: 160px; max-height: 80px; width: auto; height: auto; object-fit: contain; }
+.wpcpm-sponsor__initials { font-size: 32px; font-weight: 700; letter-spacing: 0.04em; color: #1e1e1e; }
+.wpcpm-sponsor__name { margin: 0 0 4px; font-size: 24px; font-weight: 700; }
+.wpcpm-sponsor__fact, .wpcpm-sponsor__website { margin: 0 0 2px; }
+.wpcpm-sponsor__card { margin: 0 0 16px; }
+.wpcpm-sponsor__form .wpcpm-sponsor__field { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; }
+.wpcpm-sponsor__form input[type="text"], .wpcpm-sponsor__form input[type="url"], .wpcpm-sponsor__form input[type="email"], .wpcpm-sponsor__form select, .wpcpm-sponsor__form textarea { max-width: 640px; }
+.wpcpm-sponsor__choices { border: 0; padding: 0; margin: 0 0 12px; }
+.wpcpm-sponsor__choices label { display: block; margin: 0 0 6px; }
+.wpcpm-sponsor__subheading { margin: 20px 0 8px; font-size: 16px; }
+.wpcpm-sponsor__mentors, .wpcpm-sponsor__looking, .wpcpm-sponsor__people, .wpcpm-sponsor__history { list-style: none; margin: 0; padding: 0; }
+.wpcpm-sponsor__mentors li, .wpcpm-sponsor__looking li, .wpcpm-sponsor__people li, .wpcpm-sponsor__history li { padding: 8px 0; border-top: 1px solid #eee; }
+.wpcpm-sponsor__counts, .wpcpm-sponsor__expertise, .wpcpm-sponsor__muted { color: #555; font-size: 14px; }
+.wpcpm-sponsor__looking .wpcpm-inline-form { display: inline-block; margin-left: 8px; }
+.wpcpm-dashboard__message { padding: 12px 16px; border-left: 4px solid #999; margin: 0 0 16px; }
+.wpcpm-dashboard__message--success { border-left-color: #1a7f37; }
+.wpcpm-dashboard__message--error { border-left-color: #b32d2e; }
+.wpcpm-dashboard__message--info { border-left-color: #2271b1; }
+.wpcpm-dashboard__message--warning { border-left-color: #996800; }

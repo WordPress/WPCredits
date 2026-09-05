@@ -1,0 +1,64 @@
+{
+	"_comment": "Field names and select choices of the Airtable 'Mentors' table (tblJmEYgBWYxVuzUw), read from the base's metadata API on 2026-09-05 for the Sponsors module (design spec of 2026-09-04, sections 5.6 and 13). bin/test-students-sync.php checks the mentor_* keys of WPCPM_Mentors_Sync::fields() against this list, the way the student_* and report_* keys are checked against their own fixtures. 'Anything else you’d like us to know?' uses a right single quotation mark (U+2019), as the Institutions table's does. Refresh with a metadata read when the table changes.",
+	"mentors_table": "tblJmEYgBWYxVuzUw",
+	"read": "2026-09-05",
+	"fields": [
+		"Anything else you’d like us to know?",
+		"Available hours per week",
+		"Contribution Area - Expertise",
+		"Country",
+		"Email",
+		"Feedback 1",
+		"Feedback 2",
+		"Feedback 3",
+		"Full Name",
+		"GPL & Trademark",
+		"HelpScout",
+		"Institutions Onboarding",
+		"Interaction post-website",
+		"Interaction pre-website",
+		"Languages",
+		"Lessons",
+		"Linked Students",
+		"Most helpful and room to improve from mentor's support",
+		"Notes",
+		"Password for Student Report personal table",
+		"Privacy Policy Compliance",
+		"Rating",
+		"Sponsor Company Name",
+		"Sponsor company",
+		"Sponsored",
+		"Status",
+		"Student Report personal table",
+		"Students Reports",
+		"Students Reports copy",
+		"Teacher from a participating institution?",
+		"Wants to be in the looking for sponsors list",
+		"WordPress profile"
+	],
+	"choices": {
+		"Status": [
+			"Interested",
+			"Vetted - positive",
+			"Needs more information",
+			"Active",
+			"Declined",
+			"Inactive",
+			"Needs second opinion",
+			"Dropped out"
+		],
+		"Sponsored": [
+			"Yes",
+			"No"
+		],
+		"Wants to be in the looking for sponsors list": [
+			"Yes",
+			"No"
+		]
+	},
+	"facts": {
+		"expertise_field": "Contribution Area - Expertise",
+		"expertise_choice_count": 25,
+		"sponsor_link_field": "Sponsor Company Name"
+	}
+}

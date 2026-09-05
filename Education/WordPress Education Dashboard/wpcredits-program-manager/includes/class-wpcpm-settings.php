@@ -51,6 +51,8 @@ class WPCPM_Settings {
 			// so these two tables are read purely to turn those IDs into names.
 			'institutions_table'            => 'tbl4V0FEbzRP7I2w2',
 			'teams_table'                   => 'tblUBEXiS3QKUCXHf',
+			// The program team (Team Members), which is not the Contribution areas table teams_table names.
+			'team_members_table'            => 'tblUYWUSEcRLJ5BaR',
 			'sponsors_table'                => 'tbluji8wknOZr55fa',
 			// The column holding each table's display name. Used when the schema
 			// endpoint is unavailable, since it is the schema that reports which
@@ -117,6 +119,11 @@ class WPCPM_Settings {
 			'institution_provision'         => false,
 			'institution_on_inactive'       => 'revoke',
 			'institution_home'              => true,
+			// The Sponsors module (design spec of 4 September 2026, section 5).
+			'sponsor_home'                  => true,
+			'sponsor_on_inactive'           => 'keep',
+			'sponsor_notify'                => '',
+			'logo_max_kb'                   => 1024,
 			// The public application form. Off until the page that hosts it exists,
 			// because on means accepting submissions from anybody on the internet.
 			'applications_enabled'          => false,
@@ -235,7 +242,7 @@ class WPCPM_Settings {
 			}
 		}
 
-		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'tutors_table', 'feedback_table', 'institutions_table', 'teams_table', 'sponsors_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'sponsors_name_field', 'countries_name_field', 'institution_new_stage' ) as $key ) {
+		foreach ( array( 'base_id', 'mentors_table', 'reports_table', 'students_table', 'tutors_table', 'feedback_table', 'institutions_table', 'teams_table', 'team_members_table', 'sponsors_table', 'countries_table', 'institutions_name_field', 'teams_name_field', 'sponsors_name_field', 'countries_name_field', 'institution_new_stage' ) as $key ) {
 			if ( isset( $input[ $key ] ) ) {
 				$clean[ $key ] = sanitize_text_field( wp_unslash( $input[ $key ] ) );
 			}
@@ -263,6 +270,14 @@ class WPCPM_Settings {
 		}
 
 		$clean['on_inactive'] = ( isset( $input['on_inactive'] ) && 'keep' === $input['on_inactive'] ) ? 'keep' : 'revoke';
+
+		// Keep by default: a sponsor that pauses keeps its accounts, and a manager who wants them
+		// gone says so (design spec of 4 September 2026, section 5.2, phase 4).
+		$clean['sponsor_on_inactive'] = ( isset( $input['sponsor_on_inactive'] ) && 'revoke' === $input['sponsor_on_inactive'] ) ? 'revoke' : 'keep';
+
+		if ( isset( $input['logo_max_kb'] ) ) {
+			$clean['logo_max_kb'] = max( 100, min( 8192, (int) $input['logo_max_kb'] ) );
+		}
 
 		// The key is write-only from the form's point of view, exactly like the Airtable
 		// token: the screen shows a masked value, and submitting that mask must not
@@ -324,7 +339,7 @@ class WPCPM_Settings {
 			$clean['agreement_doc_url'] = in_array( $host, array( 'docs.google.com', 'drive.google.com' ), true ) ? $url : '';
 		}
 
-		foreach ( array( 'agreement_notify', 'report_notify' ) as $notify_key ) {
+		foreach ( array( 'agreement_notify', 'report_notify', 'sponsor_notify' ) as $notify_key ) {
 			if ( ! isset( $input[ $notify_key ] ) ) {
 				continue;
 			}
@@ -367,7 +382,7 @@ class WPCPM_Settings {
 		// what a filter or a later screen set. Absent means "leave alone" - which only
 		// holds while the save handler forwards booleans the form renders, not every
 		// boolean in the defaults.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}
@@ -428,7 +443,7 @@ class WPCPM_Settings {
 		foreach ( array_keys( self::never_blank() ) as $key ) {
 			if ( empty( $clean[ $key ] ) ) {
 				$clean[ $key ] = self::defaults()[ $key ];
-				$restored[]   = $key;
+				$restored[]    = $key;
 			}
 		}
 

@@ -58,7 +58,13 @@ The Administrator Dashboard at /administrator-dashboard/ is the page to start th
 
 The programs card counts students in progress per track and per institution from the roster index, so its numbers are as old as the last students sync; the read time is printed under the table. "Finished this semester" counts graduates only, not everyone who left the program; a graduate's row no longer says which track they were on, so it is one number rather than one per track. "Signed up this semester" per track counts the students who started in the semester and are still on that track; a student who started and has since paused, graduated or left is in the semester's finished count or in no count. Mentors are counted by distinct name, not by their Airtable record, because a roster row carries no mentor record ID: two mentors who share a name count once.
 
-### Where the plugin keeps its data
+## Sponsors
+
+The Sponsors screen is where a sponsor's account begins. The nightly sync (four hours after the institutions sync) reads the Team Members table and the Sponsors table into an index, copies each Approved sponsor's logo into the Media Library, and, only if the setting says so, detaches the accounts of sponsors that are no longer Approved. It never creates an account: a program manager presses Create account on an Approved sponsor's row, which makes an account from the sponsor's Contact Email (or attaches the account that already holds that address), queues the welcome, ticks the Dashboard account checkbox in Airtable and writes a log row. Accounts are attached by address and removed on the same screen; a sponsor's dashboard is opened through the switcher link in the first column. A sponsor whose logo is an SVG is named in the sync report: the site does not take SVG, and the sponsor converts it.
+
+On the Sponsor Dashboard a sponsor can save eight profile fields back to Airtable (website, contact person and email, product type, offer, instructions, more-info link and the free-text field); every save writes an audit row naming the fields changed and nothing else. Interests, and interest in a mentor from the looking-for-a-sponsor list, mail the assigned program manager (the Person of contact in Airtable), or the addresses in the "Interest mail" setting, or every program manager, in that order of preference; five a day per account. What sponsors can never read is a student's name: their mentors card shows mentor names and student counts only.
+
+## Where the plugin keeps its data
 
 Every option the plugin writes, by the name it has in the database and the constant that owns it
 in the code. Every option constant is spelled `OPT_` since 1.90.0 (three spellings coexisted
@@ -98,6 +104,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_mentors_lock` | `WPCPM_Mentors_Sync::OPT_LOCK` |
 | `wpcpm_mentors_lookups` | `WPCPM_Mentors_Sync::OPT_LOOKUPS` |
 | `wpcpm_mentors_report` | `WPCPM_Mentors_Sync::OPT_REPORT` |
+| `wpcpm_mentors_sponsorship` | `WPCPM_Mentors_Sync::OPT_SPONSORSHIP` |
 | `wpcpm_mentors_state` | `WPCPM_Mentors_Sync::OPT_STATE` |
 | `wpcpm_notices` | `WPCPM_Notices::OPT_NAME` |
 | `wpcpm_notices_migrated` | `WPCPM_Notices::OPT_MIGRATED` |
@@ -115,6 +122,15 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_roster_unlinked` | `WPCPM_Roster_Index::OPT_UNLINKED` |
 | `wpcpm_settings` | `WPCPM_Settings::OPT_NAME` |
 | `wpcpm_settings_version` | `WPCPM_Settings::OPT_VERSION` |
+| `wpcpm_sponsor_logo_` | `WPCPM_Sponsors_Index::OPT_LOGO_PREFIX` |
+| `wpcpm_sponsor_page_id` | `WPCPM_Sponsors_Dashboard::OPT_PAGE` |
+| `wpcpm_sponsor_page_title_fixed` | `WPCPM_Sponsors_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_sponsors_index` | `WPCPM_Sponsors_Index::OPT_NAME` |
+| `wpcpm_sponsors_last_error` | `WPCPM_Sponsors_Sync::OPT_ERROR` |
+| `wpcpm_sponsors_last_sync` | `WPCPM_Sponsors_Sync::OPT_LAST` |
+| `wpcpm_sponsors_lock` | `WPCPM_Sponsors_Sync::OPT_LOCK` |
+| `wpcpm_sponsors_report` | `WPCPM_Sponsors_Sync::OPT_REPORT` |
+| `wpcpm_sponsors_state` | `WPCPM_Sponsors_Sync::OPT_STATE` |
 | `wpcpm_student_page_id` | `WPCPM_Students_Dashboard::OPT_PAGE` |
 | `wpcpm_student_page_title_fixed` | `WPCPM_Students_Dashboard::OPT_TITLE_FIXED` |
 | `wpcpm_students_last_error` | `WPCPM_Students_Sync::OPT_ERROR` |
@@ -122,3 +138,4 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_students_lock` | `WPCPM_Students_Sync::OPT_LOCK` |
 | `wpcpm_students_report` | `WPCPM_Students_Sync::OPT_REPORT` |
 | `wpcpm_students_state` | `WPCPM_Students_Sync::OPT_STATE` |
+| `wpcpm_team_members` | `WPCPM_Sponsors_Index::OPT_TEAM` |

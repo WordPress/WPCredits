@@ -76,7 +76,7 @@ class WPCPM_Updates {
 	 * Public plus that audience's own level, and nothing else - so the Mentor Report Card lists
 	 * mentor announcements and the Student Report Card lists student ones.
 	 *
-	 * @param string $audience `student`, `mentor`, `institution` or `administrator`.
+	 * @param string $audience `student`, `mentor`, `institution`, `administrator` or `sponsor`.
 	 * @return string[]|null Levels, or null for "ask the viewer instead".
 	 */
 	private static function levels_for( $audience ) {
@@ -87,6 +87,9 @@ class WPCPM_Updates {
 			// The Administrator Dashboard's column: a manager's own level and the public posts,
 			// never every level, which is what the viewer fallback below would give a manager.
 			'administrator' => WPCPM_Roles::ROLE_ADMIN,
+			// The fifth audience: the Sponsor Dashboard's own column (design spec of 4 September
+			// 2026, section 5.4).
+			'sponsor'       => WPCPM_Roles::ROLE_SPONSOR,
 		);
 
 		if ( ! isset( $map[ $audience ] ) ) {

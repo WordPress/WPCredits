@@ -762,6 +762,17 @@ ck( 'the reports pass asks Airtable for the hours column',
 ck( sprintf( "'%s' is a column of the Students Reports table, byte for byte", $fields['report_hours'] ),
 	in_array( $fields['report_hours'], $reports_fields['fields'], true ), true );
 
+// The Mentors table's own fixture, checked the same way: a rename in the grid must fail here
+// before it fails a PATCH, the way it already does for the Students and Reports columns above.
+$mentors_fixture = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/mentors-table-fields.json' ), true );
+$mentor_names    = array();
+foreach ( WPCPM_Mentors_Sync::fields() as $key => $name ) {
+	if ( 0 === strpos( $key, 'mentor_' ) ) {
+		$mentor_names[ $key ] = $name;
+	}
+}
+ck( 'every mentor_* column of fields() is a field of the Mentors table', array_values( array_diff( $mentor_names, (array) $mentors_fixture['fields'] ) ), array() );
+
 // **Fractional, and kept that way.** 135.5 is a real value on the live base. An `intval()` or
 // a `round()` anywhere on this path prints 135 and tells a school half an hour of somebody's
 // term did not happen, so the sync carries the number as the string the base sent.

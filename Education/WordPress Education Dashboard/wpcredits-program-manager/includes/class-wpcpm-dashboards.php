@@ -91,6 +91,22 @@ class WPCPM_Dashboards {
 			}
 		}
 
+		// Membership, never the role, for the reason the institution entry gives; guarded
+		// because the class lands with the Sponsors module's front end.
+		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
+			$sponsor_page = WPCPM_Sponsors_Dashboard::page_url();
+			$is_sponsor   = WPCPM_Sponsors_Dashboard::is_member();
+
+			if ( '' !== $sponsor_page && ( $is_sponsor || $can_manage ) ) {
+				$links[] = array(
+					'id'    => 'wpcpm-sponsor-dashboard',
+					'title' => __( 'Sponsor Dashboard', 'wpcredits-program-manager' ),
+					'href'  => $sponsor_page,
+					'own'   => $is_sponsor,
+				);
+			}
+		}
+
 		// Managers only, and guarded like the institution entry: the class lands with the
 		// Administrators module's front end and `links()` runs on every toolbar render.
 		if ( $can_manage && class_exists( 'WPCPM_Administrators_Dashboard' ) ) {
@@ -172,7 +188,7 @@ class WPCPM_Dashboards {
 	 * which is both untrue and unactionable - the accounts simply do not exist. The
 	 * message has to name the real reason and point at the screen that fixes it.
 	 *
-	 * @param string $module     Module ID, `students`, `mentors`, `institutions` or `administrators`.
+	 * @param string $module     Module ID, `students`, `mentors`, `institutions`, `administrators` or `sponsors`.
 	 * @param bool   $can_manage Whether the viewer manages the program.
 	 * @return string HTML.
 	 */
@@ -185,12 +201,13 @@ class WPCPM_Dashboards {
 			// hold the role" would be false for exactly the people who have just lost access.
 			'institutions'   => __( 'This page is for the institutions in the program. Your account does not act for an institution.', 'wpcredits-program-manager' ),
 			'administrators' => __( 'This page is for the program managers. Your account cannot manage the program.', 'wpcredits-program-manager' ),
+			'sponsors'       => __( 'This page is for the program sponsors. Your account is not attached to a sponsor.', 'wpcredits-program-manager' ),
 		);
 
-		// Every audience is named - four of them now - because what an unnamed one used to get
+		// Every audience is named - five of them now - because what an unnamed one used to get
 		// was the mentor wording: the fall-through was written when `students` and `mentors`
 		// were the only two, and it told an institution it did not hold the Mentor role.
-		// Unknown IDs keep that old behaviour rather than inventing a fifth sentence for a
+		// Unknown IDs keep that old behaviour rather than inventing a sixth sentence for a
 		// caller that does not exist.
 		$module = isset( $theirs[ $module ] ) ? $module : 'mentors';
 
@@ -206,6 +223,7 @@ class WPCPM_Dashboards {
 			// institution with a live member. What is missing is an account, not a read.
 			'institutions'   => __( 'No institution has an account on this site yet, so there is nothing to show. Provision one on the Institutions screen and it will appear here.', 'wpcredits-program-manager' ),
 			'administrators' => __( 'Nothing is waiting for a manager right now.', 'wpcredits-program-manager' ),
+			'sponsors'       => __( 'No sponsor has an account yet.', 'wpcredits-program-manager' ),
 		);
 
 		$screens = array(
@@ -213,6 +231,7 @@ class WPCPM_Dashboards {
 			'mentors'        => 'wpcpm-mentors',
 			'institutions'   => 'wpcpm-institutions',
 			'administrators' => 'wpcpm-administrators',
+			'sponsors'       => 'wpcpm-sponsors',
 		);
 
 		return esc_html( $messages[ $module ] ) . ' <a href="' . esc_url( admin_url( 'admin.php?page=' . $screens[ $module ] ) ) . '">'

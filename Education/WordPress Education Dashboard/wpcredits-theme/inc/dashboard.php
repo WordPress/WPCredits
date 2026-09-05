@@ -69,6 +69,10 @@ function wpcredits_dashboard_assets() {
 		$deps[] = WPCPM_Administrators_Dashboard::STYLE;
 	}
 
+	if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) && wp_style_is( WPCPM_Sponsors_Dashboard::STYLE, 'registered' ) ) {
+		$deps[] = WPCPM_Sponsors_Dashboard::STYLE;
+	}
+
 	// The call calendar, for the same reason as the ones above - and it is the sharpest
 	// case of it. The plugin enqueues this one from inside a render callback that runs
 	// during `the_content`, long after this hook, so without the dependency it prints

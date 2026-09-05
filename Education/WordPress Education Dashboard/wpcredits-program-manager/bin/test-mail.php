@@ -494,6 +494,14 @@ update_user_meta( 510, 'wpcpm_inst_invited', time() );
 ck( 'nor is an institution already invited',
     array( WPCPM_Mail::queue_invites( array( 510 ) ), WPCPM_Mail::queued() ), array( 0, 0 ) );
 
+// The fourth kind of account carries the fourth stamp, and the guard has to read that one too
+// (the sponsor audience, design spec of 4 September 2026, section 5.3).
+$GLOBALS['users'][ 520 ] = new WP_User( 520, 'Invited sponsor', 'sponsor-inv@example.test', array( WPCPM_Roles::ROLE_SPONSOR ) );
+update_user_meta( 520, 'wpcpm_sponsor_invited', time() );
+
+ck( 'nor is a sponsor already invited',
+    array( WPCPM_Mail::queue_invites( array( 520 ) ), WPCPM_Mail::queued() ), array( 0, 0 ) );
+
 // Which stamp goes on is what the guards above read back, so each kind of account has to get
 // its own: an institution stamped as a student would pass the guard and still show as never
 // invited on its own screen, which lists by role and stamp together.
@@ -518,6 +526,22 @@ ck( 'each kind of account is stamped with its own invited meta',
     ),
     array( true, true, true, '', '' ) );
 ck( 'and each of the three was actually notified', $GLOBALS['invited'], array( 601, 602, 603 ) );
+
+// And the sponsor account gets its own stamp too, once `drain_queue()` actually sends to one -
+// proof of the write side, where the check above proved only the read side.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['users'][ 610 ] = new WP_User( 610, 'A sponsor', 'sponsor610@example.test', array( WPCPM_Roles::ROLE_SPONSOR ) );
+
+WPCPM_Mail::queue_invites( array( 610 ) );
+WPCPM_Mail::drain_queue();
+
+ck( 'a sponsor account is stamped with its own invited meta, not the student one',
+    array(
+        (int) get_user_meta( 610, 'wpcpm_sponsor_invited', true ) > 0,
+        get_user_meta( 610, 'wpcpm_student_invited', true ),
+    ),
+    array( true, '' ) );
 
 WPCPM_Mail::clear_queue();
 WPCPM_Mail::dismiss_run();
@@ -693,6 +717,35 @@ ck( 'an institution still to sign is pointed at the same page as the place to up
         false !== strpos( $with_page['message'], 'once it is in place' ),
     ),
     array( true, false, true, false ) );
+
+// The fourth audience: a sponsor's representative. Built the way the suite builds its
+// institution user - a bare WP_User carrying only the role - and mailed to the address the
+// design spec pins for every test send (design spec of 4 September 2026, section 5.3).
+$sponsor_email = array(
+	'to'      => 'maciej@a8c.com',
+	'subject' => 'x',
+	'message' => "Username: rep\r\nhttps://example.test/wp-login.php?action=rp&key=k",
+	'headers' => '',
+);
+$sponsor = new WP_User( 80, 'Sponsor Rep', 'rep@sponsor.example.test', array( WPCPM_Roles::ROLE_SPONSOR ) );
+
+// The Sponsor Dashboard's class lands in Task 10 of this phase; stood in here the way the
+// institution dashboard was above, so the label is proven present rather than merely not fatal.
+if ( ! class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
+	/** Stands in for the Sponsor Dashboard once Task 10 lands it. */
+	class WPCPM_Sponsors_Dashboard { public static function page_url() { return 'https://example.test/sponsor-dashboard/'; } }
+}
+
+$sponsor_mail = WPCPM_Mail::welcome_email( $sponsor_email, $sponsor, 'Site' );
+
+ck( 'a sponsor gets the sponsor subject', $sponsor_mail['subject'], '[Site] Your sponsor account is ready' );
+ck( 'and the sponsor opening', false !== strpos( $sponsor_mail['message'], 'set up as a sponsor of the WordPress Credits Program' ), true );
+ck( 'and the dashboard label, when the page exists', false !== strpos( $sponsor_mail['message'], 'Your Sponsor Dashboard:' ), true );
+
+WPCPM_Mail::clear_log();
+WPCPM_Mail::welcome_email( $sponsor_email, $sponsor, 'Site' );
+wp_mail( 'rep@sponsor.example.test', $sponsor_mail['subject'], $sponsor_mail['message'] );
+ck( 'the invitation is logged as a sponsor\'s', array( WPCPM_Mail::log()[0]['context'] ), array( 'invite-sponsor' ) );
 
 /* ---- calendar invitations ---------------------------------------------- */
 
@@ -891,9 +944,16 @@ ck( 'the institution button sends the institution invitation',
     array( $institution_sample['subject'], WPCPM_Mail::log()[0]['context'] ),
     array( '[WordPress Education Dashboard] Your institution account is ready', 'test-institution' ) );
 
+$sponsor_sample = press_sample_button( 'sponsor' );
+
+ck( 'the sponsor button sends the sponsor invitation',
+    array( $sponsor_sample['subject'], WPCPM_Mail::log()[0]['context'] ),
+    array( '[WordPress Education Dashboard] Your sponsor account is ready', 'test-sponsor' ) );
+
 // A kind nobody offers a button for falls back to the student template rather than to nothing.
+// Not 'sponsor' any more - the fourth button now offers exactly that kind (below).
 ck( 'an unknown kind previews the student invitation',
-    array( press_sample_button( 'sponsor' )['subject'] ),
+    array( press_sample_button( 'nonsense' )['subject'] ),
     array( '[WordPress Education Dashboard] Welcome to the WordPress Credits Program' ) );
 
 $sample = $student_sample['body'];

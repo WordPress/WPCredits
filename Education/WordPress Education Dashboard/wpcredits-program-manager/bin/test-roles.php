@@ -300,6 +300,19 @@ ck( 'a manager with nothing waiting is sent to the Administrators screen',
     ),
     array( true, true ) );
 
+// The fifth audience. A non-member is told whose page this is and never about the Mentor role;
+// a manager with no sponsor account yet is pointed at the Sponsors screen.
+ck( 'a non-member is told the Sponsor Dashboard is for the program sponsors',
+    WPCPM_Dashboards::nothing_to_show( 'sponsors', false ),
+    'This page is for the program sponsors. Your account is not attached to a sponsor.' );
+$manager_sponsor_sees = WPCPM_Dashboards::nothing_to_show( 'sponsors', true );
+ck( 'a manager with no sponsor account yet is sent to the Sponsors screen',
+    array(
+        false !== strpos( $manager_sponsor_sees, 'No sponsor has an account yet.' ),
+        false !== strpos( $manager_sponsor_sees, 'admin.php?page=wpcpm-sponsors' ),
+    ),
+    array( true, true ) );
+
 echo "\n=== A user ID out of whatever get_users() returned ===\n";
 
 // This site's stack returns `stdClass` rows even when the query asked for `'ID'`, so the shape is
@@ -431,6 +444,45 @@ if ( file_exists( dirname( __DIR__ ) . '/' . $dashboard_file ) ) {
 	ck( 'and its page option and title option are both deleted on uninstall', $deleted, array( true, true ) );
 } else {
 	echo "--   the administrator dashboard has not landed yet: " . $dashboard_file . "\n";
+}
+
+// The sponsor dashboard's own wiring, asserted the same way once the file exists: its page ID
+// and its title-version flag are two options a removed plugin must not leave behind.
+$dashboard_file = 'includes/modules/class-wpcpm-sponsors-dashboard.php';
+
+if ( file_exists( dirname( __DIR__ ) . '/' . $dashboard_file ) ) {
+	ck( 'the sponsor dashboard is loaded, and uninstall.php can see it',
+	    array(
+	        in_array( $dashboard_file, $anywhere[1], true ),
+	        in_array( $dashboard_file, $in_uninstall[1], true ),
+	    ),
+	    array( true, true ) );
+
+	// The deletes live in class-wpcpm-sponsors.php's uninstall(), not in this class file itself,
+	// so the search reaches across everything uninstall.php pulls in, the same way the
+	// administrator dashboard's check above does.
+	$reach = $uninstall_src;
+
+	foreach ( $in_uninstall[1] as $rel ) {
+		$path = dirname( __DIR__ ) . '/' . $rel;
+
+		if ( file_exists( $path ) ) {
+			$reach .= file_get_contents( $path );
+		}
+	}
+
+	$deleted = array();
+
+	foreach ( array( 'OPT_PAGE' => 'wpcpm_sponsor_page_id', 'OPT_TITLE_FIXED' => 'wpcpm_sponsor_page_title_fixed' ) as $constant => $option ) {
+		$deleted[] = (bool) preg_match(
+			'/delete_option\(\s*(?:WPCPM_Sponsors_Dashboard::' . $constant . "|'" . $option . "')\s*\)/",
+			$reach
+		);
+	}
+
+	ck( 'and its page option and title option are both deleted on uninstall', $deleted, array( true, true ) );
+} else {
+	echo "--   the sponsor dashboard has not landed yet: " . $dashboard_file . "\n";
 }
 // The ceiling's rows are `add_option()` claims named by a hash, one per key per window, and no
 // uninstall reaches them by name: they need the class's own `delete_all()` on the uninstall

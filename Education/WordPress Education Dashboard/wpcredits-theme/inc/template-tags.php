@@ -124,9 +124,38 @@ function wpcredits_is_administrator_page() {
 }
 
 /**
+ * Whether this request is the Sponsor Dashboard.
+ *
+ * Matched three ways, like the other four pages: the stored page ID, the block, or the
+ * shortcode, because the dashboard is reachable all three ways.
+ *
+ * @return bool
+ */
+function wpcredits_is_sponsor_page() {
+	if ( ! wpcredits_plugin_active() || ! is_singular() || ! class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
+		return false;
+	}
+
+	$page_id = (int) get_option( WPCPM_Sponsors_Dashboard::OPT_PAGE );
+
+	if ( $page_id && get_queried_object_id() === $page_id ) {
+		return true;
+	}
+
+	$post = get_post();
+
+	if ( ! $post instanceof WP_Post ) {
+		return false;
+	}
+
+	return has_block( WPCPM_Sponsors_Dashboard::BLOCK, $post )
+		|| has_shortcode( (string) $post->post_content, WPCPM_Sponsors_Dashboard::SHORTCODE );
+}
+
+/**
  * Whether this request is any of the dashboards.
  *
- * The four pages share a shell, so anything that dresses that shell - the card,
+ * The five pages share a shell, so anything that dresses that shell - the card,
  * the insets, the type - applies to all of them.
  *
  * **The institution page was missing from this for two releases**, which is why it
@@ -138,10 +167,13 @@ function wpcredits_is_administrator_page() {
  * The Administrator Dashboard joined in 1.17.0, added here and in
  * `wpcredits_body_class()` in the same commit.
  *
+ * The Sponsor Dashboard joined in 1.18.0, added here and in
+ * `wpcredits_body_class()` in the same commit.
+ *
  * @return bool
  */
 function wpcredits_is_dashboard_page() {
-	return wpcredits_is_mentor_page() || wpcredits_is_student_page() || wpcredits_is_institution_page() || wpcredits_is_administrator_page();
+	return wpcredits_is_mentor_page() || wpcredits_is_student_page() || wpcredits_is_institution_page() || wpcredits_is_administrator_page() || wpcredits_is_sponsor_page();
 }
 
 /**

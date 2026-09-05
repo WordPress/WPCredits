@@ -37,6 +37,14 @@ class WPCPM_Institution_Audit {
 	/** Post meta: the Airtable institution record the row is about. The queryable key. */
 	const META_INSTITUTION = '_wpcpm_log_institution';
 
+	/**
+	 * The sponsor a row is about, for the Sponsors module's rows; `META_INSTITUTION` is absent
+	 * on those and this key is absent on an institution's, so each module's readers see only
+	 * their own rows. One log, two keys, the class name kept: renaming the log would touch
+	 * every institution suite for no behaviour (design spec of 4 September 2026, section 5.5).
+	 */
+	const META_SPONSOR = '_wpcpm_log_sponsor';
+
 	/** Post meta: whom or what the row is about - a user ID or a record ID, as a string. */
 	const META_SUBJECT = '_wpcpm_log_subject';
 
@@ -149,16 +157,52 @@ class WPCPM_Institution_Audit {
 	 * @return int|WP_Error The post ID, or why not.
 	 */
 	public static function record( array $entry ) {
-		$kind = sanitize_key( isset( $entry['kind'] ) ? (string) $entry['kind'] : '' );
-
-		if ( '' === $kind ) {
-			return new WP_Error( 'wpcpm_audit_kind', __( 'An audit row needs a kind.', 'wpcredits-program-manager' ) );
-		}
-
 		$institution = trim( isset( $entry['institution'] ) ? (string) $entry['institution'] : '' );
 
 		if ( ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
 			return new WP_Error( 'wpcpm_audit_institution', __( 'An audit row needs the institution record it is about.', 'wpcredits-program-manager' ) );
+		}
+
+		return self::write( $entry, self::META_INSTITUTION, $institution );
+	}
+
+	/**
+	 * Write one row about a sponsor.
+	 *
+	 * The same row as `record()` writes, keyed by `META_SPONSOR` instead of `META_INSTITUTION`,
+	 * so the institution readers never list it and `entries_for_sponsor()` never lists theirs.
+	 *
+	 * @param array $entry As for `record()`, with `sponsor` (record ID) in place of `institution`.
+	 * @return int|WP_Error The post ID, or why not.
+	 */
+	public static function record_sponsor( array $entry ) {
+		$sponsor = trim( isset( $entry['sponsor'] ) ? (string) $entry['sponsor'] : '' );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $sponsor ) ) {
+			return new WP_Error( 'wpcpm_audit_sponsor', __( 'An audit row needs the sponsor record it is about.', 'wpcredits-program-manager' ) );
+		}
+
+		return self::write( $entry, self::META_SPONSOR, $sponsor );
+	}
+
+	/**
+	 * The one writer behind `record()` and `record_sponsor()`.
+	 *
+	 * Refuses rather than guesses: a row with an unknown ground would be the one row the policy
+	 * did not stand behind. The actor goes on the post as its author for the admin's sake, but
+	 * the meta is the record: WordPress substitutes the current user for an empty author, and a
+	 * sync running under cron has none.
+	 *
+	 * @param array  $entry    The entry, its record already validated by the caller.
+	 * @param string $meta_key `META_INSTITUTION` or `META_SPONSOR`.
+	 * @param string $record   The record ID the row is about.
+	 * @return int|WP_Error
+	 */
+	private static function write( array $entry, $meta_key, $record ) {
+		$kind = sanitize_key( isset( $entry['kind'] ) ? (string) $entry['kind'] : '' );
+
+		if ( '' === $kind ) {
+			return new WP_Error( 'wpcpm_audit_kind', __( 'An audit row needs a kind.', 'wpcredits-program-manager' ) );
 		}
 
 		$ground = sanitize_key( isset( $entry['ground'] ) ? (string) $entry['ground'] : '' );
@@ -186,10 +230,10 @@ class WPCPM_Institution_Audit {
 				'post_author'  => $actor,
 				'post_content' => $message,
 				'post_title'   => sprintf(
-					/* translators: 1: event kind, 2: institution record ID, 3: date and time. */
+					/* translators: 1: event kind, 2: the record ID the row is about, 3: date and time. */
 					__( '%1$s on %2$s - %3$s', 'wpcredits-program-manager' ),
 					$kind,
-					$institution,
+					$record,
 					wp_date( 'Y-m-d H:i' )
 				),
 			),
@@ -201,7 +245,7 @@ class WPCPM_Institution_Audit {
 		}
 
 		update_post_meta( $post_id, self::META_KIND, $kind );
-		update_post_meta( $post_id, self::META_INSTITUTION, $institution );
+		update_post_meta( $post_id, $meta_key, $record );
 		update_post_meta( $post_id, self::META_SUBJECT, $subject );
 		update_post_meta( $post_id, self::META_ACTOR, $actor );
 		update_post_meta( $post_id, self::META_GROUND, $ground );
@@ -220,13 +264,86 @@ class WPCPM_Institution_Audit {
 	 *                 `evidence`, `message`, `data`, `time` (unix, UTC).
 	 */
 	public static function entries_for( $institution, $limit = 50 ) {
-		$institution = trim( (string) $institution );
+		return self::entries_on( self::META_INSTITUTION, $institution, $limit );
+	}
 
-		if ( ! WPCPM_Mentors_Sync::is_record_id( $institution ) ) {
+	/**
+	 * Every row about a sponsor, newest first.
+	 *
+	 * @param string $sponsor Airtable record ID.
+	 * @param int    $limit   How many at most; 0 or less for all of them.
+	 * @return array[] As `entries_for()` returns them.
+	 */
+	public static function entries_for_sponsor( $sponsor, $limit = 50 ) {
+		return self::entries_on( self::META_SPONSOR, $sponsor, $limit );
+	}
+
+	/**
+	 * The sponsor rows across every sponsor, newest first: the wp-admin screen's interests log.
+	 *
+	 * @param string $kind  One kind, or '' for every kind.
+	 * @param int    $limit How many at most; 0 or less for all of them.
+	 * @return array[]
+	 */
+	public static function sponsor_entries( $kind = '', $limit = 50 ) {
+		$kind  = sanitize_key( (string) $kind );
+		$limit = (int) $limit;
+		$query = array(
+			array(
+				'key'     => self::META_SPONSOR,
+				'compare' => 'EXISTS',
+			),
+		);
+
+		if ( '' !== $kind ) {
+			$query[] = array(
+				'key'   => self::META_KIND,
+				'value' => $kind,
+			);
+		}
+
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => 'private',
+				'numberposts'      => $limit > 0 ? $limit : -1,
+				'orderby'          => array(
+					'date' => 'DESC',
+					'ID'   => 'DESC',
+				),
+				'suppress_filters' => false,
+				'meta_query'       => $query,
+			)
+		);
+
+		$entries = array();
+
+		foreach ( $posts as $post ) {
+			if ( $post instanceof WP_Post ) {
+				$entries[] = self::entry_from( $post );
+			}
+		}
+
+		return $entries;
+	}
+
+	/**
+	 * The rows keyed by one of the two record keys, with the case re-check `entries_for()` always made.
+	 *
+	 * @param string $meta_key `META_INSTITUTION` or `META_SPONSOR`.
+	 * @param string $record   Airtable record ID.
+	 * @param int    $limit    How many at most; 0 or less for all of them.
+	 * @return array[]
+	 */
+	private static function entries_on( $meta_key, $record, $limit ) {
+		$record = trim( (string) $record );
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
 			return array();
 		}
 
 		$limit = (int) $limit;
+		$field = self::META_SPONSOR === $meta_key ? 'sponsor' : 'institution';
 
 		$posts = get_posts(
 			array(
@@ -242,8 +359,8 @@ class WPCPM_Institution_Audit {
 				'suppress_filters' => false,
 				'meta_query'       => array(
 					array(
-						'key'   => self::META_INSTITUTION,
-						'value' => $institution,
+						'key'   => $meta_key,
+						'value' => $record,
 					),
 				),
 			)
@@ -259,8 +376,8 @@ class WPCPM_Institution_Audit {
 			$entry = self::entry_from( $post );
 
 			// The query matched under the database collation, which does not tell `recABC`
-			// from `recabc`; record IDs do. Keep only the rows that name this institution.
-			if ( 0 !== strcmp( $entry['institution'], $institution ) ) {
+			// from `recabc`; record IDs do. Keep only the rows that name this record.
+			if ( 0 !== strcmp( $entry[ $field ], $record ) ) {
 				continue;
 			}
 
@@ -283,6 +400,7 @@ class WPCPM_Institution_Audit {
 			'id'          => (int) $post->ID,
 			'kind'        => (string) get_post_meta( $post->ID, self::META_KIND, true ),
 			'institution' => (string) get_post_meta( $post->ID, self::META_INSTITUTION, true ),
+			'sponsor'     => (string) get_post_meta( $post->ID, self::META_SPONSOR, true ),
 			'subject'     => (string) get_post_meta( $post->ID, self::META_SUBJECT, true ),
 			'actor'       => (int) get_post_meta( $post->ID, self::META_ACTOR, true ),
 			'ground'      => (string) get_post_meta( $post->ID, self::META_GROUND, true ),

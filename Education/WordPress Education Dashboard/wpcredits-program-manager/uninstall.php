@@ -33,6 +33,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-request.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-return.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-flash.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ceiling.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-refusal-meter.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-notices.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ics.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-mail.php';
@@ -44,6 +45,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-two-factor.php'
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-cohort.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roster-index.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-private-files.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-image-upload.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sync-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students.php';
@@ -97,6 +99,15 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-semeste
 // Instantiated by `WPCPM_Modules::uninstall()` like the other four; it was missing here, which
 // would have been a fatal in the middle of cleanup on the day somebody uninstalled.
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-members.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-policy.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-roster.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-index.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-sync.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-profile.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-interests.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-mentors.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-cards.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators.php';

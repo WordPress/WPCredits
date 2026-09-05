@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.92.0
+Stable tag: 1.93.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,7 +17,7 @@ The plugin is organized as five modules, one per audience:
 1. **Students** - the Student role, Airtable account provisioning, and a private page with each student's program details and their assigned mentor. **Built.**
 2. **Mentors** - the Mentor role, Airtable account provisioning, and a private page listing each mentor's assigned students. **Built.**
 3. **Institutions** - the Institution role.
-4. **Sponsors** - the Sponsor role.
+4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, and the Sponsor Dashboard.
 5. **Administrators** - the built-in WordPress Administrator role, granted the program capabilities.
 
 Students, Mentors, Institutions and Sponsors each get a custom role cloned from **Subscriber**, plus one marker capability that controls which content they can read. Administrators can read every level.
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.93.0 =
+* **The Sponsors module, phase one: accounts, sync and the Sponsor Dashboard.** A nightly sync reads the Team Members and Sponsors tables into an index and copies each Approved sponsor's logo into the Media Library (an Airtable attachment URL expires within hours). A program manager creates each sponsor's account one at a time from the Sponsors screen, from the contact address, with the welcome through the invitation queue; accounts are attached and removed there too, and the base's Dashboard account checkbox follows. Sponsors get a Sponsor Dashboard at /sponsor-dashboard/: logo, name, website, product type and contact; their contact at the program; a profile they can save back to Airtable through an allowlist with an audit row; their sponsored mentors with student counts and never a student's name; the mentors looking for a sponsor, with one press to say they would like to sponsor one; and a form to say what else they would like to support, which mails their program contact and appends a dated line to the base's Sponsorship interests column. One policy decides every sponsor action; every refusal of a member is metered, twenty a day.
+* Extracted for both modules: `WPCPM_Refusal_Meter` (the institution roster's twenty-a-day lock) and `WPCPM_Image_Upload` (the one image handler: PNG, JPEG or WebP, re-saved through WordPress's editor, never SVG). The audit log gains a sponsor key. The welcome mail, the settings and the audience maps know sponsors. The mentors sync keeps a sponsorship index of every Active mentor.
+* Five new Airtable columns on the Sponsors table: Agreement Status, Agreement Accepted On, Agreement Document, Sponsorship interests, Dashboard account.
 
 = 1.92.0 =
 * **The Administrator Dashboard.** A page for program managers at /administrator-dashboard/, gated to the administrator level, built like the other dashboards. It shows every queue with its count and its decisions: institution applications with the six decisions, Collaboration Agreements awaiting review with the reviewer's checklist, download, accept and return (and the returned and revoked ones, with Reinstate), semester reports to review, semesters due for drafting with Draft now, and approved reports this semester, open mentor requests with handle and decline, the programs running as a totals strip per track and one row per institution with students in progress, and the syncs' health with locked accounts, the private storage probe, the last mail and the invitation run. A strip of eight counts at the top links to the cards. Decisions made on the page come back to it; Draft now opens the new draft where the manager reads it, and a refused Draft now comes back; the wp-admin screens stay for settings, syncs and the rarer work.

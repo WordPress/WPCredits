@@ -344,6 +344,15 @@ ck( 'a manager on the administrator card sees the administrator view',
     ),
     array( true, false, true ) );
 
+// The fifth audience `levels_for()` maps (design spec of 4 September 2026, section 5.3), read
+// directly through reflection since the method stays private - nothing outside this class
+// needs the mapping, only this suite needs to pin it down.
+$levels_for = new ReflectionMethod( 'WPCPM_Updates', 'levels_for' );
+$levels_for->setAccessible( true );
+
+ck( 'the sponsor audience maps to the sponsor level',
+    $levels_for->invoke( null, 'sponsor' ), array( 'public', 'wpcpm_sponsor' ) );
+
 // And the audience is a narrowing, never a widening: a student on a mentor-audience render must
 // still not get mentor content, because `can_view()` is underneath.
 $GLOBALS['uid'] = $people['student']['id'];

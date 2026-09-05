@@ -424,6 +424,7 @@ class WPCPM_Admin {
 		);
 		$this->text_row( 'teams_table', __( 'Contribution areas table', 'wpcredits-program-manager' ), $settings['teams_table'] );
 		$this->text_row( 'teams_name_field', __( 'Contribution areas name column', 'wpcredits-program-manager' ), $settings['teams_name_field'] );
+		$this->text_row( 'team_members_table', __( 'Team Members table', 'wpcredits-program-manager' ), $settings['team_members_table'], __( 'The program team: who each sponsor\'s contact is. Not the Contribution areas table above.', 'wpcredits-program-manager' ) );
 
 		echo '</tbody></table>';
 		echo '</div>';
@@ -520,6 +521,8 @@ class WPCPM_Admin {
 		echo '</div>';
 
 		$this->render_institution_settings( $settings );
+
+		$this->render_sponsor_settings( $settings );
 
 		$this->render_checker_settings( $settings );
 
@@ -674,6 +677,57 @@ class WPCPM_Admin {
 			esc_attr( (string) $settings['agreement_doc_url'] ),
 			esc_attr__( 'https://docs.google.com/document/d/...', 'wpcredits-program-manager' ),
 			esc_html__( 'The Google Doc the plugin\'s copy of the Collaboration Agreement was taken from, used by the Check against the Doc button. Held on this site rather than in the code, because the document is editable by anyone holding its link and the plugin\'s source is public. Google addresses only.', 'wpcredits-program-manager' )
+		);
+
+		echo '</tbody></table>';
+		echo '</div>';
+	}
+
+	/**
+	 * The Sponsors module's settings.
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_sponsor_settings( array $settings ) {
+		echo '<div class="wpcpm-card">';
+		echo '<h2>' . esc_html__( 'Sponsors module', 'wpcredits-program-manager' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'Sponsors are the companies that fund mentors and offer their tools to students. Each has its own dashboard, its own people and its offer; a program manager creates each account one at a time from the Sponsors screen.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<table class="form-table" role="presentation"><tbody>';
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="sponsor_home" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Sponsor home', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['sponsor_home'] ), true, false ),
+			esc_html__( 'Send sponsor accounts to the Sponsor Dashboard when they log in', 'wpcredits-program-manager' ),
+			esc_html__( 'Instead of the wp-admin Dashboard. Accounts that can also edit content or manage the program are left where WordPress sends them.', 'wpcredits-program-manager' )
+		);
+
+		$on_inactive = isset( $settings['sponsor_on_inactive'] ) && 'revoke' === $settings['sponsor_on_inactive'] ? 'revoke' : 'keep';
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="radio" name="sponsor_on_inactive" value="keep"%2$s> %3$s</label><br /><label><input type="radio" name="sponsor_on_inactive" value="revoke"%4$s> %5$s</label><p class="description">%6$s</p></td></tr>',
+			esc_html__( 'When a sponsor is no longer Approved', 'wpcredits-program-manager' ),
+			checked( 'keep', $on_inactive, false ),
+			esc_html__( 'Keep its accounts as they are', 'wpcredits-program-manager' ),
+			checked( 'revoke', $on_inactive, false ),
+			esc_html__( 'Detach its accounts on the next sync', 'wpcredits-program-manager' ),
+			esc_html__( 'Airtable\'s Status is the record. Paused and Not Moving Forward sponsors keep their accounts by default, because a pause is often short; choose the other answer to have the nightly sync detach them. Nothing is ever deleted.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row"><label for="sponsor_notify">%1$s</label></th><td><input type="text" class="regular-text" id="sponsor_notify" name="sponsor_notify" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Interest mail, when no manager is assigned', 'wpcredits-program-manager' ),
+			esc_attr( isset( $settings['sponsor_notify'] ) ? (string) $settings['sponsor_notify'] : '' ),
+			esc_attr__( 'one@example.org, two@example.org', 'wpcredits-program-manager' ),
+			esc_html__( 'Addresses, comma-separated. A sponsor\'s interest is mailed to its assigned program manager; a sponsor with none is mailed here, or to every program manager when this is empty.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<tr><th scope="row"><label for="logo_max_kb">%1$s</label></th><td><input type="number" min="100" max="8192" step="1" id="logo_max_kb" name="logo_max_kb" value="%2$d" /> %3$s<p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Largest logo', 'wpcredits-program-manager' ),
+			isset( $settings['logo_max_kb'] ) ? (int) $settings['logo_max_kb'] : 1024,
+			esc_html__( 'KB', 'wpcredits-program-manager' ),
+			esc_html__( 'Applies to the logos the sync copies from Airtable and, later, to the ones sponsors upload. PNG, JPEG and WebP only; never SVG.', 'wpcredits-program-manager' )
 		);
 
 		echo '</tbody></table>';
@@ -903,13 +957,14 @@ class WPCPM_Admin {
 
 		printf(
 			'<p>%s</p>',
-			esc_html__( 'Ninety people is a bad audience for a first look at a template. Send yourself the invitation as a student, a mentor or an institution would receive it - the three say different things.', 'wpcredits-program-manager' )
+			esc_html__( 'Ninety people is a bad audience for a first look at a template. Send yourself the invitation as a student, a mentor, an institution or a sponsor would receive it - the four say different things.', 'wpcredits-program-manager' )
 		);
 
 		foreach ( array(
 			'student'     => __( 'Email me the student invitation', 'wpcredits-program-manager' ),
 			'mentor'      => __( 'Email me the mentor invitation', 'wpcredits-program-manager' ),
 			'institution' => __( 'Email me the institution invitation', 'wpcredits-program-manager' ),
+			'sponsor'     => __( 'Email me the sponsor invitation', 'wpcredits-program-manager' ),
 		) as $kind => $label ) {
 			printf(
 				'<form method="post" action="%1$s" class="wpcpm-inline-form">',

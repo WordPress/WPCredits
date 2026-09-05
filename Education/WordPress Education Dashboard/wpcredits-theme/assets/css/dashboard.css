@@ -1101,6 +1101,103 @@
 	margin-right: 16px;
 }
 
+/*
+ * The Sponsor Dashboard (theme 1.18.0). The same two answers as the institution and
+ * administrator pages, because its groups sit inside a section already inset by 32px: the
+ * clickable row loses its horizontal margin and the open body its, or every row steps 32px
+ * right of the identity block above it (theme 1.16.5 and 1.16.6 were this bug).
+ */
+.wpc-sponsor-page .wpcpm-group__summary,
+.wpc-sponsor-page .wpcpm-group__disclosure[open] .wpcpm-group__body {
+	margin-left: 0;
+	margin-right: 0;
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__identity,
+.wpc-sponsor-page .wpcpm-sponsor__card {
+	padding-left: 32px;
+	padding-right: 32px;
+}
+
+/*
+ * The logo box: 176px wide, the image contained, on a white ground whatever the page's
+ * surface, because half the sponsors drew their logo for a dark background and a
+ * transparent PNG of white letters vanishes on white and reads on nothing else.
+ */
+.wpc-sponsor-page .wpcpm-sponsor__logo {
+	width: 176px;
+	height: 96px;
+	background: #fff;
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__logo-image {
+	object-fit: contain;
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__initials {
+	color: var( --wpc-brand );
+	font: 700 32px/1 var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__name {
+	font: 700 28px/34px var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__fact,
+.wpc-sponsor-page .wpcpm-sponsor__website {
+	font: 400 15px/22px var( --wpc-font );
+}
+
+/* The program-contact block sits in the resources section's right column, like the institution's. */
+.wpc-sponsor-page .wpcpm-resources__contact {
+	border-top: 1px solid var( --wpc-line-soft );
+	padding-top: 16px;
+	margin-top: 16px;
+}
+
+/* The forms: the theme's field treatment, the theme's buttons. */
+.wpc-sponsor-page .wpcpm-sponsor__form input[type="text"],
+.wpc-sponsor-page .wpcpm-sponsor__form input[type="url"],
+.wpc-sponsor-page .wpcpm-sponsor__form input[type="email"],
+.wpc-sponsor-page .wpcpm-sponsor__form select,
+.wpc-sponsor-page .wpcpm-sponsor__form textarea {
+	border: 1px solid var( --wpc-line );
+	border-radius: 8px;
+	font: inherit;
+	padding: 8px 10px;
+	width: 100%;
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__field > label {
+	font: 600 14px/20px var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__subheading {
+	font: 700 16px/22px var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__mentors li,
+.wpc-sponsor-page .wpcpm-sponsor__looking li,
+.wpc-sponsor-page .wpcpm-sponsor__people li,
+.wpc-sponsor-page .wpcpm-sponsor__history li {
+	border-top: 1px solid var( --wpc-line-soft );
+}
+
+.wpc-sponsor-page .wpcpm-dashboard__message--success {
+	border-left-color: var( --wpc-green );
+}
+
+.wpc-sponsor-page .wpcpm-dashboard__message--error {
+	border-left-color: var( --wpc-red );
+}
+
+/* No --wpc-orange token exists in this theme; --wpc-amber is the warm status color that does. */
+.wpc-sponsor-page .wpcpm-dashboard__message--warning {
+	border-left-color: var( --wpc-amber );
+}
+
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every
    group's margin so the mentor page's headings sit where its inset expects them. A group
    that is a pressed row rather than a heading needs to be told apart from the next one. */
@@ -2264,6 +2361,8 @@
 	.wpc-institution-page .wpcpm-institution__identity,
 	.wpc-institution-page .wpcpm-institution__card,
 	.wpc-administrator-page .wpcpm-administrator__card,
+	.wpc-sponsor-page .wpcpm-sponsor__identity,
+	.wpc-sponsor-page .wpcpm-sponsor__card,
 	.wpc-institution-page .wpcpm-roster {
 		padding-left: 20px;
 		padding-right: 20px;

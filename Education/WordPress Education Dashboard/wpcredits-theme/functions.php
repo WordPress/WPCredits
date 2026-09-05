@@ -282,6 +282,10 @@ function wpcredits_body_class( $classes ) {
 		$classes[] = 'wpc-administrator-page';
 	}
 
+	if ( wpcredits_is_sponsor_page() ) {
+		$classes[] = 'wpc-sponsor-page';
+	}
+
 	if ( is_user_logged_in() ) {
 		$classes[] = 'wpc-signed-in';
 	}

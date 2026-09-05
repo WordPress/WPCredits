@@ -277,5 +277,53 @@ ck( 'institutions_table is the fixture\'s', $defaults['institutions_table'], iss
 ck( 'students_table is the fixture\'s', $defaults['students_table'], isset( $students['students_table'] ) ? $students['students_table'] : null );
 ck( 'feedback_table is the fixture\'s', $defaults['feedback_table'], isset( $feedback['feedback_table'] ) ? $feedback['feedback_table'] : null );
 
+/* ---- the sponsors table -------------------------------------------------- */
+
+echo "\n=== Sponsors table ===\n";
+
+$sponsors     = fixture( 'sponsors-table-fields.json' );
+$spon_fields  = isset( $sponsors['fields'] ) ? (array) $sponsors['fields'] : array();
+$spon_choices = isset( $sponsors['choices'] ) ? (array) $sponsors['choices'] : array();
+
+ck( 'the fixture loaded', isset( $sponsors['sponsors_table'] ) && 'tbluji8wknOZr55fa' === $sponsors['sponsors_table'], true );
+ck( 'and names the Team Members table', isset( $sponsors['team_members_table'] ) ? $sponsors['team_members_table'] : '', 'tblUYWUSEcRLJ5BaR' );
+ck( 'the table has 31 fields: the 26 the base held and the five the site creates', count( $spon_fields ), 31 );
+ck( 'listed once each, in byte order', in_byte_order( $spon_fields ), true );
+ck( 'the five site-created columns are listed as such, in byte order',
+	isset( $sponsors['created_by_site'] ) ? $sponsors['created_by_site'] : array(),
+	array( 'Agreement Accepted On', 'Agreement Document', 'Agreement Status', 'Dashboard account', 'Sponsorship interests' ) );
+ck( 'and every one of them is a field', not_offered( isset( $sponsors['created_by_site'] ) ? $sponsors['created_by_site'] : array(), $spon_fields ), array() );
+ck( 'every typed field is a listed field', not_offered( array_keys( isset( $sponsors['types'] ) ? (array) $sponsors['types'] : array() ), $spon_fields ), array() );
+ck( 'Status offers the five statuses the base holds, in Airtable\'s order',
+	isset( $spon_choices['Status'] ) ? $spon_choices['Status'] : array(),
+	array( 'Approved', 'Rejected', 'In review', 'Paused', 'Not Moving Forward' ) );
+ck( 'Type of product offers three', isset( $spon_choices['Type of product'] ) ? $spon_choices['Type of product'] : array(), array( 'Hosting', 'Plugin', 'Service' ) );
+ck( 'the six ways to support, in order', isset( $spon_choices['How would you like to support WP Credits?'] ) ? count( $spon_choices['How would you like to support WP Credits?'] ) : 0, 6 );
+ck( 'Agreement Status offers the six states the site writes, in order',
+	isset( $spon_choices['Agreement Status'] ) ? $spon_choices['Agreement Status'] : array(),
+	array( 'Not started', 'Awaiting review', 'Accepted', 'Returned', 'On file', 'Revoked' ) );
+ck( 'the free-text field ends with a full stop and an ASCII apostrophe', in_array( "Anything else you'd like to share.", $spon_fields, true ), true );
+ck( 'the Team Members table has 8 fields, in byte order', isset( $sponsors['team_members_fields'] ) && 8 === count( $sponsors['team_members_fields'] ) && in_byte_order( $sponsors['team_members_fields'] ), true );
+ck( 'including the three the sync reads', not_offered( array( 'Name', 'Email', 'Calendly link' ), isset( $sponsors['team_members_fields'] ) ? $sponsors['team_members_fields'] : array() ), array() );
+
+/* ---- the mentors table ---------------------------------------------------- */
+
+echo "\n=== Mentors table ===\n";
+
+$mentors      = fixture( 'mentors-table-fields.json' );
+$ment_fields  = isset( $mentors['fields'] ) ? (array) $mentors['fields'] : array();
+$ment_choices = isset( $mentors['choices'] ) ? (array) $mentors['choices'] : array();
+
+ck( 'the fixture loaded', isset( $mentors['mentors_table'] ) && 'tblJmEYgBWYxVuzUw' === $mentors['mentors_table'], true );
+ck( 'the table has 32 fields', count( $ment_fields ), 32 );
+ck( 'listed once each, in byte order', in_byte_order( $ment_fields ), true );
+ck( 'the three sponsorship columns and the expertise column exist',
+	not_offered( array( 'Sponsored', 'Wants to be in the looking for sponsors list', 'Sponsor Company Name', 'Contribution Area - Expertise' ), $ment_fields ), array() );
+ck( 'Sponsored and the wants-a-sponsor flag are Yes or No',
+	array( isset( $ment_choices['Sponsored'] ) ? $ment_choices['Sponsored'] : array(), isset( $ment_choices['Wants to be in the looking for sponsors list'] ) ? $ment_choices['Wants to be in the looking for sponsors list'] : array() ),
+	array( array( 'Yes', 'No' ), array( 'Yes', 'No' ) ) );
+ck( 'Active is a Status the base offers', in_array( 'Active', isset( $ment_choices['Status'] ) ? $ment_choices['Status'] : array(), true ), true );
+ck( 'the U+2019 in the free-text question survives', in_array( "Anything else you\xE2\x80\x99d like us to know?", $ment_fields, true ), true );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

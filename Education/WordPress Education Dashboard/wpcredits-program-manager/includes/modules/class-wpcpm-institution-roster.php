@@ -56,23 +56,17 @@ class WPCPM_Institution_Roster {
 	const LOG_LOCKED = 'claim_locked';
 
 	/**
-	 * Refused claims an acting account is allowed in one day before its write path is locked.
-	 *
-	 * Steps 1 and 2 of `claim()` refuse from cache and cost nothing, which is why they are not
-	 * logged and why they are metered instead (design spec 5.3): a member walking record IDs
-	 * learns nothing from the one refusal, but could go on asking all day. Twenty is far past
-	 * what a member meets by accident - a control is only drawn for a subject the same cheap
-	 * decision allows, so a refusal here is a crafted request or a bookmarked page for a student
-	 * who has since moved school - and far short of a walk. The window is `WPCPM_Ceiling`'s day,
-	 * so the lock lifts when the bucket rolls over, not twenty-four hours after the last refusal.
+	 * Refused cheap claims an acting account may collect in a day. The meter itself is
+	 * `WPCPM_Refusal_Meter` since 1.93.0; this constant stays for the log sentence and the tests.
 	 */
-	const REFUSALS_PER_DAY = 20;
+	const REFUSALS_PER_DAY = WPCPM_Refusal_Meter::PER_DAY;
 
-	/** `WPCPM_Ceiling` key stem for the refusals counted per acting account. */
+	/** The meter's scope: its keys are `claim-refused` and `claim-locked`, as they always were. */
+	const METER_SCOPE = 'claim';
+
+	/** The two ceiling key stems, kept for readers of the log; `WPCPM_Refusal_Meter::key()` builds them. */
 	const CEILING_REFUSED = 'claim-refused';
-
-	/** `WPCPM_Ceiling` key stem for the one lock row a day: a limit of one, so the audit row is written once. */
-	const CEILING_LOCKED = 'claim-locked';
+	const CEILING_LOCKED  = 'claim-locked';
 
 	/** The Students column naming the institution. Plural, capital I, unlike the reports one. */
 	const FIELD_INSTITUTIONS = 'Educational Institutions';
@@ -567,55 +561,32 @@ class WPCPM_Institution_Roster {
 	}
 
 	/**
-	 * Count one refused cheap claim against the acting account, and lock it when the day is full.
-	 *
-	 * The claim that fills the bucket is the one that locks the account (`is_locked()` reads
-	 * a full bucket as locked), and the lock is recorded once a day whatever else happens: the
-	 * limit-of-one claim on the second key is the same test-and-set the dwell token relies on,
-	 * so two requests filling the bucket together write one row between them. Nobody, and a
-	 * manager, are not metered; see `REFUSALS_PER_DAY`.
+	 * Count one refused cheap claim against the acting account, through `WPCPM_Refusal_Meter`.
 	 *
 	 * @param WP_User|null $actor The acting account, already resolved.
 	 */
 	private static function meter_refusal( $actor ) {
-		if ( ! $actor instanceof WP_User || ! $actor->exists() || user_can( $actor, WPCPM_Roles::CAP_MANAGE ) ) {
-			return;
-		}
-
-		WPCPM_Ceiling::claim( self::ceiling_key( self::CEILING_REFUSED, $actor ), self::REFUSALS_PER_DAY, DAY_IN_SECONDS );
-
-		if ( self::is_locked( $actor ) && WPCPM_Ceiling::claim( self::ceiling_key( self::CEILING_LOCKED, $actor ), 1, DAY_IN_SECONDS ) ) {
+		if ( WPCPM_Refusal_Meter::refuse( self::METER_SCOPE, $actor ) ) {
 			self::log_lock( $actor );
 		}
 	}
 
 	/**
-	 * Whether this account's refused claims have filled today's bucket.
+	 * Whether this account's refused claims have filled today's bucket, per `WPCPM_Refusal_Meter`.
 	 *
 	 * @param WP_User|null $actor The acting account, already resolved.
 	 * @return bool
 	 */
 	private static function is_locked( $actor ) {
-		if ( ! $actor instanceof WP_User || ! $actor->exists() || user_can( $actor, WPCPM_Roles::CAP_MANAGE ) ) {
-			return false;
-		}
-
-		return WPCPM_Ceiling::count( self::ceiling_key( self::CEILING_REFUSED, $actor ), DAY_IN_SECONDS ) >= self::REFUSALS_PER_DAY;
+		return WPCPM_Refusal_Meter::is_locked( self::METER_SCOPE, $actor );
 	}
 
 	/**
-	 * The institution members whose write path is locked for the rest of today.
-	 *
-	 * Read from the ceiling buckets themselves rather than from a list kept beside them, so
-	 * the notice and the lock cannot disagree. The accounts asked are the live members: the
-	 * only accounts a lock closes anything for, and a bounded set - one user query and one
-	 * option read each, on the manager screen alone.
+	 * The institution members whose write path is locked for the rest of today, per `WPCPM_Refusal_Meter`.
 	 *
 	 * @return WP_User[]
 	 */
 	public static function locked_today() {
-		$locked = array();
-
 		$holders = get_users(
 			array(
 				'number'     => -1,
@@ -624,24 +595,7 @@ class WPCPM_Institution_Roster {
 			)
 		);
 
-		foreach ( (array) $holders as $holder ) {
-			if ( $holder instanceof WP_User && self::is_locked( $holder ) ) {
-				$locked[] = $holder;
-			}
-		}
-
-		return $locked;
-	}
-
-	/**
-	 * The ceiling key for one stem and one account.
-	 *
-	 * @param string  $stem  `CEILING_REFUSED` or `CEILING_LOCKED`.
-	 * @param WP_User $actor The acting account.
-	 * @return string
-	 */
-	private static function ceiling_key( $stem, WP_User $actor ) {
-		return WPCPM_Ceiling::key( $stem, (string) $actor->ID );
+		return WPCPM_Refusal_Meter::locked_among( self::METER_SCOPE, (array) $holders );
 	}
 
 	/**

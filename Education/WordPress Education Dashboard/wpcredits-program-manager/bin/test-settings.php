@@ -226,6 +226,11 @@ $probe = array(
 	// The semester report approval flow.
 	'report_autodraft_grace_days'   => '30',
 	'report_notify'                 => 'one@example.org,two@example.org',
+	// The Sponsors module.
+	'team_members_table'            => 'tblPROBE0000000015',
+	'sponsor_on_inactive'           => 'revoke',
+	'sponsor_notify'                => 'probe-one@example.org,probe-two@example.org',
+	'logo_max_kb'                   => '2048',
 );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
@@ -611,6 +616,25 @@ ck( 'a save that does not carry the switch leaves it on', $saved['report_autodra
 $saved = WPCPM_Settings::save( array( 'report_autodraft' => '', 'report_autodraft_grace_days' => '900' ) );
 ck( 'the switch carried empty is off', $saved['report_autodraft'], false );
 ck( 'and the grace has a ceiling of a year', $saved['report_autodraft_grace_days'], 365 );
+
+echo "\n=== Sponsors module settings ===\n";
+
+// The fifth audience's settings (design spec of 4 September 2026, section 5).
+ck( 'the Team Members table has its own setting: teams_table is the Contribution areas table', WPCPM_Settings::defaults()['team_members_table'], 'tblUYWUSEcRLJ5BaR' );
+ck( 'sponsors are routed home at login by default, like everybody', WPCPM_Settings::defaults()['sponsor_home'], true );
+ck( 'a sponsor that stops being Approved keeps its accounts unless told otherwise', WPCPM_Settings::defaults()['sponsor_on_inactive'], 'keep' );
+ck( 'interest mail falls back to every manager', WPCPM_Settings::defaults()['sponsor_notify'], '' );
+ck( 'a logo may be a megabyte', WPCPM_Settings::defaults()['logo_max_kb'], 1024 );
+
+$saved = WPCPM_Settings::save( array( 'sponsor_on_inactive' => 'anything', 'logo_max_kb' => '999999', 'sponsor_notify' => ' maciej@a8c.com ', 'team_members_table' => 'tblX' ) );
+ck( 'an unknown on-inactive answer reads as keep', $saved['sponsor_on_inactive'], 'keep' );
+ck( 'and revoke is the one other answer', WPCPM_Settings::save( array( 'sponsor_on_inactive' => 'revoke' ) )['sponsor_on_inactive'], 'revoke' );
+ck( 'the logo ceiling is clamped', $saved['logo_max_kb'], 8192 );
+ck( 'the notify list is trimmed', $saved['sponsor_notify'], 'maciej@a8c.com' );
+ck( 'and cleaned like its siblings: split, lowered, the non-addresses dropped, duplicates gone',
+	WPCPM_Settings::save( array( 'sponsor_notify' => 'Maciej@a8c.com, not-an-address maciej@a8c.com' ) )['sponsor_notify'],
+	'maciej@a8c.com' );
+ck( 'the table ID is saved as text', $saved['team_members_table'], 'tblX' );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

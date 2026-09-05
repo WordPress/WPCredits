@@ -1,0 +1,149 @@
+{
+	"_comment": "Field names, types and select choices of the Airtable 'Sponsors' table (tbluji8wknOZr55fa) and the 'Team Members' table (tblUYWUSEcRLJ5BaR), read from the base's metadata API on 2026-09-05 for the Sponsors module (design spec of 2026-09-04, sections 2 and 12). Five columns (Agreement Status, Agreement Accepted On, Agreement Document, Sponsorship interests, Dashboard account) are the ones the site creates for Phase S1 and S4, listed here first so the fixture pins their spelling before they exist; the base held 26 fields before them. Two strings are load-bearing: 'Anything else you'd like to share.' ends with a full stop and uses an ASCII apostrophe (unlike the Institutions table's U+2019), and 'Coupon code/discount link' has no spaces around the slash. The three Mentors columns the sponsored-mentors card reads are pinned under mentors_sponsor_choices. update_records() does not send typecast, so a choice spelled any other way is a 422 for the whole PATCH. Refresh with a metadata read when either table changes.",
+	"sponsors_table": "tbluji8wknOZr55fa",
+	"team_members_table": "tblUYWUSEcRLJ5BaR",
+	"read": "2026-09-05",
+	"fields": [
+		"Agreement Accepted On",
+		"Agreement Document",
+		"Agreement Status",
+		"Anything else you'd like to share.",
+		"Brief instructions",
+		"Calendly link (from Team Members)",
+		"Company Name",
+		"Contact Email",
+		"Contact Person Full Name",
+		"Coupon code/discount link",
+		"Dashboard account",
+		"External Mentors",
+		"HelpScout",
+		"How would you like to support WP Credits?",
+		"Lessons",
+		"Logo",
+		"Mentors",
+		"More info link",
+		"Notes",
+		"Number of mentors",
+		"Offer",
+		"Person of contact",
+		"Privacy Policy Compliance",
+		"Sponsorship interests",
+		"Sponsorship options",
+		"Status",
+		"Students Reports",
+		"Students Reports copy",
+		"Type of mentors",
+		"Type of product",
+		"Website"
+	],
+	"types": {
+		"Company Name": "singleLineText",
+		"Website": "url",
+		"Contact Person Full Name": "singleLineText",
+		"Contact Email": "email",
+		"Mentors": "multipleRecordLinks",
+		"Notes": "multilineText",
+		"HelpScout": "url",
+		"Status": "singleSelect",
+		"Sponsorship options": "singleSelect",
+		"Type of mentors": "singleSelect",
+		"External Mentors": "singleSelect",
+		"Number of mentors": "number",
+		"Type of product": "singleSelect",
+		"Offer": "singleLineText",
+		"Brief instructions": "multilineText",
+		"More info link": "url",
+		"Coupon code/discount link": "url",
+		"Anything else you'd like to share.": "multilineText",
+		"Person of contact": "multipleRecordLinks",
+		"Calendly link (from Team Members)": "multipleLookupValues",
+		"How would you like to support WP Credits?": "multipleSelects",
+		"Logo": "multipleAttachments",
+		"Privacy Policy Compliance": "checkbox",
+		"Lessons": "multipleRecordLinks",
+		"Students Reports": "multipleRecordLinks",
+		"Students Reports copy": "singleLineText",
+		"Agreement Status": "singleSelect",
+		"Agreement Accepted On": "date",
+		"Agreement Document": "url",
+		"Sponsorship interests": "multilineText",
+		"Dashboard account": "checkbox"
+	},
+	"choices": {
+		"Status": [
+			"Approved",
+			"Rejected",
+			"In review",
+			"Paused",
+			"Not Moving Forward"
+		],
+		"Sponsorship options": [
+			"Sponsor one or multiple mentors",
+			"Sponsor mentors + tools/services",
+			"Other (please specify)"
+		],
+		"Type of mentors": [
+			"Internal (from inside your company)",
+			"External (interested WordPress contributors)"
+		],
+		"External Mentors": [
+			"Yes, we have already decided our candidate/s",
+			"No, we are opened to suggestions"
+		],
+		"Type of product": [
+			"Hosting",
+			"Plugin",
+			"Service"
+		],
+		"How would you like to support WP Credits?": [
+			"Provide financial support (for program costs)",
+			"Sponsor a member of the WP Credits admin team",
+			"Sponsor a mentor or multiple mentors",
+			"Sponsor a scholarship for students to attend flagship events",
+			"Sponsor tools or services",
+			"Other (please specify)"
+		],
+		"Agreement Status": [
+			"Not started",
+			"Awaiting review",
+			"Accepted",
+			"Returned",
+			"On file",
+			"Revoked"
+		]
+	},
+	"created_by_site": [
+		"Agreement Accepted On",
+		"Agreement Document",
+		"Agreement Status",
+		"Dashboard account",
+		"Sponsorship interests"
+	],
+	"team_members_fields": [
+		"Calendly link",
+		"Countries",
+		"Email",
+		"Institutions",
+		"Name",
+		"Schedule for admins",
+		"Schedule for admins copy",
+		"Sponsors"
+	],
+	"mentors_sponsor_choices": {
+		"Sponsored": [
+			"Yes",
+			"No"
+		],
+		"Wants to be in the looking for sponsors list": [
+			"Yes",
+			"No"
+		]
+	},
+	"facts": {
+		"record_count": 30,
+		"approved": 14,
+		"with_logo": 16,
+		"svg_logos": 2,
+		"team_member_manager_field": "Person of contact"
+	}
+}

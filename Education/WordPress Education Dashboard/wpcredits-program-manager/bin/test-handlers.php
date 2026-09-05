@@ -467,5 +467,27 @@ run( 'handle_probe (no capability)', array( $institutions, 'handle_probe' ) );
 
 $GLOBALS['caps'] = true;
 
+echo "\n=== WPCPM_Sponsors ===\n";
+
+$sponsors = new WPCPM_Sponsors();
+
+$GLOBALS['uid']  = 1;
+$GLOBALS['caps'] = true;
+$_POST           = array( 'wpcpm_sponsor' => 'recSPONSOR0000001' );
+
+run( 'handle_provision (manager, sponsor not yet indexed)', array( $sponsors, 'handle_provision' ) );
+
+$_POST = array( 'wpcpm_sponsor' => 'recSPONSOR0000001', 'wpcpm_op' => 'eat' );
+
+run( 'handle_members (manager, an op that is not one)', array( $sponsors, 'handle_members' ) );
+
+// Capability before nonce: somebody without it meets wp_die(), not a nonce screen.
+$GLOBALS['caps'] = false;
+
+run( 'handle_provision (no capability)', array( $sponsors, 'handle_provision' ) );
+run( 'handle_members (no capability)', array( $sponsors, 'handle_members' ) );
+
+$GLOBALS['caps'] = true;
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL HANDLERS REACHED A NORMAL OUTCOME\n" );
 exit( $fail ? 1 : 0 );

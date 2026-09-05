@@ -132,6 +132,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Mentors_Sync::OPT_LOCK );
 		delete_option( WPCPM_Mentors_Sync::OPT_FIELDS );
 		delete_option( WPCPM_Mentors_Sync::OPT_LOOKUPS );
+		delete_option( WPCPM_Mentors_Sync::OPT_SPONSORSHIP );
 		delete_option( WPCPM_Mentors_Dashboard::OPT_PAGE );
 		delete_option( WPCPM_Mentors_Dashboard::OPT_TITLE_FIXED );
 

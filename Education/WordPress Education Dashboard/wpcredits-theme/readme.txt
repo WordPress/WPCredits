@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.17.0
+Stable tag: 1.18.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.18.0 =
+* The Sponsor Dashboard, the page plugin 1.93.0 gives sponsors, has its template, its page predicate, its body class and its skin: the identity block with the logo on a white ground, the program-contact block, the profile and interests forms, the mentor lists and the message tones. As with the other dashboards, the predicate and the body class were added together.
 
 = 1.17.0 =
 * The Administrator Dashboard, the page plugin 1.92.0 gives program managers, has its template, its page predicate, its body class and its skin: the attention strip, the programs tiles, the tables, and the theme's secondary button on the decisions the wp-admin queue draws with core's button classes. As with the Institution Dashboard, the predicate and the body class were added together, because a page in one and not the other renders as an article with no skin.

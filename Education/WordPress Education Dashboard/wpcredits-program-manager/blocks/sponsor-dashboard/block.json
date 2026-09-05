@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/sponsor-dashboard",
+	"version": "1.93.0",
+	"title": "Sponsor Dashboard",
+	"category": "widgets",
+	"icon": "star-filled",
+	"description": "The Sponsor Dashboard: a sponsor's profile, its mentors, its interests and its people. Gated to sponsor accounts.",
+	"keywords": [ "sponsor", "wpcredits", "program" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

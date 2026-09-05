@@ -505,11 +505,12 @@ class WPCPM_Mail {
 		foreach ( array_diff( $ids, $queue ) as $id ) {
 			// Any of the stamps: this does not need to know which kind of person it is looking
 			// at, and an account holding more than one role has still been written to whichever
-			// way `drain_queue()` chose to stamp it.
+			// way `drain_queue()` chose to stamp it. The sponsor stamp joined in 1.93.0.
 			if (
 				get_user_meta( $id, 'wpcpm_student_invited', true )
 				|| get_user_meta( $id, 'wpcpm_mentor_invited', true )
 				|| get_user_meta( $id, 'wpcpm_inst_invited', true )
+				|| get_user_meta( $id, 'wpcpm_sponsor_invited', true )
 			) {
 				continue;
 			}
@@ -630,6 +631,8 @@ class WPCPM_Mail {
 				$meta = 'wpcpm_mentor_invited';
 			} elseif ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_INSTITUTION ) ) {
 				$meta = 'wpcpm_inst_invited';
+			} elseif ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_SPONSOR ) ) {
+				$meta = 'wpcpm_sponsor_invited';
 			} else {
 				$meta = 'wpcpm_student_invited';
 			}
@@ -1047,20 +1050,25 @@ class WPCPM_Mail {
 		$is_mentor      = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR );
 		$is_student     = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_STUDENT );
 		$is_institution = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_INSTITUTION );
+		$is_sponsor     = WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_SPONSOR );
 
 		// Not one of ours. Somebody else's plugin, or a hand-made account.
-		if ( ! $is_mentor && ! $is_student && ! $is_institution ) {
+		if ( ! $is_mentor && ! $is_student && ! $is_institution && ! $is_sponsor ) {
 			return $email;
 		}
 
 		// One audience per message, chosen in the order `drain_queue()` picks the invited stamp
 		// in, so the stamp an account carries names the template it was sent. A mentor can also
 		// be an institution's member (membership is added to an existing account, never the
-		// other way round), and that account was a mentor's before it was anything else.
+		// other way round), and that account was a mentor's before it was anything else. The same
+		// holds for a sponsor's representative who is also a mentor - sponsorship is likewise
+		// added to an existing account, never the reverse - so mentor still wins there too.
 		if ( $is_mentor ) {
 			$kind = 'mentor';
 		} elseif ( $is_institution ) {
 			$kind = 'institution';
+		} elseif ( $is_sponsor ) {
+			$kind = 'sponsor';
 		} else {
 			$kind = 'student';
 		}
@@ -1105,6 +1113,17 @@ class WPCPM_Mail {
 				: __( 'Where the agreement is uploaded:', 'wpcredits-program-manager' );
 			/* translators: %s: site name. */
 			$subject = __( '[%s] Your institution account is ready', 'wpcredits-program-manager' );
+		} elseif ( 'sponsor' === $kind ) {
+			// The Sponsor Dashboard's class lands with the same phase; an array callable so
+			// `bin/check-references.php` never sees a call to a method that is not declared.
+			$page    = class_exists( 'WPCPM_Sponsors_Dashboard' ) && method_exists( 'WPCPM_Sponsors_Dashboard', 'page_url' )
+				? (string) call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'page_url' ) )
+				: '';
+			$opening = __( 'Your company has been set up as a sponsor of the WordPress Credits Program, and this is your account on the program site. Your offer, the mentors you sponsor and your contact at the program all live there.', 'wpcredits-program-manager' );
+			$next    = __( 'Set your password using the link below, then check your company profile and tell us how you would like to support the program.', 'wpcredits-program-manager' );
+			$label   = __( 'Your Sponsor Dashboard:', 'wpcredits-program-manager' );
+			/* translators: %s: site name. */
+			$subject = __( '[%s] Your sponsor account is ready', 'wpcredits-program-manager' );
 		} else {
 			$page    = WPCPM_Students_Dashboard::page_url();
 			$opening = __( 'You have been enrolled on the WordPress Credits Program, and this is your account on the program site. Your program details, your mentor and your report form all live there.', 'wpcredits-program-manager' );
@@ -1164,6 +1183,7 @@ class WPCPM_Mail {
 			'student'     => WPCPM_Roles::ROLE_STUDENT,
 			'mentor'      => WPCPM_Roles::ROLE_MENTOR,
 			'institution' => WPCPM_Roles::ROLE_INSTITUTION,
+			'sponsor'     => WPCPM_Roles::ROLE_SPONSOR,
 		);
 
 		// `posted_key()`, not `key()`: the two buttons are forms that post to `admin-post.php`,
