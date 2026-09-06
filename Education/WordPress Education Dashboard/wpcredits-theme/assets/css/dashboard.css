@@ -519,6 +519,53 @@
 	border-top: 0;
 }
 
+/* Movable modules (plugin 1.95.11 to 1.95.13). The plugin wraps each block under the
+   reference columns - the updates with the resources, the course, the forms, the mentor call,
+   the sponsors' tools - in a `.wpcpm-module` and spaces them for its own bordered look. Here
+   every section draws its own hairline, so the wrapper is flat. The mover, the two arrows a
+   student or a manager moves the block with, sits inside the content edge on the heading's
+   line - a row of two 24px arrows ending where the text ends (the section's 32px inset, 20px
+   under 900px), so the page's right margin stays one line (owner, 1.22.14) - and the first
+   heading leaves it 60px of room: headings are short, left-aligned capitals, so nothing is
+   lost. Borders and rings take the theme's control tokens, as every control on the
+   dashboards does. */
+.wpc-dashboard-page .wpcpm-module {
+	margin: 0;
+}
+
+.wpc-student-page .wpcpm-module__mover {
+	flex-direction: row;
+	right: 32px;
+	top: 18px;
+}
+
+.wpc-student-page .wpcpm-module > .wpcpm-student__section:first-of-type .wpcpm-student__heading:first-of-type {
+	padding-right: 60px;
+}
+
+.wpc-student-page .wpcpm-module__move {
+	border-color: var( --wpc-control-border );
+	color: var( --wpc-ink-70 );
+}
+
+.wpc-student-page .wpcpm-module__move:hover {
+	border-color: var( --wpc-ink );
+	color: var( --wpc-ink );
+}
+
+.wpc-student-page .wpcpm-module__move:focus-visible {
+	outline: 2px solid var( --wpc-brand );
+	outline-offset: 2px;
+}
+
+/* The inset narrows to 20px with the sections under 900px, and the arrows follow it. */
+@media ( max-width: 900px ) {
+
+	.wpc-student-page .wpcpm-module__mover {
+		right: 20px;
+	}
+}
+
 /* "Your program" and "Your mentor" sit side by side.
 
    The grid is declared on the root because the plugin renders the two sections as
@@ -889,8 +936,11 @@
 		border-left: 0;
 	}
 
-	/* Stacked again, so the divider is the top rule and the upper section drops it. */
-	.wpc-student-page .wpcpm-student__section:first-of-type {
+	/* Stacked again, so the divider is the top rule and the upper section drops it. Scoped to
+	   the grid since 1.22.11: the plugin wraps each block under the columns in a `.wpcpm-module`,
+	   which made every block's first section a `:first-of-type` and took the hairline between
+	   the blocks away on a phone. */
+	.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section:first-of-type {
 		border-top: 0;
 	}
 }

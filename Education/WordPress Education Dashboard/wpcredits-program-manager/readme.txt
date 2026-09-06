@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.95.10
+Stable tag: 1.95.13
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.95.13 =
+* Student Report Card: the in-place move now saves. The script posted to the form's action property, which the hidden action field shadows, so the order was never kept; it reads the attribute.
+
+= 1.95.12 =
+* Student Report Card: the modules move in place, without a page load, and the order is the student's own - remembered for that student only, arranged by the student on their own card or by a program manager viewing it. Program updates and announcements with the resources come first until they are moved. Tools from our sponsors is a module of its own. The arrows fall back to a plain form without JavaScript.
+
+= 1.95.11 =
+* Student Report Card: the four blocks under the profile and mentor columns - My course, the report and feedback forms, My mentor call, and the program updates with the resources - are movable modules. A program manager moves one up or down with the two arrows at its top right, the way the block editor moves blocks, and every student sees the new order. Tools from our sponsors travel with the updates and resources. With theme 1.22.11.
 
 = 1.95.10 =
 * Sponsor Dashboard: each group says under its heading what its cards do; the descriptive first paragraph inside the Your profile, Offers and codes, Usage, Mentors looking for a sponsor and Posts cards is gone, and only the notes that belong to a state remain. With theme 1.22.10.

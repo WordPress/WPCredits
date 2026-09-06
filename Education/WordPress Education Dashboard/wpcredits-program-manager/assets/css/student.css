@@ -566,3 +566,64 @@
 .wpcpm-report--readonly .wpcpm-rating__step {
 	cursor: default;
 }
+
+/* Movable modules (1.95.11). Under the two reference columns the page is four blocks - the
+   course, the forms, the mentor call, the updates with the resources - and a program manager
+   arranges them the way the block editor moves blocks: two arrows at the block's top right,
+   the outer one disabled at the edge. The wrapper spaces the blocks the way the sections
+   space themselves and shows nothing of its own; the sections inside keep their look. The
+   arrows are a control, so their rules live here rather than in a theme. */
+.wpcpm-module {
+	margin-bottom: 1.25em;
+	position: relative;
+}
+
+.wpcpm-module:last-of-type {
+	margin-bottom: 0;
+}
+
+.wpcpm-module__mover {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+	position: absolute;
+	right: 1.25em;
+	top: 1.25em;
+	z-index: 2;
+}
+
+.wpcpm-module__move {
+	align-items: center;
+	background: transparent;
+	border: 1px solid var( --wpcpm-control-border );
+	border-radius: 2px;
+	color: inherit;
+	cursor: pointer;
+	display: flex;
+	height: 24px;
+	justify-content: center;
+	line-height: 0;
+	margin: 0;
+	padding: 0;
+	width: 24px;
+}
+
+.wpcpm-module__move:hover {
+	border-color: currentColor;
+}
+
+.wpcpm-module__move:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+
+.wpcpm-module__move[disabled] {
+	cursor: default;
+	opacity: 0.4;
+}
+
+.wpcpm-module__move svg {
+	height: 16px;
+	width: 16px;
+}

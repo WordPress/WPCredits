@@ -204,6 +204,16 @@ by the same access levels - so a post set to Mentor level appears on the mentor'
 else's. Set the access level on the post and it lands in the right place; there is nothing else to
 configure.
 
+### Arranging the Student Report Card
+
+Under a student's profile and mentor columns the Student Report Card is a stack of modules: the
+**program updates with the resources**, **My course**, the **report form with the feedback forms**,
+**My mentor call**, and **Tools from our sponsors** when the Sponsors module is on. Each carries two
+small arrows at its top right, and pressing one moves the module up or down at once, the way the
+block editor moves blocks. The order belongs to the student: they arrange their own card, and it
+stays as they left it. When you open a student's card through the switcher you see their order and
+can arrange it for them with the same arrows. Nobody else sees the arrows.
+
 ## Running it day to day
 
 ### The sync
@@ -612,6 +622,14 @@ is not behind on anything. Please do not chase them.
 ![Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.](images/student-report-card-profile.png)
 
 *Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.*
+
+### Arranging your Report Card
+
+Below your profile and your mentor, the page is a stack of blocks: the program updates with the
+resources, your course, your report form with the feedback forms, your mentor call, and the tools
+our sponsors offer. Each block has two small arrows at its top right. Press one and the block moves
+up or down at once, and the page remembers your order the next time you open it. The program updates
+come first until you move them.
 
 ### My profile
 

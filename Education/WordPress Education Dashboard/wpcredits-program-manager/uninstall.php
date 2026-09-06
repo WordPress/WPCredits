@@ -158,6 +158,11 @@ delete_metadata( 'user', 0, WPCPM_Flash::META, '', true );
 // otherwise survive a post that had already been removed by hand.
 WPCPM_Notices::delete_all();
 delete_option( WPCPM_Notices::OPT_MIGRATED );
+
+// The Student Report Card's module order: the site-wide option 1.95.11 wrote, and every
+// student's own order since 1.95.12.
+delete_option( 'wpcpm_student_modules' );
+delete_metadata( 'user', 0, 'wpcpm_student_modules', '', true );
 delete_option( WPCPM_Notices::OPT_PLAIN );
 delete_metadata( 'post', 0, WPCPM_Notices::META_AUDIENCE, '', true );
 

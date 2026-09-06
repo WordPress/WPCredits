@@ -39,6 +39,32 @@ class WPCPM_Students_Dashboard {
 	 */
 	const OPT_TITLE_FIXED = 'wpcpm_student_page_title_fixed';
 
+	/**
+	 * The student's own order of the movable modules under the reference columns (1.95.11, per
+	 * student since 1.95.12): user meta on the student, a list of module keys, which
+	 * `module_order()` repairs.
+	 */
+	const META_MODULES = 'wpcpm_student_modules';
+
+	/** The script that moves a module in place and saves the order in the background. */
+	const SCRIPT_MODULES = 'wpcpm-student-modules';
+
+	/** Somebody moving a module one place up or down. */
+	const ACTION_MOVE = 'wpcpm_student_module_move';
+
+	/** The posted fields the mover sends. */
+	const FIELD_MODULE    = 'wpcpm_module';
+	const FIELD_DIRECTION = 'wpcpm_direction';
+	const FIELD_STUDENT   = 'wpcpm_student';
+	const FIELD_ASYNC     = 'wpcpm_async';
+
+	/** The modules. The constants are the keys the order is saved by, so they never change. */
+	const MODULE_UPDATES = 'updates';
+	const MODULE_COURSE  = 'course';
+	const MODULE_FORMS   = 'forms';
+	const MODULE_CALLS   = 'calls';
+	const MODULE_TOOLS   = 'tools';
+
 	/** The current title revision. Bump this whenever the page's title changes. */
 	const TITLE_VERSION = 3;
 
@@ -62,6 +88,7 @@ class WPCPM_Students_Dashboard {
 		add_action( 'init', array( __CLASS__, 'maybe_rename_page' ), 20 );
 		add_filter( 'login_redirect', array( __CLASS__, 'login_redirect' ), 10, 3 );
 		add_action( 'admin_init', array( __CLASS__, 'replace_admin_dashboard' ) );
+		add_action( 'admin_post_' . self::ACTION_MOVE, array( __CLASS__, 'handle_move' ) );
 	}
 
 	/**
@@ -120,6 +147,16 @@ class WPCPM_Students_Dashboard {
 			wp_register_script(
 				self::SCRIPT,
 				WPCPM_PLUGIN_URL . 'assets/js/feedback.js',
+				array(),
+				WPCPM_VERSION,
+				true
+			);
+		}
+
+		if ( ! wp_script_is( self::SCRIPT_MODULES, 'registered' ) ) {
+			wp_register_script(
+				self::SCRIPT_MODULES,
+				WPCPM_PLUGIN_URL . 'assets/js/modules.js',
 				array(),
 				WPCPM_VERSION,
 				true
@@ -228,40 +265,21 @@ class WPCPM_Students_Dashboard {
 
 		echo '</div>';
 
-		// The page's actions, directly under the reference columns. Not part of either
-		// column, and above the calendar rather than below it: the course and the report
-		// form are what a student opens this page to reach, and they were sitting at the
-		// foot of a section tall enough - a month grid and a day's worth of slots - to
-		// push them off the screen.
-		if ( ! empty( $program ) ) {
-			self::render_links( $program, $student );
-			self::render_report_form( $program, $student );
+		// Under the reference columns the page is modules - the updates with the resources
+		// first until somebody moves them, then the course, the forms, the mentor call and the
+		// sponsors' tools - in the order this student keeps. The student arranges their own
+		// page, and a program manager arranges it for them, the way the block editor moves
+		// blocks; the arrangement is the student's and nobody else's.
+		$order    = self::module_order( $student->ID );
+		$can_move = $can_manage || $viewer->ID === $student->ID;
+
+		if ( $can_move ) {
+			wp_enqueue_script( self::SCRIPT_MODULES );
 		}
 
-		// Tools from our sponsors (spec 6.5): on the student's own card only. On a manager's view
-		// of somebody else's card one muted line says how many they claimed, because support needs
-		// the count and nobody needs the codes. Guarded so this page renders without the module.
-		if ( class_exists( 'WPCPM_Sponsor_Tools' ) ) {
-			if ( $viewer->ID === $student->ID ) {
-				WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_STUDENTS, $viewer );
-			} elseif ( $can_manage ) {
-				WPCPM_Sponsor_Tools::render_count_line( $student );
-			}
+		foreach ( $order as $key ) {
+			self::render_module( $key, $order, $program, $student, $viewer, $can_manage, $can_move );
 		}
-
-		// Outside the grid, spanning the card. It holds a month calendar, which wants more
-		// width than half a card gives it - and it splits into its own two columns, booked
-		// calls beside the picker.
-		WPCPM_Call_Calendar::render_student( $student, $can_manage );
-
-		// Always rendered: the section holds the Student guide, which is a handbook link and
-		// has nothing to do with whether an AI provider is configured. Whether the "Need help?"
-		// button appears beside it is decided inside, from the audience setting - asked of the
-		// audience rather than of the viewer, so a manager inspecting a student does not see it
-		// on the student's own page while the student never would.
-		// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently
-		// remove the Slack mark. This is the plugin's own markup, escaped as it is built.
-		echo WPCPM_Handbook_Assistant::render_resources( 'student' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render_resources(), which escapes every value it interpolates.
 
 		if ( $updated ) {
 			printf(
@@ -337,6 +355,286 @@ class WPCPM_Students_Dashboard {
 		);
 
 		return is_array( $users ) ? $users : array();
+	}
+
+	/**
+	 * The modules under the reference columns, in their default order, each with the name the
+	 * mover's labels use.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function modules() {
+		return array(
+			self::MODULE_UPDATES => __( 'Program updates and resources', 'wpcredits-program-manager' ),
+			self::MODULE_COURSE  => __( 'My course', 'wpcredits-program-manager' ),
+			self::MODULE_FORMS   => __( 'Report form and feedback forms', 'wpcredits-program-manager' ),
+			self::MODULE_CALLS   => __( 'My mentor call', 'wpcredits-program-manager' ),
+			self::MODULE_TOOLS   => __( 'Tools from our sponsors', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * One student's order, repaired: unknown keys are dropped, a module the saved order does
+	 * not know joins at the end in the default order, and nothing appears twice. A student who
+	 * has never moved anything gets the default: the updates first.
+	 *
+	 * @param int $student_id The student whose page it is.
+	 * @return string[]
+	 */
+	public static function module_order( $student_id ) {
+		$known = array_keys( self::modules() );
+		$saved = $student_id ? get_user_meta( (int) $student_id, self::META_MODULES, true ) : array();
+		$order = array();
+
+		foreach ( is_array( $saved ) ? $saved : array() as $key ) {
+			if ( is_string( $key ) && in_array( $key, $known, true ) && ! in_array( $key, $order, true ) ) {
+				$order[] = $key;
+			}
+		}
+
+		foreach ( $known as $key ) {
+			if ( ! in_array( $key, $order, true ) ) {
+				$order[] = $key;
+			}
+		}
+
+		return $order;
+	}
+
+	/**
+	 * One module moved one place. At the edge, or for a key the order does not hold, the order
+	 * comes back unchanged.
+	 *
+	 * @param string[] $order     The order to move within.
+	 * @param string   $key       Module key.
+	 * @param string   $direction `up` or `down`.
+	 * @return string[]
+	 */
+	public static function moved( array $order, $key, $direction ) {
+		$order = array_values( $order );
+		$from  = array_search( $key, $order, true );
+
+		if ( false === $from ) {
+			return $order;
+		}
+
+		$to = 'up' === $direction ? $from - 1 : $from + 1;
+
+		if ( $to < 0 || $to >= count( $order ) ) {
+			return $order;
+		}
+
+		$order[ $from ] = $order[ $to ];
+		$order[ $to ]   = $key;
+
+		return $order;
+	}
+
+	/**
+	 * Somebody pressed one of the arrows: save the student's new order. The script that moved
+	 * the module in place asks for the order back as JSON; without it, the form comes back to
+	 * the module that moved, on the same student's page.
+	 *
+	 * Whose order: a program manager arranges the student named by the form; anybody else
+	 * arranges their own page and nobody's else, whatever the form says.
+	 */
+	public static function handle_move() {
+		check_admin_referer( self::ACTION_MOVE );
+
+		$viewer     = wp_get_current_user();
+		$can_manage = current_user_can( WPCPM_Roles::CAP_MANAGE );
+		$asked      = WPCPM_Request::posted_id( self::FIELD_STUDENT );
+		$student    = null;
+
+		if ( $can_manage && $asked ) {
+			$candidate = get_user_by( 'id', $asked );
+			$student   = $candidate instanceof WP_User && self::is_student( $candidate ) ? $candidate : null;
+		}
+
+		if ( ! $student instanceof WP_User && self::is_student( $viewer ) ) {
+			$student = $viewer;
+		}
+
+		if ( ! $student instanceof WP_User ) {
+			wp_die( esc_html__( 'Only a student, or a program manager on their behalf, can arrange a Student Report Card.', 'wpcredits-program-manager' ), '', array( 'response' => 403 ) );
+		}
+
+		$key       = WPCPM_Request::posted_key( self::FIELD_MODULE );
+		$direction = WPCPM_Request::posted_key( self::FIELD_DIRECTION );
+		$known     = array_key_exists( $key, self::modules() );
+
+		if ( $known && in_array( $direction, array( 'up', 'down' ), true ) ) {
+			update_user_meta( $student->ID, self::META_MODULES, self::moved( self::module_order( $student->ID ), $key, $direction ) );
+		}
+
+		if ( '1' === WPCPM_Request::posted_key( self::FIELD_ASYNC ) ) {
+			wp_send_json_success( array( 'order' => self::module_order( $student->ID ) ) );
+		}
+
+		$url = self::page_url();
+		$url = '' !== $url ? $url : home_url( '/' );
+
+		if ( $can_manage && $student->ID !== $viewer->ID ) {
+			$url = add_query_arg( 'wpcpm_student_view', $student->ID, $url );
+		}
+
+		if ( $known ) {
+			$url .= '#wpcpm-module-' . $key;
+		}
+
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * One module: its wrapper, the mover when the reader may arrange the page, and the
+	 * sections inside. A module with nothing to print - a student whose program has not synced
+	 * yet has no course to open - is left out altogether, so nothing empty is offered to move.
+	 *
+	 * @param string   $key        Module key.
+	 * @param string[] $order      Every module, in this student's order.
+	 * @param array    $program    The student's cached program row.
+	 * @param WP_User  $student    The student whose page this is.
+	 * @param WP_User  $viewer     Who is reading it.
+	 * @param bool     $can_manage Whether the reader is a program manager.
+	 * @param bool     $can_move   Whether the reader may arrange this page.
+	 */
+	private static function render_module( $key, array $order, array $program, WP_User $student, WP_User $viewer, $can_manage, $can_move ) {
+		ob_start();
+		self::render_module_body( $key, $program, $student, $viewer, $can_manage );
+		$body = trim( (string) ob_get_clean() );
+
+		if ( '' === $body ) {
+			return;
+		}
+
+		printf( '<div class="wpcpm-module wpcpm-module--%1$s" id="wpcpm-module-%1$s">', esc_attr( $key ) );
+
+		if ( $can_move ) {
+			self::render_mover( $key, (int) array_search( $key, $order, true ), count( $order ), $student );
+		}
+
+		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the section renderers, each of which escapes what it prints.
+		echo '</div>';
+	}
+
+	/**
+	 * What each module holds.
+	 *
+	 * @param string  $key        Module key.
+	 * @param array   $program    The student's cached program row.
+	 * @param WP_User $student    The student.
+	 * @param WP_User $viewer     The reader.
+	 * @param bool    $can_manage Whether the reader is a program manager.
+	 */
+	private static function render_module_body( $key, array $program, WP_User $student, WP_User $viewer, $can_manage ) {
+		switch ( $key ) {
+			case self::MODULE_COURSE:
+				// The course and the hours: what a student opens this page to reach.
+				if ( ! empty( $program ) ) {
+					self::render_links( $program, $student );
+				}
+				break;
+
+			case self::MODULE_FORMS:
+				// The report form, with the feedback forms under it in the same section.
+				if ( ! empty( $program ) ) {
+					self::render_report_form( $program, $student );
+				}
+				break;
+
+			case self::MODULE_CALLS:
+				// Spanning the card: a month calendar wants more width than half a card gives it,
+				// and it splits into its own two columns, booked calls beside the picker.
+				WPCPM_Call_Calendar::render_student( $student, $can_manage );
+				break;
+
+			case self::MODULE_UPDATES:
+				// Always rendered: the section holds the Student guide, which is a handbook link and
+				// has nothing to do with whether an AI provider is configured. Whether the "Need help?"
+				// button appears beside it is decided inside, from the audience setting - asked of the
+				// audience rather than of the viewer, so a manager inspecting a student does not see it
+				// on the student's own page while the student never would.
+				// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently
+				// remove the Slack mark. This is the plugin's own markup, escaped as it is built.
+				echo WPCPM_Handbook_Assistant::render_resources( 'student' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render_resources(), which escapes every value it interpolates.
+				break;
+
+			case self::MODULE_TOOLS:
+				// Tools from our sponsors (spec 6.5): on the student's own card only. On a manager's
+				// view of somebody else's card one muted line says how many they claimed, because
+				// support needs the count and nobody needs the codes. Guarded so this page renders
+				// without the module - and then the module is not printed at all.
+				if ( class_exists( 'WPCPM_Sponsor_Tools' ) ) {
+					if ( $viewer->ID === $student->ID ) {
+						WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_STUDENTS, $viewer );
+					} elseif ( $can_manage ) {
+						WPCPM_Sponsor_Tools::render_count_line( $student );
+					}
+				}
+				break;
+		}
+	}
+
+	/**
+	 * The two arrows at a module's top right: one form, two submit buttons, the outer one
+	 * disabled at the edge, as the block editor's mover does it. The student whose page it is
+	 * travels with the form, so a manager's move lands on the right student and a student's
+	 * move is checked against themselves.
+	 *
+	 * @param string  $key     Module key.
+	 * @param int     $index   Its place in the order, from 0.
+	 * @param int     $count   How many modules the page has.
+	 * @param WP_User $student The student whose page this is.
+	 */
+	private static function render_mover( $key, $index, $count, WP_User $student ) {
+		$labels = self::modules();
+		$label  = isset( $labels[ $key ] ) ? $labels[ $key ] : $key;
+
+		echo '<form class="wpcpm-module__mover" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_MOVE ) . '">';
+		wp_nonce_field( self::ACTION_MOVE );
+		echo '<input type="hidden" name="' . esc_attr( self::FIELD_MODULE ) . '" value="' . esc_attr( $key ) . '">';
+		echo '<input type="hidden" name="' . esc_attr( self::FIELD_STUDENT ) . '" value="' . (int) $student->ID . '">';
+
+		self::render_move_button( 'up', $label, 0 === $index );
+		self::render_move_button( 'down', $label, $index >= $count - 1 );
+
+		echo '</form>';
+	}
+
+	/**
+	 * One arrow.
+	 *
+	 * @param string $direction `up` or `down`.
+	 * @param string $label     The module's name, for the button's spoken label.
+	 * @param bool   $disabled  Whether the module is already at that edge.
+	 */
+	private static function render_move_button( $direction, $label, $disabled ) {
+		$text = 'up' === $direction
+			/* translators: %s: name of a module on the Student Report Card. */
+			? sprintf( __( 'Move %s up', 'wpcredits-program-manager' ), $label )
+			/* translators: %s: name of a module on the Student Report Card. */
+			: sprintf( __( 'Move %s down', 'wpcredits-program-manager' ), $label );
+
+		// What the script tells a screen reader once the module has moved.
+		$done = 'up' === $direction
+			/* translators: %s: name of a module on the Student Report Card. */
+			? sprintf( __( '%s moved up.', 'wpcredits-program-manager' ), $label )
+			/* translators: %s: name of a module on the Student Report Card. */
+			: sprintf( __( '%s moved down.', 'wpcredits-program-manager' ), $label );
+
+		$path = 'up' === $direction ? 'M6.5 14.5 12 9l5.5 5.5' : 'M6.5 9.5 12 15l5.5-5.5';
+
+		printf(
+			'<button type="submit" class="wpcpm-module__move wpcpm-module__move--%1$s" name="%2$s" value="%1$s" aria-label="%3$s" title="%3$s" data-wpcpm-moved="%6$s"%4$s><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="%5$s" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>',
+			esc_attr( $direction ),
+			esc_attr( self::FIELD_DIRECTION ),
+			esc_attr( $text ),
+			$disabled ? ' disabled' : '',
+			esc_attr( $path ),
+			esc_attr( $done )
+		);
 	}
 
 	/**

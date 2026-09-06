@@ -28,6 +28,14 @@ somebody else's details.
 
 *Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.*
 
+### Arranging your Report Card
+
+Below your profile and your mentor, the page is a stack of blocks: the program updates with the
+resources, your course, your report form with the feedback forms, your mentor call, and the tools
+our sponsors offer. Each block has two small arrows at its top right. Press one and the block moves
+up or down at once, and the page remembers your order the next time you open it. The program updates
+come first until you move them.
+
 ### My profile
 
 Your program details as the program records hold them: your track, your internship dates, your

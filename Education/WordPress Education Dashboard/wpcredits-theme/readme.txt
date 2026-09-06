@@ -157,6 +157,18 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.22.14 =
+* Student Report Card: the module arrows sit inside the content edge, a pair on the heading line ending where the text ends, so the page's right margin stays one line.
+
+= 1.22.13 =
+* Student Report Card: the room the first heading leaves for the module arrows under 900px now applies (the mover form is the module's first child for a manager).
+
+= 1.22.12 =
+* Student Report Card: under 900px the module arrows sit in a row on the heading line, inside the content edge, and the first heading leaves them room.
+
+= 1.22.11 =
+* Student Report Card: the four movable modules under the profile and mentor columns are flat wrappers here, the mover sits in the gutter at the module's top right with the theme's control border and focus ring, and the hairline between blocks stays on a phone (plugin 1.95.11).
+
 = 1.22.10 =
 * Sponsor Dashboard: the group lead under each heading, at the cards' inset, 16px over the first card (plugin 1.95.10).
 

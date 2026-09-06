@@ -422,7 +422,7 @@ echo "\n=== The call sites ===\n";
 $students = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-students-dashboard.php' );
 $own      = strpos( $students, "WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_STUDENTS, \$viewer )" );
 $count    = strpos( $students, 'WPCPM_Sponsor_Tools::render_count_line( $student )' );
-ck( 'the Student Report Card draws the section after the report form and before the calendar', $own > strpos( $students, 'self::render_report_form( $program, $student );' ) && $own < strpos( $students, 'WPCPM_Call_Calendar::render_student(' ), true );
+ck( 'the Student Report Card draws the section as a module of its own (1.95.12)', $own > strpos( $students, 'case self::MODULE_TOOLS:' ) && $own < strpos( $students, 'private static function render_mover(' ), true );
 ck( 'on the student\'s own card only, with the count line for a manager viewing somebody else', $count > 0 && false !== strpos( $students, '$viewer->ID === $student->ID' ) && $count > $own, true );
 $mentors = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php' );
 $call    = strpos( $mentors, "WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MENTORS, \$viewer )" );
