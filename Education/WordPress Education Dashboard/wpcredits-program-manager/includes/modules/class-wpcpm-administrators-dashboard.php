@@ -260,6 +260,7 @@ final class WPCPM_Administrators_Dashboard {
 		WPCPM_Administrators_Cards::render_agreements( $data['agreements'] );
 		WPCPM_Administrators_Cards::render_reports( $data['reports'] );
 		WPCPM_Administrators_Cards::render_requests( $data['requests'] );
+		WPCPM_Administrators_Cards::render_sponsor_applications( isset( $data['sponsor_applications'] ) ? (array) $data['sponsor_applications'] : array() );
 		WPCPM_Administrators_Cards::render_sponsor_posts( isset( $data['sponsor_posts'] ) ? (array) $data['sponsor_posts'] : array() );
 		WPCPM_Administrators_Cards::render_sponsor_agreements( isset( $data['sponsor_agreements'] ) ? (array) $data['sponsor_agreements'] : array() );
 		WPCPM_Administrators_Cards::render_programs( $data['programs'] );
@@ -314,15 +315,29 @@ final class WPCPM_Administrators_Dashboard {
 				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Agreement::manager_messages() );
 			}
 
+			if ( class_exists( 'WPCPM_Sponsor_Application' ) && method_exists( 'WPCPM_Sponsor_Application', 'manager_messages' ) ) {
+				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Application::manager_messages() );
+			}
+
 			if ( class_exists( 'WPCPM_Sync_Module' ) && method_exists( 'WPCPM_Sync_Module', 'sync_messages' ) ) {
 				$messages = array_merge( $messages, (array) WPCPM_Sync_Module::sync_messages() );
 			}
 
 			if ( isset( $messages[ $status ] ) && is_array( $messages[ $status ] ) ) {
+				$sentence = (string) $messages[ $status ][1];
+
+				// The sponsor application queue's `sapp-account` sentence names what the site
+				// said when the account step failed, and that detail is one-shot: it is read
+				// here, on the one status being printed, and never inside the map, which
+				// anything that wants a sentence builds (S5 review).
+				if ( class_exists( 'WPCPM_Sponsor_Application' ) && method_exists( 'WPCPM_Sponsor_Application', 'sentence_for' ) ) {
+					$sentence = (string) WPCPM_Sponsor_Application::sentence_for( $status, $sentence );
+				}
+
 				printf(
 					'<p class="wpcpm-dashboard__message wpcpm-dashboard__message--%1$s">%2$s</p>',
 					esc_attr( (string) $messages[ $status ][0] ),
-					esc_html( (string) $messages[ $status ][1] )
+					esc_html( $sentence )
 				);
 			}
 		}

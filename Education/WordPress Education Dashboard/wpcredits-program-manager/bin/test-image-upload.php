@@ -24,6 +24,9 @@ function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function trailingslashit( $s ) { return rtrim( $s, '/' ) . '/'; }
 function get_temp_dir() { return sys_get_temp_dir() . '/'; }
 function wp_unique_filename( $dir, $name ) { $i = 0; $try = $name; while ( file_exists( $dir . '/' . $try ) ) { $try = preg_replace( '/(\.[a-z]+)$/', '-' . ( ++$i ) . '$1', $name ); } return $try; }
+// Alphanumeric and of the asked-for length, which is all `store()`'s generated name needs; a
+// counter rather than randomness so two calls differ and the file names stay readable in a run.
+function wp_generate_password( $length = 12, $special = true, $extra = false ) { return substr( str_repeat( 'AbCdEf0123456789', 4 ), 0, (int) $length - 4 ) . sprintf( '%04d', ++$GLOBALS['password'] ); }
 function wp_upload_dir() {
 	if ( ! empty( $GLOBALS['upload_dir_override'] ) ) {
 		return array( 'path' => $GLOBALS['upload_dir_override'], 'url' => 'https://example.test/uploads', 'error' => false );
@@ -61,6 +64,7 @@ function png( $w, $h ) { $p = tempnam( sys_get_temp_dir(), 'img' ) . '.png'; $im
 function jpg( $w, $h ) { $p = tempnam( sys_get_temp_dir(), 'img' ) . '.jpg'; $im = imagecreatetruecolor( $w, $h ); imagejpeg( $im, $p, 80 ); return $p; }
 
 $GLOBALS['attachments'] = array();
+$GLOBALS['password'] = 0;
 $GLOBALS['editor_calls'] = array();
 $GLOBALS['no_editor'] = false;
 $GLOBALS['settings'] = array();
@@ -124,11 +128,24 @@ ck( 'an SVG at the other end is refused by content', code( WPCPM_Image_Upload::s
 ck( 'a URL that is not http(s) is refused before any request', code( WPCPM_Image_Upload::sideload( 'ftp://example.test/logo.png', 'logo.png', 0, 'x' ) ), 'wpcpm_image_url' );
 ck( 'a download that fails is a refusal that names the download', code( WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/missing.png', 'missing.png', 0, 'x' ) ), 'wpcpm_image_download' );
 
+echo "\n=== Private, under a name nobody can guess (S5 fix wave) ===\n";
+// The two options the review added for a file a stranger uploaded through a public form. Both
+// are off unless asked for, which is what keeps every caller before them exactly where it was:
+// the checks above pin the default `inherit` status and the clean, readable file name.
+$guarded = WPCPM_Image_Upload::accept( png( 400, 120 ), array( 'name' => 'logo.png' ) );
+WPCPM_Image_Upload::store( $guarded, 'sapp', 0, 'Gadgetry Inc logo (color)', array( 'private' => true, 'generated_name' => true ) );
+$att = end( $GLOBALS['attachments'] );
+ck( 'asked for them, store() writes a private attachment under a generated name', array(
+	$att['post_status'],
+	1 === preg_match( '/^sapp-[A-Za-z0-9]{24}\.png$/', basename( (string) $att['file'] ) ),
+	$att['post_title'],
+), array( 'private', true, 'Gadgetry Inc logo (color)' ) );
+
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/class-wpcpm-image-upload.php' );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'wp_handle_upload() is never trusted here', strpos( $src, 'wp_handle_upload' ), false );
 ck( 'SVG is named nowhere as a type it takes', strpos( $src, "'image/svg+xml' =>" ), false );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 31 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 32 );
 exit( $fail ? 1 : 0 );

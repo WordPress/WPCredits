@@ -56,6 +56,7 @@ mentoring.
 
 ### Sponsors module
 
+- **Applications from sponsors**: whether the public form at /sponsor-application/ takes applications. Off by default. The form shows nothing to the public without a published privacy policy, whatever this says; the row on the settings screen says so and links the page.
 - **Tools from our sponsors**: two checkboxes. Show the section on the Student Report Card (on by default) and on the Mentor Report Card (off by default). The Administrator Dashboard shows every live offer whatever these say.
 - **Low-stock warning**: how many codes must be left in a pool before the sponsor and its program manager are mailed, once per crossing. Ten by default; each offer can set its own.
 

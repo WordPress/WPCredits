@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.96.8
+Stable tag: 1.97.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,7 +17,7 @@ The plugin is organized as five modules, one per audience:
 1. **Students** - the Student role, Airtable account provisioning, and a private page with each student's program details and their assigned mentor. **Built.**
 2. **Mentors** - the Mentor role, Airtable account provisioning, and a private page listing each mentor's assigned students. **Built.**
 3. **Institutions** - the Institution role.
-4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, and the Sponsor Dashboard.
+4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, the Sponsor Dashboard, and the public sponsor application form.
 5. **Administrators** - the built-in WordPress Administrator role, granted the program capabilities.
 
 Students, Mentors, Institutions and Sponsors each get a custom role cloned from **Subscriber**, plus one marker capability that controls which content they can read. Administrators can read every level.
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.97.0 =
+* **The Sponsors module, phase five: the application form.** A company applies to sponsor the program on this site, at /sponsor-application/, with the Airtable form's eight questions in its order and wording, two optional logo files through the plugin's image handler, and the seven guards the institution form runs: a honeypot, a signed single-use dwell token, five submissions an hour per address, forty a day site-wide before the rest are held, consent as a precondition with the sentence, the policy and its version recorded, link counting, and a ceiling on acknowledgements. Off until "Applications from sponsors" is switched on. The applicant gets an acknowledgement with a reference; the managers get the facts and a link. Duplicates are flagged twice and never merged: another open application naming the company or the address, and a sponsor the index already holds under the name or the website.
+* **Six decisions, on two screens.** The Sponsors screen lists the applications waiting, oldest first, opens one with its answers, its logo files, what was agreed to and what the base already holds, and offers Approve, Send this question (with the manager's address to reply to), Reject (a short acknowledgement with no reason), Reject as spam (silent), Put back in the queue and Delete for good; the Administrator Dashboard offers the same six on a Sponsor applications card and counts the queue in its strip. Approve creates the Airtable record with Status Approved and, in the same press, the account through the shipped provisioning path, the company's category, the logo record, the first offer in draft and the welcome through the invitation queue; when Airtable refuses, nothing else happens and pressing again starts clean.
+* **Retention** reuses the three institution application settings; a spam or rejected application's logo files are deleted with it, an approved one's stay as the sponsor's logo.
+* `WPCPM_Form_Guard` is the extraction: the seven checks both public forms now run, with its own suite; the institution form is rewired to it and its suite is unchanged. `WPCPM_Sponsors::provision_account()` is the account half of Create account, shared with the approval. The Sponsors menu entry now carries a bubble counting applications, agreements and posts waiting.
+* **After go-live, one manual step:** change the form link on the handbook page by hand to the site's page at /sponsor-application/. Nothing else is by hand.
 
 = 1.96.8 =
 * Sponsor Dashboard: the Usage card draws the last twelve months as a bar chart above the table, one bar per offer and month, in place of the two lines of numbers; the numbers stay in the chart's label, in each bar's title and in the CSV. With theme 1.23.19.

@@ -176,7 +176,23 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 		printf(
 			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
 			esc_attr( $messages[ $status ][0] ),
-			esc_html( $messages[ $status ][1] )
+			esc_html( $this->notice_sentence( $status, (string) $messages[ $status ][1] ) )
 		);
+	}
+
+	/**
+	 * The sentence one status prints, for a screen whose wording depends on what a press left.
+	 *
+	 * A seam, and the S5 review is why there is one: a message map is built for every status at
+	 * once and by anything that wants a sentence out of it, so a screen that has to read a
+	 * one-shot value cannot read it there without the first passer-by consuming it. This runs
+	 * once, on the one status being printed. The default is the map's own sentence.
+	 *
+	 * @param string $status   The status being printed.
+	 * @param string $sentence Its sentence from the map.
+	 * @return string
+	 */
+	protected function notice_sentence( $status, $sentence ) {
+		return (string) $sentence;
 	}
 }

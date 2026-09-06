@@ -53,6 +53,14 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	const OFFERS_SHOWN = 100;
 
 	/**
+	 * Where the menu bubble stops counting.
+	 *
+	 * Drawn on every admin page load for every manager, so the three queues behind it are each
+	 * read under this ceiling; past it the exact number changes nothing a manager does next.
+	 */
+	const COUNT_MAX = 200;
+
+	/**
 	 * Module ID.
 	 *
 	 * @return string
@@ -89,6 +97,61 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The menu label, with a bubble for what needs a manager (spec 5.8).
+	 *
+	 * @return string
+	 */
+	public function menu_label() {
+		$pending = self::attention_count();
+
+		if ( $pending < 1 ) {
+			return $this->label();
+		}
+
+		$shown = $pending < self::COUNT_MAX
+			? number_format_i18n( $pending )
+			: sprintf(
+				/* translators: %s: the largest number the menu bubble counts to. */
+				__( '%s+', 'wpcredits-program-manager' ),
+				number_format_i18n( self::COUNT_MAX )
+			);
+
+		return sprintf(
+			'%1$s <span class="awaiting-mod count-%2$d"><span class="pending-count">%3$s</span></span>',
+			$this->label(),
+			$pending,
+			$shown
+		);
+	}
+
+	/**
+	 * Applications waiting, plus agreements awaiting review, plus posts pending.
+	 *
+	 * Each behind a guard, because the three classes ship in three phases and the bubble is
+	 * drawn on every admin page: a class missing from a partial deploy must cost a zero, not a
+	 * fatal on every screen in the site.
+	 *
+	 * @return int
+	 */
+	public static function attention_count() {
+		$count = 0;
+
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			$count += (int) WPCPM_Sponsor_Application::pending_count( self::COUNT_MAX + 1 );
+		}
+
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) && method_exists( 'WPCPM_Sponsor_Agreement', 'awaiting_review' ) ) {
+			$count += count( (array) WPCPM_Sponsor_Agreement::awaiting_review( self::COUNT_MAX ) );
+		}
+
+		if ( class_exists( 'WPCPM_Sponsor_Posts' ) && method_exists( 'WPCPM_Sponsor_Posts', 'pending_all' ) ) {
+			$count += count( (array) WPCPM_Sponsor_Posts::pending_all( self::COUNT_MAX ) );
+		}
+
+		return $count;
+	}
+
+	/**
 	 * Built now.
 	 *
 	 * @return bool
@@ -122,7 +185,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	public function boot() {
 		WPCPM_Ceiling::init();
 
-		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement' ) as $front ) {
+		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement', 'WPCPM_Sponsor_Application' ) as $front ) {
 			if ( class_exists( $front ) && method_exists( $front, 'init' ) ) {
 				call_user_func( array( $front, 'init' ) );
 			}
@@ -153,10 +216,15 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) && method_exists( 'WPCPM_Sponsors_Dashboard', 'ensure_page' ) ) {
 			call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'ensure_page' ) );
 		}
+
+		// The application form's page, and deliberately not gated: see its `ensure_page()`.
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			WPCPM_Sponsor_Application::ensure_page();
+		}
 	}
 
 	/**
-	 * Put the agreement's retention run on the clock, if it is not there already.
+	 * Put the agreement's retention run and the application queue's on the clock, if they are not there already.
 	 *
 	 * **Called from `boot()` on every load, not only from `activate()`.** The activation hook
 	 * fires on an explicit activation and on nothing else: not on the files being replaced, and
@@ -176,6 +244,13 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) && ! wp_next_scheduled( WPCPM_Sponsor_Agreement::CRON_DISCARD ) ) {
 			wp_schedule_event( time() + ( 8 * HOUR_IN_SECONDS ), 'daily', WPCPM_Sponsor_Agreement::CRON_DISCARD );
 		}
+
+		// The application queue's retention run (Phase S5), nine hours past activation: an hour
+		// clear of the agreement's discard above and three clear of the institutions module's
+		// last nightly job, so a slow night never has two of them walking the posts at once.
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) && ! wp_next_scheduled( WPCPM_Sponsor_Application::CRON_PURGE ) ) {
+			wp_schedule_event( time() + ( 9 * HOUR_IN_SECONDS ), 'daily', WPCPM_Sponsor_Application::CRON_PURGE );
+		}
 	}
 
 	/**
@@ -186,6 +261,12 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
 			wp_clear_scheduled_hook( WPCPM_Sponsor_Agreement::CRON_DISCARD );
+		}
+
+		// The application queue's retention run leaves the clock with the plugin, as the discard
+		// does: a daily event with no listener is what deactivation would otherwise leave behind.
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			wp_clear_scheduled_hook( WPCPM_Sponsor_Application::CRON_PURGE );
 		}
 	}
 
@@ -220,6 +301,17 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
 			WPCPM_Sponsor_Agreement::delete_all();
 			wp_clear_scheduled_hook( WPCPM_Sponsor_Agreement::CRON_DISCARD );
+		}
+
+		// The applications and their unapproved files, the page option and the log; then the
+		// approval locks, which nothing else would ever delete (spec section 11).
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			WPCPM_Sponsor_Application::delete_all();
+			wp_clear_scheduled_hook( WPCPM_Sponsor_Application::CRON_PURGE );
+		}
+
+		if ( class_exists( 'WPCPM_Sponsor_Approval' ) ) {
+			WPCPM_Sponsor_Approval::delete_all();
 		}
 
 		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
@@ -280,7 +372,32 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$messages = array_merge( $messages, WPCPM_Sponsor_Agreement::manager_messages() );
 		}
 
+		// The application queue's own outcomes, so a decision pressed on this screen has words.
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			$messages = array_merge( $messages, WPCPM_Sponsor_Application::manager_messages() );
+		}
+
 		return $messages;
+	}
+
+	/**
+	 * The queue's `sapp-account` sentence names what the site said when the account step failed.
+	 *
+	 * That detail is one-shot, so it is resolved here, on the one status being printed, and
+	 * never inside `messages()`: this map is built by anything that wants a sentence out of it,
+	 * `WPCPM_Sponsor_Approval::status_sentence()` among them, in the middle of the POST that
+	 * set the detail (S5 review).
+	 *
+	 * @param string $status   The status being printed.
+	 * @param string $sentence Its sentence from `messages()`.
+	 * @return string
+	 */
+	protected function notice_sentence( $status, $sentence ) {
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			return WPCPM_Sponsor_Application::sentence_for( $status, $sentence );
+		}
+
+		return (string) $sentence;
 	}
 
 	/**
@@ -310,31 +427,41 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Create or attach the account behind a sponsor's contact address.
+	 * The account half of provisioning: the row's facts, the account, the membership.
+	 *
+	 * Lifted out of `provision()` for Phase S5 so that `WPCPM_Sponsor_Approval` runs the same
+	 * body: the index row must be Approved with a contact address, an account at that address
+	 * is attached rather than duplicated (never an administrator's), a missing one is made
+	 * through `WPCPM_Roles::insert_user()`, and `attach()` decides under the rules of spec 5.1.
+	 * "Already attached" is reported as `already` and is good news to both callers.
 	 *
 	 * @param string $record   Sponsor record ID.
 	 * @param int    $actor_id The manager.
-	 * @return array `status` (a key of `messages()`), `user_id`, `detail`.
+	 * @return array `status` (a key of `messages()`), `user_id`, `created`, `already`, `detail`.
 	 */
-	public static function provision( $record, $actor_id ) {
+	public static function provision_account( $record, $actor_id ) {
+		$answer = array(
+			'status'  => '',
+			'user_id' => 0,
+			'created' => false,
+			'already' => false,
+			'detail'  => '',
+		);
+
 		$row = WPCPM_Sponsors_Index::row( $record );
 
 		if ( ! is_array( $row ) || WPCPM_Sponsors_Index::STATUS_APPROVED !== $row['status'] ) {
-			return array(
-				'status'  => 'provision-inactive',
-				'user_id' => 0,
-				'detail'  => '',
-			);
+			$answer['status'] = 'provision-inactive';
+
+			return $answer;
 		}
 
 		$email = sanitize_email( $row['contact_email'] );
 
 		if ( ! is_email( $email ) ) {
-			return array(
-				'status'  => 'provision-no-email',
-				'user_id' => 0,
-				'detail'  => '',
-			);
+			$answer['status'] = 'provision-no-email';
+
+			return $answer;
 		}
 
 		$existing = get_user_by( 'email', $email );
@@ -342,11 +469,9 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		if ( $existing instanceof WP_User && $existing->exists() ) {
 			if ( WPCPM_Roles::user_has_role( $existing, WPCPM_Roles::ROLE_ADMIN ) ) {
-				return array(
-					'status'  => 'provision-admin',
-					'user_id' => 0,
-					'detail'  => '',
-				);
+				$answer['status'] = 'provision-admin';
+
+				return $answer;
 			}
 
 			$user_id = (int) $existing->ID;
@@ -365,11 +490,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			);
 
 			if ( is_wp_error( $made ) ) {
-				return array(
-					'status'  => 'provision-failed',
-					'user_id' => 0,
-					'detail'  => $made->get_error_message(),
-				);
+				$answer['status'] = 'provision-failed';
+				$answer['detail'] = $made->get_error_message();
+
+				return $answer;
 			}
 
 			$user_id = (int) $made;
@@ -388,16 +512,49 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 				return array(
 					'status'  => 'provision-attached',
 					'user_id' => $user_id,
+					'created' => $created,
+					'already' => true,
 					'detail'  => '',
 				);
 			}
 
+			$answer['status'] = 'provision-refused';
+			$answer['detail'] = $attached->get_error_message();
+
+			return $answer;
+		}
+
+		return array(
+			'status'  => $created ? 'provisioned' : 'provision-attached',
+			'user_id' => $user_id,
+			'created' => $created,
+			'already' => false,
+			'detail'  => '',
+		);
+	}
+
+	/**
+	 * Create or attach the account behind a sponsor's contact address, and everything that
+	 * follows on this screen: the invitation, the first offer, the base's checkbox, the log.
+	 *
+	 * @param string $record   Sponsor record ID.
+	 * @param int    $actor_id The manager.
+	 * @return array `status` (a key of `messages()`), `user_id`, `detail`.
+	 */
+	public static function provision( $record, $actor_id ) {
+		$account = self::provision_account( $record, $actor_id );
+
+		// A refusal, or an account this sponsor already had: nothing follows either.
+		if ( ! in_array( $account['status'], array( 'provisioned', 'provision-attached' ), true ) || ! empty( $account['already'] ) ) {
 			return array(
-				'status'  => 'provision-refused',
-				'user_id' => 0,
-				'detail'  => $attached->get_error_message(),
+				'status'  => $account['status'],
+				'user_id' => (int) $account['user_id'],
+				'detail'  => (string) $account['detail'],
 			);
 		}
+
+		$user_id = (int) $account['user_id'];
+		$created = ! empty( $account['created'] );
 
 		// Queued rather than sent: the queue is what the mail log and the stop control are
 		// built on, and `queue_invites()` drops an account already invited once.
@@ -754,6 +911,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$this->render_offers( $rows, $accounts );
 		$this->render_interests( $rows );
 		$this->render_agreements( $rows );
+		$this->render_applications();
 
 		echo '</div>';
 	}
@@ -1150,6 +1308,26 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * The application queue: the open application, if one was asked for, above the list.
+	 *
+	 * The renderers are the application class's, so the Administrator Dashboard and this screen
+	 * draw one set of decisions; this method only says where they go on the page.
+	 */
+	private function render_applications() {
+		if ( ! class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			return;
+		}
+
+		$open = WPCPM_Sponsor_Application::open_from_request();
+
+		if ( $open instanceof WP_Post ) {
+			WPCPM_Sponsor_Application::render_open( $open, $this->admin_url() );
+		}
+
+		WPCPM_Sponsor_Application::render_queue( $this->admin_url() );
 	}
 
 	/**

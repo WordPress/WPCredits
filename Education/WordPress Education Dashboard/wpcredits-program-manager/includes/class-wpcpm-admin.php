@@ -694,6 +694,28 @@ class WPCPM_Admin {
 		echo '<p class="description">' . esc_html__( 'Sponsors are the companies that fund mentors and offer their tools to students. Each has its own dashboard, its own people and its offer; a program manager creates each account one at a time from the Sponsors screen.', 'wpcredits-program-manager' ) . '</p>';
 		echo '<table class="form-table" role="presentation"><tbody>';
 
+		// The public application form, first on the card because a sponsor's life on the site
+		// begins with it. Off by default and switched on here, because turning it on publishes
+		// a page that strangers can post to. The privacy policy is named on the same row: the
+		// form refuses to render at all without one, so a switch that looks on while the page
+		// shows nothing is exactly the confusion this line exists to prevent.
+		$policy_url = function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
+		$apply_url  = class_exists( 'WPCPM_Sponsor_Application' ) ? (string) WPCPM_Sponsor_Application::page_url() : '';
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="sponsor_applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s%6$s</td></tr>',
+			esc_html__( 'Applications from sponsors', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['sponsor_applications_enabled'] ), true, false ),
+			esc_html__( 'Take sponsor applications through the form on this site', 'wpcredits-program-manager' ),
+			esc_html__( 'A public page anybody can post to. Every submission is stored for a program manager to read on the Sponsors screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ),
+			'' === $policy_url
+				? '<p class="description wpcpm-warning">' . esc_html__( 'No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings, Privacy.', 'wpcredits-program-manager' ) . '</p>'
+				: '',
+			'' !== $apply_url
+				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( $apply_url ) )
+				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing: re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
+		);
+
 		printf(
 			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="sponsor_home" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
 			esc_html__( 'Sponsor home', 'wpcredits-program-manager' ),

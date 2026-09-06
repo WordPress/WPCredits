@@ -21,7 +21,7 @@ If Airtable is not connected yet, this screen says so and links straight to the 
 | **Students** | The student list, the sync report, and one-at-a-time invitations. |
 | **Mentors** | The mentor list, the sync report, and one-at-a-time invitations. |
 | **Institutions** | Role only - registers `wpcpm_institution` and reserves the screen. |
-| **Sponsors** | The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, and the interests log. |
+| **Sponsors** | The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision. |
 | **Administrators** | Lists the program capabilities granted to Administrator, and who holds the role. |
 
 A role-only screen tells you the role slug, whether it is registered, and how many accounts hold it.
@@ -37,3 +37,5 @@ Status Checker**. Each has its own screen behind an *Open tool* button.
 Since 1.92.0 the Administrator Dashboard on the front end gathers every queue these screens hold; the Administrators screen links to it.
 
 Since 1.93.0 the Sponsors screen is no longer a placeholder: it holds the sponsors sync, every sponsor with its status, program contact and accounts, the Create account and Attach account controls, and the log of interests sponsors expressed on their dashboard.
+
+Since 1.97.0 the Sponsors screen also holds the queue of companies that applied through the form on the site, with the six decisions the Institutions screen has for its own applications, and its menu entry carries a bubble counting the applications, the signed agreements and the sponsor posts waiting for a manager.

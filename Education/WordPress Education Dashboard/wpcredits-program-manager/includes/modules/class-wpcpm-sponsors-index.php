@@ -186,6 +186,33 @@ final class WPCPM_Sponsors_Index {
 	}
 
 	/**
+	 * Put one row in the index, or replace the one under its record ID.
+	 *
+	 * The institutions index's own method, added for approval (Phase S5): `attach()` refuses a
+	 * record the index does not hold, and an account made by a manager's press cannot wait for
+	 * the nightly sync. The row is shaped like every other, and the next sync's whole-index
+	 * write replaces it with the base's own reading.
+	 *
+	 * @param array $row A row in `empty_row()`'s shape; `record_id` is required.
+	 * @return bool Whether the row was written.
+	 */
+	public static function insert( array $row ) {
+		$record = isset( $row['record_id'] ) ? trim( (string) $row['record_id'] ) : '';
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+			return false;
+		}
+
+		$index                    = self::read();
+		$row['record_id']         = $record;
+		$index['rows'][ $record ] = self::shape( $row );
+
+		update_option( self::OPT_NAME, $index, false );
+
+		return true;
+	}
+
+	/**
 	 * The sponsors in the program.
 	 *
 	 * @return array[] Rows keyed by record ID.

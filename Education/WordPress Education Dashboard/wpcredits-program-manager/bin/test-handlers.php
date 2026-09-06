@@ -189,6 +189,7 @@ function wp_mkdir_p( $dir ) { return is_dir( $dir ) || mkdir( $dir, 0777, true )
 function wp_generate_password( $len = 12, $special = true, $extra = false ) {
 	return substr( str_repeat( 'abcdefghijklmnopqrstuvwxyz0123456789', 4 ), 0, (int) $len );
 }
+function wp_hash( $data, $scheme = 'auth' ) { return md5( 'handlers|' . (string) $data ); }
 function sanitize_file_name( $name ) { return preg_replace( '/[^A-Za-z0-9._-]/', '', (string) $name ); }
 function wp_delete_file( $path ) { if ( file_exists( $path ) ) { unlink( $path ); } }
 function wp_parse_args( $args, $defaults = array() ) { return array_merge( $defaults, (array) $args ); }
@@ -515,6 +516,32 @@ $_POST           = array( 'wpcpm_offer' => 0 );
 
 run( 'handle_claim (student, no such offer)', array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
 run( 'handle_problem (student, no such offer)', array( 'WPCPM_Sponsor_Tools', 'handle_problem' ) );
+
+$GLOBALS['caps'] = true;
+
+echo "\n=== WPCPM_Sponsor_Application (Phase S5) ===\n";
+
+// The public submit as a stranger, with the form switched off (the fixture's settings hold no
+// switch), which is the shortest path to its redirect; then the six decisions with no such
+// application, and one without the capability. Each has to reach a redirect or a wp_die().
+$GLOBALS['uid']  = 0;
+$GLOBALS['caps'] = false;
+$_POST           = array();
+
+run( 'handle_submit (stranger, form switched off)', array( 'WPCPM_Sponsor_Application', 'handle_submit' ) );
+
+$GLOBALS['uid']  = 1;
+$GLOBALS['caps'] = true;
+$_POST           = array( WPCPM_Sponsor_Application::FIELD_APPLICATION => 0 );
+
+foreach ( array( 'handle_approve', 'handle_info', 'handle_reject', 'handle_spam', 'handle_reopen', 'handle_purge' ) as $decision ) {
+	run( $decision . ' (manager, no such application)', array( 'WPCPM_Sponsor_Application', $decision ) );
+}
+
+// Capability before nonce: somebody without it meets wp_die(), not a nonce screen.
+$GLOBALS['caps'] = false;
+
+run( 'handle_approve (no capability)', array( 'WPCPM_Sponsor_Application', 'handle_approve' ) );
 
 $GLOBALS['caps'] = true;
 

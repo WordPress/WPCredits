@@ -109,47 +109,51 @@ final class WPCPM_Administrators_Cards {
 			// self::LIMIT of each is kept for drawing: the wp-admin queue caps its own list at
 			// WPCPM_Institutions::QUEUE_MAX, which is the same number, and a page reading the
 			// same rows must never draw a "complete" list the queue would call partial.
-			'applications' => array(
+			'applications'         => array(
 				'open'         => array_slice( $open, 0, self::LIMIT ),
 				'open_total'   => count( $open ),
 				'closed'       => array_slice( $closed, 0, self::LIMIT ),
 				'closed_total' => count( $closed ),
 			),
-			'agreements'   => array(
+			'agreements'           => array(
 				'awaiting' => $awaiting,
 				'returned' => self::agreement_rows( WPCPM_Institution_Agreement::in_state( WPCPM_Institution_Agreement::STATE_RETURNED, self::LIMIT ) ),
 				'revoked'  => self::agreement_rows( WPCPM_Institution_Agreement::in_state( WPCPM_Institution_Agreement::STATE_REVOKED, self::LIMIT ) ),
 				'overdue'  => $overdue,
 			),
-			'reports'      => array(
+			'reports'              => array(
 				'queue'    => WPCPM_Semester_Report::queue(),
 				'due'      => WPCPM_Semester_Report::due( wp_date( 'Y-m-d' ) ),
 				'approved' => WPCPM_Semester_Report::approved_since( $from ),
 			),
-			'requests'     => array(
+			'requests'             => array(
 				'open'    => $open_requests,
 				'closed'  => $closed_requests,
 				'overdue' => $overdue_request,
 			),
-			'locked'       => WPCPM_Institution_Roster::locked_today(),
+			'locked'               => WPCPM_Institution_Roster::locked_today(),
 			// Sponsor posts waiting for review (Sponsors module, S3): the facts, never the posts.
-			'sponsor_posts' => class_exists( 'WPCPM_Sponsor_Posts' ) ? WPCPM_Sponsor_Posts::pending_all( self::LIMIT ) : array(),
+			'sponsor_posts'        => class_exists( 'WPCPM_Sponsor_Posts' ) ? WPCPM_Sponsor_Posts::pending_all( self::LIMIT ) : array(),
 			// Sponsor Collaboration Agreements waiting for review, and those out of force (S4, 1.96.1).
-			'sponsor_agreements' => self::sponsor_agreements(),
-			'programs'     => self::programs(),
-			'health'       => self::health(),
+			'sponsor_agreements'   => self::sponsor_agreements(),
+			// Sponsor applications waiting for a decision (Sponsors module, S5): the facts, never
+			// the posts. The full card with the answers and the base matches is S6; this phase
+			// draws the decisions, which spec 9.2 puts on this page.
+			'sponsor_applications' => class_exists( 'WPCPM_Sponsor_Application' ) ? WPCPM_Sponsor_Application::queue_facts( self::LIMIT ) : array(),
+			'programs'             => self::programs(),
+			'health'               => self::health(),
 		);
 	}
 
 	/**
-	 * The nine tiles of the attention strip, from the arrays the cards draw.
+	 * The eleven tiles of the attention strip, from the arrays the cards draw.
 	 *
 	 * @param array $data What `collect()` returned.
 	 * @return array[] `label`, `n`, `card`, keyed in the strip's order.
 	 */
 	public static function counts( array $data ) {
 		return array(
-			'applications'       => array(
+			'applications'         => array(
 				'label' => __( 'Applications waiting', 'wpcredits-program-manager' ),
 				// The total, not count() of the (possibly capped) list that is actually drawn:
 				// the strip's number is a fact about the queue, and must not shrink just because
@@ -157,50 +161,55 @@ final class WPCPM_Administrators_Cards {
 				'n'     => isset( $data['applications']['open_total'] ) ? (int) $data['applications']['open_total'] : count( $data['applications']['open'] ),
 				'card'  => 'applications',
 			),
-			'agreements'         => array(
+			'agreements'           => array(
 				'label' => __( 'Agreements to review', 'wpcredits-program-manager' ),
 				'n'     => count( $data['agreements']['awaiting'] ),
 				'card'  => 'agreements',
 			),
-			'overdue_agreements' => array(
+			'overdue_agreements'   => array(
 				'label' => __( 'Agreements overdue', 'wpcredits-program-manager' ),
 				'n'     => (int) $data['agreements']['overdue'],
 				'card'  => 'agreements',
 			),
-			'drafts'             => array(
+			'drafts'               => array(
 				'label' => __( 'Semester reports to review', 'wpcredits-program-manager' ),
 				'n'     => count( $data['reports']['queue'] ),
 				'card'  => 'reports',
 			),
-			'due'                => array(
+			'due'                  => array(
 				'label' => __( 'Semesters due for drafting', 'wpcredits-program-manager' ),
 				'n'     => count( $data['reports']['due'] ),
 				'card'  => 'reports',
 			),
-			'requests'           => array(
+			'requests'             => array(
 				'label' => __( 'Mentor requests open', 'wpcredits-program-manager' ),
 				'n'     => count( $data['requests']['open'] ),
 				'card'  => 'requests',
 			),
-			'overdue_requests'   => array(
+			'overdue_requests'     => array(
 				'label' => __( 'Mentor requests overdue', 'wpcredits-program-manager' ),
 				'n'     => (int) $data['requests']['overdue'],
 				'card'  => 'requests',
 			),
-			'locked'             => array(
+			'locked'               => array(
 				'label' => __( 'Locked accounts', 'wpcredits-program-manager' ),
 				'n'     => count( $data['locked'] ),
 				'card'  => 'health',
 			),
-			'sponsor_posts'      => array(
+			'sponsor_posts'        => array(
 				'label' => __( 'Sponsor posts to review', 'wpcredits-program-manager' ),
 				'n'     => isset( $data['sponsor_posts'] ) ? count( (array) $data['sponsor_posts'] ) : 0,
 				'card'  => 'sponsor-posts',
 			),
-			'sponsor_agreements' => array(
+			'sponsor_agreements'   => array(
 				'label' => __( 'Sponsor agreements to review', 'wpcredits-program-manager' ),
 				'n'     => isset( $data['sponsor_agreements']['review'] ) ? count( (array) $data['sponsor_agreements']['review'] ) : 0,
 				'card'  => 'sponsor-agreements',
+			),
+			'sponsor_applications' => array(
+				'label' => __( 'Sponsor applications waiting', 'wpcredits-program-manager' ),
+				'n'     => isset( $data['sponsor_applications'] ) ? count( (array) $data['sponsor_applications'] ) : 0,
+				'card'  => 'sponsor-applications',
 			),
 		);
 	}
@@ -353,6 +362,72 @@ final class WPCPM_Administrators_Cards {
 
 			if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
 				WPCPM_Sponsor_Posts::render_decision( (int) $row['id'], WPCPM_Return::DASHBOARD );
+			}
+
+			echo '</article>';
+		}
+
+		self::card_close();
+	}
+
+	/**
+	 * Sponsor applications: one compact item per open application, with the six decisions.
+	 *
+	 * The company, the reference, when it arrived, the website, the contact and the marks; the
+	 * answers, the logo files, the consent evidence and what the base holds stay on the wp-admin
+	 * Sponsors screen until Phase S6, and the title links there. The decisions are the
+	 * application class's own, bound for this page (spec 9.2).
+	 *
+	 * @param array $rows What `WPCPM_Sponsor_Application::queue_facts()` returned.
+	 */
+	public static function render_sponsor_applications( array $rows ) {
+		self::card_open( 'sponsor-applications', __( 'Sponsor applications', 'wpcredits-program-manager' ), count( $rows ) );
+
+		if ( empty( $rows ) ) {
+			self::empty_line( __( 'No sponsor application is waiting.', 'wpcredits-program-manager' ) );
+		}
+
+		foreach ( $rows as $row ) {
+			echo '<article class="wpcpm-administrator__item wpcpm-sponsor-application">';
+			printf(
+				'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a> <span class="wpcpm-administrator__kind">%3$s</span></h4>',
+				esc_url( admin_url( 'admin.php?page=wpcpm-sponsors&' . WPCPM_Sponsor_Application::QUERY_QUEUE . '=' . (int) $row['id'] ) ),
+				esc_html( (string) $row['company'] ),
+				esc_html( (string) $row['reference'] )
+			);
+			echo '<p class="wpcpm-administrator__facts">';
+			/* translators: %s: how long ago. */
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Applied %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['at'], time() ) ) ) );
+
+			if ( '' !== (string) $row['website'] ) {
+				printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( (string) $row['website'] ) );
+			}
+
+			/* translators: 1: contact person, 2: contact email address. */
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Contact: %1$s, %2$s', 'wpcredits-program-manager' ), (string) $row['person'], (string) $row['email'] ) ) );
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( (string) $row['state_label'] ) );
+			echo '</p>';
+
+			if ( ! empty( $row['held'] ) ) {
+				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Held by the anti-spam checks. Open it on the Sponsors screen to read which.', 'wpcredits-program-manager' ) );
+			}
+
+			if ( ! empty( $row['duplicate'] ) ) {
+				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'Another open application names this company or this address. Nothing is ever merged.', 'wpcredits-program-manager' ) );
+			}
+
+			if ( ! empty( $row['in_base'] ) ) {
+				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The base already holds a sponsor with this name or website; approving creates a second record.', 'wpcredits-program-manager' ) );
+			}
+
+			// The one note that says a decision below it will be refused, so it is worth the
+			// line on a card that is otherwise only facts (S5 review).
+			if ( ! empty( $row['half_done'] ) ) {
+				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The approval of this application is half done: an Airtable record already exists for it. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' ) );
+			}
+
+			if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+				WPCPM_Sponsor_Application::render_decision( (int) $row['id'], WPCPM_Return::DASHBOARD );
 			}
 
 			echo '</article>';

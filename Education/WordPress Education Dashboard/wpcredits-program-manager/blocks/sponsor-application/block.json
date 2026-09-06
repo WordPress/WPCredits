@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "wpcpm/sponsor-application",
+	"version": "1.97.0",
+	"title": "Sponsor Application Form",
+	"category": "widgets",
+	"icon": "welcome-write-blog",
+	"description": "The public form a company fills in to ask to sponsor the WordPress Credits Program.",
+	"keywords": [ "sponsor", "application", "apply", "wpcredits" ],
+	"textdomain": "wpcredits-program-manager",
+	"attributes": {
+		"title": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"align": [ "wide", "full" ]
+	},
+	"editorScript": "file:./editor.js"
+}

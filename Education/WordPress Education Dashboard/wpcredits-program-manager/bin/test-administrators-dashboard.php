@@ -474,6 +474,12 @@ class WPCPM_Sponsor_Agreement {
 	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-request__decide wpcpm-sponsor-agreement__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
 	public static function manager_messages() { return array( 'agreement-accepted' => array( 'success', 'The agreement is accepted.' ) ); }
 }
+class WPCPM_Sponsor_Application {
+	const QUERY_QUEUE = 'wpcpm_sapp_id';
+	public static function queue_facts( $limit = 50 ) { return isset( $GLOBALS['sponsor_apps'] ) ? array_slice( $GLOBALS['sponsor_apps'], 0, (int) $limit ) : array(); }
+	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-app-action wpcpm-sponsor-application__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
+	public static function manager_messages() { return array( 'sapp-approved' => array( 'success', 'The sponsor application is approved.' ) ); }
+}
 if ( ! function_exists( 'size_format' ) ) { function size_format( $b, $d = 0 ) { return $b . ' B'; } }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
@@ -577,6 +583,9 @@ $GLOBALS['agr_facts']   = array(
 	913 => array( 'post_id' => 913, 'state' => 'submitted', 'kind' => 'own', 'sponsor' => 'recSPN00000000001', 'sponsor_name' => 'TEST Sponsor', 'uploaded_by' => 'Member One', 'uploaded_at' => '2026-09-06', 'original_name' => 'signed.pdf', 'flags' => array(), 'size' => 652, 'members' => 1 ),
 	880 => array( 'post_id' => 880, 'state' => 'revoked', 'kind' => 'legacy', 'sponsor' => 'recSPN00000000002', 'sponsor_name' => 'Old Sponsor', 'uploaded_by' => '', 'uploaded_at' => '2026-05-01', 'original_name' => '', 'flags' => array( 'javascript' ), 'size' => 0, 'members' => 2 ),
 );
+$GLOBALS['sponsor_apps'] = array(
+	array( 'id' => 950, 'reference' => 'SAPP-2026-0950', 'company' => 'Gadgetry Inc', 'website' => 'https://gadgetry.example', 'person' => 'Sam Sponsor', 'email' => 'maciej@a8c.com', 'at' => time() - 7200, 'state' => 'new', 'state_label' => 'new', 'signals' => array( 'in-base' ), 'held' => false, 'duplicate' => false, 'in_base' => true ),
+);
 $GLOBALS['facts'] = array(
 	801 => array( 'id' => 801, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $A, 'institution_name' => 'Uniwersytet Alpha', 'note' => 'Two students without a mentor.', 'at' => time() - 20 * DAY_IN_SECONDS, 'overdue' => true, 'actor' => 21, 'actor_name' => 'Rep One' ),
 	802 => array( 'id' => 802, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $B, 'institution_name' => 'Universidad Beta', 'note' => '', 'at' => time() - DAY_IN_SECONDS, 'overdue' => false, 'actor' => 21, 'actor_name' => 'Rep One' ),
@@ -611,11 +620,11 @@ ck( 'two open requests, one overdue, one closed', array( count( $data['requests'
 ck( 'one locked account', count( $data['locked'] ), 1 );
 
 $counts = WPCPM_Administrators_Cards::counts( $data );
-ck( 'ten tiles in the spec\'s order, the sponsor posts and agreements last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements' ) );
+ck( 'eleven tiles in the spec\'s order, the sponsor tiles last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements', 'sponsor_applications' ) );
 // array_map() keeps the input array's keys, and counts() is keyed by tile name (the
 // previous check pins that order), so the expectation is keyed the same way rather than
 // the plain list the brief first wrote, which could never === an array with string keys.
-ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements' ) );
+ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements', 'sponsor_applications' => '1:sponsor-applications' ) );
 
 /* ---- programs() ---------------------------------------------------------- */
 
@@ -652,14 +661,14 @@ $strip = capture( static function () use ( $counts ) { WPCPM_Administrators_Card
 // Eight, counting the opening tag rather than the bare class: the wrapping
 // <ul class="wpcpm-attention__tiles"> also matches the bare needle, since "tiles" starts with
 // "tile", so the bare count would read nine and call the wrapper a ninth tile.
-ck( 'the strip is one section with ten tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ) ), array( 10, true, true, true, true ) );
+ck( 'the strip is one section with eleven tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-applications"' ) ), array( 11, true, true, true, true, true ) );
 // None of the fixture's eight counts is 0, so this used to hold no matter what render_strip()
 // did with a zero; a tile is zeroed here, from counts()'s own output, so the check can
 // actually fail if --zero ever stops being drawn (final review, Important 6).
 $zero_counts = $counts;
 $zero_counts['locked']['n'] = 0;
 $zero_strip = capture( static function () use ( $zero_counts ) { WPCPM_Administrators_Cards::render_strip( $zero_counts ); } );
-ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 10 ) );
+ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 11 ) );
 
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
 ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-applications"' ) && has( $apps, 'wpcpm-group__disclosure" open' ) && has( $apps, '<span class="wpcpm-group__count">2</span>' ), true );
@@ -808,7 +817,7 @@ ck( 'the two-factor prompt is for the viewer', $GLOBALS['prompted'], array( 3 ) 
 ck( 'the flash on the institutions channel is drawn in the queue\'s words', has( $out, 'The application is approved.' ) && has( $out, 'wpcpm-dashboard__message--success' ), true );
 ck( 'and taken, so it shows once', isset( $GLOBALS['flash']['institutions'] ), false );
 $positions = array();
-foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-programs"', 'id="wpcpm-health"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) as $needle ) {
+foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-programs"', 'id="wpcpm-health"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) as $needle ) {
 	$positions[] = strpos( $out, $needle );
 }
 $sorted = $positions;
@@ -866,5 +875,33 @@ ob_start();
 WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array(), 'revoked' => array() ) );
 $sa = (string) ob_get_clean();
 ck( 'with nothing to read the card says so and shows no subheading', array( has( $sa, 'No sponsor agreement is waiting for review.' ), has( $sa, 'Out of force' ) ), array( true, false ) );
+
+echo "\n=== The Sponsor applications card (Phase S5: the decisions, the tile, the anchor) ===\n";
+ob_start();
+WPCPM_Administrators_Cards::render_sponsor_applications( $GLOBALS['sponsor_apps'] );
+$sa = (string) ob_get_clean();
+ck( 'the card lists the application with its facts, the base mark, a link to the Sponsors screen and the decisions bound for the dashboard', array(
+	has( $sa, 'id="wpcpm-sponsor-applications"' ),
+	has( $sa, '<span class="wpcpm-group__count">1</span>' ),
+	has( $sa, '>Gadgetry Inc</a> <span class="wpcpm-administrator__kind">SAPP-2026-0950</span>' ),
+	has( $sa, 'page=wpcpm-sponsors&wpcpm_sapp_id=950' ),
+	has( $sa, 'https://gadgetry.example' ),
+	has( $sa, 'Contact: Sam Sponsor, maciej@a8c.com' ),
+	has( $sa, 'already holds a sponsor with this name or website' ),
+	has( $sa, 'data-post="950" data-return="dashboard"' ),
+), array( true, true, true, true, true, true, true, true ) );
+ob_start();
+WPCPM_Administrators_Cards::render_sponsor_applications( array() );
+$sa = (string) ob_get_clean();
+ck( 'with nothing waiting the card says so', has( $sa, 'No sponsor application is waiting.' ), true );
+ob_start();
+WPCPM_Administrators_Cards::render_sponsor_applications( array( array_merge( $GLOBALS['sponsor_apps'][0], array( 'half_done' => true ) ) ) );
+$sa = (string) ob_get_clean();
+ck( 'a half-done approval is said so here too, because three of the decisions under it are refused (S5 fix wave)', array( has( $sa, 'approval of this application is half done' ), has( $sa, 'Press Approve again to finish.' ) ), array( true, true ) );
+$GLOBALS['uid']    = 3;
+$GLOBALS['manage'] = array( 3 );
+$GLOBALS['flash']  = array( 'institutions' => 'sapp-approved' );
+$out_sapp          = WPCPM_Administrators_Dashboard::render( array() );
+ck( 'a decision\'s flash is drawn in the application class\'s words, on the page it came back to', has( $out_sapp, 'The sponsor application is approved.' ), true );
 
 exit( $fail ? 1 : 0 );

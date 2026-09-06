@@ -9,6 +9,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Loaded here as well as by the plugin's loader, on purpose. `bin/test-institution-application.php`
+// requires this file with five others and nothing else, and the design (spec section 9.1) makes
+// that suite, unchanged, the proof that the extraction changed nothing: a file that needed a
+// seventh `require_once` in the suite would have changed the suite. `require_once` is idempotent
+// by real path, so on a booted site the loader's own line has done the work and this one costs a
+// stat.
+require_once dirname( __DIR__ ) . '/class-wpcpm-form-guard.php';
+
 /**
  * The form an institution fills in to ask to join the program, and everything that guards it.
  *
@@ -90,8 +98,8 @@ class WPCPM_Institution_Application {
 	/** The `admin_post_` action the address-verification link in the acknowledgement lands on. */
 	const ACTION_VERIFY = 'wpcpm_apply_verify';
 
-	/** Seconds a human takes to fill this in at the very least. Below it, the row is spam. */
-	const MIN_SECONDS = 6;
+	/** Seconds a human takes to fill this in at the very least. Below it, the row is spam. The number is the guard's since 1.97.0; the name stays because the suite reads it. */
+	const MIN_SECONDS = WPCPM_Form_Guard::MIN_SECONDS;
 
 	/** Longest free-text answer kept, in characters. */
 	const MAX_TEXT = 4000;
@@ -134,11 +142,20 @@ class WPCPM_Institution_Application {
 	/** The dwell token's field name. */
 	const TOKEN_FIELD = 'wpcpm_application_token';
 
+	/**
+	 * The dwell token's scope.
+	 *
+	 * Part of the token's signature since the guard was extracted (1.97.0), so a token minted for
+	 * this form is a forgery on the sponsor form and the other way round. The value is what the
+	 * signature said before the extraction, which is why the suite's own tokens still check.
+	 */
+	const DWELL_SCOPE = 'wpcpm-application-dwell';
+
 	/** How long a dwell token stays usable. Past it the answer is `stale`, which is not spam. */
-	const TOKEN_LIFETIME = 12 * HOUR_IN_SECONDS;
+	const TOKEN_LIFETIME = WPCPM_Form_Guard::TOKEN_LIFETIME;
 
 	/** Submissions one source may make in an hour before it is refused outright. */
-	const PER_HOUR = 5;
+	const PER_HOUR = WPCPM_Form_Guard::PER_HOUR;
 
 	/**
 	 * Submissions the whole site takes in a day before every further one is held instead.
@@ -147,7 +164,7 @@ class WPCPM_Institution_Application {
 	 * is still acknowledged. The message that acknowledges them carries the link that confirms
 	 * the address, and an unconfirmed application can never be approved.
 	 */
-	const PER_DAY = 40;
+	const PER_DAY = WPCPM_Form_Guard::PER_DAY;
 
 	/**
 	 * Acknowledgements this form will send in a day, site-wide, to addresses nobody has proved.
@@ -170,10 +187,10 @@ class WPCPM_Institution_Application {
 	 * path becoming a mailer, nothing else. A program that receives two hundred genuine
 	 * applications in a day has a different problem and will hear about it from the queue.
 	 */
-	const MAIL_PER_DAY = 200;
+	const MAIL_PER_DAY = WPCPM_Form_Guard::MAIL_PER_DAY;
 
 	/** How many links across the free text before the row is held for a human. */
-	const MAX_LINKS = 3;
+	const MAX_LINKS = WPCPM_Form_Guard::MAX_LINKS;
 
 	/** Shorter than this, the "why are you interested" answer is a signal rather than an answer. */
 	const MIN_REASON = 30;
@@ -684,10 +701,10 @@ class WPCPM_Institution_Application {
 		}
 
 		if ( 'consent' === $type ) {
-			// The one answer that is never stored as an answer. `WPCPM_Field_Value` reads a tick
-			// the strict way - the value the control carries, and nothing else - which is
-			// exactly the rule consent needs: "yes" is not a tick.
-			return WPCPM_Field_Value::clean( $raw, array( 'type' => 'checkbox' ) );
+			// The one answer that is never stored as an answer. The guard reads a tick the
+			// strict way, the value the control carries and nothing else, which is exactly the
+			// rule consent needs: "yes" is not a tick, and neither is an array.
+			return self::accept( WPCPM_Form_Guard::consented( $raw ) );
 		}
 
 		$rules = array( 'type' => 'text' === $type ? 'text' : $type );
@@ -758,7 +775,7 @@ class WPCPM_Institution_Application {
 	 * @return string
 	 */
 	public static function policy_url() {
-		return function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
+		return WPCPM_Form_Guard::policy_url();
 	}
 
 	/**
@@ -1110,18 +1127,10 @@ class WPCPM_Institution_Application {
 	/**
 	 * The honeypot.
 	 *
-	 * Hidden with a class rather than `type="hidden"`, because a hidden input is not something
-	 * a form-filling script mistakes for a question, and `display: none` in the stylesheet is
-	 * what it does mistake for one. `aria-hidden` and `tabindex="-1"` keep it away from anybody
-	 * reading the form with a screen reader or a keyboard, and the label says what to do with
-	 * it for the one person whose stylesheet never loaded.
+	 * Drawn by the guard since 1.97.0, so both public forms print one honeypot.
 	 */
 	private static function render_honeypot() {
-		printf(
-			'<div class="wpcpm-application__confirm" aria-hidden="true"><label for="%1$s">%2$s</label><input type="text" id="%1$s" name="%1$s" value="" tabindex="-1" autocomplete="off" /></div>',
-			esc_attr( self::HONEYPOT ),
-			esc_html__( 'Leave this field empty.', 'wpcredits-program-manager' )
-		);
+		WPCPM_Form_Guard::render_honeypot( self::HONEYPOT );
 	}
 
 	/**
@@ -1381,20 +1390,7 @@ class WPCPM_Institution_Application {
 	 * @return string
 	 */
 	public static function token() {
-		$issued = time();
-
-		return $issued . '.' . self::sign_token( $issued, wp_create_nonce( self::ACTION_SUBMIT ) );
-	}
-
-	/**
-	 * The signature half of a token.
-	 *
-	 * @param int    $issued When the token was minted.
-	 * @param string $nonce  The form's nonce, which the token is bound to.
-	 * @return string
-	 */
-	private static function sign_token( $issued, $nonce ) {
-		return substr( wp_hash( 'wpcpm-application-dwell|' . (int) $issued . '|' . $nonce ), 0, 32 );
+		return WPCPM_Form_Guard::token( self::DWELL_SCOPE, self::ACTION_SUBMIT );
 	}
 
 	/**
@@ -1416,44 +1412,14 @@ class WPCPM_Institution_Application {
 	 * replayed once into the next bucket, which is the price of a bucketed counter and is
 	 * still one replay rather than a thousand.
 	 *
+	 * The judgement is the guard's since 1.97.0; the name stays because `handle_submit()` and
+	 * the suite read it.
+	 *
 	 * @param string $token The posted token.
 	 * @return string `ok`, `spam` or `stale`.
 	 */
 	public static function check_token( $token ) {
-		$token = trim( (string) $token );
-		$parts = explode( '.', $token );
-
-		if ( 2 !== count( $parts ) || ! ctype_digit( $parts[0] ) ) {
-			return 'spam';
-		}
-
-		// The nonce this token was signed against. Read here rather than passed in so that a
-		// caller cannot check a token against a nonce other than the one that was posted with
-		// it; `handle_submit()` has already verified it by the time this runs.
-		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- This *is* the nonce, read to re-derive the signature; it is verified in the handler before this is called.
-		$nonce = isset( $_POST['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_wpnonce'] ) ) : '';
-
-		if ( ! hash_equals( self::sign_token( (int) $parts[0], $nonce ), $parts[1] ) ) {
-			return 'spam';
-		}
-
-		$age = time() - (int) $parts[0];
-
-		if ( $age < self::MIN_SECONDS ) {
-			return 'spam';
-		}
-
-		if ( $age > self::TOKEN_LIFETIME ) {
-			return 'stale';
-		}
-
-		// Hashed rather than used raw, the way `WPCPM_Ceiling` asks: nothing about a claim is
-		// readable in the options table.
-		if ( ! WPCPM_Ceiling::claim( 'dwell:' . wp_hash( $token ), 1, self::TOKEN_LIFETIME ) ) {
-			return 'spam';
-		}
-
-		return 'ok';
+		return WPCPM_Form_Guard::check_token( self::DWELL_SCOPE, $token );
 	}
 
 	/**
@@ -1464,48 +1430,12 @@ class WPCPM_Institution_Application {
 	 * unconditionally would mean the per-actor ceiling is one line of a request away from
 	 * being lifted, and the truncated address stored as consent evidence would be whatever
 	 * the sender fancied. Empty setting means the connecting address is the client, which is
-	 * true on this host.
+	 * true on this host. The reading itself is the guard's since 1.97.0, chain and all.
 	 *
 	 * @return string An IP address, or '' when there is none to be had.
 	 */
 	public static function client_ip() {
-		$remote = '';
-
-		if ( isset( $_SERVER['REMOTE_ADDR'] ) ) {
-			$remote = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
-		}
-
-		$remote = filter_var( $remote, FILTER_VALIDATE_IP ) ? $remote : '';
-		$proxy  = trim( (string) WPCPM_Settings::get_value( 'application_trusted_proxy', '' ) );
-
-		if ( '' === $proxy || '' === $remote || $proxy !== $remote ) {
-			return $remote;
-		}
-
-		$forwarded = '';
-
-		if ( isset( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
-			$forwarded = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_FOR'] ) );
-		}
-
-		// **From the right, not the left.** Every standard edge appends the address it saw the
-		// request arrive from, so the header reads `<whatever the client sent>, <what the edge
-		// saw>`: the rightmost entry is the edge's own word and the leftmost is the client's,
-		// who can write anything there. Reading the left end let an applicant choose their own
-		// limiter bucket and spam the public form once a proxy was configured. The edge itself
-		// is skipped when it appears (a chain of two of ours), and an entry that is not an
-		// address at all is ignored; a header with nothing usable falls back to REMOTE_ADDR.
-		$entries = array_reverse( array_map( 'trim', explode( ',', $forwarded ) ) );
-
-		foreach ( $entries as $candidate ) {
-			if ( $candidate === $proxy || ! filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
-				continue;
-			}
-
-			return $candidate;
-		}
-
-		return $remote;
+		return WPCPM_Form_Guard::client_ip();
 	}
 
 	/**
@@ -1518,43 +1448,7 @@ class WPCPM_Institution_Application {
 	 * @return string
 	 */
 	private static function actor_key() {
-		// The whole address, hashed, and deliberately not the truncated one. Truncating would
-		// bound the rows this unauthenticated path can create, which is worth something, but it
-		// buckets a whole network together: one campus behind a single NAT is exactly the
-		// population this form is for, and five an hour shared between all of its staff would
-		// refuse the second real applicant of the afternoon to slow down an attacker who can
-		// change address anyway. The rows are one per source per hour and the daily sweep is
-		// what removes them; that is the bound this design accepts.
-		return 'apply:' . wp_hash( self::client_ip() );
-	}
-
-	/**
-	 * An address as it is kept on the consent record: recognisable, not identifying.
-	 *
-	 * The last octet of an IPv4 address goes, and everything after the first four groups of an
-	 * IPv6 one. Enough to say two applications came from the same building; not enough to be a
-	 * record of where somebody was.
-	 *
-	 * @param string $ip The address.
-	 * @return string
-	 */
-	private static function truncate_ip( $ip ) {
-		$ip = trim( (string) $ip );
-
-		if ( '' === $ip ) {
-			return '';
-		}
-
-		if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 ) ) {
-			$parts    = explode( '.', $ip );
-			$parts[3] = '0';
-
-			return implode( '.', $parts );
-		}
-
-		$groups = explode( ':', $ip );
-
-		return implode( ':', array_slice( $groups, 0, 4 ) ) . '::';
+		return WPCPM_Form_Guard::actor_key( 'apply' );
 	}
 
 	/*
@@ -1594,7 +1488,7 @@ class WPCPM_Institution_Application {
 		// nonce - which anybody can send, in a loop, for ever - wrote those two rows every time
 		// and was never counted by anything. Nothing above this line writes; the row this line
 		// writes is one per address per window and the daily sweep takes it away.
-		if ( ! WPCPM_Ceiling::claim( self::actor_key(), self::PER_HOUR, HOUR_IN_SECONDS ) ) {
+		if ( ! WPCPM_Form_Guard::claim_actor( self::actor_key(), self::PER_HOUR ) ) {
 			self::bounce( 'busy' );
 		}
 
@@ -1616,7 +1510,7 @@ class WPCPM_Institution_Application {
 		// 4. The honeypot. A filled one is stored and held as spam rather than refused, and the
 		// sender sees the ordinary confirmation: a bot told which attempt was recognised comes
 		// back with a better one, and a human whose browser filled it in has still applied.
-		if ( '' !== WPCPM_Request::posted_text( self::HONEYPOT ) ) {
+		if ( WPCPM_Form_Guard::honeypot_filled( self::HONEYPOT ) ) {
 			$spam      = true;
 			$signals[] = 'honeypot';
 		}
@@ -1674,7 +1568,7 @@ class WPCPM_Institution_Application {
 		// 10. The site-wide ceiling degrades rather than refusing, so a flood cannot close the
 		// form to the one real institution applying that afternoon. The row is kept and held,
 		// and the managers are not paged about it. The applicant still is: see step 13.
-		if ( ! WPCPM_Ceiling::claim( 'apply-site', self::PER_DAY, DAY_IN_SECONDS ) ) {
+		if ( ! WPCPM_Form_Guard::claim_site( 'apply-site', self::PER_DAY ) ) {
 			$signals[] = 'site-ceiling';
 		}
 
@@ -1731,7 +1625,7 @@ class WPCPM_Institution_Application {
 			// The ceiling before the send, not after: see `MAIL_PER_DAY`. A claim that fails
 			// leaves the row exactly as it is and records why, so the queue shows a manager
 			// that this applicant is waiting on a message the site declined to send.
-			if ( WPCPM_Ceiling::claim( 'apply-mail', self::MAIL_PER_DAY, DAY_IN_SECONDS ) ) {
+			if ( WPCPM_Form_Guard::claim_mail( 'apply-mail', self::MAIL_PER_DAY ) ) {
 				self::mail_applicant( $post_id );
 			} else {
 				self::add_signal( $post_id, 'mail-ceiling' );
@@ -1889,11 +1783,11 @@ class WPCPM_Institution_Application {
 		$email   = self::email_of( $values );
 		$prose   = self::prose( $values );
 
-		if ( function_exists( 'wp_check_comment_disallowed_list' ) && wp_check_comment_disallowed_list( $name, $email, '', $prose, self::client_ip(), self::user_agent() ) ) {
+		if ( function_exists( 'wp_check_comment_disallowed_list' ) && wp_check_comment_disallowed_list( $name, $email, '', $prose, self::client_ip(), WPCPM_Form_Guard::user_agent() ) ) {
 			$signals[] = 'disallowed';
 		}
 
-		if ( preg_match_all( '#https?://#i', $prose ) >= self::MAX_LINKS ) {
+		if ( WPCPM_Form_Guard::too_many_links( $prose, self::MAX_LINKS ) ) {
 			$signals[] = 'links';
 		}
 
@@ -1997,19 +1891,6 @@ class WPCPM_Institution_Application {
 		// An A record counts: a mail server falls back to it when there is no MX, and a
 		// university that runs its own mail on the bare domain is not a signal.
 		return checkdnsrr( $domain, 'MX' ) || checkdnsrr( $domain, 'A' );
-	}
-
-	/**
-	 * The submitting browser's description, truncated, for the consent record.
-	 *
-	 * @return string
-	 */
-	private static function user_agent() {
-		if ( ! isset( $_SERVER['HTTP_USER_AGENT'] ) ) {
-			return '';
-		}
-
-		return mb_substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 200 );
 	}
 
 	/**
@@ -2134,24 +2015,15 @@ class WPCPM_Institution_Application {
 	 * The sentence as it was rendered, the policy's address and post ID, and the policy's own
 	 * `post_modified_gmt`. The last one is the point: "they agreed" is worth nothing if nobody
 	 * can say what the document said that day, and a privacy policy is an ordinary page
-	 * somebody can edit.
+	 * somebody can edit. The record is the guard's since 1.97.0: one shape for both public
+	 * forms.
 	 *
 	 * @return array
 	 */
 	private static function consent_record() {
-		$fields    = self::fields();
-		$policy_id = (int) get_option( 'wp_page_for_privacy_policy' );
-		$policy    = $policy_id ? get_post( $policy_id ) : null;
+		$fields = self::fields();
 
-		return array(
-			'sentence' => (string) $fields['Privacy Policy Compliance']['label'],
-			'url'      => self::policy_url(),
-			'policy'   => $policy_id,
-			'modified' => $policy instanceof WP_Post ? (string) $policy->post_modified_gmt : '',
-			'at'       => time(),
-			'ip'       => self::truncate_ip( self::client_ip() ),
-			'agent'    => self::user_agent(),
-		);
+		return WPCPM_Form_Guard::consent_evidence( (string) $fields['Privacy Policy Compliance']['label'] );
 	}
 
 	/**

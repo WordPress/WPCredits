@@ -31,7 +31,7 @@ If Airtable is not connected yet, this screen says so and links straight to the 
 | **Students** | The student list, the sync report, and one-at-a-time invitations. |
 | **Mentors** | The mentor list, the sync report, and one-at-a-time invitations. |
 | **Institutions** | Role only - registers `wpcpm_institution` and reserves the screen. |
-| **Sponsors** | The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, and the interests log. |
+| **Sponsors** | The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision. |
 | **Administrators** | Lists the program capabilities granted to Administrator, and who holds the role. |
 
 A role-only screen tells you the role slug, whether it is registered, and how many accounts hold it.
@@ -47,6 +47,8 @@ Status Checker**. Each has its own screen behind an *Open tool* button.
 Since 1.92.0 the Administrator Dashboard on the front end gathers every queue these screens hold; the Administrators screen links to it.
 
 Since 1.93.0 the Sponsors screen is no longer a placeholder: it holds the sponsors sync, every sponsor with its status, program contact and accounts, the Create account and Attach account controls, and the log of interests sponsors expressed on their dashboard.
+
+Since 1.97.0 the Sponsors screen also holds the queue of companies that applied through the form on the site, with the six decisions the Institutions screen has for its own applications, and its menu entry carries a bubble counting the applications, the signed agreements and the sponsor posts waiting for a manager.
 
 ## Settings
 
@@ -108,6 +110,7 @@ mentoring.
 
 ### Sponsors module
 
+- **Applications from sponsors**: whether the public form at /sponsor-application/ takes applications. Off by default. The form shows nothing to the public without a published privacy policy, whatever this says; the row on the settings screen says so and links the page.
 - **Tools from our sponsors**: two checkboxes. Show the section on the Student Report Card (on by default) and on the Mentor Report Card (off by default). The Administrator Dashboard shows every live offer whatever these say.
 - **Low-stock warning**: how many codes must be left in a pool before the sponsor and its program manager are mailed, once per crossing. Ten by default; each offer can set its own.
 
@@ -249,7 +252,8 @@ plugin recreates it; the settings screen warns you when a page it expects is not
 
 Uninstall removes the settings, the sync state, the access-level meta and the custom roles, and moves
 affected accounts back to Subscriber; it also deletes the sponsors' offers, pools and locks, and the
-claims meta. **Accounts are never deleted**, and their program details in Airtable are untouched.
+claims meta, and the sponsor applications with the logo files nobody approved. **Accounts are never
+deleted**, and their program details in Airtable are untouched.
 
 ### When something is wrong
 
@@ -270,7 +274,7 @@ Review a draft on the Institution Dashboard, reached through the switcher from t
 
 ## The Administrator Dashboard
 
-The Administrator Dashboard at /administrator-dashboard/ is the page to start the day on. It is gated to program managers and shows, in this order: a strip of eight counts (applications waiting, agreements to review and overdue, reports to review, semesters due for drafting, mentor requests open and overdue, locked accounts), then one card each for institution applications, Collaboration Agreements, semester reports, mentor requests, the programs running and the syncs' health. Every decision on the page is the same decision the wp-admin screen offers, posted to the same handler with the same safeguards, and it lands back on the page (Draft now opens the new draft in the editor, and a refusal comes back to the page). What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or provision accounts; those stay on the wp-admin screens the Syncs card links to.
+The Administrator Dashboard at /administrator-dashboard/ is the page to start the day on. It is gated to program managers and shows, in this order: a strip of eleven counts (institution applications waiting, agreements to review and overdue, reports to review, semesters due for drafting, mentor requests open and overdue, locked accounts, sponsor posts to review, sponsor agreements to review, sponsor applications waiting), then one card each for institution applications, Collaboration Agreements, semester reports, mentor requests, sponsor applications, sponsor posts, sponsor Collaboration Agreements, the programs running and the syncs' health. Every decision on the page is the same decision the wp-admin screen offers, posted to the same handler with the same safeguards, and it lands back on the page (Draft now opens the new draft in the editor, and a refusal comes back to the page). What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or provision accounts; those stay on the wp-admin screens the Syncs card links to.
 
 The programs card counts students in progress per track and per institution from the roster index, so its numbers are as old as the last students sync; the read time is printed under the table. "Finished this semester" counts graduates only, not everyone who left the program; a graduate's row no longer says which track they were on, so it is one number rather than one per track. "Signed up this semester" per track counts the students who started in the semester and are still on that track; a student who started and has since paused, graduated or left is in the semester's finished count or in no count. Mentors are counted by distinct name, not by their Airtable record, because a roster row carries no mentor record ID: two mentors who share a name count once.
 
@@ -289,6 +293,8 @@ Sponsors read numbers, managers read names. The sponsor's Usage card counts clai
 The Tools section is drawn on a person's own Student Report Card (setting *Tools from our sponsors*, on by default), on their own Mentor Report Card (off by default) and on the Administrator Dashboard (every live offer, labeled with its audience). On a manager's view of a student it is one line, "N tools claimed".
 
 **Logo and agreement (1.96.0).** A sponsor uploads its own logo on its dashboard, in color and optionally in white; the site checks the bytes rather than the name (PNG, JPEG or WebP, at least 200 pixels wide, SVG refused), re-saves the image through WordPress's editor, and writes the attachments' public URLs back to Airtable's `Logo`, color first, so the base shows the same picture. Five uploads a day per company. Remove takes the logo out of the site and out of the program records at once, and deletes nothing from the Media Library. The sponsor agreement is optional and is never a gate: a company's dashboard, offers and codes work without one. A sponsor uploads a signed PDF from its dashboard and can withdraw it while nobody has read it; the Agreements card on the Sponsors screen, and the Sponsor Collaboration Agreements card on the Administrator Dashboard, hold the review queue, with the facts, what the PDF scan noticed, a download that is always an attachment, and Accept or Return with a note that is emailed verbatim. An accepted agreement can be taken out of force with a note and put back; a company whose signed copy predates this site is recorded as on file with a link to the program's Drive folder. Each of those writes `Agreement Status`, and acceptance also writes `Agreement Accepted On`; on-file writes `Agreement Document` too. A withdrawn file is deleted the moment it is withdrawn, and a returned one by a daily run after the retention setting; accepted, superseded and revoked ones survive an uninstall and appear in the mailed manifest beside the institutions' files.
+
+**The application form (1.97.0).** A company applies to sponsor the program on this site, at /sponsor-application/, instead of in the Airtable form: the same eight questions in the same order (company name, website, contact person and address, how it would like to support the program, a logo in color and in white, anything else, and the privacy policy confirmation), guarded exactly as the institution form is (a hidden field, a signed token, five submissions an hour per address, forty a day for the whole site before the rest are held, consent as a precondition with what was agreed to recorded, links counted, and a ceiling on acknowledgements). The form is off until "Applications from sponsors" is switched on in the settings and shows nothing to the public without a published privacy policy. Every submission is a private row: the applicant gets an acknowledgement with a reference (SAPP-2026-0007), the program managers named by the "Interest mail" setting (or every manager) get the facts and a link, and the Sponsors screen's *Sponsor applications* card lists what is waiting, oldest first, with a mark for a row the checks held, for another open application naming the same company or address, and for a company the sponsors index already holds under the same name or website. Under that list, *Recently decided* lists the applications somebody has already decided (marked as spam, rejected or approved), newest decision first, so a genuine application the checks filed as spam, or a rejection somebody pressed by mistake, can be opened and put back in the queue rather than waiting for the retention run to delete it. The logo files an applicant sends are kept in the Media Library as private files under a generated name until the application is approved, so nothing a stranger uploaded is listed or reachable before somebody has looked at it; approval publishes both halves and hands them to the sponsor's account. Open one to read the answers, the logo files, what was agreed to, what the base already has, and the six decisions the institution queue has: Approve, Send this question (mailed with your address to reply to), Reject (a short acknowledgement with no reason; your note stays here), Reject as spam (nothing is sent), Put back in the queue, Delete for good. The Administrator Dashboard carries the same six decisions on its own *Sponsor applications* card and counts the queue in its strip; the answers and the base matches are on the Sponsors screen until the next phase. Approve creates the Airtable record with Status Approved, the website, the contact, the sponsorship option, the free text, the two logo files and the Dashboard account checkbox, then in the same press the account (through the same path Create account uses), the company's category, the logo record and the first offer in draft, and queues the welcome; if Airtable refuses, nothing else happens and pressing again starts clean. If a press got as far as the Airtable record and then stopped, the row is marked *approval half done* wherever it is drawn and Reject, Reject as spam and Put back in the queue are refused on it: press Approve again to finish, then decide what you like. A company the base already holds is never merged: reject the application and use Create account on the Sponsors card instead. The retention settings for institution applications apply here too (spam after 30 days, rejected after a year, approved never, by default), and a spam or rejected application's logo files are deleted with it; an approved one's are the sponsor's logo and stay. After go-live, one manual step: change the form link on the handbook page to /sponsor-application/.
 
 ## Where the plugin keeps its data
 
@@ -351,9 +357,12 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_roster_` | `WPCPM_Roster_Index::OPT_PREFIX` |
 | `wpcpm_roster_counts` | `WPCPM_Roster_Index::OPT_COUNTS` |
 | `wpcpm_roster_unlinked` | `WPCPM_Roster_Index::OPT_UNLINKED` |
+| `wpcpm_sapp_lock_` | `WPCPM_Sponsor_Approval::LOCK_PREFIX` (the per-application approval locks) |
 | `wpcpm_settings` | `WPCPM_Settings::OPT_NAME` |
 | `wpcpm_settings_version` | `WPCPM_Settings::OPT_VERSION` |
 | `wpcpm_sponsor_agr_` | `WPCPM_Sponsor_Agreement::OPT_PREFIX` (the per-sponsor transition locks) |
+| `wpcpm_sponsor_application_log` | `WPCPM_Sponsor_Application::OPT_LOG` |
+| `wpcpm_sponsor_application_page_id` | `WPCPM_Sponsor_Application::OPT_PAGE` |
 | `wpcpm_sponsor_logo_` | `WPCPM_Sponsors_Index::OPT_LOGO_PREFIX` |
 | `wpcpm_sponsor_page_id` | `WPCPM_Sponsors_Dashboard::OPT_PAGE` |
 | `wpcpm_sponsor_page_title_fixed` | `WPCPM_Sponsors_Dashboard::OPT_TITLE_FIXED` |

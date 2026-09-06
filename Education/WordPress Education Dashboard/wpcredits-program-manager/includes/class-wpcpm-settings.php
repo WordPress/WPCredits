@@ -132,6 +132,11 @@ class WPCPM_Settings {
 			// Below this many available codes, one mail to the sponsor and one to the assigned
 			// manager, once per crossing (section 6.6). Each offer can set its own.
 			'offer_low_stock'               => 10,
+			// The public sponsor application form (Sponsors design spec of 4 September 2026,
+			// section 9.2). Off until a manager switches it on, for the reason the institution
+			// switch gives: on means accepting writes from anybody on the internet, which is a
+			// decision somebody makes rather than a side effect of installing an update.
+			'sponsor_applications_enabled'  => false,
 			// The public application form. Off until the page that hosts it exists,
 			// because on means accepting submissions from anybody on the internet.
 			'applications_enabled'          => false,
@@ -396,7 +401,7 @@ class WPCPM_Settings {
 		// case: it forwards every checkbox it renders as a boolean, ticked or not, so
 		// unticking one still switches it off through this same guarded read. Absent means
 		// "leave alone" only for callers narrower than the form.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

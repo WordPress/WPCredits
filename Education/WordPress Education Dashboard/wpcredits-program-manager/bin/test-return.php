@@ -68,7 +68,7 @@ ck( 'and nothing for an empty target', printed( '' ), '' );
 $html = printed( 'dashboard', 'requests' );
 ck( 'and both inputs for the dashboard', false !== strpos( $html, 'name="wpcpm_return" value="dashboard"' ) && false !== strpos( $html, 'name="wpcpm_return_to" value="requests"' ), true );
 ck( 'an unknown anchor is not printed', false !== strpos( printed( 'dashboard', 'evil' ), 'wpcpm_return_to' ), false );
-ck( 'the anchors are the eight cards and the strip', WPCPM_Return::ANCHORS, array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-posts', 'sponsor-agreements', 'programs', 'health' ) );
+ck( 'the anchors are the nine cards and the strip', WPCPM_Return::ANCHORS, array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'programs', 'health' ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

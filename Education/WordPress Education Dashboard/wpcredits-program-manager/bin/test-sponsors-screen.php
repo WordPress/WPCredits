@@ -187,12 +187,26 @@ function get_user_by( $field, $value ) {
 /** `get_users()` by meta key and value; a call with neither, as the locked-accounts card makes, gets everyone. */
 /**
  * Enough of `$wpdb` for `WPCPM_Sponsors_Index::delete_all()`'s one raw query: a LIKE-prefix
- * DELETE against the options table it keeps in `$GLOBALS['opts']`.
+ * DELETE against the options table it keeps in `$GLOBALS['opts']`, and for
+ * `WPCPM_Sponsor_Approval::delete_all()`'s LIKE-prefix SELECT of the lock rows, which
+ * `uninstall()` reaches for real since the S5 fix wave loaded that class here.
  */
 class WPCPM_Test_DB {
 	public $options = 'wp_options';
 	public function prepare( $sql, ...$args ) { return vsprintf( str_replace( '%s', "'%s'", $sql ), $args ); }
 	public function esc_like( $s ) { return addcslashes( (string) $s, '_%\\' ); }
+	public function get_col( $sql ) {
+		$out = array();
+
+		if ( preg_match( "/LIKE '(.*)%'\$/", $sql, $m ) ) {
+			$prefix = str_replace( array( '\\_', '\\%', '\\\\' ), array( '_', '%', '\\' ), $m[1] );
+			foreach ( array_keys( $GLOBALS['opts'] ) as $name ) {
+				if ( 0 === strpos( $name, $prefix ) ) { $out[] = $name; }
+			}
+		}
+
+		return $out;
+	}
 	public function query( $sql ) {
 		if ( preg_match( "/LIKE '(.*)%'\$/", $sql, $m ) ) {
 			$prefix = str_replace( array( '\\_', '\\%', '\\\\' ), array( '_', '%', '\\' ), $m[1] );
@@ -229,6 +243,7 @@ function wp_insert_post( array $args, $wp_error = false ) {
 }
 function wp_update_post( array $args ) { $id = (int) $args['ID']; if ( isset( $GLOBALS['posts'][ $id ] ) && isset( $args['post_title'] ) ) { $GLOBALS['posts'][ $id ]->post_title = $args['post_title']; } return $id; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
+function wp_delete_attachment( $id, $force = false ) { $GLOBALS['deleted_attachments'][] = (int) $id; return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
@@ -237,12 +252,14 @@ function get_posts( array $args ) {
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $id => $post ) {
 		if ( isset( $args['post_type'] ) && $post->post_type !== $args['post_type'] ) { continue; }
-		if ( isset( $args['post_status'] ) && $post->post_status !== $args['post_status'] ) { continue; }
+		if ( isset( $args['post_status'] ) && 'any' !== $args['post_status'] && $post->post_status !== $args['post_status'] ) { continue; }
 		$ok = true;
 		foreach ( (array) ( $args['meta_query'] ?? array() ) as $clause ) {
 			if ( ! is_array( $clause ) || ! isset( $clause['key'] ) ) { continue; }
 			$have = array_key_exists( $clause['key'], $GLOBALS['pmeta'][ $id ] ?? array() );
 			if ( isset( $clause['compare'] ) && 'EXISTS' === $clause['compare'] ) { if ( ! $have ) { $ok = false; } continue; }
+			// The application queue asks for several states at once (added for S5).
+			if ( isset( $clause['compare'] ) && 'IN' === $clause['compare'] ) { if ( ! $have || ! in_array( (string) $GLOBALS['pmeta'][ $id ][ $clause['key'] ], array_map( 'strval', (array) $clause['value'] ), true ) ) { $ok = false; } continue; }
 			if ( ! $have || (string) $GLOBALS['pmeta'][ $id ][ $clause['key'] ] !== (string) $clause['value'] ) { $ok = false; }
 		}
 		if ( $ok ) { $out[] = $post; }
@@ -279,6 +296,9 @@ function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function size_format( $b, $d = 0 ) { return (int) $b . ' B'; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
 function wp_date( $format, $ts = null, $zone = null ) { return gmdate( $format, (int) $ts ); }
+function get_post_time( $format = 'U', $gmt = false, $post = null ) { return 1757000000; }
+function wp_get_attachment_image( $id, $size = 'medium', $icon = false, $attr = array() ) { return '<img class="wpcpm-test-logo" data-id="' . (int) $id . '" src="https://example.test/uploads/' . (int) $id . '.png" alt="" />'; }
+function esc_textarea( $s ) { return esc_html( $s ); }
 
 class WPCPM_Airtable {
 	public function update_records( $table, array $records ) { $GLOBALS['patched'][] = array( $table, $records ); return isset( $GLOBALS['airtable_fail'] ) ? new WP_Error( 'x', 'Airtable said no' ) : array( $records[0]['id'] => true ); }
@@ -316,10 +336,11 @@ class WPCPM_Request {
 	public static function posted_id( $n ) { return isset( $GLOBALS['post'][ $n ] ) ? (int) $GLOBALS['post'][ $n ] : 0; }
 	public static function text( $n, $f = '' ) { return isset( $GLOBALS['get'][ $n ] ) ? trim( (string) $GLOBALS['get'][ $n ] ) : $f; }
 	public static function key( $n, $f = '' ) { return isset( $GLOBALS['get'][ $n ] ) ? (string) $GLOBALS['get'][ $n ] : $f; }
+	public static function id( $n ) { return isset( $GLOBALS['get'][ $n ] ) ? (int) $GLOBALS['get'][ $n ] : 0; }
 }
 class WPCPM_Settings { public static function get() { return $GLOBALS['settings']; } public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } public static function is_connected() { return true; } }
 class WPCPM_Mentors { public static function format_duration( $s ) { return $s . 's'; } }
-class WPCPM_Return { public static function url( $default ) { return $default; } }
+class WPCPM_Return { const FIELD = 'wpcpm_return'; const DASHBOARD = 'dashboard'; public static function url( $default ) { return $default; } public static function field( $where, $anchor = '' ) {} }
 /** Task 4's real class is not loaded here (nothing else in this suite needs it), so a stub
  * stands in: ACTION_FLAGS names the admin-post action render_members() posts a nonce for, and
  * posting_enabled() reads the same $GLOBALS['posting_off'] the checks below set and clear.
@@ -378,6 +399,12 @@ function post( array $fields, $action ) {
 	$GLOBALS['post'] = $fields;
 	try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return array( 'redirect', $e->getMessage(), WPCPM_Flash::take( WPCPM_Sponsors::FLASH ) ); } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); }
 	return array( 'fell-through' );
+}
+
+/** One method's body, for the assertions that read the source. */
+function method_body( $src, $name ) {
+	$body = substr( $src, (int) strpos( $src, 'function ' . $name . '(' ) );
+	return substr( $body, 0, (int) strpos( $body, "\n\t}\n" ) );
 }
 
 $fail   = 0;
@@ -724,6 +751,258 @@ ck( 'a revoked one is offered Reinstate, keyed to that document', array(
 $screen_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
 ck( 'the agreements card is drawn after the interests log', strpos( $screen_src, 'render_agreements(' ) > strpos( $screen_src, '$this->render_interests( $rows );' ), true );
 ck( 'and every one of its forms carries the double-submit guard', substr_count( $screen, 'data-wpcpm-once' ) >= 2, true );
+
+echo "\n=== The application queue on the Sponsors screen (Phase S5) ===\n";
+
+// The real application class, loaded here rather than stubbed: what is being pinned is that
+// the screen draws what the class stores, and the image handler and the mail exit are never
+// reached by a render. The guard comes with it because the open application prints the
+// checks' words, which name the guard's numbers.
+require_once __DIR__ . '/../includes/class-wpcpm-form-guard.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-application.php';
+
+// The real approval class too, for its `is_half_done()` alone: the queue's half-done mark is
+// read off the stamp and the state, and a stub here would pin the mark against a flag this
+// file sets rather than against the condition (S5 fix wave). Nothing in this suite approves
+// anything, so none of the class's collaborators is ever reached.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-approval.php';
+
+
+// Uninstall (above) wiped the index; the TEST sponsor was written fresh for the agreement
+// section, with no website. One more row with a website, for the in-base match.
+WPCPM_Sponsors_Index::write( array(
+	$T                  => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
+	'recSPONSORTEST002' => array( 'name' => 'Widgetry Ltd ', 'website' => 'https://www.widgetry.example/', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
+), time() );
+
+/** An application row, stored the way the form stores one. */
+function seed_sponsor_application( $name, $state, array $signals = array(), array $logos = array() ) {
+	$id = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Application::POST_TYPE, 'post_status' => 'private', 'post_title' => $name, 'post_author' => 0 ) );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_FIELDS, array( 'Company Name' => $name, 'Website' => 'https://widgetry.example', 'Contact Person Full Name' => 'Sam Sponsor', 'Contact Email' => 'maciej@a8c.com', 'Sponsorship options' => 'Sponsor mentors + tools/services', "Anything else you'd like to share." => 'We make gadgets.' ) );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, $state );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_REFERENCE, sprintf( 'SAPP-2026-%04d', $id ) );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_SIGNALS, $signals );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_EMAIL, md5( 'maciej@a8c.com' ) );
+	// 'at' is 2026-09-01 12:00 UTC: the brief's own draft paired this fixture with 1788322400,
+	// which gmdate() (this file's wp_date() stub) reads as 2026-09-02, one day past what the
+	// check below actually asserts ('Agreed 2026-09-01'); corrected here so the fixture matches
+	// the assertion it exists for.
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_CONSENT, array( 'sentence' => 'I confirm the privacy policy.', 'url' => 'https://example.test/privacy/', 'policy' => 43, 'modified' => '2026-08-20 11:30:00', 'at' => 1788264000, 'ip' => '203.0.113.0', 'agent' => 'Mozilla/5.0 (test)' ) );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_LOGOS, array_merge( array( 'colour' => 0, 'white' => 0 ), $logos ) );
+	return $id;
+}
+
+ck( 'with nothing waiting the bubble is not drawn', $module->menu_label(), 'Sponsors' );
+
+$GLOBALS['get'] = array();
+ob_start();
+$module->render_admin_page();
+$bare = (string) ob_get_clean();
+ck( 'with no application at all the queue and the closed list under it each say so, quietly (S5 fix wave)', array(
+	false !== strpos( $bare, 'Nothing is waiting. New applications appear here.' ),
+	false !== strpos( $bare, 'Recently decided' ),
+	false !== strpos( $bare, 'No application has been decided yet.' ),
+), array( true, true, true ) );
+
+$open_id = seed_sponsor_application( 'Gadgetry Inc', 'new', array( 'in-base' ), array( 'colour' => 640, 'white' => 641 ) );
+$held_id = seed_sponsor_application( 'Held Co', 'held', array( 'links', 'duplicate' ) );
+$done_id = seed_sponsor_application( 'Done Co', 'rejected' );
+
+ck( 'the bubble counts the applications waiting', array( false !== strpos( $module->menu_label(), 'count-2' ), false !== strpos( $module->menu_label(), 'pending-count">2<' ) ), array( true, true ) );
+ck( 'and the screen\'s sentences include the decisions\'', isset( WPCPM_Sponsors::messages()['sapp-approved'] ), true );
+
+$GLOBALS['get'] = array();
+ob_start();
+$module->render_admin_page();
+$screen = (string) ob_get_clean();
+
+ck( 'the queue card is drawn after the agreements, with its count and the two open rows, oldest first', array(
+	strpos( $screen, 'id="wpcpm-sponsor-applications"' ) > strpos( $screen, 'Agreements' ),
+	false !== strpos( $screen, 'Sponsor applications <span class="wpcpm-count">2</span>' ),
+	strpos( $screen, 'Gadgetry Inc' ) < strpos( $screen, 'Held Co' ),
+	// The decided row is on the screen since the S5 fix wave, but under "Recently decided"
+	// and never in the queue itself: the count above is the queue's and stays at two.
+	strpos( $screen, 'Done Co' ) > strpos( $screen, 'Recently decided' ),
+), array( true, true, true, true ) );
+ck( 'a held row says it was held and how many checks held it, the duplicate mark aside', array( false !== strpos( $screen, 'wpcpm-inst-mark--held' ), false !== strpos( $screen, '1 check held it' ) ), array( true, true ) );
+ck( 'the two duplicate marks are drawn where they apply', array( false !== strpos( $screen, 'possible duplicate' ), false !== strpos( $screen, 'already in the base' ) ), array( true, true ) );
+ck( 'each row opens itself on this screen', false !== strpos( $screen, 'wpcpm_sapp_id=' . $open_id ), true );
+ck( 'and nothing on the queue is a form', strpos( $screen, 'value="wpcpm_sapp_approve"' ), false );
+
+$GLOBALS['get'] = array( 'wpcpm_sapp_id' => $open_id );
+ob_start();
+$module->render_admin_page();
+$opened = (string) ob_get_clean();
+
+ck( 'the open application is drawn above the queue, with the six columns and their answers', array(
+	strpos( $opened, 'id="wpcpm-sponsor-application"' ) < strpos( $opened, 'id="wpcpm-sponsor-applications"' ),
+	substr_count( $opened, '<code class="wpcpm-inst-record">' ) >= 8,
+	false !== strpos( $opened, 'Sponsor mentors + tools/services' ),
+	false !== strpos( $opened, 'We make gadgets.' ),
+), array( true, true, true, true ) );
+ck( 'the consent evidence is one sentence naming the policy and its version', array( false !== strpos( $opened, 'Agreed 2026-09-01' ), false !== strpos( $opened, 'https://example.test/privacy/' ), false !== strpos( $opened, '2026-08-20 11:30:00' ) ), array( true, true, true ) );
+ck( 'the two logos are shown from the Media Library', array( false !== strpos( $opened, 'data-id="640"' ), false !== strpos( $opened, 'data-id="641"' ), false !== strpos( $opened, 'In white' ) ), array( true, true, true ) );
+ck( 'what the base already has: the row that matches by website, with its record and its status', array( false !== strpos( $opened, 'What the base already has' ), false !== strpos( $opened, 'recSPONSORTEST002' ), false !== strpos( $opened, 'creates a second record' ) ), array( true, true, true ) );
+ck( 'the checks are printed, and the in-base one in words', false !== strpos( $opened, 'already holds a sponsor with this name or website' ), true );
+ck( 'the four decisions are offered, each keyed to this application', array(
+	false !== strpos( $opened, 'nonce-wpcpm_sapp_approve_' . $open_id ),
+	false !== strpos( $opened, 'nonce-wpcpm_sapp_info_' . $open_id ),
+	false !== strpos( $opened, 'nonce-wpcpm_sapp_reject_' . $open_id ),
+	false !== strpos( $opened, 'nonce-wpcpm_sapp_spam_' . $open_id ),
+	strpos( $opened, 'value="wpcpm_sapp_reopen"' ),
+), array( true, true, true, true, false ) );
+ck( 'and the answers never print the applicant\'s address unescaped or a nonce for another row', array( false !== strpos( $opened, 'maciej@a8c.com' ), strpos( $opened, 'nonce-wpcpm_sapp_approve_' . $held_id ) ), array( true, false ) );
+
+echo "\n=== Fix: the queue marks a contact address that already belongs to an account ===\n";
+// A dedicated user and a dedicated application, at an address none of the fixture's other
+// accounts holds, so the mark below is read off this one application rather than off whatever
+// this file's own account churn happened to leave sitting at maciej@a8c.com.
+$GLOBALS['users'][95] = new WP_User( 95, array( 'wpcpm_mentor' ), 'Existing Owner', 'existing-owner@example.test' );
+$conflict_id = seed_sponsor_application( 'Conflict Co', 'new' );
+update_post_meta( $conflict_id, WPCPM_Sponsor_Application::META_FIELDS, array_merge( get_post_meta( $conflict_id, WPCPM_Sponsor_Application::META_FIELDS, true ), array( 'Contact Email' => 'existing-owner@example.test' ) ) );
+$GLOBALS['get'] = array();
+ob_start();
+$module->render_admin_page();
+$with_conflict = (string) ob_get_clean();
+ck( 'the queue marks a contact address that already belongs to an account', false !== strpos( $with_conflict, 'already an account' ), true );
+ck( 'with the account modifier on the mark', false !== strpos( $with_conflict, 'wpcpm-inst-mark--account' ), true );
+
+$GLOBALS['get'] = array( 'wpcpm_sapp_id' => $done_id );
+ob_start();
+$module->render_admin_page();
+$decided = (string) ob_get_clean();
+ck( 'a decided application offers the way back and the deletion', array( false !== strpos( $decided, 'value="wpcpm_sapp_reopen"' ), false !== strpos( $decided, 'value="wpcpm_sapp_purge"' ), strpos( $decided, 'value="wpcpm_sapp_approve"' ) ), array( true, true, false ) );
+
+echo "\n=== Fix: a half-done approval is marked wherever the row is drawn (S5 fix wave) ===\n";
+// The record stamped with the row still open is what `WPCPM_Sponsor_Approval::is_half_done()`
+// reads, and the real class is loaded in this file: the mark is read off the condition itself.
+update_post_meta( $held_id, WPCPM_Sponsor_Application::META_RECORD, 'recSPONSORTEST003' );
+$GLOBALS['get'] = array( 'wpcpm_sapp_id' => $held_id );
+ob_start();
+$module->render_admin_page();
+$half = (string) ob_get_clean();
+ck( 'the mark is on the open application and on its queue row, in the same words', array(
+	substr_count( $half, 'wpcpm-inst-mark--half-done' ),
+	substr_count( $half, 'approval half done' ),
+	false !== strpos( $half, 'Press Approve again to finish.' ),
+), array( 2, 2, true ) );
+ck( 'and no other row carries it', substr_count( $half, 'wpcpm_sapp_id=' . $open_id ) > 0 && 2 === substr_count( $half, 'wpcpm-inst-mark--half-done' ), true );
+delete_post_meta( $held_id, WPCPM_Sponsor_Application::META_RECORD );
+
+echo "\n=== Recently decided: the closed list under the queue (S5 fix wave) ===\n";
+// Two of the six decisions, Put back in the queue and Delete for good, are offered on a
+// decided application alone, and until this list existed nothing on either surface listed
+// one: they were reachable only by typing ?wpcpm_sapp_id= by hand, so a genuine application
+// the checks filed as spam was seen by nobody. The three decided states are seeded with their
+// own decision times, because the list is ordered by the decision and not by the row's age,
+// and one open row is seeded beside them to prove it stays out of the list.
+
+/** The event row `decided_at()` reads, so the closed list's order can be set on purpose. */
+function decided_on( $id, $at ) {
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT, array( array( 'event' => 'decided', 'at' => (int) $at, 'actor' => 3, 'note' => '' ) ) );
+}
+
+$spam_id     = seed_sponsor_application( 'Spammy Co', 'spam' );
+$rejected_id = seed_sponsor_application( 'Rejected Co', 'rejected' );
+$approved_id = seed_sponsor_application( 'Approved Ltd', 'approved' );
+$waiting_id  = seed_sponsor_application( 'Waiting Co', 'new' );
+
+// Deliberately not in ID order: a list that followed the posts rather than the decisions
+// would come out as Done, Spammy, Rejected, Approved and pass nothing below.
+decided_on( $done_id, 1788000000 );
+decided_on( $spam_id, 1788200000 );
+decided_on( $rejected_id, 1788100000 );
+decided_on( $approved_id, 1788300000 );
+
+$GLOBALS['get'] = array();
+ob_start();
+$module->render_admin_page();
+$screen = (string) ob_get_clean();
+$split  = (int) strpos( $screen, 'wpcpm-sapp-decided' );
+$queued = substr( $screen, 0, $split );
+$closed = substr( $screen, $split );
+
+// The card's own body: from its id to the first tag that closes a div, which is its own.
+$card = substr( $screen, (int) strpos( $screen, 'id="wpcpm-sponsor-applications"' ) );
+$card = substr( $card, 0, (int) strpos( $card, '</div>' ) );
+ck( 'the closed list is inside the queue\'s own card, after the queue itself', array(
+	false !== strpos( $card, '<section class="wpcpm-sapp-decided">' ),
+	strpos( $card, '<section class="wpcpm-sapp-decided">' ) > strpos( $card, '</ol>' ),
+	false !== strpos( $card, '<h3>Recently decided</h3>' ),
+), array( true, true, true ) );
+ck( 'it lists the three decided states and nothing else, newest decision first', array(
+	strpos( $closed, 'Approved Ltd' ) < strpos( $closed, 'Spammy Co' ),
+	strpos( $closed, 'Spammy Co' ) < strpos( $closed, 'Rejected Co' ),
+	strpos( $closed, 'Rejected Co' ) < strpos( $closed, 'Done Co' ),
+), array( true, true, true ) );
+ck( 'the open row is in the queue and never in the list under it', array( false !== strpos( $queued, 'Waiting Co' ), strpos( $closed, 'Waiting Co' ) ), array( true, false ) );
+ck( 'every decided row carries its Open link, so both decisions can be reached by pressing', array(
+	false !== strpos( $closed, 'wpcpm_sapp_id=' . $spam_id ),
+	false !== strpos( $closed, 'wpcpm_sapp_id=' . $rejected_id ),
+	false !== strpos( $closed, 'wpcpm_sapp_id=' . $approved_id ),
+	false !== strpos( $closed, 'Open this application' ),
+), array( true, true, true, true ) );
+ck( 'and its state, in the words the screens use', array(
+	false !== strpos( $closed, 'marked as spam' ),
+	false !== strpos( $closed, '>rejected<' ),
+	false !== strpos( $closed, '>approved<' ),
+), array( true, true, true ) );
+ck( 'a decided row says when it was decided; only a waiting one says how long it has waited', array(
+	false !== strpos( $closed, 'Decided 4 hours ago, on 2026-09-01 22:00' ),
+	strpos( $closed, 'Waiting 4 hours' ),
+	false !== strpos( $queued, 'Waiting 4 hours' ),
+), array( true, false, true ) );
+// The cap is a constant, so the count is asserted against it rather than by lowering it: four
+// decided rows are drawn because four is under `QUEUE_MAX`, and the slice that enforces it is
+// read off the source.
+ck( 'the list draws every decided row up to the queue\'s own cap', array(
+	substr_count( $closed, 'class="wpcpm-queue-item"' ),
+	min( 4, WPCPM_Sponsor_Application::QUEUE_MAX ),
+	false !== strpos( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-application.php' ), 'array_slice( $decided, 0, self::QUEUE_MAX )' ),
+), array( 4, 4, true ) );
+
+$GLOBALS['get'] = array( 'wpcpm_sapp_id' => 42 );
+ob_start();
+$module->render_admin_page();
+$wrong = (string) ob_get_clean();
+ck( 'a post that is not an application opens nothing', strpos( $wrong, 'id="wpcpm-sponsor-application"' ), false );
+$GLOBALS['get'] = array();
+
+$screen_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
+ck( 'the queue is drawn after the agreements card, and the bubble reads three queues behind guards', array(
+	strpos( $screen_src, '$this->render_applications();' ) > strpos( $screen_src, '$this->render_agreements( $rows );' ),
+	substr_count( method_body( $screen_src, 'attention_count' ), 'class_exists(' ) >= 3,
+), array( true, true ) );
+
+echo "\n=== The retention run is on the clock (Phase S5) ===\n";
+$GLOBALS['cron'] = array();
+WPCPM_Sponsors::schedule_cron();
+ck( 'schedule_cron() puts the application purge on the clock beside the agreement discard, daily, nine hours out', array( isset( $GLOBALS['cron']['wpcpm_purge_sponsor_applications'] ), isset( $GLOBALS['cron']['wpcpm_sponsor_agreement_discard'] ), $GLOBALS['cron']['wpcpm_purge_sponsor_applications'] - time() > 8 * HOUR_IN_SECONDS ), array( true, true, true ) );
+$before = $GLOBALS['cron']['wpcpm_purge_sponsor_applications'];
+WPCPM_Sponsors::schedule_cron();
+ck( 'and a second call leaves a job already scheduled alone', $GLOBALS['cron']['wpcpm_purge_sponsor_applications'], $before );
+$sponsors_src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
+$deactivate   = substr( $sponsors_src, (int) strpos( $sponsors_src, 'public function deactivate()' ) );
+$deactivate   = substr( $deactivate, 0, (int) strpos( $deactivate, "\n\t}\n" ) );
+ck( 'and deactivation takes the purge off the clock beside the discard (Task 6 review)', array( substr_count( $deactivate, 'wp_clear_scheduled_hook( WPCPM_Sponsor_Application::CRON_PURGE )' ), substr_count( $deactivate, 'wp_clear_scheduled_hook( WPCPM_Sponsor_Agreement::CRON_DISCARD )' ) ), array( 1, 1 ) );
+
+echo "\n=== Uninstall and deactivation take the applications with them (Phase S5) ===\n";
+$GLOBALS['deleted_attachments'] = array();
+$GLOBALS['opts'][ WPCPM_Sponsor_Application::OPT_PAGE ] = 77;
+$GLOBALS['opts'][ WPCPM_Sponsor_Application::OPT_LOG ]  = array( array( 'at' => 1, 'id' => 1, 'reference' => 'SAPP-2026-0001', 'state' => 'spam', 'days' => 30, 'actor' => 0 ) );
+$kept_id = seed_sponsor_application( 'Approved Co', 'approved', array(), array( 'colour' => 700, 'white' => 0 ) );
+$gone_id = seed_sponsor_application( 'Open Co', 'new', array(), array( 'colour' => 701, 'white' => 702 ) );
+WPCPM_Sponsors::schedule_cron();
+$module->deactivate();
+ck( 'deactivation takes the purge off the clock', isset( $GLOBALS['cron']['wpcpm_purge_sponsor_applications'] ), false );
+WPCPM_Sponsors::schedule_cron();
+$module->uninstall();
+ck( 'uninstall deletes every application, whatever its state', array( get_post( $open_id ), get_post( $held_id ), get_post( $done_id ), get_post( $kept_id ), get_post( $gone_id ) ), array( null, null, null, null, null ) );
+ck( 'and the files of the ones nobody approved, never an approved one\'s', array( in_array( 640, $GLOBALS['deleted_attachments'], true ), in_array( 701, $GLOBALS['deleted_attachments'], true ), in_array( 702, $GLOBALS['deleted_attachments'], true ), in_array( 700, $GLOBALS['deleted_attachments'], true ) ), array( true, true, true, false ) );
+ck( 'the page option and the log go, and the purge is off the clock', array( get_option( WPCPM_Sponsor_Application::OPT_PAGE ), get_option( WPCPM_Sponsor_Application::OPT_LOG ), isset( $GLOBALS['cron']['wpcpm_purge_sponsor_applications'] ) ), array( false, false, false ) );
+
+$sponsors_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
+ck( 'uninstall() reaches the approval\'s lock sweep behind a guard, and clears the purge hook', array( false !== strpos( method_body( $sponsors_src, 'uninstall' ), 'WPCPM_Sponsor_Approval::delete_all()' ), substr_count( $sponsors_src, 'wp_clear_scheduled_hook( WPCPM_Sponsor_Application::CRON_PURGE )' ) ), array( true, 2 ) );
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );

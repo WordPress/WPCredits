@@ -246,3 +246,22 @@
 	margin: 0 0 1em;
 	padding-inline-start: 1.2em;
 }
+
+/*
+ * The two logo files of the sponsor application (1.97.0): one control per version, its label
+ * above it, both inside the question's own wrapper. The radios of the support question reuse
+ * `.wpcpm-field__check` above, so they need nothing of their own.
+ */
+.wpcpm-field__file {
+	margin: 0 0 0.6em;
+}
+
+.wpcpm-field__file > label {
+	display: block;
+	font-weight: 400;
+	margin-bottom: 0.2em;
+}
+
+.wpcpm-field input[type="file"] {
+	max-width: 100%;
+}

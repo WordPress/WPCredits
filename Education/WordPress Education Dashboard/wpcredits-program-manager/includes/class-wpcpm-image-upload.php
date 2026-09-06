@@ -130,13 +130,27 @@ final class WPCPM_Image_Upload {
 	/**
 	 * Put an accepted image into the Media Library.
 	 *
+	 * Two options, both added by the S5 review for files a stranger uploaded through a public
+	 * form, and both off by default so that every caller before them behaves exactly as it did.
+	 * A sponsor uploading its own logo on the Sponsor Dashboard is public by design and asks
+	 * for neither.
+	 *
+	 * - `private`: the attachment is stored with `post_status` `private` rather than `inherit`,
+	 *   so it is not listed by the unauthenticated `wp/v2/media` endpoint. Whoever publishes it
+	 *   later sets the status back.
+	 * - `generated_name`: the file is stored as `<name>-<24 random characters>`, so the address
+	 *   of a file nobody has reviewed cannot be guessed from the company's own name. The status
+	 *   is what hides the record; the name is what hides the file, because a direct URL under
+	 *   `/wp-content/uploads/` is served whatever the attachment's status says.
+	 *
 	 * @param array  $accepted What `accept()` returned.
 	 * @param string $name     The base name to store under, without extension.
 	 * @param int    $author   The attachment's author; 0 for the sync.
 	 * @param string $title    The attachment's title, e.g. "Weglot logo (colour)".
+	 * @param array  $options  `private` (bool) and `generated_name` (bool); both default to off.
 	 * @return int|WP_Error The attachment ID.
 	 */
-	public static function store( array $accepted, $name, $author, $title ) {
+	public static function store( array $accepted, $name, $author, $title, array $options = array() ) {
 		$upload = wp_upload_dir();
 
 		if ( ! is_array( $upload ) || ! empty( $upload['error'] ) || empty( $upload['path'] ) ) {
@@ -145,6 +159,13 @@ final class WPCPM_Image_Upload {
 
 		$base = sanitize_file_name( trim( (string) $name ) );
 		$base = '' === $base ? 'image' : $base;
+
+		// Twenty-four characters out of `wp_generate_password()`'s alphanumeric set, which is
+		// far past guessing; `wp_unique_filename()` below still has the last word on collisions.
+		if ( ! empty( $options['generated_name'] ) ) {
+			$base .= '-' . wp_generate_password( 24, false, false );
+		}
+
 		$file = wp_unique_filename( $upload['path'], $base . '.' . $accepted['ext'] );
 		$dest = trailingslashit( $upload['path'] ) . $file;
 
@@ -167,7 +188,7 @@ final class WPCPM_Image_Upload {
 				'post_mime_type' => $accepted['mime'],
 				'post_title'     => sanitize_text_field( (string) $title ),
 				'post_content'   => '',
-				'post_status'    => 'inherit',
+				'post_status'    => empty( $options['private'] ) ? 'inherit' : 'private',
 				'post_author'    => (int) $author,
 			),
 			$dest,
