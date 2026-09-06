@@ -1727,6 +1727,124 @@
 	margin: 4px 0 0;
 }
 
+/*
+ * The logo card on the Sponsor Dashboard (plugin 1.96.0). Two labelled tiles side by side, the
+ * white one on a dark ground so a white logo is visible at all. Values: the People card's list
+ * reset (~line 1761), the card hairline of .wpc-sponsor-page .wpcpm-posts__item, the note size
+ * of .wpcpm-posts__when, and --wpc-ink for the dark tile, the token the page's own text uses.
+ * The numbers with no neighbor to copy are the tiles' own (1.23.0): the 16px row and 24px
+ * column gap are the mentor tiles' spacing on the Tools section, a tile is at least 160px
+ * wide and 72px tall so the two read as a pair whatever the logos' shapes, and a logo is
+ * shown at up to 200px by 64px, the size the identity block draws it at, so what a sponsor
+ * checks here is what the page shows.
+ */
+.wpc-sponsor-page .wpcpm-logo__tiles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px 24px;
+	list-style: none;
+	margin: 0 0 16px;
+	padding: 0;
+}
+
+.wpc-sponsor-page .wpcpm-logo__label {
+	color: var( --wpc-ink-70 );
+	display: block;
+	font: 600 14px/20px var( --wpc-font );
+	margin: 0 0 4px;
+}
+
+.wpc-sponsor-page .wpcpm-logo__tile {
+	align-items: center;
+	border: 1px solid var( --wpc-line-soft );
+	border-radius: var( --wpc-radius-control );
+	display: flex;
+	justify-content: center;
+	min-height: 72px;
+	min-width: 160px;
+	padding: 12px 16px;
+}
+
+.wpc-sponsor-page .wpcpm-logo__tile img {
+	display: block;
+	height: auto;
+	max-height: 64px;
+	max-width: 200px;
+	width: auto;
+}
+
+.wpc-sponsor-page .wpcpm-logo__tile--white {
+	background: var( --wpc-ink );
+	border-color: var( --wpc-ink );
+}
+
+.wpc-sponsor-page .wpcpm-logo__empty {
+	align-items: center;
+	color: var( --wpc-ink-70 );
+	display: flex;
+	font: 14px/20px var( --wpc-font );
+	min-height: 72px;
+	min-width: 160px;
+}
+
+/*
+ * The agreement card on the Sponsor Dashboard (plugin 1.96.0). The state is the pill an offer's
+ * state wears (~line 1524), on its own line rather than after a title; the history is the
+ * People card's list reset with the note size beside each line; the note the program sent back
+ * is quoted, with the brand rule down its left edge that the dashboard's messages use.
+ */
+.wpc-sponsor-page .wpcpm-agreement__state {
+	border: 1px solid var( --wpc-line );
+	border-radius: 999px;
+	display: inline-block;
+	font: 600 12px/18px var( --wpc-font );
+	letter-spacing: .04em;
+	margin: 0 0 8px;
+	padding: 0 7px;
+	text-transform: uppercase;
+}
+
+.wpc-sponsor-page .wpcpm-agreement__lead {
+	font: 14px/20px var( --wpc-font );
+	margin: 0 0 12px;
+}
+
+.wpc-sponsor-page .wpcpm-agreement__note {
+	border-left: 4px solid var( --wpc-brand );
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+	margin: 0 0 16px;
+	padding: 4px 0 4px 12px;
+}
+
+.wpc-sponsor-page .wpcpm-agreement__download {
+	font: 14px/20px var( --wpc-font );
+	margin: 0 0 12px;
+}
+
+.wpc-sponsor-page .wpcpm-agreement__history {
+	list-style: none;
+	margin: 16px 0 0;
+	padding: 0;
+}
+
+.wpc-sponsor-page .wpcpm-agreement__event {
+	border-top: 1px solid var( --wpc-line-soft );
+	font: 14px/20px var( --wpc-font );
+	margin: 8px 0 0;
+	padding: 8px 0 0;
+}
+
+.wpc-sponsor-page .wpcpm-agreement__event:first-child {
+	border-top: 0;
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.wpc-sponsor-page .wpcpm-agreement__when {
+	color: var( --wpc-ink-70 );
+}
+
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every
    group's margin so the mentor page's headings sit where its inset expects them. A group
    that is a pressed row rather than a heading needs to be told apart from the next one. */

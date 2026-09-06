@@ -122,13 +122,16 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	public function boot() {
 		WPCPM_Ceiling::init();
 
-		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts' ) as $front ) {
+		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement' ) as $front ) {
 			if ( class_exists( $front ) && method_exists( $front, 'init' ) ) {
 				call_user_func( array( $front, 'init' ) );
 			}
 		}
 
 		WPCPM_Sponsors_Sync::register_cron();
+
+		// The retention run, put back on the clock whenever it is missing: see the method.
+		add_action( 'init', array( __CLASS__, 'schedule_cron' ), 20 );
 
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
@@ -145,8 +148,33 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	public function activate() {
 		WPCPM_Sponsors_Sync::activate();
 
+		self::schedule_cron();
+
 		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) && method_exists( 'WPCPM_Sponsors_Dashboard', 'ensure_page' ) ) {
 			call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'ensure_page' ) );
+		}
+	}
+
+	/**
+	 * Put the agreement's retention run on the clock, if it is not there already.
+	 *
+	 * **Called from `boot()` on every load, not only from `activate()`.** The activation hook
+	 * fires on an explicit activation and on nothing else: not on the files being replaced, and
+	 * not on the upgrader's silent reactivation, which is how this site is deployed
+	 * (`wp plugin install --force`). Until this method existed the job was scheduled only in
+	 * `activate()`, so a site installed or updated through the upgrader would never discard a
+	 * withdrawn or returned document's file again, and nothing on any screen would say so. The
+	 * sync already self-heals this way on every boot; this is the same rule for the retention
+	 * run. `wp_next_scheduled()` makes it cheap and idempotent: one cache read on a normal load,
+	 * one write when the job is missing.
+	 *
+	 * Daily, because the setting behind it is in days, and eight hours past activation: the
+	 * institutions module's own nightly jobs sit at one to six hours past its, so a slow night
+	 * never has two of them walking the private store at once.
+	 */
+	public static function schedule_cron() {
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) && ! wp_next_scheduled( WPCPM_Sponsor_Agreement::CRON_DISCARD ) ) {
+			wp_schedule_event( time() + ( 8 * HOUR_IN_SECONDS ), 'daily', WPCPM_Sponsor_Agreement::CRON_DISCARD );
 		}
 	}
 
@@ -155,6 +183,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 */
 	public function deactivate() {
 		WPCPM_Sponsors_Sync::deactivate();
+
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			wp_clear_scheduled_hook( WPCPM_Sponsor_Agreement::CRON_DISCARD );
+		}
 	}
 
 	/**
@@ -181,6 +213,13 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
 			WPCPM_Sponsor_Posts::uninstall_accounts();
 			WPCPM_Sponsor_Posts::delete_all();
+		}
+
+		// The posts and the options; the files and the key stay, listed in the manifest the
+		// Institutions module mailed a moment ago (spec section 11).
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			WPCPM_Sponsor_Agreement::delete_all();
+			wp_clear_scheduled_hook( WPCPM_Sponsor_Agreement::CRON_DISCARD );
 		}
 
 		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
@@ -211,7 +250,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 * @return array<string, array{0: string, 1: string}> Status to notice class and sentence.
 	 */
 	public static function messages() {
-		return array(
+		$messages = array(
 			'provisioned'        => array( 'success', __( 'The account was created and its invitation queued.', 'wpcredits-program-manager' ) ),
 			'provision-attached' => array( 'success', __( 'An account with that address already existed and now acts for the sponsor.', 'wpcredits-program-manager' ) ),
 			'provision-admin'    => array( 'error', __( 'That address belongs to an administrator, who already reaches every sponsor.', 'wpcredits-program-manager' ) ),
@@ -235,6 +274,13 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'claim-void-none'    => array( 'info', __( 'That person holds no claim on that offer.', 'wpcredits-program-manager' ) ),
 			'claim-void-busy'    => array( 'info', __( 'Another change to that offer was going through. Try again in a moment.', 'wpcredits-program-manager' ) ),
 		);
+
+		// The agreement's own outcomes, so a review pressed on this screen has words to print.
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			$messages = array_merge( $messages, WPCPM_Sponsor_Agreement::manager_messages() );
+		}
+
+		return $messages;
 	}
 
 	/**
@@ -707,6 +753,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$this->render_members( $rows, $accounts );
 		$this->render_offers( $rows, $accounts );
 		$this->render_interests( $rows );
+		$this->render_agreements( $rows );
 
 		echo '</div>';
 	}
@@ -1058,6 +1105,359 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		}
 
 		echo '</tbody></table></div>';
+	}
+
+	/**
+	 * The agreements card: the review queue, then one row per Approved sponsor.
+	 *
+	 * The queue is the working half and comes first, oldest first, because it is a queue
+	 * somebody works through. Underneath it is the standing state of every Approved sponsor,
+	 * with the one control each of them can take next: On file for a company whose signed copy
+	 * lives in the program's Drive, Revoke for one whose agreement is in force, Reinstate for
+	 * one that was taken out of force by mistake.
+	 *
+	 * The `wpcpm-review*` classes are the institution panel's, which `assets/css/admin.css`
+	 * already dresses in wp-admin: two review blocks that look different would be two things to
+	 * learn for one job. The Administrator Dashboard queue is Phase S6.
+	 *
+	 * @param array $rows The index rows.
+	 */
+	private function render_agreements( array $rows ) {
+		if ( ! class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			return;
+		}
+
+		echo '<div class="wpcpm-card">';
+		echo '<h2>' . esc_html__( 'Agreements', 'wpcredits-program-manager' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'A sponsor agreement is optional: a company\'s dashboard, offers and codes work without one. What is here is the documents companies have uploaded and are waiting on, and the state of every Approved sponsor\'s agreement.', 'wpcredits-program-manager' ) . '</p>';
+
+		$queue = WPCPM_Sponsor_Agreement::awaiting_review();
+
+		if ( empty( $queue ) ) {
+			echo '<p class="description">' . esc_html__( 'Nothing is waiting to be read.', 'wpcredits-program-manager' ) . '</p>';
+		}
+
+		foreach ( $queue as $post_id ) {
+			$this->render_agreement_review( (int) $post_id );
+		}
+
+		foreach ( $rows as $record => $row ) {
+			if ( WPCPM_Sponsors_Index::STATUS_APPROVED !== $row['status'] ) {
+				continue;
+			}
+
+			$this->render_agreement_state( (string) $record, $row );
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * The reviewer's block for one document waiting in the queue.
+	 *
+	 * The facts, then the scan and what it is worth, then the download, then the two decisions.
+	 * The checklist the institution panel prints has no counterpart here: there is no program
+	 * template to compare a signed copy against, so the one honest instruction is to read the
+	 * document, and it is printed as one sentence rather than three boxes to tick.
+	 *
+	 * @param int $post_id Agreement post ID.
+	 */
+	private function render_agreement_review( $post_id ) {
+		$facts = (array) WPCPM_Sponsor_Agreement::review_facts( $post_id );
+
+		if ( empty( $facts ) ) {
+			return;
+		}
+
+		printf( '<section class="wpcpm-review" id="wpcpm-review-%d">', (int) $post_id );
+
+		printf(
+			'<h3 class="wpcpm-review__title">%s</h3>',
+			esc_html(
+				sprintf(
+					/* translators: %s: company name. */
+					__( 'Review the signed agreement from %s', 'wpcredits-program-manager' ),
+					(string) $facts['sponsor_name']
+				)
+			)
+		);
+
+		printf(
+			'<p class="wpcpm-review__facts">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: the uploader's name, 2: date, 3: file size. */
+					__( 'Uploaded by %1$s on %2$s, %3$s.', 'wpcredits-program-manager' ),
+					'' === $facts['uploaded_by'] ? __( 'somebody at the company', 'wpcredits-program-manager' ) : (string) $facts['uploaded_by'],
+					(string) $facts['uploaded_at'],
+					size_format( (int) $facts['size'] )
+				)
+			)
+		);
+
+		echo '<ul class="wpcpm-review__checklist">';
+		printf( '<li>%s</li>', esc_html__( 'Read the whole document. There is no program template to compare it against.', 'wpcredits-program-manager' ) );
+		printf( '<li>%s</li>', esc_html__( 'It names the WordPress Foundation and the company.', 'wpcredits-program-manager' ) );
+		printf( '<li>%s</li>', esc_html__( 'It commits the program to nothing a program manager has not agreed to.', 'wpcredits-program-manager' ) );
+		echo '</ul>';
+
+		$flags = array_values( array_filter( array_map( 'strval', (array) $facts['flags'] ) ) );
+
+		printf(
+			'<p class="wpcpm-review__flags">%s</p>',
+			esc_html(
+				$flags
+					? sprintf(
+						/* translators: %s: a comma-separated list of PDF feature names. */
+						__( 'The scan noticed these in the file: %s.', 'wpcredits-program-manager' ),
+						implode( ', ', $flags )
+					)
+					: __( 'The scan noticed none of the features it looks for in the file.', 'wpcredits-program-manager' )
+			)
+		);
+		printf(
+			'<p class="wpcpm-review__courtesy">%s</p>',
+			esc_html__( 'The scan is a courtesy and not evidence: a PDF can carry things a bounded scan will not find. What protects you is that this site never opens the file in your browser, and that the download is handed to a viewer of your own choosing.', 'wpcredits-program-manager' )
+		);
+
+		printf(
+			'<p class="wpcpm-agreement-panel__download"><a href="%1$s">%2$s</a></p>',
+			esc_url(
+				wp_nonce_url(
+					add_query_arg(
+						array(
+							'action' => WPCPM_Sponsor_Agreement::ACTION_DOWNLOAD,
+							'post'   => (int) $post_id,
+						),
+						admin_url( 'admin-post.php' )
+					),
+					WPCPM_Sponsor_Agreement::ACTION_DOWNLOAD . '_' . (int) $post_id
+				)
+			),
+			esc_html__( 'Download the signed agreement', 'wpcredits-program-manager' )
+		);
+
+		$this->render_agreement_form(
+			WPCPM_Sponsor_Agreement::ACTION_ACCEPT,
+			WPCPM_Sponsor_Agreement::ACTION_ACCEPT . '_' . (int) $post_id,
+			'wpcpm-review__form wpcpm-review__form--accept',
+			__( 'Accepting', 'wpcredits-program-manager' ),
+			array( WPCPM_Sponsor_Agreement::FIELD_POST => (int) $post_id ),
+			__( 'Accept it', 'wpcredits-program-manager' ),
+			sprintf(
+				/* translators: 1: company name, 2: number of people emailed. */
+				_n(
+					'Accept the signed agreement from %1$s? Airtable is set to Accepted with today\'s date and the %2$s person at the company is emailed. Nothing is opened or closed by this: a sponsor\'s dashboard never depended on an agreement. You can revoke it from here later.',
+					'Accept the signed agreement from %1$s? Airtable is set to Accepted with today\'s date and the %2$s people at the company are emailed. Nothing is opened or closed by this: a sponsor\'s dashboard never depended on an agreement. You can revoke it from here later.',
+					(int) $facts['members'],
+					'wpcredits-program-manager'
+				),
+				(string) $facts['sponsor_name'],
+				number_format_i18n( (int) $facts['members'] )
+			),
+			''
+		);
+
+		$this->render_agreement_form(
+			WPCPM_Sponsor_Agreement::ACTION_RETURN,
+			WPCPM_Sponsor_Agreement::ACTION_RETURN . '_' . (int) $post_id,
+			'wpcpm-review__form wpcpm-review__form--return',
+			__( 'Returning', 'wpcredits-program-manager' ),
+			array( WPCPM_Sponsor_Agreement::FIELD_POST => (int) $post_id ),
+			__( 'Return it with this note', 'wpcredits-program-manager' ),
+			'',
+			__( 'What has to change, in your own words. This is emailed to everybody at the company exactly as you write it, with your address to reply to.', 'wpcredits-program-manager' )
+		);
+
+		echo '</section>';
+	}
+
+	/**
+	 * One Approved sponsor's standing agreement state, and the one control it can take next.
+	 *
+	 * @param string $record Sponsors record ID.
+	 * @param array  $row    The index row.
+	 */
+	private function render_agreement_state( $record, array $row ) {
+		$summary = (array) WPCPM_Sponsor_Agreement::summary( $record );
+		$state   = isset( $summary['state'] ) ? (string) $summary['state'] : WPCPM_Sponsor_Agreement::SUMMARY_NONE;
+		$name    = '' === trim( (string) $row['name'] ) ? $record : trim( (string) $row['name'] );
+
+		echo '<h3>' . esc_html( $name ) . '</h3>';
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html(
+				sprintf(
+					/* translators: 1: what this site holds, 2: what Airtable says. */
+					__( 'This site: %1$s. Airtable: %2$s.', 'wpcredits-program-manager' ),
+					self::agreement_word( $state, (string) $summary['accepted_at'] ),
+					'' === trim( (string) $summary['airtable_status'] ) ? __( 'Not started', 'wpcredits-program-manager' ) : (string) $summary['airtable_status']
+				)
+			)
+		);
+
+		if ( WPCPM_Sponsor_Agreement::SUMMARY_ACCEPTED === $state || WPCPM_Sponsor_Agreement::SUMMARY_ON_FILE === $state ) {
+			$this->render_agreement_form(
+				WPCPM_Sponsor_Agreement::ACTION_REVOKE,
+				WPCPM_Sponsor_Agreement::ACTION_REVOKE . '_' . (int) $summary['agreement_id'],
+				'wpcpm-review__form wpcpm-review__form--return',
+				__( 'Revoking', 'wpcredits-program-manager' ),
+				array( WPCPM_Sponsor_Agreement::FIELD_POST => (int) $summary['agreement_id'] ),
+				__( 'Take it out of force', 'wpcredits-program-manager' ),
+				'',
+				__( 'Why it is out of force, in your own words. This is emailed to everybody at the company exactly as you write it. Nothing about their dashboard changes.', 'wpcredits-program-manager' )
+			);
+
+			return;
+		}
+
+		if ( WPCPM_Sponsor_Agreement::SUMMARY_REVOKED === $state ) {
+			$latest = 0;
+
+			foreach ( WPCPM_Sponsor_Agreement::posts_for( $record ) as $post ) {
+				if ( WPCPM_Sponsor_Agreement::STATE_REVOKED === (string) get_post_meta( $post->ID, WPCPM_Sponsor_Agreement::META_STATE, true ) ) {
+					$latest = (int) $post->ID;
+					break;
+				}
+			}
+
+			if ( $latest > 0 ) {
+				$this->render_agreement_form(
+					WPCPM_Sponsor_Agreement::ACTION_REINSTATE,
+					WPCPM_Sponsor_Agreement::ACTION_REINSTATE . '_' . $latest,
+					'wpcpm-review__form',
+					__( 'Reinstating', 'wpcredits-program-manager' ),
+					array( WPCPM_Sponsor_Agreement::FIELD_POST => $latest ),
+					__( 'Put it back in force', 'wpcredits-program-manager' ),
+					__( 'Put this agreement back in force? Airtable goes back to what the document is and everybody at the company is emailed.', 'wpcredits-program-manager' ),
+					''
+				);
+			}
+
+			return;
+		}
+
+		// Nothing accepted: the on-file route, for a company whose signed copy predates this
+		// site and lives in the program's Drive.
+		$this->render_agreement_form(
+			WPCPM_Sponsor_Agreement::ACTION_ON_FILE,
+			WPCPM_Sponsor_Agreement::ACTION_ON_FILE . '_' . $record,
+			'wpcpm-review__form',
+			__( 'Recording', 'wpcredits-program-manager' ),
+			array( 'wpcpm_sponsor' => $record ),
+			__( 'Record it as on file', 'wpcredits-program-manager' ),
+			'',
+			'',
+			$record
+		);
+	}
+
+	/**
+	 * One of the review card's forms: the nonce, the action, the hidden fields, one control.
+	 *
+	 * Written once rather than five times, because the five differ only in their action, their
+	 * label and whether they carry a note box or a confirm. Every one is keyed to the object it
+	 * acts on, and every one carries the double-submit guard.
+	 *
+	 * @param string $action  The `admin_post_` action.
+	 * @param string $nonce   The nonce action, keyed to the post or the record.
+	 * @param string $css     The form's classes.
+	 * @param string $busy    What the pressed control says while the request is in flight.
+	 * @param array  $hidden  Hidden field name to value.
+	 * @param string $label   The button.
+	 * @param string $confirm A confirm sentence, or '' for none.
+	 * @param string $note    A note box's label, or '' for no note box.
+	 * @param string $drive   A record ID when this form asks for a Drive link, else ''.
+	 */
+	private function render_agreement_form( $action, $nonce, $css, $busy, array $hidden, $label, $confirm, $note, $drive = '' ) {
+		printf(
+			'<form method="post" action="%1$s" class="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr( $css ),
+			esc_attr( $busy )
+		);
+		wp_nonce_field( $nonce );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+
+		foreach ( $hidden as $name => $value ) {
+			printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( $name ), esc_attr( (string) $value ) );
+		}
+
+		// The mark is built here and passed through kses at each use, so phpcs sees an escaped argument.
+		$required = wp_kses( '<span class="wpcpm-field__required">' . esc_html__( 'Required', 'wpcredits-program-manager' ) . '</span>', array( 'span' => array( 'class' => array() ) ) );
+
+		if ( '' !== $drive ) {
+			printf(
+				'<p class="wpcpm-review__note"><label for="wpcpm-drive-%1$s">%2$s %4$s</label> <input type="url" id="wpcpm-drive-%1$s" name="%3$s" placeholder="https://drive.google.com/..." required /></p>',
+				esc_attr( $drive ),
+				esc_html__( 'The link to the signed copy in the program\'s Drive folder.', 'wpcredits-program-manager' ),
+				esc_attr( WPCPM_Sponsor_Agreement::FIELD_DRIVE ),
+				wp_kses( $required, array( 'span' => array( 'class' => array() ) ) )
+			);
+
+			// Optional: the day the company signed, when the paper copy says so. The handler
+			// stores it as the document's signed-on date and leaves it out when blank.
+			printf(
+				'<p class="wpcpm-review__note"><label for="wpcpm-signed-%1$s">%2$s</label> <input type="date" id="wpcpm-signed-%1$s" name="wpcpm_sponsor_agr_signed_on" /></p>',
+				esc_attr( $drive ),
+				esc_html__( 'The day it was signed, if the copy says so.', 'wpcredits-program-manager' )
+			);
+		}
+
+		if ( '' !== $note ) {
+			printf(
+				'<p class="wpcpm-review__note"><label for="wpcpm-note-%1$s">%2$s %6$s</label> <textarea id="wpcpm-note-%1$s" name="%3$s" rows="4" minlength="%4$d" maxlength="%5$d" required></textarea></p>',
+				esc_attr( sanitize_html_class( $nonce ) ),
+				esc_html( $note ),
+				esc_attr( WPCPM_Sponsor_Agreement::FIELD_NOTE ),
+				(int) WPCPM_Sponsor_Agreement::MIN_NOTE,
+				(int) WPCPM_Sponsor_Agreement::MAX_NOTE,
+				wp_kses( $required, array( 'span' => array( 'class' => array() ) ) )
+			);
+		}
+
+		if ( '' !== $confirm ) {
+			printf(
+				'<button type="submit" class="button button-primary" onclick="return confirm(%1$s)">%2$s</button>',
+				esc_attr( wp_json_encode( $confirm ) ),
+				esc_html( $label )
+			);
+		} else {
+			printf( '<button type="submit" class="button">%s</button>', esc_html( $label ) );
+		}
+
+		echo '</form>';
+	}
+
+	/**
+	 * One summary state in a manager's words.
+	 *
+	 * @param string $state    A `SUMMARY_*` value.
+	 * @param string $accepted The date it was accepted, or ''.
+	 * @return string
+	 */
+	private static function agreement_word( $state, $accepted ) {
+		switch ( $state ) {
+			case WPCPM_Sponsor_Agreement::SUMMARY_SUBMITTED:
+				return __( 'a document is waiting to be read', 'wpcredits-program-manager' );
+			case WPCPM_Sponsor_Agreement::SUMMARY_RETURNED:
+				return __( 'the last document was returned', 'wpcredits-program-manager' );
+			case WPCPM_Sponsor_Agreement::SUMMARY_REVOKED:
+				return __( 'the accepted agreement was taken out of force', 'wpcredits-program-manager' );
+			case WPCPM_Sponsor_Agreement::SUMMARY_ACCEPTED:
+				return '' === $accepted
+					? __( 'an agreement is accepted', 'wpcredits-program-manager' )
+					: sprintf(
+						/* translators: %s: the date it was accepted. */
+						__( 'an agreement is accepted, since %s', 'wpcredits-program-manager' ),
+						$accepted
+					);
+			case WPCPM_Sponsor_Agreement::SUMMARY_ON_FILE:
+				return __( 'the program holds a signed copy, recorded by hand', 'wpcredits-program-manager' );
+		}
+
+		return __( 'nothing on file', 'wpcredits-program-manager' );
 	}
 
 	/**

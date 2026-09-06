@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.95.14
+Stable tag: 1.96.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.96.0 =
+* **The Sponsors module, phase four: logo and agreement.** A sponsor uploads its own logo, in color and optionally in white, on the Sponsor Dashboard. Every byte goes through the plugin's image handler (PNG, JPEG or WebP by content, at least 200 pixels wide, re-saved through WordPress's editor; SVG refused), five uploads a day per company, and the attachments' public URLs replace Airtable's `Logo` so the base shows what the site shows. Remove takes the logo out of the site and out of the program records in the same breath, and deletes nothing from the Media Library. An upload that PHP dropped for its size, or that did not finish, is told so.
+* **The sponsor's Collaboration Agreement.** A private `wpcpm_sponsor_agr` post type with the Collaboration Agreement's shape and none of its gate: a sponsor's dashboard, offers and codes work with or without one. A signed PDF is checked for its name, its magic bytes, its type and a bounded stream scan before anything is stored, kept encrypted in the private store, and offered back only as an attachment under a name this site chose. A program manager accepts, returns with a note, revokes with a note, reinstates, or records an agreement the program already holds with a Drive link, from the Agreements card on the Sponsors screen; `Agreement Status`, `Agreement Accepted On` and `Agreement Document` are written in one PATCH each time, and when the site row cannot be written after the base was told, the manager is told exactly that. A withdrawn file is deleted the moment it is withdrawn, and a returned one by a daily run after `agreement_discard_days`, scheduled on every load and not only on activation, and never on a date the site cannot read; accepted, superseded and revoked ones are kept on uninstall and listed in the same mailed manifest as the institutions' files.
+* `WPCPM_Pdf_Check` is the PDF scanner both agreement classes now run: the magic bytes, the `finfo` type, WordPress's name-and-type map, and the bounded inflate of every `FlateDecode` stream, with its own suite. The Collaboration Agreement keeps its published names as delegates and its suite is unchanged; its own discard run gained the same never-on-an-unreadable-date guard.
+* With theme 1.23.0.
 
 = 1.95.14 =
 * Mentor Report Card: the program updates and announcements with the resources lead the page, above the mentor's calls, as they do on the Student Report Card. With theme 1.22.15.

@@ -633,6 +633,7 @@ if ( ! class_exists( 'WPCPM_Countries' ) ) {
 	}
 }
 
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
 
 $fail = 0;
@@ -2702,8 +2703,8 @@ $upload = method_body( $source, 'handle_upload' );
 // The order of the six is the security design, and it is a property of the text.
 ck( 'the ceiling is claimed before the file is looked at', strpos( $upload, 'WPCPM_Ceiling::claim' ) < strpos( $upload, 'self::uploaded_file()' ), true );
 ck( 'and every check runs before anything is stored', array(
-	strpos( $upload, 'wp_check_filetype_and_ext' ) < strpos( $upload, 'WPCPM_Private_Files::store' ),
-	strpos( $upload, 'self::PDF_MAGIC' ) < strpos( $upload, 'WPCPM_Private_Files::store' ),
+	strpos( $upload, 'WPCPM_Pdf_Check::named_pdf' ) < strpos( $upload, 'WPCPM_Private_Files::store' ),
+	strpos( $upload, 'WPCPM_Pdf_Check::has_magic' ) < strpos( $upload, 'WPCPM_Private_Files::store' ),
 	strpos( $upload, 'self::mime_of' ) < strpos( $upload, 'WPCPM_Private_Files::store' ),
 	strpos( $upload, 'self::inspect_pdf' ) < strpos( $upload, 'WPCPM_Private_Files::store' ),
 ), array( true, true, true, true ) );

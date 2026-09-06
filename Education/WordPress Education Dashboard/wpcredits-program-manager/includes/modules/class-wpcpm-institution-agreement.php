@@ -296,35 +296,20 @@ class WPCPM_Institution_Agreement {
 	/** Longest original filename kept for display. It is never used on disk or in a header. */
 	const MAX_FILENAME = 200;
 
-	/** The five bytes every PDF begins with. */
-	const PDF_MAGIC = '%PDF-';
-
 	/**
-	 * Names whose presence refuses the file outright, and the outcome each one flashes.
+	 * The scanner's names, kept here as aliases.
 	 *
-	 * Two, and only two. `/Encrypt` because a document nobody can open is not a document the
-	 * program can keep, and `/Launch` because it is an action whose only purpose is to run
-	 * something on the reader's machine. Everything else the scan finds is a flag: see
-	 * `inspect_pdf()` for why the line is drawn there and not further along.
+	 * The scan itself moved to `WPCPM_Pdf_Check` in 1.96.0, so the sponsor agreement runs the
+	 * same one (design spec of 4 September 2026, section 3 decision 1). These six constants
+	 * and the two methods below stay because they are this class's published surface: the
+	 * suite reads them, and a rename would be a change to a contract for no gain.
 	 */
-	const SCAN_REFUSALS = array(
-		'/Encrypt' => 'agreement-encrypted',
-		'/Launch'  => 'agreement-launch',
-	);
-
-	/** Names recorded for the reviewer and never a refusal. */
-	const SCAN_FLAGS = array( '/JavaScript', '/JS', '/OpenAction', '/AA', '/EmbeddedFile' );
-
-	/**
-	 * How much of a file the courtesy scan will inflate.
-	 *
-	 * A few hundred bytes of zlib can expand into gigabytes, and a scan that helps an
-	 * attacker exhaust the site's memory would be worse than no scan at all. Per stream and
-	 * in total, both, because either alone is a way round the other.
-	 */
-	const SCAN_MAX_STREAMS = 200;
-	const SCAN_MAX_STREAM  = 2097152;
-	const SCAN_MAX_TOTAL   = 8388608;
+	const PDF_MAGIC        = WPCPM_Pdf_Check::MAGIC;
+	const SCAN_REFUSALS    = WPCPM_Pdf_Check::SCAN_REFUSALS;
+	const SCAN_FLAGS       = WPCPM_Pdf_Check::SCAN_FLAGS;
+	const SCAN_MAX_STREAMS = WPCPM_Pdf_Check::SCAN_MAX_STREAMS;
+	const SCAN_MAX_STREAM  = WPCPM_Pdf_Check::SCAN_MAX_STREAM;
+	const SCAN_MAX_TOTAL   = WPCPM_Pdf_Check::SCAN_MAX_TOTAL;
 
 	/** Remembers the day the reminder digest went out, so it goes out once. */
 	const OPT_REMINDED = 'wpcpm_agreement_reminded';
@@ -1123,11 +1108,9 @@ class WPCPM_Institution_Agreement {
 		}
 
 		// The extension and the declared type together, from WordPress's own map, then the
-		// bytes. `wp_check_filetype_and_ext()` answers about the name; the two tests below
+		// bytes. `WPCPM_Pdf_Check::named_pdf()` answers about the name; the two tests below
 		// answer about the contents, which is what a renamed executable fails.
-		$checked = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'], array( 'pdf' => 'application/pdf' ) );
-
-		if ( 'pdf' !== ( isset( $checked['ext'] ) ? $checked['ext'] : '' ) || 'application/pdf' !== ( isset( $checked['type'] ) ? $checked['type'] : '' ) ) {
+		if ( ! WPCPM_Pdf_Check::named_pdf( $file['tmp_name'], $file['name'] ) ) {
 			self::unlock( $record );
 			self::bounce( 'agreement-not-pdf' );
 		}
@@ -1135,10 +1118,11 @@ class WPCPM_Institution_Agreement {
 		$bytes = self::file_bytes( $file['tmp_name'] );
 		$mime  = self::mime_of( $file['tmp_name'] );
 
-		// An empty `$mime` is a host with no fileinfo extension. The magic bytes and the map
-		// above still run, so the refusal that matters still happens; a host without fileinfo
-		// is not told it may never send an agreement.
-		if ( self::PDF_MAGIC !== substr( $bytes, 0, strlen( self::PDF_MAGIC ) ) || ( '' !== $mime && 'application/pdf' !== $mime ) ) {
+		// An empty `$mime` is a host with no fileinfo extension, which `mime_agrees()` treats
+		// as agreement. The magic bytes and the map above still run, so the refusal that
+		// matters still happens; a host without fileinfo is not told it may never send an
+		// agreement.
+		if ( ! WPCPM_Pdf_Check::has_magic( $bytes ) || ! WPCPM_Pdf_Check::mime_agrees( $mime ) ) {
 			self::unlock( $record );
 			self::bounce( 'agreement-not-pdf' );
 		}
@@ -2181,8 +2165,13 @@ class WPCPM_Institution_Agreement {
 				// A state this pass did not ask for means the query answered more broadly than
 				// it was asked to, and an accepted agreement must never lose its file to a cron.
 				$state = (string) get_post_meta( $post->ID, self::META_STATE, true );
+				$when  = self::decided_at_of( $post );
 
-				if ( ! in_array( $state, array( self::STATE_WITHDRAWN, self::STATE_RETURNED ), true ) || self::decided_at_of( $post ) > $cut ) {
+				// Fail closed: a document with no decided-at date and no readable post_date
+				// reads as zero, or as some other value that is never "recent enough to keep",
+				// and a cron that deletes files must treat "I don't know when this was decided"
+				// as a reason to leave the file alone, not as permission to remove it.
+				if ( ! in_array( $state, array( self::STATE_WITHDRAWN, self::STATE_RETURNED ), true ) || $when <= 0 || $when > $cut ) {
 					++$offset;
 					continue;
 				}
@@ -2319,40 +2308,14 @@ class WPCPM_Institution_Agreement {
 	 * the tests all say so, in those words, because a "scanned: clean" badge would move
 	 * somebody from "I will open this carefully" to "the site checked it".
 	 *
+	 * The scan itself is `WPCPM_Pdf_Check::inspect()` since 1.96.0, so the sponsor agreement
+	 * runs the same one and there is a single set of bounds to keep in step.
+	 *
 	 * @param string $bytes The file's contents.
 	 * @return array{ok: bool, reason: string, flags: string[]}
 	 */
 	public static function inspect_pdf( $bytes ) {
-		$bytes    = (string) $bytes;
-		$haystack = self::decode_names( $bytes );
-
-		foreach ( self::inflated_streams( $bytes ) as $stream ) {
-			$haystack .= "\n" . self::decode_names( $stream );
-		}
-
-		foreach ( self::SCAN_REFUSALS as $name => $reason ) {
-			if ( self::names_contain( $haystack, $name ) ) {
-				return array(
-					'ok'     => false,
-					'reason' => $reason,
-					'flags'  => array(),
-				);
-			}
-		}
-
-		$flags = array();
-
-		foreach ( self::SCAN_FLAGS as $name ) {
-			if ( self::names_contain( $haystack, $name ) ) {
-				$flags[] = $name;
-			}
-		}
-
-		return array(
-			'ok'     => true,
-			'reason' => '',
-			'flags'  => $flags,
-		);
+		return WPCPM_Pdf_Check::inspect( $bytes );
 	}
 
 	/**
@@ -2378,6 +2341,10 @@ class WPCPM_Institution_Agreement {
 	 * list is mailed to the site's admin address. It is also written beside the files, but
 	 * only when the last probe found the directory blocked from the web: an inventory of
 	 * legal documents is not something to leave on a directory the host serves.
+	 *
+	 * No longer institution-only: the manifest also carries every sponsor company's kept files,
+	 * appended below this method's own rows under the same `party` column, so a site owner
+	 * removing the plugin gets one list rather than one per module (design spec section 8.2).
 	 *
 	 * Called from `WPCPM_Institutions::uninstall()`, before `delete_all()`. A site with no
 	 * files sends nothing.
@@ -2419,6 +2386,15 @@ class WPCPM_Institution_Agreement {
 			);
 		}
 
+		// One inventory for both modules (Sponsors design spec, section 8.2). The sponsor rows
+		// carry the same six columns in the same order, and `WPCPM_Modules::uninstall()` runs
+		// Institutions before Sponsors, so those posts still name their files when this runs.
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			foreach ( WPCPM_Sponsor_Agreement::kept_rows() as $row ) {
+				$lines[] = implode( "\t", array_map( 'strval', (array) $row ) );
+			}
+		}
+
 		if ( empty( $lines ) ) {
 			return array(
 				'files'   => 0,
@@ -2427,11 +2403,11 @@ class WPCPM_Institution_Agreement {
 			);
 		}
 
-		$text = implode( "\n", array_merge( array( implode( "\t", array( 'institution', 'record', 'state', 'decided', 'path', 'sha256' ) ) ), $lines ) ) . "\n";
+		$text = implode( "\n", array_merge( array( implode( "\t", array( 'party', 'record', 'state', 'decided', 'path', 'sha256' ) ) ), $lines ) ) . "\n";
 
 		$body = sprintf(
 			/* translators: 1: number of files, 2: the private directory's path, 3: the option holding the key. */
-			__( 'The WPCredits Program Manager plugin has been uninstalled. It has left %1$d signed Collaboration Agreement file(s) in place under %2$s, encrypted with the key in the option %3$s. Both were kept on purpose: they are the program\'s legal records. Below, one line per file: institution, record ID, state, the date it was decided, the file, and the sha256 of the document.', 'wpcredits-program-manager' ),
+			__( 'The WPCredits Program Manager plugin has been uninstalled. It has left %1$d signed Collaboration Agreement file(s) in place under %2$s, encrypted with the key in the option %3$s. Both were kept on purpose: they are the program\'s legal records. Below, one line per file: the institution or company, the record ID, the state, the date it was decided, the file, and the sha256 of the document.', 'wpcredits-program-manager' ),
 			count( $lines ),
 			WPCPM_Private_Files::base(),
 			WPCPM_Private_Files::OPT_KEY
@@ -2991,144 +2967,7 @@ class WPCPM_Institution_Agreement {
 	 * @return string A MIME type, or ''.
 	 */
 	private static function mime_of( $path ) {
-		if ( ! function_exists( 'finfo_open' ) ) {
-			return '';
-		}
-
-		$finfo = finfo_open( FILEINFO_MIME_TYPE );
-
-		if ( ! $finfo ) {
-			return '';
-		}
-
-		$type = finfo_file( $finfo, $path );
-
-		// No `finfo_close()`: it has been a no-op since PHP 8.0, where the resource became an
-		// object that is freed when this method returns, and the standard flags the call as
-		// deprecated. Letting `$finfo` go out of scope is the supported way to close it.
-		unset( $finfo );
-
-		return is_string( $type ) ? $type : '';
-	}
-
-	/**
-	 * Undo PDF's `#xx` name escapes.
-	 *
-	 * A name in a PDF may be written with any of its characters as `#` and two hex digits, so
-	 * `/Launch` is also `/L#61unch` and `/#4C#61#75#6E#63#68`. A scan that searched the raw
-	 * bytes would pass every one of those, which is why this runs first and over both the
-	 * raw file and each inflated stream.
-	 *
-	 * @param string $bytes Anything to search.
-	 * @return string
-	 */
-	private static function decode_names( $bytes ) {
-		return (string) preg_replace_callback(
-			'/#([0-9A-Fa-f]{2})/',
-			static function ( $escape ) {
-				return chr( hexdec( $escape[1] ) );
-			},
-			(string) $bytes
-		);
-	}
-
-	/**
-	 * Whether a haystack names a PDF name, and not merely a longer one beginning with it.
-	 *
-	 * `/JS` must not match inside `/JSomething`, and `/AA` must not match `/AArgh`. A PDF
-	 * name ends at a delimiter, so the test is the name followed by anything that is not a
-	 * name character.
-	 *
-	 * @param string $haystack Decoded bytes.
-	 * @param string $name     The name, leading slash included.
-	 * @return bool
-	 */
-	private static function names_contain( $haystack, $name ) {
-		return 1 === preg_match( '/' . preg_quote( (string) $name, '/' ) . '(?![0-9A-Za-z])/', (string) $haystack );
-	}
-
-	/**
-	 * Every `FlateDecode` stream in a file, inflated, within a budget.
-	 *
-	 * The interesting half of the scan. A hostile PDF does not write `/Launch` where a text
-	 * search would find it; it writes it inside a compressed object stream. Each `stream`
-	 * keyword is found (never `endstream`, which the lookbehind excludes), the dictionary in
-	 * front of it is checked for `/FlateDecode`, and what follows is inflated.
-	 *
-	 * The budget is the other half. A few hundred bytes of zlib can expand into gigabytes, so
-	 * a scan meant to protect the reviewer must not become the way to exhaust the site's
-	 * memory: at most `SCAN_MAX_STREAMS` streams, at most `SCAN_MAX_STREAM` bytes out of each
-	 * and `SCAN_MAX_TOTAL` in all. A stream that would exceed its own bound is skipped rather
-	 * than partly read, and this is one of the bounds the docblock on `inspect_pdf()` means
-	 * when it says the scan is a courtesy and not evidence.
-	 *
-	 * @param string $bytes The file's contents.
-	 * @return string[] The inflated streams, in file order.
-	 */
-	private static function inflated_streams( $bytes ) {
-		$out   = array();
-		$total = 0;
-
-		if ( ! preg_match_all( '/(?<![A-Za-z])stream(\r\n|\r|\n)?/', $bytes, $hits, PREG_OFFSET_CAPTURE ) ) {
-			return $out;
-		}
-
-		foreach ( $hits[0] as $index => $hit ) {
-			if ( $index >= self::SCAN_MAX_STREAMS || $total >= self::SCAN_MAX_TOTAL ) {
-				break;
-			}
-
-			$at   = (int) $hit[1];
-			$back = min( 2048, $at );
-
-			// A window rather than a parser. A filter named further back than this is one
-			// this scan does not claim to find.
-			if ( ! self::names_contain( self::decode_names( substr( $bytes, $at - $back, $back ) ), '/FlateDecode' ) ) {
-				continue;
-			}
-
-			$from  = $at + strlen( $hit[0] );
-			$end   = strpos( $bytes, 'endstream', $from );
-			$body  = false === $end ? substr( $bytes, $from ) : substr( $bytes, $from, $end - $from );
-			$plain = self::inflate( $body );
-
-			if ( '' === $plain ) {
-				continue;
-			}
-
-			$out[]  = $plain;
-			$total += strlen( $plain );
-		}
-
-		return $out;
-	}
-
-	/**
-	 * Inflate one stream body, bounded, whichever of the two shapes it is in.
-	 *
-	 * `gzuncompress()` reads the zlib wrapper nearly every producer writes; `gzinflate()`
-	 * reads the raw deflate a few write instead. Both answer false for data they cannot read,
-	 * which for a PDF full of images is the normal case rather than an error, so both are
-	 * silenced. Both are given the output bound, and both answer false rather than a
-	 * truncated string when the stream would exceed it.
-	 *
-	 * @param string $body The compressed bytes.
-	 * @return string The inflated bytes, or '' when there are none to be had.
-	 */
-	private static function inflate( $body ) {
-		if ( '' === $body || ! function_exists( 'gzuncompress' ) ) {
-			return '';
-		}
-
-		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- A stream this scan cannot read is a normal part of a normal PDF, not a condition worth a warning in the host's log on every upload.
-		$plain = @gzuncompress( $body, self::SCAN_MAX_STREAM );
-
-		if ( ! is_string( $plain ) || '' === $plain ) {
-			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- As above, for the producers that write a raw deflate stream with no zlib header.
-			$plain = @gzinflate( $body, self::SCAN_MAX_STREAM );
-		}
-
-		return is_string( $plain ) ? $plain : '';
+		return WPCPM_Pdf_Check::mime_of( $path );
 	}
 
 	/**

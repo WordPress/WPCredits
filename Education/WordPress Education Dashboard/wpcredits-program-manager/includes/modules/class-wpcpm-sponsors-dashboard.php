@@ -379,7 +379,7 @@ final class WPCPM_Sponsors_Dashboard {
 			'refused' => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
 
-		foreach ( array( 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors' ) as $card ) {
+		foreach ( array( 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ) as $card ) {
 			if ( class_exists( $card ) && method_exists( $card, 'messages' ) ) {
 				$messages = array_merge( $messages, (array) call_user_func( array( $card, 'messages' ) ) );
 			}

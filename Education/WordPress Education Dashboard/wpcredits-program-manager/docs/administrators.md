@@ -288,6 +288,8 @@ Sponsors read numbers, managers read names. The sponsor's Usage card counts clai
 
 The Tools section is drawn on a person's own Student Report Card (setting *Tools from our sponsors*, on by default), on their own Mentor Report Card (off by default) and on the Administrator Dashboard (every live offer, labeled with its audience). On a manager's view of a student it is one line, "N tools claimed".
 
+**Logo and agreement (1.96.0).** A sponsor uploads its own logo on its dashboard, in color and optionally in white; the site checks the bytes rather than the name (PNG, JPEG or WebP, at least 200 pixels wide, SVG refused), re-saves the image through WordPress's editor, and writes the attachments' public URLs back to Airtable's `Logo`, color first, so the base shows the same picture. Five uploads a day per company. Remove takes the logo out of the site and out of the program records at once, and deletes nothing from the Media Library. The sponsor agreement is optional and is never a gate: a company's dashboard, offers and codes work without one. A sponsor uploads a signed PDF from its dashboard and can withdraw it while nobody has read it; the Agreements card on the Sponsors screen holds the review queue, with the facts, what the PDF scan noticed, a download that is always an attachment, and Accept or Return with a note that is emailed verbatim. An accepted agreement can be taken out of force with a note and put back; a company whose signed copy predates this site is recorded as on file with a link to the program's Drive folder. Each of those writes `Agreement Status`, and acceptance also writes `Agreement Accepted On`; on-file writes `Agreement Document` too. A withdrawn file is deleted the moment it is withdrawn, and a returned one by a daily run after the retention setting; accepted, superseded and revoked ones survive an uninstall and appear in the mailed manifest beside the institutions' files.
+
 ## Where the plugin keeps its data
 
 Every option the plugin writes, by the name it has in the database and the constant that owns it
@@ -350,6 +352,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_roster_unlinked` | `WPCPM_Roster_Index::OPT_UNLINKED` |
 | `wpcpm_settings` | `WPCPM_Settings::OPT_NAME` |
 | `wpcpm_settings_version` | `WPCPM_Settings::OPT_VERSION` |
+| `wpcpm_sponsor_agr_` | `WPCPM_Sponsor_Agreement::OPT_PREFIX` (the per-sponsor transition locks) |
 | `wpcpm_sponsor_logo_` | `WPCPM_Sponsors_Index::OPT_LOGO_PREFIX` |
 | `wpcpm_sponsor_page_id` | `WPCPM_Sponsors_Dashboard::OPT_PAGE` |
 | `wpcpm_sponsor_page_title_fixed` | `WPCPM_Sponsors_Dashboard::OPT_TITLE_FIXED` |

@@ -139,6 +139,26 @@ function checked( $a, $b = true, $echo = true ) {
 }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function wp_date( $format, $ts = null, $zone = null ) { return gmdate( $format, (int) $ts ); }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
+function wp_nonce_url( $url, $a ) { return $url . '&_wpnonce=' . rawurlencode( $a ); }
+function add_query_arg( $args, $url = '' ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args ); }
+function wp_json_encode( $v ) { return json_encode( $v ); }
+/** Enough of `WP_Post` for `post_date()`'s `instanceof` check and the fixture below. */
+class WP_Post {
+	public $ID = 0;
+	public $post_date = '';
+	public function __construct( $id, $post_date = '' ) {
+		$this->ID        = (int) $id;
+		$this->post_date = $post_date;
+	}
+}
+// The agreement card's own two direct reads, keyed like the real functions: `false` (not `true`
+// or an array) for a post nobody staged, and every value of one meta key for `$single = false`.
+function get_post( $p ) { if ( $p instanceof WP_Post ) { return $p; } return isset( $GLOBALS['agr_posts'][ (int) $p ] ) ? $GLOBALS['agr_posts'][ (int) $p ] : null; }
+function get_post_meta( $id, $k, $single = false ) {
+	$rows = isset( $GLOBALS['agr_pmeta'][ (int) $id ][ $k ] ) ? $GLOBALS['agr_pmeta'][ (int) $id ][ $k ] : array();
+	return $single ? ( isset( $rows[0] ) ? $rows[0] : '' ) : $rows;
+}
 
 class WPCPM_Airtable {
 	public function update_records( $table, array $records ) { $GLOBALS['patched'][] = array( $table, $records ); return isset( $GLOBALS['airtable_fail'] ) ? new WP_Error( 'x', 'Airtable said no' ) : array( $records[0]['id'] => true ); }
@@ -232,6 +252,72 @@ class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	public static function page_url() { return 'https://example.test/sponsor-dashboard/'; }
 	public static function leave( $status, $card, $record = '' ) { $GLOBALS['left'] = array( $status, $card, $record ); throw new WPCPM_Test_Redirect( $status ); }
+	/* The real class's own merge loop (class-wpcpm-sponsors-dashboard.php, messages()), scoped to
+	   the one card this file stubs in below: enough to prove the loop finds this card's words
+	   without pulling in every other card's own suite. */
+	public static function messages() {
+		$messages = array( 'refused' => array( 'error', 'refused' ) );
+		foreach ( array( 'WPCPM_Sponsor_Agreement_Card' ) as $card ) {
+			if ( class_exists( $card ) && method_exists( $card, 'messages' ) ) {
+				$messages = array_merge( $messages, (array) call_user_func( array( $card, 'messages' ) ) );
+			}
+		}
+		return $messages;
+	}
+}
+/**
+ * A stand-in for the real `WPCPM_Sponsor_Agreement` (includes/modules/class-wpcpm-sponsor-agreement.php):
+ * its own suite is bin/test-sponsor-agreement.php, and this file's job is the card's rendering,
+ * not the model's upload/accept/return machinery, so `summary()` and `posts_for()` answer fixed
+ * fixtures rather than the real Airtable-and-post-type logic. The constants are copied from the
+ * real class, byte for byte, since the card's markup and this suite's assertions both key off them.
+ */
+class WPCPM_Sponsor_Agreement {
+	const META_STATE = '_wpcpm_sagr_state';
+	const META_NOTE  = '_wpcpm_sagr_note';
+	const META_EVENT = '_wpcpm_sagr_event';
+
+	const STATE_RETURNED = 'returned';
+	const STATE_REVOKED  = 'revoked';
+
+	const SUMMARY_NONE      = 'none';
+	const SUMMARY_SUBMITTED = 'submitted';
+	const SUMMARY_RETURNED  = 'returned';
+	const SUMMARY_REVOKED   = 'revoked';
+	const SUMMARY_ACCEPTED  = 'accepted';
+	const SUMMARY_ON_FILE   = 'on_file';
+
+	const ACTION_UPLOAD   = 'wpcpm_sponsor_agr_upload';
+	const ACTION_DOWNLOAD = 'wpcpm_sponsor_agr_download';
+	const ACTION_WITHDRAW = 'wpcpm_sponsor_agr_withdraw';
+
+	const FIELD_FILE   = 'wpcpm_sponsor_agr_file';
+	const FIELD_POST   = 'wpcpm_sponsor_agr_post';
+	const FIELD_SIGNED = 'wpcpm_sponsor_agr_signed';
+
+	public static function messages() {
+		return array(
+			'agreement-uploaded'  => array( 'success', 'Your signed agreement is uploaded. A program manager reads it and you will get an email either way.' ),
+			'agreement-withdrawn' => array( 'success', 'The agreement is withdrawn and its file is deleted. Upload another whenever you are ready.' ),
+			'refused'             => array( 'error', 'That is not something your account can do here.' ),
+		);
+	}
+
+	public static function summary( $record ) {
+		return isset( $GLOBALS['summary'] ) ? $GLOBALS['summary'] : array(
+			'state'           => self::SUMMARY_NONE,
+			'kind'            => '',
+			'accepted_at'     => '',
+			'agreement_id'    => 0,
+			'pending_id'      => 0,
+			'drive_url'       => '',
+			'airtable_status' => '',
+		);
+	}
+
+	public static function posts_for( $record ) {
+		return isset( $GLOBALS['agr_fixture_posts'] ) ? $GLOBALS['agr_fixture_posts'] : array();
+	}
 }
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
@@ -442,12 +528,106 @@ ck( 'nobody could be told, so the sentence says so', $r[0], 'mentor-interest-fai
 ck( 'but the interest is on record either way, with the count', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data']['mailed'] ), array( 'sponsor_interest_mentor', 0 ) );
 unset( $GLOBALS['managers_reachable'] );
 
+echo "\n=== The agreement card (Phase S4) ===\n";
+require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-agreement-card.php';
+
+/**
+ * The agreement card's HTML for one state.
+ *
+ * @param string $record Sponsor record ID.
+ * @param bool   $manage Whether the viewer manages the program.
+ * @return string
+ */
+function agreement_card( $record, $manage = false ) {
+	ob_start();
+	WPCPM_Sponsor_Agreement_Card::render( $record, array( 'can_manage' => $manage, 'open' => '', 'viewer' => wp_get_current_user() ) );
+
+	return (string) ob_get_clean();
+}
+
+// One document on file, standing in for this sponsor's whole history regardless of which
+// current state $GLOBALS['summary'] takes on below: a returned agreement with two events, so
+// the note and the history both have something real to print.
+$GLOBALS['agr_posts']         = array( 501 => new WP_Post( 501, '2026-09-03 09:00:00' ) );
+$GLOBALS['agr_pmeta']         = array(
+	501 => array(
+		WPCPM_Sponsor_Agreement::META_STATE => array( WPCPM_Sponsor_Agreement::STATE_RETURNED ),
+		WPCPM_Sponsor_Agreement::META_NOTE  => array( 'Please have the country director countersign page 2 and resend.' ),
+		WPCPM_Sponsor_Agreement::META_EVENT => array(
+			array( 'event' => 'signed copy uploaded', 'at' => strtotime( '2026-09-03 09:00:00' ) ),
+			array( 'event' => 'returned for changes', 'at' => strtotime( '2026-09-04 10:00:00' ) ),
+		),
+	),
+);
+$GLOBALS['agr_fixture_posts'] = array( $GLOBALS['agr_posts'][501] );
+
+$GLOBALS['summary'] = array( 'state' => 'none', 'kind' => '', 'accepted_at' => '', 'agreement_id' => 0, 'pending_id' => 0, 'drive_url' => '', 'airtable_status' => '' );
+$html               = agreement_card( $A );
+ck( 'with nothing on file the card offers the upload form and says what it is for', array(
+	false !== strpos( $html, 'enctype="multipart/form-data"' ),
+	false !== strpos( $html, 'name="wpcpm_sponsor_agr_file"' ),
+	false !== strpos( $html, 'name="wpcpm_sponsor_agr_signed" value="1"' ),
+	false !== strpos( $html, 'accept="application/pdf,.pdf"' ),
+), array( true, true, true, true ) );
+ck( 'the unticked box still posts, so a dropped field and a forgotten tick read differently', false !== strpos( $html, 'name="wpcpm_sponsor_agr_signed" value="0"' ), true );
+
+$GLOBALS['summary'] = array_merge( $GLOBALS['summary'], array( 'state' => 'submitted', 'pending_id' => 777 ) );
+$html               = agreement_card( $A );
+ck( 'a document in review says so, offers the copy back and offers Withdraw', array(
+	false !== strpos( $html, 'wpcpm-agreement__state' ),
+	false !== strpos( $html, 'wpcpm_sponsor_agr_download' ),
+	false !== strpos( $html, 'wpcpm_sponsor_agr_withdraw' ),
+	false !== strpos( $html, 'wpcpm_sponsor_agr_upload' ),
+), array( true, true, true, false ) );
+ck( 'and says nothing about the review beyond how long it has been waiting', array(
+	false !== strpos( $html, 'waiting for the program' ),
+	false !== strpos( $html, 'Accept' ),
+	false !== strpos( $html, 'Return' ),
+), array( true, false, false ) );
+
+$GLOBALS['summary'] = array_merge( $GLOBALS['summary'], array( 'state' => 'returned', 'pending_id' => 0 ) );
+ck( 'a returned document prints the note and the upload form again', array(
+	false !== strpos( agreement_card( $A ), 'wpcpm-agreement__note' ),
+	false !== strpos( agreement_card( $A ), 'name="wpcpm_sponsor_agr_file"' ),
+), array( true, true ) );
+
+$GLOBALS['summary'] = array_merge( $GLOBALS['summary'], array( 'state' => 'accepted', 'agreement_id' => 778, 'accepted_at' => '2026-09-06' ) );
+$html               = agreement_card( $A );
+ck( 'an accepted agreement names the date, offers the download and offers a replacement', array(
+	false !== strpos( $html, '2026-09-06' ),
+	false !== strpos( $html, 'wpcpm_sponsor_agr_download' ),
+	false !== strpos( $html, 'name="wpcpm_sponsor_agr_file"' ),
+), array( true, true, true ) );
+
+$GLOBALS['summary'] = array_merge( $GLOBALS['summary'], array( 'state' => 'on_file', 'kind' => 'legacy', 'drive_url' => 'https://drive.google.com/drive/folders/abc' ) );
+$html               = agreement_card( $A );
+ck( 'an on-file agreement says the program holds it and offers no download of a file it has not got', array(
+	false !== strpos( $html, 'wpcpm-agreement__state' ),
+	false !== strpos( $html, 'wpcpm_sponsor_agr_download' ),
+), array( true, false ) );
+ck( 'and never prints the Drive link to a sponsor: it is a program folder', false !== strpos( $html, 'drive.google.com' ), false );
+
+ck( 'the history lists the document\'s events, newest first', false !== strpos( agreement_card( $A ), 'wpcpm-agreement__history' ), true );
+ck( 'the dashboard\'s message map now finds this card\'s words', isset( WPCPM_Sponsors_Dashboard::messages()['agreement-uploaded'] ), true );
+
+$card_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-agreement-card.php' );
+ck( 'no em or en dash in the card', preg_match( '/\x{2013}|\x{2014}/u', $card_src ), 0 );
+ck( 'the card decides nothing: no policy call, no write', preg_match( '/update_post_meta|update_option|WPCPM_Airtable/', $card_src ), 0 );
+
 echo "\n=== House rules ===\n";
 $all = '';
 foreach ( array( 'profile', 'interests', 'mentors' ) as $f ) { $all .= file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-' . $f . '.php' ); }
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $all ), 0 );
 ck( 'every handler claims before it writes', substr_count( $all, 'WPCPM_Sponsor_Roster::claim(' ) >= 3, true );
 ck( 'the messages maps cover every status the handlers flash', array_values( array_diff( array( 'profile-saved', 'profile-unchanged', 'profile-rejected', 'profile-failed', 'interest-sent', 'interest-unsent', 'interest-empty', 'interest-ceiling', 'interest-failed', 'mentor-interest-sent', 'mentor-interest-unknown', 'mentor-interest-ceiling', 'mentor-interest-failed', 'refused' ), array_merge( array_keys( WPCPM_Sponsor_Profile::messages() ), array_keys( WPCPM_Sponsor_Interests::messages() ), array_keys( WPCPM_Sponsor_Mentors::messages() ) ) ) ), array() );
+
+
+$GLOBALS['summary'] = array_merge( $GLOBALS['summary'], array( 'state' => 'none', 'agreement_id' => 0, 'pending_id' => 0, 'accepted_at' => '' ) );
+$none               = agreement_card( $A );
+ck( 'the card names the product, and both upload fields carry the Required mark in the label\'s voice', array(
+	substr_count( $none, '>Collaboration Agreement<' ),
+	substr_count( $none, '<span class="wpcpm-field__required">Required</span>' ),
+), array( 1, 2 ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

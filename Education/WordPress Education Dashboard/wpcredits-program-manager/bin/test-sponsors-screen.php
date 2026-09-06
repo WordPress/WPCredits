@@ -128,6 +128,7 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
+function wp_kses( $s, $a = array() ) { return (string) $s; }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr( $s ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
@@ -141,6 +142,7 @@ function sanitize_textarea_field( $s ) { return trim( strip_tags( (string) $s ) 
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function sanitize_email( $e ) { return trim( (string) $e ); }
 function sanitize_user( $u, $strict = false ) { return preg_replace( '/[^a-z0-9 _.\-@]/i', '', (string) $u ); }
+function sanitize_html_class( $c ) { return preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $c ); }
 function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE_EMAIL ); }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
@@ -264,6 +266,8 @@ function wp_safe_redirect( $location, $status = 302 ) {
 	throw new WPCPM_Test_Redirect( (string) $location );
 }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+function add_query_arg( $args, $url = '' ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $args ); }
+function wp_nonce_url( $url, $a ) { return $url . '&_wpnonce=' . rawurlencode( $a ); }
 function wp_nonce_field( $a = '', $n = '', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
 function wp_create_nonce( $a = '' ) { return 'nonce'; }
 function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true, $other = array() ) {
@@ -272,6 +276,7 @@ function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true
 	printf( '<button type="submit" class="button button-%s" name="%s"%s>%s</button>', $type, $name, $attrs, esc_html( $text ) );
 }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
+function size_format( $b, $d = 0 ) { return (int) $b . ' B'; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
 function wp_date( $format, $ts = null, $zone = null ) { return gmdate( $format, (int) $ts ); }
 
@@ -608,6 +613,117 @@ foreach ( $GLOBALS['users'] as $id => $user ) {
 ck( 'and every stamp is gone after uninstall, on every account', $stamped_after, array() );
 ck( 'but no account was deleted', count( $GLOBALS['users'] ), $before_users );
 ck( 'uninstall removes the offers, their pools and the claims', array( WPCPM_Sponsor_Offers::all(), get_option( WPCPM_Sponsor_Codes::option_name( $offer_id ) ), get_user_meta( 77, WPCPM_Sponsor_Claims::META_CLAIMS, true ) ), array( array(), false, '' ) );
+
+echo "\n=== The agreement review on the Sponsors screen (Phase S4) ===\n";
+// The real WPCPM_Sponsor_Agreement (Tasks 3-6) is never loaded by this suite, so a stub stands
+// in, answering from globals so each state below can be drawn. Six SUMMARY_* constants, not
+// four: SUMMARY_RETURNED and SUMMARY_REVOKED are added to the four the brief's own draft
+// named, because agreement_word() below switches on all six (the real class declares all six
+// too) and an undefined class constant is a fatal, not a warning. CRON_DISCARD and
+// delete_all() are added for the same reason from the other direction: PHP registers an
+// unconditional top-level class the moment this file is compiled, not when execution reaches
+// its declaration, so the Uninstall section far above (which calls the real uninstall(), and
+// through it WPCPM_Sponsor_Agreement::delete_all() under a class_exists() guard that is
+// already true) needs this stub to answer for those two as well, even though nothing below
+// exercises them directly.
+class WPCPM_Sponsor_Agreement {
+	const ACTION_ACCEPT = 'wpcpm_sponsor_agr_accept';
+	const ACTION_RETURN = 'wpcpm_sponsor_agr_return';
+	const ACTION_REVOKE = 'wpcpm_sponsor_agr_revoke';
+	const ACTION_REINSTATE = 'wpcpm_sponsor_agr_reinstate';
+	const ACTION_ON_FILE = 'wpcpm_sponsor_agr_on_file';
+	const ACTION_DOWNLOAD = 'wpcpm_sponsor_agr_download';
+	const FIELD_POST = 'wpcpm_sponsor_agr_post';
+	const FIELD_NOTE = 'wpcpm_sponsor_agr_note';
+	const FIELD_DRIVE = 'wpcpm_sponsor_agr_drive';
+	const MIN_NOTE = 20;
+	const MAX_NOTE = 2000;
+	const META_STATE = '_wpcpm_sagr_state';
+	const STATE_REVOKED = 'revoked';
+	const CRON_DISCARD = 'wpcpm_sponsor_agreement_discard';
+	const SUMMARY_NONE = 'none';
+	const SUMMARY_SUBMITTED = 'submitted';
+	const SUMMARY_RETURNED = 'returned';
+	const SUMMARY_REVOKED = 'revoked';
+	const SUMMARY_ACCEPTED = 'accepted';
+	const SUMMARY_ON_FILE = 'on_file';
+	public static function awaiting_review( $limit = 200 ) { return isset( $GLOBALS['queue'] ) ? $GLOBALS['queue'] : array(); }
+	public static function review_facts( $post_id ) { return isset( $GLOBALS['facts'][ $post_id ] ) ? $GLOBALS['facts'][ $post_id ] : array(); }
+	public static function summary( $record ) { return isset( $GLOBALS['summaries'][ $record ] ) ? $GLOBALS['summaries'][ $record ] : array( 'state' => 'none', 'agreement_id' => 0, 'pending_id' => 0, 'accepted_at' => '', 'kind' => '', 'drive_url' => '', 'airtable_status' => '' ); }
+	public static function posts_for( $record ) { return isset( $GLOBALS['agr_posts'][ $record ] ) ? $GLOBALS['agr_posts'][ $record ] : array(); }
+	public static function manager_messages() { return array( 'agreement-accepted' => array( 'success', 'Accepted.' ) ); }
+	public static function delete_all() {}
+}
+
+// Uninstall (above) wiped the index, so the TEST sponsor is written fresh rather than added to
+// $A/$B/$C: nothing after this point reads their rows, and every check below keys off $T alone.
+$T = 'recSPONSORTEST001';
+WPCPM_Sponsors_Index::write( array(
+	$T => array( 'name' => 'TEST Sponsor', 'status' => 'Approved', 'contact_email' => 'maciej@a8c.com' ),
+), time() );
+
+$GLOBALS['queue'] = array( 900 );
+$GLOBALS['facts'] = array(
+	900 => array( 'post_id' => 900, 'state' => 'submitted', 'kind' => 'own', 'sponsor' => $T, 'sponsor_name' => 'TEST Sponsor', 'uploaded_by' => 'Member One', 'uploaded_at' => '2026-09-05', 'original_name' => 'agreement.pdf', 'flags' => array( '/JavaScript' ), 'size' => 20480, 'members' => 2 ),
+);
+$GLOBALS['summaries'] = array( $T => array( 'state' => 'none', 'agreement_id' => 0, 'pending_id' => 900, 'accepted_at' => '', 'kind' => '', 'drive_url' => '', 'airtable_status' => 'Awaiting review' ) );
+
+ob_start();
+$module->render_admin_page();
+$screen = (string) ob_get_clean();
+
+ck( 'the queue draws one review block with the facts a reviewer reads first', array(
+	false !== strpos( $screen, 'wpcpm-review' ),
+	false !== strpos( $screen, 'TEST Sponsor' ),
+	false !== strpos( $screen, 'Member One' ),
+	false !== strpos( $screen, '2026-09-05' ),
+), array( true, true, true, true ) );
+ck( 'the scan is named and said to be a courtesy', array( false !== strpos( $screen, '/JavaScript' ), false !== strpos( $screen, 'courtesy' ) ), array( true, true ) );
+ck( 'the download is a link, keyed to the document', array( false !== strpos( $screen, 'wpcpm_sponsor_agr_download' ), false !== strpos( $screen, 'wpcpm_sponsor_agr_download_900' ) ), array( true, true ) );
+ck( 'Accept and Return are two forms, each keyed to the document', array(
+	false !== strpos( $screen, 'value="wpcpm_sponsor_agr_accept"' ),
+	false !== strpos( $screen, 'wpcpm_sponsor_agr_accept_900' ),
+	false !== strpos( $screen, 'value="wpcpm_sponsor_agr_return"' ),
+	false !== strpos( $screen, 'wpcpm_sponsor_agr_return_900' ),
+), array( true, true, true, true ) );
+ck( 'the note box carries the length the handler enforces', array( false !== strpos( $screen, 'minlength="20"' ), false !== strpos( $screen, 'maxlength="2000"' ) ), array( true, true ) );
+ck( 'a sponsor with nothing recorded is offered the on-file form', array(
+	false !== strpos( $screen, 'value="wpcpm_sponsor_agr_on_file"' ),
+	false !== strpos( $screen, 'name="wpcpm_sponsor_agr_drive"' ),
+), array( true, true ) );
+ck( 'the on-file form takes the signed-on day too, and every required field says so in the label\'s voice', array(
+	false !== strpos( $screen, 'type="date" id="wpcpm-signed-' . $T . '" name="wpcpm_sponsor_agr_signed_on"' ),
+	substr_count( $screen, '<span class="wpcpm-field__required">Required</span>' ) >= 2,
+	1 === preg_match( '/name="wpcpm_sponsor_agr_drive"[^>]*required/', $screen ),
+), array( true, true, true ) );
+
+$GLOBALS['queue']     = array();
+$GLOBALS['summaries'] = array( $T => array( 'state' => 'accepted', 'agreement_id' => 901, 'pending_id' => 0, 'accepted_at' => '2026-09-06', 'kind' => 'own', 'drive_url' => '', 'airtable_status' => 'Accepted' ) );
+ob_start();
+$module->render_admin_page();
+$screen = (string) ob_get_clean();
+ck( 'an accepted agreement is offered Revoke and no on-file form', array(
+	false !== strpos( $screen, 'value="wpcpm_sponsor_agr_revoke"' ),
+	false !== strpos( $screen, 'value="wpcpm_sponsor_agr_on_file"' ),
+	false !== strpos( $screen, '2026-09-06' ),
+), array( true, false, true ) );
+ck( 'and the empty queue says so rather than printing nothing', false !== strpos( $screen, 'Nothing is waiting' ), true );
+
+$revoked = new WP_Post( array( 'ID' => 902, 'post_type' => 'wpcpm_sponsor_agr' ) );
+$GLOBALS['pmeta'][902]     = array( '_wpcpm_sagr_state' => 'revoked' );
+$GLOBALS['agr_posts']      = array( $T => array( $revoked ) );
+$GLOBALS['summaries'][ $T ] = array( 'state' => 'revoked', 'agreement_id' => 0, 'pending_id' => 0, 'accepted_at' => '', 'kind' => 'own', 'drive_url' => '', 'airtable_status' => 'Revoked' );
+ob_start();
+$module->render_admin_page();
+$screen = (string) ob_get_clean();
+ck( 'a revoked one is offered Reinstate, keyed to that document', array(
+	false !== strpos( $screen, 'value="wpcpm_sponsor_agr_reinstate"' ),
+	false !== strpos( $screen, 'wpcpm_sponsor_agr_reinstate_902' ),
+), array( true, true ) );
+
+$screen_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
+ck( 'the agreements card is drawn after the interests log', strpos( $screen_src, 'render_agreements(' ) > strpos( $screen_src, '$this->render_interests( $rows );' ), true );
+ck( 'and every one of its forms carries the double-submit guard', substr_count( $screen, 'data-wpcpm-once' ) >= 2, true );
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );

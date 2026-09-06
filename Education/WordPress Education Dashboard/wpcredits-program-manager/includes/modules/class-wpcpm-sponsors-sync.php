@@ -288,6 +288,13 @@ final class WPCPM_Sponsors_Sync {
 					break;
 				case 'logos':
 					$result = self::phase_logos( $state );
+
+					// The last step of this phase, and not a phase of its own: it is one query
+					// on most nights and carries no weight in the bar. `phase_logos()` moves
+					// the run on when its list runs dry, which is the step this rides.
+					if ( true === $result && 'logos' !== $state['phase'] ) {
+						$result = self::phase_agreements( $state );
+					}
 					break;
 				case 'revoke':
 					$result = self::phase_revoke( $state, $settings );
@@ -380,6 +387,7 @@ final class WPCPM_Sponsors_Sync {
 			'logos_copied'  => 0,
 			'logos_kept'    => 0,
 			'logos_refused' => 0,
+			'agreements'    => 0,
 			'revoked'       => 0,
 			'inactive_kept' => 0,
 		);
@@ -692,6 +700,44 @@ final class WPCPM_Sponsors_Sync {
 	}
 
 	/**
+	 * The agreement cells an earlier request could not write, written now.
+	 *
+	 * An upload or a withdrawal that met an unreachable base leaves the document marked rather
+	 * than failing the sponsor's action, and this is what makes that mark mean something. It
+	 * runs as the logo phase's last step: the query is empty on nearly every night, and the
+	 * one it is not, fifty PATCHes are the ceiling.
+	 *
+	 * Behind a guard, as every cross-module call in this file is: the sync is the module's and
+	 * the agreement class is loaded with it, but a partial deploy must not fatal the cron.
+	 *
+	 * @param array $state Sync state, by reference.
+	 * @return true
+	 */
+	private static function phase_agreements( array &$state ) {
+		if ( ! class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			return true;
+		}
+
+		$cleared = (int) call_user_func( array( 'WPCPM_Sponsor_Agreement', 'retry_airtable' ) );
+
+		if ( $cleared > 0 ) {
+			$state['stats']['agreements'] += $cleared;
+			$state['notices'][]            = sprintf(
+				/* translators: %d: how many agreement documents were written to the base. */
+				_n(
+					'%d agreement the base had not been told about was written tonight.',
+					'%d agreements the base had not been told about were written tonight.',
+					$cleared,
+					'wpcredits-program-manager'
+				),
+				number_format_i18n( $cleared )
+			);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Phase 4: the accounts of sponsors that are no longer Approved.
 	 *
 	 * @param array $state    Sync state, by reference.
@@ -858,8 +904,8 @@ final class WPCPM_Sponsors_Sync {
 				/* translators: 1: sponsors read, 2: of them Approved. */
 				return sprintf( __( '%1$d sponsors read, %2$d Approved', 'wpcredits-program-manager' ), (int) $stats['records_seen'], (int) $stats['approved'] );
 			case 'logos':
-				/* translators: 1: logos copied, 2: kept, 3: refused. */
-				return sprintf( __( '%1$d logos copied, %2$d kept, %3$d refused', 'wpcredits-program-manager' ), (int) $stats['logos_copied'], (int) $stats['logos_kept'], (int) $stats['logos_refused'] );
+				/* translators: 1: logos copied, 2: kept, 3: refused, 4: agreement cells written. */
+				return sprintf( __( '%1$d logos copied, %2$d kept, %3$d refused, %4$d agreements written', 'wpcredits-program-manager' ), (int) $stats['logos_copied'], (int) $stats['logos_kept'], (int) $stats['logos_refused'], isset( $stats['agreements'] ) ? (int) $stats['agreements'] : 0 );
 			case 'revoke':
 				/* translators: 1: accounts detached, 2: accounts kept. */
 				return sprintf( __( '%1$d accounts detached, %2$d kept', 'wpcredits-program-manager' ), (int) $stats['revoked'], (int) $stats['inactive_kept'] );

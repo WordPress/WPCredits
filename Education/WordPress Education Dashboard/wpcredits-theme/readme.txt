@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.22.10
+Stable tag: 1.23.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,10 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.23.0 =
+* Sponsor Dashboard: the logo card (plugin 1.96.0). Two labelled preview tiles, the white logo on a dark ground so it is visible at all, and the two file fields in the controls the sponsor forms already use.
+* Sponsor Dashboard: the agreement card. The state as the pill an offer's state wears, the program's note quoted with the brand rule down its edge, and the document's history as rows under hairlines.
 
 = 1.22.15 =
 * Mentor Report Card: whichever section follows the header band drops its own hairline, now that the program updates and resources lead the page (plugin 1.95.14).
