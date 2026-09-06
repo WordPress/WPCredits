@@ -656,10 +656,15 @@
 
 		if ( title ) {
 			var head = document.createElement( 'div' );
+			var lead = document.createElement( 'div' );
 
+			// The lead holds the heading and, once it is built, the ordering sentence under it;
+			// the toolbar stands beside the lead, centered on that sentence (1.96.3).
 			head.className = 'wpc-dash__head';
+			lead.className = 'wpc-dash__lead';
 			current.insertBefore( head, title );
-			head.appendChild( title );
+			lead.appendChild( title );
+			head.appendChild( lead );
 			head.appendChild( bar );
 			current.insertBefore( hint, head.nextSibling );
 		} else {
@@ -966,7 +971,16 @@
 
 		el.className = 'wpc-dash__ordering';
 		el.textContent = TEXT.ordering;
-		list.parentNode.insertBefore( el, list );
+
+		// Under the heading inside the head row's lead when the row was built (1.96.3), so
+		// the search beside it can center on this line; otherwise right above the list.
+		var lead = list.parentNode ? list.parentNode.querySelector( '.wpc-dash__head > .wpc-dash__lead' ) : null;
+
+		if ( lead ) {
+			lead.appendChild( el );
+		} else {
+			list.parentNode.insertBefore( el, list );
+		}
 	}
 
 	/**

@@ -288,25 +288,50 @@
    the toolbar drops its band border and padding, the count stays beside the field, and the
    row wraps under the heading when it is too narrow for both. */
 .wpc-dashboard-page .wpc-dash__head {
-	align-items: center;
+	align-items: flex-end;
+	border-top: 1px solid var( --wpc-line-soft );
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px 24px;
 	justify-content: space-between;
-	padding: 20px 32px 10px;
+	padding: 20px 32px 14px;
 }
 
-.wpc-dashboard-page .wpc-dash__head > .wpcpm-group__title {
+/* The lead: the heading with the ordering sentence under it (plugin 1.96.3). Both lose the
+   padding they carry on their own, the row has it. */
+.wpc-dashboard-page .wpc-dash__lead {
+	display: flex;
+	flex: 1 1 280px;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.wpc-dashboard-page .wpc-dash__lead > .wpcpm-group__title,
+.wpc-dashboard-page .wpc-dash__lead > .wpc-dash__ordering {
+	margin: 0;
 	padding: 0;
 }
 
+/* Centered on the ordering sentence, the owner's line: the row aligns its two halves at the
+   bottom, and the field (36px: 6px of padding each side of a 20px line, plus the border)
+   hangs 8px lower than the sentence's 20px line, which puts the two centers on one level.
+   The 14px bottom padding above absorbs it. The hairline the toolbar's band used to draw
+   above the group is the row's own top border now (1.23.3). */
 .wpc-dashboard-page .wpc-dash__head > .wpc-dash__toolbar {
 	border-bottom: 0;
 	flex: 1 1 320px;
 	justify-content: flex-end;
-	margin: 0;
+	margin: 0 0 -8px;
 	max-width: 560px;
 	padding: 0;
+}
+
+/* Wrapped under the heading on a narrow row, the field has no sentence to center on. */
+@media ( max-width: 900px ) {
+
+	.wpc-dashboard-page .wpc-dash__head > .wpc-dash__toolbar {
+		margin-bottom: 0;
+	}
 }
 
 .wpc-dashboard-page .wpc-dash__head .wpc-search {

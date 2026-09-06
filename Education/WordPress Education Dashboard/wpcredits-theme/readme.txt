@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.3 =
+* Mentor Report Card: the hairline above the "Currently mentoring" row stays, and the search centers on the ordering sentence under the heading (plugin 1.96.3).
+
 = 1.23.2 =
 * Mentor Report Card: the student search in the "Currently mentoring" heading row, on the right, at the heading's inset; the row wraps when narrow (plugin 1.96.2).
 

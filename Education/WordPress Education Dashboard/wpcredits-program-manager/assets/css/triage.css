@@ -219,8 +219,21 @@
 	justify-content: space-between;
 }
 
-.wpc-dash__head > .wpcpm-group__title,
 .wpc-dash__head > .wpc-dash__toolbar {
 	margin: 0;
+}
+
+/* The lead: the heading with the ordering sentence under it (1.96.3). */
+.wpc-dash__lead {
+	display: flex;
+	flex: 1 1 280px;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.wpc-dash__lead > .wpcpm-group__title,
+.wpc-dash__lead > .wpc-dash__ordering {
+	margin: 0;
+	padding: 0;
 }
 
