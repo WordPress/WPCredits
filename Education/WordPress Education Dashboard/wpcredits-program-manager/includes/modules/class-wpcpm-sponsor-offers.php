@@ -1276,13 +1276,77 @@ final class WPCPM_Sponsor_Offers {
 		);
 		echo '<div class="wpcpm-group__body">';
 
+		// The new-offer form first and on the left, the sponsor's offers on the right, folded to
+		// a title and a line of counts: the ones in play under "Active offers", the ended and
+		// expired ones under their own title (owner, 1.97.1). A draft and a paused offer are in
+		// play - a paused offer resumes with one press - and an ended one never is.
+		$active = array();
+		$past   = array();
+
+		foreach ( $offers as $offer ) {
+			if ( self::is_past( $offer ) ) {
+				$past[] = $offer;
+			} else {
+				$active[] = $offer;
+			}
+		}
+
+		echo '<div class="wpcpm-offers__cols"><div class="wpcpm-offers__col wpcpm-offers__col--new">';
+		self::render_new_form( $record );
+		echo '</div><div class="wpcpm-offers__col wpcpm-offers__col--list">';
+		self::render_list( __( 'Active offers', 'wpcredits-program-manager' ), $active, $record, __( 'No offer yet. Create one on the left, and it appears here.', 'wpcredits-program-manager' ) );
+
+		if ( ! empty( $past ) ) {
+			self::render_list( __( 'Ended and expired offers', 'wpcredits-program-manager' ), $past, $record, '' );
+		}
+
+		echo '</div></div>';
+		echo '</div></details></section>';
+	}
+
+	/**
+	 * Whether an offer is over: ended by the sponsor, or past the last day it named.
+	 *
+	 * @param array  $offer The offer.
+	 * @param string $today Y-m-d, for the suites; today by default.
+	 * @return bool
+	 */
+	public static function is_past( array $offer, $today = '' ) {
+		if ( self::STATE_ENDED === $offer['state'] ) {
+			return true;
+		}
+
+		if ( '' === (string) $offer['expires'] ) {
+			return false;
+		}
+
+		$today = '' !== (string) $today ? (string) $today : wp_date( 'Y-m-d' );
+
+		return strcmp( (string) $offer['expires'], $today ) < 0;
+	}
+
+	/**
+	 * One list on the right: a sub-heading, then the offers folded, or one quiet sentence.
+	 *
+	 * @param string $title  The list's title.
+	 * @param array  $offers The offers in it.
+	 * @param string $record Sponsor record ID.
+	 * @param string $empty  The sentence for an empty list, or '' to print nothing.
+	 */
+	private static function render_list( $title, array $offers, $record, $empty ) {
+		printf( '<h4 class="wpcpm-sponsor__subheading">%s</h4>', esc_html( $title ) );
+
+		if ( empty( $offers ) ) {
+			if ( '' !== $empty ) {
+				printf( '<p class="wpcpm-student__note wpcpm-offers__empty">%s</p>', esc_html( $empty ) );
+			}
+
+			return;
+		}
+
 		foreach ( $offers as $offer ) {
 			self::render_offer( $offer, $record );
 		}
-
-		self::render_new_form( $record );
-
-		echo '</div></details></section>';
 	}
 
 	/**
@@ -1295,7 +1359,7 @@ final class WPCPM_Sponsor_Offers {
 		$counts = WPCPM_Sponsor_Codes::counts( $offer['id'] );
 		$fixed  = self::kind_is_fixed( $offer );
 
-		printf( '<div class="wpcpm-offer wpcpm-offer--%1$s" id="wpcpm-offer-%2$d">', esc_attr( $offer['state'] ), (int) $offer['id'] );
+		printf( '<details class="wpcpm-offer wpcpm-offer--%1$s" id="wpcpm-offer-%2$d"><summary class="wpcpm-offer__summary">', esc_attr( $offer['state'] ), (int) $offer['id'] );
 		printf(
 			'<h4 class="wpcpm-offer__title">%1$s <span class="wpcpm-offer__state">%2$s</span>%3$s</h4>',
 			esc_html( $offer['title'] ),
@@ -1305,7 +1369,7 @@ final class WPCPM_Sponsor_Offers {
 
 		if ( self::KIND_CODES === $offer['kind'] ) {
 			printf(
-				'<p class="wpcpm-offer__counts">%s</p>',
+				'<span class="wpcpm-offer__counts">%s</span>',
 				esc_html(
 					sprintf(
 						/* translators: 1: available, 2: claimed, 3: void. */
@@ -1319,7 +1383,7 @@ final class WPCPM_Sponsor_Offers {
 
 			if ( self::STATE_LIVE === $offer['state'] && $counts['available'] < (int) $offer['low'] ) {
 				/* translators: %d: the threshold. */
-				printf( '<p class="wpcpm-offer__warning">%s</p>', esc_html( sprintf( __( 'Running low: fewer than %d codes left. Add more, or pause the offer.', 'wpcredits-program-manager' ), (int) $offer['low'] ) ) );
+				printf( '<span class="wpcpm-offer__warning">%s</span>', esc_html( sprintf( __( 'Running low: fewer than %d codes left. Add more, or pause the offer.', 'wpcredits-program-manager' ), (int) $offer['low'] ) ) );
 			}
 		} else {
 			$taken = 0;
@@ -1331,9 +1395,10 @@ final class WPCPM_Sponsor_Offers {
 			}
 
 			/* translators: %d: how many people. */
-			printf( '<p class="wpcpm-offer__counts">%s</p>', esc_html( sprintf( _n( '%d person has taken it', '%d people have taken it', $taken, 'wpcredits-program-manager' ), $taken ) ) );
+			printf( '<span class="wpcpm-offer__counts">%s</span>', esc_html( sprintf( _n( '%d person has taken it', '%d people have taken it', $taken, 'wpcredits-program-manager' ), $taken ) ) );
 		}
 
+		echo '</summary><div class="wpcpm-offer__body">';
 		self::render_edit_form( $offer, $record, $fixed );
 		self::render_state_form( $offer, $record );
 
@@ -1341,7 +1406,7 @@ final class WPCPM_Sponsor_Offers {
 			self::render_codes_forms( $offer, $record, $counts );
 		}
 
-		echo '</div>';
+		echo '</div></details>';
 	}
 
 	/**

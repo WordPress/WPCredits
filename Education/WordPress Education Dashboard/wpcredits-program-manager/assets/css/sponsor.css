@@ -134,3 +134,21 @@
 	}
 }
 
+
+/* The Offers and codes card rearranged (1.97.1, owner): the new-offer form first and on the
+   left, the sponsor's offers on the right, each folded to its title and its line of counts
+   under "Active offers", the ended and expired ones under their own title. The columns are the
+   profile card's; a folded offer is the mentor page's availability panel (.wpcpm-availability
+   in calendar.css): a bordered, rounded box whose summary is the heading line, with the body
+   under a rule once it is open. The theme restates the values in its tokens. */
+.wpcpm-offers__cols { align-items: start; display: grid; gap: 0 2em; grid-template-columns: minmax( 0, 1fr ) minmax( 0, 1fr ); }
+.wpcpm-offer { border: 1px solid var( --wpcpm-border ); border-radius: var( --wpcpm-radius ); margin: 0 0 0.75em; padding: 0.8em 1em; }
+.wpcpm-offer__summary { cursor: pointer; font-weight: 600; }
+.wpcpm-offer__summary .wpcpm-offer__title { display: inline; font-size: 1em; margin: 0; }
+.wpcpm-offer__counts, .wpcpm-offer__warning { display: block; font-weight: 400; margin: 0.35em 0 0; }
+.wpcpm-offer__body { border-top: 1px solid var( --wpcpm-border ); margin-top: 0.75em; padding-top: 0.75em; }
+.wpcpm-offers__col--list .wpcpm-offer + .wpcpm-sponsor__subheading { margin-top: 1.5em; }
+.wpcpm-offers__empty { margin: 0; }
+@media ( max-width: 900px ) {
+	.wpcpm-offers__cols { gap: 1.5em 0; grid-template-columns: minmax( 0, 1fr ); }
+}

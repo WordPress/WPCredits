@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.97.0
+Stable tag: 1.97.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.97.1 =
+* Sponsor Dashboard: the Offers and codes card is two columns. The new-offer form sits first, on the left; the offers sit on the right, each folded to its title and its counts, under "Active offers" and, for the ended and expired ones, under "Ended and expired offers". With theme 1.23.20.
 
 = 1.97.0 =
 * **The Sponsors module, phase five: the application form.** A company applies to sponsor the program on this site, at /sponsor-application/, with the Airtable form's eight questions in its order and wording, two optional logo files through the plugin's image handler, and the seven guards the institution form runs: a honeypot, a signed single-use dwell token, five submissions an hour per address, forty a day site-wide before the rest are held, consent as a precondition with the sentence, the policy and its version recorded, link counting, and a ceiling on acknowledgements. Off until "Applications from sponsors" is switched on. The applicant gets an acknowledgement with a reference; the managers get the facts and a link. Duplicates are flagged twice and never merged: another open application naming the company or the address, and a sponsor the index already holds under the name or the website.
