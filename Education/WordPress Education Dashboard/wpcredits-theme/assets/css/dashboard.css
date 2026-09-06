@@ -730,6 +730,14 @@
 	padding-bottom: 22px;
 }
 
+/* The hairline under the title that the Student Report Card's first section and the Mentor
+   Report Card's band draw, on these two pages too: the dashboard root is the first thing under
+   the title, so its top edge is the line (owner, 1.23.8). */
+.wpc-institution-page .wpcpm-dashboard.wpcpm-institution,
+.wpc-sponsor-page .wpcpm-dashboard.wpcpm-sponsor {
+	border-top: 1px solid var( --wpc-line-soft );
+}
+
 .wpc-student-page .wpcpm-student__section:first-of-type {
 	border-top: 1px solid var( --wpc-line-soft );
 }

@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.8 =
+* Institution Dashboard and Sponsor Dashboard: a hairline under the title, above the dashboard, as the two Report Cards draw.
+
 = 1.23.7 =
 * Mentor Report Card: a hairline above the mentor's photo, as the Student Report Card draws one above the profile.
 
