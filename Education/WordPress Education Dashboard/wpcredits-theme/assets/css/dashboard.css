@@ -1919,6 +1919,66 @@
 	padding-top: 16px;
 }
 
+/* An open offer reads as text first (plugin 1.97.4, owner). The details are a two-column
+   definition list in the note's face, 8px between rows; Edit this offer is a secondary button
+   that is a disclosure, 16px under the list, with the form 16px under it once open; the state
+   block and the codes block are each a job of their own under a soft line 24px down, with
+   the block's title 16px under the line, its sentence 8px under the title and the buttons
+   12px under the sentence. */
+.wpc-sponsor-page .wpcpm-offer__details {
+	display: grid;
+	gap: 8px 16px;
+	grid-template-columns: max-content minmax( 0, 1fr );
+	margin: 0 0 16px;
+}
+
+.wpc-sponsor-page .wpcpm-offer__detail {
+	display: contents;
+}
+
+.wpc-sponsor-page .wpcpm-offer__details dt {
+	color: var( --wpc-ink-70 );
+	font: 600 14px/20px var( --wpc-font );
+	margin: 0;
+}
+
+.wpc-sponsor-page .wpcpm-offer__details dd {
+	color: var( --wpc-ink );
+	font: 14px/20px var( --wpc-font );
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.wpc-sponsor-page .wpcpm-offer__edit > summary {
+	display: inline-flex;
+	list-style: none;
+}
+
+.wpc-sponsor-page .wpcpm-offer__edit > summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpc-sponsor-page .wpcpm-offer__edit[open] > summary {
+	margin-bottom: 16px;
+}
+
+.wpc-sponsor-page .wpcpm-offer__moves {
+	border-top: 1px solid var( --wpc-line-soft );
+	margin-top: 24px;
+	padding-top: 16px;
+}
+
+.wpc-sponsor-page .wpcpm-offer__subtitle {
+	color: var( --wpc-ink );
+	font: 600 14px/20px var( --wpc-font );
+	margin: 0 0 8px;
+}
+
+.wpc-sponsor-page .wpcpm-offer__state-note {
+	margin: 0 0 12px;
+}
+
 .wpc-sponsor-page .wpcpm-offers__empty {
 	margin: 0;
 }

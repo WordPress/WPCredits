@@ -1399,8 +1399,13 @@ final class WPCPM_Sponsor_Offers {
 		}
 
 		echo '</summary><div class="wpcpm-offer__body">';
+		// Open, an offer reads as text first (owner, 1.97.4): its details, then Edit this offer, which
+		// reveals the form; the state moves under a title of their own; the codes last.
+		self::render_details( $offer );
+		printf( '<details class="wpcpm-offer__edit" id="wpcpm-offer-edit-%1$d"><summary class="wpcpm-button wpcpm-button--secondary wpcpm-offer__edit-toggle">%2$s</summary>', (int) $offer['id'], esc_html__( 'Edit this offer', 'wpcredits-program-manager' ) );
 		self::render_edit_form( $offer, $record, $fixed );
-		self::render_state_form( $offer, $record );
+		echo '</details>';
+		self::render_state_block( $offer, $record );
 
 		if ( self::KIND_CODES === $offer['kind'] && self::STATE_ENDED !== $offer['state'] ) {
 			// Adding codes is another job than editing the offer: its own block under a line (owner, 1.97.2).
@@ -1488,6 +1493,91 @@ final class WPCPM_Sponsor_Offers {
 	}
 
 	/**
+	 * The offer as text: what a reader of an open panel sees before deciding to edit (1.97.4).
+	 * Every value is the sponsor's own and is escaped; the instructions keep their line breaks.
+	 *
+	 * @param array $offer The offer.
+	 */
+	private static function render_details( array $offer ) {
+		$none  = '<span class="wpcpm-student__note">' . esc_html__( 'Not written yet.', 'wpcredits-program-manager' ) . '</span>';
+		$rows  = array();
+		$plain = static function ( $value ) use ( $none ) {
+			return '' !== trim( (string) $value ) ? nl2br( esc_html( (string) $value ) ) : $none;
+		};
+
+		$rows[] = array( __( 'What you get', 'wpcredits-program-manager' ), $plain( $offer['text'] ) );
+		$rows[] = array( __( 'How to redeem it', 'wpcredits-program-manager' ), $plain( $offer['instructions'] ) );
+
+		if ( '' !== trim( (string) $offer['url'] ) ) {
+			$rows[] = array( __( 'Link', 'wpcredits-program-manager' ), sprintf( '<a href="%1$s">%2$s</a>', esc_url( (string) $offer['url'] ), esc_html( (string) $offer['url'] ) ) );
+		}
+
+		$rows[] = array( __( 'Kind', 'wpcredits-program-manager' ), esc_html( self::KIND_CODES === $offer['kind'] ? __( 'A pool of one-time codes, one per person', 'wpcredits-program-manager' ) : __( 'One code or link everyone uses', 'wpcredits-program-manager' ) ) );
+
+		if ( self::KIND_SHARED === $offer['kind'] ) {
+			$shared = (string) WPCPM_Sponsor_Codes::shared( $offer['id'] );
+			$rows[] = array( __( 'The shared code or link', 'wpcredits-program-manager' ), '' !== $shared ? '<code>' . esc_html( $shared ) . '</code>' : $none );
+		}
+
+		$open = array( __( 'Current students', 'wpcredits-program-manager' ) );
+
+		if ( in_array( 'mentors', (array) $offer['audience'], true ) ) {
+			$open[] = __( 'mentors', 'wpcredits-program-manager' );
+		}
+
+		if ( in_array( 'managers', (array) $offer['audience'], true ) ) {
+			$open[] = __( 'the program team', 'wpcredits-program-manager' );
+		}
+
+		$rows[] = array( __( 'Open to', 'wpcredits-program-manager' ), esc_html( implode( ', ', $open ) ) );
+
+		if ( self::KIND_CODES === $offer['kind'] ) {
+			/* translators: %d: the number of codes. */
+			$rows[] = array( __( 'Warns you at', 'wpcredits-program-manager' ), esc_html( sprintf( _n( '%d code left', '%d codes left', (int) $offer['low'], 'wpcredits-program-manager' ), (int) $offer['low'] ) ) );
+		}
+
+		$rows[] = array( __( 'Last day', 'wpcredits-program-manager' ), '' !== (string) $offer['expires'] ? esc_html( (string) $offer['expires'] ) : esc_html__( 'None', 'wpcredits-program-manager' ) );
+
+		echo '<dl class="wpcpm-offer__details">';
+
+		foreach ( $rows as $row ) {
+			printf( '<div class="wpcpm-offer__detail"><dt>%1$s</dt><dd>%2$s</dd></div>', esc_html( $row[0] ), $row[1] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Each value is escaped where it is built above.
+		}
+
+		echo '</dl>';
+	}
+
+	/**
+	 * The state block: a title, one sentence on what the state means today, and the moves.
+	 *
+	 * @param array  $offer  The offer.
+	 * @param string $record Sponsor record ID.
+	 */
+	private static function render_state_block( array $offer, $record ) {
+		switch ( $offer['state'] ) {
+			case self::STATE_LIVE:
+				$sentence = self::is_live( $offer )
+					? __( 'Live: shown to the people it is open to.', 'wpcredits-program-manager' )
+					: __( 'Past its last day: shown to nobody. Change the last day to bring it back.', 'wpcredits-program-manager' );
+				break;
+			case self::STATE_PAUSED:
+				$sentence = __( 'Paused: hidden until you resume it. Its codes stay.', 'wpcredits-program-manager' );
+				break;
+			case self::STATE_ENDED:
+				$sentence = __( 'Ended: nothing more can be claimed, and it cannot be resumed.', 'wpcredits-program-manager' );
+				break;
+			default:
+				$sentence = __( 'A draft: nobody but you sees it. Switch it on when it is ready.', 'wpcredits-program-manager' );
+		}
+
+		echo '<div class="wpcpm-offer__moves">';
+		printf( '<h5 class="wpcpm-offer__subtitle">%s</h5>', esc_html__( 'State', 'wpcredits-program-manager' ) );
+		printf( '<p class="wpcpm-student__note wpcpm-offer__state-note">%s</p>', esc_html( $sentence ) );
+		self::render_state_form( $offer, $record );
+		echo '</div>';
+	}
+
+	/**
 	 * The edit form for one offer.
 	 *
 	 * @param array  $offer  The offer.
@@ -1506,20 +1596,13 @@ final class WPCPM_Sponsor_Offers {
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
 		self::render_fields( $offer, $record, $fixed );
-		// One row of buttons (owner, 1.97.2): Save, then every move the state machine allows. The
-		// moves post to the state form printed after this one, through the button's `form`
-		// attribute, so each form keeps its own nonce and the row still reads as one line.
-		printf( '<p class="wpcpm-offer__actions"><button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Save offer', 'wpcredits-program-manager' ) );
-		self::render_state_buttons( $offer );
-		echo '</p></form>';
+		printf( '<p class="wpcpm-offer__actions"><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save offer', 'wpcredits-program-manager' ) );
+		echo '</form>';
 	}
 
 	/**
-	 * The state moves as buttons of the state form, printed inside the edit form's action row.
-	 *
-	 * A button's `form` attribute names the form it submits, so these post to the state form
-	 * (its own nonce, its own handler) while standing on one line with Save (owner, 1.97.2).
-	 * An offer with no move left (ended) prints nothing here and no state form either.
+	 * The state moves as one row of buttons, inside the state form (1.97.4). An offer with no
+	 * move left (ended) prints nothing here and no state form either.
 	 *
 	 * @param array $offer The offer.
 	 */
@@ -1538,14 +1621,13 @@ final class WPCPM_Sponsor_Offers {
 
 		foreach ( $moves as $state ) {
 			printf(
-				'<button type="submit" form="wpcpm-offer-state-%5$d" class="wpcpm-button%1$s" name="wpcpm_state" value="%2$s"%3$s>%4$s</button>',
+				'<button type="submit" class="wpcpm-button%1$s" name="wpcpm_state" value="%2$s"%3$s>%4$s</button>',
 				self::STATE_LIVE === $state ? '' : ' wpcpm-button--secondary',
 				esc_attr( $state ),
 				// A cancelled confirm on the pressed button stops the submit, and forms.js yields to a
 				// prevented submit (1.92.0), so the form is not left reading "Switching".
 				self::STATE_ENDED === $state ? ' onclick="return confirm( \'' . esc_js( __( 'End this offer for good? Codes already claimed stay with the people who hold them.', 'wpcredits-program-manager' ) ) . '\' );"' : '',
-				esc_html( $labels[ $state ] ),
-				(int) $offer['id']
+				esc_html( $labels[ $state ] )
 			);
 		}
 	}
@@ -1573,7 +1655,9 @@ final class WPCPM_Sponsor_Offers {
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_STATE ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
-		echo '</form>';
+		echo '<p class="wpcpm-offer__actions">';
+		self::render_state_buttons( $offer );
+		echo '</p></form>';
 	}
 
 	/**

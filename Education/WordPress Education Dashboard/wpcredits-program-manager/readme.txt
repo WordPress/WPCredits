@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.97.3
+Stable tag: 1.97.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.97.5 =
+* Sponsor Dashboard: the state block of an open offer no longer wears the state chip's class, so it is a block and not a pill. With theme 1.23.23.
+
+= 1.97.4 =
+* Sponsor Dashboard: an open offer reads as text first: its details, then Edit this offer (which reveals the form and Save offer), then its state under a title of its own with one sentence on what the state means and the moves (Switch on, Pause, Resume, End this offer), then the codes. With theme 1.23.22.
 
 = 1.97.3 =
 * Sponsor Dashboard: inside an open offer, Add codes and Void unclaimed codes stand on one line too.

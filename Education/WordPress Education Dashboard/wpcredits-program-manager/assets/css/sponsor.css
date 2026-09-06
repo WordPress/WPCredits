@@ -158,3 +158,17 @@
 .wpcpm-offer__actions { display: flex; flex-wrap: wrap; gap: 0.75em; margin: 0; }
 .wpcpm-offer__state-form { margin: 0; }
 .wpcpm-offer__codes { border-top: 1px solid var( --wpcpm-border ); margin-top: 1.5em; padding-top: 1em; }
+
+/* An open offer reads as text first (1.97.4, owner): the details as a definition list, Edit this
+   offer as a button-shaped disclosure over the form, the state under a small title with one
+   sentence on what it means, then the codes. The theme restates the values in its tokens. */
+.wpcpm-offer__details { display: grid; gap: 0.5em 1em; grid-template-columns: max-content minmax( 0, 1fr ); margin: 0 0 1em; }
+.wpcpm-offer__detail { display: contents; }
+.wpcpm-offer__details dt { font-weight: 600; margin: 0; }
+.wpcpm-offer__details dd { margin: 0; }
+.wpcpm-offer__edit > summary { display: inline-flex; list-style: none; }
+.wpcpm-offer__edit > summary::-webkit-details-marker { display: none; }
+.wpcpm-offer__edit[open] > summary { margin-bottom: 1em; }
+.wpcpm-offer__moves { border-top: 1px solid var( --wpcpm-border ); margin-top: 1.5em; padding-top: 1em; }
+.wpcpm-offer__subtitle { font-size: 1em; margin: 0 0 0.5em; }
+.wpcpm-offer__state-note { margin: 0 0 0.75em; }

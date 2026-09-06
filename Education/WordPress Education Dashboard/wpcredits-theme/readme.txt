@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.23 =
+* Sponsor Dashboard: the open offer's state block is `wpcpm-offer__moves` (plugin 1.97.5); the chip keeps `wpcpm-offer__state`.
+
+= 1.23.22 =
+* Sponsor Dashboard: an open offer's details list, its Edit this offer disclosure and its state block (plugin 1.97.4).
+
 = 1.23.21 =
 * Sponsor Dashboard: inside an open offer, one row of buttons and the codes forms under their own line (plugin 1.97.2).
 
