@@ -465,8 +465,8 @@ final class WPCPM_Sponsors_Dashboard {
 			array(
 				'id'    => 'company',
 				'title' => __( 'Your company', 'wpcredits-program-manager' ),
-				'lead'  => __( 'Your company as the program records it, and the people who can sign in for it. Keep the profile current: what you save here is written to the program records. Accounts are attached by your program contact.', 'wpcredits-program-manager' ),
-				'cards' => array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ),
+				'lead'  => __( 'Your company as the program records it, with its logo, and the people who can sign in for it. Keep the profile current: what you save here is written to the program records. Accounts are attached by your program contact.', 'wpcredits-program-manager' ),
+				'cards' => array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Agreement_Card' ),
 			),
 			array(
 				'id'    => 'offer',

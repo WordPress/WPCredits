@@ -289,7 +289,7 @@ $_POST = array( 'wpcpm_sponsor' => $S );
 post_logos( '' );
 // With the record, as every other outcome here carries it: a manager who pressed Save on a
 // sponsor's behalf lands back on that sponsor and not on whichever one the page opens with.
-ck( 'nothing chosen is a refusal that says so', ran( 'handle_upload' ), 'logo-none|logo|' . $S . '|' );
+ck( 'nothing chosen is a refusal that says so', ran( 'handle_upload' ), 'logo-none|profile|' . $S . '|' );
 post_logos( fake_svg() );
 ck( 'an SVG named .png is refused by its content', substr( ran( 'handle_upload' ), 0, 12 ), 'logo-refused' );
 ck( 'and nothing was stored', $GLOBALS['attachments'], array() );
@@ -305,7 +305,7 @@ $GLOBALS['ceiling'] = array();
 
 echo "\n=== The upload ===\n";
 post_logos( png( 400, 120 ), png( 400, 120 ) );
-ck( 'both halves land', ran( 'handle_upload' ), 'logo-saved|logo|' . $S . '|' );
+ck( 'both halves land', ran( 'handle_upload' ), 'logo-saved|profile|' . $S . '|' );
 $record = WPCPM_Sponsors_Index::logo_record( $S );
 ck( 'the record names two attachments and says the site owns them', array( $record['colour'] > 0, $record['white'] > 0, $record['source'], $record['airtable_id'] ), array( true, true, 'site', '' ) );
 ck( 'the attachments carry the acting account and the titles the spec spells', array(
@@ -327,7 +327,7 @@ ck( 'an audit row names the upload and not the file', array( end( $GLOBALS['audi
 echo "\n=== One half at a time ===\n";
 $before = WPCPM_Sponsors_Index::logo_record( $S );
 post_logos( '', png( 500, 150 ) );
-ck( 'a white logo on its own is accepted', ran( 'handle_upload' ), 'logo-saved|logo|' . $S . '|' );
+ck( 'a white logo on its own is accepted', ran( 'handle_upload' ), 'logo-saved|profile|' . $S . '|' );
 $after = WPCPM_Sponsors_Index::logo_record( $S );
 ck( 'and leaves the color one where it was', array( $after['colour'], $after['white'] !== $before['white'] ), array( $before['colour'], true ) );
 ck( 'the PATCH still sends both, color first', count( patched_cells( 1 )['Logo'] ), 2 );
@@ -335,7 +335,7 @@ ck( 'the PATCH still sends both, color first', count( patched_cells( 1 )['Logo']
 echo "\n=== Airtable refusing ===\n";
 $GLOBALS['patch_fails'] = true;
 post_logos( png( 420, 130 ) );
-ck( 'a failed PATCH says so and never loses the logo', ran( 'handle_upload' ), 'logo-airtable|logo|' . $S . '|' );
+ck( 'a failed PATCH says so and never loses the logo', ran( 'handle_upload' ), 'logo-airtable|profile|' . $S . '|' );
 ck( 'the site record still names the new attachment', WPCPM_Sponsors_Index::logo_record( $S )['colour'] > $after['colour'], true );
 $GLOBALS['patch_fails'] = false;
 
@@ -347,7 +347,7 @@ for ( $i = 0; $i < 5; $i++ ) {
 	ran( 'handle_upload' );
 }
 post_logos( png( 300, 100 ) );
-ck( 'the sixth upload of the day is refused by the ceiling', ran( 'handle_upload' ), 'logo-busy|logo|' . $S . '|' );
+ck( 'the sixth upload of the day is refused by the ceiling', ran( 'handle_upload' ), 'logo-busy|profile|' . $S . '|' );
 ck( 'the ceiling is keyed to the record', array_keys( $GLOBALS['ceiling'] ), array( 'sponsor-logo:' . $S ) );
 
 echo "\n=== Remove ===\n";
@@ -357,12 +357,12 @@ $held  = WPCPM_Sponsors_Index::logo_record( $S );
 // own URLs in the base under a record that no longer says the site owns them: the card would
 // stop offering Remove and the next nightly run would copy those URLs back in as Airtable's.
 $GLOBALS['patch_fails'] = true;
-ck( 'a base that refuses removes nothing, and says so as an error', ran( 'handle_remove' ), 'logo-removed-airtable|logo|' . $S . '|' );
+ck( 'a base that refuses removes nothing, and says so as an error', ran( 'handle_remove' ), 'logo-removed-airtable|profile|' . $S . '|' );
 ck( 'the site still holds the logo, and still says the site owns it', WPCPM_Sponsors_Index::logo_record( $S ), $held );
 ck( 'the audit row says the logo was left in place', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data']['airtable'] ), array( 'logo_removed', false ) );
 ck( 'and the message a person reads says nothing was removed', WPCPM_Sponsor_Logo::messages()['logo-removed-airtable'], array( 'error', 'Nothing was removed: the program records could not be told just now. Try again in a moment.' ) );
 $GLOBALS['patch_fails'] = false;
-ck( 'with the base told, remove clears the record', ran( 'handle_remove' ), 'logo-removed|logo|' . $S . '|' );
+ck( 'with the base told, remove clears the record', ran( 'handle_remove' ), 'logo-removed|profile|' . $S . '|' );
 ck( 'so the next sync may copy Airtable\'s again', WPCPM_Sponsors_Index::logo_record( $S ), array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
 ck( 'and the attachments are left in the Media Library', isset( $GLOBALS['attachments'][ $held['colour'] ] ), true );
 // Eight: the pair, the white half on its own, the one the base refused, and the ceiling
@@ -370,7 +370,7 @@ ck( 'and the attachments are left in the Media Library', isset( $GLOBALS['attach
 ck( 'remove empties the base\'s Logo too, so the nightly read has nothing to copy back', array( count( $GLOBALS['patched'] ), patched_cells( 8 ), patched_cells( 9 ) ), array( 10, array( 'Logo' => array() ), array( 'Logo' => array() ) ) );
 $logo_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-logo.php' );
 ck( 'the PATCH is made before the site record is touched, read off the source', strpos( method_body( $logo_src, 'handle_remove' ), 'self::clear_airtable' ) < strpos( method_body( $logo_src, 'handle_remove' ), 'write_logo_record' ), true );
-ck( 'and the card says the logo goes from both places, and that the files stay', false !== strpos( method_body( $logo_src, 'render' ), 'It goes from this site and from the program records.' ), true );
+ck( 'and the card says the logo goes from both places, and that the files stay', false !== strpos( method_body( $logo_src, 'render_inner' ), 'It goes from this site and from the program records.' ), true );
 
 echo "\n=== The card ===\n";
 $GLOBALS['ceiling'] = array();

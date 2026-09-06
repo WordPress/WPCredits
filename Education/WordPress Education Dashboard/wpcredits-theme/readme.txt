@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.15 =
+* Sponsor Dashboard: the logo's eyebrow inside the profile card, 24px over it (plugin 1.96.6).
+
 = 1.23.14 =
 * Institution Dashboard: the cards inside a module carry no bottom margin, so the gap before the Collaboration Agreement is the same 10px as between the roster's groups.
 

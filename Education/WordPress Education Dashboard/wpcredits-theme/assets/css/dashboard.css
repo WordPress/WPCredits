@@ -1938,6 +1938,13 @@
  * shown at up to 200px by 64px, the size the identity block draws it at, so what a sponsor
  * checks here is what the page shows.
  */
+/* The logo lives in the profile card since plugin 1.96.6, under the profile form, with an
+   eyebrow of its own: 24px of room over it, the gap between two blocks of a card, and 8px to
+   the note under it. */
+.wpc-sponsor-page .wpcpm-profile__logo-title {
+	margin: 24px 0 8px;
+}
+
 .wpc-sponsor-page .wpcpm-logo__tiles {
 	display: flex;
 	flex-wrap: wrap;

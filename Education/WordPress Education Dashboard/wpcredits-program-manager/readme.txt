@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.96.5
+Stable tag: 1.96.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.96.6 =
+* Sponsor Dashboard: the profile and the logo are one card, "Your company profile and logo", the logo block under the profile form; a saved or removed logo lands back on that card. With theme 1.23.15.
 
 = 1.96.5 =
 * Institution Dashboard: the "Read from the program records" line closes the page under its own hairline, as the Student Report Card ends, instead of closing the roster. With theme 1.23.13.

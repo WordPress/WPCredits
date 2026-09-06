@@ -341,7 +341,7 @@ final class WPCPM_Sponsor_Profile {
 		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
 		printf(
 			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Your profile', 'wpcredits-program-manager' )
+			esc_html__( 'Your company profile and logo', 'wpcredits-program-manager' )
 		);
 		echo '<div class="wpcpm-group__body">';
 
@@ -407,6 +407,14 @@ final class WPCPM_Sponsor_Profile {
 
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save profile', 'wpcredits-program-manager' ) );
 		echo '</form>';
+
+		// The logo, in the same card as the profile (owner, 1.96.6): one section for what the
+		// company looks like to students and mentors, the words and the picture.
+		if ( class_exists( 'WPCPM_Sponsor_Logo' ) && method_exists( 'WPCPM_Sponsor_Logo', 'render_inner' ) ) {
+			printf( '<h3 class="wpcpm-student__heading wpcpm-profile__logo-title">%s</h3>', esc_html__( 'Your logo', 'wpcredits-program-manager' ) );
+			WPCPM_Sponsor_Logo::render_inner( $record );
+		}
+
 		echo '</div></details></section>';
 	}
 

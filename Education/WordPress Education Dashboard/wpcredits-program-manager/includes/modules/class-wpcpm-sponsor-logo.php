@@ -39,7 +39,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class WPCPM_Sponsor_Logo {
 
 	/** The card's anchor and flash key on the Sponsor Dashboard. */
-	const CARD = 'logo';
+	/**
+	 * The card the logo lives in: the profile's, since 1.96.6 (owner: one section, "Your company
+	 * profile and logo"). The flashes land on it and open it.
+	 */
+	const CARD = 'profile';
 
 	/** The upload, multipart, a member or a manager on behalf. Nonce keyed to the record. */
 	const ACTION_UPLOAD = 'wpcpm_sponsor_logo';
@@ -313,20 +317,34 @@ final class WPCPM_Sponsor_Logo {
 	 * @param array  $context `can_manage`, `open`, `viewer`.
 	 */
 	public static function render( $record, array $context ) {
+		$open = isset( $context['open'] ) && 'logo' === $context['open'];
+
+		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-logo" class="wpcpm-group wpcpm-group__disclosure"%s>', $open ? ' open' : '' );
+		printf(
+			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
+			esc_html__( 'Your logo', 'wpcredits-program-manager' )
+		);
+		echo '<div class="wpcpm-group__body">';
+		self::render_inner( $record );
+		echo '</div></details></section>';
+	}
+
+	/**
+	 * The logo block without a card of its own: the note, the two tiles, the upload form and
+	 * Remove. The profile card prints it under its form (1.96.6); `render()` above keeps the
+	 * standalone card for a site that wants one.
+	 *
+	 * @param string $record Airtable record ID.
+	 */
+	public static function render_inner( $record ) {
 		$logo   = WPCPM_Sponsors_Index::logo_record( $record );
-		$open   = isset( $context['open'] ) && self::CARD === $context['open'];
 		$base   = 'wpcpm-logo-' . sanitize_html_class( $record );
 		$halves = array(
 			'colour' => __( 'Color', 'wpcredits-program-manager' ),
 			'white'  => __( 'White, for a dark background', 'wpcredits-program-manager' ),
 		);
 
-		printf( '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-%1$s" class="wpcpm-group wpcpm-group__disclosure"%2$s>', esc_attr( self::CARD ), $open ? ' open' : '' );
-		printf(
-			'<summary class="wpcpm-group__summary"><h3 class="wpcpm-group__title">%s</h3><span class="wpcpm-mentee__toggle" aria-hidden="true"></span></summary>',
-			esc_html__( 'Your logo', 'wpcredits-program-manager' )
-		);
-		echo '<div class="wpcpm-group__body wpcpm-logo">';
+		echo '<div class="wpcpm-logo">';
 
 		echo '<p class="wpcpm-student__note">' . esc_html__( 'The picture students and mentors see beside your offer. A PNG, JPEG or WebP image, at least 200 pixels wide. SVG is not accepted, so export it as a PNG. What you upload here replaces the logo in the program records.', 'wpcredits-program-manager' ) . '</p>';
 
@@ -392,7 +410,7 @@ final class WPCPM_Sponsor_Logo {
 			echo '</form>';
 		}
 
-		echo '</div></details></section>';
+		echo '</div>';
 	}
 
 	/**
