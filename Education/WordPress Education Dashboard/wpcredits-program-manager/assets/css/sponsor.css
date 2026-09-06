@@ -45,6 +45,37 @@
 /* A sub-heading inside a card: .wpcpm-people__subtitle's margin, the theme's heading size. */
 .wpcpm-sponsor__subheading { margin: 0 0 1em; }
 
+/* The Usage card's chart (1.96.8): a group of bars per month, one bar per offer, laid out with
+   boxes so it takes the card's width at every size, the scale column on the left and the month
+   row under the plot as text. The bars' heights and the ticks' places arrive in the markup as
+   percentages of the top of the scale; the base line is the plot's bottom edge. Six series
+   colors from the WordPress.org palette, blueberry and charcoal in turn; the theme restates
+   them in its tokens. */
+.wpcpm-chart { margin: 1em 0 1.5em; }
+.wpcpm-chart__title { display: block; font-weight: 600; margin: 0 0 0.75em; }
+.wpcpm-chart__frame { display: grid; grid-template-columns: auto minmax( 0, 1fr ); column-gap: 8px; }
+.wpcpm-chart__scale { position: relative; min-width: 2em; font-variant-numeric: tabular-nums; text-align: right; }
+.wpcpm-chart__tick { position: absolute; right: 0; line-height: 1; transform: translateY( 50% ); }
+.wpcpm-chart__plot { position: relative; display: grid; grid-template-columns: repeat( 12, minmax( 0, 1fr ) ); height: 200px; border-bottom: 1px solid var( --wpcpm-border ); }
+.wpcpm-chart__grid { position: absolute; left: 0; right: 0; border-top: 1px solid var( --wpcpm-border ); pointer-events: none; }
+.wpcpm-chart__month { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 100%; padding: 0 12%; }
+.wpcpm-chart__bar { flex: 1 1 0; max-width: 32px; border-radius: 2px 2px 0 0; background: #3858e9; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.wpcpm-chart__months { grid-column: 2; display: grid; grid-template-columns: repeat( 12, minmax( 0, 1fr ) ); list-style: none; margin: 6px 0 0; padding: 0; text-align: center; }
+.wpcpm-chart__months li { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wpcpm-chart__legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; margin: 0.75em 0 0; padding: 0; }
+.wpcpm-chart__legend li { margin: 0; }
+.wpcpm-chart__swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 2px; vertical-align: -1px; background: #3858e9; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.wpcpm-chart__bar--1, .wpcpm-chart__swatch--1 { background: #3858e9; }
+.wpcpm-chart__bar--2, .wpcpm-chart__swatch--2 { background: #656a71; }
+.wpcpm-chart__bar--3, .wpcpm-chart__swatch--3 { background: #7b90ff; }
+.wpcpm-chart__bar--4, .wpcpm-chart__swatch--4 { background: #23282d; }
+.wpcpm-chart__bar--5, .wpcpm-chart__swatch--5 { background: #c7d1ff; }
+.wpcpm-chart__bar--6, .wpcpm-chart__swatch--6 { background: #979aa1; }
+@media ( max-width: 900px ) {
+	.wpcpm-chart__plot { height: 160px; }
+	.wpcpm-chart__month { padding: 0 8%; }
+}
+
 /* The lists. The sponsor's mentor tiles have their own block name, `wpcpm-mentor-tile`: the
    student page's "My mentor" card is `wpcpm-mentor-card`, and 1.94.1 to 1.94.4 styled both with
    one name, so the student's card took the sponsor tile's look (1.94.5). A mentor, a mentor looking for a sponsor and a member are each a row drawn like

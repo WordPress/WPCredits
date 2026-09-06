@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.96.7
+Stable tag: 1.96.8
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.96.8 =
+* Sponsor Dashboard: the Usage card draws the last twelve months as a bar chart above the table, one bar per offer and month, in place of the two lines of numbers; the numbers stay in the chart's label, in each bar's title and in the CSV. With theme 1.23.19.
 
 = 1.96.7 =
 * Sponsor Dashboard: the profile card is two columns, the company's details on the left and its logo on the right. With theme 1.23.16.

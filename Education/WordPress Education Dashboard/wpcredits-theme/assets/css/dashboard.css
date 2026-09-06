@@ -1521,6 +1521,17 @@
 	padding-right: 32px;
 }
 
+/* The first block of an open card starts 30px under the card's line on the Institution
+   Dashboard and the Sponsor Dashboard alike: the body's 16px and the 14px a note carries. The
+   roster's notes already sat there; a form's first label, a lede and a list sat 18px under the
+   line, and the Interests card's "Ways to support the program" read as stuck to its heading
+   (owner, 1.23.19: "spacing again"). A note keeps its own 14px, so nothing that was right
+   moves. */
+.wpc-institution-page .wpcpm-group__disclosure[open] .wpcpm-group__body > :first-child,
+.wpc-sponsor-page .wpcpm-group__disclosure[open] .wpcpm-group__body > :first-child {
+	margin-top: 14px;
+}
+
 /* The three groups of cards (plugin 1.95.9): each group is a section with the line the cards used
    to carry, its heading inside it under that line in the eyebrow the Resources and Updates
    headings wear (the shared .wpcpm-student__heading rule dresses the type; this rule only places
@@ -1886,6 +1897,72 @@
 .wpc-sponsor-page .wpcpm-usage__totals th,
 .wpc-sponsor-page .wpcpm-usage__totals td {
 	font-weight: 700;
+}
+
+/* The Usage card's chart (plugin 1.96.8), above the table (owner). The privacy note, the chart,
+   the table and the CSV button are blocks of one card, 16px apart; the note used to sit on the
+   table. The chart's own blocks: the caption in the heading weight in ink, 12px above the
+   frame; the scale column and the month row in the note's face (14px, ink-60), the row 6px
+   under the plot; the legend in ink-70, 12px under the row. The base line is the table's line,
+   the grid its soft line. The bars wear the brand blue, ink, the brand border blue and the ink
+   in turn, one per offer, and the plugin's base sheet keeps the two blueberry tints the theme
+   has no token for. */
+.wpc-sponsor-page .wpcpm-usage__chart {
+	margin: 16px 0;
+}
+
+.wpc-sponsor-page .wpcpm-chart__title {
+	color: var( --wpc-ink );
+	font: 600 14px/20px var( --wpc-font );
+	margin: 0 0 12px;
+}
+
+.wpc-sponsor-page .wpcpm-chart__scale,
+.wpc-sponsor-page .wpcpm-chart__months {
+	color: var( --wpc-ink-60 );
+	font: 14px/20px var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-chart__months {
+	margin-top: 6px;
+}
+
+.wpc-sponsor-page .wpcpm-chart__plot {
+	border-bottom-color: var( --wpc-line );
+}
+
+.wpc-sponsor-page .wpcpm-chart__grid {
+	border-top-color: var( --wpc-line-soft );
+}
+
+.wpc-sponsor-page .wpcpm-chart__legend {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+	margin: 12px 0 0;
+}
+
+.wpc-sponsor-page .wpcpm-chart__bar--1,
+.wpc-sponsor-page .wpcpm-chart__swatch--1 {
+	background: var( --wpc-brand );
+}
+
+.wpc-sponsor-page .wpcpm-chart__bar--2,
+.wpc-sponsor-page .wpcpm-chart__swatch--2 {
+	background: var( --wpc-ink-70 );
+}
+
+.wpc-sponsor-page .wpcpm-chart__bar--3,
+.wpc-sponsor-page .wpcpm-chart__swatch--3 {
+	background: var( --wpc-brand-border );
+}
+
+.wpc-sponsor-page .wpcpm-chart__bar--4,
+.wpc-sponsor-page .wpcpm-chart__swatch--4 {
+	background: var( --wpc-ink );
+}
+
+.wpc-sponsor-page .wpcpm-usage + .wpcpm-inline-form {
+	margin-top: 16px;
 }
 
 .wpc-sponsor-page .wpcpm-dashboard__detail {

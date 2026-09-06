@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.19 =
+* Sponsor Dashboard: the Usage card's chart (plugin 1.96.8) dressed in the theme's tokens, and the note, chart, table and CSV button 16px apart. Institution Dashboard and Sponsor Dashboard: the first block of every open card starts 30px under the card's line.
+
 = 1.23.18 =
 * Sponsor Dashboard: a note between two fields of a form lets go of the field above (24px) and holds the rows it introduces (8px).
 
