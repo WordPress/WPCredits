@@ -976,6 +976,64 @@ ck( 'the module schedules the discard on activation and clears it twice', array(
 ), array( true, 2 ) );
 ck( 'and calls delete_all() on uninstall, behind a guard', false !== strpos( $sponsors, 'WPCPM_Sponsor_Agreement::delete_all()' ), true );
 
+echo "\n=== The Administrator Dashboard's decision row (1.96.1) ===\n";
+if ( ! class_exists( 'WPCPM_Return' ) ) {
+	class WPCPM_Return {
+		const FIELD     = 'wpcpm_return';
+		const DASHBOARD = 'dashboard';
+		public static function field( $return, $anchor ) { echo '<input type="hidden" name="wpcpm_return" value="' . esc_attr( $return ) . '" data-anchor="' . esc_attr( $anchor ) . '" />'; }
+		public static function url( $fallback ) { return 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements'; }
+	}
+}
+if ( ! class_exists( 'WPCPM_Institutions' ) ) {
+	class WPCPM_Institutions { const FLASH = 'institutions_dashboard'; }
+}
+if ( ! function_exists( 'wp_nonce_url' ) ) { function wp_nonce_url( $url, $action = -1 ) { return $url . '&_wpnonce=nonce-' . $action; } }
+if ( ! function_exists( 'add_query_arg' ) ) { function add_query_arg( $args, $url ) { return $url . '?' . http_build_query( $args ); } }
+
+$GLOBALS['uid'] = 21;
+$_POST          = array( 'wpcpm_sponsor' => $T, 'wpcpm_sponsor_agr_signed' => '1' );
+post_file( $good );
+ran( 'handle_upload' );
+$queued = (int) WPCPM_Sponsor_Agreement::posts_for( $T )[0]->ID;
+
+$GLOBALS['uid'] = 1;
+ob_start();
+WPCPM_Sponsor_Agreement::render_decision( $queued, WPCPM_Return::DASHBOARD );
+$row = (string) ob_get_clean();
+ck( 'a document waiting for review gets Download, Accept and the folded Return, all bound for the dashboard', array(
+	false !== strpos( $row, 'class="wpcpm-request__decide wpcpm-sponsor-agreement__decide"' ),
+	false !== strpos( $row, 'action=wpcpm_sponsor_agr_download&post=' . $queued . '&_wpnonce=wpcpm_sponsor_agr_download_' . $queued ),
+	false !== strpos( $row, 'value="wpcpm_sponsor_agr_accept"' ),
+	false !== strpos( $row, 'value="wpcpm_sponsor_agr_return"' ),
+	substr_count( $row, 'name="wpcpm_sponsor_agr_post" value="' . $queued . '"' ),
+	substr_count( $row, 'name="wpcpm_return" value="dashboard" data-anchor="sponsor-agreements"' ),
+	false !== strpos( $row, 'minlength="20" maxlength="2000" required' ),
+	false !== strpos( $row, 'value="wpcpm_sponsor_agr_reinstate"' ),
+), array( true, true, true, true, 2, 2, true, false ) );
+
+$GLOBALS['uid'] = 21;
+ob_start();
+WPCPM_Sponsor_Agreement::render_decision( $queued, WPCPM_Return::DASHBOARD );
+ck( 'a sponsor account is shown no decision', (string) ob_get_clean(), '' );
+
+$GLOBALS['uid'] = 1;
+$gone           = wp_insert_post( array( 'post_type' => WPCPM_Sponsor_Agreement::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Out of force' ) );
+update_post_meta( $gone, WPCPM_Sponsor_Agreement::META_SPONSOR, $T );
+update_post_meta( $gone, WPCPM_Sponsor_Agreement::META_STATE, WPCPM_Sponsor_Agreement::STATE_REVOKED );
+update_post_meta( $gone, WPCPM_Sponsor_Agreement::META_KIND, WPCPM_Sponsor_Agreement::KIND_LEGACY );
+ob_start();
+WPCPM_Sponsor_Agreement::render_decision( $gone, WPCPM_Return::DASHBOARD );
+$row = (string) ob_get_clean();
+ck( 'an agreement out of force gets the way back and, being a Drive copy, no download', array( false !== strpos( $row, 'value="wpcpm_sponsor_agr_reinstate"' ), false !== strpos( $row, 'wpcpm_sponsor_agr_download' ), false !== strpos( $row, 'value="wpcpm_sponsor_agr_accept"' ) ), array( true, false, false ) );
+ck( 'revoked_all() lists it', in_array( $gone, WPCPM_Sponsor_Agreement::revoked_all(), true ), true );
+wp_delete_post( $gone, true );
+
+$GLOBALS['patched'] = array();
+$_POST              = array( 'wpcpm_sponsor_agr_post' => $queued, 'wpcpm_return' => 'dashboard' );
+ck( 'a decision taken on the dashboard lands back there, its sentence on that page\'s channel', array( ran( 'handle_accept' ), end( $GLOBALS['flash'] ) ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-agreements', array( 'institutions_dashboard', 'agreement-accepted' ) ) );
+$_POST = array();
+
 echo "\n=== House rules ===\n";
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $source ), 0 );
 ck( 'wp_handle_upload() is never called', preg_match( '/wp_handle_upload|move_uploaded_file/', $source ), 0 );

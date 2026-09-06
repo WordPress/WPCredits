@@ -1193,8 +1193,11 @@
    and the folded Return with a note; the disclosure's summary is a button (the `.button` rule
    above dresses it) with its marker removed, and when it opens it takes the whole row so the
    note and its button sit under the three, the textarea in the request form's own rule. Values:
-   the Sponsor Dashboard's decide row of 1.22.2 and the request form's controls. */
-.wpc-administrator-page .wpcpm-sponsor-post__decide {
+   the Sponsor Dashboard's decide row of 1.22.2 and the request form's controls. The Sponsor
+   Collaboration Agreements card (plugin 1.96.1) draws the same row for a document, so its
+   classes ride on every rule here (1.23.1). */
+.wpc-administrator-page .wpcpm-sponsor-post__decide,
+.wpc-administrator-page .wpcpm-sponsor-agreement__decide {
 	align-items: center;
 	display: flex;
 	flex-wrap: wrap;
@@ -1202,25 +1205,40 @@
 	margin: 12px 0 0;
 }
 
-.wpc-administrator-page .wpcpm-sponsor-post__form {
+.wpc-administrator-page .wpcpm-sponsor-post__form,
+.wpc-administrator-page .wpcpm-sponsor-agreement__form {
 	margin: 0;
 }
 
-.wpc-administrator-page .wpcpm-sponsor-post__return > summary {
+.wpc-administrator-page .wpcpm-sponsor-post__return > summary,
+.wpc-administrator-page .wpcpm-sponsor-agreement__return > summary {
 	display: inline-block;
 	list-style: none;
 }
 
-.wpc-administrator-page .wpcpm-sponsor-post__return > summary::-webkit-details-marker {
+.wpc-administrator-page .wpcpm-sponsor-post__return > summary::-webkit-details-marker,
+.wpc-administrator-page .wpcpm-sponsor-agreement__return > summary::-webkit-details-marker {
 	display: none;
 }
 
-.wpc-administrator-page .wpcpm-sponsor-post__return[open] {
+.wpc-administrator-page .wpcpm-sponsor-post__return[open],
+.wpc-administrator-page .wpcpm-sponsor-agreement__return[open] {
 	flex: 1 1 100%;
 }
 
-.wpc-administrator-page .wpcpm-sponsor-post__return .wpcpm-administrator__note {
+.wpc-administrator-page .wpcpm-sponsor-post__return .wpcpm-administrator__note,
+.wpc-administrator-page .wpcpm-sponsor-agreement__return .wpcpm-administrator__note {
 	margin: 12px 0 8px;
+}
+
+/* The "Out of force" subheading inside the agreements card: the eyebrow of a group title, at
+   the items' inset, with room above it so the revoked rows read as their own list (1.23.1). */
+.wpc-administrator-page .wpcpm-administrator__subheading {
+	color: var( --wpc-ink-70 );
+	font: 700 14px/20px var( --wpc-font );
+	letter-spacing: .04em;
+	margin: 24px 0 8px;
+	text-transform: uppercase;
 }
 
 /* One request from the next: room, as the institution's people rows have. The line itself

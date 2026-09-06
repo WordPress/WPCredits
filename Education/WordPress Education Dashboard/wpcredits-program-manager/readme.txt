@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.96.0
+Stable tag: 1.96.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.96.1 =
+* Administrator Dashboard: a Sponsor Collaboration Agreements card, after the sponsor posts, with every signed copy waiting for review (who uploaded it, when, its size, what the scan noticed, Download, Accept, Return with a note) and the agreements out of force with the way back; the needs-attention strip counts the documents to review. The same handlers as the wp-admin Sponsors screen, and a decision taken here lands back here. With theme 1.23.1.
 
 = 1.96.0 =
 * **The Sponsors module, phase four: logo and agreement.** A sponsor uploads its own logo, in color and optionally in white, on the Sponsor Dashboard. Every byte goes through the plugin's image handler (PNG, JPEG or WebP by content, at least 200 pixels wide, re-saved through WordPress's editor; SVG refused), five uploads a day per company, and the attachments' public URLs replace Airtable's `Logo` so the base shows what the site shows. Remove takes the logo out of the site and out of the program records in the same breath, and deletes nothing from the Media Library. An upload that PHP dropped for its size, or that did not finish, is told so.

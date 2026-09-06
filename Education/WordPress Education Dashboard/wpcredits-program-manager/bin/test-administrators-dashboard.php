@@ -467,6 +467,14 @@ class WPCPM_Sponsor_Posts {
 	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
 	public static function messages() { return array( 'post-published' => array( 'success', 'The post is published.' ) ); }
 }
+class WPCPM_Sponsor_Agreement {
+	public static function awaiting_review( $limit = 200 ) { return isset( $GLOBALS['agr_review'] ) ? $GLOBALS['agr_review'] : array(); }
+	public static function revoked_all( $limit = 200 ) { return isset( $GLOBALS['agr_revoked'] ) ? $GLOBALS['agr_revoked'] : array(); }
+	public static function review_facts( $id ) { return isset( $GLOBALS['agr_facts'][ (int) $id ] ) ? $GLOBALS['agr_facts'][ (int) $id ] : array(); }
+	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-request__decide wpcpm-sponsor-agreement__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
+	public static function manager_messages() { return array( 'agreement-accepted' => array( 'success', 'The agreement is accepted.' ) ); }
+}
+if ( ! function_exists( 'size_format' ) ) { function size_format( $b, $d = 0 ) { return $b . ' B'; } }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
 
@@ -563,6 +571,12 @@ $GLOBALS['reports'] = array(
 
 $GLOBALS['requests'] = array( 'open' => array( 801, 802 ), 'closed' => array( 803 ) );
 $GLOBALS['sponsor_posts'] = array( array( 'id' => 905, 'title' => 'Ten tips', 'record' => 'recSPN00000000001', 'company' => 'TEST Sponsor', 'author' => 'Member One', 'at' => time() - 3600, 'preview' => 'https://example.test/?p=905&preview=true' ) );
+$GLOBALS['agr_review']  = array( 913 );
+$GLOBALS['agr_revoked'] = array( 880 );
+$GLOBALS['agr_facts']   = array(
+	913 => array( 'post_id' => 913, 'state' => 'submitted', 'kind' => 'own', 'sponsor' => 'recSPN00000000001', 'sponsor_name' => 'TEST Sponsor', 'uploaded_by' => 'Member One', 'uploaded_at' => '2026-09-06', 'original_name' => 'signed.pdf', 'flags' => array(), 'size' => 652, 'members' => 1 ),
+	880 => array( 'post_id' => 880, 'state' => 'revoked', 'kind' => 'legacy', 'sponsor' => 'recSPN00000000002', 'sponsor_name' => 'Old Sponsor', 'uploaded_by' => '', 'uploaded_at' => '2026-05-01', 'original_name' => '', 'flags' => array( 'javascript' ), 'size' => 0, 'members' => 2 ),
+);
 $GLOBALS['facts'] = array(
 	801 => array( 'id' => 801, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $A, 'institution_name' => 'Uniwersytet Alpha', 'note' => 'Two students without a mentor.', 'at' => time() - 20 * DAY_IN_SECONDS, 'overdue' => true, 'actor' => 21, 'actor_name' => 'Rep One' ),
 	802 => array( 'id' => 802, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $B, 'institution_name' => 'Universidad Beta', 'note' => '', 'at' => time() - DAY_IN_SECONDS, 'overdue' => false, 'actor' => 21, 'actor_name' => 'Rep One' ),
@@ -597,11 +611,11 @@ ck( 'two open requests, one overdue, one closed', array( count( $data['requests'
 ck( 'one locked account', count( $data['locked'] ), 1 );
 
 $counts = WPCPM_Administrators_Cards::counts( $data );
-ck( 'nine tiles in the spec\'s order, the sponsor posts last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts' ) );
+ck( 'ten tiles in the spec\'s order, the sponsor posts and agreements last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements' ) );
 // array_map() keeps the input array's keys, and counts() is keyed by tile name (the
 // previous check pins that order), so the expectation is keyed the same way rather than
 // the plain list the brief first wrote, which could never === an array with string keys.
-ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts' ) );
+ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements' ) );
 
 /* ---- programs() ---------------------------------------------------------- */
 
@@ -638,14 +652,14 @@ $strip = capture( static function () use ( $counts ) { WPCPM_Administrators_Card
 // Eight, counting the opening tag rather than the bare class: the wrapping
 // <ul class="wpcpm-attention__tiles"> also matches the bare needle, since "tiles" starts with
 // "tile", so the bare count would read nine and call the wrapper a ninth tile.
-ck( 'the strip is one section with nine tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ) ), array( 9, true, true, true ) );
+ck( 'the strip is one section with ten tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ) ), array( 10, true, true, true, true ) );
 // None of the fixture's eight counts is 0, so this used to hold no matter what render_strip()
 // did with a zero; a tile is zeroed here, from counts()'s own output, so the check can
 // actually fail if --zero ever stops being drawn (final review, Important 6).
 $zero_counts = $counts;
 $zero_counts['locked']['n'] = 0;
 $zero_strip = capture( static function () use ( $zero_counts ) { WPCPM_Administrators_Cards::render_strip( $zero_counts ); } );
-ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 9 ) );
+ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 10 ) );
 
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
 ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-applications"' ) && has( $apps, 'wpcpm-group__disclosure" open' ) && has( $apps, '<span class="wpcpm-group__count">2</span>' ), true );
@@ -842,4 +856,15 @@ foreach ( array( 'includes/modules/class-wpcpm-administrators-cards.php', 'inclu
 ck( 'no dash but the plain hyphen in any new file', $dashes, array() );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+echo "\n=== The Sponsor Collaboration Agreements card (1.96.1) ===\n";
+ob_start();
+WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array( $GLOBALS['agr_facts'][913] ), 'revoked' => array( $GLOBALS['agr_facts'][880] ) ) );
+$sa = (string) ob_get_clean();
+ck( 'the card lists the document waiting for review with its facts and the decision block bound for the dashboard', array( has( $sa, 'id="wpcpm-sponsor-agreements"' ), has( $sa, '<span class="wpcpm-group__count">1</span>' ), has( $sa, 'TEST Sponsor <span class="wpcpm-administrator__kind">Waiting for review</span>' ), has( $sa, 'Uploaded by Member One on 2026-09-06' ), has( $sa, '652 B' ), has( $sa, 'The scan noticed none of the features it looks for' ), has( $sa, '1 account' ), has( $sa, 'data-post="913" data-return="dashboard"' ) ), array( true, true, true, true, true, true, true, true ) );
+ck( 'and the agreement out of force under its own heading, with what the scan noticed and the way back', array( has( $sa, 'Out of force' ), has( $sa, 'Old Sponsor <span class="wpcpm-administrator__kind">Revoked</span>' ), has( $sa, 'Recorded on 2026-05-01' ), has( $sa, 'The scan noticed: javascript' ), has( $sa, '2 accounts' ), has( $sa, 'data-post="880" data-return="dashboard"' ) ), array( true, true, true, true, true, true ) );
+ob_start();
+WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array(), 'revoked' => array() ) );
+$sa = (string) ob_get_clean();
+ck( 'with nothing to read the card says so and shows no subheading', array( has( $sa, 'No sponsor agreement is waiting for review.' ), has( $sa, 'Out of force' ) ), array( true, false ) );
+
 exit( $fail ? 1 : 0 );

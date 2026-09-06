@@ -261,6 +261,7 @@ final class WPCPM_Administrators_Dashboard {
 		WPCPM_Administrators_Cards::render_reports( $data['reports'] );
 		WPCPM_Administrators_Cards::render_requests( $data['requests'] );
 		WPCPM_Administrators_Cards::render_sponsor_posts( isset( $data['sponsor_posts'] ) ? (array) $data['sponsor_posts'] : array() );
+		WPCPM_Administrators_Cards::render_sponsor_agreements( isset( $data['sponsor_agreements'] ) ? (array) $data['sponsor_agreements'] : array() );
 		WPCPM_Administrators_Cards::render_programs( $data['programs'] );
 		WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] );
 
@@ -307,6 +308,10 @@ final class WPCPM_Administrators_Dashboard {
 
 			if ( class_exists( 'WPCPM_Sponsor_Posts' ) && method_exists( 'WPCPM_Sponsor_Posts', 'messages' ) ) {
 				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Posts::messages() );
+			}
+
+			if ( class_exists( 'WPCPM_Sponsor_Agreement' ) && method_exists( 'WPCPM_Sponsor_Agreement', 'manager_messages' ) ) {
+				$messages = array_merge( $messages, (array) WPCPM_Sponsor_Agreement::manager_messages() );
 			}
 
 			if ( class_exists( 'WPCPM_Sync_Module' ) && method_exists( 'WPCPM_Sync_Module', 'sync_messages' ) ) {

@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.1 =
+* Administrator Dashboard: the Sponsor Collaboration Agreements card's decision rows and its "Out of force" subheading (plugin 1.96.1).
+
 = 1.23.0 =
 * Sponsor Dashboard: the logo card (plugin 1.96.0). Two labelled preview tiles, the white logo on a dark ground so it is visible at all, and the two file fields in the controls the sponsor forms already use.
 * Sponsor Dashboard: the agreement card. The state as the pill an offer's state wears, the program's note quoted with the brand rule down its edge, and the document's history as rows under hairlines.

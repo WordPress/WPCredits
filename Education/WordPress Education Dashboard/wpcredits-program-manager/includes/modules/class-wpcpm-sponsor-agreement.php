@@ -467,6 +467,149 @@ final class WPCPM_Sponsor_Agreement {
 	}
 
 	/**
+	 * Every agreement out of force, oldest revocation first: what the Administrator Dashboard
+	 * offers to put back (1.96.1).
+	 *
+	 * @param int $limit At most this many.
+	 * @return int[] Post IDs.
+	 */
+	public static function revoked_all( $limit = 200 ) {
+		$posts = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => self::POST_STATUS,
+				'numberposts'      => max( 1, (int) $limit ),
+				'orderby'          => array(
+					'date' => 'ASC',
+					'ID'   => 'ASC',
+				),
+				'suppress_filters' => false,
+				'meta_query'       => array(
+					array(
+						'key'   => self::META_STATE,
+						'value' => self::STATE_REVOKED,
+					),
+				),
+			)
+		);
+
+		$ids = array();
+
+		foreach ( (array) $posts as $post ) {
+			if ( $post instanceof WP_Post ) {
+				$ids[] = (int) $post->ID;
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
+	 * A manager's decision on one document, in the request cards' own shape for the
+	 * Administrator Dashboard (1.96.1): Download, Accept, and a folded "Return with a note"
+	 * for a document waiting for review; "Put it back in force" for one out of force. The forms
+	 * post to the same handlers the wp-admin Sponsors screen uses, with the same nonces; the
+	 * return field brings the manager back to this card.
+	 *
+	 * @param int    $post_id The document.
+	 * @param string $return  `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
+	 */
+	public static function render_decision( $post_id, $return = '' ) {
+		$post_id = absint( $post_id );
+		$post    = get_post( $post_id );
+
+		if ( ! $post instanceof WP_Post || self::POST_TYPE !== $post->post_type || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
+		$state = (string) get_post_meta( $post_id, self::META_STATE, true );
+
+		if ( ! in_array( $state, array( self::STATE_SUBMITTED, self::STATE_REVOKED ), true ) ) {
+			return;
+		}
+
+		echo '<div class="wpcpm-request__decide wpcpm-sponsor-agreement__decide">';
+
+		// Only an uploaded copy has a file to download; a legacy row is a Drive link.
+		if ( self::KIND_OWN === (string) get_post_meta( $post_id, self::META_KIND, true ) ) {
+			printf(
+				'<a class="button" href="%1$s">%2$s</a>',
+				esc_url(
+					wp_nonce_url(
+						add_query_arg(
+							array(
+								'action' => self::ACTION_DOWNLOAD,
+								'post'   => $post_id,
+							),
+							admin_url( 'admin-post.php' )
+						),
+						self::ACTION_DOWNLOAD . '_' . $post_id
+					)
+				),
+				esc_html__( 'Download', 'wpcredits-program-manager' )
+			);
+		}
+
+		if ( self::STATE_REVOKED === $state ) {
+			self::render_decision_form( self::ACTION_REINSTATE, $post_id, __( 'Put it back in force', 'wpcredits-program-manager' ), 'button', $return );
+			echo '</div>';
+			return;
+		}
+
+		self::render_decision_form( self::ACTION_ACCEPT, $post_id, __( 'Accept', 'wpcredits-program-manager' ), 'button button-primary', $return );
+
+		echo '<details class="wpcpm-sponsor-agreement__return">';
+		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
+		printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The document goes back to the company, and your note is emailed to everybody there, with your address to reply to.', 'wpcredits-program-manager' ) );
+		printf( '<form class="wpcpm-sponsor-agreement__form wpcpm-sponsor-agreement__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
+		wp_nonce_field( self::ACTION_RETURN . '_' . $post_id );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_RETURN ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_POST ), (int) $post_id );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $return, 'sponsor-agreements' );
+		}
+
+		printf(
+			'<label class="screen-reader-text" for="wpcpm-agr-note-%1$d">%2$s</label><textarea id="wpcpm-agr-note-%1$d" name="%3$s" rows="2" minlength="%4$d" maxlength="%5$d" required placeholder="%6$s"></textarea>',
+			(int) $post_id,
+			esc_html__( 'A note for the company', 'wpcredits-program-manager' ),
+			esc_attr( self::FIELD_NOTE ),
+			(int) self::MIN_NOTE,
+			(int) self::MAX_NOTE,
+			esc_attr__( 'What has to change before the program can accept it', 'wpcredits-program-manager' )
+		);
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Send back with this note', 'wpcredits-program-manager' ) );
+		echo '</form>';
+		echo '</details>';
+		echo '</div>';
+	}
+
+	/**
+	 * One decision form of the dashboard row: the action, the nonce keyed to the document, the
+	 * document, the return field and one button.
+	 *
+	 * @param string $action  The admin-post action.
+	 * @param int    $post_id The document.
+	 * @param string $label   The button.
+	 * @param string $css     The button's classes.
+	 * @param string $return  `WPCPM_Return::DASHBOARD` or ''.
+	 */
+	private static function render_decision_form( $action, $post_id, $label, $css, $return ) {
+		printf( '<form class="wpcpm-sponsor-agreement__form" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
+		wp_nonce_field( $action . '_' . (int) $post_id );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+		printf( '<input type="hidden" name="%1$s" value="%2$d" />', esc_attr( self::FIELD_POST ), (int) $post_id );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $return, 'sponsor-agreements' );
+		}
+
+		printf( '<button type="submit" class="%1$s">%2$s</button>', esc_attr( $css ), esc_html( $label ) );
+		echo '</form>';
+	}
+
+	/**
 	 * Finish the Airtable writes an earlier request could not make. The nightly sync's step.
 	 *
 	 * `META_AIRTABLE_PENDING` is the mark an upload or a withdrawal leaves when the base was
@@ -2433,6 +2576,14 @@ final class WPCPM_Sponsor_Agreement {
 	 * @param string $status A key of `manager_messages()`.
 	 */
 	private static function bounce( $status ) {
+		// A decision taken on the Administrator Dashboard goes back there, its sentence on that
+		// page's channel (1.96.1); every other press returns to the wp-admin Sponsors screen.
+		if ( class_exists( 'WPCPM_Return' ) && WPCPM_Return::DASHBOARD === WPCPM_Request::posted_key( WPCPM_Return::FIELD ) ) {
+			WPCPM_Flash::set( WPCPM_Institutions::FLASH, $status );
+			wp_safe_redirect( WPCPM_Return::url( home_url( '/' ) ) );
+			exit;
+		}
+
 		WPCPM_Flash::set( WPCPM_Sponsors::FLASH, $status );
 
 		$back = wp_get_referer();

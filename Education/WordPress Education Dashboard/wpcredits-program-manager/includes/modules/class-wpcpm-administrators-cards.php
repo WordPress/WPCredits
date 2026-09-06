@@ -134,6 +134,8 @@ final class WPCPM_Administrators_Cards {
 			'locked'       => WPCPM_Institution_Roster::locked_today(),
 			// Sponsor posts waiting for review (Sponsors module, S3): the facts, never the posts.
 			'sponsor_posts' => class_exists( 'WPCPM_Sponsor_Posts' ) ? WPCPM_Sponsor_Posts::pending_all( self::LIMIT ) : array(),
+			// Sponsor Collaboration Agreements waiting for review, and those out of force (S4, 1.96.1).
+			'sponsor_agreements' => self::sponsor_agreements(),
 			'programs'     => self::programs(),
 			'health'       => self::health(),
 		);
@@ -195,7 +197,126 @@ final class WPCPM_Administrators_Cards {
 				'n'     => isset( $data['sponsor_posts'] ) ? count( (array) $data['sponsor_posts'] ) : 0,
 				'card'  => 'sponsor-posts',
 			),
+			'sponsor_agreements' => array(
+				'label' => __( 'Sponsor agreements to review', 'wpcredits-program-manager' ),
+				'n'     => isset( $data['sponsor_agreements']['review'] ) ? count( (array) $data['sponsor_agreements']['review'] ) : 0,
+				'card'  => 'sponsor-agreements',
+			),
 		);
+	}
+
+	/**
+	 * The sponsor Collaboration Agreements a manager can act on: the documents waiting for
+	 * review and the agreements out of force, each as the facts the agreement class publishes.
+	 *
+	 * @return array{review: array[], revoked: array[]}
+	 */
+	private static function sponsor_agreements() {
+		$out = array(
+			'review'  => array(),
+			'revoked' => array(),
+		);
+
+		if ( ! class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			return $out;
+		}
+
+		foreach ( WPCPM_Sponsor_Agreement::awaiting_review( self::LIMIT ) as $id ) {
+			$facts = WPCPM_Sponsor_Agreement::review_facts( (int) $id );
+
+			if ( ! empty( $facts ) ) {
+				$out['review'][] = $facts;
+			}
+		}
+
+		foreach ( WPCPM_Sponsor_Agreement::revoked_all( self::LIMIT ) as $id ) {
+			$facts = WPCPM_Sponsor_Agreement::review_facts( (int) $id );
+
+			if ( ! empty( $facts ) ) {
+				$out['revoked'][] = $facts;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Sponsor Collaboration Agreements: each document waiting for review with who uploaded it,
+	 * when, its size, what the scan noticed and how many accounts the company has, then the
+	 * decision drawn by the agreement class; below, the agreements out of force with the way
+	 * back. Nothing is decided here that the wp-admin Sponsors screen does not decide the same
+	 * way (spec 8.2; pulled forward from S6 at the owner's request, 1.96.1).
+	 *
+	 * @param array $data `review` and `revoked`, each a list of `review_facts()` rows.
+	 */
+	public static function render_sponsor_agreements( array $data ) {
+		$review  = isset( $data['review'] ) ? (array) $data['review'] : array();
+		$revoked = isset( $data['revoked'] ) ? (array) $data['revoked'] : array();
+
+		self::card_open( 'sponsor-agreements', __( 'Sponsor Collaboration Agreements', 'wpcredits-program-manager' ), count( $review ) );
+
+		if ( empty( $review ) ) {
+			self::empty_line( __( 'No sponsor agreement is waiting for review.', 'wpcredits-program-manager' ) );
+		}
+
+		foreach ( $review as $row ) {
+			self::render_sponsor_agreement_item( $row, __( 'Waiting for review', 'wpcredits-program-manager' ) );
+		}
+
+		if ( ! empty( $revoked ) ) {
+			printf( '<h4 class="wpcpm-administrator__subheading">%s</h4>', esc_html__( 'Out of force', 'wpcredits-program-manager' ) );
+
+			foreach ( $revoked as $row ) {
+				self::render_sponsor_agreement_item( $row, __( 'Revoked', 'wpcredits-program-manager' ) );
+			}
+		}
+
+		self::card_close();
+	}
+
+	/**
+	 * One agreement row: the company, the kind, the facts and the decision.
+	 *
+	 * @param array  $row  A `review_facts()` row.
+	 * @param string $kind The state word shown beside the company.
+	 */
+	private static function render_sponsor_agreement_item( array $row, $kind ) {
+		echo '<article class="wpcpm-administrator__item wpcpm-sponsor-agreement">';
+		printf(
+			'<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>',
+			esc_html( (string) $row['sponsor_name'] ),
+			esc_html( $kind )
+		);
+		echo '<p class="wpcpm-administrator__facts">';
+
+		if ( '' !== (string) $row['uploaded_by'] ) {
+			/* translators: 1: the account's name, 2: a date. */
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Uploaded by %1$s on %2$s', 'wpcredits-program-manager' ), (string) $row['uploaded_by'], (string) $row['uploaded_at'] ) ) );
+		} elseif ( '' !== (string) $row['uploaded_at'] ) {
+			/* translators: %s: a date. */
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Recorded on %s', 'wpcredits-program-manager' ), (string) $row['uploaded_at'] ) ) );
+		}
+
+		if ( (int) $row['size'] > 0 ) {
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( size_format( (int) $row['size'] ) ) );
+		}
+
+		if ( ! empty( $row['flags'] ) ) {
+			/* translators: %s: a comma-separated list of what the PDF scan noticed. */
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'The scan noticed: %s', 'wpcredits-program-manager' ), implode( ', ', array_map( 'strval', (array) $row['flags'] ) ) ) ) );
+		} elseif ( 'own' === (string) $row['kind'] ) {
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html__( 'The scan noticed none of the features it looks for', 'wpcredits-program-manager' ) );
+		}
+
+		/* translators: %d: how many accounts the company has on the site. */
+		printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( _n( '%d account', '%d accounts', (int) $row['members'], 'wpcredits-program-manager' ), (int) $row['members'] ) ) );
+		echo '</p>';
+
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			WPCPM_Sponsor_Agreement::render_decision( (int) $row['post_id'], WPCPM_Return::DASHBOARD );
+		}
+
+		echo '</article>';
 	}
 
 	/**
