@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.18 =
+* Sponsor Dashboard: a note between two fields of a form lets go of the field above (24px) and holds the rows it introduces (8px).
+
 = 1.23.17 =
 * Sponsor Dashboard: 16px between the logo note and the tiles.
 

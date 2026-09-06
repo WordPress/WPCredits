@@ -1971,6 +1971,15 @@
 	margin-bottom: 16px;
 }
 
+/* A note that follows a field in a sponsor form introduces what comes next, it is not that
+   field's hint: 24px of air above it, so it lets go of the field, and 8px below, so it holds
+   the rows it introduces (the offer's three read-only rows under "Type of product"). A field's
+   own hint stays inside the field's paragraph and is not this. (owner, 1.23.18) */
+.wpc-sponsor-page .wpcpm-sponsor__form > .wpcpm-sponsor__field + .wpcpm-student__note {
+	margin-bottom: 8px;
+	margin-top: 24px;
+}
+
 @media ( max-width: 900px ) {
 
 	.wpc-sponsor-page .wpcpm-profile__cols {
