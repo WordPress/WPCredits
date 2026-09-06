@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.95.5
+Stable tag: 1.95.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.95.6 =
+* Sponsor Dashboard: the cards in three groups - the sponsor itself (Your profile, People), what it offers (Offers and codes, Usage, What else would you like to support?, Posts), then its mentors (Your mentors, Mentors looking for a sponsor).
 
 = 1.95.5 =
 * Administrator Dashboard: a "Sponsor posts to review" card and its tile in the attention strip. Each pending sponsor post shows its company, its author and when it was submitted, with Preview, Publish and a folded "Return with a note" that says what it does (the post goes back to the sponsor's account as a draft and the note is mailed to its author). A decision taken there returns to the dashboard with its sentence. With theme 1.22.6.

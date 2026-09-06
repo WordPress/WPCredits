@@ -332,9 +332,9 @@ $GLOBALS['uid'] = 5; $GLOBALS['resources'] = array(); $GLOBALS['styles'] = array
 $D::register();
 $out = $D::render();
 $order = array();
-foreach ( array( 'wpcpm-two-factor-marker', 'wpcpm-sponsor__identity', 'wpcpm-handbook__resources', 'id="wpcpm-sponsor-profile"', 'id="wpcpm-sponsor-mentors"', 'id="wpcpm-sponsor-looking"', 'id="wpcpm-sponsor-interests"', 'id="wpcpm-sponsor-people"' ) as $needle ) { $order[] = strpos( $out, $needle ); }
+foreach ( array( 'wpcpm-two-factor-marker', 'wpcpm-sponsor__identity', 'wpcpm-handbook__resources', 'id="wpcpm-sponsor-profile"', 'id="wpcpm-sponsor-people"', 'id="wpcpm-sponsor-interests"', 'id="wpcpm-sponsor-mentors"', 'id="wpcpm-sponsor-looking"' ) as $needle ) { $order[] = strpos( $out, $needle ); }
 $sorted = $order; sort( $sorted );
-ck( 'a member sees the prompt, the identity, the resources, then the four cards in the spec\'s order', ! in_array( false, $order, true ) && $order === $sorted, true );
+ck( 'a member sees the prompt, the identity, the resources, then the cards in the owner\'s three groups: the sponsor itself (profile, people), what it offers (interests), its mentors', ! in_array( false, $order, true ) && $order === $sorted, true );
 ck( 'the resources are the sponsor audience', $GLOBALS['resources'], array( 'sponsor' ) );
 ck( 'the identity shows the site\'s logo, never Airtable\'s URL', false !== strpos( $out, 'https://example.test/uploads/501.png' ) && false === strpos( $out, 'airtableusercontent' ), true );
 ck( 'the name trimmed, the website completed, the product type and the contact', false !== strpos( $out, '>miniOrange<' ) && false !== strpos( $out, 'href="https://plugins.miniorange.com"' ) && false !== strpos( $out, 'Hosting' ) && false !== strpos( $out, 'Rep One' ) && false !== strpos( $out, 'maciej@a8c.com' ), true );

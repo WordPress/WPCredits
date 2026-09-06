@@ -454,11 +454,19 @@ final class WPCPM_Sponsors_Dashboard {
 		self::render_identity( $record, $row, $can_manage );
 		self::render_help( $record );
 
-		foreach ( array( 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ) as $owner ) {
+		// Three groups, as the owner drew them on 6 September 2026: the sponsor itself (the
+		// profile, the people who act for it, and in Phase S4 the logo and the agreement), what
+		// it offers (offers and codes, usage, what else it would support, its posts), then the
+		// mentors (its own, and the ones looking for a sponsor, both drawn by one class). The
+		// People card is this class's own and takes its place in the first group.
+		foreach ( array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Mentors' ) as $owner ) {
+			if ( 'people' === $owner ) {
+				self::render_people( $record, $context );
+				continue;
+			}
+
 			self::card( $owner, $record, $context );
 		}
-
-		self::render_people( $record, $context );
 
 		echo '</div>';
 
