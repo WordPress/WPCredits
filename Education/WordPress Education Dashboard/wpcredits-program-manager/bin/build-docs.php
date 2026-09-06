@@ -1,8 +1,8 @@
 <?php
 /**
- * Assemble the three program guides from one set of sections.
+ * Assemble the four program guides from one set of sections.
  *
- * Three audiences, and each guide has to be complete on its own: the access levels do not
+ * Four audiences, and each guide has to be complete on its own: the access levels do not
  * nest, so a mentor holding only `wpcpm_view_mentor_content` cannot open a Student-level
  * page. A mentor guide that linked to the student guide would be linking them somewhere
  * they get an access notice.
@@ -103,6 +103,12 @@ $guides = array(
 			'13-student-feedback',
 			'12-student-help',
 		),
+	),
+	'sponsors'       => array(
+		'title' => 'Sponsor guide',
+		'lede'  => 'Your Sponsor Dashboard, your offers and codes, what your company can see, and how posts are approved.',
+		'intro' => "Thank you for sponsoring the WordPress Credits Program. This guide covers the page your company has on the WordPress Education Dashboard, how offers and codes reach students and mentors, what the program shows you and what it keeps to itself, and how a post you write is reviewed.",
+		'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-offers', '42-sponsor-visibility', '43-sponsor-posts' ),
 	),
 );
 

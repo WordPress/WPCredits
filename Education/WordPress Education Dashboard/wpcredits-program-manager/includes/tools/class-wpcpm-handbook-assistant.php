@@ -404,11 +404,11 @@ class WPCPM_Handbook_Assistant {
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),
-				// Until Phase S6 of the Sponsors module ships the sponsors guide, the program
-				// handbook is the nearest thing a sponsor has; the dashboard's button points here.
+				// The sponsors' own guide, on the handbook beside the other three (S6); the
+				// program's channel is where a sponsor's question belongs.
 				'sponsor'       => array(
-					'label' => __( 'Program handbook', 'wpcredits-program-manager' ),
-					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/',
+					'label' => __( 'Sponsor guide', 'wpcredits-program-manager' ),
+					'url'   => 'https://make.wordpress.org/community/handbook/education/credits/sponsor-guide/',
 					'slack' => 'https://wordpress.slack.com/archives/C0959D2M3T8',
 					'chat'  => __( 'Ask in the WordPress Credits Slack channel', 'wpcredits-program-manager' ),
 				),

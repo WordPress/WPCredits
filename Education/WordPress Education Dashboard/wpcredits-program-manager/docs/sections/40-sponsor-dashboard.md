@@ -1,0 +1,11 @@
+## Your Sponsor Dashboard
+
+Your company's page on the WordPress Education Dashboard is the Sponsor Dashboard, at /sponsor-dashboard/. You reach it after signing in with the account the program created for your company; every person the program attached to your company sees the same page. It has three groups of cards: **Your company**, **What you offer** and **Mentors**. A card folds and unfolds with one press on its title, and the number beside a title is how many things it holds.
+
+**Your company.** *Your company profile and logo* is your company as the program records it: the details on the left, your logo on the right. What you save here is written to the program's records, so keep it current; a logo in color and one in white for a dark background are shown wherever the program names you. *People* lists everyone who can sign in for your company; ask your program contact to add or remove a person. *Collaboration Agreement* is where the agreement between your company and the program lives: download the text, upload the signed copy, and read where it stands (waiting for review, accepted, returned with a note, or out of force).
+
+**What you offer.** *Offers and codes* is what your company gives the program's students and mentors; the next section is about it. *Usage* counts, by month and by offer, how many people took an offer: a chart of the last twelve months, a table and a CSV to download. Nobody is named there. *What else would you like to support?* is where you tell the program what more you would like to do: sponsor a mentor, offer tools or services, take part in an event. One press sends it to your program contact and keeps it on record. *Posts* lists the posts your company wrote for the program's students and where each one stands; the last section is about them.
+
+**Mentors.** *Your mentors* lists the mentors your company sponsors and how many students each one guides. *Mentors looking for a sponsor* lists the active mentors who asked to be listed; one press tells your program contact you would like to sponsor one of them.
+
+Above the cards, *Program updates and announcements* carries what the program publishes for sponsors, and *Resources* has this guide, the program's Slack channel and the Need help? button. *Your contact at the program* names the program manager who looks after your company, with a link to book a call.

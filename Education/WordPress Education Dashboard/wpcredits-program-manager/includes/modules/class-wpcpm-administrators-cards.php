@@ -140,13 +140,18 @@ final class WPCPM_Administrators_Cards {
 			// the posts. The full card with the answers and the base matches is S6; this phase
 			// draws the decisions, which spec 9.2 puts on this page.
 			'sponsor_applications' => class_exists( 'WPCPM_Sponsor_Application' ) ? WPCPM_Sponsor_Application::queue_facts( self::LIMIT ) : array(),
+			// Pools under their own threshold, what sponsors said lately, and the sponsors'
+			// figures (Sponsors module, S6): read through the owning classes, never their rows.
+			'offers_low'           => self::offers_low(),
+			'interests'            => self::interests(),
+			'sponsors'             => self::sponsors(),
 			'programs'             => self::programs(),
 			'health'               => self::health(),
 		);
 	}
 
 	/**
-	 * The eleven tiles of the attention strip, from the arrays the cards draw.
+	 * The twelve tiles of the attention strip, from the arrays the cards draw.
 	 *
 	 * @param array $data What `collect()` returned.
 	 * @return array[] `label`, `n`, `card`, keyed in the strip's order.
@@ -210,6 +215,11 @@ final class WPCPM_Administrators_Cards {
 				'label' => __( 'Sponsor applications waiting', 'wpcredits-program-manager' ),
 				'n'     => isset( $data['sponsor_applications'] ) ? count( (array) $data['sponsor_applications'] ) : 0,
 				'card'  => 'sponsor-applications',
+			),
+			'offers_low'           => array(
+				'label' => __( 'Offers running low', 'wpcredits-program-manager' ),
+				'n'     => isset( $data['offers_low'] ) ? count( (array) $data['offers_low'] ) : 0,
+				'card'  => 'offers-low',
 			),
 		);
 	}
@@ -426,7 +436,19 @@ final class WPCPM_Administrators_Cards {
 				printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The approval of this application is half done: an Airtable record already exists for it. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is.', 'wpcredits-program-manager' ) );
 			}
 
+			// The answers, the logo files and the base matches, folded (S6): the card stays a
+			// queue, and a manager who wants the whole application has it without leaving. One
+			// guard rather than two, the fold and the decision are the same availability
+			// (S6 review).
 			if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+				$post = get_post( (int) $row['id'] );
+
+				if ( $post instanceof WP_Post ) {
+					printf( '<details class="wpcpm-administrator__details"><summary>%s</summary>', esc_html__( 'Read the application', 'wpcredits-program-manager' ) );
+					WPCPM_Sponsor_Application::render_details( $post );
+					echo '</details>';
+				}
+
 				WPCPM_Sponsor_Application::render_decision( (int) $row['id'], WPCPM_Return::DASHBOARD );
 			}
 
@@ -434,6 +456,303 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		self::card_close();
+	}
+
+	/**
+	 * Offers running low: every live pool under its sponsor's own threshold, emptiest first.
+	 *
+	 * @param array $rows offers_low()'s rows.
+	 */
+	public static function render_offers_low( array $rows ) {
+		self::card_open( 'offers-low', __( 'Offers running low', 'wpcredits-program-manager' ), count( $rows ) );
+
+		if ( empty( $rows ) ) {
+			self::empty_line( __( 'No offer is running low.', 'wpcredits-program-manager' ) );
+			self::card_close();
+			return;
+		}
+
+		echo '<table class="wpcpm-admin-table wpcpm-offers-low"><thead><tr>';
+
+		foreach ( array( __( 'Offer', 'wpcredits-program-manager' ), __( 'Sponsor', 'wpcredits-program-manager' ), __( 'Codes left', 'wpcredits-program-manager' ), __( 'Warns at', 'wpcredits-program-manager' ) ) as $head ) {
+			printf( '<th scope="col">%s</th>', esc_html( $head ) );
+		}
+
+		echo '</tr></thead><tbody>';
+
+		foreach ( $rows as $row ) {
+			$url = (string) $row['url'];
+
+			printf(
+				'<tr><th scope="row">%1$s</th><td>%2$s</td><td>%3$s</td><td>%4$s</td></tr>',
+				// No Sponsor Dashboard page, no link: the title alone, not an anchor to nowhere
+				// (S6 review).
+				'' !== $url
+					? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html( (string) $row['title'] ) )
+					: esc_html( (string) $row['title'] ),
+				esc_html( (string) $row['sponsor_name'] ),
+				esc_html( number_format_i18n( (int) $row['available'] ) ),
+				esc_html( number_format_i18n( (int) $row['low'] ) )
+			);
+		}
+
+		echo '</tbody></table>';
+		self::card_close();
+	}
+
+	/**
+	 * New interests: what sponsors said on their dashboards in the last thirty days.
+	 *
+	 * @param array $rows interests()'s rows.
+	 */
+	public static function render_interests( array $rows ) {
+		self::card_open( 'interests', __( 'New interests', 'wpcredits-program-manager' ), count( $rows ) );
+
+		if ( empty( $rows ) ) {
+			self::empty_line( __( 'No sponsor said anything new in the last thirty days.', 'wpcredits-program-manager' ) );
+		}
+
+		foreach ( $rows as $row ) {
+			$url = (string) $row['url'];
+
+			echo '<article class="wpcpm-administrator__item wpcpm-interest">';
+			printf(
+				'<h4 class="wpcpm-administrator__item-title">%1$s <span class="wpcpm-administrator__kind">%2$s</span></h4>',
+				// No Sponsor Dashboard page, no link: the sponsor's name alone, not an anchor to
+				// nowhere (S6 review).
+				'' !== $url
+					? sprintf( '<a href="%1$s">%2$s</a>', esc_url( $url ), esc_html( (string) $row['sponsor_name'] ) )
+					: esc_html( (string) $row['sponsor_name'] ),
+				/* translators: %s: how long ago. */
+				esc_html( sprintf( __( '%s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['time'], time() ) ) )
+			);
+			// A sponsor's own words, on a manager's page: escaped, never linked, never trimmed.
+			printf( '<p class="wpcpm-administrator__facts"><span class="wpcpm-administrator__fact">%s</span></p>', esc_html( (string) $row['message'] ) );
+			echo '</article>';
+		}
+
+		self::card_close();
+	}
+
+	/**
+	 * The Sponsors card: four figures on the tiles the programs card draws its tracks with.
+	 *
+	 * @param array $facts sponsors()'s answer.
+	 */
+	public static function render_sponsors_strip( array $facts ) {
+		$facts = array_merge(
+			array(
+				'approved'        => 0,
+				'with_accounts'   => 0,
+				'live_offers'     => 0,
+				'claims_semester' => 0,
+				'since'           => '',
+			),
+			$facts
+		);
+
+		self::card_open( 'sponsors', __( 'Sponsors', 'wpcredits-program-manager' ), (int) $facts['approved'] );
+
+		// A tile is a name, a number and a qualifier, as the programs card's tiles are: the name
+		// says what is counted, the line under the number says where or since when (Task 3
+		// review: the same words twice read as a stutter).
+		$tiles = array(
+			array( __( 'Approved sponsors', 'wpcredits-program-manager' ), (int) $facts['approved'], __( 'in the program records', 'wpcredits-program-manager' ) ),
+			array( __( 'With an account', 'wpcredits-program-manager' ), (int) $facts['with_accounts'], __( 'of the Approved sponsors', 'wpcredits-program-manager' ) ),
+			array( __( 'Live offers', 'wpcredits-program-manager' ), (int) $facts['live_offers'], __( 'shown on the site today', 'wpcredits-program-manager' ) ),
+			/* translators: %s: the first day of the semester, Y-m-d. */
+			array( __( 'Claims this semester', 'wpcredits-program-manager' ), (int) $facts['claims_semester'], sprintf( __( 'since %s, on every offer', 'wpcredits-program-manager' ), (string) $facts['since'] ) ),
+		);
+
+		echo '<ul class="wpcpm-programs__tiles">';
+
+		foreach ( $tiles as $tile ) {
+			printf(
+				'<li class="wpcpm-programs__tile"><span class="wpcpm-programs__name">%1$s</span><span class="wpcpm-programs__n">%2$s</span><span class="wpcpm-programs__l">%3$s</span></li>',
+				esc_html( $tile[0] ),
+				esc_html( number_format_i18n( $tile[1] ) ),
+				esc_html( $tile[2] )
+			);
+		}
+
+		echo '</ul>';
+		self::card_close();
+	}
+
+	/**
+	 * Every live pool below the number its sponsor asked to be warned at, the emptiest first.
+	 *
+	 * A pool is an offer of kind codes in state live whose last day has not passed; a shared
+	 * offer has no pool and is never low. The threshold is the offer's own (`low`), which is
+	 * the setting's default until the sponsor changes it. The sponsor's name comes from the
+	 * index, and the link lands on its Offers and codes card through the switcher, because
+	 * that is where a manager acts on it (S6, ruling 3).
+	 *
+	 * Capped at LIMIT, and the tile counts the capped list: below fifty pools the two are the
+	 * same number, and a strip of fifty low pools is not a number anybody acts on (S6 review).
+	 *
+	 * @return array[] `id`, `title`, `sponsor`, `sponsor_name`, `available`, `low`, `url`.
+	 */
+	public static function offers_low() {
+		if ( ! class_exists( 'WPCPM_Sponsor_Offers' ) || ! class_exists( 'WPCPM_Sponsor_Codes' ) ) {
+			return array();
+		}
+
+		$rows = array();
+
+		foreach ( WPCPM_Sponsor_Offers::live() as $offer ) {
+			if ( WPCPM_Sponsor_Offers::KIND_CODES !== $offer['kind'] || ! WPCPM_Sponsor_Offers::is_live( $offer ) ) {
+				continue;
+			}
+
+			$counts = WPCPM_Sponsor_Codes::counts( (int) $offer['id'] );
+
+			if ( (int) $counts['available'] >= (int) $offer['low'] ) {
+				continue;
+			}
+
+			$rows[] = array(
+				'id'           => (int) $offer['id'],
+				'title'        => (string) $offer['title'],
+				'sponsor'      => (string) $offer['sponsor'],
+				'sponsor_name' => self::sponsor_name( (string) $offer['sponsor'] ),
+				'available'    => (int) $counts['available'],
+				'low'          => (int) $offer['low'],
+				'url'          => self::sponsor_url( (string) $offer['sponsor'], 'offers' ),
+			);
+		}
+
+		usort(
+			$rows,
+			static function ( $a, $b ) {
+				return $a['available'] === $b['available'] ? strcmp( $a['title'], $b['title'] ) : $a['available'] <=> $b['available'];
+			}
+		);
+
+		return array_slice( $rows, 0, self::LIMIT );
+	}
+
+	/**
+	 * What sponsors said on their dashboards in the last thirty days: the audit rows of kind
+	 * sponsor_interest, newest first, each with its sponsor's name and the line as written
+	 * (S6, ruling 4). The line is a sponsor's own words and is escaped where it is printed.
+	 *
+	 * @return array[] `id`, `sponsor`, `sponsor_name`, `message`, `time`, `url`.
+	 */
+	public static function interests() {
+		if ( ! class_exists( 'WPCPM_Institution_Audit' ) || ! class_exists( 'WPCPM_Sponsor_Interests' ) ) {
+			return array();
+		}
+
+		$since = time() - ( 30 * DAY_IN_SECONDS );
+		$rows  = array();
+
+		foreach ( WPCPM_Institution_Audit::sponsor_entries( WPCPM_Sponsor_Interests::LOG_KIND, self::LIMIT ) as $entry ) {
+			if ( ! is_array( $entry ) || (int) $entry['time'] < $since ) {
+				continue;
+			}
+
+			$rows[] = array(
+				'id'           => (int) $entry['id'],
+				'sponsor'      => (string) $entry['sponsor'],
+				'sponsor_name' => self::sponsor_name( (string) $entry['sponsor'] ),
+				'message'      => (string) $entry['message'],
+				'time'         => (int) $entry['time'],
+				'url'          => self::sponsor_url( (string) $entry['sponsor'], 'interests' ),
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * The sponsors' figures for the Sponsors card: Approved sponsors, how many of them hold an
+	 * account, the offers live today, and the claims that stand since this semester began
+	 * (S6, ruling 5). A voided claim is not a claim; a claim before the cohort's first day is
+	 * last semester's.
+	 *
+	 * @return array `approved`, `with_accounts`, `live_offers`, `claims_semester`, `since` (Y-m-d).
+	 */
+	public static function sponsors() {
+		$since = (string) WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'];
+		$from  = (int) strtotime( $since . ' 00:00:00 UTC' );
+		$out   = array(
+			'approved'        => 0,
+			'with_accounts'   => 0,
+			'live_offers'     => 0,
+			'claims_semester' => 0,
+			'since'           => $since,
+		);
+
+		if ( class_exists( 'WPCPM_Sponsors_Index' ) ) {
+			foreach ( WPCPM_Sponsors_Index::rows() as $row ) {
+				if ( ! is_array( $row ) || ! isset( $row['status'] ) || WPCPM_Sponsors_Index::STATUS_APPROVED !== $row['status'] ) {
+					continue;
+				}
+
+				++$out['approved'];
+
+				if ( ! empty( $row['dashboard_account'] ) ) {
+					++$out['with_accounts'];
+				}
+			}
+		}
+
+		if ( class_exists( 'WPCPM_Sponsor_Offers' ) && class_exists( 'WPCPM_Sponsor_Codes' ) ) {
+			foreach ( WPCPM_Sponsor_Offers::all() as $offer ) {
+				if ( WPCPM_Sponsor_Offers::is_live( $offer ) ) {
+					++$out['live_offers'];
+				}
+
+				// A claim made this semester counts whatever became of its offer since: an offer
+				// that ended last week still gave out codes this semester (controller ruling, S6
+				// Task 2: the plan's fixture expected three and was wrong, four is the figure).
+				foreach ( WPCPM_Sponsor_Codes::claims( (int) $offer['id'] ) as $claim ) {
+					if ( is_array( $claim ) && empty( $claim['v'] ) && isset( $claim['at'] ) && (int) $claim['at'] >= $from ) {
+						++$out['claims_semester'];
+					}
+				}
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * A sponsor's name from the index, or its record ID when the index has no row for it.
+	 *
+	 * @param string $record Airtable record ID.
+	 * @return string
+	 */
+	private static function sponsor_name( $record ) {
+		$row = class_exists( 'WPCPM_Sponsors_Index' ) ? WPCPM_Sponsors_Index::row( $record ) : null;
+
+		$name = is_array( $row ) && isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+
+		return '' !== $name ? $name : (string) $record;
+	}
+
+	/**
+	 * A manager's way to one card of a sponsor's dashboard: the page, the switcher, the anchor.
+	 *
+	 * @param string $record Airtable record ID.
+	 * @param string $card   The card's key, as its `wpcpm-sponsor-<card>` id spells it.
+	 * @return string
+	 */
+	private static function sponsor_url( $record, $card ) {
+		if ( ! class_exists( 'WPCPM_Sponsors_Dashboard' ) || ! class_exists( 'WPCPM_Sponsor_Roster' ) ) {
+			return '';
+		}
+
+		// No page, no link: add_query_arg() on '' would build a query on the current page, and a
+		// link that reloads the Administrator Dashboard says nothing (Task 2 review).
+		$page = (string) WPCPM_Sponsors_Dashboard::page_url();
+
+		if ( '' === $page ) {
+			return '';
+		}
+
+		return add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $record, $page ) . '#wpcpm-sponsor-' . $card;
 	}
 
 	/**
@@ -630,6 +949,17 @@ final class WPCPM_Administrators_Cards {
 			),
 		);
 
+		// The sponsors sync, fourth (S6), behind the guard the dashboard uses for every sponsor class.
+		if ( class_exists( 'WPCPM_Sponsors_Sync' ) ) {
+			$syncs['sponsors'] = array(
+				'label'    => __( 'Sponsors', 'wpcredits-program-manager' ),
+				'progress' => WPCPM_Sponsors_Sync::progress(),
+				'last'     => (int) WPCPM_Sponsors_Sync::last_read(),
+				'next'     => (int) wp_next_scheduled( WPCPM_Sponsors_Sync::CRON_DAILY ),
+				'screen'   => admin_url( 'admin.php?page=wpcpm-sponsors' ),
+			);
+		}
+
 		$probe = WPCPM_Private_Files::probe_result();
 		$log   = WPCPM_Mail::log();
 
@@ -654,7 +984,7 @@ final class WPCPM_Administrators_Cards {
 	 */
 
 	/**
-	 * The attention strip: eight counts, each an anchor to its card. A zero is muted, not
+	 * The attention strip: twelve counts, each an anchor to its card. A zero is muted, not
 	 * hidden, so the strip always has the same shape and a manager learns where to look.
 	 *
 	 * @param array $counts What `counts()` returned.

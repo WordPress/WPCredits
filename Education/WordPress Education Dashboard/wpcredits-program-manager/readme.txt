@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.97.6
+Stable tag: 1.98.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,7 +17,7 @@ The plugin is organized as five modules, one per audience:
 1. **Students** - the Student role, Airtable account provisioning, and a private page with each student's program details and their assigned mentor. **Built.**
 2. **Mentors** - the Mentor role, Airtable account provisioning, and a private page listing each mentor's assigned students. **Built.**
 3. **Institutions** - the Institution role.
-4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, the Sponsor Dashboard, and the public sponsor application form.
+4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, the Sponsor Dashboard, the public sponsor application form, the sponsors' guide, and the sponsor queues on the Administrator Dashboard.
 5. **Administrators** - the built-in WordPress Administrator role, granted the program capabilities.
 
 Students, Mentors, Institutions and Sponsors each get a custom role cloned from **Subscriber**, plus one marker capability that controls which content they can read. Administrators can read every level.
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.98.0 =
+* **The Sponsors module, phase six: the guide and the queues.** Sponsors have a guide of their own, composed by the docs build as a fourth audience and published on the handbook beside the other three; the Sponsor Dashboard's guide button points at it.
+* **Three cards on the Administrator Dashboard.** Offers running low lists every live pool under the threshold its sponsor set, emptiest first, linked to the sponsor's Offers and codes card. New interests lists what sponsors sent from their dashboards in the last thirty days, as they wrote it. Sponsors counts the Approved sponsors, how many hold an account, the offers live today and the claims since the semester began.
+* **The whole application on the card.** Each item of the Sponsor applications card folds the answers, the logo files and the base matches under Read the application; the decisions stay where they were.
+* **A twelfth tile and a fourth sync.** The needs-attention strip counts the pools running low, and the Syncs card lists the sponsors sync.
 
 = 1.97.6 =
 * Sponsor Dashboard: a live offer's state sentence reads "Live: shown on the site."

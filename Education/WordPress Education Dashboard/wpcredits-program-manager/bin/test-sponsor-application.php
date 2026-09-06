@@ -1279,6 +1279,10 @@ $amp_html = (string) ob_get_clean();
 $amp_fixed = 'Smith ' . esc_js( '&' ) . ' Jones Ltd';
 $amp_buggy = 'Smith ' . esc_js( '&amp;' ) . ' Jones Ltd';
 ck( 'a company name with an ampersand is printed from the stored fields as typed, never from the kses-filtered title (S5 review)', array( false !== strpos( $amp_html, $amp_fixed ), $amp_fixed === $amp_buggy || false === strpos( $amp_html, $amp_buggy ), $amp_fixed !== $amp_buggy ), array( true, true, true ) );
+ob_start();
+WPCPM_Sponsor_Application::render_details( $amp );
+$details_html = (string) ob_get_clean();
+ck( 'render_details() is the open view without its heading and decisions: the answers table, the logo figures, the base matches', array( false !== strpos( $details_html, '<table class="widefat striped wpcpm-list wpcpm-app-answers">' ), false !== strpos( $details_html, 'wpcpm-sapp-logos' ) || false !== strpos( $details_html, 'No logo' ), strpos( $details_html, 'wpcpm-app-action' ), strpos( $details_html, 'Back to the queue' ) ), array( true, true, false, false ) );
 ck( 'the Delete for good confirm says the same two things, chosen by the state', array(
 	false !== strpos( $confirm_gone, 'its logo files go with it' ),
 	strpos( $confirm_gone, 'stay in the Media Library' ),

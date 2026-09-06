@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.23.0
+Stable tag: 1.24.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,10 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.0 =
+* Administrator Dashboard: the sponsor cards of the Sponsors module's phase S6 (plugin 1.98.0): the folded application on the Sponsor applications card, the Offers running low table, the New interests items and the Sponsors card's tiles, all on the page's existing rules.
+* Administrator Dashboard: inside the folded application, the logo figures take their wp-admin look (the white half on the ink ground) and the block's own headings the item's size.
 
 = 1.23.23 =
 * Sponsor Dashboard: the open offer's state block is `wpcpm-offer__moves` (plugin 1.97.5); the chip keeps `wpcpm-offer__state`.

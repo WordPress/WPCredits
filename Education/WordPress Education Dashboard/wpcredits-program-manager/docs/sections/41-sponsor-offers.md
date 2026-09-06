@@ -1,0 +1,13 @@
+## Offers, codes and claims
+
+An offer is something your company gives the program's participants: a license, a plan, a credit, a course seat, a discount. It is of one of two kinds. **A pool of one-time codes** is a list of codes you paste or upload, one per line or as a CSV; each code is handed to one person, once. **One code or link everyone uses** is a single code or checkout link that every eligible person sees.
+
+**Creating an offer.** The *New offer* form sits on the left of the *Offers and codes* card. Give the offer a title, say what a person gets in a sentence or two, how to redeem it, and where to find more information. Choose the kind. For a pool, paste the codes or upload a .txt or .csv file; codes are stored encrypted and shown only to the person who claims one. Choose who else the offer is open to: current students always are; mentors and the program team are your choice. Set the number of codes at which the program should warn you that the pool is running low and, if the offer has a last day, that day. Press *Create offer*: the offer starts as a draft that nobody but you can see.
+
+**Your offers.** The offers you have sit on the right, under *Active offers*, each folded to its title, its state and a line of counts: for a pool, how many codes are available, claimed and void; for a shared code, how many people took it. Open one to edit it, to pause, resume or end it and, for a pool, to add codes or void the ones nobody has claimed. An offer that has ended, or whose last day has passed, moves under *Ended and expired offers*.
+
+**States.** A **draft** is visible to nobody but you: switch it on when it is ready. A **live** offer is shown to the people it is open to; the one live offer marked *shown in the program records* is the offer the program's records name as yours. A **paused** offer is hidden until you resume it, and its codes stay. An **ended** offer is over: nothing more can be claimed, it cannot be resumed, and the codes already claimed stay with the people who hold them.
+
+**Claims.** A participant claims an offer from their own page: a student from the Student Report Card, a mentor from the Mentor Report Card, both in a section called Tools from our sponsors. For a pool, the program hands out the next available code, seals it to that person, and never shows it to anyone else, including you. When a pool falls below the number you set, the *Offers and codes* card says so and the program mails you once.
+
+**What you see.** The *Usage* card counts claims by month and by offer: a chart of the last twelve months, a table with the totals, and a CSV of the same. Nobody is named there: the program keeps the list of who claimed which code, so that it can help a person whose code failed, and does not share it.

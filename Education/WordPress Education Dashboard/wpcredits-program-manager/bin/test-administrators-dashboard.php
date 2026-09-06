@@ -478,7 +478,55 @@ class WPCPM_Sponsor_Application {
 	const QUERY_QUEUE = 'wpcpm_sapp_id';
 	public static function queue_facts( $limit = 50 ) { return isset( $GLOBALS['sponsor_apps'] ) ? array_slice( $GLOBALS['sponsor_apps'], 0, (int) $limit ) : array(); }
 	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-app-action wpcpm-sponsor-application__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
+	public static function render_details( $post ) { echo '<div class="wpcpm-sapp-details-stub" data-post="' . (int) $post->ID . '"></div>'; }
 	public static function manager_messages() { return array( 'sapp-approved' => array( 'success', 'The sponsor application is approved.' ) ); }
+}
+class WPCPM_Sponsor_Offers {
+	const KIND_CODES  = 'codes';
+	const KIND_SHARED = 'shared';
+	public static function all() { return isset( $GLOBALS['offers'] ) ? $GLOBALS['offers'] : array(); }
+	public static function live() { return array_values( array_filter( self::all(), static function ( $o ) { return 'live' === $o['state']; } ) ); }
+	public static function is_live( array $offer, $today = '' ) {
+		if ( 'live' !== $offer['state'] ) { return false; }
+		if ( '' === (string) $offer['expires'] ) { return true; }
+		return strcmp( (string) $offer['expires'], '' !== $today ? $today : gmdate( 'Y-m-d' ) ) >= 0;
+	}
+}
+class WPCPM_Sponsor_Codes {
+	public static function counts( $offer_id ) { return isset( $GLOBALS['codes'][ (int) $offer_id ] ) ? $GLOBALS['codes'][ (int) $offer_id ] : array( 'available' => 0, 'claimed' => 0, 'void' => 0 ); }
+	public static function claims( $offer_id ) { return isset( $GLOBALS['claims'][ (int) $offer_id ] ) ? $GLOBALS['claims'][ (int) $offer_id ] : array(); }
+}
+class WPCPM_Sponsors_Index {
+	const STATUS_APPROVED = 'Approved';
+	public static function rows() { return isset( $GLOBALS['sponsor_rows'] ) ? $GLOBALS['sponsor_rows'] : array(); }
+	public static function row( $record ) { $rows = self::rows(); return isset( $rows[ $record ] ) ? $rows[ $record ] : null; }
+}
+class WPCPM_Sponsor_Roster {
+	const ARG_VIEW = 'wpcpm_sponsor_view';
+}
+class WPCPM_Sponsors_Dashboard {
+	public static function page_url() { return isset( $GLOBALS['sponsor_page_url'] ) ? $GLOBALS['sponsor_page_url'] : 'https://site.example/sponsor-dashboard/'; }
+	// Not in the brief's stub, but WPCPM_Dashboards::links() (a pre-existing check in this same
+	// suite) calls this on every class it finds through class_exists(), so it must exist once
+	// this class does; false matches WPCPM_Institutions_Dashboard's own stub just above.
+	public static function is_member() { return false; }
+}
+class WPCPM_Institution_Audit {
+	public static function sponsor_entries( $kind = '', $limit = 50 ) {
+		$rows = isset( $GLOBALS['audit'] ) ? $GLOBALS['audit'] : array();
+		if ( '' !== $kind ) { $rows = array_values( array_filter( $rows, static function ( $r ) use ( $kind ) { return $r['kind'] === $kind; } ) ); }
+		usort( $rows, static function ( $a, $b ) { return $b['time'] <=> $a['time']; } );
+		return array_slice( $rows, 0, (int) $limit );
+	}
+}
+class WPCPM_Sponsor_Interests {
+	const LOG_KIND = 'sponsor_interest';
+}
+class WPCPM_Sponsors_Sync {
+	const CRON_DAILY = 'wpcpm_sponsors_daily';
+	const OPT_LAST   = 'wpcpm_sponsors_last_sync';
+	public static function progress() { return isset( $GLOBALS['sync']['sponsors'] ) ? $GLOBALS['sync']['sponsors'] : array( 'running' => false, 'phase' => '', 'label' => '', 'error' => '', 'elapsed' => 0 ); }
+	public static function last_read() { return 1756880000; }
 }
 if ( ! function_exists( 'size_format' ) ) { function size_format( $b, $d = 0 ) { return $b . ' B'; } }
 
@@ -586,6 +634,9 @@ $GLOBALS['agr_facts']   = array(
 $GLOBALS['sponsor_apps'] = array(
 	array( 'id' => 950, 'reference' => 'SAPP-2026-0950', 'company' => 'Gadgetry Inc', 'website' => 'https://gadgetry.example', 'person' => 'Sam Sponsor', 'email' => 'maciej@a8c.com', 'at' => time() - 7200, 'state' => 'new', 'state_label' => 'new', 'signals' => array( 'in-base' ), 'held' => false, 'duplicate' => false, 'in_base' => true ),
 );
+// get_post() must answer for every id in $GLOBALS['sponsor_apps'] above: render_sponsor_applications()
+// looks the post up to fold render_details() under "Read the application" (S6).
+seed_post( 950, 'wpcpm_sponsor_app', 'Gadgetry Inc' );
 $GLOBALS['facts'] = array(
 	801 => array( 'id' => 801, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $A, 'institution_name' => 'Uniwersytet Alpha', 'note' => 'Two students without a mentor.', 'at' => time() - 20 * DAY_IN_SECONDS, 'overdue' => true, 'actor' => 21, 'actor_name' => 'Rep One' ),
 	802 => array( 'id' => 802, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $B, 'institution_name' => 'Universidad Beta', 'note' => '', 'at' => time() - DAY_IN_SECONDS, 'overdue' => false, 'actor' => 21, 'actor_name' => 'Rep One' ),
@@ -596,11 +647,46 @@ $GLOBALS['sync'] = array(
 	'students'     => array( 'running' => false, 'phase' => 'done', 'label' => 'Done', 'error' => '', 'elapsed' => 0 ),
 	'mentors'      => array( 'running' => true, 'phase' => 'reports', 'label' => 'Reading reports', 'error' => '', 'elapsed' => 40 ),
 	'institutions' => array( 'running' => false, 'phase' => 'done', 'label' => 'Done', 'error' => 'HTTP 429 from Airtable <b>x</b>', 'elapsed' => 0 ),
+	'sponsors'     => array( 'running' => false, 'phase' => 'done', 'label' => 'Done', 'error' => '', 'elapsed' => 0 ),
 );
 $GLOBALS['probe']         = array( 'status' => 403, 'time' => 1756700000, 'blocked' => true, 'error' => '', 'control_status' => 200, 'encrypted' => true );
 $GLOBALS['mail_log']      = array( array( 'time' => 1756990000, 'to' => 'm***@a8c.com', 'context' => 'report-drafted', 'sent' => true ) );
 $GLOBALS['invite_run']    = array( 'total' => 5, 'started' => 1756990000, 'finished' => 0 );
 $GLOBALS['invite_queued'] = 2;
+$GLOBALS['next']['wpcpm_sponsors_daily'] = 1756990000 + 3600;
+$GLOBALS['sponsor_rows'] = array(
+	'recSPN00000000001' => array( 'record' => 'recSPN00000000001', 'name' => 'TEST Sponsor', 'status' => 'Approved', 'dashboard_account' => true ),
+	'recSPN00000000002' => array( 'record' => 'recSPN00000000002', 'name' => 'Old Sponsor', 'status' => 'Approved', 'dashboard_account' => false ),
+	'recSPN00000000003' => array( 'record' => 'recSPN00000000003', 'name' => 'Paused Co', 'status' => 'Paused', 'dashboard_account' => true ),
+);
+$semester_from = (int) strtotime( WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'] . ' 00:00:00 UTC' );
+$GLOBALS['offers'] = array(
+	941 => array( 'id' => 941, 'title' => 'Pro license', 'sponsor' => 'recSPN00000000001', 'kind' => 'codes', 'state' => 'live', 'low' => 10, 'expires' => '' ),
+	942 => array( 'id' => 942, 'title' => 'Course seat', 'sponsor' => 'recSPN00000000002', 'kind' => 'codes', 'state' => 'live', 'low' => 10, 'expires' => '' ),
+	943 => array( 'id' => 943, 'title' => 'Everyone link', 'sponsor' => 'recSPN00000000001', 'kind' => 'shared', 'state' => 'live', 'low' => 10, 'expires' => '' ),
+	944 => array( 'id' => 944, 'title' => 'Expired pool', 'sponsor' => 'recSPN00000000002', 'kind' => 'codes', 'state' => 'live', 'low' => 10, 'expires' => '2020-01-01' ),
+	945 => array( 'id' => 945, 'title' => 'Ended pool', 'sponsor' => 'recSPN00000000001', 'kind' => 'codes', 'state' => 'ended', 'low' => 10, 'expires' => '' ),
+	946 => array( 'id' => 946, 'title' => 'Empty draft', 'sponsor' => 'recSPN00000000003', 'kind' => 'codes', 'state' => 'draft', 'low' => 10, 'expires' => '' ),
+);
+$GLOBALS['codes'] = array(
+	941 => array( 'available' => 3, 'claimed' => 7, 'void' => 0 ),
+	942 => array( 'available' => 50, 'claimed' => 2, 'void' => 1 ),
+	944 => array( 'available' => 1, 'claimed' => 0, 'void' => 0 ),
+	945 => array( 'available' => 0, 'claimed' => 9, 'void' => 0 ),
+);
+$GLOBALS['claims'] = array(
+	941 => array( array( 'u' => 31, 'i' => 0, 'at' => $semester_from + 86400, 'v' => 0 ), array( 'u' => 32, 'i' => 1, 'at' => $semester_from + 172800, 'v' => 0 ), array( 'u' => 33, 'i' => 2, 'at' => $semester_from + 259200, 'v' => $semester_from + 300000 ), array( 'u' => 34, 'i' => 3, 'at' => $semester_from - 86400, 'v' => 0 ) ),
+	943 => array( array( 'u' => 35, 'i' => -1, 'at' => $semester_from + 3600, 'v' => 0 ) ),
+	945 => array( array( 'u' => 36, 'i' => 0, 'at' => $semester_from + 7200, 'v' => 0 ) ),
+);
+// Shaped as WPCPM_Sponsor_Interests::line() writes it: "<date> by <who>: <choices-joined-by-;>;
+// events: <events-joined-by-,>; note: <note>", each part left out when it has nothing to say
+// (S6 review).
+$GLOBALS['audit'] = array(
+	array( 'id' => 9101, 'kind' => 'sponsor_interest', 'sponsor' => 'recSPN00000000001', 'message' => '2026-09-01 by Member One: Sponsor a mentor or multiple mentors; events: WordCamp Europe; note: "Two mentors from Q1."', 'time' => time() - 5 * DAY_IN_SECONDS ),
+	array( 'id' => 9102, 'kind' => 'sponsor_interest', 'sponsor' => 'recSPN00000000002', 'message' => '2026-07-20 by Old One: Sponsor a mentor or multiple mentors; Sponsor tools or services', 'time' => time() - 40 * DAY_IN_SECONDS ),
+	array( 'id' => 9103, 'kind' => 'member_added', 'sponsor' => 'recSPN00000000001', 'message' => 'Someone joined', 'time' => time() - DAY_IN_SECONDS ),
+);
 
 /* ---- collect() and counts() ---------------------------------------------- */
 
@@ -620,11 +706,41 @@ ck( 'two open requests, one overdue, one closed', array( count( $data['requests'
 ck( 'one locked account', count( $data['locked'] ), 1 );
 
 $counts = WPCPM_Administrators_Cards::counts( $data );
-ck( 'eleven tiles in the spec\'s order, the sponsor tiles last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements', 'sponsor_applications' ) );
+ck( 'twelve tiles in the spec\'s order, the sponsor tiles last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements', 'sponsor_applications', 'offers_low' ) );
 // array_map() keeps the input array's keys, and counts() is keyed by tile name (the
 // previous check pins that order), so the expectation is keyed the same way rather than
 // the plain list the brief first wrote, which could never === an array with string keys.
-ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements', 'sponsor_applications' => '1:sponsor-applications' ) );
+ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements', 'sponsor_applications' => '1:sponsor-applications', 'offers_low' => '1:offers-low' ) );
+
+echo "\n=== The sponsors' figures, the pools running low and the new interests (S6) ===\n";
+ck( 'twelve tiles now, offers running low last', array( count( $counts ), array_slice( array_keys( $counts ), -2 ), $counts['offers_low'] ), array( 12, array( 'sponsor_applications', 'offers_low' ), array( 'label' => 'Offers running low', 'n' => 1, 'card' => 'offers-low' ) ) );
+ck( 'one pool runs low: live, of kind codes, under its own threshold; the expired, ended, shared and well-stocked ones are not it', array_map( static function ( $r ) { return $r['id'] . ':' . $r['available'] . '/' . $r['low'] . ':' . $r['sponsor_name']; }, $data['offers_low'] ), array( '941:3/10:TEST Sponsor' ) );
+ck( 'and it links to the sponsor\'s Offers and codes card through the switcher', $data['offers_low'][0]['url'], 'https://site.example/sponsor-dashboard/?wpcpm_sponsor_view=recSPN00000000001#wpcpm-sponsor-offers' );
+ck( 'one interest in the last thirty days, of the audit kind sponsor_interest only, with the sponsor\'s name and the line as written', array( count( $data['interests'] ), $data['interests'][0]['sponsor_name'], $data['interests'][0]['message'], $data['interests'][0]['url'] ), array( 1, 'TEST Sponsor', '2026-09-01 by Member One: Sponsor a mentor or multiple mentors; events: WordCamp Europe; note: "Two mentors from Q1."', 'https://site.example/sponsor-dashboard/?wpcpm_sponsor_view=recSPN00000000001#wpcpm-sponsor-interests' ) );
+ck( 'the strip: two Approved sponsors, one with an account, three offers live today, four claims this semester on every offer, the ended one included (a voided one and one from last semester left out)', array_intersect_key( $data['sponsors'], array_flip( array( 'approved', 'with_accounts', 'live_offers', 'claims_semester' ) ) ), array( 'approved' => 2, 'with_accounts' => 1, 'live_offers' => 3, 'claims_semester' => 4 ) );
+ck( 'and since names the first day of the current cohort', $data['sponsors']['since'], WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'] );
+$GLOBALS['sponsor_page_url'] = '';
+ck( 'and with no Sponsor Dashboard page there is no link at all, not a query on the page a manager is on (Task 2 review)', WPCPM_Administrators_Cards::offers_low()[0]['url'], '' );
+$low_no_page = capture( static function () { WPCPM_Administrators_Cards::render_offers_low( WPCPM_Administrators_Cards::offers_low() ); } );
+$int_no_page = capture( static function () { WPCPM_Administrators_Cards::render_interests( WPCPM_Administrators_Cards::interests() ); } );
+// The renderers, not just the data: with no page to link to, neither prints an anchor to the
+// current page, only the title or the name in plain text (S6 review, finding 3).
+ck( 'and the renderers print no anchor when there is no page to link to, just the title and the name', array( has( $low_no_page, 'href=""' ), has( $low_no_page, 'Pro license' ), has( $int_no_page, 'href=""' ), has( $int_no_page, 'TEST Sponsor' ) ), array( false, true, false, true ) );
+unset( $GLOBALS['sponsor_page_url'] );
+ck( 'the syncs card lists the sponsors sync fourth, linking to the Sponsors screen', array( array_keys( $data['health']['syncs'] ), $data['health']['syncs']['sponsors']['label'], $data['health']['syncs']['sponsors']['last'], $data['health']['syncs']['sponsors']['next'], false !== strpos( $data['health']['syncs']['sponsors']['screen'], 'page=wpcpm-sponsors' ) ), array( array( 'students', 'mentors', 'institutions', 'sponsors' ), 'Sponsors', 1756880000, 1756990000 + 3600, true ) );
+$low = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_offers_low( $data['offers_low'] ); } );
+ck( 'Offers running low is a card with a table: offer, sponsor, codes left, warns at, the offer linked to its sponsor\'s card', array( has( $low, 'id="wpcpm-offers-low"' ), has( $low, 'Offers running low' ), has( $low, '<table class="wpcpm-admin-table wpcpm-offers-low">' ), preg_match( '#<th scope="row"><a href="https://site\.example/sponsor-dashboard/\?wpcpm_sponsor_view=recSPN00000000001\#wpcpm-sponsor-offers">Pro license</a></th><td>TEST Sponsor</td><td>3</td><td>10</td>#', $low ) ), array( true, true, true, 1 ) );
+$empty_low = capture( static function () { WPCPM_Administrators_Cards::render_offers_low( array() ); } );
+ck( 'and an empty one says so, folded', array( has( $empty_low, 'No offer is running low.' ), has( $empty_low, '<details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure">' ) ), array( true, true ) );
+$int = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_interests( $data['interests'] ); } );
+ck( 'New interests lists each sponsor\'s line, newest first, escaped, linked to its Interests card', array( has( $int, 'id="wpcpm-interests"' ), has( $int, 'New interests' ), preg_match( '#<h4 class="wpcpm-administrator__item-title"><a href="https://site\.example/sponsor-dashboard/\?wpcpm_sponsor_view=recSPN00000000001\#wpcpm-sponsor-interests">TEST Sponsor</a> <span class="wpcpm-administrator__kind">[^<]+</span></h4>#', $int ), has( $int, '&quot;Two mentors from Q1.&quot;' ) || has( $int, '"Two mentors from Q1."' ), substr_count( $int, '<article class="wpcpm-administrator__item wpcpm-interest">' ) ), array( true, true, 1, true, 1 ) );
+$empty_int = capture( static function () { WPCPM_Administrators_Cards::render_interests( array() ); } );
+ck( 'and thirty quiet days say so', has( $empty_int, 'No sponsor said anything new in the last thirty days.' ), true );
+$strip2 = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_sponsors_strip( $data['sponsors'] ); } );
+// The fourth tile's number comes from $data itself rather than a literal: the fixture's
+// claims_semester is 4, not the 3 that would match live_offers just above it, and a
+// hardcoded digit here would silently pin the wrong one (brief review).
+ck( 'the Sponsors card is four tiles on the programs card\'s markup: a name, the number and a qualifier each, never the name twice', array( has( $strip2, 'id="wpcpm-sponsors"' ), substr_count( $strip2, '<li class="wpcpm-programs__tile">' ), preg_match( '#<span class="wpcpm-programs__name">Approved sponsors</span><span class="wpcpm-programs__n">2</span><span class="wpcpm-programs__l">in the program records</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">With an account</span><span class="wpcpm-programs__n">1</span><span class="wpcpm-programs__l">of the Approved sponsors</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Live offers</span><span class="wpcpm-programs__n">3</span><span class="wpcpm-programs__l">shown on the site today</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Claims this semester</span><span class="wpcpm-programs__n">' . (int) $data['sponsors']['claims_semester'] . '</span><span class="wpcpm-programs__l">since ' . preg_quote( $data['sponsors']['since'], '#' ) . ', on every offer</span>#', $strip2 ) ), array( true, 4, 1, 1, 1, 1 ) );
 
 /* ---- programs() ---------------------------------------------------------- */
 
@@ -661,14 +777,14 @@ $strip = capture( static function () use ( $counts ) { WPCPM_Administrators_Card
 // Eight, counting the opening tag rather than the bare class: the wrapping
 // <ul class="wpcpm-attention__tiles"> also matches the bare needle, since "tiles" starts with
 // "tile", so the bare count would read nine and call the wrapper a ninth tile.
-ck( 'the strip is one section with eleven tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-applications"' ) ), array( 11, true, true, true, true, true ) );
+ck( 'the strip is one section with twelve tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-applications"' ) ), array( 12, true, true, true, true, true ) );
 // None of the fixture's eight counts is 0, so this used to hold no matter what render_strip()
 // did with a zero; a tile is zeroed here, from counts()'s own output, so the check can
 // actually fail if --zero ever stops being drawn (final review, Important 6).
 $zero_counts = $counts;
 $zero_counts['locked']['n'] = 0;
 $zero_strip = capture( static function () use ( $zero_counts ) { WPCPM_Administrators_Cards::render_strip( $zero_counts ); } );
-ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 11 ) );
+ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 12 ) );
 
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
 ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-applications"' ) && has( $apps, 'wpcpm-group__disclosure" open' ) && has( $apps, '<span class="wpcpm-group__count">2</span>' ), true );
@@ -741,7 +857,7 @@ ck( 'the quiet institutions are one closing line', has( $prog, '1 more instituti
 ck( 'and the read time is printed', has( $prog, 'Read from the program records' ), true );
 
 $health = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] ); } );
-ck( 'three syncs with their state', substr_count( $health, 'wpcpm-health__sync' ), 3 );
+ck( 'four syncs with their state', substr_count( $health, 'wpcpm-health__sync' ), 4 );
 ck( 'the error is printed verbatim and escaped', has( $health, 'HTTP 429 from Airtable &lt;b&gt;x&lt;/b&gt;' ), true );
 ck( 'the locked account is named', has( $health, 'Rep One' ), true );
 ck( 'the probe verdict, the last mail and the invitation run are there', has( $health, 'blocked' ) && has( $health, 'report-drafted' ) && has( $health, '3 of 5' ), true );
@@ -817,7 +933,7 @@ ck( 'the two-factor prompt is for the viewer', $GLOBALS['prompted'], array( 3 ) 
 ck( 'the flash on the institutions channel is drawn in the queue\'s words', has( $out, 'The application is approved.' ) && has( $out, 'wpcpm-dashboard__message--success' ), true );
 ck( 'and taken, so it shows once', isset( $GLOBALS['flash']['institutions'] ), false );
 $positions = array();
-foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-programs"', 'id="wpcpm-health"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) as $needle ) {
+foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-offers-low"', 'id="wpcpm-interests"', 'id="wpcpm-sponsors"', 'id="wpcpm-programs"', 'id="wpcpm-health"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) as $needle ) {
 	$positions[] = strpos( $out, $needle );
 }
 $sorted = $positions;
@@ -898,6 +1014,8 @@ ob_start();
 WPCPM_Administrators_Cards::render_sponsor_applications( array( array_merge( $GLOBALS['sponsor_apps'][0], array( 'half_done' => true ) ) ) );
 $sa = (string) ob_get_clean();
 ck( 'a half-done approval is said so here too, because three of the decisions under it are refused (S5 fix wave)', array( has( $sa, 'approval of this application is half done' ), has( $sa, 'Press Approve again to finish.' ) ), array( true, true ) );
+$sapp = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_sponsor_applications( $data['sponsor_applications'] ); } );
+ck( 'each application folds its answers under Read the application, before its decisions (S6)', array( substr_count( $sapp, '<details class="wpcpm-administrator__details"><summary>Read the application</summary>' ), preg_match( '#<details class="wpcpm-administrator__details"><summary>Read the application</summary><div class="wpcpm-sapp-details-stub" data-post="950"></div></details><div class="wpcpm-app-action#', $sapp ) ), array( count( $data['sponsor_applications'] ), 1 ) );
 $GLOBALS['uid']    = 3;
 $GLOBALS['manage'] = array( 3 );
 $GLOBALS['flash']  = array( 'institutions' => 'sapp-approved' );

@@ -1413,6 +1413,91 @@
 	margin: 12px 0 8px;
 }
 
+/* The whole application folded on the Administrator Dashboard's card (plugin 1.98.0): the
+   summary reads as the mentor page's availability panel does, 12px under the notes and 12px
+   over the decisions; open, the answers table takes the card's own table look. */
+.wpc-administrator-page .wpcpm-administrator__details {
+	margin: 12px 0;
+}
+
+.wpc-administrator-page .wpcpm-administrator__details > summary {
+	color: var( --wpc-brand );
+	cursor: pointer;
+	font: 600 14px/20px var( --wpc-font );
+}
+
+.wpc-administrator-page .wpcpm-administrator__details[open] > summary {
+	margin-bottom: 12px;
+}
+
+/* Inside the folded application (final review of S6): the plugin's logo figures are dressed in
+   wp-admin's admin.css only, so on the front end the white logo sat white on white and the
+   figures lost their row. The values are admin.css's, in the theme's tokens: a flex row of
+   160px figures, each image framed on the surface, the white half on the ink ground; and the
+   block's own h3 lines (Logo, What the base already has) take the item's heading size so
+   they do not outrank the card's titles. */
+.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logos {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin: 8px 0 4px;
+}
+
+.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logo {
+	margin: 0;
+	max-width: 160px;
+	text-align: center;
+}
+
+.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logo img {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line );
+	border-radius: 4px;
+	box-sizing: border-box;
+	display: block;
+	height: auto;
+	margin: 0 auto;
+	max-width: 100%;
+	padding: 8px;
+}
+
+.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logo--white img {
+	background: var( --wpc-ink );
+	border-color: var( --wpc-ink );
+}
+
+.wpc-administrator-page .wpcpm-administrator__details .wpcpm-sapp-logo figcaption {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+	margin-top: 4px;
+}
+
+.wpc-administrator-page .wpcpm-administrator__details h3 {
+	color: var( --wpc-ink );
+	font: 600 14px/20px var( --wpc-font );
+	margin: 16px 0 8px;
+}
+
+.wpc-administrator-page .wpcpm-app-answers {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.wpc-administrator-page .wpcpm-app-answers th,
+.wpc-administrator-page .wpcpm-app-answers td {
+	border-bottom: 1px solid var( --wpc-line-soft );
+	font: 14px/20px var( --wpc-font );
+	padding: 6px 10px;
+	text-align: left;
+	vertical-align: top;
+}
+
+.wpc-administrator-page .wpcpm-app-answers th {
+	color: var( --wpc-ink-70 );
+	font-weight: 600;
+	width: 34%;
+}
+
 /* The "Out of force" subheading inside the agreements card: the eyebrow of a group title, at
    the items' inset, with room above it so the revoked rows read as their own list (1.23.1). */
 .wpc-administrator-page .wpcpm-administrator__subheading {

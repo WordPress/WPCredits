@@ -1059,11 +1059,14 @@ ck( 'nothing to show means no empty section',
     array( WPCPM_Handbook_Assistant::render_resources( 'nobody-in-particular' ) ), array( '' ) );
 
 // The five the plugin actually draws, each with a guide and a channel of its own - sponsors
-// included, ahead of their own dashboard, which lands in Task 10 of this phase.
+// included.
 $guides = WPCPM_Handbook_Assistant::guides();
-ck( 'and the audiences that do have a guide are the five that have a dashboard, sponsors a step ahead of theirs',
+ck( 'and the audiences that do have a guide are the five that have a dashboard',
     array_keys( $guides ), array( 'student', 'mentor', 'institution', 'administrator', 'sponsor' ) );
-ck( 'the sponsor guide points at the program handbook until S6 ships its own', WPCPM_Handbook_Assistant::guides()['sponsor']['url'], 'https://make.wordpress.org/community/handbook/education/credits/' );
+ck( 'the sponsor guide is the sponsors\' own, on the handbook beside the other three (S6)', array( $guides['sponsor']['url'], $guides['sponsor']['label'] ), array( 'https://make.wordpress.org/community/handbook/education/credits/sponsor-guide/', 'Sponsor guide' ) );
+
+$build_src = file_get_contents( __DIR__ . '/build-docs.php' );
+ck( 'the docs build composes a fourth guide, sponsors, from the four sponsor sections and the sign-in section', array( false !== strpos( $build_src, "'sponsors'       => array(" ), false !== strpos( $build_src, "'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-offers', '42-sponsor-visibility', '43-sponsor-posts' )" ), file_exists( __DIR__ . '/../docs/build/sponsors.html' ), file_exists( __DIR__ . '/../docs/sections/42-sponsor-visibility.md' ) ), array( true, true, true, true ) );
 ck( 'the program managers\' guide is the handbook\'s education section', $guides['administrator']['url'], 'https://make.wordpress.org/community/handbook/education/credits/' );
 ck( 'and their channel is the program\'s', $guides['administrator']['slack'], $guides['institution']['slack'] );
 ck( 'the institution\'s guide is the handbook page written for them', $guides['institution']['url'], 'https://make.wordpress.org/community/handbook/education/credits/institutions/' );

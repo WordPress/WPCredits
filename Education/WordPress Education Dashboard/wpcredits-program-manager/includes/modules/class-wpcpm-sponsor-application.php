@@ -3712,6 +3712,19 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
+	 * The application in full for a card that is not the Sponsors screen: the answers, the
+	 * logo files and what the base already holds, without the heading and without the
+	 * decisions, which the card draws itself (spec 10, the Administrator Dashboard's card).
+	 *
+	 * @param WP_Post $post The application.
+	 */
+	public static function render_details( WP_Post $post ) {
+		self::render_answers( $post );
+		self::render_logos( $post );
+		self::render_base_matches( $post );
+	}
+
+	/**
 	 * Every answer the applicant gave, in the order the form asked for them.
 	 *
 	 * The question is printed as the applicant read it, with the Airtable column under it,
