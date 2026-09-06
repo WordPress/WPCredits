@@ -1624,14 +1624,15 @@
 }
 
 /* The actions under the lead (Write a post, the way into wp-admin) as one row with the
-   People card's 16px gap; 16px below before the list, which the list's own top margin
+   People card's 16px gap; 12px off the lead above (the note has no margin of its own here,
+   measured live at 1400px) and 16px below before the list, which the list's own top margin
    collapses into. */
 .wpc-sponsor-page .wpcpm-posts__actions {
 	align-items: center;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px 16px;
-	margin: 0 0 16px;
+	margin: 12px 0 16px;
 }
 
 .wpc-sponsor-page .wpcpm-posts__admin {
