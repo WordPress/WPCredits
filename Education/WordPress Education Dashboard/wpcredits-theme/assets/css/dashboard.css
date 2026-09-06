@@ -1271,6 +1271,22 @@
 	padding-right: 32px;
 }
 
+/* The three groups of cards (plugin 1.95.8): a heading over each - Your company, What you offer,
+   Mentors - so the groups read as groups. The heading takes the cards' 32px inset (20px under
+   900px, in the block below), 40px off whatever is above it, and the first card of its group sits
+   12px under it rather than the card's own 2.5em, so the heading owns the group. Values: the
+   Institution Dashboard's section headings (700 18px/24px, ink). */
+.wpc-sponsor-page .wpcpm-sponsor__group-title {
+	color: var( --wpc-ink );
+	font: 700 18px/24px var( --wpc-font );
+	margin: 40px 0 0;
+	padding: 0 32px;
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__group-title + .wpcpm-sponsor__card {
+	margin-top: 12px;
+}
+
 /*
  * The logo box: 176px wide, the image contained, on a white ground whatever the page's
  * surface, because half the sponsors drew their logo for a dark background and a
@@ -2909,6 +2925,7 @@
 	.wpc-administrator-page .wpcpm-administrator__card,
 	.wpc-sponsor-page .wpcpm-sponsor__identity,
 	.wpc-sponsor-page .wpcpm-sponsor__card,
+	.wpc-sponsor-page .wpcpm-sponsor__group-title,
 	.wpc-institution-page .wpcpm-roster {
 		padding-left: 20px;
 		padding-right: 20px;

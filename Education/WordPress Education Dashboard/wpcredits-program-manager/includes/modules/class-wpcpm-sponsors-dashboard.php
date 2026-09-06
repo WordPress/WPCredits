@@ -459,13 +459,39 @@ final class WPCPM_Sponsors_Dashboard {
 		// it offers (offers and codes, usage, what else it would support, its posts), then the
 		// mentors (its own, and the ones looking for a sponsor, both drawn by one class). The
 		// People card is this class's own and takes its place in the first group.
-		foreach ( array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Posts', 'WPCPM_Sponsor_Mentors' ) as $owner ) {
-			if ( 'people' === $owner ) {
-				self::render_people( $record, $context );
-				continue;
+		// Each group is a heading over its cards, so the three read as groups and not as one
+		// long list with the same hairline between every card (the owner, 6 September 2026).
+		$groups = array(
+			array(
+				'id'    => 'company',
+				'title' => __( 'Your company', 'wpcredits-program-manager' ),
+				'cards' => array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ),
+			),
+			array(
+				'id'    => 'offer',
+				'title' => __( 'What you offer', 'wpcredits-program-manager' ),
+				'cards' => array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Posts' ),
+			),
+			array(
+				'id'    => 'mentors',
+				'title' => __( 'Mentors', 'wpcredits-program-manager' ),
+				'cards' => array( 'WPCPM_Sponsor_Mentors' ),
+			),
+		);
+
+		foreach ( $groups as $group ) {
+			printf( '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--%1$s"><h2 class="wpcpm-sponsor__group-title">%2$s</h2>', esc_attr( $group['id'] ), esc_html( $group['title'] ) );
+
+			foreach ( $group['cards'] as $owner ) {
+				if ( 'people' === $owner ) {
+					self::render_people( $record, $context );
+					continue;
+				}
+
+				self::card( $owner, $record, $context );
 			}
 
-			self::card( $owner, $record, $context );
+			echo '</div>';
 		}
 
 		echo '</div>';

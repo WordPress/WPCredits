@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.95.7
+Stable tag: 1.95.8
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.95.8 =
+* Sponsor Dashboard: the three groups of cards carry headings - "Your company", "What you offer", "Mentors" - so they read as groups. With theme 1.22.7.
 
 = 1.95.7 =
 * wp-admin for a sponsor's accounts: the category lists show their own category and its Sponsors parent alone (the editor's list, Quick Edit, the classic box), and the Posts screen loses the category filter, since every post there is theirs.

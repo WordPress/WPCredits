@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.22.6
+Stable tag: 1.22.7
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.22.7 =
+* Sponsor Dashboard: headings over the three groups of cards (plugin 1.95.8), at the cards' inset, 40px above and 12px over the group's first card.
 
 = 1.22.6 =
 * Administrator Dashboard: the sponsor posts card's decision row (plugin 1.95.5) - Preview, Publish and the folded Return with a note on one line, the note form under them when opened.
