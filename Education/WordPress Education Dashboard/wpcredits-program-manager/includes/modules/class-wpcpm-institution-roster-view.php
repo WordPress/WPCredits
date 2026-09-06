@@ -173,7 +173,11 @@ class WPCPM_Institution_Roster_View {
 			self::render_unlinked( WPCPM_Roster_Index::unlinked_for( $record_id ), $filters['search'] );
 		}
 
-		self::read_line( $read, 'wpcpm-roster__read wpcpm-roster__read--footer' );
+		// The Institution Dashboard prints the read line once, at the foot of the page, when it
+		// titles the module this roster sits in (1.96.5); anywhere else the roster closes with it.
+		if ( empty( $context['module_titled'] ) ) {
+			self::read_line( $read, 'wpcpm-roster__read wpcpm-roster__read--footer' );
+		}
 
 		echo '</section>';
 	}
@@ -1655,7 +1659,7 @@ class WPCPM_Institution_Roster_View {
 	 * @param int    $read    Unix time the index was read.
 	 * @param string $classes The paragraph's classes.
 	 */
-	private static function read_line( $read, $classes ) {
+	public static function read_line( $read, $classes ) {
 		$read = (int) $read;
 
 		if ( $read <= 0 ) {

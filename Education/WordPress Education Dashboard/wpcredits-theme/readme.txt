@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.14 =
+* Institution Dashboard: the cards inside a module carry no bottom margin, so the gap before the Collaboration Agreement is the same 10px as between the roster's groups.
+
+= 1.23.13 =
+* Institution Dashboard: 10px between the cards of a module (the roster's own gap), 22px between modules (the page's own bottom room), and the read line at the foot under its hairline (plugin 1.96.5).
+
 = 1.23.12 =
 * Institution Dashboard: the line sits above each module's title and nowhere inside a module; the Collaboration Agreement card is a plain disclosure like the representatives'.
 

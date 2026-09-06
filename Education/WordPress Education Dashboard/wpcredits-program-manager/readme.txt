@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.96.4
+Stable tag: 1.96.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.96.5 =
+* Institution Dashboard: the "Read from the program records" line closes the page under its own hairline, as the Student Report Card ends, instead of closing the roster. With theme 1.23.13.
 
 = 1.96.4 =
 * Institution Dashboard: the page under the header is three movable modules - Students, Semester report, Representatives and agreement - each with an eyebrow title and a sentence saying what it is for, and the same two arrows the Student Report Card has; the order is the institution's own, arranged by a representative or by a program manager viewing the page. The module order code is shared with the Student Report Card (`WPCPM_Module_Order`). With theme 1.23.10.

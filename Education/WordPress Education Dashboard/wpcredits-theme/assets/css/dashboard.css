@@ -638,7 +638,9 @@
 }
 
 .wpc-institution-page .wpcpm-module + .wpcpm-module {
-	margin-top: 2.5em;
+	/* The room between the last row of a module and the next module's line is the room between
+	   the last row of the page and its bottom border: the root's 22px (owner, 1.23.13). */
+	margin-top: 22px;
 }
 
 /* Inside a module the cards draw no line of their own: the plugin's card base puts one over
@@ -650,6 +652,10 @@
 .wpc-institution-page .wpcpm-module > .wpcpm-institution__card,
 .wpc-institution-page .wpcpm-module > .wpcpm-agreement-card {
 	border-top: 0;
+	/* No bottom margin either: the plugin's card base gives every card 1.25em below, which
+	   collapsed with the 10px above the next card into 18px between the representatives and the
+	   agreement. The gap is the next card's own 10px, and the module's own 22px (1.23.14). */
+	margin-bottom: 0;
 	margin-top: 0;
 	padding-top: 0;
 }
@@ -657,7 +663,24 @@
 .wpc-institution-page .wpcpm-module > .wpcpm-roster + .wpcpm-institution__card,
 .wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-institution__card,
 .wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-agreement-card {
-	margin-top: 24px;
+	/* The gap between two disclosures in the roster, 10px, between two cards of a module too
+	   (owner, 1.23.13). */
+	margin-top: 10px;
+}
+
+/* The page ends the way the Student Report Card ends (plugin 1.96.5): the read line under its
+   own hairline, the student page's values (`.wpc-student-page .wpcpm-dashboard__updated`), 22px
+   over the line - the root's bottom room - and the root's bottom padding stood down so the
+   line's own 18px is the last thing on the page. */
+.wpc-institution-page .wpcpm-dashboard__updated {
+	border-top: 1px solid var( --wpc-line-soft );
+	color: var( --wpc-ink-60 );
+	margin: 22px 0 0;
+	padding: 14px 32px 18px;
+}
+
+.wpc-institution-page .wpcpm-institution:has( > .wpcpm-dashboard__updated ) {
+	padding-bottom: 0;
 }
 
 .wpc-institution-page .wpcpm-agreement-card {

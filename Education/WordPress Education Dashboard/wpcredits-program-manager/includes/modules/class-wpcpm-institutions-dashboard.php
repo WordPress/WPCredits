@@ -437,6 +437,14 @@ class WPCPM_Institutions_Dashboard {
 			foreach ( $order as $key ) {
 				self::render_module( $key, $order, $record, $context, $can_move );
 			}
+
+			// When the records were last read, once, at the foot of the page under its own
+			// line, as the Student Report Card ends (owner, 1.96.5); the roster no longer closes
+			// with it. The strip inside the roster keeps its own copy, which belongs to the cohort.
+			if ( method_exists( 'WPCPM_Institution_Roster_View', 'read_line' ) && method_exists( 'WPCPM_Roster_Index', 'read' ) ) {
+				$read = isset( $context['read'] ) ? (int) $context['read'] : (int) WPCPM_Roster_Index::read( $record )['read'];
+				WPCPM_Institution_Roster_View::read_line( $read, 'wpcpm-dashboard__updated' );
+			}
 		}
 
 		echo '</div>';
