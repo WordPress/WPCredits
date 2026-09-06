@@ -1964,6 +1964,13 @@
 	margin: 0 0 8px;
 }
 
+/* The logo block's own rhythm inside the column (1.23.17): 16px between the note and the two
+   tiles, the gap the tiles already keep to the upload form below them, so the block reads as
+   note, tiles, form, each with room. The shared note rule gives the note no bottom margin. */
+.wpc-sponsor-page .wpcpm-logo > .wpcpm-student__note {
+	margin-bottom: 16px;
+}
+
 @media ( max-width: 900px ) {
 
 	.wpc-sponsor-page .wpcpm-profile__cols {
