@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.11 =
+* Institution Dashboard: the arrows sit on each module's title line (20px over every title, as on the Student Report Card).
+
+= 1.23.10 =
+* Institution Dashboard: the three movable modules wear the Sponsor Dashboard's group shapes (eyebrow title, lead, one line between modules), the arrows are the dashboards' rule now, and the "Invite a colleague" heading gets its gap (plugin 1.96.4).
+
 = 1.23.9 =
 * Institution Dashboard and Sponsor Dashboard: 22px of room under the new hairline, the space the lifted switcher used to bring.
 

@@ -226,6 +226,13 @@ function wp_register_style( $handle, $src, $deps = array(), $ver = false ) {
 function wp_enqueue_style( $handle ) { if ( isset( $GLOBALS['styles'][ $handle ] ) ) { $GLOBALS['styles'][ $handle ]['on'] = true; } }
 function wp_enqueue_script( $handle ) { $GLOBALS['scripts'][] = $handle; }
 function wp_script_is( $handle, $list = 'enqueued' ) { return false; }
+// The movable modules (1.96.4): the mover's nonce, the handler's exits, the redirect's arguments.
+if ( ! function_exists( 'check_admin_referer' ) ) { function check_admin_referer( $a = '', $q = '' ) { $GLOBALS['nonce_checked'][] = $a; return true; } }
+if ( ! function_exists( 'wp_die' ) ) { function wp_die( $m = '', $t = '', $a = array() ) { throw new Exception( 'die: ' . ( is_array( $a ) && isset( $a['response'] ) ? $a['response'] : 'died' ) ); } }
+if ( ! function_exists( 'wp_send_json_success' ) ) { function wp_send_json_success( $d = null ) { throw new Exception( 'json: ' . json_encode( $d ) ); } }
+if ( ! function_exists( 'wp_nonce_field' ) ) { function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce">'; } }
+if ( ! function_exists( 'add_query_arg' ) ) { function add_query_arg( $k, $v, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $k . '=' . rawurlencode( (string) $v ); } }
+if ( ! function_exists( 'home_url' ) ) { function home_url( $p = '/' ) { return 'https://example.test' . $p; } }
 function wp_register_script( $handle, $src, $deps = array(), $ver = false, $footer = false ) {}
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
@@ -235,6 +242,7 @@ define( 'WPCPM_VERSION', 'test' );
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-module-order.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 // The real helper and not a stand-in: it is where the empty-page wording lives now, and a
 // copy of the sentence here would let the page ship one wording while the suite pinned
@@ -1322,6 +1330,56 @@ $GLOBALS['transients'] = array();
 $GLOBALS['http']       = array();
 $GLOBALS['fetched']    = array();
 
+
+echo "\n=== The three movable modules (1.96.4) ===\n";
+function ran_move() {
+	$GLOBALS['nonce_checked'] = array();
+	try {
+		WPCPM_Institutions_Dashboard::handle_move();
+		return 'returned';
+	} catch ( Exception $e ) {
+		return $e->getMessage();
+	}
+}
+$default = array( 'students', 'report', 'people' );
+ck( 'nothing saved: the default order, the students first', WPCPM_Institutions_Dashboard::module_order( $krakow ), $default );
+$GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] = array( 'people', 'bogus', 'students' );
+ck( 'a saved order is repaired: unknown keys dropped, the missing module joins at the end', WPCPM_Institutions_Dashboard::module_order( $krakow ), array( 'people', 'students', 'report' ) );
+unset( $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] );
+
+$manager = (int) $GLOBALS['manage'][0];
+$html    = render_as( $manager, array( 'wpcpm_institution_view' => $krakow ) );
+preg_match_all( '/id="wpcpm-module-([a-z]+)"/', $html, $found );
+// This world has no semester report card, so the report module has nothing to print and is
+// left out, the way an empty module is on the live page: two modules in the default order.
+ck( 'the page is the modules with something to print, in the default order', $found[1], array( 'students', 'people' ) );
+ck( 'each module has an eyebrow title and a lead under it', array(
+	substr_count( $html, '<h2 class="wpcpm-student__heading wpcpm-institution__module-title">' ),
+	substr_count( $html, '<p class="wpcpm-student__note wpcpm-institution__module-lead">' ),
+	false !== strpos( $html, '>Students</h2>' ),
+	false !== strpos( $html, '>Semester report</h2>' ),
+	false !== strpos( $html, '>Representatives and agreement</h2>' ),
+), array( 2, 2, true, false, true ) );
+ck( 'the roster no longer names itself: the module does', substr_count( $html, 'wpcpm-roster__title' ), 0 );
+ck( 'a manager gets one mover per module, naming the institution, with the edges disabled', array(
+	substr_count( $html, 'class="wpcpm-module__mover"' ),
+	substr_count( $html, 'name="wpcpm_institution" value="' . $krakow . '"' ),
+	substr_count( $html, 'name="action" value="wpcpm_institution_module_move"' ),
+	1 === preg_match( '/id="wpcpm-module-students">.*?wpcpm-module__move--up[^>]* disabled>/s', $html ),
+	1 === preg_match( '/id="wpcpm-module-people">.*?wpcpm-module__move--down[^>]* disabled>/s', $html ),
+	in_array( 'wpcpm-modules', (array) $GLOBALS['scripts'], true ),
+), array( 2, 2, 2, true, true, false ) );
+
+$GLOBALS['uid'] = $manager;
+$_POST          = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up' );
+ck( 'a manager moves a module for the institution and lands back on its page at the module', ran_move(), 'redirect: https://example.test/institution-dashboard/?wpcpm_institution_view=' . $krakow . '#wpcpm-module-people' );
+ck( 'the order is the institution\'s own', isset( $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] ) ? $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] : null, array( 'students', 'people', 'report' ) );
+$_POST = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up', 'wpcpm_async' => '1' );
+ck( 'the script gets the kept order back as JSON', ran_move(), 'json: {"order":["people","students","report"]}' );
+$_POST = array( 'wpcpm_institution' => 'not-a-record', 'wpcpm_module' => 'people', 'wpcpm_direction' => 'down' );
+ck( 'a manager naming an institution that is not a record, and belonging to none, is refused', ran_move(), 'die: 403' );
+$_POST = array();
+$GLOBALS['uid'] = 0;
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

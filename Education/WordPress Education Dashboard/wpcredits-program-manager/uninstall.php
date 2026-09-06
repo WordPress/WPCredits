@@ -31,6 +31,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-program.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-icons.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-request.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-return.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-module-order.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-flash.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-ceiling.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-refusal-meter.php';
@@ -167,6 +168,11 @@ delete_option( WPCPM_Notices::OPT_MIGRATED );
 // student's own order since 1.95.12.
 delete_option( 'wpcpm_student_modules' );
 delete_metadata( 'user', 0, 'wpcpm_student_modules', '', true );
+
+// Every institution's module order (1.96.4).
+foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'wpcpm_institution_modules_' ) . '%' ) ) as $wpcpm_module_option ) {
+	delete_option( $wpcpm_module_option );
+}
 delete_option( WPCPM_Notices::OPT_PLAIN );
 delete_metadata( 'post', 0, WPCPM_Notices::META_AUDIENCE, '', true );
 

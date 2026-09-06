@@ -142,6 +142,7 @@ class WPCPM_Sponsor_Tools {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-module-order.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 
 $GLOBALS['users'][1]  = new WP_User( 1, 'Program Manager', array( 'administrator' ) );
@@ -239,7 +240,7 @@ $_GET                = array( 'wpcpm_student_view' => '30' );
 $html                = WPCPM_Students_Dashboard::render();
 ck( 'the modules, in the student\'s saved order', module_ids( $html ), array( 'course', 'forms', 'updates', 'calls', 'tools' ) );
 ck( 'each module wears its own class', substr_count( $html, 'class="wpcpm-module wpcpm-module--' ), 5 );
-ck( 'a manager gets one mover per module, and the script that moves them in place', array( substr_count( $html, 'class="wpcpm-module__mover"' ), in_array( 'wpcpm-student-modules', $GLOBALS['enqueued'], true ) ), array( 5, true ) );
+ck( 'a manager gets one mover per module, and the script that moves them in place', array( substr_count( $html, 'class="wpcpm-module__mover"' ), in_array( 'wpcpm-modules', $GLOBALS['enqueued'], true ) ), array( 5, true ) );
 ck( 'two arrows each, posting the action with a nonce', array( substr_count( $html, 'wpcpm-module__move--up' ), substr_count( $html, 'wpcpm-module__move--down' ), substr_count( $html, 'name="action" value="wpcpm_student_module_move"' ), substr_count( $html, 'name="_wpnonce"' ) ), array( 5, 5, 5, 5 ) );
 ck( 'the arrows say which module they move, and what to announce once it has', array( substr_count( $html, 'aria-label="Move My course up"' ), substr_count( $html, 'aria-label="Move Program updates and resources down"' ), substr_count( $html, 'data-wpcpm-moved="My mentor call moved up."' ) ), array( 1, 1, 1 ) );
 ck( 'the top module cannot go up and the bottom one cannot go down; nothing else is disabled', array(
@@ -261,7 +262,7 @@ $GLOBALS['enqueued'] = array();
 $_GET                = array();
 $html                = WPCPM_Students_Dashboard::render();
 ck( 'the student sees their own order', module_ids( $html ), array( 'course', 'forms', 'updates', 'calls', 'tools' ) );
-ck( 'with the arrows and the script, since the page is theirs to arrange', array( substr_count( $html, 'class="wpcpm-module__mover"' ), substr_count( $html, 'name="wpcpm_student" value="30"' ), in_array( 'wpcpm-student-modules', $GLOBALS['enqueued'], true ) ), array( 5, 5, true ) );
+ck( 'with the arrows and the script, since the page is theirs to arrange', array( substr_count( $html, 'class="wpcpm-module__mover"' ), substr_count( $html, 'name="wpcpm_student" value="30"' ), in_array( 'wpcpm-modules', $GLOBALS['enqueued'], true ) ), array( 5, 5, true ) );
 ck( 'on their own page the tools module is theirs', 1 === preg_match( '/id="wpcpm-module-tools">.*?<!-- tools -->/s', $html ), true );
 
 $GLOBALS['program'] = array();

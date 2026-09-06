@@ -139,7 +139,12 @@ class WPCPM_Institution_Roster_View {
 		$here = remove_query_arg( self::ARG_STUDENT );
 
 		echo '<section class="wpcpm-roster">';
-		printf( '<h2 class="wpcpm-roster__title">%s</h2>', esc_html__( 'Students', 'wpcredits-program-manager' ) );
+
+		// The Institution Dashboard titles the module this roster sits in (1.96.4); anywhere
+		// else the roster names itself.
+		if ( empty( $context['module_titled'] ) ) {
+			printf( '<h2 class="wpcpm-roster__title">%s</h2>', esc_html__( 'Students', 'wpcredits-program-manager' ) );
+		}
 
 		self::render_filters( $record_id, $cohorts, $cohort, $filters, ! empty( $context['can_manage'] ) );
 		self::render_strip( $rows, $cohort, $read );

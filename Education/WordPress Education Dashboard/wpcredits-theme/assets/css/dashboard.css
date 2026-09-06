@@ -612,27 +612,62 @@
 	margin: 0;
 }
 
-.wpc-student-page .wpcpm-module__mover {
+.wpc-dashboard-page .wpcpm-module__mover {
 	flex-direction: row;
 	right: 32px;
 	top: 18px;
 }
 
-.wpc-student-page .wpcpm-module > .wpcpm-student__section:first-of-type .wpcpm-student__heading:first-of-type {
+.wpc-student-page .wpcpm-module > .wpcpm-student__section:first-of-type .wpcpm-student__heading:first-of-type,
+.wpc-dashboard-page .wpcpm-module > .wpcpm-student__heading:first-of-type {
 	padding-right: 60px;
 }
 
-.wpc-student-page .wpcpm-module__move {
+/* The Institution Dashboard's three modules (plugin 1.96.4): each starts with an eyebrow title
+   and a lead sentence at the cards' 32px inset, the shapes and values of the Sponsor Dashboard's
+   groups (`.wpcpm-sponsor__group-title` and `-lead` below), and the modules are divided the way
+   those groups are: one line, the card base's 2.5em margin and 2em padding. The mover rules
+   above are the dashboards' now, not the student page's alone. */
+.wpc-institution-page .wpcpm-module + .wpcpm-module {
+	border-top: 1px solid var( --wpcpm-border );
+	margin-top: 2.5em;
+}
+
+/* 20px over every module's title, first or not - the student section's top padding - so the
+   title's line sits where the arrows expect it (18px down, centered on a 14px/20px line), the
+   way it does on the Student Report Card (1.23.11). */
+.wpc-institution-page .wpcpm-module {
+	padding-top: 20px;
+}
+
+.wpc-institution-page .wpcpm-institution__module-title,
+.wpc-institution-page .wpcpm-institution__module-lead {
+	padding-left: 32px;
+	padding-right: 32px;
+}
+
+.wpc-institution-page .wpcpm-institution__module-lead {
+	margin-bottom: 16px;
+	margin-top: 0;
+}
+
+/* The gap the "Invite a colleague" heading was missing under the representatives' list
+   (owner, 1.23.10): the people card's own rhythm, 24px. */
+.wpc-institution-page .wpcpm-people__list + .wpcpm-people__subtitle {
+	margin-top: 24px;
+}
+
+.wpc-dashboard-page .wpcpm-module__move {
 	border-color: var( --wpc-control-border );
 	color: var( --wpc-ink-70 );
 }
 
-.wpc-student-page .wpcpm-module__move:hover {
+.wpc-dashboard-page .wpcpm-module__move:hover {
 	border-color: var( --wpc-ink );
 	color: var( --wpc-ink );
 }
 
-.wpc-student-page .wpcpm-module__move:focus-visible {
+.wpc-dashboard-page .wpcpm-module__move:focus-visible {
 	outline: 2px solid var( --wpc-brand );
 	outline-offset: 2px;
 }
@@ -640,8 +675,14 @@
 /* The inset narrows to 20px with the sections under 900px, and the arrows follow it. */
 @media ( max-width: 900px ) {
 
-	.wpc-student-page .wpcpm-module__mover {
+	.wpc-dashboard-page .wpcpm-module__mover {
 		right: 20px;
+	}
+
+	.wpc-institution-page .wpcpm-institution__module-title,
+	.wpc-institution-page .wpcpm-institution__module-lead {
+		padding-left: 20px;
+		padding-right: 20px;
 	}
 }
 

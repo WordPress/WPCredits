@@ -47,7 +47,7 @@ class WPCPM_Students_Dashboard {
 	const META_MODULES = 'wpcpm_student_modules';
 
 	/** The script that moves a module in place and saves the order in the background. */
-	const SCRIPT_MODULES = 'wpcpm-student-modules';
+	const SCRIPT_MODULES = 'wpcpm-modules';
 
 	/** Somebody moving a module one place up or down. */
 	const ACTION_MOVE = 'wpcpm_student_module_move';
@@ -382,23 +382,9 @@ class WPCPM_Students_Dashboard {
 	 * @return string[]
 	 */
 	public static function module_order( $student_id ) {
-		$known = array_keys( self::modules() );
 		$saved = $student_id ? get_user_meta( (int) $student_id, self::META_MODULES, true ) : array();
-		$order = array();
 
-		foreach ( is_array( $saved ) ? $saved : array() as $key ) {
-			if ( is_string( $key ) && in_array( $key, $known, true ) && ! in_array( $key, $order, true ) ) {
-				$order[] = $key;
-			}
-		}
-
-		foreach ( $known as $key ) {
-			if ( ! in_array( $key, $order, true ) ) {
-				$order[] = $key;
-			}
-		}
-
-		return $order;
+		return WPCPM_Module_Order::repair( $saved, array_keys( self::modules() ) );
 	}
 
 	/**
@@ -411,23 +397,7 @@ class WPCPM_Students_Dashboard {
 	 * @return string[]
 	 */
 	public static function moved( array $order, $key, $direction ) {
-		$order = array_values( $order );
-		$from  = array_search( $key, $order, true );
-
-		if ( false === $from ) {
-			return $order;
-		}
-
-		$to = 'up' === $direction ? $from - 1 : $from + 1;
-
-		if ( $to < 0 || $to >= count( $order ) ) {
-			return $order;
-		}
-
-		$order[ $from ] = $order[ $to ];
-		$order[ $to ]   = $key;
-
-		return $order;
+		return WPCPM_Module_Order::moved( $order, $key, $direction );
 	}
 
 	/**
@@ -589,51 +559,14 @@ class WPCPM_Students_Dashboard {
 	 */
 	private static function render_mover( $key, $index, $count, WP_User $student ) {
 		$labels = self::modules();
-		$label  = isset( $labels[ $key ] ) ? $labels[ $key ] : $key;
 
-		echo '<form class="wpcpm-module__mover" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_MOVE ) . '">';
-		wp_nonce_field( self::ACTION_MOVE );
-		echo '<input type="hidden" name="' . esc_attr( self::FIELD_MODULE ) . '" value="' . esc_attr( $key ) . '">';
-		echo '<input type="hidden" name="' . esc_attr( self::FIELD_STUDENT ) . '" value="' . (int) $student->ID . '">';
-
-		self::render_move_button( 'up', $label, 0 === $index );
-		self::render_move_button( 'down', $label, $index >= $count - 1 );
-
-		echo '</form>';
-	}
-
-	/**
-	 * One arrow.
-	 *
-	 * @param string $direction `up` or `down`.
-	 * @param string $label     The module's name, for the button's spoken label.
-	 * @param bool   $disabled  Whether the module is already at that edge.
-	 */
-	private static function render_move_button( $direction, $label, $disabled ) {
-		$text = 'up' === $direction
-			/* translators: %s: name of a module on the Student Report Card. */
-			? sprintf( __( 'Move %s up', 'wpcredits-program-manager' ), $label )
-			/* translators: %s: name of a module on the Student Report Card. */
-			: sprintf( __( 'Move %s down', 'wpcredits-program-manager' ), $label );
-
-		// What the script tells a screen reader once the module has moved.
-		$done = 'up' === $direction
-			/* translators: %s: name of a module on the Student Report Card. */
-			? sprintf( __( '%s moved up.', 'wpcredits-program-manager' ), $label )
-			/* translators: %s: name of a module on the Student Report Card. */
-			: sprintf( __( '%s moved down.', 'wpcredits-program-manager' ), $label );
-
-		$path = 'up' === $direction ? 'M6.5 14.5 12 9l5.5 5.5' : 'M6.5 9.5 12 15l5.5-5.5';
-
-		printf(
-			'<button type="submit" class="wpcpm-module__move wpcpm-module__move--%1$s" name="%2$s" value="%1$s" aria-label="%3$s" title="%3$s" data-wpcpm-moved="%6$s"%4$s><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="%5$s" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>',
-			esc_attr( $direction ),
-			esc_attr( self::FIELD_DIRECTION ),
-			esc_attr( $text ),
-			$disabled ? ' disabled' : '',
-			esc_attr( $path ),
-			esc_attr( $done )
+		WPCPM_Module_Order::render_mover(
+			self::ACTION_MOVE,
+			$key,
+			$index,
+			$count,
+			array( self::FIELD_STUDENT => (int) $student->ID ),
+			isset( $labels[ $key ] ) ? $labels[ $key ] : $key
 		);
 	}
 

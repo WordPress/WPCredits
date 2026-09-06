@@ -36,6 +36,23 @@ class WPCPM_Institutions_Dashboard {
 	const STYLE     = 'wpcpm-institution-dashboard';
 
 	/**
+	 * The institution's own order of the movable modules under the header (1.96.4): one option
+	 * per record, a list of module keys, which `module_order()` repairs.
+	 */
+	const OPT_MODULES_PREFIX = 'wpcpm_institution_modules_';
+
+	/** Somebody moving a module one place up or down. */
+	const ACTION_MOVE = 'wpcpm_institution_module_move';
+
+	/** The posted field naming whose page it is. */
+	const FIELD_INSTITUTION = 'wpcpm_institution';
+
+	/** The three modules. The constants are the keys the order is saved by, so they never change. */
+	const MODULE_STUDENTS = 'students';
+	const MODULE_REPORT   = 'report';
+	const MODULE_PEOPLE   = 'people';
+
+	/**
 	 * The page's slug.
 	 *
 	 * Chosen once and never renamed, the way the mentor page's was: the theme matches its
@@ -79,6 +96,7 @@ class WPCPM_Institutions_Dashboard {
 		// shows them nothing at all.
 		add_filter( 'login_redirect', array( __CLASS__, 'login_redirect' ), 10, 3 );
 		add_action( 'admin_init', array( __CLASS__, 'replace_admin_dashboard' ) );
+		add_action( 'admin_post_' . self::ACTION_MOVE, array( __CLASS__, 'handle_move' ) );
 	}
 
 	/**
@@ -403,19 +421,22 @@ class WPCPM_Institutions_Dashboard {
 		// and the card at the foot carries the accepted date instead.
 		self::card( 'WPCPM_Institution_Panel', $record, $context );
 
+		// Under the header the page is three modules - the students, the semester report, the
+		// representatives with the agreement - in the order this institution keeps (1.96.4). A
+		// representative arranges the page, and a program manager arranges it for them, the way
+		// the block editor moves blocks; the arrangement is the institution's, shared by
+		// everybody who reads it. Each module says under its title what it is for.
 		if ( ! $locked ) {
-			self::card( 'WPCPM_Institution_Roster_View', $record, $context );
-			// After the roster and before the people: a school enrolling students has just
-			// read the list it is adding to, and the question the form answers is the one they
-			// arrived with. It draws nothing at all unless the site takes imports, so on every
-			// site that has not switched them on this line costs one method call.
-			self::card( 'WPCPM_Institution_Import_Form', $record, $context );
-			// After the roster and the enrolment form, before the people: the report is written
-			// from the roster a school has just read, and it folds closed unless the address
-			// names a semester, so on an ordinary visit it is one row with a chevron.
-			self::card( 'WPCPM_Semester_Report_Screen', $record, $context );
-			self::card( 'WPCPM_Institution_People', $record, $context );
-			self::card( 'WPCPM_Institution_Agreement_Card', $record, $context );
+			$order    = self::module_order( $record );
+			$can_move = $can_manage || (string) WPCPM_Institution_Members::institution_of( $viewer ) === $record;
+
+			if ( $can_move && wp_script_is( WPCPM_Module_Order::SCRIPT, 'registered' ) ) {
+				wp_enqueue_script( WPCPM_Module_Order::SCRIPT );
+			}
+
+			foreach ( $order as $key ) {
+				self::render_module( $key, $order, $record, $context, $can_move );
+			}
 		}
 
 		echo '</div>';
@@ -456,6 +477,167 @@ class WPCPM_Institutions_Dashboard {
 			// every surface says how old the rows on it are.
 			'read'       => (int) WPCPM_Roster_Index::read( $record_id )['read'],
 		);
+	}
+
+	/**
+	 * The modules under the header, in their default order, each with the name the arrows use.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function modules() {
+		return array(
+			self::MODULE_STUDENTS => __( 'Students', 'wpcredits-program-manager' ),
+			self::MODULE_REPORT   => __( 'Semester report', 'wpcredits-program-manager' ),
+			self::MODULE_PEOPLE   => __( 'Representatives and agreement', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * What each module is for, said once under its title.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function leads() {
+		return array(
+			self::MODULE_STUDENTS => __( 'Your students on the program, by cohort and by where they are, with the export and the enrollment form.', 'wpcredits-program-manager' ),
+			self::MODULE_REPORT   => __( 'The report the program compiles for your institution each semester, for you to review and approve.', 'wpcredits-program-manager' ),
+			self::MODULE_PEOPLE   => __( 'Who at your institution can see this page, invitations to colleagues, and the Collaboration Agreement.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * One institution's order, repaired. An institution that has never moved anything gets the
+	 * default: the students first.
+	 *
+	 * @param string $record Airtable record ID.
+	 * @return string[]
+	 */
+	public static function module_order( $record ) {
+		$saved = '' !== (string) $record ? get_option( self::OPT_MODULES_PREFIX . $record, array() ) : array();
+
+		return WPCPM_Module_Order::repair( $saved, array_keys( self::modules() ) );
+	}
+
+	/**
+	 * Somebody pressed one of the arrows: save the institution's new order. The script that
+	 * moved the module in place asks for the order back as JSON; without it, the form comes
+	 * back to the module that moved, on the same institution's page.
+	 *
+	 * Whose order: a program manager arranges the institution the form names; a representative
+	 * arranges their own institution's page and nobody else's, whatever the form says.
+	 */
+	public static function handle_move() {
+		check_admin_referer( self::ACTION_MOVE );
+
+		$viewer     = wp_get_current_user();
+		$can_manage = current_user_can( WPCPM_Roles::CAP_MANAGE );
+		$asked      = (string) WPCPM_Request::posted_text( self::FIELD_INSTITUTION );
+		$own        = (string) WPCPM_Institution_Members::institution_of( $viewer );
+		$record     = '';
+
+		if ( $can_manage && WPCPM_Mentors_Sync::is_record_id( $asked ) ) {
+			$record = $asked;
+		} elseif ( '' !== $own ) {
+			$record = $own;
+		}
+
+		if ( '' === $record ) {
+			wp_die( esc_html__( 'Only a representative of the institution, or a program manager on their behalf, can arrange an Institution Dashboard.', 'wpcredits-program-manager' ), '', array( 'response' => 403 ) );
+		}
+
+		$key       = WPCPM_Request::posted_key( WPCPM_Module_Order::FIELD_MODULE );
+		$direction = WPCPM_Request::posted_key( WPCPM_Module_Order::FIELD_DIRECTION );
+		$known     = array_key_exists( $key, self::modules() );
+
+		if ( $known && in_array( $direction, array( 'up', 'down' ), true ) ) {
+			update_option( self::OPT_MODULES_PREFIX . $record, WPCPM_Module_Order::moved( self::module_order( $record ), $key, $direction ), false );
+		}
+
+		if ( '1' === WPCPM_Request::posted_key( WPCPM_Module_Order::FIELD_ASYNC ) ) {
+			wp_send_json_success( array( 'order' => self::module_order( $record ) ) );
+		}
+
+		$url = self::page_url();
+		$url = '' !== $url ? $url : home_url( '/' );
+
+		if ( $can_manage && $record !== $own ) {
+			$url = add_query_arg( WPCPM_Institution_Roster::ARG_VIEW, $record, $url );
+		}
+
+		if ( $known ) {
+			$url .= '#wpcpm-module-' . $key;
+		}
+
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * One module: its wrapper, the arrows when the reader may arrange the page, its title and
+	 * lead, and the cards inside. A module with nothing to print is left out altogether, so
+	 * nothing empty is offered to move.
+	 *
+	 * @param string   $key      Module key.
+	 * @param string[] $order    Every module, in this institution's order.
+	 * @param string   $record   Airtable record ID.
+	 * @param array    $context  The cards' context.
+	 * @param bool     $can_move Whether the reader may arrange this page.
+	 */
+	private static function render_module( $key, array $order, $record, array $context, $can_move ) {
+		ob_start();
+		self::render_module_body( $key, $record, $context );
+		$body = trim( (string) ob_get_clean() );
+
+		if ( '' === $body ) {
+			return;
+		}
+
+		$labels = self::modules();
+		$leads  = self::leads();
+
+		printf( '<div class="wpcpm-module wpcpm-module--%1$s" id="wpcpm-module-%1$s">', esc_attr( $key ) );
+
+		if ( $can_move ) {
+			WPCPM_Module_Order::render_mover( self::ACTION_MOVE, $key, (int) array_search( $key, $order, true ), count( $order ), array( self::FIELD_INSTITUTION => $record ), isset( $labels[ $key ] ) ? $labels[ $key ] : $key );
+		}
+
+		printf( '<h2 class="wpcpm-student__heading wpcpm-institution__module-title">%s</h2>', esc_html( isset( $labels[ $key ] ) ? $labels[ $key ] : $key ) );
+
+		if ( ! empty( $leads[ $key ] ) ) {
+			printf( '<p class="wpcpm-student__note wpcpm-institution__module-lead">%s</p>', esc_html( $leads[ $key ] ) );
+		}
+
+		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the cards, each of which escapes what it prints.
+		echo '</div>';
+	}
+
+	/**
+	 * What each module holds.
+	 *
+	 * @param string $key     Module key.
+	 * @param string $record  Airtable record ID.
+	 * @param array  $context The cards' context.
+	 */
+	private static function render_module_body( $key, $record, array $context ) {
+		switch ( $key ) {
+			case self::MODULE_STUDENTS:
+				// The roster, titled by the module rather than by itself, then the enrollment
+				// form: a school enrolling students has just read the list it is adding to.
+				self::card( 'WPCPM_Institution_Roster_View', $record, array_merge( $context, array( 'module_titled' => true ) ) );
+				self::card( 'WPCPM_Institution_Import_Form', $record, $context );
+				break;
+
+			case self::MODULE_REPORT:
+				// Written from the roster a school has just read; it folds closed unless the
+				// address names a semester, so on an ordinary visit it is one row with a chevron.
+				self::card( 'WPCPM_Semester_Report_Screen', $record, $context );
+				break;
+
+			case self::MODULE_PEOPLE:
+				self::card( 'WPCPM_Institution_People', $record, $context );
+				self::card( 'WPCPM_Institution_Agreement_Card', $record, $context );
+				break;
+		}
 	}
 
 	/**

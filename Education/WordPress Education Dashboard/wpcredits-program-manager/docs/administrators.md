@@ -317,6 +317,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_handbook_page_id` | `WPCPM_Handbook_Assistant::OPT_PAGE` |
 | `wpcpm_handbook_page_visible` | `WPCPM_Handbook_Assistant::OPT_APPLIED` |
 | `wpcpm_import_log` | `WPCPM_Institution_Import::OPT_LOG` |
+| `wpcpm_institution_modules_` | `WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX` (each institution's module order) |
 | `wpcpm_institution_page_id` | `WPCPM_Institutions_Dashboard::OPT_PAGE` |
 | `wpcpm_institution_page_title_fixed` | `WPCPM_Institutions_Dashboard::OPT_TITLE_FIXED` |
 | `wpcpm_institutions_index` | `WPCPM_Institutions_Index::OPT_NAME` |
