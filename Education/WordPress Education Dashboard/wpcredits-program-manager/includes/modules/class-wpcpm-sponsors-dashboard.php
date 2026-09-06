@@ -480,7 +480,9 @@ final class WPCPM_Sponsors_Dashboard {
 		);
 
 		foreach ( $groups as $group ) {
-			printf( '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--%1$s"><h2 class="wpcpm-sponsor__group-title">%2$s</h2>', esc_attr( $group['id'] ), esc_html( $group['title'] ) );
+			// The heading takes the eyebrow the Resources and Updates headings wear (the shared
+			// `wpcpm-student__heading` class), inside the group, under the group's own line.
+			printf( '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--%1$s"><h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">%2$s</h2>', esc_attr( $group['id'] ), esc_html( $group['title'] ) );
 
 			foreach ( $group['cards'] as $owner ) {
 				if ( 'people' === $owner ) {
