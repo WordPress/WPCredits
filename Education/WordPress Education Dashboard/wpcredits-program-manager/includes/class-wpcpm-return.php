@@ -28,7 +28,7 @@ final class WPCPM_Return {
 	/** The Administrator Dashboard. */
 	const DASHBOARD = 'dashboard';
 	/** The ids the dashboard's sections carry, minus the `wpcpm-` prefix. */
-	const ANCHORS = array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'programs', 'health' );
+	const ANCHORS = array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-posts', 'programs', 'health' );
 
 	/**
 	 * Print the hidden fields that bring a decision back to the dashboard.

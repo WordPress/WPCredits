@@ -462,6 +462,11 @@ class WPCPM_Sponsor_Tools {
 abstract class WPCPM_Sync_Module {
 	public static function sync_messages() { return array( 'started' => array( 'success', 'Sync started.' ) ); }
 }
+class WPCPM_Sponsor_Posts {
+	public static function pending_all( $limit = 50 ) { return isset( $GLOBALS['sponsor_posts'] ) ? $GLOBALS['sponsor_posts'] : array(); }
+	public static function render_decision( $id, $return = '' ) { echo '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide" data-post="' . (int) $id . '" data-return="' . esc_attr( $return ) . '"></div>'; }
+	public static function messages() { return array( 'post-published' => array( 'success', 'The post is published.' ) ); }
+}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
 
@@ -557,6 +562,7 @@ $GLOBALS['reports'] = array(
 );
 
 $GLOBALS['requests'] = array( 'open' => array( 801, 802 ), 'closed' => array( 803 ) );
+$GLOBALS['sponsor_posts'] = array( array( 'id' => 905, 'title' => 'Ten tips', 'record' => 'recSPN00000000001', 'company' => 'TEST Sponsor', 'author' => 'Member One', 'at' => time() - 3600, 'preview' => 'https://example.test/?p=905&preview=true' ) );
 $GLOBALS['facts'] = array(
 	801 => array( 'id' => 801, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $A, 'institution_name' => 'Uniwersytet Alpha', 'note' => 'Two students without a mentor.', 'at' => time() - 20 * DAY_IN_SECONDS, 'overdue' => true, 'actor' => 21, 'actor_name' => 'Rep One' ),
 	802 => array( 'id' => 802, 'kind' => 'mentor', 'kind_label' => 'A mentor is wanted', 'state' => 'open', 'institution' => $B, 'institution_name' => 'Universidad Beta', 'note' => '', 'at' => time() - DAY_IN_SECONDS, 'overdue' => false, 'actor' => 21, 'actor_name' => 'Rep One' ),
@@ -591,11 +597,11 @@ ck( 'two open requests, one overdue, one closed', array( count( $data['requests'
 ck( 'one locked account', count( $data['locked'] ), 1 );
 
 $counts = WPCPM_Administrators_Cards::counts( $data );
-ck( 'eight tiles in the spec\'s order', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked' ) );
+ck( 'nine tiles in the spec\'s order, the sponsor posts last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts' ) );
 // array_map() keeps the input array's keys, and counts() is keyed by tile name (the
 // previous check pins that order), so the expectation is keyed the same way rather than
 // the plain list the brief first wrote, which could never === an array with string keys.
-ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health' ) );
+ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts' ) );
 
 /* ---- programs() ---------------------------------------------------------- */
 
@@ -632,14 +638,14 @@ $strip = capture( static function () use ( $counts ) { WPCPM_Administrators_Card
 // Eight, counting the opening tag rather than the bare class: the wrapping
 // <ul class="wpcpm-attention__tiles"> also matches the bare needle, since "tiles" starts with
 // "tile", so the bare count would read nine and call the wrapper a ninth tile.
-ck( 'the strip is one section with eight tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ) ), array( 8, true, true ) );
+ck( 'the strip is one section with nine tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ) ), array( 9, true, true, true ) );
 // None of the fixture's eight counts is 0, so this used to hold no matter what render_strip()
 // did with a zero; a tile is zeroed here, from counts()'s own output, so the check can
 // actually fail if --zero ever stops being drawn (final review, Important 6).
 $zero_counts = $counts;
 $zero_counts['locked']['n'] = 0;
 $zero_strip = capture( static function () use ( $zero_counts ) { WPCPM_Administrators_Cards::render_strip( $zero_counts ); } );
-ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 8 ) );
+ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 9 ) );
 
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
 ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-applications"' ) && has( $apps, 'wpcpm-group__disclosure" open' ) && has( $apps, '<span class="wpcpm-group__count">2</span>' ), true );
@@ -694,6 +700,10 @@ ck( 'and it carries the dashboard return', has( $rep, 'name="wpcpm_return" value
 ck( 'an approved report names who approved it', has( $rep, 'Manager Three' ), true );
 
 $req = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_requests( $data['requests'] ); } );
+$sp = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_sponsor_posts( $data['sponsor_posts'] ); } );
+ck( 'the sponsor posts card lists the pending post with its company, its author, the preview link and the decision block bound for the dashboard', array( has( $sp, 'id="wpcpm-sponsor-posts"' ), has( $sp, '<span class="wpcpm-group__count">1</span>' ), has( $sp, '<a href="https://example.test/?p=905&amp;preview=true">Ten tips</a> <span class="wpcpm-administrator__kind">TEST Sponsor</span>' ) || has( $sp, '<a href="https://example.test/?p=905&preview=true">Ten tips</a> <span class="wpcpm-administrator__kind">TEST Sponsor</span>' ), has( $sp, 'By Member One' ), has( $sp, 'data-post="905" data-return="dashboard"' ) ), array( true, true, true, true, true ) );
+$empty_sp = capture( static function () { WPCPM_Administrators_Cards::render_sponsor_posts( array() ); } );
+ck( 'an empty queue says so', has( $empty_sp, 'No sponsor post is waiting for review.' ), true );
 ck( 'open requests draw the decisions, coming back here', substr_count( $req, 'value="wpcpm_resolve_request"' ) === 2 && substr_count( $req, 'name="wpcpm_return" value="dashboard"' ) === 2, true );
 ck( 'the overdue one is marked and the note is printed', has( $req, 'wpcpm-administrator__item--overdue' ) && has( $req, 'Two students without a mentor.' ), true );
 ck( 'the closed list says handled', has( $req, 'Handled' ), true );

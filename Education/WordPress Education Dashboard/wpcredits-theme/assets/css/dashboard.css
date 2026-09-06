@@ -1139,6 +1139,40 @@
 	margin-bottom: 12px;
 }
 
+/* A sponsor post waiting for review (plugin 1.95.5): the decision is one row of Preview, Publish
+   and the folded Return with a note; the disclosure's summary is a button (the `.button` rule
+   above dresses it) with its marker removed, and when it opens it takes the whole row so the
+   note and its button sit under the three, the textarea in the request form's own rule. Values:
+   the Sponsor Dashboard's decide row of 1.22.2 and the request form's controls. */
+.wpc-administrator-page .wpcpm-sponsor-post__decide {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 12px;
+	margin: 12px 0 0;
+}
+
+.wpc-administrator-page .wpcpm-sponsor-post__form {
+	margin: 0;
+}
+
+.wpc-administrator-page .wpcpm-sponsor-post__return > summary {
+	display: inline-block;
+	list-style: none;
+}
+
+.wpc-administrator-page .wpcpm-sponsor-post__return > summary::-webkit-details-marker {
+	display: none;
+}
+
+.wpc-administrator-page .wpcpm-sponsor-post__return[open] {
+	flex: 1 1 100%;
+}
+
+.wpc-administrator-page .wpcpm-sponsor-post__return .wpcpm-administrator__note {
+	margin: 12px 0 8px;
+}
+
 /* One request from the next: room, as the institution's people rows have. The line itself
    stays the plugin's single border (border-top on every .wpcpm-administrator__item after the
    first, assets/css/administrator.css) - repeating it here would draw it twice - only its
@@ -1566,61 +1600,14 @@
 }
 
 /*
- * The Posts card on the Sponsor Dashboard (plugin 1.95.0). One post is a row under a hairline,
- * the shape the Offers card gives an offer above; its state is the pill the offer's state uses;
- * a manager's decision sits under a pending post as one row of the People card's controls.
- * Values: .wpc-sponsor-page .wpcpm-offer, .wpcpm-offer__title, .wpcpm-offer__state, the shared
- * .wpcpm-button rule, and the Institution Dashboard's .wpcpm-people__form controls.
+ * The Posts card on the Sponsor Dashboard (plugin 1.95.0, reshaped in 1.95.4). The list of
+ * posts is the Updates list itself - the same `wpcpm-updates__*` classes "Program updates and
+ * announcements" prints on the Student Report Card and the Mentor Report Card, so the rules
+ * further down dress both alike and nothing here repeats them. What is the card's own: the
+ * actions row under the lead, the wp-admin link in it, and a returned post's note.
  */
-.wpc-sponsor-page .wpcpm-posts {
-	list-style: none;
-	margin: 16px 0 0;
-	padding: 0;
-}
-
-.wpc-sponsor-page .wpcpm-posts__item {
-	border-top: 1px solid var( --wpc-line-soft );
-	margin: 16px 0 0;
-	padding: 16px 0 0;
-}
-
-.wpc-sponsor-page .wpcpm-posts__item:first-child {
-	border-top: 0;
-	margin-top: 0;
-	padding-top: 0;
-}
-
-/* The head: title, state pill and date as one wrapping row, the gaps the row's rather than a
-   space between inline spans (plugin 1.95.3). */
-.wpc-sponsor-page .wpcpm-posts__head {
-	align-items: center;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px 12px;
-}
-
-.wpc-sponsor-page .wpcpm-posts__title {
-	font: 700 16px/22px var( --wpc-font );
-}
-
-.wpc-sponsor-page .wpcpm-posts__state {
-	border: 1px solid var( --wpc-line );
-	border-radius: 999px;
-	font: 600 12px/18px var( --wpc-font );
-	letter-spacing: .04em;
-	padding: 0 7px;
-	text-transform: uppercase;
-}
-
-.wpc-sponsor-page .wpcpm-posts__when {
-	color: var( --wpc-ink-70 );
-	font: 14px/20px var( --wpc-font );
-}
-
-.wpc-sponsor-page .wpcpm-posts__note {
-	color: var( --wpc-ink-70 );
-	font: 14px/20px var( --wpc-font );
-	margin: 4px 0 0;
+.wpc-sponsor-page .wpcpm-updates--posts {
+	margin-top: 16px;
 }
 
 /* The actions under the lead (Write a post, the way into wp-admin) as one row with the
@@ -1639,79 +1626,11 @@
 	font: 14px/20px var( --wpc-font );
 }
 
-/* A manager's decision: Preview, Publish and the folded Return with a note on one row, the
-   hint under them. The three controls take the shared button shape; the disclosure's summary
-   is the third button, with its marker removed. When the return form opens, the disclosure
-   takes the whole row so the form sits under the buttons rather than beside them. */
-.wpc-sponsor-page .wpcpm-posts__decide {
-	align-items: center;
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px 12px;
-	margin: 12px 0 0;
-}
-
-.wpc-sponsor-page .wpcpm-posts__form {
-	margin: 0;
-}
-
-.wpc-sponsor-page .wpcpm-posts__form .button,
-.wpc-sponsor-page .wpcpm-posts__preview,
-.wpc-sponsor-page .wpcpm-posts__return-toggle {
-	background: none;
-	border: 1px solid var( --wpc-brand );
-	border-radius: 8px;
-	color: var( --wpc-brand );
-	cursor: pointer;
-	display: inline-block;
-	font: 600 14px/20px var( --wpc-font );
-	list-style: none;
-	padding: 6px 14px;
-	text-decoration: none;
-}
-
-.wpc-sponsor-page .wpcpm-posts__return-toggle::-webkit-details-marker {
-	display: none;
-}
-
-.wpc-sponsor-page .wpcpm-posts__form .button-primary {
-	background: var( --wpc-brand );
-	color: #fff;
-}
-
-.wpc-sponsor-page .wpcpm-posts__return[open] {
-	flex: 1 1 100%;
-}
-
-.wpc-sponsor-page .wpcpm-posts__form--return {
-	display: grid;
-	gap: 8px;
-	margin: 12px 0 0;
-}
-
-.wpc-sponsor-page .wpcpm-posts__label {
+/* A returned post's note, under its state line, in the note voice. */
+.wpc-sponsor-page .wpcpm-posts__note {
 	color: var( --wpc-ink-70 );
 	font: 14px/20px var( --wpc-font );
-}
-
-.wpc-sponsor-page .wpcpm-posts__form--return textarea {
-	border: 1px solid var( --wpc-control-border );
-	border-radius: var( --wpc-radius-control );
-	box-sizing: border-box;
-	font: 14px/20px var( --wpc-font );
-	padding: 6px 8px;
-	width: 100%;
-}
-
-.wpc-sponsor-page .wpcpm-posts__form--return .button {
-	justify-self: start;
-}
-
-.wpc-sponsor-page .wpcpm-posts__hint {
-	color: var( --wpc-ink-70 );
-	flex: 1 1 100%;
-	font: 14px/20px var( --wpc-font );
-	margin: 0;
+	margin: 4px 0 0;
 }
 
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every

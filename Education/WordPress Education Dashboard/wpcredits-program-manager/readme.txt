@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.95.3
+Stable tag: 1.95.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.95.5 =
+* Administrator Dashboard: a "Sponsor posts to review" card and its tile in the attention strip. Each pending sponsor post shows its company, its author and when it was submitted, with Preview, Publish and a folded "Return with a note" that says what it does (the post goes back to the sponsor's account as a draft and the note is mailed to its author). A decision taken there returns to the dashboard with its sentence. With theme 1.22.6.
+
+= 1.95.4 =
+* Sponsor Dashboard, Posts card: the list of posts takes the Updates list's shape and classes (a bold title, the state and date on one muted line under it, a hairline between), exactly like "Program updates and announcements" on the Student Report Card and the Mentor Report Card. The manager's Publish and Return controls are off the card: the sponsor's accounts submit, a program manager publishes from wp-admin, and the Administrator Dashboard's queue (a later phase) will carry Publish and Return with the note. With theme 1.22.5.
 
 = 1.95.3 =
 * Sponsor Dashboard, Posts card: shorter leads; the actions in one row; each post's title, state and date in one head line; a manager's decision is one row of Preview, Publish and a folded "Return with a note" whose form opens only when chosen, with the level hint under it. With theme 1.22.2.

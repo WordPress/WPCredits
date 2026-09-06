@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.22.4
+Stable tag: 1.22.6
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,12 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.22.6 =
+* Administrator Dashboard: the sponsor posts card's decision row (plugin 1.95.5) - Preview, Publish and the folded Return with a note on one line, the note form under them when opened.
+
+= 1.22.5 =
+* Sponsor Dashboard, Posts card: the list is the Updates list (plugin 1.95.4), so the rules that dressed the card's own rows, pills and decision forms are gone; the actions row and the returned note stay.
 
 = 1.22.4 =
 * The dark footer sits at the foot of the window on every page: the page column is at least the window tall and the main grows into the room. The wordpress.org header and footer wrappers step aside with display: contents, so the 20px stripe above the footer goes.

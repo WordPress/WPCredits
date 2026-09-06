@@ -132,13 +132,15 @@ final class WPCPM_Administrators_Cards {
 				'overdue' => $overdue_request,
 			),
 			'locked'       => WPCPM_Institution_Roster::locked_today(),
+			// Sponsor posts waiting for review (Sponsors module, S3): the facts, never the posts.
+			'sponsor_posts' => class_exists( 'WPCPM_Sponsor_Posts' ) ? WPCPM_Sponsor_Posts::pending_all( self::LIMIT ) : array(),
 			'programs'     => self::programs(),
 			'health'       => self::health(),
 		);
 	}
 
 	/**
-	 * The eight tiles of the attention strip, from the arrays the cards draw.
+	 * The nine tiles of the attention strip, from the arrays the cards draw.
 	 *
 	 * @param array $data What `collect()` returned.
 	 * @return array[] `label`, `n`, `card`, keyed in the strip's order.
@@ -188,7 +190,54 @@ final class WPCPM_Administrators_Cards {
 				'n'     => count( $data['locked'] ),
 				'card'  => 'health',
 			),
+			'sponsor_posts'      => array(
+				'label' => __( 'Sponsor posts to review', 'wpcredits-program-manager' ),
+				'n'     => isset( $data['sponsor_posts'] ) ? count( (array) $data['sponsor_posts'] ) : 0,
+				'card'  => 'sponsor-posts',
+			),
 		);
+	}
+
+	/**
+	 * Sponsor posts waiting for review: each with its company and author, Preview, Publish and
+	 * the folded Return with a note, the decision drawn by the posts class (spec 7.4).
+	 *
+	 * @param array[] $rows What `WPCPM_Sponsor_Posts::pending_all()` returned.
+	 */
+	public static function render_sponsor_posts( array $rows ) {
+		self::card_open( 'sponsor-posts', __( 'Sponsor posts to review', 'wpcredits-program-manager' ), count( $rows ) );
+
+		if ( empty( $rows ) ) {
+			self::empty_line( __( 'No sponsor post is waiting for review.', 'wpcredits-program-manager' ) );
+		}
+
+		foreach ( $rows as $row ) {
+			echo '<article class="wpcpm-administrator__item wpcpm-sponsor-post">';
+			printf(
+				'<h4 class="wpcpm-administrator__item-title"><a href="%1$s">%2$s</a> <span class="wpcpm-administrator__kind">%3$s</span></h4>',
+				esc_url( (string) $row['preview'] ),
+				esc_html( (string) $row['title'] ),
+				esc_html( (string) $row['company'] )
+			);
+			echo '<p class="wpcpm-administrator__facts">';
+			/* translators: %s: how long ago. */
+			printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'Submitted %s ago', 'wpcredits-program-manager' ), human_time_diff( (int) $row['at'], time() ) ) ) );
+
+			if ( '' !== (string) $row['author'] ) {
+				/* translators: %s: the account's name. */
+				printf( '<span class="wpcpm-administrator__fact">%s</span>', esc_html( sprintf( __( 'By %s', 'wpcredits-program-manager' ), (string) $row['author'] ) ) );
+			}
+
+			echo '</p>';
+
+			if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+				WPCPM_Sponsor_Posts::render_decision( (int) $row['id'], WPCPM_Return::DASHBOARD );
+			}
+
+			echo '</article>';
+		}
+
+		self::card_close();
 	}
 
 	/**

@@ -815,7 +815,7 @@ class WPCPM_Sponsor_Posts {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'The program has not enabled posting for this sponsor.', 'wpcredits-program-manager' ) . '</p>';
 			}
 		} else {
-			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories the sponsor writes in the site\'s editor. A post waiting for review is published or returned with a note from here; once published it appears under the sponsor\'s offer on the Student Report Card and the Mentor Report Card, with the company as its author.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories the sponsor writes in the site\'s editor. The sponsor\'s accounts can only submit a post for review; a program manager publishes it from wp-admin. Once published it appears under the sponsor\'s offer on the Student Report Card and the Mentor Report Card, with the company as its author.', 'wpcredits-program-manager' ) . '</p>';
 
 			if ( $can_manage && ! self::posting_enabled( $record ) ) {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'Posting is off for this sponsor. Switch it on the Sponsors screen in wp-admin.', 'wpcredits-program-manager' ) . '</p>';
@@ -836,10 +836,13 @@ class WPCPM_Sponsor_Posts {
 		if ( empty( $posts ) ) {
 			echo '<p class="wpcpm-student__note">' . esc_html__( 'No posts yet.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
-			echo '<ul class="wpcpm-posts">';
+			// The Updates list's own classes, so the posts here look exactly like "Program updates
+			// and announcements" on the Student Report Card and the Mentor Report Card (the owner
+			// asked for one look): a bold title, the state and date under it, a hairline between.
+			echo '<ul class="wpcpm-updates wpcpm-updates--posts">';
 
 			foreach ( $posts as $post ) {
-				self::render_item( $post, $can_manage );
+				self::render_item( $post );
 			}
 
 			echo '</ul>';
@@ -849,82 +852,146 @@ class WPCPM_Sponsor_Posts {
 	}
 
 	/**
-	 * One post on the card.
+	 * One post on the card, in the Updates list's shape: the title (a link to the post once
+	 * published, to the editor while its author may still edit it), then one muted line with the
+	 * state and the date; a returned post shows the manager's note under them. No controls: the
+	 * sponsor's accounts submit, a program manager publishes from wp-admin (spec 7.4), and the
+	 * Administrator Dashboard's queue (Phase S6) is where Publish and Return will live.
 	 *
-	 * @param WP_Post $post       The post.
-	 * @param bool    $can_manage Whether the viewer is a program manager.
+	 * @param WP_Post $post The post.
 	 */
-	private static function render_item( WP_Post $post, $can_manage ) {
+	private static function render_item( WP_Post $post ) {
 		$state = self::state_of( $post );
 		$title = '' !== trim( (string) $post->post_title ) ? $post->post_title : __( '(no title)', 'wpcredits-program-manager' );
 
-		printf( '<li class="wpcpm-posts__item wpcpm-posts__item--%1$s" id="wpcpm-post-%2$d">', esc_attr( $state ), (int) $post->ID );
-
-		// The title, its state and its date on one line: one flex row the theme spaces, rather
-		// than inline text with a space between each part.
-		echo '<div class="wpcpm-posts__head">';
+		printf( '<li class="wpcpm-updates__item wpcpm-posts__item--%1$s" id="wpcpm-post-%2$d">', esc_attr( $state ), (int) $post->ID );
 
 		if ( 'published' === $state ) {
-			printf( '<a class="wpcpm-posts__title" href="%1$s">%2$s</a>', esc_url( get_permalink( $post ) ), esc_html( $title ) );
+			printf( '<a class="wpcpm-updates__link" href="%1$s">%2$s</a>', esc_url( get_permalink( $post ) ), esc_html( $title ) );
 		} elseif ( current_user_can( 'edit_post', $post->ID ) ) {
-			printf( '<a class="wpcpm-posts__title" href="%1$s">%2$s</a>', esc_url( get_edit_post_link( $post->ID, 'raw' ) ), esc_html( $title ) );
+			printf( '<a class="wpcpm-updates__link" href="%1$s">%2$s</a>', esc_url( get_edit_post_link( $post->ID, 'raw' ) ), esc_html( $title ) );
 		} else {
-			printf( '<span class="wpcpm-posts__title">%s</span>', esc_html( $title ) );
+			printf( '<span class="wpcpm-updates__link">%s</span>', esc_html( $title ) );
 		}
 
-		printf( '<span class="wpcpm-posts__state">%s</span>', esc_html( self::state_label( $state ) ) );
-		printf( '<span class="wpcpm-posts__when">%s</span>', esc_html( get_the_modified_date( 'Y-m-d', $post ) ) );
-		echo '</div>';
+		printf(
+			'<span class="wpcpm-updates__date">%1$s &middot; %2$s</span>',
+			esc_html( self::state_label( $state ) ),
+			esc_html( get_the_modified_date( '', $post ) )
+		);
 
 		if ( 'returned' === $state ) {
 			printf( '<p class="wpcpm-posts__note">%s</p>', esc_html( (string) get_post_meta( $post->ID, self::META_RETURN_NOTE, true ) ) );
-		}
-
-		if ( $can_manage && 'pending' === $state ) {
-			self::render_decide( $post );
 		}
 
 		echo '</li>';
 	}
 
 	/**
-	 * Publish and Return, for a manager on a pending post. Two forms: a link that changes state
-	 * is followed by every prefetcher that meets it.
+	 * Every sponsor post waiting for review, oldest first, as the facts the Administrator
+	 * Dashboard's queue prints: no post object leaves this class, so the cards class needs to
+	 * know nothing about posts.
 	 *
-	 * @param WP_Post $post The post.
+	 * @param int $limit How many at most.
+	 * @return array[] `id`, `title`, `record`, `company`, `author`, `at` (Unix time, GMT), `preview`.
 	 */
-	private static function render_decide( WP_Post $post ) {
-		echo '<div class="wpcpm-posts__decide">';
+	public static function pending_all( $limit = 50 ) {
+		$found = get_posts(
+			array(
+				'post_type'                         => 'post',
+				'post_status'                       => 'pending',
+				'numberposts'                       => max( 1, (int) $limit ),
+				'orderby'                           => 'date',
+				'order'                             => 'ASC',
+				'meta_key'                          => WPCPM_Sponsor_Policy::META_POST_SPONSOR,
+				'meta_compare'                      => 'EXISTS',
+				WPCPM_Content_Access::QUERY_UNGATED => true,
+				'suppress_filters'                  => false,
+			)
+		);
 
-		printf( '<a class="wpcpm-posts__preview" href="%1$s">%2$s</a>', esc_url( get_preview_post_link( $post ) ), esc_html__( 'Preview', 'wpcredits-program-manager' ) );
+		$rows = array();
 
-		printf( '<form class="wpcpm-posts__form" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
+		foreach ( (array) $found as $post ) {
+			if ( ! $post instanceof WP_Post ) {
+				continue;
+			}
+
+			$record = trim( (string) get_post_meta( $post->ID, WPCPM_Sponsor_Policy::META_POST_SPONSOR, true ) );
+
+			if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+				continue;
+			}
+
+			$row    = WPCPM_Sponsors_Index::row( $record );
+			$author = get_user_by( 'id', (int) $post->post_author );
+
+			$rows[] = array(
+				'id'      => (int) $post->ID,
+				'title'   => '' !== trim( (string) $post->post_title ) ? (string) $post->post_title : __( '(no title)', 'wpcredits-program-manager' ),
+				'record'  => $record,
+				'company' => is_array( $row ) && '' !== trim( (string) $row['name'] ) ? trim( (string) $row['name'] ) : $record,
+				'author'  => $author instanceof WP_User ? (string) $author->display_name : '',
+				'at'      => (int) get_post_time( 'U', true, $post ),
+				'preview' => (string) get_preview_post_link( $post ),
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * A manager's decision on a pending sponsor post, in the request cards' own shape: Preview,
+	 * Publish, and a folded "Return with a note" whose form opens only when chosen. Drawn by the
+	 * Administrator Dashboard's queue (spec 7.4); the Sponsor Dashboard carries no controls.
+	 *
+	 * @param int    $post_id The post.
+	 * @param string $return  `WPCPM_Return::DASHBOARD` to come back to the dashboard, else ''.
+	 */
+	public static function render_decision( $post_id, $return = '' ) {
+		$post = get_post( (int) $post_id );
+
+		if ( ! $post instanceof WP_Post || 'pending' !== $post->post_status || ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
+		echo '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide">';
+
+		printf( '<a class="button" href="%1$s">%2$s</a>', esc_url( get_preview_post_link( $post ) ), esc_html__( 'Preview', 'wpcredits-program-manager' ) );
+
+		printf( '<form class="wpcpm-sponsor-post__form" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
 		wp_nonce_field( self::ACTION_POST_PUBLISH . '_' . (int) $post->ID );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_POST_PUBLISH ) );
 		printf( '<input type="hidden" name="wpcpm_post" value="%d" />', (int) $post->ID );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $return, 'sponsor-posts' );
+		}
+
 		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Publish', 'wpcredits-program-manager' ) );
 		echo '</form>';
 
-		// The note form stays folded until a manager chooses to return the post: three controls
-		// on one row, and the box only when it is wanted (the owner found the open box and its
-		// button loose on the page).
-		echo '<details class="wpcpm-posts__return">';
-		printf( '<summary class="wpcpm-posts__return-toggle">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
-		printf( '<form class="wpcpm-posts__form wpcpm-posts__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
+		echo '<details class="wpcpm-sponsor-post__return">';
+		printf( '<summary class="button">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
+		printf( '<p class="wpcpm-administrator__note">%s</p>', esc_html__( 'The post goes back to the sponsor\'s account as a draft, and your note is sent to its author by email.', 'wpcredits-program-manager' ) );
+		printf( '<form class="wpcpm-sponsor-post__form wpcpm-sponsor-post__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
 		wp_nonce_field( self::ACTION_POST_RETURN . '_' . (int) $post->ID );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_POST_RETURN ) );
 		printf( '<input type="hidden" name="wpcpm_post" value="%d" />', (int) $post->ID );
+
+		if ( class_exists( 'WPCPM_Return' ) ) {
+			WPCPM_Return::field( (string) $return, 'sponsor-posts' );
+		}
+
 		printf(
-			'<label class="wpcpm-posts__label" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="3" required></textarea>',
+			'<label class="screen-reader-text" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="2" required placeholder="%3$s"></textarea>',
 			(int) $post->ID,
-			esc_html__( 'What should change before it is published', 'wpcredits-program-manager' )
+			esc_html__( 'A note for the author', 'wpcredits-program-manager' ),
+			esc_attr__( 'What should change before it is published', 'wpcredits-program-manager' )
 		);
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Send back to the author', 'wpcredits-program-manager' ) );
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Send back with this note', 'wpcredits-program-manager' ) );
 		echo '</form>';
 		echo '</details>';
-
-		// The one thing about publishing a manager cannot see from the button: the level it keeps.
-		echo '<p class="wpcpm-posts__hint">' . esc_html__( 'Publishing keeps the Students and mentors level. To open the post to everyone, widen its level in the editor after publishing.', 'wpcredits-program-manager' ) . '</p>';
 
 		echo '</div>';
 	}
@@ -1000,6 +1067,14 @@ class WPCPM_Sponsor_Posts {
 	 * @param string $detail Optional detail.
 	 */
 	private static function leave( $status, $record = '', $detail = '' ) {
+		// A decision taken on the Administrator Dashboard goes back there, its sentence on that
+		// page's channel; every other caller returns to the Sponsor Dashboard's card.
+		if ( class_exists( 'WPCPM_Return' ) && WPCPM_Return::DASHBOARD === WPCPM_Request::posted_key( WPCPM_Return::FIELD ) ) {
+			WPCPM_Flash::set( WPCPM_Institutions::FLASH, $status );
+			wp_safe_redirect( WPCPM_Return::url( home_url( '/' ) ) );
+			exit;
+		}
+
 		call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'leave' ), $status, self::CARD, $record, $detail );
 	}
 

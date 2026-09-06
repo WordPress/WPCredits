@@ -87,6 +87,7 @@ function get_permalink( $p ) { $p = get_post( $p ); return $p ? 'https://example
 function get_preview_post_link( $p ) { $p = get_post( $p ); return $p ? 'https://example.test/?p=' . $p->ID . '&preview=true' : ''; }
 function get_edit_post_link( $id, $c = 'display' ) { return 'https://example.test/wp-admin/post.php?post=' . (int) $id . '&action=edit'; }
 function get_the_date( $f, $p ) { return '2026-09-06'; }
+function get_post_time( $f = 'U', $gmt = false, $p = null ) { return 1788600000; }
 function get_the_modified_date( $f, $p ) { return '2026-09-06'; }
 function wp_nonce_field( $a ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />'; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
@@ -127,7 +128,7 @@ function get_posts( array $args ) {
 	$statuses = isset( $args['post_status'] ) ? (array) $args['post_status'] : array( 'publish' );
 	foreach ( $GLOBALS['posts'] as $p ) {
 		if ( 'post' !== $p->post_type || ! in_array( $p->post_status, $statuses, true ) ) { continue; }
-		if ( isset( $args['meta_key'] ) && (string) get_post_meta( $p->ID, $args['meta_key'], true ) !== (string) $args['meta_value'] ) { continue; }
+		if ( isset( $args['meta_key'] ) ) { $have = (string) get_post_meta( $p->ID, $args['meta_key'], true ); if ( isset( $args['meta_compare'] ) && 'EXISTS' === $args['meta_compare'] ) { if ( '' === $have ) { continue; } } elseif ( $have !== (string) ( $args['meta_value'] ?? '' ) ) { continue; } }
 		$out[] = $p;
 	}
 	if ( isset( $args['numberposts'] ) && (int) $args['numberposts'] > 0 ) { $out = array_slice( $out, 0, (int) $args['numberposts'] ); }
@@ -194,8 +195,13 @@ class WPCPM_Request {
 	public static function posted_id( $k ) { return isset( $_POST[ $k ] ) ? absint( $_POST[ $k ] ) : 0; }
 }
 class WPCPM_Flash { public static function set( $channel, $value, $user_id = 0 ) { $GLOBALS['flash'][] = array( $channel, $value ); } }
-class WPCPM_Return { public static function url( $default ) { return $default; } }
+class WPCPM_Return {
+	const FIELD = 'wpcpm_return'; const DASHBOARD = 'dashboard';
+	public static function field( $where, $anchor = '' ) { if ( self::DASHBOARD === $where ) { echo '<input type="hidden" name="wpcpm_return" value="dashboard" /><input type="hidden" name="wpcpm_return_to" value="' . $anchor . '" />'; } }
+	public static function url( $default ) { return ( isset( $_POST['wpcpm_return'] ) && 'dashboard' === $_POST['wpcpm_return'] ) ? 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts' : $default; }
+}
 class WPCPM_Sponsors { const FLASH = 'sponsors_admin'; }
+class WPCPM_Institutions { const FLASH = 'institutions'; }
 class WPCPM_Sponsors_Dashboard {
 	const FLASH = 'sponsor_dashboard';
 	public static function leave( $status, $card, $record = '', $detail = '' ) { throw new WPCPM_Test_Redirect( $status . '|' . $card . '|' . $record . '|' . $detail ); }
@@ -380,15 +386,15 @@ ck( 'the member sees the card with its count, Write a post, and each post with i
 	false !== strpos( $html, '<section class="wpcpm-sponsor__card"><details id="wpcpm-sponsor-posts" class="wpcpm-group wpcpm-group__disclosure">' ),
 	false !== strpos( $html, '<span class="wpcpm-group__count">2</span>' ),
 	false !== strpos( $html, 'href="https://example.test/wp-admin/post-new.php"' ),
-	false !== strpos( $html, 'wpcpm-posts__item--pending' ),
-	false !== strpos( $html, 'wpcpm-posts__item--returned' ),
+	false !== strpos( $html, '<li class="wpcpm-updates__item wpcpm-posts__item--pending"' ),
+	false !== strpos( $html, '<li class="wpcpm-updates__item wpcpm-posts__item--returned"' ),
 	false !== strpos( $html, '<p class="wpcpm-posts__note">Please add a screenshot.</p>' ),
 	false === strpos( $html, 'wpcpm_sponsor_post_publish' ),
 ), array( true, true, true, true, true, true, true ) );
+ck( 'the list is the Updates list: its classes, the title as the link, the state and date on one muted line', array( substr_count( $html, '<ul class="wpcpm-updates wpcpm-updates--posts">' ), false !== strpos( $html, '<a class="wpcpm-updates__link" href="https://example.test/?p=' . $pid . '">Ten tips</a><span class="wpcpm-updates__date">Waiting for review &middot; 2026-09-06</span>' ) || false !== strpos( $html, '<span class="wpcpm-updates__link">Ten tips</span><span class="wpcpm-updates__date">Waiting for review &middot; 2026-09-06</span>' ) ), array( 1, true ) );
 ck( 'the card\'s query stands outside the gate by name and suppresses nothing else', array( $GLOBALS['last_get_posts'][ WPCPM_Content_Access::QUERY_UNGATED ], $GLOBALS['last_get_posts']['suppress_filters'] ), array( true, false ) );
 $html = card( $S, 1 );
-ck( 'a manager sees Publish and Return on the pending post only, and no Write a post', array( substr_count( $html, 'name="action" value="wpcpm_sponsor_post_publish"' ), substr_count( $html, 'name="action" value="wpcpm_sponsor_post_return"' ), strpos( $html, 'post-new.php' ) ), array( 1, 1, false ) );
-ck( 'the decision is one row: Preview, Publish and a folded Return with a note, its label visible, the level hint under them', array( substr_count( $html, '<details class="wpcpm-posts__return"><summary class="wpcpm-posts__return-toggle">Return with a note</summary>' ), false !== strpos( $html, '<label class="wpcpm-posts__label" for="wpcpm-post-note-' . $pid . '">What should change before it is published</label>' ), substr_count( $html, '<p class="wpcpm-posts__hint">' ), substr_count( $html, '<div class="wpcpm-posts__head">' ) ), array( 1, true, 1, 2 ) );
+ck( 'a manager sees the same list with no controls on it and no Write a post: publishing happens in wp-admin', array( substr_count( $html, 'wpcpm_sponsor_post_publish' ), substr_count( $html, 'wpcpm_sponsor_post_return' ), strpos( $html, 'post-new.php' ), false !== strpos( $html, 'a program manager publishes it from wp-admin' ) ), array( 0, 0, false, true ) );
 $html = card( $S, 20 );
 ck( 'a member with posting on also has the way into wp-admin\'s Posts screen beside Write a post', false !== strpos( $html, '<a class="wpcpm-button" href="https://example.test/wp-admin/post-new.php">Write a post</a> <a class="wpcpm-posts__admin" href="https://example.test/wp-admin/edit.php">Your posts in wp-admin</a>' ), true );
 $html = card( $S, 1 );
@@ -494,6 +500,22 @@ WPCPM_Sponsor_Posts::uninstall_accounts();
 ck( 'uninstall takes the three caps off every live account', array( $GLOBALS['users'][20]->caps, $GLOBALS['users'][22]->caps ), array( array(), array() ) );
 WPCPM_Sponsor_Posts::delete_all();
 ck( 'and delete_all() forgets the pass ran', get_option( WPCPM_Sponsor_Posts::OPT_APPLIED, 'gone' ), 'gone' );
+
+echo "\n=== The Administrator Dashboard's queue ===\n";
+$GLOBALS['uid'] = 1;
+$queued = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 20, 'post_title' => 'A queued guide' ) );
+$GLOBALS['pmeta'][ $queued ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S;
+$unstamped = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 1, 'post_title' => 'A program post, pending' ) );
+$rows = WPCPM_Sponsor_Posts::pending_all();
+ck( 'pending_all() lists the pending sponsor posts as facts, the company named, and nothing unstamped or in another state', array( in_array( $queued, array_column( $rows, 'id' ), true ), in_array( $unstamped, array_column( $rows, 'id' ), true ), in_array( $pid, array_column( $rows, 'id' ), true ), $rows[ array_search( $queued, array_column( $rows, 'id' ), true ) ]['company'], $rows[ array_search( $queued, array_column( $rows, 'id' ), true ) ]['author'] ), array( true, false, false, 'TEST Sponsor', 'Member One' ) );
+ob_start(); WPCPM_Sponsor_Posts::render_decision( $queued, WPCPM_Return::DASHBOARD ); $decision = ob_get_clean();
+ck( 'the decision block is the request cards\' shape: Preview, Publish, a folded Return with a note that says what it does, both forms carrying the way back to the dashboard', array( 0 === strpos( $decision, '<div class="wpcpm-request__decide wpcpm-sponsor-post__decide"><a class="button" href="https://example.test/?p=' . $queued . '&preview=true">Preview</a>' ), substr_count( $decision, 'name="wpcpm_return" value="dashboard"' ), substr_count( $decision, 'name="wpcpm_return_to" value="sponsor-posts"' ), false !== strpos( $decision, '<details class="wpcpm-sponsor-post__return"><summary class="button">Return with a note</summary><p class="wpcpm-administrator__note">The post goes back to the sponsor&#039;s account as a draft, and your note is sent to its author by email.</p>' ), false !== strpos( $decision, 'name="action" value="wpcpm_sponsor_post_publish"' ), false !== strpos( $decision, 'name="action" value="wpcpm_sponsor_post_return"' ) ), array( true, 2, 2, true, true, true ) );
+$GLOBALS['uid'] = 20;
+ob_start(); WPCPM_Sponsor_Posts::render_decision( $queued, WPCPM_Return::DASHBOARD ); $none = ob_get_clean();
+ck( 'a member gets no decision block', $none, '' );
+$GLOBALS['flash'] = array();
+$landed = press( 1, array( 'wpcpm_post' => $queued, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-posts' ) );
+ck( 'a decision taken on the Administrator Dashboard goes back there, its sentence on that page\'s channel', array( $landed, end( $GLOBALS['flash'] ), get_post( $queued )->post_status ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts', array( 'institutions', 'post-published' ), 'publish' ) );
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );
