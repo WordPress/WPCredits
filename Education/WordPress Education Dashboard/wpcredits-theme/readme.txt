@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.5 =
+* Dashboards: the administrators' "Viewing as" switcher is lifted out of the dashboard card and set above it, at the card's width.
+
+= 1.23.4 =
+* Student Report Card: the profile and mentor columns share their rows, so the two details tables start level whatever the mentor's card holds; under 900px the two sections stack again instead of standing side by side, squeezed.
+
 = 1.23.3 =
 * Mentor Report Card: the hairline above the "Currently mentoring" row stays, and the search centers on the ordering sentence under the heading (plugin 1.96.3).
 

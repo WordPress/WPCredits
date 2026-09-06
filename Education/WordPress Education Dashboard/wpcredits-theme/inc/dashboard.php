@@ -117,6 +117,43 @@ function wpcredits_dashboard_assets() {
 }
 add_action( 'wp_enqueue_scripts', 'wpcredits_dashboard_assets', 20 );
 
+/**
+ * Lift the administrators' "Viewing as" switcher out of the dashboard card and above it.
+ *
+ * The plugin prints the switcher inside its dashboard block, so it lands inside the
+ * `.wpc-dash` card between the title and the page. The owner wants it outside, above the card
+ * (theme 1.23.5): it is a tool for administrators, not part of the page a student or a mentor
+ * sees. Done here, on the group block's rendered markup, rather than in the plugin: where the
+ * card begins is this theme's arrangement, and a site that does not dress these pages keeps
+ * the switcher where the plugin put it. The form is one self-contained element with no form
+ * inside it, so the first `</form>` after its opening tag closes it.
+ *
+ * @param string $content The block's markup.
+ * @param array  $block   The parsed block.
+ * @return string
+ */
+function wpcredits_lift_switcher( $content, $block ) {
+	if ( empty( $block['blockName'] ) || 'core/group' !== $block['blockName'] ) {
+		return $content;
+	}
+
+	$classes = isset( $block['attrs']['className'] ) ? (string) $block['attrs']['className'] : '';
+
+	if ( ! in_array( 'wpc-dash', preg_split( '/\s+/', $classes ), true ) || false === strpos( $content, 'wpcpm-dashboard__switcher' ) ) {
+		return $content;
+	}
+
+	if ( ! preg_match( '#<form class="wpcpm-dashboard__switcher"[^>]*>.*?</form>#s', $content, $found, PREG_OFFSET_CAPTURE ) ) {
+		return $content;
+	}
+
+	$form    = $found[0][0];
+	$content = substr_replace( $content, '', $found[0][1], strlen( $form ) );
+
+	return '<div class="wp-block-group alignwide wpc-dash__switcher">' . $form . '</div>' . $content;
+}
+add_filter( 'render_block', 'wpcredits_lift_switcher', 10, 2 );
+
 
 
 /**

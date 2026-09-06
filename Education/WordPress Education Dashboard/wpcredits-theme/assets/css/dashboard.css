@@ -510,6 +510,18 @@
 	margin-left: auto;
 }
 
+/* Lifted out of the card and set above it by inc/dashboard.php (1.23.5): the same wide width
+   as the card, its own 16px to the card below, and none of the inset it carried inside the
+   card. Three classes so it beats every per-page and narrow-screen margin rule, wherever
+   they sit in this file. */
+.wpc-dash__switcher {
+	margin: 0 0 16px;
+}
+
+.wpc-dashboard-page .wpc-dash__switcher .wpcpm-dashboard__switcher {
+	margin: 0;
+}
+
 /* ==========================================================================
    Group headers
    ========================================================================== */
@@ -2622,6 +2634,45 @@
 .wpc-student-page .wpcpm-student__grid > .wpcpm-student__section--mentor {
 	grid-column: 2;
 	grid-row: 1;
+}
+
+/* The two columns share their rows (owner, 1.23.4): the heading, the identity card and the
+   details table sit on the same three row lines in both, so the two tables start level
+   whatever the mentor's card holds (a role, a place, the teams) and the student's does not.
+   Subgrid does it without a fixed height; a browser without subgrid keeps the layout above,
+   each column at its own height. Under 900px the columns stack and each section is a block
+   again, or both would land on the same three rows of the one column. */
+@supports ( grid-template-rows: subgrid ) {
+
+	.wpc-student-page .wpcpm-student__grid {
+		grid-template-rows: auto auto auto;
+	}
+
+	.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section:first-of-type,
+	.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section--mentor {
+		align-content: start;
+		display: grid;
+		grid-row: 1 / span 3;
+		grid-template-rows: subgrid;
+	}
+
+	@media ( max-width: 900px ) {
+
+		.wpc-student-page .wpcpm-student__grid {
+			grid-template-rows: none;
+		}
+
+		/* `grid-column` too: the two placements above this block sit later in the file than
+		   the 900px block that stacks the sections, so the mentor kept its second column on a
+		   phone and the two stood side by side, squeezed, instead of one under the other.
+		   Restated here, last in the file, so the stack wins (1.23.4). */
+		.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section:first-of-type,
+		.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section--mentor {
+			display: block;
+			grid-column: 1;
+			grid-row: auto;
+		}
+	}
 }
 
 .wpc-dashboard-page .wpcpm-calls__heading {
