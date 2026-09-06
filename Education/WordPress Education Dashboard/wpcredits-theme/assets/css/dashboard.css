@@ -2648,9 +2648,14 @@
 		grid-template-rows: auto auto auto;
 	}
 
+	/* `align-items: start` as well as `align-content: start`: a grid item stretches to its
+	   track by default, and the shared table track is as tall as the longer table, so the
+	   mentor's table was drawn at the student table's height with every row pulled taller.
+	   Only the tables' top edges are meant to meet; each table keeps its own height (1.23.6). */
 	.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section:first-of-type,
 	.wpc-student-page .wpcpm-student__grid > .wpcpm-student__section--mentor {
 		align-content: start;
+		align-items: start;
 		display: grid;
 		grid-row: 1 / span 3;
 		grid-template-rows: subgrid;
