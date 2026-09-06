@@ -1941,8 +1941,44 @@
 /* The logo lives in the profile card since plugin 1.96.6, under the profile form, with an
    eyebrow of its own: 24px of room over it, the gap between two blocks of a card, and 8px to
    the note under it. */
+/* Two columns in the profile card (plugin 1.96.7): the company's details on the left, its logo
+   on the right, the values of the resources split (`.wpcpm-resources--split` below): two equal
+   tracks, 32px of air before the divider and after it, the divider on the second column. One
+   column again under 900px, the logo under the form with the gap two blocks of a card keep. */
+.wpc-sponsor-page .wpcpm-profile__cols {
+	display: grid;
+	gap: 0;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+.wpc-sponsor-page .wpcpm-profile__col--details {
+	padding-right: 32px;
+}
+
+.wpc-sponsor-page .wpcpm-profile__col--logo {
+	border-left: 1px solid var( --wpc-line-soft );
+	padding-left: 32px;
+}
+
 .wpc-sponsor-page .wpcpm-profile__logo-title {
-	margin: 24px 0 8px;
+	margin: 0 0 8px;
+}
+
+@media ( max-width: 900px ) {
+
+	.wpc-sponsor-page .wpcpm-profile__cols {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+
+	.wpc-sponsor-page .wpcpm-profile__col--details {
+		padding-right: 0;
+	}
+
+	.wpc-sponsor-page .wpcpm-profile__col--logo {
+		border-left: 0;
+		margin-top: 24px;
+		padding-left: 0;
+	}
 }
 
 .wpc-sponsor-page .wpcpm-logo__tiles {

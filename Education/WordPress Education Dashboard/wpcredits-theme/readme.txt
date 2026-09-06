@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.16 =
+* Sponsor Dashboard: the profile card's two columns, details left and logo right with the resources split's divider and air; one column under 900px (plugin 1.96.7).
+
 = 1.23.15 =
 * Sponsor Dashboard: the logo's eyebrow inside the profile card, 24px over it (plugin 1.96.6).
 

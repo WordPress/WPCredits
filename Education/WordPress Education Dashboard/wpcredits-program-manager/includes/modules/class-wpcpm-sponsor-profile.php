@@ -345,6 +345,10 @@ final class WPCPM_Sponsor_Profile {
 		);
 		echo '<div class="wpcpm-group__body">';
 
+		// Two columns (owner, 1.96.7): the company's details on the left, its logo on the right,
+		// the way the Student Report Card's course section keeps its two errands side by side.
+		echo '<div class="wpcpm-profile__cols"><div class="wpcpm-profile__col wpcpm-profile__col--details">';
+
 		printf(
 			'<form method="post" action="%1$s" class="wpcpm-sponsor__form" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
@@ -407,14 +411,19 @@ final class WPCPM_Sponsor_Profile {
 
 		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save profile', 'wpcredits-program-manager' ) );
 		echo '</form>';
+		echo '</div>';
 
-		// The logo, in the same card as the profile (owner, 1.96.6): one section for what the
-		// company looks like to students and mentors, the words and the picture.
+		// The logo, in the same card as the profile (owner, 1.96.6), in the right-hand column
+		// (1.96.7): one section for what the company looks like to students and mentors, the
+		// words on the left and the picture on the right.
 		if ( class_exists( 'WPCPM_Sponsor_Logo' ) && method_exists( 'WPCPM_Sponsor_Logo', 'render_inner' ) ) {
+			echo '<div class="wpcpm-profile__col wpcpm-profile__col--logo">';
 			printf( '<h3 class="wpcpm-student__heading wpcpm-profile__logo-title">%s</h3>', esc_html__( 'Your logo', 'wpcredits-program-manager' ) );
 			WPCPM_Sponsor_Logo::render_inner( $record );
+			echo '</div>';
 		}
 
+		echo '</div>';
 		echo '</div></details></section>';
 	}
 

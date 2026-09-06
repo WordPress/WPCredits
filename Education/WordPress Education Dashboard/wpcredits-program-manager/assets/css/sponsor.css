@@ -83,3 +83,23 @@
 .wpcpm-sponsor .wpcpm-dashboard__message--error { border-left-color: #b32d2e; }
 .wpcpm-sponsor .wpcpm-dashboard__message--info { border-left-color: #2271b1; }
 .wpcpm-sponsor .wpcpm-dashboard__message--warning { border-left-color: #996800; }
+
+/* The profile card's two columns (1.96.7): the company's details on the left, its logo on the
+   right, one column again on a narrow screen. The values of the student page's course columns. */
+.wpcpm-profile__cols {
+	display: grid;
+	gap: 1.5em 2em;
+	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+}
+
+.wpcpm-profile__col > .wpcpm-profile__logo-title {
+	margin-top: 0;
+}
+
+@media ( max-width: 782px ) {
+
+	.wpcpm-profile__cols {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}
+
