@@ -1284,11 +1284,21 @@
 	padding-top: 2em;
 }
 
-.wpc-sponsor-page .wpcpm-sponsor__group-title {
-	padding: 0 32px;
+.wpc-sponsor-page .wpcpm-sponsor__group-title,
+.wpc-sponsor-page .wpcpm-sponsor__group-lead {
+	padding-left: 32px;
+	padding-right: 32px;
 }
 
-.wpc-sponsor-page .wpcpm-sponsor__group-title + .wpcpm-sponsor__card {
+/* What the group's cards do, said once under the heading (plugin 1.95.10): the note voice the
+   shared .wpcpm-student__note rule gives it, 16px over the first card. */
+.wpc-sponsor-page .wpcpm-sponsor__group-lead {
+	margin-bottom: 16px;
+	margin-top: 0;
+}
+
+.wpc-sponsor-page .wpcpm-sponsor__group-title + .wpcpm-sponsor__card,
+.wpc-sponsor-page .wpcpm-sponsor__group-lead + .wpcpm-sponsor__card {
 	border-top: 0;
 	margin-top: 0;
 	padding-top: 0;
@@ -2944,6 +2954,7 @@
 	.wpc-sponsor-page .wpcpm-sponsor__identity,
 	.wpc-sponsor-page .wpcpm-sponsor__card,
 	.wpc-sponsor-page .wpcpm-sponsor__group-title,
+	.wpc-sponsor-page .wpcpm-sponsor__group-lead,
 	.wpc-institution-page .wpcpm-roster {
 		padding-left: 20px;
 		padding-right: 20px;

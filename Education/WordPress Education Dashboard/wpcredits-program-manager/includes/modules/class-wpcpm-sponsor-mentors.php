@@ -336,7 +336,6 @@ final class WPCPM_Sponsor_Mentors {
 		if ( empty( $looking ) ) {
 			echo '<p>' . esc_html__( 'Nobody is on the list right now.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
-			echo '<p class="wpcpm-student__note">' . esc_html__( 'Active mentors who asked to be listed. One press tells your program contact you would like to sponsor one of them.', 'wpcredits-program-manager' ) . '</p>';
 			echo '<div class="wpcpm-mentor-tiles">';
 
 			foreach ( $looking as $mentor ) {

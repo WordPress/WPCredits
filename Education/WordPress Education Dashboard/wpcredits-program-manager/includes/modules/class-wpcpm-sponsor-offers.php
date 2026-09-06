@@ -1275,7 +1275,6 @@ final class WPCPM_Sponsor_Offers {
 			esc_html( number_format_i18n( count( $offers ) ) )
 		);
 		echo '<div class="wpcpm-group__body">';
-		echo '<p class="wpcpm-student__note">' . esc_html__( 'What students get from you and how. An offer is a pool of one-time codes you paste or upload here, or one code or link everyone uses. Switch it on when it is ready: students see it on their Student Report Card the same minute, and only the person who claims a code ever sees it.', 'wpcredits-program-manager' ) . '</p>';
 
 		foreach ( $offers as $offer ) {
 			self::render_offer( $offer, $record );

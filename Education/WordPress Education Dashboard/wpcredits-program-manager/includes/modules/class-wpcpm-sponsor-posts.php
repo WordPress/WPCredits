@@ -803,7 +803,6 @@ class WPCPM_Sponsor_Posts {
 		echo '<div class="wpcpm-group__body">';
 
 		if ( $is_member && ! $can_manage ) {
-			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories for students and mentors, written in the site\'s editor. A program manager publishes what you submit; it then appears under your offer on the Student Report Card and the Mentor Report Card, with your company as its author.', 'wpcredits-program-manager' ) . '</p>';
 
 			if ( self::posting_enabled( $record ) ) {
 				// Write a post opens the editor; the second link is the Posts screen in wp-admin,
@@ -820,7 +819,6 @@ class WPCPM_Sponsor_Posts {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'The program has not enabled posting for this sponsor.', 'wpcredits-program-manager' ) . '</p>';
 			}
 		} else {
-			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories the sponsor writes in the site\'s editor. The sponsor\'s accounts can only submit a post for review; a program manager publishes it from wp-admin. Once published it appears under the sponsor\'s offer on the Student Report Card and the Mentor Report Card, with the company as its author.', 'wpcredits-program-manager' ) . '</p>';
 
 			if ( $can_manage && ! self::posting_enabled( $record ) ) {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'Posting is off for this sponsor. Switch it on the Sponsors screen in wp-admin.', 'wpcredits-program-manager' ) . '</p>';

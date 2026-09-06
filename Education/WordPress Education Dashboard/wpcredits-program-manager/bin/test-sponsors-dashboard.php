@@ -336,6 +336,7 @@ foreach ( array( 'wpcpm-two-factor-marker', 'wpcpm-sponsor__identity', 'wpcpm-ha
 $sorted = $order; sort( $sorted );
 ck( 'a member sees the prompt, the identity, the resources, then the three groups under their headings: Your company (profile, people), What you offer (interests), Mentors', ! in_array( false, $order, true ) && $order === $sorted, true );
 ck( 'each group is a wrapper of its own', substr_count( $out, '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--' ), 3 );
+ck( 'each group says under its heading what its cards do', substr_count( $out, '<p class="wpcpm-student__note wpcpm-sponsor__group-lead">' ), 3 );
 ck( 'the resources are the sponsor audience', $GLOBALS['resources'], array( 'sponsor' ) );
 ck( 'the identity shows the site\'s logo, never Airtable\'s URL', false !== strpos( $out, 'https://example.test/uploads/501.png' ) && false === strpos( $out, 'airtableusercontent' ), true );
 ck( 'the name trimmed, the website completed, the product type and the contact', false !== strpos( $out, '>miniOrange<' ) && false !== strpos( $out, 'href="https://plugins.miniorange.com"' ) && false !== strpos( $out, 'Hosting' ) && false !== strpos( $out, 'Rep One' ) && false !== strpos( $out, 'maciej@a8c.com' ), true );
@@ -347,7 +348,9 @@ $people_card = substr( $out, strpos( $out, 'id="wpcpm-sponsor-people"' ) ); $peo
 ck( 'the people card lists the accounts and offers no form to a member', false !== strpos( $people_card, 'Rep One' ) && 0 === substr_count( $people_card, '<form' ), true );
 ck( 'the stylesheet is registered from assets/css/sponsor.css and switched on', isset( $GLOBALS['styles'][ $D::STYLE ] ) && false !== strpos( $GLOBALS['styles'][ $D::STYLE ]['src'], 'assets/css/sponsor.css' ) && ! empty( $GLOBALS['styles'][ $D::STYLE ]['on'] ), true );
 ck( 'the double-submit guard is armed', in_array( 'wpcpm-forms', $GLOBALS['scripts'], true ), true );
-ck( 'no student is named anywhere', strpos( $out, 'Student' ), false );
+// The product name "Student Report Card" is allowed (the What you offer lead names it); any other
+// "Student" would be a person or a role leaking onto the sponsor's page.
+ck( 'no student is named anywhere', preg_match( '/Student(?! Report Card)/', $out ), 0 );
 
 echo "\n=== A manager ===\n";
 $GLOBALS['uid'] = 1; $GLOBALS['get'] = array( WPCPM_Sponsor_Roster::ARG_VIEW => $B );

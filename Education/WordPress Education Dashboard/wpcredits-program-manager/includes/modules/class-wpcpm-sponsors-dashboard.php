@@ -465,16 +465,19 @@ final class WPCPM_Sponsors_Dashboard {
 			array(
 				'id'    => 'company',
 				'title' => __( 'Your company', 'wpcredits-program-manager' ),
+				'lead'  => __( 'Your company as the program records it, and the people who can sign in for it. Keep the profile current: what you save here is written to the program records. Accounts are attached by your program contact.', 'wpcredits-program-manager' ),
 				'cards' => array( 'WPCPM_Sponsor_Profile', 'people', 'WPCPM_Sponsor_Logo', 'WPCPM_Sponsor_Agreement_Card' ),
 			),
 			array(
 				'id'    => 'offer',
 				'title' => __( 'What you offer', 'wpcredits-program-manager' ),
+				'lead'  => __( 'What you give the program\'s students and mentors. Publish offers: a pool of one-time codes you paste or upload, or one code or link everyone uses, switched on when ready. See how many people claimed each month, with nobody named. Tell the program what else you would like to support. Write posts that appear on the Student Report Card and the Mentor Report Card once a program manager publishes them.', 'wpcredits-program-manager' ),
 				'cards' => array( 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Posts' ),
 			),
 			array(
 				'id'    => 'mentors',
 				'title' => __( 'Mentors', 'wpcredits-program-manager' ),
+				'lead'  => __( 'The mentors your company sponsors, with how many students each one guides, and the active mentors who asked to be listed as looking for a sponsor. One press tells your program contact you would like to sponsor one of them.', 'wpcredits-program-manager' ),
 				'cards' => array( 'WPCPM_Sponsor_Mentors' ),
 			),
 		);
@@ -483,6 +486,9 @@ final class WPCPM_Sponsors_Dashboard {
 			// The heading takes the eyebrow the Resources and Updates headings wear (the shared
 			// `wpcpm-student__heading` class), inside the group, under the group's own line.
 			printf( '<div class="wpcpm-sponsor__group wpcpm-sponsor__group--%1$s"><h2 class="wpcpm-student__heading wpcpm-sponsor__group-title">%2$s</h2>', esc_attr( $group['id'] ), esc_html( $group['title'] ) );
+			// What the group's cards do, said once here rather than inside each folded card (the
+			// owner, 6 September 2026); the cards keep only the notes that belong to a state.
+			printf( '<p class="wpcpm-student__note wpcpm-sponsor__group-lead">%s</p>', esc_html( $group['lead'] ) );
 
 			foreach ( $group['cards'] as $owner ) {
 				if ( 'people' === $owner ) {

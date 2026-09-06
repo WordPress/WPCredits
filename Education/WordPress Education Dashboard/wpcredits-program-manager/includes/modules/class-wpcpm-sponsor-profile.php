@@ -344,7 +344,6 @@ final class WPCPM_Sponsor_Profile {
 			esc_html__( 'Your profile', 'wpcredits-program-manager' )
 		);
 		echo '<div class="wpcpm-group__body">';
-		echo '<p class="wpcpm-student__note">' . esc_html__( 'What the program records hold about your company. Everything here is saved to Airtable when you press Save.', 'wpcredits-program-manager' ) . '</p>';
 
 		printf(
 			'<form method="post" action="%1$s" class="wpcpm-sponsor__form" data-wpcpm-once data-wpcpm-busy="%2$s">',

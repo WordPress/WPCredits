@@ -53,7 +53,9 @@ final class WPCPM_Sponsor_Usage {
 			esc_html( number_format_i18n( (int) $stats['totals']['total'] ) )
 		);
 		echo '<div class="wpcpm-group__body">';
-		echo '<p class="wpcpm-student__note">' . esc_html__( 'How many people claimed from each offer, by month. Nobody is named here and no name is kept for you: the program keeps the list of who claimed, for support.', 'wpcredits-program-manager' ) . '</p>';
+		// A privacy fact, not a description: the group lead says what the card shows; this says
+		// what it never will (spec decision 7).
+		echo '<p class="wpcpm-student__note">' . esc_html__( 'Nobody is named here: the program keeps the list of who claimed, for support.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( empty( $stats['offers'] ) ) {
 			echo '<p>' . esc_html__( 'Numbers appear here once you have an offer.', 'wpcredits-program-manager' ) . '</p>';
