@@ -798,14 +798,14 @@ class WPCPM_Sponsor_Posts {
 		echo '<div class="wpcpm-group__body">';
 
 		if ( $is_member && ! $can_manage ) {
-			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories for students and mentors, written in the site\'s editor. A post you submit waits for a program manager to publish it; it then appears under your offer on the Student Report Card and the Mentor Report Card, with your company as its author.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories for students and mentors, written in the site\'s editor. A program manager publishes what you submit; it then appears under your offer on the Student Report Card and the Mentor Report Card, with your company as its author.', 'wpcredits-program-manager' ) . '</p>';
 
 			if ( self::posting_enabled( $record ) ) {
 				// Write a post opens the editor; the second link is the Posts screen in wp-admin,
 				// where the member's own posts are listed and Add New sits (the fence scopes that
 				// list to theirs). The owner asked for the way into wp-admin to be on the card.
 				printf(
-					'<p class="wpcpm-posts__write"><a class="wpcpm-button" href="%1$s">%2$s</a> <a class="wpcpm-posts__admin" href="%3$s">%4$s</a></p>',
+					'<p class="wpcpm-posts__actions"><a class="wpcpm-button" href="%1$s">%2$s</a> <a class="wpcpm-posts__admin" href="%3$s">%4$s</a></p>',
 					esc_url( admin_url( 'post-new.php' ) ),
 					esc_html__( 'Write a post', 'wpcredits-program-manager' ),
 					esc_url( admin_url( 'edit.php' ) ),
@@ -815,7 +815,7 @@ class WPCPM_Sponsor_Posts {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'The program has not enabled posting for this sponsor.', 'wpcredits-program-manager' ) . '</p>';
 			}
 		} else {
-			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories for students and mentors, written by the sponsor in the site\'s editor. A submitted post waits here for a program manager to publish it; once published it appears under the sponsor\'s offer on the Student Report Card and the Mentor Report Card, with the company as its author. To open a post to everyone, publish it first and widen its level in the editor afterward; a level set while the post is still the author\'s to edit is reset on their next save.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories the sponsor writes in the site\'s editor. A post waiting for review is published or returned with a note from here; once published it appears under the sponsor\'s offer on the Student Report Card and the Mentor Report Card, with the company as its author.', 'wpcredits-program-manager' ) . '</p>';
 
 			if ( $can_manage && ! self::posting_enabled( $record ) ) {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'Posting is off for this sponsor. Switch it on the Sponsors screen in wp-admin.', 'wpcredits-program-manager' ) . '</p>';
@@ -826,7 +826,7 @@ class WPCPM_Sponsor_Posts {
 				$term = self::term_of( $record );
 
 				printf(
-					'<p class="wpcpm-posts__write"><a class="wpcpm-posts__admin" href="%1$s">%2$s</a></p>',
+					'<p class="wpcpm-posts__actions"><a class="wpcpm-posts__admin" href="%1$s">%2$s</a></p>',
 					esc_url( $term > 0 ? add_query_arg( 'cat', $term, admin_url( 'edit.php' ) ) : admin_url( 'edit.php' ) ),
 					esc_html__( 'This sponsor\'s posts in wp-admin', 'wpcredits-program-manager' )
 				);
@@ -860,6 +860,10 @@ class WPCPM_Sponsor_Posts {
 
 		printf( '<li class="wpcpm-posts__item wpcpm-posts__item--%1$s" id="wpcpm-post-%2$d">', esc_attr( $state ), (int) $post->ID );
 
+		// The title, its state and its date on one line: one flex row the theme spaces, rather
+		// than inline text with a space between each part.
+		echo '<div class="wpcpm-posts__head">';
+
 		if ( 'published' === $state ) {
 			printf( '<a class="wpcpm-posts__title" href="%1$s">%2$s</a>', esc_url( get_permalink( $post ) ), esc_html( $title ) );
 		} elseif ( current_user_can( 'edit_post', $post->ID ) ) {
@@ -868,8 +872,9 @@ class WPCPM_Sponsor_Posts {
 			printf( '<span class="wpcpm-posts__title">%s</span>', esc_html( $title ) );
 		}
 
-		printf( ' <span class="wpcpm-posts__state">%s</span>', esc_html( self::state_label( $state ) ) );
-		printf( ' <span class="wpcpm-posts__when">%s</span>', esc_html( get_the_modified_date( 'Y-m-d', $post ) ) );
+		printf( '<span class="wpcpm-posts__state">%s</span>', esc_html( self::state_label( $state ) ) );
+		printf( '<span class="wpcpm-posts__when">%s</span>', esc_html( get_the_modified_date( 'Y-m-d', $post ) ) );
+		echo '</div>';
 
 		if ( 'returned' === $state ) {
 			printf( '<p class="wpcpm-posts__note">%s</p>', esc_html( (string) get_post_meta( $post->ID, self::META_RETURN_NOTE, true ) ) );
@@ -900,18 +905,26 @@ class WPCPM_Sponsor_Posts {
 		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html__( 'Publish', 'wpcredits-program-manager' ) );
 		echo '</form>';
 
+		// The note form stays folded until a manager chooses to return the post: three controls
+		// on one row, and the box only when it is wanted (the owner found the open box and its
+		// button loose on the page).
+		echo '<details class="wpcpm-posts__return">';
+		printf( '<summary class="wpcpm-posts__return-toggle">%s</summary>', esc_html__( 'Return with a note', 'wpcredits-program-manager' ) );
 		printf( '<form class="wpcpm-posts__form wpcpm-posts__form--return" method="post" action="%s" data-wpcpm-once>', esc_url( admin_url( 'admin-post.php' ) ) );
 		wp_nonce_field( self::ACTION_POST_RETURN . '_' . (int) $post->ID );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_POST_RETURN ) );
 		printf( '<input type="hidden" name="wpcpm_post" value="%d" />', (int) $post->ID );
 		printf(
-			'<label class="screen-reader-text" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="2" required placeholder="%3$s"></textarea>',
+			'<label class="wpcpm-posts__label" for="wpcpm-post-note-%1$d">%2$s</label><textarea id="wpcpm-post-note-%1$d" name="wpcpm_note" rows="3" required></textarea>',
 			(int) $post->ID,
-			esc_html__( 'A note for the author', 'wpcredits-program-manager' ),
-			esc_attr__( 'What should change before it is published', 'wpcredits-program-manager' )
+			esc_html__( 'What should change before it is published', 'wpcredits-program-manager' )
 		);
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Return with this note', 'wpcredits-program-manager' ) );
+		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Send back to the author', 'wpcredits-program-manager' ) );
 		echo '</form>';
+		echo '</details>';
+
+		// The one thing about publishing a manager cannot see from the button: the level it keeps.
+		echo '<p class="wpcpm-posts__hint">' . esc_html__( 'Publishing keeps the Students and mentors level. To open the post to everyone, widen its level in the editor after publishing.', 'wpcredits-program-manager' ) . '</p>';
 
 		echo '</div>';
 	}

@@ -1568,13 +1568,13 @@
 /*
  * The Posts card on the Sponsor Dashboard (plugin 1.95.0). One post is a row under a hairline,
  * the shape the Offers card gives an offer above; its state is the pill the offer's state uses;
- * a manager's Publish and Return sit under a pending post as the People card's controls do.
+ * a manager's decision sits under a pending post as one row of the People card's controls.
  * Values: .wpc-sponsor-page .wpcpm-offer, .wpcpm-offer__title, .wpcpm-offer__state, the shared
  * .wpcpm-button rule, and the Institution Dashboard's .wpcpm-people__form controls.
  */
 .wpc-sponsor-page .wpcpm-posts {
 	list-style: none;
-	margin: 0;
+	margin: 16px 0 0;
 	padding: 0;
 }
 
@@ -1590,6 +1590,15 @@
 	padding-top: 0;
 }
 
+/* The head: title, state pill and date as one wrapping row, the gaps the row's rather than a
+   space between inline spans (plugin 1.95.3). */
+.wpc-sponsor-page .wpcpm-posts__head {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 12px;
+}
+
 .wpc-sponsor-page .wpcpm-posts__title {
 	font: 700 16px/22px var( --wpc-font );
 }
@@ -1599,10 +1608,8 @@
 	border-radius: 999px;
 	font: 600 12px/18px var( --wpc-font );
 	letter-spacing: .04em;
-	margin-left: 6px;
 	padding: 0 7px;
 	text-transform: uppercase;
-	vertical-align: middle;
 }
 
 .wpc-sponsor-page .wpcpm-posts__when {
@@ -1616,19 +1623,27 @@
 	margin: 4px 0 0;
 }
 
-.wpc-sponsor-page .wpcpm-posts__write {
+/* The actions under the lead (Write a post, the way into wp-admin) as one row with the
+   People card's 16px gap; 16px below before the list, which the list's own top margin
+   collapses into. */
+.wpc-sponsor-page .wpcpm-posts__actions {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
 	margin: 0 0 16px;
 }
 
-/* The way into wp-admin's Posts screen, a text link beside the Write a post button (plugin
-   1.95.2): the note size, 12px off the button so the two read as a pair. */
 .wpc-sponsor-page .wpcpm-posts__admin {
 	font: 14px/20px var( --wpc-font );
-	margin-left: 12px;
 }
 
+/* A manager's decision: Preview, Publish and the folded Return with a note on one row, the
+   hint under them. The three controls take the shared button shape; the disclosure's summary
+   is the third button, with its marker removed. When the return form opens, the disclosure
+   takes the whole row so the form sits under the buttons rather than beside them. */
 .wpc-sponsor-page .wpcpm-posts__decide {
-	align-items: flex-start;
+	align-items: center;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px 12px;
@@ -1636,41 +1651,66 @@
 }
 
 .wpc-sponsor-page .wpcpm-posts__form {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
 	margin: 0;
 }
 
-.wpc-sponsor-page .wpcpm-posts__form--return {
+.wpc-sponsor-page .wpcpm-posts__form .button,
+.wpc-sponsor-page .wpcpm-posts__preview,
+.wpc-sponsor-page .wpcpm-posts__return-toggle {
+	background: none;
+	border: 1px solid var( --wpc-brand );
+	border-radius: 8px;
+	color: var( --wpc-brand );
+	cursor: pointer;
+	display: inline-block;
+	font: 600 14px/20px var( --wpc-font );
+	list-style: none;
+	padding: 6px 14px;
+	text-decoration: none;
+}
+
+.wpc-sponsor-page .wpcpm-posts__return-toggle::-webkit-details-marker {
+	display: none;
+}
+
+.wpc-sponsor-page .wpcpm-posts__form .button-primary {
+	background: var( --wpc-brand );
+	color: #fff;
+}
+
+.wpc-sponsor-page .wpcpm-posts__return[open] {
 	flex: 1 1 100%;
+}
+
+.wpc-sponsor-page .wpcpm-posts__form--return {
+	display: grid;
+	gap: 8px;
+	margin: 12px 0 0;
+}
+
+.wpc-sponsor-page .wpcpm-posts__label {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
 }
 
 .wpc-sponsor-page .wpcpm-posts__form--return textarea {
 	border: 1px solid var( --wpc-control-border );
 	border-radius: var( --wpc-radius-control );
 	box-sizing: border-box;
-	flex: 1 1 24em;
 	font: 14px/20px var( --wpc-font );
-	min-width: 0;
 	padding: 6px 8px;
+	width: 100%;
 }
 
-.wpc-sponsor-page .wpcpm-posts__form .button,
-.wpc-sponsor-page .wpcpm-posts__preview {
-	background: none;
-	border: 1px solid var( --wpc-brand );
-	border-radius: 8px;
-	color: var( --wpc-brand );
-	cursor: pointer;
-	font: 600 14px/20px var( --wpc-font );
-	padding: 6px 14px;
-	text-decoration: none;
+.wpc-sponsor-page .wpcpm-posts__form--return .button {
+	justify-self: start;
 }
 
-.wpc-sponsor-page .wpcpm-posts__form .button-primary {
-	background: var( --wpc-brand );
-	color: #fff;
+.wpc-sponsor-page .wpcpm-posts__hint {
+	color: var( --wpc-ink-70 );
+	flex: 1 1 100%;
+	font: 14px/20px var( --wpc-font );
+	margin: 0;
 }
 
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every
