@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.95.1
+Stable tag: 1.95.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.95.2 =
+* Sponsor Dashboard, Posts card: the way into wp-admin's Posts screen sits beside Write a post for a sponsor's accounts, and a program manager gets the same screen filtered to the sponsor's category. With theme 1.22.1.
 
 = 1.95.1 =
 * The author of a post reads it whatever its access level: a sponsor's accounts can open their own published guides, which sit at the Students and mentors level while the accounts hold the sponsor marker alone. Found on the live demonstration of 1.95.0.

@@ -1620,6 +1620,13 @@
 	margin: 0 0 16px;
 }
 
+/* The way into wp-admin's Posts screen, a text link beside the Write a post button (plugin
+   1.95.2): the note size, 12px off the button so the two read as a pair. */
+.wpc-sponsor-page .wpcpm-posts__admin {
+	font: 14px/20px var( --wpc-font );
+	margin-left: 12px;
+}
+
 .wpc-sponsor-page .wpcpm-posts__decide {
 	align-items: flex-start;
 	display: flex;

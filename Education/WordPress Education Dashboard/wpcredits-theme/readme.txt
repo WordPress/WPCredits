@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.22.0
+Stable tag: 1.22.1
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.22.1 =
+* Sponsor Dashboard, Posts card: the link to wp-admin's Posts screen beside the Write a post button (plugin 1.95.2).
 
 = 1.22.0 =
 * Sponsor Dashboard: the Posts card (plugin 1.95.0): posts as rows under hairlines with their state pills, Write a post as the shared button, a manager's Publish and Return under a pending post with the theme's controls.

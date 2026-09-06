@@ -801,10 +801,15 @@ class WPCPM_Sponsor_Posts {
 			echo '<p class="wpcpm-student__note">' . esc_html__( 'Guides and stories for students and mentors, written in the site\'s editor. A post you submit waits for a program manager to publish it; it then appears under your offer on the Student Report Card and the Mentor Report Card, with your company as its author.', 'wpcredits-program-manager' ) . '</p>';
 
 			if ( self::posting_enabled( $record ) ) {
+				// Write a post opens the editor; the second link is the Posts screen in wp-admin,
+				// where the member's own posts are listed and Add New sits (the fence scopes that
+				// list to theirs). The owner asked for the way into wp-admin to be on the card.
 				printf(
-					'<p class="wpcpm-posts__write"><a class="wpcpm-button" href="%1$s">%2$s</a></p>',
+					'<p class="wpcpm-posts__write"><a class="wpcpm-button" href="%1$s">%2$s</a> <a class="wpcpm-posts__admin" href="%3$s">%4$s</a></p>',
 					esc_url( admin_url( 'post-new.php' ) ),
-					esc_html__( 'Write a post', 'wpcredits-program-manager' )
+					esc_html__( 'Write a post', 'wpcredits-program-manager' ),
+					esc_url( admin_url( 'edit.php' ) ),
+					esc_html__( 'Your posts in wp-admin', 'wpcredits-program-manager' )
 				);
 			} else {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'The program has not enabled posting for this sponsor.', 'wpcredits-program-manager' ) . '</p>';
@@ -814,6 +819,17 @@ class WPCPM_Sponsor_Posts {
 
 			if ( $can_manage && ! self::posting_enabled( $record ) ) {
 				echo '<p class="wpcpm-student__note">' . esc_html__( 'Posting is off for this sponsor. Switch it on the Sponsors screen in wp-admin.', 'wpcredits-program-manager' ) . '</p>';
+			}
+
+			if ( $can_manage ) {
+				// The Posts screen in wp-admin, filtered to this sponsor's category when it exists.
+				$term = self::term_of( $record );
+
+				printf(
+					'<p class="wpcpm-posts__write"><a class="wpcpm-posts__admin" href="%1$s">%2$s</a></p>',
+					esc_url( $term > 0 ? add_query_arg( 'cat', $term, admin_url( 'edit.php' ) ) : admin_url( 'edit.php' ) ),
+					esc_html__( 'This sponsor\'s posts in wp-admin', 'wpcredits-program-manager' )
+				);
 			}
 		}
 

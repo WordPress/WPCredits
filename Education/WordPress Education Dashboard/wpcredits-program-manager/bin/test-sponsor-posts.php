@@ -81,6 +81,7 @@ function current_time( $type, $gmt = 0 ) { return $GLOBALS['now']; }
 function wp_date( $f, $ts = null ) { return gmdate( $f, null === $ts ? 1788600000 : (int) $ts ); }
 function number_format_i18n( $n ) { return (string) $n; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+function add_query_arg( $k, $v, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $k . '=' . rawurlencode( (string) $v ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function get_permalink( $p ) { $p = get_post( $p ); return $p ? 'https://example.test/?p=' . $p->ID : ''; }
 function get_preview_post_link( $p ) { $p = get_post( $p ); return $p ? 'https://example.test/?p=' . $p->ID . '&preview=true' : ''; }
@@ -387,9 +388,13 @@ ck( 'the member sees the card with its count, Write a post, and each post with i
 ck( 'the card\'s query stands outside the gate by name and suppresses nothing else', array( $GLOBALS['last_get_posts'][ WPCPM_Content_Access::QUERY_UNGATED ], $GLOBALS['last_get_posts']['suppress_filters'] ), array( true, false ) );
 $html = card( $S, 1 );
 ck( 'a manager sees Publish and Return on the pending post only, and no Write a post', array( substr_count( $html, 'name="action" value="wpcpm_sponsor_post_publish"' ), substr_count( $html, 'name="action" value="wpcpm_sponsor_post_return"' ), strpos( $html, 'post-new.php' ) ), array( 1, 1, false ) );
+$html = card( $S, 20 );
+ck( 'a member with posting on also has the way into wp-admin\'s Posts screen beside Write a post', false !== strpos( $html, '<a class="wpcpm-button" href="https://example.test/wp-admin/post-new.php">Write a post</a> <a class="wpcpm-posts__admin" href="https://example.test/wp-admin/edit.php">Your posts in wp-admin</a>' ), true );
+$html = card( $S, 1 );
+ck( 'a manager has the Posts screen filtered to the sponsor\'s category', false !== strpos( $html, '<a class="wpcpm-posts__admin" href="https://example.test/wp-admin/edit.php?cat=' . WPCPM_Sponsor_Posts::term_of( $S ) . '">This sponsor&#039;s posts in wp-admin</a>' ), true );
 WPCPM_Sponsor_Posts::set_posting( $S, false, 1 );
 $html = card( $S, 20 );
-ck( 'with posting off the member reads one sentence instead of Write a post', array( false !== strpos( $html, 'The program has not enabled posting for this sponsor.' ), strpos( $html, 'post-new.php' ) ), array( true, false ) );
+ck( 'with posting off the member reads one sentence instead of Write a post, and no wp-admin link', array( false !== strpos( $html, 'The program has not enabled posting for this sponsor.' ), strpos( $html, 'post-new.php' ), strpos( $html, 'edit.php' ) ), array( true, false, false ) );
 WPCPM_Sponsor_Posts::set_posting( $S, true, 1 );
 ck( 'an empty card says so in the page\'s own words', false !== strpos( card( $S2, 1 ), '<p class="wpcpm-student__note">No posts yet.</p>' ), true );
 $html = card( $S, 20, 'posts' );
