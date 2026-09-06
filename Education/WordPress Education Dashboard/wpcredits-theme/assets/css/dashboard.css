@@ -122,6 +122,9 @@
 	align-items: center;
 	background: var( --wpc-surface-soft );
 	border-bottom: 1px solid var( --wpc-line );
+	/* A hairline above the mentor's photo too, the one the Student Report Card's first section
+	   draws under the title (owner, 1.23.7). */
+	border-top: 1px solid var( --wpc-line-soft );
 	display: flex;
 	flex-wrap: wrap;
 	gap: 16px;
@@ -143,6 +146,12 @@
 
 .wpc-dash__band .wpcpm-dashboard__mentor {
 	padding: 0;
+}
+
+/* The same hairline when there is no band: a mentor with no students to group gets the
+   header on its own (1.23.7). */
+.wpc-dashboard-page .wpcpm-dashboard > .wpcpm-dashboard__mentor {
+	border-top: 1px solid var( --wpc-line-soft );
 }
 
 /* Profile photos wear the credits-program-mentors mount - a white ring with a

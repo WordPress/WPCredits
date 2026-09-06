@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.7 =
+* Mentor Report Card: a hairline above the mentor's photo, as the Student Report Card draws one above the profile.
+
 = 1.23.6 =
 * Student Report Card: the mentor's details table keeps its own height; only its top edge meets the student table's.
 
