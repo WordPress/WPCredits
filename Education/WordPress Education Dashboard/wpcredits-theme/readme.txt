@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.22.15 =
+* Mentor Report Card: whichever section follows the header band drops its own hairline, now that the program updates and resources lead the page (plugin 1.95.14).
+
 = 1.22.14 =
 * Student Report Card: the module arrows sit inside the content edge, a pair on the heading line ending where the text ends, so the page's right margin stays one line.
 

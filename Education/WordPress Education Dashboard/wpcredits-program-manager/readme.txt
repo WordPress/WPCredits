@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.95.13
+Stable tag: 1.95.14
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.95.14 =
+* Mentor Report Card: the program updates and announcements with the resources lead the page, above the mentor's calls, as they do on the Student Report Card. With theme 1.22.15.
 
 = 1.95.13 =
 * Student Report Card: the in-place move now saves. The script posted to the form's action property, which the hidden action field shadows, so the order was never kept; it reads the attribute.

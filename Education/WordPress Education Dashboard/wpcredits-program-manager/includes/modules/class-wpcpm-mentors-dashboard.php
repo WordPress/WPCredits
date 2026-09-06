@@ -658,6 +658,11 @@ class WPCPM_Mentors_Dashboard {
 
 		echo '</header>';
 
+		// First, as on the Student Report Card: what the program has to say, and where to ask.
+		// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently
+		// remove the Slack mark. This is the plugin's own markup, escaped as it is built.
+		echo WPCPM_Handbook_Assistant::render_resources( 'mentor' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render_resources(), which escapes every value it interpolates.
+
 		// Before the student list: a diary and the hours behind it are what a mentor
 		// acts on, where the list is what they refer to. It sits outside the groups on
 		// purpose - see the note in WPCPM_Call_Calendar::render_mentor().
@@ -723,12 +728,6 @@ class WPCPM_Mentors_Dashboard {
 		if ( class_exists( 'WPCPM_Sponsor_Tools' ) && $viewer->ID === $mentor->ID ) {
 			WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_MENTORS, $viewer );
 		}
-
-		// Offered where these people already are, rather than only from a link in the header
-		// they may never have noticed.
-		// Not through `wp_kses_post()`: it strips `<svg>` outright, which would silently
-		// remove the Slack mark. This is the plugin's own markup, escaped as it is built.
-		echo WPCPM_Handbook_Assistant::render_resources( 'mentor' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by render_resources(), which escapes every value it interpolates.
 
 		echo '</div>';
 

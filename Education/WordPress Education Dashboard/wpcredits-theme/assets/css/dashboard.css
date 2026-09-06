@@ -2409,7 +2409,10 @@
 /* Without this the section drew its own top rule right under the band's bottom border
    (above, `.wpc-dash__band`), so a mentor saw two hairlines touching rather than one.
    Same specificity as the rule above (two classes each), so it has to come after it in
-   the file to win the tie - consistency pass, 1.21.0. */
+   the file to win the tie - consistency pass, 1.21.0. Any section, not only the calls,
+   since plugin 1.95.14 put the updates and resources first on the Mentor Report Card
+   (1.22.15). */
+.wpc-dash__band + .wpcpm-student__section,
 .wpc-dash__band + .wpcpm-calls {
 	border-top: 0;
 }
