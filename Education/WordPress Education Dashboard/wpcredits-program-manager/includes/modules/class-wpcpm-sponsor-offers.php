@@ -1557,7 +1557,7 @@ final class WPCPM_Sponsor_Offers {
 		switch ( $offer['state'] ) {
 			case self::STATE_LIVE:
 				$sentence = self::is_live( $offer )
-					? __( 'Live: shown to the people it is open to.', 'wpcredits-program-manager' )
+					? __( 'Live: shown on the site.', 'wpcredits-program-manager' )
 					: __( 'Past its last day: shown to nobody. Change the last day to bring it back.', 'wpcredits-program-manager' );
 				break;
 			case self::STATE_PAUSED:
