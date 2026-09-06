@@ -152,3 +152,9 @@
 @media ( max-width: 900px ) {
 	.wpcpm-offers__cols { gap: 1.5em 0; grid-template-columns: minmax( 0, 1fr ); }
 }
+
+/* Inside an open offer (1.97.2, owner): Save and the state moves on one line, and the codes
+   forms under a line of their own, so editing the offer and adding codes read as two jobs. */
+.wpcpm-offer__actions { display: flex; flex-wrap: wrap; gap: 0.75em; margin: 0; }
+.wpcpm-offer__state-form { margin: 0; }
+.wpcpm-offer__codes { border-top: 1px solid var( --wpcpm-border ); margin-top: 1.5em; padding-top: 1em; }

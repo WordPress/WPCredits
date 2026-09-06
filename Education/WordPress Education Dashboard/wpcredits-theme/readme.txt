@@ -157,6 +157,12 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.21 =
+* Sponsor Dashboard: inside an open offer, one row of buttons and the codes forms under their own line (plugin 1.97.2).
+
+= 1.23.20 =
+* Sponsor Dashboard: the Offers and codes card in two columns (plugin 1.97.1), the new-offer form on the left and the offers folded on the right as panels like the mentor page's availability panel.
+
 = 1.23.19 =
 * Sponsor Dashboard: the Usage card's chart (plugin 1.96.8) dressed in the theme's tokens, and the note, chart, table and CSV button 16px apart. Institution Dashboard and Sponsor Dashboard: the first block of every open card starts 30px under the card's line.
 

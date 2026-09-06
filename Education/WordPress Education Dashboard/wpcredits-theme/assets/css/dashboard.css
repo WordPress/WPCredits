@@ -1843,21 +1843,84 @@
  * under a hairline inside the card body; its state and "in the base" marks are the pills the
  * group counts use, so a reader who knows one knows the other.
  */
-.wpc-sponsor-page .wpcpm-offer {
-	border-top: 1px solid var( --wpc-line-soft );
-	margin: 16px 0 0;
-	padding: 16px 0 0;
+/* The Offers and codes card rearranged (plugin 1.97.1, owner): the new-offer form on the left,
+   the offers on the right, folded. The columns are the profile card's, value for value: two
+   equal tracks, the right column's left edge carries the divider, one column under 900px with
+   24px between. A folded offer is the mentor page's availability panel, value for value:
+   surface, the card line, the panel radius, 12px 14px inside; its title line is the summary,
+   the counts under it in ink-70; open, the forms sit under a soft line 12px down. 10px between
+   offers, 24px between the last active offer and the ended list's title. */
+.wpc-sponsor-page .wpcpm-offers__cols {
+	align-items: start;
+	display: grid;
+	gap: 0;
+	grid-template-columns: minmax( 0, 1fr ) minmax( 0, 1fr );
 }
 
-.wpc-sponsor-page .wpcpm-offer:first-of-type {
-	border-top: 0;
-	margin-top: 0;
-	padding-top: 0;
+.wpc-sponsor-page .wpcpm-offers__col--new {
+	padding-right: 32px;
+}
+
+.wpc-sponsor-page .wpcpm-offers__col--list {
+	border-left: 1px solid var( --wpc-line-soft );
+	padding-left: 32px;
+}
+
+.wpc-sponsor-page .wpcpm-offer {
+	background: var( --wpc-surface );
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-panel );
+	margin: 0 0 10px;
+	padding: 12px 14px;
+}
+
+.wpc-sponsor-page .wpcpm-offer:last-child {
+	margin-bottom: 0;
+}
+
+.wpc-sponsor-page .wpcpm-offer__summary {
+	cursor: pointer;
 }
 
 .wpc-sponsor-page .wpcpm-offer__title {
-	font: 700 16px/22px var( --wpc-font );
-	margin: 0 0 4px;
+	display: inline;
+	font: 600 14px/20px var( --wpc-font );
+	margin: 0;
+}
+
+.wpc-sponsor-page .wpcpm-offer__body {
+	border-top: 1px solid var( --wpc-line-soft );
+	margin-top: 12px;
+	padding-top: 12px;
+}
+
+.wpc-sponsor-page .wpcpm-offers__col--list .wpcpm-offer + .wpcpm-sponsor__subheading {
+	margin-top: 24px;
+}
+
+/* Inside an open offer (plugin 1.97.2, owner): Save offer and the state moves on one line, 12px
+   apart, at the foot of the edit form; the codes forms are another job, so they sit under a
+   soft line 24px down with 16px of room before their first label; the state form itself holds
+   only its nonce and fields and takes no room. */
+.wpc-sponsor-page .wpcpm-offer__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 0;
+}
+
+.wpc-sponsor-page .wpcpm-offer__state-form {
+	margin: 0;
+}
+
+.wpc-sponsor-page .wpcpm-offer__codes {
+	border-top: 1px solid var( --wpc-line-soft );
+	margin-top: 24px;
+	padding-top: 16px;
+}
+
+.wpc-sponsor-page .wpcpm-offers__empty {
+	margin: 0;
 }
 
 .wpc-sponsor-page .wpcpm-offer__state,
@@ -1874,12 +1937,16 @@
 
 .wpc-sponsor-page .wpcpm-offer__counts {
 	color: var( --wpc-ink-70 );
-	margin: 0 0 8px;
+	display: block;
+	font: 14px/20px var( --wpc-font );
+	margin: 4px 0 0;
 }
 
 .wpc-sponsor-page .wpcpm-offer__warning {
 	color: var( --wpc-amber );
-	margin: 0 0 8px;
+	display: block;
+	font: 14px/20px var( --wpc-font );
+	margin: 4px 0 0;
 }
 
 .wpc-sponsor-page .wpcpm-usage {
@@ -2058,6 +2125,20 @@
 }
 
 @media ( max-width: 900px ) {
+
+	.wpc-sponsor-page .wpcpm-offers__cols {
+		grid-template-columns: minmax( 0, 1fr );
+		row-gap: 24px;
+	}
+
+	.wpc-sponsor-page .wpcpm-offers__col--new {
+		padding-right: 0;
+	}
+
+	.wpc-sponsor-page .wpcpm-offers__col--list {
+		border-left: 0;
+		padding-left: 0;
+	}
 
 	.wpc-sponsor-page .wpcpm-profile__cols {
 		grid-template-columns: minmax( 0, 1fr );

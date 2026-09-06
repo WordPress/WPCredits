@@ -1403,7 +1403,10 @@ final class WPCPM_Sponsor_Offers {
 		self::render_state_form( $offer, $record );
 
 		if ( self::KIND_CODES === $offer['kind'] && self::STATE_ENDED !== $offer['state'] ) {
+			// Adding codes is another job than editing the offer: its own block under a line (owner, 1.97.2).
+			echo '<div class="wpcpm-offer__codes">';
 			self::render_codes_forms( $offer, $record, $counts );
+			echo '</div>';
 		}
 
 		echo '</div></details>';
@@ -1493,17 +1496,58 @@ final class WPCPM_Sponsor_Offers {
 	 */
 	private static function render_edit_form( array $offer, $record, $fixed ) {
 		printf(
-			'<form method="post" action="%1$s" class="wpcpm-sponsor__form wpcpm-offer__form" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form method="post" action="%1$s" id="wpcpm-offer-form-%3$d" class="wpcpm-sponsor__form wpcpm-offer__form" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Saving', 'wpcredits-program-manager' )
+			esc_attr__( 'Saving', 'wpcredits-program-manager' ),
+			(int) $offer['id']
 		);
 		wp_nonce_field( self::ACTION_SAVE . '_' . $offer['id'] );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_SAVE ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
 		self::render_fields( $offer, $record, $fixed );
-		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Save offer', 'wpcredits-program-manager' ) );
-		echo '</form>';
+		// One row of buttons (owner, 1.97.2): Save, then every move the state machine allows. The
+		// moves post to the state form printed after this one, through the button's `form`
+		// attribute, so each form keeps its own nonce and the row still reads as one line.
+		printf( '<p class="wpcpm-offer__actions"><button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Save offer', 'wpcredits-program-manager' ) );
+		self::render_state_buttons( $offer );
+		echo '</p></form>';
+	}
+
+	/**
+	 * The state moves as buttons of the state form, printed inside the edit form's action row.
+	 *
+	 * A button's `form` attribute names the form it submits, so these post to the state form
+	 * (its own nonce, its own handler) while standing on one line with Save (owner, 1.97.2).
+	 * An offer with no move left (ended) prints nothing here and no state form either.
+	 *
+	 * @param array $offer The offer.
+	 */
+	private static function render_state_buttons( array $offer ) {
+		$moves = self::transitions()[ $offer['state'] ];
+
+		if ( empty( $moves ) ) {
+			return;
+		}
+
+		$labels = array(
+			self::STATE_LIVE   => self::STATE_PAUSED === $offer['state'] ? __( 'Resume', 'wpcredits-program-manager' ) : __( 'Switch on', 'wpcredits-program-manager' ),
+			self::STATE_PAUSED => __( 'Pause', 'wpcredits-program-manager' ),
+			self::STATE_ENDED  => __( 'End this offer', 'wpcredits-program-manager' ),
+		);
+
+		foreach ( $moves as $state ) {
+			printf(
+				'<button type="submit" form="wpcpm-offer-state-%5$d" class="wpcpm-button%1$s" name="wpcpm_state" value="%2$s"%3$s>%4$s</button>',
+				self::STATE_LIVE === $state ? '' : ' wpcpm-button--secondary',
+				esc_attr( $state ),
+				// A cancelled confirm on the pressed button stops the submit, and forms.js yields to a
+				// prevented submit (1.92.0), so the form is not left reading "Switching".
+				self::STATE_ENDED === $state ? ' onclick="return confirm( \'' . esc_js( __( 'End this offer for good? Codes already claimed stay with the people who hold them.', 'wpcredits-program-manager' ) ) . '\' );"' : '',
+				esc_html( $labels[ $state ] ),
+				(int) $offer['id']
+			);
+		}
 	}
 
 	/**
@@ -1519,34 +1563,16 @@ final class WPCPM_Sponsor_Offers {
 			return;
 		}
 
-		$labels = array(
-			self::STATE_LIVE   => self::STATE_PAUSED === $offer['state'] ? __( 'Resume', 'wpcredits-program-manager' ) : __( 'Switch on', 'wpcredits-program-manager' ),
-			self::STATE_PAUSED => __( 'Pause', 'wpcredits-program-manager' ),
-			self::STATE_ENDED  => __( 'End this offer', 'wpcredits-program-manager' ),
-		);
-
 		printf(
-			'<form method="post" action="%1$s" class="wpcpm-inline-form wpcpm-offer__state-form" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			'<form method="post" action="%1$s" id="wpcpm-offer-state-%3$d" class="wpcpm-inline-form wpcpm-offer__state-form" data-wpcpm-once data-wpcpm-busy="%2$s">',
 			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_attr__( 'Switching', 'wpcredits-program-manager' )
+			esc_attr__( 'Switching', 'wpcredits-program-manager' ),
+			(int) $offer['id']
 		);
 		wp_nonce_field( self::ACTION_STATE . '_' . $offer['id'] );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_STATE ) );
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
-
-		foreach ( $moves as $state ) {
-			printf(
-				'<button type="submit" class="wpcpm-button%1$s" name="wpcpm_state" value="%2$s"%3$s>%4$s</button> ',
-				self::STATE_LIVE === $state ? '' : ' wpcpm-button--secondary',
-				esc_attr( $state ),
-				// A cancelled confirm on the pressed button stops the submit, and forms.js yields to a
-				// prevented submit (1.92.0), so the form is not left reading "Switching".
-				self::STATE_ENDED === $state ? ' onclick="return confirm( \'' . esc_js( __( 'End this offer for good? Codes already claimed stay with the people who hold them.', 'wpcredits-program-manager' ) ) . '\' );"' : '',
-				esc_html( $labels[ $state ] )
-			);
-		}
-
 		echo '</form>';
 	}
 
@@ -1598,21 +1624,28 @@ final class WPCPM_Sponsor_Offers {
 		printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 		printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
 		self::render_codes_box( (string) $offer['id'], __( 'Add codes', 'wpcredits-program-manager' ) );
-		printf( '<p><button type="submit" class="wpcpm-button">%s</button></p>', esc_html__( 'Add codes', 'wpcredits-program-manager' ) );
-		echo '</form>';
+		// Add codes and Void unclaimed codes on one line (owner, 1.97.3): the void button belongs to
+		// the void form printed after this one, through its `form` attribute, as the state moves do.
+		printf( '<p class="wpcpm-offer__actions"><button type="submit" class="wpcpm-button">%s</button>', esc_html__( 'Add codes', 'wpcredits-program-manager' ) );
+
+		if ( $counts['available'] > 0 ) {
+			printf( '<button type="submit" form="wpcpm-offer-void-%1$d" class="wpcpm-button wpcpm-button--secondary">%2$s</button>', (int) $offer['id'], esc_html__( 'Void unclaimed codes', 'wpcredits-program-manager' ) );
+		}
+
+		echo '</p></form>';
 
 		if ( $counts['available'] > 0 ) {
 			printf(
-				'<form method="post" action="%1$s" class="wpcpm-inline-form wpcpm-offer__void-form" data-wpcpm-once data-wpcpm-busy="%2$s" onsubmit="return confirm( \'%3$s\' );">',
+				'<form method="post" action="%1$s" id="wpcpm-offer-void-%4$d" class="wpcpm-inline-form wpcpm-offer__void-form" data-wpcpm-once data-wpcpm-busy="%2$s" onsubmit="return confirm( \'%3$s\' );">',
 				esc_url( admin_url( 'admin-post.php' ) ),
 				esc_attr__( 'Voiding', 'wpcredits-program-manager' ),
-				esc_js( __( 'Void every code nobody has claimed yet? They cannot be brought back.', 'wpcredits-program-manager' ) )
+				esc_js( __( 'Void every code nobody has claimed yet? They cannot be brought back.', 'wpcredits-program-manager' ) ),
+				(int) $offer['id']
 			);
 			wp_nonce_field( self::ACTION_CODES_VOID . '_' . $offer['id'] );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_CODES_VOID ) );
 			printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
 			printf( '<input type="hidden" name="wpcpm_offer" value="%d" />', (int) $offer['id'] );
-			printf( '<button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button>', esc_html__( 'Void unclaimed codes', 'wpcredits-program-manager' ) );
 			echo '</form>';
 		}
 	}

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.97.1
+Stable tag: 1.97.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.97.3 =
+* Sponsor Dashboard: inside an open offer, Add codes and Void unclaimed codes stand on one line too.
+
+= 1.97.2 =
+* Sponsor Dashboard: inside an open offer, Save offer, Pause and End this offer stand on one line, and the codes forms sit under a line of their own, 24px down. With theme 1.23.21.
 
 = 1.97.1 =
 * Sponsor Dashboard: the Offers and codes card is two columns. The new-offer form sits first, on the left; the offers sit on the right, each folded to its title and its counts, under "Active offers" and, for the ended and expired ones, under "Ended and expired offers". With theme 1.23.20.
