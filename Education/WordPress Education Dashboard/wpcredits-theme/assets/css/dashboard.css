@@ -1321,6 +1321,15 @@
 	text-transform: uppercase;
 }
 
+/* A row's own header (the offer's name in Offers running low, plugin 1.98.0, is a th with
+   scope="row") is a cell to read, not a column label: the cell's face, no tracking, no
+   capitals (1.24.1). */
+.wpc-administrator-page .wpcpm-admin-table tbody th {
+	font: 14px/20px var( --wpc-font );
+	letter-spacing: 0;
+	text-transform: none;
+}
+
 /* A row's text sits on the same line as its button, not at the top of a 55px cell. */
 .wpc-administrator-page .wpcpm-admin-table td {
 	vertical-align: middle;

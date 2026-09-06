@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.24.1 =
+* Administrator Dashboard: a table row's own header (the offer's name in Offers running low) reads as a cell, not as a column label.
+
 = 1.24.0 =
 * Administrator Dashboard: the sponsor cards of the Sponsors module's phase S6 (plugin 1.98.0): the folded application on the Sponsor applications card, the Offers running low table, the New interests items and the Sponsors card's tiles, all on the page's existing rules.
 * Administrator Dashboard: inside the folded application, the logo figures take their wp-admin look (the white half on the ink ground) and the block's own headings the item's size.
