@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.9 =
+* Institution Dashboard and Sponsor Dashboard: 22px of room under the new hairline, the space the lifted switcher used to bring.
+
 = 1.23.8 =
 * Institution Dashboard and Sponsor Dashboard: a hairline under the title, above the dashboard, as the two Report Cards draw.
 

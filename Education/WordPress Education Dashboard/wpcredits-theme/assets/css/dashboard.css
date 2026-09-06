@@ -736,6 +736,10 @@
 .wpc-institution-page .wpcpm-dashboard.wpcpm-institution,
 .wpc-sponsor-page .wpcpm-dashboard.wpcpm-sponsor {
 	border-top: 1px solid var( --wpc-line-soft );
+	/* The room under the line the switcher used to bring with its own 22px top margin before
+	   1.23.5 lifted it out of the card: the mentor band's 22px, so the identity block sits
+	   under the line the way the mentor's does (1.23.9). */
+	padding-top: 22px;
 }
 
 .wpc-student-page .wpcpm-student__section:first-of-type {
