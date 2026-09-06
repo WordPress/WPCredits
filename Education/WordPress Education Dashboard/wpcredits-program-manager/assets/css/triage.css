@@ -207,3 +207,20 @@
 		display: none;
 	}
 }
+
+/* The head of the current group (1.96.2): the heading on the left, the toolbar on the right,
+   wrapping under it when the row is narrow. The toolbar's own bottom margin goes, since the
+   row has the group's rhythm. */
+.wpc-dash__head {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	justify-content: space-between;
+}
+
+.wpc-dash__head > .wpcpm-group__title,
+.wpc-dash__head > .wpc-dash__toolbar {
+	margin: 0;
+}
+

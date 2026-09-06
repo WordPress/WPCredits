@@ -630,25 +630,51 @@
 			bar.appendChild( bulk );
 		}
 
-		// Above the group headings, directly under the band - not inside the current
-		// group, which is where anchoring on the list itself would put it. That also
-		// means the toolbar has somewhere to go when there is no current list at all.
-		var anchor = root.querySelector( '.wpcpm-group' )
-			|| list
-			|| root.querySelector( '.wpcpm-dashboard__empty' );
-
-		if ( anchor && anchor.parentNode ) {
-			anchor.parentNode.insertBefore( bar, anchor );
-		} else {
-			root.appendChild( bar );
-		}
-
 		var hint = document.createElement( 'p' );
 
 		hint.className = 'wpc-dash__hint';
 		hint.textContent = TEXT.collapsedHint || '';
 		hint.hidden = true;
-		bar.parentNode.insertBefore( hint, bar.nextSibling );
+
+		// In the heading's own row of the current group (owner, 1.96.2): the search belongs
+		// to the list it filters, so it sits beside "Currently mentoring" rather than in a
+		// band of its own above the groups. The heading moves into a head wrapper with the
+		// toolbar, and the hint follows the wrapper. Without a current group (nothing to
+		// mentor right now) the toolbar keeps its old place above whatever stands there.
+		var current = root.querySelector( '.wpcpm-group:not(.wpcpm-group--past)' );
+		var title = null;
+		var i;
+
+		if ( current ) {
+			for ( i = 0; i < current.children.length; i++ ) {
+				if ( current.children[ i ].classList.contains( 'wpcpm-group__title' ) ) {
+					title = current.children[ i ];
+					break;
+				}
+			}
+		}
+
+		if ( title ) {
+			var head = document.createElement( 'div' );
+
+			head.className = 'wpc-dash__head';
+			current.insertBefore( head, title );
+			head.appendChild( title );
+			head.appendChild( bar );
+			current.insertBefore( hint, head.nextSibling );
+		} else {
+			var anchor = root.querySelector( '.wpcpm-group' )
+				|| list
+				|| root.querySelector( '.wpcpm-dashboard__empty' );
+
+			if ( anchor && anchor.parentNode ) {
+				anchor.parentNode.insertBefore( bar, anchor );
+			} else {
+				root.appendChild( bar );
+			}
+
+			bar.parentNode.insertBefore( hint, bar.nextSibling );
+		}
 
 		return {
 			input: input,

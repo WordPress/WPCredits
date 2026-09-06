@@ -281,6 +281,39 @@
 	padding: 6px 10px;
 }
 
+/* The toolbar in the current group's heading row (plugin 1.96.2, owner's request): the search
+   belongs to the list it filters, so it sits at the right of "Currently mentoring" instead of
+   in a band above the groups. The head row takes the title's 32px inset (20px under 900px)
+   and the title's own top and bottom padding, so the heading keeps its place to the pixel;
+   the toolbar drops its band border and padding, the count stays beside the field, and the
+   row wraps under the heading when it is too narrow for both. */
+.wpc-dashboard-page .wpc-dash__head {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 24px;
+	justify-content: space-between;
+	padding: 20px 32px 10px;
+}
+
+.wpc-dashboard-page .wpc-dash__head > .wpcpm-group__title {
+	padding: 0;
+}
+
+.wpc-dashboard-page .wpc-dash__head > .wpc-dash__toolbar {
+	border-bottom: 0;
+	flex: 1 1 320px;
+	justify-content: flex-end;
+	margin: 0;
+	max-width: 560px;
+	padding: 0;
+}
+
+.wpc-dashboard-page .wpc-dash__head .wpc-search {
+	flex: 1 1 240px;
+	max-width: 360px;
+}
+
 .wpc-search:focus-within {
 	border-color: var( --wpc-brand );
 	outline: 2px solid var( --wpc-brand );
@@ -3133,6 +3166,7 @@
 	   margin plus a padding, so it gets its own pair of halves further down. */
 	.wpc-dash__band,
 	.wpc-dash__toolbar,
+	.wpc-dash__head,
 	.wpc-group,
 	.wpc-dash__hint,
 	.wpc-dash__ordering,

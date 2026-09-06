@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.2 =
+* Mentor Report Card: the student search in the "Currently mentoring" heading row, on the right, at the heading's inset; the row wraps when narrow (plugin 1.96.2).
+
 = 1.23.1 =
 * Administrator Dashboard: the Sponsor Collaboration Agreements card's decision rows and its "Out of force" subheading (plugin 1.96.1).
 

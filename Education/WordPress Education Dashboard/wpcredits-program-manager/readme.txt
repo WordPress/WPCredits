@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.96.1
+Stable tag: 1.96.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.96.2 =
+* Mentor Report Card: the student search sits in the "Currently mentoring" heading row, on the right, rather than in a band of its own above the groups. With theme 1.23.2.
 
 = 1.96.1 =
 * Administrator Dashboard: a Sponsor Collaboration Agreements card, after the sponsor posts, with every signed copy waiting for review (who uploaded it, when, its size, what the scan noticed, Download, Accept, Return with a note) and the agreements out of force with the way back; the needs-attention strip counts the documents to review. The same handlers as the wp-admin Sponsors screen, and a decision taken here lands back here. With theme 1.23.1.
