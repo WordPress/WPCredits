@@ -628,16 +628,43 @@
    groups (`.wpcpm-sponsor__group-title` and `-lead` below), and the modules are divided the way
    those groups are: one line, the card base's 2.5em margin and 2em padding. The mover rules
    above are the dashboards' now, not the student page's alone. */
+/* The one line a module draws is the one above its title, first module included (owner,
+   1.23.12), and 20px over every title - the student section's top padding - so the title's line
+   sits where the arrows expect it (18px down, centered on a 14px/20px line), the way it does on
+   the Student Report Card. */
+.wpc-institution-page .wpcpm-module {
+	border-top: 1px solid var( --wpc-line-soft );
+	padding-top: 20px;
+}
+
 .wpc-institution-page .wpcpm-module + .wpcpm-module {
-	border-top: 1px solid var( --wpcpm-border );
 	margin-top: 2.5em;
 }
 
-/* 20px over every module's title, first or not - the student section's top padding - so the
-   title's line sits where the arrows expect it (18px down, centered on a 14px/20px line), the
-   way it does on the Student Report Card (1.23.11). */
-.wpc-institution-page .wpcpm-module {
-	padding-top: 20px;
+/* Inside a module the cards draw no line of their own: the plugin's card base puts one over
+   every card with 2.5em of margin and 2em of padding, which read as a rule under the title and
+   between the roster and the enrollment form. The first card follows the lead's own 16px; the
+   next ones keep 24px between them, unlined. The Collaboration Agreement card loses its grey
+   box too and is the same disclosure as the representatives above it (owner, 1.23.12). */
+.wpc-institution-page .wpcpm-module > .wpcpm-roster,
+.wpc-institution-page .wpcpm-module > .wpcpm-institution__card,
+.wpc-institution-page .wpcpm-module > .wpcpm-agreement-card {
+	border-top: 0;
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.wpc-institution-page .wpcpm-module > .wpcpm-roster + .wpcpm-institution__card,
+.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-institution__card,
+.wpc-institution-page .wpcpm-module > .wpcpm-institution__card + .wpcpm-agreement-card {
+	margin-top: 24px;
+}
+
+.wpc-institution-page .wpcpm-agreement-card {
+	background: none;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
 }
 
 .wpc-institution-page .wpcpm-institution__module-title,

@@ -157,6 +157,9 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.23.12 =
+* Institution Dashboard: the line sits above each module's title and nowhere inside a module; the Collaboration Agreement card is a plain disclosure like the representatives'.
+
 = 1.23.11 =
 * Institution Dashboard: the arrows sit on each module's title line (20px over every title, as on the Student Report Card).
 
