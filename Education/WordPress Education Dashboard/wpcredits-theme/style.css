@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.22.3
+Version: 1.22.4
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -196,6 +196,31 @@ body .skip-link.screen-reader-text:focus {
 .wpc-header {
 	background: var( --wpc-surface );
 	border-bottom: 1px solid var( --wpc-chrome-rule );
+}
+
+/* The page column is at least the window tall and the main grows into the room, so the dark
+   footer sits at the foot of the window on a short page (a single post, an empty dashboard)
+   instead of ending mid-screen over white (owner, 6 September 2026). The admin bar's height
+   comes off the window for a signed-in reader, through the variable core's admin bar CSS
+   declares; without the bar the fallback is 0. The second min-height, in svh, is for phones,
+   where 100vh counts the browser's own bars and pushes the footer under them. */
+.wp-site-blocks {
+	display: flex;
+	flex-direction: column;
+	min-height: calc( 100vh - var( --wp-admin--admin-bar--height, 0px ) );
+	min-height: calc( 100svh - var( --wp-admin--admin-bar--height, 0px ) );
+}
+
+.wp-site-blocks > .wpc-main {
+	flex: 1 0 auto;
+}
+
+/* The wordpress.org header and footer template parts are wrappers around the plugin's own
+   `<header>` and `<footer>`: with display: contents the wrappers step aside and the chrome
+   itself is the page column's child, so the rules below reach `.global-footer` and core's
+   20px top-level gap no longer lands on the wrapper as a stripe above the footer. */
+.wp-site-blocks > .has-display-contents {
+	display: contents;
 }
 
 /* Core spaces every top-level block: `:where(.wp-site-blocks) > * { margin-block-start: 20px }`.
