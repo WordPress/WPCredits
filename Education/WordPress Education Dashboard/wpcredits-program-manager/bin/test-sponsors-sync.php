@@ -654,6 +654,10 @@ ck(
 echo "\n=== House rules ===\n";
 ck( 'no em or en dash in the two classes', preg_match( '/\x{2013}|\x{2014}/u', file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php' ) . file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php' ) ), 0 );
 ck( 'the sync never creates an account', strpos( file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php' ), 'insert_user' ), false );
+$sync_src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php' );
+$rename_at = strpos( $sync_src, 'WPCPM_Sponsor_Posts::rename_terms(' );
+$write_at  = strpos( $sync_src, "WPCPM_Sponsors_Index::write( \$state['rows']" );
+ck( 'the sync renames the sponsor categories right after it writes the index', false !== $rename_at && false !== $write_at && $rename_at > $write_at, true );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 47 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 48 );
 exit( $fail ? 1 : 0 );

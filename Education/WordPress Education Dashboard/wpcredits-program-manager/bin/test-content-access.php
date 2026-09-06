@@ -41,6 +41,8 @@ class WP_User {}
 class WPCPM_Roles {
 	const ROLE_ADMIN = 'administrator';
 	const CAP_MANAGE = 'wpcpm_manage_program';
+	const CAP_VIEW_STUDENT = 'wpcpm_view_student_content';
+	const CAP_VIEW_MENTOR  = 'wpcpm_view_mentor_content';
 	public static function custom_roles() { return array( 'wpcpm_student' => array( 'label' => 'Student', 'cap' => 'wpcpm_view_student_content' ) ); }
 	public static function resolve_user( $u = null ) { return null; }
 }
@@ -73,6 +75,8 @@ ck( 'an array of types that includes ours is gated', gated( new WP_Query( array(
 ck( 'a query for other types only is left alone', gated( new WP_Query( array( 'post_type' => 'attachment' ) ) ), false );
 ck( 'and so is an array of other types', gated( new WP_Query( array( 'post_type' => array( 'attachment', 'revision' ) ) ) ), false );
 ck( 'an empty string inside an array counts for nothing', gated( new WP_Query( array( 'post_type' => array( '', 'attachment' ) ) ) ), false );
+ck( 'a query the plugin marks ungated is left alone', gated( new WP_Query( array( WPCPM_Content_Access::QUERY_UNGATED => true ) ) ), false );
+ck( 'and an unmarked query with the same shape is still gated', gated( new WP_Query( array( 'post_type' => 'post' ) ) ), true );
 
 echo "\n=== Feeds have their own hooks, and both are taken ===\n";
 
@@ -80,9 +84,19 @@ $GLOBALS['hooks'] = array();
 WPCPM_Content_Access::init();
 ck( 'the feed body runs through the content filter', in_array( 'the_content_feed', $GLOBALS['hooks'], true ), true );
 ck( 'and the feed excerpt, which never passes the_excerpt, through the excerpt filter', in_array( 'the_excerpt_rss', $GLOBALS['hooks'], true ), true );
+ck( 'the oEmbed endpoint is gated', in_array( 'oembed_response_data', $GLOBALS['hooks'], true ), true );
 
 $src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-content-access.php' );
 ck( 'the docblock says listings, feeds and search, which is now true', false !== strpos( $src, 'listings, feeds and search' ), true );
+
+echo "\n=== The Students and mentors level (Sponsors module, Phase S3) ===\n";
+
+$shared = WPCPM_Content_Access::levels();
+ck( 'the Students and mentors level exists and grants on either marker capability', isset( $shared[ WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS ] ) ? $shared[ WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS ] : null, array(
+	'label' => 'Students and mentors',
+	'cap'   => array( WPCPM_Roles::CAP_VIEW_STUDENT, WPCPM_Roles::CAP_VIEW_MENTOR ),
+) );
+ck( 'it sits between the role levels and Administrators only', array_search( WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS, array_keys( $shared ), true ) === count( $shared ) - 2, true );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 exit( $fails ? 1 : 0 );

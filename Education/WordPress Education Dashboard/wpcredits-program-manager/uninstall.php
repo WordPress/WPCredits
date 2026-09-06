@@ -113,6 +113,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-profile.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-interests.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-mentors.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsor-posts.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sponsors-dashboard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-cards.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-administrators-dashboard.php';

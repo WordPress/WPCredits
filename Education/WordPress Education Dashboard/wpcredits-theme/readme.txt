@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.21.0
+Stable tag: 1.22.0
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,11 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.22.0 =
+* Sponsor Dashboard: the Posts card (plugin 1.95.0): posts as rows under hairlines with their state pills, Write a post as the shared button, a manager's Publish and Return under a pending post with the theme's controls.
+* Student Report Card and Mentor Report Card: a sponsor's published guides listed under its offer in Tools from our sponsors.
+* Posts: a sponsor post opens with a byline box naming the company, in the article card's values.
 
 = 1.21.0 =
 * One button on every dashboard: 600 14px/20px, 6px 14px padding, 8px radius (the Sponsor Dashboard's buttons were 13px); the Student Report Card's two large buttons keep their size.

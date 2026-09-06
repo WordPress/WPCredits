@@ -203,6 +203,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-dashboard.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-content-access.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-updates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php';

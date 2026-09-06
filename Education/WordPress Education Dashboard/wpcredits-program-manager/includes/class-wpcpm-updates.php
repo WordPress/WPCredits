@@ -96,7 +96,15 @@ class WPCPM_Updates {
 			return null;
 		}
 
-		return array( 'public', $map[ $audience ] );
+		$levels = array( 'public', $map[ $audience ] );
+
+		// Students and mentors also read the shared level sponsor posts default to (Phase S3):
+		// an announcement or a guide posted once reaches both columns.
+		if ( in_array( $audience, array( 'student', 'mentor' ), true ) ) {
+			$levels[] = WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS;
+		}
+
+		return $levels;
 	}
 
 	/**

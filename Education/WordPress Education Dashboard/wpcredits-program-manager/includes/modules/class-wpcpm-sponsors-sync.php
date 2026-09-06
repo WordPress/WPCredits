@@ -577,6 +577,11 @@ final class WPCPM_Sponsors_Sync {
 		}
 
 		WPCPM_Sponsors_Index::write( $state['rows'], $state['started'] );
+		// A company renamed in Airtable renames its category (Phase S3). $held is the index as
+		// it stood before this write, read above for the empty-base check.
+		if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			WPCPM_Sponsor_Posts::rename_terms( is_array( $held ) ? $held : array(), $state['rows'] );
+		}
 
 		$state['logos']  = array_keys( WPCPM_Sponsors_Index::approved() );
 		$state['phase']  = 'logos';

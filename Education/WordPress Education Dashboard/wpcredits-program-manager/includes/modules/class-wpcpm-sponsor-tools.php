@@ -303,8 +303,16 @@ final class WPCPM_Sponsor_Tools {
 		} else {
 			echo '<ul class="wpcpm-tools__list">';
 
+			$shown = array();
+
 			foreach ( $offers as $offer ) {
-				self::render_offer( $offer, $viewer, $audience );
+				// Guides are a sponsor's, not an offer's: under the first of its offers only, so
+				// two offers from one company do not list the same guides twice (S3).
+				$first = ! isset( $shown[ $offer['sponsor'] ] );
+
+				$shown[ $offer['sponsor'] ] = true;
+
+				self::render_offer( $offer, $viewer, $audience, $first );
 			}
 
 			echo '</ul>';
@@ -357,11 +365,14 @@ final class WPCPM_Sponsor_Tools {
 	/**
 	 * One offer card.
 	 *
-	 * @param array   $offer    The offer.
-	 * @param WP_User $viewer   Whose card it is.
-	 * @param string  $audience Whose card it is, as an audience.
+	 * @param array   $offer      The offer.
+	 * @param WP_User $viewer     Whose card it is.
+	 * @param string  $audience   Whose card it is, as an audience.
+	 * @param bool    $with_posts Whether to draw the sponsor's guides on this card: only its
+	 *                            first offer in the list does, so two offers from one company
+	 *                            do not list the same guides twice (S3).
 	 */
-	private static function render_offer( array $offer, WP_User $viewer, $audience ) {
+	private static function render_offer( array $offer, WP_User $viewer, $audience, $with_posts = true ) {
 		$row  = WPCPM_Sponsors_Index::row( $offer['sponsor'] );
 		$row  = is_array( $row ) ? $row : WPCPM_Sponsors_Index::empty_row();
 		$logo = WPCPM_Sponsors_Index::display_logo( $offer['sponsor'] );
@@ -397,6 +408,10 @@ final class WPCPM_Sponsor_Tools {
 
 		if ( '' !== (string) $offer['url'] ) {
 			printf( '<p class="wpcpm-tools__more"><a href="%1$s" rel="external noopener">%2$s</a></p>', esc_url( $offer['url'] ), esc_html__( 'More information', 'wpcredits-program-manager' ) );
+		}
+
+		if ( $with_posts && class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			WPCPM_Sponsor_Posts::render_tools( $offer['sponsor'], $viewer, $name );
 		}
 
 		if ( self::AUDIENCE_MANAGERS === $audience ) {

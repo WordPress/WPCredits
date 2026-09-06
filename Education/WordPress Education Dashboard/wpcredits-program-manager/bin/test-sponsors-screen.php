@@ -315,6 +315,22 @@ class WPCPM_Request {
 class WPCPM_Settings { public static function get() { return $GLOBALS['settings']; } public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } public static function is_connected() { return true; } }
 class WPCPM_Mentors { public static function format_duration( $s ) { return $s . 's'; } }
 class WPCPM_Return { public static function url( $default ) { return $default; } }
+/** Task 4's real class is not loaded here (nothing else in this suite needs it), so a stub
+ * stands in: ACTION_FLAGS names the admin-post action render_members() posts a nonce for, and
+ * posting_enabled() reads the same $GLOBALS['posting_off'] the checks below set and clear.
+ * apply_caps(), drop_caps() and delete_all() are never asserted here; they exist only because
+ * class_exists( 'WPCPM_Sponsor_Posts' ) is already true the moment this stub is defined, and the
+ * real WPCPM_Sponsor_Members::attach()/detach() and WPCPM_Sponsors::uninstall() (Task 4/5, loaded
+ * for real below) call them behind that same guard - a bare stub without them would fatal the
+ * first time this suite attaches or detaches an account, or runs uninstall(). */
+class WPCPM_Sponsor_Posts {
+	const ACTION_FLAGS = 'wpcpm_sponsor_flags';
+	public static function posting_enabled( $record ) { return empty( $GLOBALS['posting_off'][ $record ] ); }
+	public static function apply_caps( $user_id, $record ) {}
+	public static function drop_caps( $user_id ) {}
+	public static function delete_all() {}
+	public static function uninstall_accounts() {}
+}
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-module.php';
@@ -503,6 +519,24 @@ $screen = ob_get_clean();
 ck( 'the screen has an Offers card with the seeded offer and its counts', array( false !== strpos( $screen, 'id="wpcpm-sponsor-offers"' ), false !== strpos( $screen, 'Not switched on yet' ), false !== strpos( $screen, '<td>0</td>' ) ), array( true, true, true ) );
 ck( 'a sponsor with an account and no offer gets a Seed button with its own nonce', false !== strpos( $screen, 'nonce-' . WPCPM_Sponsors::ACTION_SEED . '_' . $B ), true );
 ck( 'and one with an offer does not', strpos( $screen, 'nonce-' . WPCPM_Sponsors::ACTION_SEED . '_' . $A ), false );
+
+echo "\n=== S3: the posting switch, per sponsor ===\n";
+// B carries a live account (Rep B, attached above) at this render, so this is a sponsor with
+// an account, as the switch is meant for; $screen is still the render from just above.
+ck( 'each sponsor with accounts has the posting switch, keyed to its record', array(
+	false !== strpos( $screen, '<input type="hidden" name="action" value="wpcpm_sponsor_flags" />' ),
+	false !== strpos( $screen, 'wpcpm_sponsor_flags_' . $B ),
+	false !== strpos( $screen, 'name="wpcpm_on" value="0"' ),
+	false !== strpos( $screen, 'Turn posting off' ),
+), array( true, true, true, true ) );
+$GLOBALS['posting_off'][ $B ] = true;
+ob_start();
+$module->render_admin_page();
+$screen = ob_get_clean();
+ck( 'with posting off the switch offers to turn it on', array( false !== strpos( $screen, 'name="wpcpm_on" value="1"' ), false !== strpos( $screen, 'Turn posting on' ), false !== strpos( $screen, 'Posting is off for this sponsor.' ) ), array( true, true, true ) );
+$GLOBALS['posting_off'] = array();
+ck( 'the flash has the two sentences', array( isset( WPCPM_Sponsors::messages()['posting-on'] ), isset( WPCPM_Sponsors::messages()['posting-off'] ) ), array( true, true ) );
+
 $r        = post( array( 'wpcpm_sponsor' => $B ), array( $module, 'handle_seed' ) );
 $seeded_b = WPCPM_Sponsor_Offers::offers_of( $B );
 ck( 'the manager seeds B through the handler: one draft offer, marked primary, logged as seeded', array( $r[2], count( $seeded_b ), reset( $seeded_b )['state'], reset( $seeded_b )['primary'], end( $GLOBALS['audit'] )['kind'] ), array( 'offer-seeded', 1, 'draft', true, WPCPM_Sponsor_Offers::LOG_SEEDED ) );

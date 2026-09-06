@@ -150,11 +150,26 @@ WPCPM_Sponsor_Members::attach( 10, $T, 'manager', 1 );
 WPCPM_Sponsor_Members::detach( 10, 'removed', 1 );
 ck( 'an account with no other role falls back to subscriber, never to nothing', $only->roles, array( 'subscriber' ) );
 
+echo "\n=== The posting flag travels with membership (Phase S3) ===\n";
+class WPCPM_Sponsor_Posts {
+	public static $calls = array();
+	public static function apply_caps( $user_id, $record ) { self::$calls[] = array( 'apply', (int) $user_id, $record ); }
+	public static function drop_caps( $user_id ) { self::$calls[] = array( 'drop', (int) $user_id ); }
+}
+// An unconditional class is compiled before line one runs, so this stub's apply_caps()/drop_caps()
+// already caught every earlier attach()/detach() call above; cleared here so the check below sees
+// only what this block itself does.
+WPCPM_Sponsor_Posts::$calls = array();
+$GLOBALS['users'][12] = new WP_User( 12, array(), 'Poster' );
+WPCPM_Sponsor_Members::attach( 12, $T, 'manager', 1 );
+WPCPM_Sponsor_Members::detach( 12, 'removed', 1 );
+ck( 'attach applies the flag and detach drops the caps', WPCPM_Sponsor_Posts::$calls, array( array( 'apply', 12, $T ), array( 'drop', 12 ) ) );
+
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php' );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'nothing here calls wp_insert_user()', strpos( $src, 'wp_insert_user(' ), false );
 ck( 'and nothing compares a sponsor ID with === outside the policy', preg_match( '/wpcpm_sponsor(_record_id)?[^;]*===/', $src ), 0 );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 38 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 39 );
 exit( $fail ? 1 : 0 );

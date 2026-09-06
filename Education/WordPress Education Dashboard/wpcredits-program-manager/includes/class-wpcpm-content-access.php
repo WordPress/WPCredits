@@ -30,6 +30,20 @@ class WPCPM_Content_Access {
 	const NONCE    = 'wpcpm_access_level';
 
 	/**
+	 * A query var the plugin sets on a WP_Query of its own that must not be gated: the Sponsor
+	 * Dashboard's Posts card lists a sponsor's posts to a member who does not hold the level they
+	 * sit at. Not a registered public query var, so nothing in a URL can set it on the main query;
+	 * only code building a WP_Query can.
+	 */
+	const QUERY_UNGATED = 'wpcpm_ungated';
+
+	/**
+	 * The level sponsor posts default to: readable by students and mentors alike (Sponsors
+	 * module, Phase S3). The only level whose grant is either of two marker capabilities.
+	 */
+	const LEVEL_STUDENTS_MENTORS = 'students_mentors';
+
+	/**
 	 * Hook everything up.
 	 */
 	public static function init() {
@@ -49,6 +63,8 @@ class WPCPM_Content_Access {
 		add_filter( 'the_content_feed', array( __CLASS__, 'filter_content' ), 5 );
 		add_filter( 'the_excerpt_rss', array( __CLASS__, 'filter_excerpt' ), 5 );
 
+		add_filter( 'oembed_response_data', array( __CLASS__, 'filter_oembed' ), 10, 2 );
+
 		foreach ( self::post_types() as $post_type ) {
 			add_filter( "rest_prepare_{$post_type}", array( __CLASS__, 'filter_rest' ), 10, 3 );
 		}
@@ -57,7 +73,8 @@ class WPCPM_Content_Access {
 	/**
 	 * The selectable access levels, keyed by stored value.
 	 *
-	 * @return array<string, array{label: string, cap: string}>
+	 * @return array<string, array{label: string, cap: string|string[]}> `cap` is one capability, or
+	 *                                                                any one of a list.
 	 */
 	public static function levels() {
 		$levels = array(
@@ -78,6 +95,13 @@ class WPCPM_Content_Access {
 				'cap'   => $role['cap'],
 			);
 		}
+
+		// One level for two audiences, so a sponsor's guide or a program-wide announcement is
+		// posted once. `cap` is a list here: either marker capability reads it.
+		$levels[ self::LEVEL_STUDENTS_MENTORS ] = array(
+			'label' => __( 'Students and mentors', 'wpcredits-program-manager' ),
+			'cap'   => array( WPCPM_Roles::CAP_VIEW_STUDENT, WPCPM_Roles::CAP_VIEW_MENTOR ),
+		);
 
 		$levels[ WPCPM_Roles::ROLE_ADMIN ] = array(
 			'label' => __( 'Administrators only', 'wpcredits-program-manager' ),
@@ -172,6 +196,12 @@ class WPCPM_Content_Access {
 		$user_obj = WPCPM_Roles::resolve_user( $user );
 		$user_id  = $user_obj instanceof WP_User ? $user_obj->ID : 0;
 
+		// The author reads their own post whatever its level: a sponsor's account holds the sponsor
+		// marker alone while the guides it writes sit at the students-and-mentors level (1.95.1).
+		if ( $user_id > 0 && $user_id === (int) $post->post_author ) {
+			return (bool) apply_filters( 'wpcpm_can_view_post', true, $level, $post->ID, $user_id );
+		}
+
 		$allowed = false;
 
 		if ( $user_id ) {
@@ -179,8 +209,7 @@ class WPCPM_Content_Access {
 			if ( user_can( $user_id, WPCPM_Roles::CAP_MANAGE ) ) {
 				$allowed = true;
 			} else {
-				$cap     = isset( $levels[ $level ]['cap'] ) ? $levels[ $level ]['cap'] : '';
-				$allowed = ( '' !== $cap ) && user_can( $user_id, $cap );
+				$allowed = isset( $levels[ $level ]['cap'] ) && self::holds( $user_id, $levels[ $level ]['cap'] );
 			}
 		}
 
@@ -209,12 +238,29 @@ class WPCPM_Content_Access {
 		}
 
 		foreach ( self::levels() as $level => $config ) {
-			if ( '' !== $config['cap'] && user_can( $user_id, $config['cap'] ) ) {
+			if ( self::holds( $user_id, $config['cap'] ) ) {
 				$allowed[] = $level;
 			}
 		}
 
 		return array_values( array_unique( $allowed ) );
+	}
+
+	/**
+	 * Whether a user holds a level's grant: one capability, or any one of a list.
+	 *
+	 * @param int          $user_id The user.
+	 * @param string|array $cap     The level's `cap`.
+	 * @return bool
+	 */
+	private static function holds( $user_id, $cap ) {
+		foreach ( (array) $cap as $one ) {
+			if ( '' !== (string) $one && user_can( $user_id, (string) $one ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -224,6 +270,10 @@ class WPCPM_Content_Access {
 	 */
 	public static function filter_queries( $query ) {
 		if ( is_admin() || ! $query instanceof WP_Query ) {
+			return;
+		}
+
+		if ( $query->get( self::QUERY_UNGATED ) ) {
 			return;
 		}
 
@@ -362,6 +412,24 @@ class WPCPM_Content_Access {
 		$response->set_data( $data );
 
 		return $response;
+	}
+
+	/**
+	 * The oEmbed endpoint answers for any published post to anyone with the URL: a gated post's
+	 * title and author would leak to a logged-out reader. Nothing for a post the public cannot read.
+	 *
+	 * @param array|false $data The response, or false already.
+	 * @param WP_Post     $post The post.
+	 * @return array|false
+	 */
+	public static function filter_oembed( $data, $post ) {
+		if ( false === $data || ! $post instanceof WP_Post ) {
+			return $data;
+		}
+
+		// The level itself, not can_view() with a user of 0: resolve_user() reads 0 as the current
+		// user, and this endpoint is meant to answer for the public alone.
+		return 'public' === self::get_level( $post ) ? $data : false;
 	}
 
 	/**

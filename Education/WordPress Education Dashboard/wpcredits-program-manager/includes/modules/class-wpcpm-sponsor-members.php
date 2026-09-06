@@ -249,6 +249,11 @@ final class WPCPM_Sponsor_Members {
 		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_SPONSOR ) ) {
 			$user->add_role( WPCPM_Roles::ROLE_SPONSOR );
 		}
+		// The sponsor's posting flag reaches the account with its membership (Phase S3); the
+		// class is guarded so this file's own suite needs nothing of it.
+		if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			WPCPM_Sponsor_Posts::apply_caps( $user->ID, $record_id );
+		}
 
 		WPCPM_Institution_Audit::record_sponsor(
 			array(
@@ -307,6 +312,9 @@ final class WPCPM_Sponsor_Members {
 		update_user_meta( $user->ID, self::META_RECORD_ID_WAS, $record_id );
 		delete_user_meta( $user->ID, self::META_RECORD_ID );
 		update_user_meta( $user->ID, self::META_ACTIVE, 0 );
+		if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			WPCPM_Sponsor_Posts::drop_caps( $user->ID );
+		}
 
 		// Never touch an administrator's roles, and never delete an account.
 		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_ADMIN )

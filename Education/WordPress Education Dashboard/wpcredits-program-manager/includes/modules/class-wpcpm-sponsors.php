@@ -122,7 +122,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	public function boot() {
 		WPCPM_Ceiling::init();
 
-		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors' ) as $front ) {
+		foreach ( array( 'WPCPM_Sponsors_Dashboard', 'WPCPM_Sponsor_Profile', 'WPCPM_Sponsor_Offers', 'WPCPM_Sponsor_Usage', 'WPCPM_Sponsor_Tools', 'WPCPM_Sponsor_Interests', 'WPCPM_Sponsor_Mentors', 'WPCPM_Sponsor_Posts' ) as $front ) {
 			if ( class_exists( $front ) && method_exists( $front, 'init' ) ) {
 				call_user_func( array( $front, 'init' ) );
 			}
@@ -178,6 +178,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			WPCPM_Sponsor_Claims::delete_all();
 		}
 
+		if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			WPCPM_Sponsor_Posts::uninstall_accounts();
+			WPCPM_Sponsor_Posts::delete_all();
+		}
+
 		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) ) {
 			delete_option( WPCPM_Sponsors_Dashboard::OPT_PAGE );
 			delete_option( WPCPM_Sponsors_Dashboard::OPT_TITLE_FIXED );
@@ -221,6 +226,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			'detached'           => array( 'success', __( 'The account no longer acts for the sponsor.', 'wpcredits-program-manager' ) ),
 			'detach-refused'     => array( 'error', __( 'That account could not be detached.', 'wpcredits-program-manager' ) ),
 			'refused'            => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
+			'posting-on'         => array( 'success', __( 'Posting is on for this sponsor: its accounts can write posts and submit them for review.', 'wpcredits-program-manager' ) ),
+			'posting-off'        => array( 'success', __( 'Posting is off for this sponsor: its accounts can no longer write posts.', 'wpcredits-program-manager' ) ),
 			'offer-seeded'       => array( 'success', __( 'The first offer was seeded from the base; the sponsor completes it and switches it on from the Sponsor Dashboard.', 'wpcredits-program-manager' ) ),
 			'offer-seed-none'    => array( 'info', __( 'That sponsor already has an offer; nothing was seeded.', 'wpcredits-program-manager' ) ),
 			'offer-seed-failed'  => array( 'error', __( 'The offer could not be seeded: the index does not hold that sponsor.', 'wpcredits-program-manager' ) ),
@@ -967,6 +974,36 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			printf( '<input type="email" id="wpcpm-attach-%1$s" name="wpcpm_email" placeholder="%2$s" required /> ', esc_attr( $record ), esc_attr__( 'name@company.example', 'wpcredits-program-manager' ) );
 			printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Attach account', 'wpcredits-program-manager' ) );
 			echo '</form>';
+
+			// The posting flag (Phase S3): on by default, switched here and applied to every
+			// live account at once. The nonce is keyed to the record like Create account's.
+			if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+				$posting = WPCPM_Sponsor_Posts::posting_enabled( $record );
+
+				printf(
+					'<p class="description">%s</p>',
+					esc_html(
+						$posting
+							? sprintf(
+								/* translators: %s: how many accounts. */
+								_n( 'Posting is on: %s account can write posts in wp-admin; a program manager publishes them.', 'Posting is on: %s accounts can write posts in wp-admin; a program manager publishes them.', count( $members ), 'wpcredits-program-manager' ),
+								number_format_i18n( count( $members ) )
+							)
+							: __( 'Posting is off for this sponsor.', 'wpcredits-program-manager' )
+					)
+				);
+				printf(
+					'<form method="post" action="%1$s" class="wpcpm-inline-form" data-wpcpm-once data-wpcpm-busy="%2$s">',
+					esc_url( admin_url( 'admin-post.php' ) ),
+					esc_attr__( 'Switching', 'wpcredits-program-manager' )
+				);
+				wp_nonce_field( WPCPM_Sponsor_Posts::ACTION_FLAGS . '_' . $record );
+				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Sponsor_Posts::ACTION_FLAGS ) );
+				printf( '<input type="hidden" name="wpcpm_sponsor" value="%s" />', esc_attr( $record ) );
+				printf( '<input type="hidden" name="wpcpm_on" value="%s" />', esc_attr( $posting ? '0' : '1' ) );
+				printf( '<button type="submit" class="button">%s</button>', esc_html( $posting ? __( 'Turn posting off', 'wpcredits-program-manager' ) : __( 'Turn posting on', 'wpcredits-program-manager' ) ) );
+				echo '</form>';
+			}
 		}
 
 		echo '</div>';

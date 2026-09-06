@@ -1462,6 +1462,29 @@
 	border-top-color: var( --wpc-line-soft );
 }
 
+/* A sponsor's published guides under its first offer (plugin 1.95.0): a lead line and a
+   plain list at note size, the values of .wpcpm-tools__count and the people notes. */
+.wpc-dashboard-page .wpcpm-tools__posts {
+	margin: 8px 0 0;
+}
+
+.wpc-dashboard-page .wpcpm-tools__posts-lead {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+	margin: 0 0 4px;
+}
+
+.wpc-dashboard-page .wpcpm-tools__posts-list {
+	font: 14px/20px var( --wpc-font );
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-dashboard-page .wpcpm-tools__posts-when {
+	color: var( --wpc-ink-70 );
+}
+
 .wpc-dashboard-page .wpcpm-tools__count {
 	color: var( --wpc-ink-70 );
 	margin: 0 32px 16px;
@@ -1540,6 +1563,107 @@
 .wpc-sponsor-page .wpcpm-dashboard__detail {
 	display: block;
 	margin-top: 4px;
+}
+
+/*
+ * The Posts card on the Sponsor Dashboard (plugin 1.95.0). One post is a row under a hairline,
+ * the shape the Offers card gives an offer above; its state is the pill the offer's state uses;
+ * a manager's Publish and Return sit under a pending post as the People card's controls do.
+ * Values: .wpc-sponsor-page .wpcpm-offer, .wpcpm-offer__title, .wpcpm-offer__state, the shared
+ * .wpcpm-button rule, and the Institution Dashboard's .wpcpm-people__form controls.
+ */
+.wpc-sponsor-page .wpcpm-posts {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wpc-sponsor-page .wpcpm-posts__item {
+	border-top: 1px solid var( --wpc-line-soft );
+	margin: 16px 0 0;
+	padding: 16px 0 0;
+}
+
+.wpc-sponsor-page .wpcpm-posts__item:first-child {
+	border-top: 0;
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.wpc-sponsor-page .wpcpm-posts__title {
+	font: 700 16px/22px var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-posts__state {
+	border: 1px solid var( --wpc-line );
+	border-radius: 999px;
+	font: 600 12px/18px var( --wpc-font );
+	letter-spacing: .04em;
+	margin-left: 6px;
+	padding: 0 7px;
+	text-transform: uppercase;
+	vertical-align: middle;
+}
+
+.wpc-sponsor-page .wpcpm-posts__when {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+}
+
+.wpc-sponsor-page .wpcpm-posts__note {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+	margin: 4px 0 0;
+}
+
+.wpc-sponsor-page .wpcpm-posts__write {
+	margin: 0 0 16px;
+}
+
+.wpc-sponsor-page .wpcpm-posts__decide {
+	align-items: flex-start;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 12px;
+	margin: 12px 0 0;
+}
+
+.wpc-sponsor-page .wpcpm-posts__form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+}
+
+.wpc-sponsor-page .wpcpm-posts__form--return {
+	flex: 1 1 100%;
+}
+
+.wpc-sponsor-page .wpcpm-posts__form--return textarea {
+	border: 1px solid var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	box-sizing: border-box;
+	flex: 1 1 24em;
+	font: 14px/20px var( --wpc-font );
+	min-width: 0;
+	padding: 6px 8px;
+}
+
+.wpc-sponsor-page .wpcpm-posts__form .button,
+.wpc-sponsor-page .wpcpm-posts__preview {
+	background: none;
+	border: 1px solid var( --wpc-brand );
+	border-radius: 8px;
+	color: var( --wpc-brand );
+	cursor: pointer;
+	font: 600 14px/20px var( --wpc-font );
+	padding: 6px 14px;
+	text-decoration: none;
+}
+
+.wpc-sponsor-page .wpcpm-posts__form .button-primary {
+	background: var( --wpc-brand );
+	color: #fff;
 }
 
 /* Two collapsed groups in a row were touching, because the shared rule above flattens every

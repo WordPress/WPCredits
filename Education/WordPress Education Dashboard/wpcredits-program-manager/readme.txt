@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.94.7
+Stable tag: 1.95.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,17 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.95.1 =
+* The author of a post reads it whatever its access level: a sponsor's accounts can open their own published guides, which sit at the Students and mentors level while the accounts hold the sponsor marker alone. Found on the live demonstration of 1.95.0.
+
+= 1.95.0 =
+* **The Sponsors module, phase three: sponsor posts.** A sponsor's accounts write posts in the site's editor with Contributor-level capabilities added per account (`edit_posts`, `delete_posts`, `upload_files`; never on the role, never `publish_posts`), switched per sponsor on the Sponsors screen and applied when an account is attached or detached. A member's post is pending, dated now, their own, in the Sponsors category and the company's child category, at the new "Students and mentors" access level, and stamped with the sponsor, whatever the editor said; the block editor's REST save is pinned the same way. Members see their own posts and media only, upload images only, and lose the access box, Comments and Tools. A program manager publishes from the editor or from the Posts card on the Sponsor Dashboard, or returns a post as a draft with a note that is kept on the post and mailed to the author.
+* For a sponsor's accounts, every wp-admin query (the screens' own and admin-ajax's) lists their own posts and files only; oEmbed names the company and answers nothing for a gated post; publishing from the card stamps the publish moment on the post.
+* Access levels: "Students and mentors", readable with either marker capability; the Updates column of the Student Report Card and the Mentor Report Card lists it.
+* Tools from our sponsors: a sponsor's published guides are listed under its first offer, for readers the level admits. A sponsor post carries the company as its author and opens with a byline box; the author archive was already closed.
+* Categories: "Sponsors" and one child per company, created on first use, renamed by the sync when the company is renamed in Airtable, kept on uninstall.
+* With theme 1.22.0.
 
 = 1.94.7 =
 * Student Report Card: the sentence that opens a run of marks ("Complete one of the following courses", "Optional courses", "Your contribution team and project", "Your reflection posts") is a lesson sub-heading like "Enter your final grade, 0 to 100": capitals and the rule above, one treatment for every run.

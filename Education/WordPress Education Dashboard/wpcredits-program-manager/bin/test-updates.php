@@ -229,6 +229,7 @@ $levels = array(
 	WPCPM_Roles::ROLE_MENTOR        => 'Mentors post',
 	WPCPM_Roles::ROLE_INSTITUTION   => 'Institutions post',
 	WPCPM_Roles::ROLE_ADMIN         => 'Administrators post',
+	WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS => 'Students and mentors post',
 );
 
 $id = 100;
@@ -240,12 +241,12 @@ foreach ( $levels as $level => $title ) {
 // The matrix, written out in full rather than derived - a table generated from `levels()` would
 // pass whatever the implementation happens to do.
 $expected = array(
-	// who          => public, student, mentor, institution, administrator
-	'logged out'  => array( true, false, false, false, false ),
-	'student'     => array( true, true,  false, false, false ),
-	'mentor'      => array( true, false, true,  false, false ),
-	'institution' => array( true, false, false, true,  false ),
-	'manager'     => array( true, true,  true,  true,  true ),
+	// who          => public, student, mentor, institution, administrator, students and mentors
+	'logged out'  => array( true, false, false, false, false, false ),
+	'student'     => array( true, true,  false, false, false, true ),
+	'mentor'      => array( true, false, true,  false, false, true ),
+	'institution' => array( true, false, false, true,  false, false ),
+	'manager'     => array( true, true,  true,  true,  true,  true ),
 );
 
 foreach ( $expected as $who => $wants ) {
@@ -268,6 +269,22 @@ foreach ( $expected as $who => $wants ) {
 	ck( sprintf( 'a %s sees: public/student/mentor/institution/admin', $who ), $got, $wants );
 }
 
+// The oEmbed endpoint answers for any published post to anyone holding the URL, so it is gated
+// too: 102 is the student-level post seeded above, 101 the public one.
+$GLOBALS['uid'] = $people['logged out']['id'];
+ck( 'oEmbed answers nothing for a post the public cannot read, and passes a public post through', array( WPCPM_Content_Access::filter_oembed( array( 'title' => 'x' ), get_post( 102 ) ), WPCPM_Content_Access::filter_oembed( array( 'title' => 'x' ), get_post( 101 ) ) ), array( false, array( 'title' => 'x' ) ) );
+
+// The author of a post reads it whatever its level (1.95.1): a sponsor's account holds only the
+// sponsor marker while its published guides sit at the students-and-mentors level.
+$GLOBALS['users'][15] = new WP_User( 15, 'sponsor author' );
+$GLOBALS['caps'][15]  = array( 'wpcpm_view_sponsor_content' );
+seed_post( 400, 'A guide by its author', '2026-09-06 10:00:00', WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS );
+$GLOBALS['posts'][400]->post_author = 15;
+ck( 'the author reads their own post at a level they do not hold, and another sponsor account does not', array( WPCPM_Content_Access::can_view( 400, 15 ), WPCPM_Content_Access::can_view( 400, 13 ) ), array( true, false ) );
+// The fixture set is shared by the sections below: the seeded post and its author leave with the check.
+unset( $GLOBALS['posts'][400], $GLOBALS['pmeta'][400], $GLOBALS['users'][15], $GLOBALS['caps'][15] );
+ck( 'and the two ids are the posts this check means', array( get_post( 102 )->post_title, get_post( 101 )->post_title ), array( 'Students post', 'Everyone post' ) );
+
 echo "\n=== What the column lists ===\n";
 
 foreach ( array( 'student', 'mentor', 'institution' ) as $who ) {
@@ -281,9 +298,18 @@ foreach ( array( 'student', 'mentor', 'institution' ) as $who ) {
 
 	sort( $titles );
 
+	// A student or mentor also holds the Students and mentors level's grant (Sponsors module
+	// Phase S3), so their own view - unlike the institution's - includes its post too.
+	$wants = array( 'Everyone post', ucfirst( $who ) . 's post' );
+
+	if ( in_array( $who, array( 'student', 'mentor' ), true ) ) {
+		$wants[] = 'Students and mentors post';
+		sort( $wants );
+	}
+
 	ck( sprintf( 'the %s column lists only their own and the public one', $who ),
 	    $titles,
-	    array( 'Everyone post', ucfirst( $who ) . 's post' ) );
+	    $wants );
 }
 
 $GLOBALS['uid'] = $people['logged out']['id'];
@@ -307,8 +333,9 @@ ck( 'and the rendered column leaks no title it should not',
         false !== strpos( $column, 'Mentors post' ),
         false !== strpos( $column, 'Institutions post' ),
         false !== strpos( $column, 'Administrators post' ),
+        false !== strpos( $column, 'Students and mentors post' ),
     ),
-    array( true, true, false, false, false ) );
+    array( true, true, false, false, false, true ) );
 
 echo "\n=== Whose card it is, not who is looking ===\n";
 
@@ -326,8 +353,13 @@ foreach ( array( 'student' => 'Students post', 'mentor' => 'Mentors post' ) as $
 
 	sort( $titles );
 
+	// The shared level reaches this card too, now that `levels_for()` lists it for both the
+	// student and the mentor audience (Sponsors module Phase S3).
+	$wants = array( 'Everyone post', $own, 'Students and mentors post' );
+	sort( $wants );
+
 	ck( sprintf( 'a manager on the %s card sees the %s view', $audience, $audience ),
-	    $titles, array( 'Everyone post', $own ) );
+	    $titles, $wants );
 }
 
 // The Administrator Dashboard's own column: a manager's own level and the public posts,
@@ -353,8 +385,17 @@ $levels_for->setAccessible( true );
 ck( 'the sponsor audience maps to the sponsor level',
     $levels_for->invoke( null, 'sponsor' ), array( 'public', 'wpcpm_sponsor' ) );
 
+// The sixth level `levels_for()` now adds (Sponsors module Phase S3): a sponsor's guide or a
+// program-wide announcement posted once at the shared level reaches both the student and the
+// mentor column, and reaches no other column.
+ck( 'the student audience lists the shared level after its own', $levels_for->invoke( null, 'student' ), array( 'public', WPCPM_Roles::ROLE_STUDENT, WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS ) );
+ck( 'so does the mentor audience', $levels_for->invoke( null, 'mentor' ), array( 'public', WPCPM_Roles::ROLE_MENTOR, WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS ) );
+ck( 'and the institution, administrator and sponsor audiences do not', array( $levels_for->invoke( null, 'institution' ), $levels_for->invoke( null, 'administrator' ), $levels_for->invoke( null, 'sponsor' ) ), array( array( 'public', WPCPM_Roles::ROLE_INSTITUTION ), array( 'public', WPCPM_Roles::ROLE_ADMIN ), array( 'public', WPCPM_Roles::ROLE_SPONSOR ) ) );
+
 // And the audience is a narrowing, never a widening: a student on a mentor-audience render must
-// still not get mentor content, because `can_view()` is underneath.
+// still not get mentor-only content, because `can_view()` is underneath. The shared level is not
+// mentor-only, so it legitimately reaches them here too - they hold its grant regardless of
+// whose card this is.
 $GLOBALS['uid'] = $people['student']['id'];
 $titles         = array();
 
@@ -362,11 +403,12 @@ foreach ( WPCPM_Updates::posts( 20, 'mentor' ) as $post ) {
 	$titles[] = $post->post_title;
 }
 
-ck( 'the audience cannot widen what a reader is entitled to', $titles, array( 'Everyone post' ) );
+ck( 'the audience cannot widen what a reader is entitled to', $titles, array( 'Students and mentors post', 'Everyone post' ) );
 
-// No audience at all is the viewer's own view, unchanged.
+// No audience at all is the viewer's own view, unchanged. Six now, not five: the manager reads
+// every level, and the Students and mentors level added a sixth post to the fixture above.
 $GLOBALS['uid'] = $people['manager']['id'];
-ck( 'with no audience it is still the viewer\'s view', count( WPCPM_Updates::posts( 20 ) ), 5 );
+ck( 'with no audience it is still the viewer\'s view', count( WPCPM_Updates::posts( 20 ) ), 6 );
 
 echo "\n=== The list's shape ===\n";
 

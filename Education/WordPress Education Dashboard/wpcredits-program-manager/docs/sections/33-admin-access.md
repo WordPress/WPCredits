@@ -13,6 +13,7 @@ The levels come from the roles, so there is one per audience plus the two ends:
 | Mentor level | Accounts holding `wpcpm_mentor`, plus administrators. |
 | Institution level | Accounts holding `wpcpm_institution`, plus administrators. |
 | Sponsor level | Accounts holding `wpcpm_sponsor`, plus administrators. |
+| Students and mentors | Accounts holding `wpcpm_student` or `wpcpm_mentor`, plus administrators. The level sponsor posts default to; a manager may widen a post to Public or narrow it in the post's Program access box. |
 | Administrators only | Accounts with `wpcpm_manage_program`. |
 
 **The levels do not nest.** A mentor holds the mentor capability and nothing else, so a mentor cannot

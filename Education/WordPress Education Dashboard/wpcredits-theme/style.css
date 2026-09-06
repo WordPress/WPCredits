@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.21.0
+Version: 1.22.0
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -847,6 +847,44 @@ p.is-style-pill {
 
 .wpc-page__meta {
 	color: var( --wpc-ink-60 );
+}
+
+/* A sponsor's post opens with the company (plugin 1.95.0): the logo or an initial and one
+   sentence, in a box the article's own card values give it. Loaded here, not in
+   dashboard.css, because a post is not a dashboard page. */
+.wpcpm-sponsor-byline {
+	align-items: center;
+	border: 1px solid var( --wpc-line-card );
+	border-radius: var( --wpc-radius-card );
+	display: flex;
+	gap: 12px;
+	margin: 0 0 24px;
+	padding: 12px 16px;
+}
+
+.wpcpm-sponsor-byline__logo img {
+	display: block;
+	height: 40px;
+	width: auto;
+}
+
+.wpcpm-sponsor-byline__initials {
+	align-items: center;
+	background: var( --wpc-surface-soft );
+	border-radius: 50%;
+	color: var( --wpc-ink-70 );
+	display: inline-flex;
+	flex: none;
+	font: 700 16px/1 var( --wpc-font );
+	height: 40px;
+	justify-content: center;
+	width: 40px;
+}
+
+.wpcpm-sponsor-byline__text {
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+	margin: 0;
 }
 
 .wpc-page-head .wp-block-query-title {

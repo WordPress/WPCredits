@@ -219,6 +219,15 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-codes.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-offers.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-interests.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-claims.php';
+
+/**
+ * A stub: records each call and prints the marker render_offer() looks for, so this suite
+ * proves the call site without loading the real class and dragging in its own dependencies (S3).
+ */
+class WPCPM_Sponsor_Posts {
+	public static $calls = array();
+	public static function render_tools( $record, $viewer, $name ) { self::$calls[] = array( $record, $name ); echo '<div class="wpcpm-tools__posts"></div>'; }
+}
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 
 // The fixture: two Approved sponsors, a manager, a member of each, and the people who claim.
@@ -342,6 +351,20 @@ ck( 'nor an expired one, nor the ended one, nor the empty one', array( strpos( $
 ck( 'each open offer carries a claim form with its nonce, and no code', array( substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ), false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '_' . $a1 ), strpos( $html, 'A-1' ) ), array( 4, true, false ) );
 ck( 'the sponsor logo, name and website are drawn', array( false !== strpos( $html, 'wpcpm-tools__logo' ), false !== strpos( $html, 'https://plugins.miniorange.com/' ) ), array( true, true ) );
 ck( '"Your codes" lists the claim from the ended offer, with the code', array( false !== strpos( $html, 'Your codes' ), false !== strpos( $html, 'Old offer' ), false !== strpos( $html, '>D-1<' ) ), array( true, true, true ) );
+
+// S3: miniOrange already has two live offers open to students (a1, c1). Cloud86's two are
+// paused for this one render only, so the student sees a single sponsor with two offers,
+// proving "once per sponsor", not "once per offer"; resumed right after, since the mentors
+// and managers checks below expect both sponsors' offers live again.
+WPCPM_Sponsor_Offers::set_state( $b1, 'paused' );
+WPCPM_Sponsor_Offers::set_state( $f1, 'paused' );
+WPCPM_Sponsor_Posts::$calls = array();
+ob_start(); WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_STUDENTS, $GLOBALS['users'][20] ); $tools_html = ob_get_clean();
+ck( 'guides are listed once per sponsor, inside its first offer', array( count( WPCPM_Sponsor_Posts::$calls ), substr_count( $tools_html, '<div class="wpcpm-tools__posts"></div>' ), strpos( $tools_html, '<div class="wpcpm-tools__posts"></div>' ) < strpos( $tools_html, '<li class="wpcpm-tools__offer">', strpos( $tools_html, '<li class="wpcpm-tools__offer">' ) + 1 ) ), array( 1, 1, true ) );
+ck( 'the call names the company the offer printed', WPCPM_Sponsor_Posts::$calls[0][1], 'miniOrange' );
+WPCPM_Sponsor_Offers::set_state( $b1, 'live' );
+WPCPM_Sponsor_Offers::set_state( $f1, 'live' );
+
 $_POST = array( 'wpcpm_offer' => $a1 );
 $GLOBALS['referer'] = 'https://example.test/student-report-card/';
 $r = post( $_POST, array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );

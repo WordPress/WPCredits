@@ -52,4 +52,7 @@ rm -f /tmp/wpcpm-dashes.txt
 # US English in the text people read, as the WordPress writing style guide asks.
 php bin/check-spelling.php
 
-"$PHPCS"
+# Plain output: with colors on, "ERROR" arrives wrapped in escape codes and a grep for the word
+# reads zero whatever the count (found while shipping 1.95.0). Read the count from the summary
+# line, or run `phpcs --no-colors --report=summary`.
+"$PHPCS" --no-colors
