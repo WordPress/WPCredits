@@ -90,6 +90,11 @@ class WPCPM_Sponsor_Posts {
 		add_action( 'add_meta_boxes', array( __CLASS__, 'remove_access_box' ), 20 );
 		add_action( 'admin_menu', array( __CLASS__, 'trim_menu' ), 999 );
 		add_action( 'admin_bar_menu', array( __CLASS__, 'trim_bar' ), 999 );
+		// In wp-admin a member sees their own category alone: the editor's category list (REST),
+		// the term lists the screens build, and no category filter over posts that are all theirs.
+		add_filter( 'rest_category_query', array( __CLASS__, 'scope_categories' ), 10, 2 );
+		add_filter( 'get_terms_args', array( __CLASS__, 'scope_terms_args' ), 10, 2 );
+		add_filter( 'disable_categories_dropdown', array( __CLASS__, 'hide_category_filter' ), 10, 2 );
 		add_filter( 'the_author', array( __CLASS__, 'filter_author_name' ) );
 		add_filter( 'get_the_author_display_name', array( __CLASS__, 'filter_author_name' ), 10, 2 );
 		// After the access gate at 5: a refused reader gets the notice and no banner.
@@ -885,6 +890,92 @@ class WPCPM_Sponsor_Posts {
 		}
 
 		echo '</li>';
+	}
+
+	/**
+	 * The two categories a member's posts live in: Sponsors and the company's own, read and never
+	 * created here (pin() creates the child on the first save). Cached for the request.
+	 *
+	 * @return int[]
+	 */
+	private static function own_terms() {
+		static $cache = null;
+
+		if ( null !== $cache ) {
+			return $cache;
+		}
+
+		$record = WPCPM_Sponsor_Members::sponsor_of();
+		$cache  = array();
+
+		if ( '' !== $record ) {
+			$cache = array_values( array_filter( array( self::parent_term_id(), self::term_of( $record ) ) ) );
+		}
+
+		return $cache;
+	}
+
+	/**
+	 * `rest_category_query`: the block editor's category list shows a member their own two.
+	 *
+	 * @param array           $args    The query arguments.
+	 * @param WP_REST_Request $request The request.
+	 * @return array
+	 */
+	public static function scope_categories( $args, $request = null ) {
+		if ( ! self::fenced() ) {
+			return $args;
+		}
+
+		$terms = self::own_terms();
+
+		if ( ! empty( $terms ) ) {
+			$args            = is_array( $args ) ? $args : array();
+			$args['include'] = $terms;
+			$args['exclude'] = array();
+		}
+
+		return $args;
+	}
+
+	/**
+	 * `get_terms_args`: every category list wp-admin builds for a member (Quick Edit, the
+	 * classic box) is their own two. Guarded against itself: reading the parent term runs
+	 * get_terms() and would meet this filter again.
+	 *
+	 * @param array    $args       The query arguments.
+	 * @param string[] $taxonomies The taxonomies asked for.
+	 * @return array
+	 */
+	public static function scope_terms_args( $args, $taxonomies ) {
+		static $busy = false;
+
+		if ( $busy || ! self::fenced() || ! is_admin() || ! in_array( 'category', (array) $taxonomies, true ) ) {
+			return $args;
+		}
+
+		$busy  = true;
+		$terms = self::own_terms();
+		$busy  = false;
+
+		if ( ! empty( $terms ) ) {
+			$args            = is_array( $args ) ? $args : array();
+			$args['include'] = $terms;
+		}
+
+		return $args;
+	}
+
+	/**
+	 * `disable_categories_dropdown`: no category filter on a member's Posts screen, where every
+	 * post is theirs and in their category.
+	 *
+	 * @param bool   $disable   Whether core would hide it.
+	 * @param string $post_type The screen's post type.
+	 * @return bool
+	 */
+	public static function hide_category_filter( $disable, $post_type ) {
+		return self::fenced() ? true : $disable;
 	}
 
 	/**

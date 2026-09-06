@@ -342,7 +342,8 @@ ck( 'the program contact block names the manager, the address and the booking li
 ck( 'no switcher for a member', strpos( $out, 'wpcpm-dashboard__switcher' ), false );
 ck( 'no heading unless the block asks for one', strpos( $out, 'wpcpm-dashboard__title' ), false );
 ck( 'the block\'s optional heading is honoured', false !== strpos( $D::render( array( 'title' => 'Our sponsorship' ) ), '<h2 class="wpcpm-dashboard__title">Our sponsorship</h2>' ), true );
-ck( 'the people card lists the accounts and offers no form to a member', false !== strpos( $out, 'Rep One' ) && 0 === substr_count( substr( $out, strpos( $out, 'id="wpcpm-sponsor-people"' ) ), '<form' ), true );
+$people_card = substr( $out, strpos( $out, 'id="wpcpm-sponsor-people"' ) ); $people_card = substr( $people_card, 0, strpos( $people_card, '</section>' ) );
+ck( 'the people card lists the accounts and offers no form to a member', false !== strpos( $people_card, 'Rep One' ) && 0 === substr_count( $people_card, '<form' ), true );
 ck( 'the stylesheet is registered from assets/css/sponsor.css and switched on', isset( $GLOBALS['styles'][ $D::STYLE ] ) && false !== strpos( $GLOBALS['styles'][ $D::STYLE ]['src'], 'assets/css/sponsor.css' ) && ! empty( $GLOBALS['styles'][ $D::STYLE ]['on'] ), true );
 ck( 'the double-submit guard is armed', in_array( 'wpcpm-forms', $GLOBALS['scripts'], true ), true );
 ck( 'no student is named anywhere', strpos( $out, 'Student' ), false );

@@ -291,7 +291,7 @@ reset_calls();
 WPCPM_Sponsor_Posts::init();
 $hooked = array_map( static function ( $c ) { return $c[1]; }, array_merge( calls( 'add_filter' ), calls( 'add_action' ) ) );
 sort( $hooked );
-ck( 'init() hooks the fence for everyone, and decides per call', $hooked, array( 'add_meta_boxes', 'admin_bar_menu', 'admin_menu', 'admin_post_wpcpm_sponsor_flags', 'admin_post_wpcpm_sponsor_post_publish', 'admin_post_wpcpm_sponsor_post_return', 'ajax_query_attachments_args', 'get_the_author_display_name', 'init', 'oembed_response_data', 'pre_get_posts', 'rest_after_insert_post', 'rest_attachment_query', 'save_post_post', 'set_user_role', 'the_author', 'the_content', 'upload_mimes', 'wp_insert_post_data', 'wp_prepare_attachment_for_js' ) );
+ck( 'init() hooks the fence for everyone, and decides per call', $hooked, array( 'add_meta_boxes', 'admin_bar_menu', 'admin_menu', 'admin_post_wpcpm_sponsor_flags', 'admin_post_wpcpm_sponsor_post_publish', 'admin_post_wpcpm_sponsor_post_return', 'ajax_query_attachments_args', 'disable_categories_dropdown', 'get_terms_args', 'get_the_author_display_name', 'init', 'oembed_response_data', 'pre_get_posts', 'rest_after_insert_post', 'rest_attachment_query', 'rest_category_query', 'save_post_post', 'set_user_role', 'the_author', 'the_content', 'upload_mimes', 'wp_insert_post_data', 'wp_prepare_attachment_for_js' ) );
 ck( 'the hooks that need two or more arguments ask for them', array( in_array( array( 'add_action', 'save_post_post', 20, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'wp_insert_post_data', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'get_the_author_display_name', 10, 2 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'the_content', 6, 1 ), $GLOBALS['calls'], true ), in_array( array( 'add_filter', 'oembed_response_data', 20, 2 ), $GLOBALS['calls'], true ) ), array( true, true, true, true, true ) );
 $GLOBALS['uid'] = 1;
 $untouched = array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 1, 'post_date' => '2030-01-01 00:00:00', 'post_date_gmt' => '2030-01-01 00:00:00' );
@@ -516,6 +516,19 @@ ck( 'a member gets no decision block', $none, '' );
 $GLOBALS['flash'] = array();
 $landed = press( 1, array( 'wpcpm_post' => $queued, 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'sponsor-posts' ) );
 ck( 'a decision taken on the Administrator Dashboard goes back there, its sentence on that page\'s channel', array( $landed, end( $GLOBALS['flash'] ), get_post( $queued )->post_status ), array( 'https://example.test/administrator-dashboard/#wpcpm-sponsor-posts', array( 'institutions', 'post-published' ), 'publish' ) );
+
+echo "\n=== Their own category, and nothing else, in wp-admin ===\n";
+$GLOBALS['uid'] = 20;
+// delete_all() above forgot the term record; the member's category exists again once ensured.
+WPCPM_Sponsor_Posts::ensure_terms( $S );
+$own = array( WPCPM_Sponsor_Posts::parent_term_id(), WPCPM_Sponsor_Posts::term_of( $S ) );
+ck( 'the editor\'s category list is the member\'s two', WPCPM_Sponsor_Posts::scope_categories( array( 'per_page' => 100, 'exclude' => array( 5 ) ), null ), array( 'per_page' => 100, 'exclude' => array(), 'include' => $own ) );
+$GLOBALS['is_admin'] = true;
+ck( 'so is every category list wp-admin builds, and the filter over their posts is gone', array( WPCPM_Sponsor_Posts::scope_terms_args( array( 'hide_empty' => false ), array( 'category' ) ), WPCPM_Sponsor_Posts::scope_terms_args( array( 'x' => 1 ), array( 'post_tag' ) ), WPCPM_Sponsor_Posts::hide_category_filter( false, 'post' ) ), array( array( 'hide_empty' => false, 'include' => $own ), array( 'x' => 1 ), true ) );
+$GLOBALS['is_admin'] = false;
+$GLOBALS['uid'] = 1;
+ck( 'a manager keeps every category and the filter', array( WPCPM_Sponsor_Posts::scope_categories( array( 'per_page' => 100 ), null ), WPCPM_Sponsor_Posts::hide_category_filter( false, 'post' ) ), array( array( 'per_page' => 100 ), false ) );
+$GLOBALS['uid'] = 20;
 
 echo "\n=== House rules ===\n";
 $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-posts.php' );
