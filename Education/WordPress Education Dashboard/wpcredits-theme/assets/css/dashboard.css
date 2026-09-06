@@ -1287,6 +1287,17 @@
 	margin-top: 12px;
 }
 
+/* Inside a group the cards follow each other with no hairline between them: the one line a group
+   shows is the one under its heading, over its first card (the owner, 6 September 2026: "remove
+   this line" on every line between two cards of a group). The plugin's base gives every card a
+   top border with 2em of padding under it; a card that follows another card in the same group
+   drops both and keeps 16px of room. */
+.wpc-sponsor-page .wpcpm-sponsor__card + .wpcpm-sponsor__card {
+	border-top: 0;
+	margin-top: 16px;
+	padding-top: 0;
+}
+
 /*
  * The logo box: 176px wide, the image contained, on a white ground whatever the page's
  * surface, because half the sponsors drew their logo for a dark background and a
