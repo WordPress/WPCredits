@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.98.2\n"
+"Project-Id-Version: WPCredits Program Manager 1.98.3\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-07T13:54:37+00:00\n"
+"POT-Creation-Date: 2026-09-07T15:23:45+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -134,7 +134,7 @@ msgstr ""
 #: includes/class-wpcpm-admin.php:264
 #: includes/class-wpcpm-admin.php:1108
 #: includes/modules/class-wpcpm-administrators.php:149
-#: includes/modules/class-wpcpm-student-report-form.php:1766
+#: includes/modules/class-wpcpm-student-report-form.php:1797
 msgid "Yes"
 msgstr ""
 
@@ -841,7 +841,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-application.php:3324
 #: includes/modules/class-wpcpm-sponsor-offers.php:1437
 #: includes/modules/class-wpcpm-sponsors.php:1658
-#: includes/modules/class-wpcpm-student-report-form.php:1488
+#: includes/modules/class-wpcpm-student-report-form.php:1519
 msgid "Required"
 msgstr ""
 
@@ -2638,8 +2638,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-group-sessions.php:810
 #: includes/modules/class-wpcpm-group-sessions.php:881
 #: includes/modules/class-wpcpm-mentor-availability.php:822
-#: includes/modules/class-wpcpm-student-report-form.php:1031
-#: includes/modules/class-wpcpm-student-report-form.php:1412
+#: includes/modules/class-wpcpm-student-report-form.php:1062
+#: includes/modules/class-wpcpm-student-report-form.php:1443
 msgid "Saving…"
 msgstr ""
 
@@ -5008,7 +5008,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-people.php:334
 #: includes/modules/class-wpcpm-sponsors.php:1254
-#: includes/modules/class-wpcpm-student-report-form.php:1743
+#: includes/modules/class-wpcpm-student-report-form.php:1774
 msgid "Remove"
 msgstr ""
 
@@ -10244,7 +10244,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-logo.php:404
 #: includes/modules/class-wpcpm-sponsors.php:1246
-#: includes/modules/class-wpcpm-student-report-form.php:1197
+#: includes/modules/class-wpcpm-student-report-form.php:1228
 msgid "Removing"
 msgstr ""
 
@@ -12356,167 +12356,175 @@ msgstr ""
 msgid "The write-up of what you built and contributed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:584
+#: includes/modules/class-wpcpm-student-report-form.php:606
+msgid "Alumni Program: Connect with the community and plan your contribution beyond WP Credits"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:610
 msgid "Define and begin developing your contribution project"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:586
-#: includes/modules/class-wpcpm-student-report-form.php:620
+#: includes/modules/class-wpcpm-student-report-form.php:614
+#: includes/modules/class-wpcpm-student-report-form.php:650
 msgid "Your reflection posts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:592
-#: includes/modules/class-wpcpm-student-report-form.php:624
+#: includes/modules/class-wpcpm-student-report-form.php:621
+#: includes/modules/class-wpcpm-student-report-form.php:654
 msgid "Link to a WordPress event you have participated in (online or in person)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:602
+#: includes/modules/class-wpcpm-student-report-form.php:622
+msgid "Participate at a WordPress Event (online or in person)"
+msgstr ""
+
+#: includes/modules/class-wpcpm-student-report-form.php:632
 msgid "Create your personal website"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:662
+#: includes/modules/class-wpcpm-student-report-form.php:692
 msgid "Alumni Program"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:672
+#: includes/modules/class-wpcpm-student-report-form.php:702
 msgid "Your contribution team and project"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:811
+#: includes/modules/class-wpcpm-student-report-form.php:841
 msgid "Total hours"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:812
+#: includes/modules/class-wpcpm-student-report-form.php:842
 msgid "Onboarding"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:813
+#: includes/modules/class-wpcpm-student-report-form.php:843
 msgid "Project"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:814
+#: includes/modules/class-wpcpm-student-report-form.php:844
 msgid "Wrap-up"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:837
+#: includes/modules/class-wpcpm-student-report-form.php:867
 msgid "Your record could not be found in the program data."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:924
+#: includes/modules/class-wpcpm-student-report-form.php:955
 msgid "Your report form"
 msgstr ""
 
 #. translators: %s: the reason the record could not be read.
-#: includes/modules/class-wpcpm-student-report-form.php:1004
+#: includes/modules/class-wpcpm-student-report-form.php:1035
 #, php-format
 msgid "Your report form could not be loaded just now: %s Nothing has been lost - try reloading the page."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1018
+#: includes/modules/class-wpcpm-student-report-form.php:1049
 msgid "This is the student's own report, so it is shown here but not editable."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1178
+#: includes/modules/class-wpcpm-student-report-form.php:1209
 msgid "Save my report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1355
+#: includes/modules/class-wpcpm-student-report-form.php:1386
 msgid "That student has no account on this site yet, so there is no report to show."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1455
+#: includes/modules/class-wpcpm-student-report-form.php:1486
 msgid "Save hours"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1573
+#: includes/modules/class-wpcpm-student-report-form.php:1604
 msgid "Choose one"
 msgstr ""
 
 #. translators: %s: how many files the program records hold for this question.
-#: includes/modules/class-wpcpm-student-report-form.php:1691
+#: includes/modules/class-wpcpm-student-report-form.php:1722
 #, php-format
 msgid "%s file on record in Airtable"
 msgid_plural "%s files on record in Airtable"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1699
+#: includes/modules/class-wpcpm-student-report-form.php:1730
 msgid "No screenshot yet"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1714
+#: includes/modules/class-wpcpm-student-report-form.php:1745
 msgid "Replace it by choosing a new file."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1766
+#: includes/modules/class-wpcpm-student-report-form.php:1797
 msgid "No"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1770
+#: includes/modules/class-wpcpm-student-report-form.php:1801
 msgid "Not filled in"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1833
+#: includes/modules/class-wpcpm-student-report-form.php:1864
 msgid "The team list has not been read from Airtable yet. Run a sync and this becomes editable."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1916
+#: includes/modules/class-wpcpm-student-report-form.php:1947
 msgid "You cannot fill in that report form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2259
+#: includes/modules/class-wpcpm-student-report-form.php:2290
 msgid "You cannot change that report form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2394
+#: includes/modules/class-wpcpm-student-report-form.php:2425
 msgid "Your report form is saved, and your mentor can see it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2395
+#: includes/modules/class-wpcpm-student-report-form.php:2426
 msgid "Nothing was submitted, so nothing changed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2396
+#: includes/modules/class-wpcpm-student-report-form.php:2427
 msgid "Your record could not be found in the program data, so there is nothing to save to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2397
+#: includes/modules/class-wpcpm-student-report-form.php:2428
 msgid "The program records refused the change, so nothing was saved. Please try again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2398
+#: includes/modules/class-wpcpm-student-report-form.php:2429
 msgid "Saved, except for one or more answers that could not be read. A grade or an hours count takes digits, and a grade is between 0 and 100; a choice question takes one of its own options."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2399
+#: includes/modules/class-wpcpm-student-report-form.php:2430
 msgid "Nothing was saved: one or more answers could not be read. A grade or an hours count takes digits, and a grade is between 0 and 100; a choice question takes one of its own options."
 msgstr ""
 
 #. translators: 1: the least width in pixels, 2: the longest side in pixels, 3: the size ceiling in kilobytes.
-#: includes/modules/class-wpcpm-student-report-form.php:2406
+#: includes/modules/class-wpcpm-student-report-form.php:2437
 #, php-format
 msgid "Saved, except for one or more screenshots. A screenshot has to be a PNG, JPEG or WebP picture, at least %1$d pixels wide, with no side longer than %2$d pixels, and no more than %3$d KB. Export it again and try that one on its own."
 msgstr ""
 
 #. translators: %d: how many screenshots a student may upload in a day.
-#: includes/modules/class-wpcpm-student-report-form.php:2416
+#: includes/modules/class-wpcpm-student-report-form.php:2447
 #, php-format
 msgid "Your answers were saved, but the screenshots were not: this site takes %d screenshot uploads per student per day, and today's are used up. They will be accepted again tomorrow."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2420
+#: includes/modules/class-wpcpm-student-report-form.php:2451
 msgid "That screenshot is removed, here and from the program records."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2421
+#: includes/modules/class-wpcpm-student-report-form.php:2452
 msgid "That screenshot is removed from the program records, but this site could not delete its own copy, so it is still shown here. Press Remove again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2422
+#: includes/modules/class-wpcpm-student-report-form.php:2453
 msgid "The screenshot was left in place: the program records could not be told to drop it. Please try again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2423
+#: includes/modules/class-wpcpm-student-report-form.php:2454
 msgid "There is no screenshot of yours on that question, so there was nothing to remove."
 msgstr ""
 

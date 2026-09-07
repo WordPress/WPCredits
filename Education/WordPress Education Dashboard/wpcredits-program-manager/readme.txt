@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.98.2
+Stable tag: 1.98.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.98.3 =
+* The Designer Track report form, four changes asked for on 8 September 2026: every course grade the base holds is on the form (the three WordPress User levels under "Complete one of the following courses" right after the required Beginner WordPress Designer mark, then the Beginner WordPress Developer and Intermediate Theme Developer marks under "Optional courses"); the project summary sits directly under the contribution team, before the practical lessons; the second contribution project follows it, as on the Developer Track form; and the two alumni program questions stand in their own section, under the Learn lesson's heading, between the meetings question and the event link, which now carries its own heading. The set is 48 fields.
 
 = 1.98.2 =
 * **The Designer Track, a fourth program.** The Airtable status `Designer Track` is a track the way the Developer Track is: its own chip on a Mentor Report Card, its own Learn course button, a 150-hour target and a report form of its own. The form follows the Learn course lesson by lesson - the onboarding grades and the portfolio, then the eight practical lessons each with its notes and its screenshots, then the contribution project, the reflection posts and the closing post. Students on the track are fetched from the first sync after the update, without anybody editing the status list by hand.

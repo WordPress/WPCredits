@@ -559,41 +559,71 @@ class WPCPM_Student_Report_Form {
 		} elseif ( 'design' === $track ) {
 			// **Written out rather than inserted into the long course's set.** The Developer
 			// Track is the 150-hour form plus seven fields, so it is expressed as insertions;
-			// this one drops the three user-level marks and both optional developer courses,
-			// relabels the portfolio pair and adds twenty-one questions in eight lessons, which
-			// as a list of edits would be longer than the set and impossible to read against
-			// the course.
+			// this one relabels the portfolio pair, moves the project questions under the team
+			// list and adds twenty-one questions in eight lessons, which as a list of edits would
+			// be longer than the set and impossible to read against the course.
 			//
 			// The order is the Learn course's, module by module and lesson by lesson (design
-			// spec of 7 September 2026, section 4).
-			$fields = $hours + $contact + $common_grades + $voice_grades + $conflict + $design_course + $design_portfolio;
+			// spec of 7 September 2026, section 4), with the product owner's additions of
+			// 8 September 2026: every course grade the base holds, the project questions
+			// directly under the team, the second project, and the alumni program as its own
+			// section.
+			//
+			// **Every course grade, the required designer course first.** Learn's Onboarding
+			// module names only the designer course for this track, but the program asks
+			// designers for the user-level grades and the two developer marks as well, so they
+			// follow it in the long course's own shape: the three user levels under "Complete one
+			// of the following courses", the two developer courses under "Optional courses". The
+			// designer mark is not repeated among the optional ones.
+			$user_levels    = array_diff_key( $sensei_grades, $voice_grades, $conflict );
+			$design_options = array_diff_key( $sensei_courses, $design_course );
 
-			// The team list opens Project as it does on the long course, but not as half of a
-			// pair: the eight practical lessons come between it and the project questions the
-			// long course stacks beside it, and the first lesson heading below would close the
-			// pair's grid and leave an empty column beside the list.
+			$fields = $hours + $contact + $common_grades + $voice_grades + $conflict + $design_course + $user_levels + $design_options + $design_portfolio;
+
+			// The team list opens Project as it does on the long course, with the project
+			// questions directly under it and the practical lessons after them, but not as half
+			// of a pair: the first lesson heading below would close the pair's grid and leave an
+			// empty column beside the list.
 			$design_team = $teams;
 			unset( $design_team['Main Contribution Team']['row'] );
 
-			$fields += $design_team + $design_practicals + array(
-				// The first question after the last practical lesson, and the one field on this
-				// form that has to carry a heading it was not given a lesson for: without one it
-				// renders under "Practical: Test Your Site for Accessibility" and reads as part
-				// of that lesson's work. The heading is the Learn lesson it does belong to.
-				'Contribution Project Summary'             => array(
+			// The second project is the Developer Track's question without that form's pairing,
+			// so it stands full width under the first.
+			$design_second = $dev_project['Optional: Additional Contribution Project Summary'];
+			unset( $design_second['row'], $design_second['stack'] );
+
+			// The alumni program is its own lesson on Learn, so its two questions stand under
+			// that lesson's heading between the meetings question and the event link, and the
+			// event link carries its own lesson heading so the section reads as closed on both
+			// sides.
+			$design_alumni = array_intersect_key(
+				$dev_alumni,
+				array(
+					'Alumni program: personal email'   => true,
+					'Alumni program: mentoring opt-in' => true,
+				)
+			);
+			$design_alumni['Alumni program: personal email']['lead'] = __( 'Alumni Program: Connect with the community and plan your contribution beyond WP Credits', 'wpcredits-program-manager' );
+
+			$fields += $design_team + array(
+				'Contribution Project Summary'                      => array(
 					'lead' => __( 'Define and begin developing your contribution project', 'wpcredits-program-manager' ),
 				) + $in( $project['Contribution Project Summary'], 'project' ),
+				'Optional: Additional Contribution Project Summary' => $design_second,
+			) + $design_practicals + array(
 				'Post Reflection: Choosing Your Team and Project' => array( 'lead' => __( 'Your reflection posts', 'wpcredits-program-manager' ) )
 					+ $in( $posts['Post Reflection: Choosing Your Team and Project'], 'project' ),
 				'Post Reflection: Your First Contribution' => $in( $posts['Post Reflection: Your First Contribution'], 'project' ),
 				'Post Reflection: Halfway Check-In'        => $in( $posts['Post Reflection: Halfway Check-In'], 'project' ),
 				'Slack/GitHub/Blog WordPress Community meetings/discussions' => $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' ),
-				'WP event participation URL'               => array(
+			) + $design_alumni + array(
+				'WP event participation URL' => array(
 					'label' => __( 'Link to a WordPress event you have participated in (online or in person)', 'wpcredits-program-manager' ),
+					'lead'  => __( 'Participate at a WordPress Event (online or in person)', 'wpcredits-program-manager' ),
 					'type'  => 'url',
 					'group' => 'project',
 				),
-				'Closing post URL'                         => $in( $posts['Closing post URL'], 'wrapup' ),
+				'Closing post URL'           => $in( $posts['Closing post URL'], 'wrapup' ),
 			);
 		} else {
 			$fields = $hours + $contact + $common_grades + $sensei_grades + $sensei_courses + array(

@@ -816,9 +816,16 @@ $design_expected = array(
 	'Writing in the WordPress voice - final grade',
 	'Basic principles of conflict resolution - final grade',
 	'Beginner WordPress Designer',
+	'Beginner WordPress User - final grade',
+	'Intermediate WordPress User - final grade',
+	'Advance WordPress User - final grade',
+	'Beginner WordPress Developer',
+	'Intermediate Theme Developer',
 	'Personal Website URL',
 	'Post Reflection: Building Your Personal Website',
 	'Main Contribution Team',
+	'Contribution Project Summary',
+	'Optional: Additional Contribution Project Summary',
 	'Practical: Duplicate & Explore WP Design Library - Reflection',
 	'Practical: Duplicate & Explore WP Design Library - link',
 	'Practical: Duplicate & Explore WP Design Library - image',
@@ -840,11 +847,12 @@ $design_expected = array(
 	'Practical: Test Your Site for Accessibility - Part 1 - Screenshot',
 	'Practical: Test Your Site for Accessibility - Part 2 - Note',
 	'Practical: Test Your Site for Accessibility - Part 2 - Screenshot',
-	'Contribution Project Summary',
 	'Post Reflection: Choosing Your Team and Project',
 	'Post Reflection: Your First Contribution',
 	'Post Reflection: Halfway Check-In',
 	'Slack/GitHub/Blog WordPress Community meetings/discussions',
+	'Alumni program: personal email',
+	'Alumni program: mentoring opt-in',
 	'WP event participation URL',
 	'Closing post URL',
 );
@@ -853,7 +861,7 @@ $design = WPCPM_Student_Report_Form::fields( 'design' );
 
 // The order itself, not the set: the form follows the Learn course lesson by lesson, and a
 // field that moved would put a question under the wrong lesson heading.
-ck( 'the Designer Track holds exactly its 40 fields, in the course order', array_keys( $design ), $design_expected );
+ck( 'the Designer Track holds exactly its 48 fields, in the course order', array_keys( $design ), $design_expected );
 
 // The key with the typographic apostrophe, asserted byte for byte. A plain apostrophe here is a
 // column Airtable does not have, and the whole record's PATCH is a 422 for it.
@@ -864,20 +872,65 @@ ck( 'the Global Styles keys carry the typographic apostrophe, not a plain one',
     ),
     array( true, false ) );
 
-// Learn's Onboarding module has no user-level course and no optional developer courses for a
-// designer, so a form that offered them would ask for grades nobody on this track can hold.
-ck( 'the three user-level marks and the two optional developer courses are absent',
-    array_values( array_intersect(
-        array(
-            'Beginner WordPress User - final grade',
-            'Intermediate WordPress User - final grade',
-            'Advance WordPress User - final grade',
-            'Beginner WordPress Developer',
-            'Intermediate Theme Developer',
-        ),
-        array_keys( $design )
-    ) ),
-    array() );
+// The product owner asked on 8 September 2026 for every course grade the base holds on this
+// track too: the three user levels under the long course's "Complete one of the following
+// courses" heading right after the required designer course, then the two developer marks under
+// "Optional courses" (the designer mark is not repeated there), then the portfolio pair.
+ck( 'the user levels and the optional developer courses follow the designer course, in that order',
+    array_slice( array_keys( $design ), array_search( 'Beginner WordPress Designer', array_keys( $design ), true ), 6 ),
+    array(
+        'Beginner WordPress Designer',
+        'Beginner WordPress User - final grade',
+        'Intermediate WordPress User - final grade',
+        'Advance WordPress User - final grade',
+        'Beginner WordPress Developer',
+        'Intermediate Theme Developer',
+    ) );
+ck( 'the user levels and the developer marks keep their headings and the designer mark is not among the optional ones',
+    array(
+        $design['Beginner WordPress User - final grade']['lead'],
+        $design['Beginner WordPress Developer']['lead'],
+        isset( $design['Intermediate Theme Developer']['lead'] ),
+        $design['Beginner WordPress Developer']['group'],
+    ),
+    array( 'Complete one of the following courses', 'Optional courses', false, 'onboarding' ) );
+
+// The project questions sit directly under the team list, the second project right after the
+// first, before the practical lessons (the product owner, 8 September 2026).
+ck( 'the project summary and the second project follow the team list directly',
+    array_slice( array_keys( $design ), array_search( 'Main Contribution Team', array_keys( $design ), true ), 4 ),
+    array(
+        'Main Contribution Team',
+        'Contribution Project Summary',
+        'Optional: Additional Contribution Project Summary',
+        'Practical: Duplicate & Explore WP Design Library - Reflection',
+    ) );
+ck( 'the second project is unpaired here and keeps the Developer Track words',
+    array(
+        isset( $design['Optional: Additional Contribution Project Summary']['row'] ),
+        $design['Optional: Additional Contribution Project Summary']['label'],
+        $design['Optional: Additional Contribution Project Summary']['group'],
+    ),
+    array( false, 'A second contribution project, if you had one', 'project' ) );
+
+// The alumni program is its own section between the meetings question and the event link, under
+// the Learn lesson's heading, and the event link opens its own so the section reads as closed.
+ck( 'the alumni pair follows the meetings question and the event link follows it',
+    array_slice( array_keys( $design ), array_search( 'Slack/GitHub/Blog WordPress Community meetings/discussions', array_keys( $design ), true ), 4 ),
+    array(
+        'Slack/GitHub/Blog WordPress Community meetings/discussions',
+        'Alumni program: personal email',
+        'Alumni program: mentoring opt-in',
+        'WP event participation URL',
+    ) );
+ck( 'the alumni section and the event link carry their lesson headings',
+    array(
+        $design['Alumni program: personal email']['lead'],
+        isset( $design['Alumni program: mentoring opt-in']['lead'] ),
+        $design['Alumni program: mentoring opt-in']['type'],
+        $design['WP event participation URL']['lead'],
+    ),
+    array( 'Alumni Program: Connect with the community and plan your contribution beyond WP Credits', false, 'checkbox', 'Participate at a WordPress Event (online or in person)' ) );
 
 // The designer course is required on this track, so it is a mark of its own under its own
 // lesson rather than one of the optional courses it sits among on the long course.
@@ -926,7 +979,14 @@ foreach ( $design as $name => $spec ) {
 ck( 'every practical lesson is a lead naming the Learn lesson, over the fields it asks for',
     $design_leads,
     array(
-        'Beginner WordPress Designer' => 'Complete the Beginner WordPress Designer course',
+        'Beginner WordPress Designer'                  => 'Complete the Beginner WordPress Designer course',
+        // The long course's two headings over the grades the product owner added to this track
+        // on 8 September 2026.
+        'Beginner WordPress User - final grade'        => 'Complete one of the following courses',
+        'Beginner WordPress Developer'                 => 'Optional courses',
+        // Directly under the team list, before the practical lessons, with its own lesson's
+        // heading (the product owner, 8 September 2026).
+        'Contribution Project Summary'                 => 'Define and begin developing your contribution project',
         'Practical: Duplicate & Explore WP Design Library - Reflection' => 'Practical: Duplicate and Explore the WordPress Design Library',
         'Practical: Local WordPress Environment for Design Testing - Tool used' => 'Practical: Set Up a Local WordPress Environment for Design Testing',
         "Practical: Change Your Site\xE2\x80\x99s Global Styles - Notes" => "Practical: Change Your Site's Global Styles",
@@ -935,11 +995,11 @@ ck( 'every practical lesson is a lead naming the Learn lesson, over the fields i
         'Practical: Apply Custom CSS in the Site Editor - Notes' => 'Practical: Apply Custom CSS in the Site Editor',
         'Practical: Submit a Custom Block Pattern - Link' => 'Practical: Create and Submit a Custom Block Pattern',
         'Practical: Test Your Site for Accessibility - Part 1 - Note' => 'Practical: Test Your Site for Accessibility',
-        // The first field after the last practical lesson. Without a heading of its own it
-        // would render under "Practical: Test Your Site for Accessibility" and read as part of
-        // that lesson's work; the spec names the Learn lesson it belongs to instead.
-        'Contribution Project Summary'                 => 'Define and begin developing your contribution project',
         'Post Reflection: Choosing Your Team and Project' => 'Your reflection posts',
+        // The alumni program as its own section, and the event link opening its own, so the
+        // section is closed on both sides.
+        'Alumni program: personal email'               => 'Alumni Program: Connect with the community and plan your contribution beyond WP Credits',
+        'WP event participation URL'                   => 'Participate at a WordPress Event (online or in person)',
     ) );
 
 // The controls the spec's table names, per lesson.

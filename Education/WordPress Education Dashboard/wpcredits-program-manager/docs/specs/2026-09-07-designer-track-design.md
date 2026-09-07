@@ -51,7 +51,7 @@ The apostrophe in `Site’s` is the typographic one (U+2019) in the base; the ke
 2. **Project:** How to contribute to WordPress; The WordPress Design Team Deep Dive; Introduction to Figma for WordPress Design; Design Contribution Pathways for Students; Understand WordPress Design Principles; Practical: Duplicate and Explore the WordPress Design Library; Practical: Set Up a Local WordPress Environment for Design Testing; Explore and practice WordPress design; Practical: Change Your Site's Global Styles; Practical: Customize with the Style Book; Practical: Compose a Landing Page with Layout Blocks; Practical: Apply Custom CSS in the Site Editor; Contribute to a real project; Practical: Create and Submit a Custom Block Pattern; Practical: Test Your Site for Accessibility; Define and begin developing your contribution project; Reflection: Choosing Your Team and Project; Alumni Program: Connect with the community and plan your contribution beyond WP Credits; Complete the first feedback form; Reflection: Your First Contribution; Leave your mid-course feedback; Reflection: Halfway Check-In; Participate at a WordPress Event (online or in person).
 3. **Wrap-up:** Prepare and deliver a wrap-up report; Get your certificate; Complete the feedback form.
 
-The Onboarding module has no Beginner, Intermediate or Advanced WordPress User course and no optional developer courses; the Beginner WordPress Designer course is required.
+The Onboarding module has no Beginner, Intermediate or Advanced WordPress User course and no optional developer courses; the Beginner WordPress Designer course is required. The program asks designers for those grades all the same (the product owner, 8 September 2026), so the form carries them after the designer course; see section 4.
 
 ## 3. The track
 
@@ -65,9 +65,9 @@ The Onboarding module has no Beginner, Intermediate or Advanced WordPress User c
 
 `WPCPM_Student_Report_Form::fields( 'design' )`, in the order of the Learn course, grouped as the course is:
 
-**Onboarding:** the contact rows (WordPress.org profile, Slack name); the five `Complete:` grades in the Learn order (Open source basics, How decisions are made, Community meeting etiquette, Writing in the WordPress voice, Basic principles of conflict resolution); then `Beginner WordPress Designer` as a required mark under the lead "Complete the Beginner WordPress Designer course", not under "Optional courses"; no user-level marks and no optional developer courses. Then `Personal Website URL` labeled "Your portfolio site URL" (the lesson is "Create your portfolio") and `Post Reflection: Building Your Personal Website` labeled 'Link to the post "Reflection: Building Your Portfolio"'.
+**Onboarding:** the contact rows (WordPress.org profile, Slack name); the five `Complete:` grades in the Learn order (Open source basics, How decisions are made, Community meeting etiquette, Writing in the WordPress voice, Basic principles of conflict resolution); then `Beginner WordPress Designer` as a required mark under the lead "Complete the Beginner WordPress Designer course", not under "Optional courses"; then, as on the long course, the three WordPress User levels under "Complete one of the following courses" and the Beginner WordPress Developer and Intermediate Theme Developer marks under "Optional courses" (the product owner, 8 September 2026; the designer mark is not repeated there). Then `Personal Website URL` labeled "Your portfolio site URL" (the lesson is "Create your portfolio") and `Post Reflection: Building Your Personal Website` labeled 'Link to the post "Reflection: Building Your Portfolio"'.
 
-**Project:** `Main Contribution Team`; then the eight practical lessons, each a lead naming the lesson exactly as Learn does, with its fields under it:
+**Project:** `Main Contribution Team`; directly under it `Contribution Project Summary` under the lead "Define and begin developing your contribution project" and `Optional: Additional Contribution Project Summary` (the Developer Track's second project, unpaired), both before the lessons (the product owner, 8 September 2026); then the eight practical lessons, each a lead naming the lesson exactly as Learn does, with its fields under it:
 
 | Lead (the Learn lesson) | Fields, in order | Controls |
 | --- | --- | --- |
@@ -80,7 +80,7 @@ The Onboarding module has no Beginner, Intermediate or Advanced WordPress User c
 | Practical: Create and Submit a Custom Block Pattern | Link; Screenshot | url; image |
 | Practical: Test Your Site for Accessibility | Part 1 note; Part 1 screenshot; Part 2 note; Part 2 screenshot | textarea; image; textarea; image |
 
-Then `Contribution Project Summary` ("Define and begin developing your contribution project"), the three reflection posts (Choosing Your Team and Project; Your First Contribution; Halfway Check-In) in the posts group, `Slack/GitHub/Blog WordPress Community meetings/discussions`, and `WP event participation URL`.
+Then the three reflection posts (Choosing Your Team and Project; Your First Contribution; Halfway Check-In) under "Your reflection posts", `Slack/GitHub/Blog WordPress Community meetings/discussions`, the two alumni program questions (`Alumni program: personal email`, `Alumni program: mentoring opt-in`) as their own section under the lead "Alumni Program: Connect with the community and plan your contribution beyond WP Credits", and `WP event participation URL` under the lead "Participate at a WordPress Event (online or in person)", so the alumni section is closed on both sides (the product owner, 8 September 2026). Forty-eight fields in all.
 
 **Wrap-up:** `Closing post URL` ("Prepare and deliver a wrap-up report").
 
@@ -95,7 +95,7 @@ Labels are written for the student ("Your reflection", "A link to your copy of t
 ## 6. Assumptions for the product owner
 
 1. **150 hours.** Learn states the course is 150 hours, so the Designer Track gets a 150-hour target like the long course (the Developer Track has none). If the track is not hours-based, the target becomes 0 like the Developer Track's, one map entry.
-2. **The form set is the long course's set plus the practical lessons**, with the user-level marks and the optional developer courses removed because Learn does not list them for designers.
+2. **The form set is the long course's set plus the practical lessons.** The first build removed the user-level marks and the optional developer courses because Learn does not list them for designers; the product owner restored them on 8 September 2026 (1.98.3), so this assumption is settled.
 3. **Screenshots are public files.** Each uploaded screenshot is a Media Library file with a public URL (needed for Airtable to fetch it), authored by the student. If screenshots must stay private, Airtable cannot fetch them, and the form would have to ask for a link instead.
 4. **No Fillout link** for the track; nothing on the card shows Fillout links any more.
 

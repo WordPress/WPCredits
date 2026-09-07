@@ -714,9 +714,10 @@ Open **Your report form** and the questions are grouped in the order you meet th
 What is asked depends on your track. The 150-hour course asks for the reflection posts and the
 module grades; the 50-hour course asks instead for one final project report; the Developer Track
 asks the 150-hour questions with seven more of its own; and the Designer Track follows its own
-Learn course lesson by lesson - the onboarding grades and your portfolio first, then the eight
-practical lessons, each with its own notes and its own screenshots, then your contribution project,
-your reflection posts and your closing post.
+Learn course lesson by lesson - the course grades and your portfolio first, then your contribution
+team and project, then the eight practical lessons, each with its own notes and its own screenshots,
+then your reflection posts, the meetings you took part in, the alumni program questions, the event
+you attended and your closing post.
 
 **Screenshots, on the Designer Track.** The practical lessons ask you to show your work, so those
 questions take a picture instead of a link: a PNG, JPEG or WebP file of up to 4 MB, and twenty
