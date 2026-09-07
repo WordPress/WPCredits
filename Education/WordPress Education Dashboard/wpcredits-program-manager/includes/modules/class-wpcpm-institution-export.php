@@ -191,7 +191,7 @@ class WPCPM_Institution_Export {
 	 * writes. A number in a file that no institution surface shows would be this file inventing
 	 * a disclosure of its own.
 	 *
-	 * @param string $track Track key from `WPCPM_Program::track()`: `150h`, `50h` or `dev`.
+	 * @param string $track Track key from `WPCPM_Program::track()`.
 	 * @return array<string, string> Column key to heading, keyed `reports|<Airtable column>`.
 	 */
 	public static function grade_columns( $track ) {

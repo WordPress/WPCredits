@@ -673,10 +673,10 @@ class WPCPM_Institutions_Dashboard {
 	/**
 	 * The institution's facts for the header, from the index first and the stamp second.
 	 *
-	 * The index row is what the last sync read, and the sync runs daily. The stamp is written
-	 * once, by `WPCPM_Institution_Members::attach()`, and no sync refreshes it: read first, it
-	 * would freeze the name, the city, the stage and the website at the day the account was
-	 * attached, on a header that carries no read date to say so.
+	 * The index row is what the last sync read, and the sync runs every three hours. The stamp is
+	 * written once, by `WPCPM_Institution_Members::attach()`, and no sync refreshes it: read
+	 * first, it would freeze the name, the city, the stage and the website at the day the account
+	 * was attached, on a header that carries no read date to say so.
 	 *
 	 * The stamp is still what lets the header render at all for an institution the index has
 	 * no row for. `WPCPM_Institutions_Index::read()` discards a stored copy at a version it

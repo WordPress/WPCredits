@@ -924,8 +924,113 @@
 .wpcpm-report__group > .wpcpm-field--url,
 .wpcpm-report__group > .wpcpm-field--email,
 .wpcpm-report__group > .wpcpm-field--checkbox,
-.wpcpm-report__group > .wpcpm-field--team {
+.wpcpm-report__group > .wpcpm-field--team,
+.wpcpm-report__group > .wpcpm-field--select,
+.wpcpm-report__group > .wpcpm-field--image {
 	grid-column: 1 / -1;
+}
+
+/* The single select is short, so it is sized to its content rather than to the row it sits on:
+   a full-width box holding "MAAMP" reads as an empty field. The row is still the question's,
+   because the question above it is a sentence. */
+.wpcpm-report__group .wpcpm-field--select select {
+	max-width: 22em;
+	width: 100%;
+}
+
+/* The CSS answer is code. A proportional font misreads its indentation, and the box is taller
+   than a note because rules are read down the left edge rather than across. */
+.wpcpm-report__code {
+	font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+	font-size: 0.9em;
+	line-height: 1.5;
+	tab-size: 2;
+}
+
+/* A screenshot question: what is on record, then what can be done to it. The picture is capped
+   rather than sized, so a wide screenshot and a tall one both stay a thumbnail beside the rest
+   of the form instead of becoming the form. */
+.wpcpm-report__image {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6em;
+}
+
+.wpcpm-report__image-link {
+	align-self: flex-start;
+	border: 1px solid var( --wpcpm-border );
+	border-radius: var( --wpcpm-radius );
+	display: inline-block;
+	line-height: 0;
+	max-width: 240px;
+	overflow: hidden;
+	padding: 0;
+}
+
+.wpcpm-report__image-thumb {
+	display: block;
+	height: auto;
+	max-width: 100%;
+}
+
+/* What is on record when there is no picture to show: a sentence, in the hint's voice, because
+   it describes the state rather than naming a control. */
+.wpcpm-report__image-note {
+	color: var( --wpcpm-muted );
+	font-size: 0.9em;
+}
+
+.wpcpm-report__image-actions {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 0.75em;
+}
+
+/* Says what choosing a file does to the picture above. Its own line, so the file input and
+   Remove stay side by side under it. */
+.wpcpm-report__image-swap {
+	color: var( --wpcpm-muted );
+	flex: 1 1 100%;
+	font-size: 0.9em;
+}
+
+/* `.wpcpm-field input` is 100% wide, which for a file input means a control the width of the
+   form with a button lost at one end of it. */
+.wpcpm-report__image-actions input[type="file"] {
+	flex: 0 1 auto;
+	max-width: 100%;
+	width: auto;
+}
+
+/* A quiet button: Remove is the destructive half of a pair whose other half is a file picker,
+   and a filled button beside it would read as the thing to press. */
+.wpcpm-report__image-remove {
+	background: none;
+	border: 1px solid var( --wpcpm-control-border, var( --wpcpm-border ) );
+	border-radius: var( --wpcpm-radius );
+	color: inherit;
+	cursor: pointer;
+	font-size: 0.9em;
+	padding: 0.3em 0.75em;
+}
+
+.wpcpm-report__image-remove:hover,
+.wpcpm-report__image-remove:focus {
+	border-color: currentColor;
+}
+
+/* The form the Remove buttons post through carries nothing anybody looks at: a nonce and two
+   hidden inputs. It is in the flow so the buttons can name it by id, and takes no room. */
+.wpcpm-report__remove {
+	display: contents;
+}
+
+/* "Required" beside a label, in the label's voice: the same treatment the application forms
+   give it, so one mark means one thing across the site. */
+.wpcpm-report__group .wpcpm-field__required {
+	font-weight: 400;
+	opacity: 0.72;
 }
 
 /* The consent checkbox: box first, then the sentence it agrees to, on one line. Everything else

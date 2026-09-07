@@ -23,12 +23,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **All or nothing.** Two files arrive together and one bad one refuses the pair, the way one
  * rejected field refuses the whole profile save. Half a change is the thing a person cannot see.
  *
- * **The record says who owns the logo.** `wpcpm_sponsor_logo_<record>` carries `source => site`
- * after an upload, and `WPCPM_Sponsors_Sync::phase_logos()` reads exactly that before it copies
- * anything: a logo the sponsor uploaded here is never replaced by Airtable's overnight. Remove
- * empties the base's `Logo` first and clears the record only when that worked, because a cleared
- * record with this site's own URLs still in the base is a logo the sponsor can never remove: the
- * next nightly run copies those URLs back in as Airtable's, and the card stops offering Remove.
+ * **The record says who owns the logo.** `wpcpm_sponsor_logo_<record>` carries `source =>
+ * site` after an upload, and `WPCPM_Sponsors_Sync::phase_logos()` reads exactly that before it
+ * copies anything: a logo the sponsor uploaded here is never replaced by Airtable's, even with
+ * the sync running every three hours. Remove empties the base's `Logo` first and clears the
+ * record only when that worked, because a cleared record with this site's own URLs still in
+ * the base is a logo the sponsor can never remove: the next sponsors sync run copies those
+ * URLs back in as Airtable's, and the card stops offering Remove.
  * The files stay in the Media Library either way, so a post that embeds one keeps working.
  *
  * **Airtable's `Logo` is written with the site's public URLs.** The attachment field is replaced
@@ -244,7 +245,7 @@ final class WPCPM_Sponsor_Logo {
 	 *
 	 * **The base first, and nothing here changes when it refuses.** The upload replaced the
 	 * base's `Logo` with this site's public URLs, so there is no original left to come back to:
-	 * a site record cleared while those URLs stand would have the next nightly run copy the
+	 * a site record cleared while those URLs stand would have the next sponsors sync run copy the
 	 * site's own picture back in as Airtable's, under a record the sponsor no longer owns, and
 	 * the Remove button (drawn only for a logo this site owns) would be gone from the card.
 	 *

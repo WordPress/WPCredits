@@ -268,6 +268,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 // passing after a rename that broke the real thing.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-members.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
+// The report form owns the list of screenshot columns; the reports read asks for them.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
 
 $fails = 0;
 $total = 0;

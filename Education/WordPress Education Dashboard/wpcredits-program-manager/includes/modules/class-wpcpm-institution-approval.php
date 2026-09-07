@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * account's identity: every stamp, every roster read and every decision the fence makes
  * names a record, so an account created before one exists is the shape the fence cannot
  * tolerate. The index row comes next because `WPCPM_Institution_Members::attach()` refuses a
- * record the index does not hold, and the account cannot wait for the nightly sync.
+ * record the index does not hold, and the account cannot wait for the institutions sync.
  *
  * There is no "partially approved" state and no repair path. Every half is stamped on the
  * application the moment it lands, so a request that dies between two of them is finished by
@@ -452,7 +452,7 @@ class WPCPM_Institution_Approval {
 	 * Put the institution in the pipeline index, with an agreement option to match.
 	 *
 	 * `attach()` refuses a record the index does not hold, and the account half is next, so
-	 * this cannot wait for the nightly sync. The agreement option is written the way
+	 * this cannot wait for the institutions sync. The agreement option is written the way
 	 * `apply_report()` bridges the same gap: the gate reads that option and nothing else, and
 	 * an institution with no row at all is locked, which is right but says nothing.
 	 *

@@ -32,6 +32,9 @@ class WPCPM_Program {
 	/** Airtable status for the developer track. */
 	const STATUS_DEV = 'Developer Track';
 
+	/** Airtable status for the designer track. */
+	const STATUS_DESIGN = 'Designer Track';
+
 	/**
 	 * The program name for a status, or the status itself if it is not a track.
 	 *
@@ -56,14 +59,20 @@ class WPCPM_Program {
 	 */
 	public static function labels() {
 		$labels = array(
-			self::STATUS_150H => __( 'WordPress Credits Program 150h', 'wpcredits-program-manager' ),
-			self::STATUS_50H  => __( 'WordPress Credits Program 50h', 'wpcredits-program-manager' ),
+			self::STATUS_150H   => __( 'WordPress Credits Program 150h', 'wpcredits-program-manager' ),
+			self::STATUS_50H    => __( 'WordPress Credits Program 50h', 'wpcredits-program-manager' ),
 			// Maps to itself, which is not a redundant entry: `is_track()` tests membership of
 			// this map, and that is what gates the feedback surveys and the course button. Remove
 			// the row as tidying and the surveys go quiet for this track, silently. The other two
 			// statuses are internal shorthand and need translating; this one is already the name
 			// students and mentors use, so screen and base say the same thing.
-			self::STATUS_DEV  => __( 'Developer Track', 'wpcredits-program-manager' ),
+			self::STATUS_DEV    => __( 'Developer Track', 'wpcredits-program-manager' ),
+			// The Designer Track, added 1.98.2, for the same reason as the row above it: this map
+			// is what `is_track()` tests, and that is what gates the feedback surveys and the
+			// course button. Remove the row as tidying and the surveys go quiet for this track,
+			// silently. The status is already the name students and mentors use, so the screen
+			// and the base say the same thing.
+			self::STATUS_DESIGN => __( 'Designer Track', 'wpcredits-program-manager' ),
 		);
 
 		/**
@@ -94,9 +103,10 @@ class WPCPM_Program {
 	 */
 	public static function courses() {
 		$courses = array(
-			self::STATUS_150H => 'https://learn.wordpress.org/course/wordpress-credits/',
-			self::STATUS_50H  => 'https://learn.wordpress.org/course/50-hours-wordpress-credits/',
-			self::STATUS_DEV  => 'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
+			self::STATUS_150H   => 'https://learn.wordpress.org/course/wordpress-credits/',
+			self::STATUS_50H    => 'https://learn.wordpress.org/course/50-hours-wordpress-credits/',
+			self::STATUS_DEV    => 'https://learn.wordpress.org/course/wordpress-credits-developer-track/',
+			self::STATUS_DESIGN => 'https://learn.wordpress.org/course/wordpress-credits-designer-track/',
 		);
 
 		/**
@@ -128,6 +138,12 @@ class WPCPM_Program {
 	 * of its students would be inventing a denominator the program does not have. Everything
 	 * that shows hours asks `has_hours_target()` first and prints "12 h" for this track.
 	 *
+	 * **The Designer Track is 150, and the contrast with the row above it is the point.** Its
+	 * Learn page states 150 hours, so its students are worked to that clock and their pages say
+	 * "12 of 150" like the 150-hour track's. Two tracks added a fortnight apart answer this
+	 * question differently, which is why the answer is a row here rather than a rule about
+	 * tracks.
+	 *
 	 * **A track may be absent from this map entirely, and nothing is to require otherwise.**
 	 * Not every track the program adds will count hours, so a missing row means no target, the
 	 * same answer the Developer Track's explicit 0 gives. Anything that treats a track's
@@ -138,9 +154,14 @@ class WPCPM_Program {
 	 */
 	public static function hours_targets() {
 		$targets = array(
-			self::STATUS_150H => 150,
-			self::STATUS_50H  => 50,
-			self::STATUS_DEV  => 0,
+			self::STATUS_150H   => 150,
+			self::STATUS_50H    => 50,
+			self::STATUS_DEV    => 0,
+			// 150 because https://learn.wordpress.org/course/wordpress-credits-designer-track/
+			// states it, read 2026-09-07. Not inherited from the 150-hour track's row: the two
+			// happen to agree, and a track that later changes its figure has to be able to move
+			// this number without moving that one.
+			self::STATUS_DESIGN => 150,
 		);
 
 		/**
@@ -186,13 +207,16 @@ class WPCPM_Program {
 	 * needed and nothing has to be kept in step. A fourth track is one entry in this map.
 	 *
 	 * @param string $status Airtable status.
-	 * @return string `150h`, `50h`, `dev`, or an empty string for a finished state.
+	 * @return string `150h`, `50h`, `dev`, `design`, or an empty string for a finished state.
 	 */
 	public static function track( $status ) {
 		$tracks = array(
-			self::STATUS_150H => '150h',
-			self::STATUS_50H  => '50h',
-			self::STATUS_DEV  => 'dev',
+			self::STATUS_150H   => '150h',
+			self::STATUS_50H    => '50h',
+			self::STATUS_DEV    => 'dev',
+			// The fourth track, and the one entry it took: the promise the boolean was deleted
+			// for. `badge()` paints it from here too, so nothing else had to change for it.
+			self::STATUS_DESIGN => 'design',
 		);
 
 		$status = trim( (string) $status );

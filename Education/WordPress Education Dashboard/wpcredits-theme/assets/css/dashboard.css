@@ -2659,6 +2659,15 @@
 	color: var( --wpc-amber );
 }
 
+/* The Designer Track (plugin 1.98.2). The plugin's own sheet already draws it rose; this says
+   the same hue as a token, so the color lives with the rest of the palette rather than as an
+   rgba() in the plugin. No text color and no size of its own: the Developer Track chip beside it
+   in the same list is the plugin's tint under the row's ink, and two track chips a mentor
+   compares down a list have to differ in hue and in nothing else. */
+.wpcpm-badge--design {
+	background: var( --wpc-track-design );
+}
+
 /* The plugin's own one-line preview. Hidden only while the script's columns are
    carrying the same facts. */
 .wpc-dash-enhanced .wpcpm-mentee__preview {
@@ -4031,7 +4040,10 @@
 }
 
 /* The feedback form's selects were the browser's own beside the theme's text boxes: the same
-   control treatment as every other field (consistency pass, 1.21.0). */
+   control treatment as every other field (consistency pass, 1.21.0). The report form joined them
+   in 1.24.2: the Designer Track's "Tool used" is the first choice list that form has ever had, and
+   left out it would have been the one browser-drawn control among the boxes it sits between. */
+.wpc-dashboard-page .wpcpm-report select,
 .wpc-dashboard-page .wpcpm-feedback select {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-control-border );
@@ -4175,6 +4187,71 @@
 .wpc-dashboard-page .wpcpm-report__count {
 	color: var( --wpc-ink-60 );
 	opacity: 1;
+}
+
+/* -------------------------------------------------------------------------
+   The screenshot questions (plugin 1.98.2)
+
+   The Designer Track's practical lessons are answered with a picture, so those questions
+   draw a thumbnail and, under it, a row of what can be done to it. The plugin lays that
+   out. This puts the card's own line around the picture and the form's own control size on
+   the row, so a screenshot question reads as one more field of the report rather than as a
+   file manager dropped into the middle of it.
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-report__image-link {
+	border-color: var( --wpc-line-card );
+	border-radius: var( --wpc-radius-control );
+}
+
+/* What is on record, and what choosing a file will do to it: both are hints and take the
+   hint's voice, so nothing in this control is the only 0.9em text on the page. */
+.wpc-dashboard-page .wpcpm-report__image-note,
+.wpc-dashboard-page .wpcpm-report__image-swap {
+	color: var( --wpc-ink-60 );
+	font: 14px/20px var( --wpc-font );
+}
+
+/* The file control keeps its native input, for the keyboard and the screen reader, and
+   dresses its button as the secondary button - the Sponsor Dashboard's logo upload, rule for
+   rule, so the site has one file picker and not two. The border is stood back down because
+   the shared `.wpcpm-report input` rule above boxes every input in the form, and a file input
+   in a text box is a box with a button loose inside it. */
+.wpc-dashboard-page .wpcpm-report__image-actions input[type="file"] {
+	border: 0;
+	color: var( --wpc-ink-70 );
+	font: 14px/20px var( --wpc-font );
+	padding: 4px 0;
+}
+
+.wpc-dashboard-page .wpcpm-report__image-actions input[type="file"]::file-selector-button {
+	background: none;
+	border: 1px solid var( --wpc-brand );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-brand );
+	cursor: pointer;
+	font: 600 14px/20px var( --wpc-font );
+	margin-right: 12px;
+	padding: 6px 14px;
+}
+
+.wpc-dashboard-page .wpcpm-report__image-actions input[type="file"]::file-selector-button:hover {
+	background: var( --wpc-brand-tint );
+}
+
+/* Remove is the destructive half of the pair, so it is outlined in the control border rather
+   than in brand: the file button beside it is the one meant to be pressed. The same 6px 14px
+   and 14px/20px that button takes, so the two sit on one line at one height. */
+.wpc-dashboard-page .wpcpm-report__image-remove {
+	border-color: var( --wpc-control-border );
+	border-radius: var( --wpc-radius-control );
+	color: var( --wpc-ink-70 );
+	font: 600 14px/20px var( --wpc-font );
+	padding: 6px 14px;
+}
+
+.wpc-dashboard-page .wpcpm-report__image-remove:hover,
+.wpc-dashboard-page .wpcpm-report__image-remove:focus {
+	border-color: var( --wpc-ink-70 );
 }
 
 /* -------------------------------------------------------------------------

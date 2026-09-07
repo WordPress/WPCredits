@@ -1,8 +1,8 @@
-## What is on your Report Card
+## What is on your Student Report Card
 
 {{image:student-report-card-profile|Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.}}
 
-### Arranging your Report Card
+### Arranging your Student Report Card
 
 Below your profile and your mentor, the page is a stack of blocks: the program updates with the
 resources, your course, your report form with the feedback forms, your mentor call, and the tools
@@ -50,8 +50,20 @@ Open **Your report form** and the questions are grouped in the order you meet th
   took part in, and the reflection posts for each stage.
 - **Wrap-up** - your closing post.
 
-What is asked depends on your track: the 150-hour course asks for the reflection posts and the
-module grades; the 50-hour course asks instead for one final project report.
+What is asked depends on your track. The 150-hour course asks for the reflection posts and the
+module grades; the 50-hour course asks instead for one final project report; the Developer Track
+asks the 150-hour questions with seven more of its own; and the Designer Track follows its own
+Learn course lesson by lesson - the onboarding grades and your portfolio first, then the eight
+practical lessons, each with its own notes and its own screenshots, then your contribution project,
+your reflection posts and your closing post.
+
+**Screenshots, on the Designer Track.** The practical lessons ask you to show your work, so those
+questions take a picture instead of a link: a PNG, JPEG or WebP file of up to 4 MB, and twenty
+uploads a day across all of them. The file is kept on this site and a copy is sent to the program
+records, which is why the picture on your card is this site's copy and still there tomorrow.
+Under each picture, choosing a new file **replaces** what is there, and **Remove** deletes it from
+both places at once. Your mentor and the program managers see your screenshots when they open your
+Student Report Card, so treat one as part of your report rather than as a private note.
 
 The grades are yours to copy across from wherever you were marked - this form records them, it does
 not decide them. Fill in what you have and press **Save my report**; you can come back and add the

@@ -139,6 +139,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-notes.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-students-dashboard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
+// The refusal message for a screenshot quotes the shared image rules by name.
+require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
 
 $fails = 0;
@@ -366,7 +368,7 @@ echo "\n=== Every field belongs to a group ===\n";
 // nowhere - invisible on the page and impossible to fill in, with nothing to show it went missing.
 $groups = array_keys( WPCPM_Student_Report_Form::groups() );
 
-foreach ( array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev' ) as $label => $track ) {
+foreach ( array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) as $label => $track ) {
 	$orphans = array();
 
 	foreach ( WPCPM_Student_Report_Form::fields( $track ) as $name => $spec ) {
@@ -420,7 +422,7 @@ echo "\n=== Form keys ===\n";
 // stable and survive a round trip through a form.
 $keys = array();
 
-foreach ( array_keys( WPCPM_Student_Report_Form::fields( '150h' ) ) as $name ) {
+foreach ( array_keys( WPCPM_Student_Report_Form::fields( 'design' ) + WPCPM_Student_Report_Form::fields( '150h' ) ) as $name ) {
 	$keys[] = WPCPM_Student_Report_Form::key( $name );
 }
 
@@ -615,8 +617,9 @@ echo "\n=== Every field name is a real Airtable column ===\n";
 // The fixture is the table's field list, read from the metadata API. It has to be refreshed when
 // the table changes, which is the point - a rename in Airtable should break a test here rather
 // than a student's report there.
-$fixture = json_decode( file_get_contents( __DIR__ . '/fixtures/reports-table-fields.json' ), true );
-$real    = isset( $fixture['fields'] ) ? $fixture['fields'] : array();
+$fixture         = json_decode( file_get_contents( __DIR__ . '/fixtures/reports-table-fields.json' ), true );
+$real            = isset( $fixture['fields'] ) ? $fixture['fields'] : array();
+$fixture_choices = isset( $fixture['choices'] ) ? $fixture['choices'] : array();
 
 ck( 'the fixture loaded', count( $real ) > 40, true );
 
@@ -624,7 +627,7 @@ ck( 'the fixture loaded', count( $real ) > 40, true );
 // exactly the class of bug it exists to catch.
 ck( 'and keeps the trailing space on "Company "', in_array( 'Company ', $real, true ), true );
 
-foreach ( array( '150h', '50h', 'dev' ) as $track ) {
+foreach ( array( '150h', '50h', 'dev', 'design' ) as $track ) {
 	$unknown = array_values( array_diff( array_keys( WPCPM_Student_Report_Form::fields( $track ) ), $real ) );
 
 	ck( sprintf( 'every %s field name exists in Airtable', $track ), $unknown, array() );
@@ -791,6 +794,280 @@ ck( 'the consent checkbox says what it is consenting to',
     false !== stripos( $dev['Alumni program: mentoring opt-in']['label'], 'mentoring' )
         && false !== stripos( $dev['Alumni program: mentoring opt-in']['label'], 'happy to be contacted' ), true );
 
+echo "\n=== Designer Track ===\n";
+
+/*
+ * The fourth track, written out in the order a student meets it rather than derived from the
+ * code: the design spec of 7 September 2026, section 4, is the authority, and a list generated
+ * from `fields()` would agree with whatever `fields()` happened to hold.
+ *
+ * Three of the keys look like slips and are not: the base shortens the library lesson to
+ * `Duplicate & Explore WP Design Library` and ends two of its columns in lower case, and
+ * `Site’s` carries the typographic apostrophe (U+2019). A write has to name the column exactly,
+ * so the keys are copied and the *labels* are what gets written for the student.
+ */
+$design_expected = array(
+	'Hours',
+	'WordPress Profile',
+	'Slack Name',
+	'Open source basics and WordPress - final grade',
+	'How decisions are made in the WordPress project - final grade',
+	'Community meeting etiquette - final grade',
+	'Writing in the WordPress voice - final grade',
+	'Basic principles of conflict resolution - final grade',
+	'Beginner WordPress Designer',
+	'Personal Website URL',
+	'Post Reflection: Building Your Personal Website',
+	'Main Contribution Team',
+	'Practical: Duplicate & Explore WP Design Library - Reflection',
+	'Practical: Duplicate & Explore WP Design Library - link',
+	'Practical: Duplicate & Explore WP Design Library - image',
+	'Practical: Local WordPress Environment for Design Testing - Tool used',
+	'Practical: Local WordPress Environment for Design Testing - Screenshot',
+	"Practical: Change Your Site\xE2\x80\x99s Global Styles - Notes",
+	"Practical: Change Your Site\xE2\x80\x99s Global Styles - Before Screenshot",
+	"Practical: Change Your Site\xE2\x80\x99s Global Styles - After Screenshot",
+	'Practical: Style Book - Notes',
+	'Practical: Style Book - Screenshot',
+	'Practical: Landing Page with Layout Blocks - Note',
+	'Practical: Landing Page with Layout Blocks - Screenshot',
+	'Practical: Apply Custom CSS in the Site Editor - Notes',
+	'Practical: Apply Custom CSS in the Site Editor - CSS',
+	'Practical: Apply Custom CSS in the Site Editor - Screenshot',
+	'Practical: Submit a Custom Block Pattern - Link',
+	'Practical: Submit a Custom Block Pattern - Screenshot',
+	'Practical: Test Your Site for Accessibility - Part 1 - Note',
+	'Practical: Test Your Site for Accessibility - Part 1 - Screenshot',
+	'Practical: Test Your Site for Accessibility - Part 2 - Note',
+	'Practical: Test Your Site for Accessibility - Part 2 - Screenshot',
+	'Contribution Project Summary',
+	'Post Reflection: Choosing Your Team and Project',
+	'Post Reflection: Your First Contribution',
+	'Post Reflection: Halfway Check-In',
+	'Slack/GitHub/Blog WordPress Community meetings/discussions',
+	'WP event participation URL',
+	'Closing post URL',
+);
+
+$design = WPCPM_Student_Report_Form::fields( 'design' );
+
+// The order itself, not the set: the form follows the Learn course lesson by lesson, and a
+// field that moved would put a question under the wrong lesson heading.
+ck( 'the Designer Track holds exactly its 40 fields, in the course order', array_keys( $design ), $design_expected );
+
+// The key with the typographic apostrophe, asserted byte for byte. A plain apostrophe here is a
+// column Airtable does not have, and the whole record's PATCH is a 422 for it.
+ck( 'the Global Styles keys carry the typographic apostrophe, not a plain one',
+    array(
+        isset( $design[ "Practical: Change Your Site\xE2\x80\x99s Global Styles - Notes" ] ),
+        isset( $design[ "Practical: Change Your Site's Global Styles - Notes" ] ),
+    ),
+    array( true, false ) );
+
+// Learn's Onboarding module has no user-level course and no optional developer courses for a
+// designer, so a form that offered them would ask for grades nobody on this track can hold.
+ck( 'the three user-level marks and the two optional developer courses are absent',
+    array_values( array_intersect(
+        array(
+            'Beginner WordPress User - final grade',
+            'Intermediate WordPress User - final grade',
+            'Advance WordPress User - final grade',
+            'Beginner WordPress Developer',
+            'Intermediate Theme Developer',
+        ),
+        array_keys( $design )
+    ) ),
+    array() );
+
+// The designer course is required on this track, so it is a mark of its own under its own
+// lesson rather than one of the optional courses it sits among on the long course.
+ck( 'the designer course is a required mark under its own lead, not under "Optional courses"',
+    array(
+        $design['Beginner WordPress Designer']['lead'],
+        ! empty( $design['Beginner WordPress Designer']['required'] ),
+        $design['Beginner WordPress Designer']['group'],
+    ),
+    array( 'Complete the Beginner WordPress Designer course', true, 'onboarding' ) );
+
+// The long course keeps it optional and unmarked: one spec, two tracks, and the difference has
+// to be the track's rather than a change to both.
+ck( 'and the long course still lists it under "Optional courses", unmarked',
+    array(
+        isset( $sensei_specs['Beginner WordPress Designer']['required'] ),
+        isset( $sensei_specs['Beginner WordPress Designer']['lead'] ),
+    ),
+    array( false, false ) );
+
+// The lesson is "Create your portfolio", so the two questions it asks are about a portfolio.
+// The column names stay what the base calls them.
+ck( 'the portfolio pair is written for a designer',
+    array(
+        $design['Personal Website URL']['label'],
+        $design['Personal Website URL']['subgroup'],
+        $design['Post Reflection: Building Your Personal Website']['label'],
+    ),
+    array(
+        'Your portfolio site URL',
+        'Create your portfolio',
+        'Link to the post "Reflection: Building Your Portfolio"',
+    ) );
+
+// Each practical lesson is named exactly as Learn names it, over the fields that lesson asks
+// for. Learn writes a plain apostrophe in the lesson title even though the column carries the
+// typographic one, so the two differ on purpose.
+$design_leads = array();
+
+foreach ( $design as $name => $spec ) {
+	if ( ! empty( $spec['lead'] ) ) {
+		$design_leads[ $name ] = $spec['lead'];
+	}
+}
+
+ck( 'every practical lesson is a lead naming the Learn lesson, over the fields it asks for',
+    $design_leads,
+    array(
+        'Beginner WordPress Designer' => 'Complete the Beginner WordPress Designer course',
+        'Practical: Duplicate & Explore WP Design Library - Reflection' => 'Practical: Duplicate and Explore the WordPress Design Library',
+        'Practical: Local WordPress Environment for Design Testing - Tool used' => 'Practical: Set Up a Local WordPress Environment for Design Testing',
+        "Practical: Change Your Site\xE2\x80\x99s Global Styles - Notes" => "Practical: Change Your Site's Global Styles",
+        'Practical: Style Book - Notes'                => 'Practical: Customize with the Style Book',
+        'Practical: Landing Page with Layout Blocks - Note' => 'Practical: Compose a Landing Page with Layout Blocks',
+        'Practical: Apply Custom CSS in the Site Editor - Notes' => 'Practical: Apply Custom CSS in the Site Editor',
+        'Practical: Submit a Custom Block Pattern - Link' => 'Practical: Create and Submit a Custom Block Pattern',
+        'Practical: Test Your Site for Accessibility - Part 1 - Note' => 'Practical: Test Your Site for Accessibility',
+        // The first field after the last practical lesson. Without a heading of its own it
+        // would render under "Practical: Test Your Site for Accessibility" and read as part of
+        // that lesson's work; the spec names the Learn lesson it belongs to instead.
+        'Contribution Project Summary'                 => 'Define and begin developing your contribution project',
+        'Post Reflection: Choosing Your Team and Project' => 'Your reflection posts',
+    ) );
+
+// The controls the spec's table names, per lesson.
+$design_types = array();
+
+foreach ( $design as $name => $spec ) {
+	$design_types[ $name ] = isset( $spec['type'] ) ? $spec['type'] : 'text';
+}
+
+ck( 'the practical lessons use the controls the spec names',
+    array(
+        $design_types['Practical: Duplicate & Explore WP Design Library - Reflection'],
+        $design_types['Practical: Duplicate & Explore WP Design Library - link'],
+        $design_types['Practical: Duplicate & Explore WP Design Library - image'],
+        $design_types['Practical: Local WordPress Environment for Design Testing - Tool used'],
+        $design_types['Practical: Local WordPress Environment for Design Testing - Screenshot'],
+        $design_types['Practical: Apply Custom CSS in the Site Editor - CSS'],
+        $design_types['Practical: Submit a Custom Block Pattern - Link'],
+        $design_types['Practical: Test Your Site for Accessibility - Part 2 - Screenshot'],
+    ),
+    array( 'textarea', 'url', 'image', 'select', 'image', 'textarea', 'url', 'image' ) );
+
+// The one single-select column in the base, and the three options it holds. A fourth option, or
+// one spelled differently, is a 422 for the whole record: nothing sends `typecast`. Read from
+// the fixture rather than typed out a second time, so a choice renamed in the base fails here
+// in one place instead of two: this pin and bin/test-fixtures.php's own.
+ck( 'the tool question offers exactly the base\'s three choices',
+    $design['Practical: Local WordPress Environment for Design Testing - Tool used']['options'],
+    isset( $fixture_choices['Practical: Local WordPress Environment for Design Testing - Tool used'] )
+        ? $fixture_choices['Practical: Local WordPress Environment for Design Testing - Tool used']
+        : array() );
+
+// CSS is code, and a spell checker underlining every property is noise. Monospace, and the
+// browser told not to check it.
+ck( 'the CSS answer is a monospace box with spell checking off',
+    ! empty( $design['Practical: Apply Custom CSS in the Site Editor - CSS']['mono'] ), true );
+
+// Ten screenshots, one per the spec's table. `image_columns()` is what the students sync asks
+// Airtable for, so it has to be the same ten.
+$design_images = array_keys( array_filter( $design_types, static function ( $type ) { return 'image' === $type; } ) );
+
+ck( 'ten of the questions take a screenshot', count( $design_images ), 10 );
+ck( 'and the sync asks Airtable for exactly those columns', WPCPM_Student_Report_Form::image_columns(), $design_images );
+
+// **A fifth track has to be one entry in `WPCPM_Program` and nowhere else.** The students sync
+// asks Airtable for `image_columns()` by name, so a track this list forgets is a track whose
+// every card says "No screenshot yet" for ever, with nothing failing anywhere to say why. Pinned
+// the way the tracks strip's tiles are: as a set relation against the program map. The source is
+// read as well, because the derived list and a hand-written one agree today - only the source
+// says which of them the sync is actually reading.
+$image_columns_body = (string) file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-student-report-form.php' );
+$image_columns_body = substr( $image_columns_body, (int) strpos( $image_columns_body, 'public static function image_columns()' ) );
+$image_columns_body = substr( $image_columns_body, 0, (int) strpos( $image_columns_body, "
+	}
+" ) );
+
+$every_track_image = array();
+
+foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
+	$status_track = WPCPM_Program::track( $status );
+
+	if ( '' === $status_track ) {
+		continue;
+	}
+
+	foreach ( WPCPM_Student_Report_Form::fields( $status_track ) as $image_name => $image_spec ) {
+		if ( isset( $image_spec['type'] ) && 'image' === $image_spec['type'] && ! in_array( $image_name, $every_track_image, true ) ) {
+			$every_track_image[] = $image_name;
+		}
+	}
+}
+
+ck( 'every screenshot column of every track the program map answers is one the sync asks for, off the map itself',
+    array(
+        array_values( array_diff( $every_track_image, WPCPM_Student_Report_Form::image_columns() ) ),
+        false !== strpos( $image_columns_body, 'WPCPM_Program::labels()' ),
+    ),
+    array( array(), true ) );
+
+// Every practical lesson's label is written for the student rather than copied from the column
+// name: `Practical: Style Book - Notes` is a column, "Your notes" is a question. The course
+// marks are the exception on every track, and deliberately so - the label of a mark is the name
+// of the course it is for, which is how a student knows which grade to copy across.
+$copied = array();
+
+foreach ( preg_grep( '/^Practical: /', array_keys( $design ) ) as $name ) {
+	if ( $design[ $name ]['label'] === $name ) {
+		$copied[] = $name;
+	}
+}
+
+ck( 'no practical lesson label is a column name', $copied, array() );
+
+// The groups are the course's three modules, and every field lands in one of them.
+$design_groups = array();
+
+foreach ( $design as $name => $spec ) {
+	$design_groups[ $spec['group'] ][] = $name;
+}
+
+ck( 'the form is the course\'s three modules, plus the hours box',
+    array_keys( $design_groups ), array( 'hours', 'onboarding', 'project', 'wrapup' ) );
+
+ck( 'the eight practical lessons are all in Project',
+    count( preg_grep( '/^Practical: /', $design_groups['project'] ) ), 21 );
+
+ck( 'and the wrap-up asks for the closing post alone', $design_groups['wrapup'], array( 'Closing post URL' ) );
+
+// No Fillout form for this track, and nothing on the card links one any more (spec 6.4).
+ck( 'no Fillout link field is offered',
+    count( preg_grep( '/personal link/i', array_keys( $design ) ) ), 0 );
+
+echo "\n=== The select control ===\n";
+
+$tool = array(
+	'label'   => 'The tool you used',
+	'type'    => 'select',
+	'options' => array( 'WordPress Studio', 'MAAMP', 'DevKinsta' ),
+);
+
+ck( 'an option is kept as the base spells it', clean( 'DevKinsta', $tool ), array( true, 'DevKinsta' ) );
+// Airtable clears a single select with null, the way it clears a number: an empty string in one
+// is a 422 for the whole record.
+ck( 'the empty first option clears the cell', clean( '', $tool ), array( true, null ) );
+ck( 'a value outside the list is refused', clean( 'XAMPP', $tool ), array( false, null ) );
+ck( 'and so is a near miss', clean( 'MAMP', $tool ), array( false, null ) );
+ck( 'an array where a choice belongs is refused', clean( array( 'MAAMP' ), $tool ), array( false, null ) );
+
 echo "\n=== The email and checkbox controls ===\n";
 
 $email_spec = array( 'label' => 'An email', 'type' => 'email' );
@@ -818,7 +1095,7 @@ echo "\n=== Paired fields stay together ===\n";
 //
 // The property is simple: every field sharing a `row` must be contiguous. Asserting it is what
 // makes "you broke a pair" a failing test rather than something to spot in a screenshot.
-foreach ( array( '150h', '50h', 'dev' ) as $track ) {
+foreach ( array( '150h', '50h', 'dev', 'design' ) as $track ) {
 	$specs  = WPCPM_Student_Report_Form::fields( $track );
 	$broken = array();
 	$seen   = array();
@@ -859,11 +1136,13 @@ ck( 'the second project summary is in the stacked column, not loose in the group
 //
 // Fields inside a pair are exempt: the pair sets its own columns, which is why `Slack Name` can be
 // a plain text box without a full-width rule.
-$full_width = array( 'textarea', 'richtext', 'url', 'email', 'checkbox', 'team' );
+// `select` and `image` join the list with the Designer Track: a `<select>` is short, but the
+// question above it is not, and a screenshot's thumbnail and its two buttons need the row.
+$full_width = array( 'textarea', 'richtext', 'url', 'email', 'checkbox', 'team', 'select', 'image' );
 $css        = file_get_contents( __DIR__ . '/../assets/css/calendar.css' );
 $missing    = array();
 
-foreach ( array( '150h', '50h', 'dev' ) as $track ) {
+foreach ( array( '150h', '50h', 'dev', 'design' ) as $track ) {
 	foreach ( WPCPM_Student_Report_Form::fields( $track ) as $name => $spec ) {
 		$type = isset( $spec['type'] ) ? $spec['type'] : 'text';
 

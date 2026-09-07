@@ -90,13 +90,16 @@ column is detected automatically.
   accounts at once. Invitations are queued and sent a few at a time rather than all inside the sync,
   so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time
   from the Mentors and Students screens.
-- **Automatic sync** - read Airtable on a schedule. **Students every three hours, mentors once a
-  day**: the student rows carry what people are shown on their cards, while the mentors run costs
-  one WordPress.org profile read per mentor. A run already in progress is left to finish rather than
-  restarted. Either can also be run by hand from the Students and Mentors screens.
-- **Mentor landing page** - send mentors to their Report Card on login and in place of the wp-admin
-  Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who followed a
-  link somewhere specific still lands there. Administrators are unaffected.
+- **Automatic sync** - read Airtable on a schedule. **Students and mentors every three hours, half
+  an hour apart**: the student rows carry what people are shown on their cards, and the students run
+  is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours. The
+  mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is
+  left to finish rather than restarted. Either can also be run by hand from the Students and Mentors
+  screens. The institutions and the sponsors syncs are on the same three-hour clock. Automatic sync
+  governs the students, mentors and institutions syncs; the sponsors sync runs regardless.
+- **Mentor landing page** - send mentors to their Mentor Report Card on login and in place of the
+  wp-admin Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who
+  followed a link somewhere specific still lands there. Administrators are unaffected.
 
 ### Students module
 
@@ -202,10 +205,10 @@ explanation, the rendered content and excerpt are filtered, and the REST API is 
 
 ### Program updates and announcements
 
-The column at the foot of both Report Cards lists recent posts from the *Updates* category, filtered
-by the same access levels - so a post set to Mentor level appears on the mentor's card and on nobody
-else's. Set the access level on the post and it lands in the right place; there is nothing else to
-configure.
+The column at the foot of both the Student Report Card and the Mentor Report Card lists recent posts
+from the *Updates* category, filtered by the same access levels - so a post set to Mentor level
+appears on the mentor's card and on nobody else's. Set the access level on the post and it lands in
+the right place; there is nothing else to configure.
 
 ### Arranging the Student Report Card
 
@@ -221,15 +224,32 @@ can arrange it for them with the same arrows. Nobody else sees the arrows.
 
 ### The sync
 
-Both syncs read Airtable and reconcile accounts: create what is missing, update what has changed,
-and apply your *when they are no longer active* setting to the rest. Run one by hand from the
-Students or Mentors screen, or leave **Automatic sync** on - students every three hours, mentors
-once a day.
+The students and the mentors syncs read Airtable and reconcile accounts: create what is missing,
+update what has changed, and apply your *when they are no longer active* setting to the rest. Run
+one by hand from the Students or Mentors screen, or leave **Automatic sync** on - students and
+mentors every three hours, half an hour apart.
 
-They run on different clocks on purpose. The student rows carry what students and mentors are shown
-on their cards, so a day-old copy is a day-old card; the mentors run reads one WordPress.org profile
-per mentor, which is the expensive half. A run still going when the next one is due is left to
+They start half an hour apart on purpose. The student rows carry what students and mentors are
+shown on their cards, so a stale copy is a stale card, and it is the expensive half of the pair:
+it reads one WordPress.org profile per mentor, cached for twelve hours, while building the mentor
+cards. The mentors run reads three Airtable tables and makes no WordPress.org request. Two runs in
+the same request would be one long request. A run still going when the next one is due is left to
 finish rather than restarted.
+
+**Syncs every three hours (1.98.2).** All four Airtable syncs - students, mentors, institutions and
+sponsors - share one three-hour clock, and the first runs are staggered so each starts at its own
+point in the cycle: students half an hour in, mentors an hour, institutions an hour and a half,
+sponsors two hours. WordPress cron runs each event at or after its scheduled time, so the cadences
+drift apart after that and on a busy site two can still land close together, each safe behind its
+own lock. Before this only the students sync ran every three hours and the other three ran once a
+day, which meant an institution or a sponsor changed in the base was a day old on the site. Nothing
+has to be switched off and on again for the change to take: on the first request after the update
+each sync sees its own event still on the daily schedule, clears it and puts it back on the
+three-hour one. The housekeeping jobs are not syncs and stay daily - the two application retention
+runs, the two agreement discards, the reviewer's digest, invitation expiry, the semester report
+drafting and the ceiling's sweep - because the settings behind them are in days and a base that is
+down must not stop a file being forgotten on time. The Mentor Status Checker stays weekly: it reads
+WordPress.org profiles rather than Airtable.
 
 Accounts are matched by WordPress.org username where there is one, and by email otherwise. **No
 account is ever deleted by a sync** - the most it will do is remove a role.
@@ -245,8 +265,9 @@ because a first sync creates around ninety accounts at once.
 
 ### Pages the plugin owns
 
-Activation creates the Report Card pages and gates them. If one goes missing, re-activating the
-plugin recreates it; the settings screen warns you when a page it expects is not there.
+Activation creates the Student Report Card and Mentor Report Card pages and gates them. If one goes
+missing, re-activating the plugin recreates it; the settings screen warns you when a page it expects
+is not there.
 
 ### Uninstall
 
@@ -260,9 +281,9 @@ deleted**, and their program details in Airtable are untouched.
 | Symptom | Where to look |
 | --- | --- |
 | A student or mentor is missing | Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list. |
-| Details are stale on a Report Card | Run the sync by hand; the page renders from what the last sync stored. |
+| Details are stale on a Student Report Card or Mentor Report Card | Run the sync by hand; the page renders from what the last sync stored. |
 | A mentor sees the wrong students | The mentor↔student link in Airtable. The page joins on the records, not on names. |
-| Nobody can book a call | The mentor has published no availability. Their Report Card says so. |
+| Nobody can book a call | The mentor has published no availability. Their Mentor Report Card says so. |
 | Invitations are not arriving | The **Mail** section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 
@@ -280,13 +301,13 @@ The programs card counts students in progress per track and per institution from
 
 ## Sponsors
 
-The Sponsors screen is where a sponsor's account begins. The nightly sync (four hours after the institutions sync) reads the Team Members table and the Sponsors table into an index, copies each Approved sponsor's logo into the Media Library, and, only if the setting says so, detaches the accounts of sponsors that are no longer Approved. It never creates an account: a program manager presses Create account on an Approved sponsor's row, which makes an account from the sponsor's Contact Email (or attaches the account that already holds that address), queues the welcome, ticks the Dashboard account checkbox in Airtable and writes a log row. Accounts are attached by address and removed on the same screen; a sponsor's dashboard is opened through the switcher link in the first column. A sponsor whose logo is an SVG is named in the sync report: the site does not take SVG, and the sponsor converts it.
+The Sponsors screen is where a sponsor's account begins. The sponsors sync (every three hours, two hours into the cycle) reads the Team Members table and the Sponsors table into an index, copies each Approved sponsor's logo into the Media Library, and, only if the setting says so, detaches the accounts of sponsors that are no longer Approved. It never creates an account: a program manager presses Create account on an Approved sponsor's row, which makes an account from the sponsor's Contact Email (or attaches the account that already holds that address), queues the welcome, ticks the Dashboard account checkbox in Airtable and writes a log row. Accounts are attached by address and removed on the same screen; a sponsor's dashboard is opened through the switcher link in the first column. A sponsor whose logo is an SVG is named in the sync report: the site does not take SVG, and the sponsor converts it.
 
 On the Sponsor Dashboard a sponsor can save eight profile fields back to Airtable (website, contact person and email, product type, offer, instructions, more-info link and the free-text field); every save writes an audit row naming the fields changed and nothing else. Interests, and interest in a mentor from the looking-for-a-sponsor list, mail the assigned program manager (the Person of contact in Airtable), or the addresses in the "Interest mail" setting, or every program manager, in that order of preference; five a day per account. What sponsors can never read is a student's name: their mentors card shows mentor names and student counts only.
 
 **Offers, codes and the Tools section (1.94.0).** A sponsor's offers live on the site, not in the base. Each is a pool of one-time codes the sponsor pastes or uploads as a .txt or .csv file on the Sponsor Dashboard, on the new-offer form or on the pool's own box (one per line, or a CSV's first column; a code can be a whole checkout link; all or nothing, refused by line number; a file is read once and never stored, up to a megabyte; up to 5000 codes), or one shared code or link for everyone. Since 1.94.1 the kind is two plain choices and the form shows only the box that belongs to the kind chosen. The first offer is seeded from the base when an account is provisioned (title: the sponsor's name; text, instructions and link from `Offer`, `Brief instructions` and `More info link`; a checkout link that is not the coupon sheet becomes the shared code, the sheet itself is never stored); for sponsors provisioned before 1.94.0 the Sponsors screen has a *Seed the first offer* button. That first offer is the one mirrored back to the three base fields on every save, so managers keep seeing it in the grid; `Coupon code/discount link` is never written, and a manager clears the sheet links by hand once a sponsor is live. An offer goes live only with something to give (a code in the pool, or the shared link); ended is final; the kind cannot change once the pool holds anything.
 
-Codes are encrypted at rest with the site key the stored agreements use and are shown only to the person who claimed one, on their own Report Card; nothing sends a code by mail. Who may claim is one function with five clauses: the offer is live and not past its last day; the person is a current student (their synced status is one of the student statuses and not a past one), or a mentor when the offer opens to mentors, or a manager when it opens to managers; they have not claimed it; a pool has a code left; a shared offer has something to share. A second press returns the same code. A claim is written under a per-offer lock, so two students pressing together get two codes.
+Codes are encrypted at rest with the site key the stored agreements use and are shown only to the person who claimed one, on their own Student Report Card, Mentor Report Card or the Administrator Dashboard; nothing sends a code by mail. Who may claim is one function with five clauses: the offer is live and not past its last day; the person is a current student (their synced status is one of the student statuses and not a past one), or a mentor when the offer opens to mentors, or a manager when it opens to managers; they have not claimed it; a pool has a code left; a shared offer has something to share. A second press returns the same code. A claim is written under a per-offer lock, so two students pressing together get two codes.
 
 Sponsors read numbers, managers read names. The sponsor's Usage card counts claims by month and offer (and a CSV of the same); the Sponsors screen's *Offers and codes* card lists every offer with its counts and, for support, who claimed from it (name, address, date, the code's last four characters) with a *Void* button: voiding frees the person to claim again and keeps the code void for the count. A claimant's *Report a problem* mails the sponsor's assigned program manager (else `sponsor_notify`, else every manager) the name, the offer and the last four characters, three a day per person. When a pool falls below its threshold, one mail goes to the sponsor's accounts and one to the manager, once, re-armed by adding codes. Nothing about a claim reaches Airtable.
 
@@ -298,7 +319,7 @@ The Tools section is drawn on a person's own Student Report Card (setting *Tools
 
 **The guide and the queues (1.98.0).** Sponsors have a guide of their own, composed by `bin/build-docs.php` as the `sponsors` audience from four sections (the dashboard, offers and codes, what a sponsor can and cannot see, posts) and published on the handbook beside the other three; the Sponsor Dashboard's guide button points at it. The Administrator Dashboard gained three sponsor cards after the Sponsor agreements card: *Offers running low* (every live pool under the threshold its sponsor set, the emptiest first, linked to the sponsor's Offers and codes card through the switcher), *New interests* (what sponsors sent from *What else would you like to support?* in the last thirty days, as they wrote it) and *Sponsors* (Approved sponsors, how many hold an account, the offers live today, the claims since the semester began). The *Sponsor applications* card folds the whole application under *Read the application*, the needs-attention strip has a twelfth tile for the pools running low, and the Syncs card lists the sponsors sync. Nothing here is a new option or a new post type: the phase reads what the earlier phases wrote.
 
-**The clean-up (1.98.1).** The two application forms share one stash-and-redirect class, `WPCPM_Form_Stash`. The Sponsors menu bubble is counted once a minute and forgets its count the moment an application, an agreement or a sponsor post changes. A dwell token has one shape. Recently decided reads a decision-time index instead of every decided row. The docs build escapes a section's text, so a literal angle bracket is a character on the page. The institution agreement retries a failed Airtable write nightly, as the sponsor agreement has since 1.96.0. A refused image store deletes the copy it made.
+**The clean-up (1.98.1).** The two application forms share one stash-and-redirect class, `WPCPM_Form_Stash`. The Sponsors menu bubble is counted once a minute and forgets its count the moment an application, an agreement or a sponsor post changes. A dwell token has one shape. Recently decided reads a decision-time index instead of every decided row. The docs build escapes a section's text, so a literal angle bracket is a character on the page. The institution agreement retries a failed Airtable write on every sync run, as the sponsor agreement has since 1.96.0. A refused image store deletes the copy it made.
 
 ## Where the plugin keeps its data
 
@@ -390,8 +411,8 @@ renaming a stored key is a migration, and nothing here warranted one.
 ## The feedback surveys
 
 Students are asked how the program is going three times - at the start, half way, and at the end -
-from their own Report Card, under their report form. Anyone who leaves without finishing is asked a
-fourth set instead: four questions about how far they got and what stopped them.
+from their own Student Report Card, under their report form. Anyone who leaves without finishing is
+asked a fourth set instead: four questions about how far they got and what stopped them.
 
 The question set is the one settled in
 [#123](https://github.com/WordPress/WPCredits/issues/123) after the analysis of 242
@@ -462,7 +483,7 @@ php bin/test-feedback.php
 A single-select answer is checked against the choices the column actually has before it is sent, so
 a hand-edited form cannot add an option to the base or take a submission down with it.
 
-## What is on your Report Card
+## What is on your Mentor Report Card
 
 The page you land on after logging in lists the students assigned to you and nothing else - it is
 built from the program records, so there is no list to keep and nobody to ask for access.
@@ -530,7 +551,7 @@ availability set, so you cannot book a call yet" and have no way to reach you ex
 
 *Set the hours you are free each week, then how calls are offered.*
 
-Open **Your availability for calls** on your Report Card and set:
+Open **Your availability for calls** on your Mentor Report Card and set:
 
 - **The hours you are free, each week** - a start and end time per weekday. Leave a day blank to
   offer nothing on it. The slots are generated from these windows, so you are publishing hours, not
@@ -565,7 +586,7 @@ student wrote when booking.
 Sometimes the useful thing is one call with several students rather than five separate ones - a
 walkthrough, a question hour, a session for everybody starting the same week.
 
-**Plan a group session** under *Group sessions* on your Report Card. You choose:
+**Plan a group session** under *Group sessions* on your Mentor Report Card. You choose:
 
 - **Date and start time**, in your own timezone. Your students see it in theirs.
 - **Length** in minutes.
@@ -636,13 +657,13 @@ worth collecting.
 They are also not part of the report and are not marked, so a student who has answered none of them
 is not behind on anything. Please do not chase them.
 
-## What is on your Report Card
+## What is on your Student Report Card
 
 ![Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.](images/student-report-card-profile.png)
 
 *Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.*
 
-### Arranging your Report Card
+### Arranging your Student Report Card
 
 Below your profile and your mentor, the page is a stack of blocks: the program updates with the
 resources, your course, your report form with the feedback forms, your mentor call, and the tools
@@ -690,8 +711,20 @@ Open **Your report form** and the questions are grouped in the order you meet th
   took part in, and the reflection posts for each stage.
 - **Wrap-up** - your closing post.
 
-What is asked depends on your track: the 150-hour course asks for the reflection posts and the
-module grades; the 50-hour course asks instead for one final project report.
+What is asked depends on your track. The 150-hour course asks for the reflection posts and the
+module grades; the 50-hour course asks instead for one final project report; the Developer Track
+asks the 150-hour questions with seven more of its own; and the Designer Track follows its own
+Learn course lesson by lesson - the onboarding grades and your portfolio first, then the eight
+practical lessons, each with its own notes and its own screenshots, then your contribution project,
+your reflection posts and your closing post.
+
+**Screenshots, on the Designer Track.** The practical lessons ask you to show your work, so those
+questions take a picture instead of a link: a PNG, JPEG or WebP file of up to 4 MB, and twenty
+uploads a day across all of them. The file is kept on this site and a copy is sent to the program
+records, which is why the picture on your card is this site's copy and still there tomorrow.
+Under each picture, choosing a new file **replaces** what is there, and **Remove** deletes it from
+both places at once. Your mentor and the program managers see your screenshots when they open your
+Student Report Card, so treat one as part of your report rather than as a private note.
 
 The grades are yours to copy across from wherever you were marked - this form records them, it does
 not decide them. Fill in what you have and press **Save my report**; you can come back and add the

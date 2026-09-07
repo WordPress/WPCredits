@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * - **No gate.** A sponsor's dashboard works without an agreement, so nothing here reads one
  *   option on every request and nothing here opens or closes an account. `rebuild()` therefore
  *   writes the index's `agreement` block rather than a settled flag: what the screens need is
- *   that the cells the site just wrote to the base are visible before the nightly sync reads
+ *   that the cells the site just wrote to the base are visible before the sponsors sync reads
  *   them back.
  * - **No two-source rule.** With no gate to fail closed, the site's posts are the record of
  *   what happened here and Airtable's `Agreement Status` is the program's record; the card
@@ -378,7 +378,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * The institution class's `rebuild()` computes a gate from two sources; there is no gate
 	 * here, so this is the smaller job the sponsor module actually needs: the manager screen
 	 * and the card read `WPCPM_Sponsors_Index`, and a manager who accepts an agreement must not
-	 * have to wait for the nightly sync to see the base agree. Every handler calls this inside
+	 * have to wait for the sponsors sync to see the base agree. Every handler calls this inside
 	 * its own critical section and says so: releasing the lock and taking it again would leave
 	 * a gap for another transition to write the block from state that is about to change. A
 	 * caller holding no lock takes it here, and skips when a transition holds it, because that
@@ -389,7 +389,7 @@ final class WPCPM_Sponsor_Agreement {
 	 *                         A key that is absent leaves the held value alone.
 	 * @param bool   $locked   Whether this sponsor's lock is already held by the caller. A
 	 *                         handler passes true from inside its own critical section; the
-	 *                         nightly sync holds nothing and leaves it false.
+	 *                         sponsors sync holds nothing and leaves it false.
 	 * @return array The block written, or an empty array when nothing was.
 	 */
 	public static function rebuild( $record, array $airtable, $locked = false ) {
@@ -610,7 +610,7 @@ final class WPCPM_Sponsor_Agreement {
 	}
 
 	/**
-	 * Finish the Airtable writes an earlier request could not make. The nightly sync's step.
+	 * Finish the Airtable writes an earlier request could not make. The sponsors sync's step.
 	 *
 	 * `META_AIRTABLE_PENDING` is the mark an upload or a withdrawal leaves when the base was
 	 * unreachable at the moment the site's own state changed. Neither path fails the sponsor's
@@ -649,7 +649,7 @@ final class WPCPM_Sponsor_Agreement {
 
 			if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
 				// There is no record to write to, so the mark is not a write that is owed. It
-				// goes, or this row is read again every night for as long as the site stands.
+				// goes, or this row is read again on every run for as long as the site stands.
 				delete_post_meta( $post_id, self::META_AIRTABLE_PENDING );
 				continue;
 			}
@@ -657,7 +657,7 @@ final class WPCPM_Sponsor_Agreement {
 			$status = self::airtable_status_for( $record );
 
 			if ( ! self::patch( $record, array( self::field( 'agr_status' ) => $status ) ) ) {
-				// Still unreachable. The mark stays and tomorrow night tries again.
+				// Still unreachable. The mark stays and the next run tries again.
 				continue;
 			}
 
@@ -718,7 +718,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * runaway script must be refused before ten megabytes are read into this process.
 	 *
 	 * An Airtable failure does not fail the upload. The document is on this site and the
-	 * sponsor did what was asked; the post carries `META_AIRTABLE_PENDING` and the nightly
+	 * sponsor did what was asked; the post carries `META_AIRTABLE_PENDING` and the sponsors
 	 * sync's `retry_airtable()` writes the cell. Refusing here would ask the sponsor to upload
 	 * again for a fault that is not theirs and not this site's.
 	 */
@@ -855,8 +855,8 @@ final class WPCPM_Sponsor_Agreement {
 			$landed = self::patch( $record, array( self::field( 'agr_status' ) => self::AIRTABLE_AWAITING ) );
 
 			if ( ! $landed ) {
-				// The mark the nightly sync's `retry_airtable()` reads: the document is here
-				// and the cell is owed, so the write is finished that night instead.
+				// The mark the sponsors sync's `retry_airtable()` reads: the document is here
+				// and the cell is owed, so the write is finished on the next run instead.
 				update_post_meta( $post_id, self::META_AIRTABLE_PENDING, 1 );
 			}
 
@@ -961,7 +961,7 @@ final class WPCPM_Sponsor_Agreement {
 	 * The base is told, unlike the institutions' withdraw. The upload wrote `Awaiting review`
 	 * and nothing else, so leaving it would put a manager in front of a queue entry with no
 	 * document behind it. A failed PATCH does not fail the withdrawal, because the file is
-	 * already gone: the post carries the pending mark instead and the nightly sync's
+	 * already gone: the post carries the pending mark instead and the sponsors sync's
 	 * `retry_airtable()` writes the cell.
 	 */
 	public static function handle_withdraw() {
@@ -1027,7 +1027,7 @@ final class WPCPM_Sponsor_Agreement {
 		if ( empty( $summary['agreement_id'] ) ) {
 			if ( ! self::patch( $record, array( self::field( 'agr_status' ) => self::AIRTABLE_NOT_STARTED ) ) ) {
 				// The file is already gone, so the withdrawal stands whatever the base says;
-				// the mark is what the nightly sync's `retry_airtable()` finishes.
+				// the mark is what the sponsors sync's `retry_airtable()` finishes.
 				update_post_meta( $post_id, self::META_AIRTABLE_PENDING, 1 );
 			} else {
 				self::rebuild( $record, array( 'status' => self::AIRTABLE_NOT_STARTED ), true );

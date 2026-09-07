@@ -157,6 +157,11 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.24.2 =
+* Student Report Card: the Designer Track's chip (plugin 1.98.2) says its rose as a token rather than leaving it to the plugin's own sheet.
+* Student Report Card: the screenshot questions of the Designer Track's practical lessons - the thumbnail in the card line, the note and the swap sentence in the hint's voice, and the file picker and Remove on one row at the form's control size, the file button dressed as the Sponsor Dashboard's is.
+* Student Report Card: the report form's choice lists take the same control treatment as its text boxes, the way the feedback form's have since 1.21.0.
+
 = 1.24.1 =
 * Administrator Dashboard: a table row's own header (the offer's name in Offers running low) reads as a cell, not as a column label.
 

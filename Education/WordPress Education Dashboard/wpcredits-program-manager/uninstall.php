@@ -173,6 +173,12 @@ delete_option( WPCPM_Notices::OPT_MIGRATED );
 delete_option( 'wpcpm_student_modules' );
 delete_metadata( 'user', 0, 'wpcpm_student_modules', '', true );
 
+// Which Media Library file answers which screenshot question on the Designer Track's report
+// form (1.98.2). The row goes; the attachments stay, like every other file this plugin put in
+// the Media Library - deleting a student's pictures is a decision for whoever removes them in
+// wp-admin, where what else uses them is visible.
+delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
+
 // Every institution's module order (1.96.4).
 foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'wpcpm_institution_modules_' ) . '%' ) ) as $wpcpm_module_option ) {
 	delete_option( $wpcpm_module_option );

@@ -5,7 +5,7 @@ availability set, so you cannot book a call yet" and have no way to reach you ex
 
 {{image:mentor-report-card-availability|Set the hours you are free each week, then how calls are offered.}}
 
-Open **Your availability for calls** on your Report Card and set:
+Open **Your availability for calls** on your Mentor Report Card and set:
 
 - **The hours you are free, each week** - a start and end time per weekday. Leave a day blank to
   offer nothing on it. The slots are generated from these windows, so you are publishing hours, not
@@ -40,7 +40,7 @@ student wrote when booking.
 Sometimes the useful thing is one call with several students rather than five separate ones - a
 walkthrough, a question hour, a session for everybody starting the same week.
 
-**Plan a group session** under *Group sessions* on your Report Card. You choose:
+**Plan a group session** under *Group sessions* on your Mentor Report Card. You choose:
 
 - **Date and start time**, in your own timezone. Your students see it in theirs.
 - **Length** in minutes.

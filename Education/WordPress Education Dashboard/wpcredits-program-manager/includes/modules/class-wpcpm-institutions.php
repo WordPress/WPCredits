@@ -3167,7 +3167,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * or the sentence saying why it has none, because a worklist that hides the refusals is a
 	 * worklist a manager cannot finish. Which of the two a row gets is
 	 * `WPCPM_Institutions_Sync::provision_block()`'s answer and never a second copy of the
-	 * rule here, so this card, the button it draws and the nightly run cannot disagree.
+	 * rule here, so this card, the button it draws and the recurring run cannot disagree.
 	 *
 	 * The gate is the design's: while any Confirmed institution has no agreement recorded the
 	 * bulk button refuses, naming them and saying how many, whatever else is ready. Recording
@@ -3197,7 +3197,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html( number_format_i18n( count( $ready ) ) )
 		);
 
-		echo '<p class="description">' . esc_html__( 'The first account for an institution is made from the Contact Email Airtable holds for it, and only for a Confirmed institution whose agreement is recorded and that has never had a member. After that first account, membership is managed here: without that rule a contact who was removed would be given a new account every night. An address that already belongs to an account is a conflict and not a match, and is left alone.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'The first account for an institution is made from the Contact Email Airtable holds for it, and only for a Confirmed institution whose agreement is recorded and that has never had a member. After that first account, membership is managed here: without that rule a contact who was removed would be given a new account on every sync run. An address that already belongs to an account is a conflict and not a match, and is left alone.', 'wpcredits-program-manager' ) . '</p>';
 
 		printf(
 			'<p class="wpcpm-inst-read">%1$s %2$s</p>',
@@ -3236,13 +3236,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		// Which of the two routes is live, said plainly: the same rule decides both, and a
-		// manager who presses nothing here should still know whether accounts appear overnight.
+		// manager who presses nothing here should still know whether accounts appear within
+		// three hours.
 		printf(
 			'<p class="description">%s</p>',
 			esc_html(
 				WPCPM_Settings::get_value( 'institution_provision' )
-					? __( 'The nightly sync creates these accounts too, by the same rule, on top of anything made here.', 'wpcredits-program-manager' )
-					: __( 'The nightly sync does not create accounts: this card is the only way one is made.', 'wpcredits-program-manager' )
+					? __( 'The sync creates these accounts too, by the same rule, on top of anything made here.', 'wpcredits-program-manager' )
+					: __( 'The sync does not create accounts: this card is the only way one is made.', 'wpcredits-program-manager' )
 			)
 		);
 
@@ -3608,7 +3609,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		echo '</tbody></table>';
 
-		echo '<p class="description">' . esc_html__( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for them here. Add that person from the institution\'s card, name and address; the sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created every night.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for them here. Add that person from the institution\'s card, name and address; the sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created on every run.', 'wpcredits-program-manager' ) . '</p>';
 
 		$unlinked = WPCPM_Roster_Index::unlinked();
 

@@ -351,6 +351,14 @@
 	border-color: rgba( 13, 148, 136, 0.35 );
 }
 
+/* The Designer Track, added 1.98.2: the rule above with its own hue and no new sizes. Rose is the
+   one hue none of the badges here already uses, and four track chips a mentor scans down a list
+   are only useful while no two of them read as the same color. */
+.wpcpm-badge--design {
+	background: rgba( 219, 39, 119, 0.12 );
+	border-color: rgba( 219, 39, 119, 0.35 );
+}
+
 /*
  * A student who is paused, and one who has finished the work and is waiting for the
  * paperwork. Both are still on their mentor's list, so they need a colour that is neither

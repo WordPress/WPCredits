@@ -44,8 +44,8 @@ which is the whole reason for the split.
 
 `images/` holds the screenshots the guides use. They are **mockups, not captures of the live
 site**: each one is the plugin's own markup and the theme's real stylesheets, filled with
-invented people. Real Report Cards carry students' names, emails, photos and call notes, and
-these documents are read by every mentor and student on the program.
+invented people. A real Student Report Card carries a student's name, email, photo and call
+notes, and these documents are read by every mentor and student on the program.
 
 The sources are not in this repository - they are rebuilt from the plugin's CSS whenever the UI
 moves. Attachment IDs for the published copies are in `bin/build-docs.php`.

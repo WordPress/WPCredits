@@ -1,7 +1,7 @@
 {
-	"_comment": "Field names and select choices of the Airtable 'Students' table (tbla8GZg5x6NY7aWt), read from the base's metadata API. The students sync's Students-table pass reads its columns by name (`WPCPM_Mentors_Sync::fields()`), and bin/test-fixtures.php checks every status the settings defaults name against 'Status' here. Two strings are load-bearing and look like typos: 'Tutor ' ends in a space, exactly like 'Company ' in reports-table-fields.json, and dropping it silently returns no tutor at all; 'Prefered language' is spelled with one r. The design spec counted 28 names; 'Site import key' was created on 2026-09-02 for the Institutions module (design spec section 10), hence 29. `create_records()` does not send `typecast`, so a choice spelled any other way is a 422 for the whole record; 'Status' also offers an institution name and 'Duplicated' as statuses, which is why this file records the base's list and not the plugin's. The coverage figures quote docs/specs/2026-09-02-institutions-module-design.md section 3, which read the rows and not the schema: 800 rows, 797 linked to exactly one institution and none to more than one, 'Start Date' on 793, and 'Students Reports' (with its inverse on the reports table) empty on every row, so the only join between the two tables is email. Refresh the field list with a metadata read when the table changes; the coverage figures need a read of the rows.",
+	"_comment": "Field names and select choices of the Airtable 'Students' table (tbla8GZg5x6NY7aWt), read from the base's metadata API. The students sync's Students-table pass reads its columns by name (`WPCPM_Mentors_Sync::fields()`), and bin/test-fixtures.php checks every status the settings defaults name against 'Status' here. Two strings are load-bearing and look like typos: 'Tutor ' ends in a space, exactly like 'Company ' in reports-table-fields.json, and dropping it silently returns no tutor at all; 'Prefered language' is spelled with one r. The design spec counted 28 names; 'Site import key' was created on 2026-09-02 for the Institutions module (design spec section 10), hence 29. `create_records()` does not send `typecast`, so a choice spelled any other way is a 422 for the whole record; 'Status' also offers an institution name and 'Duplicated' as statuses, which is why this file records the base's list and not the plugin's. The coverage figures quote docs/specs/2026-09-02-institutions-module-design.md section 3, which read the rows and not the schema: 800 rows, 797 linked to exactly one institution and none to more than one, 'Start Date' on 793, and 'Students Reports' (with its inverse on the reports table) empty on every row, so the only join between the two tables is email. The 2026-09-07 read was of the 'Status' column alone: it confirmed the choice 'Designer Track' (selz5Cds4xFPrN30A) beside 'Developer Track', which 1.98.2 needs because the students sync files a Designer Track student by that exact string. The field list and the coverage figures below are still the 2026-09-02 read and were not re-checked on 2026-09-07. Refresh the field list with a metadata read when the table changes; the coverage figures need a read of the rows.",
 	"students_table": "tbla8GZg5x6NY7aWt",
-	"read": "2026-09-02",
+	"read": "2026-09-07",
 	"fields": [
 		"Accessibility needs",
 		"Contact Email (from Educational Institutions)",
@@ -48,7 +48,8 @@
 			"Fail",
 			"Kishoreganj Polytechnic Institute",
 			"Duplicated",
-			"Developer Track"
+			"Developer Track",
+			"Designer Track"
 		],
 		"Your field of study": [
 			"Technology & Engineering",

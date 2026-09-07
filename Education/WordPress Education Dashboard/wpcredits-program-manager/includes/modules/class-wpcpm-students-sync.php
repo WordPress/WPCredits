@@ -45,6 +45,21 @@ class WPCPM_Students_Sync {
 	/** Our own interval: core offers hourly, twicedaily, daily and weekly, and none of them is this. */
 	const EVERY_THREE_HOURS = 'wpcpm_three_hours';
 
+	/**
+	 * Minutes into the three-hour cycle this sync runs at.
+	 *
+	 * Since 1.98.2 every Airtable sync shares the recurrence above, so the offset is the whole of
+	 * what keeps two of them out of the same WP-Cron request: this one takes +0:30, the mentors
+	 * sync +1:00, the institutions sync +1:30, the sponsors sync +2:00. Minutes rather than hours
+	 * because +0:30 and +1:30 are not whole numbers of hours and an hours constant could not say
+	 * so.
+	 *
+	 * Not a constant expression on `MINUTE_IN_SECONDS`: that is evaluated the first time the
+	 * class is touched, and a test that loads it before defining the time constants would fatal
+	 * there rather than in the method that uses it.
+	 */
+	const SCHEDULE_OFFSET_MINUTES = 30;
+
 	const OPT_STATE  = 'wpcpm_students_state';
 	const OPT_REPORT = 'wpcpm_students_report';
 	const OPT_LAST   = 'wpcpm_students_last_sync';
@@ -132,12 +147,31 @@ class WPCPM_Students_Sync {
 		// Before `schedule()`, and on every request rather than only when scheduling: cron reads
 		// the interval back when it decides what to run next, and an event on a schedule WordPress
 		// cannot find is silently dropped from the queue.
-		add_filter( 'cron_schedules', array( __CLASS__, 'cron_interval' ) );
+		self::register_interval();
 
 		add_action( self::CRON_AUTO, array( __CLASS__, 'cron_auto' ) );
 		add_action( self::CRON_TICK, array( __CLASS__, 'run_tick' ) );
 
 		self::schedule();
+	}
+
+	/**
+	 * Put the three-hour interval on the `cron_schedules` filter.
+	 *
+	 * **Every `schedule()` in the plugin calls this before it schedules**, this one included, and
+	 * not only `register_cron()`. `wp_schedule_event()` refuses a recurrence `wp_get_schedules()`
+	 * cannot name, and the activation request is the one where nothing has named it:
+	 * `register_activation_hook()` fires after `plugins_loaded`, so `wpcpm_bootstrap()` has not
+	 * run and no filter is registered. Until 1.98.2 this gap was this sync's alone - the other
+	 * three used core's `daily` at activation and scheduled fine, and this one came up with no
+	 * event, healed on the next page load and said nothing in the meantime. Now all four are on
+	 * the recurrence, so all four would come up with nothing.
+	 *
+	 * Calling it twice is one registration, not two: `add_filter()` keys a callback by its own
+	 * identity, so the same static method added again replaces itself.
+	 */
+	public static function register_interval() {
+		add_filter( 'cron_schedules', array( __CLASS__, 'cron_interval' ) );
 	}
 
 	/**
@@ -166,6 +200,8 @@ class WPCPM_Students_Sync {
 	 * sign of the disagreement anywhere.
 	 */
 	public static function schedule() {
+		self::register_interval();
+
 		$event = wp_get_scheduled_event( self::CRON_AUTO );
 
 		if ( $event && isset( $event->schedule ) && self::EVERY_THREE_HOURS === $event->schedule ) {
@@ -176,11 +212,37 @@ class WPCPM_Students_Sync {
 			wp_clear_scheduled_hook( self::CRON_AUTO );
 		}
 
-		// Offset from the mentors sync so the two never contend for the same Airtable rate limit or
-		// the same PHP worker. It only holds for the first run - after that the two cadences drift
-		// apart anyway - but it keeps them off each other on the one run that follows an upgrade,
-		// which is when both are most likely to have work to do.
-		wp_schedule_event( time() + ( 30 * MINUTE_IN_SECONDS ), self::EVERY_THREE_HOURS, self::CRON_AUTO );
+		// Offset from the other syncs so no two of them contend for the same Airtable rate limit
+		// or the same PHP worker. This run is what the others measure their own offsets from, so
+		// scheduling it from now is what starts the cycle; `cycle_start()` reads it back.
+		wp_schedule_event( time() + ( self::SCHEDULE_OFFSET_MINUTES * MINUTE_IN_SECONDS ), self::EVERY_THREE_HOURS, self::CRON_AUTO );
+	}
+
+	/**
+	 * The moment the three-hour cycle every sync is staggered inside is measured from.
+	 *
+	 * The syncs need one origin between them, or each would place itself against whichever
+	 * neighbour happened to be on the clock and a missing event would silently move the rest.
+	 * This sync's next run is that origin: it is scheduled first (the Students module boots
+	 * before the others), and subtracting its own offset from it gives the cycle's start. A site
+	 * where it is not on the clock yet falls back to now, which is where `schedule()` is about to
+	 * put it anyway.
+	 *
+	 * **Never earlier than now.** On a site whose WP-Cron has not fired for hours,
+	 * `wp_next_scheduled()` answers with a moment already gone: the cycle it names is over, and
+	 * every offset measured into it is overdue with it, so the catch-up request that finally
+	 * arrives runs two syncs at once - the single thing the offsets exist to prevent. Clamping
+	 * costs the first cycle its exact alignment with this run and buys back the stagger; the
+	 * offsets are still four different minutes because every sync scheduled in one request reads
+	 * the same `time()`.
+	 *
+	 * @return int Unix time the cycle is measured from.
+	 */
+	public static function cycle_start() {
+		$next  = (int) wp_next_scheduled( self::CRON_AUTO );
+		$start = $next > 0 ? $next - ( self::SCHEDULE_OFFSET_MINUTES * MINUTE_IN_SECONDS ) : time();
+
+		return max( $start, time() );
 	}
 
 	/**
@@ -598,26 +660,34 @@ class WPCPM_Students_Sync {
 			$settings['reports_table'],
 			array(
 				'formula' => $airtable->formula_in( $fields['report_status'], $statuses['all'] ),
-				'fields'  => array(
-					$fields['report_name'],
-					$fields['report_email'],
-					$fields['report_status'],
-					$fields['report_mentor'],
-					$fields['report_instituton'],
-					$fields['report_profile'],
-					$fields['report_slack'],
-					$fields['report_team'],
-					$fields['report_website'],
-					$fields['report_start'],
-					$fields['report_end'],
-					// Asked for by name, like every other column here: Airtable returns only
-					// the fields a request lists, so a column left out of this list arrives as
-					// an absent cell rather than as an error, and the roster would print
-					// "Not recorded" for a student whose hours the base has been holding.
-					$fields['report_hours'],
-					$fields['report_link'],
-					$fields['report_link_50h'],
-					$fields['report_link_dev'],
+				// `array_merge()`, not `+`: both lists are numerically keyed, and a union would
+				// keep the left's keys and silently drop every column the right names.
+				'fields'  => array_merge(
+					array(
+						$fields['report_name'],
+						$fields['report_email'],
+						$fields['report_status'],
+						$fields['report_mentor'],
+						$fields['report_instituton'],
+						$fields['report_profile'],
+						$fields['report_slack'],
+						$fields['report_team'],
+						$fields['report_website'],
+						$fields['report_start'],
+						$fields['report_end'],
+						// Asked for by name, like every other column here: Airtable returns only
+						// the fields a request lists, so a column left out of this list arrives as
+						// an absent cell rather than as an error, and the roster would print
+						// "Not recorded" for a student whose hours the base has been holding.
+						$fields['report_hours'],
+						$fields['report_link'],
+						$fields['report_link_50h'],
+						$fields['report_link_dev'],
+					),
+					// The Designer Track's screenshot columns. Airtable returns only the fields
+					// a request lists, so a column left out arrives as an absent cell rather
+					// than as an error, and every card would say the base holds nothing.
+					WPCPM_Student_Report_Form::image_columns()
 				),
 				'offset'  => $state['offset'],
 			)
@@ -693,6 +763,14 @@ class WPCPM_Students_Sync {
 				// Stripped before the row becomes `wpcpm_student_program`, like `mentor_id`
 				// and `institution_id` above it.
 				'created'        => isset( $record['createdTime'] ) ? (string) $record['createdTime'] : '',
+				// How many files each screenshot column holds, and nothing else about them.
+				// The Student Report Card shows this site's own copy of a screenshot and says
+				// "1 file on record in Airtable" when it has none; the base's own attachment
+				// URLs are signed and expire within hours, so a row that carried one would be
+				// a broken picture by the afternoon (design spec of 7 September 2026,
+				// section 5). Kept here rather than read live because the card is drawn from
+				// this row and never from the record.
+				'report_files'   => self::attachment_counts( $cells ),
 			);
 
 			++$state['stats']['students_seen'];
@@ -712,6 +790,29 @@ class WPCPM_Students_Sync {
 		}
 
 		return true;
+	}
+
+	/**
+	 * How many files each screenshot column of one record holds.
+	 *
+	 * Only the columns that hold something: ten zeroes on every student of every track would be
+	 * a row of nothing written to user meta for all of them, and an absent key reads as none.
+	 *
+	 * @param array $cells The record's fields, as Airtable sent them.
+	 * @return array<string, int> Airtable field name => file count.
+	 */
+	private static function attachment_counts( array $cells ) {
+		$counts = array();
+
+		foreach ( WPCPM_Student_Report_Form::image_columns() as $column ) {
+			$held = ( isset( $cells[ $column ] ) && is_array( $cells[ $column ] ) ) ? count( $cells[ $column ] ) : 0;
+
+			if ( $held > 0 ) {
+				$counts[ $column ] = $held;
+			}
+		}
+
+		return $counts;
 	}
 
 	/**
@@ -2333,6 +2434,34 @@ class WPCPM_Students_Sync {
 		if ( $found ) {
 			update_user_meta( $mentor_id, WPCPM_Mentors_Sync::META_MENTEES, $rows );
 		}
+
+		return true;
+	}
+
+	/**
+	 * Forget that the program records hold a file for one screenshot question.
+	 *
+	 * Called when a student removes a screenshot: the base's cell has just been emptied, and the
+	 * count this sync left behind now says something that is no longer true. Without this the
+	 * control would go straight from showing the picture to saying "1 file on record in Airtable"
+	 * and stay there until a sync happened to run.
+	 *
+	 * No Airtable request: the removal already made the change, and this is the cached copy
+	 * catching up with it - the same bargain `apply_report()` strikes.
+	 *
+	 * @param int    $user_id Student user ID.
+	 * @param string $column  Airtable field name of the screenshot question.
+	 * @return bool Whether the row had a count to forget.
+	 */
+	public static function forget_report_file( $user_id, $column ) {
+		$program = get_user_meta( (int) $user_id, self::META_PROGRAM, true );
+
+		if ( ! is_array( $program ) || ! isset( $program['report_files'][ $column ] ) ) {
+			return false;
+		}
+
+		unset( $program['report_files'][ $column ] );
+		update_user_meta( (int) $user_id, self::META_PROGRAM, $program );
 
 		return true;
 	}

@@ -27,8 +27,9 @@ class WPCPM_Settings {
 	 * Bump this when a *saved* option has to be migrated rather than merely defaulted.
 	 *
 	 * 2: `Paused` and `Pending graduation` joined `student_statuses`.
+	 * 3: `Designer Track` joined `student_statuses`.
 	 */
-	const SETTINGS_VERSION = 2;
+	const SETTINGS_VERSION = 3;
 
 	/**
 	 * Default settings, pre-filled with the live WPCredits base coordinates.
@@ -63,7 +64,7 @@ class WPCPM_Settings {
 			// Students a mentor is currently mentoring. `Paused` and `Pending graduation`
 			// count as current: both syncs build their Airtable formula from this list,
 			// so a status missing here is a student nobody fetches (see `maybe_upgrade()`).
-			'student_statuses'              => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ),
+			'student_statuses'              => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Designer Track', 'Paused', 'Pending graduation' ),
 			// Students whose mentoring has finished. Shown in a separate, collapsed
 			// section rather than mixed in with the current ones.
 			'past_statuses'                 => array( 'Graduate', 'Dropped out' ),
@@ -495,16 +496,18 @@ class WPCPM_Settings {
 	 * Airtable formula from the saved list, so until it holds `Paused` and `Pending
 	 * graduation` no Paused student is fetched and every line of code looks correct.
 	 * The Developer Track shipped with a manual step for the same trap; this closes
-	 * the gap with code, once, by appending whichever of the two is missing.
+	 * the gap with code, once, by appending whatever the site has not seen yet.
 	 *
 	 * The version option is what makes it once. Without it, a manager who removes a
-	 * status on purpose would find it back after the next request, so the append runs
-	 * only while the stored version is below 2, and both this and `save()` stamp the
-	 * version afterwards. A site with no saved option inherits the new default and is
-	 * stamped without writing one.
+	 * status on purpose would find it back after the next request, so a status is
+	 * appended only by the version that introduced it - `status_upgrades()` says which
+	 * that is - and both this and `save()` stamp the version afterwards. A site with no
+	 * saved option inherits the new default and is stamped without writing one.
 	 */
 	public static function maybe_upgrade() {
-		if ( (int) get_option( self::OPT_VERSION ) >= self::SETTINGS_VERSION ) {
+		$from = (int) get_option( self::OPT_VERSION );
+
+		if ( $from >= self::SETTINGS_VERSION ) {
 			return;
 		}
 
@@ -513,9 +516,18 @@ class WPCPM_Settings {
 		if ( is_array( $stored ) && isset( $stored['student_statuses'] ) && is_array( $stored['student_statuses'] ) ) {
 			$statuses = $stored['student_statuses'];
 
-			foreach ( array( 'Paused', 'Pending graduation' ) as $status ) {
-				if ( ! in_array( $status, $statuses, true ) ) {
-					$statuses[] = $status;
+			foreach ( self::status_upgrades() as $version => $added ) {
+				// A version this site has already been stamped with has had its say: a status
+				// missing from the list now was taken out on purpose, and putting it back would
+				// undo a manager's decision on every request.
+				if ( $version <= $from ) {
+					continue;
+				}
+
+				foreach ( $added as $status ) {
+					if ( ! in_array( $status, $statuses, true ) ) {
+						$statuses[] = $status;
+					}
 				}
 			}
 
@@ -526,6 +538,28 @@ class WPCPM_Settings {
 		}
 
 		update_option( self::OPT_VERSION, self::SETTINGS_VERSION );
+	}
+
+	/**
+	 * Which schema version added which `student_statuses` entry.
+	 *
+	 * Version-keyed rather than a flat list, because the two questions "has this site ever been
+	 * offered this status" and "does this site still want it" have different answers and only
+	 * the stored version can tell them apart. A site stamped at 2 has already been offered
+	 * `Paused`; if the list no longer names it, a manager removed it, and version 3's run must
+	 * add its own status without reopening that decision.
+	 *
+	 * `Developer Track` is deliberately in no version's list. It shipped before there was an
+	 * upgrade path at all, with a manual step on the one site that needed it, so no version can
+	 * claim to have offered it and nothing here will ever put it back.
+	 *
+	 * @return array<int, string[]> Settings version to the statuses it appends.
+	 */
+	private static function status_upgrades() {
+		return array(
+			2 => array( 'Paused', 'Pending graduation' ),
+			3 => array( 'Designer Track' ),
+		);
 	}
 
 	/**

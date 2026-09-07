@@ -330,6 +330,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
+// The report form owns the list of screenshot columns; the sync asks Airtable for them.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
 
 /*
  * `WPCPM_Cohort` belongs to another piece; this is its section 7.7 contract, no more.
@@ -920,7 +922,7 @@ $program = account( 'krakow-pending-9@example.test' )['program'];
 
 ck( 'every key the row had, plus institution_source, and nothing else',
 	array_keys( $program ),
-	array( 'record_id', 'name', 'email', 'program', 'is_past', 'start', 'end', 'institution', 'profile', 'username', 'slack', 'team', 'website', 'hours', 'link', 'tutor', 'field_of_study', 'accessibility', 'institution_source' ) );
+	array( 'record_id', 'name', 'email', 'program', 'is_past', 'start', 'end', 'institution', 'profile', 'username', 'slack', 'team', 'website', 'hours', 'link', 'tutor', 'field_of_study', 'accessibility', 'report_files', 'institution_source' ) );
 // **`hours` has to be one of them.** This block is replaced whole on every run, and
 // `apply_report()` writes the student's own saved hours into it between runs; a sync that
 // rebuilt the block without the key would delete that value every night, and the roster reads
@@ -1240,6 +1242,61 @@ $report = get_option( WPCPM_Students_Sync::OPT_REPORT );
 ck( 'the run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
 ck( 'the missing mentor is named', substr_count( implode( "\n", $report['notices'] ), 'Could not read mentor recMENTOR00000002' ), 1 );
 ck( "and the other mentor's card is written", get_user_meta( 200, WPCPM_Students_Sync::META_MENTOR, true )['name'] ?? '', 'Mentor Example' );
+
+echo "\n=== A Designer Track row: the screenshots the base holds, counted ===\n";
+
+/*
+ * The Student Report Card never links an Airtable attachment URL - the base's own addresses
+ * expire within hours - so the card has to be told how many files a screenshot column holds
+ * without being given a way to reach them. The sync asks for the columns and keeps the count.
+ */
+$shot_local  = 'Practical: Local WordPress Environment for Design Testing - Screenshot';
+$shot_style  = 'Practical: Style Book - Screenshot';
+$design_mail = 'designer@example.test';
+
+student_row( 'Dana Designer', $design_mail, 'Designer Track', $dee, '2026-02-01' );
+report_row(
+	'Dana Designer',
+	$design_mail,
+	'Designer Track',
+	$dee,
+	array(
+		// The shape Airtable sends an attachment column in: a list of objects, each with the
+		// expiring URL this code must never keep.
+		$shot_local => array(
+			array( 'id' => 'attONE0000000001', 'url' => 'https://v5.airtableusercontent.com/expiring/one.png', 'filename' => 'one.png' ),
+			array( 'id' => 'attTWO0000000002', 'url' => 'https://v5.airtableusercontent.com/expiring/two.png', 'filename' => 'two.png' ),
+		),
+	)
+);
+
+run_sync();
+
+$design_uid  = user_id_for( $design_mail );
+$design_row  = get_user_meta( $design_uid, WPCPM_Students_Sync::META_PROGRAM, true );
+$last_report = array_values( array_filter( $GLOBALS['fetches'], static function ( $f ) use ( $reports_table ) { return $f['table'] === $reports_table && ! empty( $f['fields'] ); } ) );
+
+ck( 'the account exists and is on the fourth track', array( $design_uid > 0, $design_row['program'] ), array( true, 'Designer Track' ) );
+
+// Asked for by name, like every other column the sync reads: Airtable returns only what a
+// request lists, so a column left out arrives as an absent cell rather than as an error.
+ck( 'the reports read asks for all ten screenshot columns',
+	count( array_intersect( WPCPM_Student_Report_Form::image_columns(), $last_report[0]['fields'] ) ), 10 );
+
+ck( 'the row carries the count of each screenshot column that holds something',
+	$design_row['report_files'], array( $shot_local => 2 ) );
+
+// Only what is there: ten zeroes on every student of every track would be a row of nothing,
+// written to user meta for all of them.
+ck( 'and says nothing about the columns that are empty',
+	array_key_exists( $shot_style, $design_row['report_files'] ), false );
+
+ck( 'a student on another track carries no counts at all',
+	get_user_meta( 200, WPCPM_Students_Sync::META_PROGRAM, true )['report_files'], array() );
+
+// The point of the count: not one Airtable address is kept anywhere the card could reach.
+ck( 'and no expiring Airtable URL was stored',
+	false !== strpos( wp_json_encode( $design_row ), 'airtableusercontent' ), false );
 
 echo "\n=== A refused page read is resumed; a credential error is not ===\n";
 

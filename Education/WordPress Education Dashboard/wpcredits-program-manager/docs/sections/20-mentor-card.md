@@ -1,4 +1,4 @@
-## What is on your Report Card
+## What is on your Mentor Report Card
 
 The page you land on after logging in lists the students assigned to you and nothing else - it is
 built from the program records, so there is no list to keep and nobody to ask for access.

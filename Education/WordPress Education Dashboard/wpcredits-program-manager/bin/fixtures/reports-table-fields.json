@@ -1,7 +1,7 @@
 {
-	"_comment": "Field names of the Airtable 'Students Reports' table (tbljYkkVGbeoaWEtY), read from the base's metadata API. bin/test-report-form.php checks every field-name key the report form uses against this list. Trailing spaces are real -- 'Company ' has one in the base. Refresh with a metadata read when the table changes.",
+	"_comment": "Field names of the Airtable 'Students Reports' table (tbljYkkVGbeoaWEtY), read from the base's metadata API. bin/test-report-form.php checks every field-name key the report form uses against this list, and bin/test-fixtures.php checks the counts, the ordering and the Designer Track's columns. Trailing spaces are real -- 'Company ' has one in the base. The twenty-one 'Practical: ...' columns carry the Designer Track's practical lessons and were read on 2026-09-07 (design spec of that date, section 1), which is how 52 fields became 73; three of their names are load-bearing and look like slips: 'Change Your Site’s Global Styles' uses a right single quotation mark (U+2019) and not an apostrophe, 'Duplicate & Explore WP Design Library' shortens the lesson title Learn spells out and ends '- link' and '- image' in lower case, and the base spells the local-environment choice 'MAAMP'. Types and choices are recorded for those columns only: the other 52 predate the read and their types were never needed. status_choices_confirmed is not the whole Status list either, only the two choices a read has named on this table; the fuller record of the shared vocabulary is the Students table fixture's 'Status'. `create_records()` and `update_records()` send no `typecast`, so a field or a choice spelled any other way is a 422 for the whole record. Refresh with a metadata read when the table changes.",
 	"table": "tbljYkkVGbeoaWEtY",
-	"read": "2026-08-28",
+	"read": "2026-09-07",
 	"fields": [
 		"50h personal link",
 		"Advance WordPress User - final grade",
@@ -47,6 +47,27 @@
 		"Post Reflection: Choosing Your Team and Project",
 		"Post Reflection: Halfway Check-In",
 		"Post Reflection: Your First Contribution",
+		"Practical: Apply Custom CSS in the Site Editor - CSS",
+		"Practical: Apply Custom CSS in the Site Editor - Notes",
+		"Practical: Apply Custom CSS in the Site Editor - Screenshot",
+		"Practical: Change Your Site’s Global Styles - After Screenshot",
+		"Practical: Change Your Site’s Global Styles - Before Screenshot",
+		"Practical: Change Your Site’s Global Styles - Notes",
+		"Practical: Duplicate & Explore WP Design Library - Reflection",
+		"Practical: Duplicate & Explore WP Design Library - image",
+		"Practical: Duplicate & Explore WP Design Library - link",
+		"Practical: Landing Page with Layout Blocks - Note",
+		"Practical: Landing Page with Layout Blocks - Screenshot",
+		"Practical: Local WordPress Environment for Design Testing - Screenshot",
+		"Practical: Local WordPress Environment for Design Testing - Tool used",
+		"Practical: Style Book - Notes",
+		"Practical: Style Book - Screenshot",
+		"Practical: Submit a Custom Block Pattern - Link",
+		"Practical: Submit a Custom Block Pattern - Screenshot",
+		"Practical: Test Your Site for Accessibility - Part 1 - Note",
+		"Practical: Test Your Site for Accessibility - Part 1 - Screenshot",
+		"Practical: Test Your Site for Accessibility - Part 2 - Note",
+		"Practical: Test Your Site for Accessibility - Part 2 - Screenshot",
 		"Slack Name",
 		"Slack/GitHub/Blog WordPress Community meetings/discussions",
 		"Status",
@@ -55,5 +76,39 @@
 		"WordPress Profile",
 		"Wrap-up WP TV (DELETED)",
 		"Writing in the WordPress voice - final grade"
+	],
+	"types": {
+		"Practical: Apply Custom CSS in the Site Editor - CSS": "multilineText",
+		"Practical: Apply Custom CSS in the Site Editor - Notes": "multilineText",
+		"Practical: Apply Custom CSS in the Site Editor - Screenshot": "multipleAttachments",
+		"Practical: Change Your Site’s Global Styles - After Screenshot": "multipleAttachments",
+		"Practical: Change Your Site’s Global Styles - Before Screenshot": "multipleAttachments",
+		"Practical: Change Your Site’s Global Styles - Notes": "multilineText",
+		"Practical: Duplicate & Explore WP Design Library - Reflection": "multilineText",
+		"Practical: Duplicate & Explore WP Design Library - image": "multipleAttachments",
+		"Practical: Duplicate & Explore WP Design Library - link": "url",
+		"Practical: Landing Page with Layout Blocks - Note": "multilineText",
+		"Practical: Landing Page with Layout Blocks - Screenshot": "multipleAttachments",
+		"Practical: Local WordPress Environment for Design Testing - Screenshot": "multipleAttachments",
+		"Practical: Local WordPress Environment for Design Testing - Tool used": "singleSelect",
+		"Practical: Style Book - Notes": "multilineText",
+		"Practical: Style Book - Screenshot": "multipleAttachments",
+		"Practical: Submit a Custom Block Pattern - Link": "url",
+		"Practical: Submit a Custom Block Pattern - Screenshot": "multipleAttachments",
+		"Practical: Test Your Site for Accessibility - Part 1 - Note": "multilineText",
+		"Practical: Test Your Site for Accessibility - Part 1 - Screenshot": "multipleAttachments",
+		"Practical: Test Your Site for Accessibility - Part 2 - Note": "multilineText",
+		"Practical: Test Your Site for Accessibility - Part 2 - Screenshot": "multipleAttachments"
+	},
+	"choices": {
+		"Practical: Local WordPress Environment for Design Testing - Tool used": [
+			"WordPress Studio",
+			"MAAMP",
+			"DevKinsta"
+		]
+	},
+	"status_choices_confirmed": [
+		"Designer Track",
+		"Developer Track"
 	]
 }

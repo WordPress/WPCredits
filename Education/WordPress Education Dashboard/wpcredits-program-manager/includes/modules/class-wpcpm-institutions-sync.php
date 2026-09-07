@@ -29,6 +29,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WPCPM_Institutions_Sync {
 
+	/**
+	 * The recurring run.
+	 *
+	 * Both the constant and the hook keep the word `daily` although the run has not been daily
+	 * since 1.98.2. The string is what WordPress stored in the cron array on every site already
+	 * running this, and renaming it would leave that event behind with nothing listening to it -
+	 * a sync that never fires and no error to say so. The students sync's `CRON_AUTO` carries the
+	 * same scar for the same reason.
+	 */
 	const CRON_DAILY = 'wpcpm_institutions_sync_daily';
 
 	const CRON_TICK = 'wpcpm_institutions_sync_tick';
@@ -44,17 +53,21 @@ class WPCPM_Institutions_Sync {
 	const LOCK_TIMEOUT = 120;
 
 	/**
-	 * How many hours after the students sync's next run the daily run is placed.
+	 * Minutes into the three-hour cycle this sync runs at.
 	 *
-	 * Offset so the two never contend for the same Airtable rate limit or the same PHP
-	 * worker on the run that follows an upgrade, which is when both have the most to do.
-	 * Not a multiple of three: the students sync recurs every three hours, so six would put
-	 * this run on one of its slots and WP-Cron would fire both in the same request.
-	 * Hours, not seconds: a constant expression on `HOUR_IN_SECONDS` would be evaluated
-	 * the first time the class is touched, and a test that loads it before defining the
+	 * Since 1.98.2 every Airtable sync shares one recurrence
+	 * (`WPCPM_Students_Sync::EVERY_THREE_HOURS`), so the offset is the whole of what keeps two of
+	 * them out of the same WP-Cron request and off the same Airtable rate limit: the students run
+	 * takes +0:30, the mentors run +1:00, this one +1:30, the sponsors sync +2:00. Measured from
+	 * the cycle's own start rather than from the neighbour before it, so a sync whose event is
+	 * missing cannot drag the rest along with it.
+	 *
+	 * Minutes, not hours: +0:30 and +1:30 are not whole numbers of hours, so one unit has to serve
+	 * all four. Not seconds either, and not a constant expression on `MINUTE_IN_SECONDS`: that is
+	 * evaluated the first time the class is touched, and a test that loads it before defining the
 	 * time constants would fatal there instead of in the method that uses it.
 	 */
-	const SCHEDULE_OFFSET_HOURS = 4;
+	const SCHEDULE_OFFSET_MINUTES = 90;
 
 	/**
 	 * Agreement options rebuilt per slice, once the index is written.
@@ -195,24 +208,46 @@ class WPCPM_Institutions_Sync {
 	}
 
 	/**
-	 * Ensure the daily event exists.
+	 * Ensure the recurring event exists, on the recurrence and at the offset this version wants.
 	 *
-	 * Placed `SCHEDULE_OFFSET_HOURS` after the students sync's next run when one is
-	 * scheduled, and that far from now when none is. It only holds for the first run; after that the
-	 * two cadences drift apart on their own.
+	 * **The recurrence is checked, not just the existence**, the way
+	 * `WPCPM_Students_Sync::schedule()` has checked its own since the sync moved off daily: an
+	 * event already in the cron array keeps whatever schedule it was created with, so a site that
+	 * has been running this sync daily would go on running it daily forever with the code here
+	 * saying three hours and no sign of the disagreement anywhere. Checking it here is also what
+	 * carries a site onto the new cadence on an update: `register_cron()` calls this on every
+	 * request, so nobody has to deactivate the plugin for the change to take.
+	 *
+	 * The three-hour recurrence itself is one interval, `WPCPM_Students_Sync::cron_interval()` on
+	 * the `cron_schedules` filter, put there by `WPCPM_Students_Sync::register_interval()` and
+	 * never redefined here. A second interval under another name would give two nobody could keep
+	 * in step, and an event on a schedule WordPress cannot find is dropped from the queue without
+	 * a word.
+	 *
+	 * Placed `SCHEDULE_OFFSET_MINUTES` into the cycle the students sync starts. It only holds for
+	 * the first run; after that the cadences drift apart on their own.
 	 */
 	public static function schedule() {
-		if ( wp_next_scheduled( self::CRON_DAILY ) ) {
+		// The recurrence has to exist before an event can be placed on it, and on the activation
+		// request nothing has registered it yet. `WPCPM_Students_Sync::register_interval()` says
+		// why in full; calling it again on a normal request is one registration, not two.
+		WPCPM_Students_Sync::register_interval();
+
+		$event = wp_get_scheduled_event( self::CRON_DAILY );
+
+		if ( $event && isset( $event->schedule ) && WPCPM_Students_Sync::EVERY_THREE_HOURS === $event->schedule ) {
 			return;
 		}
 
-		$anchor = (int) wp_next_scheduled( WPCPM_Students_Sync::CRON_AUTO );
-
-		if ( $anchor <= 0 ) {
-			$anchor = time();
+		if ( $event ) {
+			wp_clear_scheduled_hook( self::CRON_DAILY );
 		}
 
-		wp_schedule_event( $anchor + ( self::SCHEDULE_OFFSET_HOURS * HOUR_IN_SECONDS ), 'daily', self::CRON_DAILY );
+		wp_schedule_event(
+			WPCPM_Students_Sync::cycle_start() + ( self::SCHEDULE_OFFSET_MINUTES * MINUTE_IN_SECONDS ),
+			WPCPM_Students_Sync::EVERY_THREE_HOURS,
+			self::CRON_DAILY
+		);
 	}
 
 	/**
@@ -783,7 +818,7 @@ class WPCPM_Institutions_Sync {
 	 * once and then worked through `PROVISION_BATCH` at a time, with the remainder in the run
 	 * state so a tick that ends mid-phase is resumed rather than restarted. Whether each
 	 * candidate is actually provisioned is `provision_block()`'s decision and nowhere else's,
-	 * so the nightly run and the two buttons on the manager screen cannot come to different
+	 * so the recurring run and the two buttons on the manager screen cannot come to different
 	 * answers about the same institution.
 	 *
 	 * @param array $state    Sync state, by reference.
@@ -892,14 +927,14 @@ class WPCPM_Institutions_Sync {
 	/**
 	 * Why this institution may not be provisioned from its `Contact Email` right now, or ''.
 	 *
-	 * The one copy of the rule, read by the nightly run, by the manager screen's card and by
+	 * The one copy of the rule, read by the recurring run, by the manager screen's card and by
 	 * both of its buttons. In order, and the order is the point:
 	 *
 	 * - a row the index holds, at `Confirmed`: provisioning is what the program does once it
 	 *   has said yes, and the index is the site's own copy of that answer;
 	 * - a `Contact Email` WordPress can make an account from;
 	 * - no live member and no former member. **This is the rule that matters most**: without
-	 *   it the sync re-creates a removed contact's account every night, for ever. After the
+	 *   it the sync re-creates a removed contact's account on every run, for ever. After the
 	 *   first account, membership is managed on the site. It is asked before the agreement,
 	 *   ahead of its own cost, because a revocation deletes the agreement option and leaves
 	 *   the account and the stage alone (design spec 7.4, T8). Asked the other way round, an
@@ -965,7 +1000,7 @@ class WPCPM_Institutions_Sync {
 	 * What a block means, in the words the run report and the manager screen both use.
 	 *
 	 * One wording per reason, in one place, so the sentence a manager reads beside the button
-	 * and the sentence in the nightly run's notices cannot drift apart.
+	 * and the sentence in the recurring run's notices cannot drift apart.
 	 *
 	 * @param string $reason One of the `BLOCK_` constants.
 	 * @return string
@@ -1001,7 +1036,7 @@ class WPCPM_Institutions_Sync {
 	 * Create the one account an institution starts with.
 	 *
 	 * Refuses first, through `provision_block()`, whoever the caller is: a stale page, a
-	 * second press of the button and the nightly run all arrive here, and the checks are
+	 * second press of the button and the recurring run all arrive here, and the checks are
 	 * cheap next to the account they prevent.
 	 *
 	 * The account, then the stamp, then the invitation, in that order and each only if the
@@ -1202,7 +1237,7 @@ class WPCPM_Institutions_Sync {
 	 *
 	 * A generate or an upload that met an unreachable base marks its document rather than
 	 * failing the institution's action, and this is what makes that mark mean something. It
-	 * runs in the last phase, because the query is empty on nearly every night and, on the one
+	 * runs in the last phase, because the query is empty on nearly every run and, on the one
 	 * it is not, fifty PATCHes are the ceiling; and first within that phase, because clearing
 	 * a mark rebuilds an agreement option and the gate lock-down that follows must be the one
 	 * that has the last word on which institutions hold one.

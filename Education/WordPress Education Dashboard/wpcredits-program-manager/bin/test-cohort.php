@@ -292,7 +292,7 @@ $mixed = array(
 
 $counts = WPCPM_Cohort::participation( $mixed, '2026-H2' );
 
-ck( 'the three tracks and Paused are active', $counts['active'], 4 );
+ck( 'the three track rows above and Paused are active', $counts['active'], 4 );
 ck( 'Dropped out and Fail are withdrawn', $counts['withdrawn'], 2 );
 ck( 'a status no rule names lands in other rather than vanishing', $counts['other'], 4 );
 ck( 'an empty status is signed up, in other', $counts['signed_up'], 10 );
@@ -346,11 +346,20 @@ echo "\n=== participation(): every Status the base offers has a bucket ===\n";
 $fixture  = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/students-table-fields.json' ), true );
 $statuses = isset( $fixture['choices']['Status'] ) && is_array( $fixture['choices']['Status'] ) ? $fixture['choices']['Status'] : array();
 
+// The statuses `bucket()` has a rule for, half of them derived rather than written down: it
+// files every track under `active` through `WPCPM_Program::is_track()`, so the track half of
+// this list is the program map's and grows with it. Written out, it went stale the moment the
+// Designer Track was added - the list here said the new track landed in `other` while the code
+// had it in `active`, and it was this pair of checks that said so. The six state names are
+// `bucket()`'s own literals and exist nowhere else to derive them from.
+$named = array_merge(
+	array( 'Graduate', 'Pending graduation', 'Paused', 'Dropped out', 'Fail', 'Not moving forward' ),
+	array_keys( WPCPM_Program::labels() )
+);
+
 ck( 'the fixture offers Status choices', count( $statuses ) > 0, true );
 ck( 'every NOT_SIGNED_UP entry is a choice the base offers', array_values( array_diff( WPCPM_Cohort::NOT_SIGNED_UP, $statuses ) ), array() );
-ck( 'every bucket rule names a choice the base offers',
-	array_values( array_diff( array( 'Graduate', 'Pending graduation', 'Paused', 'Dropped out', 'Fail', 'Not moving forward', 'In Sensei', 'In Sensei 50h', 'Developer Track' ), $statuses ) ),
-	array() );
+ck( 'every bucket rule names a choice the base offers', array_values( array_diff( $named, $statuses ) ), array() );
 
 $one_each = array();
 foreach ( $statuses as $status ) {
@@ -358,7 +367,6 @@ foreach ( $statuses as $status ) {
 }
 
 $counts = WPCPM_Cohort::participation( $one_each, '2026-H1' );
-$named  = array( 'Graduate', 'Pending graduation', 'Paused', 'Dropped out', 'Fail', 'Not moving forward', 'In Sensei', 'In Sensei 50h', 'Developer Track' );
 $rest   = array_values( array_diff( $statuses, $named, WPCPM_Cohort::NOT_SIGNED_UP ) );
 
 ck( 'one row per choice: signed_up is the choices less NOT_SIGNED_UP', $counts['signed_up'], count( $statuses ) - count( WPCPM_Cohort::NOT_SIGNED_UP ) );

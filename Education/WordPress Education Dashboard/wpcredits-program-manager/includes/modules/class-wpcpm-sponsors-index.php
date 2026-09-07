@@ -1,6 +1,7 @@
 <?php
 /**
- * The sponsors index: what the site knows about each sponsor, read nightly from Airtable.
+ * The sponsors index: what the site knows about each sponsor, read every
+ * three hours from Airtable.
  *
  * @package WPCreditsProgramManager
  */
@@ -190,7 +191,7 @@ final class WPCPM_Sponsors_Index {
 	 *
 	 * The institutions index's own method, added for approval (Phase S5): `attach()` refuses a
 	 * record the index does not hold, and an account made by a manager's press cannot wait for
-	 * the nightly sync. The row is shaped like every other, and the next sync's whole-index
+	 * the sponsors sync. The row is shaped like every other, and the next sync's whole-index
 	 * write replaces it with the base's own reading.
 	 *
 	 * @param array $row A row in `empty_row()`'s shape; `record_id` is required.

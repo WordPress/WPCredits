@@ -435,7 +435,7 @@ ck( 'and none is both', array_values( array_intersect( $rendered[1], $listed[1] 
 $keep = $GLOBALS['opts'];
 $GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'student_statuses' => array() ) );
 WPCPM_Settings::maybe_upgrade();
-ck( 'a saved but empty status list is given both statuses', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], array( 'Paused', 'Pending graduation' ) );
+ck( 'a saved but empty status list is given every status a version has added', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], array( 'Paused', 'Pending graduation', 'Designer Track' ) );
 $GLOBALS['opts'] = $keep;
 
 // The stage list goes through the same loop as the status lists.
@@ -448,12 +448,16 @@ ck( 'institution_on_inactive never becomes anything but keep or revoke', array( 
 
 /* ---- the two statuses reach a saved list --------------------------------- */
 
-echo "\n=== Paused and Pending graduation reach a saved list ===\n";
+echo "\n=== The statuses a new version adds reach a saved list ===\n";
 
 // Both syncs build their Airtable formula from the saved list, so a site that saved before
-// the two statuses existed fetches no Paused student while every line of code looks right.
+// a status existed fetches none of its students while every line of code looks right.
 $three = array( 'In Sensei', 'In Sensei 50h', 'Developer Track' );
-$five  = array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' );
+// The default, in the order `defaults()` lists it: the four tracks, then the two states.
+$all   = array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Designer Track', 'Paused', 'Pending graduation' );
+// What a version-0 site's list of three grows into. The appends land at the end, version by
+// version, so this is the default's members in the order the upgrade added them.
+$five  = array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation', 'Designer Track' );
 
 $GLOBALS['opts'] = array(
 	WPCPM_Settings::OPT_NAME => array(
@@ -464,7 +468,7 @@ $GLOBALS['opts'] = array(
 
 WPCPM_Settings::maybe_upgrade();
 
-ck( 'both are appended to a saved list of three, in order', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], $five );
+ck( 'every missing status is appended to a saved list of three, oldest version first', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], $five );
 ck( 'the rest of the option is untouched', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['base_id'], 'appSAVED0000000001' );
 ck( 'and the version is stamped', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
 
@@ -474,8 +478,8 @@ $GLOBALS['opts'] = array(
 
 WPCPM_Settings::maybe_upgrade();
 
-ck( 'only the missing one is appended, after what was there',
-    $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], array( 'In Sensei', 'Pending graduation', 'Paused' ) );
+ck( 'only the missing ones are appended, after what was there',
+    $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], array( 'In Sensei', 'Pending graduation', 'Paused', 'Designer Track' ) );
 
 // Already has them: nothing is written to the option at all.
 $GLOBALS['opts'] = array(
@@ -504,7 +508,7 @@ WPCPM_Settings::maybe_upgrade();
 
 ck( 'with no saved option, the version is stamped', get_option( WPCPM_Settings::OPT_VERSION ), WPCPM_Settings::SETTINGS_VERSION );
 ck( 'and no option is invented', array_key_exists( WPCPM_Settings::OPT_NAME, $GLOBALS['opts'] ), false );
-ck( 'the default carries both', WPCPM_Settings::get_value( 'student_statuses' ), $five );
+ck( 'the default carries all six', WPCPM_Settings::get_value( 'student_statuses' ), $all );
 
 // A saved option from before the list existed at all inherits the default rather than
 // getting a two-item list written over it.
@@ -515,7 +519,7 @@ $GLOBALS['opts'] = array(
 WPCPM_Settings::maybe_upgrade();
 
 ck( 'a saved option with no list is not given one', array_key_exists( 'student_statuses', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ), false );
-ck( 'so it reads the default', WPCPM_Settings::get_value( 'student_statuses' ), $five );
+ck( 'so it reads the default', WPCPM_Settings::get_value( 'student_statuses' ), $all );
 
 // The point of the version key: a manager who removes a status on purpose must not find it
 // back after the next request.
@@ -529,6 +533,62 @@ WPCPM_Settings::maybe_upgrade();
 
 ck( 'a status a manager removed stays removed',
     WPCPM_Settings::get_value( 'student_statuses' ), array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Pending graduation' ) );
+
+/* ---- the Designer Track reaches a saved list, and only once -------------- */
+
+// Version 3, added with the Designer Track. The rule this pins is the one the version key
+// exists for: a status is appended by the version that introduced it and never again, so a
+// manager who takes one out later keeps it out. `Developer Track` shipped before there was
+// an upgrade path at all and is in no version's list, so it is the case that proves the
+// difference: the same run that appends `Designer Track` must leave it removed.
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPT_NAME => array( 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ) ),
+	WPCPM_Settings::OPT_VERSION => 2,
+);
+
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'a version-2 list gains the Designer Track and nothing else',
+    $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'],
+    array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation', 'Designer Track' ) );
+ck( 'and the version moves to 3', get_option( WPCPM_Settings::OPT_VERSION ), 3 );
+ck( 'which is what the class calls current', WPCPM_Settings::SETTINGS_VERSION, 3 );
+
+// A manager who deliberately removed the Developer Track: version 2 is stamped, so the
+// version-2 appends are done, and the version-3 append must not smuggle the old one back.
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPT_NAME => array( 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Paused', 'Pending graduation' ) ),
+	WPCPM_Settings::OPT_VERSION => 2,
+);
+
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'a status a manager removed before this version is not put back by it',
+    $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'],
+    array( 'In Sensei', 'In Sensei 50h', 'Paused', 'Pending graduation', 'Designer Track' ) );
+
+// Already has it: no write at all, and a second run changes nothing.
+$GLOBALS['opts'] = array(
+	WPCPM_Settings::OPT_NAME    => array( 'student_statuses' => $all, 'base_id' => 'appSAVED0000000003' ),
+	WPCPM_Settings::OPT_VERSION => 2,
+);
+$before = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ];
+
+WPCPM_Settings::maybe_upgrade();
+
+ck( 'a list that already names the Designer Track is untouched', $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ], $before );
+
+$after_once = $GLOBALS['opts'];
+WPCPM_Settings::maybe_upgrade();
+ck( 'and a second run at the current version changes nothing', $GLOBALS['opts'], $after_once );
+
+// A manager who removes it *after* this version has been stamped keeps it removed, which is
+// the same rule one version on.
+WPCPM_Settings::save( array( 'student_statuses' => array( 'In Sensei', 'Designer Track' ) ) );
+WPCPM_Settings::save( array( 'student_statuses' => array( 'In Sensei' ) ) );
+WPCPM_Settings::maybe_upgrade();
+ck( 'a Designer Track a manager removes after the upgrade stays removed',
+    WPCPM_Settings::get_value( 'student_statuses' ), array( 'In Sensei' ) );
 
 // And a fresh save on a site that never ran the upgrade stamps the version itself, so the
 // upgrade cannot arrive later and put back what that save left out.

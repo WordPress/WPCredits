@@ -211,10 +211,13 @@ ck( 'and every one of them exists in the Students table', not_offered( $sync_stu
 $status_choices = isset( $stud_choices['Status'] ) ? $stud_choices['Status'] : array();
 $study_choices  = isset( $stud_choices['Your field of study'] ) ? $stud_choices['Your field of study'] : array();
 
-ck( 'Status offers 14 choices', count( $status_choices ), 14 );
+ck( 'Status offers 15 choices', count( $status_choices ), 15 );
 ck( 'the status is spelled "Not moving forward", lower-case m', in_array( 'Not moving forward', $status_choices, true ), true );
-ck( 'including the two decision 21 tracks and the Developer Track',
-    not_offered( array( 'Paused', 'Pending graduation', 'Developer Track' ), $status_choices ), array() );
+// The Designer Track joins the run on 1.98.2. The Students table carries the choice as well as the
+// Students Reports table does, and `student_statuses` is checked against both lists together
+// further down - naming it here is what makes the Students half of that pair say so on its own.
+ck( 'including the two decision 21 tracks, the Developer Track and the Designer Track',
+    not_offered( array( 'Paused', 'Pending graduation', 'Developer Track', 'Designer Track' ), $status_choices ), array() );
 ck( 'Your field of study offers 9 choices', count( $study_choices ), 9 );
 
 // The row facts the design spec measured. They are quoted, not re-read, so a refresh of
@@ -254,6 +257,81 @@ ck( 'and the double space in the mentor-support question', in_array( 'Mentor sup
 
 ck( 'Course names the three programs', isset( $feed_choices['Course'] ) ? $feed_choices['Course'] : null, array( 'In Sensei', 'In Sensei 50h', 'Developer Track' ) );
 
+/* ---- the Students Reports table ------------------------------------------ */
+
+echo "\n=== Students Reports ===\n";
+
+// The table the report form writes to. Its columns are the form's keys, so a name spelled any
+// other way is a 422 for the whole PATCH and a student's answer that never lands.
+$reports      = fixture( 'reports-table-fields.json' );
+$rep_fields   = isset( $reports['fields'] ) ? (array) $reports['fields'] : array();
+$rep_types    = isset( $reports['types'] ) ? (array) $reports['types'] : array();
+$rep_choices  = isset( $reports['choices'] ) ? (array) $reports['choices'] : array();
+
+ck( 'the fixture loaded', isset( $reports['table'] ) && 'tbljYkkVGbeoaWEtY' === $reports['table'], true );
+ck( 'and was read on a date', isset( $reports['read'] ) && 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', $reports['read'] ), true );
+ck( 'the table has 73 fields: the 52 it held and the 21 the Designer Track added', count( $rep_fields ), 73 );
+ck( 'listed once each, in byte order', in_byte_order( $rep_fields ), true );
+ck( 'keeps the trailing space on "Company "', in_array( 'Company ', $rep_fields, true ), true );
+
+// The twenty-one columns of the design spec of 2026-09-07, section 1. The form has to name them
+// byte for byte, so they are pinned here before Task 2 writes a single one of them.
+$designer = array(
+	'Practical: Duplicate & Explore WP Design Library - Reflection',
+	'Practical: Duplicate & Explore WP Design Library - link',
+	'Practical: Duplicate & Explore WP Design Library - image',
+	'Practical: Local WordPress Environment for Design Testing - Tool used',
+	'Practical: Local WordPress Environment for Design Testing - Screenshot',
+	"Practical: Change Your Site\xE2\x80\x99s Global Styles - Notes",
+	"Practical: Change Your Site\xE2\x80\x99s Global Styles - Before Screenshot",
+	"Practical: Change Your Site\xE2\x80\x99s Global Styles - After Screenshot",
+	'Practical: Style Book - Notes',
+	'Practical: Style Book - Screenshot',
+	'Practical: Landing Page with Layout Blocks - Note',
+	'Practical: Landing Page with Layout Blocks - Screenshot',
+	'Practical: Apply Custom CSS in the Site Editor - Notes',
+	'Practical: Apply Custom CSS in the Site Editor - CSS',
+	'Practical: Apply Custom CSS in the Site Editor - Screenshot',
+	'Practical: Submit a Custom Block Pattern - Link',
+	'Practical: Submit a Custom Block Pattern - Screenshot',
+	'Practical: Test Your Site for Accessibility - Part 1 - Note',
+	'Practical: Test Your Site for Accessibility - Part 1 - Screenshot',
+	'Practical: Test Your Site for Accessibility - Part 2 - Note',
+	'Practical: Test Your Site for Accessibility - Part 2 - Screenshot',
+);
+
+ck( 'the twenty-one Designer Track columns are twenty-one distinct names', count( array_unique( $designer ) ), 21 );
+ck( 'and every one of them exists', not_offered( $designer, $rep_fields ), array() );
+
+// The U+2019 is the base's. An ASCII apostrophe here would be a column Airtable does not have,
+// and the failure would be silent: the API answers with the rows and without that field.
+ck( 'the apostrophe in "Site\'s Global Styles" is U+2019, not an ASCII one',
+    array(
+        in_array( "Practical: Change Your Site\xE2\x80\x99s Global Styles - Notes", $rep_fields, true ),
+        in_array( "Practical: Change Your Site's Global Styles - Notes", $rep_fields, true ),
+    ),
+    array( true, false ) );
+
+// The two lower-case endings and the shortened lesson title, which look like slips and are not.
+ck( 'the library lesson ends "- link" and "- image" in lower case',
+    not_offered( array( 'Practical: Duplicate & Explore WP Design Library - link', 'Practical: Duplicate & Explore WP Design Library - image' ), $rep_fields ), array() );
+
+// The types decide the control the form draws: five attachment columns become the image control,
+// one single select becomes the select, and the rest are text.
+ck( 'every typed field is a listed field', not_offered( array_keys( $rep_types ), $rep_fields ), array() );
+ck( 'the twenty-one Designer Track columns are the typed ones', count( $rep_types ), 21 );
+ck( 'ten of them are attachments, one per screenshot the form asks for', count( array_keys( $rep_types, 'multipleAttachments', true ) ), 10 );
+ck( 'two are URLs', count( array_keys( $rep_types, 'url', true ) ), 2 );
+ck( 'eight are long text', count( array_keys( $rep_types, 'multilineText', true ) ), 8 );
+ck( 'and exactly one is a single select', array_keys( $rep_types, 'singleSelect', true ), array( 'Practical: Local WordPress Environment for Design Testing - Tool used' ) );
+
+// The choice names are what a write has to send: no typecast goes with the PATCH, so 'MAMP'
+// instead of the base's 'MAAMP' is a 422 for the whole record.
+ck( 'the local-environment select offers the three tools, in the base\'s order and spelling',
+    isset( $rep_choices['Practical: Local WordPress Environment for Design Testing - Tool used'] ) ? $rep_choices['Practical: Local WordPress Environment for Design Testing - Tool used'] : null,
+    array( 'WordPress Studio', 'MAAMP', 'DevKinsta' ) );
+ck( 'and every field with choices is a typed field', not_offered( array_keys( $rep_choices ), array_keys( $rep_types ) ), array() );
+
 /* ---- the settings defaults agree with the base -------------------------- */
 
 echo "\n=== The settings defaults name what the base offers ===\n";
@@ -263,7 +341,18 @@ $stages   = isset( $inst_choices['Current Stage'] ) ? $inst_choices['Current Sta
 
 // A status the base does not offer is not an error in a formula, it is a student nobody
 // fetches. So the lists are checked entry by entry, and the report names the stray.
-ck( 'every student_statuses entry is a Students Status choice', not_offered( $defaults['student_statuses'], $status_choices ), array() );
+//
+// **Against both Status columns.** `student_statuses` becomes a formula over the *Students
+// Reports* table (`WPCPM_Students_Sync` and `WPCPM_CLI` build it from `report_status`), not over
+// the Students table this file used to check it against alone. The two tables carry the same
+// vocabulary and the Students fixture is the fuller record of it; the reports fixture adds the
+// choices a later read named on the column the formula actually filters. A typo is in neither
+// list and still fails here.
+$report_status_choices = isset( $reports['status_choices_confirmed'] ) ? (array) $reports['status_choices_confirmed'] : array();
+$offered_statuses      = array_merge( $status_choices, $report_status_choices );
+
+ck( 'every student_statuses entry is a Status choice one of the two fixtures names', not_offered( $defaults['student_statuses'], $offered_statuses ), array() );
+ck( 'the Designer Track is one the Students Reports table itself offers', in_array( 'Designer Track', $report_status_choices, true ), true );
 ck( 'every past_statuses entry is a Students Status choice', not_offered( $defaults['past_statuses'], $status_choices ), array() );
 ck( 'the two lists do not overlap', array_values( array_intersect( $defaults['student_statuses'], $defaults['past_statuses'] ) ), array() );
 ck( 'institution_new_stage is a Current Stage choice', in_array( $defaults['institution_new_stage'], $stages, true ), true );

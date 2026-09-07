@@ -1,6 +1,6 @@
 <?php
 /**
- * The sponsors sync: Team Members and Sponsors, read nightly into the index.
+ * The sponsors sync: Team Members and Sponsors, read every three hours into the index.
  *
  * @package WPCreditsProgramManager
  */
@@ -28,6 +28,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class WPCPM_Sponsors_Sync {
 
+	/**
+	 * The recurring run.
+	 *
+	 * Both the constant and the hook keep the word `daily` although the run has not been daily
+	 * since 1.98.2. The string is what WordPress stored in the cron array on every site already
+	 * running this, and renaming it would leave that event behind with nothing listening to it -
+	 * a sync that never fires and no error to say so. The students sync's `CRON_AUTO` carries the
+	 * same scar for the same reason.
+	 */
 	const CRON_DAILY = 'wpcpm_sponsors_daily';
 	const CRON_TICK  = 'wpcpm_sponsors_sync_tick';
 
@@ -41,8 +50,22 @@ final class WPCPM_Sponsors_Sync {
 	const BUDGET_AJAX  = 8;
 	const LOCK_TIMEOUT = 120;
 
-	/** Hours after the institutions run: the way that one sits after the students run. */
-	const SCHEDULE_OFFSET_HOURS = 4;
+	/**
+	 * Minutes into the three-hour cycle this sync runs at.
+	 *
+	 * Since 1.98.2 every Airtable sync shares one recurrence
+	 * (`WPCPM_Students_Sync::EVERY_THREE_HOURS`), so the offset is the whole of what keeps two of
+	 * them out of the same WP-Cron request: the students run takes +0:30, the mentors run +1:00,
+	 * the institutions sync +1:30, this one +2:00. Measured from the cycle's own start rather than
+	 * chained off the institutions run the way it used to be: a chain moves this sync whenever
+	 * the one it hangs off has no event, which is exactly when it would land on the students run.
+	 *
+	 * Minutes, not hours: +0:30 and +1:30 are not whole numbers of hours, so one unit has to serve
+	 * all four. Not a constant expression on `MINUTE_IN_SECONDS` either - that is evaluated the
+	 * first time the class is touched, and a test that loads it before defining the time constants
+	 * would fatal there instead of in the method that uses it.
+	 */
+	const SCHEDULE_OFFSET_MINUTES = 120;
 
 	/**
 	 * The Sponsors table's columns, by the keys the code uses. A plain array, like the
@@ -123,7 +146,8 @@ final class WPCPM_Sponsors_Sync {
 	}
 
 	/**
-	 * Hook the two cron events and make sure the daily one is on the clock.
+	 * Hook the two cron events and make sure the recurring one is on the clock, on the recurrence
+	 * this version wants: see `schedule()`.
 	 */
 	public static function register_cron() {
 		add_action( self::CRON_DAILY, array( __CLASS__, 'cron_daily' ) );
@@ -133,22 +157,46 @@ final class WPCPM_Sponsors_Sync {
 	}
 
 	/**
-	 * Ensure the daily event exists, `SCHEDULE_OFFSET_HOURS` after the institutions sync's next
-	 * run when one is scheduled and that far from now when none is. It only holds for the first
-	 * run; after that the cadences drift apart on their own, as the other syncs' do.
+	 * Ensure the recurring event exists, on the recurrence and at the offset this version wants.
+	 *
+	 * **The recurrence is checked, not just the existence**, the way
+	 * `WPCPM_Students_Sync::schedule()` has checked its own since that sync moved off daily: an
+	 * event already in the cron array keeps whatever schedule it was created with, so a site that
+	 * has been running this sync daily would go on running it daily forever with the code here
+	 * saying three hours and no sign of the disagreement anywhere. Checking it here is also what
+	 * carries a site onto the new cadence on an update: `register_cron()` calls this on every
+	 * request, so nobody has to deactivate the plugin for the change to take.
+	 *
+	 * The three-hour recurrence itself is one interval, `WPCPM_Students_Sync::cron_interval()` on
+	 * the `cron_schedules` filter, put there by `WPCPM_Students_Sync::register_interval()` and
+	 * never redefined here. A second interval under another name would give two nobody could keep
+	 * in step, and an event on a schedule WordPress cannot find is dropped from the queue without
+	 * a word.
+	 *
+	 * Placed `SCHEDULE_OFFSET_MINUTES` into the cycle the students sync starts. It only holds for
+	 * the first run; after that the cadences drift apart on their own, as the other syncs' do.
 	 */
 	public static function schedule() {
-		if ( wp_next_scheduled( self::CRON_DAILY ) ) {
+		// The recurrence has to exist before an event can be placed on it, and on the activation
+		// request nothing has registered it yet. `WPCPM_Students_Sync::register_interval()` says
+		// why in full; calling it again on a normal request is one registration, not two.
+		WPCPM_Students_Sync::register_interval();
+
+		$event = wp_get_scheduled_event( self::CRON_DAILY );
+
+		if ( $event && isset( $event->schedule ) && WPCPM_Students_Sync::EVERY_THREE_HOURS === $event->schedule ) {
 			return;
 		}
 
-		$anchor = class_exists( 'WPCPM_Institutions_Sync' ) ? (int) wp_next_scheduled( WPCPM_Institutions_Sync::CRON_DAILY ) : 0;
-
-		if ( $anchor <= 0 ) {
-			$anchor = time();
+		if ( $event ) {
+			wp_clear_scheduled_hook( self::CRON_DAILY );
 		}
 
-		wp_schedule_event( $anchor + ( self::SCHEDULE_OFFSET_HOURS * HOUR_IN_SECONDS ), 'daily', self::CRON_DAILY );
+		wp_schedule_event(
+			WPCPM_Students_Sync::cycle_start() + ( self::SCHEDULE_OFFSET_MINUTES * MINUTE_IN_SECONDS ),
+			WPCPM_Students_Sync::EVERY_THREE_HOURS,
+			self::CRON_DAILY
+		);
 	}
 
 	/**
@@ -169,7 +217,7 @@ final class WPCPM_Sponsors_Sync {
 	}
 
 	/**
-	 * The nightly run.
+	 * The recurring run.
 	 */
 	public static function cron_daily() {
 		if ( self::is_running() ) {
@@ -416,11 +464,11 @@ final class WPCPM_Sponsors_Sync {
 		// the same shape phase_records() below guards against for a genuinely empty sponsors
 		// read against a held index. The team option is what turns a `Person of contact` link
 		// into a name and an address for every sponsor at once, so blanking it silently would
-		// strip every program contact from the site overnight.
+		// strip every program contact from the site on the next sync run.
 		if ( empty( $records ) && ! empty( WPCPM_Sponsors_Index::team() ) ) {
 			return new WP_Error(
 				'wpcpm_team_empty',
-				__( 'Read no rows from the Team Members table, but the site already holds program contacts. A filtered view or a renamed table would blank every one of them overnight, so nothing was changed.', 'wpcredits-program-manager' )
+				__( 'Read no rows from the Team Members table, but the site already holds program contacts. A filtered view or a renamed table would blank every one of them on the next sync run, so nothing was changed.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -649,7 +697,7 @@ final class WPCPM_Sponsors_Sync {
 		}
 
 		// Downloaded before it is sized: a multi-megabyte attachment is a request the sync
-		// makes every night, for a file nobody will ever serve past this check.
+		// makes on every run, for a file nobody will ever serve past this check.
 		if ( (int) $row['logo']['size'] > WPCPM_Image_Upload::max_bytes( array() ) ) {
 			++$state['stats']['logos_refused'];
 			$state['notices'][] = sprintf(
@@ -704,7 +752,7 @@ final class WPCPM_Sponsors_Sync {
 	 *
 	 * An upload or a withdrawal that met an unreachable base leaves the document marked rather
 	 * than failing the sponsor's action, and this is what makes that mark mean something. It
-	 * runs as the logo phase's last step: the query is empty on nearly every night, and the
+	 * runs as the logo phase's last step: the query is empty on nearly every run, and the
 	 * one it is not, fifty PATCHes are the ceiling.
 	 *
 	 * Behind a guard, as every cross-module call in this file is: the sync is the module's and

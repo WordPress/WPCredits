@@ -2,7 +2,7 @@
 
 *Your Mentor Report Card, setting the hours students can book, and what your students see on their own page.*
 
-Thank you for mentoring on the WordPress Credits Program. This guide covers your own Report Card and, at the end, what your students see on theirs - you cannot open a student's page yourself, so the whole of it is repeated here.
+Thank you for mentoring on the WordPress Credits Program. This guide covers your own Mentor Report Card and, at the end, what your students see on their Student Report Card - you cannot open a student's page yourself, so the whole of it is repeated here.
 
 If you read one section today, make it *Setting your availability*: until you publish some hours, nobody can book a call with you.
 
@@ -22,7 +22,7 @@ Once you are signed in, the link in the header takes you to your own page. Nobod
 it: the page renders against whoever is logged in, so there is no version of it that shows
 somebody else's details.
 
-## What is on your Report Card
+## What is on your Mentor Report Card
 
 The page you land on after logging in lists the students assigned to you and nothing else - it is
 built from the program records, so there is no list to keep and nobody to ask for access.
@@ -90,7 +90,7 @@ availability set, so you cannot book a call yet" and have no way to reach you ex
 
 *Set the hours you are free each week, then how calls are offered.*
 
-Open **Your availability for calls** on your Report Card and set:
+Open **Your availability for calls** on your Mentor Report Card and set:
 
 - **The hours you are free, each week** - a start and end time per weekday. Leave a day blank to
   offer nothing on it. The slots are generated from these windows, so you are publishing hours, not
@@ -125,7 +125,7 @@ student wrote when booking.
 Sometimes the useful thing is one call with several students rather than five separate ones - a
 walkthrough, a question hour, a session for everybody starting the same week.
 
-**Plan a group session** under *Group sessions* on your Report Card. You choose:
+**Plan a group session** under *Group sessions* on your Mentor Report Card. You choose:
 
 - **Date and start time**, in your own timezone. Your students see it in theirs.
 - **Length** in minutes.
@@ -196,13 +196,13 @@ worth collecting.
 They are also not part of the report and are not marked, so a student who has answered none of them
 is not behind on anything. Please do not chase them.
 
-## What is on your Report Card
+## What is on your Student Report Card
 
 ![Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.](images/student-report-card-profile.png)
 
 *Your details on the left, your mentor on the right, and the two buttons you came for underneath. Names shown are examples.*
 
-### Arranging your Report Card
+### Arranging your Student Report Card
 
 Below your profile and your mentor, the page is a stack of blocks: the program updates with the
 resources, your course, your report form with the feedback forms, your mentor call, and the tools
@@ -250,8 +250,20 @@ Open **Your report form** and the questions are grouped in the order you meet th
   took part in, and the reflection posts for each stage.
 - **Wrap-up** - your closing post.
 
-What is asked depends on your track: the 150-hour course asks for the reflection posts and the
-module grades; the 50-hour course asks instead for one final project report.
+What is asked depends on your track. The 150-hour course asks for the reflection posts and the
+module grades; the 50-hour course asks instead for one final project report; the Developer Track
+asks the 150-hour questions with seven more of its own; and the Designer Track follows its own
+Learn course lesson by lesson - the onboarding grades and your portfolio first, then the eight
+practical lessons, each with its own notes and its own screenshots, then your contribution project,
+your reflection posts and your closing post.
+
+**Screenshots, on the Designer Track.** The practical lessons ask you to show your work, so those
+questions take a picture instead of a link: a PNG, JPEG or WebP file of up to 4 MB, and twenty
+uploads a day across all of them. The file is kept on this site and a copy is sent to the program
+records, which is why the picture on your card is this site's copy and still there tomorrow.
+Under each picture, choosing a new file **replaces** what is there, and **Remove** deletes it from
+both places at once. Your mentor and the program managers see your screenshots when they open your
+Student Report Card, so treat one as part of your report rather than as a private note.
 
 The grades are yours to copy across from wherever you were marked - this form records them, it does
 not decide them. Fill in what you have and press **Save my report**; you can come back and add the

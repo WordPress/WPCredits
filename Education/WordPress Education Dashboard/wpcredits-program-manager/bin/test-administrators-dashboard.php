@@ -748,6 +748,18 @@ echo "\n=== Programs running ===\n";
 
 $programs = $data['programs'];
 ck( 'the tracks strip counts students in progress per track', array( $programs['tracks']['150h']['in_progress'], $programs['tracks']['50h']['in_progress'], $programs['tracks']['dev']['in_progress'] ), array( 1, 1, 1 ) );
+// **Every track key the class can answer needs a tile, or its students are counted into an array
+// key nobody made and drawn nowhere** - and on PHP 8 the increment warns on every load. Asserted
+// as a set relation against `WPCPM_Program` rather than as a list, so the next track added fails
+// here instead of going missing from the strip in silence.
+$answerable = array();
+foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
+	$answerable[] = WPCPM_Program::track( $status );
+}
+ck( 'every track the program map can answer has a tile on the strip',
+    array_values( array_diff( array_filter( $answerable, 'strlen' ), WPCPM_Administrators_Cards::TRACKS ) ), array() );
+ck( 'and the Designer Track is one of them, counted like the rest',
+    array( in_array( 'design', WPCPM_Administrators_Cards::TRACKS, true ), isset( $programs['tracks']['design']['in_progress'] ) ), array( true, true ) );
 ck( 'signed up this semester per track, from the start date', array( $programs['tracks']['150h']['signed_up'], $programs['tracks']['50h']['signed_up'], $programs['tracks']['dev']['signed_up'] ), array( 1, 0, 1 ) );
 ck( 'finished this semester is one number: a graduate no longer says their track', $programs['finished'], 1 );
 // A Dropped out row, ending inside the same cohort as the one Graduate row above: finished
@@ -848,10 +860,11 @@ ck( 'the overdue one is marked and the note is printed', has( $req, 'wpcpm-admin
 ck( 'the closed list says handled', has( $req, 'Handled' ), true );
 
 $prog = capture( static function () use ( $programs ) { WPCPM_Administrators_Cards::render_programs( $programs ); } );
-// Five, not four, for the same reason the strip count above is nine: the wrapping
-// <ul class="wpcpm-programs__tiles"> matches the needle as well as the three track tiles
-// and the finished tile it contains.
-ck( 'the programs card has three track tiles and a finished tile', substr_count( $prog, 'wpcpm-programs__tile' ), 5 );
+// One per track, plus the finished tile, plus one for the wrapping
+// <ul class="wpcpm-programs__tiles"> - which matches the needle as well as the tiles it
+// contains, the same reason the strip count above is nine. Counted from the class rather than
+// written down, so adding a track moves this number by itself.
+ck( 'the programs card draws a tile per track and a finished tile', substr_count( $prog, 'wpcpm-programs__tile' ), count( WPCPM_Administrators_Cards::TRACKS ) + 2 );
 ck( 'the institution row links through the switcher and carries its numbers', has( $prog, 'wpcpm_institution_view=' . $A ) && has( $prog, '2026-12-15' ) && has( $prog, 'Uniwersytet Alpha' ), true );
 ck( 'the quiet institutions are one closing line', has( $prog, '1 more institution' ), true );
 ck( 'and the read time is printed', has( $prog, 'Read from the program records' ), true );

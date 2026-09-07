@@ -1,8 +1,8 @@
 ## The feedback surveys
 
 Students are asked how the program is going three times - at the start, half way, and at the end -
-from their own Report Card, under their report form. Anyone who leaves without finishing is asked a
-fourth set instead: four questions about how far they got and what stopped them.
+from their own Student Report Card, under their report form. Anyone who leaves without finishing is
+asked a fourth set instead: four questions about how far they got and what stopped them.
 
 The question set is the one settled in
 [#123](https://github.com/WordPress/WPCredits/issues/123) after the analysis of 242

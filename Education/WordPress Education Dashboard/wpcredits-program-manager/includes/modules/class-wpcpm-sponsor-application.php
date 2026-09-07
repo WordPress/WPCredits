@@ -2073,9 +2073,9 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The index rows that already carry this company's name or website host.
 	 *
-	 * Against the index and not a live search (spec 9.2): the Sponsors table is thirty rows read
-	 * whole every night, and the name is compared the way the index compares names, trimmed and
-	 * lowercased, because ten records in the base end in a space.
+	 * Against the index and not a live search (spec 9.2): the Sponsors table is thirty rows
+	 * read whole on every sync run, and the name is compared the way the index compares names,
+	 * trimmed and lowercased, because ten records in the base end in a space.
 	 *
 	 * @param string $name    The company's name.
 	 * @param string $website The website, in any spelling.
@@ -3857,7 +3857,7 @@ class WPCPM_Sponsor_Application {
 		echo '<h3>' . esc_html__( 'Logo', 'wpcredits-program-manager' ) . '</h3>';
 
 		if ( $logos['colour'] < 1 && $logos['white'] < 1 ) {
-			echo '<p>' . esc_html__( 'No logo file was sent. The company can upload one on the Sponsor Dashboard after approval, or the nightly sync copies the one in the base.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'No logo file was sent. The company can upload one on the Sponsor Dashboard after approval, or the sponsors sync copies the one in the base.', 'wpcredits-program-manager' ) . '</p>';
 
 			return;
 		}

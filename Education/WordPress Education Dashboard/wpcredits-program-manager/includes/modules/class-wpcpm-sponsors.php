@@ -12,12 +12,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Module 4 - Sponsors.
  *
- * The companies that fund mentors and offer their tools to students. Airtable is the record
- * of who a sponsor is; the site holds what Airtable cannot. This class is the sync module
- * (the nightly read into `WPCPM_Sponsors_Index`), the wp-admin screen, and the two things a
+ * The companies that fund mentors and offer their tools to students. Airtable is the record of
+ * who a sponsor is; the site holds what Airtable cannot. This class is the sync module (the
+ * three-hourly read into `WPCPM_Sponsors_Index`), the wp-admin screen, and the two things a
  * manager does on it: create a sponsor's account, one at a time, and attach or remove the
- * accounts that act for it. Nothing is ever provisioned by the sync (design spec of
- * 4 September 2026, decision 9).
+ * accounts that act for it. Nothing is ever provisioned by the sync (design spec of 4
+ * September 2026, decision 9).
  */
 class WPCPM_Sponsors extends WPCPM_Sync_Module {
 

@@ -98,9 +98,12 @@ $once = 0; $busy = 0;
 foreach ( $php_files as $f ) {
 	$src = file_get_contents( $f );
 	$once += substr_count( $src, 'data-wpcpm-once' );
-	$busy += substr_count( $src, 'data-wpcpm-busy="%2$s"' );
+	// Any placeholder, not the second one: which argument carries the label is an accident of
+	// each printf's own argument list, and pinning `%2$s` made a form with three arguments look
+	// like a form with no busy label at all.
+	$busy += preg_match_all( '/data-wpcpm-busy="%\d+\$s"/', $src );
 }
-ck( 'every guarded form declares a busy label', array( $once, $busy ), array( 6, 6 ) );
+ck( 'every guarded form declares a busy label', array( $once, $busy ), array( 7, 7 ) );
 ck( 'the booking form declares a visible status',
     (bool) strpos( file_get_contents( $php_files[0] ), 'data-wpcpm-status=' ) );
 ck( 'and renders the live region it goes in',

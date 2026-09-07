@@ -2,15 +2,32 @@
 
 ### The sync
 
-Both syncs read Airtable and reconcile accounts: create what is missing, update what has changed,
-and apply your *when they are no longer active* setting to the rest. Run one by hand from the
-Students or Mentors screen, or leave **Automatic sync** on - students every three hours, mentors
-once a day.
+The students and the mentors syncs read Airtable and reconcile accounts: create what is missing,
+update what has changed, and apply your *when they are no longer active* setting to the rest. Run
+one by hand from the Students or Mentors screen, or leave **Automatic sync** on - students and
+mentors every three hours, half an hour apart.
 
-They run on different clocks on purpose. The student rows carry what students and mentors are shown
-on their cards, so a day-old copy is a day-old card; the mentors run reads one WordPress.org profile
-per mentor, which is the expensive half. A run still going when the next one is due is left to
+They start half an hour apart on purpose. The student rows carry what students and mentors are
+shown on their cards, so a stale copy is a stale card, and it is the expensive half of the pair:
+it reads one WordPress.org profile per mentor, cached for twelve hours, while building the mentor
+cards. The mentors run reads three Airtable tables and makes no WordPress.org request. Two runs in
+the same request would be one long request. A run still going when the next one is due is left to
 finish rather than restarted.
+
+**Syncs every three hours (1.98.2).** All four Airtable syncs - students, mentors, institutions and
+sponsors - share one three-hour clock, and the first runs are staggered so each starts at its own
+point in the cycle: students half an hour in, mentors an hour, institutions an hour and a half,
+sponsors two hours. WordPress cron runs each event at or after its scheduled time, so the cadences
+drift apart after that and on a busy site two can still land close together, each safe behind its
+own lock. Before this only the students sync ran every three hours and the other three ran once a
+day, which meant an institution or a sponsor changed in the base was a day old on the site. Nothing
+has to be switched off and on again for the change to take: on the first request after the update
+each sync sees its own event still on the daily schedule, clears it and puts it back on the
+three-hour one. The housekeeping jobs are not syncs and stay daily - the two application retention
+runs, the two agreement discards, the reviewer's digest, invitation expiry, the semester report
+drafting and the ceiling's sweep - because the settings behind them are in days and a base that is
+down must not stop a file being forgotten on time. The Mentor Status Checker stays weekly: it reads
+WordPress.org profiles rather than Airtable.
 
 Accounts are matched by WordPress.org username where there is one, and by email otherwise. **No
 account is ever deleted by a sync** - the most it will do is remove a role.
@@ -26,8 +43,9 @@ because a first sync creates around ninety accounts at once.
 
 ### Pages the plugin owns
 
-Activation creates the Report Card pages and gates them. If one goes missing, re-activating the
-plugin recreates it; the settings screen warns you when a page it expects is not there.
+Activation creates the Student Report Card and Mentor Report Card pages and gates them. If one goes
+missing, re-activating the plugin recreates it; the settings screen warns you when a page it expects
+is not there.
 
 ### Uninstall
 
@@ -41,9 +59,9 @@ deleted**, and their program details in Airtable are untouched.
 | Symptom | Where to look |
 | --- | --- |
 | A student or mentor is missing | Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list. |
-| Details are stale on a Report Card | Run the sync by hand; the page renders from what the last sync stored. |
+| Details are stale on a Student Report Card or Mentor Report Card | Run the sync by hand; the page renders from what the last sync stored. |
 | A mentor sees the wrong students | The mentor↔student link in Airtable. The page joins on the records, not on names. |
-| Nobody can book a call | The mentor has published no availability. Their Report Card says so. |
+| Nobody can book a call | The mentor has published no availability. Their Mentor Report Card says so. |
 | Invitations are not arriving | The **Mail** section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 
@@ -61,13 +79,13 @@ The programs card counts students in progress per track and per institution from
 
 ## Sponsors
 
-The Sponsors screen is where a sponsor's account begins. The nightly sync (four hours after the institutions sync) reads the Team Members table and the Sponsors table into an index, copies each Approved sponsor's logo into the Media Library, and, only if the setting says so, detaches the accounts of sponsors that are no longer Approved. It never creates an account: a program manager presses Create account on an Approved sponsor's row, which makes an account from the sponsor's Contact Email (or attaches the account that already holds that address), queues the welcome, ticks the Dashboard account checkbox in Airtable and writes a log row. Accounts are attached by address and removed on the same screen; a sponsor's dashboard is opened through the switcher link in the first column. A sponsor whose logo is an SVG is named in the sync report: the site does not take SVG, and the sponsor converts it.
+The Sponsors screen is where a sponsor's account begins. The sponsors sync (every three hours, two hours into the cycle) reads the Team Members table and the Sponsors table into an index, copies each Approved sponsor's logo into the Media Library, and, only if the setting says so, detaches the accounts of sponsors that are no longer Approved. It never creates an account: a program manager presses Create account on an Approved sponsor's row, which makes an account from the sponsor's Contact Email (or attaches the account that already holds that address), queues the welcome, ticks the Dashboard account checkbox in Airtable and writes a log row. Accounts are attached by address and removed on the same screen; a sponsor's dashboard is opened through the switcher link in the first column. A sponsor whose logo is an SVG is named in the sync report: the site does not take SVG, and the sponsor converts it.
 
 On the Sponsor Dashboard a sponsor can save eight profile fields back to Airtable (website, contact person and email, product type, offer, instructions, more-info link and the free-text field); every save writes an audit row naming the fields changed and nothing else. Interests, and interest in a mentor from the looking-for-a-sponsor list, mail the assigned program manager (the Person of contact in Airtable), or the addresses in the "Interest mail" setting, or every program manager, in that order of preference; five a day per account. What sponsors can never read is a student's name: their mentors card shows mentor names and student counts only.
 
 **Offers, codes and the Tools section (1.94.0).** A sponsor's offers live on the site, not in the base. Each is a pool of one-time codes the sponsor pastes or uploads as a .txt or .csv file on the Sponsor Dashboard, on the new-offer form or on the pool's own box (one per line, or a CSV's first column; a code can be a whole checkout link; all or nothing, refused by line number; a file is read once and never stored, up to a megabyte; up to 5000 codes), or one shared code or link for everyone. Since 1.94.1 the kind is two plain choices and the form shows only the box that belongs to the kind chosen. The first offer is seeded from the base when an account is provisioned (title: the sponsor's name; text, instructions and link from `Offer`, `Brief instructions` and `More info link`; a checkout link that is not the coupon sheet becomes the shared code, the sheet itself is never stored); for sponsors provisioned before 1.94.0 the Sponsors screen has a *Seed the first offer* button. That first offer is the one mirrored back to the three base fields on every save, so managers keep seeing it in the grid; `Coupon code/discount link` is never written, and a manager clears the sheet links by hand once a sponsor is live. An offer goes live only with something to give (a code in the pool, or the shared link); ended is final; the kind cannot change once the pool holds anything.
 
-Codes are encrypted at rest with the site key the stored agreements use and are shown only to the person who claimed one, on their own Report Card; nothing sends a code by mail. Who may claim is one function with five clauses: the offer is live and not past its last day; the person is a current student (their synced status is one of the student statuses and not a past one), or a mentor when the offer opens to mentors, or a manager when it opens to managers; they have not claimed it; a pool has a code left; a shared offer has something to share. A second press returns the same code. A claim is written under a per-offer lock, so two students pressing together get two codes.
+Codes are encrypted at rest with the site key the stored agreements use and are shown only to the person who claimed one, on their own Student Report Card, Mentor Report Card or the Administrator Dashboard; nothing sends a code by mail. Who may claim is one function with five clauses: the offer is live and not past its last day; the person is a current student (their synced status is one of the student statuses and not a past one), or a mentor when the offer opens to mentors, or a manager when it opens to managers; they have not claimed it; a pool has a code left; a shared offer has something to share. A second press returns the same code. A claim is written under a per-offer lock, so two students pressing together get two codes.
 
 Sponsors read numbers, managers read names. The sponsor's Usage card counts claims by month and offer (and a CSV of the same); the Sponsors screen's *Offers and codes* card lists every offer with its counts and, for support, who claimed from it (name, address, date, the code's last four characters) with a *Void* button: voiding frees the person to claim again and keeps the code void for the count. A claimant's *Report a problem* mails the sponsor's assigned program manager (else `sponsor_notify`, else every manager) the name, the offer and the last four characters, three a day per person. When a pool falls below its threshold, one mail goes to the sponsor's accounts and one to the manager, once, re-armed by adding codes. Nothing about a claim reaches Airtable.
 
@@ -79,7 +97,7 @@ The Tools section is drawn on a person's own Student Report Card (setting *Tools
 
 **The guide and the queues (1.98.0).** Sponsors have a guide of their own, composed by `bin/build-docs.php` as the `sponsors` audience from four sections (the dashboard, offers and codes, what a sponsor can and cannot see, posts) and published on the handbook beside the other three; the Sponsor Dashboard's guide button points at it. The Administrator Dashboard gained three sponsor cards after the Sponsor agreements card: *Offers running low* (every live pool under the threshold its sponsor set, the emptiest first, linked to the sponsor's Offers and codes card through the switcher), *New interests* (what sponsors sent from *What else would you like to support?* in the last thirty days, as they wrote it) and *Sponsors* (Approved sponsors, how many hold an account, the offers live today, the claims since the semester began). The *Sponsor applications* card folds the whole application under *Read the application*, the needs-attention strip has a twelfth tile for the pools running low, and the Syncs card lists the sponsors sync. Nothing here is a new option or a new post type: the phase reads what the earlier phases wrote.
 
-**The clean-up (1.98.1).** The two application forms share one stash-and-redirect class, `WPCPM_Form_Stash`. The Sponsors menu bubble is counted once a minute and forgets its count the moment an application, an agreement or a sponsor post changes. A dwell token has one shape. Recently decided reads a decision-time index instead of every decided row. The docs build escapes a section's text, so a literal angle bracket is a character on the page. The institution agreement retries a failed Airtable write nightly, as the sponsor agreement has since 1.96.0. A refused image store deletes the copy it made.
+**The clean-up (1.98.1).** The two application forms share one stash-and-redirect class, `WPCPM_Form_Stash`. The Sponsors menu bubble is counted once a minute and forgets its count the moment an application, an agreement or a sponsor post changes. A dwell token has one shape. Recently decided reads a decision-time index instead of every decided row. The docs build escapes a section's text, so a literal angle bracket is a character on the page. The institution agreement retries a failed Airtable write on every sync run, as the sponsor agreement has since 1.96.0. A refused image store deletes the copy it made.
 
 ## Where the plugin keeps its data
 

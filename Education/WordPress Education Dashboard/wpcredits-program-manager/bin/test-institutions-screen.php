@@ -1254,7 +1254,7 @@ ck( 'no institution id is compared with === in the screen',
 	preg_match( '/\$record_id\s*===|===\s*\$record_id|\$country\s*===\s*\$|\$institution\s*===/', $src ), 0 );
 
 // The provisioning rule has one copy, in the sync. The screen asks it and prints the answer;
-// a second copy here is how the button and the nightly run come to disagree about the same
+// a second copy here is how the button and the next sync run come to disagree about the same
 // institution, which is the whole reason the rule was written down once.
 $reasons_body = function_body( $src, 'provision_reasons' );
 ck( 'the screen asks the sync why an institution may not be provisioned, and decides nothing itself', array(
@@ -1702,9 +1702,9 @@ ck( 'no address reaches the card, only whether there is one', array(
 	substr_count( $open, '<span class="wpcpm-warning">no email</span>' ) > 0,
 ), array( 0, true ) );
 
-ck( 'the card says the nightly sync is not doing this too', false !== strpos( $open, 'The nightly sync does not create accounts' ), true );
+ck( 'the card says the sync is not doing this too', false !== strpos( $open, 'The sync does not create accounts' ), true );
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
-ck( 'and says so when it is', false !== strpos( render_screen(), 'The nightly sync creates these accounts too' ), true );
+ck( 'and says so when it is', false !== strpos( render_screen(), 'The sync creates these accounts too' ), true );
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = false;
 
 $GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );

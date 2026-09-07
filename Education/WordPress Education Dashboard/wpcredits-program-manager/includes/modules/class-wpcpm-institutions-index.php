@@ -183,7 +183,7 @@ class WPCPM_Institutions_Index {
 	 * Add or replace one row, keeping the read time.
 	 *
 	 * For the approval handler, which needs the new institution in the index before it
-	 * can attach an account to it and cannot wait for the nightly sync. The read time is
+	 * can attach an account to it and cannot wait for the institutions sync. The read time is
 	 * the table's, not this row's: the rest of the index is still as old as it was.
 	 *
 	 * @param array $row The row.

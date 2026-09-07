@@ -214,9 +214,9 @@ function get_posts( $a = array() ) {
 				if ( 'IN' === $compare ? ! in_array( $have, (array) $clause['value'], true ) : $have !== $clause['value'] ) { continue 2; }
 			}
 		}
-		// A bare `meta_key`, which core reads as "this key is set". The nightly retry asks for
-		// its marked documents that way, and a stub that ignored the argument would hand it
-		// every agreement post on the site.
+		// A bare `meta_key`, which core reads as "this key is set". The retry, run every three
+		// hours with the institutions sync, asks for its marked documents that way, and a stub
+		// that ignored the argument would hand it every agreement post on the site.
 		if ( isset( $a['meta_key'] ) && '' === (string) get_post_meta( $post->ID, $a['meta_key'], true ) ) { continue; }
 		$out[] = $post;
 	}
@@ -2772,7 +2772,7 @@ ck( 'the limit caps the list', WPCPM_Institution_Agreement::in_state( WPCPM_Inst
 ck( 'a state the class does not know is nobody', WPCPM_Institution_Agreement::in_state( 'lost' ), array() );
 ck( 'awaiting_review() is unchanged by the new reader: it lists submitted only', in_array( $r_new, WPCPM_Institution_Agreement::awaiting_review(), true ), false );
 
-echo "\n=== The nightly retry finishes an Airtable write the base refused ===\n";
+echo "\n=== The retry finishes an Airtable write the base refused, on the next sync run ===\n";
 
 // `META_AIRTABLE_PENDING` was write-only from the day the module shipped: an upload or a
 // generate that met an unreachable base marked the document rather than failing the
@@ -2944,7 +2944,7 @@ ck( 'it reads a bounded page of marked documents, by the mark alone', array(
 ), array( true, true, true, true ) );
 
 $sync_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php' );
-ck( 'the nightly institutions sync is what calls it, behind a guard', array(
+ck( 'the institutions sync, which runs every three hours, is what calls it, behind a guard', array(
 	false !== strpos( $sync_src, "method_exists( 'WPCPM_Institution_Agreement', 'retry_airtable' )" ),
 	false !== strpos( method_body( $sync_src, 'phase_revoke' ), 'self::retry_agreements( $state )' ),
 ), array( true, true ) );

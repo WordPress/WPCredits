@@ -597,7 +597,7 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
-	 * Finish the Airtable writes an earlier request could not make. The nightly sync's step.
+	 * Finish the Airtable writes an earlier request could not make. The institutions sync's step.
 	 *
 	 * `META_AIRTABLE_PENDING` is the mark T2 and T3 leave when the base was unreachable at
 	 * the moment the site's own state changed. Neither transition fails the institution's
@@ -651,7 +651,7 @@ class WPCPM_Institution_Agreement {
 
 			if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
 				// There is no record to write to, so the mark is not a write that is owed. It
-				// goes, or this row is read again every night for as long as the site stands.
+				// goes, or this row is read again on every run for as long as the site stands.
 				delete_post_meta( $post_id, self::META_AIRTABLE_PENDING );
 				continue;
 			}
@@ -660,7 +660,7 @@ class WPCPM_Institution_Agreement {
 			// that follows from it. Without it a manager accepting a document in those two
 			// hundred milliseconds would have their own newer cells overwritten by the ones
 			// derived a moment earlier. A lock somebody else holds means exactly that kind of
-			// write is in flight, so the mark stays and tomorrow night tries again.
+			// write is in flight, so the mark stays and the next run tries again.
 			if ( ! self::lock( $record ) ) {
 				continue;
 			}
@@ -694,7 +694,7 @@ class WPCPM_Institution_Agreement {
 			// send and answers with the ones it did, so "nothing was updated" must not read
 			// as success and clear a mark that is still owed.
 			if ( is_wp_error( $written ) || empty( $written ) ) {
-				// Still unreachable. The mark stays and tomorrow night tries again.
+				// Still unreachable. The mark stays and the next run tries again.
 				continue;
 			}
 
@@ -3426,9 +3426,9 @@ class WPCPM_Institution_Agreement {
 	 * option, which is the case that matters here: a revoke and the sync's lock phase both
 	 * delete the option, and an empty status counts as open, so the option alone would send
 	 * `Template generated` over an `Awaiting review` or an `Accepted` the base already holds.
-	 * That backwards move is the one thing T2 exists to refuse. Never a live read: the nightly
+	 * That backwards move is the one thing T2 exists to refuse. Never a live read: the sync's
 	 * retry is already one HTTP call per record and a second one to decide the first is a
-	 * night's budget spent on a cell almost nobody is owed.
+	 * run's budget spent on a cell almost nobody is owed.
 	 *
 	 * @param string $record Institutions record ID.
 	 * @return string

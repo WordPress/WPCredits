@@ -3058,6 +3058,50 @@ ck( 'and the card stays folded when the address asks for nothing', has( $unasked
 
 $GLOBALS['index'] = $saved_index;
 
+echo "\n=== The project link labels, merged across every track ===\n";
+
+// A project link is printed under the label the student's own form gave the field, looked up in
+// one flat map that `link_labels()` builds by merging every track's form. A track left out of
+// that merge takes its track-only fields with it, and their links print under the raw Airtable
+// column name instead of under the question that was asked - a quiet failure, which is what the
+// method's own docblock says about it. Nothing in bin/ referenced `link_labels()` at all until
+// this check, which is how the list of tracks inside it stayed a literal long enough to go stale.
+//
+// Asserted as a set relation against `WPCPM_Program`, the shape the Administrator Dashboard's
+// track tiles use: the next track fails here rather than going missing in silence.
+$want_labels = array();
+foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
+	foreach ( WPCPM_Student_Report_Form::fields( WPCPM_Program::track( $status ) ) as $field => $spec ) {
+		if ( isset( $spec['label'] ) && '' !== $spec['label'] ) {
+			$want_labels[ $field ] = (string) $spec['label'];
+		}
+	}
+}
+
+$have_labels = WPCPM_Semester_Report::link_labels();
+
+ck( 'every track the program map can answer contributes its labels', array_values( array_diff( array_keys( $want_labels ), array_keys( $have_labels ) ) ), array() );
+
+// The fields one track's form carries and no other's, named from the forms rather than written
+// down here: they are the evidence the merge visited a track past the first, and the reason a
+// missing track is worth failing over at all. Every track's form is the 150-hour set plus its
+// own questions until Task 2 gives the Designer Track a set of its own, so this is empty for
+// three of the four tracks and that is not a fault of the merge.
+$track_only = array();
+foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
+	$track = WPCPM_Program::track( $status );
+	$other = array();
+	foreach ( array_keys( WPCPM_Program::labels() ) as $peer ) {
+		if ( WPCPM_Program::track( $peer ) !== $track ) {
+			$other = array_merge( $other, array_keys( WPCPM_Student_Report_Form::fields( WPCPM_Program::track( $peer ) ) ) );
+		}
+	}
+	$track_only = array_merge( $track_only, array_diff( array_keys( WPCPM_Student_Report_Form::fields( $track ) ), $other ) );
+}
+
+ck( 'at least one field belongs to a single track, or the check above proves nothing', count( $track_only ) > 0, true );
+ck( 'and every one of those is in the merge', array_values( array_diff( $track_only, array_keys( $have_labels ) ) ), array() );
+
 echo "\n=== House rules ===\n";
 
 $dashes = array();

@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * the invitation queue, and the log. Airtable first because the record ID is the account's
  * identity: every stamp and every decision the fence makes names a record. The index row next
  * because `WPCPM_Sponsor_Members::attach()` refuses a record the index does not hold and the
- * account cannot wait for the nightly sync.
+ * account cannot wait for the sponsors sync.
  *
  * **Nothing after a failed write.** When the create fails, or answers with no record ID, the
  * lock is released, the state is untouched, no stamp and no event are written, nobody is
@@ -426,7 +426,7 @@ final class WPCPM_Sponsor_Approval {
 	/**
 	 * Record the two attachments as the sponsor's logo, owned by the site, and by the account.
 	 *
-	 * `source => site` is what the nightly sync reads before it copies Airtable's attachment,
+	 * `source => site` is what the sponsors sync reads before it copies Airtable's attachment,
 	 * and the base now holds the same picture anyway. The attachments were stored with author 0
 	 * by the form; they belong to the account from here on.
 	 *

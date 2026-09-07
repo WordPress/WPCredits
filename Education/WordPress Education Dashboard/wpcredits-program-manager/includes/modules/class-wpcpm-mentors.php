@@ -95,7 +95,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Activation: schedule the daily sync and create the mentor page.
+	 * Activation: schedule the recurring sync and create the mentor page.
 	 */
 	public function activate() {
 		WPCPM_Mentors_Sync::schedule();

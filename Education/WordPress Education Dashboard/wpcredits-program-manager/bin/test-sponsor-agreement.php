@@ -616,7 +616,7 @@ ck( 'the base is told the queue entry is gone', patched_cells( count( $GLOBALS['
 ck( 'nothing is mailed: nothing happened anybody else needs telling about', count( $GLOBALS['mail'] ), 2 );
 ck( 'a second press finds nothing to withdraw', ran( 'handle_withdraw' ), 'agreement-gone|agreement||' );
 
-echo "\n=== The nightly sync finishes a write the base refused ===\n";
+echo "\n=== The sync finishes a write the base refused, on the next run ===\n";
 // The upload the base refused above is still owed its cell, and this is the run that owes it:
 // the mark means nothing unless something later reads it.
 $GLOBALS['patched'] = array();
@@ -642,7 +642,7 @@ ck( 'the next night writes Not started, clears the mark and answers with the cou
 ck( 'the index block is in step with what was written', WPCPM_Sponsors_Index::row( $W )['agreement']['status'], 'Not started' );
 ck( 'and a night with nothing owed writes nothing at all', array( WPCPM_Sponsor_Agreement::retry_airtable(), count( $GLOBALS['patched'] ) ), array( 0, 1 ) );
 $sync_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php' );
-ck( 'the nightly sponsors sync is what calls it, behind a guard', array(
+ck( 'the sponsors sync, which runs every three hours, is what calls it, behind a guard', array(
 	false !== strpos( $sync_src, "class_exists( 'WPCPM_Sponsor_Agreement' )" ),
 	false !== strpos( $sync_src, "'retry_airtable'" ),
 	false !== strpos( method_body( $sync_src, 'run_tick' ), 'self::phase_agreements( $state )' ),
@@ -717,7 +717,7 @@ foreach ( array( 'handle_upload', 'handle_withdraw', 'handle_accept', 'handle_re
 	$one = method_body( $source, $handler );
 	ck( $handler . '() rebuilds under its own lock, then releases it', strpos( $one, 'self::rebuild(' ) < strrpos( $one, 'self::unlock( $record )' ), true );
 }
-ck( 'and the nightly retry, which holds no lock, lets rebuild() take it', false !== strpos( method_body( $source, 'retry_airtable' ), "self::rebuild( \$record, array( 'status' => \$status ) )" ), true );
+ck( 'and the retry, run every three hours with the sponsors sync, which holds no lock, lets rebuild() take it', false !== strpos( method_body( $source, 'retry_airtable' ), "self::rebuild( \$record, array( 'status' => \$status ) )" ), true );
 
 echo "\n=== Accept ===\n";
 $GLOBALS['uid']     = 1;

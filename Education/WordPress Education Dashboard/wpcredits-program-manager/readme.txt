@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.98.1
+Stable tag: 1.98.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -206,7 +206,7 @@ An administrator who opens a dashboard before any sync has run is told exactly t
 
 The student page shows the mentor assigned to them, with enough detail to actually reach them: name, email, Slack, WordPress.org, website and GitHub, plus their job line, location and contributor teams.
 
-Airtable's Mentors table holds only a name, an email and a profile URL, so **everything else is read from the mentor's WordPress.org profile** - one request per mentor during the sync, cached for twelve hours and shared by every student assigned to them. Airtable stays authoritative for name and email; the profile only fills what Airtable has no column for and never overwrites a value that is already there.
+Airtable's Mentors table holds only a name, an email and a profile URL, so **everything else is read from the mentor's WordPress.org profile** - one request per mentor during the students sync, which is where the mentor cards are built, cached for twelve hours and shared by every student assigned to them. Airtable stays authoritative for name and email; the profile only fills what Airtable has no column for and never overwrites a value that is already there.
 
 A mentor whose profile cannot be read keeps their Airtable details and is named in the sync warnings, rather than the run failing.
 
@@ -214,7 +214,7 @@ A mentor whose profile cannot be read keeps their Airtable details and is named 
 
 The sync is a resumable state machine: roughly 90 mentors, 290 student reports and the whole Students table is more than one request can carry, so each tick works to a time budget, saves its position and starts the next one. Phases run in order - provision mentors, review mentors who are no longer active, read student reports, read tutors, assign - because a mentor not yet paged in would otherwise look inactive.
 
-It runs once a day and on demand from **WPCredits Program → Mentors → Sync mentors now**.
+It runs every three hours and on demand from **WPCredits Program → Mentors → Sync mentors now**.
 
 = Sync progress =
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.98.2 =
+* **The Designer Track, a fourth program.** The Airtable status `Designer Track` is a track the way the Developer Track is: its own chip on a Mentor Report Card, its own Learn course button, a 150-hour target and a report form of its own. The form follows the Learn course lesson by lesson - the onboarding grades and the portfolio, then the eight practical lessons each with its notes and its screenshots, then the contribution project, the reflection posts and the closing post. Students on the track are fetched from the first sync after the update, without anybody editing the status list by hand.
+* **Two new controls on the report form.** A choice list, written to Airtable as the option's own name and cleared by choosing nothing; and a screenshot upload - PNG, JPEG or WebP up to 4 MB, twenty a day per student - kept in the Media Library and copied to Airtable, so the Student Report Card shows this site's copy rather than an Airtable attachment URL, which expires within hours. Choosing a new file replaces what is there and Remove deletes it from both places.
+* **Every Airtable sync on a three-hour clock.** The mentors, institutions and sponsors syncs leave the daily schedule and join the students sync's recurrence, staggered half an hour, one hour, an hour and a half and two hours into a shared cycle so no two land in the same run of the scheduler. Each sync moves its own event on the first request after the update - a daily event is cleared and rescheduled - so nothing has to be deactivated and reactivated. The daily housekeeping jobs and the weekly Mentor Status Checker are unchanged.
+* The Airtable fixture gains the track's twenty-one practical columns, so the fixture and reference checks know them; the students, settings and administrator guides are rewritten for the new cadence and the new track.
 
 = 1.98.1 =
 * **Clean-up.** The two application forms share one stash-and-redirect class. The Sponsors menu bubble is counted once a minute and forgets its count the moment a row changes. A dwell token has one shape (a token minted before 6 September 2026 is refused; every one of them expired that day). Recently decided is bounded by a decision-time index, backfilled once. The docs build escapes a section's text. The institution agreement retries a failed Airtable write nightly. A refused image store leaves no file behind. A dead phpcs annotation and a dead class are gone.

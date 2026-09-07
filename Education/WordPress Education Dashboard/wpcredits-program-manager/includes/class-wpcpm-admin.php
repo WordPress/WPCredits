@@ -472,7 +472,15 @@ class WPCPM_Admin {
 			esc_html__( 'Automatic sync', 'wpcredits-program-manager' ),
 			checked( ! empty( $settings['auto_sync'] ), true, false ),
 			esc_html__( 'Read Airtable on a schedule', 'wpcredits-program-manager' ),
-			esc_html__( 'Students every three hours, mentors once a day: the student rows carry what people are shown on their cards, and the mentors run costs one WordPress.org profile read per mentor. A run already in progress is left to finish rather than restarted. Either can also be run by hand from the Students and Mentors screens.', 'wpcredits-program-manager' )
+			// Read by a person on the settings screen, so it says the cadence outright and had to move
+			// with it: the mentors run left the daily clock in 1.98.2 and joined the students run's,
+			// half an hour behind it.
+			//
+			// The WordPress.org profile reads are the *students* run's, phase 2, where a mentor's
+			// card is built (`WPCPM_Students_Sync`); the mentors run makes no WordPress.org
+			// request at all, it reads three Airtable tables. The switch is named in full because
+			// it governs three of the four syncs and a manager cannot tell which from the label.
+			esc_html__( 'Students and mentors every three hours, half an hour apart: the student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours. A run already in progress is left to finish rather than restarted. Either can also be run by hand from the Students and Mentors screens. This switch governs the students, mentors and institutions syncs; the sponsors sync runs regardless.', 'wpcredits-program-manager' )
 		);
 
 		printf(
@@ -617,7 +625,7 @@ class WPCPM_Admin {
 			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="institution_provision" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
 			esc_html__( 'Create accounts automatically', 'wpcredits-program-manager' ),
 			checked( ! empty( $settings['institution_provision'] ), true, false ),
-			esc_html__( 'Let the nightly sync create the first account for a Confirmed institution', 'wpcredits-program-manager' ),
+			esc_html__( 'Let the sync create the first account for a Confirmed institution', 'wpcredits-program-manager' ),
 			esc_html__( 'From the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member. An address that already belongs to an account is left alone and named on the Institutions screen. With this off, accounts are created only when somebody presses the button there.', 'wpcredits-program-manager' )
 		);
 
@@ -733,7 +741,7 @@ class WPCPM_Admin {
 			esc_html__( 'Keep its accounts as they are', 'wpcredits-program-manager' ),
 			checked( 'revoke', $on_inactive, false ),
 			esc_html__( 'Detach its accounts on the next sync', 'wpcredits-program-manager' ),
-			esc_html__( 'Airtable\'s Status is the record. Paused and Not Moving Forward sponsors keep their accounts by default, because a pause is often short; choose the other answer to have the nightly sync detach them. Nothing is ever deleted.', 'wpcredits-program-manager' )
+			esc_html__( 'Airtable\'s Status is the record. Paused and Not Moving Forward sponsors keep their accounts by default, because a pause is often short; choose the other answer to have the sync detach them. Nothing is ever deleted.', 'wpcredits-program-manager' )
 		);
 
 		printf(

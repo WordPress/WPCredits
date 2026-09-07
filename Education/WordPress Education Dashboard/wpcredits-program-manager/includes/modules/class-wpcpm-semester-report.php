@@ -2438,18 +2438,34 @@ final class WPCPM_Semester_Report {
 	/**
 	 * The label each project link is printed under, from the student's own form.
 	 *
-	 * Merged across the three tracks because a field's group differs by track and a 50-hour
-	 * student's form does not carry the reflection posts at all; the wording of a label that
-	 * exists on two tracks is the same on both. A field the form has never heard of falls back
-	 * to the Airtable column name where it is used, so a new column is readable rather than
-	 * invisible.
+	 * Merged across every track because a field's group differs by track and a 50-hour student's
+	 * form does not carry the reflection posts at all; the wording of a label that exists on two
+	 * tracks is the same on both. A field the form has never heard of falls back to the Airtable
+	 * column name where it is used, so a new column is readable rather than invisible - which is
+	 * also why a track missing from this merge is a quiet failure rather than a loud one: the
+	 * links are still printed, under the raw column name instead of the question that was asked.
+	 *
+	 * **The tracks are read from `WPCPM_Program`, not written out here.** They were a literal
+	 * until the fix round of 1.98.2, and a literal is exactly what a quiet failure needs - the
+	 * fourth track went into the program map and this list had to be remembered separately, with
+	 * nothing to say so if it was not. Derived, the fifth cannot be forgotten, and the set
+	 * relation in bin/test-semester-report.php fails if the derivation is ever unpicked.
 	 *
 	 * @return array<string, string> Airtable field name to label.
 	 */
 	public static function link_labels() {
 		$labels = array();
+		$tracks = array();
 
-		foreach ( array( '150h', '50h', 'dev' ) as $track ) {
+		foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
+			$track = WPCPM_Program::track( $status );
+
+			if ( '' !== $track ) {
+				$tracks[ $track ] = true;
+			}
+		}
+
+		foreach ( array_keys( $tracks ) as $track ) {
 			foreach ( WPCPM_Student_Report_Form::fields( $track ) as $field => $spec ) {
 				if ( ! isset( $labels[ $field ] ) && isset( $spec['label'] ) && '' !== $spec['label'] ) {
 					$labels[ $field ] = (string) $spec['label'];

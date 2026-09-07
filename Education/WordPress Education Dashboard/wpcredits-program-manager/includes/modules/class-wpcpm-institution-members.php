@@ -288,7 +288,7 @@ class WPCPM_Institution_Members {
 		// Re-added only when the account is coming back to THIS institution. A `_was` naming
 		// another one is history that must survive: `former_members_of()` promises it, and the
 		// sync's "no live member and no _was naming it" gate would otherwise let a removed
-		// contact's account be provisioned again every night.
+		// contact's account be provisioned again on every run.
 		$was     = trim( (string) get_user_meta( $user->ID, self::META_RECORD_ID_WAS, true ) );
 		$readded = self::same_record( $was, $record_id );
 

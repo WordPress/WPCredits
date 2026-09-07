@@ -9,9 +9,9 @@
  *   its one reader.
  * - **All or nothing.** Two files arrive together and one bad one refuses the pair, the way
  *   one rejected field refuses the whole profile save.
- * - **The record says the site owns the logo**, so the nightly sync leaves it alone; Remove
- *   empties the base's `Logo` first and clears the record only if that worked, or the next
- *   nightly run would copy the site's own URLs back in as Airtable's.
+ * - **The record says the site owns the logo**, so the sync leaves it alone every three
+ *   hours; Remove empties the base's `Logo` first and clears the record only if that
+ *   worked, or the next sync run would copy the site's own URLs back in as Airtable's.
  * - **Airtable's `Logo` is replaced with the site's public URLs, color first**, so the base
  *   shows the picture the site shows and the WPCredits tracker keeps reading the base.
  * - **A failed PATCH never loses the logo.** The site keeps it and says so.
@@ -355,7 +355,7 @@ $_POST = array( 'wpcpm_sponsor' => $S );
 $held  = WPCPM_Sponsors_Index::logo_record( $S );
 // The base first. A record cleared ahead of a PATCH that then failed would leave the site's
 // own URLs in the base under a record that no longer says the site owns them: the card would
-// stop offering Remove and the next nightly run would copy those URLs back in as Airtable's.
+// stop offering Remove and the next sync run would copy those URLs back in as Airtable's.
 $GLOBALS['patch_fails'] = true;
 ck( 'a base that refuses removes nothing, and says so as an error', ran( 'handle_remove' ), 'logo-removed-airtable|profile|' . $S . '|' );
 ck( 'the site still holds the logo, and still says the site owns it', WPCPM_Sponsors_Index::logo_record( $S ), $held );
@@ -367,7 +367,7 @@ ck( 'so the next sync may copy Airtable\'s again', WPCPM_Sponsors_Index::logo_re
 ck( 'and the attachments are left in the Media Library', isset( $GLOBALS['attachments'][ $held['colour'] ] ), true );
 // Eight: the pair, the white half on its own, the one the base refused, and the ceiling
 // section's five. Then Remove's two attempts, the refused one and the one that worked.
-ck( 'remove empties the base\'s Logo too, so the nightly read has nothing to copy back', array( count( $GLOBALS['patched'] ), patched_cells( 8 ), patched_cells( 9 ) ), array( 10, array( 'Logo' => array() ), array( 'Logo' => array() ) ) );
+ck( 'remove empties the base\'s Logo too, so the next sync run has nothing to copy back', array( count( $GLOBALS['patched'] ), patched_cells( 8 ), patched_cells( 9 ) ), array( 10, array( 'Logo' => array() ), array( 'Logo' => array() ) ) );
 $logo_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-logo.php' );
 ck( 'the PATCH is made before the site record is touched, read off the source', strpos( method_body( $logo_src, 'handle_remove' ), 'self::clear_airtable' ) < strpos( method_body( $logo_src, 'handle_remove' ), 'write_logo_record' ), true );
 ck( 'and the card says the logo goes from both places, and that the files stay', false !== strpos( method_body( $logo_src, 'render_inner' ), 'It goes from this site and from the program records.' ), true );

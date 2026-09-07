@@ -36,13 +36,16 @@ column is detected automatically.
   accounts at once. Invitations are queued and sent a few at a time rather than all inside the sync,
   so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time
   from the Mentors and Students screens.
-- **Automatic sync** - read Airtable on a schedule. **Students every three hours, mentors once a
-  day**: the student rows carry what people are shown on their cards, while the mentors run costs
-  one WordPress.org profile read per mentor. A run already in progress is left to finish rather than
-  restarted. Either can also be run by hand from the Students and Mentors screens.
-- **Mentor landing page** - send mentors to their Report Card on login and in place of the wp-admin
-  Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who followed a
-  link somewhere specific still lands there. Administrators are unaffected.
+- **Automatic sync** - read Airtable on a schedule. **Students and mentors every three hours, half
+  an hour apart**: the student rows carry what people are shown on their cards, and the students run
+  is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours. The
+  mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is
+  left to finish rather than restarted. Either can also be run by hand from the Students and Mentors
+  screens. The institutions and the sponsors syncs are on the same three-hour clock. Automatic sync
+  governs the students, mentors and institutions syncs; the sponsors sync runs regardless.
+- **Mentor landing page** - send mentors to their Mentor Report Card on login and in place of the
+  wp-admin Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who
+  followed a link somewhere specific still lands there. Administrators are unaffected.
 
 ### Students module
 

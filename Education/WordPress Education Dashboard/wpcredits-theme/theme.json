@@ -215,6 +215,9 @@
 				"green-tint": "#ebffed",
 				"green-border": "#8ac894"
 			},
+			"track": {
+				"design": "#fbe5ef"
+			},
 			"shadow": {
 				"card": "0 1px 3px rgba(0, 0, 0, 0.06)",
 				"float": "0 4px 14px rgba(0, 0, 0, 0.07)"

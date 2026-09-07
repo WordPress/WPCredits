@@ -70,7 +70,7 @@ $guides = array(
 	'mentors'        => array(
 		'title' => 'Mentor guide',
 		'lede'  => 'Your Mentor Report Card, setting the hours students can book, and what your students see on their own page.',
-		'intro' => "Thank you for mentoring on the WordPress Credits Program. This guide covers your own Report Card and, at the end, what your students see on theirs - you cannot open a student's page yourself, so the whole of it is repeated here.\n\nIf you read one section today, make it *Setting your availability*: until you publish some hours, nobody can book a call with you.",
+		'intro' => "Thank you for mentoring on the WordPress Credits Program. This guide covers your own Mentor Report Card and, at the end, what your students see on their Student Report Card - you cannot open a student's page yourself, so the whole of it is repeated here.\n\nIf you read one section today, make it *Setting your availability*: until you publish some hours, nobody can book a call with you.",
 		'parts' => array(
 			'00-signing-in',
 			'20-mentor-card',
@@ -293,7 +293,7 @@ function wpcpm_docs_to_blocks( $md ) {
 			// change because a stylesheet did.
 			//
 			// Uniquified, because the guides repeat sections on purpose: the mentor guide carries
-			// the student guide in full, so "What is on your Report Card" and "Resources" each
+			// the student guide in full, so "Resources" and "If something looks wrong" each
 			// appear twice and would otherwise share an anchor with the wrong one.
 			$anchor = wpcpm_docs_anchor( $m[2] );
 

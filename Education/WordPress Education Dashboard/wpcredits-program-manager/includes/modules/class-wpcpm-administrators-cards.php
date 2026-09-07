@@ -26,8 +26,17 @@ final class WPCPM_Administrators_Cards {
 	const LIMIT = 50;
 	/** Closed requests shown under the open ones. */
 	const CLOSED_SHOWN = 20;
-	/** The track keys `WPCPM_Program::track()` answers, in the order the strip draws them. */
-	const TRACKS = array( '150h', '50h', 'dev' );
+	/**
+	 * The track keys `WPCPM_Program::track()` answers, in the order the strip draws them.
+	 *
+	 * Every key it can answer has to be here. The counting loop increments `$tracks[ $track ]`
+	 * for any track a student is on, and the strip draws only what this list names, so a track
+	 * left out is one whose students are added to a tile that is never shown - and, on PHP 8, a
+	 * warning on every load of the page. It is not derived from `WPCPM_Program` because the
+	 * order is a display decision: newest track last, so the tiles do not move under a reader
+	 * who has learned where to look.
+	 */
+	const TRACKS = array( '150h', '50h', 'dev', 'design' );
 
 	/*
 	 * --------------------------------------------------------------------
@@ -1417,9 +1426,10 @@ final class WPCPM_Administrators_Cards {
 		self::card_open( 'programs', __( 'Programs running', 'wpcredits-program-manager' ), count( $rows ) );
 
 		$names = array(
-			'150h' => WPCPM_Program::label( WPCPM_Program::STATUS_150H ),
-			'50h'  => WPCPM_Program::label( WPCPM_Program::STATUS_50H ),
-			'dev'  => WPCPM_Program::label( WPCPM_Program::STATUS_DEV ),
+			'150h'   => WPCPM_Program::label( WPCPM_Program::STATUS_150H ),
+			'50h'    => WPCPM_Program::label( WPCPM_Program::STATUS_50H ),
+			'dev'    => WPCPM_Program::label( WPCPM_Program::STATUS_DEV ),
+			'design' => WPCPM_Program::label( WPCPM_Program::STATUS_DESIGN ),
 		);
 
 		echo '<ul class="wpcpm-programs__tiles">';

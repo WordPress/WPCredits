@@ -538,6 +538,7 @@ echo "\n=== The badge a status is painted with ===\n";
 ck( 'the 150-hour track keeps the sensei badge', WPCPM_Program::badge( WPCPM_Program::STATUS_150H ), 'sensei' );
 ck( 'the 50-hour track has its own', WPCPM_Program::badge( WPCPM_Program::STATUS_50H ), '50h' );
 ck( 'and so does the Developer Track', WPCPM_Program::badge( WPCPM_Program::STATUS_DEV ), 'dev' );
+ck( 'and the Designer Track', WPCPM_Program::badge( WPCPM_Program::STATUS_DESIGN ), 'design' );
 // The two statuses decision 21 added. Before this they fell through to the sensei colour, which
 // told a mentor that a paused student was still working.
 ck( 'Paused is its own badge, not the sensei one', WPCPM_Program::badge( 'Paused' ), 'paused' );
@@ -545,21 +546,42 @@ ck( 'Pending graduation is its own too', WPCPM_Program::badge( 'Pending graduati
 ck( 'a finished student keeps the plain badge', array( WPCPM_Program::badge( 'Graduate' ), WPCPM_Program::badge( 'Dropped out' ), WPCPM_Program::badge( '' ) ), array( '', '', '' ) );
 ck( 'and the label is the status itself for both', array( WPCPM_Program::label( 'Paused' ), WPCPM_Program::label( 'Pending graduation' ) ), array( 'Paused', 'Pending graduation' ) );
 // Every modifier the class can return has a rule, or the badge is painted with nothing.
-$css = file_get_contents( dirname( __DIR__ ) . '/assets/css/dashboard.css' );
-foreach ( array( 'sensei', '50h', 'dev', 'paused', 'pending' ) as $modifier ) {
+//
+// **Derived from `WPCPM_Program`, not written down here.** This used to be a literal list of five
+// modifiers, and the Designer Track's `design` walked straight past it: the class could return a
+// modifier the sheet had no rule for and the only thing that would have said so was somebody
+// remembering. Built from the program map, the *next* track fails here the moment it is added and
+// before anybody sees an unpainted badge. The two states are named because `badge()` keeps their
+// map private, and they are what the map cannot supply.
+$css       = file_get_contents( dirname( __DIR__ ) . '/assets/css/dashboard.css' );
+$modifiers = array();
+foreach ( array_merge( array_keys( WPCPM_Program::labels() ), array( 'Paused', 'Pending graduation' ) ) as $status ) {
+	$modifier = WPCPM_Program::badge( $status );
+	if ( '' !== $modifier ) {
+		$modifiers[ $modifier ] = $modifier;
+	}
+}
+
+// A derivation that quietly collapsed to nothing would leave the loop below with nothing to check
+// and the suite still green, so the shape of the list is asserted before it is used: one modifier
+// per track, plus the two states.
+ck( 'every track and both states have their own modifier', count( $modifiers ), count( WPCPM_Program::labels() ) + 2 );
+
+foreach ( $modifiers as $modifier ) {
 	ck( sprintf( 'dashboard.css styles wpcpm-badge--%s', $modifier ), false !== strpos( $css, '.wpcpm-badge--' . $modifier . ' {' ), true );
 }
 
-echo "\n=== The three tracks ===\n";
+echo "\n=== The tracks ===\n";
 
-// `is_50h` was a boolean carried on every synced row until 1.61.0. Three tracks do not fit one, and
-// a second flag beside it would have made "both true" representable. The track is derived from the
-// status both syncs already store, so these are the only three places it can be wrong.
+// `is_50h` was a boolean carried on every synced row until 1.61.0. Two tracks fit a boolean, four do
+// not, and a second flag beside it would have made "both true" representable. The track is derived
+// from the status both syncs already store, so these are the only four places it can be wrong.
 
 foreach ( array(
-	'In Sensei'     => '150h',
-	'In Sensei 50h' => '50h',
+	'In Sensei'       => '150h',
+	'In Sensei 50h'   => '50h',
 	'Developer Track' => 'dev',
+	'Designer Track'  => 'design',
 ) as $status => $want ) {
 	ck( sprintf( '%s is the %s track', $status, $want ), WPCPM_Program::track( $status ), $want );
 	ck( sprintf( '%s is a track', $status ), WPCPM_Program::is_track( $status ), true );
@@ -589,6 +611,16 @@ ck( 'the developer track is named after its status',
 ck( 'and is in the labels map, which is what gates the surveys',
     isset( WPCPM_Program::labels()['Developer Track'] ), true );
 
+// The Designer Track, added 1.98.2, is the same shape: a status that maps to itself, so the
+// screen and the base say the same words, and an entry in the map `is_track()` tests.
+ck( 'the Designer Track is named after its status too',
+    WPCPM_Program::label( 'Designer Track' ), 'Designer Track' );
+ck( 'and it is in the labels map as well',
+    isset( WPCPM_Program::labels()['Designer Track'] ), true );
+ck( 'its course is the Learn page the design spec read',
+    WPCPM_Program::course_url( 'Designer Track' ), 'https://learn.wordpress.org/course/wordpress-credits-designer-track/' );
+ck( 'and the constant carries the status Airtable stores', WPCPM_Program::STATUS_DESIGN, 'Designer Track' );
+
 // Reading the wrong formula column gives a working link to the wrong form - a failure that looks
 // like success until a student fills in another track's questions.
 ck( 'each track reads its own reporting-form link',
@@ -600,6 +632,12 @@ ck( 'each track reads its own reporting-form link',
     array( 'report_link', 'report_link_50h', 'report_link_dev' ) );
 
 ck( 'and a finished student keeps the 150-hour one', WPCPM_Mentors_Sync::link_field( '' ), 'report_link' );
+
+// The Designer Track has no Fillout column in the base and needs none: the site's own report form
+// replaced those links in 1.48.0 and 1.63.0 and nothing on the card shows them any more. So the
+// fallback is the answer, and it is asserted rather than left to be discovered.
+ck( 'the Designer Track falls back to the 150-hour link, having no column of its own',
+    WPCPM_Mentors_Sync::link_field( 'design' ), 'report_link' );
 
 // The three link columns have to be named the same way in both places, or the sync asks Airtable
 // for a field that does not exist and the link comes back empty.
@@ -613,6 +651,8 @@ ck( 'and all three link fields are named',
 // the whole track looks broken while every line of code is right.
 ck( 'the developer track is one of the statuses the sync fetches',
     in_array( 'Developer Track', WPCPM_Settings::defaults()['student_statuses'], true ), true );
+ck( 'and so is the designer track',
+    in_array( 'Designer Track', WPCPM_Settings::defaults()['student_statuses'], true ), true );
 
 echo "\n=== The hours a status is worked towards ===\n";
 
@@ -623,6 +663,13 @@ ck( 'the 50-hour track is 50', WPCPM_Program::hours_target( 'In Sensei 50h' ), 5
 ck( 'the developer track has no target', WPCPM_Program::hours_target( 'Developer Track' ), 0 );
 ck( 'and says so rather than being asked to prove it', WPCPM_Program::has_hours_target( 'Developer Track' ), false );
 ck( 'the two clocked tracks say yes', array( WPCPM_Program::has_hours_target( 'In Sensei' ), WPCPM_Program::has_hours_target( 'In Sensei 50h' ) ), array( true, true ) );
+// The Designer Track is clocked and the Developer Track is not, which is the contrast worth
+// pinning: Learn states 150 hours for the designer course, so the track gets that target, and a
+// row here is how a track says it counts hours at all.
+ck( 'the designer track is 150, the figure the Learn page states', WPCPM_Program::hours_target( 'Designer Track' ), 150 );
+ck( 'and it prints a denominator, unlike the Developer Track',
+    array( WPCPM_Program::has_hours_target( 'Designer Track' ), WPCPM_Program::has_hours_target( 'Developer Track' ) ),
+    array( true, false ) );
 
 // A finished state and a typo answer the same way, which is the answer a caller wants: print
 // no denominator. Telling one from the other is what `is_track()` is for.

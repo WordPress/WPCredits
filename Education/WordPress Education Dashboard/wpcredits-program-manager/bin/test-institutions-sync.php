@@ -69,7 +69,17 @@ function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function apply_filters( $t, $v ) { return $v; }
 function add_action( $hook, $cb ) { $GLOBALS['calls']['add_action'][] = $hook; }
 function remove_filter() { return true; }
-function add_filter() {}
+// **Recorded, not dropped.** `wp_schedule_event()` below refuses a recurrence nothing has
+// registered, and this plugin's three-hour recurrence exists only while
+// `WPCPM_Students_Sync::cron_interval()` is on the `cron_schedules` filter. A stub that threw
+// the callback away could not tell a sync that registers the interval before it schedules from
+// one that leaves the site with no event at all.
+// Keyed the way core keys a callback, so the same static method added twice is one registration
+// and a check can say so.
+function add_filter( $hook, $callback = null ) {
+	$id = is_array( $callback ) ? $callback[0] . '::' . $callback[1] : (string) $callback;
+	$GLOBALS['filters'][ $hook ][ $id ] = $callback;
+}
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) {
 	$GLOBALS['opts'][ $k ]     = $v;
@@ -89,9 +99,64 @@ function delete_option( $k ) {
 	return true;
 }
 function wp_next_scheduled( $hook ) { return isset( $GLOBALS['cron'][ $hook ] ) ? $GLOBALS['cron'][ $hook ] : false; }
-function wp_schedule_event( $ts, $rec, $hook ) { $GLOBALS['cron'][ $hook ] = $ts; $GLOBALS['cron_recurrence'][ $hook ] = $rec; return true; }
+/**
+ * Core's four recurrences plus whatever the `cron_schedules` filter adds.
+ *
+ * This is the whole reason the filter matters: a recurrence WordPress cannot name here does
+ * not exist, however carefully a constant spells it.
+ */
+function wp_get_schedules() {
+	$schedules = array(
+		'hourly'     => array( 'interval' => HOUR_IN_SECONDS ),
+		'twicedaily' => array( 'interval' => 12 * HOUR_IN_SECONDS ),
+		'daily'      => array( 'interval' => DAY_IN_SECONDS ),
+		'weekly'     => array( 'interval' => 7 * DAY_IN_SECONDS ),
+	);
+
+	$filters = isset( $GLOBALS['filters']['cron_schedules'] ) ? $GLOBALS['filters']['cron_schedules'] : array();
+	foreach ( $filters as $callback ) {
+		$schedules = call_user_func( $callback, $schedules );
+	}
+
+	return $schedules;
+}
+// **Refuses an unregistered recurrence, the way core does**: `wp_schedule_event()` returns
+// false and nothing is queued. The stub used to return true whatever it was handed, which hid
+// the one request that gets this wrong - the activation request, where `plugins_loaded` has
+// already fired, so `wpcpm_bootstrap()` has not run and nothing has added the filter yet.
+function wp_schedule_event( $ts, $rec, $hook ) {
+	$schedules = wp_get_schedules();
+
+	if ( ! isset( $schedules[ $rec ] ) ) {
+		return false;
+	}
+
+	$GLOBALS['cron'][ $hook ]            = $ts;
+	$GLOBALS['cron_recurrence'][ $hook ] = $rec;
+	return true;
+}
 function wp_schedule_single_event( $ts, $hook ) { $GLOBALS['cron'][ $hook ] = $ts; return true; }
-function wp_clear_scheduled_hook( $hook ) { unset( $GLOBALS['cron'][ $hook ] ); return 0; }
+// Clearing drops the recurrence with the event. Leaving it behind would let a schedule() that
+// only cleared - and never rescheduled - still read as being on the right recurrence.
+function wp_clear_scheduled_hook( $hook ) { unset( $GLOBALS['cron'][ $hook ], $GLOBALS['cron_recurrence'][ $hook ] ); return 0; }
+function wp_get_schedule( $hook ) { return isset( $GLOBALS['cron_recurrence'][ $hook ] ) ? $GLOBALS['cron_recurrence'][ $hook ] : false; }
+/**
+ * The event as core reports it, which is how a recurrence is read back.
+ *
+ * An event scheduled before the recurrence was recorded reads as `daily`: that is the state a
+ * site upgrading from an earlier version is in, and it is the state the migration has to notice.
+ */
+function wp_get_scheduled_event( $hook ) {
+	if ( ! isset( $GLOBALS['cron'][ $hook ] ) ) {
+		return false;
+	}
+
+	return (object) array(
+		'hook'      => $hook,
+		'timestamp' => $GLOBALS['cron'][ $hook ],
+		'schedule'  => isset( $GLOBALS['cron_recurrence'][ $hook ] ) ? $GLOBALS['cron_recurrence'][ $hook ] : 'daily',
+	);
+}
 function get_users( $args ) {
 	$ids = array();
 	foreach ( $GLOBALS['users'] as $id => $user ) {
@@ -244,11 +309,9 @@ if ( ! class_exists( 'WPCPM_Mentors_Sync' ) ) {
 	}
 }
 
-if ( ! class_exists( 'WPCPM_Students_Sync' ) ) {
-	class WPCPM_Students_Sync {
-		const CRON_AUTO = 'wpcpm_students_daily';
-	}
-}
+// The real class, not a stand-in. Since 1.98.2 the institutions sync reads its recurrence and
+// its cycle origin from here, and a stub would let the two drift apart without a failure.
+require_once dirname( __DIR__ ) . '/includes/modules/class-wpcpm-students-sync.php';
 
 if ( ! class_exists( 'WPCPM_Countries' ) ) {
 	class WPCPM_Countries {
@@ -280,9 +343,9 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const OPT_PREFIX    = 'wpcpm_agreement_';
 		public static function option_name( $record_id ) { return self::OPT_PREFIX . $record_id; }
 		/**
-		 * The nightly retry, at the two things this file cares about: it is called, its
-		 * answer is a count, and a mark it clears ends in a `rebuild()` that writes the
-		 * agreement option back. `retry_cleared` is how many cells a night had to finish and
+		 * The retry, run every three hours, at the two things this file cares about: it is
+		 * called, its answer is a count, and a mark it clears ends in a `rebuild()` that writes
+		 * the agreement option back. `retry_cleared` is how many cells a night had to finish and
 		 * `retry_rebuilds` names the institution whose option the real method would rewrite,
 		 * which is what makes the order of this phase provable rather than assumed.
 		 *
@@ -485,6 +548,7 @@ function reset_site( array $seed, array $override = array() ) {
 	$GLOBALS['opts']            = array();
 	$GLOBALS['autoload']        = array();
 	$GLOBALS['cron']            = array();
+	$GLOBALS['cron_recurrence'] = array();
 	$GLOBALS['calls']           = array();
 	$GLOBALS['users']           = array();
 	$GLOBALS['members']         = array();
@@ -886,7 +950,7 @@ $GLOBALS['pages']['tbl4V0FEbzRP7I2w2'] = airtable_pages(
 WPCPM_Institutions_Sync::start();
 run_to_end();
 
-ck( 'and the nightly run creates no second account for either of them',
+ck( 'and the next sync run creates no second account for either of them',
 	array( count( $GLOBALS['calls']['wp_insert_user'] ), get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['provisioned'] ),
 	array( 1, 0 ) );
 
@@ -1147,23 +1211,90 @@ ck( 'a finished run reports 100 and not running', array( WPCPM_Institutions_Sync
 
 echo "\n=== The schedule ===\n";
 
+// Since 1.98.2 every Airtable sync runs on the one three-hour recurrence, staggered by the
+// minute of the cycle each takes so that no two of them start in the same WP-Cron request:
+// students at +0:30, mentors at +1:00, institutions at +1:30, sponsors at +2:00. The cycle's
+// origin is the students sync's next run less its own offset, so the four positions are
+// measured from one point rather than chained off each other.
 reset_site( $seed );
-$GLOBALS['cron'][ WPCPM_Students_Sync::CRON_AUTO ] = 2000000000;
-WPCPM_Institutions_Sync::schedule();
-// Four hours, not six: the students sync recurs every three, so six would land this run on
-// one of its slots and WP-Cron would fire both hooks in the same request.
-ck( 'the daily run sits four hours after the students sync', $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ], 2000000000 + 4 * HOUR_IN_SECONDS );
-ck( 'which is not a slot the students sync itself uses', 0 !== ( ( 4 * HOUR_IN_SECONDS ) % ( 3 * HOUR_IN_SECONDS ) ), true );
-ck( 'on the daily recurrence', $GLOBALS['cron_recurrence'][ WPCPM_Institutions_Sync::CRON_DAILY ], 'daily' );
+$GLOBALS['cron'][ WPCPM_Students_Sync::CRON_AUTO ]            = 2000000000;
+$GLOBALS['cron_recurrence'][ WPCPM_Students_Sync::CRON_AUTO ] = WPCPM_Students_Sync::EVERY_THREE_HOURS;
+$cycle = 2000000000 - WPCPM_Students_Sync::SCHEDULE_OFFSET_MINUTES * MINUTE_IN_SECONDS;
 
-$GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ] = 1234;
 WPCPM_Institutions_Sync::schedule();
-ck( 'an existing event is left alone', $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ], 1234 );
+
+ck( 'the run sits at +1:30 of the three-hour cycle', $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ], $cycle + 90 * MINUTE_IN_SECONDS );
+ck( 'on the three-hour recurrence the students sync registers', wp_get_schedule( WPCPM_Institutions_Sync::CRON_DAILY ), WPCPM_Students_Sync::EVERY_THREE_HOURS );
+ck( 'and no daily event is left behind', 'daily' === wp_get_schedule( WPCPM_Institutions_Sync::CRON_DAILY ), false );
+// The recurrence is registered once, by the students sync, and referenced here. Registering a
+// second interval under another name would give two sets of events nobody could keep in step.
+ck( 'the offset is read from the class rather than copied', WPCPM_Institutions_Sync::SCHEDULE_OFFSET_MINUTES, 90 );
+// The mentors run is named here too, because it is the neighbour this one is nearest to: it
+// takes +1:00 and this takes +1:30. Its offset is read from the source rather than the class -
+// this suite carries a two-method stand-in for WPCPM_Mentors_Sync and the real one needs an
+// Airtable stand-in that is not here - and all four offsets are held apart against each other
+// in bin/test-sponsors-sync.php, where every one of the four classes is loaded.
+$mentors_src = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-mentors-sync.php' );
+$mentors_off = preg_match( '/const SCHEDULE_OFFSET_MINUTES\s*=\s*(\d+);/', $mentors_src, $m ) ? (int) $m[1] : 0;
+
+ck( 'and it is a different minute of the cycle from the students run and the mentors run, inside the cycle',
+	array(
+		$mentors_off > 0,
+		WPCPM_Institutions_Sync::SCHEDULE_OFFSET_MINUTES === WPCPM_Students_Sync::SCHEDULE_OFFSET_MINUTES,
+		WPCPM_Institutions_Sync::SCHEDULE_OFFSET_MINUTES === $mentors_off,
+		WPCPM_Institutions_Sync::SCHEDULE_OFFSET_MINUTES < 180,
+	),
+	array( true, false, false, true ) );
+
+// A second call changes nothing: the recurrence already matches, so the event keeps its moment.
+$placed = $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ];
+WPCPM_Institutions_Sync::schedule();
+ck( 'a second call leaves the event where it is', $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ], $placed );
+
+// **The upgrade path.** An event already in the cron array keeps whatever schedule it was
+// created with, so a site that has been running this sync daily would go on running it daily
+// forever with the code here saying three hours and nothing anywhere reporting the
+// disagreement. The recurrence is checked, not merely the existence.
+$GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ]            = 1234;
+$GLOBALS['cron_recurrence'][ WPCPM_Institutions_Sync::CRON_DAILY ] = 'daily';
+
+WPCPM_Institutions_Sync::schedule();
+
+ck( 'a daily event left by an earlier version moves onto the three-hour recurrence', wp_get_schedule( WPCPM_Institutions_Sync::CRON_DAILY ), WPCPM_Students_Sync::EVERY_THREE_HOURS );
+ck( 'and takes the cycle offset rather than keeping its old moment', $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ], $cycle + 90 * MINUTE_IN_SECONDS );
+
+$placed = $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ];
+WPCPM_Institutions_Sync::schedule();
+ck( 'and the run after the upgrade changes nothing again', array( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ], wp_get_schedule( WPCPM_Institutions_Sync::CRON_DAILY ) ), array( $placed, WPCPM_Students_Sync::EVERY_THREE_HOURS ) );
 
 reset_site( $seed );
 $before = time();
 WPCPM_Institutions_Sync::schedule();
-ck( 'with no students sync scheduled, four hours from now', array( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ] >= $before + 4 * HOUR_IN_SECONDS ), array( true ) );
+ck( 'with no students sync scheduled, the cycle starts now',
+	array(
+		$GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ] >= $before + 90 * MINUTE_IN_SECONDS,
+		$GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ] <= time() + 90 * MINUTE_IN_SECONDS,
+	),
+	array( true, true ) );
+ck( 'still on the three-hour recurrence', wp_get_schedule( WPCPM_Institutions_Sync::CRON_DAILY ), WPCPM_Students_Sync::EVERY_THREE_HOURS );
+
+// **A stalled site keeps the stagger.** `cycle_start()` reads the students sync's next run, and
+// on a site whose WP-Cron has not fired for hours that timestamp is already in the past: the
+// cycle it names is over, and every offset measured into it is overdue with it, so the one
+// catch-up request that finally comes fires two syncs together - the single thing the offsets
+// exist to prevent. The origin is never earlier than now, so the first run after a stall is
+// staggered again.
+reset_site( $seed );
+$GLOBALS['cron'][ WPCPM_Students_Sync::CRON_AUTO ]            = time() - 5 * HOUR_IN_SECONDS;
+$GLOBALS['cron_recurrence'][ WPCPM_Students_Sync::CRON_AUTO ] = WPCPM_Students_Sync::EVERY_THREE_HOURS;
+$before = time();
+WPCPM_Institutions_Sync::schedule();
+ck( 'a students run five hours overdue does not drag this one into the past with it',
+	array(
+		WPCPM_Students_Sync::cycle_start() >= $before,
+		$GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ] >= $before + 90 * MINUTE_IN_SECONDS,
+	),
+	array( true, true ) );
 
 WPCPM_Institutions_Sync::start();
 WPCPM_Institutions_Sync::unschedule();
@@ -1191,10 +1322,33 @@ WPCPM_Institutions_Sync::cron_daily();
 ck( 'but restarts a stalled one from the top', array( get_option( WPCPM_Institutions_Sync::OPT_STATE )['phase'], get_option( WPCPM_Institutions_Sync::OPT_STATE )['started'] > 1500000000 ), array( 'countries', true ) );
 
 reset_site( $seed );
+// **Nothing has registered the recurrence yet, and that is the activation request exactly.**
+// `register_activation_hook()` fires in a request where `plugins_loaded` has already run, so
+// `wpcpm_bootstrap()` has not, so `WPCPM_Students_Sync::register_cron()` has not put
+// `cron_interval()` on the `cron_schedules` filter. Core drops an event whose recurrence it
+// cannot name, so `schedule()` has to register the interval itself before it schedules or the
+// site comes up with no event at all and nothing saying so.
+$GLOBALS['filters'] = array();
 WPCPM_Institutions_Sync::activate();
 ck( 'activate() schedules and refreshes the countries', array( isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ] ), count( $GLOBALS['calls']['countries_refresh'] ) ), array( true, 1 ) );
+// A fresh activation goes straight onto the three-hour recurrence: there is no daily event to
+// migrate from, and the site must not spend a day on the old cadence waiting for one.
+ck( 'and a fresh activation schedules the three-hour event directly', wp_get_schedule( WPCPM_Institutions_Sync::CRON_DAILY ), WPCPM_Students_Sync::EVERY_THREE_HOURS );
+ck( 'because it registered the recurrence itself first', array_key_exists( WPCPM_Students_Sync::EVERY_THREE_HOURS, wp_get_schedules() ), true );
+WPCPM_Institutions_Sync::schedule();
+ck( 'and registered it once, however many times schedule() runs', count( isset( $GLOBALS['filters']['cron_schedules'] ) ? $GLOBALS['filters']['cron_schedules'] : array() ), 1 );
 WPCPM_Institutions_Sync::deactivate();
 ck( 'deactivate() unschedules', isset( $GLOBALS['cron'][ WPCPM_Institutions_Sync::CRON_DAILY ] ), false );
+
+// **Only the Airtable syncs moved.** The housekeeping runs sweep the site's own tables and the
+// mentor checker scrapes WordPress.org profiles; neither reads Airtable, so neither has a
+// reason to run eight times a day. Read from the source, because the classes that schedule
+// them are not loaded here and the point is that the recurrence in the code did not change.
+$housekeeping = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-institutions.php' );
+$checker      = file_get_contents( dirname( __DIR__ ) . '/includes/tools/class-wpcpm-mentor-checker-runner.php' );
+
+ck( 'the application-purge sweep is still daily', false !== strpos( $housekeeping, "'daily', WPCPM_Ceiling::CRON_SWEEP" ), true );
+ck( 'and the mentor checker is still weekly', false !== strpos( $checker, "'weekly', self::CRON_HOOK" ), true );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

@@ -4,7 +4,7 @@ Theme URI: https://example.com/wpcredits-theme
 Author: Maciej Pilarski
 Author URI: https://example.com
 Description: A block theme and the front end for the WPCredits Program Manager plugin. Gives the program a landing page built from patterns, a branded login, and a full-width "My Students" template that dresses the plugin's own mentor dashboard as a compact, triaged, printable list. Chrome follows the WordPress Education Initiatives site; inside the dashboard the patterns are wp-admin native.
-Version: 1.24.1
+Version: 1.24.2
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -69,6 +69,12 @@ Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, 
 	--wpc-green: var( --wp--custom--status--green );
 	--wpc-green-tint: var( --wp--custom--status--green-tint );
 	--wpc-green-border: var( --wp--custom--status--green-border );
+
+	/* The Designer Track chip's tint (theme 1.24.2). A track is not a status, so it is its own
+	   group rather than a fourth color in `status`, and the next track that needs one has a
+	   place to go. The value is the plugin sheet's rose over white, so a site running the
+	   plugin without this theme sees the same chip. */
+	--wpc-track-design: var( --wp--custom--track--design );
 
 	--wpc-radius-card: var( --wp--custom--radius--card );
 	--wpc-radius-panel: var( --wp--custom--radius--panel );

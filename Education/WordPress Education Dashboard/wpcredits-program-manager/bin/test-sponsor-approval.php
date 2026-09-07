@@ -626,7 +626,7 @@ reset_world();
 $id     = seed_application( 'new', array(), array(), false );
 $result = approve( $id );
 ck( 'no attachment, no logo step and no Logo cell', array( $GLOBALS['journal'], array_key_exists( 'Logo', $GLOBALS['created'][0]['records'][0]['fields'] ) ), array( array( 'create', 'account', 'category', 'offer', 'invite', 'audit' ), false ) );
-ck( 'and the logo record is untouched, so the nightly sync may copy the base\'s', WPCPM_Sponsors_Index::logo_record( 'recSPN00000000009' ), array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
+ck( 'and the logo record is untouched, so the next sync may copy the base\'s', WPCPM_Sponsors_Index::logo_record( 'recSPN00000000009' ), array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
 
 echo "\n=== The index's insert ===\n";
 reset_world();
