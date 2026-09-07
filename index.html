@@ -257,10 +257,11 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   const recPct = (fb.recommend && fb.recommend.pct != null) ? fb.recommend.pct + '%' : '—';
   const keepPct = (fb.keep && fb.keep.pct != null) ? fb.keep.pct + '%' : '—';
   const impact = (fb.ratings && fb.ratings.impact) || {};
-  // Partner institutions: the per-country breakdown and the map come from the
-  // same confirmed set, so the two always agree. `partnerCount` is still derived
-  // from the live data but is intentionally not shown as a card — restoring the
-  // card is a one-line change.
+  // Partner institutions: the count, the per-country breakdown and the map all
+  // come from the same confirmed set, so they always agree. `partnerCount` and
+  // `countryRows` are still derived from the live data but are intentionally not
+  // rendered — restoring either one is a one-line change. `instCountries` is
+  // still live either way: the Countries card counts it (see `countryCount`).
   const partnerCount = g.partnerInstitutions || 0;
   const instCountries = g.instCountries || {};
   const countryRows = Object.entries(instCountries)
@@ -293,7 +294,6 @@ document.querySelectorAll('.nav-item').forEach(tab => {
       <div style="position:relative;height:260px"><canvas id="instGrowthChart"></canvas></div>
     </div>
     <div class="chart-container"><h3>Where our partners are</h3><div class="chart-sub">Partner institutions around the world</div><div id="instMap"></div></div>
-    <div class="chart-container"><h3>Partners by country</h3><div class="chart-sub">Confirmed partner institutions in each country</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:2px 32px">${countryRows}</div></div>
     <div class="chart-container"><h3>Who's joined us</h3><div class="chart-sub">The academic backgrounds students bring</div><div id="fosChart"></div></div>
 
     <div class="act-label act-skills">Skills unlocked</div>
