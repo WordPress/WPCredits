@@ -242,6 +242,9 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   // Graduation rate is completion among students who actually reached an outcome
   // (graduated or dropped out) — students still in the program are not counted as
   // failures. "Not moving forward" (never enrolled) is excluded from every denominator.
+  // `act` (students currently in the program) has no card of its own on the
+  // dashboard, but it is still read from the live data and counted into
+  // `started` — "Students who have joined to date" depends on it.
   const grad = g.graduates || 0, drop = g.dropouts || 0, act = g.activeStudents || 0;
   const finished = grad + drop, started = grad + drop + act;
   const completionRate = finished > 0 ? Math.round(grad / finished * 100) : null;
@@ -254,8 +257,10 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   const recPct = (fb.recommend && fb.recommend.pct != null) ? fb.recommend.pct + '%' : '—';
   const keepPct = (fb.keep && fb.keep.pct != null) ? fb.keep.pct + '%' : '—';
   const impact = (fb.ratings && fb.ratings.impact) || {};
-  // Partner institutions: the count and the per-country breakdown come from the
-  // same confirmed set the map is built from, so all three always agree.
+  // Partner institutions: the per-country breakdown and the map come from the
+  // same confirmed set, so the two always agree. `partnerCount` is still derived
+  // from the live data but is intentionally not shown as a card — restoring the
+  // card is a one-line change.
   const partnerCount = g.partnerInstitutions || 0;
   const instCountries = g.instCountries || {};
   const countryRows = Object.entries(instCountries)
@@ -265,10 +270,8 @@ document.querySelectorAll('.nav-item').forEach(tab => {
   el.innerHTML = `
     <div class="act-label act-scale">Scale &amp; momentum</div>
     <div class="cards">
-      <div class="card"><div class="num" id="ovActive">${g.activeStudents}</div><div class="lbl">Students currently in the program</div></div>
       <div class="card"><div class="num">${started}</div><div class="lbl">Students who have joined to date</div></div>
       <div class="card"><div class="num">${grad}</div><div class="lbl">Graduates to date</div></div>
-      <div class="card"><div class="num">${partnerCount}</div><div class="lbl">Partner institutions</div></div>
       <div class="card"><div class="num">${countryCount}</div><div class="lbl">Countries</div></div>
     </div>
     <div class="chart-container">
