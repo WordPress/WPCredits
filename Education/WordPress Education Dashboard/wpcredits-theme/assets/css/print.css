@@ -169,7 +169,10 @@ body {
 	padding: 4px 0 0;
 }
 
-.wpcpm-mentee__table {
+/* `.wpc-dashboard-page` on every one of these, matching the screen skin's shared table rules:
+   this sheet loads after that one but load order settles nothing against a heavier selector,
+   and since 1.99.0 the shared dressing carries the body class. */
+.wpc-dashboard-page .wpcpm-mentee__table {
 	border: 0;
 	font-size: 9pt;
 	margin-bottom: 6px;
@@ -178,15 +181,15 @@ body {
 /* Every cell on one running line. `tbody` is in the selector because both the
    plugin and the screen skin style these cells that specifically, and a shorter
    selector would leave their bottom borders drawing rules under every value. */
-.wpcpm-mentee__table tbody tr,
-.wpcpm-mentee__table tbody th,
-.wpcpm-mentee__table tbody td {
+.wpc-dashboard-page .wpcpm-mentee__table tbody tr,
+.wpc-dashboard-page .wpcpm-mentee__table tbody th,
+.wpc-dashboard-page .wpcpm-mentee__table tbody td {
 	border: 0;
 	display: inline;
 	padding: 0;
 }
 
-.wpcpm-mentee__table tbody th::after {
+.wpc-dashboard-page .wpcpm-mentee__table tbody th::after {
 	content: " ";
 }
 
@@ -195,12 +198,12 @@ body {
 	display: inline;
 }
 
-.wpcpm-mentee__table tbody th {
+.wpc-dashboard-page .wpcpm-mentee__table tbody th {
 	color: #757575;
 	font-weight: 400;
 }
 
-.wpcpm-mentee__table .wpcpm-mentee__value::after {
+.wpc-dashboard-page .wpcpm-mentee__table .wpcpm-mentee__value::after {
 	content: " · ";
 	color: #757575;
 }

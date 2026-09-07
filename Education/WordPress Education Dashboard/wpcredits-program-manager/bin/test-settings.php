@@ -635,7 +635,12 @@ ck( 'and the application form is no longer filed under Students', false !== strp
 
 // A rendered checkbox is read unconditionally on save, so the two that moved must be off the
 // unrendered list or the first save of this screen would switch them both off.
-preg_match( '/const UNRENDERED_SWITCHES = array\( (.*?) \);/', $admin, $unrendered );
+// The list is empty today, so the pattern has to allow `array()` with nothing between the
+// parentheses: written to expect a value, it matched nothing and the two reads below were of
+// an array key that was not there.
+$found = preg_match( '/const UNRENDERED_SWITCHES = array\((.*?)\);/s', $admin, $unrendered );
+
+ck( 'the unrendered list is where the check looks for it', $found, 1 );
 
 ck( 'the two switches that gained a control are off the unrendered list', array(
 	false !== strpos( $unrendered[1], "'institution_home'" ),

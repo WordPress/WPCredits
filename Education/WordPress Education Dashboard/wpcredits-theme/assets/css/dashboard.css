@@ -893,32 +893,108 @@
 	margin: 0;
 }
 
-/* Detail tables read as the mentor page's do. */
-.wpc-dashboard-page .wpcpm-student__table {
+/* -------------------------------------------------------------------------
+   Dashboard tables
+
+   One dressing for every table a dashboard draws: the Student Report Card's My profile and My
+   mentor tables, the Institution Dashboard's roster and student tables, the Sponsor Dashboard's
+   Usage card and the Administrator Dashboard's queues. All four are the same markup - a table
+   with `<th scope="col">` column headers and `<th scope="row">` row headers - and until 1.24.3
+   each was dressed by its own page's block. A row header weighed 700 on the Sponsor Dashboard,
+   500 on the Institution Dashboard and, once 1.24.1's `font` shorthand reset the weight along
+   with the size, 400 on the Administrator Dashboard; between them the three used three paddings,
+   two rule colors and a 13px uppercase column header nobody else had. A manager moving between
+   the pages saw the same table drawn three ways (deep check FFRNT-7). The Institution
+   Dashboard's values are the ones kept, and they are written once, here.
+
+   The page blocks further down add layout and nothing else: a label column's width, a totals
+   row's weight, a cell's vertical alignment, the narrow-screen stack. None of them says the
+   face, the padding or the line again.
+
+   `thead`, `tbody` and `tfoot` are in the cell selectors on purpose. The plugin dresses the
+   Institution Dashboard's cells as `.wpcpm-mentee__table tbody th`, so a rule one element
+   shorter would lose to the plugin's own gray however late this sheet loads.
+
+   And `.wpc-dashboard-page` is on every one of them, as it is on the rest of this sheet. 1.24.3
+   wrote the block once and dropped the page prefixes with the duplication, which widened it
+   from "a table on a dashboard" to "any table this theme draws" - a post's table included.
+   Nothing shows it today, because the plugin has no rule heavier than these; the next one would
+   be the bug (the whole-branch review of 1.99.0). The class is on the body of all five
+   dashboards, so one prefix covers the four tables. `bin/check-selectors.php` refuses a shared
+   table rule without it.
+   ------------------------------------------------------------------------- */
+.wpc-dashboard-page .wpcpm-student__table,
+.wpc-dashboard-page .wpcpm-mentee__table,
+.wpc-dashboard-page .wpcpm-usage,
+.wpc-dashboard-page .wpcpm-admin-table {
 	background: var( --wpc-surface );
 	border: 1px solid var( --wpc-line-card );
 	border-collapse: collapse;
-	/* 14px: the label and the value on every row of My profile and My mentor (13px until 1.19.5). */
+	/* 14px: every label and every value on all four (the student's were 13px until 1.19.5). */
 	font: 14px/20px var( --wpc-font );
 	width: 100%;
 }
 
-.wpc-dashboard-page .wpcpm-student__table th,
-.wpc-dashboard-page .wpcpm-student__table td {
+/* No `thead` for the student's tables or the Institution Dashboard's: both are label-and-value
+   tables of `<th scope="row">` rows, so a `thead th` selector for either dressed nothing and
+   was dropped in the fix wave. The Usage card and the Administrator Dashboard's queues do have
+   column headers, and theirs are below. */
+.wpc-dashboard-page .wpcpm-student__table tbody th,
+.wpc-dashboard-page .wpcpm-student__table tbody td,
+.wpc-dashboard-page .wpcpm-mentee__table tbody th,
+.wpc-dashboard-page .wpcpm-mentee__table tbody td,
+.wpc-dashboard-page .wpcpm-usage thead th,
+.wpc-dashboard-page .wpcpm-usage tbody th,
+.wpc-dashboard-page .wpcpm-usage tbody td,
+.wpc-dashboard-page .wpcpm-usage tfoot th,
+.wpc-dashboard-page .wpcpm-usage tfoot td,
+.wpc-dashboard-page .wpcpm-admin-table thead th,
+.wpc-dashboard-page .wpcpm-admin-table tbody th,
+.wpc-dashboard-page .wpcpm-admin-table tbody td {
 	border-bottom: 1px solid var( --wpc-line-soft );
 	padding: 9px 12px;
 	vertical-align: top;
 }
 
-.wpc-dashboard-page .wpcpm-student__table th {
-	color: var( --wpc-ink-70 );
+/* A row's own header is a cell to read - the field's name, the offer's name, the institution's
+   name - so it takes the label weight and none of a column header's shouting. */
+.wpc-dashboard-page .wpcpm-student__table tbody th,
+.wpc-dashboard-page .wpcpm-mentee__table tbody th,
+.wpc-dashboard-page .wpcpm-usage tbody th,
+.wpc-dashboard-page .wpcpm-usage tfoot th,
+.wpc-dashboard-page .wpcpm-admin-table tbody th {
 	font: 500 14px/20px var( --wpc-font );
-	width: 170px;
+	text-align: left;
 }
 
-.wpc-dashboard-page .wpcpm-student__table tr:last-child th,
-.wpc-dashboard-page .wpcpm-student__table tr:last-child td {
+/* A column header names its column, so it is the heavier of the two - and at the same size as
+   everything under it, not the 13px uppercase the Administrator Dashboard alone used to draw.
+   Left, because a `th` is centered until something says otherwise. */
+.wpc-dashboard-page .wpcpm-usage thead th,
+.wpc-dashboard-page .wpcpm-admin-table thead th {
+	font: 700 14px/20px var( --wpc-font );
+	text-align: left;
+}
+
+/* No line under the table's last row: it would draw a second one against the table's own
+   border. `tbody:last-child` because the Usage card ends in a `tfoot` totals row, which is then
+   the last row and takes the rule instead. */
+.wpc-dashboard-page .wpcpm-student__table tbody:last-child tr:last-child th,
+.wpc-dashboard-page .wpcpm-student__table tbody:last-child tr:last-child td,
+.wpc-dashboard-page .wpcpm-mentee__table tbody:last-child tr:last-child th,
+.wpc-dashboard-page .wpcpm-mentee__table tbody:last-child tr:last-child td,
+.wpc-dashboard-page .wpcpm-usage tbody:last-child tr:last-child th,
+.wpc-dashboard-page .wpcpm-usage tbody:last-child tr:last-child td,
+.wpc-dashboard-page .wpcpm-usage tfoot tr:last-child th,
+.wpc-dashboard-page .wpcpm-usage tfoot tr:last-child td,
+.wpc-dashboard-page .wpcpm-admin-table tbody:last-child tr:last-child th,
+.wpc-dashboard-page .wpcpm-admin-table tbody:last-child tr:last-child td {
 	border-bottom: 0;
+}
+
+/* Layout, and only layout: the label column is fixed so the values line up down the table. */
+.wpc-dashboard-page .wpcpm-student__table tbody th {
+	width: 170px;
 }
 
 .wpc-dashboard-page .wpcpm-student__row.is-empty {
@@ -1309,29 +1385,12 @@
 	font: 700 24px/28px var( --wpc-font );
 }
 
-/* Tables: the theme's line, numbers right-aligned in tabular figures, a muted breakdown. */
-.wpc-administrator-page .wpcpm-admin-table th,
-.wpc-administrator-page .wpcpm-admin-table td {
-	border-bottom: 1px solid var( --wpc-line );
-}
-
-.wpc-administrator-page .wpcpm-admin-table th {
-	font: 700 13px/18px var( --wpc-font );
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-}
-
-/* A row's own header (the offer's name in Offers running low, plugin 1.98.0, is a th with
-   scope="row") is a cell to read, not a column label: the cell's face, no tracking, no
-   capitals (1.24.1). */
-.wpc-administrator-page .wpcpm-admin-table tbody th {
-	font: 14px/20px var( --wpc-font );
-	letter-spacing: 0;
-	text-transform: none;
-}
-
-/* A row's text sits on the same line as its button, not at the top of a 55px cell. */
-.wpc-administrator-page .wpcpm-admin-table td {
+/* The queues take the shared dashboard table above, face, padding and line. 1.24.1's rule for a
+   row header - the offer's name in Offers running low is a `th` with scope="row" - and the
+   uppercase column header it was correcting both went there in 1.24.3, where every dashboard
+   gets them (deep check FFRNT-7). What is left here is layout: a row's text sits on the same
+   line as its button, not at the top of a 55px cell. */
+.wpc-administrator-page .wpcpm-admin-table tbody td {
 	vertical-align: middle;
 }
 
@@ -1886,6 +1945,21 @@
 	font-size: 14px;
 }
 
+/* A claimed code is a `<button type="button">` since plugin 1.99.0, so that the tab stop it has
+   always had announces a role and a name (deep check FFRNT-6). The plugin's sheet resets the
+   button's own look; the reset is said again here in the theme's values, because the rule above
+   is two classes and outweighs the plugin's one-class `button.wpcpm-tools__code` wherever both
+   name a property. Only the button: an `a` with the same class is a checkout link and keeps the
+   theme's link color. */
+.wpc-dashboard-page button.wpcpm-tools__code {
+	-webkit-appearance: none;
+	appearance: none;
+	color: var( --wpc-ink );
+	font: 14px/20px var( --wpc-mono );
+	margin: 0;
+	text-align: left;
+}
+
 .wpc-dashboard-page .wpcpm-tools__warning {
 	color: var( --wpc-amber );
 	opacity: 1;
@@ -2103,18 +2177,9 @@
 	margin: 4px 0 0;
 }
 
-.wpc-sponsor-page .wpcpm-usage {
-	border-collapse: collapse;
-	width: 100%;
-}
-
-.wpc-sponsor-page .wpcpm-usage th,
-.wpc-sponsor-page .wpcpm-usage td {
-	border-bottom: 1px solid var( --wpc-line-soft );
-	padding: 6px 10px;
-	text-align: left;
-}
-
+/* The Usage card takes the shared dashboard table above; its own 6px 10px cells and its 700
+   row headers went there in 1.24.3 (deep check FFRNT-7). The totals row keeps its weight,
+   because a total is a different kind of row and not the same row drawn differently. */
 .wpc-sponsor-page .wpcpm-usage__totals th,
 .wpc-sponsor-page .wpcpm-usage__totals td {
 	font-weight: 700;
@@ -2885,37 +2950,13 @@
 /* ==========================================================================
    The details table
    ========================================================================== */
-.wpcpm-mentee__table {
-	background: var( --wpc-surface );
-	border: 1px solid var( --wpc-line-card );
-	border-collapse: collapse;
-	font: 14px/20px var( --wpc-font );
-	width: 100%;
-}
-
-/* The label column is fixed so values line up down the table. The width lived on
-   the header row until the plugin dropped it, which left the columns to size
-   themselves off whichever row happened to be longest. */
-.wpcpm-mentee__table tbody th {
+/* Its face, its padding and its line are the shared dashboard table's, near the top of this
+   sheet - these were the values every other dashboard took in 1.24.3 (deep check FFRNT-7).
+   What is left here is layout: the label column is fixed so the values line up down the table.
+   The width lived on the header row until the plugin dropped it, which left the columns to
+   size themselves off whichever row happened to be longest. */
+.wpc-dashboard-page .wpcpm-mentee__table tbody th {
 	width: 170px;
-	font: 500 14px/20px var( --wpc-font );
-	text-align: left;
-	vertical-align: top;
-}
-
-/* `tbody` in the selector on purpose: the plugin styles these cells as
-   `.wpcpm-mentee__table tbody th`, so a rule one class shorter would lose the
-   border color to its `color-mix()` gray. */
-.wpcpm-mentee__table tbody th,
-.wpcpm-mentee__table tbody td {
-	border-bottom: 1px solid var( --wpc-line-soft );
-	padding: 9px 12px;
-	vertical-align: top;
-}
-
-.wpcpm-mentee__table tbody tr:last-child th,
-.wpcpm-mentee__table tbody tr:last-child td {
-	border-bottom: 0;
 }
 
 /* A gap in Airtable reads as a gap in Airtable, not as a row the page forgot. */
@@ -3894,27 +3935,33 @@
 		grid-area: auto;
 	}
 
-	.wpcpm-mentee__table,
-	.wpcpm-mentee__table tbody,
-	.wpcpm-mentee__table tr,
-	.wpcpm-mentee__table th,
-	.wpcpm-mentee__table td {
+	/* `.wpc-dashboard-page` on all of these, like the shared table rules near the top of the
+	   sheet: a media query adds no specificity, so an override written one class lighter than
+	   the rule it overrides loses wherever it sits. */
+	.wpc-dashboard-page .wpcpm-mentee__table,
+	.wpc-dashboard-page .wpcpm-mentee__table tbody,
+	.wpc-dashboard-page .wpcpm-mentee__table tr,
+	.wpc-dashboard-page .wpcpm-mentee__table th,
+	.wpc-dashboard-page .wpcpm-mentee__table td {
 		display: block;
 		width: auto;
 	}
 
-	.wpcpm-mentee__table tr {
+	.wpc-dashboard-page .wpcpm-mentee__table tr {
 		border-bottom: 1px solid var( --wpc-line-soft );
 		padding: 6px 0;
 	}
 
-	.wpcpm-mentee__table th,
-	.wpcpm-mentee__table td {
+	/* `tbody` for the same reason the shared table rule uses it: this has to outweigh
+	   `.wpc-dashboard-page .wpcpm-mentee__table tbody th`, which is where the border and the
+	   padding are set. */
+	.wpc-dashboard-page .wpcpm-mentee__table tbody th,
+	.wpc-dashboard-page .wpcpm-mentee__table tbody td {
 		border: 0;
 		padding: 3px 12px;
 	}
 
-	.wpcpm-mentee__table td::before {
+	.wpc-dashboard-page .wpcpm-mentee__table td::before {
 		color: var( --wpc-ink-60 );
 		content: attr( data-label ) ": ";
 	}

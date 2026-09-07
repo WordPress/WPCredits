@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **A UTF-8 BOM is written first.** Excel reads a BOM-less UTF-8 CSV as the machine's legacy
  * code page, and every accented letter then arrives as two wrong characters. The program's
- * rosters are made of such names: Universidad Fidelitas carries an accent in the base, and so
+ * rosters are made of such names: a partner institution's name carries an accent in the base, and so
  * do most of the Spanish, Portuguese and Polish student names underneath it. A school opening
  * a file of its own students to find their names broken has been handed a worse artefact than
  * none. The import side refuses a Latin-1 file for the same reason, from the other direction.

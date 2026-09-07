@@ -63,6 +63,9 @@ $GLOBALS['audit']       = array();
 $GLOBALS['mail']        = array();
 $GLOBALS['mailed_raw']  = array();
 $GLOBALS['nonce']       = array();
+// The action string the nonce this request carries was minted for, or null for "whatever is
+// asked". Only the download's keying checks set it (FSUIT-9).
+$GLOBALS['nonce_held']  = null;
 $GLOBALS['hooks']       = array();
 $GLOBALS['referer']     = '';
 $GLOBALS['temp_files']  = array();
@@ -134,7 +137,16 @@ function add_query_arg( $args, $url = '' ) { return $url . ( false === strpos( $
 function wp_get_referer() { return $GLOBALS['referer']; }
 function wp_nonce_field( $a ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />'; }
 function wp_nonce_url( $url, $a ) { return $url . '&_wpnonce=' . rawurlencode( $a ); }
-function check_admin_referer( $a ) { $GLOBALS['nonce'][] = $a; return true; }
+function check_admin_referer( $a ) {
+	$GLOBALS['nonce'][] = $a;
+	// A nonce is only ever good for the action string it was minted for, which is what
+	// keying the download's action to the document ID buys. With `nonce_held` null this
+	// accepts anything, as every check but that one wants.
+	if ( null !== $GLOBALS['nonce_held'] && $GLOBALS['nonce_held'] !== $a ) {
+		wp_die( 'The link you followed has expired.', 403 );
+	}
+	return true;
+}
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function get_user_by( $f, $v ) { return ( 'id' === $f && isset( $GLOBALS['users'][ (int) $v ] ) ) ? $GLOBALS['users'][ (int) $v ] : false; }
@@ -612,16 +624,18 @@ $_POST = array( 'wpcpm_sponsor_agr_post' => $second );
 ck( 'the sponsor takes it back', ran( 'handle_withdraw' ), 'agreement-withdrawn|agreement|' . $S . '|' );
 ck( 'the file goes at once rather than on the cron\'s schedule', array( (string) get_post_meta( $second, WPCPM_Sponsor_Agreement::META_STATE, true ), in_array( 'forget', $GLOBALS['journal'], true ) ), array( 'withdrawn', true ) );
 ck( 'the post is kept, because the history is what the next manager reads', get_post( $second ) instanceof WP_Post, true );
-ck( 'the base is told the queue entry is gone', patched_cells( count( $GLOBALS['patched'] ) - 1 ), array( 'Agreement Status' => 'Not started' ) );
+ck( 'with nothing else standing, the base is told the queue entry is gone', patched_cells( count( $GLOBALS['patched'] ) - 1 ), array( 'Agreement Status' => 'Not started' ) );
 ck( 'nothing is mailed: nothing happened anybody else needs telling about', count( $GLOBALS['mail'] ), 2 );
 ck( 'a second press finds nothing to withdraw', ran( 'handle_withdraw' ), 'agreement-gone|agreement||' );
 
 echo "\n=== The sync finishes a write the base refused, on the next run ===\n";
-// The upload the base refused above is still owed its cell, and this is the run that owes it:
-// the mark means nothing unless something later reads it.
+// The upload the base refused above was withdrawn once the base was answering again, and the
+// withdrawal wrote the cell itself, so nothing here is owed: the mark names a write, not a
+// document (FAGRM-2). The block under it is the one that leaves a write genuinely owed, and
+// that is where the retry is read.
 $GLOBALS['patched'] = array();
-ck( 'the marked upload is written from the state the site holds now, not the one that failed', array( WPCPM_Sponsor_Agreement::retry_airtable(), patched_cells( 0 ) ), array( 1, array( 'Agreement Status' => 'Not started' ) ) );
-ck( 'and the mark is gone, so the next night reads nothing', (string) get_post_meta( $second, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ), '' );
+ck( 'a withdrawal whose own write landed takes the upload\'s mark with it', (string) get_post_meta( $second, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ), '' );
+ck( 'so the run has nothing to finish and sends nothing', array( WPCPM_Sponsor_Agreement::retry_airtable(), $GLOBALS['patched'] ), array( 0, array() ) );
 
 $W = 'recSPN00000000005';
 seed_index( $W, 'Retry Sponsor' );
@@ -635,18 +649,88 @@ $owed                   = (int) WPCPM_Sponsor_Agreement::posts_for( $W )[0]->ID;
 $_POST                  = array( 'wpcpm_sponsor_agr_post' => $owed );
 $GLOBALS['patch_fails'] = true;
 ck( 'a withdrawal the base refused still withdraws, and marks the document', array( ran( 'handle_withdraw' ), (int) get_post_meta( $owed, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 'agreement-withdrawn|agreement|' . $W . '|', 1 ) );
-ck( 'a night the base is still down clears nothing and keeps the mark', array( WPCPM_Sponsor_Agreement::retry_airtable(), (int) get_post_meta( $owed, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 0, 1 ) );
+ck( 'a run with the base still down clears nothing and keeps the mark', array( WPCPM_Sponsor_Agreement::retry_airtable(), (int) get_post_meta( $owed, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 0, 1 ) );
 $GLOBALS['patch_fails'] = false;
 $GLOBALS['patched']     = array();
-ck( 'the next night writes Not started, clears the mark and answers with the count', array( WPCPM_Sponsor_Agreement::retry_airtable(), patched_cells( 0 ), (string) get_post_meta( $owed, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 1, array( 'Agreement Status' => 'Not started' ), '' ) );
+ck( 'the next run writes Not started, clears the mark and answers with the count', array( WPCPM_Sponsor_Agreement::retry_airtable(), patched_cells( 0 ), (string) get_post_meta( $owed, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 1, array( 'Agreement Status' => 'Not started' ), '' ) );
 ck( 'the index block is in step with what was written', WPCPM_Sponsors_Index::row( $W )['agreement']['status'], 'Not started' );
-ck( 'and a night with nothing owed writes nothing at all', array( WPCPM_Sponsor_Agreement::retry_airtable(), count( $GLOBALS['patched'] ) ), array( 0, 1 ) );
+ck( 'and a run with nothing owed writes nothing at all', array( WPCPM_Sponsor_Agreement::retry_airtable(), count( $GLOBALS['patched'] ) ), array( 0, 1 ) );
 $sync_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php' );
 ck( 'the sponsors sync, which runs every three hours, is what calls it, behind a guard', array(
 	false !== strpos( $sync_src, "class_exists( 'WPCPM_Sponsor_Agreement' )" ),
 	false !== strpos( $sync_src, "'retry_airtable'" ),
 	false !== strpos( method_body( $sync_src, 'run_tick' ), 'self::phase_agreements( $state )' ),
 ), array( true, true, true ) );
+
+echo "\n=== A withdrawal writes what the site holds, and settles the mark it left (FAGRM-1, FAGRM-2) ===\n";
+// FAGRM-1: handle_withdraw() sent the `Not started` literal whenever no accepted agreement
+// stood, which moved the base's Agreement Status backwards over a `Returned` the program had
+// written itself, and left the manager screen reading "This site: the last document was
+// returned. Airtable: Not started." with nothing to repair it.
+$Y = 'recSPN00000000007';
+seed_index( $Y, 'Returned Sponsor' );
+$GLOBALS['users'][23] = new WP_User( 23, array( 'wpcpm_sponsor' ), 'Member Four', 'maciej@a8c.com' );
+$GLOBALS['umeta'][23] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $Y, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+$GLOBALS['uid']       = 23;
+$_POST                = array( 'wpcpm_sponsor' => $Y, 'wpcpm_sponsor_agr_signed' => '1' );
+post_file( $good );
+ran( 'handle_upload' );
+$sent_back      = (int) WPCPM_Sponsor_Agreement::posts_for( $Y )[0]->ID;
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'wpcpm_sponsor_agr_post' => $sent_back, 'wpcpm_sponsor_agr_note' => 'Page 4 is unsigned. Please sign it and upload the whole document again.' );
+ran( 'handle_return' );
+$GLOBALS['uid'] = 23;
+$_POST          = array( 'wpcpm_sponsor' => $Y, 'wpcpm_sponsor_agr_signed' => '1' );
+post_file( $good );
+ran( 'handle_upload' );
+$replacing          = (int) WPCPM_Sponsor_Agreement::posts_for( $Y )[0]->ID;
+$GLOBALS['patched'] = array();
+$_POST              = array( 'wpcpm_sponsor_agr_post' => $replacing );
+ck( 'withdrawing a replacement while a returned document stands sends that document\'s status', array( ran( 'handle_withdraw' ), patched_cells( 0 ) ), array( 'agreement-withdrawn|agreement|' . $Y . '|', array( 'Agreement Status' => 'Returned' ) ) );
+ck( 'so the index block, the card and the base say one thing between them', array( WPCPM_Sponsors_Index::row( $Y )['agreement']['status'], WPCPM_Sponsor_Agreement::summary( $Y )['state'] ), array( 'Returned', 'returned' ) );
+
+// The other half of that sentence, and the one shape the section above cannot show, because
+// what it does is nothing: with an accepted agreement standing, the withdrawal of a
+// replacement never reaches the write at all. The accepted document is what the base already
+// says, so a PATCH here could only write the same value or a worse one.
+$Z = 'recSPN00000000008';
+seed_index( $Z, 'Accepted Sponsor' );
+$GLOBALS['users'][24] = new WP_User( 24, array( 'wpcpm_sponsor' ), 'Member Five', 'maciej@a8c.com' );
+$GLOBALS['umeta'][24] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $Z, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
+$GLOBALS['uid']       = 24;
+$_POST                = array( 'wpcpm_sponsor' => $Z, 'wpcpm_sponsor_agr_signed' => '1' );
+post_file( $good );
+ran( 'handle_upload' );
+$standing       = (int) WPCPM_Sponsor_Agreement::posts_for( $Z )[0]->ID;
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'wpcpm_sponsor_agr_post' => $standing );
+ran( 'handle_accept' );
+$GLOBALS['uid'] = 24;
+$_POST          = array( 'wpcpm_sponsor' => $Z, 'wpcpm_sponsor_agr_signed' => '1' );
+post_file( $good );
+ran( 'handle_upload' );
+$replacement        = (int) WPCPM_Sponsor_Agreement::posts_for( $Z )[0]->ID;
+$GLOBALS['patched'] = array();
+$_POST              = array( 'wpcpm_sponsor_agr_post' => $replacement );
+ck( 'withdrawing a replacement while an accepted agreement stands writes nothing to the base', array( ran( 'handle_withdraw' ), $GLOBALS['patched'], WPCPM_Sponsors_Index::row( $Z )['agreement']['status'] ), array( 'agreement-withdrawn|agreement|' . $Z . '|', array(), 'Accepted' ) );
+
+// FAGRM-2: the mark an upload leaves when the base is unreachable was deleted by
+// retry_airtable() alone, so it outlived every later decision on the document and a later
+// sync run sent one more PATCH hours later on behalf of a request whose state had moved on.
+$GLOBALS['uid']         = 23;
+$_POST                  = array( 'wpcpm_sponsor' => $Y, 'wpcpm_sponsor_agr_signed' => '1' );
+$GLOBALS['patch_fails'] = true;
+post_file( $good );
+ran( 'handle_upload' );
+$marked                 = (int) WPCPM_Sponsor_Agreement::posts_for( $Y )[0]->ID;
+$GLOBALS['patch_fails'] = false;
+ck( 'an upload the base refused leaves the mark behind', (int) get_post_meta( $marked, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ), 1 );
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'wpcpm_sponsor_agr_post' => $marked );
+ran( 'handle_accept' );
+ck( 'an accept that wrote the cell itself takes the mark with it', array( (string) get_post_meta( $marked, WPCPM_Sponsor_Agreement::META_STATE, true ), (string) get_post_meta( $marked, WPCPM_Sponsor_Agreement::META_AIRTABLE_PENDING, true ) ), array( 'accepted', '' ) );
+$GLOBALS['patched'] = array();
+ck( 'so the next retry finds nothing owed and writes nothing', array( WPCPM_Sponsor_Agreement::retry_airtable(), $GLOBALS['patched'] ), array( 0, array() ) );
 
 echo "\n=== A member of one sponsor cannot touch another's document ===\n";
 $GLOBALS['uid'] = 20;
@@ -671,6 +755,18 @@ $_GET = array( 'post' => 999999, '_wpnonce' => 'x' );
 ck( 'a document this site does not hold is a 404, so guessing IDs tells a stranger nothing', substr( ran( 'handle_download' ), 0, 7 ), 'die:404' );
 $_GET = array( 'post' => $other, '_wpnonce' => 'x' );
 ck( 'another sponsor\'s document is the one refusal', substr( ran( 'handle_download' ), 0, 7 ), 'die:403' );
+
+// FSUIT-9: the action string is keyed to the document, so a link minted for one opens no
+// other; unkeyed, a single nonce would work against every document ID on the site.
+$GLOBALS['nonce_held'] = WPCPM_Sponsor_Agreement::ACTION_DOWNLOAD . '_' . $other;
+ck( 'a link minted for a document is accepted for that document, and the policy is what refuses', ran( 'handle_download' ), 'die:403:That is not something your account can do here.' );
+$GLOBALS['nonce_held'] = WPCPM_Sponsor_Agreement::ACTION_DOWNLOAD . '_' . $live;
+ck( 'and a link minted for another document is refused before this one is read', ran( 'handle_download' ), 'die:403:The link you followed has expired.' );
+$plain                 = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_title' => 'A blog post' ) );
+$_GET                  = array( 'post' => $plain, '_wpnonce' => 'x' );
+$GLOBALS['nonce_held'] = WPCPM_Sponsor_Agreement::ACTION_DOWNLOAD . '_' . $plain;
+ck( 'a post of another type, asked for with a good link of its own, is the same 404', ran( 'handle_download' ), 'die:404:That document is not one this site holds.' );
+$GLOBALS['nonce_held'] = null;
 
 $source = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-agreement.php' );
 $body   = method_body( $source, 'handle_download' );

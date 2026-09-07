@@ -31,8 +31,17 @@
 	border-radius: 8px;
 }
 
+/* A queue with nothing in it is quieter than one with work waiting, but its label is the only
+   thing naming the queue and the tile is still a link. It carried opacity 0.55 and the label
+   inside it another 0.72 until 1.99.0: opacities multiply, so the label painted at an effective
+   0.396 and 2.44:1 against the card, and on a quiet day most of the strip was unreadable (deep
+   check FFRNT-5). One muted ink for the whole tile now, and nothing dimmed on top of it. */
 .wpcpm-attention__tile--zero {
-	opacity: 0.55;
+	color: var( --wpcpm-ink-muted );
+}
+
+.wpcpm-attention__tile--zero .wpcpm-attention__l {
+	opacity: 1;
 }
 
 .wpcpm-attention__link {
@@ -130,14 +139,23 @@
 	vertical-align: top;
 }
 
+/* Tabular figures, and the alignment every other cell on every dashboard has: left.
+   `text-align: right` sat here from the day this card was written and never once applied -
+   `.wpcpm-admin-table th, .wpcpm-admin-table td` above says left one element heavier, and the
+   theme's shared table rules say it again - so the column has always rendered left and the
+   declaration was describing a page nobody has seen. Out-specifying three rules to move one
+   column would have made this dashboard's table the one that reads differently, which is the
+   thing FFRNT-7 closed. The figures still line up: that is what tabular-nums is for. */
 .wpcpm-admin-table__n {
 	font-variant-numeric: tabular-nums;
-	text-align: right;
 }
 
+/* 14px, not 0.85em. The second line in a table cell is a sentence a manager reads - "3 waiting,
+   1 overdue" - and 0.85 of the dashboard's 14px base rendered it at 11.9px, under the 14px floor
+   for reading text and under the theme readme's own 12px floor (deep check FFRNT-4). */
 .wpcpm-admin-table__breakdown {
 	display: block;
-	font-size: 0.85em;
+	font-size: 14px;
 	opacity: 0.72;
 }
 
@@ -156,10 +174,14 @@
 	padding: 12px 14px;
 }
 
+/* The institution's name on a Programs tile and the label under its number ("in progress"):
+   sentences, not chips, so 14px for the same reason as the breakdown above (FFRNT-4). The theme
+   sizes the tile and its number and has never sized these two, so what is written here is what
+   renders. */
 .wpcpm-programs__name,
 .wpcpm-programs__l {
 	display: block;
-	font-size: 0.85em;
+	font-size: 14px;
 	opacity: 0.8;
 }
 

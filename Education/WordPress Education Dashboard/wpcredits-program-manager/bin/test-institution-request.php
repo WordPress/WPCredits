@@ -58,6 +58,7 @@ $GLOBALS['memberships'] = array();
 $GLOBALS['settled']     = array();
 $GLOBALS['referer']     = array();
 $GLOBALS['back']        = '';
+$GLOBALS['queries']     = array();
 
 class WP_Error {
 	private $code, $message;
@@ -138,53 +139,115 @@ function get_post_meta( $id, $key = '', $single = false ) {
 	return $single ? ( $rows ? $rows[0] : '' ) : $rows;
 }
 function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = array( $value ); return true; }
+function delete_post_meta( $id, $key ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $key ] ); return true; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
+/**
+ * One post against a meta query: `IN`, `EXISTS`, `NOT EXISTS` and `=`, ANDed.
+ *
+ * Every meta query this class builds is one flat AND, the closed-requests reader's two
+ * included: it asks for the stamped rows and the unstamped ones apart rather than in one
+ * `OR` group, because a group is what let an unstamped row be ordered by an alias nothing
+ * had pinned (deep check FADMN-3, and `closed_sort_key()` below).
+ *
+ * @param int   $post_id The post.
+ * @param array $query   A meta query.
+ * @return bool
+ */
+function meta_matches( $post_id, array $query ) {
+	foreach ( $query as $key => $clause ) {
+		if ( 'relation' === $key || ! is_array( $clause ) || ! isset( $clause['key'] ) ) { continue; }
+		$value   = $GLOBALS['pmeta'][ (int) $post_id ][ $clause['key'] ][0] ?? null;
+		$compare = isset( $clause['compare'] ) ? strtoupper( (string) $clause['compare'] ) : '=';
+		if ( 'EXISTS' === $compare ) {
+			$match = null !== $value;
+		} elseif ( 'NOT EXISTS' === $compare ) {
+			$match = null === $value;
+		} elseif ( null === $value ) {
+			$match = false;
+		} elseif ( 'IN' === $compare ) {
+			$match = false;
+			foreach ( (array) $clause['value'] as $candidate ) {
+				if ( 0 === strcasecmp( (string) $value, (string) $candidate ) ) { $match = true; break; }
+			}
+		} else {
+			$match = 0 === strcasecmp( (string) $value, (string) $clause['value'] );
+		}
+		if ( ! $match ) { return false; }
+	}
+
+	return true;
+}
+
+/**
+ * What MySQL compares when a query orders by the `closed` meta clause.
+ *
+ * The SQL is `CAST( alias.meta_value AS SIGNED )`, and the alias is pinned to the closing
+ * stamp only while the clause is ANDed at the top level. Put it in an `OR` group beside a
+ * `NOT EXISTS` branch and the join is left unconstrained, so a row with no stamp brings
+ * every meta row it has into the group and MySQL casts whichever one it hands back - a
+ * manager's note that opens with a long number is enough to sort a request closed last year
+ * above this morning's work (deep check FADMN-3).
+ *
+ * So: the stamp when the row has one, and otherwise the largest number any of that post's
+ * meta values casts to, which is one of the answers MySQL is free to give. A query that
+ * orders unstamped rows by this clause is sorted here the way its worst load would sort it.
+ *
+ * @param int $post_id The post.
+ * @return int
+ */
+function closed_sort_key( $post_id ) {
+	$meta = $GLOBALS['pmeta'][ (int) $post_id ] ?? array();
+
+	if ( isset( $meta['_wpcpm_req_closed_at'][0] ) ) {
+		return (int) $meta['_wpcpm_req_closed_at'][0];
+	}
+
+	$worst = 0;
+
+	foreach ( $meta as $values ) {
+		$worst = max( $worst, (int) ( $values[0] ?? 0 ) );
+	}
+
+	return $worst;
+}
+
 /**
  * `get_posts()` for one post type, with a meta query of one or more clauses.
  *
  * Matched the way MySQL collates - case-insensitively - so that the class's own `strcmp()`
  * re-check has something to catch. Ordered by date and then ID, in the direction the caller
- * asked for, because "oldest first" is one of the things being asserted.
+ * asked for, because "oldest first" is one of the things being asserted. Every call is kept
+ * in `$GLOBALS['queries']`, so a check can say that a second query was not made.
  */
 function get_posts( $a = array() ) {
-	$out = array();
+	$GLOBALS['queries'][] = $a;
+	$out                  = array();
 	foreach ( $GLOBALS['posts'] as $post ) {
 		if ( ( $a['post_type'] ?? '' ) !== $post->post_type ) { continue; }
 		$status = $a['post_status'] ?? 'publish';
 		if ( 'any' !== $status && $status !== $post->post_status ) { continue; }
-		$ok = true;
-		foreach ( (array) ( $a['meta_query'] ?? array() ) as $key => $clause ) {
-			if ( 'relation' === $key || ! is_array( $clause ) ) { continue; }
-			$value   = $GLOBALS['pmeta'][ $post->ID ][ $clause['key'] ][0] ?? null;
-			$compare = isset( $clause['compare'] ) ? strtoupper( (string) $clause['compare'] ) : '=';
-			if ( null === $value ) { $ok = false; continue; }
-			// IN is the closed-requests reader's own: one clause naming two states rather than
-			// two clauses ORed together, because meta_query has no OR between top-level rows.
-			if ( 'IN' === $compare ) {
-				$match = false;
-				foreach ( (array) $clause['value'] as $candidate ) {
-					if ( 0 === strcasecmp( (string) $value, (string) $candidate ) ) { $match = true; break; }
-				}
-				if ( ! $match ) { $ok = false; }
-			} elseif ( 0 !== strcasecmp( (string) $value, (string) $clause['value'] ) ) {
-				$ok = false;
-			}
-		}
-		if ( ! $ok ) { continue; }
+		if ( ! meta_matches( $post->ID, (array) ( $a['meta_query'] ?? array() ) ) ) { continue; }
 		$out[] = $post;
 	}
-	// `modified` is a second field a caller can order by, alongside `date`: the closed-requests
-	// reader wants the most recently edited row on top, which the raised date does not answer.
-	$by_modified = isset( $a['orderby']['modified'] );
-	$direction   = strtoupper( (string) ( $by_modified ? $a['orderby']['modified'] : ( $a['orderby']['date'] ?? 'DESC' ) ) );
+	// `date` is the ordinary order; `closed` is the named meta clause the stamped half of the
+	// closed-requests reader orders by, and `closed_sort_key()` is what the join really hands
+	// MySQL to cast (deep check FADMN-3). The legacy half asks for `date` instead, because a
+	// row with no stamp has no other date. The ID breaks a tie in both.
+	$order = (array) ( $a['orderby'] ?? array( 'date' => 'DESC' ) );
 	usort(
 		$out,
-		static function ( $one, $two ) use ( $direction, $by_modified ) {
-			$cmp = $by_modified
-				? strcmp( $one->post_modified_gmt, $two->post_modified_gmt )
-				: strcmp( $one->post_date_gmt, $two->post_date_gmt );
-			if ( 0 === $cmp ) { $cmp = $one->ID - $two->ID; }
-			return 'ASC' === $direction ? $cmp : -$cmp;
+		static function ( $one, $two ) use ( $order ) {
+			foreach ( $order as $field => $direction ) {
+				if ( 'closed' === $field ) {
+					$cmp = closed_sort_key( $one->ID ) <=> closed_sort_key( $two->ID );
+				} elseif ( 'ID' === $field ) {
+					$cmp = $one->ID <=> $two->ID;
+				} else {
+					$cmp = strcmp( $one->post_date_gmt, $two->post_date_gmt );
+				}
+				if ( 0 !== $cmp ) { return 'ASC' === strtoupper( (string) $direction ) ? $cmp : -$cmp; }
+			}
+			return $one->ID - $two->ID;
 		}
 	);
 	$n = (int) ( $a['numberposts'] ?? -1 );
@@ -398,15 +461,15 @@ function method_body( $source, $name ) {
 	return substr( $source, $offset, $end - $offset - 1 );
 }
 
-$A  = 'recDdomg5W6h410JT'; // the TEST institution in the seed fixture.
-$B  = 'rec0IT9J93YkAYvSU';
+$A  = 'recSEED0000000001'; // the TEST institution in the seed fixture.
+$B  = 'recSEED0000000002';
 $S1 = 'recS0000000000001'; // A's student, no mentor.
 $S2 = 'recS0000000000002'; // A's student, with a mentor.
 $S3 = 'recS0000000000003'; // B's student, no mentor.
 $S9 = 'recS0000000000009'; // well-formed, on nobody's roster.
 
 $GLOBALS['index'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'TEST - WordPress Education Dashboard (do not use) ', 'stage' => 'Confirmed', 'country' => 'recPL000000000001', 'country_name' => 'Poland' ),
+	$A => array( 'record_id' => $A, 'name' => 'TEST - Institution 20 ', 'stage' => 'Confirmed', 'country' => 'recPL000000000001', 'country_name' => 'Poland' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Example', 'stage' => 'Confirmed', 'country' => 'recCR000000000001', 'country_name' => 'Costa Rica' ),
 );
 
@@ -610,7 +673,7 @@ ck( 'the ceiling is what a limit above it is clamped to', WPCPM_Institution_Requ
 $facts = WPCPM_Institution_Request::facts( $second );
 ck( 'the facts a queue row needs', array_keys( $facts ), array(
 	'id', 'kind', 'kind_label', 'state', 'institution', 'institution_name', 'country', 'country_name',
-	'student', 'student_name', 'actor', 'actor_name', 'note', 'at', 'overdue',
+	'student', 'student_name', 'actor', 'actor_name', 'note', 'at', 'closed_at', 'overdue',
 ) );
 ck( 'named from the two indexes, with the country for routing', array(
 	$facts['institution_name'],
@@ -660,6 +723,10 @@ ck( 'the row is closed as handled, with the note on it', array(
 	stored()[ $first ]['note'],
 ), array( 'done', "Assigned Dana Mentor in Airtable.\nThe sync will carry it." ) );
 ck( 'who raised it is not overwritten by who closed it', stored()[ $first ]['actor'], 7 );
+// When it was closed, which is a different fact from when it was raised and the one the
+// Administrator Dashboard's "Recently closed" card is about (deep check FADMN-3).
+ck( 'and the row carries the moment it was closed', abs( WPCPM_Institution_Request::facts( $first )['closed_at'] - time() ) <= 2, true );
+ck( 'while an open row has no such moment', WPCPM_Institution_Request::facts( $third )['closed_at'], 0 );
 ck( 'the manager is told, on the screen\'s own channel', flash_for( 1, 'institutions' ), 'request-done' );
 
 $entries = log_for( $A );
@@ -844,9 +911,51 @@ $declined = wp_insert_post( array( 'post_type' => WPCPM_Institution_Request::POS
 update_post_meta( $declined, WPCPM_Institution_Request::META_STATE, WPCPM_Institution_Request::STATE_DECLINED );
 $GLOBALS['posts'][ $declined ]->post_modified_gmt = '2026-09-02 10:00:00';
 
-ck( 'closed requests, newest first', WPCPM_Institution_Request::closed_requests(), array( $declined, $done ) );
+ck( 'closed requests, the one closed last on top', WPCPM_Institution_Request::closed_requests(), array( $declined, $done ) );
 ck( 'capped', WPCPM_Institution_Request::closed_requests( 1 ), array( $declined ) );
 ck( 'and the open reader does not list them', array_intersect( WPCPM_Institution_Request::open_requests( 200 ), array( $done, $declined ) ), array() );
+
+// The order is the closing, not the raising: nothing ever moves post_modified off post_date
+// here (settle() writes meta only), so the list used to be in the order the rows were opened
+// and a request raised in January and handled today sank to the bottom of it, or off the cap
+// (deep check FADMN-3). This row was raised last and closed first, so it comes last.
+$late = wp_insert_post( array( 'post_type' => WPCPM_Institution_Request::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Raised last, closed first' ) );
+update_post_meta( $late, WPCPM_Institution_Request::META_STATE, WPCPM_Institution_Request::STATE_DONE );
+update_post_meta( $late, WPCPM_Institution_Request::META_CLOSED_AT, 1756000000 );
+update_post_meta( $done, WPCPM_Institution_Request::META_CLOSED_AT, 1756100000 );
+update_post_meta( $declined, WPCPM_Institution_Request::META_CLOSED_AT, 1756200000 );
+
+ck( 'a row raised last and closed first sits under both of them', WPCPM_Institution_Request::closed_requests(), array( $declined, $done, $late ) );
+
+// And a row closed before 1.99.0, which has no stamp at all, is still listed rather than
+// dropped by the join that orders the others.
+delete_post_meta( $done, WPCPM_Institution_Request::META_CLOSED_AT );
+ck( 'a row with no stamp is still in the list, at the end of it', WPCPM_Institution_Request::closed_requests(), array( $declined, $late, $done ) );
+
+// Two queries, because one cannot order both halves. Asked together in an `OR` group, the
+// unstamped rows were ordered by an alias the WHERE had not pinned: whatever meta value
+// MySQL handed back per group, then the ID (deep check FADMN-3, fix round). Asked apart, the
+// legacy half is ordered by the only date it has, its post date - so a row raised long ago
+// sits under a row raised last week however their IDs run.
+$ancient = wp_insert_post( array( 'post_type' => WPCPM_Institution_Request::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Closed years ago' ) );
+update_post_meta( $ancient, WPCPM_Institution_Request::META_STATE, WPCPM_Institution_Request::STATE_DECLINED );
+$GLOBALS['posts'][ $ancient ]->post_date_gmt = '2024-03-01 09:00:00';
+
+ck( 'the stamped rows first, and the legacy ones under them in the order they were raised, newest first', WPCPM_Institution_Request::closed_requests(), array( $declined, $late, $done, $ancient ) );
+
+// The note is the manager's own words, and nothing stops one opening with a number. Under
+// the OR group that number was a candidate sort key for the row it belongs to, so a request
+// closed before 1.99.0 could be handed the top of a card headed "closed last".
+update_post_meta( $done, WPCPM_Institution_Request::META_NOTE, '9000000000 is the ticket they quoted' );
+
+ck( 'and a legacy row whose note opens with a long number is still under the stamped ones', WPCPM_Institution_Request::closed_requests(), array( $declined, $late, $done, $ancient ) );
+
+// The cap is the card's, not each query's: the legacy half is asked for what is left of it.
+ck( 'the cap counts both halves together', WPCPM_Institution_Request::closed_requests( 3 ), array( $declined, $late, $done ) );
+
+$GLOBALS['queries'] = array();
+
+ck( 'and when the stamped rows fill the cap the legacy half is not asked for at all', array( WPCPM_Institution_Request::closed_requests( 2 ), count( $GLOBALS['queries'] ) ), array( array( $declined, $late ), 1 ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

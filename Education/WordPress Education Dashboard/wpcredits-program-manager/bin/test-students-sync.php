@@ -11,7 +11,7 @@
  *   and the fake Airtable returns only what was asked for, so a column the sync forgot to
  *   request is an absent value here rather than a quiet blank in production;
  * - the reconciliation card's numbers against a synthetic base shaped to the spec's
- *   measured ones (31 / 19 / 10 / 9 / 3) and a Krakow-shaped institution (15 / 8 / 2 / 5);
+ *   measured ones (31 / 19 / 10 / 9 / 3) and the reference institution of the spec (15 / 8 / 2 / 5);
  * - whose word the stamp is on: `students` from a joined row, `reports` only when the
  *   Students table has no row for the address at all, and no stamp at all when the row it
  *   does have names no institution, when one address is filed under two institutions, and
@@ -400,22 +400,22 @@ $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array(
 
 // Institutions, as the lookups map the mentors sync leaves behind: the resolved name is
 // what `wpcpm_student_program['institution']` has always held, and still does.
-$krakow = 'recINSTKRAKOW0001';
-$bee    = 'recINSTBEE0000001';
-$cee    = 'recINSTCEE0000001';
-$dee    = 'recINSTDEE0000001';
-$eee    = 'recINSTEEE0000001';
-$fff    = 'recINSTFFF0000001';
+$reference = 'recINSTREF0000001';
+$bee       = 'recINSTBEE0000001';
+$cee       = 'recINSTCEE0000001';
+$dee       = 'recINSTDEE0000001';
+$eee       = 'recINSTEEE0000001';
+$fff       = 'recINSTFFF0000001';
 
 $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ] = array(
 	'v'            => WPCPM_Mentors_Sync::LOOKUPS_VERSION,
 	'institutions' => array(
-		$krakow => 'Krakow University of Economics',
-		$bee    => 'Bee Institute of Example',
-		$cee    => 'Cee College of Example',
-		$dee    => 'Dee University of Example',
-		$eee    => 'Eee School of Example',
-		$fff    => 'Eff Academy of Example',
+		$reference => 'Reference University of Example',
+		$bee       => 'Bee Institute of Example',
+		$cee       => 'Cee College of Example',
+		$dee       => 'Dee University of Example',
+		$eee       => 'Eee School of Example',
+		$fff       => 'Eff Academy of Example',
 	),
 	// One team, so a reports row that names it resolves to a name rather than to nothing: the
 	// roster prints the name and the record ID would be meaningless on a school's screen.
@@ -481,20 +481,20 @@ function report_row( $name, $email, $status, $institution, array $extra = array(
 	return $id;
 }
 
-// Krakow: 15 rows, all 2026 H1: 8 Graduate, 2 Pending graduation, 5 Not moving forward.
+// The reference institution: 15 rows, all 2026 H1: 8 Graduate, 2 Pending graduation, 5 Not moving forward.
 for ( $i = 1; $i <= 8; $i++ ) {
-	$email = "krakow-grad-$i@example.test";
-	$ids[ "k$i" ]  = student_row( "Krakow Graduate $i", $email, 'Graduate', $krakow, '2026-02-16' );
+	$email = "reference-grad-$i@example.test";
+	$ids[ "k$i" ]  = student_row( "Reference Graduate $i", $email, 'Graduate', $reference, '2026-02-16' );
 	// The first one carries a profile on its reports row and none on its Students row, which
 	// is what every row at one real university looks like: see the assertion further down.
 	$ids[ "rk$i" ] = report_row(
-		"Krakow Graduate $i",
+		"Reference Graduate $i",
 		$email,
 		'Graduate',
-		$krakow,
+		$reference,
 		1 === $i ? array(
-			$fields['report_profile'] => 'https://profiles.wordpress.org/krakow-grad-one/',
-			$fields['report_website'] => 'https://krakow-grad-one.example.test',
+			$fields['report_profile'] => 'https://profiles.wordpress.org/reference-grad-one/',
+			$fields['report_website'] => 'https://reference-grad-one.example.test',
 			$fields['report_team']    => array( 'recTEAM0000000001' ),
 			// A number, and a fractional one, which is what the live column holds for some
 			// students: Airtable sends it as a number and the sync has to keep every digit.
@@ -503,25 +503,25 @@ for ( $i = 1; $i <= 8; $i++ ) {
 	);
 }
 for ( $i = 9; $i <= 10; $i++ ) {
-	$email = "krakow-pending-$i@example.test";
-	$ids[ "k$i" ]  = student_row( "Krakow Pending $i", $email, 'Pending graduation', $krakow, '2026-03-02', 9 === $i ? array(
+	$email = "reference-pending-$i@example.test";
+	$ids[ "k$i" ]  = student_row( "Reference Pending $i", $email, 'Pending graduation', $reference, '2026-03-02', 9 === $i ? array(
 		$fields['student_access']     => 'Screen reader user',
 		$fields['student_tutor']      => 'Ola Tutor',
 		$fields['student_study']      => 'Technology & Engineering',
-		$fields['student_profile']    => 'https://profiles.wordpress.org/krakow-pending-nine/',
+		$fields['student_profile']    => 'https://profiles.wordpress.org/reference-pending-nine/',
 		$fields['student_mentor']     => array( 'recMENTOR00000001' ),
 		$fields['student_end']        => '2026-06-30',
 		$fields['student_import_key'] => 'batch-1:9',
 	) : array() );
 	// Nine has logged zero hours, which is an answer somebody recorded and not a blank cell.
-	$ids[ "rk$i" ] = report_row( "Krakow Pending $i", $email, 'Pending graduation', $krakow, 9 === $i ? array( $fields['report_hours'] => 0 ) : array() );
+	$ids[ "rk$i" ] = report_row( "Reference Pending $i", $email, 'Pending graduation', $reference, 9 === $i ? array( $fields['report_hours'] => 0 ) : array() );
 }
 for ( $i = 11; $i <= 15; $i++ ) {
-	$ids[ "k$i" ] = student_row( "Krakow Applicant $i", "krakow-nmf-$i@example.test", 'Not moving forward', $krakow, '2026-02-16' );
+	$ids[ "k$i" ] = student_row( "Reference Applicant $i", "reference-nmf-$i@example.test", 'Not moving forward', $reference, '2026-02-16' );
 }
 // A reports row in a status the settings do not track: the formula never returns it, so
 // its student still counts as having no report.
-report_row( 'Krakow Applicant 11', 'krakow-nmf-11@example.test', 'Not moving forward', $krakow );
+report_row( 'Reference Applicant 11', 'reference-nmf-11@example.test', 'Not moving forward', $reference );
 
 // Bee: four addresses each on two rows, both rows filed under Bee, each with one report.
 for ( $i = 1; $i <= 4; $i++ ) {
@@ -592,7 +592,7 @@ student_row( 'Unlinked Blank', 'unlinked-3@example.test', '', '', '' );
 
 // A graduate who already has an account: past students are not created, but one that
 // exists is refreshed, and must keep its stamp through `revoke_departed()`.
-$GLOBALS['users'][100] = array( 'login' => 'krakow-grad-1', 'email' => 'krakow-grad-1@example.test', 'name' => 'Krakow Graduate 1', 'roles' => array( 'subscriber' ) );
+$GLOBALS['users'][100] = array( 'login' => 'reference-grad-1', 'email' => 'reference-grad-1@example.test', 'name' => 'Reference Graduate 1', 'roles' => array( 'subscriber' ) );
 
 echo "=== The columns the pass asks for ===\n";
 
@@ -679,16 +679,16 @@ ck( 'rows with no start date, split by status',
 	array( '' => 2, 'Developer Track' => 1, 'Not moving forward' => 4 ) );
 ck( 'the counts carry the read time of the run', $counts['read'], $started );
 
-echo "\n=== Krakow, the reference report ===\n";
+echo "\n=== The reference report ===\n";
 
-ck( 'Krakow has one cohort, 2026 H1', array_keys( $counts['institutions'][ $krakow ] ), array( '2026-H1' ) );
+ck( 'Reference has one cohort, 2026 H1', array_keys( $counts['institutions'][ $reference ] ), array( '2026-H1' ) );
 ck( 'and participation() reads 15 / 8 / 2 / 5',
-	$counts['institutions'][ $krakow ]['2026-H1'],
+	$counts['institutions'][ $reference ]['2026-H1'],
 	array( 'signed_up' => 15, 'graduated' => 8, 'pending' => 2, 'active' => 0, 'withdrawn' => 0, 'not_started' => 5, 'other' => 0 ) );
 
-$roster = WPCPM_Roster_Index::read( $krakow );
+$roster = WPCPM_Roster_Index::read( $reference );
 
-ck( 'Krakow\'s roster holds its 15 rows', count( $roster['rows'] ), 15 );
+ck( 'The reference roster holds its 15 rows', count( $roster['rows'] ), 15 );
 ck( 'stamped with the run\'s start time', $roster['read'], $started );
 ck( 'Dee has cohorts for May, August and the rows with no date, in that order',
 	array_keys( $counts['institutions'][ $dee ] ), array( '2026-H1', '2026-H2', 'none' ) );
@@ -723,7 +723,7 @@ sort( $declared );
 ck( 'the Students pass built it with every key the index declares', $built, $declared );
 ck( 'with the columns read from the table',
 	array( $k9['name'], $k9['email_key'], $k9['status'], $k9['institution'], $k9['start'], $k9['end'], $k9['has_mentor'], $k9['username'], $k9['field_of_study'], $k9['tutor'], $k9['import_key'] ),
-	array( 'Krakow Pending 9', 'krakow-pending-9@example.test', 'Pending graduation', $krakow, '2026-03-02', '2026-06-30', true, 'krakow-pending-nine', 'Technology & Engineering', 'Ola Tutor', 'batch-1:9' ) );
+	array( 'Reference Pending 9', 'reference-pending-9@example.test', 'Pending graduation', $reference, '2026-03-02', '2026-06-30', true, 'reference-pending-nine', 'Technology & Engineering', 'Ola Tutor', 'batch-1:9' ) );
 ck( 'its report and its account were filled in', array( $k9['reports'], $k9['user_id'] > 0 ), array( array( $ids['rk9'] ), true ) );
 
 // **The profile lives on the reports row, not on the Students row.** Measured on the live
@@ -733,10 +733,10 @@ ck( 'its report and its account were filled in', array( $k9['reports'], $k9['use
 // though nobody in the program had one. It is the first step of onboarding.
 $k1 = $roster['rows'][ $ids['k1'] ];
 
-ck( 'a student with no profile on their Students row takes the one on their report', $k1['username'], 'krakow-grad-one' );
+ck( 'a student with no profile on their Students row takes the one on their report', $k1['username'], 'reference-grad-one' );
 // Only when the Students side gave nothing: a school that does populate its own column keeps
 // what it wrote there.
-ck( 'and a Students row that has its own keeps it', $k9['username'], 'krakow-pending-nine' );
+ck( 'and a Students row that has its own keeps it', $k9['username'], 'reference-pending-nine' );
 // A student with neither is still empty, rather than borrowing somebody else's.
 ck( 'a student with neither has none', $roster['rows'][ $ids['k2'] ]['username'], '' );
 
@@ -744,7 +744,7 @@ ck( 'a student with neither has none', $roster['rows'][ $ids['k2'] ]['username']
 // somebody looking at a real roster and asking why a cell was blank, one at a time, so they
 // are asserted together: the roster reads all of them off the index for a student who has
 // never signed in, which is most students on a school's roster.
-ck( 'the website comes off the report record too', $k1['website'], 'https://krakow-grad-one.example.test' );
+ck( 'the website comes off the report record too', $k1['website'], 'https://reference-grad-one.example.test' );
 ck( 'and so does the contribution team', $k1['team'], 'Polyglots' );
 // A row the reports side never reached lends nothing, rather than borrowing a neighbour's.
 ck( 'a student with no report record has none of them', array( $roster['rows'][ $ids['k2'] ]['website'], $roster['rows'][ $ids['k2'] ]['team'] ), array( '', '' ) );
@@ -841,9 +841,9 @@ function account( $email ) {
 	);
 }
 
-$a = account( 'krakow-pending-9@example.test' );
+$a = account( 'reference-pending-9@example.test' );
 
-ck( 'a joined account is stamped with the Students row\'s institution', $a['stamp'], $krakow );
+ck( 'a joined account is stamped with the Students row\'s institution', $a['stamp'], $reference );
 ck( 'on the Students table\'s word', $a['program']['institution_source'], 'students' );
 ck( 'and the roster row points back at the account', $k9['user_id'], $a['id'] );
 
@@ -910,25 +910,25 @@ ck( 'neither disputed row is given the account or the report',
 	),
 	array( 0, array(), 0, array() ) );
 
-$a = account( 'krakow-grad-1@example.test' );
+$a = account( 'reference-grad-1@example.test' );
 
-ck( 'a graduate with an existing account is stamped', $a['stamp'], $krakow );
+ck( 'a graduate with an existing account is stamped', $a['stamp'], $reference );
 ck( 'and kept inactive, as before', $GLOBALS['umeta'][ $a['id'] ][ WPCPM_Students_Sync::META_ACTIVE ], 0 );
-ck( 'a graduate with no account gets none', account( 'krakow-grad-2@example.test' )['id'], 0 );
+ck( 'a graduate with no account gets none', account( 'reference-grad-2@example.test' )['id'], 0 );
 
 echo "\n=== wpcpm_student_program keeps its shape ===\n";
 
-$program = account( 'krakow-pending-9@example.test' )['program'];
+$program = account( 'reference-pending-9@example.test' )['program'];
 
 ck( 'every key the row had, plus institution_source, and nothing else',
 	array_keys( $program ),
 	array( 'record_id', 'name', 'email', 'program', 'is_past', 'start', 'end', 'institution', 'profile', 'username', 'slack', 'team', 'website', 'hours', 'link', 'tutor', 'field_of_study', 'accessibility', 'report_files', 'institution_source' ) );
 // **`hours` has to be one of them.** This block is replaced whole on every run, and
 // `apply_report()` writes the student's own saved hours into it between runs; a sync that
-// rebuilt the block without the key would delete that value every night, and the roster reads
+// rebuilt the block without the key would delete that value on every run, and the roster reads
 // this copy before it reads the index.
 ck( 'the hours the report row carried are in the cached block', $program['hours'], '0' );
-ck( 'the institution is still the resolved name the cards print', $program['institution'], 'Krakow University of Economics' );
+ck( 'the institution is still the resolved name the cards print', $program['institution'], 'Reference University of Example' );
 ck( 'the accessibility needs still reach the program row', $program['accessibility'], 'Screen reader user' );
 ck( 'and so do the tutor and the field of study',
 	array( $program['tutor'], $program['field_of_study'] ), array( 'Ola Tutor', 'Technology & Engineering' ) );
@@ -936,12 +936,12 @@ ck( 'the reports-side record ID never becomes a program key', isset( $program['i
 
 echo "\n=== Leaving the synced set ===\n";
 
-// Krakow Pending 9 is removed from both tables; the next run must clear the stamp.
-$k9_id = account( 'krakow-pending-9@example.test' )['id'];
+// Reference Pending 9 is removed from both tables; the next run must clear the stamp.
+$k9_id = account( 'reference-pending-9@example.test' )['id'];
 
 foreach ( array( $students_table, $reports_table ) as $table ) {
 	$GLOBALS['airtable'][ $table ] = array_values( array_filter( $GLOBALS['airtable'][ $table ], static function ( $r ) use ( $fields ) {
-		return 'krakow-pending-9@example.test' !== ( $r['fields']['Email'] ?? '' );
+		return 'reference-pending-9@example.test' !== ( $r['fields']['Email'] ?? '' );
 	} ) );
 }
 
@@ -951,10 +951,10 @@ ck( 'the second run finished', $second > 0 && ! isset( $GLOBALS['opts'][ WPCPM_S
 ck( 'the departed student\'s stamp is deleted', array_key_exists( WPCPM_Students_Sync::META_INSTITUTION, $GLOBALS['umeta'][ $k9_id ] ), false );
 ck( 'and the account is inactive', $GLOBALS['umeta'][ $k9_id ][ WPCPM_Students_Sync::META_ACTIVE ], 0 );
 ck( 'with the Student role gone', in_array( WPCPM_Roles::ROLE_STUDENT, ( new WP_User( $k9_id ) )->roles, true ), false );
-ck( 'the classmate who stayed keeps the stamp', account( 'krakow-pending-10@example.test' )['stamp'], $krakow );
-ck( 'the graduate\'s stamp survives too: finished is not departed', account( 'krakow-grad-1@example.test' )['stamp'], $krakow );
-ck( 'Krakow\'s roster is down to 14 rows', count( WPCPM_Roster_Index::rows( $krakow ) ), 14 );
-ck( 'and reads as of the second run', WPCPM_Roster_Index::read( $krakow )['read'], $second );
+ck( 'the classmate who stayed keeps the stamp', account( 'reference-pending-10@example.test' )['stamp'], $reference );
+ck( 'the graduate\'s stamp survives too: finished is not departed', account( 'reference-grad-1@example.test' )['stamp'], $reference );
+ck( 'The reference roster is down to 14 rows', count( WPCPM_Roster_Index::rows( $reference ) ), 14 );
+ck( 'and reads as of the second run', WPCPM_Roster_Index::read( $reference )['read'], $second );
 
 echo "\n=== A run started under the previous version ===\n";
 

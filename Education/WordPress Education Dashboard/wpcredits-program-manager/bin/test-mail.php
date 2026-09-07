@@ -186,8 +186,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
 /* ---- fixtures ----------------------------------------------------------- */
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
-$GLOBALS['users'][20] = new WP_User( 20, 'Kel Santiago-Pilarski', 'kel@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
-$GLOBALS['users'][30] = new WP_User( 30, 'Moldir Bekezhanova', 'moldir@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][20] = new WP_User( 20, 'Ada Example', 'ada@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][30] = new WP_User( 30, 'Lu Example', 'lu@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
 
 WPCPM_Mail::init();
 
@@ -226,7 +226,7 @@ $sent = WPCPM_Mail::send(
 ck( 'a message is handed off', array( $sent ), array( true ) );
 ck( 'the template is built inside the recipient locale', array( $seen_locale ), array( 30 ) );
 ck( 'and the locale is restored afterwards', $GLOBALS['locales'], array() );
-ck( 'it goes to the recipient', array( $GLOBALS['mail'][0]['to'] ), array( 'moldir@example.test' ) );
+ck( 'it goes to the recipient', array( $GLOBALS['mail'][0]['to'] ), array( 'lu@example.test' ) );
 
 // A subject is a header. A newline in one is how a name from Airtable becomes extra headers.
 $GLOBALS['mail'] = array();
@@ -321,7 +321,7 @@ echo "\n=== Reply-To ===\n";
 
 ck( 'points at the other party',
     WPCPM_Mail::reply_to( $GLOBALS['users'][20] ),
-    array( 'Reply-To: "Kel Santiago-Pilarski" <kel@example.test>' ) );
+    array( 'Reply-To: "Ada Example" <ada@example.test>' ) );
 ck( 'nobody to reply to means no header', WPCPM_Mail::reply_to( null ), array() );
 
 $hostile = new WP_User( 40, "Ke\"l\r\nBcc: attacker@example.test", 'x@example.test' );
@@ -340,7 +340,7 @@ WPCPM_Mail::send( 30, 'call-booked', function () { return array( 'subject' => 'B
 $log = WPCPM_Mail::log();
 ck( 'a send is recorded with its outcome and context',
     array( count( $log ), $log[0]['context'], $log[0]['sent'], $log[0]['to'] ),
-    array( 1, 'call-booked', true, 'm***@example.test' ) );
+    array( 1, 'call-booked', true, 'l***@example.test' ) );
 
 $GLOBALS['mail_fails'] = true;
 WPCPM_Mail::send( 30, 'call-booked', function () { return array( 'subject' => 'Booked', 'body' => 'x' ); } );
@@ -557,9 +557,9 @@ echo "\n=== Inviting one institution ===\n";
 
 // Written as the sync writes it, so `get_program()` is the real one reading its real meta key.
 foreach ( array(
-	701 => 'Pundra University of Science & Technology',
-	702 => 'Pundra University of Science & Technology',
-	703 => 'IES Azarquiel',
+	701 => 'Institution 92',
+	702 => 'Institution 92',
+	703 => 'Institution 16',
 	704 => '',
 ) as $id => $institution ) {
 	update_user_meta( $id, WPCPM_Students_Sync::META_PROGRAM, array( 'institution' => $institution ) );
@@ -570,11 +570,11 @@ foreach ( array(
 $everyone = array( 701, 702, 703, 704, 705 );
 
 ck( 'one institution is the students in it',
-    WPCPM_Mail::only_institution( $everyone, 'Pundra University of Science & Technology' ),
+    WPCPM_Mail::only_institution( $everyone, 'Institution 92' ),
     array( 701, 702 ) );
 
 ck( 'and a different one is a different set',
-    WPCPM_Mail::only_institution( $everyone, 'IES Azarquiel' ), array( 703 ) );
+    WPCPM_Mail::only_institution( $everyone, 'Institution 16' ), array( 703 ) );
 
 // The unfiltered screen still invites everybody, so the empty string cannot mean "nobody".
 ck( 'no filter means no narrowing', WPCPM_Mail::only_institution( $everyone, '' ), $everyone );
@@ -588,16 +588,16 @@ ck( 'an institution nobody is at reaches nobody',
 // A student with no institution, or no program row at all, is not swept into somebody else's
 // cohort - the two ways a row can be incomplete.
 ck( 'a student with no institution is in no institution',
-    WPCPM_Mail::only_institution( array( 704, 705 ), 'IES Azarquiel' ), array() );
+    WPCPM_Mail::only_institution( array( 704, 705 ), 'Institution 16' ), array() );
 
 /* ---- the welcome email -------------------------------------------------- */
 
 echo "\n=== The invitation template ===\n";
 
 $core = array(
-	'to'      => 'moldir@example.test',
+	'to'      => 'lu@example.test',
 	'subject' => '[%s] Login Details',
-	'message' => "Username: moldir\r\n\r\nTo set your password, visit the following address:\r\n\r\nhttps://example.test/reset\r\n",
+	'message' => "Username: lu\r\n\r\nTo set your password, visit the following address:\r\n\r\nhttps://example.test/reset\r\n",
 	'headers' => '',
 );
 
@@ -615,7 +615,7 @@ ck( 'both keep the reset link WordPress generated',
     ),
     array( true, true ) );
 ck( 'both keep the username',
-    array( false !== strpos( $student['message'], 'Username: moldir' ) ), array( true ) );
+    array( false !== strpos( $student['message'], 'Username: lu' ) ), array( true ) );
 ck( 'both say what to do when the link has expired',
     array(
         false !== strpos( $student['message'], 'Lost your password?' ),
@@ -639,7 +639,7 @@ ck( 'an institution account is one of ours', array( $institution === $core ), ar
 ck( 'and its subject says whose account it is',
     array( $institution['subject'] ), array( '[WordPress Education Dashboard] Your institution account is ready' ) );
 ck( 'it keeps the username and the reset link WordPress generated',
-    array( false !== strpos( $institution['message'], 'Username: moldir' ), false !== strpos( $institution['message'], 'https://example.test/reset' ) ),
+    array( false !== strpos( $institution['message'], 'Username: lu' ), false !== strpos( $institution['message'], 'https://example.test/reset' ) ),
     array( true, true ) );
 ck( 'a new institution is told the agreement is the first step',
     array(
@@ -758,13 +758,13 @@ $facts = array(
 	'mentor_id'  => 20,
 	'student_id' => 30,
 	'record'     => 'recSTUDENT1234567',
-	'name'       => 'Moldir Bekezhanova',
+	'name'       => 'Lu Example',
 	'zone'       => 'Asia/Tokyo',
 	'topic'      => "Reviewing my first PR;\nwith a newline, and a comma",
 	'booked'     => 1785000000,
 );
 
-$request = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Mentor call', "Line one\nLine two", 'https://meet.example.test/kel' );
+$request = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Mentor call', "Line one\nLine two", 'https://meet.example.test/room' );
 $cancel  = WPCPM_ICS::build( $facts, WPCPM_ICS::METHOD_CANCEL, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Mentor call', 'Gone', '' );
 
 ck( 'a booking is a REQUEST and a cancellation a CANCEL',
@@ -806,7 +806,7 @@ ck( 'times are UTC, not a floating local time',
     array( true, false ) );
 
 ck( 'the meeting link is the location',
-    array( false !== strpos( $request, 'LOCATION:https://meet.example.test/kel' ) ), array( true ) );
+    array( false !== strpos( $request, 'LOCATION:https://meet.example.test/room' ) ), array( true ) );
 
 ck( 'semicolons, commas and newlines in a description are escaped',
     array(
@@ -978,15 +978,15 @@ ck( 'the sample says which address does what',
 
 echo "\n=== The meeting link ===\n";
 
-ck( 'an https room is kept', array( WPCPM_Mentor_Availability::meeting_url( 'https://meet.example.test/kel' ) ), array( 'https://meet.example.test/kel' ) );
+ck( 'an https room is kept', array( WPCPM_Mentor_Availability::meeting_url( 'https://meet.example.test/room' ) ), array( 'https://meet.example.test/room' ) );
 ck( 'a javascript URL is not',  array( WPCPM_Mentor_Availability::meeting_url( 'javascript:alert(1)' ) ), array( '' ) );
 ck( 'nor a data URL',           array( WPCPM_Mentor_Availability::meeting_url( 'data:text/html,<script>' ) ), array( '' ) );
 ck( 'blank stays blank',        array( WPCPM_Mentor_Availability::meeting_url( '   ' ) ), array( '' ) );
 
 echo "\n=== The log's masked address ===\n";
 
-ck( 'a bare address keeps its first letter and its domain', WPCPM_Mail::mask_address( 'moldir@example.test' ), 'm***@example.test' );
-ck( 'a display name is dropped and the address inside the brackets masked', WPCPM_Mail::mask_address( 'Moldir Example <moldir@example.test>' ), 'm***@example.test' );
+ck( 'a bare address keeps its first letter and its domain', WPCPM_Mail::mask_address( 'lu@example.test' ), 'l***@example.test' );
+ck( 'a display name is dropped and the address inside the brackets masked', WPCPM_Mail::mask_address( 'Lu Example <lu@example.test>' ), 'l***@example.test' );
 ck( 'something that is not an address masks to nothing identifying', WPCPM_Mail::mask_address( 'not an address' ), '***' );
 ck( 'and an empty one to nothing', WPCPM_Mail::mask_address( '' ), '' );
 

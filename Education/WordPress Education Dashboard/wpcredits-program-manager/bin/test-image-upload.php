@@ -80,6 +80,16 @@ ck( 'SVG is refused by its content, whatever the name says', code( WPCPM_Image_U
 $txt = tempnam( sys_get_temp_dir(), 'img' ) . '.png';
 file_put_contents( $txt, 'not an image at all' );
 ck( 'and so is text', code( WPCPM_Image_Upload::accept( $txt ) ), 'wpcpm_image_type' );
+// FSUIT-8: the second reader of the bytes had nothing pinning it, and the whole battery stayed
+// green with it deleted. The two fixtures above are refused by the allowlist before it, and
+// every accepted fixture is a real image, so neither reader could be told from the other. This
+// one can only be refused by the pair disagreeing: `finfo` reads the header and answers PNG,
+// and getimagesize() cannot find an image in what follows.
+$stump = tempnam( sys_get_temp_dir(), 'img' ) . '.png';
+file_put_contents( $stump, substr( (string) file_get_contents( png( 300, 100 ) ), 0, 24 ) );
+$reader = new finfo( FILEINFO_MIME_TYPE );
+ck( 'the fixture is one the two readers of the bytes disagree about', array( $reader->file( $stump ), @getimagesize( $stump ) ), array( 'image/png', false ) );
+ck( 'a header that says PNG over bytes that are not an image is refused', code( WPCPM_Image_Upload::accept( $stump, array( 'name' => 'logo.png' ) ) ), 'wpcpm_image_type' );
 ck( 'a PNG under a .jpg name is refused: the name and the bytes disagree', code( WPCPM_Image_Upload::accept( png( 300, 100 ), array( 'name' => 'logo.jpg' ) ) ), 'wpcpm_image_name' );
 ck( 'narrower than 200px', code( WPCPM_Image_Upload::accept( png( 199, 100 ) ) ), 'wpcpm_image_dimensions' );
 ck( 'a side past 4000px', code( WPCPM_Image_Upload::accept( png( 4001, 100 ) ) ), 'wpcpm_image_dimensions' );
@@ -160,5 +170,5 @@ ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'wp_handle_upload() is never trusted here', strpos( $src, 'wp_handle_upload' ), false );
 ck( 'SVG is named nowhere as a type it takes', strpos( $src, "'image/svg+xml' =>" ), false );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 34 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 36 );
 exit( $fail ? 1 : 0 );

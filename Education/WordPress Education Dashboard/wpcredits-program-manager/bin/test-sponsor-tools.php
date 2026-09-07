@@ -155,6 +155,20 @@ function get_posts( array $args ) {
 	return $out;
 }
 
+// Enough of $wpdb for the pool lock's conditional takeover (FOFFR-3): an UPDATE that changes the
+// row only while its value is still the one the caller read.
+class WPCPM_Test_DB {
+	public $options = 'wp_options';
+	public function update( $table, array $data, array $where ) {
+		$name = (string) $where['option_name'];
+		if ( ! array_key_exists( $name, $GLOBALS['opts'] ) || (string) $GLOBALS['opts'][ $name ] !== (string) $where['option_value'] ) { return 0; }
+		$GLOBALS['opts'][ $name ] = $data['option_value'];
+		return 1;
+	}
+}
+$wpdb = new WPCPM_Test_DB();
+function wp_cache_delete( $key, $group = '' ) { return true; }
+
 class WPCPM_Airtable {
 	public function update_records( $table, array $records ) { $GLOBALS['patched'][] = array( $table, $records ); return isset( $GLOBALS['airtable_fail'] ) ? new WP_Error( 'x', 'Airtable said no' ) : array( $records[0]['id'] => true ); }
 }
@@ -233,8 +247,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php';
 // The fixture: two Approved sponsors, a manager, a member of each, and the people who claim.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002'; $T = 'recTEAM0000000001';
 WPCPM_Sponsors_Index::write( array(
-	$A => array( 'name' => 'miniOrange', 'status' => 'Approved', 'website' => 'https://plugins.miniorange.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.miniorange.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => $T, 'mentors' => array() ),
-	$B => array( 'name' => 'Cloud86', 'status' => 'Approved', 'website' => 'https://cloud86.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cloud86.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
+	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => $T, 'mentors' => array() ),
+	$B => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'website' => 'https://cirrus-example.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
 ), time() );
 WPCPM_Sponsors_Index::write_team( array( $T => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => '' ) ), time() );
 $GLOBALS['settings'] = array( 'sponsors_table' => 'tblSPONSORS', 'offer_low_stock' => 10, 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'tools_students' => true, 'tools_mentors' => false );
@@ -311,7 +325,11 @@ ck( '1. a current student may claim a live offer', WPCPM_Sponsor_Tools::may_clai
 ck( '2. a Graduate may not', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][21], $offer( $a1 ) ), false );
 ck( '2. a Paused student may', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][22], $offer( $a1 ) ), true );
 ck( '2. a mentor may not claim an offer for students only', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][30], $offer( $a1 ) ), false );
+// Clause 3 is the section's own switch, and this fixture starts with the mentors one off, so a
+// mentor is refused whatever the offer's audience says until it is on (FOFFR-2).
+$GLOBALS['settings']['tools_mentors'] = true;
 ck( '2. but may when the offer opens to mentors', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][30], $offer( $c1 ) ), true );
+$GLOBALS['settings']['tools_mentors'] = false;
 ck( '2. a manager may not claim an offer for students', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][1], $offer( $a1 ) ), false );
 ck( '2. but may when the offer opens to managers', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][1], $offer( $f1 ) ), true );
 ck( '1. an offer past its last day is closed', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][20], $offer( $e1 ) ), false );
@@ -324,7 +342,7 @@ WPCPM_Sponsor_Claims::claim( $empty, $GLOBALS['users'][23] );
 ck( '4. an empty pool is refused', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][20], $offer( $empty ) ), false );
 WPCPM_Sponsor_Codes::set_shared( $b1, '' );
 ck( '5. a shared offer with nothing to share is refused', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][20], $offer( $b1 ) ), false );
-WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cloud86.example/checkout?code=WPCREDITS' );
+WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cirrus-example.example/checkout?code=WPCREDITS' );
 ck( 'and nobody at all may claim', WPCPM_Sponsor_Tools::may_claim( new WP_User( 0 ), $offer( $a1 ) ), false );
 
 echo "\n=== may_claim_reason(): which clause said no ===\n";
@@ -338,7 +356,7 @@ ck( 'a live offer the person already holds is claimed', WPCPM_Sponsor_Tools::may
 ck( 'a pool with nothing left is empty, which is not about them', WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][20], $offer( $empty ) ), 'empty' );
 WPCPM_Sponsor_Codes::set_shared( $b1, '' );
 ck( 'and a shared offer with nothing to show is unshared', WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][20], $offer( $b1 ) ), 'unshared' );
-WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cloud86.example/checkout?code=WPCREDITS' );
+WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cirrus-example.example/checkout?code=WPCREDITS' );
 
 echo "\n=== The section on a student's own card ===\n";
 function section( $audience, $uid ) { $GLOBALS['uid'] = $uid; ob_start(); WPCPM_Sponsor_Tools::render( $audience, $GLOBALS['users'][ $uid ] ); return ob_get_clean(); }
@@ -349,10 +367,10 @@ ck( 'the live offers open to students are listed, sorted by sponsor name then ti
 ck( 'an offer that also opens to mentors, or to the program team, is still open to students', array( false !== $pos( $c1 ), false !== $pos( $f1 ) ), array( true, true ) );
 ck( 'nor an expired one, nor the ended one, nor the empty one', array( strpos( $html, 'Expired' ), strpos( $html, 'name="wpcpm_offer" value="' . $d1 . '"' ), strpos( $html, 'name="wpcpm_offer" value="' . $empty . '"' ) ), array( false, false, false ) );
 ck( 'each open offer carries a claim form with its nonce, and no code', array( substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ), false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '_' . $a1 ), strpos( $html, 'A-1' ) ), array( 4, true, false ) );
-ck( 'the sponsor logo, name and website are drawn', array( false !== strpos( $html, 'wpcpm-tools__logo' ), false !== strpos( $html, 'https://plugins.miniorange.com/' ) ), array( true, true ) );
+ck( 'the sponsor logo, name and website are drawn', array( false !== strpos( $html, 'wpcpm-tools__logo' ), false !== strpos( $html, 'https://plugins.mango-example.com/' ) ), array( true, true ) );
 ck( '"Your codes" lists the claim from the ended offer, with the code', array( false !== strpos( $html, 'Your codes' ), false !== strpos( $html, 'Old offer' ), false !== strpos( $html, '>D-1<' ) ), array( true, true, true ) );
 
-// S3: miniOrange already has two live offers open to students (a1, c1). Cloud86's two are
+// S3: Mango Example already has two live offers open to students (a1, c1). Cirrus Example's two are
 // paused for this one render only, so the student sees a single sponsor with two offers,
 // proving "once per sponsor", not "once per offer"; resumed right after, since the mentors
 // and managers checks below expect both sponsors' offers live again.
@@ -361,7 +379,7 @@ WPCPM_Sponsor_Offers::set_state( $f1, 'paused' );
 WPCPM_Sponsor_Posts::$calls = array();
 ob_start(); WPCPM_Sponsor_Tools::render( WPCPM_Sponsor_Tools::AUDIENCE_STUDENTS, $GLOBALS['users'][20] ); $tools_html = ob_get_clean();
 ck( 'guides are listed once per sponsor, inside its first offer', array( count( WPCPM_Sponsor_Posts::$calls ), substr_count( $tools_html, '<div class="wpcpm-tools__posts"></div>' ), strpos( $tools_html, '<div class="wpcpm-tools__posts"></div>' ) < strpos( $tools_html, '<li class="wpcpm-tools__offer">', strpos( $tools_html, '<li class="wpcpm-tools__offer">' ) + 1 ) ), array( 1, 1, true ) );
-ck( 'the call names the company the offer printed', WPCPM_Sponsor_Posts::$calls[0][1], 'miniOrange' );
+ck( 'the call names the company the offer printed', WPCPM_Sponsor_Posts::$calls[0][1], 'Mango Example' );
 WPCPM_Sponsor_Offers::set_state( $b1, 'live' );
 WPCPM_Sponsor_Offers::set_state( $f1, 'live' );
 
@@ -371,7 +389,21 @@ $r = post( $_POST, array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
 ck( 'claiming flashes on the viewer\'s own channel and returns them to the page they were on, at the section', array( $r, WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 20 ) ), array( array( 'redirect', 'https://example.test/student-report-card/#wpcpm-tools' ), array( 'status' => 'claimed' ) ) );
 WPCPM_Flash::set( WPCPM_Sponsor_Tools::FLASH, array( 'status' => 'claimed' ), 20 );
 $html = section( 'students', 20 );
-ck( 'the flash prints once with its tone, and the claimed offer shows the code, selectable, with the date and a problem form', array( false !== strpos( $html, 'wpcpm-dashboard__message--success' ), false !== strpos( $html, '<code class="wpcpm-tools__code" data-wpcpm-select tabindex="0">A-1</code>' ), false !== strpos( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_PROBLEM . '"' ), substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ) ), array( true, true, true, 3 ) );
+ck( 'the flash prints once with its tone, and the claimed offer shows the code, selectable, with the date and a problem form', array( false !== strpos( $html, 'wpcpm-dashboard__message--success' ), false !== strpos( $html, '<button type="button" class="wpcpm-tools__code" data-wpcpm-select aria-describedby="wpcpm-tools-code-hint">A-1</button>' ), false !== strpos( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_PROBLEM . '"' ), substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ) ), array( true, true, true, 3 ) );
+// FFRNT-6: a focusable block with no role and no name was announced as ordinary text, and the
+// Enter and Space behavior forms.js gives it was undiscoverable. Every code the section prints
+// is a button that names itself and points at the one hint that says what pressing it does. Its
+// own visible text, the code, is the accessible name (Task 3 fix round 1, review suggestion 1):
+// an aria-label of "Select your code" would replace that name outright and fail WCAG 2.5.3, so
+// the button carries no aria-label at all, only the aria-describedby that adds the hint.
+ck( 'every code is a button that names itself and points at the section\'s one hint', array( substr_count( $html, '<button type="button" class="wpcpm-tools__code"' ), substr_count( $html, 'aria-label=' ), substr_count( $html, 'aria-describedby="wpcpm-tools-code-hint"' ), substr_count( $html, 'id="wpcpm-tools-code-hint"' ), strpos( $html, 'tabindex="0"' ) ), array( 3, 0, 3, 1, false ) );
+// Review suggestion 4: the hint is about pressing a button, so a viewer whose only claim is a
+// checkout link, which renders as an anchor, must not be told to press one. The Paused student
+// has claimed nothing yet; giving them only the shared (link) offer proves the negative case,
+// and user 20 above, whose claims are all plain codes, already proves the positive one.
+WPCPM_Sponsor_Claims::claim( $b1, $GLOBALS['users'][22] );
+$link_only = section( 'students', 22 );
+ck( 'a viewer whose only claim is a checkout link gets no hint about pressing a button', array( false !== strpos( $link_only, 'wpcpm-tools-code-hint' ), false !== strpos( $link_only, '<a class="wpcpm-tools__code"' ) ), array( false, true ) );
 ck( 'and the flash is gone the second time', strpos( section( 'students', 20 ), 'wpcpm-dashboard__message' ), false );
 $r = post( array( 'wpcpm_offer' => $a1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
 ck( 'claiming again is told so, not given another code', array( WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 20 )['status'], WPCPM_Sponsor_Codes::counts( $a1 )['claimed'] ), array( 'claimed-again', 1 ) );
@@ -411,12 +443,30 @@ echo "\n=== Mentors and managers ===\n";
 ck( 'mentors see nothing until the program switches them on', section( 'mentors', 30 ), '' );
 $GLOBALS['settings']['tools_mentors'] = true;
 $html = section( 'mentors', 30 );
-ck( 'then the offers open to mentors, and only those', array( false !== strpos( $html, 'For mentors too' ), strpos( $html, 'name="wpcpm_offer" value="' . $a1 . '"' ), strpos( $html, 'Cloud86' ) ), array( true, false, false ) );
+ck( 'then the offers open to mentors, and only those', array( false !== strpos( $html, 'For mentors too' ), strpos( $html, 'name="wpcpm_offer" value="' . $a1 . '"' ), strpos( $html, 'Cirrus Example' ) ), array( true, false, false ) );
 $html = section( 'managers', 1 );
-ck( 'a manager sees every live offer, labelled with its audience', array( false !== strpos( $html, 'For the program team' ), false !== strpos( $html, 'miniOrange' ), false !== strpos( $html, 'Open to: students, mentors' ) ), array( true, true, true ) );
+ck( 'a manager sees every live offer, labelled with its audience', array( false !== strpos( $html, 'For the program team' ), false !== strpos( $html, 'Mango Example' ), false !== strpos( $html, 'Open to: students, mentors' ) ), array( true, true, true ) );
 ck( 'with a claim form only where the offer opens to managers, whose audience reads as the settings name them', array( substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ), false !== strpos( $html, 'name="wpcpm_offer" value="' . $f1 . '"' ), false !== strpos( $html, 'Open to: students, the program team' ) ), array( 1, true, true ) );
 ck( 'and the empty pool with a warning where a student who holds nothing from it sees nothing', array( false !== strpos( $html, 'No codes left' ), strpos( section( 'students', 22 ), 'Empty' ) ), array( true, false ) );
 ck( 'the expired offer is shown to nobody', strpos( $html, 'Expired' ), false );
+
+echo "\n=== A form drawn before the switch flipped (FOFFR-2) ===\n";
+// The switch hiding codes people already hold is what the switch means (spec rule 5 and section
+// 6.5), and the check above pins it. What it did not do is refuse a form drawn while it was on:
+// the mentor pressed Get my code, a code was taken and recorded, and the section then rendered
+// nothing at all, so nobody could ever read the code.
+ck( 'a manager has no switch of their own, so a manager is never refused for one', array( WPCPM_Sponsor_Tools::enabled( WPCPM_Sponsor_Tools::AUDIENCE_MANAGERS ), WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][1], $offer( $f1 ) ) ), array( true, '' ) );
+$GLOBALS['settings']['tools_mentors'] = false;
+ck( 'the section switched off for mentors is a refusal of its own', WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][30], $offer( $c1 ) ), 'off' );
+$pool_before   = WPCPM_Sponsor_Codes::counts( $c1 );
+$ledger_before = count( WPCPM_Sponsor_Codes::claims( $c1 ) );
+$GLOBALS['uid'] = 30;
+post( array( 'wpcpm_offer' => $c1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
+ck( 'so a claim posted from that stale form burns no code and takes no ledger row', array( WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 30 )['status'], WPCPM_Sponsor_Codes::counts( $c1 ), count( WPCPM_Sponsor_Codes::claims( $c1 ) ), WPCPM_Sponsor_Claims::has_claimed( 30, $c1 ) ), array( 'claim-refused', $pool_before, $ledger_before, false ) );
+$GLOBALS['settings']['tools_students'] = false;
+ck( 'and a student is refused the same way when theirs is switched off', WPCPM_Sponsor_Tools::may_claim_reason( $GLOBALS['users'][22], $offer( $a1 ) ), 'off' );
+$GLOBALS['settings']['tools_students'] = true;
+$GLOBALS['settings']['tools_mentors']  = true;
 
 echo "\n=== The call sites ===\n";
 $students = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-students-dashboard.php' );
@@ -443,6 +493,7 @@ ck( 'forms.js selects a code on click without the clipboard API', array( false !
 ck( 'and by keyboard too, through the one selection routine both listeners call', array( false !== strpos( $js, "'keydown'" ), false !== strpos( $js, 'selectContents' ) ), array( true, true ) );
 $css = (string) file_get_contents( __DIR__ . '/../assets/css/dashboard.css' );
 ck( 'the section has a base look in the stylesheet every dashboard loads', array( false !== strpos( $css, '.wpcpm-tools__list' ), false !== strpos( $css, '.wpcpm-tools__code' ) ), array( true, true ) );
+ck( 'and resets the button so a code still looks like a code (FFRNT-6)', false !== strpos( $css, 'button.wpcpm-tools__code' ), true );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

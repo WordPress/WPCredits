@@ -1425,7 +1425,7 @@ final class WPCPM_Semester_Report {
 	 * **Read by address, in chunks, and never by an institution-name formula.** A formula on
 	 * `Educational institution` would have to compare a name, and comparing names across the
 	 * wire means lowercasing on both sides: Airtable's `LOWER()` is Unicode aware and PHP's
-	 * `strtolower()` is not, so `Uniwersytet Łódzki` would fold on one side and not the other
+	 * `strtolower()` is not, so an institution name carrying Ł would fold on one side and not the other
 	 * and the read would come back with nothing, with every line of code looking correct. The
 	 * addresses are ASCII by nature, which is the one case `formula_in()`'s third argument is
 	 * right for. Do not simplify this into a name query.

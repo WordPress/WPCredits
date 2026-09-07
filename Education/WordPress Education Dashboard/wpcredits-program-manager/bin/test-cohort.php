@@ -8,10 +8,10 @@
  * be "no start date" so a field type change in the base shows up as an empty cohort here.
  *
  * The participation buckets are checked against the one institution the design spec has a
- * hand-written report for: Krakow University of Economics, 15 rows all in 2026-H1, 8
- * Graduate, 2 Pending graduation, 5 Not moving forward, reported as "15 signed up". So
- * signed_up counts the five who never started, the buckets sum to it, and a SPAM row or a
- * row from another semester is not in it.
+ * hand-written report for, the seed's Institution 45: 15 rows all in 2026-H1, 8 Graduate,
+ * 2 Pending graduation, 5 Not moving forward, reported as "15 signed up". So signed_up
+ * counts the five who never started, the buckets sum to it, and a SPAM row or a row from
+ * another semester is not in it.
  *
  * Run from the plugin root:  php bin/test-cohort.php
  */
@@ -108,7 +108,7 @@ ck( '30 June is the last day of H1', WPCPM_Cohort::key( '2026-06-30' ), '2026-H1
 ck( '1 July is the first day of H2', WPCPM_Cohort::key( '2026-07-01' ), '2026-H2' );
 ck( '1 January opens H1', WPCPM_Cohort::key( '2026-01-01' ), '2026-H1' );
 ck( '31 December closes H2', WPCPM_Cohort::key( '2026-12-31' ), '2026-H2' );
-ck( 'the D. Y. Patil stray from 2023 keys to its own semester', WPCPM_Cohort::key( '2023-07-10' ), '2023-H2' );
+ck( 'the Institute Example stray from 2023 keys to its own semester', WPCPM_Cohort::key( '2023-07-10' ), '2023-H2' );
 ck( 'a leap day is a date', WPCPM_Cohort::key( '2024-02-29' ), '2024-H1' );
 
 ck( '31 February is NONE, not March', WPCPM_Cohort::key( '2026-02-31' ), $none );
@@ -188,7 +188,7 @@ ck( 'NONE is "No start date"', WPCPM_Cohort::label( $none ), 'No start date' );
 ck( 'junk has no label', WPCPM_Cohort::label( '2026-07-01' ), '' );
 ck( 'the year is four plain digits, not "2,026"', false === strpos( WPCPM_Cohort::label( '2026-H1' ), ',' ), true );
 
-// Krakow calls February to June the summer semester; a US institution calls it spring.
+// Half the world calls February to June the summer semester; a US institution calls it spring.
 foreach ( array( '2026-H1', '2026-H2', $none ) as $key ) {
 	ck( "no season word in the label for $key", has_season_word( WPCPM_Cohort::label( $key ) ), false );
 }
@@ -224,22 +224,22 @@ $keys = array( '2026-H2', $none, '2025-H2', '2026-H1', '2023-H2' );
 usort( $keys, array( 'WPCPM_Cohort', 'compare' ) );
 ck( 'usort() gives chronological order with NONE last', $keys, array( '2023-H2', '2025-H2', '2026-H1', '2026-H2', $none ) );
 
-/* ---- participation(): the Krakow report ---------------------------------- */
+/* ---- participation(): the reference report ------------------------------- */
 
-echo "\n=== participation(): Krakow University of Economics ===\n";
+echo "\n=== participation(): Institution 45 ===\n";
 
 // The dates a February to June semester actually produces: paperwork clears across weeks.
-$krakow_dates = array( '2026-02-16', '2026-02-23', '2026-03-02', '2026-03-09', '2026-02-16' );
+$reference_dates = array( '2026-02-16', '2026-02-23', '2026-03-02', '2026-03-09', '2026-02-16' );
 
-$krakow = array_merge(
-	rows( 'Graduate', 8, $krakow_dates ),
-	rows( 'Pending graduation', 2, $krakow_dates ),
-	rows( 'Not moving forward', 5, $krakow_dates )
+$reference = array_merge(
+	rows( 'Graduate', 8, $reference_dates ),
+	rows( 'Pending graduation', 2, $reference_dates ),
+	rows( 'Not moving forward', 5, $reference_dates )
 );
 
-$counts = WPCPM_Cohort::participation( $krakow, '2026-H1' );
+$counts = WPCPM_Cohort::participation( $reference, '2026-H1' );
 
-ck( 'the fixture has 15 rows', count( $krakow ), 15 );
+ck( 'the fixture has 15 rows', count( $reference ), 15 );
 ck( 'signed_up is 15, the five who never started included', $counts['signed_up'], 15 );
 ck( 'graduated is 8', $counts['graduated'], 8 );
 ck( 'pending is 2, printed separately', $counts['pending'], 2 );
@@ -249,10 +249,10 @@ ck( 'withdrawn is 0', $counts['withdrawn'], 0 );
 ck( 'other is 0', $counts['other'], 0 );
 ck( 'the six buckets sum to signed_up', bucket_sum( $counts ), $counts['signed_up'] );
 ck( 'the array has the seven keys in the documented order', array_keys( $counts ), array( 'signed_up', 'graduated', 'pending', 'active', 'withdrawn', 'not_started', 'other' ) );
-ck( 'and 2025-H2 holds none of them', WPCPM_Cohort::participation( $krakow, '2025-H2' )['signed_up'], 0 );
+ck( 'and 2025-H2 holds none of them', WPCPM_Cohort::participation( $reference, '2025-H2' )['signed_up'], 0 );
 
 // A SPAM row and a row from the previous semester, dropped into the same list.
-$with_noise   = $krakow;
+$with_noise   = $reference;
 $with_noise[] = row( 'SPAM', '2026-03-02' );
 $with_noise[] = row( 'Duplicated', '2026-03-02' );
 $with_noise[] = row( 'Interested', '2026-03-02' );
@@ -285,7 +285,7 @@ $mixed = array(
 	row( 'Dropped out', '2026-08-03' ),
 	row( 'Fail', '2026-08-03' ),
 	row( 'In Sensei Self-onboarding', '2026-08-03' ),
-	row( 'Kishoreganj Polytechnic Institute', '2026-08-03' ),
+	row( 'Institution 84', '2026-08-03' ),
 	row( 'Something the base grows next year', '2026-08-03' ),
 	row( '', '2026-08-03' ),
 );
@@ -335,7 +335,7 @@ $zero = array(
 	'other'       => 0,
 );
 ck( 'no rows gives zeros', WPCPM_Cohort::participation( array(), '2026-H1' ), $zero );
-ck( 'a key that is not a key gives zeros', WPCPM_Cohort::participation( $krakow, '2026' ), $zero );
+ck( 'a key that is not a key gives zeros', WPCPM_Cohort::participation( $reference, '2026' ), $zero );
 ck( 'a row that is not an array is skipped', WPCPM_Cohort::participation( array( 'junk', null, 7 ), '2026-H1' ), $zero );
 ck( 'a null status is signed up, in other', WPCPM_Cohort::participation( array( row( null, '2026-03-02' ) ), '2026-H1' )['other'], 1 );
 
@@ -372,7 +372,7 @@ $rest   = array_values( array_diff( $statuses, $named, WPCPM_Cohort::NOT_SIGNED_
 ck( 'one row per choice: signed_up is the choices less NOT_SIGNED_UP', $counts['signed_up'], count( $statuses ) - count( WPCPM_Cohort::NOT_SIGNED_UP ) );
 ck( 'and the buckets sum to it', bucket_sum( $counts ), $counts['signed_up'] );
 ck( 'the choices no rule names are exactly what lands in other', $counts['other'], count( $rest ) );
-ck( 'which today is the self-onboarding and the one-institution status', $rest, array( 'In Sensei Self-onboarding', 'Kishoreganj Polytechnic Institute' ) );
+ck( 'which today is the self-onboarding and the one-institution status', $rest, array( 'In Sensei Self-onboarding', 'Institution 84' ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

@@ -939,7 +939,7 @@ class WPCPM_Agreement_Generate {
 	 * The name to print, as the form gave it.
 	 *
 	 * Pre-filled by the panel from the index row's `Name`, and editable, because the base's
-	 * name is an operational label ("Krakow - UJ") often enough that a document generated
+	 * name is an operational label ("City - Short name") often enough that a document generated
 	 * from it would have to be thrown away. Capped in characters and not bytes: the cap
 	 * exists so a name fits on a line, and a byte cap would cut a multi-byte name in half.
 	 *

@@ -530,7 +530,7 @@ $finished          = array(
 	array( 'record_id' => 'recS0000000000002', 'email' => 'b@example.test', 'status' => 'In Sensei', 'start' => '2026-03-01', 'end' => '2026-06-30' ),
 );
 $GLOBALS['inst_rows'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łódzki', 'stage' => 'Confirmed' ),
+	$A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łexample', 'stage' => 'Confirmed' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ),
 	$C => array( 'record_id' => $C, 'name' => 'Instituto Chunk', 'stage' => 'Interested' ),
 );
@@ -1005,7 +1005,7 @@ $GLOBALS['fail_table'] = '';
 $GLOBALS['settings_extra'] = array( 'report_autodraft' => false );
 ck( 'switched off, the job does nothing', WPCPM_Semester_Report_Screen::autodraft_tick(), 0 );
 $GLOBALS['settings_extra'] = array();
-$GLOBALS['inst_rows']      = array( $A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łódzki', 'stage' => 'Confirmed' ), $B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ) );
+$GLOBALS['inst_rows']      = array( $A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łexample', 'stage' => 'Confirmed' ), $B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ) );
 $GLOBALS['index']          = $saved_index;
 
 echo "\n=== Approve and reopen ===\n";

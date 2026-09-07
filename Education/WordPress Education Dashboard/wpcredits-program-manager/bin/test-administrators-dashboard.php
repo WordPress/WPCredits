@@ -46,6 +46,7 @@ $GLOBALS['ajax']    = false;
 $GLOBALS['mentors'] = array();
 $GLOBALS['next_id'] = 100;
 $GLOBALS['transients'] = array();
+$GLOBALS['tz']         = 'UTC';
 
 class WP_Error {
 	private $c, $m;
@@ -248,12 +249,27 @@ if ( ! function_exists( '_n' ) ) {
 }
 // Neither is in the copied block above: the institutions dashboard suite never needed a
 // date format or a nonce field, and this one does (a report's "approved on" line, and the
-// revoked agreement's Reinstate form). Same shape as every other suite that seeds one
-// (bin/test-institution-request.php, bin/test-semester-report.php): gmdate() so the suite
-// never depends on the host's timezone, and a nonce field that records the action it was
-// asked for so a form can be told apart without a real nonce ever being verified.
+// revoked agreement's Reinstate form). The nonce field records the action it was asked for,
+// so a form can be told apart without a real nonce ever being verified.
+//
+// `wp_date()` formats in the site's zone, which is what it is for and what `gmdate()` is
+// not. Written with gmdate() the stub answered at Greenwich whatever `$GLOBALS['tz']` said,
+// so nothing in this suite could tell a display the cards computed with `wp_date()` from one
+// they computed at Greenwich - east of Greenwich those are different days, and the semester
+// tile's sentence is the day its own window starts on. The host's own zone still never comes
+// into it: `$GLOBALS['tz']` is UTC unless a check says otherwise.
 if ( ! function_exists( 'wp_date' ) ) {
-	function wp_date( $format, $timestamp = null, $timezone = null ) { return gmdate( $format, null === $timestamp ? time() : (int) $timestamp ); }
+	function wp_date( $format, $timestamp = null, $timezone = null ) {
+		$at = new DateTimeImmutable( '@' . ( null === $timestamp ? time() : (int) $timestamp ) );
+
+		return $at->setTimezone( $timezone instanceof DateTimeZone ? $timezone : wp_timezone() )->format( $format );
+	}
+}
+// The site's own zone, which is UTC here unless a check says otherwise: the semester's first
+// day is midnight where the site is, and a suite that only ever ran at Greenwich could not
+// tell the two apart (the clean-up release's parked P2).
+if ( ! function_exists( 'wp_timezone' ) ) {
+	function wp_timezone() { return new DateTimeZone( isset( $GLOBALS['tz'] ) ? $GLOBALS['tz'] : 'UTC' ); }
 }
 if ( ! function_exists( 'wp_nonce_field' ) ) {
 	function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) { echo '<input type="hidden" name="' . esc_attr( $name ) . '" value="nonce-' . esc_attr( $action ) . '" />'; }
@@ -341,8 +357,27 @@ class WPCPM_Countries {
 class WPCPM_Institution_Application {
 	const STATE_NEW = 'new'; const STATE_HELD = 'held'; const STATE_INFO = 'info'; const STATE_REJECTED = 'rejected'; const STATE_SPAM = 'spam'; const STATE_APPROVED = 'approved';
 	const META_STATE = '_wpcpm_app_state'; const META_COUNTRY = '_wpcpm_app_country'; const META_COUNTRY_NAME = '_wpcpm_app_country_name';
-	public static function applications( $states ) {
-		$GLOBALS['asked'][] = array( 'applications', (array) $states );
+	/**
+	 * The rows in those states, as the real one reads them: bounded when the caller says so.
+	 *
+	 * `$GLOBALS['loaded']` counts the post objects handed out, which is what the real
+	 * `get_posts()` would build and prime the meta cache for - the applicant's whole
+	 * submitted form, per row. The card must never pay that for a row it does not draw
+	 * (deep check FADMN-2).
+	 */
+	public static function applications( $states, $limit = 0 ) {
+		$GLOBALS['asked'][] = array( 'applications', (array) $states, (int) $limit );
+		$out = self::matching( $states );
+		if ( (int) $limit > 0 ) { $out = array_slice( $out, 0, (int) $limit ); }
+		$GLOBALS['loaded'] += count( $out );
+		return $out;
+	}
+	/** The same rows as IDs: no object, no meta cache, which is what a total costs. */
+	public static function application_ids( $states ) {
+		$GLOBALS['asked'][] = array( 'application_ids', (array) $states );
+		return array_map( static function ( $post ) { return (int) $post->ID; }, self::matching( $states ) );
+	}
+	private static function matching( $states ) {
 		$out = array();
 		foreach ( $GLOBALS['posts'] as $post ) {
 			if ( 'wpcpm_inst_app' === $post->post_type && in_array( get_post_meta( $post->ID, self::META_STATE, true ), (array) $states, true ) ) { $out[] = $post; }
@@ -557,8 +592,12 @@ $GLOBALS['users']   = array( 3 => new WP_User( 3, 'Manager Three', 'maciej@a8c.c
 $GLOBALS['posts']   = array();
 $GLOBALS['pmeta']   = array();
 $GLOBALS['asked']   = array();
+// Every application post object a card was handed: the meter behind FADMN-2.
+$GLOBALS['loaded']  = 0;
 $GLOBALS['reviews'] = array();
 $GLOBALS['next']    = array( 'wpcpm_students_daily' => 1757100000 );
+// The site's date format, which the Sponsors tile's sentence prints the semester's first day in.
+$GLOBALS['opts']['date_format']                  = 'j F Y';
 $GLOBALS['opts']['wpcpm_students_last_sync']     = 1757000000;
 $GLOBALS['opts']['wpcpm_mentors_last_sync']      = 1756990000;
 $GLOBALS['opts']['wpcpm_institutions_last_sync'] = 1756980000;
@@ -693,15 +732,16 @@ $GLOBALS['audit'] = array(
 echo "=== The data is read once, through the owners ===\n";
 
 $data = WPCPM_Administrators_Cards::collect();
-ck( 'open applications are the three open states, through applications()', in_array( array( 'applications', array( 'new', 'held', 'info' ) ), $GLOBALS['asked'], true ), true );
-ck( 'and the closed list is rejected and spam', in_array( array( 'applications', array( 'rejected', 'spam' ) ), $GLOBALS['asked'], true ), true );
+ck( 'open applications are the three open states, through applications(), bounded to what is drawn', in_array( array( 'applications', array( 'new', 'held', 'info' ), 50 ), $GLOBALS['asked'], true ), true );
+ck( 'and the closed list is rejected and spam, bounded the same way', in_array( array( 'applications', array( 'rejected', 'spam' ), 50 ), $GLOBALS['asked'], true ), true );
+ck( 'while both totals are asked for as IDs, which cost no meta', array( in_array( array( 'application_ids', array( 'new', 'held', 'info' ) ), $GLOBALS['asked'], true ), in_array( array( 'application_ids', array( 'rejected', 'spam' ) ), $GLOBALS['asked'], true ) ), array( true, true ) );
 ck( 'two open applications, one closed', array( count( $data['applications']['open'] ), count( $data['applications']['closed'] ) ), array( 2, 1 ) );
 ck( 'two agreements awaiting review, one of them overdue', array( count( $data['agreements']['awaiting'] ), $data['agreements']['overdue'] ), array( 2, 1 ) );
 ck( 'the overdue one is the older', $data['agreements']['awaiting'][0]['overdue'], true );
 ck( 'returned and revoked come with their note', array( $data['agreements']['returned'][0]['note'], $data['agreements']['revoked'][0]['note'] ), array( 'Page two is missing.', 'Withdrawn by the rector.' ) );
 ck( 'the queue, the due list and the approved list are the report class\'s', array( count( $data['reports']['queue'] ), count( $data['reports']['due'] ), count( $data['reports']['approved'] ) ), array( 1, 1, 1 ) );
 ck( 'due is asked for today', in_array( array( 'due', gmdate( 'Y-m-d' ) ), $GLOBALS['asked'], true ), true );
-ck( 'and approved since the start of this half-year', in_array( array( 'approved_since', (int) strtotime( WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'] . ' 00:00:00 UTC' ) ), $GLOBALS['asked'], true ), true );
+ck( 'and approved since the start of this half-year', in_array( array( 'approved_since', (int) ( new DateTimeImmutable( WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'] . ' 00:00:00', wp_timezone() ) )->format( 'U' ) ), $GLOBALS['asked'], true ), true );
 ck( 'two open requests, one overdue, one closed', array( count( $data['requests']['open'] ), $data['requests']['overdue'], count( $data['requests']['closed'] ) ), array( 2, 1, 1 ) );
 ck( 'one locked account', count( $data['locked'] ), 1 );
 
@@ -740,7 +780,7 @@ $strip2 = capture( static function () use ( $data ) { WPCPM_Administrators_Cards
 // The fourth tile's number comes from $data itself rather than a literal: the fixture's
 // claims_semester is 4, not the 3 that would match live_offers just above it, and a
 // hardcoded digit here would silently pin the wrong one (brief review).
-ck( 'the Sponsors card is four tiles on the programs card\'s markup: a name, the number and a qualifier each, never the name twice', array( has( $strip2, 'id="wpcpm-sponsors"' ), substr_count( $strip2, '<li class="wpcpm-programs__tile">' ), preg_match( '#<span class="wpcpm-programs__name">Approved sponsors</span><span class="wpcpm-programs__n">2</span><span class="wpcpm-programs__l">in the program records</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">With an account</span><span class="wpcpm-programs__n">1</span><span class="wpcpm-programs__l">of the Approved sponsors</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Live offers</span><span class="wpcpm-programs__n">3</span><span class="wpcpm-programs__l">shown on the site today</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Claims this semester</span><span class="wpcpm-programs__n">' . (int) $data['sponsors']['claims_semester'] . '</span><span class="wpcpm-programs__l">since ' . preg_quote( $data['sponsors']['since'], '#' ) . ', on every offer</span>#', $strip2 ) ), array( true, 4, 1, 1, 1, 1 ) );
+ck( 'the Sponsors card is four tiles on the programs card\'s markup: a name, the number and a qualifier each, never the name twice', array( has( $strip2, 'id="wpcpm-sponsors"' ), substr_count( $strip2, '<li class="wpcpm-programs__tile">' ), preg_match( '#<span class="wpcpm-programs__name">Approved sponsors</span><span class="wpcpm-programs__n">2</span><span class="wpcpm-programs__l">in the program records</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">With an account</span><span class="wpcpm-programs__n">1</span><span class="wpcpm-programs__l">of the Approved sponsors</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Live offers</span><span class="wpcpm-programs__n">3</span><span class="wpcpm-programs__l">shown on the site today</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Claims this semester</span><span class="wpcpm-programs__n">' . (int) $data['sponsors']['claims_semester'] . '</span><span class="wpcpm-programs__l">since ' . preg_quote( $data['sponsors']['since_display'], '#' ) . ', on every offer</span>#', $strip2 ) ), array( true, 4, 1, 1, 1, 1 ) );
 
 /* ---- programs() ---------------------------------------------------------- */
 
@@ -858,6 +898,22 @@ ck( 'an empty queue says so', has( $empty_sp, 'No sponsor post is waiting for re
 ck( 'open requests draw the decisions, coming back here', substr_count( $req, 'value="wpcpm_resolve_request"' ) === 2 && substr_count( $req, 'name="wpcpm_return" value="dashboard"' ) === 2, true );
 ck( 'the overdue one is marked and the note is printed', has( $req, 'wpcpm-administrator__item--overdue' ) && has( $req, 'Two students without a mentor.' ), true );
 ck( 'the closed list says handled', has( $req, 'Handled' ), true );
+
+// A closed row is dated by when it was closed, and says so. The card exists so a manager can
+// see what a colleague did this week (closed_requests()' own docblock), and a row handled
+// yesterday used to read "Handled, 12 January 2026" - the day it was raised - with nothing in
+// the sentence to say which date it was (deep check FADMN-3). A row closed before 1.99.0 has
+// no closing stamp, and says the date it does have is the opening one.
+$closed_two = array(
+	'open'    => array(),
+	'overdue' => 0,
+	'closed'  => array(
+		array_merge( $GLOBALS['facts'][803], array( 'id' => 804, 'closed_at' => time() - DAY_IN_SECONDS ) ),
+		array_merge( $GLOBALS['facts'][803], array( 'closed_at' => 0 ) ),
+	),
+);
+$req_dates  = capture( static function () use ( $closed_two ) { WPCPM_Administrators_Cards::render_requests( $closed_two ); } );
+ck( 'a stamped row is dated by its closing and an unstamped one says the date is the opening', array( substr_count( $req_dates, 'closed on' ), substr_count( $req_dates, 'opened on' ) ), array( 1, 1 ) );
 
 $prog = capture( static function () use ( $programs ) { WPCPM_Administrators_Cards::render_programs( $programs ); } );
 // One per track, plus the finished tile, plus one for the wrapping
@@ -993,7 +1049,44 @@ foreach ( array( 'includes/modules/class-wpcpm-administrators-cards.php', 'inclu
 }
 ck( 'no dash but the plain hyphen in any new file', $dashes, array() );
 
-echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
+/*
+ * The stylesheet, measured. The dashboard's base is 14px, so a rule at 0.85em rendered a
+ * sentence a manager reads at 11.9px - the institution's name on a Programs tile, the label
+ * under its number, and the breakdown line inside a table cell (deep check FFRNT-4). And a
+ * queue at zero carried opacity 0.55 on the tile with the label's own 0.72 inside it: opacities
+ * multiply, so that label painted at an effective 0.396 and 2.44:1 against the card, under the
+ * 4.5:1 WCAG 1.4.3 asks, on the only thing naming the empty queue (FFRNT-5).
+ */
+$css = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/administrator.css' );
+ck( 'the three lines a manager reads are sized in pixels, at the 14px floor', array(
+	1 === preg_match( '/\.wpcpm-admin-table__breakdown \{[^}]*font-size: 14px;/s', $css ),
+	1 === preg_match( '/\.wpcpm-programs__name,\s*\.wpcpm-programs__l \{[^}]*font-size: 14px;/s', $css ),
+	substr_count( $css, 'font-size: 0.85em' ),
+), array( true, true, 0 ) );
+ck( 'a queue at zero is muted with one token, and nothing dims on top of it', array(
+	1 === preg_match( '/\.wpcpm-attention__tile--zero \{\s*color: var\( --wpcpm-ink-muted \);\s*\}/', $css ),
+	1 === preg_match( '/\.wpcpm-attention__tile--zero \.wpcpm-attention__l \{\s*opacity: 1;\s*\}/', $css ),
+	1 === preg_match( '/\.wpcpm-attention__tile--zero \{[^}]*opacity:/s', $css ),
+), array( true, true, false ) );
+ck( 'and the token is declared beside the others in the sheet the dashboards share', 1 === preg_match( '/--wpcpm-ink-muted: color-mix\(/', (string) file_get_contents( WPCPM_PLUGIN_DIR . 'assets/css/dashboard.css' ) ), true );
+
+/*
+ * The numeric column is left-aligned, like every other cell on every dashboard.
+ *
+ * `.wpcpm-admin-table__n` carried `text-align: right` from the day the card was written and it
+ * has never once applied: `.wpcpm-admin-table th, .wpcpm-admin-table td` sets `text-align: left`
+ * one element heavier, so the number rendered left here and on the live page, and the theme's
+ * shared table rules say left again on top of that. Rather than out-specify three rules to move
+ * one column, the dead declaration goes: the four dashboards draw one table, the Institution
+ * Dashboard's values are what that table is (deep check FFRNT-7), and none of the others
+ * right-aligns anything. The tabular figures stay, because that rule does apply and lines the
+ * digits up in place.
+ */
+ck( 'the numeric column carries tabular figures and no alignment of its own', array(
+	1 === preg_match( '/\.wpcpm-admin-table__n \{[^}]*font-variant-numeric: tabular-nums;/s', $css ),
+	1 === preg_match( '/\.wpcpm-admin-table__n \{[^}]*text-align:/s', $css ),
+), array( true, false ) );
+
 echo "\n=== The Sponsor Collaboration Agreements card (1.96.1) ===\n";
 ob_start();
 WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array( $GLOBALS['agr_facts'][913] ), 'revoked' => array( $GLOBALS['agr_facts'][880] ) ) );
@@ -1035,4 +1128,78 @@ $GLOBALS['flash']  = array( 'institutions' => 'sapp-approved' );
 $out_sapp          = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'a decision\'s flash is drawn in the application class\'s words, on the page it came back to', has( $out_sapp, 'The sponsor application is approved.' ), true );
 
+/* ---- the closed applications are counted, not loaded (FADMN-2) ----------- */
+
+echo "\n=== A year of rejected applications costs a count, not their answers ===\n";
+
+// The store behind the closed states is written by an anonymous public form and kept for a
+// year (application_rejected_days 365, application_spam_days 30). Before this fix the card
+// fetched every one of those rows as a WP_Post - priming _wpcpm_app_fields, the applicant's
+// whole submitted form, for each - and threw all but fifty away to print one number.
+// The fixture already holds one rejected application, so fifty-nine more make sixty.
+for ( $i = 1; $i <= 59; $i++ ) {
+	seed_post( 5100 + $i, 'wpcpm_inst_app', 'Rejected ' . $i, array( '_wpcpm_app_state' => 0 === $i % 2 ? 'spam' : 'rejected', '_wpcpm_app_country' => '', '_wpcpm_app_country_name' => '' ), '2026-08-01 08:00:00' );
+}
+
+$GLOBALS['loaded'] = 0;
+$many              = WPCPM_Administrators_Cards::collect();
+
+ck( 'sixty closed applications are reported and fifty of them are held', array( $many['applications']['closed_total'], count( $many['applications']['closed'] ) ), array( 60, 50 ) );
+ck( 'and the whole page built fifty-two application objects: fifty closed and the two open ones', $GLOBALS['loaded'], 52 );
+
+$many_html = capture( static function () use ( $many ) { WPCPM_Administrators_Cards::render_applications( $many['applications'] ); } );
+ck( 'the card draws the fifty it holds, beside the two open ones, and points at the screen for the other ten', array( substr_count( $many_html, 'class="wpcpm-administrator__item wpcpm-application"' ), has( $many_html, '10 more are waiting on the Institutions screen.' ) ), array( 52, true ) );
+
+/* ---- the semester begins at the site's own midnight (P2) ----------------- */
+
+echo "\n=== The claims window starts where the site is, not at Greenwich ===\n";
+
+// Every site this plugin runs on has a timezone, and the cohort's first day is a calendar day
+// in it. Measured from midnight UTC, a claim made on the last evening of last semester counted
+// as this semester's on every site west of Greenwich - and the tile printed a figure nobody
+// could reproduce by counting.
+$GLOBALS['tz']  = 'America/Los_Angeles';
+$semester_since = WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'];
+$west           = WPCPM_Administrators_Cards::sponsors();
+
+// The fixture's four counted claims are placed by their UTC offset from the first day, and two
+// of them (an hour and two hours in) were made on the evening before the semester began in
+// Los Angeles. Under the old rule the window did not move with the site at all.
+ck( 'the window moves with the site: four of these claims are this semester\'s at Greenwich and two are in Los Angeles', array( $data['sponsors']['claims_semester'], $west['claims_semester'] ), array( 4, 2 ) );
+
+$last_evening             = ( new DateTimeImmutable( $semester_since . ' 00:00:00', new DateTimeZone( $GLOBALS['tz'] ) ) )->modify( '-30 minutes' );
+$GLOBALS['claims'][943][] = array( 'u' => 37, 'i' => -1, 'at' => (int) $last_evening->format( 'U' ), 'v' => 0 );
+$site_time                = WPCPM_Administrators_Cards::sponsors();
+
+ck( 'and a claim at half past eleven on that last evening is last semester\'s', $site_time['claims_semester'], $west['claims_semester'] );
+ck( 'the first day is named twice: Y-m-d for the readers of this array, the site\'s format for the sentence', array( $site_time['since'], $site_time['since_display'] ), array( $semester_since, gmdate( 'j F Y', strtotime( $semester_since . ' 00:00:00 UTC' ) ) ) );
+
+$site_strip = capture( static function () use ( $site_time ) { WPCPM_Administrators_Cards::render_sponsors_strip( $site_time ); } );
+ck( 'and the tile says the day the way the site writes days', array( has( $site_strip, 'since ' . $site_time['since_display'] . ', on every offer' ), has( $site_strip, 'since ' . $semester_since . ',' ) ), array( true, false ) );
+
+// The Reports card asks the same question of the report class, and until the fix round it
+// asked it at Greenwich: one page carrying two "this semester"s, a day apart on any site far
+// enough from it (deep check, fix round). `collect()` is what the page calls, so this is the
+// argument the report class really receives.
+$GLOBALS['asked'] = array();
+WPCPM_Administrators_Cards::collect();
+$site_midnight = (int) ( new DateTimeImmutable( $semester_since . ' 00:00:00', new DateTimeZone( $GLOBALS['tz'] ) ) )->format( 'U' );
+ck( 'the Reports card counts from the same midnight the Sponsors tile does', array( in_array( array( 'approved_since', $site_midnight ), $GLOBALS['asked'], true ), $site_midnight === (int) strtotime( $semester_since . ' 00:00:00 UTC' ) ), array( true, false ) );
+
+array_pop( $GLOBALS['claims'][943] );
+
+// East of Greenwich the site's midnight falls on the previous UTC day, so a sentence written
+// with gmdate() names the day before the one the window starts on. Nothing pinned that until
+// the fix round: the stub above formatted at Greenwich whatever the site's zone was, so a
+// display computed the wrong way read the same as one computed the right way.
+$GLOBALS['tz'] = 'Pacific/Auckland';
+$east          = WPCPM_Administrators_Cards::sponsors();
+$east_from     = (int) ( new DateTimeImmutable( $semester_since . ' 00:00:00', new DateTimeZone( $GLOBALS['tz'] ) ) )->format( 'U' );
+$east_day      = gmdate( 'j F Y', (int) strtotime( $semester_since . ' 00:00:00 UTC' ) );
+
+ck( 'the day in the sentence is written on the site\'s clock and not on Greenwich\'s', array( $east['since_display'], $east_day === gmdate( 'j F Y', $east_from ) ), array( $east_day, false ) );
+
+$GLOBALS['tz'] = 'UTC';
+
+printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

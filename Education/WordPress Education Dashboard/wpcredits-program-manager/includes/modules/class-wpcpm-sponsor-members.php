@@ -24,7 +24,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  * | `wpcpm_sponsor_record_id_was`| history, no power                           |
  * | `wpcpm_sponsor_membership`   | `since`, `by`, `how`                        |
  * | `wpcpm_sponsor_invited`      | when the welcome was sent (the mail layer)  |
- * | `wpcpm_sponsor_profile`      | name, website, product type, status stamped at attach |
  */
 final class WPCPM_Sponsor_Members {
 
@@ -33,7 +32,6 @@ final class WPCPM_Sponsor_Members {
 	const META_RECORD_ID_WAS = 'wpcpm_sponsor_record_id_was';
 	const META_MEMBERSHIP    = 'wpcpm_sponsor_membership';
 	const META_INVITED       = 'wpcpm_sponsor_invited';
-	const META_PROFILE       = 'wpcpm_sponsor_profile';
 
 	const HOW_PROVISIONED = 'provisioned';
 	const HOW_MANAGER     = 'manager';
@@ -44,6 +42,12 @@ final class WPCPM_Sponsor_Members {
 
 	const KIND_MEMBER_ADDED   = 'member_added';
 	const KIND_MEMBER_REMOVED = 'member_removed';
+
+	/** How the repair below names itself in the audit, where a `how` is otherwise one of `hows()`. */
+	const HOW_CAPS_REPAIRED = 'caps-repaired';
+
+	/** Option: the one-time repair of the accounts an older detach left holding capabilities has run. */
+	const OPT_CAPS_REPAIRED = 'wpcpm_sponsor_members_caps_repaired';
 
 	/**
 	 * The ways a membership can come about. A server-held list, never a pass-through: the
@@ -131,6 +135,11 @@ final class WPCPM_Sponsor_Members {
 
 	/**
 	 * The accounts that used to act for a sponsor.
+	 *
+	 * No caller in the shipped code yet: the Sponsor Dashboard's people card is where it
+	 * belongs (Phase S1 plan, the produced API of this class), and the Institution Dashboard's
+	 * own people card already reads the institution twin the same way, to offer a manager the
+	 * one click that puts a removed account back.
 	 *
 	 * @param string $record Airtable record ID.
 	 * @return WP_User[]
@@ -238,7 +247,6 @@ final class WPCPM_Sponsor_Members {
 				'how'   => $how,
 			)
 		);
-		update_user_meta( $user->ID, self::META_PROFILE, self::profile_of( $record_id ) );
 
 		if ( $readded ) {
 			delete_user_meta( $user->ID, self::META_RECORD_ID_WAS );
@@ -312,9 +320,6 @@ final class WPCPM_Sponsor_Members {
 		update_user_meta( $user->ID, self::META_RECORD_ID_WAS, $record_id );
 		delete_user_meta( $user->ID, self::META_RECORD_ID );
 		update_user_meta( $user->ID, self::META_ACTIVE, 0 );
-		if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
-			WPCPM_Sponsor_Posts::drop_caps( $user->ID );
-		}
 
 		// Never touch an administrator's roles, and never delete an account.
 		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_ADMIN )
@@ -324,6 +329,16 @@ final class WPCPM_Sponsor_Members {
 			if ( empty( $user->roles ) ) {
 				$user->set_role( 'subscriber' );
 			}
+		}
+
+		// LAST, and never before the role block. `drop_caps()` looks the account up again, so
+		// two WP_User objects describe one account; core reads the capability array into an
+		// object once, when it is built, and `remove_role()` and `set_role()` each write that
+		// whole array back. Dropped first, the three posting capabilities came straight back
+		// from `$user`'s stale copy a line later, and nothing on the site ever took them off
+		// again: `heal_caps()` returns without acting once `sponsor_of()` answers '' (FSPON-1).
+		if ( class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			WPCPM_Sponsor_Posts::drop_caps( $user->ID );
 		}
 
 		WPCPM_Institution_Audit::record_sponsor(
@@ -348,6 +363,96 @@ final class WPCPM_Sponsor_Members {
 		);
 
 		return true;
+	}
+
+	/**
+	 * Take the posting capabilities off the accounts an older `detach()` left holding them.
+	 *
+	 * Runs on the first admin page after the upgrade to 1.99.0 and never again. Until that
+	 * release `detach()` dropped the three capabilities through a second `WP_User` and then
+	 * wrote the first object's stale capability array back over them, so every account removed
+	 * from a sponsor between 1.95.0 and 1.98.1 still holds `edit_posts`, `delete_posts` and
+	 * `upload_files`: it signs in, reaches wp-admin, writes drafts and uploads to the Media
+	 * Library (FSPON-1). The order in `detach()` is fixed; this is for the accounts already
+	 * out there, which nothing else would ever clean up.
+	 *
+	 * Every plugin role is Subscriber's capability set plus one marker capability
+	 * (`WPCPM_Roles::register()`), and Subscriber grants `read` alone, so no account that is
+	 * not an administrator has a legitimate `edit_posts`, `delete_posts` or `upload_files`:
+	 * whatever other role a detached account still holds, one of the three sitting in its own
+	 * `caps` array was given to it by this class and is safe to take back. `$user->caps` and
+	 * not `has_cap()` for the same reason: the question is what was granted to the account
+	 * itself, never what a role grants it. Administrators stay excluded, matching `detach()`'s
+	 * own rule; a detached mentor is repaired too - its leftover `edit_posts` also breaks
+	 * their own routing to the Mentor Report Card.
+	 */
+	public static function maybe_repair_detached() {
+		if ( get_option( self::OPT_CAPS_REPAIRED ) || ! class_exists( 'WPCPM_Sponsor_Posts' ) ) {
+			return;
+		}
+
+		$found = get_users(
+			array(
+				'number'   => -1,
+				'meta_key' => self::META_RECORD_ID_WAS,
+			)
+		);
+
+		foreach ( (array) $found as $user ) {
+			if ( ! $user instanceof WP_User ) {
+				continue;
+			}
+
+			if ( '' !== trim( (string) get_user_meta( $user->ID, self::META_RECORD_ID, true ) ) ) {
+				continue;
+			}
+
+			if ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_ADMIN ) ) {
+				continue;
+			}
+
+			$held = false;
+
+			foreach ( WPCPM_Sponsor_Posts::caps() as $cap ) {
+				if ( ! empty( $user->caps[ $cap ] ) ) {
+					$held = true;
+					break;
+				}
+			}
+
+			if ( ! $held ) {
+				continue;
+			}
+
+			WPCPM_Sponsor_Posts::drop_caps( $user->ID );
+
+			WPCPM_Institution_Audit::record_sponsor(
+				array(
+					'kind'     => self::KIND_MEMBER_REMOVED,
+					'sponsor'  => trim( (string) get_user_meta( $user->ID, self::META_RECORD_ID_WAS, true ) ),
+					'subject'  => (string) $user->ID,
+					'actor'    => 0,
+					'ground'   => self::ground_of( 0 ),
+					'evidence' => WPCPM_Institution_Audit::EVIDENCE_INDEX,
+					'message'  => sprintf(
+						/* translators: %s: display name. */
+						__( '%s no longer holds the posting capabilities an earlier removal left behind.', 'wpcredits-program-manager' ),
+						$user->display_name
+					),
+					'data'     => array(
+						'user' => (int) $user->ID,
+						'how'  => self::HOW_CAPS_REPAIRED,
+					),
+				)
+			);
+		}
+
+		// Autoloaded: read on every admin page, and one row in the autoload set is cheaper than
+		// a query per page for ever. The sibling backfill flag,
+		// WPCPM_Sponsor_Application::maybe_backfill_decided(), does not autoload its flag; the
+		// brief for this repair chose the other side on purpose, so do not "fix" the two to
+		// match each other.
+		update_option( self::OPT_CAPS_REPAIRED, 1, true );
 	}
 
 	/**
@@ -418,23 +523,6 @@ final class WPCPM_Sponsor_Members {
 	 */
 	private static function same_record( $a, $b ) {
 		return 0 === strcmp( trim( (string) $a ), trim( (string) $b ) );
-	}
-
-	/**
-	 * The header facts stamped on an account at attach time, trimmed.
-	 *
-	 * @param string $record Airtable record ID.
-	 * @return array
-	 */
-	private static function profile_of( $record ) {
-		$row = WPCPM_Sponsors_Index::row( $record );
-		$out = array();
-
-		foreach ( array( 'name', 'website', 'product_type', 'status' ) as $key ) {
-			$out[ $key ] = ( is_array( $row ) && isset( $row[ $key ] ) ) ? trim( (string) $row[ $key ] ) : '';
-		}
-
-		return $out;
 	}
 
 	/**

@@ -1043,6 +1043,27 @@ final class WPCPM_Sponsor_Offers {
 		// What happened to the codes handed in with a new pool: how many went in, or why none did.
 		$codes_note = '';
 		$codes_fail = '';
+		$codes_text = '';
+
+		// A pool and its codes in one step (polish of 1.94.1), but read and parsed before the
+		// offer post exists: a refused list used to leave an orphan draft behind, and a paste too
+		// big to parse took the request with it after the post had been written (deep check
+		// FOFFR-1). Nothing here writes; the same text is added below, to the offer it makes.
+		if ( null === $existing && self::KIND_CODES === $cleaned['fields']['kind'] ) {
+			$codes_text = self::codes_text();
+
+			if ( is_wp_error( $codes_text ) ) {
+				self::leave( 'offer-rejected', $record, self::codes_refusal_detail( $codes_text ) );
+			}
+
+			if ( '' !== $codes_text ) {
+				$parsed = WPCPM_Sponsor_Codes::parse( $codes_text );
+
+				if ( ! empty( $parsed['errors'] ) ) {
+					self::leave( 'offer-rejected', $record, self::codes_refusal_detail( WPCPM_Sponsor_Codes::refusal( $parsed ) ) );
+				}
+			}
+		}
 
 		if ( null === $existing ) {
 			// The first offer a sponsor gets is the one the base sees.
@@ -1052,23 +1073,16 @@ final class WPCPM_Sponsor_Offers {
 				self::leave( 'offer-failed', $record );
 			}
 
-			// A pool and its codes in one step (polish of 1.94.1). After create(), not before: a
-			// refused list is a fault in the list, and the sponsor fixes it in the pool's own box on
-			// the card that now exists, rather than filling the whole form in again.
-			if ( self::KIND_CODES === $cleaned['fields']['kind'] ) {
-				$text = self::codes_text();
+			// The list parsed cleanly above, so what is left to go wrong here is the pool's own
+			// answer: a list with no code in it at all, or a lock somebody else is holding.
+			if ( '' !== $codes_text ) {
+				$added = self::add_codes( $offer_id, $codes_text );
 
-				if ( is_wp_error( $text ) ) {
-					$codes_fail = self::codes_refusal_detail( $text );
-				} elseif ( '' !== $text ) {
-					$added = self::add_codes( $offer_id, $text );
-
-					if ( is_wp_error( $added ) ) {
-						$codes_fail = self::codes_refusal_detail( $added );
-					} else {
-						/* translators: %s: how many codes. */
-						$codes_note = sprintf( _n( '%s code added.', '%s codes added.', $added, 'wpcredits-program-manager' ), number_format_i18n( $added ) );
-					}
+				if ( is_wp_error( $added ) ) {
+					$codes_fail = self::codes_refusal_detail( $added );
+				} else {
+					/* translators: %s: how many codes. */
+					$codes_note = sprintf( _n( '%s code added.', '%s codes added.', $added, 'wpcredits-program-manager' ), number_format_i18n( $added ) );
 				}
 			}
 		} else {
@@ -1680,6 +1694,9 @@ final class WPCPM_Sponsor_Offers {
 					WPCPM_Sponsor_Codes::LINE_MAX,
 					WPCPM_Sponsor_Codes::CODES_MAX
 				)
+				// Said here because the refusal for it arrives after the paste, and the counts on
+				// the card read 0 available, which makes the rule look like a fault (FOFFR-4).
+				. ' ' . __( 'A voided code cannot be added to the same offer again.', 'wpcredits-program-manager' )
 			)
 		);
 		printf(

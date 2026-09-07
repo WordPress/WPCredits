@@ -14,7 +14,10 @@
  * - **The two ways round a naive search.** A name written with `#` escapes, and a name hidden
  *   inside a `FlateDecode` stream. Both are undone before the search.
  * - **The budget is a budget.** A stream that would inflate past it is skipped rather than
- *   read, which is also a limit on what the scan finds, and the design says so out loud.
+ *   read, which is also a limit on what the scan finds, and the design says so out loud. All
+ *   three bounds are run at their boundaries and the scan's memory is given a number, because
+ *   two of them were asserted only as constants and a mutation that dropped the loop guard
+ *   killed no suite in the battery (FSUIT-2).
  *
  * Real temporary files throughout, and the real `finfo` extension: a scanner asserted against
  * a stub of the thing it exists to double-check is a scanner asserted against nothing.
@@ -164,6 +167,61 @@ $over     = WPCPM_Pdf_Check::inspect( pdf_bytes( "4 0 obj<</Filter/FlateDecode>>
 ck( 'a stream inflating to exactly the budget, or under it, is still searched and refused; one byte over is skipped', array( $at_limit['reason'], $under['reason'], $over['ok'] ), array( 'agreement-launch', 'agreement-launch', true ) );
 ck( 'the budget is the one the constants name', array( WPCPM_Pdf_Check::SCAN_MAX_STREAM, WPCPM_Pdf_Check::SCAN_MAX_TOTAL, WPCPM_Pdf_Check::SCAN_MAX_STREAMS ), array( 2097152, 8388608, 200 ) );
 ck( 'the two refusals, and only two', WPCPM_Pdf_Check::SCAN_REFUSALS, array( '/Encrypt' => 'agreement-encrypted', '/Launch' => 'agreement-launch' ) );
+
+// FSUIT-2: the two bounds above were asserted only as constants, which is true whether or not
+// the loop reads them, and the per-stream bound was the only one exercised. The three checks
+// below run the loop at both of its other boundaries and put a number on what the scan may
+// cost: with the guard removed, a 600-stream file takes the process past its memory limit
+// while every other check in this file still passes.
+$filler  = gzcompress( 'nothing to find here' );
+$carrier = gzcompress( '<</S/Launch/F(calc.exe)>>' );
+$mib     = gzcompress( str_repeat( 'A', 1048576 ) );
+
+/**
+ * A PDF whose objects are the given already-deflated stream bodies, in order.
+ *
+ * @param string[] $bodies Deflated stream bodies.
+ * @return string
+ */
+function pdf_of_streams( array $bodies ) {
+	$out = "%PDF-1.7\n";
+
+	foreach ( $bodies as $index => $body ) {
+		$out .= ( $index + 4 ) . " 0 obj<</Length " . strlen( $body ) . "/Filter/FlateDecode>>stream\n" . $body . "\nendstream endobj\n";
+	}
+
+	return $out . "trailer<</Root 1 0 R/Size 4>>\n%%EOF\n";
+}
+
+$last_inside = array_fill( 0, WPCPM_Pdf_Check::SCAN_MAX_STREAMS - 1, $filler );
+$first_past  = array_fill( 0, WPCPM_Pdf_Check::SCAN_MAX_STREAMS, $filler );
+$last_inside[] = $carrier;
+$first_past[]  = $carrier;
+
+ck( 'the last stream inside the count budget is read, and its refusal found', WPCPM_Pdf_Check::inspect( pdf_of_streams( $last_inside ) )['reason'], 'agreement-launch' );
+ck( 'the first stream past it is not read at all: the scan visits SCAN_MAX_STREAMS streams and stops', WPCPM_Pdf_Check::inspect( pdf_of_streams( $first_past ) )['ok'], true );
+
+$fits         = (int) floor( WPCPM_Pdf_Check::SCAN_MAX_TOTAL / 1048576 );
+$under_total  = array_fill( 0, $fits - 1, $mib );
+$over_total   = array_fill( 0, $fits, $mib );
+$under_total[] = $carrier;
+$over_total[]  = $carrier;
+
+ck( 'a stream reached before the total budget is spent is read', WPCPM_Pdf_Check::inspect( pdf_of_streams( $under_total ) )['reason'], 'agreement-launch' );
+ck( 'and one reached after it is not: the scan stops at SCAN_MAX_TOTAL inflated bytes', WPCPM_Pdf_Check::inspect( pdf_of_streams( $over_total ) )['ok'], true );
+
+$flood   = array_fill( 0, 600, $mib );
+$flood[] = $carrier;
+$file    = pdf_of_streams( $flood );
+$scanned = WPCPM_Pdf_Check::inspect( $file );
+// An absolute reading and not a delta against a reading taken before the call: a delta is
+// zero whenever an earlier check in this same process already peaked higher, which would
+// pass on a number it never measured. 64 MiB is a ceiling the process must stay under, not
+// the scan's own cost - the budget is SCAN_MAX_TOTAL (8 MiB) of inflated bytes, so a scan
+// that actually stops there leaves room to spare, and one that reads all six hundred does not.
+$peak = memory_get_peak_usage( true ) / 1048576;
+
+ck( 'six hundred one-MiB streams leave the process under a 64 MiB peak and find nothing past the budget', array( strlen( $file ) < 2097152, $scanned['ok'], $peak < 64 ), array( true, true, true ) );
 
 echo "\n=== House rules ===\n";
 $src = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-pdf-check.php' );

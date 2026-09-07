@@ -157,6 +157,11 @@ they ship with the reference's labels and `#` placeholders.
 
 == Changelog ==
 
+= 1.24.3 =
+* Every dashboard table is dressed once, by one rule, in the Institution Dashboard's values: the Student Report Card's detail tables, the Institution Dashboard's roster and student tables, the Sponsor Dashboard's Usage card and the Administrator Dashboard's queues. A row header was three different weights across the three pages, with three paddings, two rule colors and a 13px uppercase column header only one of them drew.
+* Sponsor Dashboard: the claimed code's button reset is said in the theme's own tokens, beside the rest of its dressing, now that the plugin prints the code as a button.
+* That one rule carries the dashboard body class, like the rest of the sheet, so it dresses a table on a dashboard rather than every table the theme draws; the two column-header selectors for tables that have no column headers are gone. `bin/check-selectors.php` refuses a shared table rule written without the body class.
+
 = 1.24.2 =
 * Student Report Card: the Designer Track's chip (plugin 1.98.2) says its rose as a token rather than leaving it to the plugin's own sheet.
 * Student Report Card: the screenshot questions of the Designer Track's practical lessons - the thumbnail in the card line, the note and the swap sentence in the hint's voice, and the file picker and Remove on one row at the form's control size, the file button dressed as the Sponsor Dashboard's is.

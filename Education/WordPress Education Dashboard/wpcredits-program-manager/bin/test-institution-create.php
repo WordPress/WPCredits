@@ -469,7 +469,7 @@ fresh();
 $batch_id = stage(
 	$HERE,
 	array(
-		row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ),
+		row( 2, 'Anna Kowalska', 'anna@institution-3.example' ),
 	)
 );
 $batch = WPCPM_Institution_Import::batch( $batch_id );
@@ -492,7 +492,9 @@ ck( 'the institution is the batch\'s, as a link list', $cells['Educational Insti
 $hostile = WPCPM_Institution_Create::fields_for(
 	$batch,
 	array_merge(
-		row( 2, 'Anna Kowalska', 'Anna@UEK.krakow.pl' ),
+		// Mixed case on both halves on purpose: the local part and the domain are lowercased
+		// by different code, and a placeholder domain that was already lower case tested only one.
+		row( 2, 'Anna Kowalska', 'Anna@INSTITUTION-3.example' ),
 		// What a forged preview row would carry, and what a later feature might add innocently.
 		array( 'institution' => $THERE )
 	),
@@ -502,15 +504,15 @@ $hostile = WPCPM_Institution_Create::fields_for(
 ck( 'a row naming another school is written to the batch\'s all the same', $hostile['Educational Institutions'], array( $HERE ) );
 ck( 'and never to the one on the row', in_array( $THERE, $hostile['Educational Institutions'], true ), false );
 // Lowercased: the base holds addresses as typed, and every join in this plugin compares keys.
-ck( 'the address is the lowercased one', $cells['Email'], 'anna@uek.krakow.pl' );
-ck( 'a mixed-case address is written lowercased', $hostile['Email'], 'anna@uek.krakow.pl' );
+ck( 'the address is the lowercased one', $cells['Email'], 'anna@institution-3.example' );
+ck( 'a mixed-case address is written lowercased', $hostile['Email'], 'anna@institution-3.example' );
 ck( 'the status is the batch\'s program', $cells['Status'], WPCPM_Program::STATUS_150H );
 // Names the batch and the row, which is what tells a lost response from somebody else's work.
 ck( 'the import key names the batch and the row', $cells['Site import key'], 'imp-' . $batch_id . '-0' );
 
 $full = WPCPM_Institution_Create::fields_for(
 	array_merge( $batch, array( 'values' => array_merge( $batch['values'], array( 'end' => '2027-02-07' ) ) ) ),
-	row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl', array( 'profile' => 'https://profiles.wordpress.org/bartekz/', 'field_of_study' => 'Technology & Engineering', 'tutor' => 'Dr Nowak' ) ),
+	row( 3, 'Bartek Zielinski', 'bartek@institution-3.example', array( 'profile' => 'https://profiles.wordpress.org/bartekz/', 'field_of_study' => 'Technology & Engineering', 'tutor' => 'Dr Nowak' ) ),
 	1
 );
 
@@ -525,7 +527,7 @@ ck( 'the tutor column keeps its trailing space', $full['Tutor '], 'Dr Nowak' );
 
 // Airtable is sent no typecast, so an empty string in a single-select is a 422 for the whole
 // record: a school that left the column out would lose the student rather than the cell.
-$blank = WPCPM_Institution_Create::fields_for( $batch, row( 4, 'Cecylia Nowak', 'cecylia@uek.krakow.pl', array( 'field_of_study' => '' ) ), 2 );
+$blank = WPCPM_Institution_Create::fields_for( $batch, row( 4, 'Cecylia Nowak', 'cecylia@institution-3.example', array( 'field_of_study' => '' ) ), 2 );
 ck( 'an empty optional cell is absent rather than empty', isset( $blank['Your field of study'] ), false );
 
 // The automation creates the report and the feedback rows when a mentor is assigned; the
@@ -550,7 +552,7 @@ ck( 'a batch with no institution produces no map at all', $orphan, array() );
 echo "\n=== The guard, before every slice, whoever runs it ===\n";
 
 fresh();
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ), row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ) ) );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ), row( 3, 'Bartek Zielinski', 'bartek@institution-3.example' ) ) );
 
 $GLOBALS['settled'] = false;
 $out                = WPCPM_Institution_Create::create_slice( $batch_id );
@@ -565,7 +567,7 @@ ck( 'and one audit row saying so', count( $GLOBALS['audit'] ), 1 );
 ck( 'named as the import stopping', $GLOBALS['audit'][0]['kind'], WPCPM_Institution_Create::LOG_STOPPED );
 
 fresh();
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ), array(), 42 );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ), array(), 42 );
 $GLOBALS['allowed'] = false;
 // Nobody is signed in, which is exactly the state a cron continuation runs in.
 $GLOBALS['uid']     = 0;
@@ -583,7 +585,7 @@ foreach ( $GLOBALS['calls'] as $call ) { if ( 'decide' === $call[0] ) { $asked[]
 ck( 'the policy was asked about the account that confirmed', $asked, array( 42 ) );
 
 fresh();
-$batch_id = WPCPM_Institution_Import::stage( $HERE, 11, array( 'status' => WPCPM_Program::STATUS_150H, 'start' => '2026-09-07', 'end' => '' ), array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ) );
+$batch_id = WPCPM_Institution_Import::stage( $HERE, 11, array( 'status' => WPCPM_Program::STATUS_150H, 'start' => '2026-09-07', 'end' => '' ), array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ) );
 $out      = WPCPM_Institution_Create::create_slice( $batch_id );
 
 // Nobody claimed it, so there is no account to hold to the rule. `resolve_user()` reads a zero
@@ -599,7 +601,7 @@ echo "\n=== A revoke between two slices ===\n";
 fresh();
 $rows = array();
 foreach ( range( 1, 4 ) as $n ) {
-	$rows[] = row( $n + 1, 'Student ' . $n, 'student' . $n . '@uek.krakow.pl' );
+	$rows[] = row( $n + 1, 'Student ' . $n, 'student' . $n . '@institution-3.example' );
 }
 $batch_id = stage( $HERE, $rows );
 
@@ -630,7 +632,7 @@ ck( 'and the students already created are still counted', $second['created'], $m
 echo "\n=== The lock ===\n";
 
 fresh();
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ) );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ) );
 
 // Somebody else's slice is running. `add_option()` is the test and set: two requests reaching
 // it together cannot both be told yes.
@@ -656,23 +658,23 @@ fresh();
 $batch_id = stage(
 	$HERE,
 	array(
-		row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ),
+		row( 2, 'Anna Kowalska', 'anna@institution-3.example' ),
 		// A soft warning at preview time. It has to be asked again, or the one row the school
 		// was told was fine is the one row nothing checks.
-		row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl', array( 'verdict' => WPCPM_Institution_Import::NEAR_NAME, 'detail' => array( 'near' => 'Bartosz Zielinski' ) ) ),
+		row( 3, 'Bartek Zielinski', 'bartek@institution-3.example', array( 'verdict' => WPCPM_Institution_Import::NEAR_NAME, 'detail' => array( 'near' => 'Bartosz Zielinski' ) ) ),
 	)
 );
 
 // Somebody enrolled Bartek at another university between the preview and the confirm.
 $GLOBALS['base'][] = array(
 	'id'     => 'recOTHER000000001',
-	'fields' => array( 'Email' => 'bartek@uek.krakow.pl', 'Full Name' => 'Bartek Zielinski', 'Educational Institutions' => array( $THERE ), 'Status' => 'In Sensei' ),
+	'fields' => array( 'Email' => 'bartek@institution-3.example', 'Full Name' => 'Bartek Zielinski', 'Educational Institutions' => array( $THERE ), 'Status' => 'In Sensei' ),
 );
 
 $out = WPCPM_Institution_Create::create_slice( $batch_id );
 
 ck( 'the row whose answer changed is not created', count( $GLOBALS['created'] ), 1 );
-ck( 'the other one is', $GLOBALS['created'][0]['Email'], 'anna@uek.krakow.pl' );
+ck( 'the other one is', $GLOBALS['created'][0]['Email'], 'anna@institution-3.example' );
 ck( 'and the changed row is blocked', row_states( $batch_id ), array( 'created', 'blocked' ) );
 
 $changed = rows_of( $batch_id )[1];
@@ -685,7 +687,7 @@ ck( 'with the one refusal every outside hit gets', $changed['verdict'], WPCPM_In
 ck( 'and the reason kept for a program manager', $changed['manager_reason'], 'students row at another institution' );
 
 fresh();
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ) );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ) );
 $GLOBALS['fail'] = 'tblStudents';
 $out             = WPCPM_Institution_Create::create_slice( $batch_id );
 
@@ -702,20 +704,20 @@ fresh();
 $batch_id = stage(
 	$HERE,
 	array(
-		row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ),
-		row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ),
-		row( 4, 'Cecylia Nowak', 'cecylia@uek.krakow.pl' ),
+		row( 2, 'Anna Kowalska', 'anna@institution-3.example' ),
+		row( 3, 'Bartek Zielinski', 'bartek@institution-3.example' ),
+		row( 4, 'Cecylia Nowak', 'cecylia@institution-3.example' ),
 	)
 );
 
 // Row two reaches Airtable and the process dies before the answer is stored.
-$GLOBALS['lose'] = array( 'bartek@uek.krakow.pl' );
+$GLOBALS['lose'] = array( 'bartek@institution-3.example' );
 
 try {
 	WPCPM_Institution_Create::create_slice( $batch_id );
 	ck( 'the request was killed part way', false, true );
 } catch ( Lost $e ) {
-	ck( 'the request was killed part way', $e->getMessage(), 'bartek@uek.krakow.pl' );
+	ck( 'the request was killed part way', $e->getMessage(), 'bartek@institution-3.example' );
 }
 
 $GLOBALS['lose'] = array();
@@ -755,7 +757,7 @@ ck( 'and it was found by its import key', $searched, true );
 echo "\n=== An address that matches is not the same as a record of ours ===\n";
 
 fresh();
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ) );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ) );
 
 // The row is mid-flight, and the address now belongs to a record this batch did not make.
 $rows          = rows_of( $batch_id );
@@ -765,7 +767,7 @@ update_post_meta( $batch_id, WPCPM_Institution_Import::META_STATE, WPCPM_Institu
 
 $GLOBALS['base'][] = array(
 	'id'     => 'recSOMEONE0000001',
-	'fields' => array( 'Email' => 'anna@uek.krakow.pl', 'Full Name' => 'Anna Kowalska', 'Educational Institutions' => array( $THERE ) ),
+	'fields' => array( 'Email' => 'anna@institution-3.example', 'Full Name' => 'Anna Kowalska', 'Educational Institutions' => array( $THERE ) ),
 );
 
 WPCPM_Institution_Create::create_slice( $batch_id );
@@ -782,13 +784,13 @@ fresh();
 $batch_id = stage(
 	$HERE,
 	array(
-		row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ),
-		row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ),
-		row( 4, 'Cecylia Nowak', 'cecylia@uek.krakow.pl' ),
+		row( 2, 'Anna Kowalska', 'anna@institution-3.example' ),
+		row( 3, 'Bartek Zielinski', 'bartek@institution-3.example' ),
+		row( 4, 'Cecylia Nowak', 'cecylia@institution-3.example' ),
 	)
 );
 
-$GLOBALS['refuse'] = array( 'bartek@uek.krakow.pl' );
+$GLOBALS['refuse'] = array( 'bartek@institution-3.example' );
 $GLOBALS['base_refusal'] = '';
 $out               = WPCPM_Institution_Create::create_slice( $batch_id );
 
@@ -813,9 +815,9 @@ foreach ( array( 'unsent' => 'pending', 'base' => 'creating', 'not-found' => 'cr
 	$batch_id = stage(
 		$HERE,
 		array(
-			row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ),
-			row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ),
-			row( 4, 'Cecylia Nowak', 'cecylia@uek.krakow.pl' ),
+			row( 2, 'Anna Kowalska', 'anna@institution-3.example' ),
+			row( 3, 'Bartek Zielinski', 'bartek@institution-3.example' ),
+			row( 4, 'Cecylia Nowak', 'cecylia@institution-3.example' ),
 		)
 	);
 	$GLOBALS['base_refusal'] = $kind;
@@ -839,7 +841,7 @@ foreach ( array( 'unsent' => 'pending', 'base' => 'creating', 'not-found' => 'cr
 // full batch can outlive the 120-second timeout while still working; before this the next tick
 // took the lock and both slices created the same students.
 fresh();
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ), row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ) ) );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ), row( 3, 'Bartek Zielinski', 'bartek@institution-3.example' ) ) );
 $lock     = WPCPM_Institution_Create::LOCK_PREFIX . $HERE;
 $seen     = array();
 $GLOBALS['on_create'] = function () use ( $lock, &$seen ) { $seen[] = (string) get_option( $lock ); };
@@ -852,7 +854,7 @@ ck( 'and released when the slice ends', get_option( $lock ), false );
 // A newcomer that took the lock over mid-slice keeps it: the finishing slice sees a token that
 // is not its own and leaves the option alone.
 fresh();
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ), row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ) ) );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ), row( 3, 'Bartek Zielinski', 'bartek@institution-3.example' ) ) );
 $GLOBALS['on_create'] = function ( $n ) use ( $lock ) { if ( 1 === $n ) { update_option( $lock, time() . ':newcomer0000' ); } };
 WPCPM_Institution_Create::create_slice( $batch_id );
 $GLOBALS['on_create'] = null;
@@ -861,12 +863,12 @@ delete_option( $lock );
 
 // A stale lock is still taken over, which is what keeps a killed request from stranding a batch.
 fresh();
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ) );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ) );
 update_option( $lock, ( time() - WPCPM_Institution_Create::LOCK_TIMEOUT - 5 ) . ':deadslice000' );
 $out = WPCPM_Institution_Create::create_slice( $batch_id );
 ck( 'a lock older than the timeout is taken over', $out['problem'], 'created' );
 update_option( $lock, time() . ':liveslice000' );
-ck( 'while a fresh one is honoured', WPCPM_Institution_Create::create_slice( stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ) ) )['problem'], 'locked' );
+ck( 'while a fresh one is honoured', WPCPM_Institution_Create::create_slice( stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ) ) )['problem'], 'locked' );
 delete_option( $lock );
 
 // The reverse, so the two branches are told apart rather than both landing on "stop": a 422
@@ -875,12 +877,12 @@ fresh();
 $batch_id = stage(
 	$HERE,
 	array(
-		row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ),
-		row( 3, 'Bartek Zielinski', 'bartek@uek.krakow.pl' ),
-		row( 4, 'Cecylia Nowak', 'cecylia@uek.krakow.pl' ),
+		row( 2, 'Anna Kowalska', 'anna@institution-3.example' ),
+		row( 3, 'Bartek Zielinski', 'bartek@institution-3.example' ),
+		row( 4, 'Cecylia Nowak', 'cecylia@institution-3.example' ),
 	)
 );
-$GLOBALS['refuse'] = array( 'bartek@uek.krakow.pl' );
+$GLOBALS['refuse'] = array( 'bartek@institution-3.example' );
 WPCPM_Institution_Create::create_slice( $batch_id );
 $GLOBALS['refuse'] = array();
 ck( 'a refusal naming the record still fails only that row', row_states( $batch_id ), array( 'created', 'failed', 'created' ) );
@@ -900,7 +902,7 @@ echo "\n=== What a created student joins ===\n";
 fresh();
 $batch_id = stage(
 	$HERE,
-	array( row( 2, 'Anna Kowalska', 'Anna@UEK.krakow.pl', array( 'profile' => 'https://profiles.wordpress.org/annak/', 'handle' => 'annak', 'tutor' => 'Dr Nowak' ) ) ),
+	array( row( 2, 'Anna Kowalska', 'Anna@institution-3.example', array( 'profile' => 'https://profiles.wordpress.org/annak/', 'handle' => 'annak', 'tutor' => 'Dr Nowak' ) ) ),
 	array( 'end' => '2027-02-07' )
 );
 
@@ -945,10 +947,10 @@ fresh();
 $batch_id = stage(
 	$HERE,
 	array(
-		row( 2, '', 'nobody@uek.krakow.pl', array( 'verdict' => WPCPM_Institution_Import::INVALID, 'problems' => array( 'name_missing' ) ) ),
-		row( 3, 'Anna Kowalska', 'anna@uek.krakow.pl', array( 'verdict' => WPCPM_Institution_Import::EXISTS_HERE ) ),
-		row( 4, 'Bartek Zielinski', 'bartek@uek.krakow.pl', array( 'verdict' => WPCPM_Institution_Import::DUPLICATE_FILE, 'duplicate_of' => 5 ) ),
-		row( 5, 'Cecylia Nowak', 'cecylia@uek.krakow.pl' ),
+		row( 2, '', 'nobody@institution-3.example', array( 'verdict' => WPCPM_Institution_Import::INVALID, 'problems' => array( 'name_missing' ) ) ),
+		row( 3, 'Anna Kowalska', 'anna@institution-3.example', array( 'verdict' => WPCPM_Institution_Import::EXISTS_HERE ) ),
+		row( 4, 'Bartek Zielinski', 'bartek@institution-3.example', array( 'verdict' => WPCPM_Institution_Import::DUPLICATE_FILE, 'duplicate_of' => 5 ) ),
+		row( 5, 'Cecylia Nowak', 'cecylia@institution-3.example' ),
 	)
 );
 
@@ -971,7 +973,7 @@ foreach ( $GLOBALS['hooks'] as $hook ) { $hooked[] = $hook[0]; }
 // is registered for it, and a school's import simply stops with rows left and no error.
 ck( 'the tick hook is registered', in_array( WPCPM_Institution_Import::CRON_TICK, $hooked, true ), true );
 
-$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@uek.krakow.pl' ) ), array(), 42 );
+$batch_id = stage( $HERE, array( row( 2, 'Anna Kowalska', 'anna@institution-3.example' ) ), array(), 42 );
 // Cron runs with nobody signed in. Every check the confirm made has to be makeable again
 // from here, out of what the batch itself remembers.
 $GLOBALS['uid'] = 0;

@@ -105,24 +105,32 @@ final class WPCPM_Administrators_Cards {
 			}
 		}
 
-		// "This semester" is the current half-year, the same window the semester report and
-		// the roster strip use, so the three cannot disagree about what the phrase means.
-		$from = WPCPM_Cohort::range( WPCPM_Cohort::current() );
-		$from = '' !== $from['from'] ? (int) strtotime( $from['from'] . ' 00:00:00 UTC' ) : 0;
+		// "This semester" is the current half-year, the same window the semester report, the
+		// roster strip and the Sponsors tile use, so none of them can disagree about what the
+		// phrase means: one helper answers it for the whole page.
+		$from = self::semester_start()['from'];
 
-		$open   = WPCPM_Institution_Application::applications( WPCPM_Institutions::open_states() );
-		$closed = WPCPM_Institution_Application::applications( array( WPCPM_Institution_Application::STATE_REJECTED, WPCPM_Institution_Application::STATE_SPAM ) );
+		// Two questions, asked apart: the rows to draw, bounded at self::LIMIT, and the totals,
+		// which are IDs. Asking for the rows to count them loaded every rejected application of
+		// the year and every spam row of the month as a WP_Post - priming the meta cache with
+		// each applicant's whole submitted form - to throw all but fifty away (deep check
+		// FADMN-2). The sponsor half of this method has asked for its rows bounded since S5.
+		$open_states   = WPCPM_Institutions::open_states();
+		$closed_states = array( WPCPM_Institution_Application::STATE_REJECTED, WPCPM_Institution_Application::STATE_SPAM );
+		$open          = WPCPM_Institution_Application::applications( $open_states, self::LIMIT );
+		$closed        = WPCPM_Institution_Application::applications( $closed_states, self::LIMIT );
 
 		return array(
-			// The full lists are fetched above (the totals need every row), but only the first
-			// self::LIMIT of each is kept for drawing: the wp-admin queue caps its own list at
+			// Only self::LIMIT of each list is drawn: the wp-admin queue caps its own list at
 			// WPCPM_Institutions::QUEUE_MAX, which is the same number, and a page reading the
-			// same rows must never draw a "complete" list the queue would call partial.
+			// same rows must never draw a "complete" list the queue would call partial. The
+			// totals beside them say how many there are, so the card can point at the screen
+			// that has the rest.
 			'applications'         => array(
-				'open'         => array_slice( $open, 0, self::LIMIT ),
-				'open_total'   => count( $open ),
-				'closed'       => array_slice( $closed, 0, self::LIMIT ),
-				'closed_total' => count( $closed ),
+				'open'         => $open,
+				'open_total'   => count( WPCPM_Institution_Application::application_ids( $open_states ) ),
+				'closed'       => $closed,
+				'closed_total' => count( WPCPM_Institution_Application::application_ids( $closed_states ) ),
 			),
 			'agreements'           => array(
 				'awaiting' => $awaiting,
@@ -556,9 +564,14 @@ final class WPCPM_Administrators_Cards {
 				'live_offers'     => 0,
 				'claims_semester' => 0,
 				'since'           => '',
+				'since_display'   => '',
 			),
 			$facts
 		);
+
+		// The day as the site writes it, falling back to the stored `Y-m-d` for a caller that
+		// has not been told about the second field.
+		$since = '' !== (string) $facts['since_display'] ? (string) $facts['since_display'] : (string) $facts['since'];
 
 		self::card_open( 'sponsors', __( 'Sponsors', 'wpcredits-program-manager' ), (int) $facts['approved'] );
 
@@ -569,8 +582,8 @@ final class WPCPM_Administrators_Cards {
 			array( __( 'Approved sponsors', 'wpcredits-program-manager' ), (int) $facts['approved'], __( 'in the program records', 'wpcredits-program-manager' ) ),
 			array( __( 'With an account', 'wpcredits-program-manager' ), (int) $facts['with_accounts'], __( 'of the Approved sponsors', 'wpcredits-program-manager' ) ),
 			array( __( 'Live offers', 'wpcredits-program-manager' ), (int) $facts['live_offers'], __( 'shown on the site today', 'wpcredits-program-manager' ) ),
-			/* translators: %s: the first day of the semester, Y-m-d. */
-			array( __( 'Claims this semester', 'wpcredits-program-manager' ), (int) $facts['claims_semester'], sprintf( __( 'since %s, on every offer', 'wpcredits-program-manager' ), (string) $facts['since'] ) ),
+			/* translators: %s: the first day of the semester, in the site's date format. */
+			array( __( 'Claims this semester', 'wpcredits-program-manager' ), (int) $facts['claims_semester'], sprintf( __( 'since %s, on every offer', 'wpcredits-program-manager' ), $since ) ),
 		);
 
 		echo '<ul class="wpcpm-programs__tiles">';
@@ -675,22 +688,53 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
+	 * The first moment of this semester, where the site is: one definition for the whole page.
+	 *
+	 * Midnight where the site is, rather than at Greenwich. The cohort's first day is a
+	 * calendar day, and a calendar day belongs to the site's own zone: measured from midnight
+	 * UTC, a claim made at half past eleven on the last evening of last semester was counted
+	 * into this one on every site west of Greenwich, and the tile printed a figure nobody
+	 * could reproduce by counting (the clean-up release parked this as P2).
+	 *
+	 * Answered here rather than twice, because the Sponsors tile and the Reports card both ask
+	 * it and print the answer as the same words: one of them counting from Greenwich and the
+	 * other from Los Angeles is a page saying "this semester" about two different days.
+	 *
+	 * @return array{from: int, since: string} The moment, and its day as `Y-m-d`; 0 and an
+	 *               empty string when the cohort has no range.
+	 */
+	private static function semester_start() {
+		$since = (string) WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'];
+
+		return array(
+			'from'  => '' !== $since ? (int) ( new DateTimeImmutable( $since . ' 00:00:00', wp_timezone() ) )->format( 'U' ) : 0,
+			'since' => $since,
+		);
+	}
+
+	/**
 	 * The sponsors' figures for the Sponsors card: Approved sponsors, how many of them hold an
 	 * account, the offers live today, and the claims that stand since this semester began
 	 * (S6, ruling 5). A voided claim is not a claim; a claim before the cohort's first day is
 	 * last semester's.
 	 *
-	 * @return array `approved`, `with_accounts`, `live_offers`, `claims_semester`, `since` (Y-m-d).
+	 * @return array `approved`, `with_accounts`, `live_offers`, `claims_semester`, `since`
+	 *               (Y-m-d) and `since_display` (the site's date format).
 	 */
 	public static function sponsors() {
-		$since = (string) WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'];
-		$from  = (int) strtotime( $since . ' 00:00:00 UTC' );
+		$start = self::semester_start();
+		$since = $start['since'];
+		$from  = $start['from'];
 		$out   = array(
 			'approved'        => 0,
 			'with_accounts'   => 0,
 			'live_offers'     => 0,
 			'claims_semester' => 0,
 			'since'           => $since,
+			// Twice, on purpose: `since` stays `Y-m-d`, which is what every reader of this
+			// array compares against, and `since_display` is the same day written the way this
+			// site writes days, which is what the tile's sentence says out loud.
+			'since_display'   => $from > 0 ? (string) wp_date( (string) get_option( 'date_format', 'F j, Y' ), $from ) : $since,
 		);
 
 		if ( class_exists( 'WPCPM_Sponsors_Index' ) ) {
@@ -1400,12 +1444,23 @@ final class WPCPM_Administrators_Cards {
 			printf( '<details class="wpcpm-administrator__closed"><summary>%s</summary><ul class="wpcpm-administrator__list">', esc_html__( 'Recently closed', 'wpcredits-program-manager' ) );
 
 			foreach ( $closed as $facts ) {
+				// Which date this is, said in the sentence. The card is "Recently closed" and
+				// the list is in closing order, so a bare date read as the closing one while it
+				// was the opening one, months earlier (deep check FADMN-3). A row closed before
+				// 1.99.0 carries no closing stamp, and says so rather than guessing.
+				$closed_at = isset( $facts['closed_at'] ) ? (int) $facts['closed_at'] : 0;
+				$dated     = $closed_at > 0
+					/* translators: %s: a date and time. */
+					? sprintf( __( 'closed on %s', 'wpcredits-program-manager' ), self::when( $closed_at ) )
+					/* translators: %s: a date and time. */
+					: sprintf( __( 'opened on %s', 'wpcredits-program-manager' ), self::when( (int) $facts['at'] ) );
+
 				printf(
 					'<li>%1$s, %2$s: %3$s, %4$s</li>',
 					self::institution_link( $facts['institution'] ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- institution_link() escapes the name and the href; escaping it again would print its own markup.
 					esc_html( $facts['kind_label'] ),
 					esc_html( WPCPM_Institution_Request::STATE_DONE === $facts['state'] ? __( 'Handled', 'wpcredits-program-manager' ) : __( 'Declined', 'wpcredits-program-manager' ) ),
-					esc_html( self::when( (int) $facts['at'] ) )
+					esc_html( $dated )
 				);
 			}
 

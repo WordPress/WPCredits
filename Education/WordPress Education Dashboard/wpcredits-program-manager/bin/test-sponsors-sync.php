@@ -30,6 +30,7 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'DAY_IN_SECONDS', 86400 );
+define( 'WEEK_IN_SECONDS', 604800 );
 define( 'MONTH_IN_SECONDS', 2592000 );
 
 $GLOBALS['opts']     = array();
@@ -479,7 +480,7 @@ $fail  = 0;
 $total = 0;
 function ck( $label, $actual, $expected ) {
 	global $fail, $total;
-	$total++;
+	++$total;
 	$ok = $actual === $expected;
 	if ( ! $ok ) { $fail++; }
 	echo ( $ok ? "ok   " : "FAIL " ) . $label . "\n";
@@ -556,6 +557,26 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-index.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors-sync.php';
 
 function run_to_end() { for ( $i = 0; $i < 50 && WPCPM_Sponsors_Sync::is_running(); $i++ ) { WPCPM_Sponsors_Sync::run_tick( WPCPM_Sponsors_Sync::BUDGET_AJAX ); } }
+
+/** The shrink mark as the option holds it, with zeros for the fields a run that wrote none left. */
+function shrink_mark() {
+	$mark = get_option( WPCPM_Sponsors_Sync::OPT_SHRINK );
+	return ( is_array( $mark ) ? $mark : array() ) + array( 'count' => 0, 'index' => 0, 'run' => 0, 'at' => 0 );
+}
+
+/**
+ * Age the shrink mark, so two runs a second apart read as the cycles apart they stand for.
+ *
+ * A run is told from another by the second it started in, and every run in this file starts
+ * in the same second, so without this every following run would read as the refused one.
+ *
+ * @param int $seconds How much older to make it.
+ */
+function age_shrink( $seconds ) {
+	$GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_SHRINK ]['run'] -= (int) $seconds;
+	$GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_SHRINK ]['at']  -= (int) $seconds;
+}
+
 function att( $id, $file, $type, $w = 300, $h = 100, $size = 1000 ) { return array( 'id' => $id, 'url' => 'https://v5.airtableusercontent.com/x/' . $id . '/' . $file, 'filename' => $file, 'type' => $type, 'size' => $size, 'width' => $w, 'height' => $h ); }
 
 $A = 'recSPONSOR0000001';  // Approved, PNG logo
@@ -570,14 +591,14 @@ $M2 = 'recMENTOR00000002';
 
 $GLOBALS['pages']['tblTEAM'] = array( array( 'records' => array(
 	array( 'id' => $TM1, 'fields' => array( 'Name' => 'Maciej (Matt) Pilarski', 'Email' => 'maciej@a8c.com', 'Calendly link' => 'https://calendly.com/matt' ) ),
-	array( 'id' => $TM2, 'fields' => array( 'Name' => 'Francesco Di Candia', 'Email' => 'maciej@a8c.com' ) ),
+	array( 'id' => $TM2, 'fields' => array( 'Name' => 'Rey Example', 'Email' => 'maciej@a8c.com' ) ),
 	array( 'id' => 'bad', 'fields' => array( 'Name' => 'Nobody' ) ),
 ), 'offset' => null ) );
 $GLOBALS['pages']['tblSPONSORS'] = array( array( 'records' => array(
-	array( 'id' => $A, 'createdTime' => '2026-04-13T08:53:43.000Z', 'fields' => array( 'Company Name' => 'miniOrange ', 'Website' => 'https://plugins.miniorange.com/', 'Contact Person Full Name' => 'Rep One', 'Contact Email' => 'Maciej@a8c.com', 'Status' => 'Approved', 'Sponsorship options' => 'Sponsor mentors + tools/services', 'How would you like to support WP Credits?' => array( 'Sponsor tools or services', 'Sponsor a mentor or multiple mentors' ), 'Type of product' => 'Hosting', 'Offer' => 'One year free', 'Brief instructions' => 'Use the code.', 'More info link' => 'https://plugins.miniorange.com/offer', 'Coupon code/discount link' => 'https://sheet.test/x', "Anything else you'd like to share." => 'Happy to help students.', 'Person of contact' => array( $TM1 ), 'Mentors' => array( $M1, $M2 ), 'Logo' => array( att( 'attA', 'miniorange-300w.png', 'image/png' ) ), 'Privacy Policy Compliance' => true, 'Agreement Status' => 'Accepted', 'Agreement Accepted On' => '2026-09-01', 'Agreement Document' => 'https://drive.test/doc', 'Sponsorship interests' => "2026-09-01: Sponsor tools or services", 'Dashboard account' => true ) ),
-	array( 'id' => $B, 'fields' => array( 'Company Name' => 'Wetopi', 'Status' => 'Approved', 'Person of contact' => array( 'recUNKNOWN0000001' ), 'Logo' => array( att( 'attB', 'wetopi-text-logo.svg', 'image/svg+xml' ) ) ) ),
+	array( 'id' => $A, 'createdTime' => '2026-04-13T08:53:43.000Z', 'fields' => array( 'Company Name' => 'Mango Example ', 'Website' => 'https://plugins.mango-example.com/', 'Contact Person Full Name' => 'Rep One', 'Contact Email' => 'Maciej@a8c.com', 'Status' => 'Approved', 'Sponsorship options' => 'Sponsor mentors + tools/services', 'How would you like to support WP Credits?' => array( 'Sponsor tools or services', 'Sponsor a mentor or multiple mentors' ), 'Type of product' => 'Hosting', 'Offer' => 'One year free', 'Brief instructions' => 'Use the code.', 'More info link' => 'https://plugins.mango-example.com/offer', 'Coupon code/discount link' => 'https://sheet.test/x', "Anything else you'd like to share." => 'Happy to help students.', 'Person of contact' => array( $TM1 ), 'Mentors' => array( $M1, $M2 ), 'Logo' => array( att( 'attA', 'mango-example-300w.png', 'image/png' ) ), 'Privacy Policy Compliance' => true, 'Agreement Status' => 'Accepted', 'Agreement Accepted On' => '2026-09-01', 'Agreement Document' => 'https://drive.test/doc', 'Sponsorship interests' => "2026-09-01: Sponsor tools or services", 'Dashboard account' => true ) ),
+	array( 'id' => $B, 'fields' => array( 'Company Name' => 'Wexample', 'Status' => 'Approved', 'Person of contact' => array( 'recUNKNOWN0000001' ), 'Logo' => array( att( 'attB', 'wexample-text-logo.svg', 'image/svg+xml' ) ) ) ),
 	array( 'id' => $C, 'fields' => array( 'Status' => 'Approved' ) ),
-	array( 'id' => $D, 'fields' => array( 'Company Name' => 'Elicus', 'Status' => 'Paused', 'Logo' => array( att( 'attD', 'elicus.png', 'image/png' ) ) ) ),
+	array( 'id' => $D, 'fields' => array( 'Company Name' => 'Ember Example', 'Status' => 'Paused', 'Logo' => array( att( 'attD', 'ember-example.png', 'image/png' ) ) ) ),
 	array( 'id' => $E, 'fields' => array( 'Company Name' => 'Hostinger', 'Status' => 'Approved', 'Logo' => array( att( 'attE', 'hostinger-300w.png', 'image/png' ) ) ) ),
 	array( 'id' => 'garbage', 'fields' => array( 'Company Name' => 'Not a record' ) ),
 ), 'offset' => null ) );
@@ -601,13 +622,13 @@ run_to_end();
 ck( 'and the run finishes', WPCPM_Sponsors_Sync::is_running(), false );
 $report = $GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_REPORT ];
 ck( 'the report counts what was read', array( $report['stats']['team_seen'], $report['stats']['records_seen'], $report['stats']['approved'], $report['stats']['skipped'], $report['stats']['nameless'] ), array( 2, 5, 4, 1, 1 ) );
-ck( 'the team is keyed by record, addresses lowered, the malformed row dropped', WPCPM_Sponsors_Index::team(), array( $TM1 => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => 'https://calendly.com/matt' ), $TM2 => array( 'name' => 'Francesco Di Candia', 'email' => 'maciej@a8c.com', 'calendly' => '' ) ) );
+ck( 'the team is keyed by record, addresses lowered, the malformed row dropped', WPCPM_Sponsors_Index::team(), array( $TM1 => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => 'https://calendly.com/matt' ), $TM2 => array( 'name' => 'Rey Example', 'email' => 'maciej@a8c.com', 'calendly' => '' ) ) );
 $rows = WPCPM_Sponsors_Index::rows();
 ck( 'five sponsors are indexed, in Airtable\'s order', array_keys( $rows ), array( $A, $B, $C, $D, $E ) );
 ck( 'every row has every key', array_keys( $rows[ $C ] ), array_keys( WPCPM_Sponsors_Index::empty_row() ) );
-ck( 'the name is kept as the base holds it, trailing space and all', $rows[ $A ]['name'], 'miniOrange ' );
+ck( 'the name is kept as the base holds it, trailing space and all', $rows[ $A ]['name'], 'Mango Example ' );
 ck( 'the address is lowered, the links are IDs, the support is a list', array( $rows[ $A ]['contact_email'], $rows[ $A ]['manager'], $rows[ $A ]['mentors'], $rows[ $A ]['support'] ), array( 'maciej@a8c.com', $TM1, array( $M1, $M2 ), array( 'Sponsor tools or services', 'Sponsor a mentor or multiple mentors' ) ) );
-ck( 'the logo is the first attachment, reduced', $rows[ $A ]['logo'], att( 'attA', 'miniorange-300w.png', 'image/png' ) );
+ck( 'the logo is the first attachment, reduced', $rows[ $A ]['logo'], att( 'attA', 'mango-example-300w.png', 'image/png' ) );
 ck( 'the agreement, the interests, the checkbox and the created date', array( $rows[ $A ]['agreement'], $rows[ $A ]['interests'], $rows[ $A ]['dashboard_account'], $rows[ $A ]['created'] ), array( array( 'status' => 'Accepted', 'accepted_on' => '2026-09-01', 'has_document' => true ), '2026-09-01: Sponsor tools or services', true, '2026-04-13' ) );
 ck( 'the free-text field is read too, for the profile card', $rows[ $A ]['anything'], 'Happy to help students.' );
 ck( 'a sponsor with nothing has empty values, not missing ones', array( $rows[ $C ]['name'], $rows[ $C ]['logo'], $rows[ $C ]['mentors'], $rows[ $C ]['consent'] ), array( '', array(), array(), false ) );
@@ -618,10 +639,10 @@ ck( 'and answers null for a manager the team does not know, or none', array( WPC
 ck( 'last_read() is stamped', WPCPM_Sponsors_Sync::last_read() > 0, true );
 
 echo "\n=== Logos ===\n";
-ck( 'one logo was copied: the Approved PNG that the site did not hold', array_map( function ( $s ) { return $s[1]; }, $GLOBALS['sideloads'] ), array( 'miniorange-300w.png' ) );
-ck( 'by the sync, with no author and the company\'s title', array( $GLOBALS['sideloads'][0][2], $GLOBALS['sideloads'][0][3] ), array( 0, 'miniOrange logo (color)' ) );
+ck( 'one logo was copied: the Approved PNG that the site did not hold', array_map( function ( $s ) { return $s[1]; }, $GLOBALS['sideloads'] ), array( 'mango-example-300w.png' ) );
+ck( 'by the sync, with no author and the company\'s title', array( $GLOBALS['sideloads'][0][2], $GLOBALS['sideloads'][0][3] ), array( 0, 'Mango Example logo (color)' ) );
 ck( 'and recorded as Airtable\'s', WPCPM_Sponsors_Index::logo_record( $A ), array( 'colour' => 501, 'white' => 0, 'source' => 'airtable', 'airtable_id' => 'attA' ) );
-ck( 'the SVG was refused, with a notice that names the format', $report['stats']['logos_refused'] === 1 && false !== strpos( implode( "\n", $report['notices'] ), 'Wetopi' ) && false !== strpos( implode( "\n", $report['notices'] ), 'image/svg+xml' ), true );
+ck( 'the SVG was refused, with a notice that names the format', $report['stats']['logos_refused'] === 1 && false !== strpos( implode( "\n", $report['notices'] ), 'Wexample' ) && false !== strpos( implode( "\n", $report['notices'] ), 'image/svg+xml' ), true );
 ck( 'the already-copied logo was kept, the Paused sponsor\'s never fetched', array( $report['stats']['logos_kept'], WPCPM_Sponsors_Index::logo_record( $D )['colour'] ), array( 1, 0 ) );
 $GLOBALS['attachments_alive'][] = 501;
 ck( 'display_logo() is the attachment', WPCPM_Sponsors_Index::display_logo( $A ), array( 'id' => 501, 'url' => 'https://example.test/uploads/501.png' ) );
@@ -640,6 +661,102 @@ WPCPM_Sponsors_Sync::start();
 run_to_end();
 ck( 'with revoke, the Paused sponsor\'s account is detached, the Approved ones untouched', $GLOBALS['detached'], array( array( 6, 'revoked' ) ) );
 ck( 'and the base is told the sponsor has no account now', $GLOBALS['marked'], array( array( $D, false ) ) );
+
+echo "\n=== A read that came back short of the index it would replace (FAGRM-3) ===\n";
+// A complete read holding fewer than half the rows the index holds is refused like an empty
+// one. phase_revoke() reads the index back and treats every sponsor missing from it as no
+// longer Approved, so a table that answered with a fraction of its rows would detach live
+// accounts and untick `Dashboard account` in the base for companies still Approved there, with
+// no error and no notice recorded. Two of five is refused; three of five is an ordinary run.
+$five                = $GLOBALS['pages']['tblSPONSORS'];
+$GLOBALS['detached'] = array();
+$GLOBALS['marked']   = array();
+$GLOBALS['pages']['tblSPONSORS'] = array( array( 'records' => array( $five[0]['records'][1], $five[0]['records'][2] ), 'offset' => null ) );
+WPCPM_Sponsors_Sync::start();
+run_to_end();
+ck(
+	'a read of two rows against an index of five changes nothing, detaches nobody, and says what it saw',
+	array( array_keys( WPCPM_Sponsors_Index::rows() ), $GLOBALS['detached'], $GLOBALS['marked'], (string) get_option( WPCPM_Sponsors_Sync::OPT_ERROR, '' ) ),
+	array( array( $A, $B, $C, $D, $E ), array(), array(), 'The Sponsors table returned 2 records where the index holds 5; nothing was changed. If the table really shrank, run the sync again and it will accept the new shape.' )
+);
+WPCPM_Sponsors_Sync::cancel();
+$GLOBALS['pages']['tblSPONSORS'] = array( array( 'records' => array( $five[0]['records'][0], $five[0]['records'][1], $five[0]['records'][2] ), 'offset' => null ) );
+WPCPM_Sponsors_Sync::start();
+run_to_end();
+ck(
+	'and a read of three is an ordinary run: the index is replaced and the revoke phase runs',
+	array( array_keys( WPCPM_Sponsors_Index::rows() ), $GLOBALS['detached'], $GLOBALS['marked'] ),
+	array( array( $A, $B, $C ), array( array( 7, 'revoked' ) ), array( array( $E, false ) ) )
+);
+// Back to the five-row index every scenario below opens with.
+$GLOBALS['pages']['tblSPONSORS'] = $five;
+WPCPM_Sponsors_Sync::start();
+run_to_end();
+
+echo "\n=== A shrink is confirmed by the next run, never by the run that saw it ===\n";
+// The refusal is a question put to the next run, so two things have to hold. The refused run
+// ends rather than sitting in the records phase: cron_daily() returns early for as long as a
+// run is in progress, so a run left there would keep the next scheduled one from ever being
+// the second run this waits for. And the mark is keyed to the run that saw the shrink: the
+// Sponsors screen polls the tick every three seconds and WPCPM_Sync_Module::handle_tick()
+// re-enters the phase on whatever run the state holds, so a mark answering to the count alone
+// would be confirmed by the next poll, with nobody deciding anything.
+$one = array( array( 'records' => array( $five[0]['records'][1] ), 'offset' => null ) );
+$GLOBALS['pages']['tblSPONSORS'] = array( array( 'records' => array( $five[0]['records'][1], $five[0]['records'][2] ), 'offset' => null ) );
+WPCPM_Sponsors_Sync::start();
+$refused_run = (int) $GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_STATE ]['started'];
+run_to_end();
+$mark = shrink_mark();
+ck(
+	'the refused run ends, and writes down what it saw for the next run to answer',
+	array( WPCPM_Sponsors_Sync::is_running(), $mark['count'], $mark['index'], $mark['run'] === $refused_run, $mark['at'] > 0, $GLOBALS['autoload'][ WPCPM_Sponsors_Sync::OPT_SHRINK ] ),
+	array( false, 2, 5, true, true, false )
+);
+// The screen's poll, re-entering the phase on the run the refusal left.
+$GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_STATE ] = array( 'phase' => 'records', 'offset' => null, 'started' => $refused_run, 'touched' => time(), 'steps' => array(), 'rows' => array(), 'logos' => array(), 'stats' => WPCPM_Sponsors_Sync::empty_stats(), 'notices' => array() );
+WPCPM_Sponsors_Sync::run_tick( 1 );
+ck(
+	'the same run reading the same short table again confirms nothing',
+	array( count( WPCPM_Sponsors_Index::rows() ), shrink_mark()['count'], WPCPM_Sponsors_Sync::is_running() ),
+	array( 5, 2, false )
+);
+age_shrink( DAY_IN_SECONDS );
+$GLOBALS['pages']['tblSPONSORS'] = $one;
+WPCPM_Sponsors_Sync::start();
+run_to_end();
+ck(
+	'a following run that lost more still is refused too, and the mark says what this one saw',
+	array( count( WPCPM_Sponsors_Index::rows() ), shrink_mark()['count'] ),
+	array( 5, 1 )
+);
+age_shrink( 8 * DAY_IN_SECONDS );
+WPCPM_Sponsors_Sync::start();
+run_to_end();
+ck(
+	'a mark older than a week answers for no table but its own, so this one is refused as a first',
+	array( count( WPCPM_Sponsors_Index::rows() ), shrink_mark()['count'] ),
+	array( 5, 1 )
+);
+age_shrink( DAY_IN_SECONDS );
+WPCPM_Sponsors_Sync::start();
+run_to_end();
+ck(
+	'and the following run that reads what the refused one read takes the new shape, mark and all',
+	array( array_keys( WPCPM_Sponsors_Index::rows() ), get_option( WPCPM_Sponsors_Sync::OPT_SHRINK, 'gone' ) ),
+	array( array( $B ), 'gone' )
+);
+// Back to the five-row index, which is what the scenarios below open with - and an ordinary
+// run forgets the mark as well, because a mark left standing is read by the next shrink and
+// would confirm a fault nobody ever looked at.
+$GLOBALS['opts'][ WPCPM_Sponsors_Sync::OPT_SHRINK ] = array( 'count' => 1, 'index' => 5, 'run' => time() - DAY_IN_SECONDS, 'at' => time() - DAY_IN_SECONDS );
+$GLOBALS['pages']['tblSPONSORS'] = $five;
+WPCPM_Sponsors_Sync::start();
+run_to_end();
+ck(
+	'and a run that writes an ordinary read forgets a mark left over from an older shrink',
+	array( count( WPCPM_Sponsors_Index::rows() ), get_option( WPCPM_Sponsors_Sync::OPT_SHRINK, 'gone' ) ),
+	array( 5, 'gone' )
+);
 
 echo "\n=== The empty answer and the machine ===\n";
 $GLOBALS['pages']['tblSPONSORS'] = array( array( 'records' => array(), 'offset' => null ) );
@@ -788,13 +905,16 @@ $GLOBALS['cron_recurrence'] = array();
 echo "\n=== The mentors sync's sponsorship row ===\n";
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';  // already loaded above; require_once is a no-op here
 $mf  = WPCPM_Mentors_Sync::fields();
-$row = WPCPM_Mentors_Sync::sponsorship_row( array( $mf['mentor_name'] => 'Emilia Pustelnik', $mf['mentor_profile'] => 'https://profiles.wordpress.org/emilia/', $mf['mentor_sponsored'] => 'Yes', $mf['mentor_wants_sponsor'] => 'No', $mf['mentor_sponsor_company'] => array( $A ), $mf['mentor_expertise'] => array( 'Core', 'Polyglots' ) ), $mf, 42, 'Active' );
-ck( 'a sponsored mentor\'s row', $row, array( 'name' => 'Emilia Pustelnik', 'profile' => 'https://profiles.wordpress.org/emilia/', 'status' => 'Active', 'user_id' => 42, 'sponsored' => true, 'wants' => false, 'company' => array( $A ), 'expertise' => array( 'Core', 'Polyglots' ) ) );
-ck( 'and an unsponsored one who wants a sponsor, with nothing else filled', WPCPM_Mentors_Sync::sponsorship_row( array( $mf['mentor_name'] => 'Nilo', $mf['mentor_wants_sponsor'] => 'Yes' ), $mf, 0, 'Active' ), array( 'name' => 'Nilo', 'profile' => '', 'status' => 'Active', 'user_id' => 0, 'sponsored' => false, 'wants' => true, 'company' => array(), 'expertise' => array() ) );
+$row = WPCPM_Mentors_Sync::sponsorship_row( array( $mf['mentor_name'] => 'Ines Example', $mf['mentor_profile'] => 'https://profiles.wordpress.org/ines-example/', $mf['mentor_sponsored'] => 'Yes', $mf['mentor_wants_sponsor'] => 'No', $mf['mentor_sponsor_company'] => array( $A ), $mf['mentor_expertise'] => array( 'Core', 'Polyglots' ) ), $mf, 42, 'Active' );
+ck( 'a sponsored mentor\'s row', $row, array( 'name' => 'Ines Example', 'profile' => 'https://profiles.wordpress.org/ines-example/', 'status' => 'Active', 'user_id' => 42, 'sponsored' => true, 'wants' => false, 'company' => array( $A ), 'expertise' => array( 'Core', 'Polyglots' ) ) );
+ck( 'and an unsponsored one who wants a sponsor, with nothing else filled', WPCPM_Mentors_Sync::sponsorship_row( array( $mf['mentor_name'] => 'Sam', $mf['mentor_wants_sponsor'] => 'Yes' ), $mf, 0, 'Active' ), array( 'name' => 'Sam', 'profile' => '', 'status' => 'Active', 'user_id' => 0, 'sponsored' => false, 'wants' => true, 'company' => array(), 'expertise' => array() ) );
 ck( 'the option name', WPCPM_Mentors_Sync::OPT_SPONSORSHIP, 'wpcpm_mentors_sponsorship' );
 
 echo "\n=== A logo larger than the site allows ===\n";
 $GLOBALS['settings']['sponsor_on_inactive'] = 'keep'; // back to the "Revoke" section's default; a fresh, self-contained scenario below.
+// And from no index at all: this scenario's read is one record, which against the five-row
+// index would be refused as a shrink (FAGRM-3) before any logo was looked at.
+unset( $GLOBALS['opts'][ WPCPM_Sponsors_Index::OPT_NAME ] );
 $F = 'recSPONSOR0000006';
 $GLOBALS['pages']['tblSPONSORS'] = array( array( 'records' => array(
 	array( 'id' => $F, 'fields' => array( 'Company Name' => 'Bigfile Co', 'Status' => 'Approved', 'Logo' => array( att( 'attF', 'huge.png', 'image/png', 300, 100, 5 * 1024 * 1024 ) ) ) ),

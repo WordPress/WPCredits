@@ -374,8 +374,10 @@ ck( 'the exclusion is in the query rather than filtered afterwards',
 // The form the mentor sees.
 $form = substr( $edit, strpos( $edit, 'private static function render_edit_form' ) );
 $form = substr( $form, 0, strpos( $form, "\n\t}\n" ) );
+// Single-quoted: in double quotes PHP read `$session->ID` as this suite's own variable and
+// looked for a needle ending in the empty string, which passed for the wrong reason.
 ck( 'the form posts the edit action with the session it belongs to',
-    false !== strpos( $form, "self::ACTION_EDIT . '_' . $session->ID" ) && false !== strpos( $form, 'name="session"' ), true );
+    false !== strpos( $form, 'self::ACTION_EDIT . \'_\' . $session->ID' ) && false !== strpos( $form, 'name="session"' ), true );
 ck( 'the places field will not let the mentor drag below what is taken',
     false !== strpos( $form, 'max( (int) self::MIN_CAPACITY, $taken )' ), true );
 ck( 'the length field keeps the same grid the create form uses',

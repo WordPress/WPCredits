@@ -22,12 +22,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * `floor( time() / $window )`, and a key's claims in one bucket are one row in the options
  * table named after the pair. The row is created with `add_option()`, which is one INSERT
  * that reports failure when the row already exists, so two requests arriving in the same
- * instant cannot both be the first. That is what makes a limit of 1 exact, and the dwell
- * token relies on it: a harvested token is refused on its second use however close the two
- * uses are. Above 1 the count is read and written back, and two requests that read the same
- * number can each add one and land on the same total, so a ceiling of five can admit a sixth
- * under a burst. That is the price of not taking a lock on every submission, and every
- * ceiling here is a nuisance control rather than an entitlement.
+ * instant cannot both be the first. That is what makes a limit of 1 exact within its window,
+ * and the dwell token relies on it: a harvested token is refused on its second use however
+ * close the two uses are. Within its window, and not for ever: `option_name()` says what a
+ * caller with a limit of one is promised at a bucket boundary. Above 1 the count is read and
+ * written back, and two requests that read the same number can each add one and land on the
+ * same total, so a ceiling of five can admit a sixth under a burst. That is the price of not
+ * taking a lock on every submission, and every ceiling here is a nuisance control rather than
+ * an entitlement.
  *
  * The first-claim row carries no timestamp and no amount, deliberately. `add_option()` is an
  * `INSERT ... ON DUPLICATE KEY UPDATE` that reports success by rows affected, so a second
@@ -264,6 +266,15 @@ class WPCPM_Ceiling {
 
 	/**
 	 * The option name for a key in a bucket.
+	 *
+	 * The bucket in the name is what makes a claim a count inside a window rather than a count
+	 * for ever, and it is the whole of what "single use" means to a caller with a limit of one:
+	 * exact inside the window, and starting again in the next one. `WPCPM_Form_Guard` claims a
+	 * dwell token for the token's own twelve hours, so a token minted a minute before a
+	 * boundary and posted again a minute after it meets an empty count (FANON-4). Documented
+	 * rather than closed: a claim that outlived its window would need a row `sweep()` never
+	 * removes, and the replay it would prevent is already bounded by the per-actor ceiling of
+	 * five submissions an hour, which counts submissions and not tokens.
 	 *
 	 * @param string $key    What is being limited.
 	 * @param int    $bucket Bucket number.

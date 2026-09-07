@@ -48,7 +48,7 @@ The public interest form (`shrKDkjeUdw8Fof34`, "WP Credits - Company Interest Fo
 Two models, and the module supports both:
 
 - **A pool of one-time codes.** WordPress.com: 170 rows of one-time codes, each `used` yes or no, date, student name, email, which manager handed it out, the checkout link with the code, notes ("coupon has several problems on checkout, gave new one"). WPBakery: a pool of codes each marked `Available` until claimed. About 70 of 320 rows are used.
-- **One shared code or link for everybody.** Smarthost (one hosting code and one domain code, with instructions per country), Cloud86 (a checkout link with the promo code), Novamira ("no coupon required", the licence is sent on sign-up). The sheet lists who was told, by hand.
+- **One shared code or link for everybody.** Smarthost (one hosting code and one domain code, with instructions per country), Cirrus Example (a checkout link with the promo code), Novamira ("no coupon required", the licence is sent on sign-up). The sheet lists who was told, by hand.
 
 The header row asks managers to email the sponsor "when coupons are running out (fewer than 10 left)". That sentence becomes a rule (section 6.6). By the product owner's answer of 4 September 2026, the sheet is not imported: sponsors paste their remaining codes, and the sheet stays the historical record.
 

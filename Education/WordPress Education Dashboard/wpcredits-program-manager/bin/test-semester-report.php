@@ -27,7 +27,7 @@
  *   row's name matches, that student gets no links and one `ambiguous` in the withheld line.
  * - **Every read is by email, in chunks, through `formula_in( 'Email', ..., true )`.** Never by
  *   an institution-name formula: Airtable's `LOWER()` folds `Ł` and PHP's does not, so the name
- *   formula returns nothing for Uniwersytet Łódzki with every line looking correct. The fixture
+ *   formula returns nothing for Uniwersytet Łexample with every line looking correct. The fixture
  *   institution is called that on purpose, and no formula may contain its name.
  * - **A `WP_Error` from any read aborts the whole generation**, message verbatim, and writes no
  *   post: a report with Participation and no Student Projects looks finished.
@@ -458,7 +458,7 @@ class WPCPM_Mentors_Sync {
 	public static function lookups() {
 		return array(
 			'institutions' => array(
-				'recINSTA000000001' => 'Uniwersytet Łódzki',
+				'recINSTA000000001' => 'Uniwersytet Łexample',
 				'recINSTB000000002' => 'Universidad Beta',
 				'recINSTC000000003' => 'Instituto Chunk',
 				'recINSTD000000004' => 'Universidad Delta',
@@ -685,7 +685,7 @@ class WPCPM_Roster_Index {
 class WPCPM_Institutions_Index {
 	public static function row( $record_id ) {
 		$names = array(
-			'recINSTA000000001' => 'Uniwersytet Łódzki',
+			'recINSTA000000001' => 'Uniwersytet Łexample',
 			'recINSTB000000002' => 'Universidad Beta',
 			'recINSTC000000003' => 'Instituto Chunk',
 			'recINSTD000000004' => 'Universidad Delta',
@@ -1046,7 +1046,7 @@ function row( $record, $name, $status, $start, array $extra = array() ) {
 $GLOBALS['index'][ $A ] = array(
 	'read' => 1756900000,
 	'rows' => array(
-		'recSTUA0000000001' => row( 'recSTUA0000000001', 'Ana Fidelitas', 'In Sensei', '2026-02-10', array( 'user_id' => 11 ) ),
+		'recSTUA0000000001' => row( 'recSTUA0000000001', 'Ana Example', 'In Sensei', '2026-02-10', array( 'user_id' => 11 ) ),
 		'recSTUA0000000002' => row( 'recSTUA0000000002', 'Bruno Kowalski', 'In Sensei', '2026-02-11', array( 'user_id' => 12 ) ),
 		'recSTUA0000000003' => row( 'recSTUA0000000003', 'Carla Nowak', 'Graduate', '2026-03-01', array( 'user_id' => 13 ) ),
 		'recSTUA0000000004' => row( 'recSTUA0000000004', 'Dana Ortiz', 'In Sensei', '2026-02-12', array( 'user_id' => 14 ) ),
@@ -1127,8 +1127,8 @@ function report_row( $id, $email, $name, array $links, array $fields = array() )
 $GLOBALS['rows']['tblReports'] = array(
 	report_row(
 		'recREPA0000000001',
-		'ana.fidelitas@example.test',
-		'Ana Fidelitas',
+		'ana.example@example.test',
+		'Ana Example',
 		array( $A ),
 		array(
 			'Main Contribution Team'                          => 'Documentation',
@@ -1225,7 +1225,7 @@ function feedback_row( $id, $email, $name, array $links, $listing, $quoting, $te
 }
 
 $GLOBALS['rows']['tblFeedback'] = array(
-	feedback_row( 'recFDBA0000000001', 'ana.fidelitas@example.test', 'Ana Fidelitas', array( $A ), 'Yes, with my name', 'Yes, with my name', 'Contributing to Documentation changed how I read code.' ),
+	feedback_row( 'recFDBA0000000001', 'ana.example@example.test', 'Ana Example', array( $A ), 'Yes, with my name', 'Yes, with my name', 'Contributing to Documentation changed how I read code.' ),
 	feedback_row( 'recFDBA0000000002', 'bruno.kowalski@example.test', 'Bruno Kowalski', array( $A ), 'Yes, by my blog address only', 'Yes, without my name', 'The mentor calls were the best part of the term.' ),
 	// Declines to be listed and releases a quote without her name: two questions, two answers.
 	feedback_row( 'recFDBA0000000003', 'carla.nowak@example.test', 'Carla Nowak', array( $A ), 'No', 'Yes, without my name', 'I would tell any student on my course to try it.' ),
@@ -1418,7 +1418,7 @@ ck( 'and the ambiguous student contributes none either', has( wp_json_encode( $s
 
 echo "\n=== Student Projects: exactly the students who said yes ===\n";
 
-$ana    = report_id_of( 'ana.fidelitas@example.test' );
+$ana    = report_id_of( 'ana.example@example.test' );
 $bruno  = report_id_of( 'bruno.kowalski@example.test' );
 $carla  = report_id_of( 'carla.nowak@example.test' );
 $felipe = report_id_of( 'felipe.silva@example.test' );
@@ -1430,7 +1430,7 @@ sort( $displays );
 ck(
 	'four students are listed, and they are the four who released their names',
 	$displays,
-	array( 'Ana Fidelitas', 'Felipe Silva', 'Iker Ambiguo', 'bruno.example.test' )
+	array( 'Ana Example', 'Felipe Silva', 'Iker Ambiguo', 'bruno.example.test' )
 );
 
 $ana_entry   = entry_by_id( $snap['students'], $ana );
@@ -1438,7 +1438,7 @@ $bruno_entry = entry_by_id( $snap['students'], $bruno );
 $iker_entry  = entry_by_id( $snap['students'], $iker );
 
 ck( 'a student is keyed by a hash of their address and never by the address', $ana_entry['id'], $ana );
-ck( 'the name goes in only for "Yes, with my name"', $ana_entry['display'], 'Ana Fidelitas' );
+ck( 'the name goes in only for "Yes, with my name"', $ana_entry['display'], 'Ana Example' );
 ck( 'and that answer is what marks them as named', $ana_entry['named'], true );
 
 // The label the student's own answer chose. Not the name, not a truncation of the URL: the host,
@@ -1514,7 +1514,7 @@ $carla_quote = entry_by_id( $quotes, $carla );
 ck( 'a quote carries the same id as its student', $ana_quote['id'], $ana_entry['id'] );
 ck( 'the text is the student\'s own', $ana_quote['text'], 'Contributing to Documentation changed how I read code.' );
 ck( '"Yes, with my name" names them', $ana_quote['named'], true );
-ck( 'and the name is on the quote', $ana_quote['name'], 'Ana Fidelitas' );
+ck( 'and the name is on the quote', $ana_quote['name'], 'Ana Example' );
 
 ck( '"Yes, without my name" is still a quote', is_array( $bruno_quote ), true );
 ck( 'without the name', $bruno_quote['named'], false );
@@ -1576,14 +1576,14 @@ $names_in_formula = 0;
 foreach ( $formulas as $formula ) {
 	// The reason the reads are by email at all. A formula built from this name matches nothing,
 	// because Airtable's LOWER() folds the diacritic and PHP's strtolower() does not.
-	if ( has( $formula, 'Łódzki' ) || has( $formula, 'Uniwersytet' ) || has( $formula, 'Educational institution' ) ) {
+	if ( has( $formula, 'Łexample' ) || has( $formula, 'Uniwersytet' ) || has( $formula, 'Educational institution' ) ) {
 		++$names_in_formula;
 	}
 }
 
 ck( 'no read is filtered by the institution\'s name', $names_in_formula, 0 );
 ck( 'every read compares LOWER({Email})', count( array_filter( $formulas, function ( $f ) { return has( $f, 'LOWER({Email})' ); } ) ), count( $formulas ) );
-ck( 'and the address is lowercased on this side too', has( $formulas[0], 'ana.fidelitas@example.test' ), true );
+ck( 'and the address is lowercased on this side too', has( $formulas[0], 'ana.example@example.test' ), true );
 
 $before = count( $GLOBALS['fetches'] );
 $again  = WPCPM_Semester_Report::generate( $A, $COHORT );
@@ -1804,11 +1804,11 @@ $GLOBALS['uid']    = 7;
 
 $screen = screen_html( $A, $COHORT );
 
-ck( 'the screen names the institution\'s students who consented', has( $screen, 'Ana Fidelitas' ), true );
+ck( 'the screen names the institution\'s students who consented', has( $screen, 'Ana Example' ), true );
 ck( 'and the blog host for the student who chose that', has( $screen, 'bruno.example.test' ), true );
 ck( 'a student who declined is not on it', has( $screen, 'Carla Nowak' ), false );
 ck( 'nor is the disclosure from her index row', has( $screen, 'screen reader' ), false );
-ck( 'and no address is printed anywhere on it', has( $screen, 'ana.fidelitas@example.test' ), false );
+ck( 'and no address is printed anywhere on it', has( $screen, 'ana.example@example.test' ), false );
 ck( 'the read date of the roster behind it is shown', has( $screen, wp_date( 'Y-m-d', 1756900000 ) ), true );
 
 $save_form = form_for( $screen, WPCPM_Semester_Report_Screen::ACTION_SAVE );
@@ -1890,7 +1890,7 @@ ck( 'one withdrawal is counted', $live['dropped'] >= 1, true );
 
 $screen = screen_html( $A, $COHORT );
 
-ck( 'she is gone from the next render, with nothing regenerated', has( $screen, 'Ana Fidelitas' ), false );
+ck( 'she is gone from the next render, with nothing regenerated', has( $screen, 'Ana Example' ), false );
 ck( 'and so is what she wrote', has( $screen, 'changed how I read code' ), false );
 ck( 'the page says a withdrawal happened', has( $screen, 'since this draft was generated' ), true );
 
@@ -1990,7 +1990,7 @@ ck( 'every anchor in the document shows its href as text', $silent, array() );
 ck( 'and there is at least one to have checked', count( isset( $anchors ) ? $anchors : array() ) > 0, true );
 
 // The withdrawal reaches the exported document too, and by the same route.
-ck( 'the student who withdrew is not in the printed copy either', has( $document, 'Ana Fidelitas' ), false );
+ck( 'the student who withdrew is not in the printed copy either', has( $document, 'Ana Example' ), false );
 
 // Restores the viewer this suite had before "The screen a program manager sees" switched it:
 // the sections from here on test a member's own boundaries again, not a manager's editor.
@@ -2076,8 +2076,8 @@ $student_id = 11;
 
 $GLOBALS['umeta'][ $student_id ] = array(
 	WPCPM_Students_Sync::META_PROGRAM => array(
-		'name'    => 'Ana Fidelitas',
-		'email'   => 'ana.fidelitas@example.test',
+		'name'    => 'Ana Example',
+		'email'   => 'ana.example@example.test',
 		'program' => 'In Sensei',
 	),
 	WPCPM_Student_Feedback::META_RECORD => 'recFDBA0000000001',
@@ -2637,7 +2637,7 @@ $finished          = array(
 	array( 'record_id' => 'recS0000000000002', 'email' => 'b@example.test', 'email_key' => 'b@example.test', 'status' => 'In Sensei', 'start' => '2026-03-01', 'end' => '2026-06-30' ),
 );
 $GLOBALS['inst_rows'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łódzki', 'stage' => 'Confirmed' ),
+	$A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łexample', 'stage' => 'Confirmed' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ),
 	$C => array( 'record_id' => $C, 'name' => 'Instituto Chunk', 'stage' => 'Interested' ),
 );
@@ -2825,7 +2825,7 @@ $GLOBALS['fail_table'] = '';
 $GLOBALS['settings_extra'] = array( 'report_autodraft' => false );
 ck( 'switched off, the job does nothing', WPCPM_Semester_Report_Screen::autodraft_tick(), 0 );
 $GLOBALS['settings_extra'] = array();
-$GLOBALS['inst_rows']      = array( $A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łódzki', 'stage' => 'Confirmed' ), $B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ) );
+$GLOBALS['inst_rows']      = array( $A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łexample', 'stage' => 'Confirmed' ), $B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ) );
 $GLOBALS['index']          = $saved_index;
 
 echo "\n=== Approve and reopen ===\n";
@@ -2859,6 +2859,15 @@ $GLOBALS['members'] = array();
 ck( 'reopen reopens', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_REOPEN, array( 'report' => $ap_post ) ), 'reopened' );
 ck( 'the stamp is gone', WPCPM_Semester_Report::approved_at( get_post( $ap_post ) ), array() );
 ck( 'and nobody is mailed for a reopen', $GLOBALS['mail'], array() );
+// Reopening a draft is nothing to do, and used to be a second `reopened` line in a log capped
+// at LOG_MAX that is the only record of who did what to a report: `set_state()` refuses only a
+// value that is neither draft nor approved, so on a draft it returned true and the entry was
+// written anyway. A stale editor page or a double submit is all it takes, and the sibling
+// button has refused its own second press since it shipped (deep check FADMN-4).
+$log_before = count( WPCPM_Semester_Report::log_entries() );
+ck( 'reopening a draft is a refusal that names the state', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_REOPEN, array( 'report' => $ap_post ) ), 'not-approved' );
+ck( 'and writes no second line into the log', count( WPCPM_Semester_Report::log_entries() ), $log_before );
+ck( 'the refusal has words of its own', isset( WPCPM_Semester_Report_Screen::messages()['not-approved'] ), true );
 ck( 'approving with no institution account says so in the count', flash_status_after( WPCPM_Semester_Report_Screen::ACTION_APPROVE, array( 'report' => $ap_post ) ) . ':' . $GLOBALS['flash'][ WPCPM_Semester_Report_Screen::FLASH ]['detail']['notified'], 'approved:0' );
 $ap_screen = screen_html( $E, $COHORT );
 ck( 'and the page tells the manager to send the PDF by hand', has( $ap_screen, 'by hand' ), true );
@@ -2954,7 +2963,7 @@ echo "\n=== The Draft now picker ===\n";
 $GLOBALS['manage']    = true;
 $GLOBALS['acting']    = '';
 $GLOBALS['inst_rows'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łódzki', 'stage' => 'Confirmed' ),
+	$A => array( 'record_id' => $A, 'name' => 'Uniwersytet Łexample', 'stage' => 'Confirmed' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Beta', 'stage' => 'Confirmed' ),
 	$C => array( 'record_id' => $C, 'name' => 'Instituto Chunk', 'stage' => 'Interested' ),
 );

@@ -225,7 +225,16 @@ function get_permalink( $id ) { return 'https://example.test/apply/'; }
 function get_page_by_path( $slug ) { return null; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 
-/** `get_posts()` as this class uses it: one type, one status, one IN clause, oldest first. */
+/**
+ * `get_posts()` as this class uses it: one type, one status, one IN clause, oldest first.
+ *
+ * The `orderby` is honored rather than assumed. Two rows stored in the same second are one
+ * `ORDER BY post_date` and no more, so the database returns them in whichever order it likes;
+ * asked for an `ID` term as well, it returns them in that. The stub reverses the untied pair,
+ * which is one of the orders MySQL is free to give and the one that shows a window taken in
+ * SQL keeping a different row from the one a fixed order would keep. `numberposts` is that
+ * window, applied here because the class asks the database for it rather than slicing after.
+ */
 function get_posts( $a = array() ) {
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $post ) {
@@ -244,10 +253,13 @@ function get_posts( $a = array() ) {
 		}
 		$out[] = $post;
 	}
-	usort( $out, function ( $x, $y ) {
+	$tied = isset( ( (array) ( $a['orderby'] ?? array() ) )['ID'] );
+	usort( $out, function ( $x, $y ) use ( $tied ) {
 		$by_date = strcmp( $x->post_date, $y->post_date );
-		return 0 !== $by_date ? $by_date : $x->ID - $y->ID;
+		return 0 !== $by_date ? $by_date : ( $tied ? $x->ID - $y->ID : $y->ID - $x->ID );
 	} );
+	$window = (int) ( $a['numberposts'] ?? -1 );
+	if ( $window > 0 ) { $out = array_slice( $out, 0, $window ); }
 	if ( isset( $a['fields'] ) && 'ids' === $a['fields'] ) {
 		return array_map( function ( $p ) { return $p->ID; }, $out );
 	}
@@ -941,8 +953,10 @@ reset_world();
 arm_nonce();
 
 // A token minted this instant is younger than MIN_SECONDS, which is the point: a form cannot
-// be read and posted in the same second by a person.
-ck( 'a token minted this instant is too fast to be a person', WPCPM_Institution_Application::check_token( WPCPM_Institution_Application::token() ), 'spam' );
+// be read and posted in the same second by a person. It is its own answer rather than spam
+// since FANON-1, because the one person who does post that fast is an applicant re-sending
+// after a bounce redrew the page: the handler holds that row instead of filing it silently.
+ck( 'a token minted this instant is too fast to be a person, and says so as itself', WPCPM_Institution_Application::check_token( WPCPM_Institution_Application::token() ), 'fast' );
 
 reset_world();
 arm_nonce();
@@ -999,6 +1013,40 @@ ck( 'an expired nonce is a message and not a death screen', $expired['outcome'],
 ck( 'nothing is stored for it either', count( stored() ), 0 );
 ck( 'and the writing is still handed back', $expired['stash']['values']['City'], 'San Jose' );
 ck( 'and still without the tick', array_key_exists( 'Privacy Policy Compliance', $expired['stash']['values'] ), false );
+
+echo "\n-- a re-send straight after a bounce (FANON-1) -------------------------\n";
+
+/** The dwell token the drawn page is carrying, exactly as a browser would post it back. */
+function token_on_page( $html ) {
+	return preg_match( '/name="' . preg_quote( WPCPM_Institution_Application::TOKEN_FIELD, '/' ) . '" value="([^"]+)"/', (string) $html, $found ) ? $found[1] : '';
+}
+
+// Every bounce redraws the form with a token minted at the redraw, and the two the applicant
+// reaches with one click ("stale" and "expired") both ask them to send it again with every
+// answer restored. Pressing Send inside six seconds used to file the application as spam
+// behind the ordinary confirmation, which for this form is worse than being lost: the
+// acknowledgement carries the link that stamps `_wpcpm_app_verified`, and without it no
+// shipped path can ever approve the row.
+reset_world();
+$bounced = submit( answers(), array( 'token' => dwell_token( 13 * HOUR_IN_SECONDS ) ) );
+follow( $bounced['url'] );
+$fresh = token_on_page( WPCPM_Institution_Application::render() );
+
+ck( 'the bounce redraws the form with a token minted at the redraw', array( $bounced['outcome'], (int) explode( '.', $fresh )[0] === time() ), array( 'stale', true ) );
+
+$resend = submit( answers(), array( 'token' => $fresh ) );
+$row    = only_row();
+
+ck( 'the re-send at age zero is held, not filed as spam', array( $resend['outcome'], get_post_meta( $row->ID, WPCPM_Institution_Application::META_STATE, true ), get_post_meta( $row->ID, WPCPM_Institution_Application::META_SIGNALS, true ) ), array( 'sent', WPCPM_Institution_Application::STATE_HELD, array( 'dwell-fast' ) ) );
+ck( 'so it reaches the queue as one pending row', array( count( stored() ), WPCPM_Institution_Application::pending_count() ), array( 1, 1 ) );
+ck( 'and gets the held-row mails: the applicant is acknowledged, the managers are spared', array( count( $GLOBALS['mail'] ), mail_said( -1, 'to' ), count( $GLOBALS['managermail'] ) ), array( 1, 'ana@example.edu', 0 ) );
+ck( 'with the link that makes the row approvable at all', false !== strpos( mail_said( -1, 'body' ), 'action=wpcpm_apply_verify' ), true );
+
+// A young token nobody signed here is still spam: the signature is what tells a re-sending
+// applicant apart from a script posting a token it made up.
+reset_world();
+submit( answers(), array( 'token' => time() . '.AbCdEf012345.0123456789abcdef0123456789abcdef' ) );
+ck( 'a young token nobody signed is spam, as it always was', array( get_post_meta( only_row()->ID, WPCPM_Institution_Application::META_STATE, true ), get_post_meta( only_row()->ID, WPCPM_Institution_Application::META_SIGNALS, true ) ), array( WPCPM_Institution_Application::STATE_SPAM, array( 'dwell' ) ) );
 
 echo "\n-- the two ceilings, which do different things ------------------------\n";
 
@@ -1510,6 +1558,19 @@ ck( 'spam is not waiting for anybody', count( WPCPM_Institution_Application::app
 $queue = WPCPM_Institution_Application::applications( array( WPCPM_Institution_Application::STATE_NEW, WPCPM_Institution_Application::STATE_INFO ) );
 
 ck( 'the queue is oldest first', array( $queue[0]->post_title, $queue[1]->post_title ), array( 'One', 'Three' ) );
+
+// Two applications stored in the same second. The queue ordered by `date` alone, which was
+// nobody's problem while the caller read every row and sliced in PHP; now that the window is
+// taken in SQL, which of a tied pair falls inside it is the database's own preference - the
+// defect P1 was raised for, on this reader (deep check, fix round). A public form really can
+// take two submissions in one second, and what follows from it is a queue that reorders
+// itself between loads.
+$tied_states = array( WPCPM_Institution_Application::STATE_NEW, WPCPM_Institution_Application::STATE_INFO );
+$GLOBALS['posts'][ $rows[0]->ID ]->post_date = '2026-08-01 09:00:00';
+$GLOBALS['posts'][ $rows[2]->ID ]->post_date = '2026-08-01 09:00:00';
+$tied_queue                                  = WPCPM_Institution_Application::applications( $tied_states );
+
+ck( 'two rows stored in the same second are ordered by ID, so a window keeps the same one every time', array( $tied_queue[0]->post_title, $tied_queue[1]->post_title, WPCPM_Institution_Application::applications( $tied_states, 1 )[0]->post_title ), array( 'One', 'Three', 'One' ) );
 ck( 'a caller that asks for no states gets no rows, never every row', WPCPM_Institution_Application::applications( array() ), array() );
 ck( 'and a state nobody has heard of is dropped rather than queried', WPCPM_Institution_Application::applications( array( 'wide-open' ) ), array() );
 

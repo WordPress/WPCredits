@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fix every one of the fifty findings of the 7 September 2026 deep check of 1.98.1 (one high, eight medium, forty-one low), fold in the three items parked by the clean-up release, and ship the result as plugin 1.99.0 with theme 1.24.2.
+**Goal:** Fix every one of the fifty findings of the 7 September 2026 deep check of 1.98.1 (one high, eight medium, forty-one low), fold in the three items parked by the clean-up release, and ship the result as plugin 1.99.0 with theme 1.24.3. (Theme 1.24.2 shipped with plugin 1.98.2 while this branch was open, so the theme work here lands as 1.24.3.)
 
 **Architecture:** No new modules. Eight tasks, each owning a set of files nobody else touches, each fix landing with a check that fails on the unfixed code and passes after. Task 8 rewrites the seed fixture so the public mirror stops publishing real record IDs and addresses; Task 9 is the release itself.
 
@@ -16,7 +16,7 @@
 - Every code fix lands with a check in the suite the finding names (or a new one where the finding says "none"), and the implementer proves the check fails on the unfixed code first: apply the check, run it against the code before the fix (a temporary revert or a scratch copy), see it fail, then fix and see it pass. The task report names the failing output.
 - The battery stays silent: `for f in bin/test-*.php; do php "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` prints nothing. `php bin/check-references.php`, `php bin/check-spelling.php` and `php bin/check-dead-annotations.php` report clean. `bash bin/check-standards.sh` prints zero lines containing ` ERROR ` (its exit status changes in Task 8: until then exit 2 means warnings only).
 - `bin/` and `docs/` never ship in the zip but ARE published on the public GitHub mirror. Nothing personal, no real Airtable record ID (`rec` followed by fourteen mixed characters that is not an obvious placeholder), no address outside `maciej@a8c.com`, its plus-addressed forms and reserved `.example` domains may be added to them.
-- Version numbers move in Task 9 only (plugin 1.99.0) and in Task 7 for the theme (1.24.2). Nothing touches the live site; no ssh; no network; no subagents.
+- Version numbers move in Task 9 only (plugin 1.99.0) and in Task 7 for the theme (1.24.3). Nothing touches the live site; no ssh; no network; no subagents.
 - Comments explain why and name the bug or the decision behind a rule; a docblock that describes behavior the code does not have is a defect.
 - Every commit message starts with "Deep check fixes:" and names the finding ids it closes.
 
@@ -178,7 +178,7 @@
 
 **Files:**
 - Modify: `assets/js/forms.js` (`releaseOnRestore()` at about line 175), `assets/js/modules.js` (`arrange()` at about line 86 and the non-ok branch at about line 147), `assets/css/administrator.css` (about lines 34 and 159)
-- Modify in the theme repo `/Users/maciejpilarski/GitHub/wpcredits-theme`: `assets/css/dashboard.css` (the table rules at about line 1327 and the per-dashboard sheets), `style.css` and `readme.txt` (version 1.24.2 and a changelog entry), plus the token restatement of Task 3's code button reset
+- Modify in the theme repo `/Users/maciejpilarski/GitHub/wpcredits-theme`: `assets/css/dashboard.css` (the table rules at about line 1327 and the per-dashboard sheets), `style.css` and `readme.txt` (version 1.24.3 and a changelog entry), plus the token restatement of Task 3's code button reset
 - Test: `bin/test-submit-guard.php` (FFRNT-1 mutation check); the theme's `php bin/check-selectors.php`
 
 **Rulings:**
@@ -186,13 +186,13 @@
 - FFRNT-2: `arrange()` remembers `document.activeElement` and focuses it again after re-inserting, and skips the re-insert entirely when the answer's order already matches the DOM.
 - FFRNT-3: on a non-ok answer the module goes back where it was and the live region says "The move was not kept."; the docblock is corrected.
 - FFRNT-4: the three rules read at 14px. FFRNT-5: the muted tile paints with one token (`--wpc-ink-60` or the theme's equivalent at 4.5:1 or better), no stacked opacity.
-- FFRNT-7: one shared table rule in the theme for every dashboard table, taking the Institution Dashboard's `.wpcpm-mentee__table` values; the per-page sheets keep layout only. Theme 1.24.2 with a readme entry; `php bin/check-selectors.php` in the theme passes. The theme commit is separate from the plugin commit and carries the same "Deep check fixes:" prefix.
+- FFRNT-7: one shared table rule in the theme for every dashboard table, taking the Institution Dashboard's `.wpcpm-mentee__table` values; the per-page sheets keep layout only. Theme 1.24.3 with a readme entry; `php bin/check-selectors.php` in the theme passes. The theme commit is separate from the plugin commit and carries the same "Deep check fixes:" prefix.
 - JavaScript has no suite: the implementer states in the report how each change was exercised (a static walk-through of the DOM sequence is acceptable; the controller verifies in a browser after deploy).
 
 **Steps:**
 - [ ] Step 1: FFRNT-1 check first (fails), then the fix.
 - [ ] Step 2: FFRNT-2, FFRNT-3, FFRNT-4, FFRNT-5 in the plugin; commit: `Deep check fixes: FFRNT-1 to FFRNT-5 - buttons released after Back, focus kept on a module move, a refused move undone, 14px and one-token contrast on the Administrator Dashboard`.
-- [ ] Step 3: FFRNT-7 and the code button reset in the theme, version 1.24.2, `php bin/check-selectors.php`, commit in the theme repo: `Deep check fixes: FFRNT-7 - one table rule for every dashboard; 1.24.2`.
+- [ ] Step 3: FFRNT-7 and the code button reset in the theme, version 1.24.3, `php bin/check-selectors.php`, commit in the theme repo: `Deep check fixes: FFRNT-7 - one table rule for every dashboard; 1.24.3`.
 
 ---
 
@@ -206,7 +206,7 @@
 - Test: the whole battery
 
 **Rulings:**
-- FSUIT-5 and FSUIT-13: a deterministic anonymizer, `bin/anonymize-fixtures.php`, rewrites the seed and the suites in place and is kept in the repo so the fixture can be regenerated: every Airtable record ID that is not already an obvious placeholder becomes `recSEED` followed by a nine-digit index in order of first appearance (one mapping for the whole of `bin/`), every institution name becomes "Institution <index>", every person name becomes "Person <index>", every email becomes `seed<index>@institution.example`, every website becomes `https://institution-<index>.example/`, phone numbers are removed; the file's `_comment` says it is synthetic, how it was made, and that it holds no real record. Then run the battery and update any check that asserted a real value (search first: `grep -rnoE "\brec[A-Za-z0-9]{14}\b" bin | grep -vE "rec(SEED|STU|INS|SPO|[A-Z]{3}0{5})"` and `grep -rn "uek.krakow.pl" bin` must both print nothing at the end). Nothing outside `bin/` changes.
+- FSUIT-5 and FSUIT-13: a deterministic anonymizer, `bin/anonymize-fixtures.php`, rewrites the seed and the suites in place and is kept in the repo so the fixture can be regenerated: every Airtable record ID that is not already an obvious placeholder becomes `recSEED` followed by a nine-digit index in order of first appearance (one mapping for the whole of `bin/`), every institution name becomes "Institution <index>", every person name becomes "Person <index>", every email becomes `seed<index>@institution.example`, every website becomes `https://institution-<index>.example/`, phone numbers are removed; the file's `_comment` says it is synthetic, how it was made, and that it holds no real record. Then run the battery and update any check that asserted a real value (search first: `grep -rnoE "\brec[A-Za-z0-9]{14}\b" bin | grep -vE "rec(SEED|STU|INS|SPO|[A-Z]{3}0{5})"` and a grep for the partner university's own mail domain over `bin` must both print nothing at the end). Nothing outside `bin/` changes.
 - FSUIT-10: `bin/build` runs with `set -euo pipefail`, checks the zip command's exit status, and the unreachable `style.css` fallback is removed.
 - FSUIT-11: `bin/check-standards.sh` exits 0 when phpcs reports no errors and prints "N warnings" for the record, exits 1 on any error; the Global Constraints of later plans read "exit 0 required". Update the sentence in `docs/sections/34-admin-operations.md` if it mentions the exit code (grep for "exit 2").
 - FSUIT-12: `bin/check-spelling.php` also scans `blocks/*/block.json`.

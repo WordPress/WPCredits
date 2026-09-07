@@ -13,7 +13,7 @@
  * member of a Confirmed one.
  *
  * The failure this pins hardest is the half-written index: a page that errors must leave
- * last night's index in place, because a manager screen drawn from half a table would
+ * the previous run's index in place, because a manager screen drawn from half a table would
  * show institutions as gone and the revoke phase would act on it.
  *
  * Run from the plugin root:  php bin/test-institutions-sync.php
@@ -345,7 +345,7 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		/**
 		 * The retry, run every three hours, at the two things this file cares about: it is
 		 * called, its answer is a count, and a mark it clears ends in a `rebuild()` that writes
-		 * the agreement option back. `retry_cleared` is how many cells a night had to finish and
+		 * the agreement option back. `retry_cleared` is how many cells a run had to finish and
 		 * `retry_rebuilds` names the institution whose option the real method would rewrite,
 		 * which is what makes the order of this phase provable rather than assumed.
 		 *
@@ -598,10 +598,10 @@ echo "=== One full run ===\n";
 
 reset_site( $seed );
 
-$not_moving = 'rec1uKToSodYueZHm'; // Govt. Mohammadpur Model School and College, Not Moving Forward.
-$confirmed  = 'rec1ZgEtczDKjRNP4'; // Università di Pisa, Confirmed.
+$not_moving = 'recSEED0000000010'; // Institution 5, Not Moving Forward.
+$confirmed  = 'recSEED0000000008'; // Institution 4, Confirmed.
 $gone       = 'recGONE0000000001'; // Not in the base.
-$spam       = 'recnd05BHZjmP3HFR'; // SPAM.
+$spam       = 'recSEED0000000118'; // SPAM.
 
 member( 40, $not_moving );
 member( 41, $confirmed );
@@ -652,10 +652,10 @@ ksort( $counts, SORT_STRING );
 ksort( $want, SORT_STRING );
 ck( 'with the fixture\'s stage counts', $counts, $want );
 
-$pisa = $rows[ $confirmed ];
-ck( 'a row is built from the cells', array( $pisa['name'], $pisa['stage'], $pisa['city'], $pisa['confirmed_on'], $pisa['created'], $pisa['consent'] ), array( 'Università di Pisa', 'Confirmed', 'Pisa', '2025-06-26', '2025-07-17', false ) );
-ck( 'the country resolves to a name through the map', array( $pisa['country'], $pisa['country_name'] ), array( 'recQcCJMA9jvWJnTB', 'Italy' ) );
-ck( 'the contact columns are empty because the fixture has none', array( $pisa['contact_person'], $pisa['contact_email'] ), array( '', '' ) );
+$built = $rows[ $confirmed ];
+ck( 'a row is built from the cells', array( $built['name'], $built['stage'], $built['city'], $built['confirmed_on'], $built['created'], $built['consent'] ), array( 'Institution 4', 'Confirmed', 'City 4', '2025-06-26', '2025-07-17', false ) );
+ck( 'the country resolves to a name through the map', array( $built['country'], $built['country_name'] ), array( 'recSEED0000000009', 'Italy' ) );
+ck( 'the contact columns are empty because the fixture has none', array( $built['contact_person'], $built['contact_email'] ), array( '', '' ) );
 
 $trailing = 0;
 $nameless = 0;
@@ -728,8 +728,8 @@ ck( 'and with provisioning off nothing was created or even considered', array( i
 // `locked` counts institutions whose gate was closed: every seeded row outside the active
 // stages, plus the one this scenario removes from the base altogether.
 ck( 'and locks every institution that has left the active stages', $report['stats']['locked'], $outside + 1 );
-// The first thing the last phase does. On a night with nothing owed it writes nothing, counts
-// nothing and says nothing, which is every night but the rare one.
+// The first thing the last phase does. On a run with nothing owed it writes nothing, counts
+// nothing and says nothing, which is every run but the rare one.
 ck( 'the run finishes the writes an earlier request could not make', array( $GLOBALS['calls']['retry_airtable'], $report['stats']['agreements'] ), array( 1, 0 ) );
 ck( 'a nameless record would be named in the notices', count( $report['notices'] ), (int) $seed['counts']['nameless'] );
 ck( 'the last-run time is stamped', array( WPCPM_Institutions_Sync::last_read() > 0 ), array( true ) );
@@ -776,7 +776,7 @@ function ready_cells( $email, $person = 'A Rector' ) {
 		'Contact Person'     => $person,
 		'Agreement Status'   => 'On file',
 		'Agreement Kind'     => 'Legacy',
-		'Agreement Document' => 'https://drive.google.com/drive/folders/pisa',
+		'Agreement Document' => 'https://drive.google.com/drive/folders/seed',
 	);
 }
 
@@ -793,7 +793,7 @@ $report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
 
 ck( 'the contact email is lowercased', $rows[ $confirmed ]['contact_email'], 'rector@example.edu' );
 ck( 'the agreement columns reach the index, the link only as a flag', $rows[ $confirmed ]['agreement'], array( 'status' => 'On file', 'kind' => 'Legacy', 'accepted_on' => '', 'signed_on' => '', 'accepted_by' => '', 'submitted_on' => '', 'template_version' => '', 'has_document' => true ) );
-ck( 'and the link itself went to rebuild()', $GLOBALS['calls']['rebuild'][ $confirmed ]['document'], 'https://drive.google.com/drive/folders/pisa' );
+ck( 'and the link itself went to rebuild()', $GLOBALS['calls']['rebuild'][ $confirmed ]['document'], 'https://drive.google.com/drive/folders/seed' );
 
 ck( 'exactly one account was created', count( $GLOBALS['calls']['wp_insert_user'] ), 1 );
 $made = $GLOBALS['calls']['wp_insert_user'][0];
@@ -830,7 +830,7 @@ $report = get_option( WPCPM_Institutions_Sync::OPT_REPORT );
 ck( 'no account was created and none was adopted', array( isset( $GLOBALS['calls']['wp_insert_user'] ), isset( $GLOBALS['calls']['attach'] ), isset( $GLOBALS['members'][9] ) ), array( false, false, false ) );
 ck( 'the conflict is counted rather than skipped in silence', array( $report['stats']['conflicts'], $report['stats']['provisioned'] ), array( 1, 0 ) );
 ck( 'and named, with the institution and what a conflict is', array(
-	false !== strpos( implode( "\n", $report['notices'] ), 'Università di Pisa' ),
+	false !== strpos( implode( "\n", $report['notices'] ), 'Institution 4' ),
 	false !== strpos( implode( "\n", $report['notices'] ), 'conflict, not a match' ),
 ), array( true, true ) );
 
@@ -1053,7 +1053,7 @@ ck( 'and the report says so', array( get_option( WPCPM_Institutions_Sync::OPT_RE
 ck( 'the agreements the base had not been told about are counted and named',
 	array(
 		get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['agreements'],
-		false !== strpos( implode( "\n", get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'] ), '2 Collaboration Agreements the base had not been told about were written tonight.' ),
+		false !== strpos( implode( "\n", get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'] ), '2 Collaboration Agreements the base had not been told about were written in this sync run.' ),
 	),
 	array( 2, true ) );
 
@@ -1064,7 +1064,7 @@ echo "\n=== The retry cannot reopen a gate this phase closes ===\n";
 // Clearing a mark ends in a `rebuild()`, and the option that writes is the only thing
 // `is_settled()` reads. Run after the gate lock-down, that rebuild would hand a settled option
 // back to an institution the program had just dropped, and it would stand there until the next
-// night came round. So it runs first, and the lock-down has the last word.
+// run came round. So it runs first, and the lock-down has the last word.
 reset_site( $seed );
 $GLOBALS['retry_cleared']  = 1;
 $GLOBALS['retry_rebuilds'] = $not_moving;
@@ -1072,7 +1072,7 @@ $GLOBALS['retry_rebuilds'] = $not_moving;
 WPCPM_Institutions_Sync::start();
 run_to_end();
 
-ck( 'an institution outside the active stages whose mark was finished tonight still ends locked',
+ck( 'an institution outside the active stages whose mark was finished in this run still ends locked',
 	array(
 		array_key_exists( WPCPM_Institution_Agreement::option_name( $not_moving ), $GLOBALS['opts'] ),
 		WPCPM_Institution_Agreement::is_settled( $not_moving ),
@@ -1089,8 +1089,8 @@ reset_site( $seed );
 $GLOBALS['fail_page'] = 2;
 member( 40, $not_moving );
 
-// Last night's index: one row, an old read time.
-WPCPM_Institutions_Index::write( array( 'recLASTNIGHT00001' => array( 'record_id' => 'recLASTNIGHT00001', 'name' => 'Last night', 'stage' => 'Confirmed' ) ), 1000 );
+// The previous run's index: one row, an old read time.
+WPCPM_Institutions_Index::write( array( 'recLASTRUN0000001' => array( 'record_id' => 'recLASTRUN0000001', 'name' => 'Last run', 'stage' => 'Confirmed' ) ), 1000 );
 
 WPCPM_Institutions_Sync::start();
 run_to_end();
@@ -1133,7 +1133,7 @@ foreach ( $GLOBALS['pages']['tbl4V0FEbzRP7I2w2'] as $page ) {
 	$blank[] = $stripped;
 }
 $GLOBALS['pages']['tbl4V0FEbzRP7I2w2'] = $blank;
-WPCPM_Institutions_Index::write( array( 'recLASTNIGHT00001' => array( 'record_id' => 'recLASTNIGHT00001', 'name' => 'Last night', 'stage' => 'Confirmed' ) ), 1000 );
+WPCPM_Institutions_Index::write( array( 'recLASTRUN0000001' => array( 'record_id' => 'recLASTRUN0000001', 'name' => 'Last run', 'stage' => 'Confirmed' ) ), 1000 );
 WPCPM_Institutions_Sync::start();
 run_to_end();
 ck( 'records with no fields at all do not replace the index', array( count( WPCPM_Institutions_Index::rows() ), WPCPM_Institutions_Sync::is_running() ), array( 1, true ) );

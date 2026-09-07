@@ -203,12 +203,12 @@ function code( $r ) { return $r instanceof WP_Error ? $r->get_error_code() : $r;
 function meta( $id, $k ) { return $GLOBALS['umeta'][ $id ][ $k ] ?? null; }
 function audit_rows( $record ) { return WPCPM_Institution_Audit::entries_for( $record, 0 ); }
 
-$A    = 'recDdomg5W6h410JT'; // the TEST institution in the seed fixture.
-$B    = 'rec0IT9J93YkAYvSU';
+$A    = 'recSEED0000000001'; // the TEST institution in the seed fixture.
+$B    = 'recSEED0000000002';
 $NONE = 'recZZZZZZZZZZZZZZ'; // well-formed, never indexed.
 
 $GLOBALS['index'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'TEST - WordPress Education Dashboard (do not use) ', 'stage' => 'Confirmed', 'city' => 'Test', 'country_name' => 'Poland', 'website' => 'https://example.test', 'contact_person' => 'Test Person', 'contact_email' => 'test@example.test' ),
+	$A => array( 'record_id' => $A, 'name' => 'TEST - Institution 20 ', 'stage' => 'Confirmed', 'city' => 'Test', 'country_name' => 'Poland', 'website' => 'https://example.test', 'contact_person' => 'Test Person', 'contact_email' => 'test@example.test' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Example', 'stage' => 'Student', 'city' => 'Example', 'country_name' => 'Costa Rica', 'website' => '', 'contact_person' => '', 'contact_email' => '' ),
 );
 
@@ -251,7 +251,7 @@ $facts = meta( 7, 'wpcpm_institution_membership' );
 ck( 'the facts: by, how, invite', array( $facts['by'], $facts['how'], $facts['invite'] ), array( 1, 'manager', 0 ) );
 ck( 'the facts: since is now', is_int( $facts['since'] ) && $facts['since'] >= $before, true );
 ck( 'the profile, from the index row, name trimmed', meta( 7, 'wpcpm_institution_profile' ), array(
-	'name'           => 'TEST - WordPress Education Dashboard (do not use)',
+	'name'           => 'TEST - Institution 20',
 	'city'           => 'Test',
 	'country_name'   => 'Poland',
 	'stage'          => 'Confirmed',
@@ -385,7 +385,7 @@ ck( 'on the member ground, reason left', array( $rows[0]['ground'], $rows[0]['ac
 ck( 'the last-member notice fired once', count( $GLOBALS['notified'] ), 1 );
 ck( 'with its context', $GLOBALS['notified'][0]['context'], 'member-last' );
 $mail = $GLOBALS['notified'][0]['mail'];
-ck( 'the subject names the site and the institution', $mail['subject'], '[WordPress Education Dashboard] TEST - WordPress Education Dashboard (do not use) has no members left' );
+ck( 'the subject names the site and the institution', $mail['subject'], '[WordPress Education Dashboard] TEST - Institution 20 has no members left' );
 ck( 'the body names who, the record and the reason', array(
 	false !== strpos( $mail['body'], 'Eve Editor' ),
 	false !== strpos( $mail['body'], $A ),
@@ -433,7 +433,7 @@ ck( 'and no longer a former member', $ids( WPCPM_Institution_Members::former_mem
 ck( 'a former member of A may join B', WPCPM_Institution_Members::attach( 10, $B, 'manager', 1 ), true );
 // The _was that names A survives joining B. `former_members_of( A )` promises it, a manager
 // re-adds from that list in one click, and the sync's "no live member and no _was naming it"
-// gate would otherwise provision A's removed contact again every night.
+// gate would otherwise provision A's removed contact again on every sync run.
 ck( 'and the _was that names A survives it', meta( 10, 'wpcpm_institution_record_id_was' ), $A );
 ck( 'so she is still a former member of A', in_array( 10, $ids( WPCPM_Institution_Members::former_members_of( $A ) ), true ), true );
 $rows_b = audit_rows( $B );

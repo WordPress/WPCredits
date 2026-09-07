@@ -2247,12 +2247,24 @@ final class WPCPM_Semester_Report_Screen {
 	 * a copy already downloaded is theirs, which is why nothing here pretends to recall it.
 	 */
 	public static function handle_reopen() {
-		$post = self::state_target( self::ACTION_REOPEN );
+		$post   = self::state_target( self::ACTION_REOPEN );
+		$cohort = self::cohort_of( $post );
+
+		// Only an approved report can be reopened, the way `handle_approve()` refuses a second
+		// approval. `set_state()` refuses a value that is neither draft nor approved and this
+		// one is the literal draft, so on a draft `reopen()` deleted nothing, returned true and
+		// wrote a second `reopened` line into a log capped at LOG_MAX that is the only record
+		// of who did what to a report. The button is drawn only on an approved report, so what
+		// reaches here is a stale page or a double submit - and a nonce is good for its whole
+		// lifetime, so a stale page's press verifies (deep check FADMN-4).
+		if ( WPCPM_Semester_Report::STATE_APPROVED !== WPCPM_Semester_Report::state( $post ) ) {
+			self::bounce( 'not-approved', array(), $cohort );
+		}
 
 		WPCPM_Semester_Report::reopen( $post );
-		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_REOPENED, WPCPM_Semester_Report::institution_of( $post ), self::cohort_of( $post ), get_current_user_id() );
+		WPCPM_Semester_Report::log( WPCPM_Semester_Report::LOG_REOPENED, WPCPM_Semester_Report::institution_of( $post ), $cohort, get_current_user_id() );
 
-		self::leave( 'reopened', array(), self::cohort_of( $post ) );
+		self::leave( 'reopened', array(), $cohort );
 	}
 
 	/**
@@ -3670,6 +3682,7 @@ final class WPCPM_Semester_Report_Screen {
 			'is-approved'       => __( 'That report is approved. Reopen it before changing anything.', 'wpcredits-program-manager' ),
 			'approved'          => __( 'Approved. The institution can now read and download it.', 'wpcredits-program-manager' ),
 			'approve-failed'    => __( 'The report was not approved, because the students\' answers could not be read just now. Nothing changed. Try again shortly.', 'wpcredits-program-manager' ),
+			'not-approved'      => __( 'That report is a draft already, so there was nothing to reopen.', 'wpcredits-program-manager' ),
 			'reopened'          => __( 'This report is a draft again. The institution no longer sees it until it is approved once more.', 'wpcredits-program-manager' ),
 			'restored'          => __( 'That version is back.', 'wpcredits-program-manager' ),
 			'not-restored'      => __( 'That version could not be put back.', 'wpcredits-program-manager' ),

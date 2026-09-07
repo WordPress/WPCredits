@@ -38,8 +38,13 @@ class WP_User {
 	public function __construct( $id = 0, $name = '' ) { $this->ID = $id; $this->display_name = $name; }
 	public function exists() { return $this->ID > 0; }
 }
+// `post_author` is declared here because core declares it: WP_Post gives every column of the
+// posts table a property with a default, so `$post->post_author` on a post that has no author
+// reads 0 rather than warning. A stub without it made class-wpcpm-content-access.php:201 warn
+// on every run of this suite and made the seeded author below a dynamic property.
 class WP_Post {
 	public $ID = 0, $post_title = '', $post_date = '', $post_type = 'post', $post_status = 'publish';
+	public $post_author = 0;
 	public $cats = array();
 }
 class WP_Term {
@@ -281,6 +286,12 @@ $GLOBALS['caps'][15]  = array( 'wpcpm_view_sponsor_content' );
 seed_post( 400, 'A guide by its author', '2026-09-06 10:00:00', WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS );
 $GLOBALS['posts'][400]->post_author = 15;
 ck( 'the author reads their own post at a level they do not hold, and another sponsor account does not', array( WPCPM_Content_Access::can_view( 400, 15 ), WPCPM_Content_Access::can_view( 400, 13 ) ), array( true, false ) );
+// The stub above has to have the shape core gives a post, or this section would be measuring
+// a warning: core's WP_Post declares every column of the posts table with a default, so the
+// author of a post that has none is 0 and `can_view()` reads it without asking whether it is
+// set. A stub that left the property out is why that line warned on every run of this suite.
+$shape = new ReflectionProperty( 'WP_Post', 'post_author' );
+ck( 'the WP_Post stub declares post_author with core\'s default, so the read above is core\'s read', array( $shape->isPublic(), ( new WP_Post() )->post_author ), array( true, 0 ) );
 // The fixture set is shared by the sections below: the seeded post and its author leave with the check.
 unset( $GLOBALS['posts'][400], $GLOBALS['pmeta'][400], $GLOBALS['users'][15], $GLOBALS['caps'][15] );
 ck( 'and the two ids are the posts this check means', array( get_post( 102 )->post_title, get_post( 101 )->post_title ), array( 'Students post', 'Everyone post' ) );
@@ -380,7 +391,11 @@ ck( 'a manager on the administrator card sees the administrator view',
 // directly through reflection since the method stays private - nothing outside this class
 // needs the mapping, only this suite needs to pin it down.
 $levels_for = new ReflectionMethod( 'WPCPM_Updates', 'levels_for' );
-$levels_for->setAccessible( true );
+
+if ( PHP_VERSION_ID < 80100 ) {
+	// No effect since 8.1 and deprecated from 8.5; still required on the 7.4 the plugin supports.
+	$levels_for->setAccessible( true );
+}
 
 ck( 'the sponsor audience maps to the sponsor level',
     $levels_for->invoke( null, 'sponsor' ), array( 'public', 'wpcpm_sponsor' ) );

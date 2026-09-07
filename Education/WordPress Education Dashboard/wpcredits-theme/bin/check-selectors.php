@@ -209,6 +209,84 @@ if ( $undefined ) {
 	exit( 1 );
 }
 
+// The shared dashboard-table dressing keeps its scope.
+//
+// One block dresses the Student Report Card's tables, the Institution Dashboard's, the Sponsor
+// Dashboard's Usage card and the Administrator Dashboard's queues, so that a manager moving
+// between the pages sees one table drawn one way (deep check FFRNT-7). Writing it once meant
+// writing it without the page prefixes the rest of the sheet uses, which widened it from "a
+// table on a dashboard" to "any table this theme draws", on a post as much as on a dashboard;
+// nothing shows it today only because no plugin rule outweighs it yet (the whole-branch review
+// of 1.99.0). A rule that dresses several pages has to say which pages it is for.
+//
+// Two rules, both read off the comment-stripped source:
+//   - a block whose selector list names more than one of the four table classes is the shared
+//     dressing, and every selector in it has to carry a `.wpc-...-page` body class;
+//   - `.wpcpm-usage` and `.wpcpm-admin-table` are dressed nowhere else in this theme, so every
+//     selector naming either one has to carry one too.
+//
+// The Institution Dashboard's own mentee-table card and its narrow-screen stack are left out on
+// purpose: those are one page's layout, they were never prefixed, and widening this check to
+// them would be a cascade change rather than a scope restored.
+$table_classes = array( 'wpcpm-student__table', 'wpcpm-mentee__table', 'wpcpm-usage', 'wpcpm-admin-table' );
+$only_here     = array( 'wpcpm-usage', 'wpcpm-admin-table' );
+$unscoped      = array();
+
+foreach ( $sheets as $path ) {
+	$css = preg_replace( '#/\*.*?\*/#s', '', (string) file_get_contents( $path ) );
+
+	if ( ! preg_match_all( '/([^{}]+)\{/', $css, $blocks ) ) {
+		continue;
+	}
+
+	foreach ( $blocks[1] as $block ) {
+		$selectors = array();
+		$named     = array();
+
+		foreach ( explode( ',', $block ) as $selector ) {
+			$selector = trim( preg_replace( '/\s+/', ' ', $selector ) );
+
+			if ( '' === $selector || 0 === strpos( $selector, '@' ) ) {
+				continue;
+			}
+
+			$selectors[] = $selector;
+
+			foreach ( $table_classes as $class ) {
+				if ( preg_match( '/\.' . preg_quote( $class, '/' ) . '\b/', $selector ) ) {
+					$named[ $class ] = true;
+				}
+			}
+		}
+
+		if ( ! $named ) {
+			continue;
+		}
+
+		$shared = count( $named ) > 1 || array_intersect( array_keys( $named ), $only_here );
+
+		if ( ! $shared ) {
+			continue;
+		}
+
+		foreach ( $selectors as $selector ) {
+			if ( ! preg_match( '/\.wpc-[a-z0-9-]*-page\b/', $selector ) && preg_match( '/\.wpcpm-/', $selector ) ) {
+				$unscoped[ basename( $path ) . '  ' . $selector ] = true;
+			}
+		}
+	}
+}
+
+foreach ( array_keys( $unscoped ) as $where ) {
+	printf( "  SCOPE  %s\n", $where );
+}
+
+printf( "%d shared table selectors without a dashboard body class.\n", count( $unscoped ) );
+
+if ( $unscoped ) {
+	exit( 1 );
+}
+
 // The house rule, enforced here too: plain hyphens only, in every text file of the theme.
 $dashes = array();
 $walk   = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $theme, FilesystemIterator::SKIP_DOTS ) );

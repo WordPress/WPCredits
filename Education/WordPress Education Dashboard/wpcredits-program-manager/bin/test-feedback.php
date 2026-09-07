@@ -657,12 +657,12 @@ function response( $code, array $body = array() ) {
 
 /** The student's cached program row: the address every one of these lookups is keyed on. */
 function program_row() {
-	return array( 'email' => 'ana@uek.krakow.pl', 'name' => 'Ana Nowak', 'program' => 'In Sensei' );
+	return array( 'email' => 'ana@institution-3.example', 'name' => 'Ana Nowak', 'program' => 'In Sensei' );
 }
 
 /** One Feedback row as Airtable returns it, with or without an institution link. */
 function row( $id, $institution = '' ) {
-	$fields = array( 'Email' => 'ana@uek.krakow.pl' );
+	$fields = array( 'Email' => 'ana@institution-3.example' );
 
 	if ( '' !== $institution ) {
 		$fields['Institution'] = array( $institution );
@@ -742,7 +742,7 @@ ck( 'the row is created', $made, 'recFB0000000000CC' );
 ck( 'with the institution linked, as a record ID in an array', sent_fields( 1 )['Institution'], array( HERE ) );
 ck( 'and the rest of the row as before',
     array_diff_key( sent_fields( 1 ), array( 'Institution' => 1 ) ),
-    array( 'Name' => 'Ana Nowak', 'Email' => 'ana@uek.krakow.pl', 'Course' => 'In Sensei' ) );
+    array( 'Name' => 'Ana Nowak', 'Email' => 'ana@institution-3.example', 'Course' => 'In Sensei' ) );
 
 // An unlinked row is read by every institution's report. That is the pre-existing state of 834
 // rows and is not this module's to change, but a row it creates itself has no such excuse - so the
@@ -754,7 +754,7 @@ ck( 'a student with no institution on file creates a row with no link',
 
 // A name in the link column would be refused for the whole record, taking the row with it.
 $GLOBALS['umeta'][ STUDENT ]                                 = array( 'wpcpm_student_program' => program_row() );
-$GLOBALS['umeta'][ STUDENT ]['wpcpm_student_institution']    = 'Uniwersytet Ekonomiczny w Krakowie';
+$GLOBALS['umeta'][ STUDENT ]['wpcpm_student_institution']    = 'Uniwersytet Przykładowy';
 $GLOBALS['sent']                                             = array();
 $GLOBALS['queue']                                            = array(
 	response( 200, array( 'records' => array() ) ),

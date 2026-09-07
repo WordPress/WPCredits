@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.98.3
+Stable tag: 1.99.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,18 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.99.0 =
+* **The deep check fixes.** The fifty findings of the 7 September 2026 deep check of 1.98.1 - one high, eight medium and forty-one low - are closed, and every fix ships with a check that fails on the code before it. With theme 1.24.3.
+* **A sponsor member keeps nothing after a detach.** Removing a person from a sponsor now drops the posting capabilities last, so the role write can no longer put them back from a stale copy of the account, and a one-time repair on the first admin page after the update takes `edit_posts`, `delete_posts` and `upload_files` off the accounts an older detach left holding them. The history the detach leaves behind grants nothing on its own, and the Sponsor Dashboard no longer waves an account past the dashboard because it can write posts.
+* **A manager acting for a sponsor writes to the sponsor the page shows.** The logo and the roster take the record the manager opened rather than the one the manager's own account is attached to, and Remove says so when the logo on the page came from Airtable and there is nothing here to remove.
+* **Offer codes and claims.** A pasted list of codes is measured before it is read, so a paste too large to accept is refused instead of filling the pool; a paste refused on a new offer says the paste was refused and leaves no half-made offer behind, rather than reporting an offer created without codes. Claiming honors the Tools switches, so an offer switched off for an audience cannot be claimed by that audience through a link.
+* **The agreement, the sync and the queue.** Withdrawing a Collaboration Agreement never writes an older status over the newer one the base already holds. The sponsors sync refuses a read that has lost records until a second run confirms the table really is smaller, and says so.
+* **The application forms.** A second send from the same person moments after the first is held rather than filed as spam; the ceilings are keyed on the /64 for an IPv6 address, so a visitor cannot walk around them; a held row stores no uploaded file; and held rows are purged on the rejected window on both the sponsor and the institution form.
+* **The institution agreement option and the Administrator Dashboard.** The agreement option never stores an empty Airtable status, which read as an open gate. The dashboard's decided lists are bounded, its Recently closed list is dated by when each request was closed and says so, and the arrows on a movable module belong to the modules the page actually draws, on the Institution Dashboard and the Student Report Card alike.
+* **The front end.** A form's buttons are released when the reader comes back to the page with Back, focus stays on the module that was just moved, a move the site refused is put back where it was, and the Administrator Dashboard reads at the 14px floor with the contrast the other dashboards have. One table rule now dresses every dashboard.
+* The seed fixture and the suites are synthetic throughout, so nothing on the public mirror carries a real record ID, name, address or organization: the list of what to replace is kept as hashes rather than as the names themselves, and the check reads the whole of `bin/` and `docs/`. `bin/check-spelling.php` refuses a root that is not a plugin tree instead of passing silently, `bin/check-standards.sh` exits 0 when it is clean, and `truncate_ip()` is byte-true for compressed and mapped addresses.
+* A mentor who also works for a sponsor is sent to the Mentor Report Card at login again, instead of landing on the wp-admin dashboard because writing the sponsor's posts looked like editing the site. A file of codes with a blank line between each one is measured by its codes, not by its lines, so a full pool is accepted. Two moves refused in a row both put the page back, and focus returns to the arrow that was pressed.
 
 = 1.98.3 =
 * The Designer Track report form, four changes asked for on 8 September 2026: every course grade the base holds is on the form (the three WordPress User levels under "Complete one of the following courses" right after the required Beginner WordPress Designer mark, then the Beginner WordPress Developer and Intermediate Theme Developer marks under "Optional courses"); the project summary sits directly under the contribution team, before the practical lessons; the second contribution project follows it, as on the Developer Track form; and the two alumni program questions stand in their own section, under the Learn lesson's heading, between the meetings question and the event link, which now carries its own heading. The set is 48 fields.
@@ -1697,7 +1709,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   `switch_to_user_locale()`. They were translated in the site's language before, so a
   student whose profile is Italian was reading English.
 * **Replies go somewhere.** Every notification carries a `Reply-To` for the other party, so
-  answering "Call booked with Moldir" reaches Moldir instead of `wordpress@`.
+  answering "Call booked with your mentor" reaches the mentor instead of `wordpress@`.
 * **The invitation email says what it is.** Students and mentors get different copy naming
   the program, what they are to it and what to do first, around the username and reset link
   WordPress generates. A bare "Login Details" from a site you do not recognize reads as

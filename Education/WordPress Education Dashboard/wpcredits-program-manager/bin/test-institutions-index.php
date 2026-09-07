@@ -157,8 +157,8 @@ ck( 'the fixture loaded', array( count( $rows ) > 0 ), array( true ) );
 
 ck( 'read() is the empty shape', WPCPM_Institutions_Index::read(), array( 'v' => 1, 'read' => 0, 'rows' => array() ) );
 ck( 'rows() is empty', WPCPM_Institutions_Index::rows(), array() );
-ck( 'row() is null', WPCPM_Institutions_Index::row( 'rec1ZgEtczDKjRNP4' ), null );
-ck( 'has() is false', WPCPM_Institutions_Index::has( 'rec1ZgEtczDKjRNP4' ), false );
+ck( 'row() is null', WPCPM_Institutions_Index::row( 'recSEED0000000008' ), null );
+ck( 'has() is false', WPCPM_Institutions_Index::has( 'recSEED0000000008' ), false );
 ck( 'stage_counts() is empty', WPCPM_Institutions_Index::stage_counts(), array() );
 ck( 'by_stage() is empty', WPCPM_Institutions_Index::by_stage(), array() );
 ck( 'OPTION and VERSION are the contract', array( WPCPM_Institutions_Index::OPT_NAME, WPCPM_Institutions_Index::VERSION ), array( 'wpcpm_institutions_index', 1 ) );
@@ -208,13 +208,13 @@ ck( 'stage_counts() follows the same order', array_keys( WPCPM_Institutions_Inde
 
 echo "\n=== One row at a time ===\n";
 
-$pisa = WPCPM_Institutions_Index::row( 'rec1ZgEtczDKjRNP4' );
-ck( 'row() finds Pisa', array( $pisa['name'], $pisa['stage'], $pisa['city'], $pisa['confirmed_on'] ), array( 'Università di Pisa', 'Confirmed', 'Pisa', '2025-06-26' ) );
-ck( 'and resolves its country through the map', array( $pisa['country'], $pisa['country_name'] ), array( 'recQcCJMA9jvWJnTB', 'Italy' ) );
-ck( 'created is the day of createdTime', $pisa['created'], '2025-07-17' );
-ck( 'has() agrees', WPCPM_Institutions_Index::has( 'rec1ZgEtczDKjRNP4' ), true );
+$confirmed = WPCPM_Institutions_Index::row( 'recSEED0000000008' );
+ck( 'row() finds the row it is asked for, whole', array( $confirmed['name'], $confirmed['stage'], $confirmed['city'], $confirmed['confirmed_on'] ), array( 'Institution 4', 'Confirmed', 'City 4', '2025-06-26' ) );
+ck( 'and resolves its country through the map', array( $confirmed['country'], $confirmed['country_name'] ), array( 'recSEED0000000009', 'Italy' ) );
+ck( 'created is the day of createdTime', $confirmed['created'], '2025-07-17' );
+ck( 'has() agrees', WPCPM_Institutions_Index::has( 'recSEED0000000008' ), true );
 
-$test = WPCPM_Institutions_Index::row( 'recDdomg5W6h410JT' );
+$test = WPCPM_Institutions_Index::row( 'recSEED0000000001' );
 ck( 'the TEST record is in the index with no country', array( $test['stage'], $test['country'], $test['country_name'] ), array( 'Under Review', '', '' ) );
 
 // Ten names end in a space in the base. The index keeps them: a comparison that trims one
@@ -236,15 +236,15 @@ ck( 'trailing spaces on names survive', $trailing, $seed['counts']['trailing_spa
 $before_awkward = WPCPM_Institutions_Index::read();
 
 $awkward = array(
-	'recSPACE0000000AA' => 'Sorbonne university ',
+	'recSPACE0000000AA' => 'Institution 11 ',
 	'recBLANK0000000BB' => '',
 );
 foreach ( $awkward as $id => $name ) {
 	WPCPM_Institutions_Index::insert( array( 'record_id' => $id, 'name' => $name, 'stage' => 'Confirmed' ) );
 }
 
-ck( 'a trailing space on a name survives the round trip', WPCPM_Institutions_Index::row( 'recSPACE0000000AA' )['name'], 'Sorbonne university ' );
-ck( 'and is not quietly trimmed on the way in', WPCPM_Institutions_Index::row( 'recSPACE0000000AA' )['name'] !== 'Sorbonne university', true );
+ck( 'a trailing space on a name survives the round trip', WPCPM_Institutions_Index::row( 'recSPACE0000000AA' )['name'], 'Institution 11 ' );
+ck( 'and is not quietly trimmed on the way in', WPCPM_Institutions_Index::row( 'recSPACE0000000AA' )['name'] !== 'Institution 11', true );
 ck( 'a record with no name is kept, under its own ID', array( WPCPM_Institutions_Index::has( 'recBLANK0000000BB' ), WPCPM_Institutions_Index::row( 'recBLANK0000000BB' )['name'] ), array( true, '' ) );
 
 $trailing_now = 0;
@@ -343,7 +343,7 @@ WPCPM_Institutions_Index::insert(
 		'record_id' => 'recNEWAPPROVED001',
 		'name'      => 'Universidad Example',
 		'stage'     => 'First Contact Made',
-		'country'   => 'recQcCJMA9jvWJnTB',
+		'country'   => 'recSEED0000000009',
 	)
 );
 
@@ -352,8 +352,8 @@ ck( 'the index grew by one', count( WPCPM_Institutions_Index::rows() ), $SEEDED 
 ck( 'and the read time is the table\'s, not the row\'s', WPCPM_Institutions_Index::read()['read'], $read_at );
 ck( 'the inserted row has the full shape', array_keys( WPCPM_Institutions_Index::row( 'recNEWAPPROVED001' ) ), $contract );
 
-WPCPM_Institutions_Index::insert( array_merge( $rows['rec1ZgEtczDKjRNP4'], array( 'stage' => 'Student' ) ) );
-ck( 'inserting an existing ID replaces the row', WPCPM_Institutions_Index::row( 'rec1ZgEtczDKjRNP4' )['stage'], 'Student' );
+WPCPM_Institutions_Index::insert( array_merge( $rows['recSEED0000000008'], array( 'stage' => 'Student' ) ) );
+ck( 'inserting an existing ID replaces the row', WPCPM_Institutions_Index::row( 'recSEED0000000008' )['stage'], 'Student' );
 ck( 'without growing the index', count( WPCPM_Institutions_Index::rows() ), $SEEDED + 1 );
 
 WPCPM_Institutions_Index::insert( array( 'record_id' => 'nonsense', 'name' => 'Nope' ) );
@@ -381,7 +381,7 @@ echo "\n=== Versioning ===\n";
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 99;
 ck( 'a version mismatch reads as empty', WPCPM_Institutions_Index::read(), array( 'v' => 1, 'read' => 0, 'rows' => array() ) );
 ck( 'so rows() is empty', WPCPM_Institutions_Index::rows(), array() );
-ck( 'and has() is false', WPCPM_Institutions_Index::has( 'rec1ZgEtczDKjRNP4' ), false );
+ck( 'and has() is false', WPCPM_Institutions_Index::has( 'recSEED0000000008' ), false );
 
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = 'a string somebody stored';
 ck( 'a malformed option reads as empty', WPCPM_Institutions_Index::rows(), array() );
@@ -393,7 +393,7 @@ ck( 'a malformed rows member reads as empty', WPCPM_Institutions_Index::read(), 
 // an old shape.
 WPCPM_Institutions_Index::write( $rows, $read_at );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 0;
-WPCPM_Institutions_Index::insert( $rows['rec1ZgEtczDKjRNP4'] );
+WPCPM_Institutions_Index::insert( $rows['recSEED0000000008'] );
 ck( 'insert() over a stale version writes a fresh index', array( WPCPM_Institutions_Index::read()['v'], count( WPCPM_Institutions_Index::rows() ) ), array( 1, 1 ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );

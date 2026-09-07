@@ -12,11 +12,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * The one place a record ID arriving in a request becomes an acting sponsor.
  *
- * Design spec of 4 September 2026, section 4: for a member the stamp wins and the argument
- * is ignored; for a manager the argument is checked against the index; every refusal of a
- * member is metered by `WPCPM_Refusal_Meter` in the `sponsor` scope, twenty a day, then the
- * account is locked until tomorrow and the lock is logged once on the sponsor's own log.
+ * Design spec of 4 September 2026, section 4: for an actor without `CAP_MANAGE` the stamp wins
+ * and the argument is ignored; for a manager the argument is checked against the index, and the
+ * stamp is a fallback only when the request names no sponsor; every refusal of a member is
+ * metered by `WPCPM_Refusal_Meter` in the `sponsor` scope, twenty a day, then the account is
+ * locked until tomorrow and the lock is logged once on the sponsor's own log.
  * A manager is never metered: their refusals are the site's mistakes to fix.
+ *
+ * `claim()` and `resolve_sponsor()` ask the same question in the same order, and they agree
+ * wherever the claim resolves a record at all: it is the record the page resolved too. They
+ * part only where a manager's request fails - naming a record the index does not hold, or
+ * naming nobody with no stamp of their own - and the page falls back to a guess while the
+ * claim refuses rather than writing, because a page may guess and a write may not (FSPON-2).
  */
 final class WPCPM_Sponsor_Roster {
 
@@ -46,23 +53,12 @@ final class WPCPM_Sponsor_Roster {
 			return WPCPM_Sponsor_Policy::refusal();
 		}
 
-		$own = WPCPM_Sponsor_Members::sponsor_of( $actor );
+		$record = self::acting_record( $record, $actor );
 
-		if ( '' !== $own ) {
-			// The stamp wins. A member cannot reach another sponsor by naming it, and is not
-			// refused for trying: the argument is simply not read. sponsor_of() only checks
-			// the stamp's shape and the active flag, never the index, so a member whose
-			// sponsor has left the index still claims here, with row() null below; every
-			// caller refuses on that rather than writing back to nothing.
-			$record = $own;
-		} else {
-			$record = trim( (string) $record );
+		if ( '' === $record ) {
+			self::meter( $actor );
 
-			if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) || ! WPCPM_Sponsors_Index::has( $record ) ) {
-				self::meter( $actor );
-
-				return WPCPM_Sponsor_Policy::refusal();
-			}
+			return WPCPM_Sponsor_Policy::refusal();
 		}
 
 		$decision = WPCPM_Sponsor_Policy::decide( $action, WPCPM_Sponsor_Policy::subject_sponsor( $record ), $actor );
@@ -78,6 +74,62 @@ final class WPCPM_Sponsor_Roster {
 			'decision' => $decision,
 			'row'      => WPCPM_Sponsors_Index::row( $record ),
 		);
+	}
+
+	/**
+	 * The sponsor a claim acts on, resolved the way `resolve_sponsor()` resolves the page.
+	 *
+	 * FSPON-2 of the 7 September 2026 deep check: this used to read the membership stamp before
+	 * anything else, so one account holding both `CAP_MANAGE` and a live stamp - a rep attached
+	 * to a sponsor and promoted to administrator afterwards - had the switcher draw one sponsor
+	 * while every save silently landed on its own. The page and the write must answer the same
+	 * question in the same order, or a person cannot see where their writing goes.
+	 *
+	 * @param string       $asked The record ID the request names.
+	 * @param WP_User|null $actor The acting account, already resolved.
+	 * @return string The record to act on, or '' for a refusal the caller meters.
+	 */
+	private static function acting_record( $asked, $actor ) {
+		$asked = trim( (string) $asked );
+
+		if ( '' !== $asked && $actor instanceof WP_User && $actor->exists() && user_can( $actor, WPCPM_Roles::CAP_MANAGE ) ) {
+			// A manager acts on the record the request names and on nothing else: a stamp swapped
+			// in here would put the write on a sponsor other than the one they are looking at.
+			return self::known_record( $asked ) ? $asked : '';
+		}
+
+		$own = WPCPM_Sponsor_Members::sponsor_of( $actor );
+
+		if ( '' !== $own ) {
+			// The stamp wins for everybody else, and for a manager whose request names nobody. A
+			// member cannot reach another sponsor by naming it, and is not refused for trying:
+			// the argument is simply not read. sponsor_of() only checks the stamp's shape and the
+			// active flag, never the index, so a member whose sponsor has left the index still
+			// claims here, with row() null; every caller refuses on that rather than writing back
+			// to nothing.
+			return $own;
+		}
+
+		// No stamp, and no manager's choice: the argument is all there is. An ID the index does
+		// not hold is refused right here, and one it holds is left to the policy, which finds no
+		// ground for this account and refuses it there.
+		return self::known_record( $asked ) ? $asked : '';
+	}
+
+	/**
+	 * Whether a record ID is real and current: shaped like an Airtable ID, and one the index
+	 * still lists.
+	 *
+	 * Both resolvers ask exactly this before trusting a request-named ID, so it stands once
+	 * here rather than three times: `is_record_id()` catches a value that is not a record ID at
+	 * all, and `has()` catches one the index no longer holds, such as a sponsor that left since
+	 * the page offering this ID was drawn.
+	 *
+	 * @param string $record The record ID to test.
+	 * @return bool
+	 */
+	private static function known_record( $record ) {
+		return WPCPM_Mentors_Sync::is_record_id( $record ) && WPCPM_Sponsors_Index::has( $record );
 	}
 
 	/**
@@ -103,7 +155,7 @@ final class WPCPM_Sponsor_Roster {
 		if ( $can_manage ) {
 			$asked = self::requested_view();
 
-			if ( WPCPM_Mentors_Sync::is_record_id( $asked ) && WPCPM_Sponsors_Index::has( $asked ) ) {
+			if ( self::known_record( $asked ) ) {
 				return $asked;
 			}
 		}

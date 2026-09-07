@@ -146,7 +146,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-module-order.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 
 $GLOBALS['users'][1]  = new WP_User( 1, 'Program Manager', array( 'administrator' ) );
-$GLOBALS['users'][30] = new WP_User( 30, 'Moldir Bekezhanova', array( 'wpcpm_student' ) );
+$GLOBALS['users'][30] = new WP_User( 30, 'Lu Example', array( 'wpcpm_student' ) );
 $GLOBALS['umeta'][30] = array( 'wpcpm_student_record' => 'recSTU1', 'wpcpm_student_updated' => time() - 60 );
 
 $fail = 0;
@@ -268,6 +268,16 @@ ck( 'on their own page the tools module is theirs', 1 === preg_match( '/id="wpcp
 $GLOBALS['program'] = array();
 $html               = WPCPM_Students_Dashboard::render();
 ck( 'before the first sync there is no course and no form to move', module_ids( $html ), array( 'updates', 'calls', 'tools' ) );
+// The arrows belong to the page, not to the saved order. With two of the five modules printing
+// nothing, the movers used to be given the index and the count of the whole order: the first
+// module on the page still offered Move up, and the last one's Move down stayed enabled
+// whenever anything under it had been dropped (deep check FADMN-5).
+ck( 'the first module on the page cannot go up and the last cannot go down, whatever the saved order holds', array(
+	1 === preg_match( '/id="wpcpm-module-updates">.*?wpcpm-module__move--up[^>]* disabled>/s', $html ),
+	1 === preg_match( '/id="wpcpm-module-tools">.*?wpcpm-module__move--down[^>]* disabled>/s', $html ),
+	substr_count( $html, ' disabled>' ),
+	substr_count( $html, 'class="wpcpm-module__mover"' ),
+), array( true, true, 2, 3 ) );
 $GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h' );
 
 echo "\n=== House rules ===\n";
@@ -280,6 +290,56 @@ ck( 'the script posts the same field names the handler reads', array(
 	WPCPM_Students_Dashboard::FIELD_ASYNC,
 ), array( true, 'wpcpm_async' ) );
 ck( 'the handler verifies the nonce before it reads anything', strpos( $source, 'check_admin_referer( self::ACTION_MOVE )' ) < strpos( $source, "WPCPM_Request::posted_key( self::FIELD_MODULE )" ), true );
+
+/*
+ * The two ways the background save can leave the page wrong, both closed in 1.99.0.
+ *
+ * FFRNT-2: arrange() re-inserted every module whatever the answer said, which detaches the arrow
+ * the script had just focused - removing the focused element's ancestor sends focus to the
+ * document - so a keyboard user lost their place on every press, a fifth of a second after it.
+ *
+ * FFRNT-3: a non-ok answer, which is what a nonce that expired while the page sat open produces,
+ * was dropped on the floor. The module stayed where the optimistic move had put it and the live
+ * region kept the confirmation it had already spoken, for a move nothing had saved.
+ */
+ck( 'every mover on the page carries the sentence the script speaks when a save is refused', array( substr_count( $html, 'data-wpcpm-refused="The move was not kept."' ), substr_count( $html, 'class="wpcpm-module__mover"' ) ), array( 3, 3 ) );
+ck( 'arrange() leaves the page alone when the answer is the order already on screen, and puts focus back when it is not', array(
+	false !== strpos( $script, "if ( keys( list ).join( ',' ) === order.join( ',' ) ) {" ),
+	false !== strpos( $script, 'var focused = document.activeElement;' ),
+	false !== strpos( $script, 'restore( focused );' ),
+), array( true, true, true ) );
+ck( 'a refused save puts the modules back and replaces what the live region said', array(
+	1 === preg_match( '/var kept\s+= keys\( modules\(\) \);/', $script ),
+	false !== strpos( $script, 'arrange( kept, button );' ),
+	false !== strpos( $script, "live.textContent = form.getAttribute( 'data-wpcpm-refused' ) || '';" ),
+), array( true, true, true ) );
+
+/*
+ * Two refusals in a row, and where focus lands after one. Both are the Task 7 items the deep
+ * check parked and the whole-branch review of 1.99.0 pulled back in.
+ *
+ * The stale-ticket guard used to stand in front of the whole answer, so a press answered while
+ * a later one was still in flight returned before it restored anything: two quick presses both
+ * refused left the first move on screen with nothing having saved it. The guard now stands in
+ * front of the arranging alone. Every answer, newest or not, updates the order the server is
+ * known to hold - which is the answer's own order when it kept the move, and the order already
+ * held when it refused - and only the newest answer puts the page there. That is also why the
+ * page no longer remembers the order from before each press: the server's order is one thing,
+ * not one per press in flight.
+ *
+ * And the press disables the arrow that reached an edge, so focus moves to its neighbor; when
+ * the save is then refused the arrow comes back to life and is the one the person is looking
+ * at, so `arrange()` is told which button was pressed and prefers it.
+ */
+ck( 'a refusal answered while a later press is in flight still counts', array(
+	false !== strpos( $script, 'if ( ticket <= answered ) {' ),
+	false !== strpos( $script, 'answered = ticket;' ),
+	false !== strpos( $script, 'before = keys( list );' ),
+), array( true, true, false ) );
+ck( 'and focus goes back to the arrow that was pressed, not to the one it fell to', array(
+	false !== strpos( $script, 'function arrange( order, pressed ) {' ),
+	false !== strpos( $script, 'focused = pressed;' ),
+), array( true, true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "FAILED ($fail)" : 'ALL PASS', $n );
 exit( $fail ? 1 : 0 );

@@ -185,7 +185,7 @@ function method_body( $source, $name ) {
 
 $A    = 'rec' . str_repeat( 'A', 14 );
 $B    = 'rec' . str_repeat( 'B', 14 );
-$TEST = 'recDdomg5W6h410JT';      // The TEST institution record, the one the Phase 1 demonstration is run against.
+$TEST = 'recSEED0000000001';      // The TEST institution record, the one the Phase 1 demonstration is run against.
 $S1   = 'recS' . str_repeat( '1', 13 );
 $S2   = 'recS' . str_repeat( '2', 13 );
 

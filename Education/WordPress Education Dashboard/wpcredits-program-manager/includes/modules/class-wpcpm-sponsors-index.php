@@ -159,7 +159,7 @@ final class WPCPM_Sponsors_Index {
 
 	/**
 	 * Change a few keys of one row in place, for a fact the site just wrote to the base and
-	 * should not wait a night to read back (the `Dashboard account` checkbox).
+	 * should not wait for the next sync run to read back (the `Dashboard account` checkbox).
 	 *
 	 * @param string $record Sponsor record ID.
 	 * @param array  $fields Keys of `empty_row()` and their new values; anything else is ignored.

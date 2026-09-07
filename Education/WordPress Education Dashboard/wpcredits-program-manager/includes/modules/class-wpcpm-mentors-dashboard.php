@@ -147,7 +147,16 @@ class WPCPM_Mentors_Dashboard {
 			return false;
 		}
 
-		if ( user_can( $user->ID, WPCPM_Roles::CAP_MANAGE ) || user_can( $user->ID, 'edit_posts' ) ) {
+		// `edit_others_posts`, not `edit_posts`. The clause means "this account works in
+		// wp-admin", and `edit_posts` stopped answering that when Phase S3 granted `edit_posts`,
+		// `delete_posts` and `upload_files` to every member of every sponsor whose posting flag
+		// is on, which is the default. `WPCPM_Sponsor_Members::attach()` allows a mentor on
+		// purpose, so a mentor working for a sponsor held `edit_posts` - and the Sponsor
+		// Dashboard's own routing excludes mentors by design, so that account was routed by
+		// neither page and landed on the wp-admin dashboard at login (the whole-branch review of
+		// 1.99.0, the mentor-side twin of FSPON-3). An editor or an administrator holds
+		// `edit_others_posts`; a representative writing the sponsor's own posts does not.
+		if ( user_can( $user->ID, WPCPM_Roles::CAP_MANAGE ) || user_can( $user->ID, 'edit_others_posts' ) ) {
 			return false;
 		}
 

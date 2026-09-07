@@ -239,7 +239,7 @@ if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
 	/**
 	 * The index, with the one write this control makes recorded rather than stored.
 	 *
-	 * `insert()` is what puts a linked student on their new roster before tonight's sync, so
+	 * `insert()` is what puts a linked student on their new roster before the next sync run, so
 	 * a refusal that reached it would be a student filed under a school by a write that never
 	 * landed. Recorded so the refusal assertions can say it did not happen.
 	 */
@@ -519,8 +519,8 @@ function audit_rows() {
 
 /* ---- fixtures ------------------------------------------------------------ */
 
-$A = 'recDdomg5W6h410JT'; // The TEST institution, which is what the module is built against.
-$B = 'rec0IT9J93YkAYvSU';
+$A = 'recSEED0000000001'; // The TEST institution, which is what the module is built against.
+$B = 'recSEED0000000002';
 $C = 'recZZZZZZZZZZZZZZ'; // Well-formed, never indexed.
 
 // Five Students rows with no institution, one per shape the card has to tell apart.
@@ -531,7 +531,7 @@ $NOEMAIL   = 'recNOEMAIL0000001';
 $MALFORMED = 'recBAD';
 
 $GLOBALS['index'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'TEST - WordPress Education Dashboard (do not use) ', 'stage' => 'Confirmed' ),
+	$A => array( 'record_id' => $A, 'name' => 'TEST - Institution 20 ', 'stage' => 'Confirmed' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Example', 'stage' => 'Confirmed' ),
 );
 
@@ -677,7 +677,7 @@ ck( 'the institution is chosen from the index, not typed', array(
 // Ten institution names in the base end in a space and two Confirmed records have no name at
 // all. A picker that printed the stored string would show a manager two entries that look
 // identical, which is how a student ends up filed under the wrong one of a near-pair.
-ck( 'and the names print trimmed', has( $html, '<option value="' . $A . '">TEST - WordPress Education Dashboard (do not use)</option>' ), true );
+ck( 'and the names print trimmed', has( $html, '<option value="' . $A . '">TEST - Institution 20</option>' ), true );
 
 // The three rows the card will not offer a control for, each said in the words the handler
 // would use if somebody pressed anyway.
@@ -866,8 +866,8 @@ ck( 'one PATCH, on the Students table, carrying the institution link and no othe
 	),
 ) );
 
-// On the roster now rather than after tonight's sync: a manager who has just linked a student
-// and is told to come back tomorrow cannot tell a slow index from a write that did not land.
+// On the roster now rather than after the next sync run: a manager who has just linked a
+// student and is told to come back later cannot tell a slow index from a write that did not land.
 ck( 'the student is on that institution\'s roster immediately', count( $GLOBALS['inserted'] ), 1 );
 ck( 'under the institution they were linked to', $GLOBALS['inserted'][0][0], $B );
 ck( 'as the live record describes them, with the link stamped on the row', array(

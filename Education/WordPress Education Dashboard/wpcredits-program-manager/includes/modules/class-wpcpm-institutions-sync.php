@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * like it on purpose: the state option, the phase table, the lock, the tick budget and the
  * progress payload are the same, so a reader who knows one knows the other. The work is
  * far smaller (106 records, two pages) but it still leaves the site, and a run that cannot
- * be resumed is a run that fails on the one night the API is slow.
+ * be resumed is a run that fails on the one pass where the API is slow.
  *
  * Four phases. `countries` refreshes the routing map, first, because the records phase
  * names each institution's country through it. `records` reads the Institutions table with
@@ -1151,7 +1151,7 @@ class WPCPM_Institutions_Sync {
 	 * `detach()` rather than a second copy of its steps, with actor 0 so the log says the
 	 * sync did it.
 	 *
-	 * The night's agreement retry runs before any of that, so the gate decision is the last
+	 * The run's agreement retry runs before any of that, so the gate decision is the last
 	 * word of the phase rather than something a later step can undo.
 	 *
 	 * @param array $state    Sync state, by reference.
@@ -1161,7 +1161,7 @@ class WPCPM_Institutions_Sync {
 	private static function phase_revoke( array &$state, array $settings ) {
 		// First, before the gate closes below. A cleared mark ends in a `rebuild()`, which
 		// writes the agreement option back, and one written after the lock-down would reopen
-		// an institution the program has dropped for as long as it took the next night to
+		// an institution the program has dropped for as long as it took the next run to
 		// come round. Running it here means whatever it writes is read by the loop below and
 		// closed again if the institution has left.
 		self::retry_agreements( $state );
@@ -1265,8 +1265,8 @@ class WPCPM_Institutions_Sync {
 		$state['notices'][]           = sprintf(
 			/* translators: %s: how many Collaboration Agreements were written to the base. */
 			_n(
-				'%s Collaboration Agreement the base had not been told about was written tonight.',
-				'%s Collaboration Agreements the base had not been told about were written tonight.',
+				'%s Collaboration Agreement the base had not been told about was written in this sync run.',
+				'%s Collaboration Agreements the base had not been told about were written in this sync run.',
 				$cleared,
 				'wpcredits-program-manager'
 			),
@@ -1321,7 +1321,7 @@ class WPCPM_Institutions_Sync {
 			'locked'            => 0,
 			'revoked'           => 0,
 			// The revoke phase's last step: agreement cells an earlier request could not
-			// write, finished tonight.
+			// write, finished in this run.
 			'agreements'        => 0,
 		);
 	}

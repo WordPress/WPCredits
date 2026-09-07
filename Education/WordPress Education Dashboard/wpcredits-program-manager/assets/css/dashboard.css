@@ -23,6 +23,12 @@
 	   ink lands near #8d8d8d on a white page, the border WordPress itself gives its inputs
 	   (the type review of 5 September 2026; 1.94.4). */
 	--wpcpm-control-border: color-mix( in srgb, currentColor 48%, transparent );
+	/* Text that is deliberately quieter than the text around it, in one value. Two opacities
+	   stacked - a muted block with a muted line inside it - multiply, and the Administrator
+	   Dashboard's zero tiles reached an effective 0.396 and 2.44:1 that way, under the 4.5:1
+	   WCAG 1.4.3 asks (the deep check of 7 September 2026, FFRNT-5). 65% of the ink is about
+	   5:1 on a white card, near the #656a71 the WPCredits theme calls ink-60. */
+	--wpcpm-ink-muted: color-mix( in srgb, currentColor 65%, transparent );
 }
 
 /* Fallback for anything without color-mix(): a mid gray reads acceptably on
@@ -33,6 +39,10 @@
 		--wpcpm-border: rgba( 128, 128, 128, 0.4 );
 		--wpcpm-surface: rgba( 128, 128, 128, 0.08 );
 		--wpcpm-control-border: rgba( 128, 128, 128, 0.9 );
+		/* No fixed gray for this one: a mid gray is an edge on any background but not readable
+		   text on every one. A browser this old keeps the ink it would have had, which is only
+		   ever more readable than the muted version. */
+		--wpcpm-ink-muted: inherit;
 	}
 }
 
@@ -799,6 +809,19 @@
 	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 	padding: 0.1em 0.5em;
 	user-select: all;
+}
+
+/* The code is a button, so that the tab stop it has always had announces a role and a name
+   (deep check FFRNT-6). Only the button's own look is reset, because an `a` with the same class
+   is a checkout link and keeps the theme's link color. */
+button.wpcpm-tools__code {
+	-webkit-appearance: none;
+	appearance: none;
+	color: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	margin: 0;
+	text-align: left;
 }
 
 .wpcpm-tools__form {

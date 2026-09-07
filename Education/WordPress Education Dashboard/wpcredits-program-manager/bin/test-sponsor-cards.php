@@ -332,15 +332,15 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-mentors.php';
 
 // The fixture: one sponsor with a member (user 5), a manager (user 1), the team, three mentors.
 $A = 'recSPONSOR0000001'; $M1 = 'recMENTOR00000001'; $M2 = 'recMENTOR00000002'; $M3 = 'recMENTOR00000003'; $M4 = 'recMENTOR00000004';
-WPCPM_Sponsors_Index::write( array( $A => array( 'name' => 'miniOrange ', 'status' => 'Approved', 'website' => 'https://plugins.miniorange.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'One year free', 'instructions' => 'Use the code.', 'more_info' => '', 'support' => array( 'Sponsor tools or services' ), 'interests' => '2026-09-01 by Rep One: Sponsor tools or services', 'manager' => 'recTEAM0000000001', 'mentors' => array( $M1, $M2, $M4 ) ) ), time() );
+WPCPM_Sponsors_Index::write( array( $A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.test/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'One year free', 'instructions' => 'Use the code.', 'more_info' => '', 'support' => array( 'Sponsor tools or services' ), 'interests' => '2026-09-01 by Rep One: Sponsor tools or services', 'manager' => 'recTEAM0000000001', 'mentors' => array( $M1, $M2, $M4 ) ) ), time() );
 WPCPM_Sponsors_Index::write_team( array( 'recTEAM0000000001' => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => 'https://calendly.com/matt' ) ), time() );
 $GLOBALS['settings'] = array( 'sponsors_table' => 'tblSPONSORS' );
-$GLOBALS['users'] = array( 1 => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ), 5 => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ), 42 => new WP_User( 42, array( 'wpcpm_mentor' ), 'Emilia', 'maciej@a8c.com' ) );
+$GLOBALS['users'] = array( 1 => new WP_User( 1, array( 'administrator' ), 'Manager', 'maciej@a8c.com' ), 5 => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One', 'maciej@a8c.com' ), 42 => new WP_User( 42, array( 'wpcpm_mentor' ), 'Ines', 'maciej@a8c.com' ) );
 $GLOBALS['manage'] = array( 1 );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['sponsorship'] = array(
-	$M1 => array( 'name' => 'Emilia Pustelnik', 'profile' => 'https://profiles.wordpress.org/emilia/', 'status' => 'Active', 'user_id' => 42, 'sponsored' => true, 'wants' => false, 'company' => array( $A ), 'expertise' => array( 'Core' ) ),
-	$M2 => array( 'name' => 'Nilo Velez', 'profile' => 'https://profiles.wordpress.org/nilo/', 'status' => 'Active', 'user_id' => 0, 'sponsored' => true, 'wants' => false, 'company' => array( $A ), 'expertise' => array() ),
+	$M1 => array( 'name' => 'Ines Example', 'profile' => 'https://profiles.wordpress.org/ines-example/', 'status' => 'Active', 'user_id' => 42, 'sponsored' => true, 'wants' => false, 'company' => array( $A ), 'expertise' => array( 'Core' ) ),
+	$M2 => array( 'name' => 'Sam Example', 'profile' => 'https://profiles.wordpress.org/sam-example/', 'status' => 'Active', 'user_id' => 0, 'sponsored' => true, 'wants' => false, 'company' => array( $A ), 'expertise' => array() ),
 	$M3 => array( 'name' => 'Ana Looking', 'profile' => 'https://profiles.wordpress.org/ana/', 'status' => 'Active', 'user_id' => 0, 'sponsored' => false, 'wants' => true, 'company' => array(), 'expertise' => array( 'Polyglots', 'Community' ) ),
 );
 $GLOBALS['mentees'][42] = array( array( 'name' => 'Student One', 'is_past' => false ), array( 'name' => 'Student Two', 'is_past' => false ), array( 'name' => 'Old Student', 'is_past' => true ) );
@@ -374,7 +374,7 @@ $fixture = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/sponsor
 ck( 'every one is a field of the table', array_values( array_diff( array_column( WPCPM_Sponsor_Profile::FIELDS, 'name' ), $fixture['fields'] ) ), array() );
 ck( 'the product choices are the fixture\'s, byte for byte', WPCPM_Sponsor_Profile::CHOICES['Type of product'], $fixture['choices']['Type of product'] );
 ck( 'and the support choices are too', WPCPM_Sponsor_Interests::CHOICES, $fixture['choices']['How would you like to support WP Credits?'] );
-ck( 'a URL without a scheme is completed', WPCPM_Sponsor_Profile::clean( 'website', 'plugins.miniorange.com' ), array( 'ok' => true, 'value' => 'https://plugins.miniorange.com' ) );
+ck( 'a URL without a scheme is completed', WPCPM_Sponsor_Profile::clean( 'website', 'plugins.mango-example.test' ), array( 'ok' => true, 'value' => 'https://plugins.mango-example.test' ) );
 ck( 'a URL with a user is refused', WPCPM_Sponsor_Profile::clean( 'website', 'https://name@host.test' )['ok'], false );
 ck( 'and a URL with a password too', WPCPM_Sponsor_Profile::clean( 'more_info', 'https://user:pw@host.test/x' )['ok'], false );
 ck( 'a choice spelled another way is refused', WPCPM_Sponsor_Profile::clean( 'product_type', 'hosting' )['ok'], false );
@@ -384,12 +384,12 @@ ck( 'an address that is not one is refused', WPCPM_Sponsor_Profile::clean( 'cont
 ck( 'a field outside the allowlist is refused', WPCPM_Sponsor_Profile::clean( 'status', 'Approved' )['ok'], false );
 
 echo "\n=== Profile: saving ===\n";
-$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.miniorange.com/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin', 'wpcpm_offer' => 'One year free', 'wpcpm_instructions' => 'Use the code.', 'wpcpm_more_info' => '', 'wpcpm_anything' => '' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.mango-example.test/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin', 'wpcpm_offer' => 'One year free', 'wpcpm_instructions' => 'Use the code.', 'wpcpm_more_info' => '', 'wpcpm_anything' => '' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'a member saves, and lands on the profile card', $r, array( 'profile-saved', 'profile', $A ) );
 ck( 'only the changed cell is written, spelled as the base spells it', $GLOBALS['patched'][0][1][0]['fields'], array( 'Type of product' => 'Plugin' ) );
 ck( 'the index says so at once', WPCPM_Sponsors_Index::row( $A )['product_type'], 'Plugin' );
 ck( 'and an audit row names the fields, not their values', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['data']['fields'], end( $GLOBALS['audit'] )['ground'] ), array( 'profile_saved', array( 'product_type' ), 'member' ) );
-$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.miniorange.com/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin', 'wpcpm_offer' => 'One year free', 'wpcpm_instructions' => 'Use the code.' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.mango-example.test/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin', 'wpcpm_offer' => 'One year free', 'wpcpm_instructions' => 'Use the code.' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'nothing changed is said, and nothing is written', array( $r[0], count( $GLOBALS['patched'] ) ), array( 'profile-unchanged', 1 ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_anything' => 'We can offer licences.' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'the free-text field saves', array( $r[0], end( $GLOBALS['patched'] )[1][0]['fields'] ), array( 'profile-saved', array( "Anything else you'd like to share." => 'We can offer licences.' ) ) );
@@ -418,7 +418,7 @@ $owned = card( 'WPCPM_Sponsor_Profile', $A, $context );
 ck( 'with a primary offer the three fields it owns are not inputs here', array( strpos( $owned, 'name="wpcpm_offer"' ), strpos( $owned, 'name="wpcpm_instructions"' ), strpos( $owned, 'name="wpcpm_more_info"' ) ), array( false, false, false ) );
 ck( 'and the card says where they are edited instead', false !== strpos( $owned, 'edited on the Offers card' ), true );
 $before_patched = count( $GLOBALS['patched'] );
-$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.miniorange.com/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin', 'wpcpm_anything' => 'We can offer licences.', 'wpcpm_offer' => 'Changed by the profile' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_website' => 'https://plugins.mango-example.test/', 'wpcpm_contact_person' => 'Rep One', 'wpcpm_contact_email' => 'maciej@a8c.com', 'wpcpm_product_type' => 'Plugin', 'wpcpm_anything' => 'We can offer licences.', 'wpcpm_offer' => 'Changed by the profile' ), array( 'WPCPM_Sponsor_Profile', 'handle_save' ) );
 ck( 'a posted offer is ignored, so the save writes nothing', array( $r[0], count( $GLOBALS['patched'] ), WPCPM_Sponsors_Index::row( $A )['offer'] ), array( 'profile-unchanged', $before_patched, 'One year free' ) );
 unset( $GLOBALS['offers'] );
 $unowned = card( 'WPCPM_Sponsor_Profile', $A, $context );
@@ -434,7 +434,7 @@ $cells = end( $GLOBALS['patched'] )[1][0]['fields'];
 ck( 'the multiple select is written with the known choices only', $cells['How would you like to support WP Credits?'], array( 'Sponsor tools or services' ) );
 ck( 'and one dated line is appended to the history', substr_count( $cells['Sponsorship interests'], "\n" ) === 1 && false !== strpos( $cells['Sponsorship interests'], 'by Rep One: Sponsor tools or services; events: WordCamp Europe 2027, WordCamp Asia 2027; note: Happy to help.' ), true );
 ck( 'the assigned manager is mailed, once, in the interest context', array( count( $GLOBALS['sent'] ), $GLOBALS['sent'][0][0], $GLOBALS['sent'][0][1], $GLOBALS['sent'][0][2] ), array( 1, 'user', 1, 'sponsor-interest' ) );
-ck( 'the mail names the sponsor and what it said', false !== strpos( $GLOBALS['sent'][0][3]['body'], 'miniOrange' ) && false !== strpos( $GLOBALS['sent'][0][3]['body'], 'WordCamp Europe 2027' ), true );
+ck( 'the mail names the sponsor and what it said', false !== strpos( $GLOBALS['sent'][0][3]['body'], 'Mango Example' ) && false !== strpos( $GLOBALS['sent'][0][3]['body'], 'WordCamp Europe 2027' ), true );
 ck( 'the audit row carries the line', end( $GLOBALS['audit'] )['kind'] === 'sponsor_interest' && false !== strpos( end( $GLOBALS['audit'] )['message'], 'Happy to help.' ), true );
 $r = post( array( 'wpcpm_sponsor' => $A ), array( 'WPCPM_Sponsor_Interests', 'handle_save' ) );
 ck( 'nothing ticked and nothing written is said', $r[0], 'interest-empty' );
@@ -488,7 +488,7 @@ $GLOBALS['uid'] = 5;
 
 echo "\n=== Sponsored mentors ===\n";
 $linked = WPCPM_Sponsor_Mentors::linked( $A );
-ck( 'the linked mentors are named with their student counts, never a student\'s name', array( array_column( $linked['mentors'], 'name' ), $linked['mentors'][0]['current'], $linked['mentors'][0]['past'], $linked['others'] ), array( array( 'Emilia Pustelnik', 'Nilo Velez' ), 2, 1, 1 ) );
+ck( 'the linked mentors are named with their student counts, never a student\'s name', array( array_column( $linked['mentors'], 'name' ), $linked['mentors'][0]['current'], $linked['mentors'][0]['past'], $linked['others'] ), array( array( 'Ines Example', 'Sam Example' ), 2, 1, 1 ) );
 ck( 'linked() carries user_id, 0 for a mentor with no site account', array( $linked['mentors'][0]['user_id'], $linked['mentors'][1]['user_id'] ), array( 42, 0 ) );
 ck( 'linked() carries the expertise for the chips', $linked['mentors'][0]['expertise'], array( 'Core' ) );
 // The looking list carries the same counts the linked list does (owner request of 5 September 2026): give Ana a site account with one student.
@@ -501,8 +501,8 @@ $html = card( 'WPCPM_Sponsor_Mentors', $A, $context );
 ck( 'two cards: Your mentors and Mentors looking for a sponsor, each its own section and disclosure', array( substr_count( $html, '<section class="wpcpm-sponsor__card">' ), false !== strpos( $html, 'id="wpcpm-sponsor-mentors"' ), false !== strpos( $html, 'id="wpcpm-sponsor-looking"' ), strpos( $html, 'id="wpcpm-sponsor-mentors"' ) < strpos( $html, 'id="wpcpm-sponsor-looking"' ), strpos( $html, 'wpcpm-sponsor__subheading' ) ), array( 2, true, true, true, false ) );
 ck( 'the summaries count the linked records and the mentors looking', array( false !== strpos( $html, 'Your mentors <span class="wpcpm-group__count">3</span>' ), false !== strpos( $html, 'Mentors looking for a sponsor <span class="wpcpm-group__count">1</span>' ) ), array( true, true ) );
 ck( 'every mentor is a card in a grid: two linked, one looking', array( substr_count( $html, '<article class="wpcpm-mentor-tile">' ), substr_count( $html, '<div class="wpcpm-mentor-tiles">' ) ), array( 3, 2 ) );
-ck( 'the photo comes from the WordPress.org profile, by the username in the profile address', array( false !== strpos( $html, 'grav-redirect.php?user=emilia&#038;s=116' ) || false !== strpos( $html, 'grav-redirect.php?user=emilia&s=116' ), false !== strpos( $html, 'Profile photo of Emilia Pustelnik' ) ), array( true, true ) );
-ck( 'the name links to the profile, the expertise is chips, the profile link is spelled out', array( false !== strpos( $html, '<h4 class="wpcpm-mentor-tile__name"><a href="https://profiles.wordpress.org/emilia/" rel="external noopener">Emilia Pustelnik</a></h4>' ), false !== strpos( $html, '<span class="wpcpm-mentor-tile__tag">Core</span>' ), false !== strpos( $html, '<span class="wpcpm-mentor-tile__tag">Polyglots</span>' ), substr_count( $html, 'WordPress.org profile' ) ), array( true, true, true, 3 ) );
+ck( 'the photo comes from the WordPress.org profile, by the username in the profile address', array( false !== strpos( $html, 'grav-redirect.php?user=ines-example&#038;s=116' ) || false !== strpos( $html, 'grav-redirect.php?user=ines-example&s=116' ), false !== strpos( $html, 'Profile photo of Ines Example' ) ), array( true, true ) );
+ck( 'the name links to the profile, the expertise is chips, the profile link is spelled out', array( false !== strpos( $html, '<h4 class="wpcpm-mentor-tile__name"><a href="https://profiles.wordpress.org/ines-example/" rel="external noopener">Ines Example</a></h4>' ), false !== strpos( $html, '<span class="wpcpm-mentor-tile__tag">Core</span>' ), false !== strpos( $html, '<span class="wpcpm-mentor-tile__tag">Polyglots</span>' ), substr_count( $html, 'WordPress.org profile' ) ), array( true, true, true, 3 ) );
 ck( 'the one looking has the form, the linked ones do not', array( substr_count( $html, 'value="' . WPCPM_Sponsor_Mentors::ACTION_INTEREST_MENTOR . '"' ), strpos( $html, 'value="' . WPCPM_Sponsor_Mentors::ACTION_INTEREST_MENTOR . '"' ) > strpos( $html, 'id="wpcpm-sponsor-looking"' ) ), array( 1, true ) );
 ck( 'and no student is named anywhere on it', strpos( $html, 'Student One' ) === false && strpos( $html, 'Old Student' ) === false && strpos( $html, 'Student Three' ) === false, true );
 ck( 'a linked mentor with no site account yet says so, instead of a false zero', substr_count( $html, 'No site account yet' ), 1 );

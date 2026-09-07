@@ -1090,8 +1090,8 @@ final class WPCPM_Institution_Import {
 		} else {
 			$row['email'] = $email;
 			// Everything downstream compares on this and never on the printed address: Airtable
-			// holds addresses as they were typed, and `Anna@uek.krakow.pl` and
-			// `anna@uek.krakow.pl` are the same mailbox and the same person.
+			// holds addresses as they were typed, and `Anna@institution.example` and
+			// `anna@institution.example` are the same mailbox and the same person.
 			$row['email_key'] = strtolower( trim( $email ) );
 		}
 

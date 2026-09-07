@@ -289,6 +289,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		add_action( 'admin_post_' . self::ACTION_CLAIM_VOID, array( $this, 'handle_claim_void' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
 
+		// Once per site, on the first admin page after 1.99.0: the accounts an older detach left
+		// holding posting capabilities (FSPON-1). See the method.
+		add_action( 'admin_init', array( 'WPCPM_Sponsor_Members', 'maybe_repair_detached' ) );
+
 		// The menu bubble's cache, forgotten the moment a row it counts changes (clean-up 1.98.1).
 		add_action( 'transition_post_status', array( __CLASS__, 'forget_attention_on_status' ), 10, 3 );
 		add_action( 'updated_post_meta', array( __CLASS__, 'forget_attention_on_meta' ), 10, 3 );
@@ -302,6 +306,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		WPCPM_Sponsors_Sync::activate();
 
 		self::schedule_cron();
+
+		// A fresh install can have no account an older detach() left holding a posting
+		// capability, so the one-time repair in boot() has nothing to find; set its flag here
+		// instead of letting its get_users() query run for nothing on the first admin page.
+		update_option( WPCPM_Sponsor_Members::OPT_CAPS_REPAIRED, 1, true );
 
 		if ( class_exists( 'WPCPM_Sponsors_Dashboard' ) && method_exists( 'WPCPM_Sponsors_Dashboard', 'ensure_page' ) ) {
 			call_user_func( array( 'WPCPM_Sponsors_Dashboard', 'ensure_page' ) );
@@ -370,6 +379,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		delete_option( WPCPM_Sponsors_Sync::OPT_LAST );
 		delete_option( WPCPM_Sponsors_Sync::OPT_ERROR );
 		delete_option( WPCPM_Sponsors_Sync::OPT_LOCK );
+		delete_option( WPCPM_Sponsors_Sync::OPT_SHRINK );
 
 		WPCPM_Sponsors_Index::delete_all();
 
@@ -422,7 +432,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			WPCPM_Sponsor_Members::META_RECORD_ID_WAS,
 			WPCPM_Sponsor_Members::META_MEMBERSHIP,
 			WPCPM_Sponsor_Members::META_INVITED,
-			WPCPM_Sponsor_Members::META_PROFILE,
+			// A literal, because the constant is gone: 1.93.0 to 1.98.1 stamped this on every
+			// account at attach and nothing ever read it (FSPON-6). The write is gone; the rows
+			// those releases wrote are still on the sites that ran them.
+			'wpcpm_sponsor_profile',
 		) as $meta_key ) {
 			delete_metadata( 'user', 0, $meta_key, '', true );
 		}

@@ -734,9 +734,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$row['record_id']   = $students_record;
 		$row['institution'] = $institution;
 
-		// On the roster now rather than after tonight's sync, for the reason the import path
+		// On the roster now rather than after the next sync run, for the reason the import path
 		// inserts its rows: a manager who has just linked a student and is told to come back
-		// tomorrow to see it has no way to tell a slow index from a write that did not land.
+		// later to see it has no way to tell a slow index from a write that did not land.
 		WPCPM_Roster_Index::insert( $institution, $row );
 
 		WPCPM_Institution_Audit::record(
@@ -1524,9 +1524,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * Bounded because the applications half is written by strangers. Both lists arrive oldest
 	 * first, so the oldest `$limit` of each is every row that can reach the top of a list
-	 * sorted by age, and building the rest would cost several meta reads apiece for rows
-	 * nobody would be shown. `waiting` is the whole number so the card can say it is showing
-	 * part of it - the agreements in it are as many as their own reader returns, which has a
+	 * sorted by age. The applications half asks the database for that window and asks for its
+	 * total apart, as IDs: reading the rows to count them built a `WP_Post` for every open
+	 * application and primed the meta cache with each applicant's whole submitted form, to
+	 * throw all but the window away (deep check FADMN-2, whose Administrator Dashboard half
+	 * shipped with it). `waiting` is the whole number so the card can say it is showing part
+	 * of it - the agreements in it are as many as their own reader returns, which has a
 	 * ceiling of its own, and the applications are counted in full because that is the half
 	 * that can be flooded.
 	 *
@@ -1541,13 +1544,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$overdue = max( 1, (int) WPCPM_Settings::get_value( 'agreement_review_days', 3 ) ) * DAY_IN_SECONDS;
 		$rows    = array();
 
-		$applications = WPCPM_Institution_Application::applications( self::open_states() );
+		$open_states  = self::open_states();
+		$applications = WPCPM_Institution_Application::applications( $open_states, $limit );
 		$documents    = array_map( 'intval', (array) WPCPM_Institution_Agreement::awaiting_review() );
-		$waiting      = count( $applications ) + count( $documents );
+		$waiting      = count( WPCPM_Institution_Application::application_ids( $open_states ) ) + count( $documents );
 
-		$applications = array_slice( $applications, 0, $limit );
-		$documents    = array_slice( $documents, 0, $limit );
-		$duplicates   = self::duplicates( $applications );
+		$documents  = array_slice( $documents, 0, $limit );
+		$duplicates = self::duplicates( $applications );
 
 		foreach ( $applications as $post ) {
 			if ( ! $post instanceof WP_Post ) {
@@ -1731,13 +1734,21 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * Delete the applications the retention settings say have been kept long enough.
 	 *
-	 * The daily `CRON_PURGE` run. Three settings, one per decided state, each in days, and
-	 * **0 means never**: an approved application is the paper trail behind an account and a
-	 * record, and the default keeps it forever on purpose.
+	 * The daily `CRON_PURGE` run. Three settings, each in days, and **0 means never**: an
+	 * approved application is the paper trail behind an account and a record, and the default
+	 * keeps it forever on purpose. The clock runs from the decision and not from the
+	 * submission, so lengthening a setting gives every row the longer life rather than
+	 * deleting a batch that was already past the old one.
 	 *
-	 * The clock runs from the decision and not from the submission, so lengthening a
-	 * retention setting gives every row the longer life rather than deleting a batch that
-	 * was already past the old one.
+	 * **A held row is kept as long as a rejected one and then goes the same way** (FANON-3).
+	 * Held is an open state and nothing removed one: an application the checks held is still
+	 * sitting in front of a manager for no reason once it is old enough that a rejected one
+	 * would be gone. It shares the rejection's setting rather than owning a fourth, because it
+	 * is the same question ("how long is an application nobody let in kept?") and a manager
+	 * who reads a held row can still decide it, which starts its clock again. This form keeps
+	 * no attachments, so there is no file to carry with it, and a row with no history of its
+	 * own falls back to its arrival time (`decided_at()`), which is exactly the case a held
+	 * row that was never reopened is in.
 	 *
 	 * @return int How many were deleted.
 	 */
@@ -1745,6 +1756,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$retention = array(
 			WPCPM_Institution_Application::STATE_SPAM     => 'application_spam_days',
 			WPCPM_Institution_Application::STATE_REJECTED => 'application_rejected_days',
+			WPCPM_Institution_Application::STATE_HELD     => 'application_rejected_days',
 			WPCPM_Institution_Application::STATE_APPROVED => 'application_approved_days',
 		);
 
@@ -2490,6 +2502,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				__( 'It arrived without the token the form hands a browser, or less than %s seconds after the page was drawn.', 'wpcredits-program-manager' ),
 				number_format_i18n( WPCPM_Institution_Application::MIN_SECONDS )
 			),
+			'dwell-fast'           => sprintf(
+				/* translators: %s: a number of seconds. */
+				__( 'It was sent again less than %s seconds after the form was redrawn, which is what somebody correcting one answer does rather than what a script does. Nothing about the application was refused.', 'wpcredits-program-manager' ),
+				number_format_i18n( WPCPM_Institution_Application::MIN_SECONDS )
+			),
 			'disallowed'           => __( 'Something written on it matches this site\'s comment disallowed list.', 'wpcredits-program-manager' ),
 			'links'                => sprintf(
 				/* translators: %s: a number of links. */
@@ -2989,7 +3006,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * The name prints trimmed and the row says when the stored one was not: ten names in
 	 * the base end in a space and two records have none, and a manager searching the grid
-	 * for "Sorbonne university" should know why the match is not exact.
+	 * for an institution by its printed name should know why the match is not exact.
 	 *
 	 * @param array $row     An index row.
 	 * @param array $summary The institution's agreement summary.

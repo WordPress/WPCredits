@@ -39,8 +39,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Students Reports row, `wflUYImI8OEvVuc4R`, is restricted to view `viwzSJspvACLnhXom`, and
  * `Paused` is not in that view. A Paused row marked `Graduate` would therefore fire the
  * certificate mail - that automation watches the Students row itself - while the reports row, the
- * student's account and their mentor's list all went on saying Paused. The four Universidad
- * Fidelitas rows reading `Paused` on Students and `Not moving forward` on Students Reports are
+ * student's account and their mentor's list all went on saying Paused. The four rows of one partner
+ * institution reading `Paused` on Students and `Not moving forward` on Students Reports are
  * what that gap already produces without anybody pressing anything. The refusal comes out, with
  * its test, on the day the base owner adds `Paused` to the view (open question 4).
  *

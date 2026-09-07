@@ -73,7 +73,55 @@ ck( 'the busy label is written as text (cannot inject)',
 
 // bfcache release.
 ck( 'a restored page clears the sent flag', (bool) strpos( $js, "removeAttribute( 'data-wpcpm-sent' )" ) );
-ck( 'a restored page re-enables the buttons', (bool) preg_match( '/buttons\[ j \]\.disabled = false;/', $js ) );
+ck( 'a restored page re-enables the buttons', (bool) preg_match( '/controls\[ j \]\.disabled = false;/', $js ) );
+
+/*
+ * FFRNT-1. A control does not have to sit inside the form it submits. The sponsor's "Void
+ * unclaimed codes" button is printed inside the Add-codes form and posts the void form through
+ * `form="wpcpm-offer-void-<id>"`, and that form holds nothing but hidden inputs - so asking the
+ * form for its own descendants released nothing, and after a Back the button was still disabled
+ * and still read "Voiding" until a full reload.
+ *
+ * The first check below is the one a crippled release has to fail. Cutting the loop down to
+ * `for ( j = 0; j < 1 && j < controls.length; j++ )` used to leave this file printing ALL PASS,
+ * because every assertion about the release was a grep for one line inside it. The loop's own
+ * bound is read now, and it may be nothing but the length of the list it walks.
+ */
+$release_at = strpos( $js, 'function releaseControls( controls )' );
+$release    = false === $release_at ? '' : substr( $js, $release_at, (int) strpos( $js, "\n\t}", $release_at ) - $release_at );
+preg_match_all( '/for \(([^)]*)\)/', $release, $loops );
+
+ck( 'the release loop runs to the end of the list, with no second bound on it',
+    array_map( 'trim', $loops[1] ), array( 'j = 0; j < controls.length; j++' ) );
+
+ck( 'and the release reaches the form\'s own controls and the ones that name it in a `form` attribute',
+    array(
+        (bool) strpos( $js, "releaseControls( form.querySelectorAll( 'button, input[type=\"submit\"]' ) );" ),
+        (bool) strpos( $js, "releaseControls( document.querySelectorAll( '[form=\"' + id + '\"]' ) );" ),
+    ),
+    array( true, true ) );
+
+// The id is put straight into a selector, so it is escaped on the way in. The ids the plugin
+// prints are its own integers today, but an id carrying a quote, a bracket or a space makes
+// `[form="..."]` a selector the browser refuses - and the exception is thrown inside the
+// pageshow handler, which ends the loop and leaves every form after it on the page disabled
+// with its button still reading "Sending" (the Task 7 item the whole-branch review pulled in).
+ck( 'and the id is escaped before it becomes one, so a malformed id cannot end the loop',
+    array(
+        (bool) strpos( $js, 'window.CSS && CSS.escape ? CSS.escape( form.id ) : form.id.replace(' ),
+        false !== strpos( $js, "'[form=\"' + form.id + '\"]'" ),
+    ),
+    array( true, false ) );
+
+// The markup the fix is for: the void button carries the `form` attribute, and the form it
+// names is printed after it with that id and nothing in it but hidden fields.
+$offers = file_get_contents( $root . '/includes/modules/class-wpcpm-sponsor-offers.php' );
+ck( 'the void button really does submit a form it does not sit inside',
+    array(
+        (bool) strpos( $offers, 'form="wpcpm-offer-void-%1$d"' ),
+        (bool) strpos( $offers, 'id="wpcpm-offer-void-%4$d"' ),
+    ),
+    array( true, true ) );
 
 // The module registers the guard beside the calendar script, and the calendar script
 // depends on it: that dependency is what keeps the guard on every page that had it.

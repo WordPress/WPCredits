@@ -26,7 +26,7 @@
  *   something to say.
  * - The identity header prefers the pipeline index to the membership stamp. Nothing
  *   refreshes the stamp after `attach()` writes it, so a stale one must never win over a
- *   row the sync read last night - and with no row at all the stamp is what draws the
+ *   row the sync read on its last run - and with no row at all the stamp is what draws the
  *   header instead of nothing.
  * - The four cards are named as strings and guarded, so a checkout missing one of them
  *   leaves a gap rather than a fatal. Only the panel exists when the section below the
@@ -523,14 +523,14 @@ function cards_run() {
 /* ---- the fixture --------------------------------------------------------- */
 
 $krakow = 'recKRAKOW12345678';
-$patil  = 'recPATIL123456789';
+$institute  = 'recINSTITUTE12345';
 
 // Checked before anything reads them. Every guard in this module refuses a malformed ID
 // silently and correctly, so a fixture one character short passes as "not a member" and
 // every assertion below turns green for the wrong reason.
 ck(
 	'the fixture\'s record IDs are the shape Airtable uses',
-	array( WPCPM_Mentors_Sync::is_record_id( $krakow ), WPCPM_Mentors_Sync::is_record_id( $patil ) ),
+	array( WPCPM_Mentors_Sync::is_record_id( $krakow ), WPCPM_Mentors_Sync::is_record_id( $institute ) ),
 	array( true, true )
 );
 
@@ -542,25 +542,25 @@ $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ] = array(
 		// manager screen is where the stored value is reported.
 		$krakow => array(
 			'record_id'      => $krakow,
-			'name'           => 'Politechnika Krakowska ',
+			'name'           => 'Politechnika Example ',
 			'stage'          => 'Confirmed',
 			'city'           => 'Krakow',
 			'country'        => 'recCOUNTRYPOLAND1',
 			'country_name'   => 'Poland',
-			'website'        => 'pk.edu.pl',
+			'website'        => 'politechnika.example',
 			'contact_person' => 'Anna Kowalska',
 			'contact_email'  => 'anna@example.edu',
 		),
-		$patil  => array(
-			'record_id'      => $patil,
-			'name'           => 'D. Y. Patil',
+		$institute  => array(
+			'record_id'      => $institute,
+			'name'           => 'Institute Example',
 			'stage'          => 'Confirmed',
 			'city'           => 'Pune',
 			'country'        => 'recCOUNTRYINDIA01',
 			'country_name'   => 'India',
 			'website'        => '',
 			'contact_person' => '',
-			'contact_email'  => 'contact@dypatil.example',
+			'contact_email'  => 'contact@institute.example',
 		),
 	),
 );
@@ -587,11 +587,11 @@ foreach ( array( 2, 3, 6 ) as $member ) {
 // filled in. Both halves matter below - the fresh index wins where they disagree, and the
 // stamp fills what the index has no answer for.
 $GLOBALS['umeta'][2][ WPCPM_Institution_Members::META_PROFILE ] = array(
-	'name'           => 'Politechnika Krakowska ',
+	'name'           => 'Politechnika Example ',
 	'city'           => '',
 	'country_name'   => 'Poland',
 	'stage'          => 'Agreement Sent',
-	'website'        => 'https://pk.edu.pl/',
+	'website'        => 'https://politechnika.example/',
 	'contact_person' => 'Anna Kowalska',
 );
 
@@ -747,7 +747,7 @@ ck( 'which register_assets() registered for it', isset( $GLOBALS['styles'][ WPCP
 
 $out = render_as( 0 );
 ck( 'a logged-out visitor is asked to log in', false !== strpos( $out, 'Please log in' ), true );
-ck( 'and is told about no institution at all', false !== strpos( $out, 'Krakowska' ), false );
+ck( 'and is told about no institution at all', false !== strpos( $out, 'Politechnika Example' ), false );
 
 /* ---- a locked member: the header, the panel, and nothing else ------------ */
 
@@ -755,7 +755,7 @@ delete_option( 'wpcpm_agreement_' . $krakow );
 $out = render_as( 2 );
 
 ck( 'a locked member gets the identity header', false !== strpos( $out, 'wpcpm-institution__identity' ), true );
-ck( 'naming their institution, trimmed', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Krakowska</p>' ), true );
+ck( 'naming their institution, trimmed', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Example</p>' ), true );
 ck( 'with the city the index knows and the stamp does not', false !== strpos( $out, 'Krakow, Poland' ), true );
 
 // The two sources disagree about the stage, and the fresh one wins. The stamp is written
@@ -774,9 +774,9 @@ ck( 'and no switcher', false !== strpos( $out, 'wpcpm-institution-switcher' ), f
 ck( 'the account-security prompt is chrome and still runs', false !== strpos( $out, '<!-- 2fa -->' ), true );
 
 // The same account, appending the manager's switcher argument by hand.
-$out = render_as( 2, array( 'wpcpm_institution_view' => $patil ) );
-ck( 'a member cannot switch institutions with a query argument', false !== strpos( $out, 'Patil' ), false );
-ck( 'and still sees their own', false !== strpos( $out, 'Krakowska' ), true );
+$out = render_as( 2, array( 'wpcpm_institution_view' => $institute ) );
+ck( 'a member cannot switch institutions with a query argument', false !== strpos( $out, 'Institute Example' ), false );
+ck( 'and still sees their own', false !== strpos( $out, 'Politechnika Example' ), true );
 
 // And what the stamp is for. `WPCPM_Institutions_Index::read()` discards a stored copy at a
 // version it does not know, so between a shape change and the next sync no institution has
@@ -784,9 +784,10 @@ ck( 'and still sees their own', false !== strpos( $out, 'Krakowska' ), true );
 // header a few weeks old.
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['v'] = 99;
 $out = render_as( 2 );
-ck( 'with no index row the stamp draws the header', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Krakowska</p>' ), true );
+ck( 'with no index row the stamp draws the header', false !== strpos( $out, '<p class="wpcpm-institution__name">Politechnika Example</p>' ), true );
 ck( 'stage and all', false !== strpos( $out, 'Stage: Agreement Sent<' ), true );
-// Needled on the city *sentence*, because the institution's own name contains the city.
+// Needled on the city *sentence* rather than on the bare city word, which the fixture also
+// uses as the member's city: only the index ever carried this one.
 ck( 'and the city only the index ever knew is simply absent', false !== strpos( $out, 'Krakow, Poland' ), false );
 ck( 'leaving the country the stamp does hold, with no stray separator', false !== strpos( $out, '>Poland<' ), true );
 
@@ -825,8 +826,8 @@ ck( 'posting the field the resolver actually reads', false !== strpos( $out, 'na
 ck( 'listing both institutions', substr_count( $out, '<option value="rec' ), 2 );
 ck( 'with the one being viewed selected', false !== strpos( $out, 'value="' . $krakow . '" selected' ), true );
 ck( 'and the header falls back to the index, since a manager holds no stamp', false !== strpos( $out, 'Stage: Confirmed' ), true );
-ck( 'and a bare host from the base is given a scheme', false !== strpos( $out, 'href="https://pk.edu.pl"' ), true );
-ck( 'and printed without one', false !== strpos( $out, '>pk.edu.pl</a>' ), true );
+ck( 'and a bare host from the base is given a scheme', false !== strpos( $out, 'href="https://politechnika.example"' ), true );
+ck( 'and printed without one', false !== strpos( $out, '>politechnika.example</a>' ), true );
 
 // Without pretty permalinks the page is addressed by query string, which a GET form drops.
 $GLOBALS['queried'] = $page_id;
@@ -839,9 +840,9 @@ unset( $GLOBALS['opts']['permalink_structure'] );
 $GLOBALS['queried'] = 0;
 
 // The switcher, honoured.
-$out = render_as( 4, array( 'wpcpm_institution_view' => $patil ) );
-ck( 'the switcher moves a manager to another institution', false !== strpos( $out, 'D. Y. Patil' ), true );
-ck( 'and the roster it is handed is that institution\'s', $GLOBALS['cards'][1][1], $patil );
+$out = render_as( 4, array( 'wpcpm_institution_view' => $institute ) );
+ck( 'the switcher moves a manager to another institution', false !== strpos( $out, 'Institute Example' ), true );
+ck( 'and the roster it is handed is that institution\'s', $GLOBALS['cards'][1][1], $institute );
 
 // No argument at all: the first institution in the index that has a live member.
 $out = render_as( 4 );
@@ -947,12 +948,12 @@ ck( 'and no switcher: it is drawn under CAP_MANAGE and nowhere else', false !== 
 $out = render_as( 5 );
 ck( 'a stranger is told this page is not theirs', false !== strpos( $out, WPCPM_Dashboards::nothing_to_show( 'institutions', false ) ), true );
 ck( 'in the shared words and no others', false !== strpos( $out, 'not linked to one' ), false );
-ck( 'and no institution is named', array( false !== strpos( $out, 'Krakowska' ), false !== strpos( $out, 'Patil' ) ), array( false, false ) );
+ck( 'and no institution is named', array( false !== strpos( $out, 'Politechnika Example' ), false !== strpos( $out, 'Institute Example' ) ), array( false, false ) );
 ck( 'and no card ran', cards_run(), array() );
 
 // The same, with another institution's record asked for by hand.
-$out = render_as( 5, array( 'wpcpm_institution_view' => $patil ) );
-ck( 'and asking for one by record ID changes nothing', false !== strpos( $out, 'Patil' ), false );
+$out = render_as( 5, array( 'wpcpm_institution_view' => $institute ) );
+ck( 'and asking for one by record ID changes nothing', false !== strpos( $out, 'Institute Example' ), false );
 
 /* ---- a manager with nothing to show -------------------------------------- */
 
@@ -999,7 +1000,7 @@ render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 ck( 'a manager is told so', $GLOBALS['cards'][0][2]['can_manage'], true );
 
 // An institution with no roster option yet: a read time of 0, not a warning.
-render_as( 4, array( 'wpcpm_institution_view' => $patil ) );
+render_as( 4, array( 'wpcpm_institution_view' => $institute ) );
 ck( 'an institution with no index read yet reads 0', $GLOBALS['cards'][0][2]['read'], 0 );
 
 /* ---- the optional heading ------------------------------------------------ */
@@ -1151,7 +1152,7 @@ ck( 'and it names the person, their address and the way to book them', array(
 // A country the program has not routed prints nothing at all. A heading with a blank under it
 // would read as "you have nobody", which is not what an unrouted country means.
 $GLOBALS['resources'] = array();
-$out = render_as( 4, array( 'wpcpm_institution_view' => $patil ) );
+$out = render_as( 4, array( 'wpcpm_institution_view' => $institute ) );
 
 ck( 'an unrouted country still gets the section', $GLOBALS['resources'], array( 'institution' ) );
 ck( 'but no contact block, and no empty heading', array(
@@ -1167,7 +1168,7 @@ $GLOBALS['routing']['recCOUNTRYINDIA01'] = array(
 	'email'    => 'india@example.org',
 	'calendly' => '',
 );
-$out = render_as( 4, array( 'wpcpm_institution_view' => $patil ) );
+$out = render_as( 4, array( 'wpcpm_institution_view' => $institute ) );
 
 ck( 'an unresolved manager link is not shown as a name', false !== strpos( $out, 'recUNRESOLVED0001' ), false );
 ck( 'though the address behind it still is', false !== strpos( $out, 'mailto:india@example.org' ), true );
@@ -1192,11 +1193,11 @@ echo "\n=== The site icon beside the name ===\n";
 $GLOBALS['transients'] = array();
 $GLOBALS['fetched']    = array();
 $GLOBALS['http']       = array(
-	'https://pk.edu.pl' => array(
+	'https://politechnika.example' => array(
 		'code' => 200,
 		'body' => '<html><head><link rel="shortcut icon" href="/assets/crest.png"></head><body></body></html>',
 	),
-	'https://pk.edu.pl/assets/crest.png' => array(
+	'https://politechnika.example/assets/crest.png' => array(
 		'code'    => 200,
 		'headers' => array( 'content-type' => 'image/png' ),
 	),
@@ -1204,8 +1205,8 @@ $GLOBALS['http']       = array(
 
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 
-ck( 'the icon the site declares is the one shown', false !== strpos( $out, 'src="https://pk.edu.pl/assets/crest.png"' ), true );
-ck( 'and it carries no alt text, being decoration beside the name it repeats', false !== strpos( $out, 'class="wpcpm-institution__icon" src="https://pk.edu.pl/assets/crest.png" alt=""' ), true );
+ck( 'the icon the site declares is the one shown', false !== strpos( $out, 'src="https://politechnika.example/assets/crest.png"' ), true );
+ck( 'and it carries no alt text, being decoration beside the name it repeats', false !== strpos( $out, 'class="wpcpm-institution__icon" src="https://politechnika.example/assets/crest.png" alt=""' ), true );
 
 // The server proving an icon and the reader loading it are different questions: this site can
 // reach a university that a program manager on another continent cannot, and an <img> that
@@ -1219,8 +1220,8 @@ ck( 'and it sits beside the block rather than inside it', array(
 	strpos( $out, 'wpcpm-institution__contact' ) < strpos( $out, '</div></header>' ),
 ), array( true, true, true ) );
 ck( 'the site was asked once and the icon proved with a HEAD', $GLOBALS['fetched'], array(
-	array( 'get', 'https://pk.edu.pl' ),
-	array( 'head', 'https://pk.edu.pl/assets/crest.png' ),
+	array( 'get', 'https://politechnika.example' ),
+	array( 'head', 'https://politechnika.example/assets/crest.png' ),
 ) );
 ck( 'and the answer is cached for a week, keyed by host', array(
 	count( $GLOBALS['transients'] ),
@@ -1237,12 +1238,12 @@ ck( 'a second render asks the site nothing', $GLOBALS['fetched'], array() );
 $GLOBALS['transients'] = array();
 $GLOBALS['fetched']    = array();
 $GLOBALS['http']       = array(
-	'https://pk.edu.pl' => array( 'code' => 200, 'body' => '<html><head></head></html>' ),
+	'https://politechnika.example' => array( 'code' => 200, 'body' => '<html><head></head></html>' ),
 );
 
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 ck( 'a site with no icon shows none', false !== strpos( $out, 'wpcpm-institution__icon' ), false );
-ck( 'having tried the conventional path', in_array( array( 'head', 'https://pk.edu.pl/favicon.ico' ), $GLOBALS['fetched'], true ), true );
+ck( 'having tried the conventional path', in_array( array( 'head', 'https://politechnika.example/favicon.ico' ), $GLOBALS['fetched'], true ), true );
 ck( 'and the failure is cached too, so it is not asked again every page load', count( $GLOBALS['transients'] ), 1 );
 
 // A head longer than the old 200KB read cap. One university in this program does not close
@@ -1253,38 +1254,38 @@ ck( 'and the failure is cached too, so it is not asked again every page load', c
 $GLOBALS['transients'] = array();
 $GLOBALS['fetched']    = array();
 $GLOBALS['http']       = array(
-	'https://pk.edu.pl'                  => array(
+	'https://politechnika.example'                  => array(
 		'code' => 200,
 		'body' => '<html><head><!--' . str_repeat( 'x', 400000 ) . '--><link rel="icon" href="/assets/crest.png"></head><body></body></html>',
 	),
-	'https://pk.edu.pl/assets/crest.png' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
+	'https://politechnika.example/assets/crest.png' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
 );
 
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
-ck( 'an icon declared past the old read cap is still found', false !== strpos( $out, 'src="https://pk.edu.pl/assets/crest.png"' ), true );
+ck( 'an icon declared past the old read cap is still found', false !== strpos( $out, 'src="https://politechnika.example/assets/crest.png"' ), true );
 
 // Only the head declares an icon, and stopping there is what keeps the larger read cheap. A
 // `<link>` in the body is a document's own business and not a declaration of the site's icon.
 $GLOBALS['transients'] = array();
 $GLOBALS['fetched']    = array();
 $GLOBALS['http']       = array(
-	'https://pk.edu.pl'                 => array(
+	'https://politechnika.example'                 => array(
 		'code' => 200,
 		'body' => '<html><head></head><body><link rel="icon" href="/body-crest.png"></body></html>',
 	),
-	'https://pk.edu.pl/favicon.ico'     => array( 'code' => 404 ),
-	'https://pk.edu.pl/body-crest.png'  => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
+	'https://politechnika.example/favicon.ico'     => array( 'code' => 404 ),
+	'https://politechnika.example/body-crest.png'  => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
 );
 
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 ck( 'a link tag in the body is not the site\'s icon', false !== strpos( $out, 'body-crest.png' ), false );
-ck( 'and the conventional path is what was tried instead', in_array( array( 'head', 'https://pk.edu.pl/favicon.ico' ), $GLOBALS['fetched'], true ), true );
+ck( 'and the conventional path is what was tried instead', in_array( array( 'head', 'https://politechnika.example/favicon.ico' ), $GLOBALS['fetched'], true ), true );
 
 // A 200 that is not an image is what a missing favicon usually is: a sign-in page apologising.
 $GLOBALS['transients'] = array();
 $GLOBALS['http'] = array(
-	'https://pk.edu.pl' => array( 'code' => 200, 'body' => '<html><head></head></html>' ),
-	'https://pk.edu.pl/favicon.ico' => array( 'code' => 200, 'headers' => array( 'content-type' => 'text/html; charset=utf-8' ) ),
+	'https://politechnika.example' => array( 'code' => 200, 'body' => '<html><head></head></html>' ),
+	'https://politechnika.example/favicon.ico' => array( 'code' => 200, 'headers' => array( 'content-type' => 'text/html; charset=utf-8' ) ),
 );
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 ck( 'an HTML page answering where an icon should be is not an icon', false !== strpos( $out, 'wpcpm-institution__icon' ), false );
@@ -1293,7 +1294,7 @@ ck( 'an HTML page answering where an icon should be is not an icon', false !== s
 // else's host would let a page this program does not own aim a dashboard wherever it liked.
 $GLOBALS['transients'] = array();
 $GLOBALS['http'] = array(
-	'https://pk.edu.pl' => array(
+	'https://politechnika.example' => array(
 		'code' => 200,
 		'body' => '<html><head><link rel="icon" href="https://tracker.example/pixel.png"></head></html>',
 	),
@@ -1311,18 +1312,18 @@ ck( 'an icon on another host is refused', array(
 // the lookup stopped at the first candidate instead of trying the next.
 $GLOBALS['transients'] = array();
 $GLOBALS['http'] = array(
-	'https://pk.edu.pl' => array(
+	'https://politechnika.example' => array(
 		'code' => 200,
 		'body' => '<html><head><link rel="icon" href="https://cdn.example/logo.png" type="image/png"></head></html>',
 	),
 	'https://cdn.example/logo.png' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/png' ) ),
-	'https://pk.edu.pl/favicon.ico' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/x-icon' ) ),
+	'https://politechnika.example/favicon.ico' => array( 'code' => 200, 'headers' => array( 'content-type' => 'image/x-icon' ) ),
 );
 
 $out = render_as( 4, array( 'wpcpm_institution_view' => $krakow ) );
 
 ck( 'a logo on a CDN falls through to the site\'s own icon rather than to nothing', array(
-	false !== strpos( $out, 'src="https://pk.edu.pl/favicon.ico"' ),
+	false !== strpos( $out, 'src="https://politechnika.example/favicon.ico"' ),
 	false !== strpos( $out, 'cdn.example' ),
 ), array( true, false ) );
 
@@ -1370,6 +1371,23 @@ ck( 'a manager gets one mover per module, naming the institution, with the edges
 	in_array( 'wpcpm-modules', (array) $GLOBALS['scripts'], true ),
 ), array( 2, 2, 2, true, true, false ) );
 
+// The edges are the drawn page's, not the saved order's. Above, the module with nothing to
+// print sits in the middle of the default order, where the first and the last module are the
+// same either way; save an order that ends on it and the difference shows. This world has no
+// semester report card, so `report` prints nothing and `people` is the last module the page
+// really draws - and its Move down was offered anyway, because the saved order had three
+// names in it and `people` was the second of them (deep check FADMN-5, whose Student Report
+// Card half shipped with this task; this is the Institution Dashboard's twin of it).
+$GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] = array( 'students', 'people', 'report' );
+$edge = render_as( $manager, array( 'wpcpm_institution_view' => $krakow ) );
+preg_match_all( '/id="wpcpm-module-([a-z]+)"/', $edge, $edge_found );
+ck( 'a module dropped from the end of the saved order takes the last module\'s arrow with it', array(
+	$edge_found[1],
+	1 === preg_match( '/id="wpcpm-module-students">.*?wpcpm-module__move--up[^>]* disabled>/s', $edge ),
+	1 === preg_match( '/id="wpcpm-module-people">.*?wpcpm-module__move--down[^>]* disabled>/s', $edge ),
+), array( array( 'students', 'people' ), true, true ) );
+unset( $GLOBALS['opts'][ 'wpcpm_institution_modules_' . $krakow ] );
+
 $GLOBALS['uid'] = $manager;
 $_POST          = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up' );
 ck( 'a manager moves a module for the institution and lands back on its page at the module', ran_move(), 'redirect: https://example.test/institution-dashboard/?wpcpm_institution_view=' . $krakow . '#wpcpm-module-people' );
@@ -1378,6 +1396,35 @@ $_POST = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpc
 ck( 'the script gets the kept order back as JSON', ran_move(), 'json: {"order":["people","students","report"]}' );
 $_POST = array( 'wpcpm_institution' => 'not-a-record', 'wpcpm_module' => 'people', 'wpcpm_direction' => 'down' );
 ck( 'a manager naming an institution that is not a record, and belonging to none, is refused', ran_move(), 'die: 403' );
+
+// Whose page it is, asked of the account and not of the form. Every move above runs as a
+// program manager, so the branch that stops one account arranging another institution's
+// dashboard was defended by no assertion at all: dropping `$can_manage &&` from the handler,
+// which would let any signed-in account reorder any institution by posting its record ID,
+// left this suite green (deep check FADMN-7). These are the three cases the Student Report
+// Card's suite has had since its movers shipped.
+$GLOBALS['users'][7] = new WP_User( 7, 'A Student', 'student@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][8] = new WP_User( 8, 'A Mentor', 'mentor@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][9] = new WP_User( 9, 'A Sponsor Member', 'sponsor@example.test', array( WPCPM_Roles::ROLE_SPONSOR ) );
+unset( $GLOBALS['opts'][ WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX . $krakow ], $GLOBALS['opts'][ WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX . $institute ] );
+
+$GLOBALS['uid'] = 2;
+$_POST          = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up' );
+ck( 'a representative arranges their own institution, and lands on their page without a switcher argument', ran_move(), 'redirect: https://example.test/institution-dashboard/#wpcpm-module-people' );
+ck( 'the order saved is their institution\'s', $GLOBALS['opts'][ WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX . $krakow ], array( 'students', 'people', 'report' ) );
+
+$_POST = array( 'wpcpm_institution' => $institute, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'up' );
+ck( 'a representative naming another institution\'s record still arranges their own', ran_move(), 'redirect: https://example.test/institution-dashboard/#wpcpm-module-people' );
+ck( 'and the other institution\'s page is untouched', array( isset( $GLOBALS['opts'][ WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX . $institute ] ), $GLOBALS['opts'][ WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX . $krakow ] ), array( false, array( 'people', 'students', 'report' ) ) );
+
+foreach ( array( 7 => 'a student', 8 => 'a mentor', 9 => 'a sponsor member' ) as $stranger => $who ) {
+	$GLOBALS['uid'] = $stranger;
+	$_POST          = array( 'wpcpm_institution' => $krakow, 'wpcpm_module' => 'people', 'wpcpm_direction' => 'down' );
+	ck( $who . ' who represents no institution is refused with a 403, after the nonce', array( ran_move(), $GLOBALS['nonce_checked'] ), array( 'die: 403', array( WPCPM_Institutions_Dashboard::ACTION_MOVE ) ) );
+}
+
+ck( 'and none of them changed the order of a page that is not theirs', $GLOBALS['opts'][ WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX . $krakow ], array( 'people', 'students', 'report' ) );
+
 $_POST = array();
 $GLOBALS['uid'] = 0;
 

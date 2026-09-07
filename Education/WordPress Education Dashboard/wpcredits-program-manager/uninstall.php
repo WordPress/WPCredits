@@ -157,6 +157,9 @@ delete_option( WPCPM_Privacy_Guard::OPT_VERSION );
 delete_option( WPCPM_Airtable::BACKOFF_OPTION );
 // The Countries routing map, rebuilt from the base by the next sync or by the button.
 delete_option( WPCPM_Countries::OPT_NAME );
+// The one-time repair of the sponsor accounts an older detach left holding posting
+// capabilities has run (1.99.0).
+delete_option( WPCPM_Sponsor_Members::OPT_CAPS_REPAIRED );
 
 // Pending one-shot messages. Nobody is going to read "Saved." after the plugin is gone.
 delete_metadata( 'user', 0, WPCPM_Flash::META, '', true );

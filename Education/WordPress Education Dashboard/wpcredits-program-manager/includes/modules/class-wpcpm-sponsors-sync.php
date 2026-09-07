@@ -46,6 +46,9 @@ final class WPCPM_Sponsors_Sync {
 	const OPT_ERROR  = 'wpcpm_sponsors_last_error';
 	const OPT_LOCK   = 'wpcpm_sponsors_lock';
 
+	/** The shrink one run refused, for the next run to confirm or to refuse again. */
+	const OPT_SHRINK = 'wpcpm_sponsors_sync_shrink';
+
 	const BUDGET       = 18;
 	const BUDGET_AJAX  = 8;
 	const LOCK_TIMEOUT = 120;
@@ -338,7 +341,7 @@ final class WPCPM_Sponsors_Sync {
 					$result = self::phase_logos( $state );
 
 					// The last step of this phase, and not a phase of its own: it is one query
-					// on most nights and carries no weight in the bar. `phase_logos()` moves
+					// on most runs and carries no weight in the bar. `phase_logos()` moves
 					// the run on when its list runs dry, which is the step this rides.
 					if ( true === $result && 'logos' !== $state['phase'] ) {
 						$result = self::phase_agreements( $state );
@@ -632,6 +635,56 @@ final class WPCPM_Sponsors_Sync {
 			);
 		}
 
+		// A read that came back whole but far shorter than the index it would replace is refused
+		// the same way. `phase_revoke()` reads the index back and treats every sponsor missing
+		// from it as no longer Approved: with `sponsor_on_inactive` set to revoke that detaches
+		// live accounts and unticks `Dashboard account` in the base for companies still
+		// Approved there, and with the shipped default it leaves those sponsors reading from an
+		// empty row until a good read lands. Neither outcome was recorded anywhere, which is
+		// the part that made it a defect rather than a design. Half is the line: an ordinary
+		// round of departures never halves the program between two runs, and a read that lost
+		// most of the table is a fault to confirm rather than an instruction to act on.
+		//
+		// The refusal is a question put to the next run, and `shrink_confirmed()` is where that
+		// run answers it. A table that really did lose most of its rows reads the same way twice
+		// and the second read is taken, so a genuine shrink costs one run rather than a support
+		// request; a fault that reads short once and whole on the next run never lands at all.
+		if ( ! empty( $held ) && ( count( $state['rows'] ) * 2 ) < count( $held ) && ! self::shrink_confirmed( count( $state['rows'] ), (int) $state['started'] ) ) {
+			update_option(
+				self::OPT_SHRINK,
+				array(
+					'count' => count( $state['rows'] ),
+					'index' => count( $held ),
+					'run'   => (int) $state['started'],
+					'at'    => time(),
+				),
+				false
+			);
+
+			// And the run ends here rather than staying in this phase, which is the half that
+			// makes the question answerable at all. `cron_daily()` returns early for as long as
+			// a run is in progress, so a run left here would keep the next scheduled one from
+			// ever being the second run; and the Sponsors screen polls the tick every three
+			// seconds, which re-enters this phase on the run the refusal left, so a manager
+			// watching the panel would have the shrink confirmed for them within one poll.
+			$state['phase'] = 'done';
+
+			return new WP_Error(
+				'wpcpm_sponsors_short_read',
+				sprintf(
+					/* translators: 1: records the read returned, 2: rows the stored index holds. */
+					__( 'The Sponsors table returned %1$d records where the index holds %2$d; nothing was changed. If the table really shrank, run the sync again and it will accept the new shape.', 'wpcredits-program-manager' ),
+					count( $state['rows'] ),
+					count( $held )
+				)
+			);
+		}
+
+		// This read is being written, whether it is a shrink a second run confirmed or an
+		// ordinary run, so no shrink is waiting for an answer any more. A mark left standing
+		// would be read by the next shrink and confirm it on its own.
+		delete_option( self::OPT_SHRINK );
+
 		WPCPM_Sponsors_Index::write( $state['rows'], $state['started'] );
 		// A company renamed in Airtable renames its category (Phase S3). $held is the index as
 		// it stood before this write, read above for the empty-base check.
@@ -773,8 +826,8 @@ final class WPCPM_Sponsors_Sync {
 			$state['notices'][]            = sprintf(
 				/* translators: %d: how many agreement documents were written to the base. */
 				_n(
-					'%d agreement the base had not been told about was written tonight.',
-					'%d agreements the base had not been told about were written tonight.',
+					'%d agreement the base had not been told about was written in this sync run.',
+					'%d agreements the base had not been told about were written in this sync run.',
 					$cleared,
 					'wpcredits-program-manager'
 				),
@@ -996,6 +1049,38 @@ final class WPCPM_Sponsors_Sync {
 		$value = trim( (string) $value );
 
 		return 1 === preg_match( '/^(\d{4}-\d{2}-\d{2})/', $value, $m ) ? $m[1] : '';
+	}
+
+	/**
+	 * Whether a shrink this size was refused on an earlier run and may go through now.
+	 *
+	 * Three things make a confirmation, and each of them is a way a mark could otherwise say
+	 * yes on nobody's behalf:
+	 *
+	 * - **Another run.** `WPCPM_Sync_Module::handle_tick()` re-enters `phase_records()` on
+	 *   whatever run the state holds and the Sponsors screen polls it every three seconds, so a
+	 *   mark that answered to the count alone would be confirmed by the next poll of the run
+	 *   that wrote it. The run is the second it started in, which is `$state['started']`.
+	 * - **Within the week.** A mark from a month ago says nothing about the table now.
+	 * - **At least as many rows.** A second read that lost more still is a second fault rather
+	 *   than a confirmation of the first, so it refuses again and writes down what it saw.
+	 *
+	 * @param int $count   Rows this complete read holds, the measure the guard compares.
+	 * @param int $started The run that read them, as unix time.
+	 * @return bool
+	 */
+	private static function shrink_confirmed( $count, $started ) {
+		$mark = get_option( self::OPT_SHRINK );
+
+		if ( ! is_array( $mark ) || empty( $mark['run'] ) || (int) $mark['run'] === (int) $started ) {
+			return false;
+		}
+
+		if ( ( time() - (int) $mark['at'] ) > WEEK_IN_SECONDS ) {
+			return false;
+		}
+
+		return (int) $count >= (int) $mark['count'];
 	}
 
 	/**

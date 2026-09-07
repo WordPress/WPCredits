@@ -78,6 +78,7 @@ $GLOBALS['mail']    = array();
 $GLOBALS['head']    = array( 'response' => array( 'code' => 403 ) );
 $GLOBALS['referer'] = array();
 $GLOBALS['calls']   = array();
+$GLOBALS['loaded']  = 0;
 $GLOBALS['uploads'] = sys_get_temp_dir() . '/wpcpm-screen-test-' . getmypid();
 
 // The live membership half of the backstop counts: who acts for each institution, and every
@@ -767,7 +768,28 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 			) );
 		}
 
-		public static function applications( $states ) {
+		/**
+		 * The rows in those states, oldest first, bounded when the caller says so.
+		 *
+		 * `$GLOBALS['loaded']` counts the post objects handed out, which is what the real
+		 * `get_posts()` builds and primes the meta cache for - and the meta here is
+		 * `META_FIELDS`, the applicant's whole submitted form, per row. The queue must never
+		 * pay that for a row it does not draw (deep check FADMN-2, whose Administrator
+		 * Dashboard half shipped with it; this is the wp-admin queue's copy).
+		 */
+		public static function applications( $states, $limit = 0 ) {
+			$out = self::matching( $states );
+			if ( (int) $limit > 0 ) { $out = array_slice( $out, 0, (int) $limit ); }
+			$GLOBALS['loaded'] += count( $out );
+			return $out;
+		}
+
+		/** The same rows as IDs: no object, no meta cache, which is what a total costs. */
+		public static function application_ids( $states ) {
+			return array_map( static function ( $post ) { return (int) $post->ID; }, self::matching( $states ) );
+		}
+
+		private static function matching( $states ) {
 			$out = array();
 			foreach ( $GLOBALS['posts'] as $post ) {
 				if ( self::POST_TYPE !== $post->post_type ) { continue; }
@@ -781,8 +803,10 @@ if ( ! class_exists( 'WPCPM_Institution_Application' ) ) {
 			return $out;
 		}
 
-		public static function pending_count() {
-			return count( self::applications( array( self::STATE_NEW, self::STATE_HELD, self::STATE_INFO ) ) );
+		/** IDs, like the real one: the bubble counts rows and draws none of them. */
+		public static function pending_count( $limit = 0 ) {
+			$found = count( self::application_ids( array( self::STATE_NEW, self::STATE_HELD, self::STATE_INFO ) ) );
+			return (int) $limit > 0 ? min( $found, (int) $limit ) : $found;
 		}
 	}
 }
@@ -1164,7 +1188,7 @@ $GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = array(
 		'students_without_reports' => array( 'Not moving forward' => 15, '' => 7, 'Graduate' => 6, 'In Sensei' => 2, 'SPAM' => 1 ),
 		'reports_without_students' => array( 'In Sensei' => 7, 'Graduate' => 6, 'Not moving forward' => 4, '' => 1, 'SPAM' => 1 ),
 		'status_disagreements'     => 10,
-		'duplicate_emails'         => array( 'rec1ZgEtczDKjRNP4' => 5, 'recUNKNOWN0000001' => 4 ),
+		'duplicate_emails'         => array( 'recSEED0000000008' => 5, 'recUNKNOWN0000001' => 4 ),
 		'no_institution'           => 3,
 		'no_start_date'            => array( 'Not moving forward' => 4, '' => 2, 'Developer Track' => 1 ),
 	),
@@ -1188,10 +1212,10 @@ $GLOBALS['manage']    = array( 1, 2, 3 );
 
 // Two students the way a finished sync leaves them: stamped, flagged active, and with the
 // program meta naming which table's word the stamp is on.
-$GLOBALS['umeta'][30][ WPCPM_Students_Sync::META_INSTITUTION ] = 'rec1ZgEtczDKjRNP4';
+$GLOBALS['umeta'][30][ WPCPM_Students_Sync::META_INSTITUTION ] = 'recSEED0000000008';
 $GLOBALS['umeta'][30][ WPCPM_Students_Sync::META_ACTIVE ]      = 1;
 $GLOBALS['umeta'][30][ WPCPM_Students_Sync::META_PROGRAM ]     = array( 'institution_source' => 'students' );
-$GLOBALS['umeta'][31][ WPCPM_Students_Sync::META_INSTITUTION ] = 'rec2JYIDewxi6iftq';
+$GLOBALS['umeta'][31][ WPCPM_Students_Sync::META_INSTITUTION ] = 'recSEED0000000011';
 $GLOBALS['umeta'][31][ WPCPM_Students_Sync::META_ACTIVE ]      = 1;
 $GLOBALS['umeta'][31][ WPCPM_Students_Sync::META_PROGRAM ]     = array( 'institution_source' => 'reports' );
 
@@ -1497,7 +1521,7 @@ ck( 'the card reads 31 / 19 / 10 / 9 / 3', array(
 	false !== strpos( $html, '<th scope="row">Students rows with no reports row</th><td>31 <span class="wpcpm-inst-muted">(Not moving forward 15, (empty) 7, Graduate 6, In Sensei 2, SPAM 1)</span></td>' ),
 	false !== strpos( $html, '<th scope="row">Reports rows with no Students row</th><td>19 <span class="wpcpm-inst-muted">(In Sensei 7, Graduate 6, Not moving forward 4, (empty) 1, SPAM 1)</span></td>' ),
 	false !== strpos( $html, '<th scope="row">Status disagreements on joined rows</th><td>10</td>' ),
-	false !== strpos( $html, '<th scope="row">Duplicate emails in the Students table</th><td>9 <span class="wpcpm-inst-muted">(Università di Pisa (5), recUNKNOWN0000001 (4))</span></td>' ),
+	false !== strpos( $html, '<th scope="row">Duplicate emails in the Students table</th><td>9 <span class="wpcpm-inst-muted">(Institution 4 (5), recUNKNOWN0000001 (4))</span></td>' ),
 	false !== strpos( $html, '<th scope="row">Students rows with no institution</th><td>3</td>' ),
 ), array( true, true, true, true, true ) );
 ck( 'the no-start-date count is split by status', false !== strpos( $html, '<th scope="row">Students rows with no start date</th><td>7 <span class="wpcpm-inst-muted">(Not moving forward 4, (empty) 2, Developer Track 1)</span></td>' ), true );
@@ -1547,7 +1571,7 @@ $broken = render_screen();
 ck( 'an account no run has ever described turns the row into a warning', false !== strpos( $broken, '<td class="wpcpm-warning">1 <span class="wpcpm-inst-muted">(counted now; should be 0, anything else is a broken sync)</span></td>' ), true );
 unset( $GLOBALS['umeta'][32], $GLOBALS['users'][32] );
 
-$GLOBALS['umeta'][31][ WPCPM_Students_Sync::META_INSTITUTION ] = 'rec2JYIDewxi6iftq';
+$GLOBALS['umeta'][31][ WPCPM_Students_Sync::META_INSTITUTION ] = 'recSEED0000000011';
 
 // The two accounts the sync leaves without a stamp on purpose. Neither is a broken sync, and
 // counting them by role alone reported both: the first for as long as the account exists.
@@ -1723,12 +1747,12 @@ echo "\n=== Discrepancies and the template card ===\n";
 ck( 'with none, the card says the two sides agree', false !== strpos( $html, 'Agreement discrepancies <span class="wpcpm-count">0</span></h2>' ) && false !== strpos( $html, 'The site and Airtable agree on every agreement.' ), true );
 
 $GLOBALS['discrepancies'] = array(
-	'rec1ZgEtczDKjRNP4' => array( 'site_state' => 'accepted', 'airtable_status' => 'Revoked' ),
+	'recSEED0000000008' => array( 'site_state' => 'accepted', 'airtable_status' => 'Revoked' ),
 	'recNOTINDEXED0001' => array( 'site_state' => '', 'airtable_status' => 'On file' ),
 );
 $with = render_screen();
 ck( 'each discrepancy is listed by name with both sides', array(
-	false !== strpos( $with, '<tr><td>Università di Pisa<br /><code>rec1ZgEtczDKjRNP4</code></td><td>accepted</td><td>Revoked</td></tr>' ),
+	false !== strpos( $with, '<tr><td>Institution 4<br /><code>recSEED0000000008</code></td><td>accepted</td><td>Revoked</td></tr>' ),
 	false !== strpos( $with, '<tr><td>recNOTINDEXED0001<br /><code>recNOTINDEXED0001</code></td><td>(nothing recorded)</td><td>On file</td></tr>' ),
 ), array( true, true ) );
 $GLOBALS['discrepancies'] = array();
@@ -2357,9 +2381,16 @@ for ( $i = 1; $i <= 210; $i++ ) {
 	seed_application( 700 + $i, sprintf( 'Flood %d', $i ), WPCPM_Institution_Application::STATE_NEW, $now - ( 20 * $day ) + $i, array( WPCPM_Institution_Application::META_EMAIL => 'hash-of-flood-' . $i ) );
 }
 
-$flood = render_screen();
+$GLOBALS['loaded'] = 0;
+$flood             = render_screen();
 
 ck( 'the card draws its ceiling and no more, however many are waiting', count( queue_items( $flood ) ), WPCPM_Institutions::QUEUE_MAX );
+// And it pays for the rows it draws, not for the rows that are waiting. The queue used to
+// ask for every open application as a WP_Post to count them and then keep fifty, which on
+// this afternoon is two hundred and thirteen applicants' whole submitted forms read into the
+// meta cache to print one number (deep check FADMN-2, whose Administrator Dashboard half
+// shipped with it; the open states are the ones a stranger can fill and nothing purges them).
+ck( 'and it builds a post object for the rows it draws, never for the rows it counts', $GLOBALS['loaded'], WPCPM_Institutions::QUEUE_MAX );
 ck( 'the oldest are the ones it draws, so the row whose turn it is cannot fall off the end', queue_items( $flood )[0][0], 'Flood 1' );
 ck( 'it counts what is waiting and not what it drew', preg_match( '#<h2 id="wpcpm-queue">Waiting for review <span class="wpcpm-count">214</span></h2>#', $flood ), 1 );
 ck( 'and says out loud that the list is part of the queue', false !== strpos( $flood, 'Showing the oldest 50 of 214.' ), true );
@@ -2412,12 +2443,12 @@ ck( 'opening one asks the base about the trimmed name and the lowered address', 
 ck( 'and says so when it finds nothing', false !== strpos( $open, 'No Institutions record carries this name or this address.' ), true );
 
 $GLOBALS['airtable_page'] = array(
-	'records' => array( array( 'id' => 'rec1ZgEtczDKjRNP4', 'fields' => array( 'Name' => 'Universidad Example ', 'Current Stage' => 'Under Review' ) ) ),
+	'records' => array( array( 'id' => 'recSEED0000000008', 'fields' => array( 'Name' => 'Universidad Example ', 'Current Stage' => 'Under Review' ) ) ),
 	'offset'  => null,
 );
 $matched = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
 ck( 'a hit is listed with its record ID and stage, and nothing is merged', array(
-	false !== strpos( $matched, 'rec1ZgEtczDKjRNP4' ),
+	false !== strpos( $matched, 'recSEED0000000008' ),
 	false !== strpos( $matched, 'Under Review' ),
 	false !== strpos( $matched, 'Approving adopts the first of them rather than creating a second' ),
 ), array( true, true, true ) );
@@ -2512,7 +2543,7 @@ seed_application(
 	$now - $day,
 	array(
 		WPCPM_Institution_Application::META_FIELDS  => array( 'Contact Email' => 'todos@example.test' ),
-		WPCPM_Institution_Application::META_SIGNALS => array( 'honeypot', 'dwell', 'disallowed', 'links', 'identical', 'short', 'no-mx', 'name-is-contact', 'site-ceiling', 'duplicate', 'wobble' ),
+		WPCPM_Institution_Application::META_SIGNALS => array( 'honeypot', 'dwell', 'dwell-fast', 'disallowed', 'links', 'identical', 'short', 'no-mx', 'name-is-contact', 'site-ceiling', 'duplicate', 'wobble' ),
 	)
 );
 
@@ -2522,6 +2553,7 @@ $said  = array();
 foreach ( array(
 	'honeypot'        => 'A field no visitor can see was filled in',
 	'dwell'           => 'less than 6 seconds after the page was drawn',
+	'dwell-fast'      => 'sent again less than 6 seconds after the form was redrawn',
 	'disallowed'      => 'comment disallowed list',
 	'links'           => 'The written answers carry 3 links or more.',
 	'identical'       => 'The same paragraph was given as the answer to more than one question.',
@@ -2577,7 +2609,7 @@ ck( 'handle_approve checks a nonce keyed to the application and hands it to the 
 ), array( $back, array( 'wpcpm_app_approve_501' ), array( array( 501, 1 ) ), array( 'institutions' => 'app-approved' ) ) );
 delete_user_meta( 1, WPCPM_Flash::META );
 
-$GLOBALS['approve_result'] = array( 'record' => 'rec1ZgEtczDKjRNP4', 'user_id' => 78, 'adopted' => true );
+$GLOBALS['approve_result'] = array( 'record' => 'recSEED0000000008', 'user_id' => 78, 'adopted' => true );
 outcome( array( $module, 'handle_approve' ) );
 ck( 'an adopted record says so, because nothing was created in the base', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'app-adopted' ) );
 delete_user_meta( 1, WPCPM_Flash::META );
@@ -2812,6 +2844,20 @@ ck( 'each deletion is logged with the rule that removed it and nobody who presse
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['application_approved_days'] = 30;
 ck( 'and takes the approved one as soon as the setting names a number of days', array( WPCPM_Institutions::purge_applications(), null === get_post( 506 ) ), array( 1, true ) );
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['application_approved_days'] = 0;
+
+// FANON-3 gave the sponsor queue held-row retention; the institution queue shares the same
+// map entry now, so a held application goes the same way a rejected one does and is not left
+// in the queue for ever. No event meta to seed: `decided_at()` falls back to the arrival
+// time for a row with no history, which is exactly what a held row has.
+seed_application( 512, 'Old Held', WPCPM_Institution_Application::STATE_HELD, $now - ( 400 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2025-0006' ) );
+seed_application( 513, 'Recent Held', WPCPM_Institution_Application::STATE_HELD, $now - ( 10 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0007' ) );
+ck( 'a held application goes the same way a rejected one does, and a recent one stays', array(
+	WPCPM_Institutions::purge_applications(),
+	null === get_post( 512 ),
+	get_post( 513 ) instanceof WP_Post,
+), array( 1, true, true ) );
+$log = WPCPM_Institutions::application_log();
+ck( 'the log names the held row by its own state and the rejected window that removed it', array( end( $log )['state'], end( $log )['days'] ), array( 'held', 365 ) );
 
 $GLOBALS['opts'][ WPCPM_Institutions::OPT_APP_LOG ] = array_fill( 0, WPCPM_Institutions::APP_LOG_MAX, array( 'at' => 1, 'id' => 1, 'reference' => 'APP-0000-0000', 'state' => 'spam', 'days' => 30, 'actor' => 0 ) );
 seed_application( 508, 'One More', WPCPM_Institution_Application::STATE_SPAM, $now - ( 400 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0005' ) );

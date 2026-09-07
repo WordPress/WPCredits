@@ -293,7 +293,7 @@ function ck( $label, $actual, $expected ) {
 // The fixture: sponsor A (logo 501 copied), sponsor B (no logo, no manager), member 5 of A,
 // manager 1, stranger 9.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002';
-WPCPM_Sponsors_Index::write( array( $A => array( 'name' => 'miniOrange ', 'status' => 'Approved', 'website' => 'plugins.miniorange.com', 'product_type' => 'Hosting', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'manager' => 'recTEAM0000000001' ), $B => array( 'name' => 'Wetopi', 'status' => 'Approved' ) ), time() );
+WPCPM_Sponsors_Index::write( array( $A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'website' => 'plugins.mango-example.test', 'product_type' => 'Hosting', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'manager' => 'recTEAM0000000001' ), $B => array( 'name' => 'Wexample', 'status' => 'Approved' ) ), time() );
 WPCPM_Sponsors_Index::write_team( array( 'recTEAM0000000001' => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => 'https://calendly.com/matt' ) ), time() );
 WPCPM_Sponsors_Index::write_logo_record( $A, array( 'colour' => 501, 'source' => 'airtable', 'airtable_id' => 'attA' ) );
 $GLOBALS['users'] = array( 1 => new WP_User( 1, array( 'administrator' ), 'Manager' ), 5 => new WP_User( 5, array( 'wpcpm_sponsor' ), 'Rep One' ), 9 => new WP_User( 9, array( 'subscriber' ), 'Stranger' ) );
@@ -339,7 +339,7 @@ ck( 'each group is a wrapper of its own', substr_count( $out, '<div class="wpcpm
 ck( 'each group says under its heading what its cards do', substr_count( $out, '<p class="wpcpm-student__note wpcpm-sponsor__group-lead">' ), 3 );
 ck( 'the resources are the sponsor audience', $GLOBALS['resources'], array( 'sponsor' ) );
 ck( 'the identity shows the site\'s logo, never Airtable\'s URL', false !== strpos( $out, 'https://example.test/uploads/501.png' ) && false === strpos( $out, 'airtableusercontent' ), true );
-ck( 'the name trimmed, the website completed, the product type and the contact', false !== strpos( $out, '>miniOrange<' ) && false !== strpos( $out, 'href="https://plugins.miniorange.com"' ) && false !== strpos( $out, 'Hosting' ) && false !== strpos( $out, 'Rep One' ) && false !== strpos( $out, 'maciej@a8c.com' ), true );
+ck( 'the name trimmed, the website completed, the product type and the contact', false !== strpos( $out, '>Mango Example<' ) && false !== strpos( $out, 'href="https://plugins.mango-example.test"' ) && false !== strpos( $out, 'Hosting' ) && false !== strpos( $out, 'Rep One' ) && false !== strpos( $out, 'maciej@a8c.com' ), true );
 ck( 'the program contact block names the manager, the address and the booking link', false !== strpos( $out, 'Maciej (Matt) Pilarski' ) && false !== strpos( $out, 'mailto:maciej@a8c.com' ) && false !== strpos( $out, 'https://calendly.com/matt' ), true );
 ck( 'no switcher for a member', strpos( $out, 'wpcpm-dashboard__switcher' ), false );
 ck( 'no heading unless the block asks for one', strpos( $out, 'wpcpm-dashboard__title' ), false );
@@ -403,6 +403,18 @@ ck( 'and a stranger\'s does not', in_array( 'wpcpm-sponsor-dashboard', array_col
 $GLOBALS['uid'] = 5;
 ck( 'a member is routed to the page at login', $D::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][5] ), get_permalink( $page_id ) );
 ck( 'an explicit destination is honoured', $D::login_redirect( 'https://example.test/somewhere/', 'https://example.test/somewhere/', $GLOBALS['users'][5] ), 'https://example.test/somewhere/' );
+// FSPON-3: the fixture above gives user 5 the stamp and no capability, which is not what a
+// real attach() leaves. Posting defaults on, so WPCPM_Sponsor_Posts::apply_caps() grants these
+// three to every member of every sponsor, and the clause that used to ask edit_posts excluded
+// exactly the people the routing exists for.
+$GLOBALS['grants'][5] = array( 'edit_posts', 'delete_posts', 'upload_files' );
+ck( 'a real member, holding exactly what attach() grants, is still routed', $D::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][5] ), get_permalink( $page_id ) );
+$GLOBALS['grants'][5][] = 'edit_others_posts';
+ck( 'and an account that edits other people\'s posts is left in wp-admin, which is the question the clause meant to ask', $D::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][5] ), 'https://example.test/wp-admin/' );
+unset( $GLOBALS['grants'][5] );
+$GLOBALS['manage'] = array( 1, 5 );
+ck( 'a program manager is left alone too', $D::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][5] ), 'https://example.test/wp-admin/' );
+$GLOBALS['manage'] = array( 1 );
 $GLOBALS['settings']['sponsor_home'] = false;
 ck( 'and the switch turns it off', $D::login_redirect( 'https://example.test/wp-admin/', 'https://example.test/wp-admin/', $GLOBALS['users'][5] ), 'https://example.test/wp-admin/' );
 

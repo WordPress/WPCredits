@@ -87,6 +87,9 @@ class WPCPM_Module_Order {
 	 * The two arrows at a module's top right: one form, two submit buttons, the outer one
 	 * disabled at the edge, as the block editor's mover does it.
 	 *
+	 * The form also carries the sentence assets/js/modules.js speaks when a background save is
+	 * refused and it has put the module back.
+	 *
 	 * @param string $action The admin-post action the page's move handler listens on; also
 	 *                       the nonce's action.
 	 * @param string $key    Module key.
@@ -96,7 +99,14 @@ class WPCPM_Module_Order {
 	 * @param string $label  The module's name, for the arrows' spoken labels.
 	 */
 	public static function render_mover( $action, $key, $index, $count, array $hidden, $label ) {
-		echo '<form class="wpcpm-module__mover" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		printf(
+			'<form class="wpcpm-module__mover" method="post" action="%1$s" data-wpcpm-refused="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			// What assets/js/modules.js says once it has put a module back because the background
+			// save was refused. It belongs here rather than in the script for the same reason the
+			// arrows' labels do: the script never writes a sentence of its own.
+			esc_attr__( 'The move was not kept.', 'wpcredits-program-manager' )
+		);
 		echo '<input type="hidden" name="action" value="' . esc_attr( $action ) . '">';
 		wp_nonce_field( $action );
 		echo '<input type="hidden" name="' . esc_attr( self::FIELD_MODULE ) . '" value="' . esc_attr( $key ) . '">';

@@ -606,13 +606,13 @@ class WPCPM_Institution_Agreement {
 	 * promise nothing kept. The design's T2 row says it in as many words: "the sync retries".
 	 *
 	 * The cells come from the state the site holds now rather than from the write that
-	 * failed. A mark can be a night old, and the document it was left by may have been
+	 * failed. A mark can be hours old, and the document it was left by may have been
 	 * accepted, returned or replaced since; the base wants what is true rather than what was
 	 * true. No stage is ever written: T5's `Current Stage` move needs the record's live stage
 	 * to stay forward-only, and T5 refuses outright on a failed PATCH, so no mark is ever
 	 * owed one.
 	 *
-	 * Fifty at a time, because one PATCH is one HTTP call and a night that cannot reach the
+	 * Fifty at a time, because one PATCH is one HTTP call and a run that cannot reach the
 	 * base at all should spend a bounded amount of a cron run finding that out.
 	 *
 	 * Each record is held under the rebuild lock from the read of its state to the PATCH,
@@ -620,7 +620,7 @@ class WPCPM_Institution_Agreement {
 	 * newer cells written first, then overwritten by cells this method derived a moment
 	 * before them.
 	 *
-	 * @return int How many documents the base was told about tonight.
+	 * @return int How many documents the base was told about in this run.
 	 */
 	public static function retry_airtable() {
 		$pending = get_posts(
@@ -701,17 +701,20 @@ class WPCPM_Institution_Agreement {
 			delete_post_meta( $post_id, self::META_AIRTABLE_PENDING );
 
 			// The option is rebuilt from what was just written, as every transition rebuilds
-			// it, so an acceptance whose PATCH only landed tonight opens its gate tonight
-			// instead of waiting for the next records phase.
+			// it, so an acceptance whose PATCH only landed in this run opens its gate in the
+			// same run instead of waiting for the next records phase.
 			//
 			// A retry that wrote no status carries the status the base is known to hold, from
-			// the same reader T2 withheld the write by. Passing nothing would let
-			// `airtable_block()` fall back to an absent option and write `airtable_status`
-			// empty, and empty counts as open: the very next generate would then send
-			// `Template generated` over the `Accepted` or `Revoked` the base is really at,
-			// which is the one backwards move T2 exists to refuse. Writing the known status
-			// instead leaves the option saying what the base says, and it settles nothing it
-			// should not: a generated document is not a settled site state.
+			// the same reader T2 withheld the write by. Belt and braces since 1.99.0:
+			// `airtable_block()` defaults to `known_airtable_status()` itself (deep check
+			// FADMN-1), so passing nothing here would no longer write `airtable_status`
+			// empty. It did once, and empty counts as open - the very next generate would
+			// send `Template generated` over the `Accepted` or `Revoked` the base is really
+			// at, which is the one backwards move T2 exists to refuse. The pass stays because
+			// this is the path that knows the status is missing and why, and a rule a reader
+			// has to open another method to find is a rule that gets changed by accident.
+			// Either way the option ends up saying what the base says, and it settles nothing
+			// it should not: a generated document is not a settled site state.
 			$changed = isset( $cells[ $fields['agr_status'] ] )
 				? array( 'status' => $cells[ $fields['agr_status'] ] )
 				: array( 'status' => self::known_airtable_status( $record ) );
@@ -3311,7 +3314,7 @@ class WPCPM_Institution_Agreement {
 	 *
 	 * Every transition builds its own `$cells` inline, because each one knows exactly what it
 	 * has just changed. A retry knows nothing of the sort: the request that owed the write is
-	 * a night gone, and the document it was about may have been accepted, returned or
+	 * hours gone, and the document it was about may have been accepted, returned or
 	 * replaced since. So the cells are derived here from what the site holds now, each branch
 	 * in the vocabulary of the transition that would have written it, and a state no
 	 * transition writes a cell for answers with no cells rather than with a guess.
@@ -3367,7 +3370,7 @@ class WPCPM_Institution_Agreement {
 			}
 
 			// T10: a replacement uploaded while an agreement stands owes the base its date
-			// and nothing else, and that date is still owed tonight.
+			// and nothing else, and that date is still owed now.
 			if ( $site['pending_id'] ) {
 				$cells[ $fields['agr_submitted_on'] ] = self::submitted_on_of( $site['pending_id'] );
 			}
@@ -3449,7 +3452,7 @@ class WPCPM_Institution_Agreement {
 	 * The day a document in review arrived, `Y-m-d`.
 	 *
 	 * The post's own date, which is what T3 put in `Agreement Submitted On` on the day: the
-	 * upload sent `wp_date( 'Y-m-d' )`, and a night later that day is still the post's.
+	 * upload sent `wp_date( 'Y-m-d' )`, and whenever the retry runs, that day is still the post's.
 	 *
 	 * @param int $post_id A document's post ID.
 	 * @return string
@@ -3469,6 +3472,19 @@ class WPCPM_Institution_Agreement {
 	 * A handler whose Airtable write failed passes no changes at all and gets the state the
 	 * base is still in, which is the state the sync will find on its next pass.
 	 *
+	 * The status is `known_airtable_status()` rather than the option's own field, so that the
+	 * base's state is carried even when there is no option to read: the option is the ordinary
+	 * absence rather than the rare one, because `WPCPM_Institutions_Sync::phase_revoke()`
+	 * deletes it on every run for every institution outside `institution_active_stages` and a
+	 * manager's revoke deletes it too, while the agreement panel stays reachable there
+	 * (`WPCPM_Institution_Policy::ungated()` exempts `ACT_AGREEMENT` alone). An empty status
+	 * counts as open, so a block built from an absent option would let the next Generate send
+	 * `Template generated` over the `Accepted` or `Revoked` the base is really at, which is
+	 * the one backwards move T2 exists to refuse; and it settles nothing, so a replacement
+	 * sent back under an agreement in force would lock a settled institution out of every
+	 * gated action until the sync's next rebuild (deep check FADMN-1). `retry_airtable()`
+	 * still passes the status itself, because it knows whether its own PATCH carried one.
+	 *
 	 * @param string $record  Institutions record ID.
 	 * @param array  $changed The cells this request wrote, in `rebuild()`'s vocabulary.
 	 * @return array
@@ -3478,7 +3494,7 @@ class WPCPM_Institution_Agreement {
 
 		return array_merge(
 			array(
-				'status'   => null === $option ? '' : $option['airtable_status'],
+				'status'   => self::known_airtable_status( $record ),
 				'document' => null === $option ? '' : $option['drive_url'],
 			),
 			$changed

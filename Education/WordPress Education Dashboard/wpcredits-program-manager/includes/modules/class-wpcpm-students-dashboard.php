@@ -277,8 +277,32 @@ class WPCPM_Students_Dashboard {
 			wp_enqueue_script( self::SCRIPT_MODULES );
 		}
 
+		// The bodies first, the page after. A module with nothing to print is left out, and the
+		// arrows have to belong to the page that is drawn rather than to the saved order: given
+		// the whole order's index and count, the first module on the page still offered Move up
+		// when something above it had been dropped, and the last one's Move down stayed enabled
+		// when something below it had - a student whose program has not synced yet has neither
+		// course nor forms, and most students' Tools module prints nothing while the offers pool
+		// is empty (deep check FADMN-5). The saved order is untouched, and so is the handler:
+		// what changes is which arrows the page offers.
+		$rendered = array();
+
 		foreach ( $order as $key ) {
-			self::render_module( $key, $order, $program, $student, $viewer, $can_manage, $can_move );
+			ob_start();
+			self::render_module_body( $key, $program, $student, $viewer, $can_manage );
+			$body = trim( (string) ob_get_clean() );
+
+			if ( '' !== $body ) {
+				$rendered[ $key ] = $body;
+			}
+		}
+
+		$index = 0;
+		$count = count( $rendered );
+
+		foreach ( $rendered as $key => $body ) {
+			self::render_module( $key, $body, $index, $count, $student, $can_move );
+			++$index;
 		}
 
 		if ( $updated ) {
@@ -457,31 +481,23 @@ class WPCPM_Students_Dashboard {
 	}
 
 	/**
-	 * One module: its wrapper, the mover when the reader may arrange the page, and the
-	 * sections inside. A module with nothing to print - a student whose program has not synced
-	 * yet has no course to open - is left out altogether, so nothing empty is offered to move.
+	 * One module: its wrapper, the mover when the reader may arrange the page, and the body
+	 * `render()` has already built. A module whose body came out empty - a student whose
+	 * program has not synced yet has no course to open - never reaches here, so nothing empty
+	 * is offered to move; the index and the count are the drawn page's, for the same reason.
 	 *
-	 * @param string   $key        Module key.
-	 * @param string[] $order      Every module, in this student's order.
-	 * @param array    $program    The student's cached program row.
-	 * @param WP_User  $student    The student whose page this is.
-	 * @param WP_User  $viewer     Who is reading it.
-	 * @param bool     $can_manage Whether the reader is a program manager.
-	 * @param bool     $can_move   Whether the reader may arrange this page.
+	 * @param string  $key      Module key.
+	 * @param string  $body     What the module's sections printed.
+	 * @param int     $index    Its place among the modules the page draws, from 0.
+	 * @param int     $count    How many modules the page draws.
+	 * @param WP_User $student  The student whose page this is.
+	 * @param bool    $can_move Whether the reader may arrange this page.
 	 */
-	private static function render_module( $key, array $order, array $program, WP_User $student, WP_User $viewer, $can_manage, $can_move ) {
-		ob_start();
-		self::render_module_body( $key, $program, $student, $viewer, $can_manage );
-		$body = trim( (string) ob_get_clean() );
-
-		if ( '' === $body ) {
-			return;
-		}
-
+	private static function render_module( $key, $body, $index, $count, WP_User $student, $can_move ) {
 		printf( '<div class="wpcpm-module wpcpm-module--%1$s" id="wpcpm-module-%1$s">', esc_attr( $key ) );
 
 		if ( $can_move ) {
-			self::render_mover( $key, (int) array_search( $key, $order, true ), count( $order ), $student );
+			self::render_mover( $key, (int) $index, (int) $count, $student );
 		}
 
 		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the section renderers, each of which escapes what it prints.

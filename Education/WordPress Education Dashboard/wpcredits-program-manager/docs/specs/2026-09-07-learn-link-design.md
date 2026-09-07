@@ -1,7 +1,7 @@
 # Learn Link: the Dashboard half and the contract to freeze
 
 **Date:** 7 September 2026
-**Component:** `wpcredits-program-manager` 1.98.1 today; the module described here is `WPCPM_Learn_Progress`, planned as 1.99.0 and later, with matching `wpcredits-theme` rules. Its counterpart, `learn-progress-api`, is a Sensei extension that runs on learn.wordpress.org. Both halves are built in the public `learn-link` repository by the Universidad Fidelitas cohort, October to December 2026.
+**Component:** `wpcredits-program-manager` 1.98.1 today; the module described here is `WPCPM_Learn_Progress`, planned as 1.99.0 and later, with matching `wpcredits-theme` rules. Its counterpart, `learn-progress-api`, is a Sensei extension that runs on learn.wordpress.org. Both halves are built in the public `learn-link` repository by one partner institution's student cohort, October to December 2026.
 **Status:** groundwork, not an approved design. It turns the roadmap's decisions into a contract and a class map the cohort can build against. Section 8 lists what the product owners (Maciej Pilarski and Isotta Peira) still have to decide; nothing in sections 2 to 7 should be treated as final until they have.
 **Depends on:** the Learn Link roadmap (`~/GitHub/learn-link-roadmap.html`, 31 August 2026); the working agreement that every student on the program has a WordPress.org profile; the Student Report Card's movable modules (`WPCPM_Module_Order`, since 1.95.11); `WPCPM_Secret` (since 1.94.0); the fetch and parse split of `WPCPM_WPorg_Profile`.
 

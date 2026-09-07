@@ -414,5 +414,201 @@ ck( 'Sponsored and the wants-a-sponsor flag are Yes or No',
 ck( 'Active is a Status the base offers', in_array( 'Active', isset( $ment_choices['Status'] ) ? $ment_choices['Status'] : array(), true ), true );
 ck( 'the U+2019 in the free-text question survives', in_array( "Anything else you\xE2\x80\x99d like us to know?", $ment_fields, true ), true );
 
+// One 'Status' choice in the base is a real institution's name, so bin/anonymize-fixtures.php
+// replaced it with a placeholder here. The comment has to say so: it is the sentence whoever
+// refreshes this file acts on, and a refresh that skips the script puts the name back.
+$students_comment = (string) ( isset( $students['_comment'] ) ? $students['_comment'] : '' );
+
+ck( 'the Students fixture says its institution-named choice is a placeholder, and names the script', array(
+	false !== strpos( $students_comment, 'bin/anonymize-fixtures.php' ),
+	false !== strpos( $students_comment, 'Institution 84' ),
+	in_array( 'Institution 84', isset( $stud_choices['Status'] ) ? $stud_choices['Status'] : array(), true ),
+), array( true, true, true ) );
+
+/* ---- the institutions seed carries no real record ------------------------- */
+
+echo "\n=== The institutions seed is synthetic ===\n";
+
+// bin/ never ships in the zip, but it is published on the public GitHub mirror, and this
+// fixture is a dump of the live base: it published 300 live record IDs and 104 real
+// organization names beside the stage the program had filed each of them under, three of them
+// people who had typed their own name into the public application form (deep check of
+// 7 September 2026, findings FSUIT-5 and FSUIT-13). bin/anonymize-fixtures.php replaces all of
+// it; this section is what makes a raw dump fail here instead of reaching the mirror. Only
+// counts are printed, never the offending value, because a failure means the file holds the
+// real thing.
+$seed      = fixture( 'institutions-index-seed.json' );
+$seed_rows = isset( $seed['institutions'] ) ? (array) $seed['institutions'] : array();
+$seed_lands = isset( $seed['countries'] ) ? (array) $seed['countries'] : array();
+
+$off_id   = 0;
+$off_name = 0;
+$off_city = 0;
+$off_site = 0;
+
+foreach ( $seed_rows as $row ) {
+	if ( 1 !== preg_match( '/^recSEED0[0-9]{9}$/', (string) $row['id'] ) ) {
+		++$off_id;
+	}
+
+	foreach ( (array) $row['country'] as $link ) {
+		if ( 1 !== preg_match( '/^recSEED0[0-9]{9}$/', (string) $link ) ) {
+			++$off_id;
+		}
+	}
+
+	if ( 1 !== preg_match( '/^(TEST - )?Institution [0-9]+$/', trim( (string) $row['name'] ) ) ) {
+		++$off_name;
+	}
+
+	if ( '' !== trim( (string) $row['city'] ) && 1 !== preg_match( '/^City [0-9]+$/', trim( (string) $row['city'] ) ) ) {
+		++$off_city;
+	}
+
+	if ( '' !== trim( (string) $row['website'] ) && 1 !== preg_match( '#^https://institution-[0-9]+\.example/$#', trim( (string) $row['website'] ) ) ) {
+		++$off_site;
+	}
+}
+
+foreach ( $seed_lands as $land ) {
+	if ( 1 !== preg_match( '/^recSEED0[0-9]{9}$/', (string) $land['id'] ) ) {
+		++$off_id;
+	}
+}
+
+ck( 'the seed loaded', array( count( $seed_rows ) > 0, count( $seed_lands ) > 0 ), array( true, true ) );
+ck( 'every record ID is a seed number, not a record in the base (run bin/anonymize-fixtures.php)', $off_id, 0 );
+ck( 'every institution is "Institution N", so no row names an organization or a person', $off_name, 0 );
+ck( 'every city is "City N" or empty', $off_city, 0 );
+ck( 'every website is a reserved .example address', $off_site, 0 );
+
+// The TEST record is found by its label, so the label has to survive anonymizing.
+$labeled = 0;
+foreach ( $seed_rows as $row ) {
+	if ( 0 === strpos( (string) $row['name'], 'TEST' ) ) {
+		++$labeled;
+	}
+}
+ck( 'exactly one row is still labeled TEST, which is how the agreement suite finds it', $labeled, 1 );
+
+// And nothing else under bin/ names a record either: five suites had a live ID typed into them
+// by hand. "Real-looking" is the test bin/anonymize-fixtures.php uses and states its reasons
+// for: every placeholder this repository invents is upper case, and the three mixed-case ones
+// read as a word plus a run. A hit here is fixed by running that script, not by editing the
+// suite, so that the seed and the suites keep one mapping between them.
+$real = array();
+
+$id_files = array();
+
+foreach ( array( __DIR__, dirname( __DIR__ ) . '/docs' ) as $tree ) {
+	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $tree, FilesystemIterator::SKIP_DOTS ) ) as $file ) {
+		if ( $file->isFile() ) {
+			$id_files[] = $file->getPathname();
+		}
+	}
+}
+
+foreach ( $id_files as $path ) {
+	$file = new SplFileInfo( $path );
+	if ( ! preg_match_all( '/\brec[A-Za-z0-9]{14}\b/', (string) file_get_contents( $path ), $found ) ) {
+		continue;
+	}
+
+	foreach ( $found[0] as $id ) {
+		$body = substr( $id, 3 );
+
+		if ( 1 === preg_match( '/^SEED0[0-9]{9}$/', $body ) || 1 !== preg_match( '/[a-z]/', $body ) ) {
+			continue;
+		}
+
+		if ( 1 === preg_match( '/(.)\1{3}/', $body ) || 1 === preg_match( '/[0-9]{5}/', $body ) ) {
+			continue;
+		}
+
+		$real[ substr( $path, strlen( dirname( __DIR__ ) ) + 1 ) ] = true;
+	}
+}
+
+ck( 'no file under bin/ or docs/ holds a record ID that reads as Airtable\'s (run bin/anonymize-fixtures.php)', array_keys( $real ), array() );
+
+// The record IDs were not the only thing published. Suites used real people as sample display
+// names, three of them with a WordPress.org profile address or a personal domain beside the
+// name, which identifies somebody on its own, and both the suites and the specs named real
+// organizations (deep check of 7 September 2026, the Task 8 review, rulings (a) and (b)).
+//
+// bin/refused-strings.php holds the decision, as `sha1()` hashes and never as the strings, so
+// that this walk and the sweep can be self-contained without the list itself becoming the
+// publication it exists to prevent. No file is skipped now: the walk reads the whole of bin/
+// and the whole of docs/, and it reads bin/refused-strings.php like any other file.
+//
+// The failure names the file and never the value, so a red suite is not a leak either.
+require_once __DIR__ . '/refused-strings.php';
+
+$refused = wpcpm_refused_all();
+$shapes  = 0;
+
+foreach ( array_keys( $refused ) as $hash ) {
+	if ( 1 === preg_match( '/^[0-9a-f]{40}$/', $hash ) ) {
+		++$shapes;
+	}
+}
+
+ck( 'the refused list records what it refuses as a hash, never as the string', array( $shapes, count( $refused ) >= 20 ), array( count( $refused ), true ) );
+
+// The walk is worth nothing if the tokenizer finds nothing, and a tokenizer that returned an
+// empty array would make the assertion below pass on a tree full of names. So it is asked first
+// for something it must find, against a list of one hash this check makes up: a two-word name
+// inside a quoted array value, wrapped in exactly the punctuation a suite wraps one in.
+$probe = wpcpm_refused_found(
+	"\tarray( 'name' => 'Ada Example', 'id' => 1 ),\n",
+	array( sha1( 'Ada Example' ) => 'found it' )
+);
+ck( 'and the walk really does cut a line into the candidates it hashes', $probe, array( 'Ada Example' => 'found it' ) );
+
+$named = array();
+
+// The shipped source and the readme too: a refused string in a comment ships in the zip, which
+// is a wider publication than the mirror (the fix wave's re-review, 8 September 2026).
+$refused_files = array( dirname( __DIR__ ) . '/readme.txt' );
+
+foreach ( array( __DIR__, dirname( __DIR__ ) . '/docs', dirname( __DIR__ ) . '/includes' ) as $tree ) {
+	if ( ! is_dir( $tree ) ) {
+		continue;
+	}
+
+	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $tree, FilesystemIterator::SKIP_DOTS ) ) as $file ) {
+		if ( $file->isFile() ) {
+			$refused_files[] = $file->getPathname();
+		}
+	}
+}
+
+foreach ( $refused_files as $path ) {
+	if ( is_file( $path ) && wpcpm_refused_found( (string) file_get_contents( $path ) ) ) {
+		$named[ substr( $path, strlen( dirname( __DIR__ ) ) + 1 ) ] = true;
+	}
+}
+
+ck( 'no file under bin/, docs/ or includes/ and not the readme carries a refused name, handle, profile address or organization (run bin/anonymize-fixtures.php)', array_keys( $named ), array() );
+
+// Every fixture, not the seed alone: the sweep rewrote a choice list in
+// students-table-fields.json too, and a refresh of one file on its own must not put a real
+// address back on the mirror with nothing to notice it. The refused-name walk above already
+// reads bin/fixtures/ as part of bin/.
+$with_address = array();
+
+foreach ( glob( __DIR__ . '/fixtures/*' ) as $fixture_file ) {
+	if ( preg_match( '/[A-Za-z0-9._%+-]*@[A-Za-z0-9-]+\.[A-Za-z]{2,}/', (string) file_get_contents( $fixture_file ) ) ) {
+		$with_address[] = basename( $fixture_file );
+	}
+}
+
+ck( 'no fixture holds an address of any kind', $with_address, array() );
+ck( 'and it says what it is, and how to make it again', array(
+	false !== strpos( (string) $seed['_comment'], 'synthetic' ),
+	false !== strpos( (string) $seed['_comment'], 'bin/anonymize-fixtures.php' ),
+	false !== strpos( (string) $seed['_comment'], 'no real record' ),
+), array( true, true, true ) );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

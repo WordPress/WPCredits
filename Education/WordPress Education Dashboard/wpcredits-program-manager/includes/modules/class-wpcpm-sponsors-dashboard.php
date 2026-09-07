@@ -238,11 +238,22 @@ final class WPCPM_Sponsors_Dashboard {
 	/**
 	 * Whether this user should be routed to the sponsor page.
 	 *
-	 * Membership first, then three exclusions, exactly as the institution page's own
-	 * `should_route()` reads: a mentor is excluded, because an account that both mentors and
+	 * Membership first, then three exclusions. The first two match the institution page's own
+	 * `should_route()`: a mentor is excluded, because an account that both mentors and
 	 * represents a sponsor is routed to the Mentor Report Card, matching the institution page's
-	 * own rule for exactly that account shape; a program manager or anyone who can write posts
-	 * needs wp-admin and is left alone.
+	 * own rule for exactly that account shape; a program manager needs wp-admin and is left
+	 * alone. The third exclusion deliberately diverges: anyone who edits other people's posts
+	 * is left alone too, because a sponsor member is granted posting capabilities by
+	 * WPCPM_Sponsor_Posts while an institution member never is.
+	 *
+	 * That last clause used to ask `edit_posts`. It was written in Phase S1, when a sponsor's
+	 * representative held no capability at all, and Phase S3 then granted `edit_posts`,
+	 * `delete_posts` and `upload_files` to every member of every sponsor whose posting flag is
+	 * on, which is the default: the clause excluded exactly the people the routing exists for,
+	 * so `login_redirect()` and `replace_admin_dashboard()` were both dead on a default install
+	 * and the `sponsor_home` setting did nothing (FSPON-3). `edit_others_posts` asks what was
+	 * meant: an editor or an administrator works in wp-admin, a representative writing the
+	 * sponsor's own posts does not.
 	 *
 	 * @param int|WP_User|null $user Optional user; defaults to the current user.
 	 * @return bool
@@ -262,7 +273,7 @@ final class WPCPM_Sponsors_Dashboard {
 			return false;
 		}
 
-		if ( user_can( $user->ID, WPCPM_Roles::CAP_MANAGE ) || user_can( $user->ID, 'edit_posts' ) ) {
+		if ( user_can( $user->ID, WPCPM_Roles::CAP_MANAGE ) || user_can( $user->ID, 'edit_others_posts' ) ) {
 			return false;
 		}
 

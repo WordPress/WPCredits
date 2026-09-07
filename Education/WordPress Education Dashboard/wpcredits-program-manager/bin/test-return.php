@@ -68,7 +68,15 @@ ck( 'and nothing for an empty target', printed( '' ), '' );
 $html = printed( 'dashboard', 'requests' );
 ck( 'and both inputs for the dashboard', false !== strpos( $html, 'name="wpcpm_return" value="dashboard"' ) && false !== strpos( $html, 'name="wpcpm_return_to" value="requests"' ), true );
 ck( 'an unknown anchor is not printed', false !== strpos( printed( 'dashboard', 'evil' ), 'wpcpm_return_to' ), false );
-ck( 'the anchors are the nine cards and the strip', WPCPM_Return::ANCHORS, array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'programs', 'health' ) );
+ck( 'the anchors are the twelve cards and the strip', WPCPM_Return::ANCHORS, array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'offers-low', 'interests', 'sponsors', 'programs', 'health' ) );
+
+// Read from the cards rather than from a copy of the list: card_open()'s own contract says its
+// id is one of these, and three of the twelve ids - offers-low, interests and sponsors - were
+// not, so a decision posted from one of those cards would have come back to the top of the page
+// with the anchor silently dropped by field() (deep check FADMN-6).
+preg_match_all( "/self::card_open\(\s*'([a-z-]+)'/", (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ), $cards );
+$ids = array_values( array_unique( $cards[1] ) );
+ck( 'and every card on the Administrator Dashboard uses one of them', array( count( $ids ) > 0, array_values( array_diff( $ids, WPCPM_Return::ANCHORS ) ) ), array( true, array() ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

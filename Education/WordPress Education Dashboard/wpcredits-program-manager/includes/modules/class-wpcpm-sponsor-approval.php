@@ -170,7 +170,8 @@ final class WPCPM_Sponsor_Approval {
 			self::event( $application_id, self::EVENT_RECORD_CREATED, $manager_id, $record );
 		}
 
-		// 2. The index row, so the account can be attached tonight rather than tomorrow.
+		// 2. The index row, so the account can be attached at the next sync run rather than the
+		// one after it.
 		if ( ! WPCPM_Sponsors_Index::has( $record ) ) {
 			WPCPM_Sponsors_Index::insert( self::row( $record, $stored ) );
 		}

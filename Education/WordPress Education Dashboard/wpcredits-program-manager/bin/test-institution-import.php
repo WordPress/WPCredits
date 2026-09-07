@@ -366,8 +366,8 @@ function at_line( array $rows, $line ) {
 echo "=== A file is read, whatever the registry exported ===\n";
 
 $csv = "Full Name,E-Mail,WordPress.org profile,Field of study,Tutor\n"
-	. "Anna Kowalska,Anna@uek.krakow.pl,https://profiles.wordpress.org/annak/,Technology & Engineering,Dr Nowak\n"
-	. "Bartek Zielinski,bartek@uek.krakow.pl,@bartekz,design & creative media,\n";
+	. "Anna Kowalska,Anna@institution-3.example,https://profiles.wordpress.org/annak/,Technology & Engineering,Dr Nowak\n"
+	. "Bartek Zielinski,bartek@institution-3.example,@bartekz,design & creative media,\n";
 
 $parsed = WPCPM_Institution_Import::parse( $csv );
 
@@ -379,9 +379,9 @@ ck( 'the line number is the file\'s own, so a refusal can name it', $parsed['row
 $rows = WPCPM_Institution_Import::clean_rows( $parsed['rows'] );
 
 ck( 'both rows may be created', verdicts( $rows ), array( 'ok', 'ok' ) );
-ck( 'the address is kept as typed', $rows[0]['email'], 'Anna@uek.krakow.pl' );
+ck( 'the address is kept as typed', $rows[0]['email'], 'Anna@institution-3.example' );
 // Airtable holds addresses as they were typed, and two spellings of one mailbox are one person.
-ck( 'and lowercased for comparing', $rows[0]['email_key'], 'anna@uek.krakow.pl' );
+ck( 'and lowercased for comparing', $rows[0]['email_key'], 'anna@institution-3.example' );
 ck( 'a profile URL becomes a handle', $rows[0]['handle'], 'annak' );
 ck( 'an @handle becomes the same kind of handle', $rows[1]['handle'], 'bartekz' );
 // The base holds these as URLs and a school's column holds five spellings of one.
@@ -393,40 +393,40 @@ ck( 'and an empty one is not invented', $rows[1]['tutor'], '' );
 echo "\n=== What a spreadsheet did to the file on the way ===\n";
 
 // Excel writes one, and a parser that does not strip it reads `\xEF\xBB\xBFFull Name`.
-$bom = WPCPM_Institution_Import::parse( "\xEF\xBB\xBFFull Name,Email\nAnna Kowalska,anna@uek.krakow.pl\n" );
+$bom = WPCPM_Institution_Import::parse( "\xEF\xBB\xBFFull Name,Email\nAnna Kowalska,anna@institution-3.example\n" );
 ck( 'a byte order mark does not hide the first column', $bom['ok'], true );
 
 // The comma is the decimal separator in most of the countries this program runs in.
-$semi = WPCPM_Institution_Import::parse( "Full Name;Email;Tutor\nAnna Kowalska;anna@uek.krakow.pl;Dr Nowak\n" );
+$semi = WPCPM_Institution_Import::parse( "Full Name;Email;Tutor\nAnna Kowalska;anna@institution-3.example;Dr Nowak\n" );
 ck( 'semicolons are read as a delimiter', $semi['ok'], true );
 ck( 'and the cells land in the right columns', $semi['rows'][0]['tutor'], 'Dr Nowak' );
 ck( 'the delimiter is reported, for the preview to say', $semi['delimiter'], ';' );
 
-$tabbed = WPCPM_Institution_Import::parse( "Full Name\tEmail\nAnna Kowalska\tanna@uek.krakow.pl\n" );
+$tabbed = WPCPM_Institution_Import::parse( "Full Name\tEmail\nAnna Kowalska\tanna@institution-3.example\n" );
 ck( 'a tab-separated export is read too', count( $tabbed['rows'] ), 1 );
 
 // Valid CSV. Splitting on newlines before parsing would tear this row in half and then complain.
-$quoted = WPCPM_Institution_Import::parse( "Full Name,Email,Tutor\n\"Kowalska, Anna\",anna@uek.krakow.pl,\"Dr Nowak\nDepartment of Design\"\n" );
+$quoted = WPCPM_Institution_Import::parse( "Full Name,Email,Tutor\n\"Kowalska, Anna\",anna@institution-3.example,\"Dr Nowak\nDepartment of Design\"\n" );
 ck( 'a quoted newline does not split the row', count( $quoted['rows'] ), 1 );
 ck( 'and the comma inside quotes stays in the name', $quoted['rows'][0]['name'], 'Kowalska, Anna' );
 
-$trailing = WPCPM_Institution_Import::parse( "Full Name,Email\nAnna Kowalska,anna@uek.krakow.pl\n\n\n,\n" );
+$trailing = WPCPM_Institution_Import::parse( "Full Name,Email\nAnna Kowalska,anna@institution-3.example\n\n\n,\n" );
 ck( 'empty rows at the end are dropped rather than named', count( $trailing['rows'] ), 1 );
 
 echo "\n=== Headers, as registries actually write them ===\n";
 
 foreach ( array( 'Full Name', 'full_name', 'FULL-NAME', 'Student', 'Name' ) as $spelling ) {
-	$try = WPCPM_Institution_Import::parse( $spelling . ",Email\nAnna Kowalska,anna@uek.krakow.pl\n" );
+	$try = WPCPM_Institution_Import::parse( $spelling . ",Email\nAnna Kowalska,anna@institution-3.example\n" );
 	ck( sprintf( '"%s" is the name column', $spelling ), $try['ok'] && 'Anna Kowalska' === $try['rows'][0]['name'], true );
 }
 
 foreach ( array( 'Email', 'E-Mail', 'e_mail', 'Mail', 'Email Address' ) as $spelling ) {
-	$try = WPCPM_Institution_Import::parse( "Name,$spelling\nAnna Kowalska,anna@uek.krakow.pl\n" );
-	ck( sprintf( '"%s" is the email column', $spelling ), $try['ok'] && 'anna@uek.krakow.pl' === $try['rows'][0]['email'], true );
+	$try = WPCPM_Institution_Import::parse( "Name,$spelling\nAnna Kowalska,anna@institution-3.example\n" );
+	ck( sprintf( '"%s" is the email column', $spelling ), $try['ok'] && 'anna@institution-3.example' === $try['rows'][0]['email'], true );
 }
 
 // A registry that always exports a Notes column should not have to strip it first.
-$extra = WPCPM_Institution_Import::parse( "Name,Email,Notes,Semester\nAnna Kowalska,anna@uek.krakow.pl,nothing,2\n" );
+$extra = WPCPM_Institution_Import::parse( "Name,Email,Notes,Semester\nAnna Kowalska,anna@institution-3.example,nothing,2\n" );
 ck( 'an unknown column does not refuse the file', $extra['ok'], true );
 ck( 'it is listed back so the school can see it was ignored', $extra['unknown'], array( 'Notes', 'Semester' ) );
 
@@ -435,7 +435,7 @@ ck( 'a file with no email column is refused', $no_email['problem'], 'no_columns'
 ck( 'and the refusal names what is missing', $no_email['detail']['missing'], array( 'email' ) );
 
 // The two a record cannot be created without. Everything else this import reads is optional.
-$bare = WPCPM_Institution_Import::parse( "Name,Email\nAnna Kowalska,anna@uek.krakow.pl\n" );
+$bare = WPCPM_Institution_Import::parse( "Name,Email\nAnna Kowalska,anna@institution-3.example\n" );
 ck( 'name and email alone are a valid file', $bare['ok'], true );
 
 echo "\n=== A file that is not UTF-8 is refused, not repaired ===\n";
@@ -533,9 +533,9 @@ echo "\n=== A person listed twice blocks both lines ===\n";
 $dupes = WPCPM_Institution_Import::clean_rows(
 	WPCPM_Institution_Import::parse(
 		"Name,Email,Profile\n"
-		. "Anna Kowalska,anna@uek.krakow.pl,\n"
-		. "Bartek Zielinski,bartek@uek.krakow.pl,\n"
-		. "Anna Kowalska,ANNA@uek.krakow.pl,\n"
+		. "Anna Kowalska,anna@institution-3.example,\n"
+		. "Bartek Zielinski,bartek@institution-3.example,\n"
+		. "Anna Kowalska,ANNA@institution-3.example,\n"
 	)['rows']
 );
 
@@ -548,8 +548,8 @@ ck( 'and the second names the first', at_line( $dupes, 4 )['duplicate_of'], 2 );
 $handles = WPCPM_Institution_Import::clean_rows(
 	WPCPM_Institution_Import::parse(
 		"Name,Email,Profile\n"
-		. "Anna Kowalska,anna@uek.krakow.pl,https://profiles.wordpress.org/annak/\n"
-		. "Anna Kowalska,a.kowalska@uek.krakow.pl,@annak\n"
+		. "Anna Kowalska,anna@institution-3.example,https://profiles.wordpress.org/annak/\n"
+		. "Anna Kowalska,a.kowalska@institution-3.example,@annak\n"
 	)['rows']
 );
 ck( 'one handle under two addresses blocks both', verdicts( $handles ), array( 'duplicate-file', 'duplicate-file' ) );
@@ -559,8 +559,8 @@ ck( 'one handle under two addresses blocks both', verdicts( $handles ), array( '
 $mixed = WPCPM_Institution_Import::clean_rows(
 	WPCPM_Institution_Import::parse(
 		"Name,Email\n"
-		. "=cmd(),anna@uek.krakow.pl\n"
-		. "Anna Kowalska,anna@uek.krakow.pl\n"
+		. "=cmd(),anna@institution-3.example\n"
+		. "Anna Kowalska,anna@institution-3.example\n"
 	)['rows']
 );
 ck( 'an invalid row keeps its own verdict', verdicts( $mixed ), array( 'invalid', 'ok' ) );
@@ -571,7 +571,7 @@ $batch = array( 'status' => 'In Sensei', 'start' => '2026-09-07' );
 
 $agrees = WPCPM_Institution_Import::parse(
 	"Name,Email,Start date,Program\n"
-	. "Anna Kowalska,anna@uek.krakow.pl,2026-09-07,In Sensei\n",
+	. "Anna Kowalska,anna@institution-3.example,2026-09-07,In Sensei\n",
 	$batch
 );
 ck( 'a file repeating the batch values is accepted', $agrees['ok'], true );
@@ -579,21 +579,21 @@ ck( 'a file repeating the batch values is accepted', $agrees['ok'], true );
 ck( 'and neither column reaches the row', isset( $agrees['rows'][0]['program'] ) || isset( $agrees['rows'][0]['start_date'] ), false );
 
 $by_label = WPCPM_Institution_Import::parse(
-	"Name,Email,Program\nAnna Kowalska,anna@uek.krakow.pl,WordPress Credits Program 150h\n",
+	"Name,Email,Program\nAnna Kowalska,anna@institution-3.example,WordPress Credits Program 150h\n",
 	$batch
 );
 ck( 'the program may be named as the program calls it', $by_label['ok'], true );
 
 $blank_cols = WPCPM_Institution_Import::parse(
-	"Name,Email,Start date,Program\nAnna Kowalska,anna@uek.krakow.pl,,\n",
+	"Name,Email,Start date,Program\nAnna Kowalska,anna@institution-3.example,,\n",
 	$batch
 );
 ck( 'empty agrees with anything, so an always-exported column is harmless', $blank_cols['ok'], true );
 
 $disagrees = WPCPM_Institution_Import::parse(
 	"Name,Email,Start date\n"
-	. "Anna Kowalska,anna@uek.krakow.pl,2026-09-07\n"
-	. "Bartek Zielinski,bartek@uek.krakow.pl,2027-02-01\n",
+	. "Anna Kowalska,anna@institution-3.example,2026-09-07\n"
+	. "Bartek Zielinski,bartek@institution-3.example,2027-02-01\n",
 	$batch
 );
 // Not a row-level problem to be cleaned away: one of the two descriptions is wrong, and only
@@ -601,7 +601,7 @@ $disagrees = WPCPM_Institution_Import::parse(
 ck( 'a row disagreeing refuses the file', $disagrees['problem'], 'batch_mismatch' );
 ck( 'naming the line', $disagrees['detail']['lines'], array( 3 ) );
 
-$no_batch = WPCPM_Institution_Import::parse( "Name,Email,Start date\nAnna Kowalska,anna@uek.krakow.pl,2027-02-01\n" );
+$no_batch = WPCPM_Institution_Import::parse( "Name,Email,Start date\nAnna Kowalska,anna@institution-3.example,2027-02-01\n" );
 ck( 'with no batch to check against, the column is simply ignored', $no_batch['ok'], true );
 
 echo "\n=== The spellings are a filter, because registries differ ===\n";
@@ -614,7 +614,7 @@ add_filter(
 	}
 );
 
-$filtered = WPCPM_Institution_Import::parse( "Apellidos y Nombre,Email\nAnna Kowalska,anna@uek.krakow.pl\n" );
+$filtered = WPCPM_Institution_Import::parse( "Apellidos y Nombre,Email\nAnna Kowalska,anna@institution-3.example\n" );
 ck( 'a site can teach it a registry\'s own header', $filtered['ok'], true );
 $GLOBALS['filters']['wpcpm_import_aliases'] = array();
 
@@ -644,13 +644,13 @@ function rec( $id, array $fields ) {
 	return array( 'id' => $id, 'fields' => $fields );
 }
 
-$one = "Name,Email\nAnna Kowalska,anna@uek.krakow.pl\n";
+$one = "Name,Email\nAnna Kowalska,anna@institution-3.example\n";
 
 // Their own list, so they are told about it in full: this is the school's own roster and
 // nothing about it is a fact about anybody else.
 $here = ladder(
 	$one,
-	array( rec( 'recS1', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'Anna@uek.krakow.pl', 'Status' => 'In Sensei', 'Start Date' => '2026-02-01', 'Educational Institutions' => array( $HERE ) ) ) )
+	array( rec( 'recS1', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'Anna@institution-3.example', 'Status' => 'In Sensei', 'Start Date' => '2026-02-01', 'Educational Institutions' => array( $HERE ) ) ) )
 );
 
 ck( 'a student already on this roster is named as such', $here[0]['verdict'], 'exists-here' );
@@ -665,7 +665,7 @@ ck( 'the address matched despite its casing', $here[0]['detail']['record'], 'rec
 $half = ladder(
 	$one,
 	array(),
-	array( rec( 'recR1', array( 'Name' => 'Anna Kowalska', 'Email' => 'anna@uek.krakow.pl', 'Status' => 'In Sensei', 'Educational institution' => array( $HERE ) ) ) )
+	array( rec( 'recR1', array( 'Name' => 'Anna Kowalska', 'Email' => 'anna@institution-3.example', 'Status' => 'In Sensei', 'Educational institution' => array( $HERE ) ) ) )
 );
 ck( 'a reports row on this institution is also "already here"', $half[0]['verdict'], 'exists-here' );
 ck( 'flagged as the half-made record it is', $half[0]['detail']['reports_only'], true );
@@ -676,10 +676,10 @@ echo "\n=== Everything else gets one answer, and one only ===\n";
 // to tell them apart: three hundred addresses pasted in would otherwise answer three hundred
 // questions about who is in the program.
 $causes = array(
-	'another institution' => ladder( $one, array( rec( 'recS2', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'anna@uek.krakow.pl', 'Status' => 'In Sensei', 'Educational Institutions' => array( $ELSEWHERE ) ) ) ) ),
-	'no institution'      => ladder( $one, array( rec( 'recS3', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'anna@uek.krakow.pl', 'Status' => 'Interested', 'Educational Institutions' => array() ) ) ) ),
-	'a reports row'       => ladder( $one, array(), array( rec( 'recR2', array( 'Name' => 'Anna K', 'Email' => 'anna@uek.krakow.pl', 'Educational institution' => array( $ELSEWHERE ) ) ) ) ),
-	'an account here'     => ladder( $one, array(), array(), array( 'anna@uek.krakow.pl' ) ),
+	'another institution' => ladder( $one, array( rec( 'recS2', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'anna@institution-3.example', 'Status' => 'In Sensei', 'Educational Institutions' => array( $ELSEWHERE ) ) ) ) ),
+	'no institution'      => ladder( $one, array( rec( 'recS3', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'anna@institution-3.example', 'Status' => 'Interested', 'Educational Institutions' => array() ) ) ) ),
+	'a reports row'       => ladder( $one, array(), array( rec( 'recR2', array( 'Name' => 'Anna K', 'Email' => 'anna@institution-3.example', 'Educational institution' => array( $ELSEWHERE ) ) ) ) ),
+	'an account here'     => ladder( $one, array(), array(), array( 'anna@institution-3.example' ) ),
 );
 
 foreach ( $causes as $what => $result ) {
@@ -700,7 +700,7 @@ ck( 'a program manager is told which it was, and the four differ', count( array_
 // The profile is an identity too. A student enrolled elsewhere under another address is found
 // by their handle, and the row is blocked exactly as if the address had matched.
 $by_handle = ladder(
-	"Name,Email,Profile\nAnna Kowalska,new.address@uek.krakow.pl,@annak\n",
+	"Name,Email,Profile\nAnna Kowalska,new.address@institution-3.example,@annak\n",
 	array( rec( 'recS4', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'other@example.test', 'WP Profile' => 'https://profiles.wordpress.org/annak/', 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
 );
 ck( 'a handle already on a record blocks the row', $by_handle[0]['verdict'], 'blocked' );
@@ -709,7 +709,7 @@ ck( 'saying no more than the others do', $by_handle[0]['detail'], array() );
 // FIND() is a substring test, so the base answers with candidates. `ann` inside `joanna` is
 // exactly the false positive that would block an innocent row, and PHP is what throws it out.
 $substring = ladder(
-	"Name,Email,Profile\nAnn Nowak,ann@uek.krakow.pl,@ann\n",
+	"Name,Email,Profile\nAnn Nowak,ann@institution-3.example,@ann\n",
 	array( rec( 'recS5', array( 'Full Name' => 'Joanna Lis', 'Email' => 'joanna@example.test', 'WP Profile' => 'https://profiles.wordpress.org/joanna/', 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
 );
 ck( 'a handle inside a longer one is not a match', $substring[0]['verdict'], 'ok' );
@@ -718,23 +718,23 @@ ck( 'a handle inside a longer one is not a match', $substring[0]['verdict'], 'ok
 // because both sides go through the normaliser the file went through.
 foreach ( array( 'profiles.wordpress.org/annak', 'https://profiles.wordpress.org/AnnaK/', 'annak' ) as $spelling ) {
 	$variant = ladder(
-		"Name,Email,Profile\nAnna Kowalska,fresh@uek.krakow.pl,@annak\n",
+		"Name,Email,Profile\nAnna Kowalska,fresh@institution-3.example,@annak\n",
 		array( rec( 'recS6', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'other@example.test', 'WP Profile' => $spelling, 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
 	);
 	ck( sprintf( 'the URL written as "%s" still matches', $spelling ), $variant[0]['verdict'], 'blocked' );
 }
 
 // Two characters is most of the base. Asking is a request spent to throw every row away again.
-$short = ladder( "Name,Email,Profile\nAnna Kowalska,anna@uek.krakow.pl,@an\n" );
+$short = ladder( "Name,Email,Profile\nAnna Kowalska,anna@institution-3.example,@an\n" );
 $asked = array_filter( $GLOBALS['queries'], function ( $q ) { return 0 === strpos( $q[1], 'has:' ); } );
 ck( 'a handle under three characters is not searched for', $asked, array() );
 
 echo "\n=== A resemblance warns; it does not refuse ===\n";
 
 $near = ladder(
-	"Name,Email\nanna  kowalska,fresh@uek.krakow.pl\n",
+	"Name,Email\nanna  kowalska,fresh@institution-3.example\n",
 	array(), array(), array(),
-	array( array( 'name' => 'Anna Kowalska', 'email_key' => 'anna@uek.krakow.pl' ) )
+	array( array( 'name' => 'Anna Kowalska', 'email_key' => 'anna@institution-3.example' ) )
 );
 // Two people at one university do share a name, and refusing on a resemblance would make the
 // school argue with a robot about it.
@@ -742,9 +742,9 @@ ck( 'a name already on the roster is a warning, not a block', $near[0]['verdict'
 ck( 'and names who it resembles', $near[0]['detail']['near'], 'Anna Kowalska' );
 
 $unlike = ladder(
-	"Name,Email\nAnna Kowalska-Nowak,fresh@uek.krakow.pl\n",
+	"Name,Email\nAnna Kowalska-Nowak,fresh@institution-3.example\n",
 	array(), array(), array(),
-	array( array( 'name' => 'Anna Kowalska', 'email_key' => 'anna@uek.krakow.pl' ) )
+	array( array( 'name' => 'Anna Kowalska', 'email_key' => 'anna@institution-3.example' ) )
 );
 ck( 'a different name is not a resemblance', $unlike[0]['verdict'], 'ok' );
 
@@ -752,7 +752,7 @@ echo "\n=== What the ladder does not do ===\n";
 
 // Rows the cleaner already refused are not looked up: they are not going to be created, and
 // asking about them spends requests to change nothing.
-$skipped = ladder( "Name,Email\n=cmd(),anna@uek.krakow.pl\n" );
+$skipped = ladder( "Name,Email\n=cmd(),anna@institution-3.example\n" );
 ck( 'an invalid row keeps its verdict', $skipped[0]['verdict'], 'invalid' );
 ck( 'and nothing was asked about it', $GLOBALS['queries'], array() );
 
@@ -762,7 +762,7 @@ ck( 'a row nothing knows about is ready to create', $clean[0]['verdict'], 'ok' )
 // One request per table per chunk, and the address list is in the formula: a stub that ignored
 // the formula would pass every assertion above with the query left empty.
 ck( 'two tables were asked, students and reports, by address', count( $GLOBALS['queries'] ), 2 );
-ck( 'and the address was in the query', $GLOBALS['queries'][0][1], 'in:Email:anna@uek.krakow.pl' );
+ck( 'and the address was in the query', $GLOBALS['queries'][0][1], 'in:Email:anna@institution-3.example' );
 
 // The first error stops the ladder rather than a verdict being guessed from half an answer.
 $GLOBALS['fail_table'] = 'tblReports';

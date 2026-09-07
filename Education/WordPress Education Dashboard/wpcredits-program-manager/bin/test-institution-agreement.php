@@ -1323,7 +1323,7 @@ foreach ( $seed['institutions'] as $row ) {
 	}
 }
 
-ck( 'the seed holds exactly one record labelled TEST, and it is the one the module is built against', $test_id, 'recDdomg5W6h410JT' );
+ck( 'the seed holds exactly one record labelled TEST, and it is the one the module is built against', $test_id, 'recSEED0000000001' );
 ck( 'and it is a Confirmed-stage-free record nobody will mistake for a partner', count( array_filter( $seed['institutions'], function ( $row ) { return 0 === strpos( (string) $row['name'], 'TEST' ); } ) ), 1 );
 
 reset_world();
@@ -2166,6 +2166,75 @@ foreach ( array( 'handle_accept', 'handle_return', 'handle_withdraw' ) as $handl
 	ck( $handler . '() reads the state again once the lock is its own', strpos( $body_now, 'self::lock(' ) < strrpos( $body_now, 'self::submitted_post( $post_id )' ), true );
 }
 
+/* ---- no option to read: the status the base holds, never an empty one ---- */
+
+echo "\n=== A transition with no option to read carries the base's own status (FADMN-1) ===\n";
+
+/**
+ * Leave the world as the institutions sync leaves an out-of-stage institution: the index row
+ * carries what the base last said, and the option is gone.
+ *
+ * Not a contrivance. `WPCPM_Institutions_Sync::phase_revoke()` deletes
+ * `wpcpm_agreement_<record>` on every run for every record outside `institution_active_stages`,
+ * and a manager's revoke deletes it too, so "no option" is the ordinary state for such an
+ * institution rather than a rare one - and the agreement panel is still reachable there,
+ * because `WPCPM_Institution_Policy::ungated()` exempts `ACT_AGREEMENT` alone.
+ *
+ * @param string $status What the base's `Agreement Status` said when the index was read.
+ * @param string $record Institutions record ID.
+ */
+function forget_option( $status, $record = 'recAAAAAAAAAAAAA1' ) {
+	$GLOBALS['index_rows'][ $record ]['agreement']['status'] = $status;
+	WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+	delete_option( 'wpcpm_agreement_' . $record );
+}
+
+/**
+ * The status the option holds for the fixture's institution.
+ *
+ * @param string $record Institutions record ID.
+ * @return string
+ */
+function stored_status( $record = 'recAAAAAAAAAAAAA1' ) {
+	$option = WPCPM_Institution_Agreement::option( $record );
+
+	return is_array( $option ) ? (string) $option['airtable_status'] : 'no option';
+}
+
+// An upload whose PATCH failed. The mark is left for the retry, and the option must not say
+// the base is at nothing: an empty status is in `AIRTABLE_STATUS_OPEN`, so the next Generate
+// would send `Template generated` over the `Revoked` this base really holds.
+upload_world();
+forget_option( 'Revoked' );
+$GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'Service Unavailable' );
+ck( 'an upload whose PATCH failed writes the base\'s own status into the rebuilt option', array( run( 'handle_upload' ), stored_status() ), array( 'agreement-uploaded', 'Revoked' ) );
+
+// A replacement sent back while something else stands: T6 writes no cell, so the block is
+// built from nothing at all.
+review_world();
+seed_post( 'recAAAAAAAAAAAAA1', 'accepted', 'own', array( WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-01-10' ) );
+forget_option( 'Revoked' );
+$_POST['wpcpm_agreement_note'] = 'This replacement is missing the annexe, please send it again.';
+ck( 'returning a replacement does the same', array( run( 'handle_return' ), stored_status() ), array( 'agreement-returned', 'Revoked' ) );
+
+// And the withdraw, which passes no cells on any path.
+review_world();
+$GLOBALS['caps'] = false;
+$GLOBALS['uid']  = 4;
+forget_option( 'Revoked' );
+ck( 'and so does a withdrawal', array( run( 'handle_withdraw' ), stored_status() ), array( 'agreement-withdrawn', 'Revoked' ) );
+
+// The second consequence: an empty status settles nothing, so the institution whose agreement
+// is in force would be locked out of every gated action by the return of a replacement, until
+// the sync's next rebuild put the status back.
+review_world();
+seed_post( 'recAAAAAAAAAAAAA1', 'accepted', 'own', array( WPCPM_Institution_Agreement::META_DECIDED_AT => '2026-01-10' ) );
+forget_option( 'Accepted' );
+$_POST['wpcpm_agreement_note'] = 'This replacement is missing the annexe, please send it again.';
+run( 'handle_return' );
+
+ck( 'and an agreement in force still settles after one is sent back under it', array( stored_status(), WPCPM_Institution_Agreement::is_settled( 'recAAAAAAAAAAAAA1' ) ), array( 'Accepted', true ) );
+
 /* ---- revoke ------------------------------------------------------------- */
 
 echo "\n=== handle_revoke(): Airtable first, the option deleted, and the gate shut on this request (T8) ===\n";
@@ -2777,7 +2846,7 @@ echo "\n=== The retry finishes an Airtable write the base refused, on the next s
 // `META_AIRTABLE_PENDING` was write-only from the day the module shipped: an upload or a
 // generate that met an unreachable base marked the document rather than failing the
 // institution's action, and nothing ever read the mark back. The base stayed wrong until a
-// person noticed. Everything below is about the night after.
+// person noticed. Everything below is about the sync run after.
 reset_world();
 $GLOBALS['clock']    = 1756700000;
 $GLOBALS['users'][9] = new WP_User( 9, 'A Manager', 'maciej@a8c.com' );
@@ -2788,13 +2857,13 @@ $rec_r   = 'recRETRYAAAAAAAA1';
 $waiting = seed_post( $rec_r, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_OWN, array( WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1 ) );
 
 $GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'The base could not be reached.' );
-ck( 'a night the base is still down clears nothing and keeps the mark',
+ck( 'a run with the base still down clears nothing and keeps the mark',
     array( WPCPM_Institution_Agreement::retry_airtable(), (int) get_post_meta( $waiting, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ) ), array( 0, 1 ) );
 ck( 'and it asked once rather than giving up before it tried', count( $GLOBALS['patched'] ), 1 );
 
 $GLOBALS['airtable'] = null;
 $GLOBALS['patched']  = array();
-ck( 'the next night clears the mark and answers with the count',
+ck( 'the next run clears the mark and answers with the count',
     array( WPCPM_Institution_Agreement::retry_airtable(), (string) get_post_meta( $waiting, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ) ), array( 1, '' ) );
 ck( 'one PATCH, naming the record', array( count( $GLOBALS['patched'] ), $GLOBALS['patched'][0][1][0]['id'] ), array( 1, $rec_r ) );
 ck( 'carrying the cells T3 writes while one waits, through the sync\'s field map', patched_cells(), array(
@@ -2802,12 +2871,12 @@ ck( 'carrying the cells T3 writes while one waits, through the sync\'s field map
 	$cols['agr_kind']         => 'Institution-specific',
 	$cols['agr_submitted_on'] => $retry_day,
 ) );
-ck( 'and a night with nothing owed writes nothing at all',
+ck( 'and a run with nothing owed writes nothing at all',
     array( WPCPM_Institution_Agreement::retry_airtable(), count( $GLOBALS['patched'] ) ), array( 0, 1 ) );
 
 // The mark outlives the request that left it, and nothing deletes it on the way through
 // acceptance: a document marked as an upload can be accepted before the retry ever runs. The
-// base wants what is true tonight, which is T5's cells, not the upload's.
+// base wants what is true now, which is T5's cells, not the upload's.
 $rec_s    = 'recRETRYBBBBBBBB2';
 $accepted = seed_post( $rec_s, WPCPM_Institution_Agreement::STATE_ACCEPTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, array(
 	WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1,
@@ -2885,7 +2954,7 @@ ck( 'and over a status further along, the kind and the version go without it', a
 $rec_w                           = 'recRETRYFFFFFFFF6';
 $GLOBALS['index_rows'][ $rec_w ] = array_merge( WPCPM_Institutions_Index::empty_row(), array(
 	'record_id' => $rec_w,
-	'name'      => 'Universidad Fidelitas',
+	'name'      => 'Universidad Example',
 	'stage'     => 'Confirmed',
 	'agreement' => array( 'status' => 'Accepted' ),
 ) );
@@ -2908,7 +2977,7 @@ ck( 'with no option to read, the status the index carries still keeps the row fr
 
 // And the option the retry left behind says what the base says. An empty `airtable_status`
 // counts as open, so a row rebuilt from an absent option would hand the next generate the
-// green light to send `Template generated` over this `Accepted`, one night after the retry
+// green light to send `Template generated` over this `Accepted`, one run after the retry
 // refused to send it. The status is recorded, and it settles nothing: a generated document is
 // not a settled site state.
 $rebuilt_w = WPCPM_Institution_Agreement::option( $rec_w );
@@ -2918,7 +2987,7 @@ ck( 'and the option it wrote carries that status rather than an empty one, witho
 ), array( 'Accepted', false ) );
 
 // A mark on a document whose institution is not a record at all: there is nothing to write
-// to, so the mark is not a write that is owed. It goes, or it is read again every night.
+// to, so the mark is not a write that is owed. It goes, or it is read again on every run.
 $orphan             = seed_post( 'recSHORT', WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_OWN, array( WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1 ) );
 $GLOBALS['patched'] = array();
 ck( 'a mark that names no record is dropped without a write', array( WPCPM_Institution_Agreement::retry_airtable(), $GLOBALS['patched'], (string) get_post_meta( $orphan, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ) ),

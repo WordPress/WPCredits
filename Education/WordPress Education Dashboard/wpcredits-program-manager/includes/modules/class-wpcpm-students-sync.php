@@ -1519,7 +1519,7 @@ class WPCPM_Students_Sync {
 			$state['rows'][ $record_id ]['reports'] = $reports;
 
 			// **The profile lives on the reports row, not on the Students row.** Measured on
-			// the live base: at Krakow University of Economics the Students table's `WP Profile`
+			// the live base: at one partner university the Students table's `WP Profile`
 			// column is empty for all fifteen of their students, while the Students Reports
 			// row carries one for eleven of the same fifteen. The index was reading only the
 			// Students column, so every institution's roster showed no WordPress.org profile at

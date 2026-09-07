@@ -33,6 +33,9 @@ final class WPCPM_Sponsor_Tools {
 	/** The section's id, and the anchor the handlers return to. */
 	const ANCHOR = 'wpcpm-tools';
 
+	/** The one hint every claimed code is described by (deep check FFRNT-6). */
+	const HINT_ID = 'wpcpm-tools-code-hint';
+
 	const AUDIENCE_STUDENTS = 'students';
 	const AUDIENCE_MENTORS  = 'mentors';
 	const AUDIENCE_MANAGERS = 'managers';
@@ -141,7 +144,7 @@ final class WPCPM_Sponsor_Tools {
 	}
 
 	/**
-	 * Whether a person may claim an offer: five clauses, each with a test.
+	 * Whether a person may claim an offer: six clauses, each with a test.
 	 *
 	 * @param int|WP_User|null $user  The person.
 	 * @param array            $offer The offer.
@@ -162,7 +165,7 @@ final class WPCPM_Sponsor_Tools {
 	 *
 	 * @param int|WP_User|null $user  The person.
 	 * @param array            $offer The offer.
-	 * @return string '' when they may claim, else `nobody`, `closed`, `kind`, `claimed`, `empty` or `unshared`.
+	 * @return string '' when they may claim, else `nobody`, `closed`, `kind`, `off`, `claimed`, `empty` or `unshared`.
 	 */
 	public static function may_claim_reason( $user, array $offer ) {
 		$user = WPCPM_Roles::resolve_user( $user );
@@ -184,17 +187,26 @@ final class WPCPM_Sponsor_Tools {
 			return 'kind';
 		}
 
-		// 3. The person has not claimed this offer.
+		// 3. The section is switched on for the audience they claim as: `tools_students` for a
+		// student, `tools_mentors` for a mentor, and always on for a manager, who has no switch.
+		// Nothing asked this before, so a form drawn while the switch was on still took a code
+		// after it was turned off, and the section then rendered nothing at all: the person could
+		// never read the code they had just been given (deep check FOFFR-2).
+		if ( ! self::enabled( $kind ) ) {
+			return 'off';
+		}
+
+		// 4. The person has not claimed this offer.
 		if ( WPCPM_Sponsor_Claims::has_claimed( $user->ID, $offer['id'] ) ) {
 			return 'claimed';
 		}
 
-		// 4. For a pool, one code is available.
+		// 5. For a pool, one code is available.
 		if ( WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] && WPCPM_Sponsor_Codes::counts( $offer['id'] )['available'] < 1 ) {
 			return 'empty';
 		}
 
-		// 5. For a shared offer, there is something to show.
+		// 6. For a shared offer, there is something to show.
 		if ( WPCPM_Sponsor_Offers::KIND_SHARED === $offer['kind'] && '' === WPCPM_Sponsor_Codes::shared( $offer['id'] ) ) {
 			return 'unshared';
 		}
@@ -297,6 +309,31 @@ final class WPCPM_Sponsor_Tools {
 		echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'Tools from our sponsors', 'wpcredits-program-manager' ) . '</h3>';
 
 		self::render_message( $flash );
+
+		// The one hint the code buttons are described by, printed once and only when at least one
+		// claim actually draws as a button rather than a link: a code is a button so that its
+		// role is announced and what pressing it does still has to be said somewhere, or the
+		// behavior forms.js gives it is undiscoverable (deep check FFRNT-6), but a viewer whose
+		// only claim is a checkout link sees no button anywhere on the page, and a hint about
+		// pressing one would describe nothing there (Task 3 fix round 1, review suggestion 4).
+		$has_button_claim = false;
+
+		foreach ( array_keys( $claims ) as $claimed_offer_id ) {
+			$claimed_code = WPCPM_Sponsor_Claims::code_for( $viewer->ID, array( 'id' => (int) $claimed_offer_id ) );
+
+			if ( '' !== $claimed_code && ! preg_match( '#^https?://#i', $claimed_code ) ) {
+				$has_button_claim = true;
+				break;
+			}
+		}
+
+		if ( $has_button_claim ) {
+			printf(
+				'<p class="wpcpm-student__note" id="%1$s">%2$s</p>',
+				esc_attr( self::HINT_ID ),
+				esc_html__( 'Press a code, or press Enter or Space on it, to select the whole code.', 'wpcredits-program-manager' )
+			);
+		}
 
 		if ( empty( $offers ) ) {
 			echo '<p class="wpcpm-student__note">' . esc_html__( 'No offer is open to you right now. What you already claimed is below.', 'wpcredits-program-manager' ) . '</p>';
@@ -448,7 +485,11 @@ final class WPCPM_Sponsor_Tools {
 
 	/**
 	 * The claimant's own code, unsealed here and nowhere else. A code that is a link is a link;
-	 * anything else is a selectable block forms.js selects on click.
+	 * anything else is a button whose contents forms.js selects, described so that the Enter and
+	 * Space behavior is announced (deep check FFRNT-6). The button carries no aria-label: its
+	 * accessible name comes from its own visible text, the code itself, which is the one thing
+	 * this block exists to give the person, so nothing here may replace that name (Task 3 fix
+	 * round 1, review suggestion 1; WCAG 2.5.3, Label in Name).
 	 *
 	 * @param array   $offer  The offer.
 	 * @param WP_User $viewer The claimant.
@@ -462,7 +503,11 @@ final class WPCPM_Sponsor_Tools {
 		if ( preg_match( '#^https?://#i', $code ) ) {
 			printf( '<a class="wpcpm-tools__code" href="%1$s" rel="external noopener">%2$s</a>', esc_url( $code ), esc_html( $code ) );
 		} else {
-			printf( '<code class="wpcpm-tools__code" data-wpcpm-select tabindex="0">%s</code>', esc_html( $code ) );
+			printf(
+				'<button type="button" class="wpcpm-tools__code" data-wpcpm-select aria-describedby="%1$s">%2$s</button>',
+				esc_attr( self::HINT_ID ),
+				esc_html( $code )
+			);
 		}
 
 		/* translators: %s: the date. */
@@ -539,7 +584,11 @@ final class WPCPM_Sponsor_Tools {
 			if ( preg_match( '#^https?://#i', $code ) ) {
 				printf( '<a class="wpcpm-tools__code" href="%1$s" rel="external noopener">%2$s</a>', esc_url( $code ), esc_html( $code ) );
 			} else {
-				printf( '<code class="wpcpm-tools__code" data-wpcpm-select tabindex="0">%s</code>', esc_html( $code ) );
+				printf(
+					'<button type="button" class="wpcpm-tools__code" data-wpcpm-select aria-describedby="%1$s">%2$s</button>',
+					esc_attr( self::HINT_ID ),
+					esc_html( $code )
+				);
 			}
 
 			printf( ' <span class="wpcpm-tools__when">%s</span>', esc_html( wp_date( 'Y-m-d', (int) $claim['at'] ) ) );

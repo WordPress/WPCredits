@@ -290,17 +290,24 @@ post_logos( '' );
 // With the record, as every other outcome here carries it: a manager who pressed Save on a
 // sponsor's behalf lands back on that sponsor and not on whichever one the page opens with.
 ck( 'nothing chosen is a refusal that says so', ran( 'handle_upload' ), 'logo-none|profile|' . $S . '|' );
+// FSPON-4: five empty presses used to fill the day's ceiling and refuse every colleague, and
+// the sponsor never uploaded anything. A submission with no file in it costs nothing.
+ck( 'and it spends none of the five uploads the day allows', $GLOBALS['ceiling'], array() );
 post_logos( fake_svg() );
 ck( 'an SVG named .png is refused by its content', substr( ran( 'handle_upload' ), 0, 12 ), 'logo-refused' );
 ck( 'and nothing was stored', $GLOBALS['attachments'], array() );
+// A file that did arrive still spends its place before a byte of it is read: that is what
+// keeps a runaway script from feeding this handler a megabyte at a time.
+ck( 'a file that did arrive spends one, refused or not', $GLOBALS['ceiling'], array( 'sponsor-logo:' . $S => 1 ) );
 post_logos( png( 199, 80 ) );
 ck( 'a logo narrower than 200px is refused', substr( ran( 'handle_upload' ), 0, 12 ), 'logo-refused' );
 post_logos( png( 300, 100 ), fake_svg() );
 ck( 'one bad file of two refuses the pair', substr( ran( 'handle_upload' ), 0, 12 ), 'logo-refused' );
 ck( 'and neither half was stored', $GLOBALS['attachments'], array() );
 
-// A fresh day. The ceiling is claimed before a byte is read, which is the point of putting
-// it there, so each of the four refusals above spent one of the five a day allows.
+// A fresh day. The ceiling is claimed once a file has arrived and before a byte of it is
+// read, so the three refusals above that carried a file spent one each and the empty one
+// spent nothing.
 $GLOBALS['ceiling'] = array();
 
 echo "\n=== The upload ===\n";
@@ -372,6 +379,20 @@ $logo_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wp
 ck( 'the PATCH is made before the site record is touched, read off the source', strpos( method_body( $logo_src, 'handle_remove' ), 'self::clear_airtable' ) < strpos( method_body( $logo_src, 'handle_remove' ), 'write_logo_record' ), true );
 ck( 'and the card says the logo goes from both places, and that the files stay', false !== strpos( method_body( $logo_src, 'render_inner' ), 'It goes from this site and from the program records.' ), true );
 
+// FSPON-5: the card offers Remove only for a logo this site owns, and the handler asks the
+// same question rather than trusting that it did. A nonce minted while the site owned the
+// logo stays valid for its life, and the sponsors sync can set the source back to airtable in
+// between; the PATCH would then empty the base's Logo and destroy the only copy the program
+// holds, under an audit row saying the logo was removed from the program records.
+$patched_before = count( $GLOBALS['patched'] );
+ck( 'Remove pressed with nothing of the site\'s left is refused', ran( 'handle_remove' ), 'logo-not-site|profile|' . $S . '|' );
+WPCPM_Sponsors_Index::write_logo_record( $S, array( 'colour' => $held['colour'], 'white' => $held['white'], 'source' => 'airtable', 'airtable_id' => 'attTESTLOGO00001' ) );
+ck( 'and so is a logo the base owns, however valid the form', ran( 'handle_remove' ), 'logo-not-site|profile|' . $S . '|' );
+ck( 'neither press touched the base', count( $GLOBALS['patched'] ), $patched_before );
+ck( 'and the record the sync wrote is left exactly as it was', WPCPM_Sponsors_Index::logo_record( $S ), array( 'colour' => $held['colour'], 'white' => $held['white'], 'source' => 'airtable', 'airtable_id' => 'attTESTLOGO00001' ) );
+// Load-bearing, not tidying: "The card" section below expects to start from an empty record.
+WPCPM_Sponsors_Index::write_logo_record( $S, array( 'colour' => 0, 'white' => 0, 'source' => '', 'airtable_id' => '' ) );
+
 echo "\n=== The card ===\n";
 $GLOBALS['ceiling'] = array();
 $GLOBALS['uid']     = 20;
@@ -403,6 +424,11 @@ ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'wp_handle_upload() is never called', preg_match( '/wp_handle_upload|move_uploaded_file/', $src ), 0 );
 ck( '$_FILES is read in one helper and nowhere else', substr_count( $src, '$_FILES' ), 4 );
 ck( 'the fence runs before the ceiling', strpos( $src, 'WPCPM_Sponsor_Roster::claim' ) < strpos( $src, 'WPCPM_Ceiling::claim' ), true );
+$upload_body = method_body( $src, 'handle_upload' );
+ck( 'the ceiling is claimed after the form is found to carry a file and before one is read', array(
+	strpos( $upload_body, "self::leave( 'logo-none'" ) < strpos( $upload_body, 'WPCPM_Ceiling::claim' ),
+	strpos( $upload_body, 'WPCPM_Ceiling::claim' ) < strpos( $upload_body, 'WPCPM_Image_Upload::accept' ),
+), array( true, true ) );
 ck( 'and nothing is stored before every file is accepted', strpos( $src, 'WPCPM_Image_Upload::accept' ) < strpos( $src, 'WPCPM_Image_Upload::store' ), true );
 ck( 'every string a person reads says color', preg_match( '/\bcolour\b/', preg_replace( "/'colour'/", '', $src ) ), 0 );
 

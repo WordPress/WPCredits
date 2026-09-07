@@ -16,7 +16,7 @@
  *   `wp_mail()` is stubbed to record a call precisely so that promise has a check behind it.
  * - `Dashboard account` is written to Airtable, and to the index at once, the moment an
  *   account is created or attached, and cleared the moment a sponsor's last account is
- *   detached: nobody waits a night to see it.
+ *   detached: nobody waits for the next sync run to see it.
  * - The screen draws four cards (the sync panel, the sponsors index, the accounts per
  *   sponsor, the interests log) and offers Create account only where the brief allows it:
  *   Approved, with a contact address, without an account already.
@@ -399,9 +399,9 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php';
 // ck(), then the fixture: an index of three sponsors written through the real index class.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002'; $C = 'recSPONSOR0000003';
 WPCPM_Sponsors_Index::write( array(
-	$A => array( 'name' => 'miniOrange ', 'status' => 'Approved', 'product_type' => 'Hosting', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'manager' => 'recTEAM0000000001' ),
-	$B => array( 'name' => 'Wetopi', 'status' => 'Approved', 'contact_email' => '' ),
-	$C => array( 'name' => 'Elicus', 'status' => 'Paused', 'contact_email' => 'maciej@a8c.com' ),
+	$A => array( 'name' => 'Mango Example ', 'status' => 'Approved', 'product_type' => 'Hosting', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'manager' => 'recTEAM0000000001' ),
+	$B => array( 'name' => 'Wexample', 'status' => 'Approved', 'contact_email' => '' ),
+	$C => array( 'name' => 'Ember Example', 'status' => 'Paused', 'contact_email' => 'maciej@a8c.com' ),
 ), time() );
 WPCPM_Sponsors_Index::write_team( array( 'recTEAM0000000001' => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => '' ) ), time() );
 $GLOBALS['settings'] = array( 'sponsors_table' => 'tblSPONSORS', 'sponsor_on_inactive' => 'keep' );
@@ -466,7 +466,7 @@ ck( 'and the index row says so at once', WPCPM_Sponsors_Index::row( $A )['dashbo
 ck( 'and it is logged', array( end( $GLOBALS['audit'] )['kind'], end( $GLOBALS['audit'] )['sponsor'], end( $GLOBALS['audit'] )['ground'] ), array( 'provisioned', $A, 'manager' ) );
 $r = post( array( 'wpcpm_sponsor' => $A ), array( $module, 'handle_provision' ) );
 ck( 'pressing again attaches nothing new and says the account exists', $r[2], 'provision-attached' );
-$GLOBALS['users'][7] = new WP_User( 7, array( 'wpcpm_mentor' ), 'Emilia', 'maciej@a8c.com' );
+$GLOBALS['users'][7] = new WP_User( 7, array( 'wpcpm_mentor' ), 'Ines', 'maciej@a8c.com' );
 // The created account moves to another address, so the contact address now names the mentor
 // alone: the stub's get_user_by( 'email' ) must not have two candidates.
 $new->user_email = 'former@example.test';
@@ -506,11 +506,11 @@ $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_op' => 'eat' ), array( $module, 
 ck( 'an op that is not one is the one refusal', $r[2], 'refused' );
 
 echo "\n=== Provisioning refuses a student's address, and a detach refuses another sponsor's member ===\n";
-// $C ('Elicus') is Paused in the fixture; flipped to Approved only for this scenario and
+// $C ('Ember Example') is Paused in the fixture; flipped to Approved only for this scenario and
 // flipped back before the screen renders below, so nothing else in this file sees a fourth
 // qualifying sponsor or an extra Create account button.
 WPCPM_Sponsors_Index::patch( $C, array( 'status' => WPCPM_Sponsors_Index::STATUS_APPROVED ) );
-// maciej@a8c.com currently names both Emilia (id 7) and the Stranger (id 9); both moved
+// maciej@a8c.com currently names both Ines (id 7) and the Stranger (id 9); both moved
 // aside so the student account below is the one and only match, the same technique the
 // provisioning tests above already use to steer get_user_by( 'email', ... ).
 $GLOBALS['users'][7]->user_email = 'moved-aside-1@example.test';
@@ -535,7 +535,7 @@ ob_start();
 $module->render_admin_page();
 $html = ob_get_clean();
 ck( 'the sync panel', false !== strpos( $html, 'wpcpm_sponsors_sync' ) && false !== strpos( $html, 'Sync sponsors now' ), true );
-ck( 'the index card lists every sponsor with its status and manager', false !== strpos( $html, 'miniOrange' ) && false !== strpos( $html, 'Paused' ) && false !== strpos( $html, 'Maciej (Matt) Pilarski' ), true );
+ck( 'the index card lists every sponsor with its status and manager', false !== strpos( $html, 'Mango Example' ) && false !== strpos( $html, 'Paused' ) && false !== strpos( $html, 'Maciej (Matt) Pilarski' ), true );
 ck( 'Create account is offered where it belongs: Approved, with an address, without an account', substr_count( $html, 'value="' . WPCPM_Sponsors::ACTION_PROVISION . '"' ), 1 );
 ck( 'the members card offers attach for Approved sponsors', substr_count( $html, 'value="attach"' ), 2 );
 ck( 'the interests log card is drawn', false !== strpos( $html, 'Interests' ), true );
@@ -634,7 +634,9 @@ $GLOBALS['nonce_ok'] = true;
 $GLOBALS['uid']      = 1;
 
 echo "\n=== Uninstall ===\n";
-$meta_keys = array( WPCPM_Sponsor_Members::META_RECORD_ID, WPCPM_Sponsor_Members::META_ACTIVE, WPCPM_Sponsor_Members::META_RECORD_ID_WAS, WPCPM_Sponsor_Members::META_MEMBERSHIP, WPCPM_Sponsor_Members::META_INVITED, WPCPM_Sponsor_Members::META_PROFILE );
+// The last is a literal since 1.99.0: nothing writes it any more, and uninstall still removes
+// what 1.93.0 to 1.98.1 wrote (FSPON-6).
+$meta_keys = array( WPCPM_Sponsor_Members::META_RECORD_ID, WPCPM_Sponsor_Members::META_ACTIVE, WPCPM_Sponsor_Members::META_RECORD_ID_WAS, WPCPM_Sponsor_Members::META_MEMBERSHIP, WPCPM_Sponsor_Members::META_INVITED, 'wpcpm_sponsor_profile' );
 $before_users = count( $GLOBALS['users'] );
 $stamped_before = array();
 foreach ( $GLOBALS['users'] as $id => $user ) {
@@ -1051,6 +1053,7 @@ $src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.p
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'accounts come from WPCPM_Roles::insert_user() alone', strpos( $src, 'wp_insert_user(' ), false );
 ck( 'every handler decides through the policy or the capability before it writes', preg_match_all( '/public function handle_(provision|members)\(/', $src ) === 2 && substr_count( $src, 'WPCPM_Sponsor_Policy::decide(' ) >= 2, true );
+ck( 'activate() sets the repair flag itself, so a fresh install never queries for accounts it cannot have', false !== strpos( method_body( $src, 'activate' ), 'update_option( WPCPM_Sponsor_Members::OPT_CAPS_REPAIRED, 1, true )' ), true );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

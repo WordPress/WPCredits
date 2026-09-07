@@ -14,10 +14,14 @@
  * - **Consent is a precondition and nothing else will do.** Absent, `"0"`, `"yes"` and `""` each
  *   refuse the whole submission and store nothing; a refusal hands back every answer and never
  *   the tick.
- * - **The two logos go through the image handler, after the ceiling and before storage.** An SVG
- *   named `.png` is a problem on the logo question, nothing is stored, and the answers come back;
- *   a spam row stores no attachment; an accepted file lands in the Media Library with author 0
- *   and the title the logo card uses.
+ * - **The two logos go through the image handler, after both ceilings and before storage.** An
+ *   SVG named `.png` is a problem on the logo question, nothing is stored, and the answers come
+ *   back; a spam row stores no attachment, and neither does a row the day's degrade is holding
+ *   (FANON-3); an accepted file lands in the Media Library with author 0 and the title the logo
+ *   card uses.
+ * - **A re-send straight after a bounce is held, not filed as spam.** The redrawn form carries a
+ *   token minted at the redraw, so the applicant who fixes one answer and presses Send inside
+ *   six seconds used to be answered "sent" while the row went where nobody looks (FANON-1).
  * - **Duplicates are two flags and no hold.** Another open application with the same address or
  *   name, and a sponsor already in the index with the same name or website host. Both rows stay
  *   new, both flags are read back by the queue.
@@ -218,12 +222,20 @@ function get_posts( $a = array() ) {
 	}
 	// decided_posts() (1.98.1) orders by a meta value instead of the post date; this is the
 	// one other shape this class asks for, so it is the one other shape this stub answers.
-	if ( isset( $a['orderby'] ) && 'meta_value_num' === $a['orderby'] && isset( $a['meta_key'] ) ) {
+	// Since 1.99.0 it names the tiebreak too - array( 'meta_value_num' => 'DESC', 'ID' =>
+	// 'DESC' ) - and a stub that ignored the second key would let the suite pass on a bound
+	// MySQL settles at random. A tie with no ID key keeps the order the rows came in, which is
+	// as much as an ORDER BY on one column promises.
+	$orderby = isset( $a['orderby'] ) ? $a['orderby'] : '';
+	$by_meta = isset( $a['meta_key'] ) && ( 'meta_value_num' === $orderby || ( is_array( $orderby ) && isset( $orderby['meta_value_num'] ) ) );
+	if ( $by_meta ) {
 		$meta_key = $a['meta_key'];
-		$desc     = isset( $a['order'] ) && 'DESC' === $a['order'];
-		usort( $out, function ( $x, $y ) use ( $meta_key, $desc ) {
-			$by_meta = (int) get_post_meta( $x->ID, $meta_key, true ) - (int) get_post_meta( $y->ID, $meta_key, true );
-			return $desc ? -$by_meta : $by_meta;
+		$desc     = is_array( $orderby ) ? 'DESC' === $orderby['meta_value_num'] : ( isset( $a['order'] ) && 'DESC' === $a['order'] );
+		$by_id    = is_array( $orderby ) && isset( $orderby['ID'] ) ? ( 'DESC' === $orderby['ID'] ? -1 : 1 ) : 0;
+		usort( $out, function ( $x, $y ) use ( $meta_key, $desc, $by_id ) {
+			$cmp = (int) get_post_meta( $x->ID, $meta_key, true ) - (int) get_post_meta( $y->ID, $meta_key, true );
+			if ( 0 !== $cmp ) { return $desc ? -$cmp : $cmp; }
+			return $by_id * ( $x->ID - $y->ID );
 		} );
 	} else {
 		usort( $out, function ( $x, $y ) {
@@ -601,6 +613,18 @@ foreach ( array_keys( WPCPM_Sponsor_Application::fields() ) as $column ) {
 ck( 'the eight form keys are distinct', count( array_unique( $keys ) ), 8 );
 ck( 'the server holds two columns of its own', WPCPM_Sponsor_Application::server_held(), array( 'Logo', 'Privacy Policy Compliance' ) );
 ck( 'the post type is seventeen characters, inside the limit', array( WPCPM_Sponsor_Application::POST_TYPE, strlen( WPCPM_Sponsor_Application::POST_TYPE ) <= 20 ), array( 'wpcpm_sponsor_app', true ) );
+// FSUIT-1: every exposure flag on the type, pinned. These rows hold an anonymous applicant's
+// name, address, free text, consent evidence and truncated IP, and each of the four exposing
+// values could be set with the whole battery green: `public` and `publicly_queryable` true
+// would give every stored application a front-end URL, `exclude_from_search` false would list
+// them in site search, and `show_in_rest` true would hand them to wp/v2 callers.
+WPCPM_Sponsor_Application::register_post_type();
+$app_type = $GLOBALS['post_types'][ WPCPM_Sponsor_Application::POST_TYPE ];
+ck(
+	'and it is invisible everywhere: no URL, no query, out of search, out of REST, out of wp-admin',
+	array( $app_type['public'], $app_type['publicly_queryable'], $app_type['exclude_from_search'], $app_type['show_in_rest'], $app_type['show_ui'], $app_type['query_var'], $app_type['rewrite'] ),
+	array( false, false, true, false, false, false, false )
+);
 ck( 'every meta key carries the stem', count( preg_grep( '/^_wpcpm_sapp_/', array( WPCPM_Sponsor_Application::META_FIELDS, WPCPM_Sponsor_Application::META_STATE, WPCPM_Sponsor_Application::META_REFERENCE, WPCPM_Sponsor_Application::META_CONSENT, WPCPM_Sponsor_Application::META_SIGNALS, WPCPM_Sponsor_Application::META_EMAIL, WPCPM_Sponsor_Application::META_LOGOS, WPCPM_Sponsor_Application::META_RECORD, WPCPM_Sponsor_Application::META_USER, WPCPM_Sponsor_Application::META_EVENT ) ) ), 10 );
 
 echo "\n-- one answer at a time ----------------------------------------------\n";
@@ -739,7 +763,9 @@ echo "\n-- the dwell token ----------------------------------------------------\
 
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( WPCPM_Sponsor_Application::ACTION_SUBMIT );
-ck( 'a token minted this instant is too fast to be a person', WPCPM_Sponsor_Application::check_token( WPCPM_Sponsor_Application::token() ), 'spam' );
+// FANON-1: a token this form signed and posted back inside six seconds is its own answer, and
+// the handler holds the row on it rather than filing it as spam.
+ck( 'a token minted this instant is too fast to be a person, and says so as itself', WPCPM_Sponsor_Application::check_token( WPCPM_Sponsor_Application::token() ), 'fast' );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( WPCPM_Sponsor_Application::ACTION_SUBMIT );
 $token = dwell_token( 45 );
@@ -759,6 +785,45 @@ ck( 'an overnight tab is asked to send again, nothing is stored, the writing is 
 reset_world();
 $expired = submit( answers(), array( 'nonce' => 'nonce-from-last-week' ) );
 ck( 'an expired nonce is a message and not a death screen, and the writing comes back without the tick', array( $expired['outcome'], count( stored() ), $expired['stash']['values']['Contact Person Full Name'], array_key_exists( 'Privacy Policy Compliance', $expired['stash']['values'] ) ), array( 'expired', 0, 'Sam Sponsor', false ) );
+
+echo "\n-- a re-send straight after a bounce (FANON-1) -------------------------\n";
+
+/** The dwell token the drawn page is carrying, exactly as a browser would post it back. */
+function token_on_page( $html ) {
+	return preg_match( '/name="' . preg_quote( WPCPM_Sponsor_Application::TOKEN_FIELD, '/' ) . '" value="([^"]+)"/', (string) $html, $found ) ? $found[1] : '';
+}
+
+// Every bounce redraws the form with a token minted at the redraw, and the two the applicant
+// can reach with one click ("stale" and "expired") both tell them to send it again with every
+// answer restored. Pressing Send inside six seconds used to file the application as spam
+// behind the ordinary confirmation: no acknowledgement, no manager, nobody told.
+reset_world();
+$bounced = submit( answers(), array( 'token' => dwell_token( 13 * HOUR_IN_SECONDS ) ) );
+follow( $bounced['url'] );
+$redraw = WPCPM_Sponsor_Application::render();
+$fresh  = token_on_page( $redraw );
+ck( 'the bounce redraws the form with a token minted at the redraw', array( $bounced['outcome'], (int) explode( '.', $fresh )[0] === time() ), array( 'stale', true ) );
+$resend = submit( answers(), array( 'token' => $fresh ) );
+$row    = only_row();
+ck( 'the re-send at age zero is held, not filed as spam', array( $resend['outcome'], get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_STATE, true ), get_post_meta( $row->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ) ), array( 'sent', 'held', array( 'dwell-fast' ) ) );
+ck( 'so it reaches the queue as one pending row', array( count( stored() ), WPCPM_Sponsor_Application::pending_count() ), array( 1, 1 ) );
+ck( 'and gets the held-row mails: the applicant is acknowledged, the managers are spared', array( count( $GLOBALS['mail'] ), mail_said( -1, 'to' ), count( $GLOBALS['managermail'] ) ), array( 1, 'maciej@a8c.com', 0 ) );
+ck( 'the queue has a sentence for why it is held', false !== strpos( WPCPM_Sponsor_Application::signal_labels()['dwell-fast'], 'again' ), true );
+
+// The other half of what the spam path skipped: requiredness and the file check are asked on a
+// held row, so a fast re-send with an answer missing is argued with rather than swallowed.
+reset_world();
+$bounced = submit( answers(), array( 'token' => dwell_token( 13 * HOUR_IN_SECONDS ) ) );
+follow( $bounced['url'] );
+$fresh = token_on_page( WPCPM_Sponsor_Application::render() );
+$again = submit( answers( array( 'Contact Email' => '' ) ), array( 'token' => $fresh ) );
+ck( 'a fast re-send missing a required answer is asked for it, not answered "sent"', array( $again['outcome'], $again['stash']['problems']['Contact Email'], count( stored() ) ), array( 'again', 'required', 0 ) );
+
+// A token that is young and was never signed here is still spam: only the signature tells a
+// re-sending applicant apart from a script posting a token it made up.
+reset_world();
+$forged = submit( answers(), array( 'token' => time() . '.AbCdEf012345.0123456789abcdef0123456789abcdef' ) );
+ck( 'a young token nobody signed is spam, as it always was', array( $forged['outcome'], get_post_meta( only_row()->ID, WPCPM_Sponsor_Application::META_STATE, true ), get_post_meta( only_row()->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ) ), array( 'sent', 'spam', array( 'dwell' ) ) );
 
 echo "\n-- the two ceilings, which do different things ------------------------\n";
 
@@ -787,6 +852,23 @@ $rows         = stored();
 $last         = end( $rows );
 ck( 'the form is still open to the next source afterwards, and its application is kept and held', array( $genuine['outcome'], count( $rows ), get_post_meta( $last->ID, WPCPM_Sponsor_Application::META_STATE, true ), in_array( 'site-ceiling', get_post_meta( $last->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ), true ) ), array( 'sent', 41, 'held', true ) );
 ck( 'the applicant is written to all the same, and only the managers are spared', array( count( $GLOBALS['mail'] ), mail_said( -1, 'to' ), count( $GLOBALS['managermail'] ) ), array( $mails_so_far + 1, 'maciej@a8c.com', 40 ) );
+
+// FANON-3: the degrade used to be claimed after the files were accepted, so every held row
+// past the day's forty still re-encoded two images and wrote two attachments with their
+// thumbnails. Forty a day is now the cap on what an anonymous path can put in the uploads
+// directory as well as on what it can page a manager about.
+$attachments_so_far = count( $GLOBALS['attachments'] );
+$held_without_logo  = $last;
+post_logos( png( 400, 120 ), png( 400, 120 ) );
+$degraded  = submit( answers( array( 'Company Name' => 'Late Company', 'Contact Email' => 'late@gadgetry.example' ) ), array( 'ip' => '198.51.100.43' ) );
+$rows      = stored();
+$held_late = end( $rows );
+ck( 'past the degrade the two logo files are not read, stored or re-encoded', array( $degraded['outcome'], count( $GLOBALS['attachments'] ) - $attachments_so_far, WPCPM_Sponsor_Application::logos_of( $held_late->ID ) ), array( 'sent', 0, array( 'colour' => 0, 'white' => 0 ) ) );
+ck( 'and the row says which two checks did it', get_post_meta( $held_late->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ), array( 'site-ceiling', 'files-skipped' ) );
+ck( 'the acknowledgement tells the company it can send the logo after approval', array( false !== strpos( mail_said( -1, 'body' ), 'logo' ), false !== strpos( mail_said( -1, 'body' ), 'were not kept' ) ), array( true, true ) );
+ck( 'the queue has a sentence for the skipped files', false !== strpos( WPCPM_Sponsor_Application::signal_labels()['files-skipped'], 'logo' ), true );
+ck( 'a held row that sent no logo is not told about files it never sent', in_array( 'files-skipped', (array) get_post_meta( $held_without_logo->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ), true ), false );
+ck( 'no temporary copy outlived the skipped pair', count( glob( sys_get_temp_dir() . '/wpcpm-image-*' ) ), 0 );
 
 echo "\n-- nothing unauthenticated writes before the ceiling ------------------\n";
 
@@ -865,6 +947,32 @@ post_logos( png( 400, 120 ) );
 submit( answers(), array( 'honeypot' => 'x' ) );
 ck( 'a spam row stores no attachment, whatever it sent', array( get_post_meta( only_row()->ID, WPCPM_Sponsor_Application::META_STATE, true ), $GLOBALS['attachments'] ), array( 'spam', array() ) );
 
+// FANON-7: a request that posts the logo field in the multi-file shape delivers every member
+// as an array. `(int)` on a non-empty array is 1, which is UPLOAD_ERR_INI_SIZE, so the host's
+// log took two "Array to string conversion" warnings per request and the applicant was told
+// the file was too large. A member that is not a scalar is no file at all.
+reset_world();
+$warnings = array();
+set_error_handler(
+	static function ( $number, $message ) use ( &$warnings ) {
+		$warnings[] = $message;
+
+		return true;
+	}
+);
+$_FILES = array(
+	WPCPM_Sponsor_Application::FIELD_LOGO_COLOR => array(
+		'name'     => array( 'one.png', 'two.png' ),
+		'type'     => array( 'image/png', 'image/png' ),
+		'tmp_name' => array( '/tmp/one.png', '/tmp/two.png' ),
+		'error'    => array( UPLOAD_ERR_OK, UPLOAD_ERR_OK ),
+		'size'     => array( 10, 20 ),
+	),
+);
+$shaped = submit( answers() );
+restore_error_handler();
+ck( 'an array-shaped file field is no file at all, and raises no warning on the way', array( $shaped['outcome'], $warnings, count( stored() ), WPCPM_Sponsor_Application::logos_of( only_row()->ID ) ), array( 'sent', array(), 1, array( 'colour' => 0, 'white' => 0 ) ) );
+
 reset_world();
 $GLOBALS['store_fails'] = true;
 post_logos( png( 400, 120 ) );
@@ -929,6 +1037,15 @@ $GLOBALS['post_fails'] = false;
 ck( 'the sender is told nothing was saved, nothing was, nobody is mailed, the writing comes back', array( $lost['outcome'], count( stored() ), count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ), $lost['stash']['values']['Company Name'] ), array( 'lost', 0, 0, 0, 'Gadgetry Inc' ) );
 ck( 'and the accepted logo\'s temporary copy did not outlive the refusal', array( $GLOBALS['attachments'], count( glob( sys_get_temp_dir() . '/wpcpm-image-*' ) ) ), array( array(), 0 ) );
 
+// FANON-6: the handler is on `admin_post_` as well as `admin_post_nopriv_`, so a logged-in
+// manager can post the form; core takes the author it is given, and the literal 0 is given for
+// every row. The comment above it used to claim the opposite.
+reset_world();
+$GLOBALS['uid'] = 9;
+submit( answers() );
+ck( 'a submission from a logged-in manager is authored by nobody, like every other', only_row()->post_author, 0 );
+$GLOBALS['uid'] = 0;
+
 echo "\n-- the one page that is never cached ----------------------------------\n";
 
 reset_world();
@@ -980,9 +1097,11 @@ $offsets = array(
 	'consent'    => strpos( $submit, 'self::COL_CONSENT' ),
 	'fields'     => strpos( $submit, '$cleaned  = self::clean_all(' ),
 	'required'   => strpos( $submit, 'self::add_required(' ),
+	// The site-wide degrade before the files, not after them (FANON-3): no byte of a
+	// stranger's image is re-encoded for a row the day's ceiling is about to hold.
+	'site'       => strpos( $submit, 'WPCPM_Form_Guard::claim_site(' ),
 	'logos'      => strpos( $submit, 'self::accept_logos(' ),
 	'scoring'    => strpos( $submit, 'self::score(' ),
-	'site'       => strpos( $submit, 'WPCPM_Form_Guard::claim_site(' ),
 	'duplicates' => strpos( $submit, 'self::has_open_duplicate(' ),
 	'store'      => strpos( $submit, 'self::store(' ),
 	'files'      => strpos( $submit, 'self::store_logos(' ),
@@ -1008,6 +1127,8 @@ ck( '$_FILES is read in one helper and nowhere else, and never moved on trust', 
 ck( 'no file is stored before every check passes', strpos( $src, 'WPCPM_Image_Upload::accept' ) < strpos( $src, 'WPCPM_Image_Upload::store' ), true );
 ck( 'every string a person reads says color', preg_match( '/\bcolour\b/', preg_replace( "/'colour'/", '', $src ) ), 0 );
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
+// FANON-6: a comment that describes behavior the code does not have is a defect of its own.
+ck( 'no comment claims a manager\'s test submission carries their name', strpos( $src, 'leaves their name on the row' ), false );
 
 $slugs = array();
 preg_match_all( "/self::bounce\(\s*'([a-z-]+)'/", $src, $found );
@@ -1379,6 +1500,37 @@ WPCPM_Sponsor_Application::render_actions( $post, 'approved' );
 $done_forms = (string) ob_get_clean();
 ck( 'an approved one offers the deletion alone', array( substr_count( $done_forms, '<form' ), false !== strpos( $done_forms, 'value="wpcpm_sapp_purge"' ) ), array( 1, true ) );
 
+// FAGRM-4: every one of these renderers prints the applicant's company, website, contact
+// person and email address and mints the decision nonces, and none of them asked the
+// capability: the guarantee lived entirely in the call sites, so a new caller inherited no
+// protection. The two sibling render_decision() methods in this module both refuse first, and
+// so does each of these now: the answers and the decisions are the same secret whichever door
+// they are drawn through.
+$screen = 'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors';
+ob_start();
+WPCPM_Sponsor_Application::render_decision( $id );
+$by_id = (string) ob_get_clean();
+ob_start();
+WPCPM_Sponsor_Application::render_open( $post, $screen );
+$open = (string) ob_get_clean();
+ck( 'an open application is drawn in full for a manager: the answers and the four decisions', array( substr_count( $open, '<form' ), false !== strpos( $open, 'Gadgetry Inc' ) ), array( 4, true ) );
+$GLOBALS['uid']  = 21;
+$GLOBALS['caps'] = false;
+ob_start();
+WPCPM_Sponsor_Application::render_decision( $id );
+$no_decision = (string) ob_get_clean();
+ob_start();
+WPCPM_Sponsor_Application::render_details( $post );
+$no_details = (string) ob_get_clean();
+ob_start();
+WPCPM_Sponsor_Application::render_actions( $post, 'new' );
+$no_actions = (string) ob_get_clean();
+ob_start();
+WPCPM_Sponsor_Application::render_open( $post, $screen );
+$no_open = (string) ob_get_clean();
+ck( 'render_decision() draws the same four forms by ID for a manager, and no renderer of the four draws anything for an account that is not one', array( substr_count( $by_id, '<form' ), $no_decision, $no_details, $no_actions, $no_open ), array( 4, '', '', '', '' ) );
+as_manager();
+
 /* ---- part 3: the retention run (Task 6) --------------------------------- */
 
 /** Forget every ceiling row, so a block that seeds more than five rows from one address may. */
@@ -1459,6 +1611,34 @@ for ( $i = 0; $i < 210; $i++ ) {
 ck( 'every one of them goes', WPCPM_Sponsor_Application::purge(), 210 );
 ck( 'and the log keeps its last two hundred rows and no more', count( WPCPM_Sponsor_Application::application_log() ), WPCPM_Sponsor_Application::LOG_MAX );
 
+// FANON-3, the other half: nothing used to remove a held row. A flood past the daily degrade
+// left one row per submission in the queue for ever, because `purgeable_states()` is the three
+// decided ones. A held row is kept as long as a rejected one and then goes the same way.
+reset_world();
+as_manager();
+$GLOBALS['settings']['application_spam_days']     = 0;
+$GLOBALS['settings']['application_rejected_days'] = 365;
+$GLOBALS['settings']['application_approved_days'] = 0;
+
+clear_ceilings();
+$old_held = seed_application( array( 'Company Name' => 'Old Held' ), false );
+clear_ceilings();
+$new_held = seed_application( array( 'Company Name' => 'New Held' ), false );
+clear_ceilings();
+$still_new = seed_application( array( 'Company Name' => 'Still New' ), false );
+
+update_post_meta( $old_held, WPCPM_Sponsor_Application::META_STATE, 'held' );
+decided_days_ago( $old_held, 'submitted', 366 );
+update_post_meta( $new_held, WPCPM_Sponsor_Application::META_STATE, 'held' );
+decided_days_ago( $new_held, 'submitted', 10 );
+decided_days_ago( $still_new, 'submitted', 900 );
+
+ck( 'a held row past the rejection window goes; one inside it stays', array( WPCPM_Sponsor_Application::purge(), get_post( $old_held ), get_post( $new_held ) instanceof WP_Post ), array( 1, null, true ) );
+ck( 'a row still waiting for a first decision is never retention\'s business, however old', get_post( $still_new ) instanceof WP_Post, true );
+$held_log = WPCPM_Sponsor_Application::application_log();
+$held_row = end( $held_log );
+ck( 'and the deletion names the state and the rule that removed it', array( $held_row['state'], $held_row['days'], $held_row['actor'] ), array( 'held', 365, 0 ) );
+
 echo "\n=== The decision meta behind Recently decided (1.98.1) ===\n";
 reset_world();
 as_manager();
@@ -1479,6 +1659,11 @@ ck( 'and the bound holds', count( WPCPM_Sponsor_Application::decided_posts( 1 ) 
 $tie = (int) get_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED, true );
 update_post_meta( $d1, WPCPM_Sponsor_Application::META_DECIDED, $tie );
 ck( 'two decisions in one second are ordered by ID, newest first (Task 4 review)', array_map( static function ( $p ) { return (int) $p->ID; }, WPCPM_Sponsor_Application::decided_posts( 10 ) ), array( max( $d1, $d2 ), min( $d1, $d2 ) ) );
+// The tiebreak has to be in the query as well as in the sort after it: the sort can only
+// arrange the window the query returned, so a tie straddling the bound was settled by whatever
+// order MySQL felt like, and the row the card showed could change between two loads of the
+// same page with nothing written in between (the clean-up release parked this as P1).
+ck( 'and asking for one of the two gets the higher ID, which the sort after the bound could not decide', array_map( static function ( $p ) { return (int) $p->ID; }, WPCPM_Sponsor_Application::decided_posts( 1 ) ), array( max( $d1, $d2 ) ) );
 update_post_meta( $d1, WPCPM_Sponsor_Application::META_DECIDED, $tie - 10 );
 WPCPM_Sponsor_Application::add_event( $d1, WPCPM_Sponsor_Application::EVENT_REOPENED, 3 );
 update_post_meta( $d1, WPCPM_Sponsor_Application::META_STATE, 'new' );

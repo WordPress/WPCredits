@@ -1,7 +1,10 @@
 <?php
 /**
  * WPCPM_Sponsor_Posts: the posting flag and the three capabilities, the two category terms,
- * the editor fence, the Posts card, publish and return, the byline (Sponsors module, S3).
+ * the editor fence, the Posts card, publish and return, the byline (Sponsors module, S3), and
+ * the three WPCPM_Content_Access surfaces that gate a sponsor post at the Students and mentors
+ * level: the real class is loaded here rather than stood in for, because each of those three
+ * could be made a no-op with the whole battery green.
  *
  * Run from the plugin root:  php bin/test-sponsor-posts.php
  *
@@ -31,6 +34,7 @@ $GLOBALS['audit']     = array();
 $GLOBALS['mail']      = array();
 $GLOBALS['flash']     = array();
 $GLOBALS['index']     = array();
+$GLOBALS['grants']    = array();
 $GLOBALS['now']       = '2026-09-06 10:00:00';
 
 class WP_Error {
@@ -60,6 +64,13 @@ class WP_Post {
 	public function __construct( array $a ) { foreach ( $a as $k => $v ) { $this->$k = $v; } }
 }
 class WPCPM_Test_Redirect extends Exception {}
+/** Enough of the REST response for WPCPM_Content_Access::filter_rest(). */
+class WP_REST_Response {
+	private $data;
+	public function __construct( array $data = array() ) { $this->data = $data; }
+	public function get_data() { return $this->data; }
+	public function set_data( $data ) { $this->data = $data; }
+}
 
 function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
@@ -83,7 +94,9 @@ function number_format_i18n( $n ) { return (string) $n; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function add_query_arg( $k, $v, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $k . '=' . rawurlencode( (string) $v ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
-function get_permalink( $p ) { $p = get_post( $p ); return $p ? 'https://example.test/?p=' . $p->ID : ''; }
+function get_permalink( $p = null ) { $p = get_post( $p ); return $p ? 'https://example.test/?p=' . $p->ID : ''; }
+function wp_login_url( $to = '' ) { return 'https://example.test/wp-login.php?redirect_to=' . rawurlencode( (string) $to ); }
+function get_queried_object() { return isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null; }
 function get_preview_post_link( $p ) { $p = get_post( $p ); return $p ? 'https://example.test/?p=' . $p->ID . '&preview=true' : ''; }
 function get_edit_post_link( $id, $c = 'display' ) { return 'https://example.test/wp-admin/post.php?post=' . (int) $id . '&action=edit'; }
 function get_the_date( $f, $p ) { return '2026-09-06'; }
@@ -159,11 +172,20 @@ function in_the_loop() { return ! empty( $GLOBALS['singular'] ); }
 function is_main_query() { return true; }
 function check_admin_referer( $a ) { $GLOBALS['calls'][] = array( 'nonce', $a ); return true; }
 function wp_safe_redirect( $u ) { throw new WPCPM_Test_Redirect( $u ); }
-function wp_die( $m, $t = '', $a = array() ) { throw new WPCPM_Test_Redirect( 'die:' . ( is_int( $t ) ? $t : 0 ) ); }
+function wp_die( $m, $t = '', $a = array() ) { throw new WPCPM_Test_Redirect( 'die:' . ( is_int( $t ) ? $t : ( isset( $a['response'] ) ? (int) $a['response'] : 0 ) ) ); }
 
 class WPCPM_Roles {
 	const ROLE_STUDENT = 'wpcpm_student'; const ROLE_MENTOR = 'wpcpm_mentor'; const ROLE_INSTITUTION = 'wpcpm_institution'; const ROLE_SPONSOR = 'wpcpm_sponsor'; const ROLE_ADMIN = 'administrator';
-	const CAP_VIEW_STUDENT = 'wpcpm_view_student_content'; const CAP_VIEW_MENTOR = 'wpcpm_view_mentor_content'; const CAP_MANAGE = 'wpcpm_manage_program';
+	const CAP_VIEW_STUDENT = 'wpcpm_view_student_content'; const CAP_VIEW_MENTOR = 'wpcpm_view_mentor_content'; const CAP_VIEW_INSTITUTION = 'wpcpm_view_institution_content'; const CAP_VIEW_SPONSOR = 'wpcpm_view_sponsor_content'; const CAP_MANAGE = 'wpcpm_manage_program';
+	/** The real class's own list, which WPCPM_Content_Access::levels() reads. */
+	public static function custom_roles() {
+		return array(
+			self::ROLE_STUDENT     => array( 'label' => 'Student', 'cap' => self::CAP_VIEW_STUDENT ),
+			self::ROLE_MENTOR      => array( 'label' => 'Mentor', 'cap' => self::CAP_VIEW_MENTOR ),
+			self::ROLE_INSTITUTION => array( 'label' => 'Institution', 'cap' => self::CAP_VIEW_INSTITUTION ),
+			self::ROLE_SPONSOR     => array( 'label' => 'Sponsor', 'cap' => self::CAP_VIEW_SPONSOR ),
+		);
+	}
 	public static function user_has_role( $user, $role ) { return $user instanceof WP_User && in_array( $role, $user->roles, true ); }
 	public static function resolve_user( $user = null ) { if ( null === $user ) { return wp_get_current_user(); } return $user instanceof WP_User ? $user : get_user_by( 'id', $user ); }
 }
@@ -182,10 +204,6 @@ class WPCPM_Sponsors_Index {
 class WPCPM_Institution_Audit {
 	const GROUND_MANAGER = 'manager'; const GROUND_MEMBER = 'member'; const GROUND_SYSTEM = 'system'; const EVIDENCE_INDEX = 'index';
 	public static function record_sponsor( array $entry ) { $GLOBALS['audit'][] = $entry; return count( $GLOBALS['audit'] ); }
-}
-class WPCPM_Content_Access {
-	const META_KEY = '_wpcpm_access_level'; const LEVEL_STUDENTS_MENTORS = 'students_mentors'; const QUERY_UNGATED = 'wpcpm_ungated';
-	public static function can_view( $post, $user = null ) { return empty( $GLOBALS['refuse_view'] ); }
 }
 class WPCPM_Field_Value { public static function clean_url( $u ) { return preg_match( '#^https?://#i', (string) $u ) ? (string) $u : ''; } }
 class WPCPM_Mail { public static function send( $to, $context, $build ) { $u = $to instanceof WP_User ? $to : get_user_by( 'id', (int) $to ); $GLOBALS['mail'][] = array( 'to' => $u ? $u->ID : 0, 'context' => $context, 'mail' => call_user_func( $build, $u ) ); return true; } }
@@ -209,6 +227,11 @@ class WPCPM_Sponsors_Dashboard {
 class WPCPM_Refusal_Meter { public static function is_locked( $scope, $user ) { return false; } public static function refuse( $scope, $user ) { return 0; } }
 
 require_once __DIR__ . '/stubs/caps.php';
+// The real gate, not a stand-in: three of its five surfaces could be made no-ops with the whole
+// battery green (FSUIT-3), and a stand-in whose can_view() answers a flag is exactly what hid
+// them. Everything below that asks "what does a reader the level refuses see" now says so by
+// taking the marker capability away.
+require_once __DIR__ . '/../includes/class-wpcpm-content-access.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-policy.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-roster.php';
@@ -379,6 +402,7 @@ echo "\n=== The Posts card ===\n";
 function card( $record, $uid, $open = '' ) { $GLOBALS['uid'] = $uid; ob_start(); WPCPM_Sponsor_Posts::render( $record, array( 'can_manage' => in_array( $uid, $GLOBALS['manage'], true ), 'open' => $open, 'viewer' => wp_get_current_user() ) ); return ob_get_clean(); }
 $draft = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'draft', 'post_author' => 20, 'post_title' => 'Early draft' ) );
 $GLOBALS['pmeta'][ $draft ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S;
+$GLOBALS['pmeta'][ $draft ][ WPCPM_Content_Access::META_KEY ] = WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS;
 $GLOBALS['pmeta'][ $draft ][ WPCPM_Sponsor_Posts::META_RETURN_NOTE ] = 'Please add a screenshot.';
 $GLOBALS['pmeta'][ $draft ][ WPCPM_Sponsor_Posts::META_RETURNED ] = 1788500000;
 $html = card( $S, 20 );
@@ -446,13 +470,16 @@ ck( 'and no flag is left behind for it', get_option( 'wpcpm_sponsor_flags_recNOP
 echo "\n=== Guides under an offer ===\n";
 function guides( $record, $uid ) { $GLOBALS['uid'] = $uid; ob_start(); WPCPM_Sponsor_Posts::render_tools( $record, wp_get_current_user(), 'TEST Sponsor' ); return ob_get_clean(); }
 $GLOBALS['users'][30] = new WP_User( 30, array( 'wpcpm_student' ), 'Student Reader' );
+/** Whether the reader holds a marker capability the Students and mentors level accepts. */
+function may_read( $on ) { $GLOBALS['grants'][30] = $on ? array( WPCPM_Roles::CAP_VIEW_STUDENT ) : array(); }
+may_read( true );
 ck( 'a sponsor with no published post prints nothing', guides( $S2, 30 ), '' );
 $g = guides( $S, 30 );
 ck( 'published guides are listed with the lead naming the company and each title linked', array( 0 === strpos( $g, '<div class="wpcpm-tools__posts"><p class="wpcpm-tools__posts-lead">Guides from TEST Sponsor</p><ul class="wpcpm-tools__posts-list">' ), substr_count( $g, '<li><a href="https://example.test/?p=' ), false !== strpos( $g, '>Ten tips</a>' ) ), array( true, 2, true ) );
-$GLOBALS['refuse_view'] = true;
+may_read( false );
 ck( 'a reader the level refuses gets nothing', guides( $S, 30 ), '' );
-$GLOBALS['refuse_view'] = false;
-for ( $i = 0; $i < 6; $i++ ) { $extra = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 20, 'post_title' => 'Guide ' . $i ) ); $GLOBALS['pmeta'][ $extra ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S; }
+may_read( true );
+for ( $i = 0; $i < 6; $i++ ) { $extra = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_author' => 20, 'post_title' => 'Guide ' . $i ) ); $GLOBALS['pmeta'][ $extra ][ WPCPM_Sponsor_Policy::META_POST_SPONSOR ] = $S; $GLOBALS['pmeta'][ $extra ][ WPCPM_Content_Access::META_KEY ] = WPCPM_Content_Access::LEVEL_STUDENTS_MENTORS; }
 ck( 'at most five guides are listed', substr_count( guides( $S, 30 ), '<li>' ), 5 );
 
 echo "\n=== The byline ===\n";
@@ -479,11 +506,41 @@ $GLOBALS['singular'] = true;
 ck( 'the banner shows the logo when the sponsor has one, an initial otherwise', array( false !== strpos( WPCPM_Sponsor_Posts::filter_content( '' ), '<span class="wpcpm-sponsor-byline__logo"><img src="https://example.test/logo.png"' ), false !== strpos( $banner, '<span class="wpcpm-sponsor-byline__initials" aria-hidden="true">T</span>' ) ), array( true, true ) );
 $GLOBALS['logo'] = array();
 $GLOBALS['singular']    = true;
-$GLOBALS['refuse_view'] = true;
+may_read( false );
 ck( 'no banner for a reader the level refuses', WPCPM_Sponsor_Posts::filter_content( '<p>Notice</p>' ), '<p>Notice</p>' );
-$GLOBALS['refuse_view'] = false;
+may_read( true );
 $GLOBALS['singular']    = false;
 ck( 'no banner off the single post', WPCPM_Sponsor_Posts::filter_content( '<p>Body</p>' ), '<p>Body</p>' );
+
+echo "\n=== The gate itself, on a sponsor post (FSUIT-3) ===\n";
+// Three of the five gate surfaces had no assertion at all: guard_singular(), filter_content()
+// and filter_rest() could each be made a no-op with the whole battery green, because the access
+// suite asserted only that their hooks were registered, by name. A sponsor post sits at the
+// Students and mentors level, so this is the surface a logged-out visitor or a reader without
+// the level meets at the permalink, in the body and over REST.
+/** Where WPCPM_Content_Access::guard_singular() leaves this request. */
+function guarded() { try { WPCPM_Content_Access::guard_singular(); } catch ( WPCPM_Test_Redirect $e ) { return $e->getMessage(); } return 'no redirect'; }
+/** A REST response carrying one post's body, as the prepare filters hand it over. */
+function rest_body( $rendered ) { return new WP_REST_Response( array( 'content' => array( 'rendered' => $rendered, 'raw' => 'The whole guide.' ) ) ); }
+$GLOBALS['post']     = get_post( $pid );
+$GLOBALS['singular'] = true;
+$GLOBALS['uid']      = 0;
+ck( 'a signed-out visitor at the permalink meets the login form with a way back', guarded(), 'https://example.test/wp-login.php?redirect_to=' . rawurlencode( 'https://example.test/?p=' . $pid ) );
+$GLOBALS['uid'] = 30;
+may_read( false );
+ck( 'a signed-in reader without the level is refused with an explanation, not a login form', guarded(), 'die:403' );
+$gated = WPCPM_Content_Access::filter_content( '<p>The whole guide.</p>' );
+ck( 'the content filter answers with the level\'s notice and not one word of the body', array( false !== strpos( $gated, 'This content is limited to: Students and mentors.' ), strpos( $gated, 'The whole guide.' ) ), array( true, false ) );
+$refused = WPCPM_Content_Access::filter_rest( rest_body( '<p>The whole guide.</p>' ), get_post( $pid ), null )->get_data();
+ck( 'and REST carries the same notice, with the raw body dropped', array( false !== strpos( $refused['content']['rendered'], 'This content is limited to: Students and mentors.' ), isset( $refused['content']['raw'] ) ), array( true, false ) );
+// The fourth surface of the same gate, and the one nothing asserted either: a listing or a
+// search result prints excerpts, so an excerpt that came through would hand the opening of a
+// gated guide to the reader the three surfaces above just refused.
+ck( 'and the excerpt a listing prints is emptied rather than shortened', WPCPM_Content_Access::filter_excerpt( 'The first paragraph of the guide.' ), '' );
+may_read( true );
+$allowed = WPCPM_Content_Access::filter_rest( rest_body( '<p>The whole guide.</p>' ), get_post( $pid ), null )->get_data();
+ck( 'a reader the level admits passes all three untouched', array( guarded(), WPCPM_Content_Access::filter_content( '<p>The whole guide.</p>' ), $allowed['content']['rendered'] ), array( 'no redirect', '<p>The whole guide.</p>', '<p>The whole guide.</p>' ) );
+$GLOBALS['singular'] = false;
 
 echo "\n=== The accounts attached before 1.95.0 ===\n";
 $GLOBALS['users'][22] = new WP_User( 22, array( 'wpcpm_sponsor' ), 'Early Member' );

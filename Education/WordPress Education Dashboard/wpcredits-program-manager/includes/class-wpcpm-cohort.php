@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * intake peaks sit inside one half, so a semester window puts an intake in one bucket
  * without anybody having to maintain a list of term dates.
  *
- * Institutions name the same months differently (February to June is *summer* in Krakow
+ * Institutions name the same months differently (February to June is *summer* in Poland
  * and *spring* in the US), so a key is `YYYY-H1` or `YYYY-H2`, and a label spells out the
  * months. No label here ever carries a season word.
  *

@@ -48,6 +48,9 @@ final class WPCPM_Sponsor_Codes {
 	/** Above this the sponsor is told to talk to the program (spec section 6.2). */
 	const CODES_MAX = 5000;
 
+	/** A refusal names at most this many lines and then counts the rest (deep check FOFFR-1). */
+	const ERRORS_MAX = 10;
+
 	/** A shared claim's index: there is no code row to point at. */
 	const SHARED_INDEX = -1;
 
@@ -139,35 +142,70 @@ final class WPCPM_Sponsor_Codes {
 	/**
 	 * Take the lock that guards every rewrite of the pool, not the claim alone.
 	 *
-	 * `add_option()` returns false when the row already exists, so the first caller wins. A
-	 * lock older than LOCK_TIMEOUT belonged to a request that died holding it and is taken over.
+	 * `add_option()` returns false when the row already exists, so the first caller wins. A lock
+	 * older than LOCK_TIMEOUT belonged to a request that died holding it, and is taken over by an
+	 * UPDATE conditional on the stamp that was read: the takeover used to be a plain get_option()
+	 * then update_option(), so two requests that read the same stale stamp were both given the
+	 * lock, and take()'s whole-pool rewrite then erased the loser's ledger row. That claimant
+	 * holds a code the counts do not know about, is absent from claimants(), and so has no Void
+	 * button for a manager to press (deep check FOFFR-3).
 	 *
-	 * What this is not: a true test-and-set. Core's add_option() is a get_option() pre-check
-	 * followed by an `INSERT ... ON DUPLICATE KEY UPDATE`, so two lockers whose INSERTs land in
-	 * different seconds inside one database round trip both succeed, and both then take the
-	 * same code. The window is milliseconds, the harm (two people given one code) is
-	 * recoverable by a manager's void, and the report generation and the syncs share this same
-	 * primitive (spec section 3, decision 4). A plain `$wpdb->insert()`, which the unique key
-	 * on `option_name` makes fail outright, would close it; deliberately not done in this
-	 * release (final review of Phase S2, finding 4).
+	 * What this is not: a true test-and-set on the `add_option()` path above. Core's add_option()
+	 * is a get_option() pre-check followed by an `INSERT ... ON DUPLICATE KEY UPDATE`, so two
+	 * lockers whose INSERTs land in different seconds inside one database round trip both
+	 * succeed, and both then take the same code, with the same erased ledger row. The window is
+	 * milliseconds and this primitive is the one the report generation and the syncs share (spec
+	 * section 3, decision 4); a plain `$wpdb->insert()`, which the unique key on `option_name`
+	 * makes fail outright, would close it, and is deliberately not done in this release (final
+	 * review of Phase S2, finding 4).
+	 *
+	 * One more gap the takeover leaves silent: the row disappearing between the `add_option()`
+	 * check above and the `get_option()` read below, if another request's `unlock()` (a plain
+	 * `delete_option()`) lands in that instant. `get_option()` then returns `false`,
+	 * `(string) $stale` is an empty string, and the UPDATE's `WHERE option_value = ''` matches no
+	 * row, because the row itself is gone, not merely stale, so this caller is refused the lock
+	 * the same as if somebody else's fresh stamp had won the race. The next caller finds the row
+	 * still absent, so its own `add_option()` succeeds outright and takes the lock cleanly.
+	 * Refusing here is the safe direction: this caller cannot tell a gone-and-free row from a
+	 * gone-and-contested one, so declining and sending the claimant back to reload costs a click,
+	 * not a pool two claimants both believe they hold.
 	 *
 	 * @param int $offer_id Offer post ID.
 	 * @return bool
 	 */
 	public static function lock( $offer_id ) {
+		global $wpdb;
+
 		$name = self::LOCK_PREFIX . (int) $offer_id;
 
 		if ( add_option( $name, time(), '', false ) ) {
 			return true;
 		}
 
-		$held = (int) get_option( $name );
+		$stale = get_option( $name );
+		$held  = (int) $stale;
 
 		if ( $held && ( time() - $held ) < self::LOCK_TIMEOUT ) {
 			return false;
 		}
 
-		update_option( $name, time(), false );
+		// Conditional on the value that was just read, which no options API call can express.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- The whole point is to write only while the row still holds the stale stamp; the option's cache entry is dropped below.
+		$taken = $wpdb->update(
+			$wpdb->options,
+			array( 'option_value' => time() ),
+			array(
+				'option_name'  => $name,
+				'option_value' => (string) $stale,
+			)
+		);
+
+		// Somebody else took the stale lock between the read and the write: theirs, not ours.
+		if ( 1 !== (int) $taken ) {
+			return false;
+		}
+
+		wp_cache_delete( $name, 'options' );
 
 		return true;
 	}
@@ -193,18 +231,48 @@ final class WPCPM_Sponsor_Codes {
 	/**
 	 * Parse a paste: one code per line, or the first column of a CSV row.
 	 *
+	 * The lines are counted before a single one is parsed, and the sentences are capped, because
+	 * neither was bounded: a megabyte of one repeated code built half a million "Line N repeats
+	 * line 1." sentences and died inside this method at a 128 M memory limit, and survived a
+	 * 256 M one only to hand a 14 MB message to a screen that clips it at 300 characters (deep
+	 * check FOFFR-1). Refusing the count first bounds the split, the map of what has been seen
+	 * and the codes themselves, not only the sentences.
+	 *
 	 * @param string $text What was pasted.
-	 * @return array `codes` (the strings), `lines` (each one's line number), `errors` (sentences).
+	 * @return array `codes` (the strings), `lines` (each one's line number), `errors` (at most
+	 *               ERRORS_MAX sentences), `problems` (how many lines are at fault in all).
 	 */
 	public static function parse( $text ) {
+		$text = (string) $text;
 		$out  = array(
-			'codes'  => array(),
-			'lines'  => array(),
-			'errors' => array(),
+			'codes'    => array(),
+			'lines'    => array(),
+			'errors'   => array(),
+			'problems' => 0,
 		);
 		$seen = array();
 
-		foreach ( preg_split( '/\r\n|\r|\n/', (string) $text ) as $n => $line ) {
+		// Counted without splitting: building the array of lines is itself the cost when the
+		// paste is a megabyte of two-character lines.
+		//
+		// Lines carrying something, not lines. A blank line is not a code, and an uploaded .txt
+		// with a blank line between each code is an ordinary thing to be handed: counting every
+		// line refused a file of 5,000 codes for holding 9,999 "lines", which was true and
+		// useless (the whole-branch review of 1.99.0). The pattern matches once per line that
+		// holds a non-whitespace character - the alternation is the line break rather than the
+		// `m` modifier, so a lone `\r` counts like the split below treats it - and still never
+		// builds the array.
+		$count = (int) preg_match_all( '/(?:^|\r\n|\r|\n)[^\r\n]*\S/', $text );
+
+		if ( $count > self::CODES_MAX ) {
+			/* translators: 1: how many codes were pasted, 2: the most codes an offer holds. */
+			$out['errors'][] = sprintf( __( 'This list has %1$d codes; an offer takes at most %2$d.', 'wpcredits-program-manager' ), $count, self::CODES_MAX );
+			$out['problems'] = 1;
+
+			return $out;
+		}
+
+		foreach ( preg_split( '/\r\n|\r|\n/', $text ) as $n => $line ) {
 			$number = $n + 1;
 			$line   = trim( $line );
 
@@ -215,7 +283,11 @@ final class WPCPM_Sponsor_Codes {
 			// A CSV row: the code is the first column. A URL is taken whole even with a comma in
 			// its query, because a checkout link is a code too and splitting one would keep half.
 			if ( false !== strpos( $line, ',' ) && ! preg_match( '#^https?://#i', $line ) ) {
-				$cells = str_getcsv( $line );
+				// The escape argument is given rather than left to its default: PHP 8.4 deprecates
+				// the default and is changing its value, so a cell with a backslash before a quote
+				// would be stored as a different code on a newer host (deep check FOFFR-5). Both
+				// institution exports already ask for the same behavior.
+				$cells = str_getcsv( $line, ',', '"', '' );
 				$line  = trim( (string) $cells[0] );
 
 				if ( '' === $line ) {
@@ -223,15 +295,27 @@ final class WPCPM_Sponsor_Codes {
 				}
 			}
 
+			// Every fault is counted, and the sentence for it is built only while there is room
+			// for one: the sentences, not the faults, are what the memory went on (FOFFR-1).
 			if ( mb_strlen( $line ) > self::LINE_MAX ) {
-				/* translators: 1: line number, 2: the longest line allowed. */
-				$out['errors'][] = sprintf( __( 'Line %1$d is longer than %2$d characters.', 'wpcredits-program-manager' ), $number, self::LINE_MAX );
+				++$out['problems'];
+
+				if ( count( $out['errors'] ) < self::ERRORS_MAX ) {
+					/* translators: 1: line number, 2: the longest line allowed. */
+					$out['errors'][] = sprintf( __( 'Line %1$d is longer than %2$d characters.', 'wpcredits-program-manager' ), $number, self::LINE_MAX );
+				}
+
 				continue;
 			}
 
 			if ( isset( $seen[ $line ] ) ) {
-				/* translators: 1: line number, 2: the earlier line number it repeats. */
-				$out['errors'][] = sprintf( __( 'Line %1$d repeats line %2$d.', 'wpcredits-program-manager' ), $number, $seen[ $line ] );
+				++$out['problems'];
+
+				if ( count( $out['errors'] ) < self::ERRORS_MAX ) {
+					/* translators: 1: line number, 2: the earlier line number it repeats. */
+					$out['errors'][] = sprintf( __( 'Line %1$d repeats line %2$d.', 'wpcredits-program-manager' ), $number, $seen[ $line ] );
+				}
+
 				continue;
 			}
 
@@ -241,6 +325,28 @@ final class WPCPM_Sponsor_Codes {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * The refusal a faulty list makes: the sentences that were kept, and a closing count when
+	 * more lines than ERRORS_MAX are at fault. One sentence per bad line is what turned a
+	 * megabyte of repeats into a 14 MB message (deep check FOFFR-1); the count keeps the sponsor
+	 * from reading ten sentences and thinking that is all there is.
+	 *
+	 * @param array $parsed parse()'s answer, with any duplicates add() found already noted.
+	 * @return WP_Error
+	 */
+	public static function refusal( array $parsed ) {
+		$errors   = isset( $parsed['errors'] ) ? (array) $parsed['errors'] : array();
+		$problems = isset( $parsed['problems'] ) ? (int) $parsed['problems'] : count( $errors );
+		$more     = $problems - count( $errors );
+
+		if ( $more > 0 ) {
+			/* translators: %d: how many more lines are at fault. */
+			$errors[] = sprintf( _n( 'and %d more line has a problem.', 'and %d more lines have problems.', $more, 'wpcredits-program-manager' ), $more );
+		}
+
+		return new WP_Error( 'wpcpm_codes_refused', implode( ' ', $errors ), $errors );
 	}
 
 	/**
@@ -275,11 +381,28 @@ final class WPCPM_Sponsor_Codes {
 		$known = array();
 
 		foreach ( $pool['codes'] as $entry ) {
-			$known[ (string) $entry['h'] ] = true;
+			// The state, not just the row: a voided code stays unusable in this offer, and being
+			// told a line "is already in this offer" while the card reads 0 available reads as a
+			// bug rather than as the rule it is (deep check FOFFR-4).
+			$known[ (string) $entry['h'] ] = isset( $entry['st'] ) ? (string) $entry['st'] : '';
 		}
 
 		foreach ( $prints as $k => $print ) {
-			if ( isset( $known[ $print ] ) ) {
+			if ( ! isset( $known[ $print ] ) ) {
+				continue;
+			}
+
+			++$parsed['problems'];
+
+			// Under the same ceiling as the parse's own sentences (FOFFR-1).
+			if ( count( $parsed['errors'] ) >= self::ERRORS_MAX ) {
+				continue;
+			}
+
+			if ( self::ST_VOID === $known[ $print ] ) {
+				/* translators: %d: line number. */
+				$parsed['errors'][] = sprintf( __( 'Line %d was voided in this offer earlier.', 'wpcredits-program-manager' ), $parsed['lines'][ $k ] );
+			} else {
 				/* translators: %d: line number. */
 				$parsed['errors'][] = sprintf( __( 'Line %d is already in this offer.', 'wpcredits-program-manager' ), $parsed['lines'][ $k ] );
 			}
@@ -288,7 +411,7 @@ final class WPCPM_Sponsor_Codes {
 		if ( ! empty( $parsed['errors'] ) ) {
 			self::unlock( $offer_id );
 
-			return new WP_Error( 'wpcpm_codes_refused', implode( ' ', $parsed['errors'] ), $parsed['errors'] );
+			return self::refusal( $parsed );
 		}
 
 		if ( empty( $parsed['codes'] ) ) {

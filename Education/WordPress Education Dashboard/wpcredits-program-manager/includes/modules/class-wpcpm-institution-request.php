@@ -66,6 +66,17 @@ class WPCPM_Institution_Request {
 	/** Post meta: who raised it. Who closed it is the audit row's actor. */
 	const META_ACTOR = '_wpcpm_req_actor';
 
+	/**
+	 * Post meta: when it was closed, unix time. Absent on an open row and on one closed
+	 * before 1.99.0.
+	 *
+	 * A row's own date is when it was raised, and nothing here ever moves `post_modified` off
+	 * it: `settle()` writes meta, and `update_post_meta()` does not touch the post row. So
+	 * without this stamp the closing had no date at all, and the Administrator Dashboard's
+	 * "Recently closed" card was ordered and dated by the openings (deep check FADMN-3).
+	 */
+	const META_CLOSED_AT = '_wpcpm_req_closed_at';
+
 	/** A student an import created is not in the program records yet. Not raised in Phase 4. */
 	const KIND_ADD = 'add';
 
@@ -394,6 +405,7 @@ class WPCPM_Institution_Request {
 
 		update_post_meta( $post_id, self::META_STATE, $state );
 		update_post_meta( $post_id, self::META_NOTE, $note );
+		update_post_meta( $post_id, self::META_CLOSED_AT, time() );
 
 		$message = self::STATE_DONE === $state
 			? __( 'A program manager closed this request as handled.', 'wpcredits-program-manager' )
@@ -551,38 +563,100 @@ class WPCPM_Institution_Request {
 	}
 
 	/**
-	 * The requests somebody closed, newest edit first, capped.
+	 * The requests somebody closed, the one closed last on top, capped.
 	 *
 	 * Handled and declined alike: the Administrator Dashboard shows the last few so a manager
 	 * can see what a colleague did this week, not to reopen anything (a closed request has
 	 * no transition, `transitions()` says so).
 	 *
+	 * Ordered by `META_CLOSED_AT`, because "this week" is about the closing. It used to ask
+	 * for `modified` DESC, which reads as the same thing and is not: nothing in this class
+	 * ever moves `post_modified` off `post_date`, so the list came back in the order the rows
+	 * were raised and a request raised in January and handled today sat at the bottom of it,
+	 * or off the cap entirely (deep check FADMN-3).
+	 *
+	 * Two queries rather than one, because one cannot order both halves. A row closed before
+	 * 1.99.0 carries no stamp, and asking for the stamped and the unstamped rows together
+	 * means an `OR` group - which is what the first attempt at this shipped. WordPress then
+	 * joins the stamp's alias unconstrained, so for a row without one every meta row that
+	 * post has reaches the group and `CAST( alias.meta_value AS SIGNED )` reads whichever of
+	 * them MySQL hands back: a manager's note that opens with a long number would put a
+	 * request closed last year on top of a card headed "closed last".
+	 *
+	 * Asked apart, each half is ordered by a term it really has. The stamped rows come first,
+	 * by the stamp, with the clause ANDed at the top level so the alias is pinned to it. The
+	 * legacy rows follow, by their post date, which is the only date they have. The second
+	 * query runs only when the first has not filled the cap, so on a site whose closings all
+	 * carry a stamp it costs nothing - and that is every closing since 1.99.0, so the legacy
+	 * set only ever shrinks.
+	 *
 	 * @param int $limit Most rows to read, capped at QUEUE_MAX.
 	 * @return int[] Post IDs.
 	 */
 	public static function closed_requests( $limit = 20 ) {
-		$posts = get_posts(
-			array(
-				'post_type'        => self::POST_TYPE,
-				'post_status'      => self::POST_STATUS,
-				'numberposts'      => (int) $limit > 0 ? min( (int) $limit, self::QUEUE_MAX ) : 20,
-				'fields'           => 'ids',
-				'orderby'          => array(
-					'modified' => 'DESC',
-					'ID'       => 'DESC',
-				),
-				'suppress_filters' => false,
-				'meta_query'       => array(
-					array(
-						'key'     => self::META_STATE,
-						'value'   => array( self::STATE_DONE, self::STATE_DECLINED ),
-						'compare' => 'IN',
+		$limit = (int) $limit > 0 ? min( (int) $limit, self::QUEUE_MAX ) : 20;
+		$state = array(
+			'key'     => self::META_STATE,
+			'value'   => array( self::STATE_DONE, self::STATE_DECLINED ),
+			'compare' => 'IN',
+		);
+
+		$stamped = array_map(
+			'intval',
+			(array) get_posts(
+				array(
+					'post_type'        => self::POST_TYPE,
+					'post_status'      => self::POST_STATUS,
+					'numberposts'      => $limit,
+					'fields'           => 'ids',
+					'orderby'          => array(
+						'closed' => 'DESC',
+						'ID'     => 'DESC',
 					),
-				),
+					'suppress_filters' => false,
+					'meta_query'       => array(
+						'relation' => 'AND',
+						$state,
+						'closed'   => array(
+							'key'     => self::META_CLOSED_AT,
+							'compare' => 'EXISTS',
+							'type'    => 'NUMERIC',
+						),
+					),
+				)
 			)
 		);
 
-		return array_map( 'intval', (array) $posts );
+		if ( count( $stamped ) >= $limit ) {
+			return $stamped;
+		}
+
+		$legacy = array_map(
+			'intval',
+			(array) get_posts(
+				array(
+					'post_type'        => self::POST_TYPE,
+					'post_status'      => self::POST_STATUS,
+					'numberposts'      => $limit - count( $stamped ),
+					'fields'           => 'ids',
+					'orderby'          => array(
+						'date' => 'DESC',
+						'ID'   => 'DESC',
+					),
+					'suppress_filters' => false,
+					'meta_query'       => array(
+						'relation' => 'AND',
+						$state,
+						array(
+							'key'     => self::META_CLOSED_AT,
+							'compare' => 'NOT EXISTS',
+						),
+					),
+				)
+			)
+		);
+
+		return array_merge( $stamped, $legacy );
 	}
 
 	/**
@@ -638,6 +712,9 @@ class WPCPM_Institution_Request {
 			'actor_name'       => $actor instanceof WP_User ? (string) $actor->display_name : '',
 			'note'             => (string) get_post_meta( $post_id, self::META_NOTE, true ),
 			'at'               => $at,
+			// When it was closed, or 0: an open row, and a row closed before 1.99.0, have no
+			// such moment, and a list that prints one date has to be able to say which it is.
+			'closed_at'        => (int) get_post_meta( $post_id, self::META_CLOSED_AT, true ),
 			// Only an open row can be overdue. A closed one waited exactly as long as it
 			// waited, and a queue that went on marking it would be arguing with its own
 			// history in front of the person who answered it.

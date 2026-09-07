@@ -219,7 +219,7 @@ function seed( array $student_row, array $mentor_row ) {
 	// The student: their record, their mentor's record, and their own row.
 	$GLOBALS['umeta'][ $student ] = array(
 		WPCPM_Students_Sync::META_RECORD_ID => 'recSTUDENT1234567',
-		WPCPM_Students_Sync::META_MENTOR    => array( 'record_id' => 'recMENTOR12345678', 'name' => 'Kel' ),
+		WPCPM_Students_Sync::META_MENTOR    => array( 'record_id' => 'recMENTOR12345678', 'name' => 'Ada' ),
 		WPCPM_Students_Sync::META_PROGRAM   => $student_row,
 	);
 
@@ -240,19 +240,19 @@ function seed( array $student_row, array $mentor_row ) {
 echo "=== Borrowing a missing value ===\n";
 
 $id      = seed(
-	array( 'name' => 'Moldir', 'tutor' => 'Simona Beccone' ),
+	array( 'name' => 'Lu', 'tutor' => 'Mira Example' ),
 	array( 'field_of_study' => 'Humanities & Social Sciences' )
 );
 $program = WPCPM_Students_Sync::get_program( $id );
 
 ck( 'a field absent from the student row is filled from the mentor row',
     $program['field_of_study'] ?? '(absent)', 'Humanities & Social Sciences' );
-ck( 'and the row it already had is untouched', $program['tutor'], 'Simona Beccone' );
+ck( 'and the row it already had is untouched', $program['tutor'], 'Mira Example' );
 ck( 'the right student was matched, not the first row in the list',
     false !== strpos( wp_json_encode( $program ), 'Wrong answer' ), false );
 
 $id = seed(
-	array( 'name' => 'Moldir', 'field_of_study' => '' ),
+	array( 'name' => 'Lu', 'field_of_study' => '' ),
 	array( 'field_of_study' => 'Humanities & Social Sciences' )
 );
 
@@ -288,12 +288,12 @@ ck( 'and the lookup is memoized, so a second call is free', $GLOBALS['queries'],
 
 echo "\n=== Nothing to borrow from ===\n";
 
-$id      = seed( array( 'name' => 'Moldir' ), array() );
+$id      = seed( array( 'name' => 'Lu' ), array() );
 $program = WPCPM_Students_Sync::get_program( $id );
 
 ck( 'a student whose mentor has no account still gets their own row',
     array( $program['name'], trim( (string) ( $program['field_of_study'] ?? '' ) ) ),
-    array( 'Moldir', '' ) );
+    array( 'Lu', '' ) );
 
 $GLOBALS['umeta']   = array();
 $GLOBALS['queries'] = 0;
@@ -402,9 +402,9 @@ $saved = WPCPM_Students_Sync::apply_report(
 	$id,
 	array(
 		$fields['report_team']    => array( 'recTEAM0000000002' ),
-		$fields['report_website'] => 'https://celigaroe.com',
+		$fields['report_website'] => 'https://rio-example.example',
 		$fields['report_slack']   => '@Celi Garoe',
-		$fields['report_profile'] => 'https://profiles.wordpress.org/celigaroe/',
+		$fields['report_profile'] => 'https://profiles.wordpress.org/rio-example/',
 	)
 );
 
@@ -412,9 +412,9 @@ $program = $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ];
 
 ck( 'something was carried over', $saved, true );
 ck( 'the team is stored as its name, not its record ID', $program['team'], 'Documentation' );
-ck( 'the website lands on the card row', $program['website'], 'https://celigaroe.com' );
+ck( 'the website lands on the card row', $program['website'], 'https://rio-example.example' );
 ck( 'so does the Slack name', $program['slack'], '@Celi Garoe' );
-ck( 'and the username is derived from the profile URL', $program['username'], 'celigaroe' );
+ck( 'and the username is derived from the profile URL', $program['username'], 'rio-example' );
 ck( 'the rest of the row is left alone', $program['name'], 'Celi' );
 
 // The mentor's copy is a second cache of the same student, and their card reads it.
@@ -430,7 +430,7 @@ WPCPM_Students_Sync::apply_report( $id, array( $fields['report_team'] => array()
 ck( 'unchecking every team clears the card row',
     $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['team'], '' );
 ck( 'and does not disturb the answers beside it',
-    $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['website'], 'https://celigaroe.com' );
+    $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['website'], 'https://rio-example.example' );
 
 // Hours arrives as a number and is kept as the string every other cell on the row is: the
 // two clocked tracks divide it by a target, the Developer Track prints it on its own, and
@@ -447,7 +447,7 @@ ck( 'zero hours are written rather than skipped',
     $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ]['hours'], '0' );
 
 // A save of nothing this touches - a grade, say - must not write user meta at all.
-$id = seed( array( 'name' => 'Moldir', 'team' => 'Core' ), array( 'name' => 'Moldir' ) );
+$id = seed( array( 'name' => 'Lu', 'team' => 'Core' ), array( 'name' => 'Lu' ) );
 
 ck( 'a report with none of these five columns changes nothing',
     WPCPM_Students_Sync::apply_report( $id, array( 'Community meeting etiquette - final grade' => 90 ) ),

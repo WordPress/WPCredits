@@ -31,6 +31,7 @@ $GLOBALS['umeta']     = array();
 $GLOBALS['users']     = array();
 $GLOBALS['manage']    = array();
 $GLOBALS['edit']      = array();
+$GLOBALS['edit_others'] = array();
 $GLOBALS['status']    = array();
 $GLOBALS['multisite'] = false;
 
@@ -85,6 +86,12 @@ function user_can( $u, $c ) {
 		return in_array( $id, $GLOBALS['edit'], true );
 	}
 
+	// An editor and an administrator hold this; a contributor and a sponsor's representative
+	// do not. It is the question the routing clause means to ask, so the stub answers it.
+	if ( 'edit_others_posts' === $c ) {
+		return in_array( $id, $GLOBALS['edit_others'], true );
+	}
+
 	return in_array( $id, $GLOBALS['manage'], true );
 }
 function is_multisite() { return (bool) $GLOBALS['multisite']; }
@@ -130,8 +137,8 @@ $GLOBALS['opts'][ WPCPM_Students_Dashboard::OPT_PAGE ] = 30;
 $GLOBALS['status'][20] = 'publish';
 $GLOBALS['status'][30] = 'publish';
 
-$mentor  = new WP_User( 2, 'Kel', array( WPCPM_Roles::ROLE_MENTOR ) );
-$student = new WP_User( 3, 'Moldir', array( WPCPM_Roles::ROLE_STUDENT ) );
+$mentor  = new WP_User( 2, 'Ada', array( WPCPM_Roles::ROLE_MENTOR ) );
+$student = new WP_User( 3, 'Lu', array( WPCPM_Roles::ROLE_STUDENT ) );
 $admin   = new WP_User( 4, 'Admin', array( 'administrator' ) );
 $editor  = new WP_User( 5, 'Mentor who edits', array( WPCPM_Roles::ROLE_MENTOR, 'editor' ) );
 
@@ -162,6 +169,21 @@ $GLOBALS['users'] = array(
 );
 $GLOBALS['manage'] = array( 4, 9 );
 $GLOBALS['edit']   = array( 4, 5, 9 );
+
+// An editor and the two administrators; the sponsored mentor below deliberately does not hold
+// it, because a sponsor's representative never does.
+$GLOBALS['edit_others'] = array( 4, 5, 9 );
+
+// A mentor attached to a sponsor. `WPCPM_Sponsor_Members::attach()` allows a mentor on purpose
+// (a sponsored mentor is often the sponsor's own staff), and posting is on by default, so
+// `WPCPM_Sponsor_Posts::apply_caps()` grants them `edit_posts`, `delete_posts` and
+// `upload_files`. The Sponsor Dashboard's own routing excludes mentors by design, so while this
+// side asked `edit_posts` the account was routed by neither page: it logged in and landed on the
+// wp-admin dashboard (the whole-branch review of 1.99.0, the mentor-side twin of FSPON-3).
+$sponsored_mentor = new WP_User( 10, 'Mentor at a sponsor', array( WPCPM_Roles::ROLE_MENTOR ) );
+
+$GLOBALS['users'][10] = $sponsored_mentor;
+$GLOBALS['edit'][]    = 10;
 
 $GLOBALS['umeta'][6][ WPCPM_Mentors_Sync::META_RECORD_ID ]  = 'recMENTOR12345678';
 $GLOBALS['umeta'][7][ WPCPM_Students_Sync::META_RECORD_ID ] = 'recSTUDENT1234567';
@@ -255,7 +277,9 @@ ck( 'an administrator who mentors still goes to wp-admin',
 echo "\n=== Who is left alone ===\n";
 
 ck( 'an administrator still goes to wp-admin', array( plain_login( 'mentor', $admin ) ), array( ADMIN_ROOT ) );
-ck( 'a mentor who can also edit posts is left alone', array( plain_login( 'mentor', $editor ) ), array( ADMIN_ROOT ) );
+ck( 'an account that edits other people\'s posts is left alone', array( plain_login( 'mentor', $editor ) ), array( ADMIN_ROOT ) );
+ck( 'but a mentor holding the three caps a sponsor\'s posting grants is routed to their own page',
+    array( plain_login( 'mentor', $sponsored_mentor ) ), array( MENTOR_PAGE ) );
 ck( 'the student filter ignores a mentor', array( plain_login( 'student', $mentor ) ), array( ADMIN_ROOT ) );
 ck( 'the mentor filter ignores a student', array( plain_login( 'mentor', $student ) ), array( ADMIN_ROOT ) );
 ck( 'a failed login is not redirected', array( WPCPM_Mentors_Dashboard::login_redirect( ADMIN_ROOT, ADMIN_ROOT, new WP_Error() ) ), array( ADMIN_ROOT ) );
@@ -312,7 +336,7 @@ echo "\n=== Password reset links survive support-session detection ===\n";
 // logged-out login requests to `/_wpcomsh_detect_support_session?redirect=...`, and that path is
 // only served while the request is proxied AND no detection cookie is set yet. Re-open the wrapped
 // URL later - from a mailbox, a chat, the back button - and nothing handles it, so WordPress 404s.
-// Reported for peiraisotta and others on 28 August 2026.
+// Reported for a program participant and others on 28 August 2026.
 //
 // wpcomsh's own `need_to_detect()` short-circuits on a query parameter it defines for the purpose,
 // so setting it before their `login_init` callback runs keeps the redirect from happening at all.

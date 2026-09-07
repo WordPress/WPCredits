@@ -1363,14 +1363,23 @@ class WPCPM_Sponsor_Application {
 			$signals[] = 'honeypot';
 		}
 
-		// 5. The dwell token.
+		// 5. The dwell token, in its four answers. `stale` bounces; `fast` holds; anything else
+		// that is not `ok` is spam.
 		$dwell = self::check_token( WPCPM_Request::posted_text( self::TOKEN_FIELD ) );
 
 		if ( WPCPM_Form_Guard::TOKEN_STALE === $dwell ) {
 			self::bounce( 'stale', array( 'values' => self::clean_all( $posted )['values'] ) );
 		}
 
-		if ( WPCPM_Form_Guard::TOKEN_OK !== $dwell ) {
+		if ( WPCPM_Form_Guard::TOKEN_FAST === $dwell ) {
+			// A token this site signed, used once, and seconds old: the applicant fixed what a
+			// bounce asked for and pressed Send while the redrawn page's token was young. Held
+			// and not spam (FANON-1), so the row reaches the queue, the applicant is
+			// acknowledged, and requiredness and the logo check below still run on it. As spam
+			// it was a genuine application nobody was ever told about, behind the ordinary
+			// confirmation, deleted after thirty days.
+			$signals[] = 'dwell-fast';
+		} elseif ( WPCPM_Form_Guard::TOKEN_OK !== $dwell ) {
 			$spam      = true;
 			$signals[] = 'dwell';
 		}
@@ -1406,14 +1415,36 @@ class WPCPM_Sponsor_Application {
 			}
 		}
 
-		// 9. The two logo files, accepted here and stored only after the row exists. After the
-		// ceiling and after requiredness, so no byte of a stranger's file is read for a
+		// 9. The site-wide ceiling degrades rather than refusing: the row is kept and held, the
+		// managers are not paged, the applicant still is.
+		//
+		// Before the files and not after them (FANON-3). Past the day's forty every further
+		// submission is held, and each one still re-encoded two images and wrote two
+		// attachments with their thumbnails: the degrade capped what could page a manager and
+		// capped nothing at all about what an unauthenticated path could write to disk. The
+		// price of asking here is that a bounce below this line (a file the image handler
+		// refuses, or storage failing) has spent one of the day's places; the alternative is
+		// reading a stranger's bytes before knowing whether the row is being held at all.
+		$degraded = ! WPCPM_Form_Guard::claim_site( self::SITE_KEY, WPCPM_Form_Guard::PER_DAY );
+
+		if ( $degraded ) {
+			$signals[] = 'site-ceiling';
+		}
+
+		// 10. The two logo files, accepted here and stored only after the row exists. After the
+		// ceilings and after requiredness, so no byte of a stranger's file is read for a
 		// submission that was never going to be filed; a spam row reads none at all, because a
-		// bot's files are not Media Library material. One bad file is a problem on the logo
-		// question and refuses the pair.
+		// bot's files are not Media Library material, and neither does a row the day's degrade
+		// is holding. One bad file is a problem on the logo question and refuses the pair.
 		$accepted = array();
 
-		if ( ! $spam ) {
+		if ( ! $spam && $degraded && self::logo_arrived() ) {
+			// Said on the row and in the acknowledgement, so that a company whose logo was not
+			// kept is asked for it again rather than left wondering (FANON-3).
+			$signals[] = 'files-skipped';
+		}
+
+		if ( ! $spam && ! $degraded ) {
 			$accepted = self::accept_logos();
 
 			if ( is_string( $accepted ) ) {
@@ -1427,14 +1458,8 @@ class WPCPM_Sponsor_Application {
 			}
 		}
 
-		// 10. Content scoring. Holds, never refuses.
+		// 11. Content scoring. Holds, never refuses.
 		$signals = array_merge( $signals, self::score( $values ) );
-
-		// 11. The site-wide ceiling degrades rather than refusing: the row is kept and held,
-		// the managers are not paged, the applicant still is.
-		if ( ! WPCPM_Form_Guard::claim_site( self::SITE_KEY, WPCPM_Form_Guard::PER_DAY ) ) {
-			$signals[] = 'site-ceiling';
-		}
 
 		// 12. Duplicates are flagged and never merged: another open application, and a sponsor
 		// the index already holds. Neither is a hold; both are for the manager.
@@ -1708,7 +1733,10 @@ class WPCPM_Sponsor_Application {
 	 *
 	 * The two duplicate flags are deliberately not a hold: they say a manager should look, and
 	 * holding the second row would make a company whose address a stranger used first silently
-	 * worse off than one nobody targeted.
+	 * worse off than one nobody targeted. `render_queue_row()` excludes two more from its own
+	 * "held by" line, and neither belongs here either: `files-skipped` only ever rides beside
+	 * `site-ceiling`, which already holds the row on its own, and the account-conflict flag is
+	 * not raised until a row is drawn, so this method never sees it.
 	 *
 	 * @param bool  $spam    Whether a spam layer fired.
 	 * @param array $signals Every signal raised.
@@ -1734,6 +1762,13 @@ class WPCPM_Sponsor_Application {
 	 * `WPCPM_Request`, so it is read here, once, for both fields. What makes the bytes safe is
 	 * `WPCPM_Image_Upload`, not a filter on this array.
 	 *
+	 * **Every member is checked with `is_scalar()` before it is cast** (FANON-7). A request
+	 * that posts the field in the multi-file shape (`name[]`) delivers `name`, `tmp_name`,
+	 * `error` and `size` as arrays: the casts below then wrote two "Array to string conversion"
+	 * warnings to the host's log per request, and `(int)` on a non-empty array is 1, which is
+	 * `UPLOAD_ERR_INI_SIZE`, so the applicant was told their file was too large. A member that
+	 * is not a scalar is no file, which is what such a request actually sent this form.
+	 *
 	 * @param string $field The field name.
 	 * @return array{error: int, size: int, tmp_name: string, name: string}
 	 */
@@ -1754,11 +1789,31 @@ class WPCPM_Sponsor_Application {
 		$raw = wp_unslash( $_FILES[ $field ] );
 
 		return array(
-			'error'    => isset( $raw['error'] ) ? (int) $raw['error'] : UPLOAD_ERR_NO_FILE,
-			'size'     => isset( $raw['size'] ) ? (int) $raw['size'] : 0,
-			'tmp_name' => isset( $raw['tmp_name'] ) ? (string) $raw['tmp_name'] : '',
-			'name'     => isset( $raw['name'] ) ? substr( sanitize_file_name( (string) $raw['name'] ), 0, 200 ) : '',
+			'error'    => isset( $raw['error'] ) && is_scalar( $raw['error'] ) ? (int) $raw['error'] : UPLOAD_ERR_NO_FILE,
+			'size'     => isset( $raw['size'] ) && is_scalar( $raw['size'] ) ? (int) $raw['size'] : 0,
+			'tmp_name' => isset( $raw['tmp_name'] ) && is_scalar( $raw['tmp_name'] ) ? (string) $raw['tmp_name'] : '',
+			'name'     => isset( $raw['name'] ) && is_scalar( $raw['name'] ) ? substr( sanitize_file_name( (string) $raw['name'] ), 0, 200 ) : '',
 		);
+	}
+
+	/**
+	 * Whether either logo field arrived at all, by its description and never its bytes.
+	 *
+	 * What the site-wide degrade asks before it records that the files were skipped: a company
+	 * that sent no logo must not be told one was dropped (FANON-3).
+	 *
+	 * @return bool
+	 */
+	private static function logo_arrived() {
+		foreach ( self::logo_fields() as $field ) {
+			$file = self::uploaded( $field );
+
+			if ( UPLOAD_ERR_NO_FILE !== (int) $file['error'] ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -1965,8 +2020,11 @@ class WPCPM_Sponsor_Application {
 			array(
 				'post_type'   => self::POST_TYPE,
 				'post_status' => 'private',
-				// Zero for a logged-out submission, which is every real one; a manager testing
-				// the form leaves their name on the row, which is a fact worth having.
+				// Nobody, always, and on purpose. The handler is on `admin_post_` as well as
+				// `admin_post_nopriv_`, so a manager can post the form; core takes the author
+				// it is given, and a row authored by a manager would read on every screen as
+				// though they were the applicant. The applicant is the address on the row.
+				// FANON-6 found this comment claiming the opposite of what the literal does.
 				'post_author' => 0,
 				'post_title'  => '' !== $name ? $name : __( 'Application with no name', 'wpcredits-program-manager' ),
 			),
@@ -2182,8 +2240,14 @@ class WPCPM_Sponsor_Application {
 				'post_status' => 'private',
 				'numberposts' => max( 1, (int) $limit ),
 				'meta_key'    => self::META_DECIDED,
-				'orderby'     => 'meta_value_num',
-				'order'       => 'DESC',
+				// The ID breaks the tie in the query as well as in the sort below, so the
+				// window the bound cuts is the same one on every load: a sort can only arrange
+				// the rows the query returned, and a tie straddling the bound was left to
+				// whatever order MySQL felt like (the clean-up release parked this as P1).
+				'orderby'     => array(
+					'meta_value_num' => 'DESC',
+					'ID'             => 'DESC',
+				),
 				'meta_query'  => array(
 					array(
 						'key'     => self::META_STATE,
@@ -2391,7 +2455,12 @@ class WPCPM_Sponsor_Application {
 		$reference = (string) get_post_meta( $post_id, self::META_REFERENCE, true );
 		$site      = WPCPM_Mail::site_name();
 
-		$build = function () use ( $site, $name, $reference, $email ) {
+		// A row the day's degrade held read none of the logo files it came with (FANON-3), and
+		// the company is the only one who can send them again: saying so here is the difference
+		// between a logo that arrives after approval and one nobody ever asks for.
+		$skipped = in_array( 'files-skipped', (array) get_post_meta( $post_id, self::META_SIGNALS, true ), true );
+
+		$build = function () use ( $site, $name, $reference, $email, $skipped ) {
 			$lines = array(
 				sprintf(
 					/* translators: %s: the company's name as it was given on the form. */
@@ -2411,6 +2480,15 @@ class WPCPM_Sponsor_Application {
 					$site
 				),
 			);
+
+			if ( $skipped ) {
+				array_splice(
+					$lines,
+					2,
+					0,
+					array( __( 'One thing about the logo: the site was taking more applications than usual when yours arrived, so the logo files you attached were not kept. Your answers were, and nothing else about the application was affected. If the program says yes, you can send the logo after your account is set up.', 'wpcredits-program-manager' ) )
+				);
+			}
 
 			return array(
 				'subject' => sprintf(
@@ -2526,10 +2604,13 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
-	 * The states that may be deleted, by hand or by the retention run.
+	 * The states a manager may delete by hand.
 	 *
-	 * The same three the retention settings name, and never an open one: an application
-	 * waiting for a decision is somebody's unanswered letter.
+	 * The three decided ones, and never an open one: an application waiting for a decision is
+	 * somebody's unanswered letter, and Delete for good next to it would be one misclick from
+	 * losing it. The retention run reads its own list and keeps a held row for as long as a
+	 * rejected one before removing it (`purge()`, FANON-3), which is a rule about age and not
+	 * a button.
 	 *
 	 * @return string[]
 	 */
@@ -3019,9 +3100,10 @@ class WPCPM_Sponsor_Application {
 	 * Delete one application, its logo files when nobody approved it, and log the deletion.
 	 *
 	 * `wp_delete_post( $id, true )`: no trash, because a retention rule that leaves the row in
-	 * the trash has not deleted anything. The two attachments go with a spam or rejected row
-	 * (plan ruling 20); an approved application's attachments are the sponsor's logo in the
-	 * Media Library and stay, as spec section 11 promises the logos survive.
+	 * the trash has not deleted anything. The two attachments go with a spam, held or rejected
+	 * row (plan ruling 20, held added by FANON-3); an approved application's attachments are
+	 * the sponsor's logo in the Media Library and stay, as spec section 11 promises the logos
+	 * survive.
 	 *
 	 * @param WP_Post $post  The application.
 	 * @param int     $days  The retention setting that removed it, or 0 for a manager's hand.
@@ -3165,11 +3247,20 @@ class WPCPM_Sponsor_Application {
 	 * Drawn on the wp-admin Sponsors screen and on the Administrator Dashboard by the same
 	 * method, so the two surfaces cannot offer different decisions for one row.
 	 *
+	 * The capability is asked here for the reason `render_decision()` asks it, and this is the
+	 * method it asks on behalf of: what follows names the company and the contact address in
+	 * its confirmations and mints the four decision nonces. The guarantee used to live in the
+	 * call sites alone, so a caller that forgot inherited nothing.
+	 *
 	 * @param WP_Post $post   The application.
 	 * @param string  $state  Its state.
 	 * @param string  $return `WPCPM_Return::DASHBOARD` when drawn on the Administrator Dashboard, else ''.
 	 */
 	public static function render_actions( WP_Post $post, $state, $return = '' ) {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
 		echo '<h3>' . esc_html__( 'What happens next', 'wpcredits-program-manager' ) . '</h3>';
 
 		$name  = self::stored_name( $post );
@@ -3586,7 +3677,10 @@ class WPCPM_Sponsor_Application {
 			$signals[] = self::SIGNAL_ACCOUNT;
 		}
 
-		$held_by = array_values( array_diff( $signals, array( self::SIGNAL_DUPLICATE, self::SIGNAL_IN_BASE, self::SIGNAL_ACCOUNT ) ) );
+		// The three flags are not holds, and neither is `files-skipped`: that one says what the
+		// day's degrade did to the logo files, and the `site-ceiling` beside it is the check
+		// that held the row. Counting it would tell a manager two checks held a row one did.
+		$held_by = array_values( array_diff( $signals, array( self::SIGNAL_DUPLICATE, self::SIGNAL_IN_BASE, self::SIGNAL_ACCOUNT, 'files-skipped' ) ) );
 
 		echo '<li class="wpcpm-queue-item">';
 
@@ -3694,10 +3788,19 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * One application, open: the checks, every answer, the logos, the base, the decisions.
 	 *
+	 * It prints the applicant's answers directly rather than through `render_details()`, which
+	 * is why it asks the capability itself the way every renderer in this module now does: the
+	 * one screen that calls it is a CAP_MANAGE screen, and that is the call site's guarantee
+	 * rather than this method's.
+	 *
 	 * @param WP_Post $post       The application.
 	 * @param string  $screen_url The Sponsors screen's URL, for the way back.
 	 */
 	public static function render_open( WP_Post $post, $screen_url ) {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
 		$state = self::state_of( $post );
 		$name  = self::stored_name( $post );
 
@@ -3741,9 +3844,16 @@ class WPCPM_Sponsor_Application {
 	 * logo files and what the base already holds, without the heading and without the
 	 * decisions, which the card draws itself (spec 10, the Administrator Dashboard's card).
 	 *
+	 * The capability is asked here for the same reason `render_decision()` asks it: every
+	 * answer a stranger typed, including their name and address, is printed below.
+	 *
 	 * @param WP_Post $post The application.
 	 */
 	public static function render_details( WP_Post $post ) {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
 		self::render_answers( $post );
 		self::render_logos( $post );
 		self::render_base_matches( $post );
@@ -3988,6 +4098,11 @@ class WPCPM_Sponsor_Application {
 				__( 'It arrived without the token the form hands a browser, or less than %s seconds after the page was drawn.', 'wpcredits-program-manager' ),
 				number_format_i18n( WPCPM_Form_Guard::MIN_SECONDS )
 			),
+			'dwell-fast'             => sprintf(
+				/* translators: %s: a number of seconds. */
+				__( 'It was sent again less than %s seconds after the form was redrawn, which is what somebody correcting one answer does rather than what a script does. Nothing about the application was refused.', 'wpcredits-program-manager' ),
+				number_format_i18n( WPCPM_Form_Guard::MIN_SECONDS )
+			),
 			'disallowed'             => __( 'Something written on it matches this site\'s comment disallowed list.', 'wpcredits-program-manager' ),
 			'links'                  => sprintf(
 				/* translators: %s: a number of links. */
@@ -4000,6 +4115,7 @@ class WPCPM_Sponsor_Application {
 				__( 'The site had already taken %s sponsor applications that day, so this one was kept and held instead of being refused. It says nothing about the application itself.', 'wpcredits-program-manager' ),
 				number_format_i18n( WPCPM_Form_Guard::PER_DAY )
 			),
+			'files-skipped'          => __( 'The site had already taken the day\'s applications when this one arrived, so the logo files it came with were not read or kept. The company can send the logo after approval; nothing else about the application was affected.', 'wpcredits-program-manager' ),
 			'mail-ceiling'           => __( 'The day\'s limit on acknowledgements had been reached when it arrived, so no message was sent to the applicant.', 'wpcredits-program-manager' ),
 			self::SIGNAL_DUPLICATE   => __( 'Another open application already named this company or this address. Nothing is ever merged: open both and decide.', 'wpcredits-program-manager' ),
 			self::SIGNAL_IN_BASE     => __( 'The sponsors index already holds a sponsor with this name or website. Approving creates a second record.', 'wpcredits-program-manager' ),
@@ -4010,10 +4126,20 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * The decisions for one application, by ID, wherever a card has only the facts.
 	 *
+	 * The capability is asked here and not at the call site alone, the way both sibling
+	 * `render_decision()` methods do it (`WPCPM_Sponsor_Agreement`, `WPCPM_Sponsor_Posts`).
+	 * This prints an applicant's company, website, contact person and email address and mints
+	 * the decision nonces, and the guarantee used to live entirely outside the method: the next
+	 * caller would have inherited nothing.
+	 *
 	 * @param int    $post_id The application.
 	 * @param string $return  `WPCPM_Return::DASHBOARD` when drawn on the Administrator Dashboard, else ''.
 	 */
 	public static function render_decision( $post_id, $return = '' ) {
+		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
+			return;
+		}
+
 		$post = self::application( $post_id );
 
 		if ( null === $post ) {
@@ -4031,14 +4157,21 @@ class WPCPM_Sponsor_Application {
 	/**
 	 * Delete the applications the retention settings say have been kept long enough.
 	 *
-	 * The daily `CRON_PURGE` run. Three settings, one per decided state, each in days, and
-	 * **0 means never**: an approved application is the paper trail behind a record and an
-	 * account, and the default keeps it forever on purpose. The clock runs from the decision
+	 * The daily `CRON_PURGE` run. Three settings, each in days, and **0 means never**: an
+	 * approved application is the paper trail behind a record and an account, and the default
+	 * keeps it forever on purpose. The clock runs from the last thing that happened to the row
 	 * and not from the submission, so lengthening a setting gives every row the longer life.
-	 * The files go with a spam or rejected row and stay with an approved one (`forget()`).
+	 * The files go with a spam, held or rejected row and stay with an approved one (`forget()`).
 	 * The run never re-reads a state before deleting: it rests on every state change writing
 	 * an event with its time (`add_event()`), so a reopen that lands during the run moves the
 	 * row's last decision past the cutoff and the row is skipped.
+	 *
+	 * **A held row is kept as long as a rejected one and then goes the same way** (FANON-3).
+	 * Held is an open state and nothing removed one: a flood past the day's degrade left one
+	 * private row per submission, with its logo files, in the queue for ever. It shares the
+	 * rejection's setting rather than owning a fourth, because it is the same question ("how
+	 * long is an application nobody let in kept?") and a manager who reads a held row can still
+	 * decide it, which starts its clock again.
 	 *
 	 * @return int How many were deleted.
 	 */
@@ -4046,6 +4179,7 @@ class WPCPM_Sponsor_Application {
 		$retention = array(
 			self::STATE_SPAM     => 'application_spam_days',
 			self::STATE_REJECTED => 'application_rejected_days',
+			self::STATE_HELD     => 'application_rejected_days',
 			self::STATE_APPROVED => 'application_approved_days',
 		);
 

@@ -5,7 +5,7 @@
  * What each block pins, and why it is worth pinning:
  *
  * - **The file opens with a UTF-8 BOM.** Excel reads a BOM-less UTF-8 CSV as the machine's
- *   legacy code page, so the fixture's "Ana Fidelitas" - accented, like most names in this
+ *   legacy code page, so the fixture's "Ana Example" - accented, like most names in this
  *   program - comes out mangled for every school in Latin America and half of Europe. Three
  *   bytes, written once, before anything else.
  * - **A cell that begins `=`, `+`, `-` or `@` is prefixed with an apostrophe.** Those four
@@ -311,7 +311,7 @@ $GLOBALS['index'][ $A ] = array(
 	'rows' => array(
 		'recSTU00000000001' => row(
 			'recSTU00000000001',
-			'Ana Fidelitas',
+			'Ana Example',
 			'In Sensei',
 			'2026-02-10',
 			array(
@@ -352,8 +352,8 @@ $GLOBALS['index'][ $A ] = array(
 
 $GLOBALS['umeta'][11] = array(
 	WPCPM_Students_Sync::META_PROGRAM => array(
-		'name'          => 'Ana Fidelitas',
-		'email'         => 'ana.fidelitas@example.test',
+		'name'          => 'Ana Example',
+		'email'         => 'ana.example@example.test',
 		'program'       => 'In Sensei',
 		'team'          => 'Documentation, Polyglots',
 		'website'       => 'https://ana.example.test/',
@@ -426,7 +426,7 @@ ck( 'nor a carriage return', WPCPM_Institution_Export::cell( "\r=1+1" ), "'\r=1+
 // every address would put an apostrophe in front of every mentor's email on every export.
 ck( 'an at sign anywhere but the front is left alone', WPCPM_Institution_Export::cell( 'ana@example.test' ), 'ana@example.test' );
 ck( 'so is a hyphen inside a date', WPCPM_Institution_Export::cell( '2026-02-10' ), '2026-02-10' );
-ck( 'and an ordinary name is untouched', WPCPM_Institution_Export::cell( 'Ana Fidelitas' ), 'Ana Fidelitas' );
+ck( 'and an ordinary name is untouched', WPCPM_Institution_Export::cell( 'Ana Example' ), 'Ana Example' );
 
 ck( 'an empty cell stays empty rather than becoming an apostrophe', WPCPM_Institution_Export::cell( '' ), '' );
 ck( 'whitespace alone is not a formula', WPCPM_Institution_Export::cell( '   ' ), '   ' );
@@ -486,7 +486,7 @@ ck(
 ck(
 	'and the students with them, the formula name neutralised',
 	column_of( $file, 1 ),
-	array( 'Ana Fidelitas', 'Ewa Zielinska', 'Bruno Kowalski', '\'=cmd|\' /C calc\'!A0', 'Dana Nowak' )
+	array( 'Ana Example', 'Ewa Zielinska', 'Bruno Kowalski', '\'=cmd|\' /C calc\'!A0', 'Dana Nowak' )
 );
 
 ck( 'the neutralised name is quoted as one cell, not split at its spaces', has( WPCPM_Institution_Export::csv( $matrix ), '"\'=cmd|\' /C calc\'!A0"' ), true );
@@ -563,12 +563,12 @@ $narrow            = rows_of( WPCPM_Institution_Export::csv( WPCPM_Institution_E
 // `scope()` keeps the caller's order, not the fields list's, so a ground that names its columns
 // in any order cannot reshuffle the file's columns under the reader.
 ck( 'a scoped decision keeps only its columns, in the export\'s order', $narrow[0], array( 'Student', 'Cohort' ) );
-ck( 'and the cells follow the headings', $narrow[1], array( 'Ana Fidelitas', 'January to June 2026' ) );
+ck( 'and the cells follow the headings', $narrow[1], array( 'Ana Example', 'January to June 2026' ) );
 $GLOBALS['fields'] = null;
 
 echo "\n=== The single-student export ===\n";
 
-$student = new WP_User( 11, 'Ana Fidelitas', 'ana.fidelitas@example.test' );
+$student = new WP_User( 11, 'Ana Example', 'ana.example@example.test' );
 $grades  = array(
 	'Open source basics and WordPress - final grade' => 92.5,
 	'How decisions are made in the WordPress project - final grade' => 0,
@@ -589,7 +589,7 @@ ck( 'the file is a header and one student', count( $card ), 2 );
 ck( 'the first thirteen columns are the roster export\'s, in its order', array_slice( $card[0], 0, 13 ), $file[0] );
 ck( 'then this track\'s eleven grades', count( $card[0] ), 24 );
 
-ck( 'the student is the one asked for', $card[1][1], 'Ana Fidelitas' );
+ck( 'the student is the one asked for', $card[1][1], 'Ana Example' );
 ck( 'and the row carries the roster group the card sits under', $card[1][0], 'Current' );
 
 ck( 'a grade is written out', $card[1][ heading_at( $card, 'Open source basics and WordPress' ) ], '92.5' );

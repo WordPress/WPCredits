@@ -483,12 +483,12 @@ function before( $body, $first, $second ) {
 	return false !== $one && false !== $two && $one < $two;
 }
 
-$A = 'recDdomg5W6h410JT'; // the TEST institution in the seed fixture.
-$B = 'rec0IT9J93YkAYvSU';
+$A = 'recSEED0000000001'; // the TEST institution in the seed fixture.
+$B = 'recSEED0000000002';
 $C = 'recZZZZZZZZZZZZZZ'; // well-formed, never indexed.
 
 $GLOBALS['index'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'TEST - WordPress Education Dashboard (do not use) ', 'stage' => 'Confirmed', 'city' => 'Test', 'country_name' => 'Poland', 'website' => '', 'contact_person' => 'Bob Contact', 'contact_email' => 'contact@example.test' ),
+	$A => array( 'record_id' => $A, 'name' => 'TEST - Institution 20 ', 'stage' => 'Confirmed', 'city' => 'Test', 'country_name' => 'Poland', 'website' => '', 'contact_person' => 'Bob Contact', 'contact_email' => 'contact@example.test' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Example', 'stage' => 'Confirmed', 'city' => 'Example', 'country_name' => 'Costa Rica', 'website' => '', 'contact_person' => '', 'contact_email' => 'rector@example.test' ),
 );
 $GLOBALS['index_read'] = 1756000000;
@@ -533,7 +533,7 @@ $token = token_from_mail();
 
 ck( 'one message went to the address, through the mail layer', array( $mail['to'], $mail['context'] ), array( 'colleague@example.test', 'institution-invite' ) );
 ck( 'it names the institution and who invited them', array(
-	has( $mail['mail']['subject'], 'TEST - WordPress Education Dashboard (do not use)' ),
+	has( $mail['mail']['subject'], 'TEST - Institution 20' ),
 	has( $mail['mail']['body'], 'Anna Kowalska' ),
 ), array( true, true ) );
 ck( 'it can be replied to', $mail['mail']['headers'], array( 'Reply-To: "Anna Kowalska" <anna@example.test>' ) );
@@ -663,7 +663,7 @@ ck( 'and the only control on it is a POST back to the accept action', array(
 	has( $page, '<button type="submit"' ),
 ), array( true, true, true, true, true ) );
 ck( 'it names the institution and who invited them, as the mail did', array(
-	has( $page, 'TEST - WordPress Education Dashboard (do not use)' ),
+	has( $page, 'TEST - Institution 20' ),
 	has( $page, 'Anna Kowalska' ),
 ), array( true, true ) );
 ck( 'and says nothing the mail did not: the invited address is not printed', has( $page, 'newcomer@example.test' ), false );

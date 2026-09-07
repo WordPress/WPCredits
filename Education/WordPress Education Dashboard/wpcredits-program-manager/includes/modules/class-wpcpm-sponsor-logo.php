@@ -79,15 +79,16 @@ final class WPCPM_Sponsor_Logo {
 	 */
 	public static function messages() {
 		return array(
-			'logo-saved'    => array( 'success', __( 'Your logo is saved, here and in the program records.', 'wpcredits-program-manager' ) ),
-			'logo-removed'  => array( 'success', __( 'Your logo is removed here and from the program records. Upload a new one whenever you like.', 'wpcredits-program-manager' ) ),
+			'logo-saved'            => array( 'success', __( 'Your logo is saved, here and in the program records.', 'wpcredits-program-manager' ) ),
+			'logo-removed'          => array( 'success', __( 'Your logo is removed here and from the program records. Upload a new one whenever you like.', 'wpcredits-program-manager' ) ),
 			'logo-removed-airtable' => array( 'error', __( 'Nothing was removed: the program records could not be told just now. Try again in a moment.', 'wpcredits-program-manager' ) ),
-			'logo-none'     => array( 'error', __( 'Nothing was saved. Choose a color logo, a white one, or both.', 'wpcredits-program-manager' ) ),
-			'logo-refused'  => array( 'error', __( 'Nothing was saved. A logo has to be a PNG, JPEG or WebP image, at least 200 pixels wide and no more than 4000 on a side. SVG is not accepted: export the logo as a PNG.', 'wpcredits-program-manager' ) ),
-			'logo-busy'     => array( 'error', __( 'Nothing was saved. This sponsor has used up the logo uploads one day allows. Try again tomorrow.', 'wpcredits-program-manager' ) ),
-			'logo-failed'   => array( 'error', __( 'Nothing was saved. This site could not store the image, which is this site\'s fault and not yours. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
-			'logo-airtable' => array( 'warning', __( 'Your logo is saved on the site, and the program records could not be told just now. The site shows the new logo; the records catch up on the next attempt.', 'wpcredits-program-manager' ) ),
-			'refused'       => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
+			'logo-none'             => array( 'error', __( 'Nothing was saved. Choose a color logo, a white one, or both.', 'wpcredits-program-manager' ) ),
+			'logo-not-site'         => array( 'error', __( 'There is no uploaded logo to remove here. The logo shown comes from Airtable; a program manager can change it there.', 'wpcredits-program-manager' ) ),
+			'logo-refused'          => array( 'error', __( 'Nothing was saved. A logo has to be a PNG, JPEG or WebP image, at least 200 pixels wide and no more than 4000 on a side. SVG is not accepted: export the logo as a PNG.', 'wpcredits-program-manager' ) ),
+			'logo-busy'             => array( 'error', __( 'Nothing was saved. This sponsor has used up the logo uploads one day allows. Try again tomorrow.', 'wpcredits-program-manager' ) ),
+			'logo-failed'           => array( 'error', __( 'Nothing was saved. This site could not store the image, which is this site\'s fault and not yours. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
+			'logo-airtable'         => array( 'warning', __( 'Your logo is saved on the site, and the program records could not be told just now. The site shows the new logo; the records catch up on the next attempt.', 'wpcredits-program-manager' ) ),
+			'refused'               => array( 'error', __( 'That is not something your account can do here.', 'wpcredits-program-manager' ) ),
 		);
 	}
 
@@ -95,9 +96,12 @@ final class WPCPM_Sponsor_Logo {
 	 * Take one or both logos.
 	 *
 	 * The order: the nonce keyed to the record, then the roster's claim (which decides
-	 * `ACT_UPLOAD_LOGO` and meters a refusal), then the daily ceiling, then the files. The
-	 * ceiling is above the files on purpose, as the agreement upload's is: a runaway script
-	 * must be refused before a megabyte is read into this process.
+	 * `ACT_UPLOAD_LOGO` and meters a refusal), then whether any file arrived at all, then the
+	 * daily ceiling, then the bytes. The ceiling is above the bytes on purpose, as the agreement
+	 * upload's is: a runaway script must be refused before a megabyte is read into this process.
+	 * It sits below the "did anything arrive" question because it used to sit above it, and five
+	 * presses of Save with both fields empty then locked every colleague out of the day's five
+	 * uploads without a single file having been sent (FSPON-4). The ceiling has no release.
 	 */
 	public static function handle_upload() {
 		if ( ! is_user_logged_in() ) {
@@ -122,10 +126,6 @@ final class WPCPM_Sponsor_Logo {
 			self::leave( 'logo-failed', $record );
 		}
 
-		if ( ! WPCPM_Ceiling::claim( self::CEILING . $record, self::PER_DAY, DAY_IN_SECONDS ) ) {
-			self::leave( 'logo-busy', $record );
-		}
-
 		$company  = '' !== trim( (string) $claim['row']['name'] ) ? trim( (string) $claim['row']['name'] ) : $record;
 		$incoming = array();
 
@@ -146,6 +146,12 @@ final class WPCPM_Sponsor_Logo {
 
 		if ( empty( $incoming ) ) {
 			self::leave( 'logo-none', $record );
+		}
+
+		// A file did arrive, so this press takes one of the day's five, and takes it before a
+		// byte of the file is read.
+		if ( ! WPCPM_Ceiling::claim( self::CEILING . $record, self::PER_DAY, DAY_IN_SECONDS ) ) {
+			self::leave( 'logo-busy', $record );
 		}
 
 		// Both files are accepted before either is stored: one bad half refuses the pair, so a
@@ -252,6 +258,11 @@ final class WPCPM_Sponsor_Logo {
 	 * Nothing is deleted from the Media Library. A published sponsor post that embeds the image
 	 * keeps working, and a manager who wants the file gone deletes it in wp-admin, where the
 	 * consequences of deleting an attachment are visible.
+	 *
+	 * **Only a logo this site owns.** The premise named above - that the upload already replaced
+	 * the base's `Logo` with this site's public URLs - is now checked here instead of assumed
+	 * from the button being drawn: a record that fails the check refuses with `logo-not-site`,
+	 * and nothing is PATCHed (FSPON-5).
 	 */
 	public static function handle_remove() {
 		if ( ! is_user_logged_in() ) {
@@ -269,6 +280,16 @@ final class WPCPM_Sponsor_Logo {
 		}
 
 		$record = $claim['record'];
+
+		// The card draws Remove only for a logo this site owns, and this asks the same question
+		// of the same record rather than trusting that it did. The nonce minted in that branch
+		// stays valid for its whole life, and the sponsors sync can set the source back to
+		// airtable in between; without this the PATCH below would empty the Logo of a sponsor
+		// whose picture came from the base, destroying the only copy the program holds, under an
+		// audit row saying it was removed from the program records (FSPON-5).
+		if ( 'site' !== (string) WPCPM_Sponsors_Index::logo_record( $record )['source'] ) {
+			self::leave( 'logo-not-site', $record );
+		}
 
 		// The base's Logo was replaced by the upload, so nothing of the original is left to
 		// come back. It is emptied first: a site record cleared ahead of a PATCH that then
@@ -495,9 +516,8 @@ final class WPCPM_Sponsor_Logo {
 	 * @return bool Whether the base took it.
 	 */
 	private static function write_airtable( $record ) {
-		$logo   = WPCPM_Sponsors_Index::logo_record( $record );
-		$fields = WPCPM_Sponsors_Sync::fields();
-		$cells  = array();
+		$logo  = WPCPM_Sponsors_Index::logo_record( $record );
+		$cells = array();
 
 		foreach ( array( 'colour', 'white' ) as $half ) {
 			$id = (int) $logo[ $half ];

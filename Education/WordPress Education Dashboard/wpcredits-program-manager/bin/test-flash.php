@@ -74,16 +74,22 @@ WPCPM_Flash::set( 'guest', 'nope' );
 ck( 'nothing is stored for a guest', isset( $GLOBALS['umeta'][0] ), false );
 ck( 'and a guest reads nothing', WPCPM_Flash::take( 'guest' ), '' );
 
-// No status is left in the redirect URLs any more.
+// No status is left in the redirect URLs any more. Each file is asserted to be there first:
+// a check that reads a module which no longer exists passes on an empty string and warns on
+// every run, which is what the student profile row here did until the deep check of
+// 7 September 2026 read the battery's output.
 $root = dirname( __DIR__ );
 foreach ( array(
 	'includes/modules/class-wpcpm-mentor-calls.php'        => 'wpcpm_call',
 	'includes/modules/class-wpcpm-mentor-availability.php' => 'wpcpm_availability',
 	'includes/modules/class-wpcpm-mentor-notes.php'        => 'wpcpm_note',
-	'includes/modules/class-wpcpm-student-profile.php'     => 'wpcpm_details',
 	'includes/modules/class-wpcpm-student-report-form.php' => 'wpcpm_report',
 ) as $file => $arg ) {
-	$src = file_get_contents( $root . '/' . $file );
+	$path = $root . '/' . $file;
+
+	ck( sprintf( 'the module the check reads is there (%s)', basename( $file ) ), is_file( $path ), true );
+
+	$src = is_file( $path ) ? (string) file_get_contents( $path ) : '';
 	ck(
 		sprintf( 'no %s status left in a redirect (%s)', $arg, basename( $file ) ),
 		(bool) preg_match( "/'" . preg_quote( $arg, '/' ) . "'\s*=>/", $src ),

@@ -73,7 +73,7 @@ final class WPCPM_Sponsor_Agreement {
 	/** Post meta: the date of that decision, Y-m-d. */
 	const META_DECIDED_AT = '_wpcpm_sagr_decided_at';
 
-	/** Post meta: set when an Airtable write failed; `retry_airtable()` finishes it that night. */
+	/** Post meta: set when an Airtable write failed; the next sponsors sync run finishes it. */
 	const META_AIRTABLE_PENDING = '_wpcpm_sagr_airtable_pending';
 
 	/** Post meta, repeating: one row per event in the document's life. */
@@ -615,13 +615,18 @@ final class WPCPM_Sponsor_Agreement {
 	 * `META_AIRTABLE_PENDING` is the mark an upload or a withdrawal leaves when the base was
 	 * unreachable at the moment the site's own state changed. Neither path fails the sponsor's
 	 * action over it, which is only honest if something later finishes the write: this is that
-	 * something, and until it existed the mark was a promise nothing kept.
+	 * something, and until it existed the mark was a promise nothing kept. A handler that later
+	 * writes the cell itself takes that document's mark with it (`clear_pending()`), so a mark
+	 * names a write owed by the document that carries it. It does not name one owed by the
+	 * record: `handle_on_file()` writes the sponsor's status for a document of its own, and an
+	 * older document of the same sponsor keeps its mark, so that run sends one identical
+	 * PATCH that costs a call and changes nothing.
 	 *
 	 * The cell is written from the site's state now rather than from the status the failed
-	 * request meant to send. A mark can be a night old, and a document can have been accepted
+	 * request meant to send. A mark can be hours old, and a document can have been accepted
 	 * or returned in between; the base wants what is true rather than what was true.
 	 *
-	 * Fifty at a time, because one PATCH is one HTTP call and a night that cannot reach the
+	 * Fifty at a time, because one PATCH is one HTTP call and a run that cannot reach the
 	 * base at all should spend a bounded amount of a cron run finding that out.
 	 *
 	 * @return int How many documents were cleared.
@@ -667,6 +672,20 @@ final class WPCPM_Sponsor_Agreement {
 		}
 
 		return $cleared;
+	}
+
+	/**
+	 * Forget the mark that says one document still owes the base a write.
+	 *
+	 * `META_AIRTABLE_PENDING` was deleted by `retry_airtable()` alone, so a mark an upload left
+	 * behind when the base was unreachable outlived every later decision on that document, and
+	 * a later sync run sent one more PATCH hours later on behalf of a request whose state had
+	 * moved on. Every handler that writes the cell itself and is answered calls this.
+	 *
+	 * @param int $post_id The document.
+	 */
+	private static function clear_pending( $post_id ) {
+		delete_post_meta( absint( $post_id ), self::META_AIRTABLE_PENDING );
 	}
 
 	/**
@@ -960,9 +979,12 @@ final class WPCPM_Sponsor_Agreement {
 	 *
 	 * The base is told, unlike the institutions' withdraw. The upload wrote `Awaiting review`
 	 * and nothing else, so leaving it would put a manager in front of a queue entry with no
-	 * document behind it. A failed PATCH does not fail the withdrawal, because the file is
-	 * already gone: the post carries the pending mark instead and the sponsors sync's
-	 * `retry_airtable()` writes the cell.
+	 * document behind it. What is sent is `airtable_status_for()`, the status this site holds
+	 * once the withdrawn document is out of the way, and never a literal: a company whose
+	 * earlier document a manager sent back is still a company whose document was sent back.
+	 * A failed PATCH does not fail the withdrawal, because the file is already gone: the post
+	 * carries the pending mark instead and the sponsors sync's `retry_airtable()` writes the
+	 * cell.
 	 */
 	public static function handle_withdraw() {
 		if ( ! is_user_logged_in() ) {
@@ -1025,12 +1047,20 @@ final class WPCPM_Sponsor_Agreement {
 		);
 
 		if ( empty( $summary['agreement_id'] ) ) {
-			if ( ! self::patch( $record, array( self::field( 'agr_status' ) => self::AIRTABLE_NOT_STARTED ) ) ) {
+			// Read after the state above is written, so the document being withdrawn is not
+			// counted. The `Not started` literal that stood here answered "is anything
+			// accepted" and nothing else, so a withdrawal wrote backwards over the `Returned`
+			// a manager had set, and the sponsors screen then printed "This site: the last
+			// document was returned. Airtable: Not started." with nothing to repair it.
+			$status = self::airtable_status_for( $record );
+
+			if ( ! self::patch( $record, array( self::field( 'agr_status' ) => $status ) ) ) {
 				// The file is already gone, so the withdrawal stands whatever the base says;
 				// the mark is what the sponsors sync's `retry_airtable()` finishes.
 				update_post_meta( $post_id, self::META_AIRTABLE_PENDING, 1 );
 			} else {
-				self::rebuild( $record, array( 'status' => self::AIRTABLE_NOT_STARTED ), true );
+				self::clear_pending( $post_id );
+				self::rebuild( $record, array( 'status' => $status ), true );
 			}
 		}
 
@@ -1106,6 +1136,9 @@ final class WPCPM_Sponsor_Agreement {
 			self::unlock( $record );
 			self::bounce( 'agreement-airtable' );
 		}
+
+		// The cell is written, so an upload's failed write is no longer owed on this document.
+		self::clear_pending( $post_id );
 
 		if ( ! empty( $previous['agreement_id'] ) ) {
 			self::supersede( (int) $previous['agreement_id'] );
@@ -1231,6 +1264,8 @@ final class WPCPM_Sponsor_Agreement {
 		);
 
 		if ( empty( $summary['agreement_id'] ) ) {
+			// This branch is the one that wrote the cell, so it is the one that settles the mark.
+			self::clear_pending( $post_id );
 			self::rebuild( $record, array( 'status' => self::AIRTABLE_RETURNED ), true );
 		}
 
@@ -1300,6 +1335,8 @@ final class WPCPM_Sponsor_Agreement {
 			self::unlock( $record );
 			self::bounce( 'agreement-airtable' );
 		}
+
+		self::clear_pending( $post_id );
 
 		update_post_meta( $post_id, self::META_STATE, self::STATE_REVOKED );
 		update_post_meta( $post_id, self::META_NOTE, $note );
@@ -1388,6 +1425,8 @@ final class WPCPM_Sponsor_Agreement {
 			self::unlock( $record );
 			self::bounce( 'agreement-airtable' );
 		}
+
+		self::clear_pending( $post_id );
 
 		update_post_meta( $post_id, self::META_STATE, self::STATE_ACCEPTED );
 		update_post_meta( $post_id, self::META_DECIDED_BY, get_current_user_id() );
@@ -1890,8 +1929,9 @@ final class WPCPM_Sponsor_Agreement {
 	 *
 	 * The same source of truth `summary()` and `rebuild()` work from, mapped the way each
 	 * handler maps it: what the site would have written had the base been reachable when the
-	 * state changed. `retry_airtable()` is the only caller, and what it needs is the status
-	 * that is true tonight rather than the one a failed request meant to send.
+	 * state changed. Two callers: `retry_airtable()`, which needs the status that is true
+	 * now rather than the one a failed request meant to send, and `handle_withdraw()`,
+	 * which needs the status that is true once the withdrawn document is out of the way.
 	 *
 	 * @param string $record Sponsors record ID.
 	 * @return string One of the `AIRTABLE_*` choices.

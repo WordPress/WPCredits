@@ -434,8 +434,36 @@ class WPCPM_Institutions_Dashboard {
 				wp_enqueue_script( WPCPM_Module_Order::SCRIPT );
 			}
 
+			// The bodies first, the page after. A module with nothing to print is left out, and
+			// the arrows have to belong to the page that is drawn rather than to the saved
+			// order: given the whole order's index and count, the first module on the page
+			// still offered Move up when something above it had been dropped, and the last
+			// one's Move down stayed enabled when something below it had. Every card asks the
+			// policy its own narrower question, and the agreement gate in `ground_member()`
+			// exempts only `ACT_AGREEMENT`, so a representative whose Collaboration Agreement
+			// is not settled yet is refused the roster and the semester report and reads this
+			// page as the representatives module alone - which offered a Move up, because the
+			// default order puts it third (deep check FADMN-5, whose Student Report Card half
+			// shipped with it; this is the twin). The saved order is untouched, and so is the
+			// handler: what changes is which arrows the page offers.
+			$rendered = array();
+
 			foreach ( $order as $key ) {
-				self::render_module( $key, $order, $record, $context, $can_move );
+				ob_start();
+				self::render_module_body( $key, $record, $context );
+				$body = trim( (string) ob_get_clean() );
+
+				if ( '' !== $body ) {
+					$rendered[ $key ] = $body;
+				}
+			}
+
+			$index = 0;
+			$count = count( $rendered );
+
+			foreach ( $rendered as $key => $body ) {
+				self::render_module( $key, $body, $index, $count, $record, $can_move );
+				++$index;
 			}
 
 			// When the records were last read, once, at the foot of the page under its own
@@ -582,31 +610,26 @@ class WPCPM_Institutions_Dashboard {
 
 	/**
 	 * One module: its wrapper, the arrows when the reader may arrange the page, its title and
-	 * lead, and the cards inside. A module with nothing to print is left out altogether, so
-	 * nothing empty is offered to move.
+	 * lead, and the body `render()` has already built. A module whose cards all declined to
+	 * print - a representative whose agreement is not settled is refused every action but the
+	 * agreement itself - never reaches here, so nothing empty is offered to move; the index
+	 * and the count are the drawn page's, for the same reason.
 	 *
-	 * @param string   $key      Module key.
-	 * @param string[] $order    Every module, in this institution's order.
-	 * @param string   $record   Airtable record ID.
-	 * @param array    $context  The cards' context.
-	 * @param bool     $can_move Whether the reader may arrange this page.
+	 * @param string $key      Module key.
+	 * @param string $body     What the module's cards printed.
+	 * @param int    $index    Its place among the modules the page draws, from 0.
+	 * @param int    $count    How many modules the page draws.
+	 * @param string $record   Airtable record ID.
+	 * @param bool   $can_move Whether the reader may arrange this page.
 	 */
-	private static function render_module( $key, array $order, $record, array $context, $can_move ) {
-		ob_start();
-		self::render_module_body( $key, $record, $context );
-		$body = trim( (string) ob_get_clean() );
-
-		if ( '' === $body ) {
-			return;
-		}
-
+	private static function render_module( $key, $body, $index, $count, $record, $can_move ) {
 		$labels = self::modules();
 		$leads  = self::leads();
 
 		printf( '<div class="wpcpm-module wpcpm-module--%1$s" id="wpcpm-module-%1$s">', esc_attr( $key ) );
 
 		if ( $can_move ) {
-			WPCPM_Module_Order::render_mover( self::ACTION_MOVE, $key, (int) array_search( $key, $order, true ), count( $order ), array( self::FIELD_INSTITUTION => $record ), isset( $labels[ $key ] ) ? $labels[ $key ] : $key );
+			WPCPM_Module_Order::render_mover( self::ACTION_MOVE, $key, (int) $index, (int) $count, array( self::FIELD_INSTITUTION => $record ), isset( $labels[ $key ] ) ? $labels[ $key ] : $key );
 		}
 
 		printf( '<h2 class="wpcpm-student__heading wpcpm-institution__module-title">%s</h2>', esc_html( isset( $labels[ $key ] ) ? $labels[ $key ] : $key ) );

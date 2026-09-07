@@ -2,16 +2,22 @@
 /**
  * Refresh bin/fixtures/institutions-index-seed.json from the live base.
  *
- * Runs on the site, through WP-CLI, because the token lives there and nowhere else:
+ * Runs on the site, through WP-CLI, because the token lives there and nowhere else, and the
+ * second line is not optional:
  *
  *   ssh wpcredits-dashboard 'wp eval-file -' < bin/dump-institutions-seed.php \
  *     > bin/fixtures/institutions-index-seed.json
+ *   php bin/anonymize-fixtures.php
  *
- * Everything personal is left out on purpose: no contact person, no contact email, no
- * department, no prose, and for countries only whether a contact, an email and a Calendly
- * link exist. The fixture is published in a public repository, and institution names,
- * cities and websites are the organisations' public facts; a person's name is not.
- * After a refresh, update the counts bin/test-institutions-index.php pins.
+ * Everything personal is left out here: no contact person, no contact email, no department,
+ * no prose, and for countries only whether a contact, an email and a Calendly link exist.
+ * That is not enough on its own. What comes back still holds the live record IDs and the
+ * names of real organizations beside the stage the program filed each of them under, and for
+ * an applicant who typed their own name into the public form the name column IS the person -
+ * three rows of the base were exactly that when the deep check of 7 September 2026 read it
+ * (FSUIT-5). bin/ is published on the public GitHub mirror, so what this script writes is a
+ * raw dump that bin/anonymize-fixtures.php makes synthetic before it is committed.
+ * After a refresh, update the counts and the values bin/test-institutions-index.php pins.
  *
  * @package WPCreditsProgramManager
  */
@@ -136,7 +142,7 @@ foreach ( $wpcpm_seed_rows as $r ) {
 
 echo wp_json_encode(
 	array(
-		'_comment'           => 'The Institutions table (tbl4V0FEbzRP7I2w2) and the Countries table (tbltB7GSRoTtSi4Ps) as read from the base on ' . gmdate( 'Y-m-d' ) . ', with every personal field removed: no contact person, no contact email, no department, no prose, no manager names or addresses (countries carry only whether a contact, an email and a Calendly link exist). Institution names, cities and websites are the organisations\' public facts. The record recDdomg5W6h410JT is the TEST institution. Seeds the pipeline index in tests; refresh with bin/dump-institutions-seed.php or by hand when the base changes, and update the counts in bin/test-institutions-index.php with it.',
+		'_comment'           => 'A RAW dump, not yet fit to commit: the Institutions table (tbl4V0FEbzRP7I2w2) and the Countries table (tbltB7GSRoTtSi4Ps) as read from the base on ' . gmdate( 'Y-m-d' ) . '. Every personal column was left out here (no contact person, no contact email, no department, no prose; countries carry only whether a contact, an email and a Calendly link exist), but the live record IDs and the real names, cities and websites are still in it, beside the stage each organization was filed under. Run bin/anonymize-fixtures.php, which replaces them and rewrites this comment, before committing the file.',
 		'read'               => gmdate( 'Y-m-d' ),
 		'institutions_table' => 'tbl4V0FEbzRP7I2w2',
 		'countries_table'    => 'tbltB7GSRoTtSi4Ps',

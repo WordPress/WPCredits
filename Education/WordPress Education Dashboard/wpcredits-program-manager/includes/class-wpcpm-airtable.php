@@ -426,7 +426,7 @@ class WPCPM_Airtable {
 	 * checked against Airtable's for every letter of every script. That is why this flag
 	 * is only right for values that are ASCII by nature, which is to say email addresses,
 	 * and never for names: a name formula built this way prints 0 students for
-	 * Uniwersytet Łódzki, with every line of code looking correct.
+	 * an institution whose name carries Ł, with every line of code looking correct.
 	 *
 	 * @param string   $field  Field name.
 	 * @param string[] $values Accepted values.

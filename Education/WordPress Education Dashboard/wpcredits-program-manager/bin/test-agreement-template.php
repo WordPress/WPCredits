@@ -212,22 +212,22 @@ ck( 'the same template gives the same text twice', WPCPM_Agreement_Template::pla
 
 echo "\n=== merge() ===\n";
 
-$merged = WPCPM_Agreement_Template::merge( $template, 'Uniwersytet Łódzki' );
+$merged = WPCPM_Agreement_Template::merge( $template, 'Uniwersytet Łexample' );
 
 ck( 'a real name merges', is_wp_error( $merged ), false );
 
 $merged_text = is_wp_error( $merged ) ? '' : WPCPM_Agreement_Template::plain_text( $merged );
 
 ck( 'no bracket survives the merge', false !== strpos( $merged_text, '[' ), false );
-ck( 'the name appears twice', substr_count( $merged_text, 'Uniwersytet Łódzki' ), 2 );
+ck( 'the name appears twice', substr_count( $merged_text, 'Uniwersytet Łexample' ), 2 );
 ck( 'the title line names the institution',
-    false !== strpos( $merged_text, "Between the WordPress Foundation and Uniwersytet Łódzki\n" ), true );
+    false !== strpos( $merged_text, "Between the WordPress Foundation and Uniwersytet Łexample\n" ), true );
 ck( 'the merge does not touch the metadata',
     array( $merged['language'], $merged['version'], $merged['read'], $merged['source'] ),
     array( $template['language'], $template['version'], $template['read'], $template['source'] ) );
 ck( 'the unmerged template is left alone', WPCPM_Agreement_Template::checksum( $template ), $fixture['sha256'] );
 ck( 'surrounding whitespace on the name is trimmed',
-    substr_count( WPCPM_Agreement_Template::plain_text( WPCPM_Agreement_Template::merge( $template, "  Uniwersytet Łódzki \n" ) ), 'and Uniwersytet Łódzki (hereafter' ),
+    substr_count( WPCPM_Agreement_Template::plain_text( WPCPM_Agreement_Template::merge( $template, "  Uniwersytet Łexample \n" ) ), 'and Uniwersytet Łexample (hereafter' ),
     1 );
 
 ck( 'an empty name is refused', code_of( WPCPM_Agreement_Template::merge( $template, '' ) ), 'wpcpm_template_name' );
@@ -241,7 +241,7 @@ $edited             = $template;
 $edited['blocks'][] = array( 'type' => 'p', 'text' => 'Signed for the Institution by [Signatory Title].' );
 
 ck( 'a template with a token the merge does not fill is refused',
-    code_of( WPCPM_Agreement_Template::merge( $edited, 'Uniwersytet Łódzki' ) ), 'wpcpm_template_placeholder' );
+    code_of( WPCPM_Agreement_Template::merge( $edited, 'Uniwersytet Łexample' ) ), 'wpcpm_template_placeholder' );
 
 $edited             = $template;
 $edited['blocks'][] = array(
@@ -250,7 +250,7 @@ $edited['blocks'][] = array(
 );
 
 ck( 'the placeholder is replaced inside signature parties too',
-    substr_count( WPCPM_Agreement_Template::plain_text( WPCPM_Agreement_Template::merge( $edited, 'Uniwersytet Łódzki' ) ), 'Uniwersytet Łódzki' ),
+    substr_count( WPCPM_Agreement_Template::plain_text( WPCPM_Agreement_Template::merge( $edited, 'Uniwersytet Łexample' ) ), 'Uniwersytet Łexample' ),
     3 );
 
 /* ---- load() and languages() --------------------------------------------- */
@@ -551,7 +551,7 @@ ck( 'a difference is not a failure', $result['error'], '' );
 
 // The rule the whole design rests on. A stranger with the Doc's link can make this report say
 // anything at all; what it must never do is stop an institution being onboarded.
-$still = WPCPM_Agreement_Template::merge( WPCPM_Agreement_Template::load(), 'Uniwersytet Łódzki' );
+$still = WPCPM_Agreement_Template::merge( WPCPM_Agreement_Template::load(), 'Uniwersytet Łexample' );
 
 ck( 'and a reported difference is not a reason to refuse generation', is_wp_error( $still ), false );
 ck( 'the document generated afterwards is the same one as before',

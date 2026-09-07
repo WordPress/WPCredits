@@ -7,7 +7,9 @@
 # Every non-comment line of .distignore is excluded, at the root and anywhere
 # below it. The archive holds a single top-level <slug>/ folder, which is what
 # the WordPress uploader requires, and the version printed at the end is read
-# back from inside the archive, not from the working tree.
+# back from inside the archive, not from the working tree. Anything that goes
+# wrong is said on stderr with a non-zero status: bin/test-tooling.php holds
+# the check.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -30,11 +32,43 @@ done < "$root/.distignore"
 cd "$parent"
 find "$slug" -name .DS_Store -delete
 rm -f "$out"
-zip -rqX "$out" "$slug" -x "${excludes[@]}"
 
-tops="$(unzip -Z1 "$out" | cut -d/ -f1 | sort -u | tr '\n' ' ')"
-version="$(unzip -p "$out" "$slug/$slug.php" 2>/dev/null | grep -m1 -E '^ \* Version:' | sed 's/.*Version:[[:space:]]*//')"
-[ -n "$version" ] || version="$(unzip -p "$out" "$slug/style.css" 2>/dev/null | grep -m1 -E '^Version:' | sed 's/Version:[[:space:]]*//')"
+# Every failure below has to reach the person who ran the build. `set -e` ends the script on
+# any of them, but it ends it in silence: a zip that could not be written, and a version line
+# that could not be read, both looked exactly like a successful build that printed nothing
+# (deep check finding FSUIT-10, where the grep below matched nothing because the plugin
+# directory had been cloned under another name).
+zip -rqX "$out" "$slug" -x "${excludes[@]}" || {
+	status=$?
+	echo "ERROR: zip exited $status; no archive was written to $out" >&2
+	exit 1
+}
+
+# The archive is read back once, and the read is allowed to fail so that the message below is
+# reachable: this assignment, the entry count and the size were each their own pipeline under
+# `set -euo pipefail`, which is the same shape as the version line and the same silence
+# (FSUIT-10). One read also means the list and its count can never disagree.
+entries="$(unzip -Z1 "$out" || true)"
+
+if [ -z "$entries" ]; then
+	echo "ERROR: could not read $out back; it lists no entries" >&2
+	exit 1
+fi
+
+tops="$(printf '%s\n' "$entries" | cut -d/ -f1 | sort -u | tr '\n' ' ')"
+count="$(printf '%s\n' "$entries" | wc -l | tr -d ' ')"
+size="$(du -h "$out" | cut -f1 || true)"
+
+# `|| true` so a grep that matches nothing is a blank version rather than the end of the
+# script, and the message below is reachable. The slug is the directory name, so this is what
+# a build from a directory named anything other than the plugin slug looks like.
+version="$(unzip -p "$out" "$slug/$slug.php" 2>/dev/null | grep -m1 -E '^ \* Version:' | sed 's/.*Version:[[:space:]]*//' || true)"
+
+if [ -z "$version" ]; then
+	echo "ERROR: no Version line in $slug/$slug.php inside $out - is this directory named after the plugin slug?" >&2
+	exit 1
+fi
+
 printf 'built %s\n  top-level: %s\n  version inside: %s\n  entries: %s, size: %s\n' \
-	"$out" "$tops" "${version:-unknown}" "$(unzip -Z1 "$out" | wc -l | tr -d ' ')" "$(du -h "$out" | cut -f1)"
+	"$out" "$tops" "$version" "$count" "$size"
 [ "$tops" = "$slug " ] || { echo "ERROR: more than one top-level folder" >&2; exit 1; }

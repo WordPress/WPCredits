@@ -288,7 +288,7 @@ function batch_fields( array $over = array() ) {
 			'start'   => gmdate( 'Y-m-d', time() + 30 * DAY_IN_SECONDS ),
 			'end'     => '',
 			'notified' => '1',
-			'paste'   => "Name,Email\nAnna Kowalska,anna@uek.krakow.pl\n",
+			'paste'   => "Name,Email\nAnna Kowalska,anna@institution-3.example\n",
 		),
 		$over
 	);
@@ -307,7 +307,7 @@ ck( 'a valid list is checked and staged', $status, 'checked' );
 // through the text sanitiser arrives as one line, so the header and the first student run
 // together and the file is refused for having no email column. Three lines in, three rows out.
 fresh_world();
-$status = post_check( batch_fields( array( 'paste' => "Name,Email\nAnna Kowalska,anna@uek.krakow.pl\nBartek Zielinski,bartek@uek.krakow.pl\nCecylia Nowak,cecylia@uek.krakow.pl\n" ) ) );
+$status = post_check( batch_fields( array( 'paste' => "Name,Email\nAnna Kowalska,anna@institution-3.example\nBartek Zielinski,bartek@institution-3.example\nCecylia Nowak,cecylia@institution-3.example\n" ) ) );
 $staged = WPCPM_Institution_Import::batch( WPCPM_Institution_Import::staged_for( $HERE ) );
 
 ck( 'a three line paste is checked', $status, 'checked' );
@@ -405,7 +405,7 @@ $status = post_check(
 		array(
 			'paste'          => '',
 			'name'           => 'Bartek Zielinski',
-			'email'          => 'bartek@uek.krakow.pl',
+			'email'          => 'bartek@institution-3.example',
 			'profile'        => '@bartekz',
 			// Posted as a forged field would be: the form no longer offers it.
 			'field_of_study' => 'Technology & Engineering',
@@ -419,7 +419,7 @@ ck( 'one student sent through the boxes is checked the same way', $status, 'chec
 $rows = WPCPM_Institution_Import::batch( WPCPM_Institution_Import::staged_for( $HERE ) )['rows'];
 
 ck( 'and arrives as one cleaned row', count( $rows ), 1 );
-ck( 'and the address lowercased for comparing', $rows[0]['email_key'], 'bartek@uek.krakow.pl' );
+ck( 'and the address lowercased for comparing', $rows[0]['email_key'], 'bartek@institution-3.example' );
 ck( 'and one posted anyway is not carried', $rows[0]['profile'], '' );
 
 // Drawn with nothing staged, or the section shows the preview and every assertion about the

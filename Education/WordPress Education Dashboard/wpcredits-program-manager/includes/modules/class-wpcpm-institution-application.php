@@ -1516,14 +1516,23 @@ class WPCPM_Institution_Application {
 			$signals[] = 'honeypot';
 		}
 
-		// 5. The dwell token.
+		// 5. The dwell token, in its four answers. `stale` bounces; `fast` holds; anything else
+		// that is not `ok` is spam.
 		$dwell = self::check_token( WPCPM_Request::posted_text( self::TOKEN_FIELD ) );
 
-		if ( 'stale' === $dwell ) {
+		if ( WPCPM_Form_Guard::TOKEN_STALE === $dwell ) {
 			self::bounce( 'stale', array( 'values' => self::clean_all( $posted )['values'] ) );
 		}
 
-		if ( 'ok' !== $dwell ) {
+		if ( WPCPM_Form_Guard::TOKEN_FAST === $dwell ) {
+			// A token this site signed, used once, and seconds old: the applicant fixed what a
+			// bounce asked for and pressed Send while the redrawn page's token was young. Held
+			// and not spam (FANON-1). It matters more here than on the sponsor form: the
+			// acknowledgement a held row still gets carries the link that stamps
+			// `_wpcpm_app_verified`, and without that stamp no shipped path can ever approve
+			// the row, so filing it as spam ended the application for good.
+			$signals[] = 'dwell-fast';
+		} elseif ( WPCPM_Form_Guard::TOKEN_OK !== $dwell ) {
 			$spam      = true;
 			$signals[] = 'dwell';
 		}
@@ -2107,18 +2116,35 @@ class WPCPM_Institution_Application {
 	 * matters, and the age beside it is the whole point of the card it is drawn on.
 	 *
 	 * @param array $states States to include.
+	 * @param int   $limit  Most rows to read, or 0 for every one of them.
 	 * @return WP_Post[]
 	 */
-	public static function applications( $states ) {
+	public static function applications( $states, $limit = 0 ) {
 		$found = array();
 
-		foreach ( self::query( $states, 'all' ) as $post ) {
+		foreach ( self::query( $states, 'all', $limit ) as $post ) {
 			if ( $post instanceof WP_Post ) {
 				$found[] = $post;
 			}
 		}
 
 		return $found;
+	}
+
+	/**
+	 * The same rows as IDs: what a total costs when nobody is going to draw them.
+	 *
+	 * `get_posts()` with `fields => ids` builds no `WP_Post` and primes no meta cache, and
+	 * the meta here is `META_FIELDS` - the applicant's whole submitted form. The Administrator
+	 * Dashboard draws fifty rows and says how many there are; asking for the rows to count
+	 * them made it load a year of rejected applications and a month of spam on every render,
+	 * to throw all but fifty away (deep check FADMN-2).
+	 *
+	 * @param array $states States to include.
+	 * @return int[]
+	 */
+	public static function application_ids( $states ) {
+		return array_map( 'intval', self::query( $states, 'ids' ) );
 	}
 
 	/**
@@ -2166,8 +2192,16 @@ class WPCPM_Institution_Application {
 				'post_type'   => self::POST_TYPE,
 				'post_status' => 'private',
 				'numberposts' => $limit > 0 ? (int) $limit : -1,
-				'orderby'     => 'date',
-				'order'       => 'ASC',
+				// Oldest first, ID breaking the tie. Two applications stored in the same second
+				// are one `ORDER BY post_date` and no more, so which of them the database
+				// returns first is its own preference - and since the window moved into SQL
+				// that decides which of them falls inside it, so the queue can reorder itself
+				// between loads and hand a manager the same row twice (the deep check's P1, on
+				// this reader). A public form really does take two submissions in one second.
+				'orderby'     => array(
+					'date' => 'ASC',
+					'ID'   => 'ASC',
+				),
 				'fields'      => 'ids' === $fields ? 'ids' : '',
 				'meta_query'  => array(
 					array(

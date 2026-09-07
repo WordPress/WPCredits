@@ -354,15 +354,15 @@ function method_body( $source, $name ) {
 	return substr( $source, $offset, $end - $offset - 1 );
 }
 
-$A = 'recDdomg5W6h410JT'; // the TEST institution in the seed fixture.
-$B = 'rec0IT9J93YkAYvSU';
+$A = 'recSEED0000000001'; // the TEST institution in the seed fixture.
+$B = 'recSEED0000000002';
 $C = 'recZZZZZZZZZZZZZZ'; // well-formed, never indexed.
 // A contact in the base and no account at all, which is what forty of the forty-two
 // confirmed institutions looked like when the contact row was written.
 $D = 'rec1D1D1D1D1D1D1D';
 
 $GLOBALS['index'] = array(
-	$A => array( 'record_id' => $A, 'name' => 'TEST - WordPress Education Dashboard (do not use) ', 'stage' => 'Confirmed', 'city' => 'Test', 'country_name' => 'Poland', 'website' => '', 'contact_person' => 'Bob Contact', 'contact_email' => 'Contact@example.test' ),
+	$A => array( 'record_id' => $A, 'name' => 'TEST - Institution 20 ', 'stage' => 'Confirmed', 'city' => 'Test', 'country_name' => 'Poland', 'website' => '', 'contact_person' => 'Bob Contact', 'contact_email' => 'Contact@example.test' ),
 	$B => array( 'record_id' => $B, 'name' => 'Universidad Example', 'stage' => 'Confirmed', 'city' => 'Example', 'country_name' => 'Costa Rica', 'website' => '', 'contact_person' => '', 'contact_email' => 'rector@example.test' ),
 	$D => array( 'record_id' => $D, 'name' => 'Politechnika Example', 'stage' => 'Confirmed', 'city' => 'Example', 'country_name' => 'Poland', 'website' => '', 'contact_person' => 'Dana Dean', 'contact_email' => 'dana@example.test' ),
 );
@@ -415,7 +415,7 @@ ck( 'how: added by a program manager', has( $card, 'Added by a program manager' 
 ck( 'how: added by the institutions sync', has( $card, 'Added by the institutions sync' ), true );
 ck( 'how: joined by invitation', has( $card, 'Joined by invitation' ), true );
 ck( 'since: the date the stamp was written', has( $card, gmdate( 'Y-m-d' ) ), true );
-ck( 'the institution name prints trimmed', has( $card, 'TEST - WordPress Education Dashboard (do not use)&#039;s students' ), true );
+ck( 'the institution name prints trimmed', has( $card, 'TEST - Institution 20&#039;s students' ), true );
 ck( 'the read time of the facts that are not live', has( $card, 'were read ' . gmdate( 'Y-m-d H:i', 1756000000 ) ), true );
 ck( 'and it never renders accessibility', has( $card, 'accessibility' ), false );
 
@@ -490,7 +490,7 @@ echo "\n=== The nonce is keyed to the subject, and the confirm names everybody =
 
 ck( 'the viewer\'s own row is Leave', has( $card, '>Leave</button>' ), true );
 ck( 'somebody else\'s is Remove', has( $card, '>Remove</button>' ), true );
-ck( 'the confirm names the person and the institution', has( $card, "Remove Grace Third&#039;s access to TEST - WordPress Education Dashboard (do not use)&#039;s students" ), true );
+ck( 'the confirm names the person and the institution', has( $card, "Remove Grace Third&#039;s access to TEST - Institution 20&#039;s students" ), true );
 ck( 'it says who else is emailed', has( $card, 'and so will the other 2 members' ), true );
 ck( 'and that the account is kept', has( $card, 'The account is kept.' ), true );
 ck( 'leaving says the same about your own account', has( $card, 'your account is kept' ), true );
@@ -584,7 +584,7 @@ ck( 'leaving is allowed', $ending, 'redirect:https://example.test/#wpcpm-people'
 ck( 'the reason recorded is that they left', WPCPM_Institution_Audit::entries_for( $A, 1 )[0]['data']['reason'], 'left' );
 ck( 'nobody is left', WPCPM_Institution_Members::members_of( $A ), array() );
 ck( 'and the program managers were told', $GLOBALS['notified'][0]['context'] ?? '', 'member-last' );
-ck( 'in a message naming the institution', has( $GLOBALS['notified'][0]['mail']['subject'], 'TEST - WordPress Education Dashboard (do not use)' ), true );
+ck( 'in a message naming the institution', has( $GLOBALS['notified'][0]['mail']['subject'], 'TEST - Institution 20' ), true );
 
 echo "\n=== And is not left holding a message nobody can show them ===\n";
 

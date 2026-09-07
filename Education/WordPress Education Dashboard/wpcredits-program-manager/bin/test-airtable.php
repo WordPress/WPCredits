@@ -172,9 +172,11 @@ ck( 'lower wraps the field in LOWER() and lowercases the needle, still escaping 
 	$airtable->formula_in( 'Email', array( "Ann.O'Neil@Example.ORG" ), true ),
 	"LOWER({Email}) = 'ann.o\\'neil@example.org'" );
 
+// The first domain is upper case on purpose: the needle is lowercased whole, and two lower-case
+// placeholder domains would have left that half of the assertion comparing a value with itself.
 ck( 'lower with two values wraps each test',
-	$airtable->formula_in( 'Email', array( 'A@X.org', 'B@Y.org' ), true ),
-	"OR(LOWER({Email}) = 'a@x.org',LOWER({Email}) = 'b@y.org')" );
+	$airtable->formula_in( 'Email', array( 'A@INSTITUTION.example', 'B@institution-2.example' ), true ),
+	"OR(LOWER({Email}) = 'a@institution.example',LOWER({Email}) = 'b@institution-2.example')" );
 
 ck( 'lower still escapes the field name',
 	$airtable->formula_in( 'Odd}Name', array( 'x' ), true ),

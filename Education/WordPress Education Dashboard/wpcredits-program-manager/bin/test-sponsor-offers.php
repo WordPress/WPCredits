@@ -173,6 +173,22 @@ function get_posts( array $args ) {
 	return $out;
 }
 
+// Enough of $wpdb for the pool lock's conditional takeover (FOFFR-3): an UPDATE that changes the
+// row only while its value is still the one the caller read. $GLOBALS['db_race'] is the other
+// request's write landing first, which is the case the WHERE exists for.
+class WPCPM_Test_DB {
+	public $options = 'wp_options';
+	public function update( $table, array $data, array $where ) {
+		$name = (string) $where['option_name'];
+		if ( isset( $GLOBALS['db_race'] ) ) { $GLOBALS['opts'][ $name ] = $GLOBALS['db_race']; unset( $GLOBALS['db_race'] ); }
+		if ( ! array_key_exists( $name, $GLOBALS['opts'] ) || (string) $GLOBALS['opts'][ $name ] !== (string) $where['option_value'] ) { return 0; }
+		$GLOBALS['opts'][ $name ] = $data['option_value'];
+		return 1;
+	}
+}
+$wpdb = new WPCPM_Test_DB();
+function wp_cache_delete( $key, $group = '' ) { return true; }
+
 class WPCPM_Airtable {
 	public function update_records( $table, array $records ) { $GLOBALS['patched'][] = array( $table, $records ); return isset( $GLOBALS['airtable_fail'] ) ? new WP_Error( 'x', 'Airtable said no' ) : array( $records[0]['id'] => true ); }
 }
@@ -251,8 +267,8 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-usage.php';
 // The fixture: two Approved sponsors, a manager, a member of each, and the people who claim.
 $A = 'recSPONSOR0000001'; $B = 'recSPONSOR0000002'; $T = 'recTEAM0000000001';
 WPCPM_Sponsors_Index::write( array(
-	$A => array( 'name' => 'miniOrange', 'status' => 'Approved', 'website' => 'https://plugins.miniorange.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.miniorange.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => $T, 'mentors' => array() ),
-	$B => array( 'name' => 'Cloud86', 'status' => 'Approved', 'website' => 'https://cloud86.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cloud86.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
+	$A => array( 'name' => 'Mango Example', 'status' => 'Approved', 'website' => 'https://plugins.mango-example.com/', 'contact_person' => 'Rep One', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'One year of the premium plugin', 'instructions' => 'Enter the code at checkout.', 'more_info' => 'https://plugins.mango-example.com/wpcredits', 'coupon_link' => 'https://docs.google.com/spreadsheets/d/abc/edit', 'manager' => $T, 'mentors' => array() ),
+	$B => array( 'name' => 'Cirrus Example', 'status' => 'Approved', 'website' => 'https://cirrus-example.example/', 'contact_person' => 'Rep Two', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Hosting', 'offer' => 'A year of hosting', 'instructions' => 'Use the link.', 'more_info' => '', 'coupon_link' => 'https://cirrus-example.example/checkout?code=WPCREDITS', 'manager' => '', 'mentors' => array() ),
 ), time() );
 WPCPM_Sponsors_Index::write_team( array( $T => array( 'name' => 'Maciej (Matt) Pilarski', 'email' => 'maciej@a8c.com', 'calendly' => '' ) ), time() );
 $GLOBALS['settings'] = array( 'sponsors_table' => 'tblSPONSORS', 'offer_low_stock' => 10, 'student_statuses' => array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' ), 'past_statuses' => array( 'Graduate', 'Dropped out' ), 'tools_students' => true, 'tools_mentors' => false );
@@ -303,7 +319,7 @@ echo "\n=== Seeding from the index ===\n";
 $a1 = WPCPM_Sponsor_Offers::seed( $A );
 ck( 'the sheet link makes a pool of codes', is_int( $a1 ), true );
 $offer = WPCPM_Sponsor_Offers::read( $a1 );
-ck( 'titled with the sponsor name, the text from Offer, the instructions and the link from the base', array( $offer['title'], $offer['text'], $offer['instructions'], $offer['url'] ), array( 'miniOrange', 'One year of the premium plugin', 'Enter the code at checkout.', 'https://plugins.miniorange.com/wpcredits' ) );
+ck( 'titled with the sponsor name, the text from Offer, the instructions and the link from the base', array( $offer['title'], $offer['text'], $offer['instructions'], $offer['url'] ), array( 'Mango Example', 'One year of the premium plugin', 'Enter the code at checkout.', 'https://plugins.mango-example.com/wpcredits' ) );
 ck( 'a draft, primary, kind codes, students only, the default threshold', array( $offer['state'], $offer['primary'], $offer['kind'], $offer['audience'], $offer['low'] ), array( 'draft', true, 'codes', array(), 10 ) );
 // The synced sponsors index already holds the raw coupon_link (it is a cache of Airtable's own
 // field, written by WPCPM_Sponsors_Sync, not by seed()), so it is excluded here on purpose: this
@@ -315,7 +331,7 @@ ck( 'the sheet address is not stored anywhere', strpos( serialize( $opts_without
 ck( 'seeding again does nothing', WPCPM_Sponsor_Offers::seed( $A ), false );
 $b1 = WPCPM_Sponsor_Offers::seed( $B );
 ck( 'a checkout link that is not the sheet makes a shared offer', WPCPM_Sponsor_Offers::read( $b1 )['kind'], 'shared' );
-ck( 'holding that link as the shared code', WPCPM_Sponsor_Codes::shared( $b1 ), 'https://cloud86.example/checkout?code=WPCREDITS' );
+ck( 'holding that link as the shared code', WPCPM_Sponsor_Codes::shared( $b1 ), 'https://cirrus-example.example/checkout?code=WPCREDITS' );
 ck( 'and not in the clear', strpos( serialize( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::option_name( $b1 ) ] ), 'WPCREDITS' ), false );
 $D = 'recSPONSOR0000004';
 WPCPM_Sponsors_Index::write( array_merge( WPCPM_Sponsors_Index::rows(), array( $D => array( 'name' => 'Drive Sheet', 'status' => 'Approved', 'website' => '', 'contact_person' => 'Rep Four', 'contact_email' => 'maciej@a8c.com', 'product_type' => 'Plugin', 'offer' => 'A sheet of codes', 'instructions' => '', 'more_info' => '', 'coupon_link' => 'https://drive.google.com/open?id=x', 'manager' => '', 'mentors' => array() ) ) ), time() );
@@ -326,9 +342,9 @@ ck( 'offers_of() lists by sponsor', array( array_keys( WPCPM_Sponsor_Offers::off
 ck( 'find() with the wrong sponsor is null', array( WPCPM_Sponsor_Offers::find( $a1, $B ), WPCPM_Sponsor_Offers::find( $a1, $A )['id'] ), array( null, $a1 ) );
 
 echo "\n=== Cleaning a posted offer ===\n";
-$raw = array( 'title' => ' Premium plugin ', 'text' => 'A year', 'instructions' => 'Checkout', 'url' => 'plugins.miniorange.com/x', 'kind' => 'codes', 'audience' => array( 'mentors', 'students', 'bogus' ), 'low' => '2000', 'expires' => '2026-12-31' );
+$raw = array( 'title' => ' Premium plugin ', 'text' => 'A year', 'instructions' => 'Checkout', 'url' => 'plugins.mango-example.com/x', 'kind' => 'codes', 'audience' => array( 'mentors', 'students', 'bogus' ), 'low' => '2000', 'expires' => '2026-12-31' );
 $clean = WPCPM_Sponsor_Offers::clean( $raw );
-ck( 'a title is trimmed, a URL completed, the audience filtered, the threshold clamped, the day kept as a string', array( $clean['ok'], $clean['fields']['title'], $clean['fields']['url'], $clean['fields']['audience'], $clean['fields']['low'], $clean['fields']['expires'] ), array( true, 'Premium plugin', 'https://plugins.miniorange.com/x', array( 'mentors' ), 1000, '2026-12-31' ) );
+ck( 'a title is trimmed, a URL completed, the audience filtered, the threshold clamped, the day kept as a string', array( $clean['ok'], $clean['fields']['title'], $clean['fields']['url'], $clean['fields']['audience'], $clean['fields']['low'], $clean['fields']['expires'] ), array( true, 'Premium plugin', 'https://plugins.mango-example.com/x', array( 'mentors' ), 1000, '2026-12-31' ) );
 ck( 'no title, no offer', WPCPM_Sponsor_Offers::clean( array( 'title' => '  ' ) )['reason'], 'title' );
 ck( 'a link with a user part is refused', WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'url' => 'https://name@host.test' ) )['reason'], 'url' );
 ck( 'a kind that is not one is refused', WPCPM_Sponsor_Offers::clean( array( 'title' => 'x', 'kind' => 'gift' ) )['reason'], 'kind' );
@@ -341,6 +357,25 @@ echo "\n=== The pool ===\n";
 $parsed = WPCPM_Sponsor_Codes::parse( "CODE-1\r\n  CODE-2  \n\nCODE-3,unused column\nhttps://shop.example/buy?a=1,b=2\n" . str_repeat( 'x', 201 ) . "\nCODE-1\n" );
 ck( 'lines are trimmed, blank lines skipped, a CSV row gives its first column, a URL with a comma is kept whole', $parsed['codes'], array( 'CODE-1', 'CODE-2', 'CODE-3', 'https://shop.example/buy?a=1,b=2' ) );
 ck( 'the long line and the repeat are named by line number', $parsed['errors'], array( 'Line 6 is longer than 200 characters.', 'Line 7 repeats line 1.' ) );
+// FOFFR-1: the lines are counted before a single one is parsed, so a paste too long ever to be
+// an offer costs one sentence and no work at all, rather than one sentence per line.
+$too_many = WPCPM_Sponsor_Codes::parse( str_repeat( "a\n", 6000 ) );
+ck( 'a paste with more lines than an offer holds is refused by the count, unparsed', array( $too_many['errors'], $too_many['codes'] ), array( array( 'This list has 6000 codes; an offer takes at most 5000.' ), array() ) );
+// A blank line is not a code, and an uploaded .txt of codes separated by blank lines is an
+// ordinary shape. Counting every line refused a file of 5,000 codes with the sentence "This
+// list has 9999 lines", which was true and useless: the ceiling is on codes (the whole-branch
+// review of 1.99.0). The textarea path never saw this, because posted_verbatim_lines() drops
+// blank lines before parse() is reached; only the upload path carries them through.
+$spaced = '';
+for ( $i = 1; $i <= WPCPM_Sponsor_Codes::CODES_MAX; $i++ ) {
+	$spaced .= sprintf( "WPCE-%04d\n\n  \n", $i );
+}
+$spaced = WPCPM_Sponsor_Codes::parse( "\n" . $spaced );
+ck( 'a full pool with a blank and a whitespace-only line after every code is taken whole', array( $spaced['errors'], count( $spaced['codes'] ) ), array( array(), WPCPM_Sponsor_Codes::CODES_MAX ) );
+$over = WPCPM_Sponsor_Codes::parse( "\n" . str_repeat( "WPCE-X\n\n", WPCPM_Sponsor_Codes::CODES_MAX + 1 ) );
+ck( 'and one code past it is refused by the count, unparsed', array( $over['errors'], $over['codes'] ), array( array( 'This list has 5001 codes; an offer takes at most 5000.' ), array() ) );
+// FOFFR-5: the escape argument is given, so a quoted cell parses the same on PHP 7.4 and 8.4.
+ck( 'a CSV cell with a backslash before its quote parses the same on every PHP', WPCPM_Sponsor_Codes::parse( '"WP\"20",note' )['codes'], array( 'WP\20"' ) );
 $refused = WPCPM_Sponsor_Codes::add( $a1, "CODE-1\nCODE-1" );
 ck( 'a paste with a fault adds nothing and says which line', array( $refused->get_error_code(), WPCPM_Sponsor_Codes::counts( $a1 )['total'], $refused->get_error_data() ), array( 'wpcpm_codes_refused', 0, array( 'Line 2 repeats line 1.' ) ) );
 ck( 'an empty paste is its own answer', WPCPM_Sponsor_Codes::add( $a1, "\n\n" )->get_error_code(), 'wpcpm_codes_none' );
@@ -352,6 +387,17 @@ ck( 'and stays that way after a write that goes through update_option() rather t
 ck( 'and holds no code in the clear, and no bare hash of one', array( strpos( serialize( $pool_option ), 'WPCE-0001' ), strpos( serialize( $pool_option ), hash( 'sha256', 'WPCE-0001' ) ) ), array( false, false ) );
 ck( 'a code already in the offer is refused by line number', WPCPM_Sponsor_Codes::add( $a1, "NEW-1\nWPCE-0007" )->get_error_data(), array( 'Line 2 is already in this offer.' ) );
 ck( 'so nothing was added', WPCPM_Sponsor_Codes::counts( $a1 ), array( 'available' => 20, 'claimed' => 0, 'void' => 0, 'total' => 20 ) );
+// FOFFR-1: and the sentences are capped, so a hundred repeats of one code cost eleven strings.
+$repeats   = WPCPM_Sponsor_Codes::add( $a1, implode( "\n", array_fill( 0, 100, 'SAME-1' ) ) );
+$sentences = $repeats->get_error_data();
+ck( 'ninety-nine bad lines make ten sentences and a closing count, and add nothing', array( count( $sentences ), $sentences[0], end( $sentences ), WPCPM_Sponsor_Codes::counts( $a1 )['total'] ), array( 11, 'Line 2 repeats line 1.', 'and 89 more lines have problems.', 20 ) );
+// Task 3 fix round 1: the closing sentence used sprintf() for a count, so exactly eleven faulty
+// lines (ten named, one more) printed the ungrammatical "and 1 more lines have problems"; _n()
+// must choose the singular there, and the plural must still read right at every other count.
+$eleven = WPCPM_Sponsor_Codes::add( $a1, implode( "\n", array_fill( 0, 12, 'ELEVEN-1' ) ) )->get_error_data();
+ck( 'exactly eleven faulty lines close with the singular sentence', end( $eleven ), 'and 1 more line has a problem.' );
+$twelve = WPCPM_Sponsor_Codes::add( $a1, implode( "\n", array_fill( 0, 13, 'TWELVE-1' ) ) )->get_error_data();
+ck( 'and twelve faulty lines close with the plural sentence', end( $twelve ), 'and 2 more lines have problems.' );
 $big = WPCPM_Sponsor_Codes::read( $a1 );
 $big['codes'] = array_fill( 0, 4999, array( 's' => 'x', 'h' => 'h', 'st' => 'available', 'by' => 0, 'at' => 0 ) );
 WPCPM_Sponsor_Codes::write( 777, $big );
@@ -371,7 +417,7 @@ echo "\n=== The state machine ===\n";
 $empty = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Empty pool', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
 ck( 'a pool cannot go live empty', WPCPM_Sponsor_Offers::set_state( $empty, 'live' )->get_error_code(), 'wpcpm_offer_empty' );
 ck( 'nor can a shared offer with nothing to share', array( WPCPM_Sponsor_Codes::set_shared( $b1, '' ), WPCPM_Sponsor_Offers::set_state( $b1, 'live' )->get_error_code() ), array( true, 'wpcpm_offer_empty' ) );
-WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cloud86.example/checkout?code=WPCREDITS' );
+WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cirrus-example.example/checkout?code=WPCREDITS' );
 ck( 'with codes it goes live', WPCPM_Sponsor_Offers::set_state( $a1, 'live' ), true );
 ck( 'a state that is not one is refused', WPCPM_Sponsor_Offers::set_state( $a1, 'gone' )->get_error_code(), 'wpcpm_offer_state' );
 ck( 'live cannot go back to draft', WPCPM_Sponsor_Offers::set_state( $a1, 'draft' )->get_error_code(), 'wpcpm_offer_transition' );
@@ -390,11 +436,11 @@ ck( 'live() lists the live ones', array_keys( WPCPM_Sponsor_Offers::live() ), ar
 ck( 'and all() lists every offer', array_keys( WPCPM_Sponsor_Offers::all() ), array( $a1, $b1, $d_seed, $empty ) );
 
 echo "\n=== The mirror ===\n";
-WPCPM_Sponsor_Offers::save( $a1, array( 'text' => 'Two years of the premium plugin', 'url' => 'https://plugins.miniorange.com/wpcredits2' ) );
+WPCPM_Sponsor_Offers::save( $a1, array( 'text' => 'Two years of the premium plugin', 'url' => 'https://plugins.mango-example.com/wpcredits2' ) );
 $GLOBALS['patched'] = array();
-ck( 'the primary offer writes exactly three fields, spelled as the base spells them', array( WPCPM_Sponsor_Offers::mirror( WPCPM_Sponsor_Offers::read( $a1 ) ), $GLOBALS['patched'][0][1][0]['fields'] ), array( true, array( 'Offer' => 'Two years of the premium plugin', 'Brief instructions' => 'Enter the code at checkout.', 'More info link' => 'https://plugins.miniorange.com/wpcredits2' ) ) );
+ck( 'the primary offer writes exactly three fields, spelled as the base spells them', array( WPCPM_Sponsor_Offers::mirror( WPCPM_Sponsor_Offers::read( $a1 ) ), $GLOBALS['patched'][0][1][0]['fields'] ), array( true, array( 'Offer' => 'Two years of the premium plugin', 'Brief instructions' => 'Enter the code at checkout.', 'More info link' => 'https://plugins.mango-example.com/wpcredits2' ) ) );
 ck( 'to the sponsor\'s record in the sponsors table', array( $GLOBALS['patched'][0][0], $GLOBALS['patched'][0][1][0]['id'] ), array( 'tblSPONSORS', $A ) );
-ck( 'and the index at once', array( WPCPM_Sponsors_Index::row( $A )['offer'], WPCPM_Sponsors_Index::row( $A )['more_info'] ), array( 'Two years of the premium plugin', 'https://plugins.miniorange.com/wpcredits2' ) );
+ck( 'and the index at once', array( WPCPM_Sponsors_Index::row( $A )['offer'], WPCPM_Sponsors_Index::row( $A )['more_info'] ), array( 'Two years of the premium plugin', 'https://plugins.mango-example.com/wpcredits2' ) );
 ck( 'the coupon link is never written', strpos( serialize( $GLOBALS['patched'] ), 'Coupon' ), false );
 ck( 'a second offer is not mirrored and says nothing', array( WPCPM_Sponsor_Offers::mirror( WPCPM_Sponsor_Offers::read( $empty ) ), count( $GLOBALS['patched'] ) ), array( true, 1 ) );
 $GLOBALS['airtable_fail'] = true;
@@ -410,6 +456,9 @@ ck( 'and records it on the person', WPCPM_Sponsor_Claims::claims_of( 22 )[ $a1 ]
 $again = WPCPM_Sponsor_Claims::claim( $a1, $GLOBALS['users'][22] );
 ck( 'the same person again gets the same code back, and nothing is taken', array( $again['new'], $again['code'], WPCPM_Sponsor_Codes::counts( $a1 )['available'] ), array( false, 'MORE-1', 2 ) );
 ck( 'code_for() reads it from their own record', WPCPM_Sponsor_Claims::code_for( 22, WPCPM_Sponsor_Offers::read( $a1 ) ), 'MORE-1' );
+// FSUIT-6: the one ownership check the function has. Written so that replacing the guard with
+// a default index of 0 fails here, which is what the whole battery used to miss.
+ck( 'and nothing for somebody who never claimed', WPCPM_Sponsor_Claims::code_for( 23, WPCPM_Sponsor_Offers::read( $a1 ) ), '' );
 $GLOBALS['opts'][ WPCPM_Sponsor_Claims::LOCK_PREFIX . $a1 ] = time();
 ck( 'a held lock turns a new claimant away with "reload", and takes nothing', array( WPCPM_Sponsor_Claims::claim( $a1, $GLOBALS['users'][23] )->get_error_code(), WPCPM_Sponsor_Codes::counts( $a1 )['available'] ), array( 'wpcpm_claim_busy', 2 ) );
 $GLOBALS['opts'][ WPCPM_Sponsor_Claims::LOCK_PREFIX . $a1 ] = time() - WPCPM_Sponsor_Claims::LOCK_TIMEOUT - 1;
@@ -427,7 +476,7 @@ $low = static function () { return array_values( array_filter( $GLOBALS['sent'],
 ck( 'the claim that took the pool under its threshold mailed the sponsor account and the manager, once each', array_map( static function ( $m ) { return array( $m[0], $m[1] ); }, $low() ), array( array( 'user', 5 ), array( 'user', 1 ) ) );
 ck( 'and stamped the offer', WPCPM_Sponsor_Offers::read( $a1 )['low_sent'] > 0, true );
 $body = $low()[0][3]['body'];
-ck( 'the mail names the offer, the count and the Offers card, and no code', array( false !== strpos( $body, 'miniOrange' ), false !== strpos( $body, '#wpcpm-sponsor-offers' ), false !== strpos( $body, WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A ), strpos( $body, 'MORE-' ) ), array( true, true, true, false ) );
+ck( 'the mail names the offer, the count and the Offers card, and no code', array( false !== strpos( $body, 'Mango Example' ), false !== strpos( $body, '#wpcpm-sponsor-offers' ), false !== strpos( $body, WPCPM_Sponsor_Roster::ARG_VIEW . '=' . $A ), strpos( $body, 'MORE-' ) ), array( true, true, true, false ) );
 ck( 'adding codes through the offer re-arms the warning', array( WPCPM_Sponsor_Offers::add_codes( $a1, "LATE-1\nLATE-2" ), WPCPM_Sponsor_Offers::read( $a1 )['low_sent'] ), array( 2, 0 ) );
 WPCPM_Sponsor_Claims::claim( $a1, $GLOBALS['users'][20] );
 ck( 'so the next crossing mails again', count( $low() ), 4 );
@@ -452,7 +501,7 @@ echo "\n=== A shared offer ===\n";
 WPCPM_Sponsor_Offers::set_state( $b1, 'live' );
 $s1 = WPCPM_Sponsor_Claims::claim( $b1, $GLOBALS['users'][20] );
 $s2 = WPCPM_Sponsor_Claims::claim( $b1, $GLOBALS['users'][23] );
-ck( 'everyone gets the same link, and each claim is in the ledger once', array( $s1['code'], $s2['code'], $s1['index'], count( WPCPM_Sponsor_Codes::claims( $b1 ) ) ), array( 'https://cloud86.example/checkout?code=WPCREDITS', 'https://cloud86.example/checkout?code=WPCREDITS', WPCPM_Sponsor_Codes::SHARED_INDEX, 2 ) );
+ck( 'everyone gets the same link, and each claim is in the ledger once', array( $s1['code'], $s2['code'], $s1['index'], count( WPCPM_Sponsor_Codes::claims( $b1 ) ) ), array( 'https://cirrus-example.example/checkout?code=WPCREDITS', 'https://cirrus-example.example/checkout?code=WPCREDITS', WPCPM_Sponsor_Codes::SHARED_INDEX, 2 ) );
 ck( 'no low-stock mail for a shared offer', count( array_filter( $GLOBALS['sent'], static function ( $m ) { return 'offer-low-stock' === $m[2]; } ) ), 0 );
 ck( 'a manager frees a person from a shared claim too', array( WPCPM_Sponsor_Claims::void_claim( $b1, 20, 1 ), WPCPM_Sponsor_Codes::claims( $b1 )[0]['v'] > 0, WPCPM_Sponsor_Claims::has_claimed( 20, $b1 ) ), array( true, true, false ) );
 ck( 'count_for_user() counts what stands', array( WPCPM_Sponsor_Claims::count_for_user( 20 ), WPCPM_Sponsor_Claims::count_for_user( 22 ), WPCPM_Sponsor_Claims::count_for_user( 21 ) ), array( 1, 1, 0 ) );
@@ -471,7 +520,7 @@ ck( 'no value in the stats is an address', array_values( array_filter( $flat['va
 ck( 'and no key names a person', array_values( array_intersect( array_map( 'strtolower', $flat['keys'] ), array( 'name', 'email', 'user', 'u', 'by', 'display_name', 'user_email', 'claimant', 'claimants', 'user_id' ) ) ), array() );
 $csv = WPCPM_Sponsor_Claims::csv( $stats );
 ck( 'the CSV has a header, a row per offer and a totals row', substr_count( $csv, "\r\n" ), 5 );
-ck( 'carries the titles and the month columns, and neutralises a title that starts like a formula', array( false !== strpos( $csv, 'miniOrange' ), false !== strpos( $csv, gmdate( 'Y-m' ) ), false !== strpos( $csv, "'=SUM(1)" ) ), array( true, true, true ) );
+ck( 'carries the titles and the month columns, and neutralises a title that starts like a formula', array( false !== strpos( $csv, 'Mango Example' ), false !== strpos( $csv, gmdate( 'Y-m' ) ), false !== strpos( $csv, "'=SUM(1)" ) ), array( true, true, true ) );
 ck( 'and no address', preg_match( '/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}/', $csv ), 0 );
 
 echo "\n=== The claimants, for a manager ===\n";
@@ -485,13 +534,21 @@ $before = WPCPM_Sponsor_Codes::read( $a1 );
 ck( 'a paste while the pool is locked is told to try again, and adds nothing', array( WPCPM_Sponsor_Codes::add( $a1, 'Z-1' )->get_error_code(), WPCPM_Sponsor_Codes::read( $a1 ) === $before ), array( 'wpcpm_codes_busy', true ) );
 ck( 'so is a void of the unclaimed codes', WPCPM_Sponsor_Codes::void_unclaimed( $a1 )->get_error_code(), 'wpcpm_codes_busy' );
 $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $b1 ] = time();
-ck( 'and a change of the shared code', array( WPCPM_Sponsor_Codes::set_shared( $b1, 'OTHER' )->get_error_code(), WPCPM_Sponsor_Codes::shared( $b1 ) ), array( 'wpcpm_codes_busy', 'https://cloud86.example/checkout?code=WPCREDITS' ) );
+ck( 'and a change of the shared code', array( WPCPM_Sponsor_Codes::set_shared( $b1, 'OTHER' )->get_error_code(), WPCPM_Sponsor_Codes::shared( $b1 ) ), array( 'wpcpm_codes_busy', 'https://cirrus-example.example/checkout?code=WPCREDITS' ) );
 ck( 'and a manager\'s void of a claim, which leaves the claim standing', array( WPCPM_Sponsor_Claims::void_claim( $b1, 23, 1 )->get_error_code(), WPCPM_Sponsor_Claims::has_claimed( 23, $b1 ) ), array( 'wpcpm_codes_busy', true ) );
 unset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $a1 ], $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $b1 ] );
 ck( 'with the lock gone the paste goes in and the lock is released after it', array( WPCPM_Sponsor_Codes::add( $a1, 'Z-1' ), isset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $a1 ] ) ), array( 1, false ) );
 $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $a1 ] = time() - WPCPM_Sponsor_Codes::LOCK_TIMEOUT - 1;
 ck( 'a stale lock is taken over by a void', is_int( WPCPM_Sponsor_Codes::void_unclaimed( $a1 ) ), true );
 ck( 'and released', isset( $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $a1 ] ), false );
+// FOFFR-3: the takeover is conditional on the stamp it read. Two requests that read the same
+// stale stamp are the race the docblock did not name: with the winner's write landing first,
+// the loser's UPDATE matches no row and it does not get the lock.
+$GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $a1 ] = time() - WPCPM_Sponsor_Codes::LOCK_TIMEOUT - 1;
+$GLOBALS['db_race'] = time();
+ck( 'a stale lock two requests read at once is taken by one of them only', WPCPM_Sponsor_Codes::lock( $a1 ), false );
+ck( 'and the winner\'s fresh stamp is left alone', ( time() - (int) $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $a1 ] ) < WPCPM_Sponsor_Codes::LOCK_TIMEOUT, true );
+unset( $GLOBALS['db_race'], $GLOBALS['opts'][ WPCPM_Sponsor_Codes::LOCK_PREFIX . $a1 ] );
 
 echo "\n=== The Offers card ===\n";
 $GLOBALS['uid'] = 5;
@@ -506,23 +563,24 @@ ck( 'the kind-fixed block\'s note is a plain note on the kind shown, not a descr
 ck( 'the new-offer form takes a file, shows the shared field for a shared offer only and the codes box for a pool only', array( false !== strpos( $html, 'wpcpm-offer__form--new" enctype="multipart/form-data"' ), false !== strpos( $html, 'data-wpcpm-shows-for="shared"' ), false !== strpos( $html, 'data-wpcpm-shows-for="codes"' ), false !== strpos( $html, 'name="wpcpm_codes_file"' ), false !== strpos( $html, 'accept=".txt,.csv,text/plain,text/csv"' ) ), array( true, true, true, true, true ) );
 ck( 'the codes box is described by the line rules, the file field by the file rule', array( preg_match( '/<textarea id="wpcpm-offer-new-codes" name="wpcpm_codes"[^>]*aria-describedby="wpcpm-offer-new-codes-hint"/', $html ) === 1, preg_match( '/<span class="wpcpm-student__note" id="wpcpm-offer-new-codes-hint">One code per line/', $html ) === 1, preg_match( '/name="wpcpm_codes_file"[^>]*aria-describedby="wpcpm-offer-new-codes-file-hint"/', $html ) === 1, preg_match( '/<span class="wpcpm-student__note" id="wpcpm-offer-new-codes-file-hint">A \.txt or \.csv file/', $html ) === 1 ), array( true, true, true, true ) );
 ck( 'and the codes box of an existing pool takes a file too', substr_count( $html, 'name="wpcpm_codes_file"' ) >= 2, true );
+ck( 'and the codes box says a voided code cannot come back to the same offer', substr_count( $html, 'A voided code cannot be added to the same offer again.' ) >= 1, true );
 ck( 'and the new-offer form is at the end with the "new" nonce and a kind to choose', array( false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Offers::ACTION_SAVE . '_new' ), substr_count( $html, 'name="wpcpm_kind"' ) >= 1 ), array( true, true ) );
 ck( 'the one required field of the offer form says so in its label', preg_match( '/<label for="wpcpm-offer-new-title">Title <span class="wpcpm-field__required">Required<\/span><\/label><input type="text" id="wpcpm-offer-new-title"[^>]* required/', $html ) === 1, true );
 $html_b = card( 'WPCPM_Sponsor_Offers', $B, $context );
-ck( 'a shared offer shows its own link in the form and no codes box of its own: the one codes box on the page is the new-offer form\'s', array( false !== strpos( $html_b, 'value="https://cloud86.example/checkout?code=WPCREDITS"' ), substr_count( $html_b, 'name="wpcpm_codes"' ), false !== strpos( $html_b, 'id="wpcpm-offer-new-codes"' ) ), array( true, 1, true ) );
+ck( 'a shared offer shows its own link in the form and no codes box of its own: the one codes box on the page is the new-offer form\'s', array( false !== strpos( $html_b, 'value="https://cirrus-example.example/checkout?code=WPCREDITS"' ), substr_count( $html_b, 'name="wpcpm_codes"' ), false !== strpos( $html_b, 'id="wpcpm-offer-new-codes"' ) ), array( true, 1, true ) );
 
 echo "\n=== The Offers card: saving ===\n";
 $GLOBALS['patched'] = array(); $GLOBALS['audit'] = array();
-$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $a1, 'wpcpm_title' => 'Premium plugin, one year', 'wpcpm_text' => 'One year free', 'wpcpm_instructions' => 'Enter the code at checkout.', 'wpcpm_url' => 'https://plugins.miniorange.com/wpcredits2', 'wpcpm_audience' => array( 'mentors' ), 'wpcpm_low' => '5', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
+$r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $a1, 'wpcpm_title' => 'Premium plugin, one year', 'wpcpm_text' => 'One year free', 'wpcpm_instructions' => 'Enter the code at checkout.', 'wpcpm_url' => 'https://plugins.mango-example.com/wpcredits2', 'wpcpm_audience' => array( 'mentors' ), 'wpcpm_low' => '5', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 ck( 'a member saves an offer and lands on the Offers card', array( $r[0], $r[1], $r[2] ), array( 'offer-saved', 'offers', $A ) );
 $saved = WPCPM_Sponsor_Offers::read( $a1 );
 ck( 'the fields were written', array( $saved['title'], $saved['text'], $saved['audience'], $saved['low'] ), array( 'Premium plugin, one year', 'One year free', array( 'mentors' ), 5 ) );
-ck( 'the primary offer was mirrored: exactly the three fields', $GLOBALS['patched'][0][1][0]['fields'], array( 'Offer' => 'One year free', 'Brief instructions' => 'Enter the code at checkout.', 'More info link' => 'https://plugins.miniorange.com/wpcredits2' ) );
+ck( 'the primary offer was mirrored: exactly the three fields', $GLOBALS['patched'][0][1][0]['fields'], array( 'Offer' => 'One year free', 'Brief instructions' => 'Enter the code at checkout.', 'More info link' => 'https://plugins.mango-example.com/wpcredits2' ) );
 ck( 'and logged with the field names, never the values', array( end( $GLOBALS['audit'] )['kind'], in_array( 'title', end( $GLOBALS['audit'] )['data']['fields'], true ), strpos( serialize( end( $GLOBALS['audit'] ) ), 'One year free' ) ), array( 'offer_saved', true, false ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $a1, 'wpcpm_title' => '', 'wpcpm_text' => 'x' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 ck( 'a save without a title is rejected, with the reason as the detail', array( $r[0], $r[3] ), array( 'offer-rejected', 'Give the offer a title.' ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => $b1, 'wpcpm_title' => 'Theirs' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
-ck( 'an offer of another sponsor is the one refusal, before anything is read', array( $r[0], WPCPM_Sponsor_Offers::read( $b1 )['title'] ), array( 'refused', 'Cloud86' ) );
+ck( 'an offer of another sponsor is the one refusal, before anything is read', array( $r[0], WPCPM_Sponsor_Offers::read( $b1 )['title'] ), array( 'refused', 'Cirrus Example' ) );
 $GLOBALS['uid'] = 1;
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'Second offer', 'wpcpm_kind' => 'shared', 'wpcpm_shared' => 'TEAM-2026', 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '2026-12-31' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 $created = WPCPM_Sponsor_Offers::offers_of( $A );
@@ -538,9 +596,11 @@ ck( 'a shared code is stored exactly as it was typed, percent-encoding and all',
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'Pool with codes', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "N-1\nN-2", 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 $with_codes = max( array_keys( WPCPM_Sponsor_Offers::offers_of( $A ) ) );
 ck( 'a pool can be created with its codes in one step, and the flash says how many went in', array( $r[0], $r[3], WPCPM_Sponsor_Codes::counts( $with_codes )['available'] ), array( 'offer-created', '2 codes added.', 2 ) );
+// FOFFR-1: the paste is parsed before the offer post is created, so a refused list leaves no
+// orphan draft behind for the sponsor to find and not be able to explain.
+$offers_now = count( WPCPM_Sponsor_Offers::offers_of( $A ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'Pool with a bad paste', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "R-1\nR-1", 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
-$bad_paste = max( array_keys( WPCPM_Sponsor_Offers::offers_of( $A ) ) );
-ck( 'a bad paste at creation keeps the offer and says the codes were not added, by line', array( $r[0], $r[3], WPCPM_Sponsor_Codes::counts( $bad_paste )['total'], $bad_paste > $with_codes ), array( 'offer-created-no-codes', 'Line 2 repeats line 1.', 0, true ) );
+ck( 'a bad paste at creation names the line and creates no offer at all', array( $r[0], $r[3], count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ), array( 'offer-rejected', 'Line 2 repeats line 1.', $offers_now ) );
 $_FILES = array( 'wpcpm_codes_file' => array( 'name' => 'codes.csv', 'type' => 'text/csv', 'tmp_name' => tempnam( sys_get_temp_dir(), 'wpcpm' ), 'error' => UPLOAD_ERR_OK, 'size' => 12 ) );
 $upload = WPCPM_Sponsor_Offers::uploaded_codes_text();
 ck( 'a file PHP did not receive as an upload is refused, not read', array( is_wp_error( $upload ), $upload->get_error_code() ), array( true, 'wpcpm_codes_upload' ) );
@@ -626,6 +686,14 @@ ck( 'the export refuses everyone but the sponsor and a manager', post( array( 'w
 $GLOBALS['uid'] = 5;
 $usage_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-usage.php' );
 ck( 'the export claims ACT_VIEW_STATS before it builds anything, and sends a CSV attachment', array( strpos( $usage_src, 'ACT_VIEW_STATS' ) < strpos( $usage_src, 'WPCPM_Sponsor_Claims::csv(' ), false !== strpos( $usage_src, 'Content-Disposition: attachment' ) ), array( true, true ) );
+
+echo "\n=== A voided code, and what the sponsor is told (FOFFR-4) ===\n";
+$voided = WPCPM_Sponsor_Offers::create( $A, array( 'title' => 'Reissued pool', 'kind' => 'codes', 'text' => '', 'instructions' => '', 'url' => '', 'audience' => array(), 'low' => 10, 'expires' => '' ) );
+WPCPM_Sponsor_Codes::add( $voided, "V-1\nV-2" );
+WPCPM_Sponsor_Codes::void_unclaimed( $voided );
+$back = WPCPM_Sponsor_Codes::add( $voided, "V-1\nV-3" );
+ck( 'the vendor reissues a voided code and the refusal names the state, not "already in this offer"', $back->get_error_data(), array( 'Line 1 was voided in this offer earlier.' ) );
+ck( 'a code the offer never held goes in beside the void rows', array( WPCPM_Sponsor_Codes::add( $voided, 'V-4' ), WPCPM_Sponsor_Codes::counts( $voided ) ), array( 1, array( 'available' => 1, 'claimed' => 0, 'void' => 2, 'total' => 3 ) ) );
 
 echo "\n=== Uninstall ===\n";
 // In the order uninstall uses: the offers and their pools first, then the claims meta. A lock

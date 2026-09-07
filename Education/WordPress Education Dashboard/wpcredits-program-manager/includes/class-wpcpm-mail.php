@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *   the locale around a string that has already been translated does nothing at all, and
  *   that mistake is invisible until somebody with a non-English profile gets English mail.
  * - **A reply that goes somewhere.** Mail otherwise leaves as `wordpress@…`, so a mentor
- *   answering "Call booked with Moldir" is writing to a mailbox nobody reads.
+ *   answering "Call booked with your mentor" is writing to a mailbox nobody reads.
  * - **A record.** `wp_mail()` returns a boolean that every caller discarded, so "the student
  *   says they got nothing" was unanswerable. The record holds a masked address and the
  *   template's context, never the subject: see `record()`.

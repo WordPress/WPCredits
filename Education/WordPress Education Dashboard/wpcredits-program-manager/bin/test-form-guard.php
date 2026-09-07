@@ -11,8 +11,14 @@
  * - **The dwell token is scoped.** A token carries its form's scope in its signature, so one
  *   harvested from the institution page is a forgery on the sponsor page even with the nonce
  *   right.
- * - **Single use is exact.** The second use of a token is refused however close the two uses
- *   are, because the claim behind it is `add_option()`.
+ * - **Single use is exact, and keyed on the token's canonical parts.** The second use of a
+ *   token is refused however close the two uses are, because the claim behind it is
+ *   `add_option()`; and sixty spellings of one timestamp are one token, not sixty (FANON-4).
+ * - **A signed token posted too fast is `fast`, not `spam`.** That answer is an applicant
+ *   pressing Send again after a bounce redrew the form, and the caller holds the row (FANON-1).
+ * - **The per-actor key is a /64 for IPv6 and the whole address for IPv4**, and the consent
+ *   record's truncation is done on bytes, so a compressed or IPv4-mapped address loses the
+ *   half the docblock promises it loses (FANON-2, FANON-5).
  * - **Consent is two values.** `"1"` and `"true"`, and an array is not a tick.
  * - **The evidence is seven keys**, the sentence first and the browser last.
  * - **The client address is read the way the institution form learned to.** The forwarded
@@ -149,7 +155,7 @@ function dwell_token( $scope, $age = 30, $action = 'act', $random = '' ) {
 echo "=== The numbers ===\n";
 ck( 'the six constants keep the institution values', array( WPCPM_Form_Guard::MIN_SECONDS, WPCPM_Form_Guard::TOKEN_LIFETIME, WPCPM_Form_Guard::PER_HOUR, WPCPM_Form_Guard::PER_DAY, WPCPM_Form_Guard::MAIL_PER_DAY, WPCPM_Form_Guard::MAX_LINKS ), array( 6, 43200, 5, 40, 200, 3 ) );
 ck( 'the mail ceiling stands far above the degrade, or it would silence the held rows it exists for', WPCPM_Form_Guard::MAIL_PER_DAY > WPCPM_Form_Guard::PER_DAY, true );
-ck( 'the three token answers', array( WPCPM_Form_Guard::TOKEN_OK, WPCPM_Form_Guard::TOKEN_SPAM, WPCPM_Form_Guard::TOKEN_STALE ), array( 'ok', 'spam', 'stale' ) );
+ck( 'the four token answers', array( WPCPM_Form_Guard::TOKEN_OK, WPCPM_Form_Guard::TOKEN_SPAM, WPCPM_Form_Guard::TOKEN_STALE, WPCPM_Form_Guard::TOKEN_FAST ), array( 'ok', 'spam', 'stale', 'fast' ) );
 
 echo "\n=== 1. The honeypot ===\n";
 reset_world();
@@ -172,7 +178,15 @@ ck( 'a token is a time, twelve random characters and a signature', preg_match( '
 // logged-out visitors who opened the page in the same second were handed one token - and single
 // use is exact, so the second of them to submit had a genuine application filed as spam.
 ck( 'and two tokens minted in the same second differ', WPCPM_Form_Guard::token( 'scope-a', 'act' ) === WPCPM_Form_Guard::token( 'scope-a', 'act' ), false );
-ck( 'a token minted this instant is too fast to be a person', WPCPM_Form_Guard::check_token( 'scope-a', WPCPM_Form_Guard::token( 'scope-a', 'act' ) ), 'spam' );
+// FANON-1: a signed token younger than MIN_SECONDS is the applicant who pressed Send again
+// straight after a bounce redrew the form, so it is its own answer and not spam: the caller
+// holds the row rather than filing it silently.
+ck( 'a token minted this instant is too fast to be a person, and says so as itself', WPCPM_Form_Guard::check_token( 'scope-a', WPCPM_Form_Guard::token( 'scope-a', 'act' ) ), 'fast' );
+reset_world();
+$_POST['_wpnonce'] = wp_create_nonce( 'act' );
+$young = dwell_token( 'scope-a', 1, 'act', 'AbCdEf012345' );
+ck( 'and it is single use like any other: the second send of it is spam', array( WPCPM_Form_Guard::check_token( 'scope-a', $young ), WPCPM_Form_Guard::check_token( 'scope-a', $young ) ), array( 'fast', 'spam' ) );
+ck( 'a token that is young and unsigned is spam, not held', WPCPM_Form_Guard::check_token( 'scope-a', time() . '.AbCdEf012345.0123456789abcdef0123456789abcdef' ), 'spam' );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
 ck( 'one minted half a minute ago is accepted', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' ) ), 'ok' );
@@ -182,6 +196,28 @@ $token = dwell_token( 'scope-a', 45, 'act', 'AbCdEf012345' );
 ck( 'the first use is accepted', WPCPM_Form_Guard::check_token( 'scope-a', $token ), 'ok' );
 ck( 'and the second use of the same token is not', WPCPM_Form_Guard::check_token( 'scope-a', $token ), 'spam' );
 ck( 'the claim behind it is one non-autoloaded option row', array( count( $GLOBALS['opts'] ) - 1, in_array( true, $GLOBALS['autoload'], true ) ), array( 1, false ) );
+
+// FANON-4: `ctype_digit()` takes a leading zero and `(int)` normalizes it away again, so one
+// harvested token used to have as many first uses as there were spellings of its timestamp.
+// Sixty of them, and one claim row for the token however many are tried.
+reset_world();
+$_POST['_wpnonce'] = wp_create_nonce( 'act' );
+$once   = dwell_token( 'scope-a', 45, 'act', 'AbCdEf012345' );
+$zeros  = array();
+$before = count( $GLOBALS['opts'] );
+
+for ( $pad = 1; $pad <= 60; $pad++ ) {
+	$zeros[] = WPCPM_Form_Guard::check_token( 'scope-a', str_repeat( '0', $pad ) . $once );
+}
+
+ck( 'the first use of a token is accepted', WPCPM_Form_Guard::check_token( 'scope-a', $once ), 'ok' );
+ck( 'and sixty leading-zero spellings of it are every one of them refused', array_unique( $zeros ), array( 'spam' ) );
+ck( 'a replay of the identical string is refused too', WPCPM_Form_Guard::check_token( 'scope-a', $once ), 'spam' );
+ck( 'sixty spellings wrote one claim row between them: the key is the canonical token', count( $GLOBALS['opts'] ) - $before, 1 );
+reset_world();
+$_POST['_wpnonce'] = wp_create_nonce( 'act' );
+$unused = dwell_token( 'scope-a', 50, 'act', 'AbCdEf012346' );
+ck( 'a spelling tried before the genuine use is refused and spends no claim', array( WPCPM_Form_Guard::check_token( 'scope-a', '0' . $unused ), WPCPM_Form_Guard::check_token( 'scope-a', $unused ) ), array( 'spam', 'ok' ) );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
 // Well shaped (three parts), so the refusals below are the scope's and the signature's, not the shape's (Task 3 review).
@@ -209,6 +245,22 @@ reset_world();
 ck( 'the actor key is the prefix and the hashed address', WPCPM_Form_Guard::actor_key( 'apply' ), 'apply:' . wp_hash( '203.0.113.7' ) );
 ck( 'and never the address itself', strpos( WPCPM_Form_Guard::actor_key( 'apply' ), '203.0.113.7' ), false );
 ck( 'two prefixes are two keys, so two forms have two allowances', WPCPM_Form_Guard::actor_key( 'sponsor-apply' ) === WPCPM_Form_Guard::actor_key( 'apply' ), false );
+
+// FANON-2: every IPv6 host owns a whole /64 and can send each request from another address of
+// it at no cost, so a key on the whole address is no ceiling at all. The /64 is the unit an
+// address is handed out in, and it is what the ceiling counts.
+$of_64 = function ( $ip ) {
+	$_SERVER['REMOTE_ADDR'] = $ip;
+
+	return WPCPM_Form_Guard::actor_key( 'apply' );
+};
+ck( 'two addresses of one /64 are one source', $of_64( '2001:db8:1:2::1' ) === $of_64( '2001:db8:1:2:aaaa:bbbb:cccc:dddd' ), true );
+ck( 'two /64s are two', $of_64( '2001:db8:1:2::1' ) === $of_64( '2001:db8:1:3::1' ), false );
+ck( 'a compressed address and its written-out self are one source', $of_64( '2001:db8::1' ) === $of_64( '2001:0db8:0000:0000:0000:0000:0000:0001' ), true );
+ck( 'two IPv4 neighbors are still two sources: one campus behind one NAT keeps its allowance', $of_64( '203.0.113.7' ) === $of_64( '203.0.113.8' ), false );
+ck( 'and an IPv4 client keys on the whole address, as it always did', $of_64( '203.0.113.7' ), 'apply:' . wp_hash( '203.0.113.7' ) );
+ck( 'an IPv4-mapped address is IPv4, not one /64 for every mapped client on earth', $of_64( '::ffff:203.0.113.7' ) === $of_64( '::ffff:198.51.100.9' ), false );
+$_SERVER['REMOTE_ADDR'] = '203.0.113.7';
 $taken = 0;
 for ( $i = 0; $i < 5; $i++ ) {
 	$taken += WPCPM_Form_Guard::claim_actor( WPCPM_Form_Guard::actor_key( 'apply' ) ) ? 1 : 0;
@@ -267,6 +319,14 @@ echo "\n=== The helpers ===\n";
 ck( 'an IPv4 address loses its last octet', WPCPM_Form_Guard::truncate_ip( '203.0.113.7' ), '203.0.113.0' );
 ck( 'an IPv6 address keeps its first four groups', WPCPM_Form_Guard::truncate_ip( '2001:db8:85a3:8d3:1319:8a2e:370:7348' ), '2001:db8:85a3:8d3::' );
 ck( 'and nothing stays nothing', WPCPM_Form_Guard::truncate_ip( '' ), '' );
+// FANON-5: the truncation used to count colons, so an address whose `::` fell inside the first
+// four groups kept its host part and an IPv4-mapped one kept the whole IPv4. Bytes, not text.
+ck( 'a compressed address loses its host half rather than keeping all of it', WPCPM_Form_Guard::truncate_ip( '2001:db8::1' ), '2001:db8::' );
+ck( 'and one whose zero run is short keeps its first sixty-four bits and no more', WPCPM_Form_Guard::truncate_ip( '2a01:4f8::abcd:1234' ), '2a01:4f8::' );
+ck( 'the written-out form of an address truncates to the same record as its compressed self', array( WPCPM_Form_Guard::truncate_ip( '2001:0db8:0000:0000:0000:0000:0000:0001' ), WPCPM_Form_Guard::truncate_ip( '2001:db8::1' ) ), array( '2001:db8::', '2001:db8::' ) );
+ck( 'an IPv4-mapped address is truncated as the IPv4 address it is', WPCPM_Form_Guard::truncate_ip( '::ffff:203.0.113.7' ), '203.0.113.0' );
+ck( 'and every answer is an address a reader can parse', array( filter_var( WPCPM_Form_Guard::truncate_ip( '2001:db8::1' ), FILTER_VALIDATE_IP ), filter_var( WPCPM_Form_Guard::truncate_ip( '::ffff:203.0.113.7' ), FILTER_VALIDATE_IP ) ), array( '2001:db8::', '203.0.113.0' ) );
+ck( 'what is not an address at all is recorded as nothing', WPCPM_Form_Guard::truncate_ip( 'not an address' ), '' );
 reset_world();
 $_SERVER['HTTP_USER_AGENT'] = str_repeat( 'a', 300 );
 ck( 'the browser is recorded to two hundred characters', strlen( WPCPM_Form_Guard::user_agent() ), 200 );
@@ -297,7 +357,7 @@ $src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form
 ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'the guard verifies no nonce of its own: that stays in each handler', array( strpos( $src, 'wp_verify_nonce(' ), strpos( $src, 'check_admin_referer' ) ), array( false, false ) );
 ck( 'the posted nonce is read in one place, to re-derive a signature', substr_count( $src, "\$_POST['_wpnonce']" ), 1 );
-ck( 'every ceiling goes through WPCPM_Ceiling and hashes nothing readable', array( substr_count( $src, 'WPCPM_Ceiling::claim(' ), strpos( $src, 'wp_hash( self::client_ip() )' ) !== false ), array( 4, true ) );
+ck( 'every ceiling goes through WPCPM_Ceiling and hashes nothing readable', array( substr_count( $src, 'WPCPM_Ceiling::claim(' ), false !== strpos( $src, 'wp_hash( self::actor_ip() )' ) ), array( 4, true ) );
 ck( 'nothing here moves a file or reads a query string', preg_match( '/\$_GET|\$_FILES|wp_handle_upload|move_uploaded_file/', $src ), 0 );
 
 $institution = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-application.php' );

@@ -26,7 +26,6 @@ final class WPCPM_Sponsor_Mentors {
 	const PHOTO_SIZE             = 116;
 	const PER_DAY                = 5;
 	const CEILING                = 'sponsor-mentor-interest';
-	const MAIL_CONTEXT           = 'sponsor-interest';
 	const LOG_KIND               = 'sponsor_interest_mentor';
 
 	/**

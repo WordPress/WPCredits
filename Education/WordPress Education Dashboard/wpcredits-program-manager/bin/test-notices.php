@@ -163,7 +163,7 @@ set_notices(
 		'student'     => 'Reports are due Friday.',
 		'mentor'      => 'Please confirm your <a href="/hours/">hours</a>.',
 		'institution' => 'Agreements renew in March.',
-		'admin'       => 'Sync ran overnight.',
+		'admin'       => 'The sync ran.',
 	)
 );
 
