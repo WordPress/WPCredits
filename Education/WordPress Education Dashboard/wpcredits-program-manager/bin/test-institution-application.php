@@ -156,6 +156,7 @@ function nocache_headers() { ++$GLOBALS['nocache']; }
 function is_page( $id = 0 ) { return (int) $id === (int) ( $GLOBALS['on_page'] ?? 0 ); }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? time() : (int) $t ); }
 function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
+function wp_parse_args( $a, $d ) { return array_merge( $d, (array) $a ); }
 
 function add_query_arg( ...$args ) {
 	$pairs = is_array( $args[0] ) ? $args[0] : array( $args[0] => $args[1] );
@@ -418,8 +419,9 @@ function seed_countries() {
 /** A dwell token of a given age, signed the way the form signs one. */
 function dwell_token( $age = 30 ) {
 	$issued = time() - (int) $age;
+	$random = wp_generate_password( 12, false, false );
 
-	return $issued . '.' . substr( wp_hash( 'wpcpm-application-dwell|' . $issued . '|' . wp_create_nonce( WPCPM_Institution_Application::ACTION_SUBMIT ) ), 0, 32 );
+	return $issued . '.' . $random . '.' . substr( wp_hash( 'wpcpm-application-dwell|' . $issued . '|' . $random . '|' . wp_create_nonce( WPCPM_Institution_Application::ACTION_SUBMIT ) ), 0, 32 );
 }
 
 /** The thirteen answers a good application carries, keyed by form key. */
@@ -955,7 +957,8 @@ ck( 'and the second use of the same token is not', WPCPM_Institution_Application
 
 reset_world();
 arm_nonce();
-ck( 'a token nobody signed is refused', WPCPM_Institution_Application::check_token( ( time() - 60 ) . '.0123456789abcdef0123456789abcdef' ), 'spam' );
+// Well shaped (three parts), so the refusal is the signature's, not the shape's.
+ck( 'a token nobody signed is refused', WPCPM_Institution_Application::check_token( ( time() - 60 ) . '.AbCdEf012345.0123456789abcdef0123456789abcdef' ), 'spam' );
 ck( 'and so is one that is not a token at all', WPCPM_Institution_Application::check_token( 'nonsense' ), 'spam' );
 ck( 'a token older than half a day is stale, which is not the same as spam', WPCPM_Institution_Application::check_token( dwell_token( 13 * HOUR_IN_SECONDS ) ), 'stale' );
 

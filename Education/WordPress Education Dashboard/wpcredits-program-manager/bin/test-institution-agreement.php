@@ -214,6 +214,10 @@ function get_posts( $a = array() ) {
 				if ( 'IN' === $compare ? ! in_array( $have, (array) $clause['value'], true ) : $have !== $clause['value'] ) { continue 2; }
 			}
 		}
+		// A bare `meta_key`, which core reads as "this key is set". The nightly retry asks for
+		// its marked documents that way, and a stub that ignored the argument would hand it
+		// every agreement post on the site.
+		if ( isset( $a['meta_key'] ) && '' === (string) get_post_meta( $post->ID, $a['meta_key'], true ) ) { continue; }
 		$out[] = $post;
 	}
 	// The queue asks for oldest first and everything else for newest first, so the direction
@@ -441,6 +445,20 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 				'agr_template'     => 'Agreement Template Version',
 			);
 		}
+	}
+}
+
+if ( ! class_exists( 'WPCPM_Agreement_Generate' ) ) {
+	/**
+	 * T2's vocabulary, at the two constants the retry reads.
+	 *
+	 * The generate route owns the words for a template that has been produced and not yet
+	 * signed, and the retry finishes T2's write as well as T3's, so it asks that class rather
+	 * than spelling `Template generated` a second time.
+	 */
+	class WPCPM_Agreement_Generate {
+		const AIRTABLE_STATUS      = 'Template generated';
+		const AIRTABLE_STATUS_OPEN = array( '', 'Not started' );
 	}
 }
 
@@ -2753,6 +2771,183 @@ ck( 'revoked documents', WPCPM_Institution_Agreement::in_state( WPCPM_Institutio
 ck( 'the limit caps the list', WPCPM_Institution_Agreement::in_state( WPCPM_Institution_Agreement::STATE_RETURNED, 1 ), array( $r_new ) );
 ck( 'a state the class does not know is nobody', WPCPM_Institution_Agreement::in_state( 'lost' ), array() );
 ck( 'awaiting_review() is unchanged by the new reader: it lists submitted only', in_array( $r_new, WPCPM_Institution_Agreement::awaiting_review(), true ), false );
+
+echo "\n=== The nightly retry finishes an Airtable write the base refused ===\n";
+
+// `META_AIRTABLE_PENDING` was write-only from the day the module shipped: an upload or a
+// generate that met an unreachable base marked the document rather than failing the
+// institution's action, and nothing ever read the mark back. The base stayed wrong until a
+// person noticed. Everything below is about the night after.
+reset_world();
+$GLOBALS['clock']    = 1756700000;
+$GLOBALS['users'][9] = new WP_User( 9, 'A Manager', 'maciej@a8c.com' );
+$cols                = WPCPM_Institutions_Sync::fields();
+$retry_day           = gmdate( 'Y-m-d', 1756700000 );
+
+$rec_r   = 'recRETRYAAAAAAAA1';
+$waiting = seed_post( $rec_r, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_OWN, array( WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1 ) );
+
+$GLOBALS['airtable'] = new WP_Error( 'wpcpm_airtable_http', 'The base could not be reached.' );
+ck( 'a night the base is still down clears nothing and keeps the mark',
+    array( WPCPM_Institution_Agreement::retry_airtable(), (int) get_post_meta( $waiting, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ) ), array( 0, 1 ) );
+ck( 'and it asked once rather than giving up before it tried', count( $GLOBALS['patched'] ), 1 );
+
+$GLOBALS['airtable'] = null;
+$GLOBALS['patched']  = array();
+ck( 'the next night clears the mark and answers with the count',
+    array( WPCPM_Institution_Agreement::retry_airtable(), (string) get_post_meta( $waiting, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ) ), array( 1, '' ) );
+ck( 'one PATCH, naming the record', array( count( $GLOBALS['patched'] ), $GLOBALS['patched'][0][1][0]['id'] ), array( 1, $rec_r ) );
+ck( 'carrying the cells T3 writes while one waits, through the sync\'s field map', patched_cells(), array(
+	$cols['agr_status']       => 'Awaiting review',
+	$cols['agr_kind']         => 'Institution-specific',
+	$cols['agr_submitted_on'] => $retry_day,
+) );
+ck( 'and a night with nothing owed writes nothing at all',
+    array( WPCPM_Institution_Agreement::retry_airtable(), count( $GLOBALS['patched'] ) ), array( 0, 1 ) );
+
+// The mark outlives the request that left it, and nothing deletes it on the way through
+// acceptance: a document marked as an upload can be accepted before the retry ever runs. The
+// base wants what is true tonight, which is T5's cells, not the upload's.
+$rec_s    = 'recRETRYBBBBBBBB2';
+$accepted = seed_post( $rec_s, WPCPM_Institution_Agreement::STATE_ACCEPTED, WPCPM_Institution_Agreement::KIND_TEMPLATE, array(
+	WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1,
+	WPCPM_Institution_Agreement::META_DECIDED_BY       => 9,
+	WPCPM_Institution_Agreement::META_DECIDED_AT       => '2026-09-04',
+	WPCPM_Institution_Agreement::META_TEMPLATE_VERSION => '2025-11-04',
+) );
+$GLOBALS['patched'] = array();
+ck( 'an accepted document is written as accepted, from the post rather than from the acting user', array( WPCPM_Institution_Agreement::retry_airtable(), patched_cells() ), array( 1, array(
+	$cols['agr_status']      => 'Accepted',
+	$cols['agr_kind']        => 'Program template',
+	$cols['agr_accepted_on'] => '2026-09-04',
+	$cols['agr_accepted_by'] => 'A Manager',
+	$cols['agr_template']    => '2025-11-04',
+) ) );
+ck( 'and the option is rebuilt from what was written, so the gate opens without a sync',
+    WPCPM_Institution_Agreement::is_settled( $rec_s ), true );
+ck( 'the mark is gone', (string) get_post_meta( $accepted, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ), '' );
+
+// T7's row: the base's `Agreement Document` and `Agreement Signed On` are the site's to say,
+// and `Agreement Template Version` is not, because T7 never writes it.
+$rec_t  = 'recRETRYCCCCCCCC3';
+$legacy = seed_post( $rec_t, WPCPM_Institution_Agreement::STATE_ACCEPTED, WPCPM_Institution_Agreement::KIND_LEGACY, array(
+	WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1,
+	WPCPM_Institution_Agreement::META_DECIDED_BY       => 9,
+	WPCPM_Institution_Agreement::META_DECIDED_AT       => '2026-08-30',
+	WPCPM_Institution_Agreement::META_SIGNED_ON        => '2026-08-28',
+	WPCPM_Institution_Agreement::META_DRIVE_URL        => 'https://drive.google.com/drive/folders/abcdef',
+	WPCPM_Institution_Agreement::META_TEMPLATE_VERSION => '2025-11-04',
+) );
+$GLOBALS['patched'] = array();
+ck( 'a legacy row is written as T7 writes it, and its template version is left alone', array( WPCPM_Institution_Agreement::retry_airtable(), patched_cells() ), array( 1, array(
+	$cols['agr_status']      => 'On file',
+	$cols['agr_kind']        => 'Legacy',
+	$cols['agr_accepted_on'] => '2026-08-30',
+	$cols['agr_accepted_by'] => 'A Manager',
+	$cols['agr_document']    => 'https://drive.google.com/drive/folders/abcdef',
+	$cols['agr_signed_on']   => '2026-08-28',
+) ) );
+
+// T10: a replacement uploaded while an agreement stands owes the base one date and nothing
+// else, so the accepted cells carry it rather than the awaiting status the upload never sent.
+$replacement        = seed_post( $rec_t, WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_OWN, array( WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1 ) );
+$GLOBALS['patched'] = array();
+ck( 'a replacement waiting beside an agreement in force adds its date and moves no status', array( WPCPM_Institution_Agreement::retry_airtable(), patched_cells()[ $cols['agr_status'] ], patched_cells()[ $cols['agr_submitted_on'] ] ),
+    array( 1, 'On file', gmdate( 'Y-m-d', $GLOBALS['clock'] - 60 ) ) );
+
+// T2: a generated template whose PATCH failed. The status is written only over a status the
+// base has not moved past, which is the rule the generate route itself keeps.
+$rec_u     = 'recRETRYDDDDDDDD4';
+$generated = seed_post( $rec_u, WPCPM_Institution_Agreement::STATE_GENERATED, WPCPM_Institution_Agreement::KIND_TEMPLATE, array(
+	WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1,
+	WPCPM_Institution_Agreement::META_TEMPLATE_VERSION => '2025-11-04',
+) );
+$GLOBALS['patched'] = array();
+ck( 'a generated template is written as T2 writes it', array( WPCPM_Institution_Agreement::retry_airtable(), patched_cells() ), array( 1, array(
+	$cols['agr_kind']     => 'Program template',
+	$cols['agr_template'] => '2025-11-04',
+	$cols['agr_status']   => 'Template generated',
+) ) );
+
+update_post_meta( $generated, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, 1 );
+WPCPM_Institution_Agreement::rebuild( $rec_u, block( 'Awaiting review' ) );
+$GLOBALS['patched'] = array();
+ck( 'and over a status further along, the kind and the version go without it', array( WPCPM_Institution_Agreement::retry_airtable(), patched_cells() ), array( 1, array(
+	$cols['agr_kind']     => 'Program template',
+	$cols['agr_template'] => '2025-11-04',
+) ) );
+
+// The same rule where the option is not there to be read at all: a revoke deletes it, and so
+// does the sync's own gate lock-down. An absent status counts as open, so the option alone
+// would send `Template generated` over the `Accepted` the base is holding, which is the one
+// move T2 exists to refuse. The pipeline index outlives the option and carries what the last
+// sync read, and that is what T2's own reader falls back to.
+$rec_w                           = 'recRETRYFFFFFFFF6';
+$GLOBALS['index_rows'][ $rec_w ] = array_merge( WPCPM_Institutions_Index::empty_row(), array(
+	'record_id' => $rec_w,
+	'name'      => 'Universidad Fidelitas',
+	'stage'     => 'Confirmed',
+	'agreement' => array( 'status' => 'Accepted' ),
+) );
+WPCPM_Institutions_Index::write( $GLOBALS['index_rows'], time() );
+
+$optionless         = seed_post( $rec_w, WPCPM_Institution_Agreement::STATE_GENERATED, WPCPM_Institution_Agreement::KIND_TEMPLATE, array(
+	WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1,
+	WPCPM_Institution_Agreement::META_TEMPLATE_VERSION => '2025-11-04',
+) );
+$GLOBALS['patched'] = array();
+ck( 'with no option to read, the status the index carries still keeps the row from moving back', array(
+	WPCPM_Institution_Agreement::option( $rec_w ),
+	WPCPM_Institution_Agreement::retry_airtable(),
+	patched_cells(),
+	(string) get_post_meta( $optionless, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ),
+), array( null, 1, array(
+	$cols['agr_kind']     => 'Program template',
+	$cols['agr_template'] => '2025-11-04',
+), '' ) );
+
+// And the option the retry left behind says what the base says. An empty `airtable_status`
+// counts as open, so a row rebuilt from an absent option would hand the next generate the
+// green light to send `Template generated` over this `Accepted`, one night after the retry
+// refused to send it. The status is recorded, and it settles nothing: a generated document is
+// not a settled site state.
+$rebuilt_w = WPCPM_Institution_Agreement::option( $rec_w );
+ck( 'and the option it wrote carries that status rather than an empty one, without settling', array(
+	is_array( $rebuilt_w ) ? $rebuilt_w['airtable_status'] : $rebuilt_w,
+	is_array( $rebuilt_w ) ? $rebuilt_w['settled'] : $rebuilt_w,
+), array( 'Accepted', false ) );
+
+// A mark on a document whose institution is not a record at all: there is nothing to write
+// to, so the mark is not a write that is owed. It goes, or it is read again every night.
+$orphan             = seed_post( 'recSHORT', WPCPM_Institution_Agreement::STATE_SUBMITTED, WPCPM_Institution_Agreement::KIND_OWN, array( WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1 ) );
+$GLOBALS['patched'] = array();
+ck( 'a mark that names no record is dropped without a write', array( WPCPM_Institution_Agreement::retry_airtable(), $GLOBALS['patched'], (string) get_post_meta( $orphan, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ) ),
+    array( 0, array(), '' ) );
+
+// Every document this institution had was withdrawn, and no path in the class writes a cell
+// for that: the mark is owed nothing, and clearing it is the honest end of it.
+$rec_v              = 'recRETRYEEEEEEEE5';
+$gone               = seed_post( $rec_v, WPCPM_Institution_Agreement::STATE_WITHDRAWN, WPCPM_Institution_Agreement::KIND_OWN, array( WPCPM_Institution_Agreement::META_AIRTABLE_PENDING => 1 ) );
+$GLOBALS['patched'] = array();
+ck( 'a mark left on a withdrawn document is dropped without a write', array( WPCPM_Institution_Agreement::retry_airtable(), $GLOBALS['patched'], (string) get_post_meta( $gone, WPCPM_Institution_Agreement::META_AIRTABLE_PENDING, true ) ),
+    array( 0, array(), '' ) );
+
+$retry_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' );
+// Whitespace collapsed, because the alignment of an array is the formatter's business and
+// these four arguments are the query's.
+$retry = preg_replace( '/\s+/', ' ', method_body( $retry_src, 'retry_airtable' ) );
+ck( 'it reads a bounded page of marked documents, by the mark alone', array(
+	false !== strpos( $retry, "'post_status' => 'any'" ),
+	false !== strpos( $retry, "'numberposts' => 50" ),
+	false !== strpos( $retry, "'fields' => 'ids'" ),
+	false !== strpos( $retry, "'meta_key' => self::META_AIRTABLE_PENDING" ),
+), array( true, true, true, true ) );
+
+$sync_src = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php' );
+ck( 'the nightly institutions sync is what calls it, behind a guard', array(
+	false !== strpos( $sync_src, "method_exists( 'WPCPM_Institution_Agreement', 'retry_airtable' )" ),
+	false !== strpos( method_body( $sync_src, 'phase_revoke' ), 'self::retry_agreements( $state )' ),
+), array( true, true ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

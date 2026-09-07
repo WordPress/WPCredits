@@ -125,6 +125,7 @@ function nocache_headers() { ++$GLOBALS['nocache']; }
 function is_page( $id = 0 ) { return (int) $id === (int) ( $GLOBALS['on_page'] ?? 0 ); }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( $f, null === $t ? time() : (int) $t ); }
 function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
+function wp_parse_args( $a, $d ) { return array_merge( $d, (array) $a ); }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u ) : parse_url( (string) $u, $c ); }
 function trailingslashit( $s ) { return rtrim( (string) $s, '/' ) . '/'; }
 function get_temp_dir() { return sys_get_temp_dir() . '/'; }
@@ -196,7 +197,7 @@ function get_permalink( $id ) { return 'https://example.test/sponsor-application
 function get_page_by_path( $slug ) { foreach ( $GLOBALS['posts'] as $p ) { if ( 'page' === $p->post_type && $slug === ( $GLOBALS['slugs'][ $p->ID ] ?? '' ) ) { return $p; } } return null; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 
-/** `get_posts()` as this class uses it: one type, one status, one IN clause, oldest first. */
+/** `get_posts()` as this class uses it: one type, one status, one IN clause, oldest first by default, or newest-by-meta for `decided_posts()` (1.98.1). */
 function get_posts( $a = array() ) {
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $post ) {
@@ -215,10 +216,21 @@ function get_posts( $a = array() ) {
 		}
 		$out[] = $post;
 	}
-	usort( $out, function ( $x, $y ) {
-		$by_date = strcmp( $x->post_date, $y->post_date );
-		return 0 !== $by_date ? $by_date : $x->ID - $y->ID;
-	} );
+	// decided_posts() (1.98.1) orders by a meta value instead of the post date; this is the
+	// one other shape this class asks for, so it is the one other shape this stub answers.
+	if ( isset( $a['orderby'] ) && 'meta_value_num' === $a['orderby'] && isset( $a['meta_key'] ) ) {
+		$meta_key = $a['meta_key'];
+		$desc     = isset( $a['order'] ) && 'DESC' === $a['order'];
+		usort( $out, function ( $x, $y ) use ( $meta_key, $desc ) {
+			$by_meta = (int) get_post_meta( $x->ID, $meta_key, true ) - (int) get_post_meta( $y->ID, $meta_key, true );
+			return $desc ? -$by_meta : $by_meta;
+		} );
+	} else {
+		usort( $out, function ( $x, $y ) {
+			$by_date = strcmp( $x->post_date, $y->post_date );
+			return 0 !== $by_date ? $by_date : $x->ID - $y->ID;
+		} );
+	}
 	if ( isset( $a['numberposts'] ) && (int) $a['numberposts'] > 0 ) {
 		$out = array_slice( $out, 0, (int) $a['numberposts'] );
 	}
@@ -385,11 +397,12 @@ function reset_world() {
 	);
 }
 
-/** A dwell token of a given age, signed the way the guard signs one for this form. */
-function dwell_token( $age = 30 ) {
+/** A dwell token of a given age, signed the way the guard signs one for this form, or for another form when given its scope. */
+function dwell_token( $age = 30, $scope = WPCPM_Sponsor_Application::DWELL_SCOPE ) {
 	$issued = time() - (int) $age;
+	$random = wp_generate_password( 12, false, false );
 
-	return $issued . '.' . substr( wp_hash( WPCPM_Sponsor_Application::DWELL_SCOPE . '|' . $issued . '|' . wp_create_nonce( WPCPM_Sponsor_Application::ACTION_SUBMIT ) ), 0, 32 );
+	return $issued . '.' . $random . '.' . substr( wp_hash( $scope . '|' . $issued . '|' . $random . '|' . wp_create_nonce( WPCPM_Sponsor_Application::ACTION_SUBMIT ) ), 0, 32 );
 }
 
 /** The answers a good application carries, keyed by form key. */
@@ -731,7 +744,8 @@ reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( WPCPM_Sponsor_Application::ACTION_SUBMIT );
 $token = dwell_token( 45 );
 ck( 'the first use of a token is accepted and the second is not', array( WPCPM_Sponsor_Application::check_token( $token ), WPCPM_Sponsor_Application::check_token( $token ) ), array( 'ok', 'spam' ) );
-ck( 'a token minted for the institution form is a forgery here', WPCPM_Sponsor_Application::check_token( ( time() - 40 ) . '.' . substr( wp_hash( 'wpcpm-application-dwell|' . ( time() - 40 ) . '|' . wp_create_nonce( WPCPM_Sponsor_Application::ACTION_SUBMIT ) ), 0, 32 ) ), 'spam' );
+// Well shaped (three parts) and signed with this form's nonce, so the refusal is the scope's, not the shape's.
+ck( 'a token minted for the institution form is a forgery here', WPCPM_Sponsor_Application::check_token( dwell_token( 40, 'wpcpm-application-dwell' ) ), 'spam' );
 reset_world();
 $harvested = dwell_token( 60 );
 $first     = submit( answers(), array( 'token' => $harvested ) );
@@ -1444,6 +1458,35 @@ for ( $i = 0; $i < 210; $i++ ) {
 }
 ck( 'every one of them goes', WPCPM_Sponsor_Application::purge(), 210 );
 ck( 'and the log keeps its last two hundred rows and no more', count( WPCPM_Sponsor_Application::application_log() ), WPCPM_Sponsor_Application::LOG_MAX );
+
+echo "\n=== The decision meta behind Recently decided (1.98.1) ===\n";
+reset_world();
+as_manager();
+$d1 = seed_application( array( 'Company Name' => 'Decided One' ), true );
+$d2 = seed_application( array( 'Company Name' => 'Decided Two' ), true );
+$d3 = seed_application( array( 'Company Name' => 'Still Open' ), true );
+update_post_meta( $d1, WPCPM_Sponsor_Application::META_STATE, 'rejected' );
+WPCPM_Sponsor_Application::add_event( $d1, WPCPM_Sponsor_Application::EVENT_REJECTED, 3 );
+update_post_meta( $d2, WPCPM_Sponsor_Application::META_STATE, 'approved' );
+WPCPM_Sponsor_Application::add_event( $d2, WPCPM_Sponsor_Application::EVENT_APPROVED, 3 );
+// time() has one-second resolution and both decisions above land in the same test tick, so the
+// order under test is pinned by hand rather than left to whichever second the run happens to
+// land on (the suite has no time() shim to offset instead).
+update_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED, time() + 10 );
+ck( 'a terminal event stamps the decision time; an open row carries none', array( (int) get_post_meta( $d1, WPCPM_Sponsor_Application::META_DECIDED, true ) > 0, (int) get_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED, true ) > (int) get_post_meta( $d1, WPCPM_Sponsor_Application::META_DECIDED, true ), get_post_meta( $d3, WPCPM_Sponsor_Application::META_DECIDED, true ) ), array( true, true, '' ) );
+ck( 'decided_posts() answers newest decision first, bounded, and never an open row', array_map( static function ( $p ) { return (int) $p->ID; }, WPCPM_Sponsor_Application::decided_posts( 10 ) ), array( $d2, $d1 ) );
+ck( 'and the bound holds', count( WPCPM_Sponsor_Application::decided_posts( 1 ) ), 1 );
+$tie = (int) get_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED, true );
+update_post_meta( $d1, WPCPM_Sponsor_Application::META_DECIDED, $tie );
+ck( 'two decisions in one second are ordered by ID, newest first (Task 4 review)', array_map( static function ( $p ) { return (int) $p->ID; }, WPCPM_Sponsor_Application::decided_posts( 10 ) ), array( max( $d1, $d2 ), min( $d1, $d2 ) ) );
+update_post_meta( $d1, WPCPM_Sponsor_Application::META_DECIDED, $tie - 10 );
+WPCPM_Sponsor_Application::add_event( $d1, WPCPM_Sponsor_Application::EVENT_REOPENED, 3 );
+update_post_meta( $d1, WPCPM_Sponsor_Application::META_STATE, 'new' );
+ck( 'a reopened row loses its decision time and leaves the list', array( get_post_meta( $d1, WPCPM_Sponsor_Application::META_DECIDED, true ), array_map( static function ( $p ) { return (int) $p->ID; }, WPCPM_Sponsor_Application::decided_posts( 10 ) ) ), array( '', array( $d2 ) ) );
+delete_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED );
+delete_option( WPCPM_Sponsor_Application::OPT_BACKFILL );
+WPCPM_Sponsor_Application::maybe_backfill_decided();
+ck( 'the one-time backfill stamps a decided row that predates the meta from its history, and marks itself done', array( (int) get_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED, true ) > 0, get_option( WPCPM_Sponsor_Application::OPT_BACKFILL ) ), array( true, 1 ) );
 
 foreach ( $GLOBALS['temp_files'] as $temp ) {
 	if ( is_file( $temp ) ) { unlink( $temp ); }

@@ -2013,7 +2013,7 @@ foreach ( classes_in( $panel_src ) as $name ) {
 
 sort( $undressed );
 
-ck( 'the review block is eleven classes, and the admin stylesheet dresses all of them', array( $review, in_array( 'wpcpm-review', $undressed, true ) ), array( 11, false ) );
+ck( 'the review block is ten classes, and the admin stylesheet dresses all of them', array( $review, in_array( 'wpcpm-review', $undressed, true ) ), array( 10, false ) );
 
 // `.wpcpm-link-button` is the mentor dashboard's own button class - the group-sessions cards
 // print it too - so its rule belongs in dashboard.css and not in either file this page owns.

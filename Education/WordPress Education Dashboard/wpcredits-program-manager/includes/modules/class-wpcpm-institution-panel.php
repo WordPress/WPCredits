@@ -706,7 +706,7 @@ class WPCPM_Institution_Panel {
 		$base = 'wpcpm-return-' . (int) $post_id;
 
 		self::form_start(
-			'wpcpm-review__form wpcpm-review__form--return',
+			'wpcpm-review__form',
 			WPCPM_Institution_Agreement::ACTION_RETURN,
 			WPCPM_Institution_Agreement::ACTION_RETURN . '_' . (int) $post_id,
 			__( 'Returning...', 'wpcredits-program-manager' ),

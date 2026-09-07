@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.98.0
+Stable tag: 1.98.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,9 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.98.1 =
+* **Clean-up.** The two application forms share one stash-and-redirect class. The Sponsors menu bubble is counted once a minute and forgets its count the moment a row changes. A dwell token has one shape (a token minted before 6 September 2026 is refused; every one of them expired that day). Recently decided is bounded by a decision-time index, backfilled once. The docs build escapes a section's text. The institution agreement retries a failed Airtable write nightly. A refused image store leaves no file behind. A dead phpcs annotation and a dead class are gone.
 
 = 1.98.0 =
 * **The Sponsors module, phase six: the guide and the queues.** Sponsors have a guide of their own, composed by the docs build as a fourth audience and published on the handbook beside the other three; the Sponsor Dashboard's guide button points at it.

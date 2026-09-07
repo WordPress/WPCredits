@@ -60,6 +60,10 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 */
 	const COUNT_MAX = 200;
 
+	/** The menu bubble's cache: one transient, a minute long (clean-up 1.98.1). */
+	const TRANSIENT_ATTENTION = 'wpcpm_sponsors_attention';
+	const ATTENTION_SECONDS   = 60;
+
 	/**
 	 * Module ID.
 	 *
@@ -129,11 +133,18 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	 *
 	 * Each behind a guard, because the three classes ship in three phases and the bubble is
 	 * drawn on every admin page: a class missing from a partial deploy must cost a zero, not a
-	 * fatal on every screen in the site.
+	 * fatal on every screen in the site. Cached for a minute (clean-up 1.98.1): three post
+	 * queries on every admin page for every manager was the S5 whole-branch review's finding.
 	 *
 	 * @return int
 	 */
 	public static function attention_count() {
+		$cached = get_transient( self::TRANSIENT_ATTENTION );
+
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
 		$count = 0;
 
 		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
@@ -148,7 +159,81 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$count += count( (array) WPCPM_Sponsor_Posts::pending_all( self::COUNT_MAX ) );
 		}
 
+		// Three queries on every admin page was the S5 review's finding; a minute is short
+		// enough that a manager sees their own decision land (the hooks below forget the cache
+		// the moment a row changes) and long enough that a busy morning costs one count.
+		set_transient( self::TRANSIENT_ATTENTION, $count, self::ATTENTION_SECONDS );
+
 		return $count;
+	}
+
+	/** Drop the bubble's cache; the next admin page counts again. */
+	public static function forget_attention() {
+		delete_transient( self::TRANSIENT_ATTENTION );
+	}
+
+	/**
+	 * A post of one of the three kinds the bubble counts changed status.
+	 *
+	 * @param string  $new  New status.
+	 * @param string  $old  Old status.
+	 * @param WP_Post $post The post.
+	 */
+	public static function forget_attention_on_status( $new, $old, $post ) {
+		if ( $post instanceof WP_Post && in_array( $post->post_type, self::attention_post_types(), true ) ) {
+			self::forget_attention();
+		}
+	}
+
+	/**
+	 * An application's or an agreement's state meta changed.
+	 *
+	 * @param int    $meta_id  Meta row ID.
+	 * @param int    $post_id  Post ID.
+	 * @param string $meta_key Meta key.
+	 */
+	public static function forget_attention_on_meta( $meta_id, $post_id, $meta_key ) {
+		if ( in_array( (string) $meta_key, self::attention_meta_keys(), true ) ) {
+			self::forget_attention();
+		}
+	}
+
+	/**
+	 * The post types the bubble counts, of the classes that exist.
+	 *
+	 * @return string[]
+	 */
+	private static function attention_post_types() {
+		$types = array( 'post' );
+
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			$types[] = WPCPM_Sponsor_Application::POST_TYPE;
+		}
+
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			$types[] = WPCPM_Sponsor_Agreement::POST_TYPE;
+		}
+
+		return $types;
+	}
+
+	/**
+	 * The state meta keys whose change moves the bubble.
+	 *
+	 * @return string[]
+	 */
+	private static function attention_meta_keys() {
+		$keys = array();
+
+		if ( class_exists( 'WPCPM_Sponsor_Application' ) ) {
+			$keys[] = WPCPM_Sponsor_Application::META_STATE;
+		}
+
+		if ( class_exists( 'WPCPM_Sponsor_Agreement' ) ) {
+			$keys[] = WPCPM_Sponsor_Agreement::META_STATE;
+		}
+
+		return $keys;
 	}
 
 	/**
@@ -203,6 +288,11 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		add_action( 'admin_post_' . self::ACTION_SEED, array( $this, 'handle_seed' ) );
 		add_action( 'admin_post_' . self::ACTION_CLAIM_VOID, array( $this, 'handle_claim_void' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
+
+		// The menu bubble's cache, forgotten the moment a row it counts changes (clean-up 1.98.1).
+		add_action( 'transition_post_status', array( __CLASS__, 'forget_attention_on_status' ), 10, 3 );
+		add_action( 'updated_post_meta', array( __CLASS__, 'forget_attention_on_meta' ), 10, 3 );
+		add_action( 'added_post_meta', array( __CLASS__, 'forget_attention_on_meta' ), 10, 3 );
 	}
 
 	/**
@@ -321,6 +411,8 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 
 		wp_clear_scheduled_hook( WPCPM_Sponsors_Sync::CRON_DAILY );
 		wp_clear_scheduled_hook( WPCPM_Sponsors_Sync::CRON_TICK );
+
+		delete_transient( self::TRANSIENT_ATTENTION );
 
 		// The stamps are the plugin's; the accounts are not (spec section 11, the same
 		// bargain the Institutions module strikes for its own member meta).
@@ -1439,7 +1531,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 		$this->render_agreement_form(
 			WPCPM_Sponsor_Agreement::ACTION_RETURN,
 			WPCPM_Sponsor_Agreement::ACTION_RETURN . '_' . (int) $post_id,
-			'wpcpm-review__form wpcpm-review__form--return',
+			'wpcpm-review__form',
 			__( 'Returning', 'wpcredits-program-manager' ),
 			array( WPCPM_Sponsor_Agreement::FIELD_POST => (int) $post_id ),
 			__( 'Return it with this note', 'wpcredits-program-manager' ),
@@ -1479,7 +1571,7 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 			$this->render_agreement_form(
 				WPCPM_Sponsor_Agreement::ACTION_REVOKE,
 				WPCPM_Sponsor_Agreement::ACTION_REVOKE . '_' . (int) $summary['agreement_id'],
-				'wpcpm-review__form wpcpm-review__form--return',
+				'wpcpm-review__form',
 				__( 'Revoking', 'wpcredits-program-manager' ),
 				array( WPCPM_Sponsor_Agreement::FIELD_POST => (int) $summary['agreement_id'] ),
 				__( 'Take it out of force', 'wpcredits-program-manager' ),

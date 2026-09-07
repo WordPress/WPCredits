@@ -198,6 +198,11 @@ class WPCPM_Sponsor_Application {
 	const META_RECORD    = '_wpcpm_sapp_record';
 	const META_USER      = '_wpcpm_sapp_user';
 	const META_EVENT     = '_wpcpm_sapp_event';
+	const META_DECIDED   = '_wpcpm_sapp_decided';
+	const EVENT_APPROVED = 'approved';
+	const EVENT_REJECTED = 'rejected';
+	const EVENT_SPAM     = 'marked as spam';
+	const EVENT_REOPENED = 'reopened';
 	const COL_NAME       = 'Company Name';
 	const COL_WEBSITE    = 'Website';
 	const COL_PERSON     = 'Contact Person Full Name';
@@ -205,6 +210,12 @@ class WPCPM_Sponsor_Application {
 	const COL_OPTION     = 'Sponsorship options';
 	const COL_ANYTHING   = "Anything else you'd like to share.";
 	public static function open_states() { return array( 'new', 'held', 'info' ); }
+	/** The real writer's shape: the event row, and the decision time for a terminal event (clean-up 1.98.1). */
+	public static function add_event( $post_id, $event, $actor = 0, $note = '' ) {
+		add_post_meta( (int) $post_id, self::META_EVENT, array( 'event' => (string) $event, 'at' => time(), 'actor' => (int) $actor, 'note' => (string) $note ) );
+		if ( in_array( (string) $event, array( self::EVENT_APPROVED, self::EVENT_REJECTED, self::EVENT_SPAM ), true ) ) { update_post_meta( (int) $post_id, self::META_DECIDED, time() ); }
+		elseif ( self::EVENT_REOPENED === (string) $event ) { $GLOBALS['pmeta'][ (int) $post_id ][ self::META_DECIDED ] = array(); }
+	}
 	public static function logos_of( $post_id ) {
 		$stored = get_post_meta( (int) $post_id, self::META_LOGOS, true );
 		$stored = is_array( $stored ) ? $stored : array();
@@ -521,6 +532,7 @@ ck( 'the base was written once, to the sponsors table, with the payload', array(
 ck( 'and never with typecast', isset( $GLOBALS['created'][0]['records'][0]['typecast'] ), false );
 ck( 'the record and the account are stamped on the application, and the state is approved', array( get_post_meta( $id, WPCPM_Sponsor_Application::META_RECORD, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_USER, true ), get_post_meta( $id, WPCPM_Sponsor_Application::META_STATE, true ) ), array( 'recSPN00000000009', 40, 'approved' ) );
 ck( 'three events say what the site did', events_of( $id ), array( 'record created', 'account created', 'approved' ) );
+ck( 'and the approval stamps the decision time Recently decided sorts by (clean-up 1.98.1)', (int) get_post_meta( $id, WPCPM_Sponsor_Application::META_DECIDED, true ) > 0, true );
 $row = WPCPM_Sponsors_Index::row( 'recSPN00000000009' );
 ck( 'the index row is the application\'s answers, Approved, with a dashboard account, the address as the sync stores it', array( $row['name'], $row['website'], $row['status'], $row['contact_person'], $row['contact_email'], $row['option'], $row['anything'], $row['consent'], $row['dashboard_account'] ), array( 'TEST Sponsor', 'https://test-sponsor.example', 'Approved', 'Rep One', 'maciej@a8c.com', 'Sponsor mentors + tools/services', 'We make widgets.', true, true ) );
 ck( 'the logo record says the site owns both halves', WPCPM_Sponsors_Index::logo_record( 'recSPN00000000009' ), array( 'colour' => 640, 'white' => 641, 'source' => 'site', 'airtable_id' => '' ) );

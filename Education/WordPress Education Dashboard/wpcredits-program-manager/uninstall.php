@@ -50,6 +50,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-private-files.p
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-image-upload.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-pdf-check.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-guard.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-stash.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sync-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students.php';

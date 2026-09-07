@@ -637,7 +637,6 @@ final class WPCPM_Sponsor_Agreement {
 				'numberposts'      => 50,
 				'fields'           => 'ids',
 				'suppress_filters' => false,
-				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- The mark is written only when a PATCH failed, so this reads a handful of rows once a night.
 				'meta_key'         => self::META_AIRTABLE_PENDING,
 			)
 		);

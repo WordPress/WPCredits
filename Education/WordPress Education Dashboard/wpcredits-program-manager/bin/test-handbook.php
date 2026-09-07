@@ -1067,6 +1067,10 @@ ck( 'the sponsor guide is the sponsors\' own, on the handbook beside the other t
 
 $build_src = file_get_contents( __DIR__ . '/build-docs.php' );
 ck( 'the docs build composes a fourth guide, sponsors, from the four sponsor sections and the sign-in section', array( false !== strpos( $build_src, "'sponsors'       => array(" ), false !== strpos( $build_src, "'parts' => array( '00-signing-in', '40-sponsor-dashboard', '41-sponsor-offers', '42-sponsor-visibility', '43-sponsor-posts' )" ), file_exists( __DIR__ . '/../docs/build/sponsors.html' ), file_exists( __DIR__ . '/../docs/sections/42-sponsor-visibility.md' ) ), array( true, true, true, true ) );
+
+$built = file_get_contents( __DIR__ . '/../docs/build/administrators.html' );
+ck( 'the docs build escapes a section\'s text: a literal <record> reaches the HTML as text, never as a tag (1.98.1)', array( false !== strpos( $built, 'wpcpm_roster_&lt;record&gt;' ), strpos( $built, 'wpcpm_roster_<record>' ) ), array( true, false ) );
+
 ck( 'the program managers\' guide is the handbook\'s education section', $guides['administrator']['url'], 'https://make.wordpress.org/community/handbook/education/credits/' );
 ck( 'and their channel is the program\'s', $guides['administrator']['slack'], $guides['institution']['slack'] );
 ck( 'the institution\'s guide is the handbook page written for them', $guides['institution']['url'], 'https://make.wordpress.org/community/handbook/education/credits/institutions/' );

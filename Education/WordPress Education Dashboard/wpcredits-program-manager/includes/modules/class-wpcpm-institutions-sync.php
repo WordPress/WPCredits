@@ -1116,11 +1116,21 @@ class WPCPM_Institutions_Sync {
 	 * `detach()` rather than a second copy of its steps, with actor 0 so the log says the
 	 * sync did it.
 	 *
+	 * The night's agreement retry runs before any of that, so the gate decision is the last
+	 * word of the phase rather than something a later step can undo.
+	 *
 	 * @param array $state    Sync state, by reference.
 	 * @param array $settings Plugin settings.
 	 * @return true
 	 */
 	private static function phase_revoke( array &$state, array $settings ) {
+		// First, before the gate closes below. A cleared mark ends in a `rebuild()`, which
+		// writes the agreement option back, and one written after the lock-down would reopen
+		// an institution the program has dropped for as long as it took the next night to
+		// come round. Running it here means whatever it writes is read by the loop below and
+		// closed again if the institution has left.
+		self::retry_agreements( $state );
+
 		$active = isset( $settings['institution_active_stages'] ) ? (array) $settings['institution_active_stages'] : array();
 		$rows   = WPCPM_Institutions_Index::rows();
 
@@ -1188,6 +1198,48 @@ class WPCPM_Institutions_Sync {
 	}
 
 	/**
+	 * The agreement cells an earlier request could not write, written now.
+	 *
+	 * A generate or an upload that met an unreachable base marks its document rather than
+	 * failing the institution's action, and this is what makes that mark mean something. It
+	 * runs in the last phase, because the query is empty on nearly every night and, on the one
+	 * it is not, fifty PATCHes are the ceiling; and first within that phase, because clearing
+	 * a mark rebuilds an agreement option and the gate lock-down that follows must be the one
+	 * that has the last word on which institutions hold one.
+	 *
+	 * Behind `method_exists()` rather than `class_exists()`: the agreement class is loaded
+	 * with this one and referenced unguarded all through this file, but a half-finished
+	 * deploy where the file is the old one must not fatal the cron.
+	 *
+	 * @param array $state Sync state, by reference.
+	 */
+	private static function retry_agreements( array &$state ) {
+		if ( ! method_exists( 'WPCPM_Institution_Agreement', 'retry_airtable' ) ) {
+			return;
+		}
+
+		$cleared = (int) call_user_func( array( 'WPCPM_Institution_Agreement', 'retry_airtable' ) );
+
+		if ( $cleared < 1 ) {
+			return;
+		}
+
+		// Read through `isset()` rather than added to: a run that was already in flight when
+		// this release landed carries the older statistics array, which has no such key.
+		$state['stats']['agreements'] = ( isset( $state['stats']['agreements'] ) ? (int) $state['stats']['agreements'] : 0 ) + $cleared;
+		$state['notices'][]           = sprintf(
+			/* translators: %s: how many Collaboration Agreements were written to the base. */
+			_n(
+				'%s Collaboration Agreement the base had not been told about was written tonight.',
+				'%s Collaboration Agreements the base had not been told about were written tonight.',
+				$cleared,
+				'wpcredits-program-manager'
+			),
+			number_format_i18n( $cleared )
+		);
+	}
+
+	/**
 	 * Store the run summary and clear the working state.
 	 *
 	 * @param array $state Final state.
@@ -1233,6 +1285,9 @@ class WPCPM_Institutions_Sync {
 			'provision_failed'  => 0,
 			'locked'            => 0,
 			'revoked'           => 0,
+			// The revoke phase's last step: agreement cells an earlier request could not
+			// write, finished tonight.
+			'agreements'        => 0,
 		);
 	}
 

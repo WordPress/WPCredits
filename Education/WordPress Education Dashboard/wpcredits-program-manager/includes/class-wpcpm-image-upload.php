@@ -197,6 +197,10 @@ final class WPCPM_Image_Upload {
 		);
 
 		if ( is_wp_error( $id ) ) {
+			// The copy is in the uploads directory and no attachment row points at it: delete it,
+			// or a refused store leaves a file nothing can find (S5 review, clean-up 1.98.1).
+			wp_delete_file( $dest );
+
 			return $id;
 		}
 

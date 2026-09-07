@@ -597,6 +597,133 @@ class WPCPM_Institution_Agreement {
 	}
 
 	/**
+	 * Finish the Airtable writes an earlier request could not make. The nightly sync's step.
+	 *
+	 * `META_AIRTABLE_PENDING` is the mark T2 and T3 leave when the base was unreachable at
+	 * the moment the site's own state changed. Neither transition fails the institution's
+	 * action over it, which is only honest if something later finishes the write: this is
+	 * that something, and from the day the module shipped until this method the mark was a
+	 * promise nothing kept. The design's T2 row says it in as many words: "the sync retries".
+	 *
+	 * The cells come from the state the site holds now rather than from the write that
+	 * failed. A mark can be a night old, and the document it was left by may have been
+	 * accepted, returned or replaced since; the base wants what is true rather than what was
+	 * true. No stage is ever written: T5's `Current Stage` move needs the record's live stage
+	 * to stay forward-only, and T5 refuses outright on a failed PATCH, so no mark is ever
+	 * owed one.
+	 *
+	 * Fifty at a time, because one PATCH is one HTTP call and a night that cannot reach the
+	 * base at all should spend a bounded amount of a cron run finding that out.
+	 *
+	 * Each record is held under the rebuild lock from the read of its state to the PATCH,
+	 * which is the window a transition running at the same moment would otherwise lose: its
+	 * newer cells written first, then overwritten by cells this method derived a moment
+	 * before them.
+	 *
+	 * @return int How many documents the base was told about tonight.
+	 */
+	public static function retry_airtable() {
+		$pending = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				// Any status rather than `private` alone, so a mark is found wherever the
+				// document it sits on ended up. The cells are still derived from
+				// `posts_for()`, which reads `POST_STATUS` alone, so a row somebody moved by
+				// hand is answered by what stands rather than by itself. Core leaves the
+				// trash out of `any`, so a trashed one keeps its mark and is not written,
+				// which is the right way round.
+				'post_status'      => 'any',
+				'numberposts'      => 50,
+				'fields'           => 'ids',
+				'suppress_filters' => false,
+				'meta_key'         => self::META_AIRTABLE_PENDING,
+			)
+		);
+
+		$settings = WPCPM_Settings::get();
+		$fields   = WPCPM_Institutions_Sync::fields();
+		$airtable = new WPCPM_Airtable( $settings );
+		$cleared  = 0;
+
+		foreach ( (array) $pending as $post_id ) {
+			$post_id = absint( $post_id );
+			$record  = (string) get_post_meta( $post_id, self::META_INSTITUTION, true );
+
+			if ( ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+				// There is no record to write to, so the mark is not a write that is owed. It
+				// goes, or this row is read again every night for as long as the site stands.
+				delete_post_meta( $post_id, self::META_AIRTABLE_PENDING );
+				continue;
+			}
+
+			// The record's own lock, held across the read of the site's state and the PATCH
+			// that follows from it. Without it a manager accepting a document in those two
+			// hundred milliseconds would have their own newer cells overwritten by the ones
+			// derived a moment earlier. A lock somebody else holds means exactly that kind of
+			// write is in flight, so the mark stays and tomorrow night tries again.
+			if ( ! self::lock( $record ) ) {
+				continue;
+			}
+
+			$cells = self::airtable_cells_for( $record );
+
+			if ( empty( $cells ) ) {
+				// Every document this institution had was withdrawn or superseded, and no
+				// transition writes a cell for that. Nothing is owed, so the mark goes rather
+				// than being carried forever.
+				self::unlock( $record );
+				delete_post_meta( $post_id, self::META_AIRTABLE_PENDING );
+				continue;
+			}
+
+			$written = $airtable->update_records(
+				$settings['institutions_table'],
+				array(
+					array(
+						'id'     => $record,
+						'fields' => $cells,
+					),
+				)
+			);
+
+			// Released before `rebuild()`, which takes this same lock for itself and would
+			// find it held and skip the record.
+			self::unlock( $record );
+
+			// An empty result is a refusal too: `update_records()` drops a record it cannot
+			// send and answers with the ones it did, so "nothing was updated" must not read
+			// as success and clear a mark that is still owed.
+			if ( is_wp_error( $written ) || empty( $written ) ) {
+				// Still unreachable. The mark stays and tomorrow night tries again.
+				continue;
+			}
+
+			delete_post_meta( $post_id, self::META_AIRTABLE_PENDING );
+
+			// The option is rebuilt from what was just written, as every transition rebuilds
+			// it, so an acceptance whose PATCH only landed tonight opens its gate tonight
+			// instead of waiting for the next records phase.
+			//
+			// A retry that wrote no status carries the status the base is known to hold, from
+			// the same reader T2 withheld the write by. Passing nothing would let
+			// `airtable_block()` fall back to an absent option and write `airtable_status`
+			// empty, and empty counts as open: the very next generate would then send
+			// `Template generated` over the `Accepted` or `Revoked` the base is really at,
+			// which is the one backwards move T2 exists to refuse. Writing the known status
+			// instead leaves the option saying what the base says, and it settles nothing it
+			// should not: a generated document is not a settled site state.
+			$changed = isset( $cells[ $fields['agr_status'] ] )
+				? array( 'status' => $cells[ $fields['agr_status'] ] )
+				: array( 'status' => self::known_airtable_status( $record ) );
+
+			self::rebuild( $record, self::airtable_block( $record, $changed ) );
+			++$cleared;
+		}
+
+		return $cleared;
+	}
+
+	/**
 	 * Every stored row whose two sources disagree, naming both sides.
 	 *
 	 * A disagreement is one side settled and the other not: an `Accepted` grid row with no
@@ -3177,6 +3304,160 @@ class WPCPM_Institution_Agreement {
 		);
 
 		return isset( $map[ (string) $kind ] ) ? $map[ (string) $kind ] : '';
+	}
+
+	/**
+	 * The cells this institution's agreement state says the base should hold.
+	 *
+	 * Every transition builds its own `$cells` inline, because each one knows exactly what it
+	 * has just changed. A retry knows nothing of the sort: the request that owed the write is
+	 * a night gone, and the document it was about may have been accepted, returned or
+	 * replaced since. So the cells are derived here from what the site holds now, each branch
+	 * in the vocabulary of the transition that would have written it, and a state no
+	 * transition writes a cell for answers with no cells rather than with a guess.
+	 *
+	 * A cell the site holds no value for is left out rather than sent empty. `Agreement
+	 * Document` and `Agreement Accepted By` on a row this site did not accept itself are the
+	 * base's own, and a retry that blanked them would be a worse fault than the one it fixes.
+	 * The single cell sent empty on purpose is `Agreement Template Version`, for the reason
+	 * T5 gives: `Institution-specific` standing beside a version is a contradiction.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return array Cells for `update_records()`, keyed by the base's own column names.
+	 */
+	private static function airtable_cells_for( $record ) {
+		$fields = WPCPM_Institutions_Sync::fields();
+		$site   = self::site_summary( self::posts_for( $record ) );
+		$state  = $site['site_state'];
+
+		if ( self::SUMMARY_ACCEPTED === $state || self::SUMMARY_ON_FILE === $state ) {
+			$legacy  = self::KIND_LEGACY === $site['kind'];
+			$decided = (int) get_post_meta( $site['agreement_id'], self::META_DECIDED_BY, true );
+			$by      = $decided ? get_userdata( $decided ) : false;
+			$signed  = self::date_or_empty( get_post_meta( $site['agreement_id'], self::META_SIGNED_ON, true ) );
+
+			$cells = array(
+				$fields['agr_status']      => $legacy ? self::AIRTABLE_ON_FILE : self::AIRTABLE_ACCEPTED,
+				$fields['agr_kind']        => self::airtable_kind( $site['kind'] ),
+				$fields['agr_accepted_on'] => $site['accepted_at'],
+			);
+
+			// The account of the manager who decided, not whoever the cron is running as. A
+			// row the reconcile materialised from the grid records nobody, and the name the
+			// base already carries is then the only one anybody has.
+			if ( $by instanceof WP_User && '' !== trim( (string) $by->display_name ) ) {
+				$cells[ $fields['agr_accepted_by'] ] = $by->display_name;
+			}
+
+			if ( '' !== $site['drive_url'] ) {
+				$cells[ $fields['agr_document'] ] = $site['drive_url'];
+			}
+
+			if ( '' !== $signed ) {
+				$cells[ $fields['agr_signed_on'] ] = $signed;
+			}
+
+			// T5 writes the version on both kinds it can see, the empty value clearing one an
+			// earlier upload left. T7 never writes the cell at all, and a legacy post carries
+			// the version the base itself had, so a legacy row is left holding it.
+			if ( ! $legacy ) {
+				$cells[ $fields['agr_template'] ] = self::KIND_TEMPLATE === $site['kind']
+					? (string) get_post_meta( $site['agreement_id'], self::META_TEMPLATE_VERSION, true )
+					: '';
+			}
+
+			// T10: a replacement uploaded while an agreement stands owes the base its date
+			// and nothing else, and that date is still owed tonight.
+			if ( $site['pending_id'] ) {
+				$cells[ $fields['agr_submitted_on'] ] = self::submitted_on_of( $site['pending_id'] );
+			}
+
+			return $cells;
+		}
+
+		if ( self::SUMMARY_SUBMITTED === $state ) {
+			// T3 with nothing standing: the awaiting status, the kind of the copy in review,
+			// and the day it arrived.
+			return array(
+				$fields['agr_status']       => self::AIRTABLE_AWAITING,
+				$fields['agr_kind']         => self::airtable_kind( (string) get_post_meta( $site['pending_id'], self::META_KIND, true ) ),
+				$fields['agr_submitted_on'] => self::submitted_on_of( $site['pending_id'] ),
+			);
+		}
+
+		if ( self::SUMMARY_GENERATED === $state ) {
+			// T2: the kind and the version always, the status only over one the base has not
+			// moved past. `WPCPM_Agreement_Generate` owns that rule and those words and is
+			// loaded beside this class, so it is asked rather than spelled here a second
+			// time, and the status it compares against is read the way T2 reads it.
+			$cells = array(
+				$fields['agr_kind']     => self::airtable_kind( self::KIND_TEMPLATE ),
+				$fields['agr_template'] => (string) get_post_meta( $site['generated_id'], self::META_TEMPLATE_VERSION, true ),
+			);
+
+			if ( in_array( self::known_airtable_status( $record ), WPCPM_Agreement_Generate::AIRTABLE_STATUS_OPEN, true ) ) {
+				$cells[ $fields['agr_status'] ] = WPCPM_Agreement_Generate::AIRTABLE_STATUS;
+			}
+
+			return $cells;
+		}
+
+		if ( self::SUMMARY_RETURNED === $state ) {
+			return array( $fields['agr_status'] => self::AIRTABLE_RETURNED );
+		}
+
+		if ( self::SUMMARY_REVOKED === $state ) {
+			return array( $fields['agr_status'] => self::AIRTABLE_REVOKED );
+		}
+
+		// Nothing stands, nothing waits, nothing was generated and nothing was sent back or
+		// revoked: every document this institution ever had was withdrawn or superseded, and
+		// T4 writes no cell for that. There is nothing left to finish.
+		return array();
+	}
+
+	/**
+	 * What the base's `Agreement Status` said the last time this site read it.
+	 *
+	 * `WPCPM_Agreement_Generate::airtable_status()` is the reader this mirrors, key for key,
+	 * because T2's "only over a status the base has not moved past" is worth nothing if the
+	 * two sides of that comparison read different sources. The option first, which every site
+	 * transition rewrites as well as every sync; the pipeline index when there is no readable
+	 * option, which is the case that matters here: a revoke and the sync's lock phase both
+	 * delete the option, and an empty status counts as open, so the option alone would send
+	 * `Template generated` over an `Awaiting review` or an `Accepted` the base already holds.
+	 * That backwards move is the one thing T2 exists to refuse. Never a live read: the nightly
+	 * retry is already one HTTP call per record and a second one to decide the first is a
+	 * night's budget spent on a cell almost nobody is owed.
+	 *
+	 * @param string $record Institutions record ID.
+	 * @return string
+	 */
+	private static function known_airtable_status( $record ) {
+		$option = self::option( $record );
+
+		if ( is_array( $option ) && isset( $option['airtable_status'] ) ) {
+			return trim( (string) $option['airtable_status'] );
+		}
+
+		$row = WPCPM_Institutions_Index::row( $record );
+
+		return is_array( $row ) && isset( $row['agreement']['status'] ) ? trim( (string) $row['agreement']['status'] ) : '';
+	}
+
+	/**
+	 * The day a document in review arrived, `Y-m-d`.
+	 *
+	 * The post's own date, which is what T3 put in `Agreement Submitted On` on the day: the
+	 * upload sent `wp_date( 'Y-m-d' )`, and a night later that day is still the post's.
+	 *
+	 * @param int $post_id A document's post ID.
+	 * @return string
+	 */
+	private static function submitted_on_of( $post_id ) {
+		$post = get_post( (int) $post_id );
+
+		return $post instanceof WP_Post ? self::date_or_empty( substr( (string) $post->post_date, 0, 10 ) ) : '';
 	}
 
 	/**

@@ -279,6 +279,22 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 		const AIRTABLE_SETTLED = array( 'Accepted', 'On file' );
 		const OPT_PREFIX    = 'wpcpm_agreement_';
 		public static function option_name( $record_id ) { return self::OPT_PREFIX . $record_id; }
+		/**
+		 * The nightly retry, at the two things this file cares about: it is called, its
+		 * answer is a count, and a mark it clears ends in a `rebuild()` that writes the
+		 * agreement option back. `retry_cleared` is how many cells a night had to finish and
+		 * `retry_rebuilds` names the institution whose option the real method would rewrite,
+		 * which is what makes the order of this phase provable rather than assumed.
+		 *
+		 * @return int
+		 */
+		public static function retry_airtable() {
+			$GLOBALS['calls']['retry_airtable'] = ( isset( $GLOBALS['calls']['retry_airtable'] ) ? (int) $GLOBALS['calls']['retry_airtable'] : 0 ) + 1;
+			if ( ! empty( $GLOBALS['retry_rebuilds'] ) ) {
+				self::rebuild( (string) $GLOBALS['retry_rebuilds'], array( 'status' => 'Accepted', 'document' => '' ) );
+			}
+			return isset( $GLOBALS['retry_cleared'] ) ? (int) $GLOBALS['retry_cleared'] : 0;
+		}
 		public static function rebuild( $record_id, array $airtable ) {
 			$GLOBALS['calls']['rebuild'][ $record_id ] = $airtable;
 			$settled = in_array( $airtable['status'], self::AIRTABLE_SETTLED, true ) && ( 'On file' !== $airtable['status'] || '' !== $airtable['document'] );
@@ -478,6 +494,8 @@ function reset_site( array $seed, array $override = array() ) {
 	$GLOBALS['insert_fails']    = 0;
 	$GLOBALS['insert_dies']     = 0;
 	$GLOBALS['attach_fails']    = false;
+	$GLOBALS['retry_cleared']   = 0;
+	$GLOBALS['retry_rebuilds']  = '';
 
 	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge(
 		WPCPM_Settings::defaults(),
@@ -646,6 +664,9 @@ ck( 'and with provisioning off nothing was created or even considered', array( i
 // `locked` counts institutions whose gate was closed: every seeded row outside the active
 // stages, plus the one this scenario removes from the base altogether.
 ck( 'and locks every institution that has left the active stages', $report['stats']['locked'], $outside + 1 );
+// The first thing the last phase does. On a night with nothing owed it writes nothing, counts
+// nothing and says nothing, which is every night but the rare one.
+ck( 'the run finishes the writes an earlier request could not make', array( $GLOBALS['calls']['retry_airtable'], $report['stats']['agreements'] ), array( 1, 0 ) );
 ck( 'a nameless record would be named in the notices', count( $report['notices'] ), (int) $seed['counts']['nameless'] );
 ck( 'the last-run time is stamped', array( WPCPM_Institutions_Sync::last_read() > 0 ), array( true ) );
 ck( 'the state and lock are gone', array( get_option( WPCPM_Institutions_Sync::OPT_STATE ), get_option( WPCPM_Institutions_Sync::OPT_LOCK ) ), array( false, false ) );
@@ -956,12 +977,45 @@ $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_on_inactive'] = 'keep'
 member( 40, $not_moving );
 $GLOBALS['opts'][ WPCPM_Institution_Agreement::option_name( $not_moving ) ] = array( 'v' => 1, 'settled' => true );
 
+// Two agreement cells an earlier request could not write, finished by this run.
+$GLOBALS['retry_cleared'] = 2;
+
 WPCPM_Institutions_Sync::start();
 run_to_end();
 
 ck( 'the membership is kept', array( isset( $GLOBALS['calls']['detach'] ), isset( $GLOBALS['members'][40] ) ), array( false, true ) );
 ck( 'but the gate still closes', array_key_exists( WPCPM_Institution_Agreement::option_name( $not_moving ), $GLOBALS['opts'] ), false );
 ck( 'and the report says so', array( get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['locked'], get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['revoked'] ), array( $outside, 0 ) );
+ck( 'the agreements the base had not been told about are counted and named',
+	array(
+		get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['agreements'],
+		false !== strpos( implode( "\n", get_option( WPCPM_Institutions_Sync::OPT_REPORT )['notices'] ), '2 Collaboration Agreements the base had not been told about were written tonight.' ),
+	),
+	array( 2, true ) );
+
+/* ---- the gate has the last word ------------------------------------------- */
+
+echo "\n=== The retry cannot reopen a gate this phase closes ===\n";
+
+// Clearing a mark ends in a `rebuild()`, and the option that writes is the only thing
+// `is_settled()` reads. Run after the gate lock-down, that rebuild would hand a settled option
+// back to an institution the program had just dropped, and it would stand there until the next
+// night came round. So it runs first, and the lock-down has the last word.
+reset_site( $seed );
+$GLOBALS['retry_cleared']  = 1;
+$GLOBALS['retry_rebuilds'] = $not_moving;
+
+WPCPM_Institutions_Sync::start();
+run_to_end();
+
+ck( 'an institution outside the active stages whose mark was finished tonight still ends locked',
+	array(
+		array_key_exists( WPCPM_Institution_Agreement::option_name( $not_moving ), $GLOBALS['opts'] ),
+		WPCPM_Institution_Agreement::is_settled( $not_moving ),
+		$GLOBALS['calls']['retry_airtable'],
+		get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['agreements'],
+	),
+	array( false, false, 1, 1 ) );
 
 /* ---- an error mid-records ------------------------------------------------- */
 

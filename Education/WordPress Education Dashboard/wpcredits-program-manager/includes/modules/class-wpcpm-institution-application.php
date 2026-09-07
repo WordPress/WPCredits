@@ -16,6 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // by real path, so on a booted site the loader's own line has done the work and this one costs a
 // stat.
 require_once dirname( __DIR__ ) . '/class-wpcpm-form-guard.php';
+require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
 
 /**
  * The form an institution fills in to ask to join the program, and everything that guards it.
@@ -2225,133 +2226,46 @@ class WPCPM_Institution_Application {
 	 */
 
 	/**
-	 * Say what happened and go back to the form.
+	 * The form as `WPCPM_Form_Stash` needs it described (clean-up 1.98.1).
 	 *
-	 * Nothing a sender typed travels in the URL. `WPCPM_Flash` is the plugin's usual way
-	 * of carrying a message across a redirect and cannot be used here, because it is stored per
-	 * user and an applicant has no account; a query argument saying `?sent=APP-2026-0007` would
-	 * make the reference a bearer token for somebody else's address and would say it again on
-	 * every reload. So a random id goes in the URL and everything else goes in a transient
-	 * behind it.
-	 *
-	 * **An outcome with nothing behind it writes nothing at all.** Every handler here is
-	 * reachable by anybody on the internet with no account, and a transient is two rows in the
-	 * options table: while `busy`, `closed` and the three answers the confirmation link gives
-	 * each opened one, a stranger could make the site write two rows per request for ever, for
-	 * a sentence that is the same sentence for everybody. Those travel as their own slug
-	 * instead. Only a slug `outcomes()` knows may, which is also what keeps `sent` on the
-	 * stash it must have: `sent` is drawn as a panel and has no entry in that map.
+	 * @return array
+	 */
+	private static function stash_form() {
+		return array(
+			'url'           => self::page_url(),
+			'outcomes'      => array_keys( self::outcomes() ),
+			'query_outcome' => self::QUERY_OUTCOME,
+			'query_stash'   => self::QUERY_STASH,
+			'prefix'        => self::TRANSIENT_PREFIX,
+			'minutes'       => self::TRANSIENT_MINUTES,
+			'one_shot'      => array( 'sent', 'sent-quiet', 'verified', 'verified-already', 'verify-failed' ),
+		);
+	}
+
+	/**
+	 * Redirect back with the outcome, the stash behind a transient: `WPCPM_Form_Stash::bounce()`.
 	 *
 	 * @param string $outcome One of `outcomes()`, or `sent`.
 	 * @param array  $stash   What the page needs to draw: values, problems, a reference.
 	 */
 	private static function bounce( $outcome, array $stash = array() ) {
-		$page  = self::page_url();
-		$url   = '' !== $page ? $page : home_url( '/' );
-		$stash = self::worth_keeping( $stash );
-
-		if ( empty( $stash ) && isset( self::outcomes()[ $outcome ] ) ) {
-			wp_safe_redirect( add_query_arg( self::QUERY_OUTCOME, (string) $outcome, $url ) );
-
-			exit;
-		}
-
-		$stash['outcome'] = (string) $outcome;
-
-		wp_safe_redirect( add_query_arg( self::QUERY_STASH, self::stash( $stash ), $url ) );
-
-		exit;
-	}
-
-	/**
-	 * What of a stash is worth a transient, or an empty array when none of it is.
-	 *
-	 * Blank answers go first. A form redrawn from a stash treats an absent value and an empty
-	 * one identically, so keeping the empty ones buys nothing and costs the difference between
-	 * "this sender typed something" and "this request was a POST with no body in it" - which is
-	 * the difference that decides whether two rows are written at all. A hand-made request that
-	 * says nothing gets its answer in the address bar and leaves nothing behind; a person whose
-	 * nonce expired with three paragraphs in the boxes still gets every word of it back.
-	 *
-	 * @param array $stash What the handler wants to hand back.
-	 * @return array The same, minus the blanks.
-	 */
-	private static function worth_keeping( array $stash ) {
-		if ( isset( $stash['values'] ) && is_array( $stash['values'] ) ) {
-			foreach ( $stash['values'] as $column => $value ) {
-				if ( self::is_blank( $value ) ) {
-					unset( $stash['values'][ $column ] );
-				}
+		WPCPM_Form_Stash::bounce(
+			self::stash_form(),
+			$outcome,
+			$stash,
+			static function ( $value ) {
+				return self::is_blank( $value );
 			}
-		}
-
-		foreach ( $stash as $key => $value ) {
-			if ( is_array( $value ) ? empty( $value ) : self::is_blank( $value ) ) {
-				unset( $stash[ $key ] );
-			}
-		}
-
-		return $stash;
+		);
 	}
 
 	/**
-	 * Put one stash behind a random id and answer with the id.
-	 *
-	 * The id is not derived from anything: not the address, not the reference, not the session.
-	 * It is the only thing that travels, so anything readable in it would be readable by
-	 * whoever the link is forwarded to.
-	 *
-	 * @param array $stash What to keep.
-	 * @return string The id.
-	 */
-	private static function stash( array $stash ) {
-		// Lowercased because it is read back through `WPCPM_Request::key()`, which lowercases:
-		// an id that came back different from the one that went out would silently lose every
-		// message. Thirty-two characters of it either way.
-		$id = strtolower( wp_generate_password( 32, false, false ) );
-
-		set_transient( self::TRANSIENT_PREFIX . $id, $stash, self::TRANSIENT_MINUTES * MINUTE_IN_SECONDS );
-
-		return $id;
-	}
-
-	/**
-	 * Read the stash this request carries, if it carries one.
-	 *
-	 * The confirmation is one-shot: it is deleted as it is read, so a reload or a forwarded link
-	 * shows the plain form rather than repeating "your application is with us", with a reference
-	 * and an address on it, to whoever opens it. A failed attempt is not, because it holds only
-	 * what the sender themselves typed and losing it on a reload would lose their writing, which
-	 * is the thing this whole path exists to avoid.
-	 *
-	 * The other half of `bounce()` comes last: an outcome that had nothing behind it travelled
-	 * as itself rather than as two rows in the options table. It is not one-shot and does not
-	 * need to be - none of those five sentences names anybody or stops being true on a reload -
-	 * and only a slug `outcomes()` knows is answered, so the argument chooses between ten fixed
-	 * sentences and is never a way to put text on the page.
+	 * Read the stash this request carries: `WPCPM_Form_Stash::read()`.
 	 *
 	 * @return array
 	 */
 	private static function read_stash() {
-		$id = WPCPM_Request::key( self::QUERY_STASH );
-
-		if ( '' !== $id ) {
-			$stash = get_transient( self::TRANSIENT_PREFIX . $id );
-
-			if ( is_array( $stash ) ) {
-				$outcome = isset( $stash['outcome'] ) ? (string) $stash['outcome'] : '';
-
-				if ( in_array( $outcome, array( 'sent', 'sent-quiet', 'verified', 'verified-already', 'verify-failed' ), true ) ) {
-					delete_transient( self::TRANSIENT_PREFIX . $id );
-				}
-
-				return $stash;
-			}
-		}
-
-		$said = WPCPM_Request::key( self::QUERY_OUTCOME );
-
-		return isset( self::outcomes()[ $said ] ) ? array( 'outcome' => $said ) : array();
+		return WPCPM_Form_Stash::read( self::stash_form() );
 	}
 
 	/*

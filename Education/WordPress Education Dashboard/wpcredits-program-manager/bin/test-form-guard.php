@@ -127,8 +127,8 @@ function reset_world() {
  * A dwell token of a given age, signed the way the guard signs one for a scope.
  *
  * With no `$random` it is the two-part shape a token minted before the S5 fix wave has, which
- * the guard still accepts for a tab that was open across the release; with one it is the shape
- * every token has since.
+ * was accepted for one deploy window and is now a forgery (clean-up 1.98.1); with one it is the
+ * shape every token has since.
  *
  * @param string $scope  The form's scope.
  * @param int    $age    Seconds ago it was minted.
@@ -175,33 +175,34 @@ ck( 'and two tokens minted in the same second differ', WPCPM_Form_Guard::token( 
 ck( 'a token minted this instant is too fast to be a person', WPCPM_Form_Guard::check_token( 'scope-a', WPCPM_Form_Guard::token( 'scope-a', 'act' ) ), 'spam' );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
-ck( 'one minted half a minute ago is accepted', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30 ) ), 'ok' );
+ck( 'one minted half a minute ago is accepted', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' ) ), 'ok' );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
-$token = dwell_token( 'scope-a', 45 );
+$token = dwell_token( 'scope-a', 45, 'act', 'AbCdEf012345' );
 ck( 'the first use is accepted', WPCPM_Form_Guard::check_token( 'scope-a', $token ), 'ok' );
 ck( 'and the second use of the same token is not', WPCPM_Form_Guard::check_token( 'scope-a', $token ), 'spam' );
 ck( 'the claim behind it is one non-autoloaded option row', array( count( $GLOBALS['opts'] ) - 1, in_array( true, $GLOBALS['autoload'], true ) ), array( 1, false ) );
 reset_world();
 $_POST['_wpnonce'] = wp_create_nonce( 'act' );
-ck( 'a token minted for another form is a forgery on this one', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-b', 30 ) ), 'spam' );
-ck( 'a token nobody signed is refused', WPCPM_Form_Guard::check_token( 'scope-a', ( time() - 60 ) . '.0123456789abcdef0123456789abcdef' ), 'spam' );
+// Well shaped (three parts), so the refusals below are the scope's and the signature's, not the shape's (Task 3 review).
+ck( 'a token minted for another form is a forgery on this one', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-b', 30, 'act', 'AbCdEf012345' ) ), 'spam' );
+ck( 'a token nobody signed is refused', WPCPM_Form_Guard::check_token( 'scope-a', ( time() - 60 ) . '.AbCdEf012345.0123456789abcdef0123456789abcdef' ), 'spam' );
 ck( 'and so is one that is not a token at all', WPCPM_Form_Guard::check_token( 'scope-a', 'nonsense' ), 'spam' );
-ck( 'and so is one with a fourth part bolted on', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30 ) . '.extra' ), 'spam' );
+ck( 'and so is one with a fourth part bolted on', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' ) . '.extra' ), 'spam' );
 // A minted token, taken apart and put back with an empty random half: the two shapes sign
 // different strings, so this is a forgery and not a second spelling of the two-part one, which
 // is what keeps single use exact across the release.
 $two_part = dwell_token( 'scope-a', 30 );
 ck( 'an empty random half is a forgery, not a second spelling of the shape without one', WPCPM_Form_Guard::check_token( 'scope-a', str_replace( '.', '..', $two_part ) ), 'spam' );
-ck( 'and the token minted without one still checks out, for the tab that was open across the release', WPCPM_Form_Guard::check_token( 'scope-a', $two_part ), 'ok' );
+ck( 'a token minted before the S5 fix wave, in two parts, is a forgery now (1.98.1)', WPCPM_Form_Guard::check_token( 'scope-a', $two_part ), 'spam' );
 $three_part = dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' );
 ck( 'a three-part token of an ordinary age is accepted', WPCPM_Form_Guard::check_token( 'scope-a', $three_part ), 'ok' );
 ck( 'and the same token with another random half is a forgery: the half is signed, not carried', WPCPM_Form_Guard::check_token( 'scope-a', str_replace( 'AbCdEf012345', 'zzzzzzzzzzzz', $three_part ) ), 'spam' );
-ck( 'a token older than half a day is stale, which is not spam', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 13 * HOUR_IN_SECONDS ) ), 'stale' );
+ck( 'a token older than half a day is stale, which is not spam', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 13 * HOUR_IN_SECONDS, 'act', 'AbCdEf012345' ) ), 'stale' );
 reset_world();
-ck( 'a token checked with no nonce in the request is a forgery', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30 ) ), 'spam' );
+ck( 'a token checked with no nonce in the request is a forgery', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' ) ), 'spam' );
 $_POST['_wpnonce'] = 'nonce-something-else';
-ck( 'a token posted with another form\'s nonce is refused', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30 ) ), 'spam' );
+ck( 'a token posted with another form\'s nonce is refused', WPCPM_Form_Guard::check_token( 'scope-a', dwell_token( 'scope-a', 30, 'act', 'AbCdEf012345' ) ), 'spam' );
 
 echo "\n=== 3. The per-actor ceiling ===\n";
 reset_world();

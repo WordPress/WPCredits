@@ -9,6 +9,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Loaded here as well as by the plugin's loader, the way the institution form loads the guard.
+// This class's suites require it with a handful of others and nothing else, so a shared class it
+// reaches for has to arrive with the file rather than with a line in every suite. `require_once`
+// is idempotent by real path, so on a booted site the loader's own line has done the work and
+// this one costs a stat.
+require_once dirname( __DIR__ ) . '/class-wpcpm-form-stash.php';
+
 /**
  * The form a company fills in to ask to sponsor the program, and everything that guards it.
  *
@@ -167,6 +174,12 @@ class WPCPM_Sponsor_Application {
 	/** Post meta, repeating: one row per event, `event`, `at`, `actor`, `note`. */
 	const META_EVENT = '_wpcpm_sapp_event';
 
+	/** Post meta: when the application was last decided, a Unix time; absent while it is open (1.98.1). */
+	const META_DECIDED = '_wpcpm_sapp_decided';
+
+	/** Option: the one-time backfill of `META_DECIDED` has run. */
+	const OPT_BACKFILL = 'wpcpm_sapp_decided_backfilled';
+
 	/** Another open application names this company or this address. */
 	const SIGNAL_DUPLICATE = 'duplicate';
 
@@ -232,6 +245,7 @@ class WPCPM_Sponsor_Application {
 	const MAIL_DECLINED = 'sponsor-declined';
 
 	/** What the application's own history calls each decision. */
+	const EVENT_APPROVED = 'approved';
 	const EVENT_INFO     = 'information requested';
 	const EVENT_REJECTED = 'rejected';
 	const EVENT_SPAM     = 'marked as spam';
@@ -307,6 +321,7 @@ class WPCPM_Sponsor_Application {
 		add_action( 'admin_post_' . self::ACTION_PURGE, array( __CLASS__, 'handle_purge' ) );
 
 		add_action( self::CRON_PURGE, array( __CLASS__, 'purge' ) );
+		add_action( 'admin_init', array( __CLASS__, 'maybe_backfill_decided' ) );
 	}
 
 	/**
@@ -2007,6 +2022,15 @@ class WPCPM_Sponsor_Application {
 				'note'  => sanitize_textarea_field( (string) $note ),
 			)
 		);
+
+		// The decision time is an index over the history (clean-up 1.98.1): Recently decided
+		// sorts and bounds by it in one query instead of loading every decided row. The
+		// history stays the record; the retention run keeps reading it.
+		if ( in_array( (string) $event, array( self::EVENT_APPROVED, self::EVENT_REJECTED, self::EVENT_SPAM ), true ) ) {
+			update_post_meta( (int) $post_id, self::META_DECIDED, time() );
+		} elseif ( self::EVENT_REOPENED === (string) $event ) {
+			delete_post_meta( (int) $post_id, self::META_DECIDED );
+		}
 	}
 
 	/**
@@ -2144,6 +2168,74 @@ class WPCPM_Sponsor_Application {
 	}
 
 	/**
+	 * The decided applications, newest decision first, bounded.
+	 *
+	 * @param int $limit Most rows to read.
+	 * @return WP_Post[]
+	 */
+	public static function decided_posts( $limit ) {
+		$found = array();
+
+		foreach ( (array) get_posts(
+			array(
+				'post_type'   => self::POST_TYPE,
+				'post_status' => 'private',
+				'numberposts' => max( 1, (int) $limit ),
+				'meta_key'    => self::META_DECIDED,
+				'orderby'     => 'meta_value_num',
+				'order'       => 'DESC',
+				'meta_query'  => array(
+					array(
+						'key'     => self::META_STATE,
+						'value'   => self::decided_states(),
+						'compare' => 'IN',
+					),
+				),
+			)
+		) as $post ) {
+			if ( $post instanceof WP_Post ) {
+				$found[] = $post;
+			}
+		}
+
+		// Two decisions in one second tie on the meta, and MySQL promises nothing about the
+		// order of a tie: the ID breaks it, newest first, as the list did before it was
+		// bounded (Task 4 review). The window fetched is small, so the sort costs nothing;
+		// the one case it cannot settle is a tie straddling the bound itself, which needs
+		// two decisions in the same second at the fifty-first row.
+		usort(
+			$found,
+			static function ( WP_Post $a, WP_Post $b ) {
+				$difference = (int) get_post_meta( (int) $b->ID, self::META_DECIDED, true ) - (int) get_post_meta( (int) $a->ID, self::META_DECIDED, true );
+
+				return 0 !== $difference ? $difference : ( (int) $b->ID - (int) $a->ID );
+			}
+		);
+
+		return $found;
+	}
+
+	/**
+	 * Stamp the decision time on every decided row that predates the meta, once.
+	 *
+	 * Runs on the first admin page after the upgrade to 1.98.1 and never again; on the live
+	 * site of that day no decided row existed, but the code does not know that.
+	 */
+	public static function maybe_backfill_decided() {
+		if ( get_option( self::OPT_BACKFILL ) ) {
+			return;
+		}
+
+		foreach ( self::applications( self::decided_states() ) as $post ) {
+			if ( '' === (string) get_post_meta( (int) $post->ID, self::META_DECIDED, true ) ) {
+				update_post_meta( (int) $post->ID, self::META_DECIDED, self::decided_at( $post ) );
+			}
+		}
+
+		update_option( self::OPT_BACKFILL, 1, false );
+	}
+
+	/**
 	 * How many applications are waiting for somebody: the menu bubble's number.
 	 *
 	 * @param int $limit Most rows to count, or 0 for every one of them.
@@ -2219,100 +2311,46 @@ class WPCPM_Sponsor_Application {
 	 */
 
 	/**
-	 * Say what happened and go back to the form.
+	 * The form as `WPCPM_Form_Stash` needs it described (clean-up 1.98.1).
 	 *
-	 * Nothing a sender typed travels in the URL, and an outcome with nothing behind it writes
-	 * nothing at all: only a slug `outcomes()` knows may travel as itself, which is also what
-	 * keeps `sent` on the stash it must have.
+	 * @return array
+	 */
+	private static function stash_form() {
+		return array(
+			'url'           => self::page_url(),
+			'outcomes'      => array_keys( self::outcomes() ),
+			'query_outcome' => self::QUERY_OUTCOME,
+			'query_stash'   => self::QUERY_STASH,
+			'prefix'        => self::TRANSIENT_PREFIX,
+			'minutes'       => self::TRANSIENT_MINUTES,
+			'one_shot'      => array( 'sent', 'sent-quiet' ),
+		);
+	}
+
+	/**
+	 * Redirect back with the outcome, the stash behind a transient: `WPCPM_Form_Stash::bounce()`.
 	 *
 	 * @param string $outcome One of `outcomes()`, or `sent` / `sent-quiet`.
 	 * @param array  $stash   What the page needs to draw: values, problems, a reference.
 	 */
 	private static function bounce( $outcome, array $stash = array() ) {
-		$page  = self::page_url();
-		$url   = '' !== $page ? $page : home_url( '/' );
-		$stash = self::worth_keeping( $stash );
-
-		if ( empty( $stash ) && isset( self::outcomes()[ $outcome ] ) ) {
-			wp_safe_redirect( add_query_arg( array( self::QUERY_OUTCOME => (string) $outcome ), $url ) );
-
-			exit;
-		}
-
-		$stash['outcome'] = (string) $outcome;
-
-		wp_safe_redirect( add_query_arg( array( self::QUERY_STASH => self::stash( $stash ) ), $url ) );
-
-		exit;
-	}
-
-	/**
-	 * What of a stash is worth a transient, or an empty array when none of it is.
-	 *
-	 * @param array $stash What the handler wants to hand back.
-	 * @return array The same, minus the blanks.
-	 */
-	private static function worth_keeping( array $stash ) {
-		if ( isset( $stash['values'] ) && is_array( $stash['values'] ) ) {
-			foreach ( $stash['values'] as $column => $value ) {
-				if ( self::is_blank( $value ) ) {
-					unset( $stash['values'][ $column ] );
-				}
+		WPCPM_Form_Stash::bounce(
+			self::stash_form(),
+			$outcome,
+			$stash,
+			static function ( $value ) {
+				return self::is_blank( $value );
 			}
-		}
-
-		foreach ( $stash as $key => $value ) {
-			if ( is_array( $value ) ? empty( $value ) : self::is_blank( $value ) ) {
-				unset( $stash[ $key ] );
-			}
-		}
-
-		return $stash;
+		);
 	}
 
 	/**
-	 * Put one stash behind a random id and answer with the id.
-	 *
-	 * @param array $stash What to keep.
-	 * @return string The id.
-	 */
-	private static function stash( array $stash ) {
-		// Lowercased because it is read back through `WPCPM_Request::key()`, which lowercases.
-		$id = strtolower( wp_generate_password( 32, false, false ) );
-
-		set_transient( self::TRANSIENT_PREFIX . $id, $stash, self::TRANSIENT_MINUTES * MINUTE_IN_SECONDS );
-
-		return $id;
-	}
-
-	/**
-	 * Read the stash this request carries, if it carries one.
-	 *
-	 * The confirmation is one-shot, deleted as it is read; a failed attempt is not, because it
-	 * holds only what the sender themselves typed.
+	 * Read the stash this request carries: `WPCPM_Form_Stash::read()`.
 	 *
 	 * @return array
 	 */
 	private static function read_stash() {
-		$id = WPCPM_Request::key( self::QUERY_STASH );
-
-		if ( '' !== $id ) {
-			$stash = get_transient( self::TRANSIENT_PREFIX . $id );
-
-			if ( is_array( $stash ) ) {
-				$outcome = isset( $stash['outcome'] ) ? (string) $stash['outcome'] : '';
-
-				if ( in_array( $outcome, array( 'sent', 'sent-quiet' ), true ) ) {
-					delete_transient( self::TRANSIENT_PREFIX . $id );
-				}
-
-				return $stash;
-			}
-		}
-
-		$said = WPCPM_Request::key( self::QUERY_OUTCOME );
-
-		return isset( self::outcomes()[ $said ] ) ? array( 'outcome' => $said ) : array();
+		return WPCPM_Form_Stash::read( self::stash_form() );
 	}
 
 	/*
@@ -3495,21 +3533,9 @@ class WPCPM_Sponsor_Application {
 	 * @param string $screen_url The Sponsors screen's URL, which the Open links carry.
 	 */
 	private static function render_decided( $screen_url ) {
-		$decided = self::applications( self::decided_states() );
-
-		// Newest decision first, which is the opposite of the queue: the row a manager wants
-		// back is the one just decided. `decided_at()` is the same clock the retention run
-		// reads, and the ID breaks a tie so two decisions in one second have a fixed order.
-		usort(
-			$decided,
-			static function ( WP_Post $a, WP_Post $b ) {
-				$difference = self::decided_at( $b ) - self::decided_at( $a );
-
-				return 0 !== $difference ? $difference : ( (int) $b->ID - (int) $a->ID );
-			}
-		);
-
-		$rows = array_slice( $decided, 0, self::QUEUE_MAX );
+		$rows = self::decided_posts( self::QUEUE_MAX + 1 );
+		$more = count( $rows ) > self::QUEUE_MAX;
+		$rows = array_slice( $rows, 0, self::QUEUE_MAX );
 
 		echo '<section class="wpcpm-sapp-decided">';
 		echo '<h3>' . esc_html__( 'Recently decided', 'wpcredits-program-manager' ) . '</h3>';
@@ -3524,12 +3550,11 @@ class WPCPM_Sponsor_Application {
 		printf(
 			'<p class="description">%s</p>',
 			esc_html(
-				count( $decided ) > count( $rows )
+				$more
 					? sprintf(
-						/* translators: 1: how many rows are drawn, 2: how many have been decided in total. */
-						__( 'The %1$s most recent of %2$s decided applications. Open one to put it back in the queue or to delete it for good.', 'wpcredits-program-manager' ),
-						number_format_i18n( count( $rows ) ),
-						number_format_i18n( count( $decided ) )
+						/* translators: 1: how many rows are drawn. */
+						__( 'The %1$s most recent decided applications. Open one to put it back in the queue or to delete it for good.', 'wpcredits-program-manager' ),
+						number_format_i18n( count( $rows ) )
 					)
 					: __( 'Every application somebody has decided, newest first. Open one to put it back in the queue or to delete it for good.', 'wpcredits-program-manager' )
 			)
@@ -4103,5 +4128,6 @@ class WPCPM_Sponsor_Application {
 
 		delete_option( self::OPT_PAGE );
 		delete_option( self::OPT_LOG );
+		delete_option( self::OPT_BACKFILL );
 	}
 }

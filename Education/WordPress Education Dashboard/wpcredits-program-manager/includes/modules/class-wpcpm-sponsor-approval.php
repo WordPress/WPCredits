@@ -60,10 +60,17 @@ final class WPCPM_Sponsor_Approval {
 	 */
 	const LOCK_TIMEOUT = 60;
 
-	/** Application events this class writes, in the words the open application prints. */
+	/**
+	 * Application events this class writes, in the words the open application prints.
+	 *
+	 * The first two belong here: nothing but an approval writes them. `approved` is the
+	 * application's own word, and it is the one the application's history reads by, so it is
+	 * taken from there rather than spelled a second time. Two spellings of one event is a
+	 * decision that stops being logged the day somebody edits only one of them.
+	 */
 	const EVENT_RECORD_CREATED  = 'record created';
 	const EVENT_ACCOUNT_CREATED = 'account created';
-	const EVENT_APPROVED        = 'approved';
+	const EVENT_APPROVED        = WPCPM_Sponsor_Application::EVENT_APPROVED;
 
 	/** Audit kind, so the log lists this beside the membership row it causes. */
 	const LOG_APPROVED = 'application_approved';
@@ -485,16 +492,10 @@ final class WPCPM_Sponsor_Approval {
 	 * @param string $note           A record ID or an account ID; never free text.
 	 */
 	private static function event( $application_id, $event, $actor, $note = '' ) {
-		add_post_meta(
-			absint( $application_id ),
-			WPCPM_Sponsor_Application::META_EVENT,
-			array(
-				'event' => (string) $event,
-				'at'    => time(),
-				'actor' => absint( $actor ),
-				'note'  => sanitize_text_field( (string) $note ),
-			)
-		);
+		// Through the application's own writer, so an approval stamps the decision time the
+		// Recently decided list sorts by (clean-up 1.98.1): a row written here directly would
+		// vanish from that list the day after the backfill.
+		WPCPM_Sponsor_Application::add_event( absint( $application_id ), (string) $event, absint( $actor ), (string) $note );
 	}
 
 	/**

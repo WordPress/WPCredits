@@ -35,10 +35,10 @@ function wp_upload_dir() {
 	if ( ! is_dir( $dir ) ) { mkdir( $dir ); }
 	return array( 'path' => $dir, 'url' => 'https://example.test/uploads', 'error' => false );
 }
-function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false ) { $GLOBALS['attachments'][] = array_merge( $a, array( 'file' => $file ) ); return count( $GLOBALS['attachments'] ) + 100; }
+function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false ) { $GLOBALS['insert_attachment_calls'][] = $file; if ( ! empty( $GLOBALS['insert_fails'] ) ) { return new WP_Error( 'attachment_insert_failed', 'The row could not be written.' ); } $GLOBALS['attachments'][] = array_merge( $a, array( 'file' => $file ) ); return count( $GLOBALS['attachments'] ) + 100; }
 function wp_generate_attachment_metadata( $id, $file ) { return array( 'file' => basename( $file ) ); }
 function wp_update_attachment_metadata( $id, $data ) { $GLOBALS['meta'][ $id ] = $data; return true; }
-function wp_delete_file( $p ) { if ( file_exists( $p ) ) { unlink( $p ); } }
+function wp_delete_file( $p ) { $GLOBALS['deleted_files'][] = $p; if ( file_exists( $p ) ) { unlink( $p ); } }
 function download_url( $url, $timeout = 300 ) { if ( empty( $GLOBALS['download'][ $url ] ) ) { return new WP_Error( 'http_404', 'Not Found' ); } $tmp = tempnam( sys_get_temp_dir(), 'dl' ); copy( $GLOBALS['download'][ $url ], $tmp ); $GLOBALS['downloaded'][] = $tmp; return $tmp; }
 class WPCPM_Settings { public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } }
 // The editor: what WordPress does with a real image, in miniature. `save()` writes a copy and
@@ -68,6 +68,9 @@ $GLOBALS['password'] = 0;
 $GLOBALS['editor_calls'] = array();
 $GLOBALS['no_editor'] = false;
 $GLOBALS['settings'] = array();
+$GLOBALS['insert_fails'] = false;
+$GLOBALS['insert_attachment_calls'] = array();
+$GLOBALS['deleted_files'] = array();
 
 echo "=== Each rule refuses on its own ===\n";
 ck( 'a missing file', code( WPCPM_Image_Upload::accept( '/nowhere/logo.png' ) ), 'wpcpm_image_missing' );
@@ -118,6 +121,16 @@ unset( $GLOBALS['upload_dir_override'] );
 ck( 'store() refuses when copy() fails', code( $store_result ), 'wpcpm_image_store' );
 ck( 'and the re-saved temporary file is cleaned up rather than left behind', file_exists( $broken['path'] ), false );
 
+// The row is refused after the copy already landed in the uploads directory: the orphan
+// this leaves behind, with nothing pointing at it, is what the review found (S5 review,
+// clean-up 1.98.1).
+$leftover = WPCPM_Image_Upload::accept( png( 300, 100 ), array( 'name' => 'Weglot Logo Light-1.png' ) );
+$GLOBALS['insert_fails'] = true;
+$orphan_result = WPCPM_Image_Upload::store( $leftover, 'Weglot logo', 7, 'Weglot logo (colour)' );
+$GLOBALS['insert_fails'] = false;
+ck( 'store() refuses when the attachment row cannot be written', code( $orphan_result ), 'attachment_insert_failed' );
+ck( 'and the copy nothing points at is deleted, not left behind', in_array( end( $GLOBALS['insert_attachment_calls'] ), $GLOBALS['deleted_files'], true ), true );
+
 echo "\n=== Sideloading ===\n";
 $GLOBALS['download'] = array( 'https://v5.airtableusercontent.com/x/logo.png' => png( 400, 120 ), 'https://v5.airtableusercontent.com/x/logo.svg' => $svg );
 $id = WPCPM_Image_Upload::sideload( 'https://v5.airtableusercontent.com/x/logo.png', 'logo.png', 0, 'Acme logo' );
@@ -147,5 +160,5 @@ ck( 'no em or en dash', preg_match( '/\x{2013}|\x{2014}/u', $src ), 0 );
 ck( 'wp_handle_upload() is never trusted here', strpos( $src, 'wp_handle_upload' ), false );
 ck( 'SVG is named nowhere as a type it takes', strpos( $src, "'image/svg+xml' =>" ), false );
 
-printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 32 );
+printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', 34 );
 exit( $fail ? 1 : 0 );

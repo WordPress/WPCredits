@@ -298,6 +298,8 @@ The Tools section is drawn on a person's own Student Report Card (setting *Tools
 
 **The guide and the queues (1.98.0).** Sponsors have a guide of their own, composed by `bin/build-docs.php` as the `sponsors` audience from four sections (the dashboard, offers and codes, what a sponsor can and cannot see, posts) and published on the handbook beside the other three; the Sponsor Dashboard's guide button points at it. The Administrator Dashboard gained three sponsor cards after the Sponsor agreements card: *Offers running low* (every live pool under the threshold its sponsor set, the emptiest first, linked to the sponsor's Offers and codes card through the switcher), *New interests* (what sponsors sent from *What else would you like to support?* in the last thirty days, as they wrote it) and *Sponsors* (Approved sponsors, how many hold an account, the offers live today, the claims since the semester began). The *Sponsor applications* card folds the whole application under *Read the application*, the needs-attention strip has a twelfth tile for the pools running low, and the Syncs card lists the sponsors sync. Nothing here is a new option or a new post type: the phase reads what the earlier phases wrote.
 
+**The clean-up (1.98.1).** The two application forms share one stash-and-redirect class, `WPCPM_Form_Stash`. The Sponsors menu bubble is counted once a minute and forgets its count the moment an application, an agreement or a sponsor post changes. A dwell token has one shape. Recently decided reads a decision-time index instead of every decided row. The docs build escapes a section's text, so a literal angle bracket is a character on the page. The institution agreement retries a failed Airtable write nightly, as the sponsor agreement has since 1.96.0. A refused image store deletes the copy it made.
+
 ## Where the plugin keeps its data
 
 Every option the plugin writes, by the name it has in the database and the constant that owns it
@@ -359,6 +361,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_roster_` | `WPCPM_Roster_Index::OPT_PREFIX` |
 | `wpcpm_roster_counts` | `WPCPM_Roster_Index::OPT_COUNTS` |
 | `wpcpm_roster_unlinked` | `WPCPM_Roster_Index::OPT_UNLINKED` |
+| `wpcpm_sapp_decided_backfilled` | `WPCPM_Sponsor_Application::OPT_BACKFILL` |
 | `wpcpm_sapp_lock_` | `WPCPM_Sponsor_Approval::LOCK_PREFIX` (the per-application approval locks) |
 | `wpcpm_settings` | `WPCPM_Settings::OPT_NAME` |
 | `wpcpm_settings_version` | `WPCPM_Settings::OPT_VERSION` |
@@ -368,6 +371,7 @@ renaming a stored key is a migration, and nothing here warranted one.
 | `wpcpm_sponsor_logo_` | `WPCPM_Sponsors_Index::OPT_LOGO_PREFIX` |
 | `wpcpm_sponsor_page_id` | `WPCPM_Sponsors_Dashboard::OPT_PAGE` |
 | `wpcpm_sponsor_page_title_fixed` | `WPCPM_Sponsors_Dashboard::OPT_TITLE_FIXED` |
+| `wpcpm_sponsors_attention` | `WPCPM_Sponsors::TRANSIENT_ATTENTION` (a transient, a minute long) |
 | `wpcpm_sponsors_index` | `WPCPM_Sponsors_Index::OPT_NAME` |
 | `wpcpm_sponsors_last_error` | `WPCPM_Sponsors_Sync::OPT_ERROR` |
 | `wpcpm_sponsors_last_sync` | `WPCPM_Sponsors_Sync::OPT_LAST` |

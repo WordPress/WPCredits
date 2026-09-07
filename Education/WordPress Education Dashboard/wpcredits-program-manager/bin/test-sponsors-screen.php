@@ -153,6 +153,12 @@ function register_post_type( $type, $args ) {}
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
+// The menu bubble's cache (1.98.1): no suite here had a transient store yet, so this is
+// Task 1's shape (bin/test-form-stash.php), not a new one.
+$GLOBALS['transients'] = array();
+function set_transient( $k, $v, $ttl ) { $GLOBALS['transients'][ $k ] = array( 'v' => $v, 'ttl' => $ttl ); return true; }
+function get_transient( $k ) { return isset( $GLOBALS['transients'][ $k ] ) ? $GLOBALS['transients'][ $k ]['v'] : false; }
+function delete_transient( $k ) { unset( $GLOBALS['transients'][ $k ] ); return true; }
 /** The pool's lock and WPCPM_Secret's key both need the test-and-set add_option() makes: the
  * write only happens when the row does not exist yet, which update_option() alone cannot tell. */
 function add_option( $k, $v, $deprecated = '', $autoload = 'yes' ) {
@@ -249,6 +255,7 @@ function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
 function delete_post_meta( $id, $k ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $k ] ); return true; }
 function get_posts( array $args ) {
+	$GLOBALS['queries'] = ( isset( $GLOBALS['queries'] ) ? (int) $GLOBALS['queries'] : 0 ) + 1;
 	$out = array();
 	foreach ( $GLOBALS['posts'] as $id => $post ) {
 		if ( isset( $args['post_type'] ) && $post->post_type !== $args['post_type'] ) { continue; }
@@ -264,7 +271,21 @@ function get_posts( array $args ) {
 		}
 		if ( $ok ) { $out[] = $post; }
 	}
-	usort( $out, static function ( $a, $b ) { return $a->ID - $b->ID; } );
+	// decided_posts() (1.98.1) orders by a meta value instead of the post ID; this is the one
+	// other shape this class asks for, so it is the one other shape this stub answers.
+	if ( isset( $args['orderby'] ) && 'meta_value_num' === $args['orderby'] && isset( $args['meta_key'] ) ) {
+		$meta_key = $args['meta_key'];
+		$desc     = isset( $args['order'] ) && 'DESC' === $args['order'];
+		usort( $out, static function ( $a, $b ) use ( $meta_key, $desc ) {
+			$by_meta = (int) get_post_meta( $a->ID, $meta_key, true ) - (int) get_post_meta( $b->ID, $meta_key, true );
+			return $desc ? -$by_meta : $by_meta;
+		} );
+	} else {
+		usort( $out, static function ( $a, $b ) { return $a->ID - $b->ID; } );
+	}
+	if ( isset( $args['numberposts'] ) && (int) $args['numberposts'] > 0 ) {
+		$out = array_slice( $out, 0, (int) $args['numberposts'] );
+	}
 	return $out;
 }
 function get_current_user_id() { return $GLOBALS['uid']; }
@@ -674,7 +695,7 @@ class WPCPM_Sponsor_Agreement {
 	const SUMMARY_REVOKED = 'revoked';
 	const SUMMARY_ACCEPTED = 'accepted';
 	const SUMMARY_ON_FILE = 'on_file';
-	public static function awaiting_review( $limit = 200 ) { return isset( $GLOBALS['queue'] ) ? $GLOBALS['queue'] : array(); }
+	public static function awaiting_review( $limit = 200 ) { $GLOBALS['queries'] = ( isset( $GLOBALS['queries'] ) ? (int) $GLOBALS['queries'] : 0 ) + 1; return isset( $GLOBALS['queue'] ) ? $GLOBALS['queue'] : array(); }
 	public static function review_facts( $post_id ) { return isset( $GLOBALS['facts'][ $post_id ] ) ? $GLOBALS['facts'][ $post_id ] : array(); }
 	public static function summary( $record ) { return isset( $GLOBALS['summaries'][ $record ] ) ? $GLOBALS['summaries'][ $record ] : array( 'state' => 'none', 'agreement_id' => 0, 'pending_id' => 0, 'accepted_at' => '', 'kind' => '', 'drive_url' => '', 'airtable_status' => '' ); }
 	public static function posts_for( $record ) { return isset( $GLOBALS['agr_posts'][ $record ] ) ? $GLOBALS['agr_posts'][ $record ] : array(); }
@@ -808,6 +829,11 @@ $open_id = seed_sponsor_application( 'Gadgetry Inc', 'new', array( 'in-base' ), 
 $held_id = seed_sponsor_application( 'Held Co', 'held', array( 'links', 'duplicate' ) );
 $done_id = seed_sponsor_application( 'Done Co', 'rejected' );
 
+// The bubble was just cached at zero by the "nothing waiting" check above; this stub's
+// add_action() is a no-op, so none of the three real hooks fires when wp_insert_post() and
+// update_post_meta() seed the fixture above, the way they would on a real site. Forgotten by
+// hand so this check reads the fixture just seeded, not the count from before it existed.
+WPCPM_Sponsors::forget_attention();
 ck( 'the bubble counts the applications waiting', array( false !== strpos( $module->menu_label(), 'count-2' ), false !== strpos( $module->menu_label(), 'pending-count">2<' ) ), array( true, true ) );
 ck( 'and the screen\'s sentences include the decisions\'', isset( WPCPM_Sponsors::messages()['sapp-approved'] ), true );
 
@@ -897,9 +923,13 @@ echo "\n=== Recently decided: the closed list under the queue (S5 fix wave) ===\
 // own decision times, because the list is ordered by the decision and not by the row's age,
 // and one open row is seeded beside them to prove it stays out of the list.
 
-/** The event row `decided_at()` reads, so the closed list's order can be set on purpose. */
+/**
+ * The event row `decided_at()` reads and the meta `decided_posts()` sorts by, so the closed
+ * list's order can be set on purpose (both stamped together since 1.98.1, as `add_event()` does).
+ */
 function decided_on( $id, $at ) {
 	update_post_meta( $id, WPCPM_Sponsor_Application::META_EVENT, array( array( 'event' => 'decided', 'at' => (int) $at, 'actor' => 3, 'note' => '' ) ) );
+	update_post_meta( $id, WPCPM_Sponsor_Application::META_DECIDED, (int) $at );
 }
 
 $spam_id     = seed_sponsor_application( 'Spammy Co', 'spam' );
@@ -958,7 +988,7 @@ ck( 'a decided row says when it was decided; only a waiting one says how long it
 ck( 'the list draws every decided row up to the queue\'s own cap', array(
 	substr_count( $closed, 'class="wpcpm-queue-item"' ),
 	min( 4, WPCPM_Sponsor_Application::QUEUE_MAX ),
-	false !== strpos( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-application.php' ), 'array_slice( $decided, 0, self::QUEUE_MAX )' ),
+	false !== strpos( (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-application.php' ), 'array_slice( $rows, 0, self::QUEUE_MAX )' ),
 ), array( 4, 4, true ) );
 
 $GLOBALS['get'] = array( 'wpcpm_sapp_id' => 42 );
@@ -973,6 +1003,18 @@ ck( 'the queue is drawn after the agreements card, and the bubble reads three qu
 	strpos( $screen_src, '$this->render_applications();' ) > strpos( $screen_src, '$this->render_agreements( $rows );' ),
 	substr_count( method_body( $screen_src, 'attention_count' ), 'class_exists(' ) >= 3,
 ), array( true, true ) );
+
+echo "\n=== The menu bubble is cached for a minute (1.98.1) ===\n";
+$GLOBALS['transients'] = array();
+$GLOBALS['queries']    = 0;
+$first  = WPCPM_Sponsors::attention_count();
+$after_first = (int) $GLOBALS['queries'];
+$second = WPCPM_Sponsors::attention_count();
+ck( 'the second call within a minute reads the transient and runs no query: the first counted, the second added nothing', array( $first === $second, $after_first > 0, (int) $GLOBALS['queries'] - $after_first, isset( $GLOBALS['transients']['wpcpm_sponsors_attention'] ), $GLOBALS['transients']['wpcpm_sponsors_attention']['ttl'] ), array( true, true, 0, true, 60 ) );
+WPCPM_Sponsors::forget_attention();
+ck( 'forgetting drops the transient, so the next page counts again', isset( $GLOBALS['transients']['wpcpm_sponsors_attention'] ), false );
+$src = file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsors.php' );
+ck( 'a state change forgets the bubble: the three hooks are registered', array( substr_count( $src, "add_action( 'transition_post_status', array( __CLASS__, 'forget_attention_on_status' )" ), substr_count( $src, "add_action( 'updated_post_meta', array( __CLASS__, 'forget_attention_on_meta' )" ), substr_count( $src, "add_action( 'added_post_meta', array( __CLASS__, 'forget_attention_on_meta' )" ), substr_count( $src, "delete_transient( self::TRANSIENT_ATTENTION )" ) >= 2 ), array( 1, 1, 1, true ) );
 
 echo "\n=== The retention run is on the clock (Phase S5) ===\n";
 $GLOBALS['cron'] = array();

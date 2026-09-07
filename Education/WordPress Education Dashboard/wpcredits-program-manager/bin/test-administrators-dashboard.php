@@ -489,11 +489,11 @@ class WPCPM_Sponsor_Offers {
 	public static function is_live( array $offer, $today = '' ) {
 		if ( 'live' !== $offer['state'] ) { return false; }
 		if ( '' === (string) $offer['expires'] ) { return true; }
-		return strcmp( (string) $offer['expires'], '' !== $today ? $today : gmdate( 'Y-m-d' ) ) >= 0;
+		return strcmp( (string) $offer['expires'], '' !== $today ? $today : wp_date( 'Y-m-d' ) ) >= 0;
 	}
 }
 class WPCPM_Sponsor_Codes {
-	public static function counts( $offer_id ) { return isset( $GLOBALS['codes'][ (int) $offer_id ] ) ? $GLOBALS['codes'][ (int) $offer_id ] : array( 'available' => 0, 'claimed' => 0, 'void' => 0 ); }
+	public static function counts( $offer_id ) { return isset( $GLOBALS['codes'][ (int) $offer_id ] ) ? $GLOBALS['codes'][ (int) $offer_id ] : array( 'available' => 0, 'claimed' => 0, 'void' => 0, 'total' => 0 ); }
 	public static function claims( $offer_id ) { return isset( $GLOBALS['claims'][ (int) $offer_id ] ) ? $GLOBALS['claims'][ (int) $offer_id ] : array(); }
 }
 class WPCPM_Sponsors_Index {
@@ -655,9 +655,9 @@ $GLOBALS['invite_run']    = array( 'total' => 5, 'started' => 1756990000, 'finis
 $GLOBALS['invite_queued'] = 2;
 $GLOBALS['next']['wpcpm_sponsors_daily'] = 1756990000 + 3600;
 $GLOBALS['sponsor_rows'] = array(
-	'recSPN00000000001' => array( 'record' => 'recSPN00000000001', 'name' => 'TEST Sponsor', 'status' => 'Approved', 'dashboard_account' => true ),
-	'recSPN00000000002' => array( 'record' => 'recSPN00000000002', 'name' => 'Old Sponsor', 'status' => 'Approved', 'dashboard_account' => false ),
-	'recSPN00000000003' => array( 'record' => 'recSPN00000000003', 'name' => 'Paused Co', 'status' => 'Paused', 'dashboard_account' => true ),
+	'recSPN00000000001' => array( 'record_id' => 'recSPN00000000001', 'name' => 'TEST Sponsor', 'status' => 'Approved', 'dashboard_account' => true ),
+	'recSPN00000000002' => array( 'record_id' => 'recSPN00000000002', 'name' => 'Old Sponsor', 'status' => 'Approved', 'dashboard_account' => false ),
+	'recSPN00000000003' => array( 'record_id' => 'recSPN00000000003', 'name' => 'Paused Co', 'status' => 'Paused', 'dashboard_account' => true ),
 );
 $semester_from = (int) strtotime( WPCPM_Cohort::range( WPCPM_Cohort::current() )['from'] . ' 00:00:00 UTC' );
 $GLOBALS['offers'] = array(
@@ -669,10 +669,10 @@ $GLOBALS['offers'] = array(
 	946 => array( 'id' => 946, 'title' => 'Empty draft', 'sponsor' => 'recSPN00000000003', 'kind' => 'codes', 'state' => 'draft', 'low' => 10, 'expires' => '' ),
 );
 $GLOBALS['codes'] = array(
-	941 => array( 'available' => 3, 'claimed' => 7, 'void' => 0 ),
-	942 => array( 'available' => 50, 'claimed' => 2, 'void' => 1 ),
-	944 => array( 'available' => 1, 'claimed' => 0, 'void' => 0 ),
-	945 => array( 'available' => 0, 'claimed' => 9, 'void' => 0 ),
+	941 => array( 'available' => 3, 'claimed' => 7, 'void' => 0, 'total' => 10 ),
+	942 => array( 'available' => 50, 'claimed' => 2, 'void' => 1, 'total' => 53 ),
+	944 => array( 'available' => 1, 'claimed' => 0, 'void' => 0, 'total' => 1 ),
+	945 => array( 'available' => 0, 'claimed' => 9, 'void' => 0, 'total' => 9 ),
 );
 $GLOBALS['claims'] = array(
 	941 => array( array( 'u' => 31, 'i' => 0, 'at' => $semester_from + 86400, 'v' => 0 ), array( 'u' => 32, 'i' => 1, 'at' => $semester_from + 172800, 'v' => 0 ), array( 'u' => 33, 'i' => 2, 'at' => $semester_from + 259200, 'v' => $semester_from + 300000 ), array( 'u' => 34, 'i' => 3, 'at' => $semester_from - 86400, 'v' => 0 ) ),

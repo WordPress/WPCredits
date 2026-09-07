@@ -403,6 +403,11 @@ function wpcpm_docs_table( $rows ) {
  * @return string
  */
 function wpcpm_docs_inline( $text ) {
+	// The text is prose written as Markdown, and only its own three marks are markup: an
+	// ampersand or an angle bracket in it is a character to read, so it is escaped before the
+	// marks are turned into tags (clean-up 1.98.1; the S6 review found `<record>` swallowed).
+	// Quotes stay: the sections use them as prose and this text never lands in an attribute.
+	$text = htmlspecialchars( $text, ENT_NOQUOTES, 'UTF-8', false );
 	$text = preg_replace( '/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text );
 	$text = preg_replace( '/(?<![*\w])\*([^*]+)\*(?!\*)/', '<em>$1</em>', $text );
 	$text = preg_replace( '/`([^`]+)`/', '<code>$1</code>', $text );

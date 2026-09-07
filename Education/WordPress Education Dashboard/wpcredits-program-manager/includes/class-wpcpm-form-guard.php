@@ -181,21 +181,13 @@ final class WPCPM_Form_Guard {
 		$parts = explode( '.', $token );
 		$count = count( $parts );
 
-		// Three parts since the S5 review (time, random, signature) and two before it. A token
-		// minted before this release is in somebody's open tab for up to `TOKEN_LIFETIME`, and
-		// refusing it would file the genuine application it belongs to as spam; the two shapes
-		// sign different strings, so a token has one spelling and single use stays exact.
-		if ( ( 2 !== $count && 3 !== $count ) || ! ctype_digit( $parts[0] ) ) {
+		// Three parts: time, random, signature. The two-part shape of tokens minted before the
+		// S5 fix wave was accepted for one deploy window and expired with it (clean-up 1.98.1).
+		if ( 3 !== $count || ! ctype_digit( $parts[0] ) || ! ctype_alnum( (string) $parts[1] ) ) {
 			return self::TOKEN_SPAM;
 		}
 
-		$random = 3 === $count ? (string) $parts[1] : '';
-
-		// `ctype_alnum()` is false for the empty string, so `<time>..<signature>` is a forgery
-		// rather than a second way of spelling the two-part shape.
-		if ( 3 === $count && ! ctype_alnum( $random ) ) {
-			return self::TOKEN_SPAM;
-		}
+		$random = (string) $parts[1];
 
 		// The nonce this token was signed against. Read here rather than passed in so that a
 		// caller cannot check a token against a nonce other than the one that was posted with
@@ -229,22 +221,17 @@ final class WPCPM_Form_Guard {
 	/**
 	 * The signature half of a token.
 	 *
-	 * Two strings, because two shapes of token are accepted: with the random half a token
-	 * carries since the S5 review, and without it for one minted before that release and still
-	 * sitting in an open tab. They are different strings, so neither is a spelling of the other.
+	 * One string, one shape: the scope, the time, the random half and the nonce, joined and
+	 * hashed, so a token for one form's scope minted at one second is a forgery for any other.
 	 *
 	 * @param string $scope  The form's own scope.
 	 * @param int    $issued When the token was minted.
 	 * @param string $nonce  The form's nonce, which the token is bound to.
-	 * @param string $random The token's own random half, or '' for a token minted without one.
+	 * @param string $random The token's own random half.
 	 * @return string
 	 */
-	private static function sign_token( $scope, $issued, $nonce, $random = '' ) {
-		$signed = '' === (string) $random
-			? (string) $scope . '|' . (int) $issued . '|' . $nonce
-			: (string) $scope . '|' . (int) $issued . '|' . (string) $random . '|' . $nonce;
-
-		return substr( wp_hash( $signed ), 0, 32 );
+	private static function sign_token( $scope, $issued, $nonce, $random ) {
+		return substr( wp_hash( (string) $scope . '|' . (int) $issued . '|' . (string) $random . '|' . $nonce ), 0, 32 );
 	}
 
 	/*
