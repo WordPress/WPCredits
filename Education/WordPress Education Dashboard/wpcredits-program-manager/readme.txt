@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.99.0
+Stable tag: 1.99.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.99.1 =
+
+* The Designer Track report form, two changes asked for on 8 September 2026. The lesson heading "Define and begin developing your contribution project" now opens over the contribution team list, so the team, the project summary and the second project all read as that lesson's questions. The alumni program section reads exactly as the Developer Track's: the meetings and discussions question opens it under the short "Alumni Program" heading, then how the student plans to keep contributing, the personal address and the mentoring opt-in follow, and the event link after them keeps its own heading. The set is 49 fields.
 
 = 1.99.0 =
 * **The deep check fixes.** The fifty findings of the 7 September 2026 deep check of 1.98.1 - one high, eight medium and forty-one low - are closed, and every fix ships with a check that fails on the code before it. With theme 1.24.3.

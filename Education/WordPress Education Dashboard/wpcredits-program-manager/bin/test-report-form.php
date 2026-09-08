@@ -851,6 +851,7 @@ $design_expected = array(
 	'Post Reflection: Your First Contribution',
 	'Post Reflection: Halfway Check-In',
 	'Slack/GitHub/Blog WordPress Community meetings/discussions',
+	'Contributing beyond WP Credits',
 	'Alumni program: personal email',
 	'Alumni program: mentoring opt-in',
 	'WP event participation URL',
@@ -861,7 +862,7 @@ $design = WPCPM_Student_Report_Form::fields( 'design' );
 
 // The order itself, not the set: the form follows the Learn course lesson by lesson, and a
 // field that moved would put a question under the wrong lesson heading.
-ck( 'the Designer Track holds exactly its 48 fields, in the course order', array_keys( $design ), $design_expected );
+ck( 'the Designer Track holds exactly its 49 fields, in the course order', array_keys( $design ), $design_expected );
 
 // The key with the typographic apostrophe, asserted byte for byte. A plain apostrophe here is a
 // column Airtable does not have, and the whole record's PATCH is a 422 for it.
@@ -913,24 +914,27 @@ ck( 'the second project is unpaired here and keeps the Developer Track words',
     ),
     array( false, 'A second contribution project, if you had one', 'project' ) );
 
-// The alumni program is its own section between the meetings question and the event link, under
-// the Learn lesson's heading, and the event link opens its own so the section reads as closed.
-ck( 'the alumni pair follows the meetings question and the event link follows it',
-    array_slice( array_keys( $design ), array_search( 'Slack/GitHub/Blog WordPress Community meetings/discussions', array_keys( $design ), true ), 4 ),
+// The alumni program is its own section after the reflection posts, exactly as the Developer
+// Track shows it (the product owner, 8 September 2026): the meetings question first, under the
+// lesson's short heading, then how the student plans to keep contributing, the personal address
+// and the mentoring opt-in. The event link opens its own heading, so the section reads as closed.
+$design_alumni_keys = array( 'Contributing beyond WP Credits', 'Alumni program: personal email', 'Alumni program: mentoring opt-in' );
+
+ck( 'the alumni section follows the meetings question and the event link follows it',
+    array_slice( array_keys( $design ), array_search( 'Slack/GitHub/Blog WordPress Community meetings/discussions', array_keys( $design ), true ), 5 ),
+    array_merge( array( 'Slack/GitHub/Blog WordPress Community meetings/discussions' ), $design_alumni_keys, array( 'WP event participation URL' ) ) );
+ck( 'the section opens with the Developer Track\'s heading on the meetings question, which no longer sits in a row',
     array(
-        'Slack/GitHub/Blog WordPress Community meetings/discussions',
-        'Alumni program: personal email',
-        'Alumni program: mentoring opt-in',
-        'WP event participation URL',
-    ) );
-ck( 'the alumni section and the event link carry their lesson headings',
-    array(
-        $design['Alumni program: personal email']['lead'],
-        isset( $design['Alumni program: mentoring opt-in']['lead'] ),
-        $design['Alumni program: mentoring opt-in']['type'],
+        isset( $design['Slack/GitHub/Blog WordPress Community meetings/discussions']['subgroup'] ) ? $design['Slack/GitHub/Blog WordPress Community meetings/discussions']['subgroup'] : null,
+        isset( $design['Slack/GitHub/Blog WordPress Community meetings/discussions']['row'] ),
+        isset( $design['Slack/GitHub/Blog WordPress Community meetings/discussions']['lead'] ),
+        isset( $design['Alumni program: personal email']['lead'] ),
         $design['WP event participation URL']['lead'],
     ),
-    array( 'Alumni Program: Connect with the community and plan your contribution beyond WP Credits', false, 'checkbox', 'Participate at a WordPress Event (online or in person)' ) );
+    array( 'Alumni Program', false, false, false, 'Participate at a WordPress Event (online or in person)' ) );
+ck( 'the three alumni answers are the Developer Track\'s, word for word and control for control',
+    array_intersect_key( $design, array_flip( $design_alumni_keys ) ),
+    array_intersect_key( $dev, array_flip( $design_alumni_keys ) ) );
 
 // The designer course is required on this track, so it is a mark of its own under its own
 // lesson rather than one of the optional courses it sits among on the long course.
@@ -984,9 +988,9 @@ ck( 'every practical lesson is a lead naming the Learn lesson, over the fields i
         // on 8 September 2026.
         'Beginner WordPress User - final grade'        => 'Complete one of the following courses',
         'Beginner WordPress Developer'                 => 'Optional courses',
-        // Directly under the team list, before the practical lessons, with its own lesson's
-        // heading (the product owner, 8 September 2026).
-        'Contribution Project Summary'                 => 'Define and begin developing your contribution project',
+        // The lesson's heading sits over the team list itself, so the team, the project and the
+        // second project all read as that lesson's questions (the product owner, 8 September 2026).
+        'Main Contribution Team'                       => 'Define and begin developing your contribution project',
         'Practical: Duplicate & Explore WP Design Library - Reflection' => 'Practical: Duplicate and Explore the WordPress Design Library',
         'Practical: Local WordPress Environment for Design Testing - Tool used' => 'Practical: Set Up a Local WordPress Environment for Design Testing',
         "Practical: Change Your Site\xE2\x80\x99s Global Styles - Notes" => "Practical: Change Your Site's Global Styles",
@@ -996,9 +1000,8 @@ ck( 'every practical lesson is a lead naming the Learn lesson, over the fields i
         'Practical: Submit a Custom Block Pattern - Link' => 'Practical: Create and Submit a Custom Block Pattern',
         'Practical: Test Your Site for Accessibility - Part 1 - Note' => 'Practical: Test Your Site for Accessibility',
         'Post Reflection: Choosing Your Team and Project' => 'Your reflection posts',
-        // The alumni program as its own section, and the event link opening its own, so the
-        // section is closed on both sides.
-        'Alumni program: personal email'               => 'Alumni Program: Connect with the community and plan your contribution beyond WP Credits',
+        // The alumni section carries the Developer Track's subgroup heading, not a lead; the event
+        // link opens its own lead, so the section is closed on both sides.
         'WP event participation URL'                   => 'Participate at a WordPress Event (online or in person)',
     ) );
 

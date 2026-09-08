@@ -587,35 +587,40 @@ class WPCPM_Student_Report_Form {
 			$design_team = $teams;
 			unset( $design_team['Main Contribution Team']['row'] );
 
+			// The Learn lesson's heading sits over the team list itself, not over the project
+			// summary: the team, the project and the second project are all that lesson's
+			// questions, so the heading has to open before the first of them (the product owner,
+			// 8 September 2026).
+			$design_team['Main Contribution Team']['lead'] = __( 'Define and begin developing your contribution project', 'wpcredits-program-manager' );
+
 			// The second project is the Developer Track's question without that form's pairing,
 			// so it stands full width under the first.
 			$design_second = $dev_project['Optional: Additional Contribution Project Summary'];
 			unset( $design_second['row'], $design_second['stack'] );
 
-			// The alumni program is its own lesson on Learn, so its two questions stand under
-			// that lesson's heading between the meetings question and the event link, and the
-			// event link carries its own lesson heading so the section reads as closed on both
-			// sides.
-			$design_alumni = array_intersect_key(
-				$dev_alumni,
-				array(
-					'Alumni program: personal email'   => true,
-					'Alumni program: mentoring opt-in' => true,
-				)
-			);
-			$design_alumni['Alumni program: personal email']['lead'] = __( 'Alumni Program: Connect with the community and plan your contribution beyond WP Credits', 'wpcredits-program-manager' );
+			// The alumni program is its own lesson on Learn, and on this track it reads exactly
+			// as the Developer Track shows it (the product owner, 8 September 2026): the meetings
+			// question opens the section under the lesson's short heading, then the three alumni
+			// answers follow, word for word the Developer Track's. The event link after them
+			// carries its own lesson heading, so the section reads as closed on both sides.
+			//
+			// The meetings question carries the heading because it is the section's first
+			// question. A field with a heading cannot sit in a row (`render_body()` closes the
+			// open row before printing one), so the pairing the other tracks give it comes off.
+			$design_meetings             = $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' );
+			$design_meetings['subgroup'] = __( 'Alumni Program', 'wpcredits-program-manager' );
+			unset( $design_meetings['row'], $design_meetings['stack'] );
+
+			$design_alumni = array( 'Slack/GitHub/Blog WordPress Community meetings/discussions' => $design_meetings ) + $dev_alumni;
 
 			$fields += $design_team + array(
-				'Contribution Project Summary'                      => array(
-					'lead' => __( 'Define and begin developing your contribution project', 'wpcredits-program-manager' ),
-				) + $in( $project['Contribution Project Summary'], 'project' ),
+				'Contribution Project Summary'                      => $in( $project['Contribution Project Summary'], 'project' ),
 				'Optional: Additional Contribution Project Summary' => $design_second,
 			) + $design_practicals + array(
 				'Post Reflection: Choosing Your Team and Project' => array( 'lead' => __( 'Your reflection posts', 'wpcredits-program-manager' ) )
 					+ $in( $posts['Post Reflection: Choosing Your Team and Project'], 'project' ),
 				'Post Reflection: Your First Contribution' => $in( $posts['Post Reflection: Your First Contribution'], 'project' ),
 				'Post Reflection: Halfway Check-In'        => $in( $posts['Post Reflection: Halfway Check-In'], 'project' ),
-				'Slack/GitHub/Blog WordPress Community meetings/discussions' => $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' ),
 			) + $design_alumni + array(
 				'WP event participation URL' => array(
 					'label' => __( 'Link to a WordPress event you have participated in (online or in person)', 'wpcredits-program-manager' ),
