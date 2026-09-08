@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.99.1
+Stable tag: 1.99.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.99.2 =
+
+* The Designer Track report form: the project lesson (the contribution team, the project summary and the second project, under the heading "Define and begin developing your contribution project") now sits where the Learn course places it, after the eight practical lessons and directly above "Your reflection posts", so the portfolio runs straight into the first practical lesson (the product owner, 8 September 2026). The same 49 fields.
 
 = 1.99.1 =
 

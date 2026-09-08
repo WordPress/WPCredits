@@ -823,9 +823,6 @@ $design_expected = array(
 	'Intermediate Theme Developer',
 	'Personal Website URL',
 	'Post Reflection: Building Your Personal Website',
-	'Main Contribution Team',
-	'Contribution Project Summary',
-	'Optional: Additional Contribution Project Summary',
 	'Practical: Duplicate & Explore WP Design Library - Reflection',
 	'Practical: Duplicate & Explore WP Design Library - link',
 	'Practical: Duplicate & Explore WP Design Library - image',
@@ -847,6 +844,9 @@ $design_expected = array(
 	'Practical: Test Your Site for Accessibility - Part 1 - Screenshot',
 	'Practical: Test Your Site for Accessibility - Part 2 - Note',
 	'Practical: Test Your Site for Accessibility - Part 2 - Screenshot',
+	'Main Contribution Team',
+	'Contribution Project Summary',
+	'Optional: Additional Contribution Project Summary',
 	'Post Reflection: Choosing Your Team and Project',
 	'Post Reflection: Your First Contribution',
 	'Post Reflection: Halfway Check-In',
@@ -896,16 +896,25 @@ ck( 'the user levels and the developer marks keep their headings and the designe
     ),
     array( 'Complete one of the following courses', 'Optional courses', false, 'onboarding' ) );
 
-// The project questions sit directly under the team list, the second project right after the
-// first, before the practical lessons (the product owner, 8 September 2026).
-ck( 'the project summary and the second project follow the team list directly',
+// The project lesson is one block: the team list, the project directly under it, the second
+// project right after (the product owner, 8 September 2026). The block sits where the Learn
+// course places the lesson, after the eight practical lessons and before the reflection posts
+// (the product owner, later the same day), so the portfolio runs straight into the first
+// practical lesson.
+ck( 'the project summary and the second project follow the team list directly, and the reflection posts follow them',
     array_slice( array_keys( $design ), array_search( 'Main Contribution Team', array_keys( $design ), true ), 4 ),
     array(
         'Main Contribution Team',
         'Contribution Project Summary',
         'Optional: Additional Contribution Project Summary',
-        'Practical: Duplicate & Explore WP Design Library - Reflection',
+        'Post Reflection: Choosing Your Team and Project',
     ) );
+ck( 'the project lesson follows the last practical lesson, and the first practical lesson follows the portfolio',
+    array(
+        array_keys( $design )[ array_search( 'Main Contribution Team', array_keys( $design ), true ) - 1 ],
+        array_keys( $design )[ array_search( 'Post Reflection: Building Your Personal Website', array_keys( $design ), true ) + 1 ],
+    ),
+    array( 'Practical: Test Your Site for Accessibility - Part 2 - Screenshot', 'Practical: Duplicate & Explore WP Design Library - Reflection' ) );
 ck( 'the second project is unpaired here and keeps the Developer Track words',
     array(
         isset( $design['Optional: Additional Contribution Project Summary']['row'] ),
@@ -988,9 +997,6 @@ ck( 'every practical lesson is a lead naming the Learn lesson, over the fields i
         // on 8 September 2026.
         'Beginner WordPress User - final grade'        => 'Complete one of the following courses',
         'Beginner WordPress Developer'                 => 'Optional courses',
-        // The lesson's heading sits over the team list itself, so the team, the project and the
-        // second project all read as that lesson's questions (the product owner, 8 September 2026).
-        'Main Contribution Team'                       => 'Define and begin developing your contribution project',
         'Practical: Duplicate & Explore WP Design Library - Reflection' => 'Practical: Duplicate and Explore the WordPress Design Library',
         'Practical: Local WordPress Environment for Design Testing - Tool used' => 'Practical: Set Up a Local WordPress Environment for Design Testing',
         "Practical: Change Your Site\xE2\x80\x99s Global Styles - Notes" => "Practical: Change Your Site's Global Styles",
@@ -999,6 +1005,10 @@ ck( 'every practical lesson is a lead naming the Learn lesson, over the fields i
         'Practical: Apply Custom CSS in the Site Editor - Notes' => 'Practical: Apply Custom CSS in the Site Editor',
         'Practical: Submit a Custom Block Pattern - Link' => 'Practical: Create and Submit a Custom Block Pattern',
         'Practical: Test Your Site for Accessibility - Part 1 - Note' => 'Practical: Test Your Site for Accessibility',
+        // The lesson's heading sits over the team list itself, so the team, the project and the
+        // second project all read as that lesson's questions; the block follows the practical
+        // lessons, as on Learn (the product owner, 8 September 2026, twice).
+        'Main Contribution Team'                       => 'Define and begin developing your contribution project',
         'Post Reflection: Choosing Your Team and Project' => 'Your reflection posts',
         // The alumni section carries the Developer Track's subgroup heading, not a lead; the event
         // link opens its own lead, so the section is closed on both sides.

@@ -567,7 +567,8 @@ class WPCPM_Student_Report_Form {
 			// spec of 7 September 2026, section 4), with the product owner's additions of
 			// 8 September 2026: every course grade the base holds, the project questions
 			// directly under the team, the second project, and the alumni program as its own
-			// section.
+			// section; later that day the project block moved after the practical lessons and
+			// the alumni section took the Developer Track's shape.
 			//
 			// **Every course grade, the required designer course first.** Learn's Onboarding
 			// module names only the designer course for this track, but the program asks
@@ -580,10 +581,11 @@ class WPCPM_Student_Report_Form {
 
 			$fields = $hours + $contact + $common_grades + $voice_grades + $conflict + $design_course + $user_levels + $design_options + $design_portfolio;
 
-			// The team list opens Project as it does on the long course, with the project
-			// questions directly under it and the practical lessons after them, but not as half
-			// of a pair: the first lesson heading below would close the pair's grid and leave an
-			// empty column beside the list.
+			// The project lesson sits where Learn places it, after the eight practical lessons
+			// and before the reflection posts (the product owner, 8 September 2026), with the
+			// project questions directly under the team list, but not as half of a pair: the
+			// lesson heading over the reflection posts below would close the pair's grid and
+			// leave an empty column beside the list.
 			$design_team = $teams;
 			unset( $design_team['Main Contribution Team']['row'] );
 
@@ -613,10 +615,10 @@ class WPCPM_Student_Report_Form {
 
 			$design_alumni = array( 'Slack/GitHub/Blog WordPress Community meetings/discussions' => $design_meetings ) + $dev_alumni;
 
-			$fields += $design_team + array(
+			$fields += $design_practicals + $design_team + array(
 				'Contribution Project Summary'                      => $in( $project['Contribution Project Summary'], 'project' ),
 				'Optional: Additional Contribution Project Summary' => $design_second,
-			) + $design_practicals + array(
+			) + array(
 				'Post Reflection: Choosing Your Team and Project' => array( 'lead' => __( 'Your reflection posts', 'wpcredits-program-manager' ) )
 					+ $in( $posts['Post Reflection: Choosing Your Team and Project'], 'project' ),
 				'Post Reflection: Your First Contribution' => $in( $posts['Post Reflection: Your First Contribution'], 'project' ),
