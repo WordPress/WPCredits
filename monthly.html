@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WordPress Credits — Monthly Metrics</title>
+<!-- Keep this page out of search results. It is served publicly (GitHub Pages
+     has no access control) and is not linked from the main dashboard, so noindex
+     is what keeps it unlisted rather than merely unlinked. The URL itself still
+     works for anyone who has it. -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Five headline WordPress Credits metrics, refreshed on the 1st of each month, each with its change against the previous month.">
+<meta property="og:title" content="WordPress Credits — Monthly Metrics">
+<meta property="og:description" content="Five headline WordPress Credits metrics, refreshed on the 1st of each month, each with its change against the previous month.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://wordpress.github.io/WPCredits/monthly.html">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&display=swap');
+/* Palette deliberately mirrors the main dashboard (scripts/template.html) so the
+   two pages read as siblings. Like it, this page commits to a light theme and
+   paints every colour explicitly rather than inheriting the host's. */
+:root{
+  --wp-blue:#3858E9;--wp-green:#2F7D5B;--wp-red:#C0492B;
+  --bg:#FAF7F2;--card-bg:#fff;--text:#23201A;--text-light:#756D60;--border:#EBE5DA;
+  --blue-ink:#2743B4;--green-tint:#E9F3ED;--red-tint:#F9EBE7;--grey-tint:#F1EDE5;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --shadow:0 1px 2px rgba(45,32,12,.05),0 2px 6px rgba(45,32,12,.05);
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--serif);font-weight:600}
+.wrap{max-width:1100px;margin:0 auto;padding:34px 28px 56px}
+header{border-bottom:1px solid var(--border);padding-bottom:22px;margin-bottom:26px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--wp-blue);margin-bottom:9px}
+h1{font-size:31px;letter-spacing:-.01em}
+.asof{font-size:14px;color:var(--text-light);margin-top:11px}
+.asof strong{color:var(--text);font-weight:600}
+.backlink{font-size:13.5px;margin-top:13px}
+.backlink a{color:var(--blue-ink);text-decoration:none;border-bottom:1px solid rgba(39,67,180,.3)}
+.backlink a:hover{border-bottom-color:var(--blue-ink)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(252px,1fr));gap:17px}
+.card{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:21px 23px 19px;display:flex;flex-direction:column}
+.card .lbl{font-size:13px;font-weight:500;color:var(--text-light);letter-spacing:.01em}
+.card .num{font-family:var(--serif);font-size:43px;font-weight:600;color:var(--blue-ink);line-height:1.02;margin-top:11px;display:flex;align-items:baseline;gap:3px}
+.card .num .pct-sign{font-size:25px;color:var(--text-light);font-weight:500}
+.card .num.empty{color:var(--text-light);font-size:34px}
+.frac{font-size:12.5px;color:var(--text-light);margin-top:7px}
+
+/* The change chip. Direction is carried by an arrow glyph and the signed number
+   as well as by colour, so it never depends on colour alone. */
+.chip-row{margin-top:13px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:600;white-space:nowrap}
+.chip.up{background:var(--green-tint);color:#1F5C43}
+.chip.down{background:var(--red-tint);color:#96351C}
+.chip.flat{background:var(--grey-tint);color:var(--text-light)}
+.chip .arrow{font-size:11px;line-height:1}
+.chip-abs{font-size:12.5px;color:var(--text-light)}
+
+.spark{margin-top:15px;height:38px;position:relative}
+.spark svg{display:block;width:100%;height:38px;overflow:visible}
+.spark-dot{fill:var(--wp-blue);opacity:0;transition:opacity .12s}
+.spark-hit:hover + .spark-dot,.spark-hit:focus + .spark-dot{opacity:1}
+.tip{position:absolute;background:var(--text);color:#fff;font-size:11.5px;padding:4px 8px;border-radius:6px;pointer-events:none;opacity:0;transform:translate(-50%,-100%);white-space:nowrap;transition:opacity .12s;z-index:5}
+.tip.on{opacity:1}
+/* margin-top:auto pins the note to the bottom of the card. Cards in a row
+   stretch to the tallest one, so without this a short card's note floated
+   mid-card and left dead space beneath it. */
+.note{font-size:12px;color:var(--text-light);line-height:1.45;margin-top:auto;padding-top:13px;border-top:1px solid var(--border)}
+.spark + .note{margin-top:15px}
+
+section.block{margin-top:34px}
+h2{font-size:20px;margin-bottom:5px}
+.sub{font-size:13.5px;color:var(--text-light);margin-bottom:16px;max-width:720px}
+.panel{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:6px 4px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}
+th,td{text-align:right;padding:11px 14px;border-bottom:1px solid var(--border)}
+th:first-child,td:first-child{text-align:left;font-weight:600;white-space:nowrap}
+thead th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-light);font-weight:600;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.current{background:#FCFAF6}
+tbody tr.current td:first-child::after{content:" · current";font-weight:400;color:var(--text-light);font-size:11.5px}
+td.na{color:var(--text-light)}
+footer{margin-top:34px;padding-top:20px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-light);line-height:1.6}
+@media(max-width:620px){.wrap{padding:26px 18px 44px}h1{font-size:26px}.card .num{font-size:37px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">WordPress Credits</div>
+    <h1>Monthly metrics</h1>
+    <div class="asof" id="asof"></div>
+    <div class="backlink"><a href="./index.html">← Full program dashboard</a></div>
+  </header>
+
+  <div class="cards" id="cards"></div>
+
+  <section class="block">
+    <h2>Month by month</h2>
+    <div class="sub">Every stored monthly snapshot. The renewal rate, sites created and first contributions entered the underlying build in August 2026, so earlier months have no figure for them — shown as “—” rather than estimated.</div>
+    <div class="panel"><table id="tbl"></table></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = {"generated":"2026-09-10","currentKey":"2026-09","previousKey":"2026-08","currentAsOf":"2026-09-07","previousAsOf":"2026-08-03","months":["2026-04","2026-05","2026-06","2026-07","2026-08","2026-09"],"metrics":[{"key":"partnerInstitutions","label":"Partner institutions","unit":"count","note":"Institutions whose partnership stage is Confirmed.","value":44,"previous":38,"change":{"kind":"percent","value":15.8,"abs":6},"series":[{"month":"2026-04","value":9},{"month":"2026-05","value":21},{"month":"2026-06","value":24},{"month":"2026-07","value":29},{"month":"2026-08","value":38},{"month":"2026-09","value":44}]},{"key":"graduates","label":"Graduates","unit":"count","note":"Students who completed their agreed hours of applied work (50–400h).","value":350,"previous":224,"change":{"kind":"percent","value":56.2,"abs":126},"series":[{"month":"2026-04","value":9},{"month":"2026-05","value":66},{"month":"2026-06","value":126},{"month":"2026-07","value":198},{"month":"2026-08","value":224},{"month":"2026-09","value":350}]},{"key":"renewalRate","label":"Partner renewal rate","unit":"percent","note":"Share of partners that have run more than one cohort — a new intake at least a quarter after their first. Schools whose first cohort is the current quarter are excluded, having had no chance to return yet.","value":56,"previous":56,"change":{"kind":"points","value":0,"abs":0},"series":[],"detail":{"count":10,"total":18,"tooNew":9}},{"key":"sitesCreated","label":"WordPress sites created","unit":"count","note":"Student project websites built during the program.","value":491,"previous":462,"change":{"kind":"percent","value":6.3,"abs":29},"series":[]},{"key":"firstContributions","label":"First contributions made","unit":"count","note":"Students who recorded their first contribution to the WordPress project.","value":457,"previous":378,"change":{"kind":"percent","value":20.9,"abs":79},"series":[]}],"table":[{"month":"2026-04","asOf":"2026-04-02","values":{"partnerInstitutions":9,"graduates":9,"renewalRate":null,"sitesCreated":null,"firstContributions":null}},{"month":"2026-05","asOf":"2026-05-04","values":{"partnerInstitutions":21,"graduates":66,"renewalRate":null,"sitesCreated":null,"firstContributions":null}},{"month":"2026-06","asOf":"2026-06-01","values":{"partnerInstitutions":24,"graduates":126,"renewalRate":null,"sitesCreated":null,"firstContributions":null}},{"month":"2026-07","asOf":"2026-07-06","values":{"partnerInstitutions":29,"graduates":198,"renewalRate":null,"sitesCreated":null,"firstContributions":null}},{"month":"2026-08","asOf":"2026-08-03","values":{"partnerInstitutions":38,"graduates":224,"renewalRate":56,"sitesCreated":462,"firstContributions":378}},{"month":"2026-09","asOf":"2026-09-07","values":{"partnerInstitutions":44,"graduates":350,"renewalRate":56,"sitesCreated":491,"firstContributions":457}}]};
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function monthLabel(key){
+  const [y,m] = key.split('-');
+  return MONTH_NAMES[parseInt(m,10)-1] + ' ' + y;
+}
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso + 'T00:00:00');
+  return d.getDate() + ' ' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear();
+}
+function fmtValue(m){
+  if(m.value == null) return '<span class="num empty">—</span>';
+  if(m.unit === 'percent') return '<span class="num">' + m.value + '<span class="pct-sign">%</span></span>';
+  return '<span class="num">' + m.value.toLocaleString() + '</span>';
+}
+
+// The change chip: arrow + signed number + colour, so direction survives without
+// colour. A rate moves in percentage points; counts move in percent.
+function chip(m){
+  const c = m.change;
+  if(!c) return '<span class="chip flat">No prior month</span>';
+  const v = c.value;
+  const cls = v > 0 ? 'up' : (v < 0 ? 'down' : 'flat');
+  const arrow = v > 0 ? '▲' : (v < 0 ? '▼' : '■');
+  // 'absolute' is the zero-baseline case, where a percentage is undefined.
+  const unit = c.kind === 'points' ? ' pts' : (c.kind === 'absolute' ? '' : '%');
+  const sign = v > 0 ? '+' : '';
+  // A literal "■ 0%" reads as a glitch; say what it means instead.
+  const label = v === 0 ? 'No change' : sign + v + unit;
+  let abs = '';
+  if(c.kind === 'absolute'){
+    abs = '<span class="chip-abs">none recorded in ' + monthLabel(D.previousKey) + '</span>';
+  } else if(c.kind === 'percent' && c.abs != null){
+    abs = '<span class="chip-abs">' + (c.abs > 0 ? '+' : '') + c.abs.toLocaleString() + ' since ' + monthLabel(D.previousKey) + '</span>';
+  } else if(c.kind === 'points'){
+    abs = '<span class="chip-abs">vs ' + m.previous + '% in ' + monthLabel(D.previousKey) + '</span>';
+  }
+  return '<span class="chip ' + cls + '"><span class="arrow">' + arrow + '</span>' + label + '</span>' + abs;
+}
+
+// Sparkline: a thin 2px line, no axes or gridlines, with a hover dot and tooltip.
+// Only drawn when the metric has three or more real points (build_monthly.py
+// empties the series otherwise) — two dots are not a trend.
+function spark(m, idx){
+  const pts = m.series.filter(p => p.value != null);
+  if(!pts.length) return '';
+  const W = 240, H = 38, pad = 3;
+  const vals = pts.map(p => p.value);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const span = hi - lo || 1;
+  const x = i => pad + i * (W - pad * 2) / (pts.length - 1);
+  const y = v => H - pad - ((v - lo) / span) * (H - pad * 2);
+  const line = pts.map((p,i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.value).toFixed(1)).join(' ');
+  let dots = '';
+  pts.forEach((p,i) => {
+    dots += '<circle class="spark-hit" cx="' + x(i).toFixed(1) + '" cy="' + y(p.value).toFixed(1) + '" r="9" fill="transparent"'
+         +  ' data-tip="' + monthLabel(p.month) + ': ' + p.value + (m.unit === 'percent' ? '%' : '') + '"'
+         +  ' data-x="' + (x(i) / W * 100).toFixed(2) + '" tabindex="0" role="img"'
+         +  ' aria-label="' + monthLabel(p.month) + ': ' + p.value + (m.unit === 'percent' ? '%' : '') + '"></circle>'
+         +  '<circle class="spark-dot" cx="' + x(i).toFixed(1) + '" cy="' + y(p.value).toFixed(1) + '" r="3.5"></circle>';
+  });
+  return '<div class="spark" data-idx="' + idx + '">'
+       + '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="false">'
+       + '<path d="' + line + '" fill="none" stroke="#3858E9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+       + dots + '</svg><div class="tip"></div></div>';
+}
+
+document.getElementById('asof').innerHTML =
+  'Figures as of <strong>' + fmtDate(D.currentAsOf) + '</strong> · compared with <strong>' + fmtDate(D.previousAsOf) + '</strong>';
+
+document.getElementById('cards').innerHTML = D.metrics.map((m, i) => {
+  const detail = (m.detail && m.detail.total)
+    ? '<div class="frac">' + m.detail.count + ' of ' + m.detail.total + ' eligible schools'
+      + (m.detail.tooNew ? ' · ' + m.detail.tooNew + ' too new to count yet' : '') + '</div>'
+    : '';
+  return '<div class="card"><div class="lbl">' + m.label + '</div>'
+       + fmtValue(m) + detail
+       + '<div class="chip-row">' + chip(m) + '</div>'
+       + spark(m, i)
+       + '<div class="note">' + m.note + '</div></div>';
+}).join('');
+
+// Tooltips for the sparkline hover targets.
+document.querySelectorAll('.spark').forEach(sp => {
+  const tip = sp.querySelector('.tip');
+  sp.querySelectorAll('.spark-hit').forEach(hit => {
+    const show = () => {
+      tip.textContent = hit.dataset.tip;
+      tip.style.left = hit.dataset.x + '%';
+      tip.style.top = '-2px';
+      tip.classList.add('on');
+    };
+    const hide = () => tip.classList.remove('on');
+    hit.addEventListener('mouseenter', show);
+    hit.addEventListener('mouseleave', hide);
+    hit.addEventListener('focus', show);
+    hit.addEventListener('blur', hide);
+  });
+});
+
+// Table view — the same numbers in text form, so nothing on this page depends on
+// reading a graphic.
+(function(){
+  const specs = D.metrics.map(m => ({key: m.key, label: m.label, unit: m.unit}));
+  let head = '<thead><tr><th>Month</th>' + specs.map(s => '<th>' + s.label + '</th>').join('') + '</tr></thead>';
+  let body = '<tbody>' + D.table.slice().reverse().map(row => {
+    const isCurrent = row.month === D.currentKey;
+    return '<tr' + (isCurrent ? ' class="current"' : '') + '><td>' + monthLabel(row.month) + '</td>'
+      + specs.map(s => {
+          const v = row.values[s.key];
+          if(v == null) return '<td class="na">—</td>';
+          return '<td>' + (s.unit === 'percent' ? v + '%' : v.toLocaleString()) + '</td>';
+        }).join('')
+      + '</tr>';
+  }).join('') + '</tbody>';
+  document.getElementById('tbl').innerHTML = head + body;
+})();
+
+document.getElementById('foot').innerHTML =
+  'Rebuilt automatically on the 1st of each month from the WordPress Credits Airtable base, '
+  + 'which freezes that month’s snapshot and compares it with the previous one. '
+  + 'Counts change by percentage; the renewal rate, being itself a percentage, changes by percentage points. '
+  + 'Last built ' + fmtDate(D.generated) + '.';
+</script>
+</body>
+</html>

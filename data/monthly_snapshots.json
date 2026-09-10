@@ -1,0 +1,86 @@
+{
+  "2026-04": {
+    "asOf": "2026-04-02",
+    "source": "git:1e7348c",
+    "partnerInstitutions": 9,
+    "graduates": 9,
+    "renewalRate": {
+      "pct": null,
+      "count": null,
+      "total": null,
+      "tooNew": null
+    },
+    "sitesCreated": null,
+    "firstContributions": null
+  },
+  "2026-05": {
+    "asOf": "2026-05-04",
+    "source": "git:d47f0cd",
+    "partnerInstitutions": 21,
+    "graduates": 66,
+    "renewalRate": {
+      "pct": null,
+      "count": null,
+      "total": null,
+      "tooNew": null
+    },
+    "sitesCreated": null,
+    "firstContributions": null
+  },
+  "2026-06": {
+    "asOf": "2026-06-01",
+    "source": "git:af3d917",
+    "partnerInstitutions": 24,
+    "graduates": 126,
+    "renewalRate": {
+      "pct": null,
+      "count": null,
+      "total": null,
+      "tooNew": null
+    },
+    "sitesCreated": null,
+    "firstContributions": null
+  },
+  "2026-07": {
+    "asOf": "2026-07-06",
+    "source": "git:322ec83",
+    "partnerInstitutions": 29,
+    "graduates": 198,
+    "renewalRate": {
+      "pct": null,
+      "count": null,
+      "total": null,
+      "tooNew": null
+    },
+    "sitesCreated": null,
+    "firstContributions": null
+  },
+  "2026-08": {
+    "asOf": "2026-08-03",
+    "source": "git:53fba4d",
+    "partnerInstitutions": 38,
+    "graduates": 224,
+    "renewalRate": {
+      "pct": 56,
+      "count": 10,
+      "total": 18,
+      "tooNew": 4
+    },
+    "sitesCreated": 462,
+    "firstContributions": 378
+  },
+  "2026-09": {
+    "asOf": "2026-09-07",
+    "source": "git:cd51335",
+    "partnerInstitutions": 44,
+    "graduates": 350,
+    "renewalRate": {
+      "pct": 56,
+      "count": 10,
+      "total": 18,
+      "tooNew": 9
+    },
+    "sitesCreated": 491,
+    "firstContributions": 457
+  }
+}
