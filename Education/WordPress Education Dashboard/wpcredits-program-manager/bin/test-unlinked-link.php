@@ -11,7 +11,7 @@
  *
  * - **The write this control makes is what fires an automation.** `Add students to Students
  *   Reports and Feedback` creates a Students Reports row and a Feedback row as soon as a
- *   Students row holds a name, an address, an institution link and a mentor at one of four
+ *   Students row holds a name, an address, an institution link and a mentor at one of five
  *   statuses. A row that already has the other three is one write away from firing it, and
  *   that write is this link. So a row carrying a mentor at one of those statuses is refused,
  *   and so is a row whose address already has a Students Reports row. Those two refusals are
@@ -613,8 +613,11 @@ echo "\n=== One rule, asked of the index row and of the live record ===\n";
 ck( 'a row with no institution, no mentor and no reports row may be linked', blocked( roster_row( $CLEAN ) ), '' );
 
 // The refusal this whole control exists for. `Add students to Students Reports and Feedback`
-// fires the moment the fourth condition is met, and the link is the fourth condition.
-foreach ( array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Developer Track' ) as $status ) {
+// fires the moment the fourth condition is met, and the link is the fourth condition. The
+// five statuses are the automation's Status condition as read on 10 September 2026.
+// `Designer Track` was missing from the constant until 1.99.3, which left a mentored Designer
+// Track row guarded by the address check alone.
+foreach ( array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Developer Track', 'Designer Track' ) as $status ) {
 	ck(
 		'a mentored row at "' . $status . '" is refused: the link would fire the reports automation',
 		blocked( roster_row( $CLEAN, array( 'has_mentor' => true, 'status' => $status ) ) ),

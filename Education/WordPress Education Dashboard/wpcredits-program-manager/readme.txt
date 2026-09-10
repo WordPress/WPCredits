@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.99.2
+Stable tag: 1.99.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.99.3 =
+
+* Linking a Students row to an institution from the reconciliation card is refused when the row carries a mentor at `Designer Track`, as it already was for the other four statuses the Airtable automation `Add students to Students Reports and Feedback` watches: writing the institution onto such a row completes the automation's conditions and can create a second Students Reports row. The Designer Track shipped in 1.98.2 without joining that list, so until now those rows were guarded by the address check alone. The automation was read again on 10 September 2026 and watches five statuses; the suite checks all five.
 
 = 1.99.2 =
 

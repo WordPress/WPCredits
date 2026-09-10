@@ -74,15 +74,21 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * That automation is deployed, and it creates a Students Reports row and a Feedback row as
 	 * soon as a Students row holds a name, an address, an institution link and a mentor at one
-	 * of these four statuses. A row that already has the other three is one write away from
+	 * of these five statuses. A row that already has the other three is one write away from
 	 * firing it, and that write is the link this control makes: it is the traced source of the
 	 * duplicate reports rows in the base, 18 addresses of them on the reports side.
 	 *
 	 * Pinned here rather than taken from `student_statuses`: that setting says which statuses
 	 * this program tracks and a manager may change it, while this list says what somebody
-	 * else's automation does, which no setting on this site can alter.
+	 * else's automation does, which no setting on this site can alter. So it goes stale in
+	 * silence: `Designer Track` shipped in 1.98.2 and was missing here until 1.99.3, when the
+	 * automation's Status condition was read again (10 September 2026). Read it again whenever
+	 * a track is added.
+	 *
+	 * Written out rather than built from the `WPCPM_Program` constants: PHP resolves those on
+	 * the first `new` of this class, and the suites that load this class do not load that one.
 	 */
-	const AUTOMATION_STATUSES = array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Developer Track' );
+	const AUTOMATION_STATUSES = array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Developer Track', 'Designer Track' );
 
 	/**
 	 * Why a row may not be linked, and how a press of Link ended.
