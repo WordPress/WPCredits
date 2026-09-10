@@ -187,7 +187,7 @@ METRIC_SPECS = [
         "key": "graduates",
         "label": "Graduates",
         "unit": "count",
-        "note": "Students who completed their agreed hours of applied work (50–400h).",
+        "note": "Students who completed their agreed hours of applied work.",
     },
     {
         "key": "renewalRate",

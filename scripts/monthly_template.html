@@ -181,10 +181,10 @@ document.getElementById('asof').innerHTML =
   'Figures as of <strong>' + fmtDate(D.currentAsOf) + '</strong> · compared with <strong>' + fmtDate(D.previousAsOf) + '</strong>';
 
 document.getElementById('cards').innerHTML = D.metrics.map((m, i) => {
-  const detail = (m.detail && m.detail.total)
-    ? '<div class="frac">' + m.detail.count + ' of ' + m.detail.total + ' eligible schools'
-      + (m.detail.tooNew ? ' · ' + m.detail.tooNew + ' too new to count yet' : '') + '</div>'
-    : '';
+  // Caption under the rate, reading as "56% — of eligible schools". The exact
+  // fraction and the too-new count are still computed and still stored in
+  // data/monthly_snapshots.json; they are just not surfaced on the card.
+  const detail = (m.detail && m.detail.total) ? '<div class="frac">Of eligible schools</div>' : '';
   return '<div class="card"><div class="lbl">' + m.label + '</div>'
        + fmtValue(m) + detail
        + '<div class="chip-row">' + chip(m) + '</div>'
