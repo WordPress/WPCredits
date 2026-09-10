@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="680" viewBox="0 0 1000 680" role="img" aria-label="WordPress Credits monthly metrics as of 10 Sep 2026, compared with 3 Aug 2026: Partner institutions 44 (+15.8%); Graduates 350 (+56.2%); Partner renewal rate 56% (No change); WordPress sites created 494 (+6.9%); First contributions made 458 (+21.2%).">
+<rect width="1000" height="680" fill="#FAF7F2"/>
+<text x="48" y="54" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="14" font-weight="bold" fill="#3858E9" letter-spacing="1.6">WORDPRESS CREDITS</text>
+<text x="48" y="96" font-family="Georgia,'Liberation Serif','DejaVu Serif',serif" font-size="34" font-weight="bold" fill="#23201A" >Monthly metrics</text>
+<text x="952" y="96" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="15" font-weight="normal" fill="#756D60" text-anchor="end">As of 10 Sep 2026  ·  compared with 3 Aug 2026</text>
+<line x1="48" y1="122" x2="952" y2="122" stroke="#EBE5DA" stroke-width="1"/>
+<rect x="48" y="146" width="442" height="150" rx="14" fill="#ffffff" stroke="#EBE5DA" stroke-width="1"/>
+<text x="72" y="180" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="500" fill="#756D60" >Partner institutions</text>
+<text x="72" y="234" font-family="Georgia,'Liberation Serif','DejaVu Serif',serif" font-size="42" font-weight="bold" fill="#2743B4" >44</text>
+<path d="M 72 263 l 5.5 -9 l 5.5 9 z" fill="#1F5C43"/>
+<text x="88" y="263" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="bold" fill="#1F5C43" >+15.8%</text>
+<text x="72" y="284" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="13" font-weight="normal" fill="#756D60" >+6 since Aug 2026</text>
+<rect x="508" y="146" width="442" height="150" rx="14" fill="#ffffff" stroke="#EBE5DA" stroke-width="1"/>
+<text x="532" y="180" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="500" fill="#756D60" >Graduates</text>
+<text x="532" y="234" font-family="Georgia,'Liberation Serif','DejaVu Serif',serif" font-size="42" font-weight="bold" fill="#2743B4" >350</text>
+<path d="M 532 263 l 5.5 -9 l 5.5 9 z" fill="#1F5C43"/>
+<text x="548" y="263" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="bold" fill="#1F5C43" >+56.2%</text>
+<text x="532" y="284" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="13" font-weight="normal" fill="#756D60" >+126 since Aug 2026</text>
+<rect x="48" y="314" width="442" height="150" rx="14" fill="#ffffff" stroke="#EBE5DA" stroke-width="1"/>
+<text x="72" y="348" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="500" fill="#756D60" >Partner renewal rate</text>
+<text x="72" y="402" font-family="Georgia,'Liberation Serif','DejaVu Serif',serif" font-size="42" font-weight="bold" fill="#2743B4" >56%</text>
+<rect x="72" y="423.5" width="9" height="7.5" rx="1.5" fill="#756D60"/>
+<text x="88" y="431" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="bold" fill="#756D60" >No change</text>
+<text x="72" y="452" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="13" font-weight="normal" fill="#756D60" >vs 56% in Aug 2026</text>
+<rect x="508" y="314" width="442" height="150" rx="14" fill="#ffffff" stroke="#EBE5DA" stroke-width="1"/>
+<text x="532" y="348" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="500" fill="#756D60" >WordPress sites created</text>
+<text x="532" y="402" font-family="Georgia,'Liberation Serif','DejaVu Serif',serif" font-size="42" font-weight="bold" fill="#2743B4" >494</text>
+<path d="M 532 431 l 5.5 -9 l 5.5 9 z" fill="#1F5C43"/>
+<text x="548" y="431" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="bold" fill="#1F5C43" >+6.9%</text>
+<text x="532" y="452" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="13" font-weight="normal" fill="#756D60" >+32 since Aug 2026</text>
+<rect x="48" y="482" width="902" height="150" rx="14" fill="#ffffff" stroke="#EBE5DA" stroke-width="1"/>
+<text x="72" y="516" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="500" fill="#756D60" >First contributions made</text>
+<text x="72" y="570" font-family="Georgia,'Liberation Serif','DejaVu Serif',serif" font-size="42" font-weight="bold" fill="#2743B4" >458</text>
+<path d="M 72 599 l 5.5 -9 l 5.5 9 z" fill="#1F5C43"/>
+<text x="88" y="599" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="16" font-weight="bold" fill="#1F5C43" >+21.2%</text>
+<text x="72" y="620" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="13" font-weight="normal" fill="#756D60" >+80 since Aug 2026</text>
+<text x="48" y="658" font-family="Helvetica Neue,Helvetica,Arial,'Liberation Sans','DejaVu Sans',sans-serif" font-size="12.5" font-weight="normal" fill="#756D60" >Rebuilt automatically on the 1st of each month  ·  wordpress.github.io/WPCredits/monthly</text>
+</svg>

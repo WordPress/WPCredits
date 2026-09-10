@@ -34,6 +34,10 @@ from pathlib import Path
 SNAPSHOT_PATH = Path(__file__).parent.parent / "data" / "monthly_snapshots.json"
 TEMPLATE_PATH = Path(__file__).parent / "monthly_template.html"
 OUTPUT_PATH = Path(__file__).parent.parent / "monthly.html"
+# Embeddable image of the same figures, for pages that can host an <img> but not
+# the dashboard itself. The PNG is converted from the SVG by the workflow.
+CARD_SVG_PATH = Path(__file__).parent.parent / "monthly-card.svg"
+CARD_ALT_PATH = Path(__file__).parent.parent / "monthly-card.txt"
 
 # Institutions tracked as separate Airtable records that are the same partner for
 # repeat-cohort purposes. Mirrors build_dashboard.py's INSTITUTION_ALIASES (which
@@ -319,6 +323,15 @@ def main():
     out = template.replace("/*DATA_BLOB*/", json.dumps(blob, separators=(",", ":"), ensure_ascii=False))
     OUTPUT_PATH.write_text(out)
     print(f"Dashboard written to {OUTPUT_PATH}", file=sys.stderr)
+
+    # Embeddable card, drawn from the same blob so it cannot disagree with the
+    # page. The alt text is written alongside it because an image drops the
+    # numbers for screen readers, and whoever embeds it needs the wording.
+    from monthly_card import card_alt_text, render_svg
+
+    CARD_SVG_PATH.write_text(render_svg(blob))
+    CARD_ALT_PATH.write_text(card_alt_text(blob) + "\n")
+    print(f"Card written to {CARD_SVG_PATH} (alt text: {CARD_ALT_PATH})", file=sys.stderr)
 
     for m in blob["metrics"]:
         ch = m["change"]
