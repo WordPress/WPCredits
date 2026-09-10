@@ -1,0 +1,49 @@
+name: Update Monthly Metrics
+
+# Builds the monthly metrics dashboard (monthly.html) on the 1st of each month.
+# This freezes that month's snapshot into data/monthly_snapshots.json and renders
+# the page comparing it with the previous month.
+#
+# Separate from "Update Dashboard Data" (update-dashboard.yml), which rebuilds
+# index.html weekly. The two share the Airtable plumbing but neither touches the
+# other's output page.
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'  # 1st of each month, 06:00 UTC (08:00 Rome time)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# A manual run started while the scheduled one is still going would race it on
+# the same two files; queue instead of running concurrently.
+concurrency:
+  group: update-monthly
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Build monthly metrics
+        env:
+          AIRTABLE_PAT: ${{ secrets.AIRTABLE_PAT }}
+        run: python scripts/build_monthly.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add monthly.html data/monthly_snapshots.json
+          git diff --staged --quiet || git commit -m "Update monthly metrics $(date -u +%Y-%m-%d)"
+          git push
