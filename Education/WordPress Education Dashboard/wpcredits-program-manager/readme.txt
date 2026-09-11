@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.101.0
+Stable tag: 1.101.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.101.1 =
+
+* Invitations: nobody is sent a second set-your-password invitation within 15 minutes of the last one. Each invitation replaces the link in the one before it, and on 8 and 9 September 2026, while a class was signing in for the first time, one student was sent 17 invitations in two days and students opening an older email kept landing on "Your password reset link appears to be invalid". Resend invite on the Students and Mentors screens now refuses inside that window and says why, the invitation queue passes over anybody invited in it, and the notice after a resend says that only the newest email works.
+* The invitation email says the same to the person reading it: each new invitation or password email replaces the link in the ones before it, so use the newest.
 
 = 1.101.0 =
 

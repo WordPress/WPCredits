@@ -2481,6 +2481,9 @@ class WPCPM_Students_Sync {
 	/**
 	 * Send one student their login invitation.
 	 *
+	 * Refused inside `WPCPM_Mail::INVITE_GAP` of their last invitation of any kind, because a
+	 * second one would cancel the link in the first.
+	 *
 	 * @param int $user_id User ID.
 	 * @return true|WP_Error
 	 */
@@ -2493,6 +2496,12 @@ class WPCPM_Students_Sync {
 
 		if ( ! in_array( WPCPM_Roles::ROLE_STUDENT, (array) $user->roles, true ) ) {
 			return new WP_Error( 'wpcpm_not_student', __( 'That account does not hold the Student role.', 'wpcredits-program-manager' ) );
+		}
+
+		$allowed = WPCPM_Mail::may_invite( $user->ID );
+
+		if ( is_wp_error( $allowed ) ) {
+			return $allowed;
 		}
 
 		wp_new_user_notification( $user->ID, null, 'user' );

@@ -44,6 +44,18 @@ class WPCPM_Mail {
 	const QUEUE_BATCH = 10;
 
 	/**
+	 * How long after one invitation another may go to the same person, in seconds: fifteen minutes.
+	 *
+	 * Every invitation mints a new password link and cancels the one before it (WordPress keeps one
+	 * reset key per account), so a second sent soon after the first leaves the person holding a link
+	 * that no longer works. On 8 and 9 September 2026 one student was sent 17 in two days, and a
+	 * class being walked through its first login kept landing on "Your password reset link appears
+	 * to be invalid". Long enough for a first email to arrive and be opened; short enough that one
+	 * that truly went missing can be sent again within the same session.
+	 */
+	const INVITE_GAP = 900;
+
+	/**
 	 * What a bulk invite is working through, so a screen can show progress.
 	 *
 	 * The queue only knows who is *left*. Sending 241 invitations ten at a time takes the better
@@ -623,6 +635,12 @@ class WPCPM_Mail {
 				continue;
 			}
 
+			// Somebody sent an invitation inside the gap - by Resend invite while they waited here,
+			// or by another run of this queue that reached them first - keeps the link they have.
+			if ( is_wp_error( self::may_invite( $user->ID ) ) ) {
+				continue;
+			}
+
 			wp_new_user_notification( $user->ID, null, 'user' );
 
 			// The same order `welcome_email()` chooses the template in, so the stamp an account
@@ -648,6 +666,92 @@ class WPCPM_Mail {
 			// moment and a screen reading the earlier one would say "finished" mid-send.
 			self::finish_run();
 		}
+	}
+
+	/**
+	 * When somebody was last sent an invitation, by any route: a Unix time, or 0 for never.
+	 *
+	 * All four stamps count, because an account holding two roles has one password: a mentor
+	 * who also studies, invited as a mentor a minute ago, holds a link that a student invitation
+	 * would cancel just the same.
+	 *
+	 * @param int $user_id User ID.
+	 * @return int
+	 */
+	public static function last_invited( $user_id ) {
+		$last = 0;
+
+		foreach ( array( 'wpcpm_student_invited', 'wpcpm_mentor_invited', 'wpcpm_inst_invited', 'wpcpm_sponsor_invited' ) as $meta ) {
+			$last = max( $last, (int) get_user_meta( (int) $user_id, $meta, true ) );
+		}
+
+		return $last;
+	}
+
+	/**
+	 * Whether an invitation may go to somebody now: true, or why not.
+	 *
+	 * The one check every route asks before it sends - Resend invite on the Students and Mentors
+	 * screens, and the queue - so no route cancels a link another sent inside `INVITE_GAP`. The
+	 * queue stamps only after it sends, so two runs racing each other can still both send in the
+	 * moment before either stamps: this narrows that window to the send itself, it does not close it.
+	 *
+	 * @param int $user_id User ID.
+	 * @return true|WP_Error `wpcpm_invite_too_soon`, carrying the seconds still to wait as `wait`.
+	 */
+	public static function may_invite( $user_id ) {
+		$last = self::last_invited( $user_id );
+		$wait = $last ? $last + self::INVITE_GAP - time() : 0;
+
+		if ( $wait <= 0 ) {
+			return true;
+		}
+
+		return new WP_Error(
+			'wpcpm_invite_too_soon',
+			sprintf(
+				/* translators: %d: a number of minutes. */
+				__( 'This person was sent an invitation less than %d minutes ago. Another one now would cancel the link in it, so nothing was sent.', 'wpcredits-program-manager' ),
+				(int) ( self::INVITE_GAP / MINUTE_IN_SECONDS )
+			),
+			array( 'wait' => $wait )
+		);
+	}
+
+	/**
+	 * The outcome a Resend invite press flashes, from what `send_invite()` answered.
+	 *
+	 * @param true|WP_Error $result What the send answered.
+	 * @return string `invited`, `invite-too-soon`, or the shared `error`.
+	 */
+	public static function invite_outcome( $result ) {
+		if ( ! is_wp_error( $result ) ) {
+			return 'invited';
+		}
+
+		return 'wpcpm_invite_too_soon' === $result->get_error_code() ? 'invite-too-soon' : 'error';
+	}
+
+	/**
+	 * The two notices a Resend invite press can leave, worded once for the Students and Mentors screens.
+	 *
+	 * The sent notice says the new email replaces the earlier link, because whoever pressed is
+	 * usually helping somebody whose link failed, and the old email is still in that inbox.
+	 *
+	 * @return array<string, array{0: string, 1: string}> Status => notice type and sentence.
+	 */
+	public static function invite_notices() {
+		return array(
+			'invited'         => array( 'success', __( 'Invitation email sent. It replaces the link in any earlier invitation, so ask them to use this newest email.', 'wpcredits-program-manager' ) ),
+			'invite-too-soon' => array(
+				'warning',
+				sprintf(
+					/* translators: %d: a number of minutes. */
+					__( 'Nothing was sent: this person was sent an invitation less than %d minutes ago, and another one now would cancel the link in it. Ask them to use their newest email, or try again later.', 'wpcredits-program-manager' ),
+					(int) ( self::INVITE_GAP / MINUTE_IN_SECONDS )
+				),
+			),
+		);
 	}
 
 	/**
@@ -1147,6 +1251,10 @@ class WPCPM_Mail {
 			// the keyed reset link and then the plain login page - and unlabelled they read as
 			// the same address twice, which is what prompted this wording.
 			__( 'Of the two addresses above, the long one sets your password and stops working after a day. The short one is the login page, for every time after that. If the password link has expired, open the login page, choose "Lost your password?" and enter this username or your email address to get a fresh one.', 'wpcredits-program-manager' ),
+			'',
+			// Each invitation and each password email mints a new link and cancels the one before
+			// it, and somebody holding several tries the first they find (1.101.1).
+			__( 'Each new invitation or password email replaces the link in the ones before it, so if you have more than one, use the newest.', 'wpcredits-program-manager' ),
 		);
 
 		if ( '' !== $page ) {

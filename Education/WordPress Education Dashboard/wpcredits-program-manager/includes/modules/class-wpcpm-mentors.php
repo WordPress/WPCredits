@@ -164,7 +164,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		$user_id = WPCPM_Request::posted_id( 'user_id' );
 		$result  = WPCPM_Mentors_Sync::send_invite( $user_id );
 
-		$this->redirect_back( is_wp_error( $result ) ? 'error' : 'invited' );
+		$this->redirect_back( WPCPM_Mail::invite_outcome( $result ) );
 	}
 
 	/**
@@ -264,11 +264,13 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	 */
 	private function render_mentor_notice() {
 		$this->render_status_notice(
-			array(
-				'invited'         => array( 'success', __( 'Invitation email sent.', 'wpcredits-program-manager' ) ),
-				'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background - the progress is shown below.', 'wpcredits-program-manager' ) ),
-				'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
-				'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
+			array_merge(
+				WPCPM_Mail::invite_notices(),
+				array(
+					'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background - the progress is shown below.', 'wpcredits-program-manager' ) ),
+					'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
+					'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
+				)
 			)
 		);
 	}

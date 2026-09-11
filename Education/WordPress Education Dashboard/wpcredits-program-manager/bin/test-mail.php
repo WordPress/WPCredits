@@ -32,7 +32,9 @@ $GLOBALS['filters'] = array();
 
 class WP_Error {
 	private $data;
-	public function __construct( $c = '', $m = '', $d = null ) { $this->data = $d; }
+	private $code;
+	public function __construct( $c = '', $m = '', $d = null ) { $this->code = $c; $this->data = $d; }
+	public function get_error_code() { return $this->code; }
 	public function get_error_data() { return $this->data; }
 	public function get_error_message() { return ''; }
 }
@@ -546,6 +548,90 @@ ck( 'a sponsor account is stamped with its own invited meta, not the student one
 WPCPM_Mail::clear_queue();
 WPCPM_Mail::dismiss_run();
 
+/* ---- the gap between invitations ---------------------------------------- */
+
+echo "\n=== The gap between invitations ===\n";
+
+// Every invitation mints a new password link and cancels the one before it, so two sent close
+// together leave the person holding a link that no longer works. On 8 and 9 September 2026 one
+// student was sent 17 in two days, and a class kept landing on "Your password reset link appears
+// to be invalid". Nobody is sent a second within `INVITE_GAP` of the first, whichever route sends it.
+$before_gap         = $GLOBALS['invited'];
+$GLOBALS['invited'] = array();
+
+$GLOBALS['users'][801] = new WP_User( 801, 'A student', 's801@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][802] = new WP_User( 802, 'A mentor', 'm802@example.test', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][803] = new WP_User( 803, 'Another student', 's803@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][804] = new WP_User( 804, 'A third student', 's804@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][805] = new WP_User( 805, 'A mentor who studies', 'b805@example.test', array( WPCPM_Roles::ROLE_MENTOR, WPCPM_Roles::ROLE_STUDENT ) );
+
+ck( 'a Resend to a student sends', array( WPCPM_Students_Sync::send_invite( 801 ), $GLOBALS['invited'] ), array( true, array( 801 ) ) );
+$again = WPCPM_Students_Sync::send_invite( 801 );
+ck( 'a second Resend within the gap sends nothing, and says why',
+    array( is_wp_error( $again ) ? $again->get_error_code() : $again, $GLOBALS['invited'] ),
+    array( 'wpcpm_invite_too_soon', array( 801 ) ) );
+$GLOBALS['invited'] = array();
+ck( 'a Resend to a mentor sends', array( WPCPM_Mentors_Sync::send_invite( 802 ), $GLOBALS['invited'] ), array( true, array( 802 ) ) );
+$again = WPCPM_Mentors_Sync::send_invite( 802 );
+ck( 'and a second one within the gap does not',
+    array( is_wp_error( $again ) ? $again->get_error_code() : $again, $GLOBALS['invited'] ),
+    array( 'wpcpm_invite_too_soon', array( 802 ) ) );
+
+// The gap counts an invitation of any kind: an account holding two roles has one password.
+$GLOBALS['invited'] = array();
+update_user_meta( 805, 'wpcpm_mentor_invited', time() - MINUTE_IN_SECONDS );
+$again = WPCPM_Students_Sync::send_invite( 805 );
+ck( 'a mentor invited a minute ago is not sent a student invitation either',
+    array( is_wp_error( $again ) ? $again->get_error_code() : $again, $GLOBALS['invited'] ),
+    array( 'wpcpm_invite_too_soon', array() ) );
+
+// Past the gap the button works again: the refusal is a pause, not a lock.
+$GLOBALS['invited'] = array();
+update_user_meta( 801, 'wpcpm_student_invited', time() - 16 * MINUTE_IN_SECONDS );
+ck( 'once the gap has passed a Resend sends again',
+    array( WPCPM_Students_Sync::send_invite( 801 ), $GLOBALS['invited'] ),
+    array( true, array( 801 ) ) );
+
+// Somebody waiting in the queue who is sent one by hand in the meantime is passed over when the
+// queue reaches them, and so is somebody a second run of the queue got to first.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited'] = array();
+WPCPM_Mail::queue_invite( 803 );
+update_user_meta( 803, 'wpcpm_student_invited', time() - MINUTE_IN_SECONDS );
+WPCPM_Mail::drain_queue();
+ck( 'the queue passes over somebody invited within the gap', array( $GLOBALS['invited'], WPCPM_Mail::queued() ), array( array(), 0 ) );
+
+// A guard against refusing too much: an invitation older than the gap holds nobody back.
+$GLOBALS['invited'] = array();
+update_user_meta( 804, 'wpcpm_student_invited', time() - 16 * MINUTE_IN_SECONDS );
+WPCPM_Mail::queue_invite( 804 );
+WPCPM_Mail::drain_queue();
+ck( 'and sends to somebody whose last invitation is older than the gap', array( $GLOBALS['invited'] ), array( array( 804 ) ) );
+
+ck( 'the gap is fifteen minutes', array( WPCPM_Mail::INVITE_GAP ), array( 15 * MINUTE_IN_SECONDS ) );
+$refusal = WPCPM_Mail::may_invite( 801 );
+ck( 'may_invite() refuses with the time still to wait',
+    array( is_wp_error( $refusal ) ? $refusal->get_error_code() : $refusal, is_wp_error( $refusal ) && $refusal->get_error_data()['wait'] > WPCPM_Mail::INVITE_GAP - 10 ),
+    array( 'wpcpm_invite_too_soon', true ) );
+ck( 'and answers true for somebody never invited', array( WPCPM_Mail::may_invite( 806 ) ), array( true ) );
+
+ck( 'a sent Resend flashes invited', array( WPCPM_Mail::invite_outcome( true ) ), array( 'invited' ) );
+ck( 'a refused one flashes invite-too-soon', array( WPCPM_Mail::invite_outcome( $refusal ) ), array( 'invite-too-soon' ) );
+ck( 'and any other failure the shared error', array( WPCPM_Mail::invite_outcome( new WP_Error( 'wpcpm_not_student' ) ) ), array( 'error' ) );
+
+$notices = WPCPM_Mail::invite_notices();
+ck( 'the sent notice says only the newest email works',
+    array( $notices['invited'][0], false !== strpos( $notices['invited'][1], 'newest' ) ),
+    array( 'success', true ) );
+ck( 'the refusal is a warning that says nothing was sent',
+    array( $notices['invite-too-soon'][0], false !== strpos( $notices['invite-too-soon'][1], 'Nothing was sent' ) ),
+    array( 'warning', true ) );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited'] = $before_gap;
+
 /* ---- inviting one institution ------------------------------------------- */
 
 echo "\n=== Inviting one institution ===\n";
@@ -620,6 +706,12 @@ ck( 'both say what to do when the link has expired',
     array(
         false !== strpos( $student['message'], 'Lost your password?' ),
         false !== strpos( $mentor['message'], 'Lost your password?' ),
+    ),
+    array( true, true ) );
+ck( 'both say that only the newest of several emails works',
+    array(
+        false !== strpos( $student['message'], 'use the newest' ),
+        false !== strpos( $mentor['message'], 'use the newest' ),
     ),
     array( true, true ) );
 ck( 'the two audiences are told different things',
