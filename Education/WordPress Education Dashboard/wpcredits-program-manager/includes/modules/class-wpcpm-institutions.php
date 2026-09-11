@@ -645,7 +645,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * **The write this handler makes is what fires an automation, so the row is read again
 	 * before it is made.** Setting `Educational Institutions` on a Students row that already
-	 * carries a mentor at one of `AUTOMATION_STATUSES` completes the condition
+	 * carries a mentor at one of `automation_statuses()` completes the condition
 	 * `Add students to Students Reports and Feedback` watches, and it creates a second
 	 * Students Reports row for a student who has one. The same is true one step removed when
 	 * a reports row already exists for the address. Both are refused, and refused against a
@@ -832,6 +832,26 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The statuses the reports automation is known to watch: the pinned list, and every Track
+	 * Builder track whose publish checklist says somebody added it to the automation's condition.
+	 *
+	 * The site cannot read an automation (no token scope reaches one), so for a track made on the
+	 * site the only source is the person who changed the automation and ticked the item.
+	 * `class_exists()` because the suites that load this class do not all load the tracks.
+	 *
+	 * @return string[]
+	 */
+	public static function automation_statuses() {
+		$statuses = self::AUTOMATION_STATUSES;
+
+		if ( class_exists( 'WPCPM_Tracks' ) ) {
+			$statuses = array_merge( $statuses, WPCPM_Tracks::confirmed_automation_statuses() );
+		}
+
+		return array_values( array_unique( $statuses ) );
+	}
+
+	/**
 	 * Why this row may not be linked, or '' when it may.
 	 *
 	 * **One rule, asked twice.** The card asks it of the index row so it does not offer a
@@ -853,7 +873,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		$status = trim( (string) ( isset( $row['status'] ) ? $row['status'] : '' ) );
 
-		if ( ! empty( $row['has_mentor'] ) && in_array( $status, self::AUTOMATION_STATUSES, true ) ) {
+		if ( ! empty( $row['has_mentor'] ) && in_array( $status, self::automation_statuses(), true ) ) {
 			return self::LINK_AUTOMATION;
 		}
 

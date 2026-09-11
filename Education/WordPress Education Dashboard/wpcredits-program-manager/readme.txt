@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.99.3
+Stable tag: 1.100.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.100.0 =
+
+* Groundwork for the Track Builder, the module that will let Program Administrators create and edit program tracks on the site (phase T1 of the design in docs/specs/2026-09-10-track-builder-design.md). Nothing changes on any page: while no track has been made on the site, every program map, form and card answers exactly as before. New underneath: the private `wpcpm_track` post type, whose definition is kept in revisions; the options the live site will read a published track from; and the rules a track's definition has to pass, every one of which accepts all 115 questions of the four existing Student Report Card forms.
+* `WPCPM_Program::track()` is filtered (`wpcpm_program_tracks`), the program map now carries each track's Learn WordPress course ID (`course_ids()` and `course_id()`, filtered as `wpcpm_program_course_ids`), and it names its two states on no track (`states()`).
+* The Administrator Dashboard's Programs running card and the Institutions Link control's automation guard now ask the program map for the tracks instead of keeping lists of their own, so a track added later reaches both without a change to either.
 
 = 1.99.3 =
 

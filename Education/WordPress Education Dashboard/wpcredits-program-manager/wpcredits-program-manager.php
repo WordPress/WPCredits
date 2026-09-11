@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress in five modules - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a private page listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.99.3
+ * Version:           1.100.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.99.3' );
+define( 'WPCPM_VERSION', '1.100.0' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -43,6 +43,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ics.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-contribution-teams.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-palette.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-definition.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-tracks.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-store.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-updates.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-agreement-template.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-two-factor.php';
@@ -158,6 +162,10 @@ function wpcpm_bootstrap() {
 	WPCPM_Privacy_Guard::init();
 	WPCPM_Notices::init();
 	WPCPM_Mail::init();
+	// The Track Builder's tracks reach the program map through its filters (1.100.0), hooked
+	// before any module asks the map anything.
+	WPCPM_Track_Store::init();
+	WPCPM_Tracks::init();
 	WPCPM_Modules::boot();
 	WPCPM_Tools::boot();
 	WPCPM_Dashboards::init();

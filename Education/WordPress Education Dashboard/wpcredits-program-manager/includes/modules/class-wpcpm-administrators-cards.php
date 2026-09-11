@@ -26,17 +26,6 @@ final class WPCPM_Administrators_Cards {
 	const LIMIT = 50;
 	/** Closed requests shown under the open ones. */
 	const CLOSED_SHOWN = 20;
-	/**
-	 * The track keys `WPCPM_Program::track()` answers, in the order the strip draws them.
-	 *
-	 * Every key it can answer has to be here. The counting loop increments `$tracks[ $track ]`
-	 * for any track a student is on, and the strip draws only what this list names, so a track
-	 * left out is one whose students are added to a tile that is never shown - and, on PHP 8, a
-	 * warning on every load of the page. It is not derived from `WPCPM_Program` because the
-	 * order is a display decision: newest track last, so the tiles do not move under a reader
-	 * who has learned where to look.
-	 */
-	const TRACKS = array( '150h', '50h', 'dev', 'design' );
 
 	/*
 	 * --------------------------------------------------------------------
@@ -809,6 +798,33 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
+	 * The tracks the Programs running card draws a tile for: track key => name, in the order
+	 * `WPCPM_Program::labels()` lists them.
+	 *
+	 * Derived from the program map since 1.100.0, when the Track Builder made a track something
+	 * the site can gain without a release. Until then this was a constant beside the map, and a
+	 * track missing from it was one whose students were counted into a tile never drawn - and, on
+	 * PHP 8, a warning on every load of the page. The order is still newest last: the map lists
+	 * the built-in tracks first and the Track Builder's after them in the order they were made,
+	 * so the tiles do not move under a reader who has learned where to look.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function tracks() {
+		$tracks = array();
+
+		foreach ( WPCPM_Program::labels() as $status => $label ) {
+			$key = WPCPM_Program::track( $status );
+
+			if ( '' !== $key && ! isset( $tracks[ $key ] ) ) {
+				$tracks[ $key ] = (string) $label;
+			}
+		}
+
+		return $tracks;
+	}
+
+	/**
 	 * The programs running: totals per track, and one row per institution with somebody in progress.
 	 *
 	 * Reads only `status`, `start`, `end`, `reports` and `mentor_name` off roster rows, and
@@ -837,7 +853,7 @@ final class WPCPM_Administrators_Cards {
 		$quiet    = 0;
 		$read     = 0;
 
-		foreach ( self::TRACKS as $track ) {
+		foreach ( array_keys( self::tracks() ) as $track ) {
 			$tracks[ $track ] = array(
 				'in_progress' => 0,
 				'signed_up'   => 0,
@@ -884,7 +900,7 @@ final class WPCPM_Administrators_Cards {
 				$track = WPCPM_Program::track( $status );
 				$end   = self::day( isset( $row['end'] ) ? $row['end'] : '' );
 
-				if ( '' !== $track && WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' ) === $semester ) {
+				if ( isset( $tracks[ $track ] ) && WPCPM_Cohort::key( isset( $row['start'] ) ? $row['start'] : '' ) === $semester ) {
 					++$tracks[ $track ]['signed_up'];
 				}
 
@@ -894,7 +910,7 @@ final class WPCPM_Administrators_Cards {
 					$label               = WPCPM_Program::label( $status );
 					$by_status[ $label ] = ( isset( $by_status[ $label ] ) ? $by_status[ $label ] : 0 ) + 1;
 
-					if ( '' !== $track ) {
+					if ( isset( $tracks[ $track ] ) ) {
 						++$tracks[ $track ]['in_progress'];
 					}
 
@@ -1480,16 +1496,9 @@ final class WPCPM_Administrators_Cards {
 
 		self::card_open( 'programs', __( 'Programs running', 'wpcredits-program-manager' ), count( $rows ) );
 
-		$names = array(
-			'150h'   => WPCPM_Program::label( WPCPM_Program::STATUS_150H ),
-			'50h'    => WPCPM_Program::label( WPCPM_Program::STATUS_50H ),
-			'dev'    => WPCPM_Program::label( WPCPM_Program::STATUS_DEV ),
-			'design' => WPCPM_Program::label( WPCPM_Program::STATUS_DESIGN ),
-		);
-
 		echo '<ul class="wpcpm-programs__tiles">';
 
-		foreach ( self::TRACKS as $track ) {
+		foreach ( self::tracks() as $track => $name ) {
 			$tile = isset( $programs['tracks'][ $track ] ) ? $programs['tracks'][ $track ] : array(
 				'in_progress' => 0,
 				'signed_up'   => 0,
@@ -1497,7 +1506,7 @@ final class WPCPM_Administrators_Cards {
 
 			printf(
 				'<li class="wpcpm-programs__tile"><span class="wpcpm-programs__name">%1$s</span><span class="wpcpm-programs__n">%2$s</span><span class="wpcpm-programs__l">%3$s</span></li>',
-				esc_html( $names[ $track ] ),
+				esc_html( $name ),
 				esc_html( number_format_i18n( (int) $tile['in_progress'] ) ),
 				esc_html( sprintf( /* translators: %s: a number of students. */ __( 'in progress, %s signed up this semester', 'wpcredits-program-manager' ), number_format_i18n( (int) $tile['signed_up'] ) ) )
 			);

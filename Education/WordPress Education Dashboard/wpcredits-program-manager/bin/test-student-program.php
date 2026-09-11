@@ -697,6 +697,25 @@ ck( 'the filter can add a status', WPCPM_Program::hours_target( 'In Sensei 25h' 
 ck( 'and the added status has a target', WPCPM_Program::has_hours_target( 'In Sensei 25h' ), true );
 $GLOBALS['filters']['wpcpm_program_hours_targets'] = array();
 
+echo "\n=== The track key filter, the two states and the course IDs (1.100.0) ===\n";
+
+ck( 'the four built-in statuses keep their keys', array( WPCPM_Program::track( 'In Sensei' ), WPCPM_Program::track( 'In Sensei 50h' ), WPCPM_Program::track( 'Developer Track' ), WPCPM_Program::track( 'Designer Track' ) ), array( '150h', '50h', 'dev', 'design' ) );
+
+add_filter( 'wpcpm_program_tracks', function ( $tracks ) { $tracks['Research Track'] = 'research'; return $tracks; } );
+ck( 'a status given a key through wpcpm_program_tracks is a track under it, padding trimmed', WPCPM_Program::track( '  Research Track ' ), 'research' );
+ck( 'and badge() paints it with its own key', WPCPM_Program::badge( 'Research Track' ), 'research' );
+$GLOBALS['filters']['wpcpm_program_tracks'] = array();
+
+ck( 'the two states on no track, public for the Track Builder\'s status rule', WPCPM_Program::states(), array( 'Paused' => 'paused', 'Pending graduation' => 'pending' ) );
+ck( 'and badge() still paints them from there', array( WPCPM_Program::badge( 'Paused' ), WPCPM_Program::badge( 'Pending graduation' ) ), array( 'paused', 'pending' ) );
+
+ck( 'the Learn course post ID of each built-in track', array( WPCPM_Program::course_id( 'In Sensei' ), WPCPM_Program::course_id( 'In Sensei 50h' ), WPCPM_Program::course_id( 'Developer Track' ), WPCPM_Program::course_id( 'Designer Track' ) ), array( 297853, 322343, 402893, 403425 ) );
+ck( 'a status with no course has 0, not a notice', WPCPM_Program::course_id( 'Graduate' ), 0 );
+ck( 'every status with a course link has a course ID, and no other', array_keys( WPCPM_Program::course_ids() ), array_keys( WPCPM_Program::courses() ) );
+add_filter( 'wpcpm_program_course_ids', function ( $ids ) { $ids['Research Track'] = '500001'; return $ids; } );
+ck( 'the filter can add a course, and course_id() hands back an integer', WPCPM_Program::course_id( 'Research Track' ), 500001 );
+$GLOBALS['filters']['wpcpm_program_course_ids'] = array();
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

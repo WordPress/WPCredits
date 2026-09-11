@@ -914,6 +914,24 @@ foreach ( array( 'includes/modules/class-wpcpm-institutions.php', 'bin/test-unli
 
 ck( 'no dash but the plain hyphen in either file', $dashes, array() );
 
+echo "\n=== A Track Builder track, once its automation item is ticked (1.100.0) ===\n";
+
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-tracks.php';
+
+$GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ] = array(
+	'Marketing Track' => array( 'key' => 'marketing', 'label' => 'Marketing Track', 'course_url' => '', 'course_id' => 0, 'hours' => null, 'hue' => 'cyan', 'source' => 'definition', 'automation' => false, 'post' => 7 ),
+);
+WPCPM_Tracks::flush();
+ck( 'until somebody ticks the item, the site has no reason to think the automation watches the track', blocked( roster_row( $CLEAN, array( 'has_mentor' => true, 'status' => 'Marketing Track' ) ) ) !== WPCPM_Institutions::LINK_AUTOMATION, true );
+
+$GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ]['Marketing Track']['automation'] = true;
+WPCPM_Tracks::flush();
+ck( 'once it is ticked, a mentored row at the track is refused like the five', blocked( roster_row( $CLEAN, array( 'has_mentor' => true, 'status' => 'Marketing Track' ) ) ), WPCPM_Institutions::LINK_AUTOMATION );
+ck( 'and the list the guard reads is the pinned five, then the ticked track', WPCPM_Institutions::automation_statuses(), array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Developer Track', 'Designer Track', 'Marketing Track' ) );
+
+unset( $GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ] );
+WPCPM_Tracks::flush();
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

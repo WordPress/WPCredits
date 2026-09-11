@@ -1308,6 +1308,32 @@ echo "\n=== A read-only URL links out with a scheme ===\n";
 // card's link branch runs it through `WPCPM_Field_Value::clean_url()` first.
 ck( 'a schemeless address stored by Airtable links out with a scheme, and shows as it was typed', preg_match( '#<span class="wpcpm-field__value"><a href="https://example\.org/me" target="_blank" rel="noopener noreferrer">example\.org/me</a></span>#', $read ) === 1, true );
 
+echo "\n=== The Track Builder's rules accept the four hand-written forms (1.100.0) ===\n";
+
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-palette.php';
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-tracks.php';
+
+ck( 'the definition\'s groups are the form\'s, in order', WPCPM_Track_Definition::GROUPS, array_keys( WPCPM_Student_Report_Form::groups() ) );
+
+ck( 'the ten columns the syncs own are all reserved, so a renamed sync key cannot shrink the list unseen', WPCPM_Tracks::reserved_columns(), array( 'Name', 'Email', 'Status', 'Mentor', 'Educational institution', 'Internship Start Date', 'Internship End Date', 'Personal link', '50h personal link', 'Dev Track ONLY personal link' ) );
+
+foreach ( array( '150h', '50h', 'dev', 'design' ) as $parity_key ) {
+	$parity_questions  = WPCPM_Student_Report_Form::fields( $parity_key );
+	$parity_definition = array(
+		'schema_version' => WPCPM_Track_Definition::SCHEMA_VERSION,
+		'status'         => 'Parity ' . $parity_key,
+		'key'            => 'parity-' . $parity_key,
+		'label'          => 'Parity ' . $parity_key,
+		'hue'            => 'blue',
+		'questions'      => $parity_questions,
+	);
+
+	ck( sprintf( 'every rule accepts the %s form, none of its columns a sync column', $parity_key ), WPCPM_Track_Definition::validate( $parity_definition, array( 'reserved_columns' => WPCPM_Tracks::reserved_columns() ) ), array() );
+	ck( sprintf( 'the %s form compiles back to itself', $parity_key ), WPCPM_Track_Definition::compile_fields( $parity_definition ), $parity_questions );
+	ck( sprintf( 'and the %s form survives storage byte for byte', $parity_key ), WPCPM_Track_Definition::decode( WPCPM_Track_Definition::encode( $parity_definition ) ), $parity_definition );
+}
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 

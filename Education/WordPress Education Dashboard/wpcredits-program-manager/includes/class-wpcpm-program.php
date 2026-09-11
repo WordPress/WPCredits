@@ -118,6 +118,49 @@ class WPCPM_Program {
 	}
 
 	/**
+	 * The Learn WordPress course post ID for a status.
+	 *
+	 * @param string $status Airtable status.
+	 * @return int Post ID, or 0 when the status has no course.
+	 */
+	public static function course_id( $status ) {
+		$status = trim( (string) $status );
+		$ids    = self::course_ids();
+
+		return isset( $ids[ $status ] ) ? (int) $ids[ $status ] : 0;
+	}
+
+	/**
+	 * The status => Learn course post ID map.
+	 *
+	 * The same four courses as `courses()`, by the ID Learn gives each: `wp/v2/courses?slug=`
+	 * on learn.wordpress.org answers it for the slug in the course's address (read 10 September
+	 * 2026). Kept beside the links rather than derived from them, because the join with Learn is
+	 * by ID - the public course structure at `sensei-internal/v1/course-structure/<id>` and the
+	 * Learn Link design both key on it - and a request to Learn on every page to turn a link
+	 * into an ID is a request nothing should wait for.
+	 *
+	 * @return array<string, int>
+	 */
+	public static function course_ids() {
+		$ids = array(
+			self::STATUS_150H   => 297853,
+			self::STATUS_50H    => 322343,
+			self::STATUS_DEV    => 402893,
+			self::STATUS_DESIGN => 403425,
+		);
+
+		/**
+		 * Filter the Learn WordPress course post ID for each Airtable status.
+		 *
+		 * The Track Builder adds its tracks' courses here (1.100.0).
+		 *
+		 * @param array<string, int> $ids Status to course post ID.
+		 */
+		return (array) apply_filters( 'wpcpm_program_course_ids', $ids );
+	}
+
+	/**
 	 * How many hours a status is worked towards, or 0 for no target.
 	 *
 	 * @param string $status Airtable status.
@@ -207,7 +250,8 @@ class WPCPM_Program {
 	 * needed and nothing has to be kept in step. A fourth track is one entry in this map.
 	 *
 	 * @param string $status Airtable status.
-	 * @return string `150h`, `50h`, `dev`, `design`, or an empty string for a finished state.
+	 * @return string `150h`, `50h`, `dev`, `design`, a Track Builder track's key, or an empty string
+	 *                for a finished state.
 	 */
 	public static function track( $status ) {
 		$tracks = array(
@@ -219,9 +263,22 @@ class WPCPM_Program {
 			self::STATUS_DESIGN => 'design',
 		);
 
+		/**
+		 * Filter the short key each Airtable status is a track under.
+		 *
+		 * The Track Builder adds its tracks here (1.100.0), beside `wpcpm_program_labels`. The
+		 * key is what `WPCPM_Student_Report_Form::fields()`, `badge()` and the Administrator
+		 * Dashboard's tiles are keyed on, so a status that reaches `labels()` without reaching
+		 * this map is a track with no form of its own: `fields()` answers the 150-hour set for a
+		 * key it does not know.
+		 *
+		 * @param array<string, string> $tracks Status to track key.
+		 */
+		$tracks = (array) apply_filters( 'wpcpm_program_tracks', $tracks );
+
 		$status = trim( (string) $status );
 
-		return isset( $tracks[ $status ] ) ? $tracks[ $status ] : '';
+		return isset( $tracks[ $status ] ) ? (string) $tracks[ $status ] : '';
 	}
 
 	/**
@@ -243,13 +300,27 @@ class WPCPM_Program {
 			return '150h' === $track ? 'sensei' : $track;
 		}
 
-		$others = array(
-			'Paused'              => 'paused',
-			'Pending graduation'  => 'pending',
-		);
+		$others = self::states();
 
 		$status = trim( (string) $status );
 
 		return isset( $others[ $status ] ) ? $others[ $status ] : '';
+	}
+
+	/**
+	 * The two states on no track, with the chip each is painted.
+	 *
+	 * Paused and Pending graduation are still their mentor's students, so they are painted apart
+	 * from both a working track and the plain finished badge. Public since 1.100.0 because the
+	 * Track Builder refuses both as a track's status: a track called Paused would put a course
+	 * on somebody who has stopped.
+	 *
+	 * @return array<string, string> Status => badge modifier.
+	 */
+	public static function states() {
+		return array(
+			'Paused'             => 'paused',
+			'Pending graduation' => 'pending',
+		);
 	}
 }

@@ -83,7 +83,20 @@ function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
-function apply_filters( $t, $v ) { return $v; }
+/*
+ * A pass-through, except for the filters a check puts in `$GLOBALS['live_filters']` (1.100.0): the
+ * Programs running card's tiles are the program map's tracks, and the only way to show a track
+ * added to the map is to add one. `add_filter()` below still records calls without running them,
+ * so nothing the plugin hooks at load time starts running here.
+ */
+$GLOBALS['live_filters'] = array();
+function apply_filters( $t, $v ) {
+	foreach ( $GLOBALS['live_filters'][ $t ] ?? array() as $callback ) {
+		$v = $callback( $v );
+	}
+
+	return $v;
+}
 function add_action( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['calls'][] = array( 'add_action', $h, $p ); }
 function add_filter( $h, $c, $p = 10, $n = 1 ) { $GLOBALS['calls'][] = array( 'add_filter', $h, $p ); }
 function add_shortcode( $tag, $c ) { $GLOBALS['calls'][] = array( 'add_shortcode', $tag ); }
@@ -797,9 +810,9 @@ foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
 	$answerable[] = WPCPM_Program::track( $status );
 }
 ck( 'every track the program map can answer has a tile on the strip',
-    array_values( array_diff( array_filter( $answerable, 'strlen' ), WPCPM_Administrators_Cards::TRACKS ) ), array() );
+    array_values( array_diff( array_filter( $answerable, 'strlen' ), array_keys( WPCPM_Administrators_Cards::tracks() ) ) ), array() );
 ck( 'and the Designer Track is one of them, counted like the rest',
-    array( in_array( 'design', WPCPM_Administrators_Cards::TRACKS, true ), isset( $programs['tracks']['design']['in_progress'] ) ), array( true, true ) );
+    array( in_array( 'design', array_keys( WPCPM_Administrators_Cards::tracks() ), true ), isset( $programs['tracks']['design']['in_progress'] ) ), array( true, true ) );
 ck( 'signed up this semester per track, from the start date', array( $programs['tracks']['150h']['signed_up'], $programs['tracks']['50h']['signed_up'], $programs['tracks']['dev']['signed_up'] ), array( 1, 0, 1 ) );
 ck( 'finished this semester is one number: a graduate no longer says their track', $programs['finished'], 1 );
 // A Dropped out row, ending inside the same cohort as the one Graduate row above: finished
@@ -920,7 +933,7 @@ $prog = capture( static function () use ( $programs ) { WPCPM_Administrators_Car
 // <ul class="wpcpm-programs__tiles"> - which matches the needle as well as the tiles it
 // contains, the same reason the strip count above is nine. Counted from the class rather than
 // written down, so adding a track moves this number by itself.
-ck( 'the programs card draws a tile per track and a finished tile', substr_count( $prog, 'wpcpm-programs__tile' ), count( WPCPM_Administrators_Cards::TRACKS ) + 2 );
+ck( 'the programs card draws a tile per track and a finished tile', substr_count( $prog, 'wpcpm-programs__tile' ), count( array_keys( WPCPM_Administrators_Cards::tracks() ) ) + 2 );
 ck( 'the institution row links through the switcher and carries its numbers', has( $prog, 'wpcpm_institution_view=' . $A ) && has( $prog, '2026-12-15' ) && has( $prog, 'Uniwersytet Alpha' ), true );
 ck( 'the quiet institutions are one closing line', has( $prog, '1 more institution' ), true );
 ck( 'and the read time is printed', has( $prog, 'Read from the program records' ), true );
@@ -1200,6 +1213,27 @@ $east_day      = gmdate( 'j F Y', (int) strtotime( $semester_since . ' 00:00:00 
 ck( 'the day in the sentence is written on the site\'s clock and not on Greenwich\'s', array( $east['since_display'], $east_day === gmdate( 'j F Y', $east_from ) ), array( $east_day, false ) );
 
 $GLOBALS['tz'] = 'UTC';
+
+echo "\n=== A track the program map is given has its tile (1.100.0) ===\n";
+
+$GLOBALS['live_filters']['wpcpm_program_labels'][] = static function ( $labels ) {
+	$labels['Research Track'] = 'Research Track';
+	return $labels;
+};
+$GLOBALS['live_filters']['wpcpm_program_tracks'][] = static function ( $tracks ) {
+	$tracks['Research Track'] = 'research';
+	return $tracks;
+};
+
+ck( 'the tiles are the program map\'s tracks, the built-in four first', WPCPM_Administrators_Cards::tracks(), array( '150h' => 'WordPress Credits Program 150h', '50h' => 'WordPress Credits Program 50h', 'dev' => 'Developer Track', 'design' => 'Designer Track', 'research' => 'Research Track' ) );
+
+ob_start();
+WPCPM_Administrators_Cards::render_programs( array( 'tracks' => array(), 'finished' => 0, 'rows' => array(), 'quiet' => 0, 'read' => 0, 'semester' => '' ) );
+$research_card = ob_get_clean();
+
+ck( 'and the Programs running card draws a tile for the new one, counted from nothing', has( $research_card, '<span class="wpcpm-programs__name">Research Track</span><span class="wpcpm-programs__n">0</span>' ), true );
+
+$GLOBALS['live_filters'] = array();
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

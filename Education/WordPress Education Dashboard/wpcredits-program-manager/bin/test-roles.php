@@ -352,7 +352,8 @@ foreach ( $in_uninstall[1] as $rel ) {
 // listed here, so the next file is covered the day it lands.
 preg_match_all( "/require_once WPCPM_PLUGIN_DIR \. '([^']+)';/", $loader_src, $anywhere );
 $on_disk = array();
-foreach ( array( 'includes', 'includes/modules', 'includes/tools' ) as $dir ) {
+// `includes/tracks` since the Track Builder's classes landed there (1.100.0).
+foreach ( array( 'includes', 'includes/modules', 'includes/tools', 'includes/tracks' ) as $dir ) {
 	foreach ( glob( dirname( __DIR__ ) . '/' . $dir . '/class-wpcpm-*.php' ) as $path ) {
 		$on_disk[] = $dir . '/' . basename( $path );
 	}
