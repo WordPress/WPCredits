@@ -186,9 +186,13 @@ delete_metadata( 'user', 0, 'wpcpm_student_modules', '', true );
 // wp-admin, where what else uses them is visible.
 delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 
-// Every institution's module order (1.96.4).
-foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'wpcpm_institution_modules_' ) . '%' ) ) as $wpcpm_module_option ) {
-	delete_option( $wpcpm_module_option );
+// Every institution's module order (1.96.4), and every Track Builder form (1.101.0), a form the
+// index lost track of included: `WPCPM_Track_Store::delete_all()` below finds forms through the
+// posts and the index only.
+foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX ) as $wpcpm_prefix ) {
+	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
+		delete_option( $wpcpm_swept_option );
+	}
 }
 
 // The Track Builder's tracks (1.100.0): every definition post with its revisions, and the

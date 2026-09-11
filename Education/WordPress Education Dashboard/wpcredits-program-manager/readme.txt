@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.100.0
+Stable tag: 1.101.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.101.0 =
+
+* Track Builder, phase T2a (docs/plans/2026-09-11-track-builder-t2a.md): the definitions the Track Builder screen of phase T2b will work on. Nothing changes on any page. The first request after the update puts the four built-in tracks into the Track Builder as drafts, from the seed definitions the plugin now ships in `includes/tracks/seeds/`, each held byte for byte to its hand-written form by `bin/test-track-definitions.php`; their PHP keeps running them.
+* Publishing a track records its definition as published, and the live site compiles that copy, never the latest saved one, so an edit reaches students only once it is published. Every compile checks each published track again and leaves out one the rules now refuse, or one claiming a status or key another track holds; a new track can no longer take one of the four built-in statuses.
+* The rules are stricter: a track's name may not be another track's name or status, nor its status another track's name, a column one capital or space away from a column the syncs own is refused, a whole number is refused as a column name however it is written, and lengths are counted in characters. `WPCPM_Student_Report_Form::fields()` now hands the Track Builder `builtin_fields()`, and the three alumni answers carry `hide_from_institution` in the PHP as well.
+* New underneath, with no screen yet: publishing and unpublishing, the switch between a built-in track's PHP and its definition (allowed only while the two are identical), a log of both, and `wp wpcredits seed-tracks`. A built-in track cannot be edited while its PHP runs it. The uninstall also removes any Track Builder form the index lost track of.
 
 = 1.100.0 =
 

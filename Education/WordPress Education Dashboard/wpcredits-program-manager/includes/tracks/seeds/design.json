@@ -1,0 +1,404 @@
+{
+    "schema_version": 1,
+    "status": "Designer Track",
+    "key": "design",
+    "label": "Designer Track",
+    "course_url": "https://learn.wordpress.org/course/wordpress-credits-designer-track/",
+    "learn_course_id": 403425,
+    "hours_target": 150,
+    "hue": "pink",
+    "questions": {
+        "Hours": {
+            "label": "Hours contributed",
+            "type": "number",
+            "step": "1",
+            "min": 0,
+            "max": 10000,
+            "group": "hours",
+            "help": "The total you have logged so far.",
+            "airtable_type": "number"
+        },
+        "WordPress Profile": {
+            "label": "Your WordPress.org profile",
+            "type": "url",
+            "group": "onboarding",
+            "row": "contact",
+            "help": "Your profile page, or just your username.",
+            "airtable_type": "url"
+        },
+        "Slack Name": {
+            "label": "Your Slack name",
+            "type": "text",
+            "maxlength": 100,
+            "group": "onboarding",
+            "row": "contact",
+            "help": "Your display name in the Making WordPress Slack.",
+            "airtable_type": "singleLineText"
+        },
+        "Open source basics and WordPress - final grade": {
+            "label": "Open source basics and WordPress",
+            "subgroup": "Enter your final grade, 0 to 100",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "How decisions are made in the WordPress project - final grade": {
+            "label": "How decisions are made in the WordPress project",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Community meeting etiquette - final grade": {
+            "label": "Community meeting etiquette",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Writing in the WordPress voice - final grade": {
+            "label": "Writing in the WordPress voice",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Basic principles of conflict resolution - final grade": {
+            "label": "Basic principles of conflict resolution",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Beginner WordPress Designer": {
+            "label": "Beginner WordPress Designer",
+            "lead": "Complete the Beginner WordPress Designer course",
+            "required": true,
+            "type": "number",
+            "step": "1",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Beginner WordPress User - final grade": {
+            "label": "Beginner WordPress User",
+            "lead": "Complete one of the following courses",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Intermediate WordPress User - final grade": {
+            "label": "Intermediate WordPress User",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Advance WordPress User - final grade": {
+            "label": "Advanced WordPress User",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number",
+            "why": "The column says Advance and the label says Advanced: the base's spelling is the column's name, and the label is what a student reads."
+        },
+        "Beginner WordPress Developer": {
+            "lead": "Optional courses",
+            "type": "number",
+            "step": "1",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "label": "Beginner WordPress Developer",
+            "airtable_type": "number"
+        },
+        "Intermediate Theme Developer": {
+            "label": "Intermediate Theme Developer",
+            "type": "number",
+            "step": "1",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Personal Website URL": {
+            "label": "Your portfolio site URL",
+            "subgroup": "Create your portfolio",
+            "row": "website",
+            "type": "url",
+            "group": "onboarding",
+            "airtable_type": "url",
+            "learn_lesson_id": 403457,
+            "why": "On this track the lesson is Create your portfolio, so the column the other tracks ask as a personal website is asked as a portfolio: one site, one column, whatever a course calls it."
+        },
+        "Post Reflection: Building Your Personal Website": {
+            "label": "Link to the post \"Reflection: Building Your Portfolio\"",
+            "row": "website",
+            "type": "url",
+            "group": "onboarding",
+            "airtable_type": "url",
+            "why": "On this track the lesson is Create your portfolio, so the column the other tracks ask as a personal website is asked as a portfolio: one site, one column, whatever a course calls it."
+        },
+        "Practical: Duplicate & Explore WP Design Library - Reflection": {
+            "lead": "Practical: Duplicate and Explore the WordPress Design Library",
+            "label": "Your reflection",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText",
+            "learn_lesson_id": 403471,
+            "why": "The base shortens the lesson Duplicate and Explore the WordPress Design Library to this name and ends its link and image columns in lower case. The names are the base's columns, not slips to correct."
+        },
+        "Practical: Duplicate & Explore WP Design Library - link": {
+            "label": "A link to your copy of the library",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url",
+            "why": "The base shortens the lesson Duplicate and Explore the WordPress Design Library to this name and ends its link and image columns in lower case. The names are the base's columns, not slips to correct."
+        },
+        "Practical: Duplicate & Explore WP Design Library - image": {
+            "label": "A screenshot of your copy",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments",
+            "why": "The base shortens the lesson Duplicate and Explore the WordPress Design Library to this name and ends its link and image columns in lower case. The names are the base's columns, not slips to correct."
+        },
+        "Practical: Local WordPress Environment for Design Testing - Tool used": {
+            "lead": "Practical: Set Up a Local WordPress Environment for Design Testing",
+            "label": "The tool you used",
+            "type": "select",
+            "group": "project",
+            "options": [
+                "WordPress Studio",
+                "MAAMP",
+                "DevKinsta"
+            ],
+            "airtable_type": "singleSelect",
+            "learn_lesson_id": 403473,
+            "why": "The choices are spelled as the base spells them, MAAMP included: a choice spelled any other way is one the column does not have, and Airtable refuses the whole save."
+        },
+        "Practical: Local WordPress Environment for Design Testing - Screenshot": {
+            "label": "A screenshot of your local site",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments"
+        },
+        "Practical: Change Your Site’s Global Styles - Notes": {
+            "lead": "Practical: Change Your Site's Global Styles",
+            "label": "Your notes",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText",
+            "learn_lesson_id": 403477,
+            "why": "The base spells Site’s with the typographic apostrophe (U+2019) where Learn writes a plain one. The name is the base's column: a plain apostrophe here names a column that does not exist."
+        },
+        "Practical: Change Your Site’s Global Styles - Before Screenshot": {
+            "label": "A screenshot before your changes",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments",
+            "why": "The base spells Site’s with the typographic apostrophe (U+2019) where Learn writes a plain one. The name is the base's column: a plain apostrophe here names a column that does not exist."
+        },
+        "Practical: Change Your Site’s Global Styles - After Screenshot": {
+            "label": "A screenshot after your changes",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments",
+            "why": "The base spells Site’s with the typographic apostrophe (U+2019) where Learn writes a plain one. The name is the base's column: a plain apostrophe here names a column that does not exist."
+        },
+        "Practical: Style Book - Notes": {
+            "lead": "Practical: Customize with the Style Book",
+            "label": "Your notes",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText",
+            "learn_lesson_id": 403479
+        },
+        "Practical: Style Book - Screenshot": {
+            "label": "A screenshot of your Style Book",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments"
+        },
+        "Practical: Landing Page with Layout Blocks - Note": {
+            "lead": "Practical: Compose a Landing Page with Layout Blocks",
+            "label": "Your note",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText",
+            "learn_lesson_id": 403481
+        },
+        "Practical: Landing Page with Layout Blocks - Screenshot": {
+            "label": "A screenshot of your landing page",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments"
+        },
+        "Practical: Apply Custom CSS in the Site Editor - Notes": {
+            "lead": "Practical: Apply Custom CSS in the Site Editor",
+            "label": "Your notes",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText",
+            "learn_lesson_id": 403483
+        },
+        "Practical: Apply Custom CSS in the Site Editor - CSS": {
+            "label": "The CSS you added",
+            "type": "textarea",
+            "group": "project",
+            "mono": true,
+            "help": "Paste the rules exactly as you wrote them.",
+            "airtable_type": "multilineText"
+        },
+        "Practical: Apply Custom CSS in the Site Editor - Screenshot": {
+            "label": "A screenshot of the result",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments"
+        },
+        "Practical: Submit a Custom Block Pattern - Link": {
+            "lead": "Practical: Create and Submit a Custom Block Pattern",
+            "label": "A link to your pattern",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url",
+            "learn_lesson_id": 403487
+        },
+        "Practical: Submit a Custom Block Pattern - Screenshot": {
+            "label": "A screenshot of your pattern",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments"
+        },
+        "Practical: Test Your Site for Accessibility - Part 1 - Note": {
+            "lead": "Practical: Test Your Site for Accessibility",
+            "label": "Your note on part 1",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText",
+            "learn_lesson_id": 403489
+        },
+        "Practical: Test Your Site for Accessibility - Part 1 - Screenshot": {
+            "label": "A screenshot from part 1",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments"
+        },
+        "Practical: Test Your Site for Accessibility - Part 2 - Note": {
+            "label": "Your note on part 2",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText"
+        },
+        "Practical: Test Your Site for Accessibility - Part 2 - Screenshot": {
+            "label": "A screenshot from part 2",
+            "type": "image",
+            "group": "project",
+            "airtable_type": "multipleAttachments"
+        },
+        "Main Contribution Team": {
+            "label": "Main contribution team",
+            "type": "team",
+            "group": "project",
+            "help": "The teams you are contributing to. Choose as many as apply.",
+            "lead": "Define and begin developing your contribution project",
+            "airtable_type": "multipleRecordLinks",
+            "learn_lesson_id": 403563
+        },
+        "Contribution Project Summary": {
+            "label": "Describe your contribution project",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText"
+        },
+        "Optional: Additional Contribution Project Summary": {
+            "label": "A second contribution project, if you had one",
+            "type": "textarea",
+            "group": "project",
+            "help": "Optional. Leave empty if you worked on one project.",
+            "airtable_type": "multilineText"
+        },
+        "Post Reflection: Choosing Your Team and Project": {
+            "lead": "Your reflection posts",
+            "label": "Link to the Post \"Reflection: Choosing Your Team and Project\"",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url"
+        },
+        "Post Reflection: Your First Contribution": {
+            "label": "Link to the Post \"Reflection: Your First Contribution\"",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url"
+        },
+        "Post Reflection: Halfway Check-In": {
+            "label": "Link to the Post \"Reflection: Halfway Check-In\"",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url"
+        },
+        "Slack/GitHub/Blog WordPress Community meetings/discussions": {
+            "label": "Meetings and discussions you took part in",
+            "type": "textarea",
+            "group": "project",
+            "help": "Slack, GitHub or blog links, one per line.",
+            "subgroup": "Alumni Program",
+            "airtable_type": "multilineText",
+            "why": "On this track the question is asked inside the Alumni Program lesson and heads that run, rather than sitting beside the team list as on the 150-hour course. It keeps its column, so its answers stay where every track keeps them."
+        },
+        "Contributing beyond WP Credits": {
+            "label": "How you plan to keep contributing after the program",
+            "type": "textarea",
+            "group": "project",
+            "hide_from_institution": true,
+            "airtable_type": "multilineText"
+        },
+        "Alumni program: personal email": {
+            "label": "A personal email address for the alumni program",
+            "type": "email",
+            "group": "project",
+            "help": "Somewhere that still reaches you once your student address stops working.",
+            "hide_from_institution": true,
+            "airtable_type": "email"
+        },
+        "Alumni program: mentoring opt-in": {
+            "label": "Yes, I am happy to be contacted about mentoring future WordPress Credits students.",
+            "type": "checkbox",
+            "group": "project",
+            "hide_from_institution": true,
+            "airtable_type": "checkbox"
+        },
+        "WP event participation URL": {
+            "label": "Link to a WordPress event you have participated in (online or in person)",
+            "lead": "Participate at a WordPress Event (online or in person)",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url",
+            "learn_lesson_id": 403501
+        },
+        "Closing post URL": {
+            "label": "Your closing post",
+            "type": "url",
+            "group": "wrapup",
+            "airtable_type": "url"
+        }
+    }
+}

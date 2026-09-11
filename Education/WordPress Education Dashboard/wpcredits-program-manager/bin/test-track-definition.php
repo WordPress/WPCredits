@@ -96,6 +96,7 @@ ck( 'seven hues, the four built-in tracks\' among them', array_keys( WPCPM_Track
 ck( 'slate and amber are no hue: they paint the two states on no track', array( WPCPM_Track_Palette::is_hue( 'slate' ), WPCPM_Track_Palette::is_hue( 'amber' ), WPCPM_Track_Palette::is_hue( 5 ) ), array( false, false, false ) );
 ck( 'the chip rule, in the shape dashboard.css gives its own chips', WPCPM_Track_Palette::badge_rule( 'marketing', 'cyan' ), '.wpcpm-badge--marketing{background:rgba(8,145,178,0.12);border-color:rgba(8,145,178,0.35);}' );
 ck( 'no rule for a hue outside the palette', WPCPM_Track_Palette::badge_rule( 'marketing', '#ff0000' ), '' );
+ck( 'one key pattern, which the definition\'s rule reads as well', array( WPCPM_Track_Palette::KEY_PATTERN, preg_match( WPCPM_Track_Palette::KEY_PATTERN, 'marketing' ), preg_match( WPCPM_Track_Palette::KEY_PATTERN, 'Marketing' ) ), array( '/^[a-z0-9-]{2,20}$/', 1, 0 ) );
 ck( 'and none for a key that could carry anything into the stylesheet', array( WPCPM_Track_Palette::badge_rule( 'Marketing', 'cyan' ), WPCPM_Track_Palette::badge_rule( 'a}b{', 'cyan' ), WPCPM_Track_Palette::badge_rule( 'm', 'cyan' ) ), array( '', '', '' ) );
 
 echo "\n=== A definition every rule accepts ===\n";
@@ -109,11 +110,16 @@ ck( 'a property this version does not know', refused( function ( &$d ) { $d['col
 ck( 'a schema version the site does not read', refused( function ( &$d ) { $d['schema_version'] = 2; }, $context ), array( 'schema_version' ) );
 ck( 'no status', refused( function ( &$d ) { $d['status'] = ''; }, $context ), array( 'status_empty' ) );
 ck( 'a status over 100 characters', refused( function ( &$d ) { $d['status'] = str_repeat( 'a', 101 ); }, $context ), array( 'status_shape' ) );
+ck( 'lengths are counted in characters: sixty accented letters are a status', refused( function ( &$d ) { $d['status'] = str_repeat( "\u{00E9}", 60 ); }, $context ), array() );
+ck( 'and a hundred and one of them are too many', refused( function ( &$d ) { $d['status'] = str_repeat( "\u{00E9}", 101 ); }, $context ), array( 'status_shape' ) );
 ck( 'a status on two lines', refused( function ( &$d ) { $d['status'] = "Marketing\nTrack"; }, $context ), array( 'status_shape' ) );
 ck( 'another track\'s status, whatever its case', refused( function ( &$d ) { $d['status'] = 'designer track'; }, $context ), array( 'status_taken' ) );
 $curly                                    = $context;
 $curly['tracks']["Writer\u{2019}s Track"] = 'writers';
 ck( 'and whichever apostrophe it is typed with', refused( function ( &$d ) { $d['status'] = "writer's track"; }, $curly ), array( 'status_taken' ) );
+$accented                                = $context;
+$accented['tracks']["\u{00C9}cole Track"] = 'ecole';
+ck( 'and in any alphabet: an accented capital folds like a plain one', refused( function ( &$d ) { $d['status'] = "\u{00E9}cole track"; }, $accented ), array( 'status_taken' ) );
 ck( 'a status that already means a finished student', refused( function ( &$d ) { $d['status'] = 'Graduate'; }, $context ), array( 'status_refused' ) );
 ck( 'or a paused one', refused( function ( &$d ) { $d['status'] = 'paused'; }, $context ), array( 'status_refused' ) );
 $locked           = $context;
@@ -133,6 +139,14 @@ $builtin = array(
 );
 ck( 'a built-in track\'s own definition keeps its reserved key', refused( function ( &$d ) { $d['status'] = 'Designer Track'; $d['key'] = 'design'; }, $builtin ), array() );
 ck( 'no name', refused( function ( &$d ) { $d['label'] = '  '; }, $context ), array( 'label_empty' ) );
+$named           = $context;
+$named['labels'] = array( 'In Sensei' => 'WordPress Credits Program 150h', 'Developer Track' => 'Developer Track' );
+ck( 'a name another track already goes by, whatever its case', refused( function ( &$d ) { $d['label'] = 'wordpress credits program 150h'; }, $named ), array( 'label_taken' ) );
+ck( 'or another track\'s status, which the institution import matches as well', refused( function ( &$d ) { $d['label'] = 'In Sensei 50h'; }, $named ), array( 'label_taken' ) );
+ck( 'a name equal to the track\'s own status passes: the Developer Track is named so', refused( function ( &$d ) { $d['label'] = 'Marketing Track'; }, $named ), array() );
+// The mirror of `label_taken` (the final review of T2a, its M1): one track's status may not be
+// another's name either, so the refusal no longer depends on which of the two is published first.
+ck( 'a status another track goes by as its name, whatever its case: the import would match one cell to both', array( refused( function ( &$d ) { $d['status'] = 'WordPress Credits Program 150h'; }, $named ), refused( function ( &$d ) { $d['status'] = 'wordpress credits program 150h'; }, $named ) ), array( array( 'status_named' ), array( 'status_named' ) ) );
 ck( 'a course link that is not a Learn course', array( refused( function ( &$d ) { $d['course_url'] = 'http://learn.wordpress.org/course/marketing/'; }, $context ), refused( function ( &$d ) { $d['course_url'] = 'https://example.org/course/marketing/'; }, $context ) ), array( array( 'course_url' ), array( 'course_url' ) ) );
 ck( 'no course link at all is fine', refused( function ( &$d ) { $d['course_url'] = ''; unset( $d['learn_course_id'] ); }, $context ), array() );
 ck( 'a course ID that is not a whole number', array( refused( function ( &$d ) { $d['learn_course_id'] = -1; }, $context ), refused( function ( &$d ) { $d['learn_course_id'] = '500001'; }, $context ) ), array( array( 'course_id' ), array( 'course_id' ) ) );
@@ -149,7 +163,10 @@ $note = array( 'label' => 'Your notes', 'type' => 'textarea', 'group' => 'projec
 ck( 'a column name of spaces', refused( only( array( '   ' => $note ) ), $context ), array( 'column_shape' ) );
 ck( 'a column name over 255 characters', refused( only( array( str_repeat( 'c', 256 ) => $note ) ), $context ), array( 'column_shape' ) );
 ck( 'a column name that is a number alone', refused( only( array( '2024' => $note ) ), $context ), array( 'column_numeric' ) );
+ck( 'or a negative whole number, which PHP turns into an integer key as well', refused( only( array( '-1' => $note ) ), $context ), array( 'column_numeric' ) );
+ck( 'while a number with a leading zero stays a string, and passes', refused( only( array( '007' => $note ) ), $context ), array() );
 ck( 'a column the syncs own, which a student could then change', refused( only( array( 'Status' => $note ) ), $context ), array( 'column_reserved' ) );
+ck( 'or one a capital or a space away from it', array( refused( only( array( 'status' => $note ) ), $context ), refused( only( array( 'STATUS' => $note ) ), $context ), refused( only( array( 'Status ' => $note ) ), $context ) ), array( array( 'column_reserved' ), array( 'column_reserved' ), array( 'column_reserved' ) ) );
 ck( 'a column name ending in a space is taken as it is, like the base\'s own "Company "', refused( only( array( 'Company ' => $note ) ), $context ), array() );
 ck( 'a question that is not a question', refused( only( array( 'Notes' => 'textarea' ) ), $context ), array( 'question_shape' ) );
 ck( 'a property this version does not know', refused( only( array( 'Notes' => $note + array( 'colour' => 'red' ) ) ), $context ), array( 'unknown_property' ) );
@@ -167,6 +184,7 @@ ck( 'a number with every bound passes', refused( only( array( 'Grade' => $grade 
 ck( 'a number with no step', refused( only( array( 'Grade' => array_diff_key( $grade, array( 'step' => 1 ) ) ) ), $context ), array( 'number_bounds' ) );
 ck( 'a number whose lowest value is above its highest', refused( only( array( 'Grade' => array( 'min' => 101 ) + $grade ) ), $context ), array( 'number_bounds' ) );
 ck( 'a number with a step of zero', refused( only( array( 'Grade' => array( 'step' => '0' ) + $grade ) ), $context ), array( 'number_bounds' ) );
+ck( 'a bound no JSON can hold', refused( only( array( 'Grade' => array( 'max' => INF ) + $grade ) ), $context ), array( 'number_bounds' ) );
 ck( 'bounds on something that is not a number', refused( only( array( 'Notes' => $note + array( 'min' => 0 ) ) ), $context ), array( 'number_only' ) );
 
 $pick = array( 'label' => 'Tool', 'type' => 'select', 'group' => 'project', 'options' => array( 'WordPress Studio', 'MAAMP', 'DevKinsta' ) );

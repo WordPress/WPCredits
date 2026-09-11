@@ -128,12 +128,36 @@ class WPCPM_Student_Report_Form {
 	 * `step` mirrors the column's own precision: the grades allow two decimals, hours and the three
 	 * course marks are whole numbers.
 	 *
+	 * The hand-written forms are `builtin_fields()`. This is what everything reads, because a track
+	 * the Track Builder runs from its definition is handed its compiled form here, by the filter.
+	 *
 	 * @param string $track Track key from `WPCPM_Program::track()`. Any key the sets below do not
 	 *                      name, including the empty string a finished student has, gets the
 	 *                      150-hour form - the one most of them filled in.
 	 * @return array<string, array> Airtable field name => spec.
 	 */
 	public static function fields( $track ) {
+		/**
+		 * Filter the report form's fields for one track.
+		 *
+		 * @param array  $fields Airtable field name => spec.
+		 * @param string $track  Track key: `150h`, `50h`, `dev`, `design`, or a Track Builder track's.
+		 */
+		return (array) apply_filters( 'wpcpm_report_form_fields', self::builtin_fields( $track ), $track );
+	}
+
+	/**
+	 * The four hand-written forms, as `fields()` returned them before the Track Builder existed.
+	 *
+	 * A pure move out of `fields()` (the design's section 8): the seed definitions are held to what
+	 * this returns, byte for byte, and a built-in track may switch to its definition only while the
+	 * two are identical. It goes, with the rest of the hand-written tracks, on the product owner's
+	 * word (phase T5).
+	 *
+	 * @param string $track Track key; see `fields()`.
+	 * @return array<string, array> Airtable field name => spec.
+	 */
+	public static function builtin_fields( $track ) {
 		$grade = array(
 			'type'  => 'number',
 			'step'  => '0.01',
@@ -279,24 +303,31 @@ class WPCPM_Student_Report_Form {
 		// base's own dev-track view puts them. They read as end-of-programme questions and were in
 		// Wrap-up until 1.63.0 - but where a question is asked is the program's decision, not an
 		// inference from what it sounds like, and the view is where that decision is recorded.
+		//
+		// All three are kept off the institution's view by `hide_from_institution` (the Track Builder
+		// design's section 10), the flag an authored question uses, so a seed definition can hold
+		// these byte for byte. `ALUMNI_FIELDS` keeps doing the same until phase T5.
 		$dev_alumni = array(
 			'Contributing beyond WP Credits'   => array(
-				'label' => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
+				'label'                 => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
+				'type'                  => 'textarea',
+				'group'                 => 'project',
+				'hide_from_institution' => true,
 			),
 			'Alumni program: personal email'   => array(
-				'label' => __( 'A personal email address for the alumni program', 'wpcredits-program-manager' ),
-				'type'  => 'email',
-				'group' => 'project',
-				'help'  => __( 'Somewhere that still reaches you once your student address stops working.', 'wpcredits-program-manager' ),
+				'label'                 => __( 'A personal email address for the alumni program', 'wpcredits-program-manager' ),
+				'type'                  => 'email',
+				'group'                 => 'project',
+				'help'                  => __( 'Somewhere that still reaches you once your student address stops working.', 'wpcredits-program-manager' ),
+				'hide_from_institution' => true,
 			),
 			// The label says what is being agreed to. Repeating the column name here would ask for
 			// consent without stating what for.
 			'Alumni program: mentoring opt-in' => array(
-				'label' => __( 'Yes, I am happy to be contacted about mentoring future WordPress Credits students.', 'wpcredits-program-manager' ),
-				'type'  => 'checkbox',
-				'group' => 'project',
+				'label'                 => __( 'Yes, I am happy to be contacted about mentoring future WordPress Credits students.', 'wpcredits-program-manager' ),
+				'type'                  => 'checkbox',
+				'group'                 => 'project',
+				'hide_from_institution' => true,
 			),
 		);
 
@@ -710,13 +741,7 @@ class WPCPM_Student_Report_Form {
 			}
 		}
 
-		/**
-		 * Filter the report form's fields for one track.
-		 *
-		 * @param array  $fields Airtable field name => spec.
-		 * @param string $track  Track key: `150h`, `50h`, `dev` or `design`.
-		 */
-		return (array) apply_filters( 'wpcpm_report_form_fields', $fields, $track );
+		return $fields;
 	}
 
 
@@ -1298,6 +1323,11 @@ class WPCPM_Student_Report_Form {
 	 * the student's arrangement with the program for after the course, not part of what a
 	 * school sent them to do. Public so the suite can hold the list to the promise.
 	 *
+	 * A question flagged `hide_from_institution` is dropped as well (1.101.0): the flag is how a
+	 * Track Builder question stays off this view, and the three alumni answers carry it in the PHP
+	 * too. `ALUMNI_FIELDS` stays until phase T5, with its suite holding the list to the promise
+	 * (the Track Builder design's section 10).
+	 *
 	 * @param array $fields Field specs, keyed by Airtable column name.
 	 * @return array The same array with those fields removed.
 	 */
@@ -1306,6 +1336,10 @@ class WPCPM_Student_Report_Form {
 
 		foreach ( $fields as $name => $spec ) {
 			if ( isset( $spec['type'] ) && 'email' === $spec['type'] ) {
+				continue;
+			}
+
+			if ( ! empty( $spec['hide_from_institution'] ) ) {
 				continue;
 			}
 

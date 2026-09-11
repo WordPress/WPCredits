@@ -541,6 +541,40 @@ class WPCPM_Settings {
 	}
 
 	/**
+	 * Add a status to "Currently mentoring", and never take one away.
+	 *
+	 * Publishing a Track Builder track calls it (7.2 of the design): the students sync reads only
+	 * the statuses listed here, and `WPCPM_Students_Sync::revoke_departed()` treats a student it
+	 * did not read as departed, so a published track's students would lose their role at the next
+	 * run without it. Matched exactly, as the sync matches: a status the list holds in another
+	 * case would not fetch this one's students, so it does not count as present.
+	 *
+	 * @param string $status Status.
+	 * @return bool Whether the list changed.
+	 */
+	public static function add_student_status( $status ) {
+		$status = trim( (string) $status );
+
+		if ( '' === $status ) {
+			return false;
+		}
+
+		$stored   = get_option( self::OPT_NAME, array() );
+		$stored   = is_array( $stored ) ? $stored : array();
+		$statuses = isset( $stored['student_statuses'] ) && is_array( $stored['student_statuses'] ) ? $stored['student_statuses'] : self::defaults()['student_statuses'];
+
+		if ( in_array( $status, $statuses, true ) ) {
+			return false;
+		}
+
+		$statuses[]                 = $status;
+		$stored['student_statuses'] = $statuses;
+		update_option( self::OPT_NAME, $stored );
+
+		return true;
+	}
+
+	/**
 	 * Which schema version added which `student_statuses` entry.
 	 *
 	 * Version-keyed rather than a flat list, because the two questions "has this site ever been

@@ -7,7 +7,8 @@
  * array and every meta value are unslashed on the way in; a revision is saved from inside
  * `wp_update_post()`, with the revisioned meta the post holds at that moment; and
  * `revisions_enabled` is refused for a type that does not support revisions yet. A store that got
- * any of the three wrong passes a pass-through stub and fails here.
+ * any of the three wrong passes a pass-through stub and fails here. A check can also make the next
+ * `wp_update_post()` fail, as a database error does.
  *
  * Run from the plugin root:  php bin/test-track-store.php
  */
@@ -19,9 +20,10 @@ if ( 'cli' !== PHP_SAPI ) {
 define( 'ABSPATH', __DIR__ . '/' );
 
 class WP_Error {
-	private $code;
-	public function __construct( $c = '' ) { $this->code = $c; }
+	private $code, $data;
+	public function __construct( $c = '', $m = '', $d = null ) { $this->code = $c; $this->data = $d; }
 	public function get_error_code() { return $this->code; }
+	public function get_error_data() { return $this->data; }
 }
 class WP_Post {
 	public $ID = 0, $post_type = 'post', $post_status = 'draft', $post_title = '';
@@ -38,6 +40,7 @@ $GLOBALS['meta_args']  = array();
 $GLOBALS['revisioned'] = array();
 $GLOBALS['wrong']      = array();
 $GLOBALS['next_id']    = 100;
+$GLOBALS['db_fails']   = false;
 
 function __( $s, $d = null ) { return $s; }
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
@@ -80,6 +83,12 @@ function wp_update_post( $postarr, $wp_error = false ) {
 	if ( ! isset( $GLOBALS['posts'][ $id ] ) ) {
 		return $wp_error ? new WP_Error( 'invalid_post' ) : 0;
 	}
+	// A check can make the next update fail, as a database error does: nothing is written, and the
+	// caller hears of it only when it asked for a WP_Error.
+	if ( $GLOBALS['db_fails'] ) {
+		$GLOBALS['db_fails'] = false;
+		return $wp_error ? new WP_Error( 'db_update_error' ) : 0;
+	}
 	foreach ( array( 'post_title', 'post_status' ) as $field ) {
 		if ( isset( $postarr[ $field ] ) ) {
 			$GLOBALS['posts'][ $id ]->$field = $postarr[ $field ];
@@ -113,8 +122,42 @@ function get_posts( $args = array() ) {
 }
 function get_post_meta( $id, $key = '', $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $key ] ?? ''; }
 function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = wp_unslash( $value ); return true; } // Unslashed, as WordPress does.
+function apply_filters( $tag, $value ) { return $value; } // Nothing hooked: the program map as its PHP describes it.
+function get_current_user_id() { return 7; }
+function add_option( $k, $v = '', $deprecated = '', $autoload = null ) {
+	if ( array_key_exists( $k, $GLOBALS['opts'] ) ) {
+		return false;
+	}
+	$GLOBALS['opts'][ $k ]     = $v;
+	$GLOBALS['autoload'][ $k ] = $autoload;
+	return true;
+}
+function delete_post_meta( $id, $key ) { unset( $GLOBALS['pmeta'][ (int) $id ][ $key ] ); return true; }
+
+/** The hand-written forms the switch compares a definition with: whatever a check sets. */
+class WPCPM_Student_Report_Form {
+	public static $forms = array();
+	public static function builtin_fields( $track ) { return self::$forms[ $track ] ?? array(); }
+}
+function sanitize_key( $key ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) ); }
+
+/** The settings: the list the status rule reads, and the one write publishing makes. */
+class WPCPM_Settings {
+	public static $added = array();
+	public static function get() { return array( 'past_statuses' => array( 'Graduate', 'Dropped out' ) ); }
+	public static function add_student_status( $status ) { self::$added[] = $status; return true; }
+}
+
+/** The sync's column map, its report half: what the reserved-column rule reads. */
+class WPCPM_Mentors_Sync {
+	public static function fields() {
+		return array( 'report_name' => 'Name', 'report_email' => 'Email', 'report_status' => 'Status', 'report_mentor' => 'Mentor', 'report_instituton' => 'Educational institution', 'report_start' => 'Internship Start Date', 'report_end' => 'Internship End Date', 'report_link' => 'Personal link', 'report_link_50h' => '50h personal link', 'report_link_dev' => 'Dev Track ONLY personal link' );
+	}
+}
+
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ], $GLOBALS['revisions'][ (int) $id ] ); return true; }
 
+require_once __DIR__ . '/../includes/class-wpcpm-program.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-palette.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-tracks.php';
@@ -163,7 +206,7 @@ function revision( $post_id, $which ) {
 echo "=== Registration ===\n";
 
 WPCPM_Track_Store::init();
-ck( 'init() registers the type, then the meta, both on init', array_map( function ( $a ) { return array( $a[0], $a[1][1] ); }, $GLOBALS['actions'] ), array( array( 'init', 'register_post_type' ), array( 'init', 'register_meta' ) ) );
+ck( 'init() registers the type, then the meta, both on init, and the seeds after them', array_map( function ( $a ) { return array( $a[0], $a[1][1], $a[2] ); }, $GLOBALS['actions'] ), array( array( 'init', 'register_post_type', 10 ), array( 'init', 'register_meta', 10 ), array( 'init', 'maybe_seed', 20 ) ) );
 
 WPCPM_Track_Store::register_meta();
 ck( 'registered before its type, the meta would lose its revisions: WordPress refuses them', array( $GLOBALS['wrong'], $GLOBALS['meta_args']['wpcpm_track']['_wpcpm_track_definition']['revisions_enabled'] ), array( array( '_wpcpm_track_definition' ), false ) );
@@ -204,6 +247,15 @@ ck( 'and refuses a post of another type', WPCPM_Track_Store::save( $plain, track
 ck( 'get() answers null for another type of post', WPCPM_Track_Store::get( $plain ), null );
 ck( 'and for a post that is not there', WPCPM_Track_Store::get( 424242 ), null );
 
+$infinite                              = track( 'Infinite Track', 'infinite' );
+$infinite['questions']['Hours']['max'] = INF;
+$before                                = count( $GLOBALS['posts'] );
+$refused                               = WPCPM_Track_Store::create( $infinite );
+ck( 'create() refuses a definition JSON cannot hold, before any post is made', array( $refused instanceof WP_Error ? $refused->get_error_code() : $refused, count( $GLOBALS['posts'] ) ), array( 'wpcpm_track_unencodable', $before ) );
+$kept    = WPCPM_Track_Store::get( $id );
+$refused = WPCPM_Track_Store::save( $id, $infinite );
+ck( 'and save() refuses it without touching what was stored', array( $refused instanceof WP_Error ? $refused->get_error_code() : $refused, WPCPM_Track_Store::get( $id ) ), array( 'wpcpm_track_unencodable', $kept ) );
+
 echo "\n=== compile() ===\n";
 
 $GLOBALS['posts']     = array();
@@ -213,19 +265,20 @@ $a = WPCPM_Track_Store::create( track( 'Alpha Track', 'alpha' ) );
 $b = WPCPM_Track_Store::create( track( 'Beta Track', 'beta' ) );
 $c = WPCPM_Track_Store::create( track( 'Gamma Track', 'gamma' ) );
 $d = WPCPM_Track_Store::create( track( 'Delta Track', 'delta' ) );
+$GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ] = array();
+WPCPM_Tracks::rows(); // Read, so this request has the empty index in hand.
 foreach ( array( $a, $b, $d ) as $published ) {
-	wp_update_post( array( 'ID' => $published, 'post_status' => 'publish' ) );
+	WPCPM_Track_Store::publish( $published );
 }
 update_post_meta( $b, WPCPM_Track_Store::META_SOURCE, 'builtin' );
 update_post_meta( $a, WPCPM_Track_Store::META_AUTOMATION, '1' );
-update_post_meta( $d, WPCPM_Track_Store::META_DEFINITION, '{not json' );
-
-$GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ] = array();
-WPCPM_Tracks::rows(); // Read, so this request has the empty index in hand.
+update_post_meta( $d, WPCPM_Track_Store::META_PUBLISHED, '{not json' );
 $rows = WPCPM_Track_Store::compile();
 
 ck( 'only published tracks are compiled, in the order they were made', array_keys( $rows ), array( 'Alpha Track', 'Beta Track' ) );
-ck( 'a definition that cannot be read is left out rather than breaking the rest', isset( $rows['Delta Track'] ), false );
+ck( 'a published copy that cannot be read is left out rather than breaking the rest', isset( $rows['Delta Track'] ), false );
+ck( 'and the track list is told why', get_option( WPCPM_Track_Store::OPT_SKIPPED ), array( $d => array( 'unreadable' ) ) );
+ck( 'the list is not autoloaded: only the Track Builder reads it', $GLOBALS['autoload'][ WPCPM_Track_Store::OPT_SKIPPED ], false );
 ck( 'the index is autoloaded: labels() reads it for every row of every roster', array( $GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ] === $rows, $GLOBALS['autoload'][ WPCPM_Tracks::OPT_TRACKS ] ), array( true, true ) );
 ck( 'each form is an option of its own, not autoloaded', array( $GLOBALS['autoload']['wpcpm_track_fields_alpha'], $GLOBALS['autoload']['wpcpm_track_fields_beta'] ), array( false, false ) );
 ck( 'holding the form the live site draws, without the authoring properties', $GLOBALS['opts']['wpcpm_track_fields_alpha'], WPCPM_Track_Definition::compile_fields( WPCPM_Track_Store::get( $a ) ) );
@@ -237,6 +290,267 @@ wp_update_post( array( 'ID' => $a, 'post_status' => 'draft' ) );
 $rows = WPCPM_Track_Store::compile();
 ck( 'a track taken back to draft leaves the index', array_keys( $rows ), array( 'Beta Track' ) );
 ck( 'and its form option goes with it', array_key_exists( 'wpcpm_track_fields_alpha', $GLOBALS['opts'] ), false );
+
+echo "\n=== What compile() reads: the copy each track was published with ===\n";
+
+$GLOBALS['posts']     = array();
+$GLOBALS['pmeta']     = array();
+$GLOBALS['revisions'] = array();
+$GLOBALS['opts']      = array();
+WPCPM_Tracks::flush();
+WPCPM_Settings::$added = array();
+
+$alpha = WPCPM_Track_Store::create( track( 'Alpha Track', 'alpha' ) );
+ck( 'a new track is a draft', WPCPM_Track_Store::state( $alpha ), 'draft' );
+ck( 'publish() hands back the track', WPCPM_Track_Store::publish( $alpha ), $alpha );
+ck( 'now published, its copy the definition as it stood', array( WPCPM_Track_Store::state( $alpha ), WPCPM_Track_Store::published( $alpha ) ), array( 'published', WPCPM_Track_Store::get( $alpha ) ) );
+ck( 'and compiled', WPCPM_Tracks::rows()['Alpha Track']['label'], 'Alpha Track' );
+ck( 'its status joins "Currently mentoring", so the students sync reads its students', WPCPM_Settings::$added, array( 'Alpha Track' ) );
+
+WPCPM_Track_Store::save( $alpha, track( 'Alpha Track', 'alpha', 'Alpha Track, renamed' ) );
+ck( 'an edit saved to a published track is an unpublished change', WPCPM_Track_Store::state( $alpha ), 'changed' );
+ck( 'which students do not see', WPCPM_Tracks::rows()['Alpha Track']['label'], 'Alpha Track' );
+
+$beta = WPCPM_Track_Store::create( track( 'Beta Track', 'beta' ) );
+WPCPM_Track_Store::publish( $beta );
+ck( 'nor once another track is published and everything compiles again (the design\'s decision 3.2)', array( WPCPM_Tracks::rows()['Alpha Track']['label'], isset( WPCPM_Tracks::rows()['Beta Track'] ) ), array( 'Alpha Track', true ) );
+
+WPCPM_Track_Store::publish( $alpha );
+ck( 'until it is published itself', array( WPCPM_Tracks::rows()['Alpha Track']['label'], WPCPM_Track_Store::state( $alpha ) ), array( 'Alpha Track, renamed', 'published' ) );
+
+echo "\n=== What publish() refuses ===\n";
+
+/** Create a track, publish it, and say what came back: the code, the rules' codes, and its state. */
+function publish_new( array $definition, $source = '' ) {
+	$id = WPCPM_Track_Store::create( $definition );
+
+	if ( '' !== $source ) {
+		update_post_meta( $id, WPCPM_Track_Store::META_SOURCE, $source );
+	}
+
+	$result = WPCPM_Track_Store::publish( $id );
+	$errors = $result instanceof WP_Error ? array_column( $result->get_error_data()['errors'], 'code' ) : array();
+
+	return array( $result instanceof WP_Error ? $result->get_error_code() : 'published', $errors, WPCPM_Track_Store::state( $id ) );
+}
+
+$status_question               = track( 'Gamma Track', 'gamma' );
+$status_question['questions']['Status'] = array( 'label' => 'Your status', 'type' => 'text', 'group' => 'project' );
+ck( 'a question on a column the syncs own, which would let a student move tracks', publish_new( $status_question ), array( 'wpcpm_track_invalid', array( 'column_reserved' ), 'draft' ) );
+ck( 'one of the four built-in statuses, which only the built-in track may hold, and the Designer Track\'s name as well', publish_new( track( 'Designer Track', 'designer-two', 'Designer Two' ) ), array( 'wpcpm_track_invalid', array( 'status_taken', 'status_named' ), 'draft' ) );
+ck( 'a key the stylesheets already paint', publish_new( track( 'Design Two Track', 'design' ) ), array( 'wpcpm_track_invalid', array( 'key_reserved' ), 'draft' ) );
+ck( 'a built-in track\'s name', publish_new( track( 'Design Two Track', 'design-two', 'Designer Track' ) ), array( 'wpcpm_track_invalid', array( 'label_taken' ), 'draft' ) );
+ck( 'another published track\'s status, which is its name as well', publish_new( track( 'Beta Track', 'beta-two', 'Beta Two' ) ), array( 'wpcpm_track_invalid', array( 'status_taken', 'status_named' ), 'draft' ) );
+WPCPM_Track_Store::save( $alpha, track( 'Alpha Program', 'alpha' ) );
+$moved = WPCPM_Track_Store::publish( $alpha );
+ck( 'a new status for a track already published', array( $moved->get_error_code(), array_column( $moved->get_error_data()['errors'], 'code' ) ), array( 'wpcpm_track_invalid', array( 'status_locked' ) ) );
+ck( 'and nothing live changes for it', array( WPCPM_Tracks::rows()['Alpha Track']['label'], WPCPM_Track_Store::state( $alpha ) ), array( 'Alpha Track, renamed', 'changed' ) );
+WPCPM_Track_Store::save( $alpha, WPCPM_Track_Store::published( $alpha ) );
+
+$seed          = track( 'Designer Track', 'design' );
+$seed['label'] = 'Designer Track';
+ck( 'a built-in track\'s own definition keeps its status, its key and its name', publish_new( $seed, 'builtin' ), array( 'published', array(), 'published' ) );
+ck( 'and is compiled as built-in, so its PHP keeps running it', WPCPM_Tracks::rows()['Designer Track']['source'], 'builtin' );
+
+echo "\n=== What compile() leaves out ===\n";
+
+/** Write a published copy by hand, as nothing but a bug or a hand edit would. */
+function tamper( $post_id, callable $change ) {
+	$copy = WPCPM_Track_Store::published( $post_id );
+	$change( $copy );
+	update_post_meta( $post_id, WPCPM_Track_Store::META_PUBLISHED, wp_slash( WPCPM_Track_Definition::encode( $copy ) ) );
+}
+
+tamper( $beta, function ( &$copy ) { $copy['questions']['Status'] = array( 'label' => 'Your status', 'type' => 'text', 'group' => 'project' ); } );
+$rows = WPCPM_Track_Store::compile();
+ck( 'a copy the rules refuse is not compiled, though it was published', isset( $rows['Beta Track'] ), false );
+ck( 'and the track list is told why', get_option( WPCPM_Track_Store::OPT_SKIPPED )[ $beta ], array( 'column_reserved' ) );
+ck( 'while every other track compiles regardless', array_keys( $rows ), array( 'Alpha Track', 'Designer Track' ) );
+
+$late = WPCPM_Track_Store::create( track( 'Late Track', 'late' ) );
+WPCPM_Track_Store::publish( $late );
+tamper( $late, function ( &$copy ) { $copy['status'] = 'Alpha Track'; } );
+$rows = WPCPM_Track_Store::compile();
+ck( 'of two copies claiming one status, the first made keeps it', array( $rows['Alpha Track']['post'], get_option( WPCPM_Track_Store::OPT_SKIPPED )[ $late ] ), array( $alpha, array( 'status_taken' ) ) );
+tamper( $late, function ( &$copy ) { $copy['status'] = 'Developer Track'; } );
+$rows = WPCPM_Track_Store::compile();
+ck( 'and a copy holding a built-in status must hold its key as well', array( isset( $rows['Developer Track'] ), get_option( WPCPM_Track_Store::OPT_SKIPPED )[ $late ] ), array( false, array( 'key_locked' ) ) );
+
+echo "\n=== unpublish(), and the log ===\n";
+
+ck( 'unpublish() hands back the track', WPCPM_Track_Store::unpublish( $alpha ), $alpha );
+ck( 'which is a draft again, off the live site', array( WPCPM_Track_Store::state( $alpha ), isset( WPCPM_Tracks::rows()['Alpha Track'] ) ), array( 'draft', false ) );
+ck( 'its published copy kept, as the record of what was live', WPCPM_Track_Store::published( $alpha )['label'], 'Alpha Track, renamed' );
+ck( 'a track that is not published cannot be unpublished', WPCPM_Track_Store::unpublish( $alpha )->get_error_code(), 'wpcpm_track_not_published' );
+ck( 'the log says what happened, in order, and who did it', array( array_column( WPCPM_Track_Store::log_entries( $alpha ), 'did' ), array_values( array_unique( array_column( WPCPM_Track_Store::log_entries( $alpha ), 'by' ) ) ) ), array( array( 'publish', 'publish', 'unpublish' ), array( 7 ) ) );
+WPCPM_Track_Store::publish( $beta, 42 );
+$entries = WPCPM_Track_Store::log_entries( $beta );
+ck( 'naming the person the screen says published it', end( $entries )['by'], 42 );
+ck( 'and a timestamp', is_int( end( $entries )['at'] ) && end( $entries )['at'] > 0, true );
+
+echo "\n=== When WordPress refuses the status change ===\n";
+
+// wp_update_post() can fail, and the store asks for its WP_Error: a publish or an unpublish
+// WordPress refuses must leave the track as it was (the final review of T2a, its M2). Every
+// compile() writes the skipped list, so a mark left there shows whether one ran.
+$first = WPCPM_Track_Store::create( track( 'Epsilon Track', 'epsilon' ) );
+$added = WPCPM_Settings::$added;
+update_option( WPCPM_Track_Store::OPT_SKIPPED, 'no compile since', false );
+$GLOBALS['db_fails'] = true;
+$result              = WPCPM_Track_Store::publish( $first );
+ck( 'a first publish WordPress refuses hands back its error', $result instanceof WP_Error ? $result->get_error_code() : $result, 'db_update_error' );
+ck( 'and leaves the track a draft with no published copy', array( WPCPM_Track_Store::state( $first ), isset( $GLOBALS['pmeta'][ $first ][ WPCPM_Track_Store::META_PUBLISHED ] ) ), array( 'draft', false ) );
+ck( 'its status not added to "Currently mentoring", nothing compiled and nothing logged', array( WPCPM_Settings::$added, get_option( WPCPM_Track_Store::OPT_SKIPPED ), WPCPM_Track_Store::log_entries( $first ) ), array( $added, 'no compile since', array() ) );
+
+$shown = WPCPM_Track_Store::create( track( 'Zeta Track', 'zeta' ) );
+WPCPM_Track_Store::publish( $shown );
+WPCPM_Track_Store::save( $shown, track( 'Zeta Track', 'zeta', 'Zeta Track, renamed' ) );
+$copy  = WPCPM_Track_Store::published( $shown );
+$added = WPCPM_Settings::$added;
+$log   = WPCPM_Track_Store::log_entries( $shown );
+update_option( WPCPM_Track_Store::OPT_SKIPPED, 'no compile since', false );
+$GLOBALS['db_fails'] = true;
+$result              = WPCPM_Track_Store::publish( $shown );
+ck( 'publishing an edit WordPress refuses hands back its error', $result instanceof WP_Error ? $result->get_error_code() : $result, 'db_update_error' );
+ck( 'with nothing added, compiled or logged', array( WPCPM_Settings::$added, get_option( WPCPM_Track_Store::OPT_SKIPPED ), WPCPM_Track_Store::log_entries( $shown ) ), array( $added, 'no compile since', $log ) );
+ck( 'and puts back the copy it was published with, so no later compile runs the edit', array( WPCPM_Track_Store::published( $shown ), WPCPM_Track_Store::state( $shown ), WPCPM_Track_Store::compile()['Zeta Track']['label'] ), array( $copy, 'changed', 'Zeta Track' ) );
+
+$log = WPCPM_Track_Store::log_entries( $shown );
+update_option( WPCPM_Track_Store::OPT_SKIPPED, 'no compile since', false );
+$GLOBALS['db_fails'] = true;
+$result              = WPCPM_Track_Store::unpublish( $shown );
+ck( 'an unpublish WordPress refuses hands back its error', $result instanceof WP_Error ? $result->get_error_code() : $result, 'db_update_error' );
+ck( 'and leaves the track published and on the live site, with nothing compiled or logged', array( get_post( $shown )->post_status, isset( WPCPM_Tracks::rows()['Zeta Track'] ), get_option( WPCPM_Track_Store::OPT_SKIPPED ), WPCPM_Track_Store::log_entries( $shown ) ), array( 'publish', true, 'no compile since', $log ) );
+
+echo "\n=== The four built-in tracks, seeded ===\n";
+
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+$GLOBALS['opts']  = array();
+WPCPM_Tracks::flush();
+
+$seeded = WPCPM_Track_Store::seed();
+ck( 'seed() creates one track for each seed the plugin ships', array_keys( $seeded ), array( '150h', '50h', 'dev', 'design' ) );
+$states = array();
+foreach ( $seeded as $key => $post_id ) {
+	$states[ $key ] = array( WPCPM_Track_Store::state( $post_id ), get_post_meta( $post_id, WPCPM_Track_Store::META_SOURCE, true ), WPCPM_Track_Store::get( $post_id )['status'] );
+}
+ck( 'each a draft marked built-in, holding its seed', $states, array( '150h' => array( 'draft', 'builtin', 'In Sensei' ), '50h' => array( 'draft', 'builtin', 'In Sensei 50h' ), 'dev' => array( 'draft', 'builtin', 'Developer Track' ), 'design' => array( 'draft', 'builtin', 'Designer Track' ) ) );
+ck( 'the seed as shipped, byte for byte', WPCPM_Track_Store::get( $seeded['design'] ), WPCPM_Track_Store::seeds()['design'] );
+ck( 'seeding again creates nothing: each status is already held', array( WPCPM_Track_Store::seed(), count( $GLOBALS['posts'] ) ), array( array( '150h' => 0, '50h' => 0, 'dev' => 0, 'design' => 0 ), 4 ) );
+
+// The design's section 6: a built-in track its PHP still runs is read-only, so it can be
+// duplicated but not edited. `locked()` reads the status a built-in draft names now, so an edit
+// could point a seed at another track (the final review of T2a, its I2).
+$kept          = array( WPCPM_Track_Store::get( $seeded['design'] ), get_post( $seeded['design'] )->post_title, count( $GLOBALS['revisions'][ $seeded['design'] ] ) );
+$edit          = WPCPM_Track_Store::get( $seeded['design'] );
+$edit['label'] = 'Designer Track, edited';
+$refused       = WPCPM_Track_Store::save( $seeded['design'], $edit );
+ck( 'a seeded draft cannot be saved: its PHP still runs it, and it can be duplicated instead', $refused instanceof WP_Error ? $refused->get_error_code() : $refused, 'wpcpm_track_builtin' );
+ck( 'and the refusal writes nothing: its definition, its title and its history are as seeded', array( WPCPM_Track_Store::get( $seeded['design'] ), get_post( $seeded['design'] )->post_title, count( $GLOBALS['revisions'][ $seeded['design'] ] ) ), $kept );
+
+/** Save a seed as another track: what save() answered, and the status the seed holds afterwards. */
+function repoint( $post_id, $status, $key ) {
+	$definition           = WPCPM_Track_Store::get( $post_id );
+	$definition['status'] = $status;
+	$definition['key']    = $key;
+	$definition['label']  = $status;
+	$result               = WPCPM_Track_Store::save( $post_id, $definition );
+
+	return array( $result instanceof WP_Error ? $result->get_error_code() : $result, WPCPM_Track_Store::get( $post_id )['status'] );
+}
+
+ck( 'so the 150-hour seed cannot be saved as the Developer Track, which would lock the real one out for good', repoint( $seeded['150h'], 'Developer Track', 'dev' ), array( 'wpcpm_track_builtin', 'In Sensei' ) );
+ck( 'nor the 50-hour seed as a Writing Track no page would run, though publishing it would add its status to "Currently mentoring"', repoint( $seeded['50h'], 'Writing Track', 'writing' ), array( 'wpcpm_track_builtin', 'In Sensei 50h' ) );
+
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+$GLOBALS['opts']  = array();
+WPCPM_Tracks::flush();
+WPCPM_Track_Store::maybe_seed();
+ck( 'a site seeds itself once, the first time it runs this version', array( count( $GLOBALS['posts'] ), get_option( WPCPM_Track_Store::OPT_SEEDED ) ), array( 4, 1 ) );
+ck( 'and writes the index, empty and autoloaded, so no request asks for an option that is not there', array( get_option( WPCPM_Tracks::OPT_TRACKS, 'missing' ), $GLOBALS['autoload'][ WPCPM_Tracks::OPT_TRACKS ] ), array( array(), true ) );
+WPCPM_Track_Store::maybe_seed();
+ck( 'and never again', count( $GLOBALS['posts'] ), 4 );
+
+echo "\n=== The switch between a built-in track's PHP and its definition ===\n";
+
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+$GLOBALS['opts']  = array();
+WPCPM_Tracks::flush();
+
+$designer = array(
+	'schema_version'  => 1,
+	'status'          => 'Designer Track',
+	'key'             => 'design',
+	'label'           => 'Designer Track',
+	'course_url'      => WPCPM_Program::course_url( 'Designer Track' ),
+	'learn_course_id' => WPCPM_Program::course_id( 'Designer Track' ),
+	'hours_target'    => 150,
+	'hue'             => 'pink',
+	'questions'       => track( 'Designer Track', 'design' )['questions'],
+);
+$form = WPCPM_Track_Definition::compile_fields( WPCPM_Track_Definition::normalize( $designer ) );
+$d    = WPCPM_Track_Store::create( $designer );
+update_post_meta( $d, WPCPM_Track_Store::META_SOURCE, 'builtin' );
+WPCPM_Track_Store::publish( $d );
+
+// Sequence a of the final review's I1: an edit saved while the PHP runs a published track
+// passes the switch unseen, since the switch compares the published copy, and once the edit
+// is published the fingerprint taken at the switch still opens the way back, dropping it.
+$early          = WPCPM_Track_Store::get( $d );
+$early['label'] = 'Designer Track, edited while its PHP runs it';
+$refused        = WPCPM_Track_Store::save( $d, $early );
+ck( 'published and still run by its PHP, it takes no edit either, so none can ride the switch onto the live site', array( $refused instanceof WP_Error ? $refused->get_error_code() : $refused, WPCPM_Track_Store::state( $d ) ), array( 'wpcpm_track_builtin', 'published' ) );
+
+WPCPM_Student_Report_Form::$forms['design'] = array( 'Something else' => array( 'label' => 'x', 'type' => 'text', 'group' => 'project' ) );
+$refused = WPCPM_Track_Store::switch_to_definition( $d );
+ck( 'a built-in track cannot switch while its definition differs from its PHP', array( $refused->get_error_code(), $refused->get_error_data()['differences'] ), array( 'wpcpm_track_not_equivalent', array( 'form' ) ) );
+ck( 'and keeps running from its PHP', WPCPM_Tracks::rows()['Designer Track']['source'], 'builtin' );
+
+WPCPM_Student_Report_Form::$forms['design'] = $form;
+ck( 'identical, the two are equivalent', WPCPM_Track_Store::equivalence( $d ), array() );
+ck( 'and the switch hands back the track', WPCPM_Track_Store::switch_to_definition( $d ), $d );
+ck( 'which now runs from its definition', array( WPCPM_Tracks::rows()['Designer Track']['source'], get_post_meta( $d, WPCPM_Track_Store::META_SOURCE, true ) ), array( 'definition', '' ) );
+ck( 'switching back is open while nothing has been edited', WPCPM_Track_Store::switch_to_builtin( $d ), $d );
+ck( 'and puts its PHP back in charge', WPCPM_Tracks::rows()['Designer Track']['source'], 'builtin' );
+
+WPCPM_Track_Store::switch_to_definition( $d );
+$edited          = WPCPM_Track_Store::get( $d );
+$edited['label'] = 'Designer Track, edited';
+WPCPM_Track_Store::save( $d, $edited );
+ck( 'once the definition is edited, the way back is closed: it would drop the edit', WPCPM_Track_Store::switch_to_builtin( $d )->get_error_code(), 'wpcpm_track_edited' );
+ck( 'the log records each switch', array_column( WPCPM_Track_Store::log_entries( $d ), 'did' ), array( 'publish', 'switch_definition', 'switch_builtin', 'switch_definition' ) );
+
+// The fingerprint alone cannot see an edit that was published and then saved back to the old
+// text without being published: going back would put the PHP in front of students and drop the
+// edit they see (the final review of T2a, its I1, sequence b). The published copy must be the
+// PHP's as well, which equivalence() answers.
+WPCPM_Track_Store::publish( $d );
+ck( 'and it stays closed once the edit is published', WPCPM_Track_Store::switch_to_builtin( $d )->get_error_code(), 'wpcpm_track_edited' );
+$reverted          = $edited;
+$reverted['label'] = $designer['label'];
+WPCPM_Track_Store::save( $d, $reverted );
+$refused = WPCPM_Track_Store::switch_to_builtin( $d );
+ck( 'saving the old text back does not reopen it while students see the edit, and the refusal says what differs', $refused instanceof WP_Error ? array( $refused->get_error_code(), $refused->get_error_data()['differences'] ) : $refused, array( 'wpcpm_track_not_equivalent', array( 'label' ) ) );
+WPCPM_Track_Store::publish( $d );
+ck( 'once the old text is published, students see the PHP\'s copy again, and the way back opens', WPCPM_Track_Store::switch_to_builtin( $d ), $d );
+WPCPM_Track_Store::switch_to_definition( $d );
+WPCPM_Track_Store::unpublish( $d );
+ck( 'an unpublished track may go back as well: its PHP already runs it, so going back changes nothing a student sees', WPCPM_Track_Store::switch_to_builtin( $d ), $d );
+
+$other = WPCPM_Track_Store::create( track( 'Marketing Track', 'marketing' ) );
+WPCPM_Track_Store::publish( $other );
+ck( 'a track that was never built in cannot switch', WPCPM_Track_Store::switch_to_definition( $other )->get_error_code(), 'wpcpm_track_not_builtin' );
+ck( 'nor switch back', WPCPM_Track_Store::switch_to_builtin( $other )->get_error_code(), 'wpcpm_track_not_switched' );
+ck( 'and is equivalent to no PHP', WPCPM_Track_Store::equivalence( $other ), array( 'not_builtin' ) );
+
+$drift = WPCPM_Track_Store::create( array( 'hours_target' => 120, 'label' => 'Designer Track, renamed' ) + $designer );
+update_post_meta( $drift, WPCPM_Track_Store::META_SOURCE, 'builtin' );
+update_post_meta( $drift, WPCPM_Track_Store::META_PUBLISHED, wp_slash( WPCPM_Track_Definition::encode( WPCPM_Track_Store::get( $drift ) ) ) );
+wp_update_post( array( 'ID' => $drift, 'post_status' => 'publish' ) );
+ck( 'equivalence names each way a definition differs from its PHP', WPCPM_Track_Store::equivalence( $drift ), array( 'label', 'hours' ) );
 
 echo "\n=== delete_all(), for uninstall ===\n";
 
@@ -259,6 +573,7 @@ echo "\n=== Wired into the plugin ===\n";
 $uninstall = (string) file_get_contents( __DIR__ . '/../uninstall.php' );
 ck( 'uninstall.php loads the store and the two classes it reads', array( false !== strpos( $uninstall, "includes/tracks/class-wpcpm-track-store.php'" ), false !== strpos( $uninstall, "includes/tracks/class-wpcpm-tracks.php'" ), false !== strpos( $uninstall, "includes/tracks/class-wpcpm-track-definition.php'" ) ), array( true, true, true ) );
 ck( 'and calls delete_all()', false !== strpos( $uninstall, 'WPCPM_Track_Store::delete_all();' ), true );
+ck( 'and sweeps any form option the index lost track of', false !== strpos( $uninstall, "array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX ) as \$wpcpm_prefix" ), true );
 $main = (string) file_get_contents( __DIR__ . '/../wpcredits-program-manager.php' );
 ck( 'the plugin boots the store and the runtime', array( false !== strpos( $main, 'WPCPM_Track_Store::init();' ), false !== strpos( $main, 'WPCPM_Tracks::init();' ) ), array( true, true ) );
 

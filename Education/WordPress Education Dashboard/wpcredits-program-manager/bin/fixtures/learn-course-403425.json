@@ -1,0 +1,179 @@
+{
+	"_comment": "The modules and lessons of one Learn WordPress course, read from the public, unauthenticated sensei-internal/v1/course-structure endpoint. bin/build-seeds.php matches the report form's headings against these lesson titles to record learn_lesson_id in the seed definitions, and bin/test-track-definitions.php checks the seeds against them. Refresh by reading the endpoint again.",
+	"course_id": 403425,
+	"course_url": "https://learn.wordpress.org/course/wordpress-credits-designer-track/",
+	"read": "2026-09-11",
+	"modules": [
+		{
+			"title": "Onboarding",
+			"lessons": [
+				{
+					"id": 403435,
+					"title": "Welcome and Essential Communication Guidelines"
+				},
+				{
+					"id": 403437,
+					"title": "Share your WordPress profile"
+				},
+				{
+					"id": 403439,
+					"title": "Join global Slack"
+				},
+				{
+					"id": 403441,
+					"title": "Differences between WordPress.com and WordPress.org"
+				},
+				{
+					"id": 403443,
+					"title": "Complete: Open source basics and WordPress"
+				},
+				{
+					"id": 403445,
+					"title": "Complete: How decisions are made in the WordPress project"
+				},
+				{
+					"id": 403447,
+					"title": "Complete: Community meeting etiquette"
+				},
+				{
+					"id": 403449,
+					"title": "Complete: Writing in the WordPress voice"
+				},
+				{
+					"id": 403451,
+					"title": "Complete: Basic principles of conflict resolution"
+				},
+				{
+					"id": 403453,
+					"title": "Complete: Beginner WordPress Designer Course"
+				},
+				{
+					"id": 403455,
+					"title": "From design skills to contribution"
+				},
+				{
+					"id": 403457,
+					"title": "Create your portfolio"
+				},
+				{
+					"id": 403459,
+					"title": "Reflection: Building Your Portfolio"
+				}
+			]
+		},
+		{
+			"title": "Project",
+			"lessons": [
+				{
+					"id": 403461,
+					"title": "How to contribute to WordPress"
+				},
+				{
+					"id": 403463,
+					"title": "The WordPress Design Team Deep Dive"
+				},
+				{
+					"id": 403465,
+					"title": "Introduction to Figma for WordPress Design"
+				},
+				{
+					"id": 403467,
+					"title": "Design Contribution Pathways for Students"
+				},
+				{
+					"id": 403469,
+					"title": "Understand WordPress Design Principles"
+				},
+				{
+					"id": 403471,
+					"title": "Practical: Duplicate and Explore the WordPress Design Library"
+				},
+				{
+					"id": 403473,
+					"title": "Practical: Set Up a Local WordPress Environment for Design Testing"
+				},
+				{
+					"id": 403475,
+					"title": "Explore and practice WordPress design"
+				},
+				{
+					"id": 403477,
+					"title": "Practical: Change Your Site's Global Styles"
+				},
+				{
+					"id": 403479,
+					"title": "Practical: Customize with the Style Book"
+				},
+				{
+					"id": 403481,
+					"title": "Practical: Compose a Landing Page with Layout Blocks"
+				},
+				{
+					"id": 403483,
+					"title": "Practical: Apply Custom CSS in the Site Editor"
+				},
+				{
+					"id": 403485,
+					"title": "Contribute to a real project"
+				},
+				{
+					"id": 403487,
+					"title": "Practical: Create and Submit a Custom Block Pattern"
+				},
+				{
+					"id": 403489,
+					"title": "Practical: Test Your Site for Accessibility"
+				},
+				{
+					"id": 403563,
+					"title": "Define and begin developing your contribution project"
+				},
+				{
+					"id": 403565,
+					"title": "Reflection: Choosing Your Team and Project"
+				},
+				{
+					"id": 403491,
+					"title": "Alumni Program: Connect with the community and plan your contribution beyond WP Credits"
+				},
+				{
+					"id": 403493,
+					"title": "Complete the first feedback form"
+				},
+				{
+					"id": 403495,
+					"title": "Reflection: Your First Contribution"
+				},
+				{
+					"id": 403497,
+					"title": "Leave your mid-course feedback"
+				},
+				{
+					"id": 403499,
+					"title": "Reflection: Halfway Check-In"
+				},
+				{
+					"id": 403501,
+					"title": "Participate at a WordPress Event (online or in person)"
+				}
+			]
+		},
+		{
+			"title": "Wrap-up",
+			"lessons": [
+				{
+					"id": 403503,
+					"title": "Prepare and deliver a wrap-up report"
+				},
+				{
+					"id": 403505,
+					"title": "Get your certificate"
+				},
+				{
+					"id": 403507,
+					"title": "Complete the feedback form"
+				}
+			]
+		}
+	]
+}

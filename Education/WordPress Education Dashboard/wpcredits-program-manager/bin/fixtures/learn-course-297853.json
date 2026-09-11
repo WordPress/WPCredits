@@ -1,0 +1,127 @@
+{
+	"_comment": "The modules and lessons of one Learn WordPress course, read from the public, unauthenticated sensei-internal/v1/course-structure endpoint. bin/build-seeds.php matches the report form's headings against these lesson titles to record learn_lesson_id in the seed definitions, and bin/test-track-definitions.php checks the seeds against them. Refresh by reading the endpoint again.",
+	"course_id": 297853,
+	"course_url": "https://learn.wordpress.org/course/wordpress-credits/",
+	"read": "2026-09-11",
+	"modules": [
+		{
+			"title": "Onboarding",
+			"lessons": [
+				{
+					"id": 299685,
+					"title": "Welcome and Essential Communication Guidelines"
+				},
+				{
+					"id": 297856,
+					"title": "Share your WordPress profile"
+				},
+				{
+					"id": 297874,
+					"title": "Join global Slack"
+				},
+				{
+					"id": 315361,
+					"title": "Differences between WordPress.com and WordPress.org"
+				},
+				{
+					"id": 297858,
+					"title": "Complete: Open source basics and WordPress"
+				},
+				{
+					"id": 297885,
+					"title": "Complete: How decisions are made in the WordPress project"
+				},
+				{
+					"id": 297891,
+					"title": "Complete: Community meeting etiquette"
+				},
+				{
+					"id": 297893,
+					"title": "Complete: Writing in the WordPress voice"
+				},
+				{
+					"id": 297895,
+					"title": "Complete: Basic principles of conflict resolution"
+				},
+				{
+					"id": 297882,
+					"title": "Complete: Beginner, Intermediate, or Advanced WordPress User"
+				},
+				{
+					"id": 297899,
+					"title": "Create your personal website"
+				},
+				{
+					"id": 297903,
+					"title": "Reflection: Building your personal website"
+				}
+			]
+		},
+		{
+			"title": "Project",
+			"lessons": [
+				{
+					"id": 300214,
+					"title": "How to contribute to WordPress"
+				},
+				{
+					"id": 304804,
+					"title": "Contribution Team Deep Dive"
+				},
+				{
+					"id": 304809,
+					"title": "Immediate Contribution Opportunities"
+				},
+				{
+					"id": 297901,
+					"title": "Define and begin developing your contribution project"
+				},
+				{
+					"id": 297925,
+					"title": "Reflection: Choosing Your Team and Project"
+				},
+				{
+					"id": 297905,
+					"title": "Connect with the WordPress Global Community"
+				},
+				{
+					"id": 299660,
+					"title": "Complete the first feedback form"
+				},
+				{
+					"id": 297927,
+					"title": "Reflection: Your first contribution"
+				},
+				{
+					"id": 299664,
+					"title": "Leave your mid-course feedback"
+				},
+				{
+					"id": 297929,
+					"title": "Reflection: Halfway Check-In"
+				},
+				{
+					"id": 297907,
+					"title": "Participate at a WordPress Event (online or in person)"
+				}
+			]
+		},
+		{
+			"title": "Wrap-up",
+			"lessons": [
+				{
+					"id": 297916,
+					"title": "Prepare and deliver a wrap-up report"
+				},
+				{
+					"id": 321361,
+					"title": "Get your certificate"
+				},
+				{
+					"id": 297918,
+					"title": "Complete the feedback form"
+				}
+			]
+		}
+	]
+}

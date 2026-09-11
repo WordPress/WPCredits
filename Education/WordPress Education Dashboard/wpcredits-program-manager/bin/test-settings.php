@@ -723,6 +723,16 @@ $saved = WPCPM_Settings::save( array( 'tools_mentors' => '1' ) );
 ck( 'tools_students stays off when a save omits it, like sponsor_home', $saved['tools_students'], false );
 ck( 'tools_mentors carried as 1 reads as on', $saved['tools_mentors'], true );
 
+echo "\n=== A published track's status joins the list, and nothing leaves it (1.101.0) ===\n";
+
+$GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'student_statuses' => array( 'In Sensei', 'Paused' ) ) );
+ck( 'a status the list lacks is appended', array( WPCPM_Settings::add_student_status( 'Marketing Track' ), $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'] ), array( true, array( 'In Sensei', 'Paused', 'Marketing Track' ) ) );
+ck( 'a status it holds is not added twice, and nothing is taken away', array( WPCPM_Settings::add_student_status( 'Marketing Track' ), $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'] ), array( false, array( 'In Sensei', 'Paused', 'Marketing Track' ) ) );
+ck( 'trimmed like every status, and nothing for an empty one', array( WPCPM_Settings::add_student_status( ' Writing Track ' ), WPCPM_Settings::add_student_status( '  ' ), end( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'] ) ), array( true, false, 'Writing Track' ) );
+$GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'api_token' => 'kept' ) );
+WPCPM_Settings::add_student_status( 'Marketing Track' );
+ck( 'a saved option with no list starts from the default one, and keeps its other settings', array( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] ), array( array_merge( WPCPM_Settings::defaults()['student_statuses'], array( 'Marketing Track' ) ), 'kept' ) );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 
 exit( $fail ? 1 : 0 );

@@ -1,0 +1,83 @@
+{
+	"_comment": "The modules and lessons of one Learn WordPress course, read from the public, unauthenticated sensei-internal/v1/course-structure endpoint. bin/build-seeds.php matches the report form's headings against these lesson titles to record learn_lesson_id in the seed definitions, and bin/test-track-definitions.php checks the seeds against them. Refresh by reading the endpoint again.",
+	"course_id": 322343,
+	"course_url": "https://learn.wordpress.org/course/50-hours-wordpress-credits/",
+	"read": "2026-09-11",
+	"modules": [
+		{
+			"title": "Onboarding",
+			"lessons": [
+				{
+					"id": 322392,
+					"title": "Welcome and Essential Communication Guidelines"
+				},
+				{
+					"id": 322344,
+					"title": "Share your WordPress profile"
+				},
+				{
+					"id": 322358,
+					"title": "Join global Slack"
+				},
+				{
+					"id": 322399,
+					"title": "Differences between WordPress.Com and WordPress.Org"
+				},
+				{
+					"id": 322346,
+					"title": "Complete: Open source basics and WordPress"
+				},
+				{
+					"id": 322348,
+					"title": "Complete: How decisions are made in the WordPress project"
+				},
+				{
+					"id": 322354,
+					"title": "Course: Basic principles of conflict resolution"
+				}
+			]
+		},
+		{
+			"title": "Project",
+			"lessons": [
+				{
+					"id": 322398,
+					"title": "How to contribute to WordPress"
+				},
+				{
+					"id": 322394,
+					"title": "Contribution Team Deep Dive"
+				},
+				{
+					"id": 322396,
+					"title": "Select your Contribution Project"
+				},
+				{
+					"id": 322362,
+					"title": "Define and begin developing your contribution project"
+				}
+			]
+		},
+		{
+			"title": "Wrap-up",
+			"lessons": [
+				{
+					"id": 322384,
+					"title": "Final Contribution Project Report"
+				},
+				{
+					"id": 401007,
+					"title": "Optional: Create your Website"
+				},
+				{
+					"id": 322401,
+					"title": "Get your certificate"
+				},
+				{
+					"id": 322386,
+					"title": "Complete the feedback form"
+				}
+			]
+		}
+	]
+}

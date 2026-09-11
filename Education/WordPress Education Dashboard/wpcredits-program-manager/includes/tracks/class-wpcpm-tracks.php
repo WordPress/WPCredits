@@ -18,8 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * autoloaded and small, and one `OPT_FIELDS_PREFIX` option per track holding its form, read on
  * the pages that draw one. The design gives a second reason for the options, that editing a
  * published track must not change the form students see until somebody publishes the change,
- * and that holds only once the compile reads what was published rather than what was last
- * saved (the design's open item 5).
+ * and it holds because the compile reads what was published, never what was last saved
+ * (`WPCPM_Track_Store::META_PUBLISHED`).
  *
  * A row whose source is `builtin` is a migrated track its PHP still runs (the design's decision
  * 3.5): every callback skips it, so the hand-written code stays authoritative until a Program
@@ -58,6 +58,13 @@ final class WPCPM_Tracks {
 	private static $forms = array();
 
 	/**
+	 * Above zero while the PHP maps are read without the compiled tracks.
+	 *
+	 * @var int
+	 */
+	private static $suspended = 0;
+
+	/**
 	 * Hook the tracks into the program map, the form and the stylesheet.
 	 */
 	public static function init() {
@@ -92,6 +99,10 @@ final class WPCPM_Tracks {
 	 * @return array<string, array> Status => row.
 	 */
 	public static function live() {
+		if ( self::$suspended > 0 ) {
+			return array();
+		}
+
 		return array_filter(
 			self::rows(),
 			static function ( $row ) {
@@ -314,15 +325,33 @@ final class WPCPM_Tracks {
 	/**
 	 * What `WPCPM_Track_Definition::validate()` needs to know about the site.
 	 *
+	 * `$own_status` leaves that status out of the others unconditionally, which is the hole the
+	 * T2a plan's decision 4 describes: a new track could take one of the four built-in statuses
+	 * under a key of its own. The store's `context()` is the one that locks, leaving a track's own
+	 * status out only when the track is locked to it, and no caller in the plugin passes a status
+	 * now.
+	 *
 	 * @param string $own_status The status of the track being checked, left out of the others.
+	 * @param bool   $compiled   False to read the program map as its PHP alone describes it, which
+	 *                           is how the store checks a track against the others it compiles.
 	 * @return array
 	 */
-	public static function validation_context( $own_status = '' ) {
-		$tracks = array();
+	public static function validation_context( $own_status = '', $compiled = true ) {
+		if ( ! $compiled ) {
+			return self::unfiltered(
+				static function () use ( $own_status ) {
+					return self::validation_context( $own_status );
+				}
+			);
+		}
 
-		foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
+		$tracks = array();
+		$labels = array();
+
+		foreach ( WPCPM_Program::labels() as $status => $label ) {
 			if ( (string) $status !== (string) $own_status ) {
 				$tracks[ $status ] = WPCPM_Program::track( $status );
+				$labels[ $status ] = (string) $label;
 			}
 		}
 
@@ -334,9 +363,63 @@ final class WPCPM_Tracks {
 
 		return array(
 			'tracks'           => $tracks,
+			'labels'           => $labels,
 			'refused_statuses' => array_values( array_unique( $refused ) ),
 			'reserved_columns' => self::reserved_columns(),
 			'locked'           => null,
 		);
+	}
+
+	/**
+	 * What the PHP says of a status, compiled tracks aside: the name, course and hours a built-in
+	 * track's definition must match before it may switch (the design's decision 3.5).
+	 *
+	 * @param string $status Status.
+	 * @return array `label`, `course_url`, `course_id` (0 for none) and `hours` (null for none).
+	 */
+	public static function builtin_row( $status ) {
+		return self::unfiltered(
+			static function () use ( $status ) {
+				$hours = WPCPM_Program::hours_targets();
+
+				return array(
+					'label'      => (string) WPCPM_Program::label( $status ),
+					'course_url' => (string) WPCPM_Program::course_url( $status ),
+					'course_id'  => (int) WPCPM_Program::course_id( $status ),
+					'hours'      => isset( $hours[ $status ] ) ? (int) $hours[ $status ] : null,
+				);
+			}
+		);
+	}
+
+	/**
+	 * The key the PHP gives a status, compiled tracks aside: one of the four built-in keys, or an
+	 * empty string for a status no built-in track holds.
+	 *
+	 * @param string $status Status.
+	 * @return string
+	 */
+	public static function builtin_key( $status ) {
+		return self::unfiltered(
+			static function () use ( $status ) {
+				return WPCPM_Program::is_track( $status ) ? (string) WPCPM_Program::track( $status ) : '';
+			}
+		);
+	}
+
+	/**
+	 * Run a read of the program map with no compiled track in it.
+	 *
+	 * @param callable $read The read.
+	 * @return mixed What it returned.
+	 */
+	private static function unfiltered( callable $read ) {
+		++self::$suspended;
+
+		try {
+			return $read();
+		} finally {
+			--self::$suspended;
+		}
 	}
 }

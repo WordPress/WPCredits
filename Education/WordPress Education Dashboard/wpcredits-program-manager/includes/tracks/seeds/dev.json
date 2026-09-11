@@ -1,0 +1,270 @@
+{
+    "schema_version": 1,
+    "status": "Developer Track",
+    "key": "dev",
+    "label": "Developer Track",
+    "course_url": "https://learn.wordpress.org/course/wordpress-credits-developer-track/",
+    "learn_course_id": 402893,
+    "hours_target": 0,
+    "hue": "teal",
+    "questions": {
+        "Hours": {
+            "label": "Hours contributed",
+            "type": "number",
+            "step": "1",
+            "min": 0,
+            "max": 10000,
+            "group": "hours",
+            "help": "The total you have logged so far.",
+            "airtable_type": "number"
+        },
+        "WordPress Profile": {
+            "label": "Your WordPress.org profile",
+            "type": "url",
+            "group": "onboarding",
+            "row": "contact",
+            "help": "Your profile page, or just your username.",
+            "airtable_type": "url"
+        },
+        "Slack Name": {
+            "label": "Your Slack name",
+            "type": "text",
+            "maxlength": 100,
+            "group": "onboarding",
+            "row": "contact",
+            "help": "Your display name in the Making WordPress Slack.",
+            "airtable_type": "singleLineText"
+        },
+        "Open source basics and WordPress - final grade": {
+            "label": "Open source basics and WordPress",
+            "subgroup": "Enter your final grade, 0 to 100",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "How decisions are made in the WordPress project - final grade": {
+            "label": "How decisions are made in the WordPress project",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Community meeting etiquette - final grade": {
+            "label": "Community meeting etiquette",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Writing in the WordPress voice - final grade": {
+            "label": "Writing in the WordPress voice",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Basic principles of conflict resolution - final grade": {
+            "label": "Basic principles of conflict resolution",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Beginner WordPress User - final grade": {
+            "label": "Beginner WordPress User",
+            "lead": "Complete one of the following courses",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Intermediate WordPress User - final grade": {
+            "label": "Intermediate WordPress User",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Advance WordPress User - final grade": {
+            "label": "Advanced WordPress User",
+            "type": "number",
+            "step": "0.01",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number",
+            "why": "The column says Advance and the label says Advanced: the base's spelling is the column's name, and the label is what a student reads."
+        },
+        "Developer Basics: modules completed": {
+            "label": "Developer Basics: modules you completed",
+            "type": "textarea",
+            "group": "onboarding",
+            "help": "One per line.",
+            "airtable_type": "multilineText"
+        },
+        "Developer basics: Optional modules taken": {
+            "label": "Developer Basics: optional modules you took",
+            "type": "textarea",
+            "group": "onboarding",
+            "help": "One per line. Leave empty if you took none.",
+            "airtable_type": "multilineText"
+        },
+        "Beginner WordPress Developer": {
+            "lead": "Optional courses",
+            "type": "number",
+            "step": "1",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "label": "Beginner WordPress Developer",
+            "airtable_type": "number"
+        },
+        "Intermediate Theme Developer": {
+            "label": "Intermediate Theme Developer",
+            "type": "number",
+            "step": "1",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Beginner WordPress Designer": {
+            "label": "Beginner WordPress Designer",
+            "type": "number",
+            "step": "1",
+            "min": 0,
+            "max": 100,
+            "group": "onboarding",
+            "airtable_type": "number"
+        },
+        "Personal Website URL": {
+            "subgroup": "Create your personal website",
+            "row": "website",
+            "label": "Your personal website URL",
+            "type": "url",
+            "group": "onboarding",
+            "airtable_type": "url",
+            "learn_lesson_id": 402910
+        },
+        "Post Reflection: Building Your Personal Website": {
+            "row": "website",
+            "label": "Link to the Post \"Reflection: Building Your Personal Website\"",
+            "type": "url",
+            "group": "onboarding",
+            "airtable_type": "url"
+        },
+        "Patch Testing: Trac ticket comments": {
+            "subgroup": "Practical",
+            "label": "Patch testing: your Trac ticket comments",
+            "type": "textarea",
+            "group": "project",
+            "help": "Links to the tickets you commented on, one per line.",
+            "airtable_type": "multilineText"
+        },
+        "Main Contribution Team": {
+            "label": "Main contribution team",
+            "type": "team",
+            "group": "project",
+            "row": "project",
+            "help": "The teams you are contributing to. Choose as many as apply.",
+            "lead": "Your contribution team and project",
+            "airtable_type": "multipleRecordLinks"
+        },
+        "Contribution Project Summary": {
+            "row": "project",
+            "stack": true,
+            "label": "Describe your contribution project",
+            "type": "textarea",
+            "group": "project",
+            "airtable_type": "multilineText"
+        },
+        "Optional: Additional Contribution Project Summary": {
+            "label": "A second contribution project, if you had one",
+            "type": "textarea",
+            "group": "project",
+            "row": "project",
+            "stack": true,
+            "help": "Optional. Leave empty if you worked on one project.",
+            "airtable_type": "multilineText"
+        },
+        "Post Reflection: Choosing Your Team and Project": {
+            "row": "project",
+            "stack": true,
+            "label": "Link to the Post \"Reflection: Choosing Your Team and Project\"",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url"
+        },
+        "Slack/GitHub/Blog WordPress Community meetings/discussions": {
+            "label": "Meetings and discussions you took part in",
+            "type": "textarea",
+            "group": "project",
+            "help": "Slack, GitHub or blog links, one per line.",
+            "subgroup": "Alumni Program",
+            "airtable_type": "multilineText",
+            "why": "On this track the question is asked inside the Alumni Program lesson and heads that run, rather than sitting beside the team list as on the 150-hour course. It keeps its column, so its answers stay where every track keeps them."
+        },
+        "Contributing beyond WP Credits": {
+            "label": "How you plan to keep contributing after the program",
+            "type": "textarea",
+            "group": "project",
+            "hide_from_institution": true,
+            "airtable_type": "multilineText"
+        },
+        "Alumni program: personal email": {
+            "label": "A personal email address for the alumni program",
+            "type": "email",
+            "group": "project",
+            "help": "Somewhere that still reaches you once your student address stops working.",
+            "hide_from_institution": true,
+            "airtable_type": "email"
+        },
+        "Alumni program: mentoring opt-in": {
+            "label": "Yes, I am happy to be contacted about mentoring future WordPress Credits students.",
+            "type": "checkbox",
+            "group": "project",
+            "hide_from_institution": true,
+            "airtable_type": "checkbox"
+        },
+        "Post Reflection: Your First Contribution": {
+            "lead": "Your reflection posts",
+            "label": "Link to the Post \"Reflection: Your First Contribution\"",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url"
+        },
+        "Post Reflection: Halfway Check-In": {
+            "label": "Link to the Post \"Reflection: Halfway Check-In\"",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url"
+        },
+        "WP event participation URL": {
+            "label": "Link to a WordPress event you have participated in (online or in person)",
+            "type": "url",
+            "group": "project",
+            "airtable_type": "url"
+        },
+        "Closing post URL": {
+            "label": "Your closing post",
+            "type": "url",
+            "group": "wrapup",
+            "airtable_type": "url"
+        }
+    }
+}

@@ -332,6 +332,18 @@ ck( 'the local-environment select offers the three tools, in the base\'s order a
     array( 'WordPress Studio', 'MAAMP', 'DevKinsta' ) );
 ck( 'and every field with choices is a typed field', not_offered( array_keys( $rep_choices ), array_keys( $rep_types ) ), array() );
 
+// The type of every field, which the Track Builder's seed definitions record (1.101.0).
+$rep_all = isset( $reports['all_types'] ) ? (array) $reports['all_types'] : array();
+ck( 'every listed field has its Airtable type in all_types, in the same order', array_keys( $rep_all ), $rep_fields );
+ck( 'and all_types agrees with every typed Designer Track column', array_diff_assoc( $rep_types, $rep_all ), array() );
+ck( 'read from the metadata API on a stated day', isset( $reports['all_types_read'] ) && 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $reports['all_types_read'] ), true );
+
+// The four Learn courses the seeds match their headings against.
+foreach ( array( 297853, 322343, 402893, 403425 ) as $learn_id ) {
+	$learn = fixture( 'learn-course-' . $learn_id . '.json' );
+	ck( sprintf( 'the Learn course %d fixture names its course and holds the three modules the form has groups for', $learn_id ), array( isset( $learn['course_id'] ) ? $learn['course_id'] : null, array_column( isset( $learn['modules'] ) ? (array) $learn['modules'] : array(), 'title' ) ), array( $learn_id, array( 'Onboarding', 'Project', 'Wrap-up' ) ) );
+}
+
 /* ---- the settings defaults agree with the base -------------------------- */
 
 echo "\n=== The settings defaults name what the base offers ===\n";

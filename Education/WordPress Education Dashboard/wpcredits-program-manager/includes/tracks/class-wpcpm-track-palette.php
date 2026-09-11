@@ -42,6 +42,14 @@ final class WPCPM_Track_Palette {
 	);
 
 	/**
+	 * The shape of a track key, which is also a class name: `.wpcpm-badge--<key>`.
+	 *
+	 * One pattern for the two places that check a key - the definition's rule and this palette's
+	 * guard - so they can never disagree about what reaches a stylesheet.
+	 */
+	const KEY_PATTERN = '/^[a-z0-9-]{2,20}$/';
+
+	/**
 	 * Whether a value is one of the hues.
 	 *
 	 * @param mixed $hue Anything.
@@ -63,7 +71,7 @@ final class WPCPM_Track_Palette {
 	 * @return string One CSS rule, or an empty string for a key or a hue this cannot vouch for.
 	 */
 	public static function badge_rule( $key, $hue ) {
-		if ( ! self::is_hue( $hue ) || 1 !== preg_match( '/^[a-z0-9-]{2,20}$/', (string) $key ) ) {
+		if ( ! self::is_hue( $hue ) || 1 !== preg_match( self::KEY_PATTERN, (string) $key ) ) {
 			return '';
 		}
 

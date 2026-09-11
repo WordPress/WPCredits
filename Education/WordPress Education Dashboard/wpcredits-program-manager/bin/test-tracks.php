@@ -219,9 +219,19 @@ echo "\n=== What the rules are told about the site ===\n";
 ck( 'the columns the syncs own: every report column the sync maps that is not a question', WPCPM_Tracks::reserved_columns(), array( 'Name', 'Email', 'Status', 'Mentor', 'Educational institution', 'Internship Start Date', 'Internship End Date', 'Personal link', '50h personal link', 'Dev Track ONLY personal link' ) );
 $context = WPCPM_Tracks::validation_context( 'Marketing Track' );
 ck( 'the other tracks by status and key, the track being checked left out', $context['tracks'], array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) );
+ck( 'and their names, which a new track may not take', $context['labels'], $builtin_labels );
 ck( 'the statuses that mean something else: past students, and the two states', $context['refused_statuses'], array( 'Graduate', 'Dropped out', 'Paused', 'Pending graduation' ) );
 ck( 'the sync columns, and nothing locked', array( $context['reserved_columns'], $context['locked'] ), array( WPCPM_Tracks::reserved_columns(), null ) );
 ck( 'and the track it describes passes with it', WPCPM_Track_Definition::validate( array( 'schema_version' => 1, 'status' => 'Marketing Track', 'key' => 'marketing', 'label' => 'Marketing Track', 'hue' => 'cyan', 'questions' => $form ), $context ), array() );
+
+echo "\n=== The program map as its PHP alone describes it ===\n";
+
+compiled( array( 'Marketing Track' => row( 'marketing', 'Marketing Track' ) ), array( 'marketing' => $form ) );
+ck( 'with a track compiled, the context counts it', array_key_exists( 'Marketing Track', WPCPM_Tracks::validation_context()['tracks'] ), true );
+ck( 'read without the compiled tracks, it holds the four the PHP knows', WPCPM_Tracks::validation_context( '', false )['tracks'], array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) );
+ck( 'and the map answers with the compiled track again afterwards', WPCPM_Program::is_track( 'Marketing Track' ), true );
+ck( 'the key the PHP gives a built-in status', array( WPCPM_Tracks::builtin_key( 'Designer Track' ), WPCPM_Tracks::builtin_key( 'In Sensei' ) ), array( 'design', '150h' ) );
+ck( 'and none for a compiled track, or for a status no track holds', array( WPCPM_Tracks::builtin_key( 'Marketing Track' ), WPCPM_Tracks::builtin_key( 'Graduate' ) ), array( '', '' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

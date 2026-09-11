@@ -248,6 +248,33 @@ class WPCPM_CLI {
 	}
 
 	/**
+	 * Put the four built-in tracks into the Track Builder, from the seeds the plugin ships.
+	 *
+	 * Each is created as a draft marked built-in, so its PHP keeps running it. A track whose status
+	 * the Track Builder already holds is passed over, so running this twice creates nothing the
+	 * second time. A site does this once on its own, the first time it runs 1.101.0; the command
+	 * is for a site that needs it again.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wpcredits seed-tracks
+	 */
+	public function seed_tracks() {
+		foreach ( WPCPM_Track_Store::seed() as $key => $result ) {
+			if ( is_wp_error( $result ) ) {
+				WP_CLI::warning( sprintf( '%s: %s', $key, $result->get_error_message() ) );
+			} elseif ( $result ) {
+				WP_CLI::log( sprintf( '%-6s created as track %d, a draft marked built-in', $key, $result ) );
+			} else {
+				WP_CLI::log( sprintf( '%-6s already in the Track Builder', $key ) );
+			}
+		}
+
+		WPCPM_Track_Store::compile();
+		WP_CLI::success( __( 'The built-in tracks are in the Track Builder.', 'wpcredits-program-manager' ) );
+	}
+
+	/**
 	 * Read Airtable and report the totals without writing anything.
 	 */
 	private function dry_run() {

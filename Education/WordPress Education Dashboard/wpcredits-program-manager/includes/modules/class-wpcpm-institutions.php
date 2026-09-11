@@ -87,6 +87,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 *
 	 * Written out rather than built from the `WPCPM_Program` constants: PHP resolves those on
 	 * the first `new` of this class, and the suites that load this class do not load that one.
+	 *
+	 * Ask `automation_statuses()` rather than this list: it adds every Track Builder track whose
+	 * reports automation item somebody has ticked (1.100.0), and the Link control's guard reads it.
 	 */
 	const AUTOMATION_STATUSES = array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Developer Track', 'Designer Track' );
 

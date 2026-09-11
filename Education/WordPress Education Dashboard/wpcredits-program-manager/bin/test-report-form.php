@@ -1334,6 +1334,37 @@ foreach ( array( '150h', '50h', 'dev', 'design' ) as $parity_key ) {
 	ck( sprintf( 'and the %s form survives storage byte for byte', $parity_key ), WPCPM_Track_Definition::decode( WPCPM_Track_Definition::encode( $parity_definition ) ), $parity_definition );
 }
 
+foreach ( array( '150h', '50h', 'dev', 'design' ) as $move_key ) {
+	ck( sprintf( 'fields() is builtin_fields() while nothing hooks the filter: the %s form, moved as it was', $move_key ), WPCPM_Student_Report_Form::fields( $move_key ), WPCPM_Student_Report_Form::builtin_fields( $move_key ) );
+
+	$move_definition = array(
+		'schema_version' => WPCPM_Track_Definition::SCHEMA_VERSION,
+		'status'         => 'Parity ' . $move_key,
+		'key'            => 'parity-' . $move_key,
+		'label'          => 'Parity ' . $move_key,
+		'hue'            => 'blue',
+		'questions'      => WPCPM_Student_Report_Form::builtin_fields( $move_key ),
+	);
+
+	ck( sprintf( 'normalizing the %s form changes nothing, so its definition can be held to it byte for byte', $move_key ), WPCPM_Track_Definition::normalize( $move_definition )['questions'], $move_definition['questions'] );
+}
+
+foreach ( array( 'dev', 'design' ) as $alumni_key ) {
+	$alumni_flags = array();
+
+	foreach ( WPCPM_Student_Report_Form::ALUMNI_FIELDS as $alumni_name ) {
+		$alumni_flags[ $alumni_name ] = WPCPM_Student_Report_Form::builtin_fields( $alumni_key )[ $alumni_name ]['hide_from_institution'] ?? null;
+	}
+
+	ck( sprintf( 'the three alumni answers of the %s form carry the institution flag in the PHP too (the design\'s section 10)', $alumni_key ), $alumni_flags, array_fill_keys( WPCPM_Student_Report_Form::ALUMNI_FIELDS, true ) );
+}
+
+ck(
+	'for_institution() drops a question the flag keeps off the institution\'s view, and keeps the rest',
+	array_keys( WPCPM_Student_Report_Form::for_institution( array( 'Flagged' => array( 'type' => 'text', 'hide_from_institution' => true ), 'Shown' => array( 'type' => 'text' ) ) ) ),
+	array( 'Shown' )
+);
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 

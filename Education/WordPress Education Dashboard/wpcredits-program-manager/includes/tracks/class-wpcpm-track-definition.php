@@ -143,10 +143,11 @@ final class WPCPM_Track_Definition {
 	 * Everything wrong with a definition, as a list a screen can print.
 	 *
 	 * @param array $definition Track definition, after `normalize()`.
-	 * @param array $context    `tracks` (every other track, status => key), `refused_statuses`
-	 *                          (statuses that mean something else), `reserved_columns` (the
-	 *                          columns the syncs own) and `locked` (the status and key a
-	 *                          published track keeps, or null).
+	 * @param array $context    `tracks` (every other track, status => key), `labels` (every
+	 *                          other track, status => name), `refused_statuses` (statuses that
+	 *                          mean something else), `reserved_columns` (the columns the syncs
+	 *                          own) and `locked` (the status and key a published track keeps, or
+	 *                          null).
 	 * @return array[] Each with a `code`, a `where` (a column, or empty for the track) and a
 	 *                 `message`. Empty when the definition may be stored.
 	 */
@@ -154,6 +155,7 @@ final class WPCPM_Track_Definition {
 		$context = array_merge(
 			array(
 				'tracks'           => array(),
+				'labels'           => array(),
 				'refused_statuses' => array(),
 				'reserved_columns' => array(),
 				'locked'           => null,
@@ -177,6 +179,8 @@ final class WPCPM_Track_Definition {
 
 		if ( ! isset( $definition['label'] ) || ! is_string( $definition['label'] ) || '' === trim( $definition['label'] ) ) {
 			$errors[] = self::error( 'label_empty', '', __( 'The track needs a name.', 'wpcredits-program-manager' ) );
+		} elseif ( self::name_taken( $definition['label'], $context ) ) {
+			$errors[] = self::error( 'label_taken', '', __( 'Another track already goes by this name, or has it as its status. The institution import finds a track by either, so two tracks cannot share one.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( isset( $definition['course_url'] ) && '' !== $definition['course_url'] && ( ! is_string( $definition['course_url'] ) || 1 !== preg_match( '#^https://learn\.wordpress\.org/course/[a-z0-9-]+/?$#', $definition['course_url'] ) ) ) {
@@ -204,7 +208,7 @@ final class WPCPM_Track_Definition {
 		$teams = 0;
 
 		foreach ( $definition['questions'] as $column => $spec ) {
-			$errors = array_merge( $errors, self::validate_question( (string) $column, $spec, $context ) );
+			$errors = array_merge( $errors, self::validate_question( $column, $spec, $context ) );
 
 			if ( is_array( $spec ) && isset( $spec['type'] ) && 'team' === $spec['type'] ) {
 				++$teams;
@@ -219,8 +223,8 @@ final class WPCPM_Track_Definition {
 	}
 
 	/**
-	 * The status rules: one line, not taken, not a status that means something else, and kept
-	 * once the track is published.
+	 * The status rules: one line, not taken, not another track's name, not a status that means
+	 * something else, and kept once the track is published.
 	 *
 	 * @param array $definition Track definition.
 	 * @param array $context    See `validate()`.
@@ -235,7 +239,7 @@ final class WPCPM_Track_Definition {
 
 		$errors = array();
 
-		if ( strlen( $status ) > self::MAX_STATUS || 1 === preg_match( '/[\r\n]/', $status ) ) {
+		if ( self::length( $status ) > self::MAX_STATUS || 1 === preg_match( '/[\r\n]/', $status ) ) {
 			$errors[] = self::error( 'status_shape', '', sprintf( /* translators: %d: a number of characters. */ __( 'The status must be one line of at most %d characters.', 'wpcredits-program-manager' ), self::MAX_STATUS ) );
 		}
 
@@ -244,6 +248,16 @@ final class WPCPM_Track_Definition {
 		foreach ( array_keys( (array) $context['tracks'] ) as $other ) {
 			if ( self::fold( $other ) === $folded ) {
 				$errors[] = self::error( 'status_taken', '', __( 'Another track already has this status.', 'wpcredits-program-manager' ) );
+				break;
+			}
+		}
+
+		// The mirror of `label_taken` (the final review of T2a, its M1): the institution import
+		// finds a track by its status or its name, so without this the refusal would depend on
+		// which of the two tracks was published first.
+		foreach ( array_values( (array) $context['labels'] ) as $other ) {
+			if ( self::fold( (string) $other ) === $folded ) {
+				$errors[] = self::error( 'status_named', '', __( 'This status is another track\'s name. The institution import finds a track by its status or its name, so one track\'s status cannot be another\'s name.', 'wpcredits-program-manager' ) );
 				break;
 			}
 		}
@@ -276,7 +290,7 @@ final class WPCPM_Track_Definition {
 	private static function validate_key( array $definition, array $context ) {
 		$key = isset( $definition['key'] ) && is_string( $definition['key'] ) ? $definition['key'] : '';
 
-		if ( 1 !== preg_match( '/^[a-z0-9-]{2,20}$/', $key ) ) {
+		if ( 1 !== preg_match( WPCPM_Track_Palette::KEY_PATTERN, $key ) ) {
 			return array( self::error( 'key_shape', '', __( 'The key is 2 to 20 lowercase letters, digits or hyphens.', 'wpcredits-program-manager' ) ) );
 		}
 
@@ -299,22 +313,33 @@ final class WPCPM_Track_Definition {
 	/**
 	 * The rules of one question.
 	 *
-	 * @param string $column  Airtable column name.
-	 * @param mixed  $spec    The question.
-	 * @param array  $context See `validate()`.
+	 * The column arrives as the array keyed it, before any cast: PHP turns a key written as a
+	 * whole number, `-1` as well as `2024`, into an integer, and that change is what the numeric
+	 * rule exists for. `007` stays a string and keeps its meaning, so it passes.
+	 *
+	 * @param int|string $column  Airtable column name, as the questions array keyed it.
+	 * @param mixed      $spec    The question.
+	 * @param array      $context See `validate()`.
 	 * @return array[]
 	 */
 	private static function validate_question( $column, $spec, array $context ) {
-		$errors = array();
+		$errors  = array();
+		$numeric = is_int( $column );
+		$column  = (string) $column;
 
-		if ( '' === trim( $column ) || strlen( $column ) > self::MAX_COLUMN ) {
+		if ( '' === trim( $column ) || self::length( $column ) > self::MAX_COLUMN ) {
 			$errors[] = self::error( 'column_shape', $column, sprintf( /* translators: %d: a number of characters. */ __( 'A column name must hold more than spaces, and at most %d characters.', 'wpcredits-program-manager' ), self::MAX_COLUMN ) );
-		} elseif ( ctype_digit( $column ) ) {
+		} elseif ( $numeric ) {
 			$errors[] = self::error( 'column_numeric', $column, __( 'A column name cannot be a number alone: the form keys each question by its column name, and a number there changes meaning.', 'wpcredits-program-manager' ) );
 		}
 
-		if ( in_array( $column, (array) $context['reserved_columns'], true ) ) {
-			$errors[] = self::error( 'column_reserved', $column, __( 'This column belongs to the syncs. A question writing it would let a student change it.', 'wpcredits-program-manager' ) );
+		$folded_column = self::fold_column( $column );
+
+		foreach ( (array) $context['reserved_columns'] as $reserved ) {
+			if ( self::fold_column( (string) $reserved ) === $folded_column ) {
+				$errors[] = self::error( 'column_reserved', $column, __( 'This column belongs to the syncs. A question writing it would let a student change it.', 'wpcredits-program-manager' ) );
+				break;
+			}
 		}
 
 		if ( ! is_array( $spec ) ) {
@@ -393,7 +418,10 @@ final class WPCPM_Track_Definition {
 		$errors = array();
 
 		if ( 'number' === $type ) {
-			$bounded = isset( $spec['min'], $spec['max'], $spec['step'] ) && is_numeric( $spec['min'] ) && is_numeric( $spec['max'] ) && is_numeric( $spec['step'] );
+			// `is_finite()` as well: `is_numeric()` accepts INF, which no JSON can hold, so a track
+			// bounded by it could never be stored.
+			$bounded = isset( $spec['min'], $spec['max'], $spec['step'] ) && is_numeric( $spec['min'] ) && is_numeric( $spec['max'] ) && is_numeric( $spec['step'] )
+				&& is_finite( (float) $spec['min'] ) && is_finite( (float) $spec['max'] ) && is_finite( (float) $spec['step'] );
 
 			if ( ! $bounded || (float) $spec['min'] > (float) $spec['max'] || (float) $spec['step'] <= 0 ) {
 				$errors[] = self::error( 'number_bounds', $column, __( 'A number needs a lowest value, a highest value at least as high, and a step above zero.', 'wpcredits-program-manager' ) );
@@ -524,8 +552,32 @@ final class WPCPM_Track_Definition {
 	}
 
 	/**
+	 * Whether a track's name is another track's name or status, compared as statuses are.
+	 *
+	 * The institution import matches a spreadsheet's program cell against a track's status and
+	 * its name alike, and the Administrator Dashboard's Programs running card draws its tiles by
+	 * name, so a name two tracks share would put students on the wrong one. A track's own status
+	 * is not in the context, so a name equal to it, the Developer Track's way, passes.
+	 *
+	 * @param string $label   The track's name.
+	 * @param array  $context See `validate()`.
+	 * @return bool
+	 */
+	private static function name_taken( $label, array $context ) {
+		$folded = self::fold( $label );
+
+		foreach ( array_merge( array_keys( (array) $context['tracks'] ), array_values( (array) $context['labels'] ) ) as $other ) {
+			if ( self::fold( (string) $other ) === $folded ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * A status as the comparisons see it: trimmed, one space for any run of them, the
-	 * typographic apostrophe read as the plain one, and lower case.
+	 * typographic apostrophe read as the plain one, and lower case in any alphabet.
 	 *
 	 * @param string $status Status.
 	 * @return string
@@ -533,7 +585,48 @@ final class WPCPM_Track_Definition {
 	private static function fold( $status ) {
 		$status = str_replace( array( "\u{2019}", "\u{2018}" ), "'", (string) $status );
 
-		return strtolower( trim( (string) preg_replace( '/\s+/', ' ', $status ) ) );
+		return self::lower( trim( (string) preg_replace( '/\s+/', ' ', $status ) ) );
+	}
+
+	/**
+	 * A column name as the reserved-column rule compares it: trimmed and in lower case.
+	 *
+	 * For that rule only. A question keeps its column verbatim, but a name one space or one
+	 * capital away from `Status` is refused all the same: nothing is lost by it, and whether
+	 * Airtable would match such a name to the sync's column on a write is not a thing to find out
+	 * on the live base.
+	 *
+	 * @param string $column Column name.
+	 * @return string
+	 */
+	private static function fold_column( $column ) {
+		return self::lower( trim( (string) $column ) );
+	}
+
+	/**
+	 * Lower case in any alphabet where PHP can, ASCII where it cannot.
+	 *
+	 * WordPress provides `mb_strlen()` where PHP lacks it, but not `mb_strtolower()`, so the plain
+	 * lower-casing stays as the fallback rather than a fatal error on a host without the extension.
+	 *
+	 * @param string $text Text.
+	 * @return string
+	 */
+	private static function lower( $text ) {
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $text, 'UTF-8' ) : strtolower( (string) $text );
+	}
+
+	/**
+	 * A length in characters, as the rules and their messages count it.
+	 *
+	 * `strlen()` counts bytes, and would refuse a status of sixty accented letters as longer than
+	 * a hundred.
+	 *
+	 * @param string $text Text.
+	 * @return int
+	 */
+	private static function length( $text ) {
+		return function_exists( 'mb_strlen' ) ? mb_strlen( (string) $text, 'UTF-8' ) : strlen( (string) $text );
 	}
 
 	/**

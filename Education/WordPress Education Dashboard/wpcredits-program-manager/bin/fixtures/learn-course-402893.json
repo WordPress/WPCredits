@@ -1,0 +1,131 @@
+{
+	"_comment": "The modules and lessons of one Learn WordPress course, read from the public, unauthenticated sensei-internal/v1/course-structure endpoint. bin/build-seeds.php matches the report form's headings against these lesson titles to record learn_lesson_id in the seed definitions, and bin/test-track-definitions.php checks the seeds against them. Refresh by reading the endpoint again.",
+	"course_id": 402893,
+	"course_url": "https://learn.wordpress.org/course/wordpress-credits-developer-track/",
+	"read": "2026-09-11",
+	"modules": [
+		{
+			"title": "Onboarding",
+			"lessons": [
+				{
+					"id": 402934,
+					"title": "Welcome and Essential Communication Guidelines"
+				},
+				{
+					"id": 402894,
+					"title": "Share your WordPress profile"
+				},
+				{
+					"id": 402908,
+					"title": "Join global Slack"
+				},
+				{
+					"id": 402941,
+					"title": "Differences between WordPress.com and WordPress.org"
+				},
+				{
+					"id": 402896,
+					"title": "Complete: Open source basics and WordPress"
+				},
+				{
+					"id": 402898,
+					"title": "Complete: How decisions are made in the WordPress project"
+				},
+				{
+					"id": 402900,
+					"title": "Complete: Community meeting etiquette"
+				},
+				{
+					"id": 402902,
+					"title": "Complete: Writing in the WordPress voice"
+				},
+				{
+					"id": 402904,
+					"title": "Complete: Basic principles of conflict resolution"
+				},
+				{
+					"id": 402906,
+					"title": "Complete your WordPress training: Developer track"
+				},
+				{
+					"id": 402910,
+					"title": "Create your personal website"
+				},
+				{
+					"id": 402914,
+					"title": "Reflection: Building Your Personal Website"
+				}
+			]
+		},
+		{
+			"title": "Project",
+			"lessons": [
+				{
+					"id": 402940,
+					"title": "How to contribute to WordPress"
+				},
+				{
+					"id": 402936,
+					"title": "Contribution Team Deep Dive"
+				},
+				{
+					"id": 403021,
+					"title": "Practical: Patch Testing"
+				},
+				{
+					"id": 402938,
+					"title": "Immediate Contribution Opportunities"
+				},
+				{
+					"id": 402912,
+					"title": "Define and begin developing your contribution project"
+				},
+				{
+					"id": 402916,
+					"title": "Reflection: Choosing Your Team and Project"
+				},
+				{
+					"id": 403098,
+					"title": "Alumni Program: Connect with the community and plan your contribution beyond WP Credits"
+				},
+				{
+					"id": 402930,
+					"title": "Complete the first feedback form"
+				},
+				{
+					"id": 402918,
+					"title": "Reflection: Your First Contribution"
+				},
+				{
+					"id": 402932,
+					"title": "Leave Your Mid-Course Feedback"
+				},
+				{
+					"id": 402920,
+					"title": "Reflection: Halfway Check-In"
+				},
+				{
+					"id": 402924,
+					"title": "Participate at a WordPress Event (online or in person)"
+				}
+			]
+		},
+		{
+			"title": "Wrap-up",
+			"lessons": [
+				{
+					"id": 402926,
+					"title": "Prepare and deliver a wrap-up report"
+				},
+				{
+					"id": 402943,
+					"title": "Get your certificate"
+				},
+				{
+					"id": 402928,
+					"title": "Complete the feedback form"
+				}
+			]
+		}
+	]
+}
