@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.102.0
+Stable tag: 1.102.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.102.1 =
+
+* The program manager guide's Student Duplicate Finder section is now a guide to running it rather than a description of it: why duplicates should be deleted from the finder and never by hand in Airtable, what a scan does, six steps for working through the list, a table of every reason a row is held back with what to do about each, what a press of Delete checks again, the 30-day copy and that there is no automatic restore, and the switch. No code changed.
 
 = 1.102.0 =
 

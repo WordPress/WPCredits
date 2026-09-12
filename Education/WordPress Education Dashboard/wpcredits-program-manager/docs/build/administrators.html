@@ -239,34 +239,166 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>WPCredits Program → Modules → Student Duplicate Finder.</strong> Lists every student who has more than one row in Students, Students Reports or Feedback in Airtable, proposes which rows to delete, and deletes the ones you tick and confirm. A second row usually comes from the Airtable automation that creates a student's Students Reports and Feedback rows: it runs again for an address that already has them, for example when a student who did not move forward applies again.</p>
+<p><strong>WPCredits Program → Modules → Student Duplicate Finder.</strong> Lists every student who has more than one row in Students, Students Reports or Feedback in Airtable, proposes which rows to delete, and deletes the ones you tick and confirm.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>A second row usually comes from the Airtable automation that creates a student's Students Reports and Feedback rows. It runs whenever a Students row starts matching its conditions and it never checks the address, so it runs again for an address that already has rows: a student who did not move forward applies again, or somebody sets a status back and the automation fires a second time. Duplicated addresses are what break the update automations, which is the error you see in Airtable.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"delete-duplicates-here-not-by-hand-in-airtable"} -->
+<h4 class="wp-block-heading" id="delete-duplicates-here-not-by-hand-in-airtable">Delete duplicates here, not by hand in Airtable</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>This is the part worth reading twice. <strong>The site stores Airtable record IDs</strong>, and deleting the row one of them names is not something Airtable can warn you about:</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>It scans every three hours</strong>, after the four syncs, and <strong>Scan now</strong> runs a scan while you watch. A scan only reads Airtable. When one fails, its error shows above the last list, which stays.</li>
+<li>a student's account holds the record ID of their <strong>Students Reports</strong> row and of their <strong>Feedback</strong> row, which is how their Student Report Card finds their program;</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Ready</strong> students have an older row in each table with nothing attached to it: one checkbox selects them all, and the newest rows stay. Students who <strong>need a decision</strong> have a checkbox on each row that may go, with the reason it was held back beside it. Nothing is ticked for you; <strong>Select all ready</strong> ticks the Ready students.</li>
+<li>a mentor's <strong>call note</strong> and a <strong>booked call</strong> hold the record ID of the student they are about;</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>A row the site uses cannot be deleted.</strong> When a student's account, their surveys, a mentor call note, a booked call or an audit log entry points at a row, its checkbox is disabled and says what points at it: delete the other row instead.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Review selection</strong> shows exactly what will be deleted, table by table, and what was left out and why. Only <strong>Delete</strong> on that page deletes anything. Just before it does, the finder reads the rows from Airtable again and leaves out any that changed since the scan, and it never deletes the last row an address has in a table.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Every deleted row is kept on the site, sealed, for 30 days.</strong> The <strong>Deleted rows</strong> list under the students says who deleted which row and when, and <strong>View copy</strong> shows the row's cells so you can type it back into Airtable by hand. There is no automatic restore. After 30 days the cells are erased; the entry stays, without a name or an address.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Deleting is switched off until you turn it on</strong> under <strong>WPCredits Program → Settings</strong>, in the Student Duplicate Finder's card. While it is off, the finder scans and lists and deletes nothing.</li>
+<li><strong>audit log entries</strong> hold the record IDs of what they describe.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>On the Administrator Dashboard, the <strong>Duplicated students</strong> tile counts the students the last scan listed, and its card links here.</p>
+<p>Delete such a row in Airtable and the site is left pointing at nothing. The student's Report Card stops showing their program, and there is no message anywhere saying why, on either side.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The finder knows every one of those references. It reads them before it proposes anything, it <strong>refuses to delete a row that anything on the site points at</strong>, and it checks again in the second before it deletes. That is the whole reason to use it rather than the Airtable interface. If you have already deleted rows by hand and a student now sees nothing, say so: the site can be pointed at the surviving row again, but only by someone who knows which row that was.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"what-a-scan-does"} -->
+<h4 class="wp-block-heading" id="what-a-scan-does">What a scan does</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>A scan reads the three tables and writes nothing to Airtable, so running one is always safe.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>It runs by itself every three hours</strong>, offset from the four syncs so the two never collide.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Scan now</strong> runs one while you watch, with a progress bar. Press it if you have just changed something in Airtable and want the list to catch up.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>A scan that fails changes nothing.</strong> Its error appears above the list, and the last good list stays on screen, so a bad night never leaves you with an empty screen.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Pressing <strong>Scan now</strong> while a scan is running does nothing except say so. The list cannot be selected while a scan is running either, because the rows underneath it are about to change.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"working-through-the-list"} -->
+<h4 class="wp-block-heading" id="working-through-the-list">Working through the list</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Open the finder and read the tiles: how many students are duplicated, how many are <strong>Ready</strong>, how many <strong>need a decision</strong>, and how many rows are duplicated in each table.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Start with <strong>Ready</strong>. Press <strong>Select all ready</strong>, or tick students one at a time.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Move on to <strong>needs a decision</strong>. Each row that may go has its own checkbox and, beside it, the sentence saying why it was held back. Read the sentence and decide. Nothing is ever ticked for you here.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Review selection</strong>. Nothing has been deleted yet.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>The confirmation lists exactly what will go, table by table, and lists anything it left out with the reason. Read it. This is the page to turn back from.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Press <strong>Delete</strong>. Only this button deletes anything.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Take it in small batches the first few times. One confirmation deletes at most 100 rows, and there is no prize for clearing the list in one afternoon.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"why-a-row-is-held-back"} -->
+<h4 class="wp-block-heading" id="why-a-row-is-held-back">Why a row is held back</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The finder keeps the newest row in each table and proposes the older ones, but only when the older row has nothing worth keeping on it. When it does, you get the sentence instead of a proposal:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>What the screen says</th><th>What it means</th><th>What to do</th></tr></thead><tbody><tr><td>The site points at it</td><td>An account, survey, call note, booked call or audit entry names this row</td><td>Delete the other row instead. This row is not selectable at all</td></tr><tr><td>The site uses an older row for this student, so this newest one may be the copy to delete</td><td>The pointers are on an older row, so "newest" is the wrong answer here</td><td>Decide which row the student's history really lives on, and keep that one</td></tr><tr><td>Still at a live status</td><td>The older row is at a status the program counts as current</td><td>Do not delete it until you know why a live student has two rows</td></tr><tr><td>Records a graduation</td><td>The older row is where this student graduated</td><td>Keep it. Graduations are the record of the program working</td></tr><tr><td>Holds work fields</td><td>Grades, reflection posts, hours or the project are filled in on the older row</td><td>Keep it, or copy the values across first</td></tr><tr><td>Holds survey answers</td><td>Feedback or semester report consent is on this row</td><td>Keep it, or copy the answers across first</td></tr><tr><td>Has Total hours set</td><td>The older row carries an hours total</td><td>Keep it, or move the total to the row you keep</td></tr><tr><td>Has Notes in Airtable</td><td>Somebody wrote something on this row by hand</td><td>Read the note before deciding</td></tr><tr><td>The newest row has no institution, mentor, status or Course and this one does</td><td>The newer row is emptier than the older one</td><td>Fill the gap on the newer row first, then come back</td></tr><tr><td>Created in the same second</td><td>Two rows share a creation time, so "newest" decides nothing</td><td>Look at both and pick</td></tr><tr><td>The newest row is at a status that ended, so this one may be the row to keep</td><td>Somebody applied again and did not continue</td><td>Usually keep the older, live row</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:paragraph -->
+<p>A student is <strong>Ready</strong> only when every table's older rows are clean deletes. One held row anywhere moves the whole student to <strong>needs a decision</strong>, which is why that group is the larger one.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"what-happens-when-you-press-delete"} -->
+<h4 class="wp-block-heading" id="what-happens-when-you-press-delete">What happens when you press Delete</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Every row is read from Airtable again</strong> and every question is asked again. A row that changed since the scan, that the site has started pointing at, or that is already gone is left out and named on the notice.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>The last row an address has in a table is never deleted.</strong> Whatever else happens, a student cannot be erased from a table entirely.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Rows go in order: Feedback, then Students Reports, then Students</strong>, so a child row never outlives its parent.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>A sealed copy of every row is written to the site first.</strong> If the copy cannot be written, the row is not deleted.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"deleted-rows-and-the-30-day-copy"} -->
+<h4 class="wp-block-heading" id="deleted-rows-and-the-30-day-copy">Deleted rows, and the 30-day copy</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The <strong>Deleted rows</strong> list under the students records who deleted which row, from which table, and when. <strong>View copy</strong> shows that row's cells exactly as they were, so you can type them back into Airtable by hand.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>There is no automatic restore.</strong> Bringing a row back is a manual job, and a restored row gets a new record ID, so anything that pointed at the old one still needs fixing. After 30 days the cells are erased and the entry stays without a name or an address, as a permanent record that something was deleted.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"turning-deleting-on"} -->
+<h4 class="wp-block-heading" id="turning-deleting-on">Turning deleting on</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>Deleting ships switched off.</strong> Until a program manager turns it on under <strong>WPCredits Program → Settings</strong>, in the Student Duplicate Finder's card, the whole list is read-only: no checkbox can be ticked and <strong>Review selection</strong> is greyed out. Scanning and reading work either way, so the list is worth looking at long before anyone decides to delete from it.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Leaving it off between clean-ups is a reasonable habit, not a sign that something is wrong.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"on-the-administrator-dashboard"} -->
+<h4 class="wp-block-heading" id="on-the-administrator-dashboard">On the Administrator Dashboard</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The <strong>Duplicated students</strong> tile counts the students the last scan listed, and its card links here. A tile at zero means the last scan found nothing, not that no scan has run: the card says which.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"need-help-2"} -->

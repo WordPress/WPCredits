@@ -25,6 +25,11 @@ Program Administrators are WordPress Administrators: the plugin grants that role
 8. **A track connects to a specific Learn course by its link**, as every current track does (8 September 2026).
 9. **A track need not count hours** (8 September 2026). A missing target means no target, exactly like the Developer Track's 0, and nothing may require one. `WPCPM_Program::hours_targets()` already says so in its docblock.
 10. **A new track reaches the institution import and institution create only once its reports automation includes it** (11 September 2026). Until somebody ticks checklist item 1 (7.3), the institution import form and institution create do not offer a Track Builder track: a student put on it before the automation names its status never gets a report row (2.4). The four built-in tracks are unaffected.
+11. **A new track starts as a duplicate in T2b, and is published in T2c** (12 September 2026). New track, blank or from a Learn course, and the question editor stay in T3, so the first tracks a Program Administrator makes on the screen are duplicates of tracks that already exist, whose columns the base already has.
+12. **A built-in draft is refreshed from the seed the plugin ships** (12 September 2026). A site rebuilds every built-in draft it has never published when the shipped `SEED_VERSION` is newer than the one the site recorded, and the track list offers Refresh on such a row. Since 1.101.1 the store refuses to save a built-in track, so nothing a person wrote is at stake, and a hand-written form changed in a release no longer leaves that site's switch refused for good.
+13. **Publishing a built-in track leaves "Currently mentoring" alone** (12 September 2026). Those four statuses were the program's before the Track Builder existed and are edited in Settings, so publishing a seed never puts back a status a manager took out, and the preflight says so in a line. A track of somebody's own still has its status added, which is what makes its students sync (7.2).
+14. **Saving the program settings recompiles** (12 September 2026). The compiled stores and `wpcpm_tracks_skipped` were only as fresh as the last publish, so a status moved out of "Currently mentoring" left a live track running until something unrelated published. Saving now compiles, which corrects both what students see and what the track list reports.
+15. **Column creation moves into T2c, and the two `Status` choices never leave the checklist** (12 September 2026, settling open item 1). Airtable's create-field endpoint makes every column a track's questions name, with `schema.bases:write`. Its update-field endpoint changes a field's name, its description and a formula's expression, and cannot add a choice to an existing single select. The one route that can, a record write with `typecast`, is forbidden by 2.5 and unavailable regardless, because the site never writes `Status`. T2c therefore carries the schema token and step 1 of 7.2, and step 3 is checklist item 3 for good.
 
 ## 2. What the code and the base say
 
@@ -207,7 +212,7 @@ One run at a time, behind a lock like the syncs'. Every step that lands is recor
 
 1. Create the columns, one at a time. A refusal because the name is taken is read again: a column of that name with the right type means somebody made it by hand, and it counts as landed.
 2. Compile the runtime stores, and append the status to `student_statuses` through `WPCPM_Settings`, which never removes one.
-3. Add the `Status` choice to `Students Reports`, then to `Students`, when the schema token can (open item 1); otherwise both are checklist items.
+3. The `Status` choice on `Students Reports` and on `Students` is checklist item 3: no token can add a choice to an existing single select (open item 1, settled 12 September 2026).
 4. Mark the post published and write the log: who, when, the columns created and the choices added.
 
 The choices come last because they are what lets somebody put a student on the track in the base, and by then everything that student needs already exists.
@@ -220,7 +225,7 @@ What the site cannot do is listed with the exact values to use, and each item is
 
 1. Add the status to the condition of `Add students to Students Reports and Feedback`. Without it, no student on the track gets a report row.
 2. Create the track's welcome email automation, as each of the four tracks has one.
-3. The two `Status` choices, whenever step 3 cannot add them.
+3. The two `Status` choices, which no token can add.
 
 Ticking item 1 adds the status to `WPCPM_Institutions::automation_statuses()`, which is the pinned constant plus every track whose item 1 is ticked. That is the list the Link control's guard reads, and it is the list that went stale for the Designer Track.
 
@@ -270,16 +275,17 @@ Suites in the house shape, standalone PHP with stubs:
 | --- | --- | --- |
 | **T1**, 1.100.0 | The post type, the definition and its validation, the compiled stores, `wpcpm_program_tracks` and `course_id()`, the module's callbacks, and the Programs running card and `automation_statuses()` asking the map. | Nothing |
 | **T2a**, 1.101.0 | `builtin_fields()`, the four seeds and `wp wpcredits seed-tracks`, the equivalence check and the switch, the published copy, a compile that checks what it compiles, and publishing and unpublishing, all without a screen (`docs/plans/2026-09-11-track-builder-t2a.md`). | Nothing |
-| **T2b**, 1.102.0 | The Track Builder screen: the track list, track properties, duplication, the read-only preflight, verify, the checklist, and publishing of tracks whose columns all exist. | Reads only. A person adds the choices and changes the automations. |
+| **T2b**, 1.103.0 | The Track Builder screen: the track list with every track's state, what the last compile left out and how many students are on it, the track's properties, duplication, the switch both ways and the refresh of a stale built-in draft, and the recompile when the settings are saved. No Airtable writes, so it needs no schema token. | Reads only. |
+| **T2c**, 1.104.0 | Publishing from the screen: the read-only preflight, the schema token and the column creation of 7.2 step 1, the checklist and its ticks, verify, unpublishing with the student guard, and the institution gate of decision 10. | Creates the columns a track's questions name. A person adds the two `Status` choices and changes the automations. |
 | **T3** | The question editor at full parity, forks, warnings, Learn lessons, preview and history, and the Track Builder section of `docs/sections/32-admin-tools.md` (followed by `bin/build-docs.php`). | Nothing new |
-| **T4** | The schema token, column creation, and choice creation if open item 1 allows it. | Writes columns, and perhaps choices |
+| **T4** | Nothing of its own: the schema token, column creation and the choice question all moved into T2c or were settled there (decision 15). The name is kept so older notes still read true. | - |
 | **T5** | The PHP removed, on the product owner's word. T5 keeps a lock for the four switched tracks: once their PHP rows go, `builtin_key()` answers `''` and `validate_key()` refuses their reserved keys, so without the lock every compile would leave them out (the final review of T2a). | Nothing |
 
 Each phase is planned on its own in `docs/plans/`, as the Sponsors phases were, and each bumps the version in every place, gets a changelog entry and a zip, and goes to the mirror.
 
 ## 13. Open items
 
-1. **Can `update_field` add a choice to a single select?** Test it against a scratch base, never `appIzQKfwTn5dyPVp`, where a test column could not be removed. Until the answer is yes, the choices stay on the checklist.
+1. **Can `update_field` add a choice to a single select?** **Settled on 12 September 2026: no.** Airtable's update-field endpoint changes a field's name, its description and a formula's expression, and adding a choice to an existing single select is not among them; the Airtable connector's own tooling exposes exactly those three. The only route that creates a missing choice is a record write with `typecast`, which 2.5 forbids and which would need the site to write `Status`, which it never does. The two choices stay checklist item 3, and T2b confirms this once with the schema token against a scratch base, never `appIzQKfwTn5dyPVp`, where a test column could not be removed.
 2. **Learn Link's `learn_courses`** (section 9): the product owner decides, and the Learn Link design is amended before the October cohort starts.
 3. **Who mints the schema token.** It must belong to somebody who holds the base creator role on the base.
 4. **`AUTOMATION_STATUSES` lacks the Designer Track** (2.4): a one-line fix with its suite, in a release of its own, ahead of T1.
