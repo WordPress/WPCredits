@@ -1,0 +1,21 @@
+# GitHub Pages builds this repository with Jekyll, and Jekyll runs every Markdown file
+# it finds through the Liquid template parser.
+#
+# The plugin and theme sources mirrored under Education/ are code, not pages of this
+# site: nothing here links to them, and their documents quote code. A sample that
+# contains "{%" - an Airtable formula such as LOWER({%s}), a template tag, a printf
+# pattern inside braces - reads to Liquid as a tag that was opened and never closed,
+# and one of those fails the whole Pages build, taking the site's real pages with it.
+# Keeping the mirror out of the build is what stops that.
+#
+# The list below is Jekyll's own default exclude list plus Education/, because naming
+# `exclude` replaces the defaults rather than adding to them.
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - Education/
