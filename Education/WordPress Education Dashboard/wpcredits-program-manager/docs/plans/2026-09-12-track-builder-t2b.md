@@ -3017,6 +3017,12 @@ git commit -m "Track Builder T2b: 1.103.0"
 - **`wp wpcredits seed-tracks` should exit non-zero when a seed failed** (T2a's Task 5 review), which matters once it is the recovery path for a request that died mid-seed.
 - Blank tracks, the question editor, preview, history and a track started from its Learn course remain T3's.
 
+### What the whole-branch review parked for T2c
+
+- **`rows()` runs one full user scan per track.** `WPCPM_Students_Sync::count_on_status()` calls `get_users()` with no limit and then reads meta for every provisioned student, once per row. The column genuinely needs those numbers, so the fix is a single pass that tallies every status at once rather than dropping the count.
+- **The recompile hangs on `WPCPM_Settings::save()`, which has other callers.** `WPCPM_Handbook::maybe_update_model()` calls it on `init` priority 5, before the track post type is registered at 10, so a handbook migration now runs a compile from a context that has no registered post type. It still answers correctly and fires at most once per model version, but the ordering coupling should go: guard the recompile on the settings screen's own save, or move it to the handler.
+- **The list's student count and the Administrator Dashboard's Programs running card do not agree, and should not be expected to.** On the live site at 1.103.0 the card reads 410 for the 150-hour track and the Track Builder reads 458. The card counts the Airtable rosters an institution has synced; the column counts every WordPress user whose stored program status is that track, with no filter for whether they are still active, which is what lets the screen work with no Airtable connection (decision 7). If the two are ever meant to match, that is a product decision, not a bug to fix quietly.
+
 ---
 
 ## What the reviews changed, after the blocks above were written
