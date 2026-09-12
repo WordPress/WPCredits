@@ -35,6 +35,21 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/** Put a built-in draft back to the seed the plugin ships. */
 	const ACTION_REFRESH = 'wpcpm_track_refresh';
 
+	/** Publish a track: create its columns, then put it live. */
+	const ACTION_PUBLISH = 'wpcpm_track_publish';
+
+	/** Take a published track off the live site. */
+	const ACTION_UNPUBLISH = 'wpcpm_track_unpublish';
+
+	/** Read the base and say whether a live track still matches it. */
+	const ACTION_VERIFY = 'wpcpm_track_verify';
+
+	/** Tick one checklist item. */
+	const ACTION_TICK = 'wpcpm_track_tick';
+
+	/** Take a tick back. */
+	const ACTION_UNTICK = 'wpcpm_track_untick';
+
 	/** Flash channel for this screen's outcomes. */
 	const FLASH = 'track-builder';
 
@@ -114,6 +129,11 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		add_action( 'admin_post_' . self::ACTION_SWITCH_DEFINITION, array( $this, 'handle_switch_definition' ) );
 		add_action( 'admin_post_' . self::ACTION_SWITCH_BUILTIN, array( $this, 'handle_switch_builtin' ) );
 		add_action( 'admin_post_' . self::ACTION_REFRESH, array( $this, 'handle_refresh' ) );
+		add_action( 'admin_post_' . self::ACTION_PUBLISH, array( $this, 'handle_publish' ) );
+		add_action( 'admin_post_' . self::ACTION_UNPUBLISH, array( $this, 'handle_unpublish' ) );
+		add_action( 'admin_post_' . self::ACTION_VERIFY, array( $this, 'handle_verify' ) );
+		add_action( 'admin_post_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
+		add_action( 'admin_post_' . self::ACTION_UNTICK, array( $this, 'handle_untick' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 	}
 
@@ -257,6 +277,29 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 					'form'  => self::duplicate_form( $duplicate ),
 					'url'   => $this->admin_url(),
 					'flash' => $flash,
+				)
+			);
+
+			echo '</div>';
+
+			return;
+		}
+
+		$publish = WPCPM_Request::id( 'wpcpm_publish' );
+
+		if ( $publish > 0 && is_array( WPCPM_Track_Store::get( $publish ) ) ) {
+			$held = WPCPM_Track_Store::get( $publish );
+
+			WPCPM_Track_Builder_Screen::render_publish(
+				array(
+					'track'     => $publish,
+					'label'     => isset( $held['label'] ) ? (string) $held['label'] : '',
+					'state'     => WPCPM_Track_Store::state( $publish ),
+					'preflight' => WPCPM_Track_Publish::preflight( $publish ),
+					'checklist' => WPCPM_Track_Publish::checklist( $publish ),
+					'can_make'  => WPCPM_Settings::has_schema_token(),
+					'url'       => $this->admin_url(),
+					'flash'     => $flash,
 				)
 			);
 
@@ -555,6 +598,163 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		}
 
 		return $last;
+	}
+
+	/**
+	 * Publish a track from the screen.
+	 */
+	public function handle_publish() {
+		$this->verify( self::ACTION_PUBLISH );
+
+		$track = WPCPM_Request::posted_id( 'track' );
+		$done  = WPCPM_Track_Publish::run( $track, get_current_user_id() );
+
+		if ( is_wp_error( $done ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => $done->get_error_message(),
+				),
+				array( 'wpcpm_publish' => $track )
+			);
+		}
+
+		$made = count( $done['created'] );
+
+		$this->redirect_back(
+			array(
+				'status'  => 'success',
+				'message' => 0 === $made
+					? __( 'The track is live. Nothing had to be created in Airtable: every column was already there.', 'wpcredits-program-manager' )
+					: sprintf(
+						/* translators: %d: how many columns were created. */
+						_n( 'The track is live, and %d column was created in Airtable.', 'The track is live, and %d columns were created in Airtable.', $made, 'wpcredits-program-manager' ),
+						$made
+					),
+			),
+			array( 'wpcpm_publish' => $track )
+		);
+	}
+
+	/**
+	 * Take a track off the live site.
+	 */
+	public function handle_unpublish() {
+		$this->verify( self::ACTION_UNPUBLISH );
+
+		$track = WPCPM_Request::posted_id( 'track' );
+
+		$this->report(
+			WPCPM_Track_Publish::take_down( $track, get_current_user_id() ),
+			__( 'The track is a draft again. Nothing was changed in Airtable, and its status is still in "Currently mentoring".', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * Check a live track against the base.
+	 */
+	public function handle_verify() {
+		$this->verify( self::ACTION_VERIFY );
+
+		$track = WPCPM_Request::posted_id( 'track' );
+		$seen  = WPCPM_Track_Publish::verify( $track );
+
+		if ( is_wp_error( $seen ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => $seen->get_error_message(),
+				),
+				array( 'wpcpm_publish' => $track )
+			);
+		}
+
+		$this->redirect_back( self::verified( $seen ), array( 'wpcpm_publish' => $track ) );
+	}
+
+	/**
+	 * What a verify found, as a notice.
+	 *
+	 * @param array $seen What `WPCPM_Track_Publish::verify()` answered.
+	 * @return array
+	 */
+	private static function verified( array $seen ) {
+		$trouble = array_merge( $seen['columns']['missing'], $seen['columns']['wrong'] );
+
+		if ( array() !== $trouble ) {
+			return array(
+				'status'  => 'error',
+				'message' => sprintf(
+					/* translators: %s: a list of column names. */
+					__( 'These columns are missing from the base, or are no longer the type this track needs: %s. A column renamed in Airtable takes its answers with it, so students would be writing into nothing.', 'wpcredits-program-manager' ),
+					implode( ', ', $trouble )
+				),
+			);
+		}
+
+		if ( 'ok' !== $seen['choices']['reports'] || 'ok' !== $seen['choices']['students'] ) {
+			return array(
+				'status'  => 'error',
+				'message' => __( 'The track\'s status is not a choice on both tables, so students on it are not synced. "Add the two Status choices" is the checklist item to do.', 'wpcredits-program-manager' ),
+			);
+		}
+
+		return array(
+			'status'  => 'success',
+			'message' => __( 'Every column this track writes to is still in the base, with the type it needs, and its status is a choice on both tables.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * Tick one checklist item.
+	 */
+	public function handle_tick() {
+		$this->verify( self::ACTION_TICK );
+
+		$this->ticked( true );
+	}
+
+	/**
+	 * Take one tick back.
+	 */
+	public function handle_untick() {
+		$this->verify( self::ACTION_UNTICK );
+
+		$this->ticked( false );
+	}
+
+	/**
+	 * Record a tick either way, and say so.
+	 *
+	 * @param bool $on Whether it is now ticked.
+	 * @return void
+	 */
+	private function ticked( $on ) {
+		$track = WPCPM_Request::posted_id( 'track' );
+		$item  = WPCPM_Request::posted_text( 'item' );
+		$done  = $on
+			? WPCPM_Track_Publish::tick( $track, $item, get_current_user_id() )
+			: WPCPM_Track_Publish::untick( $track, $item, get_current_user_id() );
+
+		if ( is_wp_error( $done ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => $done->get_error_message(),
+				),
+				array( 'wpcpm_publish' => $track )
+			);
+		}
+
+		$this->redirect_back(
+			array(
+				'status'  => 'success',
+				'message' => $on
+					? __( 'Ticked, and recorded against your name.', 'wpcredits-program-manager' )
+					: __( 'The tick is taken back.', 'wpcredits-program-manager' ),
+			),
+			array( 'wpcpm_publish' => $track )
+		);
 	}
 
 	/**

@@ -429,7 +429,15 @@ final class WPCPM_Track_Store {
 		}
 
 		self::compile();
-		WPCPM_Settings::add_student_status( (string) $definition['status'] );
+
+		// Those four statuses were the program's before the Track Builder existed and are edited
+		// in Settings, so publishing a seed never puts back one a manager took out (the design's
+		// decision 13). A track of somebody's own still gets its status added, which is what
+		// makes its students sync.
+		if ( 'builtin' !== self::source( $post_id ) ) {
+			WPCPM_Settings::add_student_status( (string) $definition['status'] );
+		}
+
 		self::log( $post_id, 'publish', $user_id );
 
 		return $post_id;
@@ -574,14 +582,21 @@ final class WPCPM_Track_Store {
 	 * @param int    $post_id The track.
 	 * @param string $did     What happened, as a code: `publish`, `unpublish` and the like.
 	 * @param int    $user_id Who did it; 0 for the current user.
+	 * @param array  $detail  Optional detail stored only when not empty.
 	 */
-	public static function log( $post_id, $did, $user_id = 0 ) {
-		$entries   = self::log_entries( $post_id );
-		$entries[] = array(
+	public static function log( $post_id, $did, $user_id = 0, array $detail = array() ) {
+		$entries = self::log_entries( $post_id );
+		$entry   = array(
 			'at'  => time(),
 			'by'  => $user_id ? (int) $user_id : get_current_user_id(),
 			'did' => sanitize_key( $did ),
 		);
+
+		if ( array() !== $detail ) {
+			$entry['detail'] = $detail;
+		}
+
+		$entries[] = $entry;
 
 		update_post_meta( (int) $post_id, self::META_LOG, $entries );
 	}
@@ -590,7 +605,7 @@ final class WPCPM_Track_Store {
 	 * A track's log, oldest first.
 	 *
 	 * @param int $post_id The track.
-	 * @return array[] Each with `at` (a timestamp), `by` (a user ID) and `did`.
+	 * @return array[] Each with `at` (a timestamp), `by` (a user ID), `did`, and optionally `detail`.
 	 */
 	public static function log_entries( $post_id ) {
 		$entries = get_post_meta( (int) $post_id, self::META_LOG, true );
@@ -868,6 +883,55 @@ final class WPCPM_Track_Store {
 	}
 
 	/**
+	 * What a definition built on a track differs from in its PHP, if it is a built-in track.
+	 *
+	 * Extracted from `equivalence()` so it can answer about a definition that is about to be
+	 * published, not one that already is. Used by both `equivalence()` (for switch operations) and
+	 * `php_differences()` (for the preflight).
+	 *
+	 * @param array $definition The definition to compare.
+	 * @param bool  $is_builtin Whether this definition is a built-in track.
+	 * @return string[] Empty when they match, or any of `form`, `label`, `course`, `course_id` and
+	 *                  `hours`.
+	 */
+	private static function definition_differences( array $definition, $is_builtin ) {
+		if ( ! $is_builtin ) {
+			return array();
+		}
+
+		$status = isset( $definition['status'] ) ? (string) $definition['status'] : '';
+		$key    = WPCPM_Tracks::builtin_key( $status );
+
+		if ( '' === $key || ! isset( $definition['key'] ) || $key !== $definition['key'] ) {
+			return array();
+		}
+
+		$php       = WPCPM_Tracks::builtin_row( $status );
+		$mine      = array(
+			'label'     => isset( $definition['label'] ) ? (string) $definition['label'] : '',
+			'course'    => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
+			'course_id' => isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0,
+			'hours'     => isset( $definition['hours_target'] ) ? (int) $definition['hours_target'] : null,
+		);
+		$php_field = array(
+			'label'     => 'label',
+			'course'    => 'course_url',
+			'course_id' => 'course_id',
+			'hours'     => 'hours',
+		);
+
+		$differences = WPCPM_Track_Definition::compile_fields( $definition ) === WPCPM_Student_Report_Form::builtin_fields( $key ) ? array() : array( 'form' );
+
+		foreach ( $php_field as $what => $field ) {
+			if ( $mine[ $what ] !== $php[ $field ] ) {
+				$differences[] = $what;
+			}
+		}
+
+		return $differences;
+	}
+
+	/**
 	 * How a built-in track's published definition differs from its PHP: empty when it does not.
 	 *
 	 * The switch waits on this (the design's decision 3.5). The form must be `builtin_fields()`
@@ -893,29 +957,26 @@ final class WPCPM_Track_Store {
 			return array( 'not_builtin' );
 		}
 
-		$php       = WPCPM_Tracks::builtin_row( $status );
-		$mine      = array(
-			'label'     => isset( $copy['label'] ) ? (string) $copy['label'] : '',
-			'course'    => isset( $copy['course_url'] ) ? (string) $copy['course_url'] : '',
-			'course_id' => isset( $copy['learn_course_id'] ) ? (int) $copy['learn_course_id'] : 0,
-			'hours'     => isset( $copy['hours_target'] ) ? (int) $copy['hours_target'] : null,
-		);
-		$php_field = array(
-			'label'     => 'label',
-			'course'    => 'course_url',
-			'course_id' => 'course_id',
-			'hours'     => 'hours',
-		);
+		return self::definition_differences( $copy, true );
+	}
 
-		$differences = WPCPM_Track_Definition::compile_fields( $copy ) === WPCPM_Student_Report_Form::builtin_fields( $key ) ? array() : array( 'form' );
+	/**
+	 * How a definition about to be published differs from its PHP if its track is built-in.
+	 *
+	 * Used by the preflight (T2c) to check a definition before publishing. Unlike `equivalence()`,
+	 * this does not require the track to be published: it checks the definition being handed to it.
+	 * A definition of a non-built-in track always matches (its PHP is unchanged), and the preflight
+	 * holds no further rule besides this.
+	 *
+	 * @param int   $post_id    The track.
+	 * @param array $definition The definition about to be published.
+	 * @return string[] Empty when they match (or the track is not built-in), or any of `form`,
+	 *                  `label`, `course`, `course_id` and `hours`.
+	 */
+	public static function php_differences( $post_id, array $definition ) {
+		$is_builtin = 'builtin' === (string) get_post_meta( (int) $post_id, self::META_SOURCE, true );
 
-		foreach ( $php_field as $what => $field ) {
-			if ( $mine[ $what ] !== $php[ $field ] ) {
-				$differences[] = $what;
-			}
-		}
-
-		return $differences;
+		return self::definition_differences( $definition, $is_builtin );
 	}
 
 	/**

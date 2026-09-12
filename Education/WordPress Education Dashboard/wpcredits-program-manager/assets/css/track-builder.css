@@ -36,3 +36,52 @@
 .wpcpm-tracks__course {
 	font-size: 13px;
 }
+
+/* The publish screen. The findings and the columns are core's own notice and list shapes, so only
+   the parts core does not draw are set here: the run of checklist items, and the quiet lines
+   under each one. */
+/* The refusals and the warnings sit inside core's own notice, which already draws the box and the
+   color; the list inside it only needs its bullets back, since core's notice strips them. */
+.wpcpm-tracks__findings {
+	list-style: disc;
+	margin: 0 0 0 20px;
+}
+
+.wpcpm-tracks__checklist {
+	margin: 0;
+	max-width: 48rem;
+}
+
+.wpcpm-tracks__item {
+	border-left: 3px solid #dcdcde;
+	margin: 0 0 12px;
+	padding: 0 0 0 12px;
+}
+
+/* Done, in the same green the rest of the plugin gives a finished thing. */
+.wpcpm-tracks__item--done {
+	border-left-color: #00a32a;
+}
+
+.wpcpm-tracks__detail,
+.wpcpm-tracks__ticked,
+.wpcpm-tracks__count {
+	color: #646970;
+	display: block;
+	font-size: 13px;
+}
+
+/* 4px under the heading it belongs to and 8px above the button that acts on it, so each item
+   reads as one block rather than three loose lines. */
+.wpcpm-tracks__detail {
+	margin: 4px 0 8px;
+}
+
+.wpcpm-tracks__ticked {
+	margin: 0 0 8px;
+}
+
+.wpcpm-tracks__columns code {
+	display: inline-block;
+	margin: 2px 0;
+}

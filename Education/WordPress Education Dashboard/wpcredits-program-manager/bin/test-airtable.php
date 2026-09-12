@@ -448,7 +448,7 @@ ck( 'a 403 on a write is the ordinary error with the write-scope hint, word for 
 	array(
 		'wpcpm_airtable_error',
 		'Airtable request failed (HTTP 403): INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND This was a write, so the token most likely lacks the "data.records:write" scope. Add it at airtable.com/create/tokens, or use report-only mode.',
-		array( 'status' => 403 ),
+		array( 'status' => 403, 'error_type' => 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND' ),
 	) );
 ck( 'and it was sent as a PATCH', $GLOBALS['sent'][0]['args']['method'], 'PATCH' );
 ck( 'a 403 sets no backoff', WPCPM_Airtable::backoff_remaining(), 0 );
@@ -557,6 +557,94 @@ ck( 'nothing to delete sends nothing', array( $airtable->delete_records( 'tblX',
 
 $no_token = new WPCPM_Airtable( array( 'api_token' => '', 'base_id' => 'appTEST' ) );
 ck( 'and without a token it refuses before sending', array( $no_token->delete_records( 'tblX', array( $del[0] ) )->get_error_code(), sent() ), array( 'wpcpm_no_token', 0 ) );
+
+echo "\n=== Creating a column, the one call that uses the schema token ===\n";
+
+// The everyday token stays at records plus schema read, so the syncs that run every three hours
+// never hold the right to change the base's structure (the design's 7.2).
+$schema_client = new WPCPM_Airtable( array( 'api_token' => 'pat-everyday', 'schema_token' => 'pat-schema', 'base_id' => 'appTEST' ) );
+
+fresh( 'web' );
+queue( response( 200, array( 'id' => 'fldNEW', 'name' => 'What you did', 'type' => 'multilineText' ) ) );
+$made = $schema_client->create_field( 'tblX', array( 'name' => 'What you did', 'type' => 'multilineText' ) );
+
+ck( 'the created column comes back as Airtable describes it',
+	$made, array( 'id' => 'fldNEW', 'name' => 'What you did', 'type' => 'multilineText' ) );
+
+$call = $GLOBALS['sent'][0];
+
+ck( 'it is a POST to the base metadata endpoint for that table',
+	array( $call['args']['method'], $call['url'] ),
+	array( 'POST', 'https://api.airtable.com/v0/meta/bases/appTEST/tables/tblX/fields' ) );
+
+ck( 'carrying the schema token and not the everyday one',
+	$call['args']['headers']['Authorization'], 'Bearer pat-schema' );
+
+ck( 'and the field as the body', json_decode( $call['args']['body'], true ), array( 'name' => 'What you did', 'type' => 'multilineText' ) );
+
+fresh( 'web' );
+$no_schema = new WPCPM_Airtable( array( 'api_token' => 'pat-everyday', 'base_id' => 'appTEST' ) );
+$refused   = $no_schema->create_field( 'tblX', array( 'name' => 'X', 'type' => 'singleLineText' ) );
+
+ck( 'with no schema token it refuses before sending, in its own words',
+	array( $refused->get_error_code(), sent() ), array( 'wpcpm_no_schema_token', 0 ) );
+
+fresh( 'web' );
+queue( response( 403, array( 'error' => array( 'type' => 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND' ) ) ) );
+$forbidden = $schema_client->create_field( 'tblX', array( 'name' => 'X', 'type' => 'singleLineText' ) );
+
+ck( 'a 403 names both things it could be, since neither is visible from here',
+	array( $forbidden->get_error_code(), false !== strpos( $forbidden->get_error_message(), 'schema.bases:write' ), false !== strpos( $forbidden->get_error_message(), 'base creator' ) ),
+	array( 'wpcpm_airtable_error', true, true ) );
+
+fresh( 'web' );
+queue( response( 422, array( 'error' => array( 'type' => 'DUPLICATE_OR_EMPTY_FIELD_NAME' ) ) ) );
+$taken = $schema_client->create_field( 'tblX', array( 'name' => 'Hours', 'type' => 'number' ) );
+
+ck( 'a name already taken is its own code, because publishing reads that column again rather than stopping',
+	$taken->get_error_code(), 'wpcpm_airtable_field_exists' );
+
+fresh( 'web' );
+queue( response( 422, array( 'error' => array( 'type' => 'INVALID_FIELD_TYPE', 'message' => 'The field type multilineText cannot have options.' ) ) ) );
+$bad_type = $schema_client->create_field( 'tblX', array( 'name' => 'Invalid', 'type' => 'multilineText', 'options' => array() ) );
+
+ck( 'a 422 with a different error type is not reported as field-exists',
+	$bad_type->get_error_code(), 'wpcpm_airtable_error' );
+
+echo "\n=== The schema read carries each column's type, beside the descriptions ===\n";
+
+fresh( 'web' );
+queue(
+	response(
+		200,
+		array(
+			'tables' => array(
+				array(
+					'id'              => 'tblX',
+					'name'            => 'Students Reports',
+					'primaryFieldId'  => 'fld1',
+					'fields'          => array(
+						array( 'id' => 'fld1', 'name' => 'Name', 'type' => 'singleLineText', 'description' => 'Their name' ),
+						array( 'id' => 'fld2', 'name' => 'Tool used', 'type' => 'singleSelect', 'options' => array( 'choices' => array( array( 'name' => 'MAAMP' ) ) ) ),
+					),
+				),
+			),
+		)
+	)
+);
+$schema = $airtable->fetch_schema();
+
+// `fields` keeps its old shape, name to description: the mentors sync stores it that way and
+// reads it back as the descriptions shown on the mentor page.
+ck( 'the descriptions are where they always were',
+	$schema['tblX']['fields'], array( 'Name' => 'Their name', 'Tool used' => '' ) );
+
+ck( 'and the types arrive beside them, with a select carrying its choices',
+	$schema['tblX']['columns'],
+	array(
+		'Name'      => array( 'type' => 'singleLineText', 'options' => array() ),
+		'Tool used' => array( 'type' => 'singleSelect', 'options' => array( 'choices' => array( array( 'name' => 'MAAMP' ) ) ) ),
+	) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

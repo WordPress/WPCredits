@@ -172,6 +172,7 @@ ck( 'the handler derives its keys from the defaults, not a hand-written list',
 // round trip - the failure this file exists for is a field that saves nothing.
 $probe = array(
 	'api_token'                     => 'patTESTTOKEN1234567890',
+	'schema_token'                  => 'patSCHEMATOKEN9876543210',
 	'base_id'                       => 'appPROBE0000000001',
 	'mentors_table'                 => 'tblPROBE0000000002',
 	'mentor_status'                 => 'Probe active',
@@ -259,6 +260,34 @@ $saved = WPCPM_Settings::save( $bool_probe );
 foreach ( $bool_probe as $key => $value ) {
 	ck( sprintf( '%s can be flipped to %s', $key, var_export( $value, true ) ), array( $saved[ $key ] ), array( $value ) );
 }
+
+echo "\n=== The schema token, the second secret ===\n";
+
+$GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'schema_token' => 'patKEEPME0000000000' ) );
+
+ck( 'a blank schema token leaves the stored one alone, as the everyday token does',
+    WPCPM_Settings::save( array( 'schema_token' => '' ) )['schema_token'], 'patKEEPME0000000000' );
+
+$GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'schema_token' => 'patKEEPME0000000000' ) );
+
+ck( 'the mask coming back on submit never overwrites it either',
+    WPCPM_Settings::save( array( 'schema_token' => WPCPM_Settings::masked_schema_token() ) )['schema_token'], 'patKEEPME0000000000' );
+
+$GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'schema_token' => 'patKEEPME0000000000' ) );
+
+// A field that only ever shows a mask has no other way to say "take it away", and a site that
+// has finished creating columns should be able to put the right back.
+ck( 'and the word remove clears it, which is the only way to take the right away again',
+    WPCPM_Settings::save( array( 'schema_token' => 'Remove' ) )['schema_token'], '' );
+
+$GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'schema_token' => 'patKEEPME0000000000' ) );
+
+ck( 'the mask shows the last four characters and nothing else',
+    WPCPM_Settings::masked_schema_token(), str_repeat( "\u{2022}", 12 ) . '0000' );
+
+ck( 'and the site knows whether it may create columns at all',
+    array( WPCPM_Settings::has_schema_token(), ( function () { $GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'schema_token' => '' ) ); return WPCPM_Settings::has_schema_token(); } )() ),
+    array( true, false ) );
 
 ck( 'every setting has a round-trip probe',
     array_values( array_diff( array_keys( $defaults ), array_keys( $probe ), array_keys( $bool_probe ) ) ),
@@ -758,7 +787,24 @@ class WPCPM_Track_Store {
 
 $compiled_before = WPCPM_Track_Store::$compiled;
 WPCPM_Settings::save( array( 'student_statuses' => array( 'In Sensei' ) ) );
-ck( 'saving the settings compiles the tracks again', WPCPM_Track_Store::$compiled - $compiled_before, 1 );
+
+// The recompile hangs on the settings screen's own handler, not on `save()`: `save()` has callers
+// of its own, and one of them is the handbook's model migration on `init` priority 5, before the
+// track post type is registered at 10 (the T2b whole-branch review). Asserted by reading both
+// sources, because what is being pinned is which of the two carries the call.
+ck( 'saving through the sanitiser alone compiles nothing', WPCPM_Track_Store::$compiled - $compiled_before, 0 );
+
+$settings_source = (string) file_get_contents( __DIR__ . '/../includes/class-wpcpm-settings.php' );
+
+ck( 'and the sanitiser carries no compile at all', false !== strpos( $settings_source, 'WPCPM_Track_Store::compile()' ), false );
+
+ck( 'the settings screen handler compiles after it saves, which is what decision 14 asks for',
+    array(
+        false !== strpos( $admin, 'WPCPM_Settings::save( $input );' ),
+        false !== strpos( $admin, 'WPCPM_Track_Store::compile();' ),
+        strpos( $admin, 'WPCPM_Settings::save( $input );' ) < strpos( $admin, 'WPCPM_Track_Store::compile();' ),
+    ),
+    array( true, true, true ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

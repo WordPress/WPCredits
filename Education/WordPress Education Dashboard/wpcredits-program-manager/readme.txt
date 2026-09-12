@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.103.0
+Stable tag: 1.104.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.104.0 =
+
+* A track is published from the Track Builder. Before anything happens the screen says what would: which columns Airtable is missing, which are ready, what the table would come to, and anything that would stop the publish, in the same words the editor uses.
+* With a schema token configured, publishing creates the columns a track's questions name, one at a time, and a run stopped by Airtable carries on from where it left off when it is pressed again. Without one, the screen lists the columns for somebody to create by hand and waits for them.
+* What the site cannot do is a checklist of three, each ticked by whoever did it and recorded with their name: the reports automation, the welcome email, and the two Status choices no token can add. Ticking the first is what lets an institution import offer the track.
+* A live track can be checked against Airtable at any time, which catches a column renamed in the base before students write into nothing, and taken off the live site once nobody is on it.
+* Publishing a built-in track no longer puts its status back into "Currently mentoring", so one taken out in Settings stays out.
+* The track list counts the students on every track in one pass rather than one per row, and saving the settings compiles from the settings screen rather than from anything else that saves them.
 
 = 1.103.0 =
 

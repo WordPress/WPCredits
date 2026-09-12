@@ -669,6 +669,42 @@ update_post_meta( $drift, WPCPM_Track_Store::META_PUBLISHED, wp_slash( WPCPM_Tra
 wp_update_post( array( 'ID' => $drift, 'post_status' => 'publish' ) );
 ck( 'equivalence names each way a definition differs from its PHP', WPCPM_Track_Store::equivalence( $drift ), array( 'label', 'hours' ) );
 
+echo "\n=== php_differences(), for the preflight ===\n";
+
+// The preflight calls php_differences() to check a definition before publishing, not after.
+// It uses the same comparison logic as equivalence() but on the definition being handed to it.
+// Use the designer track that's already set up with the correct form.
+$not_builtin  = WPCPM_Track_Store::create( track( 'Not Built-In', 'not-builtin' ) );
+update_post_meta( $not_builtin, WPCPM_Track_Store::META_SOURCE, 'definition' );
+$builtin_id = WPCPM_Track_Store::create( $designer );
+update_post_meta( $builtin_id, WPCPM_Track_Store::META_SOURCE, 'builtin' );
+
+ck( 'a built-in track whose definition matches its PHP answers empty',
+    WPCPM_Track_Store::php_differences( $builtin_id, $designer ), array() );
+
+$diff_label = $designer;
+$diff_label['label'] = 'Different Title';
+ck( 'a built-in track whose label differs answers with that difference',
+    WPCPM_Track_Store::php_differences( $builtin_id, $diff_label ), array( 'label' ) );
+
+$diff_course = $designer;
+$diff_course['course_url'] = 'https://learn.wordpress.org/course/different/';
+ck( 'a built-in track whose course URL differs answers with that difference',
+    WPCPM_Track_Store::php_differences( $builtin_id, $diff_course ), array( 'course' ) );
+
+$diff_hours = $designer;
+$diff_hours['hours_target'] = 999;
+ck( 'a built-in track whose hours target differs answers with that difference',
+    WPCPM_Track_Store::php_differences( $builtin_id, $diff_hours ), array( 'hours' ) );
+
+$diff_form = $designer;
+$diff_form['questions']['New Question'] = array( 'label' => 'New Q', 'type' => 'text', 'group' => 'project' );
+ck( 'a built-in track whose form differs answers with that difference',
+    WPCPM_Track_Store::php_differences( $builtin_id, $diff_form ), array( 'form' ) );
+
+ck( 'a non-built-in track answers empty, meaning no comparison to PHP',
+    WPCPM_Track_Store::php_differences( $not_builtin, $designer ), array() );
+
 echo "\n=== delete_all(), for uninstall ===\n";
 
 $trashed = WPCPM_Track_Store::create( track( 'Trashed Track', 'trashed' ) );
@@ -693,6 +729,56 @@ ck( 'and calls delete_all()', false !== strpos( $uninstall, 'WPCPM_Track_Store::
 ck( 'and sweeps any form option the index lost track of', false !== strpos( $uninstall, "array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX ) as \$wpcpm_prefix" ), true );
 $main = (string) file_get_contents( __DIR__ . '/../wpcredits-program-manager.php' );
 ck( 'the plugin boots the store and the runtime', array( false !== strpos( $main, 'WPCPM_Track_Store::init();' ), false !== strpos( $main, 'WPCPM_Tracks::init();' ) ), array( true, true ) );
+
+echo "\n=== Publishing and the settings (the design's decision 13) ===\n";
+
+// Those four statuses were the program's before the Track Builder existed and are edited in
+// Settings, so a seed published again must not ask for one to be put back.
+WPCPM_Settings::$added = array();
+
+$builtin_post = WPCPM_Track_Store::create( WPCPM_Track_Store::seeds()['dev'] );
+update_post_meta( $builtin_post, WPCPM_Track_Store::META_SOURCE, 'builtin' );
+$builtin_done = WPCPM_Track_Store::publish( $builtin_post );
+
+ck( 'a built-in track publishes', is_wp_error( $builtin_done ) ? $builtin_done->get_error_message() : true, true );
+
+ck( 'and asks for no status to be added, so one a manager took out stays out',
+    WPCPM_Settings::$added, array() );
+
+$mine_post = WPCPM_Track_Store::create( track( 'Growth Track', 'growth' ) );
+$mine_done = WPCPM_Track_Store::publish( $mine_post );
+
+ck( 'a track of somebody\'s own publishes too', is_wp_error( $mine_done ) ? $mine_done->get_error_message() : true, true );
+
+ck( 'and its status is the one added, which is what makes its students sync',
+    WPCPM_Settings::$added, array( 'Growth Track' ) );
+
+echo "\n=== Log entries with detail ===\n";
+
+$track = WPCPM_Track_Store::create( track( 'Test Track', 'test' ) );
+
+WPCPM_Track_Store::log( $track, 'columns', 5, array( 'columns' => array( 'One', 'Two' ) ) );
+$entries_with = WPCPM_Track_Store::log_entries( $track );
+
+ck( 'a log entry with detail stores the detail field',
+    isset( $entries_with[0]['detail'] ) && isset( $entries_with[0]['detail']['columns'] ),
+    true );
+
+ck( 'the detail contains the columns',
+    $entries_with[0]['detail']['columns'], array( 'One', 'Two' ) );
+
+$track2 = WPCPM_Track_Store::create( track( 'Other Track', 'other' ) );
+
+WPCPM_Track_Store::log( $track2, 'publish', 5 );
+$entries_without = WPCPM_Track_Store::log_entries( $track2 );
+
+ck( 'a log entry without detail does not have the detail field',
+    isset( $entries_without[0]['detail'] ), false );
+
+ck( 'but it still has the required fields',
+    array( isset( $entries_without[0]['at'] ), isset( $entries_without[0]['by'] ), isset( $entries_without[0]['did'] ) ),
+    array( true, true, true ) );
+
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

@@ -195,6 +195,12 @@ ck( 'an empty choice', refused( only( array( 'Tool' => array( 'options' => array
 ck( 'choices on something that is not a select', refused( only( array( 'Notes' => $note + array( 'options' => array( 'A' ) ) ) ), $context ), array( 'options_only' ) );
 ck( 'a length limit on a link', refused( only( array( 'Link' => array( 'label' => 'Link', 'type' => 'url', 'group' => 'project', 'maxlength' => 100 ) ) ), $context ), array( 'maxlength_shape' ) );
 ck( 'a length limit of nothing, or written as words', array( refused( only( array( 'Notes' => $note + array( 'maxlength' => 0 ) ) ), $context ), refused( only( array( 'Notes' => $note + array( 'maxlength' => '100' ) ) ), $context ) ), array( array( 'maxlength_shape' ), array( 'maxlength_shape' ) ) );
+// Open item 7, settled 12 September 2026: text only. A textarea already draws maxlength="5000"
+// and saves capped at the same figure, so a spec value would lower a limit rather than add one,
+// and a browser maxlength on a prose box stops typing with no message.
+ck( 'a length limit on a text box of many lines', refused( only( array( 'Notes' => $note + array( 'maxlength' => 200 ) ) ), $context ), array( 'maxlength_shape' ) );
+ck( 'while one on a single-line box is accepted, which is where all four tracks use it', refused( only( array( 'Slack Name' => array( 'label' => 'Slack', 'type' => 'text', 'group' => 'project', 'maxlength' => 100 ) ) ), $context ), array() );
+
 ck( 'monospace on a one-line box', refused( only( array( 'Name on the brief' => array( 'label' => 'Name', 'type' => 'text', 'group' => 'project', 'mono' => true ) ) ), $context ), array( 'mono_only' ) );
 
 $team = array( 'label' => 'Your contribution team', 'type' => 'team', 'group' => 'project' );

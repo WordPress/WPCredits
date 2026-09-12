@@ -855,6 +855,31 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The programs an institution may be given, as status to label.
+	 *
+	 * `WPCPM_Program::labels()` names every live track; this names the ones a student can safely
+	 * be put on. A Track Builder track reaches these two flows only once somebody has ticked its
+	 * reports automation item, because a student put on it before the automation names its status
+	 * never gets a report row and their Student Report Card stays empty (the design's decision 10,
+	 * and 2.4 for the automation itself). The four built-in statuses are in the pinned list, so
+	 * they are unaffected.
+	 *
+	 * @return array<string,string> Status to label, in the order `labels()` gives them.
+	 */
+	public static function offered_programs() {
+		$offered = self::automation_statuses();
+		$out     = array();
+
+		foreach ( WPCPM_Program::labels() as $status => $label ) {
+			if ( in_array( (string) $status, $offered, true ) ) {
+				$out[ (string) $status ] = (string) $label;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Why this row may not be linked, or '' when it may.
 	 *
 	 * **One rule, asked twice.** The card asks it of the index row so it does not offer a

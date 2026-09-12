@@ -111,6 +111,7 @@ function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function add_action( $h, $c = null, $p = 10, $n = 1 ) { $GLOBALS['hooks'][] = $h; }
 function add_filter() {}
+function apply_filters( $tag, $value ) { return $value; }
 function register_post_type() {}
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
@@ -931,6 +932,48 @@ ck( 'and the list the guard reads is the pinned five, then the ticked track', WP
 
 unset( $GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ] );
 WPCPM_Tracks::flush();
+
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
+
+echo "\n=== The programs an institution may be offered (decision 10) ===\n";
+
+// The real offered_programs() method is the gate that blocks ungated tracks from both flows.
+// It returns statuses that appear in both labels() and automation_statuses().
+$expected_built_in = array(
+	WPCPM_Program::STATUS_150H => 'WordPress Credits Program 150h',
+	WPCPM_Program::STATUS_50H  => 'WordPress Credits Program 50h',
+	WPCPM_Program::STATUS_DEV  => 'Developer Track',
+	WPCPM_Program::STATUS_DESIGN => 'Designer Track',
+);
+
+ck( 'on a site with no Track Builder tracks, offered_programs returns the four built-in statuses',
+    WPCPM_Institutions::offered_programs(),
+    $expected_built_in );
+
+ck( 'all four built-in statuses survive when the compiled tracks option is empty',
+    array_keys( WPCPM_Institutions::offered_programs() ),
+    array( WPCPM_Program::STATUS_150H, WPCPM_Program::STATUS_50H, WPCPM_Program::STATUS_DEV, WPCPM_Program::STATUS_DESIGN ) );
+
+ck( 'all four survive when the compiled tracks option is missing entirely',
+    array_keys( WPCPM_Institutions::offered_programs() ),
+    array( WPCPM_Program::STATUS_150H, WPCPM_Program::STATUS_50H, WPCPM_Program::STATUS_DEV, WPCPM_Program::STATUS_DESIGN ) );
+
+// Test the gating logic: a status not in automation_statuses() is not offered, even if present in labels().
+// The four built-in statuses are always in AUTOMATION_STATUSES, so they always appear.
+// This can be tested by checking that offered_programs() is the intersection of labels() and automation_statuses().
+$labels = WPCPM_Program::labels();
+$automation = WPCPM_Institutions::automation_statuses();
+$offered = WPCPM_Institutions::offered_programs();
+
+ck( 'every status in offered_programs is in both labels and automation_statuses',
+    array_keys( $offered ),
+    array_intersect( array_keys( $labels ), $automation ) );
+
+ck( 'offered_programs preserves the order that labels() gives',
+    array_keys( $offered ),
+    array_filter( array_keys( $labels ), function ( $s ) use ( $automation ) {
+        return in_array( (string) $s, $automation, true );
+    } ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

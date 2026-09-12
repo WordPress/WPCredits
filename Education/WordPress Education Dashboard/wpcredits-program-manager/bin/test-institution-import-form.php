@@ -114,6 +114,29 @@ function wpcpm_test_exit() { throw new Left( $GLOBALS['redirect'] ); }
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 
+/**
+ * The institutions module, stood in for its one question here: which programs may be offered.
+ *
+ * The four built-in statuses are always offered; a Track Builder track joins them only once
+ * somebody ticks its reports automation item (the design's decision 10).
+ */
+class WPCPM_Institutions {
+	public static $gated = array();
+
+	public static function offered_programs() {
+		$out = array();
+
+		foreach ( WPCPM_Program::labels() as $status => $label ) {
+			if ( ! in_array( (string) $status, self::$gated, true ) ) {
+				$out[ (string) $status ] = (string) $label;
+			}
+		}
+
+		return $out;
+	}
+}
+
+
 /** Only what the form calls, so the suite stays about the form. */
 class WPCPM_Mentors_Sync {
 	public static function is_record_id( $id ) { return (bool) preg_match( '/^rec[A-Za-z0-9]{14}$/', (string) $id ); }
@@ -715,6 +738,44 @@ ck( 'and only a real upload is read at all', false !== strpos( $code, 'is_upload
 foreach ( array( 'module' => $source, 'suite' => file_get_contents( __FILE__ ) ) as $what => $text ) {
 	ck( sprintf( 'no dash but the plain hyphen in the %s', $what ), preg_match( '/[\x{2013}\x{2014}]/u', $text ), 0 );
 }
+
+echo "\n=== The institution gate (the design's decision 10) ===\n";
+
+// A student put on a Track Builder track before its status is in the reports automation never
+// gets a report row, so the track is not offered until somebody ticks checklist item 1. The four
+// built-in statuses are in the pinned list and are never gated.
+fresh_world();
+WPCPM_Institutions::$gated = array( WPCPM_Program::STATUS_DEV );
+$gated_form                = draw_section( $HERE );
+
+ck( 'a track whose automation item is not ticked is not in the picker',
+    false !== strpos( $gated_form, 'value="' . WPCPM_Program::STATUS_DEV . '"' ), false );
+
+ck( 'while the programs that are stay in it',
+    false !== strpos( $gated_form, 'value="' . WPCPM_Program::STATUS_150H . '"' ), true );
+
+fresh_world();
+WPCPM_Institutions::$gated = array( WPCPM_Program::STATUS_DEV );
+
+ck( 'and posting the gated one is refused by the handler, whatever the form said',
+    post_check( batch_fields( array( 'program' => WPCPM_Program::STATUS_DEV ) ) ), 'bad-program' );
+
+WPCPM_Institutions::$gated = array();
+
+// If a program becomes gated between staging and confirming, the confirm handler catches it.
+// This gives a specific message rather than the generic "This row could not be turned into a
+// record" that every unvalidatable row would get if we let create_slice proceed.
+fresh_world();
+post_check( batch_fields( array( 'program' => WPCPM_Program::STATUS_150H ) ) );
+$batch_id = WPCPM_Institution_Import::staged_for( $HERE );
+
+WPCPM_Institutions::$gated = array( WPCPM_Program::STATUS_150H );
+
+ck( 'a batch staged with a program that is later ungated produces program-ungated, not the generic error',
+    post_batch( 'handle_confirm', $batch_id ), 'program-ungated' );
+
+WPCPM_Institutions::$gated = array();
+
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

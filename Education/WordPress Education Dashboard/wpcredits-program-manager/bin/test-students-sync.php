@@ -186,7 +186,8 @@ function wp_insert_user( array $data ) {
  * Users by exact meta match, or by a meta key existing, honouring `fields`.
  */
 function get_users( $args = array() ) {
-	$out = array();
+	$GLOBALS['user_queries'] = ( $GLOBALS['user_queries'] ?? 0 ) + 1;
+	$out                     = array();
 
 	foreach ( $GLOBALS['umeta'] as $id => $meta ) {
 		if ( isset( $args['meta_key'] ) ) {
@@ -1374,6 +1375,35 @@ ck( 'the students on a track are counted', WPCPM_Students_Sync::count_on_status(
 ck( 'a track nobody holds counts none, and so does no status at all',
     array( WPCPM_Students_Sync::count_on_status( 'Writing Track' ), WPCPM_Students_Sync::count_on_status( '' ) ),
     array( 0, 0 ) );
+
+$all_counts = WPCPM_Students_Sync::counts_by_status();
+
+ck( 'every status is counted in one answer',
+    array_intersect_key( $all_counts, array( 'Counting Track' => 0, 'Other Track' => 0 ) ),
+    array( 'Counting Track' => 2, 'Other Track' => 1 ) );
+
+ck( 'and the statuses the rest of this suite set up are in the same answer, so it is one walk for all of them',
+    array( isset( $all_counts['In Sensei'] ), count( $all_counts ) > 2 ), array( true, true ) );
+
+// The track list asks once per row, and a query per row grew with the roster (the T2b
+// whole-branch review). Four rows now cost one walk, not four.
+WPCPM_Students_Sync::forget_counts();
+$GLOBALS['user_queries'] = 0;
+
+foreach ( array( 'Counting Track', 'Other Track', 'Writing Track', 'Another Track' ) as $one ) {
+	WPCPM_Students_Sync::count_on_status( $one );
+}
+
+ck( 'and four rows cost one walk over the students, not four', $GLOBALS['user_queries'], 1 );
+
+// A process that changes a status and reads it again asks for the walk to happen afresh.
+update_user_meta( 903, WPCPM_Students_Sync::META_PROGRAM, array( 'program' => 'Counting Track' ) );
+
+ck( 'the held answer stands until it is let go', WPCPM_Students_Sync::count_on_status( 'Counting Track' ), 2 );
+
+WPCPM_Students_Sync::forget_counts();
+
+ck( 'and then the next read walks again', WPCPM_Students_Sync::count_on_status( 'Counting Track' ), 3 );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

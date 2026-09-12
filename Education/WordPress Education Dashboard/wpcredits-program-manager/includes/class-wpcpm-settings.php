@@ -39,6 +39,7 @@ class WPCPM_Settings {
 	public static function defaults() {
 		return array(
 			'api_token'                     => '',
+			'schema_token'                  => '',
 			'base_id'                       => 'appIzQKfwTn5dyPVp',
 			'mentors_table'                 => 'tblJmEYgBWYxVuzUw',
 			'mentor_status'                 => 'Active',
@@ -256,6 +257,20 @@ class WPCPM_Settings {
 			$token = trim( wp_unslash( $input['api_token'] ) );
 			if ( '' !== $token && ! self::is_mask( $token ) ) {
 				$clean['api_token'] = sanitize_text_field( $token );
+			}
+		}
+
+		// The schema token is the same secret in a second field, kept apart so the everyday
+		// token never carries the right to change the base's structure (the design's 7.2).
+		// Blank leaves it alone, as above, and the word "remove" clears it, because a field
+		// that only ever shows a mask has no other way to say "take it away".
+		if ( isset( $input['schema_token'] ) ) {
+			$schema = trim( wp_unslash( $input['schema_token'] ) );
+
+			if ( 'remove' === strtolower( $schema ) ) {
+				$clean['schema_token'] = '';
+			} elseif ( '' !== $schema && ! self::is_mask( $schema ) ) {
+				$clean['schema_token'] = sanitize_text_field( $schema );
 			}
 		}
 
@@ -486,13 +501,6 @@ class WPCPM_Settings {
 			WPCPM_Mentor_Checker_Runner::sync_cron( $clean['checker_cron_enabled'] );
 		}
 
-		// "Currently mentoring" and the past statuses are rules every published track was compiled
-		// against, so a save that changes them would otherwise leave the live tracks, and the list
-		// of what the last compile left out, answering for the settings as they were (decision 14).
-		if ( class_exists( 'WPCPM_Track_Store' ) ) {
-			WPCPM_Track_Store::compile();
-		}
-
 		return $clean;
 	}
 
@@ -714,6 +722,30 @@ class WPCPM_Settings {
 		}
 
 		return str_repeat( '•', 12 ) . substr( $token, -4 );
+	}
+
+	/**
+	 * The schema token as the screen may show it: a mask, never the secret.
+	 *
+	 * @return string
+	 */
+	public static function masked_schema_token() {
+		$token = (string) self::get_value( 'schema_token', '' );
+
+		if ( '' === $token ) {
+			return '';
+		}
+
+		return str_repeat( '•', 12 ) . substr( $token, -4 );
+	}
+
+	/**
+	 * Whether the site can create columns at all.
+	 *
+	 * @return bool
+	 */
+	public static function has_schema_token() {
+		return '' !== (string) self::get_value( 'schema_token', '' );
 	}
 
 	/**

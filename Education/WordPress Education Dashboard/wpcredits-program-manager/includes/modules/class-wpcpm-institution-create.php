@@ -741,7 +741,7 @@ final class WPCPM_Institution_Create {
 		// The program is the server's own map and the date is the form's checked one, but both
 		// are read back out of storage here, and a batch stored before either was validated
 		// would otherwise be created with a blank Status that Airtable refuses per record.
-		if ( '' === $name || '' === $email || '' === $start || ! isset( WPCPM_Program::labels()[ $status ] ) ) {
+		if ( '' === $name || '' === $email || '' === $start || ! isset( WPCPM_Institutions::offered_programs()[ $status ] ) ) {
 			return array();
 		}
 

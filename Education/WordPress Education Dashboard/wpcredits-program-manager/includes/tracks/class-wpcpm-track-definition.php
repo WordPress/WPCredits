@@ -438,8 +438,12 @@ final class WPCPM_Track_Definition {
 			$errors[] = self::error( 'options_only', $column, __( 'Only a select has choices.', 'wpcredits-program-manager' ) );
 		}
 
-		if ( isset( $spec['maxlength'] ) && ( ! in_array( $type, array( 'text', 'textarea' ), true ) || ! is_int( $spec['maxlength'] ) || $spec['maxlength'] < 1 ) ) {
-			$errors[] = self::error( 'maxlength_shape', $column, __( 'A length limit is a whole number above zero, on a text box.', 'wpcredits-program-manager' ) );
+		// Text only, settled 12 September 2026 (open item 7). A textarea already draws
+		// `maxlength="5000"` and saves capped at the same figure, so honoring a spec value would
+		// lower a limit rather than add one, and a browser `maxlength` on a prose box stops
+		// typing with no message on the questions students write most in.
+		if ( isset( $spec['maxlength'] ) && ( 'text' !== $type || ! is_int( $spec['maxlength'] ) || $spec['maxlength'] < 1 ) ) {
+			$errors[] = self::error( 'maxlength_shape', $column, __( 'A length limit is a whole number above zero, on a single-line text box.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( ! empty( $spec['mono'] ) && 'textarea' !== $type ) {

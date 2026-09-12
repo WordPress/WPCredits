@@ -126,6 +126,19 @@ final class WPCPM_Track_Builder_Screen {
 			);
 		}
 
+		// Publishing is a screen of its own: it has a preflight to read, a checklist to work
+		// through and, when a column is missing, a list to take to Airtable. A trashed track is
+		// not offered it, because the store refuses to publish out of the trash.
+		if ( '' !== $url && 'trash' !== $row['state'] ) {
+			printf(
+				'<a href="%1$s">%2$s</a> ',
+				esc_url( add_query_arg( 'wpcpm_publish', (int) $row['id'], $url ) ),
+				'draft' === $row['state']
+					? esc_html__( 'Publish', 'wpcredits-program-manager' )
+					: esc_html__( 'Publishing', 'wpcredits-program-manager' )
+			);
+		}
+
 		if ( ! empty( $row['stale'] ) ) {
 			self::render_button( WPCPM_Track_Builder::ACTION_REFRESH, (int) $row['id'], __( 'Refresh from the plugin', 'wpcredits-program-manager' ) );
 		}
@@ -137,6 +150,356 @@ final class WPCPM_Track_Builder_Screen {
 		if ( ! empty( $row['switched'] ) ) {
 			self::render_button( WPCPM_Track_Builder::ACTION_SWITCH_BUILTIN, (int) $row['id'], __( 'Run from its hand-written form', 'wpcredits-program-manager' ) );
 		}
+	}
+
+	/**
+	 * The publish screen: what would happen, what a person has to do, and the button.
+	 *
+	 * @param array $args `track`, `label`, `state`, `preflight`, `checklist`, `can_make` (whether
+	 *                    a schema token is configured), the screen's `url` and the `flash`.
+	 */
+	public static function render_publish( array $args ) {
+		$track     = isset( $args['track'] ) ? (int) $args['track'] : 0;
+		$label     = isset( $args['label'] ) ? (string) $args['label'] : '';
+		$state     = isset( $args['state'] ) ? (string) $args['state'] : '';
+		$flight    = isset( $args['preflight'] ) && is_array( $args['preflight'] ) ? $args['preflight'] : array();
+		$checklist = isset( $args['checklist'] ) && is_array( $args['checklist'] ) ? $args['checklist'] : array();
+		$can_make  = ! empty( $args['can_make'] );
+		$url       = isset( $args['url'] ) ? (string) $args['url'] : '';
+
+		self::render_notice( isset( $args['flash'] ) && is_array( $args['flash'] ) ? $args['flash'] : array() );
+
+		echo '<h2>';
+		printf(
+			/* translators: %s: the track's name. */
+			esc_html__( 'Publishing %s', 'wpcredits-program-manager' ),
+			esc_html( $label )
+		);
+		echo '</h2>';
+
+		if ( '' !== $url ) {
+			printf( '<p><a href="%1$s">%2$s</a></p>', esc_url( $url ), esc_html__( 'Back to the track list', 'wpcredits-program-manager' ) );
+		}
+
+		self::render_findings( $flight );
+		self::render_columns( $flight, $can_make );
+		self::render_adds_status( $flight );
+		self::render_checklist( $checklist, $track, isset( $flight['choices'] ) && is_array( $flight['choices'] ) ? $flight['choices'] : array() );
+		self::render_publish_actions( $flight, $state, $track, $can_make );
+	}
+
+	/**
+	 * What the preflight refused and what it only warned about.
+	 *
+	 * @param array $flight The preflight's answer.
+	 * @return void
+	 */
+	private static function render_findings( array $flight ) {
+		foreach ( array( 'refusals', 'warnings' ) as $kind ) {
+			$findings = isset( $flight[ $kind ] ) ? (array) $flight[ $kind ] : array();
+
+			if ( array() === $findings ) {
+				continue;
+			}
+
+			$lede = 'refusals' === $kind
+				? esc_html__( 'This track cannot be published yet:', 'wpcredits-program-manager' )
+				: esc_html__( 'Worth knowing before you publish:', 'wpcredits-program-manager' );
+
+			printf(
+				'<div class="notice notice-%1$s inline"><p><strong>%2$s</strong></p><ul class="wpcpm-tracks__findings">',
+				'refusals' === $kind ? 'error' : 'warning',
+				$lede // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two escaped literals above.
+			);
+
+			foreach ( $findings as $finding ) {
+				$column = isset( $finding['column'] ) ? (string) $finding['column'] : '';
+
+				echo '<li>';
+
+				if ( '' !== $column ) {
+					printf( '<code>%s</code> ', esc_html( $column ) );
+				}
+
+				echo esc_html( isset( $finding['message'] ) ? (string) $finding['message'] : '' );
+				echo '</li>';
+			}
+
+			echo '</ul></div>';
+		}
+	}
+
+	/**
+	 * The columns publishing would create, or the list to make by hand.
+	 *
+	 * @param array $flight   The preflight's answer.
+	 * @param bool  $can_make Whether a schema token is configured.
+	 * @return void
+	 */
+	private static function render_columns( array $flight, $can_make ) {
+		$create = isset( $flight['columns']['create'] ) ? (array) $flight['columns']['create'] : array();
+		$detail = isset( $flight['columns']['detail'] ) ? (array) $flight['columns']['detail'] : array();
+
+		echo '<h3>' . esc_html__( 'Columns', 'wpcredits-program-manager' ) . '</h3>';
+
+		if ( array() === $create ) {
+			echo '<p>' . esc_html__( 'Every column this track writes to is already in the base.', 'wpcredits-program-manager' ) . '</p>';
+
+			return;
+		}
+
+		echo '<p>';
+
+		if ( $can_make ) {
+			esc_html_e( 'Publishing creates these columns on Students Reports, one at a time:', 'wpcredits-program-manager' );
+		} else {
+			esc_html_e( 'These columns are missing, and no schema token is configured, so somebody has to create them in Airtable first. Publish again once they are there.', 'wpcredits-program-manager' );
+		}
+
+		echo '</p><ul class="wpcpm-tracks__columns">';
+
+		foreach ( $create as $column ) {
+			self::render_column(
+				(string) $column,
+				isset( $detail[ $column ] ) && is_array( $detail[ $column ] ) ? $detail[ $column ] : array()
+			);
+		}
+
+		echo '</ul>';
+
+		$fields = isset( $flight['fields']['after'] ) ? (int) $flight['fields']['after'] : 0;
+
+		if ( $fields > 0 ) {
+			echo '<p class="wpcpm-tracks__count">';
+			echo esc_html(
+				sprintf(
+					/* translators: %d: how many columns the table would hold afterward. */
+					__( 'The table would hold %d columns afterward.', 'wpcredits-program-manager' ),
+					$fields
+				)
+			);
+			echo '</p>';
+		}
+	}
+
+	/**
+	 * Whether publishing would add this track's status to the program's settings.
+	 *
+	 * The preflight works this out (decision 13, 7.2 step 2) and nothing showed it: a person
+	 * publishing a track of their own had no way to see, before pressing the button, that doing
+	 * so changes Settings (final review, finding 5).
+	 *
+	 * @param array $flight The preflight's answer.
+	 * @return void
+	 */
+	private static function render_adds_status( array $flight ) {
+		echo '<p class="wpcpm-tracks__count">';
+
+		echo esc_html(
+			empty( $flight['adds_status'] )
+				? __( 'This track runs from its hand-written form, so publishing it does not add anything to "Currently mentoring" in Settings.', 'wpcredits-program-manager' )
+				: __( 'Publishing adds this track\'s status to "Currently mentoring" in Settings.', 'wpcredits-program-manager' )
+		);
+
+		echo '</p>';
+	}
+
+	/**
+	 * One column of the by-hand list: its name, the type Airtable needs, and a select's choices.
+	 *
+	 * Design spec 7.2 asks for the name, the type and the options, because this list is what
+	 * somebody takes to Airtable to create the column: a wrong guess at the type earns
+	 * `wpcpm_track_column_conflict` the next time this track is published (Task 9 review, L8).
+	 *
+	 * @param string $column The column name.
+	 * @param array  $field  What `WPCPM_Track_Columns::field()` answered for it: `type`, and for
+	 *                       a select, `options.choices`.
+	 * @return void
+	 */
+	private static function render_column( $column, array $field ) {
+		$type    = isset( $field['type'] ) ? (string) $field['type'] : '';
+		$choices = isset( $field['options']['choices'] ) && is_array( $field['options']['choices'] ) ? $field['options']['choices'] : array();
+
+		echo '<li>';
+		printf( '<code>%s</code>', esc_html( $column ) );
+
+		if ( '' !== $type ) {
+			printf( ' - %s', esc_html( $type ) );
+		}
+
+		if ( array() !== $choices ) {
+			$names = array();
+
+			foreach ( $choices as $choice ) {
+				$names[] = isset( $choice['name'] ) ? (string) $choice['name'] : '';
+			}
+
+			echo ' (';
+			printf(
+				/* translators: %s: a comma-separated list of the choices a select column needs. */
+				esc_html__( 'choices: %s', 'wpcredits-program-manager' ),
+				esc_html( implode( ', ', $names ) )
+			);
+			echo ')';
+		}
+
+		echo '</li>';
+	}
+
+	/**
+	 * The three things the site cannot do, each with its tick.
+	 *
+	 * @param array $checklist What `WPCPM_Track_Publish::checklist()` answered.
+	 * @param int   $track     The track.
+	 * @param array $choices   The preflight's `choices` (`reports` and `students`, each `ok`,
+	 *                         `near` or `missing`), so item 3 shows which table has the choice
+	 *                         already and which does not (final review, finding 4).
+	 * @return void
+	 */
+	private static function render_checklist( array $checklist, $track, array $choices = array() ) {
+		if ( array() === $checklist ) {
+			return;
+		}
+
+		echo '<h3>' . esc_html__( 'What the site cannot do', 'wpcredits-program-manager' ) . '</h3>';
+		echo '<p>' . esc_html__( 'The site cannot see an Airtable automation either way, so none of these stops a track being published. The track list counts them until they are ticked.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<ul class="wpcpm-tracks__checklist">';
+
+		foreach ( $checklist as $item => $entry ) {
+			printf( '<li class="wpcpm-tracks__item%s">', empty( $entry['ticked'] ) ? '' : ' wpcpm-tracks__item--done' );
+			printf( '<strong>%s</strong>', esc_html( (string) $entry['label'] ) );
+			printf( '<span class="wpcpm-tracks__detail">%s</span>', esc_html( (string) $entry['detail'] ) );
+
+			if ( 'choices' === $item ) {
+				self::render_choice_states( $choices );
+			}
+
+			if ( ! empty( $entry['ticked'] ) ) {
+				$who = get_userdata( (int) $entry['by'] );
+
+				echo '<span class="wpcpm-tracks__ticked">';
+				printf(
+					/* translators: 1: a person's name, 2: a date. */
+					esc_html__( 'Ticked by %1$s on %2$s.', 'wpcredits-program-manager' ),
+					esc_html( $who ? $who->display_name : __( 'somebody', 'wpcredits-program-manager' ) ),
+					esc_html( wp_date( 'j F Y', (int) $entry['at'] ) )
+				);
+				echo '</span>';
+			}
+
+			self::render_tick(
+				empty( $entry['ticked'] ) ? WPCPM_Track_Builder::ACTION_TICK : WPCPM_Track_Builder::ACTION_UNTICK,
+				$track,
+				(string) $item,
+				empty( $entry['ticked'] ) ? __( 'I have done this', 'wpcredits-program-manager' ) : __( 'Undo', 'wpcredits-program-manager' )
+			);
+
+			echo '</li>';
+		}
+
+		echo '</ul>';
+	}
+
+	/**
+	 * The Status choice's state on each table, so checklist item 3 is not the only place a person
+	 * can see it: the preflight works this out for both tables (spec 7.1) and only turned a `near`
+	 * state into a warning above, leaving `ok` and `missing` unshown (final review, finding 4).
+	 *
+	 * @param array $choices `reports` and `students`, each `ok`, `near` or `missing`.
+	 * @return void
+	 */
+	private static function render_choice_states( array $choices ) {
+		$tables = array(
+			'reports'  => __( 'Students Reports', 'wpcredits-program-manager' ),
+			'students' => __( 'Students', 'wpcredits-program-manager' ),
+		);
+
+		$lines = array();
+
+		foreach ( $tables as $where => $label ) {
+			$lines[] = self::choice_line( $label, isset( $choices[ $where ] ) ? (string) $choices[ $where ] : 'missing' );
+		}
+
+		printf( '<span class="wpcpm-tracks__detail">%s</span>', esc_html( implode( ' ', $lines ) ) );
+	}
+
+	/**
+	 * One table's line for `render_choice_states()`.
+	 *
+	 * @param string $table_label The table's name, already translated.
+	 * @param string $state       `ok`, `near` or `missing`.
+	 * @return string
+	 */
+	private static function choice_line( $table_label, $state ) {
+		if ( 'ok' === $state ) {
+			/* translators: %s: the table's name. */
+			return sprintf( __( '%s already has this choice.', 'wpcredits-program-manager' ), $table_label );
+		}
+
+		if ( 'near' === $state ) {
+			/* translators: %s: the table's name. */
+			return sprintf( __( '%s has a choice close to this one, but not an exact match.', 'wpcredits-program-manager' ), $table_label );
+		}
+
+		/* translators: %s: the table's name. */
+		return sprintf( __( '%s does not have this choice yet.', 'wpcredits-program-manager' ), $table_label );
+	}
+
+	/**
+	 * Publish, unpublish and verify, as the track's state allows.
+	 *
+	 * Publish is drawn only when it could actually succeed. With columns pending and no schema
+	 * token, `WPCPM_Track_Publish::run()` can only refuse with `wpcpm_track_columns_by_hand` -
+	 * design spec 7.2 waits for the preflight to find the columns instead - so that combination
+	 * withholds the button rather than handing over one that can only fail (Task 9 review, M1).
+	 *
+	 * @param array  $flight   The preflight's answer.
+	 * @param string $state    The track's state.
+	 * @param int    $track    The track.
+	 * @param bool   $can_make Whether a schema token is configured.
+	 * @return void
+	 */
+	private static function render_publish_actions( array $flight, $state, $track, $can_make ) {
+		echo '<p class="wpcpm-list__actions">';
+
+		$pending     = isset( $flight['columns']['create'] ) ? (array) $flight['columns']['create'] : array();
+		$can_publish = ! empty( $flight['ready'] ) && ( array() === $pending || $can_make );
+
+		if ( $can_publish && in_array( $state, array( 'draft', 'changed' ), true ) ) {
+			self::render_button(
+				WPCPM_Track_Builder::ACTION_PUBLISH,
+				$track,
+				'changed' === $state
+					? __( 'Publish the changes', 'wpcredits-program-manager' )
+					: __( 'Publish this track', 'wpcredits-program-manager' )
+			);
+		}
+
+		if ( in_array( $state, array( 'published', 'changed' ), true ) ) {
+			self::render_button( WPCPM_Track_Builder::ACTION_VERIFY, $track, __( 'Check it against Airtable', 'wpcredits-program-manager' ) );
+			self::render_button( WPCPM_Track_Builder::ACTION_UNPUBLISH, $track, __( 'Take it off the live site', 'wpcredits-program-manager' ) );
+		}
+
+		echo '</p>';
+	}
+
+	/**
+	 * One checklist button, which carries the item as well as the track.
+	 *
+	 * @param string $action The action.
+	 * @param int    $track  The track.
+	 * @param string $item   The checklist item.
+	 * @param string $label  What the button reads.
+	 * @return void
+	 */
+	private static function render_tick( $action, $track, $item, $label ) {
+		printf( '<form method="post" action="%s" class="wpcpm-list__form">', esc_url( admin_url( 'admin-post.php' ) ) );
+		wp_nonce_field( $action );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $action ) );
+		printf( '<input type="hidden" name="track" value="%d" />', (int) $track );
+		printf( '<input type="hidden" name="item" value="%s" />', esc_attr( $item ) );
+		printf( '<button type="submit" class="button">%s</button>', esc_html( $label ) );
+		echo '</form>';
 	}
 
 	/**

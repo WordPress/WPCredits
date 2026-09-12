@@ -150,6 +150,29 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 class Lost extends Exception {}
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
+
+/**
+ * The institutions module, stood in for its one question here: which programs may be offered.
+ *
+ * The four built-in statuses are always offered; a Track Builder track joins them only once
+ * somebody ticks its reports automation item (the design's decision 10).
+ */
+class WPCPM_Institutions {
+	public static $gated = array();
+
+	public static function offered_programs() {
+		$out = array();
+
+		foreach ( WPCPM_Program::labels() as $status => $label ) {
+			if ( ! in_array( (string) $status, self::$gated, true ) ) {
+				$out[ (string) $status ] = (string) $label;
+			}
+		}
+
+		return $out;
+	}
+}
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 
 class WPCPM_Mentors_Sync {
@@ -1048,6 +1071,24 @@ foreach ( array( '$_POST', '$_GET', '$_FILES' ) as $forbidden ) {
 foreach ( array( 'module' => $source, 'suite' => file_get_contents( __FILE__ ) ) as $what => $text ) {
 	ck( sprintf( 'no dash but the plain hyphen in the %s', $what ), preg_match( '/[\x{2013}\x{2014}]/u', $text ), 0 );
 }
+
+echo "\n=== The institution gate reaches institution create too (decision 10) ===\n";
+
+// The batch is read back out of storage here, so a track whose automation item was unticked
+// between staging and creating is refused at the write rather than putting students on a track
+// that generates no report rows.
+WPCPM_Institutions::$gated = array( WPCPM_Program::STATUS_150H );
+
+ck( 'a batch whose program is gated creates nothing',
+    WPCPM_Institution_Create::fields_for( $batch, $batch['rows'][0], 0 ),
+    array() );
+
+WPCPM_Institutions::$gated = array();
+
+ck( 'and the same batch creates once the item is ticked again',
+    array() !== WPCPM_Institution_Create::fields_for( $batch, $batch['rows'][0], 0 ),
+    true );
+
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

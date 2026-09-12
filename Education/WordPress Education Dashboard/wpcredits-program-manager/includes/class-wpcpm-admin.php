@@ -350,6 +350,18 @@ class WPCPM_Admin {
 
 		WPCPM_Settings::save( $input );
 
+		// "Currently mentoring" and the past statuses are rules every published track was compiled
+		// against, so a save that changes them would otherwise leave the live tracks, and the list
+		// of what the last compile left out, answering for the settings as they were (decision 14).
+		//
+		// It hangs on this handler rather than on `WPCPM_Settings::save()`, which has callers of
+		// its own: one is the handbook's model migration on `init` priority 5, before the track
+		// post type is registered at 10, and a compile from there is wasted work on an unrelated
+		// path (the T2b whole-branch review).
+		if ( class_exists( 'WPCPM_Track_Store' ) ) {
+			WPCPM_Track_Store::compile();
+		}
+
 		WPCPM_Flash::set( 'settings', 'saved' );
 
 		wp_safe_redirect( self::settings_url() );
@@ -397,6 +409,14 @@ class WPCPM_Admin {
 			__( 'Personal Access Token', 'wpcredits-program-manager' ),
 			WPCPM_Settings::masked_token(),
 			__( 'Stored in the database and never sent to the browser - leave blank to keep the current token.', 'wpcredits-program-manager' ),
+			'password'
+		);
+
+		$this->text_row(
+			'schema_token',
+			__( 'Schema token', 'wpcredits-program-manager' ),
+			WPCPM_Settings::masked_schema_token(),
+			__( 'Optional, and used by the Track Builder alone: the token that creates a track\'s columns when it is published. It needs the "schema.bases:write" scope and must belong to somebody with the base creator role on the base. Leave blank to keep the current one, or type remove to take it away. Without it, publishing lists the columns for somebody to create by hand.', 'wpcredits-program-manager' ),
 			'password'
 		);
 

@@ -393,7 +393,7 @@ class WPCPM_Airtable {
 	 * token - a scope a records-only token will not have, which is why callers
 	 * are expected to treat a failure here as cosmetic and carry on.
 	 *
-	 * @return array|WP_Error Map of table ID => array( 'name' => string, 'primary' => string, 'fields' => array( field name => description ) ).
+	 * @return array|WP_Error Map of table ID => array( 'name' => string, 'primary' => string, 'fields' => array( field name => description ), 'columns' => array( field name => array( 'type' => string, 'options' => array ) ) ).
 	 */
 	public function fetch_schema() {
 		$guard = $this->guard();
@@ -420,6 +420,7 @@ class WPCPM_Airtable {
 			}
 
 			$fields     = array();
+			$columns    = array();
 			$primary_id = isset( $table['primaryFieldId'] ) ? (string) $table['primaryFieldId'] : '';
 			$primary    = '';
 
@@ -435,6 +436,15 @@ class WPCPM_Airtable {
 					// "never read".
 					$fields[ (string) $field['name'] ] = isset( $field['description'] ) ? trim( (string) $field['description'] ) : '';
 
+					// The type and its options, in a map of their own. `fields` keeps its old
+					// shape, name to description, because the mentors sync stores exactly that
+					// and reads it back for the mentor page; publishing needs the type, so it
+					// reads `columns` (the design's 7.1).
+					$columns[ (string) $field['name'] ] = array(
+						'type'    => isset( $field['type'] ) ? (string) $field['type'] : '',
+						'options' => ( isset( $field['options'] ) && is_array( $field['options'] ) ) ? $field['options'] : array(),
+					);
+
 					// The primary field's *name*, resolved from the ID the schema
 					// reports. This is the only reliable way to know which column
 					// carries a record's display value: a records response gives no
@@ -449,10 +459,69 @@ class WPCPM_Airtable {
 				'name'    => isset( $table['name'] ) ? (string) $table['name'] : '',
 				'primary' => $primary,
 				'fields'  => $fields,
+				'columns' => $columns,
 			);
 		}
 
 		return $schema;
+	}
+
+	/**
+	 * Create one column on a table.
+	 *
+	 * The only call in this client that uses the schema token. Everything else keeps using the
+	 * everyday one, which stays at records plus schema read, so the syncs that run every three
+	 * hours never hold the right to change the base's structure (the design's 7.2).
+	 *
+	 * @param string $table Table ID or name.
+	 * @param array  $field The field body: `name`, `type` and, for some types, `options`, as
+	 *                      `WPCPM_Track_Columns::field()` builds it.
+	 * @return array|WP_Error The created field as Airtable describes it, or an error.
+	 *                        `wpcpm_airtable_field_exists` means the name is taken, which
+	 *                        publishing answers by reading that column rather than stopping.
+	 */
+	public function create_field( $table, array $field ) {
+		if ( empty( $this->settings['schema_token'] ) ) {
+			return new WP_Error(
+				'wpcpm_no_schema_token',
+				__( 'No Airtable schema token is configured, so the site cannot create columns. Add one on the WPCredits Program → Settings screen, or create the columns by hand from the list on the publish screen.', 'wpcredits-program-manager' )
+			);
+		}
+
+		if ( empty( $this->settings['base_id'] ) ) {
+			return new WP_Error( 'wpcpm_no_base', __( 'The Airtable Base ID is missing from the plugin settings.', 'wpcredits-program-manager' ) );
+		}
+
+		$url = trailingslashit( self::API_BASE ) . 'meta/bases/' . rawurlencode( $this->settings['base_id'] ) . '/tables/' . rawurlencode( $table ) . '/fields';
+
+		$response = $this->request( $url, 'POST', $field, (string) $this->settings['schema_token'] );
+
+		if ( is_wp_error( $response ) ) {
+			$data       = $response->get_error_data();
+			$status     = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+			$error_type = is_array( $data ) && isset( $data['error_type'] ) ? (string) $data['error_type'] : '';
+
+			// Airtable refuses a taken name with a 422 and error type DUPLICATE_OR_EMPTY_FIELD_NAME.
+			// Publishing reads the column again and counts it as landed when its type is right,
+			// because somebody making it by hand is the documented way to work without a schema
+			// token (the design's 7.2 step 1). Other 422 errors (bad type or options) must come
+			// back as the error request() built, with Airtable's message intact.
+			if ( 422 === $status && 'DUPLICATE_OR_EMPTY_FIELD_NAME' === $error_type ) {
+				return new WP_Error(
+					'wpcpm_airtable_field_exists',
+					sprintf(
+						/* translators: %s: column name. */
+						__( 'Airtable already has a column named "%s" on this table.', 'wpcredits-program-manager' ),
+						isset( $field['name'] ) ? (string) $field['name'] : ''
+					),
+					$data
+				);
+			}
+
+			return $response;
+		}
+
+		return $response;
 	}
 
 	/**
@@ -684,9 +753,11 @@ class WPCPM_Airtable {
 	 * @param string     $url    Absolute request URL.
 	 * @param string     $method HTTP method.
 	 * @param array|null $body   Optional payload, JSON-encoded.
+	 * @param string     $token  Token to authenticate with. The everyday one when empty; the
+	 *                           schema token is passed here by `create_field()` alone.
 	 * @return array|WP_Error Decoded response body.
 	 */
-	private function request( $url, $method = 'GET', $body = null ) {
+	private function request( $url, $method = 'GET', $body = null, $token = '' ) {
 		// A 429 seen earlier - by this process, or through the option by any other - is
 		// honoured before anything is sent. Airtable counts the requests it refuses, so
 		// every one sent inside the window pushes the base's thirty seconds out again,
@@ -730,7 +801,7 @@ class WPCPM_Airtable {
 			'method'  => $method,
 			'timeout' => 20,
 			'headers' => array(
-				'Authorization' => 'Bearer ' . $this->settings['api_token'],
+				'Authorization' => 'Bearer ' . ( '' !== (string) $token ? (string) $token : $this->settings['api_token'] ),
 				'Accept'        => 'application/json',
 			),
 		);
@@ -782,7 +853,12 @@ class WPCPM_Airtable {
 			// request, and Airtable's own message does not say which one. Naming the
 			// scope turns a dead end into something fixable.
 			if ( 403 === $code || 401 === $code ) {
-				if ( 'GET' !== strtoupper( $method ) ) {
+				if ( 'GET' !== strtoupper( $method ) && false !== strpos( $url, '/meta/bases/' ) ) {
+					// Two different things wear this status on a schema write, and neither is
+					// visible from here: the scope, and who owns the token. Naming both is the
+					// difference between a fixable message and a dead end (the design's 7.2).
+					$message .= ' ' . __( 'This was a change to the base structure, so the token needs the "schema.bases:write" scope and must belong to somebody with the base creator role on this base.', 'wpcredits-program-manager' );
+				} elseif ( 'GET' !== strtoupper( $method ) ) {
 					$message .= ' ' . __( 'This was a write, so the token most likely lacks the "data.records:write" scope. Add it at airtable.com/create/tokens, or use report-only mode.', 'wpcredits-program-manager' );
 				} elseif ( false !== strpos( $url, '/meta/bases/' ) ) {
 					$message .= ' ' . __( 'This was a schema read, so the token most likely lacks the "schema.bases:read" scope.', 'wpcredits-program-manager' );
@@ -794,7 +870,10 @@ class WPCPM_Airtable {
 			return new WP_Error(
 				'wpcpm_airtable_error',
 				$message,
-				array( 'status' => $code )
+				array(
+					'status'     => $code,
+					'error_type' => isset( $data['error'] ) && is_array( $data['error'] ) && isset( $data['error']['type'] ) ? (string) $data['error']['type'] : '',
+				)
 			);
 		}
 

@@ -40,6 +40,7 @@ function wp_safe_redirect( $url ) { throw new RedirectSignal( (string) $url ); }
 function wp_die( $message = '', $title = '', $args = array() ) { throw new DieSignal( is_string( $message ) ? $message : '' ); }
 function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
 function add_action( $hook, $callback, $priority = 10, $args = 1 ) { $GLOBALS['hooks'][] = $hook; return true; }
+function get_current_user_id() { return 5; }
 function get_userdata( $id ) { return isset( $GLOBALS['users'][ (int) $id ] ) ? (object) array( 'display_name' => $GLOBALS['users'][ (int) $id ] ) : false; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function wp_enqueue_style( $handle, $src = '', $deps = array() ) { $GLOBALS['enqueued'][] = array( 'style', $handle, $deps ); }
@@ -75,6 +76,51 @@ $GLOBALS['users']    = array( 7 => 'A Manager' );
 $GLOBALS['enqueued'] = array();
 
 /** The store, as the screen uses it: definitions, states, logs, equivalence and the seeds. */
+/** Publishing, stood in: what the preflight says, what the checklist holds, and what was pressed. */
+class WPCPM_Track_Publish {
+	public static $flight    = array();
+	public static $checklist = array();
+	public static $ran       = array();
+	public static $ticked    = array();
+	public static $down      = array();
+	public static $verified  = array();
+	public static $answer    = null;
+
+	public static function preflight( $post_id ) { return self::$flight; }
+	public static function checklist( $post_id ) { return self::$checklist; }
+
+	public static function run( $post_id, $user_id = 0 ) {
+		self::$ran[] = array( (int) $post_id, (int) $user_id );
+		return null === self::$answer ? array( 'created' => array( 'Brand new' ), 'published' => true ) : self::$answer;
+	}
+
+	public static function take_down( $post_id, $user_id = 0 ) {
+		self::$down[] = array( (int) $post_id, (int) $user_id );
+		return null === self::$answer ? (int) $post_id : self::$answer;
+	}
+
+	public static function verify( $post_id ) {
+		self::$verified[] = (int) $post_id;
+		return null === self::$answer ? array( 'columns' => array( 'missing' => array(), 'wrong' => array() ), 'choices' => array( 'reports' => 'ok', 'students' => 'ok' ) ) : self::$answer;
+	}
+
+	public static function tick( $post_id, $item, $user_id = 0 ) {
+		self::$ticked[] = array( 'tick', (int) $post_id, (string) $item );
+		return null === self::$answer ? true : self::$answer;
+	}
+
+	public static function untick( $post_id, $item, $user_id = 0 ) {
+		self::$ticked[] = array( 'untick', (int) $post_id, (string) $item );
+		return null === self::$answer ? true : self::$answer;
+	}
+}
+
+/** The settings, stood in for the one question the screen asks them. */
+class WPCPM_Settings {
+	public static $schema = true;
+	public static function has_schema_token() { return self::$schema; }
+}
+
 class WPCPM_Track_Store {
 	const META_SOURCE = '_wpcpm_track_source';
 	const OPT_SKIPPED = 'wpcpm_tracks_skipped';
@@ -328,11 +374,17 @@ ck( 'a label with markup in it reaches the page encoded, not raw',
 
 echo "\n=== Refreshing a built-in draft from the screen ===\n";
 
-/** Run a handler and say how it ended: a redirect, or the message it died with. */
+/**
+ * Run a handler and say how it ended: a redirect, or the message it died with.
+ *
+ * A redirect's target is also kept, in `$GLOBALS['last_redirect']`, for a check that cares where
+ * it landed rather than only that it happened (Task 9 review, L5).
+ */
 function outcome( callable $handler ) {
 	try {
 		$handler();
 	} catch ( RedirectSignal $e ) {
+		$GLOBALS['last_redirect'] = $e->getMessage();
 		return 'redirect';
 	} catch ( DieSignal $e ) {
 		return 'die: ' . $e->getMessage();
@@ -590,6 +642,341 @@ ck( 'the way back runs through the store too',
     array( 'redirect', array( array( 'builtin', 13 ) ), 'success' ) );
 
 $_POST = array();
+
+echo "\n=== The publish screen ===\n";
+
+WPCPM_Track_Publish::$flight = array(
+	'refusals'    => array(),
+	'warnings'    => array( array( 'code' => 'course_unreachable', 'column' => '', 'message' => 'The Learn course did not answer.' ) ),
+	'columns'     => array( 'create' => array( 'Brand new' ), 'ready' => array( 'What you did' ) ),
+	'choices'     => array( 'reports' => 'ok', 'students' => 'missing' ),
+	'fields'      => array( 'now' => 120, 'after' => 121 ),
+	'adds_status' => true,
+	'ready'       => true,
+);
+WPCPM_Track_Publish::$checklist = array(
+	'automation' => array( 'label' => 'Add the status to the reports automation', 'detail' => 'Add "Marketing Track" to the condition.', 'ticked' => false, 'by' => 0, 'at' => 0 ),
+	'welcome'    => array( 'label' => 'Create the welcome email automation', 'detail' => 'Copy an existing one.', 'ticked' => true, 'by' => 7, 'at' => 1788000000 ),
+	'choices'    => array( 'label' => 'Add the two Status choices', 'detail' => 'On both tables.', 'ticked' => false, 'by' => 0, 'at' => 0 ),
+);
+$GLOBALS['users'] = array( 7 => 'Ada Lovelace' );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_publish(
+	array(
+		'track'     => 12,
+		'label'     => 'Marketing Track',
+		'state'     => 'draft',
+		'preflight' => WPCPM_Track_Publish::$flight,
+		'checklist' => WPCPM_Track_Publish::$checklist,
+		'can_make'  => true,
+		'url'       => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder',
+		'flash'     => array(),
+	)
+);
+$screen = ob_get_clean();
+
+ck( 'it names the track it is about', false !== strpos( $screen, 'Publishing Marketing Track' ), true );
+
+ck( 'a warning is drawn as a warning, not as a refusal',
+    array( false !== strpos( $screen, 'notice-warning' ), false !== strpos( $screen, 'notice-error' ) ), array( true, false ) );
+
+ck( 'the column to create is named, so somebody could make it by hand',
+    false !== strpos( $screen, '<code>Brand new</code>' ), true );
+
+ck( 'and what the table would come to is said',
+    false !== strpos( $screen, 'The table would hold 121 columns afterward.' ), true );
+
+ck( 'every checklist item is drawn, with the one that is done marked',
+    array( substr_count( $screen, 'wpcpm-tracks__item' ), substr_count( $screen, 'wpcpm-tracks__item--done' ) ), array( 4, 1 ) );
+
+ck( 'a ticked item says who ticked it', false !== strpos( $screen, 'Ticked by Ada Lovelace' ), true );
+
+ck( 'an unticked one offers the tick and a ticked one offers the undo',
+    array( substr_count( $screen, 'I have done this' ), substr_count( $screen, '>Undo</button>' ) ), array( 2, 1 ) );
+
+ck( 'the tick carries the item as well as the track',
+    false !== strpos( $screen, 'name="item" value="automation"' ), true );
+
+ck( 'a draft that passes its preflight offers Publish, and neither of the live-track buttons',
+    array(
+        false !== strpos( $screen, 'Publish this track' ),
+        false !== strpos( $screen, 'Check it against Airtable' ),
+        false !== strpos( $screen, 'Take it off the live site' ),
+    ),
+    array( true, false, false ) );
+
+// Finding 4 (final review): the preflight works out the Status choice's state on both tables
+// and the screen showed only the near warning. The fixture above has reports => ok, students
+// => missing, so both states must read differently, not the same "checklist item 3" line.
+ck( 'the Status choice\'s state is shown for the table that has it and the one that does not',
+    array(
+        false !== strpos( $screen, 'Students Reports already has this choice.' ),
+        false !== strpos( $screen, 'Students does not have this choice yet.' ),
+    ),
+    array( true, true ) );
+
+// Finding 5 (final review): adds_status is computed and tested and nothing showed it. The
+// fixture above has adds_status => true, for a track of somebody's own. Matched against the
+// escaped form - esc_html() turns the apostrophe into &#039; and the quotes into &quot;, same
+// as bin/test-institutions-screen.php already does for a string in this shape.
+ck( 'publishing a track of one\'s own says it will add the status to the settings',
+    false !== strpos( $screen, 'Publishing adds this track&#039;s status to &quot;Currently mentoring&quot; in Settings.' ), true );
+
+$builtin_choices_flight                = WPCPM_Track_Publish::$flight;
+$builtin_choices_flight['choices']     = array( 'reports' => 'near', 'students' => 'ok' );
+$builtin_choices_flight['adds_status'] = false;
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_publish(
+	array(
+		'track'     => 12,
+		'label'     => 'Marketing Track',
+		'state'     => 'draft',
+		'preflight' => $builtin_choices_flight,
+		'checklist' => WPCPM_Track_Publish::$checklist,
+		'can_make'  => true,
+		'url'       => '',
+		'flash'     => array(),
+	)
+);
+$builtin_screen = ob_get_clean();
+
+ck( 'a choice that is nearly there reads as nearly there, not as either "has it" or "does not"',
+    false !== strpos( $builtin_screen, 'Students Reports has a choice close to this one, but not an exact match.' ), true );
+
+ck( 'a built-in track\'s screen says publishing adds nothing to the settings',
+    false !== strpos( $builtin_screen, 'This track runs from its hand-written form, so publishing it does not add anything to &quot;Currently mentoring&quot; in Settings.' ), true );
+
+// A label with markup in it reaches the page encoded: the track's name is typed by a person.
+ob_start();
+WPCPM_Track_Builder_Screen::render_publish(
+	array(
+		'track'     => 12,
+		'label'     => 'Marketing <b>Track</b>',
+		'state'     => 'draft',
+		'preflight' => WPCPM_Track_Publish::$flight,
+		'checklist' => array(),
+		'can_make'  => true,
+		'url'       => '',
+		'flash'     => array(),
+	)
+);
+$escaped_screen = ob_get_clean();
+
+ck( 'and a name with markup in it is encoded on the way out',
+    array( false !== strpos( $escaped_screen, 'Marketing &lt;b&gt;Track&lt;/b&gt;' ), false !== strpos( $escaped_screen, '<b>Track</b>' ) ),
+    array( true, false ) );
+
+$refused_flight            = WPCPM_Track_Publish::$flight;
+$refused_flight['ready']   = false;
+$refused_flight['refusals'] = array( array( 'code' => 'column_computed', 'column' => 'Personal link', 'message' => 'Airtable works this column out for itself.' ) );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_publish(
+	array(
+		'track'     => 12,
+		'label'     => 'Marketing Track',
+		'state'     => 'draft',
+		'preflight' => $refused_flight,
+		'checklist' => array(),
+		'can_make'  => true,
+		'url'       => '',
+		'flash'     => array(),
+	)
+);
+$refused_screen = ob_get_clean();
+
+ck( 'a refused preflight says so and offers no Publish button at all',
+    array( false !== strpos( $refused_screen, 'notice-error' ), false !== strpos( $refused_screen, '<code>Personal link</code>' ), false !== strpos( $refused_screen, 'Publish this track' ) ),
+    array( true, true, false ) );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_publish(
+	array(
+		'track'     => 12,
+		'label'     => 'Marketing Track',
+		'state'     => 'published',
+		'preflight' => WPCPM_Track_Publish::$flight,
+		'checklist' => array(),
+		'can_make'  => false,
+		'url'       => '',
+		'flash'     => array(),
+	)
+);
+$live_screen = ob_get_clean();
+
+ck( 'a live track offers the check and the way off the live site, and not Publish',
+    array(
+        false !== strpos( $live_screen, 'Check it against Airtable' ),
+        false !== strpos( $live_screen, 'Take it off the live site' ),
+        false !== strpos( $live_screen, 'Publish this track' ),
+    ),
+    array( true, true, false ) );
+
+ck( 'and with no schema token the columns are a list to make by hand',
+    false !== strpos( $live_screen, 'no schema token is configured' ), true );
+
+// M1/L8 (Task 9 review): a draft whose preflight is ready but has columns pending, on a site
+// with no schema token, must not be handed a Publish button - `run()` can only refuse it with
+// `wpcpm_track_columns_by_hand` - and the by-hand list it is offered instead has to carry enough
+// (name, type, and a select's choices) that nobody has to guess.
+$by_hand_flight            = WPCPM_Track_Publish::$flight;
+$by_hand_flight['columns'] = array(
+	'create' => array( 'Brand new', 'Favorite color' ),
+	'ready'  => array( 'What you did' ),
+	'detail' => array(
+		'Brand new'      => array( 'type' => 'singleLineText' ),
+		'Favorite color' => array(
+			'type'    => 'singleSelect',
+			'options' => array( 'choices' => array( array( 'name' => 'Red' ), array( 'name' => 'Green' ) ) ),
+		),
+	),
+);
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_publish(
+	array(
+		'track'     => 12,
+		'label'     => 'Marketing Track',
+		'state'     => 'draft',
+		'preflight' => $by_hand_flight,
+		'checklist' => array(),
+		'can_make'  => false,
+		'url'       => '',
+		'flash'     => array(),
+	)
+);
+$by_hand_screen = ob_get_clean();
+
+ck( 'a draft with columns pending and no schema token is not offered Publish, which could only fail',
+    array( false !== strpos( $by_hand_screen, 'Publish this track' ), false !== strpos( $by_hand_screen, 'no schema token is configured' ) ),
+    array( false, true ) );
+
+ck( 'the by-hand list gives the type beside the name',
+    false !== strpos( $by_hand_screen, '<code>Brand new</code> - singleLineText' ), true );
+
+ck( 'and a select column\'s choices too',
+    false !== strpos( $by_hand_screen, '<code>Favorite color</code> - singleSelect (choices: Red, Green)' ), true );
+
+echo "\n=== The publish handlers, and their guards ===\n";
+
+$tool = new WPCPM_Track_Builder();
+
+$GLOBALS['can_manage']        = false;
+$GLOBALS['nonce']             = 'another-action';
+WPCPM_Track_Publish::$ran      = array();
+WPCPM_Track_Publish::$down     = array();
+WPCPM_Track_Publish::$ticked   = array();
+WPCPM_Track_Publish::$verified = array();
+$_POST                         = array( 'track' => 12, 'item' => 'automation' );
+
+// Decision 3.9: the capability is checked before the nonce. The nonce here is the wrong one, so
+// a handler that read it first would die saying so instead.
+foreach ( array( 'handle_publish', 'handle_unpublish', 'handle_verify', 'handle_tick', 'handle_untick' ) as $handler ) {
+	ck( sprintf( '%s dies on the capability before it reads the nonce', $handler ),
+	    outcome( array( $tool, $handler ) ), 'die: You do not have permission to manage the program.' );
+}
+
+// L4 (Task 9 review): $verified belongs in this list too, or a handle_verify() that read before
+// its guard would still pass every check here.
+ck( 'and none of them did anything',
+    array( WPCPM_Track_Publish::$ran, WPCPM_Track_Publish::$down, WPCPM_Track_Publish::$ticked, WPCPM_Track_Publish::$verified ),
+    array( array(), array(), array(), array() ) );
+
+$GLOBALS['can_manage'] = true;
+$GLOBALS['nonce']      = WPCPM_Track_Builder::ACTION_PUBLISH;
+WPCPM_Track_Publish::$answer = null;
+
+ck( 'with both guards passed, Publish runs for the track that was posted',
+    array( outcome( array( $tool, 'handle_publish' ) ), WPCPM_Track_Publish::$ran ), array( 'redirect', array( array( 12, 5 ) ) ) );
+
+ck( 'and the flash says how many columns were created',
+    false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], '1 column was created' ), true );
+
+// L5 (Task 9 review): the redirect target itself, not only that a redirect happened - four
+// handlers deliberately carry `wpcpm_publish` so the notice lands back on this same screen.
+ck( 'and lands back on the publish screen it was pressed from',
+    false !== strpos( $GLOBALS['last_redirect'], 'wpcpm_publish=12' ), true );
+
+// L6 (Task 9 review): handle_publish()'s error path had no check at all.
+WPCPM_Track_Publish::$answer = new WP_Error( 'wpcpm_track_columns_by_hand', 'This track needs columns the base does not have, and no schema token is configured.' );
+
+ck( 'a publish the store refuses comes back as the error it is',
+    array( outcome( array( $tool, 'handle_publish' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ),
+    array( 'redirect', array( 'status' => 'error', 'message' => 'This track needs columns the base does not have, and no schema token is configured.' ) ) );
+
+// L6 (Task 9 review): the brief's own "nothing had to be created" case, the 0 === $made branch.
+WPCPM_Track_Publish::$answer = array( 'created' => array(), 'published' => true );
+
+ck( 'and a run with nothing pending says so, not a count of columns it did not make',
+    array( outcome( array( $tool, 'handle_publish' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'] ),
+    array( 'redirect', 'The track is live. Nothing had to be created in Airtable: every column was already there.' ) );
+
+$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_UNPUBLISH;
+WPCPM_Track_Publish::$answer = new WP_Error( 'wpcpm_track_in_use', '3 students are on this track in Airtable.' );
+
+ck( 'a refused unpublish comes back as the error it is, in the store\'s own words',
+    array( outcome( array( $tool, 'handle_unpublish' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ),
+    array( 'redirect', array( 'status' => 'error', 'message' => '3 students are on this track in Airtable.' ) ) );
+
+$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_TICK;
+WPCPM_Track_Publish::$answer = null;
+WPCPM_Track_Publish::$ticked = array();
+
+ck( 'a tick names the item it was pressed for',
+    array( outcome( array( $tool, 'handle_tick' ) ), WPCPM_Track_Publish::$ticked ), array( 'redirect', array( array( 'tick', 12, 'automation' ) ) ) );
+
+ck( 'and it too lands back on the publish screen',
+    false !== strpos( $GLOBALS['last_redirect'], 'wpcpm_publish=12' ), true );
+
+// L6 (Task 9 review): handle_untick()'s effect was exercised only by its capability guard.
+$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_UNTICK;
+WPCPM_Track_Publish::$answer = null;
+WPCPM_Track_Publish::$ticked = array();
+
+ck( 'and untick names the item it was pressed for too',
+    array( outcome( array( $tool, 'handle_untick' ) ), WPCPM_Track_Publish::$ticked ), array( 'redirect', array( array( 'untick', 12, 'automation' ) ) ) );
+
+ck( 'landing back on the publish screen as well',
+    false !== strpos( $GLOBALS['last_redirect'], 'wpcpm_publish=12' ), true );
+
+$GLOBALS['nonce']              = WPCPM_Track_Builder::ACTION_VERIFY;
+WPCPM_Track_Publish::$answer   = array( 'columns' => array( 'missing' => array( 'Brand new' ), 'wrong' => array() ), 'choices' => array( 'reports' => 'ok', 'students' => 'ok' ) );
+
+WPCPM_Flash::$set = array();
+$verify_outcome   = outcome( array( $tool, 'handle_verify' ) );
+
+// A column renamed in the base takes its answers with it, and the form keeps writing into a name
+// nothing reads, so the one thing this notice must do is name the column (7.4).
+ck( 'a verify that finds a column gone names it, as an error',
+    array( $verify_outcome, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'], false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], 'Brand new' ) ),
+    array( 'redirect', 'error', true ) );
+
+ck( 'and lands back on the publish screen',
+    false !== strpos( $GLOBALS['last_redirect'], 'wpcpm_publish=12' ), true );
+
+// L2/L6 (Task 9 review): verified()'s choices branch had no check, and the notice it returns now
+// names the checklist item ("Add the two Status choices") rather than a number the screen, which
+// draws an unordered list, never shows.
+WPCPM_Flash::$set            = array();
+WPCPM_Track_Publish::$answer = array( 'columns' => array( 'missing' => array(), 'wrong' => array() ), 'choices' => array( 'reports' => 'near', 'students' => 'ok' ) );
+outcome( array( $tool, 'handle_verify' ) );
+
+ck( 'and one where the columns are clean but the status choice is not names the checklist item, not a number the screen never shows',
+    array( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'], WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'] ),
+    array( 'error', 'The track\'s status is not a choice on both tables, so students on it are not synced. "Add the two Status choices" is the checklist item to do.' ) );
+
+WPCPM_Flash::$set            = array();
+WPCPM_Track_Publish::$answer = array( 'columns' => array( 'missing' => array(), 'wrong' => array() ), 'choices' => array( 'reports' => 'ok', 'students' => 'ok' ) );
+outcome( array( $tool, 'handle_verify' ) );
+
+ck( 'and one that finds everything in place says so',
+    WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'], 'success' );
+
+WPCPM_Track_Publish::$answer = null;
+$_POST                       = array();
+
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

@@ -189,8 +189,10 @@ final class WPCPM_Institution_Import_Form {
 		echo '<select id="wpcpm-import-program" name="program">';
 
 		// The value is the status the base holds and the label is what a person calls it. The
-		// map is the server's, so a posted value that is not one of these is not a program.
-		foreach ( WPCPM_Program::labels() as $status => $label ) {
+		// map is the server's, so a posted value that is not one of these is not a program. A
+		// Track Builder track appears only once its reports automation item is ticked, because a
+		// student on it before that never gets a report row (the design's decision 10).
+		foreach ( WPCPM_Institutions::offered_programs() as $status => $label ) {
 			printf( '<option value="%1$s">%2$s</option>', esc_attr( $status ), esc_html( $label ) );
 		}
 
@@ -929,6 +931,15 @@ final class WPCPM_Institution_Import_Form {
 			self::bounce( 'not-staged-now' );
 		}
 
+		// A program may have been unticked between staging and confirming, which this phase's
+		// gating made reachable. Every row would fail with the generic refusal if we let
+		// create_slice proceed, while the staging step named the program clearly. Check here
+		// and give that reason instead (decision 10, and 2.4 for the automation itself).
+		$status = isset( $batch['values'], $batch['values']['status'] ) ? (string) $batch['values']['status'] : '';
+		if ( '' !== $status && ! isset( WPCPM_Institutions::offered_programs()[ $status ] ) ) {
+			self::bounce( 'program-ungated' );
+		}
+
 		WPCPM_Institution_Create::claim( $batch_id, get_current_user_id(), $decision['ground'] );
 
 		self::report( WPCPM_Institution_Create::create_slice( $batch_id ), $batch_id );
@@ -1011,7 +1022,9 @@ final class WPCPM_Institution_Import_Form {
 
 		// The map is the server's. A posted value outside it is not a program this site offers,
 		// whatever the form said, and typecast is off in the base so it would be a 422 anyway.
-		if ( ! isset( WPCPM_Program::labels()[ $status ] ) ) {
+		// It is the gated map, so a track whose automation item is not ticked is refused here
+		// even if the select was drawn before somebody unticked it (decision 10).
+		if ( ! isset( WPCPM_Institutions::offered_programs()[ $status ] ) ) {
 			return array(
 				'values'  => array(),
 				'problem' => 'bad-program',
@@ -1315,6 +1328,7 @@ final class WPCPM_Institution_Import_Form {
 			'too_often'            => __( 'That is several checks in a short time. Try again in an hour.', 'wpcredits-program-manager' ),
 			'rows_today'           => __( 'That is more students than this site checks for one institution in a day. Try again tomorrow, or send fewer.', 'wpcredits-program-manager' ),
 			'bad-program'          => __( 'Choose the program these students are joining.', 'wpcredits-program-manager' ),
+			'program-ungated'      => __( 'The program you chose is no longer being offered, because the Reports and Feedback automation for it is not active. Ask a program manager to tick it and try again.', 'wpcredits-program-manager' ),
 			'bad-start'            => __( 'Give the date these students start, as a date.', 'wpcredits-program-manager' ),
 			'start-far'            => __( 'That start date is more than a year away. Check the year.', 'wpcredits-program-manager' ),
 			'bad-end'              => __( 'The end date has to be after the start date, and within a year of it.', 'wpcredits-program-manager' ),

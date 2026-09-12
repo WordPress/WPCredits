@@ -2467,6 +2467,13 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
+	 * The statuses counted once for this request, or null when nothing has asked yet.
+	 *
+	 * @var array<string,int>|null
+	 */
+	private static $counts = null;
+
+	/**
 	 * How many synced students hold a track's status now.
 	 *
 	 * The Track Builder's list shows it on every row, and unpublishing is refused while it is not
@@ -2483,8 +2490,32 @@ class WPCPM_Students_Sync {
 			return 0;
 		}
 
-		$count = 0;
-		$users = get_users(
+		$counts = self::counts_by_status();
+
+		return isset( $counts[ $status ] ) ? (int) $counts[ $status ] : 0;
+	}
+
+	/**
+	 * How many provisioned students hold each status, in one pass.
+	 *
+	 * The track list asks for a count once per row, and asking per status meant walking every
+	 * provisioned student again each time, so the screen's cost grew with the roster (the T2b
+	 * whole-branch review). One walk answers the whole column. The answer is held for this request
+	 * only, because a sync running while the page is drawn would otherwise be read as stale.
+	 *
+	 * It counts by the status the site recorded, with no filter for whether the account is still
+	 * active: that is the number the Track Builder's questions are about, who would lose their
+	 * page if the track left the site.
+	 *
+	 * @return array<string,int> Status to how many hold it.
+	 */
+	public static function counts_by_status() {
+		if ( null !== self::$counts ) {
+			return self::$counts;
+		}
+
+		$counts = array();
+		$users  = get_users(
 			array(
 				'number'     => -1,
 				'fields'     => 'ID',
@@ -2500,12 +2531,31 @@ class WPCPM_Students_Sync {
 		foreach ( $users as $user_id ) {
 			$program = get_user_meta( (int) $user_id, self::META_PROGRAM, true );
 
-			if ( is_array( $program ) && isset( $program['program'] ) && (string) $program['program'] === $status ) {
-				++$count;
+			if ( ! is_array( $program ) || ! isset( $program['program'] ) ) {
+				continue;
 			}
+
+			$status = (string) $program['program'];
+
+			if ( '' === $status ) {
+				continue;
+			}
+
+			$counts[ $status ] = isset( $counts[ $status ] ) ? $counts[ $status ] + 1 : 1;
 		}
 
-		return $count;
+		self::$counts = $counts;
+
+		return $counts;
+	}
+
+	/**
+	 * Forget the counted statuses, for a process that changes them and reads them again.
+	 *
+	 * @return void
+	 */
+	public static function forget_counts() {
+		self::$counts = null;
 	}
 
 	/**
