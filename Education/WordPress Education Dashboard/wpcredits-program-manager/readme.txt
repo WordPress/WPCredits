@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.102.1
+Stable tag: 1.102.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.102.2 =
+
+* The guide builder turns a Markdown link in a section into a link. It had no link mark, so a section that wrote one printed it at the reader: the feedback section has shown a raw `[#123](https://github.com/WordPress/WPCredits/issues/123)` since it was written, and now shows the link. Only http and https addresses are accepted, and an address carrying whitespace, a quote or an angle bracket is left as text, because the address is the one place a section's prose reaches an HTML attribute.
+* The Student Duplicate Finder's section now points at the separate page explaining how to stop duplicates being created in Airtable at all, which the finder does not do.
 
 = 1.102.1 =
 

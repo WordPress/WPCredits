@@ -182,6 +182,10 @@ checks the address, so it runs again for an address that already has rows: a stu
 move forward applies again, or somebody sets a status back and the automation fires a second time.
 Duplicated addresses are what break the update automations, which is the error you see in Airtable.
 
+The finder clears duplicates up; it does not stop them being made. Stopping them at source is a
+change to that Airtable automation, written up step by step in
+[Stopping duplicate students at the source](https://wordpresseducation.org/duplicate-students-at-the-source/).
+
 #### Delete duplicates here, not by hand in Airtable
 
 This is the part worth reading twice. **The site stores Airtable record IDs**, and deleting the row

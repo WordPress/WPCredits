@@ -12,14 +12,14 @@
 
 ## Global Constraints
 
-- **Start from `main` at 1.102.0.** `grep "^Stable tag" readme.txt` prints `Stable tag: 1.102.0` and `git status --short` prints nothing. Then `git switch -c track-builder-t2b`.
+- **Start from `main` at 1.102.1.** `grep "^Stable tag" readme.txt` prints `Stable tag: 1.102.1` and `git status --short` prints nothing. Then `git switch -c track-builder-t2b`. (The Student Duplicate Finder shipped 1.102.1 while this plan was being written; every block below was replayed onto that baseline and applied unchanged.)
 - WordPress coding standards throughout: tabs, Yoda conditions, spaces inside parentheses, `array()` and never `[]`, strict `in_array()`. Everything that ships is PHP 7.4 compatible: no `match`, no named arguments, no union types. Every string a person reads is US English. No em dash or en dash anywhere, in code, comments, docs or commit messages: a plain hyphen. Full product names ("Student Report Card", "Mentor Report Card", "Administrator Dashboard").
 - **The battery stays silent after every task:** `for f in bin/test-*.php; do php "$f" >/dev/null 2>&1 || echo "FAIL $f"; done` prints nothing. `php bin/check-references.php`, `php bin/check-spelling.php` and `php bin/check-dead-annotations.php` report clean. `bash bin/check-standards.sh` prints no line containing ` ERROR `, and its last line reads `85 warnings, no errors.` or a lower count. Four things it counts are easy to trip: the `=` of consecutive assignments align, the arrows of a multi-line array align, an associative array of more than one item takes one line an item, and a comment line between two assignments ends their alignment block.
 - **Test first, every task:** add the checks, run them, see them fail as the step says, then write the code.
 - **Nothing a person sees changes for students in T2b.** The screen is wp-admin only, gated on `wpcpm_manage_program`. No track is published by anything in this release, so `WPCPM_Program`, `WPCPM_Student_Report_Form::fields()`, the Programs running card and the Institutions Link control keep 1.102.0's answers.
 - Every new class file is required in `wpcredits-program-manager.php` and in `uninstall.php`, in that order, or `bin/test-roles.php` fails.
 - Nothing reads or writes Airtable in this release. The schema token, the preflight, publishing, the checklist and the institution gate are T2c's (spec section 12).
-- Version numbers move in Task 9 only: plugin 1.103.0, which `version_compare()` orders after 1.102.0. No theme release.
+- Version numbers move in Task 10 only: plugin 1.103.0, which `version_compare()` orders after 1.102.1. No theme release.
 - Comments explain why and name the decision or the review that made the rule. Every commit message starts with "Track Builder T2b:" and ends with the `Co-Authored-By:` trailer of whoever made it.
 
 ## What this plan decides
@@ -2966,9 +2966,9 @@ No commit: this task changes no file. Record the thirteen lines, the dry run and
 **Files:**
 - Modify: `wpcredits-program-manager.php` (the `Version:` header and `WPCPM_VERSION`), `readme.txt` (`Stable tag:` and a changelog entry), `languages/wpcredits-program-manager.pot` (regenerated)
 
-- [ ] **Step 1: Move the version.** `1.102.0` becomes `1.103.0` in the plugin header's `Version:` line, in `define( 'WPCPM_VERSION', ... )` and in `readme.txt`'s `Stable tag:`. Every other mention of 1.102.0 stays, including the changelog's own heading.
+- [ ] **Step 1: Move the version.** `1.102.1` becomes `1.103.0` in the plugin header's `Version:` line, in `define( 'WPCPM_VERSION', ... )` and in `readme.txt`'s `Stable tag:`. Every other mention of 1.102.1 stays, including the changelog's own heading.
 
-- [ ] **Step 2: Write the changelog entry**, first under `== Changelog ==` in `readme.txt`, with one empty line after it:
+- [ ] **Step 2: Write the changelog entry**, first under `== Changelog ==` in `readme.txt`, above `= 1.102.1 =` and with one empty line after it:
 
 ```text
 = 1.103.0 =

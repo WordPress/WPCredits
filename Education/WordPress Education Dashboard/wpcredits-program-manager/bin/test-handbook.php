@@ -1070,7 +1070,34 @@ ck( 'the docs build composes a fourth guide, sponsors, from the four sponsor sec
 
 $built = file_get_contents( __DIR__ . '/../docs/build/administrators.html' );
 ck( 'the docs build escapes a section\'s text: a literal <record> reaches the HTML as text, never as a tag (1.98.1)', array( false !== strpos( $built, 'wpcpm_roster_&lt;record&gt;' ), strpos( $built, 'wpcpm_roster_<record>' ) ), array( true, false ) );
+// Links in a section, added 1.102.2. Before it, a section that wrote one got the Markdown
+// printed at the reader: 35-admin-feedback had carried a raw `[#123](…)` since it was written.
+// A link's address is the one place a section's prose reaches an HTML attribute, so the scheme
+// is pinned as well as the conversion.
+$hrefs = preg_match_all( '/<a href="([^"]*)"/', $built, $found ) ? $found[1] : array();
+
+ck( 'a section\'s Markdown link becomes a link in the built guide, and none is left raw (1.102.2)',
+    array(
+		false !== strpos( $built, '<a href="https://github.com/WordPress/WPCredits/issues/123">#123</a>' ),
+		false !== strpos( $built, '<a href="https://wordpresseducation.org/duplicate-students-at-the-source/">Stopping duplicate students at the source</a>' ),
+		preg_match( '/\[[^\]]+\]\(http[^)]*\)/', $built ),
+	),
+    array( true, true, 0 ) );
+
+ck( 'and every address a guide links to is http or https, so no section can write a javascript: link',
+    array(
+		count( $hrefs ) > 0,
+		count( array_filter( $hrefs, static function ( $href ) {
+			return ! preg_match( '#^https?://#', $href );
+		} ) ),
+	),
+    array( true, 0 ) );
+
 ck( 'the program managers\' guide explains the Student Duplicate Finder, and that deleting starts switched off (1.102.0)', array( false !== strpos( $built, '>Student Duplicate Finder</h3>' ), false !== strpos( $built, 'Deleting ships switched off' ) ), array( true, true ) );
+
+ck( 'and it points at the page that explains how to stop the duplicates being made at all',
+    false !== strpos( $built, 'Stopping them at source is a' ),
+    true );
 
 // Each kind is pinned on its own rather than as one sentence, so rewording the passage cannot
 // quietly drop one of them: a guide that stops naming call notes would still pass a check for
