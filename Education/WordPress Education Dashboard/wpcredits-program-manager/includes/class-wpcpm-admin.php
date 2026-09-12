@@ -534,6 +534,8 @@ class WPCPM_Admin {
 
 		$this->render_checker_settings( $settings );
 
+		$this->render_duplicate_settings( $settings );
+
 		$this->render_handbook_settings( $settings );
 
 		$this->render_two_factor_settings( $settings );
@@ -1210,6 +1212,34 @@ class WPCPM_Admin {
 			esc_html__( 'Both off by default. An unattended promotion writes to the shared Airtable base, so turn the second one on deliberately.', 'wpcredits-program-manager' )
 		);
 
+		echo '</tbody></table>';
+		echo '</div>';
+	}
+
+	/**
+	 * The Student Duplicate Finder's one switch: whether deleting is on.
+	 *
+	 * Here and not on the finder's own screen, the way the import's switch is: a delete removes rows
+	 * from the shared base, so it is turned on deliberately, by somebody reading what it does, and
+	 * until then the finder scans and lists and deletes nothing (spec decision 3.10).
+	 *
+	 * @param array $settings Current settings.
+	 */
+	private function render_duplicate_settings( array $settings ) {
+		echo '<div class="wpcpm-card">';
+		printf(
+			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
+			esc_html__( 'Tool: Student Duplicate Finder', 'wpcredits-program-manager' ),
+			esc_html__( 'Tool', 'wpcredits-program-manager' )
+		);
+		echo '<table class="form-table" role="presentation"><tbody>';
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="duplicate_delete_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
+			esc_html__( 'Deleting duplicates', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['duplicate_delete_enabled'] ), true, false ),
+			esc_html__( 'Let program managers delete the duplicated rows they select and confirm', 'wpcredits-program-manager' ),
+			esc_html__( 'Off by default. While it is off the finder scans and lists, and deletes nothing. A delete removes rows from Students, Students Reports and Feedback in the shared base, and the finder keeps a sealed copy of each row for 30 days.', 'wpcredits-program-manager' )
+		);
 		echo '</tbody></table>';
 		echo '</div>';
 	}

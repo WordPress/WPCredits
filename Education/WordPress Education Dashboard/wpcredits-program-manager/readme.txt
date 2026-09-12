@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.101.1
+Stable tag: 1.102.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.102.0 =
+
+* New module: the Student Duplicate Finder (WPCredits Program → Modules), from docs/specs/2026-09-11-student-duplicate-finder-design.md. It lists every student with more than one row in the Airtable tables Students, Students Reports and Feedback, proposes which rows to delete, and deletes the rows a program manager ticks and then confirms on a second page. It scans every three hours, 150 minutes into the cycle the syncs share, and on Scan now; a scan writes nothing to Airtable, and a failed one keeps the last list.
+* Nothing is deleted until a manager turns on "Deleting duplicates" under Settings: the finder ships switched off. Before a delete it reads the rows from Airtable again and asks every question again, refuses a row the site points at, a row that changed since the scan and the last row an address has in a table, keeps a sealed copy of each row on the site, and deletes children first: Feedback, then Students Reports, then Students. A daily job erases the copies after 30 days; the log of what was deleted, by whom and when, stays, without names or addresses.
+* The Administrator Dashboard gains a thirteenth tile, Duplicated students, and a small card linking to the finder. New underneath: `WPCPM_Airtable::delete_records()`, ten records a request, and `WPCPM_Request::posted_list()`.
 
 = 1.101.1 =
 

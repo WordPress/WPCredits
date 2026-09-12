@@ -72,5 +72,21 @@ ck( 'an absent field is the fallback', WPCPM_Request::posted_verbatim( 'missing'
 ck( 'the lines variant trims each line and drops the empty ones', WPCPM_Request::posted_verbatim_lines( 'lines' ), "A-1\nB%202" );
 ck( 'and its absent field is the fallback too', WPCPM_Request::posted_verbatim_lines( 'missing', 'none' ), 'none' );
 
+echo "\n=== posted_list(): a ticked list, each value whole or not at all ===\n";
+
+$_POST = array(
+	'keys'   => array( '0123456789abcdef', 'not a key', '0123456789ABCDEF', array( 'nested' ), '0123456789abcdef', 'fedcba9876543210' ),
+	'single' => '0123456789abcdef',
+	'digits' => array( '1234567890123456' ),
+);
+
+ck( 'values that match whole are kept once, in the order posted', WPCPM_Request::posted_list( 'keys', '/^[0-9a-f]{16}$/' ), array( '0123456789abcdef', 'fedcba9876543210' ) );
+ck( 'a field that is not a list is no list at all', WPCPM_Request::posted_list( 'single', '/^[0-9a-f]{16}$/' ), array() );
+ck( 'an absent field is an empty list', WPCPM_Request::posted_list( 'missing', '/^[0-9a-f]{16}$/' ), array() );
+ck( 'a key of decimal digits alone comes back a string, not the integer an array key makes of it', WPCPM_Request::posted_list( 'digits', '/^[0-9a-f]{16}$/' ), array( '1234567890123456' ) );
+
+$_POST = array( 'rows' => array( 'students:recABCDEFGHIJKLMN', "students:recABCDEFGHIJKLMN\n", 'students:recABCDEFGHIJKLMN<b>', 'reports:recABCDEFGHIJKLMO' ) );
+ck( 'nothing is repaired into a match: a trailing newline or markup drops the value', WPCPM_Request::posted_list( 'rows', '/^(students|reports|feedback):rec[A-Za-z0-9]{14}$/D' ), array( 'students:recABCDEFGHIJKLMN', 'reports:recABCDEFGHIJKLMO' ) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 exit( $fails ? 1 : 0 );

@@ -234,6 +234,41 @@
 <p>Promotes mentors from <em>Vetted - positive</em> to <em>Active</em> in Airtable once their WordPress.org profile shows the Credits Mentor's Course completion. It reads profiles, matches the badge, and reports what it would change before it changes anything. It needs the Airtable connection, so it refuses to run until that is set up.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:heading {"level":3,"anchor":"student-duplicate-finder"} -->
+<h3 class="wp-block-heading" id="student-duplicate-finder">Student Duplicate Finder</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>WPCredits Program → Modules → Student Duplicate Finder.</strong> Lists every student who has more than one row in Students, Students Reports or Feedback in Airtable, proposes which rows to delete, and deletes the ones you tick and confirm. A second row usually comes from the Airtable automation that creates a student's Students Reports and Feedback rows: it runs again for an address that already has them, for example when a student who did not move forward applies again.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>It scans every three hours</strong>, after the four syncs, and <strong>Scan now</strong> runs a scan while you watch. A scan only reads Airtable. When one fails, its error shows above the last list, which stays.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Ready</strong> students have an older row in each table with nothing attached to it: one checkbox selects them all, and the newest rows stay. Students who <strong>need a decision</strong> have a checkbox on each row that may go, with the reason it was held back beside it. Nothing is ticked for you; <strong>Select all ready</strong> ticks the Ready students.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>A row the site uses cannot be deleted.</strong> When a student's account, their surveys, a mentor call note, a booked call or an audit log entry points at a row, its checkbox is disabled and says what points at it: delete the other row instead.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Review selection</strong> shows exactly what will be deleted, table by table, and what was left out and why. Only <strong>Delete</strong> on that page deletes anything. Just before it does, the finder reads the rows from Airtable again and leaves out any that changed since the scan, and it never deletes the last row an address has in a table.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Every deleted row is kept on the site, sealed, for 30 days.</strong> The <strong>Deleted rows</strong> list under the students says who deleted which row and when, and <strong>View copy</strong> shows the row's cells so you can type it back into Airtable by hand. There is no automatic restore. After 30 days the cells are erased; the entry stays, without a name or an address.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Deleting is switched off until you turn it on</strong> under <strong>WPCredits Program → Settings</strong>, in the Student Duplicate Finder's card. While it is off, the finder scans and lists and deletes nothing.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>On the Administrator Dashboard, the <strong>Duplicated students</strong> tile counts the students the last scan listed, and its card links here.</p>
+<!-- /wp:paragraph -->
+
 <!-- wp:heading {"level":3,"anchor":"need-help-2"} -->
 <h3 class="wp-block-heading" id="need-help-2">Need help?</h3>
 <!-- /wp:heading -->

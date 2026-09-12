@@ -498,6 +498,66 @@ ck( 'and tests a value against it', array( WPCPM_Airtable::is_record_id( 'recABC
 $mentors_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php' );
 ck( 'the Mentors sync aliases it rather than keeping its own copy', false !== strpos( $mentors_src, 'return WPCPM_Airtable::is_record_id( $value );' ), true );
 
+echo "\n=== delete_records(): ten at a time, only what Airtable confirms, and a stop says how far it got ===\n";
+
+// Twelve record IDs that say what they are: two batches, the second short.
+$del = array();
+for ( $i = 1; $i <= 12; $i++ ) {
+	$del[] = 'recDELETE' . str_pad( (string) $i, 8, '0', STR_PAD_LEFT );
+}
+
+/**
+ * Airtable's answer to a DELETE: every ID it deleted, flagged.
+ *
+ * @param string[] $ids Record IDs.
+ * @return array
+ */
+function deleted_answer( array $ids ) {
+	return response( 200, array( 'records' => array_map( static function ( $id ) { return array( 'id' => $id, 'deleted' => true ); }, $ids ) ) );
+}
+
+/**
+ * The record IDs one sent request named, in order.
+ *
+ * @param int $i Which request.
+ * @return string[]
+ */
+function sent_records( $i ) {
+	parse_str( (string) parse_url( (string) $GLOBALS['sent'][ $i ]['url'], PHP_URL_QUERY ), $query );
+	return isset( $query['records'] ) ? (array) $query['records'] : array();
+}
+
+fresh( 'web' );
+queue( deleted_answer( array_slice( $del, 0, 10 ) ) );
+queue( deleted_answer( array_slice( $del, 10 ) ) );
+$r = $airtable->delete_records( 'tblX', array_merge( $del, array( 'not-a-record', $del[0] ) ) );
+
+ck( 'twelve IDs go as two DELETEs, ten and then two', array( sent(), $GLOBALS['sent'][0]['args']['method'], $GLOBALS['sent'][1]['args']['method'], count( sent_records( 0 ) ), count( sent_records( 1 ) ) ), array( 2, 'DELETE', 'DELETE', 10, 2 ) );
+ck( 'as repeated records[] parameters, and never a value that is not a record ID, nor a repeat', array_merge( sent_records( 0 ), sent_records( 1 ) ), $del );
+ck( 'a DELETE carries no body', array_key_exists( 'body', $GLOBALS['sent'][0]['args'] ), false );
+ck( 'the answer maps every deleted ID to true', $r, array_fill_keys( $del, true ) );
+
+fresh( 'web' );
+queue( response( 200, array( 'records' => array( array( 'id' => $del[0], 'deleted' => true ), array( 'id' => 'recSOMEONEELSE000', 'deleted' => true ) ) ) ) );
+ck( 'only a row Airtable confirms, and only one that was asked for, is reported deleted', $airtable->delete_records( 'tblX', array( $del[0], $del[1] ) ), array( $del[0] => true ) );
+
+fresh( 'web' );
+queue( deleted_answer( array_slice( $del, 0, 10 ) ) );
+queue( response( 422, array( 'error' => array( 'type' => 'INVALID_REQUEST_UNKNOWN' ) ) ) );
+$r = $airtable->delete_records( 'tblX', $del );
+ck( 'a refused second batch is the error, carrying the ten already deleted', array( $r->get_error_code(), $r->get_error_data()['status'], $r->get_error_data()['deleted'] ), array( 'wpcpm_airtable_error', 422, array_slice( $del, 0, 10 ) ) );
+
+fresh( 'web' );
+queue( response( 429, array( 'errors' => array() ), array( 'Retry-After' => '30' ) ) );
+$r = $airtable->delete_records( 'tblX', array( $del[0] ) );
+ck( 'a rate limit on the first batch is that error, with nothing deleted', array( $r->get_error_code(), $r->get_error_data()['deleted'] ), array( 'wpcpm_airtable_rate_limited', array() ) );
+
+fresh( 'web' );
+ck( 'nothing to delete sends nothing', array( $airtable->delete_records( 'tblX', array( 'nope', '' ) ), sent() ), array( array(), 0 ) );
+
+$no_token = new WPCPM_Airtable( array( 'api_token' => '', 'base_id' => 'appTEST' ) );
+ck( 'and without a token it refuses before sending', array( $no_token->delete_records( 'tblX', array( $del[0] ) )->get_error_code(), sent() ), array( 'wpcpm_no_token', 0 ) );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 
 exit( $fail ? 1 : 0 );

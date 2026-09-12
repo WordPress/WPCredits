@@ -1,0 +1,145 @@
+/**
+ * Student Duplicate Finder.
+ *
+ * Built on assets/css/admin.css (the cards, the progress bar), which the screen loads first.
+ */
+
+.wpcpm-duplicates__tiles {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( 190px, 1fr ) );
+	gap: 12px;
+	margin: 16px 0;
+	padding: 0;
+	list-style: none;
+}
+
+.wpcpm-duplicates__tiles li {
+	margin: 0;
+	padding: 12px 16px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+
+.wpcpm-duplicates__group {
+	margin: 0 0 16px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+
+.wpcpm-duplicates__head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 16px;
+	align-items: baseline;
+	padding: 12px 16px;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.wpcpm-duplicates__head h3,
+.wpcpm-duplicates__pick {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.wpcpm-duplicates__email,
+.wpcpm-duplicates__counts {
+	color: #50575e;
+}
+
+.wpcpm-duplicates__flag {
+	margin: 0;
+	padding: 8px 16px;
+	background: #fcf9e8;
+	border-bottom: 1px solid #dcdcde;
+}
+
+/* Wide tables scroll inside their card, never the page. */
+.wpcpm-duplicates__scroll {
+	overflow-x: auto;
+}
+
+.wpcpm-duplicates__scroll table {
+	min-width: 960px;
+	border: 0;
+}
+
+.wpcpm-duplicates__badge {
+	display: inline-block;
+	padding: 2px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.wpcpm-duplicates__badge--keep,
+.wpcpm-duplicates__badge--ready {
+	background: #008a20;
+	color: #fff;
+}
+
+.wpcpm-duplicates__badge--delete {
+	background: #d63638;
+	color: #fff;
+}
+
+.wpcpm-duplicates__badge--review,
+.wpcpm-duplicates__badge--decide {
+	background: #f0c33c;
+	color: #1e1e1e;
+}
+
+/* The selection bar stays in reach at the foot of a long list. */
+.wpcpm-duplicates__bar {
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin: 16px 0;
+	padding: 12px 16px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	box-shadow: 0 -2px 6px rgba( 0, 0, 0, 0.06 );
+}
+
+.wpcpm-duplicates__count {
+	flex: 1 1 280px;
+	margin: 0;
+}
+
+/* The two buttons the script shows ship hidden; core gives every .button display: inline-block. */
+.wpcpm-duplicates__bar .button[hidden] {
+	display: none;
+}
+
+.wpcpm-duplicates__actions {
+	display: flex;
+	gap: 8px;
+	margin: 16px 0;
+}
+
+.wpcpm-duplicates__inline {
+	display: inline;
+}
+
+.wp-core-ui .button-primary.wpcpm-duplicates__delete {
+	background: #b32d2e;
+	border-color: #b32d2e;
+}
+
+.wp-core-ui .button-primary.wpcpm-duplicates__delete:hover,
+.wp-core-ui .button-primary.wpcpm-duplicates__delete:focus {
+	background: #8a2424;
+	border-color: #8a2424;
+}
+
+.wpcpm-duplicates__refused {
+	margin: 0 0 8px 20px;
+	list-style: disc;
+}

@@ -77,7 +77,7 @@ The base trash restores records deleted in the past seven days, on every plan. A
 
 ### 4.1 Phases
 
-`students`, `reports`, `feedback`, `finish`. The first three page through their table a hundred rows at a time with every field, because the rules read work and answers (about 32 requests in all). For each row the state keeps a reduced record: the record ID, the created time, the address as typed, the name, the status (Course on Feedback), the institution record IDs, whether a mentor is linked, the start and end dates, the hours (Total hours on Students, Hours on Students Reports), whether Notes is filled, and the names of the work or answer columns that are filled. Rows with no address are counted and skipped, because they cannot be grouped.
+`students`, `reports`, `feedback`, `finish`. The first three page through their table a hundred rows at a time with every field, because the rules read work and answers (about 32 requests in all). For each row the state keeps a reduced record: the record ID, the created time, the address as typed, the name, the status (Course on Feedback), the institution record IDs, whether a mentor is linked, the start and end dates, the hours (Total hours on Students, Hours on Students Reports), whether Notes is filled, and how many work or answer columns are filled: the rules and the screen only ever ask how many, and about 3,100 rows wait in the scan's state between ticks. Rows with no address are counted and skipped, because they cannot be grouped.
 
 `finish` groups the rows by trimmed, lowercased address; keeps the addresses with more than one row in any table; looks up the site references (every user meta and post meta value that is exactly one of the kept record IDs, with its meta key and, for posts, the post type and status); classifies; and writes the report.
 
@@ -99,7 +99,7 @@ Rows are sorted by created time. The only row in a table is kept, and the newest
 
 - A graduation: Graduate or Pending graduation (Students and Students Reports).
 - A live status: one of the site's active tracked statuses (`WPCPM_Mentors_Sync::tracked_statuses()`), or Paused (Students and Students Reports).
-- Work on a Students Reports row: any column the Student Report Card's report form writes for any live track (`WPCPM_Student_Report_Form::fields()` for each track in `WPCPM_Tracks::live()`), and Hours.
+- Work on a Students Reports row: any column the Student Report Card's report form writes for any track the program map knows (`WPCPM_Student_Report_Form::fields()` for the key `WPCPM_Program::track()` gives each status in `WPCPM_Program::labels()`, which holds the four built-in tracks and every Track Builder track), and Hours above zero.
 - Answers on a Feedback row: any filled column other than Name, Email, Course, Institution, Students and the three mentor links (`F1 - Mentor`, `F2 - Mentor`, `F3 - Mentor`). Legacy survey columns count too.
 - Total hours or Notes on a Students row.
 - An institution link, a mentor, or a status (Course on Feedback) that this row has and the newest row lacks.
@@ -221,9 +221,10 @@ In `bin/`, with synthetic fixtures only:
 
 - `test-duplicate-rules.php`: each rule alone, each with a check that fails when the rule is removed, and the shapes of the 10 September read (two Feedback rows only; two report rows for one Students row; two of everything; a second Students row with no report).
 - `test-duplicates-scan.php`: paging, resumable ticks within the budget, the lock, grouping by trimmed and lowercased address, the site-reference lookup, a failed read keeping the last good report, and the schedule at 150 minutes.
-- `test-duplicate-delete.php`: the order in 7.3; every refusal in 7.4, with nothing written for a refused row (no copy, no log, no delete); the nonce tied to the exact set; batches of ten; children first; and pending copies after a refused batch.
-- `test-duplicate-vault.php`: the copy is never plaintext; View copy is manager-only; the daily job erases at 30 days and keeps the log entry; pending copies are settled both ways; and the post type name is at most twenty characters.
-- Extended: `test-airtable.php` (`delete_records()` batching and errors), `test-roles.php` (the tool registered, and the loader and uninstall require lists kept parallel), `test-settings.php` (the switch rendered), `test-administrators-dashboard.php` (the tile and the card), `test-handlers.php` (every new handler), `check-references.php` and `check-standards.sh`.
+- `test-duplicate-delete.php`: the order in 7.3 from step 2; every refusal in 7.4, with nothing written for a refused row (no copy, no log, no delete); children first; and pending copies after a refused batch. The delete is a class of its own, `WPCPM_Duplicate_Delete`, so all of this runs without a request.
+- `test-duplicate-finder.php`: the capability before the nonce on every screen and handler, View copy included, which is manager-only; the nonce tied to the exact set; nothing pre-ticked, the two kinds of checkbox, locked rows, the switch and a running scan; the confirm screen and Back to the list; the notice after a delete; and a log without names or addresses.
+- `test-duplicate-vault.php`: the copy is never plaintext; the daily job erases at 30 days and keeps the log entry; pending copies are settled both ways; and the post type name is at most twenty characters.
+- Extended: `test-airtable.php` (`delete_records()` in batches of ten, and its errors), `test-request.php` (`posted_list()`), `test-roles.php` (the tool registered, and the loader and uninstall require lists kept parallel), `test-settings.php` (the switch rendered), `test-sponsors-sync.php` (five offsets in one cycle), `test-administrators-dashboard.php` and `test-return.php` (the tile, the card and its anchor), `test-handbook.php` (the guide's section), `test-handlers.php` (every new handler), `check-references.php` and `check-standards.sh`.
 
 ## 12. Release
 

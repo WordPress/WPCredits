@@ -361,6 +361,13 @@ foreach ( array( 'includes', 'includes/modules', 'includes/tools', 'includes/tra
 ck( 'every class file under includes/ is required by the loader',
     array_values( array_diff( $on_disk, $anywhere[1] ) ), array() );
 
+// A tool reaches the menu, the Modules screen and the uninstall fan-out through the registry and
+// nowhere else, so a tool that loads and is never registered is a screen nobody can open and data
+// an uninstall leaves behind. Read from the source, because instantiating the registry here would
+// need every tool's dependencies (the Student Duplicate Finder, 1.102.0).
+ck( 'the Student Duplicate Finder is registered as a tool',
+    array( false !== strpos( (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-wpcpm-tools.php' ), 'new WPCPM_Duplicate_Finder()' ) ), array( true ) );
+
 // The institution dashboard's own wiring, asserted from the day the file exists rather than
 // from a name written here in advance. Its page ID and its title-version flag are two options
 // on a live site, and an option an uninstall leaves behind is invisible until somebody

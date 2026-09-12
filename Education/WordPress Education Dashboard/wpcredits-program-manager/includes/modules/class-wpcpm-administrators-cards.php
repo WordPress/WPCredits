@@ -149,6 +149,8 @@ final class WPCPM_Administrators_Cards {
 			// Pools under their own threshold, what sponsors said lately, and the sponsors'
 			// figures (Sponsors module, S6): read through the owning classes, never their rows.
 			'offers_low'           => self::offers_low(),
+			// The Student Duplicate Finder's last scan (1.102.0): its counts, never its rows.
+			'duplicates'           => self::duplicates(),
 			'interests'            => self::interests(),
 			'sponsors'             => self::sponsors(),
 			'programs'             => self::programs(),
@@ -157,7 +159,7 @@ final class WPCPM_Administrators_Cards {
 	}
 
 	/**
-	 * The twelve tiles of the attention strip, from the arrays the cards draw.
+	 * The thirteen tiles of the attention strip, from the arrays the cards draw.
 	 *
 	 * @param array $data What `collect()` returned.
 	 * @return array[] `label`, `n`, `card`, keyed in the strip's order.
@@ -226,6 +228,13 @@ final class WPCPM_Administrators_Cards {
 				'label' => __( 'Offers running low', 'wpcredits-program-manager' ),
 				'n'     => isset( $data['offers_low'] ) ? count( (array) $data['offers_low'] ) : 0,
 				'card'  => 'offers-low',
+			),
+			// The students the Student Duplicate Finder's last scan listed, Ready or not: the
+			// number its own screen opens with (1.102.0).
+			'duplicates'           => array(
+				'label' => __( 'Duplicated students', 'wpcredits-program-manager' ),
+				'n'     => isset( $data['duplicates']['addresses'] ) ? (int) $data['duplicates']['addresses'] : 0,
+				'card'  => 'duplicates',
 			),
 		);
 	}
@@ -503,6 +512,56 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		echo '</tbody></table>';
+		self::card_close();
+	}
+
+	/**
+	 * Duplicated students: how many the Student Duplicate Finder lists, how many of them are
+	 * Ready, as of when, and the way to the finder, where the names are (1.102.0).
+	 *
+	 * @param array $facts duplicates()'s answer.
+	 */
+	public static function render_duplicates( array $facts ) {
+		$facts = array_merge(
+			array(
+				'addresses' => 0,
+				'ready'     => 0,
+				'read'      => 0,
+				'url'       => '',
+			),
+			$facts
+		);
+
+		self::card_open( 'duplicates', __( 'Duplicated students', 'wpcredits-program-manager' ), (int) $facts['addresses'] );
+
+		if ( empty( $facts['read'] ) ) {
+			self::empty_line( __( 'The Student Duplicate Finder has not scanned Airtable yet.', 'wpcredits-program-manager' ) );
+		} elseif ( 0 === (int) $facts['addresses'] ) {
+			/* translators: %s: date and time of the scan. */
+			self::empty_line( sprintf( __( 'No duplicated students in Airtable, as of %s.', 'wpcredits-program-manager' ), self::when( (int) $facts['read'] ) ) );
+		} else {
+			printf(
+				'<p class="wpcpm-administrator__note">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: 1: duplicated students, 2: how many of them are ready to delete, 3: date and time of the scan. */
+						_n( '%1$s duplicated student in Airtable, %2$s ready to delete, as of %3$s.', '%1$s duplicated students in Airtable, %2$s ready to delete, as of %3$s.', (int) $facts['addresses'], 'wpcredits-program-manager' ),
+						number_format_i18n( (int) $facts['addresses'] ),
+						number_format_i18n( (int) $facts['ready'] ),
+						self::when( (int) $facts['read'] )
+					)
+				)
+			);
+		}
+
+		if ( '' !== (string) $facts['url'] ) {
+			printf(
+				'<div class="wpcpm-administrator__actions"><a class="wpcpm-button wpcpm-button--secondary" href="%1$s">%2$s</a></div>',
+				esc_url( (string) $facts['url'] ),
+				esc_html__( 'Open the Student Duplicate Finder', 'wpcredits-program-manager' )
+			);
+		}
+
 		self::card_close();
 	}
 
@@ -795,6 +854,25 @@ final class WPCPM_Administrators_Cards {
 		}
 
 		return add_query_arg( WPCPM_Sponsor_Roster::ARG_VIEW, $record, $page ) . '#wpcpm-sponsor-' . $card;
+	}
+
+	/**
+	 * The Student Duplicate Finder's last scan, as the tile and its card read it (1.102.0).
+	 *
+	 * Through the scan's own `report()`, as every card reads through the class that owns its data,
+	 * and the counts only: the names and addresses in the report stay on the finder's screen.
+	 *
+	 * @return array{addresses: int, ready: int, read: int, url: string}
+	 */
+	public static function duplicates() {
+		$report = class_exists( 'WPCPM_Duplicates_Scan' ) ? WPCPM_Duplicates_Scan::report() : array();
+
+		return array(
+			'addresses' => isset( $report['counts']['addresses'] ) ? (int) $report['counts']['addresses'] : 0,
+			'ready'     => isset( $report['counts']['ready'] ) ? (int) $report['counts']['ready'] : 0,
+			'read'      => isset( $report['read'] ) ? (int) $report['read'] : 0,
+			'url'       => admin_url( 'admin.php?page=wpcpm-tool-duplicate-finder' ),
+		);
 	}
 
 	/**

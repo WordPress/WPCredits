@@ -37,7 +37,7 @@ final class WPCPM_Return {
 	 * a trap for the first decision put on one of them: `field()` drops an anchor this list
 	 * does not name, silently (deep check FADMN-6).
 	 */
-	const ANCHORS = array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'offers-low', 'interests', 'sponsors', 'programs', 'health' );
+	const ANCHORS = array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'offers-low', 'duplicates', 'interests', 'sponsors', 'programs', 'health' );
 
 	/**
 	 * Print the hidden fields that bring a decision back to the dashboard.

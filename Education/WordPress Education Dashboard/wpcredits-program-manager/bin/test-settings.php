@@ -733,6 +733,14 @@ $GLOBALS['opts'] = array( WPCPM_Settings::OPT_NAME => array( 'api_token' => 'kep
 WPCPM_Settings::add_student_status( 'Marketing Track' );
 ck( 'a saved option with no list starts from the default one, and keeps its other settings', array( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'], $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] ), array( array_merge( WPCPM_Settings::defaults()['student_statuses'], array( 'Marketing Track' ) ), 'kept' ) );
 
+echo "\n=== The Student Duplicate Finder's switch (1.102.0) ===\n";
+
+// Off until a manager turns it on, the way the import's switch shipped: a delete removes rows from
+// the shared base, so the finder ships scanning and listing and deleting nothing (spec decision
+// 3.10). The generic checks above already hold that the box is rendered and that it can be flipped.
+ck( 'deleting duplicates is off until a manager turns it on', isset( WPCPM_Settings::defaults()['duplicate_delete_enabled'] ) ? WPCPM_Settings::defaults()['duplicate_delete_enabled'] : null, false );
+ck( 'and the switch is a checkbox of its own on the settings screen', false !== strpos( $admin, 'name="duplicate_delete_enabled"' ), true );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 
 exit( $fail ? 1 : 0 );

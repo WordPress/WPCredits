@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.101.1\n"
+"Project-Id-Version: WPCredits Program Manager 1.102.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-11T13:15:19+00:00\n"
+"POT-Creation-Date: 2026-09-11T17:58:04+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -82,6 +82,9 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsors.php:516
 #: includes/modules/class-wpcpm-sync-module.php:75
 #: includes/modules/class-wpcpm-sync-module.php:121
+#: includes/tools/class-wpcpm-duplicate-finder.php:187
+#: includes/tools/class-wpcpm-duplicate-finder.php:224
+#: includes/tools/class-wpcpm-duplicate-finder.php:342
 #: includes/tools/class-wpcpm-handbook.php:271
 #: includes/tools/class-wpcpm-header-notices.php:107
 #: includes/tools/class-wpcpm-header-notices.php:131
@@ -132,9 +135,10 @@ msgid "Built:"
 msgstr ""
 
 #: includes/class-wpcpm-admin.php:264
-#: includes/class-wpcpm-admin.php:1108
+#: includes/class-wpcpm-admin.php:1110
 #: includes/modules/class-wpcpm-administrators.php:149
 #: includes/modules/class-wpcpm-student-report-form.php:1838
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:977
 msgid "Yes"
 msgstr ""
 
@@ -243,7 +247,7 @@ msgid "Mentors module"
 msgstr ""
 
 #: includes/class-wpcpm-admin.php:436
-#: includes/class-wpcpm-settings.php:606
+#: includes/class-wpcpm-settings.php:609
 msgid "Mentor status to sync"
 msgstr ""
 
@@ -252,7 +256,7 @@ msgid "Only mentors holding this Airtable status get an account."
 msgstr ""
 
 #: includes/class-wpcpm-admin.php:440
-#: includes/class-wpcpm-settings.php:607
+#: includes/class-wpcpm-settings.php:610
 #: includes/modules/class-wpcpm-mentors-dashboard.php:697
 msgid "Currently mentoring"
 msgstr ""
@@ -360,307 +364,307 @@ msgstr ""
 msgid "Students go there when they log in and in place of the wp-admin Dashboard, and get a \"My Program\" link in the toolbar. Same exceptions as for mentors: a requested destination wins, their own profile screen stays reachable, and anyone who can write posts is left alone."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:541
+#: includes/class-wpcpm-admin.php:543
 msgid "Save settings"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:567
+#: includes/class-wpcpm-admin.php:569
 msgid "Institutions module"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:568
+#: includes/class-wpcpm-admin.php:570
 msgid "Institutions are the schools and universities whose students are on the program. Each has its own dashboard, its own people, and one Collaboration Agreement."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:582
+#: includes/class-wpcpm-admin.php:584
 msgid "Applications from institutions"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:584
+#: includes/class-wpcpm-admin.php:586
 msgid "Take applications through the form on this site"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:585
+#: includes/class-wpcpm-admin.php:587
 msgid "A public page anybody can post to. Every submission is stored for a program manager to read on the Institutions screen, and nothing is created until somebody approves it. While this is off the page shows one sentence saying applications are closed."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:587
-#: includes/class-wpcpm-admin.php:720
+#: includes/class-wpcpm-admin.php:589
+#: includes/class-wpcpm-admin.php:722
 msgid "No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings, Privacy."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:591
-#: includes/class-wpcpm-admin.php:621
-#: includes/class-wpcpm-admin.php:724
+#: includes/class-wpcpm-admin.php:593
+#: includes/class-wpcpm-admin.php:623
+#: includes/class-wpcpm-admin.php:726
 msgid "The page is missing: re-activate the plugin to recreate it."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:599
+#: includes/class-wpcpm-admin.php:601
 msgid "Enrollment lists from institutions"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:601
+#: includes/class-wpcpm-admin.php:603
 msgid "Let an institution send a list of students to enroll"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:602
+#: includes/class-wpcpm-admin.php:604
 msgid "Adds an \"Enroll students\" section to the Institution Dashboard, where a school chooses the program and the term and then adds one student or sends a CSV. The list is read and checked against the program records, and the school sees what was understood before anything is created. While this is off the section does not appear at all."
 msgstr ""
 
 #. translators: 1: checks per hour, 2: rows per day.
-#: includes/class-wpcpm-admin.php:606
+#: includes/class-wpcpm-admin.php:608
 #, php-format
 msgid "Ceilings per institution: %1$s checks an hour and %2$s students a day. Files are read and never stored."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:615
+#: includes/class-wpcpm-admin.php:617
 msgid "Institution landing page"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:617
+#: includes/class-wpcpm-admin.php:619
 msgid "Use the Institution Dashboard page as the institution dashboard"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:618
+#: includes/class-wpcpm-admin.php:620
 msgid "Institution accounts go there when they log in and in place of the wp-admin Dashboard, and get an \"Institution Dashboard\" link in the toolbar. Same exceptions as for mentors and students."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:626
+#: includes/class-wpcpm-admin.php:628
 msgid "Create accounts automatically"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:628
+#: includes/class-wpcpm-admin.php:630
 msgid "Let the sync create the first account for a Confirmed institution"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:629
+#: includes/class-wpcpm-admin.php:631
 msgid "From the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member. An address that already belongs to an account is left alone and named on the Institutions screen. With this off, accounts are created only when somebody presses the button there."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:634
+#: includes/class-wpcpm-admin.php:636
 msgid "When an institution leaves the pipeline"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:636
+#: includes/class-wpcpm-admin.php:638
 msgid "Remove its people, so they lose access to its students"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:638
+#: includes/class-wpcpm-admin.php:640
 msgid "Leave their access in place"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:639
+#: includes/class-wpcpm-admin.php:641
 msgid "When Airtable moves an institution out of the stages the program treats as active. The accounts themselves are never deleted either way, and the agreement and the roster are kept."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:644
+#: includes/class-wpcpm-admin.php:646
 msgid "Agreement review"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:646
-#: includes/class-wpcpm-admin.php:670
+#: includes/class-wpcpm-admin.php:648
+#: includes/class-wpcpm-admin.php:672
 msgid "days"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:647
+#: includes/class-wpcpm-admin.php:649
 msgid "How long a signed agreement may wait before the queue marks it overdue and the nightly digest names it."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:652
+#: includes/class-wpcpm-admin.php:654
 msgid "Who reviews agreements"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:654
-#: includes/class-wpcpm-admin.php:678
-#: includes/class-wpcpm-admin.php:751
+#: includes/class-wpcpm-admin.php:656
+#: includes/class-wpcpm-admin.php:680
+#: includes/class-wpcpm-admin.php:753
 msgid "one@example.org, two@example.org"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:655
+#: includes/class-wpcpm-admin.php:657
 msgid "Addresses told when an agreement arrives and sent the overdue digest. Leave it empty and every program manager is written to, which reaches technical administrators as well; set it before the first real upload."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:660
-#: includes/modules/class-wpcpm-administrators-cards.php:1332
+#: includes/class-wpcpm-admin.php:662
+#: includes/modules/class-wpcpm-administrators-cards.php:1410
 #: includes/modules/class-wpcpm-institutions.php:4085
 #: includes/modules/class-wpcpm-semester-report.php:307
 msgid "Semester reports"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:662
+#: includes/class-wpcpm-admin.php:664
 msgid "Draft each institution's semester report when the semester ends"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:663
+#: includes/class-wpcpm-admin.php:665
 msgid "A daily job drafts a report for every finished semester and tells the program managers. Off, drafts are written only when a manager presses Draft now."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:668
+#: includes/class-wpcpm-admin.php:670
 msgid "Drafting grace"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:671
+#: includes/class-wpcpm-admin.php:673
 msgid "How long after a semester ends the job waits for students still in progress before drafting anyway. The draft says how many were still in progress."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:676
+#: includes/class-wpcpm-admin.php:678
 msgid "Who reviews reports"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:679
+#: includes/class-wpcpm-admin.php:681
 msgid "Addresses told when the job drafts a report. Leave it empty and every program manager is written to."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:684
+#: includes/class-wpcpm-admin.php:686
 msgid "The agreement wording"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:686
+#: includes/class-wpcpm-admin.php:688
 msgid "https://docs.google.com/document/d/..."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:687
+#: includes/class-wpcpm-admin.php:689
 msgid "The Google Doc the plugin's copy of the Collaboration Agreement was taken from, used by the Check against the Doc button. Held on this site rather than in the code, because the document is editable by anyone holding its link and the plugin's source is public. Google addresses only."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:701
+#: includes/class-wpcpm-admin.php:703
 msgid "Sponsors module"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:702
+#: includes/class-wpcpm-admin.php:704
 msgid "Sponsors are the companies that fund mentors and offer their tools to students. Each has its own dashboard, its own people and its offer; a program manager creates each account one at a time from the Sponsors screen."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:715
+#: includes/class-wpcpm-admin.php:717
 msgid "Applications from sponsors"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:717
+#: includes/class-wpcpm-admin.php:719
 msgid "Take sponsor applications through the form on this site"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:718
+#: includes/class-wpcpm-admin.php:720
 msgid "A public page anybody can post to. Every submission is stored for a program manager to read on the Sponsors screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody approves it. While this is off the page shows one sentence saying applications are closed."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:729
+#: includes/class-wpcpm-admin.php:731
 msgid "Sponsor home"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:731
+#: includes/class-wpcpm-admin.php:733
 msgid "Send sponsor accounts to the Sponsor Dashboard when they log in"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:732
+#: includes/class-wpcpm-admin.php:734
 msgid "Instead of the wp-admin Dashboard. Accounts that can also edit content or manage the program are left where WordPress sends them."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:739
+#: includes/class-wpcpm-admin.php:741
 msgid "When a sponsor is no longer Approved"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:741
+#: includes/class-wpcpm-admin.php:743
 msgid "Keep its accounts as they are"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:743
+#: includes/class-wpcpm-admin.php:745
 msgid "Detach its accounts on the next sync"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:744
+#: includes/class-wpcpm-admin.php:746
 msgid "Airtable's Status is the record. Paused and Not Moving Forward sponsors keep their accounts by default, because a pause is often short; choose the other answer to have the sync detach them. Nothing is ever deleted."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:749
+#: includes/class-wpcpm-admin.php:751
 msgid "Interest mail, when no manager is assigned"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:752
+#: includes/class-wpcpm-admin.php:754
 msgid "Addresses, comma-separated. A sponsor's interest is mailed to its assigned program manager; a sponsor with none is mailed here, or to every program manager when this is empty."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:757
+#: includes/class-wpcpm-admin.php:759
 msgid "Largest logo"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:759
+#: includes/class-wpcpm-admin.php:761
 msgid "KB"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:760
+#: includes/class-wpcpm-admin.php:762
 msgid "Applies to the logos the sync copies from Airtable and, later, to the ones sponsors upload. PNG, JPEG and WebP only; never SVG."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:765
+#: includes/class-wpcpm-admin.php:767
 #: includes/modules/class-wpcpm-sponsor-tools.php:309
 #: includes/modules/class-wpcpm-students-dashboard.php:396
 msgid "Tools from our sponsors"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:767
+#: includes/class-wpcpm-admin.php:769
 msgid "Show the section on the Student Report Card"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:769
+#: includes/class-wpcpm-admin.php:771
 msgid "Show the section on the Mentor Report Card"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:770
+#: includes/class-wpcpm-admin.php:772
 msgid "Live offers, each with its claim button. A student always sees offers open to students; a mentor sees the offers whose sponsor opened them to mentors. The Administrator Dashboard shows every live offer whatever these say."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:774
+#: includes/class-wpcpm-admin.php:776
 msgid "Low-stock warning"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:776
+#: includes/class-wpcpm-admin.php:778
 msgid "codes left"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:777
+#: includes/class-wpcpm-admin.php:779
 msgid "When a pool of one-time codes falls below this many, the sponsor and its program manager are mailed once. The default for new offers; each offer can set its own."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:802
+#: includes/class-wpcpm-admin.php:804
 msgid "Two-factor authentication"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:807
+#: includes/class-wpcpm-admin.php:809
 msgid "Nobody is asked for a second factor, because the Two Factor plugin is not active on this site. Install and activate it, and the roles ticked below will be asked for a code as well as a password at their next sign-in."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:812
+#: includes/class-wpcpm-admin.php:814
 msgid "An account in a ticked role is asked for a code as well as its password, from its next sign-in, with nothing to set up first: the code is emailed. Each person can then set up an authenticator app on their own profile screen, which is quicker and does not depend on their email. Untick everything to ask nobody."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:817
+#: includes/class-wpcpm-admin.php:819
 msgid "Roles that must use it"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:825
+#: includes/class-wpcpm-admin.php:827
 msgid "Program managers (administrators)"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:842
+#: includes/class-wpcpm-admin.php:844
 msgid "Students are left off by default: a student account holds that student's own work, there are hundreds of them, and there is nobody to unlock the ones who change phone. They can still turn it on for themselves."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:848
+#: includes/class-wpcpm-admin.php:850
 msgid "Where it stands"
 msgstr ""
 
 #. translators: 1: role name, 2: accounts covered, 3: accounts in the role, 4: accounts using an app.
-#: includes/class-wpcpm-admin.php:856
+#: includes/class-wpcpm-admin.php:858
 #, php-format
 msgid "%1$s: %2$d of %3$d covered, %4$d using an authenticator app."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:868
+#: includes/class-wpcpm-admin.php:870
 msgid "Counted now, on this screen. An account that is covered but has no app is using emailed codes."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:885
-#: includes/class-wpcpm-admin.php:895
+#: includes/class-wpcpm-admin.php:887
+#: includes/class-wpcpm-admin.php:897
 #: includes/tools/class-wpcpm-handbook-assistant.php:192
 #: includes/tools/class-wpcpm-handbook-assistant.php:237
 #: includes/tools/class-wpcpm-handbook-assistant.php:517
@@ -670,144 +674,145 @@ msgstr ""
 msgid "Need help?"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:888
+#: includes/class-wpcpm-admin.php:890
 msgid "A question box for people on the program, answered from the WordPress documentation. The AI provider below does the searching, so nothing is stored on this site - and without a provider there is no answer at all. Each question, and the pages found for it, go to that company."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:897
+#: includes/class-wpcpm-admin.php:899
 msgid "Switch it on"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:898
+#: includes/class-wpcpm-admin.php:900
 msgid "Off means the question box answers nobody, the header button disappears and the page it lives on is unpublished. Nothing is deleted, so switching it back on restores all of it."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:903
+#: includes/class-wpcpm-admin.php:905
 msgid "Where answers come from"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:904
+#: includes/class-wpcpm-admin.php:906
 msgid "The provider searches wordpress.org, make.wordpress.org, learn.wordpress.org and developer.wordpress.org itself. Nothing is copied to this site, so there is nothing to configure and nothing to refresh - and equally, no answer at all without a provider below."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:922
+#: includes/class-wpcpm-admin.php:924
 msgid "Answer provider"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:924
+#: includes/class-wpcpm-admin.php:926
 msgid "Leave as \"None\" to keep everything on this site. Choosing a provider sends each question, and the extracts that match it, to that company."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:929
+#: includes/class-wpcpm-admin.php:931
 msgid "Provider API key"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:931
+#: includes/class-wpcpm-admin.php:933
 msgid "Stored in the database and never sent to the browser - leave blank to keep the current key. Get one free at aistudio.google.com for the Gemini provider."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:937
+#: includes/class-wpcpm-admin.php:939
 msgid "Model"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:939
+#: includes/class-wpcpm-admin.php:941
 msgid "Leave as gemini-flash-latest unless you have a reason not to. It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under this site - which has already happened twice to specific version numbers."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:943
+#: includes/class-wpcpm-admin.php:945
 msgid "Mentors and program managers"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:944
+#: includes/class-wpcpm-admin.php:946
 msgid "Students and institutions as well"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:945
+#: includes/class-wpcpm-admin.php:947
 msgid "Anybody logged in to this site"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:946
+#: includes/class-wpcpm-admin.php:948
 msgid "Program managers only"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:962
+#: includes/class-wpcpm-admin.php:964
 msgid "Who can ask"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:964
+#: includes/class-wpcpm-admin.php:966
 msgid "Never anybody logged out, whatever this says. The documentation describes running the program rather than being on it, which is why students are not included by default."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:969
+#: includes/class-wpcpm-admin.php:971
 msgid "Questions per person per hour"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:971
+#: includes/class-wpcpm-admin.php:973
 msgid "How many questions one person may have answered in an hour, so a free tier cannot be spent in an afternoon. Past the limit they are asked to come back shortly. 0 removes the limit."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:983
+#: includes/class-wpcpm-admin.php:985
 msgid "Mail"
 msgstr ""
 
 #. translators: %s: number of invitations.
-#: includes/class-wpcpm-admin.php:993
+#: includes/class-wpcpm-admin.php:995
 #, php-format
 msgid "%s invitation is waiting to be sent. They go out a few at a time in the background."
 msgid_plural "%s invitations are waiting to be sent. They go out a few at a time in the background."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wpcpm-admin.php:1007
+#: includes/class-wpcpm-admin.php:1009
 msgid "Ninety people is a bad audience for a first look at a template. Send yourself the invitation as a student, a mentor, an institution or a sponsor would receive it - the four say different things."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1011
+#: includes/class-wpcpm-admin.php:1013
 msgid "Email me the student invitation"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1012
+#: includes/class-wpcpm-admin.php:1014
 msgid "Email me the mentor invitation"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1013
+#: includes/class-wpcpm-admin.php:1015
 msgid "Email me the institution invitation"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1014
+#: includes/class-wpcpm-admin.php:1016
 msgid "Email me the sponsor invitation"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1041
+#: includes/class-wpcpm-admin.php:1043
 msgid "Recent mail"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1046
+#: includes/class-wpcpm-admin.php:1048
 msgid "Nothing sent yet. Bookings, cancellations, reminders and invitations are all recorded here once they are."
 msgstr ""
 
 #. translators: %s: number of failures.
-#: includes/class-wpcpm-admin.php:1060
+#: includes/class-wpcpm-admin.php:1062
 #, php-format
 msgid "%s of these was refused by whatever handles mail on this site. That is a delivery problem to fix, not a program one."
 msgid_plural "%s of these were refused by whatever handles mail on this site. That is a delivery problem to fix, not a program one."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wpcpm-admin.php:1075
+#: includes/class-wpcpm-admin.php:1077
 #: includes/modules/class-wpcpm-sponsors.php:1353
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:777
 msgid "When"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1076
+#: includes/class-wpcpm-admin.php:1078
 msgid "To"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1077
+#: includes/class-wpcpm-admin.php:1079
 msgid "Message"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1078
+#: includes/class-wpcpm-admin.php:1080
 #: includes/modules/class-wpcpm-institutions.php:4874
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:165
 msgid "Accepted"
@@ -816,22 +821,22 @@ msgstr ""
 #. translators: %s: human-readable time difference, e.g. "2 hours".
 #. translators: %s: how long ago.
 #. translators: %s: human-readable time difference.
-#: includes/class-wpcpm-admin.php:1092
-#: includes/modules/class-wpcpm-administrators-cards.php:533
+#: includes/class-wpcpm-admin.php:1094
+#: includes/modules/class-wpcpm-administrators-cards.php:592
 #: includes/modules/class-wpcpm-mentor-calls.php:1746
 #, php-format
 msgid "%s ago"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1107
+#: includes/class-wpcpm-admin.php:1109
 msgid "Refused"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1117
+#: includes/class-wpcpm-admin.php:1119
 msgid "\"Accepted\" means the site handed the message off without complaint. It cannot tell you the message was delivered, or read - no sender can."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1133
+#: includes/class-wpcpm-admin.php:1135
 #: includes/modules/class-wpcpm-institution-application.php:1156
 #: includes/modules/class-wpcpm-institution-import-form.php:203
 #: includes/modules/class-wpcpm-institution-import-form.php:227
@@ -845,136 +850,153 @@ msgstr ""
 msgid "Required"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1134
+#: includes/class-wpcpm-admin.php:1136
 msgid "Reading mentors, students and tutors."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1138
+#: includes/class-wpcpm-admin.php:1140
 msgid "Required by the Mentor Status Checker"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1139
+#: includes/class-wpcpm-admin.php:1141
 msgid "Changing a mentor's status when you promote them. Without it the tool can still run in report-only mode, but promoting fails."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1143
+#: includes/class-wpcpm-admin.php:1145
 msgid "Optional"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1144
+#: includes/class-wpcpm-admin.php:1146
 msgid "Reading each column's description from Airtable. Without it the built-in descriptions are shown instead."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1148
+#: includes/class-wpcpm-admin.php:1150
 msgid "Token scopes"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1163
+#: includes/class-wpcpm-admin.php:1165
 msgid "Set these on the token itself at airtable.com/create/tokens, and give it access to the WPCredits base. Scopes cannot be checked from here without writing to the base, so this list is the reference."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1177
+#: includes/class-wpcpm-admin.php:1179
 msgid "Tool: Mentor Status Checker"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1178
+#: includes/class-wpcpm-admin.php:1180
+#: includes/class-wpcpm-admin.php:1233
 msgid "Tool"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1182
+#: includes/class-wpcpm-admin.php:1184
 msgid "Check mentors with status"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1182
+#: includes/class-wpcpm-admin.php:1184
 msgid "Only mentors holding this status are looked up."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1183
+#: includes/class-wpcpm-admin.php:1185
 msgid "Promote them to"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1183
+#: includes/class-wpcpm-admin.php:1185
 msgid "Writing this status needs the <code>data.records:write</code> scope on the token."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1184
+#: includes/class-wpcpm-admin.php:1186
 msgid "Course title"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1185
+#: includes/class-wpcpm-admin.php:1187
 msgid "Course slug"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1185
+#: includes/class-wpcpm-admin.php:1187
 msgid "The slug in the learn.wordpress.org course URL. This is the reliable signal; the title is only a fallback."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1186
+#: includes/class-wpcpm-admin.php:1188
 msgid "Completion phrase"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1186
+#: includes/class-wpcpm-admin.php:1188
 msgid "Both this phrase and the course must appear in the same profile history entry, so someone who merely blogged about the course is not counted."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1190
+#: includes/class-wpcpm-admin.php:1192
 msgid "Profile history filter"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1192
+#: includes/class-wpcpm-admin.php:1194
 msgid "Milestones only (faster)"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1194
+#: includes/class-wpcpm-admin.php:1196
 msgid "All contributions"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1195
+#: includes/class-wpcpm-admin.php:1197
 msgid "Course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages. Switch to all contributions only if WordPress.org changes and completions stop being found."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1198
+#: includes/class-wpcpm-admin.php:1200
 msgid "Maximum history pages per mentor"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1198
+#: includes/class-wpcpm-admin.php:1200
 msgid "A mentor whose history is longer than this is reported as \"could not check\", never as \"not completed\" - a false negative would leave them waiting."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1199
+#: includes/class-wpcpm-admin.php:1201
 msgid "Mentors per batch"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1199
+#: includes/class-wpcpm-admin.php:1201
 msgid "Each mentor can cost several requests to WordPress.org, so smaller batches keep the screen responsive."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1200
+#: includes/class-wpcpm-admin.php:1202
 msgid "Delay between requests (ms)"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1201
+#: includes/class-wpcpm-admin.php:1203
 msgid "Cache profile results for (seconds)"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1201
+#: includes/class-wpcpm-admin.php:1203
 msgid "Only settled answers are cached; a failed read is always retried. Set to 0 to disable."
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1205
+#: includes/class-wpcpm-admin.php:1207
 msgid "Weekly check"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1207
+#: includes/class-wpcpm-admin.php:1209
 msgid "Run the check automatically once a week"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1209
+#: includes/class-wpcpm-admin.php:1211
 msgid "Let the weekly check also promote mentors"
 msgstr ""
 
-#: includes/class-wpcpm-admin.php:1210
+#: includes/class-wpcpm-admin.php:1212
 msgid "Both off by default. An unattended promotion writes to the shared Airtable base, so turn the second one on deliberately."
+msgstr ""
+
+#: includes/class-wpcpm-admin.php:1232
+msgid "Tool: Student Duplicate Finder"
+msgstr ""
+
+#: includes/class-wpcpm-admin.php:1238
+msgid "Deleting duplicates"
+msgstr ""
+
+#: includes/class-wpcpm-admin.php:1240
+msgid "Let program managers delete the duplicated rows they select and confirm"
+msgstr ""
+
+#: includes/class-wpcpm-admin.php:1241
+msgid "Off by default. While it is off the finder scans and lists, and deletes nothing. A delete removes rows from Students, Students Reports and Feedback in the shared base, and the finder keeps a sealed copy of each row for 30 days."
 msgstr ""
 
 #: includes/class-wpcpm-agreement-template.php:109
@@ -1064,49 +1086,49 @@ msgstr ""
 msgid "No Airtable table was specified."
 msgstr ""
 
-#: includes/class-wpcpm-airtable.php:353
+#: includes/class-wpcpm-airtable.php:412
 msgid "Airtable returned no table schema."
 msgstr ""
 
 #. translators: 1: HTTP status code, 2: error detail returned by Airtable.
-#: includes/class-wpcpm-airtable.php:717
+#: includes/class-wpcpm-airtable.php:776
 #, php-format
 msgid "Airtable request failed (HTTP %1$d): %2$s"
 msgstr ""
 
-#: includes/class-wpcpm-airtable.php:719
+#: includes/class-wpcpm-airtable.php:778
 msgid "no further detail"
 msgstr ""
 
-#: includes/class-wpcpm-airtable.php:727
+#: includes/class-wpcpm-airtable.php:786
 msgid "This was a write, so the token most likely lacks the \"data.records:write\" scope. Add it at airtable.com/create/tokens, or use report-only mode."
 msgstr ""
 
-#: includes/class-wpcpm-airtable.php:729
+#: includes/class-wpcpm-airtable.php:788
 msgid "This was a schema read, so the token most likely lacks the \"schema.bases:read\" scope."
 msgstr ""
 
-#: includes/class-wpcpm-airtable.php:731
+#: includes/class-wpcpm-airtable.php:790
 msgid "Check that the token has the \"data.records:read\" scope and access to this base."
 msgstr ""
 
-#: includes/class-wpcpm-airtable.php:743
+#: includes/class-wpcpm-airtable.php:802
 msgid "Airtable returned an unexpected response."
 msgstr ""
 
 #. translators: %d: number of seconds.
-#: includes/class-wpcpm-airtable.php:836
+#: includes/class-wpcpm-airtable.php:895
 #, php-format
 msgid "Airtable asked us to wait %d second before sending more requests."
 msgid_plural "Airtable asked us to wait %d seconds before sending more requests."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wpcpm-airtable.php:964
+#: includes/class-wpcpm-airtable.php:1023
 msgid "No Airtable Personal Access Token is configured. Add one on the WPCredits Program → Settings screen."
 msgstr ""
 
-#: includes/class-wpcpm-airtable.php:968
+#: includes/class-wpcpm-airtable.php:1027
 msgid "The Airtable Base ID is missing from the plugin settings."
 msgstr ""
 
@@ -1593,17 +1615,18 @@ msgid "%s moved down."
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:75
-#: includes/modules/class-wpcpm-administrators-cards.php:999
+#: includes/modules/class-wpcpm-administrators-cards.php:1077
 #: includes/modules/class-wpcpm-institution-roster-view.php:146
 #: includes/modules/class-wpcpm-institutions-dashboard.php:525
 #: includes/modules/class-wpcpm-mentors.php:510
 #: includes/modules/class-wpcpm-students.php:43
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:31
 msgid "Students"
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:76
-#: includes/modules/class-wpcpm-administrators-cards.php:1006
-#: includes/modules/class-wpcpm-administrators-cards.php:1529
+#: includes/modules/class-wpcpm-administrators-cards.php:1084
+#: includes/modules/class-wpcpm-administrators-cards.php:1607
 #: includes/modules/class-wpcpm-mentors.php:43
 #: includes/modules/class-wpcpm-sponsor-offers.php:1501
 #: includes/modules/class-wpcpm-sponsors-dashboard.php:490
@@ -1611,14 +1634,14 @@ msgid "Mentors"
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:77
-#: includes/modules/class-wpcpm-administrators-cards.php:1013
+#: includes/modules/class-wpcpm-administrators-cards.php:1091
 #: includes/modules/class-wpcpm-institutions.php:253
 msgid "Institutions"
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:78
-#: includes/modules/class-wpcpm-administrators-cards.php:565
-#: includes/modules/class-wpcpm-administrators-cards.php:1024
+#: includes/modules/class-wpcpm-administrators-cards.php:624
+#: includes/modules/class-wpcpm-administrators-cards.php:1102
 #: includes/modules/class-wpcpm-sponsor-posts.php:510
 #: includes/modules/class-wpcpm-sponsors.php:82
 #: includes/modules/class-wpcpm-sponsors.php:1169
@@ -1719,14 +1742,15 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-student-view.php:476
 #: includes/modules/class-wpcpm-mentors.php:508
 #: includes/modules/class-wpcpm-students.php:554
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
 #: includes/tools/class-wpcpm-mentor-checker.php:708
 msgid "Mentor"
 msgstr ""
 
 #: includes/class-wpcpm-roles.php:59
-#: includes/modules/class-wpcpm-administrators-cards.php:1340
-#: includes/modules/class-wpcpm-administrators-cards.php:1369
-#: includes/modules/class-wpcpm-administrators-cards.php:1527
+#: includes/modules/class-wpcpm-administrators-cards.php:1418
+#: includes/modules/class-wpcpm-administrators-cards.php:1447
+#: includes/modules/class-wpcpm-administrators-cards.php:1605
 #: includes/modules/class-wpcpm-institutions.php:3011
 #: includes/modules/class-wpcpm-institutions.php:3489
 #: includes/modules/class-wpcpm-institutions.php:3996
@@ -1734,11 +1758,12 @@ msgstr ""
 #: includes/modules/class-wpcpm-institutions.php:4200
 #: includes/modules/class-wpcpm-students.php:459
 #: includes/modules/class-wpcpm-students.php:553
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
 msgid "Institution"
 msgstr ""
 
 #: includes/class-wpcpm-roles.php:63
-#: includes/modules/class-wpcpm-administrators-cards.php:483
+#: includes/modules/class-wpcpm-administrators-cards.php:492
 #: includes/modules/class-wpcpm-sponsors.php:876
 #: includes/modules/class-wpcpm-sponsors.php:1178
 #: includes/modules/class-wpcpm-sponsors.php:1353
@@ -1774,18 +1799,18 @@ msgstr ""
 msgid "The site key for stored values could not be made."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:608
+#: includes/class-wpcpm-settings.php:611
 msgid "Institution pipeline stages"
 msgstr ""
 
 #. translators: 1: setting label, 2: its default value.
-#: includes/class-wpcpm-settings.php:638
+#: includes/class-wpcpm-settings.php:641
 #, php-format
 msgid "%1$s (now %2$s)"
 msgstr ""
 
 #. translators: %s: the settings that were reset, with their defaults.
-#: includes/class-wpcpm-settings.php:653
+#: includes/class-wpcpm-settings.php:656
 #, php-format
 msgid "These settings cannot be left blank, so their defaults were put back: %s. With nothing to filter by, a sync would read every row of the Airtable table and treat each one as current."
 msgstr ""
@@ -1836,178 +1861,183 @@ msgstr ""
 msgid "Could not read the WordPress.org profile for %1$s (HTTP %2$d)."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:168
+#: includes/modules/class-wpcpm-administrators-cards.php:170
 msgid "Applications waiting"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:176
+#: includes/modules/class-wpcpm-administrators-cards.php:178
 msgid "Agreements to review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:181
+#: includes/modules/class-wpcpm-administrators-cards.php:183
 msgid "Agreements overdue"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:186
+#: includes/modules/class-wpcpm-administrators-cards.php:188
 msgid "Semester reports to review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:191
+#: includes/modules/class-wpcpm-administrators-cards.php:193
 msgid "Semesters due for drafting"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:196
+#: includes/modules/class-wpcpm-administrators-cards.php:198
 msgid "Mentor requests open"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:201
+#: includes/modules/class-wpcpm-administrators-cards.php:203
 msgid "Mentor requests overdue"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:206
-#: includes/modules/class-wpcpm-administrators-cards.php:1625
+#: includes/modules/class-wpcpm-administrators-cards.php:208
+#: includes/modules/class-wpcpm-administrators-cards.php:1703
 msgid "Locked accounts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:211
-#: includes/modules/class-wpcpm-administrators-cards.php:354
+#: includes/modules/class-wpcpm-administrators-cards.php:213
+#: includes/modules/class-wpcpm-administrators-cards.php:363
 msgid "Sponsor posts to review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:216
+#: includes/modules/class-wpcpm-administrators-cards.php:218
 msgid "Sponsor agreements to review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:221
+#: includes/modules/class-wpcpm-administrators-cards.php:223
 msgid "Sponsor applications waiting"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:226
-#: includes/modules/class-wpcpm-administrators-cards.php:473
+#: includes/modules/class-wpcpm-administrators-cards.php:228
+#: includes/modules/class-wpcpm-administrators-cards.php:482
 msgid "Offers running low"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:281
+#: includes/modules/class-wpcpm-administrators-cards.php:235
+#: includes/modules/class-wpcpm-administrators-cards.php:535
+msgid "Duplicated students"
+msgstr ""
+
+#: includes/modules/class-wpcpm-administrators-cards.php:290
 msgid "Sponsor Collaboration Agreements"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:284
+#: includes/modules/class-wpcpm-administrators-cards.php:293
 msgid "No sponsor agreement is waiting for review."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:288
+#: includes/modules/class-wpcpm-administrators-cards.php:297
 #: includes/modules/class-wpcpm-institutions.php:2153
 #: includes/modules/class-wpcpm-sponsor-posts.php:769
 msgid "Waiting for review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:292
+#: includes/modules/class-wpcpm-administrators-cards.php:301
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:163
 msgid "Out of force"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:295
+#: includes/modules/class-wpcpm-administrators-cards.php:304
 #: includes/modules/class-wpcpm-institutions.php:4873
 msgid "Revoked"
 msgstr ""
 
 #. translators: 1: the account's name, 2: a date.
-#: includes/modules/class-wpcpm-administrators-cards.php:319
+#: includes/modules/class-wpcpm-administrators-cards.php:328
 #, php-format
 msgid "Uploaded by %1$s on %2$s"
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-administrators-cards.php:322
+#: includes/modules/class-wpcpm-administrators-cards.php:331
 #, php-format
 msgid "Recorded on %s"
 msgstr ""
 
 #. translators: %s: a comma-separated list of what the PDF scan noticed.
-#: includes/modules/class-wpcpm-administrators-cards.php:331
+#: includes/modules/class-wpcpm-administrators-cards.php:340
 #, php-format
 msgid "The scan noticed: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:333
+#: includes/modules/class-wpcpm-administrators-cards.php:342
 msgid "The scan noticed none of the features it looks for"
 msgstr ""
 
 #. translators: %d: how many accounts the company has on the site.
-#: includes/modules/class-wpcpm-administrators-cards.php:337
+#: includes/modules/class-wpcpm-administrators-cards.php:346
 #, php-format
 msgid "%d account"
 msgid_plural "%d accounts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:357
+#: includes/modules/class-wpcpm-administrators-cards.php:366
 msgid "No sponsor post is waiting for review."
 msgstr ""
 
 #. translators: %s: how long ago.
-#: includes/modules/class-wpcpm-administrators-cards.php:370
+#: includes/modules/class-wpcpm-administrators-cards.php:379
 #, php-format
 msgid "Submitted %s ago"
 msgstr ""
 
 #. translators: %s: the account's name.
-#: includes/modules/class-wpcpm-administrators-cards.php:374
+#: includes/modules/class-wpcpm-administrators-cards.php:383
 #, php-format
 msgid "By %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:400
+#: includes/modules/class-wpcpm-administrators-cards.php:409
 #: includes/modules/class-wpcpm-sponsor-application.php:357
 #: includes/modules/class-wpcpm-sponsor-application.php:3574
 msgid "Sponsor applications"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:403
+#: includes/modules/class-wpcpm-administrators-cards.php:412
 msgid "No sponsor application is waiting."
 msgstr ""
 
 #. translators: %s: how long ago.
-#: includes/modules/class-wpcpm-administrators-cards.php:416
+#: includes/modules/class-wpcpm-administrators-cards.php:425
 #, php-format
 msgid "Applied %s ago"
 msgstr ""
 
 #. translators: 1: contact person, 2: contact email address.
 #. translators: 1: contact person's name, 2: their email address.
-#: includes/modules/class-wpcpm-administrators-cards.php:423
+#: includes/modules/class-wpcpm-administrators-cards.php:432
 #: includes/modules/class-wpcpm-institution-application.php:2497
 #: includes/modules/class-wpcpm-sponsor-application.php:2540
 #, php-format
 msgid "Contact: %1$s, %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:428
+#: includes/modules/class-wpcpm-administrators-cards.php:437
 msgid "Held by the anti-spam checks. Open it on the Sponsors screen to read which."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:432
+#: includes/modules/class-wpcpm-administrators-cards.php:441
 msgid "Another open application names this company or this address. Nothing is ever merged."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:436
+#: includes/modules/class-wpcpm-administrators-cards.php:445
 msgid "The base already holds a sponsor with this name or website; approving creates a second record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:442
+#: includes/modules/class-wpcpm-administrators-cards.php:451
 msgid "The approval of this application is half done: an Airtable record already exists for it. Press Approve again to finish. Reject, Reject as spam and Put back in the queue are refused until it is."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:453
-#: includes/modules/class-wpcpm-administrators-cards.php:1194
+#: includes/modules/class-wpcpm-administrators-cards.php:462
+#: includes/modules/class-wpcpm-administrators-cards.php:1272
 msgid "Read the application"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:476
+#: includes/modules/class-wpcpm-administrators-cards.php:485
 msgid "No offer is running low."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:483
+#: includes/modules/class-wpcpm-administrators-cards.php:492
 #: includes/modules/class-wpcpm-sponsor-claims.php:494
 #: includes/modules/class-wpcpm-sponsor-offers.php:591
 #: includes/modules/class-wpcpm-sponsor-usage.php:70
@@ -2015,73 +2045,95 @@ msgstr ""
 msgid "Offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:483
+#: includes/modules/class-wpcpm-administrators-cards.php:492
 msgid "Codes left"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:483
+#: includes/modules/class-wpcpm-administrators-cards.php:492
 #: includes/modules/class-wpcpm-sponsors.php:876
 msgid "Warns at"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:515
+#: includes/modules/class-wpcpm-administrators-cards.php:538
+msgid "The Student Duplicate Finder has not scanned Airtable yet."
+msgstr ""
+
+#. translators: %s: date and time of the scan.
+#: includes/modules/class-wpcpm-administrators-cards.php:541
+#, php-format
+msgid "No duplicated students in Airtable, as of %s."
+msgstr ""
+
+#. translators: 1: duplicated students, 2: how many of them are ready to delete, 3: date and time of the scan.
+#: includes/modules/class-wpcpm-administrators-cards.php:548
+#, php-format
+msgid "%1$s duplicated student in Airtable, %2$s ready to delete, as of %3$s."
+msgid_plural "%1$s duplicated students in Airtable, %2$s ready to delete, as of %3$s."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/modules/class-wpcpm-administrators-cards.php:561
+msgid "Open the Student Duplicate Finder"
+msgstr ""
+
+#: includes/modules/class-wpcpm-administrators-cards.php:574
 msgid "New interests"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:518
+#: includes/modules/class-wpcpm-administrators-cards.php:577
 msgid "No sponsor said anything new in the last thirty days."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:571
+#: includes/modules/class-wpcpm-administrators-cards.php:630
 msgid "Approved sponsors"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:571
+#: includes/modules/class-wpcpm-administrators-cards.php:630
 msgid "in the program records"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:572
+#: includes/modules/class-wpcpm-administrators-cards.php:631
 msgid "With an account"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:572
+#: includes/modules/class-wpcpm-administrators-cards.php:631
 msgid "of the Approved sponsors"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:573
+#: includes/modules/class-wpcpm-administrators-cards.php:632
 msgid "Live offers"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:573
+#: includes/modules/class-wpcpm-administrators-cards.php:632
 msgid "shown on the site today"
 msgstr ""
 
 #. translators: %s: the first day of the semester, in the site's date format.
-#: includes/modules/class-wpcpm-administrators-cards.php:575
+#: includes/modules/class-wpcpm-administrators-cards.php:634
 msgid "Claims this semester"
 msgstr ""
 
 #. translators: %s: the first day of the semester, in the site's date format.
-#: includes/modules/class-wpcpm-administrators-cards.php:575
+#: includes/modules/class-wpcpm-administrators-cards.php:634
 #, php-format
 msgid "since %s, on every offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1062
+#: includes/modules/class-wpcpm-administrators-cards.php:1140
 msgid "Needs attention"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1090
+#: includes/modules/class-wpcpm-administrators-cards.php:1168
 #: includes/modules/class-wpcpm-institution-application.php:297
 msgid "Institution applications"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1093
+#: includes/modules/class-wpcpm-administrators-cards.php:1171
 msgid "No application is waiting."
 msgstr ""
 
 #. translators: %s: a number of applications.
-#: includes/modules/class-wpcpm-administrators-cards.php:1112
+#: includes/modules/class-wpcpm-administrators-cards.php:1190
 #, php-format
 msgid "%s rejected or spam application"
 msgid_plural "%s rejected or spam applications"
@@ -2089,14 +2141,14 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: a number of applications.
-#: includes/modules/class-wpcpm-administrators-cards.php:1148
+#: includes/modules/class-wpcpm-administrators-cards.php:1226
 #, php-format
 msgid "%s more is waiting on the Institutions screen."
 msgid_plural "%s more are waiting on the Institutions screen."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1171
+#: includes/modules/class-wpcpm-administrators-cards.php:1249
 #: includes/modules/class-wpcpm-institution-import-form.php:536
 #: includes/modules/class-wpcpm-institution-roster-view.php:998
 #: includes/modules/class-wpcpm-institutions.php:1599
@@ -2108,270 +2160,273 @@ msgstr[1] ""
 #: includes/modules/class-wpcpm-sponsor-application.php:3689
 #: includes/modules/class-wpcpm-sponsor-application.php:3811
 #: includes/modules/class-wpcpm-sponsor-application.php:4022
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:245
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:641
 msgid "(no name)"
 msgstr ""
 
 #. translators: %s: a program manager's name or address.
-#: includes/modules/class-wpcpm-administrators-cards.php:1184
+#: includes/modules/class-wpcpm-administrators-cards.php:1262
 #, php-format
 msgid "Routed to %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1222
+#: includes/modules/class-wpcpm-administrators-cards.php:1300
 #: includes/modules/class-wpcpm-institution-agreement.php:363
 msgid "Collaboration Agreements"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1223
+#: includes/modules/class-wpcpm-administrators-cards.php:1301
 #: includes/modules/class-wpcpm-institutions.php:4871
 msgid "Awaiting review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1226
+#: includes/modules/class-wpcpm-administrators-cards.php:1304
 msgid "No signed agreement is waiting."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1236
-#: includes/modules/class-wpcpm-administrators-cards.php:1446
+#: includes/modules/class-wpcpm-administrators-cards.php:1314
+#: includes/modules/class-wpcpm-administrators-cards.php:1524
 msgid "Overdue"
 msgstr ""
 
 #. translators: %s: a number of institutions.
-#: includes/modules/class-wpcpm-administrators-cards.php:1247
+#: includes/modules/class-wpcpm-administrators-cards.php:1325
 #, php-format
 msgid "%s returned, waiting for a new upload"
 msgstr ""
 
 #. translators: %s: a number of institutions.
-#: includes/modules/class-wpcpm-administrators-cards.php:1249
+#: includes/modules/class-wpcpm-administrators-cards.php:1327
 #, php-format
 msgid "%s returned, waiting for new uploads"
 msgstr ""
 
 #. translators: %s: a number of institutions.
-#: includes/modules/class-wpcpm-administrators-cards.php:1255
+#: includes/modules/class-wpcpm-administrators-cards.php:1333
 #, php-format
 msgid "%s revoked agreement"
 msgstr ""
 
 #. translators: %s: a number of institutions.
-#: includes/modules/class-wpcpm-administrators-cards.php:1257
+#: includes/modules/class-wpcpm-administrators-cards.php:1335
 #, php-format
 msgid "%s revoked agreements"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1310
+#: includes/modules/class-wpcpm-administrators-cards.php:1388
 #: includes/modules/class-wpcpm-sponsors.php:1613
 msgid "Reinstating"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1315
+#: includes/modules/class-wpcpm-administrators-cards.php:1393
 msgid "Reinstate"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1334
+#: includes/modules/class-wpcpm-administrators-cards.php:1412
 msgid "To review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1337
+#: includes/modules/class-wpcpm-administrators-cards.php:1415
 msgid "No draft is waiting for review."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1341
-#: includes/modules/class-wpcpm-administrators-cards.php:1370
+#: includes/modules/class-wpcpm-administrators-cards.php:1419
+#: includes/modules/class-wpcpm-administrators-cards.php:1448
 #: includes/modules/class-wpcpm-institutions.php:4121
 #: includes/modules/class-wpcpm-institutions.php:4201
 msgid "Semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1342
+#: includes/modules/class-wpcpm-administrators-cards.php:1420
 #: includes/modules/class-wpcpm-institutions.php:4123
 msgid "Drafted"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1343
-#: includes/modules/class-wpcpm-administrators-cards.php:1372
+#: includes/modules/class-wpcpm-administrators-cards.php:1421
+#: includes/modules/class-wpcpm-administrators-cards.php:1450
 #: includes/modules/class-wpcpm-institutions.php:4202
 msgid "Still in progress"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1344
+#: includes/modules/class-wpcpm-administrators-cards.php:1422
 msgid "Age"
 msgstr ""
 
 #. translators: %s: a number of days.
-#: includes/modules/class-wpcpm-administrators-cards.php:1354
+#: includes/modules/class-wpcpm-administrators-cards.php:1432
 #, php-format
 msgid "%s day"
 msgid_plural "%s days"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1356
+#: includes/modules/class-wpcpm-administrators-cards.php:1434
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:886
 msgid "Review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1363
+#: includes/modules/class-wpcpm-administrators-cards.php:1441
 #: includes/modules/class-wpcpm-institutions.php:4194
 msgid "Due for drafting"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1366
+#: includes/modules/class-wpcpm-administrators-cards.php:1444
 #: includes/modules/class-wpcpm-institutions.php:4197
 msgid "Nothing is waiting: every finished semester has a report, or is not finished yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1371
+#: includes/modules/class-wpcpm-administrators-cards.php:1449
 msgid "Window ended"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1394
+#: includes/modules/class-wpcpm-administrators-cards.php:1472
 msgid "Approved this semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1397
+#: includes/modules/class-wpcpm-administrators-cards.php:1475
 msgid "No report has been approved this semester yet."
 msgstr ""
 
 #. translators: 1: a date, 2: a program manager's name.
-#: includes/modules/class-wpcpm-administrators-cards.php:1410
+#: includes/modules/class-wpcpm-administrators-cards.php:1488
 #, php-format
 msgid "approved on %1$s by %2$s"
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-administrators-cards.php:1411
+#: includes/modules/class-wpcpm-administrators-cards.php:1489
 #, php-format
 msgid "approved on %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1414
+#: includes/modules/class-wpcpm-administrators-cards.php:1492
 #: includes/modules/class-wpcpm-semester-report-screen.php:509
 msgid "View"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1433
+#: includes/modules/class-wpcpm-administrators-cards.php:1511
 msgid "Mentor requests"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1436
+#: includes/modules/class-wpcpm-administrators-cards.php:1514
 msgid "No request is open."
 msgstr ""
 
 #. translators: %s: how long ago.
-#: includes/modules/class-wpcpm-administrators-cards.php:1443
+#: includes/modules/class-wpcpm-administrators-cards.php:1521
 #, php-format
 msgid "Opened %s ago"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1460
+#: includes/modules/class-wpcpm-administrators-cards.php:1538
 msgid "Recently closed"
 msgstr ""
 
 #. translators: %s: a date and time.
-#: includes/modules/class-wpcpm-administrators-cards.php:1470
+#: includes/modules/class-wpcpm-administrators-cards.php:1548
 #, php-format
 msgid "closed on %s"
 msgstr ""
 
 #. translators: %s: a date and time.
-#: includes/modules/class-wpcpm-administrators-cards.php:1472
+#: includes/modules/class-wpcpm-administrators-cards.php:1550
 #, php-format
 msgid "opened on %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1478
+#: includes/modules/class-wpcpm-administrators-cards.php:1556
 msgid "Handled"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1478
+#: includes/modules/class-wpcpm-administrators-cards.php:1556
 msgid "Declined"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1497
+#: includes/modules/class-wpcpm-administrators-cards.php:1575
 msgid "Programs running"
 msgstr ""
 
 #. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-administrators-cards.php:1511
+#: includes/modules/class-wpcpm-administrators-cards.php:1589
 #, php-format
 msgid "in progress, %s signed up this semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1517
+#: includes/modules/class-wpcpm-administrators-cards.php:1595
 msgid "Finished this semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1519
+#: includes/modules/class-wpcpm-administrators-cards.php:1597
 msgid "across every track"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1524
+#: includes/modules/class-wpcpm-administrators-cards.php:1602
 msgid "No institution has a student in progress."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1528
+#: includes/modules/class-wpcpm-administrators-cards.php:1606
 msgid "In progress"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1530
+#: includes/modules/class-wpcpm-administrators-cards.php:1608
 #: includes/modules/class-wpcpm-institution-roster-view.php:226
 msgid "Waiting for a mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1531
+#: includes/modules/class-wpcpm-administrators-cards.php:1609
 msgid "End dates"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1532
+#: includes/modules/class-wpcpm-administrators-cards.php:1610
 #: includes/modules/class-wpcpm-institutions.php:3017
 msgid "Agreement"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1533
+#: includes/modules/class-wpcpm-administrators-cards.php:1611
 msgid "Report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1552
+#: includes/modules/class-wpcpm-administrators-cards.php:1630
 msgid "no end date"
 msgstr ""
 
 #. translators: 1: earliest end date, 2: latest end date.
-#: includes/modules/class-wpcpm-administrators-cards.php:1556
+#: includes/modules/class-wpcpm-administrators-cards.php:1634
 #, php-format
 msgid "%1$s to %2$s"
 msgstr ""
 
 #. translators: %s: a number of institutions.
-#: includes/modules/class-wpcpm-administrators-cards.php:1570
+#: includes/modules/class-wpcpm-administrators-cards.php:1648
 #, php-format
 msgid "%s more institution with no student in progress."
 msgid_plural "%s more institutions with no student in progress."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1578
+#: includes/modules/class-wpcpm-administrators-cards.php:1656
 #: includes/modules/class-wpcpm-institution-roster-view.php:1669
 msgid "These students have not been read from the program records yet."
 msgstr ""
 
 #. translators: 1: date and time, 2: how long ago.
 #. translators: 1: date and time, 2: human-readable time difference, e.g. "2 hours".
-#: includes/modules/class-wpcpm-administrators-cards.php:1579
+#: includes/modules/class-wpcpm-administrators-cards.php:1657
 #: includes/modules/class-wpcpm-institution-roster-view.php:1681
 #, php-format
 msgid "Read from the program records on %1$s (%2$s ago)."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1595
+#: includes/modules/class-wpcpm-administrators-cards.php:1673
 msgid "Syncs and health"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1598
+#: includes/modules/class-wpcpm-administrators-cards.php:1676
 msgid "Sync"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1599
+#: includes/modules/class-wpcpm-administrators-cards.php:1677
 #: includes/modules/class-wpcpm-institutions.php:4122
 #: includes/modules/class-wpcpm-sponsor-claims.php:495
 #: includes/modules/class-wpcpm-sponsor-offers.php:1588
@@ -2380,103 +2435,103 @@ msgstr ""
 msgid "State"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1600
+#: includes/modules/class-wpcpm-administrators-cards.php:1678
 msgid "Last run"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1601
+#: includes/modules/class-wpcpm-administrators-cards.php:1679
 msgid "Next run"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1602
+#: includes/modules/class-wpcpm-administrators-cards.php:1680
 msgid "Last error"
 msgstr ""
 
 #. translators: %s: what the sync is doing.
-#: includes/modules/class-wpcpm-administrators-cards.php:1608
+#: includes/modules/class-wpcpm-administrators-cards.php:1686
 #, php-format
 msgid "Running: %s"
 msgstr ""
 
 #. translators: %s: what the sync is doing.
-#: includes/modules/class-wpcpm-administrators-cards.php:1609
+#: includes/modules/class-wpcpm-administrators-cards.php:1687
 msgid "Idle"
 msgstr ""
 
 #. translators: 1: the verdict, 2: a date.
-#: includes/modules/class-wpcpm-administrators-cards.php:1615
-#: includes/modules/class-wpcpm-administrators-cards.php:1658
+#: includes/modules/class-wpcpm-administrators-cards.php:1693
+#: includes/modules/class-wpcpm-administrators-cards.php:1736
 #: includes/modules/class-wpcpm-institutions.php:4177
 msgid "never"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1616
+#: includes/modules/class-wpcpm-administrators-cards.php:1694
 msgid "not scheduled"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1619
+#: includes/modules/class-wpcpm-administrators-cards.php:1697
 #: includes/modules/class-wpcpm-semester-report-screen.php:393
 msgid "Open"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1628
+#: includes/modules/class-wpcpm-administrators-cards.php:1706
 msgid "No account is locked today."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1641
+#: includes/modules/class-wpcpm-administrators-cards.php:1719
 msgid "Each was refused more claims than the daily ceiling allows; the lock lifts by itself tomorrow."
 msgstr ""
 
 #. translators: 1: the verdict, 2: a date.
-#: includes/modules/class-wpcpm-administrators-cards.php:1658
+#: includes/modules/class-wpcpm-administrators-cards.php:1736
 #, php-format
 msgid "Private storage: %1$s (probed %2$s)."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1664
+#: includes/modules/class-wpcpm-administrators-cards.php:1742
 msgid "No mail has been sent yet."
 msgstr ""
 
 #. translators: 1: a mail context, 2: a masked address, 3: a date, 4: sent or failed.
-#: includes/modules/class-wpcpm-administrators-cards.php:1665
+#: includes/modules/class-wpcpm-administrators-cards.php:1743
 #, php-format
 msgid "Last mail: %1$s to %2$s on %3$s, %4$s."
 msgstr ""
 
 #. translators: 1: a mail context, 2: a masked address, 3: a date, 4: sent or failed.
-#: includes/modules/class-wpcpm-administrators-cards.php:1665
+#: includes/modules/class-wpcpm-administrators-cards.php:1743
 msgid "sent"
 msgstr ""
 
 #. translators: 1: a mail context, 2: a masked address, 3: a date, 4: sent or failed.
-#: includes/modules/class-wpcpm-administrators-cards.php:1665
+#: includes/modules/class-wpcpm-administrators-cards.php:1743
 msgid "failed"
 msgstr ""
 
 #. translators: 1: messages sent, 2: messages in the run.
-#: includes/modules/class-wpcpm-administrators-cards.php:1678
+#: includes/modules/class-wpcpm-administrators-cards.php:1756
 #, php-format
 msgid "Invitations: %1$s of %2$s sent."
 msgstr ""
 
 #. translators: 1: date and time, 2: how long ago.
-#: includes/modules/class-wpcpm-administrators-cards.php:1828
+#: includes/modules/class-wpcpm-administrators-cards.php:1906
 #, php-format
 msgid "Received %1$s (%2$s ago)"
 msgstr ""
 
 #. translators: 1: date and time, 2: how long ago.
-#: includes/modules/class-wpcpm-administrators-cards.php:1839
+#: includes/modules/class-wpcpm-administrators-cards.php:1917
 #, php-format
 msgid "Uploaded %1$s (%2$s ago)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1850
+#: includes/modules/class-wpcpm-administrators-cards.php:1928
 #: includes/modules/class-wpcpm-institutions.php:4163
 msgid "by the site"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1850
+#: includes/modules/class-wpcpm-administrators-cards.php:1928
 #: includes/modules/class-wpcpm-institutions.php:4164
 msgid "by a manager"
 msgstr ""
@@ -3697,6 +3752,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-export.php:169
 #: includes/modules/class-wpcpm-institution-roster-view.php:265
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
 msgid "Hours"
 msgstr ""
 
@@ -4375,6 +4431,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-notes.php:366
 #: includes/modules/class-wpcpm-mentor-notes.php:708
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
 msgid "Delete"
 msgstr ""
 
@@ -5391,6 +5448,7 @@ msgid "Did not start"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:257
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
 msgid "Dates"
 msgstr ""
 
@@ -6040,6 +6098,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors-sync.php:452
 #: includes/modules/class-wpcpm-sponsors-sync.php:417
 #: includes/modules/class-wpcpm-students-sync.php:395
+#: includes/tools/class-wpcpm-duplicates-scan.php:357
 #, php-format
 msgid "Step %1$d of %2$d"
 msgstr ""
@@ -6382,6 +6441,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors.php:387
 #: includes/modules/class-wpcpm-sponsors.php:1090
 #: includes/modules/class-wpcpm-students.php:297
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:489
 #, php-format
 msgid "running for %s"
 msgstr ""
@@ -6806,6 +6866,9 @@ msgid "Consent"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3016
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:247
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:777
 msgid "Created"
 msgstr ""
 
@@ -7176,6 +7239,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3997
 #: includes/modules/class-wpcpm-sponsors.php:1196
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
 msgid "On the site"
 msgstr ""
 
@@ -7534,6 +7598,7 @@ msgid "to"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentor-availability.php:971
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:777
 msgid "Copy"
 msgstr ""
 
@@ -8176,6 +8241,7 @@ msgid "This one needs JavaScript: the report is fetched when you open it, so tha
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1265
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:32
 msgid "Students Reports"
 msgstr ""
 
@@ -11713,6 +11779,7 @@ msgid "What sponsors said they would like to support, from the Sponsor Dashboard
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsors.php:1353
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:777
 msgid "Who"
 msgstr ""
 
@@ -12552,6 +12619,7 @@ msgid "Replace it by choosing a new file."
 msgstr ""
 
 #: includes/modules/class-wpcpm-student-report-form.php:1838
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:977
 msgid "No"
 msgstr ""
 
@@ -12895,7 +12963,627 @@ msgid "Sync canceled."
 msgstr ""
 
 #: includes/modules/class-wpcpm-sync-module.php:159
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:377
 msgid "That action could not be completed. See the error below."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:33
+msgid "Feedback"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:49
+msgid "The only row in this table."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:51
+msgid "The newest row."
+msgstr ""
+
+#. translators: %s: the row's status.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:54
+#, php-format
+msgid "An older row at %s with nothing attached."
+msgstr ""
+
+#. translators: %s: the row's status.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:54
+msgid "An older row with nothing attached."
+msgstr ""
+
+#. translators: %s: the row's status.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:57
+#, php-format
+msgid "Records a graduation (%s)."
+msgstr ""
+
+#. translators: %s: the row's status.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:60
+#, php-format
+msgid "Still at a live status (%s)."
+msgstr ""
+
+#. translators: %s: number of filled columns.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:63
+#, php-format
+msgid "Holds %s work field (grades, posts, hours or the project)."
+msgid_plural "Holds %s work fields (grades, posts, hours or the project)."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: number of filled columns.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:66
+#, php-format
+msgid "Holds %s survey answer."
+msgid_plural "Holds %s survey answers."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: the Total hours value.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:69
+#, php-format
+msgid "Has Total hours set (%s)."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:71
+msgid "Has Notes in Airtable."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:73
+msgid "The newest row has no institution link and this one does."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:75
+msgid "The newest row has no mentor and this one does."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:77
+msgid "The newest row has no Course and this one does."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:77
+msgid "The newest row has no status and this one does."
+msgstr ""
+
+#. translators: %s: what on the site points at the row, for example "a site account".
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:80
+#, php-format
+msgid "The site points at it: %s. Delete the other one instead."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:82
+msgid "Created in the same second as the newest row."
+msgstr ""
+
+#. translators: %s: the newest row's status.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:85
+#, php-format
+msgid "The newest row is at %s, so this one may be the row to keep."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:87
+msgid "Created in the same second as the row before it, so \"newest\" decides nothing."
+msgstr ""
+
+#. translators: %s: the newest row's status.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:90
+#, php-format
+msgid "This newest row is at %s while an older row is live or graduated."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:92
+msgid "The site uses an older row for this student, so this newest one may be the copy to delete."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:106
+msgid "It is no longer in the list."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:107
+msgid "This student needs a decision, so their rows are ticked one by one."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:108
+msgid "This row cannot be deleted from the finder."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:109
+msgid "It is over the 100 rows one confirmation deletes."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:110
+msgid "It is no longer in Airtable under this address."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:111
+msgid "The site points at it now."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:112
+msgid "It changed since the scan."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:113
+msgid "It is the last row this address has in the table."
+msgstr ""
+
+#. translators: 1: how many, 2: what, for example "mentor call note(s)".
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:137
+#, php-format
+msgid "%1$s × %2$s"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:155
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:213
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:319
+#: includes/tools/class-wpcpm-duplicate-finder.php:65
+msgid "Student Duplicate Finder"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:162
+msgid "Last scan error:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:170
+msgid "No scan has finished yet. Scan now reads Students, Students Reports and Feedback and lists every student with more than one row."
+msgstr ""
+
+#. translators: %s: link to the settings screen.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:180
+#, php-format
+msgid "Deleting is switched off, so this list is read-only. A program manager turns it on under %s."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:181
+msgid "WPCredits Program > Settings"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:214
+msgid "Confirm the delete"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:217
+msgid "Nothing in this selection can be deleted."
+msgstr ""
+
+#. translators: 1: rows in total, 2: Students rows, 3: Students Reports rows, 4: Feedback rows.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:224
+#, php-format
+msgid "%1$s row will be deleted from Airtable: Students %2$s, Students Reports %3$s, Feedback %4$s. A sealed copy of each row is kept on this site for 30 days."
+msgid_plural "%1$s rows will be deleted from Airtable: Students %2$s, Students Reports %3$s, Feedback %4$s. A sealed copy of each row is kept on this site for 30 days."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:247
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:777
+msgid "Table"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:247
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:777
+msgid "Record"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:247
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:777
+msgid "Status or Course"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:247
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
+msgid "Why"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:269
+msgid "Deleting is switched off under WPCredits Program > Settings."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:271
+msgid "A scan is running and is about to write a new list. Wait for it to finish, then review the selection again."
+msgstr ""
+
+#. translators: %s: number of rows.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:291
+#, php-format
+msgid "Delete %s row from Airtable"
+msgid_plural "Delete %s rows from Airtable"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:304
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:345
+msgid "Back to the list"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:320
+msgid "A deleted row"
+msgstr ""
+
+#. translators: 1: record ID, 2: when the row was created.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:330
+#, php-format
+msgid "Record %1$s, created %2$s, as it was when it was deleted. There is no automatic restore: re-creating a Students row can make the Airtable automation build a new report and feedback pair, so type back only what is needed."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:365
+msgid "Scan started. Progress is shown below and updates as it runs."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:369
+msgid "A scan is already running; its progress is shown below."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:373
+msgid "Scan canceled. The last list stays."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:381
+msgid "Nothing was deleted: deleting is switched off under WPCredits Program > Settings."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:385
+msgid "Nothing was deleted: a scan is running and is about to write a new list. Review the selection again when it finishes."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:389
+msgid "Nothing was deleted: this site cannot encrypt, so it cannot keep the copy a delete needs."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:393
+msgid "Nothing in that selection could be deleted."
+msgstr ""
+
+#. translators: %s: the error Airtable returned.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:398
+#, php-format
+msgid "Nothing was deleted: Airtable could not be read to check the rows again (%s)."
+msgstr ""
+
+#. translators: %s: the error.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:403
+#, php-format
+msgid "Nothing was deleted: a copy could not be kept (%s)."
+msgstr ""
+
+#. translators: 1: rows in total, 2: Students rows, 3: Students Reports rows, 4: Feedback rows, 5: date the copies are kept until.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:412
+#, php-format
+msgid "Deleted %1$s row: Students %2$s, Students Reports %3$s, Feedback %4$s. A sealed copy of each is kept until %5$s."
+msgid_plural "Deleted %1$s rows: Students %2$s, Students Reports %3$s, Feedback %4$s. A sealed copy of each is kept until %5$s."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: what was deleted, 2: what Airtable said, which after a rate limit is when to try again.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:423
+#, php-format
+msgid "Airtable stopped the delete part of the way through: %2$s %1$s Rows it did not confirm are checked again by the daily run."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:433
+msgid "Left out, and not deleted:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:466
+msgid "Scan"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:467
+msgid "Reads Students, Students Reports and Feedback every three hours and lists every student with more than one row in any of them. A scan writes nothing to Airtable."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:483
+msgid "Scan progress"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:499
+msgid "No progress for over two minutes. The scan may have been interrupted: cancel it and start again."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:506
+msgid "Cancel scan"
+msgstr ""
+
+#. translators: 1: date and time, 2: human-readable time difference.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:515
+#, php-format
+msgid "Last scan finished %1$s (%2$s ago)."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:522
+#: includes/tools/class-wpcpm-duplicate-finder.php:86
+msgid "No scan has run yet."
+msgstr ""
+
+#. translators: %s: date and time of the next scan.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:527
+#, php-format
+msgid "Next scan: %s."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:533
+msgid "Scan now"
+msgstr ""
+
+#. translators: %s: number.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:550
+#, php-format
+msgid "%s duplicated student"
+msgid_plural "%s duplicated students"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: number.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:552
+#, php-format
+msgid "%s ready: every older row is a clean delete candidate"
+msgid_plural "%s ready: every older row is a clean delete candidate"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: number.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:554
+#, php-format
+msgid "%s needs a decision"
+msgid_plural "%s need a decision"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: table name, 2: rows proposed for deletion, 3: rows held for a decision.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:560
+#, php-format
+msgid "%1$s: %2$s proposed for deletion, %3$s held"
+msgstr ""
+
+#. translators: %s: number of students.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:600
+#, php-format
+msgid "Ready: every older row is a clean delete candidate (%s)"
+msgstr ""
+
+#. translators: %s: number of students.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:606
+#, php-format
+msgid "Needs a decision (%s)"
+msgstr ""
+
+#. translators: 1: rows in total, 2: Students rows, 3: Students Reports rows, 4: Feedback rows.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:617
+#, php-format
+msgid "%1$s rows selected: Students %2$s, Students Reports %3$s, Feedback %4$s"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:618
+msgid "Tick the students and rows to delete, then press Review selection."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:618
+msgid "A scan is running. Review selection comes back when it finishes."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:618
+msgid "Deleting is switched off, so nothing can be selected."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:622
+msgid "Select all ready"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:623
+msgid "Clear"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:626
+msgid "Review selection"
+msgstr ""
+
+#. translators: 1: number of rows, 2: student name.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:668
+#, php-format
+msgid "Delete the %1$s older row of %2$s"
+msgid_plural "Delete the %1$s older rows of %2$s"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: Students rows, 2: Students Reports rows, 3: Feedback rows.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:684
+#, php-format
+msgid "Students %1$s · Students Reports %2$s · Feedback %3$s"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:691
+msgid "Ready"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:691
+msgid "Needs a decision"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
+msgid "Proposal"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
+msgid "Work or answers"
+msgstr ""
+
+#. translators: 1: table name, 2: record ID, 3: student name.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:720
+#, php-format
+msgid "Delete the %1$s row %2$s of %3$s"
+msgstr ""
+
+#. translators: 1: table name, 2: record ID, 3: student name.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:727
+#, php-format
+msgid "The %1$s row %2$s of %3$s cannot be deleted"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:743
+msgid "Linked"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:769
+msgid "Deleted rows"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:772
+msgid "Nothing has been deleted yet."
+msgstr ""
+
+#. translators: %s: date.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:791
+#, php-format
+msgid "Kept until %s."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:796
+msgid "View copy"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:799
+msgid "Airtable did not confirm this delete; the daily run checks it again."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:801
+msgid "Erased after 30 days."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:832
+msgid "Left out of this delete:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:884
+msgid "Keep"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:885
+msgid "Delete candidate"
+msgstr ""
+
+#. translators: 1: Students Reports rows, 2: Students rows.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:903
+#, php-format
+msgid "More Students Reports rows (%1$s) than Students rows (%2$s): either the automation fired more than once for one Students row, or an older Students row has already been deleted by hand."
+msgstr ""
+
+#. translators: 1: Students rows, 2: Students Reports rows.
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:906
+#, php-format
+msgid "More Students rows (%1$s) than Students Reports rows (%2$s): a newer Students row has no report yet, and gets a report and a Feedback row as soon as it matches the automation's conditions."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:908
+msgid "The address is spelled more than one way (case or spaces), so a lookup that compares it exactly finds only some of these rows."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:923
+msgid "a site account"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:926
+msgid "a student's surveys"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:930
+msgid "a mentor call note"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:931
+msgid "a booked call"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder-screen.php:932
+msgid "an audit log entry"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-finder.php:74
+msgid "Finds students who have more than one row in Students, Students Reports or Feedback, and deletes the older rows a program manager selects and confirms."
+msgstr ""
+
+#. translators: 1: number of duplicated students, 2: date and time of the scan.
+#: includes/tools/class-wpcpm-duplicate-finder.php:93
+#, php-format
+msgid "%1$s duplicated student, read %2$s."
+msgid_plural "%1$s duplicated students, read %2$s."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/tools/class-wpcpm-duplicate-vault.php:69
+msgid "Deleted duplicate rows"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-vault.php:70
+msgid "Deleted duplicate row"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-vault.php:99
+msgid "This site cannot encrypt, so it cannot keep the copy a delete needs. Nothing was deleted."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-vault.php:105
+msgid "That row cannot be copied: its table or its record ID is not one this site knows."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-vault.php:238
+msgid "There is no such copy."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-vault.php:244
+msgid "This copy has been erased: copies are kept for 30 days."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicate-vault.php:255
+msgid "This copy could not be read."
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicates-scan.php:84
+msgid "Reading Students"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicates-scan.php:89
+msgid "Reading Students Reports"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicates-scan.php:94
+msgid "Reading Feedback"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicates-scan.php:99
+msgid "Finding duplicates"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicates-scan.php:190
+msgid "Add an Airtable Personal Access Token and Base ID before scanning."
+msgstr ""
+
+#. translators: %s: table setting name, for example students_table.
+#: includes/tools/class-wpcpm-duplicates-scan.php:578
+#, php-format
+msgid "Airtable returned no rows for %s, so the last list is kept."
+msgstr ""
+
+#. translators: %d: Students rows read so far.
+#: includes/tools/class-wpcpm-duplicates-scan.php:830
+#, php-format
+msgid "%d Students rows read"
+msgstr ""
+
+#. translators: %d: Students Reports rows read so far.
+#: includes/tools/class-wpcpm-duplicates-scan.php:833
+#, php-format
+msgid "%d Students Reports rows read"
+msgstr ""
+
+#. translators: %d: Feedback rows read so far.
+#: includes/tools/class-wpcpm-duplicates-scan.php:836
+#, php-format
+msgid "%d Feedback rows read"
+msgstr ""
+
+#: includes/tools/class-wpcpm-duplicates-scan.php:838
+msgid "Grouping the rows by address"
 msgstr ""
 
 #: includes/tools/class-wpcpm-handbook-answer.php:133

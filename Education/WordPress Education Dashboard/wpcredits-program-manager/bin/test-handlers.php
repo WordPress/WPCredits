@@ -545,5 +545,23 @@ run( 'handle_approve (no capability)', array( 'WPCPM_Sponsor_Application', 'hand
 
 $GLOBALS['caps'] = true;
 
+echo "\n=== WPCPM_Duplicate_Finder (1.102.0) ===\n";
+
+// Scan now with Airtable not connected (the fixture's settings hold no token), Cancel with no scan
+// running, and Delete with nothing ticked while deleting is switched off: the shortest path to
+// each redirect. Then Delete without the capability, which meets wp_die() before its nonce.
+$finder = new WPCPM_Duplicate_Finder();
+$_POST  = array();
+
+run( 'handle_scan (Airtable not connected)', array( $finder, 'handle_scan' ) );
+run( 'handle_cancel (no scan running)', array( $finder, 'handle_cancel' ) );
+run( 'handle_delete (nothing ticked, switched off)', array( $finder, 'handle_delete' ) );
+
+$GLOBALS['caps'] = false;
+
+run( 'handle_delete (no capability)', array( $finder, 'handle_delete' ) );
+
+$GLOBALS['caps'] = true;
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL HANDLERS REACHED A NORMAL OUTCOME\n" );
 exit( $fail ? 1 : 0 );

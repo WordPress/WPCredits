@@ -264,6 +264,7 @@ final class WPCPM_Administrators_Dashboard {
 		WPCPM_Administrators_Cards::render_sponsor_posts( isset( $data['sponsor_posts'] ) ? (array) $data['sponsor_posts'] : array() );
 		WPCPM_Administrators_Cards::render_sponsor_agreements( isset( $data['sponsor_agreements'] ) ? (array) $data['sponsor_agreements'] : array() );
 		WPCPM_Administrators_Cards::render_offers_low( isset( $data['offers_low'] ) ? (array) $data['offers_low'] : array() );
+		WPCPM_Administrators_Cards::render_duplicates( isset( $data['duplicates'] ) ? (array) $data['duplicates'] : array() );
 		WPCPM_Administrators_Cards::render_interests( isset( $data['interests'] ) ? (array) $data['interests'] : array() );
 		WPCPM_Administrators_Cards::render_sponsors_strip( isset( $data['sponsors'] ) ? (array) $data['sponsors'] : array() );
 		WPCPM_Administrators_Cards::render_programs( $data['programs'] );

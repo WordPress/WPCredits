@@ -140,6 +140,12 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-handbook.
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-mentor-checker-profile.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-mentor-checker-runner.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-mentor-checker.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate-rules.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicates-scan.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate-vault.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate-delete.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate-finder-screen.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate-finder.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-tools.php';
 
 WPCPM_Modules::uninstall();

@@ -327,6 +327,65 @@ class WPCPM_Airtable {
 	}
 
 	/**
+	 * Delete records.
+	 *
+	 * Airtable deletes at most ten records a request, named as repeated `records[]` query
+	 * parameters, so a longer list goes ten at a time. They are appended by hand and encoded the way
+	 * `fetch_page()` appends `fields[]`: `http_build_query()` would number them, `records[0]=`, and
+	 * that is not the parameter Airtable reads.
+	 *
+	 * **A stopped run says how far it got.** The Student Duplicate Finder keeps a copy of each row
+	 * before it asks for the delete and settles the copy only for the rows Airtable confirms, so a
+	 * failure part of the way through hands back the rows already deleted, in the error's data under
+	 * `deleted`, instead of losing them the way a plain error would. Only what Airtable confirms is
+	 * reported deleted: a row it does not list in its answer is not counted as gone.
+	 *
+	 * @param string   $table Table ID or name.
+	 * @param string[] $ids   Record IDs; anything else, and any repeat, is dropped before sending.
+	 * @return array|WP_Error Map of record ID => true for every row Airtable deleted, or the first
+	 *                        failing batch's error with the IDs deleted before it under `deleted`.
+	 */
+	public function delete_records( $table, array $ids ) {
+		$guard = $this->guard();
+		if ( is_wp_error( $guard ) ) {
+			return $guard;
+		}
+
+		$ids = array_values( array_unique( array_filter( array_map( 'trim', array_map( 'strval', $ids ) ), array( __CLASS__, 'is_record_id' ) ) ) );
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$deleted = array();
+
+		foreach ( array_chunk( $ids, 10 ) as $chunk ) {
+			$params = array();
+
+			foreach ( $chunk as $id ) {
+				$params[] = 'records%5B%5D=' . rawurlencode( $id );
+			}
+
+			$response = $this->request( $this->table_url( $table ) . '?' . implode( '&', $params ), 'DELETE' );
+
+			if ( is_wp_error( $response ) ) {
+				$data            = (array) $response->get_error_data();
+				$data['deleted'] = array_keys( $deleted );
+
+				return new WP_Error( $response->get_error_code(), $response->get_error_message(), $data );
+			}
+
+			foreach ( isset( $response['records'] ) && is_array( $response['records'] ) ? $response['records'] : array() as $record ) {
+				if ( is_array( $record ) && ! empty( $record['deleted'] ) && isset( $record['id'] ) && in_array( (string) $record['id'], $chunk, true ) ) {
+					$deleted[ (string) $record['id'] ] = true;
+				}
+			}
+		}
+
+		return $deleted;
+	}
+
+	/**
 	 * Read the base schema, including each field's description.
 	 *
 	 * Field descriptions live on the schema endpoint, not on records, so they

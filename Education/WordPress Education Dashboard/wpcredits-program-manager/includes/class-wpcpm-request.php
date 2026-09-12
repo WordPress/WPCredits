@@ -276,4 +276,38 @@ class WPCPM_Request {
 
 		return implode( "\n", $lines );
 	}
+
+	/**
+	 * A posted list, each value kept only when the whole of it matches a pattern.
+	 *
+	 * The checkbox lists a form posts as `name[]`. Nothing is cleaned into something else: the
+	 * values are keys and record IDs a handler looks up, and a value a sanitizer repaired could look
+	 * up a different row from the one that was ticked, so a value that does not match is dropped.
+	 * A field that is not a list, a value that is not a string and a repeat are dropped too.
+	 *
+	 * Same standing as the rest of this class: the handler has already checked the nonce and the
+	 * capability, and what this returns is still matched against what the site holds.
+	 *
+	 * @param string $name    Field name, without the brackets.
+	 * @param string $pattern A regular expression each value must match in full, anchored.
+	 * @return string[] The matching values, each once, in the order posted.
+	 */
+	public static function posted_list( $name, $pattern ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- The caller's handler verifies the nonce before reaching here.
+		if ( ! isset( $_POST[ $name ] ) || ! is_array( $_POST[ $name ] ) ) {
+			return array();
+		}
+
+		$values = array();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above; each value is kept only if the pattern matches it whole.
+		foreach ( wp_unslash( $_POST[ $name ] ) as $value ) {
+			if ( is_string( $value ) && 1 === preg_match( $pattern, $value ) ) {
+				$values[ $value ] = true;
+			}
+		}
+
+		// array_keys() hands back a key of decimal digits alone as an integer, so each is cast back to the string that was posted.
+		return array_map( 'strval', array_keys( $values ) );
+	}
 }

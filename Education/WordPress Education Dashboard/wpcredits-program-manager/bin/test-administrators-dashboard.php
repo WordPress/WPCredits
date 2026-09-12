@@ -576,6 +576,11 @@ class WPCPM_Sponsors_Sync {
 	public static function progress() { return isset( $GLOBALS['sync']['sponsors'] ) ? $GLOBALS['sync']['sponsors'] : array( 'running' => false, 'phase' => '', 'label' => '', 'error' => '', 'elapsed' => 0 ); }
 	public static function last_read() { return 1756880000; }
 }
+// The Student Duplicate Finder's scan, as the thirteenth tile and its card read it (1.102.0): the
+// stored report, of which the dashboard reads the counts and the read time and nothing else.
+class WPCPM_Duplicates_Scan {
+	public static function report() { return isset( $GLOBALS['dup_report'] ) ? $GLOBALS['dup_report'] : array(); }
+}
 if ( ! function_exists( 'size_format' ) ) { function size_format( $b, $d = 0 ) { return $b . ' B'; } }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
@@ -740,6 +745,10 @@ $GLOBALS['audit'] = array(
 	array( 'id' => 9103, 'kind' => 'member_added', 'sponsor' => 'recSPN00000000001', 'message' => 'Someone joined', 'time' => time() - DAY_IN_SECONDS ),
 );
 
+// The Student Duplicate Finder's last scan: three duplicated students, one of them Ready, and the
+// groups the finder's screen lists left out, because the dashboard never reads them.
+$GLOBALS['dup_report'] = array( 'v' => 1, 'read' => 1757000000, 'counts' => array( 'addresses' => 3, 'ready' => 1, 'decide' => 2 ) );
+
 /* ---- collect() and counts() ---------------------------------------------- */
 
 echo "=== The data is read once, through the owners ===\n";
@@ -759,14 +768,14 @@ ck( 'two open requests, one overdue, one closed', array( count( $data['requests'
 ck( 'one locked account', count( $data['locked'] ), 1 );
 
 $counts = WPCPM_Administrators_Cards::counts( $data );
-ck( 'twelve tiles in the spec\'s order, the sponsor tiles last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements', 'sponsor_applications', 'offers_low' ) );
+ck( 'thirteen tiles in the spec\'s order, the sponsor tiles and then the duplicated students last', array_keys( $counts ), array( 'applications', 'agreements', 'overdue_agreements', 'drafts', 'due', 'requests', 'overdue_requests', 'locked', 'sponsor_posts', 'sponsor_agreements', 'sponsor_applications', 'offers_low', 'duplicates' ) );
 // array_map() keeps the input array's keys, and counts() is keyed by tile name (the
 // previous check pins that order), so the expectation is keyed the same way rather than
 // the plain list the brief first wrote, which could never === an array with string keys.
-ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements', 'sponsor_applications' => '1:sponsor-applications', 'offers_low' => '1:offers-low' ) );
+ck( 'each tile is a number and a card', array_map( static function ( $t ) { return $t['n'] . ':' . $t['card']; }, $counts ), array( 'applications' => '2:applications', 'agreements' => '2:agreements', 'overdue_agreements' => '1:agreements', 'drafts' => '1:reports', 'due' => '1:reports', 'requests' => '2:requests', 'overdue_requests' => '1:requests', 'locked' => '1:health', 'sponsor_posts' => '1:sponsor-posts', 'sponsor_agreements' => '1:sponsor-agreements', 'sponsor_applications' => '1:sponsor-applications', 'offers_low' => '1:offers-low', 'duplicates' => '3:duplicates' ) );
 
 echo "\n=== The sponsors' figures, the pools running low and the new interests (S6) ===\n";
-ck( 'twelve tiles now, offers running low last', array( count( $counts ), array_slice( array_keys( $counts ), -2 ), $counts['offers_low'] ), array( 12, array( 'sponsor_applications', 'offers_low' ), array( 'label' => 'Offers running low', 'n' => 1, 'card' => 'offers-low' ) ) );
+ck( 'thirteen tiles now, offers running low just before the duplicated students', array( count( $counts ), array_slice( array_keys( $counts ), -3 ), $counts['offers_low'] ), array( 13, array( 'sponsor_applications', 'offers_low', 'duplicates' ), array( 'label' => 'Offers running low', 'n' => 1, 'card' => 'offers-low' ) ) );
 ck( 'one pool runs low: live, of kind codes, under its own threshold; the expired, ended, shared and well-stocked ones are not it', array_map( static function ( $r ) { return $r['id'] . ':' . $r['available'] . '/' . $r['low'] . ':' . $r['sponsor_name']; }, $data['offers_low'] ), array( '941:3/10:TEST Sponsor' ) );
 ck( 'and it links to the sponsor\'s Offers and codes card through the switcher', $data['offers_low'][0]['url'], 'https://site.example/sponsor-dashboard/?wpcpm_sponsor_view=recSPN00000000001#wpcpm-sponsor-offers' );
 ck( 'one interest in the last thirty days, of the audit kind sponsor_interest only, with the sponsor\'s name and the line as written', array( count( $data['interests'] ), $data['interests'][0]['sponsor_name'], $data['interests'][0]['message'], $data['interests'][0]['url'] ), array( 1, 'TEST Sponsor', '2026-09-01 by Member One: Sponsor a mentor or multiple mentors; events: WordCamp Europe; note: "Two mentors from Q1."', 'https://site.example/sponsor-dashboard/?wpcpm_sponsor_view=recSPN00000000001#wpcpm-sponsor-interests' ) );
@@ -794,6 +803,15 @@ $strip2 = capture( static function () use ( $data ) { WPCPM_Administrators_Cards
 // claims_semester is 4, not the 3 that would match live_offers just above it, and a
 // hardcoded digit here would silently pin the wrong one (brief review).
 ck( 'the Sponsors card is four tiles on the programs card\'s markup: a name, the number and a qualifier each, never the name twice', array( has( $strip2, 'id="wpcpm-sponsors"' ), substr_count( $strip2, '<li class="wpcpm-programs__tile">' ), preg_match( '#<span class="wpcpm-programs__name">Approved sponsors</span><span class="wpcpm-programs__n">2</span><span class="wpcpm-programs__l">in the program records</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">With an account</span><span class="wpcpm-programs__n">1</span><span class="wpcpm-programs__l">of the Approved sponsors</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Live offers</span><span class="wpcpm-programs__n">3</span><span class="wpcpm-programs__l">shown on the site today</span>#', $strip2 ), preg_match( '#<span class="wpcpm-programs__name">Claims this semester</span><span class="wpcpm-programs__n">' . (int) $data['sponsors']['claims_semester'] . '</span><span class="wpcpm-programs__l">since ' . preg_quote( $data['sponsors']['since_display'], '#' ) . ', on every offer</span>#', $strip2 ) ), array( true, 4, 1, 1, 1, 1 ) );
+
+echo "\n=== Duplicated students: the thirteenth tile and its card (1.102.0) ===\n";
+
+ck( 'the tile reads the Student Duplicate Finder\'s last scan through the scan\'s own report', array( $data['duplicates'], $counts['duplicates'] ), array( array( 'addresses' => 3, 'ready' => 1, 'read' => 1757000000, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder' ), array( 'label' => 'Duplicated students', 'n' => 3, 'card' => 'duplicates' ) ) );
+$dup = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_duplicates( $data['duplicates'] ); } );
+ck( 'the card: open with its count, how many are Ready and as of when, and the way to the finder', array( has( $dup, 'id="wpcpm-duplicates"' ), has( $dup, 'wpcpm-group__disclosure" open' ), has( $dup, '<span class="wpcpm-group__count">3</span>' ), has( $dup, '3 duplicated students in Airtable, 1 ready to delete, as of ' . wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), 1757000000 ) . '.' ), has( $dup, '<a class="wpcpm-button wpcpm-button--secondary" href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder">Open the Student Duplicate Finder</a>' ) ), array( true, true, true, true, true ) );
+$clean = capture( static function () { WPCPM_Administrators_Cards::render_duplicates( array( 'addresses' => 0, 'ready' => 0, 'read' => 1757000000, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder' ) ); } );
+$never = capture( static function () { WPCPM_Administrators_Cards::render_duplicates( array() ); } );
+ck( 'a clean scan says so, folded, and so does a finder that has not scanned yet', array( has( $clean, 'No duplicated students in Airtable, as of ' ), has( $clean, '<details class="wpcpm-administrator__disclosure wpcpm-group wpcpm-group__disclosure">' ), has( $never, 'The Student Duplicate Finder has not scanned Airtable yet.' ) ), array( true, true, true ) );
 
 /* ---- programs() ---------------------------------------------------------- */
 
@@ -842,14 +860,14 @@ $strip = capture( static function () use ( $counts ) { WPCPM_Administrators_Card
 // Eight, counting the opening tag rather than the bare class: the wrapping
 // <ul class="wpcpm-attention__tiles"> also matches the bare needle, since "tiles" starts with
 // "tile", so the bare count would read nine and call the wrapper a ninth tile.
-ck( 'the strip is one section with twelve tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-applications"' ) ), array( 12, true, true, true, true, true ) );
+ck( 'the strip is one section with thirteen tiles linking to the cards', array( substr_count( $strip, '<li class="wpcpm-attention__tile' ), has( $strip, 'id="wpcpm-attention"' ), has( $strip, 'href="#wpcpm-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-posts"' ), has( $strip, 'href="#wpcpm-sponsor-agreements"' ), has( $strip, 'href="#wpcpm-sponsor-applications"' ), has( $strip, 'href="#wpcpm-duplicates"' ) ), array( 13, true, true, true, true, true, true ) );
 // None of the fixture's eight counts is 0, so this used to hold no matter what render_strip()
 // did with a zero; a tile is zeroed here, from counts()'s own output, so the check can
 // actually fail if --zero ever stops being drawn (final review, Important 6).
 $zero_counts = $counts;
 $zero_counts['locked']['n'] = 0;
 $zero_strip = capture( static function () use ( $zero_counts ) { WPCPM_Administrators_Cards::render_strip( $zero_counts ); } );
-ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 12 ) );
+ck( 'a zero is drawn muted, not hidden', array( substr_count( $zero_strip, 'wpcpm-attention__tile--zero' ), substr_count( $zero_strip, '<li' ) ), array( 1, 13 ) );
 
 $apps = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( $data['applications'] ); } );
 ck( 'the applications card is open with its count', has( $apps, 'id="wpcpm-applications"' ) && has( $apps, 'wpcpm-group__disclosure" open' ) && has( $apps, '<span class="wpcpm-group__count">2</span>' ), true );
@@ -1015,7 +1033,7 @@ ck( 'the two-factor prompt is for the viewer', $GLOBALS['prompted'], array( 3 ) 
 ck( 'the flash on the institutions channel is drawn in the queue\'s words', has( $out, 'The application is approved.' ) && has( $out, 'wpcpm-dashboard__message--success' ), true );
 ck( 'and taken, so it shows once', isset( $GLOBALS['flash']['institutions'] ), false );
 $positions = array();
-foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-offers-low"', 'id="wpcpm-interests"', 'id="wpcpm-sponsors"', 'id="wpcpm-programs"', 'id="wpcpm-health"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) as $needle ) {
+foreach ( array( 'id="wpcpm-attention"', 'id="wpcpm-applications"', 'id="wpcpm-agreements"', 'id="wpcpm-reports"', 'id="wpcpm-requests"', 'id="wpcpm-sponsor-applications"', 'id="wpcpm-offers-low"', 'id="wpcpm-duplicates"', 'id="wpcpm-interests"', 'id="wpcpm-sponsors"', 'id="wpcpm-programs"', 'id="wpcpm-health"', 'id="wpcpm-tools"', 'wpcpm-handbook__resources' ) as $needle ) {
 	$positions[] = strpos( $out, $needle );
 }
 $sorted = $positions;

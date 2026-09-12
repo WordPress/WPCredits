@@ -797,16 +797,21 @@ ck( 'the offset is read from the class rather than copied', WPCPM_Sponsors_Sync:
 // the four classes is loaded for real. Two syncs sharing a minute is the failure the offsets
 // exist to prevent, and it would show up nowhere else - each sync's own section only ever
 // compares itself with the students run.
+// The Student Duplicate Finder's scan runs on the same recurrence (1.102.0), so it takes a fifth
+// minute of its own. Loaded here for its constant alone.
+require_once dirname( __DIR__ ) . '/includes/tools/class-wpcpm-duplicates-scan.php';
+
 $offsets = array(
 	WPCPM_Students_Sync::SCHEDULE_OFFSET_MINUTES,
 	WPCPM_Mentors_Sync::SCHEDULE_OFFSET_MINUTES,
 	WPCPM_Institutions_Sync::SCHEDULE_OFFSET_MINUTES,
 	WPCPM_Sponsors_Sync::SCHEDULE_OFFSET_MINUTES,
+	WPCPM_Duplicates_Scan::SCHEDULE_OFFSET_MINUTES,
 );
 
-ck( 'and the four syncs take four distinct minutes inside one three-hour cycle',
+ck( 'and the four syncs and the duplicate scan take five distinct minutes inside one three-hour cycle',
 	array( count( array_unique( $offsets ) ), max( $offsets ) < 180 ),
-	array( 4, true ) );
+	array( 5, true ) );
 
 $placed = $GLOBALS['cron'][ WPCPM_Sponsors_Sync::CRON_DAILY ];
 WPCPM_Sponsors_Sync::schedule();

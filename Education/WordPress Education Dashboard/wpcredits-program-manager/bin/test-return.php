@@ -68,7 +68,7 @@ ck( 'and nothing for an empty target', printed( '' ), '' );
 $html = printed( 'dashboard', 'requests' );
 ck( 'and both inputs for the dashboard', false !== strpos( $html, 'name="wpcpm_return" value="dashboard"' ) && false !== strpos( $html, 'name="wpcpm_return_to" value="requests"' ), true );
 ck( 'an unknown anchor is not printed', false !== strpos( printed( 'dashboard', 'evil' ), 'wpcpm_return_to' ), false );
-ck( 'the anchors are the twelve cards and the strip', WPCPM_Return::ANCHORS, array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'offers-low', 'interests', 'sponsors', 'programs', 'health' ) );
+ck( 'the anchors are the thirteen cards and the strip', WPCPM_Return::ANCHORS, array( 'attention', 'applications', 'agreements', 'reports', 'requests', 'sponsor-applications', 'sponsor-posts', 'sponsor-agreements', 'offers-low', 'duplicates', 'interests', 'sponsors', 'programs', 'health' ) );
 
 // Read from the cards rather than from a copy of the list: card_open()'s own contract says its
 // id is one of these, and three of the twelve ids - offers-low, interests and sponsors - were

@@ -180,6 +180,9 @@ class WPCPM_Settings {
 			// Roster import by institutions. Off until it has run on the pilot, since
 			// every import is a write to the shared base.
 			'import_enabled'                => false,
+			// Deleting from the Student Duplicate Finder. Off until a manager turns it on: every
+			// delete removes rows from the shared base (1.102.0).
+			'duplicate_delete_enabled'      => false,
 			// Days an invitation to join an institution's account is kept once it has
 			// lapsed, so a manager can still see who was invited and never came.
 			'invite_retention_days'         => 30,
@@ -402,7 +405,7 @@ class WPCPM_Settings {
 		// case: it forwards every checkbox it renders as a boolean, ticked or not, so
 		// unticking one still switches it off through this same guarded read. Absent means
 		// "leave alone" only for callers narrower than the form.
-		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled' ) as $flag ) {
+		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'duplicate_delete_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
 			}

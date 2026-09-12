@@ -1070,6 +1070,8 @@ ck( 'the docs build composes a fourth guide, sponsors, from the four sponsor sec
 
 $built = file_get_contents( __DIR__ . '/../docs/build/administrators.html' );
 ck( 'the docs build escapes a section\'s text: a literal <record> reaches the HTML as text, never as a tag (1.98.1)', array( false !== strpos( $built, 'wpcpm_roster_&lt;record&gt;' ), strpos( $built, 'wpcpm_roster_<record>' ) ), array( true, false ) );
+ck( 'the program managers\' guide explains the Student Duplicate Finder, and that deleting starts switched off (1.102.0)', array( false !== strpos( $built, '>Student Duplicate Finder</h3>' ), false !== strpos( $built, 'Deleting is switched off until you turn it on' ) ), array( true, true ) );
+ck( 'and it names every kind of site record that locks a row, audit log entries included', false !== strpos( $built, 'a booked call or an audit log entry points at a row' ), true );
 
 ck( 'the program managers\' guide is the handbook\'s education section', $guides['administrator']['url'], 'https://make.wordpress.org/community/handbook/education/credits/' );
 ck( 'and their channel is the program\'s', $guides['administrator']['slack'], $guides['institution']['slack'] );
