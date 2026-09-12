@@ -486,6 +486,13 @@ class WPCPM_Settings {
 			WPCPM_Mentor_Checker_Runner::sync_cron( $clean['checker_cron_enabled'] );
 		}
 
+		// "Currently mentoring" and the past statuses are rules every published track was compiled
+		// against, so a save that changes them would otherwise leave the live tracks, and the list
+		// of what the last compile left out, answering for the settings as they were (decision 14).
+		if ( class_exists( 'WPCPM_Track_Store' ) ) {
+			WPCPM_Track_Store::compile();
+		}
+
 		return $clean;
 	}
 

@@ -3016,3 +3016,15 @@ git commit -m "Track Builder T2b: 1.103.0"
 - **The trash guard is in the store**, so the screen's Publish button may trust `state()`.
 - **`wp wpcredits seed-tracks` should exit non-zero when a seed failed** (T2a's Task 5 review), which matters once it is the recovery path for a request that died mid-seed.
 - Blank tracks, the question editor, preview, history and a track started from its Learn course remain T3's.
+
+---
+
+## What the reviews changed, after the blocks above were written
+
+Every task's review is what these came from, so anyone replaying this plan block by block should apply them too rather than rediscover them.
+
+- **Task 1.** The bulk-refresh checks staled only the definition, so the one on the post title and the one on the published track being passed over could not fail. Stale the title as well, and stale the published track before its published copy is written.
+- **Task 5.** `all_ids()` passed no `orderby`, so the list came out newest first, the reverse of what `rows()` documents, and unordered among four tracks seeded in one request. It now orders by ID ascending, as `published_posts()` does. `status_line()` went through `rows()`, which asks the students sync for a count per track; it now reads `all_ids()` and `state()` instead, because it runs for every tool on two screens and reads only the state. The capability check ran with the correct nonce, so it passed even with the two guards swapped; it now runs with a wrong one. The sentence goes through `_n()`. One check renders a label containing markup, so an escaping call cannot be deleted unnoticed.
+- **Task 6.** `form()` defaulted an absent `hours_target` to `0`, so the field rendered "0" for a track with no target and an untouched Save wrote `hours_target: 0`, turning a published track into one with unpublished changes. It defaults to an empty string now, as `learn_course_id` does. The behavior the task exists for, a refusal keeping what the person typed, had no check rendering a form with a populated flash; it has one. The questions check ran on a fixture with no questions.
+- **Task 7.** The code was right; two behaviors it names had no check. One duplicates a duplicate and reads what `META_DUPLICATED_FROM` records; one posts a `track` id naming no track and proves nothing is created.
+- **Counts.** The suites end larger than the steps above say: `bin/test-track-store.php` at 129 and `bin/test-track-builder.php` at 44, because the review rounds added checks to both.

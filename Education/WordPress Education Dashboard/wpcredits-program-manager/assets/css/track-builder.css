@@ -1,0 +1,38 @@
+/**
+ * Track Builder admin screen.
+ *
+ * Loaded after assets/css/admin.css, which already dresses the wrap, the lede paragraph and the
+ * row actions; the colors below are that same palette (the warning red is `.wpcpm-warning`'s own).
+ * The table itself is core's `widefat striped`, and the key is a bare `<code>` chip core already
+ * draws well, so neither gets a rule here; `.wpcpm-tracks` and the plain `.wpcpm-tracks__row` are
+ * BEM hooks with nothing of their own to add either.
+ */
+
+/* The one thing this list exists to surface: a track the last compile left out of the live site.
+   Read as a warning, the same red the rest of the plugin already gives one (`.wpcpm-warning`). */
+.wpcpm-tracks__skipped {
+	color: #b32d2e;
+	font-weight: 600;
+}
+
+/* Marks the row itself, so the warning above is not the only sign something needs a look. An
+   inset shadow rather than a border: `widefat` collapses row borders, where a shadow still
+   paints. */
+.wpcpm-tracks__row--skipped {
+	box-shadow: inset 3px 0 0 #b32d2e;
+}
+
+/* The equivalence line and the read-only note are both context under the row's headline, not the
+   headline itself: the same quiet caption color and size the plugin already uses under a title
+   elsewhere (institution.css, sponsor.css). */
+.wpcpm-tracks__equivalence,
+.wpcpm-tracks__readonly {
+	color: #646970;
+	font-size: 13px;
+}
+
+/* The Learn course link sits under the track's name the same way; it stays link-colored since,
+   unlike the two above, it is something to click rather than only read. */
+.wpcpm-tracks__course {
+	font-size: 13px;
+}

@@ -75,6 +75,14 @@ final class WPCPM_Track_Store {
 	 */
 	const META_SWITCHED = '_wpcpm_track_switched';
 
+	/**
+	 * The track a copy was made from.
+	 *
+	 * Post meta rather than a property, because `TRACK_PROPERTIES` does not know it and
+	 * `validate()` refuses a property it does not know (the T2a handoff).
+	 */
+	const META_DUPLICATED_FROM = '_wpcpm_track_duplicated_from';
+
 	/** The seed version this site's Track Builder started from, set once. Autoloaded: read every request. */
 	const OPT_SEEDED = 'wpcpm_tracks_seeded';
 
@@ -178,6 +186,28 @@ final class WPCPM_Track_Store {
 		}
 
 		return self::save( (int) $post_id, $definition );
+	}
+
+	/**
+	 * Copy a track: a new draft holding the definition it is given, and a note of where it came from.
+	 *
+	 * The copy is nobody's built-in track, whatever the original was: `create()` marks nothing, so
+	 * its PHP runs the original and this one answers for itself (the design's decision 11).
+	 *
+	 * @param int   $from_id    The track being copied.
+	 * @param array $definition The copy's definition, identity and all.
+	 * @return int|WP_Error The new track's ID, or why it was not created.
+	 */
+	public static function duplicate( $from_id, array $definition ) {
+		$created = self::create( $definition );
+
+		if ( is_wp_error( $created ) ) {
+			return $created;
+		}
+
+		update_post_meta( (int) $created, self::META_DUPLICATED_FROM, (int) $from_id );
+
+		return $created;
 	}
 
 	/**
@@ -359,17 +389,16 @@ final class WPCPM_Track_Store {
 			return new WP_Error( 'wpcpm_track_missing', __( 'That track does not exist.', 'wpcredits-program-manager' ) );
 		}
 
-		$others = array();
+		// The definition outlives the trash, so without this a trashed track published straight
+		// out of it, and the track list would show a live track nobody could find (T2a's final
+		// review, its M3).
+		$post = self::track_post( $post_id );
 
-		foreach ( self::published_posts() as $post ) {
-			$copy = (int) $post->ID !== $post_id ? self::published( $post->ID ) : null;
-
-			if ( is_array( $copy ) ) {
-				$others[] = $copy;
-			}
+		if ( $post instanceof WP_Post && 'trash' === $post->post_status ) {
+			return new WP_Error( 'wpcpm_track_trashed', __( 'That track is in the trash. Restore it before publishing it.', 'wpcredits-program-manager' ) );
 		}
 
-		$errors = WPCPM_Track_Definition::validate( $definition, self::context( $post_id, $definition, $others, true ) );
+		$errors = self::check( $post_id, $definition );
 
 		if ( array() !== $errors ) {
 			return new WP_Error( 'wpcpm_track_invalid', $errors[0]['message'], array( 'errors' => $errors ) );
@@ -447,6 +476,33 @@ final class WPCPM_Track_Store {
 	}
 
 	/**
+	 * What publishing this definition would refuse, without publishing it.
+	 *
+	 * The editor's question and Publish's question are the same call, because they have to give the
+	 * same answer: `WPCPM_Tracks::validation_context()` leaves a track's own status out for
+	 * everybody (T1's decision 4), so a screen built on that would call a clash fine and Publish
+	 * would refuse it on the next screen. Read-only: nothing is stored.
+	 *
+	 * @param int   $post_id    The track the definition belongs to.
+	 * @param array $definition The definition to check.
+	 * @return array[] The rules it fails, as `validate()` answers them; empty when it would publish.
+	 */
+	public static function check( $post_id, array $definition ) {
+		$post_id = (int) $post_id;
+		$others  = array();
+
+		foreach ( self::published_posts() as $post ) {
+			$copy = (int) $post->ID !== $post_id ? self::published( $post->ID ) : null;
+
+			if ( is_array( $copy ) ) {
+				$others[] = $copy;
+			}
+		}
+
+		return WPCPM_Track_Definition::validate( $definition, self::context( $post_id, $definition, $others, true ) );
+	}
+
+	/**
 	 * A track's definition as it was last published.
 	 *
 	 * @param int $post_id The track.
@@ -465,7 +521,8 @@ final class WPCPM_Track_Store {
 	 *
 	 * @param int $post_id The track.
 	 * @return string `draft`; `published`; `changed` for a published track with a saved edit not
-	 *                yet published; or an empty string for a post that is not a track.
+	 *                yet published; `trash` for a trashed track; or an empty string for a post that
+	 *                is not a track.
 	 */
 	public static function state( $post_id ) {
 		$post = self::track_post( $post_id );
@@ -474,11 +531,41 @@ final class WPCPM_Track_Store {
 			return '';
 		}
 
+		// Named rather than folded into `draft`: the track list offers Publish on a draft, and
+		// `publish()` refuses a trashed one, so a row that called itself a draft offered a button
+		// that could only fail (T2a's final review, its M3).
+		if ( 'trash' === $post->post_status ) {
+			return 'trash';
+		}
+
 		if ( 'publish' !== $post->post_status ) {
 			return 'draft';
 		}
 
 		return self::get( $post_id ) === self::published( $post_id ) ? 'published' : 'changed';
+	}
+
+	/**
+	 * Which side of the switch a track is on: `builtin` while its PHP runs it, `definition` after.
+	 *
+	 * @param int $post_id The track.
+	 * @return string
+	 */
+	public static function source( $post_id ) {
+		return 'builtin' === get_post_meta( (int) $post_id, self::META_SOURCE, true ) ? 'builtin' : 'definition';
+	}
+
+	/**
+	 * Whether a track runs from its definition because somebody flipped it.
+	 *
+	 * The fingerprint is written at the flip and removed when it goes back, so it is also what
+	 * says the way back is on offer at all (the design's decision 3.5).
+	 *
+	 * @param int $post_id The track.
+	 * @return bool
+	 */
+	public static function switched( $post_id ) {
+		return '' !== (string) get_post_meta( (int) $post_id, self::META_SWITCHED, true );
 	}
 
 	/**
@@ -614,12 +701,105 @@ final class WPCPM_Track_Store {
 	 * options rather than asking the database for an option that does not exist yet.
 	 */
 	public static function maybe_seed() {
-		if ( get_option( self::OPT_SEEDED ) || ! add_option( self::OPT_SEEDED, self::SEED_VERSION, '', true ) ) {
+		$seeded = get_option( self::OPT_SEEDED, null );
+
+		if ( null !== $seeded ) {
+			// A release that edits a hand-written form ships new seeds with a new version, and the
+			// drafts this site made from the old ones are behind it. Nobody can bring them back by
+			// hand, because the store refuses to save a built-in track (the design's decision 12).
+			if ( (int) $seeded < self::SEED_VERSION ) {
+				self::refresh_builtins();
+				update_option( self::OPT_SEEDED, self::SEED_VERSION, true );
+			}
+
+			return;
+		}
+
+		if ( ! add_option( self::OPT_SEEDED, self::SEED_VERSION, '', true ) ) {
 			return;
 		}
 
 		self::seed();
 		self::compile();
+	}
+
+	/**
+	 * Put every built-in draft back to the seed the plugin ships now.
+	 *
+	 * Only a draft with no published copy: a track students may have been reading keeps what it
+	 * was published with, and its own refresh is a republish, which is the screen's business.
+	 *
+	 * @return array Track key => the post ID refreshed, or the WP_Error that stopped it.
+	 */
+	public static function refresh_builtins() {
+		$done = array();
+
+		foreach ( self::all_ids() as $post_id ) {
+			if ( 'builtin' !== get_post_meta( $post_id, self::META_SOURCE, true ) || '' !== (string) get_post_meta( $post_id, self::META_PUBLISHED, true ) ) {
+				continue;
+			}
+
+			$held = self::get( $post_id );
+			$key  = is_array( $held ) && isset( $held['key'] ) ? (string) $held['key'] : '';
+
+			$done[ $key ] = self::refresh_builtin( $post_id );
+		}
+
+		return $done;
+	}
+
+	/**
+	 * Put one built-in draft back to the seed the plugin ships now.
+	 *
+	 * The one write that may touch a built-in track's definition: `save()` refuses them, so that a
+	 * seed cannot be pointed at another track (T2a's final review, its I2), and this writes the
+	 * shipped seed and nothing a person typed.
+	 *
+	 * @param int $post_id The track.
+	 * @return int|WP_Error The post ID, or why it was not refreshed.
+	 */
+	public static function refresh_builtin( $post_id ) {
+		$post_id = (int) $post_id;
+
+		if ( null === self::track_post( $post_id ) ) {
+			return new WP_Error( 'wpcpm_track_missing', __( 'That track does not exist.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( 'builtin' !== get_post_meta( $post_id, self::META_SOURCE, true ) ) {
+			return new WP_Error( 'wpcpm_track_not_builtin', __( 'Only a built-in track its PHP still runs is refreshed from the seed.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( '' !== (string) get_post_meta( $post_id, self::META_PUBLISHED, true ) ) {
+			return new WP_Error( 'wpcpm_track_published', __( 'That track has been published, so its definition stays as it is: students may be reading it.', 'wpcredits-program-manager' ) );
+		}
+
+		$held  = self::get( $post_id );
+		$key   = is_array( $held ) && isset( $held['key'] ) ? (string) $held['key'] : '';
+		$seeds = self::seeds();
+
+		if ( ! isset( $seeds[ $key ] ) ) {
+			return new WP_Error( 'wpcpm_track_no_seed', __( 'The plugin ships no seed for that track, so there is nothing to refresh it from.', 'wpcredits-program-manager' ) );
+		}
+
+		$json = WPCPM_Track_Definition::encode( $seeds[ $key ] );
+
+		if ( '' === $json ) {
+			return self::unencodable();
+		}
+
+		update_post_meta( $post_id, self::META_DEFINITION, wp_slash( $json ) );
+
+		$updated = wp_update_post(
+			wp_slash(
+				array(
+					'ID'         => $post_id,
+					'post_title' => isset( $seeds[ $key ]['label'] ) ? (string) $seeds[ $key ]['label'] : '',
+				)
+			),
+			true
+		);
+
+		return is_wp_error( $updated ) ? $updated : $post_id;
 	}
 
 	/**
@@ -834,12 +1014,14 @@ final class WPCPM_Track_Store {
 	 *
 	 * @return int[]
 	 */
-	private static function all_ids() {
+	public static function all_ids() {
 		return get_posts(
 			array(
 				'post_type'   => self::POST_TYPE,
 				'post_status' => array_keys( get_post_stati() ),
 				'numberposts' => -1,
+				'orderby'     => 'ID',
+				'order'       => 'ASC',
 				'fields'      => 'ids',
 			)
 		);

@@ -741,6 +741,25 @@ echo "\n=== The Student Duplicate Finder's switch (1.102.0) ===\n";
 ck( 'deleting duplicates is off until a manager turns it on', isset( WPCPM_Settings::defaults()['duplicate_delete_enabled'] ) ? WPCPM_Settings::defaults()['duplicate_delete_enabled'] : null, false );
 ck( 'and the switch is a checkbox of its own on the settings screen', false !== strpos( $admin, 'name="duplicate_delete_enabled"' ), true );
 
+echo "\n=== Saving the settings compiles the tracks again ===\n";
+
+// "Currently mentoring" and the past statuses are rules every published track was compiled
+// against, so a save that changed them left the live site running the last compile's answer until
+// something unrelated published (the design's decision 14).
+class WPCPM_Track_Store {
+	public static $compiled = 0;
+
+	public static function compile() {
+		++self::$compiled;
+
+		return array();
+	}
+}
+
+$compiled_before = WPCPM_Track_Store::$compiled;
+WPCPM_Settings::save( array( 'student_statuses' => array( 'In Sensei' ) ) );
+ck( 'saving the settings compiles the tracks again', WPCPM_Track_Store::$compiled - $compiled_before, 1 );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 
 exit( $fail ? 1 : 0 );

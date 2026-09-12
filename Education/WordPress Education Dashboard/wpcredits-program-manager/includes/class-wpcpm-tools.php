@@ -28,7 +28,7 @@ class WPCPM_Tools {
 	 */
 	public static function all() {
 		if ( null === self::$tools ) {
-			$tools = array( new WPCPM_Header_Notices(), new WPCPM_Handbook(), new WPCPM_Mentor_Checker(), new WPCPM_Duplicate_Finder() );
+			$tools = array( new WPCPM_Header_Notices(), new WPCPM_Handbook(), new WPCPM_Mentor_Checker(), new WPCPM_Duplicate_Finder(), new WPCPM_Track_Builder() );
 
 			/**
 			 * Filter the registered tools.

@@ -1362,5 +1362,18 @@ foreach ( $lasting as $what => $error ) {
 
 unset( $GLOBALS['fetch_error'] );
 
+echo "\n=== Counting the students on a track ===\n";
+
+// The Track Builder's list shows how many students each track has now, and T2c refuses to
+// unpublish a track while any synced student still holds its status (spec 7.5).
+update_user_meta( 900, WPCPM_Students_Sync::META_PROGRAM, array( 'program' => 'Counting Track' ) );
+update_user_meta( 901, WPCPM_Students_Sync::META_PROGRAM, array( 'program' => 'Counting Track' ) );
+update_user_meta( 902, WPCPM_Students_Sync::META_PROGRAM, array( 'program' => 'Other Track' ) );
+
+ck( 'the students on a track are counted', WPCPM_Students_Sync::count_on_status( 'Counting Track' ), 2 );
+ck( 'a track nobody holds counts none, and so does no status at all',
+    array( WPCPM_Students_Sync::count_on_status( 'Writing Track' ), WPCPM_Students_Sync::count_on_status( '' ) ),
+    array( 0, 0 ) );
+
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

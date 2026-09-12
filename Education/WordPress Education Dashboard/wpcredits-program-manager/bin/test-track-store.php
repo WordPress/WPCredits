@@ -352,6 +352,22 @@ $seed['label'] = 'Designer Track';
 ck( 'a built-in track\'s own definition keeps its status, its key and its name', publish_new( $seed, 'builtin' ), array( 'published', array(), 'published' ) );
 ck( 'and is compiled as built-in, so its PHP keeps running it', WPCPM_Tracks::rows()['Designer Track']['source'], 'builtin' );
 
+// The editor asks the same question Publish will ask, because `validation_context()` leaves every
+// track's own status out for everybody (T1's decision 4 hole), so an editor built on it would call
+// a clash fine and Publish would refuse it on the next screen.
+$fine = WPCPM_Track_Store::create( track( 'Delta Track', 'delta' ) );
+ck( 'check() answers nothing for a definition that would publish', WPCPM_Track_Store::check( $fine, WPCPM_Track_Store::get( $fine ) ), array() );
+
+$twin   = WPCPM_Track_Store::create( track( 'Alpha Track', 'twin' ) );
+$looked = array_column( WPCPM_Track_Store::check( $twin, WPCPM_Track_Store::get( $twin ) ), 'code' );
+$tried  = WPCPM_Track_Store::publish( $twin );
+ck( 'it sees another published track\'s status', in_array( 'status_taken', $looked, true ), true );
+ck( 'and names exactly the rules publish() names, so the editor and Publish cannot disagree',
+    $looked === array_column( $tried->get_error_data()['errors'], 'code' ), true );
+
+ck( 'a published track checking the copy it was published with is not refused its own status',
+    WPCPM_Track_Store::check( $alpha, WPCPM_Track_Store::published( $alpha ) ), array() );
+
 echo "\n=== What compile() leaves out ===\n";
 
 /** Write a published copy by hand, as nothing but a bug or a hand edit would. */
@@ -472,6 +488,107 @@ ck( 'a site seeds itself once, the first time it runs this version', array( coun
 ck( 'and writes the index, empty and autoloaded, so no request asks for an option that is not there', array( get_option( WPCPM_Tracks::OPT_TRACKS, 'missing' ), $GLOBALS['autoload'][ WPCPM_Tracks::OPT_TRACKS ] ), array( array(), true ) );
 WPCPM_Track_Store::maybe_seed();
 ck( 'and never again', count( $GLOBALS['posts'] ), 4 );
+
+echo "\n=== Duplicating a track ===\n";
+
+// A new track starts as a copy in T2b (the design's decision 11), and what it was copied from is
+// post meta rather than a property: `TRACK_PROPERTIES` does not know it, and `validate()` refuses
+// a property it does not know.
+$original = WPCPM_Track_Store::create( track( 'Original Track', 'original' ) );
+update_post_meta( $original, WPCPM_Track_Store::META_SOURCE, 'builtin' );
+$copy_definition           = WPCPM_Track_Store::get( $original );
+$copy_definition['status'] = 'Copied Track';
+$copy_definition['key']    = 'copied';
+$copy_definition['label']  = 'Copied Track';
+$copy                      = WPCPM_Track_Store::duplicate( $original, $copy_definition );
+
+ck( 'the copy is a draft holding the definition it was given',
+    array( WPCPM_Track_Store::state( $copy ), WPCPM_Track_Store::get( $copy )['status'], WPCPM_Track_Store::get( $copy )['questions'] === WPCPM_Track_Store::get( $original )['questions'] ),
+    array( 'draft', 'Copied Track', true ) );
+ck( 'it records what it was copied from', (int) get_post_meta( $copy, WPCPM_Track_Store::META_DUPLICATED_FROM, true ), $original );
+ck( 'and a copy of a built-in track is its own track, not another built-in one',
+    array( WPCPM_Track_Store::source( $copy ), WPCPM_Track_Store::source( $original ) ),
+    array( 'definition', 'builtin' ) );
+
+// `duplicate()` records whatever `$from_id` it is handed and never walks further up the chain, so
+// a copy of a copy names the copy it actually came from, not the ancestor at the top of it.
+$second_definition           = WPCPM_Track_Store::get( $copy );
+$second_definition['status'] = 'Copied Track Twice';
+$second_definition['key']    = 'copied-twice';
+$second_definition['label']  = 'Copied Track Twice';
+$copy_of_copy                = WPCPM_Track_Store::duplicate( $copy, $second_definition );
+
+ck( 'duplicating a duplicate records the copy it actually came from, not the original ancestor',
+    (int) get_post_meta( $copy_of_copy, WPCPM_Track_Store::META_DUPLICATED_FROM, true ), $copy );
+
+echo "\n=== Trash, and a post that is not a track ===\n";
+
+// `publish()` read the definition and never the post, so a track somebody trashed published again
+// from the trash (the final review of T2a, M3), and `state()` called it a draft.
+$trashed = WPCPM_Track_Store::create( track( 'Trashed Track', 'trashed' ) );
+wp_update_post( array( 'ID' => $trashed, 'post_status' => 'trash' ) );
+$plain = wp_insert_post( array( 'post_type' => 'post' ) );
+
+$refused = WPCPM_Track_Store::publish( $trashed );
+ck( 'publish() refuses a track in the trash', is_wp_error( $refused ) ? $refused->get_error_code() : $refused, 'wpcpm_track_trashed' );
+ck( 'state() says trash, and says nothing at all for a post that is not a track',
+    array( WPCPM_Track_Store::state( $trashed ), WPCPM_Track_Store::state( $plain ) ),
+    array( 'trash', '' ) );
+
+echo "\n=== Refreshing a built-in draft from the seed ===\n";
+
+// A release that edits a hand-written form leaves every site's built-in draft behind it, and since
+// 1.101.1 the store refuses to save a built-in track, so nothing else can bring one back into line
+// (the design's decision 12). Only a draft nobody has published is touched.
+$by_key = array();
+
+foreach ( array_keys( $GLOBALS['posts'] ) as $id ) {
+	$held = WPCPM_Track_Store::get( $id );
+
+	if ( is_array( $held ) && isset( $held['key'] ) ) {
+		$by_key[ (string) $held['key'] ] = $id;
+	}
+}
+
+$design         = $by_key['design'];
+$stale          = WPCPM_Track_Store::get( $design );
+$stale['label'] = 'Designer Track, left behind';
+update_post_meta( $design, WPCPM_Track_Store::META_DEFINITION, wp_slash( WPCPM_Track_Definition::encode( $stale ) ) );
+wp_update_post( array( 'ID' => $design, 'post_title' => 'Staled Designer Title' ) );
+
+ck( 'a built-in draft is refreshed from the seed the plugin ships',
+    array( WPCPM_Track_Store::refresh_builtin( $design ), WPCPM_Track_Store::get( $design ) === WPCPM_Track_Store::seeds()['design'] ),
+    array( $design, true ) );
+ck( 'and the post title follows the seed', get_post( $design )->post_title, WPCPM_Track_Store::seeds()['design']['label'] );
+
+$mine = WPCPM_Track_Store::create( track( 'Marketing Track', 'marketing' ) );
+$refused = WPCPM_Track_Store::refresh_builtin( $mine );
+ck( 'a track that was never built in is not refreshed', is_wp_error( $refused ) ? $refused->get_error_code() : $refused, 'wpcpm_track_not_builtin' );
+
+$published = $by_key['150h'];
+$stale_published = WPCPM_Track_Store::get( $published );
+$stale_published['label'] = '150-hour track, left behind';
+update_post_meta( $published, WPCPM_Track_Store::META_DEFINITION, wp_slash( WPCPM_Track_Definition::encode( $stale_published ) ) );
+update_post_meta( $published, WPCPM_Track_Store::META_PUBLISHED, wp_slash( WPCPM_Track_Definition::encode( WPCPM_Track_Store::get( $published ) ) ) );
+$refused = WPCPM_Track_Store::refresh_builtin( $published );
+ck( 'nor is one that has been published: students may be reading it', is_wp_error( $refused ) ? $refused->get_error_code() : $refused, 'wpcpm_track_published' );
+
+// The version the site recorded is how it knows a release moved the seeds under it.
+$stale          = WPCPM_Track_Store::get( $by_key['dev'] );
+$stale['label'] = 'Developer Track, left behind';
+update_post_meta( $by_key['dev'], WPCPM_Track_Store::META_DEFINITION, wp_slash( WPCPM_Track_Definition::encode( $stale ) ) );
+update_option( WPCPM_Track_Store::OPT_SEEDED, WPCPM_Track_Store::SEED_VERSION - 1, true );
+WPCPM_Track_Store::maybe_seed();
+
+ck( 'a newer seed version refreshes the drafts and records itself',
+    array( WPCPM_Track_Store::get( $by_key['dev'] ) === WPCPM_Track_Store::seeds()['dev'], get_option( WPCPM_Track_Store::OPT_SEEDED ) ),
+    array( true, WPCPM_Track_Store::SEED_VERSION ) );
+ck( 'and the published one it passed over keeps what it was published with',
+    WPCPM_Track_Store::get( $published ) === WPCPM_Track_Store::published( $published ), true );
+
+$count = count( $GLOBALS['posts'] );
+WPCPM_Track_Store::maybe_seed();
+ck( 'running again on the same version creates nothing and refreshes nothing', count( $GLOBALS['posts'] ), $count );
 
 echo "\n=== The switch between a built-in track's PHP and its definition ===\n";
 

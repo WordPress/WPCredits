@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.102.2
+Stable tag: 1.103.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,13 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.103.0 =
+
+* The Track Builder screen, under Modules: every program track with its state, how many students are on it, its Learn course, who published it last, and what the last compile left out and why. Nothing on this screen reaches students; publishing a track arrives in the next release.
+* A track's properties are edited here, and a new track starts as a copy of one that exists, questions and all, with a name, a status and a key of its own. What the editor refuses is exactly what publishing would refuse, so the two screens can never disagree.
+* A built-in track that its hand-written form still runs is read-only, shows how its definition compares with that form, and offers the switch in both directions while the two are identical. A built-in draft that a release has left behind refreshes itself from the seed the plugin ships, and can be refreshed from its row.
+* Saving the program settings compiles the tracks again, so a status moved out of "Currently mentoring" reaches both the live site and the list at once.
 
 = 1.102.2 =
 

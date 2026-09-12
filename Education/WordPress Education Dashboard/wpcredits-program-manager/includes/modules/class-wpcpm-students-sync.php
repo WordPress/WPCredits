@@ -2467,6 +2467,48 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
+	 * How many synced students hold a track's status now.
+	 *
+	 * The Track Builder's list shows it on every row, and unpublishing is refused while it is not
+	 * zero (spec 7.5). It counts the students this sync provisioned rather than the rows in the
+	 * base, because those are the people who would lose their page if the track left the site.
+	 *
+	 * @param string $status The track's Airtable status.
+	 * @return int
+	 */
+	public static function count_on_status( $status ) {
+		$status = (string) $status;
+
+		if ( '' === $status ) {
+			return 0;
+		}
+
+		$count = 0;
+		$users = get_users(
+			array(
+				'number'     => -1,
+				'fields'     => 'ID',
+				'meta_query' => array(
+					array(
+						'key'     => self::META_PROGRAM,
+						'compare' => 'EXISTS',
+					),
+				),
+			)
+		);
+
+		foreach ( $users as $user_id ) {
+			$program = get_user_meta( (int) $user_id, self::META_PROGRAM, true );
+
+			if ( is_array( $program ) && isset( $program['program'] ) && (string) $program['program'] === $status ) {
+				++$count;
+			}
+		}
+
+		return $count;
+	}
+
+	/**
 	 * The contact card for a student's mentor.
 	 *
 	 * @param int $user_id User ID.

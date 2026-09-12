@@ -146,6 +146,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate-delete.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate-finder-screen.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-duplicate-finder.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-track-builder-screen.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/tools/class-wpcpm-track-builder.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-tools.php';
 
 WPCPM_Modules::uninstall();
