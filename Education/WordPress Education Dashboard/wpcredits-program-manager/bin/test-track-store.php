@@ -26,7 +26,7 @@ class WP_Error {
 	public function get_error_data() { return $this->data; }
 }
 class WP_Post {
-	public $ID = 0, $post_type = 'post', $post_status = 'draft', $post_title = '';
+	public $ID = 0, $post_type = 'post', $post_status = 'draft', $post_title = '', $post_parent = 0, $post_author = 0, $post_date_gmt = '';
 }
 
 $GLOBALS['posts']      = array();
@@ -94,7 +94,10 @@ function wp_update_post( $postarr, $wp_error = false ) {
 			$GLOBALS['posts'][ $id ]->$field = $postarr[ $field ];
 		}
 	}
-	// The revision is taken from inside the update, from the meta the post holds right now.
+	// The revision is taken from inside the update, from the meta the post holds right now. As in
+	// WordPress, it is a post of its own, of type `revision`, with the revisioned meta copied onto
+	// it, a date of its own and the saving user as its author, so `wp_get_post_revisions()` and
+	// `get_post_meta()` on the revision's ID answer the way they do on a live site (T3b).
 	$type = $GLOBALS['posts'][ $id ]->post_type;
 	if ( post_type_supports( $type, 'revisions' ) ) {
 		$copy = array();
@@ -102,9 +105,32 @@ function wp_update_post( $postarr, $wp_error = false ) {
 			$copy[ $key ] = $GLOBALS['pmeta'][ $id ][ $key ] ?? null;
 		}
 		$GLOBALS['revisions'][ $id ][] = $copy;
+		$rev                = new WP_Post();
+		$rev->ID            = 100000 + count( $GLOBALS['posts'] );
+		$rev->post_type     = 'revision';
+		$rev->post_parent   = $id;
+		$rev->post_author   = get_current_user_id();
+		$rev->post_date_gmt = gmdate( 'Y-m-d H:i:s', 1700000000 + 60 * count( $GLOBALS['revisions'][ $id ] ) );
+		$GLOBALS['posts'][ $rev->ID ] = $rev;
+		$GLOBALS['pmeta'][ $rev->ID ] = $copy;
 	}
 	return $id;
 }
+function wp_get_post_revisions( $post_id, $args = array() ) {
+	$found = array();
+	foreach ( $GLOBALS['posts'] as $post ) {
+		if ( 'revision' === $post->post_type && (int) $post->post_parent === (int) $post_id ) {
+			$found[] = $post;
+		}
+	}
+	// Newest first, as WordPress orders them, and no more than asked for.
+	usort( $found, function ( $a, $b ) { return strcmp( $b->post_date_gmt, $a->post_date_gmt ) ?: $b->ID - $a->ID; } );
+	$limit = (int) ( $args['posts_per_page'] ?? -1 );
+	return $limit > 0 ? array_slice( $found, 0, $limit ) : $found;
+}
+// What a site keeps: -1 unless a check sets a cap, as WordPress answers where nothing limits
+// revisions. The pruning itself is not modeled; the store only reads the number (T3b).
+function wp_revisions_to_keep( $post ) { return isset( $GLOBALS['revisions_cap'] ) ? (int) $GLOBALS['revisions_cap'] : -1; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_posts( $args = array() ) {
 	$statuses = (array) ( $args['post_status'] ?? 'publish' );
@@ -165,6 +191,11 @@ require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-store.php';
 
 $fails = 0;
 $total = 0;
+
+/** How many track posts there are: the posts table holds their revisions too, since T3b models them. */
+function track_count() {
+	return count( WPCPM_Track_Store::all_ids() );
+}
 
 function ck( $label, $got, $want ) {
 	global $fails, $total;
@@ -453,7 +484,7 @@ foreach ( $seeded as $key => $post_id ) {
 }
 ck( 'each a draft marked built-in, holding its seed', $states, array( '150h' => array( 'draft', 'builtin', 'In Sensei' ), '50h' => array( 'draft', 'builtin', 'In Sensei 50h' ), 'dev' => array( 'draft', 'builtin', 'Developer Track' ), 'design' => array( 'draft', 'builtin', 'Designer Track' ) ) );
 ck( 'the seed as shipped, byte for byte', WPCPM_Track_Store::get( $seeded['design'] ), WPCPM_Track_Store::seeds()['design'] );
-ck( 'seeding again creates nothing: each status is already held', array( WPCPM_Track_Store::seed(), count( $GLOBALS['posts'] ) ), array( array( '150h' => 0, '50h' => 0, 'dev' => 0, 'design' => 0 ), 4 ) );
+ck( 'seeding again creates nothing: each status is already held', array( WPCPM_Track_Store::seed(), track_count() ), array( array( '150h' => 0, '50h' => 0, 'dev' => 0, 'design' => 0 ), 4 ) );
 
 // The design's section 6: a built-in track its PHP still runs is read-only, so it can be
 // duplicated but not edited. `locked()` reads the status a built-in draft names now, so an edit
@@ -484,10 +515,10 @@ $GLOBALS['pmeta'] = array();
 $GLOBALS['opts']  = array();
 WPCPM_Tracks::flush();
 WPCPM_Track_Store::maybe_seed();
-ck( 'a site seeds itself once, the first time it runs this version', array( count( $GLOBALS['posts'] ), get_option( WPCPM_Track_Store::OPT_SEEDED ) ), array( 4, 1 ) );
+ck( 'a site seeds itself once, the first time it runs this version', array( track_count(), get_option( WPCPM_Track_Store::OPT_SEEDED ) ), array( 4, 1 ) );
 ck( 'and writes the index, empty and autoloaded, so no request asks for an option that is not there', array( get_option( WPCPM_Tracks::OPT_TRACKS, 'missing' ), $GLOBALS['autoload'][ WPCPM_Tracks::OPT_TRACKS ] ), array( array(), true ) );
 WPCPM_Track_Store::maybe_seed();
-ck( 'and never again', count( $GLOBALS['posts'] ), 4 );
+ck( 'and never again', track_count(), 4 );
 
 echo "\n=== Duplicating a track ===\n";
 
@@ -849,6 +880,68 @@ ck( 'a never-published draft is deleted, its post and its stray form option with
 
 ck( 'and the other tracks are untouched',
     array( null !== get_post( $shared_b ), null !== get_post( $shared_c ) ), array( true, true ) );
+
+
+echo "\n=== A track's revisions, for History ===\n";
+
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+$GLOBALS['opts']  = array();
+
+$hist = WPCPM_Track_Store::create( track( 'History Track', 'history' ) );
+$edit = track( 'History Track', 'history' );
+$edit['questions']['Second'] = array( 'label' => 'Second', 'type' => 'text', 'group' => 'project' );
+WPCPM_Track_Store::save( $hist, $edit );
+$edit['label'] = 'History Track, renamed';
+WPCPM_Track_Store::save( $hist, $edit );
+$edit['questions']['Third'] = array( 'label' => 'Third', 'type' => 'text', 'group' => 'wrapup' );
+WPCPM_Track_Store::save( $hist, $edit );
+
+$all = WPCPM_Track_Store::revisions( $hist );
+
+ck( 'every save is a revision, newest first, the creation the oldest',
+    array_map( function ( $r ) { return array_keys( $r['definition']['questions'] ); }, $all ),
+    array(
+        array( 'Hours', 'history notes', 'Second', 'Third' ),
+        array( 'Hours', 'history notes', 'Second' ),
+        array( 'Hours', 'history notes', 'Second' ),
+        array( 'Hours', 'history notes' ),
+    ) );
+
+ck( 'each carries the definition as it was saved, decoded',
+    array( $all[1]['definition']['label'], $all[2]['definition']['label'] ),
+    array( 'History Track, renamed', 'History Track' ) );
+
+ck( 'with who saved it and when, the times running backwards',
+    array( array_unique( array_column( $all, 'by' ) ), $all[0]['at'] > $all[1]['at'] && $all[1]['at'] > $all[2]['at'] && $all[2]['at'] > $all[3]['at'] ),
+    array( array( 7 ), true ) );
+
+ck( 'a limit reads one more than it says, so the oldest shown still has its predecessor',
+    array( count( WPCPM_Track_Store::revisions( $hist, 2 ) ), count( WPCPM_Track_Store::revisions( $hist, 3 ) ), count( WPCPM_Track_Store::revisions( $hist, 20 ) ) ),
+    array( 3, 4, 4 ) );
+
+ck( 'a limit below one reads as one',
+    count( WPCPM_Track_Store::revisions( $hist, 0 ) ), 2 );
+
+ck( 'a post that is not a track has no revisions to give',
+    array( WPCPM_Track_Store::revisions( 987654 ), WPCPM_Track_Store::revisions( $all[0]['id'] ) ),
+    array( array(), array() ) );
+
+// The cap History asks for, so it calls the oldest revision it shows the creation only where
+// nothing was pruned away beneath it (the final review of T3b).
+ck( 'a track answers -1 where nothing caps the revisions this site keeps',
+    WPCPM_Track_Store::revisions_cap( $hist ), -1 );
+
+$GLOBALS['revisions_cap'] = 5;
+
+ck( 'and the cap itself where the site sets one',
+    WPCPM_Track_Store::revisions_cap( $hist ), 5 );
+
+ck( 'a post that is not a track answers -1 whatever the cap, having no definition to keep copies of',
+    array( WPCPM_Track_Store::revisions_cap( 987654 ), WPCPM_Track_Store::revisions_cap( $all[0]['id'] ) ),
+    array( -1, -1 ) );
+
+unset( $GLOBALS['revisions_cap'] );
 
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );

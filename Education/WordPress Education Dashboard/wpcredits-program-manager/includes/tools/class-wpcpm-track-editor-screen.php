@@ -39,6 +39,40 @@ class WPCPM_Track_Editor_Screen {
 	}
 
 	/**
+	 * Every question property, in the words the question screen uses for it.
+	 *
+	 * One map, so History's diff lines read as the rows they point at (the design's decision 28),
+	 * and a label changed here changes there. The last two are authoring properties the screen
+	 * carries without a row of their own.
+	 *
+	 * @return string[] Property => what its row is called.
+	 */
+	public static function property_labels() {
+		return array(
+			'type'                  => __( 'Control', 'wpcredits-program-manager' ),
+			'label'                 => __( 'What the student reads', 'wpcredits-program-manager' ),
+			'group'                 => __( 'Group', 'wpcredits-program-manager' ),
+			'help'                  => __( 'Help under the box', 'wpcredits-program-manager' ),
+			'lead'                  => __( 'Heading before it', 'wpcredits-program-manager' ),
+			'subgroup'              => __( 'Subheading before it', 'wpcredits-program-manager' ),
+			'note'                  => __( 'Note after the run', 'wpcredits-program-manager' ),
+			'row'                   => __( 'Row', 'wpcredits-program-manager' ),
+			'stack'                 => __( 'Shares one column of its row', 'wpcredits-program-manager' ),
+			'required'              => __( 'Marked required', 'wpcredits-program-manager' ),
+			'hide_from_institution' => __( 'Kept off everything an institution reads', 'wpcredits-program-manager' ),
+			'min'                   => __( 'Lowest value', 'wpcredits-program-manager' ),
+			'max'                   => __( 'Highest value', 'wpcredits-program-manager' ),
+			'step'                  => __( 'Step', 'wpcredits-program-manager' ),
+			'maxlength'             => __( 'Length limit', 'wpcredits-program-manager' ),
+			'mono'                  => __( 'Monospace, for code', 'wpcredits-program-manager' ),
+			'options'               => __( 'Choices, one a line', 'wpcredits-program-manager' ),
+			'why'                   => __( 'Developer note', 'wpcredits-program-manager' ),
+			'learn_lesson_id'       => __( 'Learn lesson', 'wpcredits-program-manager' ),
+			'airtable_type'         => __( 'Airtable column type', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
 	 * The ten controls, named for the person choosing one.
 	 *
 	 * @return array<string,string>
@@ -85,6 +119,22 @@ class WPCPM_Track_Editor_Screen {
 		$locked   = ! empty( $form['locked'] );
 		$controls = self::controls();
 
+		// A locked question raced by a typed control that differs from the stored one could not
+		// have carried that control's own properties: its boxes belonged to another control, so
+		// they read blank unless corrected here. These six read the stored question instead, while
+		// every other property still keeps what was typed (decision 29, the Task 9 review).
+		$stored_type = isset( $question['type'] ) ? (string) $question['type'] : '';
+
+		if ( $locked && array() !== $typed && isset( $typed['type'] ) && (string) $typed['type'] !== $stored_type ) {
+			foreach ( array( 'min', 'max', 'step', 'maxlength', 'mono', 'options' ) as $own ) {
+				unset( $typed[ $own ] );
+
+				if ( array_key_exists( $own, $question ) ) {
+					$typed[ $own ] = $question[ $own ];
+				}
+			}
+		}
+
 		// What was typed wins over what is stored. A refusal's values are the whole press, since
 		// posted_question() writes a property only when it was given and a flag only when it was
 		// ticked, so a property the flash does not carry was cleared or unticked and must draw
@@ -95,7 +145,16 @@ class WPCPM_Track_Editor_Screen {
 			return array_key_exists( $property, $from ) ? $from[ $property ] : $fallback;
 		};
 
-		$type = (string) $value( 'type' );
+		$type   = (string) $value( 'type' );
+		$labels = self::property_labels();
+
+		// A locked question's rows follow its stored control, not a typed one: a lock can be taken
+		// while this screen is open, and the typed control is the very change the handler refuses,
+		// so rows drawn for it would be the wrong rows (the design's decision 29). The identity
+		// block below posts the stored control back for the same reason.
+		if ( $locked ) {
+			$type = isset( $question['type'] ) ? (string) $question['type'] : '';
+		}
 
 		self::render_flash( $flash );
 
@@ -133,7 +192,7 @@ class WPCPM_Track_Editor_Screen {
 				'<p><strong>%1$s</strong> <code>%2$s</code><br /><strong>%3$s</strong> %4$s</p>',
 				esc_html__( 'Airtable column', 'wpcredits-program-manager' ),
 				esc_html( $column ),
-				esc_html__( 'Control', 'wpcredits-program-manager' ),
+				esc_html( $labels['type'] ),
 				esc_html( isset( $controls[ $fixed ] ) ? $controls[ $fixed ] : $fixed )
 			);
 			echo '<p class="wpcpm-question__locked">' . esc_html__( 'This question has been published, so its column, its control and its choices are fixed: the column in Airtable holds what students have written, in that shape. To ask it differently, remove it and add a new question with a column of its own.', 'wpcredits-program-manager' ) . '</p>';
@@ -143,7 +202,7 @@ class WPCPM_Track_Editor_Screen {
 				esc_html__( 'Airtable column', 'wpcredits-program-manager' ),
 				esc_attr( (string) $value( 'column', $column ) )
 			);
-			printf( '<p><label for="wpcpm_type">%s</label><br /><select id="wpcpm_type" name="wpcpm_type">', esc_html__( 'Control', 'wpcredits-program-manager' ) );
+			printf( '<p><label for="wpcpm_type">%s</label><br /><select id="wpcpm_type" name="wpcpm_type">', esc_html( $labels['type'] ) );
 
 			foreach ( $controls as $control => $name ) {
 				printf( '<option value="%1$s"%3$s>%2$s</option>', esc_attr( $control ), esc_html( $name ), $control === $type ? ' selected="selected"' : '' );
@@ -157,9 +216,9 @@ class WPCPM_Track_Editor_Screen {
 
 		echo '<table class="form-table" role="presentation"><tbody>';
 
-		self::render_text_row( 'label', __( 'What the student reads', 'wpcredits-program-manager' ), (string) $value( 'label' ) );
+		self::render_text_row( 'label', $labels['label'], (string) $value( 'label' ) );
 
-		printf( '<tr><th scope="row"><label for="wpcpm_group">%s</label></th><td><select id="wpcpm_group" name="wpcpm_group">', esc_html__( 'Group', 'wpcredits-program-manager' ) );
+		printf( '<tr><th scope="row"><label for="wpcpm_group">%s</label></th><td><select id="wpcpm_group" name="wpcpm_group">', esc_html( $labels['group'] ) );
 
 		foreach ( self::groups() as $group => $heading ) {
 			printf( '<option value="%1$s"%3$s>%2$s</option>', esc_attr( $group ), esc_html( $heading ), $group === (string) $value( 'group' ) ? ' selected="selected"' : '' );
@@ -167,27 +226,27 @@ class WPCPM_Track_Editor_Screen {
 
 		echo '</select></td></tr>';
 
-		self::render_text_row( 'help', __( 'Help under the box', 'wpcredits-program-manager' ), (string) $value( 'help' ) );
-		self::render_text_row( 'lead', __( 'Heading before it', 'wpcredits-program-manager' ), (string) $value( 'lead' ) );
-		self::render_text_row( 'subgroup', __( 'Subheading before it', 'wpcredits-program-manager' ), (string) $value( 'subgroup' ) );
-		self::render_text_row( 'note', __( 'Note after the run', 'wpcredits-program-manager' ), (string) $value( 'note' ) );
-		self::render_text_row( 'row', __( 'Row', 'wpcredits-program-manager' ), (string) $value( 'row' ), __( 'Questions with the same row name sit side by side: lowercase letters, digits and hyphens.', 'wpcredits-program-manager' ) );
-		self::render_flag_row( 'stack', __( 'Shares one column of its row', 'wpcredits-program-manager' ), ! empty( $value( 'stack' ) ) );
-		self::render_flag_row( 'required', __( 'Marked required', 'wpcredits-program-manager' ), ! empty( $value( 'required' ) ) );
-		self::render_flag_row( 'hide_from_institution', __( 'Kept off everything an institution reads', 'wpcredits-program-manager' ), ! empty( $value( 'hide_from_institution' ) ) || 'email' === $type );
+		self::render_text_row( 'help', $labels['help'], (string) $value( 'help' ) );
+		self::render_text_row( 'lead', $labels['lead'], (string) $value( 'lead' ) );
+		self::render_text_row( 'subgroup', $labels['subgroup'], (string) $value( 'subgroup' ) );
+		self::render_text_row( 'note', $labels['note'], (string) $value( 'note' ) );
+		self::render_text_row( 'row', $labels['row'], (string) $value( 'row' ), __( 'Questions with the same row name sit side by side: lowercase letters, digits and hyphens.', 'wpcredits-program-manager' ) );
+		self::render_flag_row( 'stack', $labels['stack'], ! empty( $value( 'stack' ) ) );
+		self::render_flag_row( 'required', $labels['required'], ! empty( $value( 'required' ) ) );
+		self::render_flag_row( 'hide_from_institution', $labels['hide_from_institution'], ! empty( $value( 'hide_from_institution' ) ) || 'email' === $type );
 
 		if ( 'number' === $type ) {
-			self::render_text_row( 'min', __( 'Lowest value', 'wpcredits-program-manager' ), (string) $value( 'min' ) );
-			self::render_text_row( 'max', __( 'Highest value', 'wpcredits-program-manager' ), (string) $value( 'max' ) );
-			self::render_text_row( 'step', __( 'Step', 'wpcredits-program-manager' ), (string) $value( 'step' ), __( 'The step also sets how many decimal places a new Airtable column keeps: 1 for whole numbers, 0.01 for a grade.', 'wpcredits-program-manager' ) );
+			self::render_text_row( 'min', $labels['min'], (string) $value( 'min' ) );
+			self::render_text_row( 'max', $labels['max'], (string) $value( 'max' ) );
+			self::render_text_row( 'step', $labels['step'], (string) $value( 'step' ), __( 'The step also sets how many decimal places a new Airtable column keeps: 1 for whole numbers, 0.01 for a grade.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( 'text' === $type ) {
-			self::render_text_row( 'maxlength', __( 'Length limit', 'wpcredits-program-manager' ), (string) $value( 'maxlength' ), __( 'Optional. A single-line box alone takes one; a text area already has its own.', 'wpcredits-program-manager' ) );
+			self::render_text_row( 'maxlength', $labels['maxlength'], (string) $value( 'maxlength' ), __( 'Optional. A single-line box alone takes one; a text area already has its own.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( 'textarea' === $type ) {
-			self::render_flag_row( 'mono', __( 'Monospace, for code', 'wpcredits-program-manager' ), ! empty( $value( 'mono' ) ) );
+			self::render_flag_row( 'mono', $labels['mono'], ! empty( $value( 'mono' ) ) );
 		}
 
 		if ( 'select' === $type ) {
@@ -202,14 +261,14 @@ class WPCPM_Track_Editor_Screen {
 
 			printf(
 				'<tr><th scope="row"><label for="wpcpm_options">%1$s</label></th><td><textarea id="wpcpm_options" name="wpcpm_options" rows="6" class="large-text code"%4$s>%2$s</textarea><p class="description">%3$s</p></td></tr>',
-				esc_html__( 'Choices, one a line', 'wpcredits-program-manager' ),
+				esc_html( $labels['options'] ),
 				esc_textarea( is_array( $options ) ? implode( "\n", array_map( 'strval', $options ) ) : (string) $options ),
 				esc_html( $choices ),
 				$locked ? ' readonly="readonly"' : ''
 			);
 		}
 
-		self::render_text_row( 'why', __( 'Developer note', 'wpcredits-program-manager' ), (string) $value( 'why' ), __( 'Why a column name looks like a slip. No student sees it.', 'wpcredits-program-manager' ) );
+		self::render_text_row( 'why', $labels['why'], (string) $value( 'why' ), __( 'Why a column name looks like a slip. No student sees it.', 'wpcredits-program-manager' ) );
 
 		echo '</tbody></table>';
 
@@ -258,11 +317,21 @@ class WPCPM_Track_Editor_Screen {
 		}
 
 		if ( ! empty( $form['forked_from'] ) ) {
-			$notice = sprintf(
-				/* translators: %s: the column this question forked from. */
-				__( 'A column of this track\'s own, forked from %s. Its name can still be changed until the track is published.', 'wpcredits-program-manager' ),
-				(string) $form['forked_from']
-			);
+			// Once the track is published the column is fixed, so the notice stops promising a
+			// rename it cannot keep (decision 29).
+			if ( $locked ) {
+				$notice = sprintf(
+					/* translators: %s: the column this question forked from. */
+					__( 'A column of this track\'s own, forked from %s.', 'wpcredits-program-manager' ),
+					(string) $form['forked_from']
+				);
+			} else {
+				$notice = sprintf(
+					/* translators: %s: the column this question forked from. */
+					__( 'A column of this track\'s own, forked from %s. Its name can still be changed until the track is published.', 'wpcredits-program-manager' ),
+					(string) $form['forked_from']
+				);
+			}
 
 			printf( '<p class="wpcpm-question__notice wpcpm-question__notice--forked">%s</p>', esc_html( $notice ) );
 		}
@@ -622,10 +691,10 @@ class WPCPM_Track_Editor_Screen {
 		printf(
 			'<label for="wpcpm_add_label_%1$s">%2$s</label> <input type="text" class="regular-text" id="wpcpm_add_label_%1$s" name="wpcpm_label" value="%3$s" /> ',
 			esc_attr( $group ),
-			esc_html__( 'What the student reads', 'wpcredits-program-manager' ),
+			esc_html( self::property_labels()['label'] ),
 			esc_attr( $words )
 		);
-		printf( '<label for="wpcpm_add_type_%1$s">%2$s</label> <select id="wpcpm_add_type_%1$s" name="wpcpm_type">', esc_attr( $group ), esc_html__( 'Control', 'wpcredits-program-manager' ) );
+		printf( '<label for="wpcpm_add_type_%1$s">%2$s</label> <select id="wpcpm_add_type_%1$s" name="wpcpm_type">', esc_attr( $group ), esc_html( self::property_labels()['type'] ) );
 
 		foreach ( self::controls() as $type => $name ) {
 			printf( '<option value="%1$s"%3$s>%2$s</option>', esc_attr( $type ), esc_html( $name ), $type === $control ? ' selected="selected"' : '' );

@@ -1071,6 +1071,61 @@ final class WPCPM_Track_Store {
 	}
 
 	/**
+	 * A track's revisions, newest first, each with the definition it carries.
+	 *
+	 * Every save is a revision (the design's decision 3.2), and the revisioned meta lives on the
+	 * revision post, so this is one query and one meta read a revision. One more than asked for
+	 * is read, so the oldest revision History shows still has the copy before it to be compared
+	 * with, and "created" is said only when there is none (decision 28). A site may cap how many
+	 * revisions it keeps, which is why the published copy lives in meta of its own and not here.
+	 *
+	 * @param int $post_id The track.
+	 * @param int $limit   How many History shows; one more comes back when there is one.
+	 * @return array[] Each `id`, `at` (a Unix timestamp), `by` (a user ID) and `definition`
+	 *                 (decoded, or null when that revision carries none); empty for a post that
+	 *                 is not a track.
+	 */
+	public static function revisions( $post_id, $limit = 20 ) {
+		$post_id = (int) $post_id;
+
+		if ( null === self::track_post( $post_id ) ) {
+			return array();
+		}
+
+		$revisions = array();
+
+		foreach ( wp_get_post_revisions( $post_id, array( 'posts_per_page' => max( 1, (int) $limit ) + 1 ) ) as $revision ) {
+			$revisions[] = array(
+				'id'         => (int) $revision->ID,
+				'at'         => (int) strtotime( (string) $revision->post_date_gmt . ' UTC' ),
+				'by'         => (int) $revision->post_author,
+				'definition' => WPCPM_Track_Definition::decode( get_post_meta( (int) $revision->ID, self::META_DEFINITION, true ) ),
+			);
+		}
+
+		return $revisions;
+	}
+
+	/**
+	 * How many revisions this site keeps of a track, as WordPress works that number out.
+	 *
+	 * WordPress prunes a post's revisions to `wp_revisions_to_keep()` at every save, from
+	 * `WP_POST_REVISIONS` and the `wp_revisions_to_keep` filter, and the store registers no filter
+	 * of its own. History needs the number to say "created" of the oldest revision it shows only
+	 * when that revision really is the creation: on a site that caps them, the oldest kept may be
+	 * the survivor of a pruning instead (the final review of T3b, finding 1).
+	 *
+	 * @param int $post_id The track.
+	 * @return int -1 when nothing caps them, 0 when revisions are off, else how many are kept; -1
+	 *             for a post that is not a track, which has no revisions of a definition to cap.
+	 */
+	public static function revisions_cap( $post_id ) {
+		$post = self::track_post( (int) $post_id );
+
+		return null === $post ? -1 : (int) wp_revisions_to_keep( $post );
+	}
+
+	/**
 	 * Every other track, as the question editor's sharing index takes them.
 	 *
 	 * A column is shared when another track holds the same name, verbatim, whatever side of the

@@ -1103,6 +1103,58 @@ class WPCPM_Student_Report_Form {
 			echo '<div class="wpcpm-report wpcpm-report--readonly">';
 		}
 
+		self::render_groups( $fields, $values, $can, $context );
+
+		if ( $can ) {
+			printf(
+				'<p class="wpcpm-report__submit"><button type="submit" class="wpcpm-button">%s</button></p>',
+				esc_html__( 'Save my report', 'wpcredits-program-manager' )
+			);
+		}
+
+		echo $can ? '</form>' : '</div>';
+
+		// The form every Remove button on the card posts through, printed here because a
+		// `<form>` inside a `<form>` is markup a browser drops: the buttons name this one by
+		// id, and each carries the field it removes as its own value. One form, one nonce,
+		// however many screenshots the track asks for.
+		//
+		// Guarded once like the report form above it and like the sponsor logo's own Remove.
+		// Remove is a delete, and a second press while the first is in flight sends a second
+		// PATCH of a cell the first one already emptied.
+		if ( $can && $has_files ) {
+			printf(
+				'<form class="wpcpm-report__remove" id="wpcpm-report-remove-%1$d" method="post" action="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
+				(int) $student->ID,
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Removing', 'wpcredits-program-manager' )
+			);
+
+			wp_nonce_field( self::ACTION_REMOVE_IMAGE . '_' . (int) $student->ID );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_REMOVE_IMAGE ) );
+			printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
+
+			echo '</form>';
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * The groups of a report form, each a fieldset of its fields, as the student's page draws them.
+	 *
+	 * The loop `render_body()` ran in place until 1.106.0, taking what it gathers - the field set,
+	 * the values, whether the reader may edit, the images and files context - as arguments, so the
+	 * Track Builder's preview can draw a draft through the very same code with empty values and no
+	 * student (the design's decision 27). `render_body()` calls it with exactly what it gathered
+	 * before, so the live Student Report Card's markup is unchanged.
+	 *
+	 * @param array $fields  The fields, column name => spec, as `fields()` gives them.
+	 * @param array $values  The student's answers, column name => value; empty for a preview.
+	 * @param bool  $can     Whether the controls are drawn editable.
+	 * @param array $context `student`, `images` and `files`, as `render_field()` reads them.
+	 */
+	private static function render_groups( array $fields, array $values, $can, array $context ) {
 		// Grouped, so the form reads as four short questions rather than twenty boxes. `hours`
 		// is skipped: it is rendered in *My course*, beside the course button, by
 		// `render_hours()` - one field, posting to this same handler.
@@ -1234,40 +1286,6 @@ class WPCPM_Student_Report_Form {
 
 			echo '</fieldset>';
 		}
-
-		if ( $can ) {
-			printf(
-				'<p class="wpcpm-report__submit"><button type="submit" class="wpcpm-button">%s</button></p>',
-				esc_html__( 'Save my report', 'wpcredits-program-manager' )
-			);
-		}
-
-		echo $can ? '</form>' : '</div>';
-
-		// The form every Remove button on the card posts through, printed here because a
-		// `<form>` inside a `<form>` is markup a browser drops: the buttons name this one by
-		// id, and each carries the field it removes as its own value. One form, one nonce,
-		// however many screenshots the track asks for.
-		//
-		// Guarded once like the report form above it and like the sponsor logo's own Remove.
-		// Remove is a delete, and a second press while the first is in flight sends a second
-		// PATCH of a cell the first one already emptied.
-		if ( $can && $has_files ) {
-			printf(
-				'<form class="wpcpm-report__remove" id="wpcpm-report-remove-%1$d" method="post" action="%2$s" data-wpcpm-once data-wpcpm-busy="%3$s">',
-				(int) $student->ID,
-				esc_url( admin_url( 'admin-post.php' ) ),
-				esc_attr__( 'Removing', 'wpcredits-program-manager' )
-			);
-
-			wp_nonce_field( self::ACTION_REMOVE_IMAGE . '_' . (int) $student->ID );
-			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_REMOVE_IMAGE ) );
-			printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
-
-			echo '</form>';
-		}
-
-		echo '</div>';
 	}
 
 	/**
@@ -1495,7 +1513,24 @@ class WPCPM_Student_Report_Form {
 		// left aligned.
 		$spec  = $fields['Hours'];
 		$value = isset( $values['Hours'] ) ? $values['Hours'] : '';
-		$id    = 'wpcpm-report-' . self::key( 'Hours' );
+		self::render_hours_field( $spec, $value, $can, true );
+		echo '</form>';
+	}
+
+	/**
+	 * The hours box's label, input and hint, as the student's page draws them.
+	 *
+	 * Split out of `render_hours()` in 1.106.0 for the same reason the groups were: the Track
+	 * Builder's preview draws the hours question through the same code, with no value, no form and
+	 * no Save button (the design's decision 27). `render_hours()` passes exactly what it drew before.
+	 *
+	 * @param array $spec        The `Hours` question.
+	 * @param mixed $value       The student's hours; empty for a preview.
+	 * @param bool  $can         Whether the input is drawn editable.
+	 * @param bool  $with_button Whether the Save button follows the input, which needs the form.
+	 */
+	private static function render_hours_field( array $spec, $value, $can, $with_button ) {
+		$id = 'wpcpm-report-' . self::key( 'Hours' );
 
 		// Same id scheme as render_field(), so a screen reader hears this box described the same
 		// way as every other control on the card (phase two of the type review, 1.94.6).
@@ -1521,7 +1556,7 @@ class WPCPM_Student_Report_Form {
 			empty( $spec['help'] ) ? '' : ' aria-describedby="' . esc_attr( $hint_id ) . '"'
 		);
 
-		if ( $can ) {
+		if ( $can && $with_button ) {
 			printf(
 				'<button type="submit" class="wpcpm-button">%s</button>',
 				esc_html__( 'Save hours', 'wpcredits-program-manager' )
@@ -1533,8 +1568,41 @@ class WPCPM_Student_Report_Form {
 		if ( ! empty( $spec['help'] ) ) {
 			printf( '<span class="wpcpm-field__hint" id="%1$s">%2$s</span>', esc_attr( $hint_id ), esc_html( $spec['help'] ) );
 		}
+	}
 
-		echo '</form>';
+	/**
+	 * A form drawn from a field set alone: the Track Builder's preview of a draft.
+	 *
+	 * The same code the student's page runs - `render_hours_field()` for the hours box, then
+	 * `render_groups()` for the four groups - with empty values, the controls enabled as a student
+	 * sees them, and a context holding no student, no pictures and no files, so the image control
+	 * shows its upload box and no picture. Nothing here is a form: no action, no nonce, no button,
+	 * and the wrappers are the form's classes on `div`s, so the report stylesheet applies. It takes
+	 * a field set, never a definition: the Track Builder compiles the draft first, the way
+	 * `compile()` does, and this class learns nothing about definitions (the design's decisions
+	 * 3.4 and 27).
+	 *
+	 * @param array $fields The fields, column name => spec, as `compile_fields()` gives them.
+	 */
+	public static function render_preview( array $fields ) {
+		$context = array(
+			'student' => 0,
+			'images'  => array(),
+			'files'   => array(),
+		);
+
+		echo '<div class="wpcpm-report__body wpcpm-report__body--preview">';
+
+		if ( isset( $fields['Hours'] ) && is_array( $fields['Hours'] ) ) {
+			echo '<div class="wpcpm-hours">';
+			self::render_hours_field( $fields['Hours'], '', true, false );
+			echo '</div>';
+		}
+
+		echo '<div class="wpcpm-report">';
+		self::render_groups( $fields, array(), true, $context );
+		echo '</div>';
+		echo '</div>';
 	}
 
 	/**

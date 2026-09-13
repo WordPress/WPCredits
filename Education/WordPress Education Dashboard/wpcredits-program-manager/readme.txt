@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.105.0
+Stable tag: 1.106.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,14 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.106.0 =
+
+* The Track Builder previews a track: its form as a student sees it, with empty answers and no student's record, drawn in wp-admin through the Student Report Card's own renderer and stylesheet. Nothing typed on a preview is kept.
+* A track can be started from nothing. New track, above the list, asks for its name, its Airtable status and its key, and opens the empty track for its questions. A new track, and a duplicate, take the first chip color no track holds.
+* Every track has a History: what publishing would change, each save against the one before it (the questions added, removed and moved, and which properties of which question changed), and the publish log, with who and when.
+* A built-in track still running from its hand-written form reads "Live, from its hand-written form" on the track list rather than "Draft", says that its definition is not published yet and what publishing it does, and offers "Publish definition". Its publish screen says the same.
+* A question locked by publishing keeps its stored control on its screen even after a refused control change, and its forked-from notice no longer promises a rename. A store refusal about one column names that column on the publish screen.
 
 = 1.105.0 =
 

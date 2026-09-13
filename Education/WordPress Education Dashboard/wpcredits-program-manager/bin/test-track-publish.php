@@ -256,9 +256,22 @@ echo "\n=== What it refuses ===\n";
 
 // The definition's own rules are the store's, asked once. A screen that asked its own questions
 // would call a clash fine and Publish would refuse it on the next screen (T2b's decision 2).
-WPCPM_Track_Store::$errors = array( 7 => array( array( 'code' => 'status_taken', 'column' => '', 'message' => 'Another track already claims that status.' ) ) );
+WPCPM_Track_Store::$errors = array( 7 => array( array( 'code' => 'status_taken', 'where' => '', 'message' => 'Another track already claims that status.' ) ) );
 
 $flight = WPCPM_Track_Publish::preflight( 7 );
+
+// The store's errors carry `where`, the column or empty for the track, the key
+// `WPCPM_Track_Definition::error()` writes: a stand-in writing `column` hid a preflight that
+// read the wrong key for three releases (decision 29).
+WPCPM_Track_Store::$errors = array( 7 => array( array( 'code' => 'column_reserved', 'where' => 'Status', 'message' => 'This column belongs to the syncs.' ) ) );
+
+$named = WPCPM_Track_Publish::preflight( 7 );
+
+ck( 'a store refusal about one column names that column on the publish screen',
+    array( codes( $named['refusals'] ), $named['refusals'][0]['column'] ),
+    array( array( 'column_reserved' ), 'Status' ) );
+
+WPCPM_Track_Store::$errors = array( 7 => array( array( 'code' => 'status_taken', 'where' => '', 'message' => 'Another track already claims that status.' ) ) );
 
 ck( 'a definition the store refuses is refused here, in the store\'s own words',
     array( codes( $flight['refusals'] ), $flight['refusals'][0]['message'], $flight['ready'] ),
@@ -588,7 +601,7 @@ ck( 'a claim over a lock older than the timeout succeeds, so a run a host killed
 echo "\n=== A refused preflight stops before anything is created ===\n";
 
 fresh_run();
-WPCPM_Track_Store::$errors = array( 7 => array( array( 'code' => 'status_taken', 'column' => '', 'message' => 'Another track already claims that status.' ) ) );
+WPCPM_Track_Store::$errors = array( 7 => array( array( 'code' => 'status_taken', 'where' => '', 'message' => 'Another track already claims that status.' ) ) );
 $stopped = WPCPM_Track_Publish::run( 7, 5 );
 
 ck( 'the refusal comes back with the findings, and Airtable is never asked to create anything',

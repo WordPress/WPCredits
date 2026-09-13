@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.105.0\n"
+"Project-Id-Version: WPCredits Program Manager 1.106.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-13T09:49:04+00:00\n"
+"POT-Creation-Date: 2026-09-13T14:58:07+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -91,8 +91,8 @@ msgstr ""
 #: includes/tools/class-wpcpm-mentor-checker.php:378
 #: includes/tools/class-wpcpm-mentor-checker.php:389
 #: includes/tools/class-wpcpm-mentor-checker.php:574
-#: includes/tools/class-wpcpm-track-builder.php:909
-#: includes/tools/class-wpcpm-track-editor.php:557
+#: includes/tools/class-wpcpm-track-builder.php:1140
+#: includes/tools/class-wpcpm-track-editor.php:555
 msgid "You do not have permission to manage the program."
 msgstr ""
 
@@ -139,7 +139,7 @@ msgstr ""
 #: includes/class-wpcpm-admin.php:264
 #: includes/class-wpcpm-admin.php:1130
 #: includes/modules/class-wpcpm-administrators.php:149
-#: includes/modules/class-wpcpm-student-report-form.php:1838
+#: includes/modules/class-wpcpm-student-report-form.php:1906
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:977
 msgid "Yes"
 msgstr ""
@@ -856,7 +856,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-application.php:3415
 #: includes/modules/class-wpcpm-sponsor-offers.php:1451
 #: includes/modules/class-wpcpm-sponsors.php:1671
-#: includes/modules/class-wpcpm-student-report-form.php:1560
+#: includes/modules/class-wpcpm-student-report-form.php:1628
 msgid "Required"
 msgstr ""
 
@@ -1646,9 +1646,9 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors.php:510
 #: includes/modules/class-wpcpm-students.php:43
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:31
-#: includes/tools/class-wpcpm-track-builder-screen.php:48
-#: includes/tools/class-wpcpm-track-builder-screen.php:446
-#: includes/tracks/class-wpcpm-track-publish.php:265
+#: includes/tools/class-wpcpm-track-builder-screen.php:58
+#: includes/tools/class-wpcpm-track-builder-screen.php:587
+#: includes/tracks/class-wpcpm-track-publish.php:269
 msgid "Students"
 msgstr ""
 
@@ -2460,7 +2460,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-sponsor-offers.php:1588
 #: includes/modules/class-wpcpm-sponsor-usage.php:70
 #: includes/modules/class-wpcpm-sponsors.php:876
-#: includes/tools/class-wpcpm-track-builder-screen.php:47
+#: includes/tools/class-wpcpm-track-builder-screen.php:57
 msgid "State"
 msgstr ""
 
@@ -2600,8 +2600,8 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators.php:138
 #: includes/modules/class-wpcpm-institution-people.php:643
 #: includes/modules/class-wpcpm-institution-people.php:648
-#: includes/tools/class-wpcpm-track-builder-screen.php:575
-#: includes/tools/class-wpcpm-track-builder-screen.php:659
+#: includes/tools/class-wpcpm-track-builder-screen.php:786
+#: includes/tools/class-wpcpm-track-builder-screen.php:868
 msgid "Name"
 msgstr ""
 
@@ -2765,7 +2765,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-group-sessions.php:881
 #: includes/modules/class-wpcpm-mentor-availability.php:822
 #: includes/modules/class-wpcpm-student-report-form.php:1094
-#: includes/modules/class-wpcpm-student-report-form.php:1484
+#: includes/modules/class-wpcpm-student-report-form.php:1502
 msgid "Saving…"
 msgstr ""
 
@@ -3859,7 +3859,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-people.php:654
 #: includes/modules/class-wpcpm-institution-people.php:659
 #: includes/modules/class-wpcpm-sponsors.php:1283
-#: includes/tools/class-wpcpm-track-editor-screen.php:52
+#: includes/tools/class-wpcpm-track-editor-screen.php:86
 msgid "Email address"
 msgstr ""
 
@@ -4468,7 +4468,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institution-notes.php:366
 #: includes/modules/class-wpcpm-mentor-notes.php:708
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:699
-#: includes/tools/class-wpcpm-track-builder-screen.php:183
+#: includes/tools/class-wpcpm-track-builder-screen.php:234
 msgid "Delete"
 msgstr ""
 
@@ -5002,8 +5002,10 @@ msgstr ""
 
 #. translators: 1: the program manager's name, 2: date.
 #. translators: 1: company name, 2: website.
+#. translators: 1: what happened, 2: a date and time, then who did it.
 #: includes/modules/class-wpcpm-institution-panel.php:1419
 #: includes/modules/class-wpcpm-sponsor-application.php:2534
+#: includes/tools/class-wpcpm-track-history-screen.php:202
 #, php-format
 msgid "%1$s, %2$s"
 msgstr ""
@@ -5142,8 +5144,8 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-people.php:334
 #: includes/modules/class-wpcpm-sponsors.php:1267
-#: includes/modules/class-wpcpm-student-report-form.php:1815
-#: includes/tools/class-wpcpm-track-editor-screen.php:589
+#: includes/modules/class-wpcpm-student-report-form.php:1883
+#: includes/tools/class-wpcpm-track-editor-screen.php:658
 msgid "Remove"
 msgstr ""
 
@@ -5503,7 +5505,7 @@ msgid "%1$s (%2$s)"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:432
-#: includes/tools/class-wpcpm-track-editor-screen.php:162
+#: includes/tools/class-wpcpm-track-editor-screen.php:54
 msgid "Group"
 msgstr ""
 
@@ -7338,7 +7340,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-institutions.php:4199
 #: includes/modules/class-wpcpm-semester-report-screen.php:3387
 #: includes/modules/class-wpcpm-sponsor-posts.php:767
-#: includes/tools/class-wpcpm-track-builder-screen.php:797
+#: includes/tools/class-wpcpm-track-builder-screen.php:1006
 msgid "Draft"
 msgstr ""
 
@@ -8282,8 +8284,8 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1265
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:32
-#: includes/tools/class-wpcpm-track-builder-screen.php:445
-#: includes/tracks/class-wpcpm-track-publish.php:265
+#: includes/tools/class-wpcpm-track-builder-screen.php:586
+#: includes/tracks/class-wpcpm-track-publish.php:269
 msgid "Students Reports"
 msgstr ""
 
@@ -8649,14 +8651,14 @@ msgstr ""
 #: includes/modules/class-wpcpm-mentors.php:512
 #: includes/modules/class-wpcpm-module.php:149
 #: includes/modules/class-wpcpm-sponsors.php:1178
-#: includes/tools/class-wpcpm-track-builder-screen.php:45
+#: includes/tools/class-wpcpm-track-builder-screen.php:55
 msgid "Status"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors.php:513
 #: includes/modules/class-wpcpm-students.php:555
-#: includes/tools/class-wpcpm-track-builder-screen.php:50
-#: includes/tools/class-wpcpm-track-editor-screen.php:370
+#: includes/tools/class-wpcpm-track-builder-screen.php:60
+#: includes/tools/class-wpcpm-track-editor-screen.php:439
 msgid "Actions"
 msgstr ""
 
@@ -8919,8 +8921,10 @@ msgstr ""
 
 #. translators: 1: date and time, 2: the person who saved it.
 #. translators: 1: a date and time, 2: who published the track.
+#. translators: 1: a date and time, 2: who saved or published the track.
 #: includes/modules/class-wpcpm-semester-report-screen.php:1204
-#: includes/tools/class-wpcpm-track-builder-screen.php:783
+#: includes/tools/class-wpcpm-track-builder-screen.php:992
+#: includes/tools/class-wpcpm-track-history-screen.php:346
 #, php-format
 msgid "%1$s by %2$s"
 msgstr ""
@@ -10435,7 +10439,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-logo.php:425
 #: includes/modules/class-wpcpm-sponsors.php:1259
-#: includes/modules/class-wpcpm-student-report-form.php:1260
+#: includes/modules/class-wpcpm-student-report-form.php:1130
 msgid "Removing"
 msgstr ""
 
@@ -11054,7 +11058,8 @@ msgid "Returned with a note"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-posts.php:770
-#: includes/tools/class-wpcpm-track-builder-screen.php:798
+#: includes/tools/class-wpcpm-track-builder-screen.php:1007
+#: includes/tools/class-wpcpm-track-history-screen.php:298
 msgid "Published"
 msgstr ""
 
@@ -11092,11 +11097,13 @@ msgid "(no title)"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-posts.php:1049
+#: includes/tools/class-wpcpm-track-builder-screen.php:151
+#: includes/tools/class-wpcpm-track-builder-screen.php:713
 msgid "Preview"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-posts.php:1060
-#: includes/tools/class-wpcpm-track-builder-screen.php:137
+#: includes/tools/class-wpcpm-track-builder-screen.php:210
 msgid "Publish"
 msgstr ""
 
@@ -12639,108 +12646,108 @@ msgstr ""
 msgid "This is the student's own report, so it is shown here but not editable."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1241
+#: includes/modules/class-wpcpm-student-report-form.php:1111
 msgid "Save my report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1427
+#: includes/modules/class-wpcpm-student-report-form.php:1445
 msgid "That student has no account on this site yet, so there is no report to show."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1527
+#: includes/modules/class-wpcpm-student-report-form.php:1562
 msgid "Save hours"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1645
+#: includes/modules/class-wpcpm-student-report-form.php:1713
 msgid "Choose one"
 msgstr ""
 
 #. translators: %s: how many files the program records hold for this question.
-#: includes/modules/class-wpcpm-student-report-form.php:1763
+#: includes/modules/class-wpcpm-student-report-form.php:1831
 #, php-format
 msgid "%s file on record in Airtable"
 msgid_plural "%s files on record in Airtable"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1771
+#: includes/modules/class-wpcpm-student-report-form.php:1839
 msgid "No screenshot yet"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1786
+#: includes/modules/class-wpcpm-student-report-form.php:1854
 msgid "Replace it by choosing a new file."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1838
+#: includes/modules/class-wpcpm-student-report-form.php:1906
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:977
 msgid "No"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1842
+#: includes/modules/class-wpcpm-student-report-form.php:1910
 msgid "Not filled in"
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1905
+#: includes/modules/class-wpcpm-student-report-form.php:1973
 msgid "The team list has not been read from Airtable yet. Run a sync and this becomes editable."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:1988
+#: includes/modules/class-wpcpm-student-report-form.php:2056
 msgid "You cannot fill in that report form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2331
+#: includes/modules/class-wpcpm-student-report-form.php:2399
 msgid "You cannot change that report form."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2466
+#: includes/modules/class-wpcpm-student-report-form.php:2534
 msgid "Your report form is saved, and your mentor can see it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2467
+#: includes/modules/class-wpcpm-student-report-form.php:2535
 msgid "Nothing was submitted, so nothing changed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2468
+#: includes/modules/class-wpcpm-student-report-form.php:2536
 msgid "Your record could not be found in the program data, so there is nothing to save to."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2469
+#: includes/modules/class-wpcpm-student-report-form.php:2537
 msgid "The program records refused the change, so nothing was saved. Please try again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2470
+#: includes/modules/class-wpcpm-student-report-form.php:2538
 msgid "Saved, except for one or more answers that could not be read. A grade or an hours count takes digits, and a grade is between 0 and 100; a choice question takes one of its own options."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2471
+#: includes/modules/class-wpcpm-student-report-form.php:2539
 msgid "Nothing was saved: one or more answers could not be read. A grade or an hours count takes digits, and a grade is between 0 and 100; a choice question takes one of its own options."
 msgstr ""
 
 #. translators: 1: the least width in pixels, 2: the longest side in pixels, 3: the size ceiling in kilobytes.
-#: includes/modules/class-wpcpm-student-report-form.php:2478
+#: includes/modules/class-wpcpm-student-report-form.php:2546
 #, php-format
 msgid "Saved, except for one or more screenshots. A screenshot has to be a PNG, JPEG or WebP picture, at least %1$d pixels wide, with no side longer than %2$d pixels, and no more than %3$d KB. Export it again and try that one on its own."
 msgstr ""
 
 #. translators: %d: how many screenshots a student may upload in a day.
-#: includes/modules/class-wpcpm-student-report-form.php:2488
+#: includes/modules/class-wpcpm-student-report-form.php:2556
 #, php-format
 msgid "Your answers were saved, but the screenshots were not: this site takes %d screenshot uploads per student per day, and today's are used up. They will be accepted again tomorrow."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2492
+#: includes/modules/class-wpcpm-student-report-form.php:2560
 msgid "That screenshot is removed, here and from the program records."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2493
+#: includes/modules/class-wpcpm-student-report-form.php:2561
 msgid "That screenshot is removed from the program records, but this site could not delete its own copy, so it is still shown here. Press Remove again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2494
+#: includes/modules/class-wpcpm-student-report-form.php:2562
 msgid "The screenshot was left in place: the program records could not be told to drop it. Please try again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-student-report-form.php:2495
+#: includes/modules/class-wpcpm-student-report-form.php:2563
 msgid "There is no screenshot of yours on that question, so there was nothing to remove."
 msgstr ""
 
@@ -14289,8 +14296,8 @@ msgid "Course"
 msgstr ""
 
 #: includes/tools/class-wpcpm-mentor-checker.php:711
-#: includes/tools/class-wpcpm-track-builder-screen.php:576
-#: includes/tools/class-wpcpm-track-builder-screen.php:660
+#: includes/tools/class-wpcpm-track-builder-screen.php:787
+#: includes/tools/class-wpcpm-track-builder-screen.php:869
 msgid "Airtable status"
 msgstr ""
 
@@ -14302,268 +14309,354 @@ msgstr ""
 msgid "No results yet. Run a check to see where each vetted mentor stands."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:36
+#: includes/tools/class-wpcpm-track-builder-screen.php:41
+msgid "New track"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:46
 msgid "No tracks yet. The four the program runs today appear here the first time this site loads after the update."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:44
+#: includes/tools/class-wpcpm-track-builder-screen.php:54
 #: includes/tracks/class-wpcpm-track-store.php:118
 msgid "Track"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:46
+#: includes/tools/class-wpcpm-track-builder-screen.php:56
 msgid "Runs from"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:49
+#: includes/tools/class-wpcpm-track-builder-screen.php:59
 msgid "Last published"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:86
+#: includes/tools/class-wpcpm-track-builder-screen.php:96
 msgid "Its hand-written form, so it cannot be edited here"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:88
+#: includes/tools/class-wpcpm-track-builder-screen.php:98
 msgid "Its definition"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:117
-#: includes/tools/class-wpcpm-track-editor-screen.php:439
+#: includes/tools/class-wpcpm-track-builder-screen.php:107
+msgid "Live, from its hand-written form"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:134
+#: includes/tools/class-wpcpm-track-editor-screen.php:508
 msgid "Edit"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:125
+#: includes/tools/class-wpcpm-track-builder-screen.php:142
 msgid "Duplicate"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:138
-msgid "Publishing"
+#: includes/tools/class-wpcpm-track-builder-screen.php:161
+#: includes/tools/class-wpcpm-track-builder-screen.php:715
+msgid "History"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:143
+#: includes/tools/class-wpcpm-track-builder-screen.php:177
 msgid "Refresh from the plugin"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:147
+#: includes/tools/class-wpcpm-track-builder-screen.php:181
 msgid "Run from its definition"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:151
+#: includes/tools/class-wpcpm-track-builder-screen.php:185
 msgid "Run from its hand-written form"
 msgstr ""
 
+#: includes/tools/class-wpcpm-track-builder-screen.php:205
+msgid "Publishing"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:209
+msgid "Publish definition"
+msgstr ""
+
 #. translators: %s: the track's name.
-#: includes/tools/class-wpcpm-track-builder-screen.php:171
+#: includes/tools/class-wpcpm-track-builder-screen.php:222
 #, php-format
 msgid "Delete %s? It was never published, so nothing in Airtable or on the live site refers to it. This cannot be undone."
 msgstr ""
 
 #. translators: %s: the track's name.
-#: includes/tools/class-wpcpm-track-builder-screen.php:207
+#: includes/tools/class-wpcpm-track-builder-screen.php:260
+#, php-format
+msgid "Publishing the definition of %s"
+msgstr ""
+
+#. translators: %s: the track's name.
+#: includes/tools/class-wpcpm-track-builder-screen.php:263
 #, php-format
 msgid "Publishing %s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:213
+#: includes/tools/class-wpcpm-track-builder-screen.php:269
 msgid "Back to the track list"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:238
+#: includes/tools/class-wpcpm-track-builder-screen.php:273
+msgid "This track runs from its hand-written form, and keeps doing so. Publishing records its definition and changes nothing for students; once the definition is identical to the form, the track can switch to running from it."
+msgstr ""
+
+#. translators: %s: the track's name.
+#: includes/tools/class-wpcpm-track-builder-screen.php:308
+#, php-format
+msgid "Previewing %s"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:317
+#: includes/tools/class-wpcpm-track-history-screen.php:58
+msgid "Back to the track"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:319
+#: includes/tools/class-wpcpm-track-builder-screen.php:711
+#: includes/tools/class-wpcpm-track-builder-screen.php:808
+#: includes/tools/class-wpcpm-track-builder-screen.php:847
+#: includes/tools/class-wpcpm-track-history-screen.php:60
+msgid "Back to every track"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:324
+msgid "The form as a student sees it, with empty answers and no student's record. Nothing typed here is kept: there is no Save button and no form behind the controls."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:330
+msgid "This track has no questions yet, so there is nothing to draw."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:349
+msgid "This track runs from its hand-written form, and this definition is what that form draws."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:354
+msgid "The published copy is the same as this draft, so this is the form students on the track have."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:356
+msgid "Students on the track still have the published copy; this draft has changes they do not see yet."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:358
+msgid "This track is in the trash."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:361
+msgid "Nothing reaches students until the track is published."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:379
 msgid "This track cannot be published yet:"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:239
+#: includes/tools/class-wpcpm-track-builder-screen.php:380
 msgid "Worth knowing before you publish:"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:275
+#: includes/tools/class-wpcpm-track-builder-screen.php:416
 msgid "Columns"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:278
+#: includes/tools/class-wpcpm-track-builder-screen.php:419
 msgid "Every column this track writes to is already in the base."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:286
+#: includes/tools/class-wpcpm-track-builder-screen.php:427
 msgid "Publishing creates these columns on Students Reports, one at a time:"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:288
+#: includes/tools/class-wpcpm-track-builder-screen.php:429
 msgid "These columns are missing, and no schema token is configured, so somebody has to create them in Airtable first. Publish again once they are there."
 msgstr ""
 
 #. translators: %d: how many columns the table would hold afterward.
-#: includes/tools/class-wpcpm-track-builder-screen.php:309
+#: includes/tools/class-wpcpm-track-builder-screen.php:450
 #, php-format
 msgid "The table would hold %d columns afterward."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:332
+#: includes/tools/class-wpcpm-track-builder-screen.php:473
 msgid "This track runs from its hand-written form, so publishing it does not add anything to \"Currently mentoring\" in Settings."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:333
+#: includes/tools/class-wpcpm-track-builder-screen.php:474
 msgid "Publishing adds this track's status to \"Currently mentoring\" in Settings."
 msgstr ""
 
 #. translators: %s: a comma-separated list of the choices a select column needs.
-#: includes/tools/class-wpcpm-track-builder-screen.php:372
+#: includes/tools/class-wpcpm-track-builder-screen.php:513
 #, php-format
 msgid "choices: %s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:396
+#: includes/tools/class-wpcpm-track-builder-screen.php:537
 msgid "What the site cannot do"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:397
+#: includes/tools/class-wpcpm-track-builder-screen.php:538
 msgid "The site cannot see an Airtable automation either way, so none of these stops a track being published. The track list counts them until they are ticked."
 msgstr ""
 
 #. translators: 1: a person's name, 2: a date.
-#: includes/tools/class-wpcpm-track-builder-screen.php:415
+#: includes/tools/class-wpcpm-track-builder-screen.php:556
 #, php-format
 msgid "Ticked by %1$s on %2$s."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:416
+#: includes/tools/class-wpcpm-track-builder-screen.php:557
 msgid "somebody"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:426
+#: includes/tools/class-wpcpm-track-builder-screen.php:567
 msgid "I have done this"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:426
+#: includes/tools/class-wpcpm-track-builder-screen.php:567
 msgid "Undo"
 msgstr ""
 
 #. translators: %s: the table's name.
-#: includes/tools/class-wpcpm-track-builder-screen.php:468
+#: includes/tools/class-wpcpm-track-builder-screen.php:609
 #, php-format
 msgid "%s already has this choice."
 msgstr ""
 
 #. translators: %s: the table's name.
-#: includes/tools/class-wpcpm-track-builder-screen.php:473
+#: includes/tools/class-wpcpm-track-builder-screen.php:614
 #, php-format
 msgid "%s has a choice close to this one, but not an exact match."
 msgstr ""
 
 #. translators: %s: the table's name.
-#: includes/tools/class-wpcpm-track-builder-screen.php:477
+#: includes/tools/class-wpcpm-track-builder-screen.php:618
 #, php-format
 msgid "%s does not have this choice yet."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:505
+#: includes/tools/class-wpcpm-track-builder-screen.php:644
 msgid "Publish the changes"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:506
+#: includes/tools/class-wpcpm-track-builder-screen.php:646
+msgid "Publish the definition"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:648
 msgid "Publish this track"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:511
+#: includes/tools/class-wpcpm-track-builder-screen.php:655
 msgid "Check it against Airtable"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:512
+#: includes/tools/class-wpcpm-track-builder-screen.php:662
+msgid "Unpublish the definition"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:663
 msgid "Take it off the live site"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:556
-#: includes/tools/class-wpcpm-track-builder-screen.php:638
-msgid "Back to every track"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-builder-screen.php:559
+#: includes/tools/class-wpcpm-track-builder-screen.php:719
 msgid "This track runs from its hand-written form, so it cannot be edited here. Duplicate it to start a track of your own, or switch it to its definition first."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:577
-#: includes/tools/class-wpcpm-track-builder-screen.php:661
-msgid "Key"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-builder-screen.php:578
-#: includes/tools/class-wpcpm-track-builder-screen.php:744
-msgid "Learn course"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-builder-screen.php:579
-#: includes/tracks/class-wpcpm-track-publish.php:876
-msgid "Learn course ID"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-builder-screen.php:580
-msgid "Hours target"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-builder-screen.php:581
-msgid "Key chip color"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-builder-screen.php:595
+#: includes/tools/class-wpcpm-track-builder-screen.php:747
 msgid "Save the track"
 msgstr ""
 
+#: includes/tools/class-wpcpm-track-builder-screen.php:788
+#: includes/tools/class-wpcpm-track-builder-screen.php:870
+msgid "Key"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:789
+#: includes/tools/class-wpcpm-track-builder-screen.php:953
+msgid "Learn course"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:790
+#: includes/tracks/class-wpcpm-track-publish.php:880
+msgid "Learn course ID"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:791
+msgid "Hours target"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:792
+msgid "Key chip color"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:810
+msgid "A track from nothing: its name, its Airtable status and its key. Everything else about it, and every question, is edited on the page that opens next."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder-screen.php:829
+msgid "Create the track"
+msgstr ""
+
 #. translators: %s: the name of the track being copied.
-#: includes/tools/class-wpcpm-track-builder-screen.php:645
+#: includes/tools/class-wpcpm-track-builder-screen.php:854
 #, php-format
 msgid "Copying %s. Its questions come with the copy; a name, a status and a key of its own do not."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:675
+#: includes/tools/class-wpcpm-track-builder-screen.php:884
 msgid "Make the copy"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:696
+#: includes/tools/class-wpcpm-track-builder-screen.php:905
 msgid "Identical to its hand-written form."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:702
-msgid "Not published yet, so there is nothing to compare with its hand-written form."
+#: includes/tools/class-wpcpm-track-builder-screen.php:911
+msgid "Its definition is not published yet. Publishing it changes nothing for students: it records the definition, so that the track can switch to running from it once the two are identical."
 msgstr ""
 
 #. translators: %s: what differs, separated by commas.
-#: includes/tools/class-wpcpm-track-builder-screen.php:709
+#: includes/tools/class-wpcpm-track-builder-screen.php:918
 #, php-format
 msgid "Differs from its hand-written form: %s. It cannot switch until they match."
 msgstr ""
 
 #. translators: %s: the rules a track failed, separated by commas.
-#: includes/tools/class-wpcpm-track-builder-screen.php:759
+#: includes/tools/class-wpcpm-track-builder-screen.php:968
 #, php-format
 msgid "Left out of the live site by the last compile: %s. Students on it see the 150-hour form until it passes."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:776
+#: includes/tools/class-wpcpm-track-builder-screen.php:985
 msgid "Never"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:785
+#: includes/tools/class-wpcpm-track-builder-screen.php:994
+#: includes/tools/class-wpcpm-track-history-screen.php:348
 msgid "somebody since removed"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:799
+#: includes/tools/class-wpcpm-track-builder-screen.php:1008
 msgid "Unpublished changes"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder-screen.php:800
+#: includes/tools/class-wpcpm-track-builder-screen.php:1009
 msgid "In the trash"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:71
+#: includes/tools/class-wpcpm-track-builder.php:77
 msgid "Track Builder"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:80
+#: includes/tools/class-wpcpm-track-builder.php:86
 msgid "Every program track: what state it is in, how many students are on it, and what the last compile left out."
 msgstr ""
 
 #. translators: 1: how many tracks exist, 2: how many of them are published.
-#: includes/tools/class-wpcpm-track-builder.php:117
+#: includes/tools/class-wpcpm-track-builder.php:123
 #, php-format
 msgid "%1$s track, %2$s published."
 msgid_plural "%1$s tracks, %2$s published."
@@ -14571,296 +14664,312 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the name of the track being copied.
-#: includes/tools/class-wpcpm-track-builder.php:317
+#: includes/tools/class-wpcpm-track-builder.php:432
 #, php-format
 msgid "%s copy"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:478
-#: includes/tools/class-wpcpm-track-builder.php:518
+#: includes/tools/class-wpcpm-track-builder.php:632
+#: includes/tools/class-wpcpm-track-builder.php:672
 #: includes/tools/class-wpcpm-track-editor.php:465
-#: includes/tracks/class-wpcpm-track-publish.php:553
-#: includes/tracks/class-wpcpm-track-publish.php:659
+#: includes/tracks/class-wpcpm-track-publish.php:557
+#: includes/tracks/class-wpcpm-track-publish.php:663
 #: includes/tracks/class-wpcpm-track-store.php:237
 #: includes/tracks/class-wpcpm-track-store.php:389
 #: includes/tracks/class-wpcpm-track-store.php:780
-#: includes/tracks/class-wpcpm-track-store.php:1148
+#: includes/tracks/class-wpcpm-track-store.php:1203
 msgid "That track does not exist."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:499
+#: includes/tools/class-wpcpm-track-builder.php:653
 msgid "The track was saved. Nothing reaches students until it is published."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:559
+#: includes/tools/class-wpcpm-track-builder.php:717
 msgid "The copy was made, as a draft. Nothing reaches students until it is published."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:641
+#: includes/tools/class-wpcpm-track-builder.php:771
+msgid "The track was created, as a draft with no questions yet. Add them below. Nothing reaches students until it is published."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-builder.php:872
 msgid "That track now runs from its definition. What students see has not changed, which is what let it switch."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:653
+#: includes/tools/class-wpcpm-track-builder.php:884
 msgid "That track runs from its hand-written form again."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:704
+#: includes/tools/class-wpcpm-track-builder.php:935
 msgid "The track was refreshed from the version this plugin ships."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:758
+#: includes/tools/class-wpcpm-track-builder.php:989
 msgid "The track is live. Nothing had to be created in Airtable: every column was already there."
 msgstr ""
 
 #. translators: %d: how many columns were created.
-#: includes/tools/class-wpcpm-track-builder.php:761
+#: includes/tools/class-wpcpm-track-builder.php:992
 #, php-format
 msgid "The track is live, and %d column was created in Airtable."
 msgid_plural "The track is live, and %d columns were created in Airtable."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tools/class-wpcpm-track-builder.php:781
+#: includes/tools/class-wpcpm-track-builder.php:1012
 msgid "The track is a draft again. Nothing was changed in Airtable, and its status is still in \"Currently mentoring\"."
 msgstr ""
 
 #. translators: %s: a list of column names.
-#: includes/tools/class-wpcpm-track-builder.php:822
+#: includes/tools/class-wpcpm-track-builder.php:1053
 #, php-format
 msgid "These columns are missing from the base, or are no longer the type this track needs: %s. A column renamed in Airtable takes its answers with it, so students would be writing into nothing."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:831
+#: includes/tools/class-wpcpm-track-builder.php:1062
 msgid "The track's status is not a choice on both tables, so students on it are not synced. \"Add the two Status choices\" is the checklist item to do."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:837
+#: includes/tools/class-wpcpm-track-builder.php:1068
 msgid "Every column this track writes to is still in the base, with the type it needs, and its status is a choice on both tables."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:886
+#: includes/tools/class-wpcpm-track-builder.php:1117
 msgid "Ticked, and recorded against your name."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-builder.php:887
+#: includes/tools/class-wpcpm-track-builder.php:1118
 msgid "The tick is taken back."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:48
-msgid "Text, one line"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:49
-msgid "Text, many lines"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:50
-msgid "Rich text"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:51
-msgid "Web address"
+#: includes/tools/class-wpcpm-track-editor-screen.php:52
+#: includes/tools/class-wpcpm-track-editor-screen.php:438
+msgid "Control"
 msgstr ""
 
 #: includes/tools/class-wpcpm-track-editor-screen.php:53
-msgid "Number"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:54
-msgid "Checkbox"
+msgid "What the student reads"
 msgstr ""
 
 #: includes/tools/class-wpcpm-track-editor-screen.php:55
-msgid "One choice of several"
+msgid "Help under the box"
 msgstr ""
 
 #: includes/tools/class-wpcpm-track-editor-screen.php:56
-msgid "Screenshot"
+msgid "Heading before it"
 msgstr ""
 
 #: includes/tools/class-wpcpm-track-editor-screen.php:57
+msgid "Subheading before it"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:58
+msgid "Note after the run"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:59
+msgid "Row"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:60
+msgid "Shares one column of its row"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:61
+msgid "Marked required"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:62
+msgid "Kept off everything an institution reads"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:63
+msgid "Lowest value"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:64
+msgid "Highest value"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:65
+msgid "Step"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:66
+msgid "Length limit"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:67
+msgid "Monospace, for code"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:68
+msgid "Choices, one a line"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:69
+msgid "Developer note"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:70
+msgid "Learn lesson"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:71
+msgid "Airtable column type"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:82
+msgid "Text, one line"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:83
+msgid "Text, many lines"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:84
+msgid "Rich text"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:85
+msgid "Web address"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:87
+msgid "Number"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:88
+msgid "Checkbox"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:89
+msgid "One choice of several"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:90
+msgid "Screenshot"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-editor-screen.php:91
 msgid "Contribution team"
 msgstr ""
 
 #. translators: %s: the track's name.
-#: includes/tools/class-wpcpm-track-editor-screen.php:104
+#: includes/tools/class-wpcpm-track-editor-screen.php:163
 #, php-format
 msgid "Back to %s"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:111
+#: includes/tools/class-wpcpm-track-editor-screen.php:170
 msgid "This track runs from its hand-written form, so its questions cannot be edited here. Duplicate the track to start one of your own."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:134
-#: includes/tools/class-wpcpm-track-editor-screen.php:143
-#: includes/tools/class-wpcpm-track-editor-screen.php:619
+#: includes/tools/class-wpcpm-track-editor-screen.php:193
+#: includes/tools/class-wpcpm-track-editor-screen.php:202
+#: includes/tools/class-wpcpm-track-editor-screen.php:688
 msgid "Airtable column"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:136
-#: includes/tools/class-wpcpm-track-editor-screen.php:146
-#: includes/tools/class-wpcpm-track-editor-screen.php:369
-#: includes/tools/class-wpcpm-track-editor-screen.php:628
-msgid "Control"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:139
+#: includes/tools/class-wpcpm-track-editor-screen.php:198
 msgid "This question has been published, so its column, its control and its choices are fixed: the column in Airtable holds what students have written, in that shape. To ask it differently, remove it and add a new question with a column of its own."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:160
-#: includes/tools/class-wpcpm-track-editor-screen.php:625
-msgid "What the student reads"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:170
-msgid "Help under the box"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:171
-msgid "Heading before it"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:172
-msgid "Subheading before it"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:173
-msgid "Note after the run"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:174
-msgid "Row"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:174
+#: includes/tools/class-wpcpm-track-editor-screen.php:233
 msgid "Questions with the same row name sit side by side: lowercase letters, digits and hyphens."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:175
-msgid "Shares one column of its row"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:176
-msgid "Marked required"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:177
-msgid "Kept off everything an institution reads"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:180
-msgid "Lowest value"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:181
-msgid "Highest value"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:182
-msgid "Step"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:182
+#: includes/tools/class-wpcpm-track-editor-screen.php:241
 msgid "The step also sets how many decimal places a new Airtable column keeps: 1 for whole numbers, 0.01 for a grade."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:186
-msgid "Length limit"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:186
+#: includes/tools/class-wpcpm-track-editor-screen.php:245
 msgid "Optional. A single-line box alone takes one; a text area already has its own."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:190
-msgid "Monospace, for code"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:200
+#: includes/tools/class-wpcpm-track-editor-screen.php:259
 msgid "The choices are fixed: this question has been published."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:201
+#: includes/tools/class-wpcpm-track-editor-screen.php:260
 msgid "A column that already exists in Airtable must offer every one of these; a new column is created with them."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:205
-msgid "Choices, one a line"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:212
-msgid "Developer note"
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:212
+#: includes/tools/class-wpcpm-track-editor-screen.php:271
 msgid "Why a column name looks like a slip. No student sees it."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:216
+#: includes/tools/class-wpcpm-track-editor-screen.php:275
 msgid "Save the question"
 msgstr ""
 
 #. translators: %s: a track's name.
-#: includes/tools/class-wpcpm-track-editor-screen.php:240
-#: includes/tools/class-wpcpm-track-editor-screen.php:513
+#: includes/tools/class-wpcpm-track-editor-screen.php:299
+#: includes/tools/class-wpcpm-track-editor-screen.php:582
 #, php-format
 msgid "%s (a draft)"
 msgstr ""
 
 #. translators: %s: the names of the other tracks writing this column.
-#: includes/tools/class-wpcpm-track-editor-screen.php:246
+#: includes/tools/class-wpcpm-track-editor-screen.php:305
 #, php-format
 msgid "This column is shared with %s."
 msgstr ""
 
 #. translators: %s: the names of the other tracks writing this column.
-#: includes/tools/class-wpcpm-track-editor-screen.php:252
+#: includes/tools/class-wpcpm-track-editor-screen.php:311
 #, php-format
 msgid "This column is shared with %s. Changing the words keeps it shared. Changing the control or the choices gives this track a column of its own, named after it."
 msgstr ""
 
 #. translators: %s: the column this question forked from.
-#: includes/tools/class-wpcpm-track-editor-screen.php:263
+#: includes/tools/class-wpcpm-track-editor-screen.php:325
+#: includes/tools/class-wpcpm-track-editor-screen.php:609
+#, php-format
+msgid "A column of this track's own, forked from %s."
+msgstr ""
+
+#. translators: %s: the column this question forked from.
+#: includes/tools/class-wpcpm-track-editor-screen.php:331
 #, php-format
 msgid "A column of this track's own, forked from %s. Its name can still be changed until the track is published."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:346
+#: includes/tools/class-wpcpm-track-editor-screen.php:415
 msgid "Questions"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:363
+#: includes/tools/class-wpcpm-track-editor-screen.php:432
 msgid "No questions in this group."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:368
+#: includes/tools/class-wpcpm-track-editor-screen.php:437
 msgid "Question"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:424
+#: includes/tools/class-wpcpm-track-editor-screen.php:493
 msgid "Publishing will create this column in Airtable."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:465
+#: includes/tools/class-wpcpm-track-editor-screen.php:534
 msgid "This track needs no new Airtable columns."
 msgstr ""
 
 #. translators: %d: how many columns publishing would create.
-#: includes/tools/class-wpcpm-track-editor-screen.php:469
+#: includes/tools/class-wpcpm-track-editor-screen.php:538
 #, php-format
 msgid "Publishing will create %d column in Airtable."
 msgid_plural "Publishing will create %d columns in Airtable."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:475
+#: includes/tools/class-wpcpm-track-editor-screen.php:544
 msgid "Read from Airtable just now."
 msgstr ""
 
 #. translators: %d: a number of minutes.
-#: includes/tools/class-wpcpm-track-editor-screen.php:480
+#: includes/tools/class-wpcpm-track-editor-screen.php:549
 #, php-format
 msgid "Read from Airtable %d minute ago; the publish screen reads it afresh."
 msgid_plural "Read from Airtable %d minutes ago; the publish screen reads it afresh."
@@ -14868,48 +14977,42 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: the names of the other tracks writing this column.
-#: includes/tools/class-wpcpm-track-editor-screen.php:519
+#: includes/tools/class-wpcpm-track-editor-screen.php:588
 #, php-format
 msgid "Shared with %s."
 msgstr ""
 
 #. translators: %s: the names of the other tracks writing this column.
-#: includes/tools/class-wpcpm-track-editor-screen.php:525
+#: includes/tools/class-wpcpm-track-editor-screen.php:594
 #, php-format
 msgid "Shared with %s. Rewording keeps the column; a different control or different choices gives this track a column of its own."
 msgstr ""
 
-#. translators: %s: the column this question forked from.
-#: includes/tools/class-wpcpm-track-editor-screen.php:540
-#, php-format
-msgid "A column of this track's own, forked from %s."
-msgstr ""
-
-#: includes/tools/class-wpcpm-track-editor-screen.php:555
+#: includes/tools/class-wpcpm-track-editor-screen.php:624
 msgid "The move was not saved. The question is back where it was."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:562
+#: includes/tools/class-wpcpm-track-editor-screen.php:631
 msgid "Move up"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:563
+#: includes/tools/class-wpcpm-track-editor-screen.php:632
 msgid "Moved up."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:567
+#: includes/tools/class-wpcpm-track-editor-screen.php:636
 msgid "Move down"
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:568
+#: includes/tools/class-wpcpm-track-editor-screen.php:637
 msgid "Moved down."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:583
+#: includes/tools/class-wpcpm-track-editor-screen.php:652
 msgid "Remove this question from the track? Its column, and whatever students wrote in it, stay in Airtable."
 msgstr ""
 
-#: includes/tools/class-wpcpm-track-editor-screen.php:635
+#: includes/tools/class-wpcpm-track-editor-screen.php:704
 msgid "Add a question"
 msgstr ""
 
@@ -14964,9 +15067,127 @@ msgid "%s was deleted. It was never published, so nothing in Airtable or on the 
 msgstr ""
 
 #. translators: 1: a column name, 2: why the definition was refused.
-#: includes/tools/class-wpcpm-track-editor.php:500
+#: includes/tools/class-wpcpm-track-editor.php:498
 #, php-format
 msgid "%1$s: %2$s"
+msgstr ""
+
+#. translators: %s: the track's name.
+#: includes/tools/class-wpcpm-track-history-screen.php:49
+#, php-format
+msgid "History of %s"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:75
+msgid "What publishing would change"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:78
+msgid "This track has never been published, so there is no published copy to compare the draft with."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:84
+msgid "The published copy is the same as the draft: publishing would change nothing."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:102
+msgid "Saves"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:107
+msgid "No saves have been kept for this track. WordPress keeps a copy of each save only while revisions are on."
+msgstr ""
+
+#. translators: %d: how many questions the track had at the oldest save kept.
+#: includes/tools/class-wpcpm-track-history-screen.php:127
+#, php-format
+msgid "The oldest save kept, with %d question. The saves before it were not kept."
+msgid_plural "The oldest save kept, with %d questions. The saves before it were not kept."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: how many questions the track started with.
+#: includes/tools/class-wpcpm-track-history-screen.php:133
+#, php-format
+msgid "Created, with %d question."
+msgid_plural "Created, with %d questions."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:141
+msgid "Nothing in the definition changed."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:146
+msgid "This save kept no definition."
+msgstr ""
+
+#. translators: %d: how many saves of a track this site keeps.
+#: includes/tools/class-wpcpm-track-history-screen.php:159
+#, php-format
+msgid "This site keeps the last %d saves of a track; earlier ones were discarded."
+msgstr ""
+
+#. translators: %d: how many saves are shown.
+#: includes/tools/class-wpcpm-track-history-screen.php:170
+#, php-format
+msgid "Older saves exist; the last %d are shown."
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:184
+msgid "Publish log"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:187
+msgid "Nothing yet: the log starts when the track is first published."
+msgstr ""
+
+#. translators: %s: the track properties that changed, in the track form's words.
+#: includes/tools/class-wpcpm-track-history-screen.php:225
+#, php-format
+msgid "Track: %s"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:232
+msgid "Added:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:233
+msgid "Removed:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:234
+msgid "Moved:"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:299
+msgid "Unpublished"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:300
+msgid "Switched to run from its definition"
+msgstr ""
+
+#: includes/tools/class-wpcpm-track-history-screen.php:301
+msgid "Switched back to its hand-written form"
+msgstr ""
+
+#. translators: %s: the columns created, comma-separated.
+#: includes/tools/class-wpcpm-track-history-screen.php:313
+#, php-format
+msgid "Created in Airtable: %s"
+msgstr ""
+
+#. translators: %s: a checklist item.
+#: includes/tools/class-wpcpm-track-history-screen.php:320
+#, php-format
+msgid "Ticked \"%s\""
+msgstr ""
+
+#. translators: %s: a checklist item.
+#: includes/tools/class-wpcpm-track-history-screen.php:322
+#, php-format
+msgid "Unticked \"%s\""
 msgstr ""
 
 #. translators: %s: a property name.
@@ -15159,132 +15380,132 @@ msgstr ""
 msgid "This track is in the trash, so it cannot be published."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:199
+#: includes/tracks/class-wpcpm-track-publish.php:203
 msgid "This control cannot have a column created for it, and the base does not have one by this name."
 msgstr ""
 
 #. translators: 1: how many columns the table would hold, 2: the limit.
-#: includes/tracks/class-wpcpm-track-publish.php:232
+#: includes/tracks/class-wpcpm-track-publish.php:236
 #, php-format
 msgid "Publishing would take this table to %1$d columns, past Airtable's limit of %2$d. Airtable refuses the request that crosses it and keeps every column made before, so nothing is created until the track has fewer questions or the table has fewer columns."
 msgstr ""
 
 #. translators: 1: how many columns the table would hold, 2: the limit.
-#: includes/tracks/class-wpcpm-track-publish.php:243
+#: includes/tracks/class-wpcpm-track-publish.php:247
 #, php-format
 msgid "Publishing would take this table to %1$d columns, close to Airtable's limit of %2$d."
 msgstr ""
 
 #. translators: 1: the status, 2: the table's name.
-#: includes/tracks/class-wpcpm-track-publish.php:263
+#: includes/tracks/class-wpcpm-track-publish.php:267
 #, php-format
 msgid "The \"%1$s\" choice on %2$s is nearly this track's status but not exactly: the syncs match it letter for letter, so a student on this track would be missed. Check the choice in Airtable."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:275
+#: includes/tracks/class-wpcpm-track-publish.php:279
 msgid "The Learn course did not answer. The link still publishes: it is shown to students, and a course that is private or moved is worth checking."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:334
+#: includes/tracks/class-wpcpm-track-publish.php:338
 msgid "This track needs columns the base does not have, and no schema token is configured. Create them in Airtable from the list on this screen, then publish again."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:340
+#: includes/tracks/class-wpcpm-track-publish.php:344
 msgid "Another track is being published right now. Wait for that to finish and try again."
 msgstr ""
 
 #. translators: %s: column name.
-#: includes/tracks/class-wpcpm-track-publish.php:389
+#: includes/tracks/class-wpcpm-track-publish.php:393
 #, php-format
 msgid "Airtable already has a column named \"%s\", and it is not the type this question needs. Rename one of them in Airtable, or change the question."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:468
+#: includes/tracks/class-wpcpm-track-publish.php:472
 msgid "Add the status to the reports automation"
 msgstr ""
 
 #. translators: %s: the track's status.
-#: includes/tracks/class-wpcpm-track-publish.php:471
+#: includes/tracks/class-wpcpm-track-publish.php:475
 #, php-format
 msgid "In Airtable, add \"%s\" to the condition of the automation named \"Add students to Students Reports and Feedback\". Without it, no student on this track gets a report row, and their Student Report Card stays empty."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:476
+#: includes/tracks/class-wpcpm-track-publish.php:480
 msgid "Create the welcome email automation"
 msgstr ""
 
 #. translators: %s: the track's status.
-#: includes/tracks/class-wpcpm-track-publish.php:479
+#: includes/tracks/class-wpcpm-track-publish.php:483
 #, php-format
 msgid "Each of the four tracks has one. Copy an existing welcome email automation and set its condition to \"%s\"."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:484
+#: includes/tracks/class-wpcpm-track-publish.php:488
 msgid "Add the two Status choices"
 msgstr ""
 
 #. translators: %s: the track's status.
-#: includes/tracks/class-wpcpm-track-publish.php:487
+#: includes/tracks/class-wpcpm-track-publish.php:491
 #, php-format
 msgid "Add \"%s\" as a choice of the Status column on both Students Reports and Students. No token can add a choice to a single select, so this one is always by hand."
 msgstr ""
 
 #. translators: 1: how many students, 2: the track's status.
-#: includes/tracks/class-wpcpm-track-publish.php:564
+#: includes/tracks/class-wpcpm-track-publish.php:568
 #, php-format
 msgid "%1$d student is on this track in Airtable, and unpublishing it would leave their Student Report Card with no form on it. Move them off \"%2$s\" first."
 msgid_plural "%1$d students are on this track in Airtable, and unpublishing it would leave their Student Report Cards with no form on them. Move them off \"%2$s\" first."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:594
+#: includes/tracks/class-wpcpm-track-publish.php:598
 msgid "That track has never been published, so there is nothing live to check against Airtable."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:652
+#: includes/tracks/class-wpcpm-track-publish.php:656
 msgid "That is not one of the checklist items."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:846
+#: includes/tracks/class-wpcpm-track-publish.php:850
 msgid "Airtable works this column out for itself, so nothing can be written to it: a student's answer would be thrown away."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:850
+#: includes/tracks/class-wpcpm-track-publish.php:854
 msgid "This column links to another table, and a link carries a reverse column into it. Main Contribution Team is the one link a question may use."
 msgstr ""
 
 #. translators: %s: a comma-separated list of the choices the Airtable column does not offer.
-#: includes/tracks/class-wpcpm-track-publish.php:856
+#: includes/tracks/class-wpcpm-track-publish.php:860
 #, php-format
 msgid "The column in the base does not offer every choice this question does, and a student picking one of the missing ones would not save: %s. Airtable cannot add a choice through its API, so somebody adds them in the base and publishes again."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:861
+#: includes/tracks/class-wpcpm-track-publish.php:865
 msgid "The column in the base is a different type from the one this question needs, so the answer would arrive in the wrong shape."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:873
+#: includes/tracks/class-wpcpm-track-publish.php:877
 msgid "form"
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:874
+#: includes/tracks/class-wpcpm-track-publish.php:878
 msgid "title"
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:875
+#: includes/tracks/class-wpcpm-track-publish.php:879
 msgid "course URL"
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:877
+#: includes/tracks/class-wpcpm-track-publish.php:881
 msgid "hours target"
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-publish.php:889
+#: includes/tracks/class-wpcpm-track-publish.php:893
 msgid "This track no longer matches its hand-written form."
 msgstr ""
 
 #. translators: %s is a comma-separated list of field names that differ
-#: includes/tracks/class-wpcpm-track-publish.php:893
+#: includes/tracks/class-wpcpm-track-publish.php:897
 #, php-format
 msgid "This track no longer matches its hand-written form: %s differ."
 msgstr ""
@@ -15341,15 +15562,15 @@ msgstr ""
 msgid "The definition is not identical to the track as its PHP runs it, so switching would change what students see."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-store.php:1152
+#: includes/tracks/class-wpcpm-track-store.php:1207
 msgid "A built-in track cannot be deleted: it is the record of a form the program runs."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-store.php:1156
+#: includes/tracks/class-wpcpm-track-store.php:1211
 msgid "This track has been published, so it is kept as the record of what was created in Airtable. It can be unpublished, not deleted."
 msgstr ""
 
-#: includes/tracks/class-wpcpm-track-store.php:1166
+#: includes/tracks/class-wpcpm-track-store.php:1221
 msgid "WordPress could not delete that track."
 msgstr ""
 

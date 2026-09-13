@@ -60,6 +60,27 @@ final class WPCPM_Track_Palette {
 	}
 
 	/**
+	 * The first hue none of the given tracks holds, so a new track's chip reads unlike its neighbors.
+	 *
+	 * The design's section 5 gives a duplicate this rule and 1.106.0 gives a blank track the same;
+	 * with every hue taken, the first one, since a chip must have some color (decision 10).
+	 *
+	 * @param string[] $used The hues the existing tracks hold.
+	 * @return string
+	 */
+	public static function first_free( array $used ) {
+		$used = array_map( 'strval', $used );
+
+		foreach ( array_keys( self::HUES ) as $hue ) {
+			if ( ! in_array( $hue, $used, true ) ) {
+				return $hue;
+			}
+		}
+
+		return (string) key( self::HUES );
+	}
+
+	/**
 	 * The chip rule for one track, in the shape `dashboard.css` gives its own chips.
 	 *
 	 * The hue at 0.12 behind the row's own ink, and at 0.35 for the border the theme then

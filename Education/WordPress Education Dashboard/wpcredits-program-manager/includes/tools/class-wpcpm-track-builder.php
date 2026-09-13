@@ -26,6 +26,12 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/** Copy a track into a new one. */
 	const ACTION_DUPLICATE = 'wpcpm_track_duplicate';
 
+	/** Start a track from nothing. */
+	const ACTION_NEW = 'wpcpm_track_new';
+
+	/** How many saves History shows, the cap the semester report screen gives its own. */
+	const HISTORY_LIMIT = 20;
+
 	/** Run a built-in track from its definition. */
 	const ACTION_SWITCH_DEFINITION = 'wpcpm_track_switch_definition';
 
@@ -126,6 +132,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	public function boot() {
 		add_action( 'admin_post_' . self::ACTION_SAVE, array( $this, 'handle_save' ) );
 		add_action( 'admin_post_' . self::ACTION_DUPLICATE, array( $this, 'handle_duplicate' ) );
+		add_action( 'admin_post_' . self::ACTION_NEW, array( $this, 'handle_new' ) );
 		add_action( 'admin_post_' . self::ACTION_SWITCH_DEFINITION, array( $this, 'handle_switch_definition' ) );
 		add_action( 'admin_post_' . self::ACTION_SWITCH_BUILTIN, array( $this, 'handle_switch_builtin' ) );
 		add_action( 'admin_post_' . self::ACTION_REFRESH, array( $this, 'handle_refresh' ) );
@@ -156,6 +163,15 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		// The question list's arrows move a row in place and post in the background; without the
 		// script the same forms post the ordinary way (the design's section 6).
 		wp_enqueue_script( 'wpcpm-track-editor', WPCPM_PLUGIN_URL . 'assets/js/track-editor.js', array(), WPCPM_VERSION, true );
+
+		// The preview draws the draft through the report form's own renderer, so it needs the sheet
+		// that dresses the form on the student's page, which nothing in wp-admin enqueues otherwise
+		// (decision 27). Registered first, as the calendar module does on `init`, so the handle
+		// resolves whichever order the modules booted in.
+		if ( WPCPM_Request::id( 'wpcpm_preview' ) > 0 ) {
+			WPCPM_Call_Calendar::register_assets();
+			wp_enqueue_style( WPCPM_Call_Calendar::STYLE );
+		}
 	}
 
 	/**
@@ -254,6 +270,105 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			// The columns of the published copy: a row for one of these promises no fork, since
 			// that is the change `handle_save()` refuses (decision 23, the whole-branch review).
 			'locked'          => is_array( $published ) && isset( $published['questions'] ) && is_array( $published['questions'] ) ? array_map( 'strval', array_keys( $published['questions'] ) ) : array(),
+		);
+	}
+
+	/**
+	 * What the preview draws: the draft compiled as the live site would compile it (decision 27).
+	 *
+	 * `compile_fields()` is the call `compile()` makes, so the preview and the published form come
+	 * from the same reading of the definition, with the same authoring properties left out. A
+	 * built-in track still running from its PHP previews too: its definition is what the PHP draws.
+	 *
+	 * @param int $post_id The track.
+	 * @return array `track`, `label`, `fields` (column => spec), `state` and `source`.
+	 */
+	public static function preview( $post_id ) {
+		$post_id    = (int) $post_id;
+		$definition = WPCPM_Track_Store::get( $post_id );
+		$definition = is_array( $definition ) ? $definition : array();
+
+		return array(
+			'track'  => $post_id,
+			'label'  => isset( $definition['label'] ) ? (string) $definition['label'] : '',
+			'fields' => WPCPM_Track_Definition::compile_fields( $definition ),
+			'state'  => WPCPM_Track_Store::state( $post_id ),
+			'source' => WPCPM_Track_Store::source( $post_id ),
+		);
+	}
+
+	/**
+	 * What History shows (the design's decision 28), read here so the screen asks the store nothing.
+	 *
+	 * The store hands back one revision more than shown, so the oldest shown still has the copy
+	 * before it to be compared with; the one with no predecessor is the creation, and says how
+	 * many questions it started with. A save that kept no definition, which the store never
+	 * makes but a site's own revision handling could, is handed over with neither.
+	 *
+	 * @param int $post_id The track.
+	 * @return array `track`, `label`, `pending` (the published copy against the draft, or null when
+	 *               nothing was published), `revisions` (each `at`, `by`, a `diff` or a `created`
+	 *               count, and `pruned`), `more` (whether older saves exist than are shown), `cap`
+	 *               (how many saves this site keeps, -1 for no cap), `pruned` (whether the oldest
+	 *               shown may be a survivor of the site's pruning rather than the creation), `log`
+	 *               (newest first) and `items` (checklist item => its label, for the log's ticks).
+	 */
+	public static function history( $post_id ) {
+		$post_id    = (int) $post_id;
+		$definition = WPCPM_Track_Store::get( $post_id );
+		$definition = is_array( $definition ) ? $definition : array();
+		$published  = WPCPM_Track_Store::published( $post_id );
+		$kept       = WPCPM_Track_Store::revisions( $post_id, self::HISTORY_LIMIT );
+		$cap        = WPCPM_Track_Store::revisions_cap( $post_id );
+		$revisions  = array();
+
+		// WordPress prunes a track's revisions to the site's cap at every save, so a list standing
+		// at the cap is one whose oldest entry may be a survivor of that pruning rather than the
+		// first save: it is not called the creation. At exactly cap saves this understates a real
+		// creation, which is the safe direction - a save read as one more edit says less than the
+		// screen knows, where "Created" would say something untrue (the final review of T3b,
+		// finding 1). A cap of 0 means revisions are off, so `$kept` is empty and the "no saves
+		// kept" sentence holds instead.
+		$pruned = $cap >= 0 && array() !== $kept && count( $kept ) >= $cap;
+
+		foreach ( array_slice( $kept, 0, self::HISTORY_LIMIT ) as $i => $revision ) {
+			$entry = array(
+				'at'      => isset( $revision['at'] ) ? (int) $revision['at'] : 0,
+				'by'      => isset( $revision['by'] ) ? (int) $revision['by'] : 0,
+				'diff'    => null,
+				'created' => null,
+				'pruned'  => false,
+			);
+
+			if ( isset( $revision['definition'] ) && is_array( $revision['definition'] ) ) {
+				if ( isset( $kept[ $i + 1 ] ) ) {
+					$previous      = isset( $kept[ $i + 1 ]['definition'] ) && is_array( $kept[ $i + 1 ]['definition'] ) ? $kept[ $i + 1 ]['definition'] : array();
+					$entry['diff'] = WPCPM_Track_Diff::between( $previous, $revision['definition'] );
+				} else {
+					$entry['created'] = isset( $revision['definition']['questions'] ) && is_array( $revision['definition']['questions'] ) ? count( $revision['definition']['questions'] ) : 0;
+					$entry['pruned']  = $pruned;
+				}
+			}
+
+			$revisions[] = $entry;
+		}
+
+		$items = array();
+
+		foreach ( WPCPM_Track_Publish::checklist( $post_id ) as $item => $spec ) {
+			$items[ $item ] = isset( $spec['label'] ) ? (string) $spec['label'] : (string) $item;
+		}
+
+		return array(
+			'track'     => $post_id,
+			'label'     => isset( $definition['label'] ) ? (string) $definition['label'] : '',
+			'pending'   => is_array( $published ) ? WPCPM_Track_Diff::between( $published, $definition ) : null,
+			'revisions' => $revisions,
+			'more'      => count( $kept ) > self::HISTORY_LIMIT,
+			'cap'       => $cap,
+			'pruned'    => $pruned,
+			'log'       => array_reverse( WPCPM_Track_Store::log_entries( $post_id ) ),
+			'items'     => $items,
 		);
 	}
 
@@ -378,6 +493,19 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		echo '<div class="wrap wpcpm-wrap">';
 		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
 
+		if ( 1 === WPCPM_Request::id( 'wpcpm_new' ) ) {
+			WPCPM_Track_Builder_Screen::render_new(
+				array(
+					'url'   => $this->admin_url(),
+					'flash' => $flash,
+				)
+			);
+
+			echo '</div>';
+
+			return;
+		}
+
 		if ( $duplicate > 0 && is_array( WPCPM_Track_Store::get( $duplicate ) ) ) {
 			WPCPM_Track_Builder_Screen::render_duplicate(
 				array(
@@ -386,6 +514,31 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 					'flash' => $flash,
 				)
 			);
+
+			echo '</div>';
+
+			return;
+		}
+
+		$preview = WPCPM_Request::id( 'wpcpm_preview' );
+
+		if ( $preview > 0 && is_array( WPCPM_Track_Store::get( $preview ) ) ) {
+			WPCPM_Track_Builder_Screen::render_preview(
+				self::preview( $preview ) + array(
+					'url'   => $this->admin_url(),
+					'flash' => $flash,
+				)
+			);
+
+			echo '</div>';
+
+			return;
+		}
+
+		$history = WPCPM_Request::id( 'wpcpm_history' );
+
+		if ( $history > 0 && is_array( WPCPM_Track_Store::get( $history ) ) ) {
+			WPCPM_Track_History_Screen::render( self::history( $history ) + array( 'url' => $this->admin_url() ) );
 
 			echo '</div>';
 
@@ -402,6 +555,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 					'track'     => $publish,
 					'label'     => isset( $held['label'] ) ? (string) $held['label'] : '',
 					'state'     => WPCPM_Track_Store::state( $publish ),
+					'source'    => WPCPM_Track_Store::source( $publish ),
 					'preflight' => WPCPM_Track_Publish::preflight( $publish ),
 					'checklist' => WPCPM_Track_Publish::checklist( $publish ),
 					'can_make'  => WPCPM_Settings::has_schema_token(),
@@ -525,6 +679,10 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$definition['status'] = WPCPM_Request::posted_text( 'wpcpm_status' );
 		$definition['key']    = WPCPM_Request::posted_text( 'wpcpm_key' );
 
+		// The first hue no track holds (the design's section 5): a copy that kept its original's
+		// would give two tracks one chip color, which decision 10 exists to avoid. T2b's copy kept it.
+		$definition['hue'] = WPCPM_Track_Palette::first_free( self::hues_in_use() );
+
 		// Checked as a track with nothing locked to it, which is what a copy is, so a status
 		// another track already holds is refused before a draft nobody asked for exists.
 		$errors = WPCPM_Track_Store::check( 0, $definition );
@@ -560,6 +718,79 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			),
 			array( 'wpcpm_track' => (int) $copy )
 		);
+	}
+
+	/**
+	 * Start a track from nothing: a status, a key and a label, and an empty form (the design's 5).
+	 *
+	 * Checked as a track with nothing locked to it, as a copy is, so a status or key another track
+	 * holds is refused before a draft nobody asked for exists. Everything else about the track, and
+	 * every question, is edited on the track's page this opens.
+	 */
+	public function handle_new() {
+		$this->verify( self::ACTION_NEW );
+
+		$definition = array(
+			'schema_version' => WPCPM_Track_Definition::SCHEMA_VERSION,
+			'status'         => WPCPM_Request::posted_text( 'wpcpm_status' ),
+			'key'            => WPCPM_Request::posted_text( 'wpcpm_key' ),
+			'label'          => WPCPM_Request::posted_text( 'wpcpm_label' ),
+			'hue'            => WPCPM_Track_Palette::first_free( self::hues_in_use() ),
+			'questions'      => array(),
+		);
+
+		$errors = WPCPM_Track_Store::check( 0, $definition );
+
+		if ( array() !== $errors ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => (string) $errors[0]['message'],
+					'values'  => $definition,
+				),
+				array( 'wpcpm_new' => 1 )
+			);
+		}
+
+		$created = WPCPM_Track_Store::create( $definition );
+
+		if ( is_wp_error( $created ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => $created->get_error_message(),
+					'values'  => $definition,
+				),
+				array( 'wpcpm_new' => 1 )
+			);
+		}
+
+		$this->redirect_back(
+			array(
+				'status'  => 'success',
+				'message' => __( 'The track was created, as a draft with no questions yet. Add them below. Nothing reaches students until it is published.', 'wpcredits-program-manager' ),
+			),
+			array( 'wpcpm_track' => (int) $created )
+		);
+	}
+
+	/**
+	 * The hue every track holds, drafts included, so a new one can take the first that is free.
+	 *
+	 * @return string[]
+	 */
+	private static function hues_in_use() {
+		$hues = array();
+
+		foreach ( WPCPM_Track_Store::all_ids() as $post_id ) {
+			$definition = WPCPM_Track_Store::get( $post_id );
+
+			if ( is_array( $definition ) && isset( $definition['hue'] ) ) {
+				$hues[] = (string) $definition['hue'];
+			}
+		}
+
+		return $hues;
 	}
 
 	/**

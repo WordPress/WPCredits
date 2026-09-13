@@ -57,6 +57,7 @@ function wp_enqueue_style( $handle, $src = '', $deps = array() ) { $GLOBALS['enq
 function wp_enqueue_script( $handle, $src = '', $deps = array(), $ver = false, $footer = false ) { $GLOBALS['enqueued'][] = array( 'script', $handle, $deps, $footer ); }
 // Faithful to core's esc_js(): markup and double quotes are encoded before the quotes are
 // escaped, so a track name with a tag in it cannot break out of the attribute it sits in.
+function wp_json_encode( $data, $flags = 0 ) { return json_encode( $data, $flags ); }
 function esc_js( $s ) { $s = htmlspecialchars( (string) $s, ENT_COMPAT ); $s = preg_replace( '/&#(x)?0*(?(1)27|39);?/i', "'", $s ); return str_replace( "\n", '\\n', addslashes( str_replace( "\r", '', $s ) ) ); }
 
 class RedirectSignal extends Exception {}
@@ -84,12 +85,6 @@ class WPCPM_Request {
 	public static function posted_exact( $key ) { return isset( $_POST[ $key ] ) ? (string) $_POST[ $key ] : ''; }
 	public static function exact( $key ) { return isset( $_GET[ $key ] ) ? (string) $_GET[ $key ] : ''; }
 	public static function posted_verbatim_lines( $key ) { return isset( $_POST[ $key ] ) ? implode( "\n", array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) $_POST[ $key ] ) ), 'strlen' ) ) : ''; }
-}
-
-class WPCPM_Track_Palette {
-	const HUES = array( 'pink', 'blue', 'green' );
-
-	public static function is_hue( $hue ) { return in_array( $hue, self::HUES, true ); }
 }
 
 $GLOBALS['can_manage'] = true;
@@ -185,6 +180,16 @@ class WPCPM_Track_Store {
 		return self::$tracks[ $post_id ]['log'] ?? array();
 	}
 
+	// As the real one: newest first, and one more than asked for when there is one (decision 28).
+	public static function revisions( $post_id, $limit = 20 ) {
+		return array_slice( self::$tracks[ $post_id ]['revisions'] ?? array(), 0, max( 1, (int) $limit ) + 1 );
+	}
+
+	// What `wp_revisions_to_keep()` answers for the track: -1 unless a check sets a cap (T3b).
+	public static function revisions_cap( $post_id ) {
+		return self::$tracks[ $post_id ]['cap'] ?? -1;
+	}
+
 	public static function equivalence( $post_id ) {
 		return self::$tracks[ $post_id ]['equivalence'] ?? array( 'not_builtin' );
 	}
@@ -260,6 +265,16 @@ class WPCPM_Track_Store {
 	public static $duplicated = array();
 	public static $saved      = array();
 
+	public static $created = array();
+
+	public static function create( array $definition ) {
+		self::$created[]      = $definition;
+		$new                  = 98;
+		self::$tracks[ $new ] = array( 'definition' => $definition, 'state' => 'draft', 'source' => 'definition', 'log' => array(), 'equivalence' => array( 'not_builtin' ), 'published' => null );
+
+		return $new;
+	}
+
 	public static function duplicate( $from_id, array $definition ) {
 		self::$duplicated[] = array( (int) $from_id, $definition );
 		$new                = 99;
@@ -300,6 +315,25 @@ class WPCPM_Tracks {
 	const OPT_TRACKS = 'wpcpm_tracks';
 }
 
+/** The calendar module, which owns the sheet that dresses the Student Report Card. */
+class WPCPM_Call_Calendar {
+	const STYLE = 'wpcpm-call-calendar';
+
+	public static $registered = 0;
+
+	public static function register_assets() { ++self::$registered; }
+}
+
+/** The report form, stood in: what the preview handed it, and a marker where it drew. */
+class WPCPM_Student_Report_Form {
+	public static $previewed = array();
+
+	public static function render_preview( array $fields ) {
+		self::$previewed[] = array_keys( $fields );
+		echo '<div class="wpcpm-report__body wpcpm-report__body--preview">' . count( $fields ) . ' fields</div>';
+	}
+}
+
 /** The students sync, for how many people are on a track now. */
 class WPCPM_Students_Sync {
 	public static $counts = array();
@@ -327,12 +361,16 @@ class WPCPM_Flash {
 
 // The real rules, not a stand-in: a stand-in for WPCPM_Track_Questions would let a handler pass
 // against a rule the real class does not hold (T2c's stub-drift findings).
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-palette.php';
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-diff.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-columns.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-questions.php';
 require_once __DIR__ . '/../includes/tools/class-wpcpm-tool.php';
 require_once __DIR__ . '/../includes/tools/class-wpcpm-track-editor.php';
 require_once __DIR__ . '/../includes/tools/class-wpcpm-track-editor-screen.php';
 require_once __DIR__ . '/../includes/tools/class-wpcpm-track-builder-screen.php';
+require_once __DIR__ . '/../includes/tools/class-wpcpm-track-history-screen.php';
 require_once __DIR__ . '/../includes/tools/class-wpcpm-track-builder.php';
 
 $fail  = 0;
@@ -1196,8 +1234,9 @@ ck( 'the store\'s own rules refuse through the same call the publish screen make
     array( 'error', 'This column belongs to the syncs.', array() ) );
 
 // The whole definition is checked, so the first refusal may name another question entirely. The
-// key is `where` as `WPCPM_Track_Definition::validate()` writes it, and `column` as
-// `WPCPM_Track_Publish::preflight()` reads it (the whole-branch review).
+// key is `where`, the one `WPCPM_Track_Definition::validate()` writes and the one
+// `WPCPM_Track_Publish::preflight()` reads; a refusal carrying `column` names nothing, because
+// nothing writes that key (the final review of T3b).
 WPCPM_Track_Store::$errors = array( array( 'code' => 'label_empty', 'where' => 'Slack name', 'message' => 'The question needs the words a student reads.' ) );
 $named = press_editor( 'handle_add', array( 'track' => 13, 'wpcpm_column' => 'Status', 'wpcpm_label' => 'Your status', 'wpcpm_type' => 'text', 'wpcpm_group' => 'project' ) );
 
@@ -1205,9 +1244,9 @@ WPCPM_Track_Store::$errors = array( array( 'code' => 'label_empty', 'column' => 
 $named_column = press_editor( 'handle_add', array( 'track' => 13, 'wpcpm_column' => 'Status', 'wpcpm_label' => 'Your status', 'wpcpm_type' => 'text', 'wpcpm_group' => 'project' ) );
 WPCPM_Track_Store::$errors = array();
 
-ck( 'a refusal that names a column says which one, so a rule another question tripped is not read as this one\'s',
+ck( 'a refusal names its column through `where`, so a rule another question tripped is not read as this one\'s, and `column` names nothing because nothing writes it',
     array( $named[2]['message'], $named_column[2]['message'] ),
-    array( 'Slack name: The question needs the words a student reads.', 'Slack name: The question needs the words a student reads.' ) );
+    array( 'Slack name: The question needs the words a student reads.', 'The question needs the words a student reads.' ) );
 
 $team = press_editor( 'handle_add', array( 'track' => 13, 'wpcpm_column' => 'Main Contribution Team', 'wpcpm_label' => 'Your team', 'wpcpm_type' => 'team', 'wpcpm_group' => 'project' ) );
 
@@ -1978,6 +2017,597 @@ WPCPM_Track_Publish::$answer = null;
 ck( 'and so does a refusal, with the reason',
     array( $went, WPCPM_Flash::$set['track-builder']['message'] ?? '' ),
     array( 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_publish=13', 'Three students hold this status.' ) );
+
+
+echo "\n=== New track: a status, a key and a label, and an empty form (1.106.0) ===\n";
+
+$GLOBALS['hooks'] = array();
+$tool->boot();
+
+ck( 'the handler is on admin-post', in_array( 'admin_post_' . WPCPM_Track_Builder::ACTION_NEW, $GLOBALS['hooks'], true ), true );
+
+/**
+ * Press the builder's New track handler.
+ *
+ * @param array $post What the form posted.
+ * @return array `redirect` or `die`, the detail, and the flash.
+ */
+function press_new( array $post ) {
+	global $tool;
+	$_POST = $post;
+	WPCPM_Flash::$set = array();
+
+	try {
+		$tool->handle_new();
+	} catch ( RedirectSignal $e ) {
+		return array( 'redirect', $e->getMessage(), WPCPM_Flash::$set['track-builder'] ?? array() );
+	} catch ( DieSignal $e ) {
+		return array( 'die', $e->getMessage() );
+	}
+
+	return array( 'fell through' );
+}
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['hue'] = 'pink';
+WPCPM_Track_Store::$errors  = array();
+WPCPM_Track_Store::$created = array();
+
+$GLOBALS['can_manage'] = false;
+$GLOBALS['nonce']      = '';
+$refused = press_new( array( 'wpcpm_label' => 'Blank Track' ) );
+$GLOBALS['can_manage'] = true;
+$nonce_refused = press_new( array( 'wpcpm_label' => 'Blank Track' ) );
+
+ck( 'the capability is checked before the nonce, and then the nonce',
+    array( $refused[0], $refused[1], $nonce_refused[0], $nonce_refused[1] ),
+    array( 'die', 'You do not have permission to manage the program.', 'die', 'the nonce was refused' ) );
+
+$GLOBALS['nonce'] = WPCPM_Track_Builder::ACTION_NEW;
+$made = press_new( array( 'wpcpm_label' => ' Blank Track ', 'wpcpm_status' => 'Blank Track', 'wpcpm_key' => 'blank' ) );
+
+ck( 'a new track is created from the three things it needs, with an empty form and the first hue no track holds',
+    WPCPM_Track_Store::$created,
+    array( array( 'schema_version' => 1, 'status' => 'Blank Track', 'key' => 'blank', 'label' => 'Blank Track', 'hue' => 'blue', 'questions' => array() ) ) );
+
+ck( 'and the person lands on the new track\'s page, told there are no questions yet',
+    array( $made[0], $made[1], $made[2]['status'], false !== strpos( $made[2]['message'], 'no questions yet' ) ),
+    array( 'redirect', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_track=98', 'success', true ) );
+
+WPCPM_Track_Store::$created = array();
+WPCPM_Track_Store::$errors  = array( array( 'code' => 'status_taken', 'message' => 'Another track already claims that status.' ) );
+$taken = press_new( array( 'wpcpm_label' => 'Blank Track', 'wpcpm_status' => 'Marketing Track', 'wpcpm_key' => 'blank' ) );
+WPCPM_Track_Store::$errors = array();
+
+ck( 'a status another track holds is refused through check(), nothing is created, and the form comes back with what was typed',
+    array( $taken[2]['status'], $taken[2]['message'], $taken[1], $taken[2]['values']['status'], WPCPM_Track_Store::$created ),
+    array( 'error', 'Another track already claims that status.', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_new=1', 'Marketing Track', array() ) );
+
+// Every hue the palette has, across seven tracks: the eighth gets the palette's first.
+$holding = array_keys( WPCPM_Track_Palette::HUES );
+foreach ( $holding as $i => $hue ) {
+	WPCPM_Track_Store::$tracks[ 200 + $i ] = array( 'definition' => array( 'hue' => $hue, 'questions' => array() ), 'state' => 'draft', 'source' => 'definition', 'log' => array(), 'equivalence' => array( 'not_builtin' ), 'published' => null );
+}
+WPCPM_Track_Store::$created = array();
+press_new( array( 'wpcpm_label' => 'Eighth', 'wpcpm_status' => 'Eighth', 'wpcpm_key' => 'eighth' ) );
+
+ck( 'with every hue taken, the first one, since a chip must have some color',
+    array( count( $holding ), WPCPM_Track_Store::$created[0]['hue'] ), array( 7, 'blue' ) );
+
+foreach ( $holding as $i => $hue ) {
+	unset( WPCPM_Track_Store::$tracks[ 200 + $i ] );
+}
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_new( array( 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array( 'status' => 'error', 'message' => 'Another track already claims that status.', 'values' => array( 'label' => 'Blank "Track"', 'status' => 'Marketing Track', 'key' => 'blank' ) ) ) );
+$new_form = ob_get_clean();
+
+ck( 'the form asks for the three things, posts the new action with its nonce, and redraws what was typed, encoded',
+    array(
+        substr_count( $new_form, 'name="action" value="wpcpm_track_new"' ),
+        substr_count( $new_form, 'name="_wpnonce" value="wpcpm_track_new"' ),
+        false !== strpos( $new_form, 'id="wpcpm_label" name="wpcpm_label" value="Blank &quot;Track&quot;"' ),
+        false !== strpos( $new_form, 'id="wpcpm_status" name="wpcpm_status" value="Marketing Track"' ),
+        false !== strpos( $new_form, 'id="wpcpm_key" name="wpcpm_key" value="blank"' ),
+        false !== strpos( $new_form, 'Create the track' ),
+        false !== strpos( $new_form, 'Another track already claims that status.' ),
+        substr_count( $new_form, 'name="track"' ),
+    ),
+    array( 1, 1, true, true, true, true, true, 0 ) );
+
+$_GET = array( 'wpcpm_new' => 1 );
+ob_start();
+$tool->render_admin_page();
+$new_page = ob_get_clean();
+$_GET = array();
+
+ck( 'the screen routes to the form, before any track is looked up',
+    array( false !== strpos( $new_page, 'name="action" value="wpcpm_track_new"' ), false === strpos( $new_page, '<table class="widefat striped wpcpm-tracks">' ) ),
+    array( true, true ) );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => array(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$empty_list = ob_get_clean();
+
+ck( 'New track is offered above the list, even with no tracks at all',
+    array( substr_count( $empty_list, 'wpcpm_new=1">New track</a>' ), false !== strpos( $empty_list, 'No tracks yet' ) ),
+    array( 1, true ) );
+
+
+echo "\n=== Preview: the draft through the report form's own renderer (1.106.0) ===\n";
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[11] = array(
+	'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours', 'airtable_type' => 'number' ) ) ),
+	'state'       => 'published',
+	'source'      => 'builtin',
+	'log'         => array(),
+	'equivalence' => array(),
+	'published'   => array( 'key' => '150h' ),
+);
+
+ck( 'the builder hands the view the draft compiled as the live site compiles it: the authoring properties gone, the rest as stored',
+    WPCPM_Track_Builder::preview( 13 ),
+    array(
+        'track'  => 13,
+        'label'  => 'Marketing Track',
+        'fields' => array(
+            'Hours'      => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours', 'min' => 0, 'max' => 1000, 'step' => 1 ),
+            'Slack name' => array( 'type' => 'text', 'label' => 'Your Slack name', 'group' => 'onboarding' ),
+            'Your blog'  => array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding' ),
+        ),
+        'state'  => 'draft',
+        'source' => 'definition',
+    ) );
+
+$GLOBALS['enqueued'] = array();
+WPCPM_Call_Calendar::$registered = 0;
+$_GET = array( 'wpcpm_preview' => 13 );
+$tool->enqueue_assets( 'wpcredits-program_page_wpcpm-tool-track-builder' );
+
+ck( 'on the preview route the screen also enqueues the sheet that dresses the Student Report Card, registered first',
+    array( $GLOBALS['enqueued'][2] ?? null, count( $GLOBALS['enqueued'] ), WPCPM_Call_Calendar::$registered ),
+    array( array( 'style', 'wpcpm-call-calendar', array() ), 3, 1 ) );
+
+WPCPM_Student_Report_Form::$previewed = array();
+ob_start();
+$tool->render_admin_page();
+$preview_page = ob_get_clean();
+
+ck( 'the route draws the heading, the two ways back, the sentence that nothing is kept, the state, and the renderer\'s output inside the tokened wrapper',
+    array(
+        false !== strpos( $preview_page, '<h2>Previewing Marketing Track</h2>' ),
+        substr_count( $preview_page, 'wpcpm_track=13">Back to the track</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder">Back to every track</a>' ),
+        false !== strpos( $preview_page, 'Nothing typed here is kept: there is no Save button and no form behind the controls. Nothing reaches students until the track is published.' ),
+        substr_count( $preview_page, '<div class="wpcpm-dashboard wpcpm-tracks__preview"><div class="wpcpm-report__body wpcpm-report__body--preview">3 fields</div></div>' ),
+        WPCPM_Student_Report_Form::$previewed,
+        substr_count( $preview_page, '<form' ),
+        substr_count( $preview_page, '_wpnonce' ),
+        false !== strpos( $preview_page, '<table class="widefat striped wpcpm-tracks">' ),
+    ),
+    array( true, 1, true, 1, array( array( 'Hours', 'Slack name', 'Your blog' ) ), 0, 0, false ) );
+
+$_GET = array( 'wpcpm_preview' => 11 );
+ob_start();
+$tool->render_admin_page();
+$builtin_preview = ob_get_clean();
+
+ck( 'a built-in track still running from its PHP previews too, and the sentence says its definition is what that form draws',
+    array(
+        false !== strpos( $builtin_preview, '<h2>Previewing 150-hour Track</h2>' ),
+        false !== strpos( $builtin_preview, 'This track runs from its hand-written form, and this definition is what that form draws.' ),
+        substr_count( $builtin_preview, '1 fields</div>' ),
+    ),
+    array( true, true, 1 ) );
+
+foreach ( array( 'published' => 'so this is the form students on the track have', 'changed' => 'this draft has changes they do not see yet', 'trash' => 'This track is in the trash.' ) as $state => $said ) {
+	WPCPM_Track_Store::$tracks[13]['state'] = $state;
+	$_GET = array( 'wpcpm_preview' => 13 );
+	ob_start();
+	$tool->render_admin_page();
+	$states[ $state ] = false !== strpos( ob_get_clean(), $said );
+}
+WPCPM_Track_Store::$tracks[13]['state'] = 'draft';
+
+ck( 'and a published, a changed and a trashed track each say what students have against what is drawn',
+    $states, array( 'published' => true, 'changed' => true, 'trash' => true ) );
+
+WPCPM_Track_Store::$tracks[13]['definition']['questions'] = array();
+WPCPM_Student_Report_Form::$previewed = array();
+ob_start();
+$tool->render_admin_page();
+$empty_preview = ob_get_clean();
+WPCPM_Track_Store::$tracks[13] = editable_track();
+
+ck( 'a track with no questions yet says so instead of drawing an empty form',
+    array( false !== strpos( $empty_preview, 'This track has no questions yet, so there is nothing to draw.' ), WPCPM_Student_Report_Form::$previewed, substr_count( $empty_preview, 'wpcpm-tracks__preview"' ) ),
+    array( true, array(), 0 ) );
+
+$_GET = array( 'wpcpm_preview' => 999 );
+ob_start();
+$tool->render_admin_page();
+$no_such = ob_get_clean();
+$_GET = array();
+
+ck( 'a track that does not exist falls through to the list', false !== strpos( $no_such, '<table class="widefat striped wpcpm-tracks">' ), true );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => WPCPM_Track_Builder::rows(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$rows_html = ob_get_clean();
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$track_page = ob_get_clean();
+
+ck( 'Preview is offered on every row, the built-in one included, and beside the way back on the track\'s page',
+    array( substr_count( $rows_html, '>Preview</a>' ), substr_count( $rows_html, 'wpcpm_preview=11">Preview</a>' ), substr_count( $track_page, 'Back to every track</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_preview=13">Preview</a>' ) ),
+    array( 2, 1, 1 ) );
+
+
+echo "\n=== History: what publishing would change, every save against the one before, the log (1.106.0) ===\n";
+
+ck( 'the question screen names every property the definition allows, and the track form every property the diff compares',
+    array(
+        array_values( array_diff( WPCPM_Track_Definition::QUESTION_PROPERTIES, array_keys( WPCPM_Track_Editor_Screen::property_labels() ) ) ),
+        array_values( array_diff( WPCPM_Track_Diff::TRACK, array_keys( WPCPM_Track_Builder_Screen::track_labels() ) ) ),
+        WPCPM_Track_Editor_Screen::property_labels()['help'],
+    ),
+    array( array(), array(), 'Help under the box' ) );
+
+$question_page = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name' ) );
+
+ck( 'and the question screen still draws its rows in those words',
+    array( substr_count( $question_page, '>What the student reads</label>' ), substr_count( $question_page, '>Help under the box</label>' ), substr_count( $question_page, '>Control</label>' ) ),
+    array( 1, 1, 1 ) );
+
+$first  = array( 'schema_version' => 1, 'key' => 'marketing', 'status' => 'Marketing Track', 'label' => 'Marketing Track', 'hours_target' => 100, 'hue' => 'pink', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ) ) );
+$second = $first;
+$second['questions']['Slack name'] = array( 'type' => 'text', 'label' => 'Your Slack name', 'group' => 'onboarding' );
+$third  = $second;
+$third['hours_target'] = 120;
+$third['questions']['Slack name']['help'] = 'Without the @.';
+$third['questions']['Your blog'] = array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding' );
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition'] = $third;
+WPCPM_Track_Store::$tracks[13]['state']      = 'changed';
+WPCPM_Track_Store::$tracks[13]['published']  = $second;
+WPCPM_Track_Store::$tracks[13]['revisions']  = array(
+	array( 'id' => 103, 'at' => 1788200000, 'by' => 7, 'definition' => $third ),
+	array( 'id' => 102, 'at' => 1788100000, 'by' => 7, 'definition' => $second ),
+	array( 'id' => 101, 'at' => 1788000000, 'by' => 9, 'definition' => $first ),
+);
+WPCPM_Track_Store::$tracks[13]['log'] = array(
+	array( 'at' => 1788050000, 'by' => 7, 'did' => 'publish' ),
+	array( 'at' => 1788060000, 'by' => 7, 'did' => 'columns', 'detail' => array( 'columns' => array( 'Slack name' ) ) ),
+	array( 'at' => 1788070000, 'by' => 7, 'did' => 'tick-welcome' ),
+	array( 'at' => 1788080000, 'by' => 7, 'did' => 'untick-nothing' ),
+);
+$GLOBALS['users'] = array( 7 => 'A Manager' );
+
+$history = WPCPM_Track_Builder::history( 13 );
+
+ck( 'the builder hands the view the published copy against the draft, each save against the one before, "created" on the first, and the log newest first with the checklist labels for its ticks',
+    array(
+        $history['track'],
+        $history['label'],
+        array( $history['pending']['track'], $history['pending']['added'], $history['pending']['changed'], $history['pending']['same'] ),
+        array( $history['revisions'][0]['at'], $history['revisions'][0]['by'], $history['revisions'][0]['diff']['track'], $history['revisions'][0]['diff']['added'], $history['revisions'][0]['diff']['changed'], $history['revisions'][0]['created'] ),
+        array( $history['revisions'][1]['diff']['added'], $history['revisions'][1]['diff']['changed'], $history['revisions'][1]['created'] ),
+        array( $history['revisions'][2]['by'], $history['revisions'][2]['diff'], $history['revisions'][2]['created'] ),
+        $history['more'],
+        array_column( $history['log'], 'did' ),
+        $history['items']['welcome'],
+    ),
+    array(
+        13,
+        'Marketing Track',
+        array( array( 'hours_target' ), array( 'Your blog' ), array( 'Slack name' => array( 'help' ) ), false ),
+        array( 1788200000, 7, array( 'hours_target' ), array( 'Your blog' ), array( 'Slack name' => array( 'help' ) ), null ),
+        array( array( 'Slack name' ), array(), null ),
+        array( 9, null, 1 ),
+        false,
+        array( 'untick-nothing', 'tick-welcome', 'columns', 'publish' ),
+        'Create the welcome email automation',
+    ) );
+
+$_GET = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$history_page = ob_get_clean();
+$_GET = array();
+
+ck( 'the route draws the three parts in order, the diffs in the screens\' own words, the columns as code, and who did what when',
+    array(
+        false !== strpos( $history_page, '<h2>History of Marketing Track</h2>' ),
+        substr_count( $history_page, 'wpcpm_track=13">Back to the track</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder">Back to every track</a>' ),
+        strpos( $history_page, '<h3>What publishing would change</h3>' ) < strpos( $history_page, '<h3>Saves</h3>' ) && strpos( $history_page, '<h3>Saves</h3>' ) < strpos( $history_page, '<h3>Publish log</h3>' ),
+        substr_count( $history_page, '<li>Track: Hours target</li>' ),
+        substr_count( $history_page, '<li>Added: <code>Your blog</code></li>' ),
+        substr_count( $history_page, '<li><code>Slack name</code>: Help under the box</li>' ),
+        substr_count( $history_page, '<li>Added: <code>Slack name</code></li>' ),
+        substr_count( $history_page, '<p class="wpcpm-history__meta">' . gmdate( 'Y-m-d H:i', 1788000000 ) . ' by somebody since removed</p><p>Created, with 1 question.</p>' ),
+        substr_count( $history_page, '<p class="wpcpm-history__meta">' . gmdate( 'Y-m-d H:i', 1788200000 ) . ' by A Manager</p>' ),
+        substr_count( $history_page, '<li>Published, ' . gmdate( 'Y-m-d H:i', 1788050000 ) . ' by A Manager</li>' ),
+        substr_count( $history_page, '<li>Created in Airtable: Slack name, ' ),
+        substr_count( $history_page, '<li>Ticked &quot;Create the welcome email automation&quot;, ' ),
+        substr_count( $history_page, '<li>Unticked &quot;nothing&quot;, ' ),
+        strpos( $history_page, 'Unticked' ) < strpos( $history_page, '<li>Published, ' ),
+        false !== strpos( $history_page, 'Older saves exist' ),
+        substr_count( $history_page, '<form' ),
+    ),
+    array( true, 1, true, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, true, false, 0 ) );
+
+WPCPM_Track_Store::$tracks[13]['published'] = null;
+WPCPM_Track_Store::$tracks[13]['log']       = array();
+$_GET = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$never = ob_get_clean();
+WPCPM_Track_Store::$tracks[13]['published'] = $third;
+ob_start();
+$tool->render_admin_page();
+$same = ob_get_clean();
+$_GET = array();
+
+ck( 'a track never published says so in place of the top diff, and so does one whose published copy is the draft; an empty log says when it starts',
+    array(
+        false !== strpos( $never, 'This track has never been published, so there is no published copy to compare the draft with.' ),
+        false !== strpos( $never, 'Nothing yet: the log starts when the track is first published.' ),
+        false !== strpos( $same, 'The published copy is the same as the draft: publishing would change nothing.' ),
+        substr_count( $same, '<li>Track: Hours target</li>' ),
+    ),
+    array( true, true, true, 1 ) );
+
+$many = array();
+for ( $i = 21; $i >= 1; $i-- ) {
+	$copy = $first;
+	$copy['hours_target'] = $i;
+	$many[] = array( 'id' => 200 + $i, 'at' => 1788000000 + $i, 'by' => 7, 'definition' => $copy );
+}
+WPCPM_Track_Store::$tracks[13]['revisions'] = $many;
+$capped = WPCPM_Track_Builder::history( 13 );
+WPCPM_Track_Store::$tracks[13]['revisions'] = array_slice( $many, 0, 20 );
+$exact = WPCPM_Track_Builder::history( 13 );
+WPCPM_Track_Store::$tracks[13]['revisions'] = array();
+$_GET = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$no_saves = ob_get_clean();
+$_GET = array();
+
+ck( 'twenty saves are shown of more, the oldest shown against the one before it rather than as "created"; exactly twenty are shown whole; none at all says why',
+    array(
+        count( $capped['revisions'] ), $capped['more'], $capped['revisions'][19]['diff']['track'], $capped['revisions'][19]['created'],
+        count( $exact['revisions'] ), $exact['more'], $exact['revisions'][19]['diff'], $exact['revisions'][19]['created'],
+        false !== strpos( $no_saves, 'No saves have been kept for this track. WordPress keeps a copy of each save only while revisions are on.' ),
+    ),
+    array( 20, true, array( 'hours_target' ), null, 20, false, null, 1, true ) );
+
+// WordPress prunes a track's revisions to the site's cap at every save, so a list standing at the
+// cap has no way of knowing that its oldest entry is the creation (the final review of T3b).
+WPCPM_Track_Store::$tracks[13]['cap']       = 3;
+WPCPM_Track_Store::$tracks[13]['revisions'] = array_slice( $many, 0, 3 );
+$at_cap = WPCPM_Track_Builder::history( 13 );
+$_GET   = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$at_cap_page = ob_get_clean();
+$_GET = array();
+
+ck( 'a list standing at the site\'s cap is marked pruned, its oldest entry with it, and that entry still counts the questions it held',
+    array( $at_cap['pruned'], $at_cap['cap'], count( $at_cap['revisions'] ), $at_cap['revisions'][2]['pruned'], $at_cap['revisions'][2]['created'], $at_cap['revisions'][0]['pruned'] ),
+    array( true, 3, 3, true, 1, false ) );
+
+ck( 'and the page calls that save the oldest kept rather than the creation, and says what the site discarded',
+    array(
+        substr_count( $at_cap_page, '<p>The oldest save kept, with 1 question. The saves before it were not kept.</p>' ),
+        substr_count( $at_cap_page, '<p>This site keeps the last 3 saves of a track; earlier ones were discarded.</p>' ),
+        false !== strpos( $at_cap_page, 'Created, with' ),
+        false !== strpos( $at_cap_page, 'Older saves exist' ),
+    ),
+    array( 1, 1, false, false ) );
+
+WPCPM_Track_Store::$tracks[13]['revisions'] = array_slice( $many, 0, 2 );
+$under_cap = WPCPM_Track_Builder::history( 13 );
+$_GET      = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$under_cap_page = ob_get_clean();
+$_GET = array();
+
+ck( 'fewer saves kept than the cap means nothing was pruned away beneath them, so the oldest is the creation again',
+    array( $under_cap['pruned'], $under_cap['revisions'][1]['pruned'], substr_count( $under_cap_page, '<p>Created, with 1 question.</p>' ), false !== strpos( $under_cap_page, 'This site keeps the last' ) ),
+    array( false, false, 1, false ) );
+
+unset( WPCPM_Track_Store::$tracks[13]['cap'] );
+WPCPM_Track_Store::$tracks[13]['revisions'] = array_slice( $many, 0, 3 );
+$no_cap = WPCPM_Track_Builder::history( 13 );
+$_GET   = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$no_cap_page = ob_get_clean();
+$_GET = array();
+
+ck( 'and a site that caps nothing reads as it did before the cap was asked for',
+    array( $no_cap['cap'], $no_cap['pruned'], $no_cap['revisions'][2]['pruned'], substr_count( $no_cap_page, '<p>Created, with 1 question.</p>' ), false !== strpos( $no_cap_page, 'This site keeps the last' ) ),
+    array( -1, false, false, 1, false ) );
+
+WPCPM_Track_Store::$tracks[13]['revisions'] = array(
+	array( 'id' => 103, 'at' => 1788200000, 'by' => 7, 'definition' => $third ),
+	array( 'id' => 102, 'at' => 1788100000, 'by' => 7, 'definition' => null ),
+);
+$gap = WPCPM_Track_Builder::history( 13 );
+
+ck( 'a save that kept no definition is handed over with neither a diff nor a count, and the one after it is compared with nothing',
+    array( $gap['revisions'][1]['diff'], $gap['revisions'][1]['created'], $gap['revisions'][0]['diff']['added'] ),
+    array( null, null, array( 'Hours', 'Slack name', 'Your blog' ) ) );
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => WPCPM_Track_Builder::rows(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$rows_html = ob_get_clean();
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$track_page = ob_get_clean();
+
+ck( 'History is offered on every row and beside Preview on the track\'s page',
+    array( substr_count( $rows_html, 'wpcpm_history=13">History</a>' ), substr_count( $track_page, 'wpcpm_preview=13">Preview</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_history=13">History</a>' ) ),
+    array( 1, 1 ) );
+
+
+echo "\n=== The words on a built-in row and on its publish screen (decision 29) ===\n";
+
+WPCPM_Track_Store::$tracks = array(
+	12 => array(
+		'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array( 'B' => array( 'type' => 'text', 'label' => 'B', 'group' => 'project' ) ) ),
+		'state'       => 'draft',
+		'source'      => 'builtin',
+		'log'         => array(),
+		'equivalence' => array( 'not_published' ),
+		'published'   => null,
+	),
+	13 => editable_track(),
+);
+WPCPM_Students_Sync::$counts             = array( 'Designer Track' => 458, 'Marketing Track' => 0 );
+$GLOBALS['opts']['wpcpm_tracks_skipped'] = array();
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => WPCPM_Track_Builder::rows(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$words = ob_get_clean();
+
+ck( 'a built-in track still on its PHP reads live rather than Draft, says what publishing its definition does, and offers Publish definition; a draft of somebody\'s own still reads Draft and offers Publish',
+    array(
+        substr_count( $words, '<td>Live, from its hand-written form' ),
+        substr_count( $words, '<td>Draft' ),
+        substr_count( $words, 'Its definition is not published yet. Publishing it changes nothing for students: it records the definition, so that the track can switch to running from it once the two are identical.' ),
+        substr_count( $words, '>Publish definition</a>' ),
+        substr_count( $words, '>Publish</a>' ),
+        substr_count( $words, '<td>458</td>' ),
+    ),
+    array( 1, 1, 1, 1, 1, 1 ) );
+
+WPCPM_Track_Publish::$flight    = array( 'refusals' => array(), 'warnings' => array(), 'columns' => array( 'create' => array(), 'ready' => array( 'B' ) ), 'choices' => array( 'reports' => 'ok', 'students' => 'ok' ), 'fields' => array( 'now' => 120, 'after' => 120 ), 'adds_status' => false, 'ready' => true );
+WPCPM_Track_Publish::$checklist = array();
+
+$_GET = array( 'wpcpm_publish' => 12 );
+ob_start();
+$tool->render_admin_page();
+$builtin_publish = ob_get_clean();
+WPCPM_Track_Store::$tracks[12]['state'] = 'published';
+ob_start();
+$tool->render_admin_page();
+$builtin_live = ob_get_clean();
+$_GET = array( 'wpcpm_publish' => 13 );
+ob_start();
+$tool->render_admin_page();
+$own_publish = ob_get_clean();
+$_GET = array();
+
+ck( 'its publish screen is headed as the definition\'s, says the track keeps running from its form, and its buttons name the definition; a track of somebody\'s own keeps its words',
+    array(
+        false !== strpos( $builtin_publish, '<h2>Publishing the definition of Designer Track</h2>' ),
+        false !== strpos( $builtin_publish, 'Publishing records its definition and changes nothing for students' ),
+        substr_count( $builtin_publish, 'Publish the definition' ),
+        substr_count( $builtin_publish, 'Publish this track' ),
+        substr_count( $builtin_live, 'Unpublish the definition' ),
+        substr_count( $builtin_live, 'Take it off the live site' ),
+        substr_count( $builtin_live, 'Check it against Airtable' ),
+        false !== strpos( $own_publish, '<h2>Publishing Marketing Track</h2>' ),
+        substr_count( $own_publish, 'Publish this track' ),
+        false !== strpos( $own_publish, 'keeps doing so' ),
+    ),
+    array( true, true, 1, 0, 1, 0, 1, true, 1, false ) );
+
+
+echo "\n=== The editor's fold-ins: a locked question's rows and its notice, and every control through the real validator (decision 29) ===\n";
+
+WPCPM_Track_Store::$tracks = array(
+	13 => editable_track(),
+	11 => array(
+		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Slack name' => array( 'type' => 'text', 'label' => 'Your Slack name', 'group' => 'onboarding' ) ) ),
+		'state'       => 'published',
+		'source'      => 'builtin',
+		'log'         => array(),
+		'equivalence' => array(),
+		'published'   => array( 'key' => '150h' ),
+	),
+);
+unset( WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name'] );
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name - marketing'] = array( 'type' => 'textarea', 'label' => 'Your Slack name', 'group' => 'onboarding', 'mono' => true );
+WPCPM_Track_Store::$tracks[13]['state']     = 'published';
+WPCPM_Track_Store::$tracks[13]['published'] = WPCPM_Track_Store::$tracks[13]['definition'];
+
+$raced = question_screen(
+	WPCPM_Track_Builder::question_form( 13, 'Hours' ),
+	array( 'status' => 'error', 'message' => 'This question has been published, so its control and its choices are fixed.', 'question_values' => array( 'column' => 'Hours', 'type' => 'text', 'label' => 'Hours', 'group' => 'hours', 'maxlength' => '5' ) )
+);
+
+ck( 'a locked question\'s rows follow its stored control after a lock race: the number\'s bounds, not the typed text box\'s length limit, with the stored control posted back',
+    array( substr_count( $raced, 'name="wpcpm_min"' ), substr_count( $raced, 'name="wpcpm_maxlength"' ), substr_count( $raced, 'name="wpcpm_type" value="number"' ), false !== strpos( $raced, 'its control and its choices are fixed' ) ),
+    array( 1, 0, 1, true ) );
+
+ck( 'and those rows carry the stored control\'s own bounds, not blanks: the typed press could not have carried a number\'s properties',
+    array(
+        false !== strpos( $raced, 'id="wpcpm_min" name="wpcpm_min" value="0"' ),
+        false !== strpos( $raced, 'id="wpcpm_max" name="wpcpm_max" value="1000"' ),
+        false !== strpos( $raced, 'id="wpcpm_step" name="wpcpm_step" value="1"' ),
+    ),
+    array( true, true, true ) );
+
+$raced_mono = question_screen(
+	WPCPM_Track_Builder::question_form( 13, 'Slack name - marketing' ),
+	array( 'status' => 'error', 'message' => 'This question has been published, so its control and its choices are fixed.', 'question_values' => array( 'column' => 'Slack name - marketing', 'type' => 'number', 'label' => 'Your Slack name', 'group' => 'onboarding', 'min' => '1', 'max' => '2', 'step' => '1' ) )
+);
+
+ck( 'the mirror case: a stored text area raced by a typed number draws its stored mono tick and no bounds, with the stored control posted back',
+    array(
+        false !== strpos( $raced_mono, 'type="checkbox" id="wpcpm_mono" name="wpcpm_mono" value="1" checked="checked"' ),
+        substr_count( $raced_mono, 'name="wpcpm_min"' ),
+        false !== strpos( $raced_mono, 'name="wpcpm_type" value="textarea"' ),
+    ),
+    array( true, 0, true ) );
+
+$forked_locked = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name - marketing' ) );
+WPCPM_Track_Store::$tracks[13]['state']     = 'draft';
+WPCPM_Track_Store::$tracks[13]['published'] = null;
+$forked_free = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name - marketing' ) );
+
+ck( 'the forked-from notice on a locked question no longer promises a rename, and on a draft still does',
+    array(
+        false !== strpos( $forked_locked, 'forked from Slack name.</p>' ),
+        false !== strpos( $forked_locked, 'can still be changed' ),
+        false !== strpos( $forked_free, 'forked from Slack name. Its name can still be changed until the track is published.</p>' ),
+    ),
+    array( true, false, true ) );
+
+$posts = array(
+	'text'     => array( 'wpcpm_maxlength' => '80' ),
+	'textarea' => array( 'wpcpm_mono' => '1' ),
+	'richtext' => array(),
+	'url'      => array(),
+	'email'    => array(),
+	'number'   => array( 'wpcpm_min' => '0', 'wpcpm_max' => '10', 'wpcpm_step' => '0.5' ),
+	'checkbox' => array(),
+	'select'   => array( 'wpcpm_options' => "Yes\nNo" ),
+	'image'    => array(),
+	'team'     => array(),
+);
+$verdicts = array();
+
+foreach ( $posts as $control => $extra ) {
+	$_POST    = array_merge( array( 'wpcpm_type' => $control, 'wpcpm_label' => 'Words', 'wpcpm_group' => 'project', 'wpcpm_help' => 'Help', 'wpcpm_row' => 'pair', 'wpcpm_stack' => '1', 'wpcpm_required' => '1' ), $extra );
+	$column   = 'team' === $control ? WPCPM_Track_Definition::TEAM_COLUMN : 'Column ' . $control;
+	$question = WPCPM_Track_Editor::posted_question( array() );
+	$errors   = WPCPM_Track_Definition::validate( array( 'schema_version' => 1, 'status' => 'Marketing Track', 'key' => 'marketing', 'label' => 'Marketing Track', 'hue' => 'blue', 'questions' => array( $column => $question ) ) );
+
+	$verdicts[ $control ] = array( array_column( $errors, 'code' ), isset( $question['airtable_type'] ) );
+}
+
+$_POST = array();
+
+ck( 'what posted_question() builds for each of the ten controls is a question the real validator accepts, each carrying its Airtable type',
+    $verdicts, array_fill_keys( array_keys( $posts ), array( array(), true ) ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

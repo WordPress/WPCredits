@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress in five modules - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a private page listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.105.0
+ * Version:           1.106.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.105.0' );
+define( 'WPCPM_VERSION', '1.106.0' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -46,6 +46,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-field-value.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-palette.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-columns.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-questions.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-diff.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-publish.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-definition.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-tracks.php';
@@ -146,6 +147,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-finder.php
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-track-builder-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-track-builder.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-track-editor-screen.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-track-history-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-track-editor.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-tools.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';

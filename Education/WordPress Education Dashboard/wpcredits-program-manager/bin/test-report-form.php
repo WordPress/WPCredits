@@ -75,6 +75,9 @@ function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_transient( $k ) { return $GLOBALS['opts'][ 'T_' . $k ] ?? false; }
+// The Designer Track's select control, which the preview is the first render here to reach: core's
+// selected() prints ` selected='selected'` when the two are equal, compared as strings.
+function selected( $selected, $current = true, $echo = true ) { $out = (string) $selected === (string) $current ? " selected='selected'" : ''; if ( $echo ) { echo $out; } return $out; }
 function set_transient( $k, $v, $e = 0 ) { $GLOBALS['opts'][ 'T_' . $k ] = $v; return true; }
 function delete_transient( $k ) { unset( $GLOBALS['opts'][ 'T_' . $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
@@ -1364,6 +1367,71 @@ ck(
 	array_keys( WPCPM_Student_Report_Form::for_institution( array( 'Flagged' => array( 'type' => 'text', 'hide_from_institution' => true ), 'Shown' => array( 'type' => 'text' ) ) ) ),
 	array( 'Shown' )
 );
+
+
+echo "\n=== The preview: the same loop, empty values, no form (1.106.0) ===\n";
+
+// The three renders above, byte for byte. In 1.106.0 the group loop and the hours field moved
+// out of render_body() and render_hours() into render_groups() and render_hours_field(), and
+// this pins that nothing a student sees moved with them. A markup change that is meant updates
+// these three hashes knowingly.
+ck( 'render_body() draws what it drew before the loop moved out',
+	array( md5( $read ), md5( $edit ), md5( body_50h() ) ),
+	array( '9ac719628c91cf7302c39d246d191e31', 'c814575c7d237a3ef9b25588cfa4e86e', '8e7234816827737bb6e374d6737fa154' ) );
+
+// A body drawn from a record with nothing in it, so its fieldsets can be held against the
+// preview's, which has no record at all.
+$GLOBALS['umeta'][ $sid ][ WPCPM_Students_Sync::META_RECORD_ID ] = 'recEmpty000000001';
+set_transient( 'wpcpm_report_' . md5( 'recEmpty000000001' ), array() );
+$GLOBALS['rec'] = 'recEmpty000000001';
+$blank          = body( false, true );
+$GLOBALS['rec'] = $record;
+$GLOBALS['umeta'][ $sid ][ WPCPM_Students_Sync::META_RECORD_ID ] = $record;
+
+ob_start();
+// fields() takes the track's key, the way render_body() reaches it through WPCPM_Program::track().
+WPCPM_Student_Report_Form::render_preview( WPCPM_Student_Report_Form::fields( WPCPM_Program::track( WPCPM_Program::STATUS_DEV ) ) );
+$preview = ob_get_clean();
+
+/** The fieldsets of a render, from the first `<fieldset` to the last `</fieldset>`. */
+function fieldsets( $html ) {
+	$from = strpos( $html, '<fieldset' );
+	$to   = strrpos( $html, '</fieldset>' );
+
+	return false === $from || false === $to ? '' : substr( $html, $from, $to + 11 - $from );
+}
+
+ck( 'the preview draws the same fieldsets as a report with nothing filled in',
+	array( '' !== fieldsets( $preview ), fieldsets( $preview ) === fieldsets( $blank ) ),
+	array( true, true ) );
+
+ck( 'the hours box comes first, in the hours wrapper, without its Save button',
+	array(
+		strpos( $preview, 'class="wpcpm-hours"' ) < strpos( $preview, '<fieldset' ),
+		substr_count( $preview, 'wpcpm-hours__label' ),
+		substr_count( $preview, 'Save hours' ),
+	),
+	array( true, 1, 0 ) );
+
+ck( 'and nothing in it is a form: no form, no nonce, no action, no Save button',
+	array( substr_count( $preview, '<form' ), substr_count( $preview, '_wpnonce' ), substr_count( $preview, 'name="action"' ), substr_count( $preview, 'Save my report' ) ),
+	array( 0, 0, 0, 0 ) );
+
+ck( 'the controls are drawn enabled, as a student sees them, inside the report wrappers',
+	array( substr_count( $preview, 'disabled="disabled"' ), substr_count( $preview, '<div class="wpcpm-report">' ), substr_count( $preview, 'wpcpm-report__body--preview' ) ),
+	array( 0, 1, 1 ) );
+
+ob_start();
+WPCPM_Student_Report_Form::render_preview( WPCPM_Student_Report_Form::fields( WPCPM_Program::track( WPCPM_Program::STATUS_DESIGN ) ) );
+$design = ob_get_clean();
+
+ck( 'the Designer Track\'s ten screenshot questions show their upload boxes, no picture and no remove form',
+	array( substr_count( $design, 'type="file"' ), substr_count( $design, '<img' ), substr_count( $design, 'wpcpm-report__remove' ) ),
+	array( 10, 0, 0 ) );
+
+ck( 'a field set with no hours question draws no hours box',
+	substr_count( ( function () { ob_start(); WPCPM_Student_Report_Form::render_preview( array( 'Notes' => array( 'type' => 'textarea', 'label' => 'Notes', 'group' => 'project' ) ) ); return ob_get_clean(); } )(), 'wpcpm-hours' ),
+	0 );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

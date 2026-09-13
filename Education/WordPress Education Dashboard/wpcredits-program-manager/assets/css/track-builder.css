@@ -154,3 +154,26 @@
 .wpcpm-question__locked {
 	color: #50575e;
 }
+
+/* Preview (1.106.0): the draft's form through the report form's own renderer and the sheet that
+   lays it out for the student's page, held here to about that page's width rather than wp-admin's. */
+.wpcpm-tracks__preview {
+	max-width: 60rem;
+	margin-top: 1.5rem;
+}
+
+/* History (1.106.0): each save with its diff under it, and the log as plain lines. */
+.wpcpm-history {
+	max-width: 60rem;
+}
+
+.wpcpm-history__meta {
+	margin: 0 0 0.25em;
+	font-weight: 600;
+}
+
+.wpcpm-history__diff,
+.wpcpm-history__log {
+	margin: 0 0 1em 1.5em;
+	list-style: disc;
+}

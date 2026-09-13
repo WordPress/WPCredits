@@ -150,7 +150,11 @@ final class WPCPM_Track_Publish {
 		foreach ( (array) WPCPM_Track_Store::check( $post_id, $definition ) as $error ) {
 			$refusals[] = self::finding(
 				isset( $error['code'] ) ? (string) $error['code'] : 'invalid',
-				isset( $error['column'] ) ? (string) $error['column'] : '',
+				// `where`: the key `WPCPM_Track_Definition::error()` writes. This read `column` until
+				// 1.106.0, which nothing writes, so a store refusal's finding on the publish screen
+				// never named its column; the publish suite's stand-in wrote `column` too, which is
+				// why no check saw it (T3a's final fix wave, deferred to T3b; decision 29).
+				isset( $error['where'] ) ? (string) $error['where'] : '',
 				isset( $error['message'] ) ? (string) $error['message'] : ''
 			);
 		}

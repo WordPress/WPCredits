@@ -485,14 +485,12 @@ final class WPCPM_Track_Editor {
 			// The whole definition is checked, so the first refusal may belong to another question
 			// entirely; naming its column is the difference between a message a person can act on
 			// and one that looks like a refusal of the question in front of them (the whole-branch
-			// review). `WPCPM_Track_Definition::validate()` calls the key `where` and
-			// `WPCPM_Track_Publish::preflight()` reads `column`, so both are taken here.
+			// review). `where` is the key `WPCPM_Track_Definition::validate()` writes, and the only
+			// one a refusal carries: this read `column` as well until the final review of T3b found
+			// that nothing writes it, the publish preflight reads `where` too, and the fallback was
+			// dead.
 			$message = (string) $errors[0]['message'];
-			$column  = isset( $errors[0]['column'] ) ? (string) $errors[0]['column'] : '';
-
-			if ( '' === $column && isset( $errors[0]['where'] ) ) {
-				$column = (string) $errors[0]['where'];
-			}
+			$column  = isset( $errors[0]['where'] ) ? (string) $errors[0]['where'] : '';
 
 			if ( '' !== $column ) {
 				$message = sprintf(
