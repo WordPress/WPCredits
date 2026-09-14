@@ -391,6 +391,11 @@ class WPCPM_Mentor_Calls {
 	 * Keyed by timestamp so the caller can test membership rather than search - slot
 	 * generation asks this several hundred times per calendar.
 	 *
+	 * Unbounded, as the edit path's own clash read is: this used to stop at 500, and a monthly
+	 * repeat rule makes that reachable, since a series of sixteen spans fifteen months of diary.
+	 * A read cut short would answer "nothing there" for a date the mentor is already busy on. The
+	 * query asks for IDs only, so reading the window out is cheap (the final review of 1.109.0).
+	 *
 	 * @param int $mentor_id Mentor user ID.
 	 * @param int $from      UTC timestamp, inclusive.
 	 * @param int $to        UTC timestamp, inclusive.
@@ -401,7 +406,7 @@ class WPCPM_Mentor_Calls {
 			array(
 				'post_type'        => self::POST_TYPE,
 				'post_status'      => 'private',
-				'numberposts'      => 500,
+				'numberposts'      => -1,
 				'fields'           => 'ids',
 				'suppress_filters' => false,
 				'meta_query'       => array(
@@ -1267,12 +1272,19 @@ class WPCPM_Mentor_Calls {
 			'series-twice'        => array( 'error', __( 'One of the dates is given twice: %s.', 'wpcredits-program-manager' ) ),
 			/* translators: %s: a date. */
 			'series-clash'        => array( 'error', __( 'Something else of yours already starts on %s at that time.', 'wpcredits-program-manager' ) ),
-			'series-many'         => array( 'error', __( 'A series holds nine sessions at most; plan the rest in a second go.', 'wpcredits-program-manager' ) ),
+			'series-many'         => array( 'error', __( 'A series holds sixteen sessions at most; plan the rest in a second go.', 'wpcredits-program-manager' ) ),
+			'series-count'        => array( 'error', __( 'Say how many sessions the repeat should make, from 2 to 16.', 'wpcredits-program-manager' ) ),
 			/* translators: %d: how many sessions the student is on. */
 			'series-joined'       => array( 'success', __( 'You are on all %d sessions. They are in your list above, and one email holds the ones you joined just now for your calendar.', 'wpcredits-program-manager' ) ),
 			/* translators: 1: sessions the student is on, 2: sessions in the series, 3: sessions that were full. */
 			'series-joined-some'  => array( 'success', __( 'You are on %1$d of the %2$d sessions; %3$d had no place left.', 'wpcredits-program-manager' ) ),
 			'series-nothing'      => array( 'error', __( 'There was nothing to join: you are on every session of the series that has a place.', 'wpcredits-program-manager' ) ),
+
+			// An hour the clocks jump over, alone and in a series. Kept beside the series flags
+			// because they are the pair a repeat rule can walk into (the final review of 1.109.0).
+			'session-gap'         => array( 'error', __( 'That start time does not exist on that date: the clocks jump over it.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: a date. */
+			'series-when'         => array( 'error', __( 'One of the dates has no such time on it, since the clocks jump over it: %s.', 'wpcredits-program-manager' ) ),
 		);
 
 		if ( ! isset( $messages[ $status ] ) ) {

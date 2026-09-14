@@ -557,14 +557,59 @@ ck( 'a date that is not a date, a date that has passed and a date given twice ea
         array( 'starts' => array(), 'refused' => 'twice', 'date' => '2026-10-06' ),
     ) );
 
-$ten = array();
-for ( $i = 1; $i <= 10; ++$i ) {
-	$ten[] = sprintf( '2026-11-%02d', $i );
+$seventeen = array();
+for ( $i = 1; $i <= 17; ++$i ) {
+	$seventeen[] = sprintf( '2026-11-%02d', $i );
 }
 
-ck( 'ten dates are refused before any is read: a series holds nine',
-    WPCPM_Group_Sessions::plan_dates( $ten, '18:00', $riga, $now ),
-    array( 'starts' => array(), 'refused' => 'many', 'date' => '' ) );
+ck( 'seventeen dates are refused before any is read, and sixteen are planned: a series holds sixteen (the design\'s decision 8)',
+    array(
+        WPCPM_Group_Sessions::plan_dates( $seventeen, '18:00', $riga, $now ),
+        count( WPCPM_Group_Sessions::plan_dates( array_slice( $seventeen, 0, 16 ), '18:00', $riga, $now )['starts'] ),
+        false !== strpos( WPCPM_Mentor_Calls::message( 'series-many' )[1], 'sixteen' ),
+    ),
+    array( array( 'starts' => array(), 'refused' => 'many', 'date' => '' ), 16, true ) );
+
+echo "\n=== A repeat rule fills the dates after the first (1.109.0) ===\n";
+
+ck( 'every week, every two weeks and every four weeks step by days from the first date, which is not repeated',
+    array(
+        WPCPM_Group_Sessions::repeat_dates( '2026-10-06', 'week', 4, $riga ),
+        WPCPM_Group_Sessions::repeat_dates( '2026-10-06', '2weeks', 3, $riga ),
+        WPCPM_Group_Sessions::repeat_dates( '2026-10-06', '4weeks', 2, $riga ),
+    ),
+    array(
+        array( '2026-10-13', '2026-10-20', '2026-10-27' ),
+        array( '2026-10-20', '2026-11-03' ),
+        array( '2026-11-03' ),
+    ) );
+
+ck( 'every month keeps the weekday and its place in the month across a year end: the second Tuesday stays the second Tuesday',
+    WPCPM_Group_Sessions::repeat_dates( '2026-10-13', 'month', 5, $riga ),
+    array( '2026-11-10', '2026-12-08', '2027-01-12', '2027-02-09' ) );
+
+ck( 'a first date in a fifth week takes the last such weekday of a month that has no fifth',
+    WPCPM_Group_Sessions::repeat_dates( '2026-10-30', 'month', 4, $riga ),
+    array( '2026-11-27', '2026-12-25', '2027-01-29' ) );
+
+$sixteen_weeks = WPCPM_Group_Sessions::repeat_dates( '2026-10-06', 'week', 16, $riga );
+
+ck( 'sixteen in all is fifteen more, two is one more; an unknown rule, a count of one and a first date that is not a date make nothing',
+    array(
+        count( $sixteen_weeks ),
+        end( $sixteen_weeks ),
+        WPCPM_Group_Sessions::repeat_dates( '2026-10-06', 'week', 2, $riga ),
+        WPCPM_Group_Sessions::repeat_dates( '2026-10-06', 'daily', 3, $riga ),
+        WPCPM_Group_Sessions::repeat_dates( '2026-10-06', 'week', 1, $riga ),
+        WPCPM_Group_Sessions::repeat_dates( 'not-a-date', 'week', 3, $riga ),
+    ),
+    array( 15, '2027-01-19', array( '2026-10-13' ), array(), array(), array() ) );
+
+$weekly = WPCPM_Group_Sessions::plan_dates( array_merge( array( '2026-10-06' ), $sixteen_weeks ), '18:00', $riga, $now );
+
+ck( 'the dates a rule makes go through plan_dates() like any list: sixteen starts, none refused',
+    array( $weekly['refused'], count( $weekly['starts'] ) ),
+    array( '', 16 ) );
 
 ck( 'the first start the mentor already holds is the clash, and none is no clash',
     array(

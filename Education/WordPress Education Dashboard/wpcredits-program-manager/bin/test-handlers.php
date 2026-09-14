@@ -366,6 +366,25 @@ function flashed( $user_id, $channel ) {
 	return $value;
 }
 
+/**
+ * The post IDs the store gained since a count of it, in the order they were created.
+ *
+ * Gathered by creation rather than by topic: the store keys its posts by ID and appends them, so
+ * a slice from an earlier count is exactly what the press just made, and a later check reusing
+ * the same topic cannot quietly join it (the final review of 1.109.0).
+ *
+ * @param int $before How many posts the store held before the press.
+ * @return int[] The IDs, oldest first.
+ */
+function created_since( $before ) {
+	return array_map(
+		function ( $post ) {
+			return $post->ID;
+		},
+		array_slice( $GLOBALS['posts'], (int) $before )
+	);
+}
+
 echo "=== WPCPM_Mentor_Calls ===\n";
 
 // The exact flow from the reported error: an administrator booking on a student's page.
@@ -775,6 +794,141 @@ check( 'a session that has started offers neither Join nor Leave and says so, it
         substr_count( $started_list, '>in 2 hours<' ),
     ),
     array( 1, 0, 2, 2, 1 ) );
+
+// 1.109.0: a repeat rule fills the dates after the first (the design's section 12).
+$GLOBALS['uid']          = 20;
+$GLOBALS['query_result'] = array();
+$posts_before            = count( $GLOBALS['posts'] );
+$_POST                   = array( 'mentor' => 20, 'date' => '2027-06-01', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'topic' => 'Office hours', 'repeat' => 'week', 'repeat_count' => '8' );
+run( 'handle_create (every week, eight sessions)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$weekly_ids = created_since( $posts_before );
+// The dates are read on the mentor's own calendar, which is what a planned session means and what
+// the rule stepped through, rather than on UTC (the final review of 1.109.0).
+$mentor_zone = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( 20 )['timezone'] );
+check( 'a rule of eight weeks plans eight sessions in one series, a week apart on the mentor\'s calendar, the notice counting them',
+    array(
+        flashed( 20, 'call' ),
+        count( $GLOBALS['posts'] ) - $posts_before,
+        count( array_unique( array_map( 'WPCPM_Group_Sessions::series_of', $weekly_ids ) ) ),
+        array_map( function ( $id ) use ( $mentor_zone ) { return wp_date( 'Y-m-d', (int) get_post_meta( $id, WPCPM_Mentor_Calls::META_START, true ), $mentor_zone ); }, $weekly_ids ),
+    ),
+    array( array( 'series-planned', 8 ), 8, 1, array( '2027-06-01', '2027-06-08', '2027-06-15', '2027-06-22', '2027-06-29', '2027-07-06', '2027-07-13', '2027-07-20' ) ) );
+
+$posts_before = count( $GLOBALS['posts'] );
+$_POST        = array( 'mentor' => 20, 'date' => '2027-08-03', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'repeat' => '', 'repeat_count' => '5' );
+run( 'handle_create (does not repeat, a stray count)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$stray = array( flashed( 20, 'call' ), count( $GLOBALS['posts'] ) - $posts_before );
+
+$posts_before = count( $GLOBALS['posts'] );
+$outcomes     = array();
+foreach ( array( 'missing' => null, 'low' => '1', 'high' => '17', 'text' => 'ten' ) as $label => $bad ) {
+	$_POST = array( 'mentor' => 20, 'date' => '2027-09-07', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'repeat' => '2weeks' );
+	if ( null !== $bad ) {
+		$_POST['repeat_count'] = $bad;
+	}
+	run( 'handle_create (a rule with a ' . $label . ' count)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+	$outcomes[ $label ] = flashed( 20, 'call' );
+}
+$_POST = array( 'mentor' => 20, 'date' => '2027-09-07', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'repeat' => 'week', 'repeat_count' => '16', 'more_dates' => array( '2028-01-04' ) );
+run( 'handle_create (sixteen by rule and one box)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$outcomes['many'] = flashed( 20, 'call' );
+$_POST            = array( 'mentor' => 20, 'date' => '2027-09-07', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'repeat' => 'daily', 'repeat_count' => '3' );
+run( 'handle_create (a rule the form does not offer)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$outcomes['unknown'] = flashed( 20, 'call' );
+
+check( '"Does not repeat" ignores a stray count and plans one; a rule with a missing, low, high or non-numeric count, sixteen by rule plus a box, and a rule the form does not offer each refuse the form and create nothing',
+    array( $stray, $outcomes, count( $GLOBALS['posts'] ) - $posts_before ),
+    array(
+        array( 'session-created', 1 ),
+        array( 'missing' => 'series-count', 'low' => 'series-count', 'high' => 'series-count', 'text' => 'series-count', 'many' => 'series-many', 'unknown' => 'error' ),
+        0,
+    ) );
+
+// The cap admits what it names: seventeen is refused above, and a rule that reaches sixteen on its
+// own still plans every one of them (the final review of 1.109.0).
+$posts_before = count( $GLOBALS['posts'] );
+$_POST        = array( 'mentor' => 20, 'date' => '2028-03-07', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'repeat' => 'week', 'repeat_count' => '16' );
+run( 'handle_create (every week, sixteen sessions)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$sixteen = created_since( $posts_before );
+check( 'a rule of sixteen with no boxes plans sixteen sessions in one series, the last of them fifteen weeks on',
+    array(
+        flashed( 20, 'call' ),
+        count( $sixteen ),
+        array_unique( array_map( 'WPCPM_Group_Sessions::series_of', $sixteen ) ),
+        wp_date( 'Y-m-d', (int) get_post_meta( $sixteen[15], WPCPM_Mentor_Calls::META_START, true ), $mentor_zone ),
+    ),
+    array( array( 'series-planned', 16 ), 16, array( $sixteen[0] ), '2028-06-20' ) );
+
+// A rule and a box in one press: the box's date joins the rule's dates, and a box that repeats one
+// of them is the same "given twice" refusal a list of boxes gets (the final review of 1.109.0).
+$posts_before = count( $GLOBALS['posts'] );
+$_POST        = array( 'mentor' => 20, 'date' => '2028-09-05', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'repeat' => 'week', 'repeat_count' => '3', 'more_dates' => array( '2028-09-27' ) );
+run( 'handle_create (a rule of three and one odd box)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$mixed      = created_since( $posts_before );
+$mixed_flag = flashed( 20, 'call' );
+
+$posts_before = count( $GLOBALS['posts'] );
+$_POST        = array( 'mentor' => 20, 'date' => '2028-10-03', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'repeat' => 'week', 'repeat_count' => '3', 'more_dates' => array( '2028-10-10' ) );
+run( 'handle_create (a box repeating one of the rule\'s dates)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+check( 'a rule of three and an odd box plan one series of four, and a box repeating a rule\'s date is refused as a date given twice with nothing created',
+    array(
+        $mixed_flag,
+        count( $mixed ),
+        array_unique( array_map( 'WPCPM_Group_Sessions::series_of', $mixed ) ),
+        array_map( function ( $id ) use ( $mentor_zone ) { return wp_date( 'Y-m-d', (int) get_post_meta( $id, WPCPM_Mentor_Calls::META_START, true ), $mentor_zone ); }, $mixed ),
+        flashed( 20, 'call' ),
+        count( $GLOBALS['posts'] ) - $posts_before,
+    ),
+    array(
+        array( 'series-planned', 4 ),
+        4,
+        array( $mixed[0] ),
+        array( '2028-09-05', '2028-09-12', '2028-09-19', '2028-09-27' ),
+        array( 'series-twice', '2028-10-10' ),
+        0,
+    ) );
+
+// A start time the clocks jump over is the only `when` `plan_dates()` can still answer by the time
+// the handler calls it, since every date has passed `date_string()` first: it has to say so, and
+// name the date when the press carried a list (the final review of 1.109.0). The fixture mentor
+// keeps UTC, which has no such hour, so the zone is borrowed for these two presses and given back.
+$mentor_settings          = $GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ];
+$gap_settings             = $mentor_settings;
+$gap_settings['timezone'] = 'Europe/Riga';
+
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = $gap_settings;
+
+$posts_before = count( $GLOBALS['posts'] );
+$_POST        = array( 'mentor' => 20, 'date' => '2027-03-28', 'time' => '03:30', 'minutes' => 60, 'capacity' => 6 );
+run( 'handle_create (one date, at an hour the clocks jump over)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$gap_alone = flashed( 20, 'call' );
+
+// Four weeks from a week before: the second date is the day summer time begins in that zone.
+$_POST = array( 'mentor' => 20, 'date' => '2027-03-21', 'time' => '03:30', 'minutes' => 60, 'capacity' => 6, 'repeat' => 'week', 'repeat_count' => '4' );
+run( 'handle_create (a rule whose second date has no such hour)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$gap_series = flashed( 20, 'call' );
+
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = $mentor_settings;
+
+check( 'an hour the clocks jump over is refused for what it is, named by date in a series, with nothing created and the mentor\'s zone as it was',
+    array( $gap_alone, $gap_series, count( $GLOBALS['posts'] ) - $posts_before, WPCPM_Mentor_Availability::get( 20 )['timezone'] ),
+    array( 'session-gap', array( 'series-when', '2027-03-28' ), 0, 'UTC' ) );
+
+ob_start();
+WPCPM_Group_Sessions::render_mentor_planner( $GLOBALS['users'][20] );
+$planner = ob_get_clean();
+check( 'the form offers the five repeat rules and a count box from 2 to 16, described by its hint',
+    array(
+        substr_count( $planner, '<select id="wpcpm-session-repeat" name="repeat">' ),
+        false !== strpos( $planner, '<option value="">Does not repeat</option>' ),
+        false !== strpos( $planner, '<option value="week">Every week</option>' ),
+        false !== strpos( $planner, '<option value="2weeks">Every two weeks</option>' ),
+        false !== strpos( $planner, '<option value="4weeks">Every four weeks</option>' ),
+        false !== strpos( $planner, '<option value="month">Every month</option>' ),
+        substr_count( $planner, 'name="repeat_count" min="2" max="16" step="1" aria-describedby="wpcpm-sessions-repeat-hint"' ),
+        substr_count( $planner, 'id="wpcpm-sessions-repeat-hint"' ),
+    ),
+    array( 1, true, true, true, true, true, 1, 1 ) );
 
 $GLOBALS['query_result'] = array();
 

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.108.1
+Stable tag: 1.109.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.109.0 =
+
+* A repeat rule on the planning form: every week, every two weeks, every four weeks or every month, with how many sessions in all, fills the dates of a series after the first one, up to sixteen in one go. Every month keeps the weekday and its place in the month, so a second Tuesday stays a second Tuesday. The dates go through the same rules as a list typed in by hand, all or nothing, and the boxes for odd dates stay.
 
 = 1.108.1 =
 

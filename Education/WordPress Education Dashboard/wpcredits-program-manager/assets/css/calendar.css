@@ -824,6 +824,30 @@
 	grid-column: 1 / -1;
 }
 
+/* The repeat rule (1.109.0): the two controls beside their labels on one line, the hint under
+   them; the row spans the form like the boxes it fills. The field's own label and input rules
+   would stack the labels and stretch the count box, so both are narrowed here. */
+.wpcpm-field.wpcpm-sessions__repeat {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35em 0.6em;
+	grid-column: 1 / -1;
+}
+
+.wpcpm-field.wpcpm-sessions__repeat label {
+	display: inline;
+	margin: 0;
+}
+
+.wpcpm-field.wpcpm-sessions__repeat input {
+	width: 5em;
+}
+
+.wpcpm-field.wpcpm-sessions__repeat .wpcpm-field__hint {
+	flex-basis: 100%;
+}
+
 .wpcpm-field label {
 	display: block;
 	font-size: 0.9em;

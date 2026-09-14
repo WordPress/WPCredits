@@ -132,8 +132,12 @@ walkthrough, a question hour, a session for everybody starting the same week.
 - **Places** - how many students may join, between 2 and 50.
 - **What it is about**. Your students read this beside the session, so it is how they decide
   whether it is for them.
-- **More dates**, for a series: up to eight further dates with the same time, length, places and
-  topic. Leave the ones you do not need empty.
+- **Repeat**, for a regular series: every week, every two weeks, every four weeks or every month,
+  and how many sessions in all, counting the first date, up to sixteen. Every month keeps the
+  weekday and its place in the month, so a second Tuesday stays a second Tuesday. The rule fills
+  the dates after the first one.
+- **More dates**, for the odd dates of a series: up to eight further dates with the same time,
+  length, places and topic. Leave the ones you do not need empty.
 
 A session is not carved out of your weekly hours; you pick any time, including one you would never
 offer for private calls. It does **block that time from one-to-one booking**, so nobody books you
@@ -147,12 +151,15 @@ one-to-one calls, and a session's places are its own.
 Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes
 to all of them. If you cancel the session, every student on it is told.
 
-A series is planned all or nothing: a date that has passed, a date given twice, or a date on which
-you already hold a session or a call at that time refuses the whole list and names the date, so
-nothing is created until the list is right. Your students see the series under one heading and can
-**Join all** in one press, which sends them one email with one calendar file that holds every date;
-each date keeps its own row, so a student can still join or leave a single one. Changing or
-canceling a session touches that session alone, and the rest of the series stands.
+A series is planned all or nothing: a date that has passed, a date given twice, a date on which you
+already hold a session or a call at that time, or a start time that does not exist on one of the
+dates because the clocks jump over that hour refuses the whole list and names the date, so nothing
+is created until the list is right. More than sixteen dates in all - a rule of sixteen with a box
+beside it - is refused before any of them is read, since sixteen is all a series holds. Your
+students see the series under one heading and can **Join all** in one press, which sends them one
+email with one calendar file that holds every date; each date keeps its own row, so a student can
+still join or leave a single one. Changing or canceling a session touches that session alone, and
+the rest of the series stands.
 
 ### One note for the whole group
 

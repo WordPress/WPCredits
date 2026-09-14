@@ -76,12 +76,16 @@ class WPCPM_Group_Sessions {
 	const MIN_CAPACITY = 2;
 
 	/**
-	 * Most sessions one form plans: the first date and eight more (the design's decision 1).
+	 * Most sessions one form plans (the design's decision 8): a semester of weekly sessions from
+	 * one repeat rule, the boxes counted with it.
 	 *
-	 * A ceiling like `MAX_CAPACITY`: the dates are boxes on a form, and a longer series is planned
-	 * in a second go rather than becoming a term of sessions nobody meant.
+	 * A ceiling like `MAX_CAPACITY`: a longer series is planned in a second go rather than
+	 * becoming a year of sessions nobody meant.
 	 */
-	const MAX_SERIES = 9;
+	const MAX_SERIES = 16;
+
+	/** The "More dates" boxes on the planning form, for odd dates (the design's decision 1). */
+	const MORE_BOXES = 8;
 
 	/** Longest a session may run, in minutes. */
 	const MAX_MINUTES = 480;
@@ -280,10 +284,41 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-capacity' );
 		}
 
-		// The rest of a series, when the form carries more dates (the design's decision 1): each
-		// read as the first is, an empty box passed over, a box holding no date refusing the form.
+		// Entered in the mentor's own clock - the one they mean when they say "Tuesday at two" -
+		// and stored as UTC, exactly as the weekly hours are.
+		$zone  = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( $mentor_id )['timezone'] );
 		$dates = array( $date );
 
+		// A repeat rule fills the dates after the first (the design's section 12): a rule needs a
+		// count from 2 to `MAX_SERIES`, "Does not repeat" ignores whatever the count box holds,
+		// and a rule the form does not offer can only be a tampered form.
+		$rule = isset( $_POST['repeat'] ) ? sanitize_key( wp_unslash( $_POST['repeat'] ) ) : '';
+
+		if ( '' !== $rule ) {
+			if ( ! isset( self::repeat_rules()[ $rule ] ) ) {
+				self::bounce( 'error' );
+			}
+
+			$count = isset( $_POST['repeat_count'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['repeat_count'] ) ) ) : '';
+
+			if ( ! ctype_digit( $count ) || (int) $count < 2 || (int) $count > self::MAX_SERIES ) {
+				self::bounce( 'series-count' );
+			}
+
+			$dates = array_merge( $dates, self::repeat_dates( $date, $rule, (int) $count, $zone ) );
+
+			// A rule the dates could not be made for is a defect, not a plan: the rule list lives
+			// both in `repeat_rules()` and in `repeat_dates()`, so one added to the first and not
+			// the second would plan a single session under a success notice, which is worse than a
+			// refusal (the final review of 1.109.0).
+			if ( count( $dates ) !== (int) $count ) {
+				self::bounce( 'error' );
+			}
+		}
+
+		// The rest of a series, when the form carries more dates (the design's decision 1): each
+		// read as the first is, an empty box passed over, a box holding no date refusing the form.
+		// After the rule's dates, so a box repeating one of them reads as a date given twice.
 		if ( isset( $_POST['more_dates'] ) && is_array( $_POST['more_dates'] ) ) {
 			foreach ( wp_unslash( $_POST['more_dates'] ) as $more ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each entry is sanitized and validated below.
 				$more = sanitize_text_field( (string) $more );
@@ -302,9 +337,6 @@ class WPCPM_Group_Sessions {
 			}
 		}
 
-		// Entered in the mentor's own clock - the one they mean when they say "Tuesday at two" -
-		// and stored as UTC, exactly as the weekly hours are.
-		$zone    = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( $mentor_id )['timezone'] );
 		$planned = self::plan_dates( $dates, $time, $zone, time() );
 
 		if ( '' !== $planned['refused'] ) {
@@ -312,9 +344,9 @@ class WPCPM_Group_Sessions {
 		}
 
 		// The same lock a booking takes, and for the same reason: the diary is read here and up to
-		// nine sessions are written from what it said, so a student booking a call on this mentor
+		// sixteen sessions are written from what it said, so a student booking a call on this mentor
 		// could win one of those starts in between and the sessions would go in over it. One date
-		// was a narrow window; nine is nine times the window (the final review of 1.108.0).
+		// was a narrow window; sixteen is sixteen times the window (the final review of 1.108.0).
 		if ( ! WPCPM_Mentor_Calls::lock_for( $mentor_id ) ) {
 			self::bounce( 'busy' );
 		}
@@ -437,6 +469,80 @@ class WPCPM_Group_Sessions {
 	}
 
 	/**
+	 * The repeat rules the planning form offers, the empty key for none (the design's section 12).
+	 *
+	 * @return array<string,string> Rule key to its label.
+	 */
+	public static function repeat_rules() {
+		return array(
+			''       => __( 'Does not repeat', 'wpcredits-program-manager' ),
+			'week'   => __( 'Every week', 'wpcredits-program-manager' ),
+			'2weeks' => __( 'Every two weeks', 'wpcredits-program-manager' ),
+			'4weeks' => __( 'Every four weeks', 'wpcredits-program-manager' ),
+			'month'  => __( 'Every month', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * The dates a repeat rule makes after the first (the design's section 12, decisions 7 and 9).
+	 *
+	 * Dates only, on the mentor's calendar: the time goes on each of them in `plan_dates()`, which
+	 * is what keeps a rule at its clock time across a change to or from summer time. `week`,
+	 * `2weeks` and `4weeks` step by days; `month` keeps the weekday and its place in the month, so
+	 * the second Tuesday stays the second Tuesday, and a first date in a fifth week takes the last
+	 * such weekday of a month that has no fifth (decision 9).
+	 *
+	 * @param string       $first The first date, `Y-m-d`.
+	 * @param string       $rule  `week`, `2weeks`, `4weeks` or `month`.
+	 * @param int          $count Sessions in all, the first counted.
+	 * @param DateTimeZone $zone  The mentor's calendar.
+	 * @return string[] The `Y-m-d` dates after the first, `$count - 1` of them; empty for an unknown
+	 *                  rule, a count below two or a first date that is not a date.
+	 */
+	public static function repeat_dates( $first, $rule, $count, DateTimeZone $zone ) {
+		$days  = array(
+			'week'   => 7,
+			'2weeks' => 14,
+			'4weeks' => 28,
+			'month'  => 0,
+		);
+		$count = (int) $count;
+		$start = DateTimeImmutable::createFromFormat( '!Y-m-d', (string) $first, $zone );
+
+		if ( ! isset( $days[ $rule ] ) || $count < 2 || false === $start || $start->format( 'Y-m-d' ) !== (string) $first ) {
+			return array();
+		}
+
+		$dates = array();
+
+		if ( $days[ $rule ] > 0 ) {
+			for ( $i = 1; $i < $count; ++$i ) {
+				$dates[] = $start->modify( '+' . ( $i * $days[ $rule ] ) . ' days' )->format( 'Y-m-d' );
+			}
+
+			return $dates;
+		}
+
+		// Days 1 to 7 are a month's first such weekday, 8 to 14 its second, and so on; the fifth
+		// exists in some months only, so it reads as the last, which is the fifth when there is one.
+		$ordinals = array(
+			1 => 'first',
+			2 => 'second',
+			3 => 'third',
+			4 => 'fourth',
+		);
+		$place    = (int) ceil( (int) $start->format( 'j' ) / 7 );
+		$which    = isset( $ordinals[ $place ] ) ? $ordinals[ $place ] : 'last';
+		$weekday  = strtolower( $start->format( 'l' ) );
+
+		for ( $i = 1; $i < $count; ++$i ) {
+			$dates[] = $start->modify( 'first day of +' . $i . ' month' )->modify( $which . ' ' . $weekday . ' of this month' )->format( 'Y-m-d' );
+		}
+
+		return $dates;
+	}
+
+	/**
 	 * The first of the starts the mentor already holds, or 0.
 	 *
 	 * @param int[]           $starts Timestamps.
@@ -519,15 +625,21 @@ class WPCPM_Group_Sessions {
 
 	/**
 	 * Refuse a list of dates: with the words a lone session has always had for one date, and with
-	 * the date named for a series, where the mentor has to find which of nine it was.
+	 * the date named for a series, where the mentor has to find which of sixteen it was.
+	 *
+	 * `when` used to end here as "a session needs a date and a start time", which is not what had
+	 * happened: every date has passed `date_string()` before `plan_dates()` reads it, so the only
+	 * `when` left by then is a start time the clocks jump over on one of the dates. It gets words of
+	 * its own, and the date named with them for a series (the final review of 1.109.0).
 	 *
 	 * @param string $why   `when`, `past`, `twice`, `clash` or `many`.
 	 * @param string $date  The date refused, `Y-m-d`, or ''.
 	 * @param int    $count How many dates the form carried.
 	 */
 	private static function refuse_dates( $why, $date, $count ) {
-		if ( 'when' === $why || $count < 2 ) {
+		if ( $count < 2 ) {
 			$alone = array(
+				'when'  => 'session-gap',
 				'past'  => 'session-past',
 				'clash' => 'session-clash',
 			);
@@ -1037,16 +1149,39 @@ class WPCPM_Group_Sessions {
 			esc_html__( 'Date', 'wpcredits-program-manager' )
 		);
 
+		// A repeat rule (the design's section 12): the rule makes the dates after the first, the
+		// boxes below stay for odd ones. The count box says what its bounds are, and the hint says
+		// that the first date counts.
+		echo '<p class="wpcpm-field wpcpm-sessions__repeat">';
+		printf( '<label for="wpcpm-session-repeat">%s</label>', esc_html__( 'Repeat', 'wpcredits-program-manager' ) );
+		echo '<select id="wpcpm-session-repeat" name="repeat">';
+
+		foreach ( self::repeat_rules() as $rule => $label ) {
+			printf( '<option value="%1$s">%2$s</option>', esc_attr( $rule ), esc_html( $label ) );
+		}
+
+		echo '</select>';
+		printf( '<label for="wpcpm-session-repeat-count">%s</label>', esc_html__( 'Sessions', 'wpcredits-program-manager' ) );
+		printf(
+			'<input type="number" id="wpcpm-session-repeat-count" name="repeat_count" min="2" max="%d" step="1" aria-describedby="wpcpm-sessions-repeat-hint" />',
+			(int) self::MAX_SERIES
+		);
+		printf(
+			'<span class="wpcpm-field__hint" id="wpcpm-sessions-repeat-hint">%s</span>',
+			esc_html__( 'Counting the first date. Up to sixteen.', 'wpcredits-program-manager' )
+		);
+		echo '</p>';
+
 		// More dates, for a series (the design's decision 1): the same time, length, places and
-		// topic for every one, an empty box passed over. Eight, so the first date and these make
-		// the nine a series holds at most.
+		// topic for every one, an empty box passed over. Eight boxes; a longer series comes from
+		// the repeat rule (the design's section 12), and the whole list stops at `MAX_SERIES`.
 		echo '<fieldset class="wpcpm-field wpcpm-sessions__more">';
 		printf( '<legend>%s</legend>', esc_html__( 'More dates', 'wpcredits-program-manager' ) );
 
 		// Each box says which date it is and nothing else, so the sentence below is named as their
 		// description: a screen reader that reads "Date 5" alone would never reach the one place
 		// that says an empty box is fine (the final review of 1.108.0).
-		for ( $more = 2; $more <= self::MAX_SERIES; ++$more ) {
+		for ( $more = 2; $more <= self::MORE_BOXES + 1; ++$more ) {
 			printf(
 				'<input type="date" name="more_dates[]" aria-label="%s" aria-describedby="wpcpm-sessions-more-hint" />',
 				/* translators: %d: the date's place in the series, from 2. */
