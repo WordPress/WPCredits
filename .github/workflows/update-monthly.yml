@@ -46,14 +46,24 @@ jobs:
           AIRTABLE_PAT: ${{ secrets.AIRTABLE_PAT }}
         run: python scripts/build_monthly.py
 
-      # 2x width so the card stays sharp on high-density screens; height follows
-      # the SVG's aspect ratio. Fail loudly rather than quietly committing a
-      # stale PNG next to a fresh SVG.
+      # -z 2 (zoom) rather than -w 2000: a zoom factor scales both axes together,
+      # so the card can never come out stretched, and it needs no dimension maths
+      # that would silently drift if the SVG canvas is ever resized. 2x keeps it
+      # sharp on high-density screens.
+      #
+      # Fail loudly rather than quietly committing a stale PNG beside a fresh
+      # SVG. `test -s` alone would pass on a file that rendered blank, so the
+      # size is checked against a floor too: the real card is tens of KB, and
+      # anything tiny means it drew nothing.
       - name: Render card to PNG
         run: |
-          rsvg-convert -w 2000 monthly-card.svg -o monthly-card.png
+          rsvg-convert -z 2 monthly-card.svg -o monthly-card.png
           test -s monthly-card.png || { echo "::error::monthly-card.png was not produced"; exit 1; }
-          echo "PNG: $(du -h monthly-card.png | cut -f1)"
+          bytes=$(wc -c < monthly-card.png)
+          if [ "$bytes" -lt 10000 ]; then
+            echo "::error::monthly-card.png is only ${bytes} bytes — it probably rendered blank"; exit 1
+          fi
+          echo "PNG: ${bytes} bytes — $(file -b monthly-card.png)"
 
       - name: Commit and push
         run: |
