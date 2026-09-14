@@ -914,6 +914,8 @@ walkthrough, a question hour, a session for everybody starting the same week.
 - **Places** - how many students may join, between 2 and 50.
 - **What it is about**. Your students read this beside the session, so it is how they decide
   whether it is for them.
+- **More dates**, for a series: up to eight further dates with the same time, length, places and
+  topic. Leave the ones you do not need empty.
 
 A session is not carved out of your weekly hours; you pick any time, including one you would never
 offer for private calls. It does **block that time from one-to-one booking**, so nobody books you
@@ -926,6 +928,13 @@ one-to-one calls, and a session's places are its own.
 
 Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes
 to all of them. If you cancel the session, every student on it is told.
+
+A series is planned all or nothing: a date that has passed, a date given twice, or a date on which
+you already hold a session or a call at that time refuses the whole list and names the date, so
+nothing is created until the list is right. Your students see the series under one heading and can
+**Join all** in one press, which sends them one email with one calendar file that holds every date;
+each date keeps its own row, so a student can still join or leave a single one. Changing or
+canceling a session touches that session alone, and the rest of the series stands.
 
 ### One note for the whole group
 
@@ -1114,6 +1123,12 @@ somebody else.
 
 A session does not count towards the number of upcoming calls you may hold at once: join every
 session that has a place, and your one-to-one booking is unaffected.
+
+Your mentor may plan a **series**: several sessions on several dates, with the same topic, length
+and places. The list shows a series under one heading, each date as its own row. **Join all** puts
+you on every date that still has a place and sends you one email with one calendar file that plans
+them all; a date that is already full is skipped, and the message says so. You can still join or
+leave a single date from its row.
 
 ## Telling us how it is going
 

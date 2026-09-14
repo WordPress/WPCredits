@@ -41,6 +41,19 @@ class WPCPM_Group_Sessions {
 	const ACTION_NOTE   = 'wpcpm_session_note';
 	const ACTION_EDIT   = 'wpcpm_edit_session';
 
+	/** Join every session of a series that has a place (the design's decision 2, 1.108.0). */
+	const ACTION_JOIN_SERIES = 'wpcpm_join_series';
+
+	/**
+	 * The series a session was planned in: the post ID of the series' first session, on every one
+	 * of them, the first included.
+	 *
+	 * A series is a tag on ordinary sessions (the design's decision 4 of 14 September 2026): nothing
+	 * else about a session changes, so the diary, the reminders, the blocking and the calendar
+	 * files keep working per session, and a session planned alone carries no tag at all.
+	 */
+	const META_SERIES = '_wpcpm_session_series';
+
 	/**
 	 * How many times a session has been changed since it was announced.
 	 *
@@ -61,6 +74,14 @@ class WPCPM_Group_Sessions {
 
 	/** Fewest, because a session for one is a one-to-one call and there is already one of those. */
 	const MIN_CAPACITY = 2;
+
+	/**
+	 * Most sessions one form plans: the first date and eight more (the design's decision 1).
+	 *
+	 * A ceiling like `MAX_CAPACITY`: the dates are boxes on a form, and a longer series is planned
+	 * in a second go rather than becoming a term of sessions nobody meant.
+	 */
+	const MAX_SERIES = 9;
 
 	/** Longest a session may run, in minutes. */
 	const MAX_MINUTES = 480;
@@ -85,6 +106,7 @@ class WPCPM_Group_Sessions {
 		add_action( 'admin_post_' . self::ACTION_LEAVE, array( __CLASS__, 'handle_leave' ) );
 		add_action( 'admin_post_' . self::ACTION_NOTE, array( __CLASS__, 'handle_note' ) );
 		add_action( 'admin_post_' . self::ACTION_EDIT, array( __CLASS__, 'handle_edit' ) );
+		add_action( 'admin_post_' . self::ACTION_JOIN_SERIES, array( __CLASS__, 'handle_join_series' ) );
 	}
 
 	/*
@@ -141,6 +163,81 @@ class WPCPM_Group_Sessions {
 		return in_array( (int) $student_id, WPCPM_Mentor_Calls::attendees( $call_id ), true );
 	}
 
+	/**
+	 * The series a session belongs to, or 0 for one planned alone.
+	 *
+	 * @param int $call_id Session post ID.
+	 * @return int The series' first session's post ID.
+	 */
+	public static function series_of( $call_id ) {
+		return (int) get_post_meta( (int) $call_id, self::META_SERIES, true );
+	}
+
+	/**
+	 * The sessions of a series, soonest first.
+	 *
+	 * Read as calls carrying the series tag rather than from a list kept anywhere, so a canceled
+	 * session, which is no longer a call post, drops out by itself, and the first session being
+	 * canceled does not lose the rest their series.
+	 *
+	 * @param int  $series_id The series: its first session's post ID.
+	 * @param bool $upcoming  Only sessions still upcoming: the query keeps a session for an hour
+	 *                        after it starts.
+	 * @return WP_Post[]
+	 */
+	public static function series_members( $series_id, $upcoming = true ) {
+		$series_id = (int) $series_id;
+
+		if ( $series_id <= 0 ) {
+			return array();
+		}
+
+		$out = array();
+
+		foreach ( WPCPM_Mentor_Calls::having( self::META_SERIES, $series_id, $upcoming ) as $call ) {
+			if ( WPCPM_Mentor_Calls::capacity( $call->ID ) > 1 ) {
+				$out[] = $call;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Sessions in the order given, the members of one series together under its ID.
+	 *
+	 * The lists draw a series under one heading (the design's sections 5 and 7); a lone session is
+	 * a group of one with no series. A series sits where its first session in the list sits, which
+	 * in a date-ordered list is its next upcoming session.
+	 *
+	 * @param WP_Post[] $sessions Sessions, soonest first.
+	 * @return array[] Each `series` (an int, 0 for none) and `sessions` (WP_Post[]).
+	 */
+	public static function grouped( array $sessions ) {
+		$groups = array();
+		$where  = array();
+
+		foreach ( $sessions as $session ) {
+			$series = self::series_of( $session->ID );
+
+			if ( $series > 0 && isset( $where[ $series ] ) ) {
+				$groups[ $where[ $series ] ]['sessions'][] = $session;
+				continue;
+			}
+
+			$groups[] = array(
+				'series'   => $series,
+				'sessions' => array( $session ),
+			);
+
+			if ( $series > 0 ) {
+				$where[ $series ] = count( $groups ) - 1;
+			}
+		}
+
+		return $groups;
+	}
+
 	/*
 	 * Creating
 	 * --------------------------------------------------------------------
@@ -183,56 +280,262 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-capacity' );
 		}
 
-		// Entered in the mentor's own clock - the one they mean when they say "Tuesday at two" -
-		// and stored as UTC, exactly as the weekly hours are.
-		$zone  = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( $mentor_id )['timezone'] );
-		$start = DateTimeImmutable::createFromFormat( 'Y-m-d H:i', $date . ' ' . $time, $zone );
+		// The rest of a series, when the form carries more dates (the design's decision 1): each
+		// read as the first is, an empty box passed over, a box holding no date refusing the form.
+		$dates = array( $date );
 
-		if ( false === $start ) {
-			self::bounce( 'session-when' );
+		if ( isset( $_POST['more_dates'] ) && is_array( $_POST['more_dates'] ) ) {
+			foreach ( wp_unslash( $_POST['more_dates'] ) as $more ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each entry is sanitized and validated below.
+				$more = sanitize_text_field( (string) $more );
+
+				if ( '' === trim( $more ) ) {
+					continue;
+				}
+
+				$more = WPCPM_Mentor_Availability::date_string( $more );
+
+				if ( '' === $more ) {
+					self::bounce( 'session-when' );
+				}
+
+				$dates[] = $more;
+			}
 		}
 
-		$start_ts = $start->getTimestamp();
+		// Entered in the mentor's own clock - the one they mean when they say "Tuesday at two" -
+		// and stored as UTC, exactly as the weekly hours are.
+		$zone    = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( $mentor_id )['timezone'] );
+		$planned = self::plan_dates( $dates, $time, $zone, time() );
 
-		if ( $start_ts <= time() ) {
-			self::bounce( 'session-past' );
+		if ( '' !== $planned['refused'] ) {
+			self::refuse_dates( $planned['refused'], $planned['date'], count( $dates ) );
+		}
+
+		// The same lock a booking takes, and for the same reason: the diary is read here and up to
+		// nine sessions are written from what it said, so a student booking a call on this mentor
+		// could win one of those starts in between and the sessions would go in over it. One date
+		// was a narrow window; nine is nine times the window (the final review of 1.108.0).
+		if ( ! WPCPM_Mentor_Calls::lock_for( $mentor_id ) ) {
+			self::bounce( 'busy' );
 		}
 
 		// Nothing else of this mentor's may start at the same moment, in either direction: a
 		// session over a booked call would double-book the mentor, and two sessions at once is a
-		// mistake rather than a plan.
-		if ( ! empty( WPCPM_Mentor_Calls::taken_starts( $mentor_id, $start_ts, $start_ts ) ) ) {
-			self::bounce( 'session-clash' );
+		// mistake rather than a plan. One read of the diary covers the whole list.
+		$starts = $planned['starts'];
+		$clash  = self::first_clash( $starts, WPCPM_Mentor_Calls::taken_starts( $mentor_id, min( $starts ), max( $starts ) ) );
+
+		if ( $clash > 0 ) {
+			WPCPM_Mentor_Calls::unlock_for( $mentor_id );
+			self::refuse_dates( 'clash', wp_date( 'Y-m-d', $clash, $zone ), count( $dates ) );
 		}
 
-		// `private`, like every call: see `WPCPM_Mentor_Calls::register_post_type()`. A
-		// `publish` row here handed out the mentor's login through `?author=N`.
-		$post_id = wp_insert_post(
-			array(
-				'post_type'    => WPCPM_Mentor_Calls::POST_TYPE,
-				'post_status'  => 'private',
-				'post_author'  => get_current_user_id(),
-				'post_content' => $topic,
-				'post_title'   => sprintf(
-					/* translators: %s: session date and time. */
-					__( 'Group session - %s', 'wpcredits-program-manager' ),
-					wp_date( 'Y-m-d H:i', $start_ts )
-				),
-			),
-			true
-		);
+		$created = self::create_sessions( $mentor_id, $starts, $minutes, $capacity, $topic, $zone );
 
-		if ( is_wp_error( $post_id ) ) {
+		// Released before the outcome is decided: every path from here redirects and ends the
+		// request, and a lock left behind would close the mentor's calendar until it timed out.
+		WPCPM_Mentor_Calls::unlock_for( $mentor_id );
+
+		if ( array() === $created ) {
 			self::bounce( 'error' );
 		}
 
-		update_post_meta( $post_id, WPCPM_Mentor_Calls::META_START, $start_ts );
-		update_post_meta( $post_id, WPCPM_Mentor_Calls::META_END, $start_ts + ( $minutes * MINUTE_IN_SECONDS ) );
-		update_post_meta( $post_id, WPCPM_Mentor_Calls::META_MENTOR, (int) $mentor_id );
-		update_post_meta( $post_id, WPCPM_Mentor_Calls::META_CAPACITY, $capacity );
-		update_post_meta( $post_id, WPCPM_Mentor_Calls::META_ZONE, $zone->getName() );
+		if ( count( $created ) > 1 ) {
+			self::bounce( 'series-planned', array( count( $created ) ) );
+		}
 
 		self::bounce( 'session-created' );
+	}
+
+	/**
+	 * The starts of a list of dates at one time, or why the list is refused.
+	 *
+	 * All or nothing (the design's section 4): the first date that is not a date, has passed, is
+	 * given twice or has no such time on it refuses the whole list, named, so the mentor fixes the
+	 * list rather than ending up with half a series. More than `MAX_SERIES` dates are refused before
+	 * any is read. Every date takes the one time on the mentor's clock, so a series keeps its clock
+	 * time across a change to or from summer time rather than drifting by an hour.
+	 *
+	 * @param string[]     $dates The dates, `Y-m-d`, as `WPCPM_Mentor_Availability::date_string()` gives them.
+	 * @param string       $time  The start time, `H:i`.
+	 * @param DateTimeZone $zone  The mentor's clock.
+	 * @param int          $now   The moment a date has to be after.
+	 * @return array `starts` (timestamps, soonest first, empty when refused), `refused` (`when`,
+	 *               `past`, `twice`, `many`, or '') and `date` (the date refused, or '').
+	 */
+	public static function plan_dates( array $dates, $time, DateTimeZone $zone, $now ) {
+		if ( count( $dates ) > self::MAX_SERIES ) {
+			return array(
+				'starts'  => array(),
+				'refused' => 'many',
+				'date'    => '',
+			);
+		}
+
+		$starts = array();
+		$seen   = array();
+
+		// The requested time as `format( 'H:i' )` prints it, so a time that arrives as `9:30` is
+		// compared against `09:30` rather than refusing every date in the list.
+		$parts  = explode( ':', (string) $time );
+		$wanted = 2 === count( $parts ) ? sprintf( '%02d:%02d', (int) $parts[0], (int) $parts[1] ) : (string) $time;
+
+		foreach ( $dates as $date ) {
+			$date = (string) $date;
+
+			if ( isset( $seen[ $date ] ) ) {
+				return array(
+					'starts'  => array(),
+					'refused' => 'twice',
+					'date'    => $date,
+				);
+			}
+
+			$seen[ $date ] = true;
+			$start         = DateTimeImmutable::createFromFormat( 'Y-m-d H:i', $date . ' ' . $time, $zone );
+
+			if ( false === $start ) {
+				return array(
+					'starts'  => array(),
+					'refused' => 'when',
+					'date'    => $date,
+				);
+			}
+
+			// An hour the clocks jump over does not exist on that date in that zone, and
+			// `createFromFormat()` rolls it forward rather than saying so: 02:30 on the day summer
+			// time begins becomes 03:30, and the mentor would be told nothing (the final review of
+			// 1.108.0). Refused as a date whose time this cannot use, named like the others.
+			if ( $start->format( 'H:i' ) !== $wanted ) {
+				return array(
+					'starts'  => array(),
+					'refused' => 'when',
+					'date'    => $date,
+				);
+			}
+
+			$start_ts = $start->getTimestamp();
+
+			if ( $start_ts <= (int) $now ) {
+				return array(
+					'starts'  => array(),
+					'refused' => 'past',
+					'date'    => $date,
+				);
+			}
+
+			$starts[] = $start_ts;
+		}
+
+		sort( $starts );
+
+		return array(
+			'starts'  => $starts,
+			'refused' => '',
+			'date'    => '',
+		);
+	}
+
+	/**
+	 * The first of the starts the mentor already holds, or 0.
+	 *
+	 * @param int[]           $starts Timestamps.
+	 * @param array<int,bool> $taken  The starts already held, as `WPCPM_Mentor_Calls::taken_starts()` keys them.
+	 * @return int
+	 */
+	public static function first_clash( array $starts, array $taken ) {
+		foreach ( $starts as $start_ts ) {
+			if ( isset( $taken[ (int) $start_ts ] ) ) {
+				return (int) $start_ts;
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Create the sessions of a list of starts, and tag them as one series when there is more than one.
+	 *
+	 * Each is created exactly as a session planned alone is; the series tag is the first created
+	 * ID, written to every one of them, the first included (the design's section 3). An insert
+	 * that fails unmakes what was made before it, so all or nothing holds for the insert too.
+	 *
+	 * @param int          $mentor_id The mentor.
+	 * @param int[]        $starts    Timestamps, soonest first.
+	 * @param int          $minutes   The length of each.
+	 * @param int          $capacity  The places of each.
+	 * @param string       $topic     What it is about.
+	 * @param DateTimeZone $zone      The mentor's clock, kept on each session.
+	 * @return int[] The post IDs, in date order; empty when one could not be created.
+	 */
+	public static function create_sessions( $mentor_id, array $starts, $minutes, $capacity, $topic, DateTimeZone $zone ) {
+		$created = array();
+
+		foreach ( $starts as $start_ts ) {
+			$start_ts = (int) $start_ts;
+
+			// `private`, like every call: see `WPCPM_Mentor_Calls::register_post_type()`. A
+			// `publish` row here handed out the mentor's login through `?author=N`.
+			$post_id = wp_insert_post(
+				array(
+					'post_type'    => WPCPM_Mentor_Calls::POST_TYPE,
+					'post_status'  => 'private',
+					'post_author'  => get_current_user_id(),
+					'post_content' => $topic,
+					'post_title'   => sprintf(
+						/* translators: %s: session date and time. */
+						__( 'Group session - %s', 'wpcredits-program-manager' ),
+						wp_date( 'Y-m-d H:i', $start_ts )
+					),
+				),
+				true
+			);
+
+			if ( is_wp_error( $post_id ) ) {
+				foreach ( $created as $made ) {
+					wp_delete_post( $made, true );
+				}
+
+				return array();
+			}
+
+			update_post_meta( $post_id, WPCPM_Mentor_Calls::META_START, $start_ts );
+			update_post_meta( $post_id, WPCPM_Mentor_Calls::META_END, $start_ts + ( (int) $minutes * MINUTE_IN_SECONDS ) );
+			update_post_meta( $post_id, WPCPM_Mentor_Calls::META_MENTOR, (int) $mentor_id );
+			update_post_meta( $post_id, WPCPM_Mentor_Calls::META_CAPACITY, (int) $capacity );
+			update_post_meta( $post_id, WPCPM_Mentor_Calls::META_ZONE, $zone->getName() );
+
+			$created[] = (int) $post_id;
+		}
+
+		if ( count( $created ) > 1 ) {
+			foreach ( $created as $post_id ) {
+				update_post_meta( $post_id, self::META_SERIES, $created[0] );
+			}
+		}
+
+		return $created;
+	}
+
+	/**
+	 * Refuse a list of dates: with the words a lone session has always had for one date, and with
+	 * the date named for a series, where the mentor has to find which of nine it was.
+	 *
+	 * @param string $why   `when`, `past`, `twice`, `clash` or `many`.
+	 * @param string $date  The date refused, `Y-m-d`, or ''.
+	 * @param int    $count How many dates the form carried.
+	 */
+	private static function refuse_dates( $why, $date, $count ) {
+		if ( 'when' === $why || $count < 2 ) {
+			$alone = array(
+				'past'  => 'session-past',
+				'clash' => 'session-clash',
+			);
+
+			self::bounce( isset( $alone[ $why ] ) ? $alone[ $why ] : 'session-when' );
+		}
+
+		self::bounce( 'series-' . $why, '' === $date ? array() : array( $date ) );
 	}
 
 	/**
@@ -457,6 +760,124 @@ class WPCPM_Group_Sessions {
 	}
 
 	/**
+	 * The sessions of a series a student may still take: the ones they are not on that have a place.
+	 *
+	 * Read again under the booking lock before anything is taken, since a place can go between
+	 * the page and the press (the design's section 5).
+	 *
+	 * @param WP_Post[] $sessions   The series' upcoming sessions, soonest first.
+	 * @param int       $student_id The student.
+	 * @return array `take` (WP_Post[]), `full` (how many had no place, a session that has started
+	 *               among them) and `on` (how many they are on).
+	 */
+	public static function joinable( array $sessions, $student_id ) {
+		$take = array();
+		$full = 0;
+		$on   = 0;
+
+		foreach ( $sessions as $session ) {
+			if ( self::has_joined( $session->ID, $student_id ) ) {
+				++$on;
+				continue;
+			}
+
+			// A session under way is a place nobody can take, as the single Join's `session()` guard
+			// says (the final review of 1.108.0): the upcoming query keeps a session for an hour
+			// after it starts so a late student still finds the link, and Join all must not put
+			// anybody on it. The predicate is `session()`'s own, so the two rules cannot drift.
+			if ( (int) get_post_meta( $session->ID, WPCPM_Mentor_Calls::META_START, true ) <= time() ) {
+				++$full;
+				continue;
+			}
+
+			if ( ! WPCPM_Mentor_Calls::has_room( $session->ID ) ) {
+				++$full;
+				continue;
+			}
+
+			$take[] = $session;
+		}
+
+		return array(
+			'take' => $take,
+			'full' => $full,
+			'on'   => $on,
+		);
+	}
+
+	/**
+	 * Join every session of a series that has a place (the design's decision 2, 1.108.0).
+	 *
+	 * The guards a single join has, then the lock the one-to-one booking takes, and under it the
+	 * sessions are read again: a full one is skipped and counted, one the student is on is left
+	 * alone, the rest are taken. One message each to the student and the mentor holds every
+	 * session taken, in one calendar file.
+	 */
+	public static function handle_join_series() {
+		check_admin_referer( self::ACTION_JOIN_SERIES );
+
+		if ( ! is_user_logged_in() ) {
+			wp_die( esc_html__( 'Please log in to join a session.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		$student_id = self::acting_student();
+		$series_id  = isset( $_POST['series'] ) ? absint( wp_unslash( $_POST['series'] ) ) : 0;
+		$sessions   = self::series_members( $series_id );
+
+		if ( array() === $sessions ) {
+			self::bounce( 'session-gone' );
+		}
+
+		$mentor = get_user_by( 'id', (int) get_post_meta( $sessions[0]->ID, WPCPM_Mentor_Calls::META_MENTOR, true ) );
+		$theirs = WPCPM_Mentor_Calls::mentor_for_student( $student_id );
+
+		if ( ! $mentor instanceof WP_User || ! $theirs instanceof WP_User || (int) $theirs->ID !== (int) $mentor->ID ) {
+			self::bounce( 'session-not-yours' );
+		}
+
+		// The reasons a student cannot book at all, the per-student limit left out: a session's
+		// places are its own limit (1.107.1).
+		if ( '' !== WPCPM_Mentor_Calls::why_not_bookable( $student_id, $mentor, false ) ) {
+			self::bounce( 'blocked' );
+		}
+
+		if ( ! WPCPM_Mentor_Calls::lock_for( $mentor->ID ) ) {
+			self::bounce( 'busy' );
+		}
+
+		$plan = self::joinable( $sessions, $student_id );
+
+		if ( array() === $plan['take'] ) {
+			WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
+			self::bounce( 'series-nothing' );
+		}
+
+		$record = WPCPM_Mentor_Calls::student_record( $student_id );
+		$taken  = array();
+
+		// Counted from what `add_attendee()` says it did, not from what was planned (the final
+		// review of 1.108.0): it refuses a student already on the session, and a message naming a
+		// place that was not taken would send a calendar file that does not match the list.
+		foreach ( $plan['take'] as $session ) {
+			if ( WPCPM_Mentor_Calls::add_attendee( $session->ID, $student_id, $record ) ) {
+				$taken[] = (int) $session->ID;
+			}
+		}
+
+		WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
+
+		WPCPM_Mentor_Calls::notify_joined_series( $taken, $mentor, get_user_by( 'id', $student_id ) );
+
+		if ( $plan['full'] > 0 ) {
+			self::bounce( 'series-joined-some', array( count( $taken ) + $plan['on'], count( $sessions ), $plan['full'] ) );
+		}
+
+		// "All N" is how many the student is on, which is what this press took plus what they were
+		// already on, and not how many the series holds (the final review of 1.108.0).
+		self::bounce( 'series-joined', array( count( $taken ) + $plan['on'] ) );
+	}
+
+	/**
 	 * Leave a session.
 	 *
 	 * Leaving is not cancelling. The session goes on for everybody else, so only the person
@@ -546,8 +967,12 @@ class WPCPM_Group_Sessions {
 		} else {
 			echo '<ul class="wpcpm-sessions__list">';
 
-			foreach ( $sessions as $session ) {
-				self::render_session_row( $session, $zone, true );
+			foreach ( self::grouped( $sessions ) as $group ) {
+				if ( $group['series'] > 0 ) {
+					self::render_series( $group['sessions'], $zone, true );
+				} else {
+					self::render_session_row( $group['sessions'][0], $zone, true );
+				}
 			}
 
 			echo '</ul>';
@@ -612,6 +1037,29 @@ class WPCPM_Group_Sessions {
 			esc_html__( 'Date', 'wpcredits-program-manager' )
 		);
 
+		// More dates, for a series (the design's decision 1): the same time, length, places and
+		// topic for every one, an empty box passed over. Eight, so the first date and these make
+		// the nine a series holds at most.
+		echo '<fieldset class="wpcpm-field wpcpm-sessions__more">';
+		printf( '<legend>%s</legend>', esc_html__( 'More dates', 'wpcredits-program-manager' ) );
+
+		// Each box says which date it is and nothing else, so the sentence below is named as their
+		// description: a screen reader that reads "Date 5" alone would never reach the one place
+		// that says an empty box is fine (the final review of 1.108.0).
+		for ( $more = 2; $more <= self::MAX_SERIES; ++$more ) {
+			printf(
+				'<input type="date" name="more_dates[]" aria-label="%s" aria-describedby="wpcpm-sessions-more-hint" />',
+				/* translators: %d: the date's place in the series, from 2. */
+				esc_attr( sprintf( __( 'Date %d', 'wpcredits-program-manager' ), $more ) )
+			);
+		}
+
+		printf(
+			'<span class="wpcpm-field__hint" id="wpcpm-sessions-more-hint">%s</span>',
+			esc_html__( 'Leave the ones you do not need empty. The same time, length, places and topic apply to every date.', 'wpcredits-program-manager' )
+		);
+		echo '</fieldset>';
+
 		printf(
 			'<p class="wpcpm-field"><label for="wpcpm-session-time">%1$s</label>'
 				. '<input type="time" id="wpcpm-session-time" name="time" required />'
@@ -655,7 +1103,7 @@ class WPCPM_Group_Sessions {
 
 		printf(
 			'<p class="wpcpm-sessions__submit"><button type="submit" class="wpcpm-button">%s</button></p>',
-			esc_html__( 'Create the session', 'wpcredits-program-manager' )
+			esc_html__( 'Create the sessions', 'wpcredits-program-manager' )
 		);
 
 		echo '</form>';
@@ -686,12 +1134,106 @@ class WPCPM_Group_Sessions {
 
 		echo '<ul class="wpcpm-sessions__list">';
 
-		foreach ( $sessions as $session ) {
-			self::render_session_row( $session, $zone, false, $student, $viewer_is_student );
+		foreach ( self::grouped( $sessions ) as $group ) {
+			if ( $group['series'] > 0 ) {
+				self::render_series( $group['sessions'], $zone, false, $student, $viewer_is_student );
+			} else {
+				self::render_session_row( $group['sessions'][0], $zone, false, $student, $viewer_is_student );
+			}
 		}
 
 		echo '</ul>';
 		echo '</div>';
+	}
+
+	/**
+	 * A series' heading: how many sessions, and the first and last date on the viewer's clock.
+	 *
+	 * The topic is not in it: the list prints the topic once above the sessions, and a series
+	 * down to its last session still reads as a series, since its tag says what it is (the
+	 * design's section 3).
+	 *
+	 * @param WP_Post[]    $sessions The series' upcoming sessions, soonest first.
+	 * @param DateTimeZone $zone     The clock to show the dates in.
+	 * @return string
+	 */
+	public static function series_heading( array $sessions, DateTimeZone $zone ) {
+		$first  = reset( $sessions );
+		$last   = end( $sessions );
+		$format = get_option( 'date_format', 'F j, Y' );
+		$count  = count( $sessions );
+		/* translators: %d: how many sessions. */
+		$how_many = sprintf( _n( '%d session', '%d sessions', $count, 'wpcredits-program-manager' ), $count );
+		$from     = wp_date( $format, (int) get_post_meta( $first->ID, WPCPM_Mentor_Calls::META_START, true ), $zone );
+
+		if ( $count < 2 ) {
+			/* translators: 1: "1 session", 2: its date. */
+			return sprintf( __( '%1$s, on %2$s', 'wpcredits-program-manager' ), $how_many, $from );
+		}
+
+		return sprintf(
+			/* translators: 1: "3 sessions", 2: the first date, 3: the last date. */
+			__( '%1$s, %2$s to %3$s', 'wpcredits-program-manager' ),
+			$how_many,
+			$from,
+			wp_date( $format, (int) get_post_meta( $last->ID, WPCPM_Mentor_Calls::META_START, true ), $zone )
+		);
+	}
+
+	/**
+	 * A series in a list: its heading, then its sessions as rows (the design's sections 5 and 7).
+	 *
+	 * The rows are the same rows a lone session gets, with the topic left off each, since the
+	 * heading carries it once for all of them.
+	 *
+	 * @param WP_Post[]    $sessions          The series' upcoming sessions, soonest first.
+	 * @param DateTimeZone $zone              The clock to show them in.
+	 * @param bool         $for_mentor        Whether this is the mentor's own list.
+	 * @param WP_User|null $student           The student, on their list.
+	 * @param bool         $viewer_is_student Whether the viewer may join or leave.
+	 */
+	private static function render_series( array $sessions, DateTimeZone $zone, $for_mentor, $student = null, $viewer_is_student = false ) {
+		$first = reset( $sessions );
+		$topic = trim( (string) $first->post_content );
+
+		echo '<li class="wpcpm-sessions__series">';
+		echo '<p class="wpcpm-sessions__series-heading">';
+
+		if ( '' !== $topic ) {
+			printf( '<strong>%s</strong> ', esc_html( $topic ) );
+		}
+
+		printf( '<span class="wpcpm-sessions__series-span">%s</span>', esc_html( self::series_heading( $sessions, $zone ) ) );
+		echo '</p>';
+
+		// Join all, while there is a session of the series the student is not on that has a place
+		// (the design's section 5). Not drawn for the mentor, nor for somebody looking over a
+		// student's shoulder.
+		if ( ! $for_mentor && $viewer_is_student && $student instanceof WP_User && array() !== self::joinable( $sessions, $student->ID )['take'] ) {
+			printf(
+				'<form class="wpcpm-sessions__join wpcpm-sessions__join--series" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+				esc_url( admin_url( 'admin-post.php' ) ),
+				esc_attr__( 'Joining…', 'wpcredits-program-manager' )
+			);
+			wp_nonce_field( self::ACTION_JOIN_SERIES );
+			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_JOIN_SERIES ) );
+			printf( '<input type="hidden" name="series" value="%d" />', (int) self::series_of( $first->ID ) );
+			printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
+			printf(
+				'<button type="submit" class="wpcpm-button">%s</button>',
+				esc_html__( 'Join all', 'wpcredits-program-manager' )
+			);
+			echo '</form>';
+		}
+
+		echo '<ul class="wpcpm-sessions__list wpcpm-sessions__list--series">';
+
+		foreach ( $sessions as $session ) {
+			self::render_session_row( $session, $zone, $for_mentor, $student, $viewer_is_student, $topic );
+		}
+
+		echo '</ul>';
+		echo '</li>';
 	}
 
 	/**
@@ -702,8 +1244,11 @@ class WPCPM_Group_Sessions {
 	 * @param bool         $for_mentor        Whether this is the mentor's own list.
 	 * @param WP_User|null $student           The student, on their list.
 	 * @param bool         $viewer_is_student Whether the viewer may join or leave.
+	 * @param string|null  $series_topic      The heading's topic when the row sits under a series
+	 *                                        heading, which carries the topic for all of them; null
+	 *                                        for a row of its own.
 	 */
-	private static function render_session_row( WP_Post $session, DateTimeZone $zone, $for_mentor, $student = null, $viewer_is_student = false ) {
+	private static function render_session_row( WP_Post $session, DateTimeZone $zone, $for_mentor, $student = null, $viewer_is_student = false, $series_topic = null ) {
 		$facts  = WPCPM_Mentor_Calls::details( $session );
 		$joined = ( $student instanceof WP_User ) && self::has_joined( $session->ID, $student->ID );
 
@@ -735,7 +1280,14 @@ class WPCPM_Group_Sessions {
 			)
 		);
 
-		if ( '' !== trim( (string) $facts['topic'] ) ) {
+		// Under a series heading the topic is printed once, above the rows. A row repeats it only
+		// when this one session's topic has been changed and no longer says what the heading says,
+		// which is the one case where leaving it off hides an edit the mentor made (the final
+		// review of 1.108.0).
+		$topic   = trim( (string) $facts['topic'] );
+		$heading = null === $series_topic ? null : trim( (string) $series_topic );
+
+		if ( '' !== $topic && $topic !== $heading ) {
 			printf( '<p class="wpcpm-call__topic">%s</p>', esc_html( $facts['topic'] ) );
 		}
 
@@ -1103,8 +1655,9 @@ class WPCPM_Group_Sessions {
 	 * so this needs no mentor argument, and an earlier draft's was doing nothing.
 	 *
 	 * @param string $status Message key.
+	 * @param array  $args   The arguments its sentence takes, if any (1.108.0).
 	 */
-	private static function bounce( $status ) {
-		WPCPM_Mentor_Calls::bounce_to( $status );
+	private static function bounce( $status, array $args = array() ) {
+		WPCPM_Mentor_Calls::bounce_to( $status, $args );
 	}
 }

@@ -740,6 +740,33 @@
 	margin-top: 0.6em;
 }
 
+/* A series (1.108.0): one heading carrying the topic and the span, its sessions as the same rows
+   a lone session gets, a step in; a series and a lone session keep the list's rhythm. */
+.wpcpm-sessions__series {
+	margin-bottom: 0.75em;
+}
+
+.wpcpm-sessions__series:last-child {
+	margin-bottom: 0;
+}
+
+.wpcpm-sessions__series-heading {
+	margin: 0 0 0.5em;
+}
+
+.wpcpm-sessions__series-span {
+	font-size: 0.9em;
+	opacity: 0.72;
+}
+
+.wpcpm-sessions__list--series {
+	margin-left: 1em;
+}
+
+.wpcpm-sessions__join--series {
+	margin: 0 0 0.75em;
+}
+
 /* The create form and the note form are both disclosures, so a mentor's diary is not
    two forms deep before they have decided to write anything. */
 .wpcpm-sessions__new,
@@ -768,6 +795,32 @@
 /* The topic and the button want the whole width; the four short fields share a row. */
 .wpcpm-sessions__form .wpcpm-field:nth-last-child( 2 ),
 .wpcpm-sessions__submit {
+	grid-column: 1 / -1;
+}
+
+/* The more dates of a series (1.108.0): eight date boxes across the form's whole width, wrapping
+   on a narrow screen, under one legend, the hint under them all.
+
+   `min-width: 0` because a fieldset carries a minimum content size of its own in older Safari,
+   which keeps it from shrinking to its grid column and pushes the form wider than the panel
+   (the final review of 1.108.0). */
+.wpcpm-sessions__more {
+	border: 0;
+	display: grid;
+	gap: 0.5em;
+	grid-column: 1 / -1;
+	grid-template-columns: repeat( auto-fit, minmax( 9em, 1fr ) );
+	min-width: 0;
+	padding: 0;
+}
+
+.wpcpm-sessions__more legend {
+	font-size: 0.9em;
+	font-weight: 600;
+	margin-bottom: 0.2em;
+}
+
+.wpcpm-sessions__more .wpcpm-field__hint {
 	grid-column: 1 / -1;
 }
 

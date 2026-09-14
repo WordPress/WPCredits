@@ -158,6 +158,12 @@ somebody else.
 A session does not count towards the number of upcoming calls you may hold at once: join every
 session that has a place, and your one-to-one booking is unaffected.
 
+Your mentor may plan a **series**: several sessions on several dates, with the same topic, length
+and places. The list shows a series under one heading, each date as its own row. **Join all** puts
+you on every date that still has a place and sends you one email with one calendar file that plans
+them all; a date that is already full is skipped, and the message says so. You can still join or
+leave a single date from its row.
+
 ## Telling us how it is going
 
 Under your report form are three short forms - **Getting started**, **Half way** and **Finishing

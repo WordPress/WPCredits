@@ -82,6 +82,13 @@ function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
 function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; }
+// Session posts, for the series message, which reads every session it names: a single meta read
+// answers the first row, a rows read answers them all, as WordPress does.
+$GLOBALS['posts'] = array();
+$GLOBALS['pmeta'] = array();
+function get_post( $id = null ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
+function get_post_meta( $id, $k = '', $single = false ) { $rows = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? array(); $rows = is_array( $rows ) ? $rows : array( $rows ); if ( $single ) { return $rows ? $rows[0] : ''; } return $rows; }
+function get_post_time( $f, $gmt = false, $post = null ) { return 1785000000; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 require_once __DIR__ . '/stubs/caps.php';
@@ -149,13 +156,18 @@ function wp_mail( $to, $subject, $body, $headers = array(), $attachments = array
 	// Whether each attachment still exists *at send time* is the assertion that matters:
 	// the file is written by the builder and deleted immediately afterwards, and an order
 	// mistake there means every invitation goes out with nothing attached.
-	$present = array();
+	//
+	// The bytes are kept too, since they are gone by the time an assertion could read them from
+	// disk, and what an invitation *says* is only readable here (the final review of 1.108.0).
+	$present  = array();
+	$contents = array();
 
 	foreach ( (array) $attachments as $path ) {
-		$present[ $path ] = file_exists( $path );
+		$present[ $path ]  = file_exists( $path );
+		$contents[ $path ] = $present[ $path ] ? (string) file_get_contents( $path ) : '';
 	}
 
-	$GLOBALS['mail'][] = compact( 'to', 'subject', 'body', 'headers', 'attachments', 'present' );
+	$GLOBALS['mail'][] = compact( 'to', 'subject', 'body', 'headers', 'attachments', 'present', 'contents' );
 
 	if ( ! empty( $GLOBALS['mail_fails'] ) ) {
 		do_action( 'wp_mail_failed', new WP_Error( 'fail', 'nope', compact( 'to', 'subject' ) ) );
@@ -990,6 +1002,161 @@ ck( 'the attachment exists at the moment it is sent',
     array( 1, true ) );
 ck( 'and is gone once the send is over',
     array( file_exists( reset( $attached['attachments'] ) ) ), array( false ) );
+
+/* ---- a series: one file, every session in it (1.108.0) ------------------ */
+
+echo "\n=== A series in one calendar file ===\n";
+
+$second = $facts;
+$second['id']    = 78;
+$second['start'] = 1786604800;
+$second['end']   = 1786606600;
+
+$many = WPCPM_ICS::build_many( array( $facts, $second ), WPCPM_ICS::METHOD_REQUEST, $GLOBALS['users'][20], $GLOBALS['users'][30], 'Group session', 'Two of them', 'https://meet.example.test/room' );
+
+ck( 'one calendar holds one event per session, each under its own ID with its own start and a first sequence',
+    array(
+        substr_count( $many, 'BEGIN:VCALENDAR' ),
+        substr_count( $many, 'METHOD:REQUEST' ),
+        substr_count( $many, 'BEGIN:VEVENT' ),
+        substr_count( $many, 'UID:' . WPCPM_ICS::uid( 77 ) ),
+        substr_count( $many, 'UID:' . WPCPM_ICS::uid( 78 ) ),
+        substr_count( $many, 'DTSTART:' . gmdate( 'Ymd\THis\Z', 1786000000 ) ),
+        substr_count( $many, 'DTSTART:' . gmdate( 'Ymd\THis\Z', 1786604800 ) ),
+        substr_count( $many, 'SEQUENCE:0' ),
+        substr_count( $many, 'LOCATION:https://meet.example.test/room' ),
+        substr_count( $many, 'END:VCALENDAR' ),
+    ),
+    array( 1, 1, 2, 1, 1, 1, 1, 2, 2, 1 ) );
+
+$too_long = array();
+foreach ( explode( "\r\n", trim( $many ) ) as $line ) {
+	if ( strlen( $line ) > 75 ) { $too_long[] = $line; }
+}
+ck( 'and every line of it is folded to 75 octets', count( $too_long ), 0 );
+
+
+echo "\n=== The series message ===\n";
+
+foreach ( array( 401 => array( 1786000000, 1786001800 ), 402 => array( 1786604800, 1786606600 ) ) as $id => $when ) {
+	$session                    = new WP_Post();
+	$session->ID                = $id;
+	$session->post_type         = WPCPM_Mentor_Calls::POST_TYPE;
+	$session->post_content      = 'Release cycle';
+	$GLOBALS['posts'][ $id ]    = $session;
+	$GLOBALS['pmeta'][ $id ]    = array(
+		WPCPM_Mentor_Calls::META_START    => $when[0],
+		WPCPM_Mentor_Calls::META_END      => $when[1],
+		WPCPM_Mentor_Calls::META_MENTOR   => 20,
+		WPCPM_Mentor_Calls::META_CAPACITY => 6,
+		WPCPM_Mentor_Calls::META_ZONE     => 'UTC',
+		WPCPM_Mentor_Calls::META_STUDENT  => array( 30 ),
+	);
+}
+
+$GLOBALS['mail']                = array();
+$GLOBALS['opts']['date_format'] = 'F j, Y';
+$GLOBALS['opts']['time_format'] = 'g:i a';
+WPCPM_Mentor_Calls::notify_joined_series( array( 401, 402 ), $GLOBALS['users'][20], $GLOBALS['users'][30] );
+
+ck( 'the mentor and the student each get one message, the mentor\'s naming the student and the count, the student\'s the mentor and the count',
+    array(
+        count( $GLOBALS['mail'] ),
+        $GLOBALS['mail'][0]['to'],
+        false !== strpos( $GLOBALS['mail'][0]['subject'], 'Lu Example joined your series: 2 sessions' ),
+        $GLOBALS['mail'][1]['to'],
+        false !== strpos( $GLOBALS['mail'][1]['subject'], 'Group sessions with Ada Example: 2 dates' ),
+    ),
+    array( 2, 'ada@example.test', true, 'lu@example.test', true ) );
+
+ck( 'the student\'s message lists every date on their clock, the topic, and what the file does',
+    array(
+        false !== strpos( $GLOBALS['mail'][1]['body'], WPCPM_Mentor_Calls::format_range( 1786000000, 1786001800, new DateTimeZone( 'UTC' ) ) ),
+        false !== strpos( $GLOBALS['mail'][1]['body'], WPCPM_Mentor_Calls::format_range( 1786604800, 1786606600, new DateTimeZone( 'UTC' ) ) ),
+        false !== strpos( $GLOBALS['mail'][1]['body'], 'Release cycle' ),
+        false !== strpos( $GLOBALS['mail'][1]['body'], 'Times are shown in UTC.' ),
+        false !== strpos( $GLOBALS['mail'][1]['body'], 'adds all of them to your calendar at once' ),
+    ),
+    array( true, true, true, true, true ) );
+
+ck( 'each message carries the one file, present when sent and gone after, named for the series',
+    array(
+        count( $GLOBALS['mail'][0]['attachments'] ),
+        reset( $GLOBALS['mail'][0]['present'] ),
+        basename( reset( $GLOBALS['mail'][0]['attachments'] ) ),
+        file_exists( reset( $GLOBALS['mail'][0]['attachments'] ) ),
+        count( $GLOBALS['mail'][1]['attachments'] ),
+        reset( $GLOBALS['mail'][1]['present'] ),
+    ),
+    array( 1, true, 'mentor-sessions.ics', false, 1, true ) );
+
+/**
+ * The `DESCRIPTION:` line of one call's event in a calendar file, unfolded.
+ *
+ * @param string $ics     The file's contents, as it was sent.
+ * @param int    $call_id The call whose event to read.
+ * @return string The line, or '' when the file holds no event for that call.
+ */
+function description_of( $ics, $call_id ) {
+	foreach ( explode( 'BEGIN:VEVENT', str_replace( "\r\n ", '', (string) $ics ) ) as $event ) {
+		if ( false === strpos( $event, 'UID:' . WPCPM_ICS::uid( $call_id ) . "\r\n" ) ) {
+			continue;
+		}
+
+		foreach ( explode( "\r\n", $event ) as $line ) {
+			if ( 0 === strpos( $line, 'DESCRIPTION:' ) ) {
+				return $line;
+			}
+		}
+	}
+
+	return '';
+}
+
+// The file a series join sends and the file one row's Join sends have to describe the same session
+// the same way (the design's section 6): a calendar keyed by UID overwrites the entry it already
+// holds, so two descriptions of one session would read differently depending on which arrived last.
+$series_file     = reset( $GLOBALS['mail'][1]['contents'] );
+$GLOBALS['mail'] = array();
+
+WPCPM_Mentor_Calls::notify_joined( 401, $GLOBALS['users'][20], $GLOBALS['users'][30] );
+
+$single_file = reset( $GLOBALS['mail'][1]['contents'] );
+
+ck( 'every event in the series file carries the description that session\'s own invitation carries',
+    array(
+        'lu@example.test' === $GLOBALS['mail'][1]['to'],
+        false !== strpos( description_of( $single_file, 401 ), 'A mentor call on the WordPress Credits Program with Ada Example.' ),
+        description_of( $series_file, 401 ) === description_of( $single_file, 401 ),
+        description_of( $series_file, 402 ) === description_of( $single_file, 401 ),
+    ),
+    array( true, true, true, true ) );
+
+// A series is read from the sessions that still stand, so one whose other dates were canceled is a
+// series of one - and both subjects counted it in the plural: "1 sessions", "1 dates".
+$GLOBALS['mail'] = array();
+WPCPM_Mentor_Calls::notify_joined_series( array( 401 ), $GLOBALS['users'][20], $GLOBALS['users'][30] );
+
+ck( 'a series down to one session is counted in the singular in both subjects',
+    array(
+        count( $GLOBALS['mail'] ),
+        substr( $GLOBALS['mail'][0]['subject'], -strlen( '1 session' ) ),
+        substr( $GLOBALS['mail'][1]['subject'], -strlen( '1 date' ) ),
+    ),
+    array( 2, '1 session', '1 date' ) );
+
+// The fixture's mentor has set no meeting link, and a booking confirmation says so to the mentor
+// alone. A series arranges several sessions at once, so it must not be the message that leaves it
+// out: the student would be told nothing about where to go, several times over.
+$GLOBALS['mail'] = array();
+WPCPM_Mentor_Calls::notify_joined_series( array( 401, 402 ), $GLOBALS['users'][20], $GLOBALS['users'][30] );
+
+ck( 'with no meeting link set, the series message tells the mentor and says nothing of it to the student',
+    array(
+        false !== strpos( $GLOBALS['mail'][0]['body'], 'You have not set a meeting link yet' ),
+        false !== strpos( $GLOBALS['mail'][1]['body'], 'You have not set a meeting link yet' ),
+    ),
+    array( true, false ) );
 
 /* ---- format_range ------------------------------------------------------ */
 

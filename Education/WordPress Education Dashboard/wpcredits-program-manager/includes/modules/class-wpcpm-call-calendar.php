@@ -882,7 +882,7 @@ class WPCPM_Call_Calendar {
 	 * Render the outcome of a booking or cancellation, if there was one.
 	 */
 	private static function render_message() {
-		$message = WPCPM_Mentor_Calls::message( WPCPM_Mentor_Calls::status() );
+		$message = WPCPM_Mentor_Calls::message( WPCPM_Mentor_Calls::status(), WPCPM_Mentor_Calls::args() );
 
 		if ( empty( $message ) ) {
 			return;

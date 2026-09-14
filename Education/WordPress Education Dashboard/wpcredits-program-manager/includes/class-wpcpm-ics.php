@@ -53,12 +53,103 @@ class WPCPM_ICS {
 	public static function build( array $facts, $method, $mentor, $student, $summary, $body, $where = '', $sequence = null ) {
 		$method = self::METHOD_CANCEL === $method ? self::METHOD_CANCEL : self::METHOD_REQUEST;
 
-		$lines = array(
+		$lines   = self::opening( $method );
+		$lines   = array_merge( $lines, self::event( $facts, $method, $mentor, $student, $summary, $body, $where, $sequence ) );
+		$lines[] = 'END:VCALENDAR';
+
+		/**
+		 * Filter the calendar invitation for a call.
+		 *
+		 * @param string $ics    The `.ics` contents.
+		 * @param array  $facts  Call facts.
+		 * @param string $method `REQUEST` or `CANCEL`.
+		 */
+		return (string) apply_filters( 'wpcpm_call_ics', self::text_of( $lines ), $facts, $method );
+	}
+
+	/**
+	 * Build one calendar object holding several calls: a series a student joined at once (1.108.0).
+	 *
+	 * Each call is its own event under its own UID, exactly the event its single invitation would
+	 * carry, so a later move or cancellation of one session, which goes out alone, lands on the
+	 * right entry. Importing the file once plans them all (the design's section 6).
+	 *
+	 * @param array[]      $facts_list Call facts, one per call, from `WPCPM_Mentor_Calls::details()`.
+	 * @param string       $method     `REQUEST` or `CANCEL`.
+	 * @param WP_User|null $mentor     Mentor, the organizer.
+	 * @param WP_User|null $student    Student, the attendee.
+	 * @param string       $summary    Event title, the same on each.
+	 * @param string       $body       Event description, as plain text, the same on each.
+	 * @param string       $where      Meeting URL or place, may be empty.
+	 * @return string The `.ics` contents, CRLF-delimited.
+	 */
+	public static function build_many( array $facts_list, $method, $mentor, $student, $summary, $body, $where = '' ) {
+		$method = self::METHOD_CANCEL === $method ? self::METHOD_CANCEL : self::METHOD_REQUEST;
+		$lines  = self::opening( $method );
+
+		foreach ( $facts_list as $facts ) {
+			$lines = array_merge( $lines, self::event( $facts, $method, $mentor, $student, $summary, $body, $where, null ) );
+		}
+
+		$lines[] = 'END:VCALENDAR';
+
+		/**
+		 * Filter the calendar file for a series of calls.
+		 *
+		 * @param string  $ics        The `.ics` contents.
+		 * @param array[] $facts_list The calls' facts.
+		 * @param string  $method     `REQUEST` or `CANCEL`.
+		 */
+		return (string) apply_filters( 'wpcpm_series_ics', self::text_of( $lines ), $facts_list, $method );
+	}
+
+	/**
+	 * The lines that open a calendar object.
+	 *
+	 * @param string $method `REQUEST` or `CANCEL`.
+	 * @return string[]
+	 */
+	private static function opening( $method ) {
+		return array(
 			'BEGIN:VCALENDAR',
 			'VERSION:2.0',
 			'PRODID:-//WordPress Credits Program//WPCredits Program Manager//EN',
 			'CALSCALE:GREGORIAN',
 			'METHOD:' . $method,
+		);
+	}
+
+	/**
+	 * The lines, folded, as one CRLF-delimited text.
+	 *
+	 * @param string[] $lines Content lines.
+	 * @return string
+	 */
+	private static function text_of( array $lines ) {
+		$folded = array();
+
+		foreach ( $lines as $line ) {
+			$folded[] = self::fold( $line );
+		}
+
+		return implode( "\r\n", $folded ) . "\r\n";
+	}
+
+	/**
+	 * One event, from its `BEGIN:VEVENT` to its `END:VEVENT`.
+	 *
+	 * @param array        $facts    Call facts.
+	 * @param string       $method   `REQUEST` or `CANCEL`.
+	 * @param WP_User|null $mentor   Mentor, the organizer.
+	 * @param WP_User|null $student  Student, the attendee.
+	 * @param string       $summary  Event title.
+	 * @param string       $body     Event description, as plain text.
+	 * @param string       $where    Meeting URL or place, may be empty.
+	 * @param int|null     $sequence Revision number; null keeps the default.
+	 * @return string[]
+	 */
+	private static function event( array $facts, $method, $mentor, $student, $summary, $body, $where, $sequence ) {
+		$lines = array(
 			'BEGIN:VEVENT',
 			'UID:' . self::uid( $facts['id'] ),
 			// A calendar that already holds this event is entitled to ignore anything that does
@@ -95,27 +186,8 @@ class WPCPM_ICS {
 		}
 
 		$lines[] = 'END:VEVENT';
-		$lines[] = 'END:VCALENDAR';
 
-		$folded = array();
-
-		foreach ( $lines as $line ) {
-			$folded[] = self::fold( $line );
-		}
-
-		/**
-		 * Filter the calendar invitation for a call.
-		 *
-		 * @param string $ics    The `.ics` contents.
-		 * @param array  $facts  Call facts.
-		 * @param string $method `REQUEST` or `CANCEL`.
-		 */
-		return (string) apply_filters(
-			'wpcpm_call_ics',
-			implode( "\r\n", $folded ) . "\r\n",
-			$facts,
-			$method
-		);
+		return $lines;
 	}
 
 	/**

@@ -79,9 +79,52 @@ require_once __DIR__ . '/stubs/caps.php';
 function get_user_by( $f, $v ) { return new WP_User( (int) $v, 'User ' . (int) $v ); }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_post( $id = null ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_time( $f, $gmt = false, $post = null ) { return time() - DAY_IN_SECONDS; }
-function get_posts( $a = array() ) { return array(); }
+function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
+/**
+ * Posts as WordPress would query them, for the shapes the calls module asks: a post type, a status,
+ * an exclusion, meta clauses that are equal, at least or between, and an order by a numeric meta.
+ * Faithful because the series readers are queries, and a stub that answered nothing would prove
+ * nothing about them.
+ */
+function get_posts( $a = array() ) {
+	$out = array();
+
+	foreach ( $GLOBALS['posts'] as $post ) {
+		if ( isset( $a['post_type'] ) && $post->post_type !== $a['post_type'] ) { continue; }
+		if ( isset( $a['post_status'] ) && $post->post_status !== $a['post_status'] ) { continue; }
+		if ( isset( $a['exclude'] ) && in_array( $post->ID, array_map( 'intval', (array) $a['exclude'] ), true ) ) { continue; }
+
+		$ok = true;
+
+		foreach ( isset( $a['meta_query'] ) ? $a['meta_query'] : array() as $k => $clause ) {
+			if ( 'relation' === $k ) { continue; }
+			$value   = get_post_meta( $post->ID, $clause['key'], true );
+			$compare = isset( $clause['compare'] ) ? $clause['compare'] : '=';
+			if ( 'BETWEEN' === $compare ) { $ok = (int) $value >= (int) $clause['value'][0] && (int) $value <= (int) $clause['value'][1]; }
+			elseif ( '>=' === $compare ) { $ok = (int) $value >= (int) $clause['value']; }
+			else { $ok = (string) $value === (string) $clause['value']; }
+			if ( ! $ok ) { break; }
+		}
+
+		if ( $ok ) { $out[] = $post; }
+	}
+
+	if ( isset( $a['meta_key'] ) ) {
+		$key  = $a['meta_key'];
+		$desc = isset( $a['order'] ) && 'DESC' === $a['order'];
+		usort( $out, function ( $x, $y ) use ( $key, $desc ) {
+			$d = (int) get_post_meta( $x->ID, $key, true ) - (int) get_post_meta( $y->ID, $key, true );
+			return $desc ? -$d : $d;
+		} );
+	}
+
+	if ( isset( $a['fields'] ) && 'ids' === $a['fields'] ) { return array_map( function ( $p ) { return $p->ID; }, $out ); }
+
+	return $out;
+}
 function wp_insert_post( $a, $error = false ) {
 	static $next = 500;
 	$post               = new WP_Post();
@@ -89,6 +132,7 @@ function wp_insert_post( $a, $error = false ) {
 	$post->post_title   = $a['post_title'] ?? '';
 	$post->post_content = $a['post_content'] ?? '';
 	$post->post_type    = $a['post_type'] ?? 'post';
+	$post->post_status  = $a['post_status'] ?? 'publish';
 	$GLOBALS['posts'][ $post->ID ] = $post;
 	return $post->ID;
 }
@@ -184,7 +228,7 @@ function ck( $label, $got, $want ) {
  * @return int Post ID.
  */
 function make_call( $capacity = 1 ) {
-	$id = wp_insert_post( array( 'post_type' => WPCPM_Mentor_Calls::POST_TYPE, 'post_title' => 'Call' ) );
+	$id = wp_insert_post( array( 'post_type' => WPCPM_Mentor_Calls::POST_TYPE, 'post_status' => 'private', 'post_title' => 'Call' ) );
 
 	update_post_meta( $id, WPCPM_Mentor_Calls::META_START, time() + DAY_IN_SECONDS );
 	update_post_meta( $id, WPCPM_Mentor_Calls::META_END, time() + DAY_IN_SECONDS + 1800 );
@@ -397,6 +441,200 @@ ck( 'the moved notice sends a REQUEST carrying the revision, not a cancellation'
 ck( 'and skips whoever moved it, who already knows',
     false !== strpos( $calls, '(int) $student->ID === (int) $actor' ), true );
 
+
+echo "\n=== A series is a tag on ordinary sessions (1.108.0) ===\n";
+
+// Three sessions planned together, a week apart, and a lone one between them.
+$first  = make_call( 4 );
+$second = make_call( 4 );
+$third  = make_call( 4 );
+$alone  = make_call( 4 );
+update_post_meta( $second, WPCPM_Mentor_Calls::META_START, time() + 8 * DAY_IN_SECONDS );
+update_post_meta( $third, WPCPM_Mentor_Calls::META_START, time() + 15 * DAY_IN_SECONDS );
+update_post_meta( $alone, WPCPM_Mentor_Calls::META_START, time() + 3 * DAY_IN_SECONDS );
+foreach ( array( $first, $second, $third ) as $member ) {
+	update_post_meta( $member, WPCPM_Group_Sessions::META_SERIES, $first );
+}
+
+ck( 'a member names its series by the first session, and a lone session names none',
+    array( WPCPM_Group_Sessions::series_of( $first ), WPCPM_Group_Sessions::series_of( $third ), WPCPM_Group_Sessions::series_of( $alone ) ),
+    array( $first, $first, 0 ) );
+
+ck( 'the members of a series come soonest first, the lone session left out',
+    array_map( function ( $p ) { return $p->ID; }, WPCPM_Group_Sessions::series_members( $first ) ),
+    array( $first, $second, $third ) );
+
+ck( 'a series that is not one answers nothing',
+    array( WPCPM_Group_Sessions::series_members( 0 ), WPCPM_Group_Sessions::series_members( 424242 ) ),
+    array( array(), array() ) );
+
+// Canceling a session trashes the post rather than deleting it, and every reader asks for the
+// private ones, so this is the drop-out that actually happens (the final review of 1.108.0).
+$GLOBALS['posts'][ $second ]->post_status = 'trash';
+
+ck( 'a canceled member drops out by itself, since a trashed call is no longer a private one',
+    array_map( function ( $p ) { return $p->ID; }, WPCPM_Group_Sessions::series_members( $first ) ),
+    array( $first, $third ) );
+
+wp_delete_post( $second, true );
+
+ck( 'and one deleted outright drops out too, since it is no longer a call post at all',
+    array_map( function ( $p ) { return $p->ID; }, WPCPM_Group_Sessions::series_members( $first ) ),
+    array( $first, $third ) );
+
+$mentor_sessions = WPCPM_Group_Sessions::for_mentor( 20 );
+$groups          = WPCPM_Group_Sessions::grouped( $mentor_sessions );
+
+ck( 'the lists group a series under its first upcoming session, in date order, a lone session on its own',
+    array_map( function ( $g ) { return array( $g['series'], array_map( function ( $p ) { return $p->ID; }, $g['sessions'] ) ); }, $groups ),
+    array( array( 0, array( $group ) ), array( $first, array( $first, $third ) ), array( 0, array( $alone ) ) ) );
+
+echo "\n=== An outcome that carries its detail (1.108.0) ===\n";
+
+$GLOBALS['uid'] = 31;
+WPCPM_Flash::set( 'call', array( 'series-past', '2026-10-06' ) );
+
+ck( 'the flag and its detail are read apart, and the sentence names the detail',
+    array( WPCPM_Mentor_Calls::status(), WPCPM_Mentor_Calls::args(), WPCPM_Mentor_Calls::message( 'series-past', array( '2026-10-06' ) ) ),
+    array( 'series-past', array( '2026-10-06' ), array( 'error', 'One of the dates has passed: 2026-10-06.' ) ) );
+
+ck( 'a flag with no detail reads as it always did',
+    array( WPCPM_Mentor_Calls::message( 'session-full' ), WPCPM_Mentor_Calls::message( 'series-joined-some', array( 5, 6, 1 ) ), WPCPM_Mentor_Calls::message( 'nonsense' ) ),
+    array( array( 'error', 'That session filled up while you were reading it.' ), array( 'success', 'You are on 5 of the 6 sessions; 1 had no place left.' ), array() ) );
+
+// A flash is user meta, and one holding fewer arguments than its sentence takes is a malformed
+// flash rather than an impossible one. On PHP 8 `vsprintf()` throws where 7.4 warned, so this
+// used to take the whole dashboard down with it.
+$short = WPCPM_Mentor_Calls::message( 'series-joined-some', array( 1 ) );
+
+ck( 'a flag whose arguments are short of its placeholders still answers a sentence',
+    array( $short[0], false !== strpos( $short[1], 'You are on' ) ),
+    array( 'success', true ) );
+
+echo "\n=== Planning a series: the dates, all or nothing (1.108.0) ===\n";
+
+$riga = new DateTimeZone( 'Europe/Riga' );
+$now  = strtotime( '2026-10-01 12:00:00 UTC' );
+
+$three = WPCPM_Group_Sessions::plan_dates( array( '2026-10-13', '2026-10-06', '2026-10-20' ), '18:00', $riga, $now );
+
+ck( 'three dates at one time become three starts, soonest first, on the mentor\'s clock',
+    array( $three['refused'], array_map( function ( $ts ) { return gmdate( 'Y-m-d H:i', $ts ); }, $three['starts'] ) ),
+    array( '', array( '2026-10-06 15:00', '2026-10-13 15:00', '2026-10-20 15:00' ) ) );
+
+$across = WPCPM_Group_Sessions::plan_dates( array( '2026-10-24', '2026-10-31' ), '10:00', $riga, $now );
+
+ck( 'a series keeps its clock time across the change from summer time, so a week apart is 169 hours, not 168',
+    array( $across['refused'], ( $across['starts'][1] - $across['starts'][0] ) / HOUR_IN_SECONDS ),
+    array( '', 169 ) );
+
+// Riga jumps from 03:00 to 04:00 on 28 March 2027, so 03:30 is an hour that does not happen there
+// that day. Silently rolled forward, the session would start at 04:30 and nobody would be told.
+ck( 'a time the clocks jump over on one of the dates refuses the whole list, naming that date',
+    WPCPM_Group_Sessions::plan_dates( array( '2027-03-28' ), '03:30', $riga, $now ),
+    array( 'starts' => array(), 'refused' => 'when', 'date' => '2027-03-28' ) );
+
+ck( 'and the hour after the jump, which does happen, is planned',
+    array(
+        WPCPM_Group_Sessions::plan_dates( array( '2027-03-28' ), '05:30', $riga, $now )['refused'],
+        gmdate( 'Y-m-d H:i', WPCPM_Group_Sessions::plan_dates( array( '2027-03-28' ), '05:30', $riga, $now )['starts'][0] ),
+    ),
+    array( '', '2027-03-28 02:30' ) );
+
+ck( 'one date is one start, as a lone session',
+    array( WPCPM_Group_Sessions::plan_dates( array( '2026-10-06' ), '18:00', $riga, $now )['refused'], count( WPCPM_Group_Sessions::plan_dates( array( '2026-10-06' ), '18:00', $riga, $now )['starts'] ) ),
+    array( '', 1 ) );
+
+ck( 'a date that is not a date, a date that has passed and a date given twice each refuse the whole list, naming the date',
+    array(
+        WPCPM_Group_Sessions::plan_dates( array( '2026-10-06', 'not-a-date' ), '18:00', $riga, $now ),
+        WPCPM_Group_Sessions::plan_dates( array( '2026-10-06', '2026-09-29' ), '18:00', $riga, $now ),
+        WPCPM_Group_Sessions::plan_dates( array( '2026-10-06', '2026-10-13', '2026-10-06' ), '18:00', $riga, $now ),
+    ),
+    array(
+        array( 'starts' => array(), 'refused' => 'when', 'date' => 'not-a-date' ),
+        array( 'starts' => array(), 'refused' => 'past', 'date' => '2026-09-29' ),
+        array( 'starts' => array(), 'refused' => 'twice', 'date' => '2026-10-06' ),
+    ) );
+
+$ten = array();
+for ( $i = 1; $i <= 10; ++$i ) {
+	$ten[] = sprintf( '2026-11-%02d', $i );
+}
+
+ck( 'ten dates are refused before any is read: a series holds nine',
+    WPCPM_Group_Sessions::plan_dates( $ten, '18:00', $riga, $now ),
+    array( 'starts' => array(), 'refused' => 'many', 'date' => '' ) );
+
+ck( 'the first start the mentor already holds is the clash, and none is no clash',
+    array(
+        WPCPM_Group_Sessions::first_clash( $three['starts'], array( $three['starts'][1] => true, 12345 => true ) ),
+        WPCPM_Group_Sessions::first_clash( $three['starts'], array( 12345 => true ) ),
+    ),
+    array( $three['starts'][1], 0 ) );
+
+$before  = count( $GLOBALS['posts'] );
+$planned = WPCPM_Group_Sessions::create_sessions( 20, $three['starts'], 60, 5, 'Release cycle', $riga );
+
+ck( 'three sessions are created in date order, each as a session is created alone',
+    array(
+        count( $planned ),
+        count( $GLOBALS['posts'] ) - $before,
+        array_map( function ( $id ) { return (int) get_post_meta( $id, WPCPM_Mentor_Calls::META_START, true ); }, $planned ),
+        array_map( function ( $id ) { return (int) get_post_meta( $id, WPCPM_Mentor_Calls::META_END, true ) - (int) get_post_meta( $id, WPCPM_Mentor_Calls::META_START, true ); }, $planned ),
+        array_unique( array_map( function ( $id ) { return array( (int) get_post_meta( $id, WPCPM_Mentor_Calls::META_MENTOR, true ), WPCPM_Mentor_Calls::capacity( $id ), get_post_meta( $id, WPCPM_Mentor_Calls::META_ZONE, true ), get_post( $id )->post_content, get_post( $id )->post_status ); }, $planned ), SORT_REGULAR ),
+    ),
+    array( 3, 3, $three['starts'], array( 3600, 3600, 3600 ), array( array( 20, 5, 'Europe/Riga', 'Release cycle', 'private' ) ) ) );
+
+ck( 'and every one of them carries the first as its series',
+    array_map( function ( $id ) { return WPCPM_Group_Sessions::series_of( $id ); }, $planned ),
+    array( $planned[0], $planned[0], $planned[0] ) );
+
+$lone = WPCPM_Group_Sessions::create_sessions( 20, array( $three['starts'][0] + 100 ), 60, 5, '', $riga );
+
+ck( 'a session created alone carries no series',
+    array( count( $lone ), WPCPM_Group_Sessions::series_of( $lone[0] ) ), array( 1, 0 ) );
+
+echo "\n=== A series' heading (1.108.0) ===\n";
+
+$utc = new DateTimeZone( 'UTC' );
+
+ck( 'the heading counts the sessions and spans the first and last date on the viewer\'s clock',
+    array(
+        WPCPM_Group_Sessions::series_heading( array_map( 'get_post', $planned ), $utc ),
+        WPCPM_Group_Sessions::series_heading( array( get_post( $planned[2] ) ), $utc ),
+    ),
+    array( '3 sessions, October 6, 2026 to October 20, 2026', '1 session, on October 20, 2026' ) );
+
+echo "\n=== Join all: what a student may still take (1.108.0) ===\n";
+
+$open = make_call( 2 );
+$on   = make_call( 2 );
+$fill = make_call( 2 );
+WPCPM_Mentor_Calls::add_attendee( $on, 31, 'recSTUDENT0000001' );
+WPCPM_Mentor_Calls::add_attendee( $fill, 32, 'recSTUDENT0000002' );
+WPCPM_Mentor_Calls::add_attendee( $fill, 33, 'recSTUDENT0000003' );
+
+$plan = WPCPM_Group_Sessions::joinable( array_map( 'get_post', array( $open, $on, $fill ) ), 31 );
+
+ck( 'a session the student is on and a full one are passed over, counted apart; the open one is taken',
+    array( array_map( function ( $p ) { return $p->ID; }, $plan['take'] ), $plan['on'], $plan['full'] ),
+    array( array( $open ), 1, 1 ) );
+
+ck( 'with nothing left to take, the plan says so',
+    WPCPM_Group_Sessions::joinable( array_map( 'get_post', array( $on, $fill ) ), 31 ),
+    array( 'take' => array(), 'full' => 1, 'on' => 1 ) );
+
+// The upcoming query keeps a session for an hour after it starts, so one under way is still in
+// the series a student presses Join all on. The single Join refuses it; so must this.
+$started = make_call( 2 );
+update_post_meta( $started, WPCPM_Mentor_Calls::META_START, time() - 600 );
+
+$under_way = WPCPM_Group_Sessions::joinable( array_map( 'get_post', array( $open, $started ) ), 31 );
+
+ck( 'a session that has already started is a place nobody can take, counted with the full ones',
+    array( array_map( function ( $p ) { return $p->ID; }, $under_way['take'] ), $under_way['full'], $under_way['on'] ),
+    array( array( $open ), 1, 0 ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

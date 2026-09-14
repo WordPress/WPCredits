@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.107.1
+Stable tag: 1.108.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.108.0 =
+
+* A mentor can plan a series of group sessions at once. The planning form takes up to eight more dates with the same time, length, places and topic, all or nothing: a date that has passed, a date given twice or a date the mentor already holds refuses the whole list and names the date. The lists show a series under one heading, each date as its own row.
+* A student joins a whole series in one press. Join all takes every session of the series that still has a place, skips a full one and says so, and sends one email with one calendar file that holds every session as its own event, so importing it once plans them all. Joining or leaving a single session works as before, and a change or cancellation of one session reaches its own calendar entry.
+* The notice after a press can name a date or a count: which date a series was refused on, how many sessions were planned, how many a student is on.
 
 = 1.107.1 =
 

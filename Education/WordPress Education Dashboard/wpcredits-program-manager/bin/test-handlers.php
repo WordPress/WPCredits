@@ -11,6 +11,12 @@
  *
  * A handler "passes" if it reaches a redirect or a `wp_die()`. Both are normal outcomes.
  * A PHP `Error` is not.
+ *
+ * **What the harness does not prove.** `get_posts()` here answers every query from
+ * `$GLOBALS['query_result']`, whatever was asked for, so the clash and Join all checks exercise the
+ * real rules and the handlers' control flow but say nothing about the queries themselves - whether
+ * a reader asks for the right post type, status or meta. Those are proven in
+ * `bin/test-group-sessions.php`, whose post model answers a query the way WordPress would.
  */
 
 if ( 'cli' !== PHP_SAPI ) {
@@ -151,7 +157,7 @@ function set_transient( $k, $v, $t = 0 ) { $GLOBALS['trans'][ $k ] = $v; return 
 function delete_transient( $k ) { unset( $GLOBALS['trans'][ $k ] ); return true; }
 function register_post_type( $t, $a = array() ) { return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
-function get_posts( $a = array() ) { return $GLOBALS['query_result'] ?? array(); }
+function get_posts( $a = array() ) { $found = $GLOBALS['query_result'] ?? array(); return ( isset( $a['fields'] ) && 'ids' === $a['fields'] ) ? array_map( function ( $p ) { return $p->ID; }, $found ) : $found; }
 function wp_insert_post( $a, $err = false ) {
 	$id = count( $GLOBALS['posts'] ) + 100;
 	$p = new WP_Post();
@@ -272,8 +278,14 @@ foreach ( $requires[1] as $rel ) {
 /* ---- fixtures ----------------------------------------------------------- */
 $GLOBALS['users'][1]  = new WP_User( 1, 'Ada Admin', 'admin@example.test' );
 $GLOBALS['users'][20] = new WP_User( 20, 'Mia Mentor', 'mentor@example.test' );
+// A second mentor, whose only part is to own the session another mentor's student presses Join
+// all on: without an account behind that ID the handler refused because the user did not exist,
+// and the comparison that decides whose series it is was never reached (the final review of
+// 1.108.0).
+$GLOBALS['users'][21] = new WP_User( 21, 'Noa Mentor', 'noa@example.test' );
 $GLOBALS['users'][30] = new WP_User( 30, 'Sam Student', 'student@example.test' );
 $GLOBALS['users'][20]->roles = array( WPCPM_Roles::ROLE_MENTOR );
+$GLOBALS['users'][21]->roles = array( WPCPM_Roles::ROLE_MENTOR );
 $GLOBALS['users'][30]->roles = array( WPCPM_Roles::ROLE_STUDENT );
 
 $mentor_rec  = 'recMENTOR12345678';
@@ -508,6 +520,235 @@ $GLOBALS['pmeta'][501]            = array(
 );
 $GLOBALS['query_result'] = array( $GLOBALS['posts'][501] );
 check( 'while a one-to-one call still counts', '' !== WPCPM_Mentor_Calls::why_not_bookable( 30 ), true );
+$GLOBALS['query_result'] = array();
+
+// 1.108.0: a series is planned from the first date and the more dates, all or nothing.
+$GLOBALS['uid'] = 20;
+$posts_before   = count( $GLOBALS['posts'] );
+$_POST          = array( 'mentor' => 20, 'date' => '2027-02-02', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'topic' => 'Release cycle', 'more_dates' => array( '2027-02-09', '', '2027-02-16' ) );
+run( 'handle_create (a series of three)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+check( 'the series is planned and the notice says how many', flashed( 20, 'call' ), array( 'series-planned', 3 ) );
+
+$series = array();
+foreach ( $GLOBALS['posts'] as $post ) {
+	if ( WPCPM_Group_Sessions::series_of( $post->ID ) > 0 ) {
+		$series[] = $post->ID;
+	}
+}
+check( 'three sessions carry the first as their series, a week apart, the empty box ignored',
+    array( count( $series ), count( $GLOBALS['posts'] ) - $posts_before, array_unique( array_map( 'WPCPM_Group_Sessions::series_of', $series ) ), array_map( function ( $id ) { return gmdate( 'Y-m-d H:i', (int) get_post_meta( $id, WPCPM_Mentor_Calls::META_START, true ) ); }, $series ) ),
+    array( 3, 3, array( $series[0] ), array( '2027-02-02 10:00', '2027-02-09 10:00', '2027-02-16 10:00' ) ) );
+
+$posts_before = count( $GLOBALS['posts'] );
+$_POST        = array( 'mentor' => 20, 'date' => '2027-03-02', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'more_dates' => array( '2027-03-09', '2027-03-09' ) );
+run( 'handle_create (a date given twice)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$twice = flashed( 20, 'call' );
+$_POST = array( 'mentor' => 20, 'date' => '2027-03-02', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'more_dates' => array( '2020-03-09' ) );
+run( 'handle_create (a date that has passed)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$past = flashed( 20, 'call' );
+$GLOBALS['query_result'] = array( $GLOBALS['posts'][ $series[2] ] );
+$_POST                   = array( 'mentor' => 20, 'date' => '2027-03-02', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'more_dates' => array( '2027-02-16' ) );
+run( 'handle_create (a date the mentor already holds)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+$clash                   = flashed( 20, 'call' );
+$GLOBALS['query_result'] = array();
+check( 'a date given twice, a date that has passed and a clash each refuse the whole list naming the date, and nothing is created',
+    array( $twice, $past, $clash, count( $GLOBALS['posts'] ) - $posts_before ),
+    array( array( 'series-twice', '2027-03-09' ), array( 'series-past', '2020-03-09' ), array( 'series-clash', '2027-02-16' ), 0 ) );
+
+// The diary is read and the sessions are written under the booking lock, so a booking on the same
+// mentor cannot take one of the starts in between (the final review of 1.108.0).
+$before_lock = count( $GLOBALS['posts'] );
+WPCPM_Mentor_Calls::lock_for( 20 );
+$_POST = array( 'mentor' => 20, 'date' => '2027-04-06', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'more_dates' => array( '2027-04-13' ) );
+run( 'handle_create (the mentor\'s lock is held)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+check( 'a held lock refuses the planning and creates nothing',
+    array( flashed( 20, 'call' ), count( $GLOBALS['posts'] ) - $before_lock ),
+    array( 'busy', 0 ) );
+WPCPM_Mentor_Calls::unlock_for( 20 );
+
+run( 'handle_create (the same press once the lock is free)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+check( 'the same press plans the series once the lock is free, and leaves the lock released',
+    array( flashed( 20, 'call' ), count( $GLOBALS['posts'] ) - $before_lock, get_option( 'wpcpm_call_lock_20', false ) ),
+    array( array( 'series-planned', 2 ), 2, false ) );
+
+// 1.108.0: the lists group a series under one heading, the lone sessions on their own.
+$lone_sessions = array();
+foreach ( $GLOBALS['posts'] as $post ) {
+	if ( WPCPM_Mentor_Calls::POST_TYPE === $post->post_type && WPCPM_Mentor_Calls::capacity( $post->ID ) > 1 && 0 === WPCPM_Group_Sessions::series_of( $post->ID ) ) {
+		$lone_sessions[] = $post;
+	}
+}
+$GLOBALS['query_result'] = array_merge( array( $lone_sessions[0] ), array_map( 'get_post', $series ) );
+
+$GLOBALS['uid'] = 30;
+ob_start();
+WPCPM_Group_Sessions::render_student_list( $GLOBALS['users'][30], true );
+$student_list = ob_get_clean();
+
+check( 'the student\'s list draws the series under its heading with its three rows, the topic once, and the lone session as a row of its own, with Join on each row not yet joined and Leave on the one joined',
+    array(
+        substr_count( $student_list, 'class="wpcpm-sessions__series"' ),
+        false !== strpos( $student_list, '<p class="wpcpm-sessions__series-heading"><strong>Release cycle</strong> <span class="wpcpm-sessions__series-span">3 sessions, February 2, 2027 to February 16, 2027</span></p>' ),
+        substr_count( substr( $student_list, strpos( $student_list, 'wpcpm-sessions__list--series' ) ), '<li class="wpcpm-sessions__item">' ),
+        substr_count( $student_list, 'wpcpm-call__topic">Release cycle' ),
+        substr_count( $student_list, '<li class="wpcpm-sessions__item">' ),
+        substr_count( $student_list, 'name="action" value="wpcpm_join_session"' ),
+        substr_count( $student_list, 'name="action" value="wpcpm_leave_session"' ),
+    ),
+    array( 1, true, 3, 0, 4, 3, 1 ) );
+
+$GLOBALS['uid'] = 20;
+ob_start();
+WPCPM_Group_Sessions::render_mentor_panel( $GLOBALS['users'][20] );
+$mentor_panel = ob_get_clean();
+
+check( 'the mentor\'s panel groups the same series and keeps Change and Cancel on every row',
+    array(
+        substr_count( $mentor_panel, 'class="wpcpm-sessions__series"' ),
+        false !== strpos( $mentor_panel, '3 sessions, February 2, 2027 to February 16, 2027' ),
+        substr_count( $mentor_panel, 'name="action" value="' . WPCPM_Mentor_Calls::ACTION_CANCEL . '"' ),
+    ),
+    array( 1, true, 4 ) );
+
+// The eight More dates boxes carry no label of their own beyond "Date 5", so the sentence that
+// says an empty box is fine has to be attached to them (the final review of 1.108.0).
+ob_start();
+WPCPM_Group_Sessions::render_mentor_planner( $GLOBALS['users'][20] );
+$planner = ob_get_clean();
+
+check( 'every More dates box points at the hint that explains them, and the hint carries that id once',
+    array(
+        substr_count( $planner, 'name="more_dates[]"' ),
+        substr_count( $planner, 'aria-describedby="wpcpm-sessions-more-hint"' ),
+        substr_count( $planner, 'id="wpcpm-sessions-more-hint"' ),
+    ),
+    array( 8, 8, 1 ) );
+
+// A mentor may change one session's topic, and that edit used to be invisible under a series
+// heading, which carries the topic for all of them (the final review of 1.108.0).
+$GLOBALS['posts'][ $series[1] ]->post_content = 'Just this one: the release party';
+
+$GLOBALS['uid'] = 30;
+ob_start();
+WPCPM_Group_Sessions::render_student_list( $GLOBALS['users'][30], true );
+$changed_list = ob_get_clean();
+
+check( 'the row whose topic differs from the heading\'s prints its own, and the rows that match print none',
+    array(
+        substr_count( $changed_list, 'wpcpm-call__topic">Just this one: the release party' ),
+        substr_count( $changed_list, 'wpcpm-call__topic">Release cycle' ),
+        substr_count( $changed_list, 'class="wpcpm-call__topic"' ),
+        false !== strpos( $changed_list, '<strong>Release cycle</strong>' ),
+    ),
+    array( 1, 0, 1, true ) );
+
+$GLOBALS['posts'][ $series[1] ]->post_content = 'Release cycle';
+
+// 1.108.0: Join all takes every session of the series with a place, under the booking lock.
+check( 'the series offers Join all while there is something to take',
+    array( substr_count( $student_list, 'name="action" value="wpcpm_join_series"' ), substr_count( $student_list, '>Join all</button>' ) ),
+    array( 1, 1 ) );
+
+// What the presses below run against: the series as the query would answer it, the student pressing.
+$GLOBALS['query_result'] = array_map( 'get_post', $series );
+$GLOBALS['uid']          = 30;
+
+$_POST = array( 'series' => 0 );
+run( 'handle_join_series (no such series)', array( 'WPCPM_Group_Sessions', 'handle_join_series' ) );
+check( 'no such series is gone', flashed( 30, 'call' ), 'session-gone' );
+
+$GLOBALS['posts'][900]            = new WP_Post();
+$GLOBALS['posts'][900]->ID        = 900;
+$GLOBALS['posts'][900]->post_type = WPCPM_Mentor_Calls::POST_TYPE;
+$GLOBALS['pmeta'][900]            = array(
+	WPCPM_Mentor_Calls::META_MENTOR => 21, WPCPM_Mentor_Calls::META_CAPACITY => 6,
+	WPCPM_Mentor_Calls::META_START => time() + 864000, WPCPM_Mentor_Calls::META_END => time() + 867600,
+	WPCPM_Group_Sessions::META_SERIES => 900,
+);
+$GLOBALS['query_result'] = array( $GLOBALS['posts'][900] );
+$_POST                   = array( 'series' => 900 );
+run( 'handle_join_series (another mentor\'s series)', array( 'WPCPM_Group_Sessions', 'handle_join_series' ) );
+check( 'another mentor\'s series is not theirs', flashed( 30, 'call' ), 'session-not-yours' );
+
+// Somebody else's booking holds the lock at the moment of the press. Pressed here, while every
+// session still has a place and the student is on none, so a `busy` answer can only be the lock
+// (the final review of 1.108.0: the release assertion below named a key that never exists, so
+// neither the taking nor the releasing of the lock was being read).
+$GLOBALS['query_result'] = array_map( 'get_post', $series );
+WPCPM_Mentor_Calls::lock_for( 20 );
+$_POST = array( 'series' => $series[0] );
+run( 'handle_join_series (the mentor\'s lock is held)', array( 'WPCPM_Group_Sessions', 'handle_join_series' ) );
+check( 'a held lock refuses the press and puts nobody on anything',
+    array(
+        flashed( 30, 'call' ),
+        WPCPM_Group_Sessions::has_joined( $series[0], 30 ),
+        WPCPM_Group_Sessions::has_joined( $series[1], 30 ),
+        WPCPM_Group_Sessions::has_joined( $series[2], 30 ),
+    ),
+    array( 'busy', false, false, false ) );
+WPCPM_Mentor_Calls::unlock_for( 20 );
+
+// The middle session fills up before the student presses.
+foreach ( array( 41, 42, 43, 44, 45, 46 ) as $other ) {
+	WPCPM_Mentor_Calls::add_attendee( $series[1], $other, 'recSTUDENT' . $other . '000000' );
+}
+$GLOBALS['query_result'] = array_map( 'get_post', $series );
+$_POST                   = array( 'series' => $series[0] );
+run( 'handle_join_series (two of three, one full)', array( 'WPCPM_Group_Sessions', 'handle_join_series' ) );
+$outcome = flashed( 30, 'call' );
+
+check( 'the student is put on the two sessions with a place, the full one is skipped and counted, and one message each goes to the student and the mentor with the file',
+    array(
+        $outcome,
+        WPCPM_Group_Sessions::has_joined( $series[0], 30 ),
+        WPCPM_Group_Sessions::has_joined( $series[1], 30 ),
+        WPCPM_Group_Sessions::has_joined( $series[2], 30 ),
+        count( $GLOBALS['mail'] ),
+        false !== strpos( $GLOBALS['mail'][1]['subj'], 'Group sessions with Mia Mentor: 2 dates' ),
+        basename( reset( $GLOBALS['mail'][1]['attachments'] ) ),
+        get_option( 'wpcpm_call_lock_20', false ),
+    ),
+    array( array( 'series-joined-some', 2, 3, 1 ), true, false, true, 2, true, 'mentor-sessions.ics', false ) );
+
+$_POST = array( 'series' => $series[0] );
+run( 'handle_join_series (nothing left to take)', array( 'WPCPM_Group_Sessions', 'handle_join_series' ) );
+check( 'a second press finds nothing to join', flashed( 30, 'call' ), 'series-nothing' );
+
+ob_start();
+WPCPM_Group_Sessions::render_student_list( $GLOBALS['users'][30], true );
+$after_list = ob_get_clean();
+check( 'and the series no longer offers Join all', substr_count( $after_list, 'name="action" value="wpcpm_join_series"' ), 0 );
+
+// The press as it usually goes: a fresh series, a place on every session, the student on none.
+// A second series rather than the first, whose middle session is full and whose other two are
+// taken (the final review of 1.108.0: nothing pressed the outcome the student normally sees).
+$GLOBALS['uid']          = 20;
+$GLOBALS['query_result'] = array();
+$before_second           = array_keys( $GLOBALS['posts'] );
+$_POST                   = array( 'mentor' => 20, 'date' => '2027-05-04', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'topic' => 'Patch review', 'more_dates' => array( '2027-05-11', '2027-05-18' ) );
+run( 'handle_create (a second series of three)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+check( 'the second series is planned', flashed( 20, 'call' ), array( 'series-planned', 3 ) );
+
+// Created in date order, so the new IDs climb with the dates and the first of them is the series.
+$second_series = array_values( array_diff( array_keys( $GLOBALS['posts'] ), $before_second ) );
+sort( $second_series );
+
+$GLOBALS['uid']          = 30;
+$GLOBALS['query_result'] = array_map( 'get_post', $second_series );
+$_POST                   = array( 'series' => $second_series[0] );
+run( 'handle_join_series (every session has a place)', array( 'WPCPM_Group_Sessions', 'handle_join_series' ) );
+
+check( 'the student is put on all three, the message says all three, and one message each goes to the student and the mentor',
+    array(
+        flashed( 30, 'call' ),
+        WPCPM_Group_Sessions::has_joined( $second_series[0], 30 ),
+        WPCPM_Group_Sessions::has_joined( $second_series[1], 30 ),
+        WPCPM_Group_Sessions::has_joined( $second_series[2], 30 ),
+        count( $GLOBALS['mail'] ),
+        false !== strpos( $GLOBALS['mail'][1]['subj'], 'Group sessions with Mia Mentor: 3 dates' ),
+    ),
+    array( array( 'series-joined', 3 ), true, true, true, 2, true ) );
+
 $GLOBALS['query_result'] = array();
 
 $GLOBALS['uid'] = 20;

@@ -471,6 +471,27 @@ class WPCPM_Mentor_Calls {
 	}
 
 	/**
+	 * The calls carrying one meta value, soonest first: how a session series is read (1.108.0).
+	 *
+	 * @param string $key      Meta key.
+	 * @param int    $value    The value, a post ID.
+	 * @param bool   $upcoming Only calls that have not started.
+	 * @return WP_Post[]
+	 */
+	public static function having( $key, $value, $upcoming = true ) {
+		return self::query(
+			array(
+				array(
+					'key'   => (string) $key,
+					'value' => (int) $value,
+					'type'  => 'NUMERIC',
+				),
+			),
+			$upcoming
+		);
+	}
+
+	/**
 	 * Calls about one Airtable student record, whatever account booked them.
 	 *
 	 * @param string $record   Airtable record ID.
@@ -928,8 +949,9 @@ class WPCPM_Mentor_Calls {
 	 * bounce anyone somewhere else.
 	 *
 	 * @param string $status Outcome flag.
+	 * @param array  $args   The arguments its sentence takes, if any (1.108.0).
 	 */
-	private static function bounce( $status ) {
+	private static function bounce( $status, array $args = array() ) {
 		$student_page = WPCPM_Students_Dashboard::page_url();
 		$mentor_page  = WPCPM_Mentors_Dashboard::page_url();
 
@@ -967,9 +989,12 @@ class WPCPM_Mentor_Calls {
 
 		// The outcome goes in a flash, not the URL. In the URL it survived every reload -
 		// "That call is canceled and the slot is free again" stayed on the page for good.
-		WPCPM_Flash::set( 'call', $status );
+		WPCPM_Flash::set( 'call', array() === $args ? $status : array_merge( array( $status ), array_values( $args ) ) );
 
-		$args = array();
+		// The arguments the redirect carries, which are not the message's: `$args` above is what
+		// the sentence takes, and one name for both made this method read as if the flash's
+		// arguments ended up in the URL (the final review of 1.108.0).
+		$query = array();
 
 		// Keep a manager on whichever person they were inspecting, rather than bouncing
 		// them to their own page after every action. Taken from the referer so all three
@@ -980,13 +1005,13 @@ class WPCPM_Mentor_Calls {
 		// this cannot grant a view the viewer does not already have - and it is only read
 		// for somebody who has that capability in the first place.
 		if ( $referer && current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			$query = (string) wp_parse_url( $referer, PHP_URL_QUERY );
-			$parts = array();
-			wp_parse_str( $query, $parts );
+			$referer_query = (string) wp_parse_url( $referer, PHP_URL_QUERY );
+			$parts         = array();
+			wp_parse_str( $referer_query, $parts );
 
 			foreach ( array( 'wpcpm_mentor', 'wpcpm_student_view' ) as $keep ) {
 				if ( ! empty( $parts[ $keep ] ) ) {
-					$args[ $keep ] = absint( $parts[ $keep ] );
+					$query[ $keep ] = absint( $parts[ $keep ] );
 				}
 			}
 		}
@@ -994,7 +1019,7 @@ class WPCPM_Mentor_Calls {
 		// `WPCPM_Call_Calendar::ANCHOR`, not `self::` - the anchor belongs to the section the
 		// calendar renders, and this class has no constant of that name. `self::` here was a
 		// fatal on every booking, cancellation and timezone change from 1.13.1 until 1.17.1.
-		wp_safe_redirect( add_query_arg( $args, $page ) . '#' . WPCPM_Call_Calendar::ANCHOR );
+		wp_safe_redirect( add_query_arg( $query, $page ) . '#' . WPCPM_Call_Calendar::ANCHOR );
 		exit;
 	}
 
@@ -1024,9 +1049,10 @@ class WPCPM_Mentor_Calls {
 	 * Redirect with an outcome message, for another module.
 	 *
 	 * @param string $status Outcome flag.
+	 * @param array  $args   The arguments its sentence takes, if any (1.108.0).
 	 */
-	public static function bounce_to( $status ) {
-		self::bounce( $status );
+	public static function bounce_to( $status, array $args = array() ) {
+		self::bounce( $status, $args );
 	}
 
 	/**
@@ -1196,10 +1222,14 @@ class WPCPM_Mentor_Calls {
 	/**
 	 * The message for an outcome flag, or an empty array.
 	 *
+	 * A flag whose sentence has a placeholder takes its arguments from the flash, so a refusal
+	 * can name the date it refused and a series join can say how many it took (1.108.0).
+	 *
 	 * @param string $status Outcome flag.
+	 * @param array  $args   The arguments the sentence's placeholders take, if any.
 	 * @return array{0:string,1:string}|array
 	 */
-	public static function message( $status ) {
+	public static function message( $status, array $args = array() ) {
 		$messages = array(
 			'booked'              => array( 'success', __( 'Your call is booked. It is in the list above, and your mentor can see it too.', 'wpcredits-program-manager' ) ),
 			'cancelled'           => array( 'success', __( 'That call is canceled and the slot is free again.', 'wpcredits-program-manager' ) ),
@@ -1227,9 +1257,64 @@ class WPCPM_Mentor_Calls {
 			'session-shrink'      => array( 'error', __( 'That is fewer places than there are students already on the session. Remove somebody first, or keep the places.', 'wpcredits-program-manager' ) ),
 			'session-noted'       => array( 'success', __( 'Your note is saved, and it is on every card of everybody who was there.', 'wpcredits-program-manager' ) ),
 			'session-note-failed' => array( 'error', __( 'That note could not be saved.', 'wpcredits-program-manager' ) ),
+
+			// A series of sessions (1.108.0).
+			/* translators: %d: how many sessions were planned. */
+			'series-planned'      => array( 'success', __( 'Your %d sessions are planned. Your students can see the series and join it.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: a date. */
+			'series-past'         => array( 'error', __( 'One of the dates has passed: %s.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: a date. */
+			'series-twice'        => array( 'error', __( 'One of the dates is given twice: %s.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: a date. */
+			'series-clash'        => array( 'error', __( 'Something else of yours already starts on %s at that time.', 'wpcredits-program-manager' ) ),
+			'series-many'         => array( 'error', __( 'A series holds nine sessions at most; plan the rest in a second go.', 'wpcredits-program-manager' ) ),
+			/* translators: %d: how many sessions the student is on. */
+			'series-joined'       => array( 'success', __( 'You are on all %d sessions. They are in your list above, and one email holds the ones you joined just now for your calendar.', 'wpcredits-program-manager' ) ),
+			/* translators: 1: sessions the student is on, 2: sessions in the series, 3: sessions that were full. */
+			'series-joined-some'  => array( 'success', __( 'You are on %1$d of the %2$d sessions; %3$d had no place left.', 'wpcredits-program-manager' ) ),
+			'series-nothing'      => array( 'error', __( 'There was nothing to join: you are on every session of the series that has a place.', 'wpcredits-program-manager' ) ),
 		);
 
-		return isset( $messages[ $status ] ) ? $messages[ $status ] : array();
+		if ( ! isset( $messages[ $status ] ) ) {
+			return array();
+		}
+
+		$message = $messages[ $status ];
+
+		if ( array() !== $args && false !== strpos( $message[1], '%' ) ) {
+			try {
+				$filled = vsprintf( $message[1], array_values( $args ) );
+			} catch ( Error $e ) {
+				// A flash is user meta, so one holding fewer arguments than its sentence takes is
+				// malformed rather than impossible - and on PHP 8 that is fatal where 7.4 only
+				// warned and answered false: `vsprintf()` throws `ValueError`, its `sprintf()`
+				// cousin `ArgumentCountError`, and both are `Error`. A dashboard render must not
+				// die on one (the final review of 1.108.0); the sentence goes out unfilled.
+				$filled = false;
+			}
+
+			$message[1] = false === $filled ? $message[1] : $filled;
+		}
+
+		return $message;
+	}
+
+	/**
+	 * The arguments the outcome flag on the current request carries, if any (1.108.0).
+	 *
+	 * The flash holds either the flag alone or the flag followed by its arguments; `take()`
+	 * memoizes per request, so reading it here after `status()` read it is the same read.
+	 *
+	 * @return string[]
+	 */
+	public static function args() {
+		$taken = WPCPM_Flash::take( 'call' );
+
+		if ( ! is_array( $taken ) ) {
+			return array();
+		}
+
+		return array_map( 'sanitize_text_field', array_map( 'strval', array_slice( array_values( $taken ), 1 ) ) );
 	}
 
 	/**
@@ -1238,7 +1323,13 @@ class WPCPM_Mentor_Calls {
 	 * @return string
 	 */
 	public static function status() {
-		return sanitize_key( (string) WPCPM_Flash::take( 'call' ) );
+		$taken = WPCPM_Flash::take( 'call' );
+
+		if ( is_array( $taken ) ) {
+			$taken = reset( $taken );
+		}
+
+		return sanitize_key( (string) $taken );
 	}
 
 	/*
@@ -1323,6 +1414,76 @@ class WPCPM_Mentor_Calls {
 						$mentor->display_name
 					),
 					'body'        => self::mail_body( $facts, $recipient, $mentor->display_name, false, 'booked' ),
+					'headers'     => WPCPM_Mail::reply_to( $mentor ),
+					'attachments' => $invite,
+					'cleanup'     => $invite,
+				);
+			}
+		);
+	}
+
+	/**
+	 * Tell both people a student joined a series: one message each, with one calendar file holding
+	 * every session the student was put on (the design's section 6, 1.108.0).
+	 *
+	 * @param int[]        $call_ids The sessions the student was put on, soonest first.
+	 * @param WP_User      $mentor   Mentor.
+	 * @param WP_User|null $student  Student.
+	 */
+	public static function notify_joined_series( array $call_ids, WP_User $mentor, $student ) {
+		$facts_list = array();
+
+		foreach ( $call_ids as $call_id ) {
+			$call = get_post( (int) $call_id );
+
+			if ( $call instanceof WP_Post && self::mail_enabled( $call ) ) {
+				$facts_list[] = self::details( $call );
+			}
+		}
+
+		if ( array() === $facts_list || ! $student instanceof WP_User ) {
+			return;
+		}
+
+		$count = count( $facts_list );
+
+		WPCPM_Mail::send(
+			$mentor,
+			'series-joined',
+			function ( $recipient ) use ( $facts_list, $count, $mentor, $student ) {
+				$invite = self::calendar_many( $facts_list, $mentor, $student, $recipient );
+
+				return array(
+					'subject'     => sprintf(
+						/* translators: 1: site name, 2: student name, 3: how many sessions. */
+						_n( '[%1$s] %2$s joined your series: %3$d session', '[%1$s] %2$s joined your series: %3$d sessions', $count, 'wpcredits-program-manager' ),
+						WPCPM_Mail::site_name(),
+						$student->display_name,
+						$count
+					),
+					'body'        => self::series_mail_body( $facts_list, $recipient, $student->display_name, true ),
+					'headers'     => WPCPM_Mail::reply_to( $student ),
+					'attachments' => $invite,
+					'cleanup'     => $invite,
+				);
+			}
+		);
+
+		WPCPM_Mail::send(
+			$student,
+			'series-joined',
+			function ( $recipient ) use ( $facts_list, $count, $mentor, $student ) {
+				$invite = self::calendar_many( $facts_list, $mentor, $student, $recipient );
+
+				return array(
+					'subject'     => sprintf(
+						/* translators: 1: site name, 2: mentor name, 3: how many dates. */
+						_n( '[%1$s] Group sessions with %2$s: %3$d date', '[%1$s] Group sessions with %2$s: %3$d dates', $count, 'wpcredits-program-manager' ),
+						WPCPM_Mail::site_name(),
+						$mentor->display_name,
+						$count
+					),
+					'body'        => self::series_mail_body( $facts_list, $recipient, $mentor->display_name, false ),
 					'headers'     => WPCPM_Mail::reply_to( $mentor ),
 					'attachments' => $invite,
 					'cleanup'     => $invite,
@@ -1577,9 +1738,13 @@ class WPCPM_Mentor_Calls {
 	private static function calendar( array $facts, $method, $mentor, $student, WP_User $recipient, $sequence = null ) {
 		static $built = array();
 
-		// Called twice per message by design - once for `attachments`, once for `cleanup` -
-		// and writing the file twice would leak the first one. The revision is part of the key
-		// too: a session moved twice in one request would otherwise hand back the first file.
+		// Written once per recipient, per session, per revision: asked for the same file again in
+		// one request, this hands back the one it already wrote, because a second build would leave
+		// the first file on disk with nothing holding its path to remove it. (`WPCPM_Mail::send()`
+		// calls the builder once, and the builder hands the same path to `attachments` and to
+		// `cleanup` - this comment used to say it asks twice. The final review of 1.108.0.) The
+		// revision is part of the key too: a session moved twice in one request would otherwise
+		// hand back the first file.
 		$memo = $facts['id'] . '|' . $method . '|' . $recipient->ID . '|' . (string) $sequence;
 
 		if ( isset( $built[ $memo ] ) ) {
@@ -1610,6 +1775,125 @@ class WPCPM_Mentor_Calls {
 		$built[ $memo ] = '' === $path ? array() : array( $path );
 
 		return $built[ $memo ];
+	}
+
+	/**
+	 * The calendar file for a series, written for `wp_mail()` to attach (1.108.0).
+	 *
+	 * Memoized like `calendar()`: the same recipient's file for the same set of sessions is written
+	 * once per request and handed back on any later ask, so a second build cannot leave the first
+	 * file on disk with nothing holding its path to remove it.
+	 *
+	 * @param array[] $facts_list Call facts, one per session.
+	 * @param WP_User $mentor     Mentor.
+	 * @param WP_User $student    Student.
+	 * @param WP_User $recipient  Who the message is for.
+	 * @return string[] The file's path in a list, or an empty list when it could not be written.
+	 */
+	private static function calendar_many( array $facts_list, WP_User $mentor, WP_User $student, WP_User $recipient ) {
+		static $built = array();
+
+		$ids  = array_map( 'intval', array_column( $facts_list, 'id' ) );
+		$memo = implode( ',', $ids ) . '|' . $recipient->ID;
+
+		if ( isset( $built[ $memo ] ) ) {
+			return $built[ $memo ];
+		}
+
+		$summary = sprintf(
+			/* translators: 1: mentor name, 2: student name. */
+			__( 'Mentor call: %1$s and %2$s', 'wpcredits-program-manager' ),
+			$mentor->display_name,
+			$student->display_name
+		);
+
+		// The single invitation's own description, so an entry reads the same whether it came from
+		// Join all or from one row's Join, and a later move overwrites it with the same text (the
+		// design's section 6; the final review of 1.108.0). Place and topic are the series', so the
+		// first session's facts give every event the same text.
+		$description = self::mail_body( reset( $facts_list ), $recipient, $mentor->display_name, false, 'calendar' );
+
+		$ics  = WPCPM_ICS::build_many( $facts_list, WPCPM_ICS::METHOD_REQUEST, $mentor, $student, $summary, $description, WPCPM_Mentor_Availability::meeting_place( $mentor->ID ) );
+		$path = WPCPM_ICS::tempfile( $ics, 'mentor-sessions.ics' );
+
+		$built[ $memo ] = '' === $path ? array() : array( $path );
+
+		return $built[ $memo ];
+	}
+
+	/**
+	 * The body of a series message: every session on the reader's clock, the topic, the place,
+	 * and what the attached file does (the design's section 6, 1.108.0).
+	 *
+	 * @param array[] $facts_list Call facts, one per session, soonest first.
+	 * @param WP_User $recipient  Who is reading it.
+	 * @param string  $other      The other person's name.
+	 * @param bool    $to_mentor  Whether the reader is the mentor.
+	 * @return string
+	 */
+	private static function series_mail_body( array $facts_list, WP_User $recipient, $other, $to_mentor ) {
+		$zone  = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
+		$first = reset( $facts_list );
+		$count = count( $facts_list );
+		$lines = array();
+
+		$lines[] = $to_mentor
+			? sprintf(
+				/* translators: 1: student name, 2: how many sessions. */
+				_n( '%1$s joined %2$d group session of yours:', '%1$s joined %2$d group sessions of yours:', $count, 'wpcredits-program-manager' ),
+				$other,
+				$count
+			)
+			: sprintf(
+				/* translators: 1: mentor name, 2: how many sessions. */
+				_n( 'You are on %2$d group session with %1$s:', 'You are on %2$d group sessions with %1$s:', $count, 'wpcredits-program-manager' ),
+				$other,
+				$count
+			);
+
+		foreach ( $facts_list as $facts ) {
+			$lines[] = self::format_range( $facts['start'], $facts['end'], $zone );
+		}
+
+		$lines[] = '';
+		$lines[] = sprintf(
+			/* translators: %s: timezone name. */
+			__( 'Times are shown in %s.', 'wpcredits-program-manager' ),
+			WPCPM_Mentor_Availability::zone_label( $zone->getName() )
+		);
+
+		$where = WPCPM_Mentor_Availability::meeting_place( (int) $first['mentor_id'] );
+
+		if ( '' !== $where ) {
+			$lines[] = '';
+			$lines[] = __( 'Where you will meet:', 'wpcredits-program-manager' );
+			$lines[] = $where;
+		} elseif ( $to_mentor ) {
+			// Only the mentor can fix this, and only they should be told about it (the final review
+			// of 1.108.0: the series message arranges several sessions at once, so it must not be
+			// the one that leaves this out). The same sentence a single booking uses, word for word,
+			// so no second string of the same meaning goes to the translators.
+			$lines[] = '';
+			$lines[] = __( 'You have not set a meeting link yet, so this confirmation cannot tell your student where to go. You can add one beside your availability on the program site.', 'wpcredits-program-manager' );
+		}
+
+		if ( '' !== trim( (string) $first['topic'] ) ) {
+			$lines[] = '';
+			$lines[] = __( 'What the sessions are about:', 'wpcredits-program-manager' );
+			$lines[] = $first['topic'];
+		}
+
+		$lines[] = '';
+		$lines[] = __( 'The attached calendar file adds all of them to your calendar at once.', 'wpcredits-program-manager' );
+
+		$page = $to_mentor ? WPCPM_Mentors_Dashboard::page_url() : WPCPM_Students_Dashboard::page_url();
+
+		if ( '' !== $page ) {
+			$lines[] = '';
+			$lines[] = $page;
+		}
+
+		return implode( "\n", $lines );
 	}
 
 	/**
