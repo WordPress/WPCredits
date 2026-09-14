@@ -4050,8 +4050,10 @@
 }
 
 /* The controls follow the availability editor's, so the two forms on this card do not
-   look like they came from different plugins. */
+   look like they came from different plugins. The select is the Repeat rule's (plugin
+   1.109.0), which would otherwise be the one browser-styled control on the form. */
 .wpc-dashboard-page .wpcpm-sessions__form input,
+.wpc-dashboard-page .wpcpm-sessions__form select,
 .wpc-dashboard-page .wpcpm-sessions__form textarea,
 .wpc-dashboard-page .wpcpm-sessions__note textarea {
 	/* --wpc-control-border is the token; `--wpc-line-control` never existed, and the fallback

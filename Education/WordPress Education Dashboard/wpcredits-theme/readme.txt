@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.4
+Stable tag: 1.24.5
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.5 =
+* Mentor Report Card: the planning form's Repeat select (plugin 1.109.0) is dressed like the form's other controls, by the same rule.
 
 = 1.24.4 =
 * Mentor Report Card: the "More dates" legend of a series (plugin 1.108.0) is dressed like the planning form's labels, by the same rule, instead of inheriting the body's size and color.
