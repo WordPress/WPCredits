@@ -300,9 +300,12 @@ class WPCPM_Mentor_Calls {
 	 *
 	 * @param int          $student_id Student user ID.
 	 * @param WP_User|null $mentor     Their mentor, if already resolved.
+	 * @param bool         $limit      Whether the mentor's per-student limit is counted. Joining a
+	 *                                 group session passes false: a session's places are its own
+	 *                                 limit (1.107.1).
 	 * @return string Empty string when booking is allowed.
 	 */
-	public static function why_not_bookable( $student_id, $mentor = null ) {
+	public static function why_not_bookable( $student_id, $mentor = null, $limit = true ) {
 		$mentor = $mentor instanceof WP_User ? $mentor : self::mentor_for_student( $student_id );
 
 		if ( ! $mentor instanceof WP_User ) {
@@ -320,10 +323,24 @@ class WPCPM_Mentor_Calls {
 			return __( 'Your mentor has not set their availability yet. This calendar fills in as soon as they do.', 'wpcredits-program-manager' );
 		}
 
-		$schedule = WPCPM_Mentor_Availability::get( $mentor->ID );
-		$upcoming = self::for_student( $student_id, true );
+		if ( ! $limit ) {
+			return '';
+		}
 
-		if ( count( $upcoming ) >= $schedule['per_student'] ) {
+		// The limit is how many one-to-one calls a student may hold at once. A group session the
+		// student joined is an upcoming call too, but it is not counted: a session's places are
+		// its own limit, and a mentor who runs one a week wants every student on all of them
+		// (1.107.1, a mentor's request relayed by the product owner).
+		$schedule = WPCPM_Mentor_Availability::get( $mentor->ID );
+		$held     = 0;
+
+		foreach ( self::for_student( $student_id, true ) as $call ) {
+			if ( self::capacity( $call->ID ) <= 1 ) {
+				++$held;
+			}
+		}
+
+		if ( $held >= $schedule['per_student'] ) {
 			return _n(
 				'You already have a call booked. Cancel it if you need a different time.',
 				'You have booked as many calls as your mentor takes at once. Cancel one if you need a different time.',

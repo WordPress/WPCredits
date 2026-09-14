@@ -157,6 +157,7 @@ function wp_insert_post( $a, $err = false ) {
 	$p = new WP_Post();
 	$p->ID = $id;
 	$p->post_type = $a['post_type'] ?? '';
+	$p->post_status = $a['post_status'] ?? 'publish';
 	$p->post_content = $a['post_content'] ?? '';
 	$p->post_author = $a['post_author'] ?? 0;
 	$p->post_title = $a['post_title'] ?? '';
@@ -165,8 +166,10 @@ function wp_insert_post( $a, $err = false ) {
 }
 function wp_trash_post( $id ) { return true; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ] ); return true; }
-function get_post_meta( $id, $k, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; }
+function get_post_meta( $id, $k, $single = false ) { $v = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; if ( $single && is_array( $v ) && ! empty( $GLOBALS['pmeta_rows'][ (int) $id ][ $k ] ) ) { return $v ? $v[0] : ''; } return $v; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
+// Repeated rows, as WordPress keeps them: the attendee list of a group session is one row a student.
+function add_post_meta( $id, $k, $v, $unique = false ) { $rows = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? array(); $rows = is_array( $rows ) ? $rows : array(); $rows[] = $v; $GLOBALS['pmeta'][ (int) $id ][ $k ] = $rows; $GLOBALS['pmeta_rows'][ (int) $id ][ $k ] = true; return true; }
 function get_post_time( $f, $gmt = false, $p = null ) { return time(); }
 function wp_mail( $to, $subj, $body, $headers = array(), $attachments = array() ) {
 	$GLOBALS['mail'][] = compact( 'to', 'subj', 'body', 'headers', 'attachments' );
@@ -286,6 +289,7 @@ $GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ]    = array(
 	                   4 => array( array( 'start' => '09:00', 'end' => '12:00' ) ),
 	                   5 => array( array( 'start' => '09:00', 'end' => '12:00' ) ) ),
 );
+$mentor_schedule = $GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ];
 $GLOBALS['umeta'][20][ WPCPM_Mentors_Sync::META_MENTEES ] = array(
 	array( 'record_id' => $student_rec, 'name' => 'Sam Student', 'is_past' => false, 'email' => 'student@example.test' ),
 );
@@ -313,6 +317,41 @@ function run( $label, callable $fn ) {
 		printf( "FAIL %-46s %s: %s\n     %s:%d\n", $label, get_class( $t ), $t->getMessage(), $t->getFile(), $t->getLine() );
 		$fail++;
 	}
+}
+
+/**
+ * Assert a value, for the few outcomes a handler's flash or a rule's answer has to be read.
+ *
+ * @param string $label What is being checked.
+ * @param mixed  $got   Actual.
+ * @param mixed  $want  Expected.
+ */
+function check( $label, $got, $want ) {
+	global $fail;
+
+	if ( $got === $want ) {
+		printf( "ok   %s\n", $label );
+		return;
+	}
+
+	$fail++;
+	printf( "FAIL %s\n     got:  %s\n     want: %s\n", $label, var_export( $got, true ), var_export( $want, true ) );
+}
+
+/**
+ * The message a bounce left on a channel, read from the pending meta and cleared: `take()`
+ * memoizes per request, so a suite that presses twice must read the raw queue.
+ *
+ * @param int    $user_id The user.
+ * @param string $channel The channel.
+ * @return mixed The value, or '' when nothing is pending.
+ */
+function flashed( $user_id, $channel ) {
+	$pending = $GLOBALS['umeta'][ (int) $user_id ][ WPCPM_Flash::META ] ?? array();
+	$value   = is_array( $pending ) && array_key_exists( $channel, $pending ) ? $pending[ $channel ] : '';
+	unset( $GLOBALS['umeta'][ (int) $user_id ][ WPCPM_Flash::META ] );
+
+	return $value;
 }
 
 echo "=== WPCPM_Mentor_Calls ===\n";
@@ -431,6 +470,45 @@ run( 'handle_join (no such session)', array( 'WPCPM_Group_Sessions', 'handle_joi
 
 $_POST = array( 'session' => 999999 );
 run( 'handle_leave (not on it)', array( 'WPCPM_Group_Sessions', 'handle_leave' ) );
+
+// 1.107.1, a mentor's request: a student may join every session that has a place. The limit of one
+// upcoming call (`per_student` above) counts one-to-one calls alone, so a joined session is neither
+// refused by it nor counted against a private booking.
+$GLOBALS['uid'] = 20;
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = $mentor_schedule;
+$_POST          = array( 'mentor' => 20, 'date' => '2027-01-12', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6 );
+run( 'handle_create (a second session)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+
+$sessions = array();
+foreach ( $GLOBALS['posts'] as $post ) {
+	if ( WPCPM_Mentor_Calls::POST_TYPE === $post->post_type && WPCPM_Mentor_Calls::capacity( $post->ID ) > 1 ) {
+		$sessions[] = $post;
+	}
+}
+check( 'two sessions stand', count( $sessions ), 2 );
+
+$GLOBALS['uid'] = 30;
+$_POST          = array( 'session' => $sessions[0]->ID );
+run( 'handle_join (first session)', array( 'WPCPM_Group_Sessions', 'handle_join' ) );
+check( 'the first join lands', flashed( 30, 'call' ), 'session-joined' );
+
+// The student now holds that session as an upcoming call, as the query would answer.
+$GLOBALS['query_result'] = array( $sessions[0] );
+$_POST                   = array( 'session' => $sessions[1]->ID );
+run( 'handle_join (second session, at the limit of one)', array( 'WPCPM_Group_Sessions', 'handle_join' ) );
+check( 'a joined session does not count against the limit, so the second join lands too', flashed( 30, 'call' ), 'session-joined' );
+check( 'and a private call can still be booked beside the sessions', WPCPM_Mentor_Calls::why_not_bookable( 30 ), '' );
+
+$GLOBALS['posts'][501]            = new WP_Post();
+$GLOBALS['posts'][501]->ID        = 501;
+$GLOBALS['posts'][501]->post_type = WPCPM_Mentor_Calls::POST_TYPE;
+$GLOBALS['pmeta'][501]            = array(
+	WPCPM_Mentor_Calls::META_MENTOR => 20, WPCPM_Mentor_Calls::META_STUDENT => 30,
+	WPCPM_Mentor_Calls::META_START => time() + 172800, WPCPM_Mentor_Calls::META_END => time() + 174600,
+);
+$GLOBALS['query_result'] = array( $GLOBALS['posts'][501] );
+check( 'while a one-to-one call still counts', '' !== WPCPM_Mentor_Calls::why_not_bookable( 30 ), true );
+$GLOBALS['query_result'] = array();
 
 $GLOBALS['uid'] = 20;
 $_POST          = array( 'session' => 0, 'note' => 'Covered the release cycle.' );

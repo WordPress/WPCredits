@@ -37,5 +37,5 @@ session is about and how many places are left.
 private call. If something changes, **Leave the session** takes you off and frees your place for
 somebody else.
 
-A session counts towards the number of upcoming calls you may hold at once, so if you cannot join
-one, check whether you are already holding as many as your mentor allows.
+A session does not count towards the number of upcoming calls you may hold at once: join every
+session that has a place, and your one-to-one booking is unaffected.

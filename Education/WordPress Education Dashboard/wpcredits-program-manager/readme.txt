@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.107.0
+Stable tag: 1.107.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.107.1 =
+
+* A student may join every group session that has a place. Joining no longer counts against the number of upcoming calls a mentor lets one student hold, which is now a limit on one-to-one calls alone: with the default of one, a student who had joined a session could join no other and could not book a private call either. The availability form's note and the student and mentor guides say so.
 
 = 1.107.0 =
 

@@ -53,8 +53,9 @@ offer for private calls. It does **block that time from one-to-one booking**, so
 privately over a session you are running.
 
 Your students see it under *My mentor call* and can **join** while there are places left, and
-**leave** again if something changes - which frees their place for somebody else. Joining counts
-towards the limit you set for how many upcoming calls one student may hold.
+**leave** again if something changes - which frees their place for somebody else. Joining does not
+count towards the limit you set for how many upcoming calls one student may hold: that limit is for
+one-to-one calls, and a session's places are its own.
 
 Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes
 to all of them. If you cancel the session, every student on it is told.

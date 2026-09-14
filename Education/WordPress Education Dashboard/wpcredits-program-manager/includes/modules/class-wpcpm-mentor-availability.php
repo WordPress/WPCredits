@@ -1077,7 +1077,7 @@ class WPCPM_Mentor_Availability {
 		);
 		printf(
 			'<span class="wpcpm-availability__note">%s</span>',
-			esc_html__( 'How many upcoming calls one student may hold at once.', 'wpcredits-program-manager' )
+			esc_html__( 'How many upcoming one-to-one calls one student may hold at once. Group sessions do not count.', 'wpcredits-program-manager' )
 		);
 		echo '</p>';
 

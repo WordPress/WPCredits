@@ -28,8 +28,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * session; attendees are repeated `META_STUDENT` rows. A call with neither reads exactly as it did
  * before any of this existed, which is why nothing needed migrating.
  *
- * Joining counts against the mentor's per-student limit, because an upcoming session is an upcoming
- * call - a student holding three of them has three calls to prepare for.
+ * Joining does not count against the mentor's per-student limit (since 1.107.1): that limit is how
+ * many one-to-one calls a student may hold, and a session's places are its own limit, so a student
+ * may join every session with a place. The earlier rule counted a joined session as a booked call,
+ * which with the default limit of one kept a student off every session but the first.
  */
 class WPCPM_Group_Sessions {
 
@@ -425,9 +427,12 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-already' );
 		}
 
-		// An upcoming session is an upcoming call, so it counts against the mentor's per-student
-		// limit - read before the lock, and again inside it.
-		if ( '' !== WPCPM_Mentor_Calls::why_not_bookable( $student_id, $mentor ) ) {
+		// Joining is limited by the session's places, not by the mentor's per-student limit, which
+		// counts one-to-one calls since 1.107.1 (a mentor asked to leave every session she runs open
+		// to all her students). The other reasons a student cannot book - no mentor, time on the
+		// program finished, no availability published - still hold, and none of them can change
+		// between here and the lock, so they are read once.
+		if ( '' !== WPCPM_Mentor_Calls::why_not_bookable( $student_id, $mentor, false ) ) {
 			self::bounce( 'blocked' );
 		}
 
@@ -440,11 +445,6 @@ class WPCPM_Group_Sessions {
 		if ( ! WPCPM_Mentor_Calls::has_room( $call->ID ) ) {
 			WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
 			self::bounce( 'session-full' );
-		}
-
-		if ( '' !== WPCPM_Mentor_Calls::why_not_bookable( $student_id, $mentor ) ) {
-			WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
-			self::bounce( 'blocked' );
 		}
 
 		WPCPM_Mentor_Calls::add_attendee( $call->ID, $student_id, WPCPM_Mentor_Calls::student_record( $student_id ) );
