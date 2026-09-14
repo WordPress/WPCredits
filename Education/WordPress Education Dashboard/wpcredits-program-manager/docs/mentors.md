@@ -337,7 +337,9 @@ session is about and how many places are left.
 
 **Join this session** puts you on it, and you get an email with a calendar invitation the same as a
 private call. If something changes, **Leave the session** takes you off and frees your place for
-somebody else.
+somebody else. Once a session has started, its row says so instead of offering either button, and
+its time reads how long ago it began; the row stays on your list for an hour so you can still find
+the link.
 
 A session does not count towards the number of upcoming calls you may hold at once: join every
 session that has a place, and your one-to-one booking is unaffected.

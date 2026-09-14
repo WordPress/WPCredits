@@ -749,6 +749,33 @@ check( 'the student is put on all three, the message says all three, and one mes
     ),
     array( array( 'series-joined', 3 ), true, true, true, 2, true ) );
 
+// 1.108.1: a session that has started draws neither Join nor Leave (the handlers refuse both through
+// `session()`), says it has started, and its relative time reads "started ... ago", not "in ...".
+foreach ( array( 910 => time() - 1200, 911 => time() - 1200, 912 => time() + DAY_IN_SECONDS ) as $started_id => $started_at ) {
+	$GLOBALS['posts'][ $started_id ]            = new WP_Post();
+	$GLOBALS['posts'][ $started_id ]->ID        = $started_id;
+	$GLOBALS['posts'][ $started_id ]->post_type = WPCPM_Mentor_Calls::POST_TYPE;
+	$GLOBALS['pmeta'][ $started_id ]            = array(
+		WPCPM_Mentor_Calls::META_MENTOR => 20, WPCPM_Mentor_Calls::META_CAPACITY => 6,
+		WPCPM_Mentor_Calls::META_START => $started_at, WPCPM_Mentor_Calls::META_END => $started_at + 3600,
+	);
+}
+WPCPM_Mentor_Calls::add_attendee( 911, 30, $student_rec );
+$GLOBALS['query_result'] = array( $GLOBALS['posts'][910], $GLOBALS['posts'][911], $GLOBALS['posts'][912] );
+$GLOBALS['uid']          = 30;
+ob_start();
+WPCPM_Group_Sessions::render_student_list( $GLOBALS['users'][30], true );
+$started_list = ob_get_clean();
+check( 'a session that has started offers neither Join nor Leave and says so, its time reads "started ... ago", and a future one still offers Join',
+    array(
+        substr_count( $started_list, 'name="action" value="' . WPCPM_Group_Sessions::ACTION_JOIN . '"' ),
+        substr_count( $started_list, 'name="action" value="' . WPCPM_Group_Sessions::ACTION_LEAVE . '"' ),
+        substr_count( $started_list, 'This session has started.' ),
+        substr_count( $started_list, '>started 2 hours ago<' ),
+        substr_count( $started_list, '>in 2 hours<' ),
+    ),
+    array( 1, 0, 2, 2, 1 ) );
+
 $GLOBALS['query_result'] = array();
 
 $GLOBALS['uid'] = 20;

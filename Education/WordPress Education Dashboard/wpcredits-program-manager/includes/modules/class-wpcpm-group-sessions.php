@@ -1252,17 +1252,28 @@ class WPCPM_Group_Sessions {
 		$facts  = WPCPM_Mentor_Calls::details( $session );
 		$joined = ( $student instanceof WP_User ) && self::has_joined( $session->ID, $student->ID );
 
+		// The list keeps a session for an hour after it starts, so a late student still finds
+		// the link; the row must not then read "in 20 mins" or offer a Join the handler refuses
+		// (1.108.1, the owner's request). The same predicate `session()` refuses on.
+		$started = (int) $facts['start'] <= time();
+
 		echo '<li class="wpcpm-sessions__item">';
 
 		printf(
 			'<p class="wpcpm-call__when"><strong>%1$s</strong> <span class="wpcpm-call__relative">%2$s</span></p>',
 			esc_html( WPCPM_Mentor_Calls::format_range( $facts['start'], $facts['end'], $zone ) ),
 			esc_html(
-				sprintf(
-					/* translators: %s: human time difference, e.g. "3 days". */
-					__( 'in %s', 'wpcredits-program-manager' ),
-					human_time_diff( $facts['start'] )
-				)
+				$started
+					? sprintf(
+						/* translators: %s: human time difference, e.g. "20 mins". */
+						__( 'started %s ago', 'wpcredits-program-manager' ),
+						human_time_diff( $facts['start'] )
+					)
+					: sprintf(
+						/* translators: %s: human time difference, e.g. "3 days". */
+						__( 'in %s', 'wpcredits-program-manager' ),
+						human_time_diff( $facts['start'] )
+					)
 			)
 		);
 
@@ -1296,7 +1307,7 @@ class WPCPM_Group_Sessions {
 			self::render_note_form( $session, $facts );
 			self::render_mentor_actions( $session, $facts );
 		} elseif ( $viewer_is_student && $student instanceof WP_User ) {
-			self::render_student_actions( $session, $facts, $student, $joined );
+			self::render_student_actions( $session, $facts, $student, $joined, $started );
 		} elseif ( $joined ) {
 			printf( '<p class="wpcpm-sessions__state">%s</p>', esc_html__( 'They are on this session.', 'wpcredits-program-manager' ) );
 		}
@@ -1552,8 +1563,17 @@ class WPCPM_Group_Sessions {
 	 * @param array   $facts   From `details()`.
 	 * @param WP_User $student The student.
 	 * @param bool    $joined  Whether they are already on it.
+	 * @param bool    $started Whether it has started.
 	 */
-	private static function render_student_actions( WP_Post $session, array $facts, WP_User $student, $joined ) {
+	private static function render_student_actions( WP_Post $session, array $facts, WP_User $student, $joined, $started = false ) {
+		// Neither joining nor leaving a session under way is a thing anybody means to do, and the
+		// handlers refuse both (`session()`); the row says why the buttons are not there (1.108.1).
+		if ( $started ) {
+			printf( '<p class="wpcpm-sessions__state">%s</p>', esc_html__( 'This session has started.', 'wpcredits-program-manager' ) );
+
+			return;
+		}
+
 		if ( $joined ) {
 			printf(
 				'<form class="wpcpm-call__cancel" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',

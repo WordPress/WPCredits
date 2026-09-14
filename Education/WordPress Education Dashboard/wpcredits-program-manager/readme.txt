@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.108.0
+Stable tag: 1.108.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.108.1 =
+
+* A group session that has already started no longer offers Join or Leave on a student's list, which the handlers refused anyway: the row says "This session has started." and its time reads how long ago it began rather than "in 20 mins". The row stays on the list for an hour after the start, as before, so a late student still finds the link.
 
 = 1.108.0 =
 

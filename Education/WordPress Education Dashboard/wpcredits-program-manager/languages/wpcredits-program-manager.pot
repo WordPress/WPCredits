@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.108.0\n"
+"Project-Id-Version: WPCredits Program Manager 1.108.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-14T12:24:01+00:00\n"
+"POT-Creation-Date: 2026-09-14T14:45:21+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -2803,8 +2803,8 @@ msgid "to %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-call-calendar.php:655
-#: includes/modules/class-wpcpm-group-sessions.php:1361
-#: includes/modules/class-wpcpm-group-sessions.php:1432
+#: includes/modules/class-wpcpm-group-sessions.php:1373
+#: includes/modules/class-wpcpm-group-sessions.php:1444
 #: includes/modules/class-wpcpm-mentor-availability.php:822
 #: includes/modules/class-wpcpm-student-report-form.php:1094
 #: includes/modules/class-wpcpm-student-report-form.php:1502
@@ -2855,7 +2855,7 @@ msgid "With %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-call-calendar.php:862
-#: includes/modules/class-wpcpm-group-sessions.php:1534
+#: includes/modules/class-wpcpm-group-sessions.php:1546
 msgid "Canceling…"
 msgstr ""
 
@@ -2937,7 +2937,7 @@ msgid "Creating…"
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1037
-#: includes/modules/class-wpcpm-group-sessions.php:1443
+#: includes/modules/class-wpcpm-group-sessions.php:1455
 msgid "Date"
 msgstr ""
 
@@ -2956,34 +2956,34 @@ msgid "Leave the ones you do not need empty. The same time, length, places and t
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1067
-#: includes/modules/class-wpcpm-group-sessions.php:1452
+#: includes/modules/class-wpcpm-group-sessions.php:1464
 msgid "Start time"
 msgstr ""
 
 #. translators: %s: timezone name, e.g. Europe/Riga.
 #: includes/modules/class-wpcpm-group-sessions.php:1071
-#: includes/modules/class-wpcpm-group-sessions.php:1457
+#: includes/modules/class-wpcpm-group-sessions.php:1469
 #, php-format
 msgid "In your own timezone, %s. Your students see it in theirs."
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1080
-#: includes/modules/class-wpcpm-group-sessions.php:1467
+#: includes/modules/class-wpcpm-group-sessions.php:1479
 msgid "Length in minutes"
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1089
-#: includes/modules/class-wpcpm-group-sessions.php:1478
+#: includes/modules/class-wpcpm-group-sessions.php:1490
 msgid "Places"
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1092
-#: includes/modules/class-wpcpm-group-sessions.php:1489
+#: includes/modules/class-wpcpm-group-sessions.php:1501
 msgid "How many students may join."
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1099
-#: includes/modules/class-wpcpm-group-sessions.php:1497
+#: includes/modules/class-wpcpm-group-sessions.php:1509
 msgid "What it is about"
 msgstr ""
 
@@ -3020,7 +3020,7 @@ msgid "%1$s, %2$s to %3$s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-group-sessions.php:1216
-#: includes/modules/class-wpcpm-group-sessions.php:1585
+#: includes/modules/class-wpcpm-group-sessions.php:1606
 msgid "Joining…"
 msgstr ""
 
@@ -3028,97 +3028,107 @@ msgstr ""
 msgid "Join all"
 msgstr ""
 
+#. translators: %s: human time difference, e.g. "20 mins".
+#: includes/modules/class-wpcpm-group-sessions.php:1269
+#, php-format
+msgid "started %s ago"
+msgstr ""
+
 #. translators: %s: human time difference, e.g. "3 days".
 #. translators: %s: human-readable time difference, e.g. "2 hours".
-#: includes/modules/class-wpcpm-group-sessions.php:1263
+#: includes/modules/class-wpcpm-group-sessions.php:1274
 #: includes/modules/class-wpcpm-mentor-calls.php:2043
 #, php-format
 msgid "in %s"
 msgstr ""
 
 #. translators: 1: places taken, 2: places in total.
-#: includes/modules/class-wpcpm-group-sessions.php:1276
+#: includes/modules/class-wpcpm-group-sessions.php:1287
 #, php-format
 msgid "%1$s of %2$s places taken"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1300
+#: includes/modules/class-wpcpm-group-sessions.php:1312
 msgid "They are on this session."
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1316
+#: includes/modules/class-wpcpm-group-sessions.php:1328
 msgid "Nobody has joined yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1355
+#: includes/modules/class-wpcpm-group-sessions.php:1367
 msgid "Add a note for everybody on this session"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1371
+#: includes/modules/class-wpcpm-group-sessions.php:1383
 msgid "Note"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1373
+#: includes/modules/class-wpcpm-group-sessions.php:1385
 msgid "What did you cover with the group?"
 msgstr ""
 
 #. translators: %s: number of students.
-#: includes/modules/class-wpcpm-group-sessions.php:1381
+#: includes/modules/class-wpcpm-group-sessions.php:1393
 #, php-format
 msgid "Saved once and shown on %s student's card."
 msgid_plural "Saved once and shown on all %s students' cards."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1394
+#: includes/modules/class-wpcpm-group-sessions.php:1406
 msgid "Save the note"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1426
+#: includes/modules/class-wpcpm-group-sessions.php:1438
 msgid "Change this session"
 msgstr ""
 
 #. translators: %s: how many students are already on the session.
-#: includes/modules/class-wpcpm-group-sessions.php:1486
+#: includes/modules/class-wpcpm-group-sessions.php:1498
 #, php-format
 msgid "%s student is already on it, so the places cannot go below that."
 msgid_plural "%s students are already on it, so the places cannot go below that."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1505
+#: includes/modules/class-wpcpm-group-sessions.php:1517
 msgid "If you change the time, everybody on the session is emailed a new invitation that replaces the one in their calendar."
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1511
+#: includes/modules/class-wpcpm-group-sessions.php:1523
 msgid "Save the changes"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1541
+#: includes/modules/class-wpcpm-group-sessions.php:1553
 msgid "Cancel this session for everybody on it?"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1542
+#: includes/modules/class-wpcpm-group-sessions.php:1554
 msgid "Cancel the session"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1560
+#: includes/modules/class-wpcpm-group-sessions.php:1572
+msgid "This session has started."
+msgstr ""
+
+#: includes/modules/class-wpcpm-group-sessions.php:1581
 msgid "Leaving…"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1568
+#: includes/modules/class-wpcpm-group-sessions.php:1589
 msgid "Leave this session? Your place goes back."
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1569
+#: includes/modules/class-wpcpm-group-sessions.php:1590
 msgid "Leave the session"
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1577
+#: includes/modules/class-wpcpm-group-sessions.php:1598
 msgid "This session is full."
 msgstr ""
 
-#: includes/modules/class-wpcpm-group-sessions.php:1593
+#: includes/modules/class-wpcpm-group-sessions.php:1614
 msgid "Join this session"
 msgstr ""
 
