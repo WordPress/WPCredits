@@ -38,30 +38,37 @@ final class WPCPM_Track_Questions {
 	const FORK_JOIN = ' - ';
 
 	/**
-	 * Add a question at the end of its own group.
+	 * Add a question, after the last question of its group or after a named column.
 	 *
-	 * The form draws group by group, so a question added to Onboarding belongs after the last
-	 * onboarding question rather than at the end of the track, which is where a plain append would
-	 * put it and is not where the person who pressed Add is looking.
+	 * The form draws group by group, so a question added to a group lands after the last one of
+	 * that group rather than at the end of the map (the design's section 5). A question added under
+	 * a Learn lesson names the lesson's last question as `$after` and lands right behind it, so a
+	 * lesson's questions stay together (decision 32); a column the map does not hold falls back to
+	 * the group rule.
 	 *
-	 * @param array  $questions The questions, column => spec, in order.
-	 * @param string $column    The new column name, verbatim.
+	 * @param array  $questions Column => spec, in order.
+	 * @param string $column    The new question's column, verbatim.
 	 * @param array  $question  The new question.
-	 * @return array|null The questions with it in place, or null when that column is already used.
+	 * @param string $after     The column to place it after, when there is one.
+	 * @return array|null The map with the question in place, or null when the column is used.
 	 */
-	public static function add( array $questions, $column, array $question ) {
+	public static function add( array $questions, $column, array $question, $after = '' ) {
 		$column = (string) $column;
 
 		if ( array_key_exists( $column, $questions ) ) {
 			return null;
 		}
 
-		$group = isset( $question['group'] ) ? (string) $question['group'] : '';
-		$after = '';
+		$after = (string) $after;
 
-		foreach ( $questions as $name => $spec ) {
-			if ( is_array( $spec ) && isset( $spec['group'] ) && (string) $spec['group'] === $group ) {
-				$after = (string) $name;
+		if ( '' === $after || ! array_key_exists( $after, $questions ) ) {
+			$group = isset( $question['group'] ) ? (string) $question['group'] : '';
+			$after = '';
+
+			foreach ( $questions as $name => $spec ) {
+				if ( is_array( $spec ) && isset( $spec['group'] ) && (string) $spec['group'] === $group ) {
+					$after = (string) $name;
+				}
 			}
 		}
 
@@ -82,6 +89,98 @@ final class WPCPM_Track_Questions {
 		}
 
 		return $placed;
+	}
+
+	/**
+	 * The last question reporting on a Learn lesson: where a new question of that lesson goes, and
+	 * whether the lesson has a question at all (its first question is the one that carries the
+	 * lesson's title as `lead`; decision 32).
+	 *
+	 * @param array $questions Column => spec, in order.
+	 * @param int   $lesson_id The lesson.
+	 * @return string The column, or '' when no question reports on the lesson.
+	 */
+	public static function last_of_lesson( array $questions, $lesson_id ) {
+		$lesson_id = (int) $lesson_id;
+		$last      = '';
+
+		if ( $lesson_id <= 0 ) {
+			return '';
+		}
+
+		foreach ( $questions as $name => $spec ) {
+			if ( is_array( $spec ) && isset( $spec['learn_lesson_id'] ) && (int) $spec['learn_lesson_id'] === $lesson_id ) {
+				$last = (string) $name;
+			}
+		}
+
+		return $last;
+	}
+
+	/**
+	 * Match every question that reports on a lesson against another course's lessons, by heading.
+	 *
+	 * A question's heading is its `lead`, or its `subgroup` when it has no lead (the Designer
+	 * Track's form holds one lesson's title in a subgroup); it matches a lesson's title exactly once
+	 * case, apostrophes and runs of spaces are folded, the way the design's 2.6 counted the matches.
+	 * A match takes the new lesson's ID; the rest lose theirs and are listed; a question with no
+	 * lesson is left alone, heading or not (decision 33).
+	 *
+	 * @param array   $questions Column => spec, in order.
+	 * @param array[] $lessons   The new course's lessons, each `id` and `title`, every module together.
+	 * @return array `questions` (the map, in the same order), `matched` and `cleared` (columns).
+	 */
+	public static function rematch( array $questions, array $lessons ) {
+		$by_title = array();
+
+		foreach ( $lessons as $lesson ) {
+			if ( is_array( $lesson ) && isset( $lesson['id'], $lesson['title'] ) ) {
+				$folded = self::fold( $lesson['title'] );
+
+				if ( '' !== $folded && ! isset( $by_title[ $folded ] ) ) {
+					$by_title[ $folded ] = (int) $lesson['id'];
+				}
+			}
+		}
+
+		$matched = array();
+		$cleared = array();
+
+		foreach ( $questions as $name => $spec ) {
+			if ( ! is_array( $spec ) || ! isset( $spec['learn_lesson_id'] ) ) {
+				continue;
+			}
+
+			$heading = isset( $spec['lead'] ) && '' !== (string) $spec['lead'] ? $spec['lead'] : ( isset( $spec['subgroup'] ) ? $spec['subgroup'] : '' );
+			$folded  = self::fold( $heading );
+
+			if ( '' !== $folded && isset( $by_title[ $folded ] ) ) {
+				$questions[ $name ]['learn_lesson_id'] = $by_title[ $folded ];
+				$matched[]                             = (string) $name;
+			} else {
+				unset( $questions[ $name ]['learn_lesson_id'] );
+				$cleared[] = (string) $name;
+			}
+		}
+
+		return array(
+			'questions' => $questions,
+			'matched'   => $matched,
+			'cleared'   => $cleared,
+		);
+	}
+
+	/**
+	 * A heading or a title as the re-match compares it: lower case, apostrophes gone, one space
+	 * between words.
+	 *
+	 * @param mixed $text The heading or title.
+	 * @return string
+	 */
+	private static function fold( $text ) {
+		$text = str_replace( array( "'", "\u{2019}", '`' ), '', (string) $text );
+
+		return strtolower( trim( preg_replace( '/\s+/u', ' ', $text ) ) );
 	}
 
 	/**

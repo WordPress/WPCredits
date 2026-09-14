@@ -1539,7 +1539,7 @@ class WPCPM_Student_Report_Form {
 		printf(
 			'<label class="wpcpm-hours__label" for="%1$s">%2$s</label>',
 			esc_attr( $id ),
-			esc_html( $spec['label'] )
+			esc_html( isset( $spec['label'] ) ? (string) $spec['label'] : '' )
 		);
 
 		echo '<span class="wpcpm-hours__entry">';

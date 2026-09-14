@@ -26,6 +26,50 @@ function esc_attr( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_textarea( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_url( $s ) { return (string) $s; }
 function esc_url_raw( $s ) { return (string) $s; }
+
+// Learn, as the real client reads it (T3c): a table of HTTP answers by address, and transients.
+if ( ! defined( 'DAY_IN_SECONDS' ) ) { define( 'DAY_IN_SECONDS', 86400 ); }
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+function get_transient( $k ) { return array_key_exists( $k, $GLOBALS['transients'] ) ? $GLOBALS['transients'][ $k ] : false; }
+function set_transient( $k, $v, $ttl = 0 ) { $GLOBALS['transients'][ $k ] = $v; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['transients'][ $k ] ); return true; }
+function wp_remote_get( $url, $args = array() ) { return array_key_exists( $url, $GLOBALS['http'] ) ? $GLOBALS['http'][ $url ] : new WP_Error( 'http_request_failed', 'cURL error 28: Connection timed out' ); }
+function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) ? ( $r['response']['code'] ?? 200 ) : 0; }
+function wp_remote_retrieve_body( $r ) { return is_array( $r ) ? ( $r['body'] ?? '' ) : ''; }
+
+/**
+ * Let Learn answer a course by its slug.
+ *
+ * @param string $slug  The course's slug.
+ * @param int    $id    Its post ID on Learn.
+ * @param string $title Its title, as Learn renders it.
+ */
+function course_answer( $slug, $id, $title ) {
+	$GLOBALS['http'][ 'https://learn.wordpress.org/wp-json/wp/v2/courses?slug=' . $slug . '&_fields=id,slug,status,link,title' ] = array( 'response' => array( 'code' => 200 ), 'body' => json_encode( array( array( 'id' => $id, 'slug' => $slug, 'title' => array( 'rendered' => $title ) ) ) ) );
+}
+
+/**
+ * Let Learn answer a course's structure: modules with lessons, as Learn lists them.
+ *
+ * @param int   $course_id The course's post ID on Learn.
+ * @param array $modules   Module title => list of [ id, title ] lessons.
+ */
+function structure_answer( $course_id, array $modules ) {
+	$entries = array();
+	$n       = 0;
+
+	foreach ( $modules as $title => $lessons ) {
+		$entries[] = array(
+			'type'    => 'module',
+			'id'      => 100 + ++$n,
+			'title'   => $title,
+			'lessons' => array_map( function ( $l ) { return array( 'type' => 'lesson', 'id' => $l[0], 'title' => $l[1], 'draft' => false ); }, $lessons ),
+		);
+	}
+
+	$GLOBALS['http'][ 'https://learn.wordpress.org/wp-json/sensei-internal/v1/course-structure/' . (int) $course_id ] = array( 'response' => array( 'code' => 200 ), 'body' => json_encode( $entries ) );
+}
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
 function esc_attr__( $s, $d = null ) { return esc_attr( $s ); }
 function esc_html_e( $s, $d = null ) { echo esc_html( $s ); }
@@ -267,7 +311,14 @@ class WPCPM_Track_Store {
 
 	public static $created = array();
 
+	/** A WP_Error that create() and duplicate() answer instead of a post, when a check sets one. */
+	public static $refuse = null;
+
 	public static function create( array $definition ) {
+		if ( self::$refuse instanceof WP_Error ) {
+			return self::$refuse;
+		}
+
 		self::$created[]      = $definition;
 		$new                  = 98;
 		self::$tracks[ $new ] = array( 'definition' => $definition, 'state' => 'draft', 'source' => 'definition', 'log' => array(), 'equivalence' => array( 'not_builtin' ), 'published' => null );
@@ -276,6 +327,10 @@ class WPCPM_Track_Store {
 	}
 
 	public static function duplicate( $from_id, array $definition ) {
+		if ( self::$refuse instanceof WP_Error ) {
+			return self::$refuse;
+		}
+
 		self::$duplicated[] = array( (int) $from_id, $definition );
 		$new                = 99;
 		self::$tracks[ $new ] = array( 'definition' => $definition, 'state' => 'draft', 'source' => 'definition', 'log' => array(), 'equivalence' => array( 'not_builtin' ), 'published' => null );
@@ -361,6 +416,7 @@ class WPCPM_Flash {
 
 // The real rules, not a stand-in: a stand-in for WPCPM_Track_Questions would let a handler pass
 // against a rule the real class does not hold (T2c's stub-drift findings).
+require_once __DIR__ . '/../includes/class-wpcpm-learn.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-palette.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-diff.php';
@@ -471,6 +527,14 @@ ck( 'a built-in track its PHP runs says so rather than offering an edit that wou
 ck( 'Edit is offered on every row that has a URL, built-in included, since the form itself refuses to edit one', substr_count( $html, '>Edit</a>' ), 3 );
 ck( 'and Duplicate on every row too', substr_count( $html, '>Duplicate</a>' ), 3 );
 
+// One whole cell, counted rather than searched for piece by piece: the four links in the order the
+// loop names them, each with its own query arg and one space between them. Checking them one at a
+// time cannot see a link that lost its place or a separator that went missing (the final review
+// of T3c).
+ck( 'the four links of a row are drawn in the order the loop prints them, each carrying its own argument',
+    substr_count( $html, '>Edit</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_duplicate=13">Duplicate</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_preview=13">Preview</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_history=13">History</a> ' ),
+    1 );
+
 // From Task 6 onward the screen prints values a Program Administrator typed into a track's own
 // name, so a label is exactly where stored markup would surface if `esc_html()` were ever
 // dropped. A row built by hand, not through `WPCPM_Track_Builder::rows()` or the three tracks
@@ -564,7 +628,7 @@ echo "\n=== The properties form ===\n";
 // PHP is what the switch rests on (spec section 6), and the store refuses the save in any case.
 ck( 'the form offers the track properties, then its questions and every other track\'s columns',
     array_keys( WPCPM_Track_Builder::form( 13 ) ),
-    array( 'id', 'label', 'status', 'key', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'read_only', 'questions', 'others', 'schema', 'locked' ) );
+    array( 'id', 'label', 'status', 'key', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'read_only', 'questions', 'others', 'schema', 'locked', 'course', 'lessons', 'learn' ) );
 ck( 'filled from the definition', array( WPCPM_Track_Builder::form( 13 )['label'], WPCPM_Track_Builder::form( 13 )['status'], WPCPM_Track_Builder::form( 13 )['read_only'] ), array( 'Marketing Track', 'Marketing Track', false ) );
 ck( 'and a built-in track its PHP runs is read-only', WPCPM_Track_Builder::form( 11 )['read_only'], true );
 
@@ -615,10 +679,9 @@ $_POST                     = array(
 	'wpcpm_label'           => $form_before['label'],
 	'wpcpm_status'          => $form_before['status'],
 	'wpcpm_key'             => $form_before['key'],
-	'wpcpm_course_url'      => $form_before['course_url'],
-	'wpcpm_learn_course_id' => $form_before['learn_course_id'],
-	'wpcpm_hours_target'    => $form_before['hours_target'],
-	'wpcpm_hue'             => $form_before['hue'],
+	'wpcpm_course_url'   => $form_before['course_url'],
+	'wpcpm_hours_target' => $form_before['hours_target'],
+	'wpcpm_hue'          => $form_before['hue'],
 );
 
 ck( 'an untouched save does not turn no target at all into a target of zero, or no course into an empty one',
@@ -1265,9 +1328,11 @@ $saved = press_editor( 'handle_save', array(
 	'wpcpm_type' => 'url', 'wpcpm_label' => 'Your blog, if you have one', 'wpcpm_group' => 'onboarding',
 	'wpcpm_help' => 'The address', 'wpcpm_lead' => 'About you', 'wpcpm_required' => '1', 'wpcpm_hide_from_institution' => '1',
 	'wpcpm_row' => 'links', 'wpcpm_stack' => '1', 'wpcpm_why' => 'Kept short',
+	// The lesson is a box of the screen's own since T3c, posted like any other property (decision 32).
+	'wpcpm_learn_lesson_id' => '4242',
 ) );
 
-ck( 'every property the control owns is read, the flags only when ticked, and the lesson id is carried through untouched',
+ck( 'every property the control owns is read, the flags only when ticked, and the lesson id from its box',
     WPCPM_Track_Store::$saved[13]['questions']['Your blog'],
     array( 'type' => 'url', 'label' => 'Your blog, if you have one', 'group' => 'onboarding', 'help' => 'The address', 'lead' => 'About you', 'why' => 'Kept short', 'row' => 'links', 'stack' => true, 'required' => true, 'hide_from_institution' => true, 'airtable_type' => 'url', 'learn_lesson_id' => 4242 ) );
 
@@ -2158,6 +2223,7 @@ ck( 'the builder hands the view the draft compiled as the live site compiles it:
         ),
         'state'  => 'draft',
         'source' => 'definition',
+        'stale'  => false,
     ) );
 
 $GLOBALS['enqueued'] = array();
@@ -2442,7 +2508,18 @@ ck( 'a save that kept no definition is handed over with neither a diff nor a cou
     array( $gap['revisions'][1]['diff'], $gap['revisions'][1]['created'], $gap['revisions'][0]['diff']['added'] ),
     array( null, null, array( 'Hours', 'Slack name', 'Your blog' ) ) );
 
-WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+// Two rows, one of them built in, as the Preview check has: History is a link on each.
+WPCPM_Track_Store::$tracks = array(
+	12 => array(
+		'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array() ),
+		'state'       => 'draft',
+		'source'      => 'builtin',
+		'log'         => array(),
+		'equivalence' => array( 'not_published' ),
+		'published'   => null,
+	),
+	13 => editable_track(),
+);
 
 ob_start();
 WPCPM_Track_Builder_Screen::render_list( array( 'rows' => WPCPM_Track_Builder::rows(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
@@ -2451,9 +2528,9 @@ ob_start();
 WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
 $track_page = ob_get_clean();
 
-ck( 'History is offered on every row and beside Preview on the track\'s page',
-    array( substr_count( $rows_html, 'wpcpm_history=13">History</a>' ), substr_count( $track_page, 'wpcpm_preview=13">Preview</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_history=13">History</a>' ) ),
-    array( 1, 1 ) );
+ck( 'History is offered on every row, the built-in one included, and beside Preview on the track\'s page',
+    array( substr_count( $rows_html, '>History</a>' ), substr_count( $rows_html, 'wpcpm_history=12">History</a>' ), substr_count( $track_page, 'wpcpm_preview=13">Preview</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_history=13">History</a>' ) ),
+    array( 2, 1, 1 ) );
 
 
 echo "\n=== The words on a built-in row and on its publish screen (decision 29) ===\n";
@@ -2504,7 +2581,7 @@ $tool->render_admin_page();
 $own_publish = ob_get_clean();
 $_GET = array();
 
-ck( 'its publish screen is headed as the definition\'s, says the track keeps running from its form, and its buttons name the definition; a track of somebody\'s own keeps its words',
+ck( 'its publish screen is headed as the definition\'s, says the track keeps running from its form, and its buttons name the definition, published or not; a track of somebody\'s own keeps its words',
     array(
         false !== strpos( $builtin_publish, '<h2>Publishing the definition of Designer Track</h2>' ),
         false !== strpos( $builtin_publish, 'Publishing records its definition and changes nothing for students' ),
@@ -2513,11 +2590,13 @@ ck( 'its publish screen is headed as the definition\'s, says the track keeps run
         substr_count( $builtin_live, 'Unpublish the definition' ),
         substr_count( $builtin_live, 'Take it off the live site' ),
         substr_count( $builtin_live, 'Check it against Airtable' ),
+        false !== strpos( $builtin_live, '<h2>Publishing the definition of Designer Track</h2>' ),
+        false !== strpos( $builtin_live, 'keeps doing so. Publishing records its definition' ),
         false !== strpos( $own_publish, '<h2>Publishing Marketing Track</h2>' ),
         substr_count( $own_publish, 'Publish this track' ),
         false !== strpos( $own_publish, 'keeps doing so' ),
     ),
-    array( true, true, 1, 0, 1, 0, 1, true, 1, false ) );
+    array( true, true, 1, 0, 1, 0, 1, true, true, true, 1, false ) );
 
 
 echo "\n=== The editor's fold-ins: a locked question's rows and its notice, and every control through the real validator (decision 29) ===\n";
@@ -2608,6 +2687,727 @@ $_POST = array();
 
 ck( 'what posted_question() builds for each of the ten controls is a question the real validator accepts, each carrying its Airtable type',
     $verdicts, array_fill_keys( array_keys( $posts ), array( array(), true ) ) );
+
+
+echo "\n=== The Learn course, resolved on save (T3c) ===\n";
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+$GLOBALS['transients']     = array();
+$GLOBALS['http']           = array();
+
+ck( 'a track with no course link has no course to show', WPCPM_Track_Builder::form( 13 )['course'], array( 'id' => 0, 'title' => '', 'error' => '' ) );
+
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+course_answer( 'marketing', 500001, 'Marketing &amp; Sales' );
+
+ck( 'the form carries what Learn says about the course, its title as words',
+    array( WPCPM_Track_Builder::form( 13 )['course'], array_key_exists( 'wpcpm_learn_course_marketing', $GLOBALS['transients'] ) ),
+    array( array( 'id' => 500001, 'title' => 'Marketing & Sales', 'error' => '' ), true ) );
+
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+
+ck( 'and when Learn does not answer, the reason and the last resolved id',
+    array( WPCPM_Track_Builder::form( 13 )['course']['id'], WPCPM_Track_Builder::form( 13 )['course']['title'], false !== strpos( WPCPM_Track_Builder::form( 13 )['course']['error'], 'did not answer' ) ),
+    array( 500001, '', true ) );
+
+course_answer( 'marketing', 500001, 'Marketing &amp; Sales' );
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$with_course = ob_get_clean();
+
+ck( 'the properties form has no box for the course id: the link is what a person gives, and the course it resolves to is shown beside it, with a press to read it again',
+    array(
+        substr_count( $with_course, 'name="wpcpm_learn_course_id"' ),
+        substr_count( $with_course, 'name="wpcpm_course_url"' ),
+        false !== strpos( $with_course, '<th scope="row">Learn course</th><td>Marketing &amp; Sales (course 500001)</td>' ),
+        substr_count( $with_course, 'name="action" value="wpcpm_track_course"' ),
+        substr_count( $with_course, 'Read the course again' ),
+        // Its own form, so its wrapper is flow content: a <p> would be closed by the <form>
+        // inside it and the markup would not be what it reads as (the final review of T3c).
+        substr_count( $with_course, '<div class="wpcpm-tracks__course-press">' ),
+        substr_count( $with_course, '<p class="wpcpm-tracks__course-press">' ),
+    ),
+    array( 0, 1, true, 1, 1, 1, 0 ) );
+
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$unresolved = ob_get_clean();
+unset( WPCPM_Track_Store::$tracks[13]['definition']['course_url'], WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] );
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$no_course = ob_get_clean();
+
+ck( 'an unresolved link says why, keeping the course it last resolved to; no link, no course row and no press',
+    array(
+        false !== strpos( $unresolved, 'Learn WordPress did not answer' ),
+        false !== strpos( $unresolved, 'course 500001' ),
+        substr_count( $no_course, '<th scope="row">Learn course</th>' ),
+        substr_count( $no_course, 'Read the course again' ),
+    ),
+    array( true, true, 0, 0 ) );
+
+$GLOBALS['nonce']          = WPCPM_Track_Builder::ACTION_SAVE;
+WPCPM_Track_Store::$saved  = array();
+WPCPM_Track_Store::$errors = array();
+WPCPM_Flash::$set          = array();
+course_answer( 'marketing', 500001, 'Marketing &amp; Sales' );
+// The track holds no course by now, and the fixture's lesson on Your blog came from one, so it
+// is dropped here: giving a courseless track a course is a course change like any other, and a
+// question still pointing at a lesson would hold that change back until Learn answers with the
+// new course's lessons (the final review of T3c). That path is checked in the re-match section.
+unset( WPCPM_Track_Store::$tracks[13]['definition']['questions']['Your blog']['learn_lesson_id'] );
+$_POST = array( 'track' => 13, 'wpcpm_label' => 'Marketing Track', 'wpcpm_status' => 'Marketing Track', 'wpcpm_key' => 'marketing', 'wpcpm_course_url' => 'https://learn.wordpress.org/course/marketing/', 'wpcpm_hours_target' => '', 'wpcpm_hue' => 'blue' );
+
+ck( 'a save resolves the link and stores the course id Learn answers, not one a person typed',
+    array( outcome( array( $tool, 'handle_save' ) ), WPCPM_Track_Store::$saved[13]['learn_course_id'], WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'] ),
+    array( 'redirect', 500001, 'success' ) );
+
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$saved = array();
+$GLOBALS['transients']    = array();
+$GLOBALS['http']          = array();
+
+ck( 'the same link while Learn is down keeps the last resolved id, and the notice carries the warning',
+    array( outcome( array( $tool, 'handle_save' ) ), WPCPM_Track_Store::$saved[13]['learn_course_id'], WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'], false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], 'did not resolve' ) ),
+    array( 'redirect', 500001, 'warning', true ) );
+
+$_POST['wpcpm_course_url'] = 'https://learn.wordpress.org/course/another/';
+WPCPM_Track_Store::$saved  = array();
+
+ck( 'a new link that does not resolve saves with no course id, since the last one was another course\'s',
+    array( outcome( array( $tool, 'handle_save' ) ), array_key_exists( 'learn_course_id', WPCPM_Track_Store::$saved[13] ), WPCPM_Track_Store::$saved[13]['course_url'] ),
+    array( 'redirect', false, 'https://learn.wordpress.org/course/another/' ) );
+
+$_POST['wpcpm_course_url'] = '';
+WPCPM_Track_Store::$saved  = array();
+
+ck( 'clearing the link clears the course id with it',
+    array( outcome( array( $tool, 'handle_save' ) ), array_key_exists( 'learn_course_id', WPCPM_Track_Store::$saved[13] ), array_key_exists( 'course_url', WPCPM_Track_Store::$saved[13] ) ),
+    array( 'redirect', false, false ) );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => WPCPM_Track_Builder::rows(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ) );
+$emptied_notice = ob_get_clean();
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => WPCPM_Track_Builder::rows(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array( 'status' => 'warning', 'message' => 'The track was saved.' ) ) );
+$warning_notice = ob_get_clean();
+
+// Every save that carries a warning is drawn as one: taking a course off a track is not one of
+// them, so a person who did what they meant to is not told something went wrong, and a save that
+// did carry a warning is not dressed as a success (the final review of T3c).
+ck( 'a save that only emptied the link is a success, and a warning is drawn in the class the screen gives a warning',
+    array(
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'],
+        substr_count( $emptied_notice, '<div class="notice notice-success is-dismissible">' ),
+        substr_count( $warning_notice, '<div class="notice notice-warning is-dismissible"><p>The track was saved.</p></div>' ),
+    ),
+    array( 'success', 1, 1 ) );
+
+// The saves above went through the stand-in, which keeps what was saved; the press below needs a
+// track that holds a course, so the fixture is set again.
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+$GLOBALS['hooks'] = array();
+$tool->boot();
+$GLOBALS['transients'] = array( 'wpcpm_learn_course_marketing' => array( 'id' => 500001 ), 'wpcpm_learn_structure_500001' => array(), 'wpcpm_airtable_schema' => array( 'kept' => 1 ) );
+$GLOBALS['can_manage'] = false;
+$GLOBALS['nonce']      = '';
+$_POST                 = array( 'track' => 13 );
+$refused               = outcome( array( $tool, 'handle_course' ) );
+$GLOBALS['can_manage'] = true;
+$nonce_refused         = outcome( array( $tool, 'handle_course' ) );
+$GLOBALS['nonce']      = WPCPM_Track_Builder::ACTION_COURSE;
+$read_again            = outcome( array( $tool, 'handle_course' ) );
+
+ck( 'Read the course again is on admin-post, checks the capability and then the nonce, forgets what Learn said about the course and nothing else, and returns to the track',
+    array(
+        in_array( 'admin_post_' . WPCPM_Track_Builder::ACTION_COURSE, $GLOBALS['hooks'], true ),
+        $refused, $nonce_refused, $read_again,
+        array_keys( $GLOBALS['transients'] ),
+        $GLOBALS['last_redirect'],
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'],
+        // The press forgets; the page it returns to is what reads Learn again, so the notice is
+        // in the present and not a report of something already done (the final review of T3c).
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'],
+    ),
+    array( true, 'die: You do not have permission to manage the program.', 'die: the nonce was refused', 'redirect', array( 'wpcpm_airtable_schema' ), 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_track=13', 'success', 'The course is read again from Learn on this page.' ) );
+
+$_POST = array();
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+
+
+echo "\n=== The course's lessons under each group, and Add under a lesson (T3c) ===\n";
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+course_answer( 'marketing', 500001, 'Marketing' );
+structure_answer( 500001, array( 'Onboarding' => array( array( 4001, 'Join global Slack' ), array( 4002, 'Share your WordPress profile' ) ), 'Project' => array( array( 4011, 'Write your first post' ) ), 'Wrap-up' => array(), 'Extras' => array( array( 4099, 'Not a group' ) ) ) );
+
+$form = WPCPM_Track_Builder::form( 13 );
+
+ck( 'the form carries the course\'s lessons by the form\'s group, a module that is no group left out, and no complaint',
+    array( array_keys( $form['lessons'] ), $form['lessons']['onboarding'], $form['lessons']['project'], $form['learn'] ),
+    array( array( 'onboarding', 'project', 'wrapup' ), array( array( 'id' => 4001, 'title' => 'Join global Slack' ), array( 'id' => 4002, 'title' => 'Share your WordPress profile' ) ), array( array( 'id' => 4011, 'title' => 'Write your first post' ) ), '' ) );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => $form, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$page = ob_get_clean();
+
+ck( 'under a group, each lesson is listed with the questions that report on it, or a way to add one under it, and the count says how many have questions',
+    array(
+        false !== strpos( $page, '<span class="wpcpm-lesson__title">Join global Slack</span> <span class="wpcpm-lesson__asked">Asked by: Your Slack name</span>' ),
+        false !== strpos( $page, '<span class="wpcpm-lesson__title">Share your WordPress profile</span> <a class="wpcpm-lesson__add" href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_track=13&wpcpm_lesson=4002#wpcpm-questions-add-onboarding">Add a question under this lesson</a>' ),
+        false !== strpos( $page, 'Lessons on Learn: 1 of 2 have questions.' ),
+        false !== strpos( $page, 'Lessons on Learn: 0 of 1 have questions.' ),
+        substr_count( $page, 'class="wpcpm-lessons"' ),
+        false !== strpos( $page, 'Not a group' ),
+    ),
+    array( true, true, true, true, 2, false ) );
+
+ck( 'the add form of a group with lessons offers them under "Under lesson", None first, and carries its anchor',
+    array(
+        substr_count( $page, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-questions__add" id="wpcpm-questions-add-onboarding">' ),
+        false !== strpos( $page, '<label for="wpcpm_add_lesson_onboarding">Under lesson</label> <select id="wpcpm_add_lesson_onboarding" name="wpcpm_lesson"><option value="0">None</option><option value="4001">Join global Slack</option><option value="4002">Share your WordPress profile</option></select>' ),
+        substr_count( $page, 'name="wpcpm_lesson"' ),
+    ),
+    array( 1, true, 2 ) );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => $form, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array(), 'lesson' => 4002 ) );
+$linked = ob_get_clean();
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => $form, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array( 'status' => 'error', 'message' => 'One column, one question.', 'question_values' => array( 'group' => 'onboarding', 'column' => 'Hours', 'label' => 'Again', 'type' => 'text', 'lesson' => 4001 ) ) ) );
+$refused_lesson = ob_get_clean();
+
+ck( 'the lesson the link names is chosen in its group\'s add form, and so is the one a refused add carried',
+    array( substr_count( $linked, '<option value="4002" selected="selected">' ), substr_count( $linked, 'selected="selected">Join' ), substr_count( $refused_lesson, '<option value="4001" selected="selected">' ) ),
+    array( 1, 0, 1 ) );
+
+// The whole way, not the last step: "Add a question under this lesson" is a link, so the lesson
+// has to travel from the address through the route to the select (the final review of T3c).
+$_GET = array( 'wpcpm_track' => 13, 'wpcpm_lesson' => 4002 );
+ob_start();
+$tool->render_admin_page();
+$routed = ob_get_clean();
+$_GET   = array();
+
+ck( 'and the lesson reaches that form from the address itself, through the route',
+    array( substr_count( $routed, '<option value="4002" selected="selected">Share your WordPress profile</option>' ), substr_count( $routed, 'selected="selected">Join' ) ),
+    array( 1, 0 ) );
+
+WPCPM_Track_Store::$tracks[13]['source'] = 'builtin';
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$read_only_lessons = ob_get_clean();
+WPCPM_Track_Store::$tracks[13]['source'] = 'definition';
+
+ck( 'a built-in track still on its PHP shows the lessons and their marks with nothing to press',
+    array( substr_count( $read_only_lessons, 'Asked by: Your Slack name' ), substr_count( $read_only_lessons, 'wpcpm-lesson__add' ), substr_count( $read_only_lessons, '<span class="wpcpm-lesson__none">No question yet</span>' ) ),
+    array( 1, 0, 2 ) );
+
+$GLOBALS['transients'] = array();
+unset( $GLOBALS['http'][ 'https://learn.wordpress.org/wp-json/sensei-internal/v1/course-structure/500001' ] );
+$unread = WPCPM_Track_Builder::form( 13 );
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => $unread, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$unread_page = ob_get_clean();
+
+ck( 'when Learn cannot be read the lessons are left off and one sentence says so; with no course at all nothing is said',
+    array(
+        $unread['lessons'], false !== strpos( $unread['learn'], 'did not answer' ),
+        substr_count( $unread_page, 'class="wpcpm-lessons"' ), false !== strpos( $unread_page, 'The lessons of the course could not be read from Learn' ),
+        WPCPM_Track_Builder::form( 11 )['lessons'], WPCPM_Track_Builder::form( 11 )['learn'],
+    ),
+    array( array(), true, 0, true, array(), '' ) );
+
+structure_answer( 500001, array( 'Onboarding' => array( array( 4001, 'Join global Slack' ), array( 4002, 'Share your WordPress profile' ) ), 'Project' => array( array( 4011, 'Write your first post' ) ) ) );
+$GLOBALS['nonce']         = WPCPM_Track_Editor::ACTION_ADD;
+WPCPM_Track_Store::$saved = array();
+$under = press_editor( 'handle_add', array( 'track' => 13, 'wpcpm_column' => 'Profile link', 'wpcpm_label' => 'Your profile', 'wpcpm_type' => 'url', 'wpcpm_group' => 'onboarding', 'wpcpm_lesson' => 4002 ) );
+
+ck( 'a question added under a lesson with no question yet carries the lesson and takes its title as the heading, after the last of its group',
+    array( $under[0], array_keys( WPCPM_Track_Store::$saved[13]['questions'] ), WPCPM_Track_Store::$saved[13]['questions']['Profile link'] ),
+    array( 'redirect', array( 'Hours', 'Slack name', 'Your blog', 'Profile link' ), array( 'type' => 'url', 'label' => 'Your profile', 'group' => 'onboarding', 'airtable_type' => 'url', 'learn_lesson_id' => 4002, 'lead' => 'Share your WordPress profile' ) ) );
+
+WPCPM_Track_Store::$saved = array();
+$second = press_editor( 'handle_add', array( 'track' => 13, 'wpcpm_column' => 'Slack handle', 'wpcpm_label' => 'Your handle', 'wpcpm_type' => 'text', 'wpcpm_group' => 'onboarding', 'wpcpm_lesson' => 4001 ) );
+
+ck( 'a second question under a lesson that has one takes no heading and lands right after that lesson\'s last question',
+    array( $second[0], array_keys( WPCPM_Track_Store::$saved[13]['questions'] ), array_key_exists( 'lead', WPCPM_Track_Store::$saved[13]['questions']['Slack handle'] ), WPCPM_Track_Store::$saved[13]['questions']['Slack handle']['learn_lesson_id'] ),
+    array( 'redirect', array( 'Hours', 'Slack name', 'Slack handle', 'Your blog', 'Profile link' ), false, 4001 ) );
+
+WPCPM_Track_Store::$saved = array();
+$plain = press_editor( 'handle_add', array( 'track' => 13, 'wpcpm_column' => 'Plain', 'wpcpm_label' => 'Plain', 'wpcpm_type' => 'text', 'wpcpm_group' => 'onboarding', 'wpcpm_lesson' => 0 ) );
+
+ck( 'None is no lesson: the question is added as before', array( $plain[0], array_key_exists( 'learn_lesson_id', WPCPM_Track_Store::$saved[13]['questions']['Plain'] ) ), array( 'redirect', false ) );
+
+WPCPM_Track_Store::$saved = array();
+$dup = press_editor( 'handle_add', array( 'track' => 13, 'wpcpm_column' => 'Hours', 'wpcpm_label' => 'Again', 'wpcpm_type' => 'text', 'wpcpm_group' => 'onboarding', 'wpcpm_lesson' => 4001 ) );
+
+ck( 'a refused add carries the lesson back with what was typed', array( $dup[0], $dup[2]['question_values']['lesson'] ), array( 'redirect', 4001 ) );
+
+// Learn renders a title with its entities in it. The client decodes them once, into the words a
+// person reads, and the screen escapes them once on the way out: a title drawn raw would be
+// markup from another site, and one escaped twice would read `&amp;` to everybody (the final
+// review of T3c).
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+$GLOBALS['transients'] = array();
+structure_answer( 500001, array( 'Onboarding' => array( array( 4003, 'Design &amp; Build &#8217;26' ) ) ) );
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$entities = ob_get_clean();
+
+ck( 'a lesson title Learn renders with entities is listed as its characters, escaped once and no more',
+    array(
+        substr_count( $entities, "<span class=\"wpcpm-lesson__title\">Design &amp; Build \u{2019}26</span>" ),
+        substr_count( $entities, '&amp;amp;' ),
+        substr_count( $entities, '&#8217;' ),
+    ),
+    array( 1, 0, 0 ) );
+
+$_POST = array();
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+
+
+echo "\n=== A question's Learn lesson (T3c) ===\n";
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+course_answer( 'marketing', 500001, 'Marketing' );
+structure_answer( 500001, array( 'Onboarding' => array( array( 4001, 'Join global Slack' ), array( 4002, 'Share your WordPress profile' ) ), 'Project' => array( array( 4011, 'Write your first post' ) ) ) );
+
+$lessoned = WPCPM_Track_Builder::question_form( 13, 'Slack name' );
+
+ck( 'the question\'s form carries the course\'s modules with their lessons, and whether the track has a course at all',
+    array( array_column( $lessoned['lessons'], 'title' ), count( $lessoned['lessons'][0]['lessons'] ), $lessoned['learn'], $lessoned['course'] ),
+    array( array( 'Onboarding', 'Project' ), 2, '', true ) );
+
+$screen = question_screen( $lessoned );
+
+ck( 'the screen offers the course\'s lessons in their modules after the heading row, None first, the stored one chosen',
+    array(
+        false !== strpos( $screen, '<tr><th scope="row"><label for="wpcpm_learn_lesson_id">Learn lesson</label></th><td><select id="wpcpm_learn_lesson_id" name="wpcpm_learn_lesson_id"><option value="0">None</option><optgroup label="Onboarding"><option value="4001" selected="selected">Join global Slack</option><option value="4002">Share your WordPress profile</option></optgroup><optgroup label="Project"><option value="4011">Write your first post</option></optgroup></select></td></tr>' ),
+        strpos( $screen, 'name="wpcpm_lead"' ) < strpos( $screen, 'name="wpcpm_learn_lesson_id"' ),
+        strpos( $screen, 'name="wpcpm_learn_lesson_id"' ) < strpos( $screen, 'name="wpcpm_subgroup"' ),
+    ),
+    array( true, true, true ) );
+
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4999;
+$gone = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name' ) );
+
+ck( 'a stored lesson the course no longer has is shown as such, chosen, so it can be seen and cleared',
+    array( substr_count( $gone, '<option value="0">None</option><option value="4999" selected="selected">Lesson 4999, not in this course</option>' ), preg_match( '#<select id="wpcpm_learn_lesson_id".*?</select>#s', $gone, $lesson_select ) ? substr_count( $lesson_select[0], 'selected="selected"' ) : -1 ),
+    array( 1, 1 ) );
+
+$GLOBALS['transients'] = array();
+unset( $GLOBALS['http']['https://learn.wordpress.org/wp-json/sensei-internal/v1/course-structure/500001'] );
+$unread = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name' ) );
+
+ck( 'when Learn cannot be read the row is the stored id as a number box, and says why',
+    array( false !== strpos( $unread, '<input type="number" class="small-text" id="wpcpm_learn_lesson_id" name="wpcpm_learn_lesson_id" value="4999" />' ), false !== strpos( $unread, 'The lessons of the course could not be read from Learn' ), substr_count( $unread, '<select id="wpcpm_learn_lesson_id"' ) ),
+    array( true, true, 0 ) );
+
+unset( WPCPM_Track_Store::$tracks[13]['definition']['course_url'], WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] );
+$no_course = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name' ) );
+
+ck( 'with no course there is no row, and the stored lesson rides hidden so a save keeps it',
+    array( substr_count( $no_course, 'Learn lesson' ), substr_count( $no_course, '<input type="hidden" name="wpcpm_learn_lesson_id" value="4999" />' ) ),
+    array( 0, 1 ) );
+
+$_POST  = array( 'wpcpm_type' => 'text', 'wpcpm_label' => 'Words', 'wpcpm_group' => 'onboarding', 'wpcpm_learn_lesson_id' => '4002' );
+$chosen = WPCPM_Track_Editor::posted_question( array( 'type' => 'text', 'learn_lesson_id' => 4001 ) );
+$_POST['wpcpm_learn_lesson_id'] = '0';
+$none = WPCPM_Track_Editor::posted_question( array( 'type' => 'text', 'learn_lesson_id' => 4001 ) );
+$_POST = array();
+
+ck( 'posted_question() takes the lesson from its box, and None clears the one that was stored',
+    array( $chosen['learn_lesson_id'], array_key_exists( 'learn_lesson_id', $none ) ), array( 4002, false ) );
+
+// Publishing fixes a question's column, control and choices, because Airtable holds what students
+// wrote in that shape. Which lesson it reports on is none of those, so the row stays a select on a
+// published question, and a refused save redraws the lesson that was typed (the final review of T3c).
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+WPCPM_Track_Store::$tracks[13]['state']     = 'published';
+WPCPM_Track_Store::$tracks[13]['published'] = WPCPM_Track_Store::$tracks[13]['definition'];
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+course_answer( 'marketing', 500001, 'Marketing' );
+structure_answer( 500001, array( 'Onboarding' => array( array( 4001, 'Join global Slack' ), array( 4002, 'Share your WordPress profile' ) ) ) );
+
+$locked_lesson = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name' ) );
+$locked_typed  = question_screen(
+	WPCPM_Track_Builder::question_form( 13, 'Slack name' ),
+	array( 'status' => 'error', 'message' => 'One column, one question.', 'question_values' => array( 'column' => 'Slack name', 'type' => 'text', 'label' => 'Your Slack name', 'group' => 'onboarding', 'learn_lesson_id' => 4002 ) )
+);
+
+ck( 'a published question\'s lesson is still a select with the stored one chosen, and a refused save redraws the lesson that was typed',
+    array(
+        WPCPM_Track_Builder::question_form( 13, 'Slack name' )['locked'],
+        substr_count( $locked_lesson, '<select id="wpcpm_learn_lesson_id" name="wpcpm_learn_lesson_id">' ),
+        substr_count( $locked_lesson, '<option value="4001" selected="selected">Join global Slack</option>' ),
+        substr_count( $locked_typed, '<option value="4002" selected="selected">Share your WordPress profile</option>' ),
+        substr_count( $locked_typed, 'selected="selected">Join global Slack' ),
+    ),
+    array( true, 1, 1, 1, 0 ) );
+
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+
+
+echo "\n=== New track from a Learn course link (T3c) ===\n";
+
+WPCPM_Track_Store::$tracks  = array( 13 => editable_track() );
+WPCPM_Track_Store::$created = array();
+WPCPM_Track_Store::$errors  = array();
+$GLOBALS['transients']      = array();
+$GLOBALS['http']            = array();
+$GLOBALS['nonce']           = WPCPM_Track_Builder::ACTION_NEW;
+course_answer( 'wordpress-credits-designer', 403425, 'WordPress Credits &#8211; Designer Track' );
+
+$from_link = press_new( array( 'wpcpm_label' => '', 'wpcpm_status' => 'Designer Track 2', 'wpcpm_key' => 'design-2', 'wpcpm_course_url' => 'https://learn.wordpress.org/course/wordpress-credits-designer/' ) );
+
+ck( 'a link that resolves fills the course and, with the name left empty, the name from the course\'s title',
+    array( $from_link[0], $from_link[2]['status'], WPCPM_Track_Store::$created[0] ),
+    array( 'redirect', 'success', array( 'schema_version' => 1, 'status' => 'Designer Track 2', 'key' => 'design-2', 'label' => "WordPress Credits \u{2013} Designer Track", 'hue' => 'blue', 'questions' => array(), 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits-designer/', 'learn_course_id' => 403425 ) ) );
+
+WPCPM_Track_Store::$created = array();
+$named = press_new( array( 'wpcpm_label' => 'My own name', 'wpcpm_status' => 'Designer Track 2', 'wpcpm_key' => 'design-2', 'wpcpm_course_url' => 'https://learn.wordpress.org/course/wordpress-credits-designer/' ) );
+
+ck( 'a name that was typed is kept over the course\'s title', WPCPM_Track_Store::$created[0]['label'], 'My own name' );
+
+WPCPM_Track_Store::$created = array();
+$GLOBALS['transients']      = array();
+$GLOBALS['http']            = array();
+$unresolved = press_new( array( 'wpcpm_label' => 'Blank Track', 'wpcpm_status' => 'Blank Track', 'wpcpm_key' => 'blank', 'wpcpm_course_url' => 'https://learn.wordpress.org/course/nowhere/' ) );
+
+ck( 'a link that does not resolve is kept, with no course id, and the notice says so',
+    array( $unresolved[0], $unresolved[2]['status'], false !== strpos( $unresolved[2]['message'], 'did not resolve' ), WPCPM_Track_Store::$created[0]['course_url'], array_key_exists( 'learn_course_id', WPCPM_Track_Store::$created[0] ) ),
+    array( 'redirect', 'warning', true, 'https://learn.wordpress.org/course/nowhere/', false ) );
+
+WPCPM_Track_Store::$created = array();
+// The real check() runs validate(), which refuses an empty name; the stand-in refuses what it is told.
+WPCPM_Track_Store::$errors  = array( array( 'code' => 'label_empty', 'message' => 'The track needs a name.' ) );
+$nameless = press_new( array( 'wpcpm_label' => '', 'wpcpm_status' => 'Blank Track', 'wpcpm_key' => 'blank', 'wpcpm_course_url' => 'https://learn.wordpress.org/course/nowhere/' ) );
+WPCPM_Track_Store::$errors  = array();
+
+ck( 'with no name and a link that does not resolve, the store\'s own refusal comes back with what was typed, the link included',
+    array( $nameless[0], $nameless[2]['status'], $nameless[2]['values']['course_url'], WPCPM_Track_Store::$created ),
+    array( 'redirect', 'error', 'https://learn.wordpress.org/course/nowhere/', array() ) );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_new( array( 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array( 'status' => 'error', 'message' => 'The track needs a name.', 'values' => array( 'label' => '', 'status' => 'Blank Track', 'key' => 'blank', 'course_url' => 'https://learn.wordpress.org/course/nowhere/' ) ) ) );
+$new_form = ob_get_clean();
+
+ck( 'the New track form offers the course link after the key and redraws what was typed',
+    array(
+        false !== strpos( $new_form, '<label for="wpcpm_course_url">Learn course</label>' ),
+        false !== strpos( $new_form, 'id="wpcpm_course_url" name="wpcpm_course_url" value="https://learn.wordpress.org/course/nowhere/"' ),
+        strpos( $new_form, 'name="wpcpm_key"' ) < strpos( $new_form, 'name="wpcpm_course_url"' ),
+        false !== strpos( $new_form, 'the name is taken from the course' ),
+    ),
+    array( true, true, true, true ) );
+
+$_POST = array();
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+
+
+echo "\n=== Lessons matched again when the course changes (T3c) ===\n";
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['lead']            = 'Join global Slack';
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+course_answer( 'marketing', 500001, 'Marketing' );
+course_answer( 'marketing-2', 500002, 'Marketing, second edition' );
+structure_answer( 500002, array( 'Onboarding' => array( array( 5001, "Join Global Slack" ), array( 5002, 'Something else' ) ) ) );
+$GLOBALS['nonce']          = WPCPM_Track_Builder::ACTION_SAVE;
+WPCPM_Track_Store::$saved  = array();
+WPCPM_Track_Store::$errors = array();
+$_POST = array( 'track' => 13, 'wpcpm_label' => 'Marketing Track', 'wpcpm_status' => 'Marketing Track', 'wpcpm_key' => 'marketing', 'wpcpm_course_url' => 'https://learn.wordpress.org/course/marketing-2/', 'wpcpm_hours_target' => '', 'wpcpm_hue' => 'blue' );
+
+$changed = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'a save that resolves the link to another course matches each lessoned question by heading, clears the rest, and says which',
+    array(
+        $changed,
+        WPCPM_Track_Store::$saved[13]['learn_course_id'],
+        WPCPM_Track_Store::$saved[13]['questions']['Slack name']['learn_lesson_id'],
+        array_key_exists( 'learn_lesson_id', WPCPM_Track_Store::$saved[13]['questions']['Your blog'] ),
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'],
+        false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], "The course changed. Matched to the new course's lessons by heading: Your Slack name. No longer pointing at a lesson: Your blog." ),
+    ),
+    array( 'redirect', 500002, 5001, false, 'warning', true ) );
+
+// The notice above names both halves because this change had both. A change where every question
+// found its lesson must not go on to say that some lost theirs, and one where none did must not
+// say that some were matched: a sentence about an empty list reads as a fact about the track (the
+// final review of T3c).
+course_answer( 'marketing-4', 500004, 'Marketing, fourth edition' );
+structure_answer( 500004, array( 'Onboarding' => array( array( 7001, 'Join global Slack' ), array( 7002, 'Your own blog' ) ) ) );
+WPCPM_Track_Store::$tracks[13]['definition'] = editable_track()['definition'];
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['lead']            = 'Join global Slack';
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Your blog']['lead']             = 'Your own blog';
+WPCPM_Track_Store::$saved  = array();
+$_POST['wpcpm_course_url'] = 'https://learn.wordpress.org/course/marketing-4/';
+$every = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'a change where every lessoned question finds its lesson says only that, and nothing about questions losing one',
+    array(
+        $every,
+        WPCPM_Track_Store::$saved[13]['questions']['Slack name']['learn_lesson_id'],
+        WPCPM_Track_Store::$saved[13]['questions']['Your blog']['learn_lesson_id'],
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'],
+        false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], "The course changed. Matched to the new course's lessons by heading: Your Slack name, Your blog." ),
+        false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], 'No longer pointing at a lesson' ),
+    ),
+    array( 'redirect', 7001, 7002, 'success', true, false ) );
+
+course_answer( 'marketing-5', 500005, 'Marketing, fifth edition' );
+structure_answer( 500005, array( 'Onboarding' => array( array( 9001, 'A course of another shape entirely' ) ) ) );
+WPCPM_Track_Store::$tracks[13]['definition'] = editable_track()['definition'];
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['lead']            = 'Join global Slack';
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Your blog']['lead']             = 'Your own blog';
+WPCPM_Track_Store::$saved  = array();
+$_POST['wpcpm_course_url'] = 'https://learn.wordpress.org/course/marketing-5/';
+$nothing = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'and one where none of them does names them all as losing their lesson, and says nothing about matches',
+    array(
+        $nothing,
+        array_key_exists( 'learn_lesson_id', WPCPM_Track_Store::$saved[13]['questions']['Slack name'] ),
+        array_key_exists( 'learn_lesson_id', WPCPM_Track_Store::$saved[13]['questions']['Your blog'] ),
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'],
+        false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], 'The course changed. No longer pointing at a lesson: Your Slack name, Your blog.' ),
+        false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], 'Matched to' ),
+    ),
+    array( 'redirect', false, false, 'warning', true, false ) );
+
+// The stand-in keeps what a save stored, as the real store does, so each scenario starts from the
+// same track again.
+WPCPM_Track_Store::$tracks[13]['definition'] = editable_track()['definition'];
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['lead']            = 'Join global Slack';
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+WPCPM_Track_Store::$saved  = array();
+$_POST['wpcpm_course_url'] = 'https://learn.wordpress.org/course/marketing/';
+$same = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'the same course again leaves every lesson as it was',
+    array( $same, WPCPM_Track_Store::$saved[13]['questions']['Slack name']['learn_lesson_id'], WPCPM_Track_Store::$saved[13]['questions']['Your blog']['learn_lesson_id'], WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'] ),
+    array( 'redirect', 4001, 4242, 'success' ) );
+
+course_answer( 'marketing-3', 500003, 'Marketing, third edition' );
+WPCPM_Track_Store::$tracks[13]['definition'] = editable_track()['definition'];
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['lead']            = 'Join global Slack';
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+WPCPM_Track_Store::$saved  = array();
+$_POST['wpcpm_course_url'] = 'https://learn.wordpress.org/course/marketing-3/';
+$unread = outcome( array( $tool, 'handle_save' ) );
+
+// The course change is held back, not half made: were the new course stored while the questions
+// kept the old course's lessons, the next save would see the same course on both sides and never
+// re-match, and every lessoned question would read "not in this course" for good (the final
+// review of T3c).
+ck( 'a new course whose lessons cannot be read is not stored at all: the link, the course and every lesson stay as they were, and the notice says to try again',
+    array(
+        $unread,
+        WPCPM_Track_Store::$saved[13]['course_url'],
+        WPCPM_Track_Store::$saved[13]['learn_course_id'],
+        WPCPM_Track_Store::$saved[13]['questions']['Slack name']['learn_lesson_id'],
+        WPCPM_Track_Store::$saved[13]['questions']['Your blog']['learn_lesson_id'],
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'],
+        false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], 'The course was not changed: the lessons of the new course could not be read from Learn, so the questions could not be matched to it. Try again once Learn answers.' ),
+    ),
+    array( 'redirect', 'https://learn.wordpress.org/course/marketing/', 500001, 4001, 4242, 'warning', true ) );
+
+structure_answer( 500003, array( 'Onboarding' => array( array( 6001, 'Join Global Slack' ), array( 6002, 'Something newer' ) ) ) );
+WPCPM_Track_Store::$saved = array();
+$answered                 = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'and the same save once Learn answers makes the change and matches the lessons then',
+    array(
+        $answered,
+        WPCPM_Track_Store::$saved[13]['course_url'],
+        WPCPM_Track_Store::$saved[13]['learn_course_id'],
+        WPCPM_Track_Store::$saved[13]['questions']['Slack name']['learn_lesson_id'],
+        array_key_exists( 'learn_lesson_id', WPCPM_Track_Store::$saved[13]['questions']['Your blog'] ),
+        false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], "The course changed. Matched to the new course's lessons by heading: Your Slack name. No longer pointing at a lesson: Your blog." ),
+    ),
+    array( 'redirect', 'https://learn.wordpress.org/course/marketing-3/', 500003, 6001, false, true ) );
+
+WPCPM_Track_Store::$tracks[13]['definition'] = editable_track()['definition'];
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['lead']            = 'Join global Slack';
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name']['learn_lesson_id'] = 4001;
+WPCPM_Track_Store::$saved  = array();
+$_POST['wpcpm_course_url'] = '';
+$cleared = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'clearing the course leaves the lessons alone', array( $cleared, WPCPM_Track_Store::$saved[13]['questions']['Slack name']['learn_lesson_id'], array_key_exists( 'learn_course_id', WPCPM_Track_Store::$saved[13] ) ), array( 'redirect', 4001, false ) );
+
+$_POST = array();
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+
+echo "\n=== T3b's leftovers: one date helper, and a stale draft's preview (T3c) ===\n";
+
+$GLOBALS['users'] = array( 7 => 'A Manager' );
+
+ck( 'one helper says when and who for the list, History and the log: a person, somebody since removed, and the site itself for a save with nobody signed in',
+    array( WPCPM_Track_Builder_Screen::when_and_who( 1788000000, 7 ), WPCPM_Track_Builder_Screen::when_and_who( 1788000000, 999 ), WPCPM_Track_Builder_Screen::when_and_who( 1788000000, 0 ) ),
+    array( gmdate( 'Y-m-d H:i', 1788000000 ) . ' by A Manager', gmdate( 'Y-m-d H:i', 1788000000 ) . ' by somebody since removed', gmdate( 'Y-m-d H:i', 1788000000 ) . ' by the site itself' ) );
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['revisions'] = array( array( 'id' => 101, 'at' => 1788000000, 'by' => 0, 'definition' => WPCPM_Track_Store::$tracks[13]['definition'] ) );
+WPCPM_Track_Store::$tracks[13]['log']       = array( array( 'at' => 1788050000, 'by' => 0, 'did' => 'publish' ) );
+$_GET = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$by_site = ob_get_clean();
+$_GET = array();
+
+ck( 'History says so for a save and a publish by the site itself',
+    array( substr_count( $by_site, ' by the site itself</p>' ), substr_count( $by_site, '<li>Published, ' . gmdate( 'Y-m-d H:i', 1788050000 ) . ' by the site itself</li>' ) ), array( 1, 1 ) );
+
+WPCPM_Track_Store::$tracks = array(
+	12 => array(
+		'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array( 'B' => array( 'type' => 'text', 'label' => 'B', 'group' => 'project' ) ) ),
+		'state'       => 'draft',
+		'source'      => 'builtin',
+		'log'         => array(),
+		'equivalence' => array( 'not_published' ),
+		'published'   => null,
+	),
+);
+$stale_preview = WPCPM_Track_Builder::preview( 12 );
+$_GET = array( 'wpcpm_preview' => 12 );
+ob_start();
+$tool->render_admin_page();
+$stale_page = ob_get_clean();
+WPCPM_Track_Store::$tracks[12]['definition'] = WPCPM_Track_Store::seeds()['design'];
+$fresh_preview = WPCPM_Track_Builder::preview( 12 );
+ob_start();
+$tool->render_admin_page();
+$fresh_page = ob_get_clean();
+$_GET = array();
+
+ck( 'a built-in draft that fell behind the plugin\'s form says so on its preview, and one that matches the seed says what the form draws',
+    array(
+        $stale_preview['stale'], false !== strpos( $stale_page, 'has fallen behind the plugin' ), false !== strpos( $stale_page, 'this definition is what that form draws' ),
+        $fresh_preview['stale'], false !== strpos( $fresh_page, 'this definition is what that form draws' ),
+    ),
+    array( true, true, false, false, true ) );
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+
+
+echo "\n=== T3b's leftovers: History's other words, and a store that refuses to create a post (T3c) ===\n";
+
+$GLOBALS['users'] = array( 7 => 'A Manager' );
+
+$c = array( 'schema_version' => 1, 'key' => 'marketing', 'status' => 'Marketing Track', 'label' => 'Marketing Track', 'hue' => 'pink', 'questions' => array(
+	'Hours'      => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours', 'min' => 0, 'max' => 1000, 'step' => 1 ),
+	'Slack name' => array( 'type' => 'text', 'label' => 'Your Slack name', 'group' => 'onboarding' ),
+	'Your blog'  => array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding' ),
+) );
+$b = $c;
+unset( $b['questions']['Slack name'] );
+$b['questions'] = array_reverse( $b['questions'], true );
+
+WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition'] = $b;
+WPCPM_Track_Store::$tracks[13]['revisions']  = array(
+	array( 'id' => 103, 'at' => 1788200000, 'by' => 7, 'definition' => $b ),
+	array( 'id' => 102, 'at' => 1788100000, 'by' => 7, 'definition' => $b ),
+	array( 'id' => 101, 'at' => 1788000000, 'by' => 7, 'definition' => $c ),
+);
+WPCPM_Track_Store::$tracks[13]['log'] = array(
+	array( 'at' => 1788050000, 'by' => 7, 'did' => 'publish' ),
+	array( 'at' => 1788060000, 'by' => 7, 'did' => 'unpublish' ),
+	array( 'at' => 1788070000, 'by' => 7, 'did' => 'switch_definition' ),
+	array( 'at' => 1788080000, 'by' => 7, 'did' => 'switch_builtin' ),
+	array( 'at' => 1788090000, 'by' => 7, 'did' => 'archive' ),
+);
+$_GET = array( 'wpcpm_history' => 13 );
+ob_start();
+$tool->render_admin_page();
+$words_page = ob_get_clean();
+$_GET = array();
+
+ck( 'History names an unpublish and both switches, prints a word it has no words for as it is, and says when a save changed nothing, removed a column or moved one',
+    array(
+        substr_count( $words_page, '<li>Unpublished, ' ),
+        substr_count( $words_page, '<li>Switched to run from its definition, ' ),
+        substr_count( $words_page, '<li>Switched back to its hand-written form, ' ),
+        substr_count( $words_page, '<li>archive, ' ),
+        substr_count( $words_page, 'Nothing in the definition changed.' ),
+        substr_count( $words_page, '<li>Removed: <code>Slack name</code></li>' ),
+        substr_count( $words_page, '<li>Moved: <code>' ),
+    ),
+    array( 1, 1, 1, 1, 1, 1, 1 ) );
+
+$GLOBALS['nonce']           = WPCPM_Track_Builder::ACTION_NEW;
+$GLOBALS['can_manage']      = true;
+WPCPM_Track_Store::$tracks  = array( 13 => editable_track() );
+WPCPM_Track_Store::$errors  = array();
+WPCPM_Track_Store::$created = array();
+WPCPM_Track_Store::$refuse  = new WP_Error( 'wpcpm_track_insert', 'The post could not be created.' );
+$refused_new = press_new( array( 'wpcpm_label' => 'Blank Track', 'wpcpm_status' => 'Blank Track', 'wpcpm_key' => 'blank' ) );
+
+$GLOBALS['nonce']              = WPCPM_Track_Builder::ACTION_DUPLICATE;
+WPCPM_Track_Store::$duplicated = array();
+$_POST                         = array( 'track' => 13, 'wpcpm_label' => 'A Copy', 'wpcpm_status' => 'Copied Track', 'wpcpm_key' => 'copy' );
+$refused_copy                  = array( outcome( array( $tool, 'handle_duplicate' ) ), $GLOBALS['last_redirect'], WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] );
+$_POST                         = array();
+WPCPM_Track_Store::$refuse     = null;
+
+ck( 'a store that refuses to create the post, on New track and on Duplicate, sends the form back with its reason and what was typed',
+    array(
+        $refused_new[0], $refused_new[1], $refused_new[2]['status'], $refused_new[2]['message'], $refused_new[2]['values']['key'], WPCPM_Track_Store::$created,
+        $refused_copy[0], $refused_copy[1], $refused_copy[2]['status'], $refused_copy[2]['message'], $refused_copy[2]['values']['label'], WPCPM_Track_Store::$duplicated,
+    ),
+    array(
+        'redirect', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_new=1', 'error', 'The post could not be created.', 'blank', array(),
+        'redirect', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_duplicate=13', 'error', 'The post could not be created.', 'A Copy', array(),
+    ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

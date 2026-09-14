@@ -181,10 +181,11 @@ class WPCPM_Institution_Export {
 	 *
 	 * Read from `WPCPM_Student_Report_Form::fields()` rather than written out again, because
 	 * the base's spelling of these columns is settled in that file and a second copy is a
-	 * second thing to keep in step. The filter is the two properties a grade has there: the
-	 * `onboarding` group and a numeric type. That takes the final grades and the three course
-	 * marks, and leaves out `WordPress Profile` and `Slack Name` (same group, not numbers, and
-	 * both already columns of their own here) and the developer track's two textareas.
+	 * second thing to keep in step. The filter is the two properties a grade has there, the
+	 * `onboarding` group and a numeric type, and the flag that keeps a question off everything
+	 * an institution reads. That takes the final grades and the three course marks, and leaves
+	 * out `WordPress Profile` and `Slack Name` (same group, not numbers, and both already
+	 * columns of their own here) and the developer track's two textareas.
 	 *
 	 * `Hours` is in the `hours` group and so is not picked up, which is what is wanted: hours
 	 * are Phase 5's through both syncs, and decision 23 keeps them out of the document a school
@@ -202,6 +203,14 @@ class WPCPM_Institution_Export {
 			$type  = isset( $spec['type'] ) ? (string) $spec['type'] : '';
 
 			if ( 'onboarding' !== $group || 'number' !== $type ) {
+				continue;
+			}
+
+			// A question flagged "Kept off everything an institution reads" is off this file too.
+			// `WPCPM_Student_Report_Form::for_institution()` honors the flag on the student's card,
+			// and a file that carried what the card hides would keep the promise on one surface and
+			// break it on the one a school files away (the final review of T3c).
+			if ( ! empty( $spec['hide_from_institution'] ) ) {
 				continue;
 			}
 

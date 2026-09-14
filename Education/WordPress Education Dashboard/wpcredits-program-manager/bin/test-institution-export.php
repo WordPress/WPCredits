@@ -70,7 +70,9 @@ function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
-function apply_filters( $t, $v ) { return $v; }
+// The one filter the report form runs, so a check can hand the export a Track Builder track's
+// questions the way the plugin does, rather than only the four hand-written forms.
+function apply_filters( $t, $v ) { return 'wpcpm_report_form_fields' === $t && isset( $GLOBALS['form_fields'] ) ? $GLOBALS['form_fields'] : $v; }
 function add_action() {}
 function absint( $v ) { return abs( (int) $v ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
@@ -623,6 +625,20 @@ ck( 'every grade column is keyed on the Students Reports table', array_unique( a
 // settled in one file. The trailing " - final grade" is part of the column name and not of the heading.
 ck( 'the column names are the base\'s', array_key_exists( 'reports|Open source basics and WordPress - final grade', WPCPM_Institution_Export::grade_columns( '150h' ) ), true );
 ck( 'and the headings are the course names a person reads', WPCPM_Institution_Export::grade_columns( '150h' )['reports|Open source basics and WordPress - final grade'], 'Open source basics and WordPress' );
+
+// A Track Builder question can be flagged "Kept off everything an institution reads", which the
+// student card honors through `for_institution()`. The file honors it too, or the flag would be a
+// promise kept on one surface and broken on the other, and the one it is broken on is the file a
+// school keeps (the final review of T3c).
+$GLOBALS['form_fields'] = array(
+	'Private mark' => array( 'label' => 'A mark the school does not see', 'type' => 'number', 'group' => 'onboarding', 'hide_from_institution' => true ),
+	'Course mark'  => array( 'label' => 'A course mark', 'type' => 'number', 'group' => 'onboarding' ),
+);
+
+ck( 'a grade flagged to be kept off everything an institution reads is no column of the file, and an unflagged one still is',
+    WPCPM_Institution_Export::grade_columns( 'authored' ), array( 'reports|Course mark' => 'A course mark' ) );
+
+unset( $GLOBALS['form_fields'] );
 
 $unmentored = rows_of( WPCPM_Institution_Export::csv( WPCPM_Institution_Export::student_matrix( 14, allowed_for( $A ), array(), new WP_User( 14, 'Ewa Zielinska' ) ) ) );
 

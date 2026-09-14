@@ -84,11 +84,13 @@ final class WPCPM_Track_Editor {
 		$column  = WPCPM_Request::posted_exact( 'wpcpm_column' );
 		$type    = WPCPM_Request::posted_key( 'wpcpm_type' );
 		$group   = WPCPM_Request::posted_key( 'wpcpm_group' );
+		$lesson  = WPCPM_Request::posted_id( 'wpcpm_lesson' );
 		$typed   = array(
 			'column' => $column,
 			'label'  => WPCPM_Request::posted_text( 'wpcpm_label' ),
 			'type'   => $type,
 			'group'  => $group,
+			'lesson' => $lesson,
 		);
 
 		$question = array(
@@ -103,7 +105,25 @@ final class WPCPM_Track_Editor {
 			$question['airtable_type'] = $airtable_type;
 		}
 
-		$questions = WPCPM_Track_Questions::add( self::questions( $stored ), $column, $question );
+		$after = '';
+
+		// Under a lesson (decision 32): the question carries it, takes the lesson's title as its
+		// heading when it is the lesson's first question, since the heading belongs to the first
+		// question after it, and lands after the lesson's last.
+		if ( $lesson > 0 ) {
+			$question['learn_lesson_id'] = $lesson;
+			$after                       = WPCPM_Track_Questions::last_of_lesson( self::questions( $stored ), $lesson );
+
+			if ( '' === $after ) {
+				$title = self::lesson_title( $stored, $lesson );
+
+				if ( '' !== $title ) {
+					$question['lead'] = $title;
+				}
+			}
+		}
+
+		$questions = WPCPM_Track_Questions::add( self::questions( $stored ), $column, $question, $after );
 
 		if ( null === $questions ) {
 			$this->refuse( $post_id, __( 'This track already has a question on that column. One column, one question.', 'wpcredits-program-manager' ), $typed );
@@ -338,9 +358,9 @@ final class WPCPM_Track_Editor {
 	 *
 	 * Every property 4.2 lists, read for the control that owns it and left out otherwise, so
 	 * `validate()` sees exactly what a person set and nothing a previous control left behind.
-	 * `learn_lesson_id` is carried through from what is stored, until T3c makes it editable;
-	 * `why` is not, because the screen draws it, so it is read from the post like any other text
-	 * and dropped when it comes back empty (the whole-branch review).
+	 * `learn_lesson_id` is a box since T3c (decision 32) and read like any other property; `why`
+	 * too, since the screen draws it, so it is read from the post like any other text and dropped
+	 * when it comes back empty (the whole-branch review).
 	 *
 	 * @param array $was The question as it is stored.
 	 * @return array
@@ -416,10 +436,12 @@ final class WPCPM_Track_Editor {
 			}
 		}
 
-		foreach ( array( 'learn_lesson_id' ) as $carried ) {
-			if ( isset( $was[ $carried ] ) ) {
-				$question[ $carried ] = $was[ $carried ];
-			}
+		// The lesson the screen's box holds: chosen from the course's lessons, the stored id when
+		// Learn could not be read, or carried hidden when the track has no course; None is none.
+		$lesson = WPCPM_Request::posted_id( 'wpcpm_learn_lesson_id' );
+
+		if ( $lesson > 0 ) {
+			$question['learn_lesson_id'] = $lesson;
 		}
 
 		return $question;
@@ -447,6 +469,25 @@ final class WPCPM_Track_Editor {
 	 */
 	private static function questions( array $definition ) {
 		return isset( $definition['questions'] ) && is_array( $definition['questions'] ) ? $definition['questions'] : array();
+	}
+
+	/**
+	 * A lesson's title on the track's course, from what Learn keeps; '' when it cannot be read.
+	 *
+	 * @param array $definition The track's definition.
+	 * @param int   $lesson_id  The lesson.
+	 * @return string
+	 */
+	private static function lesson_title( array $definition, $lesson_id ) {
+		$course_id = isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0;
+
+		if ( $course_id <= 0 ) {
+			return '';
+		}
+
+		$modules = WPCPM_Learn::structure( $course_id );
+
+		return is_wp_error( $modules ) ? '' : WPCPM_Learn::lesson_title( $modules, $lesson_id );
 	}
 
 	/**

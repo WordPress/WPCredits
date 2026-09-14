@@ -921,7 +921,18 @@ ck( 'a limit reads one more than it says, so the oldest shown still has its pred
     array( 3, 4, 4 ) );
 
 ck( 'a limit below one reads as one',
-    count( WPCPM_Track_Store::revisions( $hist, 0 ) ), 2 );
+    array( count( WPCPM_Track_Store::revisions( $hist, 0 ) ), count( WPCPM_Track_Store::revisions( $hist, -5 ) ) ), array( 2, 2 ) );
+
+// A revision whose own copy of the definition is gone reads as one that kept none, not as a
+// broken one: History says so of it (the T3b Task 2 review).
+$raw = $GLOBALS['pmeta'][ $all[2]['id'] ][ WPCPM_Track_Store::META_DEFINITION ];
+unset( $GLOBALS['pmeta'][ $all[2]['id'] ][ WPCPM_Track_Store::META_DEFINITION ] );
+
+ck( 'a revision whose meta is absent carries a null definition, its neighbors theirs',
+    array_map( function ( $r ) { return null === $r['definition'] ? null : $r['definition']['label']; }, WPCPM_Track_Store::revisions( $hist ) ),
+    array( 'History Track, renamed', 'History Track, renamed', null, 'History Track' ) );
+
+$GLOBALS['pmeta'][ $all[2]['id'] ][ WPCPM_Track_Store::META_DEFINITION ] = $raw;
 
 ck( 'a post that is not a track has no revisions to give',
     array( WPCPM_Track_Store::revisions( 987654 ), WPCPM_Track_Store::revisions( $all[0]['id'] ) ),

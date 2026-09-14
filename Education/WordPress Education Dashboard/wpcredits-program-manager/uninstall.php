@@ -24,6 +24,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roles.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-airtable.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-learn.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-content-access.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-privacy-guard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-wporg-profile.php';

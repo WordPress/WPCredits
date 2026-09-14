@@ -1,0 +1,15 @@
+{
+ "_comment": "Learn's answer to GET https://learn.wordpress.org/wp-json/wp/v2/courses?slug=wordpress-credits, captured 13 September 2026 and trimmed to the keys WPCPM_Learn reads (id, slug, status, link, title, type); the full answer carries the course's content as well. bin/test-learn.php parses it.",
+ "response": [
+  {
+   "id": 297853,
+   "slug": "wordpress-credits",
+   "status": "publish",
+   "type": "course",
+   "link": "https://learn.wordpress.org/course/wordpress-credits/",
+   "title": {
+    "rendered": "WordPress Credits"
+   }
+  }
+ ]
+}

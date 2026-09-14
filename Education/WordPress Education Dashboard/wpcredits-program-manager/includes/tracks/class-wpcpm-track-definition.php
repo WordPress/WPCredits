@@ -183,7 +183,9 @@ final class WPCPM_Track_Definition {
 			$errors[] = self::error( 'label_taken', '', __( 'Another track already goes by this name, or has it as its status. The institution import finds a track by either, so two tracks cannot share one.', 'wpcredits-program-manager' ) );
 		}
 
-		if ( isset( $definition['course_url'] ) && '' !== $definition['course_url'] && ( ! is_string( $definition['course_url'] ) || 1 !== preg_match( '#^https://learn\.wordpress\.org/course/[a-z0-9-]+/?$#', $definition['course_url'] ) ) ) {
+		// The twin of `WPCPM_Learn::COURSE_LINK`, byte for byte but for its capture group, the cap
+		// on the slug's repeat included (the final review of T3c).
+		if ( isset( $definition['course_url'] ) && '' !== $definition['course_url'] && ( ! is_string( $definition['course_url'] ) || 1 !== preg_match( '#^https://learn\.wordpress\.org/course/[a-z0-9-]{1,120}/?$#', $definition['course_url'] ) ) ) {
 			$errors[] = self::error( 'course_url', '', __( 'The course link must be the address of a Learn WordPress course: https://learn.wordpress.org/course/ and its name.', 'wpcredits-program-manager' ) );
 		}
 

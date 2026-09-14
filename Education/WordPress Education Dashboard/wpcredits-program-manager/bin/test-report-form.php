@@ -75,9 +75,6 @@ function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_transient( $k ) { return $GLOBALS['opts'][ 'T_' . $k ] ?? false; }
-// The Designer Track's select control, which the preview is the first render here to reach: core's
-// selected() prints ` selected='selected'` when the two are equal, compared as strings.
-function selected( $selected, $current = true, $echo = true ) { $out = (string) $selected === (string) $current ? " selected='selected'" : ''; if ( $echo ) { echo $out; } return $out; }
 function set_transient( $k, $v, $e = 0 ) { $GLOBALS['opts'][ 'T_' . $k ] = $v; return true; }
 function delete_transient( $k ) { unset( $GLOBALS['opts'][ 'T_' . $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
@@ -125,6 +122,9 @@ function esc_url_raw( $url, $protocols = null ) {
 // Needed once the Developer Track's checkbox field renders live, in `$edit` below (phase two of
 // the type review, 1.94.6): the consent box still goes through the real `checked()` call.
 function checked( $a, $b = true, $echo = true ) { $r = ( (string) $a === (string) $b ) ? ' checked="checked"' : ''; if ( $echo ) { echo $r; } return $r; }
+// The Designer Track's select control, which the preview is the first render here to reach: core's
+// selected() prints ` selected='selected'` when the two are equal, compared as strings.
+function selected( $selected, $current = true, $echo = true ) { $out = (string) $selected === (string) $current ? " selected='selected'" : ''; if ( $echo ) { echo $out; } return $out; }
 function wp_kses_post( $s ) { return $s; }
 
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
@@ -1425,8 +1425,8 @@ ob_start();
 WPCPM_Student_Report_Form::render_preview( WPCPM_Student_Report_Form::fields( WPCPM_Program::track( WPCPM_Program::STATUS_DESIGN ) ) );
 $design = ob_get_clean();
 
-ck( 'the Designer Track\'s ten screenshot questions show their upload boxes, no picture and no remove form',
-	array( substr_count( $design, 'type="file"' ), substr_count( $design, '<img' ), substr_count( $design, 'wpcpm-report__remove' ) ),
+ck( 'the Designer Track\'s ten screenshot questions show their upload boxes, no picture and no remove button',
+	array( substr_count( $design, 'type="file"' ), substr_count( $design, '<img' ), substr_count( $design, 'wpcpm-report__image-remove' ) ),
 	array( 10, 0, 0 ) );
 
 ck( 'a field set with no hours question draws no hours box',

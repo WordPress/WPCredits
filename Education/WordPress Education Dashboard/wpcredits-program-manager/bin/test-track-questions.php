@@ -241,6 +241,89 @@ ck( 'and a track never published locks nothing',
     WPCPM_Track_Questions::locked( 'Slack name', array() ),
     false );
 
+
+echo "\n=== Under a lesson (T3c) ===\n";
+
+// Two questions of one lesson, then one of another, all in the project group, and one in wrap-up.
+$lessoned = array(
+	'Hours'    => array( 'type' => 'number', 'group' => 'hours' ),
+	'Figma'    => array( 'type' => 'url', 'group' => 'project', 'lead' => 'Introduction to Figma', 'learn_lesson_id' => 403465 ),
+	'Figma 2'  => array( 'type' => 'text', 'group' => 'project', 'learn_lesson_id' => 403465 ),
+	'Library'  => array( 'type' => 'url', 'group' => 'project', 'lead' => 'Explore the library', 'learn_lesson_id' => 403471 ),
+	'Feedback' => array( 'type' => 'textarea', 'group' => 'wrapup', 'learn_lesson_id' => 403507 ),
+);
+
+ck( "the last question of a lesson is the one a new question of that lesson goes after",
+    array( WPCPM_Track_Questions::last_of_lesson( $lessoned, 403465 ), WPCPM_Track_Questions::last_of_lesson( $lessoned, 403471 ), WPCPM_Track_Questions::last_of_lesson( $lessoned, 403507 ) ),
+    array( 'Figma 2', 'Library', 'Feedback' ) );
+ck( 'a lesson with no question yet has no last question, and neither has no lesson at all',
+    array( WPCPM_Track_Questions::last_of_lesson( $lessoned, 403499 ), WPCPM_Track_Questions::last_of_lesson( $lessoned, 0 ) ), array( '', '' ) );
+ck( 'add() after a named column places the question right after it, inside the group',
+    array_keys( WPCPM_Track_Questions::add( $lessoned, 'Figma 3', array( 'type' => 'text', 'group' => 'project', 'learn_lesson_id' => 403465 ), 'Figma 2' ) ),
+    array( 'Hours', 'Figma', 'Figma 2', 'Figma 3', 'Library', 'Feedback' ) );
+ck( 'and after a column the map does not hold, at the end of its group as before',
+    array_keys( WPCPM_Track_Questions::add( $lessoned, 'Deploy', array( 'type' => 'url', 'group' => 'project' ), 'Gone' ) ),
+    array( 'Hours', 'Figma', 'Figma 2', 'Library', 'Deploy', 'Feedback' ) );
+ck( 'a column already used is still refused, wherever it was to go',
+    WPCPM_Track_Questions::add( $lessoned, 'Library', array( 'type' => 'url', 'group' => 'project' ), 'Figma' ), null );
+
+echo "\n=== Matching lessons again on a course change (T3c) ===\n";
+
+$captured = json_decode( file_get_contents( __DIR__ . '/fixtures/learn-course-403425.json' ), true );
+$lessons  = array();
+
+foreach ( $captured['modules'] as $module ) {
+	foreach ( $module['lessons'] as $lesson ) {
+		$lessons[] = $lesson;
+	}
+}
+
+$before = array(
+	'Portfolio' => array( 'type' => 'url', 'group' => 'project', 'subgroup' => 'Create your portfolio', 'learn_lesson_id' => 111 ),
+	'Styles'    => array( 'type' => 'url', 'group' => 'project', 'lead' => "practical: change your site's global styles", 'learn_lesson_id' => 222 ),
+	'Event'     => array( 'type' => 'text', 'group' => 'wrapup', 'lead' => 'Participate at a WordPress Event (online or in person)', 'learn_lesson_id' => 333 ),
+	'Reflect'   => array( 'type' => 'textarea', 'group' => 'wrapup', 'lead' => 'Your reflection posts', 'learn_lesson_id' => 444 ),
+	'Nameless'  => array( 'type' => 'text', 'group' => 'project', 'learn_lesson_id' => 555 ),
+	'Hours'     => array( 'type' => 'number', 'group' => 'hours', 'lead' => 'Get your certificate' ),
+);
+
+$result = WPCPM_Track_Questions::rematch( $before, $lessons );
+
+ck( 'a question whose heading is a lesson of the new course, in lead or in subgroup, exact once case and apostrophes are folded, takes that lesson',
+    array( $result['questions']['Portfolio']['learn_lesson_id'], $result['questions']['Styles']['learn_lesson_id'], $result['questions']['Event']['learn_lesson_id'], $result['matched'] ),
+    array( 403457, 403477, 403501, array( 'Portfolio', 'Styles', 'Event' ) ) );
+ck( 'one whose heading is no lesson of the new course, or that has no heading, loses its lesson and is listed',
+    array( array_key_exists( 'learn_lesson_id', $result['questions']['Reflect'] ), array_key_exists( 'learn_lesson_id', $result['questions']['Nameless'] ), $result['cleared'] ),
+    array( false, false, array( 'Reflect', 'Nameless' ) ) );
+ck( 'a question that had no lesson is left alone, heading or not',
+    array( array_key_exists( 'learn_lesson_id', $result['questions']['Hours'] ), $result['questions']['Hours'] ), array( false, $before['Hours'] ) );
+ck( 'the order and every other property survive',
+    array( array_keys( $result['questions'] ), $result['questions']['Styles']['lead'] ), array( array_keys( $before ), $before['Styles']['lead'] ) );
+ck( 'against no lessons at all, every lesson is cleared',
+    WPCPM_Track_Questions::rematch( $before, array() )['cleared'], array( 'Portfolio', 'Styles', 'Event', 'Reflect', 'Nameless' ) );
+
+// The folding, on the two differences that actually turn up: a heading typed with the curly
+// apostrophe a word processor leaves behind against a title Learn writes with the straight one,
+// and a double space nobody sees (the final review of T3c).
+$typography = WPCPM_Track_Questions::rematch(
+	array( 'Journal' => array( 'type' => 'textarea', 'group' => 'project', 'lead' => "Write  your mentor\u{2019}s  feedback", 'learn_lesson_id' => 777 ) ),
+	array( array( 'id' => 403601, 'title' => "Write your mentor's feedback" ) )
+);
+
+ck( 'a heading with a curly apostrophe and doubled spaces matches a title with a straight one and single spaces',
+    array( $typography['questions']['Journal']['learn_lesson_id'], $typography['matched'], $typography['cleared'] ),
+    array( 403601, array( 'Journal' ), array() ) );
+
+// Two lessons a course could well hold: one heading cannot point at both, so the first the course
+// lists is the one taken, and the choice is the same on every save.
+$twins = WPCPM_Track_Questions::rematch(
+	array( 'Post' => array( 'type' => 'url', 'group' => 'project', 'lead' => 'Write your first post', 'learn_lesson_id' => 888 ) ),
+	array( array( 'id' => 403611, 'title' => 'Write your first post' ), array( 'id' => 403612, 'title' => 'Write Your First Post' ) )
+);
+
+ck( 'of two lessons whose titles fold to one, the first the course lists wins',
+    $twins['questions']['Post']['learn_lesson_id'], 403611 );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

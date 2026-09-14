@@ -19,7 +19,14 @@ define( 'ABSPATH', __DIR__ . '/' );
 
 function __( $s, $d = null ) { return $s; }
 function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
-function wp_remote_head( $url, $args = array() ) { return $GLOBALS['head'][ $url ] ?? array( 'response' => array( 'code' => 200 ) ); }
+/** Learn, stood in (T3c): what the resolver answers per link; a link with no answer resolves. */
+class WPCPM_Learn {
+	public static $answers = array();
+
+	public static function resolve( $url ) {
+		return self::$answers[ $url ] ?? array( 'id' => 500001, 'slug' => 'marketing', 'title' => 'Marketing' );
+	}
+}
 function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) ? (int) ( $r['response']['code'] ?? 0 ) : 0; }
 
 class WP_Error {
@@ -497,30 +504,18 @@ ck( 'while a track of somebody\'s own does add its status, which is what makes i
 
 echo "\n=== The Learn course, which is only ever a warning ===\n";
 
-// Every earlier preflight() in this file asked and cached "reachable" for this same URL, so this
-// scenario needs a clear transient before it, or the cached answer would win over the 404 below;
-// and the one after, or the "unreachable" answer this scenario writes would leak into every
-// preflight() for the rest of the file (the answer is cached across calls - Task 9 review, M4).
-$GLOBALS['transients'] = array();
-$GLOBALS['head']       = array( 'https://learn.wordpress.org/course/marketing/' => array( 'response' => array( 'code' => 404 ) ) );
+// Since T3c the question is whether the link resolves to a course, asked of WPCPM_Learn, which
+// keeps its own day's cache (decision 30); the preflight caches nothing of its own.
+WPCPM_Learn::$answers = array( 'https://learn.wordpress.org/course/marketing/' => new WP_Error( 'wpcpm_learn_no_course', 'Learn has no course at that address.' ) );
 
 $flight = WPCPM_Track_Publish::preflight( 7 );
 
-ck( 'a course that does not answer is a warning and nothing more',
-    array( codes( $flight['warnings'] ), $flight['ready'] ), array( array( 'course_unreachable' ), true ) );
+ck( 'a link that does not resolve to a course is a warning and nothing more, and the warning says why',
+    array( codes( $flight['warnings'] ), $flight['ready'], false !== strpos( $flight['warnings'][0]['message'], 'Learn has no course at that address.' ) ), array( array( 'course_unreachable' ), true, true ) );
 
-// M4 (Task 9 review): the answer is cached behind a transient, not asked fresh on every
-// preflight. The course would now answer, but a second preflight before the cache expires still
-// sees the warning, which is what proves the check is reading the cache and not the HEAD stub.
-$GLOBALS['head'] = array( 'https://learn.wordpress.org/course/marketing/' => array( 'response' => array( 'code' => 200 ) ) );
+WPCPM_Learn::$answers = array();
 
-$flight_again = WPCPM_Track_Publish::preflight( 7 );
-
-ck( 'a second preflight reuses the cached answer rather than asking again',
-    codes( $flight_again['warnings'] ), array( 'course_unreachable' ) );
-
-$GLOBALS['head']       = array();
-$GLOBALS['transients'] = array();
+ck( 'and a link that resolves is no warning at all', codes( WPCPM_Track_Publish::preflight( 7 )['warnings'] ), array() );
 
 echo "\n=== When Airtable cannot be read at all ===\n";
 

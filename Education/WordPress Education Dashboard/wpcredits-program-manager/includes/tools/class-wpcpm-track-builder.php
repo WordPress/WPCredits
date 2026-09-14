@@ -29,6 +29,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/** Start a track from nothing. */
 	const ACTION_NEW = 'wpcpm_track_new';
 
+	/** Read the track's Learn course again. */
+	const ACTION_COURSE = 'wpcpm_track_course';
+
 	/** How many saves History shows, the cap the semester report screen gives its own. */
 	const HISTORY_LIMIT = 20;
 
@@ -133,6 +136,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		add_action( 'admin_post_' . self::ACTION_SAVE, array( $this, 'handle_save' ) );
 		add_action( 'admin_post_' . self::ACTION_DUPLICATE, array( $this, 'handle_duplicate' ) );
 		add_action( 'admin_post_' . self::ACTION_NEW, array( $this, 'handle_new' ) );
+		add_action( 'admin_post_' . self::ACTION_COURSE, array( $this, 'handle_course' ) );
 		add_action( 'admin_post_' . self::ACTION_SWITCH_DEFINITION, array( $this, 'handle_switch_definition' ) );
 		add_action( 'admin_post_' . self::ACTION_SWITCH_BUILTIN, array( $this, 'handle_switch_builtin' ) );
 		add_action( 'admin_post_' . self::ACTION_REFRESH, array( $this, 'handle_refresh' ) );
@@ -167,7 +171,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		// The preview draws the draft through the report form's own renderer, so it needs the sheet
 		// that dresses the form on the student's page, which nothing in wp-admin enqueues otherwise
 		// (decision 27). Registered first, as the calendar module does on `init`, so the handle
-		// resolves whichever order the modules booted in.
+		// resolves whichever order the modules booted in. Two selectors in those sheets are not
+		// scoped to the form, dashboard.css's `.screen-reader-text` and calendar.css's `.is-sending`
+		// family; nothing on this page carries either, so they are inert here (the T3b final review).
 		if ( WPCPM_Request::id( 'wpcpm_preview' ) > 0 ) {
 			WPCPM_Call_Calendar::register_assets();
 			wp_enqueue_style( WPCPM_Call_Calendar::STYLE );
@@ -218,7 +224,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 				'skipped'        => isset( $skipped[ $post_id ] ) ? (array) $skipped[ $post_id ] : array(),
 				'equivalence'    => WPCPM_Track_Store::equivalence( $post_id ),
 				'switched'       => WPCPM_Track_Store::switched( $post_id ),
-				'stale'          => 'builtin' === $source && ! is_array( $published ) && isset( $seeds[ $key ] ) && $seeds[ $key ] !== $definition,
+				'stale'          => self::stale( $definition, $source, $published, $seeds ),
 				// From the log, not the state: an unpublished track is a draft again and is
 				// still the record of what was created in the base (decision 25).
 				'ever_published' => WPCPM_Track_Store::ever_published( $post_id ),
@@ -250,6 +256,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$definition = is_array( $definition ) ? $definition : array();
 		$read_only  = 'builtin' === WPCPM_Track_Store::source( $post_id );
 		$published  = WPCPM_Track_Store::published( $post_id );
+		$lessons    = self::lessons_of( $definition );
 
 		return array(
 			'id'              => $post_id,
@@ -270,6 +277,12 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			// The columns of the published copy: a row for one of these promises no fork, since
 			// that is the change `handle_save()` refuses (decision 23, the whole-branch review).
 			'locked'          => is_array( $published ) && isset( $published['questions'] ) && is_array( $published['questions'] ) ? array_map( 'strval', array_keys( $published['questions'] ) ) : array(),
+			// What Learn says about the course, for the line beside the link (T3c, decision 31).
+			'course'          => self::course_of( $definition ),
+			// The course's lessons by the form's group, and one sentence when they could not be
+			// read (decision 32).
+			'lessons'         => $lessons['by_group'],
+			'learn'           => $lessons['error'],
 		);
 	}
 
@@ -281,20 +294,41 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 * built-in track still running from its PHP previews too: its definition is what the PHP draws.
 	 *
 	 * @param int $post_id The track.
-	 * @return array `track`, `label`, `fields` (column => spec), `state` and `source`.
+	 * @return array `track`, `label`, `fields` (column => spec), `state`, `source`, and `stale`,
+	 *               whether a built-in draft fell behind the plugin's seed.
 	 */
 	public static function preview( $post_id ) {
 		$post_id    = (int) $post_id;
 		$definition = WPCPM_Track_Store::get( $post_id );
 		$definition = is_array( $definition ) ? $definition : array();
 
+		$source = WPCPM_Track_Store::source( $post_id );
+		$seeds  = WPCPM_Track_Store::seeds();
+
 		return array(
 			'track'  => $post_id,
 			'label'  => isset( $definition['label'] ) ? (string) $definition['label'] : '',
 			'fields' => WPCPM_Track_Definition::compile_fields( $definition ),
 			'state'  => WPCPM_Track_Store::state( $post_id ),
-			'source' => WPCPM_Track_Store::source( $post_id ),
+			'source' => $source,
+			'stale'  => self::stale( $definition, $source, WPCPM_Track_Store::published( $post_id ), $seeds ),
 		);
+	}
+
+	/**
+	 * Whether a built-in draft has fallen behind the seed the plugin now ships (decision 12): what
+	 * the list's Refresh from the plugin puts right, and what a preview of it warns about.
+	 *
+	 * @param array      $definition The track's definition.
+	 * @param string     $source     `builtin` while its PHP runs it.
+	 * @param array|null $published  Its published copy, or null.
+	 * @param array      $seeds      The seeds, by key.
+	 * @return bool
+	 */
+	private static function stale( array $definition, $source, $published, array $seeds ) {
+		$key = isset( $definition['key'] ) ? (string) $definition['key'] : '';
+
+		return 'builtin' === $source && ! is_array( $published ) && isset( $seeds[ $key ] ) && $seeds[ $key ] !== $definition;
 	}
 
 	/**
@@ -330,6 +364,10 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		// finding 1). A cap of 0 means revisions are off, so `$kept` is empty and the "no saves
 		// kept" sentence holds instead.
 		$pruned = $cap >= 0 && array() !== $kept && count( $kept ) >= $cap;
+
+		// Each entry is compared with the one at the next index, so the list is read zero-based
+		// whatever the store answered.
+		$kept = array_values( $kept );
 
 		foreach ( array_slice( $kept, 0, self::HISTORY_LIMIT ) as $i => $revision ) {
 			$entry = array(
@@ -466,6 +504,8 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$key       = isset( $definition['key'] ) ? (string) $definition['key'] : '';
 		$published = WPCPM_Track_Store::published( $post_id );
 		$others    = WPCPM_Track_Store::others( $post_id );
+		$course_id = isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0;
+		$modules   = $course_id > 0 ? WPCPM_Learn::structure( $course_id ) : array();
 
 		return array(
 			'track'       => $post_id,
@@ -477,6 +517,11 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			'forked_from' => WPCPM_Track_Questions::forked_from( $column, $key, $others ),
 			'locked'      => WPCPM_Track_Questions::locked( $column, is_array( $published ) && isset( $published['questions'] ) && is_array( $published['questions'] ) ? $published['questions'] : array() ),
 			'read_only'   => 'builtin' === WPCPM_Track_Store::source( $post_id ),
+			// The course's modules with their lessons for the lesson row, why they could not be
+			// read when they could not, and whether there is a course at all (decision 32).
+			'lessons'     => is_wp_error( $modules ) ? array() : $modules,
+			'learn'       => is_wp_error( $modules ) ? $modules->get_error_message() : '',
+			'course'      => $course_id > 0,
 		);
 	}
 
@@ -592,9 +637,12 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		if ( $track > 0 && is_array( WPCPM_Track_Store::get( $track ) ) ) {
 			WPCPM_Track_Builder_Screen::render_form(
 				array(
-					'form'  => self::form( $track ),
-					'url'   => $this->admin_url(),
-					'flash' => $flash,
+					'form'   => self::form( $track ),
+					'url'    => $this->admin_url(),
+					'flash'  => $flash,
+					// "Add a question under this lesson" names the lesson to choose in the
+					// group's add form (decision 32).
+					'lesson' => WPCPM_Request::id( 'wpcpm_lesson' ),
 				)
 			);
 
@@ -635,6 +683,8 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		}
 
 		$definition = self::posted_definition( $stored );
+		$warning    = self::resolve_course( $definition, $stored );
+		$rematched  = self::rematch_lessons( $definition, $stored );
 		$errors     = WPCPM_Track_Store::check( $post_id, $definition );
 
 		if ( array() !== $errors ) {
@@ -647,10 +697,15 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			$this->refuse( $post_id, $saved->get_error_message(), $definition );
 		}
 
+		// A link that did not resolve saves all the same (4.2), and the notice says so; so does a
+		// course change that left questions with no lesson, and one held back because the new
+		// course's lessons could not be read (the final review of T3c).
+		$warned = '' !== $warning || 0 < $rematched['cleared'] || $rematched['held'];
+
 		$this->redirect_back(
 			array(
-				'status'  => 'success',
-				'message' => __( 'The track was saved. Nothing reaches students until it is published.', 'wpcredits-program-manager' ),
+				'status'  => $warned ? 'warning' : 'success',
+				'message' => implode( ' ', array_filter( array( __( 'The track was saved.', 'wpcredits-program-manager' ), $warning, $rematched['message'], __( 'Nothing reaches students until it is published.', 'wpcredits-program-manager' ) ) ) ),
 			),
 			array( 'wpcpm_track' => $post_id )
 		);
@@ -721,7 +776,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	}
 
 	/**
-	 * Start a track from nothing: a status, a key and a label, and an empty form (the design's 5).
+	 * Start a track from nothing: a status, a key and a label, and an empty form (the design's 5);
+	 * or from a Learn course link, which fills the course and, when the name was left empty, the
+	 * name from the course's title (decision 31).
 	 *
 	 * Checked as a track with nothing locked to it, as a copy is, so a status or key another track
 	 * holds is refused before a draft nobody asked for exists. Everything else about the track, and
@@ -738,6 +795,30 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			'hue'            => WPCPM_Track_Palette::first_free( self::hues_in_use() ),
 			'questions'      => array(),
 		);
+
+		$link    = WPCPM_Request::posted_text( 'wpcpm_course_url' );
+		$warning = '';
+
+		if ( '' !== $link ) {
+			$definition['course_url'] = esc_url_raw( $link );
+			$course                   = WPCPM_Learn::resolve( $definition['course_url'] );
+
+			if ( is_wp_error( $course ) ) {
+				// Kept as typed, with the warning (4.2): the link is shown to students and can be
+				// put right on the track's page.
+				$warning = sprintf(
+					/* translators: %s: why the link did not resolve. */
+					__( 'The Learn course link did not resolve: %s', 'wpcredits-program-manager' ),
+					$course->get_error_message()
+				);
+			} else {
+				$definition['learn_course_id'] = (int) $course['id'];
+
+				if ( '' === $definition['label'] ) {
+					$definition['label'] = (string) $course['title'];
+				}
+			}
+		}
 
 		$errors = WPCPM_Track_Store::check( 0, $definition );
 
@@ -767,8 +848,8 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 
 		$this->redirect_back(
 			array(
-				'status'  => 'success',
-				'message' => __( 'The track was created, as a draft with no questions yet. Add them below. Nothing reaches students until it is published.', 'wpcredits-program-manager' ),
+				'status'  => '' === $warning ? 'success' : 'warning',
+				'message' => implode( ' ', array_filter( array( __( 'The track was created, as a draft with no questions yet.', 'wpcredits-program-manager' ), $warning, __( 'Add them below. Nothing reaches students until it is published.', 'wpcredits-program-manager' ) ) ) ),
 			),
 			array( 'wpcpm_track' => (int) $created )
 		);
@@ -794,6 +875,280 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	}
 
 	/**
+	 * What Learn says about the track's course, for the line beside the link (decision 31).
+	 *
+	 * Read through `WPCPM_Learn`, which keeps the answer for a day, so a track's page costs Learn
+	 * nothing after its first open.
+	 *
+	 * @param array $definition The track's definition.
+	 * @return array `id` and `title` of the course the link resolves to, with `error` empty; or
+	 *               `error` saying why it did not, with the `id` the track last resolved to and no
+	 *               title; all empty for a track with no link.
+	 */
+	public static function course_of( array $definition ) {
+		$url  = isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '';
+		$last = isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0;
+
+		if ( '' === $url ) {
+			return array(
+				'id'    => 0,
+				'title' => '',
+				'error' => '',
+			);
+		}
+
+		$course = WPCPM_Learn::resolve( $url );
+
+		if ( is_wp_error( $course ) ) {
+			return array(
+				'id'    => $last,
+				'title' => '',
+				'error' => $course->get_error_message(),
+			);
+		}
+
+		return array(
+			'id'    => (int) $course['id'],
+			'title' => (string) $course['title'],
+			'error' => '',
+		);
+	}
+
+	/**
+	 * The course's lessons by the form's group, for the track's page (decision 32).
+	 *
+	 * Read through `WPCPM_Learn`, which keeps the structure for a day. When Learn cannot be read
+	 * the lessons are left off and one sentence says why, the rule decision 24 set for the schema
+	 * line; a track with no course has neither.
+	 *
+	 * @param array $definition The track's definition.
+	 * @return array `by_group` (group => a list of lessons, each `id` and `title`) and `error`.
+	 */
+	public static function lessons_of( array $definition ) {
+		$course_id = isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0;
+
+		if ( $course_id <= 0 ) {
+			return array(
+				'by_group' => array(),
+				'error'    => '',
+			);
+		}
+
+		$modules = WPCPM_Learn::structure( $course_id );
+
+		if ( is_wp_error( $modules ) ) {
+			return array(
+				'by_group' => array(),
+				'error'    => $modules->get_error_message(),
+			);
+		}
+
+		return array(
+			'by_group' => WPCPM_Learn::by_group( $modules ),
+			'error'    => '',
+		);
+	}
+
+	/**
+	 * Resolve the posted link to its course and set `learn_course_id` from the answer.
+	 *
+	 * A link that does not resolve still saves (4.2), with a warning for the notice. While the link
+	 * is the one the stored ID came from, that ID is kept, so a passing outage on Learn never blanks
+	 * a course; a new link that does not resolve has no ID, since the last one was another course's
+	 * (decision 31).
+	 *
+	 * @param array $definition The posted definition, by reference.
+	 * @param array $stored     The definition as it was stored.
+	 * @return string The warning, or '' when the link resolved or there is none.
+	 */
+	private static function resolve_course( array &$definition, array $stored ) {
+		$url = isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '';
+
+		if ( '' === $url ) {
+			return '';
+		}
+
+		$course = WPCPM_Learn::resolve( $url );
+
+		if ( ! is_wp_error( $course ) ) {
+			$definition['learn_course_id'] = (int) $course['id'];
+
+			return '';
+		}
+
+		$unchanged = isset( $stored['course_url'] ) && (string) $stored['course_url'] === $url;
+
+		if ( $unchanged && isset( $stored['learn_course_id'] ) ) {
+			$definition['learn_course_id'] = (int) $stored['learn_course_id'];
+		} else {
+			unset( $definition['learn_course_id'] );
+		}
+
+		return sprintf(
+			/* translators: %s: why the link did not resolve. */
+			__( 'The Learn course link did not resolve: %s', 'wpcredits-program-manager' ),
+			$course->get_error_message()
+		);
+	}
+
+	/**
+	 * When the save resolved the link to another course, match every question that carried a
+	 * lesson against the new course by heading (decision 33).
+	 *
+	 * A match takes the new lesson; the rest lose theirs and are named, since a person who changed
+	 * the course wants to know which questions still report on one. Questions with no lesson are
+	 * left alone, and so is everything when the course did not change or was cleared; when they
+	 * cannot be read from Learn just now, the course change is held back, since a course the
+	 * questions cannot be matched to would leave them pointing outside it (the final review of T3c).
+	 *
+	 * @param array $definition The posted definition, by reference.
+	 * @param array $stored     The definition as it was stored.
+	 * @return array `message` for the notice, or '', `cleared`, how many questions lost a lesson,
+	 *               and `held`, whether the course change was held back.
+	 */
+	private static function rematch_lessons( array &$definition, array $stored ) {
+		$none = array(
+			'message' => '',
+			'cleared' => 0,
+			'held'    => false,
+		);
+		$now  = isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0;
+		$was  = isset( $stored['learn_course_id'] ) ? (int) $stored['learn_course_id'] : 0;
+
+		if ( $now <= 0 || $now === $was ) {
+			return $none;
+		}
+
+		$questions = isset( $definition['questions'] ) && is_array( $definition['questions'] ) ? $definition['questions'] : array();
+		$lessoned  = false;
+
+		foreach ( $questions as $spec ) {
+			if ( is_array( $spec ) && isset( $spec['learn_lesson_id'] ) ) {
+				$lessoned = true;
+				break;
+			}
+		}
+
+		if ( ! $lessoned ) {
+			return $none;
+		}
+
+		$modules = WPCPM_Learn::structure( $now );
+
+		if ( is_wp_error( $modules ) ) {
+			// The change is held back whole. Storing the new course while the questions keep the
+			// old course's lessons would make the next save see the same course on both sides,
+			// so the re-match would never run and every lessoned question would read "not in this
+			// course" for good (the final review of T3c). The link and the ID go back to what the
+			// track holds, the ID unset when the track has none, as `posted_definition()` leaves it.
+			if ( isset( $stored['course_url'] ) ) {
+				$definition['course_url'] = $stored['course_url'];
+			} else {
+				unset( $definition['course_url'] );
+			}
+
+			if ( isset( $stored['learn_course_id'] ) ) {
+				$definition['learn_course_id'] = $stored['learn_course_id'];
+			} else {
+				unset( $definition['learn_course_id'] );
+			}
+
+			return array(
+				'message' => __( 'The course was not changed: the lessons of the new course could not be read from Learn, so the questions could not be matched to it. Try again once Learn answers.', 'wpcredits-program-manager' ),
+				'cleared' => 0,
+				'held'    => true,
+			);
+		}
+
+		$lessons = array();
+
+		foreach ( $modules as $module ) {
+			foreach ( isset( $module['lessons'] ) && is_array( $module['lessons'] ) ? $module['lessons'] : array() as $lesson ) {
+				$lessons[] = $lesson;
+			}
+		}
+
+		$result                  = WPCPM_Track_Questions::rematch( $questions, $lessons );
+		$definition['questions'] = $result['questions'];
+		$parts                   = array( __( 'The course changed.', 'wpcredits-program-manager' ) );
+
+		if ( array() !== $result['matched'] ) {
+			$parts[] = sprintf(
+				/* translators: %s: the questions, comma-separated. */
+				__( 'Matched to the new course\'s lessons by heading: %s.', 'wpcredits-program-manager' ),
+				implode( ', ', self::question_names( $questions, $result['matched'] ) )
+			);
+		}
+
+		if ( array() !== $result['cleared'] ) {
+			$parts[] = sprintf(
+				/* translators: %s: the questions, comma-separated. */
+				__( 'No longer pointing at a lesson: %s.', 'wpcredits-program-manager' ),
+				implode( ', ', self::question_names( $questions, $result['cleared'] ) )
+			);
+		}
+
+		return array(
+			'message' => implode( ' ', $parts ),
+			'cleared' => count( $result['cleared'] ),
+			'held'    => false,
+		);
+	}
+
+	/**
+	 * Questions by the words a student reads, falling back to the column, for a notice.
+	 *
+	 * @param array    $questions Column => spec.
+	 * @param string[] $columns   The columns to name.
+	 * @return string[]
+	 */
+	private static function question_names( array $questions, array $columns ) {
+		$names = array();
+
+		foreach ( $columns as $column ) {
+			$names[] = isset( $questions[ $column ]['label'] ) && '' !== (string) $questions[ $column ]['label'] ? (string) $questions[ $column ]['label'] : (string) $column;
+		}
+
+		return $names;
+	}
+
+	/**
+	 * Read the track's Learn course again: forget what was kept and come back to the track, whose
+	 * page reads it afresh (decision 31). For the day a lesson is added on Learn.
+	 */
+	public function handle_course() {
+		$this->verify( self::ACTION_COURSE );
+
+		$post_id = WPCPM_Request::posted_id( 'track' );
+		$stored  = WPCPM_Track_Store::get( $post_id );
+
+		if ( ! is_array( $stored ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => __( 'That track does not exist.', 'wpcredits-program-manager' ),
+				)
+			);
+		}
+
+		WPCPM_Learn::forget(
+			isset( $stored['learn_course_id'] ) ? (int) $stored['learn_course_id'] : 0,
+			isset( $stored['course_url'] ) ? (string) $stored['course_url'] : ''
+		);
+
+		$this->redirect_back(
+			array(
+				'status'  => 'success',
+				// The press forgets what was kept; the track's page is what reads Learn again, and
+				// it has not drawn yet, so the notice says what is about to happen rather than
+				// reporting something that has not (the final review of T3c).
+				'message' => __( 'The course is read again from Learn on this page.', 'wpcredits-program-manager' ),
+			),
+			array( 'wpcpm_track' => $post_id )
+		);
+	}
+
+	/**
 	 * The posted properties, on top of the definition the track holds.
 	 *
 	 * The questions travel untouched, because this form does not show them: an editor that rebuilt
@@ -809,23 +1164,17 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$definition['status'] = WPCPM_Request::posted_text( 'wpcpm_status' );
 		$definition['key']    = WPCPM_Request::posted_text( 'wpcpm_key' );
 		$course               = WPCPM_Request::posted_text( 'wpcpm_course_url' );
-		$learn                = (int) WPCPM_Request::posted_text( 'wpcpm_learn_course_id' );
 		$hours                = WPCPM_Request::posted_text( 'wpcpm_hours_target' );
 		$hue                  = WPCPM_Request::posted_text( 'wpcpm_hue' );
 
-		// An empty course url is "no course," the same as no hours target and no Learn course ID
-		// below: writing '' here would give a track that never had one a key it did not have (the
-		// final review).
+		// An empty course url is "no course," the same as no hours target below: writing '' here
+		// would give a track that never had one a key it did not have (the final review). The
+		// course's ID goes with it, whatever ID the stored definition carried, since the ID is not
+		// typed since T3c: `resolve_course()` sets it from the link on save (decision 31).
 		if ( '' === $course ) {
-			unset( $definition['course_url'] );
+			unset( $definition['course_url'], $definition['learn_course_id'] );
 		} else {
 			$definition['course_url'] = esc_url_raw( $course );
-		}
-
-		if ( $learn > 0 ) {
-			$definition['learn_course_id'] = $learn;
-		} else {
-			unset( $definition['learn_course_id'] );
 		}
 
 		// A track may have no hours target at all, which is the Developer Track's answer, so an

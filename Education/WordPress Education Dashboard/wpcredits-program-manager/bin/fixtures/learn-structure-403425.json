@@ -1,0 +1,353 @@
+{
+ "_comment": "Learn's answer to GET https://learn.wordpress.org/wp-json/sensei-internal/v1/course-structure/403425, the Designer Track course, captured 13 September 2026 and kept whole: three modules, each with its lessons as Learn lists them (id, title, draft, preview, type, initialContent). bin/test-learn.php parses it.",
+ "response": [
+  {
+   "type": "module",
+   "id": 115363,
+   "title": "Onboarding",
+   "description": "Before you can contribute to WordPress, you need to know how the community works, where to find your people, and how to show up well. This module gets you set up: a WordPress.org profile, access to Slack, a shared understanding of how decisions get made in this open source project, and a first look at the design tools you'll be using throughout the program.You'll also build your own WordPress site. This becomes your portfolio, your testing ground for design experiments, and the place where you'll document your progress for the rest of the course.By the end of this module, you'll be oriented in the WordPress community and have a personal site ready to build on. From here, you'll move into the Project module, where you apply what you've learned toward a real contribution to the WordPress Design team.",
+   "teacher": "",
+   "teacherId": 18873666,
+   "lastTitle": "Onboarding",
+   "slug": "",
+   "lessons": [
+    {
+     "type": "lesson",
+     "id": 403435,
+     "title": "Welcome and Essential Communication Guidelines",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403437,
+     "title": "Share your WordPress profile",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403439,
+     "title": "Join global Slack",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403441,
+     "title": "Differences between WordPress.com and WordPress.org",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403443,
+     "title": "Complete: Open source basics and WordPress",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403445,
+     "title": "Complete: How decisions are made in the WordPress project",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403447,
+     "title": "Complete: Community meeting etiquette",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403449,
+     "title": "Complete: Writing in the WordPress voice",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403451,
+     "title": "Complete: Basic principles of conflict resolution",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403453,
+     "title": "Complete: Beginner WordPress Designer Course",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403455,
+     "title": "From design skills to contribution",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403457,
+     "title": "Create your portfolio",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403459,
+     "title": "Reflection: Building Your Portfolio",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    }
+   ]
+  },
+  {
+   "type": "module",
+   "id": 115364,
+   "title": "Project",
+   "description": "The Project module is where WP Credits Designer track students move from getting set up to doing real design contribution work. Building on the WordPress fundamentals from Onboarding, this module introduces how the WordPress Design team works, the tools they use, and the different paths students can take to contribute, then gives students hands-on practice through a progression of Practical lessons before choosing and beginning their own contribution project.This module connects the design skills students bring (or are building) to the specific ways WordPress needs design contributions today: Figma and the Design Library, block patterns, the Photo Directory, theme reviews, workshop and meetup materials, and Gutenberg design feedback.",
+   "teacher": "",
+   "teacherId": 18873666,
+   "lastTitle": "Project",
+   "slug": "",
+   "lessons": [
+    {
+     "type": "lesson",
+     "id": 403461,
+     "title": "How to contribute to WordPress",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403463,
+     "title": "The WordPress Design Team Deep Dive",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403465,
+     "title": "Introduction to Figma for WordPress Design",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403467,
+     "title": "Design Contribution Pathways for Students",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403469,
+     "title": "Understand WordPress Design Principles",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403471,
+     "title": "Practical: Duplicate and Explore the WordPress Design Library",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403473,
+     "title": "Practical: Set Up a Local WordPress Environment for Design Testing",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403475,
+     "title": "Explore and practice WordPress design",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403477,
+     "title": "Practical: Change Your Site's Global Styles",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403479,
+     "title": "Practical: Customize with the Style Book",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403481,
+     "title": "Practical: Compose a Landing Page with Layout Blocks",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403483,
+     "title": "Practical: Apply Custom CSS in the Site Editor",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403485,
+     "title": "Contribute to a real project",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403487,
+     "title": "Practical: Create and Submit a Custom Block Pattern",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403489,
+     "title": "Practical: Test Your Site for Accessibility",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403563,
+     "title": "Define and begin developing your contribution project",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403565,
+     "title": "Reflection: Choosing Your Team and Project",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403491,
+     "title": "Alumni Program: Connect with the community and plan your contribution beyond WP Credits",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403493,
+     "title": "Complete the first feedback form",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403495,
+     "title": "Reflection: Your First Contribution",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403497,
+     "title": "Leave your mid-course feedback",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403499,
+     "title": "Reflection: Halfway Check-In",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403501,
+     "title": "Participate at a WordPress Event (online or in person)",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    }
+   ]
+  },
+  {
+   "type": "module",
+   "id": 115365,
+   "title": "Wrap-up",
+   "description": "Wrap-up is where you close out your WP Credits journey. You'll write and deliver a report on the contribution work you've done, receive your certificate, and give feedback that helps shape the program for future cohorts.This module is short by design. The real work happened in Onboarding, where you set up your portfolio and got oriented in the WordPress community, and in Project, where you built design skills and made real contributions to the WordPress Design and Test teams. Wrap-up is where you step back, reflect on that work, and formally close the loop.",
+   "teacher": "",
+   "teacherId": 18873666,
+   "lastTitle": "Wrap-up",
+   "slug": "",
+   "lessons": [
+    {
+     "type": "lesson",
+     "id": 403503,
+     "title": "Prepare and deliver a wrap-up report",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403505,
+     "title": "Get your certificate",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    },
+    {
+     "type": "lesson",
+     "id": 403507,
+     "title": "Complete the feedback form",
+     "draft": false,
+     "preview": false,
+     "initialContent": ""
+    }
+   ]
+  }
+ ]
+}

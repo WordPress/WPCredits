@@ -153,7 +153,7 @@ class WPCPM_Track_Editor_Screen {
 		// so rows drawn for it would be the wrong rows (the design's decision 29). The identity
 		// block below posts the stored control back for the same reason.
 		if ( $locked ) {
-			$type = isset( $question['type'] ) ? (string) $question['type'] : '';
+			$type = $stored_type;
 		}
 
 		self::render_flash( $flash );
@@ -181,19 +181,17 @@ class WPCPM_Track_Editor_Screen {
 		echo '<div class="wpcpm-question__identity">';
 
 		if ( $locked ) {
-			// The stored control, not the typed one: a lock can be taken while this screen is
-			// open (publish the track in another tab), and the typed control shown and posted back
-			// would be the very change the handler refuses (the Task 7 review).
-			$fixed = isset( $question['type'] ) ? (string) $question['type'] : '';
-
+			// The stored control, not the typed one, is what is shown and posted back: a lock can be
+			// taken while this screen is open (publish the track in another tab), and the typed
+			// control would be the very change the handler refuses (the Task 7 review).
 			printf( '<input type="hidden" name="wpcpm_column" value="%s" />', esc_attr( $column ) );
-			printf( '<input type="hidden" name="wpcpm_type" value="%s" />', esc_attr( $fixed ) );
+			printf( '<input type="hidden" name="wpcpm_type" value="%s" />', esc_attr( $type ) );
 			printf(
 				'<p><strong>%1$s</strong> <code>%2$s</code><br /><strong>%3$s</strong> %4$s</p>',
 				esc_html__( 'Airtable column', 'wpcredits-program-manager' ),
 				esc_html( $column ),
 				esc_html( $labels['type'] ),
-				esc_html( isset( $controls[ $fixed ] ) ? $controls[ $fixed ] : $fixed )
+				esc_html( isset( $controls[ $type ] ) ? $controls[ $type ] : $type )
 			);
 			echo '<p class="wpcpm-question__locked">' . esc_html__( 'This question has been published, so its column, its control and its choices are fixed: the column in Airtable holds what students have written, in that shape. To ask it differently, remove it and add a new question with a column of its own.', 'wpcredits-program-manager' ) . '</p>';
 		} else {
@@ -228,6 +226,7 @@ class WPCPM_Track_Editor_Screen {
 
 		self::render_text_row( 'help', $labels['help'], (string) $value( 'help' ) );
 		self::render_text_row( 'lead', $labels['lead'], (string) $value( 'lead' ) );
+		self::render_lesson_row( $form, (int) $value( 'learn_lesson_id', 0 ), $labels['learn_lesson_id'] );
 		self::render_text_row( 'subgroup', $labels['subgroup'], (string) $value( 'subgroup' ) );
 		self::render_text_row( 'note', $labels['note'], (string) $value( 'note' ) );
 		self::render_text_row( 'row', $labels['row'], (string) $value( 'row' ), __( 'Questions with the same row name sit side by side: lowercase letters, digits and hyphens.', 'wpcredits-program-manager' ) );
@@ -338,12 +337,86 @@ class WPCPM_Track_Editor_Screen {
 	}
 
 	/**
-	 * One text box in the properties table.
+	 * The question's Learn lesson, after the heading row (decision 32): the course's lessons in their
+	 * modules, None first; a stored lesson the course no longer has shown as such; the stored id as a
+	 * number box when Learn could not be read; and no row at all, the lesson carried hidden, when
+	 * the track has no course.
 	 *
-	 * @param string $property    The property, which names the field.
+	 * @param array  $form      The form as `WPCPM_Track_Builder::question_form()` gives it.
+	 * @param int    $lesson_id The lesson the question holds, or 0.
+	 * @param string $heading   The row's label.
+	 */
+	private static function render_lesson_row( array $form, $lesson_id, $heading ) {
+		$modules = isset( $form['lessons'] ) && is_array( $form['lessons'] ) ? $form['lessons'] : array();
+		$learn   = isset( $form['learn'] ) ? (string) $form['learn'] : '';
+
+		// No course, no row: a lesson the question holds rides hidden, so a save keeps it.
+		if ( empty( $form['course'] ) ) {
+			if ( $lesson_id > 0 ) {
+				printf( '<input type="hidden" name="wpcpm_learn_lesson_id" value="%d" />', (int) $lesson_id );
+			}
+
+			return;
+		}
+
+		// Learn could not be read: the stored id as a number box, and why (decision 32).
+		if ( '' !== $learn ) {
+			$unread = sprintf(
+				/* translators: %s: why Learn could not be read. */
+				__( 'The lessons of the course could not be read from Learn: %s', 'wpcredits-program-manager' ),
+				$learn
+			);
+
+			printf(
+				'<tr><th scope="row"><label for="wpcpm_learn_lesson_id">%1$s</label></th><td><input type="number" class="small-text" id="wpcpm_learn_lesson_id" name="wpcpm_learn_lesson_id" value="%2$s" /><p class="description">%3$s</p></td></tr>',
+				esc_html( $heading ),
+				esc_attr( $lesson_id > 0 ? (string) $lesson_id : '' ),
+				esc_html( $unread )
+			);
+
+			return;
+		}
+
+		$known = '' !== WPCPM_Learn::lesson_title( $modules, $lesson_id );
+
+		printf( '<tr><th scope="row"><label for="wpcpm_learn_lesson_id">%s</label></th><td><select id="wpcpm_learn_lesson_id" name="wpcpm_learn_lesson_id">', esc_html( $heading ) );
+		printf( '<option value="0"%2$s>%1$s</option>', esc_html__( 'None', 'wpcredits-program-manager' ), $lesson_id <= 0 ? ' selected="selected"' : '' );
+
+		// A lesson the course no longer has stays visible, chosen, so it can be seen and cleared.
+		if ( $lesson_id > 0 && ! $known ) {
+			$missing = sprintf(
+				/* translators: %d: a Learn lesson's post ID. */
+				__( 'Lesson %d, not in this course', 'wpcredits-program-manager' ),
+				$lesson_id
+			);
+
+			printf( '<option value="%1$d" selected="selected">%2$s</option>', (int) $lesson_id, esc_html( $missing ) );
+		}
+
+		foreach ( $modules as $module ) {
+			$title = isset( $module['title'] ) && '' !== (string) $module['title'] ? (string) $module['title'] : __( 'Other lessons', 'wpcredits-program-manager' );
+
+			printf( '<optgroup label="%s">', esc_attr( $title ) );
+
+			foreach ( isset( $module['lessons'] ) && is_array( $module['lessons'] ) ? $module['lessons'] : array() as $entry ) {
+				$id = isset( $entry['id'] ) ? (int) $entry['id'] : 0;
+
+				printf( '<option value="%1$d"%3$s>%2$s</option>', (int) $id, esc_html( isset( $entry['title'] ) ? (string) $entry['title'] : '' ), $id === $lesson_id ? ' selected="selected"' : '' );
+			}
+
+			echo '</optgroup>';
+		}
+
+		echo '</select></td></tr>';
+	}
+
+	/**
+	 * One property as a text box in its row.
+	 *
+	 * @param string $property    The property, which names the box.
 	 * @param string $heading     The row's label.
-	 * @param string $value       What the box holds.
-	 * @param string $description A line under the box, or empty.
+	 * @param string $value       The value to draw.
+	 * @param string $description A description under the box, when there is one.
 	 */
 	private static function render_text_row( $property, $heading, $value, $description = '' ) {
 		printf(
@@ -410,11 +483,26 @@ class WPCPM_Track_Editor_Screen {
 		$typed     = isset( $args['typed'] ) && is_array( $args['typed'] ) ? $args['typed'] : array();
 		$url       = isset( $args['url'] ) ? (string) $args['url'] : '';
 		$read_only = ! empty( $args['read_only'] );
+		$lessons   = isset( $args['lessons'] ) && is_array( $args['lessons'] ) ? $args['lessons'] : array();
+		$learn     = isset( $args['learn'] ) ? (string) $args['learn'] : '';
+		$lesson    = isset( $args['lesson'] ) ? (int) $args['lesson'] : 0;
 
 		echo '<div class="wpcpm-questions">';
 		echo '<h2 class="wpcpm-questions__heading">' . esc_html__( 'Questions', 'wpcredits-program-manager' ) . '</h2>';
 
 		self::render_schema_line( $schema );
+
+		// The lessons are left off and one sentence says why when Learn could not be read; with no
+		// course there is nothing to say (decision 32).
+		if ( '' !== $learn ) {
+			$unread = sprintf(
+				/* translators: %s: why Learn could not be read. */
+				__( 'The lessons of the course could not be read from Learn: %s', 'wpcredits-program-manager' ),
+				$learn
+			);
+
+			echo '<p class="wpcpm-questions__learn">' . esc_html( $unread ) . '</p>';
+		}
 
 		foreach ( self::groups() as $group => $heading ) {
 			printf( '<section class="wpcpm-questions__group" id="wpcpm-questions-%s">', esc_attr( $group ) );
@@ -450,8 +538,12 @@ class WPCPM_Track_Editor_Screen {
 				echo '</tbody></table>';
 			}
 
+			$of_group = isset( $lessons[ $group ] ) && is_array( $lessons[ $group ] ) ? $lessons[ $group ] : array();
+
+			self::render_lessons( $group, $of_group, $questions, $track, $url, $read_only );
+
 			if ( ! $read_only ) {
-				self::render_add( $track, $group, $typed );
+				self::render_add( $track, $group, $typed, $of_group, $lesson );
 			}
 
 			echo '</section>';
@@ -666,17 +758,22 @@ class WPCPM_Track_Editor_Screen {
 	 * rather than cleared; only in the group the press came from, since the other groups' forms
 	 * were never filled in (the whole-branch review).
 	 *
-	 * @param int    $track The post ID.
-	 * @param string $group The group.
-	 * @param array  $typed What a refused Add carried, or empty.
+	 * @param int    $track   The post ID.
+	 * @param string $group   The group.
+	 * @param array  $typed   What a refused Add carried, or empty.
+	 * @param array  $lessons The module's lessons, each `id` and `title`, for "Under lesson".
+	 * @param int    $lesson  The lesson to choose when no refusal carried one.
 	 */
-	private static function render_add( $track, $group, array $typed = array() ) {
+	private static function render_add( $track, $group, array $typed = array(), array $lessons = array(), $lesson = 0 ) {
 		$mine    = isset( $typed['group'] ) && (string) $typed['group'] === (string) $group;
 		$column  = $mine && isset( $typed['column'] ) ? (string) $typed['column'] : '';
 		$words   = $mine && isset( $typed['label'] ) ? (string) $typed['label'] : '';
 		$control = $mine && isset( $typed['type'] ) ? (string) $typed['type'] : '';
+		// The lesson to choose: the one a refused add carried, else the one the link named.
+		$chosen = $mine && isset( $typed['lesson'] ) ? (int) $typed['lesson'] : (int) $lesson;
 
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="wpcpm-questions__add">';
+		// The id is where "Add a question under this lesson" lands (decision 32).
+		printf( '<form method="post" action="%1$s" class="wpcpm-questions__add" id="wpcpm-questions-add-%2$s">', esc_url( admin_url( 'admin-post.php' ) ), esc_attr( $group ) );
 		wp_nonce_field( WPCPM_Track_Editor::ACTION_ADD );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Editor::ACTION_ADD ) . '" />';
 		printf( '<input type="hidden" name="track" value="%d" />', (int) $track );
@@ -701,7 +798,96 @@ class WPCPM_Track_Editor_Screen {
 		}
 
 		echo '</select> ';
+
+		// Under lesson, for a group that is one of the course's modules: None first, so a question
+		// of the program's own is the plain case.
+		if ( array() !== $lessons ) {
+			printf( '<label for="wpcpm_add_lesson_%1$s">%2$s</label> <select id="wpcpm_add_lesson_%1$s" name="wpcpm_lesson">', esc_attr( $group ), esc_html__( 'Under lesson', 'wpcredits-program-manager' ) );
+			printf( '<option value="0">%s</option>', esc_html__( 'None', 'wpcredits-program-manager' ) );
+
+			foreach ( $lessons as $entry ) {
+				$id = isset( $entry['id'] ) ? (int) $entry['id'] : 0;
+
+				printf( '<option value="%1$d"%3$s>%2$s</option>', (int) $id, esc_html( isset( $entry['title'] ) ? (string) $entry['title'] : '' ), $id === $chosen ? ' selected="selected"' : '' );
+			}
+
+			echo '</select> ';
+		}
+
 		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Add a question', 'wpcredits-program-manager' ) );
 		echo '</form>';
+	}
+
+	/**
+	 * The lessons of the module this group is, under its questions (decision 32): each with the
+	 * questions that report on it, or "Add a question under this lesson", which opens the group's
+	 * add form with the lesson chosen; a built-in track still on its PHP has nothing to press.
+	 *
+	 * @param string  $group     The group.
+	 * @param array[] $lessons   Its module's lessons, each `id` and `title`.
+	 * @param array   $questions Every question of the track, column => spec.
+	 * @param int     $track     The track.
+	 * @param string  $url       The screen's URL.
+	 * @param bool    $read_only Whether the track is a built-in one still on its PHP.
+	 */
+	private static function render_lessons( $group, array $lessons, array $questions, $track, $url, $read_only ) {
+		if ( array() === $lessons ) {
+			return;
+		}
+
+		$asked = array();
+
+		foreach ( $questions as $spec ) {
+			if ( is_array( $spec ) && isset( $spec['learn_lesson_id'] ) ) {
+				$asked[ (int) $spec['learn_lesson_id'] ][] = isset( $spec['label'] ) ? (string) $spec['label'] : '';
+			}
+		}
+
+		$with = 0;
+
+		foreach ( $lessons as $entry ) {
+			if ( isset( $entry['id'], $asked[ (int) $entry['id'] ] ) ) {
+				++$with;
+			}
+		}
+
+		$count = sprintf(
+			/* translators: 1: how many of the module's lessons have questions, 2: how many lessons it has. */
+			__( 'Lessons on Learn: %1$d of %2$d have questions.', 'wpcredits-program-manager' ),
+			$with,
+			count( $lessons )
+		);
+
+		echo '<p class="wpcpm-lessons__count">' . esc_html( $count ) . '</p>';
+		echo '<ul class="wpcpm-lessons">';
+
+		foreach ( $lessons as $entry ) {
+			$id = isset( $entry['id'] ) ? (int) $entry['id'] : 0;
+
+			echo '<li class="wpcpm-lesson">';
+			printf( '<span class="wpcpm-lesson__title">%s</span> ', esc_html( isset( $entry['title'] ) ? (string) $entry['title'] : '' ) );
+
+			if ( isset( $asked[ $id ] ) ) {
+				$by = sprintf(
+					/* translators: %s: the questions that report on the lesson, comma-separated. */
+					__( 'Asked by: %s', 'wpcredits-program-manager' ),
+					implode( ', ', $asked[ $id ] )
+				);
+
+				printf( '<span class="wpcpm-lesson__asked">%s</span>', esc_html( $by ) );
+			} elseif ( $read_only || '' === $url ) {
+				echo '<span class="wpcpm-lesson__none">' . esc_html__( 'No question yet', 'wpcredits-program-manager' ) . '</span>';
+			} else {
+				printf(
+					'<a class="wpcpm-lesson__add" href="%1$s">%2$s</a>',
+					esc_url( add_query_arg( 'wpcpm_lesson', $id, add_query_arg( 'wpcpm_track', (int) $track, $url ) ) . '#wpcpm-questions-add-' . $group ),
+					esc_html__( 'Add a question under this lesson', 'wpcredits-program-manager' )
+				);
+			}
+
+			echo '</li>';
+		}
+
+		echo '</ul>';
 	}
 }

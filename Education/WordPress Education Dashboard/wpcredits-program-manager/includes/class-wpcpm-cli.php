@@ -253,15 +253,19 @@ class WPCPM_CLI {
 	 * Each is created as a draft marked built-in, so its PHP keeps running it. A track whose status
 	 * the Track Builder already holds is passed over, so running this twice creates nothing the
 	 * second time. A site does this once on its own, the first time it runs 1.101.0; the command
-	 * is for a site that needs it again.
+	 * is for a site that needs it again. Every seed is tried before the exit code says that one
+	 * failed, since a second run creates only what is missing (the design's decision 33).
 	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp wpcredits seed-tracks
 	 */
 	public function seed_tracks() {
+		$failed = array();
+
 		foreach ( WPCPM_Track_Store::seed() as $key => $result ) {
 			if ( is_wp_error( $result ) ) {
+				$failed[] = (string) $key;
 				WP_CLI::warning( sprintf( '%s: %s', $key, $result->get_error_message() ) );
 			} elseif ( $result ) {
 				WP_CLI::log( sprintf( '%-6s created as track %d, a draft marked built-in', $key, $result ) );
@@ -271,6 +275,11 @@ class WPCPM_CLI {
 		}
 
 		WPCPM_Track_Store::compile();
+
+		if ( array() !== $failed ) {
+			WP_CLI::error( sprintf( 'Not created: %s. The others are in the Track Builder; run the command again once the reason is put right.', implode( ', ', $failed ) ) );
+		}
+
 		WP_CLI::success( __( 'The built-in tracks are in the Track Builder.', 'wpcredits-program-manager' ) );
 	}
 

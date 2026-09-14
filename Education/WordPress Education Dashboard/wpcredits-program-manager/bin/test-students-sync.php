@@ -1385,9 +1385,24 @@ ck( 'every status is counted in one answer',
 ck( 'and the statuses the rest of this suite set up are in the same answer, so it is one walk for all of them',
     array( isset( $all_counts['In Sensei'] ), count( $all_counts ) > 2 ), array( true, true ) );
 
+/**
+ * Let the held counts go, as a new request would: the answer lives for one request, and nothing in
+ * production lets it go before then (T3c dropped the unused forget_counts()).
+ */
+function let_counts_go() {
+	$let_go = Closure::bind(
+		static function () {
+			self::$counts = null;
+		},
+		null,
+		'WPCPM_Students_Sync'
+	);
+	$let_go();
+}
+
 // The track list asks once per row, and a query per row grew with the roster (the T2b
 // whole-branch review). Four rows now cost one walk, not four.
-WPCPM_Students_Sync::forget_counts();
+let_counts_go();
 $GLOBALS['user_queries'] = 0;
 
 foreach ( array( 'Counting Track', 'Other Track', 'Writing Track', 'Another Track' ) as $one ) {
@@ -1401,7 +1416,9 @@ update_user_meta( 903, WPCPM_Students_Sync::META_PROGRAM, array( 'program' => 'C
 
 ck( 'the held answer stands until it is let go', WPCPM_Students_Sync::count_on_status( 'Counting Track' ), 2 );
 
-WPCPM_Students_Sync::forget_counts();
+let_counts_go();
+
+ck( 'and nothing in the class lets it go by hand any more', method_exists( 'WPCPM_Students_Sync', 'forget_counts' ), false );
 
 ck( 'and then the next read walks again', WPCPM_Students_Sync::count_on_status( 'Counting Track' ), 3 );
 

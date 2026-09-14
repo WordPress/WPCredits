@@ -405,6 +405,194 @@
 <p>The <strong>Duplicated students</strong> tile counts the students the last scan listed, and its card links here. A tile at zero means the last scan found nothing, not that no scan has run: the card says which.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:heading {"level":3,"anchor":"track-builder"} -->
+<h3 class="wp-block-heading" id="track-builder">Track Builder</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>WPCredits Program → Modules → Track Builder.</strong> A program track is one Airtable status, one form on the Student Report Card, a key chip in one color and, when the track follows one, a Learn course and an hours target. Before the Track Builder, a new track was a plugin release. Now it is a draft you write here, preview, publish to Airtable and switch on, with no developer in the loop.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Two things are worth knowing before you touch it. <strong>Nothing reaches students until a track is published</strong>, and every notice and the preview say so. And <strong>the four tracks the program runs today are here too</strong>, as built-in tracks that still run from the plugin's own code; the last part of this section is how to move one of them onto its definition.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"the-track-list"} -->
+<h4 class="wp-block-heading" id="the-track-list">The track list</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>One row per track, in the order they were made:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Column</th><th>What it shows</th></tr></thead><tbody><tr><td>Track</td><td>The track's name</td></tr><tr><td>Status</td><td>The Airtable status a student holds to be on this track</td></tr><tr><td>Runs from</td><td><em>Its definition</em>, or <em>Its hand-written form, so it cannot be edited here</em> for a built-in track that has not switched yet</td></tr><tr><td>State</td><td><em>Draft</em>, <em>Published</em>, <em>Unpublished changes</em>, or <em>Live, from its hand-written form</em> for a built-in track; under it, whether the definition matches the plugin's form, and a line when the last compile left the track out</td></tr><tr><td>Students</td><td>How many synced students hold its status now</td></tr><tr><td>Last published</td><td>When, and by whom</td></tr><tr><td>Actions</td><td><strong>Edit</strong>, <strong>Duplicate</strong>, <strong>Preview</strong>, <strong>History</strong> and <strong>Publish</strong> (<strong>Publishing</strong> once it is; <strong>Publish definition</strong> on a built-in track), then the buttons only some tracks get</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:paragraph -->
+<p><strong>New track</strong> sits above the list. The buttons a row gets only sometimes: <strong>Refresh from the plugin</strong> on a built-in draft that fell behind a plugin update, <strong>Run from its definition</strong> and <strong>Run from its hand-written form</strong> on a built-in track, and <strong>Delete</strong> on a track of your own that was never published. Delete asks first and cannot be undone. A track that was ever published keeps its row, because its columns and its status live on in Airtable, and a built-in track is never offered it.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"starting-a-track"} -->
+<h4 class="wp-block-heading" id="starting-a-track">Starting a track</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Three ways, each ending on the new track's page, as a draft.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>New track</strong> asks for the three things two tracks can never share: the <strong>Name</strong>, the <strong>Airtable status</strong> and the <strong>Key</strong>, the short word on the chip, plus the <strong>Learn course</strong> link when the track follows one. With a link, the course's lessons are listed beside the questions, and the name is taken from the course when it is left empty. The chip color is chosen for you, the first one no other track holds, drafts included. The form starts empty; the questions are added on the track's page.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Duplicate</strong> copies every question of an existing track, the four built-in ones included, and asks for a name, a status and a key of its own. This is the usual way to start a track that resembles one you run: duplicate the 150-hour track and change what differs.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><em>From a Learn course link</em> is New track with the link filled in. The lessons appear under the groups that are their modules, and each lesson offers <strong>Add a question under this lesson</strong>, which is how a form gets built lesson by lesson.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"the-track-s-page"} -->
+<h4 class="wp-block-heading" id="the-track-s-page">The track's page</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The properties come first: <strong>Name</strong>, <strong>Airtable status</strong>, <strong>Key</strong>, <strong>Learn course</strong>, <strong>Hours target</strong> and <strong>Key chip color</strong>, which is one of blue, cyan, teal, green, red, pink or purple. The hours target may stay empty. <strong>Save the track</strong> saves the properties; the questions save themselves as they are added, edited and moved.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The <strong>Learn course</strong> row shows what the link resolved to, the course's title and number. <strong>Read the course again</strong> asks Learn afresh; otherwise the site keeps a day's reading, so a lesson renamed on Learn shows up here within a day. When Learn cannot be reached, the link the track already has is kept with a warning, the lessons cannot be listed, and the track still saves and publishes; a link to a different course is not taken until Learn answers, and the notice says so. Changing the link to another course matches every question that carried a lesson against the new course's lessons by its heading, and the notice names the questions matched and the ones that no longer point at a lesson.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Then <strong>Questions</strong>, by group: Total hours, Onboarding, Project and Wrap-up, the four parts of the Student Report Card's form. Each question is a row with what the student reads, its Airtable column and its control, and beside it <strong>Edit</strong>, <strong>Move up</strong>, <strong>Move down</strong> and <strong>Remove</strong>. Remove takes the question off the form; the column, and whatever students wrote in it, stay in Airtable, and the confirmation says so.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Each group ends with <strong>Add a question</strong>: the Airtable column, what the student reads, the control and, when the group's module has lessons Learn answered, <strong>Under lesson</strong>. Adding opens the new question's page.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>When the track follows a course, the lessons of each group's module are listed under the group's questions, with a count such as <em>Lessons on Learn: 3 of 13 have questions.</em> Each lesson names the questions that report on it, or offers <strong>Add a question under this lesson</strong>. A question added that way is placed after the lesson's last question, carries the lesson, and takes the lesson's title as its heading when it is the lesson's first question.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>A line above the questions says what publishing would create in Airtable, <em>This track needs no new Airtable columns.</em> or <em>Publishing will create 3 columns in Airtable.</em>, and how long ago the base was read.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"controls-and-columns"} -->
+<h4 class="wp-block-heading" id="controls-and-columns">Controls and columns</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Ten controls: Text, one line; Text, many lines; Rich text; Web address; Email address; Number; Checkbox; One choice of several; Screenshot; Contribution team. The control decides the Airtable column type: a new column is created with the type the control needs, and a column that already exists has to be of that type, or the publish screen refuses.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>A duplicated track shares its columns with the track it came from, and the question's page says so, naming every other track that writes the column. Rewording a shared question keeps the column. Changing its control, or the choices of a select, gives it a column of its own, named after the track, which can still be renamed until the track is published. A different control is a different column.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"one-question"} -->
+<h4 class="wp-block-heading" id="one-question">One question</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Each question has a page of its own: the column and the control at the top, then the rows that apply to that control.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Row</th><th>What it does</th></tr></thead><tbody><tr><td>What the student reads</td><td>The label above the box</td></tr><tr><td>Group</td><td>Total hours, Onboarding, Project or Wrap-up</td></tr><tr><td>Help under the box</td><td>A sentence under the control</td></tr><tr><td>Heading before it</td><td>A heading printed before this question; the first question under a lesson carries the lesson's title here</td></tr><tr><td>Subheading before it</td><td>A second heading before this question, drawn like the first</td></tr><tr><td>Note after the run</td><td>A sentence after the run of questions this one ends</td></tr><tr><td>Row, and Shares one column of its row</td><td>Questions with the same row name sit side by side</td></tr><tr><td>Marked required</td><td>Draws the word <em>Required</em> beside the label; nothing is enforced</td></tr><tr><td>Kept off everything an institution reads</td><td>The answer is left off the Student Report Card an institution sees</td></tr><tr><td>Lowest value, Highest value, Step</td><td>A number's limits; the step also sets how many decimal places a new column keeps</td></tr><tr><td>Length limit</td><td>A single-line box's limit; a text area has its own</td></tr><tr><td>Monospace, for code</td><td>A text area drawn in a monospace face</td></tr><tr><td>Choices, one a line</td><td>The choices of a select; a column that already exists must offer every one of them</td></tr><tr><td>Learn lesson</td><td>The lesson this question reports on: the course's lessons by module, <em>None</em> first, or a number box when Learn cannot be read</td></tr><tr><td>Developer note</td><td>Why a column name looks like a slip; no student sees it</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:paragraph -->
+<p><strong>Save the question</strong> returns to the track. A refusal redraws the question with what was typed, and the reason.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>Once a track is published, its questions are locked</strong>: the column, the control and the choices are fixed, because the column in Airtable holds what students wrote, in that shape. The words can still change. To ask something differently, remove the question and add a new one with a column of its own.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"preview-and-history"} -->
+<h4 class="wp-block-heading" id="preview-and-history">Preview and History</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>Preview</strong> draws the draft's form as a student sees it: empty answers, no student's record, the same renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. A built-in track can be previewed too; its definition is what its form draws.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>History</strong> has three parts: what publishing would change, the published copy against the draft; every save, newest first and at most twenty, with who saved it, when, and what changed since the one before; and the publish log, every publish, unpublish, switch, column created and checklist item ticked, with who and when.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"publishing"} -->
+<h4 class="wp-block-heading" id="publishing">Publishing</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p><strong>Publish</strong> opens the publish screen. Nothing happens until the button at the bottom is pressed; the screen first reads the base and says what it found.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>This track cannot be published yet</strong> lists what stops it: a column in Airtable with a question's name but another type, a control that cannot have a column created for it, a table that would pass Airtable's limit of 500 columns, a status or key another track holds.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Worth knowing before you publish</strong> lists what does not stop it: a choice of the Status column on Students Reports or Students that nearly matches the track's status but not exactly, which the syncs would never match; a Learn course link that does not resolve; a table past 450 columns. A choice that is missing altogether is not a warning: the third checklist item below says, for each table, whether it has the choice yet.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Columns</strong>: every column the track writes to, and whether it exists or will be created. With a schema token, the optional second token under <strong>WPCredits Program → Settings</strong>, the site creates the missing columns when you publish. Without one, the screen lists the exact columns to create by hand, name and type, and Publish waits until the next reading finds them.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>What the site cannot do</strong>: the three Airtable steps no token can take, with the exact values to use. Add the status to the condition of the automation <em>Add students to Students Reports and Feedback</em>; create the track's welcome email automation, as each of the four tracks has one; add the status as a choice of the Status column on both tables. Tick each with <strong>I have done this</strong> once it is done, and the tick records who and when. An unticked item never blocks publishing, but until the automation item is ticked, students cannot be put on the track from the institution import, because they would never get a report row.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Publishing a track of your own adds its status to <strong>Currently mentoring</strong> in Settings. The four built-in statuses are there already, so publishing a built-in definition adds nothing.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Publishing runs its steps one at a time and records each. If Airtable refuses part-way, the notice carries Airtable's own message, and pressing Publish again picks up at the first step not done.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>After publishing, the same screen offers <strong>Check it against Airtable</strong>, which reads the base again and says whether every column is still there with its type and the status is a choice on both tables, and <strong>Take it off the live site</strong>. Unpublishing is refused while any student holds the status, with the count. Otherwise the track becomes a draft again, nothing in Airtable changes, and the status stays in Currently mentoring: removing it there takes the Student role from everybody on the track, which is a decision of its own.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Editing a published track's words makes it <em>Unpublished changes</em>; students keep the published copy until <strong>Publish the changes</strong> is pressed.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"the-four-built-in-tracks"} -->
+<h4 class="wp-block-heading" id="the-four-built-in-tracks">The four built-in tracks</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The 150-hour, 50-hour, Developer and Designer tracks run from forms written in the plugin's code. Each has a definition in the Track Builder, shown as <em>Live, from its hand-written form</em>, and the line under the state says whether that definition is identical to the form. Moving one onto its definition takes three presses, and students see no change at any of them:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">
+<!-- wp:list-item -->
+<li>Read the line under the state. <em>Identical to its hand-written form.</em> is what you want. <em>Differs from its hand-written form: ...</em> means a plugin update changed the form since the definition was made: press <strong>Refresh from the plugin</strong>, and the line changes.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Publish definition</strong>. Its preflight should find nothing to create, because every column and both choices exist already; that empty preflight is the proof that the definition matches the base. The three checklist items were done for these four tracks long ago, so tick them as done.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Run from its definition</strong>. From then on the Student Report Card draws the form from the definition, and the notice says that what students see has not changed, which is what let it switch. <strong>Run from its hand-written form</strong> puts it back the same way, at any time.</li>
+<!-- /wp:list-item -->
+</ol>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>Do this for all four before asking for the hand-written forms to be removed from the plugin. Until a built-in track has switched, it cannot be edited here: it can be duplicated, previewed and read in History, and its course read again.</p>
+<!-- /wp:paragraph -->
+
 <!-- wp:heading {"level":3,"anchor":"need-help-2"} -->
 <h3 class="wp-block-heading" id="need-help-2">Need help?</h3>
 <!-- /wp:heading -->

@@ -127,39 +127,22 @@ final class WPCPM_Track_Builder_Screen {
 	 * @param string $url The screen's URL.
 	 */
 	private static function render_actions( array $row, $url ) {
+		// Four links into this screen, on every row: Preview draws any track, a built-in one
+		// included, since its definition is what its PHP draws; History is the published copy
+		// against the draft, every save against the one before, and the publish log (decision 28).
 		if ( '' !== $url ) {
-			printf(
-				'<a href="%1$s">%2$s</a> ',
-				esc_url( add_query_arg( 'wpcpm_track', (int) $row['id'], $url ) ),
-				esc_html__( 'Edit', 'wpcredits-program-manager' )
-			);
-		}
-
-		if ( '' !== $url ) {
-			printf(
-				'<a href="%1$s">%2$s</a> ',
-				esc_url( add_query_arg( 'wpcpm_duplicate', (int) $row['id'], $url ) ),
-				esc_html__( 'Duplicate', 'wpcredits-program-manager' )
-			);
-		}
-
-		// Preview draws any track, a built-in one included: its definition is what its PHP draws.
-		if ( '' !== $url ) {
-			printf(
-				'<a href="%1$s">%2$s</a> ',
-				esc_url( add_query_arg( 'wpcpm_preview', (int) $row['id'], $url ) ),
-				esc_html__( 'Preview', 'wpcredits-program-manager' )
-			);
-		}
-
-		// History: the published copy against the draft, every save against the one before, and
-		// the publish log (decision 28).
-		if ( '' !== $url ) {
-			printf(
-				'<a href="%1$s">%2$s</a> ',
-				esc_url( add_query_arg( 'wpcpm_history', (int) $row['id'], $url ) ),
-				esc_html__( 'History', 'wpcredits-program-manager' )
-			);
+			foreach ( array(
+				'wpcpm_track'     => __( 'Edit', 'wpcredits-program-manager' ),
+				'wpcpm_duplicate' => __( 'Duplicate', 'wpcredits-program-manager' ),
+				'wpcpm_preview'   => __( 'Preview', 'wpcredits-program-manager' ),
+				'wpcpm_history'   => __( 'History', 'wpcredits-program-manager' ),
+			) as $arg => $words ) {
+				printf(
+					'<a href="%1$s">%2$s</a> ',
+					esc_url( add_query_arg( $arg, (int) $row['id'], $url ) ),
+					esc_html( $words )
+				);
+			}
 		}
 
 		// Publishing is a screen of its own: it has a preflight to read, a checklist to work
@@ -238,8 +221,9 @@ final class WPCPM_Track_Builder_Screen {
 	/**
 	 * The publish screen: what would happen, what a person has to do, and the button.
 	 *
-	 * @param array $args `track`, `label`, `state`, `preflight`, `checklist`, `can_make` (whether
-	 *                    a schema token is configured), the screen's `url` and the `flash`.
+	 * @param array $args `track`, `label`, `state`, `source` (`builtin` while the track runs from
+	 *                    its PHP), `preflight`, `checklist`, `can_make` (whether a schema token is
+	 *                    configured), the screen's `url` and the `flash`.
 	 */
 	public static function render_publish( array $args ) {
 		$track     = isset( $args['track'] ) ? (int) $args['track'] : 0;
@@ -288,7 +272,8 @@ final class WPCPM_Track_Builder_Screen {
 	 * pixels (the design's decision 27). The wrapper carries `wpcpm-dashboard` because that is the
 	 * element the plugin's stylesheet sets its tokens on; without it the form would draw untokened.
 	 *
-	 * @param array $args `track`, `label`, `fields` and `state` and `source` as
+	 * @param array $args `track`, `label`, `fields`, `state`, `source` and `stale`, whether a
+	 *                    built-in draft fell behind the plugin's seed, as
 	 *                    `WPCPM_Track_Builder::preview()` gives them, the screen's `url`, and the
 	 *                    `flash` the last press left.
 	 */
@@ -323,7 +308,7 @@ final class WPCPM_Track_Builder_Screen {
 		echo '<p class="wpcpm-tracks__preview-note">';
 		echo esc_html__( 'The form as a student sees it, with empty answers and no student\'s record. Nothing typed here is kept: there is no Save button and no form behind the controls.', 'wpcredits-program-manager' );
 		echo ' ';
-		echo esc_html( self::preview_line( $state, $source ) );
+		echo esc_html( self::preview_line( $state, $source, ! empty( $args['stale'] ) ) );
 		echo '</p>';
 
 		if ( array() === $fields ) {
@@ -342,9 +327,16 @@ final class WPCPM_Track_Builder_Screen {
 	 *
 	 * @param string $state  The track's state.
 	 * @param string $source `builtin` while a built-in track runs from its PHP, else `definition`.
+	 * @param bool   $stale  Whether a built-in draft has fallen behind the plugin's seed.
 	 * @return string
 	 */
-	private static function preview_line( $state, $source ) {
+	private static function preview_line( $state, $source, $stale = false ) {
+		// A built-in draft that fell behind the seed the plugin ships is not what the PHP draws
+		// until it is refreshed (the T3b final review).
+		if ( 'builtin' === $source && $stale ) {
+			return __( 'This built-in draft has fallen behind the plugin\'s own form: refresh it from the plugin on the track list first, since until then this preview is not what students see.', 'wpcredits-program-manager' );
+		}
+
 		if ( 'builtin' === $source ) {
 			return __( 'This track runs from its hand-written form, and this definition is what that form draws.', 'wpcredits-program-manager' );
 		}
@@ -702,6 +694,7 @@ final class WPCPM_Track_Builder_Screen {
 		$flash           = isset( $args['flash'] ) && is_array( $args['flash'] ) ? $args['flash'] : array();
 		$typed           = isset( $flash['values'] ) && is_array( $flash['values'] ) ? $flash['values'] : array();
 		$question_values = isset( $flash['question_values'] ) && is_array( $flash['question_values'] ) ? $flash['question_values'] : array();
+		$lesson          = isset( $args['lesson'] ) ? (int) $args['lesson'] : 0;
 
 		self::render_notice( $flash );
 
@@ -718,8 +711,10 @@ final class WPCPM_Track_Builder_Screen {
 		if ( ! empty( $form['read_only'] ) ) {
 			echo '<p class="wpcpm-tracks__readonly">' . esc_html__( 'This track runs from its hand-written form, so it cannot be edited here. Duplicate it to start a track of your own, or switch it to its definition first.', 'wpcredits-program-manager' ) . '</p>';
 
-			// The questions are still shown, with nothing to press: what a duplicate would copy.
-			self::render_questions( $form, $url, $question_values );
+			// The questions are still shown, with nothing to press: what a duplicate would copy. The
+			// course can still be read again, since its lessons are shown here too (T3c).
+			self::render_course_press( $form );
+			self::render_questions( $form, $url, $question_values, $lesson );
 
 			return;
 		}
@@ -732,6 +727,12 @@ final class WPCPM_Track_Builder_Screen {
 		echo '<table class="form-table" role="presentation"><tbody>';
 
 		foreach ( self::track_labels() as $field => $heading ) {
+			// The course's ID is not typed since T3c: it is what the link resolves to, shown on the
+			// row after the link (decision 31).
+			if ( 'learn_course_id' === $field ) {
+				continue;
+			}
+
 			$value = array_key_exists( $field, $typed ) ? $typed[ $field ] : ( isset( $form[ $field ] ) ? $form[ $field ] : '' );
 
 			printf(
@@ -740,6 +741,10 @@ final class WPCPM_Track_Builder_Screen {
 				esc_html( $heading ),
 				esc_attr( (string) $value )
 			);
+
+			if ( 'course_url' === $field ) {
+				self::render_course_row( $form );
+			}
 		}
 
 		echo '</tbody></table>';
@@ -747,17 +752,73 @@ final class WPCPM_Track_Builder_Screen {
 		printf( '<p class="submit"><button type="submit" class="button button-primary">%s</button></p>', esc_html__( 'Save the track', 'wpcredits-program-manager' ) );
 		echo '</form>';
 
-		self::render_questions( $form, $url, $question_values );
+		self::render_course_press( $form );
+		self::render_questions( $form, $url, $question_values, $lesson );
+	}
+
+	/**
+	 * The course the link resolves to, or why it did not, on the row after the link (decision 31).
+	 *
+	 * @param array $form The track as `WPCPM_Track_Builder::form()` gives it.
+	 */
+	private static function render_course_row( array $form ) {
+		$course = isset( $form['course'] ) && is_array( $form['course'] ) ? $form['course'] : array();
+		$id     = isset( $course['id'] ) ? (int) $course['id'] : 0;
+		$title  = isset( $course['title'] ) ? (string) $course['title'] : '';
+		$error  = isset( $course['error'] ) ? (string) $course['error'] : '';
+
+		if ( '' === ( isset( $form['course_url'] ) ? (string) $form['course_url'] : '' ) ) {
+			return;
+		}
+
+		if ( '' === $error ) {
+			$text = sprintf(
+				/* translators: 1: the course's title, 2: its post ID on Learn. */
+				__( '%1$s (course %2$d)', 'wpcredits-program-manager' ),
+				$title,
+				$id
+			);
+		} elseif ( $id > 0 ) {
+			$text = sprintf(
+				/* translators: 1: why the link did not resolve, 2: the course's post ID on Learn. */
+				__( '%1$s The link last resolved to course %2$d, which the track keeps.', 'wpcredits-program-manager' ),
+				$error,
+				$id
+			);
+		} else {
+			$text = $error;
+		}
+
+		printf( '<tr><th scope="row">%1$s</th><td>%2$s</td></tr>', esc_html__( 'Learn course', 'wpcredits-program-manager' ), esc_html( $text ) );
+	}
+
+	/**
+	 * "Read the course again", for the day a lesson is added on Learn (decision 31). Its own form,
+	 * outside the properties form, since a form cannot sit inside another.
+	 *
+	 * @param array $form The track as `WPCPM_Track_Builder::form()` gives it.
+	 */
+	private static function render_course_press( array $form ) {
+		if ( '' === ( isset( $form['course_url'] ) ? (string) $form['course_url'] : '' ) ) {
+			return;
+		}
+
+		// A <div>, not a <p>: `render_button()` draws a <form>, which is flow content and would
+		// close a paragraph early (the final review of T3c).
+		echo '<div class="wpcpm-tracks__course-press">';
+		self::render_button( WPCPM_Track_Builder::ACTION_COURSE, isset( $form['id'] ) ? (int) $form['id'] : 0, __( 'Read the course again', 'wpcredits-program-manager' ) );
+		echo '</div>';
 	}
 
 	/**
 	 * The question list under the properties, drawn by the editor's own screen class.
 	 *
-	 * @param array  $form  The track as `WPCPM_Track_Builder::form()` gives it.
-	 * @param string $url   The screen's URL.
-	 * @param array  $typed What a refused Add carried, for the add form to draw again.
+	 * @param array  $form   The track as `WPCPM_Track_Builder::form()` gives it.
+	 * @param string $url    The screen's URL.
+	 * @param array  $typed  What a refused Add carried, for the add form to draw again.
+	 * @param int    $lesson The lesson "Add a question under this lesson" named, for its group's add form.
 	 */
-	private static function render_questions( array $form, $url, array $typed = array() ) {
+	private static function render_questions( array $form, $url, array $typed = array(), $lesson = 0 ) {
 		WPCPM_Track_Editor_Screen::render_questions(
 			array(
 				'track'     => isset( $form['id'] ) ? (int) $form['id'] : 0,
@@ -766,6 +827,9 @@ final class WPCPM_Track_Builder_Screen {
 				'others'    => isset( $form['others'] ) && is_array( $form['others'] ) ? $form['others'] : array(),
 				'schema'    => isset( $form['schema'] ) && is_array( $form['schema'] ) ? $form['schema'] : array(),
 				'locked'    => isset( $form['locked'] ) && is_array( $form['locked'] ) ? $form['locked'] : array(),
+				'lessons'   => isset( $form['lessons'] ) && is_array( $form['lessons'] ) ? $form['lessons'] : array(),
+				'learn'     => isset( $form['learn'] ) ? (string) $form['learn'] : '',
+				'lesson'    => (int) $lesson,
 				'typed'     => $typed,
 				'url'       => $url,
 				'read_only' => ! empty( $form['read_only'] ),
@@ -776,7 +840,7 @@ final class WPCPM_Track_Builder_Screen {
 	/**
 	 * Every track property the form edits, in the words it uses for them.
 	 *
-	 * One map, read by the track form, by New track for its first three, and by History for a
+	 * One map, read by the track form, by New track for its first four, and by History for a
 	 * diff line about the track itself (the design's decision 28).
 	 *
 	 * @return string[] Property => what its row is called.
@@ -807,7 +871,7 @@ final class WPCPM_Track_Builder_Screen {
 
 		printf( '<p><a href="%1$s">%2$s</a></p>', esc_url( $url ), esc_html__( 'Back to every track', 'wpcredits-program-manager' ) );
 
-		echo '<p>' . esc_html__( 'A track from nothing: its name, its Airtable status and its key. Everything else about it, and every question, is edited on the page that opens next.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p>' . esc_html__( 'A track from nothing: its name, its Airtable status and its key, and the link of the Learn course it follows, when it follows one. With a link, the course\'s lessons are listed beside the questions, and the name is taken from the course when it is left empty. Everything else about the track, and every question, is edited on the page that opens next.', 'wpcredits-program-manager' ) . '</p>';
 
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( WPCPM_Track_Builder::ACTION_NEW );
@@ -815,7 +879,7 @@ final class WPCPM_Track_Builder_Screen {
 
 		echo '<table class="form-table" role="presentation"><tbody>';
 
-		foreach ( array_intersect_key( self::track_labels(), array_flip( array( 'label', 'status', 'key' ) ) ) as $field => $heading ) {
+		foreach ( array_intersect_key( self::track_labels(), array_flip( array( 'label', 'status', 'key', 'course_url' ) ) ) as $field => $heading ) {
 			printf(
 				'<tr><th scope="row"><label for="wpcpm_%1$s">%2$s</label></th><td><input type="text" class="regular-text" id="wpcpm_%1$s" name="wpcpm_%1$s" value="%3$s" /></td></tr>',
 				esc_attr( $field ),
@@ -985,13 +1049,35 @@ final class WPCPM_Track_Builder_Screen {
 			return __( 'Never', 'wpcredits-program-manager' );
 		}
 
-		$user = get_userdata( isset( $row['published_by'] ) ? (int) $row['published_by'] : 0 );
+		return self::when_and_who( $at, isset( $row['published_by'] ) ? (int) $row['published_by'] : 0 );
+	}
+
+	/**
+	 * A date and time, and who: the words the list, History's saves and the publish log share
+	 * (the T3b final review, which found the two screens each keeping a copy).
+	 *
+	 * A save with nobody signed in, which WP-CLI and the seeding make, is the site's own; an
+	 * account since deleted is said to be gone.
+	 *
+	 * @param int $at A Unix timestamp.
+	 * @param int $by A user ID, or 0 for nobody.
+	 * @return string
+	 */
+	public static function when_and_who( $at, $by ) {
+		$by = (int) $by;
+
+		if ( $by <= 0 ) {
+			$who = __( 'the site itself', 'wpcredits-program-manager' );
+		} else {
+			$user = get_userdata( $by );
+			$who  = $user ? $user->display_name : __( 'somebody since removed', 'wpcredits-program-manager' );
+		}
 
 		return sprintf(
-			/* translators: 1: a date and time, 2: who published the track. */
+			/* translators: 1: a date and time, 2: who saved or published the track. */
 			__( '%1$s by %2$s', 'wpcredits-program-manager' ),
-			wp_date( 'Y-m-d H:i', $at ),
-			$user ? $user->display_name : __( 'somebody since removed', 'wpcredits-program-manager' )
+			wp_date( 'Y-m-d H:i', (int) $at ),
+			$who
 		);
 	}
 
@@ -1024,7 +1110,7 @@ final class WPCPM_Track_Builder_Screen {
 
 		printf(
 			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-			esc_attr( isset( $flash['status'] ) && 'error' === $flash['status'] ? 'error' : 'success' ),
+			esc_attr( isset( $flash['status'] ) && in_array( $flash['status'], array( 'error', 'warning' ), true ) ? $flash['status'] : 'success' ),
 			esc_html( (string) $flash['message'] )
 		);
 	}

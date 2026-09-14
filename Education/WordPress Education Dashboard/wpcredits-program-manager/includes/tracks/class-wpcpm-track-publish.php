@@ -99,19 +99,6 @@ final class WPCPM_Track_Publish {
 	const CHECKLIST = array( 'automation', 'welcome', 'choices' );
 
 	/**
-	 * How long a Learn course's reachability is trusted before being asked again.
-	 *
-	 * A course's reachability does not change minute to minute, and every tick, verify and
-	 * publish on the publish screen redirects straight back to a fresh preflight, so without this
-	 * a person working down the checklist would pay a five-second-timeout HEAD request on every
-	 * single page load (Task 9 review, M4). The schema read the rest of the preflight does is
-	 * never cached this way: that one has to say what the base looks like now.
-	 *
-	 * @var int
-	 */
-	const COURSE_CACHE_TTL = 300;
-
-	/**
 	 * What publishing this track would do, without doing any of it.
 	 *
 	 * @param int $post_id The track.
@@ -272,12 +259,25 @@ final class WPCPM_Track_Publish {
 			}
 		}
 
-		if ( '' !== (string) ( isset( $definition['course_url'] ) ? $definition['course_url'] : '' ) && ! self::course_answers( (string) $definition['course_url'] ) ) {
-			$warnings[] = self::finding(
-				'course_unreachable',
-				'',
-				__( 'The Learn course did not answer. The link still publishes: it is shown to students, and a course that is private or moved is worth checking.', 'wpcredits-program-manager' )
-			);
+		// Whether the link resolves to a course, asked of the Learn client, which keeps its own
+		// day's cache (decision 30). A warning at worst: the link is shown to students and publishing
+		// never depends on it, so a private or moved course must not stop a track going live (7.1).
+		$course_url = isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '';
+
+		if ( '' !== $course_url ) {
+			$course = WPCPM_Learn::resolve( $course_url );
+
+			if ( is_wp_error( $course ) ) {
+				$warnings[] = self::finding(
+					'course_unreachable',
+					'',
+					sprintf(
+						/* translators: %s: why the link did not resolve. */
+						__( 'The Learn course link did not resolve to a course: %s The link still publishes: it is shown to students, and a course that is private or moved is worth checking.', 'wpcredits-program-manager' ),
+						$course->get_error_message()
+					)
+				);
+			}
 		}
 
 		return self::answer(
@@ -796,46 +796,6 @@ final class WPCPM_Track_Publish {
 		$value = preg_replace( '/\s+/u', ' ', $value );
 
 		return trim( strtolower( (string) $value ) );
-	}
-
-	/**
-	 * Whether the Learn course answers, asked at most once per `COURSE_CACHE_TTL`.
-	 *
-	 * A warning at worst: the link is shown to students and publishing never depends on it, so a
-	 * slow or private course must not stop a track going live (7.1). The answer is cached behind
-	 * a transient keyed by the URL rather than asked fresh on every preflight, because a course's
-	 * reachability does not change minute to minute (Task 9 review, M4) - unlike the schema read
-	 * above, which is never cached this way.
-	 *
-	 * @param string $url The course URL.
-	 * @return bool
-	 */
-	private static function course_answers( $url ) {
-		$key    = 'wpcpm_track_course_' . md5( $url );
-		$cached = get_transient( $key );
-
-		if ( false !== $cached ) {
-			return '1' === $cached;
-		}
-
-		$response = wp_remote_head(
-			$url,
-			array(
-				'timeout'     => 5,
-				'redirection' => 3,
-			)
-		);
-
-		$answers = false;
-
-		if ( ! is_wp_error( $response ) ) {
-			$code    = (int) wp_remote_retrieve_response_code( $response );
-			$answers = $code >= 200 && $code < 400;
-		}
-
-		set_transient( $key, $answers ? '1' : '0', self::COURSE_CACHE_TTL );
-
-		return $answers;
 	}
 
 	/**

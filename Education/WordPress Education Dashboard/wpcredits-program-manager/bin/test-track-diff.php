@@ -73,6 +73,10 @@ ck( 'a stored 100 and a posted "100" are the same length limit, and a flag store
     )['same'],
     true );
 
+ck( 'a copy kept under a newer schema version is the same track: the version is the format\'s, not the track\'s',
+    WPCPM_Track_Diff::between( track(), changed( function ( &$t ) { $t['schema_version'] = 2; } ) )['same'],
+    true );
+
 echo "\n=== The track's own properties ===\n";
 
 ck( 'a renamed track and a changed hours target are named, in the order the properties are kept',

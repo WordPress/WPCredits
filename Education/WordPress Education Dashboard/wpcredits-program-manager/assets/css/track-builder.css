@@ -177,3 +177,41 @@
 	margin: 0 0 1em 1.5em;
 	list-style: disc;
 }
+
+/* The lessons of the course under each group (1.107.0, decision 32): the count line reads as a
+   notice in the same muted color as the schema line's age; the list keeps the group's left edge
+   with no bullet, one lesson a line; a lesson's mark and its Add link sit after the title in the
+   size a question's notice uses. */
+.wpcpm-lessons__count {
+	margin: 12px 0 4px;
+	color: #50575e;
+}
+
+.wpcpm-lessons {
+	margin: 0 0 8px;
+	padding: 0;
+	list-style: none;
+}
+
+.wpcpm-lessons li {
+	margin: 0 0 4px;
+}
+
+.wpcpm-lesson__asked,
+.wpcpm-lesson__none {
+	margin-left: 8px;
+	color: #50575e;
+	font-size: 12px;
+}
+
+.wpcpm-lesson__add {
+	margin-left: 8px;
+	font-size: 12px;
+}
+
+/* When the course's lessons could not be read, the one sentence under the Questions heading is a
+   notice, not an error: every question is still there to edit (decision 24's rule). */
+.wpcpm-questions__learn {
+	margin: 4px 0 12px;
+	color: #50575e;
+}

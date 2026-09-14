@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.106.1
+Stable tag: 1.107.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,15 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.107.0 =
+
+* The Track Builder follows a Learn course. A track's Learn course link resolves to the course when the track is saved, and the track's page lists the course's lessons under the group that is their module, each naming the questions that report on it or offering "Add a question under this lesson", which places the new question after the lesson's last and gives it the lesson's title as its heading. A question's screen has a "Learn lesson" row: the course's lessons by module, or a number box when Learn cannot be read.
+* New track takes a Learn course link, and the track's name is taken from the course when it is left empty. Choosing another course matches every question that carried a lesson against the new course's lessons by heading, and the notice names the questions matched and the ones that no longer point at a lesson.
+* Learn is read through one client and the reading kept for a day; "Read the course again" on the track's page reads it afresh. The publish screen's warning about a course link that does not resolve comes from the same client.
+* The track list, History and the publish log say when and who through one helper, with "by the site itself" for a save nobody signed in made, and the preview of a built-in draft that fell behind the plugin's own form says so instead of claiming to be what students see.
+* wp wpcredits seed-tracks tries every seed, then exits non-zero naming the ones that failed.
+* The program manager guide gains its Track Builder section.
 
 = 1.106.1 =
 

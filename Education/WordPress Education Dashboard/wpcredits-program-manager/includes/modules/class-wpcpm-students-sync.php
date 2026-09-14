@@ -2550,15 +2550,6 @@ class WPCPM_Students_Sync {
 	}
 
 	/**
-	 * Forget the counted statuses, for a process that changes them and reads them again.
-	 *
-	 * @return void
-	 */
-	public static function forget_counts() {
-		self::$counts = null;
-	}
-
-	/**
 	 * The contact card for a student's mentor.
 	 *
 	 * @param int $user_id User ID.

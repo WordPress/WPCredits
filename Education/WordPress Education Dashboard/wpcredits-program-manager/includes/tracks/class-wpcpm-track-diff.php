@@ -64,6 +64,8 @@ final class WPCPM_Track_Diff {
 			}
 		}
 
+		// The same columns in each copy's own order: `$common` runs in the newer copy's, and the
+		// older copy's keys intersected with it run in the older copy's.
 		$moved = self::moved( array_values( array_intersect( array_keys( $old ), $common ) ), $common );
 
 		return array(
@@ -121,7 +123,8 @@ final class WPCPM_Track_Diff {
 
 	/**
 	 * The columns whose order changed: the common columns not in the longest common subsequence
-	 * of the two orders, so a question dragged past ten others is reported once, not eleven times.
+	 * of the two orders, so a question dragged past ten others is reported once, not eleven times
+	 * (the design's decision 28).
 	 *
 	 * @param string[] $older The common columns in the older copy's order.
 	 * @param string[] $newer The same columns in the newer copy's order.

@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress in five modules - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a private page listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.106.1
+ * Version:           1.107.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.106.1' );
+define( 'WPCPM_VERSION', '1.107.0' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -27,6 +27,7 @@ define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-learn.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-content-access.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-privacy-guard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-wporg-profile.php';

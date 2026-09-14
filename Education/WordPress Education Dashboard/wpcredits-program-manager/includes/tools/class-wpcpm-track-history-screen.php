@@ -113,9 +113,9 @@ final class WPCPM_Track_History_Screen {
 
 		foreach ( $revisions as $revision ) {
 			echo '<li class="wpcpm-history__revision">';
-			echo '<p class="wpcpm-history__meta">' . esc_html( self::when_and_who( isset( $revision['at'] ) ? (int) $revision['at'] : 0, isset( $revision['by'] ) ? (int) $revision['by'] : 0 ) ) . '</p>';
+			echo '<p class="wpcpm-history__meta">' . esc_html( WPCPM_Track_Builder_Screen::when_and_who( isset( $revision['at'] ) ? (int) $revision['at'] : 0, isset( $revision['by'] ) ? (int) $revision['by'] : 0 ) ) . '</p>';
 
-			if ( isset( $revision['created'] ) && null !== $revision['created'] ) {
+			if ( isset( $revision['created'] ) ) {
 				$count = (int) $revision['created'];
 
 				if ( ! empty( $revision['pruned'] ) ) {
@@ -201,7 +201,7 @@ final class WPCPM_Track_History_Screen {
 					/* translators: 1: what happened, 2: a date and time, then who did it. */
 					__( '%1$s, %2$s', 'wpcredits-program-manager' ),
 					self::what( $entry, $items ),
-					self::when_and_who( isset( $entry['at'] ) ? (int) $entry['at'] : 0, isset( $entry['by'] ) ? (int) $entry['by'] : 0 )
+					WPCPM_Track_Builder_Screen::when_and_who( isset( $entry['at'] ) ? (int) $entry['at'] : 0, isset( $entry['by'] ) ? (int) $entry['by'] : 0 )
 				)
 			) . '</li>';
 		}
@@ -329,23 +329,5 @@ final class WPCPM_Track_History_Screen {
 		}
 
 		return $did;
-	}
-
-	/**
-	 * A date and time, and who: the words the track list uses for its "published" column.
-	 *
-	 * @param int $at A Unix timestamp.
-	 * @param int $by A user ID.
-	 * @return string
-	 */
-	private static function when_and_who( $at, $by ) {
-		$user = get_userdata( (int) $by );
-
-		return sprintf(
-			/* translators: 1: a date and time, 2: who saved or published the track. */
-			__( '%1$s by %2$s', 'wpcredits-program-manager' ),
-			wp_date( 'Y-m-d H:i', (int) $at ),
-			$user ? $user->display_name : __( 'somebody since removed', 'wpcredits-program-manager' )
-		);
 	}
 }

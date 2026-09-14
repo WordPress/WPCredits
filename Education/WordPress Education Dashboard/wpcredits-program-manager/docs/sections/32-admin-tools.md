@@ -148,6 +148,202 @@ Leaving it off between clean-ups is a reasonable habit, not a sign that somethin
 The **Duplicated students** tile counts the students the last scan listed, and its card links here.
 A tile at zero means the last scan found nothing, not that no scan has run: the card says which.
 
+### Track Builder
+
+**WPCredits Program → Modules → Track Builder.** A program track is one Airtable status, one form on
+the Student Report Card, a key chip in one color and, when the track follows one, a Learn course and
+an hours target. Before the Track Builder, a new track was a plugin release. Now it is a draft you
+write here, preview, publish to Airtable and switch on, with no developer in the loop.
+
+Two things are worth knowing before you touch it. **Nothing reaches students until a track is
+published**, and every notice and the preview say so. And **the four tracks the program runs today
+are here too**, as built-in tracks that still run from the plugin's own code; the last part of this
+section is how to move one of them onto its definition.
+
+#### The track list
+
+One row per track, in the order they were made:
+
+| Column | What it shows |
+| --- | --- |
+| Track | The track's name |
+| Status | The Airtable status a student holds to be on this track |
+| Runs from | *Its definition*, or *Its hand-written form, so it cannot be edited here* for a built-in track that has not switched yet |
+| State | *Draft*, *Published*, *Unpublished changes*, or *Live, from its hand-written form* for a built-in track; under it, whether the definition matches the plugin's form, and a line when the last compile left the track out |
+| Students | How many synced students hold its status now |
+| Last published | When, and by whom |
+| Actions | **Edit**, **Duplicate**, **Preview**, **History** and **Publish** (**Publishing** once it is; **Publish definition** on a built-in track), then the buttons only some tracks get |
+
+**New track** sits above the list. The buttons a row gets only sometimes: **Refresh from the
+plugin** on a built-in draft that fell behind a plugin update, **Run from its definition** and **Run
+from its hand-written form** on a built-in track, and **Delete** on a track of your own that was
+never published. Delete asks first and cannot be undone. A track that was ever published keeps its
+row, because its columns and its status live on in Airtable, and a built-in track is never offered
+it.
+
+#### Starting a track
+
+Three ways, each ending on the new track's page, as a draft.
+
+- **New track** asks for the three things two tracks can never share: the **Name**, the **Airtable
+  status** and the **Key**, the short word on the chip, plus the **Learn course** link when the
+  track follows one. With a link, the course's lessons are listed beside the questions, and the name
+  is taken from the course when it is left empty. The chip color is chosen for you, the first one no
+  other track holds, drafts included. The form starts empty; the questions are added on the track's
+  page.
+- **Duplicate** copies every question of an existing track, the four built-in ones included, and asks
+  for a name, a status and a key of its own. This is the usual way to start a track that resembles
+  one you run: duplicate the 150-hour track and change what differs.
+- *From a Learn course link* is New track with the link filled in. The lessons appear under the
+  groups that are their modules, and each lesson offers **Add a question under this lesson**, which
+  is how a form gets built lesson by lesson.
+
+#### The track's page
+
+The properties come first: **Name**, **Airtable status**, **Key**, **Learn course**, **Hours
+target** and **Key chip color**, which is one of blue, cyan, teal, green, red, pink or purple. The
+hours target may stay empty. **Save the track** saves the properties; the questions save themselves
+as they are added, edited and moved.
+
+The **Learn course** row shows what the link resolved to, the course's title and number. **Read the
+course again** asks Learn afresh; otherwise the site keeps a day's reading, so a lesson renamed on
+Learn shows up here within a day. When Learn cannot be reached, the link the track already has is kept with a warning, the lessons cannot be listed, and the track still saves and publishes; a link to a different course is not taken until Learn answers, and the notice says so. Changing the link to another
+course matches every question that carried a lesson against the new course's lessons by its heading,
+and the notice names the questions matched and the ones that no longer point at a lesson.
+
+Then **Questions**, by group: Total hours, Onboarding, Project and Wrap-up, the four parts of the
+Student Report Card's form. Each question is a row with what the student reads, its Airtable column
+and its control, and beside it **Edit**, **Move up**, **Move down** and **Remove**. Remove takes the
+question off the form; the column, and whatever students wrote in it, stay in Airtable, and the
+confirmation says so.
+
+Each group ends with **Add a question**: the Airtable column, what the student reads, the control and,
+when the group's module has lessons Learn answered, **Under lesson**. Adding opens the new question's page.
+
+When the track follows a course, the lessons of each group's module are listed under the group's
+questions, with a count such as *Lessons on Learn: 3 of 13 have questions.* Each lesson names the
+questions that report on it, or offers **Add a question under this lesson**. A question added that way
+is placed after the lesson's last question, carries the lesson, and takes the lesson's title as its
+heading when it is the lesson's first question.
+
+A line above the questions says what publishing would create in Airtable, *This track needs no new
+Airtable columns.* or *Publishing will create 3 columns in Airtable.*, and how long ago the base was
+read.
+
+#### Controls and columns
+
+Ten controls: Text, one line; Text, many lines; Rich text; Web address; Email address; Number;
+Checkbox; One choice of several; Screenshot; Contribution team. The control decides the Airtable
+column type: a new column is created with the type the control needs, and a column that already
+exists has to be of that type, or the publish screen refuses.
+
+A duplicated track shares its columns with the track it came from, and the question's page says so,
+naming every other track that writes the column. Rewording a shared question keeps the column.
+Changing its control, or the choices of a select, gives it a column of its own, named after the track,
+which can still be renamed until the track is published. A different control is a different column.
+
+#### One question
+
+Each question has a page of its own: the column and the control at the top, then the rows that apply
+to that control.
+
+| Row | What it does |
+| --- | --- |
+| What the student reads | The label above the box |
+| Group | Total hours, Onboarding, Project or Wrap-up |
+| Help under the box | A sentence under the control |
+| Heading before it | A heading printed before this question; the first question under a lesson carries the lesson's title here |
+| Subheading before it | A second heading before this question, drawn like the first |
+| Note after the run | A sentence after the run of questions this one ends |
+| Row, and Shares one column of its row | Questions with the same row name sit side by side |
+| Marked required | Draws the word *Required* beside the label; nothing is enforced |
+| Kept off everything an institution reads | The answer is left off the Student Report Card an institution sees |
+| Lowest value, Highest value, Step | A number's limits; the step also sets how many decimal places a new column keeps |
+| Length limit | A single-line box's limit; a text area has its own |
+| Monospace, for code | A text area drawn in a monospace face |
+| Choices, one a line | The choices of a select; a column that already exists must offer every one of them |
+| Learn lesson | The lesson this question reports on: the course's lessons by module, *None* first, or a number box when Learn cannot be read |
+| Developer note | Why a column name looks like a slip; no student sees it |
+
+**Save the question** returns to the track. A refusal redraws the question with what was typed, and
+the reason.
+
+**Once a track is published, its questions are locked**: the column, the control and the choices are
+fixed, because the column in Airtable holds what students wrote, in that shape. The words can still
+change. To ask something differently, remove the question and add a new one with a column of its own.
+
+#### Preview and History
+
+**Preview** draws the draft's form as a student sees it: empty answers, no student's record, the same
+renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. A built-in
+track can be previewed too; its definition is what its form draws.
+
+**History** has three parts: what publishing would change, the published copy against the draft;
+every save, newest first and at most twenty, with who saved it, when, and what changed since the one
+before; and the publish log, every publish, unpublish, switch, column created and checklist item
+ticked, with who and when.
+
+#### Publishing
+
+**Publish** opens the publish screen. Nothing happens until the button at the bottom is pressed; the
+screen first reads the base and says what it found.
+
+- **This track cannot be published yet** lists what stops it: a column in Airtable with a question's
+  name but another type, a control that cannot have a column created for it, a table that would pass
+  Airtable's limit of 500 columns, a status or key another track holds.
+- **Worth knowing before you publish** lists what does not stop it: a choice of the Status column on
+  Students Reports or Students that nearly matches the track's status but not exactly, which the
+  syncs would never match; a Learn course link that does not resolve; a table past 450 columns. A
+  choice that is missing altogether is not a warning: the third checklist item below says, for each
+  table, whether it has the choice yet.
+- **Columns**: every column the track writes to, and whether it exists or will be created. With a
+  schema token, the optional second token under **WPCredits Program → Settings**, the site creates
+  the missing columns when you publish. Without one, the screen lists the exact columns to create by
+  hand, name and type, and Publish waits until the next reading finds them.
+- **What the site cannot do**: the three Airtable steps no token can take, with the exact values to
+  use. Add the status to the condition of the automation *Add students to Students Reports and
+  Feedback*; create the track's welcome email automation, as each of the four tracks has one; add the
+  status as a choice of the Status column on both tables. Tick each with **I have done this** once it
+  is done, and the tick records who and when. An unticked item never blocks publishing, but until
+  the automation item is ticked, students cannot be put on the track from the institution import,
+  because they would never get a report row.
+- Publishing a track of your own adds its status to **Currently mentoring** in Settings. The four
+  built-in statuses are there already, so publishing a built-in definition adds nothing.
+
+Publishing runs its steps one at a time and records each. If Airtable refuses part-way, the notice
+carries Airtable's own message, and pressing Publish again picks up at the first step not done.
+
+After publishing, the same screen offers **Check it against Airtable**, which reads the base again and
+says whether every column is still there with its type and the status is a choice on both tables, and
+**Take it off the live site**. Unpublishing is refused while any student holds the status, with the
+count. Otherwise the track becomes a draft again, nothing in Airtable changes, and the status stays in
+Currently mentoring: removing it there takes the Student role from everybody on the track, which is a
+decision of its own.
+
+Editing a published track's words makes it *Unpublished changes*; students keep the published copy
+until **Publish the changes** is pressed.
+
+#### The four built-in tracks
+
+The 150-hour, 50-hour, Developer and Designer tracks run from forms written in the plugin's code. Each
+has a definition in the Track Builder, shown as *Live, from its hand-written form*, and the line under
+the state says whether that definition is identical to the form. Moving one onto its definition takes
+three presses, and students see no change at any of them:
+
+1. Read the line under the state. *Identical to its hand-written form.* is what you want. *Differs
+   from its hand-written form: ...* means a plugin update changed the form since the definition was
+   made: press **Refresh from the plugin**, and the line changes.
+2. **Publish definition**. Its preflight should find nothing to create, because every column and both
+   choices exist already; that empty preflight is the proof that the definition matches the base. The
+   three checklist items were done for these four tracks long ago, so tick them as done.
+3. **Run from its definition**. From then on the Student Report Card draws the form from the
+   definition, and the notice says that what students see has not changed, which is what let it
+   switch. **Run from its hand-written form** puts it back the same way, at any time.
+
+Do this for all four before asking for the hand-written forms to be removed from the plugin. Until a
+built-in track has switched, it cannot be edited here: it can be duplicated, previewed and read in
+History, and its course read again.
+
 ### Need help?
 
 The tool screen for the question box configured under Settings. Its own screen is where the handbook
