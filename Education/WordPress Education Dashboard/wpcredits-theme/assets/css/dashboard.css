@@ -4016,7 +4016,12 @@
 	font: 600 14px/20px var( --wpc-font );
 }
 
-.wpc-dashboard-page .wpcpm-field label {
+/* The "More dates" fieldset of a series (plugin 1.108.0) names its group with a legend, and a
+   legend is not a label: it inherited the body's size and color and sat beside the dressed
+   labels in another weight and size. One rule for both, so they cannot drift (the owner, 14 Sep
+   2026: dashboards look alike). The plugin gives label and legend the same margin below. */
+.wpc-dashboard-page .wpcpm-field label,
+.wpc-dashboard-page .wpcpm-sessions__more legend {
 	color: var( --wpc-ink-70 );
 	font: 600 14px/20px var( --wpc-font );
 }

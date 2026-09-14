@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.0
+Stable tag: 1.24.4
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.4 =
+* Mentor Report Card: the "More dates" legend of a series (plugin 1.108.0) is dressed like the planning form's labels, by the same rule, instead of inheriting the body's size and color.
 
 = 1.24.3 =
 * Every dashboard table is dressed once, by one rule, in the Institution Dashboard's values: the Student Report Card's detail tables, the Institution Dashboard's roster and student tables, the Sponsor Dashboard's Usage card and the Administrator Dashboard's queues. A row header was three different weights across the three pages, with three paddings, two rule colors and a 13px uppercase column header only one of them drew.
