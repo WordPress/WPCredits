@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.106.0
+Stable tag: 1.106.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.106.1 =
+
+* The invitation email no longer says "Of the two addresses above" about an email that, since WordPress 7.1, carries one address. It now says the link above sets the password and stops working after a day, names the username when WordPress does not print it, and prints the login page on a line of its own, which is also where a fresh link comes from once the first has expired.
 
 = 1.106.0 =
 

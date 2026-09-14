@@ -683,7 +683,17 @@ echo "\n=== The invitation template ===\n";
 $core = array(
 	'to'      => 'lu@example.test',
 	'subject' => '[%s] Login Details',
-	'message' => "Username: lu\r\n\r\nTo set your password, visit the following address:\r\n\r\nhttps://example.test/reset\r\n",
+	// What WordPress 6.5, the plugin's floor, prints: the username, the keyed link, then the plain
+	// login page on a line of its own.
+	'message' => "Username: lu\r\n\r\nTo set your password, visit the following address:\r\n\r\nhttps://example.test/reset\r\n\r\nhttps://example.test/wp-login.php\r\n",
+	'headers' => '',
+);
+
+// What WordPress 7.1 prints: the keyed link alone, the username inside it and no login page.
+$core_71 = array(
+	'to'      => 'lu@example.test',
+	'subject' => '[%s] Login Details',
+	'message' => "To set your password, visit the following address:\r\n\r\nhttps://example.test/wp-login.php?login=adaexample&key=k&action=rp\r\n",
 	'headers' => '',
 );
 
@@ -716,6 +726,34 @@ ck( 'both say that only the newest of several emails works',
     array( true, true ) );
 ck( 'the two audiences are told different things',
     array( $student['message'] === $mentor['message'] ), array( false ) );
+
+// WordPress 7.1 dropped the username line and the login page from its email, and the sentence
+// that named "the two addresses above" was left naming one (a mentor's screenshot, 14 September
+// 2026). The template says what the link does and supplies what core no longer prints.
+$mentor_71 = WPCPM_Mail::welcome_email( $core_71, $GLOBALS['users'][20], 'WordPress Education Dashboard' );
+
+ck( 'on WordPress 7.1 the email names the username core left out, once, and says what the link does',
+    array(
+        substr_count( $mentor_71['message'], 'Your username is adaexample.' ),
+        substr_count( $mentor_71['message'], 'The link above sets your password and stops working after a day.' ),
+        false !== strpos( $mentor_71['message'], 'Of the two addresses above' ),
+    ),
+    array( 1, 1, false ) );
+ck( 'and prints the login page on a line of its own, once, apart from the keyed link',
+    array(
+        substr_count( $mentor_71['message'], "\r\nhttps://example.test/wp-login.php\r\n" ),
+        substr_count( $mentor_71['message'], 'https://example.test/wp-login.php?login=adaexample&key=k&action=rp' ),
+        false !== strpos( $mentor_71['message'], 'Lost your password?' ),
+    ),
+    array( 1, 1, true ) );
+ck( 'on WordPress 6.5 the username core printed stands alone, and the login page still appears once',
+    array(
+        substr_count( $mentor['message'], 'Username: lu' ),
+        substr_count( $mentor['message'], 'Your username is' ),
+        substr_count( $mentor['message'], "\r\nhttps://example.test/wp-login.php\r\n" ),
+        false !== strpos( $mentor['message'], 'Of the two addresses above' ),
+    ),
+    array( 1, 0, 1, false ) );
 
 $stranger = new WP_User( 50, 'Someone Else', 'else@example.test', array( 'subscriber' ) );
 $left     = WPCPM_Mail::welcome_email( $core, $stranger, 'Site' );
@@ -1063,8 +1101,8 @@ ck( 'the reset stand-in is marked as an example, not a live link',
     array( true, true ) );
 ck( 'and the login page is there once, on its own',
     array( count( preg_grep( '#/wp-login\.php$#', $found ) ) ), array( 1 ) );
-ck( 'the sample says which address does what',
-    array( false !== strpos( $sample, 'Of the two addresses above' ) ), array( true ) );
+ck( 'the sample says what the link does and where to sign in afterward',
+    array( false !== strpos( $sample, 'The link above sets your password' ), false !== strpos( $sample, 'sign in at the login page' ) ), array( true, true ) );
 
 /* ---- the meeting link -------------------------------------------------- */
 

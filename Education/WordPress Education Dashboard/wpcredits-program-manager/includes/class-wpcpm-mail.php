@@ -1237,20 +1237,45 @@ class WPCPM_Mail {
 			$subject = __( '[%s] Welcome to the WordPress Credits Program', 'wpcredits-program-manager' );
 		}
 
+		// Core's own body, kept whole in the middle rather than rebuilt, so a change to how
+		// WordPress words or forms the reset link arrives here on its own. What core prints around
+		// the link has changed once already: until WordPress 7.1 the body opened with the username
+		// and closed with the plain login page on a line of its own, and 7.1 prints the keyed link
+		// alone, which left a sentence here naming "the two addresses above" pointing at one (a
+		// mentor's invitation, 14 September 2026; 1.106.1). So the facts a person needs are stated
+		// below from what the body carries: the username when core left it out, and the login
+		// page always, labeled, with core's own bare copy of it taken off the end first so no
+		// address appears twice.
+		$body  = rtrim( (string) $email['message'] );
+		$login = wp_login_url();
+		$tail  = substr( $body, -strlen( $login ) );
+
+		if ( $tail === $login ) {
+			$body = rtrim( substr( $body, 0, -strlen( $login ) ) );
+		}
+
+		$link = __( 'The link above sets your password and stops working after a day.', 'wpcredits-program-manager' );
+
+		// The site's language is English, and so is the line core prints, "Username: ...".
+		if ( ! preg_match( '/^Username: /m', $body ) ) {
+			$link .= ' ' . sprintf(
+				/* translators: %s: the WordPress username. */
+				__( 'Your username is %s.', 'wpcredits-program-manager' ),
+				$user->user_login
+			);
+		}
+
 		$lines = array(
 			$opening,
 			'',
 			$next,
 			'',
-			// Core's own body: username, the reset link and the login URL. Kept whole and in
-			// the middle rather than rebuilt, so a change to how WordPress words or forms
-			// that link arrives here on its own.
-			rtrim( (string) $email['message'] ),
+			$body,
 			'',
-			// Names both addresses rather than saying "the link above". WordPress prints two -
-			// the keyed reset link and then the plain login page - and unlabelled they read as
-			// the same address twice, which is what prompted this wording.
-			__( 'Of the two addresses above, the long one sets your password and stops working after a day. The short one is the login page, for every time after that. If the password link has expired, open the login page, choose "Lost your password?" and enter this username or your email address to get a fresh one.', 'wpcredits-program-manager' ),
+			$link,
+			'',
+			__( 'After that, sign in at the login page. If the password link has expired, open the login page, choose "Lost your password?" and enter your username or email address to get a fresh one.', 'wpcredits-program-manager' ),
+			$login,
 			'',
 			// Each invitation and each password email mints a new link and cancels the one before
 			// it, and somebody holding several tries the first they find (1.101.1).
@@ -1318,12 +1343,15 @@ class WPCPM_Mail {
 			$viewer,
 			'test-' . $kind,
 			function ( $user ) use ( $preview ) {
-				// Core's body has *two* URLs, in this order: the one-use reset link carrying a
-				// key, then the plain login page. Standing the login URL in for both made the
+				// Core's body printed two URLs until WordPress 7.1, in this order: the one-use
+				// reset link carrying a key, then the plain login page; 7.1 prints the keyed link
+				// alone. The stand-in below keeps the older, fuller shape, which the template
+				// must handle as well as the newer one (it takes the bare login page off the end
+				// and prints its own, labeled). Standing the login URL in for both lines made the
 				// sample print the same address twice, which reads as a bug in the template
-				// rather than a shortcut in the preview. The stand-in below keeps the real
-				// shape - same two lines, visibly an example, and not a live reset link,
-				// because generating one would invalidate the reader's own password.
+				// rather than a shortcut in the preview, so the reset link is visibly an example
+				// and not a live one, because generating one would invalidate the reader's own
+				// password.
 				$example_reset = add_query_arg(
 					array(
 						'action' => 'rp',
