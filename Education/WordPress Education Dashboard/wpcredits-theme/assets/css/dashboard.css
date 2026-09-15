@@ -4147,10 +4147,12 @@
 }
 
 /* A disabled form is a manager looking at somebody else's report, so it should read as
-   information rather than as something broken. */
+   information rather than as something broken. The planning form's Sessions box is disabled
+   until a repeat rule is chosen (plugin 1.109.1) and reads the same way: waiting, not broken. */
 .wpc-dashboard-page .wpcpm-report input:disabled,
 .wpc-dashboard-page .wpcpm-report textarea:disabled,
-.wpc-dashboard-page .wpcpm-hours input:disabled {
+.wpc-dashboard-page .wpcpm-hours input:disabled,
+.wpc-dashboard-page .wpcpm-sessions__form input:disabled {
 	background: var( --wpc-surface-soft );
 	color: var( --wpc-ink-70 );
 }

@@ -1054,6 +1054,10 @@ foreach ( array( 401 => array( 1786000000, 1786001800 ), 402 => array( 178660480
 	);
 }
 
+// The second session's topic was changed apart from the series', so its own invitation reads
+// differently from the first's and a file that gave every event the first's text would be caught.
+$GLOBALS['posts'][402]->post_content = 'Reading the Codex';
+
 $GLOBALS['mail']                = array();
 $GLOBALS['opts']['date_format'] = 'F j, Y';
 $GLOBALS['opts']['time_format'] = 'g:i a';
@@ -1123,12 +1127,35 @@ WPCPM_Mentor_Calls::notify_joined( 401, $GLOBALS['users'][20], $GLOBALS['users']
 
 $single_file = reset( $GLOBALS['mail'][1]['contents'] );
 
-ck( 'every event in the series file carries the description that session\'s own invitation carries',
+$GLOBALS['mail'] = array();
+WPCPM_Mentor_Calls::notify_joined( 402, $GLOBALS['users'][20], $GLOBALS['users'][30] );
+$single_second = reset( $GLOBALS['mail'][1]['contents'] );
+
+ck( 'every event in the series file carries the description that session\'s own invitation carries, a session whose topic was changed apart included',
     array(
         'lu@example.test' === $GLOBALS['mail'][1]['to'],
         false !== strpos( description_of( $single_file, 401 ), 'A mentor call on the WordPress Credits Program with Ada Example.' ),
         description_of( $series_file, 401 ) === description_of( $single_file, 401 ),
-        description_of( $series_file, 402 ) === description_of( $single_file, 401 ),
+        description_of( $series_file, 402 ) === description_of( $single_second, 402 ),
+        description_of( $series_file, 402 ) !== description_of( $series_file, 401 ),
+        false !== strpos( description_of( $series_file, 402 ), 'Reading the Codex' ),
+    ),
+    array( true, true, true, true, true, true ) );
+
+// Every send writes a file of its own. The path a builder memoized for the same recipient and the
+// same sessions is gone once the first send's cleanup ran, and handing it back a second time in
+// one request would send the second message with nothing attached (the re-review of 1.108.0's
+// fix wave; fixed in 1.109.1).
+$GLOBALS['mail'] = array();
+WPCPM_Mentor_Calls::notify_joined( 401, $GLOBALS['users'][20], $GLOBALS['users'][30] );
+WPCPM_Mentor_Calls::notify_joined_series( array( 401, 402 ), $GLOBALS['users'][20], $GLOBALS['users'][30] );
+
+ck( 'a second message for the same session or series in one request gets a file of its own, present when sent',
+    array(
+        reset( $GLOBALS['mail'][0]['present'] ),
+        reset( $GLOBALS['mail'][1]['present'] ),
+        reset( $GLOBALS['mail'][2]['present'] ),
+        reset( $GLOBALS['mail'][3]['present'] ),
     ),
     array( true, true, true, true ) );
 

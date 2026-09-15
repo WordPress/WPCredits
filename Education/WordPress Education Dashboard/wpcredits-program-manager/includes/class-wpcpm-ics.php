@@ -74,12 +74,13 @@ class WPCPM_ICS {
 	 * carry, so a later move or cancellation of one session, which goes out alone, lands on the
 	 * right entry. Importing the file once plans them all (the design's section 6).
 	 *
-	 * @param array[]      $facts_list Call facts, one per call, from `WPCPM_Mentor_Calls::details()`.
+	 * @param array[]      $facts_list Call facts, one per call, from `WPCPM_Mentor_Calls::details()`,
+	 *                                 each free to carry a `description` of its own (1.109.1).
 	 * @param string       $method     `REQUEST` or `CANCEL`.
 	 * @param WP_User|null $mentor     Mentor, the organizer.
 	 * @param WP_User|null $student    Student, the attendee.
 	 * @param string       $summary    Event title, the same on each.
-	 * @param string       $body       Event description, as plain text, the same on each.
+	 * @param string       $body       Event description, as plain text, for a call whose facts carry none.
 	 * @param string       $where      Meeting URL or place, may be empty.
 	 * @return string The `.ics` contents, CRLF-delimited.
 	 */
@@ -88,7 +89,10 @@ class WPCPM_ICS {
 		$lines  = self::opening( $method );
 
 		foreach ( $facts_list as $facts ) {
-			$lines = array_merge( $lines, self::event( $facts, $method, $mentor, $student, $summary, $body, $where, null ) );
+			// A call's facts may carry their own `description`, the text that call's single
+			// invitation would carry; the shared body is for a list that carries none (1.109.1).
+			$text  = isset( $facts['description'] ) ? (string) $facts['description'] : $body;
+			$lines = array_merge( $lines, self::event( $facts, $method, $mentor, $student, $summary, $text, $where, null ) );
 		}
 
 		$lines[] = 'END:VCALENDAR';
@@ -97,7 +101,8 @@ class WPCPM_ICS {
 		 * Filter the calendar file for a series of calls.
 		 *
 		 * @param string  $ics        The `.ics` contents.
-		 * @param array[] $facts_list The calls' facts.
+		 * @param array[] $facts_list The calls' facts, each carrying the `description` its event
+		 *                            was written with when the caller gave one (1.109.1).
 		 * @param string  $method     `REQUEST` or `CANCEL`.
 		 */
 		return (string) apply_filters( 'wpcpm_series_ics', self::text_of( $lines ), $facts_list, $method );

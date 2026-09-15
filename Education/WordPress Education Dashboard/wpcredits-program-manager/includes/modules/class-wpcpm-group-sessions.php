@@ -302,7 +302,7 @@ class WPCPM_Group_Sessions {
 			$count = isset( $_POST['repeat_count'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['repeat_count'] ) ) ) : '';
 
 			if ( ! ctype_digit( $count ) || (int) $count < 2 || (int) $count > self::MAX_SERIES ) {
-				self::bounce( 'series-count' );
+				self::bounce( 'series-count', array( self::MAX_SERIES ) );
 			}
 
 			$dates = array_merge( $dates, self::repeat_dates( $date, $rule, (int) $count, $zone ) );
@@ -321,16 +321,26 @@ class WPCPM_Group_Sessions {
 		// After the rule's dates, so a box repeating one of them reads as a date given twice.
 		if ( isset( $_POST['more_dates'] ) && is_array( $_POST['more_dates'] ) ) {
 			foreach ( wp_unslash( $_POST['more_dates'] ) as $more ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each entry is sanitized and validated below.
-				$more = sanitize_text_field( (string) $more );
-
-				if ( '' === trim( $more ) ) {
+				// An entry that is not text at all can only come from a tampered form, and casting it
+				// would warn and name "Array" in the notice (the review of 1.109.1).
+				if ( ! is_scalar( $more ) ) {
 					continue;
 				}
 
-				$more = WPCPM_Mentor_Availability::date_string( $more );
+				$held = trim( sanitize_text_field( (string) $more ) );
+
+				if ( '' === $held ) {
+					continue;
+				}
+
+				$more = WPCPM_Mentor_Availability::date_string( $held );
 
 				if ( '' === $more ) {
-					self::bounce( 'session-when' );
+					// A box is only filled for a series, so what it held is named as a series
+					// refusal rather than met with the lone session's "needs a date and a start
+					// time" (the re-review of 1.109.0's fix wave). Forty characters is enough to
+					// find the box by and too few to carry a novel into the flash.
+					self::bounce( 'series-date', array( mb_substr( $held, 0, 40 ) ) );
 				}
 
 				$dates[] = $more;
@@ -647,6 +657,12 @@ class WPCPM_Group_Sessions {
 			self::bounce( isset( $alone[ $why ] ) ? $alone[ $why ] : 'session-when' );
 		}
 
+		// The cap is named from its one constant, so the number cannot drift between the notice,
+		// the count box's hint and the code (the final review of 1.109.0).
+		if ( 'many' === $why ) {
+			self::bounce( 'series-many', array( self::MAX_SERIES ) );
+		}
+
 		self::bounce( 'series-' . $why, '' === $date ? array() : array( $date ) );
 	}
 
@@ -721,16 +737,32 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-when' );
 		}
 
+		// An hour the clocks jump over does not exist on that date in that zone, and
+		// `createFromFormat()` rolls it forward rather than saying so: the session would be moved
+		// an hour late with nobody told, the trap planning one refuses (the re-review of 1.109.0's
+		// fix wave; 1.109.1). `time_string()` answers `H:i`, so the two compare as printed.
+		if ( $start->format( 'H:i' ) !== $time ) {
+			self::bounce( 'session-gap' );
+		}
+
 		$start_ts = $start->getTimestamp();
 
 		if ( $start_ts <= time() ) {
 			self::bounce( 'session-past' );
 		}
 
+		// The same lock a booking and a planning take: the diary is read for a clash and the
+		// session is moved from what it said, and a booking on this mentor could win that instant
+		// in between (the re-review of 1.109.0's fix wave; 1.109.1).
+		if ( ! WPCPM_Mentor_Calls::lock_for( $mentor_id ) ) {
+			self::bounce( 'busy' );
+		}
+
 		// Anything else of this mentor's starting at that moment. `taken_starts()` cannot answer
 		// this one, because it reports which instants are taken and not by what, and every
 		// session clashes with itself.
 		if ( self::clashes_with_another( $mentor_id, $start_ts, $call->ID ) ) {
+			WPCPM_Mentor_Calls::unlock_for( $mentor_id );
 			self::bounce( 'session-clash' );
 		}
 
@@ -758,10 +790,22 @@ class WPCPM_Group_Sessions {
 		// Only when the time actually moved. Correcting a typo in the topic should not put an
 		// email in front of everybody on the session, and a calendar that gets an update for an
 		// event that did not change teaches people to ignore the next one.
-		if ( $start_ts !== $was_start || $end_ts !== $was_end ) {
+		$moved    = $start_ts !== $was_start || $end_ts !== $was_end;
+		$revision = 0;
+
+		if ( $moved ) {
+			// Under the lock still, so two changes pressed at once cannot count the same revision,
+			// which a calendar would then ignore (the review of 1.109.1).
 			$revision = (int) get_post_meta( $call->ID, self::META_REVISION, true ) + 1;
 			update_post_meta( $call->ID, self::META_REVISION, $revision );
+		}
 
+		// Released once the session and its revision are written and before anybody is written
+		// to: every path from here redirects and ends the request, and a lock left behind would
+		// close the mentor's calendar until it timed out.
+		WPCPM_Mentor_Calls::unlock_for( $mentor_id );
+
+		if ( $moved ) {
 			WPCPM_Mentor_Calls::notify_session_moved( $call->ID, $was_start, $revision );
 		}
 
@@ -1162,13 +1206,23 @@ class WPCPM_Group_Sessions {
 
 		echo '</select>';
 		printf( '<label for="wpcpm-session-repeat-count">%s</label>', esc_html__( 'Sessions', 'wpcredits-program-manager' ) );
+		// `data-wpcpm-needs`: the forms script requires the box, and opens it, only while a rule
+		// is chosen, so a first press with a rule and no count is stopped in the browser rather
+		// than bounced into an emptied form (the owner, 15 September 2026). With JavaScript off
+		// the box is open and optional, and the handler refuses a rule without a count as before.
 		printf(
-			'<input type="number" id="wpcpm-session-repeat-count" name="repeat_count" min="2" max="%d" step="1" aria-describedby="wpcpm-sessions-repeat-hint" />',
+			'<input type="number" id="wpcpm-session-repeat-count" name="repeat_count" min="2" max="%d" step="1" aria-describedby="wpcpm-sessions-repeat-hint" data-wpcpm-needs="repeat" />',
 			(int) self::MAX_SERIES
 		);
 		printf(
 			'<span class="wpcpm-field__hint" id="wpcpm-sessions-repeat-hint">%s</span>',
-			esc_html__( 'Counting the first date. Up to sixteen.', 'wpcredits-program-manager' )
+			esc_html(
+				sprintf(
+					/* translators: %d: how many sessions a series holds at most. */
+					__( 'Counting the first date. Up to %d. The box opens once a rule is picked.', 'wpcredits-program-manager' ),
+					(int) self::MAX_SERIES
+				)
+			)
 		);
 		echo '</p>';
 

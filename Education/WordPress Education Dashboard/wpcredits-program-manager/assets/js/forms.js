@@ -24,7 +24,10 @@
  *   live region, for a screen reader that cannot see the button change;
  * - `data-wpcpm-select` on an element selects its text on click (a claimed sponsor code);
  * - `data-wpcpm-shows-for="codes|shared"` on an element shows it while the form's checked
- *   `wpcpm_kind` radio has that value (the offer forms on the Sponsor Dashboard).
+ *   `wpcpm_kind` radio has that value (the offer forms on the Sponsor Dashboard);
+ * - `data-wpcpm-needs="<name>"` on a control makes it required, and open, only while the form's
+ *   one control of that name holds a value (the count of a repeat rule on the planning form);
+ *   a name shared by radios is not a control and is left alone.
  */
 ( function () {
 	'use strict';
@@ -336,10 +339,58 @@
 		apply();
 	}
 
+	/**
+	 * Require a control only while the control it depends on holds a value.
+	 *
+	 * The planning form's Sessions count means nothing under "Does not repeat" and is the one
+	 * thing a repeat rule cannot do without, so it is required, and open, only once a rule is
+	 * chosen; before that it is disabled, so a number left in it is neither validated by the
+	 * browser nor posted (the owner, 15 September 2026: required bound to a chosen rule).
+	 *
+	 * A convenience, never a control: with JavaScript off the box is open and optional, and the
+	 * handler refuses a rule without a count either way. Applied again on `pageshow`, since a
+	 * page restored from the back-forward cache keeps the select's value and the box's state
+	 * has to follow it.
+	 */
+	function requireWith() {
+		var marked = document.querySelectorAll( '[data-wpcpm-needs]' );
+		var i;
+
+		for ( i = 0; i < marked.length; i++ ) {
+			bindRequireWith( marked[ i ] );
+		}
+	}
+
+	/**
+	 * @param {HTMLInputElement} control A control marked `data-wpcpm-needs`.
+	 */
+	function bindRequireWith( control ) {
+		var form = control.form;
+		var source = form ? form.elements[ control.getAttribute( 'data-wpcpm-needs' ) ] : null;
+
+		// A name shared by radios answers a list, which has a value but takes no listener; a
+		// mark naming one is left open and optional rather than stopping every mark after it.
+		if ( ! source || 'undefined' === typeof source.value || 'function' !== typeof source.addEventListener ) {
+			return;
+		}
+
+		function apply() {
+			var needed = '' !== source.value;
+
+			control.required = needed;
+			control.disabled = ! needed;
+		}
+
+		source.addEventListener( 'change', apply );
+		window.addEventListener( 'pageshow', apply );
+		apply();
+	}
+
 	ready( function () {
 		guardForms();
 		releaseOnRestore();
 		selectOnClick();
 		showForKind();
+		requireWith();
 	} );
 }() );

@@ -566,9 +566,10 @@ ck( 'seventeen dates are refused before any is read, and sixteen are planned: a 
     array(
         WPCPM_Group_Sessions::plan_dates( $seventeen, '18:00', $riga, $now ),
         count( WPCPM_Group_Sessions::plan_dates( array_slice( $seventeen, 0, 16 ), '18:00', $riga, $now )['starts'] ),
-        false !== strpos( WPCPM_Mentor_Calls::message( 'series-many' )[1], 'sixteen' ),
+        false !== strpos( WPCPM_Mentor_Calls::message( 'series-many', array( WPCPM_Group_Sessions::MAX_SERIES ) )[1], '16 sessions at most' ),
+        false !== strpos( WPCPM_Mentor_Calls::message( 'series-count', array( WPCPM_Group_Sessions::MAX_SERIES ) )[1], 'from 2 to 16.' ),
     ),
-    array( array( 'starts' => array(), 'refused' => 'many', 'date' => '' ), 16, true ) );
+    array( array( 'starts' => array(), 'refused' => 'many', 'date' => '' ), 16, true, true ) );
 
 echo "\n=== A repeat rule fills the dates after the first (1.109.0) ===\n";
 

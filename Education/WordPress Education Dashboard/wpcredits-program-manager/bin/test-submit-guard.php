@@ -39,8 +39,20 @@ function ck( $l, $a, $e = true ) {
 // Where the guard lives: forms.js, and nowhere else.
 ck( 'forms.js exists and defines the guard',
     (bool) strpos( $js, 'function guardForms()' ) && (bool) strpos( $js, 'function guardForm( form )' ) );
-ck( 'and wires it, with the bfcache release, the code-selector and the kind switch, once the DOM is ready',
-    (bool) preg_match( '/ready\( function \(\) \{\s*guardForms\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*\} \);/', $js ) );
+ck( 'and wires it, with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
+    (bool) preg_match( '/ready\( function \(\) \{\s*guardForms\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
+
+// The count of a repeat rule is required, and open, only while a rule is chosen (1.109.1): the
+// marked control follows the named control's value on load, on change and after a bfcache restore.
+$needs = substr( $js, strpos( $js, 'function bindRequireWith( control )' ) );
+$needs = substr( $needs, 0, strpos( $needs, "\n\t}\n" ) );
+ck( 'the required-with switch reads the control the mark names from the form',
+    (bool) strpos( $needs, "form.elements[ control.getAttribute( 'data-wpcpm-needs' ) ]" ) );
+ck( 'and sets required and disabled from that control\'s value, on change and after a bfcache restore',
+    (bool) strpos( $needs, "needed = '' !== source.value" ) && (bool) strpos( $needs, 'control.required = needed' ) && (bool) strpos( $needs, 'control.disabled = ! needed' )
+    && (bool) strpos( $needs, "source.addEventListener( 'change', apply )" ) && (bool) strpos( $needs, "window.addEventListener( 'pageshow', apply )" ) );
+ck( 'the planning form marks its count box with the rule select\'s name',
+    (bool) strpos( file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-group-sessions.php' ), 'name="repeat_count" min="2" max="%d" step="1" aria-describedby="wpcpm-sessions-repeat-hint" data-wpcpm-needs="repeat"' ) );
 ck( 'calendar.js no longer defines the guard', false === strpos( $calendar, 'function guardForm' ) );
 ck( 'nor calls it',
     false === strpos( $calendar, 'guardForms()' ) && false === strpos( $calendar, 'releaseOnRestore()' ) );

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.109.0
+Stable tag: 1.109.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,12 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.109.1 =
+
+* The planning form's Sessions box is required, and open, only once a repeat rule is chosen, so a rule with no count is stopped in the browser rather than bounced into an emptied form. A More dates box holding something that is not a date is refused naming what it held. The cap's two notices and the count box's hint read the number from one place.
+* Changing a session takes the two rules planning one takes: a start the clocks jump over is refused rather than saved an hour late, and the change goes through under the mentor's booking lock.
+* A series calendar file describes each session as its own invitation would, so a session whose topic was changed apart keeps its own text, and a second message for the same session or series in one request gets a calendar file of its own rather than a path to nothing.
 
 = 1.109.0 =
 

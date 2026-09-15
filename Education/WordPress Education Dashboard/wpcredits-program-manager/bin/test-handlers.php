@@ -159,7 +159,10 @@ function register_post_type( $t, $a = array() ) { return true; }
 function get_post( $id ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_posts( $a = array() ) { $found = $GLOBALS['query_result'] ?? array(); return ( isset( $a['fields'] ) && 'ids' === $a['fields'] ) ? array_map( function ( $p ) { return $p->ID; }, $found ) : $found; }
 function wp_insert_post( $a, $err = false ) {
-	$id = count( $GLOBALS['posts'] ) + 100;
+	// An ID no post holds: the highest in the store plus one, from 1000, above every fixture keyed
+	// by hand (they sit below 1000), so a deleted post's slot is never handed out again and no
+	// fixture is overwritten (the review of 1.109.1).
+	$id = $GLOBALS['posts'] ? max( 1000, max( array_keys( $GLOBALS['posts'] ) ) + 1 ) : 1000;
 	$p = new WP_Post();
 	$p->ID = $id;
 	$p->post_type = $a['post_type'] ?? '';
@@ -171,6 +174,14 @@ function wp_insert_post( $a, $err = false ) {
 	return $id;
 }
 function wp_trash_post( $id ) { return true; }
+function wp_update_post( $a, $err = false ) {
+	$id = (int) ( $a['ID'] ?? 0 );
+	if ( ! isset( $GLOBALS['posts'][ $id ] ) ) { return 0; }
+	foreach ( array( 'post_content', 'post_title', 'post_status' ) as $field ) {
+		if ( isset( $a[ $field ] ) ) { $GLOBALS['posts'][ $id ]->$field = $a[ $field ]; }
+	}
+	return $id;
+}
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ] ); return true; }
 function get_post_meta( $id, $k, $single = false ) { $v = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? ''; if ( $single && is_array( $v ) && ! empty( $GLOBALS['pmeta_rows'][ (int) $id ][ $k ] ) ) { return $v ? $v[0] : ''; } return $v; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] = $v; return true; }
@@ -314,6 +325,17 @@ $GLOBALS['umeta'][30][ WPCPM_Students_Sync::META_PROGRAM ]   = array(
 
 /* ---- runner ------------------------------------------------------------- */
 $fail = 0;
+
+// The post store mints IDs that no post already holds, whatever was deleted before: a check that
+// trashes a session and plans another must not have the second overwrite a fixture (the re-review
+// of 1.109.0's fix wave).
+$GLOBALS['posts'][777] = new WP_Post();
+$GLOBALS['posts'][777]->ID = 777;
+$probe_id = wp_insert_post( array( 'post_type' => 'probe' ) );
+check( 'a new post never takes an ID the store already holds, and the fixture it could have replaced is intact',
+    array( $probe_id > 777, 'probe' !== ( $GLOBALS['posts'][777]->post_type ?? '' ), isset( $GLOBALS['posts'][ $probe_id ] ) ),
+    array( true, true, true ) );
+unset( $GLOBALS['posts'][777], $GLOBALS['posts'][ $probe_id ] );
 function run( $label, callable $fn ) {
 	global $fail;
 	$GLOBALS['mail'] = array();
@@ -590,6 +612,25 @@ check( 'the same press plans the series once the lock is free, and leaves the lo
     array( flashed( 20, 'call' ), count( $GLOBALS['posts'] ) - $before_lock, get_option( 'wpcpm_call_lock_20', false ) ),
     array( array( 'series-planned', 2 ), 2, false ) );
 
+// A box holding something that is not a date is a series thing, since a box is only filled for a
+// series: it is refused naming what the box held, not with the lone session's "needs a date and a
+// start time" (the re-review of 1.109.0's fix wave).
+$posts_before = count( $GLOBALS['posts'] );
+$_POST        = array( 'mentor' => 20, 'date' => '2027-05-04', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'more_dates' => array( 'not-a-date' ) );
+run( 'handle_create (a box that is not a date)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+check( 'a box holding something that is not a date refuses the list naming what it held, and creates nothing',
+    array( flashed( 20, 'call' ), count( $GLOBALS['posts'] ) - $posts_before ),
+    array( array( 'series-date', 'not-a-date' ), 0 ) );
+
+// A crafted entry that is not text at all (`more_dates[0][]=x`) can only come from a tampered form:
+// it is passed over without a warning, and the boxes that are text are read as before.
+$posts_before = count( $GLOBALS['posts'] );
+$_POST        = array( 'mentor' => 20, 'date' => '2027-05-04', 'time' => '10:00', 'minutes' => 60, 'capacity' => 6, 'more_dates' => array( array( 'x' ), '2027-05-11' ) );
+run( 'handle_create (a crafted box that is not text)', array( 'WPCPM_Group_Sessions', 'handle_create' ) );
+check( 'a crafted box that is not text is passed over and the readable box beside it is planned',
+    array( flashed( 20, 'call' ), count( $GLOBALS['posts'] ) - $posts_before ),
+    array( array( 'series-planned', 2 ), 2 ) );
+
 // 1.108.0: the lists group a series under one heading, the lone sessions on their own.
 $lone_sessions = array();
 foreach ( $GLOBALS['posts'] as $post ) {
@@ -840,7 +881,7 @@ check( '"Does not repeat" ignores a stray count and plans one; a rule with a mis
     array( $stray, $outcomes, count( $GLOBALS['posts'] ) - $posts_before ),
     array(
         array( 'session-created', 1 ),
-        array( 'missing' => 'series-count', 'low' => 'series-count', 'high' => 'series-count', 'text' => 'series-count', 'many' => 'series-many', 'unknown' => 'error' ),
+        array( 'missing' => array( 'series-count', 16 ), 'low' => array( 'series-count', 16 ), 'high' => array( 'series-count', 16 ), 'text' => array( 'series-count', 16 ), 'many' => array( 'series-many', 16 ), 'unknown' => 'error' ),
         0,
     ) );
 
@@ -914,6 +955,35 @@ check( 'an hour the clocks jump over is refused for what it is, named by date in
     array( $gap_alone, $gap_series, count( $GLOBALS['posts'] ) - $posts_before, WPCPM_Mentor_Availability::get( 20 )['timezone'] ),
     array( 'session-gap', array( 'series-when', '2027-03-28' ), 0, 'UTC' ) );
 
+// 1.109.1: a change to one session takes the same two rules as planning one. A start the clocks
+// jump over is refused rather than saved an hour late, and the diary is read and the session moved
+// under the mentor's booking lock, as planning is since 1.108.0 (the re-review of 1.109.0's wave).
+$moved                   = $series[2];
+$moved_meta              = $GLOBALS['pmeta'][ $moved ];
+$GLOBALS['query_result'] = array();
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = $gap_settings;
+
+$_POST = array( 'session' => $moved, 'date' => '2027-03-28', 'time' => '03:30', 'minutes' => 60, 'capacity' => 6, 'topic' => 'Release cycle' );
+run( 'handle_edit (onto an hour the clocks jump over)', array( 'WPCPM_Group_Sessions', 'handle_edit' ) );
+$edit_gap = array( flashed( 20, 'call' ), (int) get_post_meta( $moved, WPCPM_Mentor_Calls::META_START, true ) === (int) $moved_meta[ WPCPM_Mentor_Calls::META_START ] );
+
+$GLOBALS['umeta'][20][ WPCPM_Mentor_Availability::META ] = $mentor_settings;
+
+WPCPM_Mentor_Calls::lock_for( 20 );
+$_POST = array( 'session' => $moved, 'date' => '2027-04-20', 'time' => '11:00', 'minutes' => 60, 'capacity' => 6, 'topic' => 'Release cycle' );
+run( 'handle_edit (the mentor\'s lock is held)', array( 'WPCPM_Group_Sessions', 'handle_edit' ) );
+$edit_busy = array( flashed( 20, 'call' ), (int) get_post_meta( $moved, WPCPM_Mentor_Calls::META_START, true ) === (int) $moved_meta[ WPCPM_Mentor_Calls::META_START ] );
+WPCPM_Mentor_Calls::unlock_for( 20 );
+
+run( 'handle_edit (the same change once the lock is free)', array( 'WPCPM_Group_Sessions', 'handle_edit' ) );
+$edit_done = array( flashed( 20, 'call' ), wp_date( 'Y-m-d H:i', (int) get_post_meta( $moved, WPCPM_Mentor_Calls::META_START, true ), $mentor_zone ), get_option( 'wpcpm_call_lock_20', false ) );
+
+$GLOBALS['pmeta'][ $moved ] = $moved_meta;
+
+check( 'a change onto an hour the clocks jump over is refused and the session stays; a held lock refuses the change; the same change lands once the lock is free and leaves it released',
+    array( $edit_gap, $edit_busy, $edit_done ),
+    array( array( 'session-gap', true ), array( 'busy', true ), array( 'session-updated', '2027-04-20 11:00', false ) ) );
+
 ob_start();
 WPCPM_Group_Sessions::render_mentor_planner( $GLOBALS['users'][20] );
 $planner = ob_get_clean();
@@ -925,10 +995,11 @@ check( 'the form offers the five repeat rules and a count box from 2 to 16, desc
         false !== strpos( $planner, '<option value="2weeks">Every two weeks</option>' ),
         false !== strpos( $planner, '<option value="4weeks">Every four weeks</option>' ),
         false !== strpos( $planner, '<option value="month">Every month</option>' ),
-        substr_count( $planner, 'name="repeat_count" min="2" max="16" step="1" aria-describedby="wpcpm-sessions-repeat-hint"' ),
+        substr_count( $planner, 'name="repeat_count" min="2" max="16" step="1" aria-describedby="wpcpm-sessions-repeat-hint" data-wpcpm-needs="repeat"' ),
         substr_count( $planner, 'id="wpcpm-sessions-repeat-hint"' ),
+        false !== strpos( $planner, 'Counting the first date. Up to 16. The box opens once a rule is picked.' ),
     ),
-    array( 1, true, true, true, true, true, 1, 1 ) );
+    array( 1, true, true, true, true, true, 1, 1, true ) );
 
 $GLOBALS['query_result'] = array();
 

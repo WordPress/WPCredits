@@ -135,7 +135,7 @@ walkthrough, a question hour, a session for everybody starting the same week.
 - **Repeat**, for a regular series: every week, every two weeks, every four weeks or every month,
   and how many sessions in all, counting the first date, up to sixteen. Every month keeps the
   weekday and its place in the month, so a second Tuesday stays a second Tuesday. The rule fills
-  the dates after the first one.
+  the dates after the first one, and the **Sessions** box opens once you pick a rule.
 - **More dates**, for the odd dates of a series: up to eight further dates with the same time,
   length, places and topic. Leave the ones you do not need empty.
 

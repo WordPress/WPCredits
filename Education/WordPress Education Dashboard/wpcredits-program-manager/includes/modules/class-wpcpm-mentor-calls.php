@@ -1272,8 +1272,12 @@ class WPCPM_Mentor_Calls {
 			'series-twice'        => array( 'error', __( 'One of the dates is given twice: %s.', 'wpcredits-program-manager' ) ),
 			/* translators: %s: a date. */
 			'series-clash'        => array( 'error', __( 'Something else of yours already starts on %s at that time.', 'wpcredits-program-manager' ) ),
-			'series-many'         => array( 'error', __( 'A series holds sixteen sessions at most; plan the rest in a second go.', 'wpcredits-program-manager' ) ),
-			'series-count'        => array( 'error', __( 'Say how many sessions the repeat should make, from 2 to 16.', 'wpcredits-program-manager' ) ),
+			/* translators: %d: how many sessions a series holds at most. */
+			'series-many'         => array( 'error', __( 'A series holds %d sessions at most; plan the rest in a second go.', 'wpcredits-program-manager' ) ),
+			/* translators: %s: what the box held. */
+			'series-date'         => array( 'error', __( 'One of the boxes holds something that is not a date: %s.', 'wpcredits-program-manager' ) ),
+			/* translators: %d: how many sessions a series holds at most. */
+			'series-count'        => array( 'error', __( 'Say how many sessions the repeat should make, from 2 to %d.', 'wpcredits-program-manager' ) ),
 			/* translators: %d: how many sessions the student is on. */
 			'series-joined'       => array( 'success', __( 'You are on all %d sessions. They are in your list above, and one email holds the ones you joined just now for your calendar.', 'wpcredits-program-manager' ) ),
 			/* translators: 1: sessions the student is on, 2: sessions in the series, 3: sessions that were full. */
@@ -1759,7 +1763,10 @@ class WPCPM_Mentor_Calls {
 		// hand back the first file.
 		$memo = $facts['id'] . '|' . $method . '|' . $recipient->ID . '|' . (string) $sequence;
 
-		if ( isset( $built[ $memo ] ) ) {
+		// Only while the file is still there: the send's cleanup removes it, and a second message
+		// for the same session in one request would otherwise go out with a path to nothing and
+		// so with nothing attached (the re-review of 1.108.0's fix wave; 1.109.1).
+		if ( isset( $built[ $memo ][0] ) && file_exists( $built[ $memo ][0] ) ) {
 			return $built[ $memo ];
 		}
 
@@ -1792,9 +1799,10 @@ class WPCPM_Mentor_Calls {
 	/**
 	 * The calendar file for a series, written for `wp_mail()` to attach (1.108.0).
 	 *
-	 * Memoized like `calendar()`: the same recipient's file for the same set of sessions is written
-	 * once per request and handed back on any later ask, so a second build cannot leave the first
-	 * file on disk with nothing holding its path to remove it.
+	 * Memoized like `calendar()`: the same recipient's file for the same set of sessions is handed
+	 * back while it is still on disk, so a second build cannot leave the first file behind with
+	 * nothing holding its path to remove it; once a send's cleanup has removed it, the next ask
+	 * writes afresh (1.109.1).
 	 *
 	 * @param array[] $facts_list Call facts, one per session.
 	 * @param WP_User $mentor     Mentor.
@@ -1808,7 +1816,8 @@ class WPCPM_Mentor_Calls {
 		$ids  = array_map( 'intval', array_column( $facts_list, 'id' ) );
 		$memo = implode( ',', $ids ) . '|' . $recipient->ID;
 
-		if ( isset( $built[ $memo ] ) ) {
+		// Only while the file is still there, as in `calendar()` (1.109.1).
+		if ( isset( $built[ $memo ][0] ) && file_exists( $built[ $memo ][0] ) ) {
 			return $built[ $memo ];
 		}
 
@@ -1819,13 +1828,19 @@ class WPCPM_Mentor_Calls {
 			$student->display_name
 		);
 
-		// The single invitation's own description, so an entry reads the same whether it came from
-		// Join all or from one row's Join, and a later move overwrites it with the same text (the
-		// design's section 6; the final review of 1.108.0). Place and topic are the series', so the
-		// first session's facts give every event the same text.
-		$description = self::mail_body( reset( $facts_list ), $recipient, $mentor->display_name, false, 'calendar' );
+		// Each event carries the single invitation's own description of that session, so an entry
+		// reads the same whether it came from Join all or from one row's Join, and a later move
+		// overwrites it with the same text (the design's section 6). Per session rather than the
+		// first session's text for all: a mentor may have changed one session's topic apart from
+		// the series' (the re-review of 1.108.0's fix wave; 1.109.1).
+		$described = array();
 
-		$ics  = WPCPM_ICS::build_many( $facts_list, WPCPM_ICS::METHOD_REQUEST, $mentor, $student, $summary, $description, WPCPM_Mentor_Availability::meeting_place( $mentor->ID ) );
+		foreach ( $facts_list as $facts ) {
+			$facts['description'] = self::mail_body( $facts, $recipient, $mentor->display_name, false, 'calendar' );
+			$described[]          = $facts;
+		}
+
+		$ics  = WPCPM_ICS::build_many( $described, WPCPM_ICS::METHOD_REQUEST, $mentor, $student, $summary, '', WPCPM_Mentor_Availability::meeting_place( $mentor->ID ) );
 		$path = WPCPM_ICS::tempfile( $ics, 'mentor-sessions.ics' );
 
 		$built[ $memo ] = '' === $path ? array() : array( $path );
