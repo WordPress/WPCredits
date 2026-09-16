@@ -10,3 +10,8 @@ data/post_grad_snapshots.jsonl
 # not be committed to this public repo. Kept out so a local plugin sync can't
 # accidentally re-add it. Enforced by scripts/privacy_guard.sh.
 Education/WordPress Education Initiatives/student-impact/data/seed.json
+
+# Dashboard export carrying per-student rows (name, wp.org handle, institution,
+# teams, graduation status). GitHub Pages serves the trunk root, so committing
+# this publishes it. Regenerate any wp.org rendering from aggregates only.
+wporg-wpcredits-dashboard.html
