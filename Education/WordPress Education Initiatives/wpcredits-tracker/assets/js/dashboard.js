@@ -158,9 +158,14 @@
 		if ( ! mapEl || typeof L === 'undefined' ) { return; }
 
 		var map = L.map( mapEl, { scrollWheelZoom: false, zoomControl: true } ).setView( [ 30, 10 ], 2 );
-		L.tileLayer( 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-			subdomains: 'abcd',
+		// OpenStreetMap's standard tiles, which need no API key. CARTO's light_all
+		// basemap used to serve anonymous tiles and now stamps "API KEY REQUIRED"
+		// across every one of them — while still answering 200 with a valid PNG, so
+		// it failed silently. Keep this URL without {s} (OSM serves from a single
+		// host now) and without {r} (OSM has no @2x tiles, so a retina suffix would
+		// 404 on exactly the screens that asked for it).
+		L.tileLayer( 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 			maxZoom: 19
 		} ).addTo( map );
 
