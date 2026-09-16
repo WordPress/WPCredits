@@ -5,10 +5,19 @@
 # belongs in the PRIVATE Airtable base, never in public git (see #137, #132).
 # Aggregates (counts, distributions, totals) are fine and expected.
 #
-# This scans TRACKED data files (json/jsonl/csv) — code and plugin headers
-# legitimately carry author emails, so they are out of scope here; rely on code
-# review for those. Runs in CI (.github/workflows/privacy-guard.yml) and can be
-# run locally: `bash scripts/privacy_guard.sh`.
+# This scans TRACKED data files (json/jsonl/csv) and HTML pages (html) — code and
+# plugin headers legitimately carry author emails, so they are out of scope here;
+# rely on code review for those. Runs in CI (.github/workflows/privacy-guard.yml)
+# and can be run locally: `bash scripts/privacy_guard.sh`.
+#
+# HTML is in scope because GitHub Pages serves this repo from the trunk ROOT
+# (only Education/ is excluded, see _config.yml), so a page committed here is
+# published to the internet. That is how a dashboard export carrying 310 student
+# names and wp.org handles went live — a data-file-only scan did not see it.
+#
+# Markdown is deliberately NOT scanned: the plugin docs under Education/ are full
+# of test fixtures with placeholder people ("Ines Example"), which would bury real
+# findings in false positives. Prose docs rely on code review instead.
 #
 # If a match is a genuine false positive, add the path to ALLOW below with a
 # comment explaining why it is safe.
@@ -20,6 +29,10 @@ status=0
 DENY_PATHS=(
   "data/post_grad_snapshots.jsonl"
   "Education/WordPress Education Initiatives/student-impact/data/seed.json"
+  # Dashboard export with per-student rows (name, wp.org handle, institution,
+  # teams, graduation status). Was served publicly from the trunk root; removed.
+  # Rebuild any wp.org rendering from aggregates only.
+  "wporg-wpcredits-dashboard.html"
 )
 
 # Reviewed-safe data files exempt from the content scan (aggregates only).
@@ -43,7 +56,7 @@ for f in "${DENY_PATHS[@]}"; do
 done
 
 while IFS= read -r f; do
-  case "$f" in *.json|*.jsonl|*.csv) ;; *) continue ;; esac
+  case "$f" in *.json|*.jsonl|*.csv|*.html) ;; *) continue ;; esac
   is_allowed "$f" && continue
   # Individual handles: no public data file should list people by wp.org username.
   if grep -qE '"username"[[:space:]]*:' "$f"; then
