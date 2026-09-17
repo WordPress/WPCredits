@@ -618,6 +618,34 @@ def main():
     }
     GRADUATE_STATUS = "Graduate"
     NON_PARTICIPANT_STATUS_KEYS = {status_key(s) for s in NON_PARTICIPANT_STATUSES}
+    # The in-programme statuses known to this build. Every one of these is a
+    # participant; the list exists only so that a status which is in NEITHER
+    # list can be detected, because such a status is unclassifiable: the build
+    # cannot tell a new TRACK (should count) from a new OUTCOME (should not).
+    #
+    # Getting that wrong silently is what this whole area has already cost
+    # once — an allowlist dropped two tracks and under-counted the public
+    # figures by 20 for weeks. So an unclassifiable status now FAILS the build
+    # (see UNKNOWN_STATUSES below) rather than being guessed either way.
+    #
+    # ADDING A TRACK: add its Airtable status here. Until you do, the first
+    # student to hold it fails the build — deliberately, so a human confirms
+    # whether it counts. Nothing is published in the meantime, so the site
+    # keeps the last correct numbers rather than gaining wrong ones.
+    PARTICIPANT_STATUSES = {
+        "In Sensei",
+        "In Sensei Self-onboarding",
+        "In Sensei 50h",
+        "Pending graduation",
+        "Developer Track",
+        "Designer Track",
+    }
+    PARTICIPANT_STATUS_KEYS = {status_key(s) for s in PARTICIPANT_STATUSES}
+    # Statuses held by a real student that match neither list, nor Graduate.
+    # Populated in the loop, checked immediately after it — before anything is
+    # written. A status choice that merely EXISTS in Airtable with no students
+    # on it never fires this: the trigger is a student actually holding it.
+    UNKNOWN_STATUSES = {}
     # Every status seen that is neither a known non-participant nor Graduate —
     # i.e. treated as an active participant. Reported after the loop so a new
     # track shows up as a named line rather than an unexplained jump in the
@@ -730,6 +758,11 @@ def main():
             name = select_name(get_field_value(rec, FIELDS["students_reports"]["status"]))
             if isinstance(name, str) and name.strip():
                 ACTIVE_STATUSES_SEEN[name.strip()] = ACTIVE_STATUSES_SEEN.get(name.strip(), 0) + 1
+                # Neither a declared participant status nor a known
+                # non-participant: unclassifiable, so record it and fail after
+                # the loop rather than guessing.
+                if status_n not in PARTICIPANT_STATUS_KEYS:
+                    UNKNOWN_STATUSES[name.strip()] = UNKNOWN_STATUSES.get(name.strip(), 0) + 1
 
         # Determine if graduate
         is_graduate = status_n == GRADUATE_STATUS_KEY
@@ -799,6 +832,43 @@ def main():
             "cohort": cohort,
         }
         students.append(student_data)
+
+    # A status held by a real student that this build cannot classify is a hard
+    # failure. It is either a new track (should count) or a new outcome (should
+    # not), and guessing either way corrupts the published figures quietly —
+    # which is exactly how two whole tracks went uncounted for weeks.
+    #
+    # This fails BEFORE anything is written, so the last good index.html stays
+    # in place: the site keeps serving correct-but-stale numbers rather than
+    # gaining wrong ones. It also fails before the wp.org profile scraping, so a
+    # broken build costs seconds rather than minutes.
+    if UNKNOWN_STATUSES:
+        _listing = "\n".join(
+            f"    {name!r}: {n} student(s)"
+            for name, n in sorted(UNKNOWN_STATUSES.items(), key=lambda kv: -kv[1])
+        )
+        print(
+            "\n"
+            "BUILD FAILED: unrecognised student status\n"
+            "\n"
+            f"{_listing}\n"
+            "\n"
+            "  Real students hold the status(es) above, but they are declared\n"
+            "  neither a participant nor a non-participant, so this build cannot\n"
+            "  tell whether those students belong in the public counts.\n"
+            "\n"
+            "  If it is a new TRACK  -> add it to PARTICIPANT_STATUSES in\n"
+            "                           scripts/build_dashboard.py\n"
+            "  If it is an OUTCOME   -> add it to NON_PARTICIPANT_STATUSES in\n"
+            "                           scripts/build_dashboard.py AND to\n"
+            "                           nonParticipantStatuses in\n"
+            "                           scripts/template.html\n"
+            "\n"
+            "  Nothing was written. index.html still holds the last good build,\n"
+            "  so the published figures are stale but not wrong.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     # Sort students by name
     students.sort(key=lambda s: s["name"])
