@@ -372,10 +372,14 @@ document.querySelectorAll('.nav-item').forEach(tab => {
     });
   })();
   // Field of Study chart (computed dynamically from student data)
-  const activeStatuses = new Set(['in sensei','in sensei self-onboarding','in sensei 50h','pending graduation']);
+  // Mirrors NON_PARTICIPANT_STATUSES in scripts/build_dashboard.py — a denylist,
+  // so a newly added track counts here too instead of being dropped. The status
+  // field encodes which track a student is on, and more tracks are coming.
+  const nonParticipantStatuses = new Set(['interested','dropped out','not moving forward','paused','fail','spam']);
   const fosMap = {};
   D.students.forEach(s => {
-    if (!s.is_graduate && !activeStatuses.has((s.status||'').trim().toLowerCase())) return;
+    const st = (s.status||'').trim().toLowerCase();
+    if (!s.is_graduate && (!st || nonParticipantStatuses.has(st))) return;
     const fos = s.fieldOfStudy || 'Unspecified';
     if (!fosMap[fos]) fosMap[fos] = {active:0, graduated:0};
     if (s.is_graduate) fosMap[fos].graduated++;

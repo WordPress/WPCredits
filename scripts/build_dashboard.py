@@ -589,18 +589,40 @@ def main():
         if email:
             students_by_email[email.strip().lower()] = rec
 
-    # Statuses that count as real participants. NOTE: keep this in sync with the
-    # `activeStatuses` set in scripts/template.html.
-    ACTIVE_STATUSES = {
-        "In Sensei",
-        "In Sensei Self-onboarding",
-        "In Sensei 50h",
-        "Pending graduation",
+    # Statuses that do NOT count as a participant. Everything else does.
+    #
+    # This used to be an allowlist of the four in-programme statuses, which
+    # silently under-counts every time a track is added: the status field encodes
+    # WHICH track a student is on (see WPCPM_Program::track()), so "Developer
+    # Track" and "Designer Track" were both missing and 20 real students were
+    # dropped from the public figures. More tracks are coming, and Track Builder
+    # (1.100.0) lets a manager add one with no code change at all.
+    #
+    # A denylist is the polarity that survives that: a new track is automatically
+    # "not one of these" and counts from day one. The states below are stable —
+    # they are stages and outcomes, not programmes — and ACTIVE_STATUSES_SEEN
+    # below logs every status actually counted as a participant, so a genuinely
+    # new *outcome* (which a denylist would silently count) shows up in the build
+    # log as a named line instead of an unexplained jump. That log is the only
+    # thing standing behind this polarity: a new non-participant outcome needs
+    # adding here by hand, and the log is where it becomes visible.
+    #
+    # NOTE: keep in sync with `nonParticipantStatuses` in scripts/template.html.
+    NON_PARTICIPANT_STATUSES = {
+        "Interested",          # never started
+        "Dropped out",
+        "Not moving forward",
+        "Paused",              # still the mentor's student, but not progressing
+        "Fail",
+        "SPAM",
     }
     GRADUATE_STATUS = "Graduate"
-    INCLUDED_STATUSES = ACTIVE_STATUSES | {GRADUATE_STATUS}
-    # Normalized keys for tolerant matching (see status_key()).
-    INCLUDED_STATUS_KEYS = {status_key(s) for s in INCLUDED_STATUSES}
+    NON_PARTICIPANT_STATUS_KEYS = {status_key(s) for s in NON_PARTICIPANT_STATUSES}
+    # Every status seen that is neither a known non-participant nor Graduate —
+    # i.e. treated as an active participant. Reported after the loop so a new
+    # track shows up as a named line rather than an unexplained jump in the
+    # counts. Status names are not personal data.
+    ACTIVE_STATUSES_SEEN = {}
     GRADUATE_STATUS_KEY = status_key(GRADUATE_STATUS)
     DROPOUT_KEY = status_key("Dropped out")
     NOT_MOVING_FORWARD_KEY = status_key("Not moving forward")
@@ -694,9 +716,20 @@ def main():
                 fc_name = INSTITUTION_ALIASES.get(fc_name.strip().lower(), fc_name)
                 inst_quarters.setdefault(fc_name, set()).add((fc_sd.year, (fc_sd.month - 1) // 3))
 
-        # Skip students with non-active statuses (Not moving forward, SPAM, Dropped out, Paused, etc.)
-        if status_n not in INCLUDED_STATUS_KEYS:
+        # A blank status is not a participant. The old allowlist skipped these
+        # implicitly (None was simply not in the set); a denylist would let them
+        # through, so they are excluded explicitly.
+        if not status_n:
             continue
+        # Skip non-participants (Interested, Not moving forward, SPAM, Dropped
+        # out, Paused, Fail). Everything else is a participant, so a newly added
+        # track counts immediately instead of being silently dropped.
+        if status_n in NON_PARTICIPANT_STATUS_KEYS:
+            continue
+        if status_n != GRADUATE_STATUS_KEY:
+            name = select_name(get_field_value(rec, FIELDS["students_reports"]["status"]))
+            if isinstance(name, str) and name.strip():
+                ACTIVE_STATUSES_SEEN[name.strip()] = ACTIVE_STATUSES_SEEN.get(name.strip(), 0) + 1
 
         # Determine if graduate
         is_graduate = status_n == GRADUATE_STATUS_KEY
@@ -801,6 +834,13 @@ def main():
             print(f"  {wp_username}: {stats['total']} strings ({stats['suggested']}s/{stats['translated']}t/{stats['reviewed']}r)", file=sys.stderr)
 
     print(f"Translation totals: {translation_totals_agg['total']} strings from {profiles_fetched} profiles", file=sys.stderr)
+
+    # Which statuses were counted as active participants. A track added in
+    # Airtable appears here on the first build after it, so a change in the
+    # public counts is always explainable. Status names carry no personal data.
+    print("Active participant statuses counted this build:", file=sys.stderr)
+    for _name, _n in sorted(ACTIVE_STATUSES_SEEN.items(), key=lambda kv: -kv[1]):
+        print(f"  {_name}: {_n}", file=sys.stderr)
 
     # Process mentors
     mentors = []
