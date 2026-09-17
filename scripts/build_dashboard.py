@@ -625,13 +625,18 @@ def main():
     #
     # Getting that wrong silently is what this whole area has already cost
     # once — an allowlist dropped two tracks and under-counted the public
-    # figures by 20 for weeks. So an unclassifiable status now FAILS the build
-    # (see UNKNOWN_STATUSES below) rather than being guessed either way.
+    # figures by 20 for weeks.
     #
-    # ADDING A TRACK: add its Airtable status here. Until you do, the first
-    # student to hold it fails the build — deliberately, so a human confirms
-    # whether it counts. Nothing is published in the meantime, so the site
-    # keeps the last correct numbers rather than gaining wrong ones.
+    # An unclassifiable status is therefore assumed to be a NEW TRACK and
+    # counted as a participant, and the build WARNS loudly rather than failing
+    # (see UNKNOWN_STATUSES below). That is a deliberate choice: the numbers
+    # stay fresh and a new track needs no code change to be counted, at the
+    # cost of a genuinely new *outcome* being over-counted until someone adds
+    # it to NON_PARTICIPANT_STATUSES. The warning is what makes that visible.
+    #
+    # ADDING A TRACK: nothing here is required for it to count. Adding its
+    # status below only silences the warning, which is worth doing so the
+    # warning keeps meaning "something new appeared".
     PARTICIPANT_STATUSES = {
         "In Sensei",
         "In Sensei Self-onboarding",
@@ -642,9 +647,9 @@ def main():
     }
     PARTICIPANT_STATUS_KEYS = {status_key(s) for s in PARTICIPANT_STATUSES}
     # Statuses held by a real student that match neither list, nor Graduate.
-    # Populated in the loop, checked immediately after it — before anything is
-    # written. A status choice that merely EXISTS in Airtable with no students
-    # on it never fires this: the trigger is a student actually holding it.
+    # Populated in the loop and reported after it. A status choice that merely
+    # EXISTS in Airtable with no students on it never fires this: the trigger
+    # is a student actually holding it.
     UNKNOWN_STATUSES = {}
     # Every status seen that is neither a known non-participant nor Graduate —
     # i.e. treated as an active participant. Reported after the loop so a new
@@ -833,42 +838,54 @@ def main():
         }
         students.append(student_data)
 
-    # A status held by a real student that this build cannot classify is a hard
-    # failure. It is either a new track (should count) or a new outcome (should
-    # not), and guessing either way corrupts the published figures quietly —
-    # which is exactly how two whole tracks went uncounted for weeks.
+    # A status held by a real student that this build cannot classify is assumed
+    # to be a NEW TRACK and counted as a participant, so the figures stay fresh
+    # and a new track needs no code change. The build does not fail.
     #
-    # This fails BEFORE anything is written, so the last good index.html stays
-    # in place: the site keeps serving correct-but-stale numbers rather than
-    # gaining wrong ones. It also fails before the wp.org profile scraping, so a
-    # broken build costs seconds rather than minutes.
+    # The risk this accepts: a new *outcome* (a "Withdrawn", an "On hold") is
+    # over-counted as an active participant until someone declares it. The only
+    # thing standing against that is this warning, so it is made as loud as the
+    # medium allows — a GitHub Actions ::warning:: annotation surfaces it on the
+    # run's summary page, not just in the log nobody opens.
     if UNKNOWN_STATUSES:
         _listing = "\n".join(
             f"    {name!r}: {n} student(s)"
             for name, n in sorted(UNKNOWN_STATUSES.items(), key=lambda kv: -kv[1])
         )
+        _names = ", ".join(sorted(UNKNOWN_STATUSES))
+        # Rendered as a warning box on the workflow run page. Harmless text when
+        # run outside Actions. Newlines must be escaped as %0A in annotations.
+        print(
+            f"::warning title=Unrecognised student status::{_names} — counted as "
+            "active participant(s) in the published figures. If any of these is "
+            "an OUTCOME rather than a track, the public numbers are now too high "
+            "until it is added to NON_PARTICIPANT_STATUSES in "
+            "scripts/build_dashboard.py and to nonParticipantStatuses in "
+            "scripts/template.html.",
+            file=sys.stdout,
+        )
         print(
             "\n"
-            "BUILD FAILED: unrecognised student status\n"
+            "WARNING: unrecognised student status — counted as a participant\n"
             "\n"
             f"{_listing}\n"
             "\n"
             "  Real students hold the status(es) above, but they are declared\n"
-            "  neither a participant nor a non-participant, so this build cannot\n"
-            "  tell whether those students belong in the public counts.\n"
+            "  neither a participant nor a non-participant. They have been\n"
+            "  COUNTED AS ACTIVE PARTICIPANTS, on the assumption that a status\n"
+            "  nobody declared is a newly added track.\n"
             "\n"
             "  If it is a new TRACK  -> add it to PARTICIPANT_STATUSES in\n"
-            "                           scripts/build_dashboard.py\n"
-            "  If it is an OUTCOME   -> add it to NON_PARTICIPANT_STATUSES in\n"
+            "                           scripts/build_dashboard.py. The count is\n"
+            "                           already right; this only silences the\n"
+            "                           warning.\n"
+            "  If it is an OUTCOME   -> THE PUBLISHED NUMBERS ARE NOW TOO HIGH.\n"
+            "                           Add it to NON_PARTICIPANT_STATUSES in\n"
             "                           scripts/build_dashboard.py AND to\n"
             "                           nonParticipantStatuses in\n"
-            "                           scripts/template.html\n"
-            "\n"
-            "  Nothing was written. index.html still holds the last good build,\n"
-            "  so the published figures are stale but not wrong.",
+            "                           scripts/template.html, then re-run.",
             file=sys.stderr,
         )
-        sys.exit(1)
 
     # Sort students by name
     students.sort(key=lambda s: s["name"])
@@ -910,7 +927,10 @@ def main():
     # public counts is always explainable. Status names carry no personal data.
     print("Active participant statuses counted this build:", file=sys.stderr)
     for _name, _n in sorted(ACTIVE_STATUSES_SEEN.items(), key=lambda kv: -kv[1]):
-        print(f"  {_name}: {_n}", file=sys.stderr)
+        # Flag the undeclared ones here too, so this list can be read on its own
+        # without knowing a warning was printed several hundred lines earlier.
+        _flag = "   <-- UNDECLARED, assumed to be a new track" if _name in UNKNOWN_STATUSES else ""
+        print(f"  {_name}: {_n}{_flag}", file=sys.stderr)
 
     # Process mentors
     mentors = []
