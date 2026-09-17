@@ -1,0 +1,72 @@
+{
+  "_comment": [
+    "Registry of WordPress Credits student TRACKS, for the post-graduation tracker (#137).",
+    "",
+    "WHY THIS IS DATA AND NOT CODE: more tracks are coming, and the plugin's Track Builder",
+    "(1.100.0) lets a program manager define one in the WordPress admin with an ARBITRARY",
+    "Learn course URL and an arbitrary track key. There is no slug naming convention to rely",
+    "on - 'wordpress-credits-designer' (no '-track' suffix) is an explicit example in the",
+    "plugin's own tests - and Track Builder stores its definitions as WordPress posts on the",
+    "dashboard site, which this Python job cannot read. So adding a track here is a one-line",
+    "data change with no code change, and scripts/post_grad_snapshot.py warns loudly when it",
+    "meets a track that is missing from this file (see the two canaries in that script).",
+    "",
+    "WHEN A NEW TRACK LAUNCHES: add one entry to 'tracks' with the Learn course slug, the",
+    "track key the plugin uses (WPCPM_Program::track(), or the Track Builder 'key' field),",
+    "and the Airtable status name that students on the track carry while active. All three",
+    "come from the track's Track Builder definition.",
+    "",
+    "The Learn course slug is the last path segment of the course URL, e.g.",
+    "https://learn.wordpress.org/course/wordpress-credits-developer-track/ -> ",
+    "'wordpress-credits-developer-track'. Completing a track course IS the graduation event.",
+    "",
+    "This file holds no personal data: course slugs and status names only."
+  ],
+
+  "tracks": {
+    "wordpress-credits": {
+      "key": "150h",
+      "airtable_status": "In Sensei",
+      "label": "WordPress Credits Program 150h"
+    },
+    "50-hours-wordpress-credits": {
+      "key": "50h",
+      "airtable_status": "In Sensei 50h",
+      "label": "WordPress Credits Program 50h"
+    },
+    "wordpress-credits-developer-track": {
+      "key": "dev",
+      "airtable_status": "Developer Track",
+      "label": "Developer Track"
+    },
+    "wordpress-credits-designer-track": {
+      "key": "design",
+      "airtable_status": "Designer Track",
+      "label": "Designer Track"
+    }
+  },
+
+  "non_track_courses": {
+    "wordpress-credits-mentors-course": "Completed by mentors, not students. Counting it would invent graduates.",
+    "wordpress-campus-connect-organizer-orientation": "Campus Connect, a different programme."
+  },
+
+  "_non_track_statuses_comment": [
+    "Airtable statuses that are NOT a track: a stage or a terminal state. Anything else in",
+    "the status field is treated as a track, which is the polarity that survives new tracks -",
+    "a track added in Airtable is automatically 'not one of these' and gets flagged if it is",
+    "missing from 'tracks' above. 'In Sensei Self-onboarding' is the 150h track's onboarding",
+    "stage, not a track of its own."
+  ],
+  "non_track_statuses": [
+    "Interested",
+    "In Sensei Self-onboarding",
+    "Pending graduation",
+    "Graduate",
+    "Dropped out",
+    "Paused",
+    "Not moving forward",
+    "Fail",
+    "SPAM"
+  ]
+}
