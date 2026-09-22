@@ -377,6 +377,14 @@ class WPCPM_Mentor_Calls {
 			return true;
 		}
 
+		// A group session is the mentor's and a manager's to cancel, never a student's: a student
+		// leaves it instead. Its first attendee row is whoever joined first, not a booking, and
+		// reading it as one let that student cancel the session for everybody (the deep check of
+		// 1.109.1, SESSIONS-1; 1.109.2).
+		if ( self::capacity( $call->ID ) > 1 ) {
+			return false;
+		}
+
 		return (int) get_post_meta( $call->ID, self::META_STUDENT, true ) === (int) $user->ID;
 	}
 
@@ -1569,13 +1577,18 @@ class WPCPM_Mentor_Calls {
 
 			$to_mentor = (int) $person->ID === (int) $facts['mentor_id'];
 			$other     = $to_mentor ? $student : $mentor;
+			// On a group session each student's file names that student alone, as the move notice
+			// does: the first attendee's name and address went to every other student otherwise
+			// (the deep check of 1.109.1, SESSIONS-2; 1.109.2). The mentor's copy keeps the first
+			// attendee, whom the mentor already knows.
+			$named = ( ! $to_mentor && ! empty( $facts['is_group'] ) ) ? $person : $student;
 
 			WPCPM_Mail::send(
 				$person,
 				'call-cancelled',
-				function ( $recipient ) use ( $facts, $by, $to_mentor, $mentor, $student, $other ) {
+				function ( $recipient ) use ( $facts, $by, $to_mentor, $mentor, $named, $other ) {
 					$zone   = WPCPM_Mentor_Availability::viewer_timezone( $recipient->ID );
-					$invite = self::calendar( $facts, WPCPM_ICS::METHOD_CANCEL, $mentor, $student, $recipient );
+					$invite = self::calendar( $facts, WPCPM_ICS::METHOD_CANCEL, $mentor, $named, $recipient );
 					$page   = $to_mentor ? WPCPM_Mentors_Dashboard::page_url() : WPCPM_Students_Dashboard::page_url();
 
 					$lines = array(

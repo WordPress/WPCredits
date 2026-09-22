@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.109.1
+Stable tag: 1.109.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -290,6 +290,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.109.2 =
+
+* A group session may be canceled by its mentor or a program manager only. The student who joined first was offered Cancel beside it under My mentor call, as if it were their own booking, and one press canceled the session for everybody on it; a student leaves a session from the sessions list instead.
+* When a group session is canceled, each student's calendar file names that student and the mentor alone. It carried the first student's name and email address to every other student.
 
 = 1.109.1 =
 

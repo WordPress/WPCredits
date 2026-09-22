@@ -189,7 +189,12 @@ function update_post_meta( $id, $k, $v ) { $GLOBALS['pmeta'][ (int) $id ][ $k ] 
 function add_post_meta( $id, $k, $v, $unique = false ) { $rows = $GLOBALS['pmeta'][ (int) $id ][ $k ] ?? array(); $rows = is_array( $rows ) ? $rows : array(); $rows[] = $v; $GLOBALS['pmeta'][ (int) $id ][ $k ] = $rows; $GLOBALS['pmeta_rows'][ (int) $id ][ $k ] = true; return true; }
 function get_post_time( $f, $gmt = false, $p = null ) { return time(); }
 function wp_mail( $to, $subj, $body, $headers = array(), $attachments = array() ) {
-	$GLOBALS['mail'][] = compact( 'to', 'subj', 'body', 'headers', 'attachments' );
+	// What each attachment holds at send time, since the builder removes the file right after.
+	$contents = array();
+	foreach ( (array) $attachments as $path ) {
+		$contents[ $path ] = is_file( $path ) ? (string) file_get_contents( $path ) : '';
+	}
+	$GLOBALS['mail'][] = compact( 'to', 'subj', 'body', 'headers', 'attachments', 'contents' );
 
 	// Real `wp_mail()` fires one of these, and the plugin's log listens to them rather than
 	// to the return value - so a harness that stayed silent here would exercise the send
@@ -436,6 +441,64 @@ run( 'handle_cancel (existing call)', array( 'WPCPM_Mentor_Calls', 'handle_cance
 
 $_POST = array( 'call' => 4242 );
 run( 'handle_cancel (call that does not exist)', array( 'WPCPM_Mentor_Calls', 'handle_cancel' ) );
+
+// 1.109.2: a group session is the mentor's or a manager's to cancel, never a student's, and a
+// cancellation's calendar file names each student alone (the deep check of 1.109.1, SESSIONS-1
+// and SESSIONS-2). Sam joined first, Pat second.
+$GLOBALS['users'][41]        = new WP_User( 41, 'Pat Student', 'pat@example.test' );
+$GLOBALS['users'][41]->roles = array( WPCPM_Roles::ROLE_STUDENT );
+$GLOBALS['posts'][600]            = new WP_Post();
+$GLOBALS['posts'][600]->ID        = 600;
+$GLOBALS['posts'][600]->post_type = WPCPM_Mentor_Calls::POST_TYPE;
+$GLOBALS['pmeta'][600]            = array(
+	WPCPM_Mentor_Calls::META_MENTOR => 20, WPCPM_Mentor_Calls::META_CAPACITY => 6,
+	WPCPM_Mentor_Calls::META_START => time() + 172800, WPCPM_Mentor_Calls::META_END => time() + 176400,
+	WPCPM_Mentor_Calls::META_ZONE => 'UTC',
+);
+WPCPM_Mentor_Calls::add_attendee( 600, 30, $student_rec );
+WPCPM_Mentor_Calls::add_attendee( 600, 41, 'recSTUDENT4100000' );
+
+$GLOBALS['caps'] = false;
+check( 'a group session may be canceled by its mentor and by nobody who joined it, first or second; a one-to-one call still by its student',
+    array(
+        WPCPM_Mentor_Calls::user_can_cancel( $GLOBALS['posts'][600], $GLOBALS['users'][30] ),
+        WPCPM_Mentor_Calls::user_can_cancel( $GLOBALS['posts'][600], $GLOBALS['users'][41] ),
+        WPCPM_Mentor_Calls::user_can_cancel( $GLOBALS['posts'][600], $GLOBALS['users'][20] ),
+        WPCPM_Mentor_Calls::user_can_cancel( $GLOBALS['posts'][500], $GLOBALS['users'][30] ),
+    ),
+    array( false, false, true, true ) );
+
+$GLOBALS['uid']  = 30;
+$GLOBALS['mail'] = array();
+$_POST           = array( 'call' => 600 );
+run( 'handle_cancel (the first student on a group session)', array( 'WPCPM_Mentor_Calls', 'handle_cancel' ) );
+check( 'the first student\'s press is refused and mails nobody',
+    array( count( $GLOBALS['mail'] ), get_post_meta( 600, WPCPM_Mentor_Calls::META_CANCELLED_BY, true ) ),
+    array( 0, '' ) );
+
+$GLOBALS['uid'] = 20;
+$_POST          = array( 'call' => 600 );
+run( 'handle_cancel (the mentor cancels the group session)', array( 'WPCPM_Mentor_Calls', 'handle_cancel' ) );
+$to_files = array();
+foreach ( $GLOBALS['mail'] as $sent ) {
+	$to_files[ $sent['to'] ] = reset( $sent['contents'] );
+}
+check( 'each student\'s cancellation file names that student and the mentor only, and the mentor is not written to about their own press',
+    array(
+        array_keys( $to_files ),
+        false !== strpos( $to_files['pat@example.test'], 'mailto:pat@example.test' ),
+        false === strpos( $to_files['pat@example.test'], 'student@example.test' ),
+        false === strpos( $to_files['pat@example.test'], 'Sam Student' ),
+        false !== strpos( $to_files['student@example.test'], 'mailto:student@example.test' ),
+        false === strpos( $to_files['student@example.test'], 'pat@example.test' ),
+        false !== strpos( $to_files['pat@example.test'], 'METHOD:CANCEL' ),
+    ),
+    array( array( 'student@example.test', 'pat@example.test' ), true, true, true, true, true, true ) );
+// The session and the second student were this block's alone.
+unset( $GLOBALS['posts'][600], $GLOBALS['pmeta'][600], $GLOBALS['pmeta_rows'][600], $GLOBALS['users'][41] );
+$GLOBALS['mail'] = array();
+$GLOBALS['caps'] = true;
+$GLOBALS['uid']  = 1;
 
 $_POST = array( 'timezone' => 'Europe/Riga' );
 run( 'handle_timezone (valid zone)', array( 'WPCPM_Mentor_Calls', 'handle_timezone' ) );
