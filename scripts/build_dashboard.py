@@ -10,7 +10,7 @@ import re
 import sys
 import time
 import requests
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from pathlib import Path
 
 # Configuration
@@ -1285,6 +1285,15 @@ def main():
     ]
 
     data_blob = {
+        # The UTC date this build read Airtable, shown in the footer as
+        # "Figures as of ...". Without it the page gives no way to tell a fresh
+        # build from a stale one, which is how a normal week's lag got mistaken
+        # for the dashboard having stopped updating. The monthly page has always
+        # stated its own as-of date; this is the same courtesy.
+        #
+        # Date, not timestamp: the figures are a daily-grain snapshot and a
+        # to-the-second time would imply a precision the numbers do not have.
+        "builtAt": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "global": global_stats,
         "translationTotals": translation_totals,
         "growth": growth,
