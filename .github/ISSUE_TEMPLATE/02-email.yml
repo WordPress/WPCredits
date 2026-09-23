@@ -1,0 +1,121 @@
+name: I did not get an email
+description: A booking, cancellation, reminder, invitation or password email never arrived, or arrived wrong.
+title: "[Email]: "
+labels: ["bug", "Website"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The site keeps a record of every email it sends, so we can check whether yours left. First, please search your whole mailbox, **including Spam, Junk, Promotions and Updates**, for `wordpresseducation`. Gmail sometimes adds call invitations straight to Google Calendar too.
+  - type: markdown
+    attributes:
+      value: |
+        **This page is public.** Anyone on the internet can read it. Please do not post passwords, full email addresses, phone numbers or anything about other students. Blur names and emails in screenshots. If we need something private, the program team will ask you in a Slack direct message.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I searched the [open issues](https://github.com/WordPress/WPCredits/issues) and nobody has reported this yet.
+          required: true
+        - label: I removed passwords, full email addresses and other people's personal details from this report.
+          required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Who are you in the program?
+      options:
+        - Student
+        - Mentor
+        - Institution contact
+        - Sponsor
+        - Program team
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: which
+    attributes:
+      label: Which email?
+      options:
+        - Call booked
+        - Call cancelled
+        - Call reminder (the day before)
+        - Group session planned, joined, moved or cancelled
+        - Invitation to the site (set your password)
+        - Password reset
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: problem
+    attributes:
+      label: What happened?
+      options:
+        - It never arrived
+        - It arrived late
+        - It arrived with wrong details (time, name, link)
+        - The link in it does not work
+        - The calendar file does not open
+    validations:
+      required: true
+  - type: input
+    id: address
+    attributes:
+      label: Your email address, masked
+      description: Only the first letter and the part after @, like the site's own log shows it. Never the full address here.
+      placeholder: "f***@gmail.com"
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Email provider
+      options:
+        - Gmail
+        - Outlook, Hotmail or Microsoft 365
+        - Yahoo
+        - iCloud
+        - University or school email
+        - Company email
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Where did you look?
+      options:
+        - label: Inbox
+        - label: Spam or Junk
+        - label: Promotions, Updates or other tabs
+        - label: Calendar
+  - type: input
+    id: who
+    attributes:
+      label: Who was the other person?
+      description: For a call, the mentor's or student's first name, so we can find the booking.
+      placeholder: "e.g. Lisa"
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What you did on the site before the email should have come, and what (if anything) arrived.
+  - type: input
+    id: when
+    attributes:
+      label: When did it happen?
+      description: Date, time and your timezone. This lets us find it in the site's logs.
+      placeholder: "e.g. 23 September 2026, 12:48, Europe/Rome"
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a screen recording
+      description: Drag files here. Blur names and email addresses first.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Error messages copied word for word, a whatsmybrowser.org link, whether it also happens on another device or browser, a link to the Slack thread if you asked there first.

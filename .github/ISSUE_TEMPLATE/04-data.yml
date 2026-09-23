@@ -1,0 +1,87 @@
+name: My information is wrong or missing
+description: Hours, contributions, track, mentor, institution or profile details on a Student or Mentor Report Card are wrong.
+title: "[Data]: "
+labels: ["bug", "Airtable"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The site refreshes program data regularly. If you changed something in the last few hours, please wait a day before reporting it.
+  - type: markdown
+    attributes:
+      value: |
+        **This page is public.** Anyone on the internet can read it. Please do not post passwords, full email addresses, phone numbers or anything about other students. Blur names and emails in screenshots. If we need something private, the program team will ask you in a Slack direct message.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I searched the [open issues](https://github.com/WordPress/WPCredits/issues) and nobody has reported this yet.
+          required: true
+        - label: I removed passwords, full email addresses and other people's personal details from this report.
+          required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Who are you in the program?
+      options:
+        - Student
+        - Mentor
+        - Institution contact
+        - Sponsor
+        - Program team
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: what
+    attributes:
+      label: What is wrong?
+      multiple: true
+      options:
+        - Contribution hours
+        - Contributions or activity from WordPress.org
+        - Track or course progress
+        - Assigned mentor or assigned students
+        - Institution or school
+        - Internship dates
+        - Name, photo or profile link
+        - A student or mentor is listed twice
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Page address (URL)
+      placeholder: "https://wordpresseducation.org/..."
+  - type: input
+    id: username
+    attributes:
+      label: WordPress.org username of the person affected
+      description: Public, so safe to share. For more than one person, list them all.
+    validations:
+      required: true
+  - type: textarea
+    id: shown
+    attributes:
+      label: What the site shows
+    validations:
+      required: true
+  - type: textarea
+    id: correct
+    attributes:
+      label: What it should show
+      description: And where the right value comes from, e.g. a WordPress.org profile page or an email from the program team.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a screen recording
+      description: Drag files here. Blur names and email addresses first.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Error messages copied word for word, a whatsmybrowser.org link, whether it also happens on another device or browser, a link to the Slack thread if you asked there first.

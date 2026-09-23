@@ -1,0 +1,152 @@
+name: Calls and group sessions
+description: Booking, cancelling or joining a mentor call or group session, availability, times or the calendar file.
+title: "[Calls]: "
+labels: ["bug", "Website", "Mentors"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Times are the most common confusion. Please always say which timezone you are in.
+  - type: markdown
+    attributes:
+      value: |
+        **This page is public.** Anyone on the internet can read it. Please do not post passwords, full email addresses, phone numbers or anything about other students. Blur names and emails in screenshots. If we need something private, the program team will ask you in a Slack direct message.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I searched the [open issues](https://github.com/WordPress/WPCredits/issues) and nobody has reported this yet.
+          required: true
+        - label: I removed passwords, full email addresses and other people's personal details from this report.
+          required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Who are you in the program?
+      options:
+        - Student
+        - Mentor
+        - Institution contact
+        - Sponsor
+        - Program team
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: what
+    attributes:
+      label: What were you doing?
+      options:
+        - Booking a one-to-one call
+        - Cancelling a call
+        - Setting my availability (mentor)
+        - Planning a group session or a series (mentor)
+        - Joining or leaving a group session (student)
+        - Adding a call to my calendar
+        - Joining the call itself (meeting link)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: call-time
+    attributes:
+      label: The call's date and time, as the site shows it
+      placeholder: "e.g. September 25, 2026 11:00 am - 11:30 am"
+  - type: input
+    id: timezone
+    attributes:
+      label: Your timezone
+      placeholder: "e.g. Europe/Warsaw"
+    validations:
+      required: true
+  - type: input
+    id: other
+    attributes:
+      label: The other person's first name
+      description: The mentor or student on the call.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What went wrong?
+      description: Copy any message on screen word for word.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+  - type: input
+    id: when
+    attributes:
+      label: When did it happen?
+      description: Date, time and your timezone. This lets us find it in the site's logs.
+      placeholder: "e.g. 23 September 2026, 12:48, Europe/Rome"
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        ### Your device
+        Not sure? Open https://www.whatsmybrowser.org/ on the same device and paste the short link it gives you into "Anything else".
+  - type: dropdown
+    id: device
+    attributes:
+      label: Device
+      options:
+        - Desktop or laptop
+        - Phone
+        - Tablet
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - iOS (iPhone)
+        - iPadOS (iPad)
+        - Android
+        - ChromeOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: Operating system version
+      placeholder: "e.g. Windows 11, macOS 15.2, Android 14, iOS 18.1"
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Safari
+        - Firefox
+        - Edge
+        - Opera
+        - Brave
+        - Samsung Internet
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser version
+      description: In most browsers, open the menu, then Help or About.
+      placeholder: "e.g. Chrome 129"
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a screen recording
+      description: Drag files here. Blur names and email addresses first.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Error messages copied word for word, a whatsmybrowser.org link, whether it also happens on another device or browser, a link to the Slack thread if you asked there first.

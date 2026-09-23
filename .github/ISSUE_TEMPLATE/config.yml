@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Student guide
+    url: https://wordpresseducation.org/student-guide/
+    about: How the Student Report Card, calls and hours work. Many answers are here.
+  - name: Mentor guide
+    url: https://wordpresseducation.org/mentor-guide/
+    about: My Students, availability, calls and group sessions.
+  - name: A question, not a problem? Ask on Slack
+    url: https://wordpress.slack.com/archives/C0959D2M3T8
+    about: Students ask in the student channel, mentors in the mentor channel. Report problems here on GitHub.

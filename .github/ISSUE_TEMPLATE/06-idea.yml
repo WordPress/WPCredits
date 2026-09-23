@@ -1,0 +1,78 @@
+name: Suggest an improvement
+description: An idea that would make the site or the program work better for you.
+title: "[Idea]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. Tell us the problem first, then your solution: there may be more than one way to solve it.
+  - type: markdown
+    attributes:
+      value: |
+        **This page is public.** Anyone on the internet can read it. Please do not post passwords, full email addresses, phone numbers or anything about other students. Blur names and emails in screenshots. If we need something private, the program team will ask you in a Slack direct message.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I searched the [open issues](https://github.com/WordPress/WPCredits/issues) and nobody has reported this yet.
+          required: true
+        - label: I removed passwords, full email addresses and other people's personal details from this report.
+          required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Who are you in the program?
+      options:
+        - Student
+        - Mentor
+        - Institution contact
+        - Sponsor
+        - Program team
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      options:
+        - Student Report Card
+        - Mentor Report Card (My Students)
+        - Calls and group sessions
+        - Emails
+        - Institution Dashboard
+        - Sponsor Dashboard
+        - Guides
+        - The program itself
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      placeholder: "When I ..., I have to ..., which ..."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+    validations:
+      required: true
+  - type: textarea
+    id: who
+    attributes:
+      label: Who else would it help?
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a screen recording
+      description: Drag files here. Blur names and email addresses first.
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Error messages copied word for word, a whatsmybrowser.org link, whether it also happens on another device or browser, a link to the Slack thread if you asked there first.
