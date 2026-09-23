@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.110.2
+Stable tag: 1.110.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.110.3 =
+
+* On the Student Report Card, a single-line answer box on a row of its own now runs the full width of the row, like the longer answers. It used to sit in a narrow column.
 
 = 1.110.2 =
 

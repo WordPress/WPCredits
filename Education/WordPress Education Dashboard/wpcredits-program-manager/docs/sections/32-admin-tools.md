@@ -406,29 +406,17 @@ until **Publish the changes** is pressed.
 
 #### The four built-in tracks
 
-The 150-hour, 50-hour, Developer and Designer tracks run from forms written in the plugin's code. Each
-has a definition in the Track Builder, shown as *Live, from its hand-written form*, and the line under
-the state says whether that definition is published yet and, once it is, whether it is identical to
-the form. Moving one onto its definition takes three steps, and students see no change at any of
-them:
+The 150-hour, 50-hour, Developer and Designer tracks were written into the plugin's code, and each
+has a definition in the Track Builder. Since 22 September 2026 all four run from their definitions:
+their Runs from column reads *Its definition*, their state reads *Published*, and you edit, preview
+and publish them like any track you make. The hand-written forms stay in the plugin only as a fallback until the Track Builder's last
+phase removes them.
 
-1. **Publish definition**. Until then the line under the state reads *Its definition is not published
-   yet*. If a plugin update changed the form since the definition was made, the row also offers
-   **Refresh from the plugin**: press that first, since a definition that differs from its
-   hand-written form cannot be published. The preflight should find nothing to create, because every
-   column and both choices exist already; that empty preflight is the proof that the definition
-   matches the base. The three checklist items were done for these four tracks long ago, so tick them
-   as done.
-2. Read the line under the state again. *Identical to its hand-written form.* is what you want, and
-   only then is **Run from its definition** offered.
-3. **Run from its definition**. From then on the Student Report Card draws the form from the
-   definition, and the notice says that what students see has not changed, which is what let it
-   switch. **Run from its hand-written form** puts it back the same way, as long as the definition
-   has not been edited since the switch.
-
-Do this for all four before asking for the hand-written forms to be removed from the plugin. Until a
-built-in track has switched, it cannot be edited here: it can be duplicated, previewed and read in
-History, and its course read again.
+**Run from its hand-written form** puts a track back onto the code's form, as long as its definition
+has not been edited since the switch, and students see no change either way. The way back onto the
+definition is the same three steps used in September: publish the definition (the preflight finds
+nothing to create, because every column and both choices exist), wait for the line under the state
+to read *Identical to its hand-written form.*, then press **Run from its definition**.
 
 ### Need help?
 

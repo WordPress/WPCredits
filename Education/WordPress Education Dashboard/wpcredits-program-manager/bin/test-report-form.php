@@ -1225,11 +1225,15 @@ ck( 'the second project summary is in the stacked column, not loose in the group
 // is the form's whole layout rule. A control type missing from that CSS list becomes a narrow cell
 // with whatever fits beside it - how the alumni address first rendered.
 //
-// Fields inside a pair are exempt: the pair sets its own columns, which is why `Slack Name` can be
-// a plain text box without a full-width rule.
+// Fields inside a pair are exempt: the pair sets its own columns, which is why `Slack Name` keeps
+// its half beside the profile link.
 // `select` and `image` join the list with the Designer Track: a `<select>` is short, but the
 // question above it is not, and a screenshot's thumbnail and its two buttons need the row.
-$full_width = array( 'textarea', 'richtext', 'url', 'email', 'checkbox', 'team', 'select', 'image' );
+// `text` joins it in 1.110.3. It was left out because the one built-in text question, `Slack Name`,
+// sits in a pair on every track; the Track Builder can place a text question by itself, and there
+// it sat in one 13em column, a short box under a full-sentence question, on the card and in the
+// preview alike. `number` stays out on purpose, several marks to a row, and so would a `date`.
+$full_width = array( 'text', 'textarea', 'richtext', 'url', 'email', 'checkbox', 'team', 'select', 'image' );
 $css        = file_get_contents( __DIR__ . '/../assets/css/calendar.css' );
 $missing    = array();
 
@@ -1247,11 +1251,35 @@ foreach ( array( '150h', '50h', 'dev', 'design' ) as $track ) {
 
 ck( 'every control type is either a number or laid out full width', $missing, array() );
 
-foreach ( $full_width as $type ) {
-	ck( sprintf( 'the %s control has its full-width rule', $type ),
-	    false !== strpos( $css, '.wpcpm-report__group > .wpcpm-field--' . $type . ',' )
-	        || false !== strpos( $css, '.wpcpm-report__group > .wpcpm-field--' . $type . ' {' ), true );
+// The four forms are not the whole story. A Track Builder question can be any control the
+// definition allows, placed by itself, so the list has to cover all of them, not only the ones
+// the built-in forms happen to leave outside a pair.
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
+
+ck( 'and so is every control a Track Builder question can be', array_values( array_diff( WPCPM_Track_Definition::TYPES, array( 'number' ), $full_width ) ), array() );
+
+// Read from the rule that gives the row, not from anywhere in the sheet: the one rule whose
+// selectors are all direct children of the group and whose body sets `grid-column: 1 / -1`.
+$spanning = array();
+
+preg_match_all( '/((?:\.wpcpm-report__group > \.wpcpm-field--[a-z]+\s*,\s*)*\.wpcpm-report__group > \.wpcpm-field--[a-z]+)\s*\{([^}]*)\}/', $css, $rules, PREG_SET_ORDER );
+
+foreach ( $rules as $rule ) {
+	if ( preg_match( '#grid-column:\s*1\s*/\s*-1\s*;#', $rule[2] ) ) {
+		preg_match_all( '/\.wpcpm-field--([a-z]+)/', $rule[1], $named );
+		$spanning[] = $named[1];
+	}
 }
+
+ck( 'one rule gives a field the group places itself the whole row', count( $spanning ), 1 );
+
+$spans = isset( $spanning[0] ) ? $spanning[0] : array();
+
+foreach ( $full_width as $type ) {
+	ck( sprintf( 'the %s control has its full-width rule', $type ), in_array( $type, $spans, true ), true );
+}
+
+ck( 'and no short control is in it: no number, no date', array_values( array_intersect( array( 'number', 'date' ), $spans ) ), array() );
 
 echo "\n=== What an institution's copy of the card leaves out ===\n";
 

@@ -992,10 +992,15 @@
    That is also the shape of the Airtable form this replaces, where every question of any
    length has a row to itself.
 
+   A single line of text takes the row as well (1.110.3), because a short box under a
+   full-sentence question reads as an empty field; the text questions inside a pair keep their
+   halves. The reader's copy of the answer carries the same class, so it takes the row with it.
+
    **Direct children only.** As a descendant rule this also caught the fields inside a pair,
    where it told each of them to span the pair - so the two halves stacked and the pair was a
    pair in the markup only. A pair sets its own columns; this is for the fields the group
    places itself. */
+.wpcpm-report__group > .wpcpm-field--text,
 .wpcpm-report__group > .wpcpm-field--textarea,
 .wpcpm-report__group > .wpcpm-field--richtext,
 .wpcpm-report__group > .wpcpm-field--url,
