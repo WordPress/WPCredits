@@ -250,6 +250,7 @@ class WPCPM_Institution_Export {
 	public static function csv( array $matrix ) { $out = "\xEF\xBB\xBF"; foreach ( $matrix as $row ) { $out .= implode( ',', array_map( array( __CLASS__, 'cell' ), $row ) ) . "\r\n"; } return $out; }
 }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/../includes/class-wpcpm-secret.php';
 require_once __DIR__ . '/../includes/class-wpcpm-refusal-meter.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
@@ -601,7 +602,7 @@ ck( 'a pool can be created with its codes in one step, and the flash says how ma
 $offers_now = count( WPCPM_Sponsor_Offers::offers_of( $A ) );
 $r = post( array( 'wpcpm_sponsor' => $A, 'wpcpm_offer' => 0, 'wpcpm_title' => 'Pool with a bad paste', 'wpcpm_kind' => 'codes', 'wpcpm_codes' => "R-1\nR-1", 'wpcpm_text' => '', 'wpcpm_instructions' => '', 'wpcpm_url' => '', 'wpcpm_low' => '', 'wpcpm_expires' => '' ), array( 'WPCPM_Sponsor_Offers', 'handle_save' ) );
 ck( 'a bad paste at creation names the line and creates no offer at all', array( $r[0], $r[3], count( WPCPM_Sponsor_Offers::offers_of( $A ) ) ), array( 'offer-rejected', 'Line 2 repeats line 1.', $offers_now ) );
-$_FILES = array( 'wpcpm_codes_file' => array( 'name' => 'codes.csv', 'type' => 'text/csv', 'tmp_name' => tempnam( sys_get_temp_dir(), 'wpcpm' ), 'error' => UPLOAD_ERR_OK, 'size' => 12 ) );
+$_FILES = array( 'wpcpm_codes_file' => array( 'name' => 'codes.csv', 'type' => 'text/csv', 'tmp_name' => wpcpm_test_tempnam( 'wpcpm' ), 'error' => UPLOAD_ERR_OK, 'size' => 12 ) );
 $upload = WPCPM_Sponsor_Offers::uploaded_codes_text();
 ck( 'a file PHP did not receive as an upload is refused, not read', array( is_wp_error( $upload ), $upload->get_error_code() ), array( true, 'wpcpm_codes_upload' ) );
 $_FILES['wpcpm_codes_file']['name'] = 'codes.pdf';

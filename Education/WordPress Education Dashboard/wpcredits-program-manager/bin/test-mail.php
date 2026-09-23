@@ -72,7 +72,9 @@ function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function get_bloginfo( $k = 'name' ) { return 'WordPress Education Dashboard'; }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
-function get_temp_dir() { return sys_get_temp_dir() . '/'; }
+// This run's own folder (bin/stubs/temp-dir.php): the calendar files the mail path attaches are
+// written in it, and whatever a check leaves there goes when the run ends.
+function get_temp_dir() { return wpcpm_test_temp_dir(); }
 function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
 function wp_generate_password( $l = 12, $s = true, $e = false ) { return substr( md5( (string) mt_rand() ), 0, (int) $l ); }
 function wp_delete_file( $p ) { if ( file_exists( $p ) ) { unlink( $p ); } }
@@ -92,6 +94,7 @@ function get_post_time( $f, $gmt = false, $post = null ) { return 1785000000; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
 function number_format_i18n( $n ) { return (string) $n; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
 function wp_timezone_string() { return 'UTC'; }

@@ -68,7 +68,6 @@ $GLOBALS['nonce']       = array();
 $GLOBALS['nonce_held']  = null;
 $GLOBALS['hooks']       = array();
 $GLOBALS['referer']     = '';
-$GLOBALS['temp_files']  = array();
 $GLOBALS['post_types']  = array();
 $GLOBALS['settings']    = array(
 	'sponsors_table'            => 'tbluji8wknOZr55fa',
@@ -312,6 +311,7 @@ class WPCPM_Sponsors_Dashboard {
 }
 
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/../includes/class-wpcpm-request.php';
 require_once __DIR__ . '/../includes/class-wpcpm-pdf-check.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
@@ -348,16 +348,15 @@ function pdf_bytes( $extra = '' ) {
 }
 
 /**
- * A real file on disk, removed at the end of the run.
+ * A real file on disk, in this run's own folder, which goes when the run ends.
  *
  * @param string $bytes     What to write.
  * @param string $extension The extension, without the dot.
  * @return string Path.
  */
 function temp_file( $bytes, $extension = 'pdf' ) {
-	$path = tempnam( sys_get_temp_dir(), 'wpcpm-sagr-' ) . '.' . $extension;
+	$path = wpcpm_test_tempnam( 'wpcpm-sagr-', $extension );
 	file_put_contents( $path, $bytes );
-	$GLOBALS['temp_files'][] = $path;
 
 	return $path;
 }
@@ -1140,10 +1139,6 @@ ck( 'wp_handle_upload() is never called', preg_match( '/wp_handle_upload|move_up
 ck( '$_FILES is read in one helper and nowhere else', substr_count( method_with_doc( $source, 'uploaded_file' ), '$_FILES' ), substr_count( $source, '$_FILES' ) );
 ck( 'the download is the only action with a nopriv arm', substr_count( $source, "'admin_post_nopriv_'" ), 1 );
 ck( 'and the scan is the extraction\'s, not a second copy', preg_match( '/function (decode_names|names_contain|inflated_streams|inflate)\(/', $source ), 0 );
-
-foreach ( $GLOBALS['temp_files'] as $temp ) {
-	if ( is_file( $temp ) ) { unlink( $temp ); }
-}
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

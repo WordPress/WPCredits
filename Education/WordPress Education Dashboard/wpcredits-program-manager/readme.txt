@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.110.0
+Stable tag: 1.110.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.110.1 =
+
+* For developers: every test suite keeps its temporary files in a folder of its own and removes it when it ends, and a new checker, `php bin/check-temp-litter.php`, proves the battery leaves the temp directory as it found it.
 
 = 1.110.0 =
 

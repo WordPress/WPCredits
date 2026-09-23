@@ -29,11 +29,15 @@ define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'HOUR_IN_SECONDS', 3600 );
 
+// The uploads directory lives in this run's own folder, which goes with everything the store
+// wrote when the run ends, however it ends (bin/stubs/temp-dir.php).
+require_once __DIR__ . '/stubs/temp-dir.php';
+
 $GLOBALS['opts']     = array();
 $GLOBALS['autoload'] = array();
 $GLOBALS['head']     = array( 'response' => array( 'code' => 403 ) );
 $GLOBALS['heads']    = array();
-$GLOBALS['uploads']  = rtrim( sys_get_temp_dir(), '/' ) . '/wpcpm-private-test-' . getmypid();
+$GLOBALS['uploads']  = wpcpm_test_temp_dir() . 'uploads';
 
 class WP_Error {
 	private $code;
@@ -107,20 +111,6 @@ function ck( $label, $actual, $expected = true ) {
 		echo '       expected: ' . var_export( $expected, true ) . "\n       actual:   " . var_export( $actual, true ) . "\n";
 	}
 }
-function rmrf( $dir ) {
-	if ( ! is_dir( $dir ) ) {
-		return;
-	}
-	foreach ( scandir( $dir ) as $item ) {
-		if ( '.' === $item || '..' === $item ) {
-			continue;
-		}
-		$path = $dir . '/' . $item;
-		is_dir( $path ) ? rmrf( $path ) : unlink( $path );
-	}
-	rmdir( $dir );
-}
-register_shutdown_function( function () { rmrf( $GLOBALS['uploads'] ); } );
 
 /* ---- the directory ------------------------------------------------------ */
 

@@ -42,7 +42,6 @@ $GLOBALS['audit']       = array();
 $GLOBALS['ceiling']     = array();
 $GLOBALS['nonce']       = array();
 $GLOBALS['hooks']       = array();
-$GLOBALS['temp_files']  = array();
 $GLOBALS['patch_fails'] = false;
 $GLOBALS['settings']    = array( 'sponsors_table' => 'tbluji8wknOZr55fa', 'logo_max_kb' => 1024 );
 
@@ -79,7 +78,9 @@ function absint( $n ) { return abs( (int) $n ); }
 function wp_unslash( $v ) { return $v; }
 function number_format_i18n( $n ) { return (string) $n; }
 function wp_json_encode( $v ) { return json_encode( $v ); }
-function get_temp_dir() { return sys_get_temp_dir() . '/'; }
+// This run's own folder (bin/stubs/temp-dir.php): the image handler's copies land in it, the
+// fixtures and the uploads folder too, and all of it goes when the run ends.
+function get_temp_dir() { return wpcpm_test_temp_dir(); }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function wp_nonce_field( $a ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $a ) . '" />'; }
 function check_admin_referer( $a ) { $GLOBALS['nonce'][] = $a; return true; }
@@ -91,7 +92,7 @@ function get_user_meta( $id, $k, $single = false ) { return isset( $GLOBALS['ume
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; return true; }
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
-function wp_upload_dir() { $dir = sys_get_temp_dir() . '/wpcpm-logo-uploads-' . getmypid(); if ( ! is_dir( $dir ) ) { mkdir( $dir ); } return array( 'path' => $dir, 'url' => 'https://example.test/uploads', 'error' => false ); }
+function wp_upload_dir() { $dir = wpcpm_test_temp_dir() . 'uploads'; if ( ! is_dir( $dir ) ) { mkdir( $dir ); } return array( 'path' => $dir, 'url' => 'https://example.test/uploads', 'error' => false ); }
 function wp_unique_filename( $dir, $name ) { $i = 0; $try = $name; while ( file_exists( $dir . '/' . $try ) ) { $try = preg_replace( '/(\.[a-z]+)$/', '-' . ( ++$i ) . '$1', $name ); } return $try; }
 function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false ) { $id = 200 + count( $GLOBALS['attachments'] ); $GLOBALS['attachments'][ $id ] = array_merge( $a, array( 'file' => $file ) ); return $id; }
 function wp_generate_attachment_metadata( $id, $file ) { return array( 'file' => basename( $file ) ); }
@@ -148,6 +149,7 @@ class WPCPM_Sponsors_Dashboard {
 }
 
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/../includes/class-wpcpm-request.php';
 require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-sponsor-members.php';
@@ -206,11 +208,10 @@ function method_body( $source, $name ) {
  * @return string Path.
  */
 function png( $w, $h ) {
-	$p  = tempnam( sys_get_temp_dir(), 'wpcpm-logo-' ) . '.png';
+	$p  = wpcpm_test_tempnam( 'wpcpm-logo-', 'png' );
 	$im = imagecreatetruecolor( $w, $h );
 	imagefill( $im, 0, 0, imagecolorallocate( $im, 200, 30, 30 ) );
 	imagepng( $im, $p );
-	$GLOBALS['temp_files'][] = $p;
 
 	return $p;
 }
@@ -221,9 +222,8 @@ function png( $w, $h ) {
  * @return string Path.
  */
 function fake_svg() {
-	$p = tempnam( sys_get_temp_dir(), 'wpcpm-logo-' ) . '.png';
+	$p = wpcpm_test_tempnam( 'wpcpm-logo-', 'png' );
 	file_put_contents( $p, '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="300" height="100"><script>alert(1)</script></svg>' );
-	$GLOBALS['temp_files'][] = $p;
 
 	return $p;
 }
@@ -431,10 +431,6 @@ ck( 'the ceiling is claimed after the form is found to carry a file and before o
 ), array( true, true ) );
 ck( 'and nothing is stored before every file is accepted', strpos( $src, 'WPCPM_Image_Upload::accept' ) < strpos( $src, 'WPCPM_Image_Upload::store' ), true );
 ck( 'every string a person reads says color', preg_match( '/\bcolour\b/', preg_replace( "/'colour'/", '', $src ) ), 0 );
-
-foreach ( $GLOBALS['temp_files'] as $temp ) {
-	if ( is_file( $temp ) ) { unlink( $temp ); }
-}
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

@@ -174,6 +174,7 @@ function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
 function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; }
 function get_users( $a = array() ) {
 	if ( isset( $a['meta_key'] ) ) {
@@ -342,42 +343,14 @@ function wp_mail( $to, $subj, $body, $headers = array(), $attachments = array() 
  * about mail - which is how their absence was found.
  *
  * The temporary directory is this run's own, made the first time it is asked for and removed
- * with what it holds when the run ends. `wp_generate_password()` below answers the same
- * characters every time, so every calendar file lands in one directory named after them: in
- * the system temp directory, which every run at the same time shares, a second run of this
- * suite wrote, read and deleted the same files and the calendar checks read the other run's
- * or none (the final fix wave, item 1, found by its proof).
+ * with what it holds when the run ends (bin/stubs/temp-dir.php). `wp_generate_password()` below
+ * answers the same characters every time, so every calendar file lands in one directory named
+ * after them: in the system temp directory, which every run at the same time shares, a second
+ * run of this suite wrote, read and deleted the same files and the calendar checks read the
+ * other run's or none (the final fix wave, item 1, found by its proof).
  */
 function get_temp_dir() {
-	$dir = sys_get_temp_dir() . '/wpcpm-handlers-tmp-' . getmypid() . '/';
-
-	if ( ! is_dir( $dir ) ) {
-		mkdir( $dir, 0700, true );
-		register_shutdown_function( 'remove_temp_tree', $dir );
-	}
-
-	return $dir;
-}
-
-/**
- * Remove a directory and everything in it.
- *
- * @param string $dir The directory.
- */
-function remove_temp_tree( $dir ) {
-	if ( ! is_dir( $dir ) ) {
-		return;
-	}
-
-	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST ) as $entry ) {
-		if ( $entry->isDir() ) {
-			rmdir( $entry->getPathname() );
-		} else {
-			unlink( $entry->getPathname() );
-		}
-	}
-
-	rmdir( $dir );
+	return wpcpm_test_temp_dir();
 }
 function wp_mkdir_p( $dir ) { return is_dir( $dir ) || mkdir( $dir, 0777, true ); }
 function wp_generate_password( $len = 12, $special = true, $extra = false ) {

@@ -83,7 +83,6 @@ $GLOBALS['index_rows']  = array();
 $GLOBALS['filetype']    = null;
 $GLOBALS['settings']    = array();
 $GLOBALS['countries']   = array();
-$GLOBALS['temp_files']  = array();
 $GLOBALS['queries']     = array();
 $GLOBALS['lock_claims'] = 0;
 $GLOBALS['lock_steal']  = 0;
@@ -266,6 +265,7 @@ function add_query_arg( $args, $url = '' ) { return $url . ( false === strpos( $
 function nocache_headers() { $GLOBALS['journal'][] = 'nocache'; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function wp_get_current_user() { return $GLOBALS['users'][ $GLOBALS['uid'] ] ?? new WP_User( 0 ); }
 function get_userdata( $id ) { return $GLOBALS['users'][ (int) $id ] ?? false; }
@@ -875,7 +875,7 @@ function flashed() {
 }
 
 /**
- * Write a file into the system temporary directory and remember it for cleanup.
+ * Write a file into this run's own temporary folder, which goes when the run ends.
  *
  * Real files, because `filesize()`, `is_readable()` and `finfo_file()` are what the handler
  * asks about them and none of those can be stubbed.
@@ -884,9 +884,8 @@ function flashed() {
  * @return string The path.
  */
 function temp_file( $bytes ) {
-	$path = tempnam( sys_get_temp_dir(), 'wpcpm' );
+	$path = wpcpm_test_tempnam( 'wpcpm' );
 	file_put_contents( $path, $bytes );
-	$GLOBALS['temp_files'][] = $path;
 	return $path;
 }
 
@@ -2796,10 +2795,6 @@ ck( 'and every check runs before anything is stored', array(
 	strpos( $upload, 'self::inspect_pdf' ) < strpos( $upload, 'WPCPM_Private_Files::store' ),
 ), array( true, true, true, true ) );
 ck( 'and the fence before the ceiling', strpos( $upload, 'WPCPM_Institution_Policy::decide' ) < strpos( $upload, 'WPCPM_Ceiling::claim' ), true );
-
-foreach ( $GLOBALS['temp_files'] as $temp ) {
-	unlink( $temp );
-}
 
 
 /* ---- nothing in the option is prose ------------------------------------- */

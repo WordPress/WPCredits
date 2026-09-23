@@ -33,7 +33,7 @@ if ( 'cli' !== PHP_SAPI ) {
 
 define( 'ABSPATH', __DIR__ . '/' );
 
-$GLOBALS['temp_files'] = array();
+require_once __DIR__ . '/stubs/temp-dir.php';
 
 /**
  * WordPress's own name-and-type map, reimplemented over the real finfo, as
@@ -80,16 +80,15 @@ function ck( $label, $actual, $expected ) {
 }
 
 /**
- * A real file on disk, removed at the end of the run.
+ * A real file on disk, in this run's own folder, which goes when the run ends.
  *
  * @param string $bytes     What to write.
  * @param string $extension The extension, without the dot.
  * @return string The path.
  */
 function temp_file( $bytes, $extension = 'pdf' ) {
-	$path = tempnam( sys_get_temp_dir(), 'wpcpm-pdf-' ) . '.' . $extension;
+	$path = wpcpm_test_tempnam( 'wpcpm-pdf-', $extension );
 	file_put_contents( $path, $bytes );
-	$GLOBALS['temp_files'][] = $path;
 
 	return $path;
 }
@@ -232,10 +231,6 @@ ck( 'and never moves a file on the strength of its claimed type', preg_match( '/
 $agreement = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-institution-agreement.php' );
 ck( 'the institution class holds no copy of the scan any more', preg_match( '/function (decode_names|names_contain|inflated_streams|inflate)\(/', $agreement ), 0 );
 ck( 'and reaches the scanner through the extraction', substr_count( $agreement, 'WPCPM_Pdf_Check::' ) >= 4, true );
-
-foreach ( $GLOBALS['temp_files'] as $temp ) {
-	if ( is_file( $temp ) ) { unlink( $temp ); }
-}
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

@@ -50,6 +50,8 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 
+require_once __DIR__ . '/stubs/temp-dir.php';
+
 // Cron, recorded rather than run: activation schedules the ceiling's sweep, and uninstall
 // clears it, so both need somewhere to land.
 function wp_next_scheduled( $hook ) {
@@ -79,7 +81,9 @@ $GLOBALS['head']    = array( 'response' => array( 'code' => 403 ) );
 $GLOBALS['referer'] = array();
 $GLOBALS['calls']   = array();
 $GLOBALS['loaded']  = 0;
-$GLOBALS['uploads'] = sys_get_temp_dir() . '/wpcpm-screen-test-' . getmypid();
+// Under this run's own folder (bin/stubs/temp-dir.php), which goes with everything the storage
+// card's checks write there when the run ends, however it ends.
+$GLOBALS['uploads'] = wpcpm_test_temp_dir() . 'uploads';
 
 // The live membership half of the backstop counts: who acts for each institution, and every
 // institution the screen asked about.
@@ -2983,13 +2987,6 @@ ck( 'and takes the semester reports and their leftovers with it', array(
 	in_array( 'delete_metadata:' . WPCPM_Semester_Report_Screen::META_STASH, $names, true ),
 	in_array( 'unschedule:' . WPCPM_Semester_Report_Screen::CRON_AUTODRAFT, $names, true ),
 ), array( true, true, true, true, true, true, true ) );
-
-/* ---- clean up ----------------------------------------------------------- */
-
-foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $GLOBALS['uploads'], FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST ) as $item ) {
-	$item->isDir() && ! $item->isLink() ? rmdir( $item->getPathname() ) : unlink( $item->getPathname() );
-}
-rmdir( $GLOBALS['uploads'] );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

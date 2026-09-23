@@ -65,7 +65,6 @@ $GLOBALS['enqueued']    = array();
 $GLOBALS['nocache']     = 0;
 $GLOBALS['on_page']     = 0;
 $GLOBALS['attachments'] = array();
-$GLOBALS['temp_files']  = array();
 $GLOBALS['store_fails'] = false;
 
 class WP_Error {
@@ -121,6 +120,7 @@ function wp_register_script( $h, $s, $d = array(), $v = false, $f = false ) {}
 function wp_enqueue_style( $h ) { $GLOBALS['enqueued'][] = $h; }
 function wp_enqueue_script( $h ) { $GLOBALS['enqueued'][] = $h; }
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
@@ -134,43 +134,18 @@ function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u
 function trailingslashit( $s ) { return rtrim( (string) $s, '/' ) . '/'; }
 
 /**
- * This run's own temporary directory, made the first time it is asked for and removed with what
- * it holds when the run ends. The image handler writes its copies here, and three checks below
+ * This run's own temporary directory, removed with what it holds when the run ends
+ * (bin/stubs/temp-dir.php). The image handler writes its copies here, and three checks below
  * count them: in the system temp directory, which every suite running at the same time shares,
- * the sweep deleted another run's copies and the counts counted them (the final fix wave, item 1).
+ * a sweep deleted another run's copies and the counts counted them (the final fix wave, item 1).
+ * The fixtures and the uploads folder live in it too, so nothing this suite writes outlives it,
+ * and a folder an earlier run under this process ID left behind is cleared before the first
+ * use, so the counts count this run's copies and nobody else's.
  *
  * @return string With a trailing slash, as core's.
  */
 function get_temp_dir() {
-	$dir = sys_get_temp_dir() . '/wpcpm-sapp-tmp-' . getmypid() . '/';
-
-	if ( ! is_dir( $dir ) ) {
-		mkdir( $dir, 0700, true );
-		register_shutdown_function( 'remove_temp_tree', $dir );
-	}
-
-	return $dir;
-}
-
-/**
- * Remove a directory and everything in it.
- *
- * @param string $dir The directory.
- */
-function remove_temp_tree( $dir ) {
-	if ( ! is_dir( $dir ) ) {
-		return;
-	}
-
-	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST ) as $entry ) {
-		if ( $entry->isDir() ) {
-			rmdir( $entry->getPathname() );
-		} else {
-			unlink( $entry->getPathname() );
-		}
-	}
-
-	rmdir( $dir );
+	return wpcpm_test_temp_dir();
 }
 
 function add_query_arg( ...$args ) {
@@ -293,7 +268,7 @@ function get_posts( $a = array() ) {
 
 // The Media Library, in miniature: the image handler's store() writes a real file into a
 // temporary uploads directory and records the attachment here.
-function wp_upload_dir() { $dir = sys_get_temp_dir() . '/wpcpm-sapp-uploads-' . getmypid(); if ( ! is_dir( $dir ) ) { mkdir( $dir ); } return array( 'path' => $dir, 'url' => 'https://example.test/uploads', 'error' => false ); }
+function wp_upload_dir() { $dir = wpcpm_test_temp_dir() . 'uploads'; if ( ! is_dir( $dir ) ) { mkdir( $dir ); } return array( 'path' => $dir, 'url' => 'https://example.test/uploads', 'error' => false ); }
 function wp_unique_filename( $dir, $name ) { $i = 0; $try = $name; while ( file_exists( $dir . '/' . $try ) ) { $try = preg_replace( '/(\.[a-z]+)$/', '-' . ( ++$i ) . '$1', $name ); } return $try; }
 function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false ) {
 	if ( ! empty( $GLOBALS['store_fails'] ) ) { return new WP_Error( 'wpcpm_test_attach', 'refused' ); }
@@ -315,12 +290,6 @@ function wp_get_image_editor( $path ) { return new WPCPM_Test_Editor( $path ); }
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
-
-// Three checks below count the image handler's temporary copies in this run's temporary
-// directory, so a copy an earlier run of this process ID left behind must not be counted here.
-foreach ( glob( get_temp_dir() . 'wpcpm-image-*' ) as $leftover ) {
-	if ( is_file( $leftover ) ) { unlink( $leftover ); }
-}
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -488,20 +457,18 @@ function answers( array $overrides = array() ) {
 
 /** A real PNG on disk. */
 function png( $w, $h ) {
-	$p  = tempnam( sys_get_temp_dir(), 'wpcpm-sapp-' ) . '.png';
+	$p  = wpcpm_test_tempnam( 'wpcpm-sapp-', 'png' );
 	$im = imagecreatetruecolor( $w, $h );
 	imagefill( $im, 0, 0, imagecolorallocate( $im, 30, 30, 200 ) );
 	imagepng( $im, $p );
-	$GLOBALS['temp_files'][] = $p;
 
 	return $p;
 }
 
 /** A file that claims to be a PNG and is an SVG. */
 function fake_svg() {
-	$p = tempnam( sys_get_temp_dir(), 'wpcpm-sapp-' ) . '.png';
+	$p = wpcpm_test_tempnam( 'wpcpm-sapp-', 'png' );
 	file_put_contents( $p, '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="300" height="100"><script>alert(1)</script></svg>' );
-	$GLOBALS['temp_files'][] = $p;
 
 	return $p;
 }
@@ -1711,13 +1678,6 @@ delete_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED );
 delete_option( WPCPM_Sponsor_Application::OPT_BACKFILL );
 WPCPM_Sponsor_Application::maybe_backfill_decided();
 ck( 'the one-time backfill stamps a decided row that predates the meta from its history, and marks itself done', array( (int) get_post_meta( $d2, WPCPM_Sponsor_Application::META_DECIDED, true ) > 0, get_option( WPCPM_Sponsor_Application::OPT_BACKFILL ) ), array( true, 1 ) );
-
-foreach ( $GLOBALS['temp_files'] as $temp ) {
-	if ( is_file( $temp ) ) { unlink( $temp ); }
-}
-foreach ( glob( sys_get_temp_dir() . '/wpcpm-sapp-uploads-' . getmypid() . '/*' ) as $stored_file ) {
-	unlink( $stored_file );
-}
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

@@ -42,7 +42,6 @@ $GLOBALS['patched']     = array();
 $GLOBALS['ceiling']     = array();
 $GLOBALS['nonce']       = array();
 $GLOBALS['nonce_fails'] = false;
-$GLOBALS['temp_files']  = array();
 $GLOBALS['patch_fails'] = false;
 // `wp_delete_attachment()` returns false when the row will not go; the handler has to notice.
 $GLOBALS['delete_fails'] = false;
@@ -85,7 +84,9 @@ function wp_unslash( $v ) { return $v; }
 function number_format_i18n( $n, $d = 0 ) { return (string) round( $n, $d ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function wp_generate_password( $len = 12, $special = true, $extra = false ) { return substr( str_repeat( 'abc123', 10 ), 0, (int) $len ); }
-function get_temp_dir() { return sys_get_temp_dir() . '/'; }
+// This run's own folder (bin/stubs/temp-dir.php): the image handler's copies land in it, the
+// fixtures and the uploads folder too, and all of it goes when the run ends.
+function get_temp_dir() { return wpcpm_test_temp_dir(); }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function apply_filters( $t, $v ) { return $v; }
@@ -118,7 +119,7 @@ function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_transient( $k ) { return isset( $GLOBALS['opts'][ 'T_' . $k ] ) ? $GLOBALS['opts'][ 'T_' . $k ] : false; }
 function set_transient( $k, $v, $e = 0 ) { $GLOBALS['opts'][ 'T_' . $k ] = $v; return true; }
 function delete_transient( $k ) { unset( $GLOBALS['opts'][ 'T_' . $k ] ); return true; }
-function wp_upload_dir() { $d = sys_get_temp_dir() . '/wpcpm-report-uploads-' . getmypid(); if ( ! is_dir( $d ) ) { mkdir( $d ); } return array( 'path' => $d, 'url' => 'https://example.test/uploads', 'error' => false ); }
+function wp_upload_dir() { $d = wpcpm_test_temp_dir() . 'uploads'; if ( ! is_dir( $d ) ) { mkdir( $d ); } return array( 'path' => $d, 'url' => 'https://example.test/uploads', 'error' => false ); }
 function wp_unique_filename( $dir, $name ) { $i = 0; $try = $name; while ( file_exists( $dir . '/' . $try ) ) { $try = preg_replace( '/(\.[a-z]+)$/', '-' . ( ++$i ) . '$1', $name ); } return $try; }
 // A counter that only climbs, never `count( $GLOBALS['attachments'] )`: real WordPress post IDs
 // auto-increment and are never handed out twice, even after the row they named is deleted. A
@@ -210,6 +211,7 @@ class WPCPM_Mentors_Dashboard {
 }
 
 require_once __DIR__ . '/stubs/caps.php';
+require_once __DIR__ . '/stubs/temp-dir.php';
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
 require_once __DIR__ . '/../includes/class-wpcpm-program.php';
@@ -242,11 +244,10 @@ function ck( $label, $actual, $expected ) {
  * @return string Path.
  */
 function png( $w, $h ) {
-	$p  = tempnam( sys_get_temp_dir(), 'wpcpm-shot-' ) . '.png';
+	$p  = wpcpm_test_tempnam( 'wpcpm-shot-', 'png' );
 	$im = imagecreatetruecolor( $w, $h );
 	imagefill( $im, 0, 0, imagecolorallocate( $im, 30, 90, 200 ) );
 	imagepng( $im, $p );
-	$GLOBALS['temp_files'][] = $p;
 
 	return $p;
 }
@@ -282,9 +283,8 @@ function big_png( $w, $h, $bytes ) {
  * @return string Path.
  */
 function fake_svg() {
-	$p = tempnam( sys_get_temp_dir(), 'wpcpm-shot-' ) . '.png';
+	$p = wpcpm_test_tempnam( 'wpcpm-shot-', 'png' );
 	file_put_contents( $p, '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><script>alert(1)</script></svg>' );
-	$GLOBALS['temp_files'][] = $p;
 
 	return $p;
 }
@@ -800,12 +800,6 @@ ck( 'the public URL is explained where it is written',
 // The user meta has to go when the plugin does; a stray row per student otherwise outlives it.
 ck( 'the screenshot map is removed on uninstall',
     false !== strpos( (string) file_get_contents( __DIR__ . '/../uninstall.php' ), 'WPCPM_Student_Report_Form::META_IMAGES' ), true );
-
-foreach ( $GLOBALS['temp_files'] as $tmp ) {
-	if ( file_exists( $tmp ) ) {
-		unlink( $tmp );
-	}
-}
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILED', $fail ) : 'ALL PASS', $checks );
 

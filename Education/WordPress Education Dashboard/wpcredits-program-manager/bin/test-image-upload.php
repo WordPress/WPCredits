@@ -23,45 +23,20 @@ function sanitize_file_name( $n ) { return preg_replace( '/[^A-Za-z0-9._-]/', '-
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function trailingslashit( $s ) { return rtrim( $s, '/' ) . '/'; }
 
+require_once __DIR__ . '/stubs/temp-dir.php';
+
 /**
- * This run's own temporary directory, made the first time it is asked for and removed with what
- * it holds when the run ends. The handler reserves its copies' names here, and the orphan scan
+ * This run's own temporary directory, removed with what it holds when the run ends
+ * (bin/stubs/temp-dir.php). The handler reserves its copies' names here, and the orphan scan
  * below reads it: in the system temp directory, which every suite running at the same time
  * shares, another run's name reserved a moment ago read as an orphan, and the sponsor suite's
- * sweep deleted this run's copies (the final fix wave, item 1).
+ * sweep deleted this run's copies (the final fix wave, item 1). The fixtures and the uploads
+ * folder live in it too, so nothing this suite writes outlives it.
  *
  * @return string With a trailing slash, as core's.
  */
 function get_temp_dir() {
-	$dir = sys_get_temp_dir() . '/wpcpm-imgup-tmp-' . getmypid() . '/';
-
-	if ( ! is_dir( $dir ) ) {
-		mkdir( $dir, 0700, true );
-		register_shutdown_function( 'remove_temp_tree', $dir );
-	}
-
-	return $dir;
-}
-
-/**
- * Remove a directory and everything in it.
- *
- * @param string $dir The directory.
- */
-function remove_temp_tree( $dir ) {
-	if ( ! is_dir( $dir ) ) {
-		return;
-	}
-
-	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST ) as $entry ) {
-		if ( $entry->isDir() ) {
-			rmdir( $entry->getPathname() );
-		} else {
-			unlink( $entry->getPathname() );
-		}
-	}
-
-	rmdir( $dir );
+	return wpcpm_test_temp_dir();
 }
 function wp_unique_filename( $dir, $name ) { $i = 0; $try = $name; while ( file_exists( $dir . '/' . $try ) ) { $try = preg_replace( '/(\.[a-z]+)$/', '-' . ( ++$i ) . '$1', $name ); } return $try; }
 // Alphanumeric and of the asked-for length, which is all `store()`'s generated name needs; a
@@ -71,7 +46,7 @@ function wp_upload_dir() {
 	if ( ! empty( $GLOBALS['upload_dir_override'] ) ) {
 		return array( 'path' => $GLOBALS['upload_dir_override'], 'url' => 'https://example.test/uploads', 'error' => false );
 	}
-	$dir = sys_get_temp_dir() . '/wpcpm-uploads-' . getmypid();
+	$dir = wpcpm_test_temp_dir() . 'uploads';
 	if ( ! is_dir( $dir ) ) { mkdir( $dir ); }
 	return array( 'path' => $dir, 'url' => 'https://example.test/uploads', 'error' => false );
 }
@@ -79,7 +54,7 @@ function wp_insert_attachment( array $a, $file, $parent = 0, $wp_error = false )
 function wp_generate_attachment_metadata( $id, $file ) { return array( 'file' => basename( $file ) ); }
 function wp_update_attachment_metadata( $id, $data ) { $GLOBALS['meta'][ $id ] = $data; return true; }
 function wp_delete_file( $p ) { $GLOBALS['deleted_files'][] = $p; if ( file_exists( $p ) ) { unlink( $p ); } }
-function download_url( $url, $timeout = 300 ) { if ( empty( $GLOBALS['download'][ $url ] ) ) { return new WP_Error( 'http_404', 'Not Found' ); } $tmp = tempnam( sys_get_temp_dir(), 'dl' ); copy( $GLOBALS['download'][ $url ], $tmp ); $GLOBALS['downloaded'][] = $tmp; return $tmp; }
+function download_url( $url, $timeout = 300 ) { if ( empty( $GLOBALS['download'][ $url ] ) ) { return new WP_Error( 'http_404', 'Not Found' ); } $tmp = wpcpm_test_tempnam( 'dl' ); copy( $GLOBALS['download'][ $url ], $tmp ); $GLOBALS['downloaded'][] = $tmp; return $tmp; }
 class WPCPM_Settings { public static function get_value( $k, $d = null ) { return isset( $GLOBALS['settings'][ $k ] ) ? $GLOBALS['settings'][ $k ] : $d; } }
 // The editor: what WordPress does with a real image, in miniature. `save()` writes a copy and
 // says so, which is what "the bytes served are bytes WordPress wrote" means here.
@@ -100,8 +75,8 @@ function ck( $label, $actual, $expected ) {
 	echo "FAIL $label\n  expected: " . var_export( $expected, true ) . "\n  actual:   " . var_export( $actual, true ) . "\n";
 }
 function code( $r ) { return is_wp_error( $r ) ? $r->get_error_code() : 'accepted'; }
-function png( $w, $h ) { $p = tempnam( sys_get_temp_dir(), 'img' ) . '.png'; $im = imagecreatetruecolor( $w, $h ); imagefill( $im, 0, 0, imagecolorallocate( $im, 200, 30, 30 ) ); imagepng( $im, $p ); return $p; }
-function jpg( $w, $h ) { $p = tempnam( sys_get_temp_dir(), 'img' ) . '.jpg'; $im = imagecreatetruecolor( $w, $h ); imagejpeg( $im, $p, 80 ); return $p; }
+function png( $w, $h ) { $p = wpcpm_test_tempnam( 'img', 'png' ); $im = imagecreatetruecolor( $w, $h ); imagefill( $im, 0, 0, imagecolorallocate( $im, 200, 30, 30 ) ); imagepng( $im, $p ); return $p; }
+function jpg( $w, $h ) { $p = wpcpm_test_tempnam( 'img', 'jpg' ); $im = imagecreatetruecolor( $w, $h ); imagejpeg( $im, $p, 80 ); return $p; }
 
 $GLOBALS['attachments'] = array();
 $GLOBALS['password'] = 0;
@@ -114,10 +89,10 @@ $GLOBALS['deleted_files'] = array();
 
 echo "=== Each rule refuses on its own ===\n";
 ck( 'a missing file', code( WPCPM_Image_Upload::accept( '/nowhere/logo.png' ) ), 'wpcpm_image_missing' );
-$svg = tempnam( sys_get_temp_dir(), 'img' ) . '.png';
+$svg = wpcpm_test_tempnam( 'img', 'png' );
 file_put_contents( $svg, '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="300" height="100"><script>alert(1)</script></svg>' );
 ck( 'SVG is refused by its content, whatever the name says', code( WPCPM_Image_Upload::accept( $svg ) ), 'wpcpm_image_type' );
-$txt = tempnam( sys_get_temp_dir(), 'img' ) . '.png';
+$txt = wpcpm_test_tempnam( 'img', 'png' );
 file_put_contents( $txt, 'not an image at all' );
 ck( 'and so is text', code( WPCPM_Image_Upload::accept( $txt ) ), 'wpcpm_image_type' );
 // FSUIT-8: the second reader of the bytes had nothing pinning it, and the whole battery stayed
@@ -125,7 +100,7 @@ ck( 'and so is text', code( WPCPM_Image_Upload::accept( $txt ) ), 'wpcpm_image_t
 // every accepted fixture is a real image, so neither reader could be told from the other. This
 // one can only be refused by the pair disagreeing: `finfo` reads the header and answers PNG,
 // and getimagesize() cannot find an image in what follows.
-$stump = tempnam( sys_get_temp_dir(), 'img' ) . '.png';
+$stump = wpcpm_test_tempnam( 'img', 'png' );
 file_put_contents( $stump, substr( (string) file_get_contents( png( 300, 100 ) ), 0, 24 ) );
 $reader = new finfo( FILEINFO_MIME_TYPE );
 ck( 'the fixture is one the two readers of the bytes disagree about', array( $reader->file( $stump ), @getimagesize( $stump ) ), array( 'image/png', false ) );
@@ -161,7 +136,7 @@ ck( 'the file lives in the upload directory under a clean name', dirname( $att['
 ck( 'and the re-saved temporary copy is gone', file_exists( $accepted['path'] ), false );
 ck( 'metadata was generated', isset( $GLOBALS['meta'][101]['file'] ), true );
 $broken           = WPCPM_Image_Upload::accept( png( 300, 100 ), array( 'name' => 'Weglot Logo Light-1.png' ) );
-$GLOBALS['upload_dir_override'] = sys_get_temp_dir() . '/wpcpm-test-missing-dir-' . getmypid();
+$GLOBALS['upload_dir_override'] = wpcpm_test_temp_dir() . 'missing-dir';
 // copy() to a directory that does not exist is the refusal under test here, not a bug in
 // this suite: the warning it raises is expected and swallowed for the one call.
 set_error_handler( function () { return true; } );

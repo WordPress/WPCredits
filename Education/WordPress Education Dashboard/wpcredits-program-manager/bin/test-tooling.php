@@ -25,8 +25,13 @@ if ( 'cli' !== PHP_SAPI ) {
 	exit( 1 );
 }
 
-$root    = dirname( __DIR__ );
-$scratch = sys_get_temp_dir() . '/wpcpm-tooling-' . getmypid();
+require_once __DIR__ . '/stubs/temp-dir.php';
+
+$root = dirname( __DIR__ );
+
+// The scratch tree, under this run's own folder (bin/stubs/temp-dir.php): the probe zips, the
+// stand-in phpcs and the trees the spelling check reads all go with it when the run ends.
+$scratch = wpcpm_test_temp_dir() . 'scratch';
 
 $fail = 0;
 
@@ -88,30 +93,6 @@ function put( $path, $contents ) {
 	file_put_contents( $path, $contents );
 }
 
-/**
- * Remove a directory and everything under it.
- *
- * @param string $dir Absolute path.
- */
-function clean( $dir ) {
-	if ( ! is_dir( $dir ) ) {
-		return;
-	}
-
-	$walk = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST );
-
-	foreach ( $walk as $item ) {
-		if ( $item->isDir() ) {
-			rmdir( $item->getPathname() );
-		} else {
-			unlink( $item->getPathname() );
-		}
-	}
-
-	rmdir( $dir );
-}
-
-clean( $scratch );
 mkdir( $scratch, 0777, true );
 
 /* ---- bin/build ----------------------------------------------------------- */
@@ -351,8 +332,6 @@ ck( 'a British spelling in a seed\'s why note is a failure, named with the seed 
 	false !== strpos( $seed_note['out'], 'includes/tracks/seeds/probe.json' ),
 	false !== strpos( $seed_note['out'], 'colour' ),
 ), array( 0, 1, true, true ) );
-
-clean( $scratch );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

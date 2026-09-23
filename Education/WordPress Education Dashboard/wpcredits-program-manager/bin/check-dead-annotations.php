@@ -18,6 +18,8 @@ if ( 'cli' !== PHP_SAPI ) {
 	exit( 1 );
 }
 
+require_once __DIR__ . '/stubs/temp-dir.php';
+
 $root  = dirname( __DIR__ );
 $phpcs = trim( (string) shell_exec( 'command -v phpcs' ) );
 
@@ -30,11 +32,12 @@ if ( ! is_executable( $phpcs ) ) {
 	exit( 1 );
 }
 
-// Quiet, and to a file: the ruleset prints a progress line to stdout, which is not JSON.
-$report = tempnam( sys_get_temp_dir(), 'wpcpm-phpcs-' );
+// Quiet, and to a file: the ruleset prints a progress line to stdout, which is not JSON. The file
+// sits in this run's own folder, which goes when the checker ends, whichever exit it takes
+// (bin/stubs/temp-dir.php).
+$report = wpcpm_test_tempnam( 'wpcpm-phpcs-', 'json' );
 shell_exec( escapeshellarg( $phpcs ) . ' -q --ignore-annotations --report=json --report-file=' . escapeshellarg( $report ) . ' 2>/dev/null' );
 $data = json_decode( (string) file_get_contents( $report ), true );
-unlink( $report );
 
 if ( ! is_array( $data ) || ! isset( $data['files'] ) ) {
 	fwrite( STDERR, "phpcs produced no report.\n" );
