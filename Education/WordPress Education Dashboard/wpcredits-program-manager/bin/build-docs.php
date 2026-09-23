@@ -54,6 +54,12 @@ $ids = array(
 	'mentor-report-card-availability'        => 546,
 	'admin-overview'                         => 556,
 	'admin-settings'                         => 557,
+	'track-builder-list'                     => 1187,
+	'track-builder-track'                    => 1188,
+	'track-builder-question'                 => 1189,
+	'track-builder-preview'                  => 1190,
+	'track-builder-publish'                  => 1191,
+	'track-builder-history'                  => 1192,
 	'admin-header-notices'                   => 555,
 	'admin-access-level'                     => 554,
 );

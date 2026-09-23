@@ -433,6 +433,10 @@
 <h4 class="wp-block-heading" id="the-track-list">The track list</h4>
 <!-- /wp:heading -->
 
+<!-- wp:image {"id":1187,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="images/track-builder-list.png" alt="In this sample list, the program&#039;s four tracks run from their definitions, and a track of your own, the Accessibility Track, stays a draft until you publish it." class="wp-image-1187"/><figcaption class="wp-element-caption">In this sample list, the program&#039;s four tracks run from their definitions, and a track of your own, the Accessibility Track, stays a draft until you publish it.</figcaption></figure>
+<!-- /wp:image -->
+
 <!-- wp:paragraph -->
 <p>One row per track, in the order they were made:</p>
 <!-- /wp:paragraph -->
@@ -474,6 +478,10 @@
 <!-- wp:paragraph -->
 <p>The properties come first: <strong>Name</strong>, <strong>Airtable status</strong>, <strong>Key</strong>, <strong>Learn course</strong>, <strong>Hours target</strong> and <strong>Key chip color</strong>, which is one of blue, cyan, teal, green, red, pink or purple. The hours target may stay empty. <strong>Save the track</strong> saves the properties; the questions save themselves as they are added, edited and moved. Save refuses a name, status or key another track holds, drafts included, and a refused Save draws the boxes again as you left them.</p>
 <!-- /wp:paragraph -->
+
+<!-- wp:image {"id":1188,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="images/track-builder-track.png" alt="On a track&#039;s page you set its properties and build its form group by group and lesson by lesson, and a line above the questions says what publishing would create in Airtable." class="wp-image-1188"/><figcaption class="wp-element-caption">On a track&#039;s page you set its properties and build its form group by group and lesson by lesson, and a line above the questions says what publishing would create in Airtable.</figcaption></figure>
+<!-- /wp:image -->
 
 <!-- wp:paragraph -->
 <p>The <strong>Learn course</strong> row shows what the link resolved to, the course's title and number. <strong>Read the course again</strong> asks Learn afresh; otherwise the site keeps a day's reading, so a lesson renamed on Learn shows up here within a day. When Learn cannot be reached, the link the track already has is kept with a warning, the lessons cannot be listed, and the track still saves and publishes. A new link is not taken while Learn cannot be reached, and the notice says so; the box keeps the link you typed, so pressing <strong>Save the track</strong> again once Learn answers takes it.</p>
@@ -523,6 +531,10 @@
 <p>Each question has a page of its own: the column and the control at the top, then the rows that apply to that control.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:image {"id":1189,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="images/track-builder-question.png" alt="On a question&#039;s page you set its column and its control, then the rows that apply to that control, here for a required line of text under a Learn lesson." class="wp-image-1189"/><figcaption class="wp-element-caption">On a question&#039;s page you set its column and its control, then the rows that apply to that control, here for a required line of text under a Learn lesson.</figcaption></figure>
+<!-- /wp:image -->
+
 <!-- wp:table -->
 <figure class="wp-block-table"><table><thead><tr><th>Row</th><th>What it does</th></tr></thead><tbody><tr><td>What the student reads</td><td>The label above the box</td></tr><tr><td>Group</td><td>Onboarding, Project or Wrap-up; Total hours for the Hours question, which goes in no other group</td></tr><tr><td>Help under the box</td><td>A sentence under the control</td></tr><tr><td>Heading before it</td><td>A heading printed before this question; the first question under a lesson carries the lesson's title here</td></tr><tr><td>Subheading before it</td><td>A second heading before this question, drawn like the first</td></tr><tr><td>Note after the run</td><td>A sentence after the run of questions this one ends</td></tr><tr><td>Row, and Shares one column of its row</td><td>Questions with the same row name sit side by side</td></tr><tr><td>Marked required</td><td>Draws the word <em>Required</em> beside the label; nothing is enforced</td></tr><tr><td>Kept off everything an institution reads</td><td>The answer is left off the Student Report Card an institution sees</td></tr><tr><td>Lowest value, Highest value, Step</td><td>A number's limits; the step also sets how many decimal places a new column keeps</td></tr><tr><td>Length limit</td><td>A single-line box's limit; a text area has its own</td></tr><tr><td>Monospace, for code</td><td>A text area drawn in a monospace face</td></tr><tr><td>Choices, one a line</td><td>The choices of a select; a column that already exists must offer every one of them</td></tr><tr><td>Learn lesson</td><td>The lesson this question reports on: the course's lessons by module, <em>None</em> first, or a number box when Learn cannot be read</td></tr><tr><td>Developer note</td><td>Why a column name looks like a slip; no student sees it</td></tr></tbody></table></figure>
 <!-- /wp:table -->
@@ -540,12 +552,20 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>Preview</strong> draws the draft's form as a student sees it: empty answers, no student's record, the same renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. The hours box sits where the Student Report Card puts it: beside the button that opens the course when the track has a Learn course, as My course draws them, and on its own when it has none. A built-in track can be previewed too; its definition is what its form draws.</p>
+<p><strong>Preview</strong> draws the draft's form as a student sees it: empty answers, no student's record, the same renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. The hours box sits where the Student Report Card puts it: with the button that opens the course when the track has a Learn course, side by side on the student's page and one under the other here in wp-admin, and on its own when the track has none. A built-in track can be previewed too; its definition is what its form draws.</p>
 <!-- /wp:paragraph -->
+
+<!-- wp:image {"id":1190,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="images/track-builder-preview.png" alt="Preview draws the form a student on the track fills in, the same questions in the same order, and nothing you type there is kept." class="wp-image-1190"/><figcaption class="wp-element-caption">Preview draws the form a student on the track fills in, the same questions in the same order, and nothing you type there is kept.</figcaption></figure>
+<!-- /wp:image -->
 
 <!-- wp:paragraph -->
 <p><strong>History</strong> has three parts: what publishing would change, the published copy against the draft; every save, newest first and at most twenty, with who saved it, when, and what changed since the one before; and the publish log, every publish, unpublish, switch, column created and checklist item ticked, with who and when.</p>
 <!-- /wp:paragraph -->
+
+<!-- wp:image {"id":1192,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="images/track-builder-history.png" alt="History shows you what publishing would change, every save with who made it, and the publish log, here with sample entries for one of the program&#039;s four tracks." class="wp-image-1192"/><figcaption class="wp-element-caption">History shows you what publishing would change, every save with who made it, and the publish log, here with sample entries for one of the program&#039;s four tracks.</figcaption></figure>
+<!-- /wp:image -->
 
 <!-- wp:heading {"level":4,"anchor":"publishing"} -->
 <h4 class="wp-block-heading" id="publishing">Publishing</h4>
@@ -554,6 +574,10 @@
 <!-- wp:paragraph -->
 <p><strong>Publish</strong> opens the publish screen. Nothing happens until the button at the bottom is pressed; the screen first reads the base and says what it found.</p>
 <!-- /wp:paragraph -->
+
+<!-- wp:image {"id":1191,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="images/track-builder-publish.png" alt="Before you publish, the screen lists the columns it will create and the three steps only you can take in Airtable, then asks you to type the track&#039;s name." class="wp-image-1191"/><figcaption class="wp-element-caption">Before you publish, the screen lists the columns it will create and the three steps only you can take in Airtable, then asks you to type the track&#039;s name.</figcaption></figure>
+<!-- /wp:image -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">

@@ -186,6 +186,8 @@ section is how to move one of them onto its definition.
 
 #### The track list
 
+{{image:track-builder-list|In this sample list, the program's four tracks run from their definitions, and a track of your own, the Accessibility Track, stays a draft until you publish it.}}
+
 One row per track, in the order they were made:
 
 | Column | What it shows |
@@ -232,6 +234,8 @@ target** and **Key chip color**, which is one of blue, cyan, teal, green, red, p
 hours target may stay empty. **Save the track** saves the properties; the questions save themselves
 as they are added, edited and moved. Save refuses a name, status or key another track holds, drafts
 included, and a refused Save draws the boxes again as you left them.
+
+{{image:track-builder-track|On a track's page you set its properties and build its form group by group and lesson by lesson, and a line above the questions says what publishing would create in Airtable.}}
 
 The **Learn course** row shows what the link resolved to, the course's title and number. **Read the
 course again** asks Learn afresh; otherwise the site keeps a day's reading, so a lesson renamed on
@@ -289,6 +293,8 @@ which can still be renamed until the track is published. A different control is 
 Each question has a page of its own: the column and the control at the top, then the rows that apply
 to that control.
 
+{{image:track-builder-question|On a question's page you set its column and its control, then the rows that apply to that control, here for a required line of text under a Learn lesson.}}
+
 | Row | What it does |
 | --- | --- |
 | What the student reads | The label above the box |
@@ -318,19 +324,26 @@ change. To ask something differently, remove the question and add a new one with
 
 **Preview** draws the draft's form as a student sees it: empty answers, no student's record, the same
 renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. The hours
-box sits where the Student Report Card puts it: beside the button that opens the course when the
-track has a Learn course, as My course draws them, and on its own when it has none. A built-in track
+box sits where the Student Report Card puts it: with the button that opens the course when the track
+has a Learn course, side by side on the student's page and one under the other here in wp-admin, and
+on its own when the track has none. A built-in track
 can be previewed too; its definition is what its form draws.
+
+{{image:track-builder-preview|Preview draws the form a student on the track fills in, the same questions in the same order, and nothing you type there is kept.}}
 
 **History** has three parts: what publishing would change, the published copy against the draft;
 every save, newest first and at most twenty, with who saved it, when, and what changed since the one
 before; and the publish log, every publish, unpublish, switch, column created and checklist item
 ticked, with who and when.
 
+{{image:track-builder-history|History shows you what publishing would change, every save with who made it, and the publish log, here with sample entries for one of the program's four tracks.}}
+
 #### Publishing
 
 **Publish** opens the publish screen. Nothing happens until the button at the bottom is pressed; the
 screen first reads the base and says what it found.
+
+{{image:track-builder-publish|Before you publish, the screen lists the columns it will create and the three steps only you can take in Airtable, then asks you to type the track's name.}}
 
 - **This track cannot be published yet** lists what stops it: a column in Airtable with a question's
   name but another type, a control that cannot have a column created for it, a table that would pass

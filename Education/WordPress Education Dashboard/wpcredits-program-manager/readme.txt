@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.110.1
+Stable tag: 1.110.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.110.2 =
+
+* The program manager guide's Track Builder section now shows its screens, drawn with sample data: the track list, a track's page, one question, the preview, History and the publish screen. No code changed.
 
 = 1.110.1 =
 
