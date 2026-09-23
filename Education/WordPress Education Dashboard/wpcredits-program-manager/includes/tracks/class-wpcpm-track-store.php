@@ -15,10 +15,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **A draft touches nothing; publishing is the one act that changes the live site** (the
  * design's decision 1.2). The post is where people edit: private, reachable through no generic
  * screen, with the definition in revisioned meta so every saved change is kept. Publishing
- * copies the definition as it stands into `META_PUBLISHED`, and `compile()`, the only writer of
- * what the site runs on (`WPCPM_Tracks`), reads that copy and never the saved definition: an
- * edit saved to a published track reaches no student until it is published, whatever else is
- * compiled in the meantime (the design's decision 3.2 and its open item 5).
+ * copies a definition into `META_PUBLISHED`: the one the preflight judged, when
+ * `WPCPM_Track_Publish::run()` hands it over, so a draft saved while the run was creating columns
+ * stays a change not yet published (PUBLISH-LEARN-1); the stored draft only when nothing is
+ * handed over. `compile()`, the only writer of what the site runs on (`WPCPM_Tracks`), reads that
+ * copy and never the saved definition: an edit saved to a published track reaches no student
+ * until it is published, whatever else is compiled in the meantime (the design's decision 3.2
+ * and its open item 5).
  *
  * `compile()` checks every copy it compiles as well (open item 6), because a compile rebuilds
  * every published track, including one whose surroundings changed after it was published.
@@ -126,6 +129,9 @@ final class WPCPM_Track_Store {
 				'has_archive'         => false,
 				'rewrite'             => false,
 				'query_var'           => false,
+				// Ignored below WordPress 6.8, where the oEmbed filter refuses the type instead,
+				// and honored from it (SURFACES-2).
+				'embeddable'          => false,
 				'supports'            => array( 'title', 'revisions' ),
 				// A capability type nobody is granted, so no role reaches a track through any
 				// generic post screen; the Track Builder's own handlers are the one way in.
@@ -366,24 +372,35 @@ final class WPCPM_Track_Store {
 	}
 
 	/**
-	 * Publish a track: check it, copy it as it stands, and compile.
+	 * Publish a track: check its definition, copy it, and compile.
 	 *
 	 * The copy is what `compile()` reads from now on (the design's decision 3.2). The track is
-	 * checked against every other published track, so two can never be published claiming one
-	 * status, key or name, and its status joins "Currently mentoring", because the students sync
-	 * reads only the statuses listed there (7.2). What the Track Builder screen does around this -
-	 * the preflight, the checklist, the lock - is the screen's; this is the part every path shares.
+	 * checked against every other track, drafts and trashed ones included (`check()`, TRACKS-1),
+	 * so two can never be published claiming one status, key or name, and its status joins
+	 * "Currently mentoring", because the students sync reads only the statuses listed there (7.2).
+	 * What happens around this, the preflight, the checklist and the lock, belongs to
+	 * `WPCPM_Track_Publish`, which the Track Builder screen calls; this is the part every path
+	 * shares.
+	 *
+	 * **A definition handed over is the one checked and copied**, in place of the saved draft
+	 * (PUBLISH-LEARN-1). The publish run hands over the draft its preflight judged and created
+	 * columns for, because the saved draft may have changed while the columns were being made: a
+	 * save made meanwhile stays a change not yet published, for the next publish to judge. With
+	 * none, the draft is read as it stands.
 	 *
 	 * When WordPress refuses the status change, its error comes back and the track is left as it
 	 * was: the copy it was published with before, or none, and nothing compiled, added or logged.
 	 *
-	 * @param int $post_id The track.
-	 * @param int $user_id Who published it, for the log; 0 for the current user.
+	 * @param int        $post_id    The track.
+	 * @param int        $user_id    Who published it, for the log; 0 for the current user.
+	 * @param array|null $definition The definition to put live, as the publish run judged it; null
+	 *                               for the saved draft as it stands.
 	 * @return int|WP_Error The post ID, or why the track was not published.
 	 */
-	public static function publish( $post_id, $user_id = 0 ) {
+	public static function publish( $post_id, $user_id = 0, $definition = null ) {
 		$post_id    = (int) $post_id;
-		$definition = self::get( $post_id );
+		$post       = self::track_post( $post_id );
+		$definition = ( null !== $post && is_array( $definition ) ) ? $definition : self::get( $post_id );
 
 		if ( ! is_array( $definition ) ) {
 			return new WP_Error( 'wpcpm_track_missing', __( 'That track does not exist.', 'wpcredits-program-manager' ) );
@@ -392,8 +409,6 @@ final class WPCPM_Track_Store {
 		// The definition outlives the trash, so without this a trashed track published straight
 		// out of it, and the track list would show a live track nobody could find (T2a's final
 		// review, its M3).
-		$post = self::track_post( $post_id );
-
 		if ( $post instanceof WP_Post && 'trash' === $post->post_status ) {
 			return new WP_Error( 'wpcpm_track_trashed', __( 'That track is in the trash. Restore it before publishing it.', 'wpcredits-program-manager' ) );
 		}
@@ -491,6 +506,21 @@ final class WPCPM_Track_Store {
 	 * everybody (T1's decision 4), so a screen built on that would call a clash fine and Publish
 	 * would refuse it on the next screen. Read-only: nothing is stored.
 	 *
+	 * **Every other track counts, drafts included** (TRACKS-1, with BUILDER-1). A draft holds its
+	 * status, key and name as surely as a published track does, because publishing it would claim
+	 * them. Counting published tracks alone let two drafts share a key, and pressing Delete on the
+	 * one never published then took the live form of the other. So New track, Duplicate and a
+	 * track's own Save are refused what another draft holds, and Publish refuses a track while a
+	 * stray draft holds its status or key. A published track counts by the copy students have; any
+	 * other track, and a published one whose copy cannot be read, by the definition it was saved
+	 * with. `compile()` still reads published copies alone.
+	 *
+	 * Beside `validate()`'s rules it asks the hours rule, `WPCPM_Track_Definition::check_hours()`
+	 * (TRACKS-3), which `compile()` does not: a published track that breaks it keeps running, and
+	 * nothing that breaks it can be published or saved from a track's own screen. The question
+	 * editor asks it of the question a press is about alone, so a draft saved before the rule can
+	 * be put right one question at a time (the final fix wave of the deep check of 1.109.1).
+	 *
 	 * @param int   $post_id    The track the definition belongs to.
 	 * @param array $definition The definition to check.
 	 * @return array[] The rules it fails, as `validate()` answers them; empty when it would publish.
@@ -499,15 +529,25 @@ final class WPCPM_Track_Store {
 		$post_id = (int) $post_id;
 		$others  = array();
 
-		foreach ( self::published_posts() as $post ) {
-			$copy = (int) $post->ID !== $post_id ? self::published( $post->ID ) : null;
+		foreach ( self::all_ids() as $id ) {
+			$id = (int) $id;
+
+			if ( $id === $post_id ) {
+				continue;
+			}
+
+			$post = self::track_post( $id );
+			$copy = null !== $post && 'publish' === $post->post_status ? self::published( $id ) : null;
+			$copy = is_array( $copy ) ? $copy : self::get( $id );
 
 			if ( is_array( $copy ) ) {
 				$others[] = $copy;
 			}
 		}
 
-		return WPCPM_Track_Definition::validate( $definition, self::context( $post_id, $definition, $others, true ) );
+		$errors = WPCPM_Track_Definition::validate( $definition, self::context( $post_id, $definition, $others, true ) );
+
+		return array_merge( $errors, WPCPM_Track_Definition::check_hours( $definition ) );
 	}
 
 	/**
@@ -634,14 +674,15 @@ final class WPCPM_Track_Store {
 	 * What the rules are told when a track is published or compiled.
 	 *
 	 * The site as its PHP describes it, from `WPCPM_Tracks::validation_context()` with the
-	 * compiled tracks left out, and then the published tracks this one is checked against: every
-	 * other one when it is published, the ones already compiled when it is compiled. Its own
-	 * status comes off the list only when it is locked to it, so a new track can never take a
-	 * status that already names a track, one of the four built-in ones included.
+	 * compiled tracks left out, and then the tracks this one is checked against: every other one,
+	 * drafts included, when it is published (`check()`, since TRACKS-1), the ones already compiled
+	 * when it is compiled. Its own status comes off the list only when it is locked to it, so a new
+	 * track can never take a status that already names a track, one of the four built-in ones
+	 * included.
 	 *
 	 * @param int   $post_id    The track.
 	 * @param array $definition Its definition.
-	 * @param array $others     The published definitions it is checked against.
+	 * @param array $others     The other tracks' definitions it is checked against.
 	 * @param bool  $publishing Whether it is being published, rather than compiled.
 	 * @return array
 	 */
@@ -1190,16 +1231,25 @@ final class WPCPM_Track_Store {
 	 * Decision 9 keeps every track that was ever published, because it is the record of what was
 	 * created in the base. A draft that never was created no column, holds no student's status
 	 * and was never compiled, so nothing else has to change: `compile()` reads published posts
-	 * only, and the form option it would have written was never written (decision 25). The
-	 * option is deleted all the same, in case a compile that never finished left one.
+	 * only (decision 25).
+	 *
+	 * **No form option is deleted** (TRACKS-1). `compile()` writes a form for a published track
+	 * alone and deletes the form of every track that leaves the index, so a draft never has one of
+	 * its own: the option its key names can only be the live form of another track on that key,
+	 * which two drafts could share until `check()` counted drafts, and deleting it emptied the
+	 * Student Report Card of every student on that track. A track in publish status is refused like
+	 * one whose log says it was published, since a status set by hand or a log that lost its line
+	 * leaves it live all the same, and deleting it would leave its row and its form in the index
+	 * until the next compile.
 	 *
 	 * @param int $post_id The track.
 	 * @return int|WP_Error The post ID, or why it was refused.
 	 */
 	public static function delete( $post_id ) {
 		$post_id = (int) $post_id;
+		$post    = self::track_post( $post_id );
 
-		if ( null === self::track_post( $post_id ) ) {
+		if ( null === $post ) {
 			return new WP_Error( 'wpcpm_track_missing', __( 'That track does not exist.', 'wpcredits-program-manager' ) );
 		}
 
@@ -1207,14 +1257,8 @@ final class WPCPM_Track_Store {
 			return new WP_Error( 'wpcpm_track_builtin', __( 'A built-in track cannot be deleted: it is the record of a form the program runs.', 'wpcredits-program-manager' ) );
 		}
 
-		if ( self::ever_published( $post_id ) ) {
+		if ( 'publish' === $post->post_status || self::ever_published( $post_id ) ) {
 			return new WP_Error( 'wpcpm_track_was_published', __( 'This track has been published, so it is kept as the record of what was created in Airtable. It can be unpublished, not deleted.', 'wpcredits-program-manager' ) );
-		}
-
-		$definition = self::get( $post_id );
-
-		if ( is_array( $definition ) && ! empty( $definition['key'] ) ) {
-			delete_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . $definition['key'] );
 		}
 
 		if ( ! wp_delete_post( $post_id, true ) ) {

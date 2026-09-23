@@ -73,7 +73,29 @@ function add_option( $k, $v, $x = '', $a = 'yes' ) {
 	return true;
 }
 function get_current_user_id() { return $GLOBALS['uid']; }
-function wp_get_current_user() { return new WP_User( $GLOBALS['uid'], 'Viewer' ); }
+// The viewer's roles come from `$GLOBALS['roles']`, so a mentor who is not a program manager can be
+// the one writing a note (the deep check of 1.109.1, SESSIONS-7).
+function wp_get_current_user() { $user = new WP_User( $GLOBALS['uid'], 'Viewer' ); $user->roles = $GLOBALS['roles'][ $GLOBALS['uid'] ] ?? array(); return $user; }
+/**
+ * Users by exact meta match, as `WPCPM_Mentor_Calls::mentor_for_student()` asks for a mentor by the
+ * record the student's card names, answering IDs.
+ *
+ * @param array $args Query arguments.
+ * @return int[]
+ */
+function get_users( $args = array() ) {
+	$out = array();
+
+	foreach ( $GLOBALS['umeta'] as $id => $meta ) {
+		if ( isset( $args['meta_key'] ) && ( $meta[ $args['meta_key'] ] ?? null ) !== ( $args['meta_value'] ?? null ) ) {
+			continue;
+		}
+
+		$out[] = (int) $id;
+	}
+
+	return $out;
+}
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
 require_once __DIR__ . '/stubs/caps.php';
 function get_user_by( $f, $v ) { return new WP_User( (int) $v, 'User ' . (int) $v ); }
@@ -82,12 +104,15 @@ function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_post( $id = null ) { return $GLOBALS['posts'][ (int) $id ] ?? null; }
 function get_post_time( $f, $gmt = false, $post = null ) { return time() - DAY_IN_SECONDS; }
+function get_post_status( $p = null ) { $post = get_post( is_object( $p ) ? $p->ID : $p ); return $post ? $post->post_status : false; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['pmeta'][ (int) $id ] ); return true; }
 /**
  * Posts as WordPress would query them, for the shapes the calls module asks: a post type, a status,
  * an exclusion, meta clauses that are equal, at least or between, and an order by a numeric meta.
  * Faithful because the series readers are queries, and a stub that answered nothing would prove
- * nothing about them.
+ * nothing about them. A clause holds when any of the post's rows for its key satisfies it, as the
+ * join WordPress writes does: a session's attendees are one row each, and a student who joined
+ * second is found by the same query as the first (the deep check of 1.109.1, SESSIONS-7).
  */
 function get_posts( $a = array() ) {
 	$out = array();
@@ -101,11 +126,14 @@ function get_posts( $a = array() ) {
 
 		foreach ( isset( $a['meta_query'] ) ? $a['meta_query'] : array() as $k => $clause ) {
 			if ( 'relation' === $k ) { continue; }
-			$value   = get_post_meta( $post->ID, $clause['key'], true );
 			$compare = isset( $clause['compare'] ) ? $clause['compare'] : '=';
-			if ( 'BETWEEN' === $compare ) { $ok = (int) $value >= (int) $clause['value'][0] && (int) $value <= (int) $clause['value'][1]; }
-			elseif ( '>=' === $compare ) { $ok = (int) $value >= (int) $clause['value']; }
-			else { $ok = (string) $value === (string) $clause['value']; }
+			$ok      = false;
+			foreach ( get_post_meta( $post->ID, $clause['key'], false ) as $value ) {
+				if ( 'BETWEEN' === $compare ) { $ok = (int) $value >= (int) $clause['value'][0] && (int) $value <= (int) $clause['value'][1]; }
+				elseif ( '>=' === $compare ) { $ok = (int) $value >= (int) $clause['value']; }
+				else { $ok = (string) $value === (string) $clause['value']; }
+				if ( $ok ) { break; }
+			}
 			if ( ! $ok ) { break; }
 		}
 
@@ -193,6 +221,10 @@ require_once __DIR__ . '/../includes/class-wpcpm-mail.php';
 // rather than stubbed - a stub would decide the access question this suite is asking about.
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-notes.php';
+// Real, for the same reason as the mentors sync: whose student somebody is decides what their list
+// holds and whose notes may name them, and a stub would answer that question itself (SESSIONS-7).
+require_once __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php';
+require_once __DIR__ . '/../includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 // Loaded for its MIN_MINUTES / MAX_MINUTES, which are what the length field's grid is built from.
 require_once __DIR__ . '/../includes/modules/class-wpcpm-group-sessions.php';
@@ -336,7 +368,7 @@ ck( 'a writer without access to everybody is refused',
 //
 // A number input's `step` counts from its `min`, not from zero. With `min="1" step="5"` the valid
 // lengths were 1, 6, 11 … 56, 61 - so a browser refused **60**, which was the field's own default
-// value, while 61 and 56 went through. Reported by Celi Garoe in prerelease testing
+// value, while 61 and 56 went through. Reported by a mentor in prerelease testing
 // (WordPress/WPCredits#166). Asserting the grid rather than the attributes, because the property
 // that matters is which numbers a mentor can actually type.
 
@@ -401,7 +433,7 @@ ck( 'and the same gate as creating one decides who may',
 ck( 'the places cannot fall below the students already on it',
     false !== strpos( $body, '$capacity < $taken' ) && false !== strpos( $body, "bounce( 'session-shrink' )" ), true );
 ck( 'the clash test is told which session is being moved, or it would clash with itself',
-    false !== strpos( $body, 'self::clashes_with_another( $mentor_id, $start_ts, $call->ID )' ), true );
+    false !== strpos( $body, 'self::clashes_with_another( $mentor_id, $start_ts, $end_ts, $call->ID )' ), true );
 ck( 'a start in the past is refused, as it is when creating one',
     false !== strpos( $body, "bounce( 'session-past' )" ), true );
 ck( 'the revision climbs only when the time actually moved',
@@ -409,11 +441,16 @@ ck( 'the revision climbs only when the time actually moved',
 ck( 'and that is the only path that emails everybody on it',
     substr_count( $body, 'notify_session_moved' ), 1 );
 
-// The query behind the clash test has to leave this session out of its own answer.
+// The query behind the clash test has to leave this session out of its own answer: the clash test
+// hands the session to the diary read, whose query excludes it (SESSIONS-4 moved the query there;
+// the read itself is proved against the post model below).
 $clash = substr( $edit, strpos( $edit, 'private static function clashes_with_another' ) );
 $clash = substr( $clash, 0, strpos( $clash, "\n\t}\n" ) );
+$calls_src = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-mentor-calls.php' );
+$spans     = substr( $calls_src, strpos( $calls_src, 'public static function taken_spans' ) );
+$spans = substr( $spans, 0, strpos( $spans, "\n\t}\n" ) );
 ck( 'the exclusion is in the query rather than filtered afterwards',
-    false !== strpos( $clash, "'exclude'" ) && false !== strpos( $clash, '(int) $except' ), true );
+    false !== strpos( $clash, 'taken_spans( $mentor_id, $start_ts, $end_ts, (int) $except )' ) && false !== strpos( $spans, "'exclude'" ) && false !== strpos( $spans, '(int) $except' ), true );
 
 // The form the mentor sees.
 $form = substr( $edit, strpos( $edit, 'private static function render_edit_form' ) );
@@ -476,6 +513,17 @@ ck( 'a canceled member drops out by itself, since a trashed call is no longer a 
     array_map( function ( $p ) { return $p->ID; }, WPCPM_Group_Sessions::series_members( $first ) ),
     array( $first, $third ) );
 
+// A one-to-one call carrying the tag is not a member: nothing writes one, and a series is sessions
+// (the deep check of 1.109.1, SESSIONS-13: dropping the capacity test passed every suite).
+$single = make_call();
+update_post_meta( $single, WPCPM_Group_Sessions::META_SERIES, $first );
+update_post_meta( $single, WPCPM_Mentor_Calls::META_START, time() + 9 * DAY_IN_SECONDS );
+
+ck( 'a call of one place carrying the series tag is left out of the series',
+    array_map( function ( $p ) { return $p->ID; }, WPCPM_Group_Sessions::series_members( $first ) ),
+    array( $first, $third ) );
+
+wp_delete_post( $single, true );
 wp_delete_post( $second, true );
 
 ck( 'and one deleted outright drops out too, since it is no longer a call post at all',
@@ -612,12 +660,16 @@ ck( 'the dates a rule makes go through plan_dates() like any list: sixteen start
     array( $weekly['refused'], count( $weekly['starts'] ) ),
     array( '', 16 ) );
 
-ck( 'the first start the mentor already holds is the clash, and none is no clash',
+// A session clashes with whatever it overlaps, not only with what starts where it starts (the deep
+// check of 1.109.1, SESSIONS-4): a call from half past to the hour inside the second session is the
+// clash, and one that starts as the first session ends is none.
+ck( 'the first start whose session would overlap something the mentor holds is the clash; a span that only touches it, and none at all, are no clash',
     array(
-        WPCPM_Group_Sessions::first_clash( $three['starts'], array( $three['starts'][1] => true, 12345 => true ) ),
-        WPCPM_Group_Sessions::first_clash( $three['starts'], array( 12345 => true ) ),
+        WPCPM_Group_Sessions::first_clash( $three['starts'], HOUR_IN_SECONDS, array( array( 'start' => $three['starts'][1] + 1800, 'end' => $three['starts'][1] + 3600 ), array( 'start' => 12345, 'end' => 12346 ) ) ),
+        WPCPM_Group_Sessions::first_clash( $three['starts'], HOUR_IN_SECONDS, array( array( 'start' => $three['starts'][0] + HOUR_IN_SECONDS, 'end' => $three['starts'][0] + 2 * HOUR_IN_SECONDS ) ) ),
+        WPCPM_Group_Sessions::first_clash( $three['starts'], HOUR_IN_SECONDS, array() ),
     ),
-    array( $three['starts'][1], 0 ) );
+    array( $three['starts'][1], 0, 0 ) );
 
 $before  = count( $GLOBALS['posts'] );
 $planned = WPCPM_Group_Sessions::create_sessions( 20, $three['starts'], 60, 5, 'Release cycle', $riga );
@@ -640,6 +692,48 @@ $lone = WPCPM_Group_Sessions::create_sessions( 20, array( $three['starts'][0] + 
 
 ck( 'a session created alone carries no series',
     array( count( $lone ), WPCPM_Group_Sessions::series_of( $lone[0] ) ), array( 1, 0 ) );
+
+echo "\n=== The diary read as spans (SESSIONS-4) ===\n";
+
+// What the slot generator, planning and a change are tested against: the mentor's calls that run
+// into a window, each with its start and its end, read as WordPress would query them.
+$window = time() + 30 * DAY_IN_SECONDS;
+$made   = array();
+
+foreach ( array(
+	'running into it' => array( 20, $window - 2 * HOUR_IN_SECONDS, $window + 1800, 'private' ),
+	'ended before it' => array( 20, $window - 3 * HOUR_IN_SECONDS, $window - HOUR_IN_SECONDS, 'private' ),
+	'inside it'       => array( 20, $window + HOUR_IN_SECONDS, $window + 2 * HOUR_IN_SECONDS, 'private' ),
+	'after it'        => array( 20, $window + 5 * HOUR_IN_SECONDS, $window + 6 * HOUR_IN_SECONDS, 'private' ),
+	'another mentor'  => array( 21, $window + HOUR_IN_SECONDS, $window + 2 * HOUR_IN_SECONDS, 'private' ),
+	'canceled'        => array( 20, $window + HOUR_IN_SECONDS, $window + 2 * HOUR_IN_SECONDS, 'trash' ),
+	'being moved'     => array( 20, $window + 3 * HOUR_IN_SECONDS, $window + 4 * HOUR_IN_SECONDS, 'private' ),
+) as $which => $shape ) {
+	$made[ $which ] = make_call();
+	update_post_meta( $made[ $which ], WPCPM_Mentor_Calls::META_MENTOR, $shape[0] );
+	update_post_meta( $made[ $which ], WPCPM_Mentor_Calls::META_START, $shape[1] );
+	update_post_meta( $made[ $which ], WPCPM_Mentor_Calls::META_END, $shape[2] );
+	$GLOBALS['posts'][ $made[ $which ] ]->post_status = $shape[3];
+}
+
+ck( 'the diary read answers the mentor\'s live calls that run into the window, one that started before it included, the one being moved left out',
+    WPCPM_Mentor_Calls::taken_spans( 20, $window, $window + 4 * HOUR_IN_SECONDS, $made['being moved'] ),
+    array(
+        array( 'start' => $window - 2 * HOUR_IN_SECONDS, 'end' => $window + 1800 ),
+        array( 'start' => $window + HOUR_IN_SECONDS, 'end' => $window + 2 * HOUR_IN_SECONDS ),
+    ) );
+
+ck( 'two stretches overlap when each starts before the other ends, and one that starts as the other ends does not',
+    array(
+        WPCPM_Mentor_Calls::overlaps( $window, $window + 1800, array( array( 'start' => $window - 600, 'end' => $window + 600 ) ) ),
+        WPCPM_Mentor_Calls::overlaps( $window, $window + 1800, array( array( 'start' => $window + 1800, 'end' => $window + 3600 ) ) ),
+        WPCPM_Mentor_Calls::overlaps( $window, $window + 1800, array( array( 'start' => $window - 1800, 'end' => $window ) ) ),
+    ),
+    array( true, false, false ) );
+
+foreach ( $made as $call_id ) {
+	wp_delete_post( $call_id, true );
+}
 
 echo "\n=== A series' heading (1.108.0) ===\n";
 
@@ -681,6 +775,66 @@ $under_way = WPCPM_Group_Sessions::joinable( array_map( 'get_post', array( $open
 ck( 'a session that has already started is a place nobody can take, counted with the full ones',
     array( array_map( function ( $p ) { return $p->ID; }, $under_way['take'] ), $under_way['full'], $under_way['on'] ),
     array( array( $open ), 1, 0 ) );
+
+// Join all reads its list before the lock and this under it, so a session canceled in between is
+// still in the list it is handed (the deep check of 1.109.1, SESSIONS-5).
+$canceled = make_call( 2 );
+$GLOBALS['posts'][ $canceled ]->post_status = 'trash';
+
+ck( 'a session canceled since the list was read is neither taken nor counted as full',
+    WPCPM_Group_Sessions::joinable( array_map( 'get_post', array( $open, $canceled ) ), 31 ),
+    array( 'take' => array( get_post( $open ) ), 'full' => 0, 'on' => 0 ) );
+
+echo "\n=== A student moved to another mentor (SESSIONS-7) ===\n";
+
+// The deep check of 1.109.1, SESSIONS-7: a student re-paired with another mentor stayed on the old
+// mentor's sessions with no way off them, since their list held their new mentor's sessions alone,
+// and the old mentor's note on any of those sessions was refused for everybody on it. Mia (20) and
+// Noa (21) are mentors; Lee (34) was Mia's and is now Noa's, on both sides of the pairing.
+$GLOBALS['umeta'][20][ WPCPM_Mentors_Sync::META_RECORD_ID ] = 'recMENTORMIAONEXX';
+$GLOBALS['umeta'][21][ WPCPM_Mentors_Sync::META_RECORD_ID ] = 'recMENTORNOAONEXX';
+$GLOBALS['umeta'][20][ WPCPM_Mentors_Sync::META_MENTEES ]   = array( array( 'record_id' => 'recSTUDENT0000001', 'name' => 'User 31' ) );
+$GLOBALS['umeta'][21][ WPCPM_Mentors_Sync::META_MENTEES ]   = array( array( 'record_id' => 'recSTUDENT3400000', 'name' => 'User 34' ) );
+$GLOBALS['umeta'][34][ WPCPM_Students_Sync::META_RECORD_ID ] = 'recSTUDENT3400000';
+$GLOBALS['umeta'][34][ WPCPM_Students_Sync::META_MENTOR ]    = array( 'record_id' => 'recMENTORNOAONEXX', 'name' => 'User 21' );
+$GLOBALS['roles'][20]                                        = array( WPCPM_Roles::ROLE_MENTOR );
+
+$on_old    = make_call( 4 ); // Mia's, with Lee on it.
+$not_on    = make_call( 4 ); // Mia's, without Lee.
+$new_one   = make_call( 4 ); // Noa's.
+$old_past  = make_call( 4 ); // Mia's, with Lee on it, two days ago.
+update_post_meta( $new_one, WPCPM_Mentor_Calls::META_MENTOR, 21 );
+update_post_meta( $new_one, WPCPM_Mentor_Calls::META_START, time() + 2 * DAY_IN_SECONDS );
+update_post_meta( $old_past, WPCPM_Mentor_Calls::META_START, time() - 2 * DAY_IN_SECONDS );
+WPCPM_Mentor_Calls::add_attendee( $on_old, 31, 'recSTUDENT0000001' );
+WPCPM_Mentor_Calls::add_attendee( $on_old, 34, 'recSTUDENT3400000' );
+WPCPM_Mentor_Calls::add_attendee( $old_past, 34, 'recSTUDENT3400000' );
+
+ck( 'the re-paired student\'s list holds their new mentor\'s sessions and the old mentor\'s upcoming one they are on, and no other of the old mentor\'s',
+    array_map( function ( $p ) { return $p->ID; }, WPCPM_Group_Sessions::for_student( 34 ) ),
+    array( $on_old, $new_one ) );
+
+// Mia writes the note after the session: Lee was on it, though he is no longer hers.
+$GLOBALS['uid']  = 20;
+$GLOBALS['caps'] = false;
+$old_note        = WPCPM_Mentor_Notes::add_for_records( $on_old, 'Walked through the release.', WPCPM_Mentor_Calls::attendee_records( $on_old ) );
+
+ck( 'the old mentor\'s note on her own session lands on everybody who was on it, the re-paired student included',
+    array( is_wp_error( $old_note ) ? $old_note->get_error_code() : 'saved', is_wp_error( $old_note ) ? array() : get_post_meta( (int) $old_note, WPCPM_Mentor_Notes::META_STUDENT, false ) ),
+    array( 'saved', array( 'recSTUDENT0000001', 'recSTUDENT3400000' ) ) );
+
+// Attendance is what grants it, and only on the writer's own session.
+$GLOBALS['uid']   = 21;
+$GLOBALS['roles'][21] = array( WPCPM_Roles::ROLE_MENTOR );
+$not_hers         = WPCPM_Mentor_Notes::add_for_records( $on_old, 'Not my session.', WPCPM_Mentor_Calls::attendee_records( $on_old ) );
+$GLOBALS['uid']   = 20;
+$stranger         = WPCPM_Mentor_Notes::add_for_records( $on_old, 'Somebody else.', array( 'recSTUDENT0000009' ) );
+
+ck( 'another mentor may not note a session that is not theirs, nor the session\'s mentor a student who was not on it',
+    array( is_wp_error( $not_hers ) ? $not_hers->get_error_code() : 'saved', is_wp_error( $stranger ) ? $stranger->get_error_code() : 'saved' ),
+    array( 'wpcpm_note_denied', 'wpcpm_note_denied' ) );
+
+$GLOBALS['uid'] = 0;
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

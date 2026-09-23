@@ -748,6 +748,42 @@ ck( 'and no way to change it',
     array( false !== strpos( $read, 'type="file"' ), false !== strpos( $read, '>Remove</button>' ) ),
     array( false, false ) );
 
+echo "\n=== A student on no track saves hours (TRACKS-5) ===\n";
+
+// Paused, Pending graduation and the finished states are on no track, and since TRACKS-5 the
+// Student Report Card draws them the 150-hour form's hours box: the box posts the Hours column,
+// the save writes it through the same fields() read, and the box reads it back. Checked here
+// rather than in bin/test-student-modules.php, whose report form is a stand-in: this is the suite
+// that saves a report through the real handler and reads what reached Airtable.
+$GLOBALS['uid']     = $SID;
+$GLOBALS['manage']  = array();
+$GLOBALS['patched'] = array();
+update_user_meta( $SID, WPCPM_Students_Sync::META_PROGRAM, array( 'record_id' => $REC, 'program' => 'Paused' ) );
+set_transient( 'wpcpm_report_' . md5( $REC ), array() );
+
+$hours_box = function () use ( $SID ) {
+	ob_start();
+	WPCPM_Student_Report_Form::render_hours( new WP_User( $SID ), WPCPM_Students_Sync::get_program( $SID ) );
+
+	return (string) ob_get_clean();
+};
+
+ck( 'a student on no track is drawn the hours box, posting the Hours column, empty',
+    1 === preg_match( '/<input type="number" id="wpcpm-report-' . key_of( 'Hours' ) . '" name="report\[' . key_of( 'Hours' ) . '\]" value=""/', $hours_box() ), true );
+
+post_images( array() );
+$_POST = array( 'student' => $SID, 'report' => array( key_of( 'Hours' ) => '42' ) );
+
+ck( 'the save writes Hours to their record and nothing else, and clears the copy it saved over',
+    array( ran( 'handle_save' ), patched_cells(), get_transient( 'wpcpm_report_' . md5( $REC ) ) ),
+    array( 'report-saved', array( 'Hours' => 42 ), false ) );
+
+// What the base holds now, put where values() reads first.
+set_transient( 'wpcpm_report_' . md5( $REC ), array( 'Hours' => 42 ) );
+
+ck( 'and the box reads the saved value back',
+    1 === preg_match( '/name="report\[' . key_of( 'Hours' ) . '\]" value="42"/', $hours_box() ), true );
+
 echo "\n=== The decisions are written down where they were made ===\n";
 
 $source = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php' );

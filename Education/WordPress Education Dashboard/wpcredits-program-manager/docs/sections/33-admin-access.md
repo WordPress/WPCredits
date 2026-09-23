@@ -34,9 +34,20 @@ the right place; there is nothing else to configure.
 ### Arranging the Student Report Card
 
 Under a student's profile and mentor columns the Student Report Card is a stack of modules: the
-**program updates with the resources**, **My course**, the **report form with the feedback forms**,
-**My mentor call**, and **Tools from our sponsors** when the Sponsors module is on. Each carries two
-small arrows at its top right, and pressing one moves the module up or down at once, the way the
-block editor moves blocks. The order belongs to the student: they arrange their own card, and it
-stays as they left it. When you open a student's card through the switcher you see their order and
-can arrange it for them with the same arrows. Nobody else sees the arrows.
+**program updates with the resources**, **My course** (**My hours** when there is no course to open),
+the **report form with the feedback forms**, **My mentor call**, and **Tools from our sponsors** when
+the Sponsors module is on. Each carries two small arrows at its top right, and pressing one moves the
+module up or down at once, the way the block editor moves blocks. The order belongs to the student:
+they arrange their own card, and it stays as they left it. When you open a student's card through
+the switcher you see their order and can arrange it for them with the same arrows. Nobody else sees
+the arrows.
+
+### Group sessions, from a student's card or a mentor's
+
+On a student's card, opened through the switcher, the group sessions they are on are listed under
+*My mentor call*, and each one that has not started offers **Take them off the session**. It asks
+first, then takes the student off, gives their place back and emails them a file that takes the
+session out of their calendar, as their own **Leave the session** would.
+
+On a mentor's card you can change or cancel their group sessions as they can. When you move one, the
+mentor is emailed as well as the students on it, with an invitation that moves it in their calendar.

@@ -87,10 +87,16 @@ function add_query_arg( $key, $value = null, $url = null ) {
 	return $url;
 }
 function wp_nonce_field( $action ) { echo '<input type="hidden" name="_wpnonce" value="' . esc_attr( $action ) . '" />'; }
-function current_user_can( $cap ) { return ! empty( $GLOBALS['can_manage'] ); }
+// The shared stand-in, which looks at the capability: `$GLOBALS['can_manage']` makes the person the
+// program's manager and grants `wpcpm_manage_program` alone. This suite's own answered every
+// capability from that flag, so a handler asking for `read` instead passed every check here (the
+// deep check of 1.109.1, BUILDER-8).
+require_once __DIR__ . '/stubs/caps.php';
 function check_admin_referer( $action ) { if ( ( $GLOBALS['nonce'] ?? '' ) !== $action ) { throw new DieSignal( 'the nonce was refused' ); } return true; }
 function wp_safe_redirect( $url ) { throw new RedirectSignal( (string) $url ); }
-function wp_send_json_success( $data ) { throw new JsonSignal( json_encode( array( 'success' => true, 'data' => $data ) ) ); }
+function wp_send_json_success( $data ) { $GLOBALS['json_status'] = null; throw new JsonSignal( json_encode( array( 'success' => true, 'data' => $data ) ) ); }
+// As core's: the answer, and the status it is sent with, kept for the checks (BUILDER-4).
+function wp_send_json_error( $data = null, $status = null ) { $GLOBALS['json_status'] = $status; throw new JsonSignal( json_encode( array( 'success' => false, 'data' => $data ) ) ); }
 function wp_die( $message = '', $title = '', $args = array() ) { throw new DieSignal( is_string( $message ) ? $message : '' ); }
 function is_wp_error( $thing ) { return $thing instanceof WP_Error; }
 function add_action( $hook, $callback, $priority = 10, $args = 1 ) { $GLOBALS['hooks'][] = $hook; return true; }
@@ -129,11 +135,29 @@ class WPCPM_Request {
 	public static function posted_exact( $key ) { return isset( $_POST[ $key ] ) ? (string) $_POST[ $key ] : ''; }
 	public static function exact( $key ) { return isset( $_GET[ $key ] ) ? (string) $_GET[ $key ] : ''; }
 	public static function posted_verbatim_lines( $key ) { return isset( $_POST[ $key ] ) ? implode( "\n", array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) $_POST[ $key ] ) ), 'strlen' ) ) : ''; }
+	// As the real one: a value is kept only when the whole of it matches, each once, in the order posted.
+	public static function posted_list( $key, $pattern ) {
+		$kept = array();
+
+		foreach ( isset( $_POST[ $key ] ) && is_array( $_POST[ $key ] ) ? $_POST[ $key ] : array() as $value ) {
+			if ( is_string( $value ) && 1 === preg_match( $pattern, $value ) ) {
+				$kept[ $value ] = true;
+			}
+		}
+
+		return array_map( 'strval', array_keys( $kept ) );
+	}
 }
 
 $GLOBALS['can_manage'] = true;
 $GLOBALS['nonce']      = '';
 $GLOBALS['hooks']      = array();
+// The person pressing is user 5, as `get_current_user_id()` says above, and holds `read`, as every
+// account on the site does: a handler that asked for `read` rather than the program's own
+// capability lets them through whatever `can_manage` says, and the refusal checks see it
+// (BUILDER-8).
+$GLOBALS['uid']    = 5;
+$GLOBALS['grants'] = array( 5 => array( 'read' ) );
 $GLOBALS['opts']     = array();
 $GLOBALS['users']    = array( 7 => 'A Manager' );
 $GLOBALS['enqueued'] = array();
@@ -149,12 +173,58 @@ class WPCPM_Track_Publish {
 	public static $verified  = array();
 	public static $answer    = null;
 
-	public static function preflight( $post_id ) { return self::$flight; }
+	/** How many times a handler asked for the preflight, which reads the base: never before the guard (PUBLISH-LEARN-3's fix round). */
+	public static $preflights = 0;
+
+	/**
+	 * What another request does once the preflight has read the draft, run once: a second tab
+	 * saving it before the handler reads anything else (the final wave, item 15).
+	 *
+	 * @var callable|null
+	 */
+	public static $meanwhile = null;
+
+	/** What each run() was handed as its preflight: the array, or null when it was handed none (the final wave, item 3). */
+	public static $handed = array();
+
+	/**
+	 * What a run() handed no preflight finds when it reads the base itself: a second reading, which
+	 * may answer where the handler's did not (the final wave, item 14a). Null reads as the first did.
+	 */
+	public static $second = null;
+
+	public static function preflight( $post_id ) {
+		++self::$preflights;
+
+		$flight = self::$flight;
+
+		if ( is_callable( self::$meanwhile ) ) {
+			$happens         = self::$meanwhile;
+			self::$meanwhile = null;
+			$happens();
+		}
+
+		return $flight;
+	}
 	public static function checklist( $post_id ) { return self::$checklist; }
 
-	public static function run( $post_id, $user_id = 0 ) {
-		self::$ran[] = array( (int) $post_id, (int) $user_id );
-		return null === self::$answer ? array( 'created' => array( 'Brand new' ), 'published' => true ) : self::$answer;
+	// As the real one: handed no preflight it reads the base itself, and a reading that is not ready
+	// creates nothing and says why.
+	public static function run( $post_id, $user_id = 0, $flight = null ) {
+		self::$ran[]    = array( (int) $post_id, (int) $user_id );
+		self::$handed[] = $flight;
+
+		if ( null !== self::$answer ) {
+			return self::$answer;
+		}
+
+		$judged = is_array( $flight ) ? $flight : ( null === self::$second ? self::$flight : self::$second );
+
+		if ( empty( $judged['ready'] ) ) {
+			return new WP_Error( 'wpcpm_track_preflight', $judged['refusals'][0]['message'] ?? '' );
+		}
+
+		return array( 'created' => array( 'Brand new' ), 'published' => true );
 	}
 
 	public static function take_down( $post_id, $user_id = 0 ) {
@@ -365,9 +435,16 @@ class WPCPM_Track_Store {
 	}
 }
 
-/** The runtime stores, for what the last compile left out. */
+/** The runtime stores, for what the last compile left out, and which tracks run from their definitions. */
 class WPCPM_Tracks {
 	const OPT_TRACKS = 'wpcpm_tracks';
+
+	/** Status => compiled row, as the real `live()` answers; none unless a check sets some. */
+	public static $live = array();
+
+	public static function live() {
+		return self::$live;
+	}
 }
 
 /** The calendar module, which owns the sheet that dresses the Student Report Card. */
@@ -379,12 +456,14 @@ class WPCPM_Call_Calendar {
 	public static function register_assets() { ++self::$registered; }
 }
 
-/** The report form, stood in: what the preview handed it, and a marker where it drew. */
+/** The report form, stood in: what the preview handed it, the course too, and a marker where it drew. */
 class WPCPM_Student_Report_Form {
 	public static $previewed = array();
+	public static $courses   = array();
 
-	public static function render_preview( array $fields ) {
+	public static function render_preview( array $fields, $course = '' ) {
 		self::$previewed[] = array_keys( $fields );
+		self::$courses[]   = $course;
 		echo '<div class="wpcpm-report__body wpcpm-report__body--preview">' . count( $fields ) . ' fields</div>';
 	}
 }
@@ -405,11 +484,16 @@ class WPCPM_Roles {
 class WPCPM_Flash {
 	public static $set = array();
 
+	/** How many times a page took its notice, so a refused page can be seen to take none (BUILDER-8). */
+	public static $taken = 0;
+
 	public static function set( $key, $value ) {
 		self::$set[ $key ] = $value;
 	}
 
 	public static function take( $key ) {
+		++self::$taken;
+
 		return $GLOBALS['flash'] ?? array();
 	}
 }
@@ -845,6 +929,9 @@ WPCPM_Track_Publish::$flight = array(
 	'fields'      => array( 'now' => 120, 'after' => 121 ),
 	'adds_status' => true,
 	'ready'       => true,
+	// The draft the preflight judged, as the real one hands it back: its name is the one a publish
+	// that creates columns asks for (the final wave, item 15).
+	'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track, left behind', 'course_url' => '', 'questions' => array( 'B' => 2 ) ),
 );
 WPCPM_Track_Publish::$checklist = array(
 	'automation' => array( 'label' => 'Add the status to the reports automation', 'detail' => 'Add "Marketing Track" to the condition.', 'ticked' => false, 'by' => 0, 'at' => 0 ),
@@ -983,6 +1070,52 @@ ck( 'a refused preflight says so and offers no Publish button at all',
     array( false !== strpos( $refused_screen, 'notice-error' ), false !== strpos( $refused_screen, '<code>Personal link</code>' ), false !== strpos( $refused_screen, 'Publish this track' ) ),
     array( true, true, false ) );
 
+// The final wave, item 2: a refusal that stops the preflight before any column is judged (no
+// definition, a trashed track, a base it could not read, a Students Reports table setting the
+// schema does not name) answers `definition` null and no columns, as the real preflight's
+// answer() writes it, and the screen went on to say "Every column this track writes to is already
+// in the base." under the refusal. No column verdict is drawn then. A flight that judged its
+// columns and found none to create keeps the verdict, and so does one without the key at all.
+$early_screens = array();
+
+foreach ( array( 'no_definition', 'track_trashed', 'schema_unreadable', 'reports_table_unknown' ) as $code ) {
+	$early_flight = array(
+		'refusals'    => array( array( 'code' => $code, 'column' => '', 'message' => 'Stopped at ' . $code . '.' ) ),
+		'warnings'    => array(),
+		'columns'     => array( 'create' => array(), 'ready' => array(), 'detail' => array() ),
+		'choices'     => array( 'reports' => 'missing', 'students' => 'missing' ),
+		'fields'      => array( 'now' => 0, 'after' => 0 ),
+		'adds_status' => true,
+		'ready'       => false,
+		'definition'  => null,
+	);
+
+	ob_start();
+	WPCPM_Track_Builder_Screen::render_publish( array( 'track' => 12, 'label' => 'Marketing Track', 'state' => 'draft', 'preflight' => $early_flight, 'checklist' => array(), 'can_make' => true, 'url' => '', 'flash' => array() ) );
+	$early_html = ob_get_clean();
+
+	$early_screens[ $code ] = array( false !== strpos( $early_html, 'Stopped at ' . $code . '.' ), false !== strpos( $early_html, 'Every column this track writes to is already in the base.' ), false !== strpos( $early_html, '<h3>Columns</h3>' ) );
+}
+
+ck( 'a refusal that stopped the preflight before any column was judged is drawn with no column verdict and no Columns heading under it',
+    $early_screens,
+    array_fill_keys( array( 'no_definition', 'track_trashed', 'schema_unreadable', 'reports_table_unknown' ), array( true, false, false ) ) );
+
+$judged_none               = WPCPM_Track_Publish::$flight;
+$judged_none['columns']    = array( 'create' => array(), 'ready' => array( 'What you did' ), 'detail' => array() );
+$keyless_none              = $judged_none;
+unset( $keyless_none['definition'] );
+$verdicts                  = array();
+
+foreach ( array( 'judged, nothing to create' => $judged_none, 'no definition key, as a stand-in' => $keyless_none ) as $case => $none_flight ) {
+	ob_start();
+	WPCPM_Track_Builder_Screen::render_publish( array( 'track' => 12, 'label' => 'Marketing Track', 'state' => 'draft', 'preflight' => $none_flight, 'checklist' => array(), 'can_make' => true, 'url' => '', 'flash' => array() ) );
+	$verdicts[ $case ] = false !== strpos( ob_get_clean(), '<h3>Columns</h3><p>Every column this track writes to is already in the base.</p>' );
+}
+
+ck( 'while a preflight that judged its columns and found none to create still says so, as does one without the key',
+    $verdicts, array( 'judged, nothing to create' => true, 'no definition key, as a stand-in' => true ) );
+
 ob_start();
 WPCPM_Track_Builder_Screen::render_publish(
 	array(
@@ -1061,7 +1194,10 @@ WPCPM_Track_Publish::$ran      = array();
 WPCPM_Track_Publish::$down     = array();
 WPCPM_Track_Publish::$ticked   = array();
 WPCPM_Track_Publish::$verified = array();
-$_POST                         = array( 'track' => 12, 'item' => 'automation' );
+WPCPM_Track_Publish::$preflights = 0;
+// The preflight above has a column to create, so Publish waits for the track's name, typed
+// (PUBLISH-LEARN-3); the other four handlers ignore the field.
+$_POST                         = array( 'track' => 12, 'item' => 'automation', 'wpcpm_confirm' => 'Designer Track, left behind', 'wpcpm_confirm_columns' => array( 'Brand new' ) );
 
 // Decision 3.9: the capability is checked before the nonce. The nonce here is the wrong one, so
 // a handler that read it first would die saying so instead.
@@ -1071,10 +1207,12 @@ foreach ( array( 'handle_publish', 'handle_unpublish', 'handle_verify', 'handle_
 }
 
 // L4 (Task 9 review): $verified belongs in this list too, or a handle_verify() that read before
-// its guard would still pass every check here.
-ck( 'and none of them did anything',
-    array( WPCPM_Track_Publish::$ran, WPCPM_Track_Publish::$down, WPCPM_Track_Publish::$ticked, WPCPM_Track_Publish::$verified ),
-    array( array(), array(), array(), array() ) );
+// its guard would still pass every check here. So does the preflight Publish reads for the typed
+// name: these presses carry the right name, so a handle_publish() that read the base before its
+// guard would otherwise pass (PUBLISH-LEARN-3's fix round).
+ck( 'and none of them did anything, the preflight not read either',
+    array( WPCPM_Track_Publish::$ran, WPCPM_Track_Publish::$down, WPCPM_Track_Publish::$ticked, WPCPM_Track_Publish::$verified, WPCPM_Track_Publish::$preflights ),
+    array( array(), array(), array(), array(), 0 ) );
 
 $GLOBALS['can_manage'] = true;
 $GLOBALS['nonce']      = WPCPM_Track_Builder::ACTION_PUBLISH;
@@ -1107,10 +1245,15 @@ ck( 'and a run with nothing pending says so, not a count of columns it did not m
 
 $GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_UNPUBLISH;
 WPCPM_Track_Publish::$answer = new WP_Error( 'wpcpm_track_in_use', '3 students are on this track in Airtable.' );
+// A track of somebody's own: a built-in one its PHP still runs is refused before take_down() is
+// asked at all (BUILDER-7).
+$_POST['track'] = 13;
 
 ck( 'a refused unpublish comes back as the error it is, in the store\'s own words',
     array( outcome( array( $tool, 'handle_unpublish' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ),
     array( 'redirect', array( 'status' => 'error', 'message' => '3 students are on this track in Airtable.' ) ) );
+
+$_POST['track'] = 12;
 
 $GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_TICK;
 WPCPM_Track_Publish::$answer = null;
@@ -1581,6 +1724,8 @@ ck( 'each row offers Edit by column name, two arrows in a background-ready form,
     ),
     array( 1, 4, 4, 4, 4 ) );
 
+// Three add forms, not four: this track holds the Hours question, and Total hours holds it alone,
+// so that group's Add form is not drawn (TRACKS-3, follow-up; its own section below).
 ck( 'every form carries its own nonce and action',
     array(
         substr_count( $list, 'name="_wpnonce" value="wpcpm_question_move"' ),
@@ -1588,7 +1733,7 @@ ck( 'every form carries its own nonce and action',
         substr_count( $list, 'name="_wpnonce" value="wpcpm_question_add"' ),
         substr_count( $list, 'name="action" value="wpcpm_question_add"' ),
     ),
-    array( 4, 4, 4, 4 ) );
+    array( 4, 4, 3, 3 ) );
 
 ck( 'the add form asks for the column, the words and one of the ten controls, and knows its group',
     array(
@@ -1597,7 +1742,7 @@ ck( 'the add form asks for the column, the words and one of the ten controls, an
         substr_count( $list, '<select id="wpcpm_add_type_project" name="wpcpm_type">' ),
         substr_count( $list, '<option value="team">Contribution team</option>' ),
     ),
-    array( 4, 4, 1, 4 ) );
+    array( 3, 3, 1, 3 ) );
 
 ck( 'the list sits after the properties form, not inside it',
     strpos( $list, '<div class="wpcpm-questions">' ) > strpos( $list, 'Save the track' ), true );
@@ -1786,6 +1931,37 @@ ck( 'a number offers its bounds, filled from the question, and no length limit',
         substr_count( $number, 'name="wpcpm_maxlength"' ),
     ),
     array( true, true, true, 0 ) );
+
+/**
+ * The groups a question screen's Group select offers, in order.
+ *
+ * @param string $html The screen.
+ * @return string[]
+ */
+function offered_groups( $html ) {
+	if ( 1 !== preg_match( '#<select id="wpcpm_group" name="wpcpm_group">(.*?)</select>#s', $html, $select ) ) {
+		return array();
+	}
+
+	preg_match_all( '#<option value="([^"]*)"#', $select[1], $options );
+
+	return $options[1];
+}
+
+// TRACKS-3: the Student Report Card draws Total hours as the hours box, which holds Hours and
+// nothing else, so the editor offers that group to the Hours question alone and nothing else to
+// it; check() refuses the rest. What was typed decides, so a column renamed to or from Hours is
+// offered the right groups on the screen its refusal brings back.
+ck( 'the Hours question is offered Total hours alone, and every other question the three other groups',
+    array( offered_groups( $number ), offered_groups( $screen ) ),
+    array( array( 'hours' ), array( 'onboarding', 'project', 'wrapup' ) ) );
+
+ck( 'and a column typed as Hours on a refused save is offered Total hours, as a column typed away from it is offered the rest',
+    array(
+        offered_groups( question_screen( WPCPM_Track_Builder::question_form( 13, 'Your blog' ), array( 'status' => 'error', 'message' => 'Refused.', 'question_values' => array( 'column' => 'Hours', 'type' => 'number', 'label' => 'Hours', 'group' => 'onboarding' ) ) ) ),
+        offered_groups( question_screen( WPCPM_Track_Builder::question_form( 13, 'Hours' ), array( 'status' => 'error', 'message' => 'Refused.', 'question_values' => array( 'column' => 'Lab hours', 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ) ) ) ),
+    ),
+    array( array( 'hours' ), array( 'onboarding', 'project', 'wrapup' ) ) );
 
 $mono = question_screen( WPCPM_Track_Builder::question_form( 13, 'Slack name - marketing' ) );
 
@@ -2224,7 +2400,22 @@ ck( 'the builder hands the view the draft compiled as the live site compiles it:
         'state'  => 'draft',
         'source' => 'definition',
         'stale'  => false,
+        'course' => '',
     ) );
+
+// TRACKS-3: the student's page draws the hours box beside the course button, or in a section of
+// its own for a track with no course, so the preview is handed the course to draw the same.
+WPCPM_Track_Store::$tracks[13]['definition']['course_url'] = 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/';
+WPCPM_Student_Report_Form::$courses                         = array();
+$_GET = array( 'wpcpm_preview' => 13 );
+ob_start();
+$tool->render_admin_page();
+ob_end_clean();
+$_GET = array();
+ck( 'the builder hands the view the draft\'s course, and the view hands it to the renderer',
+    array( WPCPM_Track_Builder::preview( 13 )['course'], WPCPM_Student_Report_Form::$courses ),
+    array( 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/', array( 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/' ) ) );
+WPCPM_Track_Store::$tracks[13] = editable_track();
 
 $GLOBALS['enqueued'] = array();
 WPCPM_Call_Calendar::$registered = 0;
@@ -2588,6 +2779,8 @@ ck( 'its publish screen is headed as the definition\'s, says the track keeps run
         substr_count( $builtin_publish, 'Publish the definition' ),
         substr_count( $builtin_publish, 'Publish this track' ),
         substr_count( $builtin_live, 'Unpublish the definition' ),
+        substr_count( $builtin_live, 'name="action" value="wpcpm_track_unpublish"' ),
+        substr_count( $builtin_live, '<p class="wpcpm-tracks__count">The definition stays published while this track runs from its hand-written form: its students see that form either way, so there is nothing to take off the live site.</p>' ),
         substr_count( $builtin_live, 'Take it off the live site' ),
         substr_count( $builtin_live, 'Check it against Airtable' ),
         false !== strpos( $builtin_live, '<h2>Publishing the definition of Designer Track</h2>' ),
@@ -2596,7 +2789,7 @@ ck( 'its publish screen is headed as the definition\'s, says the track keeps run
         substr_count( $own_publish, 'Publish this track' ),
         false !== strpos( $own_publish, 'keeps doing so' ),
     ),
-    array( true, true, 1, 0, 1, 0, 1, true, true, true, 1, false ) );
+    array( true, true, 1, 0, 0, 0, 1, 0, 1, true, true, true, 1, false ) );
 
 
 echo "\n=== The editor's fold-ins: a locked question's rows and its notice, and every control through the real validator (decision 29) ===\n";
@@ -2776,12 +2969,45 @@ ck( 'the same link while Learn is down keeps the last resolved id, and the notic
     array( outcome( array( $tool, 'handle_save' ) ), WPCPM_Track_Store::$saved[13]['learn_course_id'], WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'], false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], 'did not resolve' ) ),
     array( 'redirect', 500001, 'warning', true ) );
 
+// The deep check of 1.109.1, BUILDER-5: a link to another course while Learn does not answer was
+// stored without a course id, and the old course's lesson ids stayed on the questions, where the
+// guide says a link to a different course is not taken until Learn answers. It is held back now,
+// as a course change whose lessons cannot be read already is (decision 33).
 $_POST['wpcpm_course_url'] = 'https://learn.wordpress.org/course/another/';
 WPCPM_Track_Store::$saved  = array();
+WPCPM_Flash::$set          = array();
+WPCPM_Track_Store::$tracks[13]['definition']['questions']['Your blog']['learn_lesson_id'] = 4242;
 
-ck( 'a new link that does not resolve saves with no course id, since the last one was another course\'s',
-    array( outcome( array( $tool, 'handle_save' ) ), array_key_exists( 'learn_course_id', WPCPM_Track_Store::$saved[13] ), WPCPM_Track_Store::$saved[13]['course_url'] ),
-    array( 'redirect', false, 'https://learn.wordpress.org/course/another/' ) );
+ck( 'a new link while Learn does not answer is not taken: the track keeps its link, its course id and its lessons, and the notice says so',
+    array(
+        outcome( array( $tool, 'handle_save' ) ),
+        WPCPM_Track_Store::$saved[13]['course_url'],
+        WPCPM_Track_Store::$saved[13]['learn_course_id'],
+        WPCPM_Track_Store::$saved[13]['questions']['Your blog']['learn_lesson_id'],
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'],
+        WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'],
+    ),
+    array(
+        'redirect',
+        'https://learn.wordpress.org/course/marketing/',
+        500001,
+        4242,
+        'warning',
+        'The track was saved. The new Learn course link was not taken: Learn WordPress did not answer (cURL error 28: Connection timed out). The link is taken once Learn answers for it, so save it again then. Nothing reaches students until it is published.',
+    ) );
+
+unset( WPCPM_Track_Store::$tracks[13]['definition']['questions']['Your blog']['learn_lesson_id'] );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$saved = array();
+// Learn answers, with no course at that address: the link is kept as typed, with the warning (4.2).
+$GLOBALS['http']['https://learn.wordpress.org/wp-json/wp/v2/courses?slug=another&_fields=id,slug,status,link,title'] = array( 'response' => array( 'code' => 200 ), 'body' => '[]' );
+
+ck( 'a new link Learn answers has no course saves with no course id, since the last one was another course\'s',
+    array( outcome( array( $tool, 'handle_save' ) ), array_key_exists( 'learn_course_id', WPCPM_Track_Store::$saved[13] ), WPCPM_Track_Store::$saved[13]['course_url'], false !== strpos( WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], 'did not resolve: Learn has no course at that address.' ) ),
+    array( 'redirect', false, 'https://learn.wordpress.org/course/another/', true ) );
+
+$GLOBALS['http'] = array();
 
 $_POST['wpcpm_course_url'] = '';
 WPCPM_Track_Store::$saved  = array();
@@ -3408,6 +3634,808 @@ ck( 'a store that refuses to create the post, on New track and on Duplicate, sen
         'redirect', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_new=1', 'error', 'The post could not be created.', 'blank', array(),
         'redirect', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_duplicate=13', 'error', 'The post could not be created.', 'A Copy', array(),
     ) );
+
+echo "\n=== Unpublish is not offered on a built-in track its PHP runs, and a press is told the truth (BUILDER-7) ===\n";
+
+// The deep check of 1.109.1, BUILDER-7: the publish screen of a built-in track its PHP still runs
+// offered "Unpublish the definition", which take_down() refused whenever anybody held the status,
+// saying their Student Report Cards would be left with no form: untrue for a track whose PHP draws
+// the form either way, and a button that could never work. It is not drawn now (the check above),
+// and a press from a page drawn before, or a crafted one, is told what is true.
+WPCPM_Track_Store::$tracks   = array(
+	11 => array(
+		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track' ),
+		'state'       => 'published',
+		'source'      => 'builtin',
+		'log'         => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
+		'equivalence' => array(),
+		'published'   => array( 'key' => '150h' ),
+	),
+);
+WPCPM_Students_Sync::$counts = array( 'In Sensei' => 458 );
+WPCPM_Track_Publish::$answer = new WP_Error( 'wpcpm_track_in_use', '458 students are on this track in Airtable, and unpublishing it would leave their Student Report Cards with no form on them. Move them off "In Sensei" first.' );
+WPCPM_Track_Publish::$down   = array();
+WPCPM_Flash::$set            = array();
+$GLOBALS['can_manage']       = true;
+$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_UNPUBLISH;
+$_POST                       = array( 'track' => 11 );
+
+ck( 'a press on a built-in track its PHP runs changes nothing, asks take_down() nothing, and says why, truly, on the publish screen',
+    array( outcome( array( $tool, 'handle_unpublish' ) ), WPCPM_Track_Publish::$down, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array(), $GLOBALS['last_redirect'] ),
+    array(
+        'redirect',
+        array(),
+        array(
+            'status'  => 'error',
+            'message' => 'The definition was not unpublished. This track runs from its hand-written form, so its students see that form whether or not the definition is published: there is nothing to take off the live site.',
+        ),
+        'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_publish=11',
+    ) );
+
+WPCPM_Track_Publish::$answer = null;
+WPCPM_Students_Sync::$counts = array();
+$GLOBALS['nonce']            = '';
+$_POST                       = array();
+
+echo "\n=== A copy starts with no Learn course and no hours target (BUILDER-9) ===\n";
+
+// The deep check of 1.109.1, BUILDER-9: Duplicate replaced the name, the status, the key and the hue
+// and kept everything else, so a copy pointed at its original's Learn course and hours target, where
+// the design's section 5 says the course starts empty and the duplicate form asks for neither.
+// Every question still comes, its lesson included: a lesson of no course is what the question's
+// screen already shows (the design's section 5).
+WPCPM_Track_Store::$tracks     = array(
+	11 => array(
+		'definition'  => array(
+			'schema_version'  => 1,
+			'key'             => '150h',
+			'status'          => 'In Sensei',
+			'label'           => 'WordPress Credits Program 150h',
+			'course_url'      => 'https://learn.wordpress.org/course/wordpress-credits/',
+			'learn_course_id' => 297853,
+			'hours_target'    => 150,
+			'hue'             => 'blue',
+			'questions'       => array( 'Your blog' => array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding', 'learn_lesson_id' => 4242 ) ),
+		),
+		'state'       => 'published',
+		'source'      => 'builtin',
+		'log'         => array(),
+		'equivalence' => array(),
+		'published'   => array( 'key' => '150h' ),
+	),
+);
+WPCPM_Track_Store::$errors     = array();
+WPCPM_Track_Store::$refuse     = null;
+WPCPM_Track_Store::$duplicated = array();
+$GLOBALS['can_manage']         = true;
+$GLOBALS['nonce']              = WPCPM_Track_Builder::ACTION_DUPLICATE;
+$_POST                         = array( 'track' => 11, 'wpcpm_label' => 'Spanish Track', 'wpcpm_status' => 'Spanish Track', 'wpcpm_key' => 'spanish' );
+$copied                        = outcome( array( $tool, 'handle_duplicate' ) );
+$copy                          = WPCPM_Track_Store::$duplicated[0][1] ?? array();
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_duplicate( array( 'form' => WPCPM_Track_Builder::duplicate_form( 11 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$copying = ob_get_clean();
+
+ck( 'the copy has its three of its own, every question with its lesson, and no course link, course id or hours target; the form says so',
+    array(
+        $copied,
+        array( $copy['label'] ?? '', $copy['status'] ?? '', $copy['key'] ?? '' ),
+        $copy['questions'] ?? array(),
+        array_key_exists( 'course_url', $copy ),
+        array_key_exists( 'learn_course_id', $copy ),
+        array_key_exists( 'hours_target', $copy ),
+        substr_count( $copying, '<p>Copying WordPress Credits Program 150h. Its questions come with the copy. A name, a status and a key of its own are asked for below; the copy starts with no Learn course and no hours target, which are set on its page.</p>' ),
+    ),
+    array(
+        'redirect',
+        array( 'Spanish Track', 'Spanish Track', 'spanish' ),
+        array( 'Your blog' => array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding', 'learn_lesson_id' => 4242 ) ),
+        false,
+        false,
+        false,
+        1,
+    ) );
+
+$GLOBALS['nonce'] = '';
+$_POST            = array();
+
+echo "\n=== A refused Save keeps what the person emptied, empty (BUILDER-6) ===\n";
+
+// The deep check of 1.109.1, BUILDER-6: a refused Save flashed the definition built from the post,
+// which has no course link and no hours target once their boxes are emptied, so the form drew
+// both boxes from the stored track again, and the Save that followed the refusal put them back.
+WPCPM_Track_Store::$tracks                                      = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$tracks[13]['definition']['hours_target']    = 150;
+WPCPM_Track_Store::$errors                                      = array( array( 'code' => 'status_taken', 'message' => 'Another track already has this status.' ) );
+WPCPM_Track_Store::$saved                                       = array();
+WPCPM_Flash::$set                                               = array();
+$GLOBALS['can_manage']                                          = true;
+$GLOBALS['nonce']                                               = WPCPM_Track_Builder::ACTION_SAVE;
+$_POST                                                          = array(
+	'track'              => 13,
+	'wpcpm_label'        => 'Marketing Track',
+	'wpcpm_status'       => 'In Sensei',
+	'wpcpm_key'          => 'marketing',
+	'wpcpm_course_url'   => '',
+	'wpcpm_hours_target' => '',
+	'wpcpm_hue'          => 'blue',
+);
+$refused_save  = outcome( array( $tool, 'handle_save' ) );
+$refused_flash = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $refused_flash ) );
+$refused_form = ob_get_clean();
+
+// The person corrects the status and presses Save on the form as it came back.
+WPCPM_Track_Store::$errors = array();
+$_POST['wpcpm_status']     = 'Marketing Track';
+$_POST['wpcpm_course_url'] = preg_match( '/id="wpcpm_course_url" name="wpcpm_course_url" value="([^"]*)"/', $refused_form, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : 'not drawn';
+$_POST['wpcpm_hours_target'] = preg_match( '/id="wpcpm_hours_target" name="wpcpm_hours_target" value="([^"]*)"/', $refused_form, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : 'not drawn';
+$saved_after = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'the form comes back with the course link and the hours target as the person emptied them, and the Save that follows stores neither',
+    array(
+        $refused_save,
+        array_key_exists( 'course_url', $refused_flash['values'] ?? array() ) ? $refused_flash['values']['course_url'] : 'absent',
+        array_key_exists( 'hours_target', $refused_flash['values'] ?? array() ) ? $refused_flash['values']['hours_target'] : 'absent',
+        substr_count( $refused_form, 'id="wpcpm_status" name="wpcpm_status" value="In Sensei"' ),
+        $_POST['wpcpm_course_url'],
+        $_POST['wpcpm_hours_target'],
+        $saved_after,
+        array_key_exists( 'course_url', WPCPM_Track_Store::$saved[13] ?? array() ),
+        array_key_exists( 'learn_course_id', WPCPM_Track_Store::$saved[13] ?? array() ),
+        array_key_exists( 'hours_target', WPCPM_Track_Store::$saved[13] ?? array() ),
+    ),
+    array( 'redirect', '', '', 1, '', '', 'redirect', false, false, false ) );
+
+$GLOBALS['nonce'] = '';
+$_POST            = array();
+
+echo "\n=== A move the page asked for in the background is answered, refusal and all (BUILDER-4) ===\n";
+
+// The deep check of 1.109.1, BUILDER-4: a background move the store refused, or one on a track gone
+// since the page was drawn, went through redirect_back(). The script followed the redirect, read the
+// Track Builder's page where it wanted JSON and kept the row where it had moved it, and the page it
+// followed took the refusal's notice, so nobody read it. Here the track was switched back to its
+// hand-written form in another tab, which is a save the store refuses.
+$GLOBALS['can_manage']                   = true;
+$GLOBALS['nonce']                        = WPCPM_Track_Editor::ACTION_MOVE;
+WPCPM_Track_Store::$tracks               = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['source'] = 'builtin';
+WPCPM_Track_Store::$saved                = array();
+$background_moves                        = array();
+
+foreach ( array( 'refused by the store' => 13, 'on a track since deleted' => 404 ) as $case => $moved_id ) {
+	$GLOBALS['json_status']      = 'none';
+	$answer                      = press_editor( 'handle_move', array( 'track' => $moved_id, 'wpcpm_question' => 'Your blog', 'wpcpm_direction' => 'up', 'wpcpm_async' => '1' ) );
+	$background_moves[ $case ] = array( $answer, $GLOBALS['json_status'], WPCPM_Flash::$set );
+}
+
+ck( 'each is answered as a refusal, with its reason and a status the script reads as one, and no notice is set for a page nobody sees',
+    array( $background_moves, WPCPM_Track_Store::$saved ),
+    array(
+        array(
+            'refused by the store'     => array( array( 'json', array( 'success' => false, 'data' => array( 'message' => 'A built-in track runs from its hand-written form until it switches to its definition.' ) ) ), 409, array() ),
+            'on a track since deleted' => array( array( 'json', array( 'success' => false, 'data' => array( 'message' => 'That track does not exist.' ) ) ), 404, array() ),
+        ),
+        array(),
+    ) );
+
+$script = (string) file_get_contents( __DIR__ . '/../assets/js/track-editor.js' );
+
+// The script's half, read from its source, since no suite here runs JavaScript: an answer that is
+// not the order the store kept puts the row back, and the refusal is shown on the page, in words
+// set as text; not only spoken to a screen reader (the probe that proved BUILDER-4 ran the script
+// under node, and the fix was run against it the same way).
+ck( 'and the script shows the refusal on the page, as text, for any answer that is not the kept order',
+    array(
+        false !== strpos( $script, "notice.className = 'notice notice-error inline wpcpm-questions__refused';" ),
+        false !== strpos( $script, 'message.textContent = ' ),
+        false !== strpos( $script, 'innerHTML' ),
+        false !== strpos( $script, 'response.redirected' ),
+    ),
+    array( true, true, false, true ) );
+
+$GLOBALS['nonce'] = '';
+$_POST            = array();
+
+echo "\n=== Publishing that creates columns waits for the track's name, typed (PUBLISH-LEARN-3) ===\n";
+
+// The deep check of 1.109.1, PUBLISH-LEARN-3, and the product owner, 23 September 2026: one press of
+// a link-styled button created the preflight's whole list of columns in the live base, which the
+// site can never remove, where the design's section 6 asks for the track's name typed to confirm
+// whenever anything will be created. With nothing to create, Publish stays one press.
+$confirm_flight = array(
+	'refusals'    => array(),
+	'warnings'    => array(),
+	'columns'     => array( 'create' => array( 'Brand new', 'Second new' ), 'ready' => array( 'Hours' ), 'detail' => array() ),
+	'choices'     => array( 'reports' => 'ok', 'students' => 'ok' ),
+	'fields'      => array( 'now' => 120, 'after' => 122 ),
+	'adds_status' => true,
+	'ready'       => true,
+	'definition'  => editable_track()['definition'],
+);
+$nothing_flight                      = $confirm_flight;
+$nothing_flight['columns']['create'] = array();
+
+/**
+ * The publish screen of a draft of somebody's own, as it is drawn for a preflight.
+ *
+ * @param array  $flight   What the preflight answered.
+ * @param bool   $can_make Whether a schema token is configured.
+ * @param string $label    The track's name.
+ * @return string
+ */
+function publish_screen( array $flight, $can_make, $label = 'Marketing Track' ) {
+	ob_start();
+	WPCPM_Track_Builder_Screen::render_publish(
+		array(
+			'track'     => 13,
+			'label'     => $label,
+			'state'     => 'draft',
+			'preflight' => $flight,
+			'checklist' => array(),
+			'can_make'  => $can_make,
+			'url'       => '',
+			'flash'     => array(),
+		)
+	);
+
+	return ob_get_clean();
+}
+
+$asks      = publish_screen( $confirm_flight, true );
+$one_press = publish_screen( $nothing_flight, true );
+$marked    = publish_screen( $confirm_flight, true, 'Marketing <b>Track</b>' );
+
+// The box takes the name as typed: no browser's capitalizing, correcting or checking of it, since
+// the handler compares it exactly (the fix round of PUBLISH-LEARN-3).
+ck( 'with columns to create, Publish comes with a box for the track\'s name, labeled with the count and the name; with none, it is one press as before',
+    array(
+        substr_count( $asks, 'name="wpcpm_confirm"' ),
+        false !== strpos( $asks, '<label for="wpcpm-confirm-13">Publishing creates 2 columns in Airtable, and the site can never remove them. To go ahead, type the name of the track, Marketing Track:</label> <input type="text" class="regular-text" id="wpcpm-confirm-13" name="wpcpm_confirm" value="" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required /> <button type="submit" class="button button-primary">Publish this track</button>' ),
+        substr_count( $asks, 'name="action" value="wpcpm_track_publish"' ),
+        substr_count( $one_press, 'name="wpcpm_confirm"' ),
+        substr_count( $one_press, 'name="action" value="wpcpm_track_publish"' ),
+        substr_count( $one_press, 'Publish this track' ),
+        false !== strpos( $marked, 'type the name of the track, Marketing &lt;b&gt;Track&lt;/b&gt;:' ),
+        substr_count( $marked, '<b>' ),
+    ),
+    array( 1, true, 1, 0, 1, 1, true, 0 ) );
+
+$confirm_tool                = new WPCPM_Track_Builder();
+WPCPM_Track_Store::$tracks   = array( 13 => editable_track() );
+WPCPM_Track_Publish::$flight = $confirm_flight;
+WPCPM_Track_Publish::$answer = null;
+WPCPM_Settings::$schema      = true;
+$GLOBALS['can_manage']       = true;
+$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_PUBLISH;
+$typed_presses               = array();
+
+foreach ( array(
+	'nothing typed'            => null,
+	'another name'             => 'Marketing',
+	'the name in another case' => 'marketing track',
+	'the name'                 => ' Marketing Track ',
+) as $case => $typed ) {
+	WPCPM_Track_Publish::$ran = array();
+	WPCPM_Flash::$set         = array();
+	$_POST                    = null === $typed ? array( 'track' => 13 ) : array( 'track' => 13, 'wpcpm_confirm' => $typed, 'wpcpm_confirm_columns' => array( 'Brand new', 'Second new' ) );
+	$typed_presses[ $case ]   = array( outcome( array( $confirm_tool, 'handle_publish' ) ), count( WPCPM_Track_Publish::$ran ), WPCPM_Flash::$set['track-builder']['status'] ?? '', $GLOBALS['last_redirect'] );
+}
+
+$back_here = 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_publish=13';
+
+ck( 'a press whose text is not the track\'s name creates nothing and comes back to the publish screen; the name itself publishes',
+    $typed_presses,
+    array(
+        'nothing typed'            => array( 'redirect', 0, 'error', $back_here ),
+        'another name'             => array( 'redirect', 0, 'error', $back_here ),
+        'the name in another case' => array( 'redirect', 0, 'error', $back_here ),
+        'the name'                 => array( 'redirect', 1, 'success', $back_here ),
+    ) );
+
+// The fix round of PUBLISH-LEARN-3: the name consented to "some columns", not the ones listed. The
+// page carries the columns it listed, and a press is refused when they are not what the preflight
+// would create now, in any order, so a column added since the page was drawn is never made on a
+// consent given for another list. Compared only, never stored.
+$listed_screen = publish_screen( $confirm_flight, true, 'Marketing Track' );
+$quoted_flight = $confirm_flight;
+$quoted_flight['columns']['create'] = array( 'Say "hi" <b>' );
+$quoted_screen = publish_screen( $quoted_flight, true );
+
+ck( 'the box\'s form carries the columns the screen lists, one hidden field each, escaped',
+    array(
+        substr_count( $listed_screen, '<input type="hidden" name="wpcpm_confirm_columns[]" value="Brand new" />' ),
+        substr_count( $listed_screen, '<input type="hidden" name="wpcpm_confirm_columns[]" value="Second new" />' ),
+        substr_count( $listed_screen, 'name="wpcpm_confirm_columns[]"' ),
+        substr_count( $quoted_screen, '<input type="hidden" name="wpcpm_confirm_columns[]" value="Say &quot;hi&quot; &lt;b&gt;" />' ),
+        substr_count( $quoted_screen, '<b>' ),
+    ),
+    array( 1, 1, 2, 1, 0 ) );
+
+$listed_presses = array();
+
+foreach ( array(
+	'the same columns in another order'     => array( 'Second new', 'Brand new' ),
+	'one column added and one taken away'   => array( 'Brand new', 'Third new' ),
+	'no columns listed, as an older page'   => null,
+) as $case => $listed ) {
+	WPCPM_Track_Publish::$flight = $confirm_flight;
+	WPCPM_Track_Publish::$ran    = array();
+	WPCPM_Flash::$set            = array();
+	$_POST                       = null === $listed ? array( 'track' => 13, 'wpcpm_confirm' => 'Marketing Track' ) : array( 'track' => 13, 'wpcpm_confirm' => 'Marketing Track', 'wpcpm_confirm_columns' => $listed );
+	$listed_presses[ $case ]     = array( outcome( array( $confirm_tool, 'handle_publish' ) ), count( WPCPM_Track_Publish::$ran ), WPCPM_Flash::$set['track-builder']['message'] ?? '', $GLOBALS['last_redirect'] );
+}
+
+$changed = 'Nothing was published: the columns publishing would create are not the ones this page listed. Read the list again, then type the name of the track to publish it.';
+
+ck( 'the same columns in another order publish; a list with one column added and one taken away, or none at all, publishes nothing and comes back to the publish screen to be read again',
+    $listed_presses,
+    array(
+        'the same columns in another order'   => array( 'redirect', 1, 'The track is live, and 1 column was created in Airtable.', $back_here ),
+        'one column added and one taken away' => array( 'redirect', 0, $changed, $back_here ),
+        'no columns listed, as an older page' => array( 'redirect', 0, $changed, $back_here ),
+    ) );
+
+// The final wave, item 9: a column name may hold a tab, which the listed columns' pattern dropped,
+// so a track with such a column could never be published; and `$` let a trailing newline through
+// a pattern meant to take one line. The real pattern, through the reader as the real one reads.
+$tabbed_flight                      = $confirm_flight;
+$tabbed_flight['columns']['create'] = array( "Tab\tcolumn", 'Brand new' );
+WPCPM_Track_Publish::$flight        = $tabbed_flight;
+WPCPM_Track_Publish::$ran           = array();
+WPCPM_Flash::$set                   = array();
+$_POST                              = array( 'track' => 13, 'wpcpm_confirm' => 'Marketing Track', 'wpcpm_confirm_columns' => array( 'Brand new', "Tab\tcolumn" ) );
+
+ck( 'a column whose name holds a tab is listed back whole, so the press that confirms it publishes',
+    array( outcome( array( $confirm_tool, 'handle_publish' ) ), count( WPCPM_Track_Publish::$ran ), WPCPM_Flash::$set['track-builder']['status'] ?? '' ),
+    array( 'redirect', 1, 'success' ) );
+
+$_POST = array( 'wpcpm_confirm_columns' => array( "Brand new\n", "Tab\tcolumn", 'Brand new', "Two\nlines", "Carriage\rreturn", "Nul\0byte", str_repeat( 'x', 256 ) ) );
+
+ck( 'and the pattern keeps one line of at most 255 characters, a tab in it allowed: a trailing newline, a line break inside, another control character or a longer name is dropped',
+    WPCPM_Request::posted_list( WPCPM_Track_Builder::FIELD_CONFIRM_COLUMNS, WPCPM_Track_Builder::CONFIRM_COLUMN_PATTERN ),
+    array( "Tab\tcolumn", 'Brand new' ) );
+
+WPCPM_Track_Publish::$flight = $confirm_flight;
+WPCPM_Track_Publish::$ran    = array();
+$_POST                       = array( 'track' => 13 );
+outcome( array( $confirm_tool, 'handle_publish' ) );
+$refusal = WPCPM_Flash::$set['track-builder']['message'] ?? '';
+
+ck( 'and the refusal says why, naming what to type',
+    array( $refusal, WPCPM_Track_Publish::$ran ),
+    array( 'Nothing was published. Publishing creates columns in Airtable that the site can never remove, so it waits for the name of the track, typed exactly as it is written: Marketing Track.', array() ) );
+
+$one_press_runs = array();
+
+// A preflight that refuses is not one of these: it ends the press in the handler, and run() is not
+// asked at all (the final wave, item 14a, below).
+foreach ( array(
+	'nothing to create'          => array( $nothing_flight, true, null ),
+	'no schema token to make any' => array( $confirm_flight, false, new WP_Error( 'wpcpm_track_columns_by_hand', 'This track needs columns the base does not have, and no schema token is configured.' ) ),
+) as $case => $setup ) {
+	WPCPM_Track_Publish::$flight = $setup[0];
+	WPCPM_Settings::$schema      = $setup[1];
+	WPCPM_Track_Publish::$answer = $setup[2];
+	WPCPM_Track_Publish::$ran    = array();
+	WPCPM_Flash::$set            = array();
+	$_POST                       = array( 'track' => 13 );
+	$one_press_runs[ $case ]     = array( outcome( array( $confirm_tool, 'handle_publish' ) ), count( WPCPM_Track_Publish::$ran ), WPCPM_Flash::$set['track-builder']['message'] ?? '' );
+}
+
+ck( 'with nothing the site would create it stays one press, and run() answers for itself',
+    $one_press_runs,
+    array(
+        'nothing to create'           => array( 'redirect', 1, 'The track is live, and 1 column was created in Airtable.' ),
+        'no schema token to make any' => array( 'redirect', 1, 'This track needs columns the base does not have, and no schema token is configured.' ),
+    ) );
+
+echo "\n=== One reading of the base a press: run() is handed the preflight the press was judged on (the final wave, items 3, 14a and 15) ===\n";
+
+/**
+ * Everything a publish press of track 13 reads and records, put back to a draft of its own named
+ * Marketing Track, a schema token configured and the preflight given.
+ *
+ * @param array $flight What the handler's preflight reads.
+ * @param array $post   What the press posts.
+ */
+function fresh_press( array $flight, array $post ) {
+	WPCPM_Track_Store::$tracks       = array( 13 => editable_track() );
+	WPCPM_Track_Publish::$flight     = $flight;
+	WPCPM_Track_Publish::$answer     = null;
+	WPCPM_Track_Publish::$second     = null;
+	WPCPM_Track_Publish::$meanwhile  = null;
+	WPCPM_Track_Publish::$ran        = array();
+	WPCPM_Track_Publish::$handed     = array();
+	WPCPM_Track_Publish::$preflights = 0;
+	WPCPM_Settings::$schema          = true;
+	WPCPM_Flash::$set                = array();
+	$GLOBALS['can_manage']           = true;
+	$GLOBALS['nonce']                = WPCPM_Track_Builder::ACTION_PUBLISH;
+	$_POST                           = $post;
+}
+
+// Item 3: the columns the person confirmed are the columns created, because run() creates from the
+// preflight the typed name and the listed columns were judged against, rather than reading its own.
+fresh_press( $confirm_flight, array( 'track' => 13, 'wpcpm_confirm' => 'Marketing Track', 'wpcpm_confirm_columns' => array( 'Second new', 'Brand new' ) ) );
+
+ck( 'a press that publishes hands run() the preflight its name and its columns were judged against, and the base is read once',
+    array( outcome( array( $confirm_tool, 'handle_publish' ) ), WPCPM_Track_Publish::$handed, WPCPM_Track_Publish::$preflights ),
+    array( 'redirect', array( $confirm_flight ), 1 ) );
+
+// Item 14a (Task 9's review): the press's own reading of the base failed, so the page asked for no
+// name and the handler for none, and run(), handed nothing, read the base again: a second reading
+// that answered created columns nobody confirmed. Shaped as the real preflight answers a base it
+// could not read, while the second reading would find two columns to create.
+$unreadable_flight = array(
+	'refusals'    => array( array( 'code' => 'schema_unreadable', 'column' => '', 'message' => 'Airtable request failed (HTTP 503)' ) ),
+	'warnings'    => array(),
+	'columns'     => array( 'create' => array(), 'ready' => array(), 'detail' => array() ),
+	'choices'     => array( 'reports' => 'missing', 'students' => 'missing' ),
+	'fields'      => array( 'now' => 0, 'after' => 0 ),
+	'adds_status' => true,
+	'ready'       => false,
+	'definition'  => null,
+);
+
+fresh_press( $unreadable_flight, array( 'track' => 13 ) );
+WPCPM_Track_Publish::$second = $confirm_flight;
+
+ck( 'a preflight that could not read the base ends the press with its refusal on the publish screen, and run() is not asked, though a second reading would answer',
+    array( outcome( array( $confirm_tool, 'handle_publish' ) ), WPCPM_Track_Publish::$ran, WPCPM_Flash::$set['track-builder'] ?? array(), $GLOBALS['last_redirect'] ),
+    array( 'redirect', array(), array( 'status' => 'error', 'message' => 'Airtable request failed (HTTP 503)' ), $back_here ) );
+
+// Item 15 (the whole-branch review): the typed name was compared with a second read of the draft
+// and not with the draft the preflight judged, which is the one that goes live, so a name saved
+// in another tab between the two reads consented to a draft it never named.
+$renamed_presses = array();
+
+foreach ( array(
+	'the name saved since the preflight' => 'Marketing Track, renamed',
+	'the name the preflight judged'      => 'Marketing Track',
+) as $case => $typed ) {
+	fresh_press( $confirm_flight, array( 'track' => 13, 'wpcpm_confirm' => $typed, 'wpcpm_confirm_columns' => array( 'Brand new', 'Second new' ) ) );
+	WPCPM_Track_Publish::$meanwhile = function () {
+		WPCPM_Track_Store::$tracks[13]['definition']['label'] = 'Marketing Track, renamed';
+	};
+
+	$renamed_presses[ $case ] = array( outcome( array( $confirm_tool, 'handle_publish' ) ), count( WPCPM_Track_Publish::$ran ), WPCPM_Flash::$set['track-builder']['message'] ?? '' );
+}
+
+ck( 'the typed name is judged against the draft the preflight read, the one that goes live: a name saved in another tab since is refused, and the judged one publishes',
+    $renamed_presses,
+    array(
+        'the name saved since the preflight' => array( 'redirect', 0, 'Nothing was published. Publishing creates columns in Airtable that the site can never remove, so it waits for the name of the track, typed exactly as it is written: Marketing Track.' ),
+        'the name the preflight judged'      => array( 'redirect', 1, 'The track is live, and 1 column was created in Airtable.' ),
+    ) );
+
+WPCPM_Track_Publish::$flight    = array();
+WPCPM_Track_Publish::$answer    = null;
+WPCPM_Track_Publish::$second    = null;
+WPCPM_Track_Publish::$meanwhile = null;
+WPCPM_Settings::$schema         = true;
+$GLOBALS['nonce']            = '';
+$_POST                       = array();
+
+echo "\n=== A live track whose status left Currently mentoring says so on its row (BUILDER-3) ===\n";
+
+// The deep check of 1.109.1, BUILDER-3: a Settings page saved stale took a published track's status
+// out of "Currently mentoring" while the Track Builder went on calling the track published, and the
+// next students sync treated everybody on it as gone. The Settings save now keeps the status, and
+// the list says so of any live track whose status is missing all the same, however it went.
+$published_own               = editable_track();
+$published_own['state']      = 'changed';
+$published_own['published']  = $published_own['definition'];
+// Its draft has a new status, not yet published: it still runs, and syncs, under the old one.
+$published_own['definition']['status'] = 'Marketing Track, renamed';
+$listed_own                  = $published_own;
+$listed_own['definition']    = array_merge( $listed_own['definition'], array( 'key' => 'writing', 'status' => 'Writing Track', 'label' => 'Writing Track' ) );
+$listed_own['published']     = $listed_own['definition'];
+WPCPM_Track_Store::$tracks   = array(
+	13 => $published_own,
+	14 => $listed_own,
+	11 => array(
+		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track' ),
+		'state'       => 'published',
+		'source'      => 'builtin',
+		'log'         => array(),
+		'equivalence' => array(),
+		'published'   => array( 'key' => '150h' ),
+	),
+);
+WPCPM_Tracks::$live                         = array(
+	'Marketing Track' => array( 'key' => 'marketing', 'label' => 'Marketing Track', 'source' => 'definition', 'post' => 13 ),
+	'Writing Track'   => array( 'key' => 'writing', 'label' => 'Writing Track', 'source' => 'definition', 'post' => 14 ),
+);
+WPCPM_Settings::$values['student_statuses'] = array( 'Writing Track', 'Paused' );
+$GLOBALS['opts']['wpcpm_tracks_skipped']    = array();
+
+$unlisted_rows = WPCPM_Track_Builder::rows();
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => $unlisted_rows, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$unlisted_list = ob_get_clean();
+
+WPCPM_Tracks::$live = array();
+unset( WPCPM_Settings::$values['student_statuses'] );
+
+ck( 'the live track whose status is missing is flagged, row and all, by the status it runs under rather than its draft\'s; the one listed is not, nor a built-in track its PHP runs',
+    array(
+        array_column( $unlisted_rows, 'unlisted', 'id' ),
+        substr_count( $unlisted_list, '<tr class="wpcpm-tracks__row wpcpm-tracks__row--unlisted">' ),
+        substr_count( $unlisted_list, '<br /><span class="wpcpm-tracks__unlisted">Its status, &quot;Marketing Track&quot;, is not in &quot;Currently mentoring&quot; in Settings, so the next students sync treats everybody on this track as having left the program. Add it back there.</span>' ),
+        substr_count( $unlisted_list, 'wpcpm-tracks__unlisted' ),
+    ),
+    array( array( 13 => 'Marketing Track', 14 => '', 11 => '' ), 1, 1, 1 ) );
+
+echo "\n=== A new link held back comes back in its box (BUILDER-5, fix round) ===\n";
+
+// The fix round of BUILDER-5: a new course link held back while Learn could not answer saved with no
+// values flashed, so the box drew the old link again while the notice said to save the new one
+// again then, and the next Save kept the old course. The typed link comes back in its box now.
+WPCPM_Track_Store::$tracks                                      = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+unset( WPCPM_Track_Store::$tracks[13]['definition']['questions']['Your blog']['learn_lesson_id'] );
+WPCPM_Track_Store::$errors = array();
+WPCPM_Track_Store::$saved  = array();
+WPCPM_Flash::$set          = array();
+$GLOBALS['transients']     = array();
+$GLOBALS['http']           = array();
+$GLOBALS['can_manage']     = true;
+$GLOBALS['nonce']          = WPCPM_Track_Builder::ACTION_SAVE;
+$_POST                     = array(
+	'track'              => 13,
+	'wpcpm_label'        => 'Marketing Track',
+	'wpcpm_status'       => 'Marketing Track',
+	'wpcpm_key'          => 'marketing',
+	'wpcpm_course_url'   => 'https://learn.wordpress.org/course/another/',
+	'wpcpm_hours_target' => '',
+	'wpcpm_hue'          => 'blue',
+);
+$held_save   = outcome( array( $tool, 'handle_save' ) );
+$held_flash  = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+$held_stored = WPCPM_Track_Store::$tracks[13]['definition']['course_url'];
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $held_flash ) );
+$held_form = ob_get_clean();
+
+// Learn answers now, and the person presses Save on the form as it came back.
+course_answer( 'another', 600002, 'Another Course' );
+$_POST['wpcpm_course_url'] = preg_match( '/id="wpcpm_course_url" name="wpcpm_course_url" value="([^"]*)"/', $held_form, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : 'not drawn';
+WPCPM_Track_Store::$saved  = array();
+$taken_save                = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'the held-back link comes back in its box, and the Save the notice asks for takes the new course once Learn answers',
+    array(
+        $held_save,
+        $held_stored,
+        $held_flash['status'] ?? '',
+        $held_flash['values'] ?? 'no values',
+        $_POST['wpcpm_course_url'],
+        $taken_save,
+        WPCPM_Track_Store::$saved[13]['course_url'] ?? '',
+        WPCPM_Track_Store::$saved[13]['learn_course_id'] ?? 0,
+    ),
+    array(
+        'redirect',
+        'https://learn.wordpress.org/course/marketing/',
+        'warning',
+        array( 'course_url' => 'https://learn.wordpress.org/course/another/' ),
+        'https://learn.wordpress.org/course/another/',
+        'redirect',
+        'https://learn.wordpress.org/course/another/',
+        600002,
+    ) );
+
+// Its sibling (the final fix wave, item 14d): the new link resolves, but the new course's lessons
+// cannot be read, so rematch_lessons() holds the change back to keep the questions' lessons in one
+// course. The notice says to try again once Learn answers, and the box drew the old link again, so
+// the Save it asks for kept the old course. A question under a lesson is what makes the re-match run.
+course_answer( 'marketing-4', 500004, 'Marketing, fourth edition' );
+WPCPM_Track_Store::$tracks                                      = array( 13 => editable_track() );
+WPCPM_Track_Store::$tracks[13]['definition']['course_url']      = 'https://learn.wordpress.org/course/marketing/';
+WPCPM_Track_Store::$tracks[13]['definition']['learn_course_id'] = 500001;
+WPCPM_Track_Store::$saved  = array();
+WPCPM_Flash::$set          = array();
+$_POST['wpcpm_course_url'] = 'https://learn.wordpress.org/course/marketing-4/';
+$lessons_save              = outcome( array( $tool, 'handle_save' ) );
+$lessons_flash             = WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array();
+$lessons_stored            = WPCPM_Track_Store::$tracks[13]['definition']['course_url'];
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => $lessons_flash ) );
+$lessons_form = ob_get_clean();
+
+// Learn answers for the lessons now, and the person presses Save on the form as it came back.
+structure_answer( 500004, array( 'Onboarding' => array( array( 4242, 'Your blog' ) ) ) );
+$_POST['wpcpm_course_url'] = preg_match( '/id="wpcpm_course_url" name="wpcpm_course_url" value="([^"]*)"/', $lessons_form, $m ) ? html_entity_decode( $m[1], ENT_QUOTES ) : 'not drawn';
+WPCPM_Track_Store::$saved  = array();
+$lessons_taken             = outcome( array( $tool, 'handle_save' ) );
+
+ck( 'a new link whose course resolves but whose lessons cannot be read comes back in its box too, and the Save the notice asks for takes it once Learn answers',
+    array(
+        $lessons_save,
+        $lessons_stored,
+        $lessons_flash['status'] ?? '',
+        false !== strpos( $lessons_flash['message'] ?? '', 'The course was not changed: the lessons of the new course could not be read from Learn' ),
+        $lessons_flash['values'] ?? 'no values',
+        $_POST['wpcpm_course_url'],
+        $lessons_taken,
+        WPCPM_Track_Store::$saved[13]['course_url'] ?? '',
+        WPCPM_Track_Store::$saved[13]['learn_course_id'] ?? 0,
+    ),
+    array(
+        'redirect',
+        'https://learn.wordpress.org/course/marketing/',
+        'warning',
+        true,
+        array( 'course_url' => 'https://learn.wordpress.org/course/marketing-4/' ),
+        'https://learn.wordpress.org/course/marketing-4/',
+        'redirect',
+        'https://learn.wordpress.org/course/marketing-4/',
+        500004,
+    ) );
+
+$GLOBALS['transients'] = array();
+$GLOBALS['http']       = array();
+$GLOBALS['nonce']      = '';
+$_POST                 = array();
+
+echo "\n=== One caption gray and one caption size on the Track Builder's screens (TESTS-DOCS-14) ===\n";
+
+// The deep check of 1.109.1, TESTS-DOCS-14: the sheet painted its quiet lines in two grays and at two
+// sizes while its comments said they matched, and cited two sheets as holding a rule neither holds.
+// Read from the sheet itself: every color it gives text, but the warning red, and every size.
+$sheet = (string) file_get_contents( __DIR__ . '/../assets/css/track-builder.css' );
+
+preg_match_all( '/(?<![-\w])color:\s*(#[0-9a-fA-F]{3,6})\s*;/', $sheet, $text_colors );
+preg_match_all( '/font-size:\s*([^;]+);/', $sheet, $text_sizes );
+
+ck( 'every caption is one gray at one size, and no comment cites a sheet for a rule it does not hold',
+    array(
+        array_values( array_unique( array_diff( array_map( 'strtolower', $text_colors[1] ), array( '#b32d2e' ) ) ) ),
+        array_values( array_unique( array_map( 'trim', $text_sizes[1] ) ) ),
+        false !== strpos( $sheet, 'institution.css' ),
+        false !== strpos( $sheet, 'sponsor.css' ),
+    ),
+    array( array( '#646970' ), array( '13px' ), false, false ) );
+
+echo "\n=== The Total hours Add form, only while the track has no Hours question (TRACKS-3, follow-up) ===\n";
+
+// Since TRACKS-3 the Total hours group holds the Hours question alone, so its Add form could only
+// be refused once the track held Hours: it is drawn while Hours is missing, the one question a
+// person may add there, and not after. The other groups keep theirs.
+$hours_questions   = editable_track()['definition']['questions'];
+$no_hours_questions = $hours_questions;
+unset( $no_hours_questions['Hours'] );
+
+/**
+ * A track's question list, as its page draws it under the properties.
+ *
+ * @param array $questions Column => spec.
+ * @return string
+ */
+function question_list( array $questions ) {
+	ob_start();
+	WPCPM_Track_Editor_Screen::render_questions(
+		array(
+			'track'     => 13,
+			'key'       => 'marketing',
+			'questions' => $questions,
+			'url'       => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder',
+		)
+	);
+
+	return ob_get_clean();
+}
+
+$with_hours    = question_list( $hours_questions );
+$without_hours = question_list( $no_hours_questions );
+
+ck( 'the Total hours group offers its Add form only to a track without the Hours question, and every other group offers its own either way',
+    array(
+        substr_count( $with_hours, 'id="wpcpm-questions-add-hours"' ),
+        substr_count( $without_hours, 'id="wpcpm-questions-add-hours"' ),
+        substr_count( $with_hours, 'class="wpcpm-questions__add"' ),
+        substr_count( $without_hours, 'class="wpcpm-questions__add"' ),
+    ),
+    array( 0, 1, 3, 4 ) );
+
+echo "\n=== Every handler, and the screen, refuse somebody without the capability (BUILDER-8) ===\n";
+
+// The deep check of 1.109.1, BUILDER-8: four of the builder's handlers and its screen were never
+// pressed without the capability, and the suite's stand-in answered every capability from one
+// flag, so a handler that checked the nonce alone, or asked for `read`, passed every check. Every
+// `handle_*` method of both classes is pressed here, found by name so that a handler added later is
+// pressed too, by somebody who holds `read` and not the program's capability, with a nonce that
+// would fail as well: each must die on the capability, and do and flash nothing.
+$caps_tool   = new WPCPM_Track_Builder();
+$caps_editor = new WPCPM_Track_Editor( $caps_tool );
+
+$GLOBALS['hooks'] = array();
+$caps_tool->boot();
+$hooked = count( preg_grep( '/^admin_post_/', $GLOBALS['hooks'] ) );
+
+WPCPM_Track_Store::$tracks     = array( 13 => editable_track() );
+WPCPM_Track_Store::$errors     = array();
+WPCPM_Track_Store::$refuse     = null;
+WPCPM_Track_Store::$saved      = array();
+WPCPM_Track_Store::$duplicated = array();
+WPCPM_Track_Store::$created    = array();
+WPCPM_Track_Store::$switches   = array();
+WPCPM_Track_Store::$refreshed  = array();
+WPCPM_Track_Store::$deleted    = array();
+WPCPM_Track_Publish::$answer   = null;
+WPCPM_Track_Publish::$ran      = array();
+WPCPM_Track_Publish::$down     = array();
+WPCPM_Track_Publish::$ticked   = array();
+WPCPM_Track_Publish::$verified = array();
+WPCPM_Track_Publish::$preflights = 0;
+WPCPM_Flash::$set              = array();
+$GLOBALS['can_manage']         = false;
+$GLOBALS['nonce']              = 'another-action';
+$_POST                         = array(
+	'track'           => 13,
+	'item'            => 'automation',
+	'wpcpm_label'     => 'Renamed',
+	'wpcpm_status'    => 'Renamed Track',
+	'wpcpm_key'       => 'renamed',
+	'wpcpm_column'    => 'Brand new',
+	'wpcpm_type'      => 'text',
+	'wpcpm_group'     => 'project',
+	'wpcpm_question'  => 'Slack name',
+	'wpcpm_direction' => 'down',
+	'wpcpm_confirm'   => 'Marketing Track',
+);
+
+$pressed = array();
+
+foreach ( array( $caps_tool, $caps_editor ) as $owner ) {
+	foreach ( get_class_methods( $owner ) as $method ) {
+		if ( 0 === strpos( $method, 'handle_' ) ) {
+			$pressed[ get_class( $owner ) . '::' . $method ] = outcome( array( $owner, $method ) );
+		}
+	}
+}
+
+ck( 'every handler of both classes, as many as are hooked on admin-post, dies on the capability for somebody who holds only read, before the nonce',
+    array( count( $pressed ), $hooked, array_unique( array_values( $pressed ) ) ),
+    array( 17, 17, array( 'die: You do not have permission to manage the program.' ) ) );
+
+ck( 'and not one of them saved, created, copied, switched, refreshed, deleted, published, ticked, checked, read the base or flashed anything',
+    array(
+        WPCPM_Track_Store::$saved, WPCPM_Track_Store::$duplicated, WPCPM_Track_Store::$created, WPCPM_Track_Store::$switches, WPCPM_Track_Store::$refreshed, WPCPM_Track_Store::$deleted,
+        WPCPM_Track_Publish::$ran, WPCPM_Track_Publish::$down, WPCPM_Track_Publish::$ticked, WPCPM_Track_Publish::$verified, WPCPM_Track_Publish::$preflights,
+        WPCPM_Flash::$set,
+    ),
+    array( array(), array(), array(), array(), array(), array(), array(), array(), array(), array(), 0, array() ) );
+
+$taken_before = WPCPM_Flash::$taken;
+$screens      = array();
+
+foreach ( array( array(), array( 'wpcpm_track' => 13 ), array( 'wpcpm_publish' => 13 ), array( 'wpcpm_new' => 1 ) ) as $query ) {
+	$_GET = $query;
+	ob_start();
+	$screens[] = array( outcome( array( $caps_tool, 'render_admin_page' ) ), ob_get_clean() );
+}
+
+$_GET = array();
+
+ck( 'the screen too, whichever of its views is asked for, dies on the capability with nothing printed and the notice left for its owner',
+    array( $screens, WPCPM_Flash::$taken - $taken_before ),
+    array( array_fill( 0, 4, array( 'die: You do not have permission to manage the program.', '' ) ), 0 ) );
+
+$GLOBALS['can_manage'] = true;
+$GLOBALS['nonce']      = '';
+$_POST                 = array();
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

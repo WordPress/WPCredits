@@ -418,6 +418,12 @@ class WPCPM_Content_Access {
 	 * The oEmbed endpoint answers for any published post to anyone with the URL: a gated post's
 	 * title and author would leak to a logged-out reader. Nothing for a post the public cannot read.
 	 *
+	 * **Nor for a post the public cannot view at all** (SURFACES-2). Before WordPress 6.8, inside
+	 * this plugin's 6.5 floor, core answered for a post in publish status of any type a URL resolves
+	 * to, a private type's included; a published track carries no access level, so it read as
+	 * public, and its name and its publisher's name and author URL went to a logged-out requester.
+	 * `is_post_publicly_viewable()` (5.7) asks the type and the status, as core does from 6.8.
+	 *
 	 * @param array|false $data The response, or false already.
 	 * @param WP_Post     $post The post.
 	 * @return array|false
@@ -425,6 +431,10 @@ class WPCPM_Content_Access {
 	public static function filter_oembed( $data, $post ) {
 		if ( false === $data || ! $post instanceof WP_Post ) {
 			return $data;
+		}
+
+		if ( ! is_post_publicly_viewable( $post ) ) {
+			return false;
 		}
 
 		// The level itself, not can_view() with a user of 0: resolve_user() reads 0 as the current

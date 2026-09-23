@@ -41,6 +41,12 @@ An invitation is a password-reset link. Send them in bulk by switching **Invitat
 before a sync, or one at a time from the Students and Mentors screens - which is the safer habit,
 because a first sync creates around ninety accounts at once.
 
+Each invitation cancels the link in the one before it, so only the newest email works: somebody who
+opens an older one is told the link appears to be invalid. For the same reason a second invitation
+to the same person within fifteen minutes is not sent, on purpose. **Resend invite** says so and
+sends nothing, and a bulk send passes over anybody invited in the last fifteen minutes. Ask them to
+use their newest email, or send another once the fifteen minutes are up.
+
 ### Pages the plugin owns
 
 Activation creates the Student Report Card and Mentor Report Card pages and gates them. If one goes
@@ -63,6 +69,7 @@ deleted**, and their program details in Airtable are untouched.
 | A mentor sees the wrong students | The mentor↔student link in Airtable. The page joins on the records, not on names. |
 | Nobody can book a call | The mentor has published no availability. Their Mentor Report Card says so. |
 | Invitations are not arriving | The **Mail** section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
+| A password link says it is invalid | An older invitation. Each one cancels the link in the one before, so ask them to use their newest email. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 
 ## Semester reports

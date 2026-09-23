@@ -103,15 +103,19 @@ final class WPCPM_Track_Publish {
 	 *
 	 * @param int $post_id The track.
 	 * @return array {
-	 *     @type array  $refusals    Findings that stop publishing, each `code`, `column`, `message`.
-	 *     @type array  $warnings    Findings that do not, in the same shape.
-	 *     @type array  $columns     `create` and `ready`, each a list of column names, plus
-	 *                               `detail`: `create`'s names mapped to what
-	 *                               `WPCPM_Track_Columns::field()` says of them.
-	 *     @type array  $choices     `reports` and `students`, each `ok`, `near` or `missing`.
-	 *     @type array  $fields      `now` and `after`, how many columns the reports table holds.
-	 *     @type bool   $adds_status Whether publishing appends the status to `student_statuses`.
-	 *     @type bool   $ready       Whether nothing refuses it.
+	 *     @type array      $refusals    Findings that stop publishing, each `code`, `column`,
+	 *                                   `message`.
+	 *     @type array      $warnings    Findings that do not, in the same shape.
+	 *     @type array      $columns     `create` and `ready`, each a list of column names, plus
+	 *                                   `detail`: `create`'s names mapped to what
+	 *                                   `WPCPM_Track_Columns::field()` says of them.
+	 *     @type array      $choices     `reports` and `students`, each `ok`, `near` or `missing`.
+	 *     @type array      $fields      `now` and `after`, how many columns the reports table holds.
+	 *     @type bool       $adds_status Whether publishing appends the status to `student_statuses`.
+	 *     @type bool       $ready       Whether nothing refuses it.
+	 *     @type array|null $definition  The draft these findings were reached on, read once, which
+	 *                                   `run()` creates columns for and puts live (PUBLISH-LEARN-1);
+	 *                                   null when the preflight stopped before judging a column.
 	 * }
 	 */
 	public static function preflight( $post_id ) {
@@ -172,10 +176,22 @@ final class WPCPM_Track_Publish {
 
 		$reports  = isset( $settings['reports_table'] ) ? (string) $settings['reports_table'] : '';
 		$students = isset( $settings['students_table'] ) ? (string) $settings['students_table'] : '';
-		$columns  = isset( $schema[ $reports ]['columns'] ) ? (array) $schema[ $reports ]['columns'] : array();
-		$create   = array();
-		$ready    = array();
-		$detail   = array();
+
+		// The schema is keyed by table ID, while the setting takes the table's name as readily,
+		// since every records call accepts either. Read against an empty list, every question
+		// looked like a column to create, on a table that seemed to hold none, so the ceiling was
+		// counted from 0 and a taken name came back as a conflict of type (PUBLISH-LEARN-4). The
+		// editor's line leaves itself off in the same case rather than guess.
+		if ( ! isset( $schema[ $reports ]['columns'] ) || ! is_array( $schema[ $reports ]['columns'] ) ) {
+			$refusals[] = self::finding( 'reports_table_unknown', '', self::reports_table_message() );
+
+			return self::answer( $refusals, $warnings );
+		}
+
+		$columns = $schema[ $reports ]['columns'];
+		$create  = array();
+		$ready   = array();
+		$detail  = array();
 
 		$verdicts = self::judge_columns( $definition, $columns );
 
@@ -295,6 +311,7 @@ final class WPCPM_Track_Publish {
 					'after' => $after,
 				),
 				'adds_status' => 'builtin' !== WPCPM_Track_Store::source( $post_id ),
+				'definition'  => $definition,
 			)
 		);
 	}
@@ -302,23 +319,38 @@ final class WPCPM_Track_Publish {
 	/**
 	 * Publish a track: create the columns it needs, then put it live.
 	 *
-	 * One run at a time. Each column that lands is recorded on the post, so a run stopped by
-	 * Airtable can be pressed again and starts at the first step not recorded (decision 18). A
-	 * name already taken is read again rather than treated as a failure: somebody making the
-	 * column by hand is the documented way to work without a schema token (7.2 step 1).
+	 * One run at a time. Each column is recorded on the post the moment it lands, so a run that
+	 * Airtable stopped, or that the host killed part way, can be pressed again: the next press
+	 * creates what the base still lacks and logs every column the site made (decision 18,
+	 * PUBLISH-LEARN-2). A name already taken is read again rather than treated as a failure:
+	 * somebody making the column by hand is the documented way to work without a schema token
+	 * (7.2 step 1).
 	 *
-	 * @param int $post_id The track.
-	 * @param int $user_id Who pressed Publish, for the log; 0 for the current user.
+	 * What goes live is the draft the preflight judged, read once: its columns are the ones
+	 * created, and it is the definition handed to the store (PUBLISH-LEARN-1).
+	 *
+	 * The preflight is the caller's when it has one. The Publish press judges the typed name and
+	 * the listed columns against a preflight and hands it over, so the columns confirmed are
+	 * exactly the columns created and the base is read once a press; a run that read its own
+	 * created whatever a second reading found, and created columns nobody confirmed when the
+	 * press's own reading had failed and a second one answered (the final fix wave of
+	 * PUBLISH-LEARN-3). Only a preflight read in this request may be handed over: one kept or
+	 * posted would judge a base and a draft that are no longer there. With none, it is read here.
+	 *
+	 * @param int        $post_id The track.
+	 * @param int        $user_id Who pressed Publish, for the log; 0 for the current user.
+	 * @param array|null $flight  A preflight of this track read in this request, as `preflight()`
+	 *                            answers it; null to read one here.
 	 * @return array|WP_Error `created` and `published`, or why nothing more was done.
 	 */
-	public static function run( $post_id, $user_id = 0 ) {
+	public static function run( $post_id, $user_id = 0, $flight = null ) {
 		$post_id = (int) $post_id;
-		$flight  = self::preflight( $post_id );
+		$flight  = is_array( $flight ) ? $flight : self::preflight( $post_id );
 
-		if ( ! $flight['ready'] ) {
+		if ( empty( $flight['ready'] ) ) {
 			$first = isset( $flight['refusals'][0]['message'] ) ? (string) $flight['refusals'][0]['message'] : '';
 
-			return new WP_Error( 'wpcpm_track_preflight', $first, array( 'refusals' => $flight['refusals'] ) );
+			return new WP_Error( 'wpcpm_track_preflight', $first, array( 'refusals' => isset( $flight['refusals'] ) ? (array) $flight['refusals'] : array() ) );
 		}
 
 		// Not a diff against `$landed`: `create` already reflects a schema read taken moments ago,
@@ -328,7 +360,7 @@ final class WPCPM_Track_Publish {
 		// review, finding 1). `$landed` still seeds the created list below: it is the log's and the
 		// count's record of what this run and any before it made, not what decides what is pending.
 		$landed  = self::landed( $post_id );
-		$pending = $flight['columns']['create'];
+		$pending = isset( $flight['columns']['create'] ) ? (array) $flight['columns']['create'] : array();
 
 		// Without the token the site cannot make a column, so it says which ones to make instead
 		// of failing halfway. Publishing waits for the preflight to find them (7.2).
@@ -344,10 +376,17 @@ final class WPCPM_Track_Publish {
 			return new WP_Error( 'wpcpm_track_publish_running', __( 'Another track is being published right now. Wait for that to finish and try again.', 'wpcredits-program-manager' ) );
 		}
 
+		// The draft as the preflight read and judged it, not a fresh read. Nothing an editor saves
+		// looks at the lock, so a draft saved in another tab while the columns are being made went
+		// live naming a column nobody judged or created (PUBLISH-LEARN-1). Saves are not refused
+		// meanwhile, since the lock is one option for every track and a killed run holds it for
+		// LOCK_TIMEOUT; nor is the draft compared at the end and refused, which would leave the
+		// columns already made behind a failed press. A save made meanwhile stays a change not yet
+		// published, for the next preflight to judge.
 		$settings   = WPCPM_Settings::get();
 		$table      = isset( $settings['reports_table'] ) ? (string) $settings['reports_table'] : '';
 		$client     = new WPCPM_Airtable();
-		$definition = WPCPM_Track_Store::get( $post_id );
+		$definition = isset( $flight['definition'] ) && is_array( $flight['definition'] ) ? $flight['definition'] : null;
 		$questions  = is_array( $definition ) && isset( $definition['questions'] ) ? (array) $definition['questions'] : array();
 
 		foreach ( $pending as $column ) {
@@ -361,7 +400,6 @@ final class WPCPM_Track_Publish {
 
 			if ( is_wp_error( $made ) ) {
 				if ( 'wpcpm_airtable_field_exists' !== $made->get_error_code() ) {
-					self::record( $post_id, $landed );
 					delete_option( self::OPT_LOCK );
 
 					return $made;
@@ -373,7 +411,6 @@ final class WPCPM_Track_Publish {
 				$again = $client->fetch_schema();
 
 				if ( is_wp_error( $again ) ) {
-					self::record( $post_id, $landed );
 					delete_option( self::OPT_LOCK );
 
 					return $again;
@@ -383,7 +420,6 @@ final class WPCPM_Track_Publish {
 				$verdict = WPCPM_Track_Columns::judge( $column, (array) ( $questions[ $column ] ?? array() ), $there );
 
 				if ( 'ok' !== $verdict ) {
-					self::record( $post_id, $landed );
 					delete_option( self::OPT_LOCK );
 
 					return new WP_Error(
@@ -399,11 +435,16 @@ final class WPCPM_Track_Publish {
 			}
 
 			$landed[] = $column;
+
+			// Written the moment the column lands, one write per column. A run the host kills
+			// inside this loop, through the PHP time limit, a gateway timeout or a fatal, reaches
+			// none of this method's exits, and a record written only there left the next press's
+			// log, its count and History naming only the columns that press made (PUBLISH-LEARN-2;
+			// the design's 7.2: every step that lands is recorded on the post).
+			self::record( $post_id, $landed );
 		}
 
-		self::record( $post_id, $landed );
-
-		$published = WPCPM_Track_Store::publish( $post_id, $user_id );
+		$published = WPCPM_Track_Store::publish( $post_id, $user_id, $definition );
 
 		if ( is_wp_error( $published ) ) {
 			delete_option( self::OPT_LOCK );
@@ -588,7 +629,8 @@ final class WPCPM_Track_Publish {
 	 * writing to a name nothing reads any more (7.4).
 	 *
 	 * @param int $post_id The track.
-	 * @return array|WP_Error `columns` with `missing` and `wrong`, and `choices`.
+	 * @return array|WP_Error `columns` with `missing` and `wrong`, and `choices`; or why nothing
+	 *                        could be checked.
 	 */
 	public static function verify( $post_id ) {
 		$post_id    = (int) $post_id;
@@ -608,9 +650,16 @@ final class WPCPM_Track_Publish {
 
 		$reports  = isset( $settings['reports_table'] ) ? (string) $settings['reports_table'] : '';
 		$students = isset( $settings['students_table'] ) ? (string) $settings['students_table'] : '';
-		$columns  = isset( $schema[ $reports ]['columns'] ) ? (array) $schema[ $reports ]['columns'] : array();
-		$missing  = array();
-		$wrong    = array();
+
+		// As in the preflight: a table the schema does not name made every column read as missing
+		// (PUBLISH-LEARN-4).
+		if ( ! isset( $schema[ $reports ]['columns'] ) || ! is_array( $schema[ $reports ]['columns'] ) ) {
+			return new WP_Error( 'wpcpm_track_reports_table_unknown', self::reports_table_message() );
+		}
+
+		$columns = $schema[ $reports ]['columns'];
+		$missing = array();
+		$wrong   = array();
 
 		$verdicts = self::judge_columns( $definition, $columns );
 
@@ -738,10 +787,11 @@ final class WPCPM_Track_Publish {
 	}
 
 	/**
-	 * Record what has landed, so the next press resumes here.
+	 * Record the columns that have landed, as each one lands, so whatever stops this run the next
+	 * press carries them into its log and its count.
 	 *
 	 * @param int   $post_id The track.
-	 * @param array $columns The columns created so far.
+	 * @param array $columns The columns created so far, by this run and any before it.
 	 * @return void
 	 */
 	private static function record( $post_id, array $columns ) {
@@ -826,6 +876,18 @@ final class WPCPM_Track_Publish {
 	}
 
 	/**
+	 * Why the base could not be checked: the Students Reports table setting names no table in it.
+	 *
+	 * The schema answers by table ID alone, so the sentence says which setting to change and what
+	 * an ID looks like.
+	 *
+	 * @return string
+	 */
+	private static function reports_table_message() {
+		return __( 'The Students Reports table setting does not hold the ID of a table in this base, so no column can be checked against it. Set it to the table\'s ID, which starts with "tbl", on the WPCredits Program → Settings screen.', 'wpcredits-program-manager' );
+	}
+
+	/**
 	 * Why a built-in track's definition does not match its PHP.
 	 *
 	 * @param string[] $differences The fields that differ: `form`, `label`, `course`, `course_id`,
@@ -903,6 +965,7 @@ final class WPCPM_Track_Publish {
 				),
 				'adds_status' => true,
 				'ready'       => array() === $refusals,
+				'definition'  => null,
 			),
 			$rest
 		);

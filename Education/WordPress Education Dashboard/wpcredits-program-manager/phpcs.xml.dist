@@ -73,6 +73,17 @@
 	-->
 	<rule ref="VariableAnalysis"/>
 
+	<!--
+		An undefined variable is an error rather than a warning, because the gate counts errors
+		alone. uninstall.php read `$wpdb` at its top level without declaring it global from 1.96.4
+		on: WordPress includes the file from inside a function, so every uninstall died on that
+		line, and this sniff reported it as a warning, which the gate let through (the deep check
+		of 1.109.1, TRACKS-2).
+	-->
+	<rule ref="VariableAnalysis.CodeAnalysis.VariableAnalysis.UndefinedVariable">
+		<type>error</type>
+	</rule>
+
 	<!-- The plugin's own text domain, so a wrong or missing one is an error. -->
 	<rule ref="WordPress.WP.I18n">
 		<properties>

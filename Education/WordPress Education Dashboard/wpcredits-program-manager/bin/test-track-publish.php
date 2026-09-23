@@ -69,9 +69,18 @@ class WPCPM_Track_Store {
 
 	public static $unpublished = array();
 
-	public static function publish( $post_id, $user_id = 0 ) {
+	/** What each `publish()` was handed as the definition to put live: the array the run judged, or null. */
+	public static $handed = array();
+
+	/**
+	 * Publish, as the real store does it: the copy that goes live is the definition handed over,
+	 * or, with none, the draft as it stands at that moment (PUBLISH-LEARN-1).
+	 */
+	public static function publish( $post_id, $user_id = 0, $definition = null ) {
 		if ( self::$refuse instanceof WP_Error ) { return self::$refuse; }
 		self::$published[] = array( (int) $post_id, (int) $user_id );
+		self::$handed[]    = $definition;
+		self::$published_copies[ (int) $post_id ] = is_array( $definition ) ? $definition : self::get( $post_id );
 		return (int) $post_id;
 	}
 
@@ -101,6 +110,24 @@ class WPCPM_Airtable {
 	public static $answers = array();
 	public static $created = array();
 
+	/** Every method a run called, in order (PUBLISH-LEARN-7). */
+	public static $calls = array();
+
+	/** The whole body of every create, with its table, so the type and options are checked too (TESTS-DOCS-4). */
+	public static $fields = array();
+
+	/**
+	 * Anything else a run asks of the client is refused, and the refusal is the failure: publishing
+	 * reads the base and creates columns, and deleting or renaming anything in Airtable is out of
+	 * the Track Builder's scope (the design's section 14 and decision 18). The call is recorded
+	 * first, so a scenario that catches the refusal can say what was asked (PUBLISH-LEARN-7).
+	 */
+	public function __call( $method, $args ) {
+		self::$calls[] = $method;
+
+		throw new LogicException( 'A publish asked the client for ' . $method . '(): a run only reads the base and creates columns, and never deletes or changes one.' );
+	}
+
 	/**
 	 * The canned schema. `$later` is what a second read sees, which is how the race the resume
 	 * exists for is modelled: the column was not there when the preflight looked, and was by the
@@ -108,8 +135,26 @@ class WPCPM_Airtable {
 	 */
 	public static $later = null;
 
+	/**
+	 * What another request does while this one waits on Airtable, keyed by the method it happens
+	 * during and run once: a second tab saving the draft, as PUBLISH-LEARN-1's probe did.
+	 *
+	 * @var callable[]
+	 */
+	public static $meanwhile = array();
+
+	private static function meanwhile( $method ) {
+		if ( isset( self::$meanwhile[ $method ] ) ) {
+			$happens = self::$meanwhile[ $method ];
+			unset( self::$meanwhile[ $method ] );
+			$happens();
+		}
+	}
+
 	public function fetch_schema() {
 		++self::$reads;
+		self::$calls[] = 'fetch_schema';
+		self::meanwhile( 'fetch_schema' );
 
 		if ( self::$reads > 1 && null !== self::$later ) {
 			return self::$later;
@@ -119,8 +164,17 @@ class WPCPM_Airtable {
 	}
 
 	public function create_field( $table, array $field ) {
+		self::$calls[] = 'create_field';
+		self::meanwhile( 'create_field' );
 		self::$created[] = array( $table, $field['name'] );
+		self::$fields[]  = array( $table, $field );
 		$answer          = array_shift( self::$answers );
+
+		// A request the host kills, a time limit or a fatal: nothing after it in the run gets to
+		// run, which is what an exception does to the code between here and the scenario.
+		if ( $answer instanceof Throwable ) {
+			throw $answer;
+		}
 
 		if ( null !== $answer ) {
 			return $answer;
@@ -258,6 +312,10 @@ ck( 'and the column to create carries its Airtable type, for the by-hand list',
     $flight['columns']['detail'], array( 'Brand new' => array( 'name' => 'Brand new', 'type' => 'singleLineText' ) ) );
 
 ck( 'the status is a choice on both tables', $flight['choices'], array( 'reports' => 'ok', 'students' => 'ok' ) );
+
+// The definition these verdicts were reached on travels with them, so a run creates columns for it
+// and publishes it rather than reading the draft again (PUBLISH-LEARN-1).
+ck( 'the preflight hands back the definition it judged', $flight['definition'] ?? null, track() );
 
 echo "\n=== What it refuses ===\n";
 
@@ -537,7 +595,11 @@ function fresh_run() {
 	WPCPM_Airtable::$later        = null;
 	WPCPM_Airtable::$reads        = 0;
 	WPCPM_Airtable::$created      = array();
+	WPCPM_Airtable::$calls        = array();
+	WPCPM_Airtable::$fields       = array();
+	WPCPM_Airtable::$meanwhile    = array();
 	WPCPM_Track_Store::$published   = array();
+	WPCPM_Track_Store::$handed      = array();
 	WPCPM_Track_Store::$published_copies = array();
 	WPCPM_Track_Store::$unpublished = array();
 	WPCPM_Students_Sync::$counts    = array();
@@ -672,6 +734,49 @@ ck( 'the next press asks the base again rather than trusting its own record, and
     array( WPCPM_Airtable::$created, is_wp_error( $second_of_three ) ? $second_of_three : $second_of_three['published'] ),
     array( array( array( 'tblReports', 'One' ), array( 'tblReports', 'Three' ) ), true ) );
 
+echo "\n=== A run killed part way has recorded every column that landed (PUBLISH-LEARN-2) ===\n";
+
+// A host that kills the request inside the loop, with the PHP time limit, a gateway timeout or a
+// fatal, reaches none of the run's own exits, so only what was written as each column landed
+// survives it.
+fresh_run();
+WPCPM_Track_Store::$definitions = array(
+	7 => track(
+		array(
+			'One'   => array( 'label' => 'One', 'type' => 'text', 'group' => 'project' ),
+			'Two'   => array( 'label' => 'Two', 'type' => 'text', 'group' => 'project' ),
+			'Three' => array( 'label' => 'Three', 'type' => 'text', 'group' => 'project' ),
+			'Four'  => array( 'label' => 'Four', 'type' => 'text', 'group' => 'project' ),
+		)
+	),
+);
+WPCPM_Airtable::$answers = array( null, null, new RuntimeException( 'The host stopped the request.' ) );
+
+try {
+	WPCPM_Track_Publish::run( 7, 5 );
+	$killed = false;
+} catch ( RuntimeException $stopped_by_host ) {
+	$killed = true;
+}
+
+ck( 'a run killed on its third column has already recorded the two that landed',
+    array( $killed, get_post_meta( 7, WPCPM_Track_Publish::META_RUN, true ) ),
+    array( true, array( 'columns' => array( 'One', 'Two' ) ) ) );
+
+// The kill left the lock behind. Once it is stale the next press finishes the job, and its answer
+// and the log name every column the site made, not only the two this press made.
+$GLOBALS['opts'][ WPCPM_Track_Publish::OPT_LOCK ] = time() - WPCPM_Track_Publish::LOCK_TIMEOUT - 5;
+WPCPM_Airtable::$created = array();
+$finished = WPCPM_Track_Publish::run( 7, 5 );
+
+ck( 'and the press that finishes creates the other two, and says and logs all four',
+    array( WPCPM_Airtable::$created, $finished, WPCPM_Track_Store::$logged ),
+    array(
+        array( array( 'tblReports', 'Three' ), array( 'tblReports', 'Four' ) ),
+        array( 'created' => array( 'One', 'Two', 'Three', 'Four' ), 'published' => true ),
+        array( array( 7, 'columns', 5, array( 'columns' => array( 'One', 'Two', 'Three', 'Four' ) ) ) ),
+    ) );
+
 echo "\n=== A name already taken is read again, not treated as a failure ===\n";
 
 fresh_run();
@@ -693,6 +798,115 @@ $wrong_type = WPCPM_Track_Publish::run( 7, 5 );
 
 ck( 'but one of the wrong type stops the run',
     array( $wrong_type->get_error_code(), WPCPM_Track_Store::$published ), array( 'wpcpm_track_column_conflict', array() ) );
+
+echo "\n=== What goes live is what the preflight judged, whatever is saved meanwhile (PUBLISH-LEARN-1) ===\n";
+
+// A second tab, or a second Program Administrator, saves the draft while the run waits on Airtable
+// for its first column: the save adds a question whose column nobody judged and nobody creates.
+// The editor's saves never look at the publish lock, so only the run can keep the two apart.
+fresh_run();
+$judged = WPCPM_Track_Store::$definitions[7];
+WPCPM_Airtable::$meanwhile['create_field'] = function () {
+	WPCPM_Track_Store::$definitions[7]['questions']['Portfolio screenshot'] = array( 'label' => 'Portfolio screenshot', 'type' => 'image', 'group' => 'project' );
+};
+WPCPM_Track_Publish::run( 7, 5 );
+$live = WPCPM_Track_Store::$published_copies[7] ?? array();
+
+ck( 'the store is handed the definition the preflight judged, and that is the copy that goes live',
+    array( WPCPM_Track_Store::$handed, $live ), array( array( $judged ), $judged ) );
+
+ck( 'so the base has every column the live copy names, and only the judged column was created',
+    array( array_values( array_diff( array_keys( (array) ( $live['questions'] ?? array() ) ), array_keys( WPCPM_Airtable::$schema['tblReports']['columns'] ) ) ), WPCPM_Airtable::$created ),
+    array( array(), array( array( 'tblReports', 'Brand new' ) ) ) );
+
+// The same save a moment earlier, while the preflight reads the base, turns the question whose
+// column is about to be created into a number. The column is made as the preflight judged it and
+// listed it, and the number waits in the draft for the next preflight, which refuses the mismatch.
+fresh_run();
+$judged = WPCPM_Track_Store::$definitions[7];
+WPCPM_Airtable::$meanwhile['fetch_schema'] = function () {
+	WPCPM_Track_Store::$definitions[7]['questions']['Brand new'] = array( 'label' => 'Brand new', 'type' => 'number', 'step' => '1', 'group' => 'project' );
+};
+WPCPM_Track_Publish::run( 7, 5 );
+
+ck( 'a save made while the preflight reads the base changes neither the column created nor the copy that goes live',
+    array( WPCPM_Airtable::$schema['tblReports']['columns']['Brand new']['type'] ?? null, WPCPM_Track_Store::$published_copies[7] ?? null ),
+    array( 'singleLineText', $judged ) );
+
+echo "\n=== A preflight handed over is the one the run keeps to, and the base is read once a press (the final wave, item 3) ===\n";
+
+// The Publish press judges the typed name and the listed columns against a preflight, then hands
+// that preflight to run(). A run that read its own created whatever a second reading of the base
+// said, not the columns the person confirmed, and read the base twice a press.
+fresh_run();
+$handed = WPCPM_Track_Publish::preflight( 7 );
+$ran    = WPCPM_Track_Publish::run( 7, 5, $handed );
+
+ck( 'handed a ready preflight, the run reads the base no second time, creates its columns and puts its definition live',
+    array( WPCPM_Airtable::$reads, WPCPM_Airtable::$calls, $ran, WPCPM_Track_Store::$handed ),
+    array( 1, array( 'fetch_schema', 'create_field' ), array( 'created' => array( 'Brand new' ), 'published' => true ), array( $handed['definition'] ) ) );
+
+// The consent gap Task 9's review found (item 14a): the press's own reading of the base failed, so
+// it asked for no name, and a run that read the base again created the columns when the second
+// reading answered. Handed the refusal, the run keeps to it whatever the base says now.
+fresh_run();
+WPCPM_Airtable::$schema = new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 503)' );
+$unread                 = WPCPM_Track_Publish::preflight( 7 );
+WPCPM_Airtable::$schema = base( array( 'What you did' => 'multilineText' ), array( 'Marketing Track' ) );
+$kept_to                = WPCPM_Track_Publish::run( 7, 5, $unread );
+
+ck( 'handed a preflight that could not read the base, the run refuses with its words and reads, creates and publishes nothing, though the base would answer now',
+    array( is_wp_error( $kept_to ) ? array( $kept_to->get_error_code(), $kept_to->get_error_message() ) : $kept_to, WPCPM_Airtable::$reads, WPCPM_Airtable::$created, WPCPM_Track_Store::$published ),
+    array( array( 'wpcpm_track_preflight', 'Airtable request failed (HTTP 503)' ), 1, array(), array() ) );
+
+echo "\n=== What a run sends is the whole column WPCPM_Track_Columns::field() describes (TESTS-DOCS-4) ===\n";
+
+// A column created as the wrong type is found only later, by Check it against Airtable, and the
+// site never removes a column it made (decision 18), so the name alone is not enough to check.
+fresh_run();
+$typed = array(
+	'Hours this week'      => array( 'label' => 'Hours this week', 'type' => 'number', 'step' => '0.5', 'group' => 'project' ),
+	'Tool used'            => array( 'label' => 'The tool you used', 'type' => 'select', 'group' => 'project', 'options' => array( 'Local', 'Studio' ) ),
+	'Portfolio screenshot' => array( 'label' => 'Portfolio screenshot', 'type' => 'image', 'group' => 'project' ),
+);
+WPCPM_Track_Store::$definitions = array( 7 => track( $typed ) );
+WPCPM_Track_Publish::run( 7, 5 );
+
+$described = array();
+
+foreach ( $typed as $column => $question ) {
+	$described[] = array( 'tblReports', WPCPM_Track_Columns::field( $column, $question ) );
+}
+
+ck( 'a number, a select with its choices and a screenshot each reach Airtable whole: name, type and options',
+    array( WPCPM_Airtable::$fields, array_column( array_column( WPCPM_Airtable::$fields, 1 ), 'type' ) ),
+    array( $described, array( 'number', 'singleSelect', 'multipleAttachments' ) ) );
+
+echo "\n=== Publishing again never deletes a column, not even one the draft dropped (PUBLISH-LEARN-7) ===\n";
+
+// Published before with a question the draft has since dropped: its column is still in the base,
+// holding every answer given to it. The run reads the base and creates the new column; anything
+// else it asked of the client would be refused by the stand-in and named here.
+fresh_run();
+WPCPM_Track_Store::$published_copies = array(
+	7 => track(
+		array(
+			'What you did'  => array( 'label' => 'What you did', 'type' => 'textarea', 'group' => 'project' ),
+			'Dropped since' => array( 'label' => 'Dropped since', 'type' => 'text', 'group' => 'project' ),
+		)
+	),
+);
+WPCPM_Airtable::$schema = base( array( 'What you did' => 'multilineText', 'Dropped since' => 'singleLineText' ), array( 'Marketing Track' ) );
+
+try {
+	$republished = WPCPM_Track_Publish::run( 7, 5 );
+} catch ( LogicException $refused_call ) {
+	$republished = $refused_call->getMessage();
+}
+
+ck( 'the run reads the base and creates the one new column, and asks the client for nothing that deletes',
+    array( WPCPM_Airtable::$calls, is_wp_error( $republished ) ? $republished->get_error_code() : $republished ),
+    array( array( 'fetch_schema', 'create_field' ), array( 'created' => array( 'Brand new' ), 'published' => true ) ) );
 
 echo "\n=== With no schema token the columns are a list, not a failure ===\n";
 
@@ -888,6 +1102,32 @@ $seen = WPCPM_Track_Publish::verify( 7 );
 
 ck( 'when the draft drifts from the published copy, verify reports on what is live',
     array( $seen['columns']['missing'], $seen['columns']['wrong'] ), array( array(), array() ) );
+
+echo "\n=== A reports table the schema does not name is refused, not guessed (PUBLISH-LEARN-4) ===\n";
+
+// The schema is keyed by table ID, and the Students Reports table setting takes the table's name
+// as readily, since every records call accepts either. Read against an empty list, every question
+// looked like a column to create, on a table that seemed to hold no columns at all.
+fresh_run();
+WPCPM_Settings::$values['reports_table'] = 'Students Reports';
+$flight = WPCPM_Track_Publish::preflight( 7 );
+
+ck( 'the preflight refuses once, naming the setting, and lists no column to create',
+    array( codes( $flight['refusals'] ), false !== strpos( $flight['refusals'][0]['message'] ?? '', 'Students Reports table setting' ), $flight['columns']['create'], $flight['ready'] ),
+    array( array( 'reports_table_unknown' ), true, array(), false ) );
+
+$refused = WPCPM_Track_Publish::run( 7, 5 );
+
+ck( 'so a run is refused before any column is created or anything goes live',
+    array( is_wp_error( $refused ) ? $refused->get_error_code() : $refused, WPCPM_Airtable::$created, WPCPM_Track_Store::$published ),
+    array( 'wpcpm_track_preflight', array(), array() ) );
+
+WPCPM_Track_Store::$published_copies = array( 7 => track() );
+$seen = WPCPM_Track_Publish::verify( 7 );
+
+ck( 'and checking the live track says the same, rather than calling every column missing',
+    array( is_wp_error( $seen ) ? $seen->get_error_code() : $seen, is_wp_error( $seen ) && false !== strpos( $seen->get_error_message(), 'Students Reports table setting' ) ),
+    array( 'wpcpm_track_reports_table_unknown', true ) );
 
 echo "\n=== A re-read error is not a conflict ===\n";
 

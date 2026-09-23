@@ -1035,6 +1035,90 @@ foreach ( explode( "\r\n", trim( $many ) ) as $line ) {
 }
 ck( 'and every line of it is folded to 75 octets', count( $too_long ), 0 );
 
+/**
+ * The lines of one call's event in a calendar file, unfolded, by property name.
+ *
+ * A property that appears more than once, as `ATTENDEE` does, answers every line of it in order.
+ *
+ * @param string $ics     The file's contents.
+ * @param int    $call_id The call whose event to read.
+ * @return array<string,string[]> Property name to its whole lines; empty when the file holds no
+ *                                event for that call.
+ */
+function event_of( $ics, $call_id ) {
+	foreach ( explode( 'BEGIN:VEVENT', str_replace( "\r\n ", '', (string) $ics ) ) as $event ) {
+		if ( false === strpos( $event, 'UID:' . WPCPM_ICS::uid( $call_id ) . "\r\n" ) ) {
+			continue;
+		}
+
+		$lines = array();
+
+		foreach ( explode( "\r\n", $event ) as $line ) {
+			if ( preg_match( '/^([A-Z-]+)[;:]/', $line, $name ) ) {
+				$lines[ $name[1] ][] = $line;
+			}
+		}
+
+		return $lines;
+	}
+
+	return array();
+}
+
+// One file joins sessions moved different numbers of times, so each event carries its own
+// session's version: a single version for all of them would reach a calendar below what it holds
+// for one of them (the deep check of 1.109.1, SESSIONS-3).
+$versioned = WPCPM_ICS::build_many(
+	array( array_merge( $facts, array( 'sequence' => 4 ) ), array_merge( $second, array( 'sequence' => 1 ) ) ),
+	WPCPM_ICS::METHOD_REQUEST,
+	$GLOBALS['users'][20],
+	$GLOBALS['users'][30],
+	'Group session',
+	'Two of them',
+	''
+);
+
+// The deep check of 1.109.1, TESTS-DOCS-5: no suite read DTEND, ORGANIZER, ATTENDEE or SUMMARY, so
+// every invitation could end when it starts, or name nobody, and the battery would pass. Read here
+// for the single invitation and for every event of a series file, which share `event()`.
+$ends_at   = array( 77 => 1786001800, 78 => 1786606600 );
+$attendees = array(
+	'ATTENDEE;CN="Ada Example";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:ada@example.test',
+	'ATTENDEE;CN="Lu Example";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:lu@example.test',
+);
+$read      = array();
+
+foreach ( array( 'single' => array( $request, array( 77 ), 'Mentor call' ), 'series' => array( $many, array( 77, 78 ), 'Group session' ) ) as $which => $file ) {
+	foreach ( $file[1] as $call_id ) {
+		$event = event_of( $file[0], $call_id );
+
+		$read[ $which . ' ' . $call_id ] = array(
+			$event['DTEND'] ?? array(),
+			$event['SUMMARY'] ?? array(),
+			$event['ORGANIZER'] ?? array(),
+			$event['ATTENDEE'] ?? array(),
+		);
+	}
+}
+
+$wanted = array();
+
+foreach ( array( 'single 77' => 'Mentor call', 'series 77' => 'Group session', 'series 78' => 'Group session' ) as $which => $title ) {
+	$wanted[ $which ] = array(
+		array( 'DTEND:' . gmdate( 'Ymd\THis\Z', $ends_at[ (int) substr( $which, -2 ) ] ) ),
+		array( 'SUMMARY:' . $title ),
+		array( 'ORGANIZER;CN="Ada Example":mailto:ada@example.test' ),
+		$attendees,
+	);
+}
+
+ck( 'every event ends at its own end, carries its title, the mentor as organizer, and the mentor and the student as its attendees, in a single invitation and in each event of a series file',
+    $read, $wanted );
+
+ck( 'each event of a series file carries its own session\'s version',
+    array( event_of( $versioned, 77 )['SEQUENCE'] ?? array(), event_of( $versioned, 78 )['SEQUENCE'] ?? array() ),
+    array( array( 'SEQUENCE:4' ), array( 'SEQUENCE:1' ) ) );
+
 
 echo "\n=== The series message ===\n";
 
@@ -1134,13 +1218,59 @@ $single_second = reset( $GLOBALS['mail'][1]['contents'] );
 ck( 'every event in the series file carries the description that session\'s own invitation carries, a session whose topic was changed apart included',
     array(
         'lu@example.test' === $GLOBALS['mail'][1]['to'],
-        false !== strpos( description_of( $single_file, 401 ), 'A mentor call on the WordPress Credits Program with Ada Example.' ),
+        // A session's own words since the deep check of 1.109.1, SESSIONS-12.
+        false !== strpos( description_of( $single_file, 401 ), 'A group session on the WordPress Credits Program with Ada Example.' ),
         description_of( $series_file, 401 ) === description_of( $single_file, 401 ),
         description_of( $series_file, 402 ) === description_of( $single_second, 402 ),
         description_of( $series_file, 402 ) !== description_of( $series_file, 401 ),
         false !== strpos( description_of( $series_file, 402 ), 'Reading the Codex' ),
     ),
     array( true, true, true, true, true, true ) );
+
+// A session is not a one-to-one call, and its mail and calendar said it was (the deep check of
+// 1.109.1, SESSIONS-12): the mentor was told "Call booked with your student" without the joiner's
+// name, both were told the mentor's own topic was what the student wanted to discuss, and every
+// join retitled the mentor's calendar entry with the latest joiner.
+$GLOBALS['mail'] = array();
+WPCPM_Mentor_Calls::notify_joined( 401, $GLOBALS['users'][20], $GLOBALS['users'][30] );
+
+$join_mentor  = $GLOBALS['mail'][0];
+$join_student = $GLOBALS['mail'][1];
+
+ck( 'a join names the joiner to the mentor and the session to both, in the subject and the first line',
+    array(
+        $join_mentor['subject'],
+        0 === strpos( $join_mentor['body'], 'Lu Example joined your group session on ' ),
+        $join_student['subject'],
+        0 === strpos( $join_student['body'], 'You are on the group session with Ada Example on ' ),
+    ),
+    array( '[WordPress Education Dashboard] Lu Example joined your group session', true, '[WordPress Education Dashboard] You are on the group session with Ada Example', true ) );
+
+ck( 'the session\'s topic is what the session is about, in both messages and both calendar files, never what the student said they wanted',
+    array(
+        false !== strpos( $join_mentor['body'], "What the session is about:\nRelease cycle" ),
+        false !== strpos( $join_student['body'], "What the session is about:\nRelease cycle" ),
+        false !== strpos( $join_mentor['body'] . $join_student['body'], 'would like to discuss' ),
+        false !== strpos( description_of( reset( $join_student['contents'] ), 401 ), 'What the session is about:' ),
+        false !== strpos( reset( $join_mentor['contents'] ) . reset( $join_student['contents'] ), 'would like to discuss' ),
+    ),
+    array( true, true, false, true, false ) );
+
+ck( 'both calendar files call it a group session with the mentor, so a join does not retitle the mentor\'s entry with the latest student',
+    array(
+        event_of( reset( $join_mentor['contents'] ), 401 )['SUMMARY'] ?? array(),
+        event_of( reset( $join_student['contents'] ), 401 )['SUMMARY'] ?? array(),
+        false !== strpos( description_of( reset( $join_student['contents'] ), 401 ), 'A group session on the WordPress Credits Program with Ada Example.' ),
+    ),
+    array( array( 'SUMMARY:Group session with Ada Example' ), array( 'SUMMARY:Group session with Ada Example' ), true ) );
+
+// A leave was told "Your call with ... is booked for ..." with nothing to reply to.
+$GLOBALS['mail'] = array();
+WPCPM_Mentor_Calls::notify_left( 401, 30, 7 );
+
+ck( 'a leave says the student left the session, and a reply goes to the mentor',
+    array( 0 === strpos( $GLOBALS['mail'][0]['body'], 'You have left the group session with Ada Example on ' ), false !== strpos( $GLOBALS['mail'][0]['body'], 'is booked for' ), $GLOBALS['mail'][0]['headers'] ),
+    array( true, false, array( 'Reply-To: "Ada Example" <ada@example.test>' ) ) );
 
 // Every send writes a file of its own. The path a builder memoized for the same recipient and the
 // same sessions is gone once the first send's cleanup ran, and handing it back a second time in
@@ -1158,6 +1288,20 @@ ck( 'a second message for the same session or series in one request gets a file 
         reset( $GLOBALS['mail'][3]['present'] ),
     ),
     array( true, true, true, true ) );
+
+// Join all raises each session's version and hands them over by session, and both files carry them
+// on the right events (SESSIONS-3).
+$GLOBALS['mail'] = array();
+WPCPM_Mentor_Calls::notify_joined_series( array( 401, 402 ), $GLOBALS['users'][20], $GLOBALS['users'][30], array( 401 => 3, 402 => 5 ) );
+
+ck( 'Join all\'s files carry each session\'s version on its own event, the mentor\'s and the student\'s alike',
+    array(
+        event_of( reset( $GLOBALS['mail'][0]['contents'] ), 401 )['SEQUENCE'] ?? array(),
+        event_of( reset( $GLOBALS['mail'][0]['contents'] ), 402 )['SEQUENCE'] ?? array(),
+        event_of( reset( $GLOBALS['mail'][1]['contents'] ), 401 )['SEQUENCE'] ?? array(),
+        event_of( reset( $GLOBALS['mail'][1]['contents'] ), 402 )['SEQUENCE'] ?? array(),
+    ),
+    array( array( 'SEQUENCE:3' ), array( 'SEQUENCE:5' ), array( 'SEQUENCE:3' ), array( 'SEQUENCE:5' ) ) );
 
 // A series is read from the sessions that still stand, so one whose other dates were canceled is a
 // series of one - and both subjects counted it in the plural: "1 sessions", "1 dates".

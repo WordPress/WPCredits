@@ -122,19 +122,22 @@ class WPCPM_Duplicate_Finder extends WPCPM_Tool {
 	}
 
 	/**
-	 * Deactivation: both schedules off the clock. The report and the copies stay.
+	 * Deactivation: both schedules off the clock, and no delete lock left. The report and the
+	 * copies stay.
 	 */
 	public function deactivate() {
 		WPCPM_Duplicates_Scan::deactivate();
 		WPCPM_Duplicate_Vault::deactivate();
+		delete_option( WPCPM_Duplicate_Delete::OPT_LOCK );
 	}
 
 	/**
-	 * Uninstall: the report, the schedules, and every copy with its log entry.
+	 * Uninstall: the report, the schedules, the delete lock, and every copy with its log entry.
 	 */
 	public function uninstall() {
 		WPCPM_Duplicates_Scan::uninstall();
 		WPCPM_Duplicate_Vault::delete_all();
+		delete_option( WPCPM_Duplicate_Delete::OPT_LOCK );
 	}
 
 	/**

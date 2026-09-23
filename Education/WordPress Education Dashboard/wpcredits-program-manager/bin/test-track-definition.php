@@ -275,6 +275,35 @@ ck( 'no course is an empty link and ID 0', array( $row['course_url'], $row['cour
 ck( 'the source and the automation tick are carried, typed', array( $row['source'], $row['automation'], $row['post'] ), array( 'builtin', true, 7 ) );
 ck( 'any source but builtin is a definition', WPCPM_Track_Definition::row( valid(), 1, 'whatever' )['source'], 'definition' );
 
+echo "\n=== The hours rule, which check() asks and compile() does not (TRACKS-3) ===\n";
+
+// The Student Report Card draws Total hours one way: as the hours box, which holds the column
+// named Hours and nothing else, whatever group that column is in. So another question there
+// reaches no student, and Hours anywhere else is drawn twice.
+$lab                                       = valid();
+$lab['questions']['Hours in research lab'] = array( 'label' => 'Hours in the research lab', 'type' => 'number', 'step' => '1', 'min' => 0, 'max' => 1000, 'group' => 'hours' );
+$elsewhere                                 = valid();
+$elsewhere['questions']['Hours']['group']  = 'onboarding';
+
+/** What the hours rule refused: each code with the column it names. */
+function hours_refusals( array $definition ) {
+	return array_map(
+		function ( $error ) {
+			return array( $error['code'], $error['where'] );
+		},
+		WPCPM_Track_Definition::check_hours( $definition )
+	);
+}
+
+ck( 'the valid definition keeps it: Hours, alone in Total hours', hours_refusals( valid() ), array() );
+ck( 'a question other than Hours in Total hours is refused, by its column', hours_refusals( $lab ), array( array( 'hours_only', 'Hours in research lab' ) ) );
+ck( 'and Hours in another group', hours_refusals( $elsewhere ), array( array( 'hours_group', 'Hours' ) ) );
+ck( 'a form with no Hours at all keeps it: a track may count no hours', hours_refusals( array( 'questions' => array( 'Notes' => $note ) ) ), array() );
+ck( 'the rule reads the column verbatim, as the hours box does: hours in lower case is not Hours', hours_refusals( array( 'questions' => array( 'hours' => array( 'group' => 'hours' ) + $grade ) ) ), array( array( 'hours_only', 'hours' ) ) );
+ck( 'and validate() does not ask it, since compile() runs validate() on every published track and would leave one out',
+	array( refused( function ( &$d ) use ( $lab ) { $d = $lab; }, $context ), refused( function ( &$d ) use ( $elsewhere ) { $d = $elsewhere; }, $context ) ),
+	array( array(), array() ) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

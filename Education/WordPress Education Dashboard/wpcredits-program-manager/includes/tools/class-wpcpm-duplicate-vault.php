@@ -21,7 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The cells are sealed with `WPCPM_Secret` (AES-256-GCM), because they are a student's name,
  * address, grades and answers. After thirty days the daily job erases them and keeps the post:
  * the table, the record ID, the created date, the status, who deleted it and when, and never a
- * name or an address, which is the permanent log the owner asked for (spec section 8).
+ * name or an address, which is the permanent log the owner asked for (spec section 8). A copy
+ * Airtable never let the job settle is erased at thirty days too, and its entry says so.
  *
  * The post type follows the plugin's other private records (`wpcpm_mentor_note`): not public, no
  * screen, not in REST, and a capability type nothing is granted, so only this class's own reads
@@ -54,6 +55,9 @@ final class WPCPM_Duplicate_Vault {
 	const META_STATE   = '_wpcpm_dup_state';
 	const META_EXPIRES = '_wpcpm_dup_expires';
 
+	/** Set on a copy erased while still pending: Airtable never confirmed its delete (DUPLICATES-6). */
+	const META_UNCONFIRMED = '_wpcpm_dup_unconfirmed';
+
 	const STATE_PENDING = 'pending';
 	const STATE_DELETED = 'deleted';
 	const STATE_ERASED  = 'erased';
@@ -77,6 +81,9 @@ final class WPCPM_Duplicate_Vault {
 				'exclude_from_search' => true,
 				'rewrite'             => false,
 				'query_var'           => false,
+				// Ignored below WordPress 6.8, where the oEmbed filter refuses the type instead,
+				// and honored from it (SURFACES-2).
+				'embeddable'          => false,
 				'can_export'          => false,
 				'capability_type'     => self::POST_TYPE,
 				'map_meta_cap'        => false,
@@ -173,6 +180,53 @@ final class WPCPM_Duplicate_Vault {
 	}
 
 	/**
+	 * Remove the older pending copies of rows just copied again, which the new copies replace.
+	 *
+	 * A copy stays pending when Airtable refused the batch its row was in, and the notice invites a
+	 * retry. The retry's live re-read, which comes before its copies, finds the row still there,
+	 * so the older copy is of a delete that never happened; left beside the new one, the daily job
+	 * would log the row deleted twice, once by the run that deleted nothing (DUPLICATES-5).
+	 *
+	 * @param array<string, int> $copies Record ID => the copy just kept of that row.
+	 */
+	public static function supersede( array $copies ) {
+		if ( empty( $copies ) ) {
+			return;
+		}
+
+		$pending = get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => 'any',
+				'numberposts'      => -1,
+				'fields'           => 'ids',
+				'suppress_filters' => true,
+				'meta_query'       => array(
+					array(
+						'key'   => self::META_STATE,
+						'value' => self::STATE_PENDING,
+					),
+					array(
+						'key'     => self::META_RECORD,
+						'value'   => array_map( 'strval', array_keys( $copies ) ),
+						'compare' => 'IN',
+					),
+				),
+			)
+		);
+
+		foreach ( array_map( 'intval', (array) $pending ) as $copy_id ) {
+			$record = (string) get_post_meta( $copy_id, self::META_RECORD, true );
+
+			// The new copies are pending too and answer the same query: they stay, and every other
+			// copy is checked again here before it goes.
+			if ( isset( $copies[ $record ] ) && (int) $copies[ $record ] !== $copy_id && self::STATE_PENDING === get_post_meta( $copy_id, self::META_STATE, true ) ) {
+				self::discard( $copy_id );
+			}
+		}
+	}
+
+	/**
 	 * The log, newest first: every copy that still has its cells (`pending` or `deleted`), plus at
 	 * most `$limit` copies whose cells are already `erased`.
 	 *
@@ -182,7 +236,8 @@ final class WPCPM_Duplicate_Vault {
 	 *
 	 * @param int $limit How many `erased` copies to list.
 	 * @return array[] Each `copy`, `table`, `record`, `created`, `status`, `state`, `when` (unix),
-	 *                 `by` (user ID) and `expires` (unix).
+	 *                 `by` (user ID), `expires` (unix) and `unconfirmed` (erased while Airtable
+	 *                 had still not confirmed the delete).
 	 */
 	public static function entries( $limit = 50 ) {
 		$posts = get_posts(
@@ -212,15 +267,16 @@ final class WPCPM_Duplicate_Vault {
 			}
 
 			$entries[] = array(
-				'copy'    => (int) $post->ID,
-				'table'   => (string) get_post_meta( $post->ID, self::META_TABLE, true ),
-				'record'  => (string) get_post_meta( $post->ID, self::META_RECORD, true ),
-				'created' => (string) get_post_meta( $post->ID, self::META_CREATED, true ),
-				'status'  => (string) get_post_meta( $post->ID, self::META_STATUS, true ),
-				'state'   => $state,
-				'when'    => (int) strtotime( (string) $post->post_date_gmt . ' UTC' ),
-				'by'      => (int) $post->post_author,
-				'expires' => (int) get_post_meta( $post->ID, self::META_EXPIRES, true ),
+				'copy'        => (int) $post->ID,
+				'table'       => (string) get_post_meta( $post->ID, self::META_TABLE, true ),
+				'record'      => (string) get_post_meta( $post->ID, self::META_RECORD, true ),
+				'created'     => (string) get_post_meta( $post->ID, self::META_CREATED, true ),
+				'status'      => (string) get_post_meta( $post->ID, self::META_STATUS, true ),
+				'state'       => $state,
+				'when'        => (int) strtotime( (string) $post->post_date_gmt . ' UTC' ),
+				'by'          => (int) $post->post_author,
+				'expires'     => (int) get_post_meta( $post->ID, self::META_EXPIRES, true ),
+				'unconfirmed' => (bool) get_post_meta( $post->ID, self::META_UNCONFIRMED, true ),
 			);
 		}
 
@@ -256,7 +312,8 @@ final class WPCPM_Duplicate_Vault {
 	}
 
 	/**
-	 * The daily job: erase what is past its thirty days, and settle what is still pending.
+	 * The daily job: settle what is still pending, and erase what is past its thirty days, settled
+	 * or not.
 	 *
 	 * @param callable|null $exists `function( $table, $record ) : bool|null` - whether the row is
 	 *                              still in Airtable, or null when that could not be learned. The
@@ -298,11 +355,19 @@ final class WPCPM_Duplicate_Vault {
 					++$counts['settled_deleted'];
 				} else {
 					++$counts['unsettled'];
-					continue;
 				}
 			}
 
-			if ( self::STATE_DELETED === $state && (int) get_post_meta( $copy_id, self::META_EXPIRES, true ) <= $now ) {
+			// Every copy's cells go at its thirty days (spec 8.2), one Airtable never settled too:
+			// a pending state is no reason to keep a student's cells for as long as Airtable will
+			// not answer (a revoked token, an emptied table setting). Its log entry then says the
+			// delete was never confirmed (DUPLICATES-6). The two states by name, so a copy another
+			// request is still writing, whose state is not stored yet, is left alone.
+			if ( in_array( $state, array( self::STATE_PENDING, self::STATE_DELETED ), true ) && (int) get_post_meta( $copy_id, self::META_EXPIRES, true ) <= $now ) {
+				if ( self::STATE_PENDING === $state ) {
+					update_post_meta( $copy_id, self::META_UNCONFIRMED, 1 );
+				}
+
 				wp_update_post(
 					array(
 						'ID'           => $copy_id,

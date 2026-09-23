@@ -35,19 +35,15 @@
 <!-- /wp:heading -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Screen</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Students</strong></td><td>The student list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Mentors</strong></td><td>The mentor list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Institutions</strong></td><td>Role only - registers <code>wpcpm_institution</code> and reserves the screen.</td></tr><tr><td><strong>Sponsors</strong></td><td>The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision.</td></tr><tr><td><strong>Administrators</strong></td><td>Lists the program capabilities granted to Administrator, and who holds the role.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Screen</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Students</strong></td><td>The student list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Mentors</strong></td><td>The mentor list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Institutions</strong></td><td>The institutions sync, the applications and signed agreements waiting to be read, every institution record by stage, account creation, the reconciliation of Students with Students Reports, the consent report, the agreements whose state Airtable disagrees with, every semester report, the plugin's copy of the Collaboration Agreement, and the check of how the host serves the private files.</td></tr><tr><td><strong>Sponsors</strong></td><td>The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision.</td></tr><tr><td><strong>Administrators</strong></td><td>Lists the program capabilities granted to Administrator, and who holds the role.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
-
-<!-- wp:paragraph -->
-<p>A role-only screen tells you the role slug, whether it is registered, and how many accounts hold it. That is deliberate: the role exists and can gate content from the day it is added, long before the module has screens of its own.</p>
-<!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"modules"} -->
 <h3 class="wp-block-heading" id="modules">Modules</h3>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The <strong>Modules</strong> submenu lists the parts of the program that are run and configured on their own rather than belonging to one audience - currently <strong>Header notices</strong>, <strong>Need help?</strong> and the <strong>Mentor Status Checker</strong>. Each has its own screen behind an <em>Open tool</em> button.</p>
+<p>The <strong>Modules</strong> submenu lists the parts of the program that are run and configured on their own rather than belonging to one audience - currently <strong>Header notices</strong>, <strong>Need help?</strong>, the <strong>Mentor Status Checker</strong>, the <strong>Student Duplicate Finder</strong> and the <strong>Track Builder</strong>. Each has its own screen behind an <em>Open tool</em> button.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -100,7 +96,7 @@
 <li><strong>Mentor status to sync</strong> - only mentors holding this Airtable status get an account.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Currently mentoring</strong> - one status per line. Students holding any of these appear under "Currently mentoring" on their mentor's page.</li>
+<li><strong>Currently mentoring</strong> - one status per line. Students holding any of these appear under "Currently mentoring" on their mentor's page. The list keeps the status of every track the site runs from its definition: a save that would take one out saves everything else, leaves Currently mentoring as it was, and a notice names the track. Take the track off the live site in the Track Builder first, then remove its status. A Settings page left open while a track was published keeps the new status when it is saved, and the Track Builder's list flags a live track whose status is missing from Currently mentoring. Left untouched, the box saves the list as it is stored; edited on a page left open, it brings back a status somebody removed in the meantime, so reload the page first.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Past students</strong> - statuses that mean mentoring has finished. Those students appear in a separate, collapsed section. Leave empty to show only current students; a status in both boxes counts as current.</li>
@@ -273,7 +269,7 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>Delete such a row in Airtable and the site is left pointing at nothing. The student's Report Card stops showing their program, and there is no message anywhere saying why, on either side.</p>
+<p>Delete such a row in Airtable and the site is left pointing at nothing. For the student, that means their Student Report Card stops showing their program, and there is no message anywhere saying why, on either side.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -291,16 +287,19 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>It runs by itself every three hours</strong>, offset from the four syncs so the two never collide.</li>
+<li><strong>It runs by itself every three hours</strong>, offset from the four syncs so no two of them run in the same request.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Scan now</strong> runs one while you watch, with a progress bar. Press it if you have just changed something in Airtable and want the list to catch up.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>A scan that fails changes nothing.</strong> Its error appears above the list, and the last good list stays on screen, so a bad night never leaves you with an empty screen.</li>
+<li><strong>A scan that fails changes nothing</strong>, whether Airtable did not answer or the site could not read which of its own records point at the rows. Its error appears above the list, and the last good list stays on screen, so a bad night never leaves you with an empty screen.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Pressing <strong>Scan now</strong> while a scan is running does nothing except say so. The list cannot be selected while a scan is running either, because the rows underneath it are about to change.</li>
+<li><strong>An address is the same student however it is typed.</strong> Capitals and spaces before or after it make no difference, so a row whose address was typed with a space around it is listed, and can be deleted, like any other. When a student's rows spell the address differently, their card says so.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li>Pressing <strong>Scan now</strong> while a scan is running does nothing except say so. <strong>Review selection</strong> is disabled while a scan is running, because the rows underneath the list are about to change.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -324,7 +323,7 @@
 <li>Press <strong>Review selection</strong>. Nothing has been deleted yet.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>The confirmation lists exactly what will go, table by table, and lists anything it left out with the reason. Read it. This is the page to turn back from.</li>
+<li>The confirmation lists exactly what will go, table by table, and lists anything it left out with the reason. Rows that would leave a student with no row in a table are left out here already, not only after you press Delete. Read it. This is the page to turn back from.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li>Press <strong>Delete</strong>. Only this button deletes anything.</li>
@@ -359,7 +358,13 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Every row is read from Airtable again</strong> and every question is asked again. A row that changed since the scan, that the site has started pointing at, or that is already gone is left out and named on the notice.</li>
+<li><strong>Every row is read from Airtable again</strong> and every question is asked again. A row that changed since the scan, that the site has started pointing at, or that is already gone is left out and named on the notice. A row has changed when it carries more work, answers or hours than the list showed, when a value that held it back was replaced (a grade, a note, a screenshot), or when it gained a reason to be kept that it did not have.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>One delete runs at a time.</strong> A Delete pressed while another is running deletes nothing and says so; review the selection again once the first has finished. After a delete that was cut off part of the way, by a timeout for instance, the same notice can show for up to five minutes from when that delete began.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>If the site cannot read what on it points at the rows, nothing is deleted</strong>, and the notice says so.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>The last row an address has in a table is never deleted.</strong> Whatever else happens, a student cannot be erased from a table entirely.</li>
@@ -369,6 +374,9 @@
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>A sealed copy of every row is written to the site first.</strong> If the copy cannot be written, the row is not deleted.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>If Airtable stops a delete part of the way</strong>, the notice says what was deleted before it stopped, with Airtable's own message. The rows it did not confirm stay in the list and can be selected and deleted again; each still ends with one copy and one log entry.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -385,12 +393,16 @@
 <p><strong>There is no automatic restore.</strong> Bringing a row back is a manual job, and a restored row gets a new record ID, so anything that pointed at the old one still needs fixing. After 30 days the cells are erased and the entry stays without a name or an address, as a permanent record that something was deleted.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:paragraph -->
+<p>An entry whose delete Airtable did not confirm says so, and the daily run checks it again: a row still in Airtable leaves the list, copy and all, since nothing was deleted, and a row that is gone becomes an ordinary entry. A copy whose delete Airtable never confirmed is erased at 30 days too, and its entry says the row may still be in Airtable. Look its record ID up there: if the row is still there, the next scan lists it again.</p>
+<!-- /wp:paragraph -->
+
 <!-- wp:heading {"level":4,"anchor":"turning-deleting-on"} -->
 <h4 class="wp-block-heading" id="turning-deleting-on">Turning deleting on</h4>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>Deleting ships switched off.</strong> Until a program manager turns it on under <strong>WPCredits Program → Settings</strong>, in the Student Duplicate Finder's card, the whole list is read-only: no checkbox can be ticked and <strong>Review selection</strong> is greyed out. Scanning and reading work either way, so the list is worth looking at long before anyone decides to delete from it.</p>
+<p><strong>Deleting ships switched off.</strong> Until a program manager turns it on under <strong>WPCredits Program → Settings</strong>, in the Student Duplicate Finder's card, the whole list is read-only: no checkbox can be ticked and <strong>Review selection</strong> is grayed out. Scanning and reading work either way, so the list is worth looking at long before anyone decides to delete from it.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -426,11 +438,11 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Column</th><th>What it shows</th></tr></thead><tbody><tr><td>Track</td><td>The track's name</td></tr><tr><td>Status</td><td>The Airtable status a student holds to be on this track</td></tr><tr><td>Runs from</td><td><em>Its definition</em>, or <em>Its hand-written form, so it cannot be edited here</em> for a built-in track that has not switched yet</td></tr><tr><td>State</td><td><em>Draft</em>, <em>Published</em>, <em>Unpublished changes</em>, or <em>Live, from its hand-written form</em> for a built-in track; under it, whether the definition matches the plugin's form, and a line when the last compile left the track out</td></tr><tr><td>Students</td><td>How many synced students hold its status now</td></tr><tr><td>Last published</td><td>When, and by whom</td></tr><tr><td>Actions</td><td><strong>Edit</strong>, <strong>Duplicate</strong>, <strong>Preview</strong>, <strong>History</strong> and <strong>Publish</strong> (<strong>Publishing</strong> once it is; <strong>Publish definition</strong> on a built-in track), then the buttons only some tracks get</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Column</th><th>What it shows</th></tr></thead><tbody><tr><td>Track</td><td>The track's name</td></tr><tr><td>Status</td><td>The Airtable status a student holds to be on this track</td></tr><tr><td>Runs from</td><td><em>Its definition</em>, or <em>Its hand-written form, so it cannot be edited here</em> for a built-in track that has not switched yet</td></tr><tr><td>State</td><td><em>Draft</em>, <em>Published</em>, <em>Unpublished changes</em>, or <em>Live, from its hand-written form</em> for a built-in track; under it, for a built-in track, whether its definition is published yet and then whether it matches the plugin's form, a line when the last compile left the track out, and a line when a live track's status is missing from <strong>Currently mentoring</strong> in Settings</td></tr><tr><td>Students</td><td>How many synced students hold its status now</td></tr><tr><td>Last published</td><td>When, and by whom</td></tr><tr><td>Actions</td><td><strong>Edit</strong>, <strong>Duplicate</strong>, <strong>Preview</strong>, <strong>History</strong> and <strong>Publish</strong> (<strong>Publishing</strong> once it is; <strong>Publish definition</strong> on a built-in track), then the buttons only some tracks get</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->
-<p><strong>New track</strong> sits above the list. The buttons a row gets only sometimes: <strong>Refresh from the plugin</strong> on a built-in draft that fell behind a plugin update, <strong>Run from its definition</strong> and <strong>Run from its hand-written form</strong> on a built-in track, and <strong>Delete</strong> on a track of your own that was never published. Delete asks first and cannot be undone. A track that was ever published keeps its row, because its columns and its status live on in Airtable, and a built-in track is never offered it.</p>
+<p><strong>New track</strong> sits above the list. The buttons a row gets only sometimes: <strong>Refresh from the plugin</strong> on a built-in draft that fell behind a plugin update, <strong>Run from its definition</strong> and <strong>Run from its hand-written form</strong> on a built-in track, and <strong>Delete</strong> on a track of your own that was never published. Delete asks first and cannot be undone, and it deletes that draft and nothing else. A track that was ever published keeps its row, because its columns and its status live on in Airtable, and a built-in track is never offered it.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"starting-a-track"} -->
@@ -444,10 +456,10 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>New track</strong> asks for the three things two tracks can never share: the <strong>Name</strong>, the <strong>Airtable status</strong> and the <strong>Key</strong>, the short word on the chip, plus the <strong>Learn course</strong> link when the track follows one. With a link, the course's lessons are listed beside the questions, and the name is taken from the course when it is left empty. The chip color is chosen for you, the first one no other track holds, drafts included. The form starts empty; the questions are added on the track's page.</li>
+<li><strong>New track</strong> asks for the three things two tracks can never share: the <strong>Name</strong>, the <strong>Airtable status</strong> and the <strong>Key</strong>, the short word on the chip, plus the <strong>Learn course</strong> link when the track follows one. A name, status or key another track holds is refused, even when that track is a draft, since publishing the draft would claim it. With a link, the course's lessons are listed beside the questions, and the name is taken from the course when it is left empty. The chip color is chosen for you, the first one no other track holds, drafts included. The form starts empty; the questions are added on the track's page.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Duplicate</strong> copies every question of an existing track, the four built-in ones included, and asks for a name, a status and a key of its own. This is the usual way to start a track that resembles one you run: duplicate the 150-hour track and change what differs.</li>
+<li><strong>Duplicate</strong> copies every question of an existing track, the four built-in ones included, and asks for a name, a status and a key of its own, refused as New track's are when another track holds them. The copy starts with no Learn course and no hours target; set them on its page. This is the usual way to start a track that resembles one you run: duplicate the 150-hour track and change what differs.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><em>From a Learn course link</em> is New track with the link filled in. The lessons appear under the groups that are their modules, and each lesson offers <strong>Add a question under this lesson</strong>, which is how a form gets built lesson by lesson.</li>
@@ -460,19 +472,27 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The properties come first: <strong>Name</strong>, <strong>Airtable status</strong>, <strong>Key</strong>, <strong>Learn course</strong>, <strong>Hours target</strong> and <strong>Key chip color</strong>, which is one of blue, cyan, teal, green, red, pink or purple. The hours target may stay empty. <strong>Save the track</strong> saves the properties; the questions save themselves as they are added, edited and moved.</p>
+<p>The properties come first: <strong>Name</strong>, <strong>Airtable status</strong>, <strong>Key</strong>, <strong>Learn course</strong>, <strong>Hours target</strong> and <strong>Key chip color</strong>, which is one of blue, cyan, teal, green, red, pink or purple. The hours target may stay empty. <strong>Save the track</strong> saves the properties; the questions save themselves as they are added, edited and moved. Save refuses a name, status or key another track holds, drafts included, and a refused Save draws the boxes again as you left them.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>The <strong>Learn course</strong> row shows what the link resolved to, the course's title and number. <strong>Read the course again</strong> asks Learn afresh; otherwise the site keeps a day's reading, so a lesson renamed on Learn shows up here within a day. When Learn cannot be reached, the link the track already has is kept with a warning, the lessons cannot be listed, and the track still saves and publishes; a link to a different course is not taken until Learn answers, and the notice says so. Changing the link to another course matches every question that carried a lesson against the new course's lessons by its heading, and the notice names the questions matched and the ones that no longer point at a lesson.</p>
+<p>The <strong>Learn course</strong> row shows what the link resolved to, the course's title and number. <strong>Read the course again</strong> asks Learn afresh; otherwise the site keeps a day's reading, so a lesson renamed on Learn shows up here within a day. When Learn cannot be reached, the link the track already has is kept with a warning, the lessons cannot be listed, and the track still saves and publishes. A new link is not taken while Learn cannot be reached, and the notice says so; the box keeps the link you typed, so pressing <strong>Save the track</strong> again once Learn answers takes it.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>Then <strong>Questions</strong>, by group: Total hours, Onboarding, Project and Wrap-up, the four parts of the Student Report Card's form. Each question is a row with what the student reads, its Airtable column and its control, and beside it <strong>Edit</strong>, <strong>Move up</strong>, <strong>Move down</strong> and <strong>Remove</strong>. Remove takes the question off the form; the column, and whatever students wrote in it, stay in Airtable, and the confirmation says so.</p>
+<p>Changing the link to another course matches every question that carried a lesson against the new course's lessons by its heading. Only a lesson's first question carries the lesson's title as its heading, so the other questions of that lesson follow it; only the questions of a lesson none of whose questions matched are left with no lesson. The notice names the questions matched and the ones that no longer point at a lesson.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>Each group ends with <strong>Add a question</strong>: the Airtable column, what the student reads, the control and, when the group's module has lessons Learn answered, <strong>Under lesson</strong>. Adding opens the new question's page.</p>
+<p>Then <strong>Questions</strong>, by group: Total hours, Onboarding, Project and Wrap-up, the four parts of the Student Report Card's form. Total hours holds one question, Hours, which students see as the hours box. Any other question goes in Onboarding, Project or Wrap-up: the question screen offers Total hours to Hours alone, and Save and Publish refuse anything else. On a track with no Learn course, students see the hours box in a section of its own, <strong>My hours</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Each question is a row with what the student reads, its Airtable column and its control, and beside it <strong>Edit</strong>, <strong>Move up</strong>, <strong>Move down</strong> and <strong>Remove</strong>. The arrows move a question at once; if the site cannot keep a move, the question goes back and a notice above the list says why. Remove takes the question off the form; the column, and whatever students wrote in it, stay in Airtable, and the confirmation says so.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Each group ends with <strong>Add a question</strong>: the Airtable column, what the student reads, the control and, when the group's module has lessons Learn answered, <strong>Under lesson</strong>. Total hours offers it only while the track has no Hours question. Adding opens the new question's page.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -504,7 +524,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Row</th><th>What it does</th></tr></thead><tbody><tr><td>What the student reads</td><td>The label above the box</td></tr><tr><td>Group</td><td>Total hours, Onboarding, Project or Wrap-up</td></tr><tr><td>Help under the box</td><td>A sentence under the control</td></tr><tr><td>Heading before it</td><td>A heading printed before this question; the first question under a lesson carries the lesson's title here</td></tr><tr><td>Subheading before it</td><td>A second heading before this question, drawn like the first</td></tr><tr><td>Note after the run</td><td>A sentence after the run of questions this one ends</td></tr><tr><td>Row, and Shares one column of its row</td><td>Questions with the same row name sit side by side</td></tr><tr><td>Marked required</td><td>Draws the word <em>Required</em> beside the label; nothing is enforced</td></tr><tr><td>Kept off everything an institution reads</td><td>The answer is left off the Student Report Card an institution sees</td></tr><tr><td>Lowest value, Highest value, Step</td><td>A number's limits; the step also sets how many decimal places a new column keeps</td></tr><tr><td>Length limit</td><td>A single-line box's limit; a text area has its own</td></tr><tr><td>Monospace, for code</td><td>A text area drawn in a monospace face</td></tr><tr><td>Choices, one a line</td><td>The choices of a select; a column that already exists must offer every one of them</td></tr><tr><td>Learn lesson</td><td>The lesson this question reports on: the course's lessons by module, <em>None</em> first, or a number box when Learn cannot be read</td></tr><tr><td>Developer note</td><td>Why a column name looks like a slip; no student sees it</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Row</th><th>What it does</th></tr></thead><tbody><tr><td>What the student reads</td><td>The label above the box</td></tr><tr><td>Group</td><td>Onboarding, Project or Wrap-up; Total hours for the Hours question, which goes in no other group</td></tr><tr><td>Help under the box</td><td>A sentence under the control</td></tr><tr><td>Heading before it</td><td>A heading printed before this question; the first question under a lesson carries the lesson's title here</td></tr><tr><td>Subheading before it</td><td>A second heading before this question, drawn like the first</td></tr><tr><td>Note after the run</td><td>A sentence after the run of questions this one ends</td></tr><tr><td>Row, and Shares one column of its row</td><td>Questions with the same row name sit side by side</td></tr><tr><td>Marked required</td><td>Draws the word <em>Required</em> beside the label; nothing is enforced</td></tr><tr><td>Kept off everything an institution reads</td><td>The answer is left off the Student Report Card an institution sees</td></tr><tr><td>Lowest value, Highest value, Step</td><td>A number's limits; the step also sets how many decimal places a new column keeps</td></tr><tr><td>Length limit</td><td>A single-line box's limit; a text area has its own</td></tr><tr><td>Monospace, for code</td><td>A text area drawn in a monospace face</td></tr><tr><td>Choices, one a line</td><td>The choices of a select; a column that already exists must offer every one of them</td></tr><tr><td>Learn lesson</td><td>The lesson this question reports on: the course's lessons by module, <em>None</em> first, or a number box when Learn cannot be read</td></tr><tr><td>Developer note</td><td>Why a column name looks like a slip; no student sees it</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->
@@ -520,7 +540,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>Preview</strong> draws the draft's form as a student sees it: empty answers, no student's record, the same renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. A built-in track can be previewed too; its definition is what its form draws.</p>
+<p><strong>Preview</strong> draws the draft's form as a student sees it: empty answers, no student's record, the same renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. The hours box sits where the Student Report Card puts it: beside the button that opens the course when the track has a Learn course, as My course draws them, and on its own when it has none. A built-in track can be previewed too; its definition is what its form draws.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -538,7 +558,7 @@
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>This track cannot be published yet</strong> lists what stops it: a column in Airtable with a question's name but another type, a control that cannot have a column created for it, a table that would pass Airtable's limit of 500 columns, a status or key another track holds.</li>
+<li><strong>This track cannot be published yet</strong> lists what stops it: a column in Airtable with a question's name but another type, a control that cannot have a column created for it, a table that would pass Airtable's limit of 500 columns, a status, key or name another track holds, a draft's included, a question other than Hours in Total hours or Hours in another group, and a <strong>Students Reports table</strong> setting that holds anything but the table's ID, its name for example. <strong>Check it against Airtable</strong> refuses the same way while that setting is wrong.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>Worth knowing before you publish</strong> lists what does not stop it: a choice of the Status column on Students Reports or Students that nearly matches the track's status but not exactly, which the syncs would never match; a Learn course link that does not resolve; a table past 450 columns. A choice that is missing altogether is not a warning: the third checklist item below says, for each table, whether it has the choice yet.</li>
@@ -550,17 +570,25 @@
 <li><strong>What the site cannot do</strong>: the three Airtable steps no token can take, with the exact values to use. Add the status to the condition of the automation <em>Add students to Students Reports and Feedback</em>; create the track's welcome email automation, as each of the four tracks has one; add the status as a choice of the Status column on both tables. Tick each with <strong>I have done this</strong> once it is done, and the tick records who and when. An unticked item never blocks publishing, but until the automation item is ticked, students cannot be put on the track from the institution import, because they would never get a report row.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Publishing a track of your own adds its status to <strong>Currently mentoring</strong> in Settings. The four built-in statuses are there already, so publishing a built-in definition adds nothing.</li>
+<li>Publishing a track of your own adds its status to <strong>Currently mentoring</strong> in Settings. The four built-in statuses are there already, so publishing a built-in definition adds nothing. While a track runs from its definition, a Settings save that would take its status out saves everything else, leaves Currently mentoring as it was and names the track.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>Publishing runs its steps one at a time and records each. If Airtable refuses part-way, the notice carries Airtable's own message, and pressing Publish again picks up at the first step not done.</p>
+<p>When publishing would create columns in Airtable, Publish comes with a box: type the track's name exactly as it is written, then press the button. Capitals count; spaces around the name do not. The site can never remove a column it created, so a press whose text is not the name creates nothing and says so. The name confirms the columns the screen lists: if the columns publishing would create change before the button is pressed, nothing is published and the screen comes back with the new list to read and confirm again. With nothing to create, Publish is one press; a press that finds columns gone from the base since the page was drawn creates nothing, and the screen comes back to show them.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>After publishing, the same screen offers <strong>Check it against Airtable</strong>, which reads the base again and says whether every column is still there with its type and the status is a choice on both tables, and <strong>Take it off the live site</strong>. Unpublishing is refused while any student holds the status, with the count. Otherwise the track becomes a draft again, nothing in Airtable changes, and the status stays in Currently mentoring: removing it there takes the Student role from everybody on the track, which is a decision of its own.</p>
+<p>Publishing runs its steps one at a time and records each. If Airtable refuses part-way, the notice carries Airtable's own message, and pressing Publish again picks up at the first step not done. If the page stops part-way instead, because the server gave up on a long run, the columns made so far are already recorded, but for up to twenty minutes Publish on every track says another track is being published. After that, press Publish again: it creates only the columns the base still lacks, and the log names every column the site made.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>What goes live is the track as it stood when Publish was pressed. An edit saved while Publish runs, in another tab or by another Program Administrator, is not part of that publish: the track then shows <em>Unpublished changes</em> until <strong>Publish the changes</strong> is pressed.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>After publishing, the same screen offers <strong>Check it against Airtable</strong>, which reads the base again and says whether every column is still there with its type and the status is a choice on both tables, and <strong>Take it off the live site</strong>. On a built-in track that still runs from its hand-written form it offers <strong>Check it against Airtable</strong> alone: the definition stays published, since the track's students see the hand-written form either way. Unpublishing is refused while any student holds the status, with the count. Otherwise the track becomes a draft again, nothing in Airtable changes, and the status stays in Currently mentoring: removing it there takes the Student role from everybody on the track, which is a decision of its own.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -572,19 +600,19 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The 150-hour, 50-hour, Developer and Designer tracks run from forms written in the plugin's code. Each has a definition in the Track Builder, shown as <em>Live, from its hand-written form</em>, and the line under the state says whether that definition is identical to the form. Moving one onto its definition takes three presses, and students see no change at any of them:</p>
+<p>The 150-hour, 50-hour, Developer and Designer tracks run from forms written in the plugin's code. Each has a definition in the Track Builder, shown as <em>Live, from its hand-written form</em>, and the line under the state says whether that definition is published yet and, once it is, whether it is identical to the form. Moving one onto its definition takes three steps, and students see no change at any of them:</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list {"ordered":true} -->
 <ol class="wp-block-list">
 <!-- wp:list-item -->
-<li>Read the line under the state. <em>Identical to its hand-written form.</em> is what you want. <em>Differs from its hand-written form: ...</em> means a plugin update changed the form since the definition was made: press <strong>Refresh from the plugin</strong>, and the line changes.</li>
+<li><strong>Publish definition</strong>. Until then the line under the state reads <em>Its definition is not published yet</em>. If a plugin update changed the form since the definition was made, the row also offers <strong>Refresh from the plugin</strong>: press that first, since a definition that differs from its hand-written form cannot be published. The preflight should find nothing to create, because every column and both choices exist already; that empty preflight is the proof that the definition matches the base. The three checklist items were done for these four tracks long ago, so tick them as done.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Publish definition</strong>. Its preflight should find nothing to create, because every column and both choices exist already; that empty preflight is the proof that the definition matches the base. The three checklist items were done for these four tracks long ago, so tick them as done.</li>
+<li>Read the line under the state again. <em>Identical to its hand-written form.</em> is what you want, and only then is <strong>Run from its definition</strong> offered.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Run from its definition</strong>. From then on the Student Report Card draws the form from the definition, and the notice says that what students see has not changed, which is what let it switch. <strong>Run from its hand-written form</strong> puts it back the same way, at any time.</li>
+<li><strong>Run from its definition</strong>. From then on the Student Report Card draws the form from the definition, and the notice says that what students see has not changed, which is what let it switch. <strong>Run from its hand-written form</strong> puts it back the same way, as long as the definition has not been edited since the switch.</li>
 <!-- /wp:list-item -->
 </ol>
 <!-- /wp:list -->
@@ -642,7 +670,19 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Under a student's profile and mentor columns the Student Report Card is a stack of modules: the <strong>program updates with the resources</strong>, <strong>My course</strong>, the <strong>report form with the feedback forms</strong>, <strong>My mentor call</strong>, and <strong>Tools from our sponsors</strong> when the Sponsors module is on. Each carries two small arrows at its top right, and pressing one moves the module up or down at once, the way the block editor moves blocks. The order belongs to the student: they arrange their own card, and it stays as they left it. When you open a student's card through the switcher you see their order and can arrange it for them with the same arrows. Nobody else sees the arrows.</p>
+<p>Under a student's profile and mentor columns the Student Report Card is a stack of modules: the <strong>program updates with the resources</strong>, <strong>My course</strong> (<strong>My hours</strong> when there is no course to open), the <strong>report form with the feedback forms</strong>, <strong>My mentor call</strong>, and <strong>Tools from our sponsors</strong> when the Sponsors module is on. Each carries two small arrows at its top right, and pressing one moves the module up or down at once, the way the block editor moves blocks. The order belongs to the student: they arrange their own card, and it stays as they left it. When you open a student's card through the switcher you see their order and can arrange it for them with the same arrows. Nobody else sees the arrows.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3,"anchor":"group-sessions-from-a-student-s-card-or-a-mentor-s"} -->
+<h3 class="wp-block-heading" id="group-sessions-from-a-student-s-card-or-a-mentor-s">Group sessions, from a student's card or a mentor's</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>On a student's card, opened through the switcher, the group sessions they are on are listed under <em>My mentor call</em>, and each one that has not started offers <strong>Take them off the session</strong>. It asks first, then takes the student off, gives their place back and emails them a file that takes the session out of their calendar, as their own <strong>Leave the session</strong> would.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>On a mentor's card you can change or cancel their group sessions as they can. When you move one, the mentor is emailed as well as the students on it, with an invitation that moves it in their calendar.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":2,"anchor":"running-it-day-to-day"} -->
@@ -681,6 +721,10 @@
 <p>An invitation is a password-reset link. Send them in bulk by switching <strong>Invitation emails</strong> on before a sync, or one at a time from the Students and Mentors screens - which is the safer habit, because a first sync creates around ninety accounts at once.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:paragraph -->
+<p>Each invitation cancels the link in the one before it, so only the newest email works: somebody who opens an older one is told the link appears to be invalid. For the same reason a second invitation to the same person within fifteen minutes is not sent, on purpose. <strong>Resend invite</strong> says so and sends nothing, and a bulk send passes over anybody invited in the last fifteen minutes. Ask them to use their newest email, or send another once the fifteen minutes are up.</p>
+<!-- /wp:paragraph -->
+
 <!-- wp:heading {"level":3,"anchor":"pages-the-plugin-owns"} -->
 <h3 class="wp-block-heading" id="pages-the-plugin-owns">Pages the plugin owns</h3>
 <!-- /wp:heading -->
@@ -702,7 +746,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Symptom</th><th>Where to look</th></tr></thead><tbody><tr><td>A student or mentor is missing</td><td>Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list.</td></tr><tr><td>Details are stale on a Student Report Card or Mentor Report Card</td><td>Run the sync by hand; the page renders from what the last sync stored.</td></tr><tr><td>A mentor sees the wrong students</td><td>The mentor↔student link in Airtable. The page joins on the records, not on names.</td></tr><tr><td>Nobody can book a call</td><td>The mentor has published no availability. Their Mentor Report Card says so.</td></tr><tr><td>Invitations are not arriving</td><td>The <strong>Mail</strong> section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service.</td></tr><tr><td>A gated page is readable by the wrong people</td><td>The post's <strong>Program access</strong> control, and the reader's role. Administrators can read every level by design.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Symptom</th><th>Where to look</th></tr></thead><tbody><tr><td>A student or mentor is missing</td><td>Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list.</td></tr><tr><td>Details are stale on a Student Report Card or Mentor Report Card</td><td>Run the sync by hand; the page renders from what the last sync stored.</td></tr><tr><td>A mentor sees the wrong students</td><td>The mentor↔student link in Airtable. The page joins on the records, not on names.</td></tr><tr><td>Nobody can book a call</td><td>The mentor has published no availability. Their Mentor Report Card says so.</td></tr><tr><td>Invitations are not arriving</td><td>The <strong>Mail</strong> section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service.</td></tr><tr><td>A password link says it is invalid</td><td>An older invitation. Each one cancels the link in the one before, so ask them to use their newest email.</td></tr><tr><td>A gated page is readable by the wrong people</td><td>The post's <strong>Program access</strong> control, and the reader's role. Administrators can read every level by design.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":2,"anchor":"semester-reports"} -->
@@ -1024,7 +1068,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>Booked calls appear under <strong>Upcoming calls</strong> beside your availability, so you can see what is coming without leaving the page. Each one shows the time in your timezone and in theirs, and whatever the student wrote when booking.</p>
+<p>Booked calls appear under <strong>Upcoming calls</strong> beside your availability, so you can see what is coming without leaving the page. Each one shows the time in your timezone and in theirs, and whatever the student wrote when booking. A group session appears there too, as <em>Group session</em> with how many of its places are taken, and its <strong>Cancel</strong> asks whether to cancel it for everybody on it.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":2,"anchor":"group-sessions"} -->
@@ -1063,7 +1107,7 @@
 <!-- /wp:list -->
 
 <!-- wp:paragraph -->
-<p>A session is not carved out of your weekly hours; you pick any time, including one you would never offer for private calls. It does <strong>block that time from one-to-one booking</strong>, so nobody books you privately over a session you are running.</p>
+<p>A session is not carved out of your weekly hours; you pick any time, including one you would never offer for private calls. It does <strong>block that time from one-to-one booking</strong>, for its whole length, not only its start: no slot that overlaps it is offered, so nobody books you privately over a session you are running. For the same reason a session cannot be planned or moved onto a time that overlaps a call or another session of yours, though one may start as another ends.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -1071,11 +1115,11 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes to all of them. If you cancel the session, every student on it is told.</p>
+<p>Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes to all of them. Move a session after its reminder has gone out and everybody on it is reminded again before the new time. <strong>Cancel the session</strong> asks before it goes, and if you cancel it, every student on it is told. A program manager can change your session too; if they move it, you are emailed as well, with an invitation that moves it in your calendar.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>A series is planned all or nothing: a date that has passed, a date given twice, a date on which you already hold a session or a call at that time, or a start time that does not exist on one of the dates because the clocks jump over that hour refuses the whole list and names the date, so nothing is created until the list is right. More than sixteen dates in all - a rule of sixteen with a box beside it - is refused before any of them is read, since sixteen is all a series holds. Your students see the series under one heading and can <strong>Join all</strong> in one press, which sends them one email with one calendar file that holds every date; each date keeps its own row, so a student can still join or leave a single one. Changing or canceling a session touches that session alone, and the rest of the series stands.</p>
+<p>A series is planned all or nothing: a date that has passed, a date given twice, a date on which something of yours overlaps that time, or a start time that does not exist on one of the dates because the clocks jump over that hour refuses the whole list and names the date, so nothing is created until the list is right. More than sixteen dates in all - a rule of sixteen with a box beside it - is refused before any of them is read, since sixteen is all a series holds. Your students see the series under one heading and can <strong>Join all</strong> in one press, which sends them one email with one calendar file that holds every date; each date keeps its own row, so a student can still join or leave a single one. Changing or canceling a session touches that session alone, and the rest of the series stands.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"one-note-for-the-whole-group"} -->
@@ -1083,7 +1127,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Under a session you have run, <strong>Add a note for everybody on this session</strong>. You write it once and it appears on every attendee's card - and it counts for each of them, so nobody who was there is left sitting in <em>Need a call</em>. Deleting it removes it from everyone.</p>
+<p>Under a session you have run, <strong>Add a note for everybody on this session</strong>. You write it once and it appears on every attendee's card - and it counts for each of them, so nobody who was there is left sitting in <em>Need a call</em>. Deleting it removes it from everyone. You can note everybody who was on your session, a student who has since moved to another mentor included.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":2,"anchor":"if-something-looks-wrong"} -->
@@ -1188,6 +1232,10 @@
 
 <!-- wp:paragraph -->
 <p>Beside it is <strong>Hours contributed</strong>: the running total of the hours you have put in. It is the one number you will come back to change most often, so it sits here on its own rather than inside the report form. Type the new total, press <strong>Save hours</strong>, and that is the whole errand.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>If your track has no Learn course, or you are not on a track at the moment (paused, or waiting to graduate, for example), there is no course to open, and the hours box is a section of its own, <strong>My hours</strong>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"report-form"} -->
@@ -1310,11 +1358,11 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Your mentor may run a session for several students at once - a walkthrough, a question hour, something for everybody who started the same week. Those appear under <em>My mentor call</em> with what the session is about and how many places are left.</p>
+<p>Your mentor may run a session for several students at once - a walkthrough, a question hour, something for everybody who started the same week. Those appear under <em>My mentor call</em> in a list of their own, <em>Group sessions with your mentor</em>, apart from the calls you book, with what the session is about and how many places are left.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p><strong>Join this session</strong> puts you on it, and you get an email with a calendar invitation the same as a private call. If something changes, <strong>Leave the session</strong> takes you off and frees your place for somebody else. Once a session has started, its row says so instead of offering either button, and its time reads how long ago it began; the row stays on your list for an hour so you can still find the link.</p>
+<p><strong>Join this session</strong> puts you on it, and you get an email with a calendar invitation the same as a private call. If something changes, <strong>Leave the session</strong> asks first, then takes you off and frees your place for somebody else. Once a session has started, its row says so instead of offering either button, and its time reads how long ago it began; the row stays on your list for an hour so you can still find the link.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -1323,6 +1371,10 @@
 
 <!-- wp:paragraph -->
 <p>Your mentor may plan a <strong>series</strong>: several sessions on several dates, with the same topic, length and places. The list shows a series under one heading, each date as its own row. <strong>Join all</strong> puts you on every date that still has a place and sends you one email with one calendar file that plans them all; a date that is already full is skipped, and the message says so. You can still join or leave a single date from its row.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>If your mentor changes, a session of your former mentor's that you are on stays on your list, with their name and <strong>Leave the session</strong>, and the list is headed simply <em>Group sessions</em>. Once the program records show the change for you and for both mentors, you are taken off it and sent an email whose calendar file takes it out of your calendar.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":2,"anchor":"telling-us-how-it-is-going"} -->

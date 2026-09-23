@@ -68,7 +68,31 @@ function esc_url_raw( $u, $protocols = null ) {
 	return in_array( $scheme, (array) $protocols, true ) ? $u : '';
 }
 function esc_textarea( $s ) { return esc_html( $s ); }
-function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+/**
+ * Core's, in the two ways a status list tells apart (BUILDER-3's fix round): a "<" that opens no tag
+ * is kept as `&lt;` rather than taken with the rest of the line, and every run of spaces, tabs and
+ * line breaks is one space. A stand-in that did neither could not see a guard compare a raw status
+ * with a sanitized one.
+ *
+ * @param mixed $s The value.
+ * @return string
+ */
+function sanitize_text_field( $s ) {
+	$s = (string) $s;
+
+	if ( false !== strpos( $s, '<' ) ) {
+		$s = preg_replace_callback(
+			'%<[^>]*?((?=<)|>|$)%',
+			function ( $m ) {
+				return false === strpos( $m[0], '>' ) ? esc_html( $m[0] ) : $m[0];
+			},
+			$s
+		);
+		$s = strip_tags( $s );
+	}
+
+	return trim( preg_replace( '/[\r\n\t ]+/', ' ', $s ) );
+}
 function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 /**
@@ -109,9 +133,11 @@ function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function get_bloginfo( $k = 'name' ) { return 'Test'; }
 function wp_specialchars_decode( $s, $q = null ) { return (string) $s; }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
-function get_user_meta( $id, $k, $s = false ) { return ''; }
-function update_user_meta( $id, $k, $v ) { return true; }
-function delete_user_meta( $id, $k ) { return true; }
+// Kept, so a flash can be read back from the raw meta the real WPCPM_Flash writes (BUILDER-3).
+$GLOBALS['umeta'] = array();
+function get_user_meta( $id, $k, $s = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
+function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
 function get_current_user_id() { return 1; }
 function wp_get_current_user() { return new WP_User( 1 ); }
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
@@ -123,6 +149,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
+// The settings screen's own save handler, pressed for real in the BUILDER-3 section below.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -689,8 +717,9 @@ $saved = WPCPM_Settings::get();
 ck( 'a blank mentor status is put back to the default', $saved['mentor_status'], WPCPM_Settings::defaults()['mentor_status'] );
 ck( 'so is a blank current-student list', $saved['student_statuses'], WPCPM_Settings::defaults()['student_statuses'] );
 ck( 'and the blank institution stages', $saved['institution_active_stages'], WPCPM_Settings::defaults()['institution_active_stages'] );
-// This suite's user-meta stubs keep nothing, so the flash itself cannot be read back here; what
-// is asserted is that save() queues it and the notice reads the same channel with the labels.
+// Asserted by reading the source: save() queues the restored fields, and the notice reads the same
+// channel with the labels. (The user-meta stand-ins keep what they are given since BUILDER-3,
+// whose section below reads a refusal back from the raw meta.)
 $settings_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php' );
 ck( 'save() tells the screen which fields it restored', false !== strpos( $settings_src, "WPCPM_Flash::set( 'settings-defaults', \$restored );" ), true );
 ck( 'and the notice reads that channel', false !== strpos( $settings_src, "WPCPM_Flash::take( 'settings-defaults' )" ), true );
@@ -805,6 +834,217 @@ ck( 'the settings screen handler compiles after it saves, which is what decision
         strpos( $admin, 'WPCPM_Settings::save( $input );' ) < strpos( $admin, 'WPCPM_Track_Store::compile();' ),
     ),
     array( true, true, true ) );
+
+echo "\n=== A Settings page drawn before a publish keeps the published track's status (BUILDER-3) ===\n";
+
+// The deep check of 1.109.1, BUILDER-3: the form posted "Currently mentoring" whole from its
+// textarea, so a Settings tab drawn before a track was published and saved after it wrote the old
+// list back, and the next students sync took the Student role from everybody on the track. The
+// form now carries the list as it drew it, and a save that would take a live track's status out
+// is refused, naming the track (the design's 7.5). Pressed through the real handler.
+
+/** The compiled tracks, stood in for the one thing the save asks of them: which run from their definitions. */
+class WPCPM_Tracks {
+	public static $live = array();
+
+	public static function live() {
+		return self::$live;
+	}
+}
+
+/**
+ * Press Save on the Settings screen the way a page drew it: the textarea as typed, the list the
+ * page drew beside it, every switch as it was drawn, and any other field given.
+ *
+ * @param string[] $drawn The list the page drew.
+ * @param string   $typed What the textarea holds when Save is pressed.
+ * @param array    $extra Other fields, by name.
+ * @param bool     $carry Whether the page carried the drawn list; a page drawn before 1.110.0 did not.
+ * @return string How the handler ended.
+ */
+function press_settings( array $drawn, $typed, array $extra = array(), $carry = true ) {
+	$settings = WPCPM_Settings::get();
+	$_POST    = array_merge(
+		array(
+			WPCPM_Admin::SETTINGS_NONCE => 'x',
+			'student_statuses'          => $typed,
+		),
+		$extra
+	);
+
+	if ( $carry ) {
+		$_POST[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] = $drawn;
+	}
+
+	foreach ( WPCPM_Settings::defaults() as $key => $default ) {
+		if ( is_bool( $default ) && ! empty( $settings[ $key ] ) ) {
+			$_POST[ $key ] = '1';
+		}
+	}
+
+	$ended = 'no outcome';
+
+	try {
+		( new WPCPM_Admin() )->handle_settings_save();
+	} catch ( Exception $e ) {
+		$ended = $e->getMessage();
+	}
+
+	$_POST = array();
+
+	return $ended;
+}
+
+$GLOBALS['opts']  = array(
+	WPCPM_Settings::OPT_NAME    => WPCPM_Settings::defaults(),
+	WPCPM_Settings::OPT_VERSION => WPCPM_Settings::SETTINGS_VERSION,
+);
+$GLOBALS['umeta'] = array();
+$six              = WPCPM_Settings::get()['student_statuses'];
+
+// Tab A draws the Settings screen; tab B publishes a track of somebody's own, which appends its
+// status; tab A is saved for something else.
+WPCPM_Settings::add_student_status( 'Mentor Track' );
+WPCPM_Tracks::$live = array( 'Mentor Track' => array( 'key' => 'mentor', 'label' => 'Mentor Track', 'source' => 'definition', 'post' => 41 ) );
+$seven              = array_merge( $six, array( 'Mentor Track' ) );
+
+ck( 'a page drawn before a track was published, saved after it for something else, keeps the track\'s status and saves the rest',
+    array( press_settings( $six, implode( "\n", $six ), array( 'mentor_status' => 'Active, changed' ) ), WPCPM_Settings::get()['student_statuses'], WPCPM_Settings::get()['mentor_status'] ),
+    array( 'redirect', $seven, 'Active, changed' ) );
+
+ck( 'and the same page with the list changed keeps the change, with the status gained since it was drawn put after it',
+    array( press_settings( $six, "In Sensei\nIn Sensei 50h\nDeveloper Track\nDesigner Track\nPending graduation" ), WPCPM_Settings::get()['student_statuses'] ),
+    array( 'redirect', array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Designer Track', 'Pending graduation', 'Mentor Track' ) ) );
+
+$compiled_then  = WPCPM_Track_Store::$compiled;
+$drawn_now      = WPCPM_Settings::get()['student_statuses'];
+$without_mentor = implode( "\n", array_diff( $drawn_now, array( 'Mentor Track' ) ) );
+$kept_presses   = array();
+
+// The ruling of BUILDER-3's fix round, 23 September 2026: such a save is not refused whole. Everything
+// else it posts is saved and compiled as ever, Currently mentoring stays as stored, and the screen
+// gets both notices: saved, and why the list was left as it was. Each press here changes the mentor
+// status too, so each shows the rest was saved.
+foreach ( array(
+	'taken out on a page drawn now' => array( $drawn_now, $without_mentor, true ),
+	'on a page from before 1.110.0' => array( array(), $without_mentor, false ),
+	'blanked'                       => array( $drawn_now, '', true ),
+) as $case => $page ) {
+	$GLOBALS['umeta']      = array();
+	$ended                 = press_settings( $page[0], $page[1], array( 'mentor_status' => 'Changed, ' . $case ), $page[2] );
+	$queued                = $GLOBALS['umeta'][1][ WPCPM_Flash::META ] ?? array();
+	$kept_presses[ $case ] = array( $ended, $queued['settings'] ?? null, $queued['settings-refused'] ?? null, $queued['settings-defaults'] ?? null, WPCPM_Settings::get()['mentor_status'], WPCPM_Settings::get()['student_statuses'] );
+}
+
+$kept_by = array( 'Mentor Track' => 'Mentor Track' );
+
+ck( 'a save whose Currently mentoring change would take a live track\'s status out saves everything else and compiles, and leaves the list as stored, however the page came to lack the status, with both notices and the track named',
+    array( $kept_presses, WPCPM_Track_Store::$compiled - $compiled_then ),
+    array(
+        array(
+            'taken out on a page drawn now' => array( 'redirect', 'saved', $kept_by, null, 'Changed, taken out on a page drawn now', $drawn_now ),
+            'on a page from before 1.110.0' => array( 'redirect', 'saved', $kept_by, null, 'Changed, on a page from before 1.110.0', $drawn_now ),
+            'blanked'                       => array( 'redirect', 'saved', $kept_by, null, 'Changed, blanked', $drawn_now ),
+        ),
+        3,
+    ) );
+
+// A live track whose status the list already lacks is not the save's doing: an unrelated change to
+// the list saves, and the Track Builder's list flags the track, which is where the ruling puts that
+// state. Only a save that would take a status out is refused.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'] = array( 'In Sensei', 'Paused' );
+WPCPM_Tracks::$live['Writing Track'] = array( 'key' => 'writing', 'label' => 'Writing Track', 'source' => 'definition', 'post' => 42 );
+
+ck( 'a live status the stored list already lacks does not refuse an unrelated change to the list',
+    array( press_settings( array( 'In Sensei', 'Paused' ), 'In Sensei' ), WPCPM_Settings::get()['student_statuses'] ),
+    array( 'redirect', array( 'In Sensei' ) ) );
+
+unset( WPCPM_Tracks::$live['Writing Track'] );
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'] = $drawn_now;
+
+// Once the track is off the live site, taking its status out is the manager's decision (7.5).
+WPCPM_Tracks::$live = array();
+
+ck( 'and once the track is off the live site, its status may leave the list',
+    array( press_settings( $drawn_now, $without_mentor ), in_array( 'Mentor Track', WPCPM_Settings::get()['student_statuses'], true ) ),
+    array( 'redirect', false ) );
+
+// A blanked textarea on a page drawn before the list gained a status (the fix round of BUILDER-3):
+// the gained status was merged into the blank and written alone, past the never-blank rule and
+// its notice, and with live tracks the refusal named every track but the one the blank would
+// drop. A blank is a blank however stale the page: the defaults go back, and the notice says so.
+$GLOBALS['opts']    = array(
+	WPCPM_Settings::OPT_NAME    => WPCPM_Settings::defaults(),
+	WPCPM_Settings::OPT_VERSION => WPCPM_Settings::SETTINGS_VERSION,
+);
+$GLOBALS['umeta']   = array();
+WPCPM_Tracks::$live = array();
+WPCPM_Settings::add_student_status( 'Mentor Track' );
+
+ck( 'a blank on a page drawn before the list gained a status is saved as the default list, with the notice that says so',
+    array( press_settings( $six, '' ), WPCPM_Settings::get()['student_statuses'], $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-defaults'] ?? null ),
+    array( 'redirect', $six, array( 'student_statuses' ) ) );
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'] = $seven;
+$GLOBALS['umeta'] = array();
+WPCPM_Tracks::$live = array(
+	'In Sensei'       => array( 'key' => '150h', 'label' => 'WordPress Credits Program 150h', 'source' => 'definition', 'post' => 11 ),
+	'In Sensei 50h'   => array( 'key' => '50h', 'label' => 'WordPress Credits Program 50h', 'source' => 'definition', 'post' => 12 ),
+	'Developer Track' => array( 'key' => 'dev', 'label' => 'Developer Track', 'source' => 'definition', 'post' => 13 ),
+	'Designer Track'  => array( 'key' => 'design', 'label' => 'Designer Track', 'source' => 'definition', 'post' => 14 ),
+	'Mentor Track'    => array( 'key' => 'mentor', 'label' => 'Mentor Track', 'source' => 'definition', 'post' => 41 ),
+);
+press_settings( $six, '' );
+
+ck( 'and with every track live, the blank is held against the default list, so only the track it would drop is named',
+    array( $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-refused'] ?? null, WPCPM_Settings::get()['student_statuses'] ),
+    array( array( 'Mentor Track' => 'Mentor Track' ), $seven ) );
+
+WPCPM_Tracks::$live = array();
+
+// The other half of the rule: Currently mentoring is written only when the person changed the
+// textarea (the fix round of BUILDER-3, which found nothing pinning it). Another administrator took
+// Paused out after this page was drawn, and this page is saved for something else with the textarea
+// as it was drawn: the list stays as stored, Paused out, rather than the drawn list written back.
+$GLOBALS['opts']  = array(
+	WPCPM_Settings::OPT_NAME    => WPCPM_Settings::defaults(),
+	WPCPM_Settings::OPT_VERSION => WPCPM_Settings::SETTINGS_VERSION,
+);
+$GLOBALS['umeta'] = array();
+$without_paused   = array_values( array_diff( $six, array( 'Paused' ) ) );
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['student_statuses'] = $without_paused;
+
+ck( 'a textarea nobody changed leaves the list as stored, so a status another administrator took out since the page was drawn stays out',
+    array( press_settings( $six, implode( "\n", $six ), array( 'mentor_status' => 'Active, again' ) ), WPCPM_Settings::get()['student_statuses'], WPCPM_Settings::get()['mentor_status'] ),
+    array( 'redirect', $without_paused, 'Active, again' ) );
+
+// A live status as its track holds it may not be what the list holds: publishing appends it trimmed
+// alone, and the list is sanitized when it is read, which folds a run of spaces into one and keeps a
+// "<" that opens no tag as `&lt;`. Compared raw, such a status was never found in the list, and
+// taking it out slipped past the guard (the fix round of BUILDER-3). Both are judged sanitized now.
+$GLOBALS['opts']  = array(
+	WPCPM_Settings::OPT_NAME    => WPCPM_Settings::defaults(),
+	WPCPM_Settings::OPT_VERSION => WPCPM_Settings::SETTINGS_VERSION,
+);
+$GLOBALS['umeta'] = array();
+WPCPM_Settings::add_student_status( 'Mentor  Track' );
+WPCPM_Settings::add_student_status( 'Less < More' );
+WPCPM_Tracks::$live = array(
+	'Mentor  Track' => array( 'key' => 'mentor', 'label' => 'Mentor Track', 'source' => 'definition', 'post' => 41 ),
+	'Less < More'   => array( 'key' => 'less', 'label' => 'Less or More Track', 'source' => 'definition', 'post' => 43 ),
+);
+$drawn_odd = WPCPM_Settings::get()['student_statuses'];
+
+press_settings( $drawn_odd, implode( "\n", $six ) );
+
+ck( 'a live status holding a run of spaces or a "<" is judged as the list keeps it, so a save taking it out is caught too',
+    array( $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-refused'] ?? null, WPCPM_Settings::get()['student_statuses'] ),
+    array( array( 'Mentor  Track' => 'Mentor Track', 'Less < More' => 'Less or More Track' ), $drawn_odd ) );
+
+WPCPM_Tracks::$live = array();
+
+$GLOBALS['umeta'] = array();
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

@@ -27,7 +27,9 @@
  *   `wpcpm_kind` radio has that value (the offer forms on the Sponsor Dashboard);
  * - `data-wpcpm-needs="<name>"` on a control makes it required, and open, only while the form's
  *   one control of that name holds a value (the count of a repeat rule on the planning form);
- *   a name shared by radios is not a control and is left alone.
+ *   a name shared by radios is not a control and is left alone;
+ * - `data-wpcpm-confirm` on a submit control is a question asked with `window.confirm()` before
+ *   its form posts, and a No posts nothing (a group session's Cancel and Leave).
  */
 ( function () {
 	'use strict';
@@ -386,7 +388,46 @@
 		apply();
 	}
 
+	/**
+	 * Ask before a destructive press goes: a submit control marked `data-wpcpm-confirm` posts its
+	 * form only once the person has said yes to the question the mark carries.
+	 *
+	 * "Cancel the session" and "Leave the session" carried the mark and nothing read it, so one
+	 * press canceled a session for everybody on it (the deep check of 1.109.1, SESSIONS-6). Bound
+	 * before the submit guard, and listeners on a form run in the order they were added: a No has
+	 * already called preventDefault() when the guard's listener runs, and the guard, which stands
+	 * aside for a prevented submit, leaves the form as it was rather than showing it working for a
+	 * press that went nowhere. A convenience, never a control: with JavaScript off the form posts.
+	 */
+	function confirmFirst() {
+		var forms = document.querySelectorAll( 'form' );
+		var i;
+
+		for ( i = 0; i < forms.length; i++ ) {
+			if ( forms[ i ].querySelector( '[data-wpcpm-confirm]' ) ) {
+				bindConfirm( forms[ i ] );
+			}
+		}
+	}
+
+	/**
+	 * @param {HTMLFormElement} form A form holding a control marked `data-wpcpm-confirm`.
+	 */
+	function bindConfirm( form ) {
+		form.addEventListener( 'submit', function ( event ) {
+			// The control the browser says was pressed; where it cannot say, the form's marked one,
+			// since each form that carries a mark holds a single button.
+			var control = 'submitter' in event ? event.submitter : form.querySelector( '[data-wpcpm-confirm]' );
+			var question = control ? control.getAttribute( 'data-wpcpm-confirm' ) : null;
+
+			if ( question && ! window.confirm( question ) ) {
+				event.preventDefault();
+			}
+		} );
+	}
+
 	ready( function () {
+		confirmFirst();
 		guardForms();
 		releaseOnRestore();
 		selectOnClick();

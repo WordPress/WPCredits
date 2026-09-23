@@ -109,7 +109,17 @@ class WPCPM_Call_Calendar {
 		$viewer_is_student = ( get_current_user_id() === (int) $student->ID );
 		$mentor            = WPCPM_Mentor_Calls::mentor_for_student( $student->ID );
 		$zone              = WPCPM_Mentor_Availability::viewer_timezone( $student->ID );
-		$upcoming          = WPCPM_Mentor_Calls::for_student( $student->ID, true );
+		$upcoming          = array();
+
+		// One-to-one calls only. A group session the student is on has its own list below, with
+		// Leave; drawn here it carried the call's Cancel, which for a manager reading this page
+		// canceled the session for everybody on it under words meant for one student's call (the
+		// deep check of 1.109.1, SESSIONS-12 and HOTFIX-1).
+		foreach ( WPCPM_Mentor_Calls::for_student( $student->ID, true ) as $call ) {
+			if ( WPCPM_Mentor_Calls::capacity( $call->ID ) <= 1 ) {
+				$upcoming[] = $call;
+			}
+		}
 
 		echo '<section class="wpcpm-student__section wpcpm-calls" id="' . esc_attr( self::ANCHOR ) . '">';
 
@@ -148,7 +158,7 @@ class WPCPM_Call_Calendar {
 				'<p class="wpcpm-calls__empty">%s</p>',
 				esc_html__( 'No mentor is linked to your account yet. Once the program data names one, you can book a call here.', 'wpcredits-program-manager' )
 			);
-			self::close_student( $student, $viewer_is_student );
+			self::close_student( $student, $viewer_is_student, $can_manage );
 
 			return;
 		}
@@ -157,7 +167,7 @@ class WPCPM_Call_Calendar {
 
 		if ( '' !== $reason ) {
 			printf( '<p class="wpcpm-calls__empty">%s</p>', esc_html( $reason ) );
-			self::close_student( $student, $viewer_is_student );
+			self::close_student( $student, $viewer_is_student, $can_manage );
 
 			return;
 		}
@@ -209,7 +219,7 @@ class WPCPM_Call_Calendar {
 				'<p class="wpcpm-calls__empty">%s</p>',
 				esc_html__( 'Your mentor has availability set but nothing is open at the moment - every slot in the current window is taken. Check back in a few days.', 'wpcredits-program-manager' )
 			);
-			self::close_student( $student, $viewer_is_student );
+			self::close_student( $student, $viewer_is_student, $can_manage );
 
 			return;
 		}
@@ -221,7 +231,7 @@ class WPCPM_Call_Calendar {
 		self::render_month( $by_day, $month, $zone );
 		self::render_day( $by_day, $day, $zone, $student, $can_manage && ! $viewer_is_student );
 
-		self::close_student( $student, $viewer_is_student );
+		self::close_student( $student, $viewer_is_student, $can_manage );
 	}
 
 	/**
@@ -238,14 +248,16 @@ class WPCPM_Call_Calendar {
 	 *
 	 * @param WP_User|null $student           The student, when there is one.
 	 * @param bool         $viewer_is_student Whether the viewer may join or leave.
+	 * @param bool         $can_manage        Whether the viewer manages the program, and so may take
+	 *                                        the student off a session (HOTFIX-1).
 	 */
-	private static function close_student( $student = null, $viewer_is_student = false ) {
+	private static function close_student( $student = null, $viewer_is_student = false, $can_manage = false ) {
 		echo '</div>';
 
 		// Outside the picking column but inside the pair, so it sits under both and is not
 		// squeezed into half the card.
 		if ( $student instanceof WP_User ) {
-			self::render_student_sessions( $student, $viewer_is_student );
+			self::render_student_sessions( $student, $viewer_is_student, $can_manage );
 		}
 
 		echo '</div>';
@@ -262,9 +274,10 @@ class WPCPM_Call_Calendar {
 	 *
 	 * @param WP_User $student           The student.
 	 * @param bool    $viewer_is_student Whether the viewer may join or leave.
+	 * @param bool    $can_manage        Whether the viewer manages the program.
 	 */
-	private static function render_student_sessions( WP_User $student, $viewer_is_student ) {
-		WPCPM_Group_Sessions::render_student_list( $student, $viewer_is_student );
+	private static function render_student_sessions( WP_User $student, $viewer_is_student, $can_manage = false ) {
+		WPCPM_Group_Sessions::render_student_list( $student, $viewer_is_student, $can_manage );
 	}
 
 	/**
@@ -810,7 +823,23 @@ class WPCPM_Call_Calendar {
 			);
 			echo '</div>';
 
-			if ( 'mentor' === $side ) {
+			if ( 'mentor' === $side && $facts['is_group'] ) {
+				// A session in the diary is the session, not a student: it carries no student's name,
+				// and read as a call it showed as "Unnamed student" (the deep check of 1.109.1,
+				// SESSIONS-12). Who is on it is in the sessions list under this one.
+				printf( '<p class="wpcpm-call__who">%s</p>', esc_html__( 'Group session', 'wpcredits-program-manager' ) );
+				printf(
+					'<p class="wpcpm-sessions__places">%s</p>',
+					esc_html(
+						sprintf(
+							/* translators: 1: places taken, 2: places in total. */
+							__( '%1$s of %2$s places taken', 'wpcredits-program-manager' ),
+							number_format_i18n( count( $facts['attendees'] ) ),
+							number_format_i18n( $facts['capacity'] )
+						)
+					)
+				);
+			} elseif ( 'mentor' === $side ) {
 				$name = '' !== $facts['name'] ? $facts['name'] : __( 'Unnamed student', 'wpcredits-program-manager' );
 
 				printf( '<p class="wpcpm-call__who">%s</p>', esc_html( $name ) );
@@ -866,7 +895,15 @@ class WPCPM_Call_Calendar {
 				printf( '<input type="hidden" name="call" value="%d" />', (int) $call->ID );
 				printf(
 					'<button type="submit" class="wpcpm-call__cancel-button" onclick="return confirm(%1$s)">%2$s</button>',
-					esc_attr( wp_json_encode( __( 'Cancel this call? The slot goes back on the calendar.', 'wpcredits-program-manager' ) ) ),
+					esc_attr(
+						wp_json_encode(
+							// A session is canceled for everybody on it, and its question says so, as
+							// the sessions list's own Cancel does (SESSIONS-12).
+							$facts['is_group']
+								? __( 'Cancel this session for everybody on it?', 'wpcredits-program-manager' )
+								: __( 'Cancel this call? The slot goes back on the calendar.', 'wpcredits-program-manager' )
+						)
+					),
 					esc_html__( 'Cancel', 'wpcredits-program-manager' )
 				);
 				echo '</form>';

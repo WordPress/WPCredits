@@ -91,6 +91,9 @@ function get_post( $post = null ) {
 	return $GLOBALS['posts'][ (int) $post ] ?? null;
 }
 function get_post_meta( $id, $key, $single = false ) { return $GLOBALS['pmeta'][ (int) $id ][ $key ] ?? ''; }
+// As WordPress answers it for the posts seeded here, which are all published posts: the oEmbed
+// filter asks it before the access level (SURFACES-2).
+function is_post_publicly_viewable( $post = null ) { $post = get_post( $post ); return $post instanceof WP_Post && 'post' === $post->post_type && 'publish' === $post->post_status; }
 function update_post_meta( $id, $key, $value ) { $GLOBALS['pmeta'][ (int) $id ][ $key ] = $value; return true; }
 function get_permalink( $post = null ) {
 	$post = get_post( $post );

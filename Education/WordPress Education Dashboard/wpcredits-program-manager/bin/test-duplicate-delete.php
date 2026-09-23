@@ -8,14 +8,21 @@
  * - **Nothing reaches Airtable before the guards say yes**: the switch, a scan in progress, a
  *   selection that stands for nothing. No read, no copy, no delete.
  * - The Slack request's example goes in one confirmation, read again from the base first by its
- *   lowercased address, children first (Feedback, Students Reports, Students), each row sealed
- *   before it goes and logged once Airtable says it went, and the student leaves the stored list.
+ *   address trimmed and lowercased on both sides, so a row typed with a capital or a space around
+ *   the address comes back with its siblings, children first (Feedback, Students Reports,
+ *   Students), each row sealed before it goes and logged once Airtable says it went, and the
+ *   student leaves the stored list. The stand-in evaluates the formula as Airtable does and does
+ *   no lowercasing or trimming of its own (DUPLICATES-4 and DUPLICATES-8).
  * - **The stored report is the menu, not the authority**: a row the site began pointing at since
- *   the scan, or a row that gained answers, is refused, and nothing is kept or written for it.
+ *   the scan, a row that gained answers, or a held row ticked on its own that gained work, is
+ *   refused, and nothing is kept or written for it.
  * - Never the last row an address has in a table, however the ticks fell.
- * - Failing closed: a re-read Airtable refuses deletes nothing; a batch Airtable refuses stops the
- *   run, leaves the copies of the rows it was sent pending for the daily job, and removes the
- *   copies of rows never sent.
+ * - **One delete at a time**: a press that arrives while another delete runs is refused before
+ *   anything is read, and every way out of a delete lets the lock go (DUPLICATES-1).
+ * - Failing closed: a re-read Airtable refuses, or a read of the site's references that fails,
+ *   deletes nothing; a batch Airtable refuses stops the run, leaves the copies of the rows it was
+ *   sent pending for the daily job, and removes the copies of rows never sent; a retry's copy
+ *   replaces the one the refused batch left pending, so the row is logged once (DUPLICATES-5).
  *
  * Fixtures are synthetic: example.test addresses and record IDs that spell what they are.
  *
@@ -98,8 +105,46 @@ function wp_update_post( $args ) { return (int) $args['ID']; }
 function wp_delete_post( $id, $force = false ) { unset( $GLOBALS['posts'][ (int) $id ], $GLOBALS['meta'][ (int) $id ] ); return true; }
 function update_post_meta( $id, $k, $v ) { $GLOBALS['meta'][ (int) $id ][ $k ] = $v; return true; }
 function get_post_meta( $id, $k = '', $single = false ) { return isset( $GLOBALS['meta'][ (int) $id ][ $k ] ) ? $GLOBALS['meta'][ (int) $id ][ $k ] : ''; }
+/**
+ * Posts of one type, newest first, narrowed by a meta_query the way WordPress narrows them: every
+ * clause must hold (AND), each comparing its key's value by = or IN. A comparison or a relation
+ * this stand-in does not know matches nothing, so a query keyed wrong finds nothing here, as it
+ * would on a site (DUPLICATES-5).
+ *
+ * @param array $args The query.
+ * @return array
+ */
 function get_posts( $args ) {
-	$posts = array_filter( $GLOBALS['posts'], static function ( $p ) use ( $args ) { return $p->post_type === $args['post_type']; } );
+	$posts = array_filter(
+		$GLOBALS['posts'],
+		static function ( $p ) use ( $args ) {
+			if ( $p->post_type !== $args['post_type'] ) {
+				return false;
+			}
+			$query = isset( $args['meta_query'] ) ? $args['meta_query'] : array();
+			if ( isset( $query['relation'] ) && 'AND' !== $query['relation'] ) {
+				return false;
+			}
+			foreach ( $query as $name => $clause ) {
+				if ( 'relation' === $name ) {
+					continue;
+				}
+				$value   = (string) get_post_meta( $p->ID, $clause['key'] );
+				$compare = isset( $clause['compare'] ) ? $clause['compare'] : '=';
+				if ( '=' === $compare ) {
+					$holds = (string) $clause['value'] === $value;
+				} elseif ( 'IN' === $compare ) {
+					$holds = in_array( $value, array_map( 'strval', (array) $clause['value'] ), true );
+				} else {
+					$holds = false;
+				}
+				if ( ! $holds ) {
+					return false;
+				}
+			}
+			return true;
+		}
+	);
 	krsort( $posts );
 	return ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) ? array_keys( $posts ) : array_values( $posts );
 }
@@ -107,11 +152,42 @@ function get_posts( $args ) {
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
 /**
- * Airtable, as the suite holds it in $GLOBALS['base']: reads answer from it, deletes take from it.
+ * Whether a record answers a formula the way Airtable evaluates it.
  *
- * A read with a formula answers only the rows whose lowercased Email the formula names, which is
- * what `formula_in()` with lowercasing asks Airtable for.
+ * The formula is equality tests, joined by OR() when there are several, and any one of them is
+ * enough: a column, wrapped in the functions the test names, compared with a quoted value. LOWER()
+ * lowercases the cell and TRIM() trims it, and nothing is lowercased or trimmed that the formula
+ * did not ask for, so the suite sees what the delete's re-read really asks Airtable (DUPLICATES-8).
+ * A function this stand-in does not know matches nothing, a join other than OR() included.
+ *
+ * @param string $formula The formula.
+ * @param array  $record  A record.
+ * @return bool
  */
+function airtable_matches( $formula, array $record ) {
+	if ( 0 === strpos( $formula, 'OR(' ) ) {
+		$formula = substr( $formula, 3, -1 );
+	}
+	preg_match_all( '/((?:[A-Z]+\()*)\{([^}]+)\}\)*\s*=\s*\'((?:[^\'\\\\]|\\\\.)*)\'/', $formula, $tests, PREG_SET_ORDER );
+	foreach ( $tests as $test ) {
+		$cell = isset( $record['fields'][ $test[2] ] ) ? (string) $record['fields'][ $test[2] ] : '';
+		foreach ( array_reverse( array_filter( explode( '(', $test[1] ) ) ) as $function ) {
+			if ( 'LOWER' === $function ) {
+				$cell = function_exists( 'mb_strtolower' ) ? mb_strtolower( $cell ) : strtolower( $cell );
+			} elseif ( 'TRIM' === $function ) {
+				$cell = trim( $cell );
+			} else {
+				return false;
+			}
+		}
+		if ( preg_replace( '/\\\\(.)/', '$1', $test[3] ) === $cell ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** Airtable, as the suite holds it in $GLOBALS['base']: reads answer from it, deletes take from it. */
 class WPCPM_Airtable {
 	public function __construct( $settings = null ) {}
 	public function fetch_page( $table, array $args = array() ) {
@@ -122,27 +198,25 @@ class WPCPM_Airtable {
 		}
 		$records = isset( $GLOBALS['base'][ $table ] ) ? $GLOBALS['base'][ $table ] : array();
 		if ( '' !== $formula ) {
-			preg_match_all( "/= '([^']*)'/", $formula, $named );
 			$records = array_values(
 				array_filter(
 					$records,
-					static function ( $record ) use ( $named ) {
-						return in_array( strtolower( trim( isset( $record['fields']['Email'] ) ? (string) $record['fields']['Email'] : '' ) ), $named[1], true );
+					static function ( $record ) use ( $formula ) {
+						return airtable_matches( $formula, $record );
 					}
 				)
 			);
 		}
 		return array( 'records' => $records, 'offset' => null );
 	}
-	public function formula_in( $field, array $values, $lower = false ) {
-		$tests = array();
-		foreach ( $values as $value ) {
-			$tests[] = sprintf( "LOWER({%s}) = '%s'", $field, strtolower( $value ) );
-		}
-		return 1 === count( $tests ) ? $tests[0] : 'OR(' . implode( ',', $tests ) . ')';
-	}
 	public function delete_records( $table, array $ids ) {
 		$GLOBALS['calls'][] = array( 'delete', $table, $ids );
+		// Another request, arriving while this one is deleting: run once, then gone.
+		if ( ! empty( $GLOBALS['during_delete'] ) ) {
+			$during                   = $GLOBALS['during_delete'];
+			$GLOBALS['during_delete'] = null;
+			$during();
+		}
 		if ( isset( $GLOBALS['refuse'][ $table ] ) ) {
 			return new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 422): INVALID_REQUEST_UNKNOWN', array( 'status' => 422, 'deleted' => array() ) );
 		}
@@ -157,6 +231,28 @@ class WPCPM_Airtable {
 		return array_fill_keys( $ids, true );
 	}
 	public static function is_record_id( $value ) { return is_scalar( $value ) && 1 === preg_match( '/^rec[A-Za-z0-9]{14}$/', trim( (string) $value ) ); }
+	/**
+	 * The formula, as the real client builds it, and what it was asked with: the column, the values
+	 * and the two flags, one entry a call (the final fix wave, item 4). The real one is pinned in
+	 * bin/test-airtable.php; this one builds the same shape, so airtable_matches() above reads what
+	 * the re-read asks of Airtable, and a flag left off changes which rows come back.
+	 */
+	public function formula_in( $field, array $values, $lower = false, $trim = false ) {
+		$GLOBALS['formula_in'][] = array( $field, $values, $lower, $trim );
+		$values                  = array_map( 'strval', $values );
+		$values                  = array_values( array_filter( $trim ? array_map( 'trim', $values ) : $values, 'strlen' ) );
+		if ( array() === $values ) {
+			return '';
+		}
+		$column = '{' . str_replace( array( '\\', '}' ), array( '\\\\', '\\}' ), $field ) . '}';
+		$column = $lower ? 'LOWER(' . $column . ')' : $column;
+		$column = $trim ? 'TRIM(' . $column . ')' : $column;
+		$tests  = array();
+		foreach ( $values as $value ) {
+			$tests[] = $column . " = '" . str_replace( array( '\\', "'" ), array( '\\\\', "\\'" ), $lower ? mb_strtolower( $value ) : $value ) . "'";
+		}
+		return 1 === count( $tests ) ? $tests[0] : 'OR(' . implode( ',', $tests ) . ')';
+	}
 }
 class WPCPM_Settings {
 	public static function get() { return array( 'base_id' => 'appTEST', 'students_table' => 'tblSTUDENTS', 'reports_table' => 'tblREPORTS', 'feedback_table' => 'tblFEEDBACK', 'duplicate_delete_enabled' => $GLOBALS['switch'] ); }
@@ -173,13 +269,22 @@ class WPCPM_Program {
 	public static function track( $status ) { return '150h'; }
 }
 class WPCPM_Student_Report_Form {
-	public static function fields( $track ) { return array( 'Beginner WordPress User - final grade' => array() ); }
+	public static function fields( $track ) { return array( 'Beginner WordPress User - final grade' => array(), 'Post Reflection: Building Your Personal Website' => array() ); }
 }
+/**
+ * The site's references, read by value. A query named in $GLOBALS['fail_query'] fails the way
+ * wpdb's does: an empty list, with the reason in `last_error`, which every query resets first.
+ */
 class Test_WPDB {
-	public $usermeta = 'wp_usermeta', $postmeta = 'wp_postmeta', $posts = 'wp_posts';
+	public $usermeta = 'wp_usermeta', $postmeta = 'wp_postmeta', $posts = 'wp_posts', $last_error = '';
 	public function prepare( $sql, $args ) { return array( $sql, (array) $args ); }
 	public function get_results( $prepared, $output = null ) {
+		$this->last_error = '';
 		list( $sql, $ids ) = $prepared;
+		if ( ! empty( $GLOBALS['fail_query'] ) && false !== strpos( $sql, $GLOBALS['fail_query'] ) ) {
+			$this->last_error = 'Lock wait timeout exceeded; try restarting transaction';
+			return array();
+		}
 		$rows = array();
 		foreach ( false !== strpos( $sql, 'wp_usermeta' ) ? $GLOBALS['usermeta'] : $GLOBALS['postmeta'] as $row ) {
 			if ( in_array( $row['meta_value'], $ids, true ) ) {
@@ -270,15 +375,24 @@ function base() {
 	);
 }
 
-/** A fresh base, a fresh scan of it, and nothing recorded yet. */
-function fresh() {
+/**
+ * A fresh base, a fresh scan of it, and nothing recorded yet.
+ *
+ * @param callable|null $before Changes the base before the scan reads it.
+ */
+function fresh( $before = null ) {
 	base();
+	if ( is_callable( $before ) ) {
+		$before();
+	}
 	$GLOBALS['posts']           = array();
 	$GLOBALS['meta']            = array();
 	$GLOBALS['usermeta']        = array();
 	$GLOBALS['postmeta']        = array();
 	$GLOBALS['refuse']          = array();
 	$GLOBALS['read_fails']      = false;
+	$GLOBALS['during_delete']   = null;
+	$GLOBALS['fail_query']      = '';
 	$GLOBALS['switch']          = true;
 	$GLOBALS['insert_calls']    = 0;
 	$GLOBALS['insert_fails_at'] = 0;
@@ -286,7 +400,8 @@ function fresh() {
 	for ( $i = 0; $i < 20 && WPCPM_Duplicates_Scan::is_running(); $i++ ) {
 		WPCPM_Duplicates_Scan::run_tick( WPCPM_Duplicates_Scan::BUDGET_AJAX );
 	}
-	$GLOBALS['calls'] = array();
+	$GLOBALS['calls']      = array();
+	$GLOBALS['formula_in'] = array();
 }
 
 /**
@@ -316,6 +431,22 @@ function copies() {
 		$out[ get_post_meta( $id, WPCPM_Duplicate_Vault::META_RECORD ) ] = get_post_meta( $id, WPCPM_Duplicate_Vault::META_STATE );
 	}
 	ksort( $out );
+	return $out;
+}
+
+/**
+ * Every copy kept of one row, oldest first, by state.
+ *
+ * @param string $id Record ID.
+ * @return string[]
+ */
+function copies_of( $id ) {
+	$out = array();
+	foreach ( array_keys( $GLOBALS['posts'] ) as $post_id ) {
+		if ( get_post_meta( $post_id, WPCPM_Duplicate_Vault::META_RECORD ) === $id ) {
+			$out[] = get_post_meta( $post_id, WPCPM_Duplicate_Vault::META_STATE );
+		}
+	}
 	return $out;
 }
 
@@ -350,11 +481,29 @@ $outcome = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
 ck( 'deleted: one row from each table, nothing refused', array( $outcome['status'], $outcome['deleted'], $outcome['refused'] ), array( 'deleted', array( 'students' => 1, 'reports' => 1, 'feedback' => 1 ), array() ) );
 ck( 'and the copies are kept for thirty days', abs( $outcome['until'] - ( time() + 30 * DAY_IN_SECONDS ) ) < 5, true );
 ck( 'the base was read again first, in the three tables a row was chosen from', asked( 'read' ), array( 'tblSTUDENTS', 'tblREPORTS', 'tblFEEDBACK' ) );
-ck( 'by the address, lowercased', $GLOBALS['calls'][0][2], "LOWER({Email}) = 'student@example.test'" );
+ck( 'by the address, trimmed and lowercased on both sides, as the scan grouped it', $GLOBALS['calls'][0][2], "TRIM(LOWER({Email})) = 'student@example.test'" );
+ck( 'in one formula built by the client\'s own formula_in(), asked to lowercase and to trim, whose escaping is the client\'s', $GLOBALS['formula_in'], array( array( 'Email', array( 'student@example.test' ), true, true ) ) );
 ck( 'then children first: Feedback, Students Reports, Students, the older row of each', asked( 'delete' ), array( array( 'tblFEEDBACK', array( rid( 'fbold' ) ) ), array( 'tblREPORTS', array( rid( 'repold' ) ) ), array( 'tblSTUDENTS', array( rid( 'stuold' ) ) ) ) );
 ck( 'each row has its copy, confirmed, and the copies name who deleted them', array( copies(), array_values( array_unique( array_map( static function ( $post ) { return $post->post_author; }, $GLOBALS['posts'] ) ) ) ), array( array( rid( 'fbold' ) => 'deleted', rid( 'repold' ) => 'deleted', rid( 'stuold' ) => 'deleted' ), array( 7 ) ) );
 ck( 'the newest rows are still in the base', array_column( array_merge( $GLOBALS['base']['tblSTUDENTS'], $GLOBALS['base']['tblREPORTS'], $GLOBALS['base']['tblFEEDBACK'] ), 'id' ), array( rid( 'stunew' ), rid( 'othold' ), rid( 'othnew' ), rid( 'repnew' ), rid( 'fbnew' ) ) );
 ck( 'and the student leaves the stored list at once', array_keys( WPCPM_Duplicates_Scan::report()['groups'] ), array( $other ) );
+
+// Typed with a space around it, the address still groups with the student's other rows, since
+// the key trims it; the re-read must find that row the same way, not refuse it as gone while it
+// is still in the base (DUPLICATES-4).
+fresh(
+	static function () {
+		$GLOBALS['base']['tblFEEDBACK'][0]['fields']['Email'] = ' student@example.test ';
+	}
+);
+$outcome = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
+ck( 'a row whose address was typed with a space around it is found by the re-read, and goes', array( $outcome['status'], $outcome['deleted'], $outcome['refused'], array_column( $GLOBALS['base']['tblFEEDBACK'], 'id' ) ), array( 'deleted', array( 'students' => 1, 'reports' => 1, 'feedback' => 1 ), array(), array( rid( 'fbnew' ) ) ) );
+
+// Two students in one confirmation, as Select all ready makes: one formula asks for both
+// addresses, and any of them is enough, so both students' rows come back together (DUPLICATES-8).
+fresh();
+$outcome = WPCPM_Duplicate_Delete::run( array( $ready ), array( 'students:' . rid( 'othold' ) ), 7 );
+ck( 'two students in one confirmation: their addresses joined by OR() in one formula, and both students\' rows go', array( $GLOBALS['calls'][0][2], $outcome['deleted'], $outcome['refused'] ), array( "OR(TRIM(LOWER({Email})) = 'student@example.test',TRIM(LOWER({Email})) = 'other@example.test')", array( 'students' => 2, 'reports' => 1, 'feedback' => 1 ), array() ) );
 
 /* ---- the re-check ----------------------------------------------------------- */
 
@@ -372,10 +521,48 @@ $GLOBALS['base']['tblFEEDBACK'][0]['fields']['F1 - How easy was it to get starte
 $outcome = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
 ck( 'a row that gained answers since the scan is refused as changed', array_column( $outcome['refused'], 'code', 'id' ), array( rid( 'fbold' ) => 'changed' ) );
 
+// Held at the scan for its one grade and ticked on its own; since then two more work fields were
+// filled in Airtable, which the reason code alone ("holds work") cannot show (DUPLICATES-2).
+fresh(
+	static function () {
+		$GLOBALS['base']['tblREPORTS'][0]['fields']['Beginner WordPress User - final grade'] = 80;
+	}
+);
+$GLOBALS['base']['tblREPORTS'][0]['fields']['Post Reflection: Building Your Personal Website'] = 'https://example.test/post';
+$GLOBALS['base']['tblREPORTS'][0]['fields']['Hours']                                           = 12;
+$outcome = WPCPM_Duplicate_Delete::run( array(), array( 'reports:' . rid( 'repold' ) ), 7 );
+ck( 'a held row ticked on its own that has gained work since the scan is refused as changed, and kept', array( $outcome['status'], array_column( $outcome['refused'], 'code', 'id' ), asked( 'delete' ), copies() ), array( 'nothing', array( rid( 'repold' ) => 'changed' ), array(), array() ) );
+
 fresh();
 $outcome = WPCPM_Duplicate_Delete::run( array(), array( 'students:' . rid( 'othold' ), 'students:' . rid( 'othnew' ) ), 7 );
 ck( 'ticking every row a table has refuses them all as the last row', array( $outcome['status'], array_column( $outcome['refused'], 'code', 'id' ) ), array( 'nothing', array( rid( 'othold' ) => 'last-row', rid( 'othnew' ) => 'last-row' ) ) );
-ck( 'with nothing deleted and nothing kept', array( asked( 'delete' ), copies() ), array( array(), array() ) );
+ck( 'refused before Airtable is even read, with nothing deleted and nothing kept, and the lock let go', array( $GLOBALS['calls'], copies(), get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 'none' ) ), array( array(), array(), 'none' ) );
+
+/* ---- one delete at a time ------------------------------------------------------ */
+
+echo "\n=== One delete at a time ===\n";
+
+// The other student's newest Students row did not move forward while his older one is live, so
+// each of the two can be ticked on its own. Two confirmations of one each, processed together,
+// would each see the other row still standing and leave him no Students row (DUPLICATES-1):
+// here the second press arrives while the first is deleting.
+fresh();
+$GLOBALS['during_delete'] = static function () {
+	$GLOBALS['second'] = WPCPM_Duplicate_Delete::run( array(), array( 'students:' . rid( 'othnew' ) ), 8 );
+};
+$outcome = WPCPM_Duplicate_Delete::run( array(), array( 'students:' . rid( 'othold' ) ), 7 );
+ck( 'a delete pressed while another is deleting is refused, and reads and deletes nothing', array( $GLOBALS['second'], count( asked( 'read' ) ), asked( 'delete' ) ), array( array( 'status' => 'delete-running' ), 1, array( array( 'tblSTUDENTS', array( rid( 'othold' ) ) ) ) ) );
+ck( 'so the student keeps his newest Students row', array_column( $GLOBALS['base']['tblSTUDENTS'], 'id' ), array( rid( 'stuold' ), rid( 'stunew' ), rid( 'othnew' ) ) );
+ck( 'while the first delete goes through, logged once, and lets the lock go', array( $outcome['status'], $outcome['deleted'], copies(), get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 'none' ) ), array( 'deleted', array( 'students' => 1, 'reports' => 0, 'feedback' => 0 ), array( rid( 'othold' ) => 'deleted' ), 'none' ) );
+
+fresh();
+update_option( WPCPM_Duplicate_Delete::OPT_LOCK, time() );
+ck( 'a lock another delete holds refuses the press before anything is read', array( WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 ), $GLOBALS['calls'], copies() ), array( array( 'status' => 'delete-running' ), array(), array() ) );
+ck( 'and the refusal leaves that delete\'s lock where it was', get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 0 ) > 0, true );
+
+update_option( WPCPM_Duplicate_Delete::OPT_LOCK, time() - 300 - 5 );
+$outcome = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
+ck( 'a lock over five minutes old, left by a delete that died, is taken over, and let go', array( WPCPM_Duplicate_Delete::LOCK_TIMEOUT, $outcome['status'], get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 'none' ) ), array( 300, 'deleted', 'none' ) );
 
 /* ---- failing closed ----------------------------------------------------------- */
 
@@ -384,7 +571,22 @@ echo "\n=== Failing closed ===\n";
 fresh();
 $GLOBALS['read_fails'] = true;
 $outcome               = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
-ck( 'a re-read Airtable refuses deletes nothing and keeps nothing', array( $outcome['status'], asked( 'delete' ), copies() ), array( 'read-failed', array(), array() ) );
+ck( 'a re-read Airtable refuses deletes nothing, keeps nothing, and lets the lock go', array( $outcome['status'], asked( 'delete' ), copies(), get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 'none' ) ), array( 'read-failed', array(), array(), 'none' ) );
+
+// Since the scan, an account (user meta) or a mentor's call note (post meta) came to point at the
+// older report row, and the read that would find it fails. That must not pass for "nothing
+// points at it" (DUPLICATES-3): one check for each of the two queries.
+$pointers = array(
+	'wp_usermeta' => array( 'usermeta', array( 'user_id' => 9, 'meta_key' => 'wpcpm_student_record_id', 'meta_value' => rid( 'repold' ) ) ),
+	'wp_postmeta' => array( 'postmeta', array( 'ID' => 501, 'post_type' => 'wpcpm_mentor_note', 'post_status' => 'private', 'meta_key' => '_wpcpm_student_record', 'meta_value' => rid( 'repold' ) ) ),
+);
+foreach ( $pointers as $table => $pointer ) {
+	fresh();
+	$GLOBALS[ $pointer[0] ] = array( $pointer[1] );
+	$GLOBALS['fail_query']  = $table;
+	$outcome                = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
+	ck( 'a failed read of what the site points at, in ' . $table . ', deletes nothing and keeps nothing', array( $outcome, asked( 'delete' ), copies(), get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 'none' ) ), array( array( 'status' => 'refs-failed' ), array(), array(), 'none' ) );
+}
 
 fresh();
 $GLOBALS['refuse'] = array( 'tblREPORTS' => true );
@@ -392,14 +594,30 @@ $outcome           = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
 ck( 'a batch Airtable refuses stops the run and says so', array( $outcome['status'], $outcome['deleted'], $outcome['detail'] ), array( 'stopped', array( 'students' => 0, 'reports' => 0, 'feedback' => 1 ), 'Airtable request failed (HTTP 422): INVALID_REQUEST_UNKNOWN' ) );
 ck( 'Students was never sent', asked( 'delete' ), array( array( 'tblFEEDBACK', array( rid( 'fbold' ) ) ), array( 'tblREPORTS', array( rid( 'repold' ) ) ) ) );
 ck( 'so its copy is removed, the refused row\'s copy waits for the daily job, and the deleted one is logged', copies(), array( rid( 'fbold' ) => 'deleted', rid( 'repold' ) => 'pending' ) );
-ck( 'and the stored list drops only the row that went', WPCPM_Duplicates_Scan::report()['groups'][ $ready ]['counts'], array( 'students' => 2, 'reports' => 2, 'feedback' => 1 ) );
+ck( 'and the stored list drops only the row that went, and the lock is let go', array( WPCPM_Duplicates_Scan::report()['groups'][ $ready ]['counts'], get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 'none' ) ), array( array( 'students' => 2, 'reports' => 2, 'feedback' => 1 ), 'none' ) );
+
+// Retried once Airtable takes requests again. The retry's re-read finds the refused report row
+// still there, so the copy the first run left pending is of a delete that never happened, and the
+// retry's copy takes its place instead of standing beside it (DUPLICATES-5).
+$GLOBALS['refuse'] = array();
+$outcome           = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
+ck( 'retried, the rest goes, and the report row has one copy, the retry\'s', array( $outcome['deleted'], copies_of( rid( 'repold' ) ) ), array( array( 'students' => 1, 'reports' => 1, 'feedback' => 0 ), array( 'deleted' ) ) );
+WPCPM_Duplicate_Vault::purge(
+	static function () {
+		return false;
+	},
+	time() + 2 * HOUR_IN_SECONDS
+);
+$named = array_count_values( array_column( WPCPM_Duplicate_Vault::entries(), 'record' ) );
+ksort( $named );
+ck( 'so the daily job has nothing left to settle, and the log names that row once', $named, array( rid( 'fbold' ) => 1, rid( 'repold' ) => 1, rid( 'stuold' ) => 1 ) );
 
 fresh();
 $GLOBALS['insert_fails_at'] = 2;
 $outcome                    = WPCPM_Duplicate_Delete::run( array( $ready ), array(), 7 );
 ck( 'a copy that cannot be kept stops the delete before anything is sent', array( $outcome['status'], '' !== $outcome['detail'] ), array( 'copy-failed', true ) );
 ck( 'nothing reaches Airtable', asked( 'delete' ), array() );
-ck( 'and nothing is left behind: the copy already made for the first row is removed', copies(), array() );
+ck( 'and nothing is left behind: the copy already made for the first row is removed, and the lock', array( copies(), get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 'none' ) ), array( array(), 'none' ) );
 
 $source = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-delete.php' );
 ck( 'no dash but the plain hyphen in the class', 1 === preg_match( '/\x{2013}|\x{2014}/u', $source ), false );

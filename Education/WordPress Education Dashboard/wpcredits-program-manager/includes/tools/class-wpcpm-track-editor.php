@@ -132,7 +132,7 @@ final class WPCPM_Track_Editor {
 		$definition              = $stored;
 		$definition['questions'] = $questions;
 
-		$this->store( $post_id, $definition, $typed );
+		$this->store( $post_id, $definition, $typed, '', $column );
 
 		$this->redirect_back(
 			array(
@@ -213,7 +213,7 @@ final class WPCPM_Track_Editor {
 		$definition              = $stored;
 		$definition['questions'] = $questions;
 
-		$this->store( $post_id, $definition, $typed, $current );
+		$this->store( $post_id, $definition, $typed, $current, $target );
 
 		$this->redirect_back(
 			array(
@@ -236,11 +236,24 @@ final class WPCPM_Track_Editor {
 	 * The page moves the row the moment the arrow is pressed and posts this in the background
 	 * (`assets/js/track-editor.js`); the answer carries the order the store kept, and a refusal
 	 * puts the row back. Without the script the form posts the ordinary way and comes back.
+	 *
+	 * A background press is refused in JSON, with its reason and a status the script reads as a
+	 * refusal, before any notice is set. Sent back through `redirect_back()`, as it was, the refusal
+	 * came to the script as the Track Builder's page, which it could not read, so the row stayed
+	 * where it had been moved, and that page took the refusal's notice, so nobody ever read it (the
+	 * deep check of 1.109.1, BUILDER-4). The capability and the nonce refuse through `wp_die()`,
+	 * with a status the script reads the same way.
 	 */
 	public function handle_move() {
 		$this->verify( self::ACTION_MOVE );
 
-		$post_id   = WPCPM_Request::posted_id( 'track' );
+		$async   = '1' === WPCPM_Request::posted_key( self::FIELD_ASYNC );
+		$post_id = WPCPM_Request::posted_id( 'track' );
+
+		if ( $async && ! is_array( WPCPM_Track_Store::get( $post_id ) ) ) {
+			wp_send_json_error( array( 'message' => __( 'That track does not exist.', 'wpcredits-program-manager' ) ), 404 );
+		}
+
 		$stored    = $this->stored( $post_id );
 		$column    = WPCPM_Request::posted_exact( 'wpcpm_question' );
 		$direction = WPCPM_Request::posted_key( 'wpcpm_direction' );
@@ -255,6 +268,10 @@ final class WPCPM_Track_Editor {
 				$definition['questions'] = $moved;
 				$saved                   = WPCPM_Track_Store::save( $post_id, $definition );
 
+				if ( is_wp_error( $saved ) && $async ) {
+					wp_send_json_error( array( 'message' => $saved->get_error_message() ), 409 );
+				}
+
 				if ( is_wp_error( $saved ) ) {
 					$this->refuse( $post_id, $saved->get_error_message(), array() );
 				}
@@ -264,7 +281,7 @@ final class WPCPM_Track_Editor {
 			}
 		}
 
-		if ( '1' === WPCPM_Request::posted_key( self::FIELD_ASYNC ) ) {
+		if ( $async ) {
 			wp_send_json_success( array( 'order' => array_map( 'strval', array_keys( $questions ) ) ) );
 		}
 
@@ -310,7 +327,7 @@ final class WPCPM_Track_Editor {
 		$definition              = $stored;
 		$definition['questions'] = WPCPM_Track_Questions::remove( $questions, $column );
 
-		$this->store( $post_id, $definition, array() );
+		$this->store( $post_id, $definition, array(), '', $column );
 
 		$this->redirect_back(
 			array(
@@ -514,13 +531,33 @@ final class WPCPM_Track_Editor {
 	/**
 	 * Check the whole definition and save it, or come back with the first refusal.
 	 *
+	 * The hours rule is the exception, asked of the question the press is about and no other. It
+	 * answers one error per question out of place, and a draft saved before 1.110.0 made it a
+	 * refusal (TRACKS-3) may hold two: Hours outside Total hours and another question inside it.
+	 * Refused on the first error of the whole definition, each press that would put the draft right
+	 * left the other question's error standing, so every press was refused and the draft could not
+	 * be repaired one question at a time. An hours error about another question is left to Publish,
+	 * whose `check()` still refuses the whole (the final fix wave of the deep check of 1.109.1).
+	 *
 	 * @param int    $post_id    The track.
 	 * @param array  $definition The definition with the change applied.
 	 * @param array  $typed      What was posted, so nothing has to be retyped.
 	 * @param string $question   The question screen to come back to, or empty for the add form.
+	 * @param string $subject    The column the press is about: the question added, the question
+	 *                           saved under the column it now has, or the question removed.
 	 */
-	private function store( $post_id, array $definition, array $typed, $question = '' ) {
-		$errors = WPCPM_Track_Store::check( $post_id, $definition );
+	private function store( $post_id, array $definition, array $typed, $question = '', $subject = '' ) {
+		$errors = array_values(
+			array_filter(
+				WPCPM_Track_Store::check( $post_id, $definition ),
+				function ( $error ) use ( $subject ) {
+					$code  = isset( $error['code'] ) ? (string) $error['code'] : '';
+					$where = isset( $error['where'] ) ? (string) $error['where'] : '';
+
+					return ! in_array( $code, array( 'hours_only', 'hours_group' ), true ) || (string) $subject === $where;
+				}
+			)
+		);
 
 		if ( array() !== $errors ) {
 			// The whole definition is checked, so the first refusal may belong to another question

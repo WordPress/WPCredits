@@ -429,7 +429,7 @@ $status = post_check(
 			'paste'          => '',
 			'name'           => 'Bartek Zielinski',
 			'email'          => 'bartek@institution-3.example',
-			'profile'        => '@bartekz',
+			'profile'        => '@student-two',
 			// Posted as a forged field would be: the form no longer offers it.
 			'field_of_study' => 'Technology & Engineering',
 			'tutor'          => 'Dr Nowak',

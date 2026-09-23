@@ -62,6 +62,23 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/** Flash channel for this screen's outcomes. */
 	const FLASH = 'track-builder';
 
+	/** The box a publish that creates columns asks the track's name in (PUBLISH-LEARN-3). */
+	const FIELD_CONFIRM = 'wpcpm_confirm';
+
+	/** The columns the publish screen listed beside that box, compared at the press, never stored. */
+	const FIELD_CONFIRM_COLUMNS = 'wpcpm_confirm_columns';
+
+	/**
+	 * What a listed column may be: one line of at most 255 characters, the longest column name
+	 * Airtable accepts (`WPCPM_Track_Definition::MAX_COLUMN`). Anything else is dropped from the
+	 * list, which then cannot match, so the press is refused rather than a value repaired.
+	 *
+	 * A tab is allowed, since nothing refuses one in a column name, and a track with such a column
+	 * could otherwise never be published; the end is `\z`, since `$` also matches before a
+	 * trailing newline, which is not one line (the final fix wave of PUBLISH-LEARN-3).
+	 */
+	const CONFIRM_COLUMN_PATTERN = '/^[^\x00-\x08\x0A-\x1F\x7F]{1,255}\z/u';
+
 	/**
 	 * Tool identifier.
 	 *
@@ -185,16 +202,29 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 *
 	 * Everything the list prints, read once here so the screen asks nothing of the store while it
 	 * draws: the state, who published it last, how many students hold its status, what the last
-	 * compile left out, how its definition compares with its PHP, and whether a built-in draft has
-	 * fallen behind the seed the plugin now ships (the design's decision 12).
+	 * compile left out, how its definition compares with its PHP, whether a built-in draft has
+	 * fallen behind the seed the plugin now ships (the design's decision 12), and whether a track
+	 * the site runs from its definition has lost its status from "Currently mentoring", which the
+	 * students sync reads alone (the deep check of 1.109.1, BUILDER-3).
 	 *
 	 * @return array[]
 	 */
 	public static function rows() {
-		$skipped = get_option( WPCPM_Track_Store::OPT_SKIPPED, array() );
-		$skipped = is_array( $skipped ) ? $skipped : array();
-		$seeds   = WPCPM_Track_Store::seeds();
-		$rows    = array();
+		$skipped  = get_option( WPCPM_Track_Store::OPT_SKIPPED, array() );
+		$skipped  = is_array( $skipped ) ? $skipped : array();
+		$seeds    = WPCPM_Track_Store::seeds();
+		$settings = WPCPM_Settings::get();
+		$listed   = isset( $settings['student_statuses'] ) ? array_map( 'trim', array_map( 'strval', (array) $settings['student_statuses'] ) ) : array();
+		$live     = array();
+		$rows     = array();
+
+		// The status each live track runs under, by post: its published copy's, which a draft with
+		// unpublished changes may no longer carry.
+		foreach ( WPCPM_Tracks::live() as $live_status => $live_row ) {
+			if ( is_array( $live_row ) && isset( $live_row['post'] ) ) {
+				$live[ (int) $live_row['post'] ] = (string) $live_status;
+			}
+		}
 
 		foreach ( WPCPM_Track_Store::all_ids() as $post_id ) {
 			$post_id    = (int) $post_id;
@@ -222,6 +252,8 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 				'published_by'   => (int) $last['by'],
 				'published_at'   => (int) $last['at'],
 				'skipped'        => isset( $skipped[ $post_id ] ) ? (array) $skipped[ $post_id ] : array(),
+				// The live status the list lacks, or ''; matched exactly, as the sync matches.
+				'unlisted'       => isset( $live[ $post_id ] ) && ! in_array( $live[ $post_id ], $listed, true ) ? $live[ $post_id ] : '',
 				'equivalence'    => WPCPM_Track_Store::equivalence( $post_id ),
 				'switched'       => WPCPM_Track_Store::switched( $post_id ),
 				'stale'          => self::stale( $definition, $source, $published, $seeds ),
@@ -292,10 +324,13 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 * `compile_fields()` is the call `compile()` makes, so the preview and the published form come
 	 * from the same reading of the definition, with the same authoring properties left out. A
 	 * built-in track still running from its PHP previews too: its definition is what the PHP draws.
+	 * The course comes too, because the student's page draws the hours box beside the course button,
+	 * or in a section of its own when there is no course, and the preview draws the same (TRACKS-3).
 	 *
 	 * @param int $post_id The track.
-	 * @return array `track`, `label`, `fields` (column => spec), `state`, `source`, and `stale`,
-	 *               whether a built-in draft fell behind the plugin's seed.
+	 * @return array `track`, `label`, `fields` (column => spec), `state`, `source`, `stale`,
+	 *               whether a built-in draft fell behind the plugin's seed, and `course`, the
+	 *               Learn course link or empty.
 	 */
 	public static function preview( $post_id ) {
 		$post_id    = (int) $post_id;
@@ -312,6 +347,7 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			'state'  => WPCPM_Track_Store::state( $post_id ),
 			'source' => $source,
 			'stale'  => self::stale( $definition, $source, WPCPM_Track_Store::published( $post_id ), $seeds ),
+			'course' => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
 		);
 	}
 
@@ -683,32 +719,44 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		}
 
 		$definition = self::posted_definition( $stored );
-		$warning    = self::resolve_course( $definition, $stored );
+		$course     = self::resolve_course( $definition, $stored );
+		$warning    = $course['warning'];
+		$typed_link = isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '';
 		$rematched  = self::rematch_lessons( $definition, $stored );
 		$errors     = WPCPM_Track_Store::check( $post_id, $definition );
 
 		if ( array() !== $errors ) {
-			$this->refuse( $post_id, (string) $errors[0]['message'], $definition );
+			$this->refuse( $post_id, (string) $errors[0]['message'], self::posted_properties() );
 		}
 
 		$saved = WPCPM_Track_Store::save( $post_id, $definition );
 
 		if ( is_wp_error( $saved ) ) {
-			$this->refuse( $post_id, $saved->get_error_message(), $definition );
+			$this->refuse( $post_id, $saved->get_error_message(), self::posted_properties() );
 		}
 
 		// A link that did not resolve saves all the same (4.2), and the notice says so; so does a
-		// course change that left questions with no lesson, and one held back because the new
-		// course's lessons could not be read (the final review of T3c).
-		$warned = '' !== $warning || 0 < $rematched['cleared'] || $rematched['held'];
-
-		$this->redirect_back(
-			array(
-				'status'  => $warned ? 'warning' : 'success',
-				'message' => implode( ' ', array_filter( array( __( 'The track was saved.', 'wpcredits-program-manager' ), $warning, $rematched['message'], __( 'Nothing reaches students until it is published.', 'wpcredits-program-manager' ) ) ) ),
-			),
-			array( 'wpcpm_track' => $post_id )
+		// course change that left questions with no lesson, one held back because the new course's
+		// lessons could not be read (the final review of T3c), and a new link held back because
+		// Learn did not answer for it (BUILDER-5).
+		$warned  = '' !== $warning || 0 < $rematched['cleared'] || $rematched['held'];
+		$outcome = array(
+			'status'  => $warned ? 'warning' : 'success',
+			'message' => implode( ' ', array_filter( array( __( 'The track was saved.', 'wpcredits-program-manager' ), $warning, $rematched['message'], __( 'Nothing reaches students until it is published.', 'wpcredits-program-manager' ) ) ) ),
 		);
+
+		// A new link held back while Learn could not answer for it comes back in its box, so the
+		// Save the notice asks for sends it again rather than the old link (the fix round of
+		// BUILDER-5), and so does one whose course answered while its lessons could not be read,
+		// which `rematch_lessons()` held back (the final fix wave of BUILDER-5); every other box is
+		// drawn from the track as saved.
+		$held = '' !== $course['held'] ? $course['held'] : ( $rematched['held'] ? $typed_link : '' );
+
+		if ( '' !== $held ) {
+			$outcome['values'] = array( 'course_url' => $held );
+		}
+
+		$this->redirect_back( $outcome, array( 'wpcpm_track' => $post_id ) );
 	}
 
 	/**
@@ -737,6 +785,12 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		// The first hue no track holds (the design's section 5): a copy that kept its original's
 		// would give two tracks one chip color, which decision 10 exists to avoid. T2b's copy kept it.
 		$definition['hue'] = WPCPM_Track_Palette::first_free( self::hues_in_use() );
+
+		// No course and no hours target: the design's section 5 starts a copy's course empty, and
+		// a copy that kept its original's course and target pointed its students at both until
+		// somebody noticed (the deep check of 1.109.1, BUILDER-9). The questions keep their
+		// lessons, which point at no course until the copy has one; the question's screen says so.
+		unset( $definition['course_url'], $definition['learn_course_id'], $definition['hours_target'] );
 
 		// Checked as a track with nothing locked to it, which is what a copy is, so a status
 		// another track already holds is refused before a draft nobody asked for exists.
@@ -954,18 +1008,31 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 *
 	 * A link that does not resolve still saves (4.2), with a warning for the notice. While the link
 	 * is the one the stored ID came from, that ID is kept, so a passing outage on Learn never blanks
-	 * a course; a new link that does not resolve has no ID, since the last one was another course's
-	 * (decision 31).
+	 * a course; a new link that Learn says has no course gets no ID, since the last one was another
+	 * course's (decision 31).
+	 *
+	 * A new link Learn could not answer for at all is held back: the track keeps the link and the ID
+	 * it has, and the notice says the link was not taken. Stored with no ID, as it was, the track
+	 * showed the new course with no lessons and no reason once Learn answered, while its questions
+	 * kept the old course's lessons, and the guide says a link to a different course is not taken
+	 * until Learn answers (the deep check of 1.109.1, BUILDER-5). It is the hold-back
+	 * `rematch_lessons()` makes when the new course's lessons cannot be read (decision 33). The link
+	 * held back is handed back too, for the box to draw it again (the fix round of BUILDER-5).
 	 *
 	 * @param array $definition The posted definition, by reference.
 	 * @param array $stored     The definition as it was stored.
-	 * @return string The warning, or '' when the link resolved or there is none.
+	 * @return array `warning`, or '' when the link resolved or there is none; and `held`, the new
+	 *               link held back, or ''.
 	 */
 	private static function resolve_course( array &$definition, array $stored ) {
-		$url = isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '';
+		$url  = isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '';
+		$none = array(
+			'warning' => '',
+			'held'    => '',
+		);
 
 		if ( '' === $url ) {
-			return '';
+			return $none;
 		}
 
 		$course = WPCPM_Learn::resolve( $url );
@@ -973,10 +1040,37 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		if ( ! is_wp_error( $course ) ) {
 			$definition['learn_course_id'] = (int) $course['id'];
 
-			return '';
+			return $none;
 		}
 
 		$unchanged = isset( $stored['course_url'] ) && (string) $stored['course_url'] === $url;
+
+		// Learn answered for the link, or had no need to be asked, only when it said there is no
+		// course there or the link is not a course's; anything else is Learn not answering.
+		$answered = in_array( $course->get_error_code(), array( 'wpcpm_learn_no_course', 'wpcpm_learn_not_a_course' ), true );
+
+		if ( ! $unchanged && ! $answered ) {
+			if ( isset( $stored['course_url'] ) ) {
+				$definition['course_url'] = $stored['course_url'];
+			} else {
+				unset( $definition['course_url'] );
+			}
+
+			if ( isset( $stored['learn_course_id'] ) ) {
+				$definition['learn_course_id'] = $stored['learn_course_id'];
+			} else {
+				unset( $definition['learn_course_id'] );
+			}
+
+			return array(
+				'warning' => sprintf(
+					/* translators: %s: why Learn could not be read. */
+					__( 'The new Learn course link was not taken: %s The link is taken once Learn answers for it, so save it again then.', 'wpcredits-program-manager' ),
+					$course->get_error_message()
+				),
+				'held'    => $url,
+			);
+		}
 
 		if ( $unchanged && isset( $stored['learn_course_id'] ) ) {
 			$definition['learn_course_id'] = (int) $stored['learn_course_id'];
@@ -984,10 +1078,13 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			unset( $definition['learn_course_id'] );
 		}
 
-		return sprintf(
-			/* translators: %s: why the link did not resolve. */
-			__( 'The Learn course link did not resolve: %s', 'wpcredits-program-manager' ),
-			$course->get_error_message()
+		return array(
+			'warning' => sprintf(
+				/* translators: %s: why the link did not resolve. */
+				__( 'The Learn course link did not resolve: %s', 'wpcredits-program-manager' ),
+				$course->get_error_message()
+			),
+			'held'    => '',
 		);
 	}
 
@@ -1193,18 +1290,38 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	}
 
 	/**
+	 * The properties form's boxes as the person left them, the emptied ones included, for a refused
+	 * Save to draw again.
+	 *
+	 * Not the definition built from them: that has no course link and no hours target once their
+	 * boxes are emptied, so the form drew both from the stored track again, and the Save that
+	 * followed the refusal put them back (the deep check of 1.109.1, BUILDER-6).
+	 *
+	 * @return string[] Property => what its box held.
+	 */
+	private static function posted_properties() {
+		$typed = array();
+
+		foreach ( array( 'label', 'status', 'key', 'course_url', 'hours_target', 'hue' ) as $property ) {
+			$typed[ $property ] = WPCPM_Request::posted_text( 'wpcpm_' . $property );
+		}
+
+		return $typed;
+	}
+
+	/**
 	 * Back to the form with the refusal and what the person typed, so nothing has to be retyped.
 	 *
-	 * @param int    $post_id    The track.
-	 * @param string $message    Why it was refused.
-	 * @param array  $definition What was posted.
+	 * @param int    $post_id The track.
+	 * @param string $message Why it was refused.
+	 * @param array  $typed   The boxes as the person left them (`posted_properties()`).
 	 */
-	private function refuse( $post_id, $message, array $definition ) {
+	private function refuse( $post_id, $message, array $typed ) {
 		$this->redirect_back(
 			array(
 				'status'  => 'error',
 				'message' => $message,
-				'values'  => $definition,
+				'values'  => $typed,
 			),
 			array( 'wpcpm_track' => (int) $post_id )
 		);
@@ -1312,12 +1429,82 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 
 	/**
 	 * Publish a track from the screen.
+	 *
+	 * A publish that creates columns in Airtable waits for the track's name, typed exactly as it is
+	 * written, since the site can never remove a column it made (the design's section 6; the
+	 * product owner, 23 September 2026; the deep check of 1.109.1, PUBLISH-LEARN-3). Asked of the
+	 * preflight rather than of the page, so a column that went missing after the page was drawn is
+	 * not created on one press either. With nothing to create, or nothing the site could create, it
+	 * stays one press and `run()` answers for itself.
+	 *
+	 * The name consents to the columns the page listed, which travel with it: a press whose list is
+	 * not what the preflight would create now, in any order, is sent back to the publish screen to
+	 * read the list again, so a consent given for one list never makes another (the fix round of
+	 * PUBLISH-LEARN-3). The list is compared and nothing else.
+	 *
+	 * One preflight a press, read here and handed to `run()`: the name is compared with the name of
+	 * the draft it judged, which is the draft that goes live, and the columns created are the ones
+	 * compared with the list. A preflight that refuses ends the press here, with its first refusal,
+	 * and `run()` is not asked: handed nothing, it read the base again, and a second reading that
+	 * answered where this one had failed created columns without the box, which this press had
+	 * skipped (the final fix wave of PUBLISH-LEARN-3).
 	 */
 	public function handle_publish() {
 		$this->verify( self::ACTION_PUBLISH );
 
-		$track = WPCPM_Request::posted_id( 'track' );
-		$done  = WPCPM_Track_Publish::run( $track, get_current_user_id() );
+		$track  = WPCPM_Request::posted_id( 'track' );
+		$flight = WPCPM_Track_Publish::preflight( $track );
+
+		if ( empty( $flight['ready'] ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => isset( $flight['refusals'][0]['message'] ) ? (string) $flight['refusals'][0]['message'] : '',
+				),
+				array( 'wpcpm_publish' => $track )
+			);
+		}
+
+		$create = isset( $flight['columns']['create'] ) ? (array) $flight['columns']['create'] : array();
+
+		if ( array() !== $create && WPCPM_Settings::has_schema_token() ) {
+			// The judged draft's name, not a second read: a name saved in another tab between the
+			// two would consent to a draft it never named.
+			$name    = isset( $flight['definition']['label'] ) ? (string) $flight['definition']['label'] : '';
+			$listed  = WPCPM_Request::posted_list( self::FIELD_CONFIRM_COLUMNS, self::CONFIRM_COLUMN_PATTERN );
+			$pending = array_map( 'strval', $create );
+
+			sort( $listed, SORT_STRING );
+			sort( $pending, SORT_STRING );
+
+			// The name first, since it is what the person did, then whether it was given for these
+			// columns. An empty name never confirms: it would match a box left empty.
+			if ( '' === $name || WPCPM_Request::posted_text( self::FIELD_CONFIRM ) !== $name ) {
+				$this->redirect_back(
+					array(
+						'status'  => 'error',
+						'message' => sprintf(
+							/* translators: %s: the track's name. */
+							__( 'Nothing was published. Publishing creates columns in Airtable that the site can never remove, so it waits for the name of the track, typed exactly as it is written: %s.', 'wpcredits-program-manager' ),
+							$name
+						),
+					),
+					array( 'wpcpm_publish' => $track )
+				);
+			}
+
+			if ( $listed !== $pending ) {
+				$this->redirect_back(
+					array(
+						'status'  => 'error',
+						'message' => __( 'Nothing was published: the columns publishing would create are not the ones this page listed. Read the list again, then type the name of the track to publish it.', 'wpcredits-program-manager' ),
+					),
+					array( 'wpcpm_publish' => $track )
+				);
+			}
+		}
+
+		$done = WPCPM_Track_Publish::run( $track, get_current_user_id(), $flight );
 
 		if ( is_wp_error( $done ) ) {
 			$this->redirect_back(
@@ -1348,11 +1535,28 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 
 	/**
 	 * Take a track off the live site.
+	 *
+	 * Not a built-in track its PHP still runs: its students see the hand-written form whether its
+	 * definition is published or not, so there is nothing to take off the live site, and
+	 * `take_down()` would refuse it whenever anybody held the status, saying their Student Report
+	 * Cards would be left with no form, which is not so. The screen does not offer it; a press from
+	 * a page drawn before, or a crafted one, is told what is true (the deep check of 1.109.1,
+	 * BUILDER-7).
 	 */
 	public function handle_unpublish() {
 		$this->verify( self::ACTION_UNPUBLISH );
 
 		$track = WPCPM_Request::posted_id( 'track' );
+
+		if ( 'builtin' === WPCPM_Track_Store::source( $track ) ) {
+			$this->redirect_back(
+				array(
+					'status'  => 'error',
+					'message' => __( 'The definition was not unpublished. This track runs from its hand-written form, so its students see that form whether or not the definition is published: there is nothing to take off the live site.', 'wpcredits-program-manager' ),
+				),
+				array( 'wpcpm_publish' => $track )
+			);
+		}
 
 		// Back to the track's own publish screen, where the press came from, rather than the list:
 		// the screen shows the state the press changed (T2c's Task 9 review, its L3).

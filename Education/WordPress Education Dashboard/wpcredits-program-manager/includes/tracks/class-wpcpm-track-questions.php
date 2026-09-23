@@ -123,7 +123,11 @@ final class WPCPM_Track_Questions {
 	 * A question's heading is its `lead`, or its `subgroup` when it has no lead (the Designer
 	 * Track's form holds one lesson's title in a subgroup); it matches a lesson's title exactly once
 	 * case, apostrophes and runs of spaces are folded, the way the design's 2.6 counted the matches.
-	 * A match takes the new lesson's ID; the rest lose theirs and are listed; a question with no
+	 * A match takes the new lesson's ID. **So does every other question of the same lesson**
+	 * (PUBLISH-LEARN-6): only a lesson's first question carries its title as its heading, and one
+	 * added after it under the lesson carries none (decision 32), so a question whose own heading
+	 * matches nothing takes the lesson its old lesson's first matched question took. Only a question
+	 * of a lesson none of whose questions matched loses its lesson and is listed; a question with no
 	 * lesson is left alone, heading or not (decision 33).
 	 *
 	 * @param array   $questions Column => spec, in order.
@@ -143,8 +147,10 @@ final class WPCPM_Track_Questions {
 			}
 		}
 
-		$matched = array();
-		$cleared = array();
+		// Each question's own match by its heading, and what each old lesson became: the first of
+		// its questions, in form order, whose heading matched.
+		$own    = array();
+		$became = array();
 
 		foreach ( $questions as $name => $spec ) {
 			if ( ! is_array( $spec ) || ! isset( $spec['learn_lesson_id'] ) ) {
@@ -155,7 +161,34 @@ final class WPCPM_Track_Questions {
 			$folded  = self::fold( $heading );
 
 			if ( '' !== $folded && isset( $by_title[ $folded ] ) ) {
-				$questions[ $name ]['learn_lesson_id'] = $by_title[ $folded ];
+				$own[ (string) $name ] = $by_title[ $folded ];
+				$old                   = (int) $spec['learn_lesson_id'];
+
+				if ( ! isset( $became[ $old ] ) ) {
+					$became[ $old ] = $by_title[ $folded ];
+				}
+			}
+		}
+
+		$matched = array();
+		$cleared = array();
+
+		foreach ( $questions as $name => $spec ) {
+			if ( ! is_array( $spec ) || ! isset( $spec['learn_lesson_id'] ) ) {
+				continue;
+			}
+
+			$old = (int) $spec['learn_lesson_id'];
+			$new = null;
+
+			if ( isset( $own[ (string) $name ] ) ) {
+				$new = $own[ (string) $name ];
+			} elseif ( isset( $became[ $old ] ) ) {
+				$new = $became[ $old ];
+			}
+
+			if ( null !== $new ) {
+				$questions[ $name ]['learn_lesson_id'] = $new;
 				$matched[]                             = (string) $name;
 			} else {
 				unset( $questions[ $name ]['learn_lesson_id'] );

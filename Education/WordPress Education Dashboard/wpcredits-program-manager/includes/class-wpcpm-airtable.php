@@ -16,9 +16,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * stop mid-table when its time budget runs out and resume from the stored offset
  * on the next cron tick.
  *
- * Reads are the common case; `update_records()` is the one write path, used by the
- * Mentor Status Checker to move a mentor's status. Writing needs the
- * `data.records:write` scope on the token, which a read-only token will not have.
+ * Reads are the common case. Records are written through three calls (DUPLICATES-11):
+ * `create_records()`, which the modules use to add rows; `update_records()`, which they use to
+ * change rows, as the Mentor Status Checker does to move a mentor's status; and
+ * `delete_records()`, which exists for the Student Duplicate Finder alone (its spec's 2.5 and
+ * 7.3) and is the plugin's only delete in Airtable. Writing records needs the
+ * `data.records:write` scope on the token, which a read-only token will not have. The base's
+ * structure is changed by `create_field()` alone, which adds a column with the schema token and
+ * never removes one.
  *
  * Every request goes through `request()`, which keeps this process under Airtable's
  * five-a-second ceiling and honours a 429 for as long as Airtable asked. Both matter
@@ -533,6 +538,9 @@ class WPCPM_Airtable {
 	 * everyday one, which stays at records plus schema read, so the syncs that run every three
 	 * hours never hold the right to change the base's structure (the design's 7.2).
 	 *
+	 * A column created drops the schema this client holds for the track editor, which was read
+	 * before the column existed.
+	 *
 	 * @param string $table Table ID or name.
 	 * @param array  $field The field body: `name`, `type` and, for some types, `options`, as
 	 *                      `WPCPM_Track_Columns::field()` builds it.
@@ -581,6 +589,13 @@ class WPCPM_Airtable {
 			return $response;
 		}
 
+		// The copy `cached_schema()` serves was read before this column existed: the preflight's
+		// own read refills it seconds before a publish starts creating. Kept, it had the track
+		// page say for fifteen minutes that publishing will create the columns publishing had just
+		// created, "Read from Airtable just now". Dropped here, by the client that keeps it, so
+		// every path that lands a column leaves the next read to go to the base (PUBLISH-LEARN-5).
+		delete_transient( self::SCHEMA_TRANSIENT );
+
 		return $response;
 	}
 
@@ -616,31 +631,40 @@ class WPCPM_Airtable {
 	 * and never for names: a name formula built this way prints 0 students for
 	 * an institution whose name carries Ł, with every line of code looking correct.
 	 *
+	 * With `$trim`, the column is wrapped in Airtable's TRIM() as well, outside LOWER() when both
+	 * are asked, and each value is trimmed here, so a cell typed with a space around it still
+	 * matches. A value that is nothing once trimmed is dropped rather than turned into a test for
+	 * an empty cell. The duplicate finder's re-read asks for both flags, since the scan groups a
+	 * row by its address trimmed and lowercased (the final fix wave of DUPLICATES-4).
+	 *
 	 * @param string   $field  Field name.
 	 * @param string[] $values Accepted values.
 	 * @param bool     $lower  Compare case-insensitively. Only for ASCII-natured values such as emails.
+	 * @param bool     $trim   Compare with the spaces around the cell and the value left out.
 	 * @return string Empty string when there is nothing to filter on.
 	 */
-	public function formula_in( $field, array $values, $lower = false ) {
-		$values = array_values( array_filter( array_map( 'strval', $values ), 'strlen' ) );
+	public function formula_in( $field, array $values, $lower = false, $trim = false ) {
+		$values = array_map( 'strval', $values );
+		$values = array_values( array_filter( $trim ? array_map( 'trim', $values ) : $values, 'strlen' ) );
 
 		if ( empty( $values ) ) {
 			return '';
 		}
 
-		$field = $this->escape_field_name( $field );
-		$tests = array();
+		$column = '{' . $this->escape_field_name( $field ) . '}';
+		$column = $lower ? 'LOWER(' . $column . ')' : $column;
+		$column = $trim ? 'TRIM(' . $column . ')' : $column;
+		$tests  = array();
 
 		foreach ( $values as $value ) {
+			// mbstring is on every host this plugin has met but is not something WordPress
+			// requires; for the ASCII values the lower flag is meant for the two agree anyway, so
+			// the fallback loses nothing.
 			if ( $lower ) {
-				// mbstring is on every host this plugin has met but is not something
-				// WordPress requires; for the ASCII values this flag is meant for the two
-				// agree anyway, so the fallback loses nothing.
-				$needle  = function_exists( 'mb_strtolower' ) ? mb_strtolower( $value ) : strtolower( $value );
-				$tests[] = sprintf( 'LOWER({%s}) = %s', $field, $this->quote( $needle ) );
-			} else {
-				$tests[] = sprintf( '{%s} = %s', $field, $this->quote( $value ) );
+				$value = function_exists( 'mb_strtolower' ) ? mb_strtolower( $value ) : strtolower( $value );
 			}
+
+			$tests[] = $column . ' = ' . $this->quote( $value );
 		}
 
 		if ( 1 === count( $tests ) ) {
@@ -655,10 +679,10 @@ class WPCPM_Airtable {
 	 *
 	 * **`FIND()` is a substring test, and the caller must finish the job in PHP.** This exists
 	 * for the columns that hold a WordPress.org profile, where the base has a URL and the thing
-	 * being looked for is a handle, so equality would miss every row: `annak` has to find
-	 * `https://profiles.wordpress.org/annak/`. The cost of that is that `ann` also finds
-	 * `joanna`, so every row this returns is a candidate and not a match, and the caller
-	 * normalises both sides and compares them exactly before believing it.
+	 * being looked for is a handle, so equality would miss every row: `student-one` has to find
+	 * `https://profiles.wordpress.org/student-one/`. The cost of that is that `student-three`
+	 * also finds `other-student-three`, so every row this returns is a candidate and not a match,
+	 * and the caller normalises both sides and compares them exactly before believing it.
 	 *
 	 * The quoting lives here, with `formula_in()` and the escaper, rather than in the modules
 	 * that build queries. A second place that assembles a formula out of somebody's file is a

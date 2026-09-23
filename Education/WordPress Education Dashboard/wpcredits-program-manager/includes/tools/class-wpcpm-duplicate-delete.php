@@ -15,20 +15,44 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The tool's handler checks the capability and the nonce and then hands the selection here, so
  * the whole of spec 7.3 runs, and is tested, without a request. The order is the spec's:
  *
- * 1. the switch is on, no scan is running, and the site can seal;
+ * 1. the switch is on, no scan is running, and the site can seal; from here to the end one delete
+ *    runs at a time, under a lock (DUPLICATES-1);
  * 2. the selection is expanded against the stored report again;
  * 3. the selected addresses are read from Airtable again, in the tables a row was chosen from, so
  *    the chosen rows and their siblings come back together;
  * 4. the site references are read from the database again, and `WPCPM_Duplicate_Rules::recheck()`
- *    asks every question again: **the stored report is the menu, not the authority** (3.6);
+ *    asks every question again: **the stored report is the menu, not the authority** (3.6); a
+ *    read of the references that fails deletes nothing (DUPLICATES-3);
  * 5. a sealed copy of each row that passed is kept, pending, before anything is deleted, and a copy
- *    that cannot be kept stops the delete with nothing deleted (3.7);
+ *    that cannot be kept stops the delete with nothing deleted (3.7); a row's older copy still
+ *    pending from a refused batch goes, since the re-read found that row still there
+ *    (DUPLICATES-5);
  * 6. the rows are deleted ten at a time, Feedback first, then Students Reports, then Students (3.8);
  * 7. each copy whose row Airtable confirms becomes the log entry; a copy of a row that was sent and
  *    not confirmed stays pending for the daily job; a copy of a row never sent is removed (7.5);
  * 8. the stored report drops the deleted rows at once.
  */
 final class WPCPM_Duplicate_Delete {
+
+	/**
+	 * The option a delete holds from the report read to the report written (DUPLICATES-1).
+	 *
+	 * `WPCPM_Duplicate_Rules::recheck()` counts an address's rows against its own request's
+	 * re-read, so two confirmations that each tick one of a student's two rows, processed at the
+	 * same time, would each see the other row standing and together leave that student no row in
+	 * the table, which spec 5.7 rules out. A double-submitted Delete would run twice the same way.
+	 */
+	const OPT_LOCK = 'wpcpm_duplicates_delete_lock';
+
+	/**
+	 * How long a lock is honored before a delete that never let it go is treated as dead.
+	 *
+	 * Longer than a slow delete, which the scan's 120 seconds is not: three re-reads and ten
+	 * batches of ten, each allowed the client's 20-second timeout (DUPLICATES-1). Not a bound on
+	 * every delete: a re-read may page up to twenty times a table, and the client paces its
+	 * requests, so a delete can outlast it and have its lock taken over.
+	 */
+	const LOCK_TIMEOUT = 300;
 
 	/**
 	 * Run a delete.
@@ -55,6 +79,29 @@ final class WPCPM_Duplicate_Delete {
 			return array( 'status' => 'no-seal' );
 		}
 
+		// Refused before anything is read, and without touching the lock the other delete holds.
+		if ( ! self::acquire_lock() ) {
+			return array( 'status' => 'delete-running' );
+		}
+
+		// Released however the delete ends, since it answers from several places below.
+		try {
+			return self::run_locked( $keys, $pairs, $actor, $settings );
+		} finally {
+			delete_option( self::OPT_LOCK );
+		}
+	}
+
+	/**
+	 * Everything a delete does once it holds the lock: steps 2 to 8 of the class's list.
+	 *
+	 * @param string[] $keys     Posted student keys.
+	 * @param string[] $pairs    Posted `table:record` pairs.
+	 * @param int      $actor    The manager deleting.
+	 * @param array    $settings Plugin settings.
+	 * @return array The outcome, as `run()` answers it.
+	 */
+	private static function run_locked( array $keys, array $pairs, $actor, array $settings ) {
 		$report = WPCPM_Duplicates_Scan::report();
 		$chosen = WPCPM_Duplicate_Rules::expand( $report, $keys, $pairs );
 
@@ -85,7 +132,15 @@ final class WPCPM_Duplicate_Delete {
 			}
 		}
 
-		$checked = WPCPM_Duplicate_Rules::recheck( $chosen['rows'], $live['rows'], WPCPM_Duplicates_Scan::refs_for( $ids ), $context );
+		$refs = WPCPM_Duplicates_Scan::refs_for( $ids );
+
+		// Not "nothing points at these rows": that would let through a row a site account, a call
+		// note or an audit entry points at. Answered before any copy is kept (DUPLICATES-3).
+		if ( is_wp_error( $refs ) ) {
+			return array( 'status' => 'refs-failed' );
+		}
+
+		$checked = WPCPM_Duplicate_Rules::recheck( $chosen['rows'], $live['rows'], $refs, $context );
 		$refused = array_merge( $chosen['dropped'], $checked['refused'] );
 
 		if ( empty( $checked['go'] ) ) {
@@ -114,6 +169,10 @@ final class WPCPM_Duplicate_Delete {
 
 			$copies[ $pick['id'] ] = $copy;
 		}
+
+		// The re-read found each of these rows still in Airtable, so a copy of one left pending by
+		// an earlier, refused batch is of a delete that never happened (DUPLICATES-5).
+		WPCPM_Duplicate_Vault::supersede( $copies );
 
 		$deleted   = array();
 		$attempted = array();
@@ -183,8 +242,15 @@ final class WPCPM_Duplicate_Delete {
 	/**
 	 * Every row the base holds now for the selected addresses, in the tables a row was chosen from.
 	 *
-	 * One formula for all the addresses, lowercased on both sides, and paged: the chosen rows and
-	 * their siblings come back together, which is what the last-row rule needs.
+	 * One formula for all the addresses, trimmed and lowercased on both sides, and paged: the
+	 * chosen rows and their siblings come back together, which is what the last-row rule needs.
+	 *
+	 * The scan groups a row by its address trimmed and lowercased (`WPCPM_Duplicate_Rules::key()`),
+	 * and Airtable's LOWER() does not trim, so a row typed with a space around the address never
+	 * came back and was refused as gone while it was still there (DUPLICATES-4). Hence
+	 * `TRIM(LOWER({Email}))` on the base's side, asked of the client's own `formula_in()` with both
+	 * of its flags, whose escaping is the client's: this class built the formula itself until the
+	 * final fix wave, copying that escaping.
 	 *
 	 * @param WPCPM_Airtable $airtable Client.
 	 * @param array          $settings Plugin settings.
@@ -204,7 +270,7 @@ final class WPCPM_Duplicate_Delete {
 			$tables[ $pick['table'] ] = true;
 		}
 
-		$formula = $airtable->formula_in( WPCPM_Duplicate_Rules::EMAIL, array_keys( $addresses ), true );
+		$formula = $airtable->formula_in( WPCPM_Duplicate_Rules::EMAIL, array_keys( $addresses ), true, true );
 		$rows    = array();
 		$records = array();
 
@@ -250,5 +316,30 @@ final class WPCPM_Duplicate_Delete {
 			'rows'    => $rows,
 			'records' => $records,
 		);
+	}
+
+	/**
+	 * Claim the right to delete: `add_option()`'s test-and-set, with a stale takeover.
+	 *
+	 * The house pattern (`WPCPM_Duplicates_Scan::acquire_lock()`). `add_option()` is a read and
+	 * then an insert, so it closes the race at the speed of two people pressing Delete, not two
+	 * inserts landing in the same millisecond (`WPCPM_Sponsor_Codes::lock()` records the window).
+	 *
+	 * @return bool Whether this request now holds the lock.
+	 */
+	private static function acquire_lock() {
+		if ( add_option( self::OPT_LOCK, time(), '', false ) ) {
+			return true;
+		}
+
+		$held = (int) get_option( self::OPT_LOCK );
+
+		if ( $held && ( time() - $held ) < self::LOCK_TIMEOUT ) {
+			return false;
+		}
+
+		update_option( self::OPT_LOCK, time(), false );
+
+		return true;
 	}
 }

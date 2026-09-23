@@ -106,8 +106,8 @@ class WPCPM_CLI {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp wpcredits mentor clk87
-	 *     wp wpcredits mentor https://profiles.wordpress.org/clk87/
+	 *     wp wpcredits mentor mentor-one
+	 *     wp wpcredits mentor https://profiles.wordpress.org/mentor-one/
 	 *
 	 * @param array $args Positional arguments.
 	 */

@@ -750,7 +750,7 @@ class WPCPM_Mentors_Sync {
 	 * Phase 0b - build record ID → name maps for the linked-record fields.
 	 *
 	 * The REST API returns a linked-record cell as an array of bare record IDs -
-	 * `["recGzpWO43cQnVYEw"]` - not as objects carrying the linked record's name.
+	 * `["recXXXXXXXXXXXXXX"]` - not as objects carrying the linked record's name.
 	 * Without this phase the mentor page shows raw `rec…` IDs where the
 	 * institution and contribution team should be.
 	 *

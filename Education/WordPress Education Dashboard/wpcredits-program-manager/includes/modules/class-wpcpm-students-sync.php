@@ -1212,6 +1212,15 @@ class WPCPM_Students_Sync {
 				$state['rows'][ $record_id ]['user_id'] = (int) $user_id;
 			}
 
+			// A student whose pairing has settled on a new mentor leaves the old mentor's upcoming
+			// group sessions, with the mail that takes each out of their calendar: nothing else took
+			// them off, and they kept a series' reminders for as long as it ran (the deep check of
+			// 1.109.1, SESSIONS-7). After the card is written, since the card is one of the two sides
+			// that have to agree. Guarded, so the sync still runs where that module is not loaded.
+			if ( class_exists( 'WPCPM_Group_Sessions' ) ) {
+				WPCPM_Group_Sessions::leave_former( $user_id );
+			}
+
 			++$state['stats']['assigned'];
 		}
 
@@ -1912,7 +1921,16 @@ class WPCPM_Students_Sync {
 			)
 		);
 
-		foreach ( $linked as $user_id ) {
+		foreach ( $linked as $row ) {
+			// An `'ID'` query answers `stdClass` rows on this program's site, and cast straight to an
+			// int each became 1, with a warning, so nobody who had left was ever found (the deep
+			// check of 1.109.1, SURFACES-3).
+			$user_id = WPCPM_Roles::id_of( $row );
+
+			if ( $user_id <= 0 ) {
+				continue;
+			}
+
 			$record = (string) get_user_meta( $user_id, self::META_RECORD_ID, true );
 
 			if ( '' === $record || in_array( $record, $known, true ) ) {
@@ -2528,8 +2546,11 @@ class WPCPM_Students_Sync {
 			)
 		);
 
-		foreach ( $users as $user_id ) {
-			$program = get_user_meta( (int) $user_id, self::META_PROGRAM, true );
+		foreach ( $users as $row ) {
+			// Through `id_of()`, as the query's other readers are: an `'ID'` query answers `stdClass`
+			// rows on this program's site, every row cast to 1 with a warning, and the count came
+			// out 0, which let Unpublish take down a track students were on (SURFACES-3).
+			$program = get_user_meta( WPCPM_Roles::id_of( $row ), self::META_PROGRAM, true );
 
 			if ( ! is_array( $program ) || ! isset( $program['program'] ) ) {
 				continue;

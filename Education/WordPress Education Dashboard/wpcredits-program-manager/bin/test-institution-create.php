@@ -535,7 +535,7 @@ ck( 'the import key names the batch and the row', $cells['Site import key'], 'im
 
 $full = WPCPM_Institution_Create::fields_for(
 	array_merge( $batch, array( 'values' => array_merge( $batch['values'], array( 'end' => '2027-02-07' ) ) ) ),
-	row( 3, 'Bartek Zielinski', 'bartek@institution-3.example', array( 'profile' => 'https://profiles.wordpress.org/bartekz/', 'field_of_study' => 'Technology & Engineering', 'tutor' => 'Dr Nowak' ) ),
+	row( 3, 'Bartek Zielinski', 'bartek@institution-3.example', array( 'profile' => 'https://profiles.wordpress.org/student-two/', 'field_of_study' => 'Technology & Engineering', 'tutor' => 'Dr Nowak' ) ),
 	1
 );
 
@@ -925,7 +925,7 @@ echo "\n=== What a created student joins ===\n";
 fresh();
 $batch_id = stage(
 	$HERE,
-	array( row( 2, 'Anna Kowalska', 'Anna@institution-3.example', array( 'profile' => 'https://profiles.wordpress.org/annak/', 'handle' => 'annak', 'tutor' => 'Dr Nowak' ) ) ),
+	array( row( 2, 'Anna Kowalska', 'Anna@institution-3.example', array( 'profile' => 'https://profiles.wordpress.org/student-one/', 'handle' => 'student-one', 'tutor' => 'Dr Nowak' ) ) ),
 	array( 'end' => '2027-02-07' )
 );
 

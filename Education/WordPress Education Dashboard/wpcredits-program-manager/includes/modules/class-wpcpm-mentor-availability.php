@@ -418,10 +418,12 @@ class WPCPM_Mentor_Availability {
 		$length   = new DateInterval( 'PT' . $schedule['duration'] . 'M' );
 		$seconds  = $schedule['duration'] * MINUTE_IN_SECONDS;
 
-		// Taken slots are fetched once for the whole window rather than queried per
-		// candidate: a 28-day schedule can hold several hundred slots, and a query
-		// each would be several hundred queries to draw one calendar.
-		$taken = WPCPM_Mentor_Calls::taken_starts(
+		// What the mentor already holds, fetched once for the whole window rather than queried
+		// per candidate: a 28-day schedule can hold several hundred slots, and a query each
+		// would be several hundred queries to draw one calendar. Read as spans, since a slot is
+		// taken when any part of it overlaps a call or a session, not only when it starts where
+		// one starts (the deep check of 1.109.1, SESSIONS-4).
+		$taken = WPCPM_Mentor_Calls::taken_spans(
 			$mentor_id,
 			$now,
 			$now + ( ( $horizon + 1 ) * DAY_IN_SECONDS )
@@ -474,7 +476,7 @@ class WPCPM_Mentor_Availability {
 
 					$offered[ $label ] = true;
 
-					if ( $start < $earliest || isset( $taken[ $start ] ) ) {
+					if ( $start < $earliest || WPCPM_Mentor_Calls::overlaps( $start, $start + $seconds, $taken ) ) {
 						continue;
 					}
 

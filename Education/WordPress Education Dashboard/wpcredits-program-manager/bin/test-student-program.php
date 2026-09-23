@@ -394,8 +394,8 @@ $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ] = array(
 $fields = WPCPM_Mentors_Sync::fields();
 
 $id = seed(
-	array( 'name' => 'Celi', 'team' => '', 'website' => '', 'slack' => '' ),
-	array( 'name' => 'Celi', 'team' => '', 'website' => '' )
+	array( 'name' => 'Rio Example', 'team' => '', 'website' => '', 'slack' => '' ),
+	array( 'name' => 'Rio Example', 'team' => '', 'website' => '' )
 );
 
 $saved = WPCPM_Students_Sync::apply_report(
@@ -403,7 +403,7 @@ $saved = WPCPM_Students_Sync::apply_report(
 	array(
 		$fields['report_team']    => array( 'recTEAM0000000002' ),
 		$fields['report_website'] => 'https://rio-example.example',
-		$fields['report_slack']   => '@Celi Garoe',
+		$fields['report_slack']   => '@rio-example',
 		$fields['report_profile'] => 'https://profiles.wordpress.org/rio-example/',
 	)
 );
@@ -413,9 +413,9 @@ $program = $GLOBALS['umeta'][ $id ][ WPCPM_Students_Sync::META_PROGRAM ];
 ck( 'something was carried over', $saved, true );
 ck( 'the team is stored as its name, not its record ID', $program['team'], 'Documentation' );
 ck( 'the website lands on the card row', $program['website'], 'https://rio-example.example' );
-ck( 'so does the Slack name', $program['slack'], '@Celi Garoe' );
+ck( 'so does the Slack name', $program['slack'], '@rio-example' );
 ck( 'and the username is derived from the profile URL', $program['username'], 'rio-example' );
-ck( 'the rest of the row is left alone', $program['name'], 'Celi' );
+ck( 'the rest of the row is left alone', $program['name'], 'Rio Example' );
 
 // The mentor's copy is a second cache of the same student, and their card reads it.
 $mentees = $GLOBALS['umeta'][ $id + 1 ][ WPCPM_Mentors_Sync::META_MENTEES ];

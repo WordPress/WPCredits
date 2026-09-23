@@ -594,7 +594,7 @@ function live_row( array $changes = array() ) {
 			'Full Name' => 'Clean Row',
 			'Email'     => 'Clean@example.test',
 			'Status'    => 'Not moving forward',
-			'WP Profile' => 'https://profiles.wordpress.org/cleanrow/',
+			'WP Profile' => 'https://profiles.wordpress.org/student-one/',
 		),
 		$changes
 	);
@@ -880,7 +880,7 @@ ck( 'as the live record describes them, with the link stamped on the row', array
 	$GLOBALS['inserted'][0][1]['name'],
 	$GLOBALS['inserted'][0][1]['email_key'],
 	$GLOBALS['inserted'][0][1]['username'],
-), array( $CLEAN, $B, 'Clean Row', 'clean@example.test', 'https://profiles.wordpress.org/cleanrow' ) );
+), array( $CLEAN, $B, 'Clean Row', 'clean@example.test', 'https://profiles.wordpress.org/student-one' ) );
 
 // The ground is the fence's answer and not an assumption about who pressed: decision 2 says a
 // manager passes every action as `manager`, and the log is where that is read back. The

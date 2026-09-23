@@ -184,8 +184,9 @@ final class WPCPM_Duplicate_Rules {
 	 *
 	 * The scan keeps this and not the record, because a run holds three tables at once and a
 	 * report row with its practical-lesson notes is kilobytes. For the same reason `work` is the
-	 * number of filled work or answer columns, not their names: about 3,100 rows sit in the scan's
-	 * state between pages, and the rules and the screen only ever ask how many.
+	 * number of filled work or answer columns, not their names, and `held` is a digest of those
+	 * cells rather than the cells: about 3,100 rows sit in the scan's state between pages, and the
+	 * rules and the screen only ever ask how many, and whether they changed.
 	 *
 	 * @param string $table   One of `TABLES`.
 	 * @param array  $record  `array( 'id' => ..., 'createdTime' => ..., 'fields' => array )`.
@@ -195,6 +196,7 @@ final class WPCPM_Duplicate_Rules {
 	public static function reduce( $table, array $record, array $context ) {
 		$columns = self::COLUMNS[ $table ];
 		$fields  = isset( $record['fields'] ) && is_array( $record['fields'] ) ? $record['fields'] : array();
+		$work    = self::work_filled( $table, $fields, isset( $context['work_columns'] ) ? (array) $context['work_columns'] : array() );
 
 		$text = static function ( $column ) use ( $fields ) {
 			return ( '' !== $column && isset( $fields[ $column ] ) ) ? trim( self::flatten( $fields[ $column ] ) ) : '';
@@ -223,7 +225,9 @@ final class WPCPM_Duplicate_Rules {
 		return array(
 			'id'          => isset( $record['id'] ) ? (string) $record['id'] : '',
 			'created'     => isset( $record['createdTime'] ) ? (string) $record['createdTime'] : '',
-			'email'       => $text( self::EMAIL ),
+			// As typed, spaces and all (spec 4.1): `key()` trims it for grouping, and the spelling
+			// flag must see an address typed with a space around it (spec 5.6, DUPLICATES-4).
+			'email'       => isset( $fields[ self::EMAIL ] ) ? self::flatten( $fields[ self::EMAIL ] ) : '',
 			'name'        => $text( $columns['name'] ),
 			'status'      => $text( $columns['status'] ),
 			'institution' => $links( $columns['institution'] ),
@@ -232,8 +236,39 @@ final class WPCPM_Duplicate_Rules {
 			'end'         => $text( $columns['end'] ),
 			'hours'       => $text( $columns['hours'] ),
 			'notes'       => '' !== $text( $columns['notes'] ),
-			'work'        => count( self::work_filled( $table, $fields, isset( $context['work_columns'] ) ? (array) $context['work_columns'] : array() ) ),
+			'work'        => count( $work ),
+			'held'        => self::held_digest( $table, $fields, $work ),
 		);
+	}
+
+	/**
+	 * A digest of the cells deleting the row would lose: its work or answer fields, and Total hours
+	 * and Notes on a Students row.
+	 *
+	 * `recheck()` compares it with the scan's, so a value replaced or a note rewritten since the
+	 * scan is a change even where the counts stay put (DUPLICATES-2). An attachment counts by its
+	 * ID, because Airtable signs its URL afresh on every read.
+	 *
+	 * @param string   $table  One of `TABLES`.
+	 * @param array    $fields The record's `fields`.
+	 * @param string[] $work   `work_filled()`'s columns.
+	 * @return string Sixteen hex characters, or '' for a row that holds none of these cells.
+	 */
+	private static function held_digest( $table, array $fields, array $work ) {
+		$held  = 'students' === $table ? array( self::COLUMNS['students']['hours'], self::COLUMNS['students']['notes'] ) : $work;
+		$cells = array();
+
+		foreach ( $held as $column ) {
+			if ( ! isset( $fields[ $column ] ) || ! self::is_filled( $fields[ $column ] ) ) {
+				continue;
+			}
+
+			foreach ( (array) $fields[ $column ] as $item ) {
+				$cells[] = $column . "\t" . ( is_array( $item ) ? ( isset( $item['id'] ) ? (string) $item['id'] : self::flatten( $item ) ) : (string) $item );
+			}
+		}
+
+		return $cells ? substr( md5( implode( "\n", $cells ) ), 0, 16 ) : '';
 	}
 
 	/**
@@ -366,13 +401,17 @@ final class WPCPM_Duplicate_Rules {
 	 *
 	 * A student key stands for that student's delete candidates, and only while the student is
 	 * Ready. A `table:record` pair stands for that row, and only while the report marks it
-	 * selectable. Everything else is dropped with its reason, never guessed at (spec 7.1).
+	 * selectable. Rows that would take every row the report holds for a student in a table are
+	 * dropped as the last row. Everything else is dropped with its reason, never guessed at (spec
+	 * 7.1).
 	 *
 	 * @param array $report       The stored report: `groups` keyed by `key()`.
 	 * @param array $student_keys Posted student keys.
 	 * @param array $pairs        Posted `table:record` pairs.
-	 * @return array `rows` (each `key`, `table`, `id`, `via` and the scan's `codes`) and `dropped`
-	 *               (each `code`, with the `key`, `table` and `id` it is about where known).
+	 * @return array `rows` (each `key`, `table`, `id`, `via`, and the scan's `codes`, `work`,
+	 *               `hours` and `held`, which is null for a row stored before rows carried the
+	 *               digest) and `dropped` (each `code`, with the `key`, `table` and `id` it is
+	 *               about where known).
 	 */
 	public static function expand( array $report, array $student_keys, array $pairs ) {
 		$groups  = isset( $report['groups'] ) && is_array( $report['groups'] ) ? $report['groups'] : array();
@@ -401,6 +440,11 @@ final class WPCPM_Duplicate_Rules {
 				'id'    => $row['id'],
 				'via'   => $via,
 				'codes' => isset( $row['codes'] ) ? (array) $row['codes'] : array(),
+				// What the list showed of the row, for recheck() to tell a row that carries more,
+				// or other, than it did at the scan (DUPLICATES-2).
+				'work'  => isset( $row['work'] ) ? (int) $row['work'] : 0,
+				'hours' => isset( $row['hours'] ) ? (string) $row['hours'] : '',
+				'held'  => isset( $row['held'] ) ? (string) $row['held'] : null,
 			);
 		};
 
@@ -454,6 +498,28 @@ final class WPCPM_Duplicate_Rules {
 			$add( $key, $table, $row, 'row' );
 		}
 
+		// Never the last row an address has in a table (spec 5.7), counted against the report here
+		// as recheck() counts it against the base. The confirmation, its nonce and the delete all
+		// read this answer, so the confirmation lists exactly what a press can delete (DUPLICATES-7).
+		$slots = array();
+		foreach ( $rows as $row ) {
+			$slots[ $row['key'] . '|' . $row['table'] ][] = $row['id'];
+		}
+
+		foreach ( $rows as $i => $row ) {
+			if ( count( $slots[ $row['key'] . '|' . $row['table'] ] ) >= count( (array) $groups[ $row['key'] ]['rows'][ $row['table'] ] ) ) {
+				$dropped[] = array(
+					'key'   => $row['key'],
+					'table' => $row['table'],
+					'id'    => $row['id'],
+					'code'  => 'last-row',
+				);
+				unset( $rows[ $i ] );
+			}
+		}
+
+		$rows = array_values( $rows );
+
 		if ( count( $rows ) > self::MAX_ROWS ) {
 			foreach ( array_slice( $rows, self::MAX_ROWS ) as $over ) {
 				$dropped[] = array(
@@ -479,7 +545,8 @@ final class WPCPM_Duplicate_Rules {
 	 * The stored report is the menu, not the authority (spec decision 3.6). A row is refused when
 	 * it is no longer under its address, when the site points at it now, when it arrived through a
 	 * student checkbox and is no longer a clean candidate, when it gained a reason to stay since
-	 * the scan, or when deleting it would leave its address with no row in its table.
+	 * the scan or what it holds changed (more work, answers or hours, or a value replaced), or
+	 * when deleting it would leave its address with no row in its table.
 	 *
 	 * @param array $selection `expand()`'s rows.
 	 * @param array $live      Key => table => reduced rows, read from Airtable just now.
@@ -521,7 +588,7 @@ final class WPCPM_Duplicate_Rules {
 				$code = 1 === $classified[ $key ]['counts'][ $table ] ? 'last-row' : 'changed';
 			} elseif ( 'student' === $pick['via'] && self::DELETE !== $now['proposal'] ) {
 				$code = 'changed';
-			} elseif ( array_diff( array_intersect( $now['codes'], self::HOLDS ), (array) $pick['codes'] ) ) {
+			} elseif ( array_diff( array_intersect( $now['codes'], self::HOLDS ), (array) $pick['codes'] ) || self::moved( $now, $pick ) ) {
 				$code = 'changed';
 			}
 
@@ -570,6 +637,30 @@ final class WPCPM_Duplicate_Rules {
 			'go'      => $kept,
 			'refused' => $refused,
 		);
+	}
+
+	/**
+	 * Whether a row is not what the list showed: more work or answer fields, more hours, or a held
+	 * cell whose value changed.
+	 *
+	 * A held row keeps its reason when it gains more of what held it, so its codes cannot tell a
+	 * report with one work field from the same report with three, or 3 Hours from 40 (spec 7.4,
+	 * DUPLICATES-2). Hours count on every table: Total hours on Students, Hours on Students
+	 * Reports, where they may rise while the count of work fields stays one. The digest of the held
+	 * cells sees what no count does; a row stored before it existed is judged by the counts.
+	 *
+	 * @param array $now  The row as the base holds it now, reduced.
+	 * @param array $pick The row as the list showed it: `expand()`'s `work`, `hours` and `held`.
+	 * @return bool
+	 */
+	private static function moved( array $now, array $pick ) {
+		$hours = static function ( $value ) {
+			return is_numeric( $value ) ? (float) $value : 0.0;
+		};
+
+		return (int) $now['work'] > ( isset( $pick['work'] ) ? (int) $pick['work'] : 0 )
+			|| $hours( $now['hours'] ) > $hours( isset( $pick['hours'] ) ? $pick['hours'] : '' )
+			|| ( isset( $pick['held'] ) && $now['held'] !== $pick['held'] );
 	}
 
 	/**

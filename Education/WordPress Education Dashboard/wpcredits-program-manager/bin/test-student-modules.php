@@ -115,8 +115,10 @@ class WPCPM_Students_Sync {
 }
 class WPCPM_Dashboards { public static function nothing_to_show( $a, $m ) { return 'nothing'; } }
 class WPCPM_Two_Factor { public static function prompt( $u ) {} }
+// A course for every status but four: a track with no Learn course, which a Track Builder track may
+// be (TRACKS-3), and the three states that are no track at all (TRACKS-5).
 class WPCPM_Program {
-	public static function course_url( $s ) { return 'https://learn.example/course'; }
+	public static function course_url( $s ) { return in_array( $s, array( 'Marketing Track', 'Paused', 'Pending graduation', 'Graduate' ), true ) ? '' : 'https://learn.example/course'; }
 	public static function label( $s ) { return (string) $s; }
 }
 class WPCPM_Mentors_Dashboard {
@@ -130,7 +132,9 @@ class WPCPM_Icons { public static function svg( $n, $a = array() ) { return ''; 
 class WPCPM_Settings { public static function get_value( $k, $d = '' ) { return $d; } }
 class WPCPM_Student_Report_Form {
 	public static function render( $s, $p ) { echo '<!-- report-form -->'; }
-	public static function render_hours( $s, $p ) { echo '<!-- hours -->'; }
+	// Nothing for a row the check marks `no_hours`, as the real box draws nothing for a form with no
+	// Hours question or a record it cannot read.
+	public static function render_hours( $s, $p ) { echo empty( $p['no_hours'] ) ? '<!-- hours -->' : ''; }
 }
 class WPCPM_Student_Feedback { public static function render( $s, $p ) { echo '<!-- feedback -->'; } }
 class WPCPM_Call_Calendar { public static function render_student( $s, $m ) { echo '<section class="wpcpm-student__section wpcpm-calls"><!-- calendar --></section>'; } }
@@ -279,6 +283,75 @@ ck( 'the first module on the page cannot go up and the last cannot go down, what
 	substr_count( $html, 'class="wpcpm-module__mover"' ),
 ), array( true, true, 2, 3 ) );
 $GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h' );
+
+echo "\n=== The hours box on a track with no course (TRACKS-3) ===\n";
+
+// The hours box lived in My course alone, so a track with no Learn course, which a Track Builder
+// track may be, gave its students nowhere to log hours: they get a section of their own.
+$GLOBALS['uid']  = 30;
+$GLOBALS['caps'] = false;
+$_GET            = array();
+$with_course     = WPCPM_Students_Dashboard::render();
+ck( 'a track with a course keeps My course: the button that opens it, then the hours box',
+	1 === preg_match( '#<h3 class="wpcpm-student__heading">My course</h3><div class="wpcpm-student__course-cols"><p class="wpcpm-student__actions"><a class="wpcpm-button" href="https://learn.example/course" target="_blank" rel="noopener noreferrer">Open your course</a></p><!-- hours --></div>#', $with_course ),
+	true );
+
+$GLOBALS['program'] = array( 'status' => 'Marketing Track' );
+$no_course          = WPCPM_Students_Dashboard::render();
+ck( 'a track with no course draws the hours box in a section of its own, under its own heading, with no course button',
+	array(
+		in_array( 'course', module_ids( $no_course ), true ),
+		1 === preg_match( '#id="wpcpm-module-course">.*?<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--hours"><h3 class="wpcpm-student__heading">My hours</h3><!-- hours --></section>#s', $no_course ),
+		substr_count( $no_course, 'Open your course' ),
+		substr_count( $no_course, '>My course</h3>' ),
+	),
+	array( true, true, 0, 0 ) );
+
+$GLOBALS['program'] = array( 'status' => 'Marketing Track', 'no_hours' => true );
+ck( 'when the box has nothing to draw, there is no empty heading and no module to move',
+	in_array( 'course', module_ids( WPCPM_Students_Dashboard::render() ), true ), false );
+
+// TRACKS-5, the fix round: a student on no track reads the 150-hour track's form, its Hours
+// question included, and the box saves for them as for anybody (bin/test-report-images.php saves
+// one and reads it back), so they get the section a course-less track's students get.
+$no_track_pages = array();
+
+foreach ( array( 'Paused', 'Pending graduation', 'Graduate' ) as $no_track ) {
+	$GLOBALS['program']          = array( 'status' => $no_track );
+	$no_track_page               = WPCPM_Students_Dashboard::render();
+	$no_track_pages[ $no_track ] = array(
+		in_array( 'course', module_ids( $no_track_page ), true ),
+		1 === preg_match( '#<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--hours"><h3 class="wpcpm-student__heading">My hours</h3><!-- hours --></section>#', $no_track_page ),
+		substr_count( $no_track_page, 'Open your course' ),
+	);
+}
+
+ck( 'a student on no track, Paused, Pending graduation or finished, gets the same My hours section, and no course button',
+	$no_track_pages,
+	array(
+		'Paused'             => array( true, true, 0 ),
+		'Pending graduation' => array( true, true, 0 ),
+		'Graduate'           => array( true, true, 0 ),
+	) );
+
+// TRACKS-3, the fix round: the mover names the section it moves. Its label is the arrows'
+// aria-label and tooltip and what the script announces once the module has moved, and over a
+// section headed My hours it said My course, a section the page does not have.
+$GLOBALS['program'] = array( 'status' => 'Paused' );
+$hours_page         = WPCPM_Students_Dashboard::render();
+
+ck( 'over the My hours section the mover says My hours, in its labels, its tooltips and what it announces, and nothing says My course',
+	array(
+		substr_count( $hours_page, 'aria-label="Move My hours up" title="Move My hours up" data-wpcpm-moved="My hours moved up."' ),
+		substr_count( $hours_page, 'aria-label="Move My hours down" title="Move My hours down" data-wpcpm-moved="My hours moved down."' ),
+		substr_count( $hours_page, 'My course' ),
+	),
+	array( 1, 1, 0 ) );
+
+$GLOBALS['program'] = array( 'status' => 'WordPress Credits Program 150h' );
+
+ck( 'while over My course it still says My course',
+	substr_count( WPCPM_Students_Dashboard::render(), 'aria-label="Move My course up" title="Move My course up" data-wpcpm-moved="My course moved up."' ), 1 );
 
 echo "\n=== House rules ===\n";
 $source = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php' );

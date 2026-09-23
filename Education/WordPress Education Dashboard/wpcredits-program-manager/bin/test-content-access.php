@@ -38,6 +38,16 @@ class WP_Query {
 }
 class WP_Role {}
 class WP_User {}
+class WP_Post {
+	public $ID = 0, $post_type = 'post', $post_status = 'publish';
+	public function __construct( $id = 0, $type = 'post', $status = 'publish' ) { $this->ID = $id; $this->post_type = $type; $this->post_status = $status; }
+}
+// As WordPress answers it since 5.7: a viewable type (publicly queryable, or built in and public)
+// and a viewable status. Post and page are; the Track Builder's `wpcpm_track` is registered
+// `public` and `publicly_queryable` false, so it is not, whatever its status (SURFACES-2).
+function is_post_publicly_viewable( $post = null ) {
+	return $post instanceof WP_Post && in_array( $post->post_type, array( 'post', 'page' ), true ) && 'publish' === $post->post_status;
+}
 class WPCPM_Roles {
 	const ROLE_ADMIN = 'administrator';
 	const CAP_MANAGE = 'wpcpm_manage_program';
@@ -85,6 +95,15 @@ WPCPM_Content_Access::init();
 ck( 'the feed body runs through the content filter', in_array( 'the_content_feed', $GLOBALS['hooks'], true ), true );
 ck( 'and the feed excerpt, which never passes the_excerpt, through the excerpt filter', in_array( 'the_excerpt_rss', $GLOBALS['hooks'], true ), true );
 ck( 'the oEmbed endpoint is gated', in_array( 'oembed_response_data', $GLOBALS['hooks'], true ), true );
+
+// SURFACES-2: before WordPress 6.8, the plugin's floor being 6.5, core's oEmbed endpoint answered
+// for any post in publish status that a URL resolves to, a private type's included, and a track
+// carries no access level, so it read as public: its name and its publisher's name and author URL
+// reached a logged-out requester. The filter now answers nothing for a post the public cannot view.
+ck( 'oEmbed answers nothing for a published post of a type the public cannot view, though it carries no access level',
+	array( WPCPM_Content_Access::get_level( new WP_Post( 7, 'wpcpm_track' ) ), WPCPM_Content_Access::filter_oembed( array( 'title' => 'x' ), new WP_Post( 7, 'wpcpm_track' ) ) ),
+	array( 'public', false ) );
+ck( 'and passes a public post through', WPCPM_Content_Access::filter_oembed( array( 'title' => 'x' ), new WP_Post( 8, 'post' ) ), array( 'title' => 'x' ) );
 
 $src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-content-access.php' );
 ck( 'the docblock says listings, feeds and search, which is now true', false !== strpos( $src, 'listings, feeds and search' ), true );

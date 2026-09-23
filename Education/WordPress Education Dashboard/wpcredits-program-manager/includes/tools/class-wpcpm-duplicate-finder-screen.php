@@ -388,9 +388,17 @@ final class WPCPM_Duplicate_Finder_Screen {
 				$type     = 'error';
 				$sentence = __( 'Nothing was deleted: this site cannot encrypt, so it cannot keep the copy a delete needs.', 'wpcredits-program-manager' );
 				break;
+			case 'delete-running':
+				$type     = 'warning';
+				$sentence = __( 'Nothing was deleted: another delete was running. Review the selection again once it has finished.', 'wpcredits-program-manager' );
+				break;
 			case 'nothing':
 				$type     = 'warning';
 				$sentence = __( 'Nothing in that selection could be deleted.', 'wpcredits-program-manager' );
+				break;
+			case 'refs-failed':
+				$type     = 'error';
+				$sentence = __( 'Nothing was deleted: the site could not read which of its records point at these rows, so they could not be checked again.', 'wpcredits-program-manager' );
 				break;
 			case 'read-failed':
 				$type = 'error';
@@ -797,6 +805,8 @@ final class WPCPM_Duplicate_Finder_Screen {
 				);
 			} elseif ( WPCPM_Duplicate_Vault::STATE_PENDING === $entry['state'] ) {
 				$copy = esc_html__( 'Airtable did not confirm this delete; the daily run checks it again.', 'wpcredits-program-manager' );
+			} elseif ( ! empty( $entry['unconfirmed'] ) ) {
+				$copy = esc_html__( 'Erased after 30 days. Airtable never confirmed this delete, so the row may still be there.', 'wpcredits-program-manager' );
 			} else {
 				$copy = esc_html__( 'Erased after 30 days.', 'wpcredits-program-manager' );
 			}

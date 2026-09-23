@@ -412,9 +412,17 @@ final class WPCPM_Duplicates_Scan {
 	 * (`OWN_POST_TYPES`). Asked twice: by the scan for the list, and by the delete handler just
 	 * before it deletes, because a note written in between is exactly what must stop a delete.
 	 *
+	 * A query that fails answers a WP_Error, never a shorter list (DUPLICATES-3): read as "nothing
+	 * points at these rows", it would let a delete through and list every row unlocked. wpdb
+	 * answers an empty list for a query the database refused and records why in `last_error`,
+	 * which it resets at the start of every query, so it is read after each one; a statement
+	 * `prepare()` could not build comes back as null. `empty()` rather than a comparison, because
+	 * the suites' database stand-ins need not declare `last_error`.
+	 *
 	 * @param string[] $ids Record IDs.
-	 * @return array<string, array[]> Record ID => each `kind` (`user` or a post type), `key`,
-	 *                               `object` (the user or post ID) and, for a post, `status`.
+	 * @return array<string, array[]>|WP_Error Record ID => each `kind` (`user` or a post type),
+	 *                                         `key`, `object` (the user or post ID) and, for a
+	 *                                         post, `status`.
 	 */
 	public static function refs_for( array $ids ) {
 		global $wpdb;
@@ -428,7 +436,11 @@ final class WPCPM_Duplicates_Scan {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- One placeholder per ID, built above; a read that must be fresh.
 			$users = $wpdb->get_results( $wpdb->prepare( "SELECT user_id, meta_key, meta_value FROM {$wpdb->usermeta} WHERE meta_value IN ($in)", $chunk ), ARRAY_A );
 
-			foreach ( (array) $users as $row ) {
+			if ( ! is_array( $users ) || ! empty( $wpdb->last_error ) ) {
+				return self::refs_failed();
+			}
+
+			foreach ( $users as $row ) {
 				$refs[ (string) $row['meta_value'] ][] = array(
 					'kind'   => 'user',
 					'key'    => (string) $row['meta_key'],
@@ -439,7 +451,11 @@ final class WPCPM_Duplicates_Scan {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- As above.
 			$posts = $wpdb->get_results( $wpdb->prepare( "SELECT p.ID, p.post_type, p.post_status, m.meta_key, m.meta_value FROM {$wpdb->postmeta} m INNER JOIN {$wpdb->posts} p ON p.ID = m.post_id WHERE m.meta_value IN ($in)", $chunk ), ARRAY_A );
 
-			foreach ( (array) $posts as $row ) {
+			if ( ! is_array( $posts ) || ! empty( $wpdb->last_error ) ) {
+				return self::refs_failed();
+			}
+
+			foreach ( $posts as $row ) {
 				if ( in_array( (string) $row['post_type'], self::OWN_POST_TYPES, true ) ) {
 					continue;
 				}
@@ -454,6 +470,15 @@ final class WPCPM_Duplicates_Scan {
 		}
 
 		return $refs;
+	}
+
+	/**
+	 * What `refs_for()` answers when either of its queries failed.
+	 *
+	 * @return WP_Error
+	 */
+	private static function refs_failed() {
+		return new WP_Error( 'wpcpm_duplicates_refs', __( 'The site\'s database did not answer which of its records point at these rows.', 'wpcredits-program-manager' ) );
 	}
 
 	/**
@@ -589,7 +614,8 @@ final class WPCPM_Duplicates_Scan {
 	 * Keep the duplicated addresses, look up what the site points at, classify, and store.
 	 *
 	 * @param array $state Scan state, by reference.
-	 * @return true
+	 * @return true|WP_Error A failed read of what the site points at ends the run, like a failed
+	 *                       page, and the last good list stays (decision 3.4, DUPLICATES-3).
 	 */
 	private static function phase_finish( array &$state ) {
 		$dupes = array();
@@ -612,7 +638,12 @@ final class WPCPM_Duplicates_Scan {
 			}
 		}
 
-		$refs   = self::refs_for( $ids );
+		$refs = self::refs_for( $ids );
+
+		if ( is_wp_error( $refs ) ) {
+			return $refs;
+		}
+
 		$groups = array();
 
 		foreach ( $dupes as $key => $tables ) {

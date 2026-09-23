@@ -423,7 +423,7 @@ $GLOBALS['umeta'] = array(
 			'program'        => 'In Sensei',
 			'start'          => '2026-02-16',
 			'end'            => '2026-06-30',
-			'username'       => 'analopez',
+			'username'       => 'student-one',
 			'slack'          => 'ana.lopez',
 			'team'           => 'Documentation',
 			'website'        => 'https://ana.example.test/',
@@ -439,11 +439,11 @@ $GLOBALS['umeta'] = array(
 			'name'      => 'Marta Mentor',
 			'email'     => 'marta@example.test',
 			// Everything below is on the mentor's own card and on no institution's.
-			'username'  => 'martamentor',
-			'profile'   => 'https://profiles.wordpress.org/martamentor/',
+			'username'  => 'mentor-one',
+			'profile'   => 'https://profiles.wordpress.org/mentor-one/',
 			'slack'     => 'marta.mentor',
 			'website'   => 'https://marta.example.test/',
-			'github'    => 'martamentor',
+			'github'    => 'mentor-one',
 			'location'  => 'Valencia',
 		),
 	),
@@ -470,7 +470,7 @@ $GLOBALS['roster'] = array(
 			'start'          => '2026-02-16',
 			'end'            => '2026-06-30',
 			'has_mentor'     => true,
-			'username'       => 'analopez',
+			'username'       => 'student-one',
 			'field_of_study' => 'Computer Science',
 			'tutor'          => '',
 			'reports'        => array( $report_a ),
@@ -520,7 +520,7 @@ ck( 'the status is never printed raw', false === strpos( $html, '>In Sensei<' ),
 ck( 'the dates print as one period', false !== strpos( $html, '2026-02-16 - 2026-06-30' ), true );
 ck( 'the cohort is derived from the start date', false !== strpos( $html, 'January to June 2026' ), true );
 ck( 'the field of study prints', false !== strpos( $html, 'Computer Science' ), true );
-ck( 'the WordPress.org profile links to the handle', false !== strpos( $html, 'https://profiles.wordpress.org/analopez/' ), true );
+ck( 'the WordPress.org profile links to the handle', false !== strpos( $html, 'https://profiles.wordpress.org/student-one/' ), true );
 ck( "the student's own address is not a row", row_of( $html, 'Email' ), '' );
 ck( 'and is nowhere else on the card either', false === strpos( $html, 'ana@example.test' ), true );
 ck( 'the way back to the roster keeps the filters', false !== strpos( $html, 'wpcpm_status=current' ), true );
@@ -534,7 +534,7 @@ ck( "the mentor's name prints", false !== strpos( $html, 'Marta Mentor' ), true 
 ck( "the mentor's address prints", false !== strpos( $html, 'mailto:marta@example.test' ), true );
 
 foreach ( array(
-	'their WordPress.org profile' => 'martamentor',
+	'their WordPress.org profile' => 'mentor-one',
 	'their Slack handle'          => 'marta.mentor',
 	'their own website'           => 'marta.example.test',
 	'where they live'             => 'Valencia',

@@ -366,8 +366,8 @@ function at_line( array $rows, $line ) {
 echo "=== A file is read, whatever the registry exported ===\n";
 
 $csv = "Full Name,E-Mail,WordPress.org profile,Field of study,Tutor\n"
-	. "Anna Kowalska,Anna@institution-3.example,https://profiles.wordpress.org/annak/,Technology & Engineering,Dr Nowak\n"
-	. "Bartek Zielinski,bartek@institution-3.example,@bartekz,design & creative media,\n";
+	. "Anna Kowalska,Anna@institution-3.example,https://profiles.wordpress.org/student-one/,Technology & Engineering,Dr Nowak\n"
+	. "Bartek Zielinski,bartek@institution-3.example,@student-two,design & creative media,\n";
 
 $parsed = WPCPM_Institution_Import::parse( $csv );
 
@@ -382,10 +382,10 @@ ck( 'both rows may be created', verdicts( $rows ), array( 'ok', 'ok' ) );
 ck( 'the address is kept as typed', $rows[0]['email'], 'Anna@institution-3.example' );
 // Airtable holds addresses as they were typed, and two spellings of one mailbox are one person.
 ck( 'and lowercased for comparing', $rows[0]['email_key'], 'anna@institution-3.example' );
-ck( 'a profile URL becomes a handle', $rows[0]['handle'], 'annak' );
-ck( 'an @handle becomes the same kind of handle', $rows[1]['handle'], 'bartekz' );
+ck( 'a profile URL becomes a handle', $rows[0]['handle'], 'student-one' );
+ck( 'an @handle becomes the same kind of handle', $rows[1]['handle'], 'student-two' );
 // The base holds these as URLs and a school's column holds five spellings of one.
-ck( 'and both are stored canonically', $rows[1]['profile'], 'https://profiles.wordpress.org/bartekz/' );
+ck( 'and both are stored canonically', $rows[1]['profile'], 'https://profiles.wordpress.org/student-two/' );
 ck( 'the field of study is matched however it was cased', $rows[1]['field_of_study'], 'Design & Creative Media' );
 ck( 'the tutor is carried', $rows[0]['tutor'], 'Dr Nowak' );
 ck( 'and an empty one is not invented', $rows[1]['tutor'], '' );
@@ -548,8 +548,8 @@ ck( 'and the second names the first', at_line( $dupes, 4 )['duplicate_of'], 2 );
 $handles = WPCPM_Institution_Import::clean_rows(
 	WPCPM_Institution_Import::parse(
 		"Name,Email,Profile\n"
-		. "Anna Kowalska,anna@institution-3.example,https://profiles.wordpress.org/annak/\n"
-		. "Anna Kowalska,a.kowalska@institution-3.example,@annak\n"
+		. "Anna Kowalska,anna@institution-3.example,https://profiles.wordpress.org/student-one/\n"
+		. "Anna Kowalska,a.kowalska@institution-3.example,@student-one\n"
 	)['rows']
 );
 ck( 'one handle under two addresses blocks both', verdicts( $handles ), array( 'duplicate-file', 'duplicate-file' ) );
@@ -700,25 +700,26 @@ ck( 'a program manager is told which it was, and the four differ', count( array_
 // The profile is an identity too. A student enrolled elsewhere under another address is found
 // by their handle, and the row is blocked exactly as if the address had matched.
 $by_handle = ladder(
-	"Name,Email,Profile\nAnna Kowalska,new.address@institution-3.example,@annak\n",
-	array( rec( 'recS4', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'other@example.test', 'WP Profile' => 'https://profiles.wordpress.org/annak/', 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
+	"Name,Email,Profile\nAnna Kowalska,new.address@institution-3.example,@student-one\n",
+	array( rec( 'recS4', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'other@example.test', 'WP Profile' => 'https://profiles.wordpress.org/student-one/', 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
 );
 ck( 'a handle already on a record blocks the row', $by_handle[0]['verdict'], 'blocked' );
 ck( 'saying no more than the others do', $by_handle[0]['detail'], array() );
 
-// FIND() is a substring test, so the base answers with candidates. `ann` inside `joanna` is
-// exactly the false positive that would block an innocent row, and PHP is what throws it out.
+// FIND() is a substring test, so the base answers with candidates. `student-three` inside
+// `other-student-three` is exactly the false positive that would block an innocent row, and PHP
+// is what throws it out.
 $substring = ladder(
-	"Name,Email,Profile\nAnn Nowak,ann@institution-3.example,@ann\n",
-	array( rec( 'recS5', array( 'Full Name' => 'Joanna Lis', 'Email' => 'joanna@example.test', 'WP Profile' => 'https://profiles.wordpress.org/joanna/', 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
+	"Name,Email,Profile\nAnn Nowak,ann@institution-3.example,@student-three\n",
+	array( rec( 'recS5', array( 'Full Name' => 'Joanna Lis', 'Email' => 'joanna@example.test', 'WP Profile' => 'https://profiles.wordpress.org/other-student-three/', 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
 );
 ck( 'a handle inside a longer one is not a match', $substring[0]['verdict'], 'ok' );
 
 // The same person, written three ways. None of the spellings can defeat the comparison,
 // because both sides go through the normaliser the file went through.
-foreach ( array( 'profiles.wordpress.org/annak', 'https://profiles.wordpress.org/AnnaK/', 'annak' ) as $spelling ) {
+foreach ( array( 'profiles.wordpress.org/student-one', 'https://profiles.wordpress.org/Student-One/', 'student-one' ) as $spelling ) {
 	$variant = ladder(
-		"Name,Email,Profile\nAnna Kowalska,fresh@institution-3.example,@annak\n",
+		"Name,Email,Profile\nAnna Kowalska,fresh@institution-3.example,@student-one\n",
 		array( rec( 'recS6', array( 'Full Name' => 'Anna Kowalska', 'Email' => 'other@example.test', 'WP Profile' => $spelling, 'Educational Institutions' => array( $ELSEWHERE ) ) ) )
 	);
 	ck( sprintf( 'the URL written as "%s" still matches', $spelling ), $variant[0]['verdict'], 'blocked' );

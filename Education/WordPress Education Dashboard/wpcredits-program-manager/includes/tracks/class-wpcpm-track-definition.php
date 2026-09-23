@@ -82,6 +82,14 @@ final class WPCPM_Track_Definition {
 	 */
 	const WRITABLE_TYPES = array( 'singleLineText', 'multilineText', 'richText', 'url', 'email', 'number', 'checkbox', 'singleSelect', 'multipleAttachments', 'multipleRecordLinks' );
 
+	/**
+	 * The one column the Total hours group holds: the hours box writes it (TRACKS-3).
+	 *
+	 * Verbatim, as `WPCPM_Student_Report_Form::render_hours()` reads it: the box draws the question
+	 * keyed `Hours` and nothing else, whatever group it is in.
+	 */
+	const HOURS_COLUMN = 'Hours';
+
 	/** The longest status: one line of the "Currently mentoring" box, and a chip that still reads. */
 	const MAX_STATUS = 100;
 
@@ -219,6 +227,46 @@ final class WPCPM_Track_Definition {
 
 		if ( $teams > 1 ) {
 			$errors[] = self::error( 'team_twice', '', __( 'A track asks for the contribution team once.', 'wpcredits-program-manager' ) );
+		}
+
+		return $errors;
+	}
+
+	/**
+	 * The hours rule: Total hours holds the `Hours` question alone, and `Hours` sits there alone
+	 * (TRACKS-3).
+	 *
+	 * The Student Report Card draws the group one way only, as the hours box, which holds the
+	 * column named `Hours` and nothing else whatever group that column is in. So another question
+	 * in the group would reach no student, the preview included, though publishing creates its
+	 * column; and `Hours` in another group would be drawn twice, as the box and in its group.
+	 *
+	 * **Not one of `validate()`'s rules, on purpose.** `validate()` runs in every `compile()`, where
+	 * a new refusal would silently leave out a track already published that breaks it.
+	 * `WPCPM_Track_Store::check()` asks this one, the question editor offers Total hours to the
+	 * Hours question alone, and so nothing can be saved or published that breaks it, while what is
+	 * live keeps compiling.
+	 *
+	 * @param array $definition Track definition, after `normalize()`.
+	 * @return array[] As `validate()` answers them, each `where` the question's column.
+	 */
+	public static function check_hours( array $definition ) {
+		$errors    = array();
+		$questions = isset( $definition['questions'] ) && is_array( $definition['questions'] ) ? $definition['questions'] : array();
+
+		foreach ( $questions as $column => $spec ) {
+			if ( ! is_array( $spec ) || ! isset( $spec['group'] ) ) {
+				continue;
+			}
+
+			$in_group = 'hours' === $spec['group'];
+			$is_hours = self::HOURS_COLUMN === (string) $column;
+
+			if ( $in_group && ! $is_hours ) {
+				$errors[] = self::error( 'hours_only', (string) $column, __( 'Total hours holds the Hours question alone. The Student Report Card draws that group as the hours box, which shows nothing else, so this question would reach no student. Put it in Onboarding, Project or Wrap-up.', 'wpcredits-program-manager' ) );
+			} elseif ( $is_hours && ! $in_group ) {
+				$errors[] = self::error( 'hours_group', (string) $column, __( 'The Hours question belongs in Total hours. The Student Report Card draws it as the hours box whatever its group, so anywhere else it would be drawn twice.', 'wpcredits-program-manager' ) );
+			}
 		}
 
 		return $errors;

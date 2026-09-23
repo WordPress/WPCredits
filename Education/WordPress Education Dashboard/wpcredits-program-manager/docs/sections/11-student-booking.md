@@ -30,14 +30,15 @@ side - ask them in Slack to set their hours.
 ## Group sessions
 
 Your mentor may run a session for several students at once - a walkthrough, a question hour,
-something for everybody who started the same week. Those appear under *My mentor call* with what the
-session is about and how many places are left.
+something for everybody who started the same week. Those appear under *My mentor call* in a list of
+their own, *Group sessions with your mentor*, apart from the calls you book, with what the session
+is about and how many places are left.
 
 **Join this session** puts you on it, and you get an email with a calendar invitation the same as a
-private call. If something changes, **Leave the session** takes you off and frees your place for
-somebody else. Once a session has started, its row says so instead of offering either button, and
-its time reads how long ago it began; the row stays on your list for an hour so you can still find
-the link.
+private call. If something changes, **Leave the session** asks first, then takes you off and frees
+your place for somebody else. Once a session has started, its row says so instead of offering either
+button, and its time reads how long ago it began; the row stays on your list for an hour so you can
+still find the link.
 
 A session does not count towards the number of upcoming calls you may hold at once: join every
 session that has a place, and your one-to-one booking is unaffected.
@@ -47,3 +48,8 @@ and places. The list shows a series under one heading, each date as its own row.
 you on every date that still has a place and sends you one email with one calendar file that plans
 them all; a date that is already full is skipped, and the message says so. You can still join or
 leave a single date from its row.
+
+If your mentor changes, a session of your former mentor's that you are on stays on your list, with
+their name and **Leave the session**, and the list is headed simply *Group sessions*. Once the
+program records show the change for you and for both mentors, you are taken off it and sent an email
+whose calendar file takes it out of your calendar.

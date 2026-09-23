@@ -1,12 +1,24 @@
 <?php
 /**
- * The strings no file under bin/ or docs/ may carry, held as hashes rather than as themselves.
+ * The strings no file under bin/, docs/ or includes/, and not the readme, may carry, held as
+ * hashes rather than as themselves, and the one way of finding them in a body of text.
+ *
+ * What the file holds: `WPCPM_SAMPLE_NAMES`, the people, with their handles, profile addresses,
+ * personal sites and mail local parts, a team member credited by name among them since the deep
+ * check of 1.109.1 (SURFACES-5); `WPCPM_SAMPLE_ORGS`, the organizations the program has a
+ * relationship with and their domains; the four settings a text is cut into candidates by
+ * (`WPCPM_REFUSED_WORDS`, `WPCPM_REFUSED_EDGE`, `WPCPM_REFUSED_MIN` and `WPCPM_REFUSED_MAX`);
+ * and `wpcpm_refused_all()` and `wpcpm_refused_found()`, which bin/test-fixtures.php's walk and
+ * bin/anonymize-fixtures.php's sweep both call, so the two cut a file the same way.
  *
  * `bin/` and `docs/` never ship in the installable zip, but they ARE published on the public
  * GitHub mirror. The deep check of 7 September 2026 found real people used as sample display
  * names in the suites, three of them beside a WordPress.org profile address or a personal
  * domain, and real organizations named beside participation numbers (findings FSUIT-5 and
- * FSUIT-13). bin/anonymize-fixtures.php replaces them; bin/test-fixtures.php refuses them.
+ * FSUIT-13). bin/anonymize-fixtures.php replaces them under bin/. bin/test-fixtures.php refuses
+ * them there, under docs/, and since the fix wave's re-review of 8 September 2026 in includes/
+ * and the readme as well, since a refused string in a comment ships in the zip; outside bin/,
+ * one is edited by hand.
  *
  * **Why hashes.** The first version of this list wrote the strings out, because a sweep has to
  * know what to look for. That put eight real names, three profile addresses and one personal
@@ -72,6 +84,13 @@ const WPCPM_SAMPLE_NAMES = array(
 	'61632e2a55f7e115822cc70c24cf22542a4720b5' => 'Ines',
 	'6017679831a845f1a61c411c913b84ddeef26d15' => 'Sam',
 	'f772702fbc277bb993db5a28eb33d75eb1c217c3' => 'Ada',
+	// Added 23 September 2026: a team member credited by name in a comment, a spec, the readme and
+	// a suite's Slack-name fixture (the deep check of 1.109.1, SURFACES-5). The full name, the first
+	// name, which a spec used alone, and the surname, which the Slack-name shape would otherwise
+	// leave behind once the first name before it was swept.
+	'6d7549b3ef61443912b6d21b06de97b47e2d4bd4' => 'a mentor',
+	'06f8a3a0943675235352a6b12aa6da81e6690417' => 'Example',
+	'b2f39e30ada984d5c68f4be18c7e314725129089' => 'Rio',
 );
 
 /**

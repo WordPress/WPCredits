@@ -52,6 +52,7 @@ function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; retur
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_transient( $k ) { return array_key_exists( $k, $GLOBALS['transients'] ) ? $GLOBALS['transients'][ $k ] : false; }
 function set_transient( $k, $v, $ttl = 0 ) { $GLOBALS['transients'][ $k ] = $v; $GLOBALS['ttl'][ $k ] = $ttl; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['transients'][ $k ], $GLOBALS['ttl'][ $k ] ); return true; }
 function wp_doing_cron() { return ! empty( $GLOBALS['doing_cron'] ); }
 
 /**
@@ -193,6 +194,30 @@ ck( 'the needle is folded with mb_strtolower(), not strtolower()',
 	$airtable->formula_in( 'Name', array( 'Łódź' ), true ),
 	"LOWER({Name}) = 'łódź'" );
 
+// The fourth argument (the final fix wave, item 4): the column's surrounding spaces trimmed by
+// Airtable's TRIM(), outside LOWER() when both are asked, and the value trimmed here, so the
+// duplicate finder's re-read asks for an address the way the scan grouped it without building a
+// formula of its own.
+ck( 'trim wraps the lowered field in TRIM(), trims and lowercases the needle, and still escapes a quote',
+	$airtable->formula_in( 'Email', array( " Ann.O'Neil@Example.ORG " ), true, true ),
+	"TRIM(LOWER({Email})) = 'ann.o\\'neil@example.org'" );
+
+ck( 'trim with two values wraps each test',
+	$airtable->formula_in( 'Email', array( 'A@INSTITUTION.example', 'b@institution-2.example ' ), true, true ),
+	"OR(TRIM(LOWER({Email})) = 'a@institution.example',TRIM(LOWER({Email})) = 'b@institution-2.example')" );
+
+ck( 'trim still escapes the field name, and works without lower',
+	array( $airtable->formula_in( 'Odd}Name', array( 'x' ), true, true ), $airtable->formula_in( 'Name', array( ' Ann ' ), false, true ) ),
+	array( "TRIM(LOWER({Odd\\}Name})) = 'x'", "TRIM({Name}) = 'Ann'" ) );
+
+ck( 'a value that is only spaces is nothing to filter on once trimmed, not a test for an empty cell',
+	$airtable->formula_in( 'Email', array( '   ', '' ), true, true ),
+	'' );
+
+ck( 'an explicit false is the three-argument form, byte for byte',
+	$airtable->formula_in( 'Email', array( ' A@X.example ' ), true, false ),
+	$airtable->formula_in( 'Email', array( ' A@X.example ' ), true ) );
+
 /* ---- formula_contains() -------------------------------------------------- */
 
 echo "\n=== formula_contains() ===\n";
@@ -200,12 +225,12 @@ echo "\n=== formula_contains() ===\n";
 // For the profile columns, where the base holds a URL and the thing being looked for is a
 // handle: equality would miss every row.
 ck( 'one needle is a bare FIND against the lowered column',
-	$airtable->formula_contains( 'WP Profile', array( 'annak' ) ),
-	"FIND('annak', LOWER({WP Profile})) > 0" );
+	$airtable->formula_contains( 'WP Profile', array( 'student-one' ) ),
+	"FIND('student-one', LOWER({WP Profile})) > 0" );
 
 ck( 'two needles are an OR()',
-	$airtable->formula_contains( 'WP Profile', array( 'annak', 'bartekz' ) ),
-	"OR(FIND('annak', LOWER({WP Profile})) > 0,FIND('bartekz', LOWER({WP Profile})) > 0)" );
+	$airtable->formula_contains( 'WP Profile', array( 'student-one', 'student-two' ) ),
+	"OR(FIND('student-one', LOWER({WP Profile})) > 0,FIND('student-two', LOWER({WP Profile})) > 0)" );
 
 ck( 'nothing to look for is an empty formula',
 	$airtable->formula_contains( 'WP Profile', array( '', null ) ),
@@ -222,12 +247,12 @@ ck( 'and so is the field name',
 	"FIND('x', LOWER({Odd\\}Name})) > 0" );
 
 ck( 'the needle is lowered with the column',
-	$airtable->formula_contains( 'WP Profile', array( 'AnnaK' ) ),
-	"FIND('annak', LOWER({WP Profile})) > 0" );
+	$airtable->formula_contains( 'WP Profile', array( 'Student-One' ) ),
+	"FIND('student-one', LOWER({WP Profile})) > 0" );
 
 ck( 'and lowering can be turned off, column and needle together',
-	$airtable->formula_contains( 'WP Profile', array( 'AnnaK' ), false ),
-	"FIND('AnnaK', {WP Profile}) > 0" );
+	$airtable->formula_contains( 'WP Profile', array( 'Student-One' ), false ),
+	"FIND('Student-One', {WP Profile}) > 0" );
 
 /* ---- a 429 is honoured --------------------------------------------------- */
 
@@ -615,6 +640,73 @@ $bad_type = $schema_client->create_field( 'tblX', array( 'name' => 'Invalid', 't
 ck( 'a 422 with a different error type is not reported as field-exists',
 	$bad_type->get_error_code(), 'wpcpm_airtable_error' );
 
+echo "\n=== No public method deletes or changes a column (PUBLISH-LEARN-7) ===\n";
+
+// Deleting or renaming anything in Airtable is out of the Track Builder's scope (the design's
+// section 14 and decision 18): a column holds every answer given to it. Every public method of
+// the client is called, including any added later, with enough for it to send its request, and
+// what each sent is sorted by method and by records or schema endpoint.
+
+/**
+ * An argument for one parameter of a client method, enough for the method to send its request.
+ *
+ * @param ReflectionParameter $param The parameter.
+ * @return mixed
+ */
+function argument_for( ReflectionParameter $param ) {
+	$known = array(
+		'table'     => 'tblX',
+		'record_id' => 'recABCDEFGHIJKLMN',
+		'records'   => array( array( 'id' => 'recABCDEFGHIJKLMN', 'fields' => array( 'Name' => 'X' ) ) ),
+		'ids'       => array( 'recABCDEFGHIJKLMN' ),
+	);
+
+	if ( isset( $known[ $param->getName() ] ) ) {
+		return $known[ $param->getName() ];
+	}
+
+	$type = $param->getType();
+
+	return $type instanceof ReflectionNamedType && 'array' === $type->getName() ? array( 'name' => 'X', 'type' => 'singleLineText' ) : 'X';
+}
+
+$anything = response( 200, array( 'records' => array(), 'tables' => array( array( 'id' => 'tblX', 'fields' => array() ) ), 'id' => 'fldX' ) );
+$reached  = array();
+
+foreach ( ( new ReflectionClass( 'WPCPM_Airtable' ) )->getMethods( ReflectionMethod::IS_PUBLIC ) as $method ) {
+	// The constructor makes the client, and for_tests() would put the real clock and sleeper back.
+	if ( in_array( $method->getName(), array( '__construct', 'for_tests' ), true ) ) {
+		continue;
+	}
+
+	fresh( 'web' );
+	$GLOBALS['queue'] = array_fill( 0, 3, $anything );
+	$args             = array();
+
+	foreach ( $method->getParameters() as $param ) {
+		if ( $param->isOptional() ) {
+			break;
+		}
+
+		$args[] = argument_for( $param );
+	}
+
+	$method->invokeArgs( $method->isStatic() ? null : $schema_client, $args );
+
+	foreach ( $GLOBALS['sent'] as $call ) {
+		$reached[] = strtoupper( $call['args']['method'] ) . ( false !== strpos( $call['url'], '/meta/' ) ? ' schema' : ' records' );
+	}
+}
+
+$reached = array_values( array_unique( $reached ) );
+sort( $reached );
+
+ck( 'between them the public methods read, create, change and delete records, and read the schema and add a column to it',
+	$reached, array( 'DELETE records', 'GET records', 'GET schema', 'PATCH records', 'POST records', 'POST schema' ) );
+
+ck( 'and none sends a DELETE or a PATCH to a schema endpoint',
+	array_values( array_intersect( $reached, array( 'DELETE schema', 'PATCH schema' ) ) ), array() );
+
 echo "\n=== The schema read carries each column's type, beside the descriptions ===\n";
 
 fresh( 'web' );
@@ -692,6 +784,42 @@ $airtable->fetch_schema();
 
 ck( 'a failed read leaves the held copy alone',
 	$GLOBALS['transients'][ WPCPM_Airtable::SCHEMA_TRANSIENT ]['schema'], array( 'tblZ' => array() ) );
+
+echo "\n=== A column created drops the held copy, so the editor reads the base afresh (PUBLISH-LEARN-5) ===\n";
+
+// The requests of a publish that creates two columns, in its order: the preflight's schema read,
+// which refills the copy, then one create per column. The track page's line read that copy for
+// fifteen minutes afterward and said publishing would create the two columns just created, "Read
+// from Airtable just now".
+fresh( 'web' );
+queue( response( 200, array( 'tables' => array( array( 'id' => 'tblX', 'name' => 'Students Reports', 'fields' => array( array( 'id' => 'fld1', 'name' => 'Name', 'type' => 'singleLineText' ) ) ) ) ) ) );
+$schema_client->fetch_schema();
+queue( response( 200, array( 'id' => 'fld2', 'name' => 'Brand new', 'type' => 'singleLineText' ) ) );
+queue( response( 200, array( 'id' => 'fld3', 'name' => 'Also new', 'type' => 'number' ) ) );
+$schema_client->create_field( 'tblX', array( 'name' => 'Brand new', 'type' => 'singleLineText' ) );
+$schema_client->create_field( 'tblX', array( 'name' => 'Also new', 'type' => 'number', 'options' => array( 'precision' => 0 ) ) );
+
+ck( 'a column created drops the copy the preflight\'s read left',
+	array_key_exists( WPCPM_Airtable::SCHEMA_TRANSIENT, $GLOBALS['transients'] ), false );
+
+queue( response( 200, array( 'tables' => array( array( 'id' => 'tblX', 'name' => 'Students Reports', 'fields' => array( array( 'id' => 'fld1', 'name' => 'Name', 'type' => 'singleLineText' ), array( 'id' => 'fld2', 'name' => 'Brand new', 'type' => 'singleLineText' ), array( 'id' => 'fld3', 'name' => 'Also new', 'type' => 'number' ) ) ) ) ) ) );
+$line = $schema_client->cached_schema();
+
+ck( 'so the editor\'s next read goes to the base and finds the columns just created',
+	array( sent(), is_array( $line ) ? array_keys( $line['schema']['tblX']['columns'] ) : $line, is_array( $line ) ? $line['age'] : null ),
+	array( 4, array( 'Name', 'Brand new', 'Also new' ), 0 ) );
+
+// A create Airtable refuses changed nothing in the base, so the held reading is still right, and
+// after a 429 or a 5xx it is what draws the editor's line while a fresh read would be refused by
+// the backoff. Only a column that landed drops it.
+fresh( 'web' );
+$GLOBALS['transients'][ WPCPM_Airtable::SCHEMA_TRANSIENT ] = array( 'read' => time() - 60, 'schema' => array( 'tblX' => array() ) );
+queue( response( 422, array( 'error' => array( 'type' => 'INVALID_FIELD_TYPE', 'message' => 'The field type multilineText cannot have options.' ) ) ) );
+$refused_create = $schema_client->create_field( 'tblX', array( 'name' => 'Invalid', 'type' => 'multilineText', 'options' => array() ) );
+
+ck( 'a create Airtable refuses keeps the held reading',
+	array( is_wp_error( $refused_create ) ? $refused_create->get_error_code() : $refused_create, $GLOBALS['transients'][ WPCPM_Airtable::SCHEMA_TRANSIENT ]['schema'] ?? null ),
+	array( 'wpcpm_airtable_error', array( 'tblX' => array() ) ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

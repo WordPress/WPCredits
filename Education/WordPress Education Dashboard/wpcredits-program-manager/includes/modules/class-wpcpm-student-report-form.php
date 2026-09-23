@@ -131,17 +131,27 @@ class WPCPM_Student_Report_Form {
 	 * The hand-written forms are `builtin_fields()`. This is what everything reads, because a track
 	 * the Track Builder runs from its definition is handed its compiled form here, by the filter.
 	 *
-	 * @param string $track Track key from `WPCPM_Program::track()`. Any key the sets below do not
-	 *                      name, including the empty string a finished student has, gets the
-	 *                      150-hour form - the one most of them filled in.
+	 * **A student on no track reads the 150-hour track's form, through the filter** (the product
+	 * owner, 23 September 2026; TRACKS-5). Paused, Pending graduation and the finished states have
+	 * no track, so `track()` gives them the empty string, and the filter never matched it: they read
+	 * the hand-written form even after the 150-hour track switched to its definition, and once T5
+	 * removes the hand-written forms they would read none. Asked as `150h`, they read whatever the
+	 * 150-hour track runs, its published definition once switched, edits included.
+	 *
+	 * @param string $track Track key from `WPCPM_Program::track()`. The empty string a student on no
+	 *                      track has is read as `150h`, the form most of them filled in; any other
+	 *                      key the sets below do not name gets the 150-hour form from them too.
 	 * @return array<string, array> Airtable field name => spec.
 	 */
 	public static function fields( $track ) {
+		$track = '' === (string) $track ? '150h' : $track;
+
 		/**
 		 * Filter the report form's fields for one track.
 		 *
 		 * @param array  $fields Airtable field name => spec.
-		 * @param string $track  Track key: `150h`, `50h`, `dev`, `design`, or a Track Builder track's.
+		 * @param string $track  Track key: `150h`, `50h`, `dev`, `design`, or a Track Builder track's;
+		 *                       `150h` for a student on no track.
 		 */
 		return (array) apply_filters( 'wpcpm_report_form_fields', self::builtin_fields( $track ), $track );
 	}
@@ -1576,26 +1586,42 @@ class WPCPM_Student_Report_Form {
 	 * The same code the student's page runs - `render_hours_field()` for the hours box, then
 	 * `render_groups()` for the four groups - with empty values, the controls enabled as a student
 	 * sees them, and a context holding no student, no pictures and no files, so the image control
-	 * shows its upload box and no picture. Nothing here is a form: no action, no nonce, no button,
-	 * and the wrappers are the form's classes on `div`s, so the report stylesheet applies. It takes
-	 * a field set, never a definition: the Track Builder compiles the draft first, the way
+	 * shows its upload box and no picture. Nothing here is a form: no action, no nonce, no Save
+	 * button, and the wrappers are the form's classes on `div`s, so the report stylesheet applies.
+	 * It takes a field set, never a definition: the Track Builder compiles the draft first, the way
 	 * `compile()` does, and this class learns nothing about definitions (the design's decisions
 	 * 3.4 and 27).
 	 *
-	 * @param array $fields The fields, column name => spec, as `compile_fields()` gives them.
+	 * The hours box sits where the student's page puts it, so the preview takes the track's course
+	 * (TRACKS-3): with one, the button that opens it and then the box, in the columns My course
+	 * draws them in; with none, the box alone, as the section of its own that
+	 * `WPCPM_Students_Dashboard::render_links()` draws for a track with no course.
+	 *
+	 * @param array  $fields The fields, column name => spec, as `compile_fields()` gives them.
+	 * @param string $course The track's Learn course link; empty for a track with none.
 	 */
-	public static function render_preview( array $fields ) {
+	public static function render_preview( array $fields, $course = '' ) {
 		$context = array(
 			'student' => 0,
 			'images'  => array(),
 			'files'   => array(),
 		);
+		$course  = (string) $course;
 
 		echo '<div class="wpcpm-report__body wpcpm-report__body--preview">';
+
+		if ( '' !== $course ) {
+			echo '<div class="wpcpm-student__course-cols">';
+			WPCPM_Students_Dashboard::render_course_button( $course );
+		}
 
 		if ( isset( $fields['Hours'] ) && is_array( $fields['Hours'] ) ) {
 			echo '<div class="wpcpm-hours">';
 			self::render_hours_field( $fields['Hours'], '', true, false );
+			echo '</div>';
+		}
+
+		if ( '' !== $course ) {
 			echo '</div>';
 		}
 
@@ -1658,20 +1684,23 @@ class WPCPM_Student_Report_Form {
 
 		// A checkbox reads as "[x] Yes, I agree to…", so the box comes first and the label after
 		// it. Printing the label above would turn a consent question into a heading with an
-		// unlabelled tick under it.
+		// unlabelled tick under it. The Required mark goes inside that label, after the words, as
+		// every other control prints it: without it a consent box marked Required read as optional
+		// (TRACKS-6).
 		if ( 'checkbox' === $type ) {
 			// **The hidden zero is what makes unticking possible.** A cleared checkbox posts
 			// nothing at all, and `handle_save()` skips any field the browser did not send - so
 			// without this a student could tick the box once and never take it back. It is a
 			// consent checkbox, so that is the one direction that must work.
 			printf(
-				'<p class="wpcpm-field wpcpm-field--checkbox"><input type="hidden" name="report[%2$s]" value="0" /><input type="checkbox" id="%1$s" name="report[%2$s]" value="1"%3$s%4$s%6$s /><label for="%1$s">%5$s</label>',
+				'<p class="wpcpm-field wpcpm-field--checkbox"><input type="hidden" name="report[%2$s]" value="0" /><input type="checkbox" id="%1$s" name="report[%2$s]" value="1"%3$s%4$s%6$s /><label for="%1$s">%5$s%7$s</label>',
 				esc_attr( $id ),
 				esc_attr( $key ),
 				checked( self::is_ticked( $value ), true, false ),
 				$dis, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- One of two literals above.
 				esc_html( $spec['label'] ),
-				$described // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
+				$described, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_attr() or the empty string.
+				$required // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from esc_html__() or the empty string.
 			);
 
 			if ( ! empty( $spec['help'] ) ) {

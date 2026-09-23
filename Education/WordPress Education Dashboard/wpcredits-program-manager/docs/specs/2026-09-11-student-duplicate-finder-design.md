@@ -4,6 +4,8 @@ A tool in WPCredits Program Manager that finds students who have more than one r
 
 Status: approved in chat in four parts on 11 September 2026; not built. It targets 1.102.0, the next free minor version at merge time, and deleting ships switched off.
 
+Amended on 23 September 2026 by the deep check of 1.109.1, for the fix release 1.110.0: each amendment is dated beside or below the sentence it corrects (4.1, section 6, 7.1, 7.3, 7.4, 7.5 and 8.2), and the sentence it corrects is left as it was written.
+
 The problem it answers was raised on the WordPress Slack on 10 September 2026: rows that share an address break some of the base's update automations, and the program team asked for a safe way to delete the oldest row of a duplicated student in all three tables, reviewed before anything is deleted.
 
 ## 1. Settled by the product owner
@@ -81,6 +83,8 @@ The base trash restores records deleted in the past seven days, on every plan. A
 
 `finish` groups the rows by trimmed, lowercased address; keeps the addresses with more than one row in any table; looks up the site references (every user meta and post meta value that is exactly one of the kept record IDs, with its meta key and, for posts, the post type and status); classifies; and writes the report.
 
+**Amended on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-3):** a lookup of the site references that the database does not answer, a query it refused or a statement that could not be prepared, ends the scan as a failed page does (decision 3.4): the error is kept above the list and the last good report stays. Read as no references, it listed every row unlocked.
+
 ### 4.2 The report
 
 `OPT_REPORT`, autoload off: the read time, the totals per table and the rows with no address, the groups (the address, a display name, the rows with their proposal and reasons, and the flags), and the counts (addresses, ready, needing a decision, and candidates and held rows per table). The screen, the dashboard tile and the delete handler read it, and nothing else does.
@@ -139,7 +143,7 @@ From top to bottom:
 3. Ready: one card per student, with the checkbox in the card header reading "Delete the 3 older rows of <name>".
 4. Needs a decision: one card per student, with a checkbox on each row that may be deleted and none ticked. Held rows show their reasons; locked rows show a disabled checkbox and the reason.
 5. The selection bar, sticky at the bottom: "12 rows selected: Students 4, Students Reports 4, Feedback 4", Select all ready, Clear and Review selection. The form works without JavaScript; the script adds the live count and Select all ready.
-6. Deleted rows: the log, newest first. Each entry shows when, who, the table, the record ID, the created date and the status, and either "copy kept until 10 October" with View copy, or "copy erased".
+6. Deleted rows: the log, newest first. Each entry shows when, who, the table, the record ID, the created date and the status, and either "copy kept until 10 October" with View copy, or "copy erased". **Amended on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-6):** a copy erased while still pending, whose delete Airtable never confirmed (8.2), says so, and that the row may still be in Airtable.
 
 Each card uses the review list's columns: Table, Proposal, Why, Created, Status or Course, Institution, Mentor, Dates, Hours, Work or answers, On the site, and the record ID linked to Airtable.
 
@@ -153,6 +157,8 @@ Every checkbox names its student or row for screen readers, and a disabled one p
 
 The posted form carries student keys (a hash of the address) and table and record pairs. Each student key expands, from the stored report, to that student's delete candidates; each pair is taken as it is. Anything the report does not mark as selectable is dropped, with the reason shown on the confirm screen. At most 100 rows go in one confirmation.
 
+**Amended on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-7):** the expansion also applies 5.7 against the stored report. When the selection holds every row the report lists for a student in a table, each of those rows is dropped with the last-row reason, and the cap of 100 is applied after that. The confirm screen, its nonce and the delete all read this expansion, so the confirmation lists exactly what a press can delete; the delete still applies 5.7 against the base (7.4).
+
 ### 7.2 The confirm screen
 
 The rows by student and table, with the name, address, record ID, created date, status and why; the totals; and the copy line. The Delete button's nonce action is the delete action plus a hash of the sorted table and record pairs, so a token taken from one confirm screen cannot delete a different set.
@@ -160,9 +166,9 @@ The rows by student and table, with the name, address, record ID, created date, 
 ### 7.3 The delete, in order
 
 1. The capability, then the nonce.
-2. The switch is on, and no scan is running.
+2. The switch is on, and no scan is running. **Amended on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-1):** then, once the site is known to seal, the delete's lock: one delete at a time, held from the report read (step 3) to the report written (step 9) and released however the delete ends. A lock older than 300 seconds, left by a delete that never let it go, is taken over. A delete that finds the lock held deletes nothing (7.4).
 3. The selection matches the stored report again, by the same expansion as 7.1.
-4. A live re-read: for each table, the rows whose lowercased address is one of the selected addresses (the client's `formula_in()` with lowercasing), paged. It returns the selected rows and their siblings together.
+4. A live re-read: for each table, the rows whose lowercased address is one of the selected addresses (the client's `formula_in()` with lowercasing), paged. It returns the selected rows and their siblings together. **Amended on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-4):** the formula is `TRIM(LOWER({Email}))` against the addresses trimmed and lowercased, so both sides are trimmed and lowercased as the scan groups them; a row typed with a space around its address never came back and was refused as gone. The client's `formula_in()` builds it, with a fourth argument that trims both sides (the final fix wave).
 5. The checks in 7.4, row by row.
 6. The copies: one sealed copy per row about to be deleted, in the state `pending`.
 7. The delete: `WPCPM_Airtable::delete_records()` per table, ten per request, Feedback first, then Students Reports, then Students.
@@ -177,7 +183,7 @@ Row by row, with the reason in the notice:
 - a row the site points at, checked again against the database rather than the report;
 - a held row that came in through a student checkbox or Select all ready;
 - a row that would leave its address with no row in its table (every selected row of that address in that table is refused together);
-- a row that changed since the scan: gone, a different address, newly pointed at by the site, or carrying work or answers it did not have.
+- a row that changed since the scan: gone, a different address, newly pointed at by the site, or carrying work or answers it did not have. **Amended on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-2):** changed also means more work or answer fields than the list showed, more hours (Total hours on Students, Hours on Students Reports), or a held cell replaced since the scan, told by a digest of the row's work or answer cells, and of Total hours and Notes on a Students row, with an attachment compared by its ID, since Airtable signs its URL afresh on every read. A report stored before 1.110.0 carries no digest, so its rows are judged on the counts until the next scan writes one.
 
 As a whole:
 
@@ -185,10 +191,16 @@ As a whole:
 - while the switch is off;
 - when the site cannot seal (`WPCPM_Secret::can_encrypt()` is false);
 - when the live re-read fails.
+- **Added on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-1):** while another delete is running, which holds the lock of 7.3.
+- **Added on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-3):** when the site's references cannot be read again, before any copy is kept.
 
 ### 7.5 Partial failure
 
 A batch Airtable refuses stops the run. The rows in it and after it are not deleted, and their copies stay `pending` until the daily job settles them (8.2), so a lost response never leaves a deleted row without its copy, nor a kept row with a log entry saying it went. A 429 stops the run the same way, and the notice says when to try again.
+
+**Amended on 23 September 2026 (the deep check of 1.109.1, TESTS-DOCS-8):** not every row after the refused batch keeps a pending copy. The rows of the refused batch keep their copies `pending` for the daily job, and so do the rows of the same table in the batches after it, which the client never sends once one is refused; the copies of the rows in a table never sent are removed at once, since a row never sent cannot have been deleted. This is what the code has done since 1.102.0 (`WPCPM_Duplicate_Delete`, step 7 of its docblock) and what `bin/test-duplicate-delete.php` asserts; the sentence above said the opposite.
+
+**Amended on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-5):** a retry's copy of a row replaces the copy a refused batch left `pending`. The retry's live re-read, which comes before its copies, finds the row still in Airtable, so the older copy is of a delete that never happened; left beside the new one, the daily job would log the row deleted twice.
 
 ## 8. Copies and the log
 
@@ -199,6 +211,8 @@ One private post per deleted row, post type `wpcpm_dup_copy` (fourteen character
 ### 8.2 The daily job
 
 `wpcpm_duplicates_purge`, once a day, erases the sealed cells of every copy older than 30 days (the state becomes `erased`, and the post and its meta stay as the log), and settles every `pending` copy by reading its record: still in Airtable, the copy is removed, because nothing was deleted; gone, the copy becomes `deleted`.
+
+**Amended on 23 September 2026 (the deep check of 1.109.1, DUPLICATES-6):** settled or not, every copy's cells are erased at its 30 days. A copy still `pending` then, because Airtable would not say whether its record is gone (an answer other than a 404, or an emptied table setting), is erased too and marked unconfirmed: its log entry says Airtable never confirmed the delete, so the row may still be there, and the job never asks about it again. Until 1.110.0 the job erased `deleted` copies alone, so such a copy kept a student's cells for as long as Airtable would not answer.
 
 ### 8.3 View copy
 

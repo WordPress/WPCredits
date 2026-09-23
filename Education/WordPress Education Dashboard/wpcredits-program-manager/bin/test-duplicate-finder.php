@@ -16,9 +16,11 @@
  *   a decision one per row that may go, shows a row the site points at as a disabled checkbox
  *   that points at its reason, and says why nothing can be ticked while deleting is switched off.
  *   While a scan runs, the list stays and Review selection waits.
- * - The confirmation lists what a press of Delete removes and what was left out, and Back to the
- *   list returns with the same ticks.
- * - The notice after a delete says what went, what was refused and why, and when to try again.
+ * - The confirmation lists what a press of Delete removes and what was left out, the rows that
+ *   would leave a student no row in a table among them, and Back to the list returns with the
+ *   same ticks.
+ * - The notice after a delete says what went, what was refused and why, and when to try again,
+ *   and a press refused as a whole says why nothing was deleted.
  * - The log holds no name and no address, and offers View copy behind a nonce keyed to the copy;
  *   a copy opens whole for a manager, and not at all once it is erased.
  *
@@ -477,6 +479,20 @@ ck( 'and what was left out, and why', has( $html, 'Ada Example: Students ' . rid
 ck( 'the red button posts to admin-post under a nonce tied to this selection', array( has( $html, 'value="n-' . $token . '"' ), has( $html, 'name="action" value="wpcpm_duplicates_delete"' ), has( $html, '<button type="submit" class="button button-primary wpcpm-duplicates__delete">Delete 4 rows from Airtable</button>' ) ), array( true, true, true ) );
 ck( 'Back to the list carries the same ticks', array( has( $html, '<input type="hidden" name="wpcpm_back" value="1" />' ), substr_count( $html, '<input type="hidden" name="wpcpm_students[]" value="' . $ada . '" />' ) ), array( true, 2 ) );
 
+// Bo's newest Students row is under review, so each of his two can be ticked; ticking both would
+// leave him none, which the press refuses, so the confirmation must not offer it (DUPLICATES-7).
+$html = page( array(), array( 'wpcpm_review' => '1', 'wpcpm_rows' => array( 'students:' . rid( 'othold' ), 'students:' . rid( 'othnew' ) ) ) );
+ck(
+	'every row a table holds for a student: the confirmation offers no delete, and lists each as the last row',
+	array(
+		has( $html, 'Nothing in this selection can be deleted.' ),
+		has( $html, 'wpcpm-duplicates__delete' ),
+		has( $html, '<li>Bo &lt;b&gt;Example&lt;/b&gt;: Students ' . rid( 'othold' ) . ': It is the last row this address has in the table.</li>' ),
+		has( $html, '<li>Bo &lt;b&gt;Example&lt;/b&gt;: Students ' . rid( 'othnew' ) . ': It is the last row this address has in the table.</li>' ),
+	),
+	array( true, false, true, true )
+);
+
 $GLOBALS['switch'] = false;
 $html              = page( array(), $chosen );
 $GLOBALS['switch'] = true;
@@ -540,6 +556,14 @@ WPCPM_Flash::set(
 $html = page();
 ck( 'a stopped delete: what Airtable said, which is when to try again, what went, and until when its copy stays', has( $html, 'Airtable stopped the delete part of the way through: Airtable asked us to wait 30 seconds before sending more requests. Deleted 1 row: Students 0, Students Reports 0, Feedback 1. A sealed copy of each is kept until 11 October 2026. Rows it did not confirm are checked again by the daily run.' ), true );
 ck( 'and each row it left out, with why', has( $html, '<li>Students Reports ' . rid( 'repold' ) . ': The site points at it now.</li>' ), true );
+
+$GLOBALS['uid'] = 25;
+WPCPM_Flash::set( WPCPM_Duplicate_Finder::FLASH, array( 'status' => 'delete-running' ) );
+ck( 'a Delete pressed while another delete ran: nothing was deleted, and what to do (DUPLICATES-1)', has( page(), '<div class="notice notice-warning is-dismissible"><p>Nothing was deleted: another delete was running. Review the selection again once it has finished.</p>' ), true );
+
+$GLOBALS['uid'] = 26;
+WPCPM_Flash::set( WPCPM_Duplicate_Finder::FLASH, array( 'status' => 'refs-failed' ) );
+ck( 'a Delete whose read of the site\'s references failed: nothing was deleted, and why (DUPLICATES-3)', has( page(), '<div class="notice notice-error is-dismissible"><p>Nothing was deleted: the site could not read which of its records point at these rows, so they could not be checked again.</p>' ), true );
 $GLOBALS['uid']    = 1;
 $GLOBALS['switch'] = true;
 
@@ -565,6 +589,13 @@ WPCPM_Duplicate_Vault::purge( static function () { return null; }, time() + 31 *
 $html = page( array( 'wpcpm_copy' => (string) $kept ) );
 ck( 'and once erased, it opens no more', array( has( $html, 'This copy has been erased: copies are kept for 30 days.' ), has( $html, 'gone@example.test' ) ), array( true, false ) );
 ck( 'while the log keeps the entry', has( page(), 'Erased after 30 days.' ), true );
+ck( 'and the delete Airtable never confirmed is erased too, its entry saying so (DUPLICATES-6)', has( page(), '<td><code>' . rid( 'wait' ) . '</code></td><td>2026-01-06</td><td></td><td>Erased after 30 days. Airtable never confirmed this delete, so the row may still be there.</td>' ), true );
+
+echo "\n=== Uninstall ===\n";
+
+update_option( WPCPM_Duplicate_Delete::OPT_LOCK, time() );
+$finder->uninstall();
+ck( 'uninstall leaves no delete lock behind, with the list and the copies', array( get_option( WPCPM_Duplicate_Delete::OPT_LOCK, 'none' ), get_option( WPCPM_Duplicates_Scan::OPT_REPORT, 'none' ), WPCPM_Duplicate_Vault::entries() ), array( 'none', 'none', array() ) );
 
 foreach ( array( 'includes/tools/class-wpcpm-duplicate-finder.php', 'includes/tools/class-wpcpm-duplicate-finder-screen.php', 'assets/js/duplicate-finder.js', 'assets/css/duplicate-finder.css' ) as $file ) {
 	ck( 'no dash but the plain hyphen in ' . $file, 1 === preg_match( '/\x{2013}|\x{2014}/u', (string) file_get_contents( WPCPM_PLUGIN_DIR . $file ) ), false );

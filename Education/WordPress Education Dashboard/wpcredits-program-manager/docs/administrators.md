@@ -30,19 +30,16 @@ If Airtable is not connected yet, this screen says so and links straight to the 
 | --- | --- |
 | **Students** | The student list, the sync report, and one-at-a-time invitations. |
 | **Mentors** | The mentor list, the sync report, and one-at-a-time invitations. |
-| **Institutions** | Role only - registers `wpcpm_institution` and reserves the screen. |
+| **Institutions** | The institutions sync, the applications and signed agreements waiting to be read, every institution record by stage, account creation, the reconciliation of Students with Students Reports, the consent report, the agreements whose state Airtable disagrees with, every semester report, the plugin's copy of the Collaboration Agreement, and the check of how the host serves the private files. |
 | **Sponsors** | The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision. |
 | **Administrators** | Lists the program capabilities granted to Administrator, and who holds the role. |
-
-A role-only screen tells you the role slug, whether it is registered, and how many accounts hold it.
-That is deliberate: the role exists and can gate content from the day it is added, long before the
-module has screens of its own.
 
 ### Modules
 
 The **Modules** submenu lists the parts of the program that are run and configured on their own
-rather than belonging to one audience - currently **Header notices**, **Need help?** and the **Mentor
-Status Checker**. Each has its own screen behind an *Open tool* button.
+rather than belonging to one audience - currently **Header notices**, **Need help?**, the **Mentor
+Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Each has its own screen
+behind an *Open tool* button.
 
 Since 1.92.0 the Administrator Dashboard on the front end gathers every queue these screens hold; the Administrators screen links to it.
 
@@ -80,7 +77,14 @@ column is detected automatically.
 
 - **Mentor status to sync** - only mentors holding this Airtable status get an account.
 - **Currently mentoring** - one status per line. Students holding any of these appear under
-  "Currently mentoring" on their mentor's page.
+  "Currently mentoring" on their mentor's page. The list keeps the status of every track the site
+  runs from its definition: a save that would take one out saves everything else, leaves Currently
+  mentoring as it was, and a notice names the track. Take the track off the live site in the Track
+  Builder first, then remove its status. A Settings page left open while a track was published keeps
+  the new status when it is saved, and the Track Builder's list flags a live track whose status is
+  missing from Currently mentoring. Left untouched, the box saves the list as it is stored; edited on
+  a page left open, it brings back a status somebody removed in the meantime, so reload the page
+  first.
 - **Past students** - statuses that mean mentoring has finished. Those students appear in a separate,
   collapsed section. Leave empty to show only current students; a status in both boxes counts as
   current.
@@ -196,8 +200,9 @@ one of them names is not something Airtable can warn you about:
 - a mentor's **call note** and a **booked call** hold the record ID of the student they are about;
 - **audit log entries** hold the record IDs of what they describe.
 
-Delete such a row in Airtable and the site is left pointing at nothing. The student's Report Card
-stops showing their program, and there is no message anywhere saying why, on either side.
+Delete such a row in Airtable and the site is left pointing at nothing. For the student, that
+means their Student Report Card stops showing their program, and there is no message anywhere
+saying why, on either side.
 
 The finder knows every one of those references. It reads them before it proposes anything, it
 **refuses to delete a row that anything on the site points at**, and it checks again in the second
@@ -209,13 +214,18 @@ the surviving row again, but only by someone who knows which row that was.
 
 A scan reads the three tables and writes nothing to Airtable, so running one is always safe.
 
-- **It runs by itself every three hours**, offset from the four syncs so the two never collide.
+- **It runs by itself every three hours**, offset from the four syncs so no two of them run in the
+  same request.
 - **Scan now** runs one while you watch, with a progress bar. Press it if you have just changed
   something in Airtable and want the list to catch up.
-- **A scan that fails changes nothing.** Its error appears above the list, and the last good list
-  stays on screen, so a bad night never leaves you with an empty screen.
-- Pressing **Scan now** while a scan is running does nothing except say so. The list cannot be
-  selected while a scan is running either, because the rows underneath it are about to change.
+- **A scan that fails changes nothing**, whether Airtable did not answer or the site could not read
+  which of its own records point at the rows. Its error appears above the list, and the last good
+  list stays on screen, so a bad night never leaves you with an empty screen.
+- **An address is the same student however it is typed.** Capitals and spaces before or after it
+  make no difference, so a row whose address was typed with a space around it is listed, and can be
+  deleted, like any other. When a student's rows spell the address differently, their card says so.
+- Pressing **Scan now** while a scan is running does nothing except say so. **Review selection** is
+  disabled while a scan is running, because the rows underneath the list are about to change.
 
 #### Working through the list
 
@@ -227,7 +237,8 @@ A scan reads the three tables and writes nothing to Airtable, so running one is 
    you here.
 4. Press **Review selection**. Nothing has been deleted yet.
 5. The confirmation lists exactly what will go, table by table, and lists anything it left out with
-   the reason. Read it. This is the page to turn back from.
+   the reason. Rows that would leave a student with no row in a table are left out here already,
+   not only after you press Delete. Read it. This is the page to turn back from.
 6. Press **Delete**. Only this button deletes anything.
 
 Take it in small batches the first few times. One confirmation deletes at most 100 rows, and there
@@ -259,13 +270,24 @@ moves the whole student to **needs a decision**, which is why that group is the 
 
 - **Every row is read from Airtable again** and every question is asked again. A row that changed
   since the scan, that the site has started pointing at, or that is already gone is left out and
-  named on the notice.
+  named on the notice. A row has changed when it carries more work, answers or hours than the list
+  showed, when a value that held it back was replaced (a grade, a note, a screenshot), or when it
+  gained a reason to be kept that it did not have.
+- **One delete runs at a time.** A Delete pressed while another is running deletes nothing and says
+  so; review the selection again once the first has finished. After a delete that was cut off part
+  of the way, by a timeout for instance, the same notice can show for up to five minutes from when
+  that delete began.
+- **If the site cannot read what on it points at the rows, nothing is deleted**, and the notice says
+  so.
 - **The last row an address has in a table is never deleted.** Whatever else happens, a student
   cannot be erased from a table entirely.
 - **Rows go in order: Feedback, then Students Reports, then Students**, so a child row never
   outlives its parent.
 - **A sealed copy of every row is written to the site first.** If the copy cannot be written, the
   row is not deleted.
+- **If Airtable stops a delete part of the way**, the notice says what was deleted before it stopped,
+  with Airtable's own message. The rows it did not confirm stay in the list and can be selected and
+  deleted again; each still ends with one copy and one log entry.
 
 #### Deleted rows, and the 30-day copy
 
@@ -278,11 +300,17 @@ new record ID, so anything that pointed at the old one still needs fixing. After
 are erased and the entry stays without a name or an address, as a permanent record that something
 was deleted.
 
+An entry whose delete Airtable did not confirm says so, and the daily run checks it again: a row
+still in Airtable leaves the list, copy and all, since nothing was deleted, and a row that is gone
+becomes an ordinary entry. A copy whose delete Airtable never confirmed is erased at 30 days too,
+and its entry says the row may still be in Airtable. Look its record ID up there: if the row is
+still there, the next scan lists it again.
+
 #### Turning deleting on
 
 **Deleting ships switched off.** Until a program manager turns it on under **WPCredits Program →
 Settings**, in the Student Duplicate Finder's card, the whole list is read-only: no checkbox can be
-ticked and **Review selection** is greyed out. Scanning and reading work either way, so the list is
+ticked and **Review selection** is grayed out. Scanning and reading work either way, so the list is
 worth looking at long before anyone decides to delete from it.
 
 Leaving it off between clean-ups is a reasonable habit, not a sign that something is wrong.
@@ -313,7 +341,7 @@ One row per track, in the order they were made:
 | Track | The track's name |
 | Status | The Airtable status a student holds to be on this track |
 | Runs from | *Its definition*, or *Its hand-written form, so it cannot be edited here* for a built-in track that has not switched yet |
-| State | *Draft*, *Published*, *Unpublished changes*, or *Live, from its hand-written form* for a built-in track; under it, whether the definition matches the plugin's form, and a line when the last compile left the track out |
+| State | *Draft*, *Published*, *Unpublished changes*, or *Live, from its hand-written form* for a built-in track; under it, for a built-in track, whether its definition is published yet and then whether it matches the plugin's form, a line when the last compile left the track out, and a line when a live track's status is missing from **Currently mentoring** in Settings |
 | Students | How many synced students hold its status now |
 | Last published | When, and by whom |
 | Actions | **Edit**, **Duplicate**, **Preview**, **History** and **Publish** (**Publishing** once it is; **Publish definition** on a built-in track), then the buttons only some tracks get |
@@ -321,9 +349,9 @@ One row per track, in the order they were made:
 **New track** sits above the list. The buttons a row gets only sometimes: **Refresh from the
 plugin** on a built-in draft that fell behind a plugin update, **Run from its definition** and **Run
 from its hand-written form** on a built-in track, and **Delete** on a track of your own that was
-never published. Delete asks first and cannot be undone. A track that was ever published keeps its
-row, because its columns and its status live on in Airtable, and a built-in track is never offered
-it.
+never published. Delete asks first and cannot be undone, and it deletes that draft and nothing else.
+A track that was ever published keeps its row, because its columns and its status live on in
+Airtable, and a built-in track is never offered it.
 
 #### Starting a track
 
@@ -331,13 +359,16 @@ Three ways, each ending on the new track's page, as a draft.
 
 - **New track** asks for the three things two tracks can never share: the **Name**, the **Airtable
   status** and the **Key**, the short word on the chip, plus the **Learn course** link when the
-  track follows one. With a link, the course's lessons are listed beside the questions, and the name
-  is taken from the course when it is left empty. The chip color is chosen for you, the first one no
-  other track holds, drafts included. The form starts empty; the questions are added on the track's
-  page.
+  track follows one. A name, status or key another track holds is refused, even when that track is
+  a draft, since publishing the draft would claim it. With a link, the course's lessons are listed
+  beside the questions, and the name is taken from the course when it is left empty. The chip color
+  is chosen for you, the first one no other track holds, drafts included. The form starts empty; the
+  questions are added on the track's page.
 - **Duplicate** copies every question of an existing track, the four built-in ones included, and asks
-  for a name, a status and a key of its own. This is the usual way to start a track that resembles
-  one you run: duplicate the 150-hour track and change what differs.
+  for a name, a status and a key of its own, refused as New track's are when another track holds
+  them. The copy starts with no Learn course and no hours target; set them on its page. This is the
+  usual way to start a track that resembles one you run: duplicate the 150-hour track and change what
+  differs.
 - *From a Learn course link* is New track with the link filled in. The lessons appear under the
   groups that are their modules, and each lesson offers **Add a question under this lesson**, which
   is how a form gets built lesson by lesson.
@@ -347,22 +378,37 @@ Three ways, each ending on the new track's page, as a draft.
 The properties come first: **Name**, **Airtable status**, **Key**, **Learn course**, **Hours
 target** and **Key chip color**, which is one of blue, cyan, teal, green, red, pink or purple. The
 hours target may stay empty. **Save the track** saves the properties; the questions save themselves
-as they are added, edited and moved.
+as they are added, edited and moved. Save refuses a name, status or key another track holds, drafts
+included, and a refused Save draws the boxes again as you left them.
 
 The **Learn course** row shows what the link resolved to, the course's title and number. **Read the
 course again** asks Learn afresh; otherwise the site keeps a day's reading, so a lesson renamed on
-Learn shows up here within a day. When Learn cannot be reached, the link the track already has is kept with a warning, the lessons cannot be listed, and the track still saves and publishes; a link to a different course is not taken until Learn answers, and the notice says so. Changing the link to another
-course matches every question that carried a lesson against the new course's lessons by its heading,
-and the notice names the questions matched and the ones that no longer point at a lesson.
+Learn shows up here within a day. When Learn cannot be reached, the link the track already has is
+kept with a warning, the lessons cannot be listed, and the track still saves and publishes. A new
+link is not taken while Learn cannot be reached, and the notice says so; the box keeps the link you
+typed, so pressing **Save the track** again once Learn answers takes it.
+
+Changing the link to another course matches every question that carried a lesson against the new
+course's lessons by its heading. Only a lesson's first question carries the lesson's title as its
+heading, so the other questions of that lesson follow it; only the questions of a lesson none of
+whose questions matched are left with no lesson. The notice names the questions matched and the
+ones that no longer point at a lesson.
 
 Then **Questions**, by group: Total hours, Onboarding, Project and Wrap-up, the four parts of the
-Student Report Card's form. Each question is a row with what the student reads, its Airtable column
-and its control, and beside it **Edit**, **Move up**, **Move down** and **Remove**. Remove takes the
-question off the form; the column, and whatever students wrote in it, stay in Airtable, and the
+Student Report Card's form. Total hours holds one question, Hours, which students see as the hours
+box. Any other question goes in Onboarding, Project or Wrap-up: the question screen offers Total
+hours to Hours alone, and Save and Publish refuse anything else. On a track with no Learn course,
+students see the hours box in a section of its own, **My hours**.
+
+Each question is a row with what the student reads, its Airtable column and its control, and beside
+it **Edit**, **Move up**, **Move down** and **Remove**. The arrows move a question at once; if the
+site cannot keep a move, the question goes back and a notice above the list says why. Remove takes
+the question off the form; the column, and whatever students wrote in it, stay in Airtable, and the
 confirmation says so.
 
 Each group ends with **Add a question**: the Airtable column, what the student reads, the control and,
-when the group's module has lessons Learn answered, **Under lesson**. Adding opens the new question's page.
+when the group's module has lessons Learn answered, **Under lesson**. Total hours offers it only
+while the track has no Hours question. Adding opens the new question's page.
 
 When the track follows a course, the lessons of each group's module are listed under the group's
 questions, with a count such as *Lessons on Learn: 3 of 13 have questions.* Each lesson names the
@@ -394,7 +440,7 @@ to that control.
 | Row | What it does |
 | --- | --- |
 | What the student reads | The label above the box |
-| Group | Total hours, Onboarding, Project or Wrap-up |
+| Group | Onboarding, Project or Wrap-up; Total hours for the Hours question, which goes in no other group |
 | Help under the box | A sentence under the control |
 | Heading before it | A heading printed before this question; the first question under a lesson carries the lesson's title here |
 | Subheading before it | A second heading before this question, drawn like the first |
@@ -419,8 +465,10 @@ change. To ask something differently, remove the question and add a new one with
 #### Preview and History
 
 **Preview** draws the draft's form as a student sees it: empty answers, no student's record, the same
-renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. A built-in
-track can be previewed too; its definition is what its form draws.
+renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. The hours
+box sits where the Student Report Card puts it: beside the button that opens the course when the
+track has a Learn course, as My course draws them, and on its own when it has none. A built-in track
+can be previewed too; its definition is what its form draws.
 
 **History** has three parts: what publishing would change, the published copy against the draft;
 every save, newest first and at most twenty, with who saved it, when, and what changed since the one
@@ -434,7 +482,10 @@ screen first reads the base and says what it found.
 
 - **This track cannot be published yet** lists what stops it: a column in Airtable with a question's
   name but another type, a control that cannot have a column created for it, a table that would pass
-  Airtable's limit of 500 columns, a status or key another track holds.
+  Airtable's limit of 500 columns, a status, key or name another track holds, a draft's included, a
+  question other than Hours in Total hours or Hours in another group, and a **Students Reports
+  table** setting that holds anything but the table's ID, its name for example. **Check it against
+  Airtable** refuses the same way while that setting is wrong.
 - **Worth knowing before you publish** lists what does not stop it: a choice of the Status column on
   Students Reports or Students that nearly matches the track's status but not exactly, which the
   syncs would never match; a Learn course link that does not resolve; a table past 450 columns. A
@@ -452,17 +503,38 @@ screen first reads the base and says what it found.
   the automation item is ticked, students cannot be put on the track from the institution import,
   because they would never get a report row.
 - Publishing a track of your own adds its status to **Currently mentoring** in Settings. The four
-  built-in statuses are there already, so publishing a built-in definition adds nothing.
+  built-in statuses are there already, so publishing a built-in definition adds nothing. While a
+  track runs from its definition, a Settings save that would take its status out saves everything
+  else, leaves Currently mentoring as it was and names the track.
+
+When publishing would create columns in Airtable, Publish comes with a box: type the track's name
+exactly as it is written, then press the button. Capitals count; spaces around the name do not. The
+site can never remove a column it created, so a press whose text is not the name creates nothing and
+says so. The name confirms the columns the screen lists: if the columns publishing would create
+change before the button is pressed, nothing is published and the screen comes back with the new
+list to read and confirm again. With nothing to create, Publish is one press; a press that finds
+columns gone from the base since the page was drawn creates nothing, and the screen comes back to
+show them.
 
 Publishing runs its steps one at a time and records each. If Airtable refuses part-way, the notice
-carries Airtable's own message, and pressing Publish again picks up at the first step not done.
+carries Airtable's own message, and pressing Publish again picks up at the first step not done. If
+the page stops part-way instead, because the server gave up on a long run, the columns made so far
+are already recorded, but for up to twenty minutes Publish on every track says another track is
+being published. After that, press Publish again: it creates only the columns the base still lacks,
+and the log names every column the site made.
+
+What goes live is the track as it stood when Publish was pressed. An edit saved while Publish runs,
+in another tab or by another Program Administrator, is not part of that publish: the track then
+shows *Unpublished changes* until **Publish the changes** is pressed.
 
 After publishing, the same screen offers **Check it against Airtable**, which reads the base again and
 says whether every column is still there with its type and the status is a choice on both tables, and
-**Take it off the live site**. Unpublishing is refused while any student holds the status, with the
-count. Otherwise the track becomes a draft again, nothing in Airtable changes, and the status stays in
-Currently mentoring: removing it there takes the Student role from everybody on the track, which is a
-decision of its own.
+**Take it off the live site**. On a built-in track that still runs from its hand-written form it
+offers **Check it against Airtable** alone: the definition stays published, since the track's
+students see the hand-written form either way. Unpublishing is refused while any student holds the
+status, with the count. Otherwise the track becomes a draft again, nothing in Airtable changes, and
+the status stays in Currently mentoring: removing it there takes the Student role from everybody on
+the track, which is a decision of its own.
 
 Editing a published track's words makes it *Unpublished changes*; students keep the published copy
 until **Publish the changes** is pressed.
@@ -471,18 +543,23 @@ until **Publish the changes** is pressed.
 
 The 150-hour, 50-hour, Developer and Designer tracks run from forms written in the plugin's code. Each
 has a definition in the Track Builder, shown as *Live, from its hand-written form*, and the line under
-the state says whether that definition is identical to the form. Moving one onto its definition takes
-three presses, and students see no change at any of them:
+the state says whether that definition is published yet and, once it is, whether it is identical to
+the form. Moving one onto its definition takes three steps, and students see no change at any of
+them:
 
-1. Read the line under the state. *Identical to its hand-written form.* is what you want. *Differs
-   from its hand-written form: ...* means a plugin update changed the form since the definition was
-   made: press **Refresh from the plugin**, and the line changes.
-2. **Publish definition**. Its preflight should find nothing to create, because every column and both
-   choices exist already; that empty preflight is the proof that the definition matches the base. The
-   three checklist items were done for these four tracks long ago, so tick them as done.
+1. **Publish definition**. Until then the line under the state reads *Its definition is not published
+   yet*. If a plugin update changed the form since the definition was made, the row also offers
+   **Refresh from the plugin**: press that first, since a definition that differs from its
+   hand-written form cannot be published. The preflight should find nothing to create, because every
+   column and both choices exist already; that empty preflight is the proof that the definition
+   matches the base. The three checklist items were done for these four tracks long ago, so tick them
+   as done.
+2. Read the line under the state again. *Identical to its hand-written form.* is what you want, and
+   only then is **Run from its definition** offered.
 3. **Run from its definition**. From then on the Student Report Card draws the form from the
    definition, and the notice says that what students see has not changed, which is what let it
-   switch. **Run from its hand-written form** puts it back the same way, at any time.
+   switch. **Run from its hand-written form** puts it back the same way, as long as the definition
+   has not been edited since the switch.
 
 Do this for all four before asking for the hand-written forms to be removed from the plugin. Until a
 built-in track has switched, it cannot be edited here: it can be duplicated, previewed and read in
@@ -531,12 +608,23 @@ the right place; there is nothing else to configure.
 ### Arranging the Student Report Card
 
 Under a student's profile and mentor columns the Student Report Card is a stack of modules: the
-**program updates with the resources**, **My course**, the **report form with the feedback forms**,
-**My mentor call**, and **Tools from our sponsors** when the Sponsors module is on. Each carries two
-small arrows at its top right, and pressing one moves the module up or down at once, the way the
-block editor moves blocks. The order belongs to the student: they arrange their own card, and it
-stays as they left it. When you open a student's card through the switcher you see their order and
-can arrange it for them with the same arrows. Nobody else sees the arrows.
+**program updates with the resources**, **My course** (**My hours** when there is no course to open),
+the **report form with the feedback forms**, **My mentor call**, and **Tools from our sponsors** when
+the Sponsors module is on. Each carries two small arrows at its top right, and pressing one moves the
+module up or down at once, the way the block editor moves blocks. The order belongs to the student:
+they arrange their own card, and it stays as they left it. When you open a student's card through
+the switcher you see their order and can arrange it for them with the same arrows. Nobody else sees
+the arrows.
+
+### Group sessions, from a student's card or a mentor's
+
+On a student's card, opened through the switcher, the group sessions they are on are listed under
+*My mentor call*, and each one that has not started offers **Take them off the session**. It asks
+first, then takes the student off, gives their place back and emails them a file that takes the
+session out of their calendar, as their own **Leave the session** would.
+
+On a mentor's card you can change or cancel their group sessions as they can. When you move one, the
+mentor is emailed as well as the students on it, with an invitation that moves it in their calendar.
 
 ## Running it day to day
 
@@ -581,6 +669,12 @@ An invitation is a password-reset link. Send them in bulk by switching **Invitat
 before a sync, or one at a time from the Students and Mentors screens - which is the safer habit,
 because a first sync creates around ninety accounts at once.
 
+Each invitation cancels the link in the one before it, so only the newest email works: somebody who
+opens an older one is told the link appears to be invalid. For the same reason a second invitation
+to the same person within fifteen minutes is not sent, on purpose. **Resend invite** says so and
+sends nothing, and a bulk send passes over anybody invited in the last fifteen minutes. Ask them to
+use their newest email, or send another once the fifteen minutes are up.
+
 ### Pages the plugin owns
 
 Activation creates the Student Report Card and Mentor Report Card pages and gates them. If one goes
@@ -603,6 +697,7 @@ deleted**, and their program details in Airtable are untouched.
 | A mentor sees the wrong students | The mentor↔student link in Airtable. The page joins on the records, not on names. |
 | Nobody can book a call | The mentor has published no availability. Their Mentor Report Card says so. |
 | Invitations are not arriving | The **Mail** section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service. |
+| A password link says it is invalid | An older invitation. Each one cancels the link in the one before, so ask them to use their newest email. |
 | A gated page is readable by the wrong people | The post's **Program access** control, and the reader's role. Administrators can read every level by design. |
 
 ## Semester reports
@@ -900,7 +995,8 @@ puts the slot straight back on the calendar.
 
 Booked calls appear under **Upcoming calls** beside your availability, so you can see what is coming
 without leaving the page. Each one shows the time in your timezone and in theirs, and whatever the
-student wrote when booking.
+student wrote when booking. A group session appears there too, as *Group session* with how many of
+its places are taken, and its **Cancel** asks whether to cancel it for everybody on it.
 
 ## Group sessions
 
@@ -922,8 +1018,10 @@ walkthrough, a question hour, a session for everybody starting the same week.
   length, places and topic. Leave the ones you do not need empty.
 
 A session is not carved out of your weekly hours; you pick any time, including one you would never
-offer for private calls. It does **block that time from one-to-one booking**, so nobody books you
-privately over a session you are running.
+offer for private calls. It does **block that time from one-to-one booking**, for its whole length,
+not only its start: no slot that overlaps it is offered, so nobody books you privately over a
+session you are running. For the same reason a session cannot be planned or moved onto a time that
+overlaps a call or another session of yours, though one may start as another ends.
 
 Your students see it under *My mentor call* and can **join** while there are places left, and
 **leave** again if something changes - which frees their place for somebody else. Joining does not
@@ -931,12 +1029,15 @@ count towards the limit you set for how many upcoming calls one student may hold
 one-to-one calls, and a session's places are its own.
 
 Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes
-to all of them. If you cancel the session, every student on it is told.
+to all of them. Move a session after its reminder has gone out and everybody on it is reminded again
+before the new time. **Cancel the session** asks before it goes, and if you cancel it, every student
+on it is told. A program manager can change your session too; if they move it, you are emailed as
+well, with an invitation that moves it in your calendar.
 
-A series is planned all or nothing: a date that has passed, a date given twice, a date on which you
-already hold a session or a call at that time, or a start time that does not exist on one of the
-dates because the clocks jump over that hour refuses the whole list and names the date, so nothing
-is created until the list is right. More than sixteen dates in all - a rule of sixteen with a box
+A series is planned all or nothing: a date that has passed, a date given twice, a date on which
+something of yours overlaps that time, or a start time that does not exist on one of the dates
+because the clocks jump over that hour refuses the whole list and names the date, so nothing is
+created until the list is right. More than sixteen dates in all - a rule of sixteen with a box
 beside it - is refused before any of them is read, since sixteen is all a series holds. Your
 students see the series under one heading and can **Join all** in one press, which sends them one
 email with one calendar file that holds every date; each date keeps its own row, so a student can
@@ -947,7 +1048,8 @@ the rest of the series stands.
 
 Under a session you have run, **Add a note for everybody on this session**. You write it once and it
 appears on every attendee's card - and it counts for each of them, so nobody who was there is left
-sitting in *Need a call*. Deleting it removes it from everyone.
+sitting in *Need a call*. Deleting it removes it from everyone. You can note everybody who was on
+your session, a student who has since moved to another mentor included.
 
 ## If something looks wrong
 
@@ -1035,6 +1137,10 @@ Beside it is **Hours contributed**: the running total of the hours you have put 
 number you will come back to change most often, so it sits here on its own rather than inside the
 report form. Type the new total, press **Save hours**, and that is the whole errand.
 
+If your track has no Learn course, or you are not on a track at the moment (paused, or waiting to
+graduate, for example), there is no course to open, and the hours box is a section of its own,
+**My hours**.
+
 ### Report form
 
 Your report, filled in here on the page. It is the record of your work on the program, and it is
@@ -1121,14 +1227,15 @@ side - ask them in Slack to set their hours.
 ## Group sessions
 
 Your mentor may run a session for several students at once - a walkthrough, a question hour,
-something for everybody who started the same week. Those appear under *My mentor call* with what the
-session is about and how many places are left.
+something for everybody who started the same week. Those appear under *My mentor call* in a list of
+their own, *Group sessions with your mentor*, apart from the calls you book, with what the session
+is about and how many places are left.
 
 **Join this session** puts you on it, and you get an email with a calendar invitation the same as a
-private call. If something changes, **Leave the session** takes you off and frees your place for
-somebody else. Once a session has started, its row says so instead of offering either button, and
-its time reads how long ago it began; the row stays on your list for an hour so you can still find
-the link.
+private call. If something changes, **Leave the session** asks first, then takes you off and frees
+your place for somebody else. Once a session has started, its row says so instead of offering either
+button, and its time reads how long ago it began; the row stays on your list for an hour so you can
+still find the link.
 
 A session does not count towards the number of upcoming calls you may hold at once: join every
 session that has a place, and your one-to-one booking is unaffected.
@@ -1138,6 +1245,11 @@ and places. The list shows a series under one heading, each date as its own row.
 you on every date that still has a place and sends you one email with one calendar file that plans
 them all; a date that is already full is skipped, and the message says so. You can still join or
 leave a single date from its row.
+
+If your mentor changes, a session of your former mentor's that you are on stays on your list, with
+their name and **Leave the session**, and the list is headed simply *Group sessions*. Once the
+program records show the change for you and for both mentors, you are taken off it and sent an email
+whose calendar file takes it out of your calendar.
 
 ## Telling us how it is going
 

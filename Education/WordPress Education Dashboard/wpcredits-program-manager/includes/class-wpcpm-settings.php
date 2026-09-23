@@ -24,6 +24,13 @@ class WPCPM_Settings {
 	const OPT_VERSION = 'wpcpm_settings_version';
 
 	/**
+	 * The field the Settings form carries "Currently mentoring" in as the page drew it, one status
+	 * a field, so a save can tell a list somebody changed from one it only carried back (the deep
+	 * check of 1.109.1, BUILDER-3). A form field, never a stored setting.
+	 */
+	const FIELD_DRAWN_STATUSES = 'student_statuses_drawn';
+
+	/**
 	 * Bump this when a *saved* option has to be migrated rather than merely defaulted.
 	 *
 	 * 2: `Paused` and `Pending graduation` joined `student_statuses`.
@@ -284,21 +291,18 @@ class WPCPM_Settings {
 			$clean['mentor_status'] = sanitize_text_field( wp_unslash( $input['mentor_status'] ) );
 		}
 
-		foreach ( array( 'student_statuses', 'past_statuses', 'institution_active_stages', 'two_factor_roles' ) as $list_key ) {
-			if ( ! isset( $input[ $list_key ] ) ) {
-				continue;
-			}
+		// "Currently mentoring" through `student_statuses_from()`, which leaves the stored list alone
+		// when the Settings form carried it back unchanged (BUILDER-3); the other three as posted.
+		$statuses = self::student_statuses_from( $input );
 
-			$raw      = wp_unslash( $input[ $list_key ] );
-			$raw      = is_array( $raw ) ? $raw : explode( "\n", (string) $raw );
-			$statuses = array();
-			foreach ( $raw as $status ) {
-				$status = sanitize_text_field( trim( $status ) );
-				if ( '' !== $status ) {
-					$statuses[] = $status;
-				}
+		if ( null !== $statuses ) {
+			$clean['student_statuses'] = $statuses;
+		}
+
+		foreach ( array( 'past_statuses', 'institution_active_stages', 'two_factor_roles' ) as $list_key ) {
+			if ( isset( $input[ $list_key ] ) ) {
+				$clean[ $list_key ] = self::clean_list( wp_unslash( $input[ $list_key ] ) );
 			}
-			$clean[ $list_key ] = array_values( array_unique( $statuses ) );
 		}
 
 		$clean['on_inactive'] = ( isset( $input['on_inactive'] ) && 'keep' === $input['on_inactive'] ) ? 'keep' : 'revoke';
@@ -590,6 +594,120 @@ class WPCPM_Settings {
 		update_option( self::OPT_NAME, $stored );
 
 		return true;
+	}
+
+	/**
+	 * The "Currently mentoring" list a save of this input writes, or null when it leaves the stored
+	 * list as it is.
+	 *
+	 * The Settings form posts the whole list from its textarea, so a page drawn before a track was
+	 * published, or before `maybe_upgrade()` appended a status, and saved after it wrote the old
+	 * list back: nothing put the new status back, and the next students sync took the Student role
+	 * from everybody holding it (the deep check of 1.109.1, BUILDER-3). The form carries the list as
+	 * it drew it beside the textarea (`FIELD_DRAWN_STATUSES`): a textarea nobody changed leaves the
+	 * stored list alone, and one somebody changed is written with every status the stored list has
+	 * gained since the page was drawn put after it. A blank is written blank however stale the page,
+	 * so `save()` puts the default list back and says so: merged, a status gained since the page was
+	 * drawn was written alone, past that rule and its notice (the fix round of BUILDER-3). A caller
+	 * that sends no drawn list, which is every caller but the form, has its list written as sent.
+	 *
+	 * @param array $input What the save is handed.
+	 * @return string[]|null
+	 */
+	public static function student_statuses_from( array $input ) {
+		if ( ! isset( $input['student_statuses'] ) ) {
+			return null;
+		}
+
+		$posted = self::clean_list( wp_unslash( $input['student_statuses'] ) );
+
+		if ( array() === $posted || ! isset( $input[ self::FIELD_DRAWN_STATUSES ] ) ) {
+			return $posted;
+		}
+
+		$drawn = self::clean_list( wp_unslash( $input[ self::FIELD_DRAWN_STATUSES ] ) );
+
+		if ( $posted === $drawn ) {
+			return null;
+		}
+
+		$stored = self::get();
+
+		foreach ( self::clean_list( isset( $stored['student_statuses'] ) ? $stored['student_statuses'] : array() ) as $gained ) {
+			if ( ! in_array( $gained, $drawn, true ) && ! in_array( $gained, $posted, true ) ) {
+				$posted[] = $gained;
+			}
+		}
+
+		return $posted;
+	}
+
+	/**
+	 * The tracks the site runs from their definitions whose status a save of this input would take
+	 * off "Currently mentoring", by status.
+	 *
+	 * The Settings screen keeps the stored list on such a save, saving everything else, and says why
+	 * (BUILDER-3, the design's 7.5): the students sync reads only the statuses listed, and treats
+	 * every student it did not read as gone, so taking a live track's status out takes the Student
+	 * role from everybody on it. A status may leave the list once its track is off the live site.
+	 * Only a status the stored list holds can be taken out: one it already lacks is not the save's
+	 * doing, and the Track Builder's list flags that track. Matched exactly, as the sync matches,
+	 * once the live status is sanitized as the list is read: publishing appends a status trimmed
+	 * alone, so one holding a run of spaces or a "<" was never found in the sanitized list, and
+	 * taking it out slipped past (the fix round of BUILDER-3). A blank list is judged as the default
+	 * list, which is what `save()` writes for one.
+	 *
+	 * @param array $input What the save is handed.
+	 * @return array<string, string> Status => the track's name; empty when nothing would be dropped.
+	 */
+	public static function tracks_dropped_by( array $input ) {
+		$statuses = self::student_statuses_from( $input );
+
+		if ( null === $statuses || ! class_exists( 'WPCPM_Tracks' ) ) {
+			return array();
+		}
+
+		if ( array() === $statuses ) {
+			$statuses = self::defaults()['student_statuses'];
+		}
+
+		$stored  = self::get();
+		$held    = self::clean_list( isset( $stored['student_statuses'] ) ? $stored['student_statuses'] : array() );
+		$dropped = array();
+
+		foreach ( WPCPM_Tracks::live() as $status => $row ) {
+			$status = (string) $status;
+			$judged = self::clean_list( array( $status ) );
+			$judged = array() === $judged ? '' : $judged[0];
+
+			if ( '' !== $judged && in_array( $judged, $held, true ) && ! in_array( $judged, $statuses, true ) ) {
+				$dropped[ $status ] = is_array( $row ) && isset( $row['label'] ) && '' !== (string) $row['label'] ? (string) $row['label'] : $status;
+			}
+		}
+
+		return $dropped;
+	}
+
+	/**
+	 * A list setting as `save()` keeps it: one entry a line, or an array, each trimmed and
+	 * sanitized, the empty ones dropped, and each once.
+	 *
+	 * @param mixed $raw The list, already unslashed.
+	 * @return string[]
+	 */
+	private static function clean_list( $raw ) {
+		$raw  = is_array( $raw ) ? $raw : explode( "\n", (string) $raw );
+		$list = array();
+
+		foreach ( $raw as $entry ) {
+			$entry = is_scalar( $entry ) ? sanitize_text_field( trim( (string) $entry ) ) : '';
+
+			if ( '' !== $entry ) {
+				$list[] = $entry;
+			}
+		}
+
+		return array_values( array_unique( $list ) );
 	}
 
 	/**

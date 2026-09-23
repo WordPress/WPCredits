@@ -22,7 +22,47 @@ function wp_http_validate_url( $url ) { return preg_match( '#^https?://[a-z0-9.-
 function sanitize_file_name( $n ) { return preg_replace( '/[^A-Za-z0-9._-]/', '-', (string) $n ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function trailingslashit( $s ) { return rtrim( $s, '/' ) . '/'; }
-function get_temp_dir() { return sys_get_temp_dir() . '/'; }
+
+/**
+ * This run's own temporary directory, made the first time it is asked for and removed with what
+ * it holds when the run ends. The handler reserves its copies' names here, and the orphan scan
+ * below reads it: in the system temp directory, which every suite running at the same time
+ * shares, another run's name reserved a moment ago read as an orphan, and the sponsor suite's
+ * sweep deleted this run's copies (the final fix wave, item 1).
+ *
+ * @return string With a trailing slash, as core's.
+ */
+function get_temp_dir() {
+	$dir = sys_get_temp_dir() . '/wpcpm-imgup-tmp-' . getmypid() . '/';
+
+	if ( ! is_dir( $dir ) ) {
+		mkdir( $dir, 0700, true );
+		register_shutdown_function( 'remove_temp_tree', $dir );
+	}
+
+	return $dir;
+}
+
+/**
+ * Remove a directory and everything in it.
+ *
+ * @param string $dir The directory.
+ */
+function remove_temp_tree( $dir ) {
+	if ( ! is_dir( $dir ) ) {
+		return;
+	}
+
+	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST ) as $entry ) {
+		if ( $entry->isDir() ) {
+			rmdir( $entry->getPathname() );
+		} else {
+			unlink( $entry->getPathname() );
+		}
+	}
+
+	rmdir( $dir );
+}
 function wp_unique_filename( $dir, $name ) { $i = 0; $try = $name; while ( file_exists( $dir . '/' . $try ) ) { $try = preg_replace( '/(\.[a-z]+)$/', '-' . ( ++$i ) . '$1', $name ); } return $try; }
 // Alphanumeric and of the asked-for length, which is all `store()`'s generated name needs; a
 // counter rather than randomness so two calls differ and the file names stay readable in a run.

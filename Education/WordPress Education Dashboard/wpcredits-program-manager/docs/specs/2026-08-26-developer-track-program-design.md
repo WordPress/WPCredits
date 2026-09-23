@@ -173,7 +173,7 @@ after `Post Reflection: Choosing Your Team and Project`, carrying the suffix Air
 field is duplicated. It was left out of the form pending an answer about whether it was a real
 second question.
 
-**Celi Garoe confirmed on 28 August 2026 that it was a duplicate, and deleted it from the base.**
+**The program team confirmed on 28 August 2026 that it was a duplicate, and deleted it from the base.**
 The dev-track view is 34 fields now rather than 35, and the seven the form adds are unchanged - it
 was never one of them. `bin/fixtures/reports-table-fields.json` was refreshed to the table's 52
 remaining field names, which is what now stops anybody adding it back: a field name the base does

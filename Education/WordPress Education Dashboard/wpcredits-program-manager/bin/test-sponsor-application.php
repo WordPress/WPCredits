@@ -132,7 +132,46 @@ function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
 function wp_parse_args( $a, $d ) { return array_merge( $d, (array) $a ); }
 function wp_parse_url( $u, $c = -1 ) { return -1 === $c ? parse_url( (string) $u ) : parse_url( (string) $u, $c ); }
 function trailingslashit( $s ) { return rtrim( (string) $s, '/' ) . '/'; }
-function get_temp_dir() { return sys_get_temp_dir() . '/'; }
+
+/**
+ * This run's own temporary directory, made the first time it is asked for and removed with what
+ * it holds when the run ends. The image handler writes its copies here, and three checks below
+ * count them: in the system temp directory, which every suite running at the same time shares,
+ * the sweep deleted another run's copies and the counts counted them (the final fix wave, item 1).
+ *
+ * @return string With a trailing slash, as core's.
+ */
+function get_temp_dir() {
+	$dir = sys_get_temp_dir() . '/wpcpm-sapp-tmp-' . getmypid() . '/';
+
+	if ( ! is_dir( $dir ) ) {
+		mkdir( $dir, 0700, true );
+		register_shutdown_function( 'remove_temp_tree', $dir );
+	}
+
+	return $dir;
+}
+
+/**
+ * Remove a directory and everything in it.
+ *
+ * @param string $dir The directory.
+ */
+function remove_temp_tree( $dir ) {
+	if ( ! is_dir( $dir ) ) {
+		return;
+	}
+
+	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $dir, FilesystemIterator::SKIP_DOTS ), RecursiveIteratorIterator::CHILD_FIRST ) as $entry ) {
+		if ( $entry->isDir() ) {
+			rmdir( $entry->getPathname() );
+		} else {
+			unlink( $entry->getPathname() );
+		}
+	}
+
+	rmdir( $dir );
+}
 
 function add_query_arg( ...$args ) {
 	$pairs = is_array( $args[0] ) ? $args[0] : array( $args[0] => $args[1] );
@@ -277,9 +316,9 @@ define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
-// Two checks below count the image handler's temporary copies left in the system temp
-// directory, so a copy another suite's crashed run left behind must not be counted here.
-foreach ( glob( sys_get_temp_dir() . '/wpcpm-image-*' ) as $leftover ) {
+// Three checks below count the image handler's temporary copies in this run's temporary
+// directory, so a copy an earlier run of this process ID left behind must not be counted here.
+foreach ( glob( get_temp_dir() . 'wpcpm-image-*' ) as $leftover ) {
 	if ( is_file( $leftover ) ) { unlink( $leftover ); }
 }
 
@@ -868,7 +907,7 @@ ck( 'and the row says which two checks did it', get_post_meta( $held_late->ID, W
 ck( 'the acknowledgement tells the company it can send the logo after approval', array( false !== strpos( mail_said( -1, 'body' ), 'logo' ), false !== strpos( mail_said( -1, 'body' ), 'were not kept' ) ), array( true, true ) );
 ck( 'the queue has a sentence for the skipped files', false !== strpos( WPCPM_Sponsor_Application::signal_labels()['files-skipped'], 'logo' ), true );
 ck( 'a held row that sent no logo is not told about files it never sent', in_array( 'files-skipped', (array) get_post_meta( $held_without_logo->ID, WPCPM_Sponsor_Application::META_SIGNALS, true ), true ), false );
-ck( 'no temporary copy outlived the skipped pair', count( glob( sys_get_temp_dir() . '/wpcpm-image-*' ) ), 0 );
+ck( 'no temporary copy outlived the skipped pair', count( glob( get_temp_dir() . 'wpcpm-image-*' ) ), 0 );
 
 echo "\n-- nothing unauthenticated writes before the ceiling ------------------\n";
 
@@ -940,7 +979,7 @@ reset_world();
 post_logos( png( 400, 120 ), fake_svg() );
 $pair = submit( answers() );
 ck( 'one bad file of two refuses the pair, and neither half was stored', array( $pair['outcome'], count( stored() ), $GLOBALS['attachments'] ), array( 'again', 0, array() ) );
-ck( 'and the accepted half\'s temporary copy was deleted', count( glob( sys_get_temp_dir() . '/wpcpm-image-*' ) ), 0 );
+ck( 'and the accepted half\'s temporary copy was deleted', count( glob( get_temp_dir() . 'wpcpm-image-*' ) ), 0 );
 
 reset_world();
 post_logos( png( 400, 120 ) );
@@ -1035,7 +1074,7 @@ post_logos( png( 400, 120 ) );
 $lost = submit( answers() );
 $GLOBALS['post_fails'] = false;
 ck( 'the sender is told nothing was saved, nothing was, nobody is mailed, the writing comes back', array( $lost['outcome'], count( stored() ), count( $GLOBALS['mail'] ), count( $GLOBALS['managermail'] ), $lost['stash']['values']['Company Name'] ), array( 'lost', 0, 0, 0, 'Gadgetry Inc' ) );
-ck( 'and the accepted logo\'s temporary copy did not outlive the refusal', array( $GLOBALS['attachments'], count( glob( sys_get_temp_dir() . '/wpcpm-image-*' ) ) ), array( array(), 0 ) );
+ck( 'and the accepted logo\'s temporary copy did not outlive the refusal', array( $GLOBALS['attachments'], count( glob( get_temp_dir() . 'wpcpm-image-*' ) ) ), array( array(), 0 ) );
 
 // FANON-6: the handler is on `admin_post_` as well as `admin_post_nopriv_`, so a logged-in
 // manager can post the form; core takes the author it is given, and the literal 0 is given for

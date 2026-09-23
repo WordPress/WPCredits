@@ -200,7 +200,13 @@ function get_users( $args = array() ) {
 			}
 		}
 
-		$out[] = ( 'ID' === ( $args['fields'] ?? 'all' ) ) ? (int) $id : new WP_User( $id );
+		// `$GLOBALS['users_as_rows']` answers an ID query with stdClass rows, as this program's site
+		// does (WPCPM_Roles::id_of(); the deep check of 1.109.1, SURFACES-3).
+		if ( 'ID' === ( $args['fields'] ?? 'all' ) ) {
+			$out[] = empty( $GLOBALS['users_as_rows'] ) ? (int) $id : (object) array( 'ID' => (int) $id );
+		} else {
+			$out[] = new WP_User( $id );
+		}
 	}
 
 	return $out;
@@ -333,6 +339,23 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 // The report form owns the list of screenshot columns; the sync asks Airtable for them.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
+
+/*
+ * `WPCPM_Group_Sessions` belongs to the calls module. The sync hands it each student whose mentor
+ * card it has just written, so a student re-paired with a new mentor is taken off the old one's
+ * sessions (the deep check of 1.109.1, SESSIONS-7). This records whom it was handed and the card
+ * that student held at that moment, which is what the real one reads; the removal itself is proved
+ * in bin/test-handlers.php and bin/test-group-sessions.php.
+ */
+if ( ! class_exists( 'WPCPM_Group_Sessions' ) ) {
+	class WPCPM_Group_Sessions {
+		public static function leave_former( $student_id ) {
+			$GLOBALS['left_former'][ (int) $student_id ] = get_user_meta( (int) $student_id, WPCPM_Students_Sync::META_MENTOR, true );
+
+			return 0;
+		}
+	}
+}
 
 /*
  * `WPCPM_Cohort` belongs to another piece; this is its section 7.7 contract, no more.
@@ -1315,10 +1338,33 @@ $when = wp_next_scheduled( WPCPM_Students_Sync::CRON_TICK );
 ck( 'and the next tick is scheduled for when Airtable said, not the half-minute default', $when >= $now + 45 && $when <= $now + 47, true );
 
 unset( $GLOBALS['fetch_error'], $GLOBALS['cron'][ WPCPM_Students_Sync::CRON_TICK ] );
+$GLOBALS['left_former'] = array();
+
+// One student's card is stale before the run, so a hand-off made before the run rewrites the card
+// would carry the stale one and be told apart from a hand-off made after it.
+foreach ( $GLOBALS['umeta'] as $carded => $meta ) {
+	if ( ! empty( $meta[ WPCPM_Students_Sync::META_MENTOR ] ) ) {
+		$GLOBALS['umeta'][ $carded ][ WPCPM_Students_Sync::META_MENTOR ] = array( 'record_id' => 'recSTALECARDXXXXX' );
+		break;
+	}
+}
+
 WPCPM_Students_Sync::run_tick( 60 );
 
 ck( 'the resumed run finished', isset( $GLOBALS['opts'][ WPCPM_Students_Sync::OPT_STATE ] ), false );
 ck( 'with the error cleared', get_option( WPCPM_Students_Sync::OPT_ERROR, '' ), '' );
+
+// SESSIONS-7: every student the run assigned is handed to the sessions module, after their card is
+// written, so a student whose pairing has settled on a new mentor leaves the old one's sessions.
+$handed_cards = array();
+
+foreach ( array_keys( $GLOBALS['left_former'] ) as $handed ) {
+	$handed_cards[ $handed ] = get_user_meta( $handed, WPCPM_Students_Sync::META_MENTOR, true );
+}
+
+ck( 'every student the run assigned is handed on to leave a former mentor\'s sessions, each holding the card the run had just written',
+    array( count( $GLOBALS['left_former'] ), $GLOBALS['left_former'] === $handed_cards, isset( $GLOBALS['left_former'][ $carded ] ), 'recSTALECARDXXXXX' !== ( $GLOBALS['umeta'][ $carded ][ WPCPM_Students_Sync::META_MENTOR ]['record_id'] ?? '' ) ),
+    array( (int) get_option( WPCPM_Students_Sync::OPT_REPORT )['stats']['assigned'], true, true, true ) );
 
 $transient = array(
 	'a 502 from Airtable'          => new WP_Error( 'wpcpm_airtable_error', 'Airtable request failed (HTTP 502): Bad Gateway', array( 'status' => 502 ) ),
@@ -1421,6 +1467,50 @@ let_counts_go();
 ck( 'and nothing in the class lets it go by hand any more', method_exists( 'WPCPM_Students_Sync', 'forget_counts' ), false );
 
 ck( 'and then the next read walks again', WPCPM_Students_Sync::count_on_status( 'Counting Track' ), 3 );
+
+echo "\n=== An ID query answered with rows (SURFACES-3) ===\n";
+
+// The deep check of 1.109.1, SURFACES-3: asked for `'ID'`, `get_users()` answers stdClass rows on
+// this program's site, and counts_by_status() and revoke_departed() cast each row straight to an
+// int. Every row became 1 with a warning: the count came out 0, which let Unpublish take down a
+// track students were on, and a departed student kept the role. Both read a row through id_of().
+$GLOBALS['users_as_rows'] = true;
+$row_warnings             = array();
+
+set_error_handler(
+	function ( $number, $message ) use ( &$row_warnings ) {
+		$row_warnings[] = $message;
+
+		return true;
+	}
+);
+
+let_counts_go();
+$counted_from_rows = WPCPM_Students_Sync::count_on_status( 'Counting Track' );
+
+// Last in the suite, since the walk deactivates every linked account the empty set below leaves out.
+$GLOBALS['users'][950] = array( 'login' => 'departed', 'email' => 'departed@example.test', 'name' => 'Departed Student', 'roles' => array( WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['umeta'][950] = array(
+	WPCPM_Students_Sync::META_RECORD_ID => 'recDEPARTEDXXXXXX',
+	WPCPM_Students_Sync::META_ACTIVE    => 1,
+);
+$revoke                = Closure::bind(
+	static function ( array $state, array $settings ) {
+		self::revoke_departed( $state, $settings );
+
+		return $state;
+	},
+	null,
+	'WPCPM_Students_Sync'
+);
+$revoke( array( 'students' => array(), 'stats' => array( 'revoked' => 0 ) ), array( 'student_on_inactive' => 'revoke' ) );
+
+restore_error_handler();
+$GLOBALS['users_as_rows'] = false;
+
+ck( 'rows handed back for an ID query are read as the accounts they are: the students on a track are counted, a departed one loses the role, and nothing warns',
+    array( $counted_from_rows, (int) get_user_meta( 950, WPCPM_Students_Sync::META_ACTIVE, true ), in_array( WPCPM_Roles::ROLE_STUDENT, $GLOBALS['users'][950]['roles'], true ), $row_warnings ),
+    array( 3, 0, false, array() ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

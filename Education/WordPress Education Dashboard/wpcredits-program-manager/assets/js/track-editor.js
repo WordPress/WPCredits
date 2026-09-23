@@ -12,9 +12,14 @@
  * is disabled rather than pressed into doing nothing.
  *
  * When the server refuses the move - a nonce that expired while the page sat open, or a track
- * that can no longer be saved - the row goes back where it started and the live region says the
- * move was not kept. A request that gets no usable answer keeps what is on screen; the next load
- * shows what was kept.
+ * that can no longer be saved - the row goes back where it started, and the page says the move
+ * was not kept, with the server's reason when it gave one: in the live region, and in a notice
+ * above the list, so that a sighted person is told too. The server answers a refusal as JSON with
+ * a status that is not 2xx; an answer that is not the order the server kept, a redirect the fetch
+ * followed among them, reads the same way (the deep check of 1.109.1, BUILDER-4: a refusal
+ * answered with a redirect left the row moved and said nothing). The reason is set as text, never
+ * as markup. A request that gets no answer at all keeps what is on screen; the next load shows
+ * what was kept.
  */
 ( function () {
 	'use strict';
@@ -26,9 +31,10 @@
 			return;
 		}
 
-		var list = document.querySelector( '.wpcpm-questions' );
-		var live = document.createElement( 'p' );
-		var sent = 0;
+		var list   = document.querySelector( '.wpcpm-questions' );
+		var live   = document.createElement( 'p' );
+		var sent   = 0;
+		var notice = null;
 
 		// The newest press that has been answered, and the order the server is known to hold.
 		var answered = 0;
@@ -204,6 +210,42 @@
 			focused.focus();
 		}
 
+		/**
+		 * Say that a move was not kept, and why when the server said: in the live region, and in a
+		 * notice above the list, set as text.
+		 *
+		 * @param {string} words  The page's own sentence, from the form.
+		 * @param {string} reason The server's reason, or ''.
+		 */
+		function refused( words, reason ) {
+			var message;
+
+			words = reason ? words + ' ' + reason : words;
+
+			if ( ! notice ) {
+				notice           = document.createElement( 'div' );
+				message          = document.createElement( 'p' );
+				notice.className = 'notice notice-error inline wpcpm-questions__refused';
+				notice.appendChild( message );
+				list.parentNode.insertBefore( notice, list );
+			}
+
+			message             = notice.firstChild;
+			message.textContent = words;
+			live.textContent    = words;
+		}
+
+		/**
+		 * Take the last refusal's notice away: a new press is about another move.
+		 */
+		function forget() {
+			if ( notice && notice.parentNode ) {
+				notice.parentNode.removeChild( notice );
+			}
+
+			notice = null;
+		}
+
 		refresh();
 
 		forms.forEach( function ( form ) {
@@ -222,6 +264,7 @@
 				}
 
 				event.preventDefault();
+				forget();
 
 				group     = peers( row );
 				index     = group.indexOf( row );
@@ -256,10 +299,19 @@
 					headers: { 'X-Requested-With': 'XMLHttpRequest' }
 				} )
 					.then( function ( response ) {
-						return response.ok ? response.json() : null;
+						// A redirect the fetch followed is a page, not an answer, and a body that is
+						// not JSON is none either: both read as a refusal, with no reason to give.
+						if ( response.redirected ) {
+							return null;
+						}
+
+						return response.json().catch( function () {
+							return null;
+						} );
 					} )
 					.then( function ( json ) {
-						var order = json && json.data && json.data.order;
+						var order  = json && json.success && json.data && json.data.order;
+						var reason = json && ! json.success && json.data && 'string' === typeof json.data.message ? json.data.message : '';
 
 						// An answer older than one already handled says nothing.
 						if ( ticket <= answered ) {
@@ -272,7 +324,7 @@
 							kept = order;
 						} else {
 							// Refused: replace what the live region already said.
-							live.textContent = form.getAttribute( 'data-wpcpm-refused' ) || '';
+							refused( form.getAttribute( 'data-wpcpm-refused' ) || '', reason );
 						}
 
 						// Only the newest press arranges the page.

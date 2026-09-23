@@ -8,11 +8,14 @@
  *   cells are sealed with the site key (the real `WPCPM_Secret`, on a real OpenSSL) and nothing
  *   readable is left on the post: not the content, not the title, not a meta row.
  * - A copy that went wrong is never half-written: a bad table or record ID stores nothing.
+ * - **The scan's reference read leaves the copies out**: asked what points at a copied record, the
+ *   real `WPCPM_Duplicates_Scan::refs_for()` names a call note about it, never the copy.
  * - The copy opens again for View copy, whole, and stops opening once it is erased.
  * - **The daily job, on a clock the suite holds:** a copy is erased after thirty days and its post
  *   stays as the log entry; a copy still pending is left alone for an hour, then settled by asking
  *   whether its row is still in Airtable (still there: the copy goes; gone: it is logged as
- *   deleted; no answer: it waits for the next day).
+ *   deleted; no answer: it waits for the next day, and past its thirty days it is erased all the
+ *   same, its log entry saying the delete was never confirmed).
  * - Uninstall takes every copy with it.
  *
  * Fixtures are synthetic: example.test addresses and record IDs that spell what they are.
@@ -28,6 +31,7 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
+define( 'ARRAY_A', 'ARRAY_A' );
 
 $GLOBALS['opts']  = array();
 $GLOBALS['posts'] = array();
@@ -101,9 +105,35 @@ function wp_next_scheduled( $hook ) { return isset( $GLOBALS['cron'][ $hook ] ) 
 function wp_schedule_event( $ts, $recurrence, $hook ) { $GLOBALS['cron'][ $hook ] = $ts; $GLOBALS['cron_recurrence'][ $hook ] = $recurrence; return true; }
 function wp_clear_scheduled_hook( $hook ) { unset( $GLOBALS['cron'][ $hook ] ); return 0; }
 
+/**
+ * The two reads `WPCPM_Duplicates_Scan::refs_for()` makes, answered from the posts and meta this
+ * suite holds: no user meta, and every post meta value that is one of the IDs, with its post.
+ */
+class Test_WPDB {
+	public $usermeta = 'wp_usermeta', $postmeta = 'wp_postmeta', $posts = 'wp_posts';
+	public function prepare( $sql, $args ) { return array( $sql, (array) $args ); }
+	public function get_results( $prepared, $output = null ) {
+		list( $sql, $ids ) = $prepared;
+		$rows = array();
+		if ( false === strpos( $sql, 'wp_postmeta' ) ) {
+			return $rows;
+		}
+		foreach ( $GLOBALS['meta'] as $post_id => $meta ) {
+			foreach ( $meta as $key => $value ) {
+				if ( isset( $GLOBALS['posts'][ $post_id ] ) && in_array( $value, $ids, true ) ) {
+					$rows[] = array( 'ID' => $post_id, 'post_type' => $GLOBALS['posts'][ $post_id ]->post_type, 'post_status' => $GLOBALS['posts'][ $post_id ]->post_status, 'meta_key' => $key, 'meta_value' => $value );
+				}
+			}
+		}
+		return $rows;
+	}
+}
+$GLOBALS['wpdb'] = new Test_WPDB();
+
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-airtable.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-rules.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicates-scan.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-vault.php';
 
 $fails = 0;
@@ -166,7 +196,7 @@ WPCPM_Duplicate_Vault::register();
 $args = $GLOBALS['types'][ WPCPM_Duplicate_Vault::POST_TYPE ];
 ck( 'a name WordPress will register: twenty characters at most', strlen( WPCPM_Duplicate_Vault::POST_TYPE ) <= 20, true );
 ck( 'private everywhere: not public, no screen, not in REST, not searchable', array( $args['public'], $args['publicly_queryable'], $args['show_ui'], $args['show_in_rest'], $args['exclude_from_search'] ), array( false, false, false, false, true ) );
-ck( 'the scan leaves the finder\'s own copies out of the site references', in_array( WPCPM_Duplicate_Vault::POST_TYPE, array( 'wpcpm_dup_copy' ), true ), true );
+ck( 'and not embeddable, which WordPress honors from 6.8 (SURFACES-2)', $args['embeddable'] ?? null, false );
 
 echo "\n=== A copy, sealed ===\n";
 
@@ -180,6 +210,22 @@ ck( 'the reference is kept beside it: table, record, created date, status, the s
 ck( 'pending until Airtable confirms the delete', get_post_meta( $copy, WPCPM_Duplicate_Vault::META_STATE ), 'pending' );
 ck( 'private, and authored by the manager who deleted it', array( get_post( $copy )->post_status, get_post( $copy )->post_author ), array( 'private', 7 ) );
 ck( 'kept for thirty days', get_post_meta( $copy, WPCPM_Duplicate_Vault::META_EXPIRES ) - time() >= 30 * DAY_IN_SECONDS - 5, true );
+
+// The copy names the record it is a copy of, and so does a mentor's call note written about the
+// same student. Asked what on the site points at that record, the scan names the note and not
+// the copy: a copy of a row pending its delete must not lock that row (DUPLICATES-9).
+$note              = new WP_Post();
+$note->ID          = 900;
+$note->post_type   = 'wpcpm_mentor_note';
+$note->post_status = 'private';
+$GLOBALS['posts'][900] = $note;
+$GLOBALS['meta'][900]  = array( '_wpcpm_student_record' => $record['id'] );
+ck(
+	'the scan leaves the finder\'s own copies out of what the site points at, and names the rest',
+	WPCPM_Duplicates_Scan::refs_for( array( $record['id'] ) ),
+	array( $record['id'] => array( array( 'kind' => 'wpcpm_mentor_note', 'key' => '_wpcpm_student_record', 'object' => 900, 'status' => 'private' ) ) )
+);
+unset( $GLOBALS['posts'][900], $GLOBALS['meta'][900] );
 
 $before = count( $GLOBALS['posts'] );
 ck( 'a table the finder does not know is refused', WPCPM_Duplicate_Vault::keep( 'mentors', $record, 7 )->get_error_code(), 'wpcpm_duplicates_bad_copy' );
@@ -207,7 +253,7 @@ $GLOBALS['now'] += 60;
 $second  = WPCPM_Duplicate_Vault::keep( 'feedback', array( 'id' => 'rec' . str_pad( 'SECOND', 14, '0' ), 'createdTime' => '2026-02-03T10:00:00.000Z', 'fields' => array( 'Email' => 'student@example.test', 'Course' => 'In Sensei' ) ), 8 );
 $entries = WPCPM_Duplicate_Vault::entries( 10 );
 ck( 'the log is newest first', array_column( $entries, 'copy' ), array( $second, $copy ) );
-ck( 'and an entry says what went, when and by whom, and nothing about the student', array_keys( $entries[1] ), array( 'copy', 'table', 'record', 'created', 'status', 'state', 'when', 'by', 'expires' ) );
+ck( 'and an entry says what went, when and by whom, and nothing about the student', array_keys( $entries[1] ), array( 'copy', 'table', 'record', 'created', 'status', 'state', 'when', 'by', 'expires', 'unconfirmed' ) );
 ck( 'the older entry, in full', array( $entries[1]['table'], $entries[1]['record'], $entries[1]['state'], $entries[1]['by'] ), array( 'reports', $record['id'], 'deleted', 7 ) );
 
 echo "\n=== The daily job ===\n";
@@ -240,6 +286,30 @@ $counts = WPCPM_Duplicate_Vault::purge( $ask( true ), $GLOBALS['now'] + 31 * DAY
 ck( 'after thirty days the sealed cells are erased', array( $counts['erased'], get_post( $copy )->post_content, get_post_meta( $copy, WPCPM_Duplicate_Vault::META_STATE ) ), array( 2, '', 'erased' ) );
 ck( 'and the post stays as the log entry, reference intact', array( get_post( $copy ) instanceof WP_Post, get_post_meta( $copy, WPCPM_Duplicate_Vault::META_RECORD ) ), array( true, $record['id'] ) );
 ck( 'an erased copy no longer opens', WPCPM_Duplicate_Vault::view( $copy )->get_error_code(), 'wpcpm_duplicates_erased' );
+
+// Airtable will not say, day after day (a revoked token, an emptied table setting), so the copy
+// stays pending; its thirty days bound its cells all the same (spec 8.2, DUPLICATES-6).
+$silent = WPCPM_Duplicate_Vault::keep( 'students', array( 'id' => 'rec' . str_pad( 'SILENT', 14, '0' ), 'createdTime' => '2026-01-27T10:00:00.000Z', 'fields' => array( 'Email' => 'student@example.test', 'Full Name' => 'A Student' ) ), 7 );
+$counts = WPCPM_Duplicate_Vault::purge( $ask( null ), time() + 29 * DAY_IN_SECONDS );
+ck( 'a copy Airtable will not answer about stays pending, cells and all, through its thirty days', array( $counts['unsettled'], get_post_meta( $silent, WPCPM_Duplicate_Vault::META_STATE ), is_array( WPCPM_Duplicate_Vault::view( $silent ) ) ), array( 1, 'pending', true ) );
+$counts = WPCPM_Duplicate_Vault::purge( $ask( null ), time() + 31 * DAY_IN_SECONDS );
+$opens  = WPCPM_Duplicate_Vault::view( $silent );
+ck( 'past them, still unanswered, its sealed cells are erased like every other copy\'s', array( $counts['unsettled'], $counts['erased'], get_post( $silent )->post_content, get_post_meta( $silent, WPCPM_Duplicate_Vault::META_STATE ), is_wp_error( $opens ) ? $opens->get_error_code() : 'it still opens' ), array( 1, 1, '', 'erased', 'wpcpm_duplicates_erased' ) );
+$silent_entry = array_values(
+	array_filter(
+		WPCPM_Duplicate_Vault::entries(),
+		static function ( $one ) use ( $silent ) {
+			return $silent === $one['copy'];
+		}
+	)
+);
+ck( 'and its log entry stays, saying the delete was never confirmed, where a confirmed one\'s does not', array( $silent_entry[0]['record'], $silent_entry[0]['unconfirmed'], WPCPM_Duplicate_Vault::entries()[1]['unconfirmed'] ), array( 'rec' . str_pad( 'SILENT', 14, '0' ), true, false ) );
+
+// keep() inserts the post before it stores the state: a copy caught in between is left alone.
+$writing = wp_insert_post( array( 'post_type' => WPCPM_Duplicate_Vault::POST_TYPE, 'post_status' => 'private', 'post_title' => 'students recWRITING000000', 'post_content' => 'c2VhbGVk', 'post_author' => 7 ) );
+WPCPM_Duplicate_Vault::purge( $ask( null ), time() + 31 * DAY_IN_SECONDS );
+ck( 'a copy still being written, with no state yet, keeps its cells', get_post( $writing )->post_content, 'c2VhbGVk' );
+wp_delete_post( $writing, true );
 
 echo "\n=== Schedule and uninstall ===\n";
 

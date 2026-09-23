@@ -15,6 +15,12 @@
  * Application Programme" reached the inserter with nothing here to stop it (deep check finding
  * FSUIT-12).
  *
+ * The seed pass reads the why notes of the four track definitions under includes/tracks/seeds/,
+ * which ship in the zip and which the Track Builder shows a program manager as a question's
+ * Developer note. bin/build-seeds.php writes them there from bin/seed-definitions.php, so they
+ * are text of ours in committed data, and nothing read them (the deep check of 1.109.1,
+ * TESTS-DOCS-7). The notes alone: the rest of a seed is the base's column names and choices.
+ *
  * The last pass reads bin/, which never ships in the zip but IS published on the public GitHub
  * mirror. Not the whole of it: the suites quote the outside world's own spellings, an RFC 5545
  * "CANCELLED" and a form field named "Programme" among them, and rewriting those would be
@@ -45,14 +51,19 @@ if ( ! is_dir( $root ) || ! is_file( $root . '/readme.txt' ) ) {
 	exit( 1 );
 }
 
+// Each entry is a piece of one pattern, matched whole between word boundaries and without regard
+// to case. A stem that takes -ed or -ing carries its endings: the list named "grey" alone, and
+// the pattern matches whole words, so "greyed" passed, as did every such form the list did not
+// spell out (the final fix wave, item 13). "Analyses" is left out on purpose: it is the plural of
+// "analysis" in US English too.
 $words = array(
-	'programme', 'programmes', 'colour', 'colours', 'coloured', 'behaviour', 'behaviours', 'enrolment', 'enrolments',
-	'enrol', 'enrols', 'cancelled', 'cancelling', 'afterwards', 'organise', 'organised', 'organising', 'organisation',
-	'organisations', 'recognise', 'recognised', 'recognising', 'licence', 'licences', 'centre', 'centres', 'favourite',
-	'favourites', 'catalogue', 'labelled', 'labelling', 'whilst', 'amongst', 'analyse', 'analysed', 'analysing',
-	'customise', 'customised', 'summarise', 'summarised', 'authorise', 'authorised', 'prioritise', 'optimise',
-	'finalise', 'realise', 'realised', 'practise', 'practised', 'learnt', 'honour', 'neighbour', 'judgement', 'fulfil',
-	'modelled', 'travelled', 'grey',
+	'programme', 'programmes', 'colour(?:s|ed|ing)?', 'behaviour', 'behaviours', 'enrolment', 'enrolments',
+	'enrol', 'enrols', 'cancel(?:led|ling)', 'afterwards', 'organis(?:e|ed|ing)', 'organisation', 'organisations',
+	'recognis(?:e|ed|ing)', 'licence', 'licences', 'centre', 'centres', 'centr(?:ed|ing)', 'favourite', 'favourites',
+	'catalogu(?:e|ed|ing)', 'label(?:led|ling)', 'whilst', 'amongst', 'analys(?:e|ed|ing)', 'customis(?:e|ed|ing)',
+	'summaris(?:e|ed|ing)', 'authoris(?:e|ed|ing)', 'prioritis(?:e|ed|ing)', 'optimis(?:e|ed|ing)', 'finalis(?:e|ed|ing)',
+	'realis(?:e|ed|ing)', 'practis(?:e|ed|ing)', 'learnt', 'honour(?:ed|ing)?', 'neighbour(?:ed|ing)?', 'judgement',
+	'fulfil', 'model(?:led|ling)', 'travel(?:led|ling)', 'grey(?:ed|ing)?',
 );
 $i18n  = array( '__', '_e', '_x', '_ex', '_n', '_nx', 'esc_html__', 'esc_html_e', 'esc_html_x', 'esc_attr__', 'esc_attr_e', 'esc_attr_x', '_n_noop', '_nx_noop' );
 $re    = '/\b(' . implode( '|', $words ) . ')\b/i';
@@ -160,6 +171,28 @@ foreach ( array_filter( array_merge( glob( $root . '/docs/sections/*.md' ), arra
 	}
 }
 
+// The why notes of the track seeds, read from the decoded JSON so a note is one string wherever
+// it wraps. A question's key is the base's column name and is not read.
+$seeds = array_values( array_filter( (array) glob( $root . '/includes/tracks/seeds/*.json' ), 'is_file' ) );
+
+foreach ( $seeds as $file ) {
+	$raw  = (string) file_get_contents( $file );
+	$seed = json_decode( $raw, true );
+
+	if ( ! is_array( $seed ) ) {
+		$hits[] = sprintf( '%s:1  not valid JSON', substr( $file, strlen( $root ) + 1 ) );
+		continue;
+	}
+
+	foreach ( isset( $seed['questions'] ) ? (array) $seed['questions'] : array() as $question ) {
+		if ( is_array( $question ) && isset( $question['why'] ) && preg_match_all( $re, (string) $question['why'], $m ) ) {
+			foreach ( $m[1] as $word ) {
+				$hits[] = sprintf( '%s:%d  %s', substr( $file, strlen( $root ) + 1 ), wpcpm_line_of( $raw, $word ), $word );
+			}
+		}
+	}
+}
+
 // The prose bin/ publishes about the fixtures. A JSON fixture is read through its `_comment`
 // alone, because the rest of the file is Airtable's own field names and choices; the scripts
 // are read line by line, comments and assertion labels together, because all of it is ours.
@@ -210,5 +243,5 @@ if ( $hits ) {
 	exit( 1 );
 }
 
-printf( "%d PHP files, %d blocks, %d fixture and tooling files, the guides and the readme: US English throughout.\n", count( $files ), count( $blocks ), count( $prose ) );
+printf( "%d PHP files, %d blocks, %d track seeds, %d fixture and tooling files, the guides and the readme: US English throughout.\n", count( $files ), count( $blocks ), count( $seeds ), count( $prose ) );
 exit( 0 );

@@ -286,14 +286,16 @@ class WPCPM_Students_Dashboard {
 		// is empty (deep check FADMN-5). The saved order is untouched, and so is the handler:
 		// what changes is which arrows the page offers.
 		$rendered = array();
+		$names    = array();
 
 		foreach ( $order as $key ) {
 			ob_start();
-			self::render_module_body( $key, $program, $student, $viewer, $can_manage );
+			$name = self::render_module_body( $key, $program, $student, $viewer, $can_manage );
 			$body = trim( (string) ob_get_clean() );
 
 			if ( '' !== $body ) {
 				$rendered[ $key ] = $body;
+				$names[ $key ]    = $name;
 			}
 		}
 
@@ -301,7 +303,7 @@ class WPCPM_Students_Dashboard {
 		$count = count( $rendered );
 
 		foreach ( $rendered as $key => $body ) {
-			self::render_module( $key, $body, $index, $count, $student, $can_move );
+			self::render_module( $key, $body, $index, $count, $student, $can_move, $names[ $key ] );
 			++$index;
 		}
 
@@ -492,12 +494,14 @@ class WPCPM_Students_Dashboard {
 	 * @param int     $count    How many modules the page draws.
 	 * @param WP_User $student  The student whose page this is.
 	 * @param bool    $can_move Whether the reader may arrange this page.
+	 * @param string  $name     What the module drew, when that is not the name `modules()` gives
+	 *                          it; empty for that name.
 	 */
-	private static function render_module( $key, $body, $index, $count, WP_User $student, $can_move ) {
+	private static function render_module( $key, $body, $index, $count, WP_User $student, $can_move, $name = '' ) {
 		printf( '<div class="wpcpm-module wpcpm-module--%1$s" id="wpcpm-module-%1$s">', esc_attr( $key ) );
 
 		if ( $can_move ) {
-			self::render_mover( $key, (int) $index, (int) $count, $student );
+			self::render_mover( $key, (int) $index, (int) $count, $student, $name );
 		}
 
 		echo $body; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built by the section renderers, each of which escapes what it prints.
@@ -512,13 +516,18 @@ class WPCPM_Students_Dashboard {
 	 * @param WP_User $student    The student.
 	 * @param WP_User $viewer     The reader.
 	 * @param bool    $can_manage Whether the reader is a program manager.
+	 * @return string The name of the section the module drew, for its mover; empty when the name
+	 *                `modules()` gives it is the one.
 	 */
 	private static function render_module_body( $key, array $program, WP_User $student, WP_User $viewer, $can_manage ) {
+		$name = '';
+
 		switch ( $key ) {
 			case self::MODULE_COURSE:
-				// The course and the hours: what a student opens this page to reach.
+				// The course and the hours: what a student opens this page to reach. With no course
+				// the module is the hours alone, and its mover says so (TRACKS-3).
 				if ( ! empty( $program ) ) {
-					self::render_links( $program, $student );
+					$name = self::render_links( $program, $student );
 				}
 				break;
 
@@ -560,6 +569,8 @@ class WPCPM_Students_Dashboard {
 				}
 				break;
 		}
+
+		return $name;
 	}
 
 	/**
@@ -572,9 +583,18 @@ class WPCPM_Students_Dashboard {
 	 * @param int     $index   Its place in the order, from 0.
 	 * @param int     $count   How many modules the page has.
 	 * @param WP_User $student The student whose page this is.
+	 * @param string  $name    The name of the section the module drew; empty for the name
+	 *                         `modules()` gives it.
 	 */
-	private static function render_mover( $key, $index, $count, WP_User $student ) {
+	private static function render_mover( $key, $index, $count, WP_User $student, $name = '' ) {
 		$labels = self::modules();
+
+		// The section the module drew names it: the arrows' labels, their tooltips and what the
+		// script announces all say it, and over My hours a mover saying My course named a section
+		// the page does not have (TRACKS-3).
+		if ( '' === (string) $name ) {
+			$name = isset( $labels[ $key ] ) ? $labels[ $key ] : $key;
+		}
 
 		WPCPM_Module_Order::render_mover(
 			self::ACTION_MOVE,
@@ -582,7 +602,7 @@ class WPCPM_Students_Dashboard {
 			$index,
 			$count,
 			array( self::FIELD_STUDENT => (int) $student->ID ),
-			isset( $labels[ $key ] ) ? $labels[ $key ] : $key
+			$name
 		);
 	}
 
@@ -797,35 +817,75 @@ class WPCPM_Students_Dashboard {
 	 * report form used to open with. Hours is the one number a student updates without having
 	 * anything else to report, and it was behind a disclosure with twenty other questions.
 	 *
+	 * **With no course, the hours box is a section of its own, My hours** (TRACKS-3). A Track
+	 * Builder track need not name a Learn course, and while the box lived in My course alone its
+	 * students had nowhere to log hours. A student on no track, Paused, Pending graduation or
+	 * finished, gets the same section: `fields()` draws them the 150-hour track's form, its Hours
+	 * question included (TRACKS-5), and the box saves through that form as it does for everybody
+	 * else. The section is drawn only when the box is, so a form with no Hours question, or a
+	 * record that cannot be read, leaves no empty heading.
+	 *
+	 * The section's heading is also what its module's mover calls it, so the arrows over My hours
+	 * say My hours (TRACKS-3).
+	 *
 	 * @param array   $program The student's cached program array.
 	 * @param WP_User $student The student the page is being drawn for.
+	 * @return string The name of the section drawn, its heading; empty when nothing was drawn.
 	 */
 	private static function render_links( array $program, WP_User $student ) {
 		$status = ! empty( $program['status'] ) ? (string) $program['status'] : ( isset( $program['program'] ) ? (string) $program['program'] : '' );
 		$course = WPCPM_Program::course_url( $status );
 		$report = isset( $program['link'] ) ? (string) $program['link'] : '';
+		$name   = '';
 
 		if ( '' !== $course ) {
+			$name = __( 'My course', 'wpcredits-program-manager' );
+
 			// Two columns: the button that opens the course, and the one number a student
 			// updates without having anything else to report. Anything more would be the
 			// report form, which is the section below.
 			echo '<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--course">';
-			echo '<h3 class="wpcpm-student__heading">' . esc_html__( 'My course', 'wpcredits-program-manager' ) . '</h3>';
+			echo '<h3 class="wpcpm-student__heading">' . esc_html( $name ) . '</h3>';
 			echo '<div class="wpcpm-student__course-cols">';
 
-			printf(
-				'<p class="wpcpm-student__actions"><a class="wpcpm-button" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></p>',
-				esc_url( $course ),
-				esc_html__( 'Open your course', 'wpcredits-program-manager' )
-			);
-
+			self::render_course_button( $course );
 			WPCPM_Student_Report_Form::render_hours( $student, $program );
 
 			echo '</div></section>';
+		} else {
+			ob_start();
+			WPCPM_Student_Report_Form::render_hours( $student, $program );
+			$hours = trim( (string) ob_get_clean() );
+
+			if ( '' !== $hours ) {
+				$name = __( 'My hours', 'wpcredits-program-manager' );
+
+				echo '<section class="wpcpm-student__section wpcpm-student__links wpcpm-student__links--hours">';
+				echo '<h3 class="wpcpm-student__heading">' . esc_html( $name ) . '</h3>';
+				echo $hours; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Printed by render_hours(), which escapes every value it prints.
+				echo '</section>';
+			}
 		}
 
 		// The report form is a section of its own with the fields in it, rendered by the caller -
-		// `render_links()` only owns the two link sections.
+		// `render_links()` only owns the link sections.
+		return $name;
+	}
+
+	/**
+	 * The button that opens a Learn course, as My course draws it.
+	 *
+	 * Public because the Track Builder's preview draws the same button beside the same hours box,
+	 * so the preview shows what the page shows (TRACKS-3).
+	 *
+	 * @param string $course The course's address.
+	 */
+	public static function render_course_button( $course ) {
+		printf(
+			'<p class="wpcpm-student__actions"><a class="wpcpm-button" href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a></p>',
+			esc_url( $course ),
+			esc_html__( 'Open your course', 'wpcredits-program-manager' )
+		);
 	}
 
 	/**

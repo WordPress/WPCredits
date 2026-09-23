@@ -36,6 +36,10 @@ Beside it is **Hours contributed**: the running total of the hours you have put 
 number you will come back to change most often, so it sits here on its own rather than inside the
 report form. Type the new total, press **Save hours**, and that is the whole errand.
 
+If your track has no Learn course, or you are not on a track at the moment (paused, or waiting to
+graduate, for example), there is no course to open, and the hours box is a section of its own,
+**My hours**.
+
 ### Report form
 
 Your report, filled in here on the page. It is the record of your work on the program, and it is

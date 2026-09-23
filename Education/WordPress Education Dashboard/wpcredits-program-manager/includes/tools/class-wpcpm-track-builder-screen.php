@@ -80,7 +80,7 @@ final class WPCPM_Track_Builder_Screen {
 	private static function render_row( array $row, $url ) {
 		$skipped = isset( $row['skipped'] ) ? (array) $row['skipped'] : array();
 		$builtin = isset( $row['source'] ) && 'builtin' === $row['source'];
-		$classes = 'wpcpm-tracks__row' . ( empty( $skipped ) ? '' : ' wpcpm-tracks__row--skipped' );
+		$classes = 'wpcpm-tracks__row' . ( empty( $skipped ) ? '' : ' wpcpm-tracks__row--skipped' ) . ( empty( $row['unlisted'] ) ? '' : ' wpcpm-tracks__row--unlisted' );
 
 		printf( '<tr class="%s">', esc_attr( $classes ) );
 
@@ -109,6 +109,7 @@ final class WPCPM_Track_Builder_Screen {
 
 		printf( '<td>%s', esc_html( $state ) );
 		self::render_skipped( $skipped );
+		self::render_unlisted( $row );
 		self::render_equivalence( $row );
 		echo '</td>';
 
@@ -261,7 +262,7 @@ final class WPCPM_Track_Builder_Screen {
 		self::render_columns( $flight, $can_make );
 		self::render_adds_status( $flight );
 		self::render_checklist( $checklist, $track, isset( $flight['choices'] ) && is_array( $flight['choices'] ) ? $flight['choices'] : array() );
-		self::render_publish_actions( $flight, $state, $track, $can_make, $builtin );
+		self::render_publish_actions( $flight, $state, $track, $can_make, $builtin, $label );
 	}
 
 	/**
@@ -272,8 +273,8 @@ final class WPCPM_Track_Builder_Screen {
 	 * pixels (the design's decision 27). The wrapper carries `wpcpm-dashboard` because that is the
 	 * element the plugin's stylesheet sets its tokens on; without it the form would draw untokened.
 	 *
-	 * @param array $args `track`, `label`, `fields`, `state`, `source` and `stale`, whether a
-	 *                    built-in draft fell behind the plugin's seed, as
+	 * @param array $args `track`, `label`, `fields`, `state`, `source`, `stale`, whether a
+	 *                    built-in draft fell behind the plugin's seed, and `course`, as
 	 *                    `WPCPM_Track_Builder::preview()` gives them, the screen's `url`, and the
 	 *                    `flash` the last press left.
 	 */
@@ -317,8 +318,9 @@ final class WPCPM_Track_Builder_Screen {
 			return;
 		}
 
+		// The course decides where the hours box sits, as it does on the student's page (TRACKS-3).
 		echo '<div class="wpcpm-dashboard wpcpm-tracks__preview">';
-		WPCPM_Student_Report_Form::render_preview( $fields );
+		WPCPM_Student_Report_Form::render_preview( $fields, isset( $args['course'] ) ? (string) $args['course'] : '' );
 		echo '</div>';
 	}
 
@@ -397,11 +399,22 @@ final class WPCPM_Track_Builder_Screen {
 	/**
 	 * The columns publishing would create, or the list to make by hand.
 	 *
+	 * Nothing at all when the preflight stopped before judging a column: no definition, a trashed
+	 * track, a base it could not read or a Students Reports table setting the schema does not name.
+	 * It then answers `definition` null and no columns, and "Every column this track writes to is
+	 * already in the base" would be a verdict nobody reached, drawn under the refusal that says why
+	 * (the final fix wave of the deep check of 1.109.1). Asked with `array_key_exists()`, since
+	 * `isset()` cannot tell a null from a missing key.
+	 *
 	 * @param array $flight   The preflight's answer.
 	 * @param bool  $can_make Whether a schema token is configured.
 	 * @return void
 	 */
 	private static function render_columns( array $flight, $can_make ) {
+		if ( array_key_exists( 'definition', $flight ) && null === $flight['definition'] ) {
+			return;
+		}
+
 		$create = isset( $flight['columns']['create'] ) ? (array) $flight['columns']['create'] : array();
 		$detail = isset( $flight['columns']['detail'] ) ? (array) $flight['columns']['detail'] : array();
 
@@ -611,21 +624,26 @@ final class WPCPM_Track_Builder_Screen {
 	}
 
 	/**
-	 * Publish, unpublish and verify, as the track's state allows.
+	 * Publish, unpublish and verify, as the track's state allows; a built-in track its PHP still
+	 * runs is not offered the unpublish, and is told why (BUILDER-7).
 	 *
 	 * Publish is drawn only when it could actually succeed. With columns pending and no schema
 	 * token, `WPCPM_Track_Publish::run()` can only refuse with `wpcpm_track_columns_by_hand` -
 	 * design spec 7.2 waits for the preflight to find the columns instead - so that combination
 	 * withholds the button rather than handing over one that can only fail (Task 9 review, M1).
 	 *
+	 * A publish that creates columns is drawn with a box for the track's name, which the handler
+	 * compares before anything is created (PUBLISH-LEARN-3).
+	 *
 	 * @param array  $flight   The preflight's answer.
 	 * @param string $state    The track's state.
 	 * @param int    $track    The track.
 	 * @param bool   $can_make Whether a schema token is configured.
 	 * @param bool   $builtin  Whether the track still runs from its PHP, so the buttons name the definition.
+	 * @param string $label    The track's name, which a publish that creates columns asks for.
 	 * @return void
 	 */
-	private static function render_publish_actions( array $flight, $state, $track, $can_make, $builtin = false ) {
+	private static function render_publish_actions( array $flight, $state, $track, $can_make, $builtin = false, $label = '' ) {
 		echo '<p class="wpcpm-list__actions">';
 
 		$pending     = isset( $flight['columns']['create'] ) ? (array) $flight['columns']['create'] : array();
@@ -633,30 +651,95 @@ final class WPCPM_Track_Builder_Screen {
 
 		if ( $can_publish && in_array( $state, array( 'draft', 'changed' ), true ) ) {
 			if ( 'changed' === $state ) {
-				$label = __( 'Publish the changes', 'wpcredits-program-manager' );
+				$button = __( 'Publish the changes', 'wpcredits-program-manager' );
 			} elseif ( $builtin ) {
-				$label = __( 'Publish the definition', 'wpcredits-program-manager' );
+				$button = __( 'Publish the definition', 'wpcredits-program-manager' );
 			} else {
-				$label = __( 'Publish this track', 'wpcredits-program-manager' );
+				$button = __( 'Publish this track', 'wpcredits-program-manager' );
 			}
 
-			self::render_button( WPCPM_Track_Builder::ACTION_PUBLISH, $track, $label );
+			if ( array() === $pending ) {
+				self::render_button( WPCPM_Track_Builder::ACTION_PUBLISH, $track, $button );
+			} else {
+				self::render_publish_confirm( $track, $label, $pending, $button );
+			}
 		}
 
-		if ( in_array( $state, array( 'published', 'changed' ), true ) ) {
+		$live = in_array( $state, array( 'published', 'changed' ), true );
+
+		if ( $live ) {
 			self::render_button( WPCPM_Track_Builder::ACTION_VERIFY, $track, __( 'Check it against Airtable', 'wpcredits-program-manager' ) );
-			// Unpublishing a built-in track's definition takes nothing off the live site: the
-			// track never left its PHP (decision 29).
-			self::render_button(
-				WPCPM_Track_Builder::ACTION_UNPUBLISH,
-				$track,
-				$builtin
-					? __( 'Unpublish the definition', 'wpcredits-program-manager' )
-					: __( 'Take it off the live site', 'wpcredits-program-manager' )
-			);
+		}
+
+		// Not on a built-in track its PHP still runs: its students see the hand-written form
+		// whether the definition is published or not, so unpublishing takes nothing off the live
+		// site, and the store's refusal, which counts the students holding the status, could only
+		// say what is not so (the deep check of 1.109.1, BUILDER-7; decision 29).
+		if ( $live && ! $builtin ) {
+			self::render_button( WPCPM_Track_Builder::ACTION_UNPUBLISH, $track, __( 'Take it off the live site', 'wpcredits-program-manager' ) );
 		}
 
 		echo '</p>';
+
+		if ( $live && $builtin ) {
+			echo '<p class="wpcpm-tracks__count">' . esc_html__( 'The definition stays published while this track runs from its hand-written form: its students see that form either way, so there is nothing to take off the live site.', 'wpcredits-program-manager' ) . '</p>';
+		}
+	}
+
+	/**
+	 * Publish behind the track's name, typed: publishing creates columns in Airtable that the site
+	 * can never remove, so one press of a link must not make them (the design's section 6; the
+	 * product owner, 23 September 2026; PUBLISH-LEARN-3). `handle_publish()` compares the name, and
+	 * the columns listed here, which the form carries one hidden field each, with what the
+	 * preflight would create at the press (the fix round of PUBLISH-LEARN-3).
+	 *
+	 * @param int      $track   The track.
+	 * @param string   $label   Its name, which is what has to be typed.
+	 * @param string[] $pending The columns publishing creates, as the screen lists them.
+	 * @param string   $button  What the button says.
+	 * @return void
+	 */
+	private static function render_publish_confirm( $track, $label, array $pending, $button ) {
+		$field   = 'wpcpm-confirm-' . (int) $track;
+		$columns = count( $pending );
+
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="wpcpm-tracks__confirm">';
+		wp_nonce_field( WPCPM_Track_Builder::ACTION_PUBLISH );
+		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Builder::ACTION_PUBLISH ) . '" />';
+		printf( '<input type="hidden" name="track" value="%d" />', (int) $track );
+
+		foreach ( $pending as $column ) {
+			printf(
+				'<input type="hidden" name="%1$s[]" value="%2$s" />',
+				esc_attr( WPCPM_Track_Builder::FIELD_CONFIRM_COLUMNS ),
+				esc_attr( (string) $column )
+			);
+		}
+
+		printf(
+			'<label for="%1$s">%2$s</label> ',
+			esc_attr( $field ),
+			esc_html(
+				sprintf(
+					/* translators: 1: how many columns publishing creates, 2: the track's name. */
+					_n(
+						'Publishing creates %1$d column in Airtable, and the site can never remove it. To go ahead, type the name of the track, %2$s:',
+						'Publishing creates %1$d columns in Airtable, and the site can never remove them. To go ahead, type the name of the track, %2$s:',
+						(int) $columns,
+						'wpcredits-program-manager'
+					),
+					(int) $columns,
+					(string) $label
+				)
+			)
+		);
+		printf(
+			'<input type="text" class="regular-text" id="%1$s" name="%2$s" value="" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required /> ',
+			esc_attr( $field ),
+			esc_attr( WPCPM_Track_Builder::FIELD_CONFIRM )
+		);
+		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html( $button ) );
+		echo '</form>';
 	}
 
 	/**
@@ -915,7 +998,7 @@ final class WPCPM_Track_Builder_Screen {
 			esc_html(
 				sprintf(
 					/* translators: %s: the name of the track being copied. */
-					__( 'Copying %s. Its questions come with the copy; a name, a status and a key of its own do not.', 'wpcredits-program-manager' ),
+					__( 'Copying %s. Its questions come with the copy. A name, a status and a key of its own are asked for below; the copy starts with no Learn course and no hours target, which are set on its page.', 'wpcredits-program-manager' ),
 					(string) $form['from']
 				)
 			)
@@ -1034,6 +1117,27 @@ final class WPCPM_Track_Builder_Screen {
 		);
 
 		echo '<br /><span class="wpcpm-tracks__skipped">' . esc_html( $sentence ) . '</span>';
+	}
+
+	/**
+	 * A track the site runs from its definition whose status is missing from "Currently
+	 * mentoring": the students sync reads only the statuses listed there, and treats every student
+	 * it did not read as gone (the deep check of 1.109.1, BUILDER-3).
+	 *
+	 * @param array $row One row; its `unlisted` is the status the list lacks, or ''.
+	 */
+	private static function render_unlisted( array $row ) {
+		if ( empty( $row['unlisted'] ) ) {
+			return;
+		}
+
+		$sentence = sprintf(
+			/* translators: %s: the Airtable status the track runs under. */
+			__( 'Its status, "%s", is not in "Currently mentoring" in Settings, so the next students sync treats everybody on this track as having left the program. Add it back there.', 'wpcredits-program-manager' ),
+			(string) $row['unlisted']
+		);
+
+		echo '<br /><span class="wpcpm-tracks__unlisted">' . esc_html( $sentence ) . '</span>';
 	}
 
 	/**

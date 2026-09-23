@@ -320,7 +320,7 @@ class WPCPM_Mentor_Notes {
 	 *
 	 * A group session note carries a `META_STUDENT` row per attendee and shows on each of
 	 * their cards, so a mentor who may open any one of those cards may read it. Writing one
-	 * needs every attendee, which is `add_for_records()`'s rule and not this one.
+	 * needs the right to note every attendee, which is `add_for_records()`'s rule and not this one.
 	 *
 	 * Fails closed twice over: a note whose audience is neither, and an institution note
 	 * reached in a checkout where that class is absent, are read by nobody.
@@ -425,8 +425,11 @@ class WPCPM_Mentor_Notes {
 	 * and one deletion removes it from everybody. Writing a copy per student would have left the
 	 * mentor deleting the same note five times, and five chances to miss one.
 	 *
-	 * Refuses unless the writer may access **every** attendee. A note is one object visible on
-	 * several cards, so partial permission is not a thing it can honour.
+	 * Refuses unless the writer may note **every** attendee: through the pairing
+	 * (`user_can_access()`), or through attendance, as the mentor whose session it was. A note is
+	 * one object visible on several cards, so partial permission is not a thing it can honor. The
+	 * pairing alone refused the whole note, for everybody on the session, once one of them had been
+	 * re-paired with another mentor (the deep check of 1.109.1, SESSIONS-7).
 	 *
 	 * @param int      $call_id Session post ID.
 	 * @param string   $note    The note body, already trimmed.
@@ -449,7 +452,7 @@ class WPCPM_Mentor_Notes {
 				continue;
 			}
 
-			if ( ! self::user_can_access( $record ) ) {
+			if ( ! self::user_can_access( $record ) && ! self::attended( $call_id, $record ) ) {
 				return new WP_Error( 'wpcpm_note_denied', __( 'You cannot add notes for everybody on that session.', 'wpcredits-program-manager' ) );
 			}
 
@@ -488,6 +491,31 @@ class WPCPM_Mentor_Notes {
 		update_post_meta( $post_id, self::META_AUDIENCE, self::AUDIENCE_MENTOR );
 
 		return (int) $post_id;
+	}
+
+	/**
+	 * Whether the writer is the mentor whose session a student was on.
+	 *
+	 * The attendee rows were written when the student joined this mentor's own session, so the
+	 * mentor may note everybody on it, a student moved to another mentor since then included
+	 * (SESSIONS-7). Only a mentor, on their own session, and only a record that is one.
+	 *
+	 * @param int    $call_id Session post ID.
+	 * @param string $record  Student's Airtable record ID.
+	 * @return bool
+	 */
+	private static function attended( $call_id, $record ) {
+		$user = WPCPM_Roles::resolve_user( null );
+
+		if ( ! $user instanceof WP_User || ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR ) || ! WPCPM_Mentors_Sync::is_record_id( $record ) ) {
+			return false;
+		}
+
+		if ( (int) get_post_meta( (int) $call_id, WPCPM_Mentor_Calls::META_MENTOR, true ) !== (int) $user->ID ) {
+			return false;
+		}
+
+		return in_array( (string) $record, WPCPM_Mentor_Calls::attendee_records( (int) $call_id ), true );
 	}
 
 	/**

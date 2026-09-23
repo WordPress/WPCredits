@@ -75,7 +75,8 @@ class WPCPM_ICS {
 	 * right entry. Importing the file once plans them all (the design's section 6).
 	 *
 	 * @param array[]      $facts_list Call facts, one per call, from `WPCPM_Mentor_Calls::details()`,
-	 *                                 each free to carry a `description` of its own (1.109.1).
+	 *                                 each free to carry a `description` of its own (1.109.1) and a
+	 *                                 `sequence`, its session's calendar version (SESSIONS-3).
 	 * @param string       $method     `REQUEST` or `CANCEL`.
 	 * @param WP_User|null $mentor     Mentor, the organizer.
 	 * @param WP_User|null $student    Student, the attendee.
@@ -91,8 +92,13 @@ class WPCPM_ICS {
 		foreach ( $facts_list as $facts ) {
 			// A call's facts may carry their own `description`, the text that call's single
 			// invitation would carry; the shared body is for a list that carries none (1.109.1).
-			$text  = isset( $facts['description'] ) ? (string) $facts['description'] : $body;
-			$lines = array_merge( $lines, self::event( $facts, $method, $mentor, $student, $summary, $text, $where, null ) );
+			$text = isset( $facts['description'] ) ? (string) $facts['description'] : $body;
+
+			// Each event carries its own session's version: one file joins sessions moved different
+			// numbers of times, and an event sent at a version below the one the calendar holds for
+			// that session is ignored (the deep check of 1.109.1, SESSIONS-3).
+			$sequence = isset( $facts['sequence'] ) ? (int) $facts['sequence'] : null;
+			$lines    = array_merge( $lines, self::event( $facts, $method, $mentor, $student, $summary, $text, $where, $sequence ) );
 		}
 
 		$lines[] = 'END:VCALENDAR';
@@ -159,9 +165,10 @@ class WPCPM_ICS {
 			'UID:' . self::uid( $facts['id'] ),
 			// A calendar that already holds this event is entitled to ignore anything that does
 			// not outrank what it has, so every re-send of the same UID has to count higher than
-			// the last. A cancellation outranks the booking it withdraws; an edited session
-			// passes its own revision, which is why moving a session actually moves it in the
-			// students' calendars rather than arriving as a duplicate they must reconcile.
+			// the last. A cancellation outranks the booking it withdraws; a group session passes
+			// its own version on every file, raised by each join, leave, move and cancellation
+			// (SESSIONS-3), which is why moving a session actually moves it in the students'
+			// calendars and a leave or a cancellation after a move still takes it out.
 			'SEQUENCE:' . (int) ( null === $sequence ? ( self::METHOD_CANCEL === $method ? 1 : 0 ) : max( 0, (int) $sequence ) ),
 			'DTSTAMP:' . self::stamp( time() ),
 			'DTSTART:' . self::stamp( $facts['start'] ),

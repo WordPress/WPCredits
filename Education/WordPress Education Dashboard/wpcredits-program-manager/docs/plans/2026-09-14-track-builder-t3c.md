@@ -123,7 +123,7 @@ new file mode 100644
 index 0000000..858dfc3
 --- /dev/null
 +++ b/bin/fixtures/learn-structure-403425.json
-@@ -0,0 +1,353 @@
+@@ -0,0 +1,347 @@
 +{
 + "_comment": "Learn's answer to GET https://learn.wordpress.org/wp-json/sensei-internal/v1/course-structure/403425, the Designer Track course, captured 13 September 2026 and kept whole: three modules, each with its lessons as Learn lists them (id, title, draft, preview, type, initialContent). bin/test-learn.php parses it.",
 + "response": [
@@ -132,8 +132,6 @@ index 0000000..858dfc3
 +   "id": 115363,
 +   "title": "Onboarding",
 +   "description": "Before you can contribute to WordPress, you need to know how the community works, where to find your people, and how to show up well. This module gets you set up: a WordPress.org profile, access to Slack, a shared understanding of how decisions get made in this open source project, and a first look at the design tools you'll be using throughout the program.You'll also build your own WordPress site. This becomes your portfolio, your testing ground for design experiments, and the place where you'll document your progress for the rest of the course.By the end of this module, you'll be oriented in the WordPress community and have a personal site ready to build on. From here, you'll move into the Project module, where you apply what you've learned toward a real contribution to the WordPress Design team.",
-+   "teacher": "",
-+   "teacherId": 18873666,
 +   "lastTitle": "Onboarding",
 +   "slug": "",
 +   "lessons": [
@@ -248,8 +246,6 @@ index 0000000..858dfc3
 +   "id": 115364,
 +   "title": "Project",
 +   "description": "The Project module is where WP Credits Designer track students move from getting set up to doing real design contribution work. Building on the WordPress fundamentals from Onboarding, this module introduces how the WordPress Design team works, the tools they use, and the different paths students can take to contribute, then gives students hands-on practice through a progression of Practical lessons before choosing and beginning their own contribution project.This module connects the design skills students bring (or are building) to the specific ways WordPress needs design contributions today: Figma and the Design Library, block patterns, the Photo Directory, theme reviews, workshop and meetup materials, and Gutenberg design feedback.",
-+   "teacher": "",
-+   "teacherId": 18873666,
 +   "lastTitle": "Project",
 +   "slug": "",
 +   "lessons": [
@@ -444,8 +440,6 @@ index 0000000..858dfc3
 +   "id": 115365,
 +   "title": "Wrap-up",
 +   "description": "Wrap-up is where you close out your WP Credits journey. You'll write and deliver a report on the contribution work you've done, receive your certificate, and give feedback that helps shape the program for future cohorts.This module is short by design. The real work happened in Onboarding, where you set up your portfolio and got oriented in the WordPress community, and in Project, where you built design skills and made real contributions to the WordPress Design and Test teams. Wrap-up is where you step back, reflect on that work, and formally close the loop.",
-+   "teacher": "",
-+   "teacherId": 18873666,
 +   "lastTitle": "Wrap-up",
 +   "slug": "",
 +   "lessons": [

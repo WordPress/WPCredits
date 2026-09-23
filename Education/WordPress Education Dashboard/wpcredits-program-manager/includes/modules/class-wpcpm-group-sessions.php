@@ -19,10 +19,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * they would never offer for private calls.
  *
  * **It does block that time from private booking**, though, and gets that for free: a session is a
- * `wpcpm_mentor_call` post like any other, so `WPCPM_Mentor_Calls::taken_starts()` - which the slot
- * generator subtracts - already counts it. Reusing the post type rather than inventing a second one
- * is what keeps the diary, the reminder sweep, the cancellation mail and the ICS builder working
- * with no changes at all.
+ * `wpcpm_mentor_call` post like any other, so `WPCPM_Mentor_Calls::taken_spans()` - which the slot
+ * generator tests every slot against - already counts it, for its whole length (SESSIONS-4).
+ * Reusing the post type rather than inventing a second one is what keeps the diary, the reminder
+ * sweep, the cancellation mail and the ICS builder working with no changes at all.
  *
  * **What is different is only the capacity and the attendee list.** `META_CAPACITY` above 1 marks a
  * session; attendees are repeated `META_STUDENT` rows. A call with neither reads exactly as it did
@@ -55,12 +55,16 @@ class WPCPM_Group_Sessions {
 	const META_SERIES = '_wpcpm_session_series';
 
 	/**
-	 * How many times a session has been changed since it was announced.
+	 * A session's calendar version: raised under the mentor's booking lock on every join, leave,
+	 * move and cancellation, and carried by every calendar file sent about the session.
 	 *
-	 * The number rides on the calendar invitation as its `SEQUENCE`. A calendar that already
-	 * holds the event ignores anything that does not outrank what it has, so without this an
-	 * edited session would reach a student's calendar as a duplicate of the original rather
-	 * than as a move, and they would keep the old time.
+	 * The number rides on the file as its `SEQUENCE`. A calendar that already holds the event
+	 * ignores anything that does not outrank what it has, so without this an edited session would
+	 * reach a student's calendar as a duplicate of the original rather than as a move. It used to
+	 * climb on a move alone, and a leave or a cancellation after two moves then went out below
+	 * the version the calendars held, as did a join after a leave (the deep check of 1.109.1,
+	 * SESSIONS-3): raised on every change of who is on the session and when, every file a student
+	 * is sent outranks the one before it.
 	 */
 	const META_REVISION = '_wpcpm_session_revision';
 
@@ -95,7 +99,7 @@ class WPCPM_Group_Sessions {
 	 *
 	 * The two are the same number on purpose. A number field's `step` counts from its `min`, not
 	 * from zero, so `min="1" step="5"` made the valid lengths 1, 6, 11 … 56, 61 - and rejected 60,
-	 * which was the field's own default value. Reported by Celi Garoe in prerelease testing
+	 * which was the field's own default value. Reported by a mentor in prerelease testing
 	 * (WordPress/WPCredits#166): "It does not allow for 60 minutes (but yes more or less than
 	 * that)." Keeping the floor on the grid is what makes every multiple of it valid.
 	 */
@@ -137,23 +141,140 @@ class WPCPM_Group_Sessions {
 	}
 
 	/**
-	 * The sessions one student may see: their own mentor's, upcoming.
+	 * The sessions one student's list holds: their own mentor's upcoming sessions, and any other
+	 * upcoming session they are on.
 	 *
-	 * Only their mentor's. A session is not public - it is an office hour for the students that
-	 * mentor is responsible for, and listing somebody else's would tell a student who else is on
-	 * the program.
+	 * Their mentor's to join, and no other mentor's. A session is not public - it is an office hour
+	 * for the students that mentor is responsible for, and listing somebody else's would tell a
+	 * student who else is on the program. A session of another mentor's that the student is on is
+	 * listed all the same, so they can leave it: a student re-paired with a new mentor stayed on the
+	 * old mentor's sessions with no way off them (the deep check of 1.109.1, SESSIONS-7).
 	 *
 	 * @param int $student_id Student user ID.
-	 * @return WP_Post[]
+	 * @return WP_Post[] Soonest first.
 	 */
 	public static function for_student( $student_id ) {
 		$mentor = WPCPM_Mentor_Calls::mentor_for_student( $student_id );
+		$out    = $mentor instanceof WP_User ? self::for_mentor( $mentor->ID ) : array();
+		$listed = array();
 
-		if ( ! $mentor instanceof WP_User ) {
-			return array();
+		foreach ( $out as $session ) {
+			$listed[ $session->ID ] = true;
 		}
 
-		return self::for_mentor( $mentor->ID );
+		foreach ( WPCPM_Mentor_Calls::for_student( $student_id, true ) as $call ) {
+			if ( ! isset( $listed[ $call->ID ] ) && WPCPM_Mentor_Calls::capacity( $call->ID ) > 1 ) {
+				$out[]               = $call;
+				$listed[ $call->ID ] = true;
+			}
+		}
+
+		usort(
+			$out,
+			function ( $a, $b ) {
+				return (int) get_post_meta( $a->ID, WPCPM_Mentor_Calls::META_START, true ) - (int) get_post_meta( $b->ID, WPCPM_Mentor_Calls::META_START, true );
+			}
+		);
+
+		return $out;
+	}
+
+	/**
+	 * Take a re-paired student off the upcoming sessions of the mentor they no longer have, with the
+	 * mail that takes each out of their calendar, once the re-pairing is settled.
+	 *
+	 * Nothing took a student off a session when their mentor changed, so a student moved mid-semester
+	 * kept a weekly series' reminders and calendar entries for as long as it ran (the deep check of
+	 * 1.109.1, SESSIONS-7). The students sync calls this for every student once it has written their
+	 * mentor card.
+	 *
+	 * **Settled only.** The two sides of a pairing are written by two syncs and either can be the
+	 * stale one (`WPCPM_Mentor_Calls::mentor_for_student()`), so nothing is done until they agree:
+	 * the student's card names a mentor whose list holds the student, and the list of the mentor
+	 * whose session it is does not. A session under way is left alone, as a Leave is refused on one,
+	 * and one whose mentor's booking lock is held is tried again by the next run.
+	 *
+	 * @param int $student_id Student user ID.
+	 * @return int How many sessions the student was taken off.
+	 */
+	public static function leave_former( $student_id ) {
+		$student_id = (int) $student_id;
+		$record     = WPCPM_Mentor_Calls::student_record( $student_id );
+
+		if ( '' === $record ) {
+			return 0;
+		}
+
+		// The sessions the student is on, if any: most students are on none, and this query is all
+		// they cost the sync.
+		$on = array();
+
+		foreach ( WPCPM_Mentor_Calls::for_student( $student_id, true ) as $call ) {
+			if ( WPCPM_Mentor_Calls::capacity( $call->ID ) > 1 ) {
+				$on[] = $call;
+			}
+		}
+
+		if ( array() === $on ) {
+			return 0;
+		}
+
+		$mentor_id = self::settled_mentor( $student_id, $record );
+
+		if ( 0 === $mentor_id ) {
+			return 0;
+		}
+
+		$left = 0;
+
+		foreach ( $on as $call ) {
+			$former = (int) get_post_meta( $call->ID, WPCPM_Mentor_Calls::META_MENTOR, true );
+
+			// Their own mentor's session, or one whose mentor's list still holds them: a student with
+			// two mentors, or a list the mentors sync has not rewritten yet.
+			if ( $former === $mentor_id || null !== WPCPM_Mentor_Calls::mentee_row( $former, $record ) ) {
+				continue;
+			}
+
+			if ( '' === self::take_off( $call->ID, $student_id, true ) ) {
+				++$left;
+			}
+		}
+
+		return $left;
+	}
+
+	/**
+	 * The mentor a student's pairing has settled on, or 0 while the two sides disagree.
+	 *
+	 * The student's card names the mentor, and that mentor's list has to hold the student: the card
+	 * alone may be ahead of the list, which the mentors sync writes, and is not yet a settled
+	 * re-pairing (SESSIONS-7).
+	 *
+	 * @param int    $student_id Student user ID.
+	 * @param string $record     Their Airtable record ID.
+	 * @return int Mentor user ID, or 0.
+	 */
+	private static function settled_mentor( $student_id, $record ) {
+		$card  = WPCPM_Students_Sync::get_mentor( $student_id );
+		$named = isset( $card['record_id'] ) ? trim( (string) $card['record_id'] ) : '';
+
+		if ( '' === $named ) {
+			return 0;
+		}
+
+		// `'ID'` rows, read through `id_of()`: on this site they arrive as `stdClass`.
+		$found     = get_users(
+			array(
+				'meta_key'   => WPCPM_Mentors_Sync::META_RECORD_ID,
+				'meta_value' => $named,
+				'number'     => 1,
+				'fields'     => 'ID',
+			)
+		);
+		$mentor_id = ! empty( $found[0] ) ? WPCPM_Roles::id_of( $found[0] ) : 0;
+
+		return ( $mentor_id > 0 && null !== WPCPM_Mentor_Calls::mentee_row( $mentor_id, $record ) ) ? $mentor_id : 0;
 	}
 
 	/**
@@ -175,6 +296,21 @@ class WPCPM_Group_Sessions {
 	 */
 	public static function series_of( $call_id ) {
 		return (int) get_post_meta( (int) $call_id, self::META_SERIES, true );
+	}
+
+	/**
+	 * Raise a session's calendar version and answer it: called under the mentor's booking lock, so
+	 * two presses at once cannot count the same version, which a calendar would then ignore.
+	 *
+	 * @param int $call_id Session post ID.
+	 * @return int The version every file about this change carries (SESSIONS-3).
+	 */
+	public static function next_revision( $call_id ) {
+		$revision = (int) get_post_meta( (int) $call_id, self::META_REVISION, true ) + 1;
+
+		update_post_meta( (int) $call_id, self::META_REVISION, $revision );
+
+		return $revision;
 	}
 
 	/**
@@ -251,15 +387,18 @@ class WPCPM_Group_Sessions {
 	 * Create a session.
 	 */
 	public static function handle_create() {
-		check_admin_referer( self::ACTION_CREATE );
-
 		$mentor_id = isset( $_POST['mentor'] ) ? absint( wp_unslash( $_POST['mentor'] ) ) : 0;
 
 		// The same gate the availability form uses: the mentor themselves, or a program manager
 		// acting for them. Anything else is somebody creating a session on another mentor's diary.
+		// Asked before the nonce, as the tools' `verify()` does, so somebody without the right is
+		// told so rather than shown WordPress's expired-link screen (the deep check of 1.109.1,
+		// SESSIONS-14); the posted mentor decides nothing until both have passed.
 		if ( ! WPCPM_Mentor_Availability::user_can_edit( $mentor_id ) ) {
 			wp_die( esc_html__( 'You cannot create a session for that mentor.', 'wpcredits-program-manager' ), 403 );
 		}
+
+		check_admin_referer( self::ACTION_CREATE );
 
 		// Sanitized *and* validated: `sanitize_text_field()` for the shape, then `date_string()` and
 		// `time_string()`, which return an empty string for anything that is not a real date or a
@@ -361,11 +500,14 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'busy' );
 		}
 
-		// Nothing else of this mentor's may start at the same moment, in either direction: a
-		// session over a booked call would double-book the mentor, and two sessions at once is a
-		// mistake rather than a plan. One read of the diary covers the whole list.
-		$starts = $planned['starts'];
-		$clash  = self::first_clash( $starts, WPCPM_Mentor_Calls::taken_starts( $mentor_id, min( $starts ), max( $starts ) ) );
+		// Nothing else of this mentor's may run at any moment of a planned session, in either
+		// direction: a session over a booked call would double-book the mentor, and two sessions
+		// at once is a mistake rather than a plan. Tested as overlap of the whole length, not as a
+		// shared start, which let a session over a call starting at another minute through (the
+		// deep check of 1.109.1, SESSIONS-4). One read of the diary covers the whole list.
+		$starts  = $planned['starts'];
+		$seconds = $minutes * MINUTE_IN_SECONDS;
+		$clash   = self::first_clash( $starts, $seconds, WPCPM_Mentor_Calls::taken_spans( $mentor_id, min( $starts ), max( $starts ) + $seconds ) );
 
 		if ( $clash > 0 ) {
 			WPCPM_Mentor_Calls::unlock_for( $mentor_id );
@@ -553,15 +695,16 @@ class WPCPM_Group_Sessions {
 	}
 
 	/**
-	 * The first of the starts the mentor already holds, or 0.
+	 * The first of the starts whose session would overlap something the mentor already holds, or 0.
 	 *
-	 * @param int[]           $starts Timestamps.
-	 * @param array<int,bool> $taken  The starts already held, as `WPCPM_Mentor_Calls::taken_starts()` keys them.
+	 * @param int[]   $starts  Timestamps.
+	 * @param int     $seconds How long each session runs.
+	 * @param array[] $taken   What the mentor holds, as `WPCPM_Mentor_Calls::taken_spans()` answers it.
 	 * @return int
 	 */
-	public static function first_clash( array $starts, array $taken ) {
+	public static function first_clash( array $starts, $seconds, array $taken ) {
 		foreach ( $starts as $start_ts ) {
-			if ( isset( $taken[ (int) $start_ts ] ) ) {
+			if ( WPCPM_Mentor_Calls::overlaps( (int) $start_ts, (int) $start_ts + (int) $seconds, $taken ) ) {
 				return (int) $start_ts;
 			}
 		}
@@ -685,23 +828,22 @@ class WPCPM_Group_Sessions {
 	 * is now wrong and no reason to look again.
 	 */
 	public static function handle_edit() {
-		$call_id = isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0;
-
-		check_admin_referer( self::ACTION_EDIT . '_' . $call_id );
-
-		$call = self::session( $call_id );
-
-		if ( null === $call ) {
-			self::bounce( 'session-gone' );
-		}
-
-		$mentor_id = (int) get_post_meta( $call->ID, WPCPM_Mentor_Calls::META_MENTOR, true );
+		$call_id   = isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0;
+		$call      = self::session( $call_id );
+		$mentor_id = null === $call ? 0 : (int) get_post_meta( $call->ID, WPCPM_Mentor_Calls::META_MENTOR, true );
 
 		// The same gate as creating one: the mentor themselves, or a program manager acting for
 		// them. Read from the session rather than from the form, so a posted mentor ID decides
-		// nothing.
-		if ( ! WPCPM_Mentor_Availability::user_can_edit( $mentor_id ) ) {
+		// nothing, and asked before the nonce (SESSIONS-14). A session that is gone has no mentor
+		// to ask about, and is answered once the nonce has passed.
+		if ( null !== $call && ! WPCPM_Mentor_Availability::user_can_edit( $mentor_id ) ) {
 			wp_die( esc_html__( 'You cannot change that session.', 'wpcredits-program-manager' ), 403 );
+		}
+
+		check_admin_referer( self::ACTION_EDIT . '_' . $call_id );
+
+		if ( null === $call ) {
+			self::bounce( 'session-gone' );
 		}
 
 		$date     = isset( $_POST['date'] ) ? WPCPM_Mentor_Availability::date_string( sanitize_text_field( wp_unslash( $_POST['date'] ) ) ) : '';
@@ -721,13 +863,6 @@ class WPCPM_Group_Sessions {
 
 		if ( $capacity < self::MIN_CAPACITY || $capacity > self::MAX_CAPACITY ) {
 			self::bounce( 'session-capacity' );
-		}
-
-		$facts = WPCPM_Mentor_Calls::details( $call );
-		$taken = count( $facts['attendees'] );
-
-		if ( $capacity < $taken ) {
-			self::bounce( 'session-shrink' );
 		}
 
 		$zone  = WPCPM_Mentor_Availability::timezone( WPCPM_Mentor_Availability::get( $mentor_id )['timezone'] );
@@ -758,17 +893,46 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'busy' );
 		}
 
-		// Anything else of this mentor's starting at that moment. `taken_starts()` cannot answer
-		// this one, because it reports which instants are taken and not by what, and every
-		// session clashes with itself.
-		if ( self::clashes_with_another( $mentor_id, $start_ts, $call->ID ) ) {
+		// The session and the students on it, read under the lock and from the table rather than
+		// from the copy read above. A join landing between the page and the lock was not seen, and
+		// left more students than places (the deep check of 1.109.1, SESSIONS-9); a cancellation
+		// landing there was moved anyway, and its invitation put the canceled session back in every
+		// student's calendar (the same race as SESSIONS-5's).
+		WPCPM_Mentor_Calls::forget_cached( $call->ID );
+
+		$call = self::session( $call->ID );
+
+		if ( null === $call ) {
+			WPCPM_Mentor_Calls::unlock_for( $mentor_id );
+			self::bounce( 'session-gone' );
+		}
+
+		$facts = WPCPM_Mentor_Calls::details( $call );
+		$taken = count( $facts['attendees'] );
+
+		if ( $capacity < $taken ) {
+			WPCPM_Mentor_Calls::unlock_for( $mentor_id );
+			self::bounce( 'session-shrink' );
+		}
+
+		$end_ts    = $start_ts + ( $minutes * MINUTE_IN_SECONDS );
+		$was_start = (int) $facts['start'];
+		$was_end   = (int) $facts['end'];
+
+		// Only when the time actually moved. Correcting a typo in the topic should not put an
+		// email in front of everybody on the session, and a calendar that gets an update for an
+		// event that did not change teaches people to ignore the next one.
+		$moved = $start_ts !== $was_start || $end_ts !== $was_end;
+
+		// Anything else of this mentor's running at any moment of the new time, tested as overlap
+		// rather than as a shared start (SESSIONS-4). The session being moved is left out of the
+		// read, since every session overlaps itself. Only a change of the time is tested: a session
+		// that already overlaps something, as one planned before the span rule may, refused every
+		// change of its topic or its places otherwise (the fix round of SESSIONS-4).
+		if ( $moved && self::clashes_with_another( $mentor_id, $start_ts, $end_ts, $call->ID ) ) {
 			WPCPM_Mentor_Calls::unlock_for( $mentor_id );
 			self::bounce( 'session-clash' );
 		}
-
-		$was_start = (int) $facts['start'];
-		$was_end   = (int) $facts['end'];
-		$end_ts    = $start_ts + ( $minutes * MINUTE_IN_SECONDS );
 
 		wp_update_post(
 			array(
@@ -787,17 +951,17 @@ class WPCPM_Group_Sessions {
 		update_post_meta( $call->ID, WPCPM_Mentor_Calls::META_CAPACITY, $capacity );
 		update_post_meta( $call->ID, WPCPM_Mentor_Calls::META_ZONE, $zone->getName() );
 
-		// Only when the time actually moved. Correcting a typo in the topic should not put an
-		// email in front of everybody on the session, and a calendar that gets an update for an
-		// event that did not change teaches people to ignore the next one.
-		$moved    = $start_ts !== $was_start || $end_ts !== $was_end;
 		$revision = 0;
 
 		if ( $moved ) {
 			// Under the lock still, so two changes pressed at once cannot count the same revision,
 			// which a calendar would then ignore (the review of 1.109.1).
-			$revision = (int) get_post_meta( $call->ID, self::META_REVISION, true ) + 1;
-			update_post_meta( $call->ID, self::META_REVISION, $revision );
+			$revision = self::next_revision( $call->ID );
+
+			// The reminder sweep marks a session it has reminded and never reads it again, so a
+			// session moved after its reminder went out was never reminded before the new time
+			// (the deep check of 1.109.1, SESSIONS-10). The mark goes with the old time.
+			delete_post_meta( $call->ID, WPCPM_Mentor_Calls::META_REMINDED );
 		}
 
 		// Released once the session and its revision are written and before anybody is written
@@ -813,41 +977,20 @@ class WPCPM_Group_Sessions {
 	}
 
 	/**
-	 * Whether anything else of this mentor's starts at that moment.
+	 * Whether anything else of this mentor's runs at any moment of a proposed time.
 	 *
-	 * `taken_starts()` answers with the timestamps that are taken, which cannot say *which*
-	 * booking holds one. For an edit that is the whole question, so the sessions and calls at
-	 * that instant are read back and the one being moved is discounted.
+	 * For an edit the session being moved has to be discounted, or it would clash with itself, so
+	 * the diary is read without it and the rest tested for overlap: a change onto a time another
+	 * call runs through, starting at another minute, used to be accepted (SESSIONS-4).
 	 *
 	 * @param int $mentor_id The mentor.
 	 * @param int $start_ts  The proposed start.
+	 * @param int $end_ts    The proposed end.
 	 * @param int $except    The session being moved.
 	 * @return bool
 	 */
-	private static function clashes_with_another( $mentor_id, $start_ts, $except ) {
-		$others = get_posts(
-			array(
-				'post_type'        => WPCPM_Mentor_Calls::POST_TYPE,
-				'post_status'      => 'private',
-				'numberposts'      => -1,
-				'fields'           => 'ids',
-				'exclude'          => array( (int) $except ),
-				'suppress_filters' => false,
-				'meta_query'       => array(
-					'relation' => 'AND',
-					array(
-						'key'   => WPCPM_Mentor_Calls::META_MENTOR,
-						'value' => (int) $mentor_id,
-					),
-					array(
-						'key'   => WPCPM_Mentor_Calls::META_START,
-						'value' => (int) $start_ts,
-					),
-				),
-			)
-		);
-
-		return ! empty( $others );
+	private static function clashes_with_another( $mentor_id, $start_ts, $end_ts, $except ) {
+		return WPCPM_Mentor_Calls::overlaps( $start_ts, $end_ts, WPCPM_Mentor_Calls::taken_spans( $mentor_id, $start_ts, $end_ts, (int) $except ) );
 	}
 
 	/*
@@ -859,11 +1002,13 @@ class WPCPM_Group_Sessions {
 	 * Join a session.
 	 */
 	public static function handle_join() {
-		check_admin_referer( self::ACTION_JOIN );
-
+		// Before the nonce: a student whose login lapsed while the page sat open is told to log in,
+		// not that the link has expired (the deep check of 1.109.1, SURFACES-4).
 		if ( ! is_user_logged_in() ) {
 			wp_die( esc_html__( 'Please log in to join a session.', 'wpcredits-program-manager' ), 403 );
 		}
+
+		check_admin_referer( self::ACTION_JOIN );
 
 		$student_id = self::acting_student();
 		$call       = self::session( isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0 );
@@ -901,6 +1046,25 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'busy' );
 		}
 
+		// Read again under the lock, from the table rather than from the copy read above: a
+		// cancellation landing between the page and the lock left the student on a canceled
+		// session with an invitation and no cancellation (the deep check of 1.109.1, SESSIONS-5).
+		WPCPM_Mentor_Calls::forget_cached( $call->ID );
+
+		if ( null === self::session( $call->ID ) ) {
+			WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
+			self::bounce( 'session-gone' );
+		}
+
+		// A second press of the same Join lands here after the first took the place: nothing is
+		// added, so nothing is raised and nobody is sent a second invitation. Asked before the room,
+		// since the first press may have taken the last place, and the student then on it was told
+		// the session is full (the fix round of SESSIONS-3).
+		if ( self::has_joined( $call->ID, $student_id ) ) {
+			WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
+			self::bounce( 'session-already' );
+		}
+
 		if ( ! WPCPM_Mentor_Calls::has_room( $call->ID ) ) {
 			WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
 			self::bounce( 'session-full' );
@@ -908,9 +1072,13 @@ class WPCPM_Group_Sessions {
 
 		WPCPM_Mentor_Calls::add_attendee( $call->ID, $student_id, WPCPM_Mentor_Calls::student_record( $student_id ) );
 
+		// Raised with the join, so the invitation outranks a cancellation the student was sent for
+		// this session before, and the mentor's copy outranks the last join's (SESSIONS-3).
+		$revision = self::next_revision( $call->ID );
+
 		WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
 
-		WPCPM_Mentor_Calls::notify_joined( $call->ID, $mentor, get_user_by( 'id', $student_id ) );
+		WPCPM_Mentor_Calls::notify_joined( $call->ID, $mentor, get_user_by( 'id', $student_id ), $revision );
 
 		self::bounce( 'session-joined' );
 	}
@@ -924,7 +1092,8 @@ class WPCPM_Group_Sessions {
 	 * @param WP_Post[] $sessions   The series' upcoming sessions, soonest first.
 	 * @param int       $student_id The student.
 	 * @return array `take` (WP_Post[]), `full` (how many had no place, a session that has started
-	 *               among them) and `on` (how many they are on).
+	 *               among them) and `on` (how many they are on). A session canceled since the list
+	 *               was read is in none of the three.
 	 */
 	public static function joinable( array $sessions, $student_id ) {
 		$take = array();
@@ -932,6 +1101,13 @@ class WPCPM_Group_Sessions {
 		$on   = 0;
 
 		foreach ( $sessions as $session ) {
+			// The list is read before the lock and this under it, so a session canceled in between
+			// is still in the list; its status is read here, and a canceled session is neither a
+			// place nor a full one (the deep check of 1.109.1, SESSIONS-5).
+			if ( 'private' !== get_post_status( $session->ID ) ) {
+				continue;
+			}
+
 			if ( self::has_joined( $session->ID, $student_id ) ) {
 				++$on;
 				continue;
@@ -970,11 +1146,12 @@ class WPCPM_Group_Sessions {
 	 * session taken, in one calendar file.
 	 */
 	public static function handle_join_series() {
-		check_admin_referer( self::ACTION_JOIN_SERIES );
-
+		// Before the nonce, as a single join asks it (SURFACES-4).
 		if ( ! is_user_logged_in() ) {
 			wp_die( esc_html__( 'Please log in to join a session.', 'wpcredits-program-manager' ), 403 );
 		}
+
+		check_admin_referer( self::ACTION_JOIN_SERIES );
 
 		$student_id = self::acting_student();
 		$series_id  = isset( $_POST['series'] ) ? absint( wp_unslash( $_POST['series'] ) ) : 0;
@@ -1001,31 +1178,44 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'busy' );
 		}
 
+		// Every session is read again under the lock, from the table rather than from the copies
+		// read above, so a place taken or a session canceled in between is seen (SESSIONS-5).
+		foreach ( $sessions as $session ) {
+			WPCPM_Mentor_Calls::forget_cached( $session->ID );
+		}
+
 		$plan = self::joinable( $sessions, $student_id );
+
+		// How many of the series' sessions still stand: one canceled since the list was read is in
+		// none of the plan's counts, and the message must not count it either.
+		$standing = count( $plan['take'] ) + $plan['full'] + $plan['on'];
 
 		if ( array() === $plan['take'] ) {
 			WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
 			self::bounce( 'series-nothing' );
 		}
 
-		$record = WPCPM_Mentor_Calls::student_record( $student_id );
-		$taken  = array();
+		$record    = WPCPM_Mentor_Calls::student_record( $student_id );
+		$taken     = array();
+		$revisions = array();
 
 		// Counted from what `add_attendee()` says it did, not from what was planned (the final
 		// review of 1.108.0): it refuses a student already on the session, and a message naming a
-		// place that was not taken would send a calendar file that does not match the list.
+		// place that was not taken would send a calendar file that does not match the list. Each
+		// session taken has its own version raised, which its event in the file carries (SESSIONS-3).
 		foreach ( $plan['take'] as $session ) {
 			if ( WPCPM_Mentor_Calls::add_attendee( $session->ID, $student_id, $record ) ) {
-				$taken[] = (int) $session->ID;
+				$taken[]                         = (int) $session->ID;
+				$revisions[ (int) $session->ID ] = self::next_revision( $session->ID );
 			}
 		}
 
 		WPCPM_Mentor_Calls::unlock_for( $mentor->ID );
 
-		WPCPM_Mentor_Calls::notify_joined_series( $taken, $mentor, get_user_by( 'id', $student_id ) );
+		WPCPM_Mentor_Calls::notify_joined_series( $taken, $mentor, get_user_by( 'id', $student_id ), $revisions );
 
 		if ( $plan['full'] > 0 ) {
-			self::bounce( 'series-joined-some', array( count( $taken ) + $plan['on'], count( $sessions ), $plan['full'] ) );
+			self::bounce( 'series-joined-some', array( count( $taken ) + $plan['on'], $standing, $plan['full'] ) );
 		}
 
 		// "All N" is how many the student is on, which is what this press took plus what they were
@@ -1040,11 +1230,12 @@ class WPCPM_Group_Sessions {
 	 * leaving is told - and the place they free goes straight back.
 	 */
 	public static function handle_leave() {
-		check_admin_referer( self::ACTION_LEAVE );
-
+		// Before the nonce, as joining asks it (SURFACES-4).
 		if ( ! is_user_logged_in() ) {
 			wp_die( esc_html__( 'Please log in to leave a session.', 'wpcredits-program-manager' ), 403 );
 		}
+
+		check_admin_referer( self::ACTION_LEAVE );
 
 		$student_id = self::acting_student();
 		$call       = self::session( isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0 );
@@ -1053,10 +1244,57 @@ class WPCPM_Group_Sessions {
 			self::bounce( 'session-gone' );
 		}
 
-		WPCPM_Mentor_Calls::remove_attendee( $call->ID, $student_id, WPCPM_Mentor_Calls::student_record( $student_id ) );
-		WPCPM_Mentor_Calls::notify_left( $call->ID, $student_id );
+		$outcome = self::take_off( $call->ID, $student_id );
 
-		self::bounce( 'session-left' );
+		self::bounce( '' === $outcome ? 'session-left' : $outcome );
+	}
+
+	/**
+	 * Take a student off a session under its mentor's booking lock, and send them the file that
+	 * takes it out of their calendar.
+	 *
+	 * Under the lock because a join, a change and a cancellation of the same session each read and
+	 * write who is on it, and a leave landing between one of them and its write was not seen (the
+	 * deep check of 1.109.1, SESSIONS-5). What is decided on is read again once the lock is held:
+	 * the session still open, and the student still on it.
+	 *
+	 * @param int  $call_id    Session post ID.
+	 * @param int  $student_id The student.
+	 * @param bool $repaired   Whether the students sync is taking them off, their pairing having
+	 *                         settled on a new mentor, so the mail says so (SESSIONS-7).
+	 * @return string '' once they are off it; `busy` when the lock is held; `session-gone` when the
+	 *                session is no longer open or they are not on it.
+	 */
+	private static function take_off( $call_id, $student_id, $repaired = false ) {
+		$call_id    = (int) $call_id;
+		$student_id = (int) $student_id;
+		$mentor_id  = (int) get_post_meta( $call_id, WPCPM_Mentor_Calls::META_MENTOR, true );
+
+		if ( ! WPCPM_Mentor_Calls::lock_for( $mentor_id ) ) {
+			return 'busy';
+		}
+
+		WPCPM_Mentor_Calls::forget_cached( $call_id );
+
+		if ( null === self::session( $call_id ) || ! self::has_joined( $call_id, $student_id ) ) {
+			WPCPM_Mentor_Calls::unlock_for( $mentor_id );
+
+			return 'session-gone';
+		}
+
+		WPCPM_Mentor_Calls::remove_attendee( $call_id, $student_id, WPCPM_Mentor_Calls::student_record( $student_id ) );
+
+		// Raised with the leave, so the cancellation outranks every invitation and move the student
+		// was sent for this session (SESSIONS-3).
+		$revision = self::next_revision( $call_id );
+
+		// Released before anybody is written to, as every other press does: a lock left behind
+		// would close the mentor's calendar until it timed out.
+		WPCPM_Mentor_Calls::unlock_for( $mentor_id );
+
+		WPCPM_Mentor_Calls::notify_left( $call_id, $student_id, $revision, $repaired );
+
+		return '';
 	}
 
 
@@ -1065,10 +1303,7 @@ class WPCPM_Group_Sessions {
 	 */
 	public static function handle_note() {
 		$call_id = isset( $_POST['session'] ) ? absint( wp_unslash( $_POST['session'] ) ) : 0;
-
-		check_admin_referer( self::ACTION_NOTE . '_' . $call_id );
-
-		$call = get_post( $call_id );
+		$call    = get_post( $call_id );
 
 		if ( ! $call instanceof WP_Post || WPCPM_Mentor_Calls::POST_TYPE !== $call->post_type ) {
 			wp_die( esc_html__( 'That session does not exist.', 'wpcredits-program-manager' ), 404 );
@@ -1077,10 +1312,13 @@ class WPCPM_Group_Sessions {
 		$mentor_id = (int) get_post_meta( $call->ID, WPCPM_Mentor_Calls::META_MENTOR, true );
 
 		// The mentor whose session it is, or a program manager. `add_for_records()` checks access to
-		// every attendee as well, so this is the outer of two gates rather than the only one.
+		// every attendee as well, so this is the outer of two gates rather than the only one. Asked
+		// before the nonce (SESSIONS-14).
 		if ( ! WPCPM_Mentor_Availability::user_can_edit( $mentor_id ) ) {
 			wp_die( esc_html__( 'You cannot add notes for that session.', 'wpcredits-program-manager' ), 403 );
 		}
+
+		check_admin_referer( self::ACTION_NOTE . '_' . $call_id );
 
 		$note = isset( $_POST['note'] ) ? sanitize_textarea_field( wp_unslash( $_POST['note'] ) ) : '';
 
@@ -1090,7 +1328,13 @@ class WPCPM_Group_Sessions {
 			WPCPM_Mentor_Calls::attendee_records( $call->ID )
 		);
 
-		self::bounce( is_wp_error( $saved ) ? 'session-note-failed' : 'session-noted' );
+		// A note refused for somebody on the session says so, in the words the refusal carries,
+		// rather than as the one flash every failure shared (the deep check of 1.109.1, SESSIONS-7).
+		if ( is_wp_error( $saved ) ) {
+			self::bounce( 'wpcpm_note_denied' === $saved->get_error_code() ? 'session-note-denied' : 'session-note-failed' );
+		}
+
+		self::bounce( 'session-noted' );
 	}
 
 	/*
@@ -1304,30 +1548,45 @@ class WPCPM_Group_Sessions {
 	 *
 	 * @param WP_User $student           The student.
 	 * @param bool    $viewer_is_student Whether the person looking is the student themselves.
+	 * @param bool    $can_manage        Whether the person looking manages the program, and may take
+	 *                                   the student off a session on their behalf (HOTFIX-1).
 	 */
-	public static function render_student_list( WP_User $student, $viewer_is_student ) {
+	public static function render_student_list( WP_User $student, $viewer_is_student, $can_manage = false ) {
 		$sessions = self::for_student( $student->ID );
 
 		if ( empty( $sessions ) ) {
 			return;
 		}
 
-		$zone = WPCPM_Mentor_Availability::viewer_timezone( $student->ID );
+		$zone   = WPCPM_Mentor_Availability::viewer_timezone( $student->ID );
+		$mentor = WPCPM_Mentor_Calls::mentor_for_student( $student->ID );
+		$own    = $mentor instanceof WP_User ? (int) $mentor->ID : 0;
+
+		// A session of another mentor's is on the list only because the student is on it, to leave
+		// it (SESSIONS-7), and then the heading cannot say every session is their mentor's.
+		$elsewhere = false;
+
+		foreach ( $sessions as $session ) {
+			if ( (int) get_post_meta( $session->ID, WPCPM_Mentor_Calls::META_MENTOR, true ) !== $own ) {
+				$elsewhere = true;
+				break;
+			}
+		}
 
 		echo '<div class="wpcpm-sessions wpcpm-sessions--student">';
 
 		printf(
 			'<h4 class="wpcpm-calls__subheading">%s</h4>',
-			esc_html__( 'Group sessions with your mentor', 'wpcredits-program-manager' )
+			esc_html( $elsewhere ? __( 'Group sessions', 'wpcredits-program-manager' ) : __( 'Group sessions with your mentor', 'wpcredits-program-manager' ) )
 		);
 
 		echo '<ul class="wpcpm-sessions__list">';
 
 		foreach ( self::grouped( $sessions ) as $group ) {
 			if ( $group['series'] > 0 ) {
-				self::render_series( $group['sessions'], $zone, false, $student, $viewer_is_student );
+				self::render_series( $group['sessions'], $zone, false, $student, $viewer_is_student, $own, $can_manage );
 			} else {
-				self::render_session_row( $group['sessions'][0], $zone, false, $student, $viewer_is_student );
+				self::render_session_row( $group['sessions'][0], $zone, false, $student, $viewer_is_student, null, $own, $can_manage );
 			}
 		}
 
@@ -1380,8 +1639,12 @@ class WPCPM_Group_Sessions {
 	 * @param bool         $for_mentor        Whether this is the mentor's own list.
 	 * @param WP_User|null $student           The student, on their list.
 	 * @param bool         $viewer_is_student Whether the viewer may join or leave.
+	 * @param int          $own_mentor        On a student's list, their own mentor, whose sessions
+	 *                                        they may join (SESSIONS-7).
+	 * @param bool         $can_manage        On a student's list, whether the viewer manages the
+	 *                                        program and may take the student off (HOTFIX-1).
 	 */
-	private static function render_series( array $sessions, DateTimeZone $zone, $for_mentor, $student = null, $viewer_is_student = false ) {
+	private static function render_series( array $sessions, DateTimeZone $zone, $for_mentor, $student = null, $viewer_is_student = false, $own_mentor = 0, $can_manage = false ) {
 		$first = reset( $sessions );
 		$topic = trim( (string) $first->post_content );
 
@@ -1397,8 +1660,11 @@ class WPCPM_Group_Sessions {
 
 		// Join all, while there is a session of the series the student is not on that has a place
 		// (the design's section 5). Not drawn for the mentor, nor for somebody looking over a
-		// student's shoulder.
-		if ( ! $for_mentor && $viewer_is_student && $student instanceof WP_User && array() !== self::joinable( $sessions, $student->ID )['take'] ) {
+		// student's shoulder, nor on another mentor's series, which is only on the list for the
+		// sessions of it the student may leave (SESSIONS-7).
+		$theirs = (int) get_post_meta( $first->ID, WPCPM_Mentor_Calls::META_MENTOR, true ) === (int) $own_mentor;
+
+		if ( ! $for_mentor && $viewer_is_student && $theirs && $student instanceof WP_User && array() !== self::joinable( $sessions, $student->ID )['take'] ) {
 			printf(
 				'<form class="wpcpm-sessions__join wpcpm-sessions__join--series" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
 				esc_url( admin_url( 'admin-post.php' ) ),
@@ -1418,7 +1684,7 @@ class WPCPM_Group_Sessions {
 		echo '<ul class="wpcpm-sessions__list wpcpm-sessions__list--series">';
 
 		foreach ( $sessions as $session ) {
-			self::render_session_row( $session, $zone, $for_mentor, $student, $viewer_is_student, $topic );
+			self::render_session_row( $session, $zone, $for_mentor, $student, $viewer_is_student, $topic, $own_mentor, $can_manage );
 		}
 
 		echo '</ul>';
@@ -1436,10 +1702,15 @@ class WPCPM_Group_Sessions {
 	 * @param string|null  $series_topic      The heading's topic when the row sits under a series
 	 *                                        heading, which carries the topic for all of them; null
 	 *                                        for a row of its own.
+	 * @param int          $own_mentor        On a student's list, their own mentor, whose sessions
+	 *                                        they may join (SESSIONS-7).
+	 * @param bool         $can_manage        On a student's list, whether the viewer manages the
+	 *                                        program and may take the student off (HOTFIX-1).
 	 */
-	private static function render_session_row( WP_Post $session, DateTimeZone $zone, $for_mentor, $student = null, $viewer_is_student = false, $series_topic = null ) {
+	private static function render_session_row( WP_Post $session, DateTimeZone $zone, $for_mentor, $student = null, $viewer_is_student = false, $series_topic = null, $own_mentor = 0, $can_manage = false ) {
 		$facts  = WPCPM_Mentor_Calls::details( $session );
 		$joined = ( $student instanceof WP_User ) && self::has_joined( $session->ID, $student->ID );
+		$theirs = (int) $facts['mentor_id'] === (int) $own_mentor;
 
 		// The list keeps a session for an hour after it starts, so a late student still finds
 		// the link; the row must not then read "in 20 mins" or offer a Join the handler refuses
@@ -1465,6 +1736,25 @@ class WPCPM_Group_Sessions {
 					)
 			)
 		);
+
+		// Another mentor's session is on a student's list only because they are on it, after a
+		// re-pairing (SESSIONS-7): it says whose it is, since the student's mentor is somebody else.
+		if ( ! $for_mentor && ! $theirs ) {
+			$runs = get_user_by( 'id', (int) $facts['mentor_id'] );
+
+			if ( $runs instanceof WP_User ) {
+				printf(
+					'<p class="wpcpm-call__who">%s</p>',
+					esc_html(
+						sprintf(
+							/* translators: %s: mentor's name. */
+							__( 'With %s', 'wpcredits-program-manager' ),
+							$runs->display_name
+						)
+					)
+				);
+			}
+		}
 
 		// The count, and for a student whether there is room. "Full" is the one fact that decides
 		// whether reading any further is worth their time.
@@ -1496,9 +1786,17 @@ class WPCPM_Group_Sessions {
 			self::render_note_form( $session, $facts );
 			self::render_mentor_actions( $session, $facts );
 		} elseif ( $viewer_is_student && $student instanceof WP_User ) {
-			self::render_student_actions( $session, $facts, $student, $joined, $started );
+			self::render_student_actions( $session, $facts, $student, $joined, $started, $theirs );
 		} elseif ( $joined ) {
 			printf( '<p class="wpcpm-sessions__state">%s</p>', esc_html__( 'They are on this session.', 'wpcredits-program-manager' ) );
+
+			// A program manager reading the student's page may take them off, which `handle_leave()`
+			// already does for a manager on the student posted: the page offered them only the
+			// call list's Cancel, which canceled the session for everybody (the deep check of
+			// 1.109.1, HOTFIX-1).
+			if ( $can_manage && $student instanceof WP_User && ! $started ) {
+				self::render_leave_form( $session, $student, __( 'Take them off the session', 'wpcredits-program-manager' ), __( 'Take them off this session? Their place goes back.', 'wpcredits-program-manager' ) );
+			}
 		}
 
 		echo '</li>';
@@ -1748,13 +2046,15 @@ class WPCPM_Group_Sessions {
 	/**
 	 * The student's controls: join, or leave.
 	 *
-	 * @param WP_Post $session The session.
-	 * @param array   $facts   From `details()`.
-	 * @param WP_User $student The student.
-	 * @param bool    $joined  Whether they are already on it.
-	 * @param bool    $started Whether it has started.
+	 * @param WP_Post $session  The session.
+	 * @param array   $facts    From `details()`.
+	 * @param WP_User $student  The student.
+	 * @param bool    $joined   Whether they are already on it.
+	 * @param bool    $started  Whether it has started.
+	 * @param bool    $may_join Whether it is their own mentor's, and so theirs to join: another
+	 *                          mentor's session is theirs to leave only (SESSIONS-7).
 	 */
-	private static function render_student_actions( WP_Post $session, array $facts, WP_User $student, $joined, $started = false ) {
+	private static function render_student_actions( WP_Post $session, array $facts, WP_User $student, $joined, $started = false, $may_join = true ) {
 		// Neither joining nor leaving a session under way is a thing anybody means to do, and the
 		// handlers refuse both (`session()`); the row says why the buttons are not there (1.108.1).
 		if ( $started ) {
@@ -1764,22 +2064,14 @@ class WPCPM_Group_Sessions {
 		}
 
 		if ( $joined ) {
-			printf(
-				'<form class="wpcpm-call__cancel" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
-				esc_url( admin_url( 'admin-post.php' ) ),
-				esc_attr__( 'Leaving…', 'wpcredits-program-manager' )
-			);
-			wp_nonce_field( self::ACTION_LEAVE );
-			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_LEAVE ) );
-			printf( '<input type="hidden" name="session" value="%d" />', (int) $session->ID );
-			printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
-			printf(
-				'<button type="submit" class="wpcpm-link-button" data-wpcpm-confirm="%1$s">%2$s</button>',
-				esc_attr__( 'Leave this session? Your place goes back.', 'wpcredits-program-manager' ),
-				esc_html__( 'Leave the session', 'wpcredits-program-manager' )
-			);
-			echo '</form>';
+			self::render_leave_form( $session, $student, __( 'Leave the session', 'wpcredits-program-manager' ), __( 'Leave this session? Your place goes back.', 'wpcredits-program-manager' ) );
 
+			return;
+		}
+
+		// Another mentor's session they are not on is not theirs to join, and `handle_join()`
+		// refuses it: `for_student()` lists no such session, and none is offered if one appears.
+		if ( ! $may_join ) {
 			return;
 		}
 
@@ -1801,6 +2093,33 @@ class WPCPM_Group_Sessions {
 		printf(
 			'<button type="submit" class="wpcpm-button wpcpm-button--secondary">%s</button>',
 			esc_html__( 'Join this session', 'wpcredits-program-manager' )
+		);
+		echo '</form>';
+	}
+
+	/**
+	 * The form that takes one student off a session: their own Leave, or a program manager's on
+	 * their behalf (HOTFIX-1), which differ only in the words.
+	 *
+	 * @param WP_Post $session  The session.
+	 * @param WP_User $student  The student it takes off.
+	 * @param string  $label    The button.
+	 * @param string  $question What the button asks before it posts.
+	 */
+	private static function render_leave_form( WP_Post $session, WP_User $student, $label, $question ) {
+		printf(
+			'<form class="wpcpm-call__cancel" method="post" action="%1$s" data-wpcpm-once data-wpcpm-busy="%2$s">',
+			esc_url( admin_url( 'admin-post.php' ) ),
+			esc_attr__( 'Leaving…', 'wpcredits-program-manager' )
+		);
+		wp_nonce_field( self::ACTION_LEAVE );
+		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_LEAVE ) );
+		printf( '<input type="hidden" name="session" value="%d" />', (int) $session->ID );
+		printf( '<input type="hidden" name="student" value="%d" />', (int) $student->ID );
+		printf(
+			'<button type="submit" class="wpcpm-link-button" data-wpcpm-confirm="%1$s">%2$s</button>',
+			esc_attr( $question ),
+			esc_html( $label )
 		);
 		echo '</form>';
 	}

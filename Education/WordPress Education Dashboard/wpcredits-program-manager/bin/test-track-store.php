@@ -248,6 +248,7 @@ WPCPM_Track_Store::register_post_type();
 WPCPM_Track_Store::register_meta();
 $type = $GLOBALS['types']['wpcpm_track'];
 ck( 'the post type is private everywhere', array( $type['public'], $type['publicly_queryable'], $type['show_ui'], $type['show_in_menu'], $type['show_in_rest'], $type['rewrite'], $type['query_var'] ), array( false, false, false, false, false, false, false ) );
+ck( 'and not embeddable, which WordPress honors from 6.8 (SURFACES-2)', $type['embeddable'] ?? null, false );
 ck( 'with a title and revisions', $type['supports'], array( 'title', 'revisions' ) );
 ck( 'and a capability type nobody is granted', array( $type['capability_type'], $type['map_meta_cap'] ), array( array( 'wpcpm_track', 'wpcpm_tracks' ), true ) );
 ck( 'registered in that order, the definition is revisioned, and nothing else about it is open', $GLOBALS['meta_args']['wpcpm_track']['_wpcpm_track_definition'], array( 'type' => 'string', 'single' => true, 'show_in_rest' => false, 'revisions_enabled' => true, 'auth_callback' => '__return_false' ) );
@@ -351,7 +352,14 @@ ck( 'until it is published itself', array( WPCPM_Tracks::rows()['Alpha Track']['
 
 echo "\n=== What publish() refuses ===\n";
 
-/** Create a track, publish it, and say what came back: the code, the rules' codes, and its state. */
+/**
+ * Create a track, publish it, and say what came back: the code, the rules' codes, and its state.
+ *
+ * A track publishing refused is deleted once its state is read. `create()` checks nothing, which
+ * is how these checks make a track no screen would, and since TRACKS-1 a draft holds its status,
+ * key and name as a published track does: left behind, each refused track would be one more
+ * clash for every check after it.
+ */
 function publish_new( array $definition, $source = '' ) {
 	$id = WPCPM_Track_Store::create( $definition );
 
@@ -361,8 +369,13 @@ function publish_new( array $definition, $source = '' ) {
 
 	$result = WPCPM_Track_Store::publish( $id );
 	$errors = $result instanceof WP_Error ? array_column( $result->get_error_data()['errors'], 'code' ) : array();
+	$state  = WPCPM_Track_Store::state( $id );
 
-	return array( $result instanceof WP_Error ? $result->get_error_code() : 'published', $errors, WPCPM_Track_Store::state( $id ) );
+	if ( $result instanceof WP_Error ) {
+		WPCPM_Track_Store::delete( $id );
+	}
+
+	return array( $result instanceof WP_Error ? $result->get_error_code() : 'published', $errors, $state );
 }
 
 $status_question               = track( 'Gamma Track', 'gamma' );
@@ -396,6 +409,12 @@ ck( 'it sees another published track\'s status', in_array( 'status_taken', $look
 ck( 'and names exactly the rules publish() names, so the editor and Publish cannot disagree',
     $looked === array_column( $tried->get_error_data()['errors'], 'code' ), true );
 
+// A draft holds its status as a published track does (TRACKS-1): New track, Duplicate and the
+// properties Save could each leave one on a status another track holds, and Publish now refuses a
+// track while such a draft stands, so the stray is found before it can take the live form with it.
+ck( 'while a draft holds its status, a published track is refused its own status, so Publish finds the stray (TRACKS-1)',
+    array_column( WPCPM_Track_Store::check( $alpha, WPCPM_Track_Store::published( $alpha ) ), 'code' ), array( 'status_taken', 'status_named' ) );
+WPCPM_Track_Store::delete( $twin );
 ck( 'a published track checking the copy it was published with is not refused its own status',
     WPCPM_Track_Store::check( $alpha, WPCPM_Track_Store::published( $alpha ) ), array() );
 
@@ -565,6 +584,19 @@ ck( 'publish() refuses a track in the trash', is_wp_error( $refused ) ? $refused
 ck( 'state() says trash, and says nothing at all for a post that is not a track',
     array( WPCPM_Track_Store::state( $trashed ), WPCPM_Track_Store::state( $plain ) ),
     array( 'trash', '' ) );
+
+// A definition handed over (PUBLISH-LEARN-1) is asked about only once the post is known to be a
+// track that is not in the trash: handed to any other post, it would have put that post live and
+// written the published copy and the log onto it.
+$handed = WPCPM_Track_Store::publish( $plain, 0, track( 'Plain Track', 'plain' ) );
+ck( 'a definition handed over for a post that is not a track is refused as missing, and the post is left a draft with no copy and no log',
+    array( is_wp_error( $handed ) ? $handed->get_error_code() : $handed, get_post( $plain )->post_status, get_post_meta( $plain, WPCPM_Track_Store::META_PUBLISHED, true ), get_post_meta( $plain, WPCPM_Track_Store::META_LOG, true ) ),
+    array( 'wpcpm_track_missing', 'draft', '', '' ) );
+
+$handed = WPCPM_Track_Store::publish( $trashed, 0, track( 'Trashed Track', 'trashed' ) );
+ck( 'and one handed over for a track in the trash is refused as trashed, the track left in the trash with no copy and no log',
+    array( is_wp_error( $handed ) ? $handed->get_error_code() : $handed, get_post( $trashed )->post_status, get_post_meta( $trashed, WPCPM_Track_Store::META_PUBLISHED, true ), get_post_meta( $trashed, WPCPM_Track_Store::META_LOG, true ) ),
+    array( 'wpcpm_track_trashed', 'trash', '', '' ) );
 
 echo "\n=== Refreshing a built-in draft from the seed ===\n";
 
@@ -757,7 +789,18 @@ echo "\n=== Wired into the plugin ===\n";
 $uninstall = (string) file_get_contents( __DIR__ . '/../uninstall.php' );
 ck( 'uninstall.php loads the store and the two classes it reads', array( false !== strpos( $uninstall, "includes/tracks/class-wpcpm-track-store.php'" ), false !== strpos( $uninstall, "includes/tracks/class-wpcpm-tracks.php'" ), false !== strpos( $uninstall, "includes/tracks/class-wpcpm-track-definition.php'" ) ), array( true, true, true ) );
 ck( 'and calls delete_all()', false !== strpos( $uninstall, 'WPCPM_Track_Store::delete_all();' ), true );
-ck( 'and sweeps any form option the index lost track of', false !== strpos( $uninstall, "array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX ) as \$wpcpm_prefix" ), true );
+// Read for the prefixes its sweep loops over rather than for the loop's literal text, which the
+// final fix wave changed when it folded the Learn copies' prefixes in (item 7).
+// bin/test-uninstall.php runs the file and proves what the sweep takes.
+$swept_prefixes = array();
+
+if ( preg_match_all( '/foreach \( array\( ([^)]*) \) as \$wpcpm_prefix \)/', $uninstall, $sweeps ) ) {
+	foreach ( $sweeps[1] as $sweep_list ) {
+		$swept_prefixes = array_merge( $swept_prefixes, array_map( 'trim', explode( ',', $sweep_list ) ) );
+	}
+}
+
+ck( 'and sweeps any form option the index lost track of, by the prefix the runtime names its forms with', in_array( 'WPCPM_Tracks::OPT_FIELDS_PREFIX', $swept_prefixes, true ), true );
 $main = (string) file_get_contents( __DIR__ . '/../wpcredits-program-manager.php' );
 ck( 'the plugin boots the store and the runtime', array( false !== strpos( $main, 'WPCPM_Track_Store::init();' ), false !== strpos( $main, 'WPCPM_Tracks::init();' ) ), array( true, true ) );
 
@@ -872,15 +915,126 @@ ck( 'a built-in track is refused as well',
 ck( 'a track that does not exist is refused',
     WPCPM_Track_Store::delete( 987654 )->get_error_code(), 'wpcpm_track_missing' );
 
-$GLOBALS['opts'][ WPCPM_Tracks::OPT_FIELDS_PREFIX . 'share-a' ] = array( 'left by a compile that never finished' );
+// TRACKS-1: a draft never has a form option of its own, since `compile()` writes one for a
+// published track alone, so the option its key names is another track's. Until check() counted
+// drafts, two tracks could hold one key: the published sibling below is planted the way that
+// happened, the live track first and the stray draft made on its key by `create()`, which checks
+// nothing.
+$sibling = WPCPM_Track_Store::create( track( 'Sharing Live', 'share-live' ) );
+WPCPM_Track_Store::publish( $sibling );
+$stray     = WPCPM_Track_Store::create( track( 'Sharing Stray', 'share-live' ) );
+$live_form = get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'share-live' );
 
-ck( 'a never-published draft is deleted, its post and its stray form option with it',
-    array( WPCPM_Track_Store::delete( $shared_a ), get_post( $shared_a ), array_key_exists( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'share-a', $GLOBALS['opts'] ) ),
-    array( $shared_a, null, false ) );
+ck( 'the published sibling has its compiled form, and Publish refuses it while the stray draft holds its key',
+    array( is_array( $live_form ) && array() !== $live_form, array_column( WPCPM_Track_Store::check( $sibling, WPCPM_Track_Store::get( $sibling ) ), 'code' ) ),
+    array( true, array( 'key_taken' ) ) );
 
-ck( 'and the other tracks are untouched',
-    array( null !== get_post( $shared_b ), null !== get_post( $shared_c ) ), array( true, true ) );
+ck( 'a never-published draft is deleted, its post and nothing else: the form its key names is the published sibling\'s, and stays',
+    array( WPCPM_Track_Store::delete( $stray ), get_post( $stray ), get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'share-live' ), WPCPM_Tracks::rows()['Sharing Live']['post'] ?? null ),
+    array( $stray, null, $live_form, $sibling ) );
 
+ck( 'and the other tracks are untouched, the sibling free to publish again',
+    array( null !== get_post( $shared_b ), null !== get_post( $shared_c ), WPCPM_Track_Store::check( $sibling, WPCPM_Track_Store::get( $sibling ) ) ), array( true, true, array() ) );
+
+// A track in publish status is live whatever its log says: one published by hand, or whose log
+// lost its line, would leave its row and its form in the index until the next compile (TRACKS-1).
+$by_hand = WPCPM_Track_Store::create( track( 'Published By Hand', 'by-hand' ) );
+wp_update_post( array( 'ID' => $by_hand, 'post_status' => 'publish' ) );
+$refused = WPCPM_Track_Store::delete( $by_hand );
+
+ck( 'a track in publish status is refused though its log has no publish line, and kept',
+    array( $refused instanceof WP_Error ? $refused->get_error_code() : $refused, null !== get_post( $by_hand ), WPCPM_Track_Store::ever_published( $by_hand ) ),
+    array( 'wpcpm_track_was_published', true, false ) );
+
+echo "\n=== A draft holds its status, key and name (TRACKS-1, BUILDER-1) ===\n";
+
+// New track and Duplicate ask check() with no track of their own, and the properties Save with
+// the track being saved: each is refused what another draft holds, as their docblocks say.
+$draft_one = WPCPM_Track_Store::create( track( 'Draft One', 'draft-one' ) );
+$draft_two = WPCPM_Track_Store::create( track( 'Draft Two', 'draft-two' ) );
+
+ck( 'New track and Duplicate are refused a status another draft holds, and its name',
+    array_column( WPCPM_Track_Store::check( 0, track( 'Draft One', 'draft-three', 'Draft Three' ) ), 'code' ), array( 'status_taken', 'status_named' ) );
+ck( 'and a key another draft holds',
+    array_column( WPCPM_Track_Store::check( 0, track( 'Draft Three', 'draft-one' ) ), 'code' ), array( 'key_taken' ) );
+ck( 'and a name another draft holds',
+    array_column( WPCPM_Track_Store::check( 0, track( 'Draft Three', 'draft-three', 'Draft One' ) ), 'code' ), array( 'label_taken' ) );
+ck( 'a Save onto another draft\'s key is refused',
+    array_column( WPCPM_Track_Store::check( $draft_two, track( 'Draft Two', 'draft-one' ) ), 'code' ), array( 'key_taken' ) );
+ck( 'while a draft checked against itself is not',
+    WPCPM_Track_Store::check( $draft_two, WPCPM_Track_Store::get( $draft_two ) ), array() );
+
+// A trashed draft holds its key as well. Nothing in the plugin trashes a track, but one trashed by
+// other means can be restored, and publishing it would then meet a second track on its key; the
+// track list offers Delete on it, and deleting it is what frees the key.
+$binned = WPCPM_Track_Store::create( track( 'Binned Draft', 'binned' ) );
+wp_update_post( array( 'ID' => $binned, 'post_status' => 'trash' ) );
+
+ck( 'a draft in the trash still holds its key, so New track is refused it',
+    array( WPCPM_Track_Store::state( $binned ), array_column( WPCPM_Track_Store::check( 0, track( 'Fresh Track', 'binned' ) ), 'code' ) ),
+    array( 'trash', array( 'key_taken' ) ) );
+ck( 'until delete() removes the draft, which frees the key',
+    array( WPCPM_Track_Store::delete( $binned ), WPCPM_Track_Store::check( 0, track( 'Fresh Track', 'binned' ) ) ),
+    array( $binned, array() ) );
+
+
+echo "\n=== The hours group (TRACKS-3) ===\n";
+
+// The Student Report Card draws Total hours as the hours box alone, which holds Hours and nothing
+// else, so check() refuses what that box cannot draw; compile() does not ask, so a published track
+// that breaks the rule keeps running rather than dropping out of the index.
+$hours_track = WPCPM_Track_Store::create( track( 'Hours Track', 'hours-track' ) );
+$lab         = track( 'Hours Track', 'hours-track' );
+$lab['questions']['Hours in research lab'] = array( 'label' => 'Hours in the research lab', 'type' => 'number', 'step' => '1', 'min' => 0, 'max' => 1000, 'group' => 'hours' );
+$elsewhere   = track( 'Hours Track', 'hours-track' );
+$elsewhere['questions']['Hours']['group'] = 'onboarding';
+
+ck( 'check() refuses a question other than Hours in Total hours, which no student would see',
+    array_column( WPCPM_Track_Store::check( $hours_track, $lab ), 'code' ), array( 'hours_only' ) );
+ck( 'and Hours in another group, which the page would draw twice',
+    array_column( WPCPM_Track_Store::check( $hours_track, $elsewhere ), 'code' ), array( 'hours_group' ) );
+
+WPCPM_Track_Store::save( $hours_track, $lab );
+$refused = WPCPM_Track_Store::publish( $hours_track );
+ck( 'so Publish refuses it too, and nothing goes live',
+    array( $refused instanceof WP_Error ? array_column( $refused->get_error_data()['errors'], 'code' ) : $refused, WPCPM_Track_Store::state( $hours_track ) ),
+    array( array( 'hours_only' ), 'draft' ) );
+
+WPCPM_Track_Store::save( $hours_track, track( 'Hours Track', 'hours-track' ) );
+WPCPM_Track_Store::publish( $hours_track );
+tamper( $hours_track, function ( &$copy ) use ( $lab ) { $copy['questions'] = $lab['questions']; } );
+$rows = WPCPM_Track_Store::compile();
+ck( 'while a published copy that breaks it still compiles: the rule is not the compile\'s, which would leave a live track out',
+    array( isset( $rows['Hours Track'] ), array_key_exists( 'Hours in research lab', get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'hours-track' ) ), isset( get_option( WPCPM_Track_Store::OPT_SKIPPED )[ $hours_track ] ) ),
+    array( true, true, false ) );
+
+echo "\n=== publish() puts live the definition it is handed (PUBLISH-LEARN-1) ===\n";
+
+// The publish run hands over the definition its preflight judged and created columns for. A draft
+// saved in another tab while the columns were being made is not what goes live: it stays a saved
+// change, for the next publish to judge against the base.
+$judged_id = WPCPM_Track_Store::create( track( 'Theta Track', 'theta' ) );
+$judged    = WPCPM_Track_Store::get( $judged_id );
+$later     = track( 'Theta Track', 'theta' );
+$later['questions']['Portfolio screenshot'] = array( 'label' => 'Portfolio screenshot', 'type' => 'image', 'group' => 'project' );
+WPCPM_Track_Store::save( $judged_id, $later );
+$done = WPCPM_Track_Store::publish( $judged_id, 0, $judged );
+
+ck( 'the handed definition is the copy that goes live and compiles, not the draft saved since',
+    array( $done, WPCPM_Track_Store::published( $judged_id ), array_keys( (array) get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'theta' ) ) ),
+    array( $judged_id, $judged, array_keys( $judged['questions'] ) ) );
+ck( 'and the later save is a change not yet published', WPCPM_Track_Store::state( $judged_id ), 'changed' );
+
+// The rules are asked of what goes live: a handed definition the rules refuse is refused, however
+// good the saved draft is, and the copy students have stays as it was.
+$reserved                        = $judged;
+$reserved['questions']['Status'] = array( 'label' => 'Your status', 'type' => 'text', 'group' => 'project' );
+WPCPM_Track_Store::save( $judged_id, $judged );
+$refused = WPCPM_Track_Store::publish( $judged_id, 0, $reserved );
+
+ck( 'the rules are asked of the handed definition, not of the draft',
+    array( $refused instanceof WP_Error ? array_column( $refused->get_error_data()['errors'], 'code' ) : $refused, WPCPM_Track_Store::published( $judged_id ) ),
+    array( array( 'column_reserved' ), $judged ) );
 
 echo "\n=== A track's revisions, for History ===\n";
 

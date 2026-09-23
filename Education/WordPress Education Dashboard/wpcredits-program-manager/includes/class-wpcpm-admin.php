@@ -348,6 +348,28 @@ class WPCPM_Admin {
 			}
 		}
 
+		// "Currently mentoring" as this page drew it, which is not a setting and so is not among the
+		// defaults read above: with it, a textarea nobody changed leaves the stored list alone, and a
+		// page drawn before a track was published cannot write that track's status out of the list
+		// (the deep check of 1.109.1, BUILDER-3).
+		if ( isset( $_POST[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] ) ) {
+			$input[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] = wp_unslash( $_POST[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in WPCPM_Settings::student_statuses_from().
+		}
+
+		// A change to the list that would take the status of a track the site runs from its
+		// definition out of it is not made: the next students sync would take the Student role from
+		// everybody on the track, and the status leaves once the track is off the live site (the
+		// design's 7.5, BUILDER-3). Everything else posted is saved as ever and the list stays as
+		// stored, with a notice naming the track, rather than the whole save refused and everything
+		// typed on the page lost with it (the ruling of BUILDER-3's fix round, 23 September 2026).
+		$dropped = WPCPM_Settings::tracks_dropped_by( $input );
+
+		if ( array() !== $dropped ) {
+			unset( $input['student_statuses'], $input[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] );
+
+			WPCPM_Flash::set( 'settings-refused', $dropped );
+		}
+
 		WPCPM_Settings::save( $input );
 
 		// "Currently mentoring" and the past statuses are rules every published track was compiled
@@ -366,6 +388,41 @@ class WPCPM_Admin {
 
 		wp_safe_redirect( self::settings_url() );
 		exit;
+	}
+
+	/**
+	 * Why the last save left "Currently mentoring" as it was: the change would have taken live
+	 * tracks' statuses out of it, and these are the tracks; everything else was saved (BUILDER-3 and
+	 * the ruling in its fix round).
+	 */
+	private function render_refused_notice() {
+		$refused = WPCPM_Flash::take( 'settings-refused' );
+
+		if ( ! is_array( $refused ) || array() === $refused ) {
+			return;
+		}
+
+		$tracks = array();
+
+		foreach ( $refused as $status => $label ) {
+			$tracks[] = sprintf(
+				/* translators: 1: a track's name, 2: its Airtable status. */
+				__( '%1$s runs on "%2$s"', 'wpcredits-program-manager' ),
+				(string) $label,
+				(string) $status
+			);
+		}
+
+		printf(
+			'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %s: the tracks, each with its Airtable status, separated by semicolons. */
+					__( 'Everything else was saved. "Currently mentoring" was left as it was, because %s: taking a status out while its track is live would make the next students sync treat everybody on the track as having left the program. Take the track off the live site in the Track Builder first, then remove its status here.', 'wpcredits-program-manager' ),
+					implode( '; ', $tracks )
+				)
+			)
+		);
 	}
 
 	/**
@@ -396,6 +453,8 @@ class WPCPM_Admin {
 				esc_html( $messages[ $status ][1] )
 			);
 		}
+
+		$this->render_refused_notice();
 
 		echo '<form method="post" action="">';
 		wp_nonce_field( self::SETTINGS_NONCE, self::SETTINGS_NONCE );
@@ -456,9 +515,24 @@ class WPCPM_Admin {
 		$this->text_row( 'mentor_status', __( 'Mentor status to sync', 'wpcredits-program-manager' ), $settings['mentor_status'], __( 'Only mentors holding this Airtable status get an account.', 'wpcredits-program-manager' ) );
 
 		printf(
-			'<tr><th scope="row"><label for="wpcpm-student-statuses">%1$s</label></th><td><textarea id="wpcpm-student-statuses" name="student_statuses" rows="3" class="regular-text">%2$s</textarea><p class="description">%3$s</p></td></tr>',
+			'<tr><th scope="row"><label for="wpcpm-student-statuses">%1$s</label></th><td><textarea id="wpcpm-student-statuses" name="student_statuses" rows="3" class="regular-text">%2$s</textarea>',
 			esc_html__( 'Currently mentoring', 'wpcredits-program-manager' ),
-			esc_textarea( implode( "\n", (array) $settings['student_statuses'] ) ),
+			esc_textarea( implode( "\n", (array) $settings['student_statuses'] ) )
+		);
+
+		// The list as this page draws it, one hidden field a status, so the save can tell a list
+		// somebody changed from one the page only carried back, and keeps whatever the stored list
+		// gains meanwhile, a published track's status above all (BUILDER-3).
+		foreach ( (array) $settings['student_statuses'] as $drawn ) {
+			printf(
+				'<input type="hidden" name="%1$s[]" value="%2$s" />',
+				esc_attr( WPCPM_Settings::FIELD_DRAWN_STATUSES ),
+				esc_attr( (string) $drawn )
+			);
+		}
+
+		printf(
+			'<p class="description">%s</p></td></tr>',
 			esc_html__( 'One status per line. Students holding any of these appear under "Currently mentoring" on their mentor\'s page.', 'wpcredits-program-manager' )
 		);
 

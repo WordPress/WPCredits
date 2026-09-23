@@ -292,7 +292,7 @@ $result = WPCPM_Track_Questions::rematch( $before, $lessons );
 ck( 'a question whose heading is a lesson of the new course, in lead or in subgroup, exact once case and apostrophes are folded, takes that lesson',
     array( $result['questions']['Portfolio']['learn_lesson_id'], $result['questions']['Styles']['learn_lesson_id'], $result['questions']['Event']['learn_lesson_id'], $result['matched'] ),
     array( 403457, 403477, 403501, array( 'Portfolio', 'Styles', 'Event' ) ) );
-ck( 'one whose heading is no lesson of the new course, or that has no heading, loses its lesson and is listed',
+ck( 'one whose heading is no lesson of the new course, or that has no heading, loses its lesson and is listed when no question of its lesson matched',
     array( array_key_exists( 'learn_lesson_id', $result['questions']['Reflect'] ), array_key_exists( 'learn_lesson_id', $result['questions']['Nameless'] ), $result['cleared'] ),
     array( false, false, array( 'Reflect', 'Nameless' ) ) );
 ck( 'a question that had no lesson is left alone, heading or not',
@@ -323,6 +323,27 @@ $twins = WPCPM_Track_Questions::rematch(
 
 ck( 'of two lessons whose titles fold to one, the first the course lists wins',
     $twins['questions']['Post']['learn_lesson_id'], 403611 );
+
+// PUBLISH-LEARN-6: a lesson's first question carries its title as its heading and a question added
+// after it under the same lesson carries none (decision 32), so a course change must move the
+// whole lesson, not its first question alone. The two Adds below follow handle_add().
+$lesson_pair = WPCPM_Track_Questions::add( array(), 'Figma file link', array( 'type' => 'url', 'group' => 'project', 'learn_lesson_id' => 403465, 'lead' => 'Introduction to Figma' ) );
+$lesson_pair = WPCPM_Track_Questions::add( $lesson_pair, 'Figma screenshot', array( 'type' => 'image', 'group' => 'project', 'learn_lesson_id' => 403465 ), WPCPM_Track_Questions::last_of_lesson( $lesson_pair, 403465 ) );
+$lesson_pair['Figma notes'] = array( 'type' => 'textarea', 'group' => 'project', 'learn_lesson_id' => 403465, 'subgroup' => 'What you noticed' );
+$lesson_pair['Old lesson']  = array( 'type' => 'url', 'group' => 'project', 'learn_lesson_id' => 403466, 'lead' => 'A lesson the new course does not have' );
+$lesson_pair['Old follow']  = array( 'type' => 'text', 'group' => 'project', 'learn_lesson_id' => 403466 );
+
+$moved_lesson = WPCPM_Track_Questions::rematch( $lesson_pair, array( array( 'id' => 900111, 'title' => 'Introduction to Figma' ) ) );
+
+ck( 'every question of a lesson whose first question matched takes the new lesson, with no heading or with one that is no lesson title',
+    array( $moved_lesson['questions']['Figma file link']['learn_lesson_id'], $moved_lesson['questions']['Figma screenshot']['learn_lesson_id'], $moved_lesson['questions']['Figma notes']['learn_lesson_id'], $moved_lesson['matched'] ),
+    array( 900111, 900111, 900111, array( 'Figma file link', 'Figma screenshot', 'Figma notes' ) ) );
+ck( 'while a lesson none of whose questions matched loses its lesson on every one of them, and they are listed',
+    array( array_key_exists( 'learn_lesson_id', $moved_lesson['questions']['Old lesson'] ), array_key_exists( 'learn_lesson_id', $moved_lesson['questions']['Old follow'] ), $moved_lesson['cleared'] ),
+    array( false, false, array( 'Old lesson', 'Old follow' ) ) );
+ck( 'and the order and every other property survive',
+    array( array_keys( $moved_lesson['questions'] ), $moved_lesson['questions']['Figma notes']['subgroup'] ),
+    array( array_keys( $lesson_pair ), 'What you noticed' ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

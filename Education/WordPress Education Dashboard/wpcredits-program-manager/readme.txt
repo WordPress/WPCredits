@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.109.2
+Stable tag: 1.110.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,15 +16,13 @@ The plugin is organized as five modules, one per audience:
 
 1. **Students** - the Student role, Airtable account provisioning, and a private page with each student's program details and their assigned mentor. **Built.**
 2. **Mentors** - the Mentor role, Airtable account provisioning, and a private page listing each mentor's assigned students. **Built.**
-3. **Institutions** - the Institution role.
-4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, the Sponsor Dashboard, the public sponsor application form, the sponsors' guide, and the sponsor queues on the Administrator Dashboard.
+3. **Institutions** - the Institution role, the Airtable sync of the institution records, account creation, the Institution Dashboard with its roster, student imports and semester reports, the public institution application form, the Collaboration Agreement, and the institution queues on the Administrator Dashboard. **Built.**
+4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, the Sponsor Dashboard, the public sponsor application form, the sponsors' guide, and the sponsor queues on the Administrator Dashboard. **Built.**
 5. **Administrators** - the built-in WordPress Administrator role, granted the program capabilities.
 
 Students, Mentors, Institutions and Sponsors each get a custom role cloned from **Subscriber**, plus one marker capability that controls which content they can read. Administrators can read every level.
 
-The Students and Mentors modules are built. Institutions and Sponsors register their roles and reserve their admin screens; Administrators uses the built-in role.
-
-Alongside them is a **Tools** section, for jobs you run *against* the program data rather than parts of the program itself. Keeping the two apart means the modules stay a stable description of the program while tools come and go as needed. It currently holds two tools: **Header notices** and **Mentor Status Checker**.
+Alongside them is a **Tools** section, for jobs you run *against* the program data rather than parts of the program itself. Keeping the two apart means the modules stay a stable description of the program while tools come and go as needed. It currently holds five tools: **Header notices**, **Need help?**, **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**.
 
 = Roles and capabilities =
 
@@ -60,13 +58,13 @@ Prepended to the page's content, so a notice appears at the top of the page some
 
 = Content access levels =
 
-Every post and page gets a **Program access** control in the editor sidebar with five options: Public, Student level, Mentor level, Institution level, and Administrators only. A post with no explicit level is public.
+Every post and page gets a **Program access** control in the editor sidebar with seven options: Public, Student level, Mentor level, Institution level, Sponsor level, Students and mentors, and Administrators only. A post with no explicit level is public.
 
-Gating is applied in four places: front-end listings (restricted posts are filtered out), direct URL access (logged-out visitors go to the login form, logged-in users get an explanation), the rendered content and excerpt, and the REST API.
+Gating is applied in six places: front-end listings (restricted posts are filtered out), direct URL access (logged-out visitors go to the login form, logged-in users get an explanation), the rendered content and excerpt, the content and excerpt in feeds, the oEmbed response (a post the public cannot read is not embedded, so its title and author stay private), and the REST API.
 
 = Mentors module =
 
-**Account provisioning.** Every mentor in the Airtable Mentors table holding the status `Active` gets a WordPress account with the Mentor role. The username comes from their WordPress.org profile, so `https://profiles.wordpress.org/clk87/` becomes the username `clk87`. That column is free text and in practice contains full URLs, scheme-less URLs, `@handles`, bare usernames, URLs ending in `/profile/` and at least one misspelled host, so every shape is reduced to its last path segment.
+**Account provisioning.** Every mentor in the Airtable Mentors table holding the status `Active` gets a WordPress account with the Mentor role. The username comes from their WordPress.org profile, so `https://profiles.wordpress.org/mentor-one/` becomes the username `mentor-one`. That column is free text and in practice contains full URLs, scheme-less URLs, `@handles`, bare usernames, URLs ending in `/profile/` and at least one misspelled host, so every shape is reduced to its last path segment.
 
 Accounts are created with a random password and **no email is sent**. A first sync provisions around ninety accounts at once, so invitations are opt-in: either tick the setting, or use **Send invite** next to an individual mentor, which emails them a password-reset link.
 
@@ -104,7 +102,7 @@ A mentor can delete their own notes; a program manager can delete any. Nobody ca
 
 **Past students cannot receive new notes.** A student who has graduated is not going to be called again, so the *Add a note* form is not shown for anyone in the Past students section, and a request to add one is refused rather than merely hidden. Their existing history stays readable, and still deletable.
 
-**Who can see them.** Only mentors that student is actually assigned to, plus administrators. The check is made against the mentor's own synced student list on every read and every write, so a mentor cannot reach notes for somebody else's student even by crafting a request.
+**Who can see them.** Only mentors that student is actually assigned to, plus administrators. The check is made against the mentor's own synced student list on every read and every write, so a mentor cannot reach notes for somebody else's student even by crafting a request. A note for a whole group session is the one exception: the mentor whose session it was may write it for everybody who was on it, a student since moved to another mentor included.
 
 **Where they live.** In their own private post type, not in the Airtable data or the cached student rows. That matters for two reasons: the sync rewrites the whole cached student list on every run, so a note kept there would be destroyed by the next sync; and notes are WordPress-side records, never written back to Airtable. They are removed only when the plugin is uninstalled.
 
@@ -192,7 +190,7 @@ Field *names* are used rather than IDs because Airtable's `filterByFormula` only
 
 As with mentors, accounts are created with a random password and **no email is sent**, administrators' roles are never touched, and no account is ever deleted. A student who leaves the program loses the Student role, and with it access to Student-level content, unless you set *When a student leaves the program* to leave it in place.
 
-**The student page.** Activation creates a page called *Student Report Card* at `/student-dashboard/`, gated to Student level. Its sections are *My profile*, *My mentor*, *My course*, *Report form* and *My mentor call*. It renders against the logged-in user, so each student sees only their own. It shows their program (`In Sensei` or `In Sensei 50h`), internship dates, tutor, educational institution, WordPress.org, Slack, contribution team and personal website. *My profile* is a record, not a form: everything a student can change about themselves is asked on the report form, so no column is written from two places.
+**The student page.** Activation creates a page called *Student Report Card* at `/student-dashboard/`, gated to Student level. Its sections are *My profile*, *My mentor*, *My course* (*My hours* when there is no course to open), *Report form* and *My mentor call*. It renders against the logged-in user, so each student sees only their own. It shows their program (`In Sensei` or `In Sensei 50h`), internship dates, tutor, educational institution, WordPress.org, Slack, contribution team and personal website. *My profile* is a record, not a form: everything a student can change about themselves is asked on the report form, so no column is written from two places.
 
 There is no *Program* column in Airtable, so the program shown is the student's status, which is also what decides which report form applies.
 
@@ -226,7 +224,7 @@ If a run genuinely stops advancing for more than two minutes, the screen says so
 
 = Tools: Mentor Status Checker =
 
-Was the standalone **Credits Program Mentor Checker** plugin; now a tool at **WPCredits Program → Tools → Mentor Status Checker**. Folded in so there is one Airtable connection, one settings screen and one place to look. **If you were running the standalone plugin, deactivate it** - otherwise both schedule their own weekly check and read the same WordPress.org profiles twice. The tool says so on screen if it finds the old plugin still active.
+Was the standalone **Credits Program Mentor Checker** plugin; now a tool at **WPCredits Program → Modules → Mentor Status Checker**. Folded in so there is one Airtable connection, one settings screen and one place to look. **If you were running the standalone plugin, deactivate it** - otherwise both schedule their own weekly check and read the same WordPress.org profiles twice. The tool says so on screen if it finds the old plugin still active.
 
 It reads every mentor whose Airtable status is `Vetted - positive`, looks up their WordPress.org contribution history, and moves those who have completed the *WordPress Credits Mentor's Course* to `Active`.
 
@@ -290,6 +288,22 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.110.0 =
+
+* **The deep check fixes.** Every finding of the deep check of 22 and 23 September 2026, which read everything changed since 1.99.0, is closed but one: the two high ones shipped as 1.109.2, and Refresh from the plugin on a published built-in track waits for phase T5 of the Track Builder. The student, mentor and program manager guides say what changed.
+* **A session blocks the whole of its time.** A group session or a call blocks every slot it overlaps, not only a slot starting when it starts: a sixty-minute session at 10:00 left 10:30 open for a one-to-one booking. A session planned or moved, or a series planned, onto a time the mentor has taken is refused, saying so.
+* **A re-paired student leaves the old mentor's sessions.** Once both sides of a re-pairing agree, the students sync takes the student off the former mentor's upcoming group sessions, with a mail and a calendar file for each; until then each stays on their list with Leave, and its mentor can still note everybody on it. A program manager on a student's page is offered "Take them off the session", where the only button canceled the session for everybody.
+* **A calendar follows every change to a session.** Every join, leave, move and cancellation raises the session's calendar version, so a leave or a cancellation after a move takes the session out of a calendar that kept it. Each press reads the session again under the mentor's lock, so a press no longer undoes one made a moment before. A session moved after its reminder is reminded again, and a program manager's move sends the mentor the invitation that moves it.
+* **A session is worded as a session.** Its mails and calendar files no longer borrow a one-to-one call's words: the join mail names who joined, a cancellation offers nobody another booking, and each file is titled "Group session with" the mentor rather than with each student who joins. The mentor's Upcoming calls shows a session with its places rather than as "Unnamed student", a student's sessions leave their booked calls for the sessions list, and every button that takes anybody off a session asks first.
+* **Currently mentoring keeps a live track's status.** A Settings page left open while a track was published no longer writes the old list back, which would have made the next students sync take the Student role from everybody on the track. A change that would take out a live track's status leaves the list as it was, saves the rest and names the track, and the Track Builder flags a live track whose status is missing.
+* **Publishing a track.** A publish that would create columns in Airtable waits for the track's name, typed, which consents only to the columns the page listed. What goes live is the definition the preflight judged, where a question saved in another tab meanwhile went live without its column; a Students Reports table setting that is not the ID of a table in the base stops the preflight, where every question read as a column to create; and the track page reads the base again once columns are created.
+* **Tracks and the Student Report Card.** A name, status or key another track holds is refused, drafts and the trash included, and deleting a draft deletes it alone, where one sharing a published track's key took that track's form with it. Only the Hours question goes in Total hours, and Hours nowhere else, since the card draws that group as the hours box. A track with no Learn course shows the hours box in a section of its own, My hours, as does a student on no track, who is drawn the 150-hour track's published form. Required checkboxes show their mark, and questions keep a matched lesson through a new Learn course.
+* **The Track Builder's screens.** A background move the store refuses puts the row back and says why, a refused Save keeps emptied boxes empty, a new course link Learn cannot answer for is held back and stays in its box, Duplicate starts the copy with no Learn course and no hours target, and a built-in track its hand-written form runs no longer offers Unpublish the definition.
+* **The Student Duplicate Finder.** A delete is refused while another runs, so two confirmations a moment apart no longer take a student's last row between them, and the confirmation lists exactly what the press deletes. A row whose work, answers, hours or notes changed since the scan is refused; an address typed with a space around it is found; a delete or a scan that cannot read the site's references to the rows stops; a retried delete keeps one copy and one log entry a row; and a copy whose delete Airtable never confirmed is erased at 30 days, its log line saying so.
+* **Deleting the plugin works again.** Since 1.96.4 the uninstall stopped with a fatal error at its option sweep, so the plugin could not be deleted. It runs to its end now, and also removes the Track Builder's publish lock and copies of the base's schema and of Learn's courses, the Student Duplicate Finder's delete lock, canceled calls and the last bulk invite's counts.
+* An oEmbed request for a post the public cannot view answers nothing, where on WordPress 6.5 to 6.7 a published track gave out its name and its publisher's, and the Track Builder's and the Student Duplicate Finder's post types are not embeddable. A team member's name, a live record ID and six real WordPress.org accounts are gone from the code, the readme, the suites and the documents.
+* For developers: a suite runs the whole of `uninstall.php` as WordPress does, the builder suite presses every Track Builder handler without its capability, the publish suites catch a run that deletes a column or sends the wrong column type, and an undefined variable is an error in `bin/check-standards.sh`.
 
 = 1.109.2 =
 
@@ -634,7 +648,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * Uploading an agreement refuses an unresolved institution before the nonce, as generating one already did, so a manager with no switcher value cannot file a document under an empty record. The public application form reads X-Forwarded-For from the edge's end, not the client's, so an applicant cannot pick their own limiter bucket. The roster's "Not yet in the Students table" list and search no longer show or match students' addresses to institution members. The student card no longer falls back to a Gravatar URL built from the student's address. Institution members are told a read failed in a fixed sentence rather than shown Airtable's own error text.
 * Uninstall now removes invitation and request posts, mails the site owner an inventory of the signed agreements it deliberately keeps (they are the program's legal records) and writes that inventory beside the files only when the host blocks the directory. The import lock is a heartbeat with a token, so a slow slice is not mistaken for a dead one and a slice that lost its lock does not release the newcomer's. A 404 or 413 from Airtable halts an import recoverably instead of failing every row. The semester report caches only what it may use, so an unreleased quote is held nowhere on this site. Every folded panel's title is a heading, which heading navigation reaches. The ceiling counts a claim of several places as one row first, so two concurrent first claims are told the truth. A request argument that is an array reads as 0, as the docblock promised. The mail log keeps a masked address and the template's name, never the subject.
 * Twenty refused cheap claims a day lock an institution account out of roster changes for the rest of the day, as design spec 5.3 always said and the code never did; the lock writes one audit row and the Institutions screen lists the accounts locked today.
-* The code that owns the Airtable record-ID check is the Airtable client; the Mentors sync keeps an alias for one release. The three modules that own a sync share one base class for their three handlers, the capability check, the redirect and one wording for the shared outcomes, all travelling by a per-user flash rather than a query argument. The student edit handler is four steps a suite can drive, and the branch that fires when the audit row will not insert is finally executed by one. The suites share one capability stand-in that reads the capability it is asked for, so a handler checking the wrong one fails. The "decides before Airtable" scan follows one call. Forty-four `phpcs:ignore` annotations that suppressed nothing are gone, and `bin/check-standards.sh --dead` finds the next one. Every em and en dash in the plugin is a hyphen, and the standards check fails on a new one. Two look-alike action names are told apart (`wpcpm_semester_report_save`, `wpcpm_student_report_save`), every option constant is spelled `OPT_`, and the administrators' guide lists every option the plugin keeps. The installable zip is built from `.distignore` and carries no development files.
+* The code that owns the Airtable record-ID check is the Airtable client; the Mentors sync keeps an alias for one release. The three modules that own a sync share one base class for their three handlers, the capability check, the redirect and one wording for the shared outcomes, all traveling by a per-user flash rather than a query argument. The student edit handler is four steps a suite can drive, and the branch that fires when the audit row will not insert is finally executed by one. The suites share one capability stand-in that reads the capability it is asked for, so a handler checking the wrong one fails. The "decides before Airtable" scan follows one call. Forty-four `phpcs:ignore` annotations that suppressed nothing are gone, and `bin/check-standards.sh --dead` finds the next one. Every em and en dash in the plugin is a hyphen, and the standards check fails on a new one. Two look-alike action names are told apart (`wpcpm_semester_report_save`, `wpcpm_student_report_save`), every option constant is spelled `OPT_`, and the administrators' guide lists every option the plugin keeps. The installable zip is built from `.distignore` and carries no development files.
 
 = 1.89.0 =
 * **Phase 6 of the Institutions module: the semester report.** An institution can generate a report about the students it sent in one semester, edit its narrative on the dashboard, and print it. Eight sections: an overview, participation from the roster index with the previous semester beside it, the contribution teams across the cohort, the students' projects and blogs, recognition and events, continuing engagement, student feedback, and looking ahead. The report is a snapshot document: it is generated on request, it carries the date the roster was read, and it holds nothing the school could not print. No email address, no status beside a name, no hours, no grade, no accessibility disclosure, no rating, no mentor's name.
@@ -711,7 +725,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 
 = 1.82.0 =
 * The import now checks each row against the two Airtable tables and this site's accounts before anything is created. A student already on the institution's own roster is named in full, with their status and start date, because that is the school's own list. Every other kind of hit gets one answer and one only: this student cannot be imported from here. A preview that said which other university, or whether an account exists, would answer three hundred questions about who is in the program for anyone who could paste three hundred addresses. A program manager is told which it was; the school never is.
-* A WordPress.org profile is treated as an identity alongside the address, so a student enrolled elsewhere under a different mailbox is still found. The base holds profiles as URLs and the file holds handles, so the query is a substring search and every candidate it returns is then normalised and compared exactly in PHP: a URL written three ways still matches, and `ann` inside `joanna` does not.
+* A WordPress.org profile is treated as an identity alongside the address, so a student enrolled elsewhere under a different mailbox is still found. The base holds profiles as URLs and the file holds handles, so the query is a substring search and every candidate it returns is then normalised and compared exactly in PHP: a URL written three ways still matches, and `student-three` inside `other-student-three` does not.
 * A name already on the institution's own roster is a warning rather than a refusal. Two people at one university do share a name.
 
 = 1.81.0 =
@@ -916,7 +930,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * Adds email and checkbox controls to the report form, the latter with the hidden zero that makes unticking reach Airtable.
 
 = 1.60.3 =
-* A group session can be 60 minutes again. A number field's step counts from its min, so `min="1" step="5"` made the valid lengths 1, 6, 11 … 61 - rejecting 60, which was the field's own default. Reported by Celi Garoe in prerelease testing.
+* A group session can be 60 minutes again. A number field's step counts from its min, so `min="1" step="5"` made the valid lengths 1, 6, 11 … 61 - rejecting 60, which was the field's own default. Reported by a mentor in prerelease testing (WordPress/WPCredits#166).
 
 = 1.60.2 =
 * **The "Need help?" retry now tries a different model.** "This model is currently experiencing high
@@ -977,8 +991,8 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   the same wherever they are used.
 
 = 1.58.4 =
-* The dropdowns end where the second step of a scale ends, and their value is centred.
-* **The numbers are centred in their boxes.** `.wpcpm-field label { display: block }` in
+* The dropdowns end where the second step of a scale ends, and their value is centered.
+* **The numbers are centered in their boxes.** `.wpcpm-field label { display: block }` in
   `calendar.css` is more specific than the rule that makes a step a flex box, so a step was not one
   - `justify-content: center` computed as "center" and did nothing, and every digit sat 8px from
   the left edge with 35px of space after it.
@@ -1005,7 +1019,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 * *Feedback forms* moves below the rule that separates the surveys from the report. The rule
   belonged to the paragraph under the heading, so it was drawn between the heading and the text it
   introduces, leaving the heading up against the report form and labeling the wrong thing.
-* *Save my report* and *Send my answers* are centred. Every question in these forms is left-aligned
+* *Save my report* and *Send my answers* are centered. Every question in these forms is left-aligned
   against one edge, so a button on that edge read as one more row of the last group rather than as
   the end of the form.
 
@@ -1220,7 +1234,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   columns are wider to suit, so the group still reads several to a row. Each field is capped at
   24em, so a box in a wide column stays near the question it answers.
 * **The gap between a team's icon and its name is the same on every row.** The Dashicon glyphs are
-  not all the same width, so the icon now sits in a fixed box of its own with the glyph centred in
+  not all the same width, so the icon now sits in a fixed box of its own with the glyph centered in
   it.
 * The hours box takes the same width as the rest, so the one number outside the form matches the
   twenty inside it.
@@ -1789,7 +1803,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
   on every single login and never redirected anybody. The `admin_init` fallback covered for
   it one hop later, which is why nothing looked wrong.
 * The admin root now counts as "nowhere in particular", so a real destination is still
-  honoured: a mentor or student bounced off gated content through the login form still lands
+  honored: a mentor or student bounced off gated content through the login form still lands
   on the page they asked for, and so does anyone sent to a specific admin screen.
 * `WPCPM_Request::is_explicit_redirect()` holds that decision once, rather than the same
   subtle test being written out in both dashboards where one could be fixed and the other
@@ -2343,7 +2357,7 @@ Cross-check against the WPCredits theme, plus a hardening pass over the calendar
 * Added a **Tools** section, separate from the four modules.
 * The standalone **Credits Program Mentor Checker** plugin is now the **Mentor Status Checker** tool. It uses the plugin's shared Airtable connection and settings screen instead of its own. Deactivate the standalone plugin - the tool warns you if it is still active.
 * Airtable client gained write support (`data.records:write`), used only to promote a mentor's status.
-* Fixed: **Educational institution** and **Main contribution team** showed raw Airtable record IDs such as `recGzpWO43cQnVYEw` instead of names. The REST API returns linked-record fields as bare record IDs, so the sync now reads the Institutions and Contribution areas tables and resolves them. An ID with no matching name is shown as "Not set" rather than printed raw.
+* Fixed: **Educational institution** and **Main contribution team** showed raw Airtable record IDs such as `recXXXXXXXXXXXXXX` instead of names. The REST API returns linked-record fields as bare record IDs, so the sync now reads the Institutions and Contribution areas tables and resolves them. An ID with no matching name is shown as "Not set" rather than printed raw.
 * Fixed: the mentor page could render unreadable light-on-light text. Colors were set behind `prefers-color-scheme`, which follows the operating system rather than the theme, so a light theme on a dark-mode machine got near-white muted text on white. Everything is now derived from the theme's own text color.
 * `wp wpcredits check-mentors [--promote]` added, with per-mentor progress output.
 

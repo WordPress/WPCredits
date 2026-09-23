@@ -1424,11 +1424,12 @@ final class WPCPM_Institution_Import {
 	 * Rows of either table carrying one of these handles, keyed by handle.
 	 *
 	 * **`FIND()` finds candidates; PHP decides.** The base holds profiles as URLs, so a handle
-	 * has to be looked for inside them, and a substring search says yes to `ann` inside
-	 * `joanna`. Every value that comes back is put through the same normaliser the import used
-	 * on the file and compared for exact equality, which also means a row holding
-	 * `profiles.wordpress.org/annak` and one holding `https://profiles.wordpress.org/annak/`
-	 * both match, and neither can be defeated by writing the URL a third way.
+	 * has to be looked for inside them, and a substring search says yes to `student-three`
+	 * inside `other-student-three`. Every value that comes back is put through the same
+	 * normaliser the import used on the file and compared for exact equality, which also means
+	 * a row holding `profiles.wordpress.org/student-one` and one holding
+	 * `https://profiles.wordpress.org/student-one/` both match, and neither can be defeated by
+	 * writing the URL a third way.
 	 *
 	 * @param WPCPM_Airtable $airtable A configured client.
 	 * @param array          $settings Plugin settings.

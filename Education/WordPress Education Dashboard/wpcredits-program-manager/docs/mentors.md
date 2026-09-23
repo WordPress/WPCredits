@@ -118,7 +118,8 @@ puts the slot straight back on the calendar.
 
 Booked calls appear under **Upcoming calls** beside your availability, so you can see what is coming
 without leaving the page. Each one shows the time in your timezone and in theirs, and whatever the
-student wrote when booking.
+student wrote when booking. A group session appears there too, as *Group session* with how many of
+its places are taken, and its **Cancel** asks whether to cancel it for everybody on it.
 
 ## Group sessions
 
@@ -140,8 +141,10 @@ walkthrough, a question hour, a session for everybody starting the same week.
   length, places and topic. Leave the ones you do not need empty.
 
 A session is not carved out of your weekly hours; you pick any time, including one you would never
-offer for private calls. It does **block that time from one-to-one booking**, so nobody books you
-privately over a session you are running.
+offer for private calls. It does **block that time from one-to-one booking**, for its whole length,
+not only its start: no slot that overlaps it is offered, so nobody books you privately over a
+session you are running. For the same reason a session cannot be planned or moved onto a time that
+overlaps a call or another session of yours, though one may start as another ends.
 
 Your students see it under *My mentor call* and can **join** while there are places left, and
 **leave** again if something changes - which frees their place for somebody else. Joining does not
@@ -149,12 +152,15 @@ count towards the limit you set for how many upcoming calls one student may hold
 one-to-one calls, and a session's places are its own.
 
 Everybody who joins gets an email with a calendar invitation, and the reminder 24 hours before goes
-to all of them. If you cancel the session, every student on it is told.
+to all of them. Move a session after its reminder has gone out and everybody on it is reminded again
+before the new time. **Cancel the session** asks before it goes, and if you cancel it, every student
+on it is told. A program manager can change your session too; if they move it, you are emailed as
+well, with an invitation that moves it in your calendar.
 
-A series is planned all or nothing: a date that has passed, a date given twice, a date on which you
-already hold a session or a call at that time, or a start time that does not exist on one of the
-dates because the clocks jump over that hour refuses the whole list and names the date, so nothing
-is created until the list is right. More than sixteen dates in all - a rule of sixteen with a box
+A series is planned all or nothing: a date that has passed, a date given twice, a date on which
+something of yours overlaps that time, or a start time that does not exist on one of the dates
+because the clocks jump over that hour refuses the whole list and names the date, so nothing is
+created until the list is right. More than sixteen dates in all - a rule of sixteen with a box
 beside it - is refused before any of them is read, since sixteen is all a series holds. Your
 students see the series under one heading and can **Join all** in one press, which sends them one
 email with one calendar file that holds every date; each date keeps its own row, so a student can
@@ -165,7 +171,8 @@ the rest of the series stands.
 
 Under a session you have run, **Add a note for everybody on this session**. You write it once and it
 appears on every attendee's card - and it counts for each of them, so nobody who was there is left
-sitting in *Need a call*. Deleting it removes it from everyone.
+sitting in *Need a call*. Deleting it removes it from everyone. You can note everybody who was on
+your session, a student who has since moved to another mentor included.
 
 ## If something looks wrong
 
@@ -253,6 +260,10 @@ Beside it is **Hours contributed**: the running total of the hours you have put 
 number you will come back to change most often, so it sits here on its own rather than inside the
 report form. Type the new total, press **Save hours**, and that is the whole errand.
 
+If your track has no Learn course, or you are not on a track at the moment (paused, or waiting to
+graduate, for example), there is no course to open, and the hours box is a section of its own,
+**My hours**.
+
 ### Report form
 
 Your report, filled in here on the page. It is the record of your work on the program, and it is
@@ -339,14 +350,15 @@ side - ask them in Slack to set their hours.
 ## Group sessions
 
 Your mentor may run a session for several students at once - a walkthrough, a question hour,
-something for everybody who started the same week. Those appear under *My mentor call* with what the
-session is about and how many places are left.
+something for everybody who started the same week. Those appear under *My mentor call* in a list of
+their own, *Group sessions with your mentor*, apart from the calls you book, with what the session
+is about and how many places are left.
 
 **Join this session** puts you on it, and you get an email with a calendar invitation the same as a
-private call. If something changes, **Leave the session** takes you off and frees your place for
-somebody else. Once a session has started, its row says so instead of offering either button, and
-its time reads how long ago it began; the row stays on your list for an hour so you can still find
-the link.
+private call. If something changes, **Leave the session** asks first, then takes you off and frees
+your place for somebody else. Once a session has started, its row says so instead of offering either
+button, and its time reads how long ago it began; the row stays on your list for an hour so you can
+still find the link.
 
 A session does not count towards the number of upcoming calls you may hold at once: join every
 session that has a place, and your one-to-one booking is unaffected.
@@ -356,6 +368,11 @@ and places. The list shows a series under one heading, each date as its own row.
 you on every date that still has a place and sends you one email with one calendar file that plans
 them all; a date that is already full is skipped, and the message says so. You can still join or
 leave a single date from its row.
+
+If your mentor changes, a session of your former mentor's that you are on stays on your list, with
+their name and **Leave the session**, and the list is headed simply *Group sessions*. Once the
+program records show the change for you and for both mentors, you are taken off it and sent an email
+whose calendar file takes it out of your calendar.
 
 ## Telling us how it is going
 

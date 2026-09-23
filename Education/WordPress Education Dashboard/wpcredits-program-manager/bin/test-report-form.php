@@ -684,10 +684,11 @@ ck( 'and adds exactly the seven developer fields', $added, $want );
 ck( 'the email column is not a form field', isset( $dev['Email'] ), false );
 
 // `Post Reflection: Choosing Your Team and Project copy` was field 27 of the dev-track view and was
-// left out of the form pending an answer about it. Celi Garoe confirmed on 28 August 2026 that it
-// was a duplicated field, and it has been deleted from the base - so there is no assertion here any
-// more. Adding it to the form now fails "every dev field name exists in Airtable" above, which is
-// the stronger check and the one that catches the whole class rather than this one instance.
+// left out of the form pending an answer about it. The program team confirmed on 28 August 2026
+// that it was a duplicated field, and it has been deleted from the base - so there is no assertion
+// here any more. Adding it to the form now fails "every dev field name exists in Airtable" above,
+// which is the stronger check and the one that catches the whole class rather than this one
+// instance.
 
 $at = static function ( array $specs, $name ) {
 	return array_search( $name, array_keys( $specs ), true );
@@ -1159,6 +1160,20 @@ ck( 'a malformed address is rejected, not stored', clean( 'not-an-address', $ema
 ck( 'a ticked box is true',   clean( '1', $check_spec ), array( true, true ) );
 ck( 'an unticked box is false, not nothing', clean( '0', $check_spec ), array( true, false ) );
 
+// TRACKS-6: the checkbox prints its own label after the box, and that label had no Required mark,
+// so a consent box a Program Administrator marked Required read as optional to the student. The
+// preview draws a control through the same render_field() the student's page runs.
+$consent = function ( array $extra ) {
+	ob_start();
+	WPCPM_Student_Report_Form::render_preview( array( 'Consent' => array( 'label' => 'I agree to the terms', 'type' => 'checkbox', 'group' => 'project' ) + $extra ) );
+
+	return ob_get_clean();
+};
+
+ck( 'a checkbox marked Required says so in its label, after the words, as every other control does',
+	array( substr_count( $consent( array( 'required' => true ) ), 'I agree to the terms <span class="wpcpm-field__required">Required</span></label>' ), substr_count( $consent( array() ), 'wpcpm-field__required' ) ),
+	array( 1, 0 ) );
+
 echo "\n=== Paired fields stay together ===\n";
 
 // **This is the check that was missing, and the reason the Project section came out scattered.**
@@ -1333,6 +1348,7 @@ foreach ( array( '150h', '50h', 'dev', 'design' ) as $parity_key ) {
 	);
 
 	ck( sprintf( 'every rule accepts the %s form, none of its columns a sync column', $parity_key ), WPCPM_Track_Definition::validate( $parity_definition, array( 'reserved_columns' => WPCPM_Tracks::reserved_columns() ) ), array() );
+	ck( sprintf( 'and so does the hours rule check() asks: the %s form holds Hours alone in Total hours (TRACKS-3)', $parity_key ), WPCPM_Track_Definition::check_hours( $parity_definition ), array() );
 	ck( sprintf( 'the %s form compiles back to itself', $parity_key ), WPCPM_Track_Definition::compile_fields( $parity_definition ), $parity_questions );
 	ck( sprintf( 'and the %s form survives storage byte for byte', $parity_key ), WPCPM_Track_Definition::decode( WPCPM_Track_Definition::encode( $parity_definition ) ), $parity_definition );
 }
@@ -1432,6 +1448,33 @@ ck( 'the Designer Track\'s ten screenshot questions show their upload boxes, no 
 ck( 'a field set with no hours question draws no hours box',
 	substr_count( ( function () { ob_start(); WPCPM_Student_Report_Form::render_preview( array( 'Notes' => array( 'type' => 'textarea', 'label' => 'Notes', 'group' => 'project' ) ) ); return ob_get_clean(); } )(), 'wpcpm-hours' ),
 	0 );
+
+// TRACKS-3: the student's page draws the hours box beside the course button when the track has a
+// course, and in a section of its own when it has none, so the preview takes the course and draws
+// the same: the button is the one My course prints, pinned in bin/test-student-modules.php too.
+$course_fields = array(
+	'Hours' => WPCPM_Student_Report_Form::fields( '150h' )['Hours'],
+	'Notes' => array( 'type' => 'textarea', 'label' => 'Notes', 'group' => 'project' ),
+);
+$course_button = '<p class="wpcpm-student__actions"><a class="wpcpm-button" href="https://learn.wordpress.org/course/wordpress-credits/" target="_blank" rel="noopener noreferrer">Open your course</a></p>';
+
+ob_start();
+WPCPM_Student_Report_Form::render_preview( $course_fields, 'https://learn.wordpress.org/course/wordpress-credits/' );
+$with_course = ob_get_clean();
+ob_start();
+WPCPM_Student_Report_Form::render_preview( $course_fields, '' );
+$no_course = ob_get_clean();
+
+ck( 'with a course, the preview draws the button that opens it, then the hours box, in the columns My course draws them in',
+	array(
+		substr_count( $with_course, '<div class="wpcpm-student__course-cols">' . $course_button . '<div class="wpcpm-hours">' ),
+		strpos( $with_course, 'class="wpcpm-hours"' ) < strpos( $with_course, '<fieldset' ),
+	),
+	array( 1, true ) );
+
+ck( 'with none, the hours box alone, as the section of its own draws it, and no button',
+	array( substr_count( $no_course, 'Open your course' ), substr_count( $no_course, 'wpcpm-student__course-cols' ), substr_count( $no_course, '<div class="wpcpm-report__body wpcpm-report__body--preview"><div class="wpcpm-hours">' ) ),
+	array( 0, 0, 1 ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

@@ -341,7 +341,7 @@ $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM
 $GLOBALS['sponsorship'] = array(
 	$M1 => array( 'name' => 'Ines Example', 'profile' => 'https://profiles.wordpress.org/ines-example/', 'status' => 'Active', 'user_id' => 42, 'sponsored' => true, 'wants' => false, 'company' => array( $A ), 'expertise' => array( 'Core' ) ),
 	$M2 => array( 'name' => 'Sam Example', 'profile' => 'https://profiles.wordpress.org/sam-example/', 'status' => 'Active', 'user_id' => 0, 'sponsored' => true, 'wants' => false, 'company' => array( $A ), 'expertise' => array() ),
-	$M3 => array( 'name' => 'Ana Looking', 'profile' => 'https://profiles.wordpress.org/ana/', 'status' => 'Active', 'user_id' => 0, 'sponsored' => false, 'wants' => true, 'company' => array(), 'expertise' => array( 'Polyglots', 'Community' ) ),
+	$M3 => array( 'name' => 'Ana Looking', 'profile' => 'https://profiles.wordpress.org/mentor-one/', 'status' => 'Active', 'user_id' => 0, 'sponsored' => false, 'wants' => true, 'company' => array(), 'expertise' => array( 'Polyglots', 'Community' ) ),
 );
 $GLOBALS['mentees'][42] = array( array( 'name' => 'Student One', 'is_past' => false ), array( 'name' => 'Student Two', 'is_past' => false ), array( 'name' => 'Old Student', 'is_past' => true ) );
 $GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['patched'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['buckets'] = array();

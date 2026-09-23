@@ -8,9 +8,11 @@
  * BEM hooks with nothing of their own to add either.
  */
 
-/* The one thing this list exists to surface: a track the last compile left out of the live site.
-   Read as a warning, the same red the rest of the plugin already gives one (`.wpcpm-warning`). */
-.wpcpm-tracks__skipped {
+/* The one thing this list exists to surface: a track the last compile left out of the live site,
+   and a live track whose status is missing from "Currently mentoring" (BUILDER-3). Read as a
+   warning, the same red the rest of the plugin already gives one (`.wpcpm-warning`). */
+.wpcpm-tracks__skipped,
+.wpcpm-tracks__unlisted {
 	color: #b32d2e;
 	font-weight: 600;
 }
@@ -18,22 +20,38 @@
 /* Marks the row itself, so the warning above is not the only sign something needs a look. An
    inset shadow rather than a border: `widefat` collapses row borders, where a shadow still
    paints. */
-.wpcpm-tracks__row--skipped {
+.wpcpm-tracks__row--skipped,
+.wpcpm-tracks__row--unlisted {
 	box-shadow: inset 3px 0 0 #b32d2e;
 }
 
-/* The equivalence line and the read-only note are both context under the row's headline, not the
-   headline itself: the same quiet caption color and size the plugin already uses under a title
-   elsewhere (institution.css, sponsor.css). */
+/* Every caption on the Track Builder's screens, in one treatment: the equivalence line and the
+   read-only note under a row's headline, a checklist item's detail and tick, the counts, a
+   question's notice and lock, the schema line's age, the lessons' count and marks, and the sentence
+   when Learn could not be read. Context, not headline: core's own description treatment
+   (`p.description` in wp-admin/css/edit.css), #646970 at 13px, so no two quiet lines on one screen
+   differ in gray or size (the deep check of 1.109.1, TESTS-DOCS-14). */
 .wpcpm-tracks__equivalence,
-.wpcpm-tracks__readonly {
+.wpcpm-tracks__readonly,
+.wpcpm-tracks__detail,
+.wpcpm-tracks__ticked,
+.wpcpm-tracks__count,
+.wpcpm-question__notice,
+.wpcpm-question__locked,
+.wpcpm-questions__age,
+.wpcpm-questions__learn,
+.wpcpm-lessons__count,
+.wpcpm-lesson__asked,
+.wpcpm-lesson__none {
 	color: #646970;
 	font-size: 13px;
 }
 
-/* The Learn course link sits under the track's name the same way; it stays link-colored since,
-   unlike the two above, it is something to click rather than only read. */
-.wpcpm-tracks__course {
+/* The two links among the captions, the Learn course under a track's name and a lesson's Add, take
+   the captions' size and stay link-colored, since they are something to click rather than only
+   read. */
+.wpcpm-tracks__course,
+.wpcpm-lesson__add {
 	font-size: 13px;
 }
 
@@ -66,9 +84,7 @@
 .wpcpm-tracks__detail,
 .wpcpm-tracks__ticked,
 .wpcpm-tracks__count {
-	color: #646970;
 	display: block;
-	font-size: 13px;
 }
 
 /* 4px under the heading it belongs to and 8px above the button that acts on it, so each item
@@ -84,6 +100,14 @@
 .wpcpm-tracks__columns code {
 	display: inline-block;
 	margin: 2px 0;
+}
+
+/* The track's name, typed before a publish that creates columns (PUBLISH-LEARN-3): the sentence on
+   a line of its own above the box and the button, at the checklist's width. */
+.wpcpm-tracks__confirm label {
+	display: block;
+	margin: 0 0 4px;
+	max-width: 48rem;
 }
 
 /* The question editor (T3a). The list is core's own table shape, one table a group, so only what
@@ -109,13 +133,11 @@
 }
 
 /* A question's notice - shared with the tracks it names, forked from a column, or a column
-   publishing will create - is context under the row's words, not a warning: the same muted
-   treatment the track list gives its equivalence line. */
+   publishing will create - is context under the row's words, not a warning: a caption, as the
+   track list's equivalence line is. */
 .wpcpm-question__notice {
 	display: block;
 	margin-top: 4px;
-	color: #50575e;
-	font-size: 12px;
 }
 
 /* The two arrows and Remove sit together on the right, the way the Student Report Card's module
@@ -135,24 +157,16 @@
 	margin-right: 8px;
 }
 
-/* The schema line stands above the whole list: a sentence, and the age of the reading after it in
-   the same muted color as a notice. */
+/* The schema line stands above the whole list: a sentence, and the age of the reading after it as
+   a caption. */
 .wpcpm-questions__schema {
 	margin: 16px 0 0;
 }
 
-.wpcpm-questions__age {
-	color: #50575e;
-}
-
-/* On the question's own screen, the column and the control sit above the properties table, and a
-   locked column is drawn as text rather than a box so the lock is visible before a save refuses it. */
+/* On the question's own screen, the column and the control sit above the properties table; a
+   published question's lock is said in a caption under them, before a save could refuse it. */
 .wpcpm-question__identity {
 	margin-bottom: 16px;
-}
-
-.wpcpm-question__locked {
-	color: #50575e;
 }
 
 /* Preview (1.106.0): the draft's form through the report form's own renderer and the sheet that
@@ -178,13 +192,11 @@
 	list-style: disc;
 }
 
-/* The lessons of the course under each group (1.107.0, decision 32): the count line reads as a
-   notice in the same muted color as the schema line's age; the list keeps the group's left edge
-   with no bullet, one lesson a line; a lesson's mark and its Add link sit after the title in the
-   size a question's notice uses. */
+/* The lessons of the course under each group (1.107.0, decision 32): the count line is a caption,
+   as the schema line's age is; the list keeps the group's left edge with no bullet, one lesson a
+   line; a lesson's mark and its Add link sit after the title at the captions' size. */
 .wpcpm-lessons__count {
 	margin: 12px 0 4px;
-	color: #50575e;
 }
 
 .wpcpm-lessons {
@@ -198,20 +210,13 @@
 }
 
 .wpcpm-lesson__asked,
-.wpcpm-lesson__none {
-	margin-left: 8px;
-	color: #50575e;
-	font-size: 12px;
-}
-
+.wpcpm-lesson__none,
 .wpcpm-lesson__add {
 	margin-left: 8px;
-	font-size: 12px;
 }
 
 /* When the course's lessons could not be read, the one sentence under the Questions heading is a
-   notice, not an error: every question is still there to edit (decision 24's rule). */
+   caption, not an error: every question is still there to edit (decision 24's rule). */
 .wpcpm-questions__learn {
 	margin: 4px 0 12px;
-	color: #50575e;
 }

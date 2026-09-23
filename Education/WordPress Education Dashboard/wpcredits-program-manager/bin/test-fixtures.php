@@ -108,6 +108,62 @@ function not_offered( $wanted, $offered ) {
 	return array_values( array_diff( (array) $wanted, (array) $offered ) );
 }
 
+/**
+ * Whether a WordPress.org handle is one this repository invented rather than somebody's account.
+ *
+ * Nothing can tell an invented handle from a real one by asking the network, and a suite must
+ * not ask, so the shape is the judge: lower-case words joined by hyphens that end in "example"
+ * or in a number spelled out (`student-one`, `mentor-two`, `rio-example`), which is how every
+ * handle this repository invents is written (the deep check of 1.109.1, SURFACES-8).
+ *
+ * @param string $handle The handle as a file spells it. Profiles ignore case, so it is lowered.
+ * @return bool
+ */
+function synthetic_handle( $handle ) {
+	$handle = strtolower( (string) $handle );
+
+	return 1 === preg_match( '/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $handle )
+		&& 1 === preg_match( '/(?:example|-(?:one|two|three|four|five|six|seven|eight|nine|ten))$/', $handle );
+}
+
+/**
+ * The WordPress.org handles a body of text names in a spelling a walk can find.
+ *
+ * A profile address has its handle in the path. A suite also writes one as `@handle` inside
+ * quotes or between the commas of a CSV line: a quote or a comma before the at sign, and a
+ * quote, a comma or the backslash of a `\n` after the handle, which an address, a docblock tag
+ * and a silenced call never have. A handle written bare has nothing around it to find it by.
+ *
+ * Passed over: `wp-admin`, the profiles host's own admin path that the mentor checker posts to,
+ * which is not an account; `@page`, the CSS rule two suites look for in a printed document; and
+ * a handle under three characters, which the import never looks up and which the suite proving
+ * that has to write.
+ *
+ * @param string $body   The file's text.
+ * @param bool   $at_too Whether to read the `@handle` spelling too, which only the suites write.
+ * @return string[] The handles, as the file spells them.
+ */
+function handles_in( $body, $at_too ) {
+	$handles = array();
+
+	if ( preg_match_all( '#profiles\.wordpress\.org/([A-Za-z0-9_-]+)#i', (string) $body, $found ) ) {
+		$handles = array_diff( $found[1], array( 'wp-admin' ) );
+	}
+
+	if ( $at_too && preg_match_all( '/(?<=[\'",])@([A-Za-z0-9_-]+)(?=[\'",\\\\])/', (string) $body, $found ) ) {
+		$handles = array_merge( $handles, array_diff( $found[1], array( 'page' ) ) );
+	}
+
+	return array_values(
+		array_filter(
+			$handles,
+			function ( $handle ) {
+				return strlen( $handle ) >= 3;
+			}
+		)
+	);
+}
+
 $institutions = fixture( 'institutions-table-fields.json' );
 $students     = fixture( 'students-table-fields.json' );
 $feedback     = fixture( 'feedback-table-fields.json' );
@@ -506,13 +562,21 @@ ck( 'exactly one row is still labeled TEST, which is how the agreement suite fin
 // And nothing else under bin/ names a record either: five suites had a live ID typed into them
 // by hand. "Real-looking" is the test bin/anonymize-fixtures.php uses and states its reasons
 // for: every placeholder this repository invents is upper case, and the three mixed-case ones
-// read as a word plus a run. A hit here is fixed by running that script, not by editing the
-// suite, so that the seed and the suites keep one mapping between them.
+// read as a word plus a run. A hit under bin/ is fixed by running that script, not by editing the
+// suite, so that the seed and the suites keep one mapping between them. The script rewrites bin/
+// and nothing else, so a hit under docs/ or includes/ or in the readme is edited by hand, and the
+// two labels below say so rather than send a reader to a script that finishes clean and leaves
+// the file failing (the deep check of 1.109.1, TESTS-DOCS-11).
+//
+// The shipped source and the readme are read too, as the refused-name walk below reads them: a
+// docblock quoted a live ID as its example of a linked-record cell and shipped it in the zip,
+// which is a wider publication than the mirror, while this walk read bin/ and docs/ alone (the
+// deep check of 1.109.1, SURFACES-6).
 $real = array();
 
-$id_files = array();
+$id_files = array( dirname( __DIR__ ) . '/readme.txt' );
 
-foreach ( array( __DIR__, dirname( __DIR__ ) . '/docs' ) as $tree ) {
+foreach ( array( __DIR__, dirname( __DIR__ ) . '/docs', dirname( __DIR__ ) . '/includes' ) as $tree ) {
 	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $tree, FilesystemIterator::SKIP_DOTS ) ) as $file ) {
 		if ( $file->isFile() ) {
 			$id_files[] = $file->getPathname();
@@ -541,7 +605,7 @@ foreach ( $id_files as $path ) {
 	}
 }
 
-ck( 'no file under bin/ or docs/ holds a record ID that reads as Airtable\'s (run bin/anonymize-fixtures.php)', array_keys( $real ), array() );
+ck( 'no file under bin/, docs/ or includes/ and not the readme holds a record ID that reads as Airtable\'s (under bin/, run bin/anonymize-fixtures.php; anywhere else, edit it by hand)', array_keys( $real ), array() );
 
 // The record IDs were not the only thing published. Suites used real people as sample display
 // names, three of them with a WordPress.org profile address or a personal domain beside the
@@ -601,7 +665,54 @@ foreach ( $refused_files as $path ) {
 	}
 }
 
-ck( 'no file under bin/, docs/ or includes/ and not the readme carries a refused name, handle, profile address or organization (run bin/anonymize-fixtures.php)', array_keys( $named ), array() );
+ck( 'no file under bin/, docs/ or includes/ and not the readme carries a refused name, handle, profile address or organization (under bin/, run bin/anonymize-fixtures.php; anywhere else, edit it by hand)', array_keys( $named ), array() );
+
+// WordPress.org handles. Six of the eight handles that suites, a docblock and the readme used as
+// examples were real accounts (the deep check of 1.109.1, SURFACES-8), and the refused list could
+// not see them: it holds what somebody judged real, and nobody had judged these. So a handle is
+// judged by its shape, by `synthetic_handle()`, and never by asking the network. Profile
+// addresses are read in every tree the walk above reads, and `@handle` values under bin/ alone,
+// since only the suites write them. A handle written bare, as a formula's needle or a card's
+// username, has nothing around it to find it by: that is this walk's known limit, and the reason
+// a handle is replaced in every spelling and not only where this walk looks. The failure names
+// the file, never the handle.
+//
+// No handle is exempt by name, the maintainer's own included, and none needs to be (the final
+// fix wave, item 10): the readme names the maintainer's account on its Contributors line, a
+// spelling this walk does not read, and no file writes it as a profile address or an @handle.
+// An exemption would write a real handle into this file to allow nothing; one that is ever
+// needed goes here, with its reason, the way bin/refused-strings.php records why the
+// maintainer's name is not on its list.
+$not_synthetic = array();
+
+foreach ( $refused_files as $path ) {
+	if ( ! is_file( $path ) ) {
+		continue;
+	}
+
+	foreach ( handles_in( (string) file_get_contents( $path ), 0 === strpos( $path, __DIR__ . '/' ) ) as $handle ) {
+		if ( ! synthetic_handle( $handle ) ) {
+			$not_synthetic[ substr( $path, strlen( dirname( __DIR__ ) ) + 1 ) ] = true;
+		}
+	}
+}
+
+ck( 'no file names a WordPress.org handle that is not synthetic, in a profile address anywhere or as an @handle under bin/ (rename it by hand, as student-one or mentor-two: bin/anonymize-fixtures.php does not touch handles)', array_keys( $not_synthetic ), array() );
+
+// And the walk's two halves, so a pattern that found nothing or a shape rule that let everything
+// through cannot pass it on a tree full of real handles. The sample is synthetic on purpose: this
+// file is one the walk reads.
+ck( 'the walk finds a handle in a profile address, in quotes and in a CSV line, and passes over what is not one',
+	handles_in( '\'https://profiles.wordpress.org/student-one/\', \'@mentor-two\', "A,@student-two\n", \'x@example.test\', \'https://profiles.wordpress.org/wp-admin/admin-ajax.php\', \'@page\', \'@an\'', true ),
+	array( 'student-one', 'mentor-two', 'student-two' ) );
+ck( 'the shape takes the invented handles and refuses the rest', array(
+	synthetic_handle( 'student-one' ),
+	synthetic_handle( 'Mentor-Two' ),
+	synthetic_handle( 'rio-example' ),
+	synthetic_handle( 'someone' ),
+	synthetic_handle( 'some-one1' ),
+	synthetic_handle( 'one' ),
+), array( true, true, true, false, false, false ) );
 
 // Every fixture, not the seed alone: the sweep rewrote a choice list in
 // students-table-fields.json too, and a refresh of one file on its own must not put a real
@@ -616,6 +727,21 @@ foreach ( glob( __DIR__ . '/fixtures/*' ) as $fixture_file ) {
 }
 
 ck( 'no fixture holds an address of any kind', $with_address, array() );
+
+// Learn names the account that wrote each module of a course, as `teacherId` beside a `teacher`
+// name field, and the Designer course's structure was captured whole and quoted whole in its
+// plan: a real person's WordPress.org user ID, three times in each, that no suite reads (the deep
+// check of 1.109.1, TESTS-DOCS-12). A capture keeps the keys the client reads, so a recapture
+// that brings the teacher back fails here, under the trees the record-ID walk reads.
+$with_teacher = array();
+
+foreach ( $id_files as $path ) {
+	if ( preg_match( '/"teacher(?:Id)?"\s*:/', (string) file_get_contents( $path ) ) ) {
+		$with_teacher[] = substr( $path, strlen( dirname( __DIR__ ) ) + 1 );
+	}
+}
+
+ck( 'no file under bin/, docs/ or includes/ and not the readme keeps a Learn course\'s teacher, by name or by account (trim the capture to the keys the client reads)', $with_teacher, array() );
 ck( 'and it says what it is, and how to make it again', array(
 	false !== strpos( (string) $seed['_comment'], 'synthetic' ),
 	false !== strpos( (string) $seed['_comment'], 'bin/anonymize-fixtures.php' ),

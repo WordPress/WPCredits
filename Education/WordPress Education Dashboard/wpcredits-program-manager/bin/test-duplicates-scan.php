@@ -13,7 +13,8 @@
  * - What the site points at is read by value from user and post meta, so a row a site account uses
  *   is locked; the finder's own copies are not a reason to keep a row.
  * - **A failed or an empty read ends the run and keeps the last good list** (spec decision 3.4),
- *   instead of the sync behaviour of staying "running" with no next tick.
+ *   instead of the sync behavior of staying "running" with no next tick. So does a failed read
+ *   of what the site points at, which is never "nothing points at these rows" (DUPLICATES-3).
  * - Cancel keeps the list too, and a deletion takes its rows out of the stored list at once.
  *
  * Fixtures are synthetic: example.test addresses and record IDs that spell what they are.
@@ -41,6 +42,8 @@ $GLOBALS['usermeta']   = array();
 $GLOBALS['postmeta']   = array();
 $GLOBALS['connected']  = true;
 $GLOBALS['interval']   = false;
+$GLOBALS['fail_query'] = '';
+$GLOBALS['null_query'] = '';
 
 class WP_Error {
 	private $code, $message, $data;
@@ -139,12 +142,27 @@ class WPCPM_Student_Report_Form {
 	}
 }
 
-/** Reads by value from user meta and post meta, the two queries `refs_for()` makes. */
+/**
+ * Reads by value from user meta and post meta, the two queries `refs_for()` makes.
+ *
+ * A query named in $GLOBALS['fail_query'] fails the way wpdb's does: an empty list, with the
+ * reason in `last_error`, which every query resets first. A query named in $GLOBALS['null_query']
+ * answers null, what `get_results()` gives a statement `prepare()` could not build, while the
+ * other query answers as usual, so each query's own check is what must catch it.
+ */
 class Test_WPDB {
-	public $usermeta = 'wp_usermeta', $postmeta = 'wp_postmeta', $posts = 'wp_posts';
+	public $usermeta = 'wp_usermeta', $postmeta = 'wp_postmeta', $posts = 'wp_posts', $last_error = '';
 	public function prepare( $sql, $args ) { return array( $sql, (array) $args ); }
 	public function get_results( $prepared, $output = null ) {
+		$this->last_error = '';
 		list( $sql, $ids ) = $prepared;
+		if ( '' !== $GLOBALS['null_query'] && false !== strpos( $sql, $GLOBALS['null_query'] ) ) {
+			return null;
+		}
+		if ( '' !== $GLOBALS['fail_query'] && false !== strpos( $sql, $GLOBALS['fail_query'] ) ) {
+			$this->last_error = 'Lock wait timeout exceeded; try restarting transaction';
+			return array();
+		}
 		$rows = array();
 		$from = false !== strpos( $sql, 'wp_usermeta' ) ? $GLOBALS['usermeta'] : $GLOBALS['postmeta'];
 		foreach ( $from as $row ) {
@@ -340,6 +358,24 @@ ck( 'a table that answers with no rows at all is an error, not a base without st
 ck( 'and the last good list stands', WPCPM_Duplicates_Scan::report(), $good );
 base();
 
+// What the site points at is what locks a row, so a read of it that failed is not "nothing
+// points at these rows": one check for each of the two queries (DUPLICATES-3).
+foreach ( array( 'wp_usermeta' => 'user meta', 'wp_postmeta' => 'post meta' ) as $table => $words ) {
+	$GLOBALS['fail_query'] = $table;
+	WPCPM_Duplicates_Scan::start();
+	run_to_end();
+	$GLOBALS['fail_query'] = '';
+	ck( 'a failed read of what the site points at, in ' . $words . ', ends the run, says so and keeps the last good list', array( WPCPM_Duplicates_Scan::is_running(), get_option( WPCPM_Duplicates_Scan::OPT_ERROR, 'none' ), WPCPM_Duplicates_Scan::report() === $good ), array( false, 'The site\'s database did not answer which of its records point at these rows.', true ) );
+}
+
+// One query at a time, the other answering as usual, so each query's own check must catch it.
+foreach ( array( 'wp_usermeta' => 'user meta', 'wp_postmeta' => 'post meta' ) as $table => $words ) {
+	$GLOBALS['null_query'] = $table;
+	$refs                  = WPCPM_Duplicates_Scan::refs_for( array( rid( 'repnew' ) ) );
+	$GLOBALS['null_query'] = '';
+	ck( 'and so is an answer from ' . $words . ' that is not a list, which a statement that could not be prepared gives', is_wp_error( $refs ) ? $refs->get_error_code() : $refs, 'wpcpm_duplicates_refs' );
+}
+
 WPCPM_Duplicates_Scan::start();
 WPCPM_Duplicates_Scan::cancel();
 ck( 'Cancel stops the run and keeps the list', array( WPCPM_Duplicates_Scan::is_running(), WPCPM_Duplicates_Scan::report() === $good ), array( false, true ) );
@@ -375,6 +411,19 @@ WPCPM_Duplicates_Scan::drop_deleted(
 );
 $after = WPCPM_Duplicates_Scan::report();
 ck( 'the rest gone: the student leaves the list and the counts say so', array( $after['groups'], $after['counts']['addresses'], $after['counts']['ready'] ), array( array(), 0, 0 ) );
+
+/* ---- an address typed with a space around it ------------------------------ */
+
+echo "\n=== An address typed with a space around it ===\n";
+
+base();
+$GLOBALS['pages']['tblFEEDBACK'][0][] = record( 'fbpad', '2026-03-05T10:00:00.000Z', array( 'Email' => ' once@example.test ', 'Name' => 'Once Only', 'Course' => 'In Sensei' ) );
+WPCPM_Duplicates_Scan::start();
+run_to_end();
+$once = WPCPM_Duplicate_Rules::key( 'once@example.test' );
+$pad  = WPCPM_Duplicates_Scan::report();
+ck( 'is grouped with the student\'s other rows, and flagged as a second spelling (DUPLICATES-4)', isset( $pad['groups'][ $once ] ) ? array( $pad['groups'][ $once ]['counts'], $pad['groups'][ $once ]['flags'] ) : array(), array( array( 'students' => 1, 'reports' => 1, 'feedback' => 2 ), array( 'spelling' ) ) );
+base();
 
 /* ---- uninstall ------------------------------------------------------------ */
 

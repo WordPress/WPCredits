@@ -297,6 +297,23 @@ $description = run( 'php bin/check-spelling.php ' . escapeshellarg( $scratch . '
 
 ck( 'and so is one in a description', array( $description['status'], false !== strpos( $description['out'], 'colour' ) ), array( 1, true ) );
 
+// The final fix wave, item 13: the checker matches whole words and its list named "grey", so
+// "greyed" passed, as did every -ed and -ing form of a stem the list did not spell out.
+$inflected = array();
+
+foreach ( array( 'greyed', 'greying', 'colouring', 'centred', 'catalogued', 'customising', 'summarising', 'authorising', 'prioritised', 'optimising', 'finalised', 'realising', 'practising', 'honoured', 'neighbouring', 'modelling', 'travelling' ) as $word ) {
+	put( $scratch . '/tree/blocks/probe/block.json', "{\n\t\"title\": \"Sponsor Application Form\",\n\t\"description\": \"The button is " . $word . " for now.\"\n}\n" );
+	$inflected_run      = run( 'php bin/check-spelling.php ' . escapeshellarg( $scratch . '/tree' ) );
+	$inflected[ $word ] = array( $inflected_run['status'], false !== strpos( $inflected_run['out'], $word ) );
+}
+
+put( $scratch . '/tree/blocks/probe/block.json', "{\n\t\"title\": \"Sponsor Application Form\",\n\t\"description\": \"Grayed, coloring, centered, cataloged, customizing, summarizing, authorizing, prioritized, optimizing, finalized, realizing, practicing, honored, neighboring, modeling, traveling, and two analyses.\"\n}\n" );
+$us_forms = run( 'php bin/check-spelling.php ' . escapeshellarg( $scratch . '/tree' ) );
+
+ck( 'a British spelling ending in -ed or -ing is a failure too, named with the word, and the US spelling of each is not',
+	array( $inflected, $us_forms['status'] ),
+	array( array_fill_keys( array_keys( $inflected ), array( 1, true ) ), 0 ) );
+
 // bin/ is published on the public GitHub mirror, so the prose that explains the fixtures is
 // read there like any other text, and one of those files is committed data. Four British
 // spellings reached a fixture's own comment before this pass existed.
@@ -313,6 +330,27 @@ put( $scratch . '/tree/bin/anonymize-fixtures.php', "<?php\n/**\n * A script who
 $script_prose = run( 'php bin/check-spelling.php ' . escapeshellarg( $scratch . '/tree' ) );
 
 ck( 'and so is one in a script that makes or checks them', array( $script_prose['status'], false !== strpos( $script_prose['out'], 'anonymize-fixtures.php' ) ), array( 1, true ) );
+
+// The seed definitions' why notes ship in the zip under includes/tracks/seeds/, and the Track
+// Builder shows each to a program manager as a question's Developer note. A script writes them
+// into committed data, the reason given above for reading the anonymizer, and no pass read them
+// (the deep check of 1.109.1, TESTS-DOCS-7). Only the notes: a question's key is the base's own
+// column name, which is left as the base spells it.
+unlink( $scratch . '/tree/bin/anonymize-fixtures.php' );
+put( $scratch . '/tree/includes/tracks/seeds/probe.json', "{\n\t\"questions\": {\n\t\t\"Favourite colour\": {\n\t\t\t\"label\": \"Favorite color\",\n\t\t\t\"why\": \"The column is the base's, spelled as the base spells it.\"\n\t\t}\n\t}\n}\n" );
+
+$seed_key = run( 'php bin/check-spelling.php ' . escapeshellarg( $scratch . '/tree' ) );
+
+put( $scratch . '/tree/includes/tracks/seeds/probe.json', "{\n\t\"questions\": {\n\t\t\"Hours\": {\n\t\t\t\"label\": \"Hours contributed\",\n\t\t\t\"why\": \"The colour of the chip is the base's.\"\n\t\t}\n\t}\n}\n" );
+
+$seed_note = run( 'php bin/check-spelling.php ' . escapeshellarg( $scratch . '/tree' ) );
+
+ck( 'a British spelling in a seed\'s why note is a failure, named with the seed and the word, and one in a column name the base spells is not', array(
+	$seed_key['status'],
+	$seed_note['status'],
+	false !== strpos( $seed_note['out'], 'includes/tracks/seeds/probe.json' ),
+	false !== strpos( $seed_note['out'], 'colour' ),
+), array( 0, 1, true, true ) );
 
 clean( $scratch );
 

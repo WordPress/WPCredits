@@ -21,6 +21,14 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
+// WordPress includes this file from inside `uninstall_plugin()`, and `wp plugin uninstall` calls
+// the same function, so the file's top level is that function's scope and a global is in reach
+// only once it is declared. Without this line `$wpdb` was undefined, the option sweep below died
+// on a call to `get_col()` on null, and nothing after it ever ran: not the Track Builder's
+// clean-up, the notices, the cron hooks or the mail log (the deep check of 1.109.1, TRACKS-2).
+// bin/test-uninstall.php includes the file the same way.
+global $wpdb;
+
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roles.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-airtable.php';
@@ -204,8 +212,12 @@ delete_metadata( 'user', 0, WPCPM_Student_Report_Form::META_IMAGES, '', true );
 
 // Every institution's module order (1.96.4), and every Track Builder form (1.101.0), a form the
 // index lost track of included: `WPCPM_Track_Store::delete_all()` below finds forms through the
-// posts and the index only.
-foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX ) as $wpcpm_prefix ) {
+// posts and the index only. And the copies of a Learn course and of a course's structure the
+// track editor keeps for a day (1.107.0; the deep check of 1.109.1, SURFACES-7): named after the
+// course, so they are swept by prefix too, from the two rows a transient is where no object cache
+// is installed, the value and its timeout; where one is installed they are not in this table and
+// expire in the cache within the day.
+foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX, '_transient_wpcpm_learn_', '_transient_timeout_wpcpm_learn_' ) as $wpcpm_prefix ) {
 	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( $wpcpm_prefix ) . '%' ) ) as $wpcpm_swept_option ) {
 		delete_option( $wpcpm_swept_option );
 	}
@@ -214,6 +226,13 @@ foreach ( array( 'wpcpm_institution_modules_', WPCPM_Tracks::OPT_FIELDS_PREFIX )
 // The Track Builder's tracks (1.100.0): every definition post with its revisions, and the
 // options the live site runs on.
 WPCPM_Track_Store::delete_all();
+
+// And what else the Track Builder keeps outside its posts and options (the deep check of 1.109.1,
+// SURFACES-7): the lock a publish run holds while it creates columns (1.104.0), which a run killed
+// halfway leaves behind for good, and the copy of the base's schema the track editor reads
+// (1.105.0). The Learn copies went with the sweep above.
+delete_option( WPCPM_Track_Publish::OPT_LOCK );
+delete_transient( WPCPM_Airtable::SCHEMA_TRANSIENT );
 
 delete_option( WPCPM_Notices::OPT_PLAIN );
 delete_metadata( 'post', 0, WPCPM_Notices::META_AUDIENCE, '', true );
@@ -241,9 +260,11 @@ wp_clear_scheduled_hook( WPCPM_Institutions_Sync::CRON_TICK );
 wp_clear_scheduled_hook( 'wpcpm_handbook_sync_daily' );
 wp_clear_scheduled_hook( 'wpcpm_handbook_sync_tick' );
 
-// The mail log and anyone still waiting for an invitation that is no longer coming.
+// The mail log, anyone still waiting for an invitation that is no longer coming, and the counts
+// and times of the last bulk invite (the final fix wave of the deep check of 1.109.1).
 WPCPM_Mail::clear_log();
 WPCPM_Mail::clear_queue();
+delete_option( WPCPM_Mail::RUN_OPTION );
 
 // Reminder markers on calls. `WPCPM_Mentor_Calls::delete_all()` removes the calls
 // themselves, but a call deleted by hand before now would leave its marker behind.

@@ -781,7 +781,7 @@ const CHECKS_PER_HOUR = 5;  const ROWS_PER_DAY = 600;
 1. Inside the file, by `email_key` and by handle: both rows blocked as "duplicate of row N in this file".
 2. Students by email: one `fetch_all()` per chunk of 50 with `formula_in( 'Email', $chunk, true )`, the new third argument wrapping the field in `LOWER()`.
 3. Students Reports by email, the same.
-4. Profile, both tables: `OR(FIND('<handle>', LOWER({WordPress Profile})) > 0, …)` per chunk for handles of three characters or more, every returned value normalised and compared for exact equality in PHP, so a URL variant cannot defeat it and "ann" inside "joanna" cannot trip it.
+4. Profile, both tables: `OR(FIND('<handle>', LOWER({WordPress Profile})) > 0, …)` per chunk for handles of three characters or more, every returned value normalised and compared for exact equality in PHP, so a URL variant cannot defeat it and "student-three" inside "other-student-three" cannot trip it.
 5. The site: `get_user_by( 'email' )`.
 6. Near-name inside this institution, on the index.
 

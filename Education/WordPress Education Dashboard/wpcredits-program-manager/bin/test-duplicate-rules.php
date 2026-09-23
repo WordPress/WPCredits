@@ -185,10 +185,10 @@ $reduced = row(
 		'Notes'                    => 'Asked to pause.',
 	)
 );
-ck( 'a Students record reduces to what the rules read', $reduced, array(
+ck( 'a Students record reduces to what the rules read, the address as typed', $reduced, array(
 	'id'          => rid( 'reduced' ),
 	'created'     => '2026-01-27T10:00:00.000Z',
-	'email'       => 'Student@example.test',
+	'email'       => ' Student@example.test ',
 	'name'        => 'A Student',
 	'status'      => 'In Sensei',
 	'institution' => array( rid( 'inst' ), rid( 'inst2' ) ),
@@ -198,6 +198,8 @@ ck( 'a Students record reduces to what the rules read', $reduced, array(
 	'hours'       => '12.5',
 	'notes'       => true,
 	'work'        => 0,
+	// The cells a deletion would lose, Total hours and Notes here, as a digest (DUPLICATES-2).
+	'held'        => substr( md5( "Total hours\t12.5\nNotes\tAsked to pause." ), 0, 16 ),
 ) );
 
 $report_cells = array( 'Email' => 'a@example.test', 'Beginner WordPress User - final grade' => 88, 'Hours' => 4, 'Slack Name' => 'someone', 'Personal link' => 'https://example.test/form' );
@@ -299,6 +301,7 @@ array_pop( $pending['feedback'] );
 ck( 'a second Students row with no second report is flagged', WPCPM_Duplicate_Rules::classify( $pending, array(), $ctx )['flags'], array( 'pending' ) );
 
 ck( 'two spellings of one address are flagged', WPCPM_Duplicate_Rules::classify( reapplied( array( 'feedback' => array( 'fbnew' => array( 'Email' => 'Student@Example.test' ) ) ) ), array(), $ctx )['flags'], array( 'spelling' ) );
+ck( 'and so is one typed with a space around it, which the key groups with the others (DUPLICATES-4)', WPCPM_Duplicate_Rules::classify( reapplied( array( 'feedback' => array( 'fbnew' => array( 'Email' => 'student@example.test ' ) ) ) ), array(), $ctx )['flags'], array( 'spelling' ) );
 
 /* ---- the selection -------------------------------------------------------- */
 
@@ -337,6 +340,10 @@ ck( 'a student who needs a decision cannot be taken whole, and an unknown key is
 
 $chosen = WPCPM_Duplicate_Rules::expand( $report, array(), array( 'reports:' . rid( 'repnew' ), 'reports:' . rid( 'repold' ), 'students:' . rid( 'stunew' ), 'reports:' . rid( 'repnew' ) ) );
 ck( 'a selectable row is taken once; a locked or a kept one is dropped', array( picked( $chosen['rows'] ), array_column( $chosen['dropped'], 'code' ) ), array( array( array( 'reports', rid( 'repnew' ), 'row' ) ), array( 'not-selectable', 'not-selectable' ) ) );
+
+$chosen = WPCPM_Duplicate_Rules::expand( array( 'groups' => array( $ready_key => $inverted ) ), array(), array( 'students:' . rid( 'stuold' ), 'students:' . rid( 'stunew' ) ) );
+ck( 'ticking every row the report holds for a student in a table drops them all as the last row, so the confirmation offers none (DUPLICATES-7)', array( $chosen['rows'], array_column( $chosen['dropped'], 'code', 'id' ) ), array( array(), array( rid( 'stuold' ) => 'last-row', rid( 'stunew' ) => 'last-row' ) ) );
+ck( 'while one of the two is taken', picked( WPCPM_Duplicate_Rules::expand( array( 'groups' => array( $ready_key => $inverted ) ), array(), array( 'students:' . rid( 'stunew' ) ) )['rows'] ), array( array( 'students', rid( 'stunew' ), 'row' ) ) );
 
 // Thirty-four Ready students with three candidates each: 102 rows, two over the limit.
 $many = array( 'groups' => array() );
@@ -381,14 +388,76 @@ ck( 'a held row ticked on its own goes when nothing new holds it', array( count(
 $again = WPCPM_Duplicate_Rules::recheck( $held_pick, array( $ready_key => reapplied( array( 'students' => array( 'stuold' => array( 'Status' => 'Graduate', 'Notes' => 'Graduated in June.' ) ) ) ) ), array(), $ctx );
 ck( 'but not when it has gained a reason to stay since the scan', array_column( $again['refused'], 'code', 'id' ), array( rid( 'stuold' ) => 'changed' ) );
 
+/**
+ * A row held at the scan and ticked on its own, re-checked against the same row as it is now.
+ *
+ * The row keeps the reason that held it either way, so only what it carries can tell the two
+ * apart (DUPLICATES-2).
+ *
+ * @param string $table   The row's table.
+ * @param string $tag     The record ID's tag.
+ * @param array  $at_scan Cells the row held at the scan.
+ * @param array  $now     Cells it holds now.
+ * @param bool   $before  Whether the report was stored before rows carried the digest.
+ * @return array Record ID => refusal code, or 'goes'.
+ */
+function ticked_again( $table, $tag, array $at_scan, array $now, $before = false ) {
+	global $ctx, $ready_key;
+
+	$group = held( array( $table => array( $tag => $at_scan ) ) );
+	foreach ( $before ? array_keys( $group['rows'][ $table ] ) : array() as $n ) {
+		unset( $group['rows'][ $table ][ $n ]['held'] );
+	}
+	$pick  = WPCPM_Duplicate_Rules::expand( array( 'groups' => array( $ready_key => $group ) ), array(), array( $table . ':' . rid( $tag ) ) )['rows'];
+	$again = WPCPM_Duplicate_Rules::recheck( $pick, array( $ready_key => reapplied( array( $table => array( $tag => $now ) ) ) ), array(), $ctx );
+
+	return $again['go'] ? 'goes' : array_column( $again['refused'], 'code', 'id' );
+}
+
+$one_grade = array( 'Beginner WordPress User - final grade' => 80 );
+ck( 'expand() carries the work count and the hours the manager saw with each row', array_intersect_key( WPCPM_Duplicate_Rules::expand( array( 'groups' => array( $ready_key => held( array( 'reports' => array( 'repold' => $one_grade + array( 'Hours' => 3 ) ) ) ) ) ), array(), array( 'reports:' . rid( 'repold' ) ) )['rows'][0], array_flip( array( 'work', 'hours' ) ) ), array( 'work' => 2, 'hours' => '3' ) );
+ck( 'a held report ticked on its own goes while it carries what the scan saw', ticked_again( 'reports', 'repold', $one_grade, $one_grade ), 'goes' );
+ck( 'and is refused as changed once it carries another work field', ticked_again( 'reports', 'repold', $one_grade, $one_grade + array( 'Post Reflection: Building Your Personal Website' => 'https://example.test/post' ) ), array( rid( 'repold' ) => 'changed' ) );
+ck( 'or more Hours, though its count of work fields stays one', ticked_again( 'reports', 'repold', array( 'Hours' => 3 ), array( 'Hours' => 40 ) ), array( rid( 'repold' ) => 'changed' ) );
+ck( 'a held Feedback row is refused once it carries another answer', ticked_again( 'feedback', 'fbold', array( 'F4 - What stopped you?' => 'Exams' ), array( 'F4 - What stopped you?' => 'Exams', 'F4 - Would you consider coming back?' => 'Yes' ) ), array( rid( 'fbold' ) => 'changed' ) );
+ck( 'and a held Students row once its Total hours rose', ticked_again( 'students', 'stuold', array( 'Total hours' => 30 ), array( 'Total hours' => 45 ) ), array( rid( 'stuold' ) => 'changed' ) );
+
+// The same count of work fields with a value replaced, and a note rewritten: only the digest of
+// the held cells tells these apart from the rows the list showed.
+ck( 'a held report whose grade was replaced since the scan is refused as changed', ticked_again( 'reports', 'repold', $one_grade, array( 'Beginner WordPress User - final grade' => 95 ) ), array( rid( 'repold' ) => 'changed' ) );
+ck( 'and so is a held Students row whose Notes were rewritten', ticked_again( 'students', 'stuold', array( 'Notes' => 'Moved to the 50h course.' ), array( 'Notes' => 'Moved to the 50h course. Then dropped out.' ) ), array( rid( 'stuold' ) => 'changed' ) );
+
+$shot = static function ( $id, $url ) {
+	return array( 'Post Reflection: Building Your Personal Website' => array( array( 'id' => $id, 'url' => $url, 'filename' => 'site.png' ) ) );
+};
+ck( 'a screenshot Airtable signed afresh since the scan is the same screenshot', ticked_again( 'reports', 'repold', $shot( 'attSHOT1', 'https://example.test/signed-1' ), $shot( 'attSHOT1', 'https://example.test/signed-2' ) ), 'goes' );
+ck( 'a screenshot replaced by another is a change', ticked_again( 'reports', 'repold', $shot( 'attSHOT1', 'https://example.test/signed-1' ), $shot( 'attSHOT2', 'https://example.test/signed-3' ) ), array( rid( 'repold' ) => 'changed' ) );
+
+ck(
+	'a row stored before the digest existed is judged by its counts alone: a replaced grade and fewer hours go; more hours, another work field or another answer do not',
+	array(
+		ticked_again( 'reports', 'repold', $one_grade, array( 'Beginner WordPress User - final grade' => 95 ), true ),
+		ticked_again( 'students', 'stuold', array( 'Total hours' => 30 ), array( 'Total hours' => 12 ), true ),
+		ticked_again( 'students', 'stuold', array( 'Total hours' => 30 ), array( 'Total hours' => 45 ), true ),
+		ticked_again( 'reports', 'repold', $one_grade, $one_grade + array( 'Post Reflection: Building Your Personal Website' => 'https://example.test/post' ), true ),
+		ticked_again( 'feedback', 'fbold', array( 'F4 - What stopped you?' => 'Exams' ), array( 'F4 - What stopped you?' => 'Exams', 'F4 - Would you consider coming back?' => 'Yes' ), true ),
+	),
+	array( 'goes', 'goes', array( rid( 'stuold' ) => 'changed' ), array( rid( 'repold' ) => 'changed' ), array( rid( 'fbold' ) => 'changed' ) )
+);
+
 $last = $now;
 unset( $last[ $ready_key ]['feedback'][1] );
 $again = WPCPM_Duplicate_Rules::recheck( $selection, $last, array(), $ctx );
 ck( 'a row that is now the only one its address has in the table is refused as the last row', array_column( $again['refused'], 'code', 'id' ), array( rid( 'fbold' ) => 'last-row' ) );
 
-$both  = WPCPM_Duplicate_Rules::expand( array( 'groups' => array( $ready_key => $inverted ) ), array(), array( 'students:' . rid( 'stuold' ), 'students:' . rid( 'stunew' ) ) )['rows'];
-$again = WPCPM_Duplicate_Rules::recheck( $both, array( $ready_key => reapplied( array( 'students' => array( 'stuold' => array( 'Status' => 'In Sensei' ), 'stunew' => array( 'Status' => 'Not moving forward' ) ) ) ) ), array(), $ctx );
-ck( 'and ticking every row a table has refuses them all as the last row', array_column( $again['refused'], 'code', 'id' ), array( rid( 'stuold' ) => 'last-row', rid( 'stunew' ) => 'last-row' ) );
+// The report held a third Students row, since deleted by hand in Airtable, so two of three were
+// ticked; the base now holds just those two.
+$inverted_now = reapplied( array( 'students' => array( 'stuold' => array( 'Status' => 'In Sensei' ), 'stunew' => array( 'Status' => 'Not moving forward' ) ) ) );
+$three        = $inverted_now;
+$three['students'][] = row( 'students', 'stumid', '2026-05-01T10:00:00.000Z', array( 'Email' => 'student@example.test', 'Full Name' => 'A Student', 'Status' => 'Not moving forward' ) );
+$both         = WPCPM_Duplicate_Rules::expand( array( 'groups' => array( $ready_key => WPCPM_Duplicate_Rules::classify( $three, array(), $ctx ) ) ), array(), array( 'students:' . rid( 'stuold' ), 'students:' . rid( 'stunew' ) ) )['rows'];
+$again        = WPCPM_Duplicate_Rules::recheck( $both, array( $ready_key => $inverted_now ), array(), $ctx );
+ck( 'and ticking every row a table still has refuses them all as the last row', array( count( $both ), array_column( $again['refused'], 'code', 'id' ) ), array( 2, array( rid( 'stuold' ) => 'last-row', rid( 'stunew' ) => 'last-row' ) ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

@@ -39,6 +39,29 @@ class WPCPM_Track_Editor_Screen {
 	}
 
 	/**
+	 * The groups a question may be put in: Total hours for the Hours question alone, and no other
+	 * group for it (TRACKS-3).
+	 *
+	 * The Student Report Card draws Total hours as the hours box, which holds the column named
+	 * `Hours` and nothing else whatever group that column is in, and `WPCPM_Track_Store::check()`
+	 * refuses any other arrangement: offering one here would only send people into the refusal.
+	 *
+	 * @param string $column The question's column, as typed or stored.
+	 * @return array<string,string> The groups `groups()` names, in its order.
+	 */
+	private static function groups_for( $column ) {
+		$hours = WPCPM_Track_Definition::HOURS_COLUMN === (string) $column;
+
+		return array_filter(
+			self::groups(),
+			static function ( $group ) use ( $hours ) {
+				return ( 'hours' === $group ) === $hours;
+			},
+			ARRAY_FILTER_USE_KEY
+		);
+	}
+
+	/**
 	 * Every question property, in the words the question screen uses for it.
 	 *
 	 * One map, so History's diff lines read as the rows they point at (the design's decision 28),
@@ -218,7 +241,9 @@ class WPCPM_Track_Editor_Screen {
 
 		printf( '<tr><th scope="row"><label for="wpcpm_group">%s</label></th><td><select id="wpcpm_group" name="wpcpm_group">', esc_html( $labels['group'] ) );
 
-		foreach ( self::groups() as $group => $heading ) {
+		// The column as typed decides which groups are offered, so a rename to or from Hours that a
+		// save refused comes back offering the groups that fit it (TRACKS-3).
+		foreach ( self::groups_for( $locked ? $column : (string) $value( 'column', $column ) ) as $group => $heading ) {
 			printf( '<option value="%1$s"%3$s>%2$s</option>', esc_attr( $group ), esc_html( $heading ), $group === (string) $value( 'group' ) ? ' selected="selected"' : '' );
 		}
 
@@ -542,7 +567,12 @@ class WPCPM_Track_Editor_Screen {
 
 			self::render_lessons( $group, $of_group, $questions, $track, $url, $read_only );
 
-			if ( ! $read_only ) {
+			// Total hours holds the Hours question alone (TRACKS-3), so once the track has it that
+			// group's Add form could only be refused; while Hours is missing, it is the one question
+			// a person may add there, and the form stays (TRACKS-3, follow-up).
+			$hours_held = 'hours' === $group && array_key_exists( WPCPM_Track_Definition::HOURS_COLUMN, $questions );
+
+			if ( ! $read_only && ! $hours_held ) {
 				self::render_add( $track, $group, $typed, $of_group, $lesson );
 			}
 

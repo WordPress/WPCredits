@@ -39,8 +39,29 @@ function ck( $l, $a, $e = true ) {
 // Where the guard lives: forms.js, and nowhere else.
 ck( 'forms.js exists and defines the guard',
     (bool) strpos( $js, 'function guardForms()' ) && (bool) strpos( $js, 'function guardForm( form )' ) );
-ck( 'and wires it, with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
-    (bool) preg_match( '/ready\( function \(\) \{\s*guardForms\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
+ck( 'and wires it, after the confirm reader and with the bfcache release, the code-selector, the kind switch and the required-with switch, once the DOM is ready',
+    (bool) preg_match( '/ready\( function \(\) \{\s*confirmFirst\(\);\s*guardForms\(\);\s*releaseOnRestore\(\);\s*selectOnClick\(\);\s*showForKind\(\);\s*requireWith\(\);\s*\} \);/', $js ) );
+
+// The deep check of 1.109.1, SESSIONS-6: "Cancel the session" and "Leave the session" carried a
+// `data-wpcpm-confirm` sentence that no script read, so one press canceled a session for everybody.
+// The reader is bound before the guard (the wiring above): listeners on a form run in the order
+// they were added, so a No has called preventDefault() by the time the guard's own listener runs,
+// and the guard, which stands aside for a prevented submit, leaves the form as it was.
+$confirm = substr( $js, (int) strpos( $js, 'function bindConfirm( form )' ) );
+$confirm = substr( $confirm, 0, (int) strpos( $confirm, "\n\t}\n" ) );
+ck( 'a submit is asked the pressed control\'s data-wpcpm-confirm sentence with window.confirm(), and a No prevents it',
+    array(
+        (bool) strpos( $js, 'function confirmFirst()' ),
+        (bool) strpos( $confirm, "form.addEventListener( 'submit'" ),
+        (bool) strpos( $confirm, "getAttribute( 'data-wpcpm-confirm' )" ),
+        (bool) preg_match( '/if \( question && ! window\.confirm\( question \) \) \{\s*event\.preventDefault\(\);/', $confirm ),
+    ),
+    array( true, true, true, true ) );
+ck( 'and the guard stands aside for a submit already prevented',
+    (bool) preg_match( "/form\.addEventListener\( 'submit', function \( event \) \{.*?if \( event\.defaultPrevented \) \{\s*return;/s", $js ) );
+ck( 'the session\'s Cancel and the Leave form carry the sentence the reader asks',
+    substr_count( file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-group-sessions.php' ), 'data-wpcpm-confirm="%1$s"' ),
+    2 );
 
 // The count of a repeat rule is required, and open, only while a rule is chosen (1.109.1): the
 // marked control follows the named control's value on load, on change and after a bfcache restore.

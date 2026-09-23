@@ -233,6 +233,33 @@ ck( 'and the map answers with the compiled track again afterwards', WPCPM_Progra
 ck( 'the key the PHP gives a built-in status', array( WPCPM_Tracks::builtin_key( 'Designer Track' ), WPCPM_Tracks::builtin_key( 'In Sensei' ) ), array( 'design', '150h' ) );
 ck( 'and none for a compiled track, or for a status no track holds', array( WPCPM_Tracks::builtin_key( 'Marketing Track' ), WPCPM_Tracks::builtin_key( 'Graduate' ) ), array( '', '' ) );
 
+echo "\n=== A student on no track reads the 150-hour track's form (TRACKS-5) ===\n";
+
+// The product owner, 23 September 2026: a student on no track, Paused or Pending graduation, whose
+// track() is the empty string, is drawn the 150-hour track's form through the filter, so a switched
+// 150-hour definition and every edit published to it reach them as they reach its own students.
+// Before, fields( '' ) never matched the filter and read the hand-written form, which T5 removes.
+require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
+
+$edited = array(
+	'Hours' => array( 'label' => 'Hours you contributed, in total', 'type' => 'number', 'step' => '1', 'min' => 0, 'max' => 10000, 'group' => 'hours' ),
+	'Notes' => array( 'label' => 'Your notes', 'type' => 'textarea', 'group' => 'project' ),
+);
+
+compiled( array( 'In Sensei' => row( '150h', 'WordPress Credits Program 150h' ) ), array( '150h' => $edited ) );
+ck( 'with the 150-hour track switched to its definition, a student on no track reads that definition, as its own students do',
+	array( WPCPM_Student_Report_Form::fields( '' ), WPCPM_Student_Report_Form::fields( WPCPM_Program::track( 'In Sensei' ) ) ),
+	array( $edited, $edited ) );
+ck( 'whichever state keeps them off a track', array( WPCPM_Program::track( 'Paused' ), WPCPM_Program::track( 'Pending graduation' ), WPCPM_Student_Report_Form::fields( WPCPM_Program::track( 'Paused' ) ) ), array( '', '', $edited ) );
+
+compiled( array( 'In Sensei' => row( '150h', 'WordPress Credits Program 150h', array( 'source' => 'builtin' ) ) ), array( '150h' => $edited ) );
+ck( 'while the 150-hour track still runs from its PHP, the hand-written 150-hour form, as its own students read',
+	array( WPCPM_Student_Report_Form::fields( '' ) === WPCPM_Student_Report_Form::builtin_fields( '150h' ), WPCPM_Student_Report_Form::fields( '' ) === WPCPM_Student_Report_Form::fields( '150h' ) ),
+	array( true, true ) );
+
+compiled( array() );
+ck( 'and with nothing compiled, the same', WPCPM_Student_Report_Form::fields( '' ) === WPCPM_Student_Report_Form::builtin_fields( '150h' ), true );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );
