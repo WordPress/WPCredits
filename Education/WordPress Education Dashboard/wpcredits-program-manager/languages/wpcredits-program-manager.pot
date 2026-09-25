@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.110.3\n"
+"Project-Id-Version: WPCredits Program Manager 1.110.4\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-23T18:58:25+00:00\n"
+"POT-Creation-Date: 2026-09-25T12:22:15+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -618,7 +618,7 @@ msgid "Applies to the logos the sync copies from Airtable and, later, to the one
 msgstr ""
 
 #: includes/class-wpcpm-admin.php:861
-#: includes/modules/class-wpcpm-sponsor-tools.php:309
+#: includes/modules/class-wpcpm-sponsor-tools.php:313
 #: includes/modules/class-wpcpm-students-dashboard.php:398
 msgid "Tools from our sponsors"
 msgstr ""
@@ -8908,7 +8908,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-mentors.php:289
 #: includes/modules/class-wpcpm-sponsor-offers.php:1539
-#: includes/modules/class-wpcpm-sponsor-tools.php:459
+#: includes/modules/class-wpcpm-sponsor-tools.php:463
 msgid "mentors"
 msgstr ""
 
@@ -9281,7 +9281,7 @@ msgstr ""
 #: includes/modules/class-wpcpm-semester-report-screen.php:1168
 #: includes/modules/class-wpcpm-sponsor-interests.php:282
 #: includes/modules/class-wpcpm-sponsor-mentors.php:424
-#: includes/modules/class-wpcpm-sponsor-tools.php:548
+#: includes/modules/class-wpcpm-sponsor-tools.php:552
 msgid "Sending"
 msgstr ""
 
@@ -11286,7 +11286,7 @@ msgid "Current students"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-offers.php:1543
-#: includes/modules/class-wpcpm-sponsor-tools.php:460
+#: includes/modules/class-wpcpm-sponsor-tools.php:464
 msgid "the program team"
 msgstr ""
 
@@ -11552,7 +11552,7 @@ msgid "A sponsor of the program"
 msgstr ""
 
 #: includes/modules/class-wpcpm-sponsor-posts.php:1471
-#: includes/modules/class-wpcpm-sponsor-tools.php:416
+#: includes/modules/class-wpcpm-sponsor-tools.php:420
 msgid "A sponsor"
 msgstr ""
 
@@ -11654,68 +11654,68 @@ msgstr ""
 msgid "Thank you. Your program contact has been told and will get back to you."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:334
+#: includes/modules/class-wpcpm-sponsor-tools.php:338
 msgid "Press a code, or press Enter or Space on it, to select the whole code."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:339
+#: includes/modules/class-wpcpm-sponsor-tools.php:343
 msgid "No offer is open to you right now. What you already claimed is below."
 msgstr ""
 
 #. translators: %d: how many tools the student claimed.
-#: includes/modules/class-wpcpm-sponsor-tools.php:378
+#: includes/modules/class-wpcpm-sponsor-tools.php:382
 #, php-format
 msgid "%d tool claimed"
 msgid_plural "%d tools claimed"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:447
+#: includes/modules/class-wpcpm-sponsor-tools.php:451
 msgid "More information"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:458
+#: includes/modules/class-wpcpm-sponsor-tools.php:462
 #: includes/modules/class-wpcpm-students.php:263
 msgid "students"
 msgstr ""
 
 #. translators: %s: the audiences, comma-separated.
-#: includes/modules/class-wpcpm-sponsor-tools.php:471
+#: includes/modules/class-wpcpm-sponsor-tools.php:475
 #, php-format
 msgid "Open to: %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:480
+#: includes/modules/class-wpcpm-sponsor-tools.php:484
 msgid "No codes left. The sponsor has been told."
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:501
+#: includes/modules/class-wpcpm-sponsor-tools.php:505
 msgid "Your code:"
 msgstr ""
 
 #. translators: %s: the date.
-#: includes/modules/class-wpcpm-sponsor-tools.php:514
+#: includes/modules/class-wpcpm-sponsor-tools.php:518
 #, php-format
 msgid "claimed %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:527
+#: includes/modules/class-wpcpm-sponsor-tools.php:531
 msgid "Getting your code"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:534
+#: includes/modules/class-wpcpm-sponsor-tools.php:538
 msgid "Get my code"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:534
+#: includes/modules/class-wpcpm-sponsor-tools.php:538
 msgid "Show me the code"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:553
+#: includes/modules/class-wpcpm-sponsor-tools.php:557
 msgid "Report a problem with this code"
 msgstr ""
 
-#: includes/modules/class-wpcpm-sponsor-tools.php:569
+#: includes/modules/class-wpcpm-sponsor-tools.php:573
 msgid "Your codes"
 msgstr ""
 

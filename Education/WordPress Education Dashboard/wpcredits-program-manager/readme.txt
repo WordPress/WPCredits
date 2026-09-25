@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.110.3
+Stable tag: 1.110.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.110.4 =
+
+* Tools from our sponsors shows again for students. The section read a student's status under a key the students sync never writes, so no student counted as current and the section stayed hidden whatever the setting said; it now reads the key the sync writes. Mentors were never affected. The suites' stand-ins carry the sync's real shape from now on, so the mismatch cannot hide again.
 
 = 1.110.3 =
 

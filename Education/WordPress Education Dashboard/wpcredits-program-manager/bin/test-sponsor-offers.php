@@ -288,7 +288,8 @@ $GLOBALS['users'] = array(
 $GLOBALS['manage'] = array( 1 );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['umeta'][6] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $B, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
-$GLOBALS['program'] = array( 20 => array( 'status' => 'In Sensei' ), 21 => array( 'status' => 'Graduate' ), 22 => array( 'status' => 'Paused' ), 23 => array( 'status' => 'Developer Track' ), 24 => array( 'status' => 'In Sensei' ) );
+// The shape the students sync writes: the status under `program`, with `is_past` beside it.
+$GLOBALS['program'] = array( 20 => array( 'program' => 'In Sensei', 'is_past' => false ), 21 => array( 'program' => 'Graduate', 'is_past' => true ), 22 => array( 'program' => 'Paused', 'is_past' => false ), 23 => array( 'program' => 'Developer Track', 'is_past' => false ), 24 => array( 'program' => 'In Sensei', 'is_past' => false ) );
 $GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['patched'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['buckets'] = array(); $GLOBALS['now'] = gmmktime( 12, 0, 0, 9, 5, 2026 );
 
 function post( array $fields, $action ) { $_POST = $fields; $GLOBALS['left'] = null; $GLOBALS['redirected'] = null; try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return $GLOBALS['left'] ?? array( 'redirect', $GLOBALS['redirected'] ); } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); } return array( 'fell-through' ); }

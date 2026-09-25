@@ -279,7 +279,8 @@ $GLOBALS['users'] = array(
 );
 $GLOBALS['manage'] = array( 1 );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $G, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
-$GLOBALS['program'] = array( 20 => array( 'status' => 'In Sensei' ), 23 => array( 'status' => 'In Sensei' ) );
+// The shape the students sync writes: the status under `program`, with `is_past` beside it.
+$GLOBALS['program'] = array( 20 => array( 'program' => 'In Sensei', 'is_past' => false ), 23 => array( 'program' => 'In Sensei', 'is_past' => false ) );
 $GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['patched'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['buckets'] = array(); $GLOBALS['now'] = gmmktime( 12, 0, 0, 9, 5, 2026 );
 $GLOBALS['stale'] = 0; $GLOBALS['stale_value'] = array();
 

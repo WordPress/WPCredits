@@ -103,8 +103,12 @@ final class WPCPM_Sponsor_Tools {
 			return false;
 		}
 
+		// The status sits under `program` in the cache the students sync writes (there is no
+		// separate Program column in the base, so the status is the program), never under
+		// `status`: reading the latter counted no student as current and the section never drew
+		// for a student, whatever the setting said (25 September 2026).
 		$program = WPCPM_Students_Sync::get_program( $user->ID );
-		$status  = trim( (string) ( isset( $program['status'] ) ? $program['status'] : '' ) );
+		$status  = trim( (string) ( isset( $program['program'] ) ? $program['program'] : '' ) );
 
 		if ( '' === $status ) {
 			return false;

@@ -266,7 +266,10 @@ $GLOBALS['users'] = array(
 $GLOBALS['manage'] = array( 1 );
 $GLOBALS['umeta'][5] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $A, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
 $GLOBALS['umeta'][6] = array( WPCPM_Sponsor_Members::META_RECORD_ID => $B, WPCPM_Sponsor_Members::META_ACTIVE => 1 );
-$GLOBALS['program'] = array( 20 => array( 'status' => 'In Sensei' ), 21 => array( 'status' => 'Graduate' ), 22 => array( 'status' => 'Paused' ), 23 => array( 'status' => 'Developer Track' ) );
+// The shape the students sync writes (`WPCPM_Students_Sync`, the `students` rows): the status under
+// `program`, with `is_past` beside it. There is no `status` key in that cache, and a stand-in that
+// carried one hid that the gate read a key the sync never writes (25 September 2026).
+$GLOBALS['program'] = array( 20 => array( 'program' => 'In Sensei', 'is_past' => false ), 21 => array( 'program' => 'Graduate', 'is_past' => true ), 22 => array( 'program' => 'Paused', 'is_past' => false ), 23 => array( 'program' => 'Developer Track', 'is_past' => false ) );
 $GLOBALS['uid'] = 5; $GLOBALS['nonce_ok'] = true; $GLOBALS['patched'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['audit'] = array(); $GLOBALS['buckets'] = array(); $GLOBALS['now'] = gmmktime( 12, 0, 0, 9, 5, 2026 );
 
 function post( array $fields, $action ) { $_POST = $fields; $GLOBALS['left'] = null; $GLOBALS['redirected'] = null; try { call_user_func( $action ); } catch ( WPCPM_Test_Redirect $e ) { return $GLOBALS['left'] ?? array( 'redirect', $GLOBALS['redirected'] ); } catch ( WPCPM_Test_Die $e ) { return array( 'die', $e->getMessage() ); } return array( 'fell-through' ); }
@@ -319,6 +322,11 @@ ck( 'a Graduate is not', WPCPM_Sponsor_Tools::is_current_student( $GLOBALS['user
 ck( 'and neither is a student the sync has not reached', WPCPM_Sponsor_Tools::is_current_student( $GLOBALS['users'][31] ), false );
 ck( 'a mentor is a mentor', WPCPM_Sponsor_Tools::kind_of( $GLOBALS['users'][30] ), 'mentors' );
 ck( 'a graduate is nobody here', WPCPM_Sponsor_Tools::kind_of( $GLOBALS['users'][21] ), '' );
+// The reader and the writer agree on the key: the sync stores a student's status under `program`
+// (`'program' => $status` in its students rows), and this class reads that key and no `status` one.
+$tools_src = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-sponsor-tools.php' );
+$sync_src  = (string) file_get_contents( __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php' );
+ck( 'the gate reads the status under the key the students sync writes it to', array( false !== strpos( $sync_src, "'program'        => \$status," ), false !== strpos( $tools_src, "\$program['program']" ), strpos( $tools_src, "\$program['status']" ) ), array( true, true, false ) );
 
 echo "\n=== may_claim(), clause by clause ===\n";
 ck( '1. a current student may claim a live offer', WPCPM_Sponsor_Tools::may_claim( $GLOBALS['users'][20], $offer( $a1 ) ), true );
