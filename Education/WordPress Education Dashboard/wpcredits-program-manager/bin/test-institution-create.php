@@ -82,9 +82,7 @@ function number_format_i18n( $n ) { return (string) $n; }
 function wp_json_encode( $v ) { return json_encode( $v ); }
 function wp_date( $f ) { return gmdate( $f ); }
 function add_action( $hook = '', $callback = null ) { $GLOBALS['hooks'][] = array( $hook, $callback ); }
-function add_filter() {}
 function do_action() {}
-function apply_filters( $t, $v ) { return $v; }
 function trailingslashit( $s ) { return rtrim( (string) $s, '/' ) . '/'; }
 function wp_parse_url( $u, $c = -1 ) { return parse_url( (string) $u ); }
 
@@ -149,6 +147,8 @@ function is_wp_error( $t ) { return $t instanceof WP_Error; }
 /** A killed request: the create reached Airtable and its answer never got back. */
 class Lost extends Exception {}
 
+// Declares add_filter() and apply_filters(), which run what is hooked: the program map is made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 
 /**
@@ -380,6 +380,9 @@ class WPCPM_Institution_Policy {
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-create.php';
 
+// The program map is the compiled tracks' (bin/stubs/compiled-seeds.php), planted by fresh().
+WPCPM_Tracks::init();
+
 $fails = 0;
 $total = 0;
 
@@ -462,6 +465,9 @@ function fresh() {
 	$GLOBALS['ground']   = 'member';
 	$GLOBALS['settled']  = true;
 	$GLOBALS['uid']      = 11;
+
+	// The site's four tracks are not a scenario's to inherit or to lose: every world has them.
+	wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 }
 
 /** The stored rows of a batch. */

@@ -168,9 +168,7 @@ function number_format_i18n( $n, $d = 0 ) { return (string) round( (float) $n, (
 function human_time_diff( $a, $b = 0 ) { return '2 hours'; }
 function wp_date( $f, $t = null, $z = null ) { return gmdate( (string) $f, null === $t ? time() : (int) $t ); }
 function current_time( $type = 'timestamp', $gmt = 0 ) { return 'mysql' === $type ? gmdate( 'Y-m-d H:i:s' ) : time(); }
-function apply_filters( $t, $v ) { return $v; }
 function do_action() {}
-function add_filter() {}
 function plugins_url( $path = '', $plugin = '' ) { return WPCPM_PLUGIN_URL . ltrim( (string) $path, '/' ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
@@ -898,6 +896,8 @@ class WPCPM_Institution_Policy {
 
 /* ---- the real pieces ----------------------------------------------------- */
 
+// Declares add_filter() and apply_filters(), which run what is hooked: the program map is made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
@@ -909,6 +909,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 // land full; the real option-backed class is not loaded here, and nothing this suite exercises
 // (class-wpcpm-student-report-form.php's fields() included) calls the real one.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
+
+// The program map and the report forms are the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fails = 0;
 $total = 0;

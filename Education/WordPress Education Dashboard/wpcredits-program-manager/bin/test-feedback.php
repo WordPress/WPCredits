@@ -67,8 +67,7 @@ function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
 function absint( $v ) { return abs( (int) $v ); }
-function apply_filters( $t, $v ) { return $v; }
-function add_action() {} function add_filter() {}
+function add_action() {}
 function trailingslashit( $s ) { return rtrim( (string) $s, '/\\' ) . '/'; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/' ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
@@ -154,6 +153,8 @@ class Denied extends Exception {}
 class Left extends Exception {}
 function wpcpm_test_exit() { throw new Left( (string) $GLOBALS['redirect'] ); }
 
+// Declares add_filter() and apply_filters(), which run what is hooked: the program map is made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-settings.php';
 require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
@@ -169,6 +170,10 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-students-dashboard.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
+
+// The program map, which gates the surveys, is the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 /*
  * The semester report, as far as this module can see it: one call, expiring what that institution's

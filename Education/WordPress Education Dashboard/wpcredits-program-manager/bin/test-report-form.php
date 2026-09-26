@@ -3,10 +3,11 @@
  * The report form: the two field sets, and what may be written to Airtable.
  *
  * **The field lists are pinned here on purpose.** Airtable exposes no way to read a view's visible
- * fields, so the two sets are maintained by hand in `WPCPM_Student_Report_Form::fields()`. That makes
- * them the kind of thing that drifts silently - a field renamed in the base, or one dropped from a
- * view, shows up as a box nobody fills in rather than as an error. Asserting the exact names against
- * what the program said the views hold turns that into a test failure.
+ * fields, so the forms are maintained by hand, in the tracks' definitions, and read here as the site
+ * reads them: compiled, through `WPCPM_Student_Report_Form::fields()` (bin/stubs/compiled-seeds.php).
+ * That makes them the kind of thing that drifts silently - a field renamed in the base, or one
+ * dropped from a view, shows up as a box nobody fills in rather than as an error. Asserting the exact
+ * names against what the program said the views hold turns that into a test failure.
  *
  * The other half is `clean()`. Every value goes to a live Airtable PATCH, and **one unusable value
  * fails the whole request** - so a mistyped grade must not be able to take the other twenty-one
@@ -61,8 +62,7 @@ function sanitize_textarea_field( $s ) { return trim( (string) $s ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
 function absint( $v ) { return abs( (int) $v ); }
-function apply_filters( $t, $v ) { return $v; }
-function add_action() {} function add_filter() {}
+function add_action() {}
 function trailingslashit( $s ) { return rtrim( (string) $s, '/\\' ) . '/'; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/' ); }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
@@ -127,6 +127,9 @@ function checked( $a, $b = true, $echo = true ) { $r = ( (string) $a === (string
 function selected( $selected, $current = true, $echo = true ) { $out = (string) $selected === (string) $current ? " selected='selected'" : ''; if ( $echo ) { echo $out; } return $out; }
 function wp_kses_post( $s ) { return $s; }
 
+// Declares add_filter() and apply_filters(), which run what is hooked: the forms and the program map
+// are the compiled tracks', reached through their filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-settings.php';
 require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
@@ -145,6 +148,11 @@ require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 // The refusal message for a screenshot quotes the shared image rules by name.
 require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
+
+// The four original tracks as the site runs them, compiled from their seeds: every form below is
+// the compiled one, reached as the site reaches it (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fails = 0;
 $total = 0;
@@ -694,9 +702,8 @@ $at = static function ( array $specs, $name ) {
 	return array_search( $name, array_keys( $specs ), true );
 };
 
-// Order inside a group is this array's order, and `insert_after()` is what puts each new field
-// where the Airtable view has it. A renamed anchor would silently append instead, so the positions
-// are asserted rather than the call.
+// Order inside a group is the form's own order, which the Developer Track's seed gives each field as
+// the Airtable view has it; the positions are asserted so a reordered seed is seen.
 ck( 'the developer modules follow the user levels',
     $at( $dev, 'Developer Basics: modules completed' ) === $at( $dev, 'Advance WordPress User - final grade' ) + 1, true );
 
@@ -1061,12 +1068,12 @@ $design_images = array_keys( array_filter( $design_types, static function ( $typ
 ck( 'ten of the questions take a screenshot', count( $design_images ), 10 );
 ck( 'and the sync asks Airtable for exactly those columns', WPCPM_Student_Report_Form::image_columns(), $design_images );
 
-// **A fifth track has to be one entry in `WPCPM_Program` and nowhere else.** The students sync
-// asks Airtable for `image_columns()` by name, so a track this list forgets is a track whose
-// every card says "No screenshot yet" for ever, with nothing failing anywhere to say why. Pinned
-// the way the tracks strip's tiles are: as a set relation against the program map. The source is
-// read as well, because the derived list and a hand-written one agree today - only the source
-// says which of them the sync is actually reading.
+// **A new track has to be one entry in the program map, which its published definition fills, and
+// nothing else.** The students sync asks Airtable for `image_columns()` by name, so a track this list
+// forgets is a track whose every card says "No screenshot yet" for ever, with nothing failing
+// anywhere to say why. Pinned the way the tracks strip's tiles are: as a set relation against the
+// program map. The source is read as well, because the derived list and a hand-written one agree
+// today - only the source says which of them the sync is actually reading.
 $image_columns_body = (string) file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-student-report-form.php' );
 $image_columns_body = substr( $image_columns_body, (int) strpos( $image_columns_body, 'public static function image_columns()' ) );
 $image_columns_body = substr( $image_columns_body, 0, (int) strpos( $image_columns_body, "
@@ -1354,7 +1361,7 @@ echo "\n=== A read-only URL links out with a scheme ===\n";
 // card's link branch runs it through `WPCPM_Field_Value::clean_url()` first.
 ck( 'a schemeless address stored by Airtable links out with a scheme, and shows as it was typed', preg_match( '#<span class="wpcpm-field__value"><a href="https://example\.org/me" target="_blank" rel="noopener noreferrer">example\.org/me</a></span>#', $read ) === 1, true );
 
-echo "\n=== The Track Builder's rules accept the four hand-written forms (1.100.0) ===\n";
+echo "\n=== The Track Builder's rules accept the four original tracks' forms (1.100.0) ===\n";
 
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-palette.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
@@ -1382,7 +1389,7 @@ foreach ( array( '150h', '50h', 'dev', 'design' ) as $parity_key ) {
 }
 
 foreach ( array( '150h', '50h', 'dev', 'design' ) as $move_key ) {
-	ck( sprintf( 'fields() is builtin_fields() while nothing hooks the filter: the %s form, moved as it was', $move_key ), WPCPM_Student_Report_Form::fields( $move_key ), WPCPM_Student_Report_Form::builtin_fields( $move_key ) );
+	ck( sprintf( 'fields() answers the %s track\'s compiled form: its seed\'s questions, the authoring notes aside', $move_key ), WPCPM_Student_Report_Form::fields( $move_key ), wpcpm_compiled_seeds()['fields'][ $move_key ] );
 
 	$move_definition = array(
 		'schema_version' => WPCPM_Track_Definition::SCHEMA_VERSION,
@@ -1390,20 +1397,27 @@ foreach ( array( '150h', '50h', 'dev', 'design' ) as $move_key ) {
 		'key'            => 'parity-' . $move_key,
 		'label'          => 'Parity ' . $move_key,
 		'hue'            => 'blue',
-		'questions'      => WPCPM_Student_Report_Form::builtin_fields( $move_key ),
+		'questions'      => wpcpm_compiled_seeds()['fields'][ $move_key ],
 	);
 
 	ck( sprintf( 'normalizing the %s form changes nothing, so its definition can be held to it byte for byte', $move_key ), WPCPM_Track_Definition::normalize( $move_definition )['questions'], $move_definition['questions'] );
 }
 
+// The promise that the Developer and Designer Tracks' three alumni answers never reach a school is
+// kept by the flag on each compiled form alone, since the list of names is gone (the design's section
+// 10). The three names are written out, so the check does not take them from the flag it checks.
+$alumni_names = array( 'Alumni program: mentoring opt-in', 'Alumni program: personal email', 'Contributing beyond WP Credits' );
+
 foreach ( array( 'dev', 'design' ) as $alumni_key ) {
-	$alumni_flags = array();
+	$alumni_form    = wpcpm_compiled_seeds()['fields'][ $alumni_key ];
+	$alumni_flagged = array_keys( array_filter( $alumni_form, static function ( $spec ) { return ! empty( $spec['hide_from_institution'] ); } ) );
+	$alumni_lost    = array_values( array_diff( array_keys( $alumni_form ), array_keys( WPCPM_Student_Report_Form::for_institution( $alumni_form ) ) ) );
 
-	foreach ( WPCPM_Student_Report_Form::ALUMNI_FIELDS as $alumni_name ) {
-		$alumni_flags[ $alumni_name ] = WPCPM_Student_Report_Form::builtin_fields( $alumni_key )[ $alumni_name ]['hide_from_institution'] ?? null;
-	}
+	sort( $alumni_flagged );
+	sort( $alumni_lost );
 
-	ck( sprintf( 'the three alumni answers of the %s form carry the institution flag in the PHP too (the design\'s section 10)', $alumni_key ), $alumni_flags, array_fill_keys( WPCPM_Student_Report_Form::ALUMNI_FIELDS, true ) );
+	ck( sprintf( 'the compiled %s form flags its three alumni answers to be kept off the institution\'s view, and no other question', $alumni_key ), $alumni_flagged, $alumni_names );
+	ck( sprintf( 'and for_institution() takes exactly those three off the compiled %s form', $alumni_key ), $alumni_lost, $alumni_names );
 }
 
 ck(
@@ -1411,6 +1425,41 @@ ck(
 	array_keys( WPCPM_Student_Report_Form::for_institution( array( 'Flagged' => array( 'type' => 'text', 'hide_from_institution' => true ), 'Shown' => array( 'type' => 'text' ) ) ) ),
 	array( 'Shown' )
 );
+
+// The flag is the whole rule now: no list of names stands behind it. The Developer Track's compiled
+// form with the flag taken off its three alumni answers keeps the two that are not an email question
+// on the institution's view, and the email one goes by its type, as every email question does.
+$unflagged = wpcpm_compiled_seeds()['fields']['dev'];
+
+foreach ( $alumni_names as $alumni_name ) {
+	unset( $unflagged[ $alumni_name ]['hide_from_institution'] );
+}
+
+ck( 'for_institution() keeps a question nothing flags, whatever it is called, and drops an email question by its type',
+	array_values( array_intersect( $alumni_names, array_keys( WPCPM_Student_Report_Form::for_institution( $unflagged ) ) ) ),
+	array( 'Alumni program: mentoring opt-in', 'Contributing beyond WP Credits' ) );
+
+echo "\n=== The hand-written forms are gone ===\n";
+
+ck( 'builtin_fields(), the helper that placed the Developer Track\'s questions, and the list of alumni names are all removed',
+	array( method_exists( 'WPCPM_Student_Report_Form', 'builtin_fields' ), method_exists( 'WPCPM_Student_Report_Form', 'insert_after' ), defined( 'WPCPM_Student_Report_Form::ALUMNI_FIELDS' ) ),
+	array( false, false, false ) );
+
+$still_named = array();
+
+foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( dirname( __DIR__ ) . '/includes', FilesystemIterator::SKIP_DOTS ) ) as $shipped ) {
+	if ( 'php' === $shipped->getExtension() && false !== strpos( (string) file_get_contents( $shipped->getPathname() ), 'builtin_fields(' ) ) {
+		$still_named[] = substr( $shipped->getPathname(), strlen( dirname( __DIR__ ) ) + 1 );
+	}
+}
+
+ck( 'and no shipped file calls builtin_fields() any more', $still_named, array() );
+
+// What `fields()` answers for a key no live track holds, and for a student on no track: the 150-hour
+// track's compiled form, the one it answered while the hand-written 150-hour set was the fallback.
+ck( 'a key no live track holds, and a student on no track, read the 150-hour track\'s compiled form',
+	array( WPCPM_Student_Report_Form::fields( 'nope' ) === wpcpm_compiled_seeds()['fields']['150h'], WPCPM_Student_Report_Form::fields( '' ) === wpcpm_compiled_seeds()['fields']['150h'] ),
+	array( true, true ) );
 
 
 echo "\n=== The preview: the same loop, empty values, no form (1.106.0) ===\n";

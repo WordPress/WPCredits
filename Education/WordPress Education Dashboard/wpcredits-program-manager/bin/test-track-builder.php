@@ -4,8 +4,8 @@
  *
  * The list is the first thing a Program Administrator sees of the Track Builder, and every answer
  * on it comes from somewhere else: the store says what state a track is in and what the last
- * compile left out, the students sync says how many people are on it, and the seeds say whether a
- * built-in draft has fallen behind its PHP. So the collaborators are stood in for here and the
+ * compile left out, the students sync says how many people are on it, and the four original
+ * tracks' pairs say which tracks are kept. So the collaborators are stood in for here and the
  * screen is held to what it does with their answers.
  *
  * Run from the plugin root:  php bin/test-track-builder.php
@@ -269,7 +269,6 @@ class WPCPM_Airtable {
 }
 
 class WPCPM_Track_Store {
-	const META_SOURCE = '_wpcpm_track_source';
 	const OPT_SKIPPED = 'wpcpm_tracks_skipped';
 
 	public static $tracks = array();
@@ -286,10 +285,6 @@ class WPCPM_Track_Store {
 		return self::$tracks[ $post_id ]['state'] ?? '';
 	}
 
-	public static function source( $post_id ) {
-		return self::$tracks[ $post_id ]['source'] ?? '';
-	}
-
 	public static function log_entries( $post_id ) {
 		return self::$tracks[ $post_id ]['log'] ?? array();
 	}
@@ -304,26 +299,10 @@ class WPCPM_Track_Store {
 		return self::$tracks[ $post_id ]['cap'] ?? -1;
 	}
 
-	public static function equivalence( $post_id ) {
-		return self::$tracks[ $post_id ]['equivalence'] ?? array( 'not_builtin' );
-	}
-
+	// As the real one: the record of the switch a track made to its definition before the
+	// hand-written forms were removed. The screen asks it nothing, which a switched fixture shows.
 	public static function switched( $post_id ) {
 		return ! empty( self::$tracks[ $post_id ]['switched'] );
-	}
-
-	public static $switches = array();
-
-	public static function switch_to_definition( $post_id, $user_id = 0 ) {
-		self::$switches[] = array( 'definition', (int) $post_id );
-
-		return empty( self::$tracks[ $post_id ]['equivalence'] ) ? (int) $post_id : new WP_Error( 'wpcpm_track_not_equivalent', 'The definition is not identical to the track as its PHP runs it.' );
-	}
-
-	public static function switch_to_builtin( $post_id, $user_id = 0 ) {
-		self::$switches[] = array( 'builtin', (int) $post_id );
-
-		return self::switched( $post_id ) ? (int) $post_id : new WP_Error( 'wpcpm_track_not_switched', 'That track does not run from its definition.' );
 	}
 
 	public static function published( $post_id ) {
@@ -340,7 +319,7 @@ class WPCPM_Track_Store {
 
 			$others[] = array(
 				'label'     => $track['definition']['label'] ?? '',
-				'published' => in_array( $track['state'] ?? '', array( 'published', 'changed' ), true ) || 'builtin' === ( $track['source'] ?? '' ),
+				'published' => in_array( $track['state'] ?? '', array( 'published', 'changed' ), true ),
 				'columns'   => array_map( 'strval', array_keys( $track['definition']['questions'] ?? array() ) ),
 			);
 		}
@@ -375,7 +354,6 @@ class WPCPM_Track_Store {
 		return (int) $post_id;
 	}
 
-	public static $refreshed  = array();
 	public static $duplicated = array();
 	public static $saved      = array();
 
@@ -391,7 +369,7 @@ class WPCPM_Track_Store {
 
 		self::$created[]      = $definition;
 		$new                  = 98;
-		self::$tracks[ $new ] = array( 'definition' => $definition, 'state' => 'draft', 'source' => 'definition', 'log' => array(), 'equivalence' => array( 'not_builtin' ), 'published' => null );
+		self::$tracks[ $new ] = array( 'definition' => $definition, 'state' => 'draft', 'log' => array(), 'published' => null );
 
 		return $new;
 	}
@@ -403,7 +381,7 @@ class WPCPM_Track_Store {
 
 		self::$duplicated[] = array( (int) $from_id, $definition );
 		$new                = 99;
-		self::$tracks[ $new ] = array( 'definition' => $definition, 'state' => 'draft', 'source' => 'definition', 'log' => array(), 'equivalence' => array( 'not_builtin' ), 'published' => null );
+		self::$tracks[ $new ] = array( 'definition' => $definition, 'state' => 'draft', 'log' => array(), 'published' => null );
 
 		return $new;
 	}
@@ -413,25 +391,23 @@ class WPCPM_Track_Store {
 		return self::$errors;
 	}
 
+	/**
+	 * As the real one: nothing is refused but what a check sets, which is how a check makes the
+	 * store refuse a save, as the real one does when WordPress refuses the write.
+	 *
+	 * @var WP_Error|null
+	 */
+	public static $refuse_save = null;
+
 	public static function save( $post_id, array $definition ) {
-		if ( 'builtin' === self::source( $post_id ) ) {
-			return new WP_Error( 'wpcpm_track_builtin', 'A built-in track runs from its hand-written form until it switches to its definition.' );
+		if ( self::$refuse_save instanceof WP_Error ) {
+			return self::$refuse_save;
 		}
 
 		self::$saved[ (int) $post_id ] = $definition;
 		self::$tracks[ $post_id ]['definition'] = $definition;
 
 		return (int) $post_id;
-	}
-
-	public static function refresh_builtin( $post_id ) {
-		self::$refreshed[] = (int) $post_id;
-
-		return isset( self::$tracks[ $post_id ] ) ? (int) $post_id : new WP_Error( 'wpcpm_track_missing', 'That track does not exist.' );
-	}
-
-	public static function seeds() {
-		return array( 'design' => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'questions' => array( 'A' => 1 ) ) );
 	}
 }
 
@@ -444,6 +420,29 @@ class WPCPM_Tracks {
 
 	public static function live() {
 		return self::$live;
+	}
+
+	/**
+	 * The four original tracks' pairs, which `validate()` reads, taken from the seed files the real
+	 * map is held to (bin/test-tracks.php), so the two cannot drift apart.
+	 */
+	public static function reserved_key( $status ) {
+		static $pairs = null;
+
+		if ( null === $pairs ) {
+			$pairs = array();
+
+			foreach ( glob( __DIR__ . '/../includes/tracks/seeds/*.json' ) as $file ) {
+				$seed                     = json_decode( (string) file_get_contents( $file ), true );
+				$pairs[ $seed['status'] ] = $seed['key'];
+			}
+		}
+
+		return $pairs[ trim( (string) $status ) ] ?? '';
+	}
+
+	public static function is_reserved( $status ) {
+		return '' !== self::reserved_key( $status );
 	}
 }
 
@@ -546,28 +545,22 @@ echo "\n=== The rows the list shows ===\n";
 
 WPCPM_Track_Store::$tracks = array(
 	11 => array(
-		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => 'WordPress Credits Program 150h', 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits/' ),
-		'state'       => 'published',
-		'source'      => 'builtin',
-		'log'         => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
-		'equivalence' => array(),
-		'published'   => array( 'key' => '150h' ),
+		'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => 'WordPress Credits Program 150h', 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits/' ),
+		'state'      => 'published',
+		'log'        => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
+		'published'  => array( 'key' => '150h' ),
 	),
 	12 => array(
-		'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track, left behind', 'course_url' => '', 'questions' => array( 'B' => 2 ) ),
-		'state'       => 'draft',
-		'source'      => 'builtin',
-		'log'         => array(),
-		'equivalence' => array( 'not_published' ),
-		'published'   => null,
+		'definition' => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array( 'B' => 2 ) ),
+		'state'      => 'draft',
+		'log'        => array(),
+		'published'  => null,
 	),
 	13 => array(
-		'definition'  => array( 'key' => 'marketing', 'status' => 'Marketing Track', 'label' => 'Marketing Track', 'course_url' => '', 'questions' => array( 'A' => 1 ) ),
-		'state'       => 'published',
-		'source'      => 'definition',
-		'log'         => array( array( 'at' => 1788100000, 'by' => 7, 'did' => 'publish' ) ),
-		'equivalence' => array( 'not_builtin' ),
-		'published'   => array( 'key' => 'marketing' ),
+		'definition' => array( 'key' => 'marketing', 'status' => 'Marketing Track', 'label' => 'Marketing Track', 'course_url' => '', 'questions' => array( 'A' => 1 ) ),
+		'state'      => 'published',
+		'log'        => array( array( 'at' => 1788100000, 'by' => 7, 'did' => 'publish' ) ),
+		'published'  => array( 'key' => 'marketing' ),
 	),
 );
 WPCPM_Students_Sync::$counts = array( 'In Sensei' => 411, 'Marketing Track' => 0 );
@@ -577,25 +570,10 @@ $rows = WPCPM_Track_Builder::rows();
 
 ck( 'one row per track, in post order', array_column( $rows, 'id' ), array( 11, 12, 13 ) );
 ck( 'each carrying what the list prints',
-    array( $rows[0]['label'], $rows[0]['status'], $rows[0]['key'], $rows[0]['source'], $rows[0]['state'], $rows[0]['students'] ),
-    array( 'WordPress Credits Program 150h', 'In Sensei', '150h', 'builtin', 'published', 411 ) );
+    array( $rows[0]['label'], $rows[0]['status'], $rows[0]['key'], $rows[0]['state'], $rows[0]['students'] ),
+    array( 'WordPress Credits Program 150h', 'In Sensei', '150h', 'published', 411 ) );
 ck( 'who published it last, and when', array( $rows[0]['published_by'], $rows[0]['published_at'] ), array( 7, 1788000000 ) );
 ck( 'a track the last compile left out says why', array( $rows[2]['skipped'], $rows[0]['skipped'] ), array( array( 'column_reserved' ), array() ) );
-ck( 'a built-in draft that has fallen behind its PHP can be refreshed', array( $rows[1]['stale'], $rows[0]['stale'], $rows[2]['stale'] ), array( true, false, false ) );
-ck( 'and the equivalence line travels with the built-in rows', array( $rows[0]['equivalence'], $rows[2]['equivalence'] ), array( array(), array( 'not_builtin' ) ) );
-
-// False against false alone cannot tell this from `rows()` hardcoding `'switched' => false`: it
-// has to be seen answering true too, for a track the store actually marks switched (the Task 8
-// review).
-WPCPM_Track_Store::$tracks[11]['switched'] = true;
-
-$switched_rows = WPCPM_Track_Builder::rows();
-
-unset( WPCPM_Track_Store::$tracks[11]['switched'] );
-
-ck( 'a track that has switched to its definition says so, so the way back can be offered, and one that has not says so too',
-    array( $switched_rows[0]['switched'], $rows[0]['switched'], $rows[2]['switched'] ),
-    array( true, false, false ) );
 
 echo "\n=== The markup ===\n";
 
@@ -606,9 +584,7 @@ $html = ob_get_clean();
 ck( 'a row per track, and every name on the page', array( substr_count( $html, '<tr class="wpcpm-tracks__row' ), false !== strpos( $html, 'WordPress Credits Program 150h' ), false !== strpos( $html, 'Marketing Track' ) ), array( 3, true, true ) );
 ck( 'the students on each track are shown', false !== strpos( $html, '411' ), true );
 ck( 'a skipped track is shown as needing action, not left out quietly', false !== strpos( $html, 'wpcpm-tracks__skipped' ), true );
-ck( 'the refresh is offered on the stale built-in draft only', substr_count( $html, 'name="action" value="wpcpm_track_refresh"' ), 1 );
-ck( 'a built-in track its PHP runs says so rather than offering an edit that would be refused', false !== strpos( $html, 'wpcpm-tracks__readonly' ), true );
-ck( 'Edit is offered on every row that has a URL, built-in included, since the form itself refuses to edit one', substr_count( $html, '>Edit</a>' ), 3 );
+ck( 'Edit is offered on every row that has a URL, the four original tracks\' included', substr_count( $html, '>Edit</a>' ), 3 );
 ck( 'and Duplicate on every row too', substr_count( $html, '>Duplicate</a>' ), 3 );
 
 // One whole cell, counted rather than searched for piece by piece: the four links in the order the
@@ -629,14 +605,12 @@ $escaped_row = array(
 	'status'       => 'Marketing Track',
 	'key'          => 'marketing',
 	'course'       => '',
-	'source'       => 'definition',
 	'state'        => 'draft',
 	'students'     => 0,
 	'published_by' => 0,
 	'published_at' => 0,
 	'skipped'      => array(),
-	'equivalence'  => array(),
-	'stale'        => false,
+	'reserved'     => false,
 );
 
 ob_start();
@@ -647,7 +621,7 @@ ck( 'a label with markup in it reaches the page encoded, not raw',
     array( false !== strpos( $escaped_html, 'Marketing &lt;b&gt;Track&lt;/b&gt;' ), false !== strpos( $escaped_html, '<b>Track</b>' ) ),
     array( true, false ) );
 
-echo "\n=== Refreshing a built-in draft from the screen ===\n";
+echo "\n=== The tool's hooks and assets ===\n";
 
 /**
  * Run a handler and say how it ended: a redirect, or the message it died with.
@@ -668,34 +642,10 @@ function outcome( callable $handler ) {
 	return 'no outcome';
 }
 
-$tool                        = new WPCPM_Track_Builder();
-$GLOBALS['can_manage']       = false;
-$GLOBALS['nonce']            = 'another-action';
-WPCPM_Track_Store::$refreshed = array();
-
-ck( 'without the capability it dies before the nonce is read, and refreshes nothing',
-    array( outcome( array( $tool, 'handle_refresh' ) ), WPCPM_Track_Store::$refreshed ),
-    array( 'die: You do not have permission to manage the program.', array() ) );
-
-$GLOBALS['can_manage'] = true;
-$GLOBALS['nonce']      = 'another-action';
-ck( 'with the capability but the wrong nonce it dies too',
-    array( outcome( array( $tool, 'handle_refresh' ) ), WPCPM_Track_Store::$refreshed ),
-    array( 'die: the nonce was refused', array() ) );
-
-$GLOBALS['nonce'] = WPCPM_Track_Builder::ACTION_REFRESH;
-$_POST['track']   = 12;
-ck( 'with both, it refreshes that draft and says so',
-    array( outcome( array( $tool, 'handle_refresh' ) ), WPCPM_Track_Store::$refreshed, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'] ),
-    array( 'redirect', array( 12 ), 'success' ) );
-
-$_POST['track'] = 999;
-ck( 'and when the store refuses, the screen says what the store said',
-    array( outcome( array( $tool, 'handle_refresh' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ),
-    array( 'redirect', array( 'status' => 'error', 'message' => 'That track does not exist.' ) ) );
+$tool = new WPCPM_Track_Builder();
 
 $tool->boot();
-ck( 'and the handler is on admin-post', in_array( 'admin_post_' . WPCPM_Track_Builder::ACTION_REFRESH, $GLOBALS['hooks'], true ), true );
+ck( 'the handlers are on admin-post, Publish among them', in_array( 'admin_post_' . WPCPM_Track_Builder::ACTION_PUBLISH, $GLOBALS['hooks'], true ), true );
 ck( 'and the assets are hooked to admin_enqueue_scripts', in_array( 'admin_enqueue_scripts', $GLOBALS['hooks'], true ), true );
 
 $tool->enqueue_assets( 'wpcredits-program_page_wpcpm-tool-track-builder' );
@@ -708,13 +658,11 @@ echo "\n=== The properties form ===\n";
 
 // The properties edit what a track is; since T3a the form also carries what it asks, and every
 // other track's columns for the sharing index, so the list under the properties is drawn from one
-// read. A built-in track its PHP still runs is read-only here, because its equivalence with that
-// PHP is what the switch rests on (spec section 6), and the store refuses the save in any case.
+// read. Every track is edited here, the four original tracks included.
 ck( 'the form offers the track properties, then its questions and every other track\'s columns',
     array_keys( WPCPM_Track_Builder::form( 13 ) ),
-    array( 'id', 'label', 'status', 'key', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'read_only', 'questions', 'others', 'schema', 'locked', 'course', 'lessons', 'learn' ) );
-ck( 'filled from the definition', array( WPCPM_Track_Builder::form( 13 )['label'], WPCPM_Track_Builder::form( 13 )['status'], WPCPM_Track_Builder::form( 13 )['read_only'] ), array( 'Marketing Track', 'Marketing Track', false ) );
-ck( 'and a built-in track its PHP runs is read-only', WPCPM_Track_Builder::form( 11 )['read_only'], true );
+    array( 'id', 'label', 'status', 'key', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'questions', 'others', 'schema', 'locked', 'course', 'lessons', 'learn' ) );
+ck( 'filled from the definition', array( WPCPM_Track_Builder::form( 13 )['label'], WPCPM_Track_Builder::form( 13 )['status'] ), array( 'Marketing Track', 'Marketing Track' ) );
 
 ob_start();
 WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
@@ -736,17 +684,13 @@ ck( 'a flash value wins over the stored one, and reaches the page encoded',
 
 ob_start();
 WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 11 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
-$readonly = ob_get_clean();
-ck( 'a built-in track shows why it cannot be edited instead of a form that would be refused',
-    array( substr_count( $readonly, 'name="action" value="wpcpm_track_save"' ), false !== strpos( $readonly, 'wpcpm-tracks__readonly' ) ),
-    array( 0, true ) );
+$original_page = ob_get_clean();
 
-// Now that Edit reaches every row, including a built-in one, this is what a person following it
-// actually sees: the paragraph, and not one editable field, since the properties table is never
-// drawn at all for a read-only form.
-ck( 'and none of the editable fields render for it',
-    array( substr_count( $readonly, 'name="wpcpm_label"' ), substr_count( $readonly, 'name="wpcpm_hours_target"' ), false !== strpos( $readonly, 'form-table' ) ),
-    array( 0, 0, false ) );
+// What a person following Edit on one of the four original tracks sees: the properties form, each
+// property in a box of its own, as on every track's page. The store keeps its status and key.
+ck( 'one of the four original tracks is edited like any track, every property in a box of its own',
+    array( substr_count( $original_page, 'name="action" value="wpcpm_track_save"' ), substr_count( $original_page, 'id="wpcpm_label" name="wpcpm_label"' ), substr_count( $original_page, 'name="wpcpm_hours_target"' ), false !== strpos( $original_page, 'form-table' ) ),
+    array( 1, 1, 1, true ) );
 
 // Track 13's definition carries no `hours_target` and an empty `course_url`. Posting the form's
 // own output back unchanged must not invent the one or keep the other as a stored empty string: a
@@ -796,13 +740,15 @@ ck( 'a definition the rules refuse is not stored, and the screen says what publi
     array( 'redirect', array(), 'Another track already has this status.' ) );
 ck( 'and what the person typed comes back with the refusal', WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['values']['label'], 'Marketing Track, renamed' );
 
-WPCPM_Track_Store::$errors = array();
-$_POST['track']            = 11;
-ck( 'the store has the last word on a built-in track, whatever the screen offered',
-    array( outcome( array( $tool, 'handle_save' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'], WPCPM_Track_Store::$saved ),
-    array( 'redirect', 'error', array() ) );
+WPCPM_Track_Store::$errors      = array();
+WPCPM_Track_Store::$refuse_save = new WP_Error( 'db_update_error', 'Could not update post in the database.' );
+$_POST['track']                 = 11;
+ck( 'the store has the last word, whatever the screen offered: a save it refuses comes back in its own words, and nothing is stored',
+    array( outcome( array( $tool, 'handle_save' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'], WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'], WPCPM_Track_Store::$saved ),
+    array( 'redirect', 'error', 'Could not update post in the database.', array() ) );
 
-$_POST = array();
+WPCPM_Track_Store::$refuse_save = null;
+$_POST                          = array();
 
 echo "\n=== Duplicating a track ===\n";
 
@@ -843,79 +789,6 @@ $_POST                         = array( 'track' => 999 );
 ck( 'a track id naming no track is refused before anything is created',
     array( outcome( array( $tool, 'handle_duplicate' ) ), WPCPM_Track_Store::$duplicated, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ),
     array( 'redirect', array(), array( 'status' => 'error', 'message' => 'That track does not exist.' ) ) );
-
-$_POST = array();
-
-echo "\n=== The switch, both ways ===\n";
-
-// A built-in track runs from its hand-written form until somebody flips it, and only while the two
-// are identical, which is what makes the flip invisible to students (spec decision 3.5). The way
-// back needs the same: T2a's final review found it could drop a published edit.
-WPCPM_Track_Store::$tracks[11]['equivalence'] = array();
-WPCPM_Track_Store::$tracks[12]['equivalence'] = array( 'form' );
-WPCPM_Track_Store::$tracks[13]['switched']    = true;
-WPCPM_Track_Store::$tracks[13]['equivalence'] = array();
-
-ob_start();
-WPCPM_Track_Builder_Screen::render_list( array( 'rows' => WPCPM_Track_Builder::rows(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
-$switches = ob_get_clean();
-
-// "form" alone would pass whatever the actual answer said: every sentence `render_equivalence()`
-// prints mentions "its hand-written form". This is the exact sentence only track 12's difference
-// (`array( 'form' )`) can produce (the Task 8 review).
-ck( 'the track that matches its PHP is offered the switch, and the one that does not is told what differs',
-    array( substr_count( $switches, 'name="action" value="wpcpm_track_switch_definition"' ), false !== strpos( $switches, 'Differs from its hand-written form: form.' ), substr_count( $switches, 'wpcpm-tracks__equivalence' ) ),
-    array( 1, true, 3 ) );
-ck( 'and a track already running from its definition is offered the way back',
-    substr_count( $switches, 'name="action" value="wpcpm_track_switch_builtin"' ), 1 );
-
-// `render_equivalence()` returns early for a track that is neither built-in nor switched, and
-// nothing above exercises a row like that: without the guard, a plain custom track would be told
-// it "differs from its hand-written form" it never had (the Task 8 review).
-$plain_row = array(
-	'id'           => 31,
-	'label'        => 'A Custom Track',
-	'status'       => 'Custom Status',
-	'key'          => 'custom',
-	'course'       => '',
-	'source'       => 'definition',
-	'state'        => 'draft',
-	'students'     => 0,
-	'published_by' => 0,
-	'published_at' => 0,
-	'skipped'      => array(),
-	'equivalence'  => array( 'not_builtin' ),
-	'switched'     => false,
-	'stale'        => false,
-);
-
-ob_start();
-WPCPM_Track_Builder_Screen::render_list( array( 'rows' => array( $plain_row ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
-$plain_html = ob_get_clean();
-
-ck( 'a plain track, neither built-in nor switched, is told nothing about its equivalence',
-    substr_count( $plain_html, 'wpcpm-tracks__equivalence' ), 0 );
-
-$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_SWITCH_DEFINITION;
-WPCPM_Track_Store::$switches = array();
-$_POST                       = array( 'track' => 11 );
-
-ck( 'flipping a track to its definition says so',
-    array( outcome( array( $tool, 'handle_switch_definition' ) ), WPCPM_Track_Store::$switches, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'] ),
-    array( 'redirect', array( array( 'definition', 11 ) ), 'success' ) );
-
-WPCPM_Track_Store::$switches = array();
-$_POST['track']              = 12;
-ck( 'and a track whose definition differs is refused in the store\'s own words',
-    array( outcome( array( $tool, 'handle_switch_definition' ) ), WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['message'] ),
-    array( 'redirect', 'The definition is not identical to the track as its PHP runs it.' ) );
-
-$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_SWITCH_BUILTIN;
-WPCPM_Track_Store::$switches = array();
-$_POST['track']              = 13;
-ck( 'the way back runs through the store too',
-    array( outcome( array( $tool, 'handle_switch_builtin' ) ), WPCPM_Track_Store::$switches, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ]['status'] ),
-    array( 'redirect', array( array( 'builtin', 13 ) ), 'success' ) );
 
 $_POST = array();
 
@@ -971,6 +844,29 @@ ck( 'every checklist item is drawn, with the one that is done marked',
 
 ck( 'a ticked item says who ticked it', false !== strpos( $screen, 'Ticked by Ada Lovelace' ), true );
 
+// The site ticks the four original tracks' items itself, in nobody's name, when it publishes them.
+$site_ticked                  = WPCPM_Track_Publish::$checklist;
+$site_ticked['welcome']['by'] = 0;
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_publish(
+	array(
+		'track'     => 12,
+		'label'     => 'Marketing Track',
+		'state'     => 'draft',
+		'preflight' => WPCPM_Track_Publish::$flight,
+		'checklist' => $site_ticked,
+		'can_make'  => true,
+		'url'       => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder',
+		'flash'     => array(),
+	)
+);
+$site_screen = ob_get_clean();
+
+ck( 'and a tick in nobody\'s name says the site itself ticked it, as History says of the site\'s own publish, not somebody',
+    array( false !== strpos( $site_screen, 'Ticked by the site itself on ' ), false !== strpos( $site_screen, 'Ticked by somebody' ) ),
+    array( true, false ) );
+
 ck( 'an unticked one offers the tick and a ticked one offers the undo',
     array( substr_count( $screen, 'I have done this' ), substr_count( $screen, '>Undo</button>' ) ), array( 2, 1 ) );
 
@@ -1002,9 +898,8 @@ ck( 'the Status choice\'s state is shown for the table that has it and the one t
 ck( 'publishing a track of one\'s own says it will add the status to the settings',
     false !== strpos( $screen, 'Publishing adds this track&#039;s status to &quot;Currently mentoring&quot; in Settings.' ), true );
 
-$builtin_choices_flight                = WPCPM_Track_Publish::$flight;
-$builtin_choices_flight['choices']     = array( 'reports' => 'near', 'students' => 'ok' );
-$builtin_choices_flight['adds_status'] = false;
+$near_choices_flight            = WPCPM_Track_Publish::$flight;
+$near_choices_flight['choices'] = array( 'reports' => 'near', 'students' => 'ok' );
 
 ob_start();
 WPCPM_Track_Builder_Screen::render_publish(
@@ -1012,20 +907,17 @@ WPCPM_Track_Builder_Screen::render_publish(
 		'track'     => 12,
 		'label'     => 'Marketing Track',
 		'state'     => 'draft',
-		'preflight' => $builtin_choices_flight,
+		'preflight' => $near_choices_flight,
 		'checklist' => WPCPM_Track_Publish::$checklist,
 		'can_make'  => true,
 		'url'       => '',
 		'flash'     => array(),
 	)
 );
-$builtin_screen = ob_get_clean();
+$near_screen = ob_get_clean();
 
 ck( 'a choice that is nearly there reads as nearly there, not as either "has it" or "does not"',
-    false !== strpos( $builtin_screen, 'Students Reports has a choice close to this one, but not an exact match.' ), true );
-
-ck( 'a built-in track\'s screen says publishing adds nothing to the settings',
-    false !== strpos( $builtin_screen, 'This track runs from its hand-written form, so publishing it does not add anything to &quot;Currently mentoring&quot; in Settings.' ), true );
+    false !== strpos( $near_screen, 'Students Reports has a choice close to this one, but not an exact match.' ), true );
 
 // A label with markup in it reaches the page encoded: the track's name is typed by a person.
 ob_start();
@@ -1245,8 +1137,7 @@ ck( 'and a run with nothing pending says so, not a count of columns it did not m
 
 $GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_UNPUBLISH;
 WPCPM_Track_Publish::$answer = new WP_Error( 'wpcpm_track_in_use', '3 students are on this track in Airtable.' );
-// A track of somebody's own: a built-in one its PHP still runs is refused before take_down() is
-// asked at all (BUILDER-7).
+// A track of somebody's own, which take_down() keeps while students hold its status.
 $_POST['track'] = 13;
 
 ck( 'a refused unpublish comes back as the error it is, in the store\'s own words',
@@ -1363,23 +1254,19 @@ function editable_track() {
 				'Your blog'  => array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding', 'airtable_type' => 'url', 'learn_lesson_id' => 4242 ),
 			),
 		),
-		'state'       => 'draft',
-		'source'      => 'definition',
-		'log'         => array(),
-		'equivalence' => array( 'not_builtin' ),
-		'published'   => null,
+		'state'      => 'draft',
+		'log'        => array(),
+		'published'  => null,
 	);
 }
 
 WPCPM_Track_Store::$tracks = array(
 	13 => editable_track(),
 	11 => array(
-		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number' ), 'Slack name' => array( 'type' => 'text' ) ) ),
-		'state'       => 'published',
-		'source'      => 'builtin',
-		'log'         => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
-		'equivalence' => array(),
-		'published'   => array( 'key' => '150h' ),
+		'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number' ), 'Slack name' => array( 'type' => 'text' ) ) ),
+		'state'      => 'published',
+		'log'        => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
+		'published'  => array( 'key' => '150h' ),
 	),
 );
 WPCPM_Track_Store::$errors = array();
@@ -1664,12 +1551,10 @@ echo "\n=== The question list under a track's properties ===\n";
 WPCPM_Track_Store::$tracks = array(
 	13 => editable_track(),
 	11 => array(
-		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ), 'Slack name' => array( 'type' => 'text', 'label' => 'Slack', 'group' => 'onboarding' ) ) ),
-		'state'       => 'published',
-		'source'      => 'builtin',
-		'log'         => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
-		'equivalence' => array(),
-		'published'   => array( 'key' => '150h' ),
+		'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ), 'Slack name' => array( 'type' => 'text', 'label' => 'Slack', 'group' => 'onboarding' ) ) ),
+		'state'      => 'published',
+		'log'        => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
+		'published'  => array( 'key' => '150h' ),
 	),
 );
 WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name - marketing'] = array( 'type' => 'textarea', 'label' => 'Your Slack name, at length', 'group' => 'onboarding' );
@@ -1790,20 +1675,20 @@ ck( 'form() carries the published copy\'s columns, and a published question\'s r
 ck( 'and a track never published locks nothing',
     WPCPM_Track_Builder::form( 13 )['locked'], array() );
 
-$read_only_form = WPCPM_Track_Builder::form( 11 );
+$original_form = WPCPM_Track_Builder::form( 11 );
 ob_start();
-WPCPM_Track_Builder_Screen::render_form( array( 'form' => $read_only_form, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
-$read_only_list = ob_get_clean();
+WPCPM_Track_Builder_Screen::render_form( array( 'form' => $original_form, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
+$original_list = ob_get_clean();
 
-ck( 'a built-in track still shows its questions, with nothing to press and no Add',
+ck( 'one of the four original tracks lists its questions as every track does: Edit and the arrows on each, and Add under every group but Total hours, which holds Hours',
     array(
-        substr_count( $read_only_list, 'class="wpcpm-question"' ),
-        substr_count( $read_only_list, 'Edit</a>' ),
-        substr_count( $read_only_list, 'wpcpm-question__mover' ),
-        substr_count( $read_only_list, 'wpcpm-questions__add' ),
-        false !== strpos( $read_only_list, 'cannot be edited here' ),
+        substr_count( $original_list, 'class="wpcpm-question"' ),
+        substr_count( $original_list, 'Edit</a>' ),
+        substr_count( $original_list, 'wpcpm-question__mover' ),
+        substr_count( $original_list, 'wpcpm-questions__add' ),
+        false !== strpos( $original_list, 'cannot be edited here' ),
     ),
-    array( 2, 0, 0, 0, true ) );
+    array( 2, 2, 2, 3, false ) );
 
 $GLOBALS['enqueued'] = array();
 $tool->enqueue_assets( 'wpcredits-program_page_wpcpm-tool-track-builder' );
@@ -1818,12 +1703,10 @@ echo "\n=== One question on a screen of its own ===\n";
 WPCPM_Track_Store::$tracks = array(
 	13 => editable_track(),
 	11 => array(
-		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ), 'Slack name' => array( 'type' => 'text', 'label' => 'Slack', 'group' => 'onboarding' ) ) ),
-		'state'       => 'published',
-		'source'      => 'builtin',
-		'log'         => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
-		'equivalence' => array(),
-		'published'   => array( 'key' => '150h' ),
+		'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ), 'Slack name' => array( 'type' => 'text', 'label' => 'Slack', 'group' => 'onboarding' ) ) ),
+		'state'      => 'published',
+		'log'        => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
+		'published'  => array( 'key' => '150h' ),
 	),
 );
 WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name - marketing'] = array( 'type' => 'textarea', 'label' => 'At length', 'group' => 'onboarding', 'mono' => true );
@@ -1832,8 +1715,8 @@ WPCPM_Track_Store::$tracks[13]['definition']['questions']['Company ']           
 $one = WPCPM_Track_Builder::question_form( 13, 'Slack name' );
 
 ck( 'question_form() gathers the question, who else writes its column, and that nothing locks it',
-    array( $one['track'], $one['label'], $one['key'], $one['column'], $one['question']['label'], array_column( $one['owners'], 'label' ), $one['forked_from'], $one['locked'], $one['read_only'] ),
-    array( 13, 'Marketing Track', 'marketing', 'Slack name', 'Your Slack name', array( '150-hour Track' ), '', false, false ) );
+    array( $one['track'], $one['label'], $one['key'], $one['column'], $one['question']['label'], array_column( $one['owners'], 'label' ), $one['forked_from'], $one['locked'] ),
+    array( 13, 'Marketing Track', 'marketing', 'Slack name', 'Your Slack name', array( '150-hour Track' ), '', false ) );
 
 ck( 'a fork names what it came from, and is shared with nobody',
     array( WPCPM_Track_Builder::question_form( 13, 'Slack name - marketing' )['forked_from'], WPCPM_Track_Builder::question_form( 13, 'Slack name - marketing' )['owners'] ),
@@ -2075,11 +1958,11 @@ ck( 'a published select still posts its choices, in a box that cannot be edited,
     ),
     array( true, true, true, true ) );
 
-$read_only = question_screen( WPCPM_Track_Builder::question_form( 11, 'Hours' ) );
+$original_question = question_screen( WPCPM_Track_Builder::question_form( 11, 'Hours' ) );
 
-ck( 'a built-in track\'s question has no form at all, and points at Duplicate',
-    array( substr_count( $read_only, '<form' ), false !== strpos( $read_only, 'Duplicate the track to start one of your own' ) ),
-    array( 0, true ) );
+ck( 'a question of one of the four original tracks is edited on a form of its own, as every track\'s is',
+    array( substr_count( $original_question, 'name="action" value="wpcpm_question_save"' ), false !== strpos( $original_question, 'Duplicate the track to start one of your own' ) ),
+    array( 1, false ) );
 
 
 echo "\n=== Delete, on the list, for a track that was never published ===\n";
@@ -2088,28 +1971,30 @@ WPCPM_Track_Store::$tracks = array(
 	21 => array(
 		// An apostrophe as well as the quotes: esc_js() escapes the one and encodes the other, and
 		// a label with only quotes cannot tell it from esc_attr() (the whole-branch review).
-		'definition'  => array( 'key' => 'never', 'status' => 'Never Track', 'label' => 'Sam\'s "Never" Track', 'course_url' => '', 'questions' => array() ),
-		'state'       => 'draft',
-		'source'      => 'definition',
-		'log'         => array(),
-		'equivalence' => array( 'not_builtin' ),
-		'published'   => null,
+		'definition' => array( 'key' => 'never', 'status' => 'Never Track', 'label' => 'Sam\'s "Never" Track', 'course_url' => '', 'questions' => array() ),
+		'state'      => 'draft',
+		'log'        => array(),
+		'published'  => null,
 	),
 	22 => array(
-		'definition'  => array( 'key' => 'once', 'status' => 'Once Track', 'label' => 'Once Track', 'course_url' => '', 'questions' => array() ),
-		'state'       => 'draft',
-		'source'      => 'definition',
-		'log'         => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ), array( 'at' => 1788100000, 'by' => 7, 'did' => 'unpublish' ) ),
-		'equivalence' => array( 'not_builtin' ),
-		'published'   => null,
+		'definition' => array( 'key' => 'once', 'status' => 'Once Track', 'label' => 'Once Track', 'course_url' => '', 'questions' => array() ),
+		'state'      => 'draft',
+		'log'        => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ), array( 'at' => 1788100000, 'by' => 7, 'did' => 'unpublish' ) ),
+		'published'  => null,
 	),
 	23 => array(
-		'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array() ),
-		'state'       => 'draft',
-		'source'      => 'builtin',
-		'log'         => array(),
-		'equivalence' => array(),
-		'published'   => null,
+		'definition' => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array() ),
+		'state'      => 'draft',
+		'log'        => array(),
+		'published'  => null,
+	),
+	// In publish status with no publish line in its log: published by hand, or a log that lost the
+	// line. The store refuses to delete it all the same (TRACKS-1).
+	24 => array(
+		'definition' => array( 'key' => 'by-hand', 'status' => 'By Hand Track', 'label' => 'By Hand Track', 'course_url' => '', 'questions' => array() ),
+		'state'      => 'published',
+		'log'        => array(),
+		'published'  => array( 'key' => 'by-hand' ),
 	),
 );
 WPCPM_Students_Sync::$counts = array();
@@ -2118,20 +2003,28 @@ $GLOBALS['opts']['wpcpm_tracks_skipped'] = array();
 $delete_rows = WPCPM_Track_Builder::rows();
 
 ck( 'each row says whether the track was ever published, from its log rather than its state',
-    array_column( $delete_rows, 'ever_published' ), array( false, true, false ) );
+    array_column( $delete_rows, 'ever_published' ), array( false, true, false, false ) );
 
 ob_start();
 WPCPM_Track_Builder_Screen::render_list( array( 'rows' => $delete_rows, 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
 $delete_list = ob_get_clean();
 
-ck( 'Delete is drawn once: for the draft never published, not for the one unpublished since, not for the built-in draft',
+// Where the store's `delete()` deletes, and nowhere else: a draft on one of the four original tracks'
+// statuses that was never published is deleted like any draft, and beside a published original it is
+// a stray that holds up that track's Save and Publish (TRACKS-1).
+ck( 'Delete is drawn for every track never published, a draft on one of the four original tracks\' statuses included, and not for the one unpublished since',
     array(
         substr_count( $delete_list, 'class="wpcpm-tracks__delete"' ),
         substr_count( $delete_list, 'name="action" value="wpcpm_track_delete"' ),
         substr_count( $delete_list, 'name="_wpnonce" value="wpcpm_track_delete"' ),
         substr_count( $delete_list, '<input type="hidden" name="track" value="21" />' ),
+        substr_count( $delete_list, '<input type="hidden" name="track" value="23" />' ),
+        substr_count( $delete_list, '<input type="hidden" name="track" value="22" />' ),
     ),
-    array( 1, 1, 1, 1 ) );
+    array( 2, 2, 2, 1, 1, 0 ) );
+
+ck( 'nor for a track in publish status whose log has no publish line, which the store refuses all the same',
+    substr_count( $delete_list, '<input type="hidden" name="track" value="24" />' ), 0 );
 
 ck( 'its confirmation names the track, encoded for the script it sits in, and says what deleting means',
     false !== strpos( $delete_list, 'onsubmit="return confirm(\'Delete Sam\\\'s &quot;Never&quot; Track? It was never published, so nothing in Airtable or on the live site refers to it. This cannot be undone.\');"' ),
@@ -2141,12 +2034,10 @@ ck( 'its confirmation names the track, encoded for the script it sits in, and sa
 echo "\n=== The line above the list: what publishing would create, off the cached reading ===\n";
 
 WPCPM_Track_Store::$tracks = array( 13 => editable_track(), 11 => array(
-	'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ) ) ),
-	'state'       => 'published',
-	'source'      => 'builtin',
-	'log'         => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
-	'equivalence' => array(),
-	'published'   => array( 'key' => '150h' ),
+	'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ) ) ),
+	'state'      => 'published',
+	'log'        => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
+	'published'  => array( 'key' => '150h' ),
 ) );
 WPCPM_Track_Store::$tracks[13]['definition']['questions']['Main Contribution Team'] = array( 'type' => 'team', 'label' => 'Your team', 'group' => 'project' );
 
@@ -2181,8 +2072,8 @@ ck( 'form() carries the reading for a track of somebody\'s own, and asks the cli
 
 WPCPM_Airtable::$asked = 0;
 
-ck( 'and does not ask at all for a built-in track, whose columns all exist',
-    array( WPCPM_Track_Builder::form( 11 )['schema'], WPCPM_Airtable::$asked ), array( array(), 0 ) );
+ck( 'and asks it for one of the four original tracks as for any track, once: here every column it writes is in the base',
+    array( WPCPM_Track_Builder::form( 11 )['schema'], WPCPM_Airtable::$asked ), array( array( 'create' => array(), 'age' => 300 ), 1 ) );
 
 ob_start();
 WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
@@ -2327,7 +2218,7 @@ ck( 'a status another track holds is refused through check(), nothing is created
 // Every hue the palette has, across seven tracks: the eighth gets the palette's first.
 $holding = array_keys( WPCPM_Track_Palette::HUES );
 foreach ( $holding as $i => $hue ) {
-	WPCPM_Track_Store::$tracks[ 200 + $i ] = array( 'definition' => array( 'hue' => $hue, 'questions' => array() ), 'state' => 'draft', 'source' => 'definition', 'log' => array(), 'equivalence' => array( 'not_builtin' ), 'published' => null );
+	WPCPM_Track_Store::$tracks[ 200 + $i ] = array( 'definition' => array( 'hue' => $hue, 'questions' => array() ), 'state' => 'draft', 'log' => array(), 'published' => null );
 }
 WPCPM_Track_Store::$created = array();
 press_new( array( 'wpcpm_label' => 'Eighth', 'wpcpm_status' => 'Eighth', 'wpcpm_key' => 'eighth' ) );
@@ -2379,12 +2270,10 @@ echo "\n=== Preview: the draft through the report form's own renderer (1.106.0) 
 
 WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
 WPCPM_Track_Store::$tracks[11] = array(
-	'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours', 'airtable_type' => 'number' ) ) ),
-	'state'       => 'published',
-	'source'      => 'builtin',
-	'log'         => array(),
-	'equivalence' => array(),
-	'published'   => array( 'key' => '150h' ),
+	'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours', 'airtable_type' => 'number' ) ) ),
+	'state'      => 'published',
+	'log'        => array(),
+	'published'  => array( 'key' => '150h' ),
 );
 
 ck( 'the builder hands the view the draft compiled as the live site compiles it: the authoring properties gone, the rest as stored',
@@ -2398,8 +2287,6 @@ ck( 'the builder hands the view the draft compiled as the live site compiles it:
             'Your blog'  => array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding' ),
         ),
         'state'  => 'draft',
-        'source' => 'definition',
-        'stale'  => false,
         'course' => '',
     ) );
 
@@ -2447,13 +2334,13 @@ ck( 'the route draws the heading, the two ways back, the sentence that nothing i
 $_GET = array( 'wpcpm_preview' => 11 );
 ob_start();
 $tool->render_admin_page();
-$builtin_preview = ob_get_clean();
+$original_preview = ob_get_clean();
 
-ck( 'a built-in track still running from its PHP previews too, and the sentence says its definition is what that form draws',
+ck( 'one of the four original tracks previews as every track does, the sentence saying what a published track\'s says',
     array(
-        false !== strpos( $builtin_preview, '<h2>Previewing 150-hour Track</h2>' ),
-        false !== strpos( $builtin_preview, 'This track runs from its hand-written form, and this definition is what that form draws.' ),
-        substr_count( $builtin_preview, '1 fields</div>' ),
+        false !== strpos( $original_preview, '<h2>Previewing 150-hour Track</h2>' ),
+        false !== strpos( $original_preview, 'The published copy is the same as this draft, so this is the form students on the track have.' ),
+        substr_count( $original_preview, '1 fields</div>' ),
     ),
     array( true, true, 1 ) );
 
@@ -2495,7 +2382,7 @@ ob_start();
 WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
 $track_page = ob_get_clean();
 
-ck( 'Preview is offered on every row, the built-in one included, and beside the way back on the track\'s page',
+ck( 'Preview is offered on every row, the four original tracks\' included, and beside the way back on the track\'s page',
     array( substr_count( $rows_html, '>Preview</a>' ), substr_count( $rows_html, 'wpcpm_preview=11">Preview</a>' ), substr_count( $track_page, 'Back to every track</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_preview=13">Preview</a>' ) ),
     array( 2, 1, 1 ) );
 
@@ -2699,15 +2586,13 @@ ck( 'a save that kept no definition is handed over with neither a diff nor a cou
     array( $gap['revisions'][1]['diff'], $gap['revisions'][1]['created'], $gap['revisions'][0]['diff']['added'] ),
     array( null, null, array( 'Hours', 'Slack name', 'Your blog' ) ) );
 
-// Two rows, one of them built in, as the Preview check has: History is a link on each.
+// Two rows, one of them one of the four original tracks: History is a link on each.
 WPCPM_Track_Store::$tracks = array(
 	12 => array(
-		'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array() ),
-		'state'       => 'draft',
-		'source'      => 'builtin',
-		'log'         => array(),
-		'equivalence' => array( 'not_published' ),
-		'published'   => null,
+		'definition' => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array() ),
+		'state'      => 'draft',
+		'log'        => array(),
+		'published'  => null,
 	),
 	13 => editable_track(),
 );
@@ -2719,21 +2604,22 @@ ob_start();
 WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
 $track_page = ob_get_clean();
 
-ck( 'History is offered on every row, the built-in one included, and beside Preview on the track\'s page',
+ck( 'History is offered on every row, the four original tracks\' included, and beside Preview on the track\'s page',
     array( substr_count( $rows_html, '>History</a>' ), substr_count( $rows_html, 'wpcpm_history=12">History</a>' ), substr_count( $track_page, 'wpcpm_preview=13">Preview</a> <a href="https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_history=13">History</a>' ) ),
     array( 2, 1, 1 ) );
 
 
-echo "\n=== The words on a built-in row and on its publish screen (decision 29) ===\n";
+echo "\n=== The words on an original track's row and on its publish screen ===\n";
 
+// Decision 29 had a track still running from its PHP read live and offer "Publish definition"; with
+// the hand-written forms gone, one of the four original tracks reads and publishes as any track
+// does, and what stays its own is the Unpublish it is never offered (the design's decision 38).
 WPCPM_Track_Store::$tracks = array(
 	12 => array(
-		'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array( 'B' => array( 'type' => 'text', 'label' => 'B', 'group' => 'project' ) ) ),
-		'state'       => 'draft',
-		'source'      => 'builtin',
-		'log'         => array(),
-		'equivalence' => array( 'not_published' ),
-		'published'   => null,
+		'definition' => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array( 'B' => array( 'type' => 'text', 'label' => 'B', 'group' => 'project' ) ) ),
+		'state'      => 'draft',
+		'log'        => array(),
+		'published'  => null,
 	),
 	13 => editable_track(),
 );
@@ -2744,52 +2630,44 @@ ob_start();
 WPCPM_Track_Builder_Screen::render_list( array( 'rows' => WPCPM_Track_Builder::rows(), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
 $words = ob_get_clean();
 
-ck( 'a built-in track still on its PHP reads live rather than Draft, says what publishing its definition does, and offers Publish definition; a draft of somebody\'s own still reads Draft and offers Publish',
+ck( 'one of the four original tracks, a draft, reads Draft and offers Publish, as a draft of somebody\'s own does, with the students on its status counted',
     array(
-        substr_count( $words, '<td>Live, from its hand-written form' ),
         substr_count( $words, '<td>Draft' ),
-        substr_count( $words, 'Its definition is not published yet. Publishing it changes nothing for students: it records the definition, so that the track can switch to running from it once the two are identical.' ),
-        substr_count( $words, '>Publish definition</a>' ),
         substr_count( $words, '>Publish</a>' ),
         substr_count( $words, '<td>458</td>' ),
+        false !== strpos( $words, 'hand-written' ),
     ),
-    array( 1, 1, 1, 1, 1, 1 ) );
+    array( 2, 2, 1, false ) );
 
-WPCPM_Track_Publish::$flight    = array( 'refusals' => array(), 'warnings' => array(), 'columns' => array( 'create' => array(), 'ready' => array( 'B' ) ), 'choices' => array( 'reports' => 'ok', 'students' => 'ok' ), 'fields' => array( 'now' => 120, 'after' => 120 ), 'adds_status' => false, 'ready' => true );
+WPCPM_Track_Publish::$flight    = array( 'refusals' => array(), 'warnings' => array(), 'columns' => array( 'create' => array(), 'ready' => array( 'B' ) ), 'choices' => array( 'reports' => 'ok', 'students' => 'ok' ), 'fields' => array( 'now' => 120, 'after' => 120 ), 'adds_status' => true, 'ready' => true );
 WPCPM_Track_Publish::$checklist = array();
 
 $_GET = array( 'wpcpm_publish' => 12 );
 ob_start();
 $tool->render_admin_page();
-$builtin_publish = ob_get_clean();
+$original_publish = ob_get_clean();
 WPCPM_Track_Store::$tracks[12]['state'] = 'published';
 ob_start();
 $tool->render_admin_page();
-$builtin_live = ob_get_clean();
+$original_live = ob_get_clean();
 $_GET = array( 'wpcpm_publish' => 13 );
 ob_start();
 $tool->render_admin_page();
 $own_publish = ob_get_clean();
 $_GET = array();
 
-ck( 'its publish screen is headed as the definition\'s, says the track keeps running from its form, and its buttons name the definition, published or not; a track of somebody\'s own keeps its words',
+ck( 'its publish screen is headed and worded as any track\'s, and once it is live offers no Unpublish and says why; a track of somebody\'s own keeps its words',
     array(
-        false !== strpos( $builtin_publish, '<h2>Publishing the definition of Designer Track</h2>' ),
-        false !== strpos( $builtin_publish, 'Publishing records its definition and changes nothing for students' ),
-        substr_count( $builtin_publish, 'Publish the definition' ),
-        substr_count( $builtin_publish, 'Publish this track' ),
-        substr_count( $builtin_live, 'Unpublish the definition' ),
-        substr_count( $builtin_live, 'name="action" value="wpcpm_track_unpublish"' ),
-        substr_count( $builtin_live, '<p class="wpcpm-tracks__count">The definition stays published while this track runs from its hand-written form: its students see that form either way, so there is nothing to take off the live site.</p>' ),
-        substr_count( $builtin_live, 'Take it off the live site' ),
-        substr_count( $builtin_live, 'Check it against Airtable' ),
-        false !== strpos( $builtin_live, '<h2>Publishing the definition of Designer Track</h2>' ),
-        false !== strpos( $builtin_live, 'keeps doing so. Publishing records its definition' ),
+        false !== strpos( $original_publish, '<h2>Publishing Designer Track</h2>' ),
+        substr_count( $original_publish, 'Publish this track' ),
+        substr_count( $original_live, 'name="action" value="wpcpm_track_unpublish"' ),
+        substr_count( $original_live, '<p class="wpcpm-tracks__count">The program&#039;s original tracks always run: edit the track and publish the change instead.</p>' ),
+        substr_count( $original_live, 'Check it against Airtable' ),
+        false !== strpos( $original_publish . $original_live, 'hand-written' ),
         false !== strpos( $own_publish, '<h2>Publishing Marketing Track</h2>' ),
         substr_count( $own_publish, 'Publish this track' ),
-        false !== strpos( $own_publish, 'keeps doing so' ),
     ),
-    array( true, true, 1, 0, 0, 0, 1, 0, 1, true, true, true, 1, false ) );
+    array( true, 1, 0, 1, 1, false, true, 1 ) );
 
 
 echo "\n=== The editor's fold-ins: a locked question's rows and its notice, and every control through the real validator (decision 29) ===\n";
@@ -2797,12 +2675,10 @@ echo "\n=== The editor's fold-ins: a locked question's rows and its notice, and 
 WPCPM_Track_Store::$tracks = array(
 	13 => editable_track(),
 	11 => array(
-		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Slack name' => array( 'type' => 'text', 'label' => 'Your Slack name', 'group' => 'onboarding' ) ) ),
-		'state'       => 'published',
-		'source'      => 'builtin',
-		'log'         => array(),
-		'equivalence' => array(),
-		'published'   => array( 'key' => '150h' ),
+		'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track', 'questions' => array( 'Slack name' => array( 'type' => 'text', 'label' => 'Your Slack name', 'group' => 'onboarding' ) ) ),
+		'state'      => 'published',
+		'log'        => array(),
+		'published'  => array( 'key' => '150h' ),
 	),
 );
 unset( WPCPM_Track_Store::$tracks[13]['definition']['questions']['Slack name'] );
@@ -3131,16 +3007,6 @@ $_GET   = array();
 ck( 'and the lesson reaches that form from the address itself, through the route',
     array( substr_count( $routed, '<option value="4002" selected="selected">Share your WordPress profile</option>' ), substr_count( $routed, 'selected="selected">Join' ) ),
     array( 1, 0 ) );
-
-WPCPM_Track_Store::$tracks[13]['source'] = 'builtin';
-ob_start();
-WPCPM_Track_Builder_Screen::render_form( array( 'form' => WPCPM_Track_Builder::form( 13 ), 'url' => 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder', 'flash' => array() ) );
-$read_only_lessons = ob_get_clean();
-WPCPM_Track_Store::$tracks[13]['source'] = 'definition';
-
-ck( 'a built-in track still on its PHP shows the lessons and their marks with nothing to press',
-    array( substr_count( $read_only_lessons, 'Asked by: Your Slack name' ), substr_count( $read_only_lessons, 'wpcpm-lesson__add' ), substr_count( $read_only_lessons, '<span class="wpcpm-lesson__none">No question yet</span>' ) ),
-    array( 1, 0, 2 ) );
 
 $GLOBALS['transients'] = array();
 unset( $GLOBALS['http'][ 'https://learn.wordpress.org/wp-json/sensei-internal/v1/course-structure/500001' ] );
@@ -3513,7 +3379,7 @@ $GLOBALS['transients'] = array();
 $GLOBALS['http']       = array();
 WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
 
-echo "\n=== T3b's leftovers: one date helper, and a stale draft's preview (T3c) ===\n";
+echo "\n=== T3b's leftovers: one date helper (T3c) ===\n";
 
 $GLOBALS['users'] = array( 7 => 'A Manager' );
 
@@ -3532,35 +3398,6 @@ $_GET = array();
 
 ck( 'History says so for a save and a publish by the site itself',
     array( substr_count( $by_site, ' by the site itself</p>' ), substr_count( $by_site, '<li>Published, ' . gmdate( 'Y-m-d H:i', 1788050000 ) . ' by the site itself</li>' ) ), array( 1, 1 ) );
-
-WPCPM_Track_Store::$tracks = array(
-	12 => array(
-		'definition'  => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array( 'B' => array( 'type' => 'text', 'label' => 'B', 'group' => 'project' ) ) ),
-		'state'       => 'draft',
-		'source'      => 'builtin',
-		'log'         => array(),
-		'equivalence' => array( 'not_published' ),
-		'published'   => null,
-	),
-);
-$stale_preview = WPCPM_Track_Builder::preview( 12 );
-$_GET = array( 'wpcpm_preview' => 12 );
-ob_start();
-$tool->render_admin_page();
-$stale_page = ob_get_clean();
-WPCPM_Track_Store::$tracks[12]['definition'] = WPCPM_Track_Store::seeds()['design'];
-$fresh_preview = WPCPM_Track_Builder::preview( 12 );
-ob_start();
-$tool->render_admin_page();
-$fresh_page = ob_get_clean();
-$_GET = array();
-
-ck( 'a built-in draft that fell behind the plugin\'s form says so on its preview, and one that matches the seed says what the form draws',
-    array(
-        $stale_preview['stale'], false !== strpos( $stale_page, 'has fallen behind the plugin' ), false !== strpos( $stale_page, 'this definition is what that form draws' ),
-        $fresh_preview['stale'], false !== strpos( $fresh_page, 'this definition is what that form draws' ),
-    ),
-    array( true, true, false, false, true ) );
 
 WPCPM_Track_Store::$tracks = array( 13 => editable_track() );
 
@@ -3635,48 +3472,6 @@ ck( 'a store that refuses to create the post, on New track and on Duplicate, sen
         'redirect', 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_duplicate=13', 'error', 'The post could not be created.', 'A Copy', array(),
     ) );
 
-echo "\n=== Unpublish is not offered on a built-in track its PHP runs, and a press is told the truth (BUILDER-7) ===\n";
-
-// The deep check of 1.109.1, BUILDER-7: the publish screen of a built-in track its PHP still runs
-// offered "Unpublish the definition", which take_down() refused whenever anybody held the status,
-// saying their Student Report Cards would be left with no form: untrue for a track whose PHP draws
-// the form either way, and a button that could never work. It is not drawn now (the check above),
-// and a press from a page drawn before, or a crafted one, is told what is true.
-WPCPM_Track_Store::$tracks   = array(
-	11 => array(
-		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track' ),
-		'state'       => 'published',
-		'source'      => 'builtin',
-		'log'         => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
-		'equivalence' => array(),
-		'published'   => array( 'key' => '150h' ),
-	),
-);
-WPCPM_Students_Sync::$counts = array( 'In Sensei' => 458 );
-WPCPM_Track_Publish::$answer = new WP_Error( 'wpcpm_track_in_use', '458 students are on this track in Airtable, and unpublishing it would leave their Student Report Cards with no form on them. Move them off "In Sensei" first.' );
-WPCPM_Track_Publish::$down   = array();
-WPCPM_Flash::$set            = array();
-$GLOBALS['can_manage']       = true;
-$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_UNPUBLISH;
-$_POST                       = array( 'track' => 11 );
-
-ck( 'a press on a built-in track its PHP runs changes nothing, asks take_down() nothing, and says why, truly, on the publish screen',
-    array( outcome( array( $tool, 'handle_unpublish' ) ), WPCPM_Track_Publish::$down, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array(), $GLOBALS['last_redirect'] ),
-    array(
-        'redirect',
-        array(),
-        array(
-            'status'  => 'error',
-            'message' => 'The definition was not unpublished. This track runs from its hand-written form, so its students see that form whether or not the definition is published: there is nothing to take off the live site.',
-        ),
-        'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder&wpcpm_publish=11',
-    ) );
-
-WPCPM_Track_Publish::$answer = null;
-WPCPM_Students_Sync::$counts = array();
-$GLOBALS['nonce']            = '';
-$_POST                       = array();
-
 echo "\n=== A copy starts with no Learn course and no hours target (BUILDER-9) ===\n";
 
 // The deep check of 1.109.1, BUILDER-9: Duplicate replaced the name, the status, the key and the hue
@@ -3686,7 +3481,7 @@ echo "\n=== A copy starts with no Learn course and no hours target (BUILDER-9) =
 // screen already shows (the design's section 5).
 WPCPM_Track_Store::$tracks     = array(
 	11 => array(
-		'definition'  => array(
+		'definition' => array(
 			'schema_version'  => 1,
 			'key'             => '150h',
 			'status'          => 'In Sensei',
@@ -3697,11 +3492,9 @@ WPCPM_Track_Store::$tracks     = array(
 			'hue'             => 'blue',
 			'questions'       => array( 'Your blog' => array( 'type' => 'url', 'label' => 'Your blog', 'group' => 'onboarding', 'learn_lesson_id' => 4242 ) ),
 		),
-		'state'       => 'published',
-		'source'      => 'builtin',
-		'log'         => array(),
-		'equivalence' => array(),
-		'published'   => array( 'key' => '150h' ),
+		'state'      => 'published',
+		'log'        => array(),
+		'published'  => array( 'key' => '150h' ),
 	),
 );
 WPCPM_Track_Store::$errors     = array();
@@ -3800,14 +3593,15 @@ echo "\n=== A move the page asked for in the background is answered, refusal and
 // The deep check of 1.109.1, BUILDER-4: a background move the store refused, or one on a track gone
 // since the page was drawn, went through redirect_back(). The script followed the redirect, read the
 // Track Builder's page where it wanted JSON and kept the row where it had moved it, and the page it
-// followed took the refusal's notice, so nobody read it. Here the track was switched back to its
-// hand-written form in another tab, which is a save the store refuses.
-$GLOBALS['can_manage']                   = true;
-$GLOBALS['nonce']                        = WPCPM_Track_Editor::ACTION_MOVE;
-WPCPM_Track_Store::$tracks               = array( 13 => editable_track() );
-WPCPM_Track_Store::$tracks[13]['source'] = 'builtin';
-WPCPM_Track_Store::$saved                = array();
-$background_moves                        = array();
+// followed took the refusal's notice, so nobody read it. Here the store refuses the save, as the
+// real one does when the definition holds a value it cannot write back (bin/test-handlers.php runs
+// that refusal through the real store).
+$GLOBALS['can_manage']          = true;
+$GLOBALS['nonce']               = WPCPM_Track_Editor::ACTION_MOVE;
+WPCPM_Track_Store::$tracks      = array( 13 => editable_track() );
+WPCPM_Track_Store::$refuse_save = new WP_Error( 'wpcpm_track_unencodable', 'The track was not saved: one of its values cannot be stored.' );
+WPCPM_Track_Store::$saved       = array();
+$background_moves               = array();
 
 foreach ( array( 'refused by the store' => 13, 'on a track since deleted' => 404 ) as $case => $moved_id ) {
 	$GLOBALS['json_status']      = 'none';
@@ -3819,11 +3613,13 @@ ck( 'each is answered as a refusal, with its reason and a status the script read
     array( $background_moves, WPCPM_Track_Store::$saved ),
     array(
         array(
-            'refused by the store'     => array( array( 'json', array( 'success' => false, 'data' => array( 'message' => 'A built-in track runs from its hand-written form until it switches to its definition.' ) ) ), 409, array() ),
+            'refused by the store'     => array( array( 'json', array( 'success' => false, 'data' => array( 'message' => 'The track was not saved: one of its values cannot be stored.' ) ) ), 409, array() ),
             'on a track since deleted' => array( array( 'json', array( 'success' => false, 'data' => array( 'message' => 'That track does not exist.' ) ) ), 404, array() ),
         ),
         array(),
     ) );
+
+WPCPM_Track_Store::$refuse_save = null;
 
 $script = (string) file_get_contents( __DIR__ . '/../assets/js/track-editor.js' );
 
@@ -4141,17 +3937,15 @@ WPCPM_Track_Store::$tracks   = array(
 	13 => $published_own,
 	14 => $listed_own,
 	11 => array(
-		'definition'  => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track' ),
-		'state'       => 'published',
-		'source'      => 'builtin',
-		'log'         => array(),
-		'equivalence' => array(),
-		'published'   => array( 'key' => '150h' ),
+		'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => '150-hour Track' ),
+		'state'      => 'published',
+		'log'        => array(),
+		'published'  => array( 'key' => '150h' ),
 	),
 );
 WPCPM_Tracks::$live                         = array(
-	'Marketing Track' => array( 'key' => 'marketing', 'label' => 'Marketing Track', 'source' => 'definition', 'post' => 13 ),
-	'Writing Track'   => array( 'key' => 'writing', 'label' => 'Writing Track', 'source' => 'definition', 'post' => 14 ),
+	'Marketing Track' => array( 'key' => 'marketing', 'label' => 'Marketing Track', 'post' => 13 ),
+	'Writing Track'   => array( 'key' => 'writing', 'label' => 'Writing Track', 'post' => 14 ),
 );
 WPCPM_Settings::$values['student_statuses'] = array( 'Writing Track', 'Paused' );
 $GLOBALS['opts']['wpcpm_tracks_skipped']    = array();
@@ -4165,7 +3959,7 @@ $unlisted_list = ob_get_clean();
 WPCPM_Tracks::$live = array();
 unset( WPCPM_Settings::$values['student_statuses'] );
 
-ck( 'the live track whose status is missing is flagged, row and all, by the status it runs under rather than its draft\'s; the one listed is not, nor a built-in track its PHP runs',
+ck( 'the live track whose status is missing is flagged, row and all, by the status it runs under rather than its draft\'s; the one listed is not, nor a published track the compiled index does not hold',
     array(
         array_column( $unlisted_rows, 'unlisted', 'id' ),
         substr_count( $unlisted_list, '<tr class="wpcpm-tracks__row wpcpm-tracks__row--unlisted">' ),
@@ -4370,8 +4164,6 @@ WPCPM_Track_Store::$refuse     = null;
 WPCPM_Track_Store::$saved      = array();
 WPCPM_Track_Store::$duplicated = array();
 WPCPM_Track_Store::$created    = array();
-WPCPM_Track_Store::$switches   = array();
-WPCPM_Track_Store::$refreshed  = array();
 WPCPM_Track_Store::$deleted    = array();
 WPCPM_Track_Publish::$answer   = null;
 WPCPM_Track_Publish::$ran      = array();
@@ -4408,15 +4200,15 @@ foreach ( array( $caps_tool, $caps_editor ) as $owner ) {
 
 ck( 'every handler of both classes, as many as are hooked on admin-post, dies on the capability for somebody who holds only read, before the nonce',
     array( count( $pressed ), $hooked, array_unique( array_values( $pressed ) ) ),
-    array( 17, 17, array( 'die: You do not have permission to manage the program.' ) ) );
+    array( 14, 14, array( 'die: You do not have permission to manage the program.' ) ) );
 
-ck( 'and not one of them saved, created, copied, switched, refreshed, deleted, published, ticked, checked, read the base or flashed anything',
+ck( 'and not one of them saved, created, copied, deleted, published, ticked, checked, read the base or flashed anything',
     array(
-        WPCPM_Track_Store::$saved, WPCPM_Track_Store::$duplicated, WPCPM_Track_Store::$created, WPCPM_Track_Store::$switches, WPCPM_Track_Store::$refreshed, WPCPM_Track_Store::$deleted,
+        WPCPM_Track_Store::$saved, WPCPM_Track_Store::$duplicated, WPCPM_Track_Store::$created, WPCPM_Track_Store::$deleted,
         WPCPM_Track_Publish::$ran, WPCPM_Track_Publish::$down, WPCPM_Track_Publish::$ticked, WPCPM_Track_Publish::$verified, WPCPM_Track_Publish::$preflights,
         WPCPM_Flash::$set,
     ),
-    array( array(), array(), array(), array(), array(), array(), array(), array(), array(), array(), 0, array() ) );
+    array( array(), array(), array(), array(), array(), array(), array(), array(), 0, array() ) );
 
 $taken_before = WPCPM_Flash::$taken;
 $screens      = array();
@@ -4436,6 +4228,221 @@ ck( 'the screen too, whichever of its views is asked for, dies on the capability
 $GLOBALS['can_manage'] = true;
 $GLOBALS['nonce']      = '';
 $_POST                 = array();
+
+echo "\n=== Every track runs from its definition: no switch, no refresh, no read-only page, and the four original tracks kept ===\n";
+
+// The hand-written forms are gone, and with them the switch between a track's form and its
+// definition, the refresh of a seeded draft from the plugin and the read-only page of a track its PHP
+// ran. Every track is edited, previewed and published the same way; what stays the four original
+// tracks' own is that Unpublish is never drawn for them, nor Delete once they are published (the
+// design's decision 38). The fixtures are the tracks a site can hold today: one of the four switched
+// on 22 September 2026, which the store's record of the switch says (`switched()`, which the screen
+// never asks), one published on a site that never switched, two never published, as a seed stays
+// when the request seeding it died before publishing it or when WordPress refused its publishing at
+// the upgrade, and two of somebody's own.
+$today_url     = 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder';
+$today_builder = new WPCPM_Track_Builder();
+
+$gone_members = array(
+	'handle_switch_definition' => method_exists( 'WPCPM_Track_Builder', 'handle_switch_definition' ),
+	'handle_switch_builtin'    => method_exists( 'WPCPM_Track_Builder', 'handle_switch_builtin' ),
+	'handle_refresh'           => method_exists( 'WPCPM_Track_Builder', 'handle_refresh' ),
+	'stale'                    => method_exists( 'WPCPM_Track_Builder', 'stale' ),
+	'ACTION_SWITCH_DEFINITION' => defined( 'WPCPM_Track_Builder::ACTION_SWITCH_DEFINITION' ),
+	'ACTION_SWITCH_BUILTIN'    => defined( 'WPCPM_Track_Builder::ACTION_SWITCH_BUILTIN' ),
+	'ACTION_REFRESH'           => defined( 'WPCPM_Track_Builder::ACTION_REFRESH' ),
+	'render_equivalence'       => method_exists( 'WPCPM_Track_Builder_Screen', 'render_equivalence' ),
+);
+
+ck( 'the three presses, their handlers, the stale test and the line comparing a track with its hand-written form are removed', $gone_members, array_fill_keys( array_keys( $gone_members ), false ) );
+
+$GLOBALS['hooks'] = array();
+$today_builder->boot();
+
+ck( 'and nothing is hooked on admin-post for them',
+	array_values( array_intersect( array( 'admin_post_wpcpm_track_switch_definition', 'admin_post_wpcpm_track_switch_builtin', 'admin_post_wpcpm_track_refresh' ), $GLOBALS['hooks'] ) ),
+	array() );
+
+WPCPM_Track_Store::$tracks = array(
+	41 => array(
+		'definition' => array( 'key' => '150h', 'status' => 'In Sensei', 'label' => 'WordPress Credits Program 150h', 'course_url' => '', 'questions' => array( 'Hours' => array( 'type' => 'number', 'label' => 'Hours', 'group' => 'hours' ) ) ),
+		'state'      => 'published',
+		'switched'   => true,
+		'log'        => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ), array( 'at' => 1788000100, 'by' => 7, 'did' => 'switch_definition' ) ),
+		'published'  => array( 'key' => '150h' ),
+	),
+	42 => array(
+		'definition' => array( 'key' => '50h', 'status' => 'In Sensei 50h', 'label' => 'WordPress Credits Program 50h', 'course_url' => '', 'questions' => array() ),
+		'state'      => 'draft',
+		'log'        => array(),
+		'published'  => null,
+	),
+	43 => array(
+		'definition' => array( 'key' => 'design', 'status' => 'Designer Track', 'label' => 'Designer Track', 'course_url' => '', 'questions' => array( 'B' => array( 'type' => 'text', 'label' => 'B', 'group' => 'project' ) ) ),
+		'state'      => 'published',
+		'log'        => array( array( 'at' => 1788000000, 'by' => 7, 'did' => 'publish' ) ),
+		'published'  => array( 'key' => 'design' ),
+	),
+	46 => array(
+		'definition' => array( 'key' => 'dev', 'status' => 'Developer Track', 'label' => 'Developer Track', 'course_url' => '', 'questions' => array( 'C' => array( 'type' => 'text', 'label' => 'C', 'group' => 'project' ) ) ),
+		'state'      => 'draft',
+		'log'        => array(),
+		'published'  => null,
+	),
+	44 => editable_track(),
+	45 => array(
+		'definition' => array( 'key' => 'writing', 'status' => 'Writing Track', 'label' => 'Writing Track', 'course_url' => '', 'questions' => array() ),
+		'state'      => 'published',
+		'log'        => array( array( 'at' => 1788200000, 'by' => 7, 'did' => 'publish' ) ),
+		'published'  => array( 'key' => 'writing' ),
+	),
+);
+WPCPM_Students_Sync::$counts             = array();
+$GLOBALS['opts']['wpcpm_tracks_skipped'] = array();
+
+$today_rows = WPCPM_Track_Builder::rows();
+$today_keys = array();
+
+foreach ( $today_rows as $today_row ) {
+	$today_keys[ $today_row['id'] ] = array_values( array_intersect( array( 'source', 'equivalence', 'stale', 'switched' ), array_keys( $today_row ) ) );
+}
+
+ck( 'a row says nothing of a source, a switch, a comparison or a seed left behind',
+	$today_keys,
+	array_fill_keys( array( 41, 42, 43, 46, 44, 45 ), array() ) );
+
+ob_start();
+WPCPM_Track_Builder_Screen::render_list( array( 'rows' => $today_rows, 'url' => $today_url, 'flash' => array() ) );
+$today_list = ob_get_clean();
+
+ck( 'the list draws no Runs from column, no switch either way and no refresh, says nothing of a hand-written form, and offers Publish on every draft and Publishing on every published track',
+	array(
+		false !== strpos( $today_list, '>Runs from</th>' ),
+		substr_count( $today_list, 'wpcpm_track_switch_definition' ) + substr_count( $today_list, 'wpcpm_track_switch_builtin' ) + substr_count( $today_list, 'wpcpm_track_refresh' ),
+		false !== strpos( $today_list, 'hand-written' ),
+		substr_count( $today_list, 'wpcpm-tracks__equivalence' ) + substr_count( $today_list, 'wpcpm-tracks__readonly' ),
+		substr_count( $today_list, '>Publish definition</a>' ),
+		substr_count( $today_list, '>Publish</a>' ),
+		substr_count( $today_list, '>Publishing</a>' ),
+		substr_count( $today_list, '<td>Draft' ),
+	),
+	array( false, 0, false, 0, 0, 3, 3, 3 ) );
+
+$delete_forms = array();
+
+foreach ( array( 41, 42, 43, 46, 44, 45 ) as $delete_id ) {
+	$delete_forms[ $delete_id ] = substr_count( $today_list, 'name="action" value="wpcpm_track_delete" /><input type="hidden" name="track" value="' . $delete_id . '" />' );
+}
+
+ck( 'Delete is drawn for every track never published, the two original seeds and a draft of somebody\'s own, and for no published track, one of the four original tracks or not',
+	array( substr_count( $today_list, 'name="action" value="wpcpm_track_delete"' ), $delete_forms ),
+	array( 3, array( 41 => 0, 42 => 1, 43 => 0, 46 => 1, 44 => 1, 45 => 0 ) ) );
+
+$_GET = array( 'wpcpm_track' => 43 );
+ob_start();
+$today_builder->render_admin_page();
+$kept_track_page = ob_get_clean();
+$_GET = array();
+
+ck( 'an original track\'s page is its properties form and its questions, with Edit on each, as every track\'s is',
+	array( array_key_exists( 'read_only', WPCPM_Track_Builder::form( 43 ) ), substr_count( $kept_track_page, 'name="action" value="wpcpm_track_save"' ), substr_count( $kept_track_page, 'wpcpm_question=B">Edit</a>' ), false !== strpos( $kept_track_page, 'hand-written' ) ),
+	array( false, 1, 1, false ) );
+
+$kept_question = WPCPM_Track_Builder::question_form( 43, 'B' );
+ob_start();
+WPCPM_Track_Editor_Screen::render_question( array( 'form' => $kept_question, 'url' => $today_url, 'flash' => array() ) );
+$kept_question_page = ob_get_clean();
+
+ck( 'and each of its questions is edited on a form of its own',
+	array( array_key_exists( 'read_only', $kept_question ), substr_count( $kept_question_page, 'name="action" value="wpcpm_question_save"' ), false !== strpos( $kept_question_page, 'hand-written' ) ),
+	array( false, 1, false ) );
+
+$_GET = array( 'wpcpm_preview' => 46 );
+ob_start();
+$today_builder->render_admin_page();
+$seed_preview_page = ob_get_clean();
+$_GET = array();
+
+ck( 'a preview says what every draft\'s preview says, and carries no source and no seed left behind',
+	array( array_values( array_intersect( array( 'source', 'stale' ), array_keys( WPCPM_Track_Builder::preview( 46 ) ) ) ), false !== strpos( $seed_preview_page, 'Nothing reaches students until the track is published.' ), false !== strpos( $seed_preview_page, 'hand-written' ) ),
+	array( array(), true, false ) );
+
+WPCPM_Track_Publish::$flight    = array( 'refusals' => array(), 'warnings' => array(), 'columns' => array( 'create' => array(), 'ready' => array( 'Hours' ) ), 'choices' => array( 'reports' => 'ok', 'students' => 'ok' ), 'fields' => array( 'now' => 120, 'after' => 120 ), 'adds_status' => true, 'ready' => true );
+WPCPM_Track_Publish::$checklist = array();
+$publish_pages                  = array();
+
+foreach ( array( 41, 43, 46, 45 ) as $publish_id ) {
+	$_GET = array( 'wpcpm_publish' => $publish_id );
+	ob_start();
+	$today_builder->render_admin_page();
+	$publish_pages[ $publish_id ] = ob_get_clean();
+}
+
+$_GET = array();
+
+$always_run = 'The program&#039;s original tracks always run: edit the track and publish the change instead.';
+
+ck( 'the publish screen is headed and worded alike for every track, and offers no Unpublish on one of the four original tracks, saying why, while a track of somebody\'s own keeps its Unpublish',
+	array(
+		false !== strpos( $publish_pages[41], '<h2>Publishing WordPress Credits Program 150h</h2>' ),
+		substr_count( $publish_pages[41], 'Take it off the live site' ),
+		substr_count( $publish_pages[41], 'Check it against Airtable' ),
+		substr_count( $publish_pages[41], $always_run ),
+		false !== strpos( $publish_pages[43], '<h2>Publishing Designer Track</h2>' ),
+		substr_count( $publish_pages[43], 'Take it off the live site' ),
+		substr_count( $publish_pages[46], 'Publish this track' ),
+		substr_count( $publish_pages[46], $always_run ),
+		substr_count( $publish_pages[45], 'Take it off the live site' ),
+		substr_count( $publish_pages[45], $always_run ),
+		false !== strpos( implode( '', $publish_pages ), 'hand-written' ),
+		false !== strpos( implode( '', $publish_pages ), 'the definition of' ),
+	),
+	array( true, 0, 1, 1, true, 0, 1, 0, 1, 0, false, false ) );
+
+// Between a Save and its Publish an original track is `changed`: it is live, so it is kept on as
+// when it is published, and what it offers is the change to publish.
+WPCPM_Track_Store::$tracks[43]['state'] = 'changed';
+$_GET                                   = array( 'wpcpm_publish' => 43 );
+ob_start();
+$today_builder->render_admin_page();
+$changed_original                       = ob_get_clean();
+$_GET                                   = array();
+WPCPM_Track_Store::$tracks[43]['state'] = 'published';
+
+ck( 'and one of them with unpublished changes offers the changes to publish, no Unpublish, and the same line why',
+	array(
+		substr_count( $changed_original, 'Publish the changes' ),
+		substr_count( $changed_original, 'name="action" value="wpcpm_track_unpublish"' ),
+		substr_count( $changed_original, $always_run ),
+		substr_count( $changed_original, 'Check it against Airtable' ),
+	),
+	array( 1, 0, 1, 1 ) );
+
+// A press from a page drawn before, or a crafted one, goes to take_down(), which keeps each of the
+// four and says why in its own words (the design's decision 38).
+WPCPM_Track_Publish::$answer = new WP_Error( 'wpcpm_track_reserved', 'The program\'s original tracks always run: edit the track and publish the change instead.' );
+WPCPM_Track_Publish::$down   = array();
+WPCPM_Flash::$set            = array();
+$GLOBALS['nonce']            = WPCPM_Track_Builder::ACTION_UNPUBLISH;
+$_POST                       = array( 'track' => 43 );
+
+ck( 'a press of Unpublish on one of them is answered by take_down(), on the publish screen',
+	array( outcome( array( $today_builder, 'handle_unpublish' ) ), WPCPM_Track_Publish::$down, WPCPM_Flash::$set[ WPCPM_Track_Builder::FLASH ] ?? array(), $GLOBALS['last_redirect'] ),
+	array( 'redirect', array( array( 43, 5 ) ), array( 'status' => 'error', 'message' => 'The program\'s original tracks always run: edit the track and publish the change instead.' ), $today_url . '&wpcpm_publish=43' ) );
+
+WPCPM_Track_Publish::$answer = null;
+WPCPM_Track_Publish::$down   = array();
+$GLOBALS['nonce']            = '';
+$_POST                       = array();
+
+$_GET = array( 'wpcpm_history' => 41 );
+ob_start();
+$today_builder->render_admin_page();
+$switched_history = ob_get_clean();
+$_GET = array();
+
+ck( 'History still names the switch a track made on its way to its definition, from the log the site holds',
+	substr_count( $switched_history, '<li>Switched to run from its definition, ' ), 1 );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

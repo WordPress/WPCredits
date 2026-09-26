@@ -383,8 +383,8 @@ final class WPCPM_Duplicates_Scan {
 	 *
 	 * The live statuses are the active list of the `student_statuses` setting, the one both syncs
 	 * fetch by. The work columns are every column the Student Report Card's report form writes for
-	 * any track the program map knows, the four built-in tracks and every Track Builder track: the
-	 * map is `WPCPM_Program::labels()`, and `fields()` takes the key `track()` gives each status.
+	 * any track the program map knows, the four original tracks among them: the map is
+	 * `WPCPM_Program::labels()`, and `fields()` takes the key `track()` gives each status.
 	 *
 	 * @return array `live` (string[]) and `work_columns` (string[]).
 	 */

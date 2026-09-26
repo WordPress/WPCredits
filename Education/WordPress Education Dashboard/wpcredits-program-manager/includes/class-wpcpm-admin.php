@@ -370,6 +370,17 @@ class WPCPM_Admin {
 			WPCPM_Flash::set( 'settings-refused', $dropped );
 		}
 
+		// The same rule for "Past students": a past status is refused to every track, so the compile
+		// below would take a live track holding one off the site with nothing standing in for it,
+		// the program's four original tracks included (`WPCPM_Settings::tracks_ended_by()`).
+		$ended = WPCPM_Settings::tracks_ended_by( $input );
+
+		if ( array() !== $ended ) {
+			unset( $input['past_statuses'] );
+
+			WPCPM_Flash::set( 'settings-past-refused', $ended );
+		}
+
 		WPCPM_Settings::save( $input );
 
 		// "Currently mentoring" and the past statuses are rules every published track was compiled
@@ -426,6 +437,41 @@ class WPCPM_Admin {
 	}
 
 	/**
+	 * Why the last save left "Past students" as it was: the change would have put live tracks'
+	 * statuses among the past statuses, which no track runs on, and these are the tracks; everything
+	 * else was saved (`WPCPM_Settings::tracks_ended_by()`).
+	 */
+	private function render_past_refused_notice() {
+		$refused = WPCPM_Flash::take( 'settings-past-refused' );
+
+		if ( ! is_array( $refused ) || array() === $refused ) {
+			return;
+		}
+
+		$tracks = array();
+
+		foreach ( $refused as $status => $label ) {
+			$tracks[] = sprintf(
+				/* translators: 1: a track's name, 2: its Airtable status. */
+				__( '%1$s runs on "%2$s"', 'wpcredits-program-manager' ),
+				(string) $label,
+				(string) $status
+			);
+		}
+
+		printf(
+			'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
+			esc_html(
+				sprintf(
+					/* translators: %s: the tracks, each with its Airtable status, separated by semicolons. */
+					__( 'Everything else was saved. "Past students" was left as it was, because %s: no track runs on a past status, so saving the list would have taken the track off the live site, and its students would have lost its form. Take the track off the live site in the Track Builder first, then add its status here. The program\'s four original tracks always run, so their statuses are never past statuses.', 'wpcredits-program-manager' ),
+					implode( '; ', $tracks )
+				)
+			)
+		);
+	}
+
+	/**
 	 * The shared settings screen.
 	 */
 	public function render_settings() {
@@ -455,6 +501,7 @@ class WPCPM_Admin {
 		}
 
 		$this->render_refused_notice();
+		$this->render_past_refused_notice();
 
 		echo '<form method="post" action="">';
 		wp_nonce_field( self::SETTINGS_NONCE, self::SETTINGS_NONCE );

@@ -35,15 +35,18 @@ final class WPCPM_Track_Store {
 	const META_DEFINITION = '_wpcpm_track_definition';
 
 	/**
-	 * `builtin` for a migrated track its PHP still runs; absent for every other track.
+	 * The mark, `builtin`, that a seeded track carried while its hand-written form ran it.
 	 *
-	 * Written by the migration of phase T2 and cleared by the switch; carried into the compiled
-	 * row, where `WPCPM_Tracks` leaves such a track to its PHP, and read by `save()`, which keeps
-	 * such a track read-only until it switches (the design's section 6).
+	 * Nothing writes it now, and only the upgrade reads it (`upgrade_seeding()`): a site seeded by
+	 * version 1 publishes each seed still marked and still a draft, and then clears the mark from
+	 * every track post. Every track runs from its definition.
 	 */
 	const META_SOURCE = '_wpcpm_track_source';
 
-	/** `1` once somebody has ticked the reports automation item of the publish checklist (T2). */
+	/**
+	 * `1` once the reports automation item of the publish checklist (T2) is ticked, by a person or
+	 * by the site when it published one of the four original tracks (`publish_seed()`).
+	 */
 	const META_AUTOMATION = '_wpcpm_track_automation';
 
 	/**
@@ -67,14 +70,12 @@ final class WPCPM_Track_Store {
 	const OPT_SKIPPED = 'wpcpm_tracks_skipped';
 
 	/**
-	 * The saved definition's fingerprint when a built-in track switched to its definition.
+	 * The saved definition's fingerprint when one of the four original tracks switched from its
+	 * hand-written form to its definition (the design's decision 3.5).
 	 *
-	 * The way back is open only while the definition is unchanged since the switch (the design's
-	 * decision 3.5): going back after an edit would put the PHP in front of students and quietly
-	 * drop what the edit published. The fingerprint alone cannot see an edit that was published
-	 * and then saved back to its old text without being published, so the way back also needs a
-	 * published track's copy to be the PHP's, which `equivalence()` answers (the final review of
-	 * T2a).
+	 * The record of the migration: the live site's four switched on 22 September 2026, and their
+	 * logs say so too (`switch_definition`). The switch and its way back are gone with the
+	 * hand-written forms, so nothing decides anything by it; `switched()` answers it.
 	 */
 	const META_SWITCHED = '_wpcpm_track_switched';
 
@@ -86,14 +87,37 @@ final class WPCPM_Track_Store {
 	 */
 	const META_DUPLICATED_FROM = '_wpcpm_track_duplicated_from';
 
-	/** The seed version this site's Track Builder started from, set once. Autoloaded: read every request. */
+	/**
+	 * The version of the seeding this site holds: written when it seeds, and moved up by an upgrade.
+	 * Autoloaded: read every request.
+	 */
 	const OPT_SEEDED = 'wpcpm_tracks_seeded';
 
-	/** The version of the seeds in `includes/tracks/seeds/`, which `OPT_SEEDED` records. */
-	const SEED_VERSION = 1;
+	/**
+	 * The version of the seeding, which `OPT_SEEDED` records.
+	 *
+	 * 1 made each seed in `includes/tracks/seeds/` a draft marked `builtin`, which its hand-written
+	 * form ran; 2 publishes each at seeding, and brings a site stamped 1 up to it once
+	 * (`maybe_seed()`). The seeds themselves are the same bytes in both.
+	 */
+	const SEED_VERSION = 2;
 
-	/** The four built-in tracks' keys, in the program's order: one seed file each. */
-	const BUILTIN_KEYS = array( '150h', '50h', 'dev', 'design' );
+	/**
+	 * The claim a request holds on the upgrade from an older seeding, the time it was taken
+	 * (`claim_upgrade()`).
+	 *
+	 * Not autoloaded: only a site whose stamp is older than `SEED_VERSION` reads it, and the claim
+	 * is let go as soon as the stamp is written. A request killed inside the upgrade leaves it
+	 * behind, which is why `delete_all()` deletes it.
+	 */
+	const OPT_UPGRADE_LOCK = 'wpcpm_tracks_upgrade_lock';
+
+	/**
+	 * How many seconds a claim on the upgrade holds before another request takes it over as a dead
+	 * request's: the syncs' own two minutes, for a step that publishes four posts at most and
+	 * compiles once.
+	 */
+	const UPGRADE_LOCK_TIMEOUT = 120;
 
 	/**
 	 * Register the type and its meta.
@@ -168,6 +192,14 @@ final class WPCPM_Track_Store {
 	 * The definition goes in through `save()`, so the first revision is taken at once and the
 	 * history begins with the track as it was created.
 	 *
+	 * **Nothing half made is left behind.** When WordPress refuses `save()` once the post is
+	 * inserted, as it does on a database error between the two writes, the post is deleted again
+	 * before the error comes back, as `seed()` deletes a seed WordPress refuses to publish. Left
+	 * behind, it would be a draft nobody asked for, holding a status, key and name no other track
+	 * could take (TRACKS-1): a New track or a Duplicate typed again would be refused as taken, and a
+	 * seed would be passed over by every later seeding as held, so the track would never be
+	 * published (the design's decision 39).
+	 *
 	 * @param array $definition Track definition.
 	 * @return int|WP_Error The post ID, or whatever WordPress refused with.
 	 */
@@ -191,14 +223,21 @@ final class WPCPM_Track_Store {
 			return $post_id;
 		}
 
-		return self::save( (int) $post_id, $definition );
+		$saved = self::save( (int) $post_id, $definition );
+
+		if ( is_wp_error( $saved ) ) {
+			wp_delete_post( (int) $post_id, true );
+		}
+
+		return $saved;
 	}
 
 	/**
 	 * Copy a track: a new draft holding the definition it is given, and a note of where it came from.
 	 *
-	 * The copy is nobody's built-in track, whatever the original was: `create()` marks nothing, so
-	 * its PHP runs the original and this one answers for itself (the design's decision 11).
+	 * The copy is a track of its own, whatever the original was (the design's decision 11): the
+	 * caller has asked `check()` of its definition, which keeps a copy of one of the four original
+	 * tracks off their statuses and keys.
 	 *
 	 * @param int   $from_id    The track being copied.
 	 * @param array $definition The copy's definition, identity and all.
@@ -219,12 +258,9 @@ final class WPCPM_Track_Store {
 	/**
 	 * Store a definition on its track.
 	 *
-	 * **A built-in track its PHP still runs is read-only** (the design's section 6): it can be
-	 * duplicated, not edited, until it switches to its definition. Its equivalence with the PHP
-	 * would otherwise mean nothing, and `locked()` reads the status a built-in draft names now, so
-	 * a seed saved as another built-in track would lock the real one out, and a seed renamed away
-	 * from its status would publish a track no page runs (the final review of T2a). `create()` is
-	 * not held back: `seed()` marks a track built-in only after creating it.
+	 * No rule is asked here: the screens ask `check()` first, and `publish()` asks it again. Every
+	 * track is saved the same way, the four original tracks included, whose status and key the lock
+	 * keeps at every Save and Publish (`locked()`).
 	 *
 	 * **The meta is written before the post, and that order is load-bearing** (the semester
 	 * report's rule): WordPress saves a revision from inside `wp_update_post()`, copying the
@@ -241,10 +277,6 @@ final class WPCPM_Track_Store {
 
 		if ( null === self::track_post( $post_id ) ) {
 			return new WP_Error( 'wpcpm_track_missing', __( 'That track does not exist.', 'wpcredits-program-manager' ) );
-		}
-
-		if ( 'builtin' === get_post_meta( $post_id, self::META_SOURCE, true ) ) {
-			return new WP_Error( 'wpcpm_track_builtin', __( 'A built-in track runs from its PHP, so it cannot be edited until it switches to its definition. It can be duplicated.', 'wpcredits-program-manager' ) );
 		}
 
 		$definition = WPCPM_Track_Definition::normalize( $definition );
@@ -348,12 +380,11 @@ final class WPCPM_Track_Store {
 			}
 
 			$accepted[] = $definition;
-			$source     = 'builtin' === get_post_meta( $post->ID, self::META_SOURCE, true ) ? 'builtin' : 'definition';
 			$automation = '1' === (string) get_post_meta( $post->ID, self::META_AUTOMATION, true );
 
 			update_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . $definition['key'], WPCPM_Track_Definition::compile_fields( $definition ), false );
 
-			$rows[ (string) $definition['status'] ] = WPCPM_Track_Definition::row( $definition, $post->ID, $source, $automation );
+			$rows[ (string) $definition['status'] ] = WPCPM_Track_Definition::row( $definition, $post->ID, $automation );
 		}
 
 		$keys = array_column( $rows, 'key' );
@@ -445,13 +476,12 @@ final class WPCPM_Track_Store {
 
 		self::compile();
 
-		// Those four statuses were the program's before the Track Builder existed and are edited
-		// in Settings, so publishing a seed never puts back one a manager took out (the design's
-		// decision 13). A track of somebody's own still gets its status added, which is what
-		// makes its students sync.
-		if ( 'builtin' !== self::source( $post_id ) ) {
-			WPCPM_Settings::add_student_status( (string) $definition['status'] );
-		}
+		// Every published track's status joins "Currently mentoring", the four original tracks'
+		// included: a published track's status is what its students carry, and the students sync
+		// reads only the statuses listed there (7.2). The exception the design's decision 13 made
+		// for a seed was for a track its hand-written form still ran, and those are gone. A status
+		// already listed is left as it is.
+		WPCPM_Settings::add_student_status( (string) $definition['status'] );
 
 		self::log( $post_id, 'publish', $user_id );
 
@@ -466,6 +496,11 @@ final class WPCPM_Track_Store {
 	 * take the Student role from everybody still on the track at the next sync (7.5). Refusing
 	 * while students hold the status is the screen's, which can count them.
 	 *
+	 * **One of the four original tracks is refused, first** (the design's decision 38), whoever is
+	 * on it and whether or not it is published: the 150-hour track's form is the one every student
+	 * on no track reads (decision 34), and the other three are the program's base statuses. A change
+	 * to one of them is published instead.
+	 *
 	 * When WordPress refuses the status change, its error comes back and nothing is compiled or
 	 * logged.
 	 *
@@ -474,6 +509,10 @@ final class WPCPM_Track_Store {
 	 * @return int|WP_Error The post ID, or why nothing was done.
 	 */
 	public static function unpublish( $post_id, $user_id = 0 ) {
+		if ( self::is_original( $post_id ) ) {
+			return new WP_Error( 'wpcpm_track_reserved', __( 'The program\'s original tracks always run: edit the track and publish the change instead.', 'wpcredits-program-manager' ) );
+		}
+
 		$post = self::track_post( $post_id );
 
 		if ( null === $post || 'publish' !== $post->post_status ) {
@@ -594,20 +633,8 @@ final class WPCPM_Track_Store {
 	}
 
 	/**
-	 * Which side of the switch a track is on: `builtin` while its PHP runs it, `definition` after.
-	 *
-	 * @param int $post_id The track.
-	 * @return string
-	 */
-	public static function source( $post_id ) {
-		return 'builtin' === get_post_meta( (int) $post_id, self::META_SOURCE, true ) ? 'builtin' : 'definition';
-	}
-
-	/**
-	 * Whether a track runs from its definition because somebody flipped it.
-	 *
-	 * The fingerprint is written at the flip and removed when it goes back, so it is also what
-	 * says the way back is on offer at all (the design's decision 3.5).
+	 * Whether a track was switched from its hand-written form to its definition, before the forms
+	 * were removed: the migration's record (`META_SWITCHED`).
 	 *
 	 * @param int $post_id The track.
 	 * @return bool
@@ -619,16 +646,40 @@ final class WPCPM_Track_Store {
 	/**
 	 * Add a line to a track's log.
 	 *
+	 * The codes written now are `publish`, `unpublish`, `columns` (with the columns a publish made)
+	 * and `tick-<item>` and `untick-<item>` (the checklist). A `publish` the plugin made itself, at
+	 * seeding or at the upgrade, and the `tick-<item>` lines after it name nobody and carry the
+	 * detail `plugin`, `seed` or `upgrade` (`publish_seed()`). A site's logs also hold
+	 * `switch_definition` and `switch_builtin`, written by the switch between a track's hand-written
+	 * form and its definition before the forms were removed; History still names both.
+	 *
 	 * @param int    $post_id The track.
 	 * @param string $did     What happened, as a code: `publish`, `unpublish` and the like.
 	 * @param int    $user_id Who did it; 0 for the current user.
 	 * @param array  $detail  Optional detail stored only when not empty.
 	 */
 	public static function log( $post_id, $did, $user_id = 0, array $detail = array() ) {
+		self::write_log( $post_id, $did, $user_id ? (int) $user_id : get_current_user_id(), $detail );
+	}
+
+	/**
+	 * Add a line to a track's log in the name of exactly the user given, 0 being nobody.
+	 *
+	 * `log()` reads 0 as whoever is signed in, who pressed what is being logged. The plugin's own
+	 * publishing is pressed by nobody: it runs on whichever request reaches it first, or from the
+	 * command line, so its line names nobody, and the screens call that the site itself
+	 * (`WPCPM_Track_Builder_Screen::when_and_who()`).
+	 *
+	 * @param int    $post_id The track.
+	 * @param string $did     What happened, as a code.
+	 * @param int    $by      Who did it; 0 for nobody.
+	 * @param array  $detail  Optional detail stored only when not empty.
+	 */
+	private static function write_log( $post_id, $did, $by, array $detail ) {
 		$entries = self::log_entries( $post_id );
 		$entry   = array(
 			'at'  => time(),
-			'by'  => $user_id ? (int) $user_id : get_current_user_id(),
+			'by'  => (int) $by,
 			'did' => sanitize_key( $did ),
 		);
 
@@ -673,12 +724,14 @@ final class WPCPM_Track_Store {
 	/**
 	 * What the rules are told when a track is published or compiled.
 	 *
-	 * The site as its PHP describes it, from `WPCPM_Tracks::validation_context()` with the
-	 * compiled tracks left out, and then the tracks this one is checked against: every other one,
-	 * drafts included, when it is published (`check()`, since TRACKS-1), the ones already compiled
-	 * when it is compiled. Its own status comes off the list only when it is locked to it, so a new
-	 * track can never take a status that already names a track, one of the four built-in ones
-	 * included.
+	 * The four original tracks as `WPCPM_Tracks::RESERVED_PAIRS` holds them, from
+	 * `WPCPM_Tracks::validation_context()` with the compiled tracks left out, and then the tracks
+	 * this one is checked against: every other one, drafts included, when it is published
+	 * (`check()`, since TRACKS-1), the ones already compiled when it is compiled. Its own status
+	 * comes off the list only when it is locked to it, so a new track can never take a status that
+	 * already names another track. A definition holding one of the four original statuses is always
+	 * locked to it, so what keeps a new track off one of those is `status_reserved` under another
+	 * key, and the original track's own post, among the others, under the same key.
 	 *
 	 * @param int   $post_id    The track.
 	 * @param array $definition Its definition.
@@ -709,10 +762,14 @@ final class WPCPM_Track_Store {
 	/**
 	 * The status and key a track may not change, and which therefore pass as its own.
 	 *
-	 * A track published before keeps what it was published with (the design's 4.1). A built-in
-	 * track keeps its PHP's: the seeded definition when it is published, and at every compile the
-	 * copy of any track holding one of the four built-in statuses, which must then hold that
-	 * track's key as well. Every other track has nothing locked, so the four statuses and the
+	 * A track published before keeps what it was published with (the design's 4.1). A definition
+	 * holding one of the four original tracks' statuses keeps that track's pair from
+	 * `WPCPM_Tracks::RESERVED_PAIRS` (the design's decision 36), whatever the post carries: when it
+	 * is published and never was, as a fresh site's seeded track is, and at every compile. The pairs
+	 * rather than the program map, which a compile fills: a lock read from the map would leave all
+	 * four out of every compile the moment they were not in it. So each of the four compiles on its
+	 * own key, and a definition holding one of their statuses under another key is refused by name
+	 * (`status_reserved`). Every other track has nothing locked, so the four statuses and the
 	 * reserved keys are refused to it.
 	 *
 	 * @param int    $post_id    The track.
@@ -721,8 +778,6 @@ final class WPCPM_Track_Store {
 	 * @return array|null `status` and `key`, or null.
 	 */
 	private static function locked( $post_id, $status, $publishing ) {
-		$builtin = WPCPM_Tracks::builtin_key( $status );
-
 		if ( $publishing ) {
 			$published = self::published( $post_id );
 
@@ -732,40 +787,50 @@ final class WPCPM_Track_Store {
 					'key'    => (string) $published['key'],
 				);
 			}
+		}
 
-			if ( '' === $builtin || 'builtin' !== get_post_meta( (int) $post_id, self::META_SOURCE, true ) ) {
-				return null;
-			}
-		} elseif ( '' === $builtin ) {
+		$key = WPCPM_Tracks::reserved_key( $status );
+
+		if ( '' === $key ) {
 			return null;
 		}
 
 		return array(
 			'status' => (string) $status,
-			'key'    => $builtin,
+			'key'    => $key,
 		);
 	}
 
 	/**
-	 * Seed the four built-in tracks once, the first time a site runs this version.
+	 * Seed the four original tracks once, the first time a site runs the Track Builder, and bring a
+	 * site seeded by an older version up to this one, once.
 	 *
 	 * The flag is claimed with `add_option()`, which only one request can win, so two requests
 	 * arriving together cannot seed twice. The claim holds because the claimed value and its
 	 * autoload are constant: core's `add_option()` upserts, and returns false when no row changed,
-	 * so the request that arrives second loses. The compile that follows writes the index even when
-	 * nothing is published, so every later request finds `wpcpm_tracks` among the autoloaded
-	 * options rather than asking the database for an option that does not exist yet.
+	 * so the request that arrives second loses. `seed()` ends with a compile, which writes the index
+	 * even when nothing was published, so every later request finds `wpcpm_tracks` among the
+	 * autoloaded options rather than asking the database for an option that does not exist yet.
+	 *
+	 * A site stamped with an older version upgrades under a claim of its own (`claim_upgrade()`),
+	 * which only such a site asks for, so a site on this version never reads it. A request that
+	 * finds the claim held returns having done nothing, and the site runs on the rows it holds
+	 * meanwhile; the one that holds it runs `upgrade_seeding()`, writes the stamp, then lets the
+	 * claim go. The claim holds a time rather than a constant, so a request killed inside the
+	 * upgrade costs one request every `UPGRADE_LOCK_TIMEOUT` seconds, not every request: its claim is
+	 * taken over once it is that old. The seeding keeps its constant: a claim holding a time would
+	 * let two requests a second apart both seed. A request that read the old stamp before another
+	 * finished runs the upgrade again once the claim is let go, and publishes nothing: the marks are
+	 * the upgrade's list of what to publish, and they are cleared before the claim goes.
 	 */
 	public static function maybe_seed() {
 		$seeded = get_option( self::OPT_SEEDED, null );
 
 		if ( null !== $seeded ) {
-			// A release that edits a hand-written form ships new seeds with a new version, and the
-			// drafts this site made from the old ones are behind it. Nobody can bring them back by
-			// hand, because the store refuses to save a built-in track (the design's decision 12).
-			if ( (int) $seeded < self::SEED_VERSION ) {
-				self::refresh_builtins();
+			if ( (int) $seeded < self::SEED_VERSION && self::claim_upgrade() ) {
+				self::upgrade_seeding();
 				update_option( self::OPT_SEEDED, self::SEED_VERSION, true );
+				delete_option( self::OPT_UPGRADE_LOCK );
 			}
 
 			return;
@@ -776,141 +841,238 @@ final class WPCPM_Track_Store {
 		}
 
 		self::seed();
-		self::compile();
 	}
 
 	/**
-	 * Put every built-in draft back to the seed the plugin ships now.
+	 * Claim the upgrade: `add_option()`'s test-and-set, with a stale takeover.
 	 *
-	 * Only a draft with no published copy: a track students may have been reading keeps what it
-	 * was published with, and its own refresh is a republish, which is the screen's business.
+	 * The house pattern (`WPCPM_Track_Publish::acquire_lock()`): a fresh claim wins outright, a held
+	 * claim younger than `UPGRADE_LOCK_TIMEOUT` refuses, and an older one is taken over rather than
+	 * left to stop the upgrade for good. Two requests taking over one dead claim together can both
+	 * win, and the upgrade then runs twice, which costs at most a seed's lines logged twice.
 	 *
-	 * @return array Track key => the post ID refreshed, or the WP_Error that stopped it.
+	 * @return bool Whether this request now holds the claim.
 	 */
-	public static function refresh_builtins() {
-		$done = array();
+	private static function claim_upgrade() {
+		if ( add_option( self::OPT_UPGRADE_LOCK, time(), '', false ) ) {
+			return true;
+		}
 
+		$held = (int) get_option( self::OPT_UPGRADE_LOCK );
+
+		if ( $held && ( time() - $held ) < self::UPGRADE_LOCK_TIMEOUT ) {
+			return false;
+		}
+
+		update_option( self::OPT_UPGRADE_LOCK, time(), false );
+
+		return true;
+	}
+
+	/**
+	 * What a site seeded by version 1 runs once: each seed it holds as a draft published, the mark
+	 * cleared from every track post, and `seed()` run.
+	 *
+	 * Version 1 made each seed a draft marked `builtin`, which its hand-written form ran until
+	 * somebody published it and switched it to its definition, as the live site's four were on 22
+	 * September 2026. The forms are gone, so a track still marked and still a draft is published as
+	 * `seed()` publishes a seed, from the definition it holds: that is the seed it was made from,
+	 * since the store refused to save a marked track. It is asked by its state, not by its copy, so
+	 * a request that died after writing a seed's copy and before publishing its post is finished by
+	 * the next one; a request that died after publishing it leaves the track live without its flag,
+	 * its ticks and its lines, which the next passes over as published. No rule is asked here, as
+	 * `seed()` asks none: `compile()` leaves out whatever copy the rules refuse, and records why, for
+	 * the track list to show.
+	 *
+	 * A seed somebody put in the trash stays there, its mark cleared: nothing in the plugin trashes
+	 * a track, and `publish()` refuses to publish one out of the trash. The track then leaves the
+	 * site's program map at the upgrade, and for the 150-hour track that is also the form every
+	 * student on no track reads (decision 34). The Track Builder has no Restore, so the way back is
+	 * `wp post update <ID> --post_status=draft`, then Publish, which asks the preflight. A draft
+	 * whose definition cannot be read has nothing to publish, and one WordPress refuses to publish is
+	 * left as it was, holding the copy it held, as `publish()` leaves one. A track marked and
+	 * published keeps the copy it was published with, which its hand-written form matched when it
+	 * went live.
+	 *
+	 * `seed()` then creates and publishes any of the four no track holds the status or key of, which
+	 * the hand-written forms ran until now, and compiles once: on a site whose four were published
+	 * and switched, into the rows it already holds, now without the `source` 1.110.4 wrote into each.
+	 */
+	private static function upgrade_seeding() {
 		foreach ( self::all_ids() as $post_id ) {
-			if ( 'builtin' !== get_post_meta( $post_id, self::META_SOURCE, true ) || '' !== (string) get_post_meta( $post_id, self::META_PUBLISHED, true ) ) {
+			$post_id = (int) $post_id;
+
+			if ( 'builtin' !== (string) get_post_meta( $post_id, self::META_SOURCE, true ) || 'draft' !== self::state( $post_id ) ) {
 				continue;
 			}
 
-			$held = self::get( $post_id );
-			$key  = is_array( $held ) && isset( $held['key'] ) ? (string) $held['key'] : '';
+			$definition = self::get( $post_id );
 
-			$done[ $key ] = self::refresh_builtin( $post_id );
+			if ( is_array( $definition ) ) {
+				self::publish_seed( $post_id, $definition, 'upgrade' );
+			}
 		}
 
-		return $done;
+		foreach ( self::all_ids() as $post_id ) {
+			delete_post_meta( (int) $post_id, self::META_SOURCE );
+		}
+
+		self::seed();
 	}
 
 	/**
-	 * Put one built-in draft back to the seed the plugin ships now.
+	 * Create the four original tracks from the seeds the plugin ships, publish them, and compile.
 	 *
-	 * The one write that may touch a built-in track's definition: `save()` refuses them, so that a
-	 * seed cannot be pointed at another track (T2a's final review, its I2), and this writes the
-	 * shipped seed and nothing a person typed.
+	 * A fresh site runs its four tracks at once, as it ran their hand-written forms before those were
+	 * removed (the design's decision 39): each seed becomes a track whose definition and published
+	 * copy are both the seed, published by nobody with its checklist ticked (`publish_seed()`), and
+	 * one compile puts the four live, the lock keeping each on its status and key (`locked()`).
+	 * Neither the preflight nor Airtable is asked: the seeds are the record of the forms the
+	 * program's base already holds the columns for. No status joins "Currently mentoring", as it
+	 * does when `publish()` publishes a track: the four are in its default list, and a site that took
+	 * one out did so on purpose.
 	 *
-	 * @param int $post_id The track.
-	 * @return int|WP_Error The post ID, or why it was not refreshed.
-	 */
-	public static function refresh_builtin( $post_id ) {
-		$post_id = (int) $post_id;
-
-		if ( null === self::track_post( $post_id ) ) {
-			return new WP_Error( 'wpcpm_track_missing', __( 'That track does not exist.', 'wpcredits-program-manager' ) );
-		}
-
-		if ( 'builtin' !== get_post_meta( $post_id, self::META_SOURCE, true ) ) {
-			return new WP_Error( 'wpcpm_track_not_builtin', __( 'Only a built-in track its PHP still runs is refreshed from the seed.', 'wpcredits-program-manager' ) );
-		}
-
-		if ( '' !== (string) get_post_meta( $post_id, self::META_PUBLISHED, true ) ) {
-			return new WP_Error( 'wpcpm_track_published', __( 'That track has been published, so its definition stays as it is: students may be reading it.', 'wpcredits-program-manager' ) );
-		}
-
-		$held  = self::get( $post_id );
-		$key   = is_array( $held ) && isset( $held['key'] ) ? (string) $held['key'] : '';
-		$seeds = self::seeds();
-
-		if ( ! isset( $seeds[ $key ] ) ) {
-			return new WP_Error( 'wpcpm_track_no_seed', __( 'The plugin ships no seed for that track, so there is nothing to refresh it from.', 'wpcredits-program-manager' ) );
-		}
-
-		$json = WPCPM_Track_Definition::encode( $seeds[ $key ] );
-
-		if ( '' === $json ) {
-			return self::unencodable();
-		}
-
-		update_post_meta( $post_id, self::META_DEFINITION, wp_slash( $json ) );
-
-		$updated = wp_update_post(
-			wp_slash(
-				array(
-					'ID'         => $post_id,
-					'post_title' => isset( $seeds[ $key ]['label'] ) ? (string) $seeds[ $key ]['label'] : '',
-				)
-			),
-			true
-		);
-
-		return is_wp_error( $updated ) ? $updated : $post_id;
-	}
-
-	/**
-	 * Create the four built-in tracks' definitions from the seeds the plugin ships.
+	 * A seed whose status or key a track already holds is passed over, so seeding twice creates
+	 * nothing the second time; published beside that track, one of the two would be left out of the
+	 * compile. A seed WordPress refuses to publish is deleted again, since the next run would pass
+	 * over a draft holding its status (the design's decision 33), and one whose creation it cuts
+	 * short leaves no post (`create()`). The compile runs whatever was created, so the index is
+	 * written even when nothing is published.
 	 *
-	 * Each is a draft, marked built-in, so its PHP keeps running it until a Program Administrator
-	 * publishes it and switches it (the design's decision 3.5). A seed whose status a track already
-	 * holds is passed over, so seeding twice creates nothing the second time.
-	 *
-	 * @return array Track key => the new post's ID, 0 when a track already holds its status, or a
-	 *               WP_Error when WordPress refused to create it.
+	 * @return array Track key => the new post's ID, 0 when a track already holds its status or key,
+	 *               or a WP_Error when WordPress refused to create or publish it.
 	 */
 	public static function seed() {
-		$held = array();
+		$statuses = array();
+		$keys     = array();
 
 		foreach ( self::all_ids() as $post_id ) {
 			$definition = self::get( $post_id );
 
 			if ( is_array( $definition ) && isset( $definition['status'] ) ) {
-				$held[] = (string) $definition['status'];
+				$statuses[] = (string) $definition['status'];
+			}
+
+			if ( is_array( $definition ) && isset( $definition['key'] ) ) {
+				$keys[] = (string) $definition['key'];
 			}
 		}
 
 		$created = array();
 
 		foreach ( self::seeds() as $key => $definition ) {
-			if ( in_array( (string) $definition['status'], $held, true ) ) {
+			if ( in_array( (string) $definition['status'], $statuses, true ) || in_array( (string) $definition['key'], $keys, true ) ) {
 				$created[ $key ] = 0;
 				continue;
 			}
 
 			$post_id = self::create( $definition );
 
+			// Normalized, as `save()` stored it, so the copy is the saved definition to the byte.
 			if ( ! is_wp_error( $post_id ) ) {
-				update_post_meta( $post_id, self::META_SOURCE, 'builtin' );
+				$published = self::publish_seed( $post_id, WPCPM_Track_Definition::normalize( $definition ), 'seed' );
+
+				if ( is_wp_error( $published ) ) {
+					wp_delete_post( $post_id, true );
+					$post_id = $published;
+				}
 			}
 
 			$created[ $key ] = $post_id;
 		}
 
+		self::compile();
+
 		return $created;
+	}
+
+	/**
+	 * Publish one of the four original tracks in nobody's name, from the definition it holds.
+	 *
+	 * What `seed()` does with each seed it creates, and the upgrade with each seed version 1 left a
+	 * draft. The definition becomes the published copy and the post is published, as `publish()`
+	 * does; when WordPress refuses the status change, the copy the post held before, or none, is put
+	 * back, and nothing else is written.
+	 *
+	 * Then the track is left as the live site's four are: the three items of the publish checklist
+	 * ticked, the reports automation's flag with them, since the automation's condition names the
+	 * four statuses already (`WPCPM_Institutions::AUTOMATION_STATUSES`), and the log reading
+	 * `publish`, then a `tick-<item>` line for each item ticked here. The ticks and the lines name
+	 * nobody, and each line carries what published the track as its detail. They are written here
+	 * rather than through `WPCPM_Track_Publish::tick()`, which names whoever is signed in and
+	 * compiles on every tick of the automation item. An item somebody ticked already keeps its tick,
+	 * who made it and when. Nothing is compiled here: the caller compiles once for all four, and
+	 * `compile()` checks every copy it reads.
+	 *
+	 * @param int    $post_id    The track.
+	 * @param array  $definition Its definition, the seed it was made from.
+	 * @param string $step       What published it, for the log: `seed` or `upgrade`.
+	 * @return int|WP_Error The post ID, or WordPress's refusal.
+	 */
+	private static function publish_seed( $post_id, array $definition, $step ) {
+		$previous = (string) get_post_meta( $post_id, self::META_PUBLISHED, true );
+
+		update_post_meta( $post_id, self::META_PUBLISHED, wp_slash( WPCPM_Track_Definition::encode( $definition ) ) );
+
+		$updated = wp_update_post(
+			array(
+				'ID'          => $post_id,
+				'post_status' => 'publish',
+			),
+			true
+		);
+
+		if ( is_wp_error( $updated ) ) {
+			if ( '' === $previous ) {
+				delete_post_meta( $post_id, self::META_PUBLISHED );
+			} else {
+				update_post_meta( $post_id, self::META_PUBLISHED, wp_slash( $previous ) );
+			}
+
+			return $updated;
+		}
+
+		$ticks  = get_post_meta( $post_id, WPCPM_Track_Publish::META_CHECKLIST, true );
+		$ticks  = is_array( $ticks ) ? $ticks : array();
+		$ticked = array();
+
+		foreach ( WPCPM_Track_Publish::CHECKLIST as $item ) {
+			if ( ! isset( $ticks[ $item ] ) ) {
+				$ticks[ $item ] = array(
+					'by' => 0,
+					'at' => time(),
+				);
+				$ticked[]       = $item;
+			}
+		}
+
+		if ( array() !== $ticked ) {
+			update_post_meta( $post_id, WPCPM_Track_Publish::META_CHECKLIST, $ticks );
+		}
+
+		update_post_meta( $post_id, self::META_AUTOMATION, '1' );
+		self::write_log( $post_id, 'publish', 0, array( 'plugin' => $step ) );
+
+		foreach ( $ticked as $item ) {
+			self::write_log( $post_id, 'tick-' . $item, 0, array( 'plugin' => $step ) );
+		}
+
+		return $post_id;
 	}
 
 	/**
 	 * The seed definitions the plugin ships, by track key.
 	 *
-	 * Written by bin/build-seeds.php from the hand-written forms, and held to them byte for byte by
-	 * bin/test-track-definitions.php.
+	 * One file for each of the four original tracks, named by its key, in the program's order
+	 * (`WPCPM_Tracks::RESERVED_PAIRS`). The files are the source of the four since the hand-written
+	 * forms they were built from were removed: bin/test-track-definitions.php pins each byte for byte.
 	 *
 	 * @return array<string, array>
 	 */
 	public static function seeds() {
 		$seeds = array();
 
-		foreach ( self::BUILTIN_KEYS as $key ) {
+		foreach ( WPCPM_Tracks::RESERVED_PAIRS as $key ) {
 			$file = __DIR__ . '/seeds/' . $key . '.json';
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- A file the plugin ships, read from its own folder.
 			$definition = is_readable( $file ) ? WPCPM_Track_Definition::decode( (string) file_get_contents( $file ) ) : null;
@@ -921,194 +1083,6 @@ final class WPCPM_Track_Store {
 		}
 
 		return $seeds;
-	}
-
-	/**
-	 * What a definition built on a track differs from in its PHP, if it is a built-in track.
-	 *
-	 * Extracted from `equivalence()` so it can answer about a definition that is about to be
-	 * published, not one that already is. Used by both `equivalence()` (for switch operations) and
-	 * `php_differences()` (for the preflight).
-	 *
-	 * @param array $definition The definition to compare.
-	 * @param bool  $is_builtin Whether this definition is a built-in track.
-	 * @return string[] Empty when they match, or any of `form`, `label`, `course`, `course_id` and
-	 *                  `hours`.
-	 */
-	private static function definition_differences( array $definition, $is_builtin ) {
-		if ( ! $is_builtin ) {
-			return array();
-		}
-
-		$status = isset( $definition['status'] ) ? (string) $definition['status'] : '';
-		$key    = WPCPM_Tracks::builtin_key( $status );
-
-		if ( '' === $key || ! isset( $definition['key'] ) || $key !== $definition['key'] ) {
-			return array();
-		}
-
-		$php       = WPCPM_Tracks::builtin_row( $status );
-		$mine      = array(
-			'label'     => isset( $definition['label'] ) ? (string) $definition['label'] : '',
-			'course'    => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
-			'course_id' => isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0,
-			'hours'     => isset( $definition['hours_target'] ) ? (int) $definition['hours_target'] : null,
-		);
-		$php_field = array(
-			'label'     => 'label',
-			'course'    => 'course_url',
-			'course_id' => 'course_id',
-			'hours'     => 'hours',
-		);
-
-		$differences = WPCPM_Track_Definition::compile_fields( $definition ) === WPCPM_Student_Report_Form::builtin_fields( $key ) ? array() : array( 'form' );
-
-		foreach ( $php_field as $what => $field ) {
-			if ( $mine[ $what ] !== $php[ $field ] ) {
-				$differences[] = $what;
-			}
-		}
-
-		return $differences;
-	}
-
-	/**
-	 * How a built-in track's published definition differs from its PHP: empty when it does not.
-	 *
-	 * The switch waits on this (the design's decision 3.5). The form must be `builtin_fields()`
-	 * byte for byte, and the name, course and hours the program map's, read with no compiled track
-	 * in it, so the switch changes nothing a student sees.
-	 *
-	 * @param int $post_id The track.
-	 * @return string[] `not_published` or `not_builtin` alone, or any of `form`, `label`, `course`,
-	 *                  `course_id` and `hours`.
-	 */
-	public static function equivalence( $post_id ) {
-		$post = self::track_post( $post_id );
-		$copy = self::published( $post_id );
-
-		if ( null === $post || 'publish' !== $post->post_status || ! is_array( $copy ) ) {
-			return array( 'not_published' );
-		}
-
-		$status = isset( $copy['status'] ) ? (string) $copy['status'] : '';
-		$key    = WPCPM_Tracks::builtin_key( $status );
-
-		if ( '' === $key || ! isset( $copy['key'] ) || $key !== $copy['key'] ) {
-			return array( 'not_builtin' );
-		}
-
-		return self::definition_differences( $copy, true );
-	}
-
-	/**
-	 * How a definition about to be published differs from its PHP if its track is built-in.
-	 *
-	 * Used by the preflight (T2c) to check a definition before publishing. Unlike `equivalence()`,
-	 * this does not require the track to be published: it checks the definition being handed to it.
-	 * A definition of a non-built-in track always matches (its PHP is unchanged), and the preflight
-	 * holds no further rule besides this.
-	 *
-	 * @param int   $post_id    The track.
-	 * @param array $definition The definition about to be published.
-	 * @return string[] Empty when they match (or the track is not built-in), or any of `form`,
-	 *                  `label`, `course`, `course_id` and `hours`.
-	 */
-	public static function php_differences( $post_id, array $definition ) {
-		$is_builtin = 'builtin' === (string) get_post_meta( (int) $post_id, self::META_SOURCE, true );
-
-		return self::definition_differences( $definition, $is_builtin );
-	}
-
-	/**
-	 * Run a built-in track from its definition instead of its PHP (the design's decision 3.5).
-	 *
-	 * Only while the two are identical, which is what makes the switch invisible to students; the
-	 * definition's fingerprint is kept, so the way back stays open until the definition is edited,
-	 * and, while the track is published, only as long as its published copy is still the PHP's.
-	 *
-	 * @param int $post_id The track.
-	 * @param int $user_id Who switched it, for the log; 0 for the current user.
-	 * @return int|WP_Error The post ID, or why it was not switched.
-	 */
-	public static function switch_to_definition( $post_id, $user_id = 0 ) {
-		$post_id = (int) $post_id;
-
-		if ( 'builtin' !== get_post_meta( $post_id, self::META_SOURCE, true ) ) {
-			return new WP_Error( 'wpcpm_track_not_builtin', __( 'Only a built-in track its PHP still runs can switch to its definition.', 'wpcredits-program-manager' ) );
-		}
-
-		$differences = self::equivalence( $post_id );
-
-		if ( array() !== $differences ) {
-			return self::not_equivalent( $differences );
-		}
-
-		update_post_meta( $post_id, self::META_SWITCHED, md5( (string) get_post_meta( $post_id, self::META_DEFINITION, true ) ) );
-		delete_post_meta( $post_id, self::META_SOURCE );
-		self::compile();
-		self::log( $post_id, 'switch_definition', $user_id );
-
-		return $post_id;
-	}
-
-	/**
-	 * Run a switched track from its PHP again (the design's decision 3.5).
-	 *
-	 * Only while the PHP exists, the definition is as it was when the track switched, and a
-	 * published track's copy is still the PHP's (`equivalence()` holds nothing but
-	 * `not_published`): after an edit, going back would put the PHP in front of students and
-	 * quietly drop what was published. The fingerprint alone cannot see an edit that was
-	 * published and then saved back to its old text without being published (the final review of
-	 * T2a). An unpublished track may go back, the fingerprint permitting: its PHP already runs it,
-	 * so going back changes nothing a student sees.
-	 *
-	 * @param int $post_id The track.
-	 * @param int $user_id Who switched it back, for the log; 0 for the current user.
-	 * @return int|WP_Error The post ID, or why it was not switched back.
-	 */
-	public static function switch_to_builtin( $post_id, $user_id = 0 ) {
-		$post_id     = (int) $post_id;
-		$fingerprint = (string) get_post_meta( $post_id, self::META_SWITCHED, true );
-		$copy        = self::published( $post_id );
-
-		if ( '' === $fingerprint || ! is_array( $copy ) ) {
-			return new WP_Error( 'wpcpm_track_not_switched', __( 'That track does not run from its definition.', 'wpcredits-program-manager' ) );
-		}
-
-		if ( ! isset( $copy['status'], $copy['key'] ) || WPCPM_Tracks::builtin_key( (string) $copy['status'] ) !== $copy['key'] ) {
-			return new WP_Error( 'wpcpm_track_no_php', __( 'The hand-written track this one came from has been removed, so there is nothing to go back to.', 'wpcredits-program-manager' ) );
-		}
-
-		if ( md5( (string) get_post_meta( $post_id, self::META_DEFINITION, true ) ) !== $fingerprint ) {
-			return new WP_Error( 'wpcpm_track_edited', __( 'The definition has been edited since the switch, so going back would drop the edit.', 'wpcredits-program-manager' ) );
-		}
-
-		$differences = self::equivalence( $post_id );
-
-		if ( array() !== $differences && array( 'not_published' ) !== $differences ) {
-			return self::not_equivalent( $differences );
-		}
-
-		update_post_meta( $post_id, self::META_SOURCE, 'builtin' );
-		delete_post_meta( $post_id, self::META_SWITCHED );
-		self::compile();
-		self::log( $post_id, 'switch_builtin', $user_id );
-
-		return $post_id;
-	}
-
-	/**
-	 * Why a built-in track did not switch, either way: its published copy is not its PHP.
-	 *
-	 * One error for both directions, so the screen gives one message beside the switch, with the
-	 * differences `equivalence()` found.
-	 *
-	 * @param string[] $differences What `equivalence()` answered.
-	 * @return WP_Error
-	 */
-	private static function not_equivalent( array $differences ) {
-		return new WP_Error( 'wpcpm_track_not_equivalent', __( 'The definition is not identical to the track as its PHP runs it, so switching would change what students see.', 'wpcredits-program-manager' ), array( 'differences' => $differences ) );
 	}
 
 	/**
@@ -1169,10 +1143,9 @@ final class WPCPM_Track_Store {
 	/**
 	 * Every other track, as the question editor's sharing index takes them.
 	 *
-	 * A column is shared when another track holds the same name, verbatim, whatever side of the
-	 * switch that track is on: a built-in track's definition is its PHP's output, so its columns
-	 * are the ones its form writes (the design's 5). A draft that was never published is named
-	 * too, marked as one, because it does not write the column yet but will.
+	 * A column is shared when another track holds the same name, verbatim (the design's 5). A
+	 * published track writes its columns; a draft is named too, marked as one, because it does not
+	 * write the column yet but will.
 	 *
 	 * @param int $post_id The track whose editor is asking, left out of the answer.
 	 * @return array[] Each `label`, `published` and `columns`, oldest track first.
@@ -1198,7 +1171,7 @@ final class WPCPM_Track_Store {
 
 			$others[] = array(
 				'label'     => isset( $definition['label'] ) ? (string) $definition['label'] : '',
-				'published' => 'published' === $state || 'changed' === $state || 'builtin' === self::source( $id ),
+				'published' => 'published' === $state || 'changed' === $state,
 				'columns'   => isset( $definition['questions'] ) && is_array( $definition['questions'] ) ? array_map( 'strval', array_keys( $definition['questions'] ) ) : array(),
 			);
 		}
@@ -1242,6 +1215,14 @@ final class WPCPM_Track_Store {
 	 * leaves it live all the same, and deleting it would leave its row and its form in the index
 	 * until the next compile.
 	 *
+	 * **One of the four original tracks, published or once published, is refused with a sentence
+	 * of its own** (the design's decision 38), in place of decision 25's, which offers an unpublish
+	 * these tracks do not have. A draft holding one of their statuses that was never published is
+	 * deleted like any draft, one still carrying the old mark included: it created no column and
+	 * holds no student. Beside a published original such a draft is a stray, which would hold up
+	 * that track's Save and Publish, since a draft holds its status, key and name (TRACKS-1), and
+	 * the track list offers Delete on it, as on every track never published.
+	 *
 	 * @param int $post_id The track.
 	 * @return int|WP_Error The post ID, or why it was refused.
 	 */
@@ -1253,11 +1234,13 @@ final class WPCPM_Track_Store {
 			return new WP_Error( 'wpcpm_track_missing', __( 'That track does not exist.', 'wpcredits-program-manager' ) );
 		}
 
-		if ( 'builtin' === self::source( $post_id ) ) {
-			return new WP_Error( 'wpcpm_track_builtin', __( 'A built-in track cannot be deleted: it is the record of a form the program runs.', 'wpcredits-program-manager' ) );
+		$published = 'publish' === $post->post_status || self::ever_published( $post_id );
+
+		if ( $published && self::is_original( $post_id ) ) {
+			return new WP_Error( 'wpcpm_track_reserved', __( 'The program\'s original tracks are kept: this one is the record of a form the program runs.', 'wpcredits-program-manager' ) );
 		}
 
-		if ( 'publish' === $post->post_status || self::ever_published( $post_id ) ) {
+		if ( $published ) {
 			return new WP_Error( 'wpcpm_track_was_published', __( 'This track has been published, so it is kept as the record of what was created in Airtable. It can be unpublished, not deleted.', 'wpcredits-program-manager' ) );
 		}
 
@@ -1266,6 +1249,22 @@ final class WPCPM_Track_Store {
 		}
 
 		return $post_id;
+	}
+
+	/**
+	 * Whether a track holds the status of one of the four original tracks.
+	 *
+	 * Those in `WPCPM_Tracks::RESERVED_PAIRS`, read from its saved definition: the status the track
+	 * list shows, the only one a seed never published holds, and the one a published track keeps,
+	 * since every Save and Publish refuses a published track another status (`status_locked`).
+	 *
+	 * @param int $post_id The track.
+	 * @return bool
+	 */
+	private static function is_original( $post_id ) {
+		$definition = self::get( $post_id );
+
+		return is_array( $definition ) && isset( $definition['status'] ) && WPCPM_Tracks::is_reserved( (string) $definition['status'] );
 	}
 
 	/**
@@ -1287,7 +1286,9 @@ final class WPCPM_Track_Store {
 	}
 
 	/**
-	 * Delete every track, its revisions and the options compiled from it. Called on uninstall.
+	 * Delete every track, its revisions and the options compiled from it, with the seeding's stamp
+	 * and the claim on its upgrade, which a request killed inside the upgrade leaves behind. Called
+	 * on uninstall.
 	 *
 	 * Every status, trash included, which `any` would leave behind. A form option is deleted for
 	 * the key of every track post as well as for every key the index names, so a form written by
@@ -1313,6 +1314,7 @@ final class WPCPM_Track_Store {
 		delete_option( WPCPM_Tracks::OPT_TRACKS );
 		delete_option( self::OPT_SKIPPED );
 		delete_option( self::OPT_SEEDED );
+		delete_option( self::OPT_UPGRADE_LOCK );
 		WPCPM_Tracks::flush();
 	}
 }

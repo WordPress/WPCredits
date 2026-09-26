@@ -17,9 +17,9 @@
  *
  * The seed pass reads the why notes of the four track definitions under includes/tracks/seeds/,
  * which ship in the zip and which the Track Builder shows a program manager as a question's
- * Developer note. bin/build-seeds.php writes them there from bin/seed-definitions.php, so they
- * are text of ours in committed data, and nothing read them (the deep check of 1.109.1,
- * TESTS-DOCS-7). The notes alone: the rest of a seed is the base's column names and choices.
+ * Developer note. The notes are text of ours in committed data, bin/seed-definitions.php holds
+ * what each says, and nothing read their spelling (the deep check of 1.109.1, TESTS-DOCS-7). The
+ * notes alone: the rest of a seed is the base's column names and choices.
  *
  * The last pass reads bin/, which never ships in the zip but IS published on the public GitHub
  * mirror. Not the whole of it: the suites quote the outside world's own spellings, an RFC 5545

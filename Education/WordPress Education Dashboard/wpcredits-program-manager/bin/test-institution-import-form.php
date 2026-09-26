@@ -91,7 +91,6 @@ function wp_next_scheduled( $hook, $args = array() ) { return isset( $GLOBALS['c
 function wp_schedule_single_event( $when, $hook, $args = array() ) { $GLOBALS['cron'][ $hook . ':' . json_encode( $args ) ] = (int) $when; return true; }
 function wp_date( $f ) { return gmdate( $f ); }
 function add_action() {}
-function apply_filters( $t, $v ) { return $v; }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
 function wp_hash( $v ) { return md5( (string) $v ); }
 $GLOBALS['transients'] = array();
@@ -104,13 +103,14 @@ function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
 function wp_parse_url( $u, $c = -1 ) { return parse_url( (string) $u ); }
 function absint( $v ) { return abs( (int) $v ); }
 function trailingslashit( $s ) { return rtrim( (string) $s, '/' ) . '/'; }
-function add_filter() {}
 function do_action() {}
 
 /** The handlers end in `exit`; here they end in an exception the runner can catch. */
 class Left extends Exception {}
 function wpcpm_test_exit() { throw new Left( $GLOBALS['redirect'] ); }
 
+// Declares add_filter() and apply_filters(), which run what is hooked: the program map is made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 
@@ -260,6 +260,10 @@ function get_user_by( $by, $v ) { return false; }
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-create.php';
 
+// The program map is the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
+
 // The handlers call `exit`. Loaded through a rewrite so the runner can catch the end instead.
 $form_source = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-import-form.php' );
 $form_source = preg_replace( '/^\s*exit;\s*$/m', "\t\twpcpm_test_exit();", $form_source );
@@ -395,6 +399,9 @@ function fresh_world() {
 	$GLOBALS['pmeta'] = array();
 	$GLOBALS['opts']  = array();
 	$GLOBALS['flash'] = array();
+
+	// The spent ceilings go; the site's four tracks stay, as they would on the site.
+	wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 }
 
 $cases = array(

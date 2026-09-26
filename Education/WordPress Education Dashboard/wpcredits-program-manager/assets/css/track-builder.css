@@ -25,14 +25,11 @@
 	box-shadow: inset 3px 0 0 #b32d2e;
 }
 
-/* Every caption on the Track Builder's screens, in one treatment: the equivalence line and the
-   read-only note under a row's headline, a checklist item's detail and tick, the counts, a
-   question's notice and lock, the schema line's age, the lessons' count and marks, and the sentence
-   when Learn could not be read. Context, not headline: core's own description treatment
-   (`p.description` in wp-admin/css/edit.css), #646970 at 13px, so no two quiet lines on one screen
-   differ in gray or size (the deep check of 1.109.1, TESTS-DOCS-14). */
-.wpcpm-tracks__equivalence,
-.wpcpm-tracks__readonly,
+/* Every caption on the Track Builder's screens, in one treatment: a checklist item's detail and
+   tick, the counts, a question's notice and lock, the schema line's age, the lessons' count and
+   marks, and the sentence when Learn could not be read. Context, not headline: core's own
+   description treatment (`p.description` in wp-admin/css/edit.css), #646970 at 13px, so no two
+   quiet lines on one screen differ in gray or size (the deep check of 1.109.1, TESTS-DOCS-14). */
 .wpcpm-tracks__detail,
 .wpcpm-tracks__ticked,
 .wpcpm-tracks__count,
@@ -133,8 +130,8 @@
 }
 
 /* A question's notice - shared with the tracks it names, forked from a column, or a column
-   publishing will create - is context under the row's words, not a warning: a caption, as the
-   track list's equivalence line is. */
+   publishing will create - is context under the row's words, not a warning: a caption, as a
+   checklist item's detail is. */
 .wpcpm-question__notice {
 	display: block;
 	margin-top: 4px;

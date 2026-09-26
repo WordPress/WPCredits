@@ -51,18 +51,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WPCPM_Student_Report_Form {
 
-	/**
-	 * The Developer Track's alumni-programme answers, which an institution's card never shows.
-	 *
-	 * Named here rather than by group, because they share the `project` group with the
-	 * student's contribution links, which the school does see.
-	 */
-	const ALUMNI_FIELDS = array(
-		'Contributing beyond WP Credits',
-		'Alumni program: personal email',
-		'Alumni program: mentoring opt-in',
-	);
-
 	const ACTION_SAVE = 'wpcpm_student_report_save';
 
 	/** Taking one screenshot back off the record. */
@@ -113,7 +101,7 @@ class WPCPM_Student_Report_Form {
 	}
 
 	/*
-	 * The two field sets
+	 * The fields
 	 * --------------------------------------------------------------------
 	 */
 
@@ -128,19 +116,19 @@ class WPCPM_Student_Report_Form {
 	 * `step` mirrors the column's own precision: the grades allow two decimals, hours and the three
 	 * course marks are whole numbers.
 	 *
-	 * The hand-written forms are `builtin_fields()`. This is what everything reads, because a track
-	 * the Track Builder runs from its definition is handed its compiled form here, by the filter.
+	 * **Every form is a track's definition, compiled.** The filter is where the forms come from: this
+	 * hands it an empty form, and `WPCPM_Tracks::filter_fields()` answers the compiled form of the live
+	 * track holding the key, or the 150-hour track's for a key no live track holds, which is what such
+	 * a key read while the hand-written 150-hour set was the fallback. While the 150-hour track is not
+	 * live, a key no live track holds reads no form.
 	 *
-	 * **A student on no track reads the 150-hour track's form, through the filter** (the product
-	 * owner, 23 September 2026; TRACKS-5). Paused, Pending graduation and the finished states have
-	 * no track, so `track()` gives them the empty string, and the filter never matched it: they read
-	 * the hand-written form even after the 150-hour track switched to its definition, and once T5
-	 * removes the hand-written forms they would read none. Asked as `150h`, they read whatever the
-	 * 150-hour track runs, its published definition once switched, edits included.
+	 * **A student on no track reads the 150-hour track's form** (the product owner, 23 September
+	 * 2026; TRACKS-5; the design's decision 34). Paused, Pending graduation and the finished states
+	 * have no track, so `track()` gives them the empty string, which is asked as `150h`: they read
+	 * whatever the 150-hour track runs, its published definition, edits included.
 	 *
 	 * @param string $track Track key from `WPCPM_Program::track()`. The empty string a student on no
-	 *                      track has is read as `150h`, the form most of them filled in; any other
-	 *                      key the sets below do not name gets the 150-hour form from them too.
+	 *                      track has is read as `150h`, the form most of them filled in.
 	 * @return array<string, array> Airtable field name => spec.
 	 */
 	public static function fields( $track ) {
@@ -149,611 +137,12 @@ class WPCPM_Student_Report_Form {
 		/**
 		 * Filter the report form's fields for one track.
 		 *
-		 * @param array  $fields Airtable field name => spec.
-		 * @param string $track  Track key: `150h`, `50h`, `dev`, `design`, or a Track Builder track's;
+		 * @param array  $fields Airtable field name => spec: empty, for the compiled tracks to fill.
+		 * @param string $track  Track key: `150h`, `50h`, `dev`, `design`, or another track's;
 		 *                       `150h` for a student on no track.
 		 */
-		return (array) apply_filters( 'wpcpm_report_form_fields', self::builtin_fields( $track ), $track );
+		return (array) apply_filters( 'wpcpm_report_form_fields', array(), $track );
 	}
-
-	/**
-	 * The four hand-written forms, as `fields()` returned them before the Track Builder existed.
-	 *
-	 * A pure move out of `fields()` (the design's section 8): the seed definitions are held to what
-	 * this returns, byte for byte, and a built-in track may switch to its definition only while the
-	 * two are identical. It goes, with the rest of the hand-written tracks, on the product owner's
-	 * word (phase T5).
-	 *
-	 * @param string $track Track key; see `fields()`.
-	 * @return array<string, array> Airtable field name => spec.
-	 */
-	public static function builtin_fields( $track ) {
-		$grade = array(
-			'type'  => 'number',
-			'step'  => '0.01',
-			'min'   => 0,
-			'max'   => 100,
-			'group' => 'onboarding',
-		);
-
-		$mark = array(
-			'type'  => 'number',
-			'step'  => '1',
-			'min'   => 0,
-			'max'   => 100,
-			'group' => 'onboarding',
-		);
-
-		$hours = array(
-			'Hours' => array(
-				'label' => __( 'Hours contributed', 'wpcredits-program-manager' ),
-				'type'  => 'number',
-				'step'  => '1',
-				'min'   => 0,
-				'max'   => 10000,
-				'group' => 'hours',
-				'help'  => __( 'The total you have logged so far.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		// The first two lessons of Onboarding. They were rows in *My profile* until 1.48.0, which
-		// meant the personal website was editable from two controls writing one Airtable column -
-		// the thing that had already been fixed for contribution teams. The form owns all three
-		// now, and the profile shows them without an editor.
-		$contact = array(
-			'WordPress Profile' => array(
-				'label' => __( 'Your WordPress.org profile', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'onboarding',
-				'row'   => 'contact',
-				'help'  => __( 'Your profile page, or just your username.', 'wpcredits-program-manager' ),
-			),
-			'Slack Name'        => array(
-				'label'     => __( 'Your Slack name', 'wpcredits-program-manager' ),
-				'type'      => 'text',
-				'maxlength' => 100,
-				'group'     => 'onboarding',
-				'row'       => 'contact',
-				'help'      => __( 'Your display name in the Making WordPress Slack.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		$common_grades = array(
-			'Open source basics and WordPress - final grade' => array(
-				'label'    => __( 'Open source basics and WordPress', 'wpcredits-program-manager' ),
-				'subgroup' => __( 'Enter your final grade, 0 to 100', 'wpcredits-program-manager' ),
-			) + $grade,
-			'How decisions are made in the WordPress project - final grade' => array( 'label' => __( 'How decisions are made in the WordPress project', 'wpcredits-program-manager' ) ) + $grade,
-		);
-
-		// Conflict resolution is asked on both courses. It lived in `$fifty_grades` alone because the
-		// 50-hour form was built first - the long course asks it too, between the voice course and
-		// the three user levels, which is the order its own form uses.
-		$conflict = array(
-			'Basic principles of conflict resolution - final grade' => array( 'label' => __( 'Basic principles of conflict resolution', 'wpcredits-program-manager' ) ) + $grade,
-		);
-
-		// The two grades the long course and the Designer Track share beyond `$common_grades`,
-		// in the order Learn lists them on both. Named once rather than written out on each
-		// track, so a relabelled course cannot end up saying two things.
-		$voice_grades = array(
-			'Community meeting etiquette - final grade'    => array( 'label' => __( 'Community meeting etiquette', 'wpcredits-program-manager' ) ) + $grade,
-			'Writing in the WordPress voice - final grade' => array( 'label' => __( 'Writing in the WordPress voice', 'wpcredits-program-manager' ) ) + $grade,
-		);
-
-		$sensei_grades = $voice_grades + $conflict + array(
-			'Beginner WordPress User - final grade'     => array(
-				'label' => __( 'Beginner WordPress User', 'wpcredits-program-manager' ),
-				// The condition on the three user-level marks, as a heading over them (`lead`):
-				// it was a `note` under the last of them until 1.94.3, where it read as an orphan.
-				'lead'  => __( 'Complete one of the following courses', 'wpcredits-program-manager' ),
-			) + $grade,
-			'Intermediate WordPress User - final grade' => array( 'label' => __( 'Intermediate WordPress User', 'wpcredits-program-manager' ) ) + $grade,
-			'Advance WordPress User - final grade'      => array( 'label' => __( 'Advanced WordPress User', 'wpcredits-program-manager' ) ) + $grade,
-		);
-
-		// Named on the form, because a mark for a course nobody had to take should not look like a
-		// missing answer. The lead-in is printed above the first field carrying it.
-		$sensei_courses = array(
-			'Beginner WordPress Developer' => array( 'lead' => __( 'Optional courses', 'wpcredits-program-manager' ) )
-				+ $mark + array( 'label' => __( 'Beginner WordPress Developer', 'wpcredits-program-manager' ) ),
-			'Intermediate Theme Developer' => array( 'label' => __( 'Intermediate Theme Developer', 'wpcredits-program-manager' ) ) + $mark,
-			'Beginner WordPress Designer'  => array( 'label' => __( 'Beginner WordPress Designer', 'wpcredits-program-manager' ) ) + $mark,
-		);
-
-		$fifty_grades = $conflict;
-
-		// Developer track only. Long text in the base, so long text here - these are lists a
-		// student writes out (modules taken, tickets commented on) rather than single values.
-		$dev_basics = array(
-			'Developer Basics: modules completed'      => array(
-				'label' => __( 'Developer Basics: modules you completed', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'onboarding',
-				'help'  => __( 'One per line.', 'wpcredits-program-manager' ),
-			),
-			// `Basics` capitalised above and lower here is how the base spells the two columns. The
-			// keys are what a write has to name, so both are copied exactly rather than tidied.
-			'Developer basics: Optional modules taken' => array(
-				'label' => __( 'Developer Basics: optional modules you took', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'onboarding',
-				'help'  => __( 'One per line. Leave empty if you took none.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		$dev_patch = array(
-			'Patch Testing: Trac ticket comments' => array(
-				// Lesson 3 of the course is "Practical: Patch Testing", and the heading is the
-				// half of that name the field's own label does not already say.
-				'subgroup' => __( 'Practical', 'wpcredits-program-manager' ),
-				'label'    => __( 'Patch testing: your Trac ticket comments', 'wpcredits-program-manager' ),
-				'type'     => 'textarea',
-				'group'    => 'project',
-				'help'     => __( 'Links to the tickets you commented on, one per line.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		$dev_project = array(
-			'Optional: Additional Contribution Project Summary' => array(
-				'label' => __( 'A second contribution project, if you had one', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-				// It is inserted into the middle of the team/project pair, so it has to belong to
-				// that pair's stacked column. A field without the row *ends* the pair, and the
-				// questions after it open a second one with an empty right half - which is what
-				// scattered the Project section when this was first added.
-				'row'   => 'project',
-				'stack' => true,
-				'help'  => __( 'Optional. Leave empty if you worked on one project.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		// In *Project*, between the first-contribution post and the halfway one, which is where the
-		// base's own dev-track view puts them. They read as end-of-programme questions and were in
-		// Wrap-up until 1.63.0 - but where a question is asked is the program's decision, not an
-		// inference from what it sounds like, and the view is where that decision is recorded.
-		//
-		// All three are kept off the institution's view by `hide_from_institution` (the Track Builder
-		// design's section 10), the flag an authored question uses, so a seed definition can hold
-		// these byte for byte. `ALUMNI_FIELDS` keeps doing the same until phase T5.
-		$dev_alumni = array(
-			'Contributing beyond WP Credits'   => array(
-				'label'                 => __( 'How you plan to keep contributing after the program', 'wpcredits-program-manager' ),
-				'type'                  => 'textarea',
-				'group'                 => 'project',
-				'hide_from_institution' => true,
-			),
-			'Alumni program: personal email'   => array(
-				'label'                 => __( 'A personal email address for the alumni program', 'wpcredits-program-manager' ),
-				'type'                  => 'email',
-				'group'                 => 'project',
-				'help'                  => __( 'Somewhere that still reaches you once your student address stops working.', 'wpcredits-program-manager' ),
-				'hide_from_institution' => true,
-			),
-			// The label says what is being agreed to. Repeating the column name here would ask for
-			// consent without stating what for.
-			'Alumni program: mentoring opt-in' => array(
-				'label'                 => __( 'Yes, I am happy to be contacted about mentoring future WordPress Credits students.', 'wpcredits-program-manager' ),
-				'type'                  => 'checkbox',
-				'group'                 => 'project',
-				'hide_from_institution' => true,
-			),
-		);
-
-		// `Contribution Project Summary` is the column's name in the base. It was
-		// `Contribution Project Description` here until 1.61.0 - a name matching no field, so the
-		// answer neither loaded nor saved. The same class of failure as the trailing space on
-		// `Company `, and the reason `bin/test-report-form.php` now checks every key against a
-		// fixture of the table's real field names.
-		$project = array(
-			'Contribution Project Summary' => array(
-				'label' => __( 'Describe your contribution project', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-			),
-			'Personal Website URL'         => array(
-				'label' => __( 'Your personal website URL', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'project',
-			),
-		);
-
-		$posts = array(
-			'Post Reflection: Building Your Personal Website' => array(
-				'label' => __( 'Link to the Post "Reflection: Building Your Personal Website"', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'posts',
-			),
-			'Post Reflection: Choosing Your Team and Project' => array(
-				'label' => __( 'Link to the Post "Reflection: Choosing Your Team and Project"', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'posts',
-			),
-			'Post Reflection: Your First Contribution' => array(
-				'label' => __( 'Link to the Post "Reflection: Your First Contribution"', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'posts',
-			),
-			'Post Reflection: Halfway Check-In'        => array(
-				'label' => __( 'Link to the Post "Reflection: Halfway Check-In"', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'posts',
-			),
-			'Closing post URL'                         => array(
-				'label' => __( 'Your closing post', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'posts',
-			),
-		);
-
-		$participation = array(
-			'Slack/GitHub/Blog WordPress Community meetings/discussions' => array(
-				'label' => __( 'Meetings and discussions you took part in', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'part',
-				'help'  => __( 'Slack, GitHub or blog links, one per line.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		// Asked for here rather than in *My profile*: it is a question about the project, and the
-		// Airtable form this replaces asks it at the head of the Project section. One control, one
-		// column - the profile no longer offers it, so there is still only one place to answer.
-		$teams = array(
-			'Main Contribution Team' => array(
-				'label' => __( 'Main contribution team', 'wpcredits-program-manager' ),
-				'type'  => 'team',
-				'group' => 'project',
-				'row'   => 'project',
-				'help'  => __( 'The teams you are contributing to. Choose as many as apply.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		// A field's group differs by track: the personal website is onboarding on the long course
-		// and an optional wrap-up lesson on the 50-hour one, which is how the two Airtable forms
-		// have it. Rather than two copies of the spec, the group is set as each track is composed.
-		$in = static function ( array $spec, $group ) {
-			$spec['group'] = $group;
-
-			return $spec;
-		};
-
-		// Designer Track only.
-		//
-		// **The Beginner WordPress Designer course is required here and optional on the long
-		// course**, so it is its own lesson with the Required mark rather than one of the three
-		// marks under "Optional courses". The mark is a label, not a `required` attribute on the
-		// box: a student saves this form a dozen times while the term runs, and a browser
-		// refusing to submit until every required answer is filled in would stop them saving
-		// anything at all until the course is graded.
-		$design_course = array(
-			'Beginner WordPress Designer' => array(
-				'label'    => __( 'Beginner WordPress Designer', 'wpcredits-program-manager' ),
-				'lead'     => __( 'Complete the Beginner WordPress Designer course', 'wpcredits-program-manager' ),
-				'required' => true,
-			) + $mark,
-		);
-
-		// The lesson is "Create your portfolio", so the two questions are about a portfolio. The
-		// keys stay the columns the base has: one site, one column, whatever a course calls it.
-		$design_portfolio = array(
-			'Personal Website URL' => array(
-				'label'    => __( 'Your portfolio site URL', 'wpcredits-program-manager' ),
-				'subgroup' => __( 'Create your portfolio', 'wpcredits-program-manager' ),
-				'row'      => 'website',
-			) + $in( $project['Personal Website URL'], 'onboarding' ),
-			'Post Reflection: Building Your Personal Website' => array(
-				'label' => __( 'Link to the post "Reflection: Building Your Portfolio"', 'wpcredits-program-manager' ),
-				'row'   => 'website',
-			) + $in( $posts['Post Reflection: Building Your Personal Website'], 'onboarding' ),
-		);
-
-		// The eight practical lessons of the Project module, each headed by the lesson's name as
-		// Learn writes it and holding the questions that lesson asks.
-		//
-		// **The keys are the base's column names and three of them look like slips.** The base
-		// shortens the library lesson to `Duplicate & Explore WP Design Library` and ends two of
-		// its columns in lower case, and `Site’s` carries the typographic apostrophe (U+2019)
-		// where Learn's lesson title has a plain one. A write has to name the column exactly, so
-		// the keys are copied and the labels are what is written for the student.
-		$design_practicals = array(
-			'Practical: Duplicate & Explore WP Design Library - Reflection' => array(
-				'lead'  => __( 'Practical: Duplicate and Explore the WordPress Design Library', 'wpcredits-program-manager' ),
-				'label' => __( 'Your reflection', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-			),
-			'Practical: Duplicate & Explore WP Design Library - link' => array(
-				'label' => __( 'A link to your copy of the library', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'project',
-			),
-			'Practical: Duplicate & Explore WP Design Library - image' => array(
-				'label' => __( 'A screenshot of your copy', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Local WordPress Environment for Design Testing - Tool used' => array(
-				'lead'    => __( 'Practical: Set Up a Local WordPress Environment for Design Testing', 'wpcredits-program-manager' ),
-				'label'   => __( 'The tool you used', 'wpcredits-program-manager' ),
-				'type'    => 'select',
-				'group'   => 'project',
-				// The three choices the column has, spelled as the base spells them - `MAAMP`
-				// included. Nothing sends `typecast`, so a fourth name is a 422 for the record.
-				'options' => array( 'WordPress Studio', 'MAAMP', 'DevKinsta' ),
-			),
-			'Practical: Local WordPress Environment for Design Testing - Screenshot' => array(
-				'label' => __( 'A screenshot of your local site', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Change Your Site’s Global Styles - Notes' => array(
-				'lead'  => __( 'Practical: Change Your Site\'s Global Styles', 'wpcredits-program-manager' ),
-				'label' => __( 'Your notes', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-			),
-			'Practical: Change Your Site’s Global Styles - Before Screenshot' => array(
-				'label' => __( 'A screenshot before your changes', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Change Your Site’s Global Styles - After Screenshot' => array(
-				'label' => __( 'A screenshot after your changes', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Style Book - Notes'      => array(
-				'lead'  => __( 'Practical: Customize with the Style Book', 'wpcredits-program-manager' ),
-				'label' => __( 'Your notes', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-			),
-			'Practical: Style Book - Screenshot' => array(
-				'label' => __( 'A screenshot of your Style Book', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Landing Page with Layout Blocks - Note' => array(
-				'lead'  => __( 'Practical: Compose a Landing Page with Layout Blocks', 'wpcredits-program-manager' ),
-				'label' => __( 'Your note', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-			),
-			'Practical: Landing Page with Layout Blocks - Screenshot' => array(
-				'label' => __( 'A screenshot of your landing page', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Apply Custom CSS in the Site Editor - Notes' => array(
-				'lead'  => __( 'Practical: Apply Custom CSS in the Site Editor', 'wpcredits-program-manager' ),
-				'label' => __( 'Your notes', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-			),
-			'Practical: Apply Custom CSS in the Site Editor - CSS' => array(
-				'label' => __( 'The CSS you added', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-				// Code, so a proportional font and a spell checker underlining every property
-				// are both in the way. `render_field()` reads this and nothing else does.
-				'mono'  => true,
-				'help'  => __( 'Paste the rules exactly as you wrote them.', 'wpcredits-program-manager' ),
-			),
-			'Practical: Apply Custom CSS in the Site Editor - Screenshot' => array(
-				'label' => __( 'A screenshot of the result', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Submit a Custom Block Pattern - Link' => array(
-				'lead'  => __( 'Practical: Create and Submit a Custom Block Pattern', 'wpcredits-program-manager' ),
-				'label' => __( 'A link to your pattern', 'wpcredits-program-manager' ),
-				'type'  => 'url',
-				'group' => 'project',
-			),
-			'Practical: Submit a Custom Block Pattern - Screenshot' => array(
-				'label' => __( 'A screenshot of your pattern', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Test Your Site for Accessibility - Part 1 - Note' => array(
-				'lead'  => __( 'Practical: Test Your Site for Accessibility', 'wpcredits-program-manager' ),
-				'label' => __( 'Your note on part 1', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-			),
-			'Practical: Test Your Site for Accessibility - Part 1 - Screenshot' => array(
-				'label' => __( 'A screenshot from part 1', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-			'Practical: Test Your Site for Accessibility - Part 2 - Note' => array(
-				'label' => __( 'Your note on part 2', 'wpcredits-program-manager' ),
-				'type'  => 'textarea',
-				'group' => 'project',
-			),
-			'Practical: Test Your Site for Accessibility - Part 2 - Screenshot' => array(
-				'label' => __( 'A screenshot from part 2', 'wpcredits-program-manager' ),
-				'type'  => 'image',
-				'group' => 'project',
-			),
-		);
-
-		if ( '50h' === $track ) {
-			$fields = $hours + $contact + $common_grades + $fifty_grades + $teams + array(
-				'Contribution Project Summary'      => array(
-					'row'   => 'project',
-					'stack' => true,
-				) + $in( $project['Contribution Project Summary'], 'project' ),
-				'Slack/GitHub/Blog WordPress Community meetings/discussions' => array(
-					'row'   => 'project',
-					'stack' => true,
-				) + $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' ),
-				'Final Contribution Project Report' => array(
-					'label' => __( 'Your final project report', 'wpcredits-program-manager' ),
-					'type'  => 'richtext',
-					'group' => 'wrapup',
-					'help'  => __( 'The write-up of what you built and contributed.', 'wpcredits-program-manager' ),
-				),
-				'Personal Website URL'              => $in( $project['Personal Website URL'], 'wrapup' ),
-			);
-		} elseif ( 'design' === $track ) {
-			// **Written out rather than inserted into the long course's set.** The Developer
-			// Track is the 150-hour form plus seven fields, so it is expressed as insertions;
-			// this one relabels the portfolio pair, moves the project questions under the team
-			// list and adds twenty-one questions in eight lessons, which as a list of edits would
-			// be longer than the set and impossible to read against the course.
-			//
-			// The order is the Learn course's, module by module and lesson by lesson (design
-			// spec of 7 September 2026, section 4), with the product owner's additions of
-			// 8 September 2026: every course grade the base holds, the project questions
-			// directly under the team, the second project, and the alumni program as its own
-			// section; later that day the project block moved after the practical lessons and
-			// the alumni section took the Developer Track's shape.
-			//
-			// **Every course grade, the required designer course first.** Learn's Onboarding
-			// module names only the designer course for this track, but the program asks
-			// designers for the user-level grades and the two developer marks as well, so they
-			// follow it in the long course's own shape: the three user levels under "Complete one
-			// of the following courses", the two developer courses under "Optional courses". The
-			// designer mark is not repeated among the optional ones.
-			$user_levels    = array_diff_key( $sensei_grades, $voice_grades, $conflict );
-			$design_options = array_diff_key( $sensei_courses, $design_course );
-
-			$fields = $hours + $contact + $common_grades + $voice_grades + $conflict + $design_course + $user_levels + $design_options + $design_portfolio;
-
-			// The project lesson sits where Learn places it, after the eight practical lessons
-			// and before the reflection posts (the product owner, 8 September 2026), with the
-			// project questions directly under the team list, but not as half of a pair: the
-			// lesson heading over the reflection posts below would close the pair's grid and
-			// leave an empty column beside the list.
-			$design_team = $teams;
-			unset( $design_team['Main Contribution Team']['row'] );
-
-			// The Learn lesson's heading sits over the team list itself, not over the project
-			// summary: the team, the project and the second project are all that lesson's
-			// questions, so the heading has to open before the first of them (the product owner,
-			// 8 September 2026).
-			$design_team['Main Contribution Team']['lead'] = __( 'Define and begin developing your contribution project', 'wpcredits-program-manager' );
-
-			// The second project is the Developer Track's question without that form's pairing,
-			// so it stands full width under the first.
-			$design_second = $dev_project['Optional: Additional Contribution Project Summary'];
-			unset( $design_second['row'], $design_second['stack'] );
-
-			// The alumni program is its own lesson on Learn, and on this track it reads exactly
-			// as the Developer Track shows it (the product owner, 8 September 2026): the meetings
-			// question opens the section under the lesson's short heading, then the three alumni
-			// answers follow, word for word the Developer Track's. The event link after them
-			// carries its own lesson heading, so the section reads as closed on both sides.
-			//
-			// The meetings question carries the heading because it is the section's first
-			// question. A field with a heading cannot sit in a row (`render_body()` closes the
-			// open row before printing one), so the pairing the other tracks give it comes off.
-			$design_meetings             = $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' );
-			$design_meetings['subgroup'] = __( 'Alumni Program', 'wpcredits-program-manager' );
-			unset( $design_meetings['row'], $design_meetings['stack'] );
-
-			$design_alumni = array( 'Slack/GitHub/Blog WordPress Community meetings/discussions' => $design_meetings ) + $dev_alumni;
-
-			$fields += $design_practicals + $design_team + array(
-				'Contribution Project Summary'                      => $in( $project['Contribution Project Summary'], 'project' ),
-				'Optional: Additional Contribution Project Summary' => $design_second,
-			) + array(
-				'Post Reflection: Choosing Your Team and Project' => array( 'lead' => __( 'Your reflection posts', 'wpcredits-program-manager' ) )
-					+ $in( $posts['Post Reflection: Choosing Your Team and Project'], 'project' ),
-				'Post Reflection: Your First Contribution' => $in( $posts['Post Reflection: Your First Contribution'], 'project' ),
-				'Post Reflection: Halfway Check-In'        => $in( $posts['Post Reflection: Halfway Check-In'], 'project' ),
-			) + $design_alumni + array(
-				'WP event participation URL' => array(
-					'label' => __( 'Link to a WordPress event you have participated in (online or in person)', 'wpcredits-program-manager' ),
-					'lead'  => __( 'Participate at a WordPress Event (online or in person)', 'wpcredits-program-manager' ),
-					'type'  => 'url',
-					'group' => 'project',
-				),
-				'Closing post URL'           => $in( $posts['Closing post URL'], 'wrapup' ),
-			);
-		} else {
-			$fields = $hours + $contact + $common_grades + $sensei_grades + $sensei_courses + array(
-				// Onboarding closes with the website and the post about building it.
-				'Personal Website URL' => array(
-					'subgroup' => __( 'Create your personal website', 'wpcredits-program-manager' ),
-					'row'      => 'website',
-				) + $in( $project['Personal Website URL'], 'onboarding' ),
-				'Post Reflection: Building Your Personal Website' => array( 'row' => 'website' )
-					+ $in( $posts['Post Reflection: Building Your Personal Website'], 'onboarding' ),
-			) + $teams + array(
-				'Contribution Project Summary'             => array(
-					'row'   => 'project',
-					'stack' => true,
-				) + $in( $project['Contribution Project Summary'], 'project' ),
-				'Post Reflection: Choosing Your Team and Project' => array(
-					'row'   => 'project',
-					'stack' => true,
-				) + $in( $posts['Post Reflection: Choosing Your Team and Project'], 'project' ),
-				'Slack/GitHub/Blog WordPress Community meetings/discussions' => array(
-					'row'   => 'project',
-					'stack' => true,
-				) + $in( $participation['Slack/GitHub/Blog WordPress Community meetings/discussions'], 'project' ),
-				'Post Reflection: Your First Contribution' => array( 'lead' => __( 'Your reflection posts', 'wpcredits-program-manager' ) )
-					+ $in( $posts['Post Reflection: Your First Contribution'], 'project' ),
-				'Post Reflection: Halfway Check-In'        => $in( $posts['Post Reflection: Halfway Check-In'], 'project' ),
-				'WP event participation URL'               => array(
-					'label' => __( 'Link to a WordPress event you have participated in (online or in person)', 'wpcredits-program-manager' ),
-					'type'  => 'url',
-					'group' => 'project',
-				),
-				'Closing post URL'                         => $in( $posts['Closing post URL'], 'wrapup' ),
-			);
-
-			// The developer track is the 150-hour form plus seven fields. Written as insertions into
-			// that set rather than as a third copy, because a copy would drift the moment either
-			// changed.
-			//
-			// **The anchors follow the Learn course, not the Airtable view.** The view lists the
-			// fields in the order the columns happen to sit in the table; the course is the order
-			// the student works through, and that is what a form should follow. The two disagree
-			// twice - patch testing is lesson 3 and belongs with the project rather than among the
-			// course grades, and the alumni programme is lesson 7, ahead of the first-contribution
-			// reflection at lesson 9 rather than after it.
-			if ( 'dev' === $track ) {
-				$fields = self::insert_after( $fields, 'Advance WordPress User - final grade', $dev_basics );
-				$fields = self::insert_after( $fields, 'Post Reflection: Building Your Personal Website', $dev_patch );
-				$fields = self::insert_after( $fields, 'Contribution Project Summary', $dev_project );
-
-				// On this course the meetings and discussions are asked inside the Alumni Program
-				// lesson, not with the project questions - so on this track alone the field moves
-				// out of the column beside the team list and heads that run instead. It carries the
-				// heading because it is the lesson's first question.
-				//
-				// Moved rather than copied: the same field left in both places would be one Airtable
-				// column with two boxes writing to it, which is the bug the contribution teams had.
-				$meetings = 'Slack/GitHub/Blog WordPress Community meetings/discussions';
-				$moved    = isset( $fields[ $meetings ] ) ? $fields[ $meetings ] : array();
-
-				unset( $fields[ $meetings ] );
-
-				// It is not one of the stacked questions any more, and a field carrying a heading
-				// could not be: `render_body()` closes the open row before printing one.
-				unset( $moved['row'], $moved['stack'] );
-
-				$moved['subgroup'] = __( 'Alumni Program', 'wpcredits-program-manager' );
-
-				$fields = self::insert_after(
-					$fields,
-					'Post Reflection: Choosing Your Team and Project',
-					array( $meetings => $moved ) + $dev_alumni
-				);
-
-				// On this track the pair follows the Practical lesson rather than sitting under
-				// the section legend, so it needs a heading of its own; the other tracks do not.
-				$fields['Main Contribution Team']['lead'] = __( 'Your contribution team and project', 'wpcredits-program-manager' );
-			}
-		}
-
-		return $fields;
-	}
-
 
 	/**
 	 * Every Airtable column on any track that holds screenshots.
@@ -784,18 +173,18 @@ class WPCPM_Student_Report_Form {
 
 		// The tracks off the program map rather than written out here, the way
 		// `WPCPM_Semester_Report::link_labels()` and the Administrator Dashboard's tile strip
-		// read them: a fifth track is then one entry in `WPCPM_Program` and nothing else. A
-		// list of its own would go stale silently - the sync asks Airtable for these columns by
-		// name, so a track missing from it is a track whose every card says "No screenshot yet"
-		// for ever, with nothing failing anywhere to say why.
+		// read them: a new track is then one published definition, which fills the map, and
+		// nothing else. A list of its own would go stale silently - the sync asks Airtable for
+		// these columns by name, so a track missing from it is a track whose every card says "No
+		// screenshot yet" for ever, with nothing failing anywhere to say why.
 		$tracks = array();
 
 		foreach ( array_keys( WPCPM_Program::labels() ) as $status ) {
 			$track = WPCPM_Program::track( $status );
 
 			// A status on no track - Paused, Graduate and the rest. `fields()` answers the
-			// 150-hour set for anything it does not know, and that set is already in this
-			// loop under the 150-hour status itself.
+			// 150-hour track's form for anything it does not know, and that form is already in
+			// this loop under the 150-hour status itself.
 			if ( '' !== $track ) {
 				$tracks[ $track ] = true;
 			}
@@ -825,41 +214,6 @@ class WPCPM_Student_Report_Form {
 		foreach ( is_array( $stored ) ? $stored : array() as $name => $id ) {
 			if ( is_string( $name ) && (int) $id > 0 ) {
 				$out[ $name ] = (int) $id;
-			}
-		}
-
-		return $out;
-	}
-
-	/**
-	 * Put fields straight after a named one, keeping every other key where it was.
-	 *
-	 * Order inside a group is the array's own order - `render_body()` groups with `array_filter()`,
-	 * which preserves it - so where a field sits in this array is where a student sees it.
-	 *
-	 * A missing anchor appends rather than throws: a form with a question in the wrong place is
-	 * recoverable, a fatal on the Student Report Card is not. `bin/test-report-form.php` asserts
-	 * each insertion's position, so a renamed anchor fails a test rather than moving quietly.
-	 *
-	 * @param array  $fields Field set.
-	 * @param string $anchor Field name to insert after.
-	 * @param array  $add    Fields to insert.
-	 * @return array
-	 */
-	private static function insert_after( array $fields, $anchor, array $add ) {
-		if ( ! isset( $fields[ $anchor ] ) ) {
-			return $fields + $add;
-		}
-
-		$out = array();
-
-		foreach ( $fields as $name => $spec ) {
-			$out[ $name ] = $spec;
-
-			if ( $name === $anchor ) {
-				foreach ( $add as $add_name => $add_spec ) {
-					$out[ $add_name ] = $add_spec;
-				}
 			}
 		}
 
@@ -1016,8 +370,9 @@ class WPCPM_Student_Report_Form {
 	 *
 	 * `$audience` is who is reading, and it decides what is drawn at all. A student, their
 	 * mentor and a program manager see the whole card. An institution sees the card with two
-	 * things left out: every field of type `email`, and the three alumni-programme answers on
-	 * the Developer Track (a personal address the student gave so the program can reach them
+	 * things left out: every field of type `email`, and every question flagged
+	 * `hide_from_institution`, which the three alumni-program answers of the Developer and
+	 * Designer Tracks carry (a personal address the student gave so the program can reach them
 	 * after their student address dies, their plans, and the mentoring opt-in). Those are
 	 * between the student and the program; the institution's card promises the school sees no
 	 * address of the student's, and design spec 7.5 says the same. Filtered here, before any
@@ -1347,14 +702,13 @@ class WPCPM_Student_Report_Form {
 	/**
 	 * The card's fields with everything an institution is not shown removed.
 	 *
-	 * Every field of type `email`, and the three alumni-programme fields by name: they are
-	 * the student's arrangement with the program for after the course, not part of what a
-	 * school sent them to do. Public so the suite can hold the list to the promise.
-	 *
-	 * A question flagged `hide_from_institution` is dropped as well (1.101.0): the flag is how a
-	 * Track Builder question stays off this view, and the three alumni answers carry it in the PHP
-	 * too. `ALUMNI_FIELDS` stays until phase T5, with its suite holding the list to the promise
-	 * (the Track Builder design's section 10).
+	 * Every field of type `email`, and every question flagged `hide_from_institution` (1.101.0):
+	 * the flag is how a question stays off this view, and the three alumni-program answers of the
+	 * Developer and Designer Tracks carry it in their definitions. They are the student's
+	 * arrangement with the program for after the course, not part of what a school sent them to do.
+	 * The flag is the whole rule, with no list of names behind it since the hand-written forms were
+	 * removed (the Track Builder design's section 10). Public so the suite can hold the forms to the
+	 * promise.
 	 *
 	 * @param array $fields Field specs, keyed by Airtable column name.
 	 * @return array The same array with those fields removed.
@@ -1368,10 +722,6 @@ class WPCPM_Student_Report_Form {
 			}
 
 			if ( ! empty( $spec['hide_from_institution'] ) ) {
-				continue;
-			}
-
-			if ( in_array( $name, self::ALUMNI_FIELDS, true ) ) {
 				continue;
 			}
 

@@ -4,8 +4,8 @@
  *
  * Every rule is a function of its arguments, so each is asked here directly: a definition every
  * rule accepts, then one thing broken at a time, each check expecting exactly the one code its
- * rule gives. What the rules must never refuse - the four hand-written forms - is held in
- * bin/test-report-form.php, which loads the form.
+ * rule gives. What the rules must never refuse - the four original tracks' seeds and the forms
+ * they compile to - is held in bin/test-track-definitions.php and bin/test-report-form.php.
  *
  * Run from the plugin root:  php bin/test-track-definition.php
  */
@@ -23,6 +23,11 @@ function wp_unslash( $v ) { return is_array( $v ) ? array_map( 'wp_unslash', $v 
 
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-palette.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-definition.php';
+// For their constants alone: the four original tracks' statuses and keys are the plugin's rather
+// than the site's, so `status_reserved` reads them from `WPCPM_Tracks::RESERVED_PAIRS`, which names
+// the program map's status constants.
+require_once __DIR__ . '/../includes/class-wpcpm-program.php';
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-tracks.php';
 
 $fails = 0;
 $total = 0;
@@ -92,7 +97,7 @@ function only( array $questions ) {
 
 echo "=== The palette ===\n";
 
-ck( 'seven hues, the four built-in tracks\' among them', array_keys( WPCPM_Track_Palette::HUES ), array( 'blue', 'cyan', 'teal', 'green', 'red', 'pink', 'purple' ) );
+ck( 'seven hues, the four original tracks\' among them', array_keys( WPCPM_Track_Palette::HUES ), array( 'blue', 'cyan', 'teal', 'green', 'red', 'pink', 'purple' ) );
 ck( 'slate and amber are no hue: they paint the two states on no track', array( WPCPM_Track_Palette::is_hue( 'slate' ), WPCPM_Track_Palette::is_hue( 'amber' ), WPCPM_Track_Palette::is_hue( 5 ) ), array( false, false, false ) );
 ck( 'the chip rule, in the shape dashboard.css gives its own chips', WPCPM_Track_Palette::badge_rule( 'marketing', 'cyan' ), '.wpcpm-badge--marketing{background:rgba(8,145,178,0.12);border-color:rgba(8,145,178,0.35);}' );
 ck( 'no rule for a hue outside the palette', WPCPM_Track_Palette::badge_rule( 'marketing', '#ff0000' ), '' );
@@ -126,18 +131,61 @@ $locked           = $context;
 $locked['locked'] = array( 'status' => 'Marketing Track', 'key' => 'marketing' );
 ck( 'a published track keeps its status', refused( function ( &$d ) { $d['status'] = 'Marketing Program'; }, $locked ), array( 'status_locked' ) );
 ck( 'and its key', refused( function ( &$d ) { $d['key'] = 'marketing-2'; }, $locked ), array( 'key_locked' ) );
+// A track of somebody's own, published, is locked to its own copy rather than to an original
+// track's pair, so moved onto one of the four statuses under another key again it is told both.
+ck( 'a published track moved onto an original track\'s status and another key still hears that a published track keeps its key; a status of theirs with no key at all is refused by name',
+	array(
+		refused( function ( &$d ) { $d['status'] = 'Designer Track'; $d['key'] = 'marketing-2'; }, $locked ),
+		refused( function ( &$d ) { $d['status'] = 'In Sensei'; unset( $d['key'] ); }, array() ),
+	),
+	array( array( 'status_reserved', 'status_taken', 'status_locked', 'key_locked' ), array( 'status_reserved', 'key_shape' ) ) );
 ck( 'a key with capitals', refused( function ( &$d ) { $d['key'] = 'Marketing'; }, $context ), array( 'key_shape' ) );
 ck( 'a key of one character, or of twenty-one', array( refused( function ( &$d ) { $d['key'] = 'm'; }, $context ), refused( function ( &$d ) { $d['key'] = str_repeat( 'm', 21 ); }, $context ) ), array( array( 'key_shape' ), array( 'key_shape' ) ) );
 ck( 'a key a chip already paints', refused( function ( &$d ) { $d['key'] = 'sensei'; }, $context ), array( 'key_reserved' ) );
-ck( 'a built-in track\'s key', refused( function ( &$d ) { $d['key'] = 'design'; }, $context ), array( 'key_reserved' ) );
+ck( 'an original track\'s key, under a status of its own', refused( function ( &$d ) { $d['key'] = 'design'; }, $context ), array( 'key_reserved' ) );
 $research                             = $context;
 $research['tracks']['Research Track'] = 'research';
 ck( 'another Track Builder track\'s key', refused( function ( &$d ) { $d['key'] = 'research'; }, $research ), array( 'key_taken' ) );
-$builtin = array(
-	'tracks' => array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev' ),
-	'locked' => array( 'status' => 'Designer Track', 'key' => 'design' ),
-);
-ck( 'a built-in track\'s own definition keeps its reserved key', refused( function ( &$d ) { $d['status'] = 'Designer Track'; $d['key'] = 'design'; }, $builtin ), array() );
+// An original track's status belongs with its key whatever the context holds (the design's
+// decision 37): refused by name, before `status_taken`, which can only say what the other tracks
+// hold.
+$originals = array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' );
+$by_name   = array();
+foreach ( $originals as $original => $original_key ) {
+	$by_name[ $original ] = array(
+		refused( function ( &$d ) use ( $original ) { $d['status'] = $original; }, array() ),
+		refused( function ( &$d ) use ( $original_key ) { $d['key'] = $original_key; }, array() ),
+	);
+}
+ck( 'an original track\'s status under a key of its own is refused by name, and its key under a status of its own as reserved, with no other track in the context', $by_name, array_fill_keys( array_keys( $originals ), array( array( 'status_reserved' ), array( 'key_reserved' ) ) ) );
+ck( 'and with the other tracks there, by name before status_taken', refused( function ( &$d ) { $d['status'] = 'Designer Track'; }, $context ), array( 'status_reserved', 'status_taken' ) );
+$said = WPCPM_Track_Definition::validate( array_merge( valid(), array( 'status' => 'In Sensei' ) ), array() );
+ck( 'saying whose status it is, and the key that track keeps', $said[0]['message'], 'This status belongs to one of the program\'s four original tracks, which keeps the key 150h; a new track needs a status of its own.' );
+// The store locks a definition holding one of the four statuses to that status's pair, published or
+// not, so under that lock a key other than the pair's is the reserved status's refusal, whose
+// sentence names the key the track keeps: "A published track keeps its key" would be untrue of a
+// track never published, and the sentence is what a manager reads who typed another key on the
+// original track's own page.
+$kept  = array();
+$moved = array();
+$keeps = array();
+foreach ( $originals as $original => $original_key ) {
+	$lock = array(
+		'tracks' => array_diff_key( $originals, array( $original => true ) ),
+		'locked' => array( 'status' => $original, 'key' => $original_key ),
+	);
+
+	$moved_definition           = valid();
+	$moved_definition['status'] = $original;
+	$moved_errors               = WPCPM_Track_Definition::validate( $moved_definition, $lock );
+
+	$kept[ $original ]  = refused( function ( &$d ) use ( $original, $original_key ) { $d['status'] = $original; $d['key'] = $original_key; }, $lock );
+	$moved[ $original ] = array( codes( $moved_errors ), isset( $moved_errors[0]['message'] ) ? $moved_errors[0]['message'] : '' );
+	$keeps[ $original ] = array( array( 'status_reserved' ), 'This status belongs to one of the program\'s four original tracks, which keeps the key ' . $original_key . '; a new track needs a status of its own.' );
+}
+ck( 'an original track\'s own definition keeps its status and reserved key under the lock the store gives it, and another key under that lock is refused by name, naming the key the track keeps, never as a published track\'s key',
+	array( $kept, $moved ),
+	array( array_fill_keys( array_keys( $originals ), array() ), $keeps ) );
 ck( 'no name', refused( function ( &$d ) { $d['label'] = '  '; }, $context ), array( 'label_empty' ) );
 $named           = $context;
 $named['labels'] = array( 'In Sensei' => 'WordPress Credits Program 150h', 'Developer Track' => 'Developer Track' );
@@ -266,14 +314,16 @@ ck( 'and none of the three properties the form never sees', $left, array() );
 ck( 'the institution flag stays: the form reads it', $fields['Alumni program: personal email']['hide_from_institution'], true );
 ck( 'everything else of a question comes through untouched', $fields['Practical: Campaign Brief - Channel'], array( 'label' => 'The channel you chose', 'type' => 'select', 'group' => 'project', 'options' => array( 'Newsletter', 'Social', 'Blog' ), 'row' => 'brief', 'stack' => true ) );
 
-ck( 'the compiled row the program map reads', WPCPM_Track_Definition::row( valid(), 42 ), array( 'key' => 'marketing', 'label' => 'Marketing Track', 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/', 'course_id' => 500001, 'hours' => 120, 'hue' => 'cyan', 'source' => 'definition', 'automation' => false, 'post' => 42 ) );
+ck( 'the compiled row the program map reads', WPCPM_Track_Definition::row( valid(), 42 ), array( 'key' => 'marketing', 'label' => 'Marketing Track', 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/', 'course_id' => 500001, 'hours' => 120, 'hue' => 'cyan', 'automation' => false, 'post' => 42 ) );
 $bare = valid();
 unset( $bare['hours_target'], $bare['course_url'], $bare['learn_course_id'] );
-$row = WPCPM_Track_Definition::row( $bare, '7', 'builtin', 1 );
+$row = WPCPM_Track_Definition::row( $bare, '7', 1 );
 ck( 'no hours target is null, not 0, so the map drops the row rather than printing a denominator', $row['hours'], null );
 ck( 'no course is an empty link and ID 0', array( $row['course_url'], $row['course_id'] ), array( '', 0 ) );
-ck( 'the source and the automation tick are carried, typed', array( $row['source'], $row['automation'], $row['post'] ), array( 'builtin', true, 7 ) );
-ck( 'any source but builtin is a definition', WPCPM_Track_Definition::row( valid(), 1, 'whatever' )['source'], 'definition' );
+
+// Every track runs from its definition, so a row no longer says where it runs from: `row()` takes the
+// definition, its post and the automation tick, the third argument above, and writes no `source`.
+ck( 'the row carries no source, and the automation tick and the post, typed', array( array_key_exists( 'source', $row ), $row['automation'], $row['post'] ), array( false, true, 7 ) );
 
 echo "\n=== The hours rule, which check() asks and compile() does not (TRACKS-3) ===\n";
 

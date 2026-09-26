@@ -109,13 +109,10 @@ function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
-function apply_filters( $t, $v ) { return $v; }
 function add_action() {}
-function add_filter() {}
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/' ); }
 function number_format_i18n( $n, $d = 0 ) { return (string) round( $n, $d ); }
 function human_time_diff( $from, $to = 0 ) { return '2 hours'; }
-function get_option( $k, $d = false ) { return $d; }
 function get_user_by( $f, $v ) { return isset( $GLOBALS['users'][ (int) $v ] ) ? $GLOBALS['users'][ (int) $v ] : false; }
 function get_current_user_id() { return (int) $GLOBALS['uid']; }
 function is_user_logged_in() { return $GLOBALS['uid'] > 0; }
@@ -144,6 +141,9 @@ function wp_localize_script( $handle, $object_name, $l10n ) { $GLOBALS['localize
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 
+// Declares add_filter(), apply_filters() and get_option(): the program map is made of filters,
+// over the options a compile writes, and this suite's own three read no filter and no option.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
@@ -317,6 +317,10 @@ class WPCPM_Institution_Roster {
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-student-view.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
+
+// The program map and the report forms are the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fail  = 0;
 $total = 0;

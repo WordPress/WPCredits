@@ -297,6 +297,10 @@ final class WPCPM_Track_History_Screen {
 		$words = array(
 			'publish'           => __( 'Published', 'wpcredits-program-manager' ),
 			'unpublish'         => __( 'Unpublished', 'wpcredits-program-manager' ),
+			// Nothing writes these two now: the switch between a track's hand-written form and its
+			// definition went with the forms. The logs a site holds keep them, the four original
+			// tracks' switch of 22 September 2026 among them, so History still names them rather
+			// than printing the code.
 			'switch_definition' => __( 'Switched to run from its definition', 'wpcredits-program-manager' ),
 			'switch_builtin'    => __( 'Switched back to its hand-written form', 'wpcredits-program-manager' ),
 		);

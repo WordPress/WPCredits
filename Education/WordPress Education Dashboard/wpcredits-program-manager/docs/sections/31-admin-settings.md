@@ -27,16 +27,18 @@ column is detected automatically.
 - **Mentor status to sync** - only mentors holding this Airtable status get an account.
 - **Currently mentoring** - one status per line. Students holding any of these appear under
   "Currently mentoring" on their mentor's page. The list keeps the status of every track the site
-  runs from its definition: a save that would take one out saves everything else, leaves Currently
-  mentoring as it was, and a notice names the track. Take the track off the live site in the Track
-  Builder first, then remove its status. A Settings page left open while a track was published keeps
-  the new status when it is saved, and the Track Builder's list flags a live track whose status is
-  missing from Currently mentoring. Left untouched, the box saves the list as it is stored; edited on
-  a page left open, it brings back a status somebody removed in the meantime, so reload the page
-  first.
+  runs: a save that would take one out saves everything else, leaves Currently mentoring as it was,
+  and a notice names the track. Take the track off the live site in the Track Builder first, then
+  remove its status. A Settings page left open while a track was published keeps the new status when
+  it is saved, and the Track Builder's list flags a live track whose status is missing from Currently
+  mentoring. Left untouched, the box saves the list as it is stored; edited on a page left open, it
+  brings back a status somebody removed in the meantime, so reload the page first.
 - **Past students** - statuses that mean mentoring has finished. Those students appear in a separate,
   collapsed section. Leave empty to show only current students; a status in both boxes counts as
-  current.
+  current. No track runs on a past status, so the list never takes the status of a track the site
+  runs: a save that would add one saves everything else, leaves Past students as it was, and a notice
+  names the track. Take the track off the live site in the Track Builder first, then add its status.
+  The program's four original tracks always run, so their statuses are never past statuses.
 - **When a mentor is no longer active** - remove the Mentor role and clear their student list, or
   leave the role in place. The account itself is never deleted either way.
 - **Invitation emails** - off by default, and worth leaving off: a first sync creates around ninety

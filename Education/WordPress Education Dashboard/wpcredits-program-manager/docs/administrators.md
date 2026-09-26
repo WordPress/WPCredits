@@ -78,16 +78,18 @@ column is detected automatically.
 - **Mentor status to sync** - only mentors holding this Airtable status get an account.
 - **Currently mentoring** - one status per line. Students holding any of these appear under
   "Currently mentoring" on their mentor's page. The list keeps the status of every track the site
-  runs from its definition: a save that would take one out saves everything else, leaves Currently
-  mentoring as it was, and a notice names the track. Take the track off the live site in the Track
-  Builder first, then remove its status. A Settings page left open while a track was published keeps
-  the new status when it is saved, and the Track Builder's list flags a live track whose status is
-  missing from Currently mentoring. Left untouched, the box saves the list as it is stored; edited on
-  a page left open, it brings back a status somebody removed in the meantime, so reload the page
-  first.
+  runs: a save that would take one out saves everything else, leaves Currently mentoring as it was,
+  and a notice names the track. Take the track off the live site in the Track Builder first, then
+  remove its status. A Settings page left open while a track was published keeps the new status when
+  it is saved, and the Track Builder's list flags a live track whose status is missing from Currently
+  mentoring. Left untouched, the box saves the list as it is stored; edited on a page left open, it
+  brings back a status somebody removed in the meantime, so reload the page first.
 - **Past students** - statuses that mean mentoring has finished. Those students appear in a separate,
   collapsed section. Leave empty to show only current students; a status in both boxes counts as
-  current.
+  current. No track runs on a past status, so the list never takes the status of a track the site
+  runs: a save that would add one saves everything else, leaves Past students as it was, and a notice
+  names the track. Take the track off the live site in the Track Builder first, then add its status.
+  The program's four original tracks always run, so their statuses are never past statuses.
 - **When a mentor is no longer active** - remove the Mentor role and clear their student list, or
   leave the role in place. The account itself is never deleted either way.
 - **Invitation emails** - off by default, and worth leaving off: a first sync creates around ninety
@@ -329,8 +331,8 @@ write here, preview, publish to Airtable and switch on, with no developer in the
 
 Two things are worth knowing before you touch it. **Nothing reaches students until a track is
 published**, and every notice and the preview say so. And **the four tracks the program runs today
-are here too**, as built-in tracks that still run from the plugin's own code; the last part of this
-section is how to move one of them onto its definition.
+are here too**, as the program's four original tracks, published from the day a site goes live; the
+last part of this section is what makes them different from a track you make.
 
 #### The track list
 
@@ -344,18 +346,16 @@ One row per track, in the order they were made:
 | --- | --- |
 | Track | The track's name |
 | Status | The Airtable status a student holds to be on this track |
-| Runs from | *Its definition*, or *Its hand-written form, so it cannot be edited here* for a built-in track that has not switched yet |
-| State | *Draft*, *Published*, *Unpublished changes*, or *Live, from its hand-written form* for a built-in track; under it, for a built-in track, whether its definition is published yet and then whether it matches the plugin's form, a line when the last compile left the track out, and a line when a live track's status is missing from **Currently mentoring** in Settings |
+| State | *Draft*, *Published*, *Unpublished changes* or *In the trash*; under it, a line when the last compile left the track out, and a line when a live track's status is missing from **Currently mentoring** in Settings |
 | Students | How many synced students hold its status now |
 | Last published | When, and by whom |
-| Actions | **Edit**, **Duplicate**, **Preview**, **History** and **Publish** (**Publishing** once it is; **Publish definition** on a built-in track), then the buttons only some tracks get |
+| Actions | **Edit**, **Duplicate**, **Preview**, **History** and **Publish** (**Publishing** once it is), then the buttons only some tracks get |
 
-**New track** sits above the list. The buttons a row gets only sometimes: **Refresh from the
-plugin** on a built-in draft that fell behind a plugin update, **Run from its definition** and **Run
-from its hand-written form** on a built-in track, and **Delete** on a track of your own that was
-never published. Delete asks first and cannot be undone, and it deletes that draft and nothing else.
-A track that was ever published keeps its row, because its columns and its status live on in
-Airtable, and a built-in track is never offered it.
+**New track** sits above the list. The only button a row gets sometimes is **Delete**, offered on a
+track that was never published. Delete asks first and cannot be undone, and it deletes that draft and
+nothing else. A track that was ever published keeps its row, because its columns and its status live
+on in Airtable; the program's four original tracks are published from the moment a site exists, so
+none of them is ever offered it.
 
 #### Starting a track
 
@@ -368,7 +368,7 @@ Three ways, each ending on the new track's page, as a draft.
   beside the questions, and the name is taken from the course when it is left empty. The chip color
   is chosen for you, the first one no other track holds, drafts included. The form starts empty; the
   questions are added on the track's page.
-- **Duplicate** copies every question of an existing track, the four built-in ones included, and asks
+- **Duplicate** copies every question of an existing track, the four original tracks included, and asks
   for a name, a status and a key of its own, refused as New track's are when another track holds
   them. The copy starts with no Learn course and no hours target; set them on its page. This is the
   usual way to start a track that resembles one you run: duplicate the 150-hour track and change what
@@ -480,8 +480,7 @@ change. To ask something differently, remove the question and add a new one with
 renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. The hours
 box sits where the Student Report Card puts it: with the button that opens the course when the track
 has a Learn course, side by side on the student's page and one under the other here in wp-admin, and
-on its own when the track has none. A built-in track
-can be previewed too; its definition is what its form draws.
+on its own when the track has none.
 
 ![Preview draws the form a student on the track fills in, the same questions in the same order, and nothing you type there is kept.](images/track-builder-preview.png)
 
@@ -527,10 +526,10 @@ screen first reads the base and says what it found.
   is done, and the tick records who and when. An unticked item never blocks publishing, but until
   the automation item is ticked, students cannot be put on the track from the institution import,
   because they would never get a report row.
-- Publishing a track of your own adds its status to **Currently mentoring** in Settings. The four
-  built-in statuses are there already, so publishing a built-in definition adds nothing. While a
-  track runs from its definition, a Settings save that would take its status out saves everything
-  else, leaves Currently mentoring as it was and names the track.
+- Publishing any track adds its status to **Currently mentoring** in Settings, unless it is there
+  already. The four original tracks' statuses are there from the start, so publishing one of them
+  adds nothing new. A Settings save that would take a live track's status out saves everything else,
+  leaves Currently mentoring as it was, and names the track.
 
 When publishing would create columns in Airtable, Publish comes with a box: type the track's name
 exactly as it is written, then press the button. Capitals count; spaces around the name do not. The
@@ -553,30 +552,39 @@ in another tab or by another Program Administrator, is not part of that publish:
 shows *Unpublished changes* until **Publish the changes** is pressed.
 
 After publishing, the same screen offers **Check it against Airtable**, which reads the base again and
-says whether every column is still there with its type and the status is a choice on both tables, and
-**Take it off the live site**. On a built-in track that still runs from its hand-written form it
-offers **Check it against Airtable** alone: the definition stays published, since the track's
-students see the hand-written form either way. Unpublishing is refused while any student holds the
-status, with the count. Otherwise the track becomes a draft again, nothing in Airtable changes, and
-the status stays in Currently mentoring: removing it there takes the Student role from everybody on
-the track, which is a decision of its own.
+says whether every column is still there with its type and the status is a choice on both tables, and,
+for every track but the program's four original ones, **Take it off the live site**. The four never
+offer it: a line beside the other actions says the program's original tracks always run, and to edit
+the track and publish the change instead. Unpublishing any other track is refused while any student
+holds the status, with the count; otherwise the track becomes a draft again, nothing in Airtable
+changes, and the status stays in Currently mentoring: removing it there takes the Student role from
+everybody on the track, which is a decision of its own.
 
 Editing a published track's words makes it *Unpublished changes*; students keep the published copy
 until **Publish the changes** is pressed.
 
-#### The four built-in tracks
+#### The four original tracks
 
-The 150-hour, 50-hour, Developer and Designer tracks were written into the plugin's code, and each
-has a definition in the Track Builder. Since 22 September 2026 all four run from their definitions:
-their Runs from column reads *Its definition*, their state reads *Published*, and you edit, preview
-and publish them like any track you make. The hand-written forms stay in the plugin only as a fallback until the Track Builder's last
-phase removes them.
+The 150-hour, 50-hour, Developer and Designer tracks are the program's own four. Each has run from its
+definition in the Track Builder since 22 September 2026, and there is nothing left to switch between:
+no hand-written form and no plugin update can move one of them, and you edit, duplicate, preview and
+publish them exactly like a track you make yourself.
 
-**Run from its hand-written form** puts a track back onto the code's form, as long as its definition
-has not been edited since the switch, and students see no change either way. The way back onto the
-definition is the same three steps used in September: publish the definition (the preflight finds
-nothing to create, because every column and both choices exist), wait for the line under the state
-to read *Identical to its hand-written form.*, then press **Run from its definition**.
+A fresh site seeds and publishes all four at once, with their publish checklist already ticked, from
+the seed files the plugin ships, so the program runs on day one with nobody pressing Publish. If one
+of the four is ever missing, `wp wpcredits seed-tracks` on the command line puts it back; it is the
+same command a site runs on itself the first time it reaches the Track Builder.
+
+**Their statuses and keys belong to them.** No other track can take the Airtable status or the key of
+one of the four, whether you are starting a new track, duplicating one, or saving one you already
+have: the refusal names which of the four original tracks keeps it. And the four cannot be deleted or
+unpublished at all; if something about one of them needs to change, edit the track and publish the
+change instead.
+
+A site already on an earlier version upgrades once, on its first load after 1.116.0 arrives: nothing
+for you to press, and a load that is cut short partway is finished by the next one. On a fresh site a
+seeding cut short leaves no half-made track behind, and `wp wpcredits seed-tracks` puts back any of
+the four that is missing, then as at any other time.
 
 ### Need help?
 

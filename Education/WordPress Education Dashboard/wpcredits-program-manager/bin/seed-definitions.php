@@ -1,19 +1,20 @@
 <?php
 /**
- * Build the four seed definitions from the hand-written tracks (Track Builder, phase T2a).
+ * What the suites know about the four seed definitions in includes/tracks/seeds/.
  *
- * Shared by bin/build-seeds.php, which writes them to includes/tracks/seeds/, and
- * bin/test-track-definitions.php, which holds the files to them. The caller loads `WPCPM_Program`,
- * `WPCPM_Student_Report_Form` and `WPCPM_Track_Definition` first.
+ * **The seed files are the source.** They were built from the hand-written forms and the program
+ * map's rows, each question given its column's Airtable type, the Learn lesson it reports on and
+ * why its name looks the way it does; those forms and rows are gone, so the files are edited as
+ * what they are, and bin/test-track-definitions.php pins each byte for byte. What is left here reads
+ * no PHP of the plugin's but the program map's four status constants: which status and hue each
+ * seed holds, where it is kept and how it is written, and the two readings the suites hold the
+ * seeds to, the lesson a question's heading names and the note a column's odd name carries.
  *
- * Everything is read from the repository: the forms from `builtin_fields()`, each column's
- * Airtable type from bin/fixtures/reports-table-fields.json (`all_types`, read from the base's
- * metadata API) and the lessons from bin/fixtures/learn-course-<id>.json. Nothing reaches the
- * network, so every build gives the same bytes.
+ * The caller loads `WPCPM_Program` first.
  */
 
 /**
- * The four built-in tracks: key => the status that holds it, and the palette hue its chip is
+ * The four original tracks: key => the status that holds it, and the palette hue its chip is
  * painted in by the stylesheets.
  *
  * @return array
@@ -57,71 +58,6 @@ function wpcpm_seed_path( $key ) {
  */
 function wpcpm_seed_json( array $definition ) {
 	return json_encode( $definition, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . "\n";
-}
-
-/**
- * One track's seed, built from the repository alone.
- *
- * @param string $key Track key.
- * @return array
- */
-function wpcpm_seed_build( $key ) {
-	$status  = wpcpm_seed_tracks()[ $key ]['status'];
-	$reports = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/reports-table-fields.json' ), true );
-	$course  = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/learn-course-' . WPCPM_Program::course_ids()[ $status ] . '.json' ), true );
-
-	return wpcpm_seed_definition( $key, (array) $reports['all_types'], (array) $course );
-}
-
-/**
- * One track's definition: its PHP form, with what the form never shows recorded beside each
- * question - the column's Airtable type, the Learn lesson it reports on, and why its name looks
- * the way it does.
- *
- * @param string $key    Track key.
- * @param array  $types  Column => Airtable type.
- * @param array  $course The track's Learn course: `modules`, each with `title` and `lessons`.
- * @return array
- */
-function wpcpm_seed_definition( $key, array $types, array $course ) {
-	$track     = wpcpm_seed_tracks()[ $key ];
-	$status    = $track['status'];
-	$notes     = wpcpm_seed_why();
-	$notes     = array_merge( $notes['*'], isset( $notes[ $key ] ) ? $notes[ $key ] : array() );
-	$hours     = WPCPM_Program::hours_targets();
-	$questions = array();
-
-	foreach ( WPCPM_Student_Report_Form::builtin_fields( $key ) as $column => $spec ) {
-		if ( isset( $types[ $column ] ) ) {
-			$spec['airtable_type'] = $types[ $column ];
-		}
-
-		$lesson = wpcpm_seed_lesson( $spec, $course );
-
-		if ( $lesson > 0 ) {
-			$spec['learn_lesson_id'] = $lesson;
-		}
-
-		if ( isset( $notes[ $column ] ) ) {
-			$spec['why'] = $notes[ $column ];
-		}
-
-		$questions[ $column ] = $spec;
-	}
-
-	return WPCPM_Track_Definition::normalize(
-		array(
-			'schema_version'  => WPCPM_Track_Definition::SCHEMA_VERSION,
-			'status'          => $status,
-			'key'             => $key,
-			'label'           => WPCPM_Program::labels()[ $status ],
-			'course_url'      => WPCPM_Program::courses()[ $status ],
-			'learn_course_id' => WPCPM_Program::course_ids()[ $status ],
-			'hours_target'    => $hours[ $status ],
-			'hue'             => $track['hue'],
-			'questions'       => $questions,
-		)
-	);
 }
 
 /**
@@ -191,8 +127,9 @@ function wpcpm_seed_fold( $text ) {
 /**
  * Why a column's name looks like a slip, by track, and under `*` for every track that asks it.
  *
- * Written by hand for the developer who reads a seed and would otherwise correct the name (the
- * design's section 8). No student sees these: compiling strips `why`.
+ * Written for the developer who reads a seed and would otherwise correct the name (the design's
+ * section 8), and held here to what each seed's `why` notes say. No student sees these: compiling
+ * strips `why`.
  *
  * @return array<string, array<string, string>>
  */

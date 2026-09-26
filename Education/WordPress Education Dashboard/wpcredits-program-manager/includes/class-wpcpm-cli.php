@@ -248,13 +248,15 @@ class WPCPM_CLI {
 	}
 
 	/**
-	 * Put the four built-in tracks into the Track Builder, from the seeds the plugin ships.
+	 * Put the four original tracks into the Track Builder, from the seeds the plugin ships.
 	 *
-	 * Each is created as a draft marked built-in, so its PHP keeps running it. A track whose status
-	 * the Track Builder already holds is passed over, so running this twice creates nothing the
-	 * second time. A site does this once on its own, the first time it runs 1.101.0; the command
-	 * is for a site that needs it again. Every seed is tried before the exit code says that one
-	 * failed, since a second run creates only what is missing (the design's decision 33).
+	 * Each is created published, its definition and its published copy both the seed, and the
+	 * published tracks are compiled, so the site runs the four at once. A seed whose status or key the
+	 * Track Builder already holds is passed over, so running this twice creates nothing the second
+	 * time. A site does this once on its own, the first time it runs the Track Builder; the command is
+	 * for a site that needs it again. Every seed is tried before the exit code says that one failed,
+	 * since a second run creates only what is missing (the design's decision 33): a seed WordPress
+	 * refused to publish is not left behind as a draft for that run to pass over.
 	 *
 	 * ## EXAMPLES
 	 *
@@ -263,24 +265,23 @@ class WPCPM_CLI {
 	public function seed_tracks() {
 		$failed = array();
 
+		// `seed()` compiles once it has tried every seed, so the command compiles nothing of its own.
 		foreach ( WPCPM_Track_Store::seed() as $key => $result ) {
 			if ( is_wp_error( $result ) ) {
 				$failed[] = (string) $key;
 				WP_CLI::warning( sprintf( '%s: %s', $key, $result->get_error_message() ) );
 			} elseif ( $result ) {
-				WP_CLI::log( sprintf( '%-6s created as track %d, a draft marked built-in', $key, $result ) );
+				WP_CLI::log( sprintf( '%-6s created as track %d and published', $key, $result ) );
 			} else {
 				WP_CLI::log( sprintf( '%-6s already in the Track Builder', $key ) );
 			}
 		}
 
-		WPCPM_Track_Store::compile();
-
 		if ( array() !== $failed ) {
 			WP_CLI::error( sprintf( 'Not created: %s. The others are in the Track Builder; run the command again once the reason is put right.', implode( ', ', $failed ) ) );
 		}
 
-		WP_CLI::success( __( 'The built-in tracks are in the Track Builder.', 'wpcredits-program-manager' ) );
+		WP_CLI::success( __( 'The four original tracks are in the Track Builder, and every published track is compiled.', 'wpcredits-program-manager' ) );
 	}
 
 	/**

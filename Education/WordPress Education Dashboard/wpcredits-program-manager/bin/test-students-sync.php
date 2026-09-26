@@ -106,9 +106,8 @@ function sanitize_user( $s, $strict = false ) { return preg_replace( $strict ? '
 function wp_generate_password() { return 'not-a-real-password'; }
 function absint( $v ) { return abs( (int) $v ); }
 function wp_json_encode( $v ) { return json_encode( $v ); }
-function apply_filters( $t, $v ) { return $v; }
 function add_action() {} function remove_filter() { return true; }
-function add_filter() {} function do_action() {}
+function do_action() {}
 function number_format_i18n( $n, $d = 0 ) { return (string) round( $n, $d ); }
 function wp_date( $f, $t = null ) { return gmdate( $f, null === $t ? time() : $t ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
@@ -331,6 +330,8 @@ define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
+// Declares add_filter() and apply_filters(), which run what is hooked: the program map is made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
@@ -339,6 +340,11 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php'
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roster-index.php';
 // The report form owns the list of screenshot columns; the sync asks Airtable for them.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
+
+// The program map and the report forms, the screenshot columns among them, are the compiled
+// tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 /*
  * `WPCPM_Group_Sessions` belongs to the calls module. The sync hands it each student whose mentor

@@ -4,8 +4,9 @@
  * the chips and the automation guard, from the compiled options alone.
  *
  * The filters here run for real, so a check can ask `WPCPM_Program` the questions every page asks
- * it and see the answer a compiled track makes. With nothing compiled, every answer is the one
- * 1.99.3 gave, and the second section holds that.
+ * it and see the answer a compiled track makes. The map holds no rows of its own since the
+ * hand-written rows and forms were removed, so with nothing compiled every map is empty and there
+ * is no form, and the second section holds that.
  *
  * Run from the plugin root:  php bin/test-tracks.php
  */
@@ -112,16 +113,16 @@ function compiled( array $rows, array $forms = array() ) {
 	WPCPM_Tracks::flush();
 }
 
-/** One compiled row. */
+/** One compiled row, as a compile writes it: with no `source`, which a check adds to stand for a row compiled before. */
 function row( $key, $label, array $overrides = array() ) {
 	return array_merge(
-		array( 'key' => $key, 'label' => $label, 'course_url' => '', 'course_id' => 0, 'hours' => null, 'hue' => 'cyan', 'source' => 'definition', 'automation' => false, 'post' => 1 ),
+		array( 'key' => $key, 'label' => $label, 'course_url' => '', 'course_id' => 0, 'hours' => null, 'hue' => 'cyan', 'automation' => false, 'post' => 1 ),
 		$overrides
 	);
 }
 
-$form           = array( 'Practical: Campaign Brief - Notes' => array( 'label' => 'Your notes', 'type' => 'textarea', 'group' => 'project' ) );
-$builtin_labels = array( 'In Sensei' => 'WordPress Credits Program 150h', 'In Sensei 50h' => 'WordPress Credits Program 50h', 'Developer Track' => 'Developer Track', 'Designer Track' => 'Designer Track' );
+$form            = array( 'Practical: Campaign Brief - Notes' => array( 'label' => 'Your notes', 'type' => 'textarea', 'group' => 'project' ) );
+$original_labels = array( 'In Sensei' => 'WordPress Credits Program 150h', 'In Sensei 50h' => 'WordPress Credits Program 50h', 'Developer Track' => 'Developer Track', 'Designer Track' => 'Designer Track' );
 
 echo "=== init() ===\n";
 
@@ -140,20 +141,18 @@ ck(
 );
 ck( 'and the chips after init 10, where the dashboards register the stylesheet they live in', $GLOBALS['actions'], array( array( 'init', 'add_badge_styles', 20 ) ) );
 
-echo "\n=== With nothing compiled, every answer is 1.99.3's ===\n";
+echo "\n=== With nothing compiled, the program map is empty ===\n";
 
+// The five maps hold no rows of their own: the compiled tracks are their only source, so with
+// nothing compiled no status is a track, and the two states keep the chips `states()` gives them.
 compiled( array() );
-ck( 'the four tracks and nothing else', WPCPM_Program::labels(), $builtin_labels );
-ck( 'the hours targets', WPCPM_Program::hours_targets(), array( 'In Sensei' => 150, 'In Sensei 50h' => 50, 'Developer Track' => 0, 'Designer Track' => 150 ) );
-ck( 'the four course links, as one map', WPCPM_Program::courses(), array( 'In Sensei' => 'https://learn.wordpress.org/course/wordpress-credits/', 'In Sensei 50h' => 'https://learn.wordpress.org/course/50-hours-wordpress-credits/', 'Developer Track' => 'https://learn.wordpress.org/course/wordpress-credits-developer-track/', 'Designer Track' => 'https://learn.wordpress.org/course/wordpress-credits-designer-track/' ) );
-ck( 'the four course IDs, as one map', WPCPM_Program::course_ids(), array( 'In Sensei' => 297853, 'In Sensei 50h' => 322343, 'Developer Track' => 402893, 'Designer Track' => 403425 ) );
-ck( 'and an unknown status has no course ID', WPCPM_Program::course_id( 'Not a track at all' ), 0 );
-ck( 'track() gives each of the four statuses its key', array( 'In Sensei' => WPCPM_Program::track( 'In Sensei' ), 'In Sensei 50h' => WPCPM_Program::track( 'In Sensei 50h' ), 'Developer Track' => WPCPM_Program::track( 'Developer Track' ), 'Designer Track' => WPCPM_Program::track( 'Designer Track' ) ), array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) );
-ck( 'and an unknown status whatever track() gives it today', WPCPM_Program::track( 'Not a track at all' ), '' );
-ck( 'badge() gives the four statuses their track chip', array( 'In Sensei' => WPCPM_Program::badge( 'In Sensei' ), 'In Sensei 50h' => WPCPM_Program::badge( 'In Sensei 50h' ), 'Developer Track' => WPCPM_Program::badge( 'Developer Track' ), 'Designer Track' => WPCPM_Program::badge( 'Designer Track' ) ), array( 'In Sensei' => 'sensei', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) );
+ck( 'the five maps are empty, and no status is a track',
+	array( WPCPM_Program::labels(), WPCPM_Program::courses(), WPCPM_Program::course_ids(), WPCPM_Program::hours_targets(), WPCPM_Program::track( 'In Sensei' ), WPCPM_Program::track( 'Designer Track' ), WPCPM_Program::is_track( 'In Sensei 50h' ) ),
+	array( array(), array(), array(), array(), '', '', false ) );
+ck( 'and an unknown status has no course ID and no key', array( WPCPM_Program::course_id( 'Not a track at all' ), WPCPM_Program::track( 'Not a track at all' ) ), array( 0, '' ) );
+ck( 'badge() paints no track chip for a status no track holds, the four original tracks\' included', array( WPCPM_Program::badge( 'In Sensei' ), WPCPM_Program::badge( 'Designer Track' ), WPCPM_Program::badge( 'Not a track at all' ) ), array( '', '', '' ) );
 ck( 'and the two states their own chip', array( 'Paused' => WPCPM_Program::badge( 'Paused' ), 'Pending graduation' => WPCPM_Program::badge( 'Pending graduation' ) ), array( 'Paused' => 'paused', 'Pending graduation' => 'pending' ) );
-ck( 'and an unknown status whatever badge() gives it today', WPCPM_Program::badge( 'Not a track at all' ), '' );
-ck( 'the form filter hands back what it was given', apply_filters( 'wpcpm_report_form_fields', array( 'x' => 1 ), 'marketing' ), array( 'x' => 1 ) );
+ck( 'the form filter hands back what it was given for a key no track holds', apply_filters( 'wpcpm_report_form_fields', array( 'x' => 1 ), 'marketing' ), array( 'x' => 1 ) );
 ck( 'no chip rule', WPCPM_Tracks::badge_css(), '' );
 WPCPM_Tracks::add_badge_styles();
 ck( 'and not even the stylesheet is touched', array( $GLOBALS['assets'], $GLOBALS['inline'] ), array( 0, array() ) );
@@ -164,18 +163,15 @@ echo "\n=== An authored track, published ===\n";
 compiled(
 	array(
 		'Marketing Track' => row( 'marketing', 'Marketing Track', array( 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/', 'course_id' => 500001, 'hours' => 120, 'automation' => true ) ),
-		'In Sensei 50h'   => row( '50h', 'Should not appear', array( 'source' => 'builtin', 'hours' => 1 ) ),
 	),
-	array( 'marketing' => $form, '50h' => array( 'Should not appear' => array() ) )
+	array( 'marketing' => $form )
 );
 ck( 'it is a track', WPCPM_Program::is_track( 'Marketing Track' ), true );
-ck( 'with its name, after the four', WPCPM_Program::labels(), $builtin_labels + array( 'Marketing Track' => 'Marketing Track' ) );
+ck( 'with its name, the map\'s one row', WPCPM_Program::labels(), array( 'Marketing Track' => 'Marketing Track' ) );
 ck( 'its key, and the chip painted from it', array( WPCPM_Program::track( 'Marketing Track' ), WPCPM_Program::badge( 'Marketing Track' ) ), array( 'marketing', 'marketing' ) );
 ck( 'its Learn course, by link and by ID', array( WPCPM_Program::course_url( 'Marketing Track' ), WPCPM_Program::course_id( 'Marketing Track' ) ), array( 'https://learn.wordpress.org/course/wordpress-credits-marketing-track/', 500001 ) );
 ck( 'its hours target', array( WPCPM_Program::hours_target( 'Marketing Track' ), WPCPM_Program::has_hours_target( 'Marketing Track' ) ), array( 120, true ) );
-ck( 'its own form, from its option', apply_filters( 'wpcpm_report_form_fields', array( 'the 150-hour set' => array() ), 'marketing' ), $form );
-ck( 'a built-in track\'s form is left to its PHP', apply_filters( 'wpcpm_report_form_fields', array( 'the 150-hour set' => array() ), '150h' ), array( 'the 150-hour set' => array() ) );
-ck( 'a track its PHP still runs is skipped by every callback', array( WPCPM_Program::label( 'In Sensei 50h' ), WPCPM_Program::hours_target( 'In Sensei 50h' ), apply_filters( 'wpcpm_report_form_fields', array( 'php' => array() ), '50h' ) ), array( 'WordPress Credits Program 50h', 50, array( 'php' => array() ) ) );
+ck( 'its own form, from its option', apply_filters( 'wpcpm_report_form_fields', array(), 'marketing' ), $form );
 ck( 'its chip rule, from the palette', WPCPM_Tracks::badge_css(), '.wpcpm-badge--marketing{background:rgba(8,145,178,0.12);border-color:rgba(8,145,178,0.35);}' );
 WPCPM_Tracks::add_badge_styles();
 ck( 'printed with the dashboard stylesheet, registered first so the rule has somewhere to go', array( $GLOBALS['assets'], $GLOBALS['inline'] ), array( 1, array( array( 'wpcpm-mentor-dashboard', WPCPM_Tracks::badge_css() ) ) ) );
@@ -188,17 +184,20 @@ ck( 'no target: absent from the map, so nothing prints a denominator', array( ar
 ck( 'no course: no link and no ID', array( WPCPM_Program::course_url( 'Marketing Track' ), WPCPM_Program::course_id( 'Marketing Track' ) ), array( '', 0 ) );
 ck( 'and with its automation item unticked, the guard does not know it', WPCPM_Tracks::confirmed_automation_statuses(), array() );
 
-echo "\n=== A built-in track, switched to its definition ===\n";
+echo "\n=== One of the four original tracks ===\n";
 
 compiled( array( 'Designer Track' => row( 'design', 'Designer Track', array( 'hue' => 'pink', 'course_id' => 403425, 'course_url' => 'https://learn.wordpress.org/course/wordpress-credits-designer-track/' ) ) ), array( 'design' => $form ) );
-ck( 'its definition names no hours, and the PHP\'s 150 gives way', WPCPM_Program::hours_target( 'Designer Track' ), 0 );
-ck( 'its form is the definition\'s', apply_filters( 'wpcpm_report_form_fields', array( 'php' => array() ), 'design' ), $form );
-ck( 'but its chip keeps the hand-written rule: none is generated', WPCPM_Tracks::badge_css(), '' );
+ck( 'its hours target is its definition\'s: this one names none, so it has none', WPCPM_Program::hours_target( 'Designer Track' ), 0 );
+ck( 'its form is the definition\'s', apply_filters( 'wpcpm_report_form_fields', array(), 'design' ), $form );
+ck( 'but its chip keeps the rule written into the stylesheets: none is generated', WPCPM_Tracks::badge_css(), '' );
 
 echo "\n=== When a compiled option is not what it should be ===\n";
 
-compiled( array( 'Marketing Track' => row( 'marketing', 'Marketing Track' ) ) );
-ck( 'a live track with no form option draws an empty form, never the 150-hour set it was handed', apply_filters( 'wpcpm_report_form_fields', array( 'the 150-hour set' => array() ), 'marketing' ), array() );
+// Beside a live 150-hour track, so the fallback a key no live track holds reads is in play: a live
+// track whose form went missing, a compile cut short, draws nothing rather than the 150-hour form,
+// whose columns its students would then write.
+compiled( array( 'In Sensei' => row( '150h', 'WordPress Credits Program 150h' ), 'Marketing Track' => row( 'marketing', 'Marketing Track' ) ), array( '150h' => $form ) );
+ck( 'a live track with no form option draws an empty form, never the 150-hour track\'s or what it was handed', apply_filters( 'wpcpm_report_form_fields', array( 'another form' => array() ), 'marketing' ), array() );
 compiled( array( 'Marketing Track' => row( 'marketing', 'Marketing Track', array( 'hue' => 'mauve' ) ) ), array( 'marketing' => $form ) );
 ck( 'a hue outside the palette prints no rule', WPCPM_Tracks::badge_css(), '' );
 
@@ -219,26 +218,75 @@ echo "\n=== What the rules are told about the site ===\n";
 ck( 'the columns the syncs own: every report column the sync maps that is not a question', WPCPM_Tracks::reserved_columns(), array( 'Name', 'Email', 'Status', 'Mentor', 'Educational institution', 'Internship Start Date', 'Internship End Date', 'Personal link', '50h personal link', 'Dev Track ONLY personal link' ) );
 $context = WPCPM_Tracks::validation_context( 'Marketing Track' );
 ck( 'the other tracks by status and key, the track being checked left out', $context['tracks'], array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) );
-ck( 'and their names, which a new track may not take', $context['labels'], $builtin_labels );
+ck( 'and their names, which a new track may not take', $context['labels'], $original_labels );
 ck( 'the statuses that mean something else: past students, and the two states', $context['refused_statuses'], array( 'Graduate', 'Dropped out', 'Paused', 'Pending graduation' ) );
 ck( 'the sync columns, and nothing locked', array( $context['reserved_columns'], $context['locked'] ), array( WPCPM_Tracks::reserved_columns(), null ) );
 ck( 'and the track it describes passes with it', WPCPM_Track_Definition::validate( array( 'schema_version' => 1, 'status' => 'Marketing Track', 'key' => 'marketing', 'label' => 'Marketing Track', 'hue' => 'cyan', 'questions' => $form ), $context ), array() );
 
-echo "\n=== The program map as its PHP alone describes it ===\n";
+echo "\n=== The context with the compiled tracks and without them ===\n";
 
 compiled( array( 'Marketing Track' => row( 'marketing', 'Marketing Track' ) ), array( 'marketing' => $form ) );
 ck( 'with a track compiled, the context counts it', array_key_exists( 'Marketing Track', WPCPM_Tracks::validation_context()['tracks'] ), true );
-ck( 'read without the compiled tracks, it holds the four the PHP knows', WPCPM_Tracks::validation_context( '', false )['tracks'], array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) );
-ck( 'and the map answers with the compiled track again afterwards', WPCPM_Program::is_track( 'Marketing Track' ), true );
-ck( 'the key the PHP gives a built-in status', array( WPCPM_Tracks::builtin_key( 'Designer Track' ), WPCPM_Tracks::builtin_key( 'In Sensei' ) ), array( 'design', '150h' ) );
-ck( 'and none for a compiled track, or for a status no track holds', array( WPCPM_Tracks::builtin_key( 'Marketing Track' ), WPCPM_Tracks::builtin_key( 'Graduate' ) ), array( '', '' ) );
+ck( 'read without the compiled tracks, it holds the four original tracks alone', WPCPM_Tracks::validation_context( '', false )['tracks'], array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) );
+
+echo "\n=== With nothing compiled, the rules still know the four original tracks ===\n";
+
+// The four come from `WPCPM_Tracks::RESERVED_PAIRS`, never from the program map, which only a
+// compile fills: a context read from the map would lose them, and with them what keeps a new track
+// off their statuses and names (the design's decision 36).
+compiled( array() );
+$bare = array( WPCPM_Program::labels(), WPCPM_Tracks::validation_context( '', false ) );
+ck( 'with nothing compiled the map is empty, and the context still holds the four by their pairs, named as their seeds name them',
+	array( $bare[0], $bare[1]['tracks'], $bare[1]['labels'] ),
+	array( array(), array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ), $original_labels ) );
+
+// A row compiled before the removal carries a source, `builtin` on a track published and never
+// switched: it is live like any row, so its name is the one kept out of reach too.
+compiled(
+	array(
+		'In Sensei'       => row( '150h', 'Credits 150' ),
+		'In Sensei 50h'   => row( '50h', 'Credits 50', array( 'source' => 'builtin' ) ),
+		'Marketing Track' => row( 'marketing', 'Marketing Track' ),
+	),
+	array( '150h' => $form, '50h' => $form, 'marketing' => $form )
+);
+$renamed = array( WPCPM_Tracks::validation_context( '', false ), WPCPM_Tracks::validation_context() );
+ck( 'the name a live row gives is the one kept out of a new track\'s reach, a row compiled before the removal included, and the seeds\' names stand in for the rest',
+	$renamed[0]['labels'], array( 'In Sensei' => 'Credits 150', 'In Sensei 50h' => 'Credits 50' ) + $original_labels );
+ck( 'and read with the compiled tracks, every other live track joins the four',
+	array( $renamed[1]['tracks'], $renamed[1]['labels'] ),
+	array( array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design', 'Marketing Track' => 'marketing' ), array( 'In Sensei' => 'Credits 150', 'In Sensei 50h' => 'Credits 50' ) + $original_labels + array( 'Marketing Track' => 'Marketing Track' ) ) );
+
+echo "\n=== The four original tracks' pairs ===\n";
+
+// Held to the seed files a fresh site seeds from, so the lock never keeps a track to a key or a
+// name its seed does not have.
+$seed_pairs  = array();
+$seed_labels = array();
+
+foreach ( array( '150h', '50h', 'dev', 'design' ) as $seed_key ) {
+	$seed                           = json_decode( (string) file_get_contents( __DIR__ . '/../includes/tracks/seeds/' . $seed_key . '.json' ), true );
+	$seed_pairs[ $seed['status'] ]  = $seed['key'];
+	$seed_labels[ $seed['status'] ] = $seed['label'];
+}
+
+$original_pairs = array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' );
+ck( 'each original track\'s status against its key, as its seed holds them', array( WPCPM_Tracks::RESERVED_PAIRS, $seed_pairs ), array( $original_pairs, $original_pairs ) );
+ck( 'reserved_key() answers each one\'s key, of a status trimmed as every status read is, and nothing for any other status, one a capital away included',
+	array( WPCPM_Tracks::reserved_key( 'In Sensei' ), WPCPM_Tracks::reserved_key( 'In Sensei 50h' ), WPCPM_Tracks::reserved_key( 'Developer Track' ), WPCPM_Tracks::reserved_key( 'Designer Track' ), WPCPM_Tracks::reserved_key( ' Designer Track ' ), WPCPM_Tracks::reserved_key( 'Graduate' ), WPCPM_Tracks::reserved_key( 'Marketing Track' ), WPCPM_Tracks::reserved_key( 'designer track' ), WPCPM_Tracks::reserved_key( '' ) ),
+	array( '150h', '50h', 'dev', 'design', 'design', '', '', '', '' ) );
+ck( 'is_reserved() says the same', array( WPCPM_Tracks::is_reserved( 'In Sensei' ), WPCPM_Tracks::is_reserved( 'Designer Track' ), WPCPM_Tracks::is_reserved( 'Graduate' ), WPCPM_Tracks::is_reserved( 'Marketing Track' ) ), array( true, true, false, false ) );
+ck( 'reserved_label() names each as its seed spells the name, and nothing for any other status',
+	array( WPCPM_Tracks::reserved_label( 'In Sensei' ), WPCPM_Tracks::reserved_label( 'In Sensei 50h' ), WPCPM_Tracks::reserved_label( 'Developer Track' ), WPCPM_Tracks::reserved_label( 'Designer Track' ), WPCPM_Tracks::reserved_label( 'Graduate' ) ),
+	array( 'WordPress Credits Program 150h', 'WordPress Credits Program 50h', 'Developer Track', 'Designer Track', '' ) );
+ck( 'the four names are the seeds\' own', array( WPCPM_Tracks::RESERVED_LABELS, $seed_labels ), array( $original_labels, $original_labels ) );
 
 echo "\n=== A student on no track reads the 150-hour track's form (TRACKS-5) ===\n";
 
 // The product owner, 23 September 2026: a student on no track, Paused or Pending graduation, whose
-// track() is the empty string, is drawn the 150-hour track's form through the filter, so a switched
+// track() is the empty string, is drawn the 150-hour track's form through the filter, so the
 // 150-hour definition and every edit published to it reach them as they reach its own students.
-// Before, fields( '' ) never matched the filter and read the hand-written form, which T5 removes.
+// Before, fields( '' ) never matched the filter and read the hand-written form, which is gone.
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
 
 $edited = array(
@@ -247,18 +295,50 @@ $edited = array(
 );
 
 compiled( array( 'In Sensei' => row( '150h', 'WordPress Credits Program 150h' ) ), array( '150h' => $edited ) );
-ck( 'with the 150-hour track switched to its definition, a student on no track reads that definition, as its own students do',
+ck( 'a student on no track reads the 150-hour track\'s definition, as its own students do',
 	array( WPCPM_Student_Report_Form::fields( '' ), WPCPM_Student_Report_Form::fields( WPCPM_Program::track( 'In Sensei' ) ) ),
 	array( $edited, $edited ) );
 ck( 'whichever state keeps them off a track', array( WPCPM_Program::track( 'Paused' ), WPCPM_Program::track( 'Pending graduation' ), WPCPM_Student_Report_Form::fields( WPCPM_Program::track( 'Paused' ) ) ), array( '', '', $edited ) );
 
-compiled( array( 'In Sensei' => row( '150h', 'WordPress Credits Program 150h', array( 'source' => 'builtin' ) ) ), array( '150h' => $edited ) );
-ck( 'while the 150-hour track still runs from its PHP, the hand-written 150-hour form, as its own students read',
-	array( WPCPM_Student_Report_Form::fields( '' ) === WPCPM_Student_Report_Form::builtin_fields( '150h' ), WPCPM_Student_Report_Form::fields( '' ) === WPCPM_Student_Report_Form::fields( '150h' ) ),
-	array( true, true ) );
+echo "\n=== The form a key no live track holds reads, and the rows a site compiled before ===\n";
 
+// Every form comes from the compiled index now: a key no live track holds reads the 150-hour
+// track's compiled form, which is what it read while the hand-written 150-hour set was the fallback
+// (the design's decision 34), and with nothing compiled there is no form at all.
 compiled( array() );
-ck( 'and with nothing compiled, the same', WPCPM_Student_Report_Form::fields( '' ) === WPCPM_Student_Report_Form::builtin_fields( '150h' ), true );
+ck( 'with nothing compiled there is no form: a student on no track and a key no track holds read nothing',
+	array( WPCPM_Student_Report_Form::fields( '' ), WPCPM_Student_Report_Form::fields( 'nope' ) ),
+	array( array(), array() ) );
+
+compiled( array( 'In Sensei' => row( '150h', 'WordPress Credits Program 150h' ), 'Marketing Track' => row( 'marketing', 'Marketing Track' ) ), array( '150h' => $edited, 'marketing' => $form ) );
+ck( 'a key no live track holds reads the 150-hour track\'s compiled form, and so does a student on no track; a live key reads its own',
+	array( WPCPM_Student_Report_Form::fields( 'nope' ), WPCPM_Student_Report_Form::fields( '' ), WPCPM_Student_Report_Form::fields( 'marketing' ) ),
+	array( $edited, $edited, $form ) );
+
+compiled( array( 'Marketing Track' => row( 'marketing', 'Marketing Track' ) ), array( 'marketing' => $form, '150h' => $edited ) );
+ck( 'while the 150-hour track is not live, a key no live track holds reads nothing: a form option left behind is not a live track',
+	array( WPCPM_Student_Report_Form::fields( 'nope' ), WPCPM_Student_Report_Form::fields( '' ) ),
+	array( array(), array() ) );
+
+// A compile writes no `source` now. The rows a site compiled before carry one, `definition` on a
+// track switched to its definition and `builtin` on one published and never switched, whose published
+// copy the preflight held to the hand-written form it ran from; each is read as the compile writes
+// rows now, so no track leaves the map before the next compile.
+compiled(
+	array(
+		'In Sensei'       => row( '150h', 'Credits 150' ),
+		'Developer Track' => row( 'dev', 'Developer Track', array( 'source' => 'definition', 'hours' => 0 ) ),
+		'Designer Track'  => row( 'design', 'Designer Track', array( 'source' => 'builtin', 'hours' => 150 ) ),
+	),
+	array( '150h' => $edited, 'dev' => $form, 'design' => $form )
+);
+ck( 'a compiled row is live with a source or without one, a row compiled from a track never switched included',
+	array( WPCPM_Program::labels(), WPCPM_Program::hours_targets(), WPCPM_Student_Report_Form::fields( '150h' ), WPCPM_Student_Report_Form::fields( 'design' ) ),
+	array( array( 'In Sensei' => 'Credits 150', 'Developer Track' => 'Developer Track', 'Designer Track' => 'Designer Track' ), array( 'Developer Track' => 0, 'Designer Track' => 150 ), $edited, $form ) );
+
+ck( 'and the reads of the program map with the compiled tracks suspended are gone, with what suspended them',
+	array( method_exists( 'WPCPM_Tracks', 'builtin_row' ), method_exists( 'WPCPM_Tracks', 'builtin_key' ), method_exists( 'WPCPM_Tracks', 'unfiltered' ), property_exists( 'WPCPM_Tracks', 'suspended' ) ),
+	array( false, false, false, false ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

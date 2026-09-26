@@ -14,19 +14,23 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **A question is exactly a `WPCPM_Student_Report_Form::fields()` entry, keyed by its
  * Airtable column,** plus three properties the form never sees (`AUTHORING`). That is the
- * whole design. The four hand-written forms were passed through `json_encode()` and back on
- * 10 September 2026 and came back identical, so a definition can hold what the PHP holds,
- * and everything downstream of `fields()` - the renderer, `WPCPM_Field_Value`,
- * `handle_save()`, the screenshot store - runs an authored track unchanged.
+ * whole design. The program's four original forms, written in PHP until the Track Builder
+ * replaced them, were passed through `json_encode()` and back on 10 September 2026 and came
+ * back identical, so a definition holds everything a form holds, and everything downstream of
+ * `fields()` - the renderer, `WPCPM_Field_Value`, `handle_save()`, the screenshot store - runs a
+ * definition's form unchanged.
  *
- * The rules were set from what the four forms actually use, a probe of all 115 questions,
- * and `bin/test-report-form.php` holds them to it: every rule here accepts the four forms,
- * so no rule can make parity impossible.
+ * The rules were set from what those four forms use, a probe of all 115 questions, and the
+ * suites hold them to it: every rule here accepts the four seed definitions
+ * (bin/test-track-definitions.php) and their compiled forms (bin/test-report-form.php).
  *
  * Nothing here reads WordPress state. What a rule needs from the site - the other tracks,
  * the statuses that mean something else, the columns the syncs own - arrives as `$context`,
  * which `WPCPM_Tracks::validation_context()` builds, so each rule is a function of its
- * arguments and the suite can ask every one of them.
+ * arguments and the suite can ask every one of them. The four original tracks' statuses and
+ * keys are the plugin's rather than the site's, so the two rules that keep them read constants:
+ * `status_reserved` reads `WPCPM_Tracks::RESERVED_PAIRS` whatever the context holds, and
+ * `key_reserved` reads `RESERVED_KEYS`, passing only the key the context's `locked` names.
  */
 final class WPCPM_Track_Definition {
 
@@ -45,8 +49,8 @@ final class WPCPM_Track_Definition {
 	const GROUPS = array( 'hours', 'onboarding', 'project', 'wrapup' );
 
 	/**
-	 * Keys no new track may take: the four built-in tracks' and the other modifiers `badge()`
-	 * already emits. A key is also a class name the stylesheets paint.
+	 * Keys no new track may take: the four original tracks' (`WPCPM_Tracks::RESERVED_PAIRS`) and
+	 * the other modifiers `badge()` already emits. A key is also a class name the stylesheets paint.
 	 */
 	const RESERVED_KEYS = array( '150h', '50h', 'dev', 'design', 'sensei', 'paused', 'pending' );
 
@@ -154,8 +158,9 @@ final class WPCPM_Track_Definition {
 	 * @param array $context    `tracks` (every other track, status => key), `labels` (every
 	 *                          other track, status => name), `refused_statuses` (statuses that
 	 *                          mean something else), `reserved_columns` (the columns the syncs
-	 *                          own) and `locked` (the status and key a published track keeps, or
-	 *                          null).
+	 *                          own) and `locked` (the status and key the track may not change: a
+	 *                          published track's, or the pair of the original track whose status
+	 *                          it holds; or null).
 	 * @return array[] Each with a `code`, a `where` (a column, or empty for the track) and a
 	 *                 `message`. Empty when the definition may be stored.
 	 */
@@ -273,8 +278,9 @@ final class WPCPM_Track_Definition {
 	}
 
 	/**
-	 * The status rules: one line, not taken, not another track's name, not a status that means
-	 * something else, and kept once the track is published.
+	 * The status rules: one line, none of the four original tracks' unless under that track's key,
+	 * not taken, not another track's name, not a status that means something else, and kept once
+	 * the track is published.
 	 *
 	 * @param array $definition Track definition.
 	 * @param array $context    See `validate()`.
@@ -291,6 +297,28 @@ final class WPCPM_Track_Definition {
 
 		if ( self::length( $status ) > self::MAX_STATUS || 1 === preg_match( '/[\r\n]/', $status ) ) {
 			$errors[] = self::error( 'status_shape', '', sprintf( /* translators: %d: a number of characters. */ __( 'The status must be one line of at most %d characters.', 'wpcredits-program-manager' ), self::MAX_STATUS ) );
+		}
+
+		// Refused by name, whatever the context holds (the design's decision 37). The store locks a
+		// definition holding one of the four statuses to that status's pair, which takes the status
+		// off the context's list, so on a site whose seeded posts are gone `status_taken` would say
+		// nothing. The sentence names the key the original track keeps because two people read it:
+		// somebody giving a new track the status, and a manager who typed another key on the
+		// original track's own page, where "A published track keeps its key" is not said beside it
+		// (`validate_key()`). Before `status_taken`, so a screen that shows the first refusal shows
+		// this one.
+		$pair = self::original_key( $definition );
+
+		if ( '' !== $pair && ( ! isset( $definition['key'] ) || $pair !== $definition['key'] ) ) {
+			$errors[] = self::error(
+				'status_reserved',
+				'',
+				sprintf(
+					/* translators: %s: the key the original track keeps, such as 150h. */
+					__( 'This status belongs to one of the program\'s four original tracks, which keeps the key %s; a new track needs a status of its own.', 'wpcredits-program-manager' ),
+					$pair
+				)
+			);
 		}
 
 		$folded = self::fold( $status );
@@ -312,11 +340,8 @@ final class WPCPM_Track_Definition {
 			}
 		}
 
-		foreach ( (array) $context['refused_statuses'] as $refused ) {
-			if ( self::fold( $refused ) === $folded ) {
-				$errors[] = self::error( 'status_refused', '', __( 'This status already means something else to the program, such as a student who has finished or paused.', 'wpcredits-program-manager' ) );
-				break;
-			}
+		if ( self::is_refused_status( $status, (array) $context['refused_statuses'] ) ) {
+			$errors[] = self::error( 'status_refused', '', __( 'This status already means something else to the program, such as a student who has finished or paused.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( is_array( $context['locked'] ) && isset( $context['locked']['status'] ) && $status !== $context['locked']['status'] ) {
@@ -330,8 +355,9 @@ final class WPCPM_Track_Definition {
 	 * The key rules: its shape, not a key the stylesheets already paint, not taken, and kept
 	 * once the track is published.
 	 *
-	 * A reserved key passes for the track that already holds it, which is how a built-in track's
-	 * own definition keeps `design` (the migration of phase T2 creates it locked to its key).
+	 * A reserved key passes for the track locked to it, which is how an original track's own
+	 * definition keeps `design`: the store locks a definition holding one of the four original
+	 * statuses to that status's key (`WPCPM_Tracks::RESERVED_PAIRS`), published or not.
 	 *
 	 * @param array $definition Track definition.
 	 * @param array $context    See `validate()`.
@@ -346,18 +372,35 @@ final class WPCPM_Track_Definition {
 
 		$errors = array();
 		$own    = is_array( $context['locked'] ) && isset( $context['locked']['key'] ) ? (string) $context['locked']['key'] : null;
+		$pair   = self::original_key( $definition );
 
 		if ( $key !== $own && in_array( $key, self::RESERVED_KEYS, true ) ) {
-			$errors[] = self::error( 'key_reserved', '', __( 'This key belongs to a built-in track or to a chip the site already paints.', 'wpcredits-program-manager' ) );
+			$errors[] = self::error( 'key_reserved', '', __( 'This key belongs to one of the program\'s original tracks or to a chip the site already paints.', 'wpcredits-program-manager' ) );
 		} elseif ( in_array( $key, array_map( 'strval', array_values( (array) $context['tracks'] ) ), true ) ) {
 			$errors[] = self::error( 'key_taken', '', __( 'Another track already has this key.', 'wpcredits-program-manager' ) );
 		}
 
-		if ( null !== $own && $key !== $own ) {
+		// Not said where the lock is the pair of the original track whose status the definition
+		// holds: the store locks such a definition whether or not it was ever published, so "A
+		// published track keeps its key" could be untrue of it, and another key there is what
+		// `status_reserved` has already refused, with the sentence the design's decision 37 gives
+		// it, which names the key the track keeps.
+		if ( null !== $own && $key !== $own && ( '' === $pair || $own !== $pair ) ) {
 			$errors[] = self::error( 'key_locked', '', __( 'A published track keeps its key.', 'wpcredits-program-manager' ) );
 		}
 
 		return $errors;
+	}
+
+	/**
+	 * The key of the original track whose status a definition holds.
+	 *
+	 * @param array $definition Track definition.
+	 * @return string `150h`, `50h`, `dev` or `design` (`WPCPM_Tracks::RESERVED_PAIRS`), or an empty
+	 *                string for a definition holding none of the four statuses.
+	 */
+	private static function original_key( array $definition ) {
+		return isset( $definition['status'] ) && is_string( $definition['status'] ) ? WPCPM_Tracks::reserved_key( $definition['status'] ) : '';
 	}
 
 	/**
@@ -585,13 +628,17 @@ final class WPCPM_Track_Definition {
 	/**
 	 * The track's row in the compiled index the program map reads.
 	 *
-	 * @param array  $definition Track definition.
-	 * @param int    $post_id    The definition's post.
-	 * @param string $source     `definition`, or `builtin` for a migrated track its PHP still runs.
-	 * @param bool   $automation Whether somebody has ticked the reports automation item.
+	 * No `source`: every track runs from its definition, so a row has nothing to say about where
+	 * it runs from. The rows a site compiled before still carry one, which `WPCPM_Tracks::live()`
+	 * does not read.
+	 *
+	 * @param array $definition Track definition.
+	 * @param int   $post_id    The definition's post.
+	 * @param bool  $automation Whether the reports automation item is ticked, by a person or by the
+	 *                          site when it published one of the four original tracks.
 	 * @return array
 	 */
-	public static function row( array $definition, $post_id, $source = 'definition', $automation = false ) {
+	public static function row( array $definition, $post_id, $automation = false ) {
 		return array(
 			'key'        => isset( $definition['key'] ) ? (string) $definition['key'] : '',
 			'label'      => isset( $definition['label'] ) ? (string) $definition['label'] : '',
@@ -599,7 +646,6 @@ final class WPCPM_Track_Definition {
 			'course_id'  => isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : 0,
 			'hours'      => isset( $definition['hours_target'] ) ? (int) $definition['hours_target'] : null,
 			'hue'        => isset( $definition['hue'] ) ? (string) $definition['hue'] : '',
-			'source'     => 'builtin' === $source ? 'builtin' : 'definition',
 			'automation' => (bool) $automation,
 			'post'       => (int) $post_id,
 		);
@@ -621,6 +667,30 @@ final class WPCPM_Track_Definition {
 		$folded = self::fold( $label );
 
 		foreach ( array_merge( array_keys( (array) $context['tracks'] ), array_values( (array) $context['labels'] ) ) as $other ) {
+			if ( self::fold( (string) $other ) === $folded ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether a status is among the statuses that mean something else to the program, as the
+	 * `status_refused` rule compares them: folded, so case and spacing do not tell them apart.
+	 *
+	 * The rule's own comparison, which the Settings save asks of "Past students" as well, so a past
+	 * status that would leave a live track out of the next compile is caught by the very test the
+	 * compile applies (`WPCPM_Settings::tracks_ended_by()`).
+	 *
+	 * @param string   $status  Status.
+	 * @param string[] $refused The statuses refused to a track: the past statuses and the states.
+	 * @return bool
+	 */
+	public static function is_refused_status( $status, array $refused ) {
+		$folded = self::fold( $status );
+
+		foreach ( $refused as $other ) {
 			if ( self::fold( (string) $other ) === $folded ) {
 				return true;
 			}

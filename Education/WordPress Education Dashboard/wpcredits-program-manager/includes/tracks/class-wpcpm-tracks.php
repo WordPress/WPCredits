@@ -21,9 +21,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * and it holds because the compile reads what was published, never what was last saved
  * (`WPCPM_Track_Store::META_PUBLISHED`).
  *
- * A row whose source is `builtin` is a migrated track its PHP still runs (the design's decision
- * 3.5): every callback skips it, so the hand-written code stays authoritative until a Program
- * Administrator switches the track to its definition.
+ * **The index is the program map's only source.** `WPCPM_Program`'s five maps start empty and
+ * the filters here fill them, one row per live track, so a status the index does not hold is on no
+ * track: no name, no course and no hours target, and its students read the 150-hour track's form,
+ * as every student on no track does (the design's decision 34).
+ *
+ * The program's four original tracks keep their statuses and keys by `RESERVED_PAIRS`, the lock
+ * the store checks them with (the design's decision 36): no other track may hold one of those
+ * statuses under another key, or one of those keys under another status.
  */
 final class WPCPM_Tracks {
 
@@ -44,6 +49,41 @@ final class WPCPM_Tracks {
 	const SYNC_COLUMNS = array( 'report_name', 'report_email', 'report_status', 'report_mentor', 'report_instituton', 'report_start', 'report_end', 'report_link', 'report_link_50h', 'report_link_dev' );
 
 	/**
+	 * The program's four original tracks: each one's Airtable status against its key.
+	 *
+	 * The lock that keeps them compiling (the design's decision 36). `WPCPM_Track_Store` locks a
+	 * definition holding one of these statuses to its key, published or not and whatever the post
+	 * carries. A definition holding one of the statuses under another key is refused as
+	 * `status_reserved`, and one holding one of the keys under another status as `key_reserved`
+	 * (`WPCPM_Track_Definition`); a second definition claiming a whole pair passes both, and is
+	 * refused by the original track's own post, which holds the pair (`status_taken`, `key_taken`).
+	 * Written out rather than read from the program map, because the map is what a compile fills: a
+	 * lock read from it would hold a track only while something else named it, and every compile, a
+	 * Settings save included, would leave all four out as holding reserved keys (the final review of
+	 * T2a). Held to the seed files by bin/test-tracks.php and bin/test-track-definitions.php.
+	 */
+	const RESERVED_PAIRS = array(
+		WPCPM_Program::STATUS_150H   => '150h',
+		WPCPM_Program::STATUS_50H    => '50h',
+		WPCPM_Program::STATUS_DEV    => 'dev',
+		WPCPM_Program::STATUS_DESIGN => 'design',
+	);
+
+	/**
+	 * The four original tracks' names, exactly as their seeds in `includes/tracks/seeds/` spell them.
+	 *
+	 * What `validation_context()` names one of them by while no live row does, so a new track is
+	 * kept off the four names as it is off their statuses. Held to the seed files by
+	 * bin/test-tracks.php.
+	 */
+	const RESERVED_LABELS = array(
+		WPCPM_Program::STATUS_150H   => 'WordPress Credits Program 150h',
+		WPCPM_Program::STATUS_50H    => 'WordPress Credits Program 50h',
+		WPCPM_Program::STATUS_DEV    => 'Developer Track',
+		WPCPM_Program::STATUS_DESIGN => 'Designer Track',
+	);
+
+	/**
 	 * The compiled index, read once a request.
 	 *
 	 * @var array|null
@@ -56,13 +96,6 @@ final class WPCPM_Tracks {
 	 * @var array<string, array>
 	 */
 	private static $forms = array();
-
-	/**
-	 * Above zero while the PHP maps are read without the compiled tracks.
-	 *
-	 * @var int
-	 */
-	private static $suspended = 0;
 
 	/**
 	 * Hook the tracks into the program map, the form and the stylesheet.
@@ -80,7 +113,7 @@ final class WPCPM_Tracks {
 	}
 
 	/**
-	 * Every compiled track, the ones their PHP still runs included.
+	 * Every compiled track, as the index holds it.
 	 *
 	 * @return array<string, array> Status => row.
 	 */
@@ -94,19 +127,22 @@ final class WPCPM_Tracks {
 	}
 
 	/**
-	 * The tracks the site runs from their definitions.
+	 * The tracks the site runs: every compiled row with a key.
+	 *
+	 * **A row's `source` is not read.** A compile no longer writes one, since every track runs from
+	 * its definition, but the rows a site compiled before carry it: `definition` on a track that was
+	 * switched to its definition, and `builtin` on one published and never switched, whose published
+	 * copy the preflight held to the hand-written form it ran from. Each is read as the rows a compile
+	 * writes now, so no track leaves the program map between an upgrade and the next compile: a read
+	 * that still wanted `definition` would drop every row the moment a compile stopped writing it.
 	 *
 	 * @return array<string, array> Status => row.
 	 */
 	public static function live() {
-		if ( self::$suspended > 0 ) {
-			return array();
-		}
-
 		return array_filter(
 			self::rows(),
 			static function ( $row ) {
-				return is_array( $row ) && isset( $row['source'], $row['key'] ) && 'definition' === $row['source'];
+				return is_array( $row ) && isset( $row['key'] );
 			}
 		);
 	}
@@ -136,8 +172,8 @@ final class WPCPM_Tracks {
 	/**
 	 * Add each live track's Learn course link, or take the map's away when the definition has none.
 	 *
-	 * Taking away matters for a built-in track switched to its definition: the definition is then
-	 * what the track is, and a course it no longer names must not survive from the PHP.
+	 * The map starts empty, so taking away matters only for a link another filter put there for the
+	 * status: the definition is what the track is, and a course it does not name must not survive.
 	 *
 	 * @param array $courses Status => course URL.
 	 * @return array
@@ -208,25 +244,36 @@ final class WPCPM_Tracks {
 	}
 
 	/**
-	 * A live track's form, in place of what `WPCPM_Student_Report_Form::fields()` built.
+	 * The form a track key reads: the live track's own, or the 150-hour track's for any other key.
 	 *
-	 * **A live track whose form option is missing gets an empty form, never the one it was
-	 * handed.** For a key it does not know, `fields()` builds the 150-hour set, and drawing that
-	 * for an authored track would have its students writing another track's columns. An empty
-	 * form writes nothing.
+	 * `WPCPM_Student_Report_Form::fields()` hands this an empty form, and this is where every form
+	 * comes from. **A key no live track holds reads the 150-hour track's compiled form**, the one
+	 * most students on no track filled in, which is what such a key read while the hand-written
+	 * 150-hour set was the fallback (the design's decision 34). With the 150-hour track not live
+	 * either, what it was handed comes back: nothing, from `fields()`.
 	 *
-	 * @param array  $fields What `fields()` built.
+	 * **A live track whose form option is missing gets an empty form, never another track's.**
+	 * Drawing the 150-hour form for an authored track would have its students writing another track's
+	 * columns, and an empty form writes nothing.
+	 *
+	 * @param array  $fields What `fields()` handed over: an empty form.
 	 * @param string $track  Track key.
 	 * @return array
 	 */
 	public static function filter_fields( $fields, $track ) {
+		$keys = array();
+
 		foreach ( self::live() as $row ) {
-			if ( (string) $row['key'] === (string) $track ) {
-				return self::form( (string) $row['key'] );
-			}
+			$keys[] = (string) $row['key'];
 		}
 
-		return $fields;
+		if ( in_array( (string) $track, $keys, true ) ) {
+			return self::form( (string) $track );
+		}
+
+		$fallback = self::RESERVED_PAIRS[ WPCPM_Program::STATUS_150H ];
+
+		return in_array( $fallback, $keys, true ) ? self::form( $fallback ) : $fields;
 	}
 
 	/**
@@ -245,7 +292,8 @@ final class WPCPM_Tracks {
 	}
 
 	/**
-	 * The live tracks whose reports automation item somebody has ticked.
+	 * The live tracks whose reports automation item is ticked, by a person or by the site when it
+	 * published one of the four original tracks (`WPCPM_Track_Store::META_AUTOMATION`).
 	 *
 	 * @return string[] Statuses.
 	 */
@@ -264,8 +312,8 @@ final class WPCPM_Tracks {
 	/**
 	 * One chip rule per authored track.
 	 *
-	 * None for the built-in keys, a built-in track switched to its definition included: their
-	 * rules are hand-written, in the plugin's stylesheet and in the theme's.
+	 * None for the reserved keys, the four original tracks' among them: their rules are written into
+	 * the plugin's stylesheet and the theme's.
 	 *
 	 * @return string CSS, or an empty string when there is nothing to paint.
 	 */
@@ -323,37 +371,85 @@ final class WPCPM_Tracks {
 	}
 
 	/**
+	 * The key one of the four original tracks' statuses is locked to.
+	 *
+	 * The status is trimmed first, as every read of one is, and then compared exactly, as the program
+	 * map compares one: a status a capital away is not one of the four, and `status_taken`, which
+	 * folds case, is what keeps a new track off it.
+	 *
+	 * @param string $status Airtable status.
+	 * @return string `150h`, `50h`, `dev` or `design`, or an empty string for any other status.
+	 */
+	public static function reserved_key( $status ) {
+		$status = trim( (string) $status );
+
+		return isset( self::RESERVED_PAIRS[ $status ] ) ? self::RESERVED_PAIRS[ $status ] : '';
+	}
+
+	/**
+	 * One of the four original tracks' names, as its seed spells it.
+	 *
+	 * @param string $status Airtable status.
+	 * @return string The name, or an empty string for any other status.
+	 */
+	public static function reserved_label( $status ) {
+		$status = trim( (string) $status );
+
+		return isset( self::RESERVED_LABELS[ $status ] ) ? self::RESERVED_LABELS[ $status ] : '';
+	}
+
+	/**
+	 * Whether a status is one of the four original tracks'.
+	 *
+	 * @param string $status Airtable status.
+	 * @return bool
+	 */
+	public static function is_reserved( $status ) {
+		return '' !== self::reserved_key( $status );
+	}
+
+	/**
 	 * What `WPCPM_Track_Definition::validate()` needs to know about the site.
 	 *
+	 * **The four original tracks come from `RESERVED_PAIRS`, not from the program map** (the
+	 * design's decision 36): each status against its key, named by the live row the site runs it
+	 * from, or by its seed (`RESERVED_LABELS`) while there is none. The map is what a compile fills,
+	 * so a context read from it alone would lose the four whenever they are not compiled, and with
+	 * them what keeps a new track off their statuses and names. With `$compiled`, every track the map
+	 * knows is written after them; for any of the four the map holds that rewrites the same key and
+	 * name, since the lock compiles each on its own key and the map names each as this does.
+	 *
 	 * `$own_status` leaves that status out of the others unconditionally, which is the hole the
-	 * T2a plan's decision 4 describes: a new track could take one of the four built-in statuses
-	 * under a key of its own. The store's `context()` is the one that locks, leaving a track's own
-	 * status out only when the track is locked to it, and no caller in the plugin passes a status
-	 * now.
+	 * T2a plan's decision 4 describes: `status_taken` then says nothing of it, so a new track could
+	 * take it under a key of its own, unless it is one of the four original statuses, which
+	 * `status_reserved` refuses whatever the context holds. The store's `context()` is the one that
+	 * locks, leaving a track's own status out only when the track is locked to it, and no caller in
+	 * the plugin passes a status now.
 	 *
 	 * @param string $own_status The status of the track being checked, left out of the others.
-	 * @param bool   $compiled   False to read the program map as its PHP alone describes it, which
-	 *                           is how the store checks a track against the others it compiles.
+	 * @param bool   $compiled   False to leave out every track the site runs but the four original
+	 *                           tracks, which is how the store checks a track against the others it
+	 *                           compiles.
 	 * @return array
 	 */
 	public static function validation_context( $own_status = '', $compiled = true ) {
-		if ( ! $compiled ) {
-			return self::unfiltered(
-				static function () use ( $own_status ) {
-					return self::validation_context( $own_status );
-				}
-			);
-		}
-
 		$tracks = array();
 		$labels = array();
+		$live   = self::live();
 
-		foreach ( WPCPM_Program::labels() as $status => $label ) {
-			if ( (string) $status !== (string) $own_status ) {
+		foreach ( self::RESERVED_PAIRS as $status => $key ) {
+			$tracks[ $status ] = $key;
+			$labels[ $status ] = isset( $live[ $status ]['label'] ) ? (string) $live[ $status ]['label'] : self::reserved_label( $status );
+		}
+
+		if ( $compiled ) {
+			foreach ( WPCPM_Program::labels() as $status => $label ) {
 				$tracks[ $status ] = WPCPM_Program::track( $status );
 				$labels[ $status ] = (string) $label;
 			}
 		}
+
+		unset( $tracks[ (string) $own_status ], $labels[ (string) $own_status ] );
 
 		$settings = WPCPM_Settings::get();
 		$refused  = array_merge(
@@ -368,58 +464,5 @@ final class WPCPM_Tracks {
 			'reserved_columns' => self::reserved_columns(),
 			'locked'           => null,
 		);
-	}
-
-	/**
-	 * What the PHP says of a status, compiled tracks aside: the name, course and hours a built-in
-	 * track's definition must match before it may switch (the design's decision 3.5).
-	 *
-	 * @param string $status Status.
-	 * @return array `label`, `course_url`, `course_id` (0 for none) and `hours` (null for none).
-	 */
-	public static function builtin_row( $status ) {
-		return self::unfiltered(
-			static function () use ( $status ) {
-				$hours = WPCPM_Program::hours_targets();
-
-				return array(
-					'label'      => (string) WPCPM_Program::label( $status ),
-					'course_url' => (string) WPCPM_Program::course_url( $status ),
-					'course_id'  => (int) WPCPM_Program::course_id( $status ),
-					'hours'      => isset( $hours[ $status ] ) ? (int) $hours[ $status ] : null,
-				);
-			}
-		);
-	}
-
-	/**
-	 * The key the PHP gives a status, compiled tracks aside: one of the four built-in keys, or an
-	 * empty string for a status no built-in track holds.
-	 *
-	 * @param string $status Status.
-	 * @return string
-	 */
-	public static function builtin_key( $status ) {
-		return self::unfiltered(
-			static function () use ( $status ) {
-				return WPCPM_Program::is_track( $status ) ? (string) WPCPM_Program::track( $status ) : '';
-			}
-		);
-	}
-
-	/**
-	 * Run a read of the program map with no compiled track in it.
-	 *
-	 * @param callable $read The read.
-	 * @return mixed What it returned.
-	 */
-	private static function unfiltered( callable $read ) {
-		++self::$suspended;
-
-		try {
-			return $read();
-		} finally {
-			--self::$suspended;
-		}
 	}
 }

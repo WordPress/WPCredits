@@ -230,7 +230,7 @@ define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/wp-content/plugins/wpcredits-program-manager/' );
 define( 'WPCPM_VERSION', 'test' );
 
-
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
@@ -584,6 +584,20 @@ class WPCPM_Duplicates_Scan {
 if ( ! function_exists( 'size_format' ) ) { function size_format( $b, $d = 0 ) { return $b . ' B'; } }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
+
+// The program map is the compiled tracks' (bin/stubs/compiled-seeds.php), through the five filters
+// `WPCPM_Tracks::init()` hooks. This suite's add_filter() records a hook without running it, so the
+// five go where its apply_filters() runs them, as the checks below put theirs.
+foreach ( array(
+	'wpcpm_program_labels'        => 'filter_labels',
+	'wpcpm_program_courses'       => 'filter_courses',
+	'wpcpm_program_hours_targets' => 'filter_hours',
+	'wpcpm_program_tracks'        => 'filter_tracks',
+	'wpcpm_program_course_ids'    => 'filter_course_ids',
+) as $map_hook => $map_filter ) {
+	$GLOBALS['live_filters'][ $map_hook ][] = array( 'WPCPM_Tracks', $map_filter );
+}
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fail  = 0;
 $total = 0;

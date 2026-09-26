@@ -89,8 +89,7 @@ function wp_generate_password( $len = 12, $special = true, $extra = false ) { re
 function get_temp_dir() { return wpcpm_test_temp_dir(); }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function home_url( $p = '' ) { return 'https://example.test' . $p; }
-function apply_filters( $t, $v ) { return $v; }
-function add_action() {} function add_filter() {} function register_rest_route() {}
+function add_action() {} function register_rest_route() {}
 function wp_kses_post( $s ) { return $s; }
 function checked( $a, $b = true, $e = true ) { $r = ( (string) $a === (string) $b ) ? ' checked="checked"' : ''; if ( $e ) { echo $r; } return $r; }
 function selected( $a, $b = true, $e = true ) { $r = ( (string) $a === (string) $b ) ? ' selected="selected"' : ''; if ( $e ) { echo $r; } return $r; }
@@ -212,12 +211,18 @@ class WPCPM_Mentors_Dashboard {
 
 require_once __DIR__ . '/stubs/caps.php';
 require_once __DIR__ . '/stubs/temp-dir.php';
+// Declares add_filter() and apply_filters(), which run what is hooked: the program map is made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-flash.php';
 require_once __DIR__ . '/../includes/class-wpcpm-program.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/class-wpcpm-image-upload.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
+
+// The program map and the Designer Track's form are the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fail = 0; $checks = 0;
 

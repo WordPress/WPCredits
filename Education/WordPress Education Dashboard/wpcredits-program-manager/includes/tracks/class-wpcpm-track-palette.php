@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * **A hue is a name chosen from this list, never a color typed on a screen.** The rule it
  * prints goes into the stylesheet of every dashboard page, so a free color would be a way to
  * put arbitrary text into CSS; and the chips a mentor scans down a list are only useful while
- * no two read alike. The values follow `dashboard.css`, and the four built-in tracks' hues are
+ * no two read alike. The values follow `dashboard.css`, and the four original tracks' hues are
  * in the list under their own names, so their definitions can name them and a new track's
  * default can pass them over.
  *

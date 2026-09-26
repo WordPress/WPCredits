@@ -25,15 +25,21 @@ define( 'ABSPATH', __DIR__ . '/' );
 $GLOBALS['today'] = '2026-09-02';
 
 function __( $s, $d = null ) { return $s; }
-function apply_filters( $t, $v ) { return $v; }
 function wp_date( $f, $t = null ) { return 'Y-m-d' === $f ? $GLOBALS['today'] : gmdate( $f, null === $t ? time() : $t ); }
 
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
+// Declares add_filter(), apply_filters(), add_action() and get_option(): the program map is made of
+// filters, over the options a compile writes.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
+
+// The program map is the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {

@@ -87,7 +87,6 @@ function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
-function apply_filters( $t, $v ) { return $v; }
 // Core's own, minus the locale: it pads to the number of places it is given, which is what
 // makes the difference between "150 of 150" and "150.00 of 150" a thing this suite can see.
 function number_format_i18n( $n, $d = 0 ) { return number_format( (float) $n, (int) $d ); }
@@ -288,10 +287,16 @@ class WPCPM_Institution_Roster {
 // inside a conditional so PHP cannot early-bind it, which is what lets the first assertions
 // run in a process where the export module genuinely does not exist.
 
+// Declares add_filter(), apply_filters() and add_action(): the program map is made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php';
+
+// The program map is the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fail  = 0;
 $total = 0;

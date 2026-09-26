@@ -39,12 +39,10 @@ class WP_Error {
 	public function get_error_data() { return $this->data; }
 }
 
-/** The store, stood in: the definition, what `check()` says of it, and where a built-in track stands. */
+/** The store, stood in: the definition, what `check()` says of it, and what publishing did. */
 class WPCPM_Track_Store {
 	public static $definitions = array();
 	public static $errors      = array();
-	public static $sources     = array();
-	public static $php_diffs   = array();
 
 	public static $published = array();
 	public static $logged    = array();
@@ -60,8 +58,6 @@ class WPCPM_Track_Store {
 	public static function get( $post_id ) { return self::$definitions[ $post_id ] ?? null; }
 	public static function published( $post_id ) { return self::$published_copies[ $post_id ] ?? null; }
 	public static function check( $post_id, array $definition ) { return self::$errors[ $post_id ] ?? array(); }
-	public static function source( $post_id ) { return self::$sources[ $post_id ] ?? 'definition'; }
-	public static function php_differences( $post_id, array $definition ) { return self::$php_diffs[ $post_id ] ?? array(); }
 
 	public static $states = array();
 
@@ -210,14 +206,18 @@ function wp_json_encode( $v ) { return json_encode( $v ); }
 function get_current_user_id() { return 5; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 
-/** The students sync, stood in: how many people hold a status. */
+/** The students sync, stood in: how many people hold a status, and which statuses were counted. */
 class WPCPM_Students_Sync {
 	public static $counts = array();
-	public static function count_on_status( $status ) { return (int) ( self::$counts[ $status ] ?? 0 ); }
+	public static $asked  = array();
+	public static function count_on_status( $status ) { self::$asked[] = $status; return (int) ( self::$counts[ $status ] ?? 0 ); }
 }
 
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-columns.php';
 require_once __DIR__ . '/../includes/tracks/class-wpcpm-track-publish.php';
+// For the four original tracks' pairs, which `take_down()` refuses by status.
+require_once __DIR__ . '/../includes/class-wpcpm-program.php';
+require_once __DIR__ . '/../includes/tracks/class-wpcpm-tracks.php';
 
 $fails = 0;
 $total = 0;
@@ -528,37 +528,34 @@ ck( 'a question whose control cannot be made into a column is refused',
 WPCPM_Track_Store::$definitions[7] = track();
 WPCPM_Airtable::$schema = base( array( 'What you did' => 'multilineText' ), array( 'Marketing Track' ) );
 
-echo "\n=== A built-in track ===\n";
+echo "\n=== Every track adds its status, and none is compared with a hand-written form ===\n";
 
-// A built-in track's definition must match its PHP. Test when it does and when it does not.
-WPCPM_Track_Store::$sources = array( 7 => 'builtin' );
-WPCPM_Airtable::$schema     = base( array( 'What you did' => 'multilineText' ), array( 'Marketing Track' ) );
+// The hand-written forms are gone, and with them the refusal of a definition that drifted from its
+// form and the one track that published without adding its status: a published track's status is
+// what its students carry, the four original tracks' included.
+WPCPM_Airtable::$schema = base( array( 'What you did' => 'multilineText' ), array( 'Marketing Track', 'Designer Track' ) );
 
-ck( 'a built-in track whose definition matches its PHP publishes',
-    array( codes( WPCPM_Track_Publish::preflight( 7 )['refusals'] ), WPCPM_Track_Publish::preflight( 7 )['ready'] ),
-    array( array(), true ) );
-
-// When the definition differs, the preflight refuses it.
-WPCPM_Track_Store::$php_diffs = array( 7 => array( 'label', 'hours' ) );
-
-$flight = WPCPM_Track_Publish::preflight( 7 );
-
-ck( 'a built-in track whose definition has drifted is refused, and says what differs',
-    array( codes( $flight['refusals'] ), $flight['refusals'][0]['code'], $flight['ready'] ),
-    array( array( 'builtin_changed' ), 'builtin_changed', false ) );
-
-WPCPM_Track_Store::$php_diffs = array();
-
-// Those four statuses were the program's before the Track Builder existed and are edited in
-// Settings, so publishing a seed never puts back one a manager took out (decision 13).
-// A built-in track never adds its status.
-ck( 'a built-in track never adds its status to the settings, which is said in a line',
-    WPCPM_Track_Publish::preflight( 7 )['adds_status'], false );
-
-WPCPM_Track_Store::$sources = array();
-
-ck( 'while a track of somebody\'s own does add its status, which is what makes its students sync',
+ck( 'a track of somebody\'s own adds its status, which is what makes its students sync',
     WPCPM_Track_Publish::preflight( 7 )['adds_status'], true );
+
+$original                          = track();
+$original['status']                = 'Designer Track';
+$original['key']                   = 'design';
+$original['label']                 = 'Designer Track';
+WPCPM_Track_Store::$definitions[8] = $original;
+$unasked                           = WPCPM_Track_Publish::preflight( 8 );
+
+ck( 'and so does one of the four original tracks, whose definition is compared with nothing and refused nothing for it',
+    array( codes( $unasked['refusals'] ), $unasked['ready'], $unasked['adds_status'] ),
+    array( array(), true, true ) );
+
+unset( WPCPM_Track_Store::$definitions[8] );
+
+$publish_source = (string) file_get_contents( __DIR__ . '/../includes/tracks/class-wpcpm-track-publish.php' );
+
+ck( 'the refusal and its sentence are removed, and the class asks the store neither question',
+    array( method_exists( 'WPCPM_Track_Publish', 'builtin_diff_message' ), false !== strpos( $publish_source, 'builtin_changed' ), false !== strpos( $publish_source, 'php_differences(' ), false !== strpos( $publish_source, 'Track_Store::source(' ) ),
+    array( false, false, false, false ) );
 
 echo "\n=== The Learn course, which is only ever a warning ===\n";
 
@@ -603,10 +600,10 @@ function fresh_run() {
 	WPCPM_Track_Store::$published_copies = array();
 	WPCPM_Track_Store::$unpublished = array();
 	WPCPM_Students_Sync::$counts    = array();
+	WPCPM_Students_Sync::$asked     = array();
 	WPCPM_Track_Store::$logged    = array();
 	WPCPM_Track_Store::$refuse    = null;
 	WPCPM_Track_Store::$errors    = array();
-	WPCPM_Track_Store::$sources   = array();
 	WPCPM_Track_Store::$definitions = array( 7 => track() );
 	WPCPM_Airtable::$schema       = base( array( 'What you did' => 'multilineText' ), array( 'Marketing Track' ) );
 	WPCPM_Settings::$values       = array( 'reports_table' => 'tblReports', 'students_table' => 'tblStudents', 'schema_token' => 'pat-schema' );
@@ -1179,6 +1176,30 @@ fresh_run();
 
 ck( 'with nobody on it the store takes it down',
     array( WPCPM_Track_Publish::take_down( 7, 5 ), WPCPM_Track_Store::$unpublished ), array( 7, array( array( 7, 5 ) ) ) );
+
+echo "\n=== The four original tracks always run ===\n";
+
+// The 150-hour track's form is the one every student on no track reads (the design's decision 34),
+// and the other three are the program's base statuses, so none of the four comes off the live
+// site whoever is on it: refused before anybody is counted, with nobody on it as well (the
+// design's decision 38).
+$originals = array();
+
+foreach ( array( 'In Sensei' => '150h', 'In Sensei 50h' => '50h', 'Developer Track' => 'dev', 'Designer Track' => 'design' ) as $original_status => $original_key ) {
+	fresh_run();
+	WPCPM_Track_Store::$definitions = array( 7 => array_merge( track(), array( 'status' => $original_status, 'key' => $original_key ) ) );
+	$down                           = WPCPM_Track_Publish::take_down( 7, 5 );
+	$originals[ $original_status ]  = array(
+		$down instanceof WP_Error ? $down->get_error_code() : $down,
+		$down instanceof WP_Error ? $down->get_error_message() : '',
+		WPCPM_Students_Sync::$asked,
+		WPCPM_Track_Store::$unpublished,
+	);
+}
+
+ck( 'one of the four original tracks is refused before anybody is counted, and the store is never asked to take it down',
+    $originals,
+    array_fill_keys( array_keys( $originals ), array( 'wpcpm_track_reserved', 'The program\'s original tracks always run: edit the track and publish the change instead.', array(), array() ) ) );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILURE(S)', $fails ) : 'ALL PASS', $total );
 

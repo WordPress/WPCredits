@@ -92,7 +92,7 @@ final class WPCPM_Track_Publish {
 	 * The three things the site cannot do, in the order they have to happen.
 	 *
 	 * The site cannot see an Airtable automation either way, so an unticked item never blocks
-	 * publishing; the track list counts it until somebody ticks it (7.3).
+	 * publishing (7.3); the publish screen shows it as not done until somebody ticks it.
 	 *
 	 * @var string[]
 	 */
@@ -111,7 +111,9 @@ final class WPCPM_Track_Publish {
 	 *                                   `WPCPM_Track_Columns::field()` says of them.
 	 *     @type array      $choices     `reports` and `students`, each `ok`, `near` or `missing`.
 	 *     @type array      $fields      `now` and `after`, how many columns the reports table holds.
-	 *     @type bool       $adds_status Whether publishing appends the status to `student_statuses`.
+	 *     @type bool       $adds_status Whether publishing appends the status to `student_statuses`:
+	 *                                   true for every track, since a published track's status is
+	 *                                   what its students carry.
 	 *     @type bool       $ready       Whether nothing refuses it.
 	 *     @type array|null $definition  The draft these findings were reached on, read once, which
 	 *                                   `run()` creates columns for and puts live (PUBLISH-LEARN-1);
@@ -147,18 +149,6 @@ final class WPCPM_Track_Publish {
 				// why no check saw it (T3a's final fix wave, deferred to T3b; decision 29).
 				isset( $error['where'] ) ? (string) $error['where'] : '',
 				isset( $error['message'] ) ? (string) $error['message'] : ''
-			);
-		}
-
-		// A built-in track's definition must match its PHP: a difference means the editing UI and
-		// the PHP are out of sync, and publishing would write the wrong version to the live table.
-		$php_diffs = WPCPM_Track_Store::php_differences( $post_id, $definition );
-
-		if ( ! empty( $php_diffs ) ) {
-			$refusals[] = self::finding(
-				'builtin_changed',
-				'',
-				self::builtin_diff_message( $php_diffs )
 			);
 		}
 
@@ -300,18 +290,17 @@ final class WPCPM_Track_Publish {
 			$refusals,
 			$warnings,
 			array(
-				'columns'     => array(
+				'columns'    => array(
 					'create' => $create,
 					'ready'  => $ready,
 					'detail' => $detail,
 				),
-				'choices'     => $choices,
-				'fields'      => array(
+				'choices'    => $choices,
+				'fields'     => array(
 					'now'   => $now,
 					'after' => $after,
 				),
-				'adds_status' => 'builtin' !== WPCPM_Track_Store::source( $post_id ),
-				'definition'  => $definition,
+				'definition' => $definition,
 			)
 		);
 	}
@@ -586,6 +575,11 @@ final class WPCPM_Track_Publish {
 	 * decision in Settings, since `revoke_departed()` would take the Student role from everybody
 	 * on the track (7.5).
 	 *
+	 * One of the four original tracks is refused before anybody is counted, with nobody on it as
+	 * well, as the store refuses it (the design's decision 38): the 150-hour track's form is the one
+	 * every student on no track reads (decision 34), whom no count of its status finds, and the
+	 * other three are the program's base statuses.
+	 *
 	 * @param int $post_id The track.
 	 * @param int $user_id Who pressed it, for the log; 0 for the current user.
 	 * @return int|WP_Error The post ID, or why nothing was done.
@@ -599,7 +593,12 @@ final class WPCPM_Track_Publish {
 		}
 
 		$status = isset( $definition['status'] ) ? (string) $definition['status'] : '';
-		$held   = WPCPM_Students_Sync::count_on_status( $status );
+
+		if ( WPCPM_Tracks::is_reserved( $status ) ) {
+			return new WP_Error( 'wpcpm_track_reserved', __( 'The program\'s original tracks always run: edit the track and publish the change instead.', 'wpcredits-program-manager' ) );
+		}
+
+		$held = WPCPM_Students_Sync::count_on_status( $status );
 
 		if ( $held > 0 ) {
 			return new WP_Error(
@@ -885,40 +884,6 @@ final class WPCPM_Track_Publish {
 	 */
 	private static function reports_table_message() {
 		return __( 'The Students Reports table setting does not hold the ID of a table in this base, so no column can be checked against it. Set it to the table\'s ID, which starts with "tbl", on the WPCredits Program → Settings screen.', 'wpcredits-program-manager' );
-	}
-
-	/**
-	 * Why a built-in track's definition does not match its PHP.
-	 *
-	 * @param string[] $differences The fields that differ: `form`, `label`, `course`, `course_id`,
-	 *                              or `hours`.
-	 * @return string
-	 */
-	private static function builtin_diff_message( array $differences ) {
-		$labels = array(
-			'form'      => __( 'form', 'wpcredits-program-manager' ),
-			'label'     => __( 'title', 'wpcredits-program-manager' ),
-			'course'    => __( 'course URL', 'wpcredits-program-manager' ),
-			'course_id' => __( 'Learn course ID', 'wpcredits-program-manager' ),
-			'hours'     => __( 'hours target', 'wpcredits-program-manager' ),
-		);
-
-		$names = array();
-
-		foreach ( $differences as $diff ) {
-			if ( isset( $labels[ $diff ] ) ) {
-				$names[] = $labels[ $diff ];
-			}
-		}
-
-		if ( empty( $names ) ) {
-			return __( 'This track no longer matches its hand-written form.', 'wpcredits-program-manager' );
-		}
-
-		/* translators: %s is a comma-separated list of field names that differ */
-		$message = __( 'This track no longer matches its hand-written form: %s differ.', 'wpcredits-program-manager' );
-
-		return sprintf( $message, implode( ', ', $names ) );
 	}
 
 	/**

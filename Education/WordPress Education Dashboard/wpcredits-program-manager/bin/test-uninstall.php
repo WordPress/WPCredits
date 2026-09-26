@@ -589,6 +589,7 @@ $named_options = array(
 	'wpcpm_tracks',                        // WPCPM_Tracks::OPT_TRACKS, through WPCPM_Track_Store::delete_all().
 	'wpcpm_tracks_skipped',                // WPCPM_Track_Store::OPT_SKIPPED.
 	'wpcpm_tracks_seeded',                 // WPCPM_Track_Store::OPT_SEEDED.
+	'wpcpm_tracks_upgrade_lock',           // WPCPM_Track_Store::OPT_UPGRADE_LOCK, through delete_all().
 	'wpcpm_track_fields_growth',           // The form of the track post below.
 	'wpcpm_track_fields_listed',           // The form of a track the index lists and no post holds.
 );
@@ -608,10 +609,12 @@ foreach ( $swept_options as $name ) {
 }
 
 // What the Track Builder keeps outside its posts (SURFACES-7): the lock a publish run holds while
-// it creates columns, which a run killed halfway leaves behind for good; the copy of the base's
-// schema the track editor reads, fifteen minutes; and the copies of a Learn course and of a
-// course's structure, a day each, named after the course.
-$GLOBALS['opts']['wpcpm_track_publish_lock'] = time() - DAY_IN_SECONDS;
+// it creates columns, which a run killed halfway leaves behind for good; the claim a request holds
+// while it upgrades the seeding, which a request killed inside the upgrade leaves behind; the copy of
+// the base's schema the track editor reads, fifteen minutes; and the copies of a Learn course and of
+// a course's structure, a day each, named after the course.
+$GLOBALS['opts']['wpcpm_track_publish_lock']  = time() - DAY_IN_SECONDS;
+$GLOBALS['opts']['wpcpm_tracks_upgrade_lock'] = time() - HOUR_IN_SECONDS;
 set_transient( 'wpcpm_airtable_schema', array( 'read' => time() ), 15 * MINUTE_IN_SECONDS );
 set_transient( 'wpcpm_learn_course_example-course', array( 'id' => 1 ), DAY_IN_SECONDS );
 set_transient( 'wpcpm_learn_structure_1', array(), DAY_IN_SECONDS );
@@ -793,6 +796,7 @@ ck( 'and the counts and times of the last bulk invite', get_option( 'wpcpm_invit
 echo "\n=== What the Track Builder keeps outside its posts (SURFACES-7) ===\n";
 
 ck( 'the publish lock a killed run left behind goes', get_option( 'wpcpm_track_publish_lock', 'gone' ), 'gone' );
+ck( 'and so does the claim on the upgrade of the seeding a killed request left behind', get_option( 'wpcpm_tracks_upgrade_lock', 'gone' ), 'gone' );
 ck( 'the copy of the base\'s schema goes, with its timeout', array_values( preg_grep( '/wpcpm_airtable_schema/', array_map( 'strval', array_keys( $GLOBALS['opts'] ) ) ) ), array() );
 ck( 'every copy of a Learn course and of a course\'s structure goes, with its timeout', array_values( preg_grep( '/wpcpm_learn_/', array_map( 'strval', array_keys( $GLOBALS['opts'] ) ) ) ), array() );
 ck( 'while a transient that is not the plugin\'s stays, with its timeout', array( get_transient( 'feed_example' ), isset( $GLOBALS['opts']['_transient_timeout_feed_example'] ) ), array( 'kept', true ) );
@@ -821,6 +825,7 @@ $names = array(
 	'WPCPM_Tracks::OPT_FIELDS_PREFIX'               => 'wpcpm_track_fields_',
 	'WPCPM_Track_Store::OPT_SKIPPED'                => 'wpcpm_tracks_skipped',
 	'WPCPM_Track_Store::OPT_SEEDED'                 => 'wpcpm_tracks_seeded',
+	'WPCPM_Track_Store::OPT_UPGRADE_LOCK'           => 'wpcpm_tracks_upgrade_lock',
 	'WPCPM_Track_Store::META_DEFINITION'            => '_wpcpm_track_definition',
 	'WPCPM_Institutions_Dashboard::OPT_MODULES_PREFIX' => 'wpcpm_institution_modules_',
 	'WPCPM_Mail::LOG_OPTION'                        => 'wpcpm_mail_log',

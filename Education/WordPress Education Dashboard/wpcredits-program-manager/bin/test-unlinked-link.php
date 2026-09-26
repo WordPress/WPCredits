@@ -110,8 +110,6 @@ function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function add_action( $h, $c = null, $p = 10, $n = 1 ) { $GLOBALS['hooks'][] = $h; }
-function add_filter() {}
-function apply_filters( $tag, $value ) { return $value; }
 function register_post_type() {}
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function human_time_diff( $a, $b = 0 ) { return '4 hours'; }
@@ -166,6 +164,8 @@ define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
+// Declares add_filter() and apply_filters(), which run what is hooked: the program map is made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
@@ -917,7 +917,12 @@ ck( 'no dash but the plain hyphen in either file', $dashes, array() );
 
 echo "\n=== A Track Builder track, once its automation item is ticked (1.100.0) ===\n";
 
+// The program map first: the tracks module names its status constants in the four original tracks'
+// pairs, which PHP evaluates the first time the module is used.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-tracks.php';
+
+WPCPM_Tracks::init();
 
 $GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ] = array(
 	'Marketing Track' => array( 'key' => 'marketing', 'label' => 'Marketing Track', 'course_url' => '', 'course_id' => 0, 'hours' => null, 'hue' => 'cyan', 'source' => 'definition', 'automation' => false, 'post' => 7 ),
@@ -933,9 +938,11 @@ ck( 'and the list the guard reads is the pinned five, then the ticked track', WP
 unset( $GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ] );
 WPCPM_Tracks::flush();
 
-require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
-
 echo "\n=== The programs an institution may be offered (decision 10) ===\n";
+
+// The four original tracks as the site runs them, compiled from their seeds
+// (bin/stubs/compiled-seeds.php): the section above left the site with no compiled track at all.
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 // The real offered_programs() method is the gate that blocks ungated tracks from both flows.
 // It returns statuses that appear in both labels() and automation_statuses().
@@ -946,17 +953,25 @@ $expected_built_in = array(
 	WPCPM_Program::STATUS_DESIGN => 'Designer Track',
 );
 
-ck( 'on a site with no Track Builder tracks, offered_programs returns the four built-in statuses',
+ck( 'on a site that runs the four original tracks and no other, offered_programs returns their four statuses',
     WPCPM_Institutions::offered_programs(),
     $expected_built_in );
 
-ck( 'all four built-in statuses survive when the compiled tracks option is empty',
+// Read from the compiled index and from nothing beside it: the map's hand-written rows are gone (the
+// Track Builder design's section 8), so what the next two pin is that the index is where the four are
+// read, in its order and under its names.
+ck( 'the four statuses offered are the compiled index\'s own, in the order it keeps them',
     array_keys( WPCPM_Institutions::offered_programs() ),
-    array( WPCPM_Program::STATUS_150H, WPCPM_Program::STATUS_50H, WPCPM_Program::STATUS_DEV, WPCPM_Program::STATUS_DESIGN ) );
+    array_keys( wpcpm_compiled_seeds()['rows'] ) );
 
-ck( 'all four survive when the compiled tracks option is missing entirely',
-    array_keys( WPCPM_Institutions::offered_programs() ),
-    array( WPCPM_Program::STATUS_150H, WPCPM_Program::STATUS_50H, WPCPM_Program::STATUS_DEV, WPCPM_Program::STATUS_DESIGN ) );
+$GLOBALS['opts'][ WPCPM_Tracks::OPT_TRACKS ][ WPCPM_Program::STATUS_DEV ]['label'] = 'Developer Track, renamed';
+WPCPM_Tracks::flush();
+
+ck( 'and each is offered under the name its compiled row carries, so a name changed there alone is the one offered',
+    WPCPM_Institutions::offered_programs()[ WPCPM_Program::STATUS_DEV ],
+    'Developer Track, renamed' );
+
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 // Test the gating logic: a status not in automation_statuses() is not offered, even if present in labels().
 // The four built-in statuses are always in AUTOMATION_STATUSES, so they always appear.

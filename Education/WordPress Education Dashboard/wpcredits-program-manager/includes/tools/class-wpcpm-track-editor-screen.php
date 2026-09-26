@@ -189,12 +189,6 @@ class WPCPM_Track_Editor_Screen {
 
 		printf( '<p><a href="%1$s">%2$s</a></p>', esc_url( add_query_arg( 'wpcpm_track', $track, $url ) ), esc_html( $back ) );
 
-		if ( ! empty( $form['read_only'] ) ) {
-			echo '<p class="wpcpm-tracks__readonly">' . esc_html__( 'This track runs from its hand-written form, so its questions cannot be edited here. Duplicate the track to start one of your own.', 'wpcredits-program-manager' ) . '</p>';
-
-			return;
-		}
-
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="wpcpm-question-form">';
 		wp_nonce_field( WPCPM_Track_Editor::ACTION_SAVE );
 		echo '<input type="hidden" name="action" value="' . esc_attr( WPCPM_Track_Editor::ACTION_SAVE ) . '" />';
@@ -494,8 +488,7 @@ class WPCPM_Track_Editor_Screen {
 	 *                    `schema` (`create`, the columns publishing would make, and `age`, how
 	 *                    old the reading is in seconds; empty when the base could not be read),
 	 *                    `locked` (the columns of the published copy), `typed` (what a refused Add
-	 *                    carried), the screen's `url`, and `read_only` for a built-in track its PHP
-	 *                    still runs.
+	 *                    carried), and the screen's `url`.
 	 */
 	public static function render_questions( array $args ) {
 		$track     = isset( $args['track'] ) ? (int) $args['track'] : 0;
@@ -507,7 +500,6 @@ class WPCPM_Track_Editor_Screen {
 		$locked    = isset( $args['locked'] ) && is_array( $args['locked'] ) ? array_map( 'strval', $args['locked'] ) : array();
 		$typed     = isset( $args['typed'] ) && is_array( $args['typed'] ) ? $args['typed'] : array();
 		$url       = isset( $args['url'] ) ? (string) $args['url'] : '';
-		$read_only = ! empty( $args['read_only'] );
 		$lessons   = isset( $args['lessons'] ) && is_array( $args['lessons'] ) ? $args['lessons'] : array();
 		$learn     = isset( $args['learn'] ) ? (string) $args['learn'] : '';
 		$lesson    = isset( $args['lesson'] ) ? (int) $args['lesson'] : 0;
@@ -557,7 +549,7 @@ class WPCPM_Track_Editor_Screen {
 				echo '</tr></thead><tbody>';
 
 				foreach ( $rows as $column => $spec ) {
-					self::render_row( $track, $key, $column, $spec, $others, $url, $read_only, in_array( (string) $column, $create, true ), in_array( (string) $column, $locked, true ) );
+					self::render_row( $track, $key, $column, $spec, $others, $url, in_array( (string) $column, $create, true ), in_array( (string) $column, $locked, true ) );
 				}
 
 				echo '</tbody></table>';
@@ -565,14 +557,14 @@ class WPCPM_Track_Editor_Screen {
 
 			$of_group = isset( $lessons[ $group ] ) && is_array( $lessons[ $group ] ) ? $lessons[ $group ] : array();
 
-			self::render_lessons( $group, $of_group, $questions, $track, $url, $read_only );
+			self::render_lessons( $group, $of_group, $questions, $track, $url );
 
 			// Total hours holds the Hours question alone (TRACKS-3), so once the track has it that
 			// group's Add form could only be refused; while Hours is missing, it is the one question
 			// a person may add there, and the form stays (TRACKS-3, follow-up).
 			$hours_held = 'hours' === $group && array_key_exists( WPCPM_Track_Definition::HOURS_COLUMN, $questions );
 
-			if ( ! $read_only && ! $hours_held ) {
+			if ( ! $hours_held ) {
 				self::render_add( $track, $group, $typed, $of_group, $lesson );
 			}
 
@@ -591,11 +583,10 @@ class WPCPM_Track_Editor_Screen {
 	 * @param array  $spec      The question.
 	 * @param array  $others    Every other track.
 	 * @param string $url       The screen's URL.
-	 * @param bool   $read_only Whether the row offers nothing to press.
 	 * @param bool   $to_create Whether publishing would create this column in the base.
 	 * @param bool   $locked    Whether the published copy holds this column, so it cannot fork.
 	 */
-	private static function render_row( $track, $key, $column, array $spec, array $others, $url, $read_only, $to_create = false, $locked = false ) {
+	private static function render_row( $track, $key, $column, array $spec, array $others, $url, $to_create = false, $locked = false ) {
 		$controls = self::controls();
 		$type     = isset( $spec['type'] ) ? (string) $spec['type'] : '';
 		$group    = isset( $spec['group'] ) ? (string) $spec['group'] : '';
@@ -621,17 +612,15 @@ class WPCPM_Track_Editor_Screen {
 
 		echo '<td class="wpcpm-list__actions">';
 
-		if ( ! $read_only ) {
-			// The column is encoded by the caller: add_query_arg() inserts a value exactly as it
-			// is handed and leaves encoding to us, and a column can hold `&` (the Task 5 review).
-			printf(
-				'<a href="%1$s">%2$s</a> ',
-				esc_url( add_query_arg( 'wpcpm_question', rawurlencode( $column ), add_query_arg( 'wpcpm_track', $track, $url ) ) ),
-				esc_html__( 'Edit', 'wpcredits-program-manager' )
-			);
-			self::render_mover( $track, $column );
-			self::render_remover( $track, $column );
-		}
+		// The column is encoded by the caller: add_query_arg() inserts a value exactly as it is
+		// handed and leaves encoding to us, and a column can hold `&` (the Task 5 review).
+		printf(
+			'<a href="%1$s">%2$s</a> ',
+			esc_url( add_query_arg( 'wpcpm_question', rawurlencode( $column ), add_query_arg( 'wpcpm_track', $track, $url ) ) ),
+			esc_html__( 'Edit', 'wpcredits-program-manager' )
+		);
+		self::render_mover( $track, $column );
+		self::render_remover( $track, $column );
 
 		echo '</td></tr>';
 	}
@@ -851,16 +840,15 @@ class WPCPM_Track_Editor_Screen {
 	/**
 	 * The lessons of the module this group is, under its questions (decision 32): each with the
 	 * questions that report on it, or "Add a question under this lesson", which opens the group's
-	 * add form with the lesson chosen; a built-in track still on its PHP has nothing to press.
+	 * add form with the lesson chosen.
 	 *
 	 * @param string  $group     The group.
 	 * @param array[] $lessons   Its module's lessons, each `id` and `title`.
 	 * @param array   $questions Every question of the track, column => spec.
 	 * @param int     $track     The track.
 	 * @param string  $url       The screen's URL.
-	 * @param bool    $read_only Whether the track is a built-in one still on its PHP.
 	 */
-	private static function render_lessons( $group, array $lessons, array $questions, $track, $url, $read_only ) {
+	private static function render_lessons( $group, array $lessons, array $questions, $track, $url ) {
 		if ( array() === $lessons ) {
 			return;
 		}
@@ -905,7 +893,7 @@ class WPCPM_Track_Editor_Screen {
 				);
 
 				printf( '<span class="wpcpm-lesson__asked">%s</span>', esc_html( $by ) );
-			} elseif ( $read_only || '' === $url ) {
+			} elseif ( '' === $url ) {
 				echo '<span class="wpcpm-lesson__none">' . esc_html__( 'No question yet', 'wpcredits-program-manager' ) . '</span>';
 			} else {
 				printf(

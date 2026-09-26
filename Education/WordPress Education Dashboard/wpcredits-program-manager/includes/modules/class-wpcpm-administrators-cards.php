@@ -883,8 +883,8 @@ final class WPCPM_Administrators_Cards {
 	 * the site can gain without a release. Until then this was a constant beside the map, and a
 	 * track missing from it was one whose students were counted into a tile never drawn - and, on
 	 * PHP 8, a warning on every load of the page. The order is still newest last: the map lists
-	 * the built-in tracks first and the Track Builder's after them in the order they were made,
-	 * so the tiles do not move under a reader who has learned where to look.
+	 * the tracks in the order they were made, the four original tracks, seeded before any other,
+	 * first, so the tiles do not move under a reader who has learned where to look.
 	 *
 	 * @return array<string, string>
 	 */

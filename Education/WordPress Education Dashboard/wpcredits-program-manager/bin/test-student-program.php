@@ -158,6 +158,7 @@ function get_users( $args = array() ) {
 	return $out;
 }
 
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once __DIR__ . '/../includes/class-wpcpm-roles.php';
 require_once __DIR__ . '/../includes/class-wpcpm-settings.php';
 require_once __DIR__ . '/../includes/class-wpcpm-airtable.php';
@@ -170,6 +171,10 @@ require_once __DIR__ . '/../includes/modules/class-wpcpm-students-sync.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-mentor-calls.php';
 require_once __DIR__ . '/../includes/class-wpcpm-field-value.php';
 require_once __DIR__ . '/../includes/modules/class-wpcpm-student-report-form.php';
+
+// The program map is the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fails = 0;
 $total = 0;
@@ -688,14 +693,15 @@ add_filter( 'wpcpm_program_labels', function ( $labels ) { $labels['Research Tra
 ck( 'a track the hours map has never heard of is a track', WPCPM_Program::is_track( 'Research Track' ), true );
 ck( 'and it has no target rather than a broken one', WPCPM_Program::hours_target( 'Research Track' ), 0 );
 ck( 'so nothing prints a denominator for it', WPCPM_Program::has_hours_target( 'Research Track' ), false );
-$GLOBALS['filters']['wpcpm_program_labels'] = array();
+// Off again, and only the filter this check added: the compiled tracks' own is on the hook too.
+array_pop( $GLOBALS['filters']['wpcpm_program_labels'] );
 
 // The filter is what an institution with its own target reaches for, so it has to be able to
 // add a status as well as change one.
 add_filter( 'wpcpm_program_hours_targets', function ( $targets ) { $targets['In Sensei 25h'] = 25; return $targets; } );
 ck( 'the filter can add a status', WPCPM_Program::hours_target( 'In Sensei 25h' ), 25 );
 ck( 'and the added status has a target', WPCPM_Program::has_hours_target( 'In Sensei 25h' ), true );
-$GLOBALS['filters']['wpcpm_program_hours_targets'] = array();
+array_pop( $GLOBALS['filters']['wpcpm_program_hours_targets'] );
 
 echo "\n=== The track key filter, the two states and the course IDs (1.100.0) ===\n";
 
@@ -704,7 +710,7 @@ ck( 'the four built-in statuses keep their keys', array( WPCPM_Program::track( '
 add_filter( 'wpcpm_program_tracks', function ( $tracks ) { $tracks['Research Track'] = 'research'; return $tracks; } );
 ck( 'a status given a key through wpcpm_program_tracks is a track under it, padding trimmed', WPCPM_Program::track( '  Research Track ' ), 'research' );
 ck( 'and badge() paints it with its own key', WPCPM_Program::badge( 'Research Track' ), 'research' );
-$GLOBALS['filters']['wpcpm_program_tracks'] = array();
+array_pop( $GLOBALS['filters']['wpcpm_program_tracks'] );
 
 ck( 'the two states on no track, public for the Track Builder\'s status rule', WPCPM_Program::states(), array( 'Paused' => 'paused', 'Pending graduation' => 'pending' ) );
 ck( 'and badge() still paints them from there', array( WPCPM_Program::badge( 'Paused' ), WPCPM_Program::badge( 'Pending graduation' ) ), array( 'paused', 'pending' ) );
@@ -714,7 +720,7 @@ ck( 'a status with no course has 0, not a notice', WPCPM_Program::course_id( 'Gr
 ck( 'every status with a course link has a course ID, and no other', array_keys( WPCPM_Program::course_ids() ), array_keys( WPCPM_Program::courses() ) );
 add_filter( 'wpcpm_program_course_ids', function ( $ids ) { $ids['Research Track'] = '500001'; return $ids; } );
 ck( 'the filter can add a course, and course_id() hands back an integer', WPCPM_Program::course_id( 'Research Track' ), 500001 );
-$GLOBALS['filters']['wpcpm_program_course_ids'] = array();
+array_pop( $GLOBALS['filters']['wpcpm_program_course_ids'] );
 
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 

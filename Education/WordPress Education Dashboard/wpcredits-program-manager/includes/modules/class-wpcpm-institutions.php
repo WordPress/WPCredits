@@ -89,7 +89,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * the first `new` of this class, and the suites that load this class do not load that one.
 	 *
 	 * Ask `automation_statuses()` rather than this list: it adds every Track Builder track whose
-	 * reports automation item somebody has ticked (1.100.0), and the Link control's guard reads it.
+	 * reports automation item is ticked (1.100.0), by a person or by the site when it published one
+	 * of the four original tracks, and the Link control's guard reads it.
 	 */
 	const AUTOMATION_STATUSES = array( 'In Sensei', 'In Sensei Self-onboarding', 'In Sensei 50h', 'Developer Track', 'Designer Track' );
 
@@ -836,7 +837,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 	/**
 	 * The statuses the reports automation is known to watch: the pinned list, and every Track
-	 * Builder track whose publish checklist says somebody added it to the automation's condition.
+	 * Builder track whose publish checklist says it was added to the automation's condition, ticked
+	 * by a person or by the site when it published one of the four original tracks, which the
+	 * pinned list names already.
 	 *
 	 * The site cannot read an automation (no token scope reaches one), so for a track made on the
 	 * site the only source is the person who changed the automation and ticked the item.
@@ -861,8 +864,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * be put on. A Track Builder track reaches these two flows only once somebody has ticked its
 	 * reports automation item, because a student put on it before the automation names its status
 	 * never gets a report row and their Student Report Card stays empty (the design's decision 10,
-	 * and 2.4 for the automation itself). The four built-in statuses are in the pinned list, so
-	 * they are unaffected.
+	 * and 2.4 for the automation itself). The four original tracks' statuses are in the pinned
+	 * list, so they are unaffected.
 	 *
 	 * @return array<string,string> Status to label, in the order `labels()` gives them.
 	 */

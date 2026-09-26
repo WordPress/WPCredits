@@ -151,6 +151,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 // The settings screen's own save handler, pressed for real in the BUILDER-3 section below.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
+// The track rules, whose comparison of a status with the past statuses the "Past students" section
+// below holds the save to: the real one, since a stand-in would only agree with itself.
+require_once WPCPM_PLUGIN_DIR . 'includes/tracks/class-wpcpm-track-definition.php';
 
 $fail = 0;
 function ck( $label, $actual, $expected ) {
@@ -1041,6 +1044,75 @@ press_settings( $drawn_odd, implode( "\n", $six ) );
 ck( 'a live status holding a run of spaces or a "<" is judged as the list keeps it, so a save taking it out is caught too',
     array( $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-refused'] ?? null, WPCPM_Settings::get()['student_statuses'] ),
     array( array( 'Mentor  Track' => 'Mentor Track', 'Less < More' => 'Less or More Track' ), $drawn_odd ) );
+
+WPCPM_Tracks::$live = array();
+
+$GLOBALS['umeta'] = array();
+
+echo "\n=== A live track's status is kept out of \"Past students\" ===\n";
+
+// A past status is refused to every track (`status_refused`), and a Settings save compiles
+// (decision 14), so a save putting a live track's status among the past statuses took the track off
+// the live site with nothing standing in: its students lost its form, and with the 150-hour track
+// every student on no track lost theirs too (decision 34). The twin of BUILDER-3's rule: the list
+// stays as stored, everything else is saved and compiled, and a notice names each track. Pressed
+// through the real handler.
+$GLOBALS['opts']    = array(
+	WPCPM_Settings::OPT_NAME    => WPCPM_Settings::defaults(),
+	WPCPM_Settings::OPT_VERSION => WPCPM_Settings::SETTINGS_VERSION,
+);
+$GLOBALS['umeta']   = array();
+WPCPM_Tracks::$live = array(
+	'In Sensei'       => array( 'key' => '150h', 'label' => 'WordPress Credits Program 150h', 'post' => 11 ),
+	'In Sensei 50h'   => array( 'key' => '50h', 'label' => 'WordPress Credits Program 50h', 'post' => 12 ),
+	'Developer Track' => array( 'key' => 'dev', 'label' => 'Developer Track', 'post' => 13 ),
+	'Designer Track'  => array( 'key' => 'design', 'label' => 'Designer Track', 'post' => 14 ),
+	'Mentor Track'    => array( 'key' => 'mentor', 'label' => 'Mentor Track', 'post' => 41 ),
+);
+$past_stored   = WPCPM_Settings::get()['past_statuses'];
+$compiled_then = WPCPM_Track_Store::$compiled;
+$ended         = press_settings( $six, implode( "\n", $six ), array( 'past_statuses' => "Graduate\nDropped out\nIn Sensei 50h\nMentor Track", 'mentor_status' => 'Active, past' ) );
+$queued        = $GLOBALS['umeta'][1][ WPCPM_Flash::META ] ?? array();
+
+ck( 'a save putting live tracks\' statuses among the past statuses saves everything else and compiles, leaves the list as stored, and names each track, one of the four original tracks included',
+    array( $ended, $queued['settings'] ?? null, $queued['settings-past-refused'] ?? null, WPCPM_Settings::get()['past_statuses'], WPCPM_Settings::get()['mentor_status'], WPCPM_Track_Store::$compiled - $compiled_then ),
+    array( 'redirect', 'saved', array( 'In Sensei 50h' => 'WordPress Credits Program 50h', 'Mentor Track' => 'Mentor Track' ), $past_stored, 'Active, past', 1 ) );
+
+// The rule compares folded, case and runs of spaces aside, so a past status typed in lower case
+// took the track off as surely as one typed as the track holds it.
+$GLOBALS['umeta'] = array();
+press_settings( $six, implode( "\n", $six ), array( 'past_statuses' => "Graduate\nDropped out\n  in  sensei  " ) );
+
+ck( 'a past status is judged as the track rules judge it, so "in  sensei" in lower case is caught as the 150-hour track\'s status',
+    array( $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-past-refused'] ?? null, WPCPM_Settings::get()['past_statuses'] ),
+    array( array( 'In Sensei' => 'WordPress Credits Program 150h' ), $past_stored ) );
+
+$GLOBALS['umeta'] = array();
+
+ck( 'a past status no live track holds is saved as ever, with no notice',
+    array( press_settings( $six, implode( "\n", $six ), array( 'past_statuses' => "Graduate\nDropped out\nWithdrawn" ) ), WPCPM_Settings::get()['past_statuses'], $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-past-refused'] ?? null ),
+    array( 'redirect', array( 'Graduate', 'Dropped out', 'Withdrawn' ), null ) );
+
+// A live status the stored list already holds, which only a hand edit can leave there since Publish
+// refuses a past status, is not the save's doing: keeping the list would not keep the track, which
+// the Track Builder's list shows as left out. As BUILDER-3's rule treats a status Currently
+// mentoring already lacks, an unrelated change to the list saves.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['past_statuses'] = array( 'Graduate', 'Mentor Track' );
+$GLOBALS['umeta']                                             = array();
+
+ck( 'a live status the stored list already holds does not refuse an unrelated change to the list',
+    array( press_settings( $six, implode( "\n", $six ), array( 'past_statuses' => "Graduate\nMentor Track\nDropped out" ) ), WPCPM_Settings::get()['past_statuses'], $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-past-refused'] ?? null ),
+    array( 'redirect', array( 'Graduate', 'Mentor Track', 'Dropped out' ), null ) );
+
+// Once a track is off the live site, its status may become a past status, as it may then leave
+// Currently mentoring (7.5).
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['past_statuses'] = $past_stored;
+$GLOBALS['umeta']                                             = array();
+unset( WPCPM_Tracks::$live['Mentor Track'] );
+
+ck( 'and once the track is off the live site, its status may join the list',
+    array( press_settings( $six, implode( "\n", $six ), array( 'past_statuses' => "Graduate\nDropped out\nMentor Track" ) ), WPCPM_Settings::get()['past_statuses'], $GLOBALS['umeta'][1][ WPCPM_Flash::META ]['settings-past-refused'] ?? null ),
+    array( 'redirect', array( 'Graduate', 'Dropped out', 'Mentor Track' ), null ) );
 
 WPCPM_Tracks::$live = array();
 

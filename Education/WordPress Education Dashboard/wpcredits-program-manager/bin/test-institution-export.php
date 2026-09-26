@@ -70,9 +70,10 @@ function __( $s, $d = null ) { return $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
 function esc_html__( $s, $d = null ) { return esc_html( $s ); }
-// The one filter the report form runs, so a check can hand the export a Track Builder track's
-// questions the way the plugin does, rather than only the four hand-written forms.
-function apply_filters( $t, $v ) { return 'wpcpm_report_form_fields' === $t && isset( $GLOBALS['form_fields'] ) ? $GLOBALS['form_fields'] : $v; }
+// The report form's filter answers a check's own questions when it sets some, so a check can hand the
+// export a Track Builder track's questions the way the plugin does. Everything else runs what was
+// hooked, which is where the four original tracks' forms come from (bin/stubs/compiled-seeds.php).
+function apply_filters( $t, $v, ...$a ) { return 'wpcpm_report_form_fields' === $t && isset( $GLOBALS['form_fields'] ) ? $GLOBALS['form_fields'] : wpcpm_stub_apply_filters( $t, $v, ...$a ); }
 function add_action() {}
 function absint( $v ) { return abs( (int) $v ); }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
@@ -197,12 +198,19 @@ class WPCPM_Mentor_Calls {
 	public static function student_record( $user_id ) { return ''; }
 }
 
+// Declares add_filter() and get_option(), neither of which this suite had any use for until the
+// program map was made of filters.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-program.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-student-report-form.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-roster-view.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-export.php';
+
+// The program map and the report forms are the compiled tracks' (bin/stubs/compiled-seeds.php).
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
 
 $fail  = 0;
 $total = 0;

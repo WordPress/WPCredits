@@ -689,6 +689,47 @@ class WPCPM_Settings {
 	}
 
 	/**
+	 * The live tracks whose status a save of this input would put among the past statuses, by
+	 * status.
+	 *
+	 * The twin of `tracks_dropped_by()` for "Past students": the Settings screen keeps the stored
+	 * list on such a save, saving everything else, and says why. A past status is refused to every
+	 * track (`status_refused`), and the save compiles (the design's decision 14), so the track would
+	 * leave the live site at once with nothing standing in: its students would lose its form, and
+	 * with the 150-hour track every student on no track would lose theirs (decision 34). That holds
+	 * for the program's four original tracks too, since their hand-written forms were removed. A
+	 * status may become a past status once its track is off the live site. Only a status the stored
+	 * list lacks can be put in: one it already holds is not the save's doing, keeping the list would
+	 * not keep the track, and the Track Builder's list shows the track the compile left out. Judged
+	 * as the compile judges it: the list as `save()` would store it, against each live status by the
+	 * rule's own comparison (`WPCPM_Track_Definition::is_refused_status()`), which folds case and
+	 * spacing.
+	 *
+	 * @param array $input What the save is handed.
+	 * @return array<string, string> Status => the track's name; empty when no track would leave.
+	 */
+	public static function tracks_ended_by( array $input ) {
+		if ( ! isset( $input['past_statuses'] ) || ! class_exists( 'WPCPM_Tracks' ) || ! class_exists( 'WPCPM_Track_Definition' ) ) {
+			return array();
+		}
+
+		$past   = self::clean_list( wp_unslash( $input['past_statuses'] ) );
+		$stored = self::get();
+		$held   = isset( $stored['past_statuses'] ) ? (array) $stored['past_statuses'] : array();
+		$ended  = array();
+
+		foreach ( WPCPM_Tracks::live() as $status => $row ) {
+			$status = (string) $status;
+
+			if ( WPCPM_Track_Definition::is_refused_status( $status, $past ) && ! WPCPM_Track_Definition::is_refused_status( $status, $held ) ) {
+				$ended[ $status ] = is_array( $row ) && isset( $row['label'] ) && '' !== (string) $row['label'] ? (string) $row['label'] : $status;
+			}
+		}
+
+		return $ended;
+	}
+
+	/**
 	 * A list setting as `save()` keeps it: one entry a line, or an array, each trimmed and
 	 * sanitized, the empty ones dropped, and each once.
 	 *

@@ -1067,10 +1067,10 @@ class WPCPM_Mentors_Dashboard {
 		echo '<div class="wpcpm-mentee__identity">';
 		echo '<h3 class="wpcpm-mentee__name">' . esc_html( $name ? $name : __( 'Unnamed student', 'wpcredits-program-manager' ) ) . '</h3>';
 		if ( '' !== $status ) {
-			// The modifier is the track where there is one, so a fourth track is one entry in
-			// `WPCPM_Program` and nothing here. A paused student and one awaiting graduation get
-			// their own, because they are still on this list and are not still working; a
-			// finished student keeps the plain badge.
+			// The modifier is the track where there is one, so a new track is one entry in the
+			// program map, which its published definition fills, and nothing here. A paused student
+			// and one awaiting graduation get their own, because they are still on this list and
+			// are not still working; a finished student keeps the plain badge.
 			$badge = WPCPM_Program::badge( $status );
 
 			printf(

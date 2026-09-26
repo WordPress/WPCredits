@@ -96,10 +96,10 @@
 <li><strong>Mentor status to sync</strong> - only mentors holding this Airtable status get an account.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Currently mentoring</strong> - one status per line. Students holding any of these appear under "Currently mentoring" on their mentor's page. The list keeps the status of every track the site runs from its definition: a save that would take one out saves everything else, leaves Currently mentoring as it was, and a notice names the track. Take the track off the live site in the Track Builder first, then remove its status. A Settings page left open while a track was published keeps the new status when it is saved, and the Track Builder's list flags a live track whose status is missing from Currently mentoring. Left untouched, the box saves the list as it is stored; edited on a page left open, it brings back a status somebody removed in the meantime, so reload the page first.</li>
+<li><strong>Currently mentoring</strong> - one status per line. Students holding any of these appear under "Currently mentoring" on their mentor's page. The list keeps the status of every track the site runs: a save that would take one out saves everything else, leaves Currently mentoring as it was, and a notice names the track. Take the track off the live site in the Track Builder first, then remove its status. A Settings page left open while a track was published keeps the new status when it is saved, and the Track Builder's list flags a live track whose status is missing from Currently mentoring. Left untouched, the box saves the list as it is stored; edited on a page left open, it brings back a status somebody removed in the meantime, so reload the page first.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Past students</strong> - statuses that mean mentoring has finished. Those students appear in a separate, collapsed section. Leave empty to show only current students; a status in both boxes counts as current.</li>
+<li><strong>Past students</strong> - statuses that mean mentoring has finished. Those students appear in a separate, collapsed section. Leave empty to show only current students; a status in both boxes counts as current. No track runs on a past status, so the list never takes the status of a track the site runs: a save that would add one saves everything else, leaves Past students as it was, and a notice names the track. Take the track off the live site in the Track Builder first, then add its status. The program's four original tracks always run, so their statuses are never past statuses.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>When a mentor is no longer active</strong> - remove the Mentor role and clear their student list, or leave the role in place. The account itself is never deleted either way.</li>
@@ -426,7 +426,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>Two things are worth knowing before you touch it. <strong>Nothing reaches students until a track is published</strong>, and every notice and the preview say so. And <strong>the four tracks the program runs today are here too</strong>, as built-in tracks that still run from the plugin's own code; the last part of this section is how to move one of them onto its definition.</p>
+<p>Two things are worth knowing before you touch it. <strong>Nothing reaches students until a track is published</strong>, and every notice and the preview say so. And <strong>the four tracks the program runs today are here too</strong>, as the program's four original tracks, published from the day a site goes live; the last part of this section is what makes them different from a track you make.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"the-track-list"} -->
@@ -442,11 +442,11 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Column</th><th>What it shows</th></tr></thead><tbody><tr><td>Track</td><td>The track's name</td></tr><tr><td>Status</td><td>The Airtable status a student holds to be on this track</td></tr><tr><td>Runs from</td><td><em>Its definition</em>, or <em>Its hand-written form, so it cannot be edited here</em> for a built-in track that has not switched yet</td></tr><tr><td>State</td><td><em>Draft</em>, <em>Published</em>, <em>Unpublished changes</em>, or <em>Live, from its hand-written form</em> for a built-in track; under it, for a built-in track, whether its definition is published yet and then whether it matches the plugin's form, a line when the last compile left the track out, and a line when a live track's status is missing from <strong>Currently mentoring</strong> in Settings</td></tr><tr><td>Students</td><td>How many synced students hold its status now</td></tr><tr><td>Last published</td><td>When, and by whom</td></tr><tr><td>Actions</td><td><strong>Edit</strong>, <strong>Duplicate</strong>, <strong>Preview</strong>, <strong>History</strong> and <strong>Publish</strong> (<strong>Publishing</strong> once it is; <strong>Publish definition</strong> on a built-in track), then the buttons only some tracks get</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Column</th><th>What it shows</th></tr></thead><tbody><tr><td>Track</td><td>The track's name</td></tr><tr><td>Status</td><td>The Airtable status a student holds to be on this track</td></tr><tr><td>State</td><td><em>Draft</em>, <em>Published</em>, <em>Unpublished changes</em> or <em>In the trash</em>; under it, a line when the last compile left the track out, and a line when a live track's status is missing from <strong>Currently mentoring</strong> in Settings</td></tr><tr><td>Students</td><td>How many synced students hold its status now</td></tr><tr><td>Last published</td><td>When, and by whom</td></tr><tr><td>Actions</td><td><strong>Edit</strong>, <strong>Duplicate</strong>, <strong>Preview</strong>, <strong>History</strong> and <strong>Publish</strong> (<strong>Publishing</strong> once it is), then the buttons only some tracks get</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:paragraph -->
-<p><strong>New track</strong> sits above the list. The buttons a row gets only sometimes: <strong>Refresh from the plugin</strong> on a built-in draft that fell behind a plugin update, <strong>Run from its definition</strong> and <strong>Run from its hand-written form</strong> on a built-in track, and <strong>Delete</strong> on a track of your own that was never published. Delete asks first and cannot be undone, and it deletes that draft and nothing else. A track that was ever published keeps its row, because its columns and its status live on in Airtable, and a built-in track is never offered it.</p>
+<p><strong>New track</strong> sits above the list. The only button a row gets sometimes is <strong>Delete</strong>, offered on a track that was never published. Delete asks first and cannot be undone, and it deletes that draft and nothing else. A track that was ever published keeps its row, because its columns and its status live on in Airtable; the program's four original tracks are published from the moment a site exists, so none of them is ever offered it.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":4,"anchor":"starting-a-track"} -->
@@ -463,7 +463,7 @@
 <li><strong>New track</strong> asks for the three things two tracks can never share: the <strong>Name</strong>, the <strong>Airtable status</strong> and the <strong>Key</strong>, the short word on the chip, plus the <strong>Learn course</strong> link when the track follows one. A name, status or key another track holds is refused, even when that track is a draft, since publishing the draft would claim it. With a link, the course's lessons are listed beside the questions, and the name is taken from the course when it is left empty. The chip color is chosen for you, the first one no other track holds, drafts included. The form starts empty; the questions are added on the track's page.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Duplicate</strong> copies every question of an existing track, the four built-in ones included, and asks for a name, a status and a key of its own, refused as New track's are when another track holds them. The copy starts with no Learn course and no hours target; set them on its page. This is the usual way to start a track that resembles one you run: duplicate the 150-hour track and change what differs.</li>
+<li><strong>Duplicate</strong> copies every question of an existing track, the four original tracks included, and asks for a name, a status and a key of its own, refused as New track's are when another track holds them. The copy starts with no Learn course and no hours target; set them on its page. This is the usual way to start a track that resembles one you run: duplicate the 150-hour track and change what differs.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><em>From a Learn course link</em> is New track with the link filled in. The lessons appear under the groups that are their modules, and each lesson offers <strong>Add a question under this lesson</strong>, which is how a form gets built lesson by lesson.</li>
@@ -552,7 +552,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>Preview</strong> draws the draft's form as a student sees it: empty answers, no student's record, the same renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. The hours box sits where the Student Report Card puts it: with the button that opens the course when the track has a Learn course, side by side on the student's page and one under the other here in wp-admin, and on its own when the track has none. A built-in track can be previewed too; its definition is what its form draws.</p>
+<p><strong>Preview</strong> draws the draft's form as a student sees it: empty answers, no student's record, the same renderer and the same stylesheet as the Student Report Card. Nothing typed there is kept. The hours box sits where the Student Report Card puts it: with the button that opens the course when the track has a Learn course, side by side on the student's page and one under the other here in wp-admin, and on its own when the track has none.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:image {"id":1190,"sizeSlug":"large","linkDestination":"none"} -->
@@ -594,7 +594,7 @@
 <li><strong>What the site cannot do</strong>: the three Airtable steps no token can take, with the exact values to use. Add the status to the condition of the automation <em>Add students to Students Reports and Feedback</em>; create the track's welcome email automation, as each of the four tracks has one; add the status as a choice of the Status column on both tables. Tick each with <strong>I have done this</strong> once it is done, and the tick records who and when. An unticked item never blocks publishing, but until the automation item is ticked, students cannot be put on the track from the institution import, because they would never get a report row.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li>Publishing a track of your own adds its status to <strong>Currently mentoring</strong> in Settings. The four built-in statuses are there already, so publishing a built-in definition adds nothing. While a track runs from its definition, a Settings save that would take its status out saves everything else, leaves Currently mentoring as it was and names the track.</li>
+<li>Publishing any track adds its status to <strong>Currently mentoring</strong> in Settings, unless it is there already. The four original tracks' statuses are there from the start, so publishing one of them adds nothing new. A Settings save that would take a live track's status out saves everything else, leaves Currently mentoring as it was, and names the track.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
@@ -612,23 +612,31 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>After publishing, the same screen offers <strong>Check it against Airtable</strong>, which reads the base again and says whether every column is still there with its type and the status is a choice on both tables, and <strong>Take it off the live site</strong>. On a built-in track that still runs from its hand-written form it offers <strong>Check it against Airtable</strong> alone: the definition stays published, since the track's students see the hand-written form either way. Unpublishing is refused while any student holds the status, with the count. Otherwise the track becomes a draft again, nothing in Airtable changes, and the status stays in Currently mentoring: removing it there takes the Student role from everybody on the track, which is a decision of its own.</p>
+<p>After publishing, the same screen offers <strong>Check it against Airtable</strong>, which reads the base again and says whether every column is still there with its type and the status is a choice on both tables, and, for every track but the program's four original ones, <strong>Take it off the live site</strong>. The four never offer it: a line beside the other actions says the program's original tracks always run, and to edit the track and publish the change instead. Unpublishing any other track is refused while any student holds the status, with the count; otherwise the track becomes a draft again, nothing in Airtable changes, and the status stays in Currently mentoring: removing it there takes the Student role from everybody on the track, which is a decision of its own.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
 <p>Editing a published track's words makes it <em>Unpublished changes</em>; students keep the published copy until <strong>Publish the changes</strong> is pressed.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:heading {"level":4,"anchor":"the-four-built-in-tracks"} -->
-<h4 class="wp-block-heading" id="the-four-built-in-tracks">The four built-in tracks</h4>
+<!-- wp:heading {"level":4,"anchor":"the-four-original-tracks"} -->
+<h4 class="wp-block-heading" id="the-four-original-tracks">The four original tracks</h4>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The 150-hour, 50-hour, Developer and Designer tracks were written into the plugin's code, and each has a definition in the Track Builder. Since 22 September 2026 all four run from their definitions: their Runs from column reads <em>Its definition</em>, their state reads <em>Published</em>, and you edit, preview and publish them like any track you make. The hand-written forms stay in the plugin only as a fallback until the Track Builder's last phase removes them.</p>
+<p>The 150-hour, 50-hour, Developer and Designer tracks are the program's own four. Each has run from its definition in the Track Builder since 22 September 2026, and there is nothing left to switch between: no hand-written form and no plugin update can move one of them, and you edit, duplicate, preview and publish them exactly like a track you make yourself.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p><strong>Run from its hand-written form</strong> puts a track back onto the code's form, as long as its definition has not been edited since the switch, and students see no change either way. The way back onto the definition is the same three steps used in September: publish the definition (the preflight finds nothing to create, because every column and both choices exist), wait for the line under the state to read <em>Identical to its hand-written form.</em>, then press <strong>Run from its definition</strong>.</p>
+<p>A fresh site seeds and publishes all four at once, with their publish checklist already ticked, from the seed files the plugin ships, so the program runs on day one with nobody pressing Publish. If one of the four is ever missing, <code>wp wpcredits seed-tracks</code> on the command line puts it back; it is the same command a site runs on itself the first time it reaches the Track Builder.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p><strong>Their statuses and keys belong to them.</strong> No other track can take the Airtable status or the key of one of the four, whether you are starting a new track, duplicating one, or saving one you already have: the refusal names which of the four original tracks keeps it. And the four cannot be deleted or unpublished at all; if something about one of them needs to change, edit the track and publish the change instead.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>A site already on an earlier version upgrades once, on its first load after 1.116.0 arrives: nothing for you to press, and a load that is cut short partway is finished by the next one. On a fresh site a seeding cut short leaves no half-made track behind, and <code>wp wpcredits seed-tracks</code> puts back any of the four that is missing, then as at any other time.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"need-help-2"} -->

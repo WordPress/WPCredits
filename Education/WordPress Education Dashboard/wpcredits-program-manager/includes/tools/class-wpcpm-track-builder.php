@@ -35,15 +35,6 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/** How many saves History shows, the cap the semester report screen gives its own. */
 	const HISTORY_LIMIT = 20;
 
-	/** Run a built-in track from its definition. */
-	const ACTION_SWITCH_DEFINITION = 'wpcpm_track_switch_definition';
-
-	/** Run a switched track from its hand-written form again. */
-	const ACTION_SWITCH_BUILTIN = 'wpcpm_track_switch_builtin';
-
-	/** Put a built-in draft back to the seed the plugin ships. */
-	const ACTION_REFRESH = 'wpcpm_track_refresh';
-
 	/** Publish a track: create its columns, then put it live. */
 	const ACTION_PUBLISH = 'wpcpm_track_publish';
 
@@ -154,9 +145,6 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		add_action( 'admin_post_' . self::ACTION_DUPLICATE, array( $this, 'handle_duplicate' ) );
 		add_action( 'admin_post_' . self::ACTION_NEW, array( $this, 'handle_new' ) );
 		add_action( 'admin_post_' . self::ACTION_COURSE, array( $this, 'handle_course' ) );
-		add_action( 'admin_post_' . self::ACTION_SWITCH_DEFINITION, array( $this, 'handle_switch_definition' ) );
-		add_action( 'admin_post_' . self::ACTION_SWITCH_BUILTIN, array( $this, 'handle_switch_builtin' ) );
-		add_action( 'admin_post_' . self::ACTION_REFRESH, array( $this, 'handle_refresh' ) );
 		add_action( 'admin_post_' . self::ACTION_PUBLISH, array( $this, 'handle_publish' ) );
 		add_action( 'admin_post_' . self::ACTION_UNPUBLISH, array( $this, 'handle_unpublish' ) );
 		add_action( 'admin_post_' . self::ACTION_VERIFY, array( $this, 'handle_verify' ) );
@@ -202,17 +190,14 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 *
 	 * Everything the list prints, read once here so the screen asks nothing of the store while it
 	 * draws: the state, who published it last, how many students hold its status, what the last
-	 * compile left out, how its definition compares with its PHP, whether a built-in draft has
-	 * fallen behind the seed the plugin now ships (the design's decision 12), and whether a track
-	 * the site runs from its definition has lost its status from "Currently mentoring", which the
-	 * students sync reads alone (the deep check of 1.109.1, BUILDER-3).
+	 * compile left out, and whether a live track has lost its status from "Currently mentoring",
+	 * which the students sync reads alone (the deep check of 1.109.1, BUILDER-3).
 	 *
 	 * @return array[]
 	 */
 	public static function rows() {
 		$skipped  = get_option( WPCPM_Track_Store::OPT_SKIPPED, array() );
 		$skipped  = is_array( $skipped ) ? $skipped : array();
-		$seeds    = WPCPM_Track_Store::seeds();
 		$settings = WPCPM_Settings::get();
 		$listed   = isset( $settings['student_statuses'] ) ? array_map( 'trim', array_map( 'strval', (array) $settings['student_statuses'] ) ) : array();
 		$live     = array();
@@ -234,19 +219,15 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 				continue;
 			}
 
-			$key       = isset( $definition['key'] ) ? (string) $definition['key'] : '';
-			$status    = isset( $definition['status'] ) ? (string) $definition['status'] : '';
-			$source    = WPCPM_Track_Store::source( $post_id );
-			$published = WPCPM_Track_Store::published( $post_id );
-			$last      = self::last_publish( WPCPM_Track_Store::log_entries( $post_id ) );
+			$status = isset( $definition['status'] ) ? (string) $definition['status'] : '';
+			$last   = self::last_publish( WPCPM_Track_Store::log_entries( $post_id ) );
 
 			$rows[] = array(
 				'id'             => $post_id,
 				'label'          => isset( $definition['label'] ) ? (string) $definition['label'] : '',
 				'status'         => $status,
-				'key'            => $key,
+				'key'            => isset( $definition['key'] ) ? (string) $definition['key'] : '',
 				'course'         => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
-				'source'         => $source,
 				'state'          => WPCPM_Track_Store::state( $post_id ),
 				'students'       => WPCPM_Students_Sync::count_on_status( $status ),
 				'published_by'   => (int) $last['by'],
@@ -254,9 +235,6 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 				'skipped'        => isset( $skipped[ $post_id ] ) ? (array) $skipped[ $post_id ] : array(),
 				// The live status the list lacks, or ''; matched exactly, as the sync matches.
 				'unlisted'       => isset( $live[ $post_id ] ) && ! in_array( $live[ $post_id ], $listed, true ) ? $live[ $post_id ] : '',
-				'equivalence'    => WPCPM_Track_Store::equivalence( $post_id ),
-				'switched'       => WPCPM_Track_Store::switched( $post_id ),
-				'stale'          => self::stale( $definition, $source, $published, $seeds ),
 				// From the log, not the state: an unpublished track is a draft again and is
 				// still the record of what was created in the base (decision 25).
 				'ever_published' => WPCPM_Track_Store::ever_published( $post_id ),
@@ -269,9 +247,8 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/**
 	 * A track's properties, as the form edits them.
 	 *
-	 * The questions are T3's, so this is what a track *is* rather than what it asks. A built-in
-	 * track its PHP still runs is read-only: its equivalence with that PHP is what the switch
-	 * rests on (spec section 6), and the store refuses the save in any case.
+	 * The questions are T3's, so this is what a track *is* rather than what it asks. Every track is
+	 * edited here, the four original tracks included; the store keeps their statuses and keys.
 	 *
 	 * `learn_course_id` and `hours_target` default to an empty string, not zero: a track may have
 	 * no hours target at all (a standing product decision), and a field that rendered "0" for
@@ -286,7 +263,6 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 		$post_id    = (int) $post_id;
 		$definition = WPCPM_Track_Store::get( $post_id );
 		$definition = is_array( $definition ) ? $definition : array();
-		$read_only  = 'builtin' === WPCPM_Track_Store::source( $post_id );
 		$published  = WPCPM_Track_Store::published( $post_id );
 		$lessons    = self::lessons_of( $definition );
 
@@ -299,13 +275,11 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			'learn_course_id' => isset( $definition['learn_course_id'] ) ? (int) $definition['learn_course_id'] : '',
 			'hours_target'    => isset( $definition['hours_target'] ) ? (int) $definition['hours_target'] : '',
 			'hue'             => isset( $definition['hue'] ) ? (string) $definition['hue'] : '',
-			'read_only'       => $read_only,
 			// The questions and every other track's columns, for the list under the properties
 			// (T3a): the sharing index is read once here, not once per row.
 			'questions'       => isset( $definition['questions'] ) && is_array( $definition['questions'] ) ? $definition['questions'] : array(),
 			'others'          => WPCPM_Track_Store::others( $post_id ),
-			// A built-in track's columns all exist, and its list offers nothing to press.
-			'schema'          => $read_only ? array() : self::schema_line( $definition ),
+			'schema'          => self::schema_line( $definition ),
 			// The columns of the published copy: a row for one of these promises no fork, since
 			// that is the change `handle_save()` refuses (decision 23, the whole-branch review).
 			'locked'          => is_array( $published ) && isset( $published['questions'] ) && is_array( $published['questions'] ) ? array_map( 'strval', array_keys( $published['questions'] ) ) : array(),
@@ -322,49 +296,26 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	 * What the preview draws: the draft compiled as the live site would compile it (decision 27).
 	 *
 	 * `compile_fields()` is the call `compile()` makes, so the preview and the published form come
-	 * from the same reading of the definition, with the same authoring properties left out. A
-	 * built-in track still running from its PHP previews too: its definition is what the PHP draws.
-	 * The course comes too, because the student's page draws the hours box beside the course button,
-	 * or in a section of its own when there is no course, and the preview draws the same (TRACKS-3).
+	 * from the same reading of the definition, with the same authoring properties left out. The
+	 * course comes too, because the student's page draws the hours box beside the course button, or
+	 * in a section of its own when there is no course, and the preview draws the same (TRACKS-3).
 	 *
 	 * @param int $post_id The track.
-	 * @return array `track`, `label`, `fields` (column => spec), `state`, `source`, `stale`,
-	 *               whether a built-in draft fell behind the plugin's seed, and `course`, the
-	 *               Learn course link or empty.
+	 * @return array `track`, `label`, `fields` (column => spec), `state`, and `course`, the Learn
+	 *               course link or empty.
 	 */
 	public static function preview( $post_id ) {
 		$post_id    = (int) $post_id;
 		$definition = WPCPM_Track_Store::get( $post_id );
 		$definition = is_array( $definition ) ? $definition : array();
 
-		$source = WPCPM_Track_Store::source( $post_id );
-		$seeds  = WPCPM_Track_Store::seeds();
-
 		return array(
 			'track'  => $post_id,
 			'label'  => isset( $definition['label'] ) ? (string) $definition['label'] : '',
 			'fields' => WPCPM_Track_Definition::compile_fields( $definition ),
 			'state'  => WPCPM_Track_Store::state( $post_id ),
-			'source' => $source,
-			'stale'  => self::stale( $definition, $source, WPCPM_Track_Store::published( $post_id ), $seeds ),
 			'course' => isset( $definition['course_url'] ) ? (string) $definition['course_url'] : '',
 		);
-	}
-
-	/**
-	 * Whether a built-in draft has fallen behind the seed the plugin now ships (decision 12): what
-	 * the list's Refresh from the plugin puts right, and what a preview of it warns about.
-	 *
-	 * @param array      $definition The track's definition.
-	 * @param string     $source     `builtin` while its PHP runs it.
-	 * @param array|null $published  Its published copy, or null.
-	 * @param array      $seeds      The seeds, by key.
-	 * @return bool
-	 */
-	private static function stale( array $definition, $source, $published, array $seeds ) {
-		$key = isset( $definition['key'] ) ? (string) $definition['key'] : '';
-
-		return 'builtin' === $source && ! is_array( $published ) && isset( $seeds[ $key ] ) && $seeds[ $key ] !== $definition;
 	}
 
 	/**
@@ -552,7 +503,6 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 			'owners'      => WPCPM_Track_Questions::owners( $column, $others ),
 			'forked_from' => WPCPM_Track_Questions::forked_from( $column, $key, $others ),
 			'locked'      => WPCPM_Track_Questions::locked( $column, is_array( $published ) && isset( $published['questions'] ) && is_array( $published['questions'] ) ? $published['questions'] : array() ),
-			'read_only'   => 'builtin' === WPCPM_Track_Store::source( $post_id ),
 			// The course's modules with their lessons for the lesson row, why they could not be
 			// read when they could not, and whether there is a course at all (decision 32).
 			'lessons'     => is_wp_error( $modules ) ? array() : $modules,
@@ -636,7 +586,9 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 					'track'     => $publish,
 					'label'     => isset( $held['label'] ) ? (string) $held['label'] : '',
 					'state'     => WPCPM_Track_Store::state( $publish ),
-					'source'    => WPCPM_Track_Store::source( $publish ),
+					// The saved definition's status, as `take_down()` and the store's
+					// `unpublish()` read it.
+					'reserved'  => WPCPM_Tracks::is_reserved( isset( $held['status'] ) ? (string) $held['status'] : '' ),
 					'preflight' => WPCPM_Track_Publish::preflight( $publish ),
 					'checklist' => WPCPM_Track_Publish::checklist( $publish ),
 					'can_make'  => WPCPM_Settings::has_schema_token(),
@@ -1328,30 +1280,6 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	}
 
 	/**
-	 * Run a built-in track from its definition.
-	 */
-	public function handle_switch_definition() {
-		$this->verify( self::ACTION_SWITCH_DEFINITION );
-
-		$this->report(
-			WPCPM_Track_Store::switch_to_definition( WPCPM_Request::posted_id( 'track' ) ),
-			__( 'That track now runs from its definition. What students see has not changed, which is what let it switch.', 'wpcredits-program-manager' )
-		);
-	}
-
-	/**
-	 * Run a switched track from its hand-written form again.
-	 */
-	public function handle_switch_builtin() {
-		$this->verify( self::ACTION_SWITCH_BUILTIN );
-
-		$this->report(
-			WPCPM_Track_Store::switch_to_builtin( WPCPM_Request::posted_id( 'track' ) ),
-			__( 'That track runs from its hand-written form again.', 'wpcredits-program-manager' )
-		);
-	}
-
-	/**
 	 * Flash what the store answered and go back to the list.
 	 *
 	 * @param int|WP_Error $result  What the store answered.
@@ -1375,31 +1303,6 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 				'message' => $message,
 			),
 			$args
-		);
-	}
-
-	/**
-	 * Put one built-in draft back to the seed the plugin ships.
-	 */
-	public function handle_refresh() {
-		$this->verify( self::ACTION_REFRESH );
-
-		$result = WPCPM_Track_Store::refresh_builtin( WPCPM_Request::posted_id( 'track' ) );
-
-		if ( is_wp_error( $result ) ) {
-			$this->redirect_back(
-				array(
-					'status'  => 'error',
-					'message' => $result->get_error_message(),
-				)
-			);
-		}
-
-		$this->redirect_back(
-			array(
-				'status'  => 'success',
-				'message' => __( 'The track was refreshed from the version this plugin ships.', 'wpcredits-program-manager' ),
-			)
 		);
 	}
 
@@ -1536,27 +1439,15 @@ class WPCPM_Track_Builder extends WPCPM_Tool {
 	/**
 	 * Take a track off the live site.
 	 *
-	 * Not a built-in track its PHP still runs: its students see the hand-written form whether its
-	 * definition is published or not, so there is nothing to take off the live site, and
-	 * `take_down()` would refuse it whenever anybody held the status, saying their Student Report
-	 * Cards would be left with no form, which is not so. The screen does not offer it; a press from
-	 * a page drawn before, or a crafted one, is told what is true (the deep check of 1.109.1,
-	 * BUILDER-7).
+	 * `take_down()` decides, and says why when it refuses: one of the four original tracks is never
+	 * taken off (the design's decision 38), and any other track is kept while students hold its
+	 * status. The screen offers no Unpublish on one of the four; a press from a page drawn before,
+	 * or a crafted one, is answered by that refusal, which is true.
 	 */
 	public function handle_unpublish() {
 		$this->verify( self::ACTION_UNPUBLISH );
 
 		$track = WPCPM_Request::posted_id( 'track' );
-
-		if ( 'builtin' === WPCPM_Track_Store::source( $track ) ) {
-			$this->redirect_back(
-				array(
-					'status'  => 'error',
-					'message' => __( 'The definition was not unpublished. This track runs from its hand-written form, so its students see that form whether or not the definition is published: there is nothing to take off the live site.', 'wpcredits-program-manager' ),
-				),
-				array( 'wpcpm_publish' => $track )
-			);
-		}
 
 		// Back to the track's own publish screen, where the press came from, rather than the list:
 		// the screen shows the state the press changed (T2c's Task 9 review, its L3).

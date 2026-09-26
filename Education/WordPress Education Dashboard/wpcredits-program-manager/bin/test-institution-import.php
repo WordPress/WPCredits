@@ -326,6 +326,12 @@ class Fake_Airtable {
 	}
 }
 
+// The program map is the compiled tracks' (bin/stubs/compiled-seeds.php): a program cell is matched
+// against a track's status and its name.
+require_once __DIR__ . '/stubs/compiled-seeds.php';
+WPCPM_Tracks::init();
+wpcpm_seed_compiled_options( $GLOBALS['opts'] );
+
 $fails = 0;
 $total = 0;
 

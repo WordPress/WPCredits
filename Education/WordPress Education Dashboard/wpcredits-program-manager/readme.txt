@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.110.4
+Stable tag: 1.116.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.116.0 =
+
+* **Track Builder: the four original tracks run from their definitions alone.** The hand-written report forms and the program map's rows for the 150-hour, 50-hour, Developer and Designer tracks are gone, along with the switch between a track's hand-written form and its definition, the refresh from the plugin and the "Runs from" column: every track is a definition now. The four original tracks keep their statuses and keys, which no other track can take, and cannot be deleted or unpublished; a fresh site seeds and publishes them at once. Nothing a student, a mentor or an institution sees changes.
 
 = 1.110.4 =
 

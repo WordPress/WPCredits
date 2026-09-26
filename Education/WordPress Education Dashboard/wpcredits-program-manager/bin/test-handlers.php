@@ -2516,16 +2516,26 @@ echo "\n=== The Settings screen carries Currently mentoring as it drew it, and s
 // page only carried back, which it can do only if the page carries the list it drew, one hidden
 // field a status beside the textarea; and a save refused for taking a live track's status out
 // comes back to this screen, which has to say why. The whole screen is drawn, as a person sees it.
+// The save here tripped the twin rule for "Past students" as well, so both notices are drawn: one
+// page, since a flash is read once a request.
 $settings_before = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ?? null;
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'student_statuses' => array( 'In Sensei', 'Mentor "Track" <b>' ) );
 $GLOBALS['uid']                              = 1;
 $GLOBALS['caps']                             = true;
-update_user_meta( 1, WPCPM_Flash::META, array( 'settings-refused' => array( 'Mentor "Track" <b>' => 'Mentor <Track>' ) ) );
+update_user_meta(
+	1,
+	WPCPM_Flash::META,
+	array(
+		'settings-refused'      => array( 'Mentor "Track" <b>' => 'Mentor <Track>' ),
+		'settings-past-refused' => array( 'In Sensei 50h' => 'WordPress Credits Program 50h', 'Writing "Track" <i>' => 'Writing <Track>' ),
+	)
+);
 
 ob_start();
 ( new WPCPM_Admin() )->render_settings();
 $settings_page = ob_get_clean();
+$left_queued   = $GLOBALS['umeta'][1][ WPCPM_Flash::META ] ?? array();
 
 check( 'the page carries the list it drew beside the textarea, each status escaped, and says, once and escaped, that the rest was saved and which track kept the list as it was (the fix round\'s ruling)',
     array(
@@ -2539,13 +2549,21 @@ check( 'the page carries the list it drew beside the textarea, each status escap
     ),
     array( 1, 1, 2, 1, 1, 0, '' ) );
 
+check( 'and says, once and escaped, which live tracks kept "Past students" as it was, one of the four original tracks among them, both notices read off the queue',
+    array(
+        substr_count( $settings_page, '<div class="notice notice-warning is-dismissible"><p>Everything else was saved. &quot;Past students&quot; was left as it was, because WordPress Credits Program 50h runs on &quot;In Sensei 50h&quot;; Writing &lt;Track&gt; runs on &quot;Writing &quot;Track&quot; &lt;i&gt;&quot;: no track runs on a past status, so saving the list would have taken the track off the live site, and its students would have lost its form. Take the track off the live site in the Track Builder first, then add its status here. The program&#039;s four original tracks always run, so their statuses are never past statuses.</p></div>' ),
+        substr_count( $settings_page, '<i>' ),
+        $left_queued,
+    ),
+    array( 1, 0, array() ) );
+
 if ( null === $settings_before ) {
 	unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] );
 } else {
 	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $settings_before;
 }
 
-echo "\n=== The Track Builder's seventeen handlers (BUILDER-8, TESTS-DOCS-2) ===\n";
+echo "\n=== The Track Builder's fourteen handlers (BUILDER-8, TESTS-DOCS-2) ===\n";
 
 // This file says it smoke-runs every admin-post handler in the plugin, and until the deep check of
 // 1.109.1 it pressed none of the Track Builder's (BUILDER-8, TESTS-DOCS-2). Each is found by name,
@@ -2581,9 +2599,9 @@ foreach ( $track_handlers as $name => $handler ) {
 	$track_targets[ $name ] = $GLOBALS['redirected_to'];
 }
 
-check( 'all seventeen reach their redirect with an error queued in the raw flash meta, the real WPCPM_Flash\'s',
+check( 'all fourteen reach their redirect with an error queued in the raw flash meta, the real WPCPM_Flash\'s',
     array( count( $track_handlers ), array_unique( array_values( $track_flashes ) ) ),
-    array( 17, array( 'error' ) ) );
+    array( 14, array( 'error' ) ) );
 
 // Where each is sent, read right (the fix round of TESTS-DOCS-2): the builder's handlers name their
 // screen with add_query_arg( key, value, url ), which this harness's stand-in did not know, so the
@@ -2594,23 +2612,20 @@ $publish_screen = $list_screen . '&wpcpm_publish=4040';
 check( 'and each is sent to the screen it names: the list, the new track form, or the track\'s publish screen',
     $track_targets,
     array(
-        'WPCPM_Track_Builder::handle_save'              => $list_screen,
-        'WPCPM_Track_Builder::handle_duplicate'         => $list_screen,
-        'WPCPM_Track_Builder::handle_new'               => $list_screen . '&wpcpm_new=1',
-        'WPCPM_Track_Builder::handle_course'            => $list_screen,
-        'WPCPM_Track_Builder::handle_switch_definition' => $list_screen,
-        'WPCPM_Track_Builder::handle_switch_builtin'    => $list_screen,
-        'WPCPM_Track_Builder::handle_refresh'           => $list_screen,
-        'WPCPM_Track_Builder::handle_publish'           => $publish_screen,
-        'WPCPM_Track_Builder::handle_unpublish'         => $publish_screen,
-        'WPCPM_Track_Builder::handle_verify'            => $publish_screen,
-        'WPCPM_Track_Builder::handle_tick'              => $publish_screen,
-        'WPCPM_Track_Builder::handle_untick'            => $publish_screen,
-        'WPCPM_Track_Editor::handle_add'                => $list_screen,
-        'WPCPM_Track_Editor::handle_save'               => $list_screen,
-        'WPCPM_Track_Editor::handle_move'               => $list_screen,
-        'WPCPM_Track_Editor::handle_remove'             => $list_screen,
-        'WPCPM_Track_Editor::handle_delete'             => $list_screen,
+        'WPCPM_Track_Builder::handle_save'      => $list_screen,
+        'WPCPM_Track_Builder::handle_duplicate' => $list_screen,
+        'WPCPM_Track_Builder::handle_new'       => $list_screen . '&wpcpm_new=1',
+        'WPCPM_Track_Builder::handle_course'    => $list_screen,
+        'WPCPM_Track_Builder::handle_publish'   => $publish_screen,
+        'WPCPM_Track_Builder::handle_unpublish' => $publish_screen,
+        'WPCPM_Track_Builder::handle_verify'    => $publish_screen,
+        'WPCPM_Track_Builder::handle_tick'      => $publish_screen,
+        'WPCPM_Track_Builder::handle_untick'    => $publish_screen,
+        'WPCPM_Track_Editor::handle_add'        => $list_screen,
+        'WPCPM_Track_Editor::handle_save'       => $list_screen,
+        'WPCPM_Track_Editor::handle_move'       => $list_screen,
+        'WPCPM_Track_Editor::handle_remove'     => $list_screen,
+        'WPCPM_Track_Editor::handle_delete'     => $list_screen,
     ) );
 
 $GLOBALS['uid']         = 30;
@@ -2641,7 +2656,9 @@ echo "\n=== A move the page asked for in the background is answered, refusal and
 // since the page was drawn, was answered with a redirect. The script followed it to the Track
 // Builder's page, read HTML where it wanted JSON and kept the row where it had moved it, and the
 // page it followed took the refusal's notice, so nobody ever read it. Through the real store and
-// the real WPCPM_Flash: the track here was switched back to its hand-written form in another tab.
+// the real WPCPM_Flash. A move asks no rule (the whole-branch review), so the store's refusal here
+// is the one `save()` gives before it writes anything: the track holds a definition written by
+// hand, whose bound JSON reads as infinite, which the store cannot write back.
 $moved_track = WPCPM_Track_Store::create(
 	array(
 		'schema_version' => 1,
@@ -2654,7 +2671,7 @@ $moved_track = WPCPM_Track_Store::create(
 		),
 	)
 );
-update_post_meta( $moved_track, WPCPM_Track_Store::META_SOURCE, 'builtin' );
+update_post_meta( $moved_track, WPCPM_Track_Store::META_DEFINITION, '{"schema_version":1,"key":"moving","status":"Moving Track","label":"Moving Track","questions":{"First":{"type":"number","label":"First question","group":"onboarding","max":1e400},"Second":{"type":"text","label":"Second question","group":"onboarding"}}}' );
 
 $background = array();
 
@@ -2669,7 +2686,7 @@ check( 'each is answered as a refusal with its reason and a status the script re
     array( $background, array_keys( WPCPM_Track_Store::get( $moved_track )['questions'] ) ),
     array(
         array(
-            'refused by the store'     => array( array( 'success' => false, 'data' => array( 'message' => 'A built-in track runs from its PHP, so it cannot be edited until it switches to its definition. It can be duplicated.' ), 'status' => 409 ), '' ),
+            'refused by the store'     => array( array( 'success' => false, 'data' => array( 'message' => 'The track was not saved: one of its values cannot be stored.' ), 'status' => 409 ), '' ),
             'on a track since deleted' => array( array( 'success' => false, 'data' => array( 'message' => 'That track does not exist.' ), 'status' => 404 ), '' ),
         ),
         array( 'First', 'Second' ),
@@ -2681,7 +2698,7 @@ $without_script = flashed( 1, WPCPM_Track_Builder::FLASH );
 
 check( 'and the same press without the script still comes back with the refusal in the notice, since that is all the person reads',
     array( is_array( $without_script ) ? $without_script['status'] : '', is_array( $without_script ) ? $without_script['message'] : '' ),
-    array( 'error', 'A built-in track runs from its PHP, so it cannot be edited until it switches to its definition. It can be duplicated.' ) );
+    array( 'error', 'The track was not saved: one of its values cannot be stored.' ) );
 
 unset( $GLOBALS['posts'][ $moved_track ], $GLOBALS['pmeta'][ $moved_track ] );
 $GLOBALS['json_sent'] = null;

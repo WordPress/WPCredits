@@ -37,11 +37,15 @@ class WP_CLI {
 	public static function error( $message ) { self::$lines[] = 'error: ' . $message; throw new ExitSignal( $message ); }
 }
 
-/** The store, answering whatever a check seeds: a post id, false for a track already held, or a WP_Error. */
+/**
+ * The store, answering whatever a check seeds: a post id, false for a track already held, or a
+ * WP_Error. Its `seed()` runs the one compile the store's own ends with, so a compile the command
+ * added would count as a second.
+ */
 class WPCPM_Track_Store {
 	public static $seeded   = array();
 	public static $compiled = 0;
-	public static function seed() { return self::$seeded; }
+	public static function seed() { ++self::$compiled; return self::$seeded; }
 	public static function compile() { ++self::$compiled; }
 }
 
@@ -83,16 +87,16 @@ echo "=== wp wpcredits seed-tracks ===\n";
 WPCPM_Track_Store::$seeded = array( '150h' => 41, 'sensei' => false, 'design' => 43, 'dev' => 44 );
 $exit                      = run_seed();
 
-ck( 'every seed is reported, created or already there, the definitions are compiled, and the command exits 0',
+ck( 'every seed is reported, created and published or already there, the tracks compiled once, by seed(), and the command exits 0',
     array( $exit, WP_CLI::$lines, WPCPM_Track_Store::$compiled ),
     array(
         0,
         array(
-            'log: 150h   created as track 41, a draft marked built-in',
+            'log: 150h   created as track 41 and published',
             'log: sensei already in the Track Builder',
-            'log: design created as track 43, a draft marked built-in',
-            'log: dev    created as track 44, a draft marked built-in',
-            'success: The built-in tracks are in the Track Builder.',
+            'log: design created as track 43 and published',
+            'log: dev    created as track 44 and published',
+            'success: The four original tracks are in the Track Builder, and every published track is compiled.',
         ),
         1,
     ) );
@@ -105,15 +109,15 @@ WPCPM_Track_Store::$seeded = array(
 );
 $exit                      = run_seed();
 
-ck( 'a seed that fails is warned about, the rest are still tried and compiled, and the command exits non-zero naming the ones that failed (decision 33)',
+ck( 'a seed that fails is warned about, the rest are still tried and compiled once, by seed(), and the command exits non-zero naming the ones that failed (decision 33)',
     array( $exit, WP_CLI::$lines, WPCPM_Track_Store::$compiled ),
     array(
         1,
         array(
-            'log: 150h   created as track 41, a draft marked built-in',
+            'log: 150h   created as track 41 and published',
             'warning: sensei: The post could not be created.',
             'warning: design: The post could not be created.',
-            'log: dev    created as track 44, a draft marked built-in',
+            'log: dev    created as track 44 and published',
             'error: Not created: sensei, design. The others are in the Track Builder; run the command again once the reason is put right.',
         ),
         1,
