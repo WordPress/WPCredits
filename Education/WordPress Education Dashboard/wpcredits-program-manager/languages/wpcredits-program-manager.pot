@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.116.1\n"
+"Project-Id-Version: WPCredits Program Manager 1.116.2\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-27T01:53:09+00:00\n"
+"POT-Creation-Date: 2026-09-27T11:03:41+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -852,7 +852,7 @@ msgstr ""
 #. translators: %s: human-readable time difference.
 #: includes/class-wpcpm-admin.php:1235
 #: includes/modules/class-wpcpm-administrators-cards.php:592
-#: includes/modules/class-wpcpm-mentor-calls.php:2497
+#: includes/modules/class-wpcpm-mentor-calls.php:2501
 #, php-format
 msgid "%s ago"
 msgstr ""
@@ -1281,7 +1281,7 @@ msgstr ""
 #: includes/class-wpcpm-dashboards.php:64
 #: includes/modules/class-wpcpm-mentors-dashboard.php:104
 #: includes/modules/class-wpcpm-mentors-dashboard.php:264
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1613
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1617
 msgid "Mentor Report Card"
 msgstr ""
 
@@ -2465,7 +2465,11 @@ msgid "no end date"
 msgstr ""
 
 #. translators: 1: earliest end date, 2: latest end date.
+#. translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
+#. translators: 1: start date, 2: end date. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
 #: includes/modules/class-wpcpm-administrators-cards.php:1634
+#: includes/modules/class-wpcpm-mentor-calls.php:2479
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1445
 #, php-format
 msgid "%1$s to %2$s"
 msgstr ""
@@ -3092,7 +3096,7 @@ msgstr ""
 #. translators: %s: human time difference, e.g. "3 days".
 #. translators: %s: human-readable time difference, e.g. "2 hours".
 #: includes/modules/class-wpcpm-group-sessions.php:1742
-#: includes/modules/class-wpcpm-mentor-calls.php:2493
+#: includes/modules/class-wpcpm-mentor-calls.php:2497
 #, php-format
 msgid "in %s"
 msgstr ""
@@ -5745,13 +5749,13 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:890
 #: includes/modules/class-wpcpm-institution-student-view.php:539
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1519
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1523
 msgid "Field"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:895
 #: includes/modules/class-wpcpm-institution-student-view.php:544
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1524
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1528
 msgid "Value"
 msgstr ""
 
@@ -5850,7 +5854,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-form.php:394
 #: includes/modules/class-wpcpm-institution-student-view.php:549
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1529
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1533
 #: includes/modules/class-wpcpm-sponsor-profile.php:376
 #: includes/modules/class-wpcpm-sponsor-profile.php:387
 #: includes/modules/class-wpcpm-students-dashboard.php:1074
@@ -8371,14 +8375,6 @@ msgstr ""
 msgid "What you said you would like to discuss:"
 msgstr ""
 
-#. translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight.
-#. translators: 1: start date, 2: end date.
-#: includes/modules/class-wpcpm-mentor-calls.php:2475
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1441
-#, php-format
-msgid "%1$s - %2$s"
-msgstr ""
-
 #: includes/modules/class-wpcpm-mentor-notes.php:103
 msgid "Mentor notes"
 msgstr ""
@@ -8670,13 +8666,13 @@ msgid "Photo from Gravatar - no WordPress.org profile recorded"
 msgstr ""
 
 #. translators: %s: start date.
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1446
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1450
 #, php-format
 msgid "From %s"
 msgstr ""
 
 #. translators: %s: end date.
-#: includes/modules/class-wpcpm-mentors-dashboard.php:1450
+#: includes/modules/class-wpcpm-mentors-dashboard.php:1454
 #, php-format
 msgid "Until %s"
 msgstr ""

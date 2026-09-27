@@ -1346,7 +1346,13 @@ $same = WPCPM_Mentor_Calls::format_range( 1786000000, 1786001800, $tokyo );
 ck( 'a call inside one day states the end as a time only',
     array( 1 === substr_count( $same, ',' ) ), array( true ) );
 
-// The same call read on a clock where it crosses midnight has to say so, or "11:45 pm -
+// Joined by the word "to", never a hyphen: rendered inside a dashboard block, a spaced hyphen
+// is texturized into an en dash on screen, which the plugin's style rule forbids.
+ck( 'the two times are joined by "to", not a hyphen',
+    array( false !== strpos( $same, ' to ' ), false !== strpos( $same, ' - ' ) ),
+    array( true, false ) );
+
+// The same call read on a clock where it crosses midnight has to say so, or "11:45 pm to
 // 12:15 am" reads as ending fourteen hours before it starts.
 $start = strtotime( '2026-08-03 23:45:00 UTC' );
 $cross = WPCPM_Mentor_Calls::format_range( $start, $start + 1800, new DateTimeZone( 'UTC' ) );

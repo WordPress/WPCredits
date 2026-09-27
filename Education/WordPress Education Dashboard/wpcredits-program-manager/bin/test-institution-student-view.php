@@ -224,7 +224,7 @@ class WPCPM_Mentors_Dashboard {
 	}
 	public static function format_dates( $start, $end ) {
 		$parts = array_filter( array( trim( (string) $start ), trim( (string) $end ) ), 'strlen' );
-		return implode( ' - ', $parts );
+		return implode( ' to ', $parts );
 	}
 	public static function normalize_url( $url ) {
 		$url = trim( (string) $url );
@@ -521,7 +521,7 @@ $html = card( $inst_a, 10, array( 'read' => 1756800000 ) );
 ck( 'the card names the student', false !== strpos( $html, 'Ana Lopez' ), true );
 ck( 'and names the program rather than the Airtable status', false !== strpos( $html, 'WordPress Credits Program 150h' ), true );
 ck( 'the status is never printed raw', false === strpos( $html, '>In Sensei<' ), true );
-ck( 'the dates print as one period', false !== strpos( $html, '2026-02-16 - 2026-06-30' ), true );
+ck( 'the dates print as one period', false !== strpos( $html, '2026-02-16 to 2026-06-30' ), true );
 ck( 'the cohort is derived from the start date', false !== strpos( $html, 'January to June 2026' ), true );
 ck( 'the field of study prints', false !== strpos( $html, 'Computer Science' ), true );
 ck( 'the WordPress.org profile links to the handle', false !== strpos( $html, 'https://profiles.wordpress.org/student-one/' ), true );

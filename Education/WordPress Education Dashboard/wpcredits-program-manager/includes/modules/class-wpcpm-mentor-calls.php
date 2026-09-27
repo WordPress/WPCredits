@@ -2449,6 +2449,10 @@ class WPCPM_Mentor_Calls {
 	/**
 	 * A call's date and time range, on a given clock.
 	 *
+	 * Joined with the word "to" rather than a hyphen, because the dashboards render this
+	 * string inside block content, where WordPress's texturizer turns a spaced hyphen into an
+	 * en dash, and the plugin's style rule forbids that character in user-facing text.
+	 *
 	 * @param int          $start UTC timestamp.
 	 * @param int          $end   UTC timestamp.
 	 * @param DateTimeZone $zone  Timezone to render in.
@@ -2461,7 +2465,7 @@ class WPCPM_Mentor_Calls {
 		$from = wp_date( $date_format . ' ' . $time_format, (int) $start, $zone );
 
 		// The end usually needs no date - it is minutes after the start. But a call late in
-		// the evening on one clock is a call after midnight on another, and "11:45 pm -
+		// the evening on one clock is a call after midnight on another, and "11:45 pm to
 		// 12:15 am" then reads as ending fourteen hours before it starts. Compared in the
 		// *viewer's* zone, because that is the only clock this string is read on.
 		$crosses = wp_date( 'Y-m-d', (int) $start, $zone ) !== wp_date( 'Y-m-d', (int) $end, $zone );
@@ -2471,8 +2475,8 @@ class WPCPM_Mentor_Calls {
 			: wp_date( $time_format, (int) $end, $zone );
 
 		return sprintf(
-			/* translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. */
-			__( '%1$s - %2$s', 'wpcredits-program-manager' ),
+			/* translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page. */
+			__( '%1$s to %2$s', 'wpcredits-program-manager' ),
 			$from,
 			$to
 		);

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.116.1
+Stable tag: 1.116.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.116.2 =
+
+* Every time range now reads "4:00 pm to 5:00 pm" on the dashboards and in mail. The hyphen the plugin printed between the two times was shown as a dash by WordPress's text formatting on the dashboard pages.
 
 = 1.116.1 =
 

@@ -1423,6 +1423,10 @@ class WPCPM_Mentors_Dashboard {
 	/**
 	 * Format the internship date range for display.
 	 *
+	 * Joined with the word "to" rather than a hyphen, because the dashboards render this
+	 * string inside block content, where WordPress's texturizer turns a spaced hyphen into an
+	 * en dash, and the plugin's style rule forbids that character in user-facing text.
+	 *
 	 * @param string $start Start date, `Y-m-d`.
 	 * @param string $end   End date, `Y-m-d`.
 	 * @return string Empty string when neither date is set.
@@ -1437,8 +1441,8 @@ class WPCPM_Mentors_Dashboard {
 		}
 
 		if ( '' !== $from && '' !== $to ) {
-			/* translators: 1: start date, 2: end date. */
-			return sprintf( __( '%1$s - %2$s', 'wpcredits-program-manager' ), $from, $to );
+			/* translators: 1: start date, 2: end date. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page. */
+			return sprintf( __( '%1$s to %2$s', 'wpcredits-program-manager' ), $from, $to );
 		}
 
 		if ( '' !== $from ) {

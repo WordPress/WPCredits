@@ -330,7 +330,7 @@ class WPCPM_Mentors_Dashboard {
 	}
 	public static function format_dates( $start, $end ) {
 		$parts = array_filter( array( trim( (string) $start ), trim( (string) $end ) ), 'strlen' );
-		return implode( ' - ', $parts );
+		return implode( ' to ', $parts );
 	}
 	public static function normalize_url( $url ) {
 		$url = trim( (string) $url );
