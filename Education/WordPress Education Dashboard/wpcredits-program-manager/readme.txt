@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.116.0
+Stable tag: 1.116.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.116.1 =
+
+* Mentors and Students modules: pressing Join, Leave or Book a call on a page left open after the login lapsed now says "Please log in" instead of showing an empty page. The five form handlers that check the login first are hooked for signed-out requests as well, which is what lets WordPress reach them.
 
 = 1.116.0 =
 

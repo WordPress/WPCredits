@@ -85,12 +85,19 @@ class WPCPM_Mentor_Calls {
 
 	/**
 	 * Hooks.
+	 *
+	 * Book and the timezone save are also registered for signed-out requests, on
+	 * `admin_post_nopriv_`: without that arm, a request from somebody whose login lapsed while
+	 * the page sat open never reaches this class at all - core answers it with its own blank
+	 * wp_die( '', 400 ) first (1.116.1).
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_post_type' ) );
 		add_action( 'admin_post_' . self::ACTION_BOOK, array( __CLASS__, 'handle_book' ) );
+		add_action( 'admin_post_nopriv_' . self::ACTION_BOOK, array( __CLASS__, 'handle_book' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( __CLASS__, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_ZONE, array( __CLASS__, 'handle_timezone' ) );
+		add_action( 'admin_post_nopriv_' . self::ACTION_ZONE, array( __CLASS__, 'handle_timezone' ) );
 		add_action( self::CRON_REMINDERS, array( __CLASS__, 'send_reminders' ) );
 	}
 
@@ -853,11 +860,14 @@ class WPCPM_Mentor_Calls {
 	 * Book a slot.
 	 */
 	public static function handle_book() {
-		check_admin_referer( self::ACTION_BOOK );
-
+		// Before the nonce: a nonce is bound to the user and the session it was made in, so a
+		// login that lapsed after the page was drawn fails the nonce first and meets core's
+		// "link has expired" page, never this sentence (1.116.1, mirroring SURFACES-4).
 		if ( ! is_user_logged_in() ) {
 			wp_die( esc_html__( 'Please log in to book a call.', 'wpcredits-program-manager' ), 403 );
 		}
+
+		check_admin_referer( self::ACTION_BOOK );
 
 		$student_id = get_current_user_id();
 
@@ -1081,11 +1091,12 @@ class WPCPM_Mentor_Calls {
 	 * Store the viewer's display timezone.
 	 */
 	public static function handle_timezone() {
-		check_admin_referer( self::ACTION_ZONE );
-
+		// Before the nonce, as booking asks it (1.116.1, mirroring SURFACES-4).
 		if ( ! is_user_logged_in() ) {
 			wp_die( esc_html__( 'Please log in first.', 'wpcredits-program-manager' ), 403 );
 		}
+
+		check_admin_referer( self::ACTION_ZONE );
 
 		$zone = isset( $_POST['timezone'] ) ? sanitize_text_field( wp_unslash( $_POST['timezone'] ) ) : '';
 

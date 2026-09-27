@@ -107,14 +107,22 @@ class WPCPM_Group_Sessions {
 
 	/**
 	 * Hooks.
+	 *
+	 * Join, Leave and Join all are also registered for signed-out requests, on
+	 * `admin_post_nopriv_`: without that arm, a request from a student whose login lapsed while
+	 * the page sat open never reaches this class at all - core answers it with its own blank
+	 * wp_die( '', 400 ) first (1.116.1).
 	 */
 	public static function init() {
 		add_action( 'admin_post_' . self::ACTION_CREATE, array( __CLASS__, 'handle_create' ) );
 		add_action( 'admin_post_' . self::ACTION_JOIN, array( __CLASS__, 'handle_join' ) );
+		add_action( 'admin_post_nopriv_' . self::ACTION_JOIN, array( __CLASS__, 'handle_join' ) );
 		add_action( 'admin_post_' . self::ACTION_LEAVE, array( __CLASS__, 'handle_leave' ) );
+		add_action( 'admin_post_nopriv_' . self::ACTION_LEAVE, array( __CLASS__, 'handle_leave' ) );
 		add_action( 'admin_post_' . self::ACTION_NOTE, array( __CLASS__, 'handle_note' ) );
 		add_action( 'admin_post_' . self::ACTION_EDIT, array( __CLASS__, 'handle_edit' ) );
 		add_action( 'admin_post_' . self::ACTION_JOIN_SERIES, array( __CLASS__, 'handle_join_series' ) );
+		add_action( 'admin_post_nopriv_' . self::ACTION_JOIN_SERIES, array( __CLASS__, 'handle_join_series' ) );
 	}
 
 	/*

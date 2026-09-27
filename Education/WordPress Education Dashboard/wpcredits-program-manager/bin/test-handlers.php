@@ -2289,6 +2289,52 @@ $GLOBALS['query_result'] = array();
 $GLOBALS['mail']         = array();
 $GLOBALS['uid']          = 20;
 
+echo "\n=== Book and the timezone save are hooked for a lapsed login too (1.116.1) ===\n";
+
+// Source-level: `add_action()` is a no-op in this harness, so registering for a hook cannot be
+// observed by calling init() and pressing a button - only by reading what init() itself wires.
+// Without the nopriv arm, admin-post.php dies with its own blank wp_die( '', 400 ) before any of
+// this class runs, for a request whose login lapsed while the page sat open.
+$calls_hooks = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php' );
+$calls_hooks = substr( $calls_hooks, strpos( $calls_hooks, 'public static function init()' ) );
+$calls_hooks = substr( $calls_hooks, 0, strpos( $calls_hooks, "\n\t}\n" ) );
+
+foreach ( array( 'ACTION_BOOK', 'ACTION_ZONE' ) as $wpcpm_action ) {
+	check( "$wpcpm_action is also hooked to admin_post_nopriv_, or a lapsed login meets core's blank page instead of the sentence",
+	    false !== strpos( $calls_hooks, "admin_post_nopriv_' . self::" . $wpcpm_action ), true );
+}
+
+check( 'and Cancel stays members-only: no nopriv arm for the one action with no login sentence',
+    substr_count( $calls_hooks, 'admin_post_nopriv_' ), 2 );
+
+// Dynamic, in the idiom the SESSIONS-14 block above uses: the nonce is made to fail too, so a
+// press that reached the sentence anyway did so by asking about the login first, not because the
+// nonce happened to pass (1.116.1, mirroring SURFACES-4 - Book and the timezone save used to
+// check the nonce first, so this failed against that order before the checks were reordered).
+$GLOBALS['nonce_fails'] = true;
+$GLOBALS['uid']         = 0;
+$call_answers           = array();
+
+foreach ( array(
+	'handle_book'     => array(),
+	'handle_timezone' => array(),
+) as $handler => $press ) {
+	$_POST = $press;
+	run( $handler . ' (logged out, and the nonce fails too)', array( 'WPCPM_Mentor_Calls', $handler ) );
+	$call_answers[ $handler ] = $GLOBALS['died_with'];
+}
+
+$GLOBALS['nonce_fails'] = false;
+$_POST                  = array();
+$GLOBALS['uid']         = 20;
+
+check( 'Book and the timezone save answer the question of who is logged in before they check the nonce',
+    $call_answers,
+    array(
+        'handle_book'     => 'Please log in to book a call.',
+        'handle_timezone' => 'Please log in first.',
+    ) );
+
 echo "\n=== The room is read under the lock, and two students' files name each alone (SESSIONS-13) ===\n";
 
 // The deep check of 1.109.1, SESSIONS-13: the suites proved the lock is taken, not that the room is

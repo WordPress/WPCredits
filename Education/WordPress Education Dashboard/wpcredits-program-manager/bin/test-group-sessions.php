@@ -478,6 +478,24 @@ ck( 'the moved notice sends a REQUEST carrying the revision, not a cancellation'
 ck( 'and skips whoever moved it, who already knows',
     false !== strpos( $calls, '(int) $student->ID === (int) $actor' ), true );
 
+echo "\n=== Join, Leave and Join all are hooked for a lapsed login too (1.116.1) ===\n";
+
+// Source-level: `add_action()` is a no-op in this harness, so registering for a hook cannot be
+// observed by calling init() and pressing a button - only by reading what init() itself wires.
+// Without the nopriv arm, admin-post.php dies with its own blank wp_die( '', 400 ) before any of
+// this class runs, for a request whose login lapsed while the page sat open: the empty page a
+// student saw instead of "Please log in" (1.116.1).
+$hooks = file_get_contents( dirname( __DIR__ ) . '/includes/modules/class-wpcpm-group-sessions.php' );
+$hooks = substr( $hooks, strpos( $hooks, 'public static function init()' ) );
+$hooks = substr( $hooks, 0, strpos( $hooks, "\n\t}\n" ) );
+
+foreach ( array( 'ACTION_JOIN', 'ACTION_LEAVE', 'ACTION_JOIN_SERIES' ) as $wpcpm_action ) {
+    ck( "$wpcpm_action is also hooked to admin_post_nopriv_, or a lapsed login meets core's blank page instead of the sentence",
+        false !== strpos( $hooks, "admin_post_nopriv_' . self::" . $wpcpm_action ), true );
+}
+
+ck( 'and Create, Note and Edit stay members-only: no nopriv arm for the three handlers with no login sentence',
+    substr_count( $hooks, 'admin_post_nopriv_' ), 3 );
 
 echo "\n=== A series is a tag on ordinary sessions (1.108.0) ===\n";
 
