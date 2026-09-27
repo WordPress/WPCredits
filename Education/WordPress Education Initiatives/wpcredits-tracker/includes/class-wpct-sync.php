@@ -17,7 +17,7 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit;
+	exit( 1 ); // Non-zero so a direct request (or a harness probe) cannot look like success.
 }
 
 class WPCT_Sync {
@@ -47,7 +47,6 @@ class WPCT_Sync {
 				'students'           => 'tbla8GZg5x6NY7aWt',
 				'mentors'            => 'tblJmEYgBWYxVuzUw',
 				'institutions'       => 'tbl4V0FEbzRP7I2w2',
-				'sponsors'           => 'tbluji8wknOZr55fa',
 				'languages'          => 'tblaxEPaabmlccHWn',
 				'contribution_areas' => 'tblUBEXiS3QKUCXHf',
 				'countries'          => 'tbltB7GSRoTtSi4Ps',
@@ -119,10 +118,6 @@ class WPCT_Sync {
 					'country'       => 'fldMZYV5XmC6FbewY',
 					'current_stage' => 'fld4l5x6ScLSLaJZl',
 				),
-				'sponsors'         => array(
-					'company_name' => 'fldezMq2OBVeqn0DK',
-					'status'       => 'fld4woELctFTrNzNa',
-				),
 				'languages'        => array(
 					'name' => 'flducizfXx3Lz4cid',
 				),
@@ -149,6 +144,34 @@ class WPCT_Sync {
 		);
 	}
 
+	/**
+	 * The approved sponsors' count from the feed, or the last known count when the feed failed.
+	 *
+	 * @param array|WP_Error $feed          What WPCT_Feed::fetch() answered.
+	 * @param mixed          $previous_blob The stored dashboard blob (`wpct_data`), if any.
+	 * @return array `count` (int) and `note` ('' when the feed answered, else the error's message).
+	 */
+	public static function sponsor_count_from( $feed, $previous_blob ) {
+		if ( is_array( $feed ) ) {
+			return array(
+				'count' => WPCT_Feed::approved_count( $feed ),
+				'note'  => '',
+			);
+		}
+		// The stored blob keeps the count nested under 'global', the same shape phase_finalize()
+		// writes and data/seed.json ships (never a top-level 'sponsorCount'); reading anywhere
+		// else silently answers 0 on every feed failure instead of the last known count.
+		$previous = 0;
+		if ( is_array( $previous_blob ) && isset( $previous_blob['global']['sponsorCount'] ) ) {
+			$previous = (int) $previous_blob['global']['sponsorCount'];
+		}
+		$note = is_wp_error( $feed ) ? (string) $feed->get_error_message() : __( 'The sponsors feed did not answer.', 'wpcredits-tracker' );
+		return array(
+			'count' => $previous,
+			'note'  => $note,
+		);
+	}
+
 	/* ---------------------------------------------------------------------
 	 * State-machine control
 	 * ------------------------------------------------------------------- */
@@ -167,6 +190,9 @@ class WPCT_Sync {
 			false
 		);
 		delete_option( WPCT_OPT_LASTERR );
+		// A note describes the sync that stored it; without this a stale note from a sync that
+		// failed the feed can sit beside a later sync's unrelated "Last sync error" (finding 5).
+		delete_option( WPCT_OPT_FEEDNOTE );
 		self::schedule_next();
 	}
 
@@ -279,7 +305,6 @@ class WPCT_Sync {
 		$students_recs    = self::airtable_all( $settings, $tables['students'], array_values( $fields['students'] ) );
 		$mentors_recs     = self::airtable_all( $settings, $tables['mentors'], array_values( $fields['mentors'] ) );
 		$institutions     = self::airtable_all( $settings, $tables['institutions'], array_values( $fields['institutions'] ) );
-		$sponsors         = self::airtable_all( $settings, $tables['sponsors'], array_values( $fields['sponsors'] ) );
 		$languages        = self::airtable_all( $settings, $tables['languages'], array_values( $fields['languages'] ) );
 		$contrib_areas    = self::airtable_all( $settings, $tables['contribution_areas'], array_values( $fields['contribution_areas'] ) );
 		$countries        = self::airtable_all( $settings, $tables['countries'], array_values( $fields['countries'] ) );
@@ -516,12 +541,14 @@ class WPCT_Sync {
 		}
 
 		// ---- Sponsors -----------------------------------------------------
-		$approved_sponsors = 0;
-		foreach ( $sponsors as $rec ) {
-			if ( self::status_key( self::fv( $rec, $F['sponsors']['status'] ) ) === self::status_key( 'Approved' ) ) {
-				$approved_sponsors++;
-			}
-		}
+		// Since 1.5.0 the count comes from the WordPress Education Dashboard's sponsors feed,
+		// the record the program keeps its sponsors in; the Airtable Sponsors table is no longer
+		// read. A feed that does not answer keeps the last count rather than failing the sync:
+		// the other figures do not depend on it, and the note is shown on the settings page.
+		$feed_answer       = WPCT_Feed::fetch( WPCT_Feed::url( $settings ) );
+		$sponsor           = self::sponsor_count_from( $feed_answer, get_option( WPCT_OPT_DATA, false ) );
+		$approved_sponsors = $sponsor['count'];
+		update_option( WPCT_OPT_FEEDNOTE, $sponsor['note'], false );
 
 		// ---- Confirmed partner institutions by country --------------------
 		$inst_countries = array();

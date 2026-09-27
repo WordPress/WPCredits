@@ -85,6 +85,18 @@ class WPCT_Settings {
 			$out['airtable_pat'] = $current['airtable_pat'];
 		}
 
+		// An empty value means the default (the live WordPress Education Dashboard feed);
+		// WPCT_Feed::url() applies that fallback, so it is not duplicated here. A value that
+		// fails the one rule url() reads by (WPCT_Feed::is_acceptable()) is refused here too,
+		// at save time, so the admin sees why instead of it being silently replaced by the
+		// default at sync time.
+		$feed_url = isset( $input['feed_url'] ) ? esc_url_raw( trim( (string) $input['feed_url'] ) ) : '';
+		if ( '' !== $feed_url && ! WPCT_Feed::is_acceptable( $feed_url ) ) {
+			add_settings_error( WPCT_OPT_SETTINGS, 'wpct_feed_url', __( 'The sponsors feed address must start with https://. The default is kept.', 'wpcredits-tracker' ) );
+			$feed_url = isset( $current['feed_url'] ) ? $current['feed_url'] : '';
+		}
+		$out['feed_url'] = $feed_url;
+
 		return $out;
 	}
 
@@ -136,6 +148,13 @@ class WPCT_Settings {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'WPCredits-Tracker', 'wpcredits-tracker' ); ?></h1>
+
+			<?php
+			// This is a top-level menu page, not a Settings submenu, so WordPress does not print
+			// settings errors for it automatically; without this call sanitize()'s rejection
+			// notice (and the "feed_url" one specifically) is recorded but never shown.
+			settings_errors( WPCT_OPT_SETTINGS );
+			?>
 
 			<?php if ( 'started' === $flag ) : ?>
 				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Sync started in the background. This page auto-refreshes while it runs.', 'wpcredits-tracker' ); ?></p></div>
@@ -219,6 +238,16 @@ class WPCT_Settings {
 						<td>
 							<input type="text" id="wpct_base" name="<?php echo esc_attr( WPCT_OPT_SETTINGS ); ?>[base_id]" value="<?php echo esc_attr( $settings['base_id'] ); ?>" class="regular-text" />
 							<p class="description"><?php esc_html_e( 'The same Airtable base the WordPress Credits program uses. Table and field IDs are built in (override with the wpct_tables / wpct_fields filters if the base changes).', 'wpcredits-tracker' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wpct_feed_url"><?php esc_html_e( 'Sponsors feed address', 'wpcredits-tracker' ); ?></label></th>
+						<td>
+							<input type="url" id="wpct_feed_url" class="regular-text code" name="<?php echo esc_attr( WPCT_OPT_SETTINGS ); ?>[feed_url]" value="<?php echo esc_attr( isset( $settings['feed_url'] ) ? $settings['feed_url'] : '' ); ?>" placeholder="<?php echo esc_attr( WPCT_FEED_URL ); ?>" />
+							<p class="description"><?php esc_html_e( 'Where the count of approved sponsors is read from. Leave blank for the WordPress Education Dashboard\'s own feed.', 'wpcredits-tracker' ); ?></p>
+							<?php $note = (string) get_option( WPCT_OPT_FEEDNOTE, '' ); if ( '' !== $note ) : ?>
+								<div class="notice notice-warning inline"><p><?php echo esc_html( sprintf( /* translators: %s: the reason the sponsors feed's count could not be read. */ __( 'The last sync kept the previous count: %s', 'wpcredits-tracker' ), $note ) ); ?></p></div>
+							<?php endif; ?>
 						</td>
 					</tr>
 				</table>

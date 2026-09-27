@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits-Tracker
  * Plugin URI:        https://wpeducationalinitiatives.app/
  * Description:       A native WordPress rendering of the WordPress Credits program dashboard (scale, growth, partner map, contributions, and student voices) — no iframe. Data is synced weekly from Airtable and profiles.wordpress.org, and displayed via a "WPCredits-Tracker" block or the [wpcredits_tracker] shortcode. A PHP port of the wordpress/WPCredits-Tracker build.
- * Version:           1.4.4
+ * Version:           1.5.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            Maciej (Matt) Pilarski, Isotta Peira
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPCT_VERSION', '1.4.4' );
+define( 'WPCT_VERSION', '1.5.0' );
 define( 'WPCT_FILE', __FILE__ );
 define( 'WPCT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCT_URL', plugin_dir_url( __FILE__ ) );
@@ -30,9 +30,12 @@ define( 'WPCT_OPT_DATA', 'wpct_data' );           // Public dashboard data blob.
 define( 'WPCT_OPT_STATE', 'wpct_state' );         // Resumable sync state.
 define( 'WPCT_OPT_LASTSYNC', 'wpct_last_sync' );  // Timestamp of last successful sync.
 define( 'WPCT_OPT_LASTERR', 'wpct_last_error' );  // Last sync error message.
+define( 'WPCT_OPT_FEEDNOTE', 'wpct_feed_note' );  // Why the last sync kept the previous sponsor count, or ''.
 define( 'WPCT_CRON_WEEKLY', 'wpct_cron_weekly' ); // Recurring scheduled sync (weekly).
 define( 'WPCT_CRON_RUN', 'wpct_run_sync' );       // Single-event sync step (resumable).
+define( 'WPCT_FEED_URL', 'https://wordpresseducation.org/wp-json/wpcpm/v1/sponsors' ); // Sponsors feed.
 
+require_once WPCT_DIR . 'includes/class-wpct-feed.php';
 require_once WPCT_DIR . 'includes/class-wpct-sync.php';
 require_once WPCT_DIR . 'includes/class-wpct-render.php';
 require_once WPCT_DIR . 'includes/class-wpct-settings.php';
@@ -47,6 +50,7 @@ function wpct_default_settings() {
 	return array(
 		'airtable_pat' => '',
 		'base_id'      => 'appIzQKfwTn5dyPVp',
+		'feed_url'     => '',
 	);
 }
 

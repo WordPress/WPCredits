@@ -4,7 +4,7 @@ Tags: wordpress credits, dashboard, contributions, airtable, students
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.4.4
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -63,6 +63,9 @@ Yes — a Personal Access Token with read access to the WordPress Credits base i
 No. The stored data blob and the front end contain only aggregates and anonymized rows (status, graduate flag, field of study, translation-string count) — the same public subset the upstream dashboard emits.
 
 == Changelog ==
+
+= 1.5.0 =
+* The count of approved sponsors comes from the WordPress Education Dashboard's sponsors feed instead of the Airtable Sponsors table; when the feed does not answer, the last count stays and the settings page says so. The feed's address is a setting, blank for the program's own.
 
 = 1.4.4 =
 * Security: fixed a cross-site scripting hole in the dashboard. Text drawn from the
