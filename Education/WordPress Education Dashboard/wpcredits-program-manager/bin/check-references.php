@@ -25,7 +25,9 @@ foreach ( $rii as $file ) {
 		continue;
 	}
 	$path = $file->getPathname();
-	if ( false !== strpos( $path, '/.git/' ) || false !== strpos( $path, '/bin/' ) ) {
+	// `.superpowers/` is git-ignored scratch (plans, ledgers, copies of scripts from other branches)
+	// and a linked worktree may sit under it too: none of it is this checkout's code.
+	if ( false !== strpos( $path, '/.git/' ) || false !== strpos( $path, '/bin/' ) || false !== strpos( $path, '/.superpowers/' ) ) {
 		continue;
 	}
 	$files[] = $path;

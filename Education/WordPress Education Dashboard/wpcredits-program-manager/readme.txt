@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.116.2
+Stable tag: 1.116.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.116.3 =
+
+* Tracks: a track definition written by a newer version of the plugin is read as before, instead of being set aside as unknown, so every track stays in place if the site returns to this version after an update.
 
 = 1.116.2 =
 

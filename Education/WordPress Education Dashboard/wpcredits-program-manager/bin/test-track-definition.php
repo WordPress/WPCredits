@@ -112,6 +112,8 @@ ck( 'and passes with no context at all', WPCPM_Track_Definition::validate( valid
 echo "\n=== The track's rules, one at a time ===\n";
 
 ck( 'a property this version does not know', refused( function ( &$d ) { $d['colour'] = 'red'; }, $context ), array( 'unknown_property' ) );
+ck( 'a sponsors property, written by a later version, is kept and not refused', refused( function ( &$d ) { $d['sponsors'] = array( 'acme' ); }, $context ), array() );
+ck( 'normalize() leaves that property as it was', WPCPM_Track_Definition::normalize( valid() + array( 'sponsors' => array( 'acme' ) ) )['sponsors'], array( 'acme' ) );
 ck( 'a schema version the site does not read', refused( function ( &$d ) { $d['schema_version'] = 2; }, $context ), array( 'schema_version' ) );
 ck( 'no status', refused( function ( &$d ) { $d['status'] = ''; }, $context ), array( 'status_empty' ) );
 ck( 'a status over 100 characters', refused( function ( &$d ) { $d['status'] = str_repeat( 'a', 101 ); }, $context ), array( 'status_shape' ) );
