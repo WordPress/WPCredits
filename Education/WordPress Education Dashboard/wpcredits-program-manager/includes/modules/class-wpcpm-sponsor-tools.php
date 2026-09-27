@@ -406,6 +406,13 @@ final class WPCPM_Sponsor_Tools {
 	/**
 	 * One offer card.
 	 *
+	 * An offer the viewer may claim puts its More information link and its button in one row,
+	 * the link first, so the button reads with the link. An offer the viewer has claimed says
+	 * what it is and the day it was claimed, and nothing more of its own: the text, the
+	 * instructions and the link are for deciding to claim, which is done, and the code, with the
+	 * button to report a problem with it, is under Your codes. The sponsor's guides and the
+	 * managers' audience line print either way, since neither is about the claim.
+	 *
 	 * @param array   $offer      The offer.
 	 * @param WP_User $viewer     Whose card it is.
 	 * @param string  $audience   Whose card it is, as an audience.
@@ -439,16 +446,28 @@ final class WPCPM_Sponsor_Tools {
 
 		printf( '<h4 class="wpcpm-tools__title">%s</h4>', esc_html( $offer['title'] ) );
 
-		if ( '' !== trim( (string) $offer['text'] ) ) {
-			printf( '<p class="wpcpm-tools__text">%s</p>', esc_html( $offer['text'] ) );
-		}
+		$claimed   = WPCPM_Sponsor_Claims::has_claimed( $viewer->ID, $offer['id'] );
+		$claimable = ! $claimed && self::may_claim( $viewer, $offer );
 
-		if ( '' !== trim( (string) $offer['instructions'] ) ) {
-			printf( '<p class="wpcpm-tools__instructions">%s</p>', nl2br( esc_html( $offer['instructions'] ) ) );
-		}
+		if ( ! $claimed ) {
+			if ( '' !== trim( (string) $offer['text'] ) ) {
+				printf( '<p class="wpcpm-tools__text">%s</p>', esc_html( $offer['text'] ) );
+			}
 
-		if ( '' !== (string) $offer['url'] ) {
-			printf( '<p class="wpcpm-tools__more"><a href="%1$s" rel="external noopener">%2$s</a></p>', esc_url( $offer['url'] ), esc_html__( 'More information', 'wpcredits-program-manager' ) );
+			if ( '' !== trim( (string) $offer['instructions'] ) ) {
+				printf( '<p class="wpcpm-tools__instructions">%s</p>', nl2br( esc_html( $offer['instructions'] ) ) );
+			}
+
+			if ( $claimable ) {
+				// One row, the link first, so the button reads with the link; an offer with no
+				// link has the row to its button alone.
+				echo '<div class="wpcpm-tools__actions">';
+				self::render_more( $offer );
+				self::render_claim_form( $offer );
+				echo '</div>';
+			} else {
+				self::render_more( $offer );
+			}
 		}
 
 		if ( $with_posts && class_exists( 'WPCPM_Sponsor_Posts' ) ) {
@@ -475,12 +494,15 @@ final class WPCPM_Sponsor_Tools {
 			printf( '<p class="wpcpm-tools__audience wpcpm-student__note">%s</p>', esc_html( sprintf( __( 'Open to: %s', 'wpcredits-program-manager' ), implode( ', ', $open ) ) ) );
 		}
 
-		if ( WPCPM_Sponsor_Claims::has_claimed( $viewer->ID, $offer['id'] ) ) {
-			self::render_code( $offer, $viewer );
-			self::render_problem_form( $offer );
-		} elseif ( self::may_claim( $viewer, $offer ) ) {
-			self::render_claim_form( $offer );
-		} elseif ( WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] && WPCPM_Sponsor_Codes::counts( $offer['id'] )['available'] < 1 ) {
+		if ( $claimed ) {
+			$claim = WPCPM_Sponsor_Claims::claims_of( $viewer->ID )[ $offer['id'] ];
+
+			printf(
+				'<p class="wpcpm-tools__claimed">%s</p>',
+				/* translators: %s: the day the offer was claimed, as 2026-09-25. */
+				esc_html( sprintf( __( 'Claimed %s. Your code is below, under Your codes.', 'wpcredits-program-manager' ), wp_date( 'Y-m-d', (int) $claim['at'] ) ) )
+			);
+		} elseif ( ! $claimable && WPCPM_Sponsor_Offers::KIND_CODES === $offer['kind'] && WPCPM_Sponsor_Codes::counts( $offer['id'] )['available'] < 1 ) {
 			echo '<p class="wpcpm-tools__warning">' . esc_html__( 'No codes left. The sponsor has been told.', 'wpcredits-program-manager' ) . '</p>';
 		}
 
@@ -488,35 +510,15 @@ final class WPCPM_Sponsor_Tools {
 	}
 
 	/**
-	 * The claimant's own code, unsealed here and nowhere else. A code that is a link is a link;
-	 * anything else is a button whose contents forms.js selects, described so that the Enter and
-	 * Space behavior is announced (deep check FFRNT-6). The button carries no aria-label: its
-	 * accessible name comes from its own visible text, the code itself, which is the one thing
-	 * this block exists to give the person, so nothing here may replace that name (Task 3 fix
-	 * round 1, review suggestion 1; WCAG 2.5.3, Label in Name).
+	 * The offer's More information link, in a paragraph of its own; nothing for an offer with
+	 * no link.
 	 *
-	 * @param array   $offer  The offer.
-	 * @param WP_User $viewer The claimant.
+	 * @param array $offer The offer.
 	 */
-	private static function render_code( array $offer, WP_User $viewer ) {
-		$code  = WPCPM_Sponsor_Claims::code_for( $viewer->ID, $offer );
-		$claim = WPCPM_Sponsor_Claims::claims_of( $viewer->ID )[ $offer['id'] ];
-
-		echo '<p class="wpcpm-tools__claimed">' . esc_html__( 'Your code:', 'wpcredits-program-manager' ) . ' ';
-
-		if ( preg_match( '#^https?://#i', $code ) ) {
-			printf( '<a class="wpcpm-tools__code" href="%1$s" rel="external noopener">%2$s</a>', esc_url( $code ), esc_html( $code ) );
-		} else {
-			printf(
-				'<button type="button" class="wpcpm-tools__code" data-wpcpm-select aria-describedby="%1$s">%2$s</button>',
-				esc_attr( self::HINT_ID ),
-				esc_html( $code )
-			);
+	private static function render_more( array $offer ) {
+		if ( '' !== (string) $offer['url'] ) {
+			printf( '<p class="wpcpm-tools__more"><a href="%1$s" rel="external noopener">%2$s</a></p>', esc_url( $offer['url'] ), esc_html__( 'More information', 'wpcredits-program-manager' ) );
 		}
-
-		/* translators: %s: the date. */
-		printf( ' <span class="wpcpm-tools__when">%s</span>', esc_html( sprintf( __( 'claimed %s', 'wpcredits-program-manager' ), wp_date( 'Y-m-d', (int) $claim['at'] ) ) ) );
-		echo '</p>';
 	}
 
 	/**
@@ -541,7 +543,8 @@ final class WPCPM_Sponsor_Tools {
 	}
 
 	/**
-	 * The form that reports a problem with a code already claimed.
+	 * The form that reports a problem with a code already claimed, printed beside that code
+	 * under Your codes.
 	 *
 	 * @param array $offer The offer.
 	 */
@@ -560,7 +563,13 @@ final class WPCPM_Sponsor_Tools {
 
 	/**
 	 * Everything the person holds, including from offers since paused or ended: a code once
-	 * given is theirs.
+	 * given is theirs, and this list is the one place it is shown.
+	 *
+	 * One row per code: the offer, the code, the day it was claimed and the button to report a
+	 * problem with it. A code that is a link is a link; anything else is a button whose contents
+	 * forms.js selects, described by the section's one hint so that the Enter and Space behavior
+	 * is announced (deep check FFRNT-6). The button carries no aria-label: its accessible name is
+	 * its own visible text, the code, which nothing here may replace (WCAG 2.5.3, Label in Name).
 	 *
 	 * @param WP_User $viewer The person.
 	 * @param array   $claims Their claims.
@@ -596,6 +605,10 @@ final class WPCPM_Sponsor_Tools {
 			}
 
 			printf( ' <span class="wpcpm-tools__when">%s</span>', esc_html( wp_date( 'Y-m-d', (int) $claim['at'] ) ) );
+
+			// The code and its problem button belong together, and this row is the one place every
+			// code is listed: an offer since paused or ended has no card above to carry the button.
+			self::render_problem_form( $offer );
 			echo '</li>';
 		}
 

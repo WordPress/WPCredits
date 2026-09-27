@@ -14,6 +14,10 @@
  * - The switches, the sort (sponsor name, then title), the empty-pool rule per viewer, "Your
  *   codes" listing a claim from an ended offer, and the claim form appearing only when
  *   may_claim() says yes.
+ * - Where things sit on a card (1.116.4): a claimable offer's More information link and its
+ *   button share one row; a claimed offer's card keeps its title and says the day it was claimed,
+ *   nothing more of the offer's own, because the code and its Report a problem button sit
+ *   together under Your codes, one row per code.
  * - The handlers flash on the viewer's own channel and send them back where they came from.
  *
  * Run from the plugin root:  php bin/test-sponsor-tools.php
@@ -368,15 +372,44 @@ WPCPM_Sponsor_Codes::set_shared( $b1, 'https://cirrus-example.example/checkout?c
 
 echo "\n=== The section on a student's own card ===\n";
 function section( $audience, $uid ) { $GLOBALS['uid'] = $uid; ob_start(); WPCPM_Sponsor_Tools::render( $audience, $GLOBALS['users'][ $uid ] ); return ob_get_clean(); }
+/** One offer's card out of a section, found by its title: from its `<li>` to the `</div></li>` that closes it; '' when no card has that title. */
+function offer_card( $html, $title ) {
+	foreach ( array_slice( explode( '<li class="wpcpm-tools__offer">', $html ), 1 ) as $chunk ) {
+		if ( false !== strpos( $chunk, '<h4 class="wpcpm-tools__title">' . $title . '</h4>' ) ) { return '<li class="wpcpm-tools__offer">' . substr( $chunk, 0, strpos( $chunk, '</div></li>' ) + strlen( '</div></li>' ) ); }
+	}
+	return '';
+}
+/** The Your codes list, item by item (what is between its `<li>` and `</li>`), keyed by the code each item holds. */
+function code_items( $html ) {
+	$items = array();
+	$start = strpos( $html, '<ul class="wpcpm-tools__codes">' );
+	if ( false === $start ) { return $items; }
+	foreach ( array_slice( explode( '<li>', substr( $html, $start, strpos( $html, '</ul>', $start ) - $start ) ), 1 ) as $item ) {
+		$item = substr( $item, 0, (int) strpos( $item, '</li>' ) );
+		$items[ preg_match( '/class="wpcpm-tools__code"[^>]*>([^<]*)</', $item, $m ) ? $m[1] : '' ] = $item;
+	}
+	return $items;
+}
 $html = section( 'students', 20 );
 ck( 'it is a student section with the anchor and the heading', array( false !== strpos( $html, '<section class="wpcpm-student__section wpcpm-tools" id="wpcpm-tools">' ), false !== strpos( $html, 'Tools from our sponsors' ) ), array( true, true ) );
 $pos = static function ( $id ) use ( $html ) { return strpos( $html, 'name="wpcpm_offer" value="' . $id . '"' ); };
 ck( 'the live offers open to students are listed, sorted by sponsor name then title', false !== $pos( $b1 ) && $pos( $b1 ) < $pos( $f1 ) && $pos( $f1 ) < $pos( $c1 ) && $pos( $c1 ) < $pos( $a1 ), true );
 ck( 'an offer that also opens to mentors, or to the program team, is still open to students', array( false !== $pos( $c1 ), false !== $pos( $f1 ) ), array( true, true ) );
-ck( 'nor an expired one, nor the ended one, nor the empty one', array( strpos( $html, 'Expired' ), strpos( $html, 'name="wpcpm_offer" value="' . $d1 . '"' ), strpos( $html, 'name="wpcpm_offer" value="' . $empty . '"' ) ), array( false, false, false ) );
+// Looked for as cards, by title: the ended offer's code is listed under Your codes, and since
+// 1.116.4 its row carries a problem form naming that offer, which is not a card for it.
+ck( 'nor an expired one, nor the ended one, nor the empty one', array( strpos( $html, 'Expired' ), offer_card( $html, 'Old offer' ), offer_card( $html, 'Empty' ), strpos( $html, 'name="wpcpm_offer" value="' . $empty . '"' ) ), array( false, '', '', false ) );
 ck( 'each open offer carries a claim form with its nonce, and no code', array( substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ), false !== strpos( $html, 'nonce-' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '_' . $a1 ), strpos( $html, 'A-1' ) ), array( 4, true, false ) );
 ck( 'the sponsor logo, name and website are drawn', array( false !== strpos( $html, 'wpcpm-tools__logo' ), false !== strpos( $html, 'https://plugins.mango-example.com/' ) ), array( true, true ) );
 ck( '"Your codes" lists the claim from the ended offer, with the code', array( false !== strpos( $html, 'Your codes' ), false !== strpos( $html, 'Old offer' ), false !== strpos( $html, '>D-1<' ) ), array( true, true, true ) );
+// Get my code sits beside More information: one row, the link first and the button after it,
+// in the place the link has always had, under the instructions and above the sponsor's guides.
+// The link's paragraph and the form are the markup they were, inside the row.
+$mango  = offer_card( $html, 'Mango Example' );
+$cirrus = offer_card( $html, 'Cirrus Example' );
+$guided = offer_card( $html, 'For mentors too' );
+ck( 'a claimable offer with a link prints one row: the More information link, then its claim form', array( false !== strpos( $mango, '<div class="wpcpm-tools__actions"><p class="wpcpm-tools__more"><a href="https://plugins.mango-example.com/wpcredits" rel="external noopener">More information</a></p><form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-tools__form" data-wpcpm-once data-wpcpm-busy="Getting your code">' ), false !== strpos( $mango, '>Get my code</button></form></div>' ), substr_count( $mango, 'wpcpm-tools__more' ), substr_count( $mango, '<form ' ) ), array( true, true, 1, 1 ) );
+ck( 'one with no link prints the row with its form alone', array( false !== strpos( $cirrus, '<div class="wpcpm-tools__actions"><form method="post"' ), false !== strpos( $cirrus, '>Show me the code</button></form></div>' ), strpos( $cirrus, 'wpcpm-tools__more' ) ), array( true, true, false ) );
+ck( 'and the row sits under the instructions and above the sponsor\'s guides', array( strpos( $guided, '<p class="wpcpm-tools__instructions">How</p><div class="wpcpm-tools__actions">' ) > 0, strpos( $guided, '</form></div><div class="wpcpm-tools__posts"></div>' ) > 0 ), array( true, true ) );
 
 // S3: Mango Example already has two live offers open to students (a1, c1). Cirrus Example's two are
 // paused for this one render only, so the student sees a single sponsor with two offers,
@@ -397,14 +430,17 @@ $r = post( $_POST, array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
 ck( 'claiming flashes on the viewer\'s own channel and returns them to the page they were on, at the section', array( $r, WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 20 ) ), array( array( 'redirect', 'https://example.test/student-report-card/#wpcpm-tools' ), array( 'status' => 'claimed' ) ) );
 WPCPM_Flash::set( WPCPM_Sponsor_Tools::FLASH, array( 'status' => 'claimed' ), 20 );
 $html = section( 'students', 20 );
-ck( 'the flash prints once with its tone, and the claimed offer shows the code, selectable, with the date and a problem form', array( false !== strpos( $html, 'wpcpm-dashboard__message--success' ), false !== strpos( $html, '<button type="button" class="wpcpm-tools__code" data-wpcpm-select aria-describedby="wpcpm-tools-code-hint">A-1</button>' ), false !== strpos( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_PROBLEM . '"' ), substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ) ), array( true, true, true, 3 ) );
+// The code claimed is shown once, under Your codes, and no longer on the offer's card as well.
+$mine = code_items( $html );
+ck( 'the flash prints once with its tone, and the code claimed shows under Your codes, selectable, with the date and a problem form', array( false !== strpos( $html, 'wpcpm-dashboard__message--success' ), false !== strpos( $mine['A-1'] ?? '', '<button type="button" class="wpcpm-tools__code" data-wpcpm-select aria-describedby="wpcpm-tools-code-hint">A-1</button> <span class="wpcpm-tools__when">' . gmdate( 'Y-m-d', (int) WPCPM_Sponsor_Claims::claims_of( 20 )[ $a1 ]['at'] ) . '</span>' ), false !== strpos( $mine['A-1'] ?? '', 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_PROBLEM . '"' ), substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ) ), array( true, true, true, 3 ) );
 // FFRNT-6: a focusable block with no role and no name was announced as ordinary text, and the
 // Enter and Space behavior forms.js gives it was undiscoverable. Every code the section prints
 // is a button that names itself and points at the one hint that says what pressing it does. Its
 // own visible text, the code, is the accessible name (Task 3 fix round 1, review suggestion 1):
 // an aria-label of "Select your code" would replace that name outright and fail WCAG 2.5.3, so
-// the button carries no aria-label at all, only the aria-describedby that adds the hint.
-ck( 'every code is a button that names itself and points at the section\'s one hint', array( substr_count( $html, '<button type="button" class="wpcpm-tools__code"' ), substr_count( $html, 'aria-label=' ), substr_count( $html, 'aria-describedby="wpcpm-tools-code-hint"' ), substr_count( $html, 'id="wpcpm-tools-code-hint"' ), strpos( $html, 'tabindex="0"' ) ), array( 3, 0, 3, 1, false ) );
+// the button carries no aria-label at all, only the aria-describedby that adds the hint. Each code
+// prints once, under Your codes (1.116.4), so there is one button for each of the two codes held.
+ck( 'every code is a button that names itself and points at the section\'s one hint', array( count( $mine ), substr_count( $html, '<button type="button" class="wpcpm-tools__code"' ), substr_count( $html, 'aria-label=' ), substr_count( $html, 'aria-describedby="wpcpm-tools-code-hint"' ), substr_count( $html, 'id="wpcpm-tools-code-hint"' ), strpos( $html, 'tabindex="0"' ) ), array( 2, 2, 0, 2, 1, false ) );
 // Review suggestion 4: the hint is about pressing a button, so a viewer whose only claim is a
 // checkout link, which renders as an anchor, must not be told to press one. The Paused student
 // has claimed nothing yet; giving them only the shared (link) offer proves the negative case,
@@ -437,6 +473,44 @@ $GLOBALS['referer'] = false;
 $r = post( array( 'wpcpm_offer' => $c1 ), array( 'WPCPM_Sponsor_Tools', 'handle_claim' ) );
 ck( 'without a referer the person lands on the site front page, at the section', $r, array( 'redirect', 'https://example.test/#wpcpm-tools' ) );
 
+echo "\n=== A claimed offer's card, and each code's row under Your codes ===\n";
+// User 20 now holds three codes: D-1 from the ended offer, A-1, and C-1 from the press above. A-1's
+// claim is dated a day that is not the fixture's today, so the card is seen to print the claim's
+// own day and not the day it is drawn.
+$held = WPCPM_Sponsor_Claims::claims_of( 20 );
+$held[ $a1 ]['at'] = gmmktime( 9, 30, 0, 9, 25, 2026 );
+update_user_meta( 20, WPCPM_Sponsor_Claims::META_CLAIMS, $held );
+$html  = section( 'students', 20 );
+$mango = offer_card( $html, 'Mango Example' );
+$first = offer_card( $html, 'For mentors too' );
+ck( 'a claimed offer\'s card holds its title and the day it was claimed, and none of the offer\'s text, instructions, link, code or problem form', array( false !== strpos( $mango, '<h4 class="wpcpm-tools__title">Mango Example</h4>' ), false !== strpos( $mango, '<p class="wpcpm-tools__claimed">Claimed 2026-09-25. Your code is below, under Your codes.</p></div></li>' ), strpos( $mango, 'wpcpm-tools__text' ), strpos( $mango, 'wpcpm-tools__instructions' ), strpos( $mango, 'wpcpm-tools__more' ), strpos( $mango, 'wpcpm-tools__code' ), strpos( $mango, 'wpcpm-tools__form--problem' ) ), array( true, true, false, false, false, false, false ) );
+// Guides are the sponsor's, not the offer's: C-1's offer leads its sponsor in this list, so it
+// carries them, claimed or not, above the line that says when.
+ck( 'while the sponsor\'s guides still print on a claimed card that leads its sponsor, above that line', array( substr_count( $first, '<div class="wpcpm-tools__posts"></div>' ), strpos( $first, '<div class="wpcpm-tools__posts"></div><p class="wpcpm-tools__claimed">Claimed ' ) > 0, strpos( $first, 'wpcpm-tools__text' ) ), array( 1, true, false ) );
+ck( 'a claimed offer prints no row and no form: nothing on its card is left to press', array( strpos( $mango, 'wpcpm-tools__actions' ), strpos( $first, 'wpcpm-tools__actions' ), strpos( $mango, '<form' ), strpos( $first, '<form' ) ), array( false, false, false, false ) );
+// The code and its problem button belong together, so each row under Your codes carries the form
+// for its own offer, the ended offer's too, whose card is gone from the list above.
+$items = code_items( $html );
+$rows  = array();
+foreach ( array( 'A-1' => $a1, 'C-1' => $c1, 'D-1' => $d1 ) as $code => $id ) {
+	$item          = $items[ $code ] ?? '';
+	$when          = '<span class="wpcpm-tools__when">' . gmdate( 'Y-m-d', (int) WPCPM_Sponsor_Claims::claims_of( 20 )[ $id ]['at'] ) . '</span>';
+	$rows[ $code ] = array( strpos( $item, '>' . $code . '</button>' ) < strpos( $item, $when ) && strpos( $item, $when ) < strpos( $item, '<form method="post" action="https://example.test/wp-admin/admin-post.php" class="wpcpm-tools__form wpcpm-tools__form--problem"' ), false !== strpos( $item, '<input type="hidden" name="_wpnonce" value="nonce-' . WPCPM_Sponsor_Tools::ACTION_PROBLEM . '_' . $id . '" />' ), false !== strpos( $item, '<input type="hidden" name="wpcpm_offer" value="' . $id . '" />' ), substr_count( $item, '<form ' ), false !== strpos( $item, '>Report a problem with this code</button></form>' ) );
+}
+ksort( $items );
+ck( 'under Your codes each row holds the code, its day, then a problem form whose nonce and offer name that offer', array( array_keys( $items ), $rows ), array( array( 'A-1', 'C-1', 'D-1' ), array( 'A-1' => array( true, true, true, 1, true ), 'C-1' => array( true, true, true, 1, true ), 'D-1' => array( true, true, true, 1, true ) ) ) );
+// Posted the way a browser posts it, every hidden field the form carries, by the Paused student
+// whose one code is a checkout link: that row carries the form too, and the handler reads the
+// action, the nonce and the offer the form was drawn with.
+$link_row = code_items( section( 'students', 22 ) )['https://cirrus-example.example/checkout?code=WPCREDITS'] ?? '';
+preg_match_all( '/<input type="hidden" name="([^"]+)" value="([^"]*)" \/>/', $link_row, $hidden, PREG_SET_ORDER );
+$fields = array();
+foreach ( $hidden as $field ) { $fields[ $field[1] ] = html_entity_decode( $field[2], ENT_QUOTES ); }
+$GLOBALS['nonce_checked'] = array(); $GLOBALS['sent'] = array(); $GLOBALS['referer'] = 'https://example.test/student-report-card/';
+$r = post( $fields, array( 'WPCPM_Sponsor_Tools', 'handle_problem' ) );
+ck( 'and the problem handler takes that form as drawn: its action is the handler\'s, its nonce the one checked, and the report goes', array( $fields['action'] ?? '', 'nonce-' . ( $GLOBALS['nonce_checked'][0] ?? '' ), $r, WPCPM_Flash::take( WPCPM_Sponsor_Tools::FLASH, 22 ), $GLOBALS['sent'][0][2] ?? '' ), array( WPCPM_Sponsor_Tools::ACTION_PROBLEM, $fields['_wpnonce'] ?? 'no nonce drawn', array( 'redirect', 'https://example.test/student-report-card/#wpcpm-tools' ), array( 'status' => 'problem-sent' ), 'claim-problem' ) );
+$GLOBALS['referer'] = false; $GLOBALS['uid'] = 20;
+
 echo "\n=== Not on somebody else's card ===\n";
 $GLOBALS['settings']['tools_students'] = false;
 ck( 'the switch off draws nothing', section( 'students', 20 ), '' );
@@ -457,6 +531,12 @@ ck( 'a manager sees every live offer, labelled with its audience', array( false 
 ck( 'with a claim form only where the offer opens to managers, whose audience reads as the settings name them', array( substr_count( $html, 'name="action" value="' . WPCPM_Sponsor_Tools::ACTION_CLAIM . '"' ), false !== strpos( $html, 'name="wpcpm_offer" value="' . $f1 . '"' ), false !== strpos( $html, 'Open to: students, the program team' ) ), array( 1, true, true ) );
 ck( 'and the empty pool with a warning where a student who holds nothing from it sees nothing', array( false !== strpos( $html, 'No codes left' ), strpos( section( 'students', 22 ), 'Empty' ) ), array( true, false ) );
 ck( 'the expired offer is shown to nobody', strpos( $html, 'Expired' ), false );
+// An offer the viewer may not claim and does not hold has nothing to put beside its link: on the
+// manager's view of an offer for students only, the link keeps a paragraph of its own, as it always had.
+$mango = offer_card( $html, 'Mango Example' );
+$empty_card = offer_card( $html, 'Empty' );
+ck( 'an offer that is neither claimable nor claimed prints its More information paragraph and no row', array( false !== strpos( $mango, '<p class="wpcpm-tools__instructions">Enter the code at checkout.</p><p class="wpcpm-tools__more"><a href="https://plugins.mango-example.com/wpcredits" rel="external noopener">More information</a></p>' ), strpos( $mango, 'wpcpm-tools__actions' ), strpos( $mango, '<form' ) ), array( true, false, false ) );
+ck( 'and the empty pool\'s warning is still its card\'s last line, after the audience, with no row', array( false !== strpos( $empty_card, '<p class="wpcpm-tools__audience wpcpm-student__note">Open to: students</p><p class="wpcpm-tools__warning">No codes left. The sponsor has been told.</p></div></li>' ), strpos( $empty_card, 'wpcpm-tools__actions' ) ), array( true, false ) );
 
 echo "\n=== A form drawn before the switch flipped (FOFFR-2) ===\n";
 // The switch hiding codes people already hold is what the switch means (spec rule 5 and section
@@ -502,6 +582,10 @@ ck( 'and by keyboard too, through the one selection routine both listeners call'
 $css = (string) file_get_contents( __DIR__ . '/../assets/css/dashboard.css' );
 ck( 'the section has a base look in the stylesheet every dashboard loads', array( false !== strpos( $css, '.wpcpm-tools__list' ), false !== strpos( $css, '.wpcpm-tools__code' ) ), array( true, true ) );
 ck( 'and resets the button so a code still looks like a code (FFRNT-6)', false !== strpos( $css, 'button.wpcpm-tools__code' ), true );
+// The two rows are the stylesheet's to make: without them the button drops back under the link and
+// each problem button under its code, whatever the markup says.
+$rule = static function ( $selector ) use ( $css ) { return preg_match( '/\n' . preg_quote( $selector, '/' ) . ' \{([^}]*)\}/', $css, $m ) ? $m[1] : ''; };
+ck( 'the stylesheet lays the link and its button out as one row, and each code with its problem button as another, with the forms\' own margins taken off inside them', array( false !== strpos( $rule( '.wpcpm-tools__actions' ), 'display: flex;' ), false !== strpos( $rule( '.wpcpm-tools__codes li' ), 'display: flex;' ), false !== strpos( $rule( ".wpcpm-tools__actions .wpcpm-tools__more,\n.wpcpm-tools__actions .wpcpm-tools__form" ), 'margin: 0;' ), false !== strpos( $rule( '.wpcpm-tools__codes .wpcpm-tools__form' ), 'margin: 0;' ) ), array( true, true, true, true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? "$fail FAILED" : 'ALL PASS', $checks );
 exit( $fail ? 1 : 0 );

@@ -45,7 +45,7 @@ their notes are kept as a record but no new ones can be added.
 
 ### Tools from our sponsors
 
-When the program switches the section on for mentors, offers a sponsor opened to mentors appear on your card too, with the same *Get my code* button and the same *Your codes* list students have. Offers for students only are not shown here.
+When the program switches the section on for mentors, offers a sponsor opened to mentors appear on your card too, laid out as students see them: *Get my code* beside the offer's *More information* link, and your codes under *Your codes*, each with *Report a problem with this code* beside it. Offers for students only are not shown here.
 
 ### Resources
 

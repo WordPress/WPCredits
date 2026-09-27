@@ -4,7 +4,7 @@ Contributors: gomp
 Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.24.6
+Stable tag: 1.24.7
 License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Tags: education, full-site-editing, block-patterns, custom-colors, custom-logo, custom-menu, translation-ready, full-width-template, block-styles
@@ -156,6 +156,9 @@ they ship with the reference's labels and `#` placeholders.
   theme can stop guessing.
 
 == Changelog ==
+
+= 1.24.7 =
+* Tools from our sponsors: the button beside the More information link, and Report a problem beside each code under Your codes (plugin 1.116.4).
 
 = 1.24.6 =
 * Mentor Report Card: the planning form's Sessions box, which the plugin keeps disabled until a repeat rule is chosen (plugin 1.109.1), is dressed like a manager's read-only report field, so it reads as waiting rather than broken.

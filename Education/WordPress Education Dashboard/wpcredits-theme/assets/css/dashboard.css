@@ -1908,6 +1908,8 @@
  * cards their shape (a two-column grid, the logo box, the monospaced code), and this puts the
  * theme's tokens on it. The one thing outside the section is the count line a manager sees on
  * somebody else's card: a bare paragraph between two sections, so it takes the sections' inset.
+ * Since plugin 1.116.4 two rows are spaced here in the theme's values: an offer's More information
+ * link with its claim button, and each code under Your codes with its Report a problem button.
  */
 .wpc-dashboard-page .wpcpm-tools__list {
 	gap: 16px;
@@ -1965,8 +1967,14 @@
 	opacity: 1;
 }
 
+.wpc-dashboard-page .wpcpm-tools__actions {
+	gap: 8px 16px;
+	margin-top: 4px;
+}
+
 .wpc-dashboard-page .wpcpm-tools__codes li {
 	border-top-color: var( --wpc-line-soft );
+	gap: 6px 12px;
 }
 
 /* A sponsor's published guides under its first offer (plugin 1.95.0): a lead line and a

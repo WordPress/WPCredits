@@ -82,9 +82,9 @@ you. See *Telling us how it is going* below.
 
 ### Tools from our sponsors
 
-The program's sponsors offer their tools to current students: a year of hosting, a premium plugin, a course. When a sponsor switches an offer on, it appears here with the sponsor's logo, what you get and how to redeem it. Press *Get my code* and your code appears in place, yours to keep; where the sponsor gives one link for everyone, *Show me the code* shows it. Everything you have claimed stays under *Your codes*, even after an offer ends.
+The program's sponsors offer their tools to current students: a year of hosting, a premium plugin, a course. When a sponsor switches an offer on, it appears here with the sponsor's logo, what you get and how to redeem it. Press *Get my code*, beside the offer's *More information* link, and your code appears below, under *Your codes*, yours to keep; where the sponsor gives one link for everyone, *Show me the code* puts it there. Once you have claimed an offer, its card shows only the offer and the day you claimed it. Everything you have claimed stays under *Your codes*, even after an offer ends.
 
-Only you see your codes. Nobody is sent a code by mail, and sponsors see how many people claimed, never who. If a code does not work, press *Report a problem with this code*: your program contact is told the offer and the last four characters and gets back to you. A program manager looking at your card sees only how many tools you claimed.
+Only you see your codes. Nobody is sent a code by mail, and sponsors see how many people claimed, never who. If a code does not work, press *Report a problem with this code* beside it: your program contact is told the offer and the last four characters and gets back to you. A program manager looking at your card sees only how many tools you claimed.
 
 ### Resources
 

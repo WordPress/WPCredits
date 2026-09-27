@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.116.3
+Stable tag: 1.116.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.116.4 =
+
+* Tools from our sponsors: an offer you have claimed now shows only the offer and the day you claimed it, since your code sits under Your codes; Get my code sits beside More information; Report a problem with this code sits beside each code under Your codes. Theme 1.24.7 dresses the two rows.
 
 = 1.116.3 =
 

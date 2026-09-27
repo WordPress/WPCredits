@@ -829,6 +829,22 @@ button.wpcpm-tools__code {
 	margin: 0.25em 0.5em 0 0;
 }
 
+/* More information and the claim button share one row, the link first, so the button reads with
+   the link rather than as a line of its own under it. Inside the row the gap spaces the two, so
+   their own margins go. */
+.wpcpm-tools__actions {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em 1em;
+	margin: 0.25em 0 0;
+}
+
+.wpcpm-tools__actions .wpcpm-tools__more,
+.wpcpm-tools__actions .wpcpm-tools__form {
+	margin: 0;
+}
+
 .wpcpm-tools__warning,
 .wpcpm-tools__count,
 .wpcpm-tools__when,
@@ -846,14 +862,25 @@ button.wpcpm-tools__code {
 	padding: 0;
 }
 
+/* Each code is a row: the offer, the code, the day and the button to report a problem with it,
+   since the code and its problem button belong together. The gap spaces them, so the form's own
+   margin goes. */
 .wpcpm-tools__codes li {
+	align-items: center;
 	border-top: 1px solid var( --wpcpm-border );
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35em 0.75em;
 	padding: 0.5em 0;
 }
 
 .wpcpm-tools__codes li:first-child {
 	border-top: 0;
 	padding-top: 0;
+}
+
+.wpcpm-tools__codes .wpcpm-tools__form {
+	margin: 0;
 }
 
 @media ( max-width: 782px ) {
