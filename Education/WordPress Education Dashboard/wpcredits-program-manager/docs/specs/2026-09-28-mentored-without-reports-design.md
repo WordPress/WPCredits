@@ -6,7 +6,7 @@ Design note, 28 September 2026, for 1.117.5 on the hotfix line. Follows 1.117.4 
 
 The Students table and Students Reports are joined by email alone, and by nothing else on purpose: `Students.Students Reports` is empty on every row of both tables. When a student's two rows carry different addresses, or her address sits on a second Students row filed under another institution, the join finds no report for her Students row. Since 1.117.4 the roster shows her as Current because her Students row names a mentor, but her hours, team, website and mentor's name never reach the roster, and nothing tells anyone why. The program team learns of it from a school.
 
-Measured on the live site on 28 September 2026: five such rows at five institutions. Four are a report row that matched no Students row at all (the account sits on the same school's "Not yet in the Students table" list, so the school sees the person twice). One is a report row whose address belongs to a second Students row filed under another institution.
+Measured on the live site on 28 September 2026: five such rows at five institutions. Four are a report row that matched no Students row at all (the account sits on the same school's "Not yet in the Students table" list, so the school sees the person twice). One has no same-name report row among the rows the sync reads: its report, if it exists, carries a status outside the tracked ones (1.117.6 corrected the `none` sentence to say so).
 
 ## What the site does not do
 
@@ -22,7 +22,7 @@ At the end of every students run, in `reconciliation()` next to the existing cou
 | --- | --- | --- |
 | `unmatched` | a same-name report row matched no Students row by address; one at the same institution wins over one elsewhere | `reports_record`, `reports_email` |
 | `elsewhere` | a same-name report row carries the address of another Students row, joined to it or in conflict with it | `reports_record`, `reports_email`, `joined_to` (the other Students record), `joined_to_institution` |
-| `none` | no report row of this name | (the extra fields are empty strings) |
+| `none` | no report row of this name among the rows the sync reads, which are the tracked statuses only | (the extra fields are empty strings) |
 
 Every entry has every key, empty strings where the outcome has nothing to say, so a reader never branches on `isset()`. Entries keep the Students table's order.
 
@@ -31,7 +31,7 @@ Every entry has every key, empty strings where the outcome has nothing to say, s
 1. **The reconciliation card on the Institutions screen.** A row "Mentored students whose report record the address join missed" with the count, and under the table a list, one item per entry: the name, the institution and status muted, then one sentence per outcome with links to the Airtable rows (`WPCPM_Settings::airtable_record_url()`, the base and table IDs the settings already hold):
    - unmatched: "The Students row carries A; a Students Reports row with this name carries B and matched no Students row. Make the two addresses identical and run the students sync."
    - elsewhere: "The Students row carries A; a Students Reports row with this name carries the address of another Students row, filed under I. One of the two Students rows is a duplicate."
-   - none: "The Students row carries A, and no Students Reports row carries this name: the automation has not created the record yet."
+   - none: "The Students row carries A, and no Students Reports row with this name is among the rows the sync reads (the tracked statuses): either the automation has not created the record yet, or the record carries a status the sync does not read."
 2. **The run report on the Sync tab of the Students screen.** One notice when the list is not empty: "N students have a mentor but no report record under their address. The reconciliation card on the Institutions screen names each row and the address to fix."
 
 The Administrators Dashboard carries no reconciliation figures today, so nothing is added there.

@@ -3763,7 +3763,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				default:
 					$sentence = sprintf(
 						/* translators: 1: link "Students row", 2: its address. */
-						__( 'The %1$s carries %2$s, and no Students Reports row carries this name: the automation has not created the record yet.', 'wpcredits-program-manager' ),
+						__( 'The %1$s carries %2$s, and no Students Reports row with this name is among the rows the sync reads (the tracked statuses): either the automation has not created the record yet, or the record carries a status the sync does not read.', 'wpcredits-program-manager' ),
 						$students,
 						esc_html( $get( 'email' ) )
 					);

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.117.5
+Stable tag: 1.117.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.117.6 =
+
+* Reconciliation card: a mentored student with no same-name Students Reports row is described truthfully. The sync reads report rows in the tracked statuses only, so "no row of this name" can also mean a row with a status it does not read; the sentence now says both, instead of claiming the automation has not created the record. Found on the live site the minute 1.117.5 was on it.
 
 = 1.117.5 =
 
