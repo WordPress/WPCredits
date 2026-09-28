@@ -242,7 +242,7 @@ class WPCPM_Mentors_Dashboard {
  *
  * `groups()` is a faithful miniature of the real one: the cohort filter first, SPAM and
  * Duplicated dropped outright, the two tracked lists deciding current from finished and an
- * empty `reports` list deciding waiting from current, everything else the residue.
+ * empty `reports` list and no `has_mentor` deciding waiting from current, everything else the residue.
  */
 class WPCPM_Roster_Index {
 	const NEVER_SHOWN = array( 'SPAM', 'Duplicated' );
@@ -264,7 +264,7 @@ class WPCPM_Roster_Index {
 			if ( in_array( $status, self::NEVER_SHOWN, true ) ) { continue; }
 			if ( $narrow && WPCPM_Cohort::key( $row['start'] ?? '' ) !== $cohort ) { continue; }
 			if ( in_array( $status, $tracked['active'], true ) ) {
-				$groups[ empty( $row['reports'] ) ? 'waiting' : 'current' ][ $key ] = $row;
+				$groups[ ( empty( $row['reports'] ) && empty( $row['has_mentor'] ) ) ? 'waiting' : 'current' ][ $key ] = $row;
 				continue;
 			}
 			if ( in_array( $status, $tracked['past'], true ) ) { $groups['finished'][ $key ] = $row; continue; }
@@ -538,14 +538,18 @@ ck( 'and no student', has( $refused, 'Ada Example' ), false );
 
 echo "\n=== The four groups ===\n";
 
-ck( 'Current holds the student with a report record', group_count( $html, 'Current' ), 1 );
-ck( 'Waiting for a mentor holds both students without one', group_count( $html, 'Waiting for a mentor' ), 2 );
+// Bo has a mentor on his Students row and no report record the sync could join to him, which
+// is what a student whose two rows carry different addresses looks like (WPCredits#222). He is
+// mentored, so he is Current; the mentor cell is what says his report record is missing.
+ck( 'Current holds the student with a report record and the one with only a mentor', group_count( $html, 'Current' ), 2 );
+ck( 'Waiting for a mentor holds the student with neither', group_count( $html, 'Waiting for a mentor' ), 1 );
 ck( 'Finished holds the graduate', group_count( $html, 'Finished' ), 1 );
 ck( 'Did not start holds the applicant and both leads', group_count( $html, 'Did not start' ), 3 );
 ck( 'Ada is in Current', has( group_rows( $html, 'current' ), 'Ada Example' ), true );
-ck( 'Bo is not', has( group_rows( $html, 'current' ), 'Bo Example' ), false );
-ck( 'Bo is waiting, and the row says a mentor is assigned',
-	has( group_rows( $html, 'waiting' ), 'A mentor is assigned. The report record has not been created yet.' ), true );
+ck( 'so is Bo', has( group_rows( $html, 'current' ), 'Bo Example' ), true );
+ck( 'Bo is not waiting', has( group_rows( $html, 'waiting' ), 'Bo Example' ), false );
+ck( 'and his row says a mentor is assigned but the report record is missing',
+	has( group_rows( $html, 'current' ), 'A mentor is assigned. The report record has not been created yet.' ), true );
 ck( 'Cy is waiting with no mentor at all', has( group_rows( $html, 'waiting' ), 'No mentor yet.' ), true );
 // Every group is a disclosure, so the same chevron is on every row of the page. The two a
 // school works from start open; the two it reads rarely start closed. The group, not its
@@ -596,7 +600,7 @@ ck( 'the students are still there, one card each, for search and for the browser
     substr_count( $long, 'wpcpm-mentee__disclosure' ), WPCPM_Institution_Roster_View::OPEN_MAX + 1 );
 
 $GLOBALS['index']['recINSTAAA0000001'] = $seeded;
-ck( 'though each of its students is a card that opens', substr_count( group_rows( $html, 'current' ), 'wpcpm-mentee__disclosure' ), 1 );
+ck( 'though each of its students is a card that opens', substr_count( group_rows( $html, 'current' ), 'wpcpm-mentee__disclosure' ), 2 );
 ck( 'drawn with the mentor card\'s own classes, so the two pages cannot drift apart',
     array(
 		has( group_rows( $html, 'current' ), 'wpcpm-mentee__summary' ),
@@ -709,7 +713,7 @@ ck( 'and the heading is printed even so', has( group_rows( render(), 'current' )
 // target comes from has to fall back to the Students row's own status.
 $GLOBALS['index'][ $A ]['rows']['recSTU00000000002']['hours'] = '12';
 
-ck( 'a student with no account gets their hours off the index', hours_of( render(), 'waiting' ), '12 of 150' );
+ck( 'a student with no account gets their hours off the index', has( group_rows( render(), 'current' ), '12 of 150' ), true );
 
 // The 50-hour track is a different denominator, from the same map, and the value is fractional:
 // 6.2 is a real count on the live base, and an intval() anywhere would print 6.
@@ -908,7 +912,7 @@ ck( 'it appears when there is somebody in it', group_count( $with_fifth, 'Not ye
 ck( 'with the person named', has( $with_fifth, 'Nia Example' ), true );
 ck( 'and the explanation of whose job the missing record is',
 	has( $with_fifth, 'A program manager needs to complete the record.' ), true );
-ck( 'they are not in any of the four groups', group_count( $with_fifth, 'Current' ), 1 );
+ck( 'they are not in any of the four groups', group_count( $with_fifth, 'Current' ), 2 );
 
 // A student's address is a manager's to see, not the school's: the export has no email column
 // and the student card prints the mentor's address as the only one. This list printed one per
@@ -926,7 +930,7 @@ echo "\n=== The filter bar ===\n";
 
 $waiting = render( array( 'wpcpm_cohort' => '2026-H1', 'wpcpm_roster_status' => 'waiting' ) );
 
-ck( 'a group filter narrows to that group', group_count( $waiting, 'Waiting for a mentor' ), 2 );
+ck( 'a group filter narrows to that group', group_count( $waiting, 'Waiting for a mentor' ), 1 );
 ck( 'and the other three are not drawn', group_count( $waiting, 'Current' ), null );
 ck( 'the fifth list stays out of a request for one of the four',
 	has( $waiting, 'Not yet in the Students table' ), false );

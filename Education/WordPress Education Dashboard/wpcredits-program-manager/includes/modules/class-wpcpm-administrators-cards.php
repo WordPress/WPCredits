@@ -992,7 +992,8 @@ final class WPCPM_Administrators_Cards {
 						++$tracks[ $track ]['in_progress'];
 					}
 
-					if ( empty( $row['reports'] ) ) {
+					// The roster's rule (`WPCPM_Roster_Index::groups()`), so the two counts agree.
+					if ( empty( $row['reports'] ) && empty( $row['has_mentor'] ) ) {
 						++$waiting;
 					}
 

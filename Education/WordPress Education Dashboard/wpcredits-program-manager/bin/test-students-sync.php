@@ -376,6 +376,7 @@ if ( ! class_exists( 'WPCPM_Cohort' ) ) {
 			}
 			return self::NONE;
 		}
+		public static function is_key( $key ) { return 1 === preg_match( '/^\d{4}-H[12]$/', (string) $key ) || self::NONE === $key; }
 		public static function compare( $a, $b ) {
 			if ( $a === $b ) { return 0; }
 			if ( self::NONE === $a ) { return 1; }
@@ -1517,6 +1518,29 @@ $GLOBALS['users_as_rows'] = false;
 ck( 'rows handed back for an ID query are read as the accounts they are: the students on a track are counted, a departed one loses the role, and nothing warns',
     array( $counted_from_rows, (int) get_user_meta( 950, WPCPM_Students_Sync::META_ACTIVE, true ), in_array( WPCPM_Roles::ROLE_STUDENT, $GLOBALS['users'][950]['roles'], true ), $row_warnings ),
     array( 3, 0, false, array() ) );
+
+echo "\n=== A mentored student the email join misses (WPCredits#222) ===\n";
+
+// The Students row carries the mentor and the school address; the Students Reports row carries
+// the same mentor under the student's own address. The join is by address alone, so the row's
+// `reports` list stays empty - and the roster used to call her "Waiting for a mentor" while her
+// own card named her mentor.
+$GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ]['institutions']['recINSTLICEO00001'] = 'Liceo of Example';
+$s_222 = student_row( 'Mismatched Student', 'mismatched@school.example.test', 'In Sensei', 'recINSTLICEO00001', '2026-08-03', array( $fields['student_mentor'] => array( 'recMENTOR00000001' ) ) );
+$s_223 = student_row( 'Unmentored Student', 'unmentored@example.test', 'In Sensei', 'recINSTLICEO00001', '2026-08-03' );
+report_row( 'Mismatched Student', 'mismatched@home.example.test', 'In Sensei', 'recINSTLICEO00001', array( $fields['report_mentor'] => array( 'recMENTOR00000001' ) ) );
+
+run_sync();
+
+$liceo_row    = WPCPM_Roster_Index::rows( 'recINSTLICEO00001' )[ $s_222 ] ?? array();
+$liceo_groups = WPCPM_Roster_Index::groups( 'recINSTLICEO00001' );
+
+ck( 'the join still misses her: no report record on the row, a mentor beside it',
+	array( $liceo_row['reports'] ?? null, $liceo_row['has_mentor'] ?? null ), array( array(), true ) );
+ck( 'but she is Current, not waiting for a mentor',
+	array( isset( $liceo_groups['current'][ $s_222 ] ), isset( $liceo_groups['waiting'][ $s_222 ] ) ), array( true, false ) );
+ck( 'while a student with neither a mentor nor a report is still waiting',
+	array( isset( $liceo_groups['current'][ $s_223 ] ), isset( $liceo_groups['waiting'][ $s_223 ] ) ), array( false, true ) );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

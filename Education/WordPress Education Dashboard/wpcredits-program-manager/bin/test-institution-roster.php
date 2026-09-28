@@ -598,7 +598,7 @@ $rows_a = array(
 	$S_STALE   => roster_row( $S_STALE, array( 'reports' => array( $R_STALE ), 'user_id' => 11 ) ),
 );
 $rows_b = array(
-	$S_B1 => roster_row( $S_B1, array( 'institution' => $B ) ),
+	$S_B1 => roster_row( $S_B1, array( 'institution' => $B, 'has_mentor' => false ) ),
 );
 
 WPCPM_Roster_Index::write_all(

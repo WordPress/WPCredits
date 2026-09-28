@@ -146,7 +146,7 @@ class WPCPM_Institution_Policy {
  *
  * `groups()` is a faithful miniature of the real one: the cohort filter first, SPAM and
  * Duplicated dropped outright, the two tracked lists deciding current from finished and an
- * empty `reports` list deciding waiting from current, everything else the residue. The export
+ * empty `reports` list and no `has_mentor` deciding waiting from current, everything else the residue. The export
  * reads nothing else, which is the point of stubbing it this way rather than returning a list.
  */
 class WPCPM_Roster_Index {
@@ -169,7 +169,7 @@ class WPCPM_Roster_Index {
 			if ( in_array( $status, self::NEVER_SHOWN, true ) ) { continue; }
 			if ( $narrow && WPCPM_Cohort::key( $row['start'] ?? '' ) !== $cohort ) { continue; }
 			if ( in_array( $status, $tracked['active'], true ) ) {
-				$groups[ empty( $row['reports'] ) ? 'waiting' : 'current' ][ $key ] = $row;
+				$groups[ ( empty( $row['reports'] ) && empty( $row['has_mentor'] ) ) ? 'waiting' : 'current' ][ $key ] = $row;
 				continue;
 			}
 			if ( in_array( $status, $tracked['past'], true ) ) { $groups['finished'][ $key ] = $row; continue; }

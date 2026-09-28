@@ -723,8 +723,8 @@ class WPCPM_Institution_Roster_View {
 	 */
 	private static function group_note( $key ) {
 		$notes = array(
-			'current'     => __( 'On the program now, with a mentor and a report record.', 'wpcredits-program-manager' ),
-			'waiting'     => __( 'Signed up, with no report record yet. The mentor column says whether a mentor has been assigned.', 'wpcredits-program-manager' ),
+			'current'     => __( 'On the program now, with a mentor assigned.', 'wpcredits-program-manager' ),
+			'waiting'     => __( 'Signed up, with no mentor assigned yet.', 'wpcredits-program-manager' ),
 			'finished'    => __( 'Mentoring has finished. Their details are kept for reference.', 'wpcredits-program-manager' ),
 			'not_started' => __( 'Applicants who never began the program.', 'wpcredits-program-manager' ),
 		);
