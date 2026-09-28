@@ -362,6 +362,10 @@ class WPCPM_Institutions_Index {
 class WPCPM_Roster_Index {
 	const NEVER_SHOWN = array( 'SPAM', 'Duplicated' );
 	public static function read( $id ) { return isset( $GLOBALS['rosters'][ (string) $id ] ) ? $GLOBALS['rosters'][ (string) $id ] : array( 'v' => 4, 'read' => 0, 'rows' => array() ); }
+	// The real predicate, word for word: a tracked student is waiting only with neither a mentor
+	// on the Students row nor a joined report record (WPCredits#222). The roster's groups() and
+	// programs() below share it, which is what keeps the two counts from drifting apart again.
+	public static function is_waiting( array $row ) { return empty( $row['reports'] ) && empty( $row['has_mentor'] ); }
 	public static function rows( $id ) { return self::read( $id )['rows']; }
 }
 class WPCPM_Countries {
@@ -854,6 +858,16 @@ ck( 'and Dropped out inside the cohort is neither finished nor in progress', arr
 ck( 'one row per institution with somebody in progress', array_column( $programs['rows'], 'record' ), array( $A ) );
 ck( 'with the count, the breakdown by label, the waiting and the distinct mentors', array( $programs['rows'][0]['in_progress'], $programs['rows'][0]['by_status'], $programs['rows'][0]['waiting'], $programs['rows'][0]['mentors'] ), array( 3, array( 'WordPress Credits Program 150h' => 1, 'Developer Track' => 1, 'WordPress Credits Program 50h' => 1 ), 1, 1 ) );
 ck( 'the earliest and latest end among those in progress', array( $programs['rows'][0]['earliest'], $programs['rows'][0]['latest'] ), array( '2026-11-30', '2026-12-15' ) );
+
+// A mentor on the Students row whose report record the email join never found (WPCredits#222):
+// the roster files her under Current, so this count must not call her waiting - and the
+// Mentors column must not read 0 beside her either. The index carries no mentor ID, so a
+// nameless assigned mentor counts as one mentor of her own.
+$GLOBALS['rosters'][ $A ]['rows'][] = array( 'record_id' => 'recS0000000000008', 'status' => 'In Sensei', 'start' => $in_early, 'end' => '2026-12-10', 'reports' => array(), 'mentor_name' => '', 'has_mentor' => true );
+$with_222 = WPCPM_Administrators_Cards::programs();
+ck( 'a mentored student the join missed is in progress and not waiting', array( $with_222['rows'][0]['in_progress'], $with_222['rows'][0]['waiting'] ), array( 4, 1 ) );
+ck( 'and counts as a mentor though the join never brought a name', $with_222['rows'][0]['mentors'], 2 );
+array_pop( $GLOBALS['rosters'][ $A ]['rows'] );
 ck( 'the agreement state and the latest report state ride along', array( $programs['rows'][0]['agreement'], $programs['rows'][0]['report'] ), array( 'accepted', 'draft' ) );
 ck( 'an institution with nobody in progress is counted, not listed', $programs['quiet'], 1 );
 // The oldest non-zero read, not the newest: "how old are these numbers" is honestly answered

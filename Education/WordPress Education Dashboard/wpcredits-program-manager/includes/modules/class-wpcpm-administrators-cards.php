@@ -992,8 +992,8 @@ final class WPCPM_Administrators_Cards {
 						++$tracks[ $track ]['in_progress'];
 					}
 
-					// The roster's rule (`WPCPM_Roster_Index::groups()`), so the two counts agree.
-					if ( empty( $row['reports'] ) && empty( $row['has_mentor'] ) ) {
+					// The roster's own predicate, so this count and `groups()` cannot disagree.
+					if ( WPCPM_Roster_Index::is_waiting( $row ) ) {
 						++$waiting;
 					}
 
@@ -1001,6 +1001,13 @@ final class WPCPM_Administrators_Cards {
 
 					if ( '' !== $mentor ) {
 						$mentors[ $mentor ] = true;
+					} elseif ( ! empty( $row['has_mentor'] ) ) {
+						// A mentor on the Students row whose name never arrived: the name rides on
+						// the reports join, and the join missed (WPCredits#222). The index holds no
+						// mentor ID, so the row counts as one mentor of its own. "1 in progress, 0
+						// mentors, 0 waiting" is a contradiction; two such rows sharing a mentor is
+						// the rarer error, and the address fix removes it.
+						$mentors[ 'row:' . ( isset( $row['record_id'] ) ? (string) $row['record_id'] : (string) count( $mentors ) ) ] = true;
 					}
 
 					if ( '' !== $end ) {

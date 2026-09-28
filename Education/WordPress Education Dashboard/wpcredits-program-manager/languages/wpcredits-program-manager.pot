@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.117.3\n"
+"Project-Id-Version: WPCredits Program Manager 1.117.4\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-28T15:16:15+00:00\n"
+"POT-Creation-Date: 2026-09-28T21:13:19+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -855,7 +855,7 @@ msgid "%s moved down."
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:75
-#: includes/modules/class-wpcpm-administrators-cards.php:1077
+#: includes/modules/class-wpcpm-administrators-cards.php:1085
 #: includes/modules/class-wpcpm-institution-roster-view.php:146
 #: includes/modules/class-wpcpm-institutions-dashboard.php:525
 #: includes/modules/class-wpcpm-mentors.php:517
@@ -868,8 +868,8 @@ msgid "Students"
 msgstr ""
 
 #: includes/class-wpcpm-notices.php:76
-#: includes/modules/class-wpcpm-administrators-cards.php:1084
-#: includes/modules/class-wpcpm-administrators-cards.php:1607
+#: includes/modules/class-wpcpm-administrators-cards.php:1092
+#: includes/modules/class-wpcpm-administrators-cards.php:1615
 #: includes/modules/class-wpcpm-mentors.php:43
 #: includes/modules/class-wpcpm-sponsor-offers.php:1501
 #: includes/modules/class-wpcpm-sponsors-dashboard.php:490
@@ -878,7 +878,7 @@ msgstr ""
 
 #: includes/class-wpcpm-notices.php:77
 #: includes/class-wpcpm-settings-screen.php:114
-#: includes/modules/class-wpcpm-administrators-cards.php:1091
+#: includes/modules/class-wpcpm-administrators-cards.php:1099
 #: includes/modules/class-wpcpm-institutions.php:254
 msgid "Institutions"
 msgstr ""
@@ -886,7 +886,7 @@ msgstr ""
 #: includes/class-wpcpm-notices.php:78
 #: includes/class-wpcpm-settings-screen.php:115
 #: includes/modules/class-wpcpm-administrators-cards.php:624
-#: includes/modules/class-wpcpm-administrators-cards.php:1102
+#: includes/modules/class-wpcpm-administrators-cards.php:1110
 #: includes/modules/class-wpcpm-sponsor-posts.php:510
 #: includes/modules/class-wpcpm-sponsors.php:82
 #: includes/modules/class-wpcpm-sponsors.php:1169
@@ -978,9 +978,9 @@ msgid "Mentor"
 msgstr ""
 
 #: includes/class-wpcpm-roles.php:59
-#: includes/modules/class-wpcpm-administrators-cards.php:1418
-#: includes/modules/class-wpcpm-administrators-cards.php:1447
-#: includes/modules/class-wpcpm-administrators-cards.php:1605
+#: includes/modules/class-wpcpm-administrators-cards.php:1426
+#: includes/modules/class-wpcpm-administrators-cards.php:1455
+#: includes/modules/class-wpcpm-administrators-cards.php:1613
 #: includes/modules/class-wpcpm-institutions.php:3042
 #: includes/modules/class-wpcpm-institutions.php:3520
 #: includes/modules/class-wpcpm-institutions.php:4027
@@ -1687,7 +1687,7 @@ msgid "An institution leaves the pipeline when Airtable moves it out of the stag
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1213
-#: includes/modules/class-wpcpm-administrators-cards.php:1300
+#: includes/modules/class-wpcpm-administrators-cards.php:1308
 #: includes/modules/class-wpcpm-institution-agreement.php:363
 msgid "Collaboration Agreements"
 msgstr ""
@@ -1738,7 +1738,7 @@ msgid "Held on this site rather than in the code, because the document is editab
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1248
-#: includes/modules/class-wpcpm-administrators-cards.php:1410
+#: includes/modules/class-wpcpm-administrators-cards.php:1418
 #: includes/modules/class-wpcpm-institutions.php:4116
 #: includes/modules/class-wpcpm-semester-report.php:307
 msgid "Semester reports"
@@ -2318,7 +2318,7 @@ msgid "Mentor requests overdue"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:208
-#: includes/modules/class-wpcpm-administrators-cards.php:1703
+#: includes/modules/class-wpcpm-administrators-cards.php:1711
 msgid "Locked accounts"
 msgstr ""
 
@@ -2457,7 +2457,7 @@ msgid "The approval of this application is half done: an Airtable record already
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:462
-#: includes/modules/class-wpcpm-administrators-cards.php:1272
+#: includes/modules/class-wpcpm-administrators-cards.php:1280
 msgid "Read the application"
 msgstr ""
 
@@ -2547,21 +2547,21 @@ msgstr ""
 msgid "since %s, on every offer"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1140
+#: includes/modules/class-wpcpm-administrators-cards.php:1148
 msgid "Needs attention"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1168
+#: includes/modules/class-wpcpm-administrators-cards.php:1176
 #: includes/modules/class-wpcpm-institution-application.php:297
 msgid "Institution applications"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1171
+#: includes/modules/class-wpcpm-administrators-cards.php:1179
 msgid "No application is waiting."
 msgstr ""
 
 #. translators: %s: a number of applications.
-#: includes/modules/class-wpcpm-administrators-cards.php:1190
+#: includes/modules/class-wpcpm-administrators-cards.php:1198
 #, php-format
 msgid "%s rejected or spam application"
 msgid_plural "%s rejected or spam applications"
@@ -2569,14 +2569,14 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: a number of applications.
-#: includes/modules/class-wpcpm-administrators-cards.php:1226
+#: includes/modules/class-wpcpm-administrators-cards.php:1234
 #, php-format
 msgid "%s more is waiting on the Institutions screen."
 msgid_plural "%s more are waiting on the Institutions screen."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1249
+#: includes/modules/class-wpcpm-administrators-cards.php:1257
 #: includes/modules/class-wpcpm-institution-import-form.php:538
 #: includes/modules/class-wpcpm-institution-roster-view.php:998
 #: includes/modules/class-wpcpm-institutions.php:1630
@@ -2594,230 +2594,230 @@ msgid "(no name)"
 msgstr ""
 
 #. translators: %s: a program manager's name or address.
-#: includes/modules/class-wpcpm-administrators-cards.php:1262
+#: includes/modules/class-wpcpm-administrators-cards.php:1270
 #, php-format
 msgid "Routed to %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1301
+#: includes/modules/class-wpcpm-administrators-cards.php:1309
 #: includes/modules/class-wpcpm-institutions.php:4902
 msgid "Awaiting review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1304
+#: includes/modules/class-wpcpm-administrators-cards.php:1312
 msgid "No signed agreement is waiting."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1314
-#: includes/modules/class-wpcpm-administrators-cards.php:1524
+#: includes/modules/class-wpcpm-administrators-cards.php:1322
+#: includes/modules/class-wpcpm-administrators-cards.php:1532
 msgid "Overdue"
-msgstr ""
-
-#. translators: %s: a number of institutions.
-#: includes/modules/class-wpcpm-administrators-cards.php:1325
-#, php-format
-msgid "%s returned, waiting for a new upload"
-msgstr ""
-
-#. translators: %s: a number of institutions.
-#: includes/modules/class-wpcpm-administrators-cards.php:1327
-#, php-format
-msgid "%s returned, waiting for new uploads"
 msgstr ""
 
 #. translators: %s: a number of institutions.
 #: includes/modules/class-wpcpm-administrators-cards.php:1333
 #, php-format
-msgid "%s revoked agreement"
+msgid "%s returned, waiting for a new upload"
 msgstr ""
 
 #. translators: %s: a number of institutions.
 #: includes/modules/class-wpcpm-administrators-cards.php:1335
 #, php-format
+msgid "%s returned, waiting for new uploads"
+msgstr ""
+
+#. translators: %s: a number of institutions.
+#: includes/modules/class-wpcpm-administrators-cards.php:1341
+#, php-format
+msgid "%s revoked agreement"
+msgstr ""
+
+#. translators: %s: a number of institutions.
+#: includes/modules/class-wpcpm-administrators-cards.php:1343
+#, php-format
 msgid "%s revoked agreements"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1388
+#: includes/modules/class-wpcpm-administrators-cards.php:1396
 #: includes/modules/class-wpcpm-sponsors.php:1613
 msgid "Reinstating"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1393
+#: includes/modules/class-wpcpm-administrators-cards.php:1401
 msgid "Reinstate"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1412
+#: includes/modules/class-wpcpm-administrators-cards.php:1420
 msgid "To review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1415
+#: includes/modules/class-wpcpm-administrators-cards.php:1423
 msgid "No draft is waiting for review."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1419
-#: includes/modules/class-wpcpm-administrators-cards.php:1448
+#: includes/modules/class-wpcpm-administrators-cards.php:1427
+#: includes/modules/class-wpcpm-administrators-cards.php:1456
 #: includes/modules/class-wpcpm-institutions.php:4152
 #: includes/modules/class-wpcpm-institutions.php:4232
 msgid "Semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1420
+#: includes/modules/class-wpcpm-administrators-cards.php:1428
 #: includes/modules/class-wpcpm-institutions.php:4154
 msgid "Drafted"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1421
-#: includes/modules/class-wpcpm-administrators-cards.php:1450
+#: includes/modules/class-wpcpm-administrators-cards.php:1429
+#: includes/modules/class-wpcpm-administrators-cards.php:1458
 #: includes/modules/class-wpcpm-institutions.php:4233
 msgid "Still in progress"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1422
+#: includes/modules/class-wpcpm-administrators-cards.php:1430
 msgid "Age"
 msgstr ""
 
 #. translators: %s: a number of days.
-#: includes/modules/class-wpcpm-administrators-cards.php:1432
+#: includes/modules/class-wpcpm-administrators-cards.php:1440
 #, php-format
 msgid "%s day"
 msgid_plural "%s days"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1434
+#: includes/modules/class-wpcpm-administrators-cards.php:1442
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:922
 msgid "Review"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1441
+#: includes/modules/class-wpcpm-administrators-cards.php:1449
 #: includes/modules/class-wpcpm-institutions.php:4225
 msgid "Due for drafting"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1444
+#: includes/modules/class-wpcpm-administrators-cards.php:1452
 #: includes/modules/class-wpcpm-institutions.php:4228
 msgid "Nothing is waiting: every finished semester has a report, or is not finished yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1449
+#: includes/modules/class-wpcpm-administrators-cards.php:1457
 msgid "Window ended"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1472
+#: includes/modules/class-wpcpm-administrators-cards.php:1480
 msgid "Approved this semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1475
+#: includes/modules/class-wpcpm-administrators-cards.php:1483
 msgid "No report has been approved this semester yet."
 msgstr ""
 
 #. translators: 1: a date, 2: a program manager's name.
-#: includes/modules/class-wpcpm-administrators-cards.php:1488
+#: includes/modules/class-wpcpm-administrators-cards.php:1496
 #, php-format
 msgid "approved on %1$s by %2$s"
 msgstr ""
 
 #. translators: %s: a date.
-#: includes/modules/class-wpcpm-administrators-cards.php:1489
+#: includes/modules/class-wpcpm-administrators-cards.php:1497
 #, php-format
 msgid "approved on %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1492
+#: includes/modules/class-wpcpm-administrators-cards.php:1500
 #: includes/modules/class-wpcpm-semester-report-screen.php:509
 msgid "View"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1511
+#: includes/modules/class-wpcpm-administrators-cards.php:1519
 msgid "Mentor requests"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1514
+#: includes/modules/class-wpcpm-administrators-cards.php:1522
 msgid "No request is open."
 msgstr ""
 
 #. translators: %s: how long ago.
-#: includes/modules/class-wpcpm-administrators-cards.php:1521
+#: includes/modules/class-wpcpm-administrators-cards.php:1529
 #, php-format
 msgid "Opened %s ago"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1538
+#: includes/modules/class-wpcpm-administrators-cards.php:1546
 msgid "Recently closed"
 msgstr ""
 
 #. translators: %s: a date and time.
-#: includes/modules/class-wpcpm-administrators-cards.php:1548
+#: includes/modules/class-wpcpm-administrators-cards.php:1556
 #, php-format
 msgid "closed on %s"
 msgstr ""
 
 #. translators: %s: a date and time.
-#: includes/modules/class-wpcpm-administrators-cards.php:1550
+#: includes/modules/class-wpcpm-administrators-cards.php:1558
 #, php-format
 msgid "opened on %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1556
+#: includes/modules/class-wpcpm-administrators-cards.php:1564
 msgid "Handled"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1556
+#: includes/modules/class-wpcpm-administrators-cards.php:1564
 msgid "Declined"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1575
+#: includes/modules/class-wpcpm-administrators-cards.php:1583
 msgid "Programs running"
 msgstr ""
 
 #. translators: %s: a number of students.
-#: includes/modules/class-wpcpm-administrators-cards.php:1589
+#: includes/modules/class-wpcpm-administrators-cards.php:1597
 #, php-format
 msgid "in progress, %s signed up this semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1595
+#: includes/modules/class-wpcpm-administrators-cards.php:1603
 msgid "Finished this semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1597
+#: includes/modules/class-wpcpm-administrators-cards.php:1605
 msgid "across every track"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1602
+#: includes/modules/class-wpcpm-administrators-cards.php:1610
 msgid "No institution has a student in progress."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1606
+#: includes/modules/class-wpcpm-administrators-cards.php:1614
 msgid "In progress"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1608
+#: includes/modules/class-wpcpm-administrators-cards.php:1616
 #: includes/modules/class-wpcpm-institution-roster-view.php:226
 msgid "Waiting for a mentor"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1609
+#: includes/modules/class-wpcpm-administrators-cards.php:1617
 msgid "End dates"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1610
+#: includes/modules/class-wpcpm-administrators-cards.php:1618
 #: includes/modules/class-wpcpm-institutions.php:3048
 msgid "Agreement"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1611
+#: includes/modules/class-wpcpm-administrators-cards.php:1619
 msgid "Report"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1630
+#: includes/modules/class-wpcpm-administrators-cards.php:1638
 msgid "no end date"
 msgstr ""
 
 #. translators: 1: earliest end date, 2: latest end date.
 #. translators: 1: start date and time, 2: end time, with its date only when the call crosses midnight. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
 #. translators: 1: start date, 2: end date. Joined by the word "to", not a hyphen: WordPress would texturize a spaced hyphen into an en dash once this renders on the page.
-#: includes/modules/class-wpcpm-administrators-cards.php:1634
+#: includes/modules/class-wpcpm-administrators-cards.php:1642
 #: includes/modules/class-wpcpm-mentor-calls.php:2479
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1448
 #, php-format
@@ -2825,35 +2825,35 @@ msgid "%1$s to %2$s"
 msgstr ""
 
 #. translators: %s: a number of institutions.
-#: includes/modules/class-wpcpm-administrators-cards.php:1648
+#: includes/modules/class-wpcpm-administrators-cards.php:1656
 #, php-format
 msgid "%s more institution with no student in progress."
 msgid_plural "%s more institutions with no student in progress."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1656
-#: includes/modules/class-wpcpm-institution-roster-view.php:1669
+#: includes/modules/class-wpcpm-administrators-cards.php:1664
+#: includes/modules/class-wpcpm-institution-roster-view.php:1672
 msgid "These students have not been read from the program records yet."
 msgstr ""
 
 #. translators: 1: date and time, 2: how long ago.
 #. translators: 1: date and time, 2: human-readable time difference, e.g. "2 hours".
-#: includes/modules/class-wpcpm-administrators-cards.php:1657
-#: includes/modules/class-wpcpm-institution-roster-view.php:1681
+#: includes/modules/class-wpcpm-administrators-cards.php:1665
+#: includes/modules/class-wpcpm-institution-roster-view.php:1684
 #, php-format
 msgid "Read from the program records on %1$s (%2$s ago)."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1673
+#: includes/modules/class-wpcpm-administrators-cards.php:1681
 msgid "Syncs and health"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1676
+#: includes/modules/class-wpcpm-administrators-cards.php:1684
 msgid "Sync"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1677
+#: includes/modules/class-wpcpm-administrators-cards.php:1685
 #: includes/modules/class-wpcpm-institutions.php:4153
 #: includes/modules/class-wpcpm-sponsor-claims.php:495
 #: includes/modules/class-wpcpm-sponsor-offers.php:1588
@@ -2863,103 +2863,103 @@ msgstr ""
 msgid "State"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1678
+#: includes/modules/class-wpcpm-administrators-cards.php:1686
 msgid "Last run"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1679
+#: includes/modules/class-wpcpm-administrators-cards.php:1687
 msgid "Next run"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1680
+#: includes/modules/class-wpcpm-administrators-cards.php:1688
 msgid "Last error"
 msgstr ""
 
 #. translators: %s: what the sync is doing.
-#: includes/modules/class-wpcpm-administrators-cards.php:1686
+#: includes/modules/class-wpcpm-administrators-cards.php:1694
 #, php-format
 msgid "Running: %s"
 msgstr ""
 
 #. translators: %s: what the sync is doing.
-#: includes/modules/class-wpcpm-administrators-cards.php:1687
+#: includes/modules/class-wpcpm-administrators-cards.php:1695
 msgid "Idle"
 msgstr ""
 
 #. translators: 1: the verdict, 2: a date.
-#: includes/modules/class-wpcpm-administrators-cards.php:1693
-#: includes/modules/class-wpcpm-administrators-cards.php:1736
+#: includes/modules/class-wpcpm-administrators-cards.php:1701
+#: includes/modules/class-wpcpm-administrators-cards.php:1744
 #: includes/modules/class-wpcpm-institutions.php:4208
 msgid "never"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1694
+#: includes/modules/class-wpcpm-administrators-cards.php:1702
 msgid "not scheduled"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1697
+#: includes/modules/class-wpcpm-administrators-cards.php:1705
 #: includes/modules/class-wpcpm-semester-report-screen.php:393
 msgid "Open"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1706
+#: includes/modules/class-wpcpm-administrators-cards.php:1714
 msgid "No account is locked today."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1719
+#: includes/modules/class-wpcpm-administrators-cards.php:1727
 msgid "Each was refused more claims than the daily ceiling allows; the lock lifts by itself tomorrow."
 msgstr ""
 
 #. translators: 1: the verdict, 2: a date.
-#: includes/modules/class-wpcpm-administrators-cards.php:1736
+#: includes/modules/class-wpcpm-administrators-cards.php:1744
 #, php-format
 msgid "Private storage: %1$s (probed %2$s)."
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1742
+#: includes/modules/class-wpcpm-administrators-cards.php:1750
 msgid "No mail has been sent yet."
 msgstr ""
 
 #. translators: 1: a mail context, 2: a masked address, 3: a date, 4: sent or failed.
-#: includes/modules/class-wpcpm-administrators-cards.php:1743
+#: includes/modules/class-wpcpm-administrators-cards.php:1751
 #, php-format
 msgid "Last mail: %1$s to %2$s on %3$s, %4$s."
 msgstr ""
 
 #. translators: 1: a mail context, 2: a masked address, 3: a date, 4: sent or failed.
-#: includes/modules/class-wpcpm-administrators-cards.php:1743
+#: includes/modules/class-wpcpm-administrators-cards.php:1751
 msgid "sent"
 msgstr ""
 
 #. translators: 1: a mail context, 2: a masked address, 3: a date, 4: sent or failed.
-#: includes/modules/class-wpcpm-administrators-cards.php:1743
+#: includes/modules/class-wpcpm-administrators-cards.php:1751
 msgid "failed"
 msgstr ""
 
 #. translators: 1: messages sent, 2: messages in the run.
-#: includes/modules/class-wpcpm-administrators-cards.php:1756
+#: includes/modules/class-wpcpm-administrators-cards.php:1764
 #, php-format
 msgid "Invitations: %1$s of %2$s sent."
 msgstr ""
 
 #. translators: 1: date and time, 2: how long ago.
-#: includes/modules/class-wpcpm-administrators-cards.php:1906
+#: includes/modules/class-wpcpm-administrators-cards.php:1914
 #, php-format
 msgid "Received %1$s (%2$s ago)"
 msgstr ""
 
 #. translators: 1: date and time, 2: how long ago.
-#: includes/modules/class-wpcpm-administrators-cards.php:1917
+#: includes/modules/class-wpcpm-administrators-cards.php:1925
 #, php-format
 msgid "Uploaded %1$s (%2$s ago)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1928
+#: includes/modules/class-wpcpm-administrators-cards.php:1936
 #: includes/modules/class-wpcpm-institutions.php:4194
 msgid "by the site"
 msgstr ""
 
-#: includes/modules/class-wpcpm-administrators-cards.php:1928
+#: includes/modules/class-wpcpm-administrators-cards.php:1936
 #: includes/modules/class-wpcpm-institutions.php:4195
 msgid "by a manager"
 msgstr ""
@@ -4315,7 +4315,7 @@ msgid "One student"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-import-form.php:255
-#: includes/modules/class-wpcpm-institution-roster-view.php:1650
+#: includes/modules/class-wpcpm-institution-roster-view.php:1653
 msgid "Not recorded"
 msgstr ""
 
@@ -6066,11 +6066,11 @@ msgid "No students in this group."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:726
-msgid "On the program now, with a mentor and a report record."
+msgid "On the program now, with a mentor assigned or a report record already created."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:727
-msgid "Signed up, with no report record yet. The mentor column says whether a mentor has been assigned."
+msgid "Signed up, with no mentor assigned and no report record yet."
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-roster-view.php:728
@@ -6121,41 +6121,41 @@ msgid_plural "Ended %s days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1215
+#: includes/modules/class-wpcpm-institution-roster-view.php:1218
 msgid "No mentor yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1228
+#: includes/modules/class-wpcpm-institution-roster-view.php:1231
 msgid "A mentor is assigned. Their name has not reached this page yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1229
-msgid "A mentor is assigned. The report record has not been created yet."
+#: includes/modules/class-wpcpm-institution-roster-view.php:1232
+msgid "A mentor is assigned. The report record has not reached this page yet."
 msgstr ""
 
 #. translators: %s: hours logged, e.g. "12" or "6.2".
-#: includes/modules/class-wpcpm-institution-roster-view.php:1302
+#: includes/modules/class-wpcpm-institution-roster-view.php:1305
 #, php-format
 msgid "%s h"
 msgstr ""
 
 #. translators: 1: hours logged, 2: the track's target in hours.
 #. translators: 1: this step's number, 2: the highest number on the scale.
-#: includes/modules/class-wpcpm-institution-roster-view.php:1311
+#: includes/modules/class-wpcpm-institution-roster-view.php:1314
 #: includes/modules/class-wpcpm-student-feedback.php:1243
 #, php-format
 msgid "%1$s of %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1379
+#: includes/modules/class-wpcpm-institution-roster-view.php:1382
 msgid "Not yet in the Students table"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1384
+#: includes/modules/class-wpcpm-institution-roster-view.php:1387
 msgid "These students are reporting on the program, but the program records have no enrollment row for them yet, so they are not counted in the groups above. A program manager needs to complete the record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1404
+#: includes/modules/class-wpcpm-institution-roster-view.php:1407
 msgid "A student whose name is not recorded yet"
 msgstr ""
 

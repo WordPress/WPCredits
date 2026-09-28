@@ -274,16 +274,7 @@ class WPCPM_Roster_Index {
 			}
 
 			if ( in_array( $status, $active, true ) ) {
-				// **Either signal is a mentor.** `reports` is the Students Reports rows behind
-				// this student, and the automation that creates one fires on a mentor being
-				// assigned; `has_mentor` is the assignment itself, read off the Students row.
-				// The reports list is joined by email alone, so a student whose two rows carry
-				// different addresses, or whose address is filed under a second institution,
-				// arrives here with a mentor and an empty list. Grouping on `reports` alone put
-				// that student under "Waiting for a mentor" while her own card named her mentor
-				// (WPCredits#222). The mentor cell still tells "no report record yet" apart.
-				$waiting = empty( $row['reports'] ) && empty( $row['has_mentor'] );
-				$groups[ $waiting ? 'waiting' : 'current' ][ $key ] = $row;
+				$groups[ self::is_waiting( $row ) ? 'waiting' : 'current' ][ $key ] = $row;
 				continue;
 			}
 
@@ -296,6 +287,30 @@ class WPCPM_Roster_Index {
 		}
 
 		return $groups;
+	}
+
+	/**
+	 * Whether a tracked current student is still waiting for a mentor.
+	 *
+	 * **Either signal is a mentor.** `reports` is the Students Reports rows behind this
+	 * student, and the automation that creates one fires on a mentor being assigned;
+	 * `has_mentor` is the assignment itself, read off the Students row. The reports list is
+	 * joined by email alone, so a student whose two rows carry different addresses, or whose
+	 * address is filed under a second institution, arrives here with a mentor and an empty
+	 * list. Grouping on `reports` alone put that student under "Waiting for a mentor" while
+	 * her own card named her mentor (WPCredits#222). Waiting is having neither.
+	 *
+	 * One predicate, here, because `groups()` and the Administrators Dashboard's "Waiting for
+	 * a mentor" count both answer this question, and two copies of the rule is how two screens
+	 * come to disagree. The mentor cell still tells "a mentor is assigned, no report record has
+	 * reached this page" apart from "no mentor yet"; that is the screen's job, not this one's.
+	 *
+	 * @param array $row A row in the index shape. A row from before `has_mentor` existed reads
+	 *                   as having no mentor link, which is the old rule and the safe one.
+	 * @return bool
+	 */
+	public static function is_waiting( array $row ) {
+		return empty( $row['reports'] ) && empty( $row['has_mentor'] );
 	}
 
 	/**

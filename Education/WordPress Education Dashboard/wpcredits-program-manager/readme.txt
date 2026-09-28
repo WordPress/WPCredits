@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.117.3
+Stable tag: 1.117.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.117.4 =
+
+* Institution Dashboard: a student with a mentor on her Students row is Current even when the students sync found no Students Reports record under her address, and is Waiting for a mentor only with neither a mentor nor a report record. The two tables carry different addresses for some students, or the address sits on a second Students row filed under another institution, and the roster called them waiting while their own Student Report Card named their mentor (WordPress/WPCredits#222). The Administrators Dashboard's "Waiting for a mentor" count reads the same rule through one predicate, and its Mentors column counts an assigned mentor whose name the join never brought instead of printing 0 beside the student. The mentor cell says the report record "has not reached this page yet" rather than claiming it was never created, and the two group notes name both signals. From WordPress/WPCredits#226.
 
 = 1.117.3 =
 

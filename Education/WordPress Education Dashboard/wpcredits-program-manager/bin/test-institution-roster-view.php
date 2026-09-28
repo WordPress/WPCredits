@@ -548,9 +548,17 @@ ck( 'Did not start holds the applicant and both leads', group_count( $html, 'Did
 ck( 'Ada is in Current', has( group_rows( $html, 'current' ), 'Ada Example' ), true );
 ck( 'so is Bo', has( group_rows( $html, 'current' ), 'Bo Example' ), true );
 ck( 'Bo is not waiting', has( group_rows( $html, 'waiting' ), 'Bo Example' ), false );
-ck( 'and his row says a mentor is assigned but the report record is missing',
-	has( group_rows( $html, 'current' ), 'A mentor is assigned. The report record has not been created yet.' ), true );
+// "Has not reached this page" rather than "has not been created": in the #222 shape the record
+// exists and the address join missed it, and telling a school it was never created is untrue.
+ck( 'and his row says a mentor is assigned but the report record has not reached the page',
+	has( group_rows( $html, 'current' ), 'A mentor is assigned. The report record has not reached this page yet.' ), true );
+ck( 'the old sentence, which claimed the record was never created, is gone', has( $html, 'has not been created yet' ), false );
 ck( 'Cy is waiting with no mentor at all', has( group_rows( $html, 'waiting' ), 'No mentor yet.' ), true );
+// The two notes state the rule the groups are built on, both signals named: a report record
+// with no mentor link left on the Students row is still Current, so "with a mentor assigned"
+// alone would promise a name the mentor cell then denies.
+ck( 'the Current note names both signals', has( $html, 'On the program now, with a mentor assigned or a report record already created.' ), true );
+ck( 'and the Waiting note says neither is there', has( $html, 'Signed up, with no mentor assigned and no report record yet.' ), true );
 // Every group is a disclosure, so the same chevron is on every row of the page. The two a
 // school works from start open; the two it reads rarely start closed. The group, not its
 // students: since the roster became the Mentor Report Card's component every student is a
@@ -672,8 +680,18 @@ echo "\n=== Hours ===\n";
  * @param string $group Which group's first card to read.
  * @return string|null The cell's text, or null when the card has no hours row at all.
  */
-function hours_of( $html, $group = 'current' ) {
-	if ( ! preg_match( '/wpcpm-roster__row--reports-hours">.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)<\/td>/s', group_rows( $html, $group ), $m ) ) {
+function hours_of( $html, $group = 'current', $name = '' ) {
+	$rows = group_rows( $html, $group );
+
+	// One student's card, when asked for by name, rather than whichever card comes first.
+	if ( '' !== $name ) {
+		$rows = '';
+		foreach ( explode( '<details class="wpcpm-mentee__disclosure', group_rows( $html, $group ) ) as $card ) {
+			if ( false !== strpos( $card, '>' . $name . '<' ) ) { $rows = $card; }
+		}
+	}
+
+	if ( ! preg_match( '/wpcpm-roster__row--reports-hours">.*?<td class="wpcpm-mentee__value"[^>]*>(.*?)<\/td>/s', $rows, $m ) ) {
 		return null;
 	}
 
@@ -713,7 +731,8 @@ ck( 'and the heading is printed even so', has( group_rows( render(), 'current' )
 // target comes from has to fall back to the Students row's own status.
 $GLOBALS['index'][ $A ]['rows']['recSTU00000000002']['hours'] = '12';
 
-ck( 'a student with no account gets their hours off the index', has( group_rows( render(), 'current' ), '12 of 150' ), true );
+ck( 'a student with no account gets their hours off the index', hours_of( render(), 'current', 'Bo Example' ), '12 of 150' );
+ck( 'and they are his, not the first card\'s', hours_of( render(), 'current', 'Ada Example' ), 'Not recorded' );
 
 // The 50-hour track is a different denominator, from the same map, and the value is fractional:
 // 6.2 is a real count on the live base, and an intval() anywhere would print 6.

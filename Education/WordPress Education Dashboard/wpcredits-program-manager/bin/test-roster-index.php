@@ -451,5 +451,13 @@ ck( 'the names came through one prepared LIKE query', count( $GLOBALS['queries']
 ck( 'with the prefix escaped', $GLOBALS['queries'][0]['args'][0], 'wpcpm\\_roster\\_%' );
 ck( 'against the options table', false !== strpos( $GLOBALS['queries'][0]['sql'], 'wp_options' ), true );
 
+echo "\n=== is_waiting(): either signal is a mentor (WPCredits#222) ===\n";
+
+ck( 'the predicate is the index\'s, so groups() and the Administrators count read one rule', method_exists( 'WPCPM_Roster_Index', 'is_waiting' ), true );
+ck( 'neither a mentor nor a report record is waiting', WPCPM_Roster_Index::is_waiting( array( 'has_mentor' => false, 'reports' => array() ) ), true );
+ck( 'a mentor on the Students row is not, though the join found no report', WPCPM_Roster_Index::is_waiting( array( 'has_mentor' => true, 'reports' => array() ) ), false );
+ck( 'a joined report record is not, though the Students row names no mentor', WPCPM_Roster_Index::is_waiting( array( 'has_mentor' => false, 'reports' => array( 'recR000000000001' ) ) ), false );
+ck( 'a row from before the key existed falls back to the report alone', WPCPM_Roster_Index::is_waiting( array( 'reports' => array() ) ), true );
+
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

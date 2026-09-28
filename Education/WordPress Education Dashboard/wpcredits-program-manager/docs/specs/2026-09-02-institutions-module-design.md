@@ -738,8 +738,8 @@ Layout, for a settled institution: identity header from the pipeline index, fall
 
 | Group | Rows | Note |
 | --- | --- | --- |
-| Current | status in `tracked_statuses()['active']` and `reports` non-empty | the account-bearing students |
-| Waiting for a mentor | status in `['active']` and `reports` empty | imported and legacy rows alike, with `has_mentor` so "a mentor is assigned but no report record exists" reads differently from "no mentor yet" |
+| Current | status in `tracked_statuses()['active']` and a mentor signal: `has_mentor` (the link on the Students row) or `reports` non-empty | since 1.117.4 (WPCredits#222): the reports list is joined by email alone, so a student whose two rows carry different addresses arrived with a mentor and an empty list and was called waiting while her own card named her mentor |
+| Waiting for a mentor | status in `['active']` with neither `has_mentor` nor a `reports` row, `WPCPM_Roster_Index::is_waiting()`, the one predicate the Administrators Dashboard's count reads too | imported and legacy rows alike; the mentor cell still tells "a mentor is assigned, the report record has not reached this page yet" apart from "no mentor yet" |
 | Finished | status in `['past']` | collapsed |
 | Did not start | `Not moving forward`, `Fail`, empty | counted, collapsed, named honestly: the applicants who never began, which is the question institutions ask first |
 

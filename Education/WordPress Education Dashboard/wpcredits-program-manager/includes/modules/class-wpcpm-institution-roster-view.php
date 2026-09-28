@@ -723,8 +723,8 @@ class WPCPM_Institution_Roster_View {
 	 */
 	private static function group_note( $key ) {
 		$notes = array(
-			'current'     => __( 'On the program now, with a mentor assigned.', 'wpcredits-program-manager' ),
-			'waiting'     => __( 'Signed up, with no mentor assigned yet.', 'wpcredits-program-manager' ),
+			'current'     => __( 'On the program now, with a mentor assigned or a report record already created.', 'wpcredits-program-manager' ),
+			'waiting'     => __( 'Signed up, with no mentor assigned and no report record yet.', 'wpcredits-program-manager' ),
 			'finished'    => __( 'Mentoring has finished. Their details are kept for reference.', 'wpcredits-program-manager' ),
 			'not_started' => __( 'Applicants who never began the program.', 'wpcredits-program-manager' ),
 		);
@@ -1199,7 +1199,10 @@ class WPCPM_Institution_Roster_View {
 	 *
 	 * "A mentor is assigned" and "no mentor yet" are different answers to the school's
 	 * question, and design spec 7.5 asks for both: the first is waiting on the automation
-	 * that creates the report record, the second is waiting on the program.
+	 * that creates the report record, or on the sync's join by email finding one that exists
+	 * under another address (WPCredits#222); the second is waiting on the program. Either way
+	 * the record has not reached this page, and that is what the sentence says: "has not been
+	 * created" claimed to know which, and for the #222 shape it was wrong.
 	 *
 	 * @param string $name       The mentor's name from the cached card, if there is one.
 	 * @param bool   $has_mentor  Whether the Students row links a mentor.
@@ -1226,7 +1229,7 @@ class WPCPM_Institution_Roster_View {
 			esc_html(
 				$has_report
 					? __( 'A mentor is assigned. Their name has not reached this page yet.', 'wpcredits-program-manager' )
-					: __( 'A mentor is assigned. The report record has not been created yet.', 'wpcredits-program-manager' )
+					: __( 'A mentor is assigned. The report record has not reached this page yet.', 'wpcredits-program-manager' )
 			)
 		);
 	}
