@@ -4,3 +4,4 @@
 *.orig
 *.rej
 *.bak
+.worktrees/

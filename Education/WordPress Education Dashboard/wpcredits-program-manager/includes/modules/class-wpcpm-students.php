@@ -490,6 +490,14 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 
 	/**
 	 * The provisioned students.
+	 *
+	 * Every account with the role, never a first page of them: the picker counts from this
+	 * list and the institution filter narrows it afterwards, so a cap here was a cap on both.
+	 * Until 1.117.1 the query asked for the first 500 accounts by display name, which was every
+	 * account until the site passed 500 students; from then on the accounts sorting after the
+	 * cap were missing from the list and from their institution's count with no trace (13 of
+	 * 513 on 28 Sep 2026). WordPress primes every row's meta in one query whatever the count,
+	 * so the whole list costs the same round trips as a page of it.
 	 */
 	private function render_student_list() {
 		$students = get_users(
@@ -497,7 +505,7 @@ class WPCPM_Students extends WPCPM_Sync_Module {
 				'role'    => WPCPM_Roles::ROLE_STUDENT,
 				'orderby' => 'display_name',
 				'order'   => 'ASC',
-				'number'  => 500,
+				'number'  => -1,
 			)
 		);
 

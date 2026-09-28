@@ -12,3 +12,4 @@ phpcs.xml.dist
 *.bak
 *.zip
 .superpowers
+.worktrees
