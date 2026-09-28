@@ -217,8 +217,8 @@ class WPCPM_Roster_Index {
 	 * One institution's rows in the four groups the dashboard prints.
 	 *
 	 * | Group         | Rows                                                        |
-	 * | `current`     | a tracked current status, with a Students Reports row       |
-	 * | `waiting`     | a tracked current status, with none: nobody has been assigned |
+	 * | `current`     | a tracked current status, with a mentor or a Students Reports row |
+	 * | `waiting`     | a tracked current status, with neither: nobody has been assigned  |
 	 * | `finished`    | a tracked past status                                       |
 	 * | `not_started` | everything else: `Not moving forward`, `Fail`, no status at all |
 	 *
@@ -274,13 +274,16 @@ class WPCPM_Roster_Index {
 			}
 
 			if ( in_array( $status, $active, true ) ) {
-				// `reports` is the Students Reports rows behind this student, and the
-				// automation that creates one fires on a mentor being assigned. So an empty
-				// list is "nobody is mentoring them yet", which is the single question an
-				// institution asks most often about a student it has sent. `has_mentor` sits
-				// on the row beside it, so the rarer "a mentor is named but no report record
-				// exists" can be told apart on the screen rather than here.
-				$groups[ empty( $row['reports'] ) ? 'waiting' : 'current' ][ $key ] = $row;
+				// **Either signal is a mentor.** `reports` is the Students Reports rows behind
+				// this student, and the automation that creates one fires on a mentor being
+				// assigned; `has_mentor` is the assignment itself, read off the Students row.
+				// The reports list is joined by email alone, so a student whose two rows carry
+				// different addresses, or whose address is filed under a second institution,
+				// arrives here with a mentor and an empty list. Grouping on `reports` alone put
+				// that student under "Waiting for a mentor" while her own card named her mentor
+				// (WPCredits#222). The mentor cell still tells "no report record yet" apart.
+				$waiting = empty( $row['reports'] ) && empty( $row['has_mentor'] );
+				$groups[ $waiting ? 'waiting' : 'current' ][ $key ] = $row;
 				continue;
 			}
 
