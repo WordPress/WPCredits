@@ -129,7 +129,8 @@ answer that removes comes first, and it is the default for both.
   account is created**. Off by default, and worth leaving off unless you mean to email everybody: a
   first sync creates around ninety accounts at once. Its fold: invitations are queued and sent a few
   at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed,
-  and you can also invite people one at a time from the Mentors and Students screens.
+  and you can also invite people one at a time from the Mentors and Students screens, or tick
+  several in the Students screen's list and invite them together.
 - **Automatic sync** - **Read Airtable on a schedule**, on by default: the students, mentors and
   institutions syncs every three hours, the mentors run half an hour after the students run. The
   sponsors sync is on the same three-hour clock and runs regardless of this switch. Its fold: the

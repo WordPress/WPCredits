@@ -21,6 +21,11 @@
 	<exclude-pattern>*/vendor/*</exclude-pattern>
 	<!-- The orchestration scratch (briefs, reports, review diffs, snapshots of the theme) is never plugin code. -->
 	<exclude-pattern>*/.superpowers/*</exclude-pattern>
+	<!--
+		Nor are the linked worktrees of other branches under .worktrees/, each checked from its own
+		tree. Read from here as well, one of them ran phpcs out of memory.
+	-->
+	<exclude-pattern>*/.worktrees/*</exclude-pattern>
 
 	<!--
 		Development scripts. They deliberately declare stand-ins for dozens of WordPress

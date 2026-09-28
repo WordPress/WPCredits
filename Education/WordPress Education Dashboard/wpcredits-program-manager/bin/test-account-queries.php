@@ -258,8 +258,14 @@ for ( $i = 1; $i <= 1001; $i++ ) {
 add_person( 'Mentor Example', array( WPCPM_Roles::ROLE_MENTOR ) );
 $GLOBALS['queries'] = array();
 $method             = new ReflectionMethod( 'WPCPM_Students_Dashboard', 'all_students' );
-$students           = $method->invoke( null );
-$names              = array_map( static function ( $u ) { return $u->display_name; }, $students );
+
+// Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1.
+if ( PHP_VERSION_ID < 80100 ) {
+	$method->setAccessible( true );
+}
+
+$students = $method->invoke( null );
+$names    = array_map( static function ( $u ) { return $u->display_name; }, $students );
 
 ck( 'all 1001 accounts with a record', count( $students ), 1001 );
 ck( 'the 1001st by name is there', in_array( 'Student 1001', $names, true ), true );

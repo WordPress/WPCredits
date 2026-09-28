@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Program managers - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.117.6
+ * Version:           1.118.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.117.6' );
+define( 'WPCPM_VERSION', '1.118.0' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -65,6 +65,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-image-upload.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-guard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-form-stash.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php';
@@ -156,6 +157,21 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-tools.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
+
+/**
+ * Load the audience screens' account lists, the first time one is needed.
+ *
+ * Not with the rest: the lists extend core's list table, which core loads for wp-admin requests,
+ * after plugins have loaded, so declaring them as the plugin loads would load core's class on the
+ * front end, in REST and on cron as well. The Students screen calls this on its load hook, when its
+ * rows-per-page choice is saved, when it draws its list without that hook, and wherever it reads
+ * the Student accounts table's role and invitation stamp: its invitations card, and the card's
+ * button, which admin-post.php runs. The base still loads core's class itself when it is missing.
+ */
+function wpcpm_load_accounts_tables() {
+	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-accounts-table.php';
+	require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-table.php';
+}
 
 /**
  * Boot the plugin.

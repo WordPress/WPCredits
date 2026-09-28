@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.117.6
+Stable tag: 1.118.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.118.0 =
+
+* Students module: the Students screen is two tabs, Accounts and Sync. The accounts are a WordPress list table: search, the All, Invited and Never invited views, sortable columns, a per-page screen option, and invitations sent to the selected accounts in one press or from a row's own link.
 
 = 1.117.6 =
 

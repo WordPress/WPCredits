@@ -110,6 +110,11 @@ function sources_for( array $chunks ) {
 
 	if ( null === $grounding ) {
 		$grounding = new ReflectionMethod( 'WPCPM_Handbook_Answer', 'grounding' );
+
+		// Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1.
+		if ( PHP_VERSION_ID < 80100 ) {
+			$grounding->setAccessible( true );
+		}
 	}
 
 	$wrapped = array();

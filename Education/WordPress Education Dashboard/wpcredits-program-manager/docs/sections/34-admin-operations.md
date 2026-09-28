@@ -39,13 +39,17 @@ updated, skipped and why.
 
 An invitation is a password-reset link. Send them in bulk by switching **Invitation emails** on
 before a sync, or one at a time from the Students and Mentors screens - which is the safer habit,
-because a first sync creates around ninety accounts at once.
+because a first sync creates around ninety accounts at once. On the Students screen you can also
+tick several accounts in the list and choose **Send invite** or **Resend invite** under **Bulk
+actions**: those are queued and go out a few at a time.
 
 Each invitation cancels the link in the one before it, so only the newest email works: somebody who
 opens an older one is told the link appears to be invalid. For the same reason a second invitation
-to the same person within fifteen minutes is not sent, on purpose. **Resend invite** says so and
-sends nothing, and a bulk send passes over anybody invited in the last fifteen minutes. Ask them to
-use their newest email, or send another once the fifteen minutes are up.
+to the same person within fifteen minutes is not sent, on purpose. **Resend invite** on a person's
+row says so and sends nothing; **Resend invite** on ticked accounts leaves out anybody invited in
+the last fifteen minutes and says how many it left out; and a bulk send passes over anybody invited
+in the last fifteen minutes. Ask them to use their newest email, or send another once the fifteen
+minutes are up.
 
 ### Pages the plugin owns
 

@@ -111,6 +111,38 @@ class WPCPM_Request {
 	}
 
 	/**
+	 * A ticked list sent by GET, as account IDs: whole positive numbers, each once, in the order sent.
+	 *
+	 * The checkboxes of a list form, which core's own lists send to their screen by GET, so they
+	 * arrive in the query string, where `posted_list()` never looks. A value that is not a whole
+	 * positive number as written (a word, a sign, a leading zero, a space, a number too long to hold)
+	 * is dropped rather than read as some other account, and so is a field that is not a list.
+	 *
+	 * Same standing as the rest of this class: the handler has already checked the nonce and the
+	 * capability, and every ID is still matched against the accounts the site holds.
+	 *
+	 * @param string $name Query argument name, without the brackets.
+	 * @return int[]
+	 */
+	public static function ids( $name ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- The caller's handler verifies the nonce before reaching here.
+		if ( ! isset( $_GET[ $name ] ) || ! is_array( $_GET[ $name ] ) ) {
+			return array();
+		}
+
+		$ids = array();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above; each value is kept only if it is a whole number as written.
+		foreach ( wp_unslash( $_GET[ $name ] ) as $value ) {
+			if ( is_string( $value ) && 1 === preg_match( '/^[1-9][0-9]*$/D', $value ) && (string) (int) $value === $value ) {
+				$ids[ (int) $value ] = true;
+			}
+		}
+
+		return array_keys( $ids );
+	}
+
+	/**
 	 * Whether a login actually asked to be sent somewhere in particular.
 	 *
 	 * `login_redirect` hands over a `$requested_redirect_to`, and the obvious reading - "if

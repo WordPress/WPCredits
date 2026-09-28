@@ -1086,7 +1086,9 @@ final class WPCPM_Administrators_Cards {
 				'progress' => WPCPM_Students_Sync::progress(),
 				'last'     => (int) get_option( WPCPM_Students_Sync::OPT_LAST, 0 ),
 				'next'     => (int) wp_next_scheduled( WPCPM_Students_Sync::CRON_AUTO ),
-				'screen'   => admin_url( 'admin.php?page=wpcpm-students' ),
+				// The Students screen's Sync tab, where the run is started and followed, rather than
+				// the Accounts tab the screen opens on.
+				'screen'   => admin_url( 'admin.php?page=wpcpm-students&tab=sync' ),
 			),
 			'mentors'      => array(
 				'label'    => __( 'Mentors', 'wpcredits-program-manager' ),

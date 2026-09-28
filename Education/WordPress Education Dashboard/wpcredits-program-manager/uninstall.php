@@ -62,6 +62,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-image-upload.ph
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-pdf-check.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-guard.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-form-stash.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-screen-tabs.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-palette.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-columns.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-questions.php';

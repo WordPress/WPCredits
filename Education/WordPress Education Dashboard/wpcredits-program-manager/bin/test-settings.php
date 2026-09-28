@@ -3225,7 +3225,7 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
         ),
         'Invitation emails'                  => array(
             array( 'Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them.' ),
-            array( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens.' ),
+            array( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students screen\'s list and invite them together.' ),
         ),
         'Automatic sync'                     => array(
             array( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students; the sponsors sync runs regardless.' ),

@@ -13,6 +13,18 @@
  * - `bin/check-spelling.php` read the interface strings out of PHP but not the block titles
  *   and descriptions the inserter shows, which are translated the same way (FSUIT-12).
  *
+ * A section checks that the checkers keep to this branch's own tree. Other branches' linked
+ * worktrees can sit inside the checkout, under the git-ignored `.worktrees/`, and on 28 September
+ * 2026 one of them made `bin/check-references.php` report 84 problems that were the other branch's
+ * code checked against this branch's classes, and ran phpcs out of memory, so neither the dead
+ * annotations check nor the standards could run at all.
+ *
+ * The last checks that the suites can run on PHP 7.4, the oldest PHP the plugin supports. A suite
+ * that reaches a private or protected method through reflection has to make it accessible first
+ * before PHP 8.1, which refuses the call otherwise; since 8.1 the step does nothing, so a suite
+ * missing it passes on the PHP here and throws on 7.4, as three did until September 2026. There is
+ * no PHP 7.4 here to run them on, so the suites' source is read for it.
+ *
  * phpcs is stood in for rather than run: the real thing takes twelve seconds over this plugin
  * and is not installed everywhere, while what is under test is the script's arithmetic on the
  * counts, not phpcs's opinion. The stand-in writes the summary report phpcs would write and
@@ -332,6 +344,139 @@ ck( 'a British spelling in a seed\'s why note is a failure, named with the seed 
 	false !== strpos( $seed_note['out'], 'includes/tracks/seeds/probe.json' ),
 	false !== strpos( $seed_note['out'], 'colour' ),
 ), array( 0, 1, true, true ) );
+
+/* ---- The other branches' worktrees --------------------------------------- */
+
+echo "\n=== The other branches' worktrees ===\n";
+
+// The references check reads the tree it sits in, so a copy of it is run inside a scratch tree
+// holding one sound class and, in a worktree, a class whose references resolve nowhere. The line
+// it ends on is pinned whole: the one class read, and its one reference, show the check did not go
+// green over nothing. The tree's own folder is named worktrees, without the dot, so a skip wider
+// than the `.worktrees/` folder would skip the sound class too.
+$tree = $scratch . '/worktrees';
+
+put( $tree . '/bin/check-references.php', (string) file_get_contents( $root . '/bin/check-references.php' ) );
+put( $tree . '/includes/class-wpcpm-probe.php', "<?php\nclass WPCPM_Probe {\n\tconst HERE = 1;\n\n\tpublic function here() {\n\t\treturn self::HERE;\n\t}\n}\n" );
+put( $tree . '/.worktrees/other-branch/includes/class-wpcpm-elsewhere.php', "<?php\nclass WPCPM_Elsewhere {\n\tpublic function gone() {\n\t\treturn self::GONE + WPCPM_Probe::GONE;\n\t}\n}\n" );
+
+$refs = run( 'php ' . escapeshellarg( $tree . '/bin/check-references.php' ) );
+
+ck( 'the references check reads this checkout\'s own classes and none under .worktrees/, where the other branches\' worktrees sit',
+    array( $refs['status'], trim( $refs['out'] ) ),
+    array( 0, '1 classes, 1 references checked, 0 form handlers scanned - all resolve' ) );
+
+// phpcs is not run here (the header says why), so its ruleset is read the way phpcs reads it: as
+// elements, so a pattern left in a comment counts for nothing. The dead annotations check runs
+// phpcs through the same ruleset.
+$ruleset  = new DOMDocument();
+$loaded   = $ruleset->load( $root . '/phpcs.xml.dist' );
+$patterns = array();
+
+foreach ( $ruleset->getElementsByTagName( 'exclude-pattern' ) as $pattern ) {
+	$patterns[] = trim( $pattern->textContent );
+}
+
+ck( 'the standards, and the dead annotations check through them, leave out .worktrees/ as they leave out .superpowers/',
+    array( $loaded, in_array( '*/.worktrees/*', $patterns, true ), in_array( '*/.superpowers/*', $patterns, true ) ),
+    array( true, true, true ) );
+
+// The dash scan in bin/check-standards.sh is grep over the tree it is run from, so it is run from a
+// scratch plugin tree whose one dash is in a worktree, with the stand-in phpcs reporting nothing.
+// The dash is written as its bytes, because this file is scanned by the same rule.
+put( $scratch . '/dashes/phpcs.xml.dist', "<?xml version=\"1.0\"?>\n<ruleset name=\"Probe\"/>\n" );
+put( $scratch . '/dashes/readme.txt', "Nothing to see.\n" );
+put( $scratch . '/dashes/bin/check-spelling.php', (string) file_get_contents( $root . '/bin/check-spelling.php' ) );
+put( $scratch . '/dashes/.worktrees/other-branch/includes/probe.php', "<?php\n// The other branch's text, its dash and all: \xe2\x80\x94\n" );
+
+$dashes = run( 'cd ' . escapeshellarg( $scratch . '/dashes' ) . ' && PATH=' . escapeshellarg( $none_dir ) . ':$PATH bash ' . escapeshellarg( $root . '/bin/check-standards.sh' ) );
+
+ck( 'and so does the standards\' dash scan: a dash in another branch\'s worktree is that branch\'s to check',
+    array( $dashes['status'], false !== strpos( $dashes['out'] . $dashes['err'], 'Em or en dashes found' ), false !== strpos( $dashes['out'], '0 warnings, no errors.' ) ),
+    array( 0, false, true ) );
+
+/* ---- The suites on PHP 7.4 ----------------------------------------------- */
+
+echo "\n=== The suites on PHP 7.4 ===\n";
+
+/**
+ * The private and protected members a plugin tree's suites reach through reflection without making
+ * them accessible first, as "suite: Class::member".
+ *
+ * Read from the source: each `$name = new ReflectionMethod( 'Class', 'member' )`, or
+ * `ReflectionProperty`, with the names written out; the member's visibility where the plugin
+ * declares the class; and whether the suite invokes it, reads it or writes it through `$name`, and
+ * calls `$name->setAccessible( true )`. A class the plugin does not declare is a suite's own
+ * stand-in, and a public member needs no step.
+ *
+ * @param string $plugin The plugin tree's root.
+ * @return string[]
+ */
+function wpcpm_reflection_reaches( $plugin ) {
+	$declared = array();
+	$files    = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $plugin . '/includes', FilesystemIterator::SKIP_DOTS ) );
+
+	foreach ( $files as $file ) {
+		if ( '.php' === substr( (string) $file, -4 ) && preg_match_all( '/^(?:abstract |final )?class (\w+)/m', (string) file_get_contents( (string) $file ), $classes ) ) {
+			foreach ( $classes[1] as $class ) {
+				$declared[ $class ] = (string) $file;
+			}
+		}
+	}
+
+	$problems = array();
+
+	foreach ( glob( $plugin . '/bin/test-*.php' ) as $suite ) {
+		$source = (string) file_get_contents( $suite );
+
+		preg_match_all( '/\$(\w+)\s*=\s*\(?\s*new Reflection(Method|Property)\(\s*\'(\w+)\'\s*,\s*\'(\w+)\'\s*\)/', $source, $reaches, PREG_SET_ORDER );
+
+		foreach ( $reaches as $reach ) {
+			list( , $variable, $kind, $class, $member ) = $reach;
+
+			if ( ! isset( $declared[ $class ] ) ) {
+				continue;
+			}
+
+			$declaration = 'Method' === $kind
+				? '/^\s*((?:(?:public|protected|private|static|abstract|final)\s+)*)function\s+' . $member . '\s*\(/m'
+				: '/^\s*((?:(?:public|protected|private|static|var)\s+)*)\$' . $member . '\b/m';
+
+			if ( ! preg_match( $declaration, (string) file_get_contents( $declared[ $class ] ), $found ) || ! preg_match( '/\b(private|protected)\b/', $found[1] ) ) {
+				continue;
+			}
+
+			$used       = preg_match( '/\$' . $variable . '->(invoke|invokeArgs|getValue|setValue)\(/', $source );
+			$accessible = preg_match( '/\$' . $variable . '->setAccessible\(\s*true\s*\)/', $source );
+
+			if ( $used && ! $accessible ) {
+				$problems[] = basename( $suite ) . ': ' . $class . '::' . $member;
+			}
+		}
+	}
+
+	sort( $problems );
+
+	return $problems;
+}
+
+// A scratch tree first, so the reading is seen to find what it is for: one class with a private
+// method and a public one, and three suites reaching them.
+$reflected = $scratch . '/reflection';
+$reach     = "<?php\n\$m = new ReflectionMethod( 'WPCPM_Probe', '%s' );\n%s\$m->invoke( new WPCPM_Probe() );\n";
+$guard     = "if ( PHP_VERSION_ID < 80100 ) {\n\t\$m->setAccessible( true );\n}\n";
+
+put( $reflected . '/includes/class-wpcpm-probe.php', "<?php\nclass WPCPM_Probe {\n\tprivate function hidden() {\n\t\treturn 1;\n\t}\n\n\tpublic function shown() {\n\t\treturn 2;\n\t}\n}\n" );
+put( $reflected . '/bin/test-bare.php', sprintf( $reach, 'hidden', '' ) );
+put( $reflected . '/bin/test-guarded.php', sprintf( $reach, 'hidden', $guard ) );
+put( $reflected . '/bin/test-public.php', sprintf( $reach, 'shown', '' ) );
+
+ck( 'a suite invoking a private method through reflection without making it accessible is found, one that makes it accessible is not, and a public method needs nothing',
+    wpcpm_reflection_reaches( $reflected ),
+    array( 'test-bare.php: WPCPM_Probe::hidden' ) );
+ck( 'and no suite here reaches a private or protected member that way, so each can run on PHP 7.4',
+    wpcpm_reflection_reaches( $root ),
+    array() );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

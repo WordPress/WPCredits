@@ -71,6 +71,9 @@ class WPCPM_Mail {
 	/** Admin-post action that cancels whatever is left of a bulk invite. */
 	const ACTION_STOP = 'wpcpm_stop_invites';
 
+	/** The field the invitations card's Stop names the flash channel of the screen it is on in. */
+	const FLASH_FIELD = 'wpcpm_flash';
+
 	/** Admin-post action that clears a finished run from the screen. */
 	const ACTION_DISMISS = 'wpcpm_dismiss_invite_run';
 
@@ -795,6 +798,10 @@ class WPCPM_Mail {
 
 	/**
 	 * Cancel whatever is left of a bulk invite.
+	 *
+	 * The outcome waits on the flash channel of the screen the card was on, which its form names,
+	 * and that screen prints it on the page the press comes back to, once, as it prints the outcome
+	 * of every other press made there.
 	 */
 	public static function handle_stop() {
 		self::verify( self::ACTION_STOP );
@@ -802,7 +809,13 @@ class WPCPM_Mail {
 		self::clear_queue();
 		self::dismiss_run();
 
-		self::back( 'invites-stopped' );
+		$channel = WPCPM_Request::posted_key( self::FLASH_FIELD );
+
+		if ( '' !== $channel ) {
+			WPCPM_Flash::set( $channel, 'invites-stopped' );
+		}
+
+		self::back();
 	}
 
 	/**
@@ -813,7 +826,7 @@ class WPCPM_Mail {
 
 		self::dismiss_run();
 
-		self::back( '' );
+		self::back();
 	}
 
 	/**
@@ -833,24 +846,18 @@ class WPCPM_Mail {
 	 * Back to whichever module screen the button was on.
 	 *
 	 * The referer rather than a fixed page, because one pair of handlers serves both screens and
-	 * sending a mentor manager to the students list would be its own small bug.
-	 *
-	 * @param string $status Status slug, or an empty string for none.
+	 * sending a mentor manager to the students list would be its own small bug. No outcome rides in
+	 * the address, where no screen reads one, and one a page from before still carries is dropped:
+	 * the screens take their outcomes from the flash.
 	 */
-	private static function back( $status ) {
+	private static function back() {
 		$url = wp_get_referer();
 
 		if ( ! $url ) {
 			$url = admin_url( 'admin.php?page=wpcpm' );
 		}
 
-		$url = remove_query_arg( 'wpcpm_status', $url );
-
-		if ( '' !== $status ) {
-			$url = add_query_arg( 'wpcpm_status', $status, $url );
-		}
-
-		wp_safe_redirect( $url );
+		wp_safe_redirect( remove_query_arg( 'wpcpm_status', $url ) );
 		exit;
 	}
 
@@ -897,9 +904,11 @@ class WPCPM_Mail {
 	 *
 	 *     @type string $action  Admin-post action for sending. The module owns this one, because
 	 *                           only the module knows which role it is inviting.
-	 * }
 	 *     @type int[]  $pending Users who have never been invited.
 	 *     @type string $noun    Plural noun for the people, already translated.
+	 *     @type array  $hidden  Fields the sending form posts besides its action, name => value.
+	 *     @type string $flash   The flash channel the screen reads its outcomes from, which the
+	 *                           Stop form names, so the screen says sending stopped.
 	 * }
 	 */
 	public static function render_invite_card( array $args ) {
@@ -956,6 +965,11 @@ class WPCPM_Mail {
 			);
 			wp_nonce_field( self::ACTION_STOP );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_STOP ) );
+
+			if ( ! empty( $args['flash'] ) ) {
+				printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::FLASH_FIELD ), esc_attr( (string) $args['flash'] ) );
+			}
+
 			printf(
 				'<button type="submit" class="button">%s</button>',
 				esc_html(

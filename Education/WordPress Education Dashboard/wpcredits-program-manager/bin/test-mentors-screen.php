@@ -14,6 +14,10 @@
  * means every account. So a cap in the query is a cap in the list here too, which is what makes
  * the check below fail against the capped query and pass without it.
  *
+ * It also pins that the invitations card the screen draws is handed the flash channel the screen
+ * reads its outcomes from, which the card's Stop names, so "Sending stopped." prints on this screen
+ * after a Stop pressed here (the card itself is pinned in bin/test-students-screen.php).
+ *
  * Run from the plugin root:  php bin/test-mentors-screen.php
  */
 
@@ -73,6 +77,7 @@ function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function add_query_arg( $k, $v, $url ) { return $url . '?' . $k . '=' . $v; }
 function get_edit_user_link( $id ) { return 'https://example.test/wp-admin/user-edit.php?user_id=' . (int) $id; }
+function submit_button( $text = '', $type = 'primary', $name = 'submit', $wrap = true ) { echo '<input type="submit" value="' . esc_attr( $text ) . '" />'; }
 function wp_nonce_field( $a ) { echo '<input type="hidden" name="_wpnonce" value="n" />'; }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
 function get_user_meta( $id, $key, $single = false ) {
@@ -124,6 +129,13 @@ class WPCPM_Mentors_Sync {
 	const META_PAST_COUNT = 'wpcpm_mentee_past_count';
 }
 
+/** The invitations card, as far as the screen hands it anything: what it was given, and nobody to invite. */
+class WPCPM_Mail {
+	public static $card = array();
+	public static function never_invited( $role, $meta ) { return array(); }
+	public static function render_invite_card( array $args ) { self::$card = $args; }
+}
+
 /** The mentor page's address and a mentor's student count, which the list prints per row. */
 class WPCPM_Mentors_Dashboard {
 	public static function page_url() { return 'https://example.test/mentor-dashboard/'; }
@@ -155,6 +167,12 @@ function ck( $label, $actual, $expected ) {
 function draw_list() {
 	$GLOBALS['queries'] = array();
 	$method             = new ReflectionMethod( 'WPCPM_Mentors', 'render_mentor_list' );
+
+	// Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1.
+	if ( PHP_VERSION_ID < 80100 ) {
+		$method->setAccessible( true );
+	}
+
 	ob_start();
 	$method->invoke( new WPCPM_Mentors() );
 	return ob_get_clean();
@@ -198,6 +216,26 @@ ck( 'and the heading counts them all', false !== strpos( $html, '<span class="wp
 ck( 'the student is not on the list', false === strpos( $html, 'Student Example' ), true );
 ck( 'nor the administrator', false === strpos( $html, 'Manager Example' ), true );
 ck( 'the list asked WordPress for every Mentor account, not a first page', isset( $GLOBALS['queries'][0]['number'] ) ? (int) $GLOBALS['queries'][0]['number'] : -1, -1 );
+
+echo "\n=== The invitations card's Stop comes back to this screen's own notices ===\n";
+
+$mentors = new WPCPM_Mentors();
+$panel   = new ReflectionMethod( 'WPCPM_Mentors', 'render_sync_panel' );
+$channel = new ReflectionMethod( 'WPCPM_Mentors', 'flash_key' );
+
+// Needed on PHP 7.4, which this plugin still supports; a no-op since 8.1.
+if ( PHP_VERSION_ID < 80100 ) {
+	$panel->setAccessible( true );
+	$channel->setAccessible( true );
+}
+
+ob_start();
+$panel->invoke( $mentors, array( 'running' => false ), 0 );
+ob_end_clean();
+
+ck( 'the card is handed the channel the Mentors screen reads its outcomes from, for its Stop to name',
+	array( isset( WPCPM_Mail::$card['flash'] ) ? WPCPM_Mail::$card['flash'] : 'no channel handed', $channel->invoke( $mentors ) ),
+	array( 'mentors_admin', 'mentors_admin' ) );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 

@@ -227,15 +227,17 @@ class WPCPM_Dashboards {
 			'sponsors'       => __( 'No sponsor has an account yet.', 'wpcredits-program-manager' ),
 		);
 
+		// The Students screen at its Sync tab, where the sync the sentence asks for runs, rather than the
+		// Accounts tab it opens on; every other screen at its own address.
 		$screens = array(
-			'students'       => 'wpcpm-students',
-			'mentors'        => 'wpcpm-mentors',
-			'institutions'   => 'wpcpm-institutions',
-			'administrators' => 'wpcpm-administrators',
-			'sponsors'       => 'wpcpm-sponsors',
+			'students'       => 'admin.php?page=wpcpm-students&tab=sync',
+			'mentors'        => 'admin.php?page=wpcpm-mentors',
+			'institutions'   => 'admin.php?page=wpcpm-institutions',
+			'administrators' => 'admin.php?page=wpcpm-administrators',
+			'sponsors'       => 'admin.php?page=wpcpm-sponsors',
 		);
 
-		return esc_html( $messages[ $module ] ) . ' <a href="' . esc_url( admin_url( 'admin.php?page=' . $screens[ $module ] ) ) . '">'
+		return esc_html( $messages[ $module ] ) . ' <a href="' . esc_url( admin_url( $screens[ $module ] ) ) . '">'
 			. esc_html__( 'Open that screen', 'wpcredits-program-manager' ) . '</a>';
 	}
 }

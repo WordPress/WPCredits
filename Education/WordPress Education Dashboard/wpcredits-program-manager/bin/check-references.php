@@ -26,8 +26,10 @@ foreach ( $rii as $file ) {
 	}
 	$path = $file->getPathname();
 	// `.superpowers/` is git-ignored scratch (plans, ledgers, copies of scripts from other branches)
-	// and a linked worktree may sit under it too: none of it is this checkout's code.
-	if ( false !== strpos( $path, '/.git/' ) || false !== strpos( $path, '/bin/' ) || false !== strpos( $path, '/.superpowers/' ) ) {
+	// and a linked worktree may sit under it too; `.worktrees/`, git-ignored as well, holds the linked
+	// worktrees of other branches. None of it is this checkout's code, and another branch's files
+	// read with this one's are checked against the wrong classes.
+	if ( false !== strpos( $path, '/.git/' ) || false !== strpos( $path, '/bin/' ) || false !== strpos( $path, '/.superpowers/' ) || false !== strpos( $path, '/.worktrees/' ) ) {
 		continue;
 	}
 	$files[] = $path;
@@ -35,13 +37,15 @@ foreach ( $rii as $file ) {
 
 sort( $files );
 
-// What each class actually declares.
+// What each class actually declares, and the class it extends: a subclass calls the static methods
+// it inherits through its own name, so the method runs as the subclass, and such a reference resolves
+// in the parent it came from.
 $declared = array();
 
 foreach ( $files as $path ) {
 	$src = file_get_contents( $path );
 
-	if ( ! preg_match( '/^(?:final |abstract )?class ([A-Za-z_]+)/m', $src, $m ) ) {
+	if ( ! preg_match( '/^(?:final |abstract )?class ([A-Za-z_]+)(?:\s+extends\s+([A-Za-z_]+))?/m', $src, $m ) ) {
 		continue;
 	}
 
@@ -55,6 +59,7 @@ foreach ( $files as $path ) {
 		'props'   => $props[1],
 		'src'     => $src,
 		'file'    => $path,
+		'parent'  => isset( $m[2] ) ? $m[2] : '',
 	);
 }
 
@@ -62,20 +67,38 @@ $problems = 0;
 $checked  = 0;
 
 /**
- * Whether a member exists on a class.
+ * Whether a member exists on a class or on a class it extends, as far as the plugin declares them.
  *
- * @param array  $class  Declaration record.
- * @param string $name   Member name.
- * @param bool   $isCall Whether it was called as a method.
+ * A parent outside the plugin (core's list table) ends the walk: a member only core declares is
+ * not one this can vouch for, and stays a problem.
+ *
+ * @param array  $class    Declaration record.
+ * @param string $name     Member name.
+ * @param bool   $isCall   Whether it was called as a method.
+ * @param array  $declared Every declaration record, by class, for the walk up.
  * @return bool
  */
-function wpcpm_has_member( array $class, $name, $isCall ) {
-	if ( $isCall ) {
-		return in_array( $name, $class['methods'], true );
-	}
+function wpcpm_has_member( array $class, $name, $isCall, array $declared ) {
+	$seen = array();
 
-	return in_array( $name, $class['consts'], true )
-		|| in_array( ltrim( $name, '$' ), $class['props'], true );
+	while ( true ) {
+		$found = $isCall
+			? in_array( $name, $class['methods'], true )
+			: in_array( $name, $class['consts'], true ) || in_array( ltrim( $name, '$' ), $class['props'], true );
+
+		if ( $found ) {
+			return true;
+		}
+
+		$parent = $class['parent'];
+
+		if ( '' === $parent || ! isset( $declared[ $parent ] ) || isset( $seen[ $parent ] ) ) {
+			return false;
+		}
+
+		$seen[ $parent ] = true;
+		$class           = $declared[ $parent ];
+	}
 }
 
 // 1. self:: / static:: inside each class.
@@ -86,7 +109,7 @@ foreach ( $declared as $cls => $class ) {
 		$isCall = isset( $ref[2] ) && '(' === $ref[2];
 		++$checked;
 
-		if ( 'class' === $ref[1] || wpcpm_has_member( $class, $ref[1], $isCall ) ) {
+		if ( 'class' === $ref[1] || wpcpm_has_member( $class, $ref[1], $isCall, $declared ) ) {
 			continue;
 		}
 
@@ -121,7 +144,7 @@ foreach ( $files as $path ) {
 
 			++$checked;
 
-			if ( 'class' === $name || wpcpm_has_member( $declared[ $cls ], $name, $isCall ) ) {
+			if ( 'class' === $name || wpcpm_has_member( $declared[ $cls ], $name, $isCall, $declared ) ) {
 				continue;
 			}
 

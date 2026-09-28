@@ -287,6 +287,8 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 				'action'  => self::ACTION_BULK,
 				'pending' => WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_MENTOR, 'wpcpm_mentor_invited' ),
 				'noun'    => __( 'mentors', 'wpcredits-program-manager' ),
+				// Named by the card's Stop, so "Sending stopped." prints here.
+				'flash'   => $this->flash_key(),
 			)
 		);
 

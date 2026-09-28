@@ -41,6 +41,22 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	const ACTION_TICK   = '';
 
 	/**
+	 * The screen's tabs, slug => label, in the order its bar draws them, the first the one the
+	 * screen opens on: none for a screen drawn in one piece.
+	 *
+	 * Declared here, as the action names are, so the way back to a tab (`tab_url()`) reads the tabs of
+	 * whichever module is pressed; a module drawn in tabs redeclares it. The labels are English, as a
+	 * constant has to hold them, and the module translates them where its bar prints them.
+	 */
+	const TABS = array();
+
+	/**
+	 * The hidden field a form on a tab names its tab in, so the press comes back to that tab: the
+	 * name the Settings screen's forms and the accounts lists' row links carry their tab in too.
+	 */
+	const TAB_FIELD = 'wpcpm_tab';
+
+	/**
 	 * The sync class this module owns, as a class name.
 	 *
 	 * @return string
@@ -125,7 +141,12 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	}
 
 	/**
-	 * Back to the module's screen, with the outcome flashed for the person who pressed.
+	 * Back to the module's screen, with the outcome flashed for the person who pressed: to the tab
+	 * the press was made on, when the screen is drawn in tabs.
+	 *
+	 * The tab is the one the form names in its hidden field, and only one the screen has: a form
+	 * that names none, or one the screen does not have, comes back to the screen's own address,
+	 * where a screen drawn in tabs shows its first.
 	 *
 	 * The Administrator Dashboard posts the same decisions with a return field; the
 	 * allowlist in `WPCPM_Return` decides, and a missing or foreign value is this screen.
@@ -134,8 +155,23 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	 */
 	protected function redirect_back( $status ) {
 		WPCPM_Flash::set( $this->flash_key(), $status );
-		wp_safe_redirect( class_exists( 'WPCPM_Return' ) ? WPCPM_Return::url( $this->admin_url() ) : $this->admin_url() );
+
+		$url = $this->tab_url( WPCPM_Request::posted_key( self::TAB_FIELD ) );
+
+		wp_safe_redirect( class_exists( 'WPCPM_Return' ) ? WPCPM_Return::url( $url ) : $url );
 		exit;
+	}
+
+	/**
+	 * The module's screen at one of its tabs, or the screen's own address for a tab it does not have.
+	 *
+	 * @param string $tab A key of TABS.
+	 * @return string
+	 */
+	protected function tab_url( $tab ) {
+		$tab = (string) $tab;
+
+		return isset( static::TABS[ $tab ] ) ? add_query_arg( 'tab', $tab, $this->admin_url() ) : $this->admin_url();
 	}
 
 	/**
@@ -166,8 +202,21 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	 * @param array $extra The screen's own outcomes, merged over the shared three.
 	 */
 	protected function render_status_notice( array $extra = array() ) {
-		$status   = $this->taken_status();
-		$messages = array_merge( self::sync_messages(), $extra );
+		$this->render_notice_from( array_merge( self::sync_messages(), $extra ) );
+	}
+
+	/**
+	 * Print the notice for the outcome the last press flashed, from this map of outcomes alone.
+	 *
+	 * For a screen drawn in tabs, which gives each tab the outcomes of the presses made on it: a
+	 * press comes back to the tab it was made on, so its notice prints there. The outcome is taken
+	 * whether or not the map knows it, so one that came back to the other tab cannot wait to surface
+	 * on a later page, under a press that did not leave it.
+	 *
+	 * @param array $messages Status => notice type and sentence.
+	 */
+	protected function render_notice_from( array $messages ) {
+		$status = $this->taken_status();
 
 		if ( '' === $status || ! isset( $messages[ $status ] ) ) {
 			return;

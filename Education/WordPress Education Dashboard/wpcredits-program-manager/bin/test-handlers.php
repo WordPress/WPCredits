@@ -428,6 +428,11 @@ if ( empty( $requires[1] ) ) {
 	exit( 1 );
 }
 
+// The accounts tables are in the list too, inside the loader the plugin calls when a screen first
+// needs one (`wpcpm_load_accounts_tables()`). They extend core's list table and load core's file
+// when the class is missing; there is no wp-admin here to load it from, so the stand-in comes first.
+require_once __DIR__ . '/stubs/class-wp-list-table.php';
+
 foreach ( $requires[1] as $rel ) {
 	// The CLI command class expects WP_CLI to exist; it is not part of any handler path.
 	if ( false !== strpos( $rel, 'class-wpcpm-cli.php' ) ) {
