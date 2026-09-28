@@ -1528,7 +1528,7 @@ echo "\n=== A mentored student the email join misses (WPCredits#222) ===\n";
 $GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ]['institutions']['recINSTLICEO00001'] = 'Liceo of Example';
 $s_222 = student_row( 'Mismatched Student', 'mismatched@school.example.test', 'In Sensei', 'recINSTLICEO00001', '2026-08-03', array( $fields['student_mentor'] => array( 'recMENTOR00000001' ) ) );
 $s_223 = student_row( 'Unmentored Student', 'unmentored@example.test', 'In Sensei', 'recINSTLICEO00001', '2026-08-03' );
-report_row( 'Mismatched Student', 'mismatched@home.example.test', 'In Sensei', 'recINSTLICEO00001', array( $fields['report_mentor'] => array( 'recMENTOR00000001' ) ) );
+$r_222 = report_row( 'Mismatched Student', 'mismatched@home.example.test', 'In Sensei', 'recINSTLICEO00001', array( $fields['report_mentor'] => array( 'recMENTOR00000001' ) ) );
 
 run_sync();
 
@@ -1541,6 +1541,43 @@ ck( 'but she is Current, not waiting for a mentor',
 	array( isset( $liceo_groups['current'][ $s_222 ] ), isset( $liceo_groups['waiting'][ $s_222 ] ) ), array( true, false ) );
 ck( 'while a student with neither a mentor nor a report is still waiting',
 	array( isset( $liceo_groups['current'][ $s_223 ] ), isset( $liceo_groups['waiting'][ $s_223 ] ) ), array( false, true ) );
+
+echo "\n=== The reconciliation names the mentored rows the address join missed ===\n";
+
+// Three shapes. Mismatched Student (above) is `unmatched`: her report row matched no Students
+// row. Twice Filed is `elsewhere`: a second Students row of her name, under another
+// institution, carries the report's address, so the report joined that row. Lonely Mentored
+// is `none`: no report row of her name exists yet.
+$GLOBALS['opts'][ WPCPM_Mentors_Sync::OPT_LOOKUPS ]['institutions']['recINSTOTHER00001'] = 'Other School of Example';
+$s_twice_a = student_row( 'Twice Filed', 'twice@school.example.test', 'In Sensei', 'recINSTLICEO00001', '2026-08-03', array( $fields['student_mentor'] => array( 'recMENTOR00000001' ) ) );
+$s_twice_b = student_row( 'Twice Filed', 'twice@home.example.test', 'In Sensei', 'recINSTOTHER00001', '2026-08-03', array( $fields['student_mentor'] => array( 'recMENTOR00000001' ) ) );
+$r_twice   = report_row( 'Twice Filed', 'twice@home.example.test', 'In Sensei', 'recINSTOTHER00001', array( $fields['report_mentor'] => array( 'recMENTOR00000001' ) ) );
+$s_lonely  = student_row( 'Lonely Mentored', 'lonely@school.example.test', 'In Sensei', 'recINSTLICEO00001', '2026-08-03', array( $fields['student_mentor'] => array( 'recMENTOR00000001' ) ) );
+
+run_sync();
+
+$missed = WPCPM_Roster_Index::counts()['reconciliation']['mentored_without_reports'] ?? null;
+$by_row = array();
+foreach ( (array) $missed as $entry ) { $by_row[ $entry['students_record'] ] = $entry; }
+
+ck( 'three rows are named, and the unmentored student is not one of them',
+	array( count( (array) $missed ), isset( $by_row[ $s_223 ] ) ), array( 3, false ) );
+ck( 'the mismatched address: her report row, both addresses, and the outcome',
+	array( $by_row[ $s_222 ]['outcome'] ?? null, $by_row[ $s_222 ]['reports_record'] ?? null, $by_row[ $s_222 ]['email'] ?? null, $by_row[ $s_222 ]['reports_email'] ?? null, $by_row[ $s_222 ]['institution'] ?? null, $by_row[ $s_222 ]['status'] ?? null ),
+	array( 'unmatched', $r_222, 'mismatched@school.example.test', 'mismatched@home.example.test', 'recINSTLICEO00001', 'In Sensei' ) );
+ck( 'the second Students row: the report is on the other row, filed under the other school',
+	array( $by_row[ $s_twice_a ]['outcome'] ?? null, $by_row[ $s_twice_a ]['reports_record'] ?? null, $by_row[ $s_twice_a ]['joined_to'] ?? null, $by_row[ $s_twice_a ]['joined_to_institution'] ?? null ),
+	array( 'elsewhere', $r_twice, $s_twice_b, 'recINSTOTHER00001' ) );
+ck( 'the other row itself is joined, so it is not on the list', isset( $by_row[ $s_twice_b ] ), false );
+ck( 'no report row at all: outcome none, the extra fields empty strings',
+	array( $by_row[ $s_lonely ]['outcome'] ?? null, $by_row[ $s_lonely ]['reports_record'] ?? null, $by_row[ $s_lonely ]['reports_email'] ?? null, $by_row[ $s_lonely ]['joined_to'] ?? null ),
+	array( 'none', '', '', '' ) );
+ck( 'every entry has every key', array_keys( (array) ( $by_row[ $s_lonely ] ?? array() ) ),
+	array( 'students_record', 'name', 'email', 'institution', 'status', 'outcome', 'reports_record', 'reports_email', 'joined_to', 'joined_to_institution' ) );
+
+$report = get_option( WPCPM_Students_Sync::OPT_REPORT );
+ck( 'the run report says so, once, with the count and where to look',
+	substr_count( implode( "\n", (array) ( $report['notices'] ?? array() ) ), '3 students have a mentor but no report record under their address. The reconciliation card on the Institutions screen names each row and the address to fix.' ), 1 );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

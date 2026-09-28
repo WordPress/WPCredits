@@ -1195,6 +1195,11 @@ $GLOBALS['opts'][ WPCPM_Roster_Index::OPT_COUNTS ] = array(
 		'duplicate_emails'         => array( 'recSEED0000000008' => 5, 'recUNKNOWN0000001' => 4 ),
 		'no_institution'           => 3,
 		'no_start_date'            => array( 'Not moving forward' => 4, '' => 2, 'Developer Track' => 1 ),
+		'mentored_without_reports' => array(
+			array( 'students_record' => 'recSTUMISS0000001', 'name' => 'Mismatched Student', 'email' => 'mismatched@school.example.test', 'institution' => 'recSEED0000000008', 'status' => 'In Sensei', 'outcome' => 'unmatched', 'reports_record' => 'recREPMISS0000001', 'reports_email' => 'mismatched@home.example.test', 'joined_to' => '', 'joined_to_institution' => '' ),
+			array( 'students_record' => 'recSTUTWICE000001', 'name' => 'Twice Filed', 'email' => 'twice@school.example.test', 'institution' => 'recSEED0000000008', 'status' => 'In Sensei', 'outcome' => 'elsewhere', 'reports_record' => 'recREPTWICE00001', 'reports_email' => 'twice@home.example.test', 'joined_to' => 'recSTUTWICE000002', 'joined_to_institution' => 'recUNKNOWN0000001' ),
+			array( 'students_record' => 'recSTULONELY00001', 'name' => 'Lonely Mentored', 'email' => 'lonely@school.example.test', 'institution' => 'recSEED0000000008', 'status' => 'Developer Track', 'outcome' => 'none', 'reports_record' => '', 'reports_email' => '', 'joined_to' => '', 'joined_to_institution' => '' ),
+		),
 	),
 );
 $GLOBALS['opts'][ WPCPM_Roster_Index::OPT_UNLINKED ] = array(
@@ -1531,6 +1536,17 @@ ck( 'the card reads 31 / 19 / 10 / 9 / 3', array(
 ck( 'the no-start-date count is split by status', false !== strpos( $html, '<th scope="row">Students rows with no start date</th><td>7 <span class="wpcpm-inst-muted">(Not moving forward 4, (empty) 2, Developer Track 1)</span></td>' ), true );
 ck( 'the no-stamp count reads zero, counted now', false !== strpos( $html, '<th scope="row">Tracked student accounts with no institution stamp</th><td>0 <span class="wpcpm-inst-muted">(counted now)</span></td>' ), true );
 ck( 'and says "tracked", which is what it counts', false !== strpos( $src, "'Tracked student accounts with no institution stamp'" ), true );
+
+$students_url = 'https://airtable.com/appIzQKfwTn5dyPVp/tbla8GZg5x6NY7aWt/';
+$reports_url  = 'https://airtable.com/appIzQKfwTn5dyPVp/tbljYkkVGbeoaWEtY/';
+ck( 'the card counts the mentored rows the address join missed', false !== strpos( $html, '<th scope="row">Mentored students whose report record the address join missed</th><td>3</td>' ), true );
+ck( 'and lists each with the institution and status muted', array(
+	false !== strpos( $html, '<li>Mismatched Student <span class="wpcpm-inst-muted">Institution 4 · In Sensei</span><br>' ),
+	false !== strpos( $html, '<li>Lonely Mentored <span class="wpcpm-inst-muted">Institution 4 · Developer Track</span><br>' ),
+), array( true, true ) );
+ck( 'the mismatched address names both rows, both addresses and the fix', false !== strpos( $html, 'The <a href="' . $students_url . 'recSTUMISS0000001" target="_blank" rel="noopener noreferrer">Students row</a> carries mismatched@school.example.test; a <a href="' . $reports_url . 'recREPMISS0000001" target="_blank" rel="noopener noreferrer">Students Reports row</a> with this name carries mismatched@home.example.test and matched no Students row. Make the two addresses identical and run the students sync.' ), true );
+ck( 'the second Students row names the other row and its institution', false !== strpos( $html, 'a <a href="' . $reports_url . 'recREPTWICE00001" target="_blank" rel="noopener noreferrer">Students Reports row</a> with this name carries the address of <a href="' . $students_url . 'recSTUTWICE000002" target="_blank" rel="noopener noreferrer">another Students row</a>, filed under recUNKNOWN0000001. One of the two Students rows is a duplicate.' ), true );
+ck( 'no report row at all says whose move it is', false !== strpos( $html, 'carries lonely@school.example.test, and no Students Reports row carries this name: the automation has not created the record yet.' ), true );
 
 $query = null;
 foreach ( $GLOBALS['calls'] as $call ) { if ( 'WP_User_Query' === $call[0] ) { $query = $call[1]; } }

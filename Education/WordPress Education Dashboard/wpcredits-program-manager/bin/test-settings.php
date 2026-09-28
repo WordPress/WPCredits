@@ -3902,6 +3902,12 @@ ck( 'guide 31 has no Tools tab and says the three tools keep their settings on t
     array( 1 === preg_match( '/^### The Tools tab$/m', $guide_31 ), false !== strpos( $guide_31, 'eighth' ), 1 === preg_match( '/Mentor Status Checker.*Student Duplicate Finder.*Need help\?.*own screen/s', $guide_31 ), $tool_parts ),
     array( false, false, true, array_fill_keys( array( 'Mentor Status Checker', 'Student Duplicate Finder', 'Need help?' ), true ) ) );
 
+echo "\n=== airtable_record_url() ===\n";
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array_merge( WPCPM_Settings::defaults(), array( 'base_id' => 'appTEST', 'students_table' => 'tbl STU', 'reports_table' => '' ) );
+ck( 'a Students row address from the settings, each part encoded', WPCPM_Settings::airtable_record_url( 'students_table', 'recABCDEFGHIJKLMN' ), 'https://airtable.com/appTEST/tbl%20STU/recABCDEFGHIJKLMN' );
+ck( 'a table the settings do not name gives no address', WPCPM_Settings::airtable_record_url( 'reports_table', 'recABCDEFGHIJKLMN' ), '' );
+ck( 'and so does an empty record', WPCPM_Settings::airtable_record_url( 'students_table', '' ), '' );
+
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 
 exit( $fail ? 1 : 0 );

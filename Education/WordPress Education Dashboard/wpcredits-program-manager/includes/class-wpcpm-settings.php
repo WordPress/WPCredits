@@ -371,6 +371,27 @@ class WPCPM_Settings {
 	}
 
 	/**
+	 * A record's address in Airtable's own interface, for a link a program manager follows.
+	 *
+	 * @param string $table_key The settings key holding the table ID: `students_table`,
+	 *                          `reports_table` or `feedback_table`.
+	 * @param string $record_id The record.
+	 * @return string '' when the base, the table or the record is not there to link to.
+	 */
+	public static function airtable_record_url( $table_key, $record_id ) {
+		$settings  = self::get();
+		$base      = isset( $settings['base_id'] ) ? trim( (string) $settings['base_id'] ) : '';
+		$table     = isset( $settings[ $table_key ] ) ? trim( (string) $settings[ $table_key ] ) : '';
+		$record_id = trim( (string) $record_id );
+
+		if ( '' === $base || '' === $table || '' === $record_id ) {
+			return '';
+		}
+
+		return 'https://airtable.com/' . rawurlencode( $base ) . '/' . rawurlencode( $table ) . '/' . rawurlencode( $record_id );
+	}
+
+	/**
 	 * Read a single setting.
 	 *
 	 * @param string $key     Setting key.

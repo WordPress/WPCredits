@@ -3627,6 +3627,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$duplicates       = isset( $rec['duplicate_emails'] ) ? (array) $rec['duplicate_emails'] : array();
 		$no_institution   = isset( $rec['no_institution'] ) ? (int) $rec['no_institution'] : 0;
 		$no_start         = isset( $rec['no_start_date'] ) ? (array) $rec['no_start_date'] : array();
+		$missed           = isset( $rec['mentored_without_reports'] ) && is_array( $rec['mentored_without_reports'] ) ? $rec['mentored_without_reports'] : array();
 		$unstamped        = self::unstamped_students();
 
 		echo '<div class="wpcpm-card">';
@@ -3666,6 +3667,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			array_sum( array_map( 'intval', $no_start ) ),
 			self::breakdown( $no_start )
 		);
+		$this->recon_row( __( 'Mentored students whose report record the address join missed', 'wpcredits-program-manager' ), count( $missed ), '' );
 
 		printf(
 			'<tr><th scope="row">%1$s</th><td%2$s>%3$s <span class="wpcpm-inst-muted">%4$s</span></td></tr>',
@@ -3688,6 +3690,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		echo '<p class="description">' . esc_html__( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for them here. Add that person from the institution\'s card, name and address; the sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created on every run.', 'wpcredits-program-manager' ) . '</p>';
 
+		if ( ! empty( $missed ) ) {
+			$this->render_missed( $missed );
+		}
+
 		$unlinked = WPCPM_Roster_Index::unlinked();
 
 		// Outside the list and not inside it: a sync that finished between the redirect and
@@ -3700,6 +3706,99 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * The mentored students whose report record the address join missed, with the row to fix.
+	 *
+	 * Each has a mentor on the Students row and no Students Reports row under the same
+	 * address, so the roster calls them Current and shows no hours (1.117.4, #222). The sync
+	 * pairs each with a report row of the same name; that pairing is a pointer for the
+	 * person reading this card, never a join, so it is printed here in wp-admin and nowhere
+	 * an institution reads. The addresses are printed because they are the fix.
+	 *
+	 * @param array $rows Entries from the sync's `mentored_without_reports`.
+	 */
+	private function render_missed( array $rows ) {
+		echo '<h3>' . esc_html__( 'Mentored students whose report record the address join missed', 'wpcredits-program-manager' ) . '</h3>';
+		echo '<p class="description">' . esc_html__( 'Each has a mentor on the Students row and no Students Reports row under the same address, so the roster shows them as Current with no hours. The pairing is by name and is a pointer for a person to check, never a join: the site does not read a report into a school\'s roster on a name.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<ul class="wpcpm-inst-missed">';
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			$get = static function ( $key ) use ( $row ) {
+				return isset( $row[ $key ] ) ? trim( (string) $row[ $key ] ) : '';
+			};
+
+			$students = self::airtable_link( 'students_table', $get( 'students_record' ), __( 'Students row', 'wpcredits-program-manager' ) );
+			$reports  = self::airtable_link( 'reports_table', $get( 'reports_record' ), __( 'Students Reports row', 'wpcredits-program-manager' ) );
+
+			switch ( $get( 'outcome' ) ) {
+				case 'unmatched':
+					$sentence = sprintf(
+						/* translators: 1: link "Students row", 2: its address, 3: link "Students Reports row", 4: its address. */
+						__( 'The %1$s carries %2$s; a %3$s with this name carries %4$s and matched no Students row. Make the two addresses identical and run the students sync.', 'wpcredits-program-manager' ),
+						$students,
+						esc_html( $get( 'email' ) ),
+						$reports,
+						esc_html( $get( 'reports_email' ) )
+					);
+					break;
+
+				case 'elsewhere':
+					$sentence = sprintf(
+						/* translators: 1: link "Students row", 2: its address, 3: link "Students Reports row", 4: link "another Students row", 5: that row's institution. */
+						__( 'The %1$s carries %2$s; a %3$s with this name carries the address of %4$s, filed under %5$s. One of the two Students rows is a duplicate.', 'wpcredits-program-manager' ),
+						$students,
+						esc_html( $get( 'email' ) ),
+						$reports,
+						self::airtable_link( 'students_table', $get( 'joined_to' ), __( 'another Students row', 'wpcredits-program-manager' ) ),
+						esc_html( self::institution_name( $get( 'joined_to_institution' ) ) )
+					);
+					break;
+
+				default:
+					$sentence = sprintf(
+						/* translators: 1: link "Students row", 2: its address. */
+						__( 'The %1$s carries %2$s, and no Students Reports row carries this name: the automation has not created the record yet.', 'wpcredits-program-manager' ),
+						$students,
+						esc_html( $get( 'email' ) )
+					);
+			}
+
+			$status = $get( 'status' );
+
+			printf(
+				'<li>%1$s <span class="wpcpm-inst-muted">%2$s · %3$s</span><br>%4$s</li>',
+				esc_html( '' !== $get( 'name' ) ? $get( 'name' ) : __( '(no name)', 'wpcredits-program-manager' ) ),
+				esc_html( self::institution_name( $get( 'institution' ) ) ),
+				esc_html( '' !== $status ? $status : __( '(no status)', 'wpcredits-program-manager' ) ),
+				$sentence // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built above from escaped parts and airtable_link()'s own markup.
+			);
+		}
+
+		echo '</ul>';
+	}
+
+	/**
+	 * A link to a row in Airtable, or the label alone when there is nothing to link to.
+	 *
+	 * @param string $table_key `students_table` or `reports_table`.
+	 * @param string $record    Record ID.
+	 * @param string $label     Link text.
+	 * @return string Escaped markup.
+	 */
+	private static function airtable_link( $table_key, $record, $label ) {
+		$url = WPCPM_Settings::airtable_record_url( $table_key, $record );
+
+		if ( '' === $url ) {
+			return esc_html( $label );
+		}
+
+		return sprintf( '<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s</a>', esc_url( $url ), esc_html( $label ) );
 	}
 
 	/**

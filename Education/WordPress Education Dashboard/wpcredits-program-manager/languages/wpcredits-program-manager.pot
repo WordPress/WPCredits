@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.117.4\n"
+"Project-Id-Version: WPCredits Program Manager 1.117.5\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-28T21:13:19+00:00\n"
+"POT-Creation-Date: 2026-09-28T21:56:01+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -983,9 +983,9 @@ msgstr ""
 #: includes/modules/class-wpcpm-administrators-cards.php:1613
 #: includes/modules/class-wpcpm-institutions.php:3042
 #: includes/modules/class-wpcpm-institutions.php:3520
-#: includes/modules/class-wpcpm-institutions.php:4027
-#: includes/modules/class-wpcpm-institutions.php:4151
-#: includes/modules/class-wpcpm-institutions.php:4231
+#: includes/modules/class-wpcpm-institutions.php:4126
+#: includes/modules/class-wpcpm-institutions.php:4250
+#: includes/modules/class-wpcpm-institutions.php:4330
 #: includes/modules/class-wpcpm-students.php:459
 #: includes/modules/class-wpcpm-students.php:561
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
@@ -1035,7 +1035,7 @@ msgstr ""
 #: includes/class-wpcpm-settings-choices.php:210
 #: includes/class-wpcpm-settings-rows.php:263
 #: includes/modules/class-wpcpm-institution-roster-view.php:418
-#: includes/modules/class-wpcpm-institutions.php:4334
+#: includes/modules/class-wpcpm-institutions.php:4433
 #, php-format
 msgid "%1$s (%2$s)"
 msgstr ""
@@ -1413,7 +1413,7 @@ msgid "The Airtable statuses that make a student current or past, and the one th
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:964
-#: includes/class-wpcpm-settings.php:1136
+#: includes/class-wpcpm-settings.php:1157
 #: includes/modules/class-wpcpm-mentors-dashboard.php:697
 msgid "Currently mentoring"
 msgstr ""
@@ -1436,7 +1436,7 @@ msgid "With none, only current students are shown. A status in both lists counts
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:985
-#: includes/class-wpcpm-settings.php:1135
+#: includes/class-wpcpm-settings.php:1156
 msgid "Mentor status to sync"
 msgstr ""
 
@@ -1739,7 +1739,7 @@ msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1248
 #: includes/modules/class-wpcpm-administrators-cards.php:1418
-#: includes/modules/class-wpcpm-institutions.php:4116
+#: includes/modules/class-wpcpm-institutions.php:4215
 #: includes/modules/class-wpcpm-semester-report.php:307
 msgid "Semester reports"
 msgstr ""
@@ -2029,7 +2029,7 @@ msgid "Message"
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1647
-#: includes/modules/class-wpcpm-institutions.php:4905
+#: includes/modules/class-wpcpm-institutions.php:5004
 #: includes/modules/class-wpcpm-sponsor-agreement-card.php:165
 msgid "Accepted"
 msgstr ""
@@ -2109,7 +2109,7 @@ msgid "The Airtable stages of an institution's pipeline: the one an approved app
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1774
-#: includes/class-wpcpm-settings.php:1138
+#: includes/class-wpcpm-settings.php:1159
 msgid "Institution starting stage"
 msgstr ""
 
@@ -2118,7 +2118,7 @@ msgid "The Current Stage an institution is created at in Airtable when its appli
 msgstr ""
 
 #: includes/class-wpcpm-settings-screen.php:1778
-#: includes/class-wpcpm-settings.php:1137
+#: includes/class-wpcpm-settings.php:1158
 msgid "Institution pipeline stages"
 msgstr ""
 
@@ -2220,26 +2220,26 @@ msgid "A settled invitation stays listed this many days, so a program manager ca
 msgstr ""
 
 #. translators: 1: setting label, 2: its default value.
-#: includes/class-wpcpm-settings.php:1169
+#: includes/class-wpcpm-settings.php:1190
 #, php-format
 msgid "%1$s (now %2$s)"
 msgstr ""
 
 #. translators: %s: the settings that were reset, with their defaults.
-#: includes/class-wpcpm-settings.php:1181
+#: includes/class-wpcpm-settings.php:1202
 #, php-format
 msgid "These settings cannot be left blank, so their defaults were put back: %s."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1189
+#: includes/class-wpcpm-settings.php:1210
 msgid "With nothing to filter by, a sync would read every row of the Airtable table and treat each one as current."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1193
+#: includes/class-wpcpm-settings.php:1214
 msgid "With no stage in the pipeline, the institutions sync would count every institution as having left it."
 msgstr ""
 
-#: includes/class-wpcpm-settings.php:1197
+#: includes/class-wpcpm-settings.php:1218
 msgid "An approved application's institution is created in Airtable at the starting stage, so there has to be one."
 msgstr ""
 
@@ -2365,7 +2365,7 @@ msgid "Out of force"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:304
-#: includes/modules/class-wpcpm-institutions.php:4904
+#: includes/modules/class-wpcpm-institutions.php:5003
 msgid "Revoked"
 msgstr ""
 
@@ -2583,7 +2583,8 @@ msgstr[1] ""
 #: includes/modules/class-wpcpm-institutions.php:2351
 #: includes/modules/class-wpcpm-institutions.php:2698
 #: includes/modules/class-wpcpm-institutions.php:3085
-#: includes/modules/class-wpcpm-institutions.php:3741
+#: includes/modules/class-wpcpm-institutions.php:3776
+#: includes/modules/class-wpcpm-institutions.php:3840
 #: includes/modules/class-wpcpm-sponsor-application.php:3528
 #: includes/modules/class-wpcpm-sponsor-application.php:3689
 #: includes/modules/class-wpcpm-sponsor-application.php:3811
@@ -2600,7 +2601,7 @@ msgid "Routed to %s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1309
-#: includes/modules/class-wpcpm-institutions.php:4902
+#: includes/modules/class-wpcpm-institutions.php:5001
 msgid "Awaiting review"
 msgstr ""
 
@@ -2656,19 +2657,19 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1427
 #: includes/modules/class-wpcpm-administrators-cards.php:1456
-#: includes/modules/class-wpcpm-institutions.php:4152
-#: includes/modules/class-wpcpm-institutions.php:4232
+#: includes/modules/class-wpcpm-institutions.php:4251
+#: includes/modules/class-wpcpm-institutions.php:4331
 msgid "Semester"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1428
-#: includes/modules/class-wpcpm-institutions.php:4154
+#: includes/modules/class-wpcpm-institutions.php:4253
 msgid "Drafted"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1429
 #: includes/modules/class-wpcpm-administrators-cards.php:1458
-#: includes/modules/class-wpcpm-institutions.php:4233
+#: includes/modules/class-wpcpm-institutions.php:4332
 msgid "Still in progress"
 msgstr ""
 
@@ -2690,12 +2691,12 @@ msgid "Review"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1449
-#: includes/modules/class-wpcpm-institutions.php:4225
+#: includes/modules/class-wpcpm-institutions.php:4324
 msgid "Due for drafting"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1452
-#: includes/modules/class-wpcpm-institutions.php:4228
+#: includes/modules/class-wpcpm-institutions.php:4327
 msgid "Nothing is waiting: every finished semester has a report, or is not finished yet."
 msgstr ""
 
@@ -2854,7 +2855,7 @@ msgid "Sync"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1685
-#: includes/modules/class-wpcpm-institutions.php:4153
+#: includes/modules/class-wpcpm-institutions.php:4252
 #: includes/modules/class-wpcpm-sponsor-claims.php:495
 #: includes/modules/class-wpcpm-sponsor-offers.php:1588
 #: includes/modules/class-wpcpm-sponsor-usage.php:70
@@ -2889,7 +2890,7 @@ msgstr ""
 #. translators: 1: the verdict, 2: a date.
 #: includes/modules/class-wpcpm-administrators-cards.php:1701
 #: includes/modules/class-wpcpm-administrators-cards.php:1744
-#: includes/modules/class-wpcpm-institutions.php:4208
+#: includes/modules/class-wpcpm-institutions.php:4307
 msgid "never"
 msgstr ""
 
@@ -2955,12 +2956,12 @@ msgid "Uploaded %1$s (%2$s ago)"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1936
-#: includes/modules/class-wpcpm-institutions.php:4194
+#: includes/modules/class-wpcpm-institutions.php:4293
 msgid "by the site"
 msgstr ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1936
-#: includes/modules/class-wpcpm-institutions.php:4195
+#: includes/modules/class-wpcpm-institutions.php:4294
 msgid "by a manager"
 msgstr ""
 
@@ -5400,7 +5401,7 @@ msgid "The institution's name, exactly as it should print on the agreement"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-panel.php:929
-#: includes/modules/class-wpcpm-institutions.php:4340
+#: includes/modules/class-wpcpm-institutions.php:4439
 msgid "Language"
 msgstr ""
 
@@ -7357,9 +7358,9 @@ msgid "Pipeline"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:2985
-#: includes/modules/class-wpcpm-institutions.php:3962
-#: includes/modules/class-wpcpm-institutions.php:4017
-#: includes/modules/class-wpcpm-institutions.php:4430
+#: includes/modules/class-wpcpm-institutions.php:4061
+#: includes/modules/class-wpcpm-institutions.php:4116
+#: includes/modules/class-wpcpm-institutions.php:4529
 msgid "Pipeline index"
 msgstr ""
 
@@ -7389,8 +7390,8 @@ msgid "Contact"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institutions.php:3046
-#: includes/modules/class-wpcpm-institutions.php:3960
-#: includes/modules/class-wpcpm-institutions.php:4156
+#: includes/modules/class-wpcpm-institutions.php:4059
+#: includes/modules/class-wpcpm-institutions.php:4255
 msgid "Consent"
 msgstr ""
 
@@ -7599,439 +7600,479 @@ msgstr ""
 msgid "Create account"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3633
+#: includes/modules/class-wpcpm-institutions.php:3634
 msgid "Reconciliation"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3634
+#: includes/modules/class-wpcpm-institutions.php:3635
 msgid "The Students table and Students Reports describe the same people and are joined by email. These are the rows where the two disagree or one side is missing, from the students sync's last run."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3636
+#: includes/modules/class-wpcpm-institutions.php:3637
 msgid "Roster counts"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3641
+#: includes/modules/class-wpcpm-institutions.php:3642
 msgid "Students rows with no reports row"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3646
+#: includes/modules/class-wpcpm-institutions.php:3647
 msgid "Reports rows with no Students row"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3650
+#: includes/modules/class-wpcpm-institutions.php:3651
 msgid "Status disagreements on joined rows"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3659
+#: includes/modules/class-wpcpm-institutions.php:3660
 msgid "Duplicate emails in the Students table"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3663
+#: includes/modules/class-wpcpm-institutions.php:3664
 msgid "Students rows with no institution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3665
+#: includes/modules/class-wpcpm-institutions.php:3666
 msgid "Students rows with no start date"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3672
+#: includes/modules/class-wpcpm-institutions.php:3670
+#: includes/modules/class-wpcpm-institutions.php:3723
+msgid "Mentored students whose report record the address join missed"
+msgstr ""
+
+#: includes/modules/class-wpcpm-institutions.php:3674
 msgid "Tracked student accounts with no institution stamp"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3676
+#: includes/modules/class-wpcpm-institutions.php:3678
 msgid "(counted now; should be 0, anything else is a broken sync)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3677
+#: includes/modules/class-wpcpm-institutions.php:3679
 msgid "(counted now)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3682
+#: includes/modules/class-wpcpm-institutions.php:3684
 msgid "Contacts who are not members"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3689
+#: includes/modules/class-wpcpm-institutions.php:3691
 msgid "A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for them here. Add that person from the institution's card, name and address; the sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created on every run."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3728
-msgid "Rows with no institution"
+#: includes/modules/class-wpcpm-institutions.php:3724
+msgid "Each has a mentor on the Students row and no Students Reports row under the same address, so the roster shows them as Current with no hours. The pairing is by name and is a pointer for a person to check, never a join: the site does not read a report into a school's roster on a name."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3742
+#: includes/modules/class-wpcpm-institutions.php:3736
+msgid "Students row"
+msgstr ""
+
+#: includes/modules/class-wpcpm-institutions.php:3737
+msgid "Students Reports row"
+msgstr ""
+
+#. translators: 1: link "Students row", 2: its address, 3: link "Students Reports row", 4: its address.
+#: includes/modules/class-wpcpm-institutions.php:3743
+#, php-format
+msgid "The %1$s carries %2$s; a %3$s with this name carries %4$s and matched no Students row. Make the two addresses identical and run the students sync."
+msgstr ""
+
+#. translators: 1: link "Students row", 2: its address, 3: link "Students Reports row", 4: link "another Students row", 5: that row's institution.
+#: includes/modules/class-wpcpm-institutions.php:3754
+#, php-format
+msgid "The %1$s carries %2$s; a %3$s with this name carries the address of %4$s, filed under %5$s. One of the two Students rows is a duplicate."
+msgstr ""
+
+#: includes/modules/class-wpcpm-institutions.php:3758
+msgid "another Students row"
+msgstr ""
+
+#. translators: 1: link "Students row", 2: its address.
+#: includes/modules/class-wpcpm-institutions.php:3766
+#, php-format
+msgid "The %1$s carries %2$s, and no Students Reports row carries this name: the automation has not created the record yet."
+msgstr ""
+
+#: includes/modules/class-wpcpm-institutions.php:3778
+#: includes/modules/class-wpcpm-institutions.php:3841
 msgid "(no status)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3770
+#: includes/modules/class-wpcpm-institutions.php:3827
+msgid "Rows with no institution"
+msgstr ""
+
+#: includes/modules/class-wpcpm-institutions.php:3869
 msgid "Linking writes Educational Institutions onto the Students row in Airtable and nothing else. Two rows are refused rather than linked: one carrying a mentor at a status the automation watches, and one whose address already has a Students Reports row. Either write would create a second Students Reports row, which is the duplicate this card exists to stop making more of. A linked row stays on this list until the next sync rebuilds it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3777
+#: includes/modules/class-wpcpm-institutions.php:3876
 msgid "A row above carries no usable Airtable record ID, so nothing here can address it. Set Educational Institutions on that row in Airtable."
 msgstr ""
 
 #. translators: %s: the student's name as the Students table holds it.
-#: includes/modules/class-wpcpm-institutions.php:3800
+#: includes/modules/class-wpcpm-institutions.php:3899
 #, php-format
 msgid "Link %s to the institution chosen here? This writes Educational Institutions onto the Students row in Airtable. The row is read again first and the write is refused if it would create a second Students Reports row."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3815
+#: includes/modules/class-wpcpm-institutions.php:3914
 msgid "Institution to link this row to"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3818
+#: includes/modules/class-wpcpm-institutions.php:3917
 msgid "Choose an institution"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3825
+#: includes/modules/class-wpcpm-institutions.php:3924
 #: includes/modules/class-wpcpm-sponsor-offers.php:1526
 msgid "Link"
 msgstr ""
 
 #. translators: %s: institution name.
-#: includes/modules/class-wpcpm-institutions.php:3852
+#: includes/modules/class-wpcpm-institutions.php:3951
 #, php-format
 msgid "The row is linked to %s. It is on that institution's roster now, and it stays on this list until the next sync rebuilds it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3867
+#: includes/modules/class-wpcpm-institutions.php:3966
 msgid "Nothing was written."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3885
+#: includes/modules/class-wpcpm-institutions.php:3984
 msgid "The row is linked. It is on that institution's roster now, and it stays on this list until the next sync rebuilds it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3886
+#: includes/modules/class-wpcpm-institutions.php:3985
 msgid "This row carries a mentor and a status the Airtable automation watches, so writing an institution onto it now would create a second Students Reports row. Deal with the mentor or the status in the base first."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3887
+#: includes/modules/class-wpcpm-institutions.php:3986
 msgid "A Students Reports row already exists for this row's address, so writing an institution onto it now would leave the program holding two records for one student."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3888
+#: includes/modules/class-wpcpm-institutions.php:3987
 msgid "This row carries no address, and the address is the only join between the two tables, so the site cannot tell whether a Students Reports row already exists for it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3889
+#: includes/modules/class-wpcpm-institutions.php:3988
 msgid "This row already names an institution. This list is as old as the last sync; run one to rebuild it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3890
+#: includes/modules/class-wpcpm-institutions.php:3989
 msgid "That control did not name a Students row and an institution this site can act on."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3891
+#: includes/modules/class-wpcpm-institutions.php:3990
 msgid "That institution is not in the pipeline index. Run a sync and try again."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3892
+#: includes/modules/class-wpcpm-institutions.php:3991
 msgid "Airtable would not answer, so the checks that keep this control from creating a second Students Reports row could not be run."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3893
+#: includes/modules/class-wpcpm-institutions.php:3992
 msgid "Airtable refused the change, so the row is exactly where it was."
 msgstr ""
 
 #. translators: 1: number of records, 2: number of those at the Confirmed stage.
-#: includes/modules/class-wpcpm-institutions.php:3969
+#: includes/modules/class-wpcpm-institutions.php:4068
 #, php-format
 msgid "%1$s institution records were collected before the consent question was added on 20 July 2026, %2$s of them at Confirmed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:3976
+#: includes/modules/class-wpcpm-institutions.php:4075
 msgid "None of them carries the Privacy Policy Compliance tick because the form did not ask. For the Confirmed ones the signed Collaboration Agreement is the basis, recorded per institution in the pipeline's agreement column."
 msgstr ""
 
 #. translators: %s: number of records.
-#: includes/modules/class-wpcpm-institutions.php:3983
+#: includes/modules/class-wpcpm-institutions.php:4082
 #, php-format
 msgid "Since then, %s record has been created without the tick, which is how a record entered by hand in the grid looks."
 msgid_plural "Since then, %s records have been created without the tick, which is how records entered by hand in the grid look."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-institutions.php:4012
+#: includes/modules/class-wpcpm-institutions.php:4111
 msgid "Agreement discrepancies"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4015
+#: includes/modules/class-wpcpm-institutions.php:4114
 msgid "An institution is settled only when the site's record and Airtable's Agreement Status agree. These are the ones where they do not; each is locked until they do."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4020
+#: includes/modules/class-wpcpm-institutions.php:4119
 msgid "The site and Airtable agree on every agreement."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4028
+#: includes/modules/class-wpcpm-institutions.php:4127
 #: includes/modules/class-wpcpm-sponsors.php:1196
 #: includes/tools/class-wpcpm-duplicate-finder-screen.php:733
 msgid "On the site"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4029
+#: includes/modules/class-wpcpm-institutions.php:4128
 msgid "In Airtable"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4040
+#: includes/modules/class-wpcpm-institutions.php:4139
 msgid "(nothing recorded)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4041
-#: includes/modules/class-wpcpm-institutions.php:4818
+#: includes/modules/class-wpcpm-institutions.php:4140
+#: includes/modules/class-wpcpm-institutions.php:4917
 #: includes/tools/class-wpcpm-mentor-checker.php:587
 msgid "(empty)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4119
+#: includes/modules/class-wpcpm-institutions.php:4218
 msgid "The site drafts a report when a semester ends; a program manager reviews and approves it on the institution dashboard, and only then does the institution see it. Each report opens there as that institution."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4122
+#: includes/modules/class-wpcpm-institutions.php:4221
 msgid "No report has been drafted yet."
 msgstr ""
 
 #. translators: %s: how many approved reports are listed.
-#: includes/modules/class-wpcpm-institutions.php:4130
+#: includes/modules/class-wpcpm-institutions.php:4229
 #, php-format
 msgid "Every draft is listed, and the %s most recently edited approved reports."
 msgstr ""
 
 #. translators: %s: a number of messages.
-#: includes/modules/class-wpcpm-institutions.php:4144
+#: includes/modules/class-wpcpm-institutions.php:4243
 #, php-format
 msgid "Asking writes one short message to each student in that semester who wrote feedback and has not said whether it may be used. Nobody is asked twice in thirty days, and at most %s go out at a time; the rest follow shortly."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4155
+#: includes/modules/class-wpcpm-institutions.php:4254
 msgid "Last edited"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4181
-#: includes/modules/class-wpcpm-institutions.php:4242
+#: includes/modules/class-wpcpm-institutions.php:4280
+#: includes/modules/class-wpcpm-institutions.php:4341
 msgid "(institution not in the index)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4188
+#: includes/modules/class-wpcpm-institutions.php:4287
 msgid "(no semester recorded)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4205
+#: includes/modules/class-wpcpm-institutions.php:4304
 #: includes/modules/class-wpcpm-semester-report-screen.php:499
 #: includes/modules/class-wpcpm-semester-report-screen.php:3386
 msgid "Approved"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4205
+#: includes/modules/class-wpcpm-institutions.php:4304
 #: includes/modules/class-wpcpm-semester-report-screen.php:3387
 #: includes/modules/class-wpcpm-sponsor-posts.php:767
 #: includes/tools/class-wpcpm-track-builder-screen.php:1093
 msgid "Draft"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4206
+#: includes/modules/class-wpcpm-institutions.php:4305
 msgid "not yet"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4259
+#: includes/modules/class-wpcpm-institutions.php:4358
 msgid "Draft any semester"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4270
+#: includes/modules/class-wpcpm-institutions.php:4369
 msgid "Report log"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4273
+#: includes/modules/class-wpcpm-institutions.php:4372
 #: includes/modules/class-wpcpm-sponsors.php:870
 #: includes/modules/class-wpcpm-sponsors.php:1347
 msgid "Nothing yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4290
+#: includes/modules/class-wpcpm-institutions.php:4389
 msgid "the site"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4309
+#: includes/modules/class-wpcpm-institutions.php:4408
 msgid "Agreement template"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4310
+#: includes/modules/class-wpcpm-institutions.php:4409
 msgid "The program's Google Doc is the master for what the agreement says; the plugin's copy is the master for what the site generates. The version is the Doc's modified date when the copy was taken."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4316
+#: includes/modules/class-wpcpm-institutions.php:4415
 msgid "No agreement template file was found."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4341
+#: includes/modules/class-wpcpm-institutions.php:4440
 msgid "Version"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4342
+#: includes/modules/class-wpcpm-institutions.php:4441
 msgid "Copied from the Doc on"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4351
+#: includes/modules/class-wpcpm-institutions.php:4450
 msgid "Source"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4357
+#: includes/modules/class-wpcpm-institutions.php:4456
 msgid "Open it"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4361
+#: includes/modules/class-wpcpm-institutions.php:4460
 msgid "(its address is a setting, not carried in the code)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4366
+#: includes/modules/class-wpcpm-institutions.php:4465
 msgid "Checksum"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4368
+#: includes/modules/class-wpcpm-institutions.php:4467
 msgid "(the first twelve characters of the sha256 the fixture pins)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4415
+#: includes/modules/class-wpcpm-institutions.php:4514
 msgid "Institutions per template version"
 msgstr ""
 
 #. translators: %s: version and language, e.g. "2025-11-04 (en)".
-#: includes/modules/class-wpcpm-institutions.php:4423
+#: includes/modules/class-wpcpm-institutions.php:4522
 #, php-format
 msgid "The site generates %s today, so anything listed below it was signed against wording the program has changed since."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4433
+#: includes/modules/class-wpcpm-institutions.php:4532
 msgid "No institution has an agreement recorded, so no template version has been signed yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4451
+#: includes/modules/class-wpcpm-institutions.php:4550
 msgid "No version recorded (the bespoke and legacy agreements)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4468
+#: includes/modules/class-wpcpm-institutions.php:4567
 msgid "Storage"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4469
+#: includes/modules/class-wpcpm-institutions.php:4568
 msgid "Signed agreements are stored under the uploads directory, in a folder whose name begins with a dot, and every file is encrypted before it is written. They are handed out only by the plugin, which checks who is asking. The probe writes a throwaway file, requests it the way a stranger would, and records the answer."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4476
+#: includes/modules/class-wpcpm-institutions.php:4575
 msgid "Stored files are encrypted with AES-256-GCM. The key is held on this site and never leaves it, so a copy of the file taken from disk is unreadable without it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4481
+#: includes/modules/class-wpcpm-institutions.php:4580
 msgid "This site cannot encrypt stored files: PHP here has no OpenSSL support for AES-256-GCM. Uploads are refused rather than stored in the clear. Ask the host to enable it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4486
+#: includes/modules/class-wpcpm-institutions.php:4585
 msgid "The probe has not run yet."
 msgstr ""
 
 #. translators: 1: HTTP status code, 2: date and time.
-#: includes/modules/class-wpcpm-institutions.php:4498
+#: includes/modules/class-wpcpm-institutions.php:4597
 #, php-format
 msgid "The host refuses direct requests to the private directory (HTTP %1$d on %2$s)."
 msgstr ""
 
 #. translators: %d: HTTP status code.
-#: includes/modules/class-wpcpm-institutions.php:4513
+#: includes/modules/class-wpcpm-institutions.php:4612
 #, php-format
 msgid "The same file in a folder without the leading dot answers HTTP %d on this host, so the dot is what makes the difference. It is a host behavior rather than a promise, which is why the files are encrypted as well."
 msgstr ""
 
 #. translators: 1: HTTP status code, 2: date and time, 3: the directory path.
-#: includes/modules/class-wpcpm-institutions.php:4525
+#: includes/modules/class-wpcpm-institutions.php:4624
 #, php-format
 msgid "The host hands out files in the private directory to anyone who asks (HTTP %1$d on %2$s). What it hands over is encrypted, and the names are unguessable, so nothing readable is exposed. Even so, %3$s should not be reachable: tell the host, and do not store anything here that is not encrypted by this plugin."
 msgstr ""
 
 #. translators: 1: date and time, 2: error message.
-#: includes/modules/class-wpcpm-institutions.php:4539
+#: includes/modules/class-wpcpm-institutions.php:4638
 #, php-format
 msgid "The probe could not tell what the host does (on %1$s): %2$s"
 msgstr ""
 
 #. translators: 1: HTTP status code, 2: date and time.
-#: includes/modules/class-wpcpm-institutions.php:4545
+#: includes/modules/class-wpcpm-institutions.php:4644
 #, php-format
 msgid "The probe could not tell what the host does: it answered HTTP %1$d on %2$s, which is neither a refusal nor the file."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4557
+#: includes/modules/class-wpcpm-institutions.php:4656
 msgid "Run probe"
 msgstr ""
 
 #. translators: %s: what was read, e.g. "Pipeline index".
-#: includes/modules/class-wpcpm-institutions.php:4581
+#: includes/modules/class-wpcpm-institutions.php:4680
 #, php-format
 msgid "%s: not read yet."
 msgstr ""
 
 #. translators: 1: what was read, 2: date and time, 3: human-readable time difference.
-#: includes/modules/class-wpcpm-institutions.php:4595
+#: includes/modules/class-wpcpm-institutions.php:4694
 #, php-format
 msgid "%1$s: read %2$s (%3$s ago)."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4613
+#: includes/modules/class-wpcpm-institutions.php:4712
 msgid "No stage"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4755
+#: includes/modules/class-wpcpm-institutions.php:4854
 msgid "(the pipeline index has not been read yet; memberships counted now)"
 msgstr ""
 
 #. translators: %s: date and time the pipeline index was read.
-#: includes/modules/class-wpcpm-institutions.php:4760
+#: includes/modules/class-wpcpm-institutions.php:4859
 #, php-format
 msgid "(from the pipeline index read %s; memberships counted now)"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4900
+#: includes/modules/class-wpcpm-institutions.php:4999
 #: includes/modules/class-wpcpm-sponsors.php:1578
 msgid "Not started"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4901
+#: includes/modules/class-wpcpm-institutions.php:5000
 msgid "Template generated"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4903
+#: includes/modules/class-wpcpm-institutions.php:5002
 msgid "Returned"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4906
+#: includes/modules/class-wpcpm-institutions.php:5005
 msgid "On file"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4910
+#: includes/modules/class-wpcpm-institutions.php:5009
 msgid "program template"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4911
+#: includes/modules/class-wpcpm-institutions.php:5010
 msgid "institution-specific"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4912
+#: includes/modules/class-wpcpm-institutions.php:5011
 msgid "legacy"
 msgstr ""
 
 #. translators: %s: date.
-#: includes/modules/class-wpcpm-institutions.php:4924
+#: includes/modules/class-wpcpm-institutions.php:5023
 #, php-format
 msgid "accepted %s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4930
+#: includes/modules/class-wpcpm-institutions.php:5029
 msgid "recorded in the Airtable grid"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institutions.php:4932
+#: includes/modules/class-wpcpm-institutions.php:5031
 msgid "recorded on the site"
 msgstr ""
 
@@ -9189,7 +9230,7 @@ msgid "Could not create the account \"%1$s\": %2$s"
 msgstr ""
 
 #: includes/modules/class-wpcpm-mentors-sync.php:1927
-#: includes/modules/class-wpcpm-students-sync.php:2598
+#: includes/modules/class-wpcpm-students-sync.php:2751
 msgid "That user does not exist."
 msgstr ""
 
@@ -13280,7 +13321,15 @@ msgstr ""
 msgid "acted for an institution before"
 msgstr ""
 
-#: includes/modules/class-wpcpm-students-sync.php:2602
+#. translators: %s: number of students.
+#: includes/modules/class-wpcpm-students-sync.php:2023
+#, php-format
+msgid "%s student has a mentor but no report record under their address. The reconciliation card on the Institutions screen names the row and the address to fix."
+msgid_plural "%s students have a mentor but no report record under their address. The reconciliation card on the Institutions screen names each row and the address to fix."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/modules/class-wpcpm-students-sync.php:2755
 msgid "That account does not hold the Student role."
 msgstr ""
 

@@ -2005,6 +2005,32 @@ class WPCPM_Students_Sync {
 	 * @param array $state Final state.
 	 */
 	private static function finish( array $state ) {
+		$reconciliation = ( isset( $state['rows'] ) && is_array( $state['rows'] ) ) ? self::reconciliation( $state ) : null;
+
+		// First in the list, not last: the report keeps a hundred notices and this one is the
+		// summary a manager reads before any of them.
+		if ( null !== $reconciliation && ! empty( $reconciliation['mentored_without_reports'] ) ) {
+			$missed = count( $reconciliation['mentored_without_reports'] );
+
+			if ( ! isset( $state['notices'] ) || ! is_array( $state['notices'] ) ) {
+				$state['notices'] = array();
+			}
+
+			array_unshift(
+				$state['notices'],
+				sprintf(
+					/* translators: %s: number of students. */
+					_n(
+						'%s student has a mentor but no report record under their address. The reconciliation card on the Institutions screen names the row and the address to fix.',
+						'%s students have a mentor but no report record under their address. The reconciliation card on the Institutions screen names each row and the address to fix.',
+						$missed,
+						'wpcredits-program-manager'
+					),
+					number_format_i18n( $missed )
+				)
+			);
+		}
+
 		update_option(
 			self::OPT_REPORT,
 			array(
@@ -2020,8 +2046,8 @@ class WPCPM_Students_Sync {
 		// run that fails part-way leaves last run's options in place. A state with no
 		// `rows` key at all is a run that started under the previous version and finished
 		// under this one; it leaves the index alone rather than writing an empty one.
-		if ( isset( $state['rows'] ) && is_array( $state['rows'] ) ) {
-			self::write_roster( $state );
+		if ( null !== $reconciliation ) {
+			self::write_roster( $state, $reconciliation );
 		}
 
 		// A run that got here got past whatever `run_tick()` recorded and waited out on the
@@ -2043,9 +2069,10 @@ class WPCPM_Students_Sync {
 	 * the same function the comparison strip and the semester report read, so the three
 	 * can only disagree about when the table was read, and each prints that.
 	 *
-	 * @param array $state Final state.
+	 * @param array $state          Final state.
+	 * @param array $reconciliation What `reconciliation()` read off it, computed once in `finish()`.
 	 */
-	private static function write_roster( array $state ) {
+	private static function write_roster( array $state, array $reconciliation ) {
 		$by_institution = array();
 		$unlinked       = array();
 
@@ -2086,7 +2113,7 @@ class WPCPM_Students_Sync {
 			$by_institution,
 			$unlinked,
 			$counts,
-			self::reconciliation( $state ),
+			$reconciliation,
 			isset( $state['started'] ) ? (int) $state['started'] : time()
 		);
 	}
@@ -2100,7 +2127,7 @@ class WPCPM_Students_Sync {
 	 * only, so a disagreement with a status the sync never asks for cannot be seen here.
 	 *
 	 * @param array $state Final state.
-	 * @return array{students_without_reports: array, reports_without_students: array, status_disagreements: int, duplicate_emails: array, no_institution: int, no_start_date: array}
+	 * @return array{students_without_reports: array, reports_without_students: array, status_disagreements: int, duplicate_emails: array, no_institution: int, no_start_date: array, mentored_without_reports: array}
 	 */
 	private static function reconciliation( array $state ) {
 		$rows     = $state['rows'];
@@ -2114,6 +2141,7 @@ class WPCPM_Students_Sync {
 			'duplicate_emails'         => array(),
 			'no_institution'           => 0,
 			'no_start_date'            => array(),
+			'mentored_without_reports' => self::mentored_without_reports( $state ),
 		);
 
 		$report_emails = array();
@@ -2188,6 +2216,131 @@ class WPCPM_Students_Sync {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * The mentored students whose report record the address join missed, each paired by
+	 * name with the report row it most likely belongs to.
+	 *
+	 * A Students row with a tracked current status and a mentor link, and no report row
+	 * under its address: since 1.117.4 the roster calls her Current, and her hours, team,
+	 * website and mentor's name never arrive, because they ride on the join. Measured on
+	 * the live base: five such rows at five institutions, four of them a report row that
+	 * matched nothing, one a report row on a second Students row filed under another
+	 * school. **The name pairing is a pointer for a program manager, never a join**: a
+	 * report read into a school's roster on a name match could be the wrong student's, so
+	 * this list is written beside the reconciliation counts and read in wp-admin only.
+	 *
+	 * @param array $state Final state: `rows` joined, `students` (the reports rows) read.
+	 * @return array[] One entry per row, in the Students table's order, every key present:
+	 *                 `students_record`, `name`, `email`, `institution`, `status`,
+	 *                 `outcome` (`unmatched`, `elsewhere` or `none`), `reports_record`,
+	 *                 `reports_email`, `joined_to`, `joined_to_institution`.
+	 */
+	private static function mentored_without_reports( array $state ) {
+		$rows     = isset( $state['rows'] ) && is_array( $state['rows'] ) ? $state['rows'] : array();
+		$reports  = isset( $state['students'] ) ? (array) $state['students'] : array();
+		$by_email = self::rows_by_email( $state );
+		$tracked  = WPCPM_Mentors_Sync::tracked_statuses();
+		$active   = isset( $tracked['active'] ) ? (array) $tracked['active'] : array();
+		$by_name  = array();
+
+		foreach ( $reports as $report ) {
+			$key = self::name_key( isset( $report['name'] ) ? $report['name'] : '' );
+
+			if ( '' !== $key ) {
+				$by_name[ $key ][] = $report;
+			}
+		}
+
+		$out = array();
+
+		foreach ( $rows as $record_id => $row ) {
+			if ( ! is_array( $row ) || empty( $row['has_mentor'] ) || ! empty( $row['reports'] ) ) {
+				continue;
+			}
+
+			$status = trim( (string) ( isset( $row['status'] ) ? $row['status'] : '' ) );
+
+			if ( ! in_array( $status, $active, true ) ) {
+				continue;
+			}
+
+			$institution = isset( $row['institution'] ) ? (string) $row['institution'] : '';
+			$entry       = array(
+				'students_record'       => (string) $record_id,
+				'name'                  => isset( $row['name'] ) ? (string) $row['name'] : '',
+				'email'                 => isset( $row['email'] ) ? (string) $row['email'] : '',
+				'institution'           => $institution,
+				'status'                => $status,
+				'outcome'               => 'none',
+				'reports_record'        => '',
+				'reports_email'         => '',
+				'joined_to'             => '',
+				'joined_to_institution' => '',
+			);
+
+			$key        = self::name_key( $entry['name'] );
+			$candidates = ( '' !== $key && isset( $by_name[ $key ] ) ) ? $by_name[ $key ] : array();
+			$here       = null;
+			$away       = null;
+			$elsewhere  = null;
+
+			// A report row that matched nothing at this institution wins over one elsewhere,
+			// and either wins over a report row that sits on another Students row's address.
+			foreach ( $candidates as $report ) {
+				$email_key = isset( $report['email_key'] ) ? (string) $report['email_key'] : '';
+				$matches   = ( '' !== $email_key && isset( $by_email[ $email_key ] ) ) ? $by_email[ $email_key ] : array();
+
+				if ( empty( $matches ) ) {
+					$same = isset( $report['institution_id'] ) && (string) $report['institution_id'] === $institution;
+
+					if ( $same && null === $here ) {
+						$here = $report;
+					} elseif ( ! $same && null === $away ) {
+						$away = $report;
+					}
+				} elseif ( null === $elsewhere ) {
+					foreach ( $matches as $other ) {
+						if ( (string) $other !== (string) $record_id ) {
+							$elsewhere = array( $report, (string) $other );
+							break;
+						}
+					}
+				}
+			}
+
+			$report = null !== $here ? $here : $away;
+
+			if ( null !== $report ) {
+				$entry['outcome']        = 'unmatched';
+				$entry['reports_record'] = isset( $report['record_id'] ) ? (string) $report['record_id'] : '';
+				$entry['reports_email']  = isset( $report['email'] ) ? (string) $report['email'] : '';
+			} elseif ( null !== $elsewhere ) {
+				list( $report, $other )         = $elsewhere;
+				$entry['outcome']               = 'elsewhere';
+				$entry['reports_record']        = isset( $report['record_id'] ) ? (string) $report['record_id'] : '';
+				$entry['reports_email']         = isset( $report['email'] ) ? (string) $report['email'] : '';
+				$entry['joined_to']             = $other;
+				$entry['joined_to_institution'] = isset( $rows[ $other ]['institution'] ) ? (string) $rows[ $other ]['institution'] : '';
+			}
+
+			$out[] = $entry;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * A name reduced to its letters and digits, lowercased: the institution import's rule.
+	 *
+	 * @param string $name A name.
+	 * @return string
+	 */
+	private static function name_key( $name ) {
+		$key = preg_replace( '/[^\p{L}\p{N}]+/u', '', (string) $name );
+
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $key ) : strtolower( (string) $key );
 	}
 
 	/**

@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.117.4
+Stable tag: 1.117.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.117.5 =
+
+* The students sync names the mentored students whose report record the address join missed. Each is a Students row with a mentor and no Students Reports row under the same address, so since 1.117.4 the roster shows them as Current with no hours, and nothing said why. The sync now pairs each with a report row of the same name and records the outcome beside the reconciliation counts: a report row that matched no Students row (make the two addresses identical), a report row on the address of a second Students row filed elsewhere (one of the two is a duplicate), or no report row at all (the automation has not run). The reconciliation card on the Institutions screen counts them and lists each with links to the Airtable rows and the address to fix, and the run report on the Sync tab says how many. The pairing is a pointer for a program manager, never a join: no report is read into a school's roster on a name.
 
 = 1.117.4 =
 
