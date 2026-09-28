@@ -64,7 +64,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	}
 
 	/**
-	 * One-line description for the Modules screen.
+	 * One-line description for the Tools screen.
 	 *
 	 * @return string
 	 */
@@ -98,7 +98,8 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	 * Move a site off a default model the provider has retired.
 	 *
 	 * Runs at most once per revision: the marker is written whatever the outcome, so a site
-	 * that has chosen its own model is not reconsidered on every request.
+	 * that has chosen its own model is not reconsidered on every request. Each move writes its
+	 * one setting through `WPCPM_Settings::patch()`, which leaves every other setting as stored.
 	 */
 	public static function maybe_update_model() {
 		if ( (int) get_option( self::OPT_MODEL_FIXED ) >= self::MODEL_VERSION ) {
@@ -110,7 +111,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 		// A provider that no longer exists. Google AI Studio is the only one now, and leaving
 		// the old value in place would read as "configured" while answering nothing.
 		if ( 'openai' === (string) WPCPM_Settings::get_value( 'handbook_provider', '' ) ) {
-			WPCPM_Settings::save( array( 'handbook_provider' => 'gemini' ) );
+			WPCPM_Settings::patch( array( 'handbook_provider' => 'gemini' ) );
 		}
 
 		$current = (string) WPCPM_Settings::get_value( 'handbook_model', '' );
@@ -125,7 +126,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			return;
 		}
 
-		WPCPM_Settings::save( array( 'handbook_model' => $defaults['handbook_model'] ) );
+		WPCPM_Settings::patch( array( 'handbook_model' => $defaults['handbook_model'] ) );
 	}
 
 	/**
@@ -150,7 +151,8 @@ class WPCPM_Handbook extends WPCPM_Tool {
 	}
 
 	/**
-	 * A short status line for the Modules screen.
+	 * A short status line for the Tools screen: why nobody gets an answer, while nobody does, which is
+	 * the switch or the provider and never the Airtable connection, and otherwise who answers.
 	 *
 	 * @return string
 	 */
@@ -168,6 +170,150 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			__( 'Answering through %s.', 'wpcredits-program-manager' ),
 			WPCPM_Handbook_Answer::provider_label()
 		);
+	}
+
+	/**
+	 * The assistant's settings, which its screen's Settings section draws and saves.
+	 *
+	 * @return string[]
+	 */
+	public function settings_keys() {
+		return array( 'handbook_enabled', 'handbook_provider', 'handbook_key', 'handbook_model', 'handbook_access', 'handbook_limit' );
+	}
+
+	/**
+	 * What the Settings section says under its heading: what the question box is, and in its fold
+	 * where each question goes, which is worth reading before a provider is chosen.
+	 *
+	 * @return array
+	 */
+	protected function settings_intro() {
+		return array(
+			'sentence' => __( 'A question box for people on the program, answered from the WordPress documentation.', 'wpcredits-program-manager' ),
+			'details'  => __( 'The AI provider below does the searching, so nothing is stored on this site, and without a provider there is no answer at all. Each question, and the pages found for it, go to that company.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * The rows of the Settings section: the switch, where answers come from, the provider with its key
+	 * and model, who may ask, and how often.
+	 */
+	protected function render_settings_rows() {
+		$settings = WPCPM_Settings::get();
+
+		$enabled = __( 'Need help?', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="handbook_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $enabled ),
+			checked( ! empty( $settings['handbook_enabled'] ), true, false ),
+			esc_html__( 'Switch it on', 'wpcredits-program-manager' ),
+			esc_html__( 'Off means the question box answers nobody, the header button disappears and the page it lives on is unpublished.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $enabled, __( 'Nothing is deleted, so switching it back on restores all of it.', 'wpcredits-program-manager' ) );
+
+		$sources = __( 'Where answers come from', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><p class="description">%2$s</p>',
+			esc_html( $sources ),
+			esc_html__( 'The provider searches wordpress.org, make.wordpress.org, learn.wordpress.org and developer.wordpress.org itself.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $sources, __( 'Nothing is copied to this site, so there is nothing to configure and nothing to refresh - and equally, no answer at all without a provider below.', 'wpcredits-program-manager' ) );
+
+		// Provider, key and model together: they are useless apart, and a key entered
+		// without a provider selected is the kind of thing that looks configured and is not.
+		$options = '';
+
+		foreach ( WPCPM_Handbook_Answer::providers() as $slug => $label ) {
+			$options .= sprintf(
+				'<option value="%1$s"%2$s>%3$s</option>',
+				esc_attr( $slug ),
+				selected( $settings['handbook_provider'], $slug, false ),
+				esc_html( $label )
+			);
+		}
+
+		printf(
+			'<tr><th scope="row"><label for="wpcpm-handbook-provider">%1$s</label></th><td><select id="wpcpm-handbook-provider" name="handbook_provider">%2$s</select><p class="description">%3$s</p></td></tr>',
+			esc_html__( 'Answer provider', 'wpcredits-program-manager' ),
+			$options, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built immediately above from escaped parts.
+			esc_html__( 'Leave as "None" to keep everything on this site; choosing a provider sends each question, and the extracts that match it, to that company.', 'wpcredits-program-manager' )
+		);
+
+		WPCPM_Settings_Rows::text_row(
+			'handbook_key',
+			__( 'Provider API key', 'wpcredits-program-manager' ),
+			WPCPM_Settings::masked_handbook_key(),
+			__( 'Stored in the database and never sent to the browser - leave blank to keep the current key.', 'wpcredits-program-manager' ),
+			'password',
+			'',
+			'',
+			__( 'Get one free at aistudio.google.com for the Gemini provider.', 'wpcredits-program-manager' )
+		);
+
+		// A choice of models only when the provider lists more than the default: the default alone,
+		// beside the model saved, would offer nothing to choose, so the field is then the text input it
+		// always was (`WPCPM_Settings_Rows::select_row()` with no list), holding the model saved. As a
+		// list, the default first, marked as the default; the model saved, when it is another, after it.
+		$models  = array();
+		$default = (string) WPCPM_Settings::defaults()['handbook_model'];
+		$listed  = WPCPM_Settings_Choices::models();
+
+		if ( array() !== array_diff( array_map( 'strval', array_keys( $listed ) ), array( $default ) ) ) {
+			foreach ( $listed as $model => $model_label ) {
+				/* translators: %s: the name of the model the plugin uses by default. */
+				$models[ $model ] = $default === (string) $model ? sprintf( __( '%s (default)', 'wpcredits-program-manager' ), $model_label ) : $model_label;
+			}
+		}
+
+		WPCPM_Settings_Rows::select_row(
+			'handbook_model',
+			__( 'Model', 'wpcredits-program-manager' ),
+			$settings['handbook_model'],
+			$models,
+			__( 'Leave as gemini-flash-latest unless you have a reason not to.', 'wpcredits-program-manager' ),
+			'',
+			__( 'It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under this site - which has already happened twice to specific version numbers.', 'wpcredits-program-manager' )
+		);
+
+		$audiences = array(
+			'mentor'  => __( 'Mentors and program managers', 'wpcredits-program-manager' ),
+			'program' => __( 'Students and institutions as well', 'wpcredits-program-manager' ),
+			'any'     => __( 'Anybody logged in to this site', 'wpcredits-program-manager' ),
+			'manage'  => __( 'Program managers only', 'wpcredits-program-manager' ),
+		);
+
+		$radios = '';
+
+		foreach ( $audiences as $value => $label ) {
+			$radios .= sprintf(
+				'<label><input type="radio" name="handbook_access" value="%1$s"%2$s> %3$s</label><br>',
+				esc_attr( $value ),
+				checked( $settings['handbook_access'], $value, false ),
+				esc_html( $label )
+			);
+		}
+
+		$who = __( 'Who can ask', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><fieldset>%2$s</fieldset><p class="description">%3$s</p>',
+			esc_html( $who ),
+			$radios, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built immediately above from escaped parts.
+			esc_html__( 'Never anybody logged out, whatever this says.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $who, __( 'The documentation describes running the program rather than being on it, which is why students are not included by default.', 'wpcredits-program-manager' ) );
+
+		$limit = __( 'Questions per person per hour', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row"><label for="wpcpm-handbook-limit">%1$s</label></th><td><input type="number" id="wpcpm-handbook-limit" name="handbook_limit" value="%2$d" min="0" max="200" step="1" class="small-text"><p class="description">%3$s</p>',
+			esc_html( $limit ),
+			(int) $settings['handbook_limit'],
+			esc_html__( 'How many questions one person may have answered in an hour, so a free tier cannot be spent in an afternoon; 0 removes the limit.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $limit, __( 'Past the limit they are asked to come back shortly.', 'wpcredits-program-manager' ) );
 	}
 
 	/**
@@ -279,10 +425,14 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			printf(
 				'<div class="notice notice-warning"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
 				esc_html__( 'Need help? is switched off, so it is not answering anybody.', 'wpcredits-program-manager' ),
-				esc_url( WPCPM_Admin::settings_url() ),
+				esc_url( '#settings' ),
 				esc_html__( 'Turn it on in Settings', 'wpcredits-program-manager' )
 			);
 		}
+
+		// Its settings at the top, under the notice that sends a manager to the switch, and above how
+		// answers are produced, whose provider row sends them back up to choose one.
+		$this->render_settings();
 
 		$this->render_how();
 		$this->render_try();
@@ -307,7 +457,7 @@ class WPCPM_Handbook extends WPCPM_Tool {
 				: sprintf(
 					'<span class="wpcpm-warning">%1$s</span> <a href="%2$s">%3$s</a>',
 					esc_html__( 'None configured - nothing can be answered.', 'wpcredits-program-manager' ),
-					esc_url( WPCPM_Admin::settings_url() ),
+					esc_url( '#settings' ),
 					esc_html__( 'Add one in Settings', 'wpcredits-program-manager' )
 				)
 		);

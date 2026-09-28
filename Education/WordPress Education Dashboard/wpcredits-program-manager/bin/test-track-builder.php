@@ -537,7 +537,7 @@ function ck( $label, $actual, $expected ) {
 echo "=== The tool itself ===\n";
 
 $tool = new WPCPM_Track_Builder();
-ck( 'it is a tool, so the Modules menu lists it', $tool instanceof WPCPM_Tool, true );
+ck( 'it is a tool, so the Tools menu lists it', $tool instanceof WPCPM_Tool, true );
 ck( 'with its own id and page', array( $tool->id(), $tool->page_slug() ), array( 'track-builder', 'wpcpm-tool-track-builder' ) );
 ck( 'and it does not need Airtable to draw its list', $tool->is_ready(), true );
 

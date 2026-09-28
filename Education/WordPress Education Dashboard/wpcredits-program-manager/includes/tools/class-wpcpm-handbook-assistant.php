@@ -617,7 +617,7 @@ class WPCPM_Handbook_Assistant {
 	 */
 	private static function render_empty() {
 		if ( ! WPCPM_Handbook_Answer::provider_ready() ) {
-			return self::notice( __( 'No AI provider is configured, so questions cannot be answered yet. A program manager can add one in the plugin settings.', 'wpcredits-program-manager' ) );
+			return self::notice( __( 'No AI provider is configured, so questions cannot be answered yet. A program manager can add one in the Settings section of the Need help? screen, under WPCredits Program > Tools.', 'wpcredits-program-manager' ) );
 		}
 
 		$out = sprintf(

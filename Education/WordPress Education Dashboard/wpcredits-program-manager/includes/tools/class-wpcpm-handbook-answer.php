@@ -130,7 +130,7 @@ class WPCPM_Handbook_Answer {
 			|| preg_match( '/no longer available|is not found|not supported|does not exist|unknown name/i', $message );
 
 		if ( $retired ) {
-			return __( 'The AI model this site is set to use is not available. A program manager can change it in the plugin settings.', 'wpcredits-program-manager' );
+			return __( 'The AI model this site is set to use is not available. A program manager can change it in the Settings section of the Need help? screen, under WPCredits Program > Tools.', 'wpcredits-program-manager' );
 		}
 
 		// Busy, or out of quota for the moment.
@@ -139,7 +139,7 @@ class WPCPM_Handbook_Answer {
 		}
 
 		if ( 400 === $status || 403 === $status ) {
-			return __( 'The AI service refused the request. A program manager may need to check the API key in the plugin settings.', 'wpcredits-program-manager' );
+			return __( 'The AI service refused the request. A program manager may need to check the API key in the Settings section of the Need help? screen, under WPCredits Program > Tools.', 'wpcredits-program-manager' );
 		}
 
 		return __( 'The answer could not be fetched just now. Trying again usually works.', 'wpcredits-program-manager' );
@@ -289,7 +289,7 @@ class WPCPM_Handbook_Answer {
 		if ( ! self::provider_ready() ) {
 			// The honest failure. Nothing here can answer anything without a provider, and
 			// pretending otherwise would be worse than saying so.
-			$answer['text'] = __( 'No AI provider is configured, so questions cannot be answered yet. A program manager can add one in the plugin settings.', 'wpcredits-program-manager' );
+			$answer['text'] = __( 'No AI provider is configured, so questions cannot be answered yet. A program manager can add one in the Settings section of the Need help? screen, under WPCredits Program > Tools.', 'wpcredits-program-manager' );
 
 			return $answer;
 		}

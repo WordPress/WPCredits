@@ -221,6 +221,141 @@ class WPCPM_Settings {
 	}
 
 	/**
+	 * The settings each form saves, by the scope it posts: a Settings tab's slug, or `tool:` and a
+	 * tool's ID (`WPCPM_Tool::id()`) for the settings that tool keeps on its own screen.
+	 *
+	 * `save()` given a scope reads that scope's settings and leaves every other setting as it was,
+	 * so the Save on one tab cannot switch off a box, or reset a rule, that another tab draws. Every
+	 * setting is in exactly one scope, and the Mail tab, whose controls are forms of their own, has
+	 * none (bin/test-settings.php holds both). The tables and columns no screen drew sit with the
+	 * rest of the connection; `advanced` holds the other settings that had no control.
+	 *
+	 * @return array<string, string[]> Scope => the settings it saves.
+	 */
+	public static function scopes() {
+		return array(
+			'connection'                 => array(
+				'api_token',
+				'schema_token',
+				'base_id',
+				'mentors_table',
+				'reports_table',
+				'students_table',
+				'institutions_table',
+				'teams_table',
+				'tutors_table',
+				'feedback_table',
+				'countries_table',
+				'team_members_table',
+				'sponsors_table',
+				'institutions_name_field',
+				'teams_name_field',
+				'countries_name_field',
+				'sponsors_name_field',
+			),
+			'people'                     => array(
+				'student_statuses',
+				'past_statuses',
+				'mentor_status',
+				'on_inactive',
+				'student_on_inactive',
+				'send_welcome_email',
+				'auto_sync',
+				'mentor_home',
+				'student_home',
+			),
+			'institutions'               => array(
+				'applications_enabled',
+				'import_enabled',
+				'institution_provision',
+				'institution_home',
+				'institution_on_inactive',
+				'agreement_review_days',
+				'agreement_notify',
+				'agreement_doc_url',
+				'report_autodraft',
+				'report_autodraft_grace_days',
+				'report_notify',
+			),
+			'sponsors'                   => array(
+				'sponsor_applications_enabled',
+				'sponsor_home',
+				'sponsor_on_inactive',
+				'sponsor_notify',
+				'logo_max_kb',
+				'tools_students',
+				'tools_mentors',
+				'offer_low_stock',
+			),
+			'security'                   => array(
+				'two_factor_roles',
+			),
+			'advanced'                   => array(
+				'institution_new_stage',
+				'institution_active_stages',
+				'application_spam_days',
+				'application_rejected_days',
+				'application_approved_days',
+				'application_trusted_proxy',
+				'agreement_max_mb',
+				'agreement_uploads_per_day',
+				'agreement_generations_per_day',
+				'agreement_discard_days',
+				'invite_retention_days',
+			),
+			'tool:mentor-status-checker' => array(
+				'checker_source_status',
+				'checker_target_status',
+				'checker_course_slug',
+				'checker_course_title',
+				'checker_completion_phrase',
+				'checker_timeline_filter',
+				'checker_max_pages',
+				'checker_batch_size',
+				'checker_request_delay',
+				'checker_cache_ttl',
+				'checker_cron_enabled',
+				'checker_cron_promotes',
+			),
+			'tool:duplicate-finder'      => array(
+				'duplicate_delete_enabled',
+			),
+			'tool:handbook'              => array(
+				'handbook_enabled',
+				'handbook_provider',
+				'handbook_key',
+				'handbook_model',
+				'handbook_access',
+				'handbook_limit',
+			),
+		);
+	}
+
+	/**
+	 * The settings a save of this scope reads: the scope's own, every setting for '' (every scope),
+	 * or null for a scope this version does not have.
+	 *
+	 * The one place a scope is resolved, asked by both `save()` and the settings screen's handler, so
+	 * the two cannot come to disagree about what a scope holds. Null is not "every scope": read that
+	 * way, a mistyped scope would let one tab's form reset every setting the other tabs hold, so both
+	 * refuse it.
+	 *
+	 * @param string $scope A key of `scopes()`, or ''.
+	 * @return string[]|null
+	 */
+	public static function scope_keys( $scope ) {
+		$scope = (string) $scope;
+
+		if ( '' === $scope ) {
+			return array_keys( self::defaults() );
+		}
+
+		$scopes = self::scopes();
+
+		return isset( $scopes[ $scope ] ) ? $scopes[ $scope ] : null;
+	}
+
+	/**
 	 * Current settings, merged over defaults.
 	 *
 	 * @return array
@@ -249,13 +384,97 @@ class WPCPM_Settings {
 	}
 
 	/**
-	 * Persist a settings array after sanitising it.
+	 * Persist a settings array after sanitizing it.
 	 *
-	 * @param array $input Raw input, typically from $_POST.
-	 * @return array The saved settings.
+	 * Given a scope, a key of `scopes()`, the save reads that scope's settings alone: a switch of the
+	 * scope that the input lacks is off, since the scope's form draws its box and an unticked box
+	 * posts nothing, and every setting outside the scope stays as it was, whatever the input holds
+	 * for it. A scope this version does not have writes nothing. Given none, the save is every
+	 * scope's, by the rules the screen's single form was saved by: every setting is read, ten are
+	 * written whatever the input holds (the four leaving rules, four switches of the Students and
+	 * mentors tab and the weekly check's two), and every other setting only when the input holds it.
+	 * Code outside the Settings screen that changes a setting or two writes through `patch()`.
+	 *
+	 * @param array  $input Raw input, typically from $_POST.
+	 * @param string $scope A key of `scopes()`, or '' for every scope.
+	 * @return array The saved settings, or the settings as they are when nothing was written.
 	 */
-	public static function save( array $input ) {
+	public static function save( array $input, $scope = '' ) {
+		$scope = (string) $scope;
+		$keys  = self::scope_keys( $scope );
+
+		if ( null === $keys ) {
+			return self::get();
+		}
+
+		if ( '' !== $scope ) {
+			$reads = array_fill_keys( $keys, true );
+
+			foreach ( self::defaults() as $key => $default ) {
+				if ( ! isset( $reads[ $key ] ) ) {
+					unset( $input[ $key ] );
+				} elseif ( is_bool( $default ) && ! array_key_exists( $key, $input ) ) {
+					$input[ $key ] = false;
+				}
+			}
+		}
+
+		return self::write( $input, $keys );
+	}
+
+	/**
+	 * Write the settings given, each by the rule `save()` applies to it, and leave every other
+	 * setting exactly as stored.
+	 *
+	 * For code that changes a setting or two outside the Settings screen, such as the handbook's
+	 * move off a retired model. `save()` is the wrong door for that: with no scope it keeps the
+	 * single form's rules, which write the four leaving rules and six switches from whatever input
+	 * they are handed, so a one-setting save switches those six off and puts each rule at its
+	 * fallback answer. A patch fills in nothing absent. It writes the settings it holds, puts back a
+	 * setting that cannot be blank only when it holds that one, stamps the settings version only
+	 * when it holds "Currently mentoring", reschedules the weekly check only when it changed one
+	 * of the checker's settings, and compiles the tracks only when it changed a status list, the
+	 * question the settings handler asks after a save (decision 14).
+	 *
+	 * A status list is asked the two questions that handler asks before a save: one that would take
+	 * a live track's status out of "Currently mentoring" (`tracks_dropped_by()`), or put one among
+	 * the past statuses (`tracks_ended_by()`), is left as stored, and the rest of the patch is
+	 * written. There is no screen to say so on, so a caller that needs to know compares the list it
+	 * gets back with the one it sent.
+	 *
+	 * @param array $changes Setting => raw value, as `save()` is handed them.
+	 * @return array The settings as written.
+	 */
+	public static function patch( array $changes ) {
+		if ( array() !== self::tracks_dropped_by( $changes ) ) {
+			unset( $changes['student_statuses'], $changes[ self::FIELD_DRAWN_STATUSES ] );
+		}
+
+		if ( array() !== self::tracks_ended_by( $changes ) ) {
+			unset( $changes['past_statuses'] );
+		}
+
 		$current = self::get();
+		$saved   = self::write( $changes, array_keys( array_intersect_key( $changes, self::defaults() ) ) );
+
+		if ( class_exists( 'WPCPM_Track_Store' ) && self::changed( $current, $saved, array( 'student_statuses', 'past_statuses' ) ) ) {
+			WPCPM_Track_Store::compile();
+		}
+
+		return $saved;
+	}
+
+	/**
+	 * Sanitize and store the settings a save or a patch reads, and leave every other setting as
+	 * stored.
+	 *
+	 * @param array    $input Raw input, typically from $_POST.
+	 * @param string[] $keys  The settings this write reads.
+	 * @return array The settings as written.
+	 */
+	private static function write( array $input, array $keys ) {
+		$current = self::get();
+		$reads   = array_fill_keys( $keys, true );
 		$clean   = $current;
 
 		// An empty token field means "leave the stored token alone" - the UI only
@@ -292,7 +511,9 @@ class WPCPM_Settings {
 		}
 
 		// "Currently mentoring" through `student_statuses_from()`, which leaves the stored list alone
-		// when the Settings form carried it back unchanged (BUILDER-3); the other three as posted.
+		// when the Settings form carried it back unchanged (BUILDER-3); the other three as posted. A
+		// list posted as boxes keeps the order it is stored in (`kept_in_stored_order()`), so a Save
+		// that changed nothing writes it back as it was.
 		$statuses = self::student_statuses_from( $input );
 
 		if ( null !== $statuses ) {
@@ -301,15 +522,26 @@ class WPCPM_Settings {
 
 		foreach ( array( 'past_statuses', 'institution_active_stages', 'two_factor_roles' ) as $list_key ) {
 			if ( isset( $input[ $list_key ] ) ) {
-				$clean[ $list_key ] = self::clean_list( wp_unslash( $input[ $list_key ] ) );
+				$raw  = wp_unslash( $input[ $list_key ] );
+				$list = self::clean_list( $raw );
+
+				$clean[ $list_key ] = is_array( $raw ) ? self::kept_in_stored_order( $list, self::clean_list( isset( $current[ $list_key ] ) ? $current[ $list_key ] : array() ) ) : $list;
 			}
 		}
 
-		$clean['on_inactive'] = ( isset( $input['on_inactive'] ) && 'keep' === $input['on_inactive'] ) ? 'keep' : 'revoke';
+		// This rule and nine settings further down (the other three leaving rules and six switches)
+		// are written from whatever input a write reads them from, absent included: a radio always
+		// posts one of its answers, and a box left unticked posts nothing. So each is written only
+		// by a save that reads it or a patch that holds it, and another tab's Save leaves it alone.
+		if ( isset( $reads['on_inactive'] ) ) {
+			$clean['on_inactive'] = ( isset( $input['on_inactive'] ) && 'keep' === $input['on_inactive'] ) ? 'keep' : 'revoke';
+		}
 
 		// Keep by default: a sponsor that pauses keeps its accounts, and a manager who wants them
 		// gone says so (design spec of 4 September 2026, section 5.2, phase 4).
-		$clean['sponsor_on_inactive'] = ( isset( $input['sponsor_on_inactive'] ) && 'revoke' === $input['sponsor_on_inactive'] ) ? 'revoke' : 'keep';
+		if ( isset( $reads['sponsor_on_inactive'] ) ) {
+			$clean['sponsor_on_inactive'] = ( isset( $input['sponsor_on_inactive'] ) && 'revoke' === $input['sponsor_on_inactive'] ) ? 'revoke' : 'keep';
+		}
 
 		if ( isset( $input['logo_max_kb'] ) ) {
 			$clean['logo_max_kb'] = max( 100, min( 8192, (int) $input['logo_max_kb'] ) );
@@ -352,26 +584,27 @@ class WPCPM_Settings {
 			$clean['handbook_limit'] = max( 0, min( 200, (int) $input['handbook_limit'] ) );
 		}
 
-		// Every boolean arrives from the handler on every save, because an unchecked checkbox
-		// posts nothing and "absent" would otherwise be indistinguishable from "off".
+		// Every boolean of the form arrives from the handler on every save, because an unchecked
+		// checkbox posts nothing and "absent" would otherwise be indistinguishable from "off".
 		if ( array_key_exists( 'handbook_enabled', $input ) ) {
 			$clean['handbook_enabled'] = ! empty( $input['handbook_enabled'] );
 		}
 
-		$clean['send_welcome_email'] = ! empty( $input['send_welcome_email'] );
-		$clean['auto_sync']          = ! empty( $input['auto_sync'] );
-		$clean['mentor_home']        = ! empty( $input['mentor_home'] );
-		$clean['student_home']       = ! empty( $input['student_home'] );
+		foreach ( array( 'send_welcome_email', 'auto_sync', 'mentor_home', 'student_home' ) as $flag ) {
+			if ( isset( $reads[ $flag ] ) ) {
+				$clean[ $flag ] = ! empty( $input[ $flag ] );
+			}
+		}
 
-		$clean['student_on_inactive'] = ( isset( $input['student_on_inactive'] ) && 'keep' === $input['student_on_inactive'] ) ? 'keep' : 'revoke';
+		if ( isset( $reads['student_on_inactive'] ) ) {
+			$clean['student_on_inactive'] = ( isset( $input['student_on_inactive'] ) && 'keep' === $input['student_on_inactive'] ) ? 'keep' : 'revoke';
+		}
 
 		// Institutions module.
-		$clean['institution_on_inactive'] = ( isset( $input['institution_on_inactive'] ) && 'keep' === $input['institution_on_inactive'] ) ? 'keep' : 'revoke';
+		if ( isset( $reads['institution_on_inactive'] ) ) {
+			$clean['institution_on_inactive'] = ( isset( $input['institution_on_inactive'] ) && 'keep' === $input['institution_on_inactive'] ) ? 'keep' : 'revoke';
+		}
 
-		// Who hears about an agreement upload: addresses one per line or comma-separated,
-		// whichever the manager typed. Anything that is not an address is dropped rather
-		// than kept, because a bad recipient here fails the one message that most needs
-		// to arrive, and an empty result falls back to every program manager.
 		if ( isset( $input['agreement_doc_url'] ) ) {
 			$url  = esc_url_raw( trim( wp_unslash( $input['agreement_doc_url'] ) ), array( 'https' ) );
 			$host = $url ? strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) ) : '';
@@ -381,27 +614,24 @@ class WPCPM_Settings {
 			$clean['agreement_doc_url'] = in_array( $host, array( 'docs.google.com', 'drive.google.com' ), true ) ? $url : '';
 		}
 
+		// Who hears about an agreement upload, a drafted report or a sponsor's interest (`addresses()`).
+		// The form posts each list as its text input's text, or, where it lists the program managers,
+		// as the boxes ticked beside its Other addresses line (`agreement_notify[]` and so on), every
+		// entry split the way the text is, so both write the same list for the same addresses, and the
+		// boxes keep the order the list is stored in, as the status lists do.
 		foreach ( array( 'agreement_notify', 'report_notify', 'sponsor_notify' ) as $notify_key ) {
 			if ( ! isset( $input[ $notify_key ] ) ) {
 				continue;
 			}
 
 			$raw       = wp_unslash( $input[ $notify_key ] );
-			$raw       = is_array( $raw ) ? $raw : preg_split( '/[\s,]+/', (string) $raw );
-			$addresses = array();
-			foreach ( $raw as $address ) {
-				if ( ! is_string( $address ) ) {
-					continue;
-				}
+			$addresses = self::addresses( $raw );
 
-				// Lowercased before the de-duplication below: an address is one mailbox however
-				// it was typed, and the notice must not reach it twice.
-				$address = sanitize_email( strtolower( trim( $address ) ) );
-				if ( '' !== $address && is_email( $address ) ) {
-					$addresses[] = $address;
-				}
+			if ( is_array( $raw ) ) {
+				$addresses = self::kept_in_stored_order( $addresses, self::addresses( isset( $current[ $notify_key ] ) ? (string) $current[ $notify_key ] : '' ) );
 			}
-			$clean[ $notify_key ] = implode( ',', array_unique( $addresses ) );
+
+			$clean[ $notify_key ] = implode( ',', $addresses );
 		}
 
 		// The one connecting address whose forwarded header the application form believes.
@@ -417,13 +647,13 @@ class WPCPM_Settings {
 			$clean['application_trusted_proxy'] = ( '' !== $proxy && false !== filter_var( $proxy, FILTER_VALIDATE_IP ) ) ? $proxy : '';
 		}
 
-		// Guarded like `handbook_enabled`, unlike the checkboxes above: `save()` has callers
-		// other than the settings form - WP-CLI, filters, a future screen - that post partial
-		// input, and a flag this loop finds absent from that input must stay whatever it
-		// already was, not flip to false. The settings form's own handler never hits that
-		// case: it forwards every checkbox it renders as a boolean, ticked or not, so
-		// unticking one still switches it off through this same guarded read. Absent means
-		// "leave alone" only for callers narrower than the form.
+		// Guarded like `handbook_enabled`, unlike the checkboxes above: a write can be handed
+		// partial input - a patch always is - and a flag this loop finds absent from that input
+		// must stay whatever it already was, not flip to false. The settings form's own handler
+		// never hits that case: it forwards every checkbox it renders as a boolean, ticked or
+		// not, so unticking one still switches it off through this same guarded read. Absent
+		// means "leave alone" for a patch and for a save that names no scope: a save given a
+		// scope has already read each of the scope's absent switches as off.
 		foreach ( array( 'institution_provision', 'institution_home', 'applications_enabled', 'import_enabled', 'report_autodraft', 'sponsor_home', 'tools_students', 'tools_mentors', 'sponsor_applications_enabled', 'duplicate_delete_enabled' ) as $flag ) {
 			if ( array_key_exists( $flag, $input ) ) {
 				$clean[ $flag ] = ! empty( $input[ $flag ] );
@@ -470,20 +700,30 @@ class WPCPM_Settings {
 			}
 		}
 
-		$clean['checker_cron_enabled']  = ! empty( $input['checker_cron_enabled'] );
-		$clean['checker_cron_promotes'] = ! empty( $input['checker_cron_promotes'] );
+		foreach ( array( 'checker_cron_enabled', 'checker_cron_promotes' ) as $flag ) {
+			if ( isset( $reads[ $flag ] ) ) {
+				$clean[ $flag ] = ! empty( $input[ $flag ] );
+			}
+		}
 
-		// Three fields that must never be blank, because each is what a sync filters the
-		// base by and `WPCPM_Airtable::formula_in()` turns an empty list into no filter at
-		// all. A blank saved here would make the next run read every row of the table: an
-		// account, a role and an institution stamp for every SPAM and rejected row, or, for
-		// the current-student list on its own, the revocation of every current student. The
-		// default goes back in and the screen says so (`render_notices()`); a blank already
-		// stored before this guard is refused by both syncs' `start()`.
+		// Four fields that must never be blank. The mentor status and "Currently mentoring" are
+		// what the mentors and students syncs filter the base by, and
+		// `WPCPM_Airtable::formula_in()` turns an empty list into no filter at all: a blank would
+		// make the next run read every row of the table, an account and a role for every SPAM and
+		// rejected row, or, for the current-student list on its own, the revocation of every
+		// current student; a blank already stored before this guard is refused by both syncs'
+		// `start()`. The pipeline stages are how the institutions sync tells an institution that
+		// has left, so a blank list would count every institution as gone. The starting stage is
+		// what an approved application's institution is created at, and blank the approval would
+		// fall back to the same default without a word. The default goes back in and the screen
+		// says so (`render_notices()`). Only a write that reads the field puts it back: a blank
+		// stored in a setting this save or patch does not read is its own tab's to put right, and
+		// a notice about it after another tab's Save would name a setting the manager never
+		// touched.
 		$restored = array();
 
 		foreach ( array_keys( self::never_blank() ) as $key ) {
-			if ( empty( $clean[ $key ] ) ) {
+			if ( isset( $reads[ $key ] ) && empty( $clean[ $key ] ) ) {
 				$clean[ $key ] = self::defaults()[ $key ];
 				$restored[]    = $key;
 			}
@@ -495,17 +735,43 @@ class WPCPM_Settings {
 			WPCPM_Flash::set( 'settings-defaults', $restored );
 		}
 
-		// A save carries the manager's current lists, so it is by definition up to date:
-		// stamping here means `maybe_upgrade()` can never follow a save and put back a
-		// status that was just removed on purpose.
-		update_option( self::OPT_VERSION, self::SETTINGS_VERSION );
+		// A write that reads "Currently mentoring" carries the manager's current list, so it is
+		// by definition up to date: stamping here means `maybe_upgrade()` can never follow a save
+		// and put back a status that was just removed on purpose. A save of another scope, or a
+		// patch of other settings, carries no such list and vouches for none.
+		if ( isset( $reads['student_statuses'] ) ) {
+			update_option( self::OPT_VERSION, self::SETTINGS_VERSION );
+		}
 
-		// Keep the weekly schedule in step with the setting that governs it.
-		if ( class_exists( 'WPCPM_Mentor_Checker_Runner' ) ) {
+		// Keep the weekly schedule in step with the setting that governs it. Only a write that changed
+		// one of the checker's settings can have moved it, so any other leaves it alone.
+		if ( class_exists( 'WPCPM_Mentor_Checker_Runner' ) && self::changed( $current, $clean, self::scope_keys( 'tool:mentor-status-checker' ) ) ) {
 			WPCPM_Mentor_Checker_Runner::sync_cron( $clean['checker_cron_enabled'] );
 		}
 
 		return $clean;
+	}
+
+	/**
+	 * Whether any of these settings differs between two readings of the settings, such as the
+	 * settings before a save and what the save wrote.
+	 *
+	 * @param array    $before The settings before.
+	 * @param array    $after  The settings after.
+	 * @param string[] $keys   The settings to compare.
+	 * @return bool
+	 */
+	public static function changed( array $before, array $after, array $keys ) {
+		foreach ( $keys as $key ) {
+			$was = array_key_exists( $key, $before ) ? $before[ $key ] : null;
+			$now = array_key_exists( $key, $after ) ? $after[ $key ] : null;
+
+			if ( $was !== $now ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -609,7 +875,18 @@ class WPCPM_Settings {
 	 * gained since the page was drawn put after it. A blank is written blank however stale the page,
 	 * so `save()` puts the default list back and says so: merged, a status gained since the page was
 	 * drawn was written alone, past that rule and its notice (the fix round of BUILDER-3). A caller
-	 * that sends no drawn list, which is every caller but the form, has its list written as sent.
+	 * that sends no drawn list, which is every caller but the form, has a list sent as text written
+	 * as sent.
+	 *
+	 * The form posts the list one of two ways: as its textarea's text, or, where the screen can read
+	 * the statuses, as the boxes ticked in its checkbox list (`student_statuses[]`, an array), each
+	 * box that may not be unticked carried in a hidden field of the same name. A textarea's lines are
+	 * in the order somebody typed them, so a list put in another order is a change. The boxes post in
+	 * the order the lists draw them, which is not the order the list is stored in, so boxes holding
+	 * the statuses the page drew are the list unchanged, whatever their order, and boxes that changed
+	 * it keep the statuses still ticked in the order they are stored in, the newly ticked after them
+	 * (`kept_in_stored_order()`), with or without a drawn list. The list written from either is the
+	 * list the other writes for the same statuses in the same order.
 	 *
 	 * @param array $input What the save is handed.
 	 * @return string[]|null
@@ -619,27 +896,99 @@ class WPCPM_Settings {
 			return null;
 		}
 
-		$posted = self::clean_list( wp_unslash( $input['student_statuses'] ) );
+		$raw    = wp_unslash( $input['student_statuses'] );
+		$posted = self::clean_list( $raw );
 
-		if ( array() === $posted || ! isset( $input[ self::FIELD_DRAWN_STATUSES ] ) ) {
+		if ( array() === $posted ) {
 			return $posted;
+		}
+
+		$stored = self::get();
+		$held   = self::clean_list( isset( $stored['student_statuses'] ) ? $stored['student_statuses'] : array() );
+
+		if ( ! isset( $input[ self::FIELD_DRAWN_STATUSES ] ) ) {
+			return is_array( $raw ) ? self::kept_in_stored_order( $posted, $held ) : $posted;
 		}
 
 		$drawn = self::clean_list( wp_unslash( $input[ self::FIELD_DRAWN_STATUSES ] ) );
 
-		if ( $posted === $drawn ) {
+		if ( $posted === $drawn || ( is_array( $raw ) && array() === array_diff( $posted, $drawn ) && array() === array_diff( $drawn, $posted ) ) ) {
 			return null;
 		}
 
-		$stored = self::get();
-
-		foreach ( self::clean_list( isset( $stored['student_statuses'] ) ? $stored['student_statuses'] : array() ) as $gained ) {
+		foreach ( $held as $gained ) {
 			if ( ! in_array( $gained, $drawn, true ) && ! in_array( $gained, $posted, true ) ) {
 				$posted[] = $gained;
 			}
 		}
 
-		return $posted;
+		return is_array( $raw ) ? self::kept_in_stored_order( $posted, $held ) : $posted;
+	}
+
+	/**
+	 * A list posted as ticked boxes, in the order its stored copy holds its entries: each stored
+	 * entry still ticked where it stood, then each newly ticked one in the order it was posted.
+	 *
+	 * The boxes post in the order the screen draws them (Airtable's order, a group at a time, the
+	 * program managers by name), which need not be the order the list is stored in, and nothing a
+	 * box can do puts a list in another order. Written as posted, a Save that changed nothing rewrote
+	 * the list, and for a status list compiled the tracks, which a Save that changes nothing does not
+	 * do. No reader of these lists depends on their order.
+	 *
+	 * @param string[] $posted The entries posted, cleaned.
+	 * @param string[] $stored The entries stored, cleaned the same way.
+	 * @return string[]
+	 */
+	private static function kept_in_stored_order( array $posted, array $stored ) {
+		$list = array();
+
+		foreach ( $stored as $entry ) {
+			if ( in_array( $entry, $posted, true ) ) {
+				$list[] = $entry;
+			}
+		}
+
+		foreach ( $posted as $entry ) {
+			if ( ! in_array( $entry, $list, true ) ) {
+				$list[] = $entry;
+			}
+		}
+
+		return $list;
+	}
+
+	/**
+	 * The addresses a reviewer list holds: one per line or comma-separated, whichever the manager
+	 * typed, or an array of such entries, as the boxes and the Other addresses line post them.
+	 *
+	 * Anything that is not an address is dropped rather than kept, because a bad recipient here fails
+	 * the one message that most needs to arrive, and an empty result falls back to every program
+	 * manager. Lowercased before the de-duplication: an address is one mailbox however it was typed,
+	 * and the notice must not reach it twice.
+	 *
+	 * @param mixed $raw The list, already unslashed.
+	 * @return string[]
+	 */
+	private static function addresses( $raw ) {
+		$split = array();
+
+		foreach ( is_array( $raw ) ? $raw : array( (string) $raw ) as $entry ) {
+			if ( is_string( $entry ) ) {
+				$split = array_merge( $split, preg_split( '/[\s,]+/', $entry ) );
+			}
+		}
+
+		$addresses = array();
+
+		foreach ( $split as $address ) {
+			$address = sanitize_email( strtolower( trim( (string) $address ) ) );
+
+			if ( '' !== $address && is_email( $address ) ) {
+				$addresses[] = $address;
+			}
+		}
+
+		return array_values( array_unique( $addresses ) );
 	}
 
 	/**
@@ -733,10 +1082,13 @@ class WPCPM_Settings {
 	 * A list setting as `save()` keeps it: one entry a line, or an array, each trimmed and
 	 * sanitized, the empty ones dropped, and each once.
 	 *
+	 * Public, so the Settings screen compares a value it offers with a list in the form the list
+	 * keeps it in, as the save's own rules do (`tracks_dropped_by()`).
+	 *
 	 * @param mixed $raw The list, already unslashed.
 	 * @return string[]
 	 */
-	private static function clean_list( $raw ) {
+	public static function clean_list( $raw ) {
 		$raw  = is_array( $raw ) ? $raw : explode( "\n", (string) $raw );
 		$list = array();
 
@@ -783,6 +1135,7 @@ class WPCPM_Settings {
 			'mentor_status'             => __( 'Mentor status to sync', 'wpcredits-program-manager' ),
 			'student_statuses'          => __( 'Currently mentoring', 'wpcredits-program-manager' ),
 			'institution_active_stages' => __( 'Institution pipeline stages', 'wpcredits-program-manager' ),
+			'institution_new_stage'     => __( 'Institution starting stage', 'wpcredits-program-manager' ),
 		);
 	}
 
@@ -791,7 +1144,8 @@ class WPCPM_Settings {
 	 *
 	 * Hooked on `admin_notices` from the bootstrap. `save()` queues the list inside the
 	 * admin-post request, and the handler then redirects to the settings screen, so the
-	 * notice appears once, beside "Settings saved.", and is gone on the next reload.
+	 * notice appears once, beside the one saying the settings were saved, and is gone on the
+	 * next reload.
 	 */
 	public static function render_notices() {
 		$restored = WPCPM_Flash::take( 'settings-defaults' );
@@ -822,16 +1176,28 @@ class WPCPM_Settings {
 			return;
 		}
 
-		printf(
-			'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
-			esc_html(
-				sprintf(
-					/* translators: %s: the settings that were reset, with their defaults. */
-					__( 'These settings cannot be left blank, so their defaults were put back: %s. With nothing to filter by, a sync would read every row of the Airtable table and treat each one as current.', 'wpcredits-program-manager' ),
-					implode( '; ', $parts )
-				)
-			)
+		$message = sprintf(
+			/* translators: %s: the settings that were reset, with their defaults. */
+			__( 'These settings cannot be left blank, so their defaults were put back: %s.', 'wpcredits-program-manager' ),
+			implode( '; ', $parts )
 		);
+
+		// Each reason only for the settings it is true of: two are what a sync filters the base
+		// by, the stages are the pipeline an institution is in or has left, and the starting stage
+		// is what an approval writes.
+		if ( array() !== array_intersect( $restored, array( 'mentor_status', 'student_statuses' ) ) ) {
+			$message .= ' ' . __( 'With nothing to filter by, a sync would read every row of the Airtable table and treat each one as current.', 'wpcredits-program-manager' );
+		}
+
+		if ( in_array( 'institution_active_stages', $restored, true ) ) {
+			$message .= ' ' . __( 'With no stage in the pipeline, the institutions sync would count every institution as having left it.', 'wpcredits-program-manager' );
+		}
+
+		if ( in_array( 'institution_new_stage', $restored, true ) ) {
+			$message .= ' ' . __( 'An approved application\'s institution is created in Airtable at the starting stage, so there has to be one.', 'wpcredits-program-manager' );
+		}
+
+		printf( '<div class="notice notice-warning is-dismissible"><p>%s</p></div>', esc_html( $message ) );
 	}
 
 	/**

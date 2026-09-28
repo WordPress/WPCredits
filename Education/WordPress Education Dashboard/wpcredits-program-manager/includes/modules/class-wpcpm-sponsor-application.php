@@ -820,11 +820,11 @@ class WPCPM_Sponsor_Application {
 	 */
 	private static function closed_reason() {
 		if ( ! self::is_open() ) {
-			return __( 'The sponsor application form is switched off. Turn on "Applications from sponsors" in the plugin settings when the program is ready to take them.', 'wpcredits-program-manager' );
+			return __( 'The sponsor application form is switched off. Turn on "Applications from sponsors" on the Sponsors tab of WPCredits Program > Settings when the program is ready to take them.', 'wpcredits-program-manager' );
 		}
 
 		if ( '' === self::policy_url() ) {
-			return __( 'This form is not shown yet: applicants are asked to agree to the privacy policy, and this site has no published privacy policy page. Set one under Settings, Privacy.', 'wpcredits-program-manager' );
+			return __( 'This form is not shown yet: applicants are asked to agree to the privacy policy, and this site has no published privacy policy page. Set one under Settings > Privacy.', 'wpcredits-program-manager' );
 		}
 
 		return '';

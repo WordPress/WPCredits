@@ -1,5 +1,5 @@
 /**
- * Editor script for the "My Students (Mentor)" block.
+ * Editor script for the "Student Report Card" block.
  *
  * Written in plain ES5 against the wp.* globals so the plugin ships without a
  * build step. The block is server-rendered, so the editor shows a live preview
@@ -45,7 +45,7 @@
 						EmptyResponsePlaceholder: function () {
 							return el(
 								components.Placeholder,
-								{ label: __( 'My Program', 'wpcredits-program-manager' ) },
+								{ label: __( 'Student Report Card', 'wpcredits-program-manager' ) },
 								__(
 									'Nothing to preview - this list is built from the student viewing the page.',
 									'wpcredits-program-manager'

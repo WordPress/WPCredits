@@ -723,6 +723,9 @@ ck( 'with the form switched off the public are shown nothing', WPCPM_Institution
 
 $GLOBALS['caps'] = true;
 ck( 'and a manager is told it is switched off', false !== strpos( WPCPM_Institution_Application::render(), 'switched off' ), true );
+// By the name the switch has on the screen that holds it, and where that screen is, as the sponsors'
+// form says of its own switch: no control on any screen is called "Accept institution applications".
+ck( 'and which switch turns it on, by the name it has on the Settings screen, and where it is', false !== strpos( WPCPM_Institution_Application::render(), 'Turn on &quot;Applications from institutions&quot; on the Institutions tab of WPCredits Program &gt; Settings when the program is ready to take them.' ), true );
 
 reset_world();
 unset( $GLOBALS['opts'][ WPCPM_Countries::OPT_NAME ] );

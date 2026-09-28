@@ -91,7 +91,7 @@ $guides = array(
 	),
 	'administrators' => array(
 		'title' => 'Program manager guide',
-		'lede'  => 'The plugin in wp-admin - settings, modules, access levels and the sync - plus everything mentors and students are told.',
+		'lede'  => 'The plugin in wp-admin - settings, tools, access levels and the sync - plus everything mentors and students are told.',
 		'intro' => "This guide covers running the program: the plugin's own screens in wp-admin, what every setting does, who can read what, and what to check when something looks wrong.\n\nIt also contains the mentor and student guides in full. Program managers are the people other people ask, and the access levels mean you cannot open either of those pages yourself.",
 		'parts' => array(
 			'30-admin-wpadmin',

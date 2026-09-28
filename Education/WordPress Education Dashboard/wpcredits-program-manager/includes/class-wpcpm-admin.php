@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin menu and settings screen.
+ * Admin menu, the Overview and the Tools screen.
  *
  * @package WPCreditsProgramManager
  */
@@ -10,44 +10,35 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Builds the top-level "WPCredits Program" menu: one submenu per module, plus
- * an overview and a shared settings screen.
+ * Builds the top-level "WPCredits Program" menu, whose every screen is titled with its own name:
+ * the Overview, a screen per audience, the Tools screen and a screen per tool, and Settings, whose
+ * screen is `WPCPM_Settings_Screen`'s.
  */
 class WPCPM_Admin {
 
-	const MENU_SLUG      = 'wpcpm';
-	const TOOLS_SLUG     = 'wpcpm-tools';
-	const SETTINGS_SLUG  = 'wpcpm-settings';
-	const SETTINGS_NONCE = 'wpcpm_save_settings';
+	const MENU_SLUG  = 'wpcpm';
+	const TOOLS_SLUG = 'wpcpm-tools';
 
 	/**
-	 * Boolean settings the settings screen does not render yet.
+	 * The Settings screen, which the menu's last entry opens.
 	 *
-	 * The save handler reads every other switch unconditionally, because an unticked box
-	 * posts nothing and absent has to mean off. For a switch with no box on the form absent
-	 * means nothing, so these are left to `WPCPM_Settings::save()`'s own guard. The
-	 * Institutions settings card removes each one from here when it renders it.
-	 *
-	 * **Empty since 1.85.1, and worth keeping rather than deleting.** It held
-	 * `import_enabled` for as long as the import had no screen, and that was right at the
-	 * time and wrong the moment the screen shipped: the setting existed, defaulted to off,
-	 * and had nowhere to be turned on, so the feature was unreachable and the settings page
-	 * gave no hint that it was there. The next switch that ships ahead of its surface goes
-	 * here and comes out the same way.
+	 * @var WPCPM_Settings_Screen
 	 */
-	const UNRENDERED_SWITCHES = array();
+	private $settings;
 
 	/**
-	 * Hooks.
+	 * Hooks, and the Settings screen, which hooks its own handlers.
 	 */
 	public function __construct() {
+		$this->settings = new WPCPM_Settings_Screen();
+
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
-		add_action( 'admin_init', array( $this, 'handle_settings_save' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 	}
 
 	/**
-	 * Register the menu and one page per module.
+	 * Register the menu: the Overview, a page per audience, the Tools screen and a page per tool,
+	 * then Settings.
 	 */
 	public function register_menu() {
 		add_menu_page(
@@ -82,13 +73,13 @@ class WPCPM_Admin {
 			);
 		}
 
-		// Listed after the four audience screens. Called "Modules" on screen because that
-		// is what they are to somebody running the program; the slug and the internal
-		// `WPCPM_Tool` vocabulary are unchanged, so bookmarks and page slugs still work.
+		// Listed after the audience screens, and called what the Overview and the program manager
+		// guide call the parts of the program run on their own: Tools. The slug is the one it always
+		// had, so a bookmark still opens it.
 		add_submenu_page(
 			self::MENU_SLUG,
-			__( 'Modules', 'wpcredits-program-manager' ),
-			__( 'Modules', 'wpcredits-program-manager' ),
+			__( 'Tools', 'wpcredits-program-manager' ),
+			__( 'Tools', 'wpcredits-program-manager' ),
 			WPCPM_Roles::CAP_MANAGE,
 			self::TOOLS_SLUG,
 			array( $this, 'render_tools' )
@@ -99,7 +90,7 @@ class WPCPM_Admin {
 				self::MENU_SLUG,
 				$tool->label(),
 				// Indented so the submenu reads as a tool belonging to Tools rather
-				// than as a fifth module.
+				// than as another audience.
 				'- ' . $tool->label(),
 				WPCPM_Roles::CAP_MANAGE,
 				$tool->page_slug(),
@@ -112,18 +103,9 @@ class WPCPM_Admin {
 			__( 'Settings', 'wpcredits-program-manager' ),
 			__( 'Settings', 'wpcredits-program-manager' ),
 			WPCPM_Roles::CAP_MANAGE,
-			self::SETTINGS_SLUG,
-			array( $this, 'render_settings' )
+			WPCPM_Settings_Screen::SETTINGS_SLUG,
+			array( $this->settings, 'render_settings' )
 		);
-	}
-
-	/**
-	 * The settings screen's URL.
-	 *
-	 * @return string
-	 */
-	public static function settings_url() {
-		return admin_url( 'admin.php?page=' . self::SETTINGS_SLUG );
 	}
 
 	/**
@@ -135,13 +117,14 @@ class WPCPM_Admin {
 		}
 
 		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html__( 'Modules', 'wpcredits-program-manager' ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html__( 'Parts of the program you can switch on, run and configure separately from the audiences above.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<h1>' . esc_html__( 'Tools', 'wpcredits-program-manager' ) . '</h1>';
+		// The Overview's sentence for the same cards: this screen has no audiences above it.
+		echo '<p class="wpcpm-lede">' . esc_html__( 'Parts of the program that can be switched on, run and configured on their own.', 'wpcredits-program-manager' ) . '</p>';
 
 		$tools = WPCPM_Tools::all();
 
 		if ( empty( $tools ) ) {
-			echo '<div class="wpcpm-card"><p>' . esc_html__( 'No modules are registered.', 'wpcredits-program-manager' ) . '</p></div>';
+			echo '<div class="wpcpm-card"><p>' . esc_html__( 'No tools are registered.', 'wpcredits-program-manager' ) . '</p></div>';
 			echo '</div>';
 
 			return;
@@ -158,14 +141,7 @@ class WPCPM_Admin {
 			);
 			echo '<p>' . esc_html( $tool->description() ) . '</p>';
 
-			$status = $tool->status_line();
-			if ( '' !== $status ) {
-				echo '<p class="wpcpm-tool-status">' . esc_html( $status ) . '</p>';
-			}
-
-			if ( ! $tool->is_ready() ) {
-				echo '<p class="wpcpm-warning">' . esc_html__( 'Airtable is not connected yet, so this tool cannot run.', 'wpcredits-program-manager' ) . '</p>';
-			}
+			self::render_tool_status( $tool );
 
 			printf(
 				'<p><a class="button" href="%1$s">%2$s</a></p>',
@@ -178,6 +154,30 @@ class WPCPM_Admin {
 
 		echo '</div>';
 		echo '</div>';
+	}
+
+	/**
+	 * A tool card's status line, the same on the Tools screen and the Overview, which show the same
+	 * cards: the card's line, with its rule above, and for a tool that cannot run its words the
+	 * warning they are, since the reason is the tool's to give (the Airtable connection for most, and
+	 * for Need help? its switch or its provider).
+	 *
+	 * @param WPCPM_Tool $tool The tool.
+	 */
+	private static function render_tool_status( WPCPM_Tool $tool ) {
+		$status = $tool->status_line();
+
+		if ( '' === $status ) {
+			return;
+		}
+
+		if ( $tool->is_ready() ) {
+			printf( '<p class="wpcpm-tool-status">%s</p>', esc_html( $status ) );
+
+			return;
+		}
+
+		printf( '<p class="wpcpm-tool-status"><span class="wpcpm-warning">%s</span></p>', esc_html( $status ) );
 	}
 
 	/**
@@ -207,22 +207,24 @@ class WPCPM_Admin {
 	}
 
 	/**
-	 * The overview screen: one card per module.
+	 * The Overview screen: a card per audience, then a card per tool.
 	 */
 	public function render_overview() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
 		}
 
+		// Titled as the menu titles the page: the plugin is WPCredits Program on the menu, and each
+		// screen under it carries its own name.
 		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html__( 'WPCredits Program Manager', 'wpcredits-program-manager' ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html__( 'The program in modules. Each module owns one audience and one user role.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<h1>' . esc_html__( 'Overview', 'wpcredits-program-manager' ) . '</h1>';
+		echo '<p class="wpcpm-lede">' . esc_html__( 'The program\'s audiences, each with a user role and a screen of its own.', 'wpcredits-program-manager' ) . '</p>';
 
 		if ( ! WPCPM_Settings::is_connected() ) {
 			printf(
 				'<div class="notice notice-warning"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
 				esc_html__( 'Airtable is not connected yet.', 'wpcredits-program-manager' ),
-				esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_SLUG ) ),
+				esc_url( WPCPM_Settings_Screen::settings_url() ),
 				esc_html__( 'Add a Personal Access Token', 'wpcredits-program-manager' )
 			);
 		}
@@ -270,12 +272,12 @@ class WPCPM_Admin {
 
 		echo '</div>';
 
-		// Listed after the audiences so the four-audience structure stays the first thing
-		// on the screen.
+		// The tools after the audiences, so the audiences stay the first thing on the screen, and
+		// under the name the menu gives the tools.
 		$tools = WPCPM_Tools::all();
 
 		if ( ! empty( $tools ) ) {
-			echo '<h2>' . esc_html__( 'Modules', 'wpcredits-program-manager' ) . '</h2>';
+			echo '<h2>' . esc_html__( 'Tools', 'wpcredits-program-manager' ) . '</h2>';
 			echo '<p class="wpcpm-lede">' . esc_html__( 'Parts of the program that can be switched on, run and configured on their own.', 'wpcredits-program-manager' ) . '</p>';
 			echo '<div class="wpcpm-modules">';
 
@@ -288,10 +290,7 @@ class WPCPM_Admin {
 				);
 				echo '<p>' . esc_html( $tool->description() ) . '</p>';
 
-				$status = $tool->status_line();
-				if ( '' !== $status ) {
-					echo '<p class="wpcpm-tool-status">' . esc_html( $status ) . '</p>';
-				}
+				self::render_tool_status( $tool );
 
 				echo '</div>';
 			}
@@ -300,1140 +299,5 @@ class WPCPM_Admin {
 		}
 
 		echo '</div>';
-	}
-
-	/**
-	 * Persist the settings form.
-	 */
-	public function handle_settings_save() {
-		if ( ! isset( $_POST[ self::SETTINGS_NONCE ] ) ) {
-			return;
-		}
-
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
-		}
-
-		check_admin_referer( self::SETTINGS_NONCE, self::SETTINGS_NONCE );
-
-		// Derived from the defaults rather than hand-listed. The hand-written list was a
-		// standing invitation to add a field to the form, add its sanitiser to
-		// `WPCPM_Settings::save()`, and forget the third place - at which point the field
-		// renders, accepts input, posts it, and is silently discarded. Twenty-one fields were
-		// in that state, including the whole mentor-checker card and the AI provider.
-		//
-		// Safe to iterate every setting because of the `isset()`: a key this form does not
-		// render is simply absent from the request and is left alone. The one shape that
-		// cannot work that way is a checkbox, which posts nothing at all when unticked - so
-		// those are read unconditionally below, which is only correct for the ones this form
-		// renders. The switches it does not render yet are listed in UNRENDERED_SWITCHES and
-		// skipped: read unconditionally, the first save of this screen would have switched
-		// every one of them off. bin/test-settings.php checks the list against the form.
-		$input    = array();
-		$defaults = WPCPM_Settings::defaults();
-
-		foreach ( $defaults as $key => $default ) {
-			if ( is_bool( $default ) ) {
-				continue;
-			}
-
-			if ( isset( $_POST[ $key ] ) ) {
-				$input[ $key ] = wp_unslash( $_POST[ $key ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitised in WPCPM_Settings::save().
-			}
-		}
-
-		foreach ( $defaults as $key => $default ) {
-			if ( is_bool( $default ) && ! in_array( $key, self::UNRENDERED_SWITCHES, true ) ) {
-				$input[ $key ] = ! empty( $_POST[ $key ] );
-			}
-		}
-
-		// "Currently mentoring" as this page drew it, which is not a setting and so is not among the
-		// defaults read above: with it, a textarea nobody changed leaves the stored list alone, and a
-		// page drawn before a track was published cannot write that track's status out of the list
-		// (the deep check of 1.109.1, BUILDER-3).
-		if ( isset( $_POST[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] ) ) {
-			$input[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] = wp_unslash( $_POST[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in WPCPM_Settings::student_statuses_from().
-		}
-
-		// A change to the list that would take the status of a track the site runs from its
-		// definition out of it is not made: the next students sync would take the Student role from
-		// everybody on the track, and the status leaves once the track is off the live site (the
-		// design's 7.5, BUILDER-3). Everything else posted is saved as ever and the list stays as
-		// stored, with a notice naming the track, rather than the whole save refused and everything
-		// typed on the page lost with it (the ruling of BUILDER-3's fix round, 23 September 2026).
-		$dropped = WPCPM_Settings::tracks_dropped_by( $input );
-
-		if ( array() !== $dropped ) {
-			unset( $input['student_statuses'], $input[ WPCPM_Settings::FIELD_DRAWN_STATUSES ] );
-
-			WPCPM_Flash::set( 'settings-refused', $dropped );
-		}
-
-		// The same rule for "Past students": a past status is refused to every track, so the compile
-		// below would take a live track holding one off the site with nothing standing in for it,
-		// the program's four original tracks included (`WPCPM_Settings::tracks_ended_by()`).
-		$ended = WPCPM_Settings::tracks_ended_by( $input );
-
-		if ( array() !== $ended ) {
-			unset( $input['past_statuses'] );
-
-			WPCPM_Flash::set( 'settings-past-refused', $ended );
-		}
-
-		WPCPM_Settings::save( $input );
-
-		// "Currently mentoring" and the past statuses are rules every published track was compiled
-		// against, so a save that changes them would otherwise leave the live tracks, and the list
-		// of what the last compile left out, answering for the settings as they were (decision 14).
-		//
-		// It hangs on this handler rather than on `WPCPM_Settings::save()`, which has callers of
-		// its own: one is the handbook's model migration on `init` priority 5, before the track
-		// post type is registered at 10, and a compile from there is wasted work on an unrelated
-		// path (the T2b whole-branch review).
-		if ( class_exists( 'WPCPM_Track_Store' ) ) {
-			WPCPM_Track_Store::compile();
-		}
-
-		WPCPM_Flash::set( 'settings', 'saved' );
-
-		wp_safe_redirect( self::settings_url() );
-		exit;
-	}
-
-	/**
-	 * Why the last save left "Currently mentoring" as it was: the change would have taken live
-	 * tracks' statuses out of it, and these are the tracks; everything else was saved (BUILDER-3 and
-	 * the ruling in its fix round).
-	 */
-	private function render_refused_notice() {
-		$refused = WPCPM_Flash::take( 'settings-refused' );
-
-		if ( ! is_array( $refused ) || array() === $refused ) {
-			return;
-		}
-
-		$tracks = array();
-
-		foreach ( $refused as $status => $label ) {
-			$tracks[] = sprintf(
-				/* translators: 1: a track's name, 2: its Airtable status. */
-				__( '%1$s runs on "%2$s"', 'wpcredits-program-manager' ),
-				(string) $label,
-				(string) $status
-			);
-		}
-
-		printf(
-			'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
-			esc_html(
-				sprintf(
-					/* translators: %s: the tracks, each with its Airtable status, separated by semicolons. */
-					__( 'Everything else was saved. "Currently mentoring" was left as it was, because %s: taking a status out while its track is live would make the next students sync treat everybody on the track as having left the program. Take the track off the live site in the Track Builder first, then remove its status here.', 'wpcredits-program-manager' ),
-					implode( '; ', $tracks )
-				)
-			)
-		);
-	}
-
-	/**
-	 * Why the last save left "Past students" as it was: the change would have put live tracks'
-	 * statuses among the past statuses, which no track runs on, and these are the tracks; everything
-	 * else was saved (`WPCPM_Settings::tracks_ended_by()`).
-	 */
-	private function render_past_refused_notice() {
-		$refused = WPCPM_Flash::take( 'settings-past-refused' );
-
-		if ( ! is_array( $refused ) || array() === $refused ) {
-			return;
-		}
-
-		$tracks = array();
-
-		foreach ( $refused as $status => $label ) {
-			$tracks[] = sprintf(
-				/* translators: 1: a track's name, 2: its Airtable status. */
-				__( '%1$s runs on "%2$s"', 'wpcredits-program-manager' ),
-				(string) $label,
-				(string) $status
-			);
-		}
-
-		printf(
-			'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
-			esc_html(
-				sprintf(
-					/* translators: %s: the tracks, each with its Airtable status, separated by semicolons. */
-					__( 'Everything else was saved. "Past students" was left as it was, because %s: no track runs on a past status, so saving the list would have taken the track off the live site, and its students would have lost its form. Take the track off the live site in the Track Builder first, then add its status here. The program\'s four original tracks always run, so their statuses are never past statuses.', 'wpcredits-program-manager' ),
-					implode( '; ', $tracks )
-				)
-			)
-		);
-	}
-
-	/**
-	 * The shared settings screen.
-	 */
-	public function render_settings() {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
-		}
-
-		$settings = WPCPM_Settings::get();
-		$status   = (string) WPCPM_Flash::take( 'settings' );
-
-		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html__( 'WPCredits Program - Settings', 'wpcredits-program-manager' ) . '</h1>';
-
-		$messages = array(
-			'saved'       => array( 'success', __( 'Settings saved.', 'wpcredits-program-manager' ) ),
-			'test-sent'   => array( 'success', __( 'The sample invitation is on its way to your own address.', 'wpcredits-program-manager' ) ),
-			'test-failed' => array( 'error', __( 'The sample could not be sent. Whatever handles mail on this site refused it, so a real invitation would not arrive either.', 'wpcredits-program-manager' ) ),
-			'log-cleared' => array( 'success', __( 'The mail log is empty.', 'wpcredits-program-manager' ) ),
-		);
-
-		if ( isset( $messages[ $status ] ) ) {
-			printf(
-				'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-				esc_attr( $messages[ $status ][0] ),
-				esc_html( $messages[ $status ][1] )
-			);
-		}
-
-		$this->render_refused_notice();
-		$this->render_past_refused_notice();
-
-		echo '<form method="post" action="">';
-		wp_nonce_field( self::SETTINGS_NONCE, self::SETTINGS_NONCE );
-
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Airtable connection', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<table class="form-table" role="presentation"><tbody>';
-
-		$this->text_row(
-			'api_token',
-			__( 'Personal Access Token', 'wpcredits-program-manager' ),
-			WPCPM_Settings::masked_token(),
-			__( 'Stored in the database and never sent to the browser - leave blank to keep the current token.', 'wpcredits-program-manager' ),
-			'password'
-		);
-
-		$this->text_row(
-			'schema_token',
-			__( 'Schema token', 'wpcredits-program-manager' ),
-			WPCPM_Settings::masked_schema_token(),
-			__( 'Optional, and used by the Track Builder alone: the token that creates a track\'s columns when it is published. It needs the "schema.bases:write" scope and must belong to somebody with the base creator role on the base. Leave blank to keep the current one, or type remove to take it away. Without it, publishing lists the columns for somebody to create by hand.', 'wpcredits-program-manager' ),
-			'password'
-		);
-
-		$this->render_scopes_row();
-
-		$this->text_row( 'base_id', __( 'Base ID', 'wpcredits-program-manager' ), $settings['base_id'] );
-		$this->text_row( 'mentors_table', __( 'Mentors table', 'wpcredits-program-manager' ), $settings['mentors_table'] );
-		$this->text_row( 'reports_table', __( 'Students Reports table', 'wpcredits-program-manager' ), $settings['reports_table'], __( 'Holds the internship dates, links and contribution team shown on the mentor page.', 'wpcredits-program-manager' ) );
-		$this->text_row( 'students_table', __( 'Students table', 'wpcredits-program-manager' ), $settings['students_table'], __( 'Read only for the Tutor column, which does not exist on Students Reports.', 'wpcredits-program-manager' ) );
-
-		echo '</tbody></table>';
-		echo '</div>';
-
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Linked tables', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p>' . esc_html__( 'Airtable sends linked-record fields as record IDs, not names. These two tables are read so those IDs can be shown as names on the mentor page.', 'wpcredits-program-manager' ) . '</p>';
-		echo '<table class="form-table" role="presentation"><tbody>';
-
-		$this->text_row( 'institutions_table', __( 'Institutions table', 'wpcredits-program-manager' ), $settings['institutions_table'] );
-		$this->text_row(
-			'institutions_name_field',
-			__( 'Institutions name column', 'wpcredits-program-manager' ),
-			$settings['institutions_name_field'],
-			__( 'Only used when the token lacks <code>schema.bases:read</code>. With that scope the primary column is detected automatically.', 'wpcredits-program-manager' )
-		);
-		$this->text_row( 'teams_table', __( 'Contribution areas table', 'wpcredits-program-manager' ), $settings['teams_table'] );
-		$this->text_row( 'teams_name_field', __( 'Contribution areas name column', 'wpcredits-program-manager' ), $settings['teams_name_field'] );
-		$this->text_row( 'team_members_table', __( 'Team Members table', 'wpcredits-program-manager' ), $settings['team_members_table'], __( 'The program team: who each sponsor\'s contact is. Not the Contribution areas table above.', 'wpcredits-program-manager' ) );
-
-		echo '</tbody></table>';
-		echo '</div>';
-
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Mentors module', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<table class="form-table" role="presentation"><tbody>';
-
-		$this->text_row( 'mentor_status', __( 'Mentor status to sync', 'wpcredits-program-manager' ), $settings['mentor_status'], __( 'Only mentors holding this Airtable status get an account.', 'wpcredits-program-manager' ) );
-
-		printf(
-			'<tr><th scope="row"><label for="wpcpm-student-statuses">%1$s</label></th><td><textarea id="wpcpm-student-statuses" name="student_statuses" rows="3" class="regular-text">%2$s</textarea>',
-			esc_html__( 'Currently mentoring', 'wpcredits-program-manager' ),
-			esc_textarea( implode( "\n", (array) $settings['student_statuses'] ) )
-		);
-
-		// The list as this page draws it, one hidden field a status, so the save can tell a list
-		// somebody changed from one the page only carried back, and keeps whatever the stored list
-		// gains meanwhile, a published track's status above all (BUILDER-3).
-		foreach ( (array) $settings['student_statuses'] as $drawn ) {
-			printf(
-				'<input type="hidden" name="%1$s[]" value="%2$s" />',
-				esc_attr( WPCPM_Settings::FIELD_DRAWN_STATUSES ),
-				esc_attr( (string) $drawn )
-			);
-		}
-
-		printf(
-			'<p class="description">%s</p></td></tr>',
-			esc_html__( 'One status per line. Students holding any of these appear under "Currently mentoring" on their mentor\'s page.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row"><label for="wpcpm-past-statuses">%1$s</label></th><td><textarea id="wpcpm-past-statuses" name="past_statuses" rows="3" class="regular-text">%2$s</textarea><p class="description">%3$s</p></td></tr>',
-			esc_html__( 'Past students', 'wpcredits-program-manager' ),
-			esc_textarea( implode( "\n", (array) $settings['past_statuses'] ) ),
-			esc_html__( 'Statuses that mean mentoring has finished. These students appear in a separate, collapsed section. Leave empty to show only current students. A status listed in both boxes counts as current.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><fieldset><label><input type="radio" name="on_inactive" value="revoke"%2$s> %3$s</label><br><label><input type="radio" name="on_inactive" value="keep"%4$s> %5$s</label></fieldset><p class="description">%6$s</p></td></tr>',
-			esc_html__( 'When a mentor is no longer active', 'wpcredits-program-manager' ),
-			checked( $settings['on_inactive'], 'revoke', false ),
-			esc_html__( 'Remove the Mentor role and clear their student list', 'wpcredits-program-manager' ),
-			checked( $settings['on_inactive'], 'keep', false ),
-			esc_html__( 'Leave the role in place', 'wpcredits-program-manager' ),
-			esc_html__( 'The account itself is never deleted either way.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="send_welcome_email" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Invitation emails', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['send_welcome_email'] ), true, false ),
-			esc_html__( 'Email each new mentor a password-reset link as their account is created', 'wpcredits-program-manager' ),
-			esc_html__( 'Off by default. A first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them. Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="auto_sync" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Automatic sync', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['auto_sync'] ), true, false ),
-			esc_html__( 'Read Airtable on a schedule', 'wpcredits-program-manager' ),
-			// Read by a person on the settings screen, so it says the cadence outright and had to move
-			// with it: the mentors run left the daily clock in 1.98.2 and joined the students run's,
-			// half an hour behind it.
-			//
-			// The WordPress.org profile reads are the *students* run's, phase 2, where a mentor's
-			// card is built (`WPCPM_Students_Sync`); the mentors run makes no WordPress.org
-			// request at all, it reads three Airtable tables. The switch is named in full because
-			// it governs three of the four syncs and a manager cannot tell which from the label.
-			esc_html__( 'Students and mentors every three hours, half an hour apart: the student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours. A run already in progress is left to finish rather than restarted. Either can also be run by hand from the Students and Mentors screens. This switch governs the students, mentors and institutions syncs; the sponsors sync runs regardless.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="mentor_home" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s</td></tr>',
-			esc_html__( 'Mentor landing page', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['mentor_home'] ), true, false ),
-			esc_html__( 'Use the Mentor Report Card page as the mentor dashboard', 'wpcredits-program-manager' ),
-			esc_html__( 'Mentors go there when they log in and in place of the wp-admin Dashboard, and get a "Mentor Report Card" link in the toolbar. They keep access to their own profile screen, and a mentor who followed a link to somewhere specific still lands there instead. Administrators are unaffected.', 'wpcredits-program-manager' ),
-			WPCPM_Mentors_Dashboard::page_url()
-				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( WPCPM_Mentors_Dashboard::page_url() ) )
-				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing - re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
-		);
-
-		echo '</tbody></table>';
-		echo '</div>';
-
-		// Students module. The status lists above are shared: the same two sets
-		// decide who is a current student and who has finished.
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Students module', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Uses the same status lists as the Mentors module above - a current student is anyone a mentor is currently mentoring.', 'wpcredits-program-manager' ) . '</p>';
-		echo '<table class="form-table" role="presentation"><tbody>';
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><fieldset><label><input type="radio" name="student_on_inactive" value="revoke"%2$s> %3$s</label><br><label><input type="radio" name="student_on_inactive" value="keep"%4$s> %5$s</label></fieldset><p class="description">%6$s</p></td></tr>',
-			esc_html__( 'When a student leaves the program', 'wpcredits-program-manager' ),
-			checked( $settings['student_on_inactive'], 'revoke', false ),
-			esc_html__( 'Remove the Student role, so they lose access to Student-level content', 'wpcredits-program-manager' ),
-			checked( $settings['student_on_inactive'], 'keep', false ),
-			esc_html__( 'Leave the role in place', 'wpcredits-program-manager' ),
-			esc_html__( 'The account itself is never deleted either way, and their program details are kept.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="student_home" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s</td></tr>',
-			esc_html__( 'Student landing page', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['student_home'] ), true, false ),
-			esc_html__( 'Use the My Program page as the student dashboard', 'wpcredits-program-manager' ),
-			esc_html__( 'Students go there when they log in and in place of the wp-admin Dashboard, and get a "My Program" link in the toolbar. Same exceptions as for mentors: a requested destination wins, their own profile screen stays reachable, and anyone who can write posts is left alone.', 'wpcredits-program-manager' ),
-			WPCPM_Students_Dashboard::page_url()
-				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( WPCPM_Students_Dashboard::page_url() ) )
-				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing - re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
-		);
-
-		echo '</tbody></table>';
-		echo '</div>';
-
-		$this->render_institution_settings( $settings );
-
-		$this->render_sponsor_settings( $settings );
-
-		$this->render_checker_settings( $settings );
-
-		$this->render_duplicate_settings( $settings );
-
-		$this->render_handbook_settings( $settings );
-
-		$this->render_two_factor_settings( $settings );
-
-		submit_button( __( 'Save settings', 'wpcredits-program-manager' ) );
-		echo '</form>';
-
-		// After the settings form, not inside it: each control below posts to its own
-		// handler, and a form cannot be nested in another.
-		$this->render_mail_card();
-
-		echo '</div>';
-	}
-
-	/**
-	 * The Institutions module's own settings.
-	 *
-	 * Its own card, and not a row at the foot of the Students one. The application form was
-	 * put there when it was the only institution setting with a control, and it read as a
-	 * student setting: the heading above it says Students module, and a program manager
-	 * scanning for what institutions can do had no reason to look under it.
-	 *
-	 * The other four have existed since Phase 0 with no control at all, which meant the only
-	 * way to change any of them was code. They are here now for the same reason: a setting
-	 * nobody can find is a setting nobody can use.
-	 *
-	 * @param array $settings Current settings.
-	 */
-	private function render_institution_settings( array $settings ) {
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Institutions module', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Institutions are the schools and universities whose students are on the program. Each has its own dashboard, its own people, and one Collaboration Agreement.', 'wpcredits-program-manager' ) . '</p>';
-		echo '<table class="form-table" role="presentation"><tbody>';
-
-		// The public application form. Off by default and switched on here, because turning it
-		// on publishes a page that strangers can post to, which is not a thing to inherit from
-		// an update. The privacy policy is named on the same row rather than in a document
-		// nobody will read at the moment they need it: the form refuses to render at all
-		// without one, so a switch that looks on while the page shows nothing is exactly the
-		// confusion this line exists to prevent.
-		$policy_url = function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
-		$apply_url  = class_exists( 'WPCPM_Institution_Application' ) ? (string) WPCPM_Institution_Application::page_url() : '';
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s%6$s</td></tr>',
-			esc_html__( 'Applications from institutions', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['applications_enabled'] ), true, false ),
-			esc_html__( 'Take applications through the form on this site', 'wpcredits-program-manager' ),
-			esc_html__( 'A public page anybody can post to. Every submission is stored for a program manager to read on the Institutions screen, and nothing is created until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ),
-			'' === $policy_url
-				? '<p class="description wpcpm-warning">' . esc_html__( 'No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings, Privacy.', 'wpcredits-program-manager' ) . '</p>'
-				: '',
-			'' !== $apply_url
-				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( $apply_url ) )
-				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing: re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
-		);
-
-		// Beside the applications switch, because the two are the same kind of decision: both
-		// open a route by which people outside the program put names into it, and a site that
-		// wants one may well not want the other.
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="import_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p><p class="description">%5$s</p></td></tr>',
-			esc_html__( 'Enrollment lists from institutions', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['import_enabled'] ), true, false ),
-			esc_html__( 'Let an institution send a list of students to enroll', 'wpcredits-program-manager' ),
-			esc_html__( 'Adds an "Enroll students" section to the Institution Dashboard, where a school chooses the program and the term and then adds one student or sends a CSV. The list is read and checked against the program records, and the school sees what was understood before anything is created. While this is off the section does not appear at all.', 'wpcredits-program-manager' ),
-			esc_html(
-				sprintf(
-					/* translators: 1: checks per hour, 2: rows per day. */
-					__( 'Ceilings per institution: %1$s checks an hour and %2$s students a day. Files are read and never stored.', 'wpcredits-program-manager' ),
-					class_exists( 'WPCPM_Institution_Import' ) ? number_format_i18n( WPCPM_Institution_Import::CHECKS_PER_HOUR ) : '',
-					class_exists( 'WPCPM_Institution_Import' ) ? number_format_i18n( WPCPM_Institution_Import::ROWS_PER_DAY ) : ''
-				)
-			)
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="institution_home" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s</td></tr>',
-			esc_html__( 'Institution landing page', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['institution_home'] ), true, false ),
-			esc_html__( 'Use the Institution Dashboard page as the institution dashboard', 'wpcredits-program-manager' ),
-			esc_html__( 'Institution accounts go there when they log in and in place of the wp-admin Dashboard, and get an "Institution Dashboard" link in the toolbar. Same exceptions as for mentors and students.', 'wpcredits-program-manager' ),
-			class_exists( 'WPCPM_Institutions_Dashboard' ) && '' !== WPCPM_Institutions_Dashboard::page_url()
-				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( WPCPM_Institutions_Dashboard::page_url() ) )
-				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing: re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="institution_provision" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Create accounts automatically', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['institution_provision'] ), true, false ),
-			esc_html__( 'Let the sync create the first account for a Confirmed institution', 'wpcredits-program-manager' ),
-			esc_html__( 'From the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member. An address that already belongs to an account is left alone and named on the Institutions screen. With this off, accounts are created only when somebody presses the button there.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><fieldset><label><input type="radio" name="institution_on_inactive" value="revoke"%2$s> %3$s</label><br><label><input type="radio" name="institution_on_inactive" value="keep"%4$s> %5$s</label></fieldset><p class="description">%6$s</p></td></tr>',
-			esc_html__( 'When an institution leaves the pipeline', 'wpcredits-program-manager' ),
-			checked( $settings['institution_on_inactive'], 'revoke', false ),
-			esc_html__( 'Remove its people, so they lose access to its students', 'wpcredits-program-manager' ),
-			checked( $settings['institution_on_inactive'], 'keep', false ),
-			esc_html__( 'Leave their access in place', 'wpcredits-program-manager' ),
-			esc_html__( 'When Airtable moves an institution out of the stages the program treats as active. The accounts themselves are never deleted either way, and the agreement and the roster are kept.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><input type="number" class="small-text" name="agreement_review_days" min="1" max="60" value="%2$s"> %3$s<p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Agreement review', 'wpcredits-program-manager' ),
-			esc_attr( (string) $settings['agreement_review_days'] ),
-			esc_html__( 'days', 'wpcredits-program-manager' ),
-			esc_html__( 'How long a signed agreement may wait before the queue marks it overdue and the nightly digest names it.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><input type="text" class="regular-text" name="agreement_notify" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Who reviews agreements', 'wpcredits-program-manager' ),
-			esc_attr( (string) $settings['agreement_notify'] ),
-			esc_attr__( 'one@example.org, two@example.org', 'wpcredits-program-manager' ),
-			esc_html__( 'Addresses told when an agreement arrives and sent the overdue digest. Leave it empty and every program manager is written to, which reaches technical administrators as well; set it before the first real upload.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="report_autodraft" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Semester reports', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['report_autodraft'] ), true, false ),
-			esc_html__( 'Draft each institution\'s semester report when the semester ends', 'wpcredits-program-manager' ),
-			esc_html__( 'A daily job drafts a report for every finished semester and tells the program managers. Off, drafts are written only when a manager presses Draft now.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><input type="number" class="small-text" name="report_autodraft_grace_days" min="7" max="365" value="%2$s"> %3$s<p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Drafting grace', 'wpcredits-program-manager' ),
-			esc_attr( (string) $settings['report_autodraft_grace_days'] ),
-			esc_html__( 'days', 'wpcredits-program-manager' ),
-			esc_html__( 'How long after a semester ends the job waits for students still in progress before drafting anyway. The draft says how many were still in progress.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><input type="text" class="regular-text" name="report_notify" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Who reviews reports', 'wpcredits-program-manager' ),
-			esc_attr( (string) $settings['report_notify'] ),
-			esc_attr__( 'one@example.org, two@example.org', 'wpcredits-program-manager' ),
-			esc_html__( 'Addresses told when the job drafts a report. Leave it empty and every program manager is written to.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><input type="url" class="regular-text" name="agreement_doc_url" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'The agreement wording', 'wpcredits-program-manager' ),
-			esc_attr( (string) $settings['agreement_doc_url'] ),
-			esc_attr__( 'https://docs.google.com/document/d/...', 'wpcredits-program-manager' ),
-			esc_html__( 'The Google Doc the plugin\'s copy of the Collaboration Agreement was taken from, used by the Check against the Doc button. Held on this site rather than in the code, because the document is editable by anyone holding its link and the plugin\'s source is public. Google addresses only.', 'wpcredits-program-manager' )
-		);
-
-		echo '</tbody></table>';
-		echo '</div>';
-	}
-
-	/**
-	 * The Sponsors module's settings.
-	 *
-	 * @param array $settings Current settings.
-	 */
-	private function render_sponsor_settings( array $settings ) {
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Sponsors module', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p class="description">' . esc_html__( 'Sponsors are the companies that fund mentors and offer their tools to students. Each has its own dashboard, its own people and its offer; a program manager creates each account one at a time from the Sponsors screen.', 'wpcredits-program-manager' ) . '</p>';
-		echo '<table class="form-table" role="presentation"><tbody>';
-
-		// The public application form, first on the card because a sponsor's life on the site
-		// begins with it. Off by default and switched on here, because turning it on publishes
-		// a page that strangers can post to. The privacy policy is named on the same row: the
-		// form refuses to render at all without one, so a switch that looks on while the page
-		// shows nothing is exactly the confusion this line exists to prevent.
-		$policy_url = function_exists( 'get_privacy_policy_url' ) ? (string) get_privacy_policy_url() : '';
-		$apply_url  = class_exists( 'WPCPM_Sponsor_Application' ) ? (string) WPCPM_Sponsor_Application::page_url() : '';
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="sponsor_applications_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>%5$s%6$s</td></tr>',
-			esc_html__( 'Applications from sponsors', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['sponsor_applications_enabled'] ), true, false ),
-			esc_html__( 'Take sponsor applications through the form on this site', 'wpcredits-program-manager' ),
-			esc_html__( 'A public page anybody can post to. Every submission is stored for a program manager to read on the Sponsors screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody approves it. While this is off the page shows one sentence saying applications are closed.', 'wpcredits-program-manager' ),
-			'' === $policy_url
-				? '<p class="description wpcpm-warning">' . esc_html__( 'No privacy policy page is set, so the form shows nothing to the public however this is switched. Publish one and choose it under Settings, Privacy.', 'wpcredits-program-manager' ) . '</p>'
-				: '',
-			'' !== $apply_url
-				? sprintf( '<p class="description"><a href="%1$s">%1$s</a></p>', esc_url( $apply_url ) )
-				: '<p class="description wpcpm-warning">' . esc_html__( 'The page is missing: re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>'
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="sponsor_home" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Sponsor home', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['sponsor_home'] ), true, false ),
-			esc_html__( 'Send sponsor accounts to the Sponsor Dashboard when they log in', 'wpcredits-program-manager' ),
-			esc_html__( 'Instead of the wp-admin Dashboard. Accounts that can also edit content or manage the program are left where WordPress sends them.', 'wpcredits-program-manager' )
-		);
-
-		$on_inactive = isset( $settings['sponsor_on_inactive'] ) && 'revoke' === $settings['sponsor_on_inactive'] ? 'revoke' : 'keep';
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="radio" name="sponsor_on_inactive" value="keep"%2$s> %3$s</label><br /><label><input type="radio" name="sponsor_on_inactive" value="revoke"%4$s> %5$s</label><p class="description">%6$s</p></td></tr>',
-			esc_html__( 'When a sponsor is no longer Approved', 'wpcredits-program-manager' ),
-			checked( 'keep', $on_inactive, false ),
-			esc_html__( 'Keep its accounts as they are', 'wpcredits-program-manager' ),
-			checked( 'revoke', $on_inactive, false ),
-			esc_html__( 'Detach its accounts on the next sync', 'wpcredits-program-manager' ),
-			esc_html__( 'Airtable\'s Status is the record. Paused and Not Moving Forward sponsors keep their accounts by default, because a pause is often short; choose the other answer to have the sync detach them. Nothing is ever deleted.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row"><label for="sponsor_notify">%1$s</label></th><td><input type="text" class="regular-text" id="sponsor_notify" name="sponsor_notify" value="%2$s" placeholder="%3$s"><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Interest mail, when no manager is assigned', 'wpcredits-program-manager' ),
-			esc_attr( isset( $settings['sponsor_notify'] ) ? (string) $settings['sponsor_notify'] : '' ),
-			esc_attr__( 'one@example.org, two@example.org', 'wpcredits-program-manager' ),
-			esc_html__( 'Addresses, comma-separated. A sponsor\'s interest is mailed to its assigned program manager; a sponsor with none is mailed here, or to every program manager when this is empty.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row"><label for="logo_max_kb">%1$s</label></th><td><input type="number" min="100" max="8192" step="1" id="logo_max_kb" name="logo_max_kb" value="%2$d" /> %3$s<p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Largest logo', 'wpcredits-program-manager' ),
-			isset( $settings['logo_max_kb'] ) ? (int) $settings['logo_max_kb'] : 1024,
-			esc_html__( 'KB', 'wpcredits-program-manager' ),
-			esc_html__( 'Applies to the logos the sync copies from Airtable and, later, to the ones sponsors upload. PNG, JPEG and WebP only; never SVG.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="tools_students" value="1"%2$s> %3$s</label><br /><label><input type="checkbox" name="tools_mentors" value="1"%4$s> %5$s</label><p class="description">%6$s</p></td></tr>',
-			esc_html__( 'Tools from our sponsors', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['tools_students'] ), true, false ),
-			esc_html__( 'Show the section on the Student Report Card', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['tools_mentors'] ), true, false ),
-			esc_html__( 'Show the section on the Mentor Report Card', 'wpcredits-program-manager' ),
-			esc_html__( 'Live offers, each with its claim button. A student always sees offers open to students; a mentor sees the offers whose sponsor opened them to mentors. The Administrator Dashboard shows every live offer whatever these say.', 'wpcredits-program-manager' )
-		);
-		printf(
-			'<tr><th scope="row"><label for="offer_low_stock">%1$s</label></th><td><input type="number" min="1" max="1000" step="1" id="offer_low_stock" name="offer_low_stock" value="%2$d" /> %3$s<p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Low-stock warning', 'wpcredits-program-manager' ),
-			isset( $settings['offer_low_stock'] ) ? (int) $settings['offer_low_stock'] : 10,
-			esc_html__( 'codes left', 'wpcredits-program-manager' ),
-			esc_html__( 'When a pool of one-time codes falls below this many, the sponsor and its program manager are mailed once. The default for new offers; each offer can set its own.', 'wpcredits-program-manager' )
-		);
-
-		echo '</tbody></table>';
-		echo '</div>';
-	}
-
-	/**
-	 * Which roles must present a second factor, and how far along each one is.
-	 *
-	 * Rendered even when the Two Factor plugin is not installed, because a policy that silently
-	 * does nothing is worse than one that says why: the card then names the plugin and stops.
-	 *
-	 * The list posts as checkboxes with an empty hidden field in front of them, so that clearing
-	 * every box still sends the key. Without it an all-unticked save would look like "the form
-	 * did not render this" and `WPCPM_Settings::save()` would leave the old policy in place,
-	 * which is the one shape a security setting must not have.
-	 *
-	 * @param array $settings Current settings.
-	 */
-	private function render_two_factor_settings( array $settings ) {
-		$status   = WPCPM_Two_Factor::status();
-		$required = WPCPM_Two_Factor::required_roles();
-
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Two-factor authentication', 'wpcredits-program-manager' ) . '</h2>';
-
-		if ( ! $status['available'] ) {
-			printf(
-				'<p class="description">%s</p>',
-				esc_html__( 'Nobody is asked for a second factor, because the Two Factor plugin is not active on this site. Install and activate it, and the roles ticked below will be asked for a code as well as a password at their next sign-in.', 'wpcredits-program-manager' )
-			);
-		} else {
-			printf(
-				'<p class="description">%s</p>',
-				esc_html__( 'An account in a ticked role is asked for a code as well as its password, from its next sign-in, with nothing to set up first: the code is emailed. Each person can then set up an authenticator app on their own profile screen, which is quicker and does not depend on their email. Untick everything to ask nobody.', 'wpcredits-program-manager' )
-			);
-		}
-
-		echo '<table class="wpcpm-table"><tbody>';
-		echo '<tr><th scope="row">' . esc_html__( 'Roles that must use it', 'wpcredits-program-manager' ) . '</th><td>';
-
-		// Always sent, so that unticking every box clears the policy rather than being read as
-		// a form that did not render the field. Empty values are dropped by the sanitiser.
-		echo '<input type="hidden" name="two_factor_roles[]" value="" />';
-
-		// Administrator first and by name, because it is the role this matters most for and the
-		// one WordPress owns rather than this plugin.
-		$choices = array( WPCPM_Roles::ROLE_ADMIN => __( 'Program managers (administrators)', 'wpcredits-program-manager' ) );
-
-		foreach ( WPCPM_Roles::custom_roles() as $slug => $role ) {
-			$choices[ $slug ] = $role['label'];
-		}
-
-		foreach ( $choices as $slug => $label ) {
-			printf(
-				'<label><input type="checkbox" name="two_factor_roles[]" value="%1$s"%2$s> %3$s</label><br>',
-				esc_attr( $slug ),
-				in_array( $slug, $required, true ) ? ' checked' : '',
-				esc_html( $label )
-			);
-		}
-
-		printf(
-			'<p class="description">%s</p>',
-			esc_html__( 'Students are left off by default: a student account holds that student\'s own work, there are hundreds of them, and there is nobody to unlock the ones who change phone. They can still turn it on for themselves.', 'wpcredits-program-manager' )
-		);
-
-		echo '</td></tr>';
-
-		if ( $status['available'] && ! empty( $status['roles'] ) ) {
-			echo '<tr><th scope="row">' . esc_html__( 'Where it stands', 'wpcredits-program-manager' ) . '</th><td>';
-
-			foreach ( $status['roles'] as $row ) {
-				printf(
-					'<p>%s</p>',
-					esc_html(
-						sprintf(
-							/* translators: 1: role name, 2: accounts covered, 3: accounts in the role, 4: accounts using an app. */
-							__( '%1$s: %2$d of %3$d covered, %4$d using an authenticator app.', 'wpcredits-program-manager' ),
-							$row['label'],
-							$row['covered'],
-							$row['total'],
-							$row['app']
-						)
-					)
-				);
-			}
-
-			printf(
-				'<p class="description">%s</p>',
-				esc_html__( 'Counted now, on this screen. An account that is covered but has no app is using emailed codes.', 'wpcredits-program-manager' )
-			);
-
-			echo '</td></tr>';
-		}
-
-		echo '</tbody></table>';
-		echo '</div>';
-	}
-
-	/**
-	 * The handbook assistant's source, provider and audience.
-	 *
-	 * @param array $settings Current settings.
-	 */
-	private function render_handbook_settings( array $settings ) {
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Need help?', 'wpcredits-program-manager' ) . '</h2>';
-		printf(
-			'<p>%s</p>',
-			esc_html__( 'A question box for people on the program, answered from the WordPress documentation. The AI provider below does the searching, so nothing is stored on this site - and without a provider there is no answer at all. Each question, and the pages found for it, go to that company.', 'wpcredits-program-manager' )
-		);
-
-		echo '<table class="form-table" role="presentation"><tbody>';
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="handbook_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Need help?', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['handbook_enabled'] ), true, false ),
-			esc_html__( 'Switch it on', 'wpcredits-program-manager' ),
-			esc_html__( 'Off means the question box answers nobody, the header button disappears and the page it lives on is unpublished. Nothing is deleted, so switching it back on restores all of it.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><p class="description">%2$s</p></td></tr>',
-			esc_html__( 'Where answers come from', 'wpcredits-program-manager' ),
-			esc_html__( 'The provider searches wordpress.org, make.wordpress.org, learn.wordpress.org and developer.wordpress.org itself. Nothing is copied to this site, so there is nothing to configure and nothing to refresh - and equally, no answer at all without a provider below.', 'wpcredits-program-manager' )
-		);
-
-		// Provider, key and model together: they are useless apart, and a key entered
-		// without a provider selected is the kind of thing that looks configured and is not.
-		$options = '';
-
-		foreach ( WPCPM_Handbook_Answer::providers() as $slug => $label ) {
-			$options .= sprintf(
-				'<option value="%1$s"%2$s>%3$s</option>',
-				esc_attr( $slug ),
-				selected( $settings['handbook_provider'], $slug, false ),
-				esc_html( $label )
-			);
-		}
-
-		printf(
-			'<tr><th scope="row"><label for="wpcpm-handbook-provider">%1$s</label></th><td><select id="wpcpm-handbook-provider" name="handbook_provider">%2$s</select><p class="description">%3$s</p></td></tr>',
-			esc_html__( 'Answer provider', 'wpcredits-program-manager' ),
-			$options, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built immediately above from escaped parts.
-			esc_html__( 'Leave as "None" to keep everything on this site. Choosing a provider sends each question, and the extracts that match it, to that company.', 'wpcredits-program-manager' )
-		);
-
-		$this->text_row(
-			'handbook_key',
-			__( 'Provider API key', 'wpcredits-program-manager' ),
-			WPCPM_Settings::masked_handbook_key(),
-			__( 'Stored in the database and never sent to the browser - leave blank to keep the current key. Get one free at aistudio.google.com for the Gemini provider.', 'wpcredits-program-manager' ),
-			'password'
-		);
-
-		$this->text_row(
-			'handbook_model',
-			__( 'Model', 'wpcredits-program-manager' ),
-			$settings['handbook_model'],
-			__( 'Leave as gemini-flash-latest unless you have a reason not to. It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under this site - which has already happened twice to specific version numbers.', 'wpcredits-program-manager' )
-		);
-
-		$audiences = array(
-			'mentor'  => __( 'Mentors and program managers', 'wpcredits-program-manager' ),
-			'program' => __( 'Students and institutions as well', 'wpcredits-program-manager' ),
-			'any'     => __( 'Anybody logged in to this site', 'wpcredits-program-manager' ),
-			'manage'  => __( 'Program managers only', 'wpcredits-program-manager' ),
-		);
-
-		$radios = '';
-
-		foreach ( $audiences as $value => $label ) {
-			$radios .= sprintf(
-				'<label><input type="radio" name="handbook_access" value="%1$s"%2$s> %3$s</label><br>',
-				esc_attr( $value ),
-				checked( $settings['handbook_access'], $value, false ),
-				esc_html( $label )
-			);
-		}
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><fieldset>%2$s</fieldset><p class="description">%3$s</p></td></tr>',
-			esc_html__( 'Who can ask', 'wpcredits-program-manager' ),
-			$radios, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built immediately above from escaped parts.
-			esc_html__( 'Never anybody logged out, whatever this says. The documentation describes running the program rather than being on it, which is why students are not included by default.', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row"><label for="wpcpm-handbook-limit">%1$s</label></th><td><input type="number" id="wpcpm-handbook-limit" name="handbook_limit" value="%2$d" min="0" max="200" step="1" class="small-text"><p class="description">%3$s</p></td></tr>',
-			esc_html__( 'Questions per person per hour', 'wpcredits-program-manager' ),
-			(int) $settings['handbook_limit'],
-			esc_html__( 'How many questions one person may have answered in an hour, so a free tier cannot be spent in an afternoon. Past the limit they are asked to come back shortly. 0 removes the limit.', 'wpcredits-program-manager' )
-		);
-
-		echo '</tbody></table>';
-		echo '</div>';
-	}
-
-	/**
-	 * Mail: send yourself a sample, and see what has gone out.
-	 */
-	private function render_mail_card() {
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Mail', 'wpcredits-program-manager' ) . '</h2>';
-
-		$queued = WPCPM_Mail::queued();
-
-		if ( $queued ) {
-			printf(
-				'<p class="description">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: number of invitations. */
-						_n(
-							'%s invitation is waiting to be sent. They go out a few at a time in the background.',
-							'%s invitations are waiting to be sent. They go out a few at a time in the background.',
-							$queued,
-							'wpcredits-program-manager'
-						),
-						number_format_i18n( $queued )
-					)
-				)
-			);
-		}
-
-		printf(
-			'<p>%s</p>',
-			esc_html__( 'Ninety people is a bad audience for a first look at a template. Send yourself the invitation as a student, a mentor, an institution or a sponsor would receive it - the four say different things.', 'wpcredits-program-manager' )
-		);
-
-		foreach ( array(
-			'student'     => __( 'Email me the student invitation', 'wpcredits-program-manager' ),
-			'mentor'      => __( 'Email me the mentor invitation', 'wpcredits-program-manager' ),
-			'institution' => __( 'Email me the institution invitation', 'wpcredits-program-manager' ),
-			'sponsor'     => __( 'Email me the sponsor invitation', 'wpcredits-program-manager' ),
-		) as $kind => $label ) {
-			printf(
-				'<form method="post" action="%1$s" class="wpcpm-inline-form">',
-				esc_url( admin_url( 'admin-post.php' ) )
-			);
-			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Mail::ACTION_TEST ) );
-			printf( '<input type="hidden" name="kind" value="%s" />', esc_attr( $kind ) );
-			wp_nonce_field( WPCPM_Mail::ACTION_TEST, WPCPM_Mail::ACTION_TEST );
-			printf( '<button type="submit" class="button">%s</button>', esc_html( $label ) );
-			echo '</form> ';
-		}
-
-		$this->render_mail_log();
-
-		echo '</div>';
-	}
-
-	/**
-	 * The recent-mail log.
-	 *
-	 * Exists to answer one question - "the student says they got nothing" - which was
-	 * previously unanswerable, because every caller threw away what `wp_mail()` told them.
-	 */
-	private function render_mail_log() {
-		$log = WPCPM_Mail::log();
-
-		printf( '<h3>%s</h3>', esc_html__( 'Recent mail', 'wpcredits-program-manager' ) );
-
-		if ( empty( $log ) ) {
-			printf(
-				'<p class="description">%s</p>',
-				esc_html__( 'Nothing sent yet. Bookings, cancellations, reminders and invitations are all recorded here once they are.', 'wpcredits-program-manager' )
-			);
-
-			return;
-		}
-
-		$failed = WPCPM_Mail::failures();
-
-		if ( $failed ) {
-			printf(
-				'<p class="wpcpm-warning">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: number of failures. */
-						_n(
-							'%s of these was refused by whatever handles mail on this site. That is a delivery problem to fix, not a program one.',
-							'%s of these were refused by whatever handles mail on this site. That is a delivery problem to fix, not a program one.',
-							$failed,
-							'wpcredits-program-manager'
-						),
-						number_format_i18n( $failed )
-					)
-				)
-			);
-		}
-
-		echo '<table class="wp-list-table widefat striped">';
-		printf(
-			'<thead><tr><th scope="col">%1$s</th><th scope="col">%2$s</th><th scope="col">%3$s</th><th scope="col">%4$s</th></tr></thead>',
-			esc_html__( 'When', 'wpcredits-program-manager' ),
-			esc_html__( 'To', 'wpcredits-program-manager' ),
-			esc_html__( 'Message', 'wpcredits-program-manager' ),
-			esc_html__( 'Accepted', 'wpcredits-program-manager' )
-		);
-		echo '<tbody>';
-
-		foreach ( array_slice( $log, 0, 25 ) as $entry ) {
-			$when = isset( $entry['time'] ) ? (int) $entry['time'] : 0;
-
-			echo '<tr>';
-			printf(
-				'<td>%s</td>',
-				esc_html(
-					$when
-						? sprintf(
-							/* translators: %s: human-readable time difference, e.g. "2 hours". */
-							__( '%s ago', 'wpcredits-program-manager' ),
-							human_time_diff( $when )
-						)
-						: '-'
-				)
-			);
-			printf( '<td>%s</td>', esc_html( isset( $entry['to'] ) ? $entry['to'] : '' ) );
-			printf(
-				'<td>%1$s<br><span class="description">%2$s</span></td>',
-				esc_html( isset( $entry['subject'] ) ? $entry['subject'] : '' ),
-				esc_html( isset( $entry['context'] ) ? $entry['context'] : '' )
-			);
-			printf(
-				'<td>%s</td>',
-				empty( $entry['sent'] )
-					? '<strong>' . esc_html__( 'Refused', 'wpcredits-program-manager' ) . '</strong>'
-					: esc_html__( 'Yes', 'wpcredits-program-manager' )
-			);
-			echo '</tr>';
-		}
-
-		echo '</tbody></table>';
-
-		printf(
-			'<p class="description">%s</p>',
-			esc_html__( '"Accepted" means the site handed the message off without complaint. It cannot tell you the message was delivered, or read - no sender can.', 'wpcredits-program-manager' )
-		);
-	}
-
-	/**
-	 * The scopes the token needs, and what each one is for.
-	 *
-	 * Spelled out on the connection screen rather than only in the readme: a token
-	 * created with read access alone looks perfectly configured here, and the first
-	 * sign of the missing write scope would otherwise be a 403 halfway through
-	 * promoting a mentor.
-	 */
-	private function render_scopes_row() {
-		$scopes = array(
-			array(
-				'scope'    => 'data.records:read',
-				'required' => __( 'Required', 'wpcredits-program-manager' ),
-				'note'     => __( 'Reading mentors, students and tutors.', 'wpcredits-program-manager' ),
-			),
-			array(
-				'scope'    => 'data.records:write',
-				'required' => __( 'Required by the Mentor Status Checker', 'wpcredits-program-manager' ),
-				'note'     => __( 'Changing a mentor\'s status when you promote them. Without it the tool can still run in report-only mode, but promoting fails.', 'wpcredits-program-manager' ),
-			),
-			array(
-				'scope'    => 'schema.bases:read',
-				'required' => __( 'Optional', 'wpcredits-program-manager' ),
-				'note'     => __( 'Reading each column\'s description from Airtable. Without it the built-in descriptions are shown instead.', 'wpcredits-program-manager' ),
-			),
-		);
-
-		printf( '<tr><th scope="row">%s</th><td>', esc_html__( 'Token scopes', 'wpcredits-program-manager' ) );
-		echo '<ul class="wpcpm-scopes">';
-
-		foreach ( $scopes as $scope ) {
-			printf(
-				'<li><code>%1$s</code> <strong>%2$s</strong><br /><span class="description">%3$s</span></li>',
-				esc_html( $scope['scope'] ),
-				esc_html( $scope['required'] ),
-				esc_html( $scope['note'] )
-			);
-		}
-
-		echo '</ul>';
-		printf(
-			'<p class="description">%s</p>',
-			esc_html__( 'Set these on the token itself at airtable.com/create/tokens, and give it access to the WPCredits base. Scopes cannot be checked from here without writing to the base, so this list is the reference.', 'wpcredits-program-manager' )
-		);
-		echo '</td></tr>';
-	}
-
-	/**
-	 * Settings for the Mentor Status Checker tool.
-	 *
-	 * @param array $settings Current settings.
-	 */
-	private function render_checker_settings( array $settings ) {
-		echo '<div class="wpcpm-card">';
-		printf(
-			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
-			esc_html__( 'Tool: Mentor Status Checker', 'wpcredits-program-manager' ),
-			esc_html__( 'Tool', 'wpcredits-program-manager' )
-		);
-		echo '<table class="form-table" role="presentation"><tbody>';
-
-		$this->text_row( 'checker_source_status', __( 'Check mentors with status', 'wpcredits-program-manager' ), $settings['checker_source_status'], __( 'Only mentors holding this status are looked up.', 'wpcredits-program-manager' ) );
-		$this->text_row( 'checker_target_status', __( 'Promote them to', 'wpcredits-program-manager' ), $settings['checker_target_status'], __( 'Writing this status needs the <code>data.records:write</code> scope on the token.', 'wpcredits-program-manager' ) );
-		$this->text_row( 'checker_course_title', __( 'Course title', 'wpcredits-program-manager' ), $settings['checker_course_title'] );
-		$this->text_row( 'checker_course_slug', __( 'Course slug', 'wpcredits-program-manager' ), $settings['checker_course_slug'], __( 'The slug in the learn.wordpress.org course URL. This is the reliable signal; the title is only a fallback.', 'wpcredits-program-manager' ) );
-		$this->text_row( 'checker_completion_phrase', __( 'Completion phrase', 'wpcredits-program-manager' ), $settings['checker_completion_phrase'], __( 'Both this phrase and the course must appear in the same profile history entry, so someone who merely blogged about the course is not counted.', 'wpcredits-program-manager' ) );
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><fieldset><label><input type="radio" name="checker_timeline_filter" value="meta"%2$s> %3$s</label><br><label><input type="radio" name="checker_timeline_filter" value="all"%4$s> %5$s</label></fieldset><p class="description">%6$s</p></td></tr>',
-			esc_html__( 'Profile history filter', 'wpcredits-program-manager' ),
-			checked( $settings['checker_timeline_filter'], 'meta', false ),
-			esc_html__( 'Milestones only (faster)', 'wpcredits-program-manager' ),
-			checked( $settings['checker_timeline_filter'], 'all', false ),
-			esc_html__( 'All contributions', 'wpcredits-program-manager' ),
-			esc_html__( 'Course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages. Switch to all contributions only if WordPress.org changes and completions stop being found.', 'wpcredits-program-manager' )
-		);
-
-		$this->number_row( 'checker_max_pages', __( 'Maximum history pages per mentor', 'wpcredits-program-manager' ), $settings['checker_max_pages'], 1, 100, __( 'A mentor whose history is longer than this is reported as "could not check", never as "not completed" - a false negative would leave them waiting.', 'wpcredits-program-manager' ) );
-		$this->number_row( 'checker_batch_size', __( 'Mentors per batch', 'wpcredits-program-manager' ), $settings['checker_batch_size'], 1, 25, __( 'Each mentor can cost several requests to WordPress.org, so smaller batches keep the screen responsive.', 'wpcredits-program-manager' ) );
-		$this->number_row( 'checker_request_delay', __( 'Delay between requests (ms)', 'wpcredits-program-manager' ), $settings['checker_request_delay'], 0, 5000 );
-		$this->number_row( 'checker_cache_ttl', __( 'Cache profile results for (seconds)', 'wpcredits-program-manager' ), $settings['checker_cache_ttl'], 0, MONTH_IN_SECONDS, __( 'Only settled answers are cached; a failed read is always retried. Set to 0 to disable.', 'wpcredits-program-manager' ) );
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="checker_cron_enabled" value="1"%2$s> %3$s</label><br><label><input type="checkbox" name="checker_cron_promotes" value="1"%4$s> %5$s</label><p class="description">%6$s</p></td></tr>',
-			esc_html__( 'Weekly check', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['checker_cron_enabled'] ), true, false ),
-			esc_html__( 'Run the check automatically once a week', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['checker_cron_promotes'] ), true, false ),
-			esc_html__( 'Let the weekly check also promote mentors', 'wpcredits-program-manager' ),
-			esc_html__( 'Both off by default. An unattended promotion writes to the shared Airtable base, so turn the second one on deliberately.', 'wpcredits-program-manager' )
-		);
-
-		echo '</tbody></table>';
-		echo '</div>';
-	}
-
-	/**
-	 * The Student Duplicate Finder's one switch: whether deleting is on.
-	 *
-	 * Here and not on the finder's own screen, the way the import's switch is: a delete removes rows
-	 * from the shared base, so it is turned on deliberately, by somebody reading what it does, and
-	 * until then the finder scans and lists and deletes nothing (spec decision 3.10).
-	 *
-	 * @param array $settings Current settings.
-	 */
-	private function render_duplicate_settings( array $settings ) {
-		echo '<div class="wpcpm-card">';
-		printf(
-			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
-			esc_html__( 'Tool: Student Duplicate Finder', 'wpcredits-program-manager' ),
-			esc_html__( 'Tool', 'wpcredits-program-manager' )
-		);
-		echo '<table class="form-table" role="presentation"><tbody>';
-		printf(
-			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="duplicate_delete_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p></td></tr>',
-			esc_html__( 'Deleting duplicates', 'wpcredits-program-manager' ),
-			checked( ! empty( $settings['duplicate_delete_enabled'] ), true, false ),
-			esc_html__( 'Let program managers delete the duplicated rows they select and confirm', 'wpcredits-program-manager' ),
-			esc_html__( 'Off by default. While it is off the finder scans and lists, and deletes nothing. A delete removes rows from Students, Students Reports and Feedback in the shared base, and the finder keeps a sealed copy of each row for 30 days.', 'wpcredits-program-manager' )
-		);
-		echo '</tbody></table>';
-		echo '</div>';
-	}
-
-	/**
-	 * One number input row on the settings form.
-	 *
-	 * @param string $name        Field name.
-	 * @param string $label       Field label.
-	 * @param int    $value       Current value.
-	 * @param int    $min         Minimum accepted value.
-	 * @param int    $max         Maximum accepted value.
-	 * @param string $description Optional help text.
-	 */
-	private function number_row( $name, $label, $value, $min, $max, $description = '' ) {
-		printf(
-			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><input type="number" id="wpcpm-%1$s" name="%1$s" value="%3$d" min="%4$d" max="%5$d" step="1" class="small-text" />',
-			esc_attr( $name ),
-			esc_html( $label ),
-			(int) $value,
-			(int) $min,
-			(int) $max
-		);
-
-		if ( $description ) {
-			printf( '<p class="description">%s</p>', wp_kses( $description, array( 'code' => array() ) ) );
-		}
-
-		echo '</td></tr>';
-	}
-
-	/**
-	 * One text input row on the settings form.
-	 *
-	 * @param string $name        Field name.
-	 * @param string $label       Field label.
-	 * @param string $value       Current value.
-	 * @param string $description Optional help text; may contain <code> tags.
-	 * @param string $type        Input type.
-	 */
-	private function text_row( $name, $label, $value, $description = '', $type = 'text' ) {
-		printf(
-			'<tr><th scope="row"><label for="wpcpm-%1$s">%2$s</label></th><td><input type="%3$s" id="wpcpm-%1$s" name="%1$s" value="%4$s" class="regular-text" autocomplete="off" />',
-			esc_attr( $name ),
-			esc_html( $label ),
-			esc_attr( $type ),
-			esc_attr( $value )
-		);
-
-		if ( $description ) {
-			printf( '<p class="description">%s</p>', wp_kses( $description, array( 'code' => array() ) ) );
-		}
-
-		echo '</td></tr>';
 	}
 }

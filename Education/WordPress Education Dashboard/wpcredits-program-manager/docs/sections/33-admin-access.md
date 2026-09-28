@@ -36,11 +36,11 @@ the right place; there is nothing else to configure.
 Under a student's profile and mentor columns the Student Report Card is a stack of modules: the
 **program updates with the resources**, **My course** (**My hours** when there is no course to open),
 the **report form with the feedback forms**, **My mentor call**, and **Tools from our sponsors** when
-the Sponsors module is on. Each carries two small arrows at its top right, and pressing one moves the
-module up or down at once, the way the block editor moves blocks. The order belongs to the student:
-they arrange their own card, and it stays as they left it. When you open a student's card through
-the switcher you see their order and can arrange it for them with the same arrows. Nobody else sees
-the arrows.
+its setting on the Sponsors tab of Settings shows it. Each carries two small arrows at its top right,
+and pressing one moves the module up or down at once, the way the block editor moves blocks. The
+order belongs to the student: they arrange their own card, and it stays as they left it. When you
+open a student's card through the switcher you see their order and can arrange it for them with the
+same arrows. Nobody else sees the arrows.
 
 ### Group sessions, from a student's card or a mentor's
 

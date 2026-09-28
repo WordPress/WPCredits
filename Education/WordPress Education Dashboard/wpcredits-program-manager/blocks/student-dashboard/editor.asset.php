@@ -1,6 +1,6 @@
 <?php
 /**
- * Script dependencies for the mentor dashboard block editor script.
+ * Script dependencies for the Student Report Card block editor script.
  *
  * Hand-written rather than generated: editor.js is plain ES5 against the `wp.*`
  * globals, so there is no build step to produce this file. WordPress reads it
@@ -18,5 +18,5 @@ return array(
 		'wp-i18n',
 		'wp-server-side-render',
 	),
-	'version'      => '1.12.0',
+	'version'      => '1.117.0',
 );

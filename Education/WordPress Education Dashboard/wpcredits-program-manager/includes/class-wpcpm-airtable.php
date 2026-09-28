@@ -51,6 +51,57 @@ class WPCPM_Airtable {
 	const SCHEMA_TTL = 900;
 
 	/**
+	 * Where the bases the token can open are kept for the Settings screen's Base ID list.
+	 *
+	 * @var string
+	 */
+	const BASES_TRANSIENT = 'wpcpm_airtable_bases';
+
+	/**
+	 * Where the options of the single-select columns the Settings screen lists are kept, one entry a
+	 * base, table and column.
+	 *
+	 * @var string
+	 */
+	const OPTIONS_TRANSIENT = 'wpcpm_airtable_options';
+
+	/**
+	 * How long those two lists serve before the screen reads them again: a day. They change when
+	 * somebody edits the base's structure, which is rare, and a value saved that a stale list lacks
+	 * is still offered, so nothing is lost while a list waits to be read again.
+	 *
+	 * @var int
+	 */
+	const LISTS_TTL = 86400;
+
+	/**
+	 * Where the Settings screen remembers a read of the bases or of the schema that failed, one entry a
+	 * read and a token and base, so the screens that draw lists from them do not each wait again on an
+	 * Airtable that did not answer (`WPCPM_Settings_Choices`). Dropped with the lists
+	 * (`forget_lists()`).
+	 *
+	 * @var string
+	 */
+	const FAILED_TRANSIENT = 'wpcpm_airtable_failed';
+
+	/**
+	 * How long a failed read is remembered before it is asked again: five minutes. Long enough that a
+	 * hanging Airtable costs one wait, not one a draw, and short enough that a screen opened a little
+	 * later reads the lists again without anybody asking.
+	 *
+	 * @var int
+	 */
+	const FAILED_TTL = 300;
+
+	/**
+	 * The most pages of bases one read asks for, so a list Airtable kept paging could not hold a
+	 * page draw for ever.
+	 *
+	 * @var int
+	 */
+	const BASES_PAGES = 10;
+
+	/**
 	 * The shape of an Airtable record ID: `rec` and fourteen alphanumerics.
 	 *
 	 * Held on the client because it is a fact about Airtable, and every module that stores,
@@ -532,6 +583,272 @@ class WPCPM_Airtable {
 	}
 
 	/**
+	 * The bases the token can open, for the Settings screen's Base ID list; an empty list when they
+	 * cannot be read (`read_bases()` says why).
+	 *
+	 * @return array<string, string> Base ID => its name, in Airtable's order.
+	 */
+	public function bases() {
+		$bases = $this->read_bases();
+
+		return is_wp_error( $bases ) ? array() : $bases;
+	}
+
+	/**
+	 * The bases the token can open, or why they cannot be read.
+	 *
+	 * Airtable lists them at `meta/bases`, a page at a time, and only for a token holding the
+	 * `schema.bases:read` scope. A read, never a write. The list is kept for a day beside a
+	 * fingerprint of the token that read it, never the token itself, so a different token has its
+	 * own bases read rather than being handed another token's. A failure keeps nothing here: the
+	 * Settings screen, whose list this is, remembers it five minutes (`FAILED_TRANSIENT`).
+	 *
+	 * @return array<string, string>|WP_Error Base ID => its name, in Airtable's order; or the error:
+	 *                                        `wpcpm_no_token` with no token, the request's own error
+	 *                                        (a refused token, a missing scope, an Airtable out of
+	 *                                        reach), or `wpcpm_airtable_bad_response`.
+	 */
+	public function read_bases() {
+		$guard = $this->guard();
+
+		// The bases are listed for the token alone: no base need be set yet to choose one.
+		if ( is_wp_error( $guard ) && 'wpcpm_no_token' === $guard->get_error_code() ) {
+			return $guard;
+		}
+
+		$print = hash( 'sha256', (string) $this->settings['api_token'] );
+		$held  = get_transient( self::BASES_TRANSIENT );
+
+		if ( is_array( $held ) && isset( $held['print'], $held['bases'] ) && is_array( $held['bases'] ) && $print === $held['print'] ) {
+			return $held['bases'];
+		}
+
+		$bases  = array();
+		$offset = '';
+		$pages  = 0;
+
+		do {
+			$url      = trailingslashit( self::API_BASE ) . 'meta/bases' . ( '' !== $offset ? '?offset=' . rawurlencode( $offset ) : '' );
+			$response = $this->request( $url );
+
+			if ( is_wp_error( $response ) ) {
+				return $response;
+			}
+
+			if ( ! isset( $response['bases'] ) || ! is_array( $response['bases'] ) ) {
+				return new WP_Error( 'wpcpm_airtable_bad_response', __( 'Airtable returned an unexpected response.', 'wpcredits-program-manager' ) );
+			}
+
+			foreach ( $response['bases'] as $base ) {
+				if ( is_array( $base ) && ! empty( $base['id'] ) ) {
+					$bases[ (string) $base['id'] ] = isset( $base['name'] ) ? (string) $base['name'] : '';
+				}
+			}
+
+			$offset = isset( $response['offset'] ) && is_string( $response['offset'] ) ? $response['offset'] : '';
+			++$pages;
+		} while ( '' !== $offset && $pages < self::BASES_PAGES );
+
+		set_transient(
+			self::BASES_TRANSIENT,
+			array(
+				'print' => $print,
+				'bases' => $bases,
+			),
+			self::LISTS_TTL
+		);
+
+		return $bases;
+	}
+
+	/**
+	 * The options of one single-select column, for the Settings screen's status and stage lists; an
+	 * empty list when they cannot be read (`read_field_options()` says why).
+	 *
+	 * @param string $table Table ID, or the table's name.
+	 * @param string $field The column's name.
+	 * @return string[] The options' names, in the base's order.
+	 */
+	public function field_options( $table, $field ) {
+		$options = $this->read_field_options( $table, $field );
+
+		return is_wp_error( $options ) ? array() : $options;
+	}
+
+	/**
+	 * The options of one single-select column, or why they cannot be read.
+	 *
+	 * Read from the base's schema, the one read Airtable answers a column's options to: the table's
+	 * fields address takes only the POST that creates a column. A read, never a write, and so it
+	 * needs the `schema.bases:read` scope. The options are kept for a day, longer than the schema's
+	 * own fifteen-minute copy, since a column's options change with the base's structure and the
+	 * screen is opened far more often than that changes. A failure keeps nothing here; a failed read
+	 * of the schema they come from is what the Settings screen remembers (`FAILED_TRANSIENT`).
+	 *
+	 * @param string        $table  Table ID, or the table's name.
+	 * @param string        $field  The column's name.
+	 * @param callable|null $schema Answers the base's schema, as `fetch_schema()` does, or the error
+	 *                              its read failed with, for a caller that holds the schema already
+	 *                              and would not have it read twice; null reads it through
+	 *                              `cached_schema()`. Asked only when the options are not held.
+	 * @return string[]|WP_Error The options' names, in the base's order; or the error: the schema
+	 *                           read's own, `wpcpm_airtable_no_table` for a table the base lacks or
+	 *                           none named, `wpcpm_airtable_no_column` for a column the table lacks or
+	 *                           none named, `wpcpm_airtable_not_select` for one that holds no options.
+	 */
+	public function read_field_options( $table, $field, $schema = null ) {
+		$table = (string) $table;
+		$field = (string) $field;
+
+		// No table named, nothing to read: said without asking Airtable anything.
+		if ( '' === $table ) {
+			return self::table_in( array(), $table );
+		}
+
+		// Nor a column named: only a filter over a sync's column map can make one blank, and a
+		// sentence naming a column with no name would read as a slip of the screen's.
+		if ( '' === $field ) {
+			return new WP_Error(
+				'wpcpm_airtable_no_column',
+				__( 'No column is set.', 'wpcredits-program-manager' ),
+				array(
+					'table' => $table,
+					'field' => '',
+				)
+			);
+		}
+
+		$key  = ( isset( $this->settings['base_id'] ) ? (string) $this->settings['base_id'] : '' ) . '|' . $table . '|' . $field;
+		$held = get_transient( self::OPTIONS_TRANSIENT );
+		$held = is_array( $held ) ? $held : array();
+
+		if ( isset( $held[ $key ]['read'], $held[ $key ]['options'] ) && is_array( $held[ $key ]['options'] ) && time() - (int) $held[ $key ]['read'] < self::LISTS_TTL ) {
+			return $held[ $key ]['options'];
+		}
+
+		$read = is_callable( $schema ) ? call_user_func( $schema ) : $this->schema_or_error();
+
+		if ( is_wp_error( $read ) ) {
+			return $read;
+		}
+
+		$found = self::table_in( is_array( $read ) ? $read : array(), $table );
+
+		if ( is_wp_error( $found ) ) {
+			return $found;
+		}
+
+		$name = isset( $found['name'] ) && '' !== (string) $found['name'] ? (string) $found['name'] : $table;
+
+		if ( ! isset( $found['columns'][ $field ] ) ) {
+			return new WP_Error(
+				'wpcpm_airtable_no_column',
+				/* translators: 1: an Airtable table's name, 2: a column's name. */
+				sprintf( __( 'The %1$s table has no %2$s column.', 'wpcredits-program-manager' ), $name, $field ),
+				array(
+					'table' => $name,
+					'field' => $field,
+				)
+			);
+		}
+
+		$choices = isset( $found['columns'][ $field ]['options']['choices'] ) && is_array( $found['columns'][ $field ]['options']['choices'] ) ? $found['columns'][ $field ]['options']['choices'] : array();
+		$options = array();
+
+		foreach ( $choices as $choice ) {
+			$option = is_array( $choice ) && isset( $choice['name'] ) && is_scalar( $choice['name'] ) ? trim( (string) $choice['name'] ) : '';
+
+			if ( '' !== $option ) {
+				$options[] = $option;
+			}
+		}
+
+		if ( array() === $options ) {
+			return new WP_Error(
+				'wpcpm_airtable_not_select',
+				/* translators: 1: an Airtable table's name, 2: a column's name. */
+				sprintf( __( 'The %1$s table\'s %2$s column holds no options to choose from.', 'wpcredits-program-manager' ), $name, $field ),
+				array(
+					'table' => $name,
+					'field' => $field,
+				)
+			);
+		}
+
+		$held[ $key ] = array(
+			'read'    => time(),
+			'options' => $options,
+		);
+
+		set_transient( self::OPTIONS_TRANSIENT, $held, self::LISTS_TTL );
+
+		return $options;
+	}
+
+	/**
+	 * One table of a schema read, by its ID or else by its name, since a setting may hold either.
+	 *
+	 * @param array  $schema Table ID => the table, as `fetch_schema()` answers it.
+	 * @param string $table  Table ID or name.
+	 * @return array|WP_Error The table; or `wpcpm_airtable_no_table` for none named or one the base
+	 *                        lacks.
+	 */
+	public static function table_in( array $schema, $table ) {
+		$table = (string) $table;
+
+		if ( '' === $table ) {
+			return new WP_Error( 'wpcpm_airtable_no_table', __( 'No table is set.', 'wpcredits-program-manager' ), array( 'table' => '' ) );
+		}
+
+		if ( isset( $schema[ $table ] ) && is_array( $schema[ $table ] ) ) {
+			return $schema[ $table ];
+		}
+
+		foreach ( $schema as $candidate ) {
+			if ( is_array( $candidate ) && isset( $candidate['name'] ) && $table === (string) $candidate['name'] ) {
+				return $candidate;
+			}
+		}
+
+		return new WP_Error(
+			'wpcpm_airtable_no_table',
+			/* translators: %s: the Airtable table ID or name a setting holds. */
+			sprintf( __( 'The base has no table %s.', 'wpcredits-program-manager' ), $table ),
+			array( 'table' => $table )
+		);
+	}
+
+	/**
+	 * Forget the copies of the base's lists this client keeps: the bases, the schema and the column
+	 * options, so each is read from Airtable again the next time it is asked for, and the reads of them
+	 * that failed, which the Settings screen would otherwise not ask again for five minutes
+	 * (`FAILED_TRANSIENT`). For a Save of the Connection tab, which can change the token or the base
+	 * they are read with, and for the button that reads them again when Airtable has changed.
+	 */
+	public static function forget_lists() {
+		delete_transient( self::SCHEMA_TRANSIENT );
+		delete_transient( self::BASES_TRANSIENT );
+		delete_transient( self::OPTIONS_TRANSIENT );
+		delete_transient( self::FAILED_TRANSIENT );
+	}
+
+	/**
+	 * The schema as `cached_schema()` holds or reads it, without its age, or the error the read
+	 * failed with.
+	 *
+	 * @return array|WP_Error
+	 */
+	private function schema_or_error() {
+		$read = $this->cached_schema();
+
+		if ( is_wp_error( $read ) ) {
+			return $read;
+		}
+
+		return isset( $read['schema'] ) && is_array( $read['schema'] ) ? $read['schema'] : new WP_Error( 'wpcpm_airtable_no_schema', __( 'Airtable returned no table schema.', 'wpcredits-program-manager' ) );
+	}
+
+	/**
 	 * Create one column on a table.
 	 *
 	 * The only call in this client that uses the schema token. Everything else keeps using the
@@ -552,7 +869,7 @@ class WPCPM_Airtable {
 		if ( empty( $this->settings['schema_token'] ) ) {
 			return new WP_Error(
 				'wpcpm_no_schema_token',
-				__( 'No Airtable schema token is configured, so the site cannot create columns. Add one on the WPCredits Program → Settings screen, or create the columns by hand from the list on the publish screen.', 'wpcredits-program-manager' )
+				__( 'No Airtable schema token is configured, so the site cannot create columns. Add one on the WPCredits Program > Settings screen, or create the columns by hand from the list on the publish screen.', 'wpcredits-program-manager' )
 			);
 		}
 
@@ -1183,7 +1500,7 @@ class WPCPM_Airtable {
 	 */
 	private function guard() {
 		if ( empty( $this->settings['api_token'] ) ) {
-			return new WP_Error( 'wpcpm_no_token', __( 'No Airtable Personal Access Token is configured. Add one on the WPCredits Program → Settings screen.', 'wpcredits-program-manager' ) );
+			return new WP_Error( 'wpcpm_no_token', __( 'No Airtable Personal Access Token is configured. Add one on the WPCredits Program > Settings screen.', 'wpcredits-program-manager' ) );
 		}
 
 		if ( empty( $this->settings['base_id'] ) ) {

@@ -31,6 +31,8 @@ global $wpdb;
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-roles.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-choices.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-settings-rows.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-airtable.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-learn.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-wpcpm-content-access.php';
@@ -233,6 +235,12 @@ WPCPM_Track_Store::delete_all();
 // (1.105.0). The Learn copies went with the sweep above.
 delete_option( WPCPM_Track_Publish::OPT_LOCK );
 delete_transient( WPCPM_Airtable::SCHEMA_TRANSIENT );
+
+// The bases and the column options the Settings screen keeps a day for its lists, and the read of
+// them that failed, which it remembers five minutes.
+delete_transient( WPCPM_Airtable::BASES_TRANSIENT );
+delete_transient( WPCPM_Airtable::OPTIONS_TRANSIENT );
+delete_transient( WPCPM_Airtable::FAILED_TRANSIENT );
 
 delete_option( WPCPM_Notices::OPT_PLAIN );
 delete_metadata( 'post', 0, WPCPM_Notices::META_AUDIENCE, '', true );

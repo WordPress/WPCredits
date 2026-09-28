@@ -336,8 +336,8 @@ $loader_src    = file_get_contents( dirname( __DIR__ ) . '/wpcredits-program-man
 $uninstall_src = file_get_contents( dirname( __DIR__ ) . '/uninstall.php' );
 preg_match_all( "/^require_once WPCPM_PLUGIN_DIR \. '([^']+)';/m", $loader_src, $in_loader );
 preg_match_all( "/^require_once plugin_dir_path\( __FILE__ \) \. '([^']+)';/m", $uninstall_src, $in_uninstall );
-$loader_only = array_values( array_diff( $in_loader[1], $in_uninstall[1], array( 'includes/class-wpcpm-admin.php', 'includes/class-wpcpm-dashboards.php', 'includes/class-wpcpm-cli.php' ) ) );
-ck( 'every class the loader requires is required by uninstall.php too (admin, dashboards and CLI excepted)', $loader_only, array() );
+$loader_only = array_values( array_diff( $in_loader[1], $in_uninstall[1], array( 'includes/class-wpcpm-admin.php', 'includes/class-wpcpm-settings-screen.php', 'includes/class-wpcpm-dashboards.php', 'includes/class-wpcpm-cli.php' ) ) );
+ck( 'every class the loader requires is required by uninstall.php too (the admin screens, dashboards and CLI excepted)', $loader_only, array() );
 ck( 'and uninstall.php requires nothing the loader does not', array_values( array_diff( $in_uninstall[1], $in_loader[1] ) ), array() );
 foreach ( $in_uninstall[1] as $rel ) {
 	if ( ! file_exists( dirname( __DIR__ ) . '/' . $rel ) ) {
@@ -361,7 +361,7 @@ foreach ( array( 'includes', 'includes/modules', 'includes/tools', 'includes/tra
 ck( 'every class file under includes/ is required by the loader',
     array_values( array_diff( $on_disk, $anywhere[1] ) ), array() );
 
-// A tool reaches the menu, the Modules screen and the uninstall fan-out through the registry and
+// A tool reaches the menu, the Tools screen and the uninstall fan-out through the registry and
 // nowhere else, so a tool that loads and is never registered is a screen nobody can open and data
 // an uninstall leaves behind. Read from the source, because instantiating the registry here would
 // need every tool's dependencies (the Student Duplicate Finder, 1.102.0).

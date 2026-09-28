@@ -883,7 +883,7 @@ final class WPCPM_Track_Publish {
 	 * @return string
 	 */
 	private static function reports_table_message() {
-		return __( 'The Students Reports table setting does not hold the ID of a table in this base, so no column can be checked against it. Set it to the table\'s ID, which starts with "tbl", on the WPCredits Program → Settings screen.', 'wpcredits-program-manager' );
+		return __( 'The Students Reports table setting does not hold the ID of a table in this base, so no column can be checked against it. Set it to the table\'s ID, which starts with "tbl", on the WPCredits Program > Settings screen.', 'wpcredits-program-manager' );
 	}
 
 	/**

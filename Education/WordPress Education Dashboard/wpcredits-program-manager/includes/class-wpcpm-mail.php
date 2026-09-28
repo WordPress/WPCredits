@@ -1302,14 +1302,15 @@ class WPCPM_Mail {
 	/**
 	 * Send the current user a sample of the invitation.
 	 *
-	 * Ninety people is a bad audience for a first look at a template.
+	 * Ninety people is a bad audience for a first look at a template. The nonce first, then the
+	 * right, as the Settings screen's own handlers ask them: the buttons are on its Mail tab.
 	 */
 	public static function handle_test() {
+		check_admin_referer( self::ACTION_TEST, self::ACTION_TEST );
+
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
 		}
-
-		check_admin_referer( self::ACTION_TEST, self::ACTION_TEST );
 
 		// The audiences a button can ask for, and the role each is previewed as.
 		$roles = array(
@@ -1390,9 +1391,12 @@ class WPCPM_Mail {
 			}
 		);
 
-		WPCPM_Flash::set( 'settings', $sent ? 'test-sent' : 'test-failed' );
+		// The Settings screen's notice, queued through its own door, which sets the scope with the
+		// outcome: a scope a save left queued cannot name the sample's.
+		WPCPM_Settings_Screen::flash_outcome( $sent ? 'test-sent' : 'test-failed' );
 
-		wp_safe_redirect( WPCPM_Admin::settings_url() );
+		// Back to the Mail tab, where the button was pressed and the log it just added to is.
+		wp_safe_redirect( WPCPM_Settings_Screen::settings_url( 'mail' ) );
 		exit;
 	}
 }

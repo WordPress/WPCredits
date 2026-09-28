@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The tool: the scan's controls, the list, the confirmation, and the delete.
  *
  * A tool and not a module (spec decision 3.1): it owns an operation, not an audience, and on
- * screen it sits under Modules with the other tools. Every screen and every handler is behind
+ * screen it sits under Tools with the other tools. Every screen and every handler is behind
  * `WPCPM_Roles::CAP_MANAGE`.
  *
  * The flow is two deliberate steps by one manager (the owner's answer of 11 September 2026):
@@ -66,7 +66,7 @@ class WPCPM_Duplicate_Finder extends WPCPM_Tool {
 	}
 
 	/**
-	 * One-line description for the Modules screen.
+	 * One-line description for the Tools screen.
 	 *
 	 * @return string
 	 */
@@ -75,11 +75,16 @@ class WPCPM_Duplicate_Finder extends WPCPM_Tool {
 	}
 
 	/**
-	 * The last scan, in a line.
+	 * The last scan, in a line, or why no scan can run while none can.
 	 *
 	 * @return string
 	 */
 	public function status_line() {
+		// Why it cannot run comes before what it last found: no scan starts without Airtable.
+		if ( ! $this->is_ready() ) {
+			return parent::status_line();
+		}
+
 		$report = WPCPM_Duplicates_Scan::report();
 
 		if ( ! $report ) {
@@ -94,6 +99,38 @@ class WPCPM_Duplicate_Finder extends WPCPM_Tool {
 			number_format_i18n( $count ),
 			wp_date( 'Y-m-d H:i', (int) $report['read'] )
 		);
+	}
+
+	/**
+	 * The finder's one setting, whether deleting is on, which its screen's Settings section draws and
+	 * saves.
+	 *
+	 * @return string[]
+	 */
+	public function settings_keys() {
+		return array( 'duplicate_delete_enabled' );
+	}
+
+	/**
+	 * The one row of the finder's Settings section: whether deleting is on.
+	 *
+	 * Off until a program manager turns it on here, reading what a delete does on the way, the way the
+	 * import's switch shipped: a delete removes rows from the shared base, and until then the finder
+	 * scans and lists and deletes nothing (spec decision 3.10).
+	 */
+	protected function render_settings_rows() {
+		$settings = WPCPM_Settings::get();
+
+		$deleting = __( 'Deleting duplicates', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="duplicate_delete_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
+			esc_html( $deleting ),
+			checked( ! empty( $settings['duplicate_delete_enabled'] ), true, false ),
+			esc_html__( 'Let program managers delete the duplicated rows they select and confirm', 'wpcredits-program-manager' ),
+			esc_html__( 'Off by default, and while it is off the finder scans and lists and deletes nothing.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $deleting, __( 'A delete removes rows from Students, Students Reports and Feedback in the shared base, and the finder keeps a sealed copy of each row for 30 days.', 'wpcredits-program-manager' ) );
 	}
 
 	/**
@@ -250,6 +287,7 @@ class WPCPM_Duplicate_Finder extends WPCPM_Tool {
 				'flash'    => WPCPM_Flash::take( self::FLASH ),
 				'url'      => $this->admin_url(),
 				'checked'  => $this->posted_back(),
+				'settings' => array( $this, 'render_settings' ),
 			)
 		);
 	}

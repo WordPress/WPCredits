@@ -128,17 +128,30 @@ function wp_clear_scheduled_hook( $h ) { unset( $GLOBALS['cron'][ $h ] ); }
 function wp_new_user_notification( $id, $dep = null, $notify = '' ) { $GLOBALS['invited'][] = (int) $id; }
 
 function delete_user_meta( $id, $k ) { unset( $GLOBALS['umeta'][ (int) $id ][ $k ] ); return true; }
-function add_query_arg( $args, $url = '' ) {
+/**
+ * Core's two forms: `add_query_arg( $args, $url )`, whose values are encoded here as they always were,
+ * and `add_query_arg( $key, $value, $url )`, which inserts its value as core does, unencoded: the
+ * Settings screen names its tab the second way.
+ *
+ * @param mixed ...$args The arguments, in either form.
+ * @return string
+ */
+function add_query_arg( ...$args ) {
+	if ( is_array( $args[0] ) ) {
+		$query = http_build_query( $args[0] );
+		$url   = (string) ( $args[1] ?? '' );
+	} else {
+		$query = (string) $args[0] . '=' . (string) ( $args[1] ?? '' );
+		$url   = (string) ( $args[2] ?? '' );
+	}
+
 	$sep = false === strpos( $url, '?' ) ? '?' : '&';
 
-	return $url . $sep . http_build_query( (array) $args );
+	return $url . $sep . $query;
 }
 function check_admin_referer( $a = -1, $q = '_wpnonce' ) { return true; }
 function wp_die( $m = '' ) { throw new Exception( 'wp_die: ' . $m ); }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect: ' . $to ); }
-
-/** Stands in for the admin screen the sample handler redirects back to. */
-class WPCPM_Admin { public static function settings_url() { return 'https://example.test/wp-admin/admin.php?page=wpcpm-settings'; } }
 
 /**
  * Locale switching, recorded rather than ignored.
@@ -193,6 +206,10 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ics.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php';
+// The Settings screen the sample handler goes back to, and whose outcome it queues through the
+// screen's own door: the real one, since a stand-in's pairing of the two channels would only agree
+// with itself.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
@@ -1402,6 +1419,12 @@ $mentor_sample  = press_sample_button( 'mentor' );
 ck( 'the sample handler finishes and redirects',
     array( isset( $GLOBALS['last_redirect'] ), ! empty( $student_sample ) ), array( true, true ) );
 
+// The sample buttons are on the Mail tab of the Settings screen, which is where the manager pressed
+// one and where its notice and the log it adds to are: back to the screen alone would open it on
+// Connection.
+ck( 'and goes back to the Mail tab its buttons are on',
+    $GLOBALS['last_redirect'], 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-settings&tab=mail' );
+
 // The audience actually asked for. Both buttons sending the same template is the bug this
 // pins, and it is invisible from the plugin's own screens.
 ck( 'the student button sends the student invitation',
@@ -1414,6 +1437,17 @@ ck( 'the two samples say different things',
     array( $student_sample['body'] === $mentor_sample['body'] ), array( false ) );
 ck( 'and each is logged under its own audience',
     array( WPCPM_Mail::log()[0]['context'] ), array( 'test-mentor' ) );
+
+// The sample's notice is the Settings screen's, on the same channel a save's is, and its outcome is
+// queued through the screen's own door, which sets the scope with it: a scope a save left queued,
+// whose notice nobody saw, cannot name the sample's.
+WPCPM_Flash::set( 'settings-scope', 'sponsors' );
+press_sample_button( 'mentor' );
+$sample_queued = $GLOBALS['umeta'][20][ WPCPM_Flash::META ] ?? array();
+
+ck( 'and its notice is queued with the scope set to none, replacing a scope a save left queued',
+    array( $sample_queued['settings'] ?? null, $sample_queued['settings-scope'] ?? null ),
+    array( 'test-sent', '' ) );
 
 $institution_sample = press_sample_button( 'institution' );
 

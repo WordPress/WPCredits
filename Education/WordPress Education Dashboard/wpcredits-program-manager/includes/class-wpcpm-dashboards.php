@@ -44,8 +44,9 @@ class WPCPM_Dashboards {
 		if ( '' !== $student_page && ( $is_student || $can_manage ) ) {
 			$links[] = array(
 				'id'    => 'wpcpm-student-dashboard',
-				// "My Program" only when it is theirs; an administrator looking at
-				// somebody else's should not be told it is their own.
+				// The student's own page is their Student Report Card; a manager opening it looks at
+				// somebody else's, so the toolbar calls it the Student Dashboard, as the mentor link
+				// below does for a manager.
 				'title' => $is_student
 					? __( 'Student Report Card', 'wpcredits-program-manager' )
 					: __( 'Student Dashboard', 'wpcredits-program-manager' ),

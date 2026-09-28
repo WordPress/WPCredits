@@ -210,8 +210,6 @@ require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.p
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php';
 
-class WPCPM_Admin { public static function settings_url() { return 'https://example.test/wp-admin/admin.php?page=wpcpm-settings'; } }
-
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = WPCPM_Settings::defaults();
 
 /* ---- runner ------------------------------------------------------------- */
@@ -323,12 +321,17 @@ foreach ( array(
 
 echo "\n=== Answers ===\n";
 
+// Where the question box's settings are, which each failure a program manager can fix names: the
+// Settings section of the tool's own screen. "The plugin settings" named the Settings screen, which
+// holds none of them.
+$place = 'in the Settings section of the Need help? screen, under WPCredits Program > Tools';
+
 // No provider is the honest failure case, and the one a reader will hit first if nobody
 // finishes the setup. It must say so rather than returning an empty answer.
 $none = WPCPM_Handbook_Answer::ask( 'how does a student get their certificate?', 1 );
-ck( 'with no provider it says so plainly',
-    array( false !== strpos( $none['text'], 'No AI provider is configured' ), $none['generated'] ),
-    array( true, false ) );
+ck( 'with no provider it says so plainly, and where a program manager adds one',
+    array( false !== strpos( $none['text'], 'No AI provider is configured' ), false !== strpos( $none['text'], $place ), $none['generated'] ),
+    array( true, true, false ) );
 
 $settings                      = WPCPM_Settings::defaults();
 $settings['handbook_provider'] = 'gemini';
@@ -558,13 +561,13 @@ ck( 'a busy provider is reported as busy, not as a model to replace',
 
 $GLOBALS['http'] = array( 'code' => 404, 'body' => json_encode( array( 'error' => array( 'message' => 'models/whatever is no longer available' ) ) ) );
 $gone = WPCPM_Handbook_Answer::ask( 'anything', 8 );
-ck( 'a model that is really gone does send them to the settings',
-    array( false !== stripos( $gone['text'], 'plugin settings' ) ), array( true ) );
+ck( 'a model that is really gone does send them to the settings, in the Need help? screen\'s Settings section',
+    array( false !== strpos( $gone['text'], $place ) ), array( true ) );
 
 $GLOBALS['http'] = array( 'code' => 400, 'body' => json_encode( array( 'error' => array( 'message' => 'API key not valid' ) ) ) );
 $badkey = WPCPM_Handbook_Answer::ask( 'anything', 9 );
-ck( 'a refused request points at the key',
-    array( false !== stripos( $badkey['text'], 'API key' ) ), array( true ) );
+ck( 'a refused request points at the key, and at where it is kept',
+    array( false !== stripos( $badkey['text'], 'API key' ), false !== strpos( $badkey['text'], $place ) ), array( true, true ) );
 
 // The provider's own words are always kept in the notice, whatever the reader is told.
 ck( 'and the provider\'s own message is still recorded',
@@ -663,6 +666,27 @@ ck( 'and the shortcode refuses to draw for a visitor',
     ),
     array( true, false ) );
 
+// Before anything is asked, the question box of a site with no provider says so to whoever may ask,
+// and where a program manager adds one.
+$GLOBALS['uid'] = 2;
+$empty_box      = html_entity_decode( WPCPM_Handbook_Assistant::render(), ENT_QUOTES );
+$GLOBALS['uid'] = 0;
+
+ck( 'with no provider, the question box says so before anything is asked, and where a program manager adds one',
+    array( false !== strpos( $empty_box, 'No AI provider is configured' ), false !== strpos( $empty_box, $place ) ),
+    array( true, true ) );
+
+// "The plugin settings" is the Settings screen, and the provider, the key and the model are on the
+// Need help? screen: no sentence of the question box sends a manager to the wrong one.
+$sends_there = 0;
+
+foreach ( array( 'class-wpcpm-handbook.php', 'class-wpcpm-handbook-assistant.php', 'class-wpcpm-handbook-answer.php' ) as $handbook_file ) {
+	$sends_there += substr_count( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/' . $handbook_file ), 'plugin settings' );
+}
+
+ck( 'and no sentence of the question box sends a manager to "the plugin settings", which hold none of its settings',
+    $sends_there, 0 );
+
 /* ---- the on/off switch -------------------------------------------------- */
 
 echo "\n=== Switched off ===\n";
@@ -687,6 +711,11 @@ ck( 'switched off, nobody may ask - not even a manager',
     array( false, false ) );
 ck( 'the tool reports itself off rather than unsynced',
     array( $tool->status_line(), $tool->is_ready() ), array( 'Switched off.', false ) );
+
+// Its settings are drawn and saved on its own screen, in its Settings section, under its own scope.
+ck( 'it keeps six settings of its own, the switch among them, saved under its own scope',
+    array( method_exists( $tool, 'settings_keys' ) ? $tool->settings_keys() : null, method_exists( $tool, 'settings_scope' ) ? $tool->settings_scope() : null ),
+    array( array( 'handbook_enabled', 'handbook_provider', 'handbook_key', 'handbook_model', 'handbook_access', 'handbook_limit' ), 'tool:handbook' ) );
 
 // A page announcing a switched-off feature is worse than a blank one; a manager still needs
 // to know why the page they are looking at is empty.
@@ -1231,9 +1260,9 @@ echo "\n=== The copy describes what the module actually does ===\n";
 // Every one of these sentences was true of the version that kept a local copy, and false the
 // moment that copy was deleted - and a settings screen that describes a design the plugin no
 // longer has is worse than no description, because somebody will rely on it. Two of them
-// survived three releases and were spotted by a reader, not by a test.
-$copy = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php' )
-	. file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php' )
+// survived three releases and were spotted by a reader, not by a test. The tool's settings and the
+// words under them are on its own screen, drawn by its own class, so its three files are the copy.
+$copy = file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook.php' )
 	. file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-assistant.php' )
 	. file_get_contents( WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php' );
 
@@ -1282,6 +1311,54 @@ WPCPM_Handbook::maybe_update_model();
 ck( 'and it does not run twice',
     array( WPCPM_Settings::get_value( 'handbook_model' ) ), array( 'gemini-2.0-flash' ) );
 
+// The migration writes the one setting it moves and nothing else. It used to write through the
+// Settings form's save, which set the four leaving rules and six switches from whatever it was
+// handed: from a one-setting input, the landing pages, the invitation emails, the sync and the weekly
+// check went off, and each leaving rule went to its fallback answer. Stored here at the answers that
+// would show such a write, once for each of the migration's two moves.
+$stored_elsewhere = array_merge(
+	WPCPM_Settings::defaults(),
+	array(
+		'send_welcome_email'      => true,
+		'auto_sync'               => true,
+		'mentor_home'             => true,
+		'student_home'            => true,
+		'checker_cron_enabled'    => true,
+		'checker_cron_promotes'   => true,
+		'on_inactive'             => 'keep',
+		'student_on_inactive'     => 'keep',
+		'institution_on_inactive' => 'keep',
+		'sponsor_on_inactive'     => 'revoke',
+	)
+);
+$migrated         = array();
+
+foreach ( array(
+	'a provider that no longer exists' => array( 'handbook_provider' => 'openai', 'handbook_model' => WPCPM_Settings::defaults()['handbook_model'] ),
+	'an old shipped model'             => array( 'handbook_provider' => 'gemini', 'handbook_model' => 'gemini-2.0-flash' ),
+) as $case => $handbook ) {
+	$before                                      = array_merge( $stored_elsewhere, $handbook );
+	$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = $before;
+	delete_option( WPCPM_Handbook::OPT_MODEL_FIXED );
+
+	WPCPM_Handbook::maybe_update_model();
+
+	$migrated[ $case ] = array();
+
+	foreach ( WPCPM_Settings::get() as $key => $value ) {
+		if ( ! array_key_exists( $key, $before ) || $before[ $key ] !== $value ) {
+			$migrated[ $case ][ $key ] = $value;
+		}
+	}
+}
+
+ck( 'the migration writes only the setting it moves, the provider or the model, and leaves the four leaving rules, the six switches and everything else as stored',
+    $migrated,
+    array(
+        'a provider that no longer exists' => array( 'handbook_provider' => 'gemini' ),
+        'an old shipped model'             => array( 'handbook_model' => WPCPM_Settings::defaults()['handbook_model'] ),
+    ) );
+
 // The failure a retired model produces says nothing about where to change it, so the answer
 // does. Asserted because "try again" is actively wrong advice here - it will never work.
 $settings['handbook_model']    = 'gemini-2.0-flash';
@@ -1294,9 +1371,9 @@ $GLOBALS['http'] = array(
 );
 
 $retired = WPCPM_Handbook_Answer::ask( 'anything', 99 );
-ck( 'a retired model sends them to the settings, not back to try again',
+ck( 'a retired model sends them to the settings, in the Need help? screen\'s Settings section, not back to try again',
     array(
-        false !== stripos( $retired['text'], 'plugin settings' ),
+        false !== strpos( $retired['text'], $place ),
         false !== strpos( $retired['text'], 'Trying again' ),
     ),
     array( true, false ) );
@@ -1305,7 +1382,7 @@ ck( 'a retired model sends them to the settings, not back to try again',
 // recognised whatever the status says.
 $GLOBALS['http'] = array( 'code' => 404, 'body' => json_encode( array( 'error' => array( 'message' => 'models/x is no longer available' ) ) ) );
 ck( 'and so does the same thing on a 404',
-    array( false !== stripos( WPCPM_Handbook_Answer::ask( 'anything', 98 )['text'], 'plugin settings' ) ),
+    array( false !== strpos( WPCPM_Handbook_Answer::ask( 'anything', 98 )['text'], $place ) ),
     array( true ) );
 $GLOBALS['http'] = null;
 

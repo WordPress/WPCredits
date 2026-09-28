@@ -51,7 +51,7 @@ class WPCPM_Administrators extends WPCPM_Module {
 	 * @return string
 	 */
 	public function description() {
-		return __( 'Program managers use the built-in WordPress Administrator role. They can read every access level and run every module sync.', 'wpcredits-program-manager' );
+		return __( 'Program managers use the built-in WordPress Administrator role. They can read every access level and run every sync.', 'wpcredits-program-manager' );
 	}
 
 	/**

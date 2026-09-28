@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * mentor's course completion.
  *
  * Was the standalone "Credits Program Mentor Checker" plugin. Folded in here so
- * there is one Airtable connection, one settings screen and one place to look -
+ * there is one Airtable connection, one store of settings and one place to look -
  * the runner and profile reader are that plugin's, largely unchanged; what
  * changed is that they now read the shared connection instead of their own.
  */
@@ -141,11 +141,17 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 	}
 
 	/**
-	 * A status line for the Tools screen.
+	 * A status line for the Tools screen: why no check can run, while none can, and otherwise the last
+	 * run.
 	 *
 	 * @return string
 	 */
 	public function status_line() {
+		// Why it cannot run comes before when it last did: no check starts without Airtable.
+		if ( ! $this->is_ready() ) {
+			return parent::status_line();
+		}
+
 		$run = WPCPM_Mentor_Checker_Runner::get_last_run();
 
 		if ( empty( $run['started'] ) ) {
@@ -160,6 +166,75 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 			human_time_diff( (int) $run['started'], time() ),
 			number_format_i18n( $summary['checked'] ),
 			number_format_i18n( $summary['eligible'] )
+		);
+	}
+
+	/**
+	 * The checker's settings, which its screen's Settings section draws and saves.
+	 *
+	 * @return string[]
+	 */
+	public function settings_keys() {
+		return array(
+			'checker_source_status',
+			'checker_target_status',
+			'checker_course_slug',
+			'checker_course_title',
+			'checker_completion_phrase',
+			'checker_timeline_filter',
+			'checker_max_pages',
+			'checker_batch_size',
+			'checker_request_delay',
+			'checker_cache_ttl',
+			'checker_cron_enabled',
+			'checker_cron_promotes',
+		);
+	}
+
+	/**
+	 * The rows of the checker's Settings section, in the order a run asks its questions: whose
+	 * status, to what, which course by which signal, how a profile's history is read, and the weekly
+	 * check.
+	 */
+	protected function render_settings_rows() {
+		$settings = WPCPM_Settings::get();
+		$statuses = WPCPM_Settings_Choices::mentor_statuses( $settings );
+		$why      = WPCPM_Settings_Rows::typed( 'status', WPCPM_Settings_Choices::why_empty( 'mentor_statuses', $settings ) );
+
+		WPCPM_Settings_Rows::select_row( 'checker_source_status', __( 'Check mentors with status', 'wpcredits-program-manager' ), $settings['checker_source_status'], $statuses, __( 'Only mentors holding this status are looked up.', 'wpcredits-program-manager' ), $why );
+		WPCPM_Settings_Rows::select_row( 'checker_target_status', __( 'Promote them to', 'wpcredits-program-manager' ), $settings['checker_target_status'], $statuses, __( 'Writing this status needs the <code>data.records:write</code> scope on the token.', 'wpcredits-program-manager' ), $why );
+
+		// Typed, not chosen: learn.wordpress.org has no read API to list its courses from.
+		WPCPM_Settings_Rows::text_row( 'checker_course_title', __( 'Course title', 'wpcredits-program-manager' ), $settings['checker_course_title'] );
+		WPCPM_Settings_Rows::text_row( 'checker_course_slug', __( 'Course slug', 'wpcredits-program-manager' ), $settings['checker_course_slug'], __( 'The slug in the learn.wordpress.org course URL, and the reliable signal: the title is only a fallback.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::text_row( 'checker_completion_phrase', __( 'Completion phrase', 'wpcredits-program-manager' ), $settings['checker_completion_phrase'], __( 'Both this phrase and the course must appear in the same profile history entry, so someone who merely blogged about the course is not counted.', 'wpcredits-program-manager' ) );
+
+		$filter = __( 'Profile history filter', 'wpcredits-program-manager' );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><fieldset><label><input type="radio" name="checker_timeline_filter" value="meta"%2$s> %3$s</label><br><label><input type="radio" name="checker_timeline_filter" value="all"%4$s> %5$s</label></fieldset><p class="description">%6$s</p>',
+			esc_html( $filter ),
+			checked( $settings['checker_timeline_filter'], 'meta', false ),
+			esc_html__( 'Milestones only (faster)', 'wpcredits-program-manager' ),
+			checked( $settings['checker_timeline_filter'], 'all', false ),
+			esc_html__( 'All contributions', 'wpcredits-program-manager' ),
+			esc_html__( 'Course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages.', 'wpcredits-program-manager' )
+		);
+		WPCPM_Settings_Rows::close_row( $filter, __( 'Switch to all contributions only if WordPress.org changes and completions stop being found.', 'wpcredits-program-manager' ) );
+
+		WPCPM_Settings_Rows::number_row( 'checker_max_pages', __( 'Maximum history pages per mentor', 'wpcredits-program-manager' ), $settings['checker_max_pages'], 1, 100, __( 'A mentor whose history is longer than this is reported as "could not check", never as "not completed" - a false negative would leave them waiting.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::number_row( 'checker_batch_size', __( 'Mentors per batch', 'wpcredits-program-manager' ), $settings['checker_batch_size'], 1, 25, __( 'Each mentor can cost several requests to WordPress.org, so smaller batches keep the screen responsive.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::number_row( 'checker_request_delay', __( 'Delay between requests (ms)', 'wpcredits-program-manager' ), $settings['checker_request_delay'], 0, 5000 );
+		WPCPM_Settings_Rows::number_row( 'checker_cache_ttl', __( 'Cache profile results for (seconds)', 'wpcredits-program-manager' ), $settings['checker_cache_ttl'], 0, MONTH_IN_SECONDS, __( 'Only settled answers are cached and a failed read is always retried; set to 0 to disable.', 'wpcredits-program-manager' ) );
+
+		printf(
+			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="checker_cron_enabled" value="1"%2$s> %3$s</label><br><label><input type="checkbox" name="checker_cron_promotes" value="1"%4$s> %5$s</label><p class="description">%6$s</p></td></tr>',
+			esc_html__( 'Weekly check', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['checker_cron_enabled'] ), true, false ),
+			esc_html__( 'Run the check automatically once a week', 'wpcredits-program-manager' ),
+			checked( ! empty( $settings['checker_cron_promotes'] ), true, false ),
+			esc_html__( 'Let the weekly check also promote mentors', 'wpcredits-program-manager' ),
+			esc_html__( 'Both off by default: an unattended promotion writes to the shared Airtable base, so turn the second one on deliberately.', 'wpcredits-program-manager' )
 		);
 	}
 
@@ -626,6 +701,12 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 				?>
 			</p>
 
+			<?php
+			// Its settings at the top, under the sentence saying what a run does with them and above
+			// the buttons that start one.
+			$this->render_settings();
+			?>
+
 			<p class="description">
 				<?php esc_html_e( 'Promoting writes to the shared Airtable base, so the token also needs the "data.records:write" scope. "Report only" never writes anything.', 'wpcredits-program-manager' ); ?>
 			</p>
@@ -648,15 +729,22 @@ class WPCPM_Mentor_Checker extends WPCPM_Tool {
 					<span id="wpcpm-checker-eligible-count">(<?php echo esc_html( number_format_i18n( $summary['eligible'] ) ); ?>)</span>
 				</button>
 
+				<?php
+				// Each of the two forms prints its nonce under the name its handler reads, in a field with
+				// an id of its own: `wp_nonce_field()` gives its field its name as its id, which the two
+				// forms would give to two elements of the screen.
+				?>
 				<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" class="wpcpm-checker-inline-form">
-					<?php wp_nonce_field( 'wpcpm_checker_flush_cache' ); ?>
+					<input type="hidden" id="wpcpm-checker-flush-nonce" name="_wpnonce" value="<?php echo esc_attr( wp_create_nonce( 'wpcpm_checker_flush_cache' ) ); ?>" />
+					<?php wp_referer_field(); ?>
 					<input type="hidden" name="action" value="wpcpm_checker_flush_cache" />
 					<button type="submit" class="button button-link"><?php esc_html_e( 'Clear cached profile results', 'wpcredits-program-manager' ); ?></button>
 				</form>
 
 				<?php if ( ! empty( $rows ) ) : ?>
 					<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" class="wpcpm-checker-inline-form">
-						<?php wp_nonce_field( 'wpcpm_checker_clear_results' ); ?>
+						<input type="hidden" id="wpcpm-checker-clear-nonce" name="_wpnonce" value="<?php echo esc_attr( wp_create_nonce( 'wpcpm_checker_clear_results' ) ); ?>" />
+						<?php wp_referer_field(); ?>
 						<input type="hidden" name="action" value="wpcpm_checker_clear_results" />
 						<button type="submit" class="button button-link"><?php esc_html_e( 'Clear results', 'wpcredits-program-manager' ); ?></button>
 					</form>

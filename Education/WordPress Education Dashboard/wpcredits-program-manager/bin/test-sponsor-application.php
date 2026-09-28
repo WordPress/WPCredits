@@ -661,6 +661,7 @@ $GLOBALS['settings']['sponsor_applications_enabled'] = false;
 ck( 'with the form switched off the public are shown nothing', WPCPM_Sponsor_Application::render(), '' );
 $GLOBALS['caps'] = true;
 ck( 'and a manager is told it is switched off, and where', false !== strpos( WPCPM_Sponsor_Application::render(), 'Applications from sponsors' ), true );
+ck( 'the switch by its name on the Settings screen, and the tab it is on', false !== strpos( WPCPM_Sponsor_Application::render(), 'Turn on &quot;Applications from sponsors&quot; on the Sponsors tab of WPCredits Program &gt; Settings when the program is ready to take them.' ), true );
 
 reset_world();
 $form = WPCPM_Sponsor_Application::render();

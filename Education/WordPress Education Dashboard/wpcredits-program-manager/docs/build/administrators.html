@@ -11,40 +11,44 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Everything the program manager touches lives under one top-level menu, <strong>WPCredits Program</strong>. You need the <code>wpcpm_manage_program</code> capability to see it, which the Administrator role is granted on activation.</p>
+<p>Everything the program manager touches lives under one top-level menu, <strong>WPCredits Program</strong>. You need the <code>wpcpm_manage_program</code> capability to see it, which the Administrator role is granted on activation. Every screen under it is titled with its own name: <strong>Overview</strong>, a screen for each audience, <strong>Tools</strong> and a screen for each tool, and <strong>Settings</strong>.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:image {"id":556,"sizeSlug":"large","linkDestination":"none"} -->
-<figure class="wp-block-image size-large"><img src="images/admin-overview.png" alt="The Overview screen. Each audience is a module with its own role, account count and screen." class="wp-image-556"/><figcaption class="wp-element-caption">The Overview screen. Each audience is a module with its own role, account count and screen.</figcaption></figure>
-<!-- /wp:image -->
+<!-- wp:heading {"level":3,"anchor":"the-words-the-screens-use"} -->
+<h3 class="wp-block-heading" id="the-words-the-screens-use">The words the screens use</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The screens, the settings and this guide call each thing by one name.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Name</th><th>What it is</th><th>Where you meet it</th></tr></thead><tbody><tr><td><strong>WPCredits Program</strong></td><td>The plugin, as the menu names it. Each screen under the menu is titled with its own name alone: <strong>Overview</strong>, <strong>Students</strong>, <strong>Tools</strong>, <strong>Settings</strong> and so on.</td><td>The menu, and a screen's place in it, written with "&gt;" between the steps, such as <strong>WPCredits Program &gt; Settings</strong>.</td></tr><tr><td><strong>Audiences</strong></td><td>The people the program is for and the people who run it: <strong>Students</strong>, <strong>Mentors</strong>, <strong>Institutions</strong>, <strong>Sponsors</strong> and <strong>Program managers</strong>. Each audience has a user role and a screen; program managers hold WordPress's own Administrator role, so their screen is <strong>Administrators</strong>.</td><td>The Overview's first cards, the menu, and the Settings tabs.</td></tr><tr><td><strong>Tools</strong></td><td>The parts of the program that are run and configured on their own rather than belonging to one audience: <strong>Header notices</strong>, <strong>Need help?</strong>, the <strong>Mentor Status Checker</strong>, the <strong>Student Duplicate Finder</strong> and the <strong>Track Builder</strong>, each called by its name alone.</td><td>The <strong>Tools</strong> menu item and screen, and the Overview's last cards.</td></tr><tr><td><strong>Landing page</strong></td><td>Where an account goes when it logs in: the <strong>Mentor</strong>, <strong>Student</strong>, <strong>Institution</strong> and <strong>Sponsor landing page</strong>, each with the page's address under its switch.</td><td>The Students and mentors, Institutions and Sponsors tabs of Settings.</td></tr><tr><td><strong>Remove</strong> and <strong>Leave</strong></td><td>The two answers of each rule for somebody who leaves the program, always in this order: remove the role or the access, or leave it in place. Nothing is ever deleted either way.</td><td>The Settings sections <strong>When someone leaves</strong>, <strong>When an institution leaves the pipeline</strong> and <strong>When a sponsor is no longer Approved</strong>.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
 
 <!-- wp:heading {"level":3,"anchor":"overview"} -->
 <h3 class="wp-block-heading" id="overview">Overview</h3>
 <!-- /wp:heading -->
 
+<!-- wp:image {"id":556,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="images/admin-overview.png" alt="The Overview screen: each audience with its role, its account count and its screen." class="wp-image-556"/><figcaption class="wp-element-caption">The Overview screen: each audience with its role, its account count and its screen.</figcaption></figure>
+<!-- /wp:image -->
+
 <!-- wp:paragraph -->
-<p>One card per module, in menu order, each showing its role slug, how many accounts hold that role, and whether the module is built or is currently role-only. Underneath, the same treatment for the parts of the program that can be run on their own.</p>
+<p>One card per audience, in menu order, each showing its role slug, how many accounts hold that role, and whether it is built or currently role-only. Underneath, under <strong>Tools</strong>, one card per tool.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
 <p>If Airtable is not connected yet, this screen says so and links straight to the setting.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:heading {"level":3,"anchor":"the-module-screens"} -->
-<h3 class="wp-block-heading" id="the-module-screens">The module screens</h3>
+<!-- wp:heading {"level":3,"anchor":"the-audience-screens"} -->
+<h3 class="wp-block-heading" id="the-audience-screens">The audience screens</h3>
 <!-- /wp:heading -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Screen</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Students</strong></td><td>The student list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Mentors</strong></td><td>The mentor list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Institutions</strong></td><td>The institutions sync, the applications and signed agreements waiting to be read, every institution record by stage, account creation, the reconciliation of Students with Students Reports, the consent report, the agreements whose state Airtable disagrees with, every semester report, the plugin's copy of the Collaboration Agreement, and the check of how the host serves the private files.</td></tr><tr><td><strong>Sponsors</strong></td><td>The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision.</td></tr><tr><td><strong>Administrators</strong></td><td>Lists the program capabilities granted to Administrator, and who holds the role.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Screen</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Students</strong></td><td>The student list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Mentors</strong></td><td>The mentor list, the sync report, and one-at-a-time invitations.</td></tr><tr><td><strong>Institutions</strong></td><td>The institutions sync, the applications and signed agreements waiting to be read, every institution record by stage, account creation, the reconciliation of Students with Students Reports, the consent report, the agreements whose state Airtable disagrees with, every semester report, the plugin's copy of the Collaboration Agreement, and the check of how the host serves the private files.</td></tr><tr><td><strong>Sponsors</strong></td><td>The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision.</td></tr><tr><td><strong>Administrators</strong></td><td>Lists the program capabilities granted to Administrator, and who holds the role: the program managers.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
-
-<!-- wp:heading {"level":3,"anchor":"modules"} -->
-<h3 class="wp-block-heading" id="modules">Modules</h3>
-<!-- /wp:heading -->
-
-<!-- wp:paragraph -->
-<p>The <strong>Modules</strong> submenu lists the parts of the program that are run and configured on their own rather than belonging to one audience - currently <strong>Header notices</strong>, <strong>Need help?</strong>, the <strong>Mentor Status Checker</strong>, the <strong>Student Duplicate Finder</strong> and the <strong>Track Builder</strong>. Each has its own screen behind an <em>Open tool</em> button.</p>
-<!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
 <p>Since 1.92.0 the Administrator Dashboard on the front end gathers every queue these screens hold; the Administrators screen links to it.</p>
@@ -58,147 +62,459 @@
 <p>Since 1.97.0 the Sponsors screen also holds the queue of companies that applied through the form on the site, with the six decisions the Institutions screen has for its own applications, and its menu entry carries a bubble counting the applications, the signed agreements and the sponsor posts waiting for a manager.</p>
 <!-- /wp:paragraph -->
 
+<!-- wp:heading {"level":3,"anchor":"tools"} -->
+<h3 class="wp-block-heading" id="tools">Tools</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The <strong>Tools</strong> submenu lists the parts of the program that are run and configured on their own rather than belonging to one audience - currently <strong>Header notices</strong>, <strong>Need help?</strong>, the <strong>Mentor Status Checker</strong>, the <strong>Student Duplicate Finder</strong> and the <strong>Track Builder</strong>. Each has its own screen behind an <em>Open tool</em> button. Three of them, the <strong>Mentor Status Checker</strong>, the <strong>Student Duplicate Finder</strong> and <strong>Need help?</strong>, keep their settings in a <strong>Settings</strong> section at the top of that screen, rather than on the Settings screen.</p>
+<!-- /wp:paragraph -->
+
 <!-- wp:heading {"level":2,"anchor":"settings"} -->
 <h2 class="wp-block-heading" id="settings">Settings</h2>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>WPCredits Program → Settings</strong>. One screen, in sections.</p>
+<p><strong>WPCredits Program &gt; Settings</strong>. Seven tabs along the top of the screen, in WordPress's own tab bar: <strong>Connection</strong>, <strong>Students and mentors</strong>, <strong>Institutions</strong>, <strong>Sponsors</strong>, <strong>Security</strong>, <strong>Mail</strong> and <strong>Advanced</strong>, and the screen opens on Connection. Each tab but Mail is a form of its own with its own <strong>Save settings</strong> button: saving one tab leaves every other tab exactly as it was, and the notice after a save names the tab it saved ("Sponsors settings saved."). A page left open from before an update can post a form that names no tab; it saves nothing, and the notice asks you to reload the page and save again.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:image {"id":557,"sizeSlug":"large","linkDestination":"none"} -->
-<figure class="wp-block-image size-large"><img src="images/admin-settings.png" alt="The Airtable connection and the Mentors module, at the top of the settings screen." class="wp-image-557"/><figcaption class="wp-element-caption">The Airtable connection and the Mentors module, at the top of the settings screen.</figcaption></figure>
-<!-- /wp:image -->
+<!-- wp:paragraph -->
+<p>Each section of a tab opens with one sentence and a link to its part of this guide, on a site that publishes the guide at /program-manager-guide/. Each setting has one sentence of help under it, and the rest of what there is to know in a <strong>Details</strong> fold under that, closed until you open it.</p>
+<!-- /wp:paragraph -->
 
-<!-- wp:heading {"level":3,"anchor":"airtable-connection"} -->
-<h3 class="wp-block-heading" id="airtable-connection">Airtable connection</h3>
+<!-- wp:paragraph -->
+<p>A setting that holds something Airtable or the site can list is chosen rather than typed: the base, the tables and their name columns, the statuses and the stages, and the program managers who are told about agreements, reports and sponsors' mail. When a list cannot be read, the setting is typed as it always was, and a sentence under it says why. A value saved that its list does not hold is still offered, after the list and marked <em>(current)</em>, so a Save never drops it.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Three tools keep settings of their own, the <strong>Mentor Status Checker</strong>, the <strong>Student Duplicate Finder</strong> and <strong>Need help?</strong>, and each keeps them on its own screen, in a <strong>Settings</strong> section at the top with a Save of its own, rather than on this one. The Connection tab's first line names the three, each a link to its Settings section, and the next part of this guide, on the tools, says what each of those settings does.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3,"anchor":"the-connection-tab"} -->
+<h3 class="wp-block-heading" id="the-connection-tab">The Connection tab</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Its first line names the three tools that keep their settings on their own screens. Then two sections, <strong>Airtable</strong> and <strong>Tables</strong>, the tab's <strong>Save settings</strong>, and under it a button of its own, <strong>Read the lists from Airtable again</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"airtable"} -->
+<h4 class="wp-block-heading" id="airtable">Airtable</h4>
 <!-- /wp:heading -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Setting</th><th>What it is for</th></tr></thead><tbody><tr><td><strong>Personal Access Token</strong></td><td>Stored in the database and never sent back to the browser. Leave blank to keep the current token.</td></tr><tr><td><strong>Base ID</strong></td><td>The Airtable base holding the program.</td></tr><tr><td><strong>Mentors table</strong></td><td>Where mentor records live.</td></tr><tr><td><strong>Students Reports table</strong></td><td>Internship dates, links and contribution teams - what the mentor page shows.</td></tr><tr><td><strong>Students table</strong></td><td>Read only for the Tutor column, which does not exist on Students Reports.</td></tr><tr><td><strong>Feedback table</strong></td><td>Where the students' survey answers are written. One row per student, with a column per question.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Setting</th><th>What it is for</th></tr></thead><tbody><tr><td><strong>Personal Access Token</strong></td><td>Stored in the database and never sent back to the browser: the field shows it masked. Leave it blank to keep the current token.</td></tr><tr><td><strong>Schema token</strong></td><td>Optional, and used by the Track Builder alone, to create a track's columns when it is published. Its fold says the rest: it needs the <code>schema.bases:write</code> scope and must belong to somebody with the base creator role on the base; left blank it keeps the current one, and typing remove takes it away. Without it, publishing lists the columns for somebody to create by hand.</td></tr><tr><td><strong>Token scopes</strong></td><td>The scopes the token needs, listed in the row's fold with what each is for: <code>data.records:read</code>, required, for reading mentors, students and tutors; <code>data.records:write</code>, required by the Mentor Status Checker, for changing a mentor's status when you promote them (without it the tool can still run in report-only mode, but promoting fails); <code>schema.bases:read</code>, optional, for listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable (without it each of those settings is typed, and the built-in descriptions are shown instead). Set them on the token itself at airtable.com/create/tokens, with access to the WPCredits base; they cannot be checked from here without writing to the base, so the list is the reference.</td></tr><tr><td><strong>Base ID</strong></td><td>The Airtable base holding the program, chosen from the bases the token can open, each with its ID beside its name. Listing the bases needs the token's <code>schema.bases:read</code> scope; when the list cannot be read, the ID is typed, and a sentence under the field says why.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
-<!-- wp:heading {"level":3,"anchor":"linked-tables"} -->
-<h3 class="wp-block-heading" id="linked-tables">Linked tables</h3>
+<!-- wp:heading {"level":4,"anchor":"tables"} -->
+<h4 class="wp-block-heading" id="tables">Tables</h4>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Airtable sends linked-record fields as record IDs rather than names, so two more tables are read to turn those IDs into names: <strong>Institutions</strong> and <strong>Contribution areas</strong>. Each has a name-column setting, used only when the token lacks the <code>schema.bases:read</code> scope - with that scope the primary column is detected automatically.</p>
+<p>Each table of the base the plugin reads or writes, chosen from the base's tables with its ID beside its name, and each name column from its own table's columns. When a list cannot be read, the table's ID or the column's name is typed, and a sentence under the field says why: no Personal Access Token or no Base ID is set, Airtable refused the token, the token lacks the <code>schema.bases:read</code> scope or access to the base, the base has no such table or column, or the read failed.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:heading {"level":3,"anchor":"mentors-module"} -->
-<h3 class="wp-block-heading" id="mentors-module">Mentors module</h3>
+<!-- wp:paragraph -->
+<p>Six of these had no control before 1.117.0 and could only be changed in code: the <strong>Tutors</strong>, <strong>Feedback</strong>, <strong>Countries</strong> and <strong>Sponsors</strong> tables, and the <strong>Countries</strong> and <strong>Sponsors</strong> name columns.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The bases, statuses and stages are read from Airtable once a day, the tables and columns every fifteen minutes, and all of them again after a Save of the Connection tab. A read that failed is not asked again for five minutes, so an Airtable that does not answer holds up one draw of a tab, not every one, and the fields stay typed meanwhile. <strong>Read the lists from Airtable again</strong>, under the tab's Save button, reads them at once: for a status or a stage somebody has just added in Airtable, which cannot be chosen until the lists are read again, or once Airtable answers again.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>When its table is chosen from the list, which saves the table's ID, each of the <strong>Institutions</strong>, <strong>Countries</strong> and <strong>Sponsors</strong> name columns can also be set to <strong>None (the built-in column)</strong>, which leaves the setting blank: each is then read from the column the plugin names by default, <strong>Name</strong>, <strong>Name</strong> and <strong>Company Name</strong>, and by the mentors sync from the table's primary column, which it finds by the table's ID. A table saved by its name, as one typed before 1.117.0 could be, keeps its name column typed: the mentors sync would ask for that column itself, and a blank one names no column.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Setting</th><th>What it is for</th></tr></thead><tbody><tr><td><strong>Mentors table</strong></td><td>Where mentor records live.</td></tr><tr><td><strong>Students Reports table</strong></td><td>Holds the internship dates, links and contribution team the mentor page shows.</td></tr><tr><td><strong>Students table</strong></td><td>Read only for the Tutor column, which does not exist on Students Reports.</td></tr><tr><td><strong>Institutions table</strong> and <strong>Institutions name column</strong></td><td>Airtable sends linked-record fields as record IDs rather than names, so the table is read to turn those IDs into names. The name column is used only when the token lacks the <code>schema.bases:read</code> scope; with that scope the primary column is detected automatically.</td></tr><tr><td><strong>Contribution areas table</strong> and <strong>Contribution areas name column</strong></td><td>Read the same way, for the contribution team a record links to.</td></tr><tr><td><strong>Tutors table</strong></td><td>Read when an institution enrolls students, for that institution's own tutors and no other school's.</td></tr><tr><td><strong>Feedback table</strong></td><td>Where the students' survey answers are written: one row per student, with a column per question.</td></tr><tr><td><strong>Countries table</strong> and <strong>Countries name column</strong></td><td>Read for the name of each institution's country and the program manager who looks after it; the name column holds each country's name.</td></tr><tr><td><strong>Team Members table</strong></td><td>Read by the sponsors sync for each sponsor's program contact. Not the Contribution areas table.</td></tr><tr><td><strong>Sponsors table</strong> and <strong>Sponsors name column</strong></td><td>Read by the sponsors sync, and written to whenever a sponsor's record changes on this site, from an approved application to a new logo; the name column holds each company's name, which the mentors sync reads too, for the report form's company field.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
+
+<!-- wp:heading {"level":3,"anchor":"the-students-and-mentors-tab"} -->
+<h3 class="wp-block-heading" id="the-students-and-mentors-tab">The Students and mentors tab</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Four sections: <strong>Who is on the program</strong>, <strong>When someone leaves</strong>, <strong>Accounts</strong> and <strong>Landing pages</strong>. The status lists are shared: a current student is anyone a mentor is currently mentoring.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"who-is-on-the-program"} -->
+<h4 class="wp-block-heading" id="who-is-on-the-program">Who is on the program</h4>
 <!-- /wp:heading -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Mentor status to sync</strong> - only mentors holding this Airtable status get an account.</li>
+<li><strong>Currently mentoring</strong> - a checkbox list of statuses: the Students Reports table's Status options under <strong>From Airtable</strong>, and the status of every track the site runs under <strong>From the Track Builder</strong>, each once. Students holding any of the ticked statuses appear under "Currently mentoring" on their mentor's page. The list keeps the status of every track the site runs: its box is ticked and switched off, with a note naming the track, and a save that would take one out all the same saves everything else, leaves Currently mentoring as it was, and a notice names the track. Take the track off the live site in the Track Builder first, then remove its status. A Settings page left open while a track was published keeps the new status when it is saved, and the Track Builder's list flags a live track whose status is missing from Currently mentoring. Left untouched, the list saves as it is stored; changed on a page left open, it brings back a status somebody removed in the meantime, so reload the page first. When Airtable's statuses cannot be read, the list is a box to type in, one status per line, and a sentence under it says why.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Currently mentoring</strong> - one status per line. Students holding any of these appear under "Currently mentoring" on their mentor's page. The list keeps the status of every track the site runs: a save that would take one out saves everything else, leaves Currently mentoring as it was, and a notice names the track. Take the track off the live site in the Track Builder first, then remove its status. A Settings page left open while a track was published keeps the new status when it is saved, and the Track Builder's list flags a live track whose status is missing from Currently mentoring. Left untouched, the box saves the list as it is stored; edited on a page left open, it brings back a status somebody removed in the meantime, so reload the page first.</li>
+<li><strong>Past students</strong> - statuses that mean mentoring has finished, from the same two lists. Those students appear in a separate, collapsed section on their mentor's page. Its fold: with none ticked, only current students are shown, and a status in both lists counts as current. No track runs on a past status, so the list never takes the status of a track the site runs: its box is switched off, under one note for the group, "A live track's status cannot be a past status.", and a save that would add one all the same saves everything else, leaves Past students as it was, and a notice names the track. Take the track off the live site in the Track Builder first, then add its status. A status the list already holds is never switched off there, so it can always be taken out. The program's four original tracks always run, so their statuses are never past statuses.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Past students</strong> - statuses that mean mentoring has finished. Those students appear in a separate, collapsed section. Leave empty to show only current students; a status in both boxes counts as current. No track runs on a past status, so the list never takes the status of a track the site runs: a save that would add one saves everything else, leaves Past students as it was, and a notice names the track. Take the track off the live site in the Track Builder first, then add its status. The program's four original tracks always run, so their statuses are never past statuses.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>When a mentor is no longer active</strong> - remove the Mentor role and clear their student list, or leave the role in place. The account itself is never deleted either way.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Invitation emails</strong> - off by default, and worth leaving off: a first sync creates around ninety accounts at once. Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Automatic sync</strong> - read Airtable on a schedule. <strong>Students and mentors every three hours, half an hour apart</strong>: the student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours. The mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. Either can also be run by hand from the Students and Mentors screens. The institutions and the sponsors syncs are on the same three-hour clock. Automatic sync governs the students, mentors and institutions syncs; the sponsors sync runs regardless.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Mentor landing page</strong> - send mentors to their Mentor Report Card on login and in place of the wp-admin Dashboard, with a toolbar link. They keep their own profile screen, and a mentor who followed a link somewhere specific still lands there. Administrators are unaffected.</li>
+<li><strong>Mentor status to sync</strong> - chosen from the Mentors table's Status options, <em>Active</em> by default; only mentors holding this status get an account.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
-<!-- wp:heading {"level":3,"anchor":"students-module"} -->
-<h3 class="wp-block-heading" id="students-module">Students module</h3>
+<!-- wp:paragraph -->
+<p>Neither Currently mentoring nor Mentor status to sync can be left blank: each is what a sync filters the base by, so a blank one goes back to its default and a notice says so.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"when-someone-leaves"} -->
+<h4 class="wp-block-heading" id="when-someone-leaves">When someone leaves</h4>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Uses the same status lists as the Mentors module - a current student is anyone a mentor is currently mentoring.</p>
+<p>What the sync does with the account of a mentor or a student who is no longer on the program. The answer that removes comes first, and it is the default for both.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>When a student leaves the program</strong> - remove the Student role, so they lose access to Student-level content, or leave it in place. The account is never deleted, and their program details are kept.</li>
+<li><strong>When a mentor is no longer active</strong> - <strong>Remove the Mentor role and clear their student list</strong>, or <strong>Leave the role in place</strong>. The account itself is never deleted either way.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Student landing page</strong> - the same arrangement as for mentors, pointing at the Student Report Card.</li>
+<li><strong>When a student leaves the program</strong> - <strong>Remove the Student role, so they lose access to Student-level content</strong>, or <strong>Leave the role in place</strong>. The account itself is never deleted either way, and their program details are kept.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
-<!-- wp:heading {"level":3,"anchor":"sponsors-module"} -->
-<h3 class="wp-block-heading" id="sponsors-module">Sponsors module</h3>
+<!-- wp:heading {"level":4,"anchor":"accounts"} -->
+<h4 class="wp-block-heading" id="accounts">Accounts</h4>
 <!-- /wp:heading -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Applications from sponsors</strong>: whether the public form at /sponsor-application/ takes applications. Off by default. The form shows nothing to the public without a published privacy policy, whatever this says; the row on the settings screen says so and links the page.</li>
+<li><strong>Invitation emails</strong> - <strong>Email each new mentor and student a password-reset link as their account is created</strong>. Off by default, and worth leaving off unless you mean to email everybody: a first sync creates around ninety accounts at once. Its fold: invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed, and you can also invite people one at a time from the Mentors and Students screens.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Tools from our sponsors</strong>: two checkboxes. Show the section on the Student Report Card (on by default) and on the Mentor Report Card (off by default). The Administrator Dashboard shows every live offer whatever these say.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Low-stock warning</strong>: how many codes must be left in a pool before the sponsor and its program manager are mailed, once per crossing. Ten by default; each offer can set its own.</li>
+<li><strong>Automatic sync</strong> - <strong>Read Airtable on a schedule</strong>, on by default: the students, mentors and institutions syncs every three hours, the mentors run half an hour after the students run. The sponsors sync is on the same three-hour clock and runs regardless of this switch. Its fold: the student rows carry what people are shown on their cards, and the students run is the expensive one, reading a WordPress.org profile per mentor, cached for twelve hours; the mentors run reads three Airtable tables and no WordPress.org profile. A run already in progress is left to finish rather than restarted. The students and mentors runs can also be run by hand from the Students and Mentors screens.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
-<!-- wp:heading {"level":3,"anchor":"need-help"} -->
-<h3 class="wp-block-heading" id="need-help">Need help?</h3>
+<!-- wp:heading {"level":4,"anchor":"landing-pages"} -->
+<h4 class="wp-block-heading" id="landing-pages">Landing pages</h4>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The question box over the WordPress documentation.</p>
+<p>Where mentors and students go when they log in. Each switch has the page's address under it, or, when the page is missing, a sentence saying that re-activating the plugin recreates it.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:list -->
 <ul class="wp-block-list">
 <!-- wp:list-item -->
-<li><strong>Switch it on</strong> - off means the box answers nobody, the header button disappears and the page it lives on is unpublished. Nothing is deleted, so switching it back on restores all of it.</li>
+<li><strong>Mentor landing page</strong> - <strong>Use the Mentor Report Card page as the mentor dashboard</strong>, on by default: mentors go to their Mentor Report Card when they log in and in place of the wp-admin Dashboard, and get a "Mentor Report Card" link in the toolbar. Its fold: they keep their own profile screen, a mentor who followed a link somewhere specific still lands there, and administrators are unaffected.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Answer provider</strong> and <strong>API key</strong> - leaving the provider as <em>None</em> keeps everything on this site and means there are no answers at all. Choosing one sends each question, and the extracts that match it, to that company.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Model</strong> - leave as <code>gemini-flash-latest</code> unless you have a reason not to. It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under the site.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Who can ask</strong> - mentors and program managers by default; optionally students and institutions as well, anybody logged in, or program managers only. Never anybody logged out, whatever this says.</li>
-<!-- /wp:list-item -->
-<!-- wp:list-item -->
-<li><strong>Questions per person per hour</strong> - so a free tier cannot be spent in an afternoon. <code>0</code> removes the limit.</li>
+<li><strong>Student landing page</strong> - <strong>Use the Student Report Card page as the student dashboard</strong>, on by default: the same arrangement for students, with a "Student Report Card" link in the toolbar and the same exceptions: a requested destination wins, their own profile screen stays reachable, and anyone who can write posts is left alone.</li>
 <!-- /wp:list-item -->
 </ul>
 <!-- /wp:list -->
 
-<!-- wp:heading {"level":3,"anchor":"mail"} -->
-<h3 class="wp-block-heading" id="mail">Mail</h3>
+<!-- wp:heading {"level":3,"anchor":"the-institutions-tab"} -->
+<h3 class="wp-block-heading" id="the-institutions-tab">The Institutions tab</h3>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>A sample-invitation sender - the student, mentor and institution invitations say different things, so you can send yourself any of the three - and a log of recent mail: bookings, cancellations, reminders and invitations. "Accepted" means the site handed the message off without complaint; it cannot tell you the message was delivered or read.</p>
+<p>Five sections, headed on the screen <strong>Applications and enrollment</strong>, <strong>Landing page</strong>, <strong>When an institution leaves the pipeline</strong>, <strong>Collaboration Agreements</strong> and <strong>Semester reports</strong>.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:heading {"level":2,"anchor":"modules-you-run-on-their-own"} -->
-<h2 class="wp-block-heading" id="modules-you-run-on-their-own">Modules you run on their own</h2>
+<!-- wp:heading {"level":4,"anchor":"institution-applications-and-enrollment"} -->
+<h4 class="wp-block-heading" id="institution-applications-and-enrollment">Institution applications and enrollment</h4>
 <!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Applications from institutions</strong> - <strong>Take applications through the form on this site</strong>. Off by default, since the form is a public page anybody can post to; its address is under the switch. Every submission is stored for a program manager to read on the Institutions screen, and nothing is created until somebody approves it; while this is off, the page shows one sentence saying applications are closed. The form shows nothing to the public without a published privacy policy, however this is switched, and the row says so until one is chosen under Settings &gt; Privacy.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Enrollment lists from institutions</strong> - <strong>Let an institution send a list of students to enroll</strong>. Adds an "Enroll students" section to the Institution Dashboard, where a school chooses the program and the term and then adds one student or sends a CSV. Off by default. Its fold: the list is read and checked against the program records, and the school sees what was understood before anything is created; while this is off, the section does not appear at all. Each institution is held to five checks an hour and 600 students a day, and the files are read and never stored.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Create accounts automatically</strong> - <strong>Let the sync create the first account for a Confirmed institution</strong>, from the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member. Off by default. Its fold: an address that already belongs to an account is left alone and named on the Institutions screen, and with this off, accounts are created only when somebody presses the button there.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"institution-landing-page"} -->
+<h4 class="wp-block-heading" id="institution-landing-page">Institution landing page</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Institution landing page</strong> - <strong>Use the Institution Dashboard page as the institution dashboard</strong>, on by default: institution accounts go to their Institution Dashboard when they log in and in place of the wp-admin Dashboard, and get an "Institution Dashboard" link in the toolbar, with the same exceptions as for mentors and students. The page's address is under the switch.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"when-an-institution-leaves-the-pipeline"} -->
+<h4 class="wp-block-heading" id="when-an-institution-leaves-the-pipeline">When an institution leaves the pipeline</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Its people</strong> - <strong>Remove its people, so they lose access to its students</strong>, the default, or <strong>Leave their access in place</strong>. The accounts themselves are never deleted either way, and the agreement and the roster are kept. Its fold: an institution leaves the pipeline when Airtable moves it out of the stages the program treats as active, which the Advanced tab lists under <strong>Pipeline stages</strong>.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"collaboration-agreements"} -->
+<h4 class="wp-block-heading" id="collaboration-agreements">Collaboration Agreements</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Agreement review</strong> - how many days, from 1 to 60 and 3 by default, a signed agreement may wait before the queue marks it overdue and the nightly digest names it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Who reviews agreements</strong> - who is told when an agreement arrives and sent the overdue digest: a box for each program manager, grouped as <strong>Program managers</strong> and <strong>Administrators</strong>, and an <strong>Other addresses</strong> line for anybody else, separated by commas. With none, every program manager is written to, which reaches technical administrators as well, so set it before the first real upload. Where no program manager account with an email address can be listed, the addresses are typed, separated by commas.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>The agreement wording</strong> - the Google Doc the plugin's copy of the Collaboration Agreement was taken from, used by the Check against the Doc button; Google addresses only. Its fold: it is kept on this site rather than in the code, because the document is editable by anyone holding its link and the plugin's source is public.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"semester-report-drafting"} -->
+<h4 class="wp-block-heading" id="semester-report-drafting">Semester report drafting</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Drafting</strong> - <strong>Draft each institution's semester report when the semester ends</strong>, on by default: a daily job drafts a report for every finished semester and tells the program managers. Off, drafts are written only when a manager presses Draft now.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Drafting grace</strong> - how many days after a semester ends, from 7 to 365 and 45 by default, the job waits for students still in progress before drafting anyway. The draft says how many were still in progress.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Who reviews reports</strong> - who is told when the job drafts a report, chosen as the agreements' reviewers are. With none, every program manager is written to.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3,"anchor":"the-sponsors-tab"} -->
+<h3 class="wp-block-heading" id="the-sponsors-tab">The Sponsors tab</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Five sections, headed on the screen <strong>Applications</strong>, <strong>Landing page</strong>, <strong>When a sponsor is no longer Approved</strong>, <strong>Interest mail</strong> and <strong>Offers</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"sponsor-applications"} -->
+<h4 class="wp-block-heading" id="sponsor-applications">Sponsor applications</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Applications from sponsors</strong> - <strong>Take sponsor applications through the form on this site</strong>, at /sponsor-application/. Off by default, since it is a public page anybody can post to; its address is under the switch. Every submission is stored for a program manager to read on the Sponsors screen and on the Administrator Dashboard, and nothing is created in Airtable until somebody approves it; while this is off, the page shows one sentence saying applications are closed. As with institutions, the form shows nothing to the public without a published privacy policy, and the row says so.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"sponsor-landing-page"} -->
+<h4 class="wp-block-heading" id="sponsor-landing-page">Sponsor landing page</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Sponsor landing page</strong> - <strong>Send sponsor accounts to the Sponsor Dashboard when they log in</strong>, instead of the wp-admin Dashboard, on by default. Accounts that can also edit content or manage the program are left where WordPress sends them. The page's address is under the switch.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"when-a-sponsor-is-no-longer-approved"} -->
+<h4 class="wp-block-heading" id="when-a-sponsor-is-no-longer-approved">When a sponsor is no longer Approved</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Its accounts</strong> - <strong>Remove its accounts from the sponsor, so they lose access to its Sponsor Dashboard</strong>, or <strong>Leave their access in place</strong>, the default. Nothing is ever deleted, and Paused and Not Moving Forward sponsors keep their accounts by default, because a pause is often short. Its fold: Airtable's Status is the record, and the first answer has the sync remove the accounts from any sponsor whose Status is no longer Approved.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"interest-mail"} -->
+<h4 class="wp-block-heading" id="interest-mail">Interest mail</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Who is mailed</strong> - the addresses mailed in place of a sponsor's program manager when it has none, chosen as the Institutions tab's reviewers are; with none here, every program manager is written to. Every mail meant for a sponsor's program manager goes to its assigned program manager: its interests, a mentor it would like to sponsor, its signed agreement, a problem reported with one of its codes and a warning that its codes are running low. A sponsor with none is mailed here, and every new sponsor application comes here too, since a new application has no manager yet.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"offers"} -->
+<h4 class="wp-block-heading" id="offers">Offers</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Largest logo</strong> - the largest logo file, in KB, from 100 to 8192 and 1024 by default, for the logos the sync copies from Airtable, the ones sponsors upload and the ones sent with an application. PNG, JPEG and WebP only; never SVG.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Tools from our sponsors</strong> - two boxes: <strong>Show the section on the Student Report Card</strong>, on by default, and <strong>Show the section on the Mentor Report Card</strong>, off by default. The section lists the live offers, each with its claim button. Its fold: a student always sees offers open to students, a mentor sees the offers whose sponsor opened them to mentors, and the Administrator Dashboard shows every live offer whatever these say.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Low-stock warning</strong> - when a pool of one-time codes falls below this many codes, from 1 to 1000 and 10 by default, the sponsor and its program manager are mailed, once per crossing. Its fold: this is the default for new offers, and each offer can set its own.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3,"anchor":"the-security-tab"} -->
+<h3 class="wp-block-heading" id="the-security-tab">The Security tab</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>One section, <strong>Two-factor authentication</strong>.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"two-factor-authentication"} -->
+<h4 class="wp-block-heading" id="two-factor-authentication">Two-factor authentication</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Roles that must use it</strong> - a box for each role: <strong>Program managers (administrators)</strong>, then Student, Mentor, Institution and Sponsor. An account in a ticked role is asked for a code as well as its password from its next sign-in, with nothing to set up first: the code is emailed. Program managers and institutions by default. Its fold: each person can set up an authenticator app on their own profile screen, which is quicker and does not depend on their email, and unticking everything asks nobody. Students are left off by default: a student account holds that student's own work, there are hundreds of them, and there is nobody to unlock the ones who change phone. They can still turn it on for themselves. Without the Two Factor plugin active nobody is asked, and the row says so above its boxes.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Where it stands</strong> - while the Two Factor plugin is active, for each ticked role, how many accounts are covered and how many use an authenticator app, counted when the tab is opened. An account that is covered but has no app is using emailed codes.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":3,"anchor":"the-mail-tab"} -->
+<h3 class="wp-block-heading" id="the-mail-tab">The Mail tab</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Two sections, headed on the screen <strong>Invitations</strong> and <strong>Recent mail</strong>. No settings and no Save: each button is a form of its own.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"sending-yourself-an-invitation"} -->
+<h4 class="wp-block-heading" id="sending-yourself-an-invitation">Sending yourself an invitation</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>The student, mentor, institution and sponsor invitations say different things, so you can send yourself any of the four before real people read it, each with a button of its own: <strong>Email me the student invitation</strong> and its three siblings. The sample goes to your own address. Above the buttons, how many invitations are still waiting to be sent, when any are; they go out a few at a time in the background.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"recent-mail"} -->
+<h4 class="wp-block-heading" id="recent-mail">Recent mail</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>A log of the last 25 messages the plugin sent: bookings, cancellations, reminders and invitations, each with when, to whom, its subject and what it was, and whether the site accepted it. "Accepted" means the site handed the message off without complaint; it cannot tell you the message was delivered or read. A message the site refused is marked <strong>Refused</strong>, and a line above the log counts them: that is a delivery problem to fix, not a program one.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":3,"anchor":"the-advanced-tab"} -->
+<h3 class="wp-block-heading" id="the-advanced-tab">The Advanced tab</h3>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Eleven settings that change rarely, and whose defaults suit almost every site, in four sections, headed on the screen <strong>Pipeline stages</strong>, <strong>Applications</strong>, <strong>Agreements</strong> and <strong>Invitations</strong>. Until 1.117.0 they could only be changed in code. Each number field refuses what the save would not keep, so the limits given below are the field's own.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"pipeline-stages"} -->
+<h4 class="wp-block-heading" id="pipeline-stages">Pipeline stages</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Institution starting stage</strong> - the Current Stage an institution is created at in Airtable when its application is approved, <em>First Contact Made</em> by default, chosen from the Institutions table's Current Stage options. It cannot be left blank: a blank one goes back to its default, and a notice says so.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Institution pipeline stages</strong> - a checkbox list of the same options, eight of them ticked by default, from <em>First Contact Made</em> to <em>Student</em>. An institution at any of the ticked stages is in the pipeline, and one whose stage leaves the list is treated as having left it, which the Institutions tab's leaving rule decides the rest of. It cannot be left empty, since an empty list would count every institution as having left: an empty one goes back to its default, and a notice says so. When the stages cannot be read, both are typed, the pipeline stages one per line, and a sentence under each says why.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"keeping-applications"} -->
+<h4 class="wp-block-heading" id="keeping-applications">Keeping applications</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>How long a decided application is kept, institution and sponsor applications alike, and the one proxy the two application forms believe.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Spam kept for (days)</strong> - from 1 to 365, 30 by default: an application marked as spam is deleted this many days after it was marked.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Rejected kept for (days)</strong> - from 30 to 3650, a year by default: a rejected application, or one the checks held, is deleted this many days after the decision, which is long enough to recognize the same applicant applying again.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Approved kept for (days)</strong> - from 0 to 3650, 0 by default, which keeps approved applications forever: they are the record of who was let in.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Trusted proxy</strong> - the one IP address, not a range, of the proxy whose forwarded header the application forms believe for a sender's address, which their limits count by. Its fold: leave it empty unless the site sits behind a proxy, since anybody can send that header; anything but one address, a range included, is saved as empty.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"agreement-files"} -->
+<h4 class="wp-block-heading" id="agreement-files">Agreement files</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Largest upload (MB)</strong> - from 1 to 50, 10 by default: the largest signed agreement an institution or a sponsor can upload.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Uploads per day</strong> - from 1 to 50, 5 by default: how many files one institution or one sponsor can upload in a day.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Generations per day</strong> - from 1 to 100, 10 by default: how many times one institution can generate its agreement from the template in a day.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Discarded files kept for (days)</strong> - from 7 to 365, 30 by default: a withdrawn or returned file is deleted this many days after it was set aside. An accepted agreement never is.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":4,"anchor":"lapsed-invitations"} -->
+<h4 class="wp-block-heading" id="lapsed-invitations">Lapsed invitations</h4>
+<!-- /wp:heading -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Settled invitations kept for (days)</strong> - from 7 to 365, 30 by default: how long an invitation to join an institution's account stays listed once it was accepted, canceled or ran out, so a program manager can still see who was invited and never came.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:heading {"level":2,"anchor":"tools-you-run-on-their-own"} -->
+<h2 class="wp-block-heading" id="tools-you-run-on-their-own">Tools you run on their own</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>Three of the tools keep settings of their own: the <strong>Mentor Status Checker</strong>, the <strong>Student Duplicate Finder</strong> and <strong>Need help?</strong>. Each shows them in a <strong>Settings</strong> section at the top of its screen, a form with its own <strong>Save settings</strong> that saves that tool's settings and nothing else, and the notice after a save, on the same screen, names the tool. The Settings screen's Connection tab names the three, each a link to its section. On the <strong>Tools</strong> screen, a tool that cannot run says why on its card, in its own words: the Airtable connection for the Mentor Status Checker and the Student Duplicate Finder, and for Need help? its switch or its provider.</p>
+<!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"header-notices"} -->
 <h3 class="wp-block-heading" id="header-notices">Header notices</h3>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>WPCredits Program → Modules → Header notices.</strong> One notice per audience - Students, Mentors, Institutions, Sponsors, Administrators - each in its own editor on one screen, with a single Save button underneath.</p>
+<p><strong>WPCredits Program &gt; Tools &gt; Header notices.</strong> One notice per audience - Students, Mentors, Institutions, Sponsors, Administrators - each in its own editor on one screen, with a single Save button underneath.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:image {"id":555,"sizeSlug":"large","linkDestination":"none"} -->
@@ -227,15 +543,27 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Promotes mentors from <em>Vetted - positive</em> to <em>Active</em> in Airtable once their WordPress.org profile shows the Credits Mentor's Course completion. It reads profiles, matches the badge, and reports what it would change before it changes anything. It needs the Airtable connection, so it refuses to run until that is set up.</p>
+<p><strong>WPCredits Program &gt; Tools &gt; Mentor Status Checker.</strong> Promotes mentors from <em>Vetted - positive</em> to <em>Active</em> in Airtable once their WordPress.org profile shows the Credits Mentor's Course completion. It reads profiles, matches the badge, and reports what it would change before it changes anything. It needs the Airtable connection, so it refuses to run until that is set up.</p>
 <!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"settings-2"} -->
+<h4 class="wp-block-heading" id="settings-2">Settings</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>At the top of the checker's screen, above the buttons that start a run, a form with its own <strong>Save settings</strong>:</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:table -->
+<figure class="wp-block-table"><table><thead><tr><th>Setting</th><th>What it is for</th></tr></thead><tbody><tr><td><strong>Check mentors with status</strong> and <strong>Promote them to</strong></td><td>The Mentors table's status a run reads mentors at, <em>Vetted - positive</em> by default, and the one it moves them to, <em>Active</em>, each chosen from the table's Status options, or typed, with a sentence saying why, when those cannot be read. Writing the second needs the <code>data.records:write</code> scope on the token.</td></tr><tr><td><strong>Course title</strong> and <strong>Course slug</strong></td><td>The course a profile has to show as completed, the WordPress Credits Mentor's Course by default. The slug, from the course's address on learn.wordpress.org, is the reliable signal, and the title only a fallback. Both are typed: learn.wordpress.org has no list to read them from.</td></tr><tr><td><strong>Completion phrase</strong></td><td>Words that must appear in the same profile history entry as the course, <em>Completed the course</em> by default, so somebody who merely blogged about the course is not counted.</td></tr><tr><td><strong>Profile history filter</strong></td><td><strong>Milestones only (faster)</strong>, the default, or <strong>All contributions</strong>: course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages. Its fold: switch to all contributions only if WordPress.org changes and completions stop being found.</td></tr><tr><td><strong>Maximum history pages per mentor</strong></td><td>From 1 to 100, 15 by default. A mentor whose history is longer is reported as "could not check", never as "not completed", since a false negative would leave them waiting.</td></tr><tr><td><strong>Mentors per batch</strong> and <strong>Delay between requests (ms)</strong></td><td>How hard a run reads WordPress.org, from 1 to 25 mentors a batch, three by default, and from 0 to 5000 ms between requests, none by default: each mentor can cost several requests, so smaller batches keep the screen responsive.</td></tr><tr><td><strong>Cache profile results for (seconds)</strong></td><td>How long a settled answer is kept, up to thirty days, twelve hours by default. A failed read is always tried again, and <code>0</code> keeps nothing.</td></tr><tr><td><strong>Weekly check</strong></td><td>Two boxes, <strong>Run the check automatically once a week</strong> and <strong>Let the weekly check also promote mentors</strong>. Both are off by default: an unattended promotion writes to the shared Airtable base, so turn the second on deliberately.</td></tr></tbody></table></figure>
+<!-- /wp:table -->
 
 <!-- wp:heading {"level":3,"anchor":"student-duplicate-finder"} -->
 <h3 class="wp-block-heading" id="student-duplicate-finder">Student Duplicate Finder</h3>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>WPCredits Program → Modules → Student Duplicate Finder.</strong> Lists every student who has more than one row in Students, Students Reports or Feedback in Airtable, proposes which rows to delete, and deletes the ones you tick and confirm.</p>
+<p><strong>WPCredits Program &gt; Tools &gt; Student Duplicate Finder.</strong> Lists every student who has more than one row in Students, Students Reports or Feedback in Airtable, proposes which rows to delete, and deletes the ones you tick and confirm.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -397,12 +725,12 @@
 <p>An entry whose delete Airtable did not confirm says so, and the daily run checks it again: a row still in Airtable leaves the list, copy and all, since nothing was deleted, and a row that is gone becomes an ordinary entry. A copy whose delete Airtable never confirmed is erased at 30 days too, and its entry says the row may still be in Airtable. Look its record ID up there: if the row is still there, the next scan lists it again.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:heading {"level":4,"anchor":"turning-deleting-on"} -->
-<h4 class="wp-block-heading" id="turning-deleting-on">Turning deleting on</h4>
+<!-- wp:heading {"level":4,"anchor":"settings-3"} -->
+<h4 class="wp-block-heading" id="settings-3">Settings</h4>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>Deleting ships switched off.</strong> Until a program manager turns it on under <strong>WPCredits Program → Settings</strong>, in the Student Duplicate Finder's card, the whole list is read-only: no checkbox can be ticked and <strong>Review selection</strong> is grayed out. Scanning and reading work either way, so the list is worth looking at long before anyone decides to delete from it.</p>
+<p><strong>Deleting ships switched off.</strong> Its one setting, <strong>Deleting duplicates</strong>, with its box <strong>Let program managers delete the duplicated rows they select and confirm</strong>, is in the Settings section at the top of the finder's screen, above the list, with a Save of its own. Until a program manager turns it on there, the whole list is read-only: no checkbox can be ticked, <strong>Review selection</strong> is grayed out, and the list says where deleting is turned on. Scanning and reading work either way, so the list is worth looking at long before anyone decides to delete from it. The row's fold says what a delete does: it removes rows from Students, Students Reports and Feedback in the shared base, and the finder keeps a sealed copy of each row for 30 days.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -422,7 +750,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p><strong>WPCredits Program → Modules → Track Builder.</strong> A program track is one Airtable status, one form on the Student Report Card, a key chip in one color and, when the track follows one, a Learn course and an hours target. Before the Track Builder, a new track was a plugin release. Now it is a draft you write here, preview, publish to Airtable and switch on, with no developer in the loop.</p>
+<p><strong>WPCredits Program &gt; Tools &gt; Track Builder.</strong> A program track is one Airtable status, one form on the Student Report Card, a key chip in one color and, when the track follows one, a Learn course and an hours target. Before the Track Builder, a new track was a plugin release. Now it is a draft you write here, preview, publish to Airtable and switch on, with no developer in the loop.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -588,7 +916,7 @@
 <li><strong>Worth knowing before you publish</strong> lists what does not stop it: a choice of the Status column on Students Reports or Students that nearly matches the track's status but not exactly, which the syncs would never match; a Learn course link that does not resolve; a table past 450 columns. A choice that is missing altogether is not a warning: the third checklist item below says, for each table, whether it has the choice yet.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
-<li><strong>Columns</strong>: every column the track writes to, and whether it exists or will be created. With a schema token, the optional second token under <strong>WPCredits Program → Settings</strong>, the site creates the missing columns when you publish. Without one, the screen lists the exact columns to create by hand, name and type, and Publish waits until the next reading finds them.</li>
+<li><strong>Columns</strong>: every column the track writes to, and whether it exists or will be created. With a schema token, the optional second token on the Connection tab of <strong>WPCredits Program &gt; Settings</strong>, the site creates the missing columns when you publish. Without one, the screen lists the exact columns to create by hand, name and type, and Publish waits until the next reading finds them.</li>
 <!-- /wp:list-item -->
 <!-- wp:list-item -->
 <li><strong>What the site cannot do</strong>: the three Airtable steps no token can take, with the exact values to use. Add the status to the condition of the automation <em>Add students to Students Reports and Feedback</em>; create the track's welcome email automation, as each of the four tracks has one; add the status as a choice of the Status column on both tables. Tick each with <strong>I have done this</strong> once it is done, and the tick records who and when. An unticked item never blocks publishing, but until the automation item is ticked, students cannot be put on the track from the institution import, because they would never get a report row.</li>
@@ -608,7 +936,7 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
-<p>What goes live is the track as it stood when Publish was pressed. An edit saved while Publish runs, in another tab or by another Program Administrator, is not part of that publish: the track then shows <em>Unpublished changes</em> until <strong>Publish the changes</strong> is pressed.</p>
+<p>What goes live is the track as it stood when Publish was pressed. An edit saved while Publish runs, in another tab or by another program manager, is not part of that publish: the track then shows <em>Unpublished changes</em> until <strong>Publish the changes</strong> is pressed.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
@@ -639,12 +967,47 @@
 <p>A site already on an earlier version upgrades once, on its first load after 1.116.0 arrives: nothing for you to press, and a load that is cut short partway is finished by the next one. On a fresh site a seeding cut short leaves no half-made track behind, and <code>wp wpcredits seed-tracks</code> puts back any of the four that is missing, then as at any other time.</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:heading {"level":3,"anchor":"need-help-2"} -->
-<h3 class="wp-block-heading" id="need-help-2">Need help?</h3>
+<!-- wp:heading {"level":3,"anchor":"need-help"} -->
+<h3 class="wp-block-heading" id="need-help">Need help?</h3>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>The tool screen for the question box configured under Settings. Its own screen is where the handbook page lives and where you can see whether a provider is set.</p>
+<p><strong>WPCredits Program &gt; Tools &gt; Need help?</strong> The question box over the WordPress documentation: its settings at the top of the screen, then how answers are produced, with the provider and the sites it is told to use, and a box for trying a question as somebody on the program would ask it.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":4,"anchor":"settings-4"} -->
+<h4 class="wp-block-heading" id="settings-4">Settings</h4>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>At the top of the screen, a form with its own <strong>Save settings</strong>. One sentence says what the question box is, and its <strong>Details</strong> fold says where each question goes: the provider does the searching, so nothing is stored on this site, and each question, and the pages found for it, go to that company.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:list -->
+<ul class="wp-block-list">
+<!-- wp:list-item -->
+<li><strong>Need help?</strong> - its box, <strong>Switch it on</strong>, is on by default. Off means the box answers nobody, the header button disappears and the page it lives on is unpublished. Nothing is deleted, so switching it back on restores all of it.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Where answers come from</strong> - the provider searches wordpress.org, make.wordpress.org, learn.wordpress.org and developer.wordpress.org itself. Nothing is copied to this site, so there is nothing to configure and nothing to refresh.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Answer provider</strong> and <strong>Provider API key</strong> - leaving the provider as <em>None</em> keeps everything on this site and means there are no answers at all. Choosing one sends each question, and the extracts that match it, to that company. The key is stored in the database and never sent back to the browser; left blank, it keeps the current key. A key for the Gemini provider is free at aistudio.google.com.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Model</strong> - typed, <code>gemini-flash-latest</code> by default: the provider lists no models to choose from, so the field holds whatever model is saved. Leave it as the default unless you have a reason not to. It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under the site.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Who can ask</strong> - mentors and program managers by default; optionally students and institutions as well, anybody logged in, or program managers only. Never anybody logged out, whatever this says. The documentation describes running the program rather than being on it, which is why students are not included by default.</li>
+<!-- /wp:list-item -->
+<!-- wp:list-item -->
+<li><strong>Questions per person per hour</strong> - from 0 to 200, 20 by default, so a free tier cannot be spent in an afternoon. Past the limit, people are asked to come back shortly. <code>0</code> removes the limit.</li>
+<!-- /wp:list-item -->
+</ul>
+<!-- /wp:list -->
+
+<!-- wp:paragraph -->
+<p>While it is switched off, a notice above the section says so, with a link down to the switch; while it has no provider, the <strong>Provider</strong> row under the section says so, with a link back up. Its card on the <strong>Tools</strong> screen says which of the two it is, never the Airtable connection, which Need help? does not use. And a question that cannot be answered for want of a provider, a working model or a valid key tells the person asking that a program manager can put it right in the Settings section of the Need help? screen, under <strong>WPCredits Program &gt; Tools</strong>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":2,"anchor":"who-can-read-what"} -->
@@ -688,7 +1051,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph -->
-<p>Under a student's profile and mentor columns the Student Report Card is a stack of modules: the <strong>program updates with the resources</strong>, <strong>My course</strong> (<strong>My hours</strong> when there is no course to open), the <strong>report form with the feedback forms</strong>, <strong>My mentor call</strong>, and <strong>Tools from our sponsors</strong> when the Sponsors module is on. Each carries two small arrows at its top right, and pressing one moves the module up or down at once, the way the block editor moves blocks. The order belongs to the student: they arrange their own card, and it stays as they left it. When you open a student's card through the switcher you see their order and can arrange it for them with the same arrows. Nobody else sees the arrows.</p>
+<p>Under a student's profile and mentor columns the Student Report Card is a stack of modules: the <strong>program updates with the resources</strong>, <strong>My course</strong> (<strong>My hours</strong> when there is no course to open), the <strong>report form with the feedback forms</strong>, <strong>My mentor call</strong>, and <strong>Tools from our sponsors</strong> when its setting on the Sponsors tab of Settings shows it. Each carries two small arrows at its top right, and pressing one moves the module up or down at once, the way the block editor moves blocks. The order belongs to the student: they arrange their own card, and it stays as they left it. When you open a student's card through the switcher you see their order and can arrange it for them with the same arrows. Nobody else sees the arrows.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":3,"anchor":"group-sessions-from-a-student-s-card-or-a-mentor-s"} -->
@@ -764,7 +1127,7 @@
 <!-- /wp:heading -->
 
 <!-- wp:table -->
-<figure class="wp-block-table"><table><thead><tr><th>Symptom</th><th>Where to look</th></tr></thead><tbody><tr><td>A student or mentor is missing</td><td>Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list.</td></tr><tr><td>Details are stale on a Student Report Card or Mentor Report Card</td><td>Run the sync by hand; the page renders from what the last sync stored.</td></tr><tr><td>A mentor sees the wrong students</td><td>The mentor↔student link in Airtable. The page joins on the records, not on names.</td></tr><tr><td>Nobody can book a call</td><td>The mentor has published no availability. Their Mentor Report Card says so.</td></tr><tr><td>Invitations are not arriving</td><td>The <strong>Mail</strong> section on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service.</td></tr><tr><td>A password link says it is invalid</td><td>An older invitation. Each one cancels the link in the one before, so ask them to use their newest email.</td></tr><tr><td>A gated page is readable by the wrong people</td><td>The post's <strong>Program access</strong> control, and the reader's role. Administrators can read every level by design.</td></tr></tbody></table></figure>
+<figure class="wp-block-table"><table><thead><tr><th>Symptom</th><th>Where to look</th></tr></thead><tbody><tr><td>A student or mentor is missing</td><td>Their Airtable status, against the status settings. The sync only creates accounts for the statuses you list.</td></tr><tr><td>Details are stale on a Student Report Card or Mentor Report Card</td><td>Run the sync by hand; the page renders from what the last sync stored.</td></tr><tr><td>A mentor sees the wrong students</td><td>The mentor↔student link in Airtable. The page joins on the records, not on names.</td></tr><tr><td>Nobody can book a call</td><td>The mentor has published no availability. Their Mentor Report Card says so.</td></tr><tr><td>Invitations are not arriving</td><td>The <strong>Mail</strong> tab on Settings. "Accepted" means the site handed it off; anything else is between the site and its mail service.</td></tr><tr><td>A password link says it is invalid</td><td>An older invitation. Each one cancels the link in the one before, so ask them to use their newest email.</td></tr><tr><td>A gated page is readable by the wrong people</td><td>The post's <strong>Program access</strong> control, and the reader's role. Administrators can read every level by design.</td></tr></tbody></table></figure>
 <!-- /wp:table -->
 
 <!-- wp:heading {"level":2,"anchor":"semester-reports"} -->

@@ -4,41 +4,41 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.116.4
+Stable tag: 1.117.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Runs the WPCredits program on WordPress in five modules - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section, with role-based access and Airtable sync.
+Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Program managers - plus a Tools section, with role-based access and Airtable sync.
 
 == Description ==
 
-The plugin is organized as five modules, one per audience:
+The plugin is organized around five audiences:
 
-1. **Students** - the Student role, Airtable account provisioning, and a private page with each student's program details and their assigned mentor. **Built.**
-2. **Mentors** - the Mentor role, Airtable account provisioning, and a private page listing each mentor's assigned students. **Built.**
+1. **Students** - the Student role, Airtable account provisioning, and the Student Report Card, a private page with each student's program details and their assigned mentor. **Built.**
+2. **Mentors** - the Mentor role, Airtable account provisioning, and the Mentor Report Card, a private page listing each mentor's assigned students. **Built.**
 3. **Institutions** - the Institution role, the Airtable sync of the institution records, account creation, the Institution Dashboard with its roster, student imports and semester reports, the public institution application form, the Collaboration Agreement, and the institution queues on the Administrator Dashboard. **Built.**
 4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, the Sponsor Dashboard, the public sponsor application form, the sponsors' guide, and the sponsor queues on the Administrator Dashboard. **Built.**
-5. **Administrators** - the built-in WordPress Administrator role, granted the program capabilities.
+5. **Program managers** - the built-in WordPress Administrator role, granted the program capabilities; their screen is **Administrators**.
 
 Students, Mentors, Institutions and Sponsors each get a custom role cloned from **Subscriber**, plus one marker capability that controls which content they can read. Administrators can read every level.
 
-Alongside them is a **Tools** section, for jobs you run *against* the program data rather than parts of the program itself. Keeping the two apart means the modules stay a stable description of the program while tools come and go as needed. It currently holds five tools: **Header notices**, **Need help?**, **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**.
+Alongside them is a **Tools** section, for jobs you run *against* the program data rather than parts of the program itself. Keeping the two apart means the audiences stay a stable description of the program while tools come and go as needed. It currently holds five tools: **Header notices**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**. Three of them, the Mentor Status Checker, the Student Duplicate Finder and Need help?, keep their settings in a Settings section on their own screens.
 
 = Roles and capabilities =
 
-| Module | Role slug | Marker capability |
+| Audience | Role slug | Marker capability |
 | --- | --- | --- |
 | Students | `wpcpm_student` | `wpcpm_view_student_content` |
 | Mentors | `wpcpm_mentor` | `wpcpm_view_mentor_content` |
 | Institutions | `wpcpm_institution` | `wpcpm_view_institution_content` |
 | Sponsors | `wpcpm_sponsor` | `wpcpm_view_sponsor_content` |
-| Administrators | `administrator` | `wpcpm_manage_program` + every marker capability above |
+| Program managers | `administrator` | `wpcpm_manage_program` + every marker capability above |
 
 Role slugs are prefixed on purpose. Bare `student` and `teacher` slugs are commonly claimed by LMS plugins, and sharing a role slug means sharing its capability set.
 
 = Tools: Header notices =
 
-One notice per audience - Students, Mentors, Institutions, Sponsors, Administrators. **WPCredits Program → Modules → Header notices** puts them all on one screen, each with its own editor, whether it is showing, and a single Save button under the lot.
+One notice per audience - Students, Mentors, Institutions, Sponsors, Administrators. **WPCredits Program > Tools > Header notices** puts them all on one screen, each with its own editor, whether it is showing, and a single Save button under the lot.
 
 **Each notice is a classic `wp_editor()` box, stored as HTML in one option.** Not `teeny`, so the media button and the kitchen-sink row are both there: a notice is written in the same place it is read about, and saving all of them is one press rather than five round trips through a post editor.
 
@@ -62,7 +62,7 @@ Every post and page gets a **Program access** control in the editor sidebar with
 
 Gating is applied in six places: front-end listings (restricted posts are filtered out), direct URL access (logged-out visitors go to the login form, logged-in users get an explanation), the rendered content and excerpt, the content and excerpt in feeds, the oEmbed response (a post the public cannot read is not embedded, so its title and author stay private), and the REST API.
 
-= Mentors module =
+= Mentors =
 
 **Account provisioning.** Every mentor in the Airtable Mentors table holding the status `Active` gets a WordPress account with the Mentor role. The username comes from their WordPress.org profile, so `https://profiles.wordpress.org/mentor-one/` becomes the username `mentor-one`. That column is free text and in practice contains full URLs, scheme-less URLs, `@handles`, bare usernames, URLs ending in `/profile/` and at least one misspelled host, so every shape is reduced to its last path segment.
 
@@ -70,7 +70,7 @@ Accounts are created with a random password and **no email is sent**. A first sy
 
 Existing accounts are matched in order of reliability - the stored Airtable record ID, then email address, then username. An account already linked to a different mentor record is reported as a conflict and left alone. Administrators' roles are never modified, and no account is ever deleted or demoted; when a mentor stops being `Active`, the plugin removes the Mentor role and clears their student list, or leaves the role in place, depending on the setting.
 
-**The mentor page.** Activation creates a page called *My Students* at `/mentor-dashboard/`, gated to Mentor level, containing the *My Students (Mentor)* block. There is one page, not one per mentor: it renders against the logged-in user, so every mentor sees only their own students and no mentor can reach another's list by guessing a URL. Administrators can inspect any mentor's view with the *Viewing as mentor* control. An administrator who is also an Active mentor in Airtable sees their own students by default and appears in that switcher like anyone else - the sync never gives an administrator the Mentor role, so they are recognized by their link to an Airtable mentor record instead.
+**The mentor page.** Activation creates a page called *Mentor Report Card* at `/mentor-dashboard/`, gated to Mentor level, containing the *Mentor Report Card* block. There is one page, not one per mentor: it renders against the logged-in user, so every mentor sees only their own students and no mentor can reach another's list by guessing a URL. Administrators can inspect any mentor's view with the *Viewing as mentor* control. An administrator who is also an Active mentor in Airtable sees their own students by default and appears in that switcher like anyone else - the sync never gives an administrator the Mentor role, so they are recognized by their link to an Airtable mentor record instead.
 
 The mentor's own profile photo and name head the page. Each student then gets a card showing their photo, name and status, and a **table of their details** - each field and its value, with no header row:
 
@@ -90,7 +90,7 @@ Below the table is a **Student report form** button, linking to their prefilled 
 
 The page is split in two. **Currently mentoring** lists the students a mentor is working with now, ordered by internship end date - soonest deadline first, unknown dates last. **Past students** is a separate, collapsed section for students whose mentoring has finished, ordered most recently finished first. Their details and notes are kept for reference.
 
-Which is which comes from the student's Airtable status, not from their end date: a student can be past their end date and still being mentored, or have graduated early. Two settings control it - *Currently mentoring* (`In Sensei`, `In Sensei 50h`) and *Past students* (`Graduate`, `Dropped out`). Empty the second box to show only current students. A status listed in both counts as current, so a configuration slip can never quietly archive somebody's live student.
+Which is which comes from the student's Airtable status, not from their end date: a student can be past their end date and still being mentored, or have graduated early. Two settings control it - *Currently mentoring* (`In Sensei`, `In Sensei 50h`) and *Past students* (`Graduate`, `Dropped out`). With no status in *Past students*, only current students are shown. A status listed in both counts as current, so a configuration slip can never quietly archive somebody's live student.
 
 Past students were previously not read from Airtable at all, so **run one sync after updating** for the Past section to appear. Until then everything shows as current, exactly as before.
 
@@ -134,15 +134,15 @@ Note that some browsers do not search inside collapsed sections with Ctrl+F. Use
 
 = The mentor's landing page =
 
-Mentors have Subscriber-level accounts, so wp-admin shows them nothing they can use. By default the *My Students* page therefore acts as their dashboard:
+Mentors have Subscriber-level accounts, so wp-admin shows them nothing they can use. By default the *Mentor Report Card* page therefore acts as their dashboard:
 
 * Logging in takes them straight there.
 * It replaces the wp-admin Dashboard, so a bookmark or a `/wp-admin/` link lands on it too.
-* A **My Students** link sits in the toolbar, so they can get back from anywhere on the site.
+* A **Mentor Report Card** link sits in the toolbar, so they can get back from anywhere on the site.
 
 Three deliberate exceptions. A mentor who followed a link to a specific page and was sent through the login form still ends up at **that** page, not the dashboard. `profile.php` is left alone, so they can still change their own password and name. And an account that also holds an editor or author role is never redirected, since it has a real reason to be in wp-admin. Administrators are unaffected throughout, and get the same toolbar link for inspecting the page.
 
-Turn the whole behavior off with **Mentor landing page** in the settings.
+Turn the whole behavior off with **Mentor landing page**, on the Students and mentors tab of **WPCredits Program > Settings**.
 
 = Profile photos =
 
@@ -184,7 +184,7 @@ Tutor is the one field that does not exist on Students Reports, so the two table
 
 Field *names* are used rather than IDs because Airtable's `filterByFormula` only accepts names. Override them with the `wpcpm_mentors_fields` filter.
 
-= Students module =
+= Students =
 
 **Account provisioning.** Every student in the tracked statuses gets a WordPress account with the Student role, and can read Student-level content and nothing else. Usernames come from the student's WordPress.org profile where Airtable has one and from their email address otherwise - only about seven in ten students have a profile recorded, so the fallback is the common case rather than an edge one. Accounts are matched by their stored record ID and then by email, never by username: a login derived from an email address is far too weak a signal to claim an existing account on.
 
@@ -212,7 +212,7 @@ A mentor whose profile cannot be read keeps their Airtable details and is named 
 
 The sync is a resumable state machine: roughly 90 mentors, 290 student reports and the whole Students table is more than one request can carry, so each tick works to a time budget, saves its position and starts the next one. Phases run in order - provision mentors, review mentors who are no longer active, read student reports, read tutors, assign - because a mentor not yet paged in would otherwise look inactive.
 
-It runs every three hours and on demand from **WPCredits Program → Mentors → Sync mentors now**.
+It runs every three hours and on demand from **WPCredits Program > Mentors > Sync mentors now**.
 
 = Sync progress =
 
@@ -224,7 +224,7 @@ If a run genuinely stops advancing for more than two minutes, the screen says so
 
 = Tools: Mentor Status Checker =
 
-Was the standalone **Credits Program Mentor Checker** plugin; now a tool at **WPCredits Program → Modules → Mentor Status Checker**. Folded in so there is one Airtable connection, one settings screen and one place to look. **If you were running the standalone plugin, deactivate it** - otherwise both schedule their own weekly check and read the same WordPress.org profiles twice. The tool says so on screen if it finds the old plugin still active.
+Was the standalone **Credits Program Mentor Checker** plugin; now a tool at **WPCredits Program > Tools > Mentor Status Checker**. Folded in so there is one Airtable connection, one store of settings and one place to look; its settings are in the Settings section at the top of its screen. **If you were running the standalone plugin, deactivate it** - otherwise both schedule their own weekly check and read the same WordPress.org profiles twice. The tool says so on screen if it finds the old plugin still active.
 
 It reads every mentor whose Airtable status is `Vetted - positive`, looks up their WordPress.org contribution history, and moves those who have completed the *WordPress Credits Mentor's Course* to `Active`.
 
@@ -245,17 +245,17 @@ An Airtable Personal Access Token on the WPCredits base with:
 
 * `data.records:read` - **required.** Reading mentors, students and tutors.
 * `data.records:write` - **required by the Mentor Status Checker.** Changing a mentor's status when you promote them. Without it the tool still runs in report-only mode, but promoting fails with a 403.
-* `schema.bases:read` - optional. Reading each column's description from Airtable; without it the built-in descriptions are shown.
+* `schema.bases:read` - optional. Listing the bases, tables, columns, statuses and stages the Settings tabs and the Mentor Status Checker's screen offer, and reading each column's description from Airtable; without it each of those settings is typed, and the built-in descriptions are shown.
 
-The scopes are listed on the settings screen too. They cannot be verified from WordPress without writing to the base, so if a promotion fails with a permissions error the plugin names the scope that is missing rather than passing Airtable's message through unchanged.
+The scopes are listed on the Connection tab of **WPCredits Program > Settings** too. They cannot be verified from WordPress without writing to the base, so if a promotion fails with a permissions error the plugin names the scope that is missing rather than passing Airtable's message through unchanged.
 
 The token is stored in the database, is only ever rendered masked, and is never sent to the browser.
 
 == Installation ==
 
-1. Upload and activate the plugin. Activation registers the roles, grants the program capabilities to Administrator, and creates the *My Students* page.
-2. Go to **WPCredits Program → Settings** and add your Airtable Personal Access Token. The base and table IDs are pre-filled.
-3. Go to **WPCredits Program → Mentors** and choose **Sync mentors now**.
+1. Upload and activate the plugin. Activation registers the roles, grants the program capabilities to Administrator, and creates the *Mentor Report Card* page.
+2. Go to **WPCredits Program > Settings** and add your Airtable Personal Access Token on the Connection tab. The base and table IDs are pre-filled.
+3. Go to **WPCredits Program > Mentors** and choose **Sync mentors now**.
 4. Review the sync report, then invite mentors - individually, or by enabling invitation emails before a sync.
 
 == Frequently Asked Questions ==
@@ -282,12 +282,16 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 
 == Screenshots ==
 
-1. The module overview.
+1. The Overview, with a card for each audience and each tool.
 2. The Mentors screen, with the sync report and mentor list.
-3. A mentor's *My Students* page.
+3. A mentor's *Mentor Report Card*.
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.117.0 =
+
+* Settings: the screen is now seven tabs (Connection, Students and mentors, Institutions, Sponsors, Security, Mail, Advanced), each saved on its own; choices such as tables, statuses and reviewers are picked from lists instead of typed; help is one sentence with a Details fold; each tool keeps its settings on its own screen; every setting that could only be changed in code now has a control, the tables on the Connection tab and the rest under Advanced.
 
 = 1.116.4 =
 

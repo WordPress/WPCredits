@@ -96,14 +96,40 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function add_query_arg( $key, $value, $url ) { return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . $key . '=' . rawurlencode( (string) $value ); }
 function wp_create_nonce( $action ) { return 'n-' . $action; }
 function wp_nonce_url( $url, $action ) { return $url . '&_wpnonce=' . wp_create_nonce( $action ); }
-function wp_nonce_field( $action ) { printf( '<input type="hidden" name="_wpnonce" value="%s" />', esc_attr( wp_create_nonce( $action ) ) ); }
+// Core's fields, as it prints them, ids included, so a screen that gives two elements one id shows it.
+function wp_referer_field( $display = true ) {
+	$field = '<input type="hidden" name="_wp_http_referer" value="/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder" />';
+	if ( $display ) {
+		echo $field;
+	}
+	return $field;
+}
+function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) {
+	$field = '<input type="hidden" id="' . esc_attr( $name ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( wp_create_nonce( $action ) ) . '" />' . ( $referer ? wp_referer_field( false ) : '' );
+	if ( $display ) {
+		echo $field;
+	}
+	return $field;
+}
 function check_admin_referer( $action = -1, $arg = '_wpnonce' ) { $GLOBALS['nonces'][] = $action; return 1; }
 function check_ajax_referer( $action = -1, $arg = false ) { $GLOBALS['nonces'][] = $action; return 1; }
 function wp_die( $m = '', $c = 0 ) { throw new DieSignal( (string) $m ); }
 function wp_safe_redirect( $u ) { throw new RedirectSignal( $u ); }
 function wp_send_json_error( $d = null, $c = null ) { throw new JsonSignal( array( 'success' => false, 'data' => $d, 'code' => $c ) ); }
 function wp_send_json_success( $d = null ) { throw new JsonSignal( array( 'success' => true, 'data' => $d ) ); }
-function submit_button( $text, $type = '', $name = '', $wrap = true ) { printf( '<button type="submit" class="button">%s</button>', esc_html( $text ) ); }
+function submit_button( $text = null, $type = 'primary', $name = 'submit', $wrap = true, $other = null ) {
+	$id     = is_array( $other ) && isset( $other['id'] ) ? $other['id'] : $name;
+	$button = '<input type="submit" name="' . esc_attr( $name ) . '" id="' . esc_attr( $id ) . '" class="button button-' . esc_attr( $type ) . '" value="' . esc_attr( $text ) . '" />';
+
+	echo $wrap ? '<p class="submit">' . $button . '</p>' : $button;
+}
+function checked( $checked, $current = true, $display = true ) {
+	$result = (string) $checked === (string) $current ? " checked='checked'" : '';
+	if ( $display ) {
+		echo $result;
+	}
+	return $result;
+}
 function get_userdata( $id ) { return 7 === (int) $id ? new WP_User( 7, 'Pat Manager' ) : false; }
 function get_current_user_id() { return $GLOBALS['uid']; }
 function get_user_meta( $id, $k, $single = false ) { return isset( $GLOBALS['umeta'][ (int) $id ][ $k ] ) ? $GLOBALS['umeta'][ (int) $id ][ $k ] : ''; }
@@ -222,6 +248,10 @@ $GLOBALS['wpdb'] = new Test_WPDB();
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
+// The rows the finder's Settings section is drawn with, and the Settings screen whose handler its Save
+// posts to, as the plugin's loader requires them.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-rows.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-tool.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicate-rules.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-duplicates-scan.php';
@@ -336,6 +366,40 @@ function has( $html, $needle ) {
 	return false !== strpos( $html, $needle );
 }
 
+/**
+ * The ids a screen gives more than one of its elements, and how many.
+ *
+ * @param string $html Markup.
+ * @return array<string, int>
+ */
+function ids_twice( $html ) {
+	preg_match_all( '#\sid="([^"]*)"#', $html, $ids );
+
+	return array_filter(
+		array_count_values( $ids[1] ),
+		static function ( $times ) {
+			return $times > 1;
+		}
+	);
+}
+
+/**
+ * Each nonce field a screen prints under the name `check_admin_referer()` reads: its id and its value.
+ *
+ * @param string $html Markup.
+ * @return array[]
+ */
+function nonce_fields( $html ) {
+	preg_match_all( '#<input type="hidden" id="([^"]*)" name="_wpnonce" value="([^"]*)" />#', $html, $found, PREG_SET_ORDER );
+
+	return array_map(
+		static function ( $field ) {
+			return array( $field[1], $field[2] );
+		},
+		$found
+	);
+}
+
 /*
  * The base: Ada is Ready (an older row in each table with nothing attached); Bo needs a decision
  * (the newest Students row did not move forward while the older one is live), and his name is
@@ -372,7 +436,13 @@ $url    = 'https://example.test/wp-admin/admin.php?page=wpcpm-tool-duplicate-fin
 echo "\n=== A tool with a page of its own ===\n";
 
 ck( 'the Student Duplicate Finder, at its own page slug', array( $finder->id(), $finder->label(), $finder->page_slug() ), array( 'duplicate-finder', 'Student Duplicate Finder', 'wpcpm-tool-duplicate-finder' ) );
-ck( 'the Modules card says when nothing has been scanned yet', $finder->status_line(), 'No scan has run yet.' );
+ck( 'the Tools screen\'s card says when nothing has been scanned yet', $finder->status_line(), 'No scan has run yet.' );
+
+$GLOBALS['connected'] = false;
+$not_connected        = array( $finder->status_line(), $finder->is_ready() );
+$GLOBALS['connected'] = true;
+ck( 'and, with Airtable not connected, why the finder cannot run, which the Tools screen prints as its warning', $not_connected, array( 'Airtable is not connected yet, so this tool cannot run.', false ) );
+ck( 'it keeps one setting, whether deleting is on, saved under its own scope', array( method_exists( $finder, 'settings_keys' ) ? $finder->settings_keys() : null, method_exists( $finder, 'settings_scope' ) ? $finder->settings_scope() : null ), array( array( 'duplicate_delete_enabled' ), 'tool:duplicate-finder' ) );
 
 $finder->boot();
 ck( 'boot hooks Scan now, Cancel, Delete, the progress tick, the scan, the copies and the assets', array_values( array_diff( array( 'admin_post_wpcpm_duplicates_scan_now', 'admin_post_wpcpm_duplicates_cancel', 'admin_post_wpcpm_duplicates_delete', 'wp_ajax_wpcpm_duplicates_progress', 'wpcpm_duplicates_scan', 'wpcpm_duplicates_tick', 'wpcpm_duplicates_purge', 'init', 'admin_enqueue_scripts' ), array_keys( $GLOBALS['hooks'] ) ) ), array() );
@@ -427,7 +497,7 @@ door( array( $finder, 'handle_scan' ) );
 $tick = door( array( $finder, 'handle_tick' ) );
 ck( 'the tick runs a slice under its own nonce and answers with progress; this base takes one', array( $tick['success'], $GLOBALS['nonces'], $tick['data']['running'] ), array( true, array( 'wpcpm_duplicates_progress' ), false ) );
 ck( 'and the list is written: three duplicated students, one of them Ready', array( WPCPM_Duplicates_Scan::report()['counts']['addresses'], WPCPM_Duplicates_Scan::report()['counts']['ready'] ), array( 3, 1 ) );
-ck( 'which the Modules card now reads', 0 === strpos( $finder->status_line(), '3 duplicated students, read ' ), true );
+ck( 'which the Tools screen\'s card now reads', 0 === strpos( $finder->status_line(), '3 duplicated students, read ' ), true );
 
 /* ---- the list ------------------------------------------------------------------- */
 
@@ -437,7 +507,8 @@ $GLOBALS['switch'] = true;
 $html              = page();
 $ada_box           = '<input type="checkbox" name="wpcpm_students[]" value="' . $ada . '" data-rows="students reports feedback" data-ready />';
 
-ck( 'nothing is ticked by itself', has( $html, ' checked' ), false );
+// The list's own boxes: the switch in the Settings section above it is ticked, deleting being on.
+ck( 'nothing in the list is ticked by itself', has( preg_match( '#<form method="post" action="[^"]*" class="wpcpm-duplicates__form" data-wpcpm-duplicates>.*?</form>#s', $html, $list_form ) ? $list_form[0] : $html, ' checked' ), false );
 ck( 'a Ready student has one checkbox, for their older row in each table, named for what it does', array( has( $html, $ada_box ), has( $html, 'Delete the 3 older rows of Ada Example' ) ), array( true, true ) );
 ck( 'and no checkbox on a row of their own', has( $html, 'value="students:' . rid( 'stuold' ) . '"' ), false );
 ck( 'a student who needs a decision has a checkbox on each row that may go, named for screen readers', array( has( $html, 'name="wpcpm_rows[]" value="students:' . rid( 'othold' ) . '"' ), has( $html, 'name="wpcpm_rows[]" value="students:' . rid( 'othnew' ) . '"' ), has( $html, 'aria-label="Delete the Students row ' . rid( 'othold' ) . ' of Bo &lt;b&gt;Example&lt;/b&gt;"' ) ), array( true, true, true ) );
@@ -458,12 +529,52 @@ ck( 'the log starts empty', has( $html, 'Nothing has been deleted yet.' ), true 
 $GLOBALS['switch'] = false;
 $html              = page();
 ck( 'deleting switched off: no checkbox at all, the list says why, and Review selection is disabled', array( has( $html, 'name="wpcpm_students[]"' ), has( $html, 'name="wpcpm_rows[]"' ), has( $html, 'Deleting is switched off, so this list is read-only.' ), has( $html, ' disabled>Review selection</button>' ) ), array( false, false, true, true ) );
+ck( 'and says where it is turned on: in the Settings section of this screen, linked, rather than on another screen', array( has( $html, 'A program manager turns it on in the <a href="#settings">Settings</a> section above the list.' ), has( $html, 'page=wpcpm-settings' ) ), array( true, false ) );
+
+/**
+ * Where a piece of markup first occurs on the screen.
+ *
+ * @param string $html   Markup.
+ * @param string $needle Text.
+ * @return int|null Null when it does not occur.
+ */
+function at( $html, $needle ) {
+	$found = strpos( $html, $needle );
+
+	return false === $found ? null : $found;
+}
+
+$settings_at = at( $html, '<h2 id="settings">Settings</h2>' );
+ck( 'the screen opens on its Settings section: after its heading and its notices, before the scan and the list', array( null !== $settings_at && at( $html, '<h1>Student Duplicate Finder</h1>' ) < $settings_at, null !== $settings_at && $settings_at < at( $html, '<h2>Scan</h2>' ), substr_count( $html, 'id="settings"' ) ), array( true, true, 1 ) );
+
+preg_match( '#<h2 id="settings">Settings</h2>.*?<form\b([^>]*)>(.*?)</form>#s', $html, $section );
+preg_match_all( '#\bname="([a-z_]+)(?:\[\])?"#', isset( $section[2] ) ? $section[2] : '', $posted );
+ck( 'its one form posts the finder\'s own scope to the settings handler, under the settings nonce, holding its one switch, off as stored, and one Save',
+    isset( $section[2] ) ? array( has( $section[2], '<input type="hidden" name="wpcpm_tab" value="tool:duplicate-finder" />' ), has( $section[2], 'name="wpcpm_save_settings"' ), array_values( array_diff( $posted[1], array( 'wpcpm_save_settings', '_wp_http_referer', 'wpcpm_tab', 'submit' ) ) ), has( $section[2], '<input type="checkbox" name="duplicate_delete_enabled" value="1"> Let program managers delete the duplicated rows they select and confirm' ), substr_count( $section[2], 'Save settings' ) ) : null,
+    array( true, true, array( 'duplicate_delete_enabled' ), true, 1 ) );
+
 $GLOBALS['switch'] = true;
+ck( 'and with deleting on, its box is ticked', has( page(), '<input type="checkbox" name="duplicate_delete_enabled" value="1" checked=\'checked\'> Let program managers delete' ), true );
 
 WPCPM_Duplicates_Scan::start();
 $html = page();
 WPCPM_Duplicates_Scan::cancel();
 ck( 'while a scan runs: its progress bar, the list still there, and Review selection waiting', array( has( $html, 'data-wpcpm-progress data-action="wpcpm_duplicates_progress" data-nonce="n-wpcpm_duplicates_progress"' ), has( $html, $ada_box ), has( $html, ' disabled>Review selection</button>' ) ), array( true, true, true ) );
+
+// The list holds two forms beside the Settings section's: Scan now, or Cancel scan while a scan runs,
+// and the list itself. Each carries its nonce under the name its handler reads, in a field with an id
+// of its own, where core's field takes its id from its name and gave two elements of the screen one.
+$running_list = $html;
+$idle_list    = page();
+
+ck( 'the list\'s forms each carry their nonce under the name their handler reads, each field with an id of its own, and no element of the screen, a scan running or not, shares an id',
+    array( nonce_fields( $idle_list ), nonce_fields( $running_list ), ids_twice( $idle_list ), ids_twice( $running_list ) ),
+    array(
+        array( array( 'wpcpm-duplicates-scan-nonce', 'n-wpcpm_duplicates_scan_now' ), array( 'wpcpm-duplicates-review-nonce', 'n-wpcpm_duplicates_review' ) ),
+        array( array( 'wpcpm-duplicates-cancel-nonce', 'n-wpcpm_duplicates_cancel' ), array( 'wpcpm-duplicates-review-nonce', 'n-wpcpm_duplicates_review' ) ),
+        array(),
+        array(),
+    ) );
 
 /* ---- the confirmation --------------------------------------------------------------- */
 
@@ -478,6 +589,9 @@ ck( 'it says what a press of Delete removes', has( $html, '4 rows will be delete
 ck( 'and what was left out, and why', has( $html, 'Ada Example: Students ' . rid( 'stunew' ) . ': This row cannot be deleted from the finder.' ), true );
 ck( 'the red button posts to admin-post under a nonce tied to this selection', array( has( $html, 'value="n-' . $token . '"' ), has( $html, 'name="action" value="wpcpm_duplicates_delete"' ), has( $html, '<button type="submit" class="button button-primary wpcpm-duplicates__delete">Delete 4 rows from Airtable</button>' ) ), array( true, true, true ) );
 ck( 'Back to the list carries the same ticks', array( has( $html, '<input type="hidden" name="wpcpm_back" value="1" />' ), substr_count( $html, '<input type="hidden" name="wpcpm_students[]" value="' . $ada . '" />' ) ), array( true, 2 ) );
+ck( 'and its two forms, Delete and Back to the list, each carry their nonce in a field with an id of its own, no element of the screen sharing an id',
+    array( nonce_fields( $html ), ids_twice( $html ) ),
+    array( array( array( 'wpcpm-duplicates-delete-nonce', 'n-' . $token ), array( 'wpcpm-duplicates-back-nonce', 'n-wpcpm_duplicates_review' ) ), array() ) );
 
 // Bo's newest Students row is under review, so each of his two can be ticked; ticking both would
 // leave him none, which the press refuses, so the confirmation must not offer it (DUPLICATES-7).
@@ -496,7 +610,7 @@ ck(
 $GLOBALS['switch'] = false;
 $html              = page( array(), $chosen );
 $GLOBALS['switch'] = true;
-ck( 'deleting switched off: the button is there, disabled, with the reason', array( has( $html, 'wpcpm-duplicates__delete" disabled>' ), has( $html, 'Deleting is switched off under WPCredits Program &gt; Settings.' ) ), array( true, true ) );
+ck( 'deleting switched off: the button is there, disabled, with the reason and where deleting is turned on', array( has( $html, 'wpcpm-duplicates__delete" disabled>' ), has( $html, 'Deleting is switched off: a program manager turns it on in the Settings section above the list.' ), has( $html, 'id="settings"' ) ), array( true, true, false ) );
 
 WPCPM_Duplicates_Scan::start();
 $html = page( array(), $chosen );
@@ -529,7 +643,7 @@ $out               = door( array( $finder, 'handle_delete' ) );
 $_POST             = array();
 ck( 'Delete checks the nonce of exactly the rows its student keys and pairs stand for, and of nothing else', $GLOBALS['nonces'], array( 'wpcpm_duplicates_delete_' . WPCPM_Duplicate_Finder::rows_hash( WPCPM_Duplicate_Rules::expand( WPCPM_Duplicates_Scan::report(), array( $ada ), array( 'students:' . rid( 'othold' ) ) )['rows'] ) ) );
 ck( 'then hands them to the delete and comes back to the screen', $out, 'redirect ' . $url );
-ck( 'where the notice says what the delete answered', has( page(), 'Nothing was deleted: deleting is switched off under WPCredits Program &gt; Settings.' ), true );
+ck( 'where the notice says what the delete answered, and where deleting is turned on', has( page(), 'Nothing was deleted: deleting is switched off, and a program manager turns it on in the Settings section above the list.' ), true );
 
 // A scan that finishes between the two presses can change what a student's key stands for; the
 // token then no longer matches, so the confirmation's token cannot delete the new set.
@@ -583,7 +697,7 @@ ck( 'a delete Airtable did not confirm says so', has( $log, 'Airtable did not co
 ck( 'and the log holds no name and no address', array( has( $log, 'Gone Example' ), has( $log, 'gone@example.test' ), has( $log, 'wait@example.test' ) ), array( false, false, false ) );
 
 $html = page( array( 'wpcpm_copy' => (string) $kept ) );
-ck( 'View copy: under its own nonce, the row whole, for typing back by hand', array( $GLOBALS['nonces'], has( $html, '<th scope="row">Email</th><td>gone@example.test</td>' ), has( $html, 'There is no automatic restore' ) ), array( array( 'wpcpm_duplicates_view_' . $kept ), true, true ) );
+ck( 'View copy: under its own nonce, the row whole, for typing back by hand, and no Settings section, which is the list\'s', array( $GLOBALS['nonces'], has( $html, '<th scope="row">Email</th><td>gone@example.test</td>' ), has( $html, 'There is no automatic restore' ), has( $html, 'id="settings"' ) ), array( array( 'wpcpm_duplicates_view_' . $kept ), true, true, false ) );
 
 WPCPM_Duplicate_Vault::purge( static function () { return null; }, time() + 31 * DAY_IN_SECONDS );
 $html = page( array( 'wpcpm_copy' => (string) $kept ) );

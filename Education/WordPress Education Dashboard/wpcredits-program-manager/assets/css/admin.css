@@ -20,6 +20,55 @@
 	padding-bottom: 8px;
 }
 
+/* A section's intro on the Settings screen: one sentence read as its heading's subtitle, so it sits
+   closer under the heading than the heading's own 1em margin would put a paragraph, and 8px above
+   the rows it introduces, which keep core's padding. The element as well as the class, since core's
+   p.description sets the margin of every description paragraph and a class alone ranks below it;
+   this stylesheet is printed after core's, so the two together win. A tool's Settings section opens
+   on a plain description instead: its heading sits on a card, with the card's rule and padding, and
+   the cards beside it open their first line the same way. The tab bar is core's own and needs
+   nothing here. */
+p.wpcpm-settings__intro {
+	margin: -0.5em 0 8px;
+}
+
+/* A row's Details fold on a settings form, a tab of the Settings screen or a tool's Settings
+   section: closed under the row's one sentence of help, its summary a line in WordPress's link
+   color, so it reads as something to open, and what it holds gray, as the help above it is. Core's
+   rules for a form table's paragraphs space its text. */
+.wpcpm-settings__details {
+	margin: 4px 0 0;
+}
+
+.wpcpm-settings__details summary {
+	color: #2271b1;
+	cursor: pointer;
+}
+
+.wpcpm-settings__details summary:hover {
+	color: #135e96;
+}
+
+.wpcpm-settings__details p {
+	color: #646970;
+}
+
+.wpcpm-settings__details .wpcpm-scopes {
+	margin: 8px 0 0;
+}
+
+/* A group of boxes in a checkbox list on the Settings screen, such as From Airtable: its name a
+   small heading over its boxes, and a gap before the next group. The boxes keep core's spacing. */
+.wpcpm-settings__group {
+	margin: 0 0 12px;
+}
+
+.wpcpm-settings__group legend {
+	font-weight: 600;
+	margin: 0 0 4px;
+	padding: 0;
+}
+
 .wpcpm-count {
 	background: #f0f0f1;
 	border-radius: 999px;

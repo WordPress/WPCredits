@@ -49,10 +49,11 @@ $GLOBALS['uid']   = 1;
 
 /* ---- WP classes ---------------------------------------------------------- */
 class WP_Error {
-	private $c, $m;
-	public function __construct( $c = '', $m = '' ) { $this->c = $c; $this->m = $m; }
+	private $c, $m, $d;
+	public function __construct( $c = '', $m = '', $d = null ) { $this->c = $c; $this->m = $m; $this->d = $d; }
 	public function get_error_message() { return $this->m; }
 	public function get_error_code() { return $this->c; }
+	public function get_error_data() { return $this->d; }
 }
 class WP_User {
 	public $ID = 0, $display_name = '', $user_email = '', $roles = array();
@@ -109,6 +110,9 @@ function wp_json_encode( $v ) { return json_encode( $v ); }
 function wp_send_json_success( $data = null, $status = null ) { $GLOBALS['json_sent'] = array( 'success' => true, 'data' => $data, 'status' => $status ); throw new DieSignal( 'json' ); }
 function wp_send_json_error( $data = null, $status = null ) { $GLOBALS['json_sent'] = array( 'success' => false, 'data' => $data, 'status' => $status ); throw new DieSignal( 'json' ); }
 function apply_filters( $t, $v ) { return $v; }
+// No page at the path the program manager guide is published at, so the Settings screen's section
+// intros link nothing.
+function get_page_by_path( $path, $output = 'OBJECT', $type = 'page' ) { return null; }
 function add_action() {}
 function add_filter() {}
 function do_action() {}
@@ -2556,14 +2560,91 @@ run( 'handle_delete (no capability)', array( $finder, 'handle_delete' ) );
 
 $GLOBALS['caps'] = true;
 
+echo "\n=== The Settings screen's button that reads the Airtable lists again ===\n";
+
+// By a manager: back to the Connection tab with the notice. Without the capability: refused by the
+// handler's own sentence. With a nonce that fails: WordPress's nonce screen, before anything else.
+$_POST = array( 'action' => WPCPM_Settings_Screen::REFRESH_ACTION );
+
+run( 'handle_refresh_lists', array( new WPCPM_Settings_Screen(), 'handle_refresh_lists' ) );
+check( 'and the notice it queues says the lists were read again', flashed( 1, 'settings' ), 'lists-read' );
+
+$GLOBALS['caps'] = false;
+
+run( 'handle_refresh_lists (no capability)', array( new WPCPM_Settings_Screen(), 'handle_refresh_lists' ) );
+
+$GLOBALS['caps']        = true;
+$GLOBALS['nonce_fails'] = true;
+
+run( 'handle_refresh_lists (a nonce that fails)', array( new WPCPM_Settings_Screen(), 'handle_refresh_lists' ) );
+check( 'and a failed nonce is the first thing it answers', $GLOBALS['died_with'], 'The link you followed has expired.' );
+
+$GLOBALS['nonce_fails'] = false;
+$_POST                  = array();
+
+echo "\n=== The Settings screen's save and the Mail tab's samples check the nonce before the right ===\n";
+
+// The screen's three handlers answer in one order: the nonce first, then whether the person may manage
+// the program. The settings save still asks first whether a settings form was posted at all, since it
+// runs on every admin request, and a request without the settings nonce's field is not its to answer.
+$GLOBALS['caps']        = false;
+$GLOBALS['nonce_fails'] = true;
+$first_answers          = array();
+
+$_POST = array( WPCPM_Settings_Screen::SETTINGS_NONCE => 'x', WPCPM_Settings_Screen::SETTINGS_TAB_FIELD => 'sponsors' );
+run( 'handle_settings_save (no capability, and the nonce fails too)', array( new WPCPM_Settings_Screen(), 'handle_settings_save' ) );
+$first_answers['handle_settings_save'] = $GLOBALS['died_with'];
+
+$_POST = array( 'action' => WPCPM_Mail::ACTION_TEST, 'kind' => 'student' );
+run( 'WPCPM_Mail::handle_test (no capability, and the nonce fails too)', array( 'WPCPM_Mail', 'handle_test' ) );
+$first_answers['handle_test'] = $GLOBALS['died_with'];
+
+$GLOBALS['nonce_fails'] = false;
+
+$_POST = array( WPCPM_Settings_Screen::SETTINGS_NONCE => 'x', WPCPM_Settings_Screen::SETTINGS_TAB_FIELD => 'sponsors' );
+run( 'handle_settings_save (no capability)', array( new WPCPM_Settings_Screen(), 'handle_settings_save' ) );
+$first_answers['handle_settings_save, the nonce good'] = $GLOBALS['died_with'];
+
+$_POST = array( 'action' => WPCPM_Mail::ACTION_TEST, 'kind' => 'student' );
+run( 'WPCPM_Mail::handle_test (no capability)', array( 'WPCPM_Mail', 'handle_test' ) );
+$first_answers['handle_test, the nonce good'] = $GLOBALS['died_with'];
+
+// And with no settings form posted, the save does nothing at all, whatever the nonce or the right.
+$GLOBALS['nonce_fails'] = true;
+$_POST                  = array( 'something_else' => '1' );
+$ignored                = 'returned';
+
+try {
+	( new WPCPM_Settings_Screen() )->handle_settings_save();
+} catch ( Throwable $t ) {
+	$ignored = get_class( $t ) . ': ' . $t->getMessage();
+}
+
+$GLOBALS['nonce_fails'] = false;
+$GLOBALS['caps']        = true;
+$_POST                  = array();
+
+check( 'the settings save and the sample invitation answer a failed nonce before the right, and a missing right once the nonce holds, and the save leaves a request with no settings form alone',
+    array( $first_answers, $ignored ),
+    array(
+        array(
+            'handle_settings_save'                 => 'The link you followed has expired.',
+            'handle_test'                          => 'The link you followed has expired.',
+            'handle_settings_save, the nonce good' => 'You do not have permission to manage the program.',
+            'handle_test, the nonce good'          => 'You do not have permission to manage the program.',
+        ),
+        'returned',
+    ) );
+
 echo "\n=== The Settings screen carries Currently mentoring as it drew it, and says why a save was refused (BUILDER-3) ===\n";
 
 // The deep check of 1.109.1, BUILDER-3: the save now tells a list somebody changed from one the
 // page only carried back, which it can do only if the page carries the list it drew, one hidden
-// field a status beside the textarea; and a save refused for taking a live track's status out
-// comes back to this screen, which has to say why. The whole screen is drawn, as a person sees it.
-// The save here tripped the twin rule for "Past students" as well, so both notices are drawn: one
-// page, since a flash is read once a request.
+// field a status on the form; and a save refused for taking a live track's status out
+// comes back to this screen, which has to say why. The Students and mentors tab is drawn, the tab
+// that holds the lists and that such a save goes back to, as a person sees it. The save here
+// tripped the twin rule for "Past students" as well, so both notices are drawn: one page, since a
+// flash is read once a request.
 $settings_before = $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] ?? null;
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'student_statuses' => array( 'In Sensei', 'Mentor "Track" <b>' ) );
@@ -2578,12 +2659,14 @@ update_user_meta(
 	)
 );
 
+$_GET = array( 'tab' => 'people' );
 ob_start();
-( new WPCPM_Admin() )->render_settings();
+( new WPCPM_Settings_Screen() )->render_settings();
 $settings_page = ob_get_clean();
 $left_queued   = $GLOBALS['umeta'][1][ WPCPM_Flash::META ] ?? array();
+$_GET          = array();
 
-check( 'the page carries the list it drew beside the textarea, each status escaped, and says, once and escaped, that the rest was saved and which track kept the list as it was (the fix round\'s ruling)',
+check( 'the page carries the list it drew on its form, each status escaped, and says, once and escaped, that the rest was saved and which track kept the list as it was (the fix round\'s ruling)',
     array(
         substr_count( $settings_page, '<input type="hidden" name="student_statuses_drawn[]" value="In Sensei" />' ),
         substr_count( $settings_page, '<input type="hidden" name="student_statuses_drawn[]" value="Mentor &quot;Track&quot; &lt;b&gt;" />' ),

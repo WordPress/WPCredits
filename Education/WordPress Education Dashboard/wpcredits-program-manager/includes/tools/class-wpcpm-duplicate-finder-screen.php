@@ -141,10 +141,12 @@ final class WPCPM_Duplicate_Finder_Screen {
 	}
 
 	/**
-	 * The list: the scan, the tiles, the students, the selection bar and the log.
+	 * The list: the Settings section, the scan, the tiles, the students, the selection bar and the log.
 	 *
-	 * @param array $args `report`, `progress`, `last`, `next`, `enabled`, `log`, `flash`, `url`, and
-	 *                    `checked` (`keys` and `pairs` to tick, when coming back from the confirmation).
+	 * @param array $args `report`, `progress`, `last`, `next`, `enabled`, `log`, `flash`, `url`,
+	 *                    `checked` (`keys` and `pairs` to tick, when coming back from the confirmation),
+	 *                    and `settings`, what draws the finder's Settings section
+	 *                    (`WPCPM_Tool::render_settings()`).
 	 */
 	public static function render_list( array $args ) {
 		$report   = (array) $args['report'];
@@ -164,6 +166,12 @@ final class WPCPM_Duplicate_Finder_Screen {
 			);
 		}
 
+		// The finder's one setting, whether deleting is on, at the top of its screen, where the list's
+		// sentences below send a manager to turn it on.
+		if ( isset( $args['settings'] ) && is_callable( $args['settings'] ) ) {
+			call_user_func( $args['settings'] );
+		}
+
 		self::render_scan_panel( $progress, (int) $args['last'], (int) $args['next'] );
 
 		if ( ! $report ) {
@@ -176,9 +184,9 @@ final class WPCPM_Duplicate_Finder_Screen {
 					'<div class="notice notice-info inline"><p>%s</p></div>',
 					wp_kses(
 						sprintf(
-							/* translators: %s: link to the settings screen. */
-							__( 'Deleting is switched off, so this list is read-only. A program manager turns it on under %s.', 'wpcredits-program-manager' ),
-							'<a href="' . esc_url( admin_url( 'admin.php?page=wpcpm-settings' ) ) . '">' . esc_html__( 'WPCredits Program > Settings', 'wpcredits-program-manager' ) . '</a>'
+							/* translators: %s: a link to this screen's Settings section, called Settings. */
+							__( 'Deleting is switched off, so this list is read-only. A program manager turns it on in the %s section above the list.', 'wpcredits-program-manager' ),
+							'<a href="' . esc_url( '#settings' ) . '">' . esc_html__( 'Settings', 'wpcredits-program-manager' ) . '</a>'
 						),
 						array( 'a' => array( 'href' => true ) )
 					)
@@ -266,7 +274,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 
 		$blocked = '';
 		if ( empty( $args['enabled'] ) ) {
-			$blocked = __( 'Deleting is switched off under WPCredits Program > Settings.', 'wpcredits-program-manager' );
+			$blocked = __( 'Deleting is switched off: a program manager turns it on in the Settings section above the list.', 'wpcredits-program-manager' );
 		} elseif ( ! empty( $args['running'] ) ) {
 			$blocked = __( 'A scan is running and is about to write a new list. Wait for it to finish, then review the selection again.', 'wpcredits-program-manager' );
 		}
@@ -279,7 +287,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 
 		if ( ! empty( $rows ) ) {
 			printf( '<form method="post" action="%s" class="wpcpm-duplicates__inline">', esc_url( admin_url( 'admin-post.php' ) ) );
-			wp_nonce_field( (string) $args['nonce'] );
+			self::nonce_field( (string) $args['nonce'], 'wpcpm-duplicates-delete-nonce' );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Duplicate_Finder::ACTION_DELETE ) );
 			self::hidden_selection( (array) $args['keys'], (array) $args['pairs'] );
 			printf(
@@ -298,7 +306,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 
 		// Back with the same ticks: a form, because the selection travels in the post, not the URL.
 		printf( '<form method="post" action="%s" class="wpcpm-duplicates__inline">', esc_url( (string) $args['url'] ) );
-		wp_nonce_field( WPCPM_Duplicate_Finder::ACTION_REVIEW );
+		self::nonce_field( WPCPM_Duplicate_Finder::ACTION_REVIEW, 'wpcpm-duplicates-back-nonce' );
 		echo '<input type="hidden" name="wpcpm_back" value="1" />';
 		self::hidden_selection( (array) $args['keys'], (array) $args['pairs'] );
 		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Back to the list', 'wpcredits-program-manager' ) );
@@ -378,7 +386,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 				break;
 			case 'switched-off':
 				$type     = 'warning';
-				$sentence = __( 'Nothing was deleted: deleting is switched off under WPCredits Program > Settings.', 'wpcredits-program-manager' );
+				$sentence = __( 'Nothing was deleted: deleting is switched off, and a program manager turns it on in the Settings section above the list.', 'wpcredits-program-manager' );
 				break;
 			case 'scan-running':
 				$type     = 'warning';
@@ -509,7 +517,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 			echo '<noscript><meta http-equiv="refresh" content="15" /></noscript>';
 			echo '</div>';
 			printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
-			wp_nonce_field( WPCPM_Duplicate_Finder::ACTION_CANCEL );
+			self::nonce_field( WPCPM_Duplicate_Finder::ACTION_CANCEL, 'wpcpm-duplicates-cancel-nonce' );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Duplicate_Finder::ACTION_CANCEL ) );
 			submit_button( __( 'Cancel scan', 'wpcredits-program-manager' ), 'secondary', 'submit', false );
 			echo '</form>';
@@ -536,13 +544,31 @@ final class WPCPM_Duplicate_Finder_Screen {
 			}
 
 			printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
-			wp_nonce_field( WPCPM_Duplicate_Finder::ACTION_SCAN );
+			self::nonce_field( WPCPM_Duplicate_Finder::ACTION_SCAN, 'wpcpm-duplicates-scan-nonce' );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Duplicate_Finder::ACTION_SCAN ) );
 			submit_button( __( 'Scan now', 'wpcredits-program-manager' ), 'primary', 'submit', false );
 			echo '</form>';
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * A form's nonce, under the name its handler reads it by (`check_admin_referer()`'s `_wpnonce`), in a
+	 * field with an id of its own, then the referer: `wp_nonce_field()` gives its field its name as its
+	 * id, and the list and the confirmation each draw two of these forms, which would give two
+	 * elements of one screen one id.
+	 *
+	 * @param string $action The nonce's action.
+	 * @param string $id     The field's id, the form's own.
+	 */
+	private static function nonce_field( $action, $id ) {
+		printf(
+			'<input type="hidden" id="%1$s" name="_wpnonce" value="%2$s" />',
+			esc_attr( $id ),
+			esc_attr( wp_create_nonce( $action ) )
+		);
+		wp_referer_field();
 	}
 
 	/**
@@ -601,7 +627,7 @@ final class WPCPM_Duplicate_Finder_Screen {
 		}
 
 		printf( '<form method="post" action="%s" class="wpcpm-duplicates__form" data-wpcpm-duplicates>', esc_url( $url ) );
-		wp_nonce_field( WPCPM_Duplicate_Finder::ACTION_REVIEW );
+		self::nonce_field( WPCPM_Duplicate_Finder::ACTION_REVIEW, 'wpcpm-duplicates-review-nonce' );
 		echo '<input type="hidden" name="wpcpm_review" value="1" />';
 
 		/* translators: %s: number of students. */

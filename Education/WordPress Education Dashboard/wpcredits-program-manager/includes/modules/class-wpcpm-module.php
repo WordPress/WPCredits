@@ -147,14 +147,14 @@ abstract class WPCPM_Module {
 
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Status', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p>' . esc_html__( 'The user role for this module is registered and ready. The module\'s own functionality has not been built yet.', 'wpcredits-program-manager' ) . '</p>';
+		echo '<p>' . esc_html__( 'The user role for this audience is registered and ready. Nothing else for it has been built yet.', 'wpcredits-program-manager' ) . '</p>';
 		echo '<table class="wpcpm-table"><tbody>';
 
 		printf(
 			'<tr><th scope="row">%1$s</th><td><code>%2$s</code> %3$s</td></tr>',
 			esc_html__( 'Role slug', 'wpcredits-program-manager' ),
 			esc_html( $this->role() ),
-			$exists ? esc_html__( '(registered)', 'wpcredits-program-manager' ) : esc_html__( '(missing - re-activate the plugin)', 'wpcredits-program-manager' )
+			$exists ? esc_html__( '(registered)', 'wpcredits-program-manager' ) : esc_html__( '(missing: re-activate the plugin to register it)', 'wpcredits-program-manager' )
 		);
 
 		printf(

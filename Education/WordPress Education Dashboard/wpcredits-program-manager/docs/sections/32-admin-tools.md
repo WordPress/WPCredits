@@ -1,8 +1,16 @@
-## Modules you run on their own
+## Tools you run on their own
+
+Three of the tools keep settings of their own: the **Mentor Status Checker**, the
+**Student Duplicate Finder** and **Need help?**. Each shows them in a **Settings** section at the top
+of its screen, a form with its own **Save settings** that saves that tool's settings and nothing
+else, and the notice after a save, on the same screen, names the tool. The Settings screen's
+Connection tab names the three, each a link to its section. On the **Tools** screen, a
+tool that cannot run says why on its card, in its own words: the Airtable connection for the Mentor
+Status Checker and the Student Duplicate Finder, and for Need help? its switch or its provider.
 
 ### Header notices
 
-**WPCredits Program → Modules → Header notices.** One notice per audience - Students, Mentors,
+**WPCredits Program > Tools > Header notices.** One notice per audience - Students, Mentors,
 Institutions, Sponsors, Administrators - each in its own editor on one screen, with a single Save
 button underneath.
 
@@ -21,14 +29,30 @@ button underneath.
 
 ### Mentor Status Checker
 
-Promotes mentors from *Vetted - positive* to *Active* in Airtable once their WordPress.org profile
-shows the Credits Mentor's Course completion. It reads profiles, matches the badge, and reports what
-it would change before it changes anything. It needs the Airtable connection, so it refuses to run
-until that is set up.
+**WPCredits Program > Tools > Mentor Status Checker.** Promotes mentors from *Vetted - positive* to
+*Active* in Airtable once their WordPress.org profile shows the Credits Mentor's Course completion. It
+reads profiles, matches the badge, and reports what it would change before it changes anything. It
+needs the Airtable connection, so it refuses to run until that is set up.
+
+#### Settings
+
+At the top of the checker's screen, above the buttons that start a run, a form with its own **Save
+settings**:
+
+| Setting | What it is for |
+| --- | --- |
+| **Check mentors with status** and **Promote them to** | The Mentors table's status a run reads mentors at, *Vetted - positive* by default, and the one it moves them to, *Active*, each chosen from the table's Status options, or typed, with a sentence saying why, when those cannot be read. Writing the second needs the `data.records:write` scope on the token. |
+| **Course title** and **Course slug** | The course a profile has to show as completed, the WordPress Credits Mentor's Course by default. The slug, from the course's address on learn.wordpress.org, is the reliable signal, and the title only a fallback. Both are typed: learn.wordpress.org has no list to read them from. |
+| **Completion phrase** | Words that must appear in the same profile history entry as the course, *Completed the course* by default, so somebody who merely blogged about the course is not counted. |
+| **Profile history filter** | **Milestones only (faster)**, the default, or **All contributions**: course completions are always milestone entries, so the faster filter reads roughly 40% fewer pages. Its fold: switch to all contributions only if WordPress.org changes and completions stop being found. |
+| **Maximum history pages per mentor** | From 1 to 100, 15 by default. A mentor whose history is longer is reported as "could not check", never as "not completed", since a false negative would leave them waiting. |
+| **Mentors per batch** and **Delay between requests (ms)** | How hard a run reads WordPress.org, from 1 to 25 mentors a batch, three by default, and from 0 to 5000 ms between requests, none by default: each mentor can cost several requests, so smaller batches keep the screen responsive. |
+| **Cache profile results for (seconds)** | How long a settled answer is kept, up to thirty days, twelve hours by default. A failed read is always tried again, and `0` keeps nothing. |
+| **Weekly check** | Two boxes, **Run the check automatically once a week** and **Let the weekly check also promote mentors**. Both are off by default: an unattended promotion writes to the shared Airtable base, so turn the second on deliberately. |
 
 ### Student Duplicate Finder
 
-**WPCredits Program → Modules → Student Duplicate Finder.** Lists every student who has more than
+**WPCredits Program > Tools > Student Duplicate Finder.** Lists every student who has more than
 one row in Students, Students Reports or Feedback in Airtable, proposes which rows to delete, and
 deletes the ones you tick and confirm.
 
@@ -158,12 +182,16 @@ becomes an ordinary entry. A copy whose delete Airtable never confirmed is erase
 and its entry says the row may still be in Airtable. Look its record ID up there: if the row is
 still there, the next scan lists it again.
 
-#### Turning deleting on
+#### Settings
 
-**Deleting ships switched off.** Until a program manager turns it on under **WPCredits Program →
-Settings**, in the Student Duplicate Finder's card, the whole list is read-only: no checkbox can be
-ticked and **Review selection** is grayed out. Scanning and reading work either way, so the list is
-worth looking at long before anyone decides to delete from it.
+**Deleting ships switched off.** Its one setting, **Deleting duplicates**, with its box **Let program
+managers delete the duplicated rows they select and confirm**, is in the Settings section at the top
+of the finder's screen, above the list, with a Save of its own. Until a program manager turns it on
+there, the whole list is read-only: no checkbox can be ticked, **Review selection** is grayed out, and
+the list says where deleting is turned on. Scanning and reading work either way, so the list is worth
+looking at long before anyone decides to delete from it. The row's fold says what a delete does: it
+removes rows from Students, Students Reports and Feedback in the shared base, and the finder keeps a
+sealed copy of each row for 30 days.
 
 Leaving it off between clean-ups is a reasonable habit, not a sign that something is wrong.
 
@@ -174,7 +202,7 @@ A tile at zero means the last scan found nothing, not that no scan has run: the 
 
 ### Track Builder
 
-**WPCredits Program → Modules → Track Builder.** A program track is one Airtable status, one form on
+**WPCredits Program > Tools > Track Builder.** A program track is one Airtable status, one form on
 the Student Report Card, a key chip in one color and, when the track follows one, a Learn course and
 an hours target. Before the Track Builder, a new track was a plugin release. Now it is a draft you
 write here, preview, publish to Airtable and switch on, with no developer in the loop.
@@ -354,9 +382,9 @@ screen first reads the base and says what it found.
   choice that is missing altogether is not a warning: the third checklist item below says, for each
   table, whether it has the choice yet.
 - **Columns**: every column the track writes to, and whether it exists or will be created. With a
-  schema token, the optional second token under **WPCredits Program → Settings**, the site creates
-  the missing columns when you publish. Without one, the screen lists the exact columns to create by
-  hand, name and type, and Publish waits until the next reading finds them.
+  schema token, the optional second token on the Connection tab of **WPCredits Program > Settings**,
+  the site creates the missing columns when you publish. Without one, the screen lists the exact
+  columns to create by hand, name and type, and Publish waits until the next reading finds them.
 - **What the site cannot do**: the three Airtable steps no token can take, with the exact values to
   use. Add the status to the condition of the automation *Add students to Students Reports and
   Feedback*; create the track's welcome email automation, as each of the four tracks has one; add the
@@ -386,7 +414,7 @@ being published. After that, press Publish again: it creates only the columns th
 and the log names every column the site made.
 
 What goes live is the track as it stood when Publish was pressed. An edit saved while Publish runs,
-in another tab or by another Program Administrator, is not part of that publish: the track then
+in another tab or by another program manager, is not part of that publish: the track then
 shows *Unpublished changes* until **Publish the changes** is pressed.
 
 After publishing, the same screen offers **Check it against Airtable**, which reads the base again and
@@ -426,5 +454,41 @@ the four that is missing, then as at any other time.
 
 ### Need help?
 
-The tool screen for the question box configured under Settings. Its own screen is where the handbook
-page lives and where you can see whether a provider is set.
+**WPCredits Program > Tools > Need help?** The question box over the WordPress documentation: its
+settings at the top of the screen, then how answers are produced, with the provider and the sites it
+is told to use, and a box for trying a question as somebody on the program would ask it.
+
+#### Settings
+
+At the top of the screen, a form with its own **Save settings**. One sentence says what the question
+box is, and its **Details** fold says where each question goes: the provider does the searching, so
+nothing is stored on this site, and each question, and the pages found for it, go to that company.
+
+- **Need help?** - its box, **Switch it on**, is on by default. Off means the box answers nobody, the
+  header button disappears and the page it lives on is unpublished. Nothing is deleted, so switching
+  it back on restores all of it.
+- **Where answers come from** - the provider searches wordpress.org, make.wordpress.org,
+  learn.wordpress.org and developer.wordpress.org itself. Nothing is copied to this site, so there is
+  nothing to configure and nothing to refresh.
+- **Answer provider** and **Provider API key** - leaving the provider as *None* keeps everything on
+  this site and means there are no answers at all. Choosing one sends each question, and the extracts
+  that match it, to that company. The key is stored in the database and never sent back to the
+  browser; left blank, it keeps the current key. A key for the Gemini provider is free at
+  aistudio.google.com.
+- **Model** - typed, `gemini-flash-latest` by default: the provider lists no models to choose from,
+  so the field holds whatever model is saved. Leave it as the default unless you have a reason not to.
+  It is an alias that always points at the current Gemini Flash, so it cannot be retired out from
+  under the site.
+- **Who can ask** - mentors and program managers by default; optionally students and institutions as
+  well, anybody logged in, or program managers only. Never anybody logged out, whatever this says.
+  The documentation describes running the program rather than being on it, which is why students
+  are not included by default.
+- **Questions per person per hour** - from 0 to 200, 20 by default, so a free tier cannot be spent in
+  an afternoon. Past the limit, people are asked to come back shortly. `0` removes the limit.
+
+While it is switched off, a notice above the section says so, with a link down to the switch; while it
+has no provider, the **Provider** row under the section says so, with a link back up. Its card on the
+**Tools** screen says which of the two it is, never the Airtable connection, which Need help? does not
+use. And a question that cannot be answered for want of a provider, a working model or a valid key
+tells the person asking that a program manager can put it right in the Settings section of the
+Need help? screen, under **WPCredits Program > Tools**.
