@@ -366,11 +366,15 @@ class WPCPM_Students_Dashboard {
 	 * @return WP_User[]
 	 */
 	private static function all_students() {
+		// Every account with a record, never a first page of them: the switcher offers this
+		// list. Capped at 1000 until 1.117.3 (683 accounts carried a record on 28 Sep 2026),
+		// the way the Students screen was capped at 500 until 1.117.1, where it hid 13 of 513
+		// accounts with no trace.
 		$users = get_users(
 			array(
 				'orderby'    => 'display_name',
 				'order'      => 'ASC',
-				'number'     => 1000,
+				'number'     => -1,
 				'meta_query' => array(
 					array(
 						'key'     => WPCPM_Students_Sync::META_RECORD_ID,

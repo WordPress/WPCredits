@@ -892,12 +892,15 @@ class WPCPM_Mentors_Dashboard {
 	 * @return WP_User[]
 	 */
 	public static function all_mentors() {
+		// Every account, never a first page of either query: the switcher offers this list and
+		// the call calendar searches it. Both capped at 500 until 1.117.3, the way the Students
+		// screen was capped until 1.117.1, where it hid 13 of 513 accounts with no trace.
 		$mentors = get_users(
 			array(
 				'role'    => WPCPM_Roles::ROLE_MENTOR,
 				'orderby' => 'display_name',
 				'order'   => 'ASC',
-				'number'  => 500,
+				'number'  => -1,
 			)
 		);
 
@@ -908,7 +911,7 @@ class WPCPM_Mentors_Dashboard {
 			array(
 				'orderby'    => 'display_name',
 				'order'      => 'ASC',
-				'number'     => 500,
+				'number'     => -1,
 				'meta_query' => array(
 					array(
 						'key'     => WPCPM_Mentors_Sync::META_RECORD_ID,

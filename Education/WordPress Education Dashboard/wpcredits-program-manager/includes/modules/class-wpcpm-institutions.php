@@ -1295,12 +1295,15 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @return WP_User[]
 	 */
 	public static function managers() {
+		// Every account with the capability, never a first page of them: a notification must
+		// reach every manager and the reviewer choices must offer every one. Capped at 200
+		// until 1.117.3, the way the Students screen was capped at 500 until 1.117.1.
 		$users = get_users(
 			array(
 				'capability' => WPCPM_Roles::CAP_MANAGE,
 				'orderby'    => 'ID',
 				'order'      => 'ASC',
-				'number'     => 200,
+				'number'     => -1,
 			)
 		);
 

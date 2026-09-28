@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.117.2
+Stable tag: 1.117.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.117.3 =
+
+* The Administrators screen, the program managers a notification reaches, the mentor switcher with the call calendar behind it, and the student switcher each read every account instead of a first page (200, 200, 500 and 1000), the same change the Students and Mentors screens had in 1.117.1 and 1.117.2.
 
 = 1.117.2 =
 

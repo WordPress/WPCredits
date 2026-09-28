@@ -91,11 +91,14 @@ class WPCPM_Administrators extends WPCPM_Module {
 	 * List the administrators and the program capabilities they hold.
 	 */
 	public function render_admin_page() {
+		// Every account with the role, never a first page of them: the heading counts from this
+		// list. Capped at 200 until 1.117.3, the way the Students screen was capped at 500 until
+		// 1.117.1, where it hid 13 of 513 accounts with no trace.
 		$admins = get_users(
 			array(
 				'role'    => WPCPM_Roles::ROLE_ADMIN,
 				'orderby' => 'display_name',
-				'number'  => 200,
+				'number'  => -1,
 			)
 		);
 
