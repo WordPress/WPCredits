@@ -467,6 +467,13 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 
 	/**
 	 * The provisioned mentors and their student counts.
+	 *
+	 * Every account with the role, never a first page of them: the heading counts from this
+	 * list, so a cap here was a cap on both. Until 1.117.2 the query asked for the first 500
+	 * accounts by display name, the same cap the Students screen carried until 1.117.1, where
+	 * it hid 13 of 513 accounts with no trace once the site passed 500 students. WordPress
+	 * primes every row's meta in one query whatever the count, so the whole list costs the
+	 * same round trips as a page of it.
 	 */
 	private function render_mentor_list() {
 		$mentors = get_users(
@@ -474,7 +481,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 				'role'    => WPCPM_Roles::ROLE_MENTOR,
 				'orderby' => 'display_name',
 				'order'   => 'ASC',
-				'number'  => 500,
+				'number'  => -1,
 			)
 		);
 
