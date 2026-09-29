@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.118.1\n"
+"Project-Id-Version: WPCredits Program Manager 1.118.2\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-29T14:05:17+00:00\n"
+"POT-Creation-Date: 2026-09-29T15:11:59+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -392,7 +392,7 @@ msgid "The four original tracks are in the Track Builder, and every published tr
 msgstr ""
 
 #: includes/class-wpcpm-cohort.php:143
-#: includes/modules/class-wpcpm-institution-roster-view.php:1148
+#: includes/modules/class-wpcpm-institution-roster-view.php:1168
 msgid "No start date"
 msgstr ""
 
@@ -2625,7 +2625,7 @@ msgstr[1] ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1259
 #: includes/modules/class-wpcpm-institution-import-form.php:538
-#: includes/modules/class-wpcpm-institution-roster-view.php:998
+#: includes/modules/class-wpcpm-institution-roster-view.php:1006
 #: includes/modules/class-wpcpm-institutions.php:1630
 #: includes/modules/class-wpcpm-institutions.php:2351
 #: includes/modules/class-wpcpm-institutions.php:2698
@@ -2881,14 +2881,14 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/modules/class-wpcpm-administrators-cards.php:1666
-#: includes/modules/class-wpcpm-institution-roster-view.php:1672
+#: includes/modules/class-wpcpm-institution-roster-view.php:1692
 msgid "These students have not been read from the program records yet."
 msgstr ""
 
 #. translators: 1: date and time, 2: how long ago.
 #. translators: 1: date and time, 2: human-readable time difference, e.g. "2 hours".
 #: includes/modules/class-wpcpm-administrators-cards.php:1667
-#: includes/modules/class-wpcpm-institution-roster-view.php:1684
+#: includes/modules/class-wpcpm-institution-roster-view.php:1704
 #, php-format
 msgid "Read from the program records on %1$s (%2$s ago)."
 msgstr ""
@@ -4364,7 +4364,7 @@ msgid "One student"
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-import-form.php:255
-#: includes/modules/class-wpcpm-institution-roster-view.php:1653
+#: includes/modules/class-wpcpm-institution-roster-view.php:1673
 msgid "Not recorded"
 msgstr ""
 
@@ -6150,12 +6150,12 @@ msgstr ""
 msgid "Value"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1175
+#: includes/modules/class-wpcpm-institution-roster-view.php:1195
 msgid "Ends today"
 msgstr ""
 
 #. translators: %s: number of days.
-#: includes/modules/class-wpcpm-institution-roster-view.php:1182
+#: includes/modules/class-wpcpm-institution-roster-view.php:1202
 #, php-format
 msgid "%s day left"
 msgid_plural "%s days left"
@@ -6163,48 +6163,48 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: number of days.
-#: includes/modules/class-wpcpm-institution-roster-view.php:1191
+#: includes/modules/class-wpcpm-institution-roster-view.php:1211
 #, php-format
 msgid "Ended %s day ago"
 msgid_plural "Ended %s days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1218
+#: includes/modules/class-wpcpm-institution-roster-view.php:1238
 msgid "No mentor yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1231
+#: includes/modules/class-wpcpm-institution-roster-view.php:1251
 msgid "A mentor is assigned. Their name has not reached this page yet."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1232
+#: includes/modules/class-wpcpm-institution-roster-view.php:1252
 msgid "A mentor is assigned. The report record has not reached this page yet."
 msgstr ""
 
 #. translators: %s: hours logged, e.g. "12" or "6.2".
-#: includes/modules/class-wpcpm-institution-roster-view.php:1305
+#: includes/modules/class-wpcpm-institution-roster-view.php:1325
 #, php-format
 msgid "%s h"
 msgstr ""
 
 #. translators: 1: hours logged, 2: the track's target in hours.
 #. translators: 1: this step's number, 2: the highest number on the scale.
-#: includes/modules/class-wpcpm-institution-roster-view.php:1314
+#: includes/modules/class-wpcpm-institution-roster-view.php:1334
 #: includes/modules/class-wpcpm-student-feedback.php:1243
 #, php-format
 msgid "%1$s of %2$s"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1382
+#: includes/modules/class-wpcpm-institution-roster-view.php:1402
 msgid "Not yet in the Students table"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1387
+#: includes/modules/class-wpcpm-institution-roster-view.php:1407
 msgid "These students are reporting on the program, but the program records have no enrollment row for them yet, so they are not counted in the groups above. A program manager needs to complete the record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-roster-view.php:1407
+#: includes/modules/class-wpcpm-institution-roster-view.php:1427
 msgid "A student whose name is not recorded yet"
 msgstr ""
 

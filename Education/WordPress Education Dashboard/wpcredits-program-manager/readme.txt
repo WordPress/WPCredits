@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.118.1
+Stable tag: 1.118.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.118.2 =
+
+* Institution Dashboard: a finished student who never had an account is no longer a bare row. The sync creates no account for a student in a past status, and the closed card drew its badge and its mentor's name from the account alone, so a student who dropped out or graduated before an account existed showed dates and a portrait and nothing else while the opened card named the mentor and the hours. The closed row now badges "Graduate" or "Dropped out" off the Students row, which spells them the same way, and takes the mentor's name from the row when the account has none. A current student without a joined report record still gets no badge. The same change shipped as 1.117.7 on the older line; this release puts it on the current one.
 
 = 1.118.1 =
 

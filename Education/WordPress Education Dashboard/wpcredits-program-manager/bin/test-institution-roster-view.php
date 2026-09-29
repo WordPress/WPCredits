@@ -435,7 +435,10 @@ $GLOBALS['index'] = array(
 			// No username and no account email: the row an avatar cannot be drawn for.
 			'recSTU00000000002' => row( 'recSTU00000000002', 'Bo Example', 'In Sensei', '2026-02-16', array( 'has_mentor' => true, 'email' => '' ) ),
 			'recSTU00000000003' => row( 'recSTU00000000003', 'Cy Example', 'In Sensei 50h', '2026-03-01' ),
-			'recSTU00000000004' => row( 'recSTU00000000004', 'Dee Example', 'Graduate', '2026-01-20' ),
+			// Graduated, joined to her report record, mentored, and never given an account: the
+			// sync creates none for a past status, so her closed row is what a finished student
+			// without an account looks like (1.117.7).
+			'recSTU00000000004' => row( 'recSTU00000000004', 'Dee Example', 'Graduate', '2026-01-20', array( 'has_mentor' => true, 'mentor_name' => 'Mo Mentor', 'reports' => array( 'recREP00000000004' ) ) ),
 			'recSTU00000000005' => row( 'recSTU00000000005', 'Eve Example', 'Not moving forward', '2026-02-16' ),
 			'recSTU00000000006' => row( 'recSTU00000000006', 'Spammy Example', 'SPAM', '2026-02-16' ),
 			'recSTU00000000007' => row( 'recSTU00000000007', 'Dup Example', 'Duplicated', '2026-02-16' ),
@@ -554,6 +557,16 @@ ck( 'and his row says a mentor is assigned but the report record has not reached
 	has( group_rows( $html, 'current' ), 'A mentor is assigned. The report record has not reached this page yet.' ), true );
 ck( 'the old sentence, which claimed the record was never created, is gone', has( $html, 'has not been created yet' ), false );
 ck( 'Cy is waiting with no mentor at all', has( group_rows( $html, 'waiting' ), 'No mentor yet.' ), true );
+// A finished student who never had an account (1.117.7): the closed row used to draw its badge
+// and its mentor's name from the account alone, so such a row was dates and a portrait and
+// nothing else while the card inside named the mentor. A past status is spelled the same in
+// both tables, so it is badged off the Students row, and the mentor's name the join lent the
+// row is the one the opened card prints.
+ck( 'a finished student with no account still wears the badge of their past status',
+	has( card_summary( $html, 'finished', 'Dee Example' ), 'wpcpm-badge' ) && has( card_summary( $html, 'finished', 'Dee Example' ), '>Graduate</span>' ), true );
+ck( 'and the mentor the row already names is in the preview line', has( card_summary( $html, 'finished', 'Dee Example' ), 'Mo Mentor' ), true );
+ck( 'but a current student with no account gets no badge off the pipeline status', has( card_summary( $html, 'current', 'Bo Example' ), 'wpcpm-badge' ), false );
+ck( 'and no mentor name the row does not carry', has( card_summary( $html, 'current', 'Bo Example' ), ' · ' ), false );
 // The two notes state the rule the groups are built on, both signals named: a report record
 // with no mentor link left on the Students row is still Current, so "with a mentor assigned"
 // alone would promise a name the mentor cell then denies.
@@ -680,6 +693,16 @@ echo "\n=== Hours ===\n";
  * @param string $group Which group's first card to read.
  * @return string|null The cell's text, or null when the card has no hours row at all.
  */
+/** One student's closed row: the summary of the card that names them, or ''. */
+function card_summary( $html, $group, $name ) {
+	foreach ( explode( '<details class="wpcpm-mentee__disclosure', group_rows( $html, $group ) ) as $card ) {
+		if ( false !== strpos( $card, '>' . $name . '<' ) ) {
+			return substr( $card, 0, (int) strpos( $card, '</summary>' ) );
+		}
+	}
+	return '';
+}
+
 function hours_of( $html, $group = 'current', $name = '' ) {
 	$rows = group_rows( $html, $group );
 

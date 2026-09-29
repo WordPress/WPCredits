@@ -907,24 +907,32 @@ class WPCPM_Institution_Roster_View {
 	/**
 	 * The mentor's name for a card's preview line, or nothing.
 	 *
-	 * Read from the same cached block `cells()` reads, so the closed row and the Mentor row
-	 * inside cannot disagree about who it is.
+	 * Read the way `cells()` reads it, so the closed row and the Mentor row inside cannot
+	 * disagree about who it is: the account's cached block when the account has a name, and
+	 * otherwise the name the sync lent the index row from the joined report record. The
+	 * second half is what a finished student without an account gets (1.117.7); before it the
+	 * preview read the account alone and printed nothing for them while the opened card named
+	 * the mentor.
 	 *
 	 * @param array $row The index row.
 	 * @return string
 	 */
 	private static function mentor_name_of( array $row ) {
 		$user_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
+		$cached  = '';
 
-		if ( $user_id < 1 ) {
-			return '';
+		if ( $user_id > 0 ) {
+			$mentor = get_user_meta( $user_id, WPCPM_Students_Sync::META_MENTOR, true );
+			$cached = ( is_array( $mentor ) && isset( $mentor['name'] ) && is_scalar( $mentor['name'] ) )
+				? trim( (string) $mentor['name'] )
+				: '';
 		}
 
-		$mentor = get_user_meta( $user_id, WPCPM_Students_Sync::META_MENTOR, true );
+		if ( '' !== $cached ) {
+			return $cached;
+		}
 
-		return ( is_array( $mentor ) && isset( $mentor['name'] ) && is_scalar( $mentor['name'] ) )
-			? trim( (string) $mentor['name'] )
-			: '';
+		return isset( $row['mentor_name'] ) && is_scalar( $row['mentor_name'] ) ? trim( (string) $row['mentor_name'] ) : '';
 	}
 
 	/**
@@ -1055,6 +1063,14 @@ class WPCPM_Institution_Roster_View {
 	 * without one has no program yet and gets no badge, rather than a badge of the pipeline
 	 * status from the other vocabulary.
 	 *
+	 * **One exception, the past statuses.** The sync creates no account for a student in a
+	 * past status, so a student who dropped out or graduated before an account existed has
+	 * none, ever. Their closed row was dates and a portrait and nothing else while the card
+	 * inside named the mentor and the hours (a Liceo La Paz roster, 29 September 2026).
+	 * "Graduate" and "Dropped out" are spelled the same in both tables, so for a row without
+	 * an account they are badged off the Students row; an active pipeline status still is not,
+	 * because a Current student without a joined report record has no program to show.
+	 *
 	 * @param array $row The index row.
 	 * @return string
 	 */
@@ -1062,7 +1078,11 @@ class WPCPM_Institution_Roster_View {
 		$user_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
 
 		if ( $user_id < 1 ) {
-			return '';
+			$status  = trim( (string) ( isset( $row['status'] ) ? $row['status'] : '' ) );
+			$tracked = WPCPM_Mentors_Sync::tracked_statuses();
+			$past    = isset( $tracked['past'] ) ? (array) $tracked['past'] : array();
+
+			return in_array( $status, $past, true ) ? $status : '';
 		}
 
 		$program = get_user_meta( $user_id, WPCPM_Students_Sync::META_PROGRAM, true );
