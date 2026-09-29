@@ -137,11 +137,13 @@ CITY_COORDS = {
     ("kishoreganj", "Bangladesh"): (24.4449, 90.7766, "Kishoreganj"),
     ("bogura", "Bangladesh"): (24.8481, 89.3728, "Bogura"),
     ("pisa", "Italy"): (43.4715, 10.6798, "Pisa"),
+    ("bologna", "Italy"): (44.4938, 11.3426, "Bologna"),
     ("san josé", "Costa Rica"): (9.9328, -84.0796, "San José"),
     ("cartago", "Costa Rica"): (9.8157, -83.6944, "Cartago"),
     ("albuquerque", "United States"): (35.0841, -106.651, "Albuquerque"),
     ("madison", "United States"): (40.7598, -74.4171, "Madison"),
     ("new york city", "United States"): (40.7128, -74.006, "New York City"),
+    ("brooklyn", "United States"): (40.6526, -73.9497, "Brooklyn"),
     ("riga", "Latvia"): (56.9494, 24.1052, "Riga"),
     ("santa cruz", "Bolivia"): (-17.7834, -63.1821, "Santa Cruz de la Sierra"),
     ("krakow", "Poland"): (50.0619, 19.9369, "Kraków"),
@@ -167,6 +169,10 @@ CITY_COORDS = {
     ("cochabamba", "Bolivia"): (-17.4012, -66.1676, "Cochabamba"),
     ("udupi", "India"): (13.3409, 74.7421, "Udupi"),
     ("kundapura", "India"): (13.6255, 74.691, "Kundapura"),
+    # Airtable stores this one as "Cagayan de Oro City"; the key must match the
+    # stored city exactly (lowercased), while the display name drops the
+    # redundant "City" the way other entries tidy casing and diacritics.
+    ("cagayan de oro city", "Philippines"): (8.4756, 124.6422, "Cagayan de Oro"),
 }
 
 # Institutions that Airtable holds as a single record but that operate more than
