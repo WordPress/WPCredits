@@ -1,6 +1,6 @@
-# WordPress Credits: Contribution Internship Program
+# WordPress Credits: Contribution Practice Program for Students
 
-WordPress Credits is a contribution-based internship program by the WordPress Foundation that brings university students into the heart of the WordPress open source project. The program helps students develop transferable skills, gain practical experience, and join a global community of open source contributors.
+WordPress Credits is a contribution program by the WordPress Foundation that brings students into the heart of the WordPress open source project. The program helps students develop transferable skills, gain practical experience, and join a global community of open source contributors.
 Through the program, students collaborate with volunteers and professionals from companies in the WordPress ecosystem. While we encourage connections that could lead to paid opportunities, the internship itself does not offer compensation.
 
 ## What Is the Program?
