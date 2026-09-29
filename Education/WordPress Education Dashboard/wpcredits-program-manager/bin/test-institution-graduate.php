@@ -4,12 +4,19 @@
  *
  * What each block pins, and why it is worth pinning:
  *
- * - **Two states, and the two are the whole list.** `states()` offers `Graduate` and
- *   `Dropped out`. `Paused` and `Pending graduation` are tracked statuses and are still not
- *   offered, because pausing and holding at pending graduation are the program's calls; a POST
- *   naming either changes nothing and, because guard 1 runs before `claim()`, costs no Airtable
- *   request at all. A guard that only refused after the fetch would be a way of making this site
- *   fetch on demand.
+ * - **Graduating is off unless a filter offers it.** `graduation_offered()` answers no by
+ *   default, so `states()` holds `Dropped out` alone: the card draws that one control, and a
+ *   posted graduation is refused before the network and with no audit row, in a sentence saying
+ *   the option is switched off. A graduate's card reads the same either way: already recorded
+ *   as finished. The labels and the audit kinds keep their graduate entries, so the filter is
+ *   the whole switch. Every block after the first runs with it on, which keeps the Graduate
+ *   flow pinned for the day it is offered again.
+ * - **One state or two, and they are the whole list.** With graduating offered, `states()` offers
+ *   `Graduate` and `Dropped out`. `Paused` and `Pending graduation` are tracked statuses and are
+ *   still not offered, because pausing and holding at pending graduation are the program's calls;
+ *   a POST naming either changes nothing and, because guard 1 runs before `claim()`, costs no
+ *   Airtable request at all. A guard that only refused after the fetch would be a way of making
+ *   this site fetch on demand.
  * - The nonce is checked **before** `claim()`, because `claim()` makes an HTTP request on this
  *   site's Airtable credentials and a cross-site POST must not be able to cause one. The token is
  *   keyed to the record **and** the state, so a token for graduating somebody is not a token for
@@ -64,6 +71,7 @@ $GLOBALS['live_rows'] = array();
 $GLOBALS['forgot']    = array();
 $GLOBALS['referer']   = array();
 $GLOBALS['no_insert'] = false;
+$GLOBALS['filters']   = array();
 // The tracked active statuses, as `WPCPM_Settings::defaults()` ships them. Held in a global so
 // one block can take `Paused` back out and prove the paused refusal does not depend on it.
 $GLOBALS['active'] = array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Paused', 'Pending graduation' );
@@ -102,8 +110,14 @@ function is_email( $e ) { return (bool) filter_var( (string) $e, FILTER_VALIDATE
 function wp_unslash( $v ) { return $v; }
 function absint( $v ) { return abs( (int) $v ); }
 function add_action( $h, $c = null, $p = 10, $n = 1 ) { $GLOBALS['hooks'][] = $h; }
-function add_filter() {}
-function apply_filters( $tag, $value ) { return $value; }
+// Kept and run, as WordPress keeps and runs them: graduation is offered through a filter, and the
+// suite turns it on so every Graduate check after the first block stays pinned.
+function add_filter( $tag, $callback, $p = 10, $n = 1 ) { $GLOBALS['filters'][ $tag ][] = $callback; return true; }
+function apply_filters( $tag, $value ) {
+	foreach ( $GLOBALS['filters'][ $tag ] ?? array() as $callback ) { $value = call_user_func( $callback, $value ); }
+	return $value;
+}
+function __return_true() { return true; }
 function register_post_type() {}
 function wp_date( $f, $t = null ) { return gmdate( $f, null === $t ? time() : $t ); }
 function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $k ] : $d; }
@@ -545,7 +559,99 @@ function draw( $viewer, $record, array $context = array() ) {
 	return (string) ob_get_clean();
 }
 
-echo "=== Guard 1: two states, and the two are the whole list ===\n";
+echo "=== Graduation is off unless a filter offers it ===\n";
+
+reset_world();
+
+$states = WPCPM_Institution_Students::states();
+
+// The default is the switch turned off: a school records a student as dropped out, and program
+// managers record graduations in Airtable.
+ck( 'by default the list holds dropped out alone', $states, array( 'withdrawn' => 'Dropped out' ) );
+ck( 'so Graduate is not a value a school can write', in_array( 'Graduate', $states, true ), false );
+// Nothing else about graduating is taken away, so offering it again is the filter and no more.
+ck( 'the graduate label is kept for the day it is offered again', array_keys( WPCPM_Institution_Students::labels() ), array( 'graduated', 'withdrawn' ) );
+ck( 'and so is its audit kind', array_keys( WPCPM_Institution_Students::kinds() ), array( 'graduated', 'withdrawn' ) );
+
+$html = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
+
+ck( 'a member sees one control', substr_count( $html, '<form' ), 1 );
+ck( 'the dropped out button', has( $html, 'Mark as dropped out' ), true );
+ck( 'and not the graduate button', has( $html, 'Mark as graduated' ), false );
+ck( 'no graduate nonce is minted', has( $html, 'nonce-wpcpm_change_student_status_' . $student . '_graduated' ), false );
+// The card says what is on it: one control, not the two it holds when graduating is offered.
+ck( 'the card speaks of one control', has( $html, 'This one is yours to record' ), true );
+ck( 'and not of two', has( $html, 'These two' ), false );
+ck( 'a program manager is not offered it either', has( draw( 1, $student, array() ), 'Mark as graduated' ), false );
+
+$ended = press( 2, $student, 'graduated' );
+
+// A page drawn before graduating was switched off still posts the state. Guard 1 meets it as it
+// meets any change this screen does not make, and says why in a sentence of its own.
+ck( 'a posted graduation is refused as switched off', flash_outcome(), 'status-graduation-off' );
+ck( 'before anything reaches the network', $GLOBALS['http'], array() );
+ck( 'and nothing is written', $GLOBALS['writes'], array() );
+ck( 'and no audit row is filed', WPCPM_Institution_Audit::entries_for( $inst_a ), array() );
+ck( 'and it redirected rather than dying', has( $ended, 'redirect:' ), true );
+ck( 'check() refuses it too', WPCPM_Institution_Students::check( 'graduated', 'In Sensei' )['write'], false );
+
+// The sentence, printed on the card the press came from. The reader has drawn no card yet in
+// this run: `WPCPM_Flash::take()` keeps its first answer for the rest of a request, so a reader
+// who had drawn one earlier would read their empty channel again.
+$GLOBALS['users'][5]   = new WP_User( 5, 'A Registrar', 'registrar@example.test' );
+$GLOBALS['members'][5] = array( $inst_a );
+press( 5, $student, 'graduated' );
+ck( 'and the card says graduating is switched off, in so many words',
+    has( draw( 5, $student, array() ), '<p class="wpcpm-institution__status-message is-error" role="status">Nothing was changed: marking a student as graduated is switched off on this screen for now. Program managers record graduations in Airtable.</p>' ), true );
+
+press( 2, $student, 'paused' );
+ck( 'any other state this screen does not make keeps the general refusal', flash_outcome(), 'status-unknown' );
+
+reset_world( 'In Sensei' );
+press( 2, $student, 'withdrawn' );
+
+ck( 'dropping a student out still writes', flash_outcome(), 'status-withdrawn' );
+ck( 'one cell, Dropped out', $GLOBALS['writes'][0]['fields'] ?? array(), array( 'Status' => 'Dropped out' ) );
+ck( 'under its own audit kind', WPCPM_Institution_Audit::entries_for( $inst_a )[0]['kind'] ?? '', WPCPM_Institution_Students::KIND_WITHDRAWN );
+
+reset_world( 'In Sensei' );
+WPCPM_Roster_Index::update( $inst_a, $student, array( 'status' => 'Graduate' ) );
+$graduate_card = draw( 2, $student, array( 'name' => 'Anna Nowak' ) );
+
+// A student the program has graduated reads as before graduating was switched off: no control,
+// and the placement already recorded as finished, never "not on the program right now".
+ck( 'a graduate\'s card draws no control', has( $graduate_card, '<form' ), false );
+ck( 'and says the placement is already recorded as finished, quoting the records',
+    has( $graduate_card, '<p class="wpcpm-institution__status-note">This placement is already recorded as finished, so there is nothing to record here. A program manager changes it in the program records. They say: Graduate.</p>' ), true );
+ck( 'and not that the student is off the program', has( $graduate_card, 'not on the program right now' ), false );
+
+ck( 'graduation_offered() answers no by default', WPCPM_Institution_Students::graduation_offered(), false );
+
+// Every block below runs with graduating offered, so each Graduate check pins the flow as it
+// will be the day the filter, or a later default, turns it back on.
+add_filter( 'wpcpm_institution_graduation_offered', '__return_true' );
+
+ck( 'the filter offers it', WPCPM_Institution_Students::graduation_offered(), true );
+
+reset_world( 'In Sensei' );
+ck( 'and the card speaks of both controls again', has( draw( 2, $student, array( 'name' => 'Anna Nowak' ) ), 'These two are yours to record' ), true );
+
+// The reading does not depend on the switch: the same card, byte for byte, either way.
+reset_world( 'In Sensei' );
+WPCPM_Roster_Index::update( $inst_a, $student, array( 'status' => 'Graduate' ) );
+ck( 'a graduate\'s card is the same card with graduating offered', draw( 2, $student, array( 'name' => 'Anna Nowak' ) ), $graduate_card );
+
+// And the general refusal is still the one a state this screen does not make gets, printed for a
+// reader who has drawn no card yet, for the reason given above.
+reset_world( 'In Sensei' );
+$GLOBALS['users'][6]   = new WP_User( 6, 'A Dean', 'dean@example.test' );
+$GLOBALS['members'][6] = array( $inst_a );
+press( 6, $student, 'paused' );
+ck( 'with graduating offered, a posted unknown state gets the general refusal', flash_outcome(), 'status-unknown' );
+ck( 'and the card prints the general sentence',
+    has( draw( 6, $student, array() ), 'Nothing was changed: that is not a change this screen makes. Graduated and dropped out are the two it records;' ), true );
+
+echo "\n=== Guard 1: two states, and the two are the whole list ===\n";
 
 reset_world();
 

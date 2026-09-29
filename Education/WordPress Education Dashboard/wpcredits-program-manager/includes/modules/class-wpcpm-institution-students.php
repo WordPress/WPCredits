@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * The two status changes a school may make for itself, and what stops every other one.
+ * The status changes a school may make for itself, and what stops every other one.
  *
  * This is the module's one write that nobody can take back. Every other institution-side write
  * corrects a cell somebody can correct again; this one moves `Status` on the Students table, and
@@ -19,13 +19,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  * log cannot see them: a row here saying the site wrote a value is not evidence of what the
  * student received. So this class is three guards and a single `update_records()` call.
  *
- * **Guard 1: two states, and the two are the whole list.** `states()` offers `Graduate` and
- * `Dropped out`. `Paused` and `Pending graduation` are tracked statuses since decision 21, so the
- * first design's reason for leaving them out - a student moved to either lost their role at the
- * next sync - no longer holds. They stay out because pausing a student and holding them at
- * pending graduation are the program's calls about its own process, not a school's. The handler
- * matches the posted state against `states()` before anything reaches the network, so a
- * hand-written POST naming a third status spends no request and writes nothing.
+ * **Guard 1: one state or two, and they are the whole list.** `states()` offers `Dropped out`,
+ * and `Graduate` beside it only while `graduation_offered()` says so, which by default it does
+ * not: program managers record graduations in Airtable. `Paused` and `Pending graduation` are
+ * tracked statuses since decision 21, so the first design's reason for leaving them out - a
+ * student moved to either lost their role at the next sync - no longer holds. They stay out
+ * because pausing a student and holding them at pending graduation are the program's calls about
+ * its own process, not a school's. The handler matches the posted state against `states()`
+ * before anything reaches the network, so a POST naming any status the list does not hold spends
+ * no request and writes nothing.
  *
  * **Guard 2: the row is read live and has to agree, in `WPCPM_Mentor_Checker_Runner::promote()`'s
  * shape.** `claim()` returns the Students row as the base holds it now, `check()` reads its
@@ -127,12 +129,44 @@ final class WPCPM_Institution_Students {
 	 */
 
 	/**
+	 * Whether a school may mark one of its own students as graduated.
+	 *
+	 * **Off, for the time being.** The owner switched the option off on 29 September 2026:
+	 * program managers record graduations in Airtable, as before, and a school still marks a
+	 * student as dropped out. The `wpcpm_institution_graduation_offered` filter offers it
+	 * again, and so would a later release that flips the default.
+	 *
+	 * Everything below follows this one answer, so nothing has to be touched twice. `states()`
+	 * leaves the graduated state out while the answer is no, and `states()` is what the controls
+	 * are drawn from, what the handler matches a posted state against before anything reaches the
+	 * network, and so the only way to an audit row filed under `KIND_GRADUATED`. While the answer
+	 * is no, a graduation posted from an older page is refused with a sentence saying the option
+	 * is switched off, and a graduate's card still says the placement is already recorded as
+	 * finished, exactly as it does while the option is offered (`blocked_by()`). The label, the
+	 * dialog, the sentences and the audit kind keep their graduated entries for the day it is
+	 * offered again.
+	 *
+	 * @return bool
+	 */
+	public static function graduation_offered() {
+		/**
+		 * Filter whether a school may mark one of its students as graduated from the Institution
+		 * Dashboard.
+		 *
+		 * @param bool $offered False by default: program managers record graduations in Airtable.
+		 */
+		return (bool) apply_filters( 'wpcpm_institution_graduation_offered', false );
+	}
+
+	/**
 	 * The states a school may move one of its own students to, and what each writes.
 	 *
-	 * **This map is the list, and the list is two.** The renderer draws a control per entry and
-	 * the handler matches the posted value against the keys, so nothing outside it has a button
-	 * to press or a branch to reach. Adding a third entry is a one-line diff here and a failing
-	 * assertion in `bin/test-institution-graduate.php` until somebody has decided it belongs.
+	 * **This map is the list, and the list is one or two, by `graduation_offered()`.**
+	 * `Dropped out` is always on it, and `Graduate` only while that answers yes. The renderer
+	 * draws a control per entry and the handler matches the posted value against the keys, so
+	 * nothing outside it has a button to press or a branch to reach, a graduation included while
+	 * it is not offered. Adding another entry is a one-line diff here and a failing assertion in
+	 * `bin/test-institution-graduate.php` until somebody has decided it belongs.
 	 *
 	 * Deliberately absent, and the reason is not a technical one:
 	 *
@@ -147,6 +181,25 @@ final class WPCPM_Institution_Students {
 	 * @return array<string, string> State key to the value written to the Students table.
 	 */
 	public static function states() {
+		$states = self::all_states();
+
+		if ( ! self::graduation_offered() ) {
+			unset( $states[ self::STATE_GRADUATED ] );
+		}
+
+		return $states;
+	}
+
+	/**
+	 * Both states and what each writes, whether or not graduating is offered.
+	 *
+	 * `states()` is this map less what is switched off, so the base's two values are written
+	 * once. It is read on its own only to recognise a row, never to draw or accept a change:
+	 * `blocked_by()` needs to know a `Graduate` row when there is no graduate control to ask.
+	 *
+	 * @return array<string, string> State key to the value written to the Students table.
+	 */
+	private static function all_states() {
 		return array(
 			self::STATE_GRADUATED => 'Graduate',
 			self::STATE_WITHDRAWN => 'Dropped out',
@@ -156,7 +209,7 @@ final class WPCPM_Institution_Students {
 	/**
 	 * What each control is called on the card.
 	 *
-	 * Kept apart from `states()` so that map stays exactly the two values written to Airtable and
+	 * Kept apart from `states()` so that map stays exactly the values written to Airtable and
 	 * nothing else: a label added to it would be one more thing to read past when checking what a
 	 * school may write.
 	 *
@@ -283,23 +336,34 @@ final class WPCPM_Institution_Students {
 	}
 
 	/**
-	 * Which single reason to print when neither change is offered.
+	 * Which single reason to print when no change is offered.
 	 *
 	 * Built from `check()`'s own answers rather than from a second walk over the statuses,
-	 * because a second walk is a second place to get the order wrong. A row at `Graduate`
-	 * answers `already` for one state and `untracked` for the other, and "the records already
-	 * say Graduate" is the sentence a school can act on; a paused row answers `paused` twice and
-	 * that sentence outranks everything.
+	 * because a second walk is a second place to get the order wrong. With graduating offered, a
+	 * row at `Graduate` answers `already` for one state and `untracked` for the other, and "the
+	 * records already say Graduate" is the sentence a school can act on; a paused row answers
+	 * `paused` for every state and that sentence outranks everything.
+	 *
+	 * **A graduate's card reads the same while graduating is not offered.** `check()` is then
+	 * asked about withdrawing alone, which a `Graduate` row answers `untracked`, so the one answer
+	 * it would have given for the graduated state is added here from the value `all_states()`
+	 * holds. The card still says the placement is already recorded as finished, and never tells
+	 * a school that its graduate is not on the program.
 	 *
 	 * @param string[] $outcomes What `check()` answered for each state.
+	 * @param string   $status   What the roster row says.
 	 * @return string One outcome slug.
 	 */
-	private static function blocked_by( array $outcomes ) {
+	private static function blocked_by( array $outcomes, $status ) {
 		if ( in_array( self::OUT_PAUSED, $outcomes, true ) ) {
 			return self::OUT_PAUSED;
 		}
 
-		if ( in_array( self::OUT_ALREADY, $outcomes, true ) ) {
+		// Compared as `check()` compares, trimmed and exact, so the two readings of a `Graduate`
+		// row cannot drift apart.
+		$graduate = 0 === strcmp( trim( (string) $status ), self::all_states()[ self::STATE_GRADUATED ] );
+
+		if ( $graduate || in_array( self::OUT_ALREADY, $outcomes, true ) ) {
 			return self::OUT_ALREADY;
 		}
 
@@ -326,7 +390,7 @@ final class WPCPM_Institution_Students {
 	 *
 	 * @param string $state One of `states()`' keys.
 	 * @param string $name  The student's name as the card knows it.
-	 * @return string The dialog text, or '' for a state that is not offered.
+	 * @return string The dialog text, or '' for a state that is neither of the two.
 	 */
 	public static function confirm( $state, $name ) {
 		$name = trim( (string) $name );
@@ -357,7 +421,8 @@ final class WPCPM_Institution_Students {
 	 */
 
 	/**
-	 * The graduate and withdraw controls for one student, drawn inside the student card.
+	 * The withdraw control for one student, and the graduate one while `graduation_offered()`
+	 * says so, drawn inside the student card.
 	 *
 	 * Nothing at all when the decision refuses, which is the module's first call pattern: the
 	 * card the reader came from is the answer, and a refused reader is not shown a disabled
@@ -439,16 +504,20 @@ final class WPCPM_Institution_Students {
 			// The reason is printed before a press rather than only after one. Open question 4
 			// settles that for the paused case in as many words: an institution cannot graduate a
 			// paused student, and the roster says so on the row rather than failing silently.
-			self::render_note( self::blocked_by( $outcomes ), $status );
+			self::render_note( self::blocked_by( $outcomes, $status ), $status );
 
 			echo '</section>';
 
 			return;
 		}
 
+		// One sentence for one control, so the card never speaks of two while it draws one: while
+		// graduating is not offered, one is all a card can draw.
 		printf(
 			'<p class="wpcpm-institution__status-lede">%s</p>',
-			esc_html__( 'These two are yours to record when a placement ends. Both send the student a letter from the program records straight away, and neither can be undone from here.', 'wpcredits-program-manager' )
+			1 === count( $offered )
+				? esc_html__( 'This one is yours to record when a placement ends. It sends the student a letter from the program records straight away, and it cannot be undone from here.', 'wpcredits-program-manager' )
+				: esc_html__( 'These two are yours to record when a placement ends. Both send the student a letter from the program records straight away, and neither can be undone from here.', 'wpcredits-program-manager' )
 		);
 
 		foreach ( $offered as $state ) {
@@ -502,7 +571,7 @@ final class WPCPM_Institution_Students {
 	}
 
 	/**
-	 * Why neither control is drawn, in one sentence on the card.
+	 * Why no control is drawn, in one sentence on the card.
 	 *
 	 * @param string $outcome One of the OUT_* slugs.
 	 * @param string $status  What the roster row says.
@@ -657,6 +726,7 @@ final class WPCPM_Institution_Students {
 			self::OUT_PAUSED                  => array( 'error', __( 'Nothing was changed.', 'wpcredits-program-manager' ) . ' ' . self::paused_sentence() ),
 			self::OUT_UNTRACKED               => array( 'error', __( 'Nothing was changed: this student is not on the program right now, so how their placement ended is a program manager\'s to record.', 'wpcredits-program-manager' ) ),
 			'status-unknown'                  => array( 'error', __( 'Nothing was changed: that is not a change this screen makes. Graduated and dropped out are the two it records; everything else about a student\'s status is the program\'s.', 'wpcredits-program-manager' ) ),
+			'status-graduation-off'           => array( 'error', __( 'Nothing was changed: marking a student as graduated is switched off on this screen for now. Program managers record graduations in Airtable.', 'wpcredits-program-manager' ) ),
 			'status-refused'                  => array( 'error', WPCPM_Institution_Policy::refusal()->get_error_message() ),
 			'status-unreadable'               => array( 'error', __( 'Nothing was changed: the program records could not be read just now, so the site did not write anything it could not check first. Try again in a moment.', 'wpcredits-program-manager' ) ),
 			'status-airtable'                 => array( 'error', __( 'Nothing was changed: the program records refused the change. Try again, and tell your program contact if it happens twice.', 'wpcredits-program-manager' ) ),
@@ -716,9 +786,12 @@ final class WPCPM_Institution_Students {
 
 		// **Guard 1.** Before `claim()` on purpose: a hand-written POST naming `Paused`,
 		// `Pending graduation` or anything else this screen does not offer costs no Airtable
-		// request at all, so the guard cannot be turned into a way of making this site fetch.
+		// request at all, so the guard cannot be turned into a way of making this site fetch. A
+		// graduation posted from a page drawn while it was offered is refused here the same way,
+		// with a sentence of its own: the school pressed a button it could see, and is told the
+		// option is switched off rather than that this screen never made the change.
 		if ( ! isset( $states[ $state ] ) ) {
-			self::bounce( 'status-unknown', '', $record );
+			self::bounce( self::STATE_GRADUATED === $state ? 'status-graduation-off' : 'status-unknown', '', $record );
 		}
 
 		$column = self::column();

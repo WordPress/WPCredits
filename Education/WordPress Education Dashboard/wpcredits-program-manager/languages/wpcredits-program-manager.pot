@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WPCredits Program Manager 1.118.0\n"
+"Project-Id-Version: WPCredits Program Manager 1.118.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/wpcredits-program-manager\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-28T23:14:47+00:00\n"
+"POT-Creation-Date: 2026-09-29T14:05:17+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wpcredits-program-manager\n"
@@ -35,13 +35,13 @@ msgid "Maciej Pilarski"
 msgstr ""
 
 #. translators: %s: the account's display name.
-#: includes/class-wpcpm-accounts-table.php:262
+#: includes/class-wpcpm-accounts-table.php:263
 #, php-format
 msgid "Select %s"
 msgstr ""
 
 #. translators: %s: how many accounts, in parentheses.
-#: includes/class-wpcpm-accounts-table.php:332
+#: includes/class-wpcpm-accounts-table.php:333
 #, php-format
 msgid "All %s"
 msgid_plural "All %s"
@@ -49,7 +49,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: how many accounts, in parentheses.
-#: includes/class-wpcpm-accounts-table.php:334
+#: includes/class-wpcpm-accounts-table.php:335
 #, php-format
 msgid "Invited %s"
 msgid_plural "Invited %s"
@@ -57,26 +57,26 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: how many accounts, in parentheses.
-#: includes/class-wpcpm-accounts-table.php:336
+#: includes/class-wpcpm-accounts-table.php:337
 #, php-format
 msgid "Never invited %s"
 msgid_plural "Never invited %s"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wpcpm-accounts-table.php:395
-#: includes/class-wpcpm-accounts-table.php:435
+#: includes/class-wpcpm-accounts-table.php:396
+#: includes/class-wpcpm-accounts-table.php:436
 #: includes/modules/class-wpcpm-mentors.php:564
 msgid "Send invite"
 msgstr ""
 
-#: includes/class-wpcpm-accounts-table.php:396
-#: includes/class-wpcpm-accounts-table.php:435
+#: includes/class-wpcpm-accounts-table.php:397
+#: includes/class-wpcpm-accounts-table.php:436
 #: includes/modules/class-wpcpm-mentors.php:563
 msgid "Resend invite"
 msgstr ""
 
-#: includes/class-wpcpm-accounts-table.php:597
+#: includes/class-wpcpm-accounts-table.php:598
 msgid "No accounts found."
 msgstr ""
 
@@ -6231,7 +6231,7 @@ msgid "These five details are yours to correct. Everything else on this card - t
 msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-form.php:316
-#: includes/modules/class-wpcpm-institution-students.php:486
+#: includes/modules/class-wpcpm-institution-students.php:555
 msgid "Saving..."
 msgstr ""
 
@@ -6337,7 +6337,7 @@ msgstr ""
 
 #: includes/modules/class-wpcpm-institution-student-form.php:1211
 #: includes/modules/class-wpcpm-institution-student-form.php:1212
-#: includes/modules/class-wpcpm-institution-students.php:854
+#: includes/modules/class-wpcpm-institution-students.php:927
 msgid "empty"
 msgstr ""
 
@@ -6422,117 +6422,125 @@ msgstr ""
 msgid "The Student Report Card is read when you open it."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:167
+#: includes/modules/class-wpcpm-institution-students.php:220
 msgid "Mark as graduated"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:168
+#: includes/modules/class-wpcpm-institution-students.php:221
 msgid "Mark as dropped out"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:333
+#: includes/modules/class-wpcpm-institution-students.php:397
 #: includes/modules/class-wpcpm-mentors-dashboard.php:1210
 msgid "this student"
 msgstr ""
 
 #. translators: %s: the student's name.
-#: includes/modules/class-wpcpm-institution-students.php:338
+#: includes/modules/class-wpcpm-institution-students.php:402
 #, php-format
 msgid "Mark %s as graduated? The program records will email them a certificate notice that cannot be recalled, and the change is logged under your name. There is no un-graduate on this screen: a program manager changes it back in the program records."
 msgstr ""
 
 #. translators: %s: the student's name.
-#: includes/modules/class-wpcpm-institution-students.php:346
+#: includes/modules/class-wpcpm-institution-students.php:410
 #, php-format
 msgid "Mark %s as dropped out? The program records will email them a notice that cannot be recalled, and the change is logged under your name. There is no undo on this screen: a program manager changes it back in the program records."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:433
+#: includes/modules/class-wpcpm-institution-students.php:498
 msgid "Finishing this placement"
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:451
+#: includes/modules/class-wpcpm-institution-students.php:519
+msgid "This one is yours to record when a placement ends. It sends the student a letter from the program records straight away, and it cannot be undone from here."
+msgstr ""
+
+#: includes/modules/class-wpcpm-institution-students.php:520
 msgid "These two are yours to record when a placement ends. Both send the student a letter from the program records straight away, and neither can be undone from here."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:460
+#: includes/modules/class-wpcpm-institution-students.php:529
 msgid "Recorded the wrong one? Nothing on this screen puts it back. Tell your program contact, who changes it in the program records."
 msgstr ""
 
 #. translators: %s: the status stored in the program records.
-#: includes/modules/class-wpcpm-institution-students.php:544
+#: includes/modules/class-wpcpm-institution-students.php:613
 #, php-format
 msgid "They say: %s."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:634
+#: includes/modules/class-wpcpm-institution-students.php:703
 msgid "This placement is already recorded as finished, so there is nothing to record here. A program manager changes it in the program records."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:636
+#: includes/modules/class-wpcpm-institution-students.php:705
 msgid "This student is not on the program right now, so how their placement ended is a program manager's to record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:651
+#: includes/modules/class-wpcpm-institution-students.php:720
 msgid "A program manager changes it in the program records."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:654
+#: includes/modules/class-wpcpm-institution-students.php:723
 msgid "Saved. This student is recorded as graduated, and their certificate notice is on its way from the program records. It cannot be recalled from here, and neither can the change."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:655
+#: includes/modules/class-wpcpm-institution-students.php:724
 msgid "Saved. This student is recorded as dropped out, and the program records have sent them their own notice. It cannot be recalled from here, and neither can the change."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:656
+#: includes/modules/class-wpcpm-institution-students.php:725
 msgid "Nothing was changed: the program records already say this."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:657
+#: includes/modules/class-wpcpm-institution-students.php:726
 msgid "Nothing was changed."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:658
+#: includes/modules/class-wpcpm-institution-students.php:727
 msgid "Nothing was changed: this student is not on the program right now, so how their placement ended is a program manager's to record."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:659
+#: includes/modules/class-wpcpm-institution-students.php:728
 msgid "Nothing was changed: that is not a change this screen makes. Graduated and dropped out are the two it records; everything else about a student's status is the program's."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:661
+#: includes/modules/class-wpcpm-institution-students.php:729
+msgid "Nothing was changed: marking a student as graduated is switched off on this screen for now. Program managers record graduations in Airtable."
+msgstr ""
+
+#: includes/modules/class-wpcpm-institution-students.php:731
 msgid "Nothing was changed: the program records could not be read just now, so the site did not write anything it could not check first. Try again in a moment."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:662
+#: includes/modules/class-wpcpm-institution-students.php:732
 msgid "Nothing was changed: the program records refused the change. Try again, and tell your program contact if it happens twice."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:663
+#: includes/modules/class-wpcpm-institution-students.php:733
 msgid "Nothing was changed: the program records hold no student row to write this to. A program manager completes the record first."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:664
+#: includes/modules/class-wpcpm-institution-students.php:734
 msgid "Nothing was changed: this site cannot tell which column in the program records holds a student's status, so it did not guess. Tell your program contact."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:665
+#: includes/modules/class-wpcpm-institution-students.php:735
 msgid "Nothing was changed: this student's row in the program records is not linked to any institution, so there is nothing to record the change against and this screen does not make a change it cannot record. A program manager links the row first."
 msgstr ""
 
-#: includes/modules/class-wpcpm-institution-students.php:666
+#: includes/modules/class-wpcpm-institution-students.php:736
 msgid "The change reached the program records, but the entry saying who made it could not be written, so it is not in this institution's history. Tell your program contact, and do not press this again until they have looked."
 msgstr ""
 
 #. translators: %s: the Airtable view ID the mirror automation is restricted to.
-#: includes/modules/class-wpcpm-institution-students.php:683
+#: includes/modules/class-wpcpm-institution-students.php:753
 #, php-format
 msgid "The program records say this student is paused. The automation that carries a status change through to the rest of their records is restricted to one view, %s, and a paused student is not in it: recording a paused student as finished would email them while their report record, their site account and their mentor's list all went on saying paused. Ask your program contact to take them off pause first."
 msgstr ""
 
 #. translators: 1: the status before the change, 2: the status after it.
-#: includes/modules/class-wpcpm-institution-students.php:853
+#: includes/modules/class-wpcpm-institution-students.php:926
 #, php-format
 msgid "Status: %1$s to %2$s."
 msgstr ""
