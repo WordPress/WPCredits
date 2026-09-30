@@ -194,7 +194,7 @@ final class WPCPM_Institution_Students {
 	 * Both states and what each writes, whether or not graduating is offered.
 	 *
 	 * `states()` is this map less what is switched off, so the base's two values are written
-	 * once. It is read on its own only to recognise a row, never to draw or accept a change:
+	 * once. It is read on its own only to recognize a row, never to draw or accept a change:
 	 * `blocked_by()` needs to know a `Graduate` row when there is no graduate control to ask.
 	 *
 	 * @return array<string, string> State key to the value written to the Students table.

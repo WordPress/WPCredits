@@ -16,23 +16,31 @@
 	<arg name="colors"/>
 	<arg value="ps"/>
 
-	<!-- Generated and vendored paths. -->
+	<!-- Generated and vendored paths, wherever they are. -->
 	<exclude-pattern>*/node_modules/*</exclude-pattern>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
+
+	<!--
+		The three below are folders of the tree being checked, so each is matched from that tree's
+		own root (`type="relative"`: the path from the <file> above) rather than anywhere in the
+		whole path. A tree that is itself a linked worktree sits under a .worktrees/ of its
+		checkout, and a pattern matched against the whole path left out every file of it, so its
+		standards and its dead annotations were checked over nothing.
+	-->
 	<!-- The orchestration scratch (briefs, reports, review diffs, snapshots of the theme) is never plugin code. -->
-	<exclude-pattern>*/.superpowers/*</exclude-pattern>
+	<exclude-pattern type="relative">^\.superpowers/*</exclude-pattern>
 	<!--
 		Nor are the linked worktrees of other branches under .worktrees/, each checked from its own
 		tree. Read from here as well, one of them ran phpcs out of memory.
 	-->
-	<exclude-pattern>*/.worktrees/*</exclude-pattern>
+	<exclude-pattern type="relative">^\.worktrees/*</exclude-pattern>
 
 	<!--
 		Development scripts. They deliberately declare stand-ins for dozens of WordPress
 		functions and read superglobals directly, which is the opposite of what the
 		standard is for and would drown the report.
 	-->
-	<exclude-pattern>*/bin/*</exclude-pattern>
+	<exclude-pattern type="relative">^bin/*</exclude-pattern>
 
 	<rule ref="WordPress">
 

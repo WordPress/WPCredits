@@ -14,8 +14,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Provisions Mentor accounts from Airtable, gives each mentor a private page
  * listing their assigned students, and reports on the last sync.
+ *
+ * Its screen is the accounts screen every audience's module shares (`WPCPM_Accounts_Screen`).
+ * What is the mentors' own is here: the words, the table, the invitations card, and the Sync tab
+ * with its warning while names are still unread.
  */
 class WPCPM_Mentors extends WPCPM_Sync_Module {
+
+	use WPCPM_Accounts_Screen;
 
 	const ACTION_SYNC   = 'wpcpm_mentors_sync';
 	const ACTION_CANCEL = 'wpcpm_mentors_cancel';
@@ -24,6 +30,30 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	/** Admin-post action for inviting everybody who has never been invited. */
 	const ACTION_BULK = 'wpcpm_mentors_bulk_invite';
 	const ACTION_TICK   = 'wpcpm_mentors_tick';
+
+	/** The screen's tab the accounts are on, which every link and form of the list returns to. */
+	const TAB_ACCOUNTS = 'accounts';
+
+	/** The screen's tab the Airtable sync is on, which the sync's forms return to. */
+	const TAB_SYNC = 'sync';
+
+	/**
+	 * The screen's tabs, slug => label, in the bar's order: the accounts, the tab the screen opens
+	 * on, then the sync. English, as a constant has to hold them; `tab_labels()` translates them.
+	 */
+	const TABS = array(
+		self::TAB_ACCOUNTS => 'Accounts',
+		self::TAB_SYNC     => 'Sync',
+	);
+
+	/**
+	 * The user option the rows-per-page choice is kept in: the Mentor accounts table's own name, here
+	 * too, because the save is hooked at boot, long before that class is loaded.
+	 */
+	const PER_PAGE_OPTION = 'wpcpm_mentors_per_page';
+
+	/** The flash channel that carries a press on the ticked accounts' count and kind, beside the outcome. */
+	const FLASH_DETAIL = 'mentors_admin_detail';
 
 	/**
 	 * Module ID.
@@ -92,6 +122,9 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 		add_action( 'admin_post_' . self::ACTION_INVITE, array( $this, 'handle_invite' ) );
 		add_action( 'admin_post_' . self::ACTION_BULK, array( $this, 'handle_bulk_invite' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
+
+		// The screen's own load hook, once the menu exists, and its rows-per-page save.
+		$this->boot_screen();
 	}
 
 	/**
@@ -149,96 +182,11 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			// calendar needs a per-person clock, so it goes with the calendar.
 			WPCPM_Mentor_Availability::META_TIMEZONE,
 			'wpcpm_mentor_invited',
+			// A manager's rows-per-page choice for the Mentor accounts, which core keeps as user meta.
+			self::PER_PAGE_OPTION,
 		) as $meta_key ) {
 			delete_metadata( 'user', 0, $meta_key, '', true );
 		}
-	}
-
-
-	/**
-	 * Email one mentor their login invitation.
-	 */
-	public function handle_invite() {
-		$this->verify( self::ACTION_INVITE );
-
-		$user_id = WPCPM_Request::posted_id( 'user_id' );
-		$result  = WPCPM_Mentors_Sync::send_invite( $user_id );
-
-		$this->redirect_back( WPCPM_Mail::invite_outcome( $result ) );
-	}
-
-	/**
-	 * Queue an invitation for every mentor who has never had one.
-	 *
-	 * Queued rather than sent here: `send_invite()` sends immediately, which is right for one row
-	 * and would time out somewhere in the middle of two hundred. The queue is drained by cron a
-	 * batch at a time, which is what it was built for.
-	 */
-	public function handle_bulk_invite() {
-		$this->verify( self::ACTION_BULK );
-
-		$pending = WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_MENTOR, 'wpcpm_mentor_invited' );
-
-		if ( empty( $pending ) ) {
-			$this->redirect_back( 'invites-none' );
-		}
-
-		WPCPM_Mail::queue_invites( $pending );
-
-		$this->redirect_back( 'invites-queued' );
-	}
-
-	/**
-	 * Render the Mentors screen.
-	 */
-	public function render_admin_page() {
-		$progress = WPCPM_Mentors_Sync::progress();
-		$report   = get_option( WPCPM_Mentors_Sync::OPT_REPORT );
-		$error    = get_option( WPCPM_Mentors_Sync::OPT_ERROR );
-		$last     = (int) get_option( WPCPM_Mentors_Sync::OPT_LAST );
-
-		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
-
-		$this->render_mentor_notice();
-
-		if ( ! WPCPM_Settings::is_connected() ) {
-			printf(
-				'<div class="notice notice-warning"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
-				esc_html__( 'Airtable is not connected yet, so no mentors can be synced.', 'wpcredits-program-manager' ),
-				esc_url( admin_url( 'admin.php?page=wpcpm-settings' ) ),
-				esc_html__( 'Open settings', 'wpcredits-program-manager' )
-			);
-		}
-
-		if ( $error ) {
-			printf(
-				'<div class="notice notice-error"><p><strong>%1$s</strong> %2$s</p></div>',
-				esc_html__( 'Last sync error:', 'wpcredits-program-manager' ),
-				esc_html( $error )
-			);
-		}
-
-		// Student rows are cached in user meta, so institution and team names only
-		// appear once a sync has read the tables they live in.
-		if ( WPCPM_Mentors_Sync::has_unresolved_links() ) {
-			printf(
-				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s</p></div>',
-				esc_html__( 'Institution and team names have not been read yet.', 'wpcredits-program-manager' ),
-				esc_html__( 'Airtable sends those two fields as record IDs, which the sync turns into names. Run a sync to fill them in - until then the mentor page leaves them blank rather than showing an ID.', 'wpcredits-program-manager' )
-			);
-		}
-
-		$this->render_sync_panel( $progress, $last );
-
-		if ( is_array( $report ) ) {
-			$this->render_report( $report );
-		}
-
-		$this->render_mentor_list();
-
-		echo '</div>';
 	}
 
 	/**
@@ -260,38 +208,165 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * This screen's own outcomes, over the three every sync screen shares.
+	 * The Mentor accounts table: the list the screen draws, whose role and stamp the invitations
+	 * read, and whose rule the rows-per-page save keeps.
+	 *
+	 * @return string
 	 */
-	private function render_mentor_notice() {
-		$this->render_status_notice(
-			array_merge(
-				WPCPM_Mail::invite_notices(),
+	protected static function table_class() {
+		return 'WPCPM_Mentors_Table';
+	}
+
+	/**
+	 * The words the screen prints for mentors, in the places every accounts screen prints its
+	 * audience's: the keys `WPCPM_Accounts_Screen::screen_words()` lists.
+	 *
+	 * @return array<string, string>
+	 */
+	protected function screen_words() {
+		return array(
+			'heading_views'      => __( 'Filter mentor accounts list', 'wpcredits-program-manager' ),
+			'heading_pagination' => __( 'Mentor accounts list navigation', 'wpcredits-program-manager' ),
+			'heading_list'       => __( 'Mentor accounts list', 'wpcredits-program-manager' ),
+			'not_connected'      => __( 'Airtable is not connected yet, so no mentors can be synced.', 'wpcredits-program-manager' ),
+			'list_heading'       => __( 'Mentor accounts', 'wpcredits-program-manager' ),
+			'page_label'         => __( 'Mentor Dashboard:', 'wpcredits-program-manager' ),
+			'page_missing'       => __( 'The mentor page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' ),
+			'search'             => __( 'Search mentors', 'wpcredits-program-manager' ),
+			'list_note'          => __( 'Accounts are created with a random password and no email. "Send invite" emails that mentor a password-reset link so they can set their own.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * The Mentor Report Card's address, which the list card names, or '' while the page is missing.
+	 *
+	 * @return string
+	 */
+	protected function dashboard_url() {
+		return WPCPM_Mentors_Dashboard::page_url();
+	}
+
+	/**
+	 * Queue an invitation for every mentor who has never had one, then back to the Accounts tab, as
+	 * every other press on the tab comes back to it.
+	 *
+	 * Queued rather than sent here: `send_invite()` sends immediately, which is right for one row
+	 * and would time out somewhere in the middle of two hundred. The queue is drained by cron a
+	 * batch at a time, which is what it was built for.
+	 *
+	 * The count a press on the ticked accounts carries is that press's alone, and this button leaves
+	 * the same outcomes with none: `leave()` empties that channel, so a count never printed is not
+	 * shown under these.
+	 */
+	public function handle_bulk_invite() {
+		$this->verify( self::ACTION_BULK );
+
+		$pending = self::never_invited();
+
+		if ( empty( $pending ) ) {
+			$this->leave( $this->accounts_url(), 'invites-none' );
+		}
+
+		WPCPM_Mail::queue_invites( $pending );
+
+		$this->leave( $this->accounts_url(), 'invites-queued' );
+	}
+
+	/**
+	 * Where the list stands, as the request says: its view, search, sort and page, each encoded, the
+	 * empty ones left out.
+	 *
+	 * What a press in the list comes back to (`list_url()`), and what each row's invitation link
+	 * carries, so the invitation comes back to the same place. Rebuilt from what the list reads rather
+	 * than copied from the address, so the form's own fields (its nonce, the ticked accounts, the
+	 * action chosen) are never carried. Each value is encoded, because `add_query_arg()` sets a value
+	 * as it is given.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function list_state() {
+		return array_map(
+			static function ( $value ) {
+				return rawurlencode( (string) $value );
+			},
+			array_filter(
 				array(
-					'invites-queued'  => array( 'success', __( 'Invitations queued. They go out in the background - the progress is shown below.', 'wpcredits-program-manager' ) ),
-					'invites-none'    => array( 'info', __( 'Nobody was waiting for an invitation.', 'wpcredits-program-manager' ) ),
-					'invites-stopped' => array( 'info', __( 'Sending stopped. Invitations already sent cannot be recalled.', 'wpcredits-program-manager' ) ),
+					'wpcpm_view' => WPCPM_Request::key( 'wpcpm_view' ),
+					's'          => WPCPM_Request::text( 's' ),
+					'orderby'    => WPCPM_Request::key( 'orderby' ),
+					'order'      => WPCPM_Request::key( 'order' ),
+					'paged'      => WPCPM_Request::id( 'paged' ),
 				)
 			)
 		);
 	}
 
 	/**
-	 * The sync controls and live progress.
+	 * The Sync tab: the sync's notices, the warning while Airtable is not connected, the last run's
+	 * error, the warning while names are still unread, the Airtable sync card and the last run's
+	 * report.
+	 */
+	private function render_tab_sync() {
+		$report = get_option( WPCPM_Mentors_Sync::OPT_REPORT );
+		$error  = get_option( WPCPM_Mentors_Sync::OPT_ERROR );
+
+		$this->render_notice_from( self::sync_messages() );
+		$this->render_not_connected();
+
+		if ( $error ) {
+			printf(
+				'<div class="notice notice-error"><p><strong>%1$s</strong> %2$s</p></div>',
+				esc_html__( 'Last sync error:', 'wpcredits-program-manager' ),
+				esc_html( $error )
+			);
+		}
+
+		// Student rows are cached in user meta, so institution and team names only appear once a
+		// sync has read the tables they live in. On this tab, since what it asks for is a sync.
+		if ( WPCPM_Mentors_Sync::has_unresolved_links() ) {
+			printf(
+				'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s</p></div>',
+				esc_html__( 'Institution and team names have not been read yet.', 'wpcredits-program-manager' ),
+				esc_html__( 'Airtable sends those two fields as record IDs, which the sync turns into names. Run a sync to fill them in - until then the mentor page leaves them blank rather than showing an ID.', 'wpcredits-program-manager' )
+			);
+		}
+
+		$this->render_sync_panel( WPCPM_Mentors_Sync::progress(), (int) get_option( WPCPM_Mentors_Sync::OPT_LAST ) );
+
+		if ( is_array( $report ) ) {
+			$this->render_report( $report );
+		}
+	}
+
+	/**
+	 * The invitations card, on the Accounts tab: every mentor never invited.
+	 *
+	 * Its button posts the tab, so the press comes back to it. Its Stop and Dismiss are the mail
+	 * layer's own forms, which name no tab: they come back to the address they were pressed on, this
+	 * tab, and Stop's outcome waits on the flash channel this screen reads, which the card names in
+	 * its form, so "Sending stopped." prints here.
+	 */
+	private function render_invitations() {
+		WPCPM_Mail::render_invite_card(
+			array(
+				'action'  => self::ACTION_BULK,
+				'pending' => self::never_invited(),
+				'noun'    => __( 'mentors', 'wpcredits-program-manager' ),
+				'hidden'  => array( self::TAB_FIELD => self::TAB_ACCOUNTS ),
+				'flash'   => $this->flash_key(),
+			)
+		);
+	}
+
+	/**
+	 * The Airtable sync card, on the Sync tab: the live progress and Cancel sync while a run is on,
+	 * and otherwise when the last run finished and the button that starts one. Both forms name the
+	 * tab, so the press comes back to it.
 	 *
 	 * @param array $progress Progress data.
 	 * @param int   $last     Timestamp of the last completed sync.
 	 */
 	private function render_sync_panel( array $progress, $last ) {
-		WPCPM_Mail::render_invite_card(
-			array(
-				'action'  => self::ACTION_BULK,
-				'pending' => WPCPM_Mail::never_invited( WPCPM_Roles::ROLE_MENTOR, 'wpcpm_mentor_invited' ),
-				'noun'    => __( 'mentors', 'wpcredits-program-manager' ),
-				// Named by the card's Stop, so "Sending stopped." prints here.
-				'flash'   => $this->flash_key(),
-			)
-		);
-
 		echo '<div class="wpcpm-card">';
 		echo '<h2>' . esc_html__( 'Airtable sync', 'wpcredits-program-manager' ) . '</h2>';
 
@@ -301,6 +376,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 			wp_nonce_field( self::ACTION_CANCEL );
 			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_CANCEL ) . '" />';
+			$this->tab_field( self::TAB_SYNC );
 			submit_button( __( 'Cancel sync', 'wpcredits-program-manager' ), 'secondary', 'submit', false );
 			echo '</form>';
 		} else {
@@ -322,6 +398,7 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 			wp_nonce_field( self::ACTION_SYNC );
 			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_SYNC ) . '" />';
+			$this->tab_field( self::TAB_SYNC );
 			submit_button( __( 'Sync mentors now', 'wpcredits-program-manager' ), 'primary', 'submit', false );
 			echo '</form>';
 		}
@@ -464,113 +541,6 @@ class WPCPM_Mentors extends WPCPM_Sync_Module {
 			echo '</ul>';
 		}
 
-		echo '</div>';
-	}
-
-	/**
-	 * The provisioned mentors and their student counts.
-	 *
-	 * Every account with the role, never a first page of them: the heading counts from this
-	 * list, so a cap here was a cap on both. Until 1.117.2 the query asked for the first 500
-	 * accounts by display name, the same cap the Students screen carried until 1.117.1, where
-	 * it hid 13 of 513 accounts with no trace once the site passed 500 students. WordPress
-	 * primes every row's meta in one query whatever the count, so the whole list costs the
-	 * same round trips as a page of it.
-	 */
-	private function render_mentor_list() {
-		$mentors = get_users(
-			array(
-				'role'    => WPCPM_Roles::ROLE_MENTOR,
-				'orderby' => 'display_name',
-				'order'   => 'ASC',
-				'number'  => -1,
-			)
-		);
-
-		$page_url = WPCPM_Mentors_Dashboard::page_url();
-
-		echo '<div class="wpcpm-card">';
-		printf(
-			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
-			esc_html__( 'Mentor accounts', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $mentors ) ) )
-		);
-
-		if ( $page_url ) {
-			printf(
-				'<p>%1$s <a href="%2$s">%2$s</a></p>',
-				esc_html__( 'Mentor Dashboard:', 'wpcredits-program-manager' ),
-				esc_url( $page_url )
-			);
-		} else {
-			echo '<p class="wpcpm-warning">' . esc_html__( 'The mentor page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' ) . '</p>';
-		}
-
-		if ( empty( $mentors ) ) {
-			echo '<p>' . esc_html__( 'No mentor accounts yet. Run a sync to create them.', 'wpcredits-program-manager' ) . '</p>';
-			echo '</div>';
-
-			return;
-		}
-
-		echo '<table class="widefat striped wpcpm-list"><thead><tr>';
-		echo '<th scope="col">' . esc_html__( 'Mentor', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Username', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Students', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Past', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Status', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Actions', 'wpcredits-program-manager' ) . '</th>';
-		echo '</tr></thead><tbody>';
-
-		foreach ( $mentors as $mentor ) {
-			$count   = WPCPM_Mentors_Dashboard::get_mentee_count( $mentor->ID );
-			$active  = (int) get_user_meta( $mentor->ID, WPCPM_Mentors_Sync::META_ACTIVE, true );
-			$invited = (int) get_user_meta( $mentor->ID, 'wpcpm_mentor_invited', true );
-
-			echo '<tr>';
-			printf(
-				'<td><a href="%1$s">%2$s</a></td>',
-				esc_url( get_edit_user_link( $mentor->ID ) ),
-				esc_html( $mentor->display_name )
-			);
-			printf( '<td><code>%s</code></td>', esc_html( $mentor->user_login ) );
-			printf( '<td>%s</td>', esc_html( number_format_i18n( $count ) ) );
-			printf( '<td>%s</td>', esc_html( number_format_i18n( (int) get_user_meta( $mentor->ID, WPCPM_Mentors_Sync::META_PAST_COUNT, true ) ) ) );
-			printf(
-				'<td>%s</td>',
-				$active
-					? esc_html__( 'Active', 'wpcredits-program-manager' )
-					: esc_html__( 'Not in Airtable', 'wpcredits-program-manager' )
-			);
-
-			echo '<td class="wpcpm-list__actions">';
-
-			if ( $page_url ) {
-				printf(
-					'<a href="%1$s">%2$s</a>',
-					esc_url( add_query_arg( 'wpcpm_mentor', $mentor->ID, $page_url ) ),
-					esc_html__( 'View page', 'wpcredits-program-manager' )
-				);
-			}
-
-			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-			wp_nonce_field( self::ACTION_INVITE );
-			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_INVITE ) . '" />';
-			printf( '<input type="hidden" name="user_id" value="%d" />', (int) $mentor->ID );
-			printf(
-				'<button type="submit" class="button-link">%s</button>',
-				$invited
-					? esc_html__( 'Resend invite', 'wpcredits-program-manager' )
-					: esc_html__( 'Send invite', 'wpcredits-program-manager' )
-			);
-			echo '</form>';
-
-			echo '</td>';
-			echo '</tr>';
-		}
-
-		echo '</tbody></table>';
-		echo '<p class="description">' . esc_html__( 'Accounts are created with a random password and no email. "Send invite" emails that mentor a password-reset link so they can set their own.', 'wpcredits-program-manager' ) . '</p>';
 		echo '</div>';
 	}
 }

@@ -989,11 +989,10 @@ ck( 'status_options(): a single-select column\'s options, each its own value',
     call( 'WPCPM_Settings_Choices', 'status_options', $defaults['institutions_table'], 'Current Stage' ), array_combine( $stages, $stages ) );
 ck( 'tracks_statuses(): the status of every track the site runs, with the track\'s name',
     call( 'WPCPM_Settings_Choices', 'tracks_statuses' ), $live );
-ck( 'managers(): every account holding the capability that has an address, by role, Program managers then Administrators, each by address with its name, in name order',
+ck( 'managers(): every account holding the capability that has an address, in one group, Administrators, the one name the screens give the people who manage the program, whether the account holds WordPress\'s Administrator role or holds the capability another way, each by address with its name, in name order',
     call( 'WPCPM_Settings_Choices', 'managers' ),
     array(
-        'Program managers' => array( 'pat@program.example' => 'Pat Coordinator' ),
-        'Administrators'   => array( 'Ana@Program.example' => 'Ana Admin', 'zoe@program.example' => 'Zoe Admin' ),
+        'Administrators' => array( 'Ana@Program.example' => 'Ana Admin', 'pat@program.example' => 'Pat Coordinator', 'zoe@program.example' => 'Zoe Admin' ),
     ) );
 ck( 'models(): the provider names no models, so the default the plugin ships, alone',
     call( 'WPCPM_Settings_Choices', 'models' ), array( $defaults['handbook_model'] => $defaults['handbook_model'] ) );
@@ -1258,19 +1257,19 @@ ck( 'with no list, checklist_row() draws the textarea it stands in for, the same
 
 /* ---- the reviewer lists ----------------------------------------------------- */
 
-echo "\n=== A reviewer list: the program managers by role, and a line for any other address ===\n";
+echo "\n=== A reviewer list: the program managers under Administrators, and a line for any other address ===\n";
 
 store( $connected );
 airtable_answers( true );
 
 $reviewers = row( 'reviewers_row', 'agreement_notify', 'Who reviews agreements', 'zoe@program.example,board@partner.example,ana@program.example', 'Addresses told when an agreement arrives.' );
 
-ck( 'reviewers_row() draws a box per program manager, Program managers then Administrators, each named with the address the box saves, the saved ones ticked whatever case the account spells its address in',
+ck( 'reviewers_row() draws a box per program manager, all under Administrators, each named with the address the box saves, the saved ones ticked whatever case the account spells its address in',
     null === $reviewers ? null : boxes_of( $reviewers, 'agreement_notify' ),
     array(
-        'Program managers' => array( 'pat@program.example' => array( 'Pat Coordinator (pat@program.example)', false, false ) ),
-        'Administrators'   => array(
+        'Administrators' => array(
             'Ana@Program.example' => array( 'Ana Admin (Ana@Program.example)', true, false ),
+            'pat@program.example' => array( 'Pat Coordinator (pat@program.example)', false, false ),
             'zoe@program.example' => array( 'Zoe Admin (zoe@program.example)', true, false ),
         ),
     ) );
@@ -1466,15 +1465,15 @@ $managers_asked          = $GLOBALS['user_queries'];
 $sponsors                = form_of( draw_settings( 'sponsors' ) );
 $managers_box            = function ( array $ticked ) {
 	return array(
-		'Program managers' => array( 'pat@program.example' => array( 'Pat Coordinator (pat@program.example)', in_array( 'pat@program.example', $ticked, true ), false ) ),
-		'Administrators'   => array(
+		'Administrators' => array(
 			'Ana@Program.example' => array( 'Ana Admin (Ana@Program.example)', in_array( 'Ana@Program.example', $ticked, true ), false ),
+			'pat@program.example' => array( 'Pat Coordinator (pat@program.example)', in_array( 'pat@program.example', $ticked, true ), false ),
 			'zoe@program.example' => array( 'Zoe Admin (zoe@program.example)', in_array( 'zoe@program.example', $ticked, true ), false ),
 		),
 	);
 };
 
-ck( 'the Institutions tab draws both reviewer lists, and the Sponsors tab its interest mail, as the program managers by role, the saved ones ticked',
+ck( 'the Institutions tab draws both reviewer lists, and the Sponsors tab its interest mail, as the program managers under Administrators, the saved ones ticked',
     array( boxes_of( $institutions, 'agreement_notify' ), boxes_of( $institutions, 'report_notify' ), boxes_of( $sponsors, 'sponsor_notify' ) ),
     array( $managers_box( array( 'zoe@program.example' ) ), $managers_box( array( 'pat@program.example' ) ), $managers_box( array() ) ) );
 

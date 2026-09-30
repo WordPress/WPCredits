@@ -717,8 +717,8 @@ echo "\n=== Capability, nonce, policy, and only then the network ===\n";
 
 $src     = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' );
 $handler = method_body( $src, 'handle_link' );
-// verify() is the shared sync module's since 1.90.0: one copy for the three modules that own a sync.
-$verify  = method_body( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ), 'verify' );
+// verify() is the module base's: one copy for every module's screen, the sync modules' since 1.90.0.
+$verify  = method_body( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php' ), 'verify' );
 
 ck( 'the handler carries the nonce and the policy, and verify() carries the capability', array(
 	has( $handler, '$this->verify(' ),

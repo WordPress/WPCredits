@@ -130,7 +130,7 @@ answer that removes comes first, and it is the default for both.
   first sync creates around ninety accounts at once. Its fold: invitations are queued and sent a few
   at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed,
   and you can also invite people one at a time from the Mentors and Students screens, or tick
-  several in the Students screen's list and invite them together.
+  several in the Students or Mentors screen's list and invite them together.
 - **Automatic sync** - **Read Airtable on a schedule**, on by default: the students, mentors and
   institutions syncs every three hours, the mentors run half an hour after the students run. The
   sponsors sync is on the same three-hour clock and runs regardless of this switch. Its fold: the
@@ -201,11 +201,10 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 - **Agreement review** - how many days, from 1 to 60 and 3 by default, a signed agreement may wait
   before the queue marks it overdue and the nightly digest names it.
 - **Who reviews agreements** - who is told when an agreement arrives and sent the overdue digest: a
-  box for each program manager, grouped as **Program managers** and **Administrators**, and an
-  **Other addresses** line for anybody else, separated by commas. With none, every program manager
-  is written to, which reaches technical administrators as well, so set it before the first real
-  upload. Where no program manager account with an email address can be listed, the addresses are
-  typed, separated by commas.
+  box for each program manager, under **Administrators**, and an **Other addresses** line for
+  anybody else, separated by commas. With none, every program manager is written to, which reaches
+  technical administrators as well, so set it before the first real upload. Where no program manager
+  account with an email address can be listed, the addresses are typed, separated by commas.
 - **The agreement wording** - the Google Doc the plugin's copy of the Collaboration Agreement was
   taken from, used by the Check against the Doc button; Google addresses only. Its fold: it is kept
   on this site rather than in the code, because the document is editable by anyone holding its link
@@ -280,15 +279,15 @@ One section, **Two-factor authentication**.
 
 #### Two-factor authentication
 
-- **Roles that must use it** - a box for each role: **Program managers (administrators)**, then
-  Student, Mentor, Institution and Sponsor. An account in a ticked role is asked for a code as well as
-  its password from its next sign-in, with nothing to set up first: the code is emailed. Program
-  managers and institutions by default. Its fold: each person can set up an authenticator app on
-  their own profile screen, which is quicker and does not depend on their email, and unticking
-  everything asks nobody. Students are left off by default: a student account holds that student's
-  own work, there are hundreds of them, and there is nobody to unlock the ones who change phone. They
-  can still turn it on for themselves. Without the Two Factor plugin active nobody is asked, and the
-  row says so above its boxes.
+- **Roles that must use it** - a box for each role: **Administrators**, then Student, Mentor,
+  Institution and Sponsor. An account in a ticked role is asked for a code as well as its password
+  from its next sign-in, with nothing to set up first: the code is emailed. Administrators and
+  institutions by default. Its fold: each person can set up an authenticator app on their own
+  profile screen, which is quicker and does not depend on their email, and unticking everything asks
+  nobody. Students are left off by default: a student account holds that student's own work, there
+  are hundreds of them, and there is nobody to unlock the ones who change phone. They can still turn
+  it on for themselves. Without the Two Factor plugin active nobody is asked, and the row says so
+  above its boxes.
 - **Where it stands** - while the Two Factor plugin is active, for each ticked role, how many
   accounts are covered and how many use an authenticator app, counted when the tab is opened. An
   account that is covered but has no app is using emailed codes.

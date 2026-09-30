@@ -132,27 +132,6 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * What a query is sorted by: its `orderby`, or the first key of `WP_User_Query`'s array form, in
-	 * which the base asks for a sort with the ID after it to settle the ties.
-	 *
-	 * @param array $args `WP_User_Query` arguments.
-	 * @return string
-	 */
-	private static function sorted_by( array $args ) {
-		if ( ! isset( $args['orderby'] ) ) {
-			return '';
-		}
-
-		if ( is_array( $args['orderby'] ) ) {
-			$first = array_key_first( $args['orderby'] );
-
-			return null === $first ? '' : (string) $first;
-		}
-
-		return (string) $args['orderby'];
-	}
-
-	/**
 	 * The IDs the list may hold, or null when nothing narrows it: the accounts at the institution
 	 * chosen, and the accounts a search finds.
 	 *
@@ -234,7 +213,9 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	 * find, ordered here, and the page's slice of them fetched from WordPress in that order.
 	 *
 	 * Each school's students run A to Z by name whichever way the schools run, and an account at no
-	 * school comes after every school from A to Z, and before them from Z to A.
+	 * school comes after every school from A to Z, and before them from Z to A. Schools and names are
+	 * read as a reader of the list expects them, without regard to case or accents
+	 * (`compare_names()`), and the accounts of one name by ID, so no two accounts are ever tied.
 	 *
 	 * @param array $args The page's `WP_User_Query` arguments.
 	 * @return array{items: WP_User[], total: int}
@@ -278,7 +259,7 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 					return $desc ? -$order : $order;
 				}
 
-				$order = strcasecmp( $left['name'], $right['name'] );
+				$order = self::compare_names( $left['name'], $right['name'] );
 
 				return 0 !== $order ? $order : $a - $b;
 			}
@@ -310,7 +291,8 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * Two institutions in A to Z order, without regard to case, no institution after every one.
+	 * Two institutions in A to Z order, without regard to case or accents (`compare_names()`), so
+	 * École sorts among the E's, and no institution after every one.
 	 *
 	 * @param string $a One institution, or ''.
 	 * @param string $b The other.
@@ -329,7 +311,7 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 			return -1;
 		}
 
-		return strcasecmp( $a, $b );
+		return self::compare_names( $a, $b );
 	}
 
 	/**
@@ -467,20 +449,6 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * The hidden field that keeps the view in force when the list's form is sent, so a search, a
-	 * filter or a bulk action on the Never invited view comes back to it. Nothing for All.
-	 */
-	public function view_field() {
-		$view = $this->current_view();
-
-		if ( 'all' === $view ) {
-			return;
-		}
-
-		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::VIEW_ARG ), esc_attr( $view ) );
-	}
-
-	/**
 	 * The Accounts tab, keeping the institution in force, so a view keeps the list narrowed.
 	 *
 	 * Encoded here, because `add_query_arg()` sets a value as it is given, and a school's name can
@@ -512,35 +480,6 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 		}
 
 		esc_html_e( 'No student accounts found.', 'wpcredits-program-manager' );
-	}
-
-	/**
-	 * The student's name, to the account's editor when the person looking may open it.
-	 *
-	 * The value only: the row's actions come from `row_actions_for()`, drawn under it by the base.
-	 *
-	 * @param WP_User $user The row's account.
-	 * @return string
-	 */
-	protected function column_name( $user ) {
-		$edit = (string) get_edit_user_link( $user->ID );
-		$name = esc_html( $user->display_name );
-
-		if ( '' === $edit ) {
-			return '<strong>' . $name . '</strong>';
-		}
-
-		return sprintf( '<strong><a href="%1$s">%2$s</a></strong>', esc_url( $edit ), $name );
-	}
-
-	/**
-	 * The username.
-	 *
-	 * @param WP_User $user The row's account.
-	 * @return string
-	 */
-	protected function column_login( $user ) {
-		return '<code>' . esc_html( $user->user_login ) . '</code>';
 	}
 
 	/**
@@ -592,20 +531,15 @@ class WPCPM_Students_Table extends WPCPM_Accounts_Table {
 	}
 
 	/**
-	 * A row's actions: Edit, the account's editor, when the person looking may open it; View page,
-	 * the student page as that student, while the page exists; then the base's invitation.
+	 * A row's actions: the base's Edit, the account's editor, when the person looking may open it;
+	 * View page, the student page as that student, while the page exists; then the base's invitation.
 	 *
 	 * @param WP_User $user The row's account.
 	 * @return array<string, string>
 	 */
 	protected function row_actions_for( WP_User $user ) {
-		$actions = array();
-		$edit    = (string) get_edit_user_link( $user->ID );
+		$actions = $this->edit_row_action( $user );
 		$page    = $this->student_page();
-
-		if ( '' !== $edit ) {
-			$actions['edit'] = sprintf( '<a href="%1$s">%2$s</a>', esc_url( $edit ), esc_html__( 'Edit', 'wpcredits-program-manager' ) );
-		}
 
 		if ( '' !== $page ) {
 			$actions['view'] = sprintf(

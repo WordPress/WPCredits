@@ -671,8 +671,17 @@ foreach ( array( 'wpcpm_student', 'wpcpm_mentor', 'wpcpm_institution', 'wpcpm_sp
 	$GLOBALS['roles'][ $role ] = new WP_Role( $role, array( 'read' => true, $program_caps[ $i ] => true ) );
 }
 
-// A program manager who chose how many Student accounts a page shows: core keeps that as user meta.
-$admin   = a_user( array( 'administrator' ), array(), array( 'wpcpm_students_per_page' => 50 ) ); // WPCPM_Students::PER_PAGE_OPTION.
+// A program manager who chose how many Student, Mentor and Administrator accounts a page shows:
+// core keeps each choice as user meta.
+$admin   = a_user(
+	array( 'administrator' ),
+	array(),
+	array(
+		'wpcpm_students_per_page'       => 50,  // WPCPM_Students::PER_PAGE_OPTION.
+		'wpcpm_mentors_per_page'        => 100, // WPCPM_Mentors::PER_PAGE_OPTION.
+		'wpcpm_administrators_per_page' => 20,  // WPCPM_Administrators::PER_PAGE_OPTION.
+	)
+);
 $student = a_user(
 	array( 'wpcpm_student' ),
 	array(),
@@ -785,7 +794,7 @@ ck( 'a hook of core\'s is left alone', scheduled(), array( 'wp_version_check' ) 
 echo "\n=== The meta ===\n";
 
 ck( 'the user meta the file names goes, and an account\'s own stays', $GLOBALS['umeta'][ $student ], array( 'nickname' => 'student-one' ) );
-ck( 'a manager\'s rows-per-page choice for the Student accounts goes too', $GLOBALS['umeta'][ $admin ], array() );
+ck( 'a manager\'s rows-per-page choices for the Student, Mentor and Administrator accounts go too', $GLOBALS['umeta'][ $admin ], array() );
 ck( 'the access level goes from the site\'s own page, and core\'s row stays', $GLOBALS['pmeta'][ $page ], array( '_edit_last' => '1' ) );
 ck( 'the audience and reminder rows of posts deleted by hand go too', $GLOBALS['pmeta'][ 99999 ], array() );
 
@@ -859,6 +868,8 @@ $names = array(
 	'WPCPM_Mentor_Calls::META_REMINDED'             => '_wpcpm_call_reminded',
 	'WPCPM_Students_Sync::META_INSTITUTION'         => 'wpcpm_student_institution',
 	'WPCPM_Students::PER_PAGE_OPTION'               => 'wpcpm_students_per_page',
+	'WPCPM_Mentors::PER_PAGE_OPTION'                => 'wpcpm_mentors_per_page',
+	'WPCPM_Administrators::PER_PAGE_OPTION'         => 'wpcpm_administrators_per_page',
 	'WPCPM_Flash::META'                             => 'wpcpm_flash',
 	'WPCPM_Student_Report_Form::META_IMAGES'        => '_wpcpm_report_images',
 	'WPCPM_Sponsor_Members::META_ACTIVE'            => 'wpcpm_sponsor_active',

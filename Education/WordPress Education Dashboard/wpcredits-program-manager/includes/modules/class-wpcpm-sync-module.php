@@ -24,7 +24,10 @@ defined( 'ABSPATH' ) || exit;
  *
  * A module says which sync it owns (`sync_class()`), which flash channel its screen reads
  * (`flash_key()`) and, where the sync's tick method has another name, how to tick it
- * (`run_sync_tick()`). Everything else here is the same for all three, on purpose.
+ * (`run_sync_tick()`). Everything else here is the same for all three, on purpose. The
+ * capability-then-nonce check, the way back to a tab and the notice a press leaves are the module
+ * base's (`WPCPM_Module`), which asks every module for its flash channel and serves a module
+ * without a sync too.
  */
 abstract class WPCPM_Sync_Module extends WPCPM_Module {
 
@@ -41,34 +44,11 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	const ACTION_TICK   = '';
 
 	/**
-	 * The screen's tabs, slug => label, in the order its bar draws them, the first the one the
-	 * screen opens on: none for a screen drawn in one piece.
-	 *
-	 * Declared here, as the action names are, so the way back to a tab (`tab_url()`) reads the tabs of
-	 * whichever module is pressed; a module drawn in tabs redeclares it. The labels are English, as a
-	 * constant has to hold them, and the module translates them where its bar prints them.
-	 */
-	const TABS = array();
-
-	/**
-	 * The hidden field a form on a tab names its tab in, so the press comes back to that tab: the
-	 * name the Settings screen's forms and the accounts lists' row links carry their tab in too.
-	 */
-	const TAB_FIELD = 'wpcpm_tab';
-
-	/**
 	 * The sync class this module owns, as a class name.
 	 *
 	 * @return string
 	 */
 	abstract protected function sync_class();
-
-	/**
-	 * The flash channel this module's screen reads its outcomes from.
-	 *
-	 * @return string
-	 */
-	abstract protected function flash_key();
 
 	/**
 	 * Run one slice of the sync, inside the AJAX budget.
@@ -127,20 +107,6 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	}
 
 	/**
-	 * The capability first, then the nonce, then nothing else: every admin-post handler on
-	 * the three screens opens with this.
-	 *
-	 * @param string $action The nonce action.
-	 */
-	protected function verify( $action ) {
-		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
-			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
-		}
-
-		check_admin_referer( $action );
-	}
-
-	/**
 	 * Back to the module's screen, with the outcome flashed for the person who pressed: to the tab
 	 * the press was made on, when the screen is drawn in tabs.
 	 *
@@ -163,27 +129,6 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	}
 
 	/**
-	 * The module's screen at one of its tabs, or the screen's own address for a tab it does not have.
-	 *
-	 * @param string $tab A key of TABS.
-	 * @return string
-	 */
-	protected function tab_url( $tab ) {
-		$tab = (string) $tab;
-
-		return isset( static::TABS[ $tab ] ) ? add_query_arg( 'tab', $tab, $this->admin_url() ) : $this->admin_url();
-	}
-
-	/**
-	 * The outcome the last press left, taken (so it shows once), or ''.
-	 *
-	 * @return string
-	 */
-	protected function taken_status() {
-		return sanitize_key( (string) WPCPM_Flash::take( $this->flash_key() ) );
-	}
-
-	/**
 	 * The three outcomes every sync screen can flash, in one wording.
 	 *
 	 * @return array<string, array{0: string, 1: string}> Status => notice type and sentence.
@@ -199,49 +144,12 @@ abstract class WPCPM_Sync_Module extends WPCPM_Module {
 	/**
 	 * Print the notice for the outcome the last press flashed, if the map knows it.
 	 *
+	 * Here, beside the sync's three outcomes it starts from (`sync_messages()`), rather than on the
+	 * module base with the notice it prints through (`render_notice_from()`).
+	 *
 	 * @param array $extra The screen's own outcomes, merged over the shared three.
 	 */
 	protected function render_status_notice( array $extra = array() ) {
 		$this->render_notice_from( array_merge( self::sync_messages(), $extra ) );
-	}
-
-	/**
-	 * Print the notice for the outcome the last press flashed, from this map of outcomes alone.
-	 *
-	 * For a screen drawn in tabs, which gives each tab the outcomes of the presses made on it: a
-	 * press comes back to the tab it was made on, so its notice prints there. The outcome is taken
-	 * whether or not the map knows it, so one that came back to the other tab cannot wait to surface
-	 * on a later page, under a press that did not leave it.
-	 *
-	 * @param array $messages Status => notice type and sentence.
-	 */
-	protected function render_notice_from( array $messages ) {
-		$status = $this->taken_status();
-
-		if ( '' === $status || ! isset( $messages[ $status ] ) ) {
-			return;
-		}
-
-		printf(
-			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-			esc_attr( $messages[ $status ][0] ),
-			esc_html( $this->notice_sentence( $status, (string) $messages[ $status ][1] ) )
-		);
-	}
-
-	/**
-	 * The sentence one status prints, for a screen whose wording depends on what a press left.
-	 *
-	 * A seam, and the S5 review is why there is one: a message map is built for every status at
-	 * once and by anything that wants a sentence out of it, so a screen that has to read a
-	 * one-shot value cannot read it there without the first passer-by consuming it. This runs
-	 * once, on the one status being printed. The default is the map's own sentence.
-	 *
-	 * @param string $status   The status being printed.
-	 * @param string $sentence Its sentence from the map.
-	 * @return string
-	 */
-	protected function notice_sentence( $status, $sentence ) {
-		return (string) $sentence;
 	}
 }

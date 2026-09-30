@@ -10,11 +10,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // The plugin loads this file when a list is first needed (`wpcpm_load_accounts_tables()`: on a
-// screen's load hook, as its rows-per-page choice is saved, for a list drawn without that hook, and
-// where the invitations card and its button read the table's role and stamp), not as it loads. Core
-// loads its list table for wp-admin requests (a screen, admin-ajax, admin-post) after plugins have
-// loaded, so it is here already then; whatever loads this file anywhere else may find it missing,
-// and the base loads core's class itself.
+// screen's load hook, as its rows-per-page choice is saved, for a list drawn without that hook, where
+// the invitations card and its button read the table's role and stamp, and where a screen prints
+// what a press on the ticked accounts did in the base's words), not as it loads. Core loads its list
+// table for wp-admin requests (a screen, admin-ajax, admin-post) after plugins have loaded, so it is
+// here already then; whatever loads this file anywhere else may find it missing, and the base loads
+// core's class itself.
 if ( ! class_exists( 'WP_List_Table' ) ) {
 	require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 }
@@ -25,21 +26,31 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
  * What every audience's account list shares, drawn the way wp-admin draws its own lists: a
  * checkbox per row for the bulk actions, the views by invitation state (All, Invited, Never
  * invited), the search, the sortable columns, the pagination and its rows-per-page screen option,
- * and a row's invitation as a row action. An audience gives it four things: its name, its role, its
- * columns and its query.
+ * and a row's invitation as a row action. An audience's list draws all of it unless the audience
+ * leaves a part out, as the Administrators list leaves out the checkbox, the bulk actions, the
+ * invitation views and a row's invitation, because nothing is pressed on administrators
+ * (`WPCPM_Administrators_Table`). An audience gives it four things: its name, its role, its columns
+ * and its query. The cells every audience's list draws alike are the base's too, for an audience
+ * with those columns: the name, linked to the account's editor, and the username (`column_name()`,
+ * `column_login()`), and a row's Edit, which an audience puts among its row's actions
+ * (`edit_row_action()`).
  *
  * **Invited means the invitation stamp is there.** An invitation stamps the account's user meta
- * with the time it went out, under a key that follows the role: `WPCPM_Mail::drain_queue()` writes
- * it when the queue sends, and the Students and Mentors syncs' `send_invite()` when one invitation
- * goes. `WPCPM_Mail::never_invited()` reads the stamp's absence as "never invited", and the
- * invitations card counts the people it returns, so the views read presence and absence too: the
- * Never invited view counts by the card's reading, and a stamp of 0 is still a stamp.
+ * with the time it went out, under a key that follows the role, and a role the plugin never invites
+ * has none (`invite_meta()`): `WPCPM_Mail::drain_queue()` writes it when the queue sends, and the
+ * Students and Mentors syncs' `send_invite()` when one invitation goes. `WPCPM_Mail::never_invited()`
+ * reads the stamp's absence as "never invited", and the invitations card counts the people it
+ * returns, so the views read presence and absence too: the Never invited view counts by the card's
+ * reading, and a stamp of 0 is still a stamp.
  *
  * The table is one form, so a row's invitation cannot be a form of its own: it is a nonce link to
  * the audience's invite handler, drawn with the row's other actions under its primary cell as core
  * draws them (`handle_row_actions()`). The bulk actions carry the ticked accounts under the table's
- * own nonce. The columns a person hides under Screen Options stay hidden; the primary one is never
- * offered to hide (`columns_offered()`).
+ * own nonce, and what they queue is worked out here for every audience (`queue_ticked()`), and so
+ * are the words for what came of it (`selected_sentence()`): the audience's handler checks the
+ * capability and the nonce, makes the call and carries what came of it back to its list, where its
+ * screen prints it in those words. The columns a person hides under Screen Options stay hidden; the
+ * primary one is never offered to hide (`columns_offered()`).
  *
  * **Built on an admin request only**, on the audience screen's `load-<hook>` or later, never on the
  * front end: core's constructor binds the table to the current screen through `convert_to_screen()`,
@@ -86,7 +97,9 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	abstract public static function role();
 
 	/**
-	 * The audience's columns, in order, as column => label. The checkbox comes before them.
+	 * The audience's columns, in order, as column => label. The base's `get_columns()` puts the
+	 * checkbox before them, for the bulk actions, and a list that offers none leaves it out with a
+	 * `get_columns()` of its own, as the Administrators list does.
 	 *
 	 * The first is the primary column, the one WordPress keeps on a narrow screen. The base draws a
 	 * row's actions under it through `handle_row_actions()`, so an audience adds its own actions by
@@ -110,7 +123,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * The order is the audience's orderby with `order`, and for the name, the one sort a list starts
 	 * in, `WP_User_Query`'s array form with the ID after the name, so two accounts of one name keep
 	 * one order from page to page. An audience that sorts a column itself reads what the list is
-	 * sorted by from the array's first key.
+	 * sorted by with `sorted_by()`, which reads the array form's first key.
 	 *
 	 * @param array $args `WP_User_Query` arguments.
 	 * @return array{items: WP_User[], total: int}
@@ -183,9 +196,9 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * **How an audience wires the save.** Core stores an option it does not know only when a filter
 	 * named `set_screen_option_<option>` returns the value, and it applies that filter in
 	 * `set_screen_options()`, before the menu, the screen's load hook or any table exists. So the
-	 * audience's module adds the filter in its `boot()`, and the filter's callback loads the tables
-	 * with `wpcpm_load_accounts_tables()` and returns this method's value, as
-	 * `WPCPM_Students::save_per_page()` does.
+	 * audience's module adds the filter as it boots, and the filter's callback loads the tables with
+	 * `wpcpm_load_accounts_tables()` and returns this method's value, as the accounts screen every
+	 * audience's module shares does (`WPCPM_Accounts_Screen::boot_screen()`, `save_per_page()`).
 	 *
 	 * @param mixed  $keep   What core would store without this filter: false, which is nothing.
 	 * @param string $option The option's name.
@@ -268,6 +281,38 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
+	 * The account's name, to the account's editor when the person looking may open it, in bold, as
+	 * core's own lists set a row's title.
+	 *
+	 * Drawn for any audience whose columns hold `name`, the primary column of every audience's list
+	 * so far. The value only: the row's actions come from `row_actions_for()`, drawn under it
+	 * (`handle_row_actions()`). An audience whose name cell says more draws its own.
+	 *
+	 * @param WP_User $user The row's account.
+	 * @return string
+	 */
+	protected function column_name( $user ) {
+		$edit = (string) get_edit_user_link( $user->ID );
+		$name = esc_html( $user->display_name );
+
+		if ( '' === $edit ) {
+			return '<strong>' . $name . '</strong>';
+		}
+
+		return sprintf( '<strong><a href="%1$s">%2$s</a></strong>', esc_url( $edit ), $name );
+	}
+
+	/**
+	 * The username, as code: drawn for any audience whose columns hold `login`.
+	 *
+	 * @param WP_User $user The row's account.
+	 * @return string
+	 */
+	protected function column_login( $user ) {
+		return '<code>' . esc_html( $user->user_login ) . '</code>';
+	}
+
+	/**
 	 * The columns the list sorts by, as column => `WP_User_Query` orderby.
 	 *
 	 * None unless the audience says. The map is also the whole of what a request may sort by,
@@ -313,10 +358,8 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The three views' links, each with its count, the one in force marked as WordPress marks it.
-	 *
-	 * Each is the Accounts tab of the audience's screen, and names its view unless it is All. The
-	 * words are escaped and the count's markup is the table's, so a translation cannot add markup.
+	 * The three views' links, each with its count, the one in force marked as WordPress marks it
+	 * (`view_link()`).
 	 *
 	 * @param array{all: int, invited: int, never-invited: int} $counts Accounts in each view.
 	 * @return array<string, string> View => link.
@@ -341,15 +384,34 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 		$views   = array();
 
 		foreach ( $labels as $view => $label ) {
-			$views[ $view ] = sprintf(
-				'<a href="%1$s"%2$s>%3$s</a>',
-				esc_url( $this->page_url( 'all' === $view ? array() : array( self::VIEW_ARG => $view ) ) ),
-				$current === $view ? ' class="current" aria-current="page"' : '',
-				sprintf( esc_html( $label ), '<span class="count">(' . esc_html( number_format_i18n( $numbers[ $view ] ) ) . ')</span>' )
-			);
+			$views[ $view ] = $this->view_link( $view, $label, $numbers[ $view ], $current === $view );
 		}
 
 		return $views;
+	}
+
+	/**
+	 * One view's link, with its count, marked as WordPress marks the view in force.
+	 *
+	 * The one markup every audience's views are drawn in, the three invitation views
+	 * (`invite_views()`) and an audience's own, so a change to how a view is linked, marked or counted
+	 * reaches every list. The link is the Accounts tab of the audience's screen, naming its view unless
+	 * it is All. The words are escaped and the count's markup is the table's, so a translation cannot
+	 * add markup.
+	 *
+	 * @param string $view    The view: `all`, or one the table has.
+	 * @param string $label   The view's words, translated, with `%s` where the count goes.
+	 * @param int    $count   How many accounts the view holds.
+	 * @param bool   $current Whether it is the view in force.
+	 * @return string
+	 */
+	protected function view_link( $view, $label, $count, $current ) {
+		return sprintf(
+			'<a href="%1$s"%2$s>%3$s</a>',
+			esc_url( $this->page_url( 'all' === $view ? array() : array( self::VIEW_ARG => $view ) ) ),
+			$current ? ' class="current" aria-current="page"' : '',
+			sprintf( esc_html( $label ), '<span class="count">(' . esc_html( number_format_i18n( (int) $count ) ) . ')</span>' )
+		);
 	}
 
 	/**
@@ -384,6 +446,22 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
+	 * The hidden field that keeps the view in force when the list's form is sent, so a search, a
+	 * filter or a bulk action on the Never invited view comes back to it. Nothing for All.
+	 *
+	 * The audience's screen prints it in the list's form, beside the screen's page and tab.
+	 */
+	public function view_field() {
+		$view = $this->current_view();
+
+		if ( 'all' === $view ) {
+			return;
+		}
+
+		printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( self::VIEW_ARG ), esc_attr( $view ) );
+	}
+
+	/**
 	 * The bulk actions: send an invitation to the ticked accounts, or send another.
 	 *
 	 * Public rather than core's protected, so code outside the table, a handler checking what was
@@ -399,6 +477,196 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
+	 * Queue invitations for the ticked accounts, and say what came of it: the outcome and its
+	 * detail, which the audience's module carries back to its list, where `selected_sentence()`
+	 * words it.
+	 *
+	 * Send invite queues the ticked accounts never invited through `WPCPM_Mail::queue_invites()`, as
+	 * the invitations card's button does, which records the run the card reports on. Resend invite
+	 * queues each ticked account invited before through `WPCPM_Mail::queue_invite()`, because
+	 * `queue_invites()` drops anybody already invited, by design: the same queue and drain, and no
+	 * run for the card to count. The drain passes over anybody sent an invitation in the last fifteen
+	 * minutes, the guard against canceling the link in it (`WPCPM_Mail::may_invite()`), so Resend
+	 * invite leaves them out and counts them, and the outcome says so rather than calling them
+	 * queued. Every ID is checked against the audience's role first, an account outside it left out
+	 * and a repeat counted once, and invited means the audience's stamp is there, the reading its
+	 * views and row actions use.
+	 *
+	 * The outcome is `invites-queued`, with how many were queued as `queued`, or `invites-none`, with
+	 * why as `why`: `none-selected` when nothing was ticked, or nothing that is an account's ID,
+	 * `never-invited` when a Resend invite found nobody invited before, `too-soon` when everybody it
+	 * found invited before was sent an invitation inside the fifteen minutes, `queued-already` when
+	 * everybody left to queue is waiting already, and `invited-already` when a Send invite found
+	 * nobody left to invite for the first time. Every detail carries `resend`, and a Resend invite
+	 * that left anybody out for the fifteen minutes carries how many as `recent`, unless that is why
+	 * none was queued.
+	 *
+	 * Static, called on the audience's own table (`WPCPM_Students_Table::queue_ticked()`,
+	 * `WPCPM_Mentors_Table::queue_ticked()`), which gives the role and the stamp read here. It checks
+	 * neither the capability nor a nonce: the audience's handler checks both before it reads the
+	 * ticked IDs, as the accounts screen's `handle_list_form()` does (`WPCPM_Accounts_Screen`).
+	 *
+	 * @param int[] $ids    The ticked accounts.
+	 * @param bool  $resend Resend invite, rather than Send invite.
+	 * @return array{0: string, 1: array} The outcome and its detail.
+	 */
+	public static function queue_ticked( array $ids, $resend ) {
+		$detail  = array( 'resend' => (bool) $resend );
+		$role    = static::role();
+		$stamp   = static::invite_meta();
+		$invited = array();
+		$never   = array();
+
+		$ids = array_values(
+			array_unique(
+				array_filter(
+					array_map( 'intval', $ids ),
+					static function ( $id ) {
+						return $id > 0;
+					}
+				)
+			)
+		);
+
+		// Once the IDs are read rather than before: what is no account's ID is no account ticked.
+		if ( empty( $ids ) ) {
+			return array( 'invites-none', $detail + array( 'why' => 'none-selected' ) );
+		}
+
+		// Every ticked account and its meta in two queries, not two queries an account: a page can
+		// hold 999, and nothing has read them yet, since a press is handled before the list reads a page.
+		cache_users( $ids );
+
+		foreach ( $ids as $id ) {
+			$user = get_user_by( 'id', $id );
+
+			if ( ! $user instanceof WP_User || ! in_array( $role, (array) $user->roles, true ) ) {
+				continue;
+			}
+
+			if ( metadata_exists( 'user', $user->ID, $stamp ) ) {
+				$invited[] = (int) $user->ID;
+			} else {
+				$never[] = (int) $user->ID;
+			}
+		}
+
+		if ( $detail['resend'] ) {
+			$waiting = WPCPM_Mail::queue();
+			$recent  = 0;
+
+			foreach ( $invited as $id ) {
+				// Queued for somebody sent one inside the gap, an invitation could be passed over by the
+				// drain, which says nothing when it does: left out here and counted instead.
+				if ( is_wp_error( WPCPM_Mail::may_invite( $id ) ) ) {
+					++$recent;
+					continue;
+				}
+
+				WPCPM_Mail::queue_invite( $id );
+			}
+
+			$queued = count( array_diff( WPCPM_Mail::queue(), $waiting ) );
+
+			if ( empty( $invited ) ) {
+				$why = 'never-invited';
+			} elseif ( count( $invited ) === $recent ) {
+				$why = 'too-soon';
+			} else {
+				$why = 'queued-already';
+			}
+
+			if ( $recent > 0 && 'too-soon' !== $why ) {
+				$detail['recent'] = $recent;
+			}
+		} else {
+			$queued = empty( $never ) ? 0 : WPCPM_Mail::queue_invites( $never );
+			// Accounts never invited can be waiting already: the card's run sends ten a batch, and the
+			// Never invited view lists each until its invitation goes and stamps it.
+			$why = ( ! empty( $never ) && ! array_diff( $never, WPCPM_Mail::queue() ) ) ? 'queued-already' : 'invited-already';
+		}
+
+		if ( 0 === $queued ) {
+			return array( 'invites-none', $detail + array( 'why' => $why ) );
+		}
+
+		return array( 'invites-queued', $detail + array( 'queued' => $queued ) );
+	}
+
+	/**
+	 * What a press on the ticked accounts says it did, and how many a Resend invite left out for the
+	 * fifteen minutes when it left any out.
+	 *
+	 * One wording for every audience's list, beside the arithmetic whose outcome it words
+	 * (`queue_ticked()`): the audience's module prints it for the press the list's form made, from
+	 * the detail the press carried back.
+	 *
+	 * @param array $detail `resend`, `queued` or `why`, and `recent`, as `queue_ticked()` returns them.
+	 * @return string
+	 */
+	public static function selected_sentence( array $detail ) {
+		$sentence = self::queued_sentence( $detail );
+		$recent   = isset( $detail['recent'] ) ? (int) $detail['recent'] : 0;
+
+		if ( $recent > 0 ) {
+			$sentence .= ' ' . sprintf(
+				/* translators: 1: how many selected accounts were left out, 2: a number of minutes. */
+				_n( '%1$s selected account was left out: it was sent an invitation less than %2$d minutes ago, and another one now would cancel the link in it.', '%1$s selected accounts were left out: each was sent an invitation less than %2$d minutes ago, and another one now would cancel the link in it.', $recent, 'wpcredits-program-manager' ),
+				number_format_i18n( $recent ),
+				(int) ( WPCPM_Mail::INVITE_GAP / MINUTE_IN_SECONDS )
+			);
+		}
+
+		return $sentence;
+	}
+
+	/**
+	 * How many a press on the ticked accounts queued, or why it queued none.
+	 *
+	 * @param array $detail `resend`, and `queued` or `why`.
+	 * @return string
+	 */
+	private static function queued_sentence( array $detail ) {
+		$queued = isset( $detail['queued'] ) ? (int) $detail['queued'] : 0;
+
+		if ( $queued > 0 ) {
+			if ( empty( $detail['resend'] ) ) {
+				/* translators: %s: how many invitations were queued. */
+				$sentence = _n( '%s invitation queued. It goes out in the background - the progress is shown below.', '%s invitations queued. They go out in the background - the progress is shown below.', $queued, 'wpcredits-program-manager' );
+			} else {
+				/* translators: %s: how many invitations were queued. */
+				$sentence = _n( '%s invitation queued. It goes out with the next batch and replaces the link in any earlier invitation.', '%s invitations queued. They go out with the next batch, and each replaces the link in any earlier invitation.', $queued, 'wpcredits-program-manager' );
+			}
+
+			return sprintf( $sentence, number_format_i18n( $queued ) );
+		}
+
+		$why = isset( $detail['why'] ) ? (string) $detail['why'] : '';
+
+		if ( 'none-selected' === $why ) {
+			return __( 'Nothing to send: no accounts were selected.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'never-invited' === $why ) {
+			return __( 'Nothing to send: none of the selected accounts has been invited yet. Use Send invite for a first invitation.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'queued-already' === $why ) {
+			return __( 'Nothing to send: the selected accounts are already waiting in the queue.', 'wpcredits-program-manager' );
+		}
+
+		if ( 'too-soon' === $why ) {
+			return sprintf(
+				/* translators: %d: a number of minutes. */
+				__( 'Nothing to send: the selected accounts were each sent an invitation less than %d minutes ago, and another one now would cancel the link in it. Ask them to use their newest email, or try again later.', 'wpcredits-program-manager' ),
+				(int) ( WPCPM_Mail::INVITE_GAP / MINUTE_IN_SECONDS )
+			);
+		}
+
+		return __( 'Nothing to send: none of the selected accounts needs a first invitation.', 'wpcredits-program-manager' );
+	}
+
+	/**
 	 * A row's invitation: Send invite for an account never invited, Resend invite for one that was.
 	 *
 	 * A nonce link to the audience's invite handler, with the account as `user`, the tab to come back
@@ -406,9 +674,10 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * own action's. The audience adds its own actions, such as "View page", beside it.
 	 *
 	 * The link is a GET request, so the handler has to read the account from the query string as
-	 * `user`, as `WPCPM_Students::handle_invite()` does after the posted `user_id` a form sends
-	 * (`WPCPM_Request::posted_id( 'user_id' )`, then `WPCPM_Request::id( 'user' )`): a handler that
-	 * reads the posted field alone finds no account behind the link and sends nothing.
+	 * `user`, as the accounts screen's `handle_invite()` does (`WPCPM_Accounts_Screen`) after the
+	 * posted `user_id` a form sends (`WPCPM_Request::posted_id( 'user_id' )`, then
+	 * `WPCPM_Request::id( 'user' )`): a handler that reads the posted field alone finds no account
+	 * behind the link and sends nothing.
 	 *
 	 * @param WP_User $user The row's account.
 	 * @return array<string, string> `invite` or `reinvite` => the link.
@@ -455,7 +724,10 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 *
 	 * Core's `single_row_columns()` adds this after every cell but the checkbox, and core's default
 	 * gives the primary cell the "Show more details" toggle. `row_actions()` ends in that toggle
-	 * already, so drawing the actions here, in place of the default, leaves one toggle a row.
+	 * already, so drawing the actions here, in place of the default, leaves one toggle a row. A row
+	 * with no action, such as an administrator's for a person who may not open another account's
+	 * editor, gets core's default, the toggle alone: `row_actions()` draws nothing for none, the
+	 * toggle with it, and on a narrow screen the toggle is what opens a row's other cells.
 	 *
 	 * @param WP_User $item        The row's account.
 	 * @param string  $column_name The cell's column.
@@ -463,12 +735,18 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * @return string
 	 */
 	protected function handle_row_actions( $item, $column_name, $primary ) {
-		return $column_name === $primary ? $this->row_actions( $this->row_actions_for( $item ) ) : '';
+		if ( $column_name !== $primary ) {
+			return '';
+		}
+
+		$actions = $this->row_actions_for( $item );
+
+		return empty( $actions ) ? parent::handle_row_actions( $item, $column_name, $primary ) : $this->row_actions( $actions );
 	}
 
 	/**
 	 * A row's actions, as action => link: the invitation, which an audience extends with its own,
-	 * such as "View page" or the account's editor.
+	 * such as "View page", and with the account's editor, the base's Edit (`edit_row_action()`).
 	 *
 	 * @param WP_User $user The row's account.
 	 * @return array<string, string>
@@ -478,13 +756,44 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The user meta an invitation to the audience's accounts is stamped in.
+	 * A row's Edit, as action => link: the account's editor, when the person looking may open it, and
+	 * nothing when not.
 	 *
-	 * The key `WPCPM_Mail::drain_queue()` stamps an account holding this role alone under: its three
-	 * named roles' own, and for every other role its last branch, the student stamp. The syncs'
-	 * `send_invite()` write the same keys for students and mentors, so the key read here is the one
-	 * the send wrote. An account holding two roles is stamped under drain_queue()'s first match, and
-	 * each audience reads its own key, as its invitations card does.
+	 * Every audience's accounts open in the same editor, so the link is drawn here once. An audience
+	 * puts it first among its row's actions, where core's own Users list puts it. The base's own
+	 * actions (`row_actions_for()`) stay the invitation alone, because an audience's own actions go
+	 * between the two, as View page does, and only the audience can put the three in that order.
+	 *
+	 * @param WP_User $user The row's account.
+	 * @return array<string, string> `edit` => the link, or nothing.
+	 */
+	protected function edit_row_action( WP_User $user ) {
+		$edit = (string) get_edit_user_link( $user->ID );
+
+		if ( '' === $edit ) {
+			return array();
+		}
+
+		return array( 'edit' => sprintf( '<a href="%1$s">%2$s</a>', esc_url( $edit ), esc_html__( 'Edit', 'wpcredits-program-manager' ) ) );
+	}
+
+	/**
+	 * The user meta an invitation to the audience's accounts is stamped in, or '' for a role the plugin
+	 * never invites.
+	 *
+	 * The key `WPCPM_Mail::drain_queue()` stamps an account holding this role alone under: the mentor,
+	 * institution and sponsor roles' own, and for the student role its last branch, the student stamp.
+	 * The syncs' `send_invite()` write the same keys for students and mentors, so the key read here is
+	 * the one the send wrote. An account holding two roles is stamped under drain_queue()'s first
+	 * match, and each audience reads its own key, as its invitations card does.
+	 *
+	 * **No stamp for any other role**, WordPress's Administrator role among them: nothing invites those
+	 * accounts, and reading them by the student stamp, drain_queue()'s last branch, would count an
+	 * administrator invited as a student as an invited administrator. Every reader of the stamp reads
+	 * '' as nobody invited, by WordPress's own rule: it writes no meta under an empty key
+	 * (`add_metadata()` refuses one), so `metadata_exists()` finds it on no account, and a meta query's
+	 * `EXISTS` on it finds nobody and its `NOT EXISTS` everybody. The views, a row's invitation, the
+	 * bulk actions and `WPCPM_Mail::never_invited()` read it so.
 	 *
 	 * Public, so the audience's module reads the stamp its invitations and its invitations card count
 	 * by from the table, the reading the views use, rather than holding a copy of its own.
@@ -493,6 +802,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 */
 	public static function invite_meta() {
 		$stamps = array(
+			WPCPM_Roles::ROLE_STUDENT     => 'wpcpm_student_invited',
 			WPCPM_Roles::ROLE_MENTOR      => 'wpcpm_mentor_invited',
 			WPCPM_Roles::ROLE_INSTITUTION => 'wpcpm_inst_invited',
 			WPCPM_Roles::ROLE_SPONSOR     => 'wpcpm_sponsor_invited',
@@ -500,7 +810,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 
 		$role = static::role();
 
-		return isset( $stamps[ $role ] ) ? $stamps[ $role ] : 'wpcpm_student_invited';
+		return isset( $stamps[ $role ] ) ? $stamps[ $role ] : '';
 	}
 
 	/**
@@ -524,6 +834,47 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 		$term = WPCPM_Request::text( 's' );
 
 		return '' === $term ? '' : '*' . $term . '*';
+	}
+
+	/**
+	 * What a query is sorted by: its `orderby`, or the first key of `WP_User_Query`'s array form, in
+	 * which `prepare_items()` asks for the name with the ID after it to settle the ties.
+	 *
+	 * For an audience that sorts a column itself, which WordPress cannot sort by: its `query()` reads
+	 * here what the list is sorted by, whichever form the base asked in.
+	 *
+	 * @param array $args `WP_User_Query` arguments.
+	 * @return string
+	 */
+	protected static function sorted_by( array $args ) {
+		if ( ! isset( $args['orderby'] ) ) {
+			return '';
+		}
+
+		if ( is_array( $args['orderby'] ) ) {
+			$first = array_key_first( $args['orderby'] );
+
+			return null === $first ? '' : (string) $first;
+		}
+
+		return (string) $args['orderby'];
+	}
+
+	/**
+	 * Two names in A to Z order as a reader of the list expects them, for an audience that orders its
+	 * accounts itself: without regard to case or accents (`remove_accents()`), so Álvaro sorts among
+	 * the A's and Łukasz among the L's rather than after Z, where a comparison byte by byte puts every
+	 * name that opens on an accented letter. Two names alike in that reading, such as Ana and ana,
+	 * compare as one, and the audience's own tie-break, the ID, settles them as it settles two of one
+	 * name, the way the name sort settles them: the database orders names without regard to case, and
+	 * the ID after them.
+	 *
+	 * @param string $a One name.
+	 * @param string $b The other.
+	 * @return int Below 0 when the first comes first, above 0 when the second does, 0 when alike.
+	 */
+	protected static function compare_names( $a, $b ) {
+		return strcasecmp( remove_accents( (string) $a ), remove_accents( (string) $b ) );
 	}
 
 	/**

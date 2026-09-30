@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The Track Builder screen: every program track, what state it is in, and what to do about it.
  *
  * A tool rather than a module, so the Tools menu lists it beside the others, and its handlers do
- * their own capability and nonce check in that order rather than borrowing `WPCPM_Sync_Module`'s,
+ * their own capability and nonce check in that order rather than borrowing `WPCPM_Module`'s,
  * which serves modules (the design's decision 3.9). The rows it draws come from the store and the
  * students sync; nothing here reads Airtable, which is what lets this release ship without the
  * schema token that T2c needs.

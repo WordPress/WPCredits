@@ -184,8 +184,7 @@ still there, the next scan lists it again.
 
 #### Settings
 
-**Deleting ships switched off.** Its one setting, **Deleting duplicates**, with its box **Let program
-managers delete the duplicated rows they select and confirm**, is in the Settings section at the top
+**Deleting ships switched off.** Its one setting, **Deleting duplicates**, with its box **Let administrators delete the duplicated rows they select and confirm**, is in the Settings section at the top
 of the finder's screen, above the list, with a Save of its own. Until a program manager turns it on
 there, the whole list is read-only: no checkbox can be ticked, **Review selection** is grayed out, and
 the list says where deleting is turned on. Scanning and reading work either way, so the list is worth
@@ -479,8 +478,8 @@ nothing is stored on this site, and each question, and the pages found for it, g
   so the field holds whatever model is saved. Leave it as the default unless you have a reason not to.
   It is an alias that always points at the current Gemini Flash, so it cannot be retired out from
   under the site.
-- **Who can ask** - mentors and program managers by default; optionally students and institutions as
-  well, anybody logged in, or program managers only. Never anybody logged out, whatever this says.
+- **Who can ask** - mentors and administrators by default; optionally students and institutions as
+  well, anybody logged in, or administrators only. Never anybody logged out, whatever this says.
   The documentation describes running the program rather than being on it, which is why students
   are not included by default.
 - **Questions per person per hour** - from 0 to 200, 20 by default, so a free tier cannot be spent in

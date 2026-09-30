@@ -73,6 +73,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-tracks.p
 require_once plugin_dir_path( __FILE__ ) . 'includes/tracks/class-wpcpm-track-store.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-module.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-sync-module.php';
+// Before the modules that use it: PHP declares a class only once the traits it uses are declared.
+require_once plugin_dir_path( __FILE__ ) . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-sync.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/modules/class-wpcpm-students-dashboard.php';

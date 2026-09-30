@@ -154,6 +154,7 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 // The five audiences and their registry, as the plugin's loader requires them.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
@@ -546,8 +547,9 @@ $guide_30 = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'docs/sections/30-adm
 ck( 'the guide\'s part on the plugin in wp-admin says audience and tool wherever it once said module',
     modules_in( $guide_30 ), array() );
 
-// The people who run the program are its program managers, the audience's name, in every guide and in
-// what the readme says before its changelog: "Program Administrator" was an older name for them.
+// The people who run the program are the Administrators, the audience's name, in every guide and in
+// what the readme says before its changelog, and managing the program is their job: "Program
+// Administrator" was an older name for them.
 $retired_name = array();
 
 foreach ( $texts as $file => $text ) {
@@ -583,7 +585,7 @@ foreach ( WPCPM_Tools::all() as $tool ) {
 
 $must_name = array(
 	'WPCredits Program' => array( 'WPCredits Program', 'Overview', 'Settings' ),
-	'Audiences'         => array( 'Students', 'Mentors', 'Institutions', 'Sponsors', 'Program managers', 'Administrators' ),
+	'Audiences'         => array( 'Students', 'Mentors', 'Institutions', 'Sponsors', 'Administrators' ),
 	'Tools'             => $tool_names,
 	'Landing page'      => array( 'Mentor', 'Student', 'Institution', 'Sponsor landing page' ),
 	'Remove and Leave'  => array( 'Remove', 'Leave' ),
@@ -601,13 +603,22 @@ ck( 'and it has a table of the words the screens use: the plugin\'s name, the fi
     array( array_column( $rows, 0 ), $lacks ),
     array( array_keys( $must_name ), array() ) );
 
+// One name for each audience, the one its screen and the Overview's card give it: the people who
+// manage the program are the Administrators, as their screen is titled, and no second name for them.
+$audience_cells = isset( $named['Audiences'] ) ? explode( ' | ', $named['Audiences'] ) : array();
+
+preg_match_all( '/\*\*([^*]+)\*\*/', isset( $audience_cells[1] ) ? $audience_cells[1] : '', $audience_names );
+
+ck( 'and its row of audiences names each by the one name its screen gives it, the people who manage the program as Administrators alone',
+    $audience_names[1], array( 'Students', 'Mentors', 'Institutions', 'Sponsors', 'Administrators' ) );
+
 echo "\n=== The plugin's description, its readme and its blocks use the same words ===\n";
 
 // The description wp-admin's Plugins screen prints under the plugin's name, read from the main file's
 // header, which the translation template carries too.
 $main_file   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'wpcredits-program-manager.php' );
 $description = preg_match( '/^ \* Description:\s*(.+)$/m', $main_file, $found ) ? trim( $found[1] ) : '';
-$audiences   = 'Students, Mentors, Institutions, Sponsors and Program managers';
+$audiences   = 'Students, Mentors, Institutions, Sponsors and Administrators';
 
 ck( 'the description the Plugins screen prints names the five audiences as the screens do, and says module nowhere',
     array( '' !== $description, false !== strpos( $description, $audiences ), modules_in( $description ) ),

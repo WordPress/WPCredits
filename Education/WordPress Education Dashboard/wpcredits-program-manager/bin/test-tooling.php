@@ -17,7 +17,16 @@
  * worktrees can sit inside the checkout, under the git-ignored `.worktrees/`, and on 28 September
  * 2026 one of them made `bin/check-references.php` report 84 problems that were the other branch's
  * code checked against this branch's classes, and ran phpcs out of memory, so neither the dead
- * annotations check nor the standards could run at all.
+ * annotations check nor the standards could run at all. And that a tree which is itself such a
+ * worktree checks its own files: the skips first matched the whole path, so from a worktree they
+ * left out every file of it and the checks went green over nothing, and the build named its zip's
+ * folder after the worktree's folder, not the plugin's slug.
+ *
+ * A section checks that the references check reads a trait the way PHP does: its methods are the
+ * methods of each class that uses it, and its `self::` and `static::` name that class, so a constant
+ * the trait reads is checked in each class that uses it, but for a method the class replaces. The
+ * audience screens share their plumbing as a trait, and a check that read only classes flagged each
+ * module's call to it and never checked the trait's own references.
  *
  * The last checks that the suites can run on PHP 7.4, the oldest PHP the plugin supports. A suite
  * that reaches a private or protected method through reflection has to make it accessible first
@@ -160,6 +169,33 @@ ck( 'the archive is read back once, and a read that fails is said out loud', arr
 	substr_count( $build_src, 'unzip -Z1' ),
 ), array( true, true, 1 ) );
 ck( 'and the line that reports the build runs no command of its own', array( '' !== $report_line, false !== strpos( $report_line, '$(' ) ), array( true, false ) );
+
+// A linked worktree under .worktrees/ is named after its branch, and a clone can be made under any
+// name, while the zip's one folder has to be the plugin's slug, which WordPress installs it under. So
+// a copy of the builder runs in a small plugin tree whose folder is another name, inside a
+// .worktrees/ folder: the slug is read from the plugin's header, and the tree is zipped under it.
+$elsewhere = $scratch . '/checkout/.worktrees/other-branch';
+
+put( $elsewhere . '/bin/build', $build_src );
+put( $elsewhere . '/.distignore', (string) file_get_contents( $root . '/.distignore' ) );
+put( $elsewhere . '/wpcredits-program-manager.php', "<?php\n/**\n * Plugin Name:       WPCredits Program Manager\n * Version:           9.9.9\n * Text Domain:       wpcredits-program-manager\n */\n" );
+put( $elsewhere . '/readme.txt', "=== WPCredits Program Manager ===\n" );
+
+$renamed_zip = $scratch . '/renamed.zip';
+$renamed     = run( 'bash ' . escapeshellarg( $elsewhere . '/bin/build' ) . ' ' . escapeshellarg( $renamed_zip ) . ' 2>&1' );
+$renamed_in  = is_file( $renamed_zip ) ? run( 'unzip -Z1 ' . escapeshellarg( $renamed_zip ) ) : array( 'out' => '' );
+$entries     = array_values( array_filter( explode( "\n", trim( $renamed_in['out'] ) ) ) );
+
+sort( $entries );
+
+ck( 'a tree in a folder of another name, a worktree\'s under .worktrees/ among them, builds under the slug its plugin header names, with its version, and nothing else of the tree around it',
+	array(
+		$renamed['status'],
+		false !== strpos( $renamed['out'], 'top-level: wpcredits-program-manager ' ),
+		false !== strpos( $renamed['out'], 'version inside: 9.9.9' ),
+		$entries,
+	),
+	array( 0, true, true, array( 'wpcredits-program-manager/', 'wpcredits-program-manager/readme.txt', 'wpcredits-program-manager/wpcredits-program-manager.php' ) ) );
 
 /* ---- bin/check-standards.sh ---------------------------------------------- */
 
@@ -366,20 +402,85 @@ ck( 'the references check reads this checkout\'s own classes and none under .wor
     array( $refs['status'], trim( $refs['out'] ) ),
     array( 0, '1 classes, 1 references checked, 0 form handlers scanned - all resolve' ) );
 
+// And a worktree checks its own tree: run from a copy that is itself a worktree under .worktrees/, a
+// skip matching the worktree's own path would read nothing at all and go green over nothing. Its
+// .worktrees/ folder, were it to hold another branch's, is still left out.
+$branch = $scratch . '/checkout/.worktrees/one-branch';
+
+put( $branch . '/bin/check-references.php', (string) file_get_contents( $root . '/bin/check-references.php' ) );
+put( $branch . '/includes/class-wpcpm-probe.php', "<?php\nclass WPCPM_Probe {\n\tconst HERE = 1;\n\n\tpublic function here() {\n\t\treturn self::HERE;\n\t}\n}\n" );
+put( $branch . '/includes/class-wpcpm-probe-gone.php', "<?php\nclass WPCPM_Probe_Gone {\n\tpublic function gone() {\n\t\treturn self::GONE;\n\t}\n}\n" );
+put( $branch . '/.worktrees/other-branch/includes/class-wpcpm-elsewhere.php', "<?php\nclass WPCPM_Elsewhere {\n\tpublic function gone() {\n\t\treturn self::GONE + WPCPM_Probe::GONE;\n\t}\n}\n" );
+
+$in_branch = run( 'php ' . escapeshellarg( $branch . '/bin/check-references.php' ) );
+
+ck( 'run from a worktree under .worktrees/, the references check reads that worktree\'s own classes, finding the one reference that resolves nowhere, and still none of a worktree inside it',
+    array( $in_branch['status'], substr_count( $in_branch['out'], 'UNDEFINED' ), false !== strpos( $in_branch['out'], 'UNDEFINED  WPCPM_Probe_Gone::GONE' ), trim( (string) substr( rtrim( $in_branch['out'] ), (int) strrpos( rtrim( $in_branch['out'] ), "\n" ) ) ) ),
+    array( 1, 1, true, '2 classes, 2 references checked, 0 form handlers scanned - 1 PROBLEM(S)' ) );
+
 // phpcs is not run here (the header says why), so its ruleset is read the way phpcs reads it: as
-// elements, so a pattern left in a comment counts for nothing. The dead annotations check runs
-// phpcs through the same ruleset.
+// elements, so a pattern left in a comment counts for nothing, each applied the way phpcs 3's file
+// filter applies one (`PHP_CodeSniffer\Filters\Filter::shouldIgnorePath()`): a pattern ending in
+// `/*` leaves out a folder and all in it, `*` is any run of characters, the match ignores case, and
+// a pattern of type `relative` is matched against the path from the tree phpcs checks, the ruleset's
+// own `<file>.</file>`, rather than against the whole path. The dead annotations check runs phpcs
+// through the same ruleset.
 $ruleset  = new DOMDocument();
 $loaded   = $ruleset->load( $root . '/phpcs.xml.dist' );
 $patterns = array();
 
 foreach ( $ruleset->getElementsByTagName( 'exclude-pattern' ) as $pattern ) {
-	$patterns[] = trim( $pattern->textContent );
+	$patterns[ trim( $pattern->textContent ) ] = 'relative' === $pattern->getAttribute( 'type' ) ? 'relative' : 'absolute';
 }
 
-ck( 'the standards, and the dead annotations check through them, leave out .worktrees/ as they leave out .superpowers/',
-    array( $loaded, in_array( '*/.worktrees/*', $patterns, true ), in_array( '*/.superpowers/*', $patterns, true ) ),
-    array( true, true, true ) );
+/**
+ * Whether the ruleset's patterns leave a path out of a phpcs run over a tree, as phpcs 3 decides it.
+ *
+ * @param array<string, string> $patterns Pattern => `relative` or `absolute`.
+ * @param string                $tree     The tree phpcs checks.
+ * @param string                $path     A path inside it.
+ * @param bool                  $is_dir   Whether the path is a folder.
+ * @return bool
+ */
+function wpcpm_phpcs_leaves_out( array $patterns, $tree, $path, $is_dir ) {
+	$relative = 0 === strpos( $path, $tree ) ? substr( $path, strlen( $tree ) + 1 ) : $path;
+
+	foreach ( $patterns as $pattern => $type ) {
+		if ( '/*' === substr( $pattern, -2 ) && $is_dir ) {
+			$pattern = substr( $pattern, 0, -2 ) . '(?=/|$)';
+		} elseif ( $is_dir ) {
+			continue;
+		}
+
+		if ( 1 === preg_match( '`' . strtr( $pattern, array( '\\,' => ',', '*' => '.*' ) ) . '`i', 'relative' === $type ? $relative : $path ) ) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+$checkout   = '/sites/wpcredits-program-manager';
+$worktree   = $checkout . '/.worktrees/one-branch';
+$left_out   = function ( $tree, $inside, $is_dir = false ) use ( $patterns ) {
+	return wpcpm_phpcs_leaves_out( $patterns, $tree, $tree . '/' . $inside, $is_dir );
+};
+
+ck( 'the standards, and the dead annotations check through them, leave out a .worktrees/ folder in the tree they check as they leave out .superpowers/ and bin/, and check every file of a tree that is itself a worktree under .worktrees/',
+    array(
+		$loaded,
+		$left_out( $checkout, 'includes/class-wpcpm-probe.php' ),
+		$left_out( $checkout, '.worktrees', true ),
+		$left_out( $checkout, '.worktrees/one-branch/includes/class-wpcpm-probe.php' ),
+		$left_out( $checkout, '.superpowers/scratch.php' ),
+		$left_out( $checkout, 'bin/test-tooling.php' ),
+		$left_out( $worktree, 'includes/class-wpcpm-probe.php' ),
+		$left_out( $worktree, 'includes', true ),
+		$left_out( $worktree, 'wpcredits-program-manager.php' ),
+		$left_out( $worktree, '.worktrees/other-branch/includes/class-wpcpm-elsewhere.php' ),
+		$left_out( $worktree, 'bin/test-tooling.php' ),
+	),
+    array( true, false, true, true, true, true, false, false, false, true, true ) );
 
 // The dash scan in bin/check-standards.sh is grep over the tree it is run from, so it is run from a
 // scratch plugin tree whose one dash is in a worktree, with the stand-in phpcs reporting nothing.
@@ -395,6 +496,53 @@ ck( 'and so does the standards\' dash scan: a dash in another branch\'s worktree
     array( $dashes['status'], false !== strpos( $dashes['out'] . $dashes['err'], 'Em or en dashes found' ), false !== strpos( $dashes['out'], '0 warnings, no errors.' ) ),
     array( 0, false, true ) );
 
+/* ---- Traits --------------------------------------------------------------- */
+
+echo "\n=== The references check and traits ===\n";
+
+// A copy of the check runs over a scratch tree: a trait whose two methods each read a constant; a
+// class holding both, which calls one of the trait's methods through `self::`; a class holding one,
+// which replaces the method that reads the other; and a class holding one, which does not.
+$traited = $scratch . '/traits';
+
+put( $traited . '/bin/check-references.php', (string) file_get_contents( $root . '/bin/check-references.php' ) );
+put( $traited . '/includes/trait-wpcpm-probe-screen.php', "<?php\ntrait WPCPM_Probe_Screen {\n\tpublic function tab() {\n\t\treturn static::TAB;\n\t}\n\n\tpublic function title() {\n\t\treturn static::TITLE;\n\t}\n}\n" );
+put( $traited . '/includes/class-wpcpm-probe-full.php', "<?php\nclass WPCPM_Probe_Full {\n\tuse WPCPM_Probe_Screen;\n\n\tconst TAB   = 'full';\n\tconst TITLE = 'Full';\n\n\tpublic function here() {\n\t\treturn self::tab();\n\t}\n}\n" );
+put( $traited . '/includes/class-wpcpm-probe-own.php', "<?php\nclass WPCPM_Probe_Own {\n\tuse WPCPM_Probe_Screen;\n\n\tconst TAB = 'own';\n\n\tpublic function title() {\n\t\treturn 'Own';\n\t}\n}\n" );
+put( $traited . '/includes/class-wpcpm-probe-short.php', "<?php\nclass WPCPM_Probe_Short {\n\tuse WPCPM_Probe_Screen;\n\n\tconst TAB = 'short';\n}\n" );
+
+$traits = run( 'php ' . escapeshellarg( $traited . '/bin/check-references.php' ) );
+$summed = trim( (string) substr( rtrim( $traits['out'] ), (int) strrpos( rtrim( $traits['out'] ), "\n" ) ) );
+
+ck( 'the references check reads a trait\'s methods as those of each class that uses it, and finds the one constant the trait reads that a class using it lacks, but not in a method a class replaces',
+    array( $traits['status'], substr_count( $traits['out'], 'UNDEFINED' ), false !== strpos( $traits['out'], 'UNDEFINED  WPCPM_Probe_Short::TITLE' ), $summed ),
+    array( 1, 1, true, '3 classes, 6 references checked, 0 form handlers scanned - 1 PROBLEM(S)' ) );
+
+// A class can take two traits in one `use`, and adapt them in a block after it. Each trait named is
+// read, so a class holding both finds the methods of both and has the references of both checked; a
+// trait nobody declares is named as one.
+$paired = $scratch . '/traits-paired';
+
+put( $paired . '/bin/check-references.php', (string) file_get_contents( $root . '/bin/check-references.php' ) );
+put( $paired . '/includes/trait-wpcpm-probe-tabs.php', "<?php\ntrait WPCPM_Probe_Tabs {\n\tpublic function tab() {\n\t\treturn static::TAB;\n\t}\n}\n" );
+put( $paired . '/includes/trait-wpcpm-probe-titles.php', "<?php\ntrait WPCPM_Probe_Titles {\n\tpublic function title() {\n\t\treturn static::TITLE;\n\t}\n}\n" );
+put( $paired . '/includes/class-wpcpm-probe-both.php', "<?php\nclass WPCPM_Probe_Both {\n\tuse WPCPM_Probe_Tabs, WPCPM_Probe_Titles;\n\n\tconst TAB = 'both';\n\n\tpublic function here() {\n\t\treturn self::tab() . self::title();\n\t}\n}\n" );
+put( $paired . '/includes/class-wpcpm-probe-adapted.php', "<?php\nclass WPCPM_Probe_Adapted {\n\tuse WPCPM_Probe_Tabs, WPCPM_Probe_Titles {\n\t\ttitle as protected;\n\t}\n\n\tconst TAB   = 'adapted';\n\tconst TITLE = 'Adapted';\n\n\tpublic function here() {\n\t\treturn self::tab() . self::title();\n\t}\n}\n" );
+put( $paired . '/includes/class-wpcpm-probe-lost.php', "<?php\nclass WPCPM_Probe_Lost {\n\tuse WPCPM_Probe_Nowhere;\n}\n" );
+
+$pairs      = run( 'php ' . escapeshellarg( $paired . '/bin/check-references.php' ) );
+$pairs_line = trim( (string) substr( rtrim( $pairs['out'] ), (int) strrpos( rtrim( $pairs['out'] ), "\n" ) ) );
+
+ck( 'and reads both traits of a `use` naming two, with or without a block adapting them, finding the constant one of them reads that a class lacks, and names a trait nobody declares',
+    array(
+		$pairs['status'],
+		substr_count( $pairs['out'], 'UNDEFINED' ),
+		false !== strpos( $pairs['out'], 'UNDEFINED  WPCPM_Probe_Both::TITLE' ),
+		false !== strpos( $pairs['out'], 'UNKNOWN TRAIT  WPCPM_Probe_Nowhere, used by WPCPM_Probe_Lost' ),
+		$pairs_line,
+	),
+    array( 1, 1, true, true, '3 classes, 8 references checked, 0 form handlers scanned - 2 PROBLEM(S)' ) );
+
 /* ---- The suites on PHP 7.4 ----------------------------------------------- */
 
 echo "\n=== The suites on PHP 7.4 ===\n";
@@ -405,21 +553,40 @@ echo "\n=== The suites on PHP 7.4 ===\n";
  *
  * Read from the source: each `$name = new ReflectionMethod( 'Class', 'member' )`, or
  * `ReflectionProperty`, with the names written out; the member's visibility where the plugin
- * declares the class; and whether the suite invokes it, reads it or writes it through `$name`, and
- * calls `$name->setAccessible( true )`. A class the plugin does not declare is a suite's own
- * stand-in, and a public member needs no step.
+ * declares it, in the class's own file or, for a member the class takes from a trait, in the file
+ * of a trait the class uses; and whether the suite invokes it, reads it or writes it through
+ * `$name`, and calls `$name->setAccessible( true )`. A class the plugin does not declare is a
+ * suite's own stand-in, and a public member needs no step.
  *
  * @param string $plugin The plugin tree's root.
  * @return string[]
  */
 function wpcpm_reflection_reaches( $plugin ) {
 	$declared = array();
+	$traits   = array();
+	$uses     = array();
 	$files    = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $plugin . '/includes', FilesystemIterator::SKIP_DOTS ) );
 
 	foreach ( $files as $file ) {
-		if ( '.php' === substr( (string) $file, -4 ) && preg_match_all( '/^(?:abstract |final )?class (\w+)/m', (string) file_get_contents( (string) $file ), $classes ) ) {
+		if ( '.php' !== substr( (string) $file, -4 ) ) {
+			continue;
+		}
+
+		$source = (string) file_get_contents( (string) $file );
+
+		if ( preg_match_all( '/^trait (\w+)/m', $source, $found ) ) {
+			foreach ( $found[1] as $trait ) {
+				$traits[ $trait ] = (string) $file;
+			}
+		}
+
+		if ( preg_match_all( '/^(?:abstract |final )?class (\w+)/m', $source, $classes ) ) {
+			// The traits each `use` line names, in any of its forms (bin/check-references.php reads them so).
+			preg_match_all( '/^\tuse ([^;{]+)[;{]/m', $source, $used );
+
 			foreach ( $classes[1] as $class ) {
 				$declared[ $class ] = (string) $file;
+				$uses[ $class ]     = array_filter( array_map( 'trim', explode( ',', implode( ',', $used[1] ) ) ) );
 			}
 		}
 	}
@@ -442,7 +609,26 @@ function wpcpm_reflection_reaches( $plugin ) {
 				? '/^\s*((?:(?:public|protected|private|static|abstract|final)\s+)*)function\s+' . $member . '\s*\(/m'
 				: '/^\s*((?:(?:public|protected|private|static|var)\s+)*)\$' . $member . '\b/m';
 
-			if ( ! preg_match( $declaration, (string) file_get_contents( $declared[ $class ] ), $found ) || ! preg_match( '/\b(private|protected)\b/', $found[1] ) ) {
+			// The class's own file first, then the files of the traits it uses: a member the class
+			// declares itself replaces a trait's.
+			$holders = array( $declared[ $class ] );
+
+			foreach ( $uses[ $class ] as $trait ) {
+				if ( isset( $traits[ $trait ] ) ) {
+					$holders[] = $traits[ $trait ];
+				}
+			}
+
+			$visibility = null;
+
+			foreach ( $holders as $holder ) {
+				if ( preg_match( $declaration, (string) file_get_contents( $holder ), $found ) ) {
+					$visibility = $found[1];
+					break;
+				}
+			}
+
+			if ( null === $visibility || ! preg_match( '/\b(private|protected)\b/', $visibility ) ) {
 				continue;
 			}
 
@@ -474,6 +660,20 @@ put( $reflected . '/bin/test-public.php', sprintf( $reach, 'shown', '' ) );
 ck( 'a suite invoking a private method through reflection without making it accessible is found, one that makes it accessible is not, and a public method needs nothing',
     wpcpm_reflection_reaches( $reflected ),
     array( 'test-bare.php: WPCPM_Probe::hidden' ) );
+
+// The screens' plumbing is a trait, so a module's private methods are declared in the trait's file,
+// not the module's: the member is looked for in the traits a class uses when its own file does not
+// declare it.
+$traited_suites = $scratch . '/reflection-traits';
+
+put( $traited_suites . '/includes/trait-wpcpm-probe-plumbing.php', "<?php\ntrait WPCPM_Probe_Plumbing {\n\tprivate function kept() {\n\t\treturn 1;\n\t}\n}\n" );
+put( $traited_suites . '/includes/class-wpcpm-probe-module.php', "<?php\nclass WPCPM_Probe_Module {\n\tuse WPCPM_Probe_Plumbing;\n}\n" );
+put( $traited_suites . '/bin/test-bare.php', "<?php\n\$m = new ReflectionMethod( 'WPCPM_Probe_Module', 'kept' );\n\$m->invoke( new WPCPM_Probe_Module() );\n" );
+put( $traited_suites . '/bin/test-guarded.php', "<?php\n\$m = new ReflectionMethod( 'WPCPM_Probe_Module', 'kept' );\n" . $guard . "\$m->invoke( new WPCPM_Probe_Module() );\n" );
+
+ck( 'a private method a class takes from a trait, reached through the class without making it accessible, is found as well, and one made accessible is not',
+    wpcpm_reflection_reaches( $traited_suites ),
+    array( 'test-bare.php: WPCPM_Probe_Module::kept' ) );
 ck( 'and no suite here reaches a private or protected member that way, so each can run on PHP 7.4',
     wpcpm_reflection_reaches( $root ),
     array() );

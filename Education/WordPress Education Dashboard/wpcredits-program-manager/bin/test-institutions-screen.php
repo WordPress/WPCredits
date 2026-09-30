@@ -1245,9 +1245,10 @@ ck( 'is_implemented() is true', ( new WPCPM_Institutions() )->is_implemented(), 
 
 // Every handler: the capability is decided before the nonce is read, so an anonymous request
 // gets the 403 the design names rather than a nonce failure that tells it the handler exists.
-// The three sync handlers and verify() live on WPCPM_Sync_Module since 1.90.0, shared with the
-// Students and Mentors modules; the scan reads that source after this module's own.
-$handler_src = $src . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' );
+// The three sync handlers live on WPCPM_Sync_Module since 1.90.0, shared with the Students and
+// Mentors modules, and verify() on the module base every module's screen shares (WPCPM_Module); the
+// scan reads those two sources after this module's own.
+$handler_src = $src . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php' );
 preg_match_all( '/public function (handle_[a-z_]+)\s*\(/', $handler_src, $handlers );
 ck( 'the thirteen handlers exist', $handlers[1], array(
 	'handle_probe', 'handle_provision', 'handle_provision_one',

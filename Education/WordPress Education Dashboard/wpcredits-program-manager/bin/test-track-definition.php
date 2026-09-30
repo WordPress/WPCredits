@@ -114,6 +114,8 @@ echo "\n=== The track's rules, one at a time ===\n";
 ck( 'a property this version does not know', refused( function ( &$d ) { $d['colour'] = 'red'; }, $context ), array( 'unknown_property' ) );
 ck( 'a sponsors property, written by a later version, is kept and not refused', refused( function ( &$d ) { $d['sponsors'] = array( 'acme' ); }, $context ), array() );
 ck( 'normalize() leaves that property as it was', WPCPM_Track_Definition::normalize( valid() + array( 'sponsors' => array( 'acme' ) ) )['sponsors'], array( 'acme' ) );
+ck( 'a partners_narrative property, written by a later version, is kept and not refused', refused( function ( &$d ) { $d['partners_narrative'] = "Two lines\nof text"; }, $context ), array() );
+ck( 'normalize() leaves a partners_narrative property as it was, its line break included', WPCPM_Track_Definition::normalize( valid() + array( 'partners_narrative' => "Two lines\nof text" ) )['partners_narrative'], "Two lines\nof text" );
 ck( 'a schema version the site does not read', refused( function ( &$d ) { $d['schema_version'] = 2; }, $context ), array( 'schema_version' ) );
 ck( 'no status', refused( function ( &$d ) { $d['status'] = ''; }, $context ), array( 'status_empty' ) );
 ck( 'a status over 100 characters', refused( function ( &$d ) { $d['status'] = str_repeat( 'a', 101 ); }, $context ), array( 'status_shape' ) );
@@ -326,6 +328,12 @@ ck( 'no course is an empty link and ID 0', array( $row['course_url'], $row['cour
 // Every track runs from its definition, so a row no longer says where it runs from: `row()` takes the
 // definition, its post and the automation tick, the third argument above, and writes no `source`.
 ck( 'the row carries no source, and the automation tick and the post, typed', array( array_key_exists( 'source', $row ), $row['automation'], $row['post'] ), array( false, true, 7 ) );
+
+// Kept on the definition, compiled into nothing: the index is autoloaded on every request and this
+// property is free text, so a row that copied it would put the whole text into every page load.
+// `row()` names each value it takes, and the form is built from the questions alone.
+$narrated = valid() + array( 'partners_narrative' => "Two lines\nof text" );
+ck( 'a partners_narrative property is compiled into neither the row nor the form', array( WPCPM_Track_Definition::row( $narrated, 42 ), WPCPM_Track_Definition::compile_fields( $narrated ) ), array( WPCPM_Track_Definition::row( valid(), 42 ), WPCPM_Track_Definition::compile_fields( valid() ) ) );
 
 echo "\n=== The hours rule, which check() asks and compile() does not (TRACKS-3) ===\n";
 

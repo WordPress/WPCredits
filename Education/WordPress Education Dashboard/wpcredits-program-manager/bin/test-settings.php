@@ -3075,10 +3075,36 @@ WPCPM_Mail::$queued                                  = 3;
 $states['mail, with invitations waiting']           = draw_settings( 'mail' );
 WPCPM_Mail::$queued                                  = 0;
 
+// The people who manage the program have one name on every screen, Administrators, the role they
+// hold, and the Security row gives them that name too, first among the roles a code is asked of.
+preg_match_all( '#<label><input type="checkbox" name="two_factor_roles\[\]" value="([^"]*)"[^>]*> ([^<]*)</label>#', $states['security'], $role_boxes, PREG_SET_ORDER );
+
+ck( 'the Security row offers the second factor to Administrators, by the name every screen gives the people who manage the program, then to each of the plugin\'s roles by its own',
+    array_column( $role_boxes, 2, 1 ),
+    array(
+		'administrator'     => 'Administrators',
+		'wpcpm_student'     => 'Student',
+		'wpcpm_mentor'      => 'Mentor',
+		'wpcpm_institution' => 'Institution',
+		'wpcpm_sponsor'     => 'Sponsor',
+	) );
+
 // And each tool's Settings section, on the tool's own screen, held to the same rules.
 foreach ( array_keys( $keeping ) as $id ) {
 	$states[ 'tool: ' . $id ] = draw_tool_settings( $id );
 }
+
+// And Need help?'s Who can ask names them so too, beside the mentors or alone.
+preg_match_all( '#<label><input type="radio" name="handbook_access" value="([^"]*)"[^>]*> ([^<]*)</label>#', $states['tool: handbook'], $asking, PREG_SET_ORDER );
+
+ck( 'and Need help?\'s Who can ask names them Administrators too, beside the mentors or alone',
+    array_column( $asking, 2, 1 ),
+    array(
+		'mentor'  => 'Mentors and administrators',
+		'program' => 'Students and institutions as well',
+		'any'     => 'Anybody logged in to this site',
+		'manage'  => 'Administrators only',
+	) );
 
 $too_long    = array();
 $two_or_more = array();
@@ -3225,7 +3251,7 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
         ),
         'Invitation emails'                  => array(
             array( 'Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them.' ),
-            array( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students screen\'s list and invite them together.' ),
+            array( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.' ),
         ),
         'Automatic sync'                     => array(
             array( 'Runs the students, mentors and institutions syncs every three hours, the mentors half an hour after the students; the sponsors sync runs regardless.' ),

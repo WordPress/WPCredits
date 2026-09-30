@@ -39,9 +39,9 @@ updated, skipped and why.
 
 An invitation is a password-reset link. Send them in bulk by switching **Invitation emails** on
 before a sync, or one at a time from the Students and Mentors screens - which is the safer habit,
-because a first sync creates around ninety accounts at once. On the Students screen you can also
-tick several accounts in the list and choose **Send invite** or **Resend invite** under **Bulk
-actions**: those are queued and go out a few at a time.
+because a first sync creates around ninety accounts at once. On the Students and Mentors screens
+you can also tick several accounts in the list and choose **Send invite** or **Resend invite**
+under **Bulk actions**: those are queued and go out a few at a time.
 
 Each invitation cancels the link in the one before it, so only the newest email works: somebody who
 opens an older one is told the link appears to be invalid. For the same reason a second invitation

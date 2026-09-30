@@ -1607,6 +1607,47 @@ ck( 'and rows as 1.110.4 wrote them, each naming where its track ran from, recom
 	array( get_option( WPCPM_Tracks::OPT_TRACKS ) === $before['index'], array_keys( WPCPM_Tracks::rows() ) ),
 	array( true, array( 'In Sensei', 'In Sensei 50h', 'Developer Track', 'Designer Track', 'Growth Track' ) ) );
 
+echo "\n=== A track a later version published, holding what this version keeps and never reads ===\n";
+
+// A later version writes a partners' narrative, free text, on a track's definition, beside the
+// sponsors it names, and publishes the track. A site that returns to this version keeps running that
+// track, so compile() has to index it rather than set it aside, and the index it writes is autoloaded
+// on every request, so none of the text may reach it, nor the track's form.
+fresh_site();
+$later_copy                       = track( 'Later Track', 'later' );
+$later_copy['sponsors']           = array( 'recSPONSOR0000001' );
+$later_copy['partners_narrative'] = "Two lines\nof text from the partners";
+$later                            = WPCPM_Track_Store::create( $later_copy );
+
+// As the later version's publish left it: the post published and the copy it was published with.
+wp_update_post( array( 'ID' => $later, 'post_status' => 'publish' ) );
+update_post_meta( $later, WPCPM_Track_Store::META_PUBLISHED, wp_slash( WPCPM_Track_Definition::encode( $later_copy ) ) );
+
+$rows  = WPCPM_Track_Store::compile();
+$index = serialize( get_option( WPCPM_Tracks::OPT_TRACKS ) );
+$form  = serialize( get_option( WPCPM_Tracks::OPT_FIELDS_PREFIX . 'later' ) );
+
+ck( 'compile() indexes the track under its status and sets nothing aside, and neither the autoloaded index nor the form holds any of the narrative or the sponsors, while the copy it was published with keeps both as they were written',
+	array(
+		array_keys( $rows ),
+		get_option( WPCPM_Track_Store::OPT_SKIPPED ),
+		$GLOBALS['autoload'][ WPCPM_Tracks::OPT_TRACKS ],
+		false !== strpos( $index . $form, 'from the partners' ),
+		false !== strpos( $index . $form, 'recSPONSOR0000001' ),
+		array_intersect_key( (array) WPCPM_Track_Store::published( $later ), array_flip( array( 'sponsors', 'partners_narrative' ) ) ),
+	),
+	array(
+		array( 'Later Track' ),
+		array(),
+		true,
+		false,
+		false,
+		array(
+			'sponsors'           => array( 'recSPONSOR0000001' ),
+			'partners_narrative' => "Two lines\nof text from the partners",
+		),
+	) );
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 
 exit( $fails ? 1 : 0 );

@@ -7,10 +7,11 @@
  *
  * - The table is WordPress's own: a checkbox column, then the audience's columns in the order it
  *   gives them, a row per account, and the row actions under the first column, drawn as core's own
- *   lists draw them (`handle_row_actions()`), so a row has one "Show more details" toggle. The
- *   Students screen's list today is drawn by hand with a form in every row; this is one list, one
- *   form. The columns a person hid under Screen Options stay hidden, the primary one never, and
- *   Screen Options is never offered the primary column to hide, whatever its key.
+ *   lists draw them (`handle_row_actions()`), so a row has one "Show more details" toggle, a row
+ *   with no action too. The Students screen's list was drawn by hand with a form in every row until
+ *   1.118.0; this is one list, one form. The columns a person hid under Screen Options stay hidden,
+ *   the primary one never, and Screen Options is never offered the primary column to hide, whatever
+ *   its key.
  * - The views count from the stamp an invitation leaves, read the way `WPCPM_Mail::never_invited()`
  *   reads it: the stamp being there is Invited and its absence is Never invited, which is the
  *   reading the invitations card counts by, and a stamp of 0 is still a stamp. The counts are the
@@ -20,20 +21,44 @@
  *   adds its own actions beside it through `row_actions_for()`. Every value the table prints is
  *   escaped, the account's name in its checkbox label and every link it draws among them.
  * - The bulk actions are the two invitations, in the table's one form, under the table's own nonce.
+ * - What they queue is worked out once, in the base, for every audience (`queue_ticked()`), read
+ *   through the audience's own class for its role and its stamp. Send invite queues the ticked
+ *   accounts never invited through `WPCPM_Mail::queue_invites()`, the invitations card's own way
+ *   in; Resend invite queues each ticked account invited before through
+ *   `WPCPM_Mail::queue_invite()`, and leaves out, and counts, anybody sent an invitation in the
+ *   last fifteen minutes. An account outside the role is left out, a repeat counts once, and the
+ *   ticked accounts are read in one go. What came of it is the outcome and its detail:
+ *   `invites-queued` with how many, or `invites-none` with why, each saying which of the two was
+ *   pressed. The queue here is a stand-in that notes each way in it is asked to take
+ *   (bin/test-students-screen.php and bin/test-mentors-screen.php make the same presses through the
+ *   real one), and the Students module is read, with the screen plumbing it shares with every
+ *   audience's module (`WPCPM_Accounts_Screen`), to show its list calls the base rather than keeping
+ *   a copy of its own.
+ * - The words for what came of it are the base's too (`selected_sentence()`), one wording for every
+ *   audience's list: how many were queued, by which of the two, or why none was, and how many a
+ *   Resend invite left out for the fifteen minutes. The Students and Mentors modules are read, with
+ *   the plumbing they share, to show each prints them rather than a wording of its own, loading the
+ *   tables for them first.
+ * - The name, the username and a row's Edit are the base's for every audience, drawn alike: the name
+ *   in bold, to the account's editor when the person looking may open it, and plain otherwise, and
+ *   the username as code. And the screen plumbing the Students and Mentors modules held twice is one
+ *   trait now (`WPCPM_Accounts_Screen`): its methods are read from its file, and neither module may
+ *   declare one of them again.
  * - The per-page screen option: its name, its default of 20, the choice core may save (1 to 999)
  *   and the choice read back through the option's filter, as core reads it. The audience wires
  *   both, the option from its screen's load hook and the save through a filter its module adds at
- *   boot (bin/test-students-screen.php pins the Students screen's), so the base offers no static a
- *   table would have to be loaded for before the screen loads it.
+ *   boot (bin/test-students-screen.php and bin/test-mentors-screen.php pin the two screens'), so
+ *   the base offers no static a table would have to be loaded for before the screen loads it.
  * - A list sorts only by what the audience declares, matched as `sanitize_key()` leaves both sides;
  *   any other `orderby` is ignored, because it goes into a query. The name sort asks for the ID
  *   after the name, so two accounts of one name keep one order from page to page and neither is
  *   shown twice while the other is on no page. The search is `WP_User_Query`'s contains search,
  *   over name, username and email, and the list asks for its total to be counted.
  * - The plugin declares no list table as it loads: its loader `wpcpm_load_accounts_tables()` loads
- *   the base and the Students table when a screen first needs one, so the front end, REST and cron
- *   never load core's list table for them. The base loads core's list table itself when it is not
- *   there yet: core loads it for wp-admin requests, after plugins have loaded.
+ *   the base, the Students table, the Mentors table and the Administrators table when a screen
+ *   first needs one, so the front end, REST and cron never load core's list table for them. The
+ *   base loads core's list table itself when it is not there yet: core loads it for wp-admin
+ *   requests, after plugins have loaded.
  *
  * The table is drawn by the stand-in in bin/stubs/class-wp-list-table.php, whose markup is close to
  * core's and is not core's; the checks read what a screen depends on, not core's exact markup.
@@ -82,7 +107,7 @@ function wpcpm_accounts_table_plugin_child( $abspath ) {
 	require dirname( __DIR__ ) . '/wpcredits-program-manager.php';
 
 	$declared = function () {
-		return array( class_exists( 'WP_List_Table', false ), class_exists( 'WPCPM_Accounts_Table', false ), class_exists( 'WPCPM_Students_Table', false ) );
+		return array( class_exists( 'WP_List_Table', false ), class_exists( 'WPCPM_Accounts_Table', false ), class_exists( 'WPCPM_Students_Table', false ), class_exists( 'WPCPM_Mentors_Table', false ), class_exists( 'WPCPM_Administrators_Table', false ) );
 	};
 
 	$as_loaded = $declared();
@@ -132,6 +157,7 @@ function wpcpm_accounts_table_child( $case, $abspath ) {
 }
 
 define( 'ABSPATH', __DIR__ . '/' );
+define( 'MINUTE_IN_SECONDS', 60 );
 define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 
 require_once __DIR__ . '/stubs/temp-dir.php';
@@ -144,8 +170,12 @@ $GLOBALS['screen_options'] = array(); // Option => the arguments add_screen_opti
 $GLOBALS['queries']        = array(); // Every WP_User_Query's arguments, in order.
 $GLOBALS['nonce_fields']   = array(); // The action of every nonce field printed.
 $GLOBALS['translations']   = array(); // Text => a translation, for the escaping checks.
+$GLOBALS['opts']           = array(); // Option => value: the invitation queue, as the stand-in WPCPM_Mail keeps it.
+$GLOBALS['reads']          = array(); // Every read of an account the bulk invitation makes: the priming, each lookup.
+$GLOBALS['queue_calls']    = array(); // Each way into the invitation queue taken, with the accounts it was handed.
 $GLOBALS['unmodeled']      = array(); // Anything asked of a stand-in that it does not model.
 $GLOBALS['screen']         = null;    // What convert_to_screen() answers: null for a table with no screen.
+$GLOBALS['no_editor']      = false;   // Whether the person looking may not open the accounts' editor.
 
 /* ---- WordPress, as far as the table reaches ------------------------------ */
 
@@ -157,6 +187,14 @@ class WP_User {
 		$this->user_email   = $login . '@example.test';
 		$this->display_name = $name;
 		$this->roles        = $roles;
+	}
+}
+
+/** An error, as far as the bulk invitation asks one anything: whether it is one (`is_wp_error()`). */
+class WP_Error {
+	public $code = '';
+	public function __construct( $code = '', $message = '', $data = null ) {
+		$this->code = (string) $code;
 	}
 }
 
@@ -466,6 +504,29 @@ function get_user_option( $option, $user = 0 ) {
 function metadata_exists( $type, $id, $key ) {
 	return 'user' === $type && isset( $GLOBALS['umeta'][ (int) $id ] ) && array_key_exists( $key, $GLOBALS['umeta'][ (int) $id ] );
 }
+function get_user_by( $field, $value ) {
+	if ( 'id' !== $field ) {
+		$GLOBALS['unmodeled'][] = 'get_user_by() by ' . $field;
+	}
+
+	$GLOBALS['reads'][] = 'user ' . $value;
+
+	return isset( $GLOBALS['users'][ (int) $value ] ) ? $GLOBALS['users'][ (int) $value ] : false;
+}
+function get_edit_user_link( $id ) {
+	return $GLOBALS['no_editor'] ? '' : 'https://example.test/wp-admin/user-edit.php?user_id=' . (int) $id;
+}
+/**
+ * Core's priming of accounts and their meta, two queries whatever the count: kept as one read.
+ *
+ * @param int[] $ids User IDs.
+ */
+function cache_users( $ids ) {
+	$GLOBALS['reads'][] = 'cache ' . implode( ',', (array) $ids );
+}
+function is_wp_error( $thing ) {
+	return $thing instanceof WP_Error;
+}
 function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
 	$GLOBALS['hooks'][ $hook ][] = array( $callback, $accepted_args, $priority );
 
@@ -532,12 +593,110 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-accounts-table.php';
 
+/* ---- the invitation queue, as far as the bulk invitation reaches it ------ */
+
+// Declared inside a condition, so PHP declares it when the run reaches this line: a class written
+// at the top level of a file exists before the file's first line runs, and the run above that
+// loads the plugin as a site does requires the plugin's own WPCPM_Mail.
+if ( ! class_exists( 'WPCPM_Mail', false ) ) {
+	/**
+	 * Who is waiting, the queue's two ways in and the fifteen-minute guard, answered as WPCPM_Mail
+	 * answers them, the queue kept in the option it keeps it in. Each way in notes the accounts it
+	 * was handed, so a check can tell a first invitation's path from a re-invitation's. The run the
+	 * card reports and the cron event the queue asks for are the mail layer's own, and nothing the
+	 * bulk invitation reads, so neither is modeled.
+	 */
+	class WPCPM_Mail {
+		const QUEUE_OPTION = 'wpcpm_invite_queue';
+		const INVITE_GAP   = 900;
+
+		/** The stamps an invitation can leave, one a role: the queue and the guard read all four. */
+		const STAMPS = array( 'wpcpm_student_invited', 'wpcpm_mentor_invited', 'wpcpm_inst_invited', 'wpcpm_sponsor_invited' );
+
+		/**
+		 * Everybody waiting, in order.
+		 *
+		 * @return int[]
+		 */
+		public static function queue() {
+			$queue = isset( $GLOBALS['opts'][ self::QUEUE_OPTION ] ) ? $GLOBALS['opts'][ self::QUEUE_OPTION ] : array();
+
+			return is_array( $queue ) ? array_values( array_map( 'intval', $queue ) ) : array();
+		}
+
+		/**
+		 * One account into the queue, unless it is waiting already.
+		 *
+		 * @param int $user_id User ID.
+		 */
+		public static function queue_invite( $user_id ) {
+			$GLOBALS['queue_calls'][] = array( 'queue_invite', (int) $user_id );
+
+			$queue = self::queue();
+
+			if ( (int) $user_id && ! in_array( (int) $user_id, $queue, true ) ) {
+				$queue[]                               = (int) $user_id;
+				$GLOBALS['opts'][ self::QUEUE_OPTION ] = $queue;
+			}
+		}
+
+		/**
+		 * Accounts into the queue for a first invitation: a repeat once, and anybody waiting or
+		 * carrying any of the four stamps dropped, as the mail layer drops them.
+		 *
+		 * @param int[] $user_ids User IDs.
+		 * @return int How many went in.
+		 */
+		public static function queue_invites( array $user_ids ) {
+			$GLOBALS['queue_calls'][] = array( 'queue_invites', array_values( array_map( 'intval', $user_ids ) ) );
+
+			$queue = self::queue();
+			$fresh = array();
+
+			foreach ( array_diff( array_values( array_unique( array_filter( array_map( 'intval', $user_ids ) ) ) ), $queue ) as $id ) {
+				foreach ( self::STAMPS as $stamp ) {
+					if ( ! empty( $GLOBALS['umeta'][ $id ][ $stamp ] ) ) {
+						continue 2;
+					}
+				}
+
+				$fresh[] = $id;
+			}
+
+			if ( ! empty( $fresh ) ) {
+				$GLOBALS['opts'][ self::QUEUE_OPTION ] = array_merge( $queue, $fresh );
+			}
+
+			return count( $fresh );
+		}
+
+		/**
+		 * Whether an invitation may go now: true, or an error when one went out, under any stamp,
+		 * inside the gap.
+		 *
+		 * @param int $user_id User ID.
+		 * @return true|WP_Error
+		 */
+		public static function may_invite( $user_id ) {
+			$last = 0;
+
+			foreach ( self::STAMPS as $stamp ) {
+				$last = max( $last, isset( $GLOBALS['umeta'][ (int) $user_id ][ $stamp ] ) ? (int) $GLOBALS['umeta'][ (int) $user_id ][ $stamp ] : 0 );
+			}
+
+			return ( $last && $last + self::INVITE_GAP > time() ) ? new WP_Error( 'wpcpm_invite_too_soon' ) : true;
+		}
+	}
+}
+
 /* ---- the audiences under test -------------------------------------------- */
 
 /**
  * The Students shape: two columns, sortable both ways, the query through WP_User_Query.
  *
- * The methods at the end are seams, so a check can read what the table keeps to itself.
+ * Its two cells are its own and plain, in place of the base's name and username (`column_name()`,
+ * `column_login()`), so the checks read the markup the base draws around a cell rather than a
+ * cell's own. The methods at the end are seams, so a check can read what the table keeps to itself.
  */
 class WPCPM_Test_Accounts_Table extends WPCPM_Accounts_Table {
 	protected static function audience() {
@@ -566,8 +725,11 @@ class WPCPM_Test_Accounts_Table extends WPCPM_Accounts_Table {
 			'total' => $query->get_total(),
 		);
 	}
-	protected function column_default( $user, $column_name ) {
-		return esc_html( 'name' === $column_name ? $user->display_name : $user->user_login );
+	protected function column_name( $user ) {
+		return esc_html( $user->display_name );
+	}
+	protected function column_login( $user ) {
+		return esc_html( $user->user_login );
 	}
 	protected function row_actions_for( WP_User $user ) {
 		return array_merge(
@@ -669,6 +831,12 @@ class WPCPM_Test_Role_Table extends WPCPM_Accounts_Table {
 			'total' => $query->get_total(),
 		);
 	}
+	public function views_now() {
+		return $this->get_views();
+	}
+	public function actions_for( WP_User $user ) {
+		return $this->invite_row_actions( $user );
+	}
 	public static function stamp() {
 		return static::invite_meta();
 	}
@@ -702,6 +870,28 @@ function has( $haystack, $needle ) {
 }
 function at( array $values, $key ) {
 	return isset( $values[ $key ] ) ? $values[ $key ] : '';
+}
+
+/**
+ * A PHP file's code with its comments left out, so a docblock naming a call is not read as one.
+ *
+ * @param string $src The file's source.
+ * @return string
+ */
+function code_of( $src ) {
+	return implode(
+		'',
+		array_map(
+			function ( $token ) {
+				if ( ! is_array( $token ) ) {
+					return $token;
+				}
+
+				return in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ? '' : $token[1];
+			},
+			token_get_all( (string) $src )
+		)
+	);
 }
 
 /**
@@ -830,6 +1020,32 @@ function list_query() {
 	return array();
 }
 
+/**
+ * One bulk invitation on an audience's list, from a queue holding whom the check says: what came
+ * of it, whom the queue holds after, and each way into the queue taken, with the accounts handed
+ * to it. What the method threw is what came of it, so a check against a method that is not there
+ * fails as a check rather than ending the run.
+ *
+ * @param string $table   The audience's table class.
+ * @param array  $ids     The ticked accounts, as the form posts them.
+ * @param bool   $resend  Resend invite, rather than Send invite.
+ * @param int[]  $waiting Whom the queue holds already.
+ * @return array{0: mixed, 1: int[], 2: array} What came of it, the queue, the ways in taken.
+ */
+function queue_press( $table, array $ids, $resend, array $waiting = array() ) {
+	$GLOBALS['opts']        = empty( $waiting ) ? array() : array( WPCPM_Mail::QUEUE_OPTION => $waiting );
+	$GLOBALS['reads']       = array();
+	$GLOBALS['queue_calls'] = array();
+
+	try {
+		$outcome = $table::queue_ticked( $ids, $resend );
+	} catch ( Throwable $thrown ) {
+		$outcome = 'threw ' . get_class( $thrown ) . ': ' . $thrown->getMessage();
+	}
+
+	return array( $outcome, WPCPM_Mail::queue(), $GLOBALS['queue_calls'] );
+}
+
 /* ---- the checks ---------------------------------------------------------- */
 
 echo "=== The table is WordPress's list table: a checkbox, the audience's columns, a row per account ===\n";
@@ -879,6 +1095,52 @@ $GLOBALS['users'][13]->display_name = 'Cleo Ahn';
 
 ck( 'an account\'s name is printed as text in its checkbox\'s label, as everywhere the table prints it',
 	array( has( $html, '<span class="screen-reader-text">Select Cleo &lt;b&gt;Ahn&lt;/b&gt;</span>' ), has( $html, '<b>' ) ), array( true, false ) );
+
+// The name and the username of an audience that draws no cell of its own for them: the base's, the
+// cells every audience's list draws alike, the name to the account's editor when the person looking
+// may open it.
+$plain = new class() extends WPCPM_Accounts_Table {
+	protected static function audience() {
+		return 'students';
+	}
+	public static function role() {
+		return WPCPM_Roles::ROLE_STUDENT;
+	}
+	protected function columns() {
+		return array(
+			'name'  => 'Name',
+			'login' => 'Username',
+		);
+	}
+	protected function query( array $args ) {
+		$query = new WP_User_Query( $args );
+
+		return array(
+			'items' => $query->get_results(),
+			'total' => $query->get_total(),
+		);
+	}
+};
+
+$GLOBALS['users'][13]->display_name = 'Cleo <b>Ahn</b>';
+$plain->prepare_items();
+$with_editor                        = drawn( $plain );
+$GLOBALS['no_editor']               = true;
+$without_editor                     = drawn( $plain );
+$GLOBALS['no_editor']               = false;
+$GLOBALS['users'][13]->display_name = 'Cleo Ahn';
+
+ck( 'an audience that draws no name or username of its own gets the base\'s: the name in bold, to the account\'s editor, and the username as code, each printed as text',
+	array(
+		has( $with_editor, '<strong><a href="https://example.test/wp-admin/user-edit.php?user_id=12">Ada Kowalski</a></strong>' ),
+		has( $with_editor, '<code>yada</code>' ),
+		has( $with_editor, '<strong><a href="https://example.test/wp-admin/user-edit.php?user_id=13">Cleo &lt;b&gt;Ahn&lt;/b&gt;</a></strong>' ),
+		has( $with_editor, '<b>' ),
+	),
+	array( true, true, true, false ) );
+ck( 'and for a person who may not open the editor, the name in bold alone, linked nowhere',
+	array( has( $without_editor, '<strong>Ada Kowalski</strong>' ), has( $without_editor, 'user-edit.php' ) ),
+	array( true, false ) );
 
 echo "\n=== Hidden columns: what a person unticked under Screen Options stays hidden, never the primary column ===\n";
 
@@ -1128,12 +1390,53 @@ $mentors_row = between( drawn( $mentors ), '<tbody', '</tbody>' );
 ck( 'an audience that adds none draws the invitation alone, still with one toggle',
 	array( substr_count( $mentors_row, "<span class='" ), has( $mentors_row, "<span class='reinvite'>" ), substr_count( $mentors_row, 'toggle-row' ) ), array( 1, true, 1 ) );
 
+// A row can have nothing to press: the Administrators list's Edit alone, for a person who may not open
+// another account's editor. Core draws no toggle for a row with no action, and the toggle is what
+// opens a row's other cells on a narrow screen, where core folds every cell after the primary one.
+$bare = new class() extends WPCPM_Test_Accounts_Table {
+	protected function row_actions_for( WP_User $user ) {
+		return array();
+	}
+};
+$bare->prepare_items();
+$bare_rows = array_slice( explode( '<tr>', between( drawn( $bare ), '<tbody', '</tbody>' ) ), 1 );
+
+ck( 'a row with no action still has the one "Show more details" toggle, under its primary cell alone, as core\'s own default draws it, and no empty actions',
+	array(
+		array_map( function ( $row ) { return substr_count( $row, '<button type="button" class="toggle-row"><span class="screen-reader-text">Show more details</span></button>' ); }, $bare_rows ),
+		1 === preg_match( "~<th class='name column-name has-row-actions column-primary'[^>]*>Ada Kowalski<button type=\"button\" class=\"toggle-row\">~", at( $bare_rows, 0 ) ),
+		substr_count( implode( '', $bare_rows ), '<div class="row-actions' ),
+	),
+	array( array( 1, 1, 1 ), true, 0 ) );
+
 $row_href  = preg_match( '/href="([^"]*)"/', at( $never, 'invite' ), $found ) ? $found[1] : '';
 $view_href = preg_match( '/href="([^"]*)"/', at( $table->views_now(), 'invited' ), $found ) ? $found[1] : '';
 
 ck( 'the links the table draws are escaped for the page: &#038; between the arguments, never a bare &',
 	array( has( $row_href, '&#038;' ), preg_match( '/&(?!#038;)/', $row_href ), has( $view_href, '&#038;' ), preg_match( '/&(?!#038;)/', $view_href ) ),
 	array( true, 0, true, 0 ) );
+
+// A row's Edit is the base's, drawn once for every audience, which each puts first among its own.
+$editing  = new class() extends WPCPM_Test_Accounts_Table {
+	public function edit_now( WP_User $user ) {
+		return $this->edit_row_action( $user );
+	}
+};
+$edit_for = function ( $user_id ) use ( $editing ) {
+	try {
+		return $editing->edit_now( $GLOBALS['users'][ $user_id ] );
+	} catch ( Throwable $thrown ) {
+		return 'threw ' . get_class( $thrown ) . ': ' . $thrown->getMessage();
+	}
+};
+$edit                 = $edit_for( 12 );
+$GLOBALS['no_editor'] = true;
+$no_edit              = $edit_for( 12 );
+$GLOBALS['no_editor'] = false;
+
+ck( 'the base\'s Edit, which an audience puts first among a row\'s actions, is the account\'s editor, and nothing for a person who may not open it',
+	array( $edit, $no_edit ),
+	array( array( 'edit' => '<a href="https://example.test/wp-admin/user-edit.php?user_id=12">Edit</a>' ), array() ) );
 
 echo "\n=== The bulk actions: the two invitations, in the one form, under the table's nonce ===\n";
 
@@ -1174,6 +1477,224 @@ $labels                  = $table->get_bulk_actions();
 $GLOBALS['translations'] = array();
 
 ck( 'a bulk action\'s label is escaped before WordPress prints it as it is', at( $labels, 'reinvite' ), 'Resend &lt;script&gt;' );
+
+echo "\n=== What the bulk actions queue: worked out by the base for every audience, and what came of it ===\n";
+
+// Bruno was invited as a student and Dana as a mentor, both long ago; Ada and Cleo never were.
+
+ck( 'Send invite on Bruno, Ada and Cleo queues Ada and Cleo, never invited, through queue_invites(), the invitations card\'s own way in, and skips Bruno, invited before',
+	queue_press( 'WPCPM_Test_Accounts_Table', array( '11', '12', '13' ), false ),
+	array( array( 'invites-queued', array( 'resend' => false, 'queued' => 2 ) ), array( 12, 13 ), array( array( 'queue_invites', array( 12, 13 ) ) ) ) );
+ck( 'Resend invite on Bruno and Ada queues Bruno, invited before, through queue_invite(), one account at a time, and skips Ada, never invited',
+	queue_press( 'WPCPM_Test_Accounts_Table', array( '11', '12' ), true ),
+	array( array( 'invites-queued', array( 'resend' => true, 'queued' => 1 ) ), array( 11 ), array( array( 'queue_invite', 11 ) ) ) );
+
+$outside = queue_press( 'WPCPM_Test_Accounts_Table', array( '14', '12', '999', '12', '0', '-3' ), false );
+
+ck( 'an account outside the audience\'s role is left out, Dana the mentor on the students\' list, and so are an ID nobody holds and what is no ID at all; a repeat counts once, and the ticked accounts are read in one go before any is looked at',
+	array( $outside, $GLOBALS['reads'] ),
+	array(
+		array( array( 'invites-queued', array( 'resend' => false, 'queued' => 1 ) ), array( 12 ), array( array( 'queue_invites', array( 12 ) ) ) ),
+		array( 'cache 14,12,999', 'user 14', 'user 12', 'user 999' ),
+	) );
+
+$none = array();
+foreach ( array(
+	'nothing ticked'                  => array( array(), false, array() ),
+	'Send invite on Bruno'            => array( array( '11' ), false, array() ),
+	'Resend invite on Ada'            => array( array( '12' ), true, array() ),
+	'Send invite on Ada, waiting'     => array( array( '12' ), false, array( 12 ) ),
+	'Resend invite on Bruno, waiting' => array( array( '11' ), true, array( 11 ) ),
+) as $case => $press ) {
+	$none[ $case ] = queue_press( 'WPCPM_Test_Accounts_Table', $press[0], $press[1], $press[2] );
+}
+
+// The base's method is public and written for every audience, and a form never hands it anything
+// but IDs (`WPCPM_Request::ids()`), but a direct caller can: what is no account's ID is no account.
+ck( 'ticked values that are no account\'s ID are nothing ticked, whichever of the two is pressed, and nothing is read for them',
+	array(
+		queue_press( 'WPCPM_Test_Accounts_Table', array( '0' ), false ),
+		queue_press( 'WPCPM_Test_Accounts_Table', array( '0', 'abc', '-3' ), true ),
+		$GLOBALS['reads'],
+	),
+	array(
+		array( array( 'invites-none', array( 'resend' => false, 'why' => 'none-selected' ) ), array(), array() ),
+		array( array( 'invites-none', array( 'resend' => true, 'why' => 'none-selected' ) ), array(), array() ),
+		array(),
+	) );
+
+ck( 'with nobody to queue, the outcome says why: nothing ticked, nobody left for a first invitation, nobody invited before to send another to, or everybody waiting already',
+	$none,
+	array(
+		'nothing ticked'                  => array( array( 'invites-none', array( 'resend' => false, 'why' => 'none-selected' ) ), array(), array() ),
+		'Send invite on Bruno'            => array( array( 'invites-none', array( 'resend' => false, 'why' => 'invited-already' ) ), array(), array() ),
+		'Resend invite on Ada'            => array( array( 'invites-none', array( 'resend' => true, 'why' => 'never-invited' ) ), array(), array() ),
+		'Send invite on Ada, waiting'     => array( array( 'invites-none', array( 'resend' => false, 'why' => 'queued-already' ) ), array( 12 ), array( array( 'queue_invites', array( 12 ) ) ) ),
+		'Resend invite on Bruno, waiting' => array( array( 'invites-none', array( 'resend' => true, 'why' => 'queued-already' ) ), array( 11 ), array( array( 'queue_invite', 11 ) ) ),
+	) );
+
+// Cleo was sent an invitation five minutes ago. The queue's drain passes over anybody sent one in
+// the last fifteen minutes, whose link another would cancel, so a re-invitation queued for her
+// may never go, and an outcome counting her as queued would say it had.
+$GLOBALS['umeta'][13]['wpcpm_student_invited'] = time() - 5 * 60;
+$recent                                        = array();
+
+foreach ( array(
+	'Bruno and Cleo'          => array( array( '11', '13' ), array() ),
+	'Cleo alone'              => array( array( '13' ), array() ),
+	'Cleo, and Bruno waiting' => array( array( '11', '13' ), array( 11 ) ),
+) as $case => $press ) {
+	$recent[ $case ] = queue_press( 'WPCPM_Test_Accounts_Table', $press[0], true, $press[1] );
+}
+
+unset( $GLOBALS['umeta'][13]['wpcpm_student_invited'] );
+
+ck( 'Resend invite leaves out anybody sent an invitation in the last fifteen minutes and says how many, unless that is why nobody was queued',
+	$recent,
+	array(
+		'Bruno and Cleo'          => array( array( 'invites-queued', array( 'resend' => true, 'recent' => 1, 'queued' => 1 ) ), array( 11 ), array( array( 'queue_invite', 11 ) ) ),
+		'Cleo alone'              => array( array( 'invites-none', array( 'resend' => true, 'why' => 'too-soon' ) ), array(), array() ),
+		'Cleo, and Bruno waiting' => array( array( 'invites-none', array( 'resend' => true, 'recent' => 1, 'why' => 'queued-already' ) ), array( 11 ), array( array( 'queue_invite', 11 ) ) ),
+	) );
+
+ck( 'each audience queues by its own role and its own stamp: on the mentors\' list, Resend invite queues Dana, invited as a mentor, and leaves out Bruno, a student',
+	queue_press( 'WPCPM_Test_Mentors_Table', array( '14', '11' ), true ),
+	array( array( 'invites-queued', array( 'resend' => true, 'queued' => 1 ) ), array( 14 ), array( array( 'queue_invite', 14 ) ) ) );
+
+// The module's code with its comments left out, so a docblock naming the queue's ways in is not
+// read as a call to one, and with it the plumbing it shares with every accounts screen
+// (`WPCPM_Accounts_Screen`), where the list's press is handled, on the table the module names.
+$students_code = code_of( $students_src );
+$screen_code   = code_of( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php' ) );
+
+// The list's press itself, read to its closing brace: the module's own `invite_selected()` or, where
+// it declares none, the plumbing's. The invitations card's button queues through the mail layer too,
+// and is the card's, not the list's, so it is not read: a change to it is no change to the bulk move.
+$press_of = function ( $code ) use ( $screen_code ) {
+	$holder = false === strpos( $code, 'function invite_selected(' ) ? $screen_code : $code;
+	$start  = strpos( $holder, 'function invite_selected(' );
+	$end    = false === $start ? false : strpos( $holder, "\n\t}\n", $start );
+
+	return false === $end ? '' : substr( $holder, $start, $end - $start );
+};
+$press    = $press_of( $students_code );
+
+ck( 'the Students module\'s list queues through the base, called on its own table: the list\'s press calls queue_ticked() and none of the mail layer\'s ways in itself, and neither the module nor the plumbing keeps a copy of the base\'s arithmetic',
+	array(
+		1 === preg_match( "/function table_class\(\) \{\s*return 'WPCPM_Students_Table';/", $students_code ),
+		substr_count( $press, '$table_class::queue_ticked(' ),
+		substr_count( $press, 'WPCPM_Mail::' ),
+		substr_count( $students_code . $screen_code, 'WPCPM_Mail::queue_invite(' ),
+		substr_count( $students_code . $screen_code, 'WPCPM_Mail::may_invite(' ),
+	),
+	array( true, 1, 0, 0, 0 ) );
+
+echo "\n=== The words for what came of it: the base's, one wording for every audience's list ===\n";
+
+/**
+ * What the base says a press on the ticked accounts did, for one detail, or what it threw when the
+ * method is not there, so a check against a missing one fails as a check rather than ending the run.
+ *
+ * @param array $detail What the press carried back: `resend`, `queued` or `why`, and `recent`.
+ * @return string
+ */
+function worded( array $detail ) {
+	try {
+		return WPCPM_Accounts_Table::selected_sentence( $detail );
+	} catch ( Throwable $thrown ) {
+		return 'threw ' . get_class( $thrown ) . ': ' . $thrown->getMessage();
+	}
+}
+
+ck( 'Send invite says how many it queued, one or more, and that they go out in the background',
+	array( worded( array( 'resend' => false, 'queued' => 1 ) ), worded( array( 'resend' => false, 'queued' => 2 ) ) ),
+	array( '1 invitation queued. It goes out in the background - the progress is shown below.', '2 invitations queued. They go out in the background - the progress is shown below.' ) );
+ck( 'Resend invite says how many, and that each replaces the link in any earlier invitation',
+	array( worded( array( 'resend' => true, 'queued' => 1 ) ), worded( array( 'resend' => true, 'queued' => 3 ) ) ),
+	array( '1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation.', '3 invitations queued. They go out with the next batch, and each replaces the link in any earlier invitation.' ) );
+
+$why = array();
+foreach ( array( 'none-selected', 'never-invited', 'queued-already', 'too-soon', 'invited-already', 'something-else' ) as $reason ) {
+	$why[ $reason ] = worded( array( 'resend' => false, 'why' => $reason ) );
+}
+
+ck( 'with nobody queued, it says why, each reason in its own words, and any other as nobody needing a first invitation',
+	$why,
+	array(
+		'none-selected'   => 'Nothing to send: no accounts were selected.',
+		'never-invited'   => 'Nothing to send: none of the selected accounts has been invited yet. Use Send invite for a first invitation.',
+		'queued-already'  => 'Nothing to send: the selected accounts are already waiting in the queue.',
+		'too-soon'        => 'Nothing to send: the selected accounts were each sent an invitation less than 15 minutes ago, and another one now would cancel the link in it. Ask them to use their newest email, or try again later.',
+		'invited-already' => 'Nothing to send: none of the selected accounts needs a first invitation.',
+		'something-else'  => 'Nothing to send: none of the selected accounts needs a first invitation.',
+	) );
+ck( 'and a Resend invite that left anybody out for the fifteen minutes says how many, one or more, after what it did',
+	array(
+		worded( array( 'resend' => true, 'recent' => 1, 'queued' => 1 ) ),
+		worded( array( 'resend' => true, 'recent' => 2, 'why' => 'queued-already' ) ),
+	),
+	array(
+		'1 invitation queued. It goes out with the next batch and replaces the link in any earlier invitation. 1 selected account was left out: it was sent an invitation less than 15 minutes ago, and another one now would cancel the link in it.',
+		'Nothing to send: the selected accounts are already waiting in the queue. 2 selected accounts were left out: each was sent an invitation less than 15 minutes ago, and another one now would cancel the link in it.',
+	) );
+
+// Each module's code with its comments left out, as above, and the method that prints a press on
+// the ticked accounts, the module's own or, where it declares none, the one in the plumbing it shares
+// with every accounts screen: it takes the base's words, and loads the tables for them first, because
+// a module draws its list without the screen's load hook when nothing built the table (`table()`).
+$mentors_code = code_of( $mentors_src );
+$words_of     = function ( $code ) use ( $screen_code ) {
+	$printer = ( false === strpos( $code, 'function notice_sentence(' ) && 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen;$/m', $code ) ) ? $screen_code : $code;
+	$worded  = $printer === $code ? $code : $code . $printer;
+	$start   = strpos( $printer, 'function notice_sentence(' );
+	$end     = false === $start ? false : strpos( $printer, "\n\t}\n", $start );
+	$body    = false === $end ? '' : substr( $printer, $start, $end - $start );
+	$load    = strpos( $body, 'wpcpm_load_accounts_tables();' );
+	$base    = strpos( $body, 'WPCPM_Accounts_Table::selected_sentence(' );
+
+	return array( false !== $base, false !== $load && false !== $base && $load < $base, substr_count( $worded, 'function selected_sentence(' ) + substr_count( $worded, 'function queued_sentence(' ) );
+};
+
+ck( 'the Students and Mentors modules print a press on the ticked accounts in the base\'s words, loading the tables for them first, and neither keeps a wording of its own',
+	array(
+		'students' => $words_of( $students_code ),
+		'mentors'  => $words_of( $mentors_code ),
+	),
+	array(
+		'students' => array( true, true, 0 ),
+		'mentors'  => array( true, true, 0 ),
+	) );
+
+echo "\n=== The screen plumbing the audiences share: one trait, which neither module copies ===\n";
+
+// The Students and Mentors modules held these methods twice, the same but for the audience's name,
+// so a later fix to the press checked before anything is read, or to the count read once, had to be
+// made in each, and a third audience's screen would have been a third copy. They are one trait now.
+// Its methods are read from its own file, so one added to it is covered the day it lands; a module
+// declaring one of them again, whose copy would quietly win over the trait's, fails here, and so does
+// a method moved back out of the trait.
+preg_match_all( '/^\t(?:(?:public|protected|private|static)\s+)*function\s+(\w+)\s*\(/m', $screen_code, $screen_methods );
+
+$declared_again = function ( $code ) use ( $screen_methods ) {
+	preg_match_all( '/function\s+(\w+)\s*\(/', $code, $own );
+
+	return array_values( array_intersect( $screen_methods[1], $own[1] ) );
+};
+$uses_screen    = function ( $code ) {
+	return 1 === preg_match( '/^\tuse WPCPM_Accounts_Screen;$/m', $code );
+};
+
+ck( 'the screen plumbing the Students and Mentors modules held twice is one trait\'s, which both use without declaring one of its methods again',
+	array(
+		'trait'    => array_values( array_diff( array( 'hook_screen', 'load_screen', 'handle_list_form', 'save_per_page', 'invite_selected', 'leave', 'accounts_url', 'list_url', 'table', 'accounts_messages', 'notice_sentence', 'tab', 'tab_labels', 'tab_field', 'render_admin_page', 'render_tab_accounts', 'render_not_connected', 'never_invited', 'handle_invite' ), $screen_methods[1] ) ),
+		'students' => array( $uses_screen( $students_code ), $declared_again( $students_code ) ),
+		'mentors'  => array( $uses_screen( $mentors_code ), $declared_again( $mentors_code ) ),
+	),
+	array(
+		'trait'    => array(),
+		'students' => array( true, array() ),
+		'mentors'  => array( true, array() ),
+	) );
 
 echo "\n=== Rows per page: the screen option, its default, what core may save, what is read ===\n";
 
@@ -1402,6 +1923,49 @@ ck( 'each role\'s accounts are read by the stamp WPCPM_Mail::drain_queue() write
 	array( count( $written ), $read ), array( 4, $written ) );
 ck( 'which for the two audiences here is theirs', array( WPCPM_Test_Accounts_Table::stamp(), WPCPM_Test_Mentors_Table::stamp() ), array( 'wpcpm_student_invited', 'wpcpm_mentor_invited' ) );
 
+// WordPress's Administrator role is one the plugin never invites, so no stamp is its audience's: had
+// its accounts been read by the student stamp, drain_queue()'s last branch, an administrator invited
+// as a student would count as an invited administrator, without a word. Hana is one: an
+// administrator holding a student's stamp. Ivo is an administrator holding none.
+$GLOBALS['users'][16]                          = new WP_User( 16, 'hana', 'Hana Admin', array( WPCPM_Roles::ROLE_ADMIN ) );
+$GLOBALS['users'][17]                          = new WP_User( 17, 'ivo', 'Ivo Admin', array( WPCPM_Roles::ROLE_ADMIN ) );
+$GLOBALS['umeta'][16]['wpcpm_student_invited'] = 1790000000;
+WPCPM_Test_Role_Table::$as_role                = WPCPM_Roles::ROLE_ADMIN;
+request( array( 'page' => 'wpcpm-people', 'tab' => 'accounts' ) );
+$people    = new WPCPM_Test_Role_Table();
+$stampless = array(
+	'stamp'  => WPCPM_Test_Role_Table::stamp(),
+	'views'  => view_counts( $people->views_now() ),
+	'row'    => array_keys( $people->actions_for( $GLOBALS['users'][16] ) ),
+	'resend' => queue_press( 'WPCPM_Test_Role_Table', array( '16' ), true ),
+	'send'   => queue_press( 'WPCPM_Test_Role_Table', array( '17' ), false ),
+);
+
+request( array( 'page' => 'wpcpm-people', 'tab' => 'accounts', 'wpcpm_view' => 'invited' ) );
+$people = new WPCPM_Test_Role_Table();
+$people->prepare_items();
+$stampless['invited'] = row_ids( drawn( $people ) );
+
+request( array( 'page' => 'wpcpm-people', 'tab' => 'accounts', 'wpcpm_view' => 'never-invited' ) );
+$people = new WPCPM_Test_Role_Table();
+$people->prepare_items();
+$stampless['never'] = row_ids( drawn( $people ) );
+
+unset( $GLOBALS['users'][16], $GLOBALS['users'][17], $GLOBALS['umeta'][16] );
+WPCPM_Test_Role_Table::$as_role = WPCPM_Roles::ROLE_STUDENT;
+
+ck( 'a role the plugin never invites, WordPress\'s Administrator role, has no stamp, and every reader of it reads its accounts as never invited, one holding a student\'s stamp included: the views, the lists they narrow to, a row\'s invitation and the two bulk actions',
+	$stampless,
+	array(
+		'stamp'   => '',
+		'views'   => array( 'all' => '2', 'invited' => '0', 'never-invited' => '2' ),
+		'row'     => array( 'invite' ),
+		'resend'  => array( array( 'invites-none', array( 'resend' => true, 'why' => 'never-invited' ) ), array(), array() ),
+		'send'    => array( array( 'invites-queued', array( 'resend' => false, 'queued' => 1 ) ), array( 17 ), array( array( 'queue_invites', array( 17 ) ) ) ),
+		'invited' => array(),
+		'never'   => array( 16, 17 ),
+	) );
+
 $module = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php' );
 
 ck( 'the views link to the page the Students module is: wpcpm- and its ID',
@@ -1434,12 +1998,12 @@ exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __FILE__ ) . ' child-
 
 $plugin = (array) json_decode( implode( "\n", $plugin_out ), true );
 
-ck( 'the plugin loads as a site loads it, declaring no list table: not core\'s, not the base, not the Students table',
+ck( 'the plugin loads as a site loads it, declaring no list table: not core\'s, not the base, not the Students table, not the Mentors table, not the Administrators table',
 	array( $plugin_status, isset( $plugin['loaded'] ) ? $plugin['loaded'] : implode( "\n", $plugin_out ) ),
-	array( 0, array( false, false, false ) ) );
-ck( 'its lazy loader brings core\'s list table from the WordPress root, then the base and the Students table',
+	array( 0, array( false, false, false, false, false ) ) );
+ck( 'its lazy loader brings core\'s list table from the WordPress root, then the base, the Students table, the Mentors table and the Administrators table',
 	array( isset( $plugin['lazy'] ) ? $plugin['lazy'] : null, isset( $plugin['after'] ) ? $plugin['after'] : null, isset( $plugin['from'] ) ? realpath( $plugin['from'] ) : null ),
-	array( true, array( true, true, true ), realpath( $root . 'wp-admin/includes/class-wp-list-table.php' ) ) );
+	array( true, array( true, true, true, true, true ), realpath( $root . 'wp-admin/includes/class-wp-list-table.php' ) ) );
 
 ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
 

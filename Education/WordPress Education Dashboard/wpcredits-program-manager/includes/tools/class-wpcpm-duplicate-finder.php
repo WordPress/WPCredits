@@ -127,7 +127,7 @@ class WPCPM_Duplicate_Finder extends WPCPM_Tool {
 			'<tr><th scope="row">%1$s</th><td><label><input type="checkbox" name="duplicate_delete_enabled" value="1"%2$s> %3$s</label><p class="description">%4$s</p>',
 			esc_html( $deleting ),
 			checked( ! empty( $settings['duplicate_delete_enabled'] ), true, false ),
-			esc_html__( 'Let program managers delete the duplicated rows they select and confirm', 'wpcredits-program-manager' ),
+			esc_html__( 'Let administrators delete the duplicated rows they select and confirm', 'wpcredits-program-manager' ),
 			esc_html__( 'Off by default, and while it is off the finder scans and lists and deletes nothing.', 'wpcredits-program-manager' )
 		);
 		WPCPM_Settings_Rows::close_row( $deleting, __( 'A delete removes rows from Students, Students Reports and Feedback in the shared base, and the finder keeps a sealed copy of each row for 30 days.', 'wpcredits-program-manager' ) );

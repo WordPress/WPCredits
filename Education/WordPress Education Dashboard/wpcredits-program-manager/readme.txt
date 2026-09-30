@@ -4,11 +4,11 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.118.2
+Stable tag: 1.119.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Program managers - plus a Tools section, with role-based access and Airtable sync.
+Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section, with role-based access and Airtable sync.
 
 == Description ==
 
@@ -18,7 +18,7 @@ The plugin is organized around five audiences:
 2. **Mentors** - the Mentor role, Airtable account provisioning, and the Mentor Report Card, a private page listing each mentor's assigned students. **Built.**
 3. **Institutions** - the Institution role, the Airtable sync of the institution records, account creation, the Institution Dashboard with its roster, student imports and semester reports, the public institution application form, the Collaboration Agreement, and the institution queues on the Administrator Dashboard. **Built.**
 4. **Sponsors** - the Sponsor role, the Airtable sync of the Sponsors table, one-at-a-time account creation, the Sponsor Dashboard, the public sponsor application form, the sponsors' guide, and the sponsor queues on the Administrator Dashboard. **Built.**
-5. **Program managers** - the built-in WordPress Administrator role, granted the program capabilities; their screen is **Administrators**.
+5. **Administrators** - the people who manage the program: the built-in WordPress Administrator role, granted the program capabilities.
 
 Students, Mentors, Institutions and Sponsors each get a custom role cloned from **Subscriber**, plus one marker capability that controls which content they can read. Administrators can read every level.
 
@@ -32,7 +32,7 @@ Alongside them is a **Tools** section, for jobs you run *against* the program da
 | Mentors | `wpcpm_mentor` | `wpcpm_view_mentor_content` |
 | Institutions | `wpcpm_institution` | `wpcpm_view_institution_content` |
 | Sponsors | `wpcpm_sponsor` | `wpcpm_view_sponsor_content` |
-| Program managers | `administrator` | `wpcpm_manage_program` + every marker capability above |
+| Administrators | `administrator` | `wpcpm_manage_program` + every marker capability above |
 
 Role slugs are prefixed on purpose. Bare `student` and `teacher` slugs are commonly claimed by LMS plugins, and sharing a role slug means sharing its capability set.
 
@@ -283,11 +283,17 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 == Screenshots ==
 
 1. The Overview, with a card for each audience and each tool.
-2. The Mentors screen, with the sync report and mentor list.
+2. The Mentors screen's Accounts tab, with the invitations and the Mentor accounts list.
 3. A mentor's *Mentor Report Card*.
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.119.0 =
+
+* Mentors and Administrators modules: the Mentors screen is two tabs, Accounts and Sync, its accounts a WordPress list table with search, the All, Invited and Never invited views, sortable columns, a per-page screen option, and invitations sent to the selected accounts or from a row's own link; the Administrators screen is two tabs, Accounts and Capabilities, its accounts the same kind of table.
+* Track Builder: a track definition written by a newer version keeps its partners' narrative property, as it keeps the sponsors property since 1.116.3, so a site that returns to this version after an update still reads every track it published.
+* Settings, the guide and the plugin's description call the people who manage the program Administrators, one name in place of two, and the Need help? tool's Who can ask choices follow. On a narrow screen an administrator's row keeps the Show more details toggle, and names with accents sort in their alphabetical place in the Mentors list's Students and Status sorts and in the Students list's Institution sort, the schools included.
 
 = 1.118.2 =
 
@@ -300,6 +306,10 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 = 1.118.0 =
 
 * Students module: the Students screen is two tabs, Accounts and Sync. The accounts are a WordPress list table: search, the All, Invited and Never invited views, sortable columns, a per-page screen option, and invitations sent to the selected accounts in one press or from a row's own link.
+
+= 1.117.7 =
+
+* Institution Dashboard: a finished student who never had an account is no longer a bare row. The sync creates no account for a student in a past status, and the closed card drew its badge and its mentor's name from the account alone, so a student who dropped out or graduated before an account existed showed dates and a portrait and nothing else while the opened card named the mentor and the hours. The closed row now badges "Graduate" or "Dropped out" off the Students row, which spells them the same way, and takes the mentor's name from the row when the account has none. A current student without a joined report record still gets no badge.
 
 = 1.117.6 =
 
@@ -327,7 +337,7 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 
 = 1.117.0 =
 
-* Settings: the screen is now seven tabs (Connection, Students and mentors, Institutions, Sponsors, Security, Mail, Advanced), each saved on its own; choices such as tables, statuses and reviewers are picked from lists instead of typed; help is one sentence with a Details fold; each tool keeps its settings on its own screen; every setting that could only be changed in code now has a control, the tables on the Connection tab and the rest under Advanced.
+* Settings: the screen is now seven tabs (Connection, Students and mentors, Institutions, Sponsors, Security, Mail, Advanced), each saved on its own; choices such as tables, statuses and reviewers are picked from lists instead of typed; help is one sentence with a Details fold; each tool keeps its settings on its own screen; every setting that could only be changed in code now has a control, the tables on the Connection tab and the rest under Advanced. The two dashboard blocks are titled Student Report Card and Mentor Report Card in the editor, the Invitation emails setting is relabeled, and menu paths in help texts are written with ">", as in WPCredits Program > Settings.
 
 = 1.116.4 =
 

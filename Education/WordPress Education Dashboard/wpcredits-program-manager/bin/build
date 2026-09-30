@@ -15,7 +15,29 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 slug="$(basename "$root")"
 parent="$(dirname "$root")"
-out="${1:-$parent/$slug.zip}"
+
+# The slug is the folder's name when the folder holds the plugin file of that name. A tree in a
+# folder of another name, a linked worktree under .worktrees/ named after its branch or a clone made
+# under any name, takes the slug from the plugin's own header instead: the Text Domain of the file
+# that carries the Plugin Name, which is named after the slug. The zip is then made through a link of
+# that name to the tree, so its one folder is still the slug WordPress installs it under.
+stage=""
+if [ ! -f "$root/$slug.php" ]; then
+	main="$(grep -l -E '^[[:space:]]*\*?[[:space:]]*Plugin Name:' "$root"/*.php 2>/dev/null | head -n 1 || true)"
+	named=""
+	if [ -n "$main" ]; then
+		named="$(sed -n -E 's/^[[:space:]]*\*?[[:space:]]*Text Domain:[[:space:]]*([^[:space:]]+).*/\1/p' "$main" | head -n 1 || true)"
+	fi
+	if [ -n "$named" ]; then
+		slug="$named"
+		stage="$(mktemp -d "${TMPDIR:-/tmp}/wpcpm-build.XXXXXX")"
+		trap 'rm -rf "$stage"' EXIT
+		ln -s "$root" "$stage/$slug"
+		parent="$stage"
+	fi
+fi
+
+out="${1:-$(dirname "$root")/$slug.zip}"
 case "$out" in /*) ;; *) out="$PWD/$out" ;; esac
 
 excludes=()
@@ -30,7 +52,7 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < "$root/.distignore"
 
 cd "$parent"
-find "$slug" -name .DS_Store -delete
+find "$root" -name .DS_Store -delete
 rm -f "$out"
 
 # Every failure below has to reach the person who ran the build. `set -e` ends the script on
@@ -60,12 +82,13 @@ count="$(printf '%s\n' "$entries" | wc -l | tr -d ' ')"
 size="$(du -h "$out" | cut -f1 || true)"
 
 # `|| true` so a grep that matches nothing is a blank version rather than the end of the
-# script, and the message below is reachable. The slug is the directory name, so this is what
-# a build from a directory named anything other than the plugin slug looks like.
+# script, and the message below is reachable. This is what a build looks like when the slug was
+# found in neither place above: a folder not named after the plugin, whose plugin header names no
+# Text Domain, or none the plugin file is named after.
 version="$(unzip -p "$out" "$slug/$slug.php" 2>/dev/null | grep -m1 -E '^ \* Version:' | sed 's/.*Version:[[:space:]]*//' || true)"
 
 if [ -z "$version" ]; then
-	echo "ERROR: no Version line in $slug/$slug.php inside $out - is this directory named after the plugin slug?" >&2
+	echo "ERROR: no Version line in $slug/$slug.php inside $out - is this directory named after the plugin slug, or does the plugin header name it as its Text Domain?" >&2
 	exit 1
 fi
 

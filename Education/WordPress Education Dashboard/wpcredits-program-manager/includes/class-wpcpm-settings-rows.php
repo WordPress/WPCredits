@@ -226,9 +226,10 @@ final class WPCPM_Settings_Rows {
 	}
 
 	/**
-	 * One reviewer list on a settings form: the program managers to write to, by role, and a line
-	 * for any other address, both posting as `<name>[]`, which the save joins into the comma list the
-	 * text input saved (`WPCPM_Settings::save()`).
+	 * One reviewer list on a settings form: the program managers to write to, under Administrators
+	 * (`WPCPM_Settings_Choices::managers()`), and a line for any other address, both posting as
+	 * `<name>[]`, which the save joins into the comma list the text input saved
+	 * (`WPCPM_Settings::save()`).
 	 *
 	 * A saved address that is a listed program manager's is that manager's ticked box, whatever case
 	 * either spells it in, and every other saved address is on the Other addresses line. With nobody to

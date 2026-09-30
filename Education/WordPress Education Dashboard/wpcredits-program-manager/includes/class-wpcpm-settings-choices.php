@@ -156,14 +156,15 @@ final class WPCPM_Settings_Choices {
 	}
 
 	/**
-	 * The program managers a reviewer list may name, by role: every account holding the capability
-	 * that has an address, the ones mailed when a reviewer list is empty
-	 * (`WPCPM_Institutions::managers()`), read once a request.
+	 * The program managers a reviewer list may name: every account holding the capability that has
+	 * an address, the ones mailed when a reviewer list is empty (`WPCPM_Institutions::managers()`),
+	 * read once a request.
 	 *
-	 * Program managers use WordPress's own Administrator role, which is where the capability comes
-	 * from, so on most sites everybody is under Administrators; an account holding it another way,
-	 * through a role a role editor gave it or granted to the account itself, is under Program
-	 * managers. Empty groups are left out.
+	 * One group, Administrators, the one name the screens give the people who manage the program:
+	 * they hold WordPress's own Administrator role, which is where the capability comes from, and an
+	 * account holding it another way, through a role a role editor gave it or granted to the account
+	 * itself, manages the program all the same, so it is listed with them. With nobody to list, no
+	 * group.
 	 *
 	 * @return array<string, array<string, string>> Group => address => display name, in name order.
 	 */
@@ -554,14 +555,13 @@ final class WPCPM_Settings_Choices {
 	}
 
 	/**
-	 * The program managers, grouped, read now (`managers()`).
+	 * The program managers, under Administrators, read now (`managers()`).
 	 *
 	 * @return array<string, array<string, string>>
 	 */
 	private static function read_managers() {
 		$users          = class_exists( 'WPCPM_Institutions' ) ? WPCPM_Institutions::managers() : array();
 		$administrators = array();
-		$others         = array();
 
 		foreach ( (array) $users as $user ) {
 			if ( ! $user instanceof WP_User ) {
@@ -575,24 +575,13 @@ final class WPCPM_Settings_Choices {
 			}
 
 			$name = trim( (string) $user->display_name );
-			$name = '' !== $name ? $name : $email;
 
-			if ( in_array( WPCPM_Roles::ROLE_ADMIN, (array) $user->roles, true ) ) {
-				$administrators[ $email ] = $name;
-			} else {
-				$others[ $email ] = $name;
-			}
+			$administrators[ $email ] = '' !== $name ? $name : $email;
 		}
 
-		uasort( $others, 'strnatcasecmp' );
 		uasort( $administrators, 'strnatcasecmp' );
 
-		return array_filter(
-			array(
-				__( 'Program managers', 'wpcredits-program-manager' ) => $others,
-				__( 'Administrators', 'wpcredits-program-manager' )   => $administrators,
-			)
-		);
+		return array_filter( array( __( 'Administrators', 'wpcredits-program-manager' ) => $administrators ) );
 	}
 
 	/**

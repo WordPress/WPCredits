@@ -986,9 +986,9 @@ ck( 'and the read time is printed', has( $prog, 'Read from the program records' 
 
 $health = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_health( $data['health'], $data['locked'] ); } );
 ck( 'four syncs with their state', substr_count( $health, 'wpcpm-health__sync' ), 4 );
-ck( 'the students sync opens the Students screen at its Sync tab, where the run is started and followed, and the mentors sync its own screen, drawn in one piece',
-	array( $data['health']['syncs']['students']['screen'], $data['health']['syncs']['mentors']['screen'], has( $health, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-students&tab=sync">Open</a>' ) ),
-	array( 'https://example.test/wp-admin/admin.php?page=wpcpm-students&tab=sync', 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors', true ) );
+ck( 'the students and mentors syncs open their screens at the Sync tab, where the run is started and followed',
+	array( $data['health']['syncs']['students']['screen'], $data['health']['syncs']['mentors']['screen'], has( $health, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-students&tab=sync">Open</a>' ), has( $health, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=sync">Open</a>' ) ),
+	array( 'https://example.test/wp-admin/admin.php?page=wpcpm-students&tab=sync', 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=sync', true, true ) );
 ck( 'the error is printed verbatim and escaped', has( $health, 'HTTP 429 from Airtable &lt;b&gt;x&lt;/b&gt;' ), true );
 ck( 'the locked account is named', has( $health, 'Rep One' ), true );
 ck( 'the probe verdict, the last mail and the invitation run are there', has( $health, 'blocked' ) && has( $health, 'report-drafted' ) && has( $health, '3 of 5' ), true );

@@ -1,6 +1,6 @@
 <?php
 /**
- * The four account queries that fed a dropdown, a list or a mailing from a first page.
+ * The account queries that fed a dropdown, a list or a mailing from a first page.
  *
  * What this pins: each of these asks WordPress for every matching account, however many the
  * site has. Until 1.117.3 each carried a cap the way the Students and Mentors screens did until
@@ -11,6 +11,9 @@
  * role and the linked accounts), and the student switcher through
  * `WPCPM_Students_Dashboard::all_students()` (1000). None was near its cap on 28 Sep 2026 (12,
  * 12, 98 and 683); they are lifted before one can bite, with the same check the two screens have.
+ * The Administrators screen's list is a paged list table now, as the Students and Mentors lists
+ * are, and bin/test-administrators-screen.php pins that it reaches every administrator; the other
+ * three are pinned here.
  *
  * `get_users()` is stubbed the way WordPress behaves for the arguments these pass: `role` and
  * `capability` narrow, a `meta_query` with `EXISTS` narrows to accounts carrying the key,
@@ -152,7 +155,6 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
-require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
@@ -187,26 +189,7 @@ function add_person( $name, array $roles, array $meta = array(), $email = null )
 	return $id;
 }
 
-echo "=== The Administrators screen lists every administrator ===\n";
-
-$GLOBALS['users'] = array();
-$GLOBALS['umeta'] = array();
-for ( $i = 1; $i <= 201; $i++ ) {
-	add_person( sprintf( 'Admin %03d', $i ), array( WPCPM_Roles::ROLE_ADMIN ) );
-}
-add_person( 'Mentor Example', array( WPCPM_Roles::ROLE_MENTOR ) );
-$GLOBALS['queries'] = array();
-ob_start();
-( new WPCPM_Administrators() )->render_admin_page();
-$html = ob_get_clean();
-
-ck( 'one row per administrator, all 201', substr_count( $html, '<td><code>' ), 201 );
-ck( 'the 201st by name is on it', false !== strpos( $html, 'Admin 201' ), true );
-ck( 'and the heading counts them all', false !== strpos( $html, '<span class="wpcpm-count">201</span>' ), true );
-ck( 'the mentor is not on it', false === strpos( $html, 'Mentor Example' ), true );
-ck( 'the screen asked for every account, not a first page', numbers_asked(), array( -1 ) );
-
-echo "\n=== managers() reaches every manager with an address ===\n";
+echo "=== managers() reaches every manager with an address ===\n";
 
 $GLOBALS['users']  = array();
 $GLOBALS['umeta']  = array();

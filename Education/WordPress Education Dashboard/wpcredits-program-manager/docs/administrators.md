@@ -20,7 +20,7 @@ The screens, the settings and this guide call each thing by one name.
 | Name | What it is | Where you meet it |
 | --- | --- | --- |
 | **WPCredits Program** | The plugin, as the menu names it. Each screen under the menu is titled with its own name alone: **Overview**, **Students**, **Tools**, **Settings** and so on. | The menu, and a screen's place in it, written with ">" between the steps, such as **WPCredits Program > Settings**. |
-| **Audiences** | The people the program is for and the people who run it: **Students**, **Mentors**, **Institutions**, **Sponsors** and **Program managers**. Each audience has a user role and a screen; program managers hold WordPress's own Administrator role, so their screen is **Administrators**. | The Overview's first cards, the menu, and the Settings tabs. |
+| **Audiences** | The people the program is for and the people who run it: **Students**, **Mentors**, **Institutions**, **Sponsors** and **Administrators**. Each audience has a user role and a screen under its name; the administrators hold WordPress's own Administrator role, which is granted the program's capabilities on activation. | The Overview's first cards, the menu, and the Settings tabs. |
 | **Tools** | The parts of the program that are run and configured on their own rather than belonging to one audience: **Header notices**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**, each called by its name alone. | The **Tools** menu item and screen, and the Overview's last cards. |
 | **Landing page** | Where an account goes when it logs in: the **Mentor**, **Student**, **Institution** and **Sponsor landing page**, each with the page's address under its switch. | The Students and mentors, Institutions and Sponsors tabs of Settings. |
 | **Remove** and **Leave** | The two answers of each rule for somebody who leaves the program, always in this order: remove the role or the access, or leave it in place. Nothing is ever deleted either way. | The Settings sections **When someone leaves**, **When an institution leaves the pipeline** and **When a sponsor is no longer Approved**. |
@@ -41,10 +41,10 @@ If Airtable is not connected yet, this screen says so and links straight to the 
 | Screen | What it does |
 | --- | --- |
 | **Students** | Two tabs: **Accounts**, the invitations and every Student account in one list, and **Sync**, the students sync and its last report. |
-| **Mentors** | The mentor list, the sync report, and one-at-a-time invitations. |
+| **Mentors** | Two tabs: **Accounts**, the invitations and every Mentor account in one list, and **Sync**, the mentors sync and its last report. |
 | **Institutions** | The institutions sync, the applications and signed agreements waiting to be read, every institution record by stage, account creation, the reconciliation of Students with Students Reports, the consent report, the agreements whose state Airtable disagrees with, every semester report, the plugin's copy of the Collaboration Agreement, and the check of how the host serves the private files. |
 | **Sponsors** | The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision. |
-| **Administrators** | Lists the program capabilities granted to Administrator, and who holds the role: the program managers. |
+| **Administrators** | Two tabs, under the button to the Administrator Dashboard while that page exists: **Accounts**, every administrator account in one list, and **Capabilities**, the program capabilities granted to Administrator. |
 
 Since 1.92.0 the Administrator Dashboard on the front end gathers every queue these screens hold; the Administrators screen links to it.
 
@@ -54,9 +54,19 @@ Since 1.97.0 the Sponsors screen also holds the queue of companies that applied 
 
 Since 1.118.0 the Students screen is two tabs, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Students** opens on, holds the **Invitations** card and the **Student accounts** list. **Sync** holds the last sync's error when it ended in one, the **Airtable sync** card with **Sync students now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
 
-The **Student accounts** list works like WordPress's own **Users** screen: every Student account, a page at a time, so each one can be reached however many the site has. **Search students** finds an account by name, username, email address or institution. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. Pressing the **Student**, **Username** or **Institution** heading sorts the list by it, A to Z and then back. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Student** column cannot be hidden, because each row's actions sit under it. The institution picker above the table, each institution with its number of accounts, narrows the list to one institution, and the **Invitations** card follows it, so its button invites only the students at that institution who have never been invited, and comes back to that institution's list. The picker, a search by institution and the **Institution** sort work on the whole list, never only on the page in view.
+The **Student accounts** list works like WordPress's own **Users** screen: every Student account, a page at a time, so each one can be reached however many the site has. **Search students** finds an account by name, username, email address or institution. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Student** heading turns it Z to A; a press on **Username** or **Institution** sorts the list by it, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Student** column cannot be hidden, because each row's actions sit under it. The institution picker above the table, each institution with its number of accounts, narrows the list to one institution, and the **Invitations** card follows it, so its button invites only the students at that institution who have never been invited, and comes back to that institution's list. The picker, a search by institution and the **Institution** sort work on the whole list, never only on the page in view.
 
 Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that student's Student Report Card, and **Send invite** or **Resend invite**, which emails that one student at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**. **Send invite** queues a first invitation for each ticked account that has never had one, as the card's button does, and the card shows the progress. **Resend invite** queues a fresh invitation for each ticked account invited before, which goes out with the next batch: the card's progress bar and its stop button follow a run of first invitations, and a re-invitation starts no run, so on its own it shows on neither. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, institution, sort and page. However it is asked for, nobody is sent a second invitation within fifteen minutes of the last one: **Resend invite** on ticked accounts leaves out anybody invited in the last fifteen minutes, and its notice says how many it left out.
+
+Since 1.119.0 the Mentors screen is two tabs in the same way, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Mentors** opens on, holds the **Invitations** card and the **Mentor accounts** list. **Sync** holds the last sync's error when it ended in one, the warning while institution and team names have not been read yet, the **Airtable sync** card with **Sync mentors now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
+
+The **Mentor accounts** list works as the **Student accounts** list does: every Mentor account, a page at a time. **Search mentors** finds an account by name, username or email address. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Mentor** heading turns it Z to A, and **Username** sorts it by username, A to Z. **Students** sorts it by how many current students a mentor has, the fewest first, and **Status** puts **Active** before **Not in Airtable**; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Mentor** column cannot be hidden, because each row's actions sit under it. The list has no institution picker, so the **Invitations** card counts, and its button invites, every mentor who has never been invited.
+
+Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens that mentor's Mentor Report Card, and **Send invite** or **Resend invite**, which emails that one mentor at once. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue. A row's invitation and the bulk actions both come back to the list as it was: the same view, search, sort and page. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
+
+Since 1.119.0 the Administrators screen is two tabs too, **Accounts** and **Capabilities**, under the **Open the Administrator Dashboard** button, which stays above them whichever tab is shown. The button is there while that page exists; while it is missing, the **Administrator accounts** list says so. **Accounts**, the tab **WPCredits Program > Administrators** opens on, holds the **Administrator accounts** list: every account with WordPress's Administrator role, a page at a time. **Search administrators** finds an account by name, username or email address. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; a press on **Username** sorts it by username, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's **Edit**, which opens the account in wp-admin, sits under it. **Can manage program** says whether each account holds the program's capability.
+
+The list has one view, **All**, and no checkboxes, bulk actions or invitations: program managers use WordPress's own Administrator role, the plugin never invites them, and their accounts are added and managed on the **Users** screen. **Capabilities** lists the program capabilities the Administrator role is granted on activation, as the screen did before.
 
 ### Tools
 
@@ -199,7 +209,7 @@ answer that removes comes first, and it is the default for both.
   first sync creates around ninety accounts at once. Its fold: invitations are queued and sent a few
   at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed,
   and you can also invite people one at a time from the Mentors and Students screens, or tick
-  several in the Students screen's list and invite them together.
+  several in the Students or Mentors screen's list and invite them together.
 - **Automatic sync** - **Read Airtable on a schedule**, on by default: the students, mentors and
   institutions syncs every three hours, the mentors run half an hour after the students run. The
   sponsors sync is on the same three-hour clock and runs regardless of this switch. Its fold: the
@@ -270,11 +280,10 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 - **Agreement review** - how many days, from 1 to 60 and 3 by default, a signed agreement may wait
   before the queue marks it overdue and the nightly digest names it.
 - **Who reviews agreements** - who is told when an agreement arrives and sent the overdue digest: a
-  box for each program manager, grouped as **Program managers** and **Administrators**, and an
-  **Other addresses** line for anybody else, separated by commas. With none, every program manager
-  is written to, which reaches technical administrators as well, so set it before the first real
-  upload. Where no program manager account with an email address can be listed, the addresses are
-  typed, separated by commas.
+  box for each program manager, under **Administrators**, and an **Other addresses** line for
+  anybody else, separated by commas. With none, every program manager is written to, which reaches
+  technical administrators as well, so set it before the first real upload. Where no program manager
+  account with an email address can be listed, the addresses are typed, separated by commas.
 - **The agreement wording** - the Google Doc the plugin's copy of the Collaboration Agreement was
   taken from, used by the Check against the Doc button; Google addresses only. Its fold: it is kept
   on this site rather than in the code, because the document is editable by anyone holding its link
@@ -349,15 +358,15 @@ One section, **Two-factor authentication**.
 
 #### Two-factor authentication
 
-- **Roles that must use it** - a box for each role: **Program managers (administrators)**, then
-  Student, Mentor, Institution and Sponsor. An account in a ticked role is asked for a code as well as
-  its password from its next sign-in, with nothing to set up first: the code is emailed. Program
-  managers and institutions by default. Its fold: each person can set up an authenticator app on
-  their own profile screen, which is quicker and does not depend on their email, and unticking
-  everything asks nobody. Students are left off by default: a student account holds that student's
-  own work, there are hundreds of them, and there is nobody to unlock the ones who change phone. They
-  can still turn it on for themselves. Without the Two Factor plugin active nobody is asked, and the
-  row says so above its boxes.
+- **Roles that must use it** - a box for each role: **Administrators**, then Student, Mentor,
+  Institution and Sponsor. An account in a ticked role is asked for a code as well as its password
+  from its next sign-in, with nothing to set up first: the code is emailed. Administrators and
+  institutions by default. Its fold: each person can set up an authenticator app on their own
+  profile screen, which is quicker and does not depend on their email, and unticking everything asks
+  nobody. Students are left off by default: a student account holds that student's own work, there
+  are hundreds of them, and there is nobody to unlock the ones who change phone. They can still turn
+  it on for themselves. Without the Two Factor plugin active nobody is asked, and the row says so
+  above its boxes.
 - **Where it stands** - while the Two Factor plugin is active, for each ticked role, how many
   accounts are covered and how many use an authenticator app, counted when the tab is opened. An
   account that is covered but has no app is using emailed codes.
@@ -626,8 +635,7 @@ still there, the next scan lists it again.
 
 #### Settings
 
-**Deleting ships switched off.** Its one setting, **Deleting duplicates**, with its box **Let program
-managers delete the duplicated rows they select and confirm**, is in the Settings section at the top
+**Deleting ships switched off.** Its one setting, **Deleting duplicates**, with its box **Let administrators delete the duplicated rows they select and confirm**, is in the Settings section at the top
 of the finder's screen, above the list, with a Save of its own. Until a program manager turns it on
 there, the whole list is read-only: no checkbox can be ticked, **Review selection** is grayed out, and
 the list says where deleting is turned on. Scanning and reading work either way, so the list is worth
@@ -933,8 +941,8 @@ nothing is stored on this site, and each question, and the pages found for it, g
   so the field holds whatever model is saved. Leave it as the default unless you have a reason not to.
   It is an alias that always points at the current Gemini Flash, so it cannot be retired out from
   under the site.
-- **Who can ask** - mentors and program managers by default; optionally students and institutions as
-  well, anybody logged in, or program managers only. Never anybody logged out, whatever this says.
+- **Who can ask** - mentors and administrators by default; optionally students and institutions as
+  well, anybody logged in, or administrators only. Never anybody logged out, whatever this says.
   The documentation describes running the program rather than being on it, which is why students
   are not included by default.
 - **Questions per person per hour** - from 0 to 200, 20 by default, so a free tier cannot be spent in
@@ -1044,9 +1052,9 @@ updated, skipped and why.
 
 An invitation is a password-reset link. Send them in bulk by switching **Invitation emails** on
 before a sync, or one at a time from the Students and Mentors screens - which is the safer habit,
-because a first sync creates around ninety accounts at once. On the Students screen you can also
-tick several accounts in the list and choose **Send invite** or **Resend invite** under **Bulk
-actions**: those are queued and go out a few at a time.
+because a first sync creates around ninety accounts at once. On the Students and Mentors screens
+you can also tick several accounts in the list and choose **Send invite** or **Resend invite**
+under **Bulk actions**: those are queued and go out a few at a time.
 
 Each invitation cancels the link in the one before it, so only the newest email works: somebody who
 opens an older one is told the link appears to be invalid. For the same reason a second invitation

@@ -277,11 +277,13 @@ class WPCPM_Handbook extends WPCPM_Tool {
 			__( 'It is an alias that always points at the current Gemini Flash, so it cannot be retired out from under this site - which has already happened twice to specific version numbers.', 'wpcredits-program-manager' )
 		);
 
+		// The people who manage the program are called Administrators, the name every screen gives
+		// the people holding the program's capability, whatever role gives it to them.
 		$audiences = array(
-			'mentor'  => __( 'Mentors and program managers', 'wpcredits-program-manager' ),
+			'mentor'  => __( 'Mentors and administrators', 'wpcredits-program-manager' ),
 			'program' => __( 'Students and institutions as well', 'wpcredits-program-manager' ),
 			'any'     => __( 'Anybody logged in to this site', 'wpcredits-program-manager' ),
-			'manage'  => __( 'Program managers only', 'wpcredits-program-manager' ),
+			'manage'  => __( 'Administrators only', 'wpcredits-program-manager' ),
 		);
 
 		$radios = '';

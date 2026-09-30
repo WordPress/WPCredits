@@ -55,11 +55,11 @@ final class WPCPM_Track_Definition {
 	const RESERVED_KEYS = array( '150h', '50h', 'dev', 'design', 'sensei', 'paused', 'pending' );
 
 	/**
-	 * Every property a track may have. `sponsors` is written by a later version of the plugin and
-	 * read by none of this one's code: it is kept, not refused, so a site that returns to this
-	 * version after an update still reads every track it published.
+	 * Every property a track may have. `sponsors` and `partners_narrative` are written by a later
+	 * version of the plugin and read by none of this one's code: they are kept, not refused, so a
+	 * site that returns to this version after an update still reads every track it published.
 	 */
-	const TRACK_PROPERTIES = array( 'schema_version', 'status', 'key', 'label', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'questions', 'sponsors' );
+	const TRACK_PROPERTIES = array( 'schema_version', 'status', 'key', 'label', 'course_url', 'learn_course_id', 'hours_target', 'hue', 'questions', 'sponsors', 'partners_narrative' );
 
 	/** Every property a question may have. */
 	const QUESTION_PROPERTIES = array( 'type', 'label', 'group', 'help', 'lead', 'subgroup', 'note', 'row', 'stack', 'required', 'min', 'max', 'step', 'maxlength', 'mono', 'options', 'hide_from_institution', 'airtable_type', 'learn_lesson_id', 'why' );

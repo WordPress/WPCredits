@@ -313,13 +313,13 @@ ck( 'a manager with no sponsor account yet is sent to the Sponsors screen',
     ),
     array( true, true ) );
 
-// The two that say to run a sync: the Students screen is in tabs, and its sync is on the Sync tab,
-// so the link goes there rather than to the Accounts tab the screen opens on; the Mentors screen is
-// drawn in one piece and keeps its own address. Pinned whole, so a tab added to every link is seen.
-ck( 'a manager with no student account yet is sent to the Students screen\'s Sync tab, where the sync runs, and with no mentor account to the Mentors screen',
+// The two that say to run a sync: the Students and Mentors screens are in tabs, and each one's sync
+// is on its Sync tab, so the link goes there rather than to the Accounts tab the screen opens on.
+// Pinned whole, so a link to the screen's own address, which opens on Accounts, is seen.
+ck( 'a manager with no student account yet is sent to the Students screen\'s Sync tab, where the sync runs, and with no mentor account to the Mentors screen\'s',
     array(
         false !== strpos( WPCPM_Dashboards::nothing_to_show( 'students', true ), '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-students&tab=sync">' ),
-        false !== strpos( WPCPM_Dashboards::nothing_to_show( 'mentors', true ), '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors">' ),
+        false !== strpos( WPCPM_Dashboards::nothing_to_show( 'mentors', true ), '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=sync">' ),
     ),
     array( true, true ) );
 

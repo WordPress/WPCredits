@@ -550,11 +550,11 @@ ck( 'the screen opens on its Settings section: after its heading and its notices
 preg_match( '#<h2 id="settings">Settings</h2>.*?<form\b([^>]*)>(.*?)</form>#s', $html, $section );
 preg_match_all( '#\bname="([a-z_]+)(?:\[\])?"#', isset( $section[2] ) ? $section[2] : '', $posted );
 ck( 'its one form posts the finder\'s own scope to the settings handler, under the settings nonce, holding its one switch, off as stored, and one Save',
-    isset( $section[2] ) ? array( has( $section[2], '<input type="hidden" name="wpcpm_tab" value="tool:duplicate-finder" />' ), has( $section[2], 'name="wpcpm_save_settings"' ), array_values( array_diff( $posted[1], array( 'wpcpm_save_settings', '_wp_http_referer', 'wpcpm_tab', 'submit' ) ) ), has( $section[2], '<input type="checkbox" name="duplicate_delete_enabled" value="1"> Let program managers delete the duplicated rows they select and confirm' ), substr_count( $section[2], 'Save settings' ) ) : null,
+    isset( $section[2] ) ? array( has( $section[2], '<input type="hidden" name="wpcpm_tab" value="tool:duplicate-finder" />' ), has( $section[2], 'name="wpcpm_save_settings"' ), array_values( array_diff( $posted[1], array( 'wpcpm_save_settings', '_wp_http_referer', 'wpcpm_tab', 'submit' ) ) ), has( $section[2], '<input type="checkbox" name="duplicate_delete_enabled" value="1"> Let administrators delete the duplicated rows they select and confirm' ), substr_count( $section[2], 'Save settings' ) ) : null,
     array( true, true, array( 'duplicate_delete_enabled' ), true, 1 ) );
 
 $GLOBALS['switch'] = true;
-ck( 'and with deleting on, its box is ticked', has( page(), '<input type="checkbox" name="duplicate_delete_enabled" value="1" checked=\'checked\'> Let program managers delete' ), true );
+ck( 'and with deleting on, its box is ticked', has( page(), '<input type="checkbox" name="duplicate_delete_enabled" value="1" checked=\'checked\'> Let administrators delete' ), true );
 
 WPCPM_Duplicates_Scan::start();
 $html = page();

@@ -1031,7 +1031,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Email each new mentor and student a password-reset link as their account is created', 'wpcredits-program-manager' ),
 			esc_html__( 'Off by default: a first sync creates around ninety accounts at once, so leave this off unless you mean to email all of them.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $invitations, __( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students screen\'s list and invite them together.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $invitations, __( 'Invitations are queued and sent a few at a time rather than all inside the sync, so a mail limit cannot swallow half of them unnoticed. You can also invite people one at a time from the Mentors and Students screens, or tick several in the Students or Mentors screen\'s list and invite them together.', 'wpcredits-program-manager' ) );
 
 		// Read by a person on the settings screen, so it says the cadence outright and had to move
 		// with it: the mentors run left the daily clock in 1.98.2 and joined the students run's, half
@@ -1465,8 +1465,9 @@ class WPCPM_Settings_Screen {
 		echo '<input type="hidden" name="two_factor_roles[]" value="" />';
 
 		// Administrator first and by name, because it is the role this matters most for and the
-		// one WordPress owns rather than this plugin.
-		$choices = array( WPCPM_Roles::ROLE_ADMIN => __( 'Program managers (administrators)', 'wpcredits-program-manager' ) );
+		// one WordPress owns rather than this plugin, under the one name every screen gives the
+		// people who manage the program.
+		$choices = array( WPCPM_Roles::ROLE_ADMIN => __( 'Administrators', 'wpcredits-program-manager' ) );
 
 		foreach ( WPCPM_Roles::custom_roles() as $slug => $role ) {
 			$choices[ $slug ] = $role['label'];
