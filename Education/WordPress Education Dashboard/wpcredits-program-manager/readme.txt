@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.119.0
+Stable tag: 1.120.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -282,12 +282,16 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 
 == Screenshots ==
 
-1. The Overview, with a card for each audience and each tool.
+1. The Overview, with what waits for a decision, the syncs, the tools and the way to Settings.
 2. The Mentors screen's Accounts tab, with the invitations and the Mentor accounts list.
 3. A mentor's *Mentor Report Card*.
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.120.0 =
+
+* Overview: the WPCredits Program screen now shows what is waiting for a decision, with a link to each queue and to the Administrator Dashboard, when each audience's sync last ran and runs next, whether each tool can run, and the way to Settings, in place of the cards that listed the audiences.
 
 = 1.119.0 =
 

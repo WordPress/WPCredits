@@ -77,7 +77,9 @@ trait WPCPM_Accounts_Screen {
 	 *   (`render_accounts_list()`).
 	 *
 	 * Translated where the module writes each out, since the translation tools collect a string only
-	 * where it is written as one, and escaped here, where each is printed.
+	 * where it is written as one, or, for a sentence another screen prints too, where its owner
+	 * writes it (`WPCPM_Administrators_Dashboard::page_missing()` for the Administrators screen's
+	 * `page_missing`), and escaped here, where each is printed.
 	 *
 	 * @return array<string, string>
 	 */

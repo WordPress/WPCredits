@@ -1,6 +1,6 @@
 <?php
 /**
- * Base class for the four program modules.
+ * Base class for the five program modules.
  *
  * @package WPCreditsProgramManager
  */
@@ -12,8 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * A program module: one audience, one role, one admin screen.
  *
- * Subclasses override boot() to add their hooks and render_admin_page() to draw
- * their screen. Modules must not depend on each other.
+ * Subclasses override boot() to add their hooks, and each draws its own screen in
+ * render_admin_page(). Modules must not depend on each other.
  *
  * What a module's screen needs to answer a press is here too, for every module, with a sync
  * (`WPCPM_Sync_Module`) or without one: the capability-then-nonce check (`verify()`), the way
@@ -81,18 +81,6 @@ abstract class WPCPM_Module {
 	abstract public function description();
 
 	/**
-	 * Whether the module has working functionality yet.
-	 *
-	 * The Mentors module is built; the other three currently register their role
-	 * and reserve their screen.
-	 *
-	 * @return bool
-	 */
-	public function is_implemented() {
-		return false;
-	}
-
-	/**
 	 * Register hooks. Called on `plugins_loaded`.
 	 */
 	public function boot() {}
@@ -128,24 +116,6 @@ abstract class WPCPM_Module {
 	 */
 	public function admin_url() {
 		return admin_url( 'admin.php?page=' . $this->page_slug() );
-	}
-
-	/**
-	 * How many users currently hold this module's role.
-	 *
-	 * @return int
-	 */
-	public function user_count() {
-		$query = new WP_User_Query(
-			array(
-				'role'        => $this->role(),
-				'number'      => 1,
-				'count_total' => true,
-				'fields'      => 'ID',
-			)
-		);
-
-		return (int) $query->get_total();
 	}
 
 	/**
@@ -231,42 +201,11 @@ abstract class WPCPM_Module {
 	}
 
 	/**
-	 * Render the module's admin screen.
+	 * Draw the module's admin screen.
+	 *
+	 * Every module draws its own, so there is none here to fall back to: the Students and Mentors
+	 * modules take theirs from the accounts screen they share (`WPCPM_Accounts_Screen`), and the
+	 * Institutions, Sponsors and Administrators modules each write their own.
 	 */
-	public function render_admin_page() {
-		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
-		$this->render_placeholder();
-		echo '</div>';
-	}
-
-	/**
-	 * Shared "reserved for later" panel for modules that are not built yet.
-	 */
-	protected function render_placeholder() {
-		$role   = get_role( $this->role() );
-		$exists = $role instanceof WP_Role;
-
-		echo '<div class="wpcpm-card">';
-		echo '<h2>' . esc_html__( 'Status', 'wpcredits-program-manager' ) . '</h2>';
-		echo '<p>' . esc_html__( 'The user role for this audience is registered and ready. Nothing else for it has been built yet.', 'wpcredits-program-manager' ) . '</p>';
-		echo '<table class="wpcpm-table"><tbody>';
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td><code>%2$s</code> %3$s</td></tr>',
-			esc_html__( 'Role slug', 'wpcredits-program-manager' ),
-			esc_html( $this->role() ),
-			$exists ? esc_html__( '(registered)', 'wpcredits-program-manager' ) : esc_html__( '(missing: re-activate the plugin to register it)', 'wpcredits-program-manager' )
-		);
-
-		printf(
-			'<tr><th scope="row">%1$s</th><td>%2$s</td></tr>',
-			esc_html__( 'Accounts with this role', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( $this->user_count() ) )
-		);
-
-		echo '</tbody></table>';
-		echo '</div>';
-	}
+	abstract public function render_admin_page();
 }

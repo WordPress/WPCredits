@@ -8,6 +8,9 @@
  * them, audiences and tools. Never modules: the word named the audiences on the Overview and the
  * tools in the menu, one word for two things a screen apart. Drawn through the real admin class,
  * the real audiences and the real tools, so the words checked are the ones a program manager reads.
+ * What the Overview shows and how it lays it out is bin/test-overview.php's; here it is drawn on a
+ * new site, through the menu's own entry, for its title and its words, and for what its Tools card
+ * says beside the Tools screen.
  *
  * The same words beyond the screens: the plugin's description, its readme and the blocks that draw
  * the two Report Cards; a menu path written one way, with ">"; and the tools the Settings screen
@@ -30,29 +33,15 @@ define( 'WPCPM_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
 define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
-$GLOBALS['opts']     = array();
-$GLOBALS['filters']  = array();
-$GLOBALS['menu']     = array();
-$GLOBALS['submenu']  = array();
-$GLOBALS['accounts'] = array();
-$GLOBALS['caps']     = true; // The menu and both screens are a manager's.
+$GLOBALS['opts']    = array();
+$GLOBALS['filters'] = array();
+$GLOBALS['menu']    = array();
+$GLOBALS['submenu'] = array();
+$GLOBALS['caps']    = true; // The menu and both screens are a manager's.
 
 class WP_Error {
 	public function __construct( $c = '', $m = '' ) {}
 	public function get_error_message() { return ''; }
-}
-
-/** The one question an audience's card asks of the users: how many accounts hold its role. */
-class WP_User_Query {
-	private $role = '';
-
-	public function __construct( $args = array() ) {
-		$this->role = isset( $args['role'] ) ? (string) $args['role'] : '';
-	}
-
-	public function get_total() {
-		return isset( $GLOBALS['accounts'][ $this->role ] ) ? (int) $GLOBALS['accounts'][ $this->role ] : 0;
-	}
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
@@ -77,6 +66,9 @@ function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
 function number_format_i18n( $n, $d = 0 ) { return (string) $n; }
 function human_time_diff( $from, $to = 0 ) { return '2 hours'; }
 function wp_date( $format, $timestamp = null ) { return gmdate( $format, (int) $timestamp ); }
+// The Overview's syncs on a new site: at Greenwich, with nothing scheduled.
+function wp_timezone() { return new DateTimeZone( 'UTC' ); }
+function wp_next_scheduled( $hook ) { return false; }
 function wp_die( $m = '' ) { throw new Exception( 'wp_die: ' . $m ); }
 function get_current_user_id() { return 1; }
 require_once __DIR__ . '/stubs/caps.php';
@@ -98,27 +90,18 @@ function add_submenu_page( $parent, $page_title, $menu_title, $capability, $slug
 }
 
 /*
- * What the audiences' and the tools' own lines read, stood in for the one answer each gives here:
- * the mentors sync's column names beside the Mentor Status Checker's settings, the checker's last
- * run, the last duplicates scan, the tracks, the notices, and the two queues the Institutions entry
- * counts for its bubble. Each answers "nothing yet", so every line is the one a new site shows.
+ * What the tools' own lines read, stood in for the one answer each gives here: the checker's last
+ * run, the tracks and the notices. Each answers "nothing yet", so every line is the one a new site
+ * shows. What the Overview reads of the program, through the Administrator Dashboard's cards, is
+ * bin/stubs/overview-reads.php's, which the Overview's own suite shares, and there too a new site
+ * holds nothing: its stand-ins also give the mentors sync's column names beside the Mentor Status
+ * Checker's settings, the last duplicates scan, and the queues the Institutions and Sponsors
+ * entries count for their bubbles.
  */
-
-class WPCPM_Mentors_Sync {
-	public static function fields() {
-		return array( 'mentor_name' => 'Full Name', 'mentor_profile' => 'WordPress profile', 'mentor_status' => 'Status' );
-	}
-}
 
 class WPCPM_Mentor_Checker_Runner {
 	public static function get_last_run() {
 		return array();
-	}
-}
-
-class WPCPM_Duplicates_Scan {
-	public static function report() {
-		return null;
 	}
 }
 
@@ -134,23 +117,20 @@ class WPCPM_Notices {
 	}
 }
 
-class WPCPM_Institution_Application {
-	public static function pending_count( $limit ) {
-		return 0;
-	}
-}
-
-class WPCPM_Institution_Agreement {
-	public static function awaiting_review( $limit ) {
-		return array();
-	}
-}
+require_once __DIR__ . '/stubs/overview-reads.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
 // The Settings screen the menu's last entry opens, which the admin class holds.
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
+// The Overview the menu's first entry opens, and what it reads: the Administrator Dashboard's cards,
+// its page, the semesters the cards count in, and the dashboards' sentence for nothing waiting.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-overview.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-cohort.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-dashboards.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php';
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-dashboard.php';
 // The five audiences and their registry, as the plugin's loader requires them.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
@@ -280,8 +260,6 @@ ck( 'and every entry is a program manager\'s, under the plugin\'s own entry',
 
 echo "\n=== The Overview ===\n";
 
-$GLOBALS['accounts'] = array( 'wpcpm_student' => 214, 'wpcpm_mentor' => 92, 'administrator' => 3 );
-
 $overview = draw( 'render_overview' );
 $titles   = array();
 
@@ -290,46 +268,13 @@ foreach ( $GLOBALS['submenu'] as $entry ) {
 }
 
 preg_match_all( '#<h1>(.*?)</h1>#s', $overview, $h1 );
-preg_match_all( '#<p class="wpcpm-lede">(.*?)</p>#s', $overview, $ledes );
-preg_match_all( '#<h2><span class="wpcpm-module-card__index">[^<]*</span> <a href="([^"]*)">(.*?)</a></h2>#s', $overview, $audiences );
-preg_match_all( '#</div><h2>([^<]*)</h2>#', $overview, $headings );
-preg_match_all( '#<div class="wpcpm-module-card"><h2><a href="([^"]*)">(.*?)</a></h2>#s', $overview, $tools );
 
 ck( 'the Overview\'s heading is its name, as the menu titles the page',
     array( array_map( 'words_of', $h1[1] ), $titles['wpcpm'] ),
     array( array( 'Overview' ), 'Overview' ) );
 
-ck( 'it opens on the audiences, one card for each in the menu\'s order, each linking its screen',
-    array( isset( $ledes[1][0] ) ? words_of( $ledes[1][0] ) : null, array_map( 'words_of', $audiences[2] ), $audiences[1] ),
-    array(
-        'The program\'s audiences, each with a user role and a screen of its own.',
-        array( 'Students', 'Mentors', 'Institutions', 'Sponsors', 'Administrators' ),
-        array(
-            'https://example.test/wp-admin/admin.php?page=wpcpm-students',
-            'https://example.test/wp-admin/admin.php?page=wpcpm-mentors',
-            'https://example.test/wp-admin/admin.php?page=wpcpm-institutions',
-            'https://example.test/wp-admin/admin.php?page=wpcpm-sponsors',
-            'https://example.test/wp-admin/admin.php?page=wpcpm-administrators',
-        ),
-    ) );
-
-ck( 'then the tools, under the heading the menu gives them, Tools, one card for each linking its screen',
-    array( array_map( 'words_of', $headings[1] ), isset( $ledes[1][1] ) ? words_of( $ledes[1][1] ) : null, array_map( 'words_of', $tools[2] ), $tools[1] ),
-    array(
-        array( 'Tools' ),
-        'Parts of the program that can be switched on, run and configured on their own.',
-        array( 'Header notices', 'Need help?', 'Mentor Status Checker', 'Student Duplicate Finder', 'Track Builder' ),
-        array(
-            'https://example.test/wp-admin/admin.php?page=wpcpm-tool-header-notices',
-            'https://example.test/wp-admin/admin.php?page=wpcpm-tool-handbook',
-            'https://example.test/wp-admin/admin.php?page=wpcpm-tool-mentor-status-checker',
-            'https://example.test/wp-admin/admin.php?page=wpcpm-tool-duplicate-finder',
-            'https://example.test/wp-admin/admin.php?page=wpcpm-tool-track-builder',
-        ),
-    ) );
-
-// Every word on the page: the Overview's own, and what each audience and each tool says of itself.
-ck( 'and nothing on the Overview says module, the audiences\' and the tools\' own descriptions and status lines included',
+// Every word on the page: the Overview's own, the audiences' syncs, and each tool's name and line.
+ck( 'and nothing on the Overview says module, the audiences\' syncs and the tools\' names and status lines included',
     modules_in( words_of( $overview ) ),
     array() );
 
@@ -342,7 +287,7 @@ preg_match_all( '#<p class="wpcpm-lede">(.*?)</p>#s', $tools_screen, $ledes );
 preg_match_all( '#<div class="wpcpm-module-card"><h2><a href="([^"]*)">(.*?)</a></h2>#s', $tools_screen, $tools );
 preg_match_all( '#<a class="button" href="([^"]*)">(.*?)</a>#s', $tools_screen, $opens );
 
-ck( 'the Tools screen\'s heading is its name, as the menu titles the page, and it says what a tool is in the Overview\'s words',
+ck( 'the Tools screen\'s heading is its name, as the menu titles the page, and it says what a tool is',
     array( array_map( 'words_of', $h1[1] ), $titles['wpcpm-tools'], array_map( 'words_of', $ledes[1] ) ),
     array( array( 'Tools' ), 'Tools', array( 'Parts of the program that can be switched on, run and configured on their own.' ) ) );
 
@@ -357,11 +302,10 @@ ck( 'a card for each tool, each opening the tool\'s screen',
 ck( 'and nothing on the Tools screen says module', modules_in( words_of( $tools_screen ) ), array() );
 
 /**
- * The lines each tool's card says under its description, on the Tools screen or the Overview: its
- * status line, with its class, whether its words are the warning a tool that cannot run gives, and
- * the words.
+ * The lines each tool's card on the Tools screen says under its description: its status line, with
+ * its class, whether its words are the warning a tool that cannot run gives, and the words.
  *
- * @param string $html The Tools screen, or the Overview.
+ * @param string $html The Tools screen.
  * @return array<string, array[]> The tool's name => its lines, each its class, whether it warns, and
  *                                its words.
  */
@@ -383,11 +327,33 @@ function card_lines( $html ) {
 	return $lines;
 }
 
+/**
+ * What the Overview's Tools card says of each tool, in the card's table: whether its words are the
+ * warning a tool that cannot run gives, and the words.
+ *
+ * @param string $html The Overview.
+ * @return array<string, array> The tool's name => whether it warns, and its words.
+ */
+function overview_lines( $html ) {
+	$card = preg_match( '#<div class="wpcpm-card"><h2>Tools</h2>(.*?)</div>#s', $html, $found ) ? $found[1] : '';
+
+	preg_match_all( '#<tr><th scope="row"><a href="[^"]*">(.*?)</a></th><td>(.*?)</td></tr>#s', $card, $rows, PREG_SET_ORDER );
+
+	$lines = array();
+
+	foreach ( $rows as $row ) {
+		$lines[ words_of( $row[1] ) ] = array( 1 === preg_match( '#^<span class="wpcpm-warning">[^<]*</span>$#', $row[2] ), words_of( $row[2] ) );
+	}
+
+	return $lines;
+}
+
 // A tool that cannot run says why on its card, as a warning, in its own words: the Mentor Status
 // Checker and the Student Duplicate Finder need Airtable, and Need help? needs its switch and a
 // provider and no Airtable at all. On a new site nothing is connected and no provider is set. The
-// line is the card's status line either way, with its rule above it, and its words the warning, the
-// same on the Tools screen and on the Overview, which show the same cards.
+// line is the card's status line either way, with its rule above it, and its words the warning.
+// The Overview's Tools card says the same of each tool, the same warning included, in a row of its
+// own: both screens print a tool's line the one way (`WPCPM_Admin::render_tool_status()`).
 $airtable_missing = 'Airtable is not connected yet, so this tool cannot run.';
 $new_site_lines   = array(
 	'Header notices'           => array( array( 'wpcpm-tool-status', false, 'No notices are showing.' ) ),
@@ -396,10 +362,15 @@ $new_site_lines   = array(
 	'Student Duplicate Finder' => array( array( 'wpcpm-tool-status', true, $airtable_missing ) ),
 	'Track Builder'            => array( array( 'wpcpm-tool-status', false, '0 tracks, 0 published.' ) ),
 );
+$new_site_rows    = array();
 
-ck( 'on a new site, a tool that cannot run says why on its card, its status line holding the warning in its own words, and a tool that can run its status line, alike on the Tools screen and on the Overview',
-    array( card_lines( $tools_screen ), card_lines( $overview ) ),
-    array( $new_site_lines, $new_site_lines ) );
+foreach ( $new_site_lines as $tool_name => $tool_lines ) {
+	$new_site_rows[ $tool_name ] = array( $tool_lines[0][1], $tool_lines[0][2] );
+}
+
+ck( 'on a new site, a tool that cannot run says why on its card, its status line holding the warning in its own words, and a tool that can run its status line; and the Overview\'s Tools card says the same of every tool, row for row',
+    array( card_lines( $tools_screen ), overview_lines( $overview ) ),
+    array( $new_site_lines, $new_site_rows ) );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ] = array( 'handbook_enabled' => false );
 $switched_off                                = card_lines( draw( 'render_tools' ) );
@@ -502,19 +473,14 @@ ck( 'every file under includes/ is read, and together they hand the translators 
 ck( 'and none of them says module, calls a tool "Tool:" or is the word "Tool" on its own, a tool\'s pill',
     $old_words, array() );
 
-// The panel an audience's screen shows before the audience is built is printed by the audience
-// class every audience extends, on that audience's screen.
-$panel_says = translated_in( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php' ) );
+// Every audience draws its own screen, so none falls back to a panel of the audience base's saying
+// the audience is not built yet: the base declares the screen without drawing one, and holds no
+// notion of an audience that is not built.
+$audience_base = new ReflectionClass( 'WPCPM_Module' );
 
-ck( 'and the panel an audience\'s screen shows before it is built says audience, not module',
-    array( count( $panel_says ) > 3, array_values( array_filter( $panel_says, function ( $string ) { return array() !== modules_in( $string ); } ) ) ),
-    array( true, array() ) );
-
-// Its line for a role that is missing says what to do the way the Settings screen's line for a page
-// that is missing says it: after a colon, not a dash.
-ck( 'and its line for a missing role says what to do in the words the Settings screen uses for a missing page',
-    array( in_array( '(missing: re-activate the plugin to register it)', $panel_says, true ), in_array( '(missing - re-activate the plugin)', $panel_says, true ) ),
-    array( true, false ) );
+ck( 'and no audience\'s screen falls back to a panel of the audience base\'s: the base leaves each screen to its audience, and knows no audience that is not built yet',
+    array( $audience_base->getMethod( 'render_admin_page' )->isAbstract(), $audience_base->hasMethod( 'render_placeholder' ), $audience_base->hasMethod( 'is_implemented' ) ),
+    array( true, false, false ) );
 
 echo "\n=== The program manager guide uses the same words ===\n";
 

@@ -1701,8 +1701,8 @@ final class WPCPM_Administrators_Cards {
 				'<tr class="wpcpm-health__sync"><td>%1$s</td><td>%2$s</td><td>%3$s</td><td>%4$s</td><td>%5$s</td><td><a href="%6$s">%7$s</a></td></tr>',
 				esc_html( $sync['label'] ),
 				esc_html( $state ),
-				esc_html( empty( $sync['last'] ) ? __( 'never', 'wpcredits-program-manager' ) : self::when( (int) $sync['last'] ) ),
-				esc_html( empty( $sync['next'] ) ? __( 'not scheduled', 'wpcredits-program-manager' ) : self::when( (int) $sync['next'] ) ),
+				esc_html( empty( $sync['last'] ) ? /* translators: A table cell on its own, not a word inside a sentence. */ __( 'Never', 'wpcredits-program-manager' ) : self::when( (int) $sync['last'] ) ),
+				esc_html( empty( $sync['next'] ) ? /* translators: A table cell on its own, not words inside a sentence. */ __( 'Not scheduled', 'wpcredits-program-manager' ) : self::when( (int) $sync['next'] ) ),
 				esc_html( isset( $progress['error'] ) ? (string) $progress['error'] : '' ),
 				esc_url( $sync['screen'] ),
 				esc_html__( 'Open', 'wpcredits-program-manager' )

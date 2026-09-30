@@ -346,7 +346,7 @@ $loader_src    = file_get_contents( dirname( __DIR__ ) . '/wpcredits-program-man
 $uninstall_src = file_get_contents( dirname( __DIR__ ) . '/uninstall.php' );
 preg_match_all( "/^require_once WPCPM_PLUGIN_DIR \. '([^']+)';/m", $loader_src, $in_loader );
 preg_match_all( "/^require_once plugin_dir_path\( __FILE__ \) \. '([^']+)';/m", $uninstall_src, $in_uninstall );
-$loader_only = array_values( array_diff( $in_loader[1], $in_uninstall[1], array( 'includes/class-wpcpm-admin.php', 'includes/class-wpcpm-settings-screen.php', 'includes/class-wpcpm-dashboards.php', 'includes/class-wpcpm-cli.php' ) ) );
+$loader_only = array_values( array_diff( $in_loader[1], $in_uninstall[1], array( 'includes/class-wpcpm-admin.php', 'includes/class-wpcpm-settings-screen.php', 'includes/class-wpcpm-overview.php', 'includes/class-wpcpm-dashboards.php', 'includes/class-wpcpm-cli.php' ) ) );
 ck( 'every class the loader requires is required by uninstall.php too (the admin screens, dashboards and CLI excepted)', $loader_only, array() );
 ck( 'and uninstall.php requires nothing the loader does not', array_values( array_diff( $in_uninstall[1], $in_loader[1] ) ), array() );
 foreach ( $in_uninstall[1] as $rel ) {

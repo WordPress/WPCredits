@@ -314,15 +314,6 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * This module is built.
-	 *
-	 * @return bool
-	 */
-	public function is_implemented() {
-		return true;
-	}
-
-	/**
 	 * Hooks.
 	 */
 	public function boot() {

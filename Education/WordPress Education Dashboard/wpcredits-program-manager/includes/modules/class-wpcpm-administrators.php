@@ -101,16 +101,6 @@ class WPCPM_Administrators extends WPCPM_Module {
 	}
 
 	/**
-	 * This module needs no provisioning, so its screen is informational rather
-	 * than a placeholder for missing work.
-	 *
-	 * @return bool
-	 */
-	public function is_implemented() {
-		return true;
-	}
-
-	/**
 	 * Boot the module's front end, the Administrator Dashboard, and its screen.
 	 *
 	 * No `admin_post_` handler: the screen's one form is its list's, a GET form to the screen itself,
@@ -194,7 +184,7 @@ class WPCPM_Administrators extends WPCPM_Module {
 			'not_connected'      => '',
 			'list_heading'       => __( 'Administrator accounts', 'wpcredits-program-manager' ),
 			'page_label'         => __( 'Administrator Dashboard:', 'wpcredits-program-manager' ),
-			'page_missing'       => __( 'The Administrator Dashboard page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' ),
+			'page_missing'       => WPCPM_Administrators_Dashboard::page_missing(),
 			'search'             => __( 'Search administrators', 'wpcredits-program-manager' ),
 			'list_note'          => __( 'Program managers use the built-in WordPress Administrator role and are never invited by the plugin: their accounts are added and managed on the Users screen.', 'wpcredits-program-manager' ),
 		);

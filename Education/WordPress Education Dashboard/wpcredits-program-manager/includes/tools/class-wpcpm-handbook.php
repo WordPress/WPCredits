@@ -13,10 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * The Education Handbook assistant: sync it, search it, answer from it.
  *
  * **A tool rather than a fifth module.** A module in this plugin is an audience - it owns a
- * role and the content the people holding it see, and the Overview screen prints that role
- * beside its name. The assistant owns no audience: students, mentors, institutions and
- * program managers all use the same one. Registering it as a module would mean inventing a
- * role for it to name, which is a lie the Overview screen would then repeat.
+ * role and the content the people holding it see. The assistant owns no audience: students,
+ * mentors, institutions and program managers all use the same one. Registering it as a module
+ * would mean inventing a role for it that describes nobody.
  *
  * From the outside there is no difference. It has its own screen in the same menu and its
  * own page on the front end.

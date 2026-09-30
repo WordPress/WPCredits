@@ -72,7 +72,7 @@ abstract class WPCPM_Tool {
 
 	/**
 	 * A short status line for the Tools screen and the Overview; for a tool that cannot run, why not,
-	 * which both screens print as the card's warning.
+	 * which both screens print as a warning.
 	 *
 	 * The reason here goes with the readiness here, the Airtable connection. A tool that is ready by
 	 * another test says, in its own status line, what that test found missing.

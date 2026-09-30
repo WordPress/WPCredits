@@ -78,11 +78,14 @@ class WPCPM_Settings {
 
 /**
  * The Administrator Dashboard's page, which the button above the tabs and the list card name: its
- * address, which a check empties for a page that is missing.
+ * address, which a check empties for a page that is missing, and what the class says then. That
+ * sentence is the class's to keep, and the Overview prints it too, so this one is a sentence of its
+ * own: a screen that wrote the real words out itself would print those, not these.
  */
 class WPCPM_Administrators_Dashboard {
 	public static $url = 'https://example.test/administrator-dashboard/';
 	public static function page_url() { return self::$url; }
+	public static function page_missing() { return 'The dashboard class says its page is missing.'; }
 	public static function init() {}
 	public static function ensure_page() {}
 }
@@ -710,7 +713,7 @@ $GLOBALS['no_editor']                = false;
 // A row with nothing to press keeps core's "Show more details" toggle, alone after the name: on a
 // narrow screen core folds every cell after the primary one, and the toggle is what opens them, so
 // without it Username and Can manage program could not be read at all.
-ck( 'with no Administrator Dashboard page and no right to the editor, the name is plain, a row has no action but keeps its one toggle, and the card says the page is missing',
+ck( 'with no Administrator Dashboard page and no right to the editor, the name is plain, a row has no action but keeps its one toggle, and the card says the page is missing, in the words the dashboard class keeps for it',
 	array(
 		cell( $bare, 'name' ),
 		actions_in( $bare ),
@@ -721,7 +724,7 @@ ck( 'with no Administrator Dashboard page and no right to the editor, the name i
 			},
 			$bare_rows
 		),
-		has( $bare_html, '<p class="wpcpm-warning">The Administrator Dashboard page is missing. Re-activate the plugin to recreate it.</p>' ),
+		has( $bare_html, '<p class="wpcpm-warning">' . esc_html( WPCPM_Administrators_Dashboard::page_missing() ) . '</p>' ),
 	),
 	array( '<strong>Ada Kowalski</strong><button type="button" class="toggle-row"><span class="screen-reader-text">Show more details</span></button>', array(), false, array( 1, 1, 1 ), true ) );
 
@@ -1281,13 +1284,13 @@ $missing_accounts                    = html_of( page_for( screen() ) );
 $missing_capabilities                = html_of( page_for( screen( array( 'tab' => 'capabilities' ) ) ) );
 WPCPM_Administrators_Dashboard::$url = 'https://example.test/administrator-dashboard/';
 
-ck( 'while the page is missing, neither tab offers the button, the bar stands under the lede, and the Accounts tab\'s card says the page is missing',
+ck( 'while the page is missing, neither tab offers the button, the bar stands under the lede, and the Accounts tab\'s card says the page is missing, in the dashboard class\'s words',
 	array(
 		has( $missing_accounts, 'Open the Administrator Dashboard' ),
 		has( $missing_capabilities, 'Open the Administrator Dashboard' ),
 		has( $missing_accounts, '</p><nav class="nav-tab-wrapper wp-clearfix"' ),
 		has( $missing_capabilities, '</p><nav class="nav-tab-wrapper wp-clearfix"' ),
-		has( $missing_accounts, 'The Administrator Dashboard page is missing. Re-activate the plugin to recreate it.' ),
+		has( $missing_accounts, esc_html( WPCPM_Administrators_Dashboard::page_missing() ) ),
 	),
 	array( false, false, true, true, true ) );
 

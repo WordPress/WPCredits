@@ -216,6 +216,31 @@ class WPCPM_Dashboards {
 			return esc_html( $theirs[ $module ] );
 		}
 
+		// The Students and Mentors screens at their Sync tab, where the sync the sentence asks for runs,
+		// rather than the Accounts tab each opens on; every other screen at its own address.
+		$screens = array(
+			'students'       => 'admin.php?page=wpcpm-students&tab=sync',
+			'mentors'        => 'admin.php?page=wpcpm-mentors&tab=sync',
+			'institutions'   => 'admin.php?page=wpcpm-institutions',
+			'administrators' => 'admin.php?page=wpcpm-administrators',
+			'sponsors'       => 'admin.php?page=wpcpm-sponsors',
+		);
+
+		return esc_html( self::empty_sentence( $module ) ) . ' <a href="' . esc_url( admin_url( $screens[ $module ] ) ) . '">'
+			. esc_html__( 'Open that screen', 'wpcredits-program-manager' ) . '</a>';
+	}
+
+	/**
+	 * What a program manager is told when an audience's dashboard has nothing to show, before the
+	 * link `nothing_to_show()` adds to the screen that fixes it.
+	 *
+	 * Public, because the Overview says the administrators' sentence when nothing waits for a
+	 * decision, and a sentence written out twice is two sentences the day one of them is reworded.
+	 *
+	 * @param string $module Module ID, `students`, `mentors`, `institutions`, `administrators` or `sponsors`.
+	 * @return string The sentence, translated and not escaped; '' for an ID no audience has.
+	 */
+	public static function empty_sentence( $module ) {
 		$messages = array(
 			'students'       => __( 'No student accounts have been synced yet, so there is nothing to show. Run a sync on the Students screen and they will appear here.', 'wpcredits-program-manager' ),
 			'mentors'        => __( 'No mentor accounts have been synced yet, so there is nothing to show. Run a sync on the Mentors screen and they will appear here.', 'wpcredits-program-manager' ),
@@ -227,17 +252,6 @@ class WPCPM_Dashboards {
 			'sponsors'       => __( 'No sponsor has an account yet.', 'wpcredits-program-manager' ),
 		);
 
-		// The Students and Mentors screens at their Sync tab, where the sync the sentence asks for runs,
-		// rather than the Accounts tab each opens on; every other screen at its own address.
-		$screens = array(
-			'students'       => 'admin.php?page=wpcpm-students&tab=sync',
-			'mentors'        => 'admin.php?page=wpcpm-mentors&tab=sync',
-			'institutions'   => 'admin.php?page=wpcpm-institutions',
-			'administrators' => 'admin.php?page=wpcpm-administrators',
-			'sponsors'       => 'admin.php?page=wpcpm-sponsors',
-		);
-
-		return esc_html( $messages[ $module ] ) . ' <a href="' . esc_url( admin_url( $screens[ $module ] ) ) . '">'
-			. esc_html__( 'Open that screen', 'wpcredits-program-manager' ) . '</a>';
+		return isset( $messages[ $module ] ) ? $messages[ $module ] : '';
 	}
 }

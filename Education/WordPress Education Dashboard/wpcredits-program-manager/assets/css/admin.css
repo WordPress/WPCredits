@@ -263,7 +263,7 @@ p.wpcpm-settings__intro {
 	margin-top: 2px;
 }
 
-/* Overview grid. */
+/* The Tools screen's grid of tool cards. */
 .wpcpm-modules {
 	display: grid;
 	gap: 20px;
@@ -278,40 +278,10 @@ p.wpcpm-settings__intro {
 	padding: 4px 20px 16px;
 }
 
-.wpcpm-module-card.is-pending {
-	background: #fbfbfc;
-}
-
 .wpcpm-module-card h2 {
 	align-items: center;
 	display: flex;
 	gap: 8px;
-}
-
-.wpcpm-module-card__index {
-	background: #2271b1;
-	border-radius: 50%;
-	color: #fff;
-	display: inline-block;
-	font-size: 13px;
-	height: 24px;
-	line-height: 24px;
-	text-align: center;
-	width: 24px;
-}
-
-.wpcpm-module-card.is-pending .wpcpm-module-card__index {
-	background: #8c8f94;
-}
-
-.wpcpm-module-card__meta {
-	list-style: none;
-	margin: 0;
-}
-
-.wpcpm-module-card__meta li {
-	border-top: 1px solid #f0f0f1;
-	padding: 6px 0;
 }
 
 .wpcpm-tool-status {
@@ -319,6 +289,43 @@ p.wpcpm-settings__intro {
 	color: #50575e;
 	font-size: 13px;
 	padding-top: 8px;
+}
+
+/* The Overview's waiting list: a link for each queue with something in it, its name and then its
+   count in parentheses, as core's list tables print their views, in a row that wraps onto more lines
+   as the screen narrows. Each link is one chip, so a name and its count read as one line and the
+   whole chip is the link. A queue the list cannot link yet keeps its name and count, without the
+   chip. */
+.wpcpm-waiting {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	list-style: none;
+	margin: 16px 0;
+	padding: 0;
+}
+
+.wpcpm-waiting li {
+	margin: 0;
+}
+
+.wpcpm-waiting a {
+	align-items: baseline;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	display: inline-flex;
+	gap: 6px;
+	padding: 6px 12px;
+	text-decoration: none;
+}
+
+.wpcpm-waiting a:hover {
+	border-color: #2271b1;
+}
+
+.wpcpm-waiting .count {
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
 }
 
 /* -------------------------------------------------------------------------

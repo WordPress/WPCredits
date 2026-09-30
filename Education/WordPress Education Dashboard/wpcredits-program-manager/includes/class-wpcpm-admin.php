@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin menu, the Overview and the Tools screen.
+ * Admin menu and the Tools screen.
  *
  * @package WPCreditsProgramManager
  */
@@ -11,8 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Builds the top-level "WPCredits Program" menu, whose every screen is titled with its own name:
- * the Overview, a screen per audience, the Tools screen and a screen per tool, and Settings, whose
- * screen is `WPCPM_Settings_Screen`'s.
+ * the Overview, whose screen is `WPCPM_Overview`'s, a screen per audience, the Tools screen and a
+ * screen per tool, and Settings, whose screen is `WPCPM_Settings_Screen`'s.
  */
 class WPCPM_Admin {
 
@@ -118,7 +118,6 @@ class WPCPM_Admin {
 
 		echo '<div class="wrap wpcpm-wrap">';
 		echo '<h1>' . esc_html__( 'Tools', 'wpcredits-program-manager' ) . '</h1>';
-		// The Overview's sentence for the same cards: this screen has no audiences above it.
 		echo '<p class="wpcpm-lede">' . esc_html__( 'Parts of the program that can be switched on, run and configured on their own.', 'wpcredits-program-manager' ) . '</p>';
 
 		$tools = WPCPM_Tools::all();
@@ -141,7 +140,14 @@ class WPCPM_Admin {
 			);
 			echo '<p>' . esc_html( $tool->description() ) . '</p>';
 
-			self::render_tool_status( $tool );
+			// The card's status line, with its rule above it, when the tool has something to say.
+			$status = $tool->status_line();
+
+			if ( '' !== $status ) {
+				echo '<p class="wpcpm-tool-status">';
+				self::render_tool_status( $tool, $status );
+				echo '</p>';
+			}
 
 			printf(
 				'<p><a class="button" href="%1$s">%2$s</a></p>',
@@ -157,27 +163,25 @@ class WPCPM_Admin {
 	}
 
 	/**
-	 * A tool card's status line, the same on the Tools screen and the Overview, which show the same
-	 * cards: the card's line, with its rule above, and for a tool that cannot run its words the
-	 * warning they are, since the reason is the tool's to give (the Airtable connection for most, and
-	 * for Need help? its switch or its provider).
+	 * A tool's status line, printed the one way on the Tools screen and the Overview: its words, and
+	 * for a tool that cannot run the warning they are, since the reason is the tool's to give (the
+	 * Airtable connection for most, and for Need help? its switch or its provider).
 	 *
-	 * @param WPCPM_Tool $tool The tool.
+	 * The words alone, since each screen puts them in its own place: a line of the tool's card on the
+	 * Tools screen, with its rule above it, and a table cell on the Overview. Each screen reads the
+	 * line once, and says what it says for a tool with nothing to report.
+	 *
+	 * @param WPCPM_Tool $tool   The tool.
+	 * @param string     $status Its status line (`WPCPM_Tool::status_line()`), not empty.
 	 */
-	private static function render_tool_status( WPCPM_Tool $tool ) {
-		$status = $tool->status_line();
-
-		if ( '' === $status ) {
-			return;
-		}
-
+	public static function render_tool_status( WPCPM_Tool $tool, $status ) {
 		if ( $tool->is_ready() ) {
-			printf( '<p class="wpcpm-tool-status">%s</p>', esc_html( $status ) );
+			echo esc_html( $status );
 
 			return;
 		}
 
-		printf( '<p class="wpcpm-tool-status"><span class="wpcpm-warning">%s</span></p>', esc_html( $status ) );
+		printf( '<span class="wpcpm-warning">%s</span>', esc_html( $status ) );
 	}
 
 	/**
@@ -207,97 +211,14 @@ class WPCPM_Admin {
 	}
 
 	/**
-	 * The Overview screen: a card per audience, then a card per tool.
+	 * The Overview, the screen the menu's top entry opens, for a program manager alone: the
+	 * capability is checked here, as the Tools screen checks it, and `WPCPM_Overview` draws the rest.
 	 */
 	public function render_overview() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
 			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
 		}
 
-		// Titled as the menu titles the page: the plugin is WPCredits Program on the menu, and each
-		// screen under it carries its own name.
-		echo '<div class="wrap wpcpm-wrap">';
-		echo '<h1>' . esc_html__( 'Overview', 'wpcredits-program-manager' ) . '</h1>';
-		echo '<p class="wpcpm-lede">' . esc_html__( 'The program\'s audiences, each with a user role and a screen of its own.', 'wpcredits-program-manager' ) . '</p>';
-
-		if ( ! WPCPM_Settings::is_connected() ) {
-			printf(
-				'<div class="notice notice-warning"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
-				esc_html__( 'Airtable is not connected yet.', 'wpcredits-program-manager' ),
-				esc_url( WPCPM_Settings_Screen::settings_url() ),
-				esc_html__( 'Add a Personal Access Token', 'wpcredits-program-manager' )
-			);
-		}
-
-		echo '<div class="wpcpm-modules">';
-
-		$index = 0;
-		foreach ( WPCPM_Modules::all() as $module ) {
-			++$index;
-
-			printf(
-				'<div class="wpcpm-module-card%1$s">',
-				$module->is_implemented() ? '' : ' is-pending'
-			);
-
-			printf(
-				'<h2><span class="wpcpm-module-card__index">%1$s</span> <a href="%2$s">%3$s</a></h2>',
-				esc_html( number_format_i18n( $index ) ),
-				esc_url( $module->admin_url() ),
-				esc_html( $module->label() )
-			);
-
-			echo '<p>' . esc_html( $module->description() ) . '</p>';
-
-			echo '<ul class="wpcpm-module-card__meta">';
-			printf(
-				'<li><strong>%1$s</strong> <code>%2$s</code></li>',
-				esc_html__( 'Role:', 'wpcredits-program-manager' ),
-				esc_html( $module->role() )
-			);
-			printf(
-				'<li><strong>%1$s</strong> %2$s</li>',
-				esc_html__( 'Accounts:', 'wpcredits-program-manager' ),
-				esc_html( number_format_i18n( $module->user_count() ) )
-			);
-			printf(
-				'<li><strong>%1$s</strong> %2$s</li>',
-				esc_html__( 'Built:', 'wpcredits-program-manager' ),
-				$module->is_implemented() ? esc_html__( 'Yes', 'wpcredits-program-manager' ) : esc_html__( 'Role only', 'wpcredits-program-manager' )
-			);
-			echo '</ul>';
-
-			echo '</div>';
-		}
-
-		echo '</div>';
-
-		// The tools after the audiences, so the audiences stay the first thing on the screen, and
-		// under the name the menu gives the tools.
-		$tools = WPCPM_Tools::all();
-
-		if ( ! empty( $tools ) ) {
-			echo '<h2>' . esc_html__( 'Tools', 'wpcredits-program-manager' ) . '</h2>';
-			echo '<p class="wpcpm-lede">' . esc_html__( 'Parts of the program that can be switched on, run and configured on their own.', 'wpcredits-program-manager' ) . '</p>';
-			echo '<div class="wpcpm-modules">';
-
-			foreach ( $tools as $tool ) {
-				echo '<div class="wpcpm-module-card">';
-				printf(
-					'<h2><a href="%1$s">%2$s</a></h2>',
-					esc_url( $tool->admin_url() ),
-					esc_html( $tool->label() )
-				);
-				echo '<p>' . esc_html( $tool->description() ) . '</p>';
-
-				self::render_tool_status( $tool );
-
-				echo '</div>';
-			}
-
-			echo '</div>';
-		}
-
-		echo '</div>';
+		WPCPM_Overview::render();
 	}
 }

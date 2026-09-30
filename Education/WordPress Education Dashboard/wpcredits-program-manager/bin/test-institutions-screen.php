@@ -1240,8 +1240,6 @@ ck( 'the screen keeps div.wrap.wpcpm-wrap > h1 > p.wpcpm-lede', array(
 	false !== strpos( $src, "echo '<p class=\"wpcpm-lede\">' . esc_html( \$this->description() ) . '</p>';" ),
 ), array( true, true, true ) );
 ck( 'and draws its cards as .wpcpm-card', substr_count( $src, "'<div class=\"wpcpm-card\">'" ) >= 6, true );
-ck( 'it no longer falls through to the placeholder', strpos( $src, 'render_placeholder' ), false );
-ck( 'is_implemented() is true', ( new WPCPM_Institutions() )->is_implemented(), true );
 
 // Every handler: the capability is decided before the nonce is read, so an anonymous request
 // gets the 403 the design names rather than a nonce failure that tells it the handler exists.

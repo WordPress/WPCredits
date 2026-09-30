@@ -202,6 +202,19 @@ final class WPCPM_Administrators_Dashboard {
 	}
 
 	/**
+	 * What a screen says in place of the page's address while `page_url()` has none.
+	 *
+	 * Here, beside the page it is about, because two screens print it, the Administrators screen and
+	 * the Overview, and a sentence written out on each would be two sentences the day one of them is
+	 * reworded.
+	 *
+	 * @return string The sentence, translated and not escaped.
+	 */
+	public static function page_missing() {
+		return __( 'The Administrator Dashboard page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' );
+	}
+
+	/**
 	 * The page. The block and the shortcode both land here.
 	 *
 	 * The capability is checked here as well as by the page's level, because a page can be

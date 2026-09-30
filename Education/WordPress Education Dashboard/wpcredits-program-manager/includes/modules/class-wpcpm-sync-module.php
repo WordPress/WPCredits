@@ -1,6 +1,6 @@
 <?php
 /**
- * The shape shared by the three modules that own an Airtable sync.
+ * The shape shared by the four modules that own an Airtable sync.
  *
  * @package WPCredits_Program_Manager
  */
@@ -8,9 +8,9 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * A module with a sync: the Students, Mentors and Institutions modules.
+ * A module with a sync: the Students, Mentors, Institutions and Sponsors modules.
  *
- * Each of the three used to carry its own copy of the same three handlers (start, cancel, the
+ * Each of the first three used to carry its own copy of the same three handlers (start, cancel, the
  * AJAX tick), the same capability-then-nonce check, the same redirect, and a map of outcome
  * sentences that had drifted three ways: one screen said "Sync started" with a dash and one
  * without, one told the reader to "see the error below" and two did not, and the outcome
@@ -24,7 +24,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * A module says which sync it owns (`sync_class()`), which flash channel its screen reads
  * (`flash_key()`) and, where the sync's tick method has another name, how to tick it
- * (`run_sync_tick()`). Everything else here is the same for all three, on purpose. The
+ * (`run_sync_tick()`). Everything else here is the same for all four, on purpose. The
  * capability-then-nonce check, the way back to a tab and the notice a press leaves are the module
  * base's (`WPCPM_Module`), which asks every module for its flash channel and serves a module
  * without a sync too.

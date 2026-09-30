@@ -165,6 +165,7 @@ class WPCPM_Stub_Untabbed_Module extends WPCPM_Sync_Module {
 	public function description() { return ''; }
 	protected function sync_class() { return 'WPCPM_Students_Sync'; }
 	protected function flash_key() { return 'untabbed_admin'; }
+	public function render_admin_page() {}
 }
 
 /**

@@ -20,21 +20,50 @@ The screens, the settings and this guide call each thing by one name.
 | Name | What it is | Where you meet it |
 | --- | --- | --- |
 | **WPCredits Program** | The plugin, as the menu names it. Each screen under the menu is titled with its own name alone: **Overview**, **Students**, **Tools**, **Settings** and so on. | The menu, and a screen's place in it, written with ">" between the steps, such as **WPCredits Program > Settings**. |
-| **Audiences** | The people the program is for and the people who run it: **Students**, **Mentors**, **Institutions**, **Sponsors** and **Administrators**. Each audience has a user role and a screen under its name; the administrators hold WordPress's own Administrator role, which is granted the program's capabilities on activation. | The Overview's first cards, the menu, and the Settings tabs. |
-| **Tools** | The parts of the program that are run and configured on their own rather than belonging to one audience: **Header notices**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**, each called by its name alone. | The **Tools** menu item and screen, and the Overview's last cards. |
+| **Audiences** | The people the program is for and the people who run it: **Students**, **Mentors**, **Institutions**, **Sponsors** and **Administrators**. Each audience has a user role and a screen under its name; the administrators hold WordPress's own Administrator role, which is granted the program's capabilities on activation. | The menu, each audience's own screen, and the Settings tabs. |
+| **Tools** | The parts of the program that are run and configured on their own rather than belonging to one audience: **Header notices**, **Need help?**, the **Mentor Status Checker**, the **Student Duplicate Finder** and the **Track Builder**, each called by its name alone. | The **Tools** menu item and screen, and the Overview's **Tools** card, which lists each tool with its status. |
 | **Landing page** | Where an account goes when it logs in: the **Mentor**, **Student**, **Institution** and **Sponsor landing page**, each with the page's address under its switch. | The Students and mentors, Institutions and Sponsors tabs of Settings. |
 | **Remove** and **Leave** | The two answers of each rule for somebody who leaves the program, always in this order: remove the role or the access, or leave it in place. Nothing is ever deleted either way. | The Settings sections **When someone leaves**, **When an institution leaves the pipeline** and **When a sponsor is no longer Approved**. |
 
 ### Overview
 
-![The Overview screen: each audience with its role, its account count and its screen.](images/admin-overview.png)
+![The Overview screen: what waits for a decision, the syncs, the tools and the way to Settings.](images/admin-overview.png)
 
-*The Overview screen: each audience with its role, its account count and its screen.*
+*The Overview screen: what waits for a decision, the syncs, the tools and the way to Settings.*
 
-One card per audience, in menu order, each showing its role slug, how many accounts hold that role,
-and whether it is built or currently role-only. Underneath, under **Tools**, one card per tool.
+**WPCredits Program** opens on the Overview: four cards with what waits for a decision, when each
+sync last ran and runs next, whether each tool can run, and the way to Settings. The Overview only
+reads and links; it decides nothing.
 
 If Airtable is not connected yet, this screen says so and links straight to the setting.
+
+**Waiting for a decision** lists each queue with something in it, in the order of the Administrator
+Dashboard's strip of counts, by the strip's name for the queue with its count after it in
+parentheses. Each is a link to where its queue is listed: the institution applications,
+agreements, semester reports, mentor requests and locked accounts open the **Institutions** screen,
+the sponsor agreements, applications and offers running low open the **Sponsors** screen, the
+sponsor posts open the Administrator Dashboard's **Sponsor posts to review** card while that page
+exists, and the duplicated students open the **Student Duplicate Finder**. The dashboard's strip
+shows every count, a zero muted; this card leaves out a queue with nothing in it, and when nothing
+is waiting it says "Nothing is waiting for a manager right now." At the foot of the card,
+**Decide on the Administrator Dashboard** opens that page, where the decisions are made; while the
+page is missing, the card says so in the button's place and asks you to re-activate the plugin to
+recreate it.
+
+**Syncs** has a row for each audience's sync, **Students**, **Mentors**, **Institutions** and
+**Sponsors**, each name a link to the screen the sync is run from: the **Sync** tab of the Students
+and Mentors screens, and the Institutions and Sponsors screens. **Last run** gives the date and time
+of the last run, in the site's own formats, or *Never*. **Next run** gives the date and time of the
+next run; it says *Not scheduled* when none is, and *Running now* while a run is under way. The
+table shows no errors: a sync's last error is on the Administrator Dashboard's **Syncs and health**
+card.
+
+**Tools** has a row for each tool, its name a link to the tool's screen, and under **Status** the
+line the tool's card shows on the **Tools** screen; for a tool that cannot run, that line is the
+warning that says why, in the tool's own words.
+
+**Settings** says "Airtable is connected." or "Airtable is not connected yet." Its
+**Open Settings** button opens the Settings screen.
 
 ### The audience screens
 

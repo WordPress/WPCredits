@@ -237,15 +237,6 @@ class WPCPM_Sponsors extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Built now.
-	 *
-	 * @return bool
-	 */
-	public function is_implemented() {
-		return true;
-	}
-
-	/**
 	 * The sync class.
 	 *
 	 * @return string

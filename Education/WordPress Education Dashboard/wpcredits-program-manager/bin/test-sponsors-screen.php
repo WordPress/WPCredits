@@ -443,7 +443,6 @@ function ck( $label, $actual, $expected ) {
 }
 
 echo "=== The module ===\n";
-ck( 'implemented now', $module->is_implemented(), true );
 ck( 'the menu label carries no bubble yet: nothing to count until S3 to S5', $module->menu_label(), 'Sponsors' );
 ck( 'the sync module contract', array( WPCPM_Sponsors::ACTION_SYNC, WPCPM_Sponsors::ACTION_CANCEL, WPCPM_Sponsors::ACTION_TICK ), array( 'wpcpm_sponsors_sync', 'wpcpm_sponsors_cancel', 'wpcpm_sponsors_tick' ) );
 ck( 'every status the handlers flash has a sentence', array_values( array_diff( array( 'provisioned', 'provision-attached', 'provision-admin', 'provision-inactive', 'provision-no-email', 'provision-refused', 'provision-failed', 'airtable-failed', 'attached', 'attach-no-account', 'attach-refused', 'detached', 'detach-refused', 'refused' ), array_keys( WPCPM_Sponsors::messages() ) ) ), array() );

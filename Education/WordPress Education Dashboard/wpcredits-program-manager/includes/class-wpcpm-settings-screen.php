@@ -15,8 +15,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * settings draws on its own screen (`WPCPM_Tool::render_settings()`).
  *
  * A class of its own rather than more of `WPCPM_Admin`, which registers the menu and draws the
- * Overview and the Tools screen, so the screen that holds the settings and the handler that saves
- * them read as one thing. The rows each form is drawn with are `WPCPM_Settings_Rows`'s.
+ * Tools screen, so the screen that holds the settings and the handler that saves them read as one
+ * thing; the Overview is a class of its own too (`WPCPM_Overview`). The rows each form is drawn
+ * with are `WPCPM_Settings_Rows`'s.
  */
 class WPCPM_Settings_Screen {
 

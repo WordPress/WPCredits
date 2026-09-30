@@ -993,6 +993,22 @@ ck( 'the error is printed verbatim and escaped', has( $health, 'HTTP 429 from Ai
 ck( 'the locked account is named', has( $health, 'Rep One' ), true );
 ck( 'the probe verdict, the last mail and the invitation run are there', has( $health, 'blocked' ) && has( $health, 'report-drafted' ) && has( $health, '3 of 5' ), true );
 
+// A sync that has not run, and one with no run booked, in the Last run and Next run cells: the
+// words the Overview's Syncs table says the same two facts in, a cell's sentence case. The probe's
+// sentence keeps its lowercase "never", a word inside a sentence rather than a cell of its own.
+$health_new                              = $data['health'];
+$health_new['syncs']['students']['last'] = 0;
+$health_new['probe']['time']             = 0;
+$health_cells                            = capture( static function () use ( $health_new, $data ) { WPCPM_Administrators_Cards::render_health( $health_new, $data['locked'] ); } );
+preg_match_all( '#<tr class="wpcpm-health__sync"><td>([^<]*)</td><td>[^<]*</td><td>([^<]*)</td><td>([^<]*)</td>#', $health_cells, $health_rows, PREG_SET_ORDER );
+$runs = array();
+foreach ( $health_rows as $row ) {
+	$runs[ $row[1] ] = array( $row[2], $row[3] );
+}
+ck( 'a sync that has not run says Never and one with no run booked says Not scheduled, as the Overview says them, and the probe\'s sentence keeps its lowercase never',
+	array( isset( $runs['Students'] ) ? $runs['Students'][0] : null, isset( $runs['Mentors'] ) ? $runs['Mentors'][1] : null, isset( $runs['Institutions'] ) ? $runs['Institutions'][1] : null, has( $health_cells, '<li>Private storage: blocked (probed never).</li>' ) ),
+	array( 'Never', 'Not scheduled', 'Not scheduled', true ) );
+
 // A run() that has already finished is history, not a live count: it must stop being read as
 // "N of M sent" once the run itself says it is done (final review, Important 7g).
 $health_data = $data['health'];
