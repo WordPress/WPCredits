@@ -265,6 +265,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
+// Before the Institutions module, which uses it: PHP declares a class only once its traits are.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/tools/class-wpcpm-handbook-answer.php';
 // The rows every settings form is drawn with, the Settings screen, and the three tools that draw their

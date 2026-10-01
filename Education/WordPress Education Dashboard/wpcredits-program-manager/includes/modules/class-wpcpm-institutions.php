@@ -17,34 +17,106 @@ if ( ! defined( 'ABSPATH' ) ) {
  * of each Collaboration Agreement, and the reconciliation between the two Airtable tables
  * that describe the same students.
  *
+ * The screen is six tabs by the job a manager comes to do (`TABS`), the queue first because it
+ * is the tab the screen opens on: Waiting for review, the applications, the signed agreements
+ * and the requests from institutions, read here and decided on the Administrator Dashboard, each
+ * row linking to its place there, with an application opened from it drawn in the list's place,
+ * where one past the window the Administrator Dashboard's card lists is decided; Pipeline, every
+ * record by stage, and the consent report; Accounts, the accounts locked for
+ * the day, the invitations and the institution accounts list, whose No account view lists the
+ * Confirmed institutions with no account yet and creates the missing ones, with one institution's
+ * members, its Manage members view, drawn in the list's place; Semester reports;
+ * Agreements, the agreements to record on file, the discrepancies and the template; and Sync and
+ * storage, the sync, the reconciliation and the storage probe. Each tab reads what it draws and
+ * nothing else, and a press comes back to the tab it was made on.
+ *
+ * The Accounts tab is the accounts screen every audience's module shares
+ * (`WPCPM_Accounts_Screen`): its load hook, its list's form and the presses made in it, a row's
+ * invitation and the rows-per-page choice. What is the institutions' own is here: the words, the
+ * table, the invitations card, the six tabs around the list, and the accounts provisioning creates.
+ *
  * Phase 1 is manager-only. The screen reads the pipeline index, the roster counts, the
- * countries map and the per-institution agreement options, and never Airtable itself: a
- * render that paged the base would take the rate limit away from the syncs, and a number
- * read live cannot say when it was true. Every card prints the read time its numbers came
- * from instead.
+ * countries map and the per-institution agreement options, and Airtable itself only for the
+ * search an opened application asks for: a render that paged the base would take the rate
+ * limit away from the syncs, and a number read live cannot say when it was true. Every card
+ * prints the read time its numbers came from instead.
  */
 class WPCPM_Institutions extends WPCPM_Sync_Module {
+
+	// The screen's load hook is this class's own (`load_screen()`), which leaves the list unbuilt
+	// where the Accounts tab draws one institution's members in its place, and runs the shared one,
+	// kept under another name, for every other request of the tab.
+	use WPCPM_Accounts_Screen {
+		load_screen as private load_accounts_list;
+	}
 
 	const ACTION_SYNC   = 'wpcpm_institutions_sync';
 	const ACTION_CANCEL = 'wpcpm_institutions_cancel';
 	const ACTION_PROBE  = 'wpcpm_institutions_probe';
 	const ACTION_TICK   = 'wpcpm_institutions_tick';
 
-	/** Provisioning: every institution that is ready, and one institution at a time. */
-	const ACTION_PROVISION     = 'wpcpm_institutions_provision';
+	/**
+	 * The screen's tabs, slug => label, in the bar's order: by the job a manager opens the screen
+	 * for, the queue first, which is the tab the screen opens on. English, as a constant has to hold
+	 * them; `tab_labels()` translates them.
+	 *
+	 * Two slugs are fixed from outside the screen: `accounts`, the one every audience's accounts list
+	 * links its own pages to, and `sync`, the one the health rows link every audience's sync at.
+	 */
+	const TABS = array(
+		'queue'            => 'Waiting for review',
+		'pipeline'         => 'Pipeline',
+		self::TAB_ACCOUNTS => 'Accounts',
+		'reports'          => 'Semester reports',
+		'agreements'       => 'Agreements',
+		self::TAB_SYNC     => 'Sync and storage',
+	);
+
+	/** The screen's tab the accounts are on, which every link and form of the list returns to. */
+	const TAB_ACCOUNTS = 'accounts';
+
+	/** The screen's tab the Airtable sync is on, which the sync's forms return to. */
+	const TAB_SYNC = 'sync';
+
+	/**
+	 * The user option the rows-per-page choice is kept in: the institution accounts table's own name,
+	 * here too, because the save is hooked at boot, long before that class is loaded.
+	 */
+	const PER_PAGE_OPTION = 'wpcpm_institutions_per_page';
+
+	/** The flash channel that carries what a press on the ticked rows adds, beside the outcome. */
+	const FLASH_DETAIL = 'institutions_admin_detail';
+
+	/** Admin-post action for one row's invitation, sent at once. */
+	const ACTION_INVITE = 'wpcpm_institutions_invite';
+
+	/** Admin-post action for inviting every institution account that has never been invited. */
+	const ACTION_BULK = 'wpcpm_institutions_bulk_invite';
+
+	/**
+	 * Provisioning one institution: a ready row's Create account on the Accounts tab's No account
+	 * view. The ticked ones are the view's bulk action, which the list's form carries.
+	 */
 	const ACTION_PROVISION_ONE = 'wpcpm_institutions_provision_one';
 
 	/**
-	 * How many accounts one press of the bulk button creates.
+	 * The query argument that names one institution by its record ID: on the Accounts tab, the
+	 * institution whose Manage members view is drawn; on a row's Create account, the institution
+	 * the account is created for.
+	 */
+	const ARG_INSTITUTION = 'wpcpm_institution';
+
+	/**
+	 * How many accounts one Create account on the ticked institutions creates.
 	 *
 	 * A ceiling and not a page size: forty-two Confirmed institutions is the whole of day
 	 * one, and a request that inserts every one of them plus its stamp and its audit row is
-	 * the request that times out on a slow host. Whatever is left is still listed on the card
-	 * afterwards, and the button says so, so pressing it again is the way through.
+	 * the request that times out on a slow host. Whatever is left is still listed on the No
+	 * account view afterwards, so pressing it again is the way through.
 	 */
 	const PROVISION_LIMIT = 25;
 
-	/** How many institutions the gate's refusal names before it says "and N more". */
+	/** How many institutions the gate and a Create account that left some out name before "and N more". */
 	const PROVISION_NAMES = 5;
 
 	/** Flash channel for this screen's outcomes. */
@@ -257,12 +329,14 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * The menu title, carrying the queue's pending count as a bubble.
 	 *
-	 * The number is what a manager opens this screen for: applications waiting to be decided
-	 * and signed agreements waiting to be read, added together, in the markup WordPress
-	 * already styles for comments awaiting moderation. `label()` stays plain, because it is
-	 * also the `<h1>` and a bubble in a heading is not a heading.
+	 * The number is what a manager opens this screen for: applications and requests from
+	 * institutions waiting to be decided and signed agreements waiting to be read, added together,
+	 * every row the queue lists, in the markup WordPress already styles for comments awaiting
+	 * moderation.
+	 * `label()` stays plain, because it is also the `<h1>` and a bubble in a heading is not a
+	 * heading.
 	 *
-	 * Two reads on every admin page load, which is what a bubble costs. The alternative is a
+	 * Three reads on every admin page load, which is what a bubble costs. The alternative is a
 	 * cached number that says three when there are four, and a queue whose count nobody
 	 * trusts is a queue nobody works.
 	 *
@@ -355,8 +429,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		add_action( 'admin_post_' . self::ACTION_SYNC, array( $this, 'handle_sync' ) );
 		add_action( 'admin_post_' . self::ACTION_CANCEL, array( $this, 'handle_cancel' ) );
 		add_action( 'admin_post_' . self::ACTION_PROBE, array( $this, 'handle_probe' ) );
-		add_action( 'admin_post_' . self::ACTION_PROVISION, array( $this, 'handle_provision' ) );
 		add_action( 'admin_post_' . self::ACTION_PROVISION_ONE, array( $this, 'handle_provision_one' ) );
+		add_action( 'admin_post_' . self::ACTION_INVITE, array( $this, 'handle_invite' ) );
+		add_action( 'admin_post_' . self::ACTION_BULK, array( $this, 'handle_bulk_invite' ) );
 		add_action( 'admin_post_' . self::ACTION_LINK, array( $this, 'handle_link' ) );
 		add_action( 'wp_ajax_' . self::ACTION_TICK, array( $this, 'handle_tick' ) );
 
@@ -371,6 +446,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		add_action( 'admin_post_' . self::ACTION_PURGE, array( $this, 'handle_purge' ) );
 
 		add_action( self::CRON_PURGE, array( __CLASS__, 'purge_applications' ) );
+
+		// The Accounts tab's own load hook, once the menu exists, and its rows-per-page save.
+		$this->boot_screen();
 	}
 
 	/**
@@ -506,6 +584,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			delete_metadata( 'user', 0, $meta_key, '', true );
 		}
 
+		// A manager's rows-per-page choice for the institution accounts, which core keeps as user meta.
+		delete_metadata( 'user', 0, self::PER_PAGE_OPTION, '', true );
+
 		// The report's three user meta keys, each named through the class that writes it. The
 		// permissions stamp is a copy of an answer that lives in Airtable, the asked stamp is
 		// a reminder clock, and the stash is an unsent draft somebody's colleague overwrote;
@@ -555,6 +636,110 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
+	 * The institution accounts table: the list the Accounts tab draws, whose role and stamp the
+	 * invitations read, and whose rule the rows-per-page save keeps.
+	 *
+	 * @return string
+	 */
+	protected static function table_class() {
+		return 'WPCPM_Institutions_Table';
+	}
+
+	/**
+	 * The words the screen prints for institution accounts, in the places every accounts screen
+	 * prints its audience's: the keys `WPCPM_Accounts_Screen::screen_words()` lists. The warning
+	 * while Airtable is not connected is printed by this screen's frame, above every tab
+	 * (`render_admin_page()`), in these words.
+	 *
+	 * @return array<string, string>
+	 */
+	protected function screen_words() {
+		return array(
+			'heading_views'      => __( 'Filter institution accounts list', 'wpcredits-program-manager' ),
+			'heading_pagination' => __( 'Institution accounts list navigation', 'wpcredits-program-manager' ),
+			'heading_list'       => __( 'Institution accounts list', 'wpcredits-program-manager' ),
+			'not_connected'      => __( 'Airtable is not connected yet, so no institutions can be synced.', 'wpcredits-program-manager' ),
+			'list_heading'       => __( 'Institution accounts', 'wpcredits-program-manager' ),
+			'page_label'         => __( 'Institution Dashboard:', 'wpcredits-program-manager' ),
+			'page_missing'       => __( 'The Institution Dashboard page is missing. Re-activate the plugin to recreate it.', 'wpcredits-program-manager' ),
+			'search'             => __( 'Search institutions', 'wpcredits-program-manager' ),
+			'list_note'          => __( 'Accounts are created with a random password. "Send invite" emails the account a password-set link so its holder can set their own, and "Resend invite" sends a fresh one, which replaces the link in any earlier invitation.', 'wpcredits-program-manager' ),
+		);
+	}
+
+	/**
+	 * The Institution Dashboard's address, which the list card names, or '' while the page is missing.
+	 *
+	 * @return string
+	 */
+	protected function dashboard_url() {
+		return WPCPM_Institutions_Dashboard::page_url();
+	}
+
+	/**
+	 * Where the list stands, as the request says: its view, search, sort and page, each encoded, the
+	 * empty ones left out.
+	 *
+	 * What a press in the list comes back to (`list_url()`), and what each row's links carry, a
+	 * row's invitation and a row's Create account, so the press comes back to the same place.
+	 * Rebuilt from what the list reads rather than copied from the address, so the form's own fields
+	 * (its nonce, the ticked rows, the action chosen) are never carried. Each value is encoded,
+	 * because `add_query_arg()` sets a value as it is given.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function list_state() {
+		return array_map(
+			static function ( $value ) {
+				return rawurlencode( (string) $value );
+			},
+			array_filter(
+				array(
+					'wpcpm_view' => WPCPM_Request::key( 'wpcpm_view' ),
+					's'          => WPCPM_Request::text( 's' ),
+					'orderby'    => WPCPM_Request::key( 'orderby' ),
+					'order'      => WPCPM_Request::key( 'order' ),
+					'paged'      => WPCPM_Request::id( 'paged' ),
+				)
+			)
+		);
+	}
+
+	/**
+	 * Before the screen draws its Accounts tab: the list, built and read as the accounts screen every
+	 * audience shares builds it (`WPCPM_Accounts_Screen::load_screen()`), unless the address names an
+	 * institution, whose Manage members view is drawn in the list's place.
+	 *
+	 * That view draws no list, so none is built for it: no account or institution is read for a list
+	 * nobody sees, and Screen Options offers no rows-per-page choice or columns for it.
+	 */
+	public function load_screen() {
+		if ( '' !== self::members_record() ) {
+			return;
+		}
+
+		$this->load_accounts_list();
+	}
+
+	/**
+	 * The institution whose Manage members view the request asks for: the record the Accounts tab's
+	 * address names, with its case, or '' when the tab shown is another or the address names none.
+	 *
+	 * Read with `WPCPM_Request::text()` and never a `key()`: `sanitize_key()` lowercases, and an
+	 * Airtable record ID is case-sensitive. Whether it names a record the site holds is the view's to
+	 * ask (`render_members()`).
+	 *
+	 * @return string
+	 */
+	private static function members_record() {
+		if ( self::TAB_ACCOUNTS !== self::tab() ) {
+			return '';
+		}
+
+		return WPCPM_Request::text( self::ARG_INSTITUTION );
+	}
+
+	/**
 	 * Ask the host what it does with the private directory.
 	 */
 	public function handle_probe() {
@@ -566,73 +751,72 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Create an account for every institution that is ready for one.
+	 * Create the account for one institution, from its row's Create account on the Accounts tab's No
+	 * account view.
 	 *
-	 * The gate first, and in the handler and not only in the markup: the button is drawn
-	 * disabled while a Confirmed institution has no agreement recorded, but a disabled button
-	 * is a courtesy to the person and not a check. Nothing is created while the count is
-	 * above zero, whichever institutions are ready, because the point of the gate is that the
-	 * program records what it has already agreed before it starts opening accounts.
-	 *
-	 * `PROVISION_LIMIT` at a time. The card recomputes what is left on the next page load, so
-	 * a run that stops at the ceiling needs no state to carry on: press it again.
-	 */
-	public function handle_provision() {
-		$this->verify( self::ACTION_PROVISION );
-
-		$reasons = self::provision_reasons( WPCPM_Institutions_Index::rows() );
-
-		if ( ! empty( array_keys( $reasons, WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT, true ) ) ) {
-			$this->redirect_back( 'provision-blocked' );
-		}
-
-		$created = 0;
-		$failed  = 0;
-
-		foreach ( array_slice( array_keys( $reasons, '', true ), 0, self::PROVISION_LIMIT ) as $record_id ) {
-			$result = WPCPM_Institutions_Sync::provision( $record_id, get_current_user_id() );
-
-			if ( is_wp_error( $result ) ) {
-				++$failed;
-				continue;
-			}
-
-			++$created;
-		}
-
-		if ( $failed > 0 ) {
-			$this->redirect_back( 'provision-failed' );
-		}
-
-		$this->redirect_back( $created > 0 ? 'provisioned' : 'provision-none' );
-	}
-
-	/**
-	 * Create the account for one institution.
-	 *
-	 * The record ID is read with `WPCPM_Request::posted_text()` and never a `key()`:
-	 * `sanitize_key()` lowercases, and an Airtable record ID is case-sensitive. It is read
-	 * before the capability is decided only because the nonce is keyed to it; nothing is done
-	 * with it until both checks have passed.
+	 * The row's action is a link, so the record ID is read from the address with
+	 * `WPCPM_Request::text()` and never a `key()`: `sanitize_key()` lowercases, and an Airtable record
+	 * ID is case-sensitive. It is read before the capability is decided only because the nonce is
+	 * keyed to it; nothing is done with it until both checks have passed (`verify()`).
 	 *
 	 * Whether this institution may be provisioned is `provision_block()`'s answer, asked
-	 * inside `provision()`, so a stale page that offers the button after somebody else has
+	 * inside `provision()`, so a stale page that offers the link after somebody else has
 	 * recorded a revocation is refused rather than obeyed.
+	 *
+	 * The one account created, and what was said about a creation that failed, which the view cannot
+	 * know, are worded by the Institutions table (`WPCPM_Institutions_Table::action_sentence()`), as a
+	 * Create account on the ticked institutions words them. That the institution already has its
+	 * account, the second press of a double click or a page left open meeting one made a moment ago,
+	 * is a status of its own (`provision-already`), left with nothing beside it, so the screen's map
+	 * words it: "That institution already has an account." Any other refusal is the view's to
+	 * explain, beside the row.
+	 *
+	 * The press comes back to the list as the link says it stood, its view, search, sort and page
+	 * (`list_url()`), the way a row's invitation comes back: `redirect_back()` reads the tab a posted
+	 * form names, and a link posts nothing.
 	 */
 	public function handle_provision_one() {
-		$record_id = WPCPM_Request::posted_text( 'wpcpm_institution' );
+		$record_id = WPCPM_Request::text( self::ARG_INSTITUTION );
 
 		$this->verify( self::ACTION_PROVISION_ONE . '_' . $record_id );
 
 		$result = WPCPM_Institutions_Sync::provision( $record_id, get_current_user_id() );
 
 		if ( ! is_wp_error( $result ) ) {
-			$this->redirect_back( 'provisioned' );
+			$this->leave( $this->list_url(), 'provisioned', array( 'created' => 1 ) );
 		}
 
-		$refused = WPCPM_Institutions_Sync::PROVISION_ERROR === $result->get_error_code();
+		if ( WPCPM_Institutions_Sync::PROVISION_ERROR !== $result->get_error_code() ) {
+			$this->leave( $this->list_url(), 'provision-failed', self::named( array( self::failure_named( self::institution_name( $record_id ), $result ) ), 'failed', 'failed_more' ) );
+		}
 
-		$this->redirect_back( $refused ? 'provision-refused' : 'provision-failed' );
+		$this->leave( $this->list_url(), WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER === self::refusal_reason( $result ) ? 'provision-already' : 'provision-refused' );
+	}
+
+	/**
+	 * Queue an invitation for every institution account that has never had one, then back to the
+	 * Accounts tab, as every other press on the tab comes back to it.
+	 *
+	 * Queued rather than sent here: `send_invite()` sends immediately, which is right for one row
+	 * and would time out somewhere in the middle of a hundred. The queue is drained by cron a batch
+	 * at a time, which is what it was built for.
+	 *
+	 * The count a press on the ticked rows carries is that press's alone, and this button leaves the
+	 * same outcomes with none: `leave()` empties that channel, so a count never printed is not shown
+	 * under these.
+	 */
+	public function handle_bulk_invite() {
+		$this->verify( self::ACTION_BULK );
+
+		$pending = self::never_invited();
+
+		if ( empty( $pending ) ) {
+			$this->leave( $this->accounts_url(), 'invites-none' );
+		}
+
+		WPCPM_Mail::queue_invites( $pending );
+
+		$this->leave( $this->accounts_url(), 'invites-queued' );
 	}
 
 	/**
@@ -766,8 +950,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * Say how the link ended and go back to the card that asked.
 	 *
 	 * Its own channel rather than the screen's, so the sentence is drawn inside the
-	 * reconciliation card beside the row it is about instead of at the top of a screen with
-	 * eight other cards on it.
+	 * reconciliation card beside the row it is about instead of above the tab's bar, a card
+	 * away from it. Back to the Sync and storage tab, which holds that card: the screen opens on
+	 * its queue, so an address naming no tab would land a tab away from the sentence.
 	 *
 	 * @param string $status One of the `LINK_` constants.
 	 * @param string $detail What the sentence adds: an institution name, or an Airtable error.
@@ -781,7 +966,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			)
 		);
 
-		wp_safe_redirect( $this->admin_url() . '#' . self::ANCHOR_UNLINKED );
+		wp_safe_redirect( $this->tab_url( 'sync' ) . '#' . self::ANCHOR_UNLINKED );
 		exit;
 	}
 
@@ -1543,7 +1728,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * How many things are waiting for a manager, applications and agreements together.
+	 * How many things are waiting for a manager: applications, signed agreements and requests from
+	 * institutions together, the three kinds the queue lists, so the bubble counts what the queue
+	 * shows.
 	 *
 	 * Stops at `COUNT_MAX`, because the caller is a bubble on every admin page load: what a
 	 * manager does about a queue is the same at two hundred as at two thousand, and the
@@ -1552,12 +1739,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * @return int Between 0 and `COUNT_MAX`.
 	 */
 	private static function queue_count() {
-		// One more than the bubble can show, from both sides, and no further: this runs on
-		// every wp-admin page load, so the question it asks has to stay the same size whatever
+		// One more than the bubble can show, from each of the three, and no further: this runs
+		// on every wp-admin page load, so the question it asks has to stay the same size whatever
 		// the queue does. `COUNT_MAX + 1` is enough to tell "199" from "200 or more".
 		$limit   = self::COUNT_MAX + 1;
 		$waiting = (int) WPCPM_Institution_Application::pending_count( $limit )
-			+ count( (array) WPCPM_Institution_Agreement::awaiting_review( $limit ) );
+			+ count( (array) WPCPM_Institution_Agreement::awaiting_review( $limit ) )
+			+ count( (array) WPCPM_Institution_Request::open_requests( $limit ) );
 
 		return min( self::COUNT_MAX, $waiting );
 	}
@@ -1565,29 +1753,43 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * The queue, as one list, oldest first.
 	 *
-	 * Two kinds of row and one list, because they are one queue: a person works it from the
+	 * Three kinds of row and one list, because they are one queue: a person works it from the
 	 * top, and an application that has waited a week does not become less urgent by being
-	 * filed under a different heading than a signed agreement that has waited a day.
+	 * filed under a different heading than a signed agreement or a request from an institution
+	 * that has waited a day.
 	 *
-	 * Nothing here reads Airtable. Both halves come from posts this site holds, the country
+	 * Nothing here reads Airtable. All three come from posts this site holds, the country
 	 * names from the countries map and the institution names from the pipeline index, so the
 	 * cost of the card is bounded by the window and never by how many submissions arrived.
 	 *
-	 * Bounded because the applications half is written by strangers. Both lists arrive oldest
-	 * first, so the oldest `$limit` of each is every row that can reach the top of a list
-	 * sorted by age. The applications half asks the database for that window and asks for its
-	 * total apart, as IDs: reading the rows to count them built a `WP_Post` for every open
-	 * application and primed the meta cache with each applicant's whole submitted form, to
+	 * Bounded because the applications half is written by strangers. All three lists arrive
+	 * oldest first, so the oldest `$limit` of each is every row that can reach the top of a list
+	 * sorted by age, and only those are built: a request's facts are read for the oldest `$limit`
+	 * and no more. The applications half asks the database for that window and asks
+	 * for its total apart, as IDs: reading the rows to count them built a `WP_Post` for every
+	 * open application and primed the meta cache with each applicant's whole submitted form, to
 	 * throw all but the window away (deep check FADMN-2, whose Administrator Dashboard half
 	 * shipped with it). `waiting` is the whole number so the card can say it is showing part
-	 * of it - the agreements in it are as many as their own reader returns, which has a
-	 * ceiling of its own, and the applications are counted in full because that is the half
-	 * that can be flooded.
+	 * of it - the agreements and the requests in it are as many as their own readers return,
+	 * each under a ceiling of its own, and the applications are counted in full because that
+	 * is the half that can be flooded.
+	 *
+	 * A request from an institution is overdue by its own rule, the mark
+	 * `WPCPM_Institution_Request::facts()` answers with (`OVERDUE_DAYS`), and not by
+	 * `agreement_review_days`: that setting measures a manager reading something on their own
+	 * desk, and a request measures a school waiting on the program.
+	 *
+	 * A request row is labeled by the request's kind: "Mentor request" for `mentor`, raised from a
+	 * student's card, and "Request" for any other kind the store holds, with the kind's own words
+	 * printed under it: `add`, which the import raises for a student it created, is one of those,
+	 * so no other kind is ever called a mentor request.
 	 *
 	 * @param int $limit How many rows to build, at most.
-	 * @return array{rows: array[], waiting: int} Rows: `kind`, `kind_label`, `id`, `at`,
-	 *               `overdue`, `name`, `country_name`, `contact`, `state`, `signals`,
-	 *               `duplicate`, `record`.
+	 * @return array{rows: array[], waiting: int} Rows: `kind` (`application`, `agreement` or
+	 *               `request`), `kind_label`, `id`, `at`, `overdue`, `name`, `country_name`,
+	 *               `contact`, `state`, `signals`, `duplicate`, `record`, and on a request
+	 *               row `request_kind`, `request_label`, `student`, `student_name`,
+	 *               `actor_name` and `note`.
 	 */
 	private static function queue_rows( $limit ) {
 		$limit   = max( 1, (int) $limit );
@@ -1598,9 +1800,11 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		$open_states  = self::open_states();
 		$applications = WPCPM_Institution_Application::applications( $open_states, $limit );
 		$documents    = array_map( 'intval', (array) WPCPM_Institution_Agreement::awaiting_review() );
-		$waiting      = count( WPCPM_Institution_Application::application_ids( $open_states ) ) + count( $documents );
+		$requests     = array_map( 'intval', (array) WPCPM_Institution_Request::open_requests( WPCPM_Institution_Request::QUEUE_MAX ) );
+		$waiting      = count( WPCPM_Institution_Application::application_ids( $open_states ) ) + count( $documents ) + count( $requests );
 
 		$documents  = array_slice( $documents, 0, $limit );
+		$requests   = array_slice( $requests, 0, $limit );
 		$duplicates = self::duplicates( $applications );
 
 		foreach ( $applications as $post ) {
@@ -1660,6 +1864,38 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			);
 		}
 
+		foreach ( $requests as $request_id ) {
+			$facts = (array) WPCPM_Institution_Request::facts( $request_id );
+
+			if ( empty( $facts ) ) {
+				continue;
+			}
+
+			$country = isset( $facts['country'] ) ? (string) $facts['country'] : '';
+			$mentor  = WPCPM_Institution_Request::KIND_MENTOR === (string) $facts['kind'];
+
+			$rows[] = array(
+				'kind'          => 'request',
+				'kind_label'    => $mentor ? __( 'Mentor request', 'wpcredits-program-manager' ) : __( 'Request', 'wpcredits-program-manager' ),
+				'id'            => (int) $facts['id'],
+				'at'            => (int) $facts['at'],
+				'overdue'       => ! empty( $facts['overdue'] ),
+				'name'          => (string) $facts['institution_name'],
+				'country_name'  => self::country_name( $country, isset( $facts['country_name'] ) ? (string) $facts['country_name'] : '' ),
+				'contact'       => WPCPM_Countries::contact_of( $country ),
+				'state'         => '',
+				'signals'       => array(),
+				'duplicate'     => false,
+				'record'        => (string) $facts['institution'],
+				'request_kind'  => (string) $facts['kind'],
+				'request_label' => (string) $facts['kind_label'],
+				'student'       => (string) $facts['student'],
+				'student_name'  => (string) $facts['student_name'],
+				'actor_name'    => (string) $facts['actor_name'],
+				'note'          => (string) $facts['note'],
+			);
+		}
+
 		usort(
 			$rows,
 			static function ( $a, $b ) {
@@ -1668,8 +1904,8 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		);
 
 		return array(
-			// Sliced after the sort, so the window is the oldest of the two kinds together
-			// rather than the oldest of each with the newer kind pushed off the end.
+			// Sliced after the sort, so the window is the oldest of the three kinds together
+			// rather than the oldest of each with the newer kinds pushed off the end.
 			'rows'    => array_slice( $rows, 0, $limit ),
 			'waiting' => $waiting,
 		);
@@ -1950,27 +2186,112 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 */
 
 	/**
-	 * Render the Institutions screen.
+	 * The tabs as the bar prints them: TABS, each label translated.
+	 *
+	 * Each is written out here, because the translation tools collect a string only where it is
+	 * written as one; a tab this does not name keeps the English of TABS. The screen's own, in place
+	 * of the one the accounts screen every audience shares writes out (`WPCPM_Accounts_Screen`), which
+	 * knows two tabs and calls the second Sync.
+	 *
+	 * The tab shown is the shared screen's reading (`tab()`): the one the address names, or the first
+	 * of TABS, the queue, so the menu, which opens the screen at its own address, and every link that
+	 * names no tab, the managers' mail among them, open the queue.
+	 *
+	 * @return array<string, string> Slug => label.
+	 */
+	private static function tab_labels() {
+		$translated = array(
+			'queue'      => __( 'Waiting for review', 'wpcredits-program-manager' ),
+			'pipeline'   => __( 'Pipeline', 'wpcredits-program-manager' ),
+			'accounts'   => __( 'Accounts', 'wpcredits-program-manager' ),
+			'reports'    => __( 'Semester reports', 'wpcredits-program-manager' ),
+			'agreements' => __( 'Agreements', 'wpcredits-program-manager' ),
+			'sync'       => __( 'Sync and storage', 'wpcredits-program-manager' ),
+		);
+
+		return array_merge( self::TABS, array_intersect_key( $translated, self::TABS ) );
+	}
+
+	/**
+	 * Render the Institutions screen: the outcome of the last press, the warning while Airtable is
+	 * not connected, the tab bar, then the tab shown.
+	 *
+	 * Six tabs by job, in TABS: Waiting for review holds the queue, or one application opened from
+	 * it in the list's place; Pipeline the pipeline card and the consent report; Accounts the
+	 * accounts locked for the day, the invitations card and the institution accounts list, or one
+	 * institution's Manage members view in their place; Semester reports the reports; Agreements
+	 * the agreements to record on file, the discrepancies and the template; and Sync and storage
+	 * the last sync's error, the sync, the reconciliation and the storage probe. The screen's own,
+	 * in place of the two-tab one the accounts screen every audience shares draws
+	 * (`WPCPM_Accounts_Screen`).
+	 *
+	 * The outcome notice is the whole screen's: one map of every outcome a press here can flash,
+	 * printed above the bar on whichever tab is shown, as the warning while Airtable is not
+	 * connected is. A press comes back to the tab it was made on, so its sentence prints there. One
+	 * whose way back names no tab lands on the screen's own address, which is the queue, and prints
+	 * there: the decisions drawn on an opened application, and a decision on an application or a
+	 * request from an institution posted without the Administrator Dashboard's return.
+	 * Each tab reads only what it draws: the membership counts, a query per institution, are asked
+	 * by the two tabs that print them, and the provisioning reasons by the Accounts tab alone.
 	 */
 	public function render_admin_page() {
-		$index    = WPCPM_Institutions_Index::read();
-		$counts   = WPCPM_Roster_Index::counts();
-		$progress = WPCPM_Institutions_Sync::progress();
-		$last     = (int) WPCPM_Institutions_Sync::last_read();
-		$filter   = WPCPM_Request::key( 'wpcpm_filter' );
+		$tab = self::tab();
 
 		echo '<div class="wrap wpcpm-wrap">';
 		echo '<h1>' . esc_html( $this->label() ) . '</h1>';
 		echo '<p class="wpcpm-lede">' . esc_html( $this->description() ) . '</p>';
 
+		$this->render_status_notice( $this->outcome_messages( $tab ) );
+		$this->render_not_connected();
+
+		WPCPM_Screen_Tabs::render( $this->page_slug(), self::tab_labels(), $tab );
+
+		switch ( $tab ) {
+			case 'pipeline':
+				$this->render_tab_pipeline();
+				break;
+			case 'accounts':
+				$this->render_tab_accounts();
+				break;
+			case 'reports':
+				$this->render_tab_reports();
+				break;
+			case 'agreements':
+				$this->render_tab_agreements();
+				break;
+			case 'sync':
+				$this->render_tab_sync();
+				break;
+			default:
+				$this->render_tab_queue();
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * Every outcome a press on this screen can flash on its channel, in the words the reader gets:
+	 * one map, printed on whichever tab the press comes back to.
+	 *
+	 * The invitations' outcomes are worded once for every audience's accounts screen
+	 * (`accounts_messages()`), and they come back to the Accounts tab. Among them is `error`, which a
+	 * failed start of the sync leaves too: it is worded by the tab it comes back to, the sync's words,
+	 * which point to the last sync's error printed below them, on every tab but Accounts, and the
+	 * invitation's on Accounts, which prints no sync error.
+	 *
+	 * @param string $tab The tab shown.
+	 * @return array<string, array> Status => notice type and sentence.
+	 */
+	private function outcome_messages( $tab ) {
 		// This screen's own outcomes; the three every sync screen shares come from the module.
 		$messages = array(
 			'probed'            => array( 'success', __( 'The probe ran. The storage card says what the host did.', 'wpcredits-program-manager' ) ),
 			'probe-failed'      => array( 'error', __( 'The probe could not be completed. The storage card says why.', 'wpcredits-program-manager' ) ),
-			'provisioned'       => array( 'success', __( 'The accounts were created, each with an invitation queued. The provisioning card says what is left.', 'wpcredits-program-manager' ) ),
-			'provision-blocked' => array( 'error', __( 'Nothing was created: a Confirmed institution has no agreement recorded. The provisioning card names them.', 'wpcredits-program-manager' ) ),
-			'provision-refused' => array( 'error', __( 'That institution cannot be given an account yet. The provisioning card says why.', 'wpcredits-program-manager' ) ),
-			'provision-failed'  => array( 'error', __( 'Not every account could be created. The provisioning card names what is left.', 'wpcredits-program-manager' ) ),
+			'provisioned'       => array( 'success', __( 'The accounts were created, each with an invitation queued. The No account view says what is left.', 'wpcredits-program-manager' ) ),
+			'provision-blocked' => array( 'error', __( 'Nothing was created: a Confirmed institution has no agreement recorded. The No account view names each.', 'wpcredits-program-manager' ) ),
+			'provision-refused' => array( 'error', __( 'That institution cannot be given an account yet. The No account view says why.', 'wpcredits-program-manager' ) ),
+			'provision-already' => array( 'info', __( 'That institution already has an account.', 'wpcredits-program-manager' ) ),
+			'provision-failed'  => array( 'error', __( 'Not every account could be created. The No account view names what is left.', 'wpcredits-program-manager' ) ),
 			'provision-none'    => array( 'info', __( 'There was nothing to create.', 'wpcredits-program-manager' ) ),
 		);
 
@@ -1981,20 +2302,210 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			$messages = array_merge( $messages, (array) WPCPM_Institution_Panel::messages() );
 		}
 
+		// The one upload made on this screen is a manager's, on the institution's behalf from its
+		// Manage members view, and the panel's sentence is the institution's own ("a program manager
+		// reviews it"), so this screen words it for the person who pressed.
+		$messages['agreement-uploaded'] = array( 'success', __( 'The signed agreement is uploaded. It waits on the Waiting for review tab, and everybody at the institution has been emailed that it arrived.', 'wpcredits-program-manager' ) );
+
 		// The queue's own outcomes, kept beside the handlers that flash them for the reason
 		// the panel keeps the agreement route's: one list, in the words the reader gets.
 		$messages = array_merge( $messages, self::queue_messages() );
 
-		$this->render_status_notice( $messages );
+		// The outcomes of a request from an institution, named in its class the same way: a decision
+		// on a request posted without the Administrator Dashboard's return field comes back to this
+		// screen's own address, and an outcome the map does not know is taken from the channel and
+		// dropped.
+		$messages = array_merge( $messages, WPCPM_Institution_Request::messages() );
 
-		if ( ! WPCPM_Settings::is_connected() ) {
-			printf(
-				'<div class="notice notice-warning"><p>%1$s <a href="%2$s">%3$s</a></p></div>',
-				esc_html__( 'Airtable is not connected yet, so no institutions can be synced.', 'wpcredits-program-manager' ),
-				esc_url( admin_url( 'admin.php?page=wpcpm-settings' ) ),
-				esc_html__( 'Open settings', 'wpcredits-program-manager' )
-			);
+		$invitations = $this->accounts_messages();
+
+		if ( self::TAB_ACCOUNTS !== $tab ) {
+			unset( $invitations['error'] );
 		}
+
+		return array_merge( $messages, $invitations );
+	}
+
+	/**
+	 * The Waiting for review tab: the queue, or one application opened from it.
+	 */
+	private function render_tab_queue() {
+		$this->render_queue();
+	}
+
+	/**
+	 * The Pipeline tab: every institution record by stage, with the agreement-gap filter, the
+	 * institutions nobody can act for and the routing gaps, then the consent report.
+	 *
+	 * The membership counts are a user query per institution, so they are asked here and on Sync
+	 * and storage, the two tabs that print one of them, and on no other.
+	 */
+	private function render_tab_pipeline() {
+		$index = WPCPM_Institutions_Index::read();
+		$gaps  = self::membership_gaps( isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array() );
+
+		$this->render_pipeline( $index, WPCPM_Request::key( 'wpcpm_filter' ), $gaps );
+		$this->render_consent( $index );
+	}
+
+	/**
+	 * The Accounts tab: the institution accounts locked out of roster changes for the rest of the
+	 * day, the invitations card, then the institution accounts list, whose No account view is the
+	 * one place that asks why each Confirmed institution has no account, and creates the missing
+	 * ones; or, when the address names an institution, its Manage members view in their place
+	 * (`render_members()`).
+	 *
+	 * The screen's own, in place of the shared screen's: the notices of the presses made on the tab
+	 * and the warning while Airtable is not connected are this screen's frame's, printed above the
+	 * bar on every tab (`render_admin_page()`), so the tab prints neither again. The locked accounts
+	 * are the list's own reading of them, which its Status cells read too, so one draw of the tab
+	 * asks the ceiling once (`WPCPM_Institutions_Table::locked_accounts()`) and the notice goes with
+	 * the list, not above one institution's members; the list is the one the screen's load hook
+	 * built, or one built and read now (`table()`).
+	 */
+	private function render_tab_accounts() {
+		$record = self::members_record();
+
+		if ( '' !== $record ) {
+			$this->render_members( $record );
+
+			return;
+		}
+
+		$this->render_locked_accounts( $this->table()->locked_accounts() );
+		$this->render_invitations();
+		$this->render_accounts_list();
+	}
+
+	/**
+	 * One institution's Manage members view, the Accounts tab with the institution in its address,
+	 * drawn in place of the accounts locked today, the invitations card and the list: the
+	 * institution's name, the way back to the list as it stood, its members, its former members and
+	 * the form that adds an account (`WPCPM_Institution_People::render_manager()`), then the form a
+	 * signed agreement that reached the program by email is uploaded with
+	 * (`WPCPM_Institution_Panel::render_manager_upload()`).
+	 *
+	 * Reached from Manage members on a row of the list, and where every press made on it comes back
+	 * to (`WPCPM_Institution_People::manager_url()`); the upload comes back by its referer, which is
+	 * this address. The record is the address's, so it is looked up in the pipeline index, with its
+	 * case, before anything is drawn for it, and a value the index does not hold, well formed or
+	 * not, names no record and is never printed: the view says so and names the remedy, the
+	 * institutions sync, on its tab. A press can still land on such a view, when a sync dropped the
+	 * record after the view was drawn, so its outcome is printed there on its own
+	 * (`WPCPM_Institution_People::render_outcome()`) rather than left for a later block. The two
+	 * blocks decide for themselves who sees them, by the capability and then the policy, so a viewer
+	 * who may not manage the program is drawn the name and the way back and nothing else.
+	 *
+	 * The members' addresses are printed here, as the Institution Dashboard's People card prints
+	 * them: a manager adds and removes accounts by address. The list and the Pipeline print none.
+	 *
+	 * @param string $record The record ID the address names, as given.
+	 */
+	private function render_members( $record ) {
+		echo '<div class="wpcpm-card">';
+
+		// `has()` asks whether the value is a record ID before it looks, so a value that is none costs
+		// no lookup and is answered as one the index lacks.
+		if ( ! WPCPM_Institutions_Index::has( $record ) ) {
+			WPCPM_Institution_People::render_outcome( $record );
+
+			printf(
+				'<p>%1$s %2$s</p>',
+				esc_html__( 'No institution record has that ID.', 'wpcredits-program-manager' ),
+				sprintf(
+					/* translators: 1: opening link tag to the Sync and storage tab, 2: closing link tag. */
+					esc_html__( 'If it should be here, run the institutions sync on the %1$sSync and storage tab%2$s.', 'wpcredits-program-manager' ),
+					'<a href="' . esc_url( $this->tab_url( self::TAB_SYNC ) ) . '">',
+					'</a>'
+				)
+			);
+			$this->render_back_to_accounts();
+			echo '</div>';
+
+			return;
+		}
+
+		printf( '<h2>%s</h2>', esc_html( self::institution_name( $record ) ) );
+		$this->render_back_to_accounts();
+
+		WPCPM_Institution_People::render_manager( $record );
+		WPCPM_Institution_Panel::render_manager_upload( $record );
+
+		echo '</div>';
+	}
+
+	/**
+	 * The way back from the Manage members view to the list as it stood when Manage members was
+	 * followed: the link carried the list's view, search, sort and page (`list_state()`), so they
+	 * are this request's, which `list_url()` reads. Until a press on the view: a Remove, a Re-add
+	 * or an Add account lands on the view's own address (`WPCPM_Institution_People::manager_url()`),
+	 * which carries no list, and from then on the way back is the Accounts tab's first page. The
+	 * upload comes back by its referer, list and all.
+	 */
+	private function render_back_to_accounts() {
+		printf(
+			'<p><a href="%1$s">%2$s</a></p>',
+			esc_url( $this->list_url() ),
+			esc_html__( 'Back to the accounts', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * The invitations card, on the Accounts tab: every institution account never invited.
+	 *
+	 * Its button posts the tab, so the press comes back to it. Its Stop and Dismiss are the mail
+	 * layer's own forms, which name no tab: they come back to the address they were pressed on, this
+	 * tab, and Stop's outcome waits on the flash channel this screen reads, which the card names in
+	 * its form, so "Sending stopped." prints here. Its button counts accounts, not people, in words
+	 * of its own.
+	 */
+	private function render_invitations() {
+		WPCPM_Mail::render_invite_card(
+			array(
+				'action'  => self::ACTION_BULK,
+				'pending' => self::never_invited(),
+				'noun'    => __( 'institution accounts', 'wpcredits-program-manager' ),
+				/* translators: %s: how many accounts. */
+				'button'  => _n_noop( 'Invite %s institution account that has never been invited', 'Invite %s institution accounts that have never been invited', 'wpcredits-program-manager' ),
+				'hidden'  => array( self::TAB_FIELD => self::TAB_ACCOUNTS ),
+				'flash'   => $this->flash_key(),
+			)
+		);
+	}
+
+	/**
+	 * The Semester reports tab: every report, the cohorts due for drafting and the report log.
+	 */
+	private function render_tab_reports() {
+		$this->render_semester_reports();
+	}
+
+	/**
+	 * The Agreements tab: the Confirmed institutions with no agreement recorded and the form that
+	 * records them on file, then the agreements the site and Airtable disagree about, then the
+	 * template and the versions signed against it.
+	 */
+	private function render_tab_agreements() {
+		$index = WPCPM_Institutions_Index::read();
+
+		$this->render_agreements_on_file( $index );
+		$this->render_discrepancies( $index );
+		$this->render_template( $index );
+	}
+
+	/**
+	 * The Sync and storage tab: the last sync's error, the Airtable sync, the reconciliation the
+	 * students sync leaves, and the storage probe.
+	 *
+	 * The error is said on the tab that runs the sync, above the card that runs it, as the other
+	 * audiences' Sync tabs say theirs: it is that card's to explain, and its button is the way out
+	 * of it. The membership counts are asked here for the contacts who are not members, the one of
+	 * them the reconciliation card prints.
+	 */
+	private function render_tab_sync() {
+		$progress = WPCPM_Institutions_Sync::progress();
+		$index    = WPCPM_Institutions_Index::read();
+		$gaps     = self::membership_gaps( isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array() );
 
 		if ( ! empty( $progress['error'] ) ) {
 			printf(
@@ -2004,25 +2515,9 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			);
 		}
 
-		$this->render_locked_accounts();
-
-		// Read once for the whole screen: the two membership counts live on two different
-		// cards, and `members_of()` is a query per institution, so computing them twice
-		// would double every one of them for a number that cannot have changed in between.
-		$gaps = self::membership_gaps( isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array() );
-
-		$this->render_sync_panel( $progress, $last );
-		$this->render_queue();
-		$this->render_pipeline( $index, $filter, $gaps );
-		$this->render_provisioning( $index );
-		$this->render_reconciliation( $counts, $index, $gaps );
-		$this->render_consent( $index );
-		$this->render_discrepancies( $index );
-		$this->render_semester_reports();
-		$this->render_template( $index );
+		$this->render_sync_panel( $progress, (int) WPCPM_Institutions_Sync::last_read() );
+		$this->render_reconciliation( WPCPM_Roster_Index::counts(), $index, $gaps );
 		$this->render_storage();
-
-		echo '</div>';
 	}
 
 	/**
@@ -2031,11 +2526,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * The fence meters refused claims per acting account and locks the account when the
 	 * day's ceiling fills (design spec 5.3). The lock is recorded once in that institution's
 	 * log; this is where a manager sees every locked account at a glance, read from the same
-	 * ceiling buckets that enforce it, so the notice and the lock cannot disagree.
+	 * ceiling buckets that enforce it (`WPCPM_Institution_Roster::locked_today()`), so the notice
+	 * and the lock cannot disagree.
+	 *
+	 * @param WP_User[] $locked The accounts locked today, as the accounts list read them for its
+	 *                          Status cells (`WPCPM_Institutions_Table::locked_accounts()`).
 	 */
-	private function render_locked_accounts() {
-		$locked = WPCPM_Institution_Roster::locked_today();
-
+	private function render_locked_accounts( array $locked ) {
 		if ( empty( $locked ) ) {
 			return;
 		}
@@ -2121,6 +2618,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 			wp_nonce_field( self::ACTION_CANCEL );
 			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_CANCEL ) . '" />';
+			$this->tab_field( 'sync' );
 			submit_button( __( 'Cancel sync', 'wpcredits-program-manager' ), 'secondary', 'submit', false );
 			echo '</form>';
 		} else {
@@ -2143,6 +2641,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 			wp_nonce_field( self::ACTION_SYNC );
 			echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_SYNC ) . '" />';
+			$this->tab_field( 'sync' );
 			submit_button( __( 'Sync institutions now', 'wpcredits-program-manager' ), 'primary', 'submit', false );
 			echo '</form>';
 		}
@@ -2151,17 +2650,26 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The one thing waiting to be read: applications and signed agreements, oldest first.
+	 * Everything waiting for a decision: applications, signed agreements and requests from
+	 * institutions, oldest first.
 	 *
-	 * Drawn directly under the sync panel because it is the work, and everything below it is
-	 * the state of the program. An open application is drawn above the list rather than
-	 * instead of it, so a manager comparing two rows can see both.
+	 * The Waiting for review tab's card, and that tab is the screen's first because this is the
+	 * work: everything on the other tabs is the state of the program. An application opened from
+	 * the list, by `ARG_APPLICATION` in the address, is a view of this tab, drawn in the list's
+	 * place with the way back to the list on it.
+	 *
+	 * The list is read here and decided on the Administrator Dashboard, a decision's one home:
+	 * every row links to the card there that decides it. While the dashboard's page is missing
+	 * there is nowhere to link, so the sentence its class keeps for that prints once above the
+	 * rows and no row prints a link.
 	 */
 	private function render_queue() {
 		$open = self::application( WPCPM_Request::id( self::ARG_APPLICATION ) );
 
 		if ( null !== $open ) {
 			$this->render_application( $open );
+
+			return;
 		}
 
 		$queue   = self::queue_rows( self::QUEUE_MAX );
@@ -2176,19 +2684,29 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html( number_format_i18n( $waiting ) )
 		);
 
+		// Each threshold in a sentence of its own, so each count takes its own plural: the setting
+		// runs from one day.
 		printf(
-			'<p class="description">%s</p>',
+			'<p class="description">%1$s %2$s %3$s</p>',
+			esc_html__( 'Applications from institutions, signed agreements and requests from institutions, in one list, oldest first: they are one queue and a person works it from the top. Each is decided on the Administrator Dashboard, and each row links to its place there.', 'wpcredits-program-manager' ),
 			esc_html(
 				sprintf(
-					/* translators: %s: number of days. */
-					__( 'Applications from institutions and signed agreements waiting to be read, in one list, oldest first: they are one queue and a person works it from the top. Anything that has waited longer than %s days is marked overdue.', 'wpcredits-program-manager' ),
+					/* translators: %s: number of days an application or a signed agreement waits before it is overdue. */
+					_n( 'An application or a signed agreement is marked overdue once it has waited longer than %s day.', 'An application or a signed agreement is marked overdue once it has waited longer than %s days.', $days, 'wpcredits-program-manager' ),
 					number_format_i18n( $days )
+				)
+			),
+			esc_html(
+				sprintf(
+					/* translators: %s: number of days a request from an institution waits before it is overdue. */
+					_n( 'A request from an institution is marked overdue once it has waited longer than %s day.', 'A request from an institution is marked overdue once it has waited longer than %s days.', WPCPM_Institution_Request::OVERDUE_DAYS, 'wpcredits-program-manager' ),
+					number_format_i18n( WPCPM_Institution_Request::OVERDUE_DAYS )
 				)
 			)
 		);
 
 		if ( empty( $rows ) ) {
-			echo '<p>' . esc_html__( 'Nothing is waiting. New applications and uploaded agreements appear here.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'Nothing is waiting. New applications, uploaded agreements and requests from institutions appear here.', 'wpcredits-program-manager' ) . '</p>';
 			echo '</div>';
 
 			return;
@@ -2202,7 +2720,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				esc_html(
 					sprintf(
 						/* translators: 1: how many rows are drawn, 2: how many are waiting in total. */
-						__( 'Showing the oldest %1$s of %2$s. The list stops there so that a burst of applications cannot make this screen too slow to open; decide these and the next of them take their place.', 'wpcredits-program-manager' ),
+						__( 'Showing the oldest %1$s of %2$s. The list stops there so that a burst of applications cannot make this screen too slow to open; as these are decided on the Administrator Dashboard, the next of them take their place.', 'wpcredits-program-manager' ),
 						number_format_i18n( count( $rows ) ),
 						number_format_i18n( $waiting )
 					)
@@ -2210,10 +2728,18 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			);
 		}
 
+		$dashboard = WPCPM_Administrators_Dashboard::page_url();
+
+		if ( '' === $dashboard ) {
+			// The dashboard class's sentence, which every screen that links there prints in the
+			// address's place.
+			echo '<p class="wpcpm-warning">' . esc_html( WPCPM_Administrators_Dashboard::page_missing() ) . '</p>';
+		}
+
 		echo '<ol class="wpcpm-queue">';
 
 		foreach ( $rows as $row ) {
-			$this->render_queue_row( $row );
+			$this->render_queue_row( $row, $dashboard );
 		}
 
 		echo '</ol>';
@@ -2221,21 +2747,28 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * One row of the queue.
+	 * One row of the queue, to be read: the decisions are the Administrator Dashboard's, and the
+	 * row ends with the way to the card there that makes them.
 	 *
 	 * The age in words and the date in figures, because "4 days ago" is what a manager
 	 * triages by and the date is what they quote in an email. The country's contact is
 	 * printed for information and never mailed: routing says who knows this institution,
 	 * not who else should hear about the row.
 	 *
-	 * A held row is marked as one. Every decision on this card is reachable from the list, so
-	 * a state that only the open application admitted to would let somebody reject a
-	 * submission the site had quietly decided was suspect without ever being told that it
-	 * had. The mark says which rows those are; the application says why.
+	 * A held row is marked as one. The list is what a manager triages from, and the
+	 * dashboard's card does not print the checks, so a state that only the open application
+	 * admitted to would let somebody reject a submission the site had quietly decided was
+	 * suspect without ever being told that it had. The mark says which rows those are; the
+	 * application says why.
 	 *
-	 * @param array $row One row from `queue_rows()`.
+	 * A request says what it asks for by its kind, then its note when one is stored
+	 * (`render_request_facts()`).
+	 *
+	 * @param array  $row       One row from `queue_rows()`.
+	 * @param string $dashboard The Administrator Dashboard's address, or '' while its page is
+	 *                          missing, when the row links nowhere.
 	 */
-	private function render_queue_row( array $row ) {
+	private function render_queue_row( array $row, $dashboard ) {
 		$overdue = ! empty( $row['overdue'] );
 
 		printf( '<li class="wpcpm-queue-item%s">', $overdue ? ' is-overdue' : '' );
@@ -2290,7 +2823,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				esc_html__( 'held', 'wpcredits-program-manager' ),
 				esc_html(
 					empty( $signals )
-						? __( 'Held with no check recorded against it. Open it and decide it on what is on it.', 'wpcredits-program-manager' )
+						? __( 'Held with no check recorded against it. Open it and read what is on it; it is decided on the Administrator Dashboard.', 'wpcredits-program-manager' )
 						: sprintf(
 							/* translators: %s: how many checks held the submission. */
 							_n( '%s check held it; open the application to read it.', '%s checks held it; open the application to read them.', count( $signals ), 'wpcredits-program-manager' ),
@@ -2316,18 +2849,100 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 				esc_html__( 'Open this application', 'wpcredits-program-manager' ),
 				esc_html( self::application_state_label( (string) $row['state'] ) )
 			);
+
+			$this->render_open_on_dashboard( $dashboard, 'applications' );
+		} elseif ( 'request' === $row['kind'] ) {
+			$this->render_request_facts( $row );
+			$this->render_open_on_dashboard( $dashboard, 'requests' );
 		} else {
-			// The review block itself: the checklist, the flags, the download link and the
-			// two decisions. Drawn by the panel that owns every agreement control, so the
-			// queue and the institution's own row cannot drift apart.
-			WPCPM_Institution_Panel::render_review( (int) $row['id'] );
+			// The review block, to be read: the checklist, the flags and the download link,
+			// drawn by the panel that owns every agreement control, so the queue and the
+			// Administrator Dashboard cannot drift apart. In the place of the two decisions the
+			// panel prints the way to this block on the dashboard, which makes them, or nothing
+			// while that page is missing, which the list has said once above the rows.
+			WPCPM_Institution_Panel::render_review( (int) $row['id'], false );
 		}
 
 		echo '</li>';
 	}
 
 	/**
-	 * One application, open: every answer, the consent, the verification and the decisions.
+	 * What a request row says under its age and its country, by the request's kind.
+	 *
+	 * A mentor request names the student the mentor is wanted for and who asked. A request of any
+	 * other kind the store holds, the one the import raises for a student it created among them, is
+	 * labeled only "Request" in its heading, so it says its kind first, in the request class's own
+	 * words, then the student in the words the Administrator Dashboard's card uses when it is about
+	 * one, and only who raised it when it is about none, as a change to the report is.
+	 *
+	 * Then the note, when one is stored. That is the closing note, which is empty while a request
+	 * is open; it is printed, as the dashboard's card prints it, so the row stays right if raising
+	 * a request ever stores one.
+	 *
+	 * @param array $row One request row from `queue_rows()`.
+	 */
+	private function render_request_facts( array $row ) {
+		$actor = '' !== (string) $row['actor_name'] ? (string) $row['actor_name'] : __( 'somebody whose account is gone', 'wpcredits-program-manager' );
+
+		if ( WPCPM_Institution_Request::KIND_MENTOR === (string) $row['request_kind'] ) {
+			$said = sprintf(
+				/* translators: 1: the student's name or Airtable record ID, 2: who raised the request. */
+				__( 'A mentor is wanted for %1$s. Raised by %2$s.', 'wpcredits-program-manager' ),
+				(string) $row['student_name'],
+				$actor
+			);
+		} else {
+			printf( '<p>%s</p>', esc_html( (string) $row['request_label'] ) );
+
+			$said = '' !== (string) $row['student']
+				? sprintf(
+					/* translators: 1: the student's name or Airtable record ID, 2: who raised the request. */
+					__( 'The student is %1$s. Raised by %2$s.', 'wpcredits-program-manager' ),
+					(string) $row['student_name'],
+					$actor
+				)
+				: sprintf(
+					/* translators: %s: who raised the request. */
+					__( 'Raised by %s.', 'wpcredits-program-manager' ),
+					$actor
+				);
+		}
+
+		printf( '<p>%s</p>', esc_html( $said ) );
+
+		if ( '' !== (string) $row['note'] ) {
+			printf( '<p>%s</p>', esc_html( (string) $row['note'] ) );
+		}
+	}
+
+	/**
+	 * "Open on the Administrator Dashboard", to the card there that decides a row.
+	 *
+	 * The address is built the way `WPCPM_Return::url()` builds the one a decision posted on
+	 * the dashboard comes back to, the page, then `#wpcpm-` and the card's id, so the way in
+	 * and the way back land on the same card. An application or a request from an institution
+	 * carries no anchor of its own there, so its card is as near as a link can go. Nothing is printed
+	 * while the page is missing, which the caller says in its own place, and nothing for a card
+	 * id the dashboard does not have.
+	 *
+	 * @param string $dashboard The Administrator Dashboard's address, or '' while its page is missing.
+	 * @param string $card      The card's id, one of `WPCPM_Return::ANCHORS`.
+	 */
+	private function render_open_on_dashboard( $dashboard, $card ) {
+		if ( '' === (string) $dashboard || ! in_array( (string) $card, WPCPM_Return::ANCHORS, true ) ) {
+			return;
+		}
+
+		printf(
+			'<p><a href="%1$s">%2$s</a></p>',
+			esc_url( $dashboard . '#wpcpm-' . $card ),
+			esc_html__( 'Open on the Administrator Dashboard', 'wpcredits-program-manager' )
+		);
+	}
+
+	/**
+	 * One application, open: every answer, the consent, the verification, what Airtable already
+	 * has, and where it is decided.
 	 *
 	 * @param WP_Post $post The application.
 	 */
@@ -2353,7 +2968,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 					wp_date( 'Y-m-d H:i', (int) get_post_time( 'U', true, $post ) )
 				)
 			),
-			esc_url( $this->admin_url() . '#wpcpm-queue' ),
+			esc_url( $this->tab_url( 'queue' ) ),
 			esc_html__( 'Back to the queue', 'wpcredits-program-manager' )
 		);
 
@@ -2624,7 +3239,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		if ( '' === trim( (string) $verified ) ) {
 			return WPCPM_Institution_Application::STATE_HELD === (string) $state
-				? __( 'The address has not been confirmed, and nothing on this row says the applicant was ever asked to: read the checks above before you read the silence. Approving mails a password-set link and is refused until the address is confirmed, and only the applicant can confirm it. Ask them something from here if you need to, or decide the row on what is on it.', 'wpcredits-program-manager' )
+				? __( 'The address has not been confirmed, and nothing on this row says the applicant was ever asked to: read the checks above before you read the silence. Approving mails a password-set link and is refused until the address is confirmed, and only the applicant can confirm it. Ask them something on the Administrator Dashboard if you need to, or decide the row on what is on it.', 'wpcredits-program-manager' )
 				: __( 'The address has not been confirmed yet. The acknowledgement carried the link that confirms it, and approving mails a password-set link, so approval is refused until the applicant follows that link.', 'wpcredits-program-manager' );
 		}
 
@@ -2779,112 +3394,266 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The decisions available on an open application.
+	 * On the Administrator Dashboard, the decisions on an application; on this screen, what stays
+	 * here and where the rest is decided.
 	 *
-	 * Which forms appear is the state's answer and the handlers ask it again: a form nobody
-	 * may post is a courtesy that saves a reader a refusal, never the check itself.
+	 * The decisions on an open application are the Administrator Dashboard's, a decision's one
+	 * home, for every application its card lists: it passes its return and gets every form the
+	 * state allows. Which forms appear is the state's answer and the handlers ask it again: a form
+	 * nobody may post is a courtesy that saves a reader a refusal, never the check itself.
+	 *
+	 * This screen, where any application can be opened by its address (`render_application_here()`),
+	 * keeps what the card cannot reach: the four decisions on an open application past the card's
+	 * window, and the record-keeping on a closed one, Put back in the queue and Delete for good on a
+	 * rejected or spam one, since the dashboard folds in only the oldest of those, and Delete for
+	 * good on an approved one, which it never lists.
 	 *
 	 * Public since 1.92.0 for the Administrator Dashboard, which draws the same queue.
 	 *
 	 * @param WP_Post $post   The application.
 	 * @param string  $state  Its state.
-	 * @param string  $return WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard, else ''.
+	 * @param string  $return WPCPM_Return::DASHBOARD on the Administrator Dashboard, the one return
+	 *                        that gets the decisions on every open application; anything else, '' or
+	 *                        WPCPM_Return::ADMIN, is this screen, as `WPCPM_Return::field()` reads it.
 	 */
 	public function render_application_actions( WP_Post $post, $state, $return = '' ) {
+		$name = trim( (string) $post->post_title );
+		$name = '' !== $name ? $name : self::application_reference( $post );
+
+		if ( WPCPM_Return::DASHBOARD !== (string) $return ) {
+			$this->render_application_here( $post, (string) $state, $name );
+
+			return;
+		}
+
 		echo '<h3>' . esc_html__( 'What happens next', 'wpcredits-program-manager' ) . '</h3>';
 
-		$name  = trim( (string) $post->post_title );
-		$name  = '' !== $name ? $name : self::application_reference( $post );
-		$email = self::application_email( $post );
-
 		if ( in_array( $state, self::open_states(), true ) ) {
-			// The one address this screen prints, and design spec 7.3 asks for it by name:
-			// the next thing that happens is a password-set link being mailed, and "to the
-			// address on the application" is not something a manager can check.
-			$this->render_decision_form(
-				$post,
-				array(
-					'return'  => (string) $return,
-					'action'  => self::ACTION_APPROVE,
-					'label'   => __( 'Approve', 'wpcredits-program-manager' ),
-					'class'   => 'button button-primary',
-					'confirm' => sprintf(
-						/* translators: 1: institution name, 2: contact email address. */
-						__( 'Create an Airtable record and a site account for %1$s, and email a password-set link to %2$s? The Airtable record cannot be removed from here.', 'wpcredits-program-manager' ),
-						$name,
-						'' !== $email ? $email : __( 'the address on the application', 'wpcredits-program-manager' )
-					),
-				)
-			);
-
-			$this->render_decision_form(
-				$post,
-				array(
-					'return' => (string) $return,
-					'action' => self::ACTION_INFO,
-					'label'  => __( 'Send this question', 'wpcredits-program-manager' ),
-					'field'  => 'wpcpm_question',
-					'prompt' => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
-				)
-			);
-
-			$this->render_decision_form(
-				$post,
-				array(
-					'return'  => (string) $return,
-					'action'  => self::ACTION_REJECT,
-					'label'   => __( 'Reject', 'wpcredits-program-manager' ),
-					'field'   => 'wpcpm_reason',
-					'prompt'  => __( 'Why, for the next manager who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
-					'confirm' => sprintf(
-						/* translators: %s: institution name. */
-						__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),
-						$name
-					),
-				)
-			);
-
-			$this->render_decision_form(
-				$post,
-				array(
-					'return'  => (string) $return,
-					'action'  => self::ACTION_SPAM,
-					'label'   => __( 'Reject as spam', 'wpcredits-program-manager' ),
-					'confirm' => sprintf(
-						/* translators: %s: institution name. */
-						__( 'Mark the application from %s as spam? Nothing at all is sent to the address on it.', 'wpcredits-program-manager' ),
-						$name
-					),
-				)
-			);
+			$this->render_open_decisions( $post, $name, (string) $return );
 		}
 
 		if ( in_array( $state, self::reopen_states(), true ) ) {
-			$this->render_decision_form(
-				$post,
-				array(
-					'return' => (string) $return,
-					'action' => self::ACTION_REOPEN,
-					'label'  => __( 'Put back in the queue', 'wpcredits-program-manager' ),
-				)
-			);
+			$this->render_reopen_form( $post, (string) $return );
 		}
 
 		if ( in_array( $state, self::purgeable_states(), true ) ) {
-			$this->render_decision_form(
-				$post,
-				array(
-					'return'  => (string) $return,
-					'action'  => self::ACTION_PURGE,
-					'label'   => __( 'Delete for good', 'wpcredits-program-manager' ),
-					'confirm' => sprintf(
-						/* translators: %s: institution name. */
-						__( 'Delete the application from %s for good? Every answer on it goes; only its reference and the date are kept. This cannot be undone.', 'wpcredits-program-manager' ),
-						$name
-					),
+			$this->render_purge_form( $post, $name, (string) $return );
+		}
+	}
+
+	/**
+	 * An opened application on this screen: under a heading, what is done here and where the rest
+	 * is decided, by its state.
+	 *
+	 * A closed application's record-keeping stays here, with no link and nothing about the
+	 * Administrator Dashboard's page, since none of it is done there. A rejected or spam one keeps
+	 * Put back in the queue and Delete for good: the dashboard folds in only the oldest
+	 * `QUEUE_MAX` of them, oldest first, so a mistaken rejection or spam mark on a newer one would
+	 * otherwise be beyond reach until older rows aged out. An approved one keeps Delete for good
+	 * alone, as the dashboard never lists it.
+	 *
+	 * An open application the dashboard's applications card lists is decided there, linked, and
+	 * the sentence says so. The card lists the oldest `WPCPM_Administrators_Cards::LIMIT` open
+	 * applications, read from that class because it is the number the card cuts at, so one opened by
+	 * its address while that many older ones wait is on no card at all: it is decided here, with the
+	 * four decisions the card draws, under the sentence that says why, and each press comes back to
+	 * the queue, which prints its outcome. None of that needs the dashboard's page, so it keeps them
+	 * while the page is missing too, as a closed one keeps its record-keeping. Its place is one read
+	 * of the open IDs, oldest first, which is cheap on a view of one application. An application in
+	 * a state no decision writes is on no list, so it is told only where applications are decided,
+	 * with the way there. While the dashboard's page is missing there is no card to speak of for
+	 * the rest, and the sentence its class keeps for that stands in the link's place.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $state Its state.
+	 * @param string  $name  Its name as the confirms print it.
+	 */
+	private function render_application_here( WP_Post $post, $state, $name ) {
+		echo '<h3>' . esc_html__( 'Where it is decided', 'wpcredits-program-manager' ) . '</h3>';
+
+		if ( WPCPM_Institution_Application::STATE_APPROVED === $state ) {
+			echo '<p>' . esc_html__( 'It is approved, so nothing is left to decide on it, and the Administrator Dashboard, where applications are decided, does not list it. Deleting it for good is record-keeping rather than a decision, so it is done here.', 'wpcredits-program-manager' ) . '</p>';
+
+			$this->render_purge_form( $post, $name, '' );
+
+			return;
+		}
+
+		if ( in_array( $state, array( WPCPM_Institution_Application::STATE_SPAM, WPCPM_Institution_Application::STATE_REJECTED ), true ) ) {
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: how many rejected or spam applications the Administrator Dashboard lists. */
+						_n(
+							'Putting it back in the queue and deleting it for good are done here: the Administrator Dashboard folds only the oldest %s rejected or spam application into its Institution applications card.',
+							'Putting it back in the queue and deleting it for good are done here: the Administrator Dashboard folds only the oldest %s rejected or spam applications into its Institution applications card.',
+							self::QUEUE_MAX,
+							'wpcredits-program-manager'
+						),
+						number_format_i18n( self::QUEUE_MAX )
+					)
 				)
 			);
+
+			$this->render_reopen_form( $post, '' );
+			$this->render_purge_form( $post, $name, '' );
+
+			return;
 		}
+
+		$place  = array_search( (int) $post->ID, array_map( 'intval', (array) WPCPM_Institution_Application::application_ids( self::open_states() ) ), true );
+		$window = (int) WPCPM_Administrators_Cards::LIMIT;
+
+		if ( false !== $place && $place >= $window ) {
+			printf(
+				'<p>%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %s: how many open applications the Administrator Dashboard's card lists. */
+						__( 'The Administrator Dashboard\'s card lists the %s oldest open applications, and this one is past them, so it is decided here.', 'wpcredits-program-manager' ),
+						number_format_i18n( $window )
+					)
+				)
+			);
+
+			$this->render_open_decisions( $post, $name, '' );
+
+			return;
+		}
+
+		$said      = array( __( 'Applications are decided on the Administrator Dashboard.', 'wpcredits-program-manager' ) );
+		$dashboard = WPCPM_Administrators_Dashboard::page_url();
+
+		if ( '' === $dashboard ) {
+			printf( '<p>%s</p>', esc_html( $said[0] ) );
+			echo '<p class="wpcpm-warning">' . esc_html( WPCPM_Administrators_Dashboard::page_missing() ) . '</p>';
+
+			return;
+		}
+
+		if ( false !== $place ) {
+			$said[] = __( 'This one is listed in its Institution applications card, with every decision its state allows.', 'wpcredits-program-manager' );
+		}
+
+		printf( '<p>%s</p>', esc_html( implode( ' ', $said ) ) );
+
+		$this->render_open_on_dashboard( $dashboard, 'applications' );
+	}
+
+	/**
+	 * The four decisions on an open application, Approve, Send this question, Reject and Reject as
+	 * spam, drawn alike on both pages: on the Administrator Dashboard for every open application its
+	 * applications card lists, and here for one past that card's window (`render_application_here()`).
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $name  Its name as the confirms print it.
+	 * @param string  $where WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard, else ''.
+	 */
+	private function render_open_decisions( WP_Post $post, $name, $where ) {
+		$email = self::application_email( $post );
+
+		// The one address the decisions print, and design spec 7.3 asks for it by name:
+		// the next thing that happens is a password-set link being mailed, and "to the
+		// address on the application" is not something a manager can check.
+		$this->render_decision_form(
+			$post,
+			array(
+				'return'  => (string) $where,
+				'action'  => self::ACTION_APPROVE,
+				'label'   => __( 'Approve', 'wpcredits-program-manager' ),
+				'class'   => 'button button-primary',
+				'confirm' => sprintf(
+					/* translators: 1: institution name, 2: contact email address. */
+					__( 'Create an Airtable record and a site account for %1$s, and email a password-set link to %2$s? The Airtable record cannot be removed from here.', 'wpcredits-program-manager' ),
+					$name,
+					'' !== $email ? $email : __( 'the address on the application', 'wpcredits-program-manager' )
+				),
+			)
+		);
+
+		$this->render_decision_form(
+			$post,
+			array(
+				'return' => (string) $where,
+				'action' => self::ACTION_INFO,
+				'label'  => __( 'Send this question', 'wpcredits-program-manager' ),
+				'field'  => 'wpcpm_question',
+				'prompt' => __( 'Ask the applicant something. It is sent as it is written, with your address to reply to.', 'wpcredits-program-manager' ),
+			)
+		);
+
+		$this->render_decision_form(
+			$post,
+			array(
+				'return'  => (string) $where,
+				'action'  => self::ACTION_REJECT,
+				'label'   => __( 'Reject', 'wpcredits-program-manager' ),
+				'field'   => 'wpcpm_reason',
+				'prompt'  => __( 'Why, for the next manager who reads this. It is never sent to the applicant.', 'wpcredits-program-manager' ),
+				'confirm' => sprintf(
+					/* translators: %s: institution name. */
+					__( 'Reject the application from %s? They get a short acknowledgement with no reason in it, and your note stays on this site.', 'wpcredits-program-manager' ),
+					$name
+				),
+			)
+		);
+
+		$this->render_decision_form(
+			$post,
+			array(
+				'return'  => (string) $where,
+				'action'  => self::ACTION_SPAM,
+				'label'   => __( 'Reject as spam', 'wpcredits-program-manager' ),
+				'confirm' => sprintf(
+					/* translators: %s: institution name. */
+					__( 'Mark the application from %s as spam? Nothing at all is sent to the address on it.', 'wpcredits-program-manager' ),
+					$name
+				),
+			)
+		);
+	}
+
+	/**
+	 * Put back in the queue, drawn alike on both pages: on the Administrator Dashboard for every
+	 * state that may be reopened, and here for a rejected or spam application.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $where WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard, else ''.
+	 */
+	private function render_reopen_form( WP_Post $post, $where ) {
+		$this->render_decision_form(
+			$post,
+			array(
+				'return' => (string) $where,
+				'action' => self::ACTION_REOPEN,
+				'label'  => __( 'Put back in the queue', 'wpcredits-program-manager' ),
+			)
+		);
+	}
+
+	/**
+	 * Delete for good, drawn alike on both pages: on the Administrator Dashboard for a rejected or
+	 * spam application, and here for those and for an approved one, which the dashboard never lists.
+	 *
+	 * @param WP_Post $post  The application.
+	 * @param string  $name  Its name as the confirm prints it.
+	 * @param string  $where WPCPM_Return::DASHBOARD when drawn on the Administrator Dashboard, else ''.
+	 */
+	private function render_purge_form( WP_Post $post, $name, $where ) {
+		$this->render_decision_form(
+			$post,
+			array(
+				'return'  => (string) $where,
+				'action'  => self::ACTION_PURGE,
+				'label'   => __( 'Delete for good', 'wpcredits-program-manager' ),
+				'confirm' => sprintf(
+					/* translators: %s: institution name. */
+					__( 'Delete the application from %s for good? Every answer on it goes; only its reference and the date are kept. This cannot be undone.', 'wpcredits-program-manager' ),
+					$name
+				),
+			)
+		);
 	}
 
 	/**
@@ -2997,13 +3766,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 						number_format_i18n( count( $gap ) )
 					)
 				),
-				esc_url( $this->admin_url() ),
+				esc_url( $this->tab_url( 'pipeline' ) ),
 				esc_html__( 'Show every stage', 'wpcredits-program-manager' )
 			);
 		} else {
 			printf(
 				'<p class="wpcpm-inst-gap"><a href="%1$s">%2$s <span class="wpcpm-count">%3$s</span></a></p>',
-				esc_url( add_query_arg( 'wpcpm_filter', self::FILTER_GAP, $this->admin_url() ) ),
+				esc_url( add_query_arg( 'wpcpm_filter', self::FILTER_GAP, $this->tab_url( 'pipeline' ) ) ),
 				esc_html__( 'Confirmed with no agreement recorded', 'wpcredits-program-manager' ),
 				esc_html( number_format_i18n( count( $gap ) ) )
 			);
@@ -3148,14 +3917,16 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * Institutions nobody can act for, and the backstop count that is not shown yet.
 	 *
 	 * The design calls this "the one that pages a manager", so it prints inside the pipeline
-	 * card where a manager looks first rather than among the reconciliation rows at the foot
-	 * of the screen. An institution with no live member has nobody at the school who can see
+	 * card where a manager looks first rather than among the reconciliation rows on the Sync
+	 * and storage tab. An institution with no live member has nobody at the school who can see
 	 * their own roster, upload their signed agreement, or answer for it.
 	 *
 	 * The third count the design asks for, invitations older than seven days, is a line and
 	 * not a number: invitations expire on their own (WPCPM_Institution_Invite) and the pending
 	 * ones are listed on the institution's own dashboard, so a count here would be a second
 	 * place to watch the same thing.
+	 *
+	 * Under the count, where such an institution is given an account (`render_routes_in()`).
 	 *
 	 * @param array $gaps From `membership_gaps()`.
 	 * @param int   $read Unix time the pipeline index was read.
@@ -3168,8 +3939,40 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 			esc_html( self::membership_read_line( $read ) )
 		);
 
-		echo '<p class="description">' . esc_html__( 'Nobody at these schools can act for them on this site. Add an account from the institution\'s card on this screen, or let the sync provision the institution\'s Contact Email; once one member is in, they can invite colleagues from their own dashboard.', 'wpcredits-program-manager' ) . '</p>';
+		$this->render_routes_in(
+			__( 'Nobody at an institution counted here can act for it on this site.', 'wpcredits-program-manager' ),
+			__( 'Once one member is in, they can invite colleagues from their own dashboard.', 'wpcredits-program-manager' )
+		);
 		echo '<p class="description">' . esc_html__( 'Invitations older than seven days are not counted here: pending invitations are listed on the institution\'s own dashboard, where its members can resend or cancel them.', 'wpcredits-program-manager' ) . '</p>';
+	}
+
+	/**
+	 * A description that names where an institution is given an account, the Accounts tab linked
+	 * in it: printed under the two counts of who cannot act for an institution, the Pipeline's
+	 * institutions with no live member and the reconciliation's contacts who are not members.
+	 *
+	 * One description in one place, since both cards send a manager to the same two controls: No
+	 * account's Create account, for the Contact Email Airtable holds, and an institution's Manage
+	 * members view, for anybody else. Both counts span every stage and the Accounts tab lists
+	 * Confirmed institutions alone, so the words say which institutions those routes serve and how
+	 * one at an earlier stage gets its first account: the approval of its application, or its
+	 * reaching Confirmed.
+	 *
+	 * @param string $before What the card says before it, as text.
+	 * @param string $after  What it says after it, as text, or '' for nothing.
+	 */
+	private function render_routes_in( $before, $after ) {
+		printf(
+			'<p class="description">%1$s %2$s%3$s</p>',
+			esc_html( $before ),
+			sprintf(
+				/* translators: 1: opening link tag to the Accounts tab, 2: closing link tag. */
+				esc_html__( 'For a Confirmed institution, give it an account on %1$sthe Accounts tab%2$s: create one for its Contact Email under No account, or add a person by name and address under Manage members. An institution at an earlier stage gets its first account when its application is approved or it reaches Confirmed.', 'wpcredits-program-manager' ),
+				'<a href="' . esc_url( $this->tab_url( self::TAB_ACCOUNTS ) ) . '">',
+				'</a>'
+			),
+			'' === $after ? '' : ' ' . esc_html( $after )
+		);
 	}
 
 	/**
@@ -3229,156 +4032,95 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * Institution accounts: the bulk button, the gate in front of it, and a row apiece.
+	 * Agreements on file: the Confirmed institutions with no agreement recorded, and the form that
+	 * records them all as signed.
 	 *
-	 * Every Confirmed institution is listed with either the control that creates its account
-	 * or the sentence saying why it has none, because a worklist that hides the refusals is a
-	 * worklist a manager cannot finish. Which of the two a row gets is
-	 * `WPCPM_Institutions_Sync::provision_block()`'s answer and never a second copy of the
-	 * rule here, so this card, the button it draws and the recurring run cannot disagree.
-	 *
-	 * The gate is the design's: while any Confirmed institution has no agreement recorded the
-	 * bulk button refuses, naming them and saying how many, whatever else is ready. Recording
-	 * the agreement per institution is what stops a partner that signed years ago being
-	 * emailed that its first step is to sign.
-	 *
-	 * "Recorded" here is `is_settled()`, the same option the policy's gate reads, rather than
-	 * the pipeline card's summary: this is the predicate provisioning will actually be
-	 * refused by, and when the two sides disagree the discrepancies card is where that is
-	 * reported.
+	 * Listed by the rule the form's handler records by (`handle_on_file_all()`): every Confirmed
+	 * record whose agreement is not settled (`is_settled()`, the option the policy's gate reads), so
+	 * the list above the button is what pressing it records, and the count in the button is the
+	 * list's. One option read per Confirmed record and no membership query: the No account view's
+	 * reasons answer a narrower question, whether an account may be made, at up to two queries a
+	 * record, and are asked on the Accounts tab alone. The stages are the index's, so the card says
+	 * when the index was read, as every card that reads it does.
 	 *
 	 * @param array $index The pipeline index, from `WPCPM_Institutions_Index::read()`.
 	 */
-	private function render_provisioning( array $index ) {
+	private function render_agreements_on_file( array $index ) {
 		$rows    = isset( $index['rows'] ) && is_array( $index['rows'] ) ? $index['rows'] : array();
 		$read    = isset( $index['read'] ) ? (int) $index['read'] : 0;
-		$reasons = self::provision_reasons( $rows );
+		$missing = array();
 
-		$ready   = array_keys( $reasons, '', true );
-		$blocked = array_keys( $reasons, WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT, true );
-		$held    = array_keys( $reasons, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER, true );
+		foreach ( $rows as $record_id => $row ) {
+			if ( ! isset( $row['stage'] ) || 'Confirmed' !== trim( (string) $row['stage'] ) || WPCPM_Institution_Agreement::is_settled( (string) $record_id ) ) {
+				continue;
+			}
+
+			$missing[] = (string) $record_id;
+		}
 
 		echo '<div class="wpcpm-card">';
-		printf(
-			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
-			esc_html__( 'Institution accounts', 'wpcredits-program-manager' ),
-			esc_html( number_format_i18n( count( $ready ) ) )
-		);
+		echo '<h2>' . esc_html__( 'Agreements on file', 'wpcredits-program-manager' ) . '</h2>';
 
-		echo '<p class="description">' . esc_html__( 'The first account for an institution is made from the Contact Email Airtable holds for it, and only for a Confirmed institution whose agreement is recorded and that has never had a member. After that first account, membership is managed here: without that rule a contact who was removed would be given a new account on every sync run. An address that already belongs to an account is a conflict and not a match, and is left alone.', 'wpcredits-program-manager' ) . '</p>';
+		if ( empty( $missing ) ) {
+			$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
 
-		printf(
-			'<p class="wpcpm-inst-read">%1$s %2$s</p>',
-			esc_html(
-				sprintf(
-					/* translators: %s: number of institutions. */
-					_n( '%s Confirmed institution.', '%s Confirmed institutions.', count( $reasons ), 'wpcredits-program-manager' ),
-					number_format_i18n( count( $reasons ) )
-				)
-			),
-			esc_html( self::membership_read_line( $read ) )
-		);
-
-		if ( empty( $reasons ) ) {
-			echo '<p>' . esc_html__( 'No institution has reached Confirmed yet, so there is nothing to provision.', 'wpcredits-program-manager' ) . '</p>';
+			echo '<p>' . esc_html__( 'No Confirmed institution is waiting for its agreement to be recorded.', 'wpcredits-program-manager' ) . '</p>';
 			echo '</div>';
 
 			return;
 		}
 
-		$this->render_provision_gate( $blocked );
-		$this->render_provision_button( count( $ready ), empty( $blocked ) );
-		$this->render_provision_rows( $reasons );
+		echo '<p class="description">' . esc_html__( 'Every Confirmed institution signed a Collaboration Agreement before this site could record one. Record them all as signed with the one link they share, the folder where the signed copies are kept. Each institution gets its own recorded agreement, its own line in the audit log and its own Airtable cells, and its account can then be created.', 'wpcredits-program-manager' ) . '</p>';
 
-		if ( ! empty( $held ) ) {
-			printf(
-				'<p class="description">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: number of institutions. */
-						_n( '%s Confirmed institution already has an account and is not listed above.', '%s Confirmed institutions already have an account and are not listed above.', count( $held ), 'wpcredits-program-manager' ),
-						number_format_i18n( count( $held ) )
-					)
-				)
-			);
-		}
-
-		// Which of the two routes is live, said plainly: the same rule decides both, and a
-		// manager who presses nothing here should still know whether accounts appear within
-		// three hours.
-		printf(
-			'<p class="description">%s</p>',
-			esc_html(
-				WPCPM_Settings::get_value( 'institution_provision' )
-					? __( 'The sync creates these accounts too, by the same rule, on top of anything made here.', 'wpcredits-program-manager' )
-					: __( 'The sync does not create accounts: this card is the only way one is made.', 'wpcredits-program-manager' )
-			)
-		);
-
-		echo '</div>';
-	}
-
-	/**
-	 * The gate's refusal, naming the institutions that hold the bulk button shut.
-	 *
-	 * Named and not only counted: "42 institutions" is a number a manager can do nothing
-	 * with, and the first few names plus the link to the filtered pipeline is where the work
-	 * actually starts.
-	 *
-	 * @param array $blocked Record IDs of the Confirmed institutions with no agreement recorded.
-	 */
-	private function render_provision_gate( array $blocked ) {
-		if ( empty( $blocked ) ) {
-			return;
-		}
-
-		$names = array();
-
-		foreach ( array_slice( $blocked, 0, self::PROVISION_NAMES ) as $record_id ) {
-			$names[] = self::institution_name( $record_id );
-		}
-
-		$rest = count( $blocked ) - count( $names );
-
-		if ( $rest > 0 ) {
-			$names[] = sprintf(
-				/* translators: %s: how many more institutions there are. */
-				_n( 'and %s more', 'and %s more', $rest, 'wpcredits-program-manager' ),
-				number_format_i18n( $rest )
-			);
-		}
+		$this->read_line( $read, __( 'Pipeline index', 'wpcredits-program-manager' ) );
 
 		printf(
-			'<p class="wpcpm-warning">%1$s %2$s. <a href="%3$s">%4$s</a></p>',
+			'<p>%s</p>',
 			esc_html(
 				sprintf(
 					/* translators: %s: number of institutions. */
-					_n(
-						'No account is created in bulk while %s Confirmed institution has no agreement recorded:',
-						'No account is created in bulk while %s Confirmed institutions have no agreement recorded:',
-						count( $blocked ),
-						'wpcredits-program-manager'
-					),
-					number_format_i18n( count( $blocked ) )
+					_n( '%s Confirmed institution has no agreement recorded:', '%s Confirmed institutions have no agreement recorded:', count( $missing ), 'wpcredits-program-manager' ),
+					number_format_i18n( count( $missing ) )
 				)
-			),
-			esc_html( implode( ', ', $names ) ),
-			esc_url( add_query_arg( 'wpcpm_filter', self::FILTER_GAP, $this->admin_url() ) ),
-			esc_html__( 'Show them', 'wpcredits-program-manager' )
+			)
 		);
 
-		$this->render_on_file_all_form( count( $blocked ) );
+		echo '<ul class="wpcpm-notices wpcpm-inst-unrecorded">';
+
+		foreach ( $missing as $record_id ) {
+			printf(
+				'<li>%1$s <code class="wpcpm-inst-record">%2$s</code></li>',
+				esc_html( self::institution_name( $record_id ) ),
+				esc_html( $record_id )
+			);
+		}
+
+		echo '</ul>';
+
+		$this->render_on_file_all_form( count( $missing ) );
+
+		echo '</div>';
 	}
 
 	/**
 	 * The bulk on-file form: every Confirmed institution with nothing recorded, one link.
 	 *
 	 * Every institution at Confirmed signed an agreement before this site could generate or
-	 * upload one, so recording them one at a time is a chore that stalls the bulk button for
-	 * everybody. This is the on-file route applied to all of them at once, with the one link
-	 * they share: the program's folder of signed agreements. Each still gets its own recorded
-	 * agreement, its own audit row and its own Airtable cells, which is what makes it a
-	 * recording and not a fiat.
+	 * upload one, so recording them one at a time is a chore that holds a Create account on the
+	 * ticked institutions shut for everybody until the last is done. This is the on-file route
+	 * applied to all of them at once, with the one link they share: the program's folder of
+	 * signed agreements. Each still gets its own recorded agreement, its own audit row and its own
+	 * Airtable cells, which is what makes it a recording and not a fiat.
+	 *
+	 * Drawn by the Agreements on file card, under the list of what it records, and the card says
+	 * what the form does above that list. The handler goes back to the page the press was made on,
+	 * whose address names the Agreements tab; the form names its tab as well (`tab_field()`), as the
+	 * Sync and storage tab's forms (the sync, its cancel and the probe) and the invitations card's
+	 * button do. Link, the forms on the members view, and the invitations card's Stop and Dismiss,
+	 * the mail layer's own, name no tab and come back by their handlers' own landings or by the
+	 * referer. Put back in the queue and Delete for good, and the four decisions on an open
+	 * application past the Administrator Dashboard card's window, name none and come back to the
+	 * queue, the screen's own address.
 	 *
 	 * @param int $count How many institutions it would record.
 	 */
@@ -3386,8 +4128,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<form class="wpcpm-on-file-all" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL ) );
-
-		echo '<p class="description">' . esc_html__( 'Every Confirmed institution signed a Collaboration Agreement before this site could record one. Record them all as signed with the one link they share, the folder where the signed copies are kept. Each institution gets its own recorded agreement, its own line in the audit log and its own Airtable cells, and its account can then be created.', 'wpcredits-program-manager' ) . '</p>';
+		$this->tab_field( 'agreements' );
 
 		printf(
 			'<p><label for="wpcpm-on-file-all-drive">%1$s</label> <input type="url" class="regular-text" id="wpcpm-on-file-all-drive" name="wpcpm_agreement_drive" required placeholder="%2$s" /></p>',
@@ -3414,171 +4155,270 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	}
 
 	/**
-	 * The bulk button.
+	 * The Confirmed institutions that have no account yet, as the Accounts tab's No account view
+	 * lists them: the ready ones first, then by name.
 	 *
-	 * The count is in the button and not only in the prose above it, as the invitations card
-	 * has it: what makes a bulk action safe is that nobody can press it without having read
-	 * how many people it reaches. It is drawn disabled rather than hidden while the gate is
-	 * shut, so a manager can see what will be there once the agreements are recorded.
+	 * The rows `provision_reasons()` computes but for the institutions with a live member, which
+	 * have their accounts, each with its record ID as `id`; its name from the index, trimmed, or the
+	 * record ID where the index has none, as `name`; whether Airtable holds a Contact Email for it,
+	 * in words and never the address, as `contact`; why it may not be provisioned, as
+	 * `provision_block()` answers, '' when it may, as `reason`; and whether it may, as `ready`. In the
+	 * order a worklist reads from the top: what can be done now first, then the rest by name, read
+	 * as a reader expects names, without regard to case or accents, the record ID settling two of
+	 * one name.
 	 *
-	 * @param int  $count How many accounts pressing it would create.
-	 * @param bool $open  Whether the agreement gate lets it through.
+	 * Costs what `provision_reasons()` costs, up to two membership queries a Confirmed record, so the
+	 * list reads it once a draw (`WPCPM_Institutions_Table`).
+	 *
+	 * @return array[] Rows: `id`, `name`, `contact`, `reason`, `ready`.
 	 */
-	private function render_provision_button( $count, $open ) {
-		$count   = (int) $count;
-		$enabled = $open && $count > 0;
-		$confirm = sprintf(
-			/* translators: %s: how many accounts. */
-			_n(
-				'Create %s institution account and email a password-set link to the address Airtable holds for it? Invitations cannot be recalled once sent.',
-				'Create %s institution accounts and email each one a password-set link to the address Airtable holds for it? Invitations cannot be recalled once sent.',
-				$count,
-				'wpcredits-program-manager'
-			),
-			number_format_i18n( $count )
-		);
-
-		printf(
-			'<form method="post" action="%1$s"%2$s>',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			$enabled ? ' onsubmit="return confirm(\'' . esc_js( $confirm ) . '\');"' : ''
-		);
-		wp_nonce_field( self::ACTION_PROVISION );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_PROVISION ) );
-		submit_button(
-			$count > 0
-				? sprintf(
-					/* translators: %s: how many accounts. */
-					_n( 'Create %s account', 'Create %s accounts', $count, 'wpcredits-program-manager' ),
-					number_format_i18n( $count )
-				)
-				: __( 'Create the accounts', 'wpcredits-program-manager' ),
-			'primary',
-			'submit',
-			false,
-			$enabled ? array() : array( 'disabled' => 'disabled' )
-		);
-		echo '</form>';
-
-		if ( $count > self::PROVISION_LIMIT ) {
-			printf(
-				'<p class="description">%s</p>',
-				esc_html(
-					sprintf(
-						/* translators: %s: how many accounts one press creates. */
-						__( 'One press creates %s of them and the rest stay listed here; press it again to carry on.', 'wpcredits-program-manager' ),
-						number_format_i18n( self::PROVISION_LIMIT )
-					)
-				)
-			);
-		}
+	public static function provision_worklist() {
+		return self::provision_lists()[0];
 	}
 
 	/**
-	 * One row per Confirmed institution that does not have an account yet.
+	 * The No account view's rows (`provision_worklist()`), and beside them the Confirmed
+	 * institutions it leaves out because they have a live member, by name.
 	 *
-	 * Ready first, then the ones the gate holds, then the rest: a worklist reads from the top.
-	 * No address is printed, here or anywhere on this screen, so the contact column says
-	 * whether there is one and not what it is.
+	 * One read of the reasons for both, so a Create account on the ticked institutions can tell an
+	 * institution that has had its account since the page was drawn, the second press of a double
+	 * click among them, from one that may not be given one, at no cost beyond the view's own.
 	 *
-	 * @param array $reasons Record ID to block reason, from `provision_reasons()`.
+	 * @return array{0: array[], 1: array<string, string>} The worklist's rows, and each institution
+	 *                                                     with a live member as record ID => its name
+	 *                                                     as the worklist would print it.
 	 */
-	private function render_provision_rows( array $reasons ) {
-		$order = array(
-			'',
-			WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT,
-			WPCPM_Institutions_Sync::BLOCK_CONFLICT,
-			WPCPM_Institutions_Sync::BLOCK_NO_EMAIL,
-			WPCPM_Institutions_Sync::BLOCK_FORMER_MEMBER,
-			WPCPM_Institutions_Sync::BLOCK_NOT_INDEXED,
+	private static function provision_lists() {
+		$index      = WPCPM_Institutions_Index::rows();
+		$rows       = array();
+		$has_member = array();
+
+		foreach ( self::provision_reasons( $index ) as $record_id => $reason ) {
+			$record_id = (string) $record_id;
+			$row       = ( isset( $index[ $record_id ] ) && is_array( $index[ $record_id ] ) ) ? $index[ $record_id ] : array();
+			$name      = isset( $row['name'] ) ? trim( (string) $row['name'] ) : '';
+			$email     = isset( $row['contact_email'] ) ? trim( (string) $row['contact_email'] ) : '';
+
+			if ( WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER === $reason ) {
+				$has_member[ $record_id ] = '' !== $name ? $name : $record_id;
+
+				continue;
+			}
+
+			$rows[] = array(
+				'id'      => $record_id,
+				'name'    => '' !== $name ? $name : $record_id,
+				'contact' => '' === $email ? __( 'no email', 'wpcredits-program-manager' ) : __( 'email on record', 'wpcredits-program-manager' ),
+				'reason'  => (string) $reason,
+				'ready'   => '' === $reason,
+			);
+		}
+
+		usort(
+			$rows,
+			static function ( $a, $b ) {
+				if ( $a['ready'] !== $b['ready'] ) {
+					return $a['ready'] ? -1 : 1;
+				}
+
+				$order = strcasecmp( remove_accents( $a['name'] ), remove_accents( $b['name'] ) );
+
+				return 0 !== $order ? $order : strcmp( $a['id'], $b['id'] );
+			}
 		);
+
+		return array( $rows, $has_member );
+	}
+
+	/**
+	 * Create the accounts of the institutions ticked on the No account view, and say what came of
+	 * it: the outcome and its detail, which the list carries back to the view.
+	 *
+	 * The gate first, whatever was ticked: while any Confirmed institution with no member has no
+	 * agreement recorded, nothing is created (`provision-blocked`), because the program records what
+	 * it has already agreed before it starts opening accounts. Then each ticked institution the view
+	 * lists as ready, at most `PROVISION_LIMIT` a press, through `WPCPM_Institutions_Sync::provision()`,
+	 * as the manager who pressed; provisioning asks `provision_block()` again for each, so a row a
+	 * stale page offered is refused rather than obeyed. Whatever is left past the limit stays listed
+	 * on the view.
+	 *
+	 * Three things can keep a ticked institution from an account made by this press, and they are
+	 * told apart, because each asks something different of the manager. One that has a live member
+	 * already had its account, from a press between the page and this one or a second press of a
+	 * double click: nothing is wrong, and it is named under `already`. One the view does not list as
+	 * ready, or that provisioning refused, may not be given an account yet, and the view says why:
+	 * it is named under `names`. One whose creation failed for any other reason, WordPress refusing
+	 * the account or the membership not being written, is named under `failed` with what was said,
+	 * which the view cannot know: after a refusal by WordPress it still lists the institution as
+	 * ready, and after a membership that could not be written the account stands
+	 * (`WPCPM_Institutions_Sync::provision()`), so it lists the institution with the conflict reason.
+	 *
+	 * The detail says what the press did, for the list's words (`WPCPM_Institutions_Table::action_sentence()`):
+	 * how many accounts it created as `created`; how many ticked institutions ready for one it left
+	 * for the next press as `held`; and each of the three lists, the first `PROVISION_NAMES` names
+	 * with how many more beside them (`already_more`, `more`, `failed_more`). `provision-failed` when
+	 * any was refused or failed; one ticked institution refused alone is `provision-refused`, which
+	 * the view's row explains. `provisioned` when every institution tried has its account,
+	 * `provision-already` when nothing was created and every ticked institution already had one, and
+	 * `provision-none`, with no detail, when nothing was ticked or created.
+	 *
+	 * Checks neither the capability nor a nonce: the accounts screen checks both before the table
+	 * hands the ticked records over (`WPCPM_Accounts_Screen::handle_list_form()`), and the records
+	 * are matched against the worklist the site holds.
+	 *
+	 * @param string[] $records The ticked institutions' record IDs.
+	 * @return array{0: string, 1: array} The outcome and its detail.
+	 */
+	public static function provision_ticked( array $records ) {
+		list( $worklist, $has_member ) = self::provision_lists();
 
 		$listed = array();
 
-		foreach ( $order as $reason ) {
-			foreach ( array_keys( $reasons, $reason, true ) as $record_id ) {
-				$listed[ $record_id ] = $reason;
+		foreach ( $worklist as $row ) {
+			if ( WPCPM_Institutions_Sync::BLOCK_NO_AGREEMENT === $row['reason'] ) {
+				return array( 'provision-blocked', array() );
 			}
+
+			$listed[ $row['id'] ] = $row;
 		}
 
-		if ( empty( $listed ) ) {
-			echo '<p>' . esc_html__( 'Every Confirmed institution has an account.', 'wpcredits-program-manager' ) . '</p>';
+		$records = array_values( array_unique( array_map( 'strval', $records ) ) );
 
-			return;
+		if ( empty( $records ) ) {
+			return array( 'provision-none', array() );
 		}
 
-		echo '<table class="widefat striped wpcpm-list wpcpm-inst-provision"><thead><tr>';
-		echo '<th scope="col">' . esc_html__( 'Institution', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Contact', 'wpcredits-program-manager' ) . '</th>';
-		echo '<th scope="col">' . esc_html__( 'Account', 'wpcredits-program-manager' ) . '</th>';
-		echo '</tr></thead><tbody>';
+		$created = 0;
+		$tried   = 0;
+		$held    = 0;
+		$already = array();
+		$refused = array();
+		$failed  = array();
 
-		foreach ( $listed as $record_id => $reason ) {
-			$row = WPCPM_Institutions_Index::row( $record_id );
-			$row = is_array( $row ) ? $row : array();
+		foreach ( $records as $record_id ) {
+			if ( isset( $has_member[ $record_id ] ) ) {
+				$already[] = $has_member[ $record_id ];
+				continue;
+			}
 
-			echo '<tr>';
-			printf(
-				'<td class="wpcpm-inst-name"><span class="wpcpm-inst-name__text">%1$s</span><br /><code class="wpcpm-inst-record">%2$s</code></td>',
-				esc_html( self::institution_name( $record_id ) ),
-				esc_html( $record_id )
-			);
+			if ( ! isset( $listed[ $record_id ] ) || ! $listed[ $record_id ]['ready'] ) {
+				$refused[] = isset( $listed[ $record_id ] ) ? $listed[ $record_id ]['name'] : self::institution_name( $record_id );
+				continue;
+			}
 
-			printf(
-				'<td>%s</td>',
-				empty( $row['contact_email'] )
-					? '<span class="wpcpm-warning">' . esc_html__( 'no email', 'wpcredits-program-manager' ) . '</span>'
-					: esc_html__( 'email on record', 'wpcredits-program-manager' )
-			);
+			if ( $tried >= self::PROVISION_LIMIT ) {
+				++$held;
+				continue;
+			}
 
-			echo '<td class="wpcpm-inst-provision__action">';
+			++$tried;
 
-			if ( '' === $reason ) {
-				$this->render_provision_row_button( $record_id );
+			$result = WPCPM_Institutions_Sync::provision( $record_id, get_current_user_id() );
+
+			if ( ! is_wp_error( $result ) ) {
+				++$created;
+				continue;
+			}
+
+			$name = $listed[ $record_id ]['name'];
+
+			if ( WPCPM_Institutions_Sync::PROVISION_ERROR !== $result->get_error_code() ) {
+				$failed[] = self::failure_named( $name, $result );
+			} elseif ( WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER === self::refusal_reason( $result ) ) {
+				// Its account was made between the worklist's read and this one's.
+				$already[] = $name;
 			} else {
-				printf( '<span class="wpcpm-inst-muted">%s</span>', esc_html( WPCPM_Institutions_Sync::provision_message( $reason ) ) );
+				$refused[] = $name;
 			}
-
-			echo '</td></tr>';
 		}
 
-		echo '</tbody></table>';
+		if ( 1 === count( $records ) && 1 === count( $refused ) ) {
+			return array( 'provision-refused', array() );
+		}
+
+		$detail = array(
+			'created' => $created,
+			'held'    => $held,
+		) + self::named( $already, 'already', 'already_more' ) + self::named( $refused, 'names', 'more' ) + self::named( $failed, 'failed', 'failed_more' );
+
+		if ( ! empty( $refused ) || ! empty( $failed ) ) {
+			return array( 'provision-failed', $detail );
+		}
+
+		if ( $created > 0 ) {
+			return array( 'provisioned', $detail );
+		}
+
+		return empty( $already ) ? array( 'provision-none', array() ) : array( 'provision-already', $detail );
 	}
 
 	/**
-	 * The per-row control: create this one institution's account.
+	 * One list of institutions for a press's detail: the first `PROVISION_NAMES` names, and how many
+	 * more there are; nothing for an empty list, so the detail carries only what happened.
 	 *
-	 * The nonce is keyed to the institution, so a nonce harvested from one row cannot be
-	 * posted for another.
-	 *
-	 * @param string $record_id Institutions record ID.
+	 * @param string[] $names    The institutions, by name.
+	 * @param string   $key      The detail's key for the names.
+	 * @param string   $more_key The detail's key for how many more.
+	 * @return array
 	 */
-	private function render_provision_row_button( $record_id ) {
-		$confirm = sprintf(
-			/* translators: %s: institution name. */
-			__( 'Create an account for %s and email a password-set link to the address Airtable holds for it? The invitation cannot be recalled once sent.', 'wpcredits-program-manager' ),
-			self::institution_name( $record_id )
-		);
+	private static function named( array $names, $key, $more_key ) {
+		if ( empty( $names ) ) {
+			return array();
+		}
 
-		printf(
-			'<form method="post" action="%1$s" onsubmit="return confirm(\'%2$s\');">',
-			esc_url( admin_url( 'admin-post.php' ) ),
-			esc_js( $confirm )
+		return array(
+			$key      => array_slice( array_values( $names ), 0, self::PROVISION_NAMES ),
+			$more_key => max( 0, count( $names ) - self::PROVISION_NAMES ),
 		);
-		wp_nonce_field( self::ACTION_PROVISION_ONE . '_' . $record_id );
-		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_PROVISION_ONE ) );
-		printf( '<input type="hidden" name="wpcpm_institution" value="%s" />', esc_attr( $record_id ) );
-		printf( '<button type="submit" class="button">%s</button>', esc_html__( 'Create account', 'wpcredits-program-manager' ) );
-		echo '</form>';
+	}
+
+	/**
+	 * An institution whose account could not be created, by name, with what was said about it,
+	 * which the No account view cannot know: after a refusal by WordPress it still lists the
+	 * institution as ready, and after a membership that could not be written the account stands
+	 * (`WPCPM_Institutions_Sync::provision()`), so it lists the institution with the conflict reason.
+	 *
+	 * The message is what WordPress or the membership said, never an address, and the notice prints
+	 * it escaped.
+	 *
+	 * @param string   $name  The institution's name.
+	 * @param WP_Error $error Why the account was not created.
+	 * @return string
+	 */
+	private static function failure_named( $name, WP_Error $error ) {
+		$why = rtrim( trim( (string) $error->get_error_message() ), '.' );
+
+		if ( '' === $why ) {
+			return (string) $name;
+		}
+
+		return sprintf(
+			/* translators: 1: institution name, 2: why its account could not be created, as WordPress said it. */
+			__( '%1$s (%2$s)', 'wpcredits-program-manager' ),
+			(string) $name,
+			$why
+		);
+	}
+
+	/**
+	 * Why provisioning refused, the `BLOCK_` constant its refusal carries, or ''.
+	 *
+	 * @param WP_Error $error A refusal from `WPCPM_Institutions_Sync::provision()`.
+	 * @return string
+	 */
+	private static function refusal_reason( WP_Error $error ) {
+		$data = $error->get_error_data();
+
+		return ( is_array( $data ) && isset( $data['reason'] ) ) ? (string) $data['reason'] : '';
 	}
 
 	/**
 	 * Why each Confirmed institution may not be provisioned, keyed as the index keys them.
 	 *
-	 * Only the Confirmed rows are asked about, and they are asked exactly once for the card
-	 * and for whichever handler is running: `provision_block()` costs an option read and, for
-	 * a row that gets past the cheap facts, two membership queries, and asking the other
-	 * hundred rows what their stage already says would put those queries on every render.
+	 * Only the Confirmed rows are asked about, and they are asked exactly once for the No account
+	 * view and for a Create account on the ticked institutions: `provision_block()` costs an option
+	 * read and, for a row that gets past the cheap facts, two membership queries, and asking the
+	 * other hundred rows what their stage already says would put those queries on every render.
 	 *
 	 * @param array $rows Index rows.
 	 * @return array<string, string> Record ID to a `BLOCK_` constant, or '' when it is ready.
@@ -3679,7 +4519,10 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		echo '</tbody></table>';
 
-		echo '<p class="description">' . esc_html__( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for them here. Add that person from the institution\'s card, name and address; the sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created on every run.', 'wpcredits-program-manager' ) . '</p>';
+		$this->render_routes_in(
+			__( 'A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for it here.', 'wpcredits-program-manager' ),
+			__( 'The sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created on every run.', 'wpcredits-program-manager' )
+		);
 
 		if ( ! empty( $missed ) ) {
 			$this->render_missed( $missed );
@@ -3919,9 +4762,12 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	/**
 	 * How the last press of Link ended, drawn inside the card that made it.
 	 *
-	 * Taken and cleared here rather than at the top of the screen with the other outcomes,
-	 * because it is a sentence about one row in a list eight cards down: a manager who has to
-	 * scroll back up to read what happened cannot see the row it happened to.
+	 * Taken and cleared here rather than above the tab's bar with the other outcomes, because
+	 * it is a sentence about one row in a list under the sync card and the reconciliation table:
+	 * a manager who has to scroll back up to read what happened cannot see the row it happened to.
+	 * Both notices carry the class `inline` for the same reason: core's script moves every notice
+	 * without it to just under the screen's first heading, which would take the sentence away from
+	 * the card the press lands on.
 	 */
 	private function render_link_outcome() {
 		$flash  = WPCPM_Flash::take( self::FLASH_LINK );
@@ -3934,7 +4780,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 
 		if ( self::LINK_DONE === $status ) {
 			printf(
-				'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+				'<div class="notice notice-success inline is-dismissible"><p>%s</p></div>',
 				esc_html(
 					'' !== $detail
 						? sprintf(
@@ -3953,7 +4799,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		// the reason is whether the base changed, because the answer decides whether the next
 		// thing they do is fix the row or nothing at all.
 		printf(
-			'<div class="notice notice-error is-dismissible"><p>%1$s %2$s%3$s</p></div>',
+			'<div class="notice notice-error inline is-dismissible"><p>%1$s %2$s%3$s</p></div>',
 			esc_html__( 'Nothing was written.', 'wpcredits-program-manager' ),
 			esc_html( self::link_message( $status ) ),
 			'' !== $detail ? ' <code>' . esc_html( $detail ) . '</code>' : ''
@@ -4644,6 +5490,7 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( self::ACTION_PROBE );
 		echo '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_PROBE ) . '" />';
+		$this->tab_field( 'sync' );
 		submit_button( __( 'Run probe', 'wpcredits-program-manager' ), 'secondary', 'submit', false );
 		echo '</form>';
 
@@ -4837,10 +5684,13 @@ class WPCPM_Institutions extends WPCPM_Sync_Module {
 	 * are as the last sync read them, the memberships are as they are right now. Saying only
 	 * one of the two would let the stale half look as fresh as the live one.
 	 *
+	 * Public, so the Accounts tab's No account view, which joins the two as well, says it in the same
+	 * words (`WPCPM_Institutions_Table`).
+	 *
 	 * @param int $read Unix time the pipeline index was read, or 0 for never.
 	 * @return string
 	 */
-	private static function membership_read_line( $read ) {
+	public static function membership_read_line( $read ) {
 		if ( ! $read ) {
 			return __( '(the pipeline index has not been read yet; memberships counted now)', 'wpcredits-program-manager' );
 		}

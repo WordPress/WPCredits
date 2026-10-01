@@ -19,9 +19,16 @@ if [ ! -f "$SLUG.php" ]; then
 	exit 1
 fi
 
+# The folders no string is read from, one list for both paths below, so the two cannot drift
+# apart: the ones the installable zip leaves out (.distignore), whose suites and stand-ins call the
+# translation functions with the plugin's text domain; the hidden ones, where linked worktrees and
+# session files hold copies of the plugin; and the template's own.
+SKIP="bin docs languages node_modules .git .superpowers .worktrees"
+
 if command -v wp >/dev/null 2>&1; then
 	echo "WP-CLI found - using it, which is the canonical path."
-	wp i18n make-pot . "$OUT" --slug="$SLUG" --domain="$SLUG"
+	# shellcheck disable=SC2086
+	wp i18n make-pot . "$OUT" --slug="$SLUG" --domain="$SLUG" --exclude="$( echo $SKIP | tr ' ' ',' )"
 	exit 0
 fi
 
@@ -51,7 +58,17 @@ KEYWORDS="
 # PHP and JS are extracted separately because xgettext takes one --language at a
 # time, then merged. The block editor scripts hold real strings, so leaving the JS
 # pass out would quietly ship a template missing everything a block author sees.
-find . -name '*.php' -not -path './languages/*' -not -path './bin/*' | sort > /tmp/wpcpm-php.list
+# The same list as the WP-CLI path skips. Globbing is off while the patterns are expanded, so each
+# reaches find as written rather than as the files it would match. The JS pass reads the two
+# folders that hold the plugin's scripts, both outside the list.
+PRUNE=""
+for dir in $SKIP; do
+	PRUNE="$PRUNE -not -path ./$dir/*"
+done
+set -f
+# shellcheck disable=SC2086
+find . -name '*.php' $PRUNE | sort > /tmp/wpcpm-php.list
+set +f
 find ./blocks ./assets/js -name '*.js' 2>/dev/null | sort > /tmp/wpcpm-js.list
 
 # shellcheck disable=SC2086

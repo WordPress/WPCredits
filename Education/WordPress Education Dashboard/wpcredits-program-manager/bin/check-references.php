@@ -76,22 +76,38 @@ foreach ( $files as $path ) {
 
 	// The traits a class uses, read from each `use` line of its body, whichever form it takes: one
 	// trait (`use A;`), several (`use A, B;`), or several with a block adapting them
-	// (`use A, B { ... }`), whose names are read up to the block. The block's own rules, `insteadof`
-	// and `as`, are not applied: a method a class takes under another name through `as` is not known
-	// by that name here, and a call to it is reported.
-	preg_match_all( '/^\tuse ([^;{]+)[;{]/m', $src, $uses );
+	// (`use A, B { ... }`), whose names are read up to the block. Of the block's rules, `as` is read
+	// and `insteadof` is not. A method a class takes under another name (`m as n;`, `m as private n;`,
+	// `A::m as n;`) is the class's method by that name, and its body stays the class's to answer for
+	// even when the class declares a method of the source's own name, since the class still runs it
+	// under the other one (`aliased`, read in 1b below): the named trait's body alone when the rule
+	// names one, and under `*` for a rule that names none. A rule that only changes a method's
+	// visibility (`m as protected;`) gives it no other name.
+	preg_match_all( '/^\tuse ([^;{]+)(;|\{[^}]*\})/m', $src, $uses, PREG_SET_ORDER );
 
-	$used = array();
-	foreach ( $uses[1] as $names ) {
-		foreach ( explode( ',', $names ) as $name ) {
+	$used    = array();
+	$aliased = array();
+	$aliases = array();
+	foreach ( $uses as $use ) {
+		foreach ( explode( ',', $use[1] ) as $name ) {
 			$used[] = trim( $name );
+		}
+
+		preg_match_all( '/(?:(\w+)::)?(\w+)\s+as\s+(?:(?:public|protected|private)\s+)?(\w+)\s*;/', $use[2], $rules, PREG_SET_ORDER );
+
+		foreach ( $rules as $rule ) {
+			if ( ! in_array( $rule[3], array( 'public', 'protected', 'private' ), true ) ) {
+				$aliased[ '' !== $rule[1] ? $rule[1] : '*' ][] = $rule[2];
+				$aliases[]                                    = $rule[3];
+			}
 		}
 	}
 
-	$declared[ $m[1] ] = $members + array(
-		'parent' => isset( $m[2] ) ? $m[2] : '',
-		'own'    => $methods[1],
-		'traits' => array_values( array_filter( $used ) ),
+	$declared[ $m[1] ] = array_merge( $members, array( 'methods' => array_merge( $members['methods'], $aliases ) ) ) + array(
+		'parent'  => isset( $m[2] ) ? $m[2] : '',
+		'own'     => $methods[1],
+		'traits'  => array_values( array_filter( $used ) ),
+		'aliased' => $aliased,
 	);
 }
 
@@ -167,10 +183,11 @@ foreach ( $declared as $cls => $class ) {
 
 /**
  * A trait's source as a class using it runs it: without the methods the class declares itself,
- * which replace the trait's, so their references are not the class's to answer for.
+ * which replace the trait's, so their references are not the class's to answer for, unless the
+ * class keeps the trait's method under another name, which it then still runs.
  *
  * @param string   $src      The trait's source.
- * @param string[] $replaced The methods the class declares itself.
+ * @param string[] $replaced The methods the class declares itself and does not keep under another name.
  * @return string
  */
 function wpcpm_trait_as_used( $src, array $replaced ) {
@@ -221,7 +238,14 @@ foreach ( $declared as $cls => $class ) {
 			continue;
 		}
 
-		preg_match_all( '/(?:self|static)::([A-Za-z_][A-Za-z0-9_]*)\s*(\()?/', wpcpm_trait_as_used( $traits[ $trait ]['src'], $class['own'] ), $refs, PREG_SET_ORDER );
+		// The trait's methods this class still runs under another name: by a rule naming this
+		// trait, or by one naming none.
+		$still_run = array_merge(
+			isset( $class['aliased']['*'] ) ? $class['aliased']['*'] : array(),
+			isset( $class['aliased'][ $trait ] ) ? $class['aliased'][ $trait ] : array()
+		);
+
+		preg_match_all( '/(?:self|static)::([A-Za-z_][A-Za-z0-9_]*)\s*(\()?/', wpcpm_trait_as_used( $traits[ $trait ]['src'], array_diff( $class['own'], $still_run ) ), $refs, PREG_SET_ORDER );
 
 		foreach ( $refs as $ref ) {
 			$isCall = isset( $ref[2] ) && '(' === $ref[2];

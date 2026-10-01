@@ -29,9 +29,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **Why the option is rebuilt rather than edited.** `rebuild()` is T12 in the design: given
  * the Airtable agreement block for a record and this site's posts for it, it computes the
- * option from scratch under a per-institution lock. The sync's `records` phase and the Refresh
- * button call it for every row, and every later site-side transition will call it for its
- * own row after writing its post. One function producing the option from the two sources is
+ * option from scratch under a per-institution lock. The institutions sync's `records` phase
+ * calls it for every row, and every later site-side transition will call it for its own row
+ * after writing its post. One function producing the option from the two sources is
  * what makes "an accepted one stands" have a single meaning everywhere.
  *
  * **Why a legacy post is materialised.** Every real Confirmed institution signed years ago,
@@ -1461,8 +1461,8 @@ class WPCPM_Institution_Agreement {
 	 * The outcome is the on-file route's as well: `agreement-accepted` when the gate is open
 	 * by the end of the request, `agreement-later` when the rebuild found the lock held and
 	 * the account opens on the next sync instead. A manager told the account is open does not
-	 * press Refresh, and this is the one path where that leaves a whole institution locked
-	 * out with an email in their inbox saying otherwise.
+	 * run the institutions sync, and this is the one path where that leaves a whole institution
+	 * locked out with an email in their inbox saying otherwise.
 	 */
 	public static function handle_accept() {
 		if ( ! current_user_can( WPCPM_Roles::CAP_MANAGE ) ) {
@@ -1615,7 +1615,7 @@ class WPCPM_Institution_Agreement {
 		// An empty option means the rebuild found the lock held, by a sync working through
 		// this very record, and skipped rather than raced it: both writes have landed and the
 		// gate is still shut. The members are told either way, because the acceptance is real,
-		// nothing sends that message a second time, and the next sync or Refresh opens the
+		// nothing sends that message a second time, and the next institutions sync opens the
 		// account within the minute. What must not happen is the manager reading "the account
 		// is open" over a gate that is not, so they are told what the on-file route tells them
 		// in the same half-done state, which names the one thing left to do.
@@ -2904,7 +2904,7 @@ class WPCPM_Institution_Agreement {
 	 * Take the rebuild lock for an institution.
 	 *
 	 * `add_option()` is the test-and-set: it returns false when the row already exists, and
-	 * it is one INSERT, so a sync tick and a manager's Refresh racing for the same record
+	 * it is one INSERT, so a sync tick and a manager's own write racing for the same record
 	 * cannot both write. A lock older than `LOCK_TIMEOUT` belonged to a request that died
 	 * between taking and releasing it, and is cleared, since otherwise that one institution
 	 * could never be rebuilt again.
@@ -2935,12 +2935,12 @@ class WPCPM_Institution_Agreement {
 	/**
 	 * Return from the on-file handler with a one-shot outcome, and stop.
 	 *
-	 * The form is drawn in two places, the manager's institution row and the dashboard's
-	 * agreement panel, so the destination is where the request came from rather than one
-	 * fixed screen; `wp_safe_redirect()` keeps that to this site, and a request with no
-	 * referer lands on the Institutions screen, which is where the row is. The words for
-	 * each outcome live in `WPCPM_Institution_Panel::messages()`, once, because both screens
-	 * print them.
+	 * The on-file forms are drawn in two places, the one for an institution on the Institution
+	 * Dashboard's agreement panel and the one for every Confirmed institution on the Institutions
+	 * screen's Agreements tab, so the destination is where the request came from rather than one
+	 * fixed screen; `wp_safe_redirect()` keeps that to this site, and a request with no referer
+	 * lands on the Institutions screen's own address. The words for each outcome live in
+	 * `WPCPM_Institution_Panel::messages()`, once, because both screens print them.
 	 *
 	 * @param string $status Outcome slug.
 	 */

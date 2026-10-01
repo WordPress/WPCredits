@@ -4,7 +4,7 @@ Tags: airtable, members, roles, education, wordpress-credits
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.120.0
+Stable tag: 1.121.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -288,6 +288,11 @@ No. Uninstall removes settings, sync state, access-level meta and the custom rol
 4. The Program access control in the editor.
 
 == Changelog ==
+
+= 1.121.0 =
+
+* Institutions module: the Institutions screen is six tabs, Waiting for review, Pipeline, Accounts, Semester reports, Agreements, and Sync and storage; the queue lists applications, signed agreements and requests from institutions read-only, each with a link to decide it on the Administrator Dashboard, and an open application past the fifty oldest that the dashboard's card lists is decided where it is opened; the menu bubble counts the requests from institutions too; the accounts are a WordPress list table with search, the All, Invited, Never invited and No account views, sortable columns, a per-page screen option, invitations sent to the selected accounts or from a row's own link, and accounts created for the selected Confirmed institutions or from a row; each institution's members are added, re-added and removed from the Accounts tab; the Overview's links open the tab that holds each queue, and the Administrator Dashboard's four institution cards end with a link to the Institutions screen's tab that holds their items.
+* Mail: an account holding more than one program role is stamped for each when its invitation goes out, so every audience's Never invited view agrees with the queue; on the Students and Mentors lists an account invited under another of its roles now reads as Invited, so a view's count and the invitations card's can change.
 
 = 1.120.0 =
 

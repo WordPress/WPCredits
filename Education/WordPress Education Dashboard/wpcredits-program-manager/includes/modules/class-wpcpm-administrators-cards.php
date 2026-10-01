@@ -113,8 +113,8 @@ final class WPCPM_Administrators_Cards {
 			// Only self::LIMIT of each list is drawn: the wp-admin queue caps its own list at
 			// WPCPM_Institutions::QUEUE_MAX, which is the same number, and a page reading the
 			// same rows must never draw a "complete" list the queue would call partial. The
-			// totals beside them say how many there are, so the card can point at the screen
-			// that has the rest.
+			// totals beside them say how many there are, so the card can say how many more each
+			// list holds.
 			'applications'         => array(
 				'open'         => $open,
 				'open_total'   => count( WPCPM_Institution_Application::application_ids( $open_states ) ),
@@ -1103,7 +1103,8 @@ final class WPCPM_Administrators_Cards {
 				'progress' => WPCPM_Institutions_Sync::progress(),
 				'last'     => (int) WPCPM_Institutions_Sync::last_read(),
 				'next'     => (int) wp_next_scheduled( WPCPM_Institutions_Sync::CRON_DAILY ),
-				'screen'   => admin_url( 'admin.php?page=wpcpm-institutions' ),
+				// The Institutions screen's Sync and storage tab, as the Students screen's above.
+				'screen'   => admin_url( 'admin.php?page=wpcpm-institutions&tab=sync' ),
 			),
 		);
 
@@ -1211,33 +1212,66 @@ final class WPCPM_Administrators_Cards {
 			}
 
 			if ( $closed_total > count( $closed ) ) {
-				self::render_more_line( $closed_total - count( $closed ) );
+				self::render_more_line( $closed_total - count( $closed ), true );
 			}
 
 			echo '</details>';
 		}
 
+		self::render_open_line( 'queue' );
 		self::card_close();
 	}
 
 	/**
-	 * "N more are waiting on the Institutions screen", linked there - printed after a list
-	 * this page cut at self::LIMIT, the number WPCPM_Institutions::QUEUE_MAX also caps the
-	 * wp-admin queue at, so neither screen ever claims to be showing more than it draws.
+	 * The line under a list this page cut at self::LIMIT, so the page never claims to be showing
+	 * more than it draws; it links nowhere. Under the open list: "N more are waiting; they are
+	 * listed here as these are decided", since the Institutions screen's queue lists the same window
+	 * of the oldest, so the rest reach a list as the ones above them are decided. Under the closed
+	 * fold, whose rejected and spam applications are decided already and which the screen does not
+	 * list: "N more are kept; they are listed here as these are deleted or put back in the queue".
 	 *
-	 * @param int $n How many were left off the list.
+	 * @param int  $n      How many were left off the list.
+	 * @param bool $closed True for the closed fold (rejected and spam applications).
 	 */
-	private static function render_more_line( $n ) {
+	private static function render_more_line( $n, $closed = false ) {
+		if ( $closed ) {
+			/* translators: %s: a number of applications. */
+			$line = _n( '%s more is kept; it is listed here as these are deleted or put back in the queue.', '%s more are kept; they are listed here as these are deleted or put back in the queue.', $n, 'wpcredits-program-manager' );
+		} else {
+			/* translators: %s: a number of applications. */
+			$line = _n( '%s more is waiting; it is listed here as these are decided.', '%s more are waiting; they are listed here as these are decided.', $n, 'wpcredits-program-manager' );
+		}
+
+		printf(
+			'<p class="wpcpm-administrator__more">%s</p>',
+			esc_html( sprintf( $line, number_format_i18n( $n ) ) )
+		);
+	}
+
+	/**
+	 * "Open on the Institutions screen", the last line of each institution card: the way to the
+	 * screen's tab for the card's items, printed on every draw of the card, an empty one's too, so
+	 * the way from a card to its tab is always in the same place.
+	 *
+	 * @param string $tab The Institutions screen's tab that holds the card's items.
+	 */
+	private static function render_open_line( $tab ) {
+		self::render_screen_line( $tab, __( 'Open on the Institutions screen', 'wpcredits-program-manager' ) );
+	}
+
+	/**
+	 * One line at a card's foot linking the Institutions screen, at one of its tabs or at its own
+	 * address, which opens the screen's queue: the card's own line to its tab, in the markup the
+	 * "more are waiting" line shares.
+	 *
+	 * @param string $tab  A tab of the Institutions screen, or '' for the screen's own address.
+	 * @param string $text The line's words, translated.
+	 */
+	private static function render_screen_line( $tab, $text ) {
 		printf(
 			'<p class="wpcpm-administrator__more"><a href="%1$s">%2$s</a></p>',
-			esc_url( admin_url( 'admin.php?page=wpcpm-institutions' ) ),
-			esc_html(
-				sprintf(
-					/* translators: %s: a number of applications. */
-					_n( '%s more is waiting on the Institutions screen.', '%s more are waiting on the Institutions screen.', $n, 'wpcredits-program-manager' ),
-					number_format_i18n( $n )
-				)
-			)
+			esc_url( admin_url( 'admin.php?page=wpcpm-institutions' . ( '' !== (string) $tab ? '&tab=' . $tab : '' ) ) ),
+			esc_html( $text )
 		);
 	}
 
@@ -1347,6 +1381,7 @@ final class WPCPM_Administrators_Cards {
 			true
 		);
 
+		self::render_open_line( 'queue' );
 		self::card_close();
 	}
 
@@ -1507,6 +1542,7 @@ final class WPCPM_Administrators_Cards {
 			echo '</ul>';
 		}
 
+		self::render_open_line( 'reports' );
 		self::card_close();
 	}
 
@@ -1572,6 +1608,7 @@ final class WPCPM_Administrators_Cards {
 			echo '</ul></details>';
 		}
 
+		self::render_open_line( 'queue' );
 		self::card_close();
 	}
 

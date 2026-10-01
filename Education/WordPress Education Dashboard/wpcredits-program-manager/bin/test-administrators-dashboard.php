@@ -921,7 +921,24 @@ $capped = WPCPM_Administrators_Cards::collect();
 ck( 'the closed list is cut at the page\'s own cap', count( $capped['applications']['closed'] ), 50 );
 ck( 'but the total still counts every one of them', $capped['applications']['closed_total'], 52 );
 $capped_html = capture( static function () use ( $capped ) { WPCPM_Administrators_Cards::render_applications( $capped['applications'] ); } );
-ck( 'and the card says how many more are on the Institutions screen', has( $capped_html, '2 more are waiting' ) && has( $capped_html, 'page=wpcpm-institutions' ), true );
+// The closed fold holds decided applications, so its line says they are kept and leave the list
+// as the ones above them are deleted or put back in the queue; the open list's line says they
+// are waiting and are listed as these are decided.
+ck( 'and the closed fold says how many more are kept, and that they are listed as these are deleted or put back in the queue', array(
+	has( $capped_html, '<p class="wpcpm-administrator__more">2 more are kept; they are listed here as these are deleted or put back in the queue.</p>' ),
+	strpos( $capped_html, '2 more are kept' ) > strpos( $capped_html, '<details class="wpcpm-administrator__closed">' ),
+	has( $capped_html, 'waiting; ' ),
+), array( true, true, false ) );
+$one_more_html = capture( static function () use ( $capped ) { WPCPM_Administrators_Cards::render_applications( array_merge( $capped['applications'], array( 'closed_total' => count( $capped['applications']['closed'] ) + 1 ) ) ); } );
+ck( 'one more is said in the singular', has( $one_more_html, '<p class="wpcpm-administrator__more">1 more is kept; it is listed here as these are deleted or put back in the queue.</p>' ), true );
+$open_cut_html = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( array_merge( $data['applications'], array( 'open_total' => count( $data['applications']['open'] ) + 3 ) ) ); } );
+$open_one_html = capture( static function () use ( $data ) { WPCPM_Administrators_Cards::render_applications( array_merge( $data['applications'], array( 'open_total' => count( $data['applications']['open'] ) + 1 ) ) ); } );
+ck( 'a cut open list says how many more are waiting and that they are listed as these are decided, above the closed fold, in the plural and the singular', array(
+	has( $open_cut_html, '<p class="wpcpm-administrator__more">3 more are waiting; they are listed here as these are decided.</p>' ),
+	strpos( $open_cut_html, '3 more are waiting' ) < strpos( $open_cut_html, '<details class="wpcpm-administrator__closed">' ),
+	has( $open_cut_html, ' kept; ' ),
+	has( $open_one_html, '<p class="wpcpm-administrator__more">1 more is waiting; it is listed here as these are decided.</p>' ),
+), array( true, true, false, true ) );
 
 // Removed so every later check sees the fixture it was written against.
 foreach ( range( 1001, 1051 ) as $id ) {
@@ -989,6 +1006,9 @@ ck( 'four syncs with their state', substr_count( $health, 'wpcpm-health__sync' )
 ck( 'the students and mentors syncs open their screens at the Sync tab, where the run is started and followed',
 	array( $data['health']['syncs']['students']['screen'], $data['health']['syncs']['mentors']['screen'], has( $health, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-students&tab=sync">Open</a>' ), has( $health, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=sync">Open</a>' ) ),
 	array( 'https://example.test/wp-admin/admin.php?page=wpcpm-students&tab=sync', 'https://example.test/wp-admin/admin.php?page=wpcpm-mentors&tab=sync', true, true ) );
+ck( 'and the institutions sync opens its screen at the Sync and storage tab, where its run is started and followed, rather than at the queue the screen opens on',
+	array( $data['health']['syncs']['institutions']['screen'], has( $health, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=sync">Open</a>' ) ),
+	array( 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=sync', true ) );
 ck( 'the error is printed verbatim and escaped', has( $health, 'HTTP 429 from Airtable &lt;b&gt;x&lt;/b&gt;' ), true );
 ck( 'the locked account is named', has( $health, 'Rep One' ), true );
 ck( 'the probe verdict, the last mail and the invitation run are there', has( $health, 'blocked' ) && has( $health, 'report-drafted' ) && has( $health, '3 of 5' ), true );
@@ -1168,13 +1188,13 @@ ck( 'the numeric column carries tabular figures and no alignment of its own', ar
 echo "\n=== The Sponsor Collaboration Agreements card (1.96.1) ===\n";
 ob_start();
 WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array( $GLOBALS['agr_facts'][913] ), 'revoked' => array( $GLOBALS['agr_facts'][880] ) ) );
-$sa = (string) ob_get_clean();
-ck( 'the card lists the document waiting for review with its facts and the decision block bound for the dashboard', array( has( $sa, 'id="wpcpm-sponsor-agreements"' ), has( $sa, '<span class="wpcpm-group__count">1</span>' ), has( $sa, 'TEST Sponsor <span class="wpcpm-administrator__kind">Waiting for review</span>' ), has( $sa, 'Uploaded by Member One on 2026-09-06' ), has( $sa, '652 B' ), has( $sa, 'The scan noticed none of the features it looks for' ), has( $sa, '1 account' ), has( $sa, 'data-post="913" data-return="dashboard"' ) ), array( true, true, true, true, true, true, true, true ) );
-ck( 'and the agreement out of force under its own heading, with what the scan noticed and the way back', array( has( $sa, 'Out of force' ), has( $sa, 'Old Sponsor <span class="wpcpm-administrator__kind">Revoked</span>' ), has( $sa, 'Recorded on 2026-05-01' ), has( $sa, 'The scan noticed: javascript' ), has( $sa, '2 accounts' ), has( $sa, 'data-post="880" data-return="dashboard"' ) ), array( true, true, true, true, true, true ) );
+$sagr = (string) ob_get_clean();
+ck( 'the card lists the document waiting for review with its facts and the decision block bound for the dashboard', array( has( $sagr, 'id="wpcpm-sponsor-agreements"' ), has( $sagr, '<span class="wpcpm-group__count">1</span>' ), has( $sagr, 'TEST Sponsor <span class="wpcpm-administrator__kind">Waiting for review</span>' ), has( $sagr, 'Uploaded by Member One on 2026-09-06' ), has( $sagr, '652 B' ), has( $sagr, 'The scan noticed none of the features it looks for' ), has( $sagr, '1 account' ), has( $sagr, 'data-post="913" data-return="dashboard"' ) ), array( true, true, true, true, true, true, true, true ) );
+ck( 'and the agreement out of force under its own heading, with what the scan noticed and the way back', array( has( $sagr, 'Out of force' ), has( $sagr, 'Old Sponsor <span class="wpcpm-administrator__kind">Revoked</span>' ), has( $sagr, 'Recorded on 2026-05-01' ), has( $sagr, 'The scan noticed: javascript' ), has( $sagr, '2 accounts' ), has( $sagr, 'data-post="880" data-return="dashboard"' ) ), array( true, true, true, true, true, true ) );
 ob_start();
 WPCPM_Administrators_Cards::render_sponsor_agreements( array( 'review' => array(), 'revoked' => array() ) );
-$sa = (string) ob_get_clean();
-ck( 'with nothing to read the card says so and shows no subheading', array( has( $sa, 'No sponsor agreement is waiting for review.' ), has( $sa, 'Out of force' ) ), array( true, false ) );
+$sagr_empty = (string) ob_get_clean();
+ck( 'with nothing to read the card says so and shows no subheading', array( has( $sagr_empty, 'No sponsor agreement is waiting for review.' ), has( $sagr_empty, 'Out of force' ) ), array( true, false ) );
 
 echo "\n=== The Sponsor applications card (Phase S5: the decisions, the tile, the anchor) ===\n";
 ob_start();
@@ -1206,6 +1226,46 @@ $GLOBALS['flash']  = array( 'institutions' => 'sapp-approved' );
 $out_sapp          = WPCPM_Administrators_Dashboard::render( array() );
 ck( 'a decision\'s flash is drawn in the application class\'s words, on the page it came back to', has( $out_sapp, 'The sponsor application is approved.' ), true );
 
+/* ---- each institution card links its wp-admin tab ------------------------ */
+
+echo "\n=== Each institution card ends with the way to its tab on the Institutions screen ===\n";
+
+// The dashboard decides and wp-admin lists the same items, so each institution card ends with one
+// line to the Institutions screen's tab that lists its items, on every draw of the card, an empty
+// one's too. The line a cut list prints says how many more there are and when they are listed (the
+// open list's as these are decided, the closed fold's as these are deleted or put back in the
+// queue), and links nowhere: the screen lists the same window. The sponsor cards print none yet.
+$foot_line = function ( $tab ) {
+	return '<p class="wpcpm-administrator__more"><a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=' . $tab . '">Open on the Institutions screen</a></p></div></details></section>';
+};
+$ends_with = function ( $html, $tail ) {
+	return substr( (string) $html, -strlen( $tail ) ) === $tail;
+};
+ck( 'the four institution cards each end with one line to the tab that holds their items: the applications, the agreements and the requests the queue, the semester reports their own tab', array(
+	$ends_with( $apps, $foot_line( 'queue' ) ),
+	$ends_with( $agr_html, $foot_line( 'queue' ) ),
+	$ends_with( $rep, $foot_line( 'reports' ) ),
+	$ends_with( $req, $foot_line( 'queue' ) ),
+	substr_count( $apps . $agr_html . $rep . $req, 'Open on the Institutions screen' ),
+), array( true, true, true, true, 4 ) );
+$empty_cards = array(
+	capture( static function () { WPCPM_Administrators_Cards::render_applications( array() ); } ),
+	capture( static function () { WPCPM_Administrators_Cards::render_agreements( array() ); } ),
+	capture( static function () { WPCPM_Administrators_Cards::render_reports( array() ); } ),
+	capture( static function () { WPCPM_Administrators_Cards::render_requests( array() ); } ),
+);
+ck( 'and so does each of them with nothing in it', array(
+	$ends_with( $empty_cards[0], $foot_line( 'queue' ) ),
+	$ends_with( $empty_cards[1], $foot_line( 'queue' ) ),
+	$ends_with( $empty_cards[2], $foot_line( 'reports' ) ),
+	$ends_with( $empty_cards[3], $foot_line( 'queue' ) ),
+), array( true, true, true, true ) );
+ck( 'a cut list keeps its own line, unlinked, and the card still ends with its tab\'s', array(
+	has( $capped_html, '<p class="wpcpm-administrator__more">2 more are kept; they are listed here as these are deleted or put back in the queue.</p>' ),
+	$ends_with( $capped_html, $foot_line( 'queue' ) ),
+), array( true, true ) );
+ck( 'and none of the other cards prints one: the sponsor posts and the offers running low, full and empty, the interests, the duplicated students, the Sponsor Collaboration Agreements, full and empty, the sponsors strip and the sponsor applications', substr_count( $sp . $empty_sp . $low . $empty_low . $int . $dup . $sagr . $sagr_empty . $strip2 . $sapp, 'Open on the Institutions screen' ), 0 );
+
 /* ---- the closed applications are counted, not loaded (FADMN-2) ----------- */
 
 echo "\n=== A year of rejected applications costs a count, not their answers ===\n";
@@ -1226,7 +1286,7 @@ ck( 'sixty closed applications are reported and fifty of them are held', array( 
 ck( 'and the whole page built fifty-two application objects: fifty closed and the two open ones', $GLOBALS['loaded'], 52 );
 
 $many_html = capture( static function () use ( $many ) { WPCPM_Administrators_Cards::render_applications( $many['applications'] ); } );
-ck( 'the card draws the fifty it holds, beside the two open ones, and points at the screen for the other ten', array( substr_count( $many_html, 'class="wpcpm-administrator__item wpcpm-application"' ), has( $many_html, '10 more are waiting on the Institutions screen.' ) ), array( 52, true ) );
+ck( 'the card draws the fifty it holds, beside the two open ones, and says the other ten are kept', array( substr_count( $many_html, 'class="wpcpm-administrator__item wpcpm-application"' ), has( $many_html, '10 more are kept; they are listed here as these are deleted or put back in the queue.' ) ), array( 52, true ) );
 
 /* ---- the semester begins at the site's own midnight (P2) ----------------- */
 

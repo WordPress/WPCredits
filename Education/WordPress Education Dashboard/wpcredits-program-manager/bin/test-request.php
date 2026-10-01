@@ -125,5 +125,55 @@ ck( 'and it reads the query string, not a posted form', WPCPM_Request::ids( 'pos
 $_GET  = array();
 $_POST = array();
 
+echo "\n=== list(): a ticked list sent by GET, each value whole or not at all ===\n";
+
+/**
+ * What list() reads, or what it threw when it is not there, so a check against a missing reader
+ * fails as a check rather than ending the run.
+ *
+ * @param string $name    Query argument name, without the brackets.
+ * @param string $pattern The pattern each value must match whole.
+ * @return mixed
+ */
+function listed( $name, $pattern ) {
+	try {
+		return WPCPM_Request::list( $name, $pattern );
+	} catch ( Throwable $thrown ) {
+		return 'threw ' . get_class( $thrown ) . ': ' . $thrown->getMessage();
+	}
+}
+
+// The twin of posted_list() for a list's form, which is sent to its screen by GET: ticked record
+// IDs arrive in the query string, where posted_list() never looks, and neither ids(), which keeps
+// whole numbers alone, nor key(), which lowercases, can read one, since an Airtable record ID is
+// letters and digits and its case is part of it. The pattern is Airtable's record ID, anchored.
+// The IDs are placeholders of mixed case, so the case has something to keep, and read as a word
+// plus a run, as every mixed-case placeholder here does (bin/test-fixtures.php).
+$record = '/^rec[A-Za-z0-9]{14}$/D';
+$_GET   = array(
+	'records' => array( 'recCaseKept000001', 'rec<script>', '42', 'recCaseKept000001', 'reccasekept000001', "recCaseKept000001\n", 'recCaseKept0000011', array( 'recCaseKept000001' ) ),
+	'digits'  => array( '1234567890123456' ),
+	'single'  => 'recCaseKept000001',
+);
+$_POST  = array( 'posted' => array( 'recCaseKept000001' ) );
+
+ck( 'a record ID is kept whole and in its own case, once, in the order sent; markup, a number, a trailing newline, one character too many and a nested list are dropped, never repaired',
+	listed( 'records', $record ), array( 'recCaseKept000001', 'reccasekept000001' ) );
+ck( 'a value of decimal digits alone comes back a string, not the integer an array key makes of it', listed( 'digits', '/^[0-9a-f]{16}$/' ), array( '1234567890123456' ) );
+ck( 'a field that is not a list is no list at all', listed( 'single', $record ), array() );
+ck( 'an absent field is an empty list', listed( 'missing', $record ), array() );
+ck( 'and it reads the query string, not a posted form', listed( 'posted', $record ), array() );
+
+// Airtable's record ID as the plugin writes its rule (WPCPM_Airtable::RECORD_ID_PATTERN) carries no
+// `D`, so its `$` also matches before a trailing newline, and a pattern without `^` and `$` matches
+// inside a longer value: a value is kept only when the pattern matched the whole of it.
+$_GET = array( 'records' => array( "recCaseKept000001\n", 'recCaseKept000001', 'xrecCaseKept000002x' ) );
+
+ck( 'a value is kept only when the pattern matched the whole of it, whatever the caller\'s anchors: a trailing newline a bare `$` lets through, and a record ID inside other text, are dropped',
+	array( listed( 'records', '/^rec[A-Za-z0-9]{14}$/' ), listed( 'records', '/rec[A-Za-z0-9]{14}/' ) ),
+	array( array( 'recCaseKept000001' ), array( 'recCaseKept000001' ) ) );
+$_GET  = array();
+$_POST = array();
+
 printf( "\n%s (%d checks)\n", $fails ? sprintf( '%d FAILED', $fails ) : 'ALL PASS', $total );
 exit( $fails ? 1 : 0 );

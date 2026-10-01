@@ -10,7 +10,9 @@
  * the redirect and the death, thrown, so a check reads where a handler was sending the browser; and
  * the accounts query (`WP_User_Query`), answered over the fixture accounts the way WordPress answers
  * the arguments a screen passes, anything else it is asked kept apart for the suite's last check;
- * and core's `remove_accents()`, for the names a list that orders its accounts itself compares.
+ * core's `remove_accents()`, for the names a list that orders its accounts itself compares; and
+ * core's plural held for later (`_n_noop()`, `translate_nooped_plural()`), for a record view's label
+ * and the other words a screen picks by a count it reads later.
  * Each suite requires this file from its header, after its constants, and keeps its own fixtures, its
  * own stand-ins for the plugin's other classes and its checks.
  *
@@ -39,7 +41,8 @@ $GLOBALS['opts']             = array(); // Option => value: the invitation queue
 $GLOBALS['hooks']            = array(); // Hook => every callback added to it, with its priority and argument count.
 $GLOBALS['queries']          = array(); // Every WP_User_Query's arguments, in order.
 $GLOBALS['reads']            = array(); // Every read of an account: a query, a lookup, a meta read.
-$GLOBALS['mails']            = array(); // The accounts wp_new_user_notification() was asked to write to.
+$GLOBALS['mails']            = array(); // The accounts wp_new_user_notification() wrote its message to, as core would.
+$GLOBALS['sent']             = array(); // Each of those messages as the filters left it: the account, the subject, `$notify`.
 $GLOBALS['scheduled']        = array(); // Cron hook => the time it is next due.
 $GLOBALS['nonce_checks']     = array(); // The action of every nonce check_admin_referer() was asked about.
 $GLOBALS['screen_options']   = array(); // Option => the arguments add_screen_option() was given.
@@ -52,13 +55,18 @@ $GLOBALS['current_screen']   = null;    // What get_current_screen() answers: se
 $GLOBALS['list_screen']      = null;    // What convert_to_screen() answers when a table is built: none, unless a check plants one.
 $GLOBALS['l10n']             = array(); // Text => its translation, for a check that draws the screen in another language.
 
+// How a meta query is read, which every stand-in user query shares: this file's and the one in
+// bin/test-accounts-table.php.
+require_once __DIR__ . '/meta-matcher.php';
+
 /* ---- WordPress, as far as the screen reaches ----------------------------- */
 
 class WP_Error {
-	private $c, $m;
-	public function __construct( $c = '', $m = '', $d = null ) { $this->c = $c; $this->m = $m; }
+	private $c, $m, $d;
+	public function __construct( $c = '', $m = '', $d = null ) { $this->c = $c; $this->m = $m; $this->d = $d; }
 	public function get_error_message() { return $this->m; }
 	public function get_error_code() { return $this->c; }
+	public function get_error_data() { return $this->d; }
 }
 
 class WP_User {
@@ -82,7 +90,7 @@ class DieSignal extends Exception {}
 /**
  * The accounts query, answered over the fixture accounts the way WordPress answers it.
  *
- * What a screen asks: the role; every `meta_query` clause joined by AND, `EXISTS` and `NOT EXISTS`
+ * What a screen asks: the role; `meta_query` clauses as bin/stubs/meta-matcher.php reads them, each
  * on whether the key is there; a search with a wildcard at both ends as "contains" over the columns
  * named, without regard to case, as MySQL compares; `orderby` by name, username or ID, one with the
  * query's `order` or the array form, each key an orderby and its value that key's order, a key
@@ -239,41 +247,6 @@ function wpcpm_stub_orderby( array $args ) {
 }
 
 /**
- * Whether an account meets every clause of a meta query, joined with AND.
- *
- * @param int   $id      User ID.
- * @param array $clauses The meta query.
- * @return bool
- */
-function wpcpm_stub_meta_matches( $id, array $clauses ) {
-	foreach ( $clauses as $name => $clause ) {
-		if ( 'relation' === $name ) {
-			if ( 'AND' !== strtoupper( (string) $clause ) ) {
-				$GLOBALS['unmodeled'][] = 'meta_query relation ' . $clause;
-			}
-			continue;
-		}
-
-		$present = isset( $GLOBALS['umeta'][ $id ] ) && array_key_exists( $clause['key'], $GLOBALS['umeta'][ $id ] );
-		$compare = isset( $clause['compare'] ) ? $clause['compare'] : '=';
-
-		if ( 'EXISTS' === $compare ) {
-			if ( ! $present ) {
-				return false;
-			}
-		} elseif ( 'NOT EXISTS' === $compare ) {
-			if ( $present ) {
-				return false;
-			}
-		} else {
-			$GLOBALS['unmodeled'][] = 'meta_query compare ' . $compare;
-		}
-	}
-
-	return true;
-}
-
-/**
  * Whether an account matches the query's search, when it has one: "contains", over the named columns.
  *
  * @param WP_User $user The account.
@@ -313,8 +286,26 @@ function get_users( $args = array() ) {
 
 	return (array) $query->get_results();
 }
+/**
+ * An account by its ID, or by its address as WordPress finds one: the whole address, without regard
+ * to case, as MySQL compares it.
+ *
+ * @param string     $field `id` or `email`.
+ * @param int|string $value The ID or the address.
+ * @return WP_User|false
+ */
 function get_user_by( $field, $value ) {
 	$GLOBALS['reads'][] = 'user ' . $value;
+
+	if ( 'email' === $field ) {
+		foreach ( $GLOBALS['users'] as $user ) {
+			if ( '' !== trim( (string) $value ) && 0 === strcasecmp( (string) $user->user_email, trim( (string) $value ) ) ) {
+				return $user;
+			}
+		}
+
+		return false;
+	}
 
 	return isset( $GLOBALS['users'][ (int) $value ] ) ? $GLOBALS['users'][ (int) $value ] : false;
 }
@@ -352,8 +343,58 @@ function get_user_option( $option, $user = 0 ) {
 function get_edit_user_link( $id ) {
 	return $GLOBALS['no_editor'] ? '' : 'https://example.test/wp-admin/user-edit.php?user_id=' . (int) $id;
 }
+/**
+ * Core's login invitation, as far as a suite reads it, written when core writes it: the user's
+ * message for `user` and `both`, and for `''` only with the old second argument set, never for
+ * `admin`. The account it was written to is kept, and the message as the
+ * `wp_new_user_notification_email` filter left it, which core applies before sending, so a suite
+ * that hooks the plugin's own template reads what was sent: the account, the subject and the
+ * `$notify` it was asked with. The administrator's copy, which core sends for anything but `user`,
+ * is not modeled, so a call that would send it is noted in `$GLOBALS['unmodeled']`, which each
+ * suite's last check reads, and so is a `$notify` core refuses to read. The account is read straight
+ * from the fixture, so the send adds nothing to the reads a check counts.
+ *
+ * @param int    $id         User ID.
+ * @param mixed  $deprecated Core's old plain-text password argument: set, it makes `''` write the
+ *                           user's message.
+ * @param string $notify     Who is notified: `user`, `admin`, `both` or `''`.
+ */
 function wp_new_user_notification( $id, $deprecated = null, $notify = '' ) {
+	if ( ! in_array( $notify, array( 'user', 'admin', 'both', '' ), true ) ) {
+		$GLOBALS['unmodeled'][] = 'wp_new_user_notification() notify ' . ( is_scalar( $notify ) ? (string) $notify : gettype( $notify ) );
+
+		return;
+	}
+
+	if ( 'user' !== $notify ) {
+		$GLOBALS['unmodeled'][] = 'wp_new_user_notification() the administrator\'s copy';
+	}
+
+	if ( 'admin' === $notify || ( empty( $deprecated ) && empty( $notify ) ) ) {
+		return;
+	}
+
 	$GLOBALS['mails'][] = (int) $id;
+
+	$user     = isset( $GLOBALS['users'][ (int) $id ] ) ? $GLOBALS['users'][ (int) $id ] : null;
+	$blogname = (string) get_option( 'blogname', '' );
+	$email    = apply_filters(
+		'wp_new_user_notification_email',
+		array(
+			'to'      => $user ? $user->user_email : '',
+			'subject' => '[%s] Login Details',
+			'message' => '',
+			'headers' => '',
+		),
+		$user,
+		$blogname
+	);
+
+	$GLOBALS['sent'][] = array(
+		'id'      => (int) $id,
+		'subject' => sprintf( (string) $email['subject'], $blogname ),
+		'notify'  => $notify,
+	);
 }
 function get_option( $key, $default = false ) {
 	return array_key_exists( $key, $GLOBALS['opts'] ) ? $GLOBALS['opts'][ $key ] : $default;
@@ -395,6 +436,37 @@ function __( $text, $domain = 'default' ) {
 }
 function _n( $single, $plural, $number, $domain = 'default' ) {
 	return 1 === (int) $number ? $single : $plural;
+}
+/**
+ * Core's plural held for later, as `_n_noop()` holds it: both forms and the domain, translated once
+ * the count is known (`translate_nooped_plural()`).
+ *
+ * @param string      $singular The singular.
+ * @param string      $plural   The plural.
+ * @param string|null $domain   The text domain.
+ * @return array
+ */
+function _n_noop( $singular, $plural, $domain = null ) {
+	return array(
+		0          => $singular,
+		1          => $plural,
+		'singular' => $singular,
+		'plural'   => $plural,
+		'context'  => null,
+		'domain'   => $domain,
+	);
+}
+/**
+ * Core's translation of a held plural by a count: the singular for one, the plural otherwise, each
+ * through the screen's translations as `__()` reads them.
+ *
+ * @param array  $nooped_plural What `_n_noop()` held.
+ * @param int    $count         The count.
+ * @param string $domain        The text domain, when the held plural names none.
+ * @return string
+ */
+function translate_nooped_plural( $nooped_plural, $count, $domain = 'default' ) {
+	return __( _n( $nooped_plural['singular'], $nooped_plural['plural'], $count, $domain ), $domain );
 }
 function esc_html( $text ) {
 	return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8', false );

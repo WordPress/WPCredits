@@ -28,6 +28,11 @@
  * - The manager backstop refuses any existing account except a former member of this
  *   institution or a mentor, and a mentor keeps the Mentor role: `add_role()`, never
  *   `set_role()`, or the backstop would quietly demote somebody's mentor account.
+ * - The backstop is one institution's Manage members view on the Institutions screen's
+ *   Accounts tab, and a press made there comes back to it: every form on the block posts
+ *   the screen's flag, the block carries the anchor the handlers land on, and the address
+ *   is the institution's own (`manager_url()`), which the People card links a manager to
+ *   as well. A press made on the Institution Dashboard comes back to the dashboard.
  *
  * Run from the plugin root:  php bin/test-institution-people.php
  */
@@ -203,6 +208,7 @@ define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 
@@ -253,8 +259,9 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 	/**
 	 * The invitation queue: recorded, never sent, exactly as the real one is asked to behave.
 	 *
-	 * **Including the drop.** The real `queue_invites()` skips anybody already carrying any
-	 * invited stamp, and `attach()` never clears one, so an adopted mentor and a re-added
+	 * **Including the drop.** The real `queue_invites()` skips anybody already carrying any of
+	 * the four invited stamps (bin/stubs/stamps.php, the map every stand-in mail class reads),
+	 * whatever it holds, and `attach()` never clears one, so an adopted mentor and a re-added
 	 * former member are queued nothing at all. A stub that queued everybody let the card
 	 * promise an invitation that would never be sent, which is the whole of what these
 	 * assertions are for. It returns how many were actually queued, as the real one does.
@@ -263,12 +270,11 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 		public static function queue_invites( array $user_ids ) {
 			$fresh = 0;
 			foreach ( $user_ids as $id ) {
-				if (
-					get_user_meta( $id, 'wpcpm_student_invited', true )
-					|| get_user_meta( $id, 'wpcpm_mentor_invited', true )
-					|| get_user_meta( $id, 'wpcpm_inst_invited', true )
-				) {
-					continue;
+				// Any of the four stamps, there whatever it holds, as the real one reads them.
+				foreach ( WPCPM_STUB_STAMPS as $meta ) {
+					if ( isset( $GLOBALS['umeta'][ (int) $id ] ) && array_key_exists( $meta, $GLOBALS['umeta'][ (int) $id ] ) ) {
+						continue 2;
+					}
 				}
 				$GLOBALS['queued'][] = (int) $id;
 				++$fresh;
@@ -299,9 +305,9 @@ function ck( $label, $actual, $expected ) {
 }
 function has( $haystack, $needle ) { return false !== strpos( $haystack, $needle ); }
 function meta( $id, $k ) { return $GLOBALS['umeta'][ $id ][ $k ] ?? null; }
-function flash() { return $GLOBALS['umeta'][ $GLOBALS['uid'] ]['wpcpm_flash']['institution_people'] ?? null; }
+function flash() { return $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ]['institution_people'] ?? null; }
 function flash_status() { $f = flash(); return is_array( $f ) ? $f['status'] : $f; }
-function clear_flash() { unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ]['wpcpm_flash'] ); }
+function clear_flash() { unset( $GLOBALS['umeta'][ $GLOBALS['uid'] ][ WPCPM_Flash::META ] ); }
 /** Run a handler and report how it ended: a redirect, a wp_die, or nothing at all. */
 function run( $method ) {
 	try {
@@ -323,6 +329,24 @@ function render_manager_block( $viewer, $record ) {
 	ob_start();
 	WPCPM_Institution_People::render_manager( $record );
 	return (string) ob_get_clean();
+}
+/**
+ * Each form some markup draws: the admin-post action it posts and the `wpcpm_from` it posts with
+ * it, '' for none, in document order.
+ *
+ * @param string $html Markup.
+ * @return array[] Pairs of action and flag.
+ */
+function returns_of( $html ) {
+	preg_match_all( '#<form\b[^>]*>(.*?)</form>#s', (string) $html, $found );
+	$forms = array();
+	foreach ( $found[1] as $form ) {
+		$forms[] = array(
+			preg_match( '#name="action" value="([^"]*)"#', $form, $action ) ? $action[1] : '',
+			preg_match( '#name="wpcpm_from" value="([^"]*)"#', $form, $from ) ? $from[1] : '',
+		);
+	}
+	return $forms;
 }
 /**
  * Whether one call comes before another in a method body, with both of them present.
@@ -460,6 +484,7 @@ $block = render_manager_block( 1, $D );
 ck( 'the manager screen lists the contact too', has( $block, 'Dana Dean' ), true );
 ck( 'and counts it the same way', has( $block, '<span class="wpcpm-people__count">1</span>' ), true );
 ck( 'and still names the gap it can close', has( $block, 'no member holds that address' ), true );
+ck( 'a manager\'s card links Add or re-add to the institution\'s own Manage members view on the Institutions screen', has( $named, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $D . '">Add or re-add an account on the Institutions screen</a>' ), true );
 
 echo "\n=== The program's contact is marked, and the mark takes nothing away ===\n";
 
@@ -552,7 +577,7 @@ echo "\n=== Removing a membership that has already ended ===\n";
 // that: a manager is answered where they pressed, and a stranger learns nothing.
 $GLOBALS['uid'] = 1;
 $_POST          = array( 'member' => 13, 'wpcpm_from' => 'admin' );
-ck( 'a manager pressing Remove on it is answered, not silenced', run( 'handle_remove_member' ), 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions#wpcpm-people' );
+ck( 'a manager pressing Remove on it on the Institutions screen is answered on that institution\'s Manage members view, not silenced', run( 'handle_remove_member' ), 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $A . '#wpcpm-people' );
 ck( 'with the outcome filed against the institution it left', array( flash_status(), flash()['record'] ), array( 'ended', $A ) );
 ck( 'and nothing detached, because nothing was attached', WPCPM_Institution_Members::institution_of( 13 ), '' );
 clear_flash();
@@ -567,7 +592,7 @@ echo "\n=== The last member may leave, and is warned ===\n";
 // The contact goes first, by the manager, so the viewer is the only one left.
 $GLOBALS['uid'] = 1;
 $_POST          = array( 'member' => 8, 'wpcpm_from' => 'admin' );
-ck( 'a manager removes the contact from the admin screen', run( 'handle_remove_member' ), 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions#wpcpm-people' );
+ck( 'a manager removes the contact on the Institutions screen and lands back on that institution\'s Manage members view', run( 'handle_remove_member' ), 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $A . '#wpcpm-people' );
 clear_flash();
 
 $card = render_card( 7, $A );
@@ -624,14 +649,19 @@ echo "\n=== Add account: an existing account is adopted only in two cases ===\n"
 $GLOBALS['uid']      = 1;
 $GLOBALS['inserted'] = array();
 $GLOBALS['queued']   = array();
+$GLOBALS['referer']  = array();
 $_POST               = array( 'record' => $A, 'name' => 'Eve Editor', 'email' => 'eve@example.test', 'wpcpm_from' => 'admin' );
 $ending              = run( 'handle_add_account' );
+
+// Keyed to the institution, as Re-add's and Remove's are to the member, so a nonce taken from one
+// institution's form is no use on another's.
+ck( 'the nonce it checks is keyed to the institution posted', $GLOBALS['referer'], array( 'wpcpm_add_institution_account_' . $A ) );
 
 ck( 'an editor with an account is refused', flash_status(), 'conflict' );
 ck( 'the refusal names the account, so a manager can go and look', flash()['detail'], 'eveeditor' );
 ck( 'nothing was created', $GLOBALS['inserted'], array() );
 ck( 'and nothing was attached', WPCPM_Institution_Members::institution_of( 11 ), '' );
-ck( 'it returns to the screen it was pressed on', $ending, 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions#wpcpm-people' );
+ck( 'it returns to the institution\'s Manage members view it was pressed on', $ending, 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $A . '#wpcpm-people' );
 clear_flash();
 
 $_POST = array( 'record' => $A, 'name' => 'Frank Former', 'email' => 'frank@example.test', 'wpcpm_from' => 'admin' );
@@ -669,9 +699,10 @@ echo "\n=== Add account: a fresh address gets a fresh account ===\n";
 $GLOBALS['inserted'] = array();
 $GLOBALS['queued']   = array();
 $_POST               = array( 'record' => $B, 'name' => 'Hana Nowa', 'email' => 'hana@example.test', 'wpcpm_from' => 'admin' );
-run( 'handle_add_account' );
+$ending              = run( 'handle_add_account' );
 
 ck( 'one account was created', count( $GLOBALS['inserted'] ), 1 );
+ck( 'and the press lands on that institution\'s Manage members view, where it was made', $ending, 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $B . '#wpcpm-people' );
 ck( 'with the Institution role and the name that was typed', array( $GLOBALS['inserted'][0]['role'], $GLOBALS['inserted'][0]['display_name'] ), array( 'wpcpm_institution', 'Hana Nowa' ) );
 ck( 'the username is the local part of the address', $GLOBALS['inserted'][0]['user_login'], 'hana' );
 ck( 'the password is not one anybody chose', 24, strlen( $GLOBALS['inserted'][0]['user_pass'] ) );
@@ -724,9 +755,10 @@ $GLOBALS['uid']     = 1;
 $GLOBALS['queued']  = array();
 $GLOBALS['referer'] = array();
 $_POST              = array( 'member' => 8, 'record' => $A, 'wpcpm_from' => 'admin' );
-run( 'handle_readd' );
+$ending             = run( 'handle_readd' );
 
 ck( 'the contact who was removed is back', WPCPM_Institution_Members::institution_of( 8 ), $A );
+ck( 'and the press lands on that institution\'s Manage members view, where it was made', $ending, 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $A . '#wpcpm-people' );
 ck( 'the nonce was keyed to the subject account', $GLOBALS['referer'], array( 'wpcpm_readd_institution_member_8' ) );
 ck( 'the outcome says so', flash_status(), 'readded' );
 ck( 'and an invitation is queued for an account that has never had one', $GLOBALS['queued'], array( 8 ) );
@@ -801,7 +833,7 @@ $block = (string) ob_get_clean();
 ck( 'it lists the live members', has( $block, 'Hana Nowa' ), true );
 ck( 'it says when Airtable\'s contact is nobody here', has( $block, 'and no member holds that address' ), true );
 ck( 'naming the address', has( $block, 'rector@example.test' ), true );
-ck( 'it offers the Add account form', has( $block, 'name="action" value="wpcpm_add_institution_account"' ), true );
+ck( 'it offers the Add account form, its nonce keyed to the institution', array( has( $block, 'name="action" value="wpcpm_add_institution_account"' ), has( $block, 'name="_wpnonce" value="nonce-wpcpm_add_institution_account_' . $B . '"' ) ), array( true, true ) );
 ck( 'and says what that refuses', has( $block, 'only adopted when that account was a member of this institution or is a mentor' ), true );
 
 ob_start();
@@ -810,6 +842,88 @@ $block = (string) ob_get_clean();
 
 ck( 'former members are listed with a Re-add', array( has( $block, 'Grace Third' ), has( $block, 'name="action" value="wpcpm_readd_institution_member"' ) ), array( true, true ) );
 ck( 'and the read time is printed here too', has( $block, 'were read ' . gmdate( 'Y-m-d H:i', 1756000000 ) ), true );
+
+// Each form, by the action it posts, with what its `wpcpm_from` says ('' for none): the flag
+// `finish()` rebuilds the way back from.
+$returns = array();
+foreach ( returns_of( $block ) as $form ) {
+	$returns[ $form[0] ][ $form[1] ] = true;
+}
+
+ck( 'every form on the block comes back to the Institutions screen: Remove, Re-add and Add account each post its flag', array_map( 'array_keys', $returns ), array(
+	'wpcpm_remove_member'            => array( 'admin' ),
+	'wpcpm_readd_institution_member' => array( 'admin' ),
+	'wpcpm_add_institution_account'  => array( 'admin' ),
+) );
+ck( 'and the block carries the anchor every one of them lands on, once', substr_count( $block, 'id="wpcpm-people"' ), 1 );
+ck( 'while every form on the dashboard\'s card comes back to the dashboard: none posts the flag', array_values( array_unique( array_column( returns_of( render_card( 1, $A, true ) ), 1 ) ) ), array( '' ) );
+
+// The block is drawn in wp-admin, where only core's button classes dress a button: Remove takes
+// them there as Re-add and Add account already do, and the dashboard's card keeps its own class,
+// which the dashboard's stylesheet dresses.
+$dash_card = render_card( 1, $A, true );
+
+ck( 'the block\'s Remove is a core button on every member\'s row, and the Institution Dashboard card\'s Remove keeps its own class alone', array(
+	substr_count( $block, '<button type="submit" class="button button-secondary wpcpm-people__remove" onclick=' ),
+	substr_count( $block, 'class="wpcpm-people__remove"' ),
+	substr_count( $dash_card, '<button type="submit" class="wpcpm-people__remove" onclick=' ),
+	substr_count( $dash_card, 'button-secondary wpcpm-people__remove' ),
+), array(
+	count( WPCPM_Institution_Members::members_of( $A ) ),
+	0,
+	count( WPCPM_Institution_Members::members_of( $A ) ),
+	0,
+) );
+
+// A record the pipeline index no longer holds draws no block, so the outcome of a press that
+// landed on its view is printed on its own: both channels, in the block's box and on the anchor
+// the landing names, and taken either way rather than left waiting in user meta.
+$GLOBALS['users'][18] = new WP_User( 18, 'Tao Manager', 'tao@example.test', array( 'subscriber' ) );
+$GLOBALS['manage'][]  = 18;
+WPCPM_Flash::set( 'institution_people', array( 'status' => 'unknown-record', 'detail' => '', 'record' => $C ), 18 );
+WPCPM_Flash::set( WPCPM_Institution_Invite::FLASH, array( 'status' => 'invite-unknown', 'detail' => '', 'record' => $C ), 18 );
+$flash_waiting  = isset( $GLOBALS['umeta'][18][ WPCPM_Flash::META ] );
+$GLOBALS['uid'] = 18;
+ob_start();
+if ( method_exists( 'WPCPM_Institution_People', 'render_outcome' ) ) {
+	WPCPM_Institution_People::render_outcome( $C );
+}
+$outcome = (string) ob_get_clean();
+
+ck( 'the outcome of a press on a view that draws no block is printed on its own, both channels, in the block\'s box on its anchor, and taken', array(
+	0 === strpos( $outcome, '<div class="wpcpm-people wpcpm-people--admin" id="wpcpm-people">' ),
+	has( $outcome, 'That institution is not in the pipeline index. Run the institutions sync, then try again.' ),
+	has( $outcome, 'This institution is not in the program&#039;s index on this site yet' ),
+	$flash_waiting,
+	isset( $GLOBALS['umeta'][18][ WPCPM_Flash::META ] ),
+), array( true, true, true, true, false ) );
+
+ob_start();
+if ( method_exists( 'WPCPM_Institution_People', 'render_outcome' ) ) {
+	WPCPM_Institution_People::render_outcome( $B );
+}
+ck( 'and with no outcome to print, nothing at all, not an empty box', array( method_exists( 'WPCPM_Institution_People', 'render_outcome' ), (string) ob_get_clean() ), array( true, '' ) );
+
+// An invitation's outcome lands on the same view when its control was pressed there, so the
+// block prints that channel too, as the card does.
+$GLOBALS['users'][17] = new WP_User( 17, 'Sol Manager', 'sol@example.test', array( 'subscriber' ) );
+$GLOBALS['manage'][]  = 17;
+WPCPM_Flash::set( WPCPM_Institution_Invite::FLASH, array( 'status' => 'invite-resent', 'detail' => 'colleague@example.test', 'record' => $A ), 17 );
+$resent_block = render_manager_block( 17, $A );
+
+ck( 'an invitation\'s outcome that lands on the view is printed in the block, once, as the card prints it', array( has( $resent_block, 'The invitation was sent again, with a new link.' ), substr_count( $resent_block, 'wpcpm-people__message' ) ), array( true, 1 ) );
+
+$manager_url = new ReflectionMethod( 'WPCPM_Institution_People', 'manager_url' );
+
+ck( 'the view\'s address is one public method, the institution in it; a value that is no record ID answers the Accounts tab\'s list', array(
+	$manager_url->isPublic() && $manager_url->isStatic(),
+	$manager_url->isPublic() ? WPCPM_Institution_People::manager_url( ' ' . $A . ' ' ) : 'not public',
+	$manager_url->isPublic() ? WPCPM_Institution_People::manager_url( 'not-a-record' ) : 'not public',
+), array(
+	true,
+	'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $A,
+	'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts',
+) );
 
 $GLOBALS['uid'] = 7;
 ob_start();

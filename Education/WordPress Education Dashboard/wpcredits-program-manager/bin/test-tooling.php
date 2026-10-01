@@ -24,9 +24,10 @@
  *
  * A section checks that the references check reads a trait the way PHP does: its methods are the
  * methods of each class that uses it, and its `self::` and `static::` name that class, so a constant
- * the trait reads is checked in each class that uses it, but for a method the class replaces. The
- * audience screens share their plumbing as a trait, and a check that read only classes flagged each
- * module's call to it and never checked the trait's own references.
+ * the trait reads is checked in each class that uses it, but for a method the class replaces, unless
+ * the class keeps the trait's under another name with `as`, which it then still runs. The audience
+ * screens share their plumbing as a trait, and a check that read only classes flagged each module's
+ * call to it and never checked the trait's own references.
  *
  * The last checks that the suites can run on PHP 7.4, the oldest PHP the plugin supports. A suite
  * that reaches a private or protected method through reflection has to make it accessible first
@@ -542,6 +543,98 @@ ck( 'and reads both traits of a `use` naming two, with or without a block adapti
 		$pairs_line,
 	),
     array( 1, 1, true, true, '3 classes, 8 references checked, 0 form handlers scanned - 2 PROBLEM(S)' ) );
+
+// A class that declares a method of the trait's name replaces the trait's, and the references in the
+// trait's body are not its to answer for; one that keeps the trait's method under another name with
+// `as` still runs that body under the other name, so they are its own again, and the other name is
+// one of its methods. The scratch tree holds a trait whose one method reads a constant nobody
+// declares, a class that replaces the method, and a class that replaces it too but keeps the trait's
+// under another name and calls it by that name.
+$kept = $scratch . '/traits-kept';
+
+put( $kept . '/bin/check-references.php', (string) file_get_contents( $root . '/bin/check-references.php' ) );
+put( $kept . '/includes/trait-wpcpm-probe-shared.php', "<?php\ntrait WPCPM_Probe_Shared {\n\tpublic static function load() {\n\t\treturn static::MISSING;\n\t}\n}\n" );
+put( $kept . '/includes/class-wpcpm-probe-replaced.php', "<?php\nclass WPCPM_Probe_Replaced {\n\tuse WPCPM_Probe_Shared;\n\n\tpublic static function load() {\n\t\treturn 1;\n\t}\n}\n" );
+put( $kept . '/includes/class-wpcpm-probe-kept.php', "<?php\nclass WPCPM_Probe_Kept {\n\tuse WPCPM_Probe_Shared {\n\t\tload as private load_shared;\n\t}\n\n\tpublic static function load() {\n\t\treturn self::load_shared();\n\t}\n}\n" );
+
+$kept_run = run( 'php ' . escapeshellarg( $kept . '/bin/check-references.php' ) );
+
+ck( 'a class keeping a trait\'s method under another name answers for the references in its body, which a class replacing the method does not, and calls it by the other name without a report',
+    array(
+		$kept_run['status'],
+		substr_count( $kept_run['out'], 'UNDEFINED' ),
+		false !== strpos( $kept_run['out'], 'UNDEFINED  WPCPM_Probe_Kept::MISSING' ),
+		false !== strpos( $kept_run['out'], 'WPCPM_Probe_Replaced::MISSING' ),
+		false !== strpos( $kept_run['out'], 'load_shared' ),
+	),
+    array( 1, 1, true, false, false ) );
+
+// The other spellings of the rule. One that only changes the method's visibility (`load as
+// protected;`) gives it no other name, so the class's own method still replaces the trait's. One
+// that names the trait (`WPCPM_Probe_Shared::load as load_shared;`) keeps that trait's method, as
+// the unqualified form does. And it keeps that trait's alone: a class using a second trait with a
+// method of the same name, which the class's own replaces, answers for the first trait's body and
+// not for the second's.
+$spelled = $scratch . '/traits-spelled';
+
+put( $spelled . '/bin/check-references.php', (string) file_get_contents( $root . '/bin/check-references.php' ) );
+put( $spelled . '/includes/trait-wpcpm-probe-shared.php', "<?php\ntrait WPCPM_Probe_Shared {\n\tpublic static function load() {\n\t\treturn static::MISSING;\n\t}\n}\n" );
+put( $spelled . '/includes/trait-wpcpm-probe-other.php', "<?php\ntrait WPCPM_Probe_Other {\n\tpublic static function load() {\n\t\treturn static::OTHER_MISSING;\n\t}\n}\n" );
+put( $spelled . '/includes/class-wpcpm-probe-visible.php', "<?php\nclass WPCPM_Probe_Visible {\n\tuse WPCPM_Probe_Shared {\n\t\tload as protected;\n\t}\n\n\tpublic static function load() {\n\t\treturn 1;\n\t}\n}\n" );
+put( $spelled . '/includes/class-wpcpm-probe-qualified.php', "<?php\nclass WPCPM_Probe_Qualified {\n\tuse WPCPM_Probe_Shared {\n\t\tWPCPM_Probe_Shared::load as load_shared;\n\t}\n\n\tpublic static function load() {\n\t\treturn self::load_shared();\n\t}\n}\n" );
+put( $spelled . '/includes/class-wpcpm-probe-two.php', "<?php\nclass WPCPM_Probe_Two {\n\tuse WPCPM_Probe_Shared, WPCPM_Probe_Other {\n\t\tWPCPM_Probe_Shared::load as load_shared;\n\t}\n\n\tpublic static function load() {\n\t\treturn self::load_shared();\n\t}\n}\n" );
+
+$spelled_run = run( 'php ' . escapeshellarg( $spelled . '/bin/check-references.php' ) );
+
+ck( 'a rule changing only the visibility still lets the class\'s method replace the trait\'s; one naming the trait keeps that trait\'s method under the other name, and that trait\'s alone',
+    array(
+		$spelled_run['status'],
+		substr_count( $spelled_run['out'], 'UNDEFINED' ),
+		false !== strpos( $spelled_run['out'], 'WPCPM_Probe_Visible::' ),
+		false !== strpos( $spelled_run['out'], 'UNDEFINED  WPCPM_Probe_Qualified::MISSING' ),
+		false !== strpos( $spelled_run['out'], 'UNDEFINED  WPCPM_Probe_Two::MISSING' ),
+		false !== strpos( $spelled_run['out'], 'OTHER_MISSING' ),
+		false !== strpos( $spelled_run['out'], 'load_shared' ),
+	),
+    array( 1, 2, false, true, true, false, false ) );
+
+/* ---- bin/make-pot.sh and the translation template ------------------------ */
+
+echo "\n=== bin/make-pot.sh and the translation template ===\n";
+
+// The suites and their stand-ins call the translation functions with the plugin's text domain, so
+// a template read from bin/ carries their strings: in release 1.121.0 a suite's stand-in gave the
+// No account view's entry its plural. The script reads the tree by one list of folders it skips, the
+// ones the zip leaves out and the hidden ones, on both of its paths, WP-CLI's and gettext's; and the
+// template it wrote names no file under bin/, docs/ or a hidden folder.
+$make_pot = (string) file_get_contents( $root . '/bin/make-pot.sh' );
+$skip     = preg_match( '/^SKIP="([^"]*)"$/m', $make_pot, $skip_line ) ? preg_split( '/\s+/', trim( $skip_line[1] ) ) : array();
+$template = (string) file_get_contents( $root . '/languages/wpcredits-program-manager.pot' );
+
+preg_match_all( '/^#: (.+)$/m', $template, $reference_lines );
+
+$read_from = array();
+foreach ( $reference_lines[1] as $line ) {
+	foreach ( preg_split( '/\s+/', trim( $line ) ) as $reference ) {
+		$read_from[] = preg_replace( '/:\d+$/', '', $reference );
+	}
+}
+
+ck( 'both of the script\'s paths skip one list, which holds bin/, docs/ and the hidden folders that hold copies of the plugin',
+	array(
+		array_values( array_intersect( array( 'bin', 'docs', '.superpowers', '.worktrees' ), $skip ) ),
+		1 === preg_match( '/wp i18n make-pot [^\n]*--exclude="\$\( echo \$SKIP \| tr \' \' \',\' \)"/', $make_pot ),
+		1 === preg_match( '/for dir in \$SKIP; do\s+PRUNE="\$PRUNE -not -path \.\/\$dir\/\*"/', $make_pot ),
+		1 === preg_match( '/find \. -name \'\*\.php\' \$PRUNE/', $make_pot ),
+	),
+	array( array( 'bin', 'docs', '.superpowers', '.worktrees' ), true, true, true ) );
+ck( 'the template names no file under bin/, docs/ or a hidden folder, and is read from the plugin\'s own files',
+	array(
+		array_values( array_unique( array_filter( $read_from, function ( $path ) { return 1 === preg_match( '#^(bin/|docs/|\.)#', $path ); } ) ) ),
+		count( $read_from ) > 1000,
+		in_array( 'wpcredits-program-manager.php', $read_from, true ),
+	),
+	array( array(), true, true ) );
 
 /* ---- The suites on PHP 7.4 ----------------------------------------------- */
 

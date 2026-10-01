@@ -56,6 +56,21 @@ class WPCPM_Mail {
 	const INVITE_GAP = 900;
 
 	/**
+	 * The invitation stamps, by the program role each belongs to: user meta holding when the account
+	 * was last sent its login invitation, as a Unix time.
+	 *
+	 * One map for the rule every route stamps by (`stamp_invited()`) and for every reader of who was
+	 * sent one (`last_invited()`, `queue_invites()`, `never_invited()`, the accounts tables' views),
+	 * so the mail layer spells each key once.
+	 */
+	const STAMPS = array(
+		WPCPM_Roles::ROLE_STUDENT     => 'wpcpm_student_invited',
+		WPCPM_Roles::ROLE_MENTOR      => 'wpcpm_mentor_invited',
+		WPCPM_Roles::ROLE_INSTITUTION => 'wpcpm_inst_invited',
+		WPCPM_Roles::ROLE_SPONSOR     => 'wpcpm_sponsor_invited',
+	);
+
+	/**
 	 * What a bulk invite is working through, so a screen can show progress.
 	 *
 	 * The queue only knows who is *left*. Sending 241 invitations ten at a time takes the better
@@ -518,16 +533,14 @@ class WPCPM_Mail {
 		$fresh = array();
 
 		foreach ( array_diff( $ids, $queue ) as $id ) {
-			// Any of the stamps: this does not need to know which kind of person it is looking
-			// at, and an account holding more than one role has still been written to whichever
-			// way `drain_queue()` chose to stamp it. The sponsor stamp joined in 1.93.0.
-			if (
-				get_user_meta( $id, 'wpcpm_student_invited', true )
-				|| get_user_meta( $id, 'wpcpm_mentor_invited', true )
-				|| get_user_meta( $id, 'wpcpm_inst_invited', true )
-				|| get_user_meta( $id, 'wpcpm_sponsor_invited', true )
-			) {
-				continue;
+			// Any of the stamps, there whatever it holds, as the lists' views and `never_invited()`
+			// read them: this does not need to know which kind of person it is looking at, an
+			// account given a role after its invitation carries no stamp for that one, though its
+			// one password was sent a link, and a stamp of 0 is somebody having written one.
+			foreach ( self::STAMPS as $meta ) {
+				if ( metadata_exists( 'user', $id, $meta ) ) {
+					continue 2;
+				}
 			}
 
 			$fresh[] = $id;
@@ -609,6 +622,9 @@ class WPCPM_Mail {
 
 	/**
 	 * Send the next batch of invitations.
+	 *
+	 * After each message the account is stamped by the rule every route that sends an invitation
+	 * follows (`stamp_invited()`).
 	 */
 	public static function drain_queue() {
 		$queue = self::queue();
@@ -645,20 +661,7 @@ class WPCPM_Mail {
 			}
 
 			wp_new_user_notification( $user->ID, null, 'user' );
-
-			// The same order `welcome_email()` chooses the template in, so the stamp an account
-			// carries names the invitation it was actually sent.
-			if ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_MENTOR ) ) {
-				$meta = 'wpcpm_mentor_invited';
-			} elseif ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_INSTITUTION ) ) {
-				$meta = 'wpcpm_inst_invited';
-			} elseif ( WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_SPONSOR ) ) {
-				$meta = 'wpcpm_sponsor_invited';
-			} else {
-				$meta = 'wpcpm_student_invited';
-			}
-
-			update_user_meta( $user->ID, $meta, time() );
+			self::stamp_invited( $user );
 		}
 
 		if ( ! empty( $queue ) ) {
@@ -669,6 +672,49 @@ class WPCPM_Mail {
 			// moment and a screen reading the earlier one would say "finished" mid-send.
 			self::finish_run();
 		}
+	}
+
+	/**
+	 * Stamp an account as sent its login invitation, by the one rule every route that sends one
+	 * follows: the queue (`drain_queue()`), and the Students, Mentors and Institutions syncs'
+	 * `send_invite()` for one person.
+	 *
+	 * Each program role the account holds is asked on its own and stamped under its key (`STAMPS`),
+	 * all at one moment, the one given or now; an account holding none of them is stamped as a
+	 * student. A key is its audience's own record of the invitation, the one that audience's code
+	 * names (`WPCPM_Accounts_Table::invite_meta()`, the members classes' `META_INVITED`), so an
+	 * account in two audiences is stamped for both, whichever route sent its message. An account
+	 * holding no program role carries a stamp all the same: `may_invite()` reads it to keep a second
+	 * message from canceling the link in the first. Who was sent one is read from any key
+	 * (`last_invited()`, `queue_invites()`, `never_invited()`, the lists' views), because an account
+	 * has one password.
+	 *
+	 * The message is one template all the same, the one `welcome_email()` chooses in its own order,
+	 * because the template is what the person reads and the stamps are what the lists read.
+	 *
+	 * @param WP_User $user The account the invitation went to.
+	 * @param int     $time When it went, as a Unix time; 0 for now.
+	 * @return string[] The keys written, in the order of `STAMPS`.
+	 */
+	public static function stamp_invited( WP_User $user, $time = 0 ) {
+		$time   = $time ? (int) $time : time();
+		$stamps = array();
+
+		foreach ( self::STAMPS as $role => $meta ) {
+			if ( WPCPM_Roles::user_has_role( $user, $role ) ) {
+				$stamps[] = $meta;
+			}
+		}
+
+		if ( empty( $stamps ) ) {
+			$stamps[] = self::STAMPS[ WPCPM_Roles::ROLE_STUDENT ];
+		}
+
+		foreach ( $stamps as $meta ) {
+			update_user_meta( $user->ID, $meta, $time );
+		}
+
+		return $stamps;
 	}
 
 	/**
@@ -684,7 +730,7 @@ class WPCPM_Mail {
 	public static function last_invited( $user_id ) {
 		$last = 0;
 
-		foreach ( array( 'wpcpm_student_invited', 'wpcpm_mentor_invited', 'wpcpm_inst_invited', 'wpcpm_sponsor_invited' ) as $meta ) {
+		foreach ( self::STAMPS as $meta ) {
 			$last = max( $last, (int) get_user_meta( (int) $user_id, $meta, true ) );
 		}
 
@@ -694,10 +740,11 @@ class WPCPM_Mail {
 	/**
 	 * Whether an invitation may go to somebody now: true, or why not.
 	 *
-	 * The one check every route asks before it sends - Resend invite on the Students and Mentors
-	 * screens, and the queue - so no route cancels a link another sent inside `INVITE_GAP`. The
-	 * queue stamps only after it sends, so two runs racing each other can still both send in the
-	 * moment before either stamps: this narrows that window to the send itself, it does not close it.
+	 * The one check every route asks before it sends - the Students, Mentors and Institutions
+	 * syncs' `send_invite()`, one person at a time, and the queue - so no route cancels a link
+	 * another sent inside `INVITE_GAP`. The queue stamps only after it sends, so two runs racing
+	 * each other can still both send in the moment before either stamps: this narrows that window
+	 * to the send itself, it does not close it.
 	 *
 	 * @param int $user_id User ID.
 	 * @return true|WP_Error `wpcpm_invite_too_soon`, carrying the seconds still to wait as `wait`.
@@ -736,7 +783,8 @@ class WPCPM_Mail {
 	}
 
 	/**
-	 * The two notices a Resend invite press can leave, worded once for the Students and Mentors screens.
+	 * The two notices a Resend invite press can leave, worded once for the Students, Mentors and
+	 * Institutions screens.
 	 *
 	 * The sent notice says the new email replaces the earlier link, because whoever pressed is
 	 * usually helping somebody whose link failed, and the old email is still in that inbox.
@@ -895,7 +943,7 @@ class WPCPM_Mail {
 	/**
 	 * The bulk-invite card: what would be sent, what is being sent, what was sent.
 	 *
-	 * One renderer for both module screens, because a students-shaped copy and a mentors-shaped
+	 * One renderer for every audience's screen, because a students-shaped copy and a mentors-shaped
 	 * copy of a control that emails hundreds of people is two places for the confirmation to be
 	 * wrong in.
 	 *
@@ -906,6 +954,10 @@ class WPCPM_Mail {
 	 *                           only the module knows which role it is inviting.
 	 *     @type int[]  $pending Users who have never been invited.
 	 *     @type string $noun    Plural noun for the people, already translated.
+	 *     @type array  $button  Optional: the button's words, as `_n_noop()` holds them, with one
+	 *                           `%s` where the count goes, for an audience the people's words do
+	 *                           not fit, such as accounts. By default the button says "Invite %1$d
+	 *                           %2$s who has never been invited", with the noun.
 	 *     @type array  $hidden  Fields the sending form posts besides its action, name => value.
 	 *     @type string $flash   The flash channel the screen reads its outcomes from, which the
 	 *                           Stop form names, so the screen says sending stopped.
@@ -1052,17 +1104,18 @@ class WPCPM_Mail {
 				esc_attr( (string) $value )
 			);
 		}
-		printf(
-			'<button type="submit" class="button button-primary">%s</button>',
-			esc_html(
-				sprintf(
-					/* translators: 1: how many people, 2: the people, e.g. "students". */
-					_n( 'Invite %1$d %2$s who has never been invited', 'Invite %1$d %2$s who have never been invited', $count, 'wpcredits-program-manager' ),
-					$count,
-					$noun
-				)
-			)
-		);
+		if ( isset( $args['button'] ) && is_array( $args['button'] ) ) {
+			$label = sprintf( translate_nooped_plural( $args['button'], $count, 'wpcredits-program-manager' ), number_format_i18n( $count ) );
+		} else {
+			$label = sprintf(
+				/* translators: 1: how many people, 2: the people, e.g. "students". */
+				_n( 'Invite %1$d %2$s who has never been invited', 'Invite %1$d %2$s who have never been invited', $count, 'wpcredits-program-manager' ),
+				$count,
+				$noun
+			);
+		}
+
+		printf( '<button type="submit" class="button button-primary">%s</button>', esc_html( $label ) );
 		echo '</form>';
 
 		printf(
@@ -1080,16 +1133,36 @@ class WPCPM_Mail {
 	}
 
 	/**
-	 * Everybody holding a role who has never been sent an invitation.
+	 * Everybody holding a role who has never been sent an invitation: none of the stamps there.
 	 *
-	 * `NOT EXISTS` rather than an empty-value test: `drain_queue()` stamps the meta as it sends, so
-	 * absence is the only reliable "never invited". A stamp of 0 would mean somebody wrote one.
+	 * Every stamp, not the role's own alone: an account has one password, so one sent an invitation
+	 * under another of its roles was sent one, as the queue (`queue_invites()`) and the gap
+	 * (`may_invite()`) read it and as each accounts list's views count. `NOT EXISTS` rather than an
+	 * empty-value test: every route stamps as it sends (`stamp_invited()`), so absence is the only
+	 * reliable "never invited". A stamp of 0 would mean somebody wrote one. A clause a stamp, not one
+	 * clause of the list: WordPress binds one key in the join a `NOT EXISTS` clause makes, and each
+	 * such join holds at most one row an account.
 	 *
 	 * @param string $role Role slug.
-	 * @param string $meta Meta key holding the invitation timestamp.
+	 * @param string $meta The role's own stamp, as its accounts table names it
+	 *                     (`WPCPM_Accounts_Table::invite_meta()`), which says whether the plugin
+	 *                     invites the role at all: '' for one it never invites, whose accounts are
+	 *                     all never invited, whatever stamps they carry. For any other role every
+	 *                     stamp is read.
 	 * @return int[] User IDs.
 	 */
 	public static function never_invited( $role, $meta ) {
+		// The empty key, which WordPress finds on no account, for a role the plugin never invites.
+		$keys  = '' === (string) $meta ? array( '' ) : array_values( self::STAMPS );
+		$query = array( 'relation' => 'AND' );
+
+		foreach ( $keys as $key ) {
+			$query[] = array(
+				'key'     => $key,
+				'compare' => 'NOT EXISTS',
+			);
+		}
+
 		return array_map(
 			'intval',
 			get_users(
@@ -1099,12 +1172,7 @@ class WPCPM_Mail {
 					'number'      => -1,
 					'orderby'     => 'ID',
 					'count_total' => false,
-					'meta_query'  => array(
-						array(
-							'key'     => $meta,
-							'compare' => 'NOT EXISTS',
-						),
-					),
+					'meta_query'  => $query,
 				)
 			)
 		);
@@ -1175,12 +1243,13 @@ class WPCPM_Mail {
 			return $email;
 		}
 
-		// One audience per message, chosen in the order `drain_queue()` picks the invited stamp
-		// in, so the stamp an account carries names the template it was sent. A mentor can also
-		// be an institution's member (membership is added to an existing account, never the
+		// One audience per message, in this order, whatever the account is stamped for: the
+		// template is what the person reads, while `stamp_invited()` stamps an account for each of
+		// the four program roles it holds, because the stamps are what the lists read. A mentor can
+		// also be an institution's member (membership is added to an existing account, never the
 		// other way round), and that account was a mentor's before it was anything else. The same
-		// holds for a sponsor's representative who is also a mentor - sponsorship is likewise
-		// added to an existing account, never the reverse - so mentor still wins there too.
+		// holds for a sponsor's representative who is also a mentor - sponsorship is likewise added
+		// to an existing account, never the reverse - so mentor still wins there too.
 		if ( $is_mentor ) {
 			$kind = 'mentor';
 		} elseif ( $is_institution ) {

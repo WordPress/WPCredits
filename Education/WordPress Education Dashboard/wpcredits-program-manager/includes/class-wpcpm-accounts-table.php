@@ -35,13 +35,15 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
  * `column_login()`), and a row's Edit, which an audience puts among its row's actions
  * (`edit_row_action()`).
  *
- * **Invited means the invitation stamp is there.** An invitation stamps the account's user meta
- * with the time it went out, under a key that follows the role, and a role the plugin never invites
- * has none (`invite_meta()`): `WPCPM_Mail::drain_queue()` writes it when the queue sends, and the
- * Students and Mentors syncs' `send_invite()` when one invitation goes. `WPCPM_Mail::never_invited()`
- * reads the stamp's absence as "never invited", and the invitations card counts the people it
- * returns, so the views read presence and absence too: the Never invited view counts by the card's
- * reading, and a stamp of 0 is still a stamp.
+ * **Invited means an invitation stamp is there, any of them.** An invitation stamps the account's
+ * user meta with the time it went out, under the key of each program role the account holds, by the
+ * one rule the queue and each sync's `send_invite()` stamp by (`WPCPM_Mail::stamp_invited()`), and a
+ * role the plugin never invites has no key of its own (`invite_meta()`). An account has one
+ * password, so one stamped under any of its roles was sent an invitation:
+ * `WPCPM_Mail::never_invited()` reads the absence of every stamp as "never invited", and the
+ * invitations card counts the people it returns, so the views, a row's invitation and the bulk
+ * actions read the presence and absence of the same stamps (`stamps_read()`): the Never invited view
+ * counts by the card's reading, and a stamp of 0 is still a stamp.
  *
  * The table is one form, so a row's invitation cannot be a form of its own: it is a nonce link to
  * the audience's invite handler, drawn with the row's other actions under its primary cell as core
@@ -51,6 +53,23 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
  * capability and the nonce, makes the call and carries what came of it back to its list, where its
  * screen prints it in those words. The columns a person hides under Screen Options stay hidden; the
  * primary one is never offered to hide (`columns_offered()`).
+ *
+ * **A record view lists what has no account yet.** Two audiences keep records before any account
+ * exists for them, an institution's and a sponsor's, and their lists need a view of those records,
+ * with a bulk action that creates the missing accounts. A table adds such a view through the record
+ * seams: its views and their counts (`record_views()`, `count_records()`), its rows
+ * (`record_rows()`), its columns and sorts (`record_columns()`, `record_sortable()`), a row's own
+ * actions (`record_row_actions()`) and its bulk actions (`record_bulk_actions()`), which the table
+ * carries out itself (`owns_action()`, `handle_action()`). The base draws a record view as it draws
+ * the account views: its link after the three invitation views, a row per record, paged here, each
+ * record's actions under its primary cell, and each record's checkbox posting its ID under
+ * `records[]` (`RECORDS_FIELD`). The invitation views go on counting accounts alone, since a record
+ * is none. Every seam answers none here, so a list that keeps no records draws its three invitation
+ * views and its accounts alone. A record view shares the screen's one list of hidden columns with
+ * the account views: core keeps one list a screen, and its script saves only the columns of the
+ * table on the page, so a column hidden under Screen Options on one kind of view forgets one hidden
+ * on the other. A column key both kinds have, hidden on one and primary on the other, is drawn all
+ * the same, since the primary column is never hidden (`prepare_items()`).
  *
  * **Built on an admin request only**, on the audience screen's `load-<hook>` or later, never on the
  * front end: core's constructor binds the table to the current screen through `convert_to_screen()`,
@@ -75,6 +94,9 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 
 	/** The name each row's checkbox posts its account's ID under, as `users[]`. */
 	const USERS_FIELD = 'users';
+
+	/** The name each record row's checkbox posts its record's ID under, as `records[]`, on a record view. */
+	const RECORDS_FIELD = 'records';
 
 	/** What a list nobody sorted is sorted by. */
 	const DEFAULT_ORDERBY = 'display_name';
@@ -245,36 +267,59 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The checkbox, then the audience's columns, their labels escaped: core prints them as given.
+	 * The checkbox, then the view's columns, their labels escaped: core prints them as given. The
+	 * view's columns are the audience's (`columns()`), or on a record view the view's own
+	 * (`record_columns()`), the checkbox before them too, for the view's bulk actions.
 	 *
 	 * @return array<string, string>
 	 */
 	public function get_columns() {
 		return array_merge(
 			array( 'cb' => '<input type="checkbox" />' ),
-			array_map( 'esc_html', $this->columns() )
+			array_map( 'esc_html', $this->view_columns() )
 		);
 	}
 
 	/**
-	 * A row's checkbox, posting the account's ID under `users[]`, labeled with the account's name.
+	 * A row's checkbox, labeled with the row's name: an account's ID under `users[]`, labeled with
+	 * the account's display name, or on a record view a record's ID under `records[]`, labeled with
+	 * the record's name, or with its ID where it has no name. One markup for both, so a change to how
+	 * a row is ticked reaches both.
 	 *
-	 * @param WP_User $user The row's account.
+	 * A record row whose ID is missing, empty or not a scalar draws none: a box with no ID would post
+	 * nothing, and every such row would share one HTML id, which its label would tick in its place.
+	 *
+	 * @param WP_User|array $item The row: an account, or a record on a record view.
 	 * @return string
 	 */
-	protected function column_cb( $user ) {
-		$id = 'wpcpm-account-' . (int) $user->ID;
+	protected function column_cb( $item ) {
+		if ( is_array( $item ) ) {
+			$value = ( isset( $item['id'] ) && is_scalar( $item['id'] ) ) ? (string) $item['id'] : '';
+
+			if ( '' === $value ) {
+				return '';
+			}
+
+			$field = self::RECORDS_FIELD;
+			$id    = 'wpcpm-record-' . $value;
+			$name  = ( isset( $item['name'] ) && is_scalar( $item['name'] ) && '' !== (string) $item['name'] ) ? (string) $item['name'] : $value;
+		} else {
+			$field = self::USERS_FIELD;
+			$value = (string) (int) $item->ID;
+			$id    = 'wpcpm-account-' . $value;
+			$name  = $item->display_name;
+		}
 
 		return sprintf(
-			'<input type="checkbox" name="%1$s[]" id="%2$s" value="%3$d" /><label for="%2$s"><span class="screen-reader-text">%4$s</span></label>',
-			esc_attr( self::USERS_FIELD ),
+			'<input type="checkbox" name="%1$s[]" id="%2$s" value="%3$s" /><label for="%2$s"><span class="screen-reader-text">%4$s</span></label>',
+			esc_attr( $field ),
 			esc_attr( $id ),
-			(int) $user->ID,
+			esc_attr( $value ),
 			esc_html(
 				sprintf(
-					/* translators: %s: the account's display name. */
+					/* translators: %s: the account's display name, or the name of a record that has no account. */
 					__( 'Select %s', 'wpcredits-program-manager' ),
-					$user->display_name
+					$name
 				)
 			)
 		);
@@ -286,7 +331,8 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 *
 	 * Drawn for any audience whose columns hold `name`, the primary column of every audience's list
 	 * so far. The value only: the row's actions come from `row_actions_for()`, drawn under it
-	 * (`handle_row_actions()`). An audience whose name cell says more draws its own.
+	 * (`handle_row_actions()`). An audience whose name cell says more draws its own. Never reached by
+	 * a record row: a record view names no `name` column (`record_columns()`).
 	 *
 	 * @param WP_User $user The row's account.
 	 * @return string
@@ -303,13 +349,31 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The username, as code: drawn for any audience whose columns hold `login`.
+	 * The username, as code: drawn for any audience whose columns hold `login`. Never reached by a
+	 * record row: a record view names no `login` column (`record_columns()`).
 	 *
 	 * @param WP_User $user The row's account.
 	 * @return string
 	 */
 	protected function column_login( $user ) {
 		return '<code>' . esc_html( $user->user_login ) . '</code>';
+	}
+
+	/**
+	 * A cell no `column_<key>()` method draws: on a record row, the record's value for the column, as
+	 * text, or '' where it holds none. An account row keeps core's default, which draws nothing: its
+	 * cells are the base's and the audience's `column_<key>()` methods.
+	 *
+	 * @param WP_User|array $item        The row: an account, or a record on a record view.
+	 * @param string        $column_name The cell's column.
+	 * @return string
+	 */
+	protected function column_default( $item, $column_name ) {
+		if ( ! is_array( $item ) ) {
+			return (string) parent::column_default( $item, $column_name );
+		}
+
+		return ( isset( $item[ $column_name ] ) && is_scalar( $item[ $column_name ] ) ) ? esc_html( (string) $item[ $column_name ] ) : '';
 	}
 
 	/**
@@ -328,7 +392,8 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The sortable columns in WordPress's shape, the one the list starts sorted by marked as such.
+	 * The sortable columns in WordPress's shape, the one the list starts sorted by marked as such;
+	 * on a record view, the view's own (`record_sortable()`).
 	 *
 	 * Arrays rather than bare orderby values, because the table sets its column headers itself and
 	 * core reads each entry as an array. The fifth entry is the order a list nobody sorted starts
@@ -337,6 +402,10 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * @return array<string, array>
 	 */
 	protected function get_sortable_columns() {
+		if ( '' !== $this->record_view() ) {
+			return $this->record_sortable();
+		}
+
 		$sortable = array();
 
 		foreach ( $this->sortable_map() as $column => $orderby ) {
@@ -349,12 +418,23 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The views: All, Invited and Never invited, with how many accounts each holds.
+	 * The views: All, Invited and Never invited, with how many accounts each holds, then each record
+	 * view the table has (`record_views()`), with how many records it holds (`count_records()`), its
+	 * label translated by that count, singular or plural, as the invitation views' are.
 	 *
 	 * @return array<string, string> View => link.
 	 */
 	protected function get_views() {
-		return $this->invite_views( $this->invite_counts() );
+		$views   = $this->invite_views( $this->invite_counts() );
+		$current = $this->current_view();
+
+		foreach ( $this->record_views() as $view => $label ) {
+			$count = (int) $this->count_records( $view );
+
+			$views[ $view ] = $this->view_link( $view, translate_nooped_plural( $label, $count, 'wpcredits-program-manager' ), $count, $current === $view );
+		}
+
+		return $views;
 	}
 
 	/**
@@ -394,14 +474,14 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * One view's link, with its count, marked as WordPress marks the view in force.
 	 *
 	 * The one markup every audience's views are drawn in, the three invitation views
-	 * (`invite_views()`) and an audience's own, so a change to how a view is linked, marked or counted
-	 * reaches every list. The link is the Accounts tab of the audience's screen, naming its view unless
-	 * it is All. The words are escaped and the count's markup is the table's, so a translation cannot
-	 * add markup.
+	 * (`invite_views()`), a record view (`get_views()`) and an audience's own, so a change to how a
+	 * view is linked, marked or counted reaches every list. The link is the Accounts tab of the
+	 * audience's screen, naming its view unless it is All. The words are escaped and the count's
+	 * markup is the table's, so a translation cannot add markup.
 	 *
 	 * @param string $view    The view: `all`, or one the table has.
 	 * @param string $label   The view's words, translated, with `%s` where the count goes.
-	 * @param int    $count   How many accounts the view holds.
+	 * @param int    $count   How many accounts, or on a record view records, the view holds.
 	 * @param bool   $current Whether it is the view in force.
 	 * @return string
 	 */
@@ -419,7 +499,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 *
 	 * Two counts through the audience's own query, so anything the audience narrows its list by
 	 * narrows the counts the same way. Not the search: the views count the whole list, as
-	 * WordPress's own views do. All is the sum, because a stamp is either there or not.
+	 * WordPress's own views do. All is the sum, because an account holds a stamp or holds none.
 	 *
 	 * @return array{all: int, invited: int, never-invited: int}
 	 */
@@ -435,14 +515,16 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The view in force: `invited`, `never-invited`, or `all` for none or one the table does not have.
+	 * The view in force: `invited`, `never-invited`, a record view the table has (`record_views()`),
+	 * or `all` for none or one the table does not have.
 	 *
 	 * @return string
 	 */
 	protected function current_view() {
-		$view = WPCPM_Request::key( self::VIEW_ARG );
+		$view    = WPCPM_Request::key( self::VIEW_ARG );
+		$records = $this->record_views();
 
-		return in_array( $view, array( 'invited', 'never-invited' ), true ) ? $view : 'all';
+		return ( in_array( $view, array( 'invited', 'never-invited' ), true ) || isset( $records[ $view ] ) ) ? $view : 'all';
 	}
 
 	/**
@@ -462,7 +544,8 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The bulk actions: send an invitation to the ticked accounts, or send another.
+	 * The bulk actions: send an invitation to the ticked accounts, or send another; on a record view,
+	 * the view's own (`record_bulk_actions()`), since a record has no account to invite.
 	 *
 	 * Public rather than core's protected, so code outside the table, a handler checking what was
 	 * posted, can read them. Escaped, because core prints the labels as given.
@@ -470,10 +553,189 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * @return array<string, string> Action => label.
 	 */
 	public function get_bulk_actions() {
+		$view = $this->record_view();
+
+		if ( '' !== $view ) {
+			return array_map( 'esc_html', $this->record_bulk_actions( $view ) );
+		}
+
 		return array(
 			'invite'   => esc_html__( 'Send invite', 'wpcredits-program-manager' ),
 			'reinvite' => esc_html__( 'Resend invite', 'wpcredits-program-manager' ),
 		);
+	}
+
+	/**
+	 * Whether a bulk action is the table's own to carry out (`handle_action()`): none is, here.
+	 *
+	 * The accounts screen every audience shares takes Send invite and Resend invite itself and asks
+	 * the table about any other action pressed in its list (`WPCPM_Accounts_Screen::handle_list_form()`),
+	 * so an audience that offers an action of its own, such as Create account on a record view,
+	 * carries it out in its own table and the screen holds no branch for it. Asked before the list's
+	 * nonce is checked, so it answers by the action's name alone and reads nothing else of the
+	 * request. The base owns none, so an action pressed in a list without one does nothing.
+	 *
+	 * @param string $action The bulk action pressed.
+	 * @return bool
+	 */
+	public function owns_action( $action ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- A seam: the base owns none, whichever action is named.
+		return false;
+	}
+
+	/**
+	 * Carry out a bulk action the table owns, and say what came of it: the outcome and its detail, in
+	 * the shape `queue_ticked()` returns them for the invitations. Nothing here, since the base owns no
+	 * action.
+	 *
+	 * The audience's screen flashes both and comes back to its list, then prints the outcome from the
+	 * message map it prints on the tab the press returns to, so the outcome must be a key of that map:
+	 * one the map does not hold prints nothing. A detail is worded by the table's own words for the
+	 * outcome (`action_sentence()`), or where those are '' by the map's sentence, never by the
+	 * invitations' (`WPCPM_Accounts_Screen::notice_sentence()`).
+	 *
+	 * Called only after the capability and the list's nonce are checked, for an action
+	 * `owns_action()` answered yes to (`WPCPM_Accounts_Screen::handle_list_form()`), from whichever
+	 * view the list was on: core reads the action a request names whether the view offers it or not.
+	 * So it reads only the fields its own action owns, such as a record view's records under
+	 * `RECORDS_FIELD` through `WPCPM_Request::list()`, and matches each against what the site holds.
+	 *
+	 * @param string $action The bulk action pressed.
+	 * @return array{0: string, 1: array} The outcome and its detail.
+	 */
+	public function handle_action( $action ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- A seam: the base carries out none, whichever action is named.
+		return array( '', array() );
+	}
+
+	/**
+	 * The words for what a bulk action the table carries out itself did, from the outcome and the
+	 * detail its `handle_action()` returned: '' here, so the sentence the screen's message map holds
+	 * for the outcome stands.
+	 *
+	 * The audience's screen asks it of the audience's table class for the one outcome it is printing,
+	 * and only when that outcome carried a detail (`WPCPM_Accounts_Screen::notice_sentence()`). The
+	 * invitations' two outcomes are worded by the base for every audience (`selected_sentence()`) and
+	 * are never asked of it. Static, as `selected_sentence()` is, so the screen asks it of the class
+	 * with no table built.
+	 *
+	 * @param string $status The outcome `handle_action()` returned, a key of the screen's message map.
+	 * @param array  $detail What `handle_action()` returned beside it, the outcome among it as `status`.
+	 * @return string The sentence, as text, which the screen escapes; '' for the map's.
+	 */
+	public static function action_sentence( $status, array $detail ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- A seam: the base has no words, whichever outcome is named.
+		return '';
+	}
+
+	/**
+	 * The views of the records the audience keeps without an account, as view => its label as
+	 * `_n_noop()` holds it, the singular and the plural each with one `%s` where the count goes:
+	 * plurals through `_n()`, so the label is translated by the view's count once `count_records()`
+	 * has answered (`get_views()`), as the invitation views' labels are picked by theirs
+	 * (`invite_views()`). Each is drawn after the three invitation views.
+	 *
+	 * Each view is a key as `sanitize_key()` keeps it, lowercase letters, digits, hyphens and
+	 * underscores, since the view in force is read through `WPCPM_Request::key()` (`current_view()`),
+	 * and none is `all`, `invited` or `never-invited`. The map is asked for many times as a list is
+	 * drawn, by every reading of the view in force, so it stays constant and cheap: the counting is
+	 * `count_records()`'s.
+	 *
+	 * None here, so a list that keeps no records draws the three views alone, and an address naming
+	 * a record view is All on it (`current_view()`).
+	 *
+	 * @return array<string, array> View => its label, as `_n_noop()` returns it.
+	 */
+	protected function record_views() {
+		return array();
+	}
+
+	/**
+	 * How many records a record view holds, for its link's count: the whole view, not the search, as
+	 * WordPress's own views count. 0 here, where there is no record view.
+	 *
+	 * @param string $view A record view.
+	 * @return int
+	 */
+	protected function count_records( $view ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- A seam: the base holds no record, whichever view is named.
+		return 0;
+	}
+
+	/**
+	 * Every row of a record view, searched and ordered as the list asks, each an array holding at
+	 * least the record's `id` and its `name`, and a value for each column no `column_<key>()` method
+	 * draws, which is printed as text (`column_default()`). The `id` is a non-empty scalar, unique
+	 * within the view, matching the pattern the table's own action reads the ticked records back
+	 * with: its checkbox posts it under `records[]` and carries it in its HTML id, and a row without
+	 * one draws no checkbox (`column_cb()`). The `name` is the checkbox's label, the `id` standing in
+	 * for it where there is none.
+	 *
+	 * The audience reads the search and the sort itself, since the base's own readers serve the
+	 * account views, its search shaped for `WP_User_Query` and its sort bound to `sortable_map()`:
+	 * the term as `WPCPM_Request::text( 's' )`, and `orderby` and `order` through
+	 * `WPCPM_Request::key()`, matching `orderby` only against the orderbys `record_sortable()`
+	 * declares. Every row, not a page: the base counts them for the pagination, takes the page's
+	 * slice and drops anything that is not a row (`prepare_items()`). None here.
+	 *
+	 * @param string $view A record view.
+	 * @return array[]
+	 */
+	protected function record_rows( $view ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- A seam: the base holds no record, whichever view is named.
+		return array();
+	}
+
+	/**
+	 * A record view's columns, in order, as column => label, in place of the audience's on that view
+	 * (`columns()`): the base puts the checkbox before them and escapes the labels, and the first is
+	 * the view's primary column, as the audience's first is on its views.
+	 *
+	 * None of them is `name` or `login`: the base draws those two cells from an account
+	 * (`column_name()`, `column_login()`), and a record row is none. A column keyed as one of the
+	 * audience's is drawn by the same `column_<key>()` method on both kinds of row, so such a method
+	 * reads either. None here.
+	 *
+	 * @return array<string, string>
+	 */
+	protected function record_columns() {
+		return array();
+	}
+
+	/**
+	 * A record view's sortable columns, in WordPress's shape, as `get_sortable_columns()` answers for
+	 * the account views: column => the orderby, then whether a first press on the column sorts Z to
+	 * A. The audience orders the rows itself (`record_rows()`), reading `orderby` and `order` from the
+	 * request and matching the orderby only against these, and none of it reaches a query. None here.
+	 *
+	 * @return array<string, array>
+	 */
+	protected function record_sortable() {
+		return array();
+	}
+
+	/**
+	 * A record row's own actions, as action => link, drawn under the record view's primary cell the
+	 * way an account's are drawn under its name (`handle_row_actions()`): such as Create account on
+	 * the row of a record ready for one. The links are the table's to escape, as an account's are
+	 * (`row_actions_for()`). None here, so a record row draws the toggle alone.
+	 *
+	 * Read only for a record row, which is no account: an account's actions are `row_actions_for()`'s,
+	 * and the invitations among them are an account's alone.
+	 *
+	 * @param array $row The record row, as `record_rows()` gave it.
+	 * @return array<string, string> Action => link.
+	 */
+	protected function record_row_actions( array $row ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- A seam: the base offers none, whatever the row.
+		return array();
+	}
+
+	/**
+	 * A record view's bulk actions, as action => label, in place of the invitations on that view: each
+	 * one the table carries out itself (`owns_action()`, `handle_action()`), such as Create account.
+	 * The base escapes the labels, since core prints them as given. A record view with none still
+	 * draws a checkbox on each row (`get_columns()`), as the account views do. None here.
+	 *
+	 * @param string $view A record view.
+	 * @return array<string, string> Action => label.
+	 */
+	protected function record_bulk_actions( $view ) { // phpcs:ignore VariableAnalysis.CodeAnalysis.VariableAnalysis.UnusedVariable -- A seam: the base offers none, whichever view is named.
+		return array();
 	}
 
 	/**
@@ -489,8 +751,8 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * minutes, the guard against canceling the link in it (`WPCPM_Mail::may_invite()`), so Resend
 	 * invite leaves them out and counts them, and the outcome says so rather than calling them
 	 * queued. Every ID is checked against the audience's role first, an account outside it left out
-	 * and a repeat counted once, and invited means the audience's stamp is there, the reading its
-	 * views and row actions use.
+	 * and a repeat counted once, and invited means any of the stamps is there (`holds_stamp()`), the
+	 * reading its views and row actions use.
 	 *
 	 * The outcome is `invites-queued`, with how many were queued as `queued`, or `invites-none`, with
 	 * why as `why`: `none-selected` when nothing was ticked, or nothing that is an account's ID,
@@ -502,7 +764,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * none was queued.
 	 *
 	 * Static, called on the audience's own table (`WPCPM_Students_Table::queue_ticked()`,
-	 * `WPCPM_Mentors_Table::queue_ticked()`), which gives the role and the stamp read here. It checks
+	 * `WPCPM_Mentors_Table::queue_ticked()`), which gives the role and the stamps read here. It checks
 	 * neither the capability nor a nonce: the audience's handler checks both before it reads the
 	 * ticked IDs, as the accounts screen's `handle_list_form()` does (`WPCPM_Accounts_Screen`).
 	 *
@@ -513,7 +775,6 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	public static function queue_ticked( array $ids, $resend ) {
 		$detail  = array( 'resend' => (bool) $resend );
 		$role    = static::role();
-		$stamp   = static::invite_meta();
 		$invited = array();
 		$never   = array();
 
@@ -544,7 +805,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 				continue;
 			}
 
-			if ( metadata_exists( 'user', $user->ID, $stamp ) ) {
+			if ( self::holds_stamp( $user->ID ) ) {
 				$invited[] = (int) $user->ID;
 			} else {
 				$never[] = (int) $user->ID;
@@ -684,7 +945,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 */
 	protected function invite_row_actions( WP_User $user ) {
 		$action  = static::invite_action();
-		$invited = metadata_exists( 'user', $user->ID, static::invite_meta() );
+		$invited = self::holds_stamp( $user->ID );
 		$url     = wp_nonce_url(
 			add_query_arg(
 				// The link's own arguments win over the list's state, which only adds to them.
@@ -727,11 +988,14 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	 * already, so drawing the actions here, in place of the default, leaves one toggle a row. A row
 	 * with no action, such as an administrator's for a person who may not open another account's
 	 * editor, gets core's default, the toggle alone: `row_actions()` draws nothing for none, the
-	 * toggle with it, and on a narrow screen the toggle is what opens a row's other cells.
+	 * toggle with it, and on a narrow screen the toggle is what opens a row's other cells. A record
+	 * row, on a record view, gets the record's own actions (`record_row_actions()`) in the same
+	 * markup, or the same default when it has none: it is no account, so an account's actions,
+	 * the invitations among them, are never drawn for it.
 	 *
-	 * @param WP_User $item        The row's account.
-	 * @param string  $column_name The cell's column.
-	 * @param string  $primary     The primary column.
+	 * @param WP_User|array $item        The row: an account, or a record on a record view.
+	 * @param string        $column_name The cell's column.
+	 * @param string        $primary     The primary column.
 	 * @return string
 	 */
 	protected function handle_row_actions( $item, $column_name, $primary ) {
@@ -739,7 +1003,7 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 			return '';
 		}
 
-		$actions = $this->row_actions_for( $item );
+		$actions = is_array( $item ) ? $this->record_row_actions( $item ) : $this->row_actions_for( $item );
 
 		return empty( $actions ) ? parent::handle_row_actions( $item, $column_name, $primary ) : $this->row_actions( $actions );
 	}
@@ -778,39 +1042,63 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The user meta an invitation to the audience's accounts is stamped in, or '' for a role the plugin
-	 * never invites.
+	 * The user meta the audience's own invitation is stamped in, or '' for a role the plugin never
+	 * invites.
 	 *
-	 * The key `WPCPM_Mail::drain_queue()` stamps an account holding this role alone under: the mentor,
-	 * institution and sponsor roles' own, and for the student role its last branch, the student stamp.
-	 * The syncs' `send_invite()` write the same keys for students and mentors, so the key read here is
-	 * the one the send wrote. An account holding two roles is stamped under drain_queue()'s first
-	 * match, and each audience reads its own key, as its invitations card does.
+	 * The key the mail layer's one map holds for this role (`WPCPM_Mail::STAMPS`), read from it rather
+	 * than spelled again here, and so the key `WPCPM_Mail::stamp_invited()` writes for the role: a
+	 * row's invitation on the audience's list always writes it, the account holding the role, as the
+	 * audience's own record of an invitation. Whether an account was sent one is read from every
+	 * stamp, not this one alone (`stamps_read()`), since an account has one password.
 	 *
 	 * **No stamp for any other role**, WordPress's Administrator role among them: nothing invites those
-	 * accounts, and reading them by the student stamp, drain_queue()'s last branch, would count an
-	 * administrator invited as a student as an invited administrator. Every reader of the stamp reads
-	 * '' as nobody invited, by WordPress's own rule: it writes no meta under an empty key
-	 * (`add_metadata()` refuses one), so `metadata_exists()` finds it on no account, and a meta query's
-	 * `EXISTS` on it finds nobody and its `NOT EXISTS` everybody. The views, a row's invitation, the
-	 * bulk actions and `WPCPM_Mail::never_invited()` read it so.
+	 * accounts, so the base reads no stamp for them, and an administrator invited as a student does
+	 * not count as an invited administrator. Every reader reads '' as nobody invited, by WordPress's
+	 * own rule: it writes no meta under an empty key (`add_metadata()` refuses one), so
+	 * `metadata_exists()` finds it on no account, and a meta query's `EXISTS` on it finds nobody and its
+	 * `NOT EXISTS` everybody. The views, a row's invitation, the bulk actions and
+	 * `WPCPM_Mail::never_invited()` read it so.
 	 *
-	 * Public, so the audience's module reads the stamp its invitations and its invitations card count
-	 * by from the table, the reading the views use, rather than holding a copy of its own.
+	 * Public, so the plumbing every audience's screen shares hands it to `WPCPM_Mail::never_invited()`
+	 * from the table, which tells the mail layer whether the plugin invites the role, rather than
+	 * holding a copy of its own.
 	 *
 	 * @return string
 	 */
 	public static function invite_meta() {
-		$stamps = array(
-			WPCPM_Roles::ROLE_STUDENT     => 'wpcpm_student_invited',
-			WPCPM_Roles::ROLE_MENTOR      => 'wpcpm_mentor_invited',
-			WPCPM_Roles::ROLE_INSTITUTION => 'wpcpm_inst_invited',
-			WPCPM_Roles::ROLE_SPONSOR     => 'wpcpm_sponsor_invited',
-		);
-
 		$role = static::role();
 
-		return isset( $stamps[ $role ] ) ? $stamps[ $role ] : '';
+		return isset( WPCPM_Mail::STAMPS[ $role ] ) ? WPCPM_Mail::STAMPS[ $role ] : '';
+	}
+
+	/**
+	 * The stamps whose presence makes an account of the audience one sent an invitation: every stamp
+	 * an invitation leaves (`WPCPM_Mail::STAMPS`), since an account has one password and one sent an
+	 * invitation under any of its roles was sent one, as the queue and the fifteen-minute guard read
+	 * it. For a role the plugin never invites, its empty key alone (`invite_meta()`), which WordPress
+	 * finds on no account.
+	 *
+	 * @return string[]
+	 */
+	private static function stamps_read() {
+		return '' === static::invite_meta() ? array( '' ) : array_values( WPCPM_Mail::STAMPS );
+	}
+
+	/**
+	 * Whether an account holds any of the stamps the views read (`stamps_read()`), whatever it holds:
+	 * a stamp of 0 is still a stamp.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	private static function holds_stamp( $user_id ) {
+		foreach ( self::stamps_read() as $key ) {
+			if ( metadata_exists( 'user', (int) $user_id, $key ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -878,44 +1166,19 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * Read one page of the view in force, searched and sorted, and set what the table draws.
-	 *
-	 * The search covers the name, the username and the email; an audience searching its own columns
-	 * too does it in its query.
+	 * Read one page of the view in force, searched and sorted, and set what the table draws: a page
+	 * of the audience's accounts through its query (`page_args()`), or on a record view a page of its
+	 * records (`records_page()`), for which no account is read.
 	 */
 	public function prepare_items() {
 		$per_page = $this->per_page();
-		$orderby  = $this->orderby();
-		$order    = $this->order();
+		$view     = $this->record_view();
 
-		// Names are not unique, and the database may return two accounts of one name in either order,
-		// and in another for another page, so one could show twice and the other on no page: the ID
-		// after the name settles it. The other sorts are the audience's to settle.
-		if ( self::DEFAULT_ORDERBY === $orderby ) {
-			$orderby = array(
-				self::DEFAULT_ORDERBY => $order,
-				'ID'                  => $order,
-			);
+		if ( '' === $view ) {
+			$found = $this->query( $this->page_args( $per_page ) );
+		} else {
+			$found = $this->records_page( $view, $per_page );
 		}
-
-		$args = array(
-			'role'        => static::role(),
-			'number'      => $per_page,
-			'offset'      => ( $this->get_pagenum() - 1 ) * $per_page,
-			'orderby'     => $orderby,
-			'order'       => $order,
-			'count_total' => true,
-			'meta_query'  => $this->view_clause( $this->current_view() ),
-		);
-
-		$search = $this->search_clause();
-
-		if ( '' !== $search ) {
-			$args['search']         = $search;
-			$args['search_columns'] = array( 'user_login', 'user_email', 'display_name' );
-		}
-
-		$found = $this->query( $args );
 
 		$this->items = isset( $found['items'] ) ? (array) $found['items'] : array();
 
@@ -969,7 +1232,77 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
+	 * The `WP_User_Query` arguments for one page of an account view: the role, the view's meta
+	 * query, the search, the order and the page.
+	 *
+	 * The search covers the name, the username and the email; an audience searching its own columns
+	 * too does it in its query.
+	 *
+	 * @param int $per_page Rows a page.
+	 * @return array
+	 */
+	private function page_args( $per_page ) {
+		$orderby = $this->orderby();
+		$order   = $this->order();
+
+		// Names are not unique, and the database may return two accounts of one name in either order,
+		// and in another for another page, so one could show twice and the other on no page: the ID
+		// after the name settles it. The other sorts are the audience's to settle.
+		if ( self::DEFAULT_ORDERBY === $orderby ) {
+			$orderby = array(
+				self::DEFAULT_ORDERBY => $order,
+				'ID'                  => $order,
+			);
+		}
+
+		$args = array(
+			'role'        => static::role(),
+			'number'      => $per_page,
+			'offset'      => ( $this->get_pagenum() - 1 ) * $per_page,
+			'orderby'     => $orderby,
+			'order'       => $order,
+			'count_total' => true,
+			'meta_query'  => $this->view_clause( $this->current_view() ),
+		);
+
+		$search = $this->search_clause();
+
+		if ( '' !== $search ) {
+			$args['search']         = $search;
+			$args['search_columns'] = array( 'user_login', 'user_email', 'display_name' );
+		}
+
+		return $args;
+	}
+
+	/**
+	 * One page of a record view, in the shape the audience's query answers for accounts (`query()`):
+	 * the page's slice of every record the audience holds for the view (`record_rows()`), which
+	 * searched and ordered them, and how many there are in all. A record is no account, so no
+	 * account is read for it.
+	 *
+	 * @param string $view     The record view.
+	 * @param int    $per_page Rows a page.
+	 * @return array{items: array[], total: int}
+	 */
+	private function records_page( $view, $per_page ) {
+		// Rows alone: anything else handed back in place of the list, such as an error from a failed
+		// read, is no rows, and anything in the list that is not a row would be drawn as an account.
+		$rows = $this->record_rows( $view );
+		$rows = is_array( $rows ) ? array_values( array_filter( $rows, 'is_array' ) ) : array();
+
+		return array(
+			'items' => array_slice( $rows, ( $this->get_pagenum() - 1 ) * $per_page, $per_page ),
+			'total' => count( $rows ),
+		);
+	}
+
+	/**
 	 * One view's count, through the audience's query: one ID fetched, the total counted.
+	 *
+	 * Every draw of the views counts both, so the count is only as cheap as the view's meta query
+	 * (`view_clause()`): WordPress still computes every matching row to report the total, which is why
+	 * the Invited view asks its stamps in one clause rather than a clause a stamp.
 	 *
 	 * @param string $view `invited` or `never-invited`.
 	 * @return int
@@ -989,22 +1322,47 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * A view's meta query: the stamp there for Invited, not there for Never invited, none for All.
+	 * A view's meta query: any of the stamps the views read (`stamps_read()`) there for Invited, none
+	 * of them for Never invited, nothing for All.
+	 *
+	 * **The two views ask in different shapes, for the joins WordPress makes of them.** Invited is one
+	 * clause whose key is the list of stamps, which WordPress reads as `meta_key IN (...)`: one join of
+	 * the account's meta rows. As a clause a stamp under OR, each `EXISTS` would take a join of its own
+	 * with no key in it, since WordPress shares a join between OR clauses only for comparisons of a
+	 * value, and the database would walk every account's meta rows to the fourth power. The OR stays
+	 * on the one clause: it is what has WordPress select each account once, `DISTINCT`, when it holds
+	 * two stamps. Never invited is a clause a stamp under AND: each `NOT EXISTS` is a LEFT JOIN with
+	 * its key in its own join, at most one row an account, and WordPress binds one key there, so a
+	 * list cannot be asked.
 	 *
 	 * @param string $view `all`, `invited` or `never-invited`.
 	 * @return array
 	 */
 	private function view_clause( $view ) {
-		if ( 'invited' !== $view && 'never-invited' !== $view ) {
+		if ( 'invited' === $view ) {
+			return array(
+				'relation' => 'OR',
+				array(
+					'key'     => self::stamps_read(),
+					'compare' => 'EXISTS',
+				),
+			);
+		}
+
+		if ( 'never-invited' !== $view ) {
 			return array();
 		}
 
-		return array(
-			array(
-				'key'     => static::invite_meta(),
-				'compare' => 'invited' === $view ? 'EXISTS' : 'NOT EXISTS',
-			),
-		);
+		$query = array( 'relation' => 'AND' );
+
+		foreach ( self::stamps_read() as $key ) {
+			$query[] = array(
+				'key'     => $key,
+				'compare' => 'NOT EXISTS',
+			);
+		}
+
+		return $query;
 	}
 
 	/**
@@ -1035,13 +1393,72 @@ abstract class WPCPM_Accounts_Table extends WP_List_Table {
 	}
 
 	/**
-	 * The primary column: the audience's first.
+	 * The primary column: the first of the view's columns (`view_columns()`), the audience's first on
+	 * its views and a record view's own first on that view, so a record row has its header cell and
+	 * its toggle too, and Screen Options is never offered to hide either.
 	 *
 	 * @return string
 	 */
 	private function primary_column() {
-		$columns = array_keys( $this->columns() );
+		$columns = array_keys( $this->view_columns() );
 
 		return isset( $columns[0] ) ? (string) $columns[0] : '';
+	}
+
+	/**
+	 * The columns of the view in force, before the checkbox is put in front of them: the audience's
+	 * (`columns()`), or on a record view the view's own (`record_columns()`).
+	 *
+	 * @return array<string, string>
+	 */
+	private function view_columns() {
+		return '' === $this->record_view() ? $this->columns() : $this->record_columns();
+	}
+
+	/**
+	 * The number the list's card prints beside its heading, whose words name the audience's accounts:
+	 * on a view of accounts, how many the list holds, every page of it, as WordPress counted them or,
+	 * for a sort the table orders itself, as its own read of every account did; on a record view,
+	 * whose rows are records the view's link counts, the accounts the list holds in all, All's count.
+	 *
+	 * Public, for the accounts screen every audience shares, which prints it
+	 * (`WPCPM_Accounts_Screen::render_accounts_list()`).
+	 *
+	 * @return int
+	 */
+	public function heading_count() {
+		if ( '' !== $this->record_view() ) {
+			$counts = $this->invite_counts();
+
+			return (int) $counts['all'];
+		}
+
+		return (int) $this->get_pagination_arg( 'total_items' );
+	}
+
+	/**
+	 * Whether a record view is in force, whose rows are records with no account: for the screen
+	 * around the list, which leaves out there what it says of accounts alone, such as how they are
+	 * made and invited.
+	 *
+	 * @return bool
+	 */
+	public function is_record_view() {
+		return '' !== $this->record_view();
+	}
+
+	/**
+	 * The record view in force, or '' on a view of accounts.
+	 *
+	 * Protected, so an audience can draw what goes around its list by the view, such as the sentence
+	 * in its empty row (`no_items()`) or a note above the list on a record view.
+	 *
+	 * @return string
+	 */
+	protected function record_view() {
+		$view    = $this->current_view();
+		$records = $this->record_views();
+
+		return isset( $records[ $view ] ) ? $view : '';
 	}
 }

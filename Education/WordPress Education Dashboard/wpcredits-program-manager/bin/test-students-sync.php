@@ -1577,7 +1577,7 @@ ck( 'every entry has every key', array_keys( (array) ( $by_row[ $s_lonely ] ?? a
 
 $report = get_option( WPCPM_Students_Sync::OPT_REPORT );
 ck( 'the run report says so, once, with the count and where to look',
-	substr_count( implode( "\n", (array) ( $report['notices'] ?? array() ) ), '3 students have a mentor but no report record under their address. The reconciliation card on the Institutions screen names each row and the address to fix.' ), 1 );
+	substr_count( implode( "\n", (array) ( $report['notices'] ?? array() ) ), '3 students have a mentor but no report record under their address. The Reconciliation card on the Institutions screen\'s Sync and storage tab names each row and the address to fix.' ), 1 );
 
 printf( "\n%s (%d checks)\n", $fail ? sprintf( '%d FAILURE(S)', $fail ) : 'ALL PASS', $total );
 exit( $fail ? 1 : 0 );

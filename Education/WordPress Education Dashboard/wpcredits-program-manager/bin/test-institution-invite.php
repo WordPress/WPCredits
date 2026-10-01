@@ -36,6 +36,9 @@
  *   not a token for cancelling another.
  * - Accepting attaches with `invited` and the inviter as the actor, so the People card can
  *   say who let this person in.
+ * - A control pressed on the Institutions screen comes back to that institution's Manage
+ *   members view on its Accounts tab, the People class's address for it, and one pressed on
+ *   the Institution Dashboard comes back to the dashboard.
  *
  * Run from the plugin root:  php bin/test-institution-invite.php
  */
@@ -222,6 +225,7 @@ define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-ceiling.php';
@@ -303,12 +307,11 @@ if ( ! class_exists( 'WPCPM_Mail' ) ) {
 		public static function queue_invites( array $user_ids ) {
 			$fresh = 0;
 			foreach ( $user_ids as $id ) {
-				if (
-					get_user_meta( $id, 'wpcpm_student_invited', true )
-					|| get_user_meta( $id, 'wpcpm_mentor_invited', true )
-					|| get_user_meta( $id, 'wpcpm_inst_invited', true )
-				) {
-					continue;
+				// Any of the four stamps, there whatever it holds, as the real one reads them.
+				foreach ( WPCPM_STUB_STAMPS as $meta ) {
+					if ( isset( $GLOBALS['umeta'][ (int) $id ] ) && array_key_exists( $meta, $GLOBALS['umeta'][ (int) $id ] ) ) {
+						continue 2;
+					}
 				}
 				$GLOBALS['queued'][] = (int) $id;
 				++$fresh;
@@ -399,7 +402,7 @@ function accept_as( $uid, $token, $nonce = null ) {
 	$_SERVER['REQUEST_METHOD'] = 'POST';
 	return run( 'handle_accept' );
 }
-function flash( $uid ) { return $GLOBALS['umeta'][ (int) $uid ]['wpcpm_flash']['institution_invite'] ?? null; }
+function flash( $uid ) { return $GLOBALS['umeta'][ (int) $uid ][ WPCPM_Flash::META ]['institution_invite'] ?? null; }
 function flash_status( $uid ) { $f = flash( $uid ); return is_array( $f ) ? $f['status'] : (string) $f; }
 function last_mail() { $mails = $GLOBALS['sent']; return $mails ? end( $mails ) : array(); }
 /** The secret, read out of the mail body: the one place it exists. */
@@ -861,6 +864,22 @@ ck( 'an audit row says who cancelled it', array( last_entry( $A )['kind'], last_
 ck( 'cancelling it again is answered, not repeated', array( flash_status( 7 ), press( 7, 'handle_cancel', $doomed ) === '' ), array( 'invite-cancelled', false ) );
 ck( 'the second press says it is no longer waiting', flash_status( 7 ), 'invite-gone' );
 ck( 'a post ID that is not an invitation gets the one refusal', press( 7, 'handle_cancel', 999999 ), 'wp_die:' . WPCPM_Institution_Policy::refusal()->get_error_message() );
+
+echo "\n=== A press made on the Institutions screen comes back to that institution's view ===\n";
+
+reset_world();
+
+invite_as( 7, $A, 'screen@example.test' );
+$from_screen = newest_invite();
+
+$GLOBALS['uid'] = 1;
+$_POST          = array( 'invite' => $from_screen, 'wpcpm_from' => 'admin' );
+$resent         = run( 'handle_resend' );
+$_POST          = array( 'invite' => $from_screen, 'wpcpm_from' => 'admin' );
+$cancelled      = run( 'handle_cancel' );
+
+ck( 'a Resend, then a Cancel, posted with the Institutions screen\'s flag each land on the institution\'s Manage members view, on the members block', array( $resent, $cancelled ), array_fill( 0, 2, 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts&wpcpm_institution=' . $A . '#wpcpm-people' ) );
+ck( 'having done what each was pressed for', array( flash_status( 1 ), pmeta( $from_screen, '_wpcpm_inv_state' ), count( $GLOBALS['sent'] ) ), array( 'invite-cancelled', 'cancelled', 2 ) );
 
 echo "\n=== A program manager passes, and a lost record stops an acceptance ===\n";
 

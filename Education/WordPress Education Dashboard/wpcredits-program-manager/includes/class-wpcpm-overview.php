@@ -68,6 +68,11 @@ final class WPCPM_Overview {
 	 * missing the key is left out, so the count is listed unlinked rather than sent to a page that
 	 * is not there.
 	 *
+	 * The institutions' counts open the Institutions screen at the tab for each, named even where
+	 * it is the queue the screen opens on, so each address says where it goes: the applications,
+	 * the agreements and the mentor requests at Waiting for review, the semester reports to draft
+	 * and to review at Semester reports, and the locked accounts at Accounts.
+	 *
 	 * One map, so pointing a count at another screen, or at a tab of one, is an edit here and
 	 * nowhere else. Every tile `counts()` returns has a place in it while the dashboard's page is
 	 * published, which bin/test-overview.php holds the two lists to; a tile it does not place is
@@ -76,20 +81,22 @@ final class WPCPM_Overview {
 	 * @return array<string, string> Tile key => full address, not escaped.
 	 */
 	public static function targets() {
-		$institutions = admin_url( 'admin.php?page=wpcpm-institutions' );
-		$sponsors     = admin_url( 'admin.php?page=wpcpm-sponsors' );
-		$dashboard    = WPCPM_Administrators_Dashboard::page_url();
+		$queue     = admin_url( 'admin.php?page=wpcpm-institutions&tab=queue' );
+		$reports   = admin_url( 'admin.php?page=wpcpm-institutions&tab=reports' );
+		$accounts  = admin_url( 'admin.php?page=wpcpm-institutions&tab=accounts' );
+		$sponsors  = admin_url( 'admin.php?page=wpcpm-sponsors' );
+		$dashboard = WPCPM_Administrators_Dashboard::page_url();
 
 		$targets = array(
-			'applications'         => $institutions,
-			'agreements'           => $institutions,
-			'overdue_agreements'   => $institutions,
-			'drafts'               => $institutions,
-			'due'                  => $institutions,
-			'requests'             => $institutions,
-			'overdue_requests'     => $institutions,
+			'applications'         => $queue,
+			'agreements'           => $queue,
+			'overdue_agreements'   => $queue,
+			'drafts'               => $reports,
+			'due'                  => $reports,
+			'requests'             => $queue,
+			'overdue_requests'     => $queue,
 			// Institution members, whose write path the roster's refusal ceiling locked for the day.
-			'locked'               => $institutions,
+			'locked'               => $accounts,
 			// The card's own anchor, the one the strip's tile for it jumps to.
 			'sponsor_posts'        => $dashboard . '#wpcpm-sponsor-posts',
 			'sponsor_agreements'   => $sponsors,

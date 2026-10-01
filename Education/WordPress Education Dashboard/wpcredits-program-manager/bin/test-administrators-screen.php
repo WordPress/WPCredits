@@ -330,7 +330,7 @@ function rows_of( $html ) {
  * @param string $html Markup.
  * @return int[]
  */
-function row_ids( $html ) {
+function named_ids( $html ) {
 	$ids = array();
 
 	foreach ( rows_of( $html ) as $row ) {
@@ -541,7 +541,7 @@ ck( 'the first page lists twenty accounts, the rows a page until somebody choose
 	got(
 		$first,
 		function ( $out ) {
-			return count( row_ids( html_of( $out ) ) );
+			return count( named_ids( html_of( $out ) ) );
 		}
 	),
 	20 );
@@ -554,10 +554,10 @@ ck( 'the list asked WordPress for one page of administrators, by name with the I
 
 $last = draw( screen( array( 'paged' => '11' ) ) );
 
-ck( 'the last page, the 11th, holds the 201st account by name', row_ids( html_of( $last ) ), array( 301 ) );
+ck( 'the last page, the 11th, holds the 201st account by name', named_ids( html_of( $last ) ), array( 301 ) );
 
 $GLOBALS['umeta'][1]['wpcpm_administrators_per_page'] = 999;
-$every = row_ids( html_of( draw( screen() ) ) );
+$every = named_ids( html_of( draw( screen() ) ) );
 unset( $GLOBALS['umeta'][1]['wpcpm_administrators_per_page'] );
 
 ck( 'on one page of 999, every administrator account is listed, and the mentor is not',
@@ -577,7 +577,7 @@ ck( 'the headers are the three columns in order, and no checkbox: nothing in the
 ck( 'each says what it holds, Name and Username as sort links and Can manage program as plain text',
 	array( has( $html, '<span>Name</span>' ), has( $html, '<span>Username</span>' ), has( $html, '>Can manage program</th>' ) ),
 	array( true, true, true ) );
-ck( 'a row per administrator, by name: Ada, Bruno, Cleo; the mentor and the student are not on it', row_ids( $html ), array( 11, 12, 13 ) );
+ck( 'a row per administrator, by name: Ada, Bruno, Cleo; the mentor and the student are not on it', named_ids( $html ), array( 11, 12, 13 ) );
 
 $ada  = row_for( $html, 11 );
 $cleo = row_for( $html, 13 );
@@ -699,7 +699,7 @@ ck( 'Screen Options offers Username and Can manage program to hide, and never th
 $named_view = html_of( draw( screen( array( 'wpcpm_view' => 'never-invited' ) ) ) );
 
 ck( 'an address naming an invitation view still lists every administrator under All, and the form carries no view: the list has one',
-	array( row_ids( $named_view ), view_counts( $named_view ), has( between( $named_view, '<form method="get"', '</form>' ), 'name="wpcpm_view"' ), arg( first_query( 'page' ), 'meta_query' ) ),
+	array( named_ids( $named_view ), view_counts( $named_view ), has( between( $named_view, '<form method="get"', '</form>' ), 'name="wpcpm_view"' ), arg( first_query( 'page' ), 'meta_query' ) ),
 	array( array( 11, 12, 13 ), array( 'all' => '3' ), false, array() ) );
 
 WPCPM_Administrators_Dashboard::$url = '';
@@ -731,14 +731,14 @@ ck( 'with no Administrator Dashboard page and no right to the editor, the name i
 reset_site();
 $nobody_here = html_of( draw( screen() ) );
 
-ck( 'with no administrator account, the list says no administrators were found', array( row_ids( $nobody_here ), has( $nobody_here, 'No administrators found.' ) ), array( array(), true ) );
+ck( 'with no administrator account, the list says no administrators were found', array( named_ids( $nobody_here ), has( $nobody_here, 'No administrators found.' ) ), array( array(), true ) );
 
 echo "\n=== The search: the name, the username and the email ===\n";
 
 three_admins();
 $found = array();
 foreach ( array( 'KOWAL', 'bdiaz', 'cahn@example', 'ahn' ) as $term ) {
-	$found[ $term ] = row_ids( html_of( draw( screen( array( 's' => $term ) ) ) ) );
+	$found[ $term ] = named_ids( html_of( draw( screen( array( 's' => $term ) ) ) ) );
 }
 
 ck( 'whatever the case, by the name, the username or the email',
@@ -769,12 +769,12 @@ $plain = html_of( draw( screen() ) );
 ck( 'Name sorts by display name and Username by username; Can manage program does not sort',
 	array( sort_of( $plain, 'name' ), sort_of( $plain, 'login' ), sort_of( $plain, 'manage' ) ),
 	array( 'display_name', 'login', 'not sortable' ) );
-ck( 'a list nobody sorted is by name, A to Z: Ada, Bruno, Cleo, Dana', row_ids( $plain ), array( 11, 12, 13, 14 ) );
-ck( 'Name Z to A as asked', row_ids( html_of( draw( screen( array( 'orderby' => 'display_name', 'order' => 'desc' ) ) ) ) ), array( 14, 13, 12, 11 ) );
+ck( 'a list nobody sorted is by name, A to Z: Ada, Bruno, Cleo, Dana', named_ids( $plain ), array( 11, 12, 13, 14 ) );
+ck( 'Name Z to A as asked', named_ids( html_of( draw( screen( array( 'orderby' => 'display_name', 'order' => 'desc' ) ) ) ) ), array( 14, 13, 12, 11 ) );
 ck( 'Username A to Z, Dana first, and Z to A, Dana last',
-	array( row_ids( html_of( draw( screen( array( 'orderby' => 'login', 'order' => 'asc' ) ) ) ) ), row_ids( html_of( draw( screen( array( 'orderby' => 'login', 'order' => 'desc' ) ) ) ) ) ),
+	array( named_ids( html_of( draw( screen( array( 'orderby' => 'login', 'order' => 'asc' ) ) ) ) ), named_ids( html_of( draw( screen( array( 'orderby' => 'login', 'order' => 'desc' ) ) ) ) ) ),
 	array( array( 14, 11, 12, 13 ), array( 13, 12, 11, 14 ) ) );
-ck( 'a sort the list does not offer is the name sort', row_ids( html_of( draw( screen( array( 'orderby' => 'manage' ) ) ) ) ), array( 11, 12, 13, 14 ) );
+ck( 'a sort the list does not offer is the name sort', named_ids( html_of( draw( screen( array( 'orderby' => 'manage' ) ) ) ) ), array( 11, 12, 13, 14 ) );
 
 // A row a page, so the boundary between two pages falls between the two Sam Riveras: the ID after
 // the name settles them, or one could show on both pages and the other on neither.
@@ -787,7 +787,7 @@ $GLOBALS['umeta'][1]['wpcpm_administrators_per_page'] = 1;
 $pages = array();
 foreach ( array( 'asc', 'desc' ) as $way ) {
 	foreach ( array( '1', '2', '3' ) as $number ) {
-		$pages[ $way ][] = row_ids( html_of( draw( screen( array( 'order' => $way, 'paged' => $number ) ) ) ) );
+		$pages[ $way ][] = named_ids( html_of( draw( screen( array( 'order' => $way, 'paged' => $number ) ) ) ) );
 	}
 }
 

@@ -811,15 +811,15 @@ class WPCPM_Institutions_Sync {
 	 *
 	 * Behind `institution_provision`, which is off by default for the reason the welcome
 	 * email is: the first run of a sync that mails people is a decision for a human. With it
-	 * off the phase does nothing at all, and the manager screen's provisioning card is the
-	 * way in instead.
+	 * off the phase does nothing at all, and the manager screen's Create account, on the
+	 * Accounts tab's No account view, is the way in instead.
 	 *
 	 * The candidate list is every Confirmed row of the index this run has just written, built
 	 * once and then worked through `PROVISION_BATCH` at a time, with the remainder in the run
 	 * state so a tick that ends mid-phase is resumed rather than restarted. Whether each
 	 * candidate is actually provisioned is `provision_block()`'s decision and nowhere else's,
-	 * so the recurring run and the two buttons on the manager screen cannot come to different
-	 * answers about the same institution.
+	 * so the recurring run and the manager screen's two ways to Create account cannot come to
+	 * different answers about the same institution.
 	 *
 	 * @param array $state    Sync state, by reference.
 	 * @param array $settings Plugin settings.
@@ -927,8 +927,9 @@ class WPCPM_Institutions_Sync {
 	/**
 	 * Why this institution may not be provisioned from its `Contact Email` right now, or ''.
 	 *
-	 * The one copy of the rule, read by the recurring run, by the manager screen's card and by
-	 * both of its buttons. In order, and the order is the point:
+	 * The one copy of the rule, read by the recurring run, by the Accounts tab's No account view
+	 * and by both of its Create account presses, a row's and the ticked institutions'. In order,
+	 * and the order is the point:
 	 *
 	 * - a row the index holds, at `Confirmed`: provisioning is what the program does once it
 	 *   has said yes, and the index is the site's own copy of that answer;
@@ -941,8 +942,8 @@ class WPCPM_Institutions_Sync {
 	 *   institution that already has an account is reported as one waiting for its first
 	 *   agreement: the worklist tells a manager to record one for a partner that was
 	 *   provisioned months ago, the row is missing from the count of the ones that already
-	 *   have an account, and the bulk button stays shut for every other institution while it
-	 *   is there;
+	 *   have an account, and a Create account on the ticked institutions stays shut for every
+	 *   other institution while it is there;
 	 * - a settled agreement, because an account opened before the agreement is recorded is a
 	 *   partner that signed years ago being emailed that its first step is to sign;
 	 * - and last, an address that already belongs to an account. That is a conflict and not a
@@ -978,9 +979,9 @@ class WPCPM_Institutions_Sync {
 		// The agreement is asked before the former-member test, and after the live-member one,
 		// on purpose. A revoked institution that still has its account is "already has an
 		// account", whatever the agreement says. But an institution with no recorded agreement
-		// and only a former member is not: it must go on holding the bulk button shut and be
-		// listed with "record the agreement", or a school whose contact once left would slip
-		// out of the one list that says what a manager still has to do for it.
+		// and only a former member is not: it must go on holding the bulk Create account shut
+		// and be listed with "record the agreement", or a school whose contact once left would
+		// slip out of the one list that says what a manager still has to do for it.
 		if ( ! WPCPM_Institution_Agreement::is_settled( $record_id ) ) {
 			return self::BLOCK_NO_AGREEMENT;
 		}
@@ -1023,10 +1024,12 @@ class WPCPM_Institutions_Sync {
 				return __( 'It already has a member. After the first account, membership is managed on this site.', 'wpcredits-program-manager' );
 
 			case self::BLOCK_FORMER_MEMBER:
-				return __( 'It has had a member before. Add the account by hand rather than provisioning it again.', 'wpcredits-program-manager' );
+				return __( 'It has had a member before. Re-add the member, or add another account, under Manage members.', 'wpcredits-program-manager' );
 
 			case self::BLOCK_CONFLICT:
-				return __( 'The Contact Email already belongs to an account on this site. That is a conflict, not a match: add that account as a member by hand if it is the right person.', 'wpcredits-program-manager' );
+				// Asked after the former members, so the account is never one of this institution's
+				// former members, the other kind Manage members adopts (`WPCPM_Institution_People`).
+				return __( 'The Contact Email already belongs to an account on this site, which is a conflict and not a match. Under Manage members that account is adopted only when it is a mentor\'s; for any other, correct the Contact Email in Airtable or the account\'s address first.', 'wpcredits-program-manager' );
 		}
 
 		return '';
@@ -1133,6 +1136,43 @@ class WPCPM_Institutions_Sync {
 		}
 
 		return $login;
+	}
+
+	/**
+	 * Send one institution account its login invitation.
+	 *
+	 * Sent at once, not queued as `provision()` queues the account it makes: this is one message
+	 * to one account somebody picked, and the queue is for the many accounts a run makes together.
+	 *
+	 * Refused inside `WPCPM_Mail::INVITE_GAP` of its last invitation of any kind, because a
+	 * second one would cancel the link in the first. Stamped by the mail layer's one rule
+	 * (`WPCPM_Mail::stamp_invited()`), so a row's invitation leaves the account as the queue's
+	 * would: stamped for each program role it holds.
+	 *
+	 * @param int $user_id User ID.
+	 * @return true|WP_Error
+	 */
+	public static function send_invite( $user_id ) {
+		$user = get_user_by( 'id', (int) $user_id );
+
+		if ( ! $user instanceof WP_User ) {
+			return new WP_Error( 'wpcpm_no_user', __( 'That user does not exist.', 'wpcredits-program-manager' ) );
+		}
+
+		if ( ! WPCPM_Roles::user_has_role( $user, WPCPM_Roles::ROLE_INSTITUTION ) ) {
+			return new WP_Error( 'wpcpm_not_institution', __( 'That account does not hold the Institution role.', 'wpcredits-program-manager' ) );
+		}
+
+		$allowed = WPCPM_Mail::may_invite( $user->ID );
+
+		if ( is_wp_error( $allowed ) ) {
+			return $allowed;
+		}
+
+		wp_new_user_notification( $user->ID, null, 'user' );
+		WPCPM_Mail::stamp_invited( $user );
+
+		return true;
 	}
 
 	/**

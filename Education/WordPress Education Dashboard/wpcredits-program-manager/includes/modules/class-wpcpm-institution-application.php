@@ -897,7 +897,7 @@ class WPCPM_Institution_Application {
 		}
 
 		if ( empty( $countries ) ) {
-			return __( 'This form is not shown yet: the countries list is empty, and every application has to name a country. Press Refresh countries on the Institutions screen.', 'wpcredits-program-manager' );
+			return __( 'This form is not shown yet: the countries list is empty, and every application has to name a country. Run the institutions sync on the Institutions screen\'s Sync and storage tab.', 'wpcredits-program-manager' );
 		}
 
 		return '';

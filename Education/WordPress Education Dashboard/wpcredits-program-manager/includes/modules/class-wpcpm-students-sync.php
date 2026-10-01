@@ -2021,8 +2021,8 @@ class WPCPM_Students_Sync {
 				sprintf(
 					/* translators: %s: number of students. */
 					_n(
-						'%s student has a mentor but no report record under their address. The reconciliation card on the Institutions screen names the row and the address to fix.',
-						'%s students have a mentor but no report record under their address. The reconciliation card on the Institutions screen names each row and the address to fix.',
+						'%s student has a mentor but no report record under their address. The Reconciliation card on the Institutions screen\'s Sync and storage tab names the row and the address to fix.',
+						'%s students have a mentor but no report record under their address. The Reconciliation card on the Institutions screen\'s Sync and storage tab names each row and the address to fix.',
 						$missed,
 						'wpcredits-program-manager'
 					),
@@ -2739,7 +2739,9 @@ class WPCPM_Students_Sync {
 	 * Send one student their login invitation.
 	 *
 	 * Refused inside `WPCPM_Mail::INVITE_GAP` of their last invitation of any kind, because a
-	 * second one would cancel the link in the first.
+	 * second one would cancel the link in the first. Stamped by the mail layer's one rule
+	 * (`WPCPM_Mail::stamp_invited()`), so a row's invitation leaves the account as the queue's
+	 * would: stamped for each program role it holds.
 	 *
 	 * @param int $user_id User ID.
 	 * @return true|WP_Error
@@ -2762,7 +2764,7 @@ class WPCPM_Students_Sync {
 		}
 
 		wp_new_user_notification( $user->ID, null, 'user' );
-		update_user_meta( $user->ID, 'wpcpm_student_invited', time() );
+		WPCPM_Mail::stamp_invited( $user );
 
 		return true;
 	}

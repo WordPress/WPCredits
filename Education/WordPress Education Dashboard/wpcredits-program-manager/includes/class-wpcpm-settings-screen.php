@@ -1163,7 +1163,7 @@ class WPCPM_Settings_Screen {
 			esc_html__( 'Let the sync create the first account for a Confirmed institution', 'wpcredits-program-manager' ),
 			esc_html__( 'From the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member.', 'wpcredits-program-manager' )
 		);
-		WPCPM_Settings_Rows::close_row( $provision, __( 'An address that already belongs to an account is left alone and named on the Institutions screen. With this off, accounts are created only when somebody presses the button there.', 'wpcredits-program-manager' ) );
+		WPCPM_Settings_Rows::close_row( $provision, __( 'An address that already belongs to an account is left alone, and the institution is listed with the reason on the No account view of the Institutions screen\'s Accounts tab. With this off, accounts are created only when somebody presses Create account there.', 'wpcredits-program-manager' ) );
 
 		$this->close_section();
 

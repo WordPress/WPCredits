@@ -39,24 +39,25 @@ If Airtable is not connected yet, this screen says so and links straight to the 
 
 **Waiting for a decision** lists each queue with something in it, in the order of the Administrator
 Dashboard's strip of counts, by the strip's name for the queue with its count after it in
-parentheses. Each is a link to where its queue is listed: the institution applications,
-agreements, semester reports, mentor requests and locked accounts open the **Institutions** screen,
-the sponsor agreements, applications and offers running low open the **Sponsors** screen, the
-sponsor posts open the Administrator Dashboard's **Sponsor posts to review** card while that page
-exists, and the duplicated students open the **Student Duplicate Finder**. The dashboard's strip
-shows every count, a zero muted; this card leaves out a queue with nothing in it, and when nothing
-is waiting it says "Nothing is waiting for a manager right now." At the foot of the card,
-**Decide on the Administrator Dashboard** opens that page, where the decisions are made; while the
-page is missing, the card says so in the button's place and asks you to re-activate the plugin to
-recreate it.
+parentheses. Each is a link to where its queue is listed: the institution applications, agreements
+and mentor requests open the **Waiting for review** tab of the **Institutions** screen, the semester
+reports to review and the semesters due for drafting its **Semester reports** tab, and the locked
+accounts its **Accounts** tab; the sponsor agreements, applications and offers running low open the
+**Sponsors** screen, the sponsor posts open the Administrator Dashboard's
+**Sponsor posts to review** card while that page exists, and the duplicated students open the
+**Student Duplicate Finder**. The dashboard's strip shows every count, a zero muted; this card
+leaves out a queue with nothing in it, and when nothing is waiting it says "Nothing is waiting for a
+manager right now." At the foot of the card, **Decide on the Administrator Dashboard** opens that
+page, where the decisions are made; while the page is missing, the card says so in the button's
+place and asks you to re-activate the plugin to recreate it.
 
 **Syncs** has a row for each audience's sync, **Students**, **Mentors**, **Institutions** and
 **Sponsors**, each name a link to the screen the sync is run from: the **Sync** tab of the Students
-and Mentors screens, and the Institutions and Sponsors screens. **Last run** gives the date and time
-of the last run, in the site's own formats, or *Never*. **Next run** gives the date and time of the
-next run; it says *Not scheduled* when none is, and *Running now* while a run is under way. The
-table shows no errors: a sync's last error is on the Administrator Dashboard's **Syncs and health**
-card.
+and Mentors screens, the **Sync and storage** tab of the Institutions screen, and the Sponsors
+screen. **Last run** gives the date and time of the last run, in the site's own formats, or *Never*.
+**Next run** gives the date and time of the next run; it says *Not scheduled* when none is, and
+*Running now* while a run is under way. The table shows no errors: a sync's last error is on the
+Administrator Dashboard's **Syncs and health** card.
 
 **Tools** has a row for each tool, its name a link to the tool's screen, and under **Status** the
 line the tool's card shows on the **Tools** screen; for a tool that cannot run, that line is the
@@ -71,7 +72,7 @@ warning that says why, in the tool's own words.
 | --- | --- |
 | **Students** | Two tabs: **Accounts**, the invitations and every Student account in one list, and **Sync**, the students sync and its last report. |
 | **Mentors** | Two tabs: **Accounts**, the invitations and every Mentor account in one list, and **Sync**, the mentors sync and its last report. |
-| **Institutions** | The institutions sync, the applications and signed agreements waiting to be read, every institution record by stage, account creation, the reconciliation of Students with Students Reports, the consent report, the agreements whose state Airtable disagrees with, every semester report, the plugin's copy of the Collaboration Agreement, and the check of how the host serves the private files. |
+| **Institutions** | Six tabs: **Waiting for review**, the applications, signed agreements and requests from institutions waiting, read here and decided on the Administrator Dashboard; **Pipeline**, every institution record by stage and the consent report; **Accounts**, the invitations, every institution account in one list, the Confirmed institutions with no account yet, and each institution's members; **Semester reports**, every semester report and the semesters due for drafting; **Agreements**, the agreements to record as on file, the ones Airtable disagrees with, and the plugin's copy of the Collaboration Agreement; and **Sync and storage**, the institutions sync, the reconciliation of Students with Students Reports, and the check of how the host serves the private files. |
 | **Sponsors** | The sponsors sync, every sponsor with its status, program contact and accounts, Create account and Attach account, the offers and claims, the interests log, the agreements, and the sponsor applications waiting for a decision. |
 | **Administrators** | Two tabs, under the button to the Administrator Dashboard while that page exists: **Accounts**, every administrator account in one list, and **Capabilities**, the program capabilities granted to Administrator. |
 
@@ -79,7 +80,7 @@ Since 1.92.0 the Administrator Dashboard on the front end gathers every queue th
 
 Since 1.93.0 the Sponsors screen is no longer a placeholder: it holds the sponsors sync, every sponsor with its status, program contact and accounts, the Create account and Attach account controls, and the log of interests sponsors expressed on their dashboard.
 
-Since 1.97.0 the Sponsors screen also holds the queue of companies that applied through the form on the site, with the six decisions the Institutions screen has for its own applications, and its menu entry carries a bubble counting the applications, the signed agreements and the sponsor posts waiting for a manager.
+Since 1.97.0 the Sponsors screen also holds the queue of companies that applied through the form on the site, with the six decisions an institution application has, and its menu entry carries a bubble counting the applications, the signed agreements and the sponsor posts waiting for a manager.
 
 Since 1.118.0 the Students screen is two tabs, and a press on either tab comes back to it. **Accounts**, the tab **WPCredits Program > Students** opens on, holds the **Invitations** card and the **Student accounts** list. **Sync** holds the last sync's error when it ended in one, the **Airtable sync** card with **Sync students now**, or the run's progress and **Cancel sync** while one is going, and the **Last sync report**.
 
@@ -96,6 +97,32 @@ Under each name are **Edit**, which opens the account in wp-admin, **View page**
 Since 1.119.0 the Administrators screen is two tabs too, **Accounts** and **Capabilities**, under the **Open the Administrator Dashboard** button, which stays above them whichever tab is shown. The button is there while that page exists; while it is missing, the **Administrator accounts** list says so. **Accounts**, the tab **WPCredits Program > Administrators** opens on, holds the **Administrator accounts** list: every account with WordPress's Administrator role, a page at a time. **Search administrators** finds an account by name, username or email address. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; a press on **Username** sorts it by username, A to Z, and pressing a heading again reverses the order. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's **Edit**, which opens the account in wp-admin, sits under it. **Can manage program** says whether each account holds the program's capability.
 
 The list has one view, **All**, and no checkboxes, bulk actions or invitations: program managers use WordPress's own Administrator role, the plugin never invites them, and their accounts are added and managed on the **Users** screen. **Capabilities** lists the program capabilities the Administrator role is granted on activation, as the screen did before.
+
+### Institutions
+
+The Institutions screen is six tabs, and a press on any of them comes back to it, with what came of it said above the tabs. **Waiting for review**, the tab **WPCredits Program > Institutions** opens on, holds the queue; the others are **Pipeline**, **Accounts**, **Semester reports**, **Agreements** and **Sync and storage**. While Airtable is not connected, every tab says so above the tabs, with the way to the setting. The menu entry carries a bubble counting the applications, the signed agreements and the requests from institutions waiting.
+
+**Waiting for review** lists the applications from institutions, the signed agreements and the requests from institutions in one list, oldest first, each with how long it has waited and the country's person of contact, for information. An application or a signed agreement is marked *overdue* once it has waited longer than the days set under **Agreement review** on the Institutions tab of Settings, and a request from an institution once it has waited longer than fourteen days; an application the anti-spam checks held is marked *held*, and one that names the same institution or the same address as another in the queue *possible duplicate*. The queue is read here and decided on the Administrator Dashboard: every row ends with **Open on the Administrator Dashboard**, the way to the card there that decides it. An application's row also has **Open this application**, a mentor request's says who the mentor is wanted for and who asked, any other request's says what it asks, the student it is about and who raised it, and a signed agreement's row is the review block the dashboard draws, its checklist, what the scan noticed and the download link, with **Open on the Administrator Dashboard** where the dashboard's block has **Accept it** and **Return it with this note**. While the Administrator Dashboard's page is missing, the list says so once above the rows, and no row links there.
+
+**Open this application** shows one application in the list's place, with **Back to the queue**: what the anti-spam checks noticed, whether the applicant has confirmed the address, every answer with the consent, and what Airtable already holds under the same name or address. Under **Where it is decided**, an open application that the Administrator Dashboard's **Institution applications** card lists says it is decided there, with the way there. That card lists the fifty oldest open applications, so one past them is decided here, with the same four decisions, **Approve**, **Send this question**, **Reject** and **Reject as spam**, and each press comes back to the queue. The record-keeping on a closed application stays here: one rejected or marked as spam has **Put back in the queue** and **Delete for good**, since the dashboard folds in only the oldest fifty of those, and an approved one has **Delete for good**, since the dashboard never lists it. **Delete for good** keeps only the application's reference and the date.
+
+**Pipeline** lists every institution record by stage, as the last institutions sync read it, and says when that was. Each row gives the institution's country and city, whether Airtable holds a contact address for it, never the address itself, whether it carries the consent tick, when the record was created and the state of its agreement. **Confirmed with no agreement recorded** narrows the list to those institutions, and **Show every stage** brings the rest back. Above the stages, **Institutions with no live member** counts the institutions nobody can act for on this site, with the way to give one an account on the **Accounts** tab, and a line lists the countries named by institutions that have no program manager contact in the Countries table. Under the list, **Consent** counts the records collected before the form asked for consent, and the ones created without the tick since, which is how a record entered by hand in Airtable looks.
+
+**Accounts** holds the **Invitations** card, whose button invites every institution account never invited, and the **Institution accounts** list, under a warning naming any institution account locked out of roster changes for the rest of the day, a lock that lifts by itself the next day. The list works as the **Student accounts** list does: every institution account, a page at a time, with no email address printed, though the search finds one. **Search institutions** finds an account by name, username, email address or the name of the institution it acts for. The **All**, **Invited** and **Never invited** views split the list by whether an account has been sent an invitation, each with its count. The list opens sorted by name, A to Z, so a first press on the **Name** heading turns it Z to A; **Username** and **Institution** sort it A to Z, **Member since** by the day the membership began, the earliest first, and **Status** puts **Active** before **Membership ended**, either followed by *locked today* for an account locked for the day; pressing a heading again reverses the order. Every sort works on the whole list, never only on the page in view. **Screen Options** sets how many rows a page holds, 20 by default, and which columns are shown; the **Name** column cannot be hidden, because each row's actions sit under it.
+
+Under each name are **Edit**, which opens the account in wp-admin, **View page**, which opens the Institution Dashboard as the institution the account acts for, while that page exists, **Send invite** or **Resend invite**, which emails that one account at once, and **Manage members**. To invite several, tick them, choose **Send invite** or **Resend invite** under **Bulk actions** and press **Apply**; both work as they do on the Students screen, through the same queue, and come back to the list as it was. Here too nobody is sent a second invitation within fifteen minutes of the last one, and **Resend invite** on ticked accounts says how many it left out.
+
+**No account**, the fourth view, lists institutions rather than accounts: the Confirmed institutions that have no account yet, the ones ready for one first, then by name. Each is shown by its name over its Airtable record ID, with whether Airtable holds a contact address for it under **Contact**, and under **Account** either **Ready** or why it cannot be given one yet, in the words the institutions sync uses. **Search institutions** finds an institution here by its name, and **Institution** sorts the view by it. To create the missing accounts, tick the ready institutions, choose **Create account** under **Bulk actions** and press **Apply**, or press **Create account** under one institution's name. Each account is made from the Contact Email Airtable holds, with an invitation queued for it: a password-set link to that address, which cannot be recalled once sent, as the view says above the list. One press creates at most 25 accounts, and the rest stay listed. While any institution on the view has no agreement recorded, the view names it above the list, with the way to the **Agreements** tab, and no account is created in bulk until it is recorded. Under the list, the view says whether the institutions sync creates these accounts too, which the **Create accounts automatically** setting decides, and when the institution records it lists were last read.
+
+**Manage members** is under every row of the **No account** view, and under an account's row after its invitation; for an account whose membership ended, it opens the institution the account left, where the account is listed with its **Re-add**. It shows that institution's members in the list's place, under the institution's name and **Back to the accounts**, which returns to the list as it stood when **Manage members** was opened until **Remove**, **Re-add** or **Add account** is pressed on the view, after which it opens the **Accounts** tab's first page; uploading or withdrawing a signed agreement there keeps the list as it stood. The view shows each member with **Remove**, which ends their access and keeps their account; the contact Airtable names, when no member holds that address; each former member with **Re-add**; and **Add an account**, a name and an email address. **Add account** creates a new account with a random password and queues its invitation. An address that already has an account is adopted only when that account was a member of this institution before or belongs to a mentor; any other is refused as a conflict, naming the account's username, since an account made by hand is somebody's to explain. An adopted or re-added account that was invited before is not sent another invitation, and the notice says so.
+
+Under the members, a signed agreement that reached the program by email is uploaded on the institution's behalf, and lands in the review queue as the institution's own upload does. Invitations the institution's members have sent their colleagues and that are still pending are not on this view: they are on the Institution Dashboard, where they can be resent or canceled. Unlike the list, the view prints the members' email addresses, because accounts are added and removed by address. For a record the pipeline index does not hold, it says "No institution record has that ID." and points to the institutions sync on the **Sync and storage** tab.
+
+**Semester reports** lists every report the site holds, the drafts first, then the sixty most recently edited approved ones: each with its institution, a link that opens the report on the Institution Dashboard as that institution, its semester, whether it is a draft or approved, when it was drafted and whether by the site or a manager, when it was last edited, and **Ask the students**, which writes to the semester's students who wrote feedback and have not said whether it may be used. Under the list, **Due for drafting** lists the semesters the nightly job would draft, each with **Draft now**; **Draft any semester** drafts one the job has not reached; and **Report log** lists the last twenty things that happened to a report.
+
+**Agreements** holds three cards. **Agreements on file** lists every Confirmed institution with no agreement recorded, and its button records them all as signed in one press, with the Drive link to the folder where the signed copies are kept: each institution gets its own recorded agreement, its own line in the audit log and its own Airtable cells, and its account can then be created. **Agreement discrepancies** lists the institutions whose agreement the site and Airtable's Agreement Status disagree about, each locked until the two agree. **Agreement template** shows the plugin's copy of the Collaboration Agreement, its version, when it was copied from the Doc and its checksum, and which institutions signed which version.
+
+**Sync and storage** holds the last sync's error when it ended in one, the **Airtable sync** card with **Sync institutions now**, or the run's progress and **Cancel sync** while one is going, then **Reconciliation**, the rows where the Students table and Students Reports disagree, as the last students sync found them, with the Students rows that name no institution and a **Link** for each where linking is safe, and **Storage**, which says how the signed agreements are kept and whether the host refuses a stranger's request for them, with **Run probe** to ask the host again.
 
 ### Tools
 
@@ -272,10 +299,11 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 
 - **Applications from institutions** - **Take applications through the form on this site**. Off by
   default, since the form is a public page anybody can post to; its address is under the switch.
-  Every submission is stored for a program manager to read on the Institutions screen, and nothing
-  is created until somebody approves it; while this is off, the page shows one sentence saying
-  applications are closed. The form shows nothing to the public without a published privacy policy,
-  however this is switched, and the row says so until one is chosen under Settings > Privacy.
+  Every submission is stored for a program manager to read on the Institutions screen's Waiting for
+  review tab and to decide on the Administrator Dashboard, and nothing is created until somebody
+  approves it; while this is off, the page shows one sentence saying applications are closed. The
+  form shows nothing to the public without a published privacy policy, however this is switched, and
+  the row says so until one is chosen under Settings > Privacy.
 - **Enrollment lists from institutions** - **Let an institution send a list of students to
   enroll**. Adds an "Enroll students" section to the Institution Dashboard, where a school chooses
   the program and the term and then adds one student or sends a CSV. Off by default. Its fold: the
@@ -286,8 +314,9 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 - **Create accounts automatically** - **Let the sync create the first account for a Confirmed
   institution**, from the Contact Email Airtable holds, and only for a Confirmed institution whose
   agreement is recorded and that has never had a member. Off by default. Its fold: an address that
-  already belongs to an account is left alone and named on the Institutions screen, and with this
-  off, accounts are created only when somebody presses the button there.
+  already belongs to an account is left alone, and on the Institutions screen's Accounts tab, under
+  No account, the institution is listed with the reason, never the address or the account; with
+  this off, accounts are created only when somebody presses Create account there.
 
 #### Institution landing page
 
@@ -1080,10 +1109,10 @@ updated, skipped and why.
 ### Invitations
 
 An invitation is a password-reset link. Send them in bulk by switching **Invitation emails** on
-before a sync, or one at a time from the Students and Mentors screens - which is the safer habit,
-because a first sync creates around ninety accounts at once. On the Students and Mentors screens
-you can also tick several accounts in the list and choose **Send invite** or **Resend invite**
-under **Bulk actions**: those are queued and go out a few at a time.
+before a sync, or one at a time from the Students and Mentors screens and the Institutions screen's
+**Accounts** tab - which is the safer habit, because a first sync creates around ninety accounts at
+once. On those three lists you can also tick several accounts and choose **Send invite** or
+**Resend invite** under **Bulk actions**: those are queued and go out a few at a time.
 
 Each invitation cancels the link in the one before it, so only the newest email works: somebody who
 opens an older one is told the link appears to be invalid. For the same reason a second invitation
@@ -1120,13 +1149,13 @@ deleted**, and their program details in Airtable are untouched.
 
 ## Semester reports
 
-The site drafts a report for each institution semester once the semester has ended and every student in it is finished, or 45 days after the end (the "Drafting grace" setting) if some are not. The job runs nightly and drafts at most ten reports a run; it never drafts a semester that ended before the feature was installed, so older semesters are drafted by hand with the Draft now button on the Institutions screen. Each draft is mailed to the addresses in "Who reviews reports", or to every program manager when that is empty.
+The site drafts a report for each institution semester once the semester has ended and every student in it is finished, or 45 days after the end (the "Drafting grace" setting) if some are not. The job runs nightly and drafts at most ten reports a run; it never drafts a semester that ended before the feature was installed, so older semesters are drafted by hand with the Draft now button on the Institutions screen's Semester reports tab. Each draft is mailed to the addresses in "Who reviews reports", or to every program manager when that is empty.
 
-Review a draft on the Institution Dashboard, reached through the switcher from the Semester reports card. Edit the narrative, choose the quotes, then press Approve. The institution sees the report from that moment, with a Download PDF button, and its accounts are mailed; an institution with no account is not mailed and the screen says so, so send the PDF by hand. Reopen takes the report back to a draft and out of the institution's view. Approval is refused while the students' consent answers cannot be read.
+Review a draft on the Institution Dashboard, reached through the switcher from the Semester reports tab. Edit the narrative, choose the quotes, then press Approve. The institution sees the report from that moment, with a Download PDF button, and its accounts are mailed; an institution with no account is not mailed and the screen says so, so send the PDF by hand. Reopen takes the report back to a draft and out of the institution's view. Approval is refused while the students' consent answers cannot be read.
 
 ## The Administrator Dashboard
 
-The Administrator Dashboard at /administrator-dashboard/ is the page to start the day on. It is gated to program managers and shows, in this order: a strip of twelve counts (institution applications waiting, agreements to review and overdue, reports to review, semesters due for drafting, mentor requests open and overdue, locked accounts, sponsor posts to review, sponsor agreements to review, sponsor applications waiting, offers running low), then one card each for institution applications, Collaboration Agreements, semester reports, mentor requests, sponsor applications, sponsor posts, sponsor Collaboration Agreements, offers running low, new interests, the sponsors' figures, the programs running and the syncs' health. Every decision on the page is the same decision the wp-admin screen offers, posted to the same handler with the same safeguards, and it lands back on the page (Draft now opens the new draft in the editor, and a refusal comes back to the page). What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or provision accounts; those stay on the wp-admin screens the Syncs card links to.
+The Administrator Dashboard at /administrator-dashboard/ is the page to start the day on. It is gated to program managers and shows, in this order: a strip of thirteen counts (institution applications waiting, agreements to review and overdue, reports to review, semesters due for drafting, mentor requests open and overdue, locked accounts, sponsor posts to review, sponsor agreements to review, sponsor applications waiting, offers running low, duplicated students), then one card each for institution applications, Collaboration Agreements, semester reports, mentor requests, sponsor applications, sponsor posts, sponsor Collaboration Agreements, offers running low, new interests, the sponsors' figures, the programs running and the syncs' health. A decision on the page that a wp-admin screen offers too is the same decision there, posted to the same handler with the same safeguards, and every decision lands back on the page (Draft now opens the new draft in the editor, and a refusal comes back to the page). The decisions on an open institution application, a signed agreement and a mentor request are made on this page: the Institutions screen's Waiting for review tab lists them to be read, each with a link to its card here, and keeps the record-keeping on a closed application and the four decisions on an open application past the fifty oldest this page's card lists, which no card here reaches. What the page does not do: run a sync, change a setting, approve a semester report (that happens in the editor, where you have read it) or provision accounts; those stay on the wp-admin screens the Syncs card links to.
 
 The programs card counts students in progress per track and per institution from the roster index, so its numbers are as old as the last students sync; the read time is printed under the table. "Finished this semester" counts graduates only, not everyone who left the program; a graduate's row no longer says which track they were on, so it is one number rather than one per track. "Signed up this semester" per track counts the students who started in the semester and are still on that track; a student who started and has since paused, graduated or left is in the semester's finished count or in no count. Mentors are counted by distinct name, not by their Airtable record, because a roster row carries no mentor record ID: two mentors who share a name count once.
 

@@ -143,6 +143,48 @@ class WPCPM_Request {
 	}
 
 	/**
+	 * A ticked list sent by GET, each value kept only when the whole of it matches a pattern: the
+	 * query-string twin of `posted_list()`.
+	 *
+	 * The checkboxes of a list form, which core's own lists send to their screen by GET, holding
+	 * what `ids()` cannot read: record IDs rather than account IDs, such as the Airtable records a
+	 * list shows for what has no account yet. `ids()` keeps whole numbers alone and `key()`
+	 * lowercases, and an Airtable record ID is letters and digits whose case is part of it. Nothing
+	 * is cleaned into something else, as in `posted_list()`: a value a sanitizer repaired could look
+	 * up a different record from the one that was ticked, so a value that does not match is dropped,
+	 * and so are a field that is not a list, a value that is not a string and a repeat.
+	 *
+	 * Same standing as the rest of this class: the handler has already checked the nonce and the
+	 * capability, and what this returns is still matched against what the site holds.
+	 *
+	 * @param string $name    Query argument name, without the brackets.
+	 * @param string $pattern A regular expression; a value is kept only when what it matches is the
+	 *                        whole value, whatever its anchors.
+	 * @return string[] The matching values, each once, in the order sent.
+	 */
+	public static function list( $name, $pattern ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- The caller's handler verifies the nonce before reaching here.
+		if ( ! isset( $_GET[ $name ] ) || ! is_array( $_GET[ $name ] ) ) {
+			return array();
+		}
+
+		$values = array();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- As above; each value is kept only if the pattern matches it whole.
+		foreach ( wp_unslash( $_GET[ $name ] ) as $value ) {
+			// The match has to be the whole value: a `$` without the `D` modifier matches before a
+			// trailing newline too, as Airtable's record rule is written, and an unanchored pattern
+			// matches inside a longer value.
+			if ( is_string( $value ) && 1 === preg_match( $pattern, $value, $matched ) && $matched[0] === $value ) {
+				$values[ $value ] = true;
+			}
+		}
+
+		// array_keys() hands back a key of decimal digits alone as an integer, so each is cast back to the string that was sent.
+		return array_map( 'strval', array_keys( $values ) );
+	}
+
+	/**
 	 * Whether a login actually asked to be sent somewhere in particular.
 	 *
 	 * `login_redirect` hands over a `$requested_redirect_to`, and the obvious reading - "if

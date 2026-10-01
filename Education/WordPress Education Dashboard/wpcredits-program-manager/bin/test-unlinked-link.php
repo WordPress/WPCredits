@@ -156,6 +156,8 @@ function check_admin_referer( $a = -1, $q = '_wpnonce' ) {
 }
 function wp_nonce_field( $a = '', $n = '_wpnonce', $r = true, $e = true ) { echo '<input type="hidden" name="_wpnonce" value="nonce-' . esc_attr( $a ) . '" />'; }
 function admin_url( $p = '' ) { return 'https://example.test/wp-admin/' . $p; }
+// The way back to a tab of the screen, which the handler builds with the one argument core's takes.
+function add_query_arg( $k, $v = '', $u = '' ) { return $u . ( false === strpos( $u, '?' ) ? '?' : '&' ) . $k . '=' . $v; }
 function home_url( $p = '/' ) { return 'https://example.test' . $p; }
 function wp_safe_redirect( $to ) { throw new Exception( 'redirect:' . $to ); }
 function wp_die( $m = '', $c = 0 ) { throw new Exception( 'wp_die:' . $m ); }
@@ -345,6 +347,8 @@ require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-audit.
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-policy.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
+// Before the Institutions module, which uses it: PHP declares a class only once its traits are.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
 
 /* ---- runner ------------------------------------------------------------- */
@@ -777,7 +781,9 @@ ck( 'the mentored row is refused', outcome_status( 1 ), 'automation' );
 ck( 'and the row is not written', $GLOBALS['at']['writes'], array() );
 ck( 'nor put on anybody\'s roster', $GLOBALS['inserted'], array() );
 ck( 'nor logged as something that happened', audit_rows(), array() );
-ck( 'the manager lands back on the list', has( $mentored, 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions#wpcpm-unlinked' ), true );
+// The list is on the Sync and storage tab, with the reconciliation card that draws it: the screen
+// opens on its queue, so an address without the tab would land a tab away from the sentence.
+ck( 'the manager lands back on the list, on the Sync and storage tab that holds it', $mentored, 'redirect:https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=sync#wpcpm-unlinked' );
 
 // The reports lookup is a second request. A row the automation already covers is refused
 // whatever that lookup would have said, so it is never made.
@@ -900,6 +906,12 @@ ck( 'the card says what happened, where it happened', has( $success, 'The row is
 press_link( 3, array( 'wpcpm_student' => $MENTORED, 'wpcpm_institution' => $B ) );
 $refused = render_card( 3 );
 ck( 'and a refusal says nothing was written before it says why', has( $refused, 'Nothing was written. This row carries a mentor and a status the Airtable automation watches' ), true );
+// Core's script moves every notice without the class `inline` to just under the screen's heading,
+// so both carry it, or the sentence would leave the card the manager lands on for the top of the tab.
+ck( 'both stay in the card, as notices core\'s script leaves where they are printed', array(
+	has( $success, '<div class="notice notice-success inline is-dismissible"><p>The row is linked to Universidad Example.' ),
+	has( $refused, '<div class="notice notice-error inline is-dismissible"><p>Nothing was written.' ),
+), array( true, true ) );
 
 /* ---- prose --------------------------------------------------------------- */
 

@@ -11,9 +11,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * What every audience's accounts screen does the same way, whichever audience it lists: the list's
- * load hook, its form and the bulk invitation pressed in it, the rows-per-page save, one row's
- * invitation, the way back to the list as it stood, the count a press on the ticked accounts
- * carries beside its outcome, the tab bar, and the Accounts tab with its list.
+ * load hook, its form and the bulk invitation pressed in it, or a bulk action the audience's table
+ * carries out itself, the rows-per-page save, one row's invitation, the way back to the list as it
+ * stood, the count a press on the ticked accounts carries beside its outcome, the tab bar and the
+ * tab the screen opens on, and the Accounts tab with its list.
  *
  * **One copy, so the screens cannot drift apart.** The Students and Mentors modules held these
  * methods twice, the same but for the audience's name. The capability and the nonce checked before
@@ -42,7 +43,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * `tab_labels()`, `render_admin_page()` and `render_tab_accounts()`, as the Administrators module
  * does for a screen with neither, declares none of them. A class's own method replaces the trait's,
  * and bin/check-references.php, which checks the trait's references in each class that uses it,
- * leaves out the ones in a method the class replaces.
+ * leaves out the ones in a method the class replaces, unless the class keeps the trait's method
+ * under another name with `as`, as the Institutions module keeps `load_screen()`: the class still
+ * runs that body, under the other name, so its references are still the class's to answer for.
  */
 trait WPCPM_Accounts_Screen {
 
@@ -183,9 +186,17 @@ trait WPCPM_Accounts_Screen {
 	 * or a filter of the audience's own.
 	 *
 	 * Send invite and Resend invite go through the capability and the list's nonce before anything
-	 * else of the request is read. Anything else sent from the form comes back to the same list
-	 * without the form's own fields, as core's own lists do, so the nonce never stays in the address
-	 * or in the page and sort links built from it.
+	 * else of the request is read. So does any other bulk action the audience's table carries out
+	 * itself, such as Create account on a view of the records that have no account: the table says
+	 * whether the action is its own by the action's name alone (`WPCPM_Accounts_Table::owns_action()`),
+	 * and carries it out only once both are checked (`handle_action()`). What came of it is flashed
+	 * and the press comes back to the list (`leave()`), whose tab prints the outcome from its message
+	 * map, which has to hold it: in the table's own words for it where it has any
+	 * (`action_sentence()`), and otherwise in the map's, never in the invitations'
+	 * (`notice_sentence()`). The action is the table's to name and to carry out, so this holds no
+	 * branch for any one audience's, and an action no table owns does nothing. Anything else sent from
+	 * the form comes back to the same list without the form's own fields, as core's own lists do, so
+	 * the nonce never stays in the address or in the page and sort links built from it.
 	 *
 	 * @param WPCPM_Accounts_Table $table The table the form belongs to.
 	 */
@@ -195,6 +206,12 @@ trait WPCPM_Accounts_Screen {
 		if ( 'invite' === $action || 'reinvite' === $action ) {
 			$this->verify( $table::bulk_nonce_action() );
 			$this->invite_selected( WPCPM_Request::ids( $table::USERS_FIELD ), 'reinvite' === $action );
+		} elseif ( is_string( $action ) && '' !== $action && $table->owns_action( $action ) ) {
+			$this->verify( $table::bulk_nonce_action() );
+
+			list( $status, $detail ) = $table->handle_action( $action );
+
+			$this->leave( $this->list_url(), $status, $detail );
 		}
 
 		if ( '' !== WPCPM_Request::text( '_wp_http_referer' ) ) {
@@ -250,7 +267,7 @@ trait WPCPM_Accounts_Screen {
 	 * Queue invitations for the ticked accounts, then back to the list, saying how many.
 	 *
 	 * The arithmetic is the accounts base's (`WPCPM_Accounts_Table::queue_ticked()`), called on the
-	 * audience's own table (`table_class()`) for its role and its stamp: which ticked accounts are
+	 * audience's own table (`table_class()`) for its role and stamps: which ticked accounts are
 	 * queued, by which of the mail layer's two ways in, and why none was. The words for what came of
 	 * it are the base's too, which the screen prints (`notice_sentence()`); the way back to the list
 	 * is the screen's.
@@ -278,8 +295,10 @@ trait WPCPM_Accounts_Screen {
 	 *
 	 * @param string $url    This screen's address to return to, which WPCPM_Return may swap for the dashboard.
 	 * @param string $status An outcome key the screen's message map knows.
-	 * @param array  $detail What the press adds: `resend`, `queued` or `why`, and `recent`, how many a
-	 *                       Resend invite left out for the fifteen minutes.
+	 * @param array  $detail What the press adds: for the invitations `resend`, `queued` or `why`, and
+	 *                       `recent`, how many a Resend invite left out for the fifteen minutes; for a
+	 *                       bulk action the table carries out itself, what its `handle_action()`
+	 *                       returned beside the outcome.
 	 */
 	private function leave( $url, $status, array $detail = array() ) {
 		WPCPM_Flash::set( $this->flash_key(), $status );
@@ -290,8 +309,9 @@ trait WPCPM_Accounts_Screen {
 	}
 
 	/**
-	 * Every account of the audience never sent an invitation, by its accounts table's own role and
-	 * stamp, the reading its Never invited view counts by.
+	 * Every account of the audience never sent an invitation of any kind, by its accounts table's own
+	 * role and stamp, which says whether the plugin invites the role at all, the reading its Never
+	 * invited view counts by.
 	 *
 	 * The table's classes are loaded first: the invitations card's button posts to admin-post.php,
 	 * where nothing else loads them.
@@ -365,15 +385,19 @@ trait WPCPM_Accounts_Screen {
 	}
 
 	/**
-	 * The sentence for a press on the ticked accounts: how many were queued, or why none was.
+	 * The sentence for a press on the ticked accounts: how many invitations were queued or why none
+	 * was, or what a bulk action the audience's table carries out itself did.
 	 *
-	 * The count is one-shot, so it is read here, on the one status being printed, and used only when
+	 * The detail is one-shot, so it is read here, on the one status being printed, and used only when
 	 * it was carried for that very status: the invitations card's button leaves the same two
 	 * statuses with no count, and keeps the map's sentences.
 	 *
-	 * The words are the accounts base's, one wording for every audience's list
-	 * (`WPCPM_Accounts_Table::selected_sentence()`), and the tables are loaded for them first: a tab
-	 * drawn without the screen's load hook has loaded none (`table()`).
+	 * The invitations' two outcomes are worded by the accounts base, one wording for every audience's
+	 * list (`WPCPM_Accounts_Table::selected_sentence()`). Any other outcome carrying a detail is a
+	 * table's own action's (`handle_action()`), worded by the audience's table
+	 * (`action_sentence()`), or by the map when the table has no words for it, since the
+	 * invitations' words would tell of invitations that action never sent. The tables are loaded
+	 * first: a tab drawn without the screen's load hook has loaded none (`table()`).
 	 *
 	 * @param string $status   The status being printed.
 	 * @param string $sentence Its sentence from the map.
@@ -388,23 +412,34 @@ trait WPCPM_Accounts_Screen {
 
 		wpcpm_load_accounts_tables();
 
-		return WPCPM_Accounts_Table::selected_sentence( $detail );
+		if ( in_array( (string) $status, array( 'invites-queued', 'invites-none' ), true ) ) {
+			return WPCPM_Accounts_Table::selected_sentence( $detail );
+		}
+
+		$table_class = static::table_class();
+		$worded      = (string) $table_class::action_sentence( (string) $status, $detail );
+
+		return '' === $worded ? (string) $sentence : $worded;
 	}
 
 	/**
-	 * The tab the screen shows: the one its address names, or Accounts when it names none or one the
-	 * screen does not have.
+	 * The tab the screen shows: the one its address names, or the screen's first tab when it names
+	 * none or one the screen does not have.
 	 *
-	 * Accounts is the default as well as the first tab: the menu opens the screen at its own address,
-	 * and the sort and page links core builds from an address carry the tab it names, none from the
-	 * menu's, so they open the list too.
+	 * The first tab is the default, the rule every audience's screen follows, so a screen's default
+	 * is the order of its TABS. The menu opens a screen at its own address, which names no tab: the
+	 * Students, Mentors and Administrators screens open on Accounts, their first tab, and the sort
+	 * and page links core builds from that address, which name no tab either, open the list too. A
+	 * screen whose first tab is another, such as a queue, opens on that one and reaches its list at an
+	 * address naming the Accounts tab, which the list's form, its views and the links core builds from
+	 * that address all name in turn.
 	 *
 	 * @return string A key of TABS.
 	 */
 	public static function tab() {
 		$tab = WPCPM_Request::key( 'tab' );
 
-		return isset( static::TABS[ $tab ] ) ? $tab : static::TAB_ACCOUNTS;
+		return isset( static::TABS[ $tab ] ) ? $tab : (string) array_key_first( static::TABS );
 	}
 
 	/**
@@ -500,8 +535,11 @@ trait WPCPM_Accounts_Screen {
 	 * page of it: until 1.117.1 the Students screen read the first 500 accounts by display name and
 	 * counted those, which hid 13 of its 513 accounts with no trace on 28 Sep 2026, the Mentors screen
 	 * asked for the same first 500 until 1.117.2, and the Administrators screen for the first 200
-	 * until 1.117.3. The count is the table's total, every account the list holds: from WordPress, or
-	 * for a sort the table orders itself, from the table's own read of every account.
+	 * until 1.117.3. The count is the table's (`heading_count()`), every account the list holds: from
+	 * WordPress, or for a sort the table orders itself, from the table's own read of every account;
+	 * and on a record view, whose rows are records, the accounts the list holds in all, since the
+	 * heading names accounts. The note under the list says how accounts are made and invited, so it
+	 * is left out on a record view (`is_record_view()`).
 	 */
 	private function render_accounts_list() {
 		$table    = $this->table();
@@ -512,7 +550,7 @@ trait WPCPM_Accounts_Screen {
 		printf(
 			'<h2>%1$s <span class="wpcpm-count">%2$s</span></h2>',
 			esc_html( $words['list_heading'] ),
-			esc_html( number_format_i18n( (int) $table->get_pagination_arg( 'total_items' ) ) )
+			esc_html( number_format_i18n( $table->heading_count() ) )
 		);
 
 		if ( $page_url ) {
@@ -536,7 +574,10 @@ trait WPCPM_Accounts_Screen {
 		$table->display();
 		echo '</form>';
 
-		echo '<p class="description">' . esc_html( $words['list_note'] ) . '</p>';
+		if ( ! $table->is_record_view() ) {
+			echo '<p class="description">' . esc_html( $words['list_note'] ) . '</p>';
+		}
+
 		echo '</div>';
 	}
 }

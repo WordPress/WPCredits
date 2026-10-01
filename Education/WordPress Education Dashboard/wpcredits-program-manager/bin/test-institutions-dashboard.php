@@ -965,7 +965,7 @@ $rows = $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'];
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = array();
 $out = render_as( 4 );
 ck( 'a manager with no institution to show gets the shared wording too', false !== strpos( $out, WPCPM_Dashboards::nothing_to_show( 'institutions', true ) ), true );
-ck( 'which is a link to the Institutions screen', false !== strpos( $out, 'admin.php?page=wpcpm-institutions' ), true );
+ck( 'which is a link to the Institutions screen\'s Accounts tab, where accounts are created', false !== strpos( $out, 'admin.php?page=wpcpm-institutions&tab=accounts' ), true );
 ck( 'and never says "add one from"', false !== strpos( $out, 'Add one from' ), false );
 ck( 'and no card ran for them either', cards_run(), array() );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;

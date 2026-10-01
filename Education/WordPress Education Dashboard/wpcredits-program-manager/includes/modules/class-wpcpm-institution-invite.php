@@ -2011,7 +2011,10 @@ class WPCPM_Institution_Invite {
 	 * The same shape as the People card's `finish()`, deliberately: the two sets of controls
 	 * sit in one card, and an outcome from one that landed somewhere else would read as the
 	 * page being broken. The destination is rebuilt from a flag rather than taken from the
-	 * request, so no form can bounce a member somewhere else.
+	 * request, so no form can bounce a member somewhere else. The Institutions screen draws no
+	 * invitation control, but a post that carries `wpcpm_from=admin` lands where the People
+	 * class's presses on that screen do, on the institution's Manage members view
+	 * (`WPCPM_Institution_People::manager_url()`), which prints this channel for it.
 	 *
 	 * **This does not return.**
 	 *
@@ -2032,7 +2035,7 @@ class WPCPM_Institution_Invite {
 		$anchor = '#' . WPCPM_Institution_People::ANCHOR;
 
 		if ( WPCPM_Institution_People::RETURN_ADMIN === WPCPM_Request::posted_key( 'wpcpm_from' ) ) {
-			wp_safe_redirect( admin_url( 'admin.php?page=wpcpm-institutions' ) . $anchor );
+			wp_safe_redirect( WPCPM_Institution_People::manager_url( $record ) . $anchor );
 			exit;
 		}
 

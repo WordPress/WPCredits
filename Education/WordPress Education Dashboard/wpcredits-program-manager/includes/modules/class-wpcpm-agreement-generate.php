@@ -320,7 +320,8 @@ class WPCPM_Agreement_Generate {
 		// Nothing has been written anywhere at this point: the base is patched below, after
 		// the post, because T2 is the one transition allowed to fail. So this is not the
 		// on-file route's `agreement-not-saved`, which tells the reader Airtable was updated
-		// and a Refresh will finish the job. Both halves of that would be false here.
+		// and the next institutions sync will finish the job. Both halves of that would be false
+		// here.
 		if ( ! $post_id ) {
 			self::bounce( 'agreement-generate-not-saved' );
 		}

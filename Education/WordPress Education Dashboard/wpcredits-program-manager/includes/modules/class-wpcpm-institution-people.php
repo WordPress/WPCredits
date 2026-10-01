@@ -35,9 +35,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * control as every other, and the fact a manager relies on that address is said in the
  * confirm, where a warning belongs, rather than enforced by a control nobody has.
  *
- * Invitations ship in Phase 4. Until then the only way an account is created is the manager
- * backstop on the Institutions screen, which `render_manager()` draws and the two manager
- * handlers here serve: Add account, Re-add, Remove.
+ * A program manager has the same list for any institution on the Institutions screen: the
+ * Accounts tab's Manage members view, which `render_manager()` draws, where Remove sits beside
+ * the two handlers only a manager reaches, Add account and Re-add. Every form there posts
+ * `RETURN_ADMIN`, and every handler, the invitations' too, comes back to that institution's
+ * view (`manager_url()`), so a press lands on the list it changed.
  */
 class WPCPM_Institution_People {
 
@@ -187,10 +189,12 @@ class WPCPM_Institution_People {
 		WPCPM_Institution_Invite::render_pending( $record_id );
 		WPCPM_Institution_Invite::render_form( $record_id );
 
+		// To this institution's own view on the Institutions screen, where its accounts are
+		// added and its former members wait with a Re-add, rather than to the screen's front door.
 		if ( $can_manage ) {
 			printf(
 				'<p class="wpcpm-people__note"><a href="%1$s">%2$s</a></p>',
-				esc_url( self::manager_url() ),
+				esc_url( self::manager_url( $record_id ) ),
 				esc_html__( 'Add or re-add an account on the Institutions screen', 'wpcredits-program-manager' )
 			);
 		}
@@ -322,11 +326,14 @@ class WPCPM_Institution_People {
 		printf( '<input type="hidden" name="member" value="%d" />', (int) $member->ID );
 
 		if ( self::RETURN_ADMIN === $origin ) {
-			printf( '<input type="hidden" name="wpcpm_from" value="%s" />', esc_attr( self::RETURN_ADMIN ) );
+			self::render_return_field();
 		}
 
+		// In wp-admin only core's button classes dress a button, as they do Re-add and Add account
+		// there; on the dashboard the card's own class is the one its stylesheet dresses.
 		printf(
-			'<button type="submit" class="wpcpm-people__remove" onclick="return confirm(%1$s)">%2$s</button>',
+			'<button type="submit" class="%1$s" onclick="return confirm(%2$s)">%3$s</button>',
+			esc_attr( self::RETURN_ADMIN === $origin ? 'button button-secondary wpcpm-people__remove' : 'wpcpm-people__remove' ),
 			esc_attr( wp_json_encode( self::confirm_text( $member, $name, $is_self, $is_contact, $others ) ) ),
 			esc_html(
 				$is_self
@@ -336,6 +343,16 @@ class WPCPM_Institution_People {
 		);
 
 		echo '</form>';
+	}
+
+	/**
+	 * The flag that sends a press made on the Institutions screen back to the view it was made on.
+	 *
+	 * A flag and never a URL: `finish()` rebuilds the destination from it and from the institution
+	 * the outcome is about, so no form can send a manager anywhere else.
+	 */
+	private static function render_return_field() {
+		printf( '<input type="hidden" name="wpcpm_from" value="%s" />', esc_attr( self::RETURN_ADMIN ) );
 	}
 
 	/**
@@ -473,10 +490,16 @@ class WPCPM_Institution_People {
 	 */
 
 	/**
-	 * The backstop for one institution on the Institutions screen.
+	 * The backstop for one institution: its Manage members view on the Institutions screen's
+	 * Accounts tab (`manager_url()`).
 	 *
 	 * Live members with the same facts the school sees, former members with a Re-add, whether
-	 * the address Airtable holds belongs to a member, and the Add account form.
+	 * the address Airtable holds belongs to a member, and the Add account form. Every form here
+	 * posts `RETURN_ADMIN`, so its handler lands back on this block, on the anchor it carries,
+	 * and the outcome prints at its top (`render_messages()`): the members' own, and the
+	 * invitations'. The Institutions screen draws no invitation control; that channel is printed
+	 * here because a post carrying `wpcpm_from=admin` lands here all the same
+	 * (`WPCPM_Institution_Invite::finish()`).
 	 *
 	 * Two questions, and they are not the same one. The capability says which screen this is:
 	 * the backstop is a manager's block on the Institutions screen and a member who reached it
@@ -517,7 +540,7 @@ class WPCPM_Institution_People {
 		$contact_shown = ( '' !== $contact || '' !== $contact_name )
 			&& ! self::holds_address( $members, $contact );
 
-		echo '<div class="wpcpm-people wpcpm-people--admin">';
+		printf( '<div class="wpcpm-people wpcpm-people--admin" id="%s">', esc_attr( self::ANCHOR ) );
 
 		printf(
 			'<h3 class="wpcpm-people__title">%1$s <span class="wpcpm-people__count">%2$s</span></h3>',
@@ -525,7 +548,7 @@ class WPCPM_Institution_People {
 			esc_html( number_format_i18n( count( $members ) + ( $contact_shown ? 1 : 0 ) ) )
 		);
 
-		self::render_message( $record_id );
+		self::render_messages( $record_id );
 
 		if ( $members || $contact_shown ) {
 			echo '<ul class="wpcpm-people__list">';
@@ -579,6 +602,44 @@ class WPCPM_Institution_People {
 	}
 
 	/**
+	 * The outcome of a press that landed on the Manage members view of a record the pipeline index
+	 * no longer holds, on its own: that view draws no block, so without this the outcome, an Add
+	 * account or a Re-add refused because a sync dropped the record among them, would wait in user
+	 * meta for the next block, which prints it only if the record has come back by then.
+	 *
+	 * In the block's box and on its anchor, the one the landing names, and only when there is
+	 * something to say: an empty box would read as a block with nothing in it. Both channels are
+	 * taken either way, as the block takes them.
+	 *
+	 * @param string $record_id The record ID the view's address names.
+	 */
+	public static function render_outcome( $record_id ) {
+		ob_start();
+		self::render_messages( $record_id );
+		$said = (string) ob_get_clean();
+
+		if ( '' === $said ) {
+			return;
+		}
+
+		printf( '<div class="wpcpm-people wpcpm-people--admin" id="%s">', esc_attr( self::ANCHOR ) );
+		echo $said; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Printed by the two outcome printers, each of which escapes what it prints.
+		echo '</div>';
+	}
+
+	/**
+	 * The outcome of the last press for one institution on both channels a press on its Manage
+	 * members view can leave: the members' own, and the invitations', whose handler lands a post
+	 * carrying `wpcpm_from=admin` on the view as well.
+	 *
+	 * @param string $record_id The institution the outcome has to be about to be printed.
+	 */
+	private static function render_messages( $record_id ) {
+		self::render_message( $record_id );
+		WPCPM_Institution_Invite::render_message( $record_id );
+	}
+
+	/**
 	 * Former members, each with a Re-add.
 	 *
 	 * The list is the `_was` stamp the members module keeps, which is why a removal is one
@@ -608,6 +669,7 @@ class WPCPM_Institution_People {
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_READD ) );
 			printf( '<input type="hidden" name="member" value="%d" />', (int) $member->ID );
 			printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record_id ) );
+			self::render_return_field();
 			printf(
 				'<button type="submit" class="button button-secondary">%s</button>',
 				esc_html__( 'Re-add', 'wpcredits-program-manager' )
@@ -633,9 +695,10 @@ class WPCPM_Institution_People {
 		printf( '<h4 class="wpcpm-people__subtitle">%s</h4>', esc_html__( 'Add an account', 'wpcredits-program-manager' ) );
 
 		echo '<form class="wpcpm-people__form wpcpm-people__form--add" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		wp_nonce_field( self::ACTION_ADD_ACCOUNT );
+		wp_nonce_field( self::ACTION_ADD_ACCOUNT . '_' . $record_id );
 		printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::ACTION_ADD_ACCOUNT ) );
 		printf( '<input type="hidden" name="record" value="%s" />', esc_attr( $record_id ) );
+		self::render_return_field();
 
 		printf(
 			'<label class="screen-reader-text" for="wpcpm-people-name-%1$s">%2$s</label>',
@@ -754,10 +817,13 @@ class WPCPM_Institution_People {
 	 * The manager backstop: create an account for an institution, or adopt one.
 	 *
 	 * Capability, then nonce, then the policy, in that order (spec 5.4): the capability says
-	 * this is the manager's backstop, the nonce says the request was meant, and `decide()`
-	 * says whether the record may be acted on at all, so a refusal here is the policy's one
-	 * refusal and not a bespoke one. (`attach()` derives the audit row's ground from the actor
-	 * itself; the decision is asked for the refusal path, not to feed the log.)
+	 * this is the manager's backstop, the nonce says the request was meant for this institution,
+	 * and `decide()` says whether the record may be acted on at all, so a refusal here is the
+	 * policy's one refusal and not a bespoke one. (`attach()` derives the audit row's ground from
+	 * the actor itself; the decision is asked for the refusal path, not to feed the log.) The
+	 * nonce is keyed to the record, as Re-add's and Remove's are to the member, so the record is
+	 * read before the nonce is checked, only to name it; nothing is done with it until both checks
+	 * have passed.
 	 *
 	 * An address that already has an account is refused unless that account was a member of
 	 * this institution or is a mentor: found by email with no membership is a conflict and not
@@ -770,9 +836,9 @@ class WPCPM_Institution_People {
 			wp_die( esc_html__( 'You do not have permission to manage the program.', 'wpcredits-program-manager' ), 403 );
 		}
 
-		check_admin_referer( self::ACTION_ADD_ACCOUNT );
-
 		$record = WPCPM_Request::posted_text( 'record' );
+
+		check_admin_referer( self::ACTION_ADD_ACCOUNT . '_' . $record );
 
 		// Shape, then the policy, then the state of the record. The hidden field is written by
 		// the block the button sits in, so a value that is not a record ID at all is a forged
@@ -1187,18 +1253,22 @@ class WPCPM_Institution_People {
 	 * Record the outcome and return to the page the control was on.
 	 *
 	 * The destination is rebuilt here from a flag rather than taken from the request, so no
-	 * form can bounce a manager somewhere else. `admin` is the Institutions screen; anything
-	 * else is the institution dashboard, reached as an array callable so this file loads and
-	 * its tests run whether or not the dashboard shell has landed yet.
+	 * form can bounce a manager somewhere else. `admin` is the Institutions screen, at the
+	 * Manage members view of the institution the outcome is about (`manager_url()`), the list
+	 * the press changed; anything else is the institution dashboard, reached as an array
+	 * callable so this file loads and its tests run whether or not the dashboard shell has
+	 * landed yet.
 	 *
 	 * **This does not return.** Every call to it ends the request, which is why a refusal in a
 	 * handler above reads as one line and not as an early return with a branch around it.
 	 *
 	 * The record travels with the outcome so the card that prints it is the one whose list
-	 * changed, and every caller has one: a record that is not even well-formed is refused
-	 * before it reaches here. An empty status queues nothing at all: a message nobody will be
-	 * shown is a message that stays in user meta until it surprises somebody, and the one
-	 * path that ends without a reader (leaving) says so by passing ''.
+	 * changed. Every caller has one but one: a manager's Remove of an account that holds no
+	 * membership, live or ended, passes '' (`handle_remove_member()`), an outcome no card
+	 * prints, which lands on the Accounts tab (`manager_url()`); a record that is not even
+	 * well-formed is refused before it reaches here. An empty status queues nothing at all: a
+	 * message nobody will be shown is a message that stays in user meta until it surprises
+	 * somebody, and the one path that ends without a reader (leaving) says so by passing ''.
 	 *
 	 * @param string $status Outcome slug, one of the keys `render_message()` knows, or ''
 	 *                       to say nothing at all.
@@ -1220,7 +1290,7 @@ class WPCPM_Institution_People {
 		$where = WPCPM_Request::posted_key( 'wpcpm_from' );
 
 		if ( self::RETURN_ADMIN === $where ) {
-			wp_safe_redirect( self::manager_url() . '#' . self::ANCHOR );
+			wp_safe_redirect( self::manager_url( $record ) . '#' . self::ANCHOR );
 			exit;
 		}
 
@@ -1229,16 +1299,28 @@ class WPCPM_Institution_People {
 	}
 
 	/**
-	 * The Institutions screen.
+	 * One institution's Manage members view: the Institutions screen's Accounts tab with the
+	 * institution in its address, where `render_manager()` is drawn.
 	 *
-	 * The slug is written out rather than asked of the module: `admin_url()` is an instance
-	 * method on `WPCPM_Module` and the registry owns the instance, so building one here to
-	 * read a constant string would be the longer way round.
+	 * Public, because three things send a manager there: the People card's link, this class's
+	 * `finish()` and the invitations' (`WPCPM_Institution_Invite::finish()`). The address is
+	 * written out rather than asked of the module: `admin_url()` is an instance method on
+	 * `WPCPM_Module` and the registry owns the instance, so building one here to read a
+	 * constant string would be the longer way round. A value that is no record ID names no
+	 * view, so it answers the Accounts tab itself, whose list a manager goes on from.
 	 *
+	 * @param string $record_id Airtable institution record ID.
 	 * @return string
 	 */
-	private static function manager_url() {
-		return admin_url( 'admin.php?page=wpcpm-institutions' );
+	public static function manager_url( $record_id ) {
+		$record_id = trim( (string) $record_id );
+		$accounts  = 'admin.php?page=wpcpm-institutions&tab=accounts';
+
+		if ( ! WPCPM_Mentors_Sync::is_record_id( $record_id ) ) {
+			return admin_url( $accounts );
+		}
+
+		return admin_url( $accounts . '&wpcpm_institution=' . rawurlencode( $record_id ) );
 	}
 
 	/**

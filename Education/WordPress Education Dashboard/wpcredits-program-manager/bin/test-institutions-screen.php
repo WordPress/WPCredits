@@ -18,15 +18,23 @@
  *   a 403 is "blocked", a 200 is the warning naming the directory, a failed request is neither.
  * - notify_managers() reaches every manager when the setting is empty and only the listed
  *   addresses when it is set, through send() for accounts and send_to() for bare addresses.
- * - The review queue is one list of two kinds of row, oldest first, and the menu bubble is
- *   the same number: an application and a signed agreement are one person's work, and a
- *   queue split in two is a queue whose second half nobody finishes.
+ * - The review queue is one list of three kinds of row, oldest first, and the menu bubble is
+ *   the same number: an application, a signed agreement and a mentor request are one person's
+ *   work, and a queue split in three is a queue whose other parts nobody finishes. A request is
+ *   overdue by its own fourteen days, the other two by the setting's.
  * - Both are bounded. `/apply` is open to strangers, so a flood is somebody else's decision:
  *   the card draws the oldest `QUEUE_MAX` and says it is doing so, and the bubble stops
  *   counting at `COUNT_MAX` rather than putting the cost of a flood on every admin page.
+ * - The queue reads and the Administrator Dashboard decides. No row, and nothing on an opened
+ *   open application, draws a decision: every row links to the dashboard's card that decides it,
+ *   an opened application says whether that card lists it yet, and while the dashboard's page is
+ *   missing the list says so once and links nowhere. The record-keeping on a closed application
+ *   stays here, because the dashboard folds in only the oldest fifty rejected and spam ones and
+ *   never lists an approved one. A request row speaks by its kind. The dashboard's own draw of an
+ *   application keeps every form it had.
  * - A held row says on the list that it is held, and the application says in plain words
- *   which checks held it. Every decision is reachable from that card, so a manager rejecting
- *   a submission the site quietly decided was suspect has to be told that it did, and why.
+ *   which checks held it. The list is what a manager triages from, so a manager rejecting a
+ *   submission the site quietly decided was suspect has to be told that it did, and why.
  * - Nothing on the screen sends a manager to wait for a mail that may never have left: the
  *   address line is the state's own sentence, and a held row gets the one that fits it.
  * - A question that the mail server would not take moves nothing. `info` means "asked, and
@@ -38,6 +46,17 @@
  * - Deleting keeps a reference, a state and a date, and never an address or a word anybody
  *   wrote, so the log cannot become the copy the retention rule was there to remove; and a
  *   retention setting of 0 means never, which is what the approved default is.
+ * - The screen is six tabs by job, the queue first, and the screen's own address is the queue.
+ *   Each tab draws its own cards and no other tab's, and asks only what it draws: the membership
+ *   counts, a query per institution, on the two tabs that print them, and the provisioning
+ *   reasons on the one that lists them. Every form whose press comes back to a tab other than the
+ *   queue names it, so the press lands on the tab it was made on, and the screen's one map of
+ *   outcomes prints its sentence there; the forms on an opened application name none and come back
+ *   to the screen's own address, which is the queue.
+ * - The Accounts tab draws the accounts locked for the day, the invitations card and the institution
+ *   accounts list, and nothing of the provisioning card that list replaced. The list itself, its
+ *   No account view and the accounts created from it, and the invitations sent from it, are
+ *   bin/test-institutions-accounts.php's.
  *
  * Run from the plugin root:  php bin/test-institutions-screen.php
  */
@@ -51,6 +70,8 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 
 require_once __DIR__ . '/stubs/temp-dir.php';
+require_once __DIR__ . '/stubs/meta-matcher.php';
+require_once __DIR__ . '/stubs/screen-helpers.php';
 
 // Cron, recorded rather than run: activation schedules the ceiling's sweep, and uninstall
 // clears it, so both need somewhere to land.
@@ -81,6 +102,8 @@ $GLOBALS['head']    = array( 'response' => array( 'code' => 403 ) );
 $GLOBALS['referer'] = array();
 $GLOBALS['calls']   = array();
 $GLOBALS['loaded']  = 0;
+// Anything asked of a stand-in that it does not model: the meta matcher notes it here.
+$GLOBALS['unmodeled'] = array();
 // Under this run's own folder (bin/stubs/temp-dir.php), which goes with everything the storage
 // card's checks write there when the run ends, however it ends.
 $GLOBALS['uploads'] = wpcpm_test_temp_dir() . 'uploads';
@@ -90,12 +113,23 @@ $GLOBALS['uploads'] = wpcpm_test_temp_dir() . 'uploads';
 $GLOBALS['members_of']   = array();
 $GLOBALS['member_reads'] = array();
 
-// Provisioning: why each institution may not have an account, which ones the screen asked
-// about, and which ones it went on to provision.
-$GLOBALS['blocks']           = array();
-$GLOBALS['blocks_read']      = array();
-$GLOBALS['provisioned']      = array();
-$GLOBALS['provision_result'] = array();
+// How many times one render asked for the sync's progress and for the roster counts: each tab
+// reads what it draws, and these two are read for the Sync and storage tab alone.
+$GLOBALS['progress_reads'] = 0;
+$GLOBALS['counts_reads']   = 0;
+
+// The institution accounts the roster's ceiling has locked for the day: none unless a check
+// says otherwise.
+$GLOBALS['locked'] = array();
+
+// Translations: none but for the check that the tab bar's words are translated where the bar
+// prints them.
+$GLOBALS['l10n'] = array();
+
+// Provisioning: why each institution may not have an account, and which ones the screen asked
+// about. Creating the accounts is bin/test-institutions-accounts.php's.
+$GLOBALS['blocks']      = array();
+$GLOBALS['blocks_read'] = array();
 
 class WP_Error {
 	private $c, $m;
@@ -115,13 +149,14 @@ class WP_Post { public $ID = 0, $post_content = '', $post_type = '', $post_statu
 class WP_Role {}
 
 /**
- * The one query the screen makes itself: tracked student accounts with no institution stamp.
+ * The two queries the screen makes: tracked student accounts with no institution stamp, and the
+ * Accounts tab's list of institution accounts and its views' counts.
  *
- * Answers over the fixture users the way the real query would: the role, then every
- * `meta_query` clause under an AND relation, `NOT EXISTS` and `EXISTS` on presence and
- * anything else on the value as a string. Only what the screen asks for is implemented; a
- * clause shape it does not use would pass here and must not be written without extending
- * this stub, which is why the args of every call are recorded for the assertions below.
+ * Answers over the fixture users the way the real query would: the role, then the `meta_query`
+ * read by the one matcher every stand-in user query shares (bin/stubs/meta-matcher.php), which
+ * notes any shape it does not model for this suite's last check; IDs when `fields` asks for them,
+ * and the accounts otherwise. The args of every call are recorded for the assertions below. The
+ * list itself, paged, searched and sorted, is bin/test-institutions-accounts.php's.
  */
 class WP_User_Query {
 	private $results = array();
@@ -129,18 +164,10 @@ class WP_User_Query {
 		$GLOBALS['calls'][] = array( 'WP_User_Query', $args );
 		$role    = isset( $args['role'] ) ? $args['role'] : '';
 		$clauses = isset( $args['meta_query'] ) ? (array) $args['meta_query'] : array();
+		$ids     = isset( $args['fields'] ) && 'ID' === $args['fields'];
 		foreach ( $GLOBALS['users'] as $id => $user ) {
 			if ( '' !== $role && ! in_array( $role, $user->roles, true ) ) { continue; }
-			$keep = true;
-			foreach ( $clauses as $name => $clause ) {
-				if ( 'relation' === $name || ! is_array( $clause ) ) { continue; }
-				$present = isset( $GLOBALS['umeta'][ $id ][ $clause['key'] ] );
-				$compare = isset( $clause['compare'] ) ? $clause['compare'] : '=';
-				if ( 'NOT EXISTS' === $compare ) { $keep = $keep && ! $present; continue; }
-				if ( 'EXISTS' === $compare ) { $keep = $keep && $present; continue; }
-				$keep = $keep && $present && (string) $GLOBALS['umeta'][ $id ][ $clause['key'] ] === (string) $clause['value'];
-			}
-			if ( $keep ) { $this->results[] = $id; }
+			if ( wpcpm_stub_meta_matches( (int) $id, $clauses ) ) { $this->results[] = $ids ? $id : $user; }
 		}
 	}
 	public function get_results() { return $this->results; }
@@ -148,12 +175,12 @@ class WP_User_Query {
 }
 
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
-function __( $s, $d = null ) { return $s; }
+function __( $s, $d = null ) { return $GLOBALS['l10n'][ $s ] ?? $s; }
 function _n( $a, $b, $n, $d = null ) { return 1 === (int) $n ? $a : $b; }
 function esc_html( $s ) { return htmlspecialchars( (string) $s, ENT_QUOTES ); }
-function esc_html__( $s, $d = null ) { return esc_html( $s ); }
+function esc_html__( $s, $d = null ) { return esc_html( __( $s ) ); }
 function esc_attr( $s ) { return esc_html( $s ); }
-function esc_attr__( $s, $d = null ) { return esc_html( $s ); }
+function esc_attr__( $s, $d = null ) { return esc_html( __( $s ) ); }
 function esc_url( $s ) { return (string) $s; }
 function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 function sanitize_key( $s ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $s ) ); }
@@ -246,6 +273,15 @@ function wp_remote_head( $url, $args = array() ) {
 }
 function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) && isset( $r['response']['code'] ) ? (int) $r['response']['code'] : ''; }
 
+// What the Accounts tab's list reaches of WordPress besides: its arguments, its rows-per-page
+// choice, the names it orders, its view's label held until the count is known, and the empty row.
+function wp_parse_args( $args, $defaults = array() ) { return array_merge( $defaults, (array) $args ); }
+function get_user_option( $option, $user = 0 ) { return $GLOBALS['umeta'][ $user ? (int) $user : $GLOBALS['uid'] ][ $option ] ?? false; }
+function remove_accents( $text, $locale = '' ) { return strtr( (string) $text, array( 'É' => 'E', 'é' => 'e', 'È' => 'E', 'è' => 'e' ) ); }
+function esc_html_e( $s, $d = null ) { echo esc_html__( $s ); }
+function _n_noop( $singular, $plural, $domain = null ) { return array( 0 => $singular, 1 => $plural, 'singular' => $singular, 'plural' => $plural, 'context' => null, 'domain' => $domain ); }
+function translate_nooped_plural( $nooped, $count, $domain = 'default' ) { return __( _n( $nooped['singular'], $nooped['plural'], $count ) ); }
+
 
 /*
  * Posts, as the queue reads them.
@@ -314,6 +350,7 @@ define( 'WPCPM_PLUGIN_URL', 'https://example.test/' );
 define( 'WPCPM_VERSION', 'test' );
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-request.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-flash.php';
@@ -322,7 +359,31 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-secret.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-private-files.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php';
+// Before the module, which uses it: PHP declares a class only once the traits it uses are declared.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php';
+// The real tab bar, the one every audience screen prints, so the bar read here is the bar a
+// manager gets.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-screen-tabs.php';
+
+/**
+ * The plugin's lazy loader, as this suite has it: the stand-in for core's list table, then the
+ * accounts base and the Institutions table, so the Accounts tab draws its own list, which
+ * bin/test-institutions-accounts.php reads row by row. The table's file is required once it
+ * exists, so a copy of the plugin without it fails its checks rather than ending this run.
+ */
+function wpcpm_load_accounts_tables() {
+	require_once __DIR__ . '/stubs/class-wp-list-table.php';
+	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-accounts-table.php';
+
+	if ( file_exists( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-table.php' ) ) {
+		require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-table.php';
+	}
+}
+// The real allowlist of the places a decision goes back to, and of the ids the Administrator
+// Dashboard's cards carry: the queue links each row to one of those cards, and the dashboard's own
+// draw of an application, with its return fields, is read here off the real class.
+require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-return.php';
 
 /* ---- the other pieces, stubbed to their contracts ----------------------- */
 
@@ -392,6 +453,7 @@ if ( ! class_exists( 'WPCPM_Roster_Index' ) ) {
 		public static function rows( $id ) { $r = self::read( $id ); return $r['rows']; }
 		public static function unlinked() { $o = get_option( self::OPT_UNLINKED ); return is_array( $o ) && isset( $o['rows'] ) ? $o['rows'] : array(); }
 		public static function counts() {
+			++$GLOBALS['counts_reads'];
 			$o = get_option( self::OPT_COUNTS );
 			return is_array( $o ) ? $o : array( 'v' => 1, 'read' => 0, 'institutions' => array(), 'reconciliation' => array() );
 		}
@@ -511,12 +573,42 @@ if ( ! class_exists( 'WPCPM_Institution_Request' ) ) {
 		}
 	}
 
+	/**
+	 * Mentor requests, as the queue reads them: the open ones oldest first, each one's facts in the
+	 * shape `facts()` answers, the numbers and the kind the queue reads off the class, and the
+	 * dashboard's decisions on a request, which the queue must never draw.
+	 *
+	 * `$GLOBALS['open_requests']` is the open rows in the order the real reader returns them, and
+	 * `$GLOBALS['request_facts']` each row's facts. Every limit asked is recorded, and every facts()
+	 * built is counted: the bubble asks under the same ceiling as its other two reads, and the queue
+	 * pays for the facts of the rows it can draw and no more.
+	 */
 	class WPCPM_Institution_Request {
+		const QUEUE_MAX    = 200;
+		const OVERDUE_DAYS = 14;
+		const KIND_MENTOR  = 'mentor';
 		public static function init() {
 			$GLOBALS['calls'][] = array( 'request_init' );
 		}
-		public static function open_requests( $limit = 200 ) {
-			return array();
+		public static function open_requests( $limit = 20 ) {
+			$GLOBALS['requests_asked'][] = (int) $limit;
+			$limit = (int) $limit > 0 ? min( (int) $limit, self::QUEUE_MAX ) : self::QUEUE_MAX;
+			return array_slice( $GLOBALS['open_requests'] ?? array(), 0, $limit );
+		}
+		public static function facts( $post_id ) {
+			$GLOBALS['facts_built'] = ( $GLOBALS['facts_built'] ?? 0 ) + 1;
+			return $GLOBALS['request_facts'][ (int) $post_id ] ?? array();
+		}
+		// The Administrator Dashboard's decisions on a request, recorded and drawn as a marker form,
+		// so a list that called them would be seen calling them.
+		public static function render_decisions( $post_id, $return = '' ) {
+			$GLOBALS['request_decisions'][] = array( (int) $post_id, (string) $return );
+			printf( '<form class="wpcpm-request__decide" data-request="%d"><input type="hidden" name="action" value="wpcpm_resolve_request" /></form>', (int) $post_id );
+		}
+		// One of the outcomes a decision on a request flashes on this screen's channel, in the
+		// request class's own words, which the screen merges into its one map.
+		public static function messages() {
+			return array( 'request-done' => array( 'success', 'That request is closed as handled. The institution sees it is no longer waiting.' ) );
 		}
 		public static function delete_all() { $GLOBALS['calls'][] = array( 'WPCPM_Institution_Request::delete_all' ); return 0; }
 	}
@@ -643,6 +735,7 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 		public static function cancel() { $GLOBALS['calls'][] = array( 'WPCPM_Institutions_Sync::cancel' ); }
 		public static function is_running() { return ! empty( $GLOBALS['sync_running'] ); }
 		public static function progress() {
+			++$GLOBALS['progress_reads'];
 			return array_merge(
 				array( 'running' => false, 'phase' => '', 'label' => '', 'detail' => '', 'percent' => 100, 'step' => 4, 'step_total' => 4, 'step_label' => '', 'stats' => array(), 'elapsed' => 0, 'idle' => 0, 'error' => '', 'stalled' => false ),
 				$GLOBALS['sync_progress'] ?? array()
@@ -653,12 +746,12 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 		public static function last_read() { return $GLOBALS['sync_last'] ?? 0; }
 
 		/*
-		 * Provisioning. The screen asks why an institution may not have an account and prints
-		 * the answer; whether the answer is right is bin/test-institutions-sync.php's business,
-		 * so the stub answers from a map. Its default is the day-one state the design describes:
-		 * every Confirmed institution is legacy and none has an agreement recorded yet.
+		 * Provisioning. The screen asks why an institution may not have an account, and its
+		 * Accounts tab counts what the answers leave; whether an answer is right is
+		 * bin/test-institutions-sync.php's business, so the stub answers from a map. Its default is
+		 * the day-one state the design describes: every Confirmed institution is legacy and none
+		 * has an agreement recorded yet.
 		 */
-		const PROVISION_ERROR     = 'wpcpm_provision_refused';
 		const BLOCK_NOT_INDEXED   = 'not_indexed';
 		const BLOCK_NOT_CONFIRMED = 'not_confirmed';
 		const BLOCK_NO_EMAIL      = 'no_email';
@@ -671,10 +764,6 @@ if ( ! class_exists( 'WPCPM_Institutions_Sync' ) ) {
 			return isset( $GLOBALS['blocks'][ $record_id ] ) ? $GLOBALS['blocks'][ $record_id ] : self::BLOCK_NO_AGREEMENT;
 		}
 		public static function provision_message( $reason ) { return 'Refused: ' . $reason . '.'; }
-		public static function provision( $record_id, $actor_id = 0 ) {
-			$GLOBALS['provisioned'][] = array( $record_id, (int) $actor_id );
-			return $GLOBALS['provision_result'][ $record_id ] ?? 100 + count( $GLOBALS['provisioned'] );
-		}
 	}
 }
 
@@ -840,15 +929,35 @@ if ( ! class_exists( 'WPCPM_Institution_Approval' ) ) {
 }
 
 if ( ! class_exists( 'WPCPM_Institution_Panel' ) ) {
-	/** Stands in for the panel: the queue asks it to draw the review block and nothing else. */
+	/**
+	 * Stands in for the panel: the queue asks it to draw the review block and nothing else, and the
+	 * map asks its outcomes, of which the upload's is the one this suite reads, in the panel's own
+	 * words. What the block holds is bin/test-institution-panel.php's; what the queue owes it is the
+	 * post and whether the block may decide, which the marker prints and `$GLOBALS['reviews']` records.
+	 */
 	class WPCPM_Institution_Panel {
 		public static function messages() {
-			return array( 'agreement-uploaded' => array( 'success', 'The signed agreement is uploaded.' ) );
+			return array( 'agreement-uploaded' => array( 'success', 'The signed agreement is uploaded. A program manager reviews it and you will get an email either way.' ) );
 		}
-		public static function render_review( $post_id ) {
-			$GLOBALS['reviews'][] = (int) $post_id;
-			printf( '<div class="wpcpm-agreement-review" data-post="%d"></div>', (int) $post_id );
+		public static function render_review( $post_id, $decide = true ) {
+			$GLOBALS['reviews'][] = array( (int) $post_id, $decide );
+			printf( '<div class="wpcpm-agreement-review" data-post="%d" data-decide="%s"></div>', (int) $post_id, $decide ? 'yes' : 'no' );
 		}
+	}
+}
+
+// The Administrator Dashboard's page, which every row of the queue links into.
+require_once __DIR__ . '/stubs/administrators-dashboard.php';
+
+if ( ! class_exists( 'WPCPM_Administrators_Cards' ) ) {
+	/**
+	 * The Administrator Dashboard's cards, for the one number the screen reads from them: how many
+	 * open applications the applications card lists, past which an opened application is decided on
+	 * this screen. A number of its own here, apart from the queue's `QUEUE_MAX`, which equals it on a
+	 * real site, so a check can tell which of the two the opened application reads.
+	 */
+	class WPCPM_Administrators_Cards {
+		const LIMIT = 40;
 	}
 }
 
@@ -965,7 +1074,7 @@ if ( ! class_exists( 'WPCPM_Student_Feedback' ) ) {
 
 if ( ! class_exists( 'WPCPM_Institution_Roster' ) ) {
 	class WPCPM_Institution_Roster {
-		public static function locked_today() { return array(); }
+		public static function locked_today() { return $GLOBALS['locked']; }
 		const ARG_VIEW = 'wpcpm_institution_view';
 	}
 }
@@ -1022,9 +1131,38 @@ function get_post_modified_time( $format, $gmt = false, $post = null, $translate
  * `send()` takes an account and builds in its language; `send_to()` takes a bare address.
  * The assertion that matters is which one notify_managers() chose, so the stub records the
  * method and not only the recipient.
+ *
+ * And the invitations, as far as the Accounts tab's frame reaches them: the stamps the list's
+ * views read, the map every stand-in mail class reads (bin/stubs/stamps.php), the words a row's
+ * invitation leaves, who was never sent one, and the card, drawn as a marker holding the form the
+ * module hands it. The invitations themselves, and the card's own words, are
+ * bin/test-institutions-accounts.php's, against the real class.
  */
 if ( ! class_exists( 'WPCPM_Mail' ) ) {
 	class WPCPM_Mail {
+		const STAMPS = WPCPM_STUB_STAMPS;
+		public static function invite_notices() {
+			return array(
+				'invited'         => array( 'success', 'Invitation email sent.' ),
+				'invite-too-soon' => array( 'warning', 'Nothing was sent: too soon.' ),
+			);
+		}
+		public static function never_invited( $role, $meta ) {
+			$GLOBALS['never_invited_asked'][] = array( $role, $meta );
+			return $GLOBALS['never_invited'] ?? array();
+		}
+		public static function render_invite_card( array $args ) {
+			echo '<div class="wpcpm-card wpcpm-invites"><h2>Invitations</h2>';
+			if ( ! empty( $args['pending'] ) ) {
+				echo '<form method="post" action="https://example.test/wp-admin/admin-post.php">';
+				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( $args['action'] ) );
+				foreach ( (array) $args['hidden'] as $name => $value ) {
+					printf( '<input type="hidden" name="%1$s" value="%2$s" />', esc_attr( $name ), esc_attr( $value ) );
+				}
+				printf( '<button type="submit">%s</button></form>', esc_html( sprintf( translate_nooped_plural( $args['button'], count( $args['pending'] ) ), count( $args['pending'] ) ) ) );
+			}
+			echo '</div>';
+		}
 		public static function send( $recipient, $context, $build ) {
 			$user = $recipient instanceof WP_User ? $recipient : get_user_by( 'id', (int) $recipient );
 			if ( ! $user instanceof WP_User || ! $user->exists() || '' === $user->user_email ) { return false; }
@@ -1069,11 +1207,90 @@ function ck( $label, $actual, $expected ) {
  */
 function render_screen( array $get = array() ) {
 	$_GET = $get;
-	$GLOBALS['summary_reads'] = array();
-	$GLOBALS['blocks_read']   = array();
+	$GLOBALS['summary_reads']  = array();
+	$GLOBALS['blocks_read']    = array();
+	$GLOBALS['member_reads']   = array();
+	$GLOBALS['progress_reads'] = 0;
+	$GLOBALS['counts_reads']   = 0;
 	ob_start();
 	( new WPCPM_Institutions() )->render_admin_page();
 	return ob_get_clean();
+}
+
+/**
+ * One tab of the screen, captured: the screen's address naming the tab, and any other arguments.
+ *
+ * @param string $tab A tab's slug, or any other value.
+ * @param array  $get Other query arguments.
+ * @return string
+ */
+function render_tab( $tab, array $get = array() ) {
+	return render_screen( array_merge( array( 'tab' => $tab ), $get ) );
+}
+
+/**
+ * The heading of every card a render draws, in document order, without its count.
+ *
+ * @param string $html Rendered screen.
+ * @return string[]
+ */
+function cards_of( $html ) {
+	preg_match_all( '#<div class="wpcpm-card[^"]*"[^>]*><h2[^>]*>(.*?)</h2>#s', (string) $html, $m );
+	$out = array();
+	foreach ( $m[1] as $heading ) {
+		$out[] = trim( html_entity_decode( strip_tags( preg_replace( '# <span class="wpcpm-count">[^<]*</span>#', '', $heading ) ), ENT_QUOTES ) );
+	}
+	return $out;
+}
+
+/**
+ * The tab bar a render prints: core's newer bar, a navigation region named for a screen reader,
+ * holding plain links.
+ *
+ * @param string $html Rendered screen.
+ * @return array|null The name the region gives itself, then each tab: its address, entities
+ *                    decoded; its label as printed; whether its class marks it as the tab shown;
+ *                    and whether it says so to a screen reader. Null when there is no bar.
+ */
+function bar_of( $html ) {
+	if ( ! preg_match( '#<nav class="nav-tab-wrapper wp-clearfix" aria-label="([^"]*)">(.*?)</nav>#s', (string) $html, $bar ) ) {
+		return null;
+	}
+	preg_match_all( '#<a href="([^"]*)" class="nav-tab( nav-tab-active)?"( aria-current="page")?>([^<]*)</a>#', $bar[2], $links, PREG_SET_ORDER );
+	$tabs = array();
+	foreach ( $links as $link ) {
+		$tabs[] = array( html_entity_decode( $link[1], ENT_QUOTES, 'UTF-8' ), html_entity_decode( $link[4], ENT_QUOTES, 'UTF-8' ), '' !== $link[2], '' !== $link[3] );
+	}
+	return array( html_entity_decode( $bar[1], ENT_QUOTES, 'UTF-8' ), $tabs );
+}
+
+/**
+ * The hidden fields of the first form on a render that posts the given action: what a press of
+ * it sends, the nonce aside, read by the one reader of a form's fields by its action
+ * (`form_fields_of()`, bin/stubs/screen-helpers.php), sorted by name.
+ *
+ * @param string $html   Rendered screen.
+ * @param string $action The form's `action` field.
+ * @return array<string, string> Name => value; empty when no form posts that action.
+ */
+function form_fields( $html, $action ) {
+	$forms  = form_fields_of( $html, $action );
+	$fields = isset( $forms[0] ) ? $forms[0] : array();
+
+	unset( $fields['_wpnonce'] );
+
+	return $fields;
+}
+
+/**
+ * The query arguments of the address a handler redirected to, read off how it ended.
+ *
+ * @param string $outcome What `outcome()` returned: `redirect: <url>`.
+ * @return array<string, string>
+ */
+function landed_on( $outcome ) {
+	parse_str( (string) parse_url( substr( (string) $outcome, strlen( 'redirect: ' ) ), PHP_URL_QUERY ), $args );
+	return $args;
 }
 
 /**
@@ -1117,6 +1334,86 @@ function queue_marked( $html, $mark ) {
 		}
 	}
 	return $out;
+}
+
+/**
+ * Each queue row's own markup, in document order: from its opening tag to the next row's, and the
+ * last one to the end of the list.
+ *
+ * @param string $html Rendered screen.
+ * @return string[]
+ */
+function queue_chunks( $html ) {
+	$list = (string) $html;
+	$end  = strpos( $list, '</ol>' );
+	$list = false === $end ? $list : substr( $list, 0, $end );
+	return array_slice( explode( '<li class="wpcpm-queue-item', $list ), 1 );
+}
+
+/**
+ * Where each queue row's "Open on the Administrator Dashboard" link goes, in document order: the
+ * row's name and kind, then the address with its entities decoded, or '' for a row that prints none.
+ *
+ * @param string $html Rendered screen.
+ * @return array[]
+ */
+function queue_links( $html ) {
+	$out = array();
+	foreach ( queue_chunks( $html ) as $item ) {
+		preg_match( '#<span class="wpcpm-inst-name__text">(.*?)</span> <span class="wpcpm-inst-muted">(.*?)</span>#', $item, $title );
+		preg_match( '#<a href="([^"]*)">Open on the Administrator Dashboard</a>#', $item, $link );
+		$out[] = array(
+			html_entity_decode( $title[1] ?? '', ENT_QUOTES ),
+			html_entity_decode( $title[2] ?? '', ENT_QUOTES ),
+			isset( $link[1] ) ? html_entity_decode( $link[1], ENT_QUOTES ) : '',
+		);
+	}
+	return $out;
+}
+
+/**
+ * Stand one open request up, in the shape `WPCPM_Institution_Request::facts()` answers.
+ *
+ * The institution's name and country are the pipeline index's, as the real facts' are, and the
+ * overdue mark is the real rule: past the request's own `OVERDUE_DAYS`, whatever the setting gives
+ * an application or an agreement. The kind's label is the real class's words for it, and a
+ * request about no student, as the `format` kind is, has neither a record nor a name, the way
+ * `student_name()` falls back to an empty record.
+ *
+ * @param int    $id      Post ID.
+ * @param string $record  Institutions record ID.
+ * @param string $student The student's name, or '' for a request about no student.
+ * @param string $actor   Who raised it, or '' for an account that is gone.
+ * @param string $note    The note on the row, or ''.
+ * @param int    $at      When it was raised, unix time.
+ * @param string $kind    `mentor`, `add` or `format`.
+ */
+function seed_request( $id, $record, $student, $actor, $note, $at, $kind = 'mentor' ) {
+	$row    = WPCPM_Institutions_Index::row( $record );
+	$labels = array(
+		'add'    => 'A student to add',
+		'mentor' => 'A mentor is wanted',
+		'format' => 'A change to the report',
+	);
+
+	$GLOBALS['request_facts'][ (int) $id ] = array(
+		'id'               => (int) $id,
+		'kind'             => $kind,
+		'kind_label'       => $labels[ $kind ],
+		'state'            => 'open',
+		'institution'      => $record,
+		'institution_name' => trim( (string) $row['name'] ),
+		'country'          => (string) $row['country'],
+		'country_name'     => (string) $row['country_name'],
+		'student'          => '' !== $student ? sprintf( 'recSTUREQ%08d', (int) $id ) : '',
+		'student_name'     => $student,
+		'actor'            => '' !== $actor ? 50 : 0,
+		'actor_name'       => $actor,
+		'note'             => $note,
+		'at'               => (int) $at,
+		'closed_at'        => 0,
+		'overdue'          => ( time() - (int) $at ) > ( WPCPM_Institution_Request::OVERDUE_DAYS * DAY_IN_SECONDS ),
+	);
 }
 
 /**
@@ -1244,19 +1541,24 @@ ck( 'and draws its cards as .wpcpm-card', substr_count( $src, "'<div class=\"wpc
 // Every handler: the capability is decided before the nonce is read, so an anonymous request
 // gets the 403 the design names rather than a nonce failure that tells it the handler exists.
 // The three sync handlers live on WPCPM_Sync_Module since 1.90.0, shared with the Students and
-// Mentors modules, and verify() on the module base every module's screen shares (WPCPM_Module); the
-// scan reads those two sources after this module's own.
-$handler_src = $src . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php' );
+// Mentors modules, verify() on the module base every module's screen shares (WPCPM_Module), and a
+// row's invitation on the screen plumbing every audience's accounts list shares
+// (WPCPM_Accounts_Screen); the scan reads those three sources after this module's own.
+$handler_src = $src . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-module.php' ) . (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php' );
 preg_match_all( '/public function (handle_[a-z_]+)\s*\(/', $handler_src, $handlers );
-ck( 'the thirteen handlers exist', $handlers[1], array(
-	'handle_probe', 'handle_provision', 'handle_provision_one',
+ck( 'the fourteen handlers exist', $handlers[1], array(
+	// The account presses of the Accounts tab: one institution's Create account, and the
+	// invitations card's button. Create account on the ticked institutions and the invitations on
+	// the ticked accounts are the list's own form, handled on the screen's load hook.
+	'handle_probe', 'handle_provision_one', 'handle_bulk_invite',
 	// Linking an unlinked Students row to an institution, which used to be a sentence saying
-	// it would ship later. Registered beside the other provisioning controls, which is where
-	// the reader meets it, so it sits here rather than at the end.
+	// it would ship later.
 	'handle_link',
 	'handle_approve', 'handle_info', 'handle_reject', 'handle_spam', 'handle_reopen', 'handle_purge',
 	// From the shared sync module.
 	'handle_tick', 'handle_sync', 'handle_cancel',
+	// A row's invitation, from the shared accounts screen.
+	'handle_invite',
 ) );
 
 foreach ( $handlers[1] as $handler ) {
@@ -1384,12 +1686,194 @@ seed_report( 9103, $report_record, '2025-H1', 'draft', 1754000000, 'trash' );
 $GLOBALS['due']        = array( array( 'institution' => $report_record, 'cohort' => '2024-H2', 'in_progress' => 0, 'window_end' => '2024-12-31' ) );
 $GLOBALS['report_log'] = array( array( 'event' => 'approved', 'institution' => $report_record, 'cohort' => '2025-H2', 'actor' => 1, 'at' => 1755000000 ) );
 
-$html = render_screen();
+// The six tabs, in the bar's order, each drawn once on the same fixture at the address that names
+// it, and the screen's own address, which names none.
+$slugs     = array( 'queue', 'pipeline', 'accounts', 'reports', 'agreements', 'sync' );
+$tabs      = array();
+$confirmed = array_keys( array_filter( $rows, function ( $r ) { return 'Confirmed' === $r['stage']; } ) );
 
-ck( 'the page opens with the skeleton', array(
-	false !== strpos( $html, '<div class="wrap wpcpm-wrap"><h1>Institutions</h1><p class="wpcpm-lede">' ),
-	substr_count( $html, '<div class="wpcpm-card">' ),
-), array( true, 10 ) );
+foreach ( $slugs as $slug ) {
+	$tabs[ $slug ] = render_tab( $slug );
+}
+
+$bare = render_screen();
+
+$skeleton = array();
+foreach ( $tabs as $slug => $drawn ) {
+	$skeleton[ $slug ] = 0 === strpos( $drawn, '<div class="wrap wpcpm-wrap"><h1>Institutions</h1><p class="wpcpm-lede">' ) && '</div>' === substr( $drawn, -6 );
+}
+ck( 'every tab opens with the skeleton', $skeleton, array_fill_keys( $slugs, true ) );
+
+echo "\n=== Six tabs by job, in the bar every audience screen prints ===\n";
+
+ck( 'the screen holds six tabs, the queue first, in the words a manager knows each job by', WPCPM_Institutions::TABS, array(
+	'queue'      => 'Waiting for review',
+	'pipeline'   => 'Pipeline',
+	'accounts'   => 'Accounts',
+	'reports'    => 'Semester reports',
+	'agreements' => 'Agreements',
+	'sync'       => 'Sync and storage',
+) );
+
+$home    = 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions';
+$bar_for = function ( $shown ) use ( $home, $slugs ) {
+	$labels = array_combine( $slugs, array( 'Waiting for review', 'Pipeline', 'Accounts', 'Semester reports', 'Agreements', 'Sync and storage' ) );
+	$out    = array();
+	foreach ( $labels as $slug => $label ) {
+		$out[] = array( $home . '&tab=' . $slug, $label, $shown === $slug, $shown === $slug );
+	}
+	return array( 'Secondary menu', $out );
+};
+
+ck( 'the bar holds the six in that order, each at the screen\'s address with its tab, and the screen\'s own address marks the queue, for the eye and for a screen reader', bar_of( $bare ), $bar_for( 'queue' ) );
+
+$marked = array();
+$wanted = array();
+foreach ( $tabs as $slug => $drawn ) {
+	$marked[ $slug ] = bar_of( $drawn );
+	$wanted[ $slug ] = $bar_for( $slug );
+}
+ck( 'each tab asked for by its slug is the one the bar marks', $marked, $wanted );
+ck( 'the screen\'s own address draws the queue tab, tag for tag', $bare, $tabs['queue'] );
+ck( 'and so does a tab the screen does not have', render_tab( 'nope' ), $bare );
+ck( 'the bar is the screen\'s one bar, right under its title and lede when no notice is printed, and no heading holds it', array(
+	substr_count( $bare, 'nav-tab-wrapper' ),
+	false !== strpos( $bare, '</p><nav class="nav-tab-wrapper wp-clearfix"' ),
+	preg_match( '#<h[1-6][^>]*nav-tab-wrapper#', $bare ),
+), array( 1, true, 0 ) );
+
+$GLOBALS['l10n'] = array(
+	'Waiting for review' => 'En espera de revisión',
+	'Pipeline'           => 'Embudo',
+	'Accounts'           => 'Cuentas',
+	'Semester reports'   => 'Informes semestrales',
+	'Agreements'         => 'Convenios',
+	'Sync and storage'   => 'Sincronización y almacenamiento',
+	'Secondary menu'     => 'Menú secundario',
+);
+$spanish         = bar_of( render_tab( 'agreements' ) );
+$GLOBALS['l10n'] = array();
+ck( 'the labels are translated where the bar prints them, and so is the name the bar gives itself',
+	null === $spanish ? null : array( $spanish[0], array_column( $spanish[1], 1 ) ),
+	array( 'Menú secundario', array( 'En espera de revisión', 'Embudo', 'Cuentas', 'Informes semestrales', 'Convenios', 'Sincronización y almacenamiento' ) ) );
+
+echo "\n=== Each tab draws its own cards and no other tab's ===\n";
+
+ck( 'each tab draws the cards of its job and none of another tab\'s', array_map( 'cards_of', $tabs ), array(
+	'queue'      => array( 'Waiting for review' ),
+	'pipeline'   => array( 'Pipeline', 'Consent' ),
+	'accounts'   => array( 'Invitations', 'Institution accounts' ),
+	'reports'    => array( 'Semester reports' ),
+	'agreements' => array( 'Agreements on file', 'Agreement discrepancies', 'Agreement template' ),
+	'sync'       => array( 'Airtable sync', 'Reconciliation', 'Storage' ),
+) );
+
+// What each tab offers to press, by the action its forms post: the sync and the probe on Sync and
+// storage alone, and the agreements recorded on file on Agreements alone, where they are listed,
+// and no longer under the accounts gate. The Accounts tab's presses are its list's, a form to the
+// screen itself, and the invitations card's, which offers none while nobody is waiting for one.
+$presses = function ( $html ) {
+	preg_match_all( '#<input type="hidden" name="action" value="([^"]+)" />#', (string) $html, $m );
+	return array_values( array_unique( $m[1] ) );
+};
+ck( 'each tab offers the presses of its own cards and no other tab\'s', array_map( $presses, $tabs ), array(
+	'queue'      => array(),
+	'pipeline'   => array(),
+	'accounts'   => array(),
+	'reports'    => array( 'wpcpm_report_ask', 'wpcpm_report_draft' ),
+	'agreements' => array( 'wpcpm_agreement_on_file_all' ),
+	'sync'       => array( 'wpcpm_institutions_sync', 'wpcpm_institutions_probe' ),
+) );
+
+// The field a press comes back by. The semester report forms name none: their press opens the
+// report it drafted or asked about, on the Institution Dashboard, and comes back to no tab here.
+// The queue's list draws no form; the forms on an opened application name no tab either, and their
+// presses come back to the screen's own address, which is the queue (checked where they are drawn).
+$tab_fields = function ( $html ) {
+	preg_match_all( '#<input type="hidden" name="wpcpm_tab" value="([^"]*)" />#', (string) $html, $m );
+	return array_count_values( $m[1] );
+};
+ck( 'every form whose press comes back to a tab other than the queue names it', array_map( $tab_fields, $tabs ), array(
+	'queue'      => array(),
+	'pipeline'   => array(),
+	'accounts'   => array(),
+	'reports'    => array(),
+	'agreements' => array( 'agreements' => 1 ),
+	'sync'       => array( 'sync' => 2 ),
+) );
+
+echo "\n=== Each tab reads what it draws ===\n";
+
+// The membership counts are a user query per institution, a hundred and six of them here, and the
+// provisioning reasons up to two more per Confirmed one, which the Accounts tab's list asks for the
+// count its No account view carries: a tab that does not print them must not pay for them.
+$reads = array();
+foreach ( $slugs as $slug ) {
+	render_tab( $slug );
+	$reads[ $slug ] = array( count( $GLOBALS['member_reads'] ), count( $GLOBALS['blocks_read'] ), $GLOBALS['progress_reads'], $GLOBALS['counts_reads'] );
+}
+ck( 'the membership counts are asked on Pipeline and on Sync and storage alone, the provisioning reasons on Accounts alone, and the sync\'s progress and the roster counts on Sync and storage alone', $reads, array(
+	'queue'      => array( 0, 0, 0, 0 ),
+	'pipeline'   => array( count( $rows ), 0, 0, 0 ),
+	'accounts'   => array( 0, count( $confirmed ), 0, 0 ),
+	'reports'    => array( 0, 0, 0, 0 ),
+	'agreements' => array( 0, 0, 0, 0 ),
+	'sync'       => array( count( $rows ), 0, 1, 1 ),
+) );
+
+echo "\n=== The notices, on every tab ===\n";
+
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = '';
+$warned = array();
+foreach ( $slugs as $slug ) {
+	$drawn           = render_tab( $slug );
+	$at              = strpos( $drawn, '<div class="notice notice-warning"><p>Airtable is not connected yet, so no institutions can be synced. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-settings">Open settings</a></p></div>' );
+	$warned[ $slug ] = false !== $at && $at < (int) strpos( $drawn, '<nav class="nav-tab-wrapper' );
+}
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['api_token'] = 'pat';
+ck( 'while Airtable is not connected every tab says so, above its bar and its cards', $warned, array_fill_keys( $slugs, true ) );
+
+// A mentor request decided without the Administrator Dashboard's return field goes back to the
+// screen's own address, the queue, and its outcome is in the request class's words. Read as a
+// manager of its own, because `WPCPM_Flash::take()` memoizes per person and per channel for the
+// life of a request.
+$GLOBALS['uid'] = 60;
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'request-done' );
+$request_notice = render_screen();
+$GLOBALS['uid'] = 1;
+$printed_at     = strpos( $request_notice, '<div class="notice notice-success is-dismissible"><p>That request is closed as handled. The institution sees it is no longer waiting.</p></div>' );
+ck( 'a mentor request decided without the dashboard\'s return lands on the queue, and its outcome prints there, above the bar', array(
+	false !== $printed_at && $printed_at < (int) strpos( $request_notice, '<nav class="nav-tab-wrapper' ),
+	cards_of( $request_notice ),
+), array( true, array( 'Waiting for review' ) ) );
+delete_user_meta( 60, WPCPM_Flash::META );
+
+// A manager's upload on the institution's behalf, from the Manage members view, comes back there,
+// and the frame words it for the person who pressed: the panel's own sentence is the institution's,
+// which a program manager reviews.
+$GLOBALS['uid'] = 67;
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'agreement-uploaded' );
+$uploaded_notice = render_tab( 'accounts' );
+$GLOBALS['uid']  = 1;
+ck( 'a manager\'s upload is told where the agreement waits and who was emailed, in words for the person who pressed', array(
+	false !== strpos( $uploaded_notice, '<div class="notice notice-success is-dismissible"><p>The signed agreement is uploaded. It waits on the Waiting for review tab, and everybody at the institution has been emailed that it arrived.</p></div>' ),
+	strpos( $uploaded_notice, 'A program manager reviews it' ),
+), array( true, false ) );
+delete_user_meta( 67, WPCPM_Flash::META );
+
+$GLOBALS['locked'] = array( new WP_User( 50, 'Rep One', 'rep.one@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ) );
+$locked_on         = array();
+foreach ( $slugs as $slug ) {
+	$locked_on[ $slug ] = substr_count( render_tab( $slug ), '1 institution account is locked out of roster changes for the rest of today.' );
+}
+$locked_tab        = render_tab( 'accounts' );
+$GLOBALS['locked'] = array();
+ck( 'the accounts locked for the day are named on the Accounts tab and on no other', $locked_on, array( 'queue' => 0, 'pipeline' => 0, 'accounts' => 1, 'reports' => 0, 'agreements' => 0, 'sync' => 0 ) );
+ck( 'by display name and username, and never by address', array( false !== strpos( $locked_tab, 'Rep One (repone)' ), strpos( $locked_tab, 'rep.one@example.test' ) ), array( true, false ) );
+
+echo "\n=== The pipeline, on its tab ===\n";
+
+$html = render_tab( 'pipeline' );
 
 ck( 'the pipeline counts every fixture row', false !== strpos( $html, 'Pipeline <span class="wpcpm-count">' . $seed['counts']['institutions'] . '</span>' ), true );
 
@@ -1401,12 +1885,17 @@ foreach ( array_merge( WPCPM_Institution_Agreement::STAGE_ORDER, WPCPM_Instituti
 ck( 'the groups are the fixture\'s stage counts, in STAGE_ORDER then the terminal stages', $headings, $expected );
 ck( 'and no group is drawn for the empty stage the fixture does not have', isset( $headings['No stage'] ), false );
 
-// The read time, once per card that reads the index (the pipeline, the consent report, the
-// discrepancies and the template versions) and once for the countries map and the roster
-// counts. A stale count must never look fresh.
-ck( 'the index read time is printed with the date and the age', substr_count( $html, 'Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).' ), 4 );
-ck( 'so is the roster counts\' read time', substr_count( $html, 'Roster counts: read ' . gmdate( 'Y-m-d H:i', $read_at - 3600 ) . ' (4 hours ago).' ), 1 );
-ck( 'and the countries map\'s', substr_count( $html, 'Countries map: read ' . gmdate( 'Y-m-d H:i', $read_at - 600 ) ), 1 );
+// The read time, once per card that reads the index (the pipeline and the consent report on the
+// Pipeline tab, the agreements on file, the discrepancies and the template versions on the
+// Agreements tab) and once for
+// the countries map and the roster counts, each on the tab of the card that reads it. A stale
+// count must never look fresh.
+$read_lines = function ( $needle ) use ( $tabs ) {
+	return array_map( function ( $drawn ) use ( $needle ) { return substr_count( (string) $drawn, $needle ); }, $tabs );
+};
+ck( 'the index read time is printed with the date and the age, once by each card that reads the index, on its tab', $read_lines( 'Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).' ), array( 'queue' => 0, 'pipeline' => 2, 'accounts' => 0, 'reports' => 0, 'agreements' => 3, 'sync' => 0 ) );
+ck( 'so is the roster counts\' read time, on Sync and storage', $read_lines( 'Roster counts: read ' . gmdate( 'Y-m-d H:i', $read_at - 3600 ) . ' (4 hours ago).' ), array( 'queue' => 0, 'pipeline' => 0, 'accounts' => 0, 'reports' => 0, 'agreements' => 0, 'sync' => 1 ) );
+ck( 'and the countries map\'s, on Pipeline', $read_lines( 'Countries map: read ' . gmdate( 'Y-m-d H:i', $read_at - 600 ) ), array( 'queue' => 0, 'pipeline' => 1, 'accounts' => 0, 'reports' => 0, 'agreements' => 0, 'sync' => 0 ) );
 
 // Names: trimmed, with the mark where the stored one was not.
 $trailing = array();
@@ -1429,7 +1918,7 @@ $kept       = get_option( WPCPM_Institutions_Index::OPT_NAME );
 $with_blank = $kept;
 $with_blank['rows'][ $blank_id ]['name'] = '';
 update_option( WPCPM_Institutions_Index::OPT_NAME, $with_blank, false );
-$blank_html = render_screen();
+$blank_html = render_tab( 'pipeline' );
 update_option( WPCPM_Institutions_Index::OPT_NAME, $kept, false );
 ck( 'a nameless record is marked rather than printed blank', substr_count( $blank_html, 'wpcpm-inst-mark--empty' ), 1 );
 ck( 'and shows its record id so it can be found in the grid', false !== strpos( $blank_html, '<code class="wpcpm-inst-record">' . $blank_id . '</code>' ), true );
@@ -1448,12 +1937,15 @@ ck( 'which are Cambodia, Nigeria and Thailand', $gap_names, array( 'Cambodia', '
 ck( 'no row prints an unresolved country', strpos( $html, 'unknown country' ), false );
 ck( 'the rows with no country say so', substr_count( $html, '>no country<' ), count( array_filter( $rows, function ( $r ) { return '' === $r['country']; } ) ) );
 
-// Contact and consent columns. Once per pipeline row with no address, and again on the
-// provisioning card for the Confirmed ones, where it is the reason there is no account.
-$no_email           = array_filter( $rows, function ( $r ) { return '' === $r['contact_email']; } );
-$no_email_confirmed = array_filter( $no_email, function ( $r ) { return 'Confirmed' === $r['stage']; } );
-ck( 'the records with no email are marked', substr_count( $html, '<span class="wpcpm-warning">no email</span>' ), count( $no_email ) + count( $no_email_confirmed ) );
-ck( 'no address is printed on the screen', preg_match( '/@example\.test/', $html ), 0 );
+// Contact and consent columns. Once per pipeline row with no address. The Confirmed ones are
+// listed again on the Accounts tab's No account view, whose Contact column says the same, and
+// bin/test-institutions-accounts.php reads that view.
+$no_email = array_filter( $rows, function ( $r ) { return '' === $r['contact_email']; } );
+ck( 'the records with no email are marked, each on the pipeline', array(
+	substr_count( $html, '<span class="wpcpm-warning">no email</span>' ),
+	substr_count( $tabs['accounts'], '<span class="wpcpm-warning">no email</span>' ),
+), array( count( $no_email ), 0 ) );
+ck( 'no address is printed on any tab', preg_match( '/@example\.test/', implode( '', $tabs ) ), 0 );
 
 // The agreement column reads the summary, once per row.
 ck( 'one summary is read per row', count( array_unique( $GLOBALS['summary_reads'] ) ), count( $rows ) );
@@ -1464,10 +1956,9 @@ ck( 'with nothing recorded every row reads Not started', substr_count( $html, '<
 echo "\n=== The agreement-gap filter ===\n";
 
 ck( 'on day one the link counts every Confirmed row', false !== strpos( $html, 'Confirmed with no agreement recorded <span class="wpcpm-count">' . $seed['counts']['by_stage']['Confirmed'] . '</span></a>' ), true );
-ck( 'and points at the sanitised filter argument', false !== strpos( $html, '?page=wpcpm-institutions&wpcpm_filter=agreement_gap' ), true );
+ck( 'and points at the sanitised filter argument, on the Pipeline tab', false !== strpos( $html, '?page=wpcpm-institutions&tab=pipeline&wpcpm_filter=agreement_gap' ), true );
 
 // Three Confirmed institutions settle: two recorded in the grid, one on the site.
-$confirmed = array_keys( array_filter( $rows, function ( $r ) { return 'Confirmed' === $r['stage']; } ) );
 $GLOBALS['summaries'] = array(
 	$confirmed[0] => array( 'state' => 'on_file', 'kind' => 'legacy', 'accepted_at' => '2026-09-02', 'airtable_status' => 'On file', 'route' => 'grid' ),
 	$confirmed[1] => array( 'state' => 'on_file', 'kind' => 'legacy', 'accepted_at' => '2026-09-02', 'airtable_status' => 'On file', 'route' => 'grid' ),
@@ -1476,7 +1967,7 @@ $GLOBALS['summaries'] = array(
 	$confirmed[3] => array( 'state' => 'submitted', 'kind' => 'own', 'airtable_status' => 'Awaiting review', 'route' => 'site' ),
 );
 
-$html = render_screen();
+$html = render_tab( 'pipeline' );
 
 ck( 'three settled rows leave 39 in the gap', false !== strpos( $html, 'Confirmed with no agreement recorded <span class="wpcpm-count">' . ( $seed['counts']['by_stage']['Confirmed'] - 3 ) . '</span></a>' ), true );
 ck( 'the agreement column names state, kind, date and route', array(
@@ -1485,14 +1976,14 @@ ck( 'the agreement column names state, kind, date and route', array(
 	false !== strpos( $html, '<td class="wpcpm-inst-agreement">Awaiting review, institution-specific, recorded on the site</td>' ),
 ), array( true, true, true ) );
 
-$filtered = render_screen( array( 'wpcpm_filter' => 'agreement_gap' ) );
+$filtered = render_tab( 'pipeline', array( 'wpcpm_filter' => 'agreement_gap' ) );
 $headings = stage_headings( $filtered );
 
 ck( 'the filtered view draws one group of 39 Confirmed rows', $headings, array( 'Confirmed' => $seed['counts']['by_stage']['Confirmed'] - 3 ) );
 ck( 'none of which is settled', strpos( $filtered, 'wpcpm-inst-agreement--settled' ), false );
-ck( 'and the way back is offered', false !== strpos( $filtered, 'Showing the 39 Confirmed institutions with no agreement recorded. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions">Show every stage</a>' ), true );
+ck( 'and the way back is offered, to the Pipeline tab', false !== strpos( $filtered, 'Showing the 39 Confirmed institutions with no agreement recorded. <a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=pipeline">Show every stage</a>' ), true );
 
-$junk = render_screen( array( 'wpcpm_filter' => '<script>agreement_gap' ) );
+$junk = render_tab( 'pipeline', array( 'wpcpm_filter' => '<script>agreement_gap' ) );
 ck( 'a filter value that is not the one offered shows every stage', count( stage_headings( $junk ) ), count( $expected ) );
 
 /* ---- the consent report ------------------------------------------------- */
@@ -1509,7 +2000,8 @@ ck( 'the sentence carries the fixture\'s 84 and 38', false !== strpos( $html, '<
 $since = 0;
 foreach ( $rows as $row ) { if ( ! $row['consent'] && strcmp( $row['created'], '2026-07-20' ) >= 0 ) { $since++; } }
 ck( 'and the count of hand-entered records since', false !== strpos( $html, 'Since then, ' . $since . ' records have been created without the tick' ), true );
-ck( 'the word "lost" appears nowhere on the screen', stripos( $html, 'lost' ), false );
+ck( 'the word "lost" appears on no tab', stripos( implode( '', $tabs ), 'lost' ), false );
+ck( 'nor does "modules", a word for the plugin\'s code and not for anything a manager reads', stripos( implode( '', $tabs ), 'modules' ), false );
 ck( 'nor in the module source', stripos( $src, 'lost' ), false );
 
 // A record created on the boundary day counts as after it, whatever timezone the site is in.
@@ -1517,13 +2009,15 @@ $boundary = $rows;
 $boundary['recBOUNDARY0000001'] = array_merge( reset( $rows ), array( 'record_id' => 'recBOUNDARY0000001', 'name' => 'Boundary', 'stage' => 'Confirmed', 'created' => '2026-07-20', 'consent' => false ) );
 $boundary['recEVE000000000001'] = array_merge( reset( $rows ), array( 'record_id' => 'recEVE000000000001', 'name' => 'Eve', 'stage' => 'Confirmed', 'created' => '2026-07-19', 'consent' => false ) );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $boundary;
-$edge = render_screen();
+$edge = render_tab( 'pipeline' );
 ck( '20 July itself is after the question, 19 July before it', false !== strpos( $edge, sprintf( '%d institution records were collected before the consent question was added on 20 July 2026, %d of them at Confirmed.', $seed['counts']['created_before_consent_question'] + 1, $seed['counts']['created_before_consent_question_confirmed'] + 1 ) ), true );
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 
 /* ---- the reconciliation card -------------------------------------------- */
 
 echo "\n=== The reconciliation card ===\n";
+
+$html = render_tab( 'sync' );
 
 ck( 'the card reads 31 / 19 / 10 / 9 / 3', array(
 	false !== strpos( $html, '<th scope="row">Students rows with no reports row</th><td>31 <span class="wpcpm-inst-muted">(Not moving forward 15, (empty) 7, Graduate 6, In Sensei 2, SPAM 1)</span></td>' ),
@@ -1577,7 +2071,7 @@ ck( 'and a row with no record ID is told what to do in Airtable instead', false 
 // which is its word that it looked. Account 31 is one of those, and unstamping it must leave
 // the row at zero.
 unset( $GLOBALS['umeta'][31][ WPCPM_Students_Sync::META_INSTITUTION ] );
-$deliberate = render_screen();
+$deliberate = render_tab( 'sync' );
 ck( 'an account the sync unstamped on purpose is not reported as a broken sync', false !== strpos( $deliberate, '<td>0 <span class="wpcpm-inst-muted">(counted now)</span></td>' ), true );
 ck( 'and the row is not a warning', false === strpos( $deliberate, '<td class="wpcpm-warning">1 <span class="wpcpm-inst-muted">(counted now; should be 0' ), true );
 
@@ -1586,7 +2080,7 @@ ck( 'and the row is not a warning', false === strpos( $deliberate, '<td class="w
 $GLOBALS['umeta'][32][ WPCPM_Students_Sync::META_ACTIVE ] = 1;
 $GLOBALS['umeta'][32][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'status' => 'In Sensei' );
 $GLOBALS['users'][32] = new WP_User( 32, 'Never Described', 'nd@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
-$broken = render_screen();
+$broken = render_tab( 'sync' );
 ck( 'an account no run has ever described turns the row into a warning', false !== strpos( $broken, '<td class="wpcpm-warning">1 <span class="wpcpm-inst-muted">(counted now; should be 0, anything else is a broken sync)</span></td>' ), true );
 unset( $GLOBALS['umeta'][32], $GLOBALS['users'][32] );
 
@@ -1602,7 +2096,7 @@ $GLOBALS['users'][33] = new WP_User( 33, 'Dan Duplicate', 'dan@example.test', ar
 $GLOBALS['umeta'][33][ WPCPM_Students_Sync::META_ACTIVE ]  = 1;
 $GLOBALS['umeta'][33][ WPCPM_Students_Sync::META_PROGRAM ] = array( 'institution_source' => '' );
 
-$narrowed = render_screen();
+$narrowed = render_tab( 'sync' );
 ck( 'a departed account that kept the role is not one, whatever student_on_inactive says', false !== strpos( $narrowed, '<th scope="row">Tracked student accounts with no institution stamp</th><td>0 <span class="wpcpm-inst-muted">(counted now)</span></td>' ), true );
 // Which of the two the query excluded and which the card did: the departed account never
 // reaches PHP, the duplicate does and is skipped on its program meta, and the count is 0.
@@ -1619,7 +2113,7 @@ ck( 'nor is the duplicate email the sync unstamped on purpose, which the duplica
 $GLOBALS['users'][34] = new WP_User( 34, 'Una Undescribed', 'una@example.test', array( WPCPM_Roles::ROLE_STUDENT ) );
 $GLOBALS['umeta'][34][ WPCPM_Students_Sync::META_ACTIVE ] = 1;
 
-ck( 'an account with the live flag the sync has never described is a broken sync', false !== strpos( render_screen(), '<td class="wpcpm-warning">1 <span class="wpcpm-inst-muted">(counted now; should be 0, anything else is a broken sync)</span></td>' ), true );
+ck( 'an account with the live flag the sync has never described is a broken sync', false !== strpos( render_tab( 'sync' ), '<td class="wpcpm-warning">1 <span class="wpcpm-inst-muted">(counted now; should be 0, anything else is a broken sync)</span></td>' ), true );
 
 unset( $GLOBALS['users'][32], $GLOBALS['users'][33], $GLOBALS['users'][34], $GLOBALS['umeta'][32], $GLOBALS['umeta'][33], $GLOBALS['umeta'][34] );
 
@@ -1631,30 +2125,47 @@ echo "\n=== The manager backstop counts ===\n";
 // address the base names for one belongs to nobody on this site.
 $emailed = array_keys( array_filter( $rows, function ( $r ) { return '' !== $r['contact_email']; } ) );
 ck( 'the fixture names a contact address for 102 of the 106 institutions', count( $emailed ), 102 );
+$pipeline_html = render_tab( 'pipeline' );
+$sync_html     = render_tab( 'sync' );
+
 ck( 'with nobody provisioned, both counts are the whole pipeline', array(
-	false !== strpos( $html, 'Institutions with no live member <span class="wpcpm-count">' . count( $rows ) . '</span>' ),
-	false !== strpos( $html, '<th scope="row">Contacts who are not members</th><td>' . count( $emailed ) . ' ' ),
+	false !== strpos( $pipeline_html, 'Institutions with no live member <span class="wpcpm-count">' . count( $rows ) . '</span>' ),
+	false !== strpos( $sync_html, '<th scope="row">Contacts who are not members</th><td>' . count( $emailed ) . ' ' ),
 ), array( true, true ) );
 
 // The one that pages a manager prints inside the pipeline card, above the stage tables; the
-// contacts count prints on the reconciliation card, where the design puts it.
-ck( 'the no-member count is in the pipeline card and the contacts count on the reconciliation card', array(
-	false !== strpos( $html, 'Institutions with no live member' ) && strpos( $html, 'Institutions with no live member' ) < strpos( $html, '<h3 class="wpcpm-inst-stage">' ),
-	strpos( $html, 'Contacts who are not members' ) > strpos( $html, 'Students rows with no institution' ),
-), array( true, true ) );
+// contacts count prints on the reconciliation card, where the design puts it. Each is on the
+// tab of its card, and only there.
+ck( 'the no-member count is in the pipeline card and the contacts count on the reconciliation card, each on its own tab', array(
+	false !== strpos( $pipeline_html, 'Institutions with no live member' ) && strpos( $pipeline_html, 'Institutions with no live member' ) < strpos( $pipeline_html, '<h3 class="wpcpm-inst-stage">' ),
+	strpos( $sync_html, 'Contacts who are not members' ) > strpos( $sync_html, 'Students rows with no institution' ),
+	strpos( $pipeline_html, 'Contacts who are not members' ),
+	strpos( $sync_html, 'Institutions with no live member' ),
+), array( true, true, false, false ) );
 
-// Three cards join the index to the live stamps: the no-member count, the contacts count and
-// the provisioning card, and every one of them says which half is as old as the sync.
+// Three places join the index to the live stamps: the no-member count, the contacts count and
+// the Accounts tab's No account view, and every one of them says which half is as old as the sync.
 $provenance = '(from the pipeline index read ' . gmdate( 'Y-m-d H:i', $read_at ) . '; memberships counted now)';
-ck( 'each count says which half is as old as the sync and which was read now', substr_count( $html, $provenance ), 3 );
+ck( 'each count says which half is as old as the sync and which was read now, on Pipeline, on the Accounts tab\'s No account view and on Sync and storage', array(
+	substr_count( $pipeline_html, $provenance ),
+	substr_count( render_tab( 'accounts', array( 'wpcpm_view' => 'no-account' ) ), $provenance ),
+	substr_count( $sync_html, $provenance ),
+), array( 1, 1, 1 ) );
 
-// The routes in are named rather than printed as a zero: the add form on the card, the sync,
-// and the invitations the institution's own dashboard lists (they are not counted here).
-ck( 'the routes in are named, not printed as a zero', array(
-	false !== strpos( $html, 'Invitations older than seven days are not counted here' ),
-	false !== strpos( $html, 'Add that person from the institution' ),
-	false !== strpos( $html, 'Add an account from the institution' ),
-), array( true, true, true ) );
+// The routes in are named rather than printed as a zero: for a Confirmed institution, the
+// Accounts tab, linked, where No account creates the account for the Contact Email and an
+// institution's Manage members view adds a person by name and address; for one at an earlier
+// stage, the approval of its application or its reaching Confirmed, since both counts span every
+// stage and the Accounts tab lists Confirmed institutions alone; and the invitations the
+// institution's own dashboard lists (they are not counted here). The institution's card on this
+// screen that both sentences used to send a manager to was never drawn.
+$give_it = 'For a Confirmed institution, give it an account on <a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts">the Accounts tab</a>: create one for its Contact Email under No account, or add a person by name and address under Manage members. An institution at an earlier stage gets its first account when its application is approved or it reaches Confirmed.';
+ck( 'the routes in are named, not printed as a zero: under the no-member count on Pipeline and under the contacts count on Sync and storage, the same words send the reader to the Accounts tab, linked, for a Confirmed institution and say how one at an earlier stage gets its first account, and the card that was never drawn is named on neither', array(
+	false !== strpos( $pipeline_html, 'Invitations older than seven days are not counted here' ),
+	false !== strpos( $pipeline_html, '<p class="description">Nobody at an institution counted here can act for it on this site. ' . $give_it . ' Once one member is in, they can invite colleagues from their own dashboard.</p>' ),
+	false !== strpos( $sync_html, '<p class="description">A Contact Email that belongs to no member is the address Airtable names for the institution and nobody who can act for it here. ' . $give_it . ' The sync provisions the address on its own only for an institution that has never had a member, so a removed contact is not re-created on every run.</p>' ),
+	strpos( $pipeline_html . $sync_html, 'institution&#039;s card' ),
+), array( true, true, true, false ) );
 
 // Two institutions acquire a member: one is the contact herself, recorded in another case
 // and with the spaces a form leaves behind; the other is somebody else entirely.
@@ -1662,106 +2173,171 @@ $GLOBALS['members_of'] = array(
 	$emailed[0] => array( new WP_User( 40, 'Contact One', ' ' . strtoupper( $rows[ $emailed[0] ]['contact_email'] ) . ' ', array( WPCPM_Roles::ROLE_INSTITUTION ) ) ),
 	$emailed[1] => array( new WP_User( 41, 'Someone Else', 'someone@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ) ),
 );
-$GLOBALS['member_reads'] = array();
-$members                 = render_screen();
+$members        = render_tab( 'pipeline' );
+$pipeline_reads = $GLOBALS['member_reads'];
+$members_sync   = render_tab( 'sync' );
+$sync_reads     = $GLOBALS['member_reads'];
 
 ck( 'two institutions with a live member leave 104 with none', false !== strpos( $members, 'Institutions with no live member <span class="wpcpm-count">' . ( count( $rows ) - 2 ) . '</span>' ), true );
-ck( 'and only the one whose member is the contact leaves the address counted', false !== strpos( $members, '<th scope="row">Contacts who are not members</th><td>' . ( count( $emailed ) - 1 ) . ' ' ), true );
-ck( 'and the card says what a contact who is not a member means, and what is not built for it yet', false !== strpos( $members, 'A Contact Email that belongs to no member is the address Airtable names for the institution' ), true );
-ck( 'each institution is asked for its members exactly once, for both counts together', array(
-	count( $GLOBALS['member_reads'] ),
-	count( array_unique( $GLOBALS['member_reads'] ) ),
-), array( count( $rows ), count( $rows ) ) );
-ck( 'no address reaches the screen, the member\'s least of all', preg_match( '/@example\.test/i', $members ), 0 );
+ck( 'and only the one whose member is the contact leaves the address counted', false !== strpos( $members_sync, '<th scope="row">Contacts who are not members</th><td>' . ( count( $emailed ) - 1 ) . ' ' ), true );
+ck( 'and the card says what a contact who is not a member means, and what is not built for it yet', false !== strpos( $members_sync, 'A Contact Email that belongs to no member is the address Airtable names for the institution' ), true );
+ck( 'each tab that prints a membership count asks each institution for its members exactly once, for both counts together', array(
+	count( $pipeline_reads ),
+	count( array_unique( $pipeline_reads ) ),
+	count( $sync_reads ),
+	count( array_unique( $sync_reads ) ),
+), array( count( $rows ), count( $rows ), count( $rows ), count( $rows ) ) );
+ck( 'no address reaches the screen, the member\'s least of all', preg_match( '/@example\.test/i', $members . $members_sync ), 0 );
 
 $GLOBALS['members_of']   = array();
 $GLOBALS['member_reads'] = array();
 
-/* ---- institution accounts ----------------------------------------------- */
+/* ---- the Accounts tab --------------------------------------------------- */
 
-// What the card decides is `WPCPM_Institutions_Sync::provision_block()`'s answer and never a
-// second copy of the rule here, so what is checked is that the screen asks the right
-// institutions, prints the answer it gets, and offers the control only where the answer was
-// yes. Whether the answers themselves are right is bin/test-institutions-sync.php's business.
+// The provisioning card is gone from the Accounts tab: its worklist is the accounts list's No
+// account view and its bulk button the view's Create account, which bin/test-institutions-accounts.php
+// reads row by row against the institutions sync's own rule. What is checked here is the frame: the
+// tab draws the accounts locked for the day, the invitations card and the list, in that order, asks
+// why each Confirmed institution has no account once, for the count the view's link carries, and
+// draws none of the card's controls.
 
-echo "\n=== Institution accounts: the gate, the bulk button and the per-row control ===\n";
+echo "\n=== The Accounts tab: the accounts locked today, the invitations and the accounts list ===\n";
 
-$day_one = render_screen();
+$GLOBALS['uid']                 = 63;
+$GLOBALS['locked']              = array( new WP_User( 50, 'Rep One', 'rep.one@example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) ) );
+$GLOBALS['never_invited']       = array( 51, 52 );
+$GLOBALS['never_invited_asked'] = array();
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'invited' );
+$accounts_tab              = render_tab( 'accounts' );
+$GLOBALS['uid']            = 1;
+$GLOBALS['locked']         = array();
+$GLOBALS['never_invited']  = array();
+delete_user_meta( 63, WPCPM_Flash::META );
 
-ck( 'the card counts the institutions ready for an account', false !== strpos( $day_one, 'Institution accounts <span class="wpcpm-count">0</span>' ), true );
-ck( 'and asks about the 42 Confirmed institutions, once each and about no others', array(
-	count( $GLOBALS['blocks_read'] ),
-	count( array_unique( $GLOBALS['blocks_read'] ) ),
-), array( count( $confirmed ), count( $confirmed ) ) );
-ck( 'it says how many Confirmed institutions it looked at, and when the index was read', false !== strpos( $day_one, '42 Confirmed institutions. ' . $provenance ), true );
+$at_each = array();
+foreach ( array(
+	'notice'      => '<div class="notice notice-success is-dismissible"><p>Invitation email sent.</p></div>',
+	'bar'         => '<nav class="nav-tab-wrapper',
+	'locked'      => '1 institution account is locked out of roster changes for the rest of today.',
+	'invitations' => '<div class="wpcpm-card wpcpm-invites"><h2>Invitations</h2>',
+	'list'        => '<h2>Institution accounts <span class="wpcpm-count">0</span></h2>',
+) as $part => $needle ) {
+	$at_each[ $part ] = strpos( $accounts_tab, $needle );
+}
+$found_parts = array_filter( $at_each, 'is_int' );
+asort( $found_parts );
 
-// Day one: every real Confirmed institution is legacy, so none has an agreement recorded and
-// the bulk button refuses for all of them, whatever else is ready.
-preg_match( '#<p class="wpcpm-warning">(No account is created in bulk.*?)</p>#s', $day_one, $gate );
-$gate = isset( $gate[1] ) ? $gate[1] : '';
+ck( 'the tab reads top to bottom: the press\'s notice above the bar, as on every tab, then the accounts locked for the day, the invitations card and the institution accounts list',
+	array( array_keys( $found_parts ), substr_count( $accounts_tab, 'is-dismissible' ) ),
+	array( array( 'notice', 'bar', 'locked', 'invitations', 'list' ), 1 ) );
+ck( 'the invitations card is the module\'s: its button posts the module\'s own action and names the Accounts tab, and it counts the accounts the mail layer finds never invited, by the institution account\'s role and stamp',
+	array( form_fields( $accounts_tab, 'wpcpm_institutions_bulk_invite' ), false !== strpos( $accounts_tab, '<button type="submit">Invite 2 institution accounts that have never been invited</button>' ), $GLOBALS['never_invited_asked'] ),
+	array( array( 'action' => 'wpcpm_institutions_bulk_invite', 'wpcpm_tab' => 'accounts' ), true, array( array( WPCPM_Roles::ROLE_INSTITUTION, 'wpcpm_inst_invited' ) ) ) );
+ck( 'the list counts the institution accounts and, on the link to its No account view, the 42 Confirmed institutions without one, each asked about once',
+	array( false !== strpos( $accounts_tab, 'No account <span class="count">(42)</span>' ), count( $GLOBALS['blocks_read'] ), count( array_unique( $GLOBALS['blocks_read'] ) ) ),
+	array( true, count( $confirmed ), count( $confirmed ) ) );
 
-ck( 'the gate says how many hold the button shut', false !== strpos( $gate, 'No account is created in bulk while 42 Confirmed institutions have no agreement recorded:' ), true );
-ck( 'names the first five of them and counts the rest', array(
-	false !== strpos( $gate, esc_html( trim( $rows[ $confirmed[0] ]['name'] ) ) ),
-	false !== strpos( $gate, esc_html( trim( $rows[ $confirmed[4] ]['name'] ) ) ),
-	false !== strpos( $gate, esc_html( trim( $rows[ $confirmed[5] ]['name'] ) ) ),
-	false !== strpos( $gate, 'and 37 more' ),
-), array( true, true, false, true ) );
-ck( 'and links the filtered pipeline, which is where the work starts', false !== strpos( $gate, '?page=wpcpm-institutions&wpcpm_filter=agreement_gap' ), true );
-ck( 'the button is drawn disabled rather than hidden', false !== strpos( $day_one, '<button type="submit" class="button button-primary" name="submit" disabled="disabled">Create the accounts</button>' ), true );
-ck( 'and nothing offers to create a single one either', strpos( $day_one, '>Create account</button>' ), false );
-ck( 'every Confirmed institution is listed with the sync\'s reason for having no account', substr_count( $day_one, '<span class="wpcpm-inst-muted">Refused: no_agreement.</span>' ), count( $confirmed ) );
+// The count is what the answers leave, not the Confirmed institutions: one that already has a member
+// is asked about and is not on the view.
+$GLOBALS['blocks'][ $confirmed[0] ] = WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER;
+$with_member                        = render_tab( 'accounts' );
+$GLOBALS['blocks']                  = array();
 
-// The agreements recorded: three ready, one address already taken, one with no contact
-// address, one that has had a member before, and the rest with accounts already.
-$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
-$GLOBALS['blocks'][ $confirmed[0] ] = '';
-$GLOBALS['blocks'][ $confirmed[1] ] = '';
-$GLOBALS['blocks'][ $confirmed[2] ] = '';
-$GLOBALS['blocks'][ $confirmed[3] ] = WPCPM_Institutions_Sync::BLOCK_CONFLICT;
-$GLOBALS['blocks'][ $confirmed[4] ] = WPCPM_Institutions_Sync::BLOCK_NO_EMAIL;
-$GLOBALS['blocks'][ $confirmed[5] ] = WPCPM_Institutions_Sync::BLOCK_FORMER_MEMBER;
+ck( 'and with one of them answered as having a member already, the view counts 41, every one still asked about once',
+	array( false !== strpos( $with_member, 'No account <span class="count">(41)</span>' ), count( $GLOBALS['blocks_read'] ), count( array_unique( $GLOBALS['blocks_read'] ) ) ),
+	array( true, count( $confirmed ), count( $confirmed ) ) );
+ck( 'and nothing of the provisioning card is drawn: no bulk button, no worklist table, no form that creates an account',
+	array( strpos( $accounts_tab, 'wpcpm_institutions_provision' ), strpos( $accounts_tab, 'wpcpm-inst-provision' ), strpos( $accounts_tab, 'Create the accounts' ), strpos( $accounts_tab, 'are not listed above' ) ),
+	array( false, false, false, false ) );
 
-$open = render_screen();
+// The one outcome both a failed sync start and a failed row invitation leave, `error`, is worded by
+// the tab the press came back to: the Sync and storage tab's points to the last sync's error, which
+// it prints below, and the Accounts tab, which prints no sync error, says the invitation could not
+// be sent.
+$worded = array();
+foreach ( array( 'sync' => 64, 'accounts' => 65 ) as $tab => $viewer ) {
+	$GLOBALS['uid'] = $viewer;
+	WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'error' );
+	preg_match( '#<div class="notice notice-error is-dismissible"><p>(.*?)</p></div>#', render_tab( $tab ), $error_notice );
+	$worded[ $tab ] = isset( $error_notice[1] ) ? $error_notice[1] : '';
+	delete_user_meta( $viewer, WPCPM_Flash::META );
+}
+$GLOBALS['uid'] = 1;
 
-ck( 'with every agreement recorded the gate is gone', strpos( $open, 'No account is created in bulk' ), false );
-ck( 'and the count is in the button, not only in the prose above it', false !== strpos( $open, '<button type="submit" class="button button-primary" name="submit">Create 3 accounts</button>' ), true );
-ck( 'the confirm names how many people it reaches and that it cannot be recalled', false !== strpos( $open, 'onsubmit="return confirm(\'Create 3 institution accounts and email each one a password-set link to the address Airtable holds for it? Invitations cannot be recalled once sent.\');"' ), true );
-ck( 'each ready institution gets its own control, with a nonce keyed to it', array(
-	substr_count( $open, '>Create account</button>' ),
-	false !== strpos( $open, 'value="nonce-wpcpm_institutions_provision_one_' . $confirmed[0] . '"' ),
-	false !== strpos( $open, '<input type="hidden" name="wpcpm_institution" value="' . $confirmed[0] . '" />' ),
-	false !== strpos( $open, '<input type="hidden" name="action" value="wpcpm_institutions_provision_one" />' ),
-), array( 3, true, true, true ) );
-ck( 'and the refusals are the sync\'s words, one per row', array(
-	substr_count( $open, 'Refused: account_exists.' ),
-	substr_count( $open, 'Refused: no_email.' ),
-	substr_count( $open, 'Refused: former_member.' ),
-	substr_count( $open, 'Refused: has_member.' ),
-), array( 1, 1, 1, 0 ) );
-ck( 'the ones that already have an account are counted rather than listed', false !== strpos( $open, ( count( $confirmed ) - 6 ) . ' Confirmed institutions already have an account and are not listed above.' ), true );
-ck( 'no address reaches the card, only whether there is one', array(
-	preg_match( '/@example\.test/i', $open ),
-	substr_count( $open, '<span class="wpcpm-warning">no email</span>' ) > 0,
-), array( 0, true ) );
+ck( 'the outcome both a failed start and a failed row invitation leave is worded by the tab it comes back to',
+	$worded,
+	array(
+		'sync'     => 'That action could not be completed. See the error below.',
+		'accounts' => 'The invitation could not be sent.',
+	) );
 
-ck( 'the card says the sync is not doing this too', false !== strpos( $open, 'The sync does not create accounts' ), true );
-$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = true;
-ck( 'and says so when it is', false !== strpos( render_screen(), 'The sync creates these accounts too' ), true );
-$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['institution_provision'] = false;
+/* ---- agreements on file ------------------------------------------------- */
 
-$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
-$done              = render_screen();
-ck( 'with every account made the card says so and draws no worklist', array(
-	false !== strpos( $done, 'Every Confirmed institution has an account.' ),
-	strpos( $done, 'wpcpm-inst-provision' ),
-), array( true, false ) );
+// Every Confirmed institution signed before this site could record an agreement, so the form that
+// records them all at once is the Agreements tab's, under the list of what it records. The list is
+// the form's own set, every Confirmed record whose agreement is not settled, so what the card names
+// and what the button counts are what a press records.
 
-$GLOBALS['blocks'] = array();
+echo "\n=== Agreements on file ===\n";
+
+$kept_summaries       = $GLOBALS['summaries'];
+$GLOBALS['summaries'] = array();
+$on_file_tab          = render_tab( 'agreements' );
+$on_file_card         = preg_match( '#<div class="wpcpm-card"><h2>Agreements on file</h2>(.*?)</div><div class="wpcpm-card">#s', $on_file_tab, $card_match ) ? $card_match[1] : '';
+
+preg_match_all( '#<li>(.*?) <code class="wpcpm-inst-record">([^<]*)</code></li>#', $on_file_card, $listed, PREG_SET_ORDER );
+
+ck( 'the card says how many Confirmed institutions have no agreement recorded, and names every one with its record ID', array(
+	false !== strpos( $on_file_card, '<p>42 Confirmed institutions have no agreement recorded:</p><ul class="wpcpm-notices wpcpm-inst-unrecorded">' ),
+	array_column( $listed, 2 ),
+	isset( $listed[0][1] ) ? html_entity_decode( $listed[0][1], ENT_QUOTES ) : '',
+), array( true, $confirmed, trim( $rows[ $confirmed[0] ]['name'] ) ) );
+ck( 'it opens with the words the form used to carry, printed once on the tab, then when the index was read, and the form follows the list', array(
+	0 === strpos( $on_file_card, '<p class="description">Every Confirmed institution signed a Collaboration Agreement before this site could record one.' ),
+	false !== strpos( $on_file_card, 'and its account can then be created.</p><p class="wpcpm-inst-read">Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).</p><p>42 Confirmed institutions' ),
+	substr_count( $on_file_tab, 'Every Confirmed institution signed a Collaboration Agreement before this site could record one.' ),
+	false !== strpos( $on_file_card, '</ul><form class="wpcpm-on-file-all" method="post" action="https://example.test/wp-admin/admin-post.php">' ),
+), array( true, true, 1, true ) );
+ck( 'the form records them all and names its tab, and its button counts what it records', array(
+	form_fields( $on_file_tab, WPCPM_Institution_Agreement::ACTION_ON_FILE_ALL ),
+	false !== strpos( $on_file_card, '<input type="hidden" name="_wpnonce" value="nonce-wpcpm_agreement_on_file_all" />' ),
+	false !== strpos( $on_file_card, 'name="wpcpm_agreement_drive" required' ),
+	false !== strpos( $on_file_card, 'name="wpcpm_agreement_where" maxlength="200"' ),
+	false !== strpos( $on_file_card, '<button type="submit" class="button button-secondary">Record all 42 institutions as signed</button>' ),
+), array( array( 'action' => 'wpcpm_agreement_on_file_all', 'wpcpm_tab' => 'agreements' ), true, true, true, true ) );
+ck( 'and no address reaches the card, which is there, only the names', array( '' !== $on_file_card, preg_match( '/@example\.test/', $on_file_card ) ), array( true, 0 ) );
+
+// Two recorded and one waiting for review: the recorded ones leave the list and the count, the
+// one waiting stays, since nothing is recorded for it yet.
+$GLOBALS['summaries'] = array(
+	$confirmed[0] => array( 'state' => 'on_file' ),
+	$confirmed[1] => array( 'state' => 'accepted' ),
+	$confirmed[2] => array( 'state' => 'submitted' ),
+);
+$fewer = render_tab( 'agreements' );
+ck( 'an institution whose agreement is recorded leaves the list and the count, and one waiting for review stays on it', array(
+	false !== strpos( $fewer, '<p>40 Confirmed institutions have no agreement recorded:</p>' ),
+	strpos( $fewer, '<code class="wpcpm-inst-record">' . $confirmed[0] . '</code>' ),
+	strpos( $fewer, '<code class="wpcpm-inst-record">' . $confirmed[1] . '</code>' ),
+	false !== strpos( $fewer, '<code class="wpcpm-inst-record">' . $confirmed[2] . '</code>' ),
+	false !== strpos( $fewer, '>Record all 40 institutions as signed</button>' ),
+), array( true, false, false, true, true ) );
+
+$GLOBALS['summaries'] = array_fill_keys( $confirmed, array( 'state' => 'on_file' ) );
+$recorded             = render_tab( 'agreements' );
+ck( 'with every Confirmed institution recorded the card says so, and draws no list and no form', array(
+	false !== strpos( $recorded, '<div class="wpcpm-card"><h2>Agreements on file</h2><p class="wpcpm-inst-read">Pipeline index: read ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).</p><p>No Confirmed institution is waiting for its agreement to be recorded.</p></div>' ),
+	strpos( $recorded, 'wpcpm-inst-unrecorded' ),
+	strpos( $recorded, 'wpcpm-on-file-all' ),
+), array( true, false, false ) );
+
+$GLOBALS['summaries'] = $kept_summaries;
 
 /* ---- discrepancies and the template card -------------------------------- */
 
 echo "\n=== Discrepancies and the template card ===\n";
+
+$html = render_tab( 'agreements' );
 
 ck( 'with none, the card says the two sides agree', false !== strpos( $html, 'Agreement discrepancies <span class="wpcpm-count">0</span></h2>' ) && false !== strpos( $html, 'The site and Airtable agree on every agreement.' ), true );
 
@@ -1769,7 +2345,7 @@ $GLOBALS['discrepancies'] = array(
 	'recSEED0000000008' => array( 'site_state' => 'accepted', 'airtable_status' => 'Revoked' ),
 	'recNOTINDEXED0001' => array( 'site_state' => '', 'airtable_status' => 'On file' ),
 );
-$with = render_screen();
+$with = render_tab( 'agreements' );
 ck( 'each discrepancy is listed by name with both sides', array(
 	false !== strpos( $with, '<tr><td>Institution 4<br /><code>recSEED0000000008</code></td><td>accepted</td><td>Revoked</td></tr>' ),
 	false !== strpos( $with, '<tr><td>recNOTINDEXED0001<br /><code>recNOTINDEXED0001</code></td><td>(nothing recorded)</td><td>On file</td></tr>' ),
@@ -1793,7 +2369,7 @@ ck( 'with no address given, the card says where the address lives and prints non
 ), array( true, false ) );
 
 $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_doc_url'] = 'https://docs.google.com/document/d/EXAMPLEDOCID/edit';
-$with_doc = render_screen();
+$with_doc = render_tab( 'agreements' );
 unset( $GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_doc_url'] );
 
 ck( 'and links it once the site has been given one', array(
@@ -1822,7 +2398,7 @@ $signed[ $ids[2] ]['agreement'] = array_merge( $signed[ $ids[2] ]['agreement'], 
 $signed[ $ids[3] ]['agreement'] = array_merge( $signed[ $ids[3] ]['agreement'], array( 'status' => 'On file', 'kind' => 'Legacy' ) );
 
 $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $signed;
-$versioned = render_screen();
+$versioned = render_tab( 'agreements' );
 
 preg_match_all(
 	'#<tr><th scope="row">([^<]+)</th><td>(\d+) <span class="wpcpm-inst-muted">\(([^<]*)\)</span></td></tr>#',
@@ -1850,6 +2426,8 @@ $GLOBALS['opts'][ WPCPM_Institutions_Index::OPT_NAME ]['rows'] = $rows;
 /* ---- the semester reports card ------------------------------------------ */
 
 echo "\n=== The semester reports card ===\n";
+
+$html = render_tab( 'reports' );
 
 // One list of what every institution is writing. Two things are being pinned: what it counts,
 // and that the consent request is offered here and only here. Open question 2 puts the send in
@@ -1881,7 +2459,7 @@ for ( $i = 0; $i <= 60; $i++ ) {
 	seed_report( 9200 + $i, $report_record, '2020-H1', 'approved', 1758000000 + $i );
 }
 
-$capped = render_screen();
+$capped = render_tab( 'reports' );
 
 ck( 'the heading counts every report fetched, not only the capped rows', false !== strpos( $capped, 'Semester reports <span class="wpcpm-count">63</span>' ), true );
 
@@ -1919,7 +2497,7 @@ ck( 'each with a nonce keyed to its own report', false !== strpos( $report_rows[
 $GLOBALS['posts'] = array();
 $GLOBALS['pmeta'] = array();
 
-$empty_card = render_screen();
+$empty_card = render_tab( 'reports' );
 
 ck( 'with nothing written, the card says so', false !== strpos( $empty_card, 'No report has been drafted yet.' ), true );
 ck( 'and offers nobody a request to send', false !== strpos( $empty_card, 'value="' . WPCPM_Semester_Report_Screen::ACTION_ASK . '"' ), false );
@@ -1936,11 +2514,11 @@ $base = $GLOBALS['uploads'] . '/' . WPCPM_Private_Files::DIRECTORY . '/';
 // What this host does: the dot path is refused by its own rule, a plain uploads path is served.
 $GLOBALS['head'] = array( 'response' => array( 'code' => 200 ) );
 $result          = WPCPM_Private_Files::probe();
-$html            = render_screen();
+$html            = render_tab( 'sync' );
 
 ck( 'the card says the host refuses direct requests', false !== strpos( $html, 'The host refuses direct requests to the private directory (HTTP 403 on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . ').' ), true );
 ck( 'and says the files are encrypted, which is the control that does not need the host', false !== strpos( $html, 'Stored files are encrypted with AES-256-GCM.' ), true );
-ck( 'with a Run probe button posting the probe action', false !== strpos( $html, '<input type="hidden" name="action" value="wpcpm_institutions_probe" />' ) && false !== strpos( $html, '>Run probe</button>' ), true );
+ck( 'with a Run probe button posting the probe action and naming its tab', array( form_fields( $html, 'wpcpm_institutions_probe' ), false !== strpos( $html, '>Run probe</button>' ) ), array( array( 'action' => 'wpcpm_institutions_probe', 'wpcpm_tab' => 'sync' ), true ) );
 
 // The control is what makes the refusal attributable to the leading dot rather than to a host
 // that refuses everything under uploads.
@@ -1949,14 +2527,14 @@ ck( 'so the card explains what the dot is doing', false !== strpos( $html, 'so t
 
 // A record from before the control existed must not make the card claim something it did not measure.
 $GLOBALS['opts']['wpcpm_private_probe'] = array( 'status' => 403, 'time' => $result['time'], 'blocked' => true, 'error' => '' );
-ck( 'an older record leaves the explanation out rather than inventing it', false === strpos( render_screen(), 'so the dot is what makes the difference' ), true );
+ck( 'an older record leaves the explanation out rather than inventing it', false === strpos( render_tab( 'sync' ), 'so the dot is what makes the difference' ), true );
 
 // The host changing its mind: the card must still be honest, and must say the bytes are useless.
 $GLOBALS['head'] = array( 'response' => array( 'code' => 200 ) );
 $result          = WPCPM_Private_Files::probe_result();
 $result          = array( 'status' => 200, 'time' => $result['time'], 'blocked' => false, 'error' => '', 'control_status' => 200, 'encrypted' => true );
 $GLOBALS['opts']['wpcpm_private_probe'] = $result;
-$html = render_screen();
+$html = render_tab( 'sync' );
 ck( 'a served verdict warns, names the path and says what is exposed', array(
 	false !== strpos( $html, 'The host hands out files in the private directory to anyone who asks (HTTP 200 on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . ').' ),
 	false !== strpos( $html, 'What it hands over is encrypted' ),
@@ -1965,14 +2543,14 @@ ck( 'a served verdict warns, names the path and says what is exposed', array(
 ), array( true, true, true, true ) );
 
 $GLOBALS['opts']['wpcpm_private_probe'] = array( 'status' => 0, 'time' => $result['time'], 'blocked' => false, 'error' => 'cURL error 28', 'control_status' => 0, 'encrypted' => true );
-ck( 'a failed probe says it could not tell', false !== strpos( render_screen(), 'The probe could not tell what the host does (on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . '): cURL error 28' ), true );
+ck( 'a failed probe says it could not tell', false !== strpos( render_tab( 'sync' ), 'The probe could not tell what the host does (on ' . gmdate( 'Y-m-d H:i', $result['time'] ) . '): cURL error 28' ), true );
 
 $GLOBALS['opts']['wpcpm_private_probe'] = array( 'status' => 503, 'time' => $result['time'], 'blocked' => false, 'error' => '', 'control_status' => 0, 'encrypted' => true );
-ck( 'and a 5xx is neither verdict', false !== strpos( render_screen(), 'it answered HTTP 503 on ' ), true );
+ck( 'and a 5xx is neither verdict', false !== strpos( render_tab( 'sync' ), 'it answered HTTP 503 on ' ), true );
 
 delete_option( 'wpcpm_private_probe' );
 ck( 'with no record probe_result() is null', WPCPM_Private_Files::probe_result(), null );
-ck( 'and the card says the probe has not run', false !== strpos( render_screen(), 'The probe has not run yet.' ), true );
+ck( 'and the card says the probe has not run', false !== strpos( render_tab( 'sync' ), 'The probe has not run yet.' ), true );
 
 update_option( 'wpcpm_private_probe', 'garbage', false );
 ck( 'a malformed record is null too', WPCPM_Private_Files::probe_result(), null );
@@ -2053,9 +2631,29 @@ ck( 'so does handle_cancel', array( outcome( array( $module, 'handle_cancel' ) )
 ck( 'and handle_probe', array( outcome( array( $module, 'handle_probe' ) ), $GLOBALS['referer'] ), array( 'wp_die: You do not have permission to manage the program.', array() ) );
 ck( 'handle_tick answers a 403 JSON error', array( outcome( array( $module, 'handle_tick' ) ), $GLOBALS['referer'] ), array( 'json_error:403', array() ) );
 
-$GLOBALS['caps'] = true;
+// What each form on the Sync and storage tab posts, read off the tab: a press comes back to the
+// tab it was made on only when the form and the handler agree on which tab that is.
+$sync_tab  = render_tab( 'sync' );
+$back_sync = 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=sync';
+
+$GLOBALS['sync_progress'] = array( 'running' => true );
+$cancel_post              = form_fields( render_tab( 'sync' ), 'wpcpm_institutions_cancel' );
+$GLOBALS['sync_progress'] = array();
+
+ck( 'the sync, the cancel and the probe forms each name the Sync and storage tab', array(
+	form_fields( $sync_tab, 'wpcpm_institutions_sync' ),
+	$cancel_post,
+	form_fields( $sync_tab, 'wpcpm_institutions_probe' ),
+), array(
+	array( 'action' => 'wpcpm_institutions_sync', 'wpcpm_tab' => 'sync' ),
+	array( 'action' => 'wpcpm_institutions_cancel', 'wpcpm_tab' => 'sync' ),
+	array( 'action' => 'wpcpm_institutions_probe', 'wpcpm_tab' => 'sync' ),
+) );
+
+$GLOBALS['caps']  = true;
 $GLOBALS['calls'] = array();
-ck( 'handle_sync starts the sync and redirects to the screen', array( outcome( array( $module, 'handle_sync' ) ), $GLOBALS['referer'], in_array( array( 'WPCPM_Institutions_Sync::start' ), $GLOBALS['calls'], true ) ), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions', array( 'wpcpm_institutions_sync' ), true ) );
+$_POST            = form_fields( $sync_tab, 'wpcpm_institutions_sync' );
+ck( 'handle_sync starts the sync and comes back to the Sync and storage tab', array( outcome( array( $module, 'handle_sync' ) ), $GLOBALS['referer'], in_array( array( 'WPCPM_Institutions_Sync::start' ), $GLOBALS['calls'], true ) ), array( $back_sync, array( 'wpcpm_institutions_sync' ), true ) );
 // Read from the pending meta rather than through take(): take() memoises per request, and
 // the renders above already consumed this channel for this process.
 ck( 'leaving a one-shot flash for the screen to show', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'started' ) );
@@ -2068,12 +2666,27 @@ $GLOBALS['sync_refuses'] = false;
 delete_user_meta( 1, WPCPM_Flash::META );
 
 $GLOBALS['calls'] = array();
-ck( 'handle_cancel cancels and flashes', array( outcome( array( $module, 'handle_cancel' ) ), $GLOBALS['referer'], in_array( array( 'WPCPM_Institutions_Sync::cancel' ), $GLOBALS['calls'], true ), get_user_meta( 1, WPCPM_Flash::META ) ), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions', array( 'wpcpm_institutions_cancel' ), true, array( 'institutions' => 'cancelled' ) ) );
+$_POST            = $cancel_post;
+ck( 'handle_cancel cancels, flashes and comes back to the Sync and storage tab', array( outcome( array( $module, 'handle_cancel' ) ), $GLOBALS['referer'], in_array( array( 'WPCPM_Institutions_Sync::cancel' ), $GLOBALS['calls'], true ), get_user_meta( 1, WPCPM_Flash::META ) ), array( $back_sync, array( 'wpcpm_institutions_cancel' ), true, array( 'institutions' => 'cancelled' ) ) );
 delete_user_meta( 1, WPCPM_Flash::META );
 
 $GLOBALS['head'] = array( 'response' => array( 'code' => 403 ) );
-ck( 'handle_probe runs the probe and flashes', array( outcome( array( $module, 'handle_probe' ) ), $GLOBALS['referer'], get_option( 'wpcpm_private_probe' )['status'], get_user_meta( 1, WPCPM_Flash::META ) ), array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions', array( 'wpcpm_institutions_probe' ), 403, array( 'institutions' => 'probed' ) ) );
+$_POST           = form_fields( $sync_tab, 'wpcpm_institutions_probe' );
+ck( 'handle_probe runs the probe, flashes and comes back to the Sync and storage tab', array( outcome( array( $module, 'handle_probe' ) ), $GLOBALS['referer'], get_option( 'wpcpm_private_probe' )['status'], get_user_meta( 1, WPCPM_Flash::META ) ), array( $back_sync, array( 'wpcpm_institutions_probe' ), 403, array( 'institutions' => 'probed' ) ) );
 delete_user_meta( 1, WPCPM_Flash::META );
+
+// The whole way round, as a manager who has drawn nothing in this request: the press made on the
+// tab lands on it, and the outcome it left prints there.
+$GLOBALS['uid'] = 61;
+$landed         = outcome( array( $module, 'handle_probe' ) );
+$landed_html    = render_screen( landed_on( $landed ) );
+$GLOBALS['uid'] = 1;
+ck( 'a press on Sync and storage comes back to that tab and its outcome prints there', array(
+	$landed,
+	cards_of( $landed_html ),
+	false !== strpos( $landed_html, '<div class="notice notice-success is-dismissible"><p>The probe ran. The storage card says what the host did.</p></div>' ),
+), array( $back_sync, array( 'Airtable sync', 'Reconciliation', 'Storage' ), true ) );
+delete_user_meta( 61, WPCPM_Flash::META );
 
 $GLOBALS['head'] = new WP_Error( 'http_request_failed', 'no route' );
 outcome( array( $module, 'handle_probe' ) );
@@ -2088,90 +2701,17 @@ $GLOBALS['calls'] = array();
 outcome( array( $module, 'handle_tick' ) );
 ck( 'and leaves an idle one alone', in_array( array( 'WPCPM_Institutions_Sync::tick', 8 ), $GLOBALS['calls'], true ), false );
 
-/* ---- the provisioning handlers ------------------------------------------ */
+/* ---- the decisions' way back -------------------------------------------- */
 
-echo "\n=== The provisioning handlers ===\n";
-
+// The six decisions on an application post no tab: they come back to the screen's own address,
+// which is the queue. One institution's Create account, a Create account on the ticked
+// institutions and the invitations come back to the Accounts tab, which
+// bin/test-institutions-accounts.php follows them to.
 $back = 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions';
-
-$GLOBALS['caps'] = false;
-ck( 'handle_provision without the capability dies 403 before any nonce is read', array( outcome( array( $module, 'handle_provision' ) ), $GLOBALS['referer'] ), array( 'wp_die: You do not have permission to manage the program.', array() ) );
-ck( 'and so does the per-row control', array( outcome( array( $module, 'handle_provision_one' ) ), $GLOBALS['referer'] ), array( 'wp_die: You do not have permission to manage the program.', array() ) );
-$GLOBALS['caps'] = true;
-
-// The gate is enforced here and not only in the markup: a disabled button is a courtesy to
-// the person in front of it, never a check.
-$GLOBALS['blocks']      = array();
-$GLOBALS['provisioned'] = array();
-ck( 'the bulk handler refuses while a Confirmed institution has no agreement recorded, and creates nothing', array(
-	outcome( array( $module, 'handle_provision' ) ),
-	$GLOBALS['referer'],
-	$GLOBALS['provisioned'],
-	get_user_meta( 1, WPCPM_Flash::META ),
-), array( $back, array( 'wpcpm_institutions_provision' ), array(), array( 'institutions' => 'provision-blocked' ) ) );
-delete_user_meta( 1, WPCPM_Flash::META );
-
-$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
-$GLOBALS['blocks'][ $confirmed[0] ] = '';
-$GLOBALS['blocks'][ $confirmed[1] ] = '';
-$GLOBALS['provisioned'] = array();
-ck( 'with the gate open it provisions the ready ones, nobody else, as the manager who pressed it', array(
-	outcome( array( $module, 'handle_provision' ) ),
-	$GLOBALS['provisioned'],
-	get_user_meta( 1, WPCPM_Flash::META ),
-), array( $back, array( array( $confirmed[0], 1 ), array( $confirmed[1], 1 ) ), array( 'institutions' => 'provisioned' ) ) );
-delete_user_meta( 1, WPCPM_Flash::META );
-
-$GLOBALS['blocks']      = array_fill_keys( $confirmed, '' );
-$GLOBALS['provisioned'] = array();
-outcome( array( $module, 'handle_provision' ) );
-ck( 'one press stops at the ceiling and leaves the rest for the next', count( $GLOBALS['provisioned'] ), WPCPM_Institutions::PROVISION_LIMIT );
-delete_user_meta( 1, WPCPM_Flash::META );
-
-$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
-$GLOBALS['blocks'][ $confirmed[0] ] = '';
-$GLOBALS['provision_result'][ $confirmed[0] ] = new WP_Error( 'existing_user_login', 'that login is taken' );
-outcome( array( $module, 'handle_provision' ) );
-ck( 'an account that could not be created is reported rather than counted as done', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'provision-failed' ) );
-delete_user_meta( 1, WPCPM_Flash::META );
-$GLOBALS['provision_result'] = array();
-
-$GLOBALS['blocks'] = array_fill_keys( $confirmed, WPCPM_Institutions_Sync::BLOCK_HAS_MEMBER );
-outcome( array( $module, 'handle_provision' ) );
-ck( 'and with nothing ready it says so rather than claiming a success', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'provision-none' ) );
-delete_user_meta( 1, WPCPM_Flash::META );
-
-// The per-row control. The record ID is read from the posted form with posted_text(): a
-// record ID is case-sensitive, and sanitize_key() would lowercase it into a record that does
-// not exist. The nonce is keyed to the institution, so one row's nonce is no use on another.
-$GLOBALS['provisioned'] = array();
-$_POST                  = array( 'wpcpm_institution' => 'recMiXeDCaSe123' );
-ck( 'the per-row control provisions the institution its nonce names, with the case intact', array(
-	outcome( array( $module, 'handle_provision_one' ) ),
-	$GLOBALS['referer'],
-	$GLOBALS['provisioned'],
-	get_user_meta( 1, WPCPM_Flash::META ),
-), array( $back, array( 'wpcpm_institutions_provision_one_recMiXeDCaSe123' ), array( array( 'recMiXeDCaSe123', 1 ) ), array( 'institutions' => 'provisioned' ) ) );
-delete_user_meta( 1, WPCPM_Flash::META );
-
-$GLOBALS['provision_result']['recMiXeDCaSe123'] = new WP_Error( WPCPM_Institutions_Sync::PROVISION_ERROR, 'no agreement is recorded for it', array( 'reason' => 'no_agreement' ) );
-outcome( array( $module, 'handle_provision_one' ) );
-ck( 'a refusal from a stale page is a refusal and not a failure', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'provision-refused' ) );
-delete_user_meta( 1, WPCPM_Flash::META );
-
-$GLOBALS['provision_result']['recMiXeDCaSe123'] = new WP_Error( 'existing_user_login', 'that login is taken' );
-outcome( array( $module, 'handle_provision_one' ) );
-ck( 'and an account that could not be made is a failure and not a refusal', get_user_meta( 1, WPCPM_Flash::META ), array( 'institutions' => 'provision-failed' ) );
-delete_user_meta( 1, WPCPM_Flash::META );
-
-$_POST                      = array();
-$GLOBALS['provision_result'] = array();
-$GLOBALS['provisioned']      = array();
-$GLOBALS['blocks']           = array();
 
 // The running panel, with the attributes admin.js reads.
 $GLOBALS['sync_progress'] = array( 'running' => true, 'label' => 'Reading institution records…', 'step_label' => 'Step 2 of 4', 'percent' => 40, 'detail' => '53 of 106', 'elapsed' => 75, 'stalled' => false );
-$running = render_screen();
+$running = render_tab( 'sync' );
 ck( 'a running sync draws the progress panel admin.js polls', array(
 	false !== strpos( $running, '<div class="wpcpm-progress" data-wpcpm-progress data-action="wpcpm_institutions_tick" data-nonce="nonce" data-poll="3">' ),
 	false !== strpos( $running, '<strong data-wpcpm-label>Reading institution records…</strong>' ),
@@ -2181,15 +2721,20 @@ ck( 'a running sync draws the progress panel admin.js polls', array(
 	false === strpos( $running, 'value="wpcpm_institutions_sync"' ),
 ), array( true, true, true, true, true, true ) );
 $GLOBALS['sync_progress'] = array( 'error' => 'Airtable said no' );
-$idle = render_screen();
+$idle = render_tab( 'sync' );
 ck( 'an idle sync offers the start button and the last error', array(
 	false !== strpos( $idle, '<input type="hidden" name="action" value="wpcpm_institutions_sync" />' ),
 	false !== strpos( $idle, '<strong>Last sync error:</strong> Airtable said no' ),
 	false !== strpos( $idle, 'No sync has run yet.' ),
 ), array( true, true, true ) );
+ck( 'and the last error is the Sync and storage tab\'s, above its sync card, and no other tab\'s', array(
+	strpos( $idle, 'Last sync error:' ) < strpos( $idle, '<h2>Airtable sync</h2>' ),
+	strpos( render_screen(), 'Last sync error:' ),
+	strpos( render_tab( 'pipeline' ), 'Last sync error:' ),
+), array( true, false, false ) );
 $GLOBALS['sync_progress'] = array();
 $GLOBALS['sync_last'] = $read_at;
-ck( 'a completed run prints when', false !== strpos( render_screen(), 'Last completed ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).' ), true );
+ck( 'a completed run prints when', false !== strpos( render_tab( 'sync' ), 'Last completed ' . gmdate( 'Y-m-d H:i', $read_at ) . ' (4 hours ago).' ), true );
 
 /* ---- the review queue --------------------------------------------------- */
 
@@ -2301,22 +2846,133 @@ update_post_meta( 601, WPCPM_Institution_Agreement::META_INSTITUTION, $record );
 update_post_meta( 601, WPCPM_Institution_Agreement::META_STATE, WPCPM_Institution_Agreement::STATE_SUBMITTED );
 $GLOBALS['awaiting'] = array( 601 );
 
-$GLOBALS['calls']   = array();
-$GLOBALS['reviews'] = array();
-$html               = render_screen();
+// Two mentor requests, at the two institutions the index holds after the agreement's. One has
+// waited sixteen days, past the fourteen a request is given before it is overdue, and is seeded
+// with a note, which only closing a request writes today, so the row's note branch and its
+// escaping are read; the other seven, which the three days an application or an agreement is
+// given would mark overdue and the request's own fourteen do not, and its author's account is
+// gone.
+$request_records = array_slice( array_keys( $rows ), 1, 2 );
+$request_names   = array( trim( $rows[ $request_records[0] ]['name'] ), trim( $rows[ $request_records[1] ]['name'] ) );
 
-ck( 'the queue is one list, oldest first, of applications and agreements together', queue_items( $html ), array(
+seed_request( 802, $request_records[0], 'Ana Student', 'Rep One', 'Both of them start in <b>March</b>.', $now - ( 16 * $day ) );
+seed_request( 801, $request_records[1], 'Bo Student', '', '', $now - ( 7 * $day ) );
+// Oldest first, the order the real reader answers in.
+$GLOBALS['open_requests'] = array( 802, 801 );
+
+$GLOBALS['calls']             = array();
+$GLOBALS['reviews']           = array();
+$GLOBALS['request_decisions'] = array();
+// The screen's own address, which names no tab: the queue.
+$html         = render_screen();
+$html_reviews = $GLOBALS['reviews'];
+$dashboard    = 'https://example.test/administrator-dashboard/';
+
+ck( 'the queue is one list, oldest first, of applications, agreements and mentor requests together', queue_items( $html ), array(
+	array( $request_names[0], 'Mentor request', true ),
 	array( 'Universidad Example', 'Application', true ),
+	array( $request_names[1], 'Mentor request', false ),
 	array( 'Universidad EXAMPLE', 'Application', true ),
 	array( $record_name, 'Signed agreement', true ),
 	array( 'Escola Nova', 'Application', false ),
 ) );
-ck( 'the card counts what is waiting', preg_match( '#<h2 id="wpcpm-queue">Waiting for review <span class="wpcpm-count">4</span></h2>#', $html ), 1 );
-// Overdue is `agreement_review_days`, which the fixture leaves at the shipped 3.
-ck( 'and the three that have waited longer than three days carry is-overdue', substr_count( $html, 'wpcpm-queue-item is-overdue' ), 3 );
+ck( 'the card counts what is waiting', preg_match( '#<h2 id="wpcpm-queue">Waiting for review <span class="wpcpm-count">6</span></h2>#', $html ), 1 );
+// Overdue is `agreement_review_days` for an application and an agreement, which the fixture leaves
+// at the shipped 3, and the request's own fourteen days for a request, which `facts()` answers.
+ck( 'and the four that have waited past their own kind\'s days carry is-overdue, the seven-day request not among them', substr_count( $html, 'wpcpm-queue-item is-overdue' ), 4 );
+ck( 'the list says what it holds, where each is decided, and both thresholds', false !== strpos( $html, '<p class="description">Applications from institutions, signed agreements and requests from institutions, in one list, oldest first: they are one queue and a person works it from the top. Each is decided on the Administrator Dashboard, and each row links to its place there. An application or a signed agreement is marked overdue once it has waited longer than 3 days. A request from an institution is marked overdue once it has waited longer than 14 days.</p>' ), true );
+ck( 'and an empty one says all three kinds appear on it', false !== strpos( $tabs['queue'], 'Nothing is waiting. New applications, uploaded agreements and requests from institutions appear here.' ), true );
 
-ck( 'an agreement row hands the review block to the panel that owns it', array( $GLOBALS['reviews'], false !== strpos( $html, '<div class="wpcpm-agreement-review" data-post="601"></div>' ) ), array( array( 601 ), true ) );
-ck( 'an application row links to itself instead', false !== strpos( $html, WPCPM_Institutions::ARG_APPLICATION . '=501">Open this application' ), true );
+// The setting runs from one day, and a count is a plural like any other.
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_review_days'] = 1;
+$one_day = render_screen();
+$GLOBALS['opts'][ WPCPM_Settings::OPT_NAME ]['agreement_review_days'] = 3;
+ck( 'and a threshold of one day says one day', array(
+	false !== strpos( $one_day, 'An application or a signed agreement is marked overdue once it has waited longer than 1 day.' ),
+	strpos( $one_day, '1 days' ),
+), array( true, false ) );
+
+// A request row's own facts, under its age and its country: who the mentor is wanted for and who
+// asked, then the note when one is stored. That is the closing note, empty while a request is
+// open; the row prints it so it stays right if raising a request ever stores one, escaped like
+// every other value on the screen.
+ck( 'a mentor request names the student and who raised it, and a stored note, which only closing writes today, is printed escaped', array(
+	false !== strpos( $html, '<p>A mentor is wanted for Ana Student. Raised by Rep One.</p>' ),
+	false !== strpos( $html, '<p>Both of them start in &lt;b&gt;March&lt;/b&gt;.</p>' ),
+	strpos( $html, '<b>March</b>' ),
+), array( true, true, false ) );
+ck( 'and one whose author has no account says so, with no empty note under it', array(
+	false !== strpos( $html, '<p>A mentor is wanted for Bo Student. Raised by somebody whose account is gone.</p>' ),
+	strpos( $html, '<p></p>' ),
+), array( true, false ) );
+ck( 'a request row says its country for information, as every row does', false !== strpos( queue_chunks( $html )[0], esc_html( $countries[ $rows[ $request_records[0] ]['country'] ]['name'] ) . '.' ), true );
+
+// A request of another kind is labeled a request and says its kind in the request class's own
+// words, and its sentence follows the kind: the student it is about when there is one, and only who
+// raised it when there is none, as a change to the report is about no student.
+$mentor_requests = $GLOBALS['open_requests'];
+seed_request( 803, $request_records[0], 'Cy Student', 'Rep One', '', $now - ( 6 * $day ), 'add' );
+seed_request( 804, $request_records[1], '', 'Rep One', '', $now - ( 3 * $day ), 'format' );
+$GLOBALS['open_requests'] = array( 802, 801, 803, 804 );
+$kinds_html               = render_screen();
+$GLOBALS['open_requests'] = $mentor_requests;
+unset( $GLOBALS['request_facts'][803], $GLOBALS['request_facts'][804] );
+
+$kind_rows  = queue_chunks( $kinds_html );
+$kind_links = array_column( queue_links( $kinds_html ), 2 );
+ck( 'a request of another kind is labeled a request, says its kind, and names a student only when it is about one', array(
+	array_column( queue_items( $kinds_html ), 1 ),
+	array(
+		false !== strpos( $kind_rows[3], '<p>A student to add</p><p>The student is Cy Student. Raised by Rep One.</p>' ),
+		strpos( $kind_rows[3], 'A mentor is wanted' ),
+	),
+	array(
+		false !== strpos( $kind_rows[6], '<p>A change to the report</p><p>Raised by Rep One.</p>' ),
+		strpos( $kind_rows[6], 'wanted for' ),
+		strpos( $kind_rows[6], 'The student is' ),
+	),
+	array(
+		false !== strpos( $kind_rows[0], '<p>A mentor is wanted for Ana Student. Raised by Rep One.</p>' ),
+		strpos( $kind_rows[0], '<p>A mentor is wanted</p>' ),
+	),
+	array( $kind_links[3], $kind_links[6] ),
+), array(
+	array( 'Mentor request', 'Application', 'Mentor request', 'Request', 'Application', 'Signed agreement', 'Request', 'Application' ),
+	array( true, false ),
+	array( true, false, false ),
+	array( true, false ),
+	array( $dashboard . '#wpcpm-requests', $dashboard . '#wpcpm-requests' ),
+) );
+
+// The queue reads and the Administrator Dashboard decides: every row ends with the way to the card
+// there that decides it, and the agreement row's block, drawn by the panel, carries its own.
+ck( 'every row links to the card on the Administrator Dashboard that decides it, and the agreement row leaves its link to the panel', queue_links( $html ), array(
+	array( $request_names[0], 'Mentor request', $dashboard . '#wpcpm-requests' ),
+	array( 'Universidad Example', 'Application', $dashboard . '#wpcpm-applications' ),
+	array( $request_names[1], 'Mentor request', $dashboard . '#wpcpm-requests' ),
+	array( 'Universidad EXAMPLE', 'Application', $dashboard . '#wpcpm-applications' ),
+	array( $record_name, 'Signed agreement', '' ),
+	array( 'Escola Nova', 'Application', $dashboard . '#wpcpm-applications' ),
+) );
+ck( 'an agreement row hands the review block to the panel that owns it, to be read: its two decisions are the dashboard\'s', array( $html_reviews, false !== strpos( $html, '<div class="wpcpm-agreement-review" data-post="601" data-decide="no"></div>' ) ), array( array( array( 601, false ) ), true ) );
+ck( 'an application row still opens itself here, for what only this screen shows', false !== strpos( $html, WPCPM_Institutions::ARG_APPLICATION . '=501">Open this application' ), true );
+ck( 'and nothing on the list decides anything: no form, and a request\'s decisions never asked for', array( substr_count( $html, '<form' ), $GLOBALS['request_decisions'] ), array( 0, array() ) );
+
+// While the dashboard's page is missing there is nowhere to send a row: the dashboard class's own
+// sentence, once, above the rows, and no row links anywhere. The agreement row's block prints
+// nothing in its link's place then, which the panel's suite pins.
+WPCPM_Administrators_Dashboard::$url = '';
+$GLOBALS['reviews']                  = array();
+$no_page                             = render_screen();
+WPCPM_Administrators_Dashboard::$url = $dashboard;
+$warned_at                           = strpos( $no_page, '<p class="wpcpm-warning">The dashboard class says its page is missing.</p>' );
+ck( 'while the Administrator Dashboard page is missing the list says so once, above the rows, and no row links there', array(
+	substr_count( $no_page, 'The dashboard class says its page is missing.' ),
+	false !== $warned_at && $warned_at < (int) strpos( $no_page, '<ol class="wpcpm-queue">' ),
+	substr_count( $no_page, 'Open on the Administrator Dashboard' ),
+	count( queue_items( $no_page ) ),
+	$GLOBALS['reviews'],
+), array( 1, true, 0, 6, array( array( 601, false ) ) ) );
 
 ck( 'the country and its person of contact are printed for information', false !== strpos( $html, esc_html( $routed_name . '. Person of contact: A Manager, for information.' ) ), true );
 ck( 'a row whose country routes nowhere says so rather than printing nothing', false !== strpos( render_screen(), 'The Countries table names nobody for it, for information.' ), true );
@@ -2324,11 +2980,14 @@ ck( 'a row whose country routes nowhere says so rather than printing nothing', f
 ck( 'the two that name the same institution are flagged as possible duplicates', substr_count( $html, 'possible duplicate' ), 2 );
 ck( 'drawing the list asks Airtable nothing', array_filter( $GLOBALS['calls'], function ( $c ) { return 'fetch_page' === $c[0]; } ), array() );
 
-// Every decision on this card is reachable from the list. A row the site quietly decided was
-// suspect must therefore say so on the list, or the manager pressing Reject on it is acting
-// on an opinion nobody showed them.
+// The list is what a manager triages from, and the decisions are a click away on the
+// Administrator Dashboard, whose card does not print the checks. A row the site quietly decided
+// was suspect must therefore say so on the list, or the manager rejecting it is acting on an
+// opinion nobody showed them.
 ck( 'the held row says on the list that it is held', queue_marked( $html, 'wpcpm-inst-mark--held' ), array(
+	$request_names[0]     => false,
 	'Universidad Example' => false,
+	$request_names[1]     => false,
 	'Universidad EXAMPLE' => true,
 	$record_name          => false,
 	'Escola Nova'         => false,
@@ -2343,11 +3002,13 @@ echo "\n=== Which applications are flagged as duplicates ===\n";
 // queue above pins the name branch; these are the other two, and the address one is what the
 // design's threat model rests on: a stranger applying first with an institution's published
 // address must be flagged for a person, and never merged into the genuine submission.
-$queue_posts         = $GLOBALS['posts'];
-$queue_pmeta         = $GLOBALS['pmeta'];
-$GLOBALS['posts']    = array();
-$GLOBALS['pmeta']    = array();
-$GLOBALS['awaiting'] = array();
+$queue_posts              = $GLOBALS['posts'];
+$queue_pmeta              = $GLOBALS['pmeta'];
+$queue_requests           = $GLOBALS['open_requests'];
+$GLOBALS['posts']         = array();
+$GLOBALS['pmeta']         = array();
+$GLOBALS['awaiting']      = array();
+$GLOBALS['open_requests'] = array();
 
 // The address is stored as `wp_hash()` of the lowercased one and never as the address, so the
 // equal hashes here are the whole of what the queue can compare. The names differ on purpose.
@@ -2367,25 +3028,33 @@ ck( 'one address under two names flags both, the form\'s own signal flags a thir
 ) );
 ck( 'and nothing is merged: every row still stands and every row is still listed', count( queue_items( $flagged ) ), 4 );
 
-$GLOBALS['posts']    = $queue_posts;
-$GLOBALS['pmeta']    = $queue_pmeta;
-$GLOBALS['awaiting'] = array( 601 );
+$GLOBALS['posts']         = $queue_posts;
+$GLOBALS['pmeta']         = $queue_pmeta;
+$GLOBALS['awaiting']      = array( 601 );
+$GLOBALS['open_requests'] = $queue_requests;
 
 /* ---- the menu bubble ---------------------------------------------------- */
 
 echo "\n=== The menu bubble ===\n";
 
-ck( 'the menu title carries the pending count', $module->menu_label(), 'Institutions <span class="awaiting-mod count-4"><span class="pending-count">4</span></span>' );
+$GLOBALS['requests_asked'] = array();
+ck( 'the menu title carries the pending count, every row the queue lists', $module->menu_label(), 'Institutions <span class="awaiting-mod count-6"><span class="pending-count">6</span></span>' );
 ck( 'and the page heading stays plain', $module->label(), 'Institutions' );
+// One more than the bubble shows, the question its other two reads ask as well.
+ck( 'the mentor requests are asked under the bubble\'s own ceiling', $GLOBALS['requests_asked'], array( WPCPM_Institutions::COUNT_MAX + 1 ) );
 
 $GLOBALS['awaiting'] = array();
-ck( 'the count is applications plus agreements', $module->menu_label(), 'Institutions <span class="awaiting-mod count-3"><span class="pending-count">3</span></span>' );
+ck( 'the count is applications plus agreements plus mentor requests', $module->menu_label(), 'Institutions <span class="awaiting-mod count-5"><span class="pending-count">5</span></span>' );
+
+$GLOBALS['open_requests'] = array();
+ck( 'and every mentor request is one of them', $module->menu_label(), 'Institutions <span class="awaiting-mod count-3"><span class="pending-count">3</span></span>' );
 
 $held = $GLOBALS['posts'];
 $GLOBALS['posts'] = array();
 ck( 'an empty queue hangs nothing on the menu', $module->menu_label(), 'Institutions' );
-$GLOBALS['posts']    = $held;
-$GLOBALS['awaiting'] = array( 601 );
+$GLOBALS['posts']         = $held;
+$GLOBALS['awaiting']      = array( 601 );
+$GLOBALS['open_requests'] = $queue_requests;
 
 /* ---- a flood ------------------------------------------------------------ */
 
@@ -2411,8 +3080,8 @@ ck( 'the card draws its ceiling and no more, however many are waiting', count( q
 // shipped with it; the open states are the ones a stranger can fill and nothing purges them).
 ck( 'and it builds a post object for the rows it draws, never for the rows it counts', $GLOBALS['loaded'], WPCPM_Institutions::QUEUE_MAX );
 ck( 'the oldest are the ones it draws, so the row whose turn it is cannot fall off the end', queue_items( $flood )[0][0], 'Flood 1' );
-ck( 'it counts what is waiting and not what it drew', preg_match( '#<h2 id="wpcpm-queue">Waiting for review <span class="wpcpm-count">214</span></h2>#', $flood ), 1 );
-ck( 'and says out loud that the list is part of the queue', false !== strpos( $flood, 'Showing the oldest 50 of 214.' ), true );
+ck( 'it counts what is waiting and not what it drew', preg_match( '#<h2 id="wpcpm-queue">Waiting for review <span class="wpcpm-count">216</span></h2>#', $flood ), 1 );
+ck( 'and says out loud that the list is part of the queue, and where the rows that take their place come from', false !== strpos( $flood, 'Showing the oldest 50 of 216. The list stops there so that a burst of applications cannot make this screen too slow to open; as these are decided on the Administrator Dashboard, the next of them take their place.' ), true );
 // The bubble is drawn on every admin page in the site, not only on this screen, which is why
 // it stops counting rather than paying for a flood on all of them.
 ck( 'the bubble stops at its ceiling and says so', $module->menu_label(), 'Institutions <span class="awaiting-mod count-200"><span class="pending-count">200+</span></span>' );
@@ -2420,7 +3089,34 @@ ck( 'the bubble stops at its ceiling and says so', $module->menu_label(), 'Insti
 $GLOBALS['posts'] = $before_flood_posts;
 $GLOBALS['pmeta'] = $before_flood_pmeta;
 
-ck( 'both ceilings are ceilings and not page sizes: the ordinary queue is drawn whole and counted exactly', array( $module->menu_label(), count( queue_items( render_screen() ) ), false !== strpos( render_screen(), 'Showing the oldest' ) ), array( 'Institutions <span class="awaiting-mod count-4"><span class="pending-count">4</span></span>', 4, false ) );
+ck( 'both ceilings are ceilings and not page sizes: the ordinary queue is drawn whole and counted exactly', array( $module->menu_label(), count( queue_items( render_screen() ) ), false !== strpos( render_screen(), 'Showing the oldest' ) ), array( 'Institutions <span class="awaiting-mod count-6"><span class="pending-count">6</span></span>', 6, false ) );
+
+// The requests half pays for the rows that can reach the window and no more, as the applications
+// half does: sixty open requests older than everything else, and the facts built are the oldest
+// fifty's, every row that can reach the top of a list cut at fifty. The window is the oldest of the
+// three kinds together, so here it holds requests alone.
+$before_requests = $GLOBALS['open_requests'];
+
+for ( $i = 1; $i <= 60; $i++ ) {
+	seed_request( 900 + $i, $request_records[0], sprintf( 'Student %d', $i ), 'Rep One', '', $now - ( 30 * $day ) + $i );
+}
+
+$GLOBALS['open_requests'] = array_merge( range( 901, 960 ), $before_requests );
+$GLOBALS['facts_built']   = 0;
+$many_requests            = render_screen();
+
+ck( 'sixty open requests cost fifty rows\' facts, and the window is the oldest of the three kinds together', array(
+	$GLOBALS['facts_built'],
+	count( queue_items( $many_requests ) ),
+	array_values( array_unique( array_column( queue_items( $many_requests ), 1 ) ) ),
+	false !== strpos( $many_requests, 'Showing the oldest 50 of 66.' ),
+), array( WPCPM_Institutions::QUEUE_MAX, WPCPM_Institutions::QUEUE_MAX, array( 'Mentor request' ), true ) );
+
+foreach ( range( 901, 960 ) as $request_id ) {
+	unset( $GLOBALS['request_facts'][ $request_id ] );
+}
+
+$GLOBALS['open_requests'] = $before_requests;
 
 /* ---- one application, open ---------------------------------------------- */
 
@@ -2459,6 +3155,21 @@ foreach ( $GLOBALS['calls'] as $call ) {
 }
 
 ck( 'opening one asks the base about the trimmed name and the lowered address', $formula, "OR(TRIM(LOWER({Name})) = 'universidad example', LOWER({Contact Email}) = 'ana@example.test')" );
+
+// A view of the queue tab, reached by its query argument: drawn in place of the list rather than
+// above it, with the way back to the list.
+$open_bar = bar_of( $open );
+ck( 'the application is drawn in place of the list, on the queue tab', array(
+	cards_of( $open ),
+	strpos( $open, '<h2 id="wpcpm-queue">' ),
+	strpos( $open, 'wpcpm-queue-item' ),
+	null === $open_bar ? null : $open_bar[1][0][2],
+), array( array( 'Universidad Example APP-2026-0007' ), false, false, true ) );
+ck( 'and its way back is the queue tab', false !== strpos( $open, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=queue">Back to the queue</a>' ), true );
+ck( 'the queue tab named in the address opens it the same, and another tab draws itself and no application', array(
+	render_tab( 'queue', array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ) === $open,
+	cards_of( render_tab( 'pipeline', array( WPCPM_Institutions::ARG_APPLICATION => 501 ) ) ),
+), array( true, array( 'Pipeline', 'Consent' ) ) );
 ck( 'and says so when it finds nothing', false !== strpos( $open, 'No Institutions record carries this name or this address.' ), true );
 
 $GLOBALS['airtable_page'] = array(
@@ -2479,25 +3190,298 @@ ck( 'a search that could not be made says so and shows the application anyway', 
 ), array( true, true ) );
 $GLOBALS['airtable_page'] = array( 'records' => array(), 'offset' => null );
 
-// The one address this screen prints, and design spec 7.3 asks for it by name.
-ck( 'the Approve confirm names the record, the account and the address it will write to', false !== strpos( $open, esc_js( 'Create an Airtable record and a site account for Universidad Example, and email a password-set link to ana@example.test? The Airtable record cannot be removed from here.' ) ), true );
-ck( 'every decision form is keyed to this application', array(
-	substr_count( $open, 'name="_wpnonce" value="nonce-wpcpm_app_approve_501"' ),
-	substr_count( $open, 'name="_wpnonce" value="nonce-wpcpm_app_info_501"' ),
-	substr_count( $open, 'name="_wpnonce" value="nonce-wpcpm_app_reject_501"' ),
-	substr_count( $open, 'name="_wpnonce" value="nonce-wpcpm_app_spam_501"' ),
-), array( 1, 1, 1, 1 ) );
-ck( 'a new application offers no reopen and no delete', array(
-	strpos( $open, 'wpcpm_app_reopen_501' ),
-	strpos( $open, 'wpcpm_app_purge_501' ),
-), array( false, false ) );
+/**
+ * How many forms of each of the six decisions a render draws for one application, counted by the
+ * nonce keyed to the decision and the application together.
+ *
+ * @param string $html What a render printed.
+ * @param int    $id   Application post ID.
+ * @return array<string, int>
+ */
+function decisions_on( $html, $id ) {
+	$out = array();
+	foreach ( array( 'approve', 'info', 'reject', 'spam', 'reopen', 'purge' ) as $verb ) {
+		$out[ $verb ] = substr_count( (string) $html, 'name="_wpnonce" value="nonce-wpcpm_app_' . $verb . '_' . (int) $id . '"' );
+	}
+	return $out;
+}
+
+// Read here and decided on the Administrator Dashboard: an opened open application the card there
+// lists draws none of the decisions, says where they are made, and links to that card; one past the
+// card's window is decided here. The record-keeping on a closed one stays here: Put back in the
+// queue and Delete for good on a rejected or spam application, which the dashboard folds in only the
+// oldest fifty of, and Delete for good alone on an approved one, which it never lists.
+$no_decision = array( 'approve' => 0, 'info' => 0, 'reject' => 0, 'spam' => 0, 'reopen' => 0, 'purge' => 0 );
+$open_four   = array( 'approve' => 1, 'info' => 1, 'reject' => 1, 'spam' => 1, 'reopen' => 0, 'purge' => 0 );
+$to_card     = '<a href="' . $dashboard . '#wpcpm-applications">Open on the Administrator Dashboard</a>';
+$listed      = '<p>Applications are decided on the Administrator Dashboard. This one is listed in its Institution applications card, with every decision its state allows.</p>';
+$past_window = '<p>The Administrator Dashboard&#039;s card lists the ' . WPCPM_Administrators_Cards::LIMIT . ' oldest open applications, and this one is past them, so it is decided here.</p>';
+
+ck( 'a new application opened here draws no decision, and no form at all', array( decisions_on( $open, 501 ), substr_count( $open, '<form' ) ), array( $no_decision, 0 ) );
+ck( 'it says where it is decided, that the card there lists it, and links to that card', array(
+	false !== strpos( $open, '<h3>Where it is decided</h3>' ),
+	strpos( $open, 'What happens next' ),
+	false !== strpos( $open, $listed ),
+	substr_count( $open, $to_card ),
+), array( true, false, true, 1 ) );
 
 $decided = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 503 ) );
-ck( 'one waiting on the applicant can be put back or decided, and never deleted', array(
-	false !== strpos( $decided, 'wpcpm_app_reopen_503' ),
-	false !== strpos( $decided, 'wpcpm_app_approve_503' ),
-	strpos( $decided, 'wpcpm_app_purge_503' ),
-), array( true, true, false ) );
+ck( 'one waiting on the applicant draws none either, and links there the same', array( decisions_on( $decided, 503 ), substr_count( $decided, $to_card ) ), array( $no_decision, 1 ) );
+
+// The card lists the oldest `WPCPM_Administrators_Cards::LIMIT` open applications, so one opened
+// from its address while that many older ones wait is on no card at all: it is decided here, with
+// the four decisions the card would have drawn, under the sentence that says why. One fewer older
+// one leaves it the last the card lists, read here and linked there as before. The window is the
+// card's number and not the queue's `QUEUE_MAX`, which the stand-in keeps apart from it.
+for ( $i = 1; $i < WPCPM_Administrators_Cards::LIMIT; $i++ ) {
+	seed_application( 1100 + $i, sprintf( 'Older %d', $i ), WPCPM_Institution_Application::STATE_NEW, $now - ( 60 * $day ) + $i, array( WPCPM_Institution_Application::META_EMAIL => 'hash-of-older-' . $i ) );
+}
+
+$last_listed = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+
+seed_application( 1100 + WPCPM_Administrators_Cards::LIMIT, 'Older last', WPCPM_Institution_Application::STATE_NEW, $now - ( 60 * $day ), array( WPCPM_Institution_Application::META_EMAIL => 'hash-of-older-last' ) );
+
+$first_past = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+$held_past  = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 502 ) );
+$info_past  = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 503 ) );
+
+WPCPM_Administrators_Dashboard::$url = '';
+$past_no_page                        = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+WPCPM_Administrators_Dashboard::$url = $dashboard;
+
+ck( 'the last application the card lists is read here and linked there, with no form', array(
+	false !== strpos( $last_listed, $listed ),
+	decisions_on( $last_listed, 501 ),
+	substr_count( $last_listed, '<form' ),
+	substr_count( $last_listed, $to_card ),
+	strpos( $last_listed, 'so it is decided here' ),
+), array( true, $no_decision, 0, 1, false ) );
+ck( 'the first one past it is decided here: Approve, Send this question, Reject and Reject as spam, under the sentence that says why, and no way to a card that does not list it', array(
+	false !== strpos( $first_past, '<h3>Where it is decided</h3>' . $past_window ),
+	decisions_on( $first_past, 501 ),
+	substr_count( $first_past, '<form' ),
+	substr_count( $first_past, 'Open on the Administrator Dashboard' ),
+	strpos( $first_past, 'This one is listed' ),
+	strpos( $first_past, 'What happens next' ),
+), array( true, $open_four, 4, 0, false, false ) );
+ck( 'and so is a held one and one waiting on the applicant, each with the same four', array(
+	decisions_on( $held_past, 502 ),
+	decisions_on( $info_past, 503 ),
+	substr_count( $held_past . $info_past, $past_window ),
+	substr_count( $held_past . $info_past, 'Open on the Administrator Dashboard' ),
+), array( $open_four, $open_four, 2, 0 ) );
+ck( 'the forms are the ones the card draws, each posting no return and no tab, so the press comes back to the queue', array(
+	form_fields( $first_past, 'wpcpm_app_approve' ),
+	form_fields( $first_past, 'wpcpm_app_info' ),
+	form_fields( $first_past, 'wpcpm_app_reject' ),
+	form_fields( $first_past, 'wpcpm_app_spam' ),
+	false !== strpos( $first_past, esc_js( 'Create an Airtable record and a site account for Universidad Example, and email a password-set link to ana@example.test? The Airtable record cannot be removed from here.' ) ),
+	false !== strpos( $first_past, 'name="wpcpm_question"' ) && false !== strpos( $first_past, 'name="wpcpm_reason"' ),
+), array(
+	array( 'action' => 'wpcpm_app_approve', 'wpcpm_application' => '501' ),
+	array( 'action' => 'wpcpm_app_info', 'wpcpm_application' => '501' ),
+	array( 'action' => 'wpcpm_app_reject', 'wpcpm_application' => '501' ),
+	array( 'action' => 'wpcpm_app_spam', 'wpcpm_application' => '501' ),
+	true,
+	true,
+) );
+ck( 'while the dashboard page is missing one past the window keeps its four decisions, and nothing about the page', array(
+	decisions_on( $past_no_page, 501 ),
+	false !== strpos( $past_no_page, $past_window ),
+	strpos( $past_no_page, 'The dashboard class says its page is missing.' ),
+	substr_count( $past_no_page, 'Open on the Administrator Dashboard' ),
+), array( $open_four, true, false, 0 ) );
+
+// Each of the four, pressed from the form this view drew, comes back to the screen's own address,
+// which is the queue, and flashes an outcome the queue's own map words. What each press wrote on the
+// application, its state and its history, is put back after it, and the question's and the
+// rejection's mail is the handlers' own business, checked further down.
+$landed         = array();
+$meta_before    = $GLOBALS['pmeta'][501];
+$mailed_before  = $GLOBALS['mail'] ?? array();
+$approved_saved = $GLOBALS['approved'] ?? array();
+$posted_words   = array(
+	'wpcpm_app_approve' => array( 'handle_approve', array() ),
+	'wpcpm_app_info'    => array( 'handle_info', array( 'wpcpm_question' => 'Which department would run the internships?' ) ),
+	'wpcpm_app_reject'  => array( 'handle_reject', array( 'wpcpm_reason' => 'Not a teaching institution.' ) ),
+	'wpcpm_app_spam'    => array( 'handle_spam', array() ),
+);
+
+foreach ( $posted_words as $form_action => $press ) {
+	$_POST                  = array_merge( form_fields( $first_past, $form_action ), $press[1] );
+	$went                   = outcome( array( $module, $press[0] ) );
+	$flashed                = get_user_meta( 1, WPCPM_Flash::META );
+	$landed[ $form_action ] = array(
+		$went,
+		$GLOBALS['referer'],
+		isset( $flashed['institutions'] ) && isset( WPCPM_Institutions::queue_messages()[ $flashed['institutions'] ] ),
+	);
+	delete_user_meta( 1, WPCPM_Flash::META );
+	$GLOBALS['pmeta'][501] = $meta_before;
+}
+
+$GLOBALS['mail']     = $mailed_before;
+$GLOBALS['approved'] = $approved_saved;
+$_POST               = array();
+
+ck( 'each of the four lands on the queue with an outcome the queue words, its nonce keyed to the decision and the application', $landed, array(
+	'wpcpm_app_approve' => array( $back, array( 'wpcpm_app_approve_501' ), true ),
+	'wpcpm_app_info'    => array( $back, array( 'wpcpm_app_info_501' ), true ),
+	'wpcpm_app_reject'  => array( $back, array( 'wpcpm_app_reject_501' ), true ),
+	'wpcpm_app_spam'    => array( $back, array( 'wpcpm_app_spam_501' ), true ),
+) );
+
+// And the outcome prints on the queue, above the bar, as every decision's does. Read as a manager
+// of its own, because `WPCPM_Flash::take()` memoizes per person and per channel.
+$GLOBALS['uid'] = 66;
+WPCPM_Flash::set( WPCPM_Institutions::FLASH, 'app-spam' );
+$spam_notice    = render_screen();
+$GLOBALS['uid'] = 1;
+$spam_at        = strpos( $spam_notice, 'The application is marked as spam. Nothing was sent' );
+ck( 'and the queue prints that outcome above the bar', array(
+	false !== $spam_at && $spam_at < (int) strpos( $spam_notice, '<nav class="nav-tab-wrapper' ),
+	cards_of( $spam_notice ),
+), array( true, array( 'Waiting for review' ) ) );
+delete_user_meta( 66, WPCPM_Flash::META );
+
+for ( $i = 1; $i <= WPCPM_Administrators_Cards::LIMIT; $i++ ) {
+	wp_delete_post( 1100 + $i, true );
+}
+
+$GLOBALS['deleted'] = array();
+
+seed_application( 530, 'Aprobada Example', WPCPM_Institution_Application::STATE_APPROVED, $now - ( 40 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0030' ) );
+seed_application( 531, 'Spam Example', WPCPM_Institution_Application::STATE_SPAM, $now - ( 3 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0031' ) );
+seed_application( 532, 'Rechazada Example', WPCPM_Institution_Application::STATE_REJECTED, $now - ( 3 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0032' ) );
+// A state no decision writes, which no list holds: the screen says where applications are decided
+// and claims no place on the card for it.
+seed_application( 533, 'Sin Estado Example', '', $now - ( 3 * $day ), array( WPCPM_Institution_Application::META_REFERENCE => 'APP-2026-0033' ) );
+
+$approved  = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 530 ) );
+$spammed   = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 531 ) );
+$rejected  = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 532 ) );
+$stateless = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 533 ) );
+$kept_here = array_merge( $no_decision, array( 'reopen' => 1, 'purge' => 1 ) );
+
+ck( 'a rejected or spam one keeps Put back in the queue and Delete for good here, exactly as they were, says why, and links nowhere', array(
+	decisions_on( $spammed, 531 ),
+	decisions_on( $rejected, 532 ),
+	form_fields( $spammed, 'wpcpm_app_reopen' ),
+	form_fields( $rejected, 'wpcpm_app_purge' ),
+	substr_count( $spammed . $rejected, '<p>Putting it back in the queue and deleting it for good are done here: the Administrator Dashboard folds only the oldest 50 rejected or spam applications into its Institution applications card.</p>' ),
+	substr_count( $spammed . $rejected, 'Open on the Administrator Dashboard' ),
+), array(
+	$kept_here,
+	$kept_here,
+	array( 'action' => 'wpcpm_app_reopen', 'wpcpm_application' => '531' ),
+	array( 'action' => 'wpcpm_app_purge', 'wpcpm_application' => '532' ),
+	2,
+	0,
+) );
+ck( 'an application in a state no decision writes is pointed at the dashboard with no claim about the card', array(
+	false !== strpos( $stateless, '<p>Applications are decided on the Administrator Dashboard.</p>' ),
+	decisions_on( $stateless, 533 ),
+	substr_count( $stateless, $to_card ),
+), array( true, $no_decision, 1 ) );
+ck( 'an approved one keeps Delete for good, exactly as it was, and nothing else', array(
+	decisions_on( $approved, 530 ),
+	form_fields( $approved, 'wpcpm_app_purge' ),
+	false !== strpos( $approved, esc_js( 'Delete the application from Aprobada Example for good? Every answer on it goes; only its reference and the date are kept. This cannot be undone.' ) ),
+	substr_count( $approved, '<form' ),
+), array( array_merge( $no_decision, array( 'purge' => 1 ) ), array( 'action' => 'wpcpm_app_purge', 'wpcpm_application' => '530' ), true, 1 ) );
+ck( 'and says why that one control stays here, with no way to a card that does not list it', array(
+	false !== strpos( $approved, '<p>It is approved, so nothing is left to decide on it, and the Administrator Dashboard, where applications are decided, does not list it. Deleting it for good is record-keeping rather than a decision, so it is done here.</p>' ),
+	substr_count( $approved, 'Open on the Administrator Dashboard' ),
+), array( true, 0 ) );
+
+WPCPM_Administrators_Dashboard::$url = '';
+$open_no_page                        = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 501 ) );
+$closed_no_page                      = array(
+	530 => render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 530 ) ),
+	531 => render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 531 ) ),
+	532 => render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 532 ) ),
+);
+WPCPM_Administrators_Dashboard::$url = $dashboard;
+ck( 'while the dashboard page is missing an open application says so in the link\'s place, and a closed one draws its forms and nothing about the page', array(
+	false !== strpos( $open_no_page, '<p>Applications are decided on the Administrator Dashboard.</p><p class="wpcpm-warning">The dashboard class says its page is missing.</p>' ),
+	strpos( $open_no_page, 'This one is listed' ),
+	substr_count( $open_no_page, 'Open on the Administrator Dashboard' ),
+	substr_count( implode( '', $closed_no_page ), 'The dashboard class says its page is missing.' ),
+	substr_count( implode( '', $closed_no_page ), 'Open on the Administrator Dashboard' ),
+	array( decisions_on( $closed_no_page[530], 530 ), decisions_on( $closed_no_page[531], 531 ), decisions_on( $closed_no_page[532], 532 ) ),
+), array( true, false, 0, 0, 0, array( array_merge( $no_decision, array( 'purge' => 1 ) ), $kept_here, $kept_here ) ) );
+
+// The Administrator Dashboard draws the same method with its return and gets every form as it
+// did, under the heading it had, each with the fields that bring the press back to its card.
+$on_dashboard = array();
+
+foreach ( array( 501 => WPCPM_Institution_Application::STATE_NEW, 503 => WPCPM_Institution_Application::STATE_INFO, 532 => WPCPM_Institution_Application::STATE_REJECTED ) as $application_id => $application_state ) {
+	ob_start();
+	$module->render_application_actions( get_post( $application_id ), $application_state, WPCPM_Return::DASHBOARD );
+	$on_dashboard[ $application_id ] = (string) ob_get_clean();
+}
+
+ck( 'on the Administrator Dashboard the same method draws every decision the state allows, as before', array(
+	false !== strpos( $on_dashboard[501], '<h3>What happens next</h3>' ),
+	decisions_on( $on_dashboard[501], 501 ),
+	decisions_on( $on_dashboard[503], 503 ),
+	decisions_on( $on_dashboard[532], 532 ),
+	strpos( implode( '', $on_dashboard ), 'Open on the Administrator Dashboard' ),
+), array(
+	true,
+	array( 'approve' => 1, 'info' => 1, 'reject' => 1, 'spam' => 1, 'reopen' => 0, 'purge' => 0 ),
+	array( 'approve' => 1, 'info' => 1, 'reject' => 1, 'spam' => 1, 'reopen' => 1, 'purge' => 0 ),
+	array( 'approve' => 0, 'info' => 0, 'reject' => 0, 'spam' => 0, 'reopen' => 1, 'purge' => 1 ),
+	false,
+) );
+ck( 'each with the fields that bring the press back to the dashboard\'s applications card', form_fields( $on_dashboard[501], 'wpcpm_app_approve' ), array( 'action' => 'wpcpm_app_approve', 'wpcpm_application' => '501', 'wpcpm_return' => 'dashboard', 'wpcpm_return_to' => 'applications' ) );
+
+// The dashboard's return alone gets an open application's decisions: anything else is this
+// screen, the way `WPCPM_Return::field()` reads it, the wp-admin return among them.
+ob_start();
+$module->render_application_actions( get_post( 501 ), WPCPM_Institution_Application::STATE_NEW, WPCPM_Return::ADMIN );
+$as_admin = (string) ob_get_clean();
+ck( 'the wp-admin return is this screen too, with no decision on an open application', array( decisions_on( $as_admin, 501 ), false !== strpos( $as_admin, '<h3>Where it is decided</h3>' ) ), array( $no_decision, true ) );
+// The one address the decisions print, and design spec 7.3 asks for it by name.
+ck( 'the Approve confirm names the record, the account and the address it will write to', false !== strpos( $on_dashboard[501], esc_js( 'Create an Airtable record and a site account for Universidad Example, and email a password-set link to ana@example.test? The Airtable record cannot be removed from here.' ) ), true );
+
+// Put back in the queue and Delete for good name no tab: pressed from the view that drew them, each
+// comes back to the screen's own address, which is the queue, with an outcome the queue's own map
+// words. The log row the purge writes is put back after it, for the log's own checks further down.
+$log_before    = $GLOBALS['opts'][ WPCPM_Institutions::OPT_APP_LOG ] ?? null;
+$closed_landed = array();
+
+foreach ( array( 'wpcpm_app_reopen' => array( $spammed, 'handle_reopen' ), 'wpcpm_app_purge' => array( $rejected, 'handle_purge' ) ) as $form_action => $press ) {
+	$_POST                         = form_fields( $press[0], $form_action );
+	$went                          = outcome( array( $module, $press[1] ) );
+	$flashed                       = get_user_meta( 1, WPCPM_Flash::META );
+	$closed_landed[ $form_action ] = array(
+		$went,
+		$GLOBALS['referer'],
+		isset( $flashed['institutions'] ) ? $flashed['institutions'] : '',
+		isset( $flashed['institutions'] ) && isset( WPCPM_Institutions::queue_messages()[ $flashed['institutions'] ] ),
+	);
+	delete_user_meta( 1, WPCPM_Flash::META );
+}
+
+$_POST = array();
+
+if ( null === $log_before ) {
+	unset( $GLOBALS['opts'][ WPCPM_Institutions::OPT_APP_LOG ] );
+} else {
+	$GLOBALS['opts'][ WPCPM_Institutions::OPT_APP_LOG ] = $log_before;
+}
+
+ck( 'Put back in the queue and Delete for good, pressed from the closed application\'s view, come back to the screen\'s own address, which is the queue, with an outcome the queue words', $closed_landed, array(
+	'wpcpm_app_reopen' => array( $back, array( 'wpcpm_app_reopen_531' ), 'app-reopened', true ),
+	'wpcpm_app_purge'  => array( $back, array( 'wpcpm_app_purge_532' ), 'app-purged', true ),
+) );
+
+foreach ( array( 530, 531, 532, 533 ) as $application_id ) {
+	wp_delete_post( $application_id, true );
+}
+
+$GLOBALS['deleted'] = array();
 
 /* ---- what the checks made of it ----------------------------------------- */
 
@@ -2535,6 +3519,12 @@ ck( 'and its address line names no mail, points at the checks, and leaves the co
 	strpos( $open_held, 'link in their acknowledgement' ),
 ), array( true, true, true, false ) );
 
+// The question is the Administrator Dashboard's to send, so the line names where it is asked.
+ck( 'and sends the question to the place it is asked, the Administrator Dashboard', array(
+	false !== strpos( $open_held, 'Ask them something on the Administrator Dashboard if you need to, or decide the row on what is on it.' ),
+	strpos( $open_held, 'Ask them something from here' ),
+), array( true, false ) );
+
 ck( 'one that was acknowledged is still sent to the link that acknowledgement carried', array(
 	false !== strpos( $decided, 'The acknowledgement carried the link that confirms it' ),
 	strpos( $decided, 'nothing on this row says the applicant was ever asked to' ),
@@ -2542,14 +3532,16 @@ ck( 'one that was acknowledged is still sent to the link that acknowledgement ca
 
 // A held row can be confirmed like any other - the link is signed against the application and
 // not against its state - and the line has to say the confirmed thing when it is confirmed,
-// or a manager reads "held" as "cannot be approved" and rejects something approvable.
+// or a manager reads "held" as "cannot be approved" and rejects something approvable. The
+// approval itself is the Administrator Dashboard's, so the way there is what the row offers.
 update_post_meta( 502, WPCPM_Institution_Application::META_VERIFIED, (string) ( $now - $day ) );
 $open_held_verified = render_screen( array( WPCPM_Institutions::ARG_APPLICATION => 502 ) );
-ck( 'a held application that has been confirmed says the confirmed thing and still says why it is held', array(
+ck( 'a held application that has been confirmed says the confirmed thing, still says why it is held, and links to where it is approved', array(
 	false !== strpos( $open_held_verified, 'The applicant confirmed their address on ' . gmdate( 'Y-m-d H:i', $now - $day ) ),
 	false !== strpos( $open_held_verified, '<h3>Why this application is held</h3>' ),
-	false !== strpos( $open_held_verified, 'wpcpm_app_approve_502' ),
-), array( true, true, true ) );
+	substr_count( $open_held_verified, $to_card ),
+	decisions_on( $open_held_verified, 502 ),
+), array( true, true, 1, $no_decision ) );
 update_post_meta( 502, WPCPM_Institution_Application::META_VERIFIED, '' );
 
 // Every check the form can raise, on one row, plus one it cannot: the words are the whole
@@ -2899,14 +3891,19 @@ $wanted = array(
 	// First of all: the daily jobs, put back on the clock on every load (schedule_cron()).
 	'init',
 	'admin_post_wpcpm_institutions_sync', 'admin_post_wpcpm_institutions_cancel', 'admin_post_wpcpm_institutions_probe',
-	'admin_post_wpcpm_institutions_provision', 'admin_post_wpcpm_institutions_provision_one',
-	// Linking an unlinked Students row, beside the other provisioning controls.
+	// The Accounts tab's presses that post to admin-post.php: one institution's Create account, a
+	// row's invitation and the invitations card's button.
+	'admin_post_wpcpm_institutions_provision_one', 'admin_post_wpcpm_institutions_invite', 'admin_post_wpcpm_institutions_bulk_invite',
+	// Linking an unlinked Students row.
 	'admin_post_wpcpm_institutions_link', 'wp_ajax_wpcpm_institutions_tick',
 	'admin_post_wpcpm_app_approve', 'admin_post_wpcpm_app_info', 'admin_post_wpcpm_app_reject',
 	'admin_post_wpcpm_app_spam', 'admin_post_wpcpm_app_reopen', 'admin_post_wpcpm_app_purge',
 	'wpcpm_purge_applications',
+	// Last, the screen's own load hook, hooked once the menu exists, as every audience's
+	// accounts screen hooks it (`boot_screen()`); its rows-per-page save is a filter beside it.
+	'admin_menu',
 );
-ck( 'boot() wires every handler this module has and the retention cron', array_values( $hooks ), $wanted );
+ck( 'boot() wires every handler this module has, the retention cron and the screen\'s load hook', array_values( $hooks ), $wanted );
 // The institution's own page and the People card's handlers boot here too, between the post
 // types and the cron: both register hooks, so they belong on `plugins_loaded` with the rest
 // rather than being reached from a render.
@@ -2968,7 +3965,7 @@ ck( 'deactivate() delegates to the sync', $GLOBALS['calls'], array( array( 'WPCP
 $GLOBALS['calls'] = array();
 $module->uninstall();
 $names = array_map( function ( $c ) { return $c[0] . ( isset( $c[1] ) ? ':' . $c[1] : '' ); }, $GLOBALS['calls'] );
-ck( 'uninstall() drops the three options, every delete_all() and the membership stamps', array(
+ck( 'uninstall() drops the three options, every delete_all(), the membership stamps and the rows-per-page choice', array(
 	in_array( 'delete_option:wpcpm_institutions_index', $names, true ),
 	in_array( 'delete_option:wpcpm_countries', $names, true ),
 	in_array( 'delete_option:wpcpm_private_probe', $names, true ),
@@ -2984,7 +3981,9 @@ ck( 'uninstall() drops the three options, every delete_all() and the membership 
 	in_array( 'delete_metadata:wpcpm_institution_record_id', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_record_id_was', $names, true ),
 	in_array( 'delete_metadata:wpcpm_institution_profile', $names, true ),
-), array( true, true, true, true, true, true, true, true, true, true, true, true, true ) );
+	// A manager's rows-per-page choice for the institution accounts, which core keeps as user meta.
+	in_array( 'delete_metadata:wpcpm_institutions_per_page', $names, true ),
+), array( true, true, true, true, true, true, true, true, true, true, true, true, true, true ) );
 ck( 'and leaves the signed files where they are', is_file( $base . 'agreements/2026/abc.pdf' ), true );
 
 /*
@@ -3002,6 +4001,273 @@ ck( 'and takes the semester reports and their leftovers with it', array(
 	in_array( 'delete_metadata:' . WPCPM_Semester_Report_Screen::META_STASH, $names, true ),
 	in_array( 'unschedule:' . WPCPM_Semester_Report_Screen::CRON_AUTODRAFT, $names, true ),
 ), array( true, true, true, true, true, true, true ) );
+
+/* ---- one map for every outcome a press here leaves ---------------------- */
+
+echo "\n=== Every outcome a press here leaves is one the screen's map words ===\n";
+
+/**
+ * A method's body in a source, from its signature to the brace that closes it at one tab.
+ *
+ * @param string $src  The source.
+ * @param string $name The method.
+ * @return string '' when the source has no such method.
+ */
+function body_of_method( $src, $name ) {
+	$at = strpos( (string) $src, 'function ' . $name . '(' );
+
+	if ( false === $at ) {
+		return '';
+	}
+
+	$body = substr( (string) $src, $at );
+
+	return substr( $body, 0, (int) strpos( $body, "\n\t}\n" ) );
+}
+
+/**
+ * The outcomes a source hands to a call, read with PHP's own tokenizer: for each call to `$callee`,
+ * the argument at `$position`, and in it each quoted string that is the whole argument or a branch
+ * of a ternary that is. An argument holding no such string is kept as code, whitespace dropped, for
+ * the check to account for.
+ *
+ * @param string $code     Source, without its opening tag.
+ * @param string $callee   The function or method called, by name.
+ * @param int    $position The argument's place, from 0.
+ * @return array{0: string[], 1: string[]} The quoted outcomes, and the arguments kept as code.
+ */
+function outcomes_handed( $code, $callee, $position ) {
+	$tokens = array();
+
+	foreach ( token_get_all( '<?php ' . $code ) as $token ) {
+		if ( ! is_array( $token ) || ! in_array( $token[0], array( T_WHITESPACE, T_COMMENT, T_DOC_COMMENT, T_OPEN_TAG ), true ) ) {
+			$tokens[] = $token;
+		}
+	}
+
+	$quoted  = array();
+	$as_code = array();
+	$count   = count( $tokens );
+
+	for ( $i = 1; $i < $count - 1; $i++ ) {
+		$called = is_array( $tokens[ $i ] ) && T_STRING === $tokens[ $i ][0] && $callee === $tokens[ $i ][1] && '(' === $tokens[ $i + 1 ];
+
+		if ( ! $called || ( is_array( $tokens[ $i - 1 ] ) && T_FUNCTION === $tokens[ $i - 1 ][0] ) ) {
+			continue;
+		}
+
+		$depth = 0;
+		$arg   = 0;
+		$piece = array();
+
+		for ( $k = $i + 2; $k < $count; $k++ ) {
+			$token = $tokens[ $k ];
+
+			if ( ')' === $token || ']' === $token ) {
+				if ( 0 === $depth ) {
+					break;
+				}
+				--$depth;
+			}
+
+			if ( ',' === $token && 0 === $depth ) {
+				++$arg;
+				continue;
+			}
+
+			if ( $arg === $position ) {
+				$piece[] = array( $token, $depth );
+			}
+
+			if ( '(' === $token || '[' === $token ) {
+				++$depth;
+			}
+		}
+
+		$top   = array_values( array_filter( $piece, function ( $part ) { return 0 === $part[1]; } ) );
+		$found = array();
+
+		foreach ( $top as $n => $part ) {
+			$before = $n > 0 ? $top[ $n - 1 ][0] : null;
+			$after  = isset( $top[ $n + 1 ] ) ? $top[ $n + 1 ][0] : null;
+
+			if ( is_array( $part[0] ) && T_CONSTANT_ENCAPSED_STRING === $part[0][0] && in_array( $before, array( null, '?', ':' ), true ) && in_array( $after, array( null, ':' ), true ) ) {
+				$found[] = trim( $part[0][1], '\'"' );
+			}
+		}
+
+		if ( empty( $found ) ) {
+			$as_code[] = implode( '', array_map( function ( $part ) { return is_array( $part[0] ) ? $part[0][1] : $part[0]; }, $piece ) );
+		}
+
+		$quoted = array_merge( $quoted, $found );
+	}
+
+	return array( $quoted, $as_code );
+}
+
+/**
+ * The keys a method that builds a map of outcomes spells, each as `'key' => array(`.
+ *
+ * @param string $body The method's body.
+ * @return string[]
+ */
+function outcome_keys( $body ) {
+	preg_match_all( "/'([a-z0-9-]+)'\s*=>\s*array\(/", (string) $body, $m );
+
+	return $m[1];
+}
+
+// The screen prints a press's outcome from one map, on whichever tab the press comes back to, and an
+// outcome the map does not know is taken from the channel and dropped, with nothing said. The
+// outcomes are pinned one by one above; this reads them all off the source, by the tab each press
+// lands on, and the map's keys off the methods that build it, since this suite stands in for
+// several of the classes that hold them. An outcome added to a press without its sentence fails here.
+$module_src  = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' );
+$sync_src    = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' );
+$trait_src   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php' );
+$table_src   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-accounts-table.php' );
+$mail_src    = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-mail.php' );
+$agree_src   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' );
+$panel_src   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php' );
+$request_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-request.php' );
+$pdf_src     = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-pdf-check.php' );
+
+// The map, as the screen builds it: the three every sync screen shares under the screen's own
+// (`render_status_notice()`), and the screen's own outcomes merged with the agreements', the
+// queue's, the requests' and the invitations', the invitations' `error` on the Accounts tab alone.
+$map_body    = body_of_method( $module_src, 'outcome_messages' );
+$shared_keys = array_merge(
+	outcome_keys( body_of_method( $sync_src, 'sync_messages' ) ),
+	outcome_keys( $map_body ),
+	outcome_keys( body_of_method( $panel_src, 'messages' ) ),
+	outcome_keys( body_of_method( $module_src, 'queue_messages' ) ),
+	outcome_keys( body_of_method( $request_src, 'messages' ) )
+);
+$invite_keys = array_merge( outcome_keys( body_of_method( $trait_src, 'accounts_messages' ) ), outcome_keys( body_of_method( $mail_src, 'invite_notices' ) ) );
+$keys_on     = function ( $tab ) use ( $shared_keys, $invite_keys ) {
+	return array_values( array_unique( array_merge( $shared_keys, 'accounts' === $tab ? $invite_keys : array_diff( $invite_keys, array( 'error' ) ) ) ) );
+};
+
+ck( 'the map is built as read here: the screen\'s own outcomes with the agreements\', the queue\'s, the requests\' and the invitations\', the invitations\' error on the Accounts tab alone, printed over the three every sync screen shares',
+	array(
+		false !== strpos( $map_body, 'WPCPM_Institution_Panel::messages()' ),
+		false !== strpos( $map_body, 'self::queue_messages()' ),
+		false !== strpos( $map_body, 'WPCPM_Institution_Request::messages()' ),
+		false !== strpos( $map_body, '$invitations = $this->accounts_messages();' ),
+		1 === preg_match( '/if \( self::TAB_ACCOUNTS !== \$tab \) \{\s*unset\( \$invitations\[\'error\'\] \);/', $map_body ),
+		false !== strpos( body_of_method( $module_src, 'render_admin_page' ), '$this->render_status_notice( $this->outcome_messages( $tab ) );' ),
+		false !== strpos( body_of_method( $sync_src, 'render_status_notice' ), 'array_merge( self::sync_messages(), $extra )' ),
+		false !== strpos( body_of_method( $trait_src, 'accounts_messages' ), 'WPCPM_Mail::invite_notices()' ),
+	),
+	array( true, true, true, true, true, true, true, true ) );
+
+// Where each press lands: a handler of the screen's own comes back to the tab its form names, the
+// queue's decisions to the screen's own address, the queue; the ticked accounts, a row's invitation
+// and the invitations card's Stop to the Accounts tab, as do the upload and the withdraw on an
+// institution's Manage members view, by their referer; the bulk record on file to the Agreements tab,
+// by its referer; a request's decision posted here to the queue.
+$handler_tabs = array(
+	'handle_probe'         => 'sync',
+	'handle_provision_one' => 'accounts',
+	'handle_bulk_invite'   => 'accounts',
+	'handle_approve'       => 'queue',
+	'handle_info'          => 'queue',
+	'handle_reject'        => 'queue',
+	'handle_spam'          => 'queue',
+	'handle_reopen'        => 'queue',
+	'handle_purge'         => 'queue',
+);
+$left         = array_fill_keys( array( 'queue', 'sync', 'accounts', 'agreements' ), array() );
+$as_code      = array();
+$unplaced     = array();
+$lands        = function ( $tab, $where, array $handed ) use ( &$left, &$as_code ) {
+	$left[ $tab ] = array_merge( $left[ $tab ], $handed[0] );
+
+	foreach ( $handed[1] as $code ) {
+		$as_code[] = $where . ': ' . $code;
+	}
+};
+
+preg_match_all( '/public function (handle_[a-z_]+)\(/', $module_src, $module_handlers );
+foreach ( $module_handlers[1] as $handler ) {
+	$body   = body_of_method( $module_src, $handler );
+	$handed = array_merge_recursive( outcomes_handed( $body, 'redirect_back', 0 ), outcomes_handed( $body, 'leave', 1 ) );
+
+	if ( empty( $handed[0] ) && empty( $handed[1] ) ) {
+		continue;
+	}
+
+	if ( ! isset( $handler_tabs[ $handler ] ) ) {
+		$unplaced[] = $handler;
+		continue;
+	}
+
+	$lands( $handler_tabs[ $handler ], $handler, $handed );
+}
+
+foreach ( array( 'handle_sync', 'handle_cancel' ) as $handler ) {
+	$lands( 'sync', $handler, outcomes_handed( body_of_method( $sync_src, $handler ), 'redirect_back', 0 ) );
+}
+foreach ( array( 'handle_list_form', 'invite_selected', 'handle_invite' ) as $method ) {
+	$lands( 'accounts', $method, outcomes_handed( body_of_method( $trait_src, $method ), 'leave', 1 ) );
+}
+$lands( 'accounts', 'handle_stop', outcomes_handed( body_of_method( $mail_src, 'handle_stop' ), 'set', 1 ) );
+$lands( 'accounts', 'handle_upload', outcomes_handed( body_of_method( $agree_src, 'handle_upload' ), 'bounce', 0 ) );
+$lands( 'accounts', 'handle_withdraw', outcomes_handed( body_of_method( $agree_src, 'handle_withdraw' ), 'bounce', 0 ) );
+$lands( 'agreements', 'handle_on_file_all', outcomes_handed( body_of_method( $agree_src, 'handle_on_file_all' ), 'bounce_on_file', 0 ) );
+$lands( 'queue', 'handle_resolve', outcomes_handed( body_of_method( $request_src, 'handle_resolve' ), 'finish', 0 ) );
+
+// The outcomes handed over as code, each read where it is decided, as that code spells them: the
+// approval's refusals by their codes, a map's values and its default; Create account on the ticked
+// institutions, which the list's form carries out through the Institutions table's action, and the
+// ticked accounts' invitations, each the first of the pair it returns; a row's invitation, the string
+// it returns; a PDF the scan refused, its map's values.
+$values   = "/(?:=>|:)\s*'([a-z][a-z0-9-]*)'\s*[,;]/";
+$pairs    = "/(?<![a-z_])array\(\s*'([a-z][a-z0-9-]*)'\s*,/";
+$returned = "/(?:return\s+|[?:]\s*)'([a-z][a-z0-9-]*)'\s*[;:]/";
+$decided  = array(
+	'handle_approve: self::approval_outcome($result->get_error_code())' => array( 'queue', body_of_method( $module_src, 'approval_outcome' ), $values ),
+	'handle_list_form: $status'                                         => array( 'accounts', body_of_method( $module_src, 'provision_ticked' ), $pairs ),
+	'invite_selected: $status'                                          => array( 'accounts', body_of_method( $table_src, 'queue_ticked' ), $pairs ),
+	'handle_invite: WPCPM_Mail::invite_outcome($result)'                => array( 'accounts', body_of_method( $mail_src, 'invite_outcome' ), $returned ),
+	'handle_upload: $scan[\'reason\']'                                  => array( 'accounts', preg_match( '/const SCAN_REFUSALS = array\((.*?)\);/s', $pdf_src, $refusals ) ? $refusals[1] : '', $values ),
+);
+foreach ( $decided as $code => $where ) {
+	preg_match_all( $where[2], $where[1], $decided_here );
+	$left[ $where[0] ] = array_merge( $left[ $where[0] ], $decided_here[1] );
+}
+
+$unworded = array();
+foreach ( $left as $tab => $statuses ) {
+	foreach ( array_unique( $statuses ) as $status ) {
+		if ( ! in_array( $status, $keys_on( $tab ), true ) ) {
+			$unworded[] = $tab . ': ' . $status;
+		}
+	}
+}
+
+ck( 'every outcome a press on the screen leaves on its channel, read off the source by the tab it lands on, is a key of the map that tab prints from, and every press is placed',
+	array( $unworded, $unplaced, $as_code ),
+	array( array(), array(), array_keys( $decided ) ) );
+ck( 'and the read reaches every source: a sample of each press\'s outcomes is among them',
+	array_values(
+		array_diff(
+			array( 'queue: app-reopened', 'queue: app-member-taken', 'queue: request-done', 'queue: error', 'sync: probed', 'sync: cancelled', 'accounts: provision-already', 'accounts: provision-blocked', 'accounts: invites-stopped', 'accounts: invite-too-soon', 'accounts: invites-none', 'accounts: agreement-launch', 'accounts: agreement-withdrawn', 'agreements: agreement-on-file-all' ),
+			call_user_func_array(
+				'array_merge',
+				array_map(
+					function ( $tab ) use ( $left ) {
+						return array_map( function ( $status ) use ( $tab ) { return $tab . ': ' . $status; }, $left[ $tab ] );
+					},
+					array_keys( $left )
+				)
+			)
+		)
+	),
+	array() );
+
+ck( 'and nothing asked a stand-in for anything it does not model', $GLOBALS['unmodeled'], array() );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

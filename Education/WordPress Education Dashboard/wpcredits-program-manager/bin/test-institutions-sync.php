@@ -16,6 +16,12 @@
  * the previous run's index in place, because a manager screen drawn from half a table would
  * show institutions as gone and the revoke phase would act on it.
  *
+ * And the one invitation the sync sends at once, as the Students and Mentors syncs do for an
+ * accounts list's row: refused for an account that is not there, one without the Institution
+ * role and one sent an invitation inside the mail layer's gap, and otherwise one message and the
+ * institutions' stamp, written by the mail layer's one stamping rule. The mail layer is stood in
+ * for at the gap it keeps and the rule it stamps by.
+ *
  * Run from the plugin root:  php bin/test-institutions-sync.php
  */
 
@@ -33,6 +39,7 @@ $GLOBALS['opts']     = array();
 $GLOBALS['autoload'] = array();
 $GLOBALS['cron']     = array();
 $GLOBALS['users']    = array();
+$GLOBALS['umeta']    = array();
 $GLOBALS['calls']    = array();
 
 class WP_Error {
@@ -168,6 +175,9 @@ function get_users( $args ) {
 	return $ids;
 }
 function get_user_by( $field, $value ) {
+	if ( 'id' === $field ) {
+		return isset( $GLOBALS['users'][ (int) $value ] ) ? new WP_User( (int) $value ) : false;
+	}
 	foreach ( $GLOBALS['users'] as $id => $user ) {
 		if ( 'email' === $field && isset( $user['email'] ) && strtolower( $user['email'] ) === strtolower( (string) $value ) ) {
 			return new WP_User( $id );
@@ -185,6 +195,15 @@ function username_exists( $login ) {
 }
 function sanitize_user( $login, $strict = false ) { return preg_replace( '/[^a-z0-9 _.\-@]/i', '', (string) $login ); }
 function wp_generate_password( $length = 12, $special = true, $extra = false ) { return str_repeat( 'x', (int) $length ); }
+function get_user_meta( $id, $key = '', $single = false ) { return isset( $GLOBALS['umeta'][ (int) $id ][ $key ] ) ? $GLOBALS['umeta'][ (int) $id ][ $key ] : ''; }
+function update_user_meta( $id, $key, $value ) { $GLOBALS['umeta'][ (int) $id ][ $key ] = $value; return true; }
+/**
+ * Core's new-user notification, recorded rather than sent: one invitation is one call, and what
+ * each call was asked for is what the checks read.
+ */
+function wp_new_user_notification( $user_id, $deprecated = null, $notify = '' ) {
+	$GLOBALS['calls']['wp_new_user_notification'][] = array( (int) $user_id, $deprecated, $notify );
+}
 
 /**
  * Creates an account, and can be made to fail or to die the way a real request can.
@@ -385,11 +404,39 @@ if ( ! class_exists( 'WPCPM_Institution_Agreement' ) ) {
 }
 
 if ( ! class_exists( 'WPCPM_Mail' ) ) {
-	/** The invitation queue: what matters here is who was queued, and that it was queued once. */
+	// The one key this suite's stand-in for the stamping rule writes: a key under it was written by
+	// the rule and by no caller. Which keys the real rule writes is bin/test-mail.php's to pin.
+	define( 'WPCPM_TEST_RULE_STAMP', 'wpcpm_test_rule_stamp' );
+
+	/**
+	 * The invitation queue: what matters here is who was queued, and that it was queued once.
+	 *
+	 * And the gap the mail layer keeps between two invitations to one account, answered as it
+	 * answers it: from the latest of the four stamps (bin/stubs/stamps.php, the map every stand-in
+	 * mail class reads), whichever audience's it is, refused with the mail layer's code while the
+	 * gap runs. And its one stamping rule, which notes each account it is asked to stamp and the
+	 * moment it is given (0 for now, which the real rule reads as the time of the call), and writes
+	 * the one key WPCPM_TEST_RULE_STAMP at that moment, which the gap reads beside the four.
+	 */
 	class WPCPM_Mail {
+		const INVITE_GAP = 900;
+		public static function stamp_invited( WP_User $user, $time = 0 ) {
+			$GLOBALS['calls']['stamp_invited'][]    = (int) $user->ID;
+			$GLOBALS['calls']['stamp_invited_at'][] = (int) $time;
+			update_user_meta( $user->ID, WPCPM_TEST_RULE_STAMP, $time ? (int) $time : time() );
+			return array( WPCPM_TEST_RULE_STAMP );
+		}
 		public static function queue_invites( array $user_ids ) {
 			$GLOBALS['calls']['queue_invites'][] = array_values( array_map( 'intval', $user_ids ) );
 			return count( $user_ids );
+		}
+		public static function may_invite( $user_id ) {
+			$last = 0;
+			foreach ( array_merge( array_values( WPCPM_STUB_STAMPS ), array( WPCPM_TEST_RULE_STAMP ) ) as $meta ) {
+				$last = max( $last, (int) get_user_meta( (int) $user_id, $meta, true ) );
+			}
+			$wait = $last ? $last + self::INVITE_GAP - time() : 0;
+			return $wait <= 0 ? true : new WP_Error( 'wpcpm_invite_too_soon', 'This person was sent an invitation less than 15 minutes ago.', array( 'wait' => $wait ) );
 		}
 	}
 }
@@ -445,6 +492,7 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 }
 
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-roles.php';
+require_once __DIR__ . '/stubs/stamps.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-index.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
@@ -551,6 +599,7 @@ function reset_site( array $seed, array $override = array() ) {
 	$GLOBALS['cron_recurrence'] = array();
 	$GLOBALS['calls']           = array();
 	$GLOBALS['users']           = array();
+	$GLOBALS['umeta']           = array();
 	$GLOBALS['members']         = array();
 	$GLOBALS['former']          = array();
 	$GLOBALS['fail_page']       = 0;
@@ -831,7 +880,7 @@ ck( 'no account was created and none was adopted', array( isset( $GLOBALS['calls
 ck( 'the conflict is counted rather than skipped in silence', array( $report['stats']['conflicts'], $report['stats']['provisioned'] ), array( 1, 0 ) );
 ck( 'and named, with the institution and what a conflict is', array(
 	false !== strpos( implode( "\n", $report['notices'] ), 'Institution 4' ),
-	false !== strpos( implode( "\n", $report['notices'] ), 'conflict, not a match' ),
+	false !== strpos( implode( "\n", $report['notices'] ), 'a conflict and not a match' ),
 ), array( true, true ) );
 
 echo "\n=== The history rule, and the gate ===\n";
@@ -1031,6 +1080,78 @@ $GLOBALS['attach_fails'] = false;
 WPCPM_Institutions_Sync::start();
 run_to_end();
 ck( 'and the next run names it as a conflict rather than trying again', get_option( WPCPM_Institutions_Sync::OPT_REPORT )['stats']['conflicts'], 1 );
+
+/* ---- one invitation, sent at once ----------------------------------------- */
+
+echo "\n=== One invitation, sent at once ===\n";
+
+/**
+ * What `send_invite()` answered: true, or a refusal as its code and its sentence.
+ *
+ * A method that is not there fails the checks that call it, rather than ending the run.
+ *
+ * @param int $user_id User ID.
+ * @return mixed
+ */
+function invite_one( $user_id ) {
+	try {
+		$result = WPCPM_Institutions_Sync::send_invite( $user_id );
+	} catch ( Error $e ) {
+		return $e->getMessage();
+	}
+
+	return is_wp_error( $result ) ? array( $result->get_error_code(), $result->get_error_message() ) : $result;
+}
+
+/**
+ * The new-user notifications sent so far, each as `wp_new_user_notification()` was asked for it.
+ *
+ * @return array
+ */
+function sends() {
+	return isset( $GLOBALS['calls']['wp_new_user_notification'] ) ? $GLOBALS['calls']['wp_new_user_notification'] : array();
+}
+
+// What an accounts list's row asks its audience's sync for: one message to one account, now. An
+// account that is not there, or holds no Institution role, is refused in a sentence of the sync's
+// own; one sent an invitation of any kind inside the mail layer's gap is refused by the gap,
+// because an account has one password and a second message cancels the link in the first.
+reset_site( $seed );
+$GLOBALS['users'][60] = array( 'roles' => array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['users'][61] = array( 'roles' => array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][62] = array( 'roles' => array( WPCPM_Roles::ROLE_MENTOR, WPCPM_Roles::ROLE_INSTITUTION ) );
+$mentor_sent          = time() - MINUTE_IN_SECONDS;
+$GLOBALS['umeta'][62] = array( 'wpcpm_mentor_invited' => $mentor_sent );
+
+ck( 'an account that does not exist is refused', invite_one( 99 ), array( 'wpcpm_no_user', 'That user does not exist.' ) );
+ck( 'and so is an account without the Institution role, a mentor\'s', invite_one( 61 ), array( 'wpcpm_not_institution', 'That account does not hold the Institution role.' ) );
+$recent = invite_one( 62 );
+ck( 'and an institution account sent a mentor\'s invitation a minute ago, by the gap', is_array( $recent ) ? $recent[0] : $recent, 'wpcpm_invite_too_soon' );
+ck( 'none of the three was sent anything or stamped', array( sends(), $GLOBALS['umeta'] ), array( array(), array( 62 => array( 'wpcpm_mentor_invited' => $mentor_sent ) ) ) );
+
+$before = time();
+
+ck( 'an institution account never invited is sent its invitation', invite_one( 60 ), true );
+ck( 'one message, core\'s new-user notification to the user alone', sends(), array( array( 60, null, 'user' ) ) );
+ck( 'stamped by the mail layer\'s one rule, the one the queue stamps by, asked once for that account, for the moment of the call',
+	array(
+		isset( $GLOBALS['calls']['stamp_invited'] ) ? $GLOBALS['calls']['stamp_invited'] : array(),
+		isset( $GLOBALS['calls']['stamp_invited_at'] ) ? $GLOBALS['calls']['stamp_invited_at'] : array(),
+	),
+	array( array( 60 ), array( 0 ) ) );
+ck( 'and stamped by nothing else: the account holds the rule\'s key alone, no stamp of the sync\'s own (which keys the rule writes for an institution account is pinned in bin/test-mail.php, "One stamping rule")',
+	array(
+		array_keys( isset( $GLOBALS['umeta'][60] ) ? $GLOBALS['umeta'][60] : array() ),
+		isset( $GLOBALS['umeta'][60][ WPCPM_TEST_RULE_STAMP ] ) && $GLOBALS['umeta'][60][ WPCPM_TEST_RULE_STAMP ] >= $before && $GLOBALS['umeta'][60][ WPCPM_TEST_RULE_STAMP ] <= time(),
+	),
+	array( array( WPCPM_TEST_RULE_STAMP ), true ) );
+
+$again = invite_one( 60 );
+ck( 'a second press inside the gap sends nothing more', array( is_array( $again ) ? $again[0] : $again, count( sends() ) ), array( 'wpcpm_invite_too_soon', 1 ) );
+
+// The gap is a pause, not a lock; and the Institution role is what is asked for, beside any other.
+$GLOBALS['umeta'][62]['wpcpm_mentor_invited'] = time() - 16 * MINUTE_IN_SECONDS;
+ck( 'past the gap, the account holding the Mentor role beside the Institution role is sent one', array( invite_one( 62 ), count( sends() ) ), array( true, 2 ) );
 
 /* ---- keep, not revoke ----------------------------------------------------- */
 

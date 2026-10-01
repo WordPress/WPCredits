@@ -656,17 +656,17 @@ ck( 'while the Administrator Dashboard\'s page is published, every tile the stri
 	is_array( $targets ) ? array( array_values( array_diff( $keys, array_keys( $targets ) ) ), array_values( array_diff( array_keys( $targets ), $keys ) ) ) : $targets,
 	array( array(), array() ) );
 
-ck( 'today the institutions\' queues open the Institutions screen, the sponsors\' the Sponsors screen but for their posts, which open their card on the Administrator Dashboard, and the duplicated students the Student Duplicate Finder',
+ck( 'today the institutions\' queues open the Institutions screen at the tab for each, the decisions on Waiting for review, the semester reports on Semester reports and the locked accounts on Accounts; the sponsors\' the Sponsors screen but for their posts, which open their card on the Administrator Dashboard; and the duplicated students the Student Duplicate Finder',
 	$targets,
 	array(
-		'applications'         => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions',
-		'agreements'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions',
-		'overdue_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions',
-		'drafts'               => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions',
-		'due'                  => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions',
-		'requests'             => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions',
-		'overdue_requests'     => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions',
-		'locked'               => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions',
+		'applications'         => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
+		'agreements'           => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
+		'overdue_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
+		'drafts'               => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=reports',
+		'due'                  => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=reports',
+		'requests'             => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
+		'overdue_requests'     => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=queue',
+		'locked'               => 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts',
 		'sponsor_posts'        => 'https://site.example/administrator-dashboard/#wpcpm-sponsor-posts',
 		'sponsor_agreements'   => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors',
 		'sponsor_applications' => 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors',
@@ -791,12 +791,12 @@ ck( 'a table with a row for each audience\'s sync, in the dashboard\'s order, he
 	array( columns_of( $syncs ), array_column( rows_of( $syncs ), 0 ) ),
 	array( array( 'Sync', 'Last run', 'Next run' ), array( 'Students', 'Mentors', 'Institutions', 'Sponsors' ) ) );
 
-ck( 'each audience\'s name opens the screen its sync is run from; each run is the site\'s date and time, or Never, or Not scheduled; and a sync running now says so in place of its next run',
+ck( 'each audience\'s name opens the screen its sync is run from, at the tab that runs it; each run is the site\'s date and time, or Never, or Not scheduled; and a sync running now says so in place of its next run',
 	rows_of( $syncs ),
 	array(
 		array( 'Students', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-students&tab=sync' ), 'Never', gmdate( 'j F Y H:i', 1757100000 ) ),
 		array( 'Mentors', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-mentors&tab=sync' ), gmdate( 'j F Y H:i', 1756990000 ), 'Not scheduled' ),
-		array( 'Institutions', 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions', gmdate( 'j F Y H:i', 1756980000 ), 'Running now' ),
+		array( 'Institutions', esc_url( 'https://site.example/wp-admin/admin.php?page=wpcpm-institutions&tab=sync' ), gmdate( 'j F Y H:i', 1756980000 ), 'Running now' ),
 		array( 'Sponsors', 'https://site.example/wp-admin/admin.php?page=wpcpm-sponsors', gmdate( 'j F Y H:i', 1756880000 ), gmdate( 'j F Y H:i', 1756993600 ) ),
 	) );
 
@@ -910,7 +910,7 @@ ck( 'every printed value is escaped: not one tag arrives as a tag, and each arri
 		has( $tagged, '>Quiet &lt;x&gt;</a>' ),
 		has( $tagged, '<span class="wpcpm-warning">Cannot run &lt;x&gt;</span>' ),
 		has( $tagged, '<h2>Syncs &lt;x&gt;</h2>' ),
-		has( $tagged, 'page=wpcpm-institutions&#038;x=x' ),
+		has( $tagged, 'page=wpcpm-institutions&#038;tab=queue&#038;x=x' ),
 		has( $tagged, 'administrator-dashboard/?x=x' ),
 	),
 	array( 0, true, true, true, true, true, true, true, true, true ) );

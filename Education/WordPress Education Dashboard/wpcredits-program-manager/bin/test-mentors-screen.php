@@ -20,7 +20,7 @@
  *   then by ID, so every account is listed and none shows twice while another is on no page.
  * - The bulk actions are handled on the screen's load hook, before anything is drawn, as core's own
  *   lists handle theirs: the capability and the list's nonce before anything is read, then the
- *   accounts base's arithmetic called on the Mentor accounts table for its role and its stamp, and
+ *   accounts base's arithmetic called on the Mentor accounts table for its role and stamps, and
  *   the base's sentence for what came of it. The invitations card's own button queues everybody
  *   never invited and comes back to the Accounts tab.
  * - A row's invitation is a nonce link to the Mentors module's own invite handler, which sends it at
@@ -273,20 +273,6 @@ function page_for( array $query ) {
 }
 
 /**
- * The notices a drawn screen prints for what a press left: the dismissible ones, in order. The
- * standing warnings (Airtable not connected, the last sync error, the names still unread) cannot be
- * dismissed, and are read by their own words.
- *
- * @param string $html Markup.
- * @return string
- */
-function notices_in( $html ) {
-	preg_match_all( '#<div class="notice notice-[a-z]+ is-dismissible"><p>.*?</p></div>#s', (string) $html, $found );
-
-	return implode( '', $found[0] );
-}
-
-/**
  * The status notice the screen prints for what the last press left, for the person looking: the
  * Mentors screen drawn at the tab the press came back to, the Accounts tab unless a check names
  * another, and the notices in it.
@@ -348,29 +334,6 @@ function shown_tab( $html ) {
 }
 
 /**
- * The forms a drawn screen holds, each by the admin-post action it sends, and `list` for the list's
- * form to the screen itself, which sends none.
- *
- * @param string $html Markup.
- * @return array<string, string> Action => the form's inner markup.
- */
-function forms_by_action( $html ) {
-	preg_match_all( '#<form\b([^>]*)>(.*?)</form>#s', (string) $html, $found, PREG_SET_ORDER );
-
-	$forms = array();
-
-	foreach ( $found as $form ) {
-		if ( preg_match( '#<input type="hidden" name="action" value="([^"]*)" />#', $form[2], $action ) ) {
-			$forms[ $action[1] ] = $form[2];
-		} elseif ( has( $form[1], 'method="get"' ) ) {
-			$forms['list'] = $form[2];
-		}
-	}
-
-	return $forms;
-}
-
-/**
  * The tab a form names in its hidden field, or null when it names none.
  *
  * @param string $form A form's markup.
@@ -378,24 +341,6 @@ function forms_by_action( $html ) {
  */
 function tab_field_of( $form ) {
 	return preg_match( '#<input type="hidden" name="wpcpm_tab" value="([^"]*)" />#', (string) $form, $found ) ? $found[1] : null;
-}
-
-/**
- * A drawn form's hidden fields, as a browser posts them: name => value, entities decoded.
- *
- * @param string $form A form's markup.
- * @return array<string, string>
- */
-function hidden_fields_of( $form ) {
-	preg_match_all( '#<input type="hidden"(?: id="[^"]*")? name="([^"]*)" value="([^"]*)" />#', (string) $form, $found, PREG_SET_ORDER );
-
-	$fields = array();
-
-	foreach ( $found as $field ) {
-		$fields[ html_entity_decode( $field[1], ENT_QUOTES, 'UTF-8' ) ] = html_entity_decode( $field[2], ENT_QUOTES, 'UTF-8' );
-	}
-
-	return $fields;
 }
 
 /**
@@ -449,18 +394,6 @@ function manager( $uid ) {
 	$GLOBALS['mails']        = array();
 	$GLOBALS['opts']         = array();
 	$GLOBALS['scheduled']    = array();
-}
-
-/**
- * The account IDs a drawn table's rows hold, from their checkboxes, in order.
- *
- * @param string $html Markup.
- * @return int[]
- */
-function row_ids( $html ) {
-	preg_match_all( '/<input type="checkbox" name="users\[\]" id="[^"]*" value="(\d+)"/', between( $html, '<tbody', '</tbody>' ), $found );
-
-	return array_map( 'intval', $found[1] );
 }
 
 /**
@@ -924,6 +857,29 @@ unset( $GLOBALS['umeta'][11]['wpcpm_mentor_invited'] );
 $nobody_invited = html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) );
 
 ck( 'a view nobody is in says the list found nobody, rather than that no accounts exist', array( row_ids( $nobody_invited ), has( $nobody_invited, 'No mentor accounts found.' ) ), array( array(), true ) );
+
+echo "\n=== Invited is any stamp: a mentor who studies, sent a student's invitation ===\n";
+
+// An account has one password, so an invitation sent it as a student is one sent it as a mentor
+// too: the list's views, its row and the invitations card read every stamp, as the queue does.
+// Dev mentors and studies and was stamped as a student alone; Bruno and Cleo were never sent one.
+three_mentors();
+mentor( 16, 'Dev Both', 'dboth', array( WPCPM_Roles::ROLE_MENTOR, WPCPM_Roles::ROLE_STUDENT ), 2, 0, 1 );
+$GLOBALS['umeta'][16]['wpcpm_student_invited'] = 1700000000;
+manager( 230 );
+$both_page = html_of( page_for( screen() ) );
+$both_card = forms_by_action( $both_page );
+
+ck( 'Dev is Invited and counted so, his row offers Resend invite, and the invitations card counts the two never sent one',
+	array(
+		view_counts( $both_page ),
+		array_keys( actions_in( row_for( $both_page, 16 ) ) ),
+		has( isset( $both_card[ WPCPM_Mentors::ACTION_BULK ] ) ? $both_card[ WPCPM_Mentors::ACTION_BULK ] : '', '>Invite 2 mentors who have never been invited</button>' ),
+	),
+	array( array( 'all' => '4', 'invited' => '2', 'never-invited' => '2' ), array( 'edit', 'view', 'reinvite' ), true ) );
+ck( 'the Invited view lists him with Ada, and the Never invited view Bruno and Cleo',
+	array( row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'invited' ) ) ) ) ), row_ids( html_of( draw( screen( array( 'wpcpm_view' => 'never-invited' ) ) ) ) ) ),
+	array( array( 11, 16 ), array( 12, 13 ) ) );
 
 echo "\n=== The search: the name, the username and the email ===\n";
 

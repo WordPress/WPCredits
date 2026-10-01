@@ -3266,7 +3266,7 @@ ck( 'the texts that ran past 300 characters are one sentence each, the rest in i
         ),
         'Create accounts automatically'      => array(
             array( 'From the Contact Email Airtable holds, and only for a Confirmed institution whose agreement is recorded and that has never had a member.' ),
-            array( 'An address that already belongs to an account is left alone and named on the Institutions screen. With this off, accounts are created only when somebody presses the button there.' ),
+            array( 'An address that already belongs to an account is left alone, and the institution is listed with the reason on the No account view of the Institutions screen\'s Accounts tab. With this off, accounts are created only when somebody presses Create account there.' ),
         ),
     ) );
 

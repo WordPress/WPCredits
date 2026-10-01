@@ -1,6 +1,7 @@
 <?php
 /**
- * Institutions module - the request queue, and its one shipped kind: a mentor is wanted.
+ * Institutions module - the request queue: a mentor is wanted, or a student the import created is
+ * not in the program records yet.
  *
  * @package WPCreditsProgramManager
  */
@@ -26,13 +27,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * whose count is wrong, and pressing twice is what a person does when nothing visible
  * happened the first time.
  *
- * **The store holds three kinds and this phase raises one.** `add` (a student created by an
- * import who is not in the program records yet, section 7.6) and `format` (a change to the
- * semester report's shape, section 7.9) are the other two the design names. Both are stored
- * exactly like this one - kind, institution, student, state, note, actor - so the day either
- * grows a surface it is a handler and a label, never a migration. `raise()` is the one door
- * in for all three, which is why it takes the kind rather than assuming it; the import will
- * call it with `KIND_ADD` and nothing here changes.
+ * **The store holds three kinds and two of them are raised.** `mentor` is raised from a
+ * student's card, and `add` (a student created by an import who is not in the program records
+ * yet, section 7.6) by the import, for each student it creates (`WPCPM_Institution_Create`).
+ * `format` (a change to the semester report's shape, section 7.9) is the third the design names,
+ * and nothing raises it yet. All three are stored alike - kind, institution, student, state,
+ * note, actor - so the day `format` grows a surface it is a handler and a label, never a
+ * migration. `raise()` is the one door in for all three, which is why it takes the kind rather
+ * than assuming it.
  *
  * **The fence is the module's, not a second copy.** Raising is `ACT_EDIT_STUDENT` on the
  * student's own roster row, resolved through `WPCPM_Institution_Roster::cached_subject()`, so
@@ -77,13 +79,16 @@ class WPCPM_Institution_Request {
 	 */
 	const META_CLOSED_AT = '_wpcpm_req_closed_at';
 
-	/** A student an import created is not in the program records yet. Not raised in Phase 4. */
+	/**
+	 * A student an import created is not in the program records yet. Raised by the import, for
+	 * each student it creates.
+	 */
 	const KIND_ADD = 'add';
 
-	/** Nobody is mentoring this student. The one kind this phase raises. */
+	/** Nobody is mentoring this student. Raised from the student's card. */
 	const KIND_MENTOR = 'mentor';
 
-	/** A change to the semester report's shape. Not raised in Phase 4. */
+	/** A change to the semester report's shape. Nothing raises it yet. */
 	const KIND_FORMAT = 'format';
 
 	/** Waiting for a program manager. */
@@ -184,9 +189,9 @@ class WPCPM_Institution_Request {
 	/**
 	 * The kinds the store holds.
 	 *
-	 * All three, from the day the store exists, so that a row written by a later phase is a
-	 * row this one could have read. Only `mentor` has a surface in Phase 4; the other two are
-	 * refused by nothing here and raised by nobody yet.
+	 * All three, from the day the store exists, so that a row of a kind raised later is a row
+	 * this one could have read. `mentor` is raised from a student's card and `add` by the import
+	 * for each student it creates; `format` is refused by nothing here and raised by nothing yet.
 	 *
 	 * @return string[]
 	 */

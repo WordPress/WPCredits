@@ -148,6 +148,10 @@ const WPCPM_SAMPLE_ORGS = array(
 	// Added 8 September 2026: an institution's mail domain and its own-language name, found by the fix wave's re-review.
 	'7110bf464e2779a5346083bd11fe04a5216023a2' => 'institution.example',
 	'9aa1d355857c15bdb2a59fb11b41965315e39795' => 'Uniwersytet Przykładowy',
+	// Added 1 October 2026: a university's distinctive word, used since 1.90.0 as an institution
+	// contact's fixture surname and, lower-cased, as the label of its mail domain.
+	'b2f873a6c9e41e214aa5aae3650b5dbc811da604' => 'Oscar Example',
+	'b0c3db424771337a658e778c06955a7ae645a793' => 'oscar-example',
 );
 
 /**

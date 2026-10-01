@@ -554,9 +554,16 @@ foreach ( $inst_files as $path ) {
 		$body = method_body( $source, $method );
 
 		// The three sync handlers are WPCPM_Sync_Module's since 1.90.0, one copy for the three
-		// modules that own a sync; a registration that names one resolves through that file.
+		// modules that own a sync; a registration that names one resolves through that file. A row's
+		// invitation is the screen plumbing every audience's accounts list shares
+		// (WPCPM_Accounts_Screen), which the Institutions module uses for its Accounts tab, so a
+		// registration naming it resolves through the trait's file.
 		if ( null === $body ) {
 			$body = method_body( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-sync-module.php' ), $method );
+		}
+
+		if ( null === $body ) {
+			$body = method_body( (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/trait-wpcpm-accounts-screen.php' ), $method );
 		}
 
 		if ( null === $body ) {

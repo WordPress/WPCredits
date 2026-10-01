@@ -1915,7 +1915,9 @@ class WPCPM_Mentors_Sync {
 	 * Send one mentor their login invitation.
 	 *
 	 * Refused inside `WPCPM_Mail::INVITE_GAP` of their last invitation of any kind, because a
-	 * second one would cancel the link in the first.
+	 * second one would cancel the link in the first. Stamped by the mail layer's one rule
+	 * (`WPCPM_Mail::stamp_invited()`), so a row's invitation leaves the account as the queue's
+	 * would: stamped for each program role it holds.
 	 *
 	 * @param int $user_id User ID.
 	 * @return true|WP_Error
@@ -1938,7 +1940,7 @@ class WPCPM_Mentors_Sync {
 		}
 
 		wp_new_user_notification( $user->ID, null, 'user' );
-		update_user_meta( $user->ID, 'wpcpm_mentor_invited', time() );
+		WPCPM_Mail::stamp_invited( $user );
 
 		return true;
 	}

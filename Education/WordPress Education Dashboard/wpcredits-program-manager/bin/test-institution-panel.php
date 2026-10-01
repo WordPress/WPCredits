@@ -28,6 +28,12 @@
  *   anywhere; a row whose institution already has a copy in review is given the sentence and
  *   the way out rather than a form that would be refused; a settled one still takes T10's
  *   replacement.
+ * - **The review block decides on one page and is read on the other.** The Administrator
+ *   Dashboard calls it with one argument and gets Accept and Return; the Institutions screen's
+ *   queue passes `false` and gets the same block to read, with the way to the dashboard's own
+ *   copy of it in the decisions' place, or nothing there while that page is missing, since the
+ *   queue says so once above its list. Both callers are read off their source, since each one's
+ *   suite stands this in.
  * - **One mechanism per form for a manager acting on behalf.** The generate and Regenerate
  *   forms put the switcher on the action URL, where `resolve_institution()` reads it, and
  *   carry no record field, because that class stopped reading one. The upload and on-file
@@ -496,6 +502,9 @@ if ( ! class_exists( 'WPCPM_Institution_Members' ) ) {
 		}
 	}
 }
+
+// The Administrator Dashboard's page, which the review block links to on the screen that only reads it.
+require_once __DIR__ . '/stubs/administrators-dashboard.php';
 
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php';
@@ -1226,6 +1235,33 @@ ck( 'the outcome message reads the tally back', false !== strpos( WPCPM_Institut
 
 ck( 'pressed again with nothing left to record, it says so and patches nothing', array( on_file_all( $drive ), flashed(), count( $GLOBALS['patched'] ) ), array( 'redirect: https://example.test/institution-dashboard/', 'agreement-all-none', 0 ) );
 
+// Where a press of the bulk form lands, as the Institutions screen's Agreements tab posts it, its tab
+// field among its fields: by the referer, which names the tab; and with no referer, on the screen's
+// own address, which opens the queue, since the handler lands by the referer alone and does not read
+// the tab field.
+$landings = array();
+foreach ( array( 'https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=agreements', '' ) as $came_from ) {
+	$GLOBALS['referer'] = $came_from;
+	$_POST              = array(
+		'wpcpm_agreement_drive' => $drive,
+		'wpcpm_agreement_where' => '',
+		'wpcpm_tab'             => 'agreements',
+	);
+
+	try {
+		WPCPM_Institution_Agreement::handle_on_file_all();
+		$landings[] = 'returned';
+	} catch ( Exception $e ) {
+		$landings[] = $e->getMessage();
+	}
+}
+$_POST              = array();
+$GLOBALS['referer'] = 'https://example.test/institution-dashboard/';
+
+ck( 'pressed from the Agreements tab it comes back there, by the referer; with no referer it comes back to the screen\'s own address, the queue, the form\'s tab field unread',
+	$landings,
+	array( 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=agreements', 'redirect: https://example.test/wp-admin/admin.php?page=wpcpm-institutions' ) );
+
 $panel_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-panel.php' );
 $agr_src   = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institution-agreement.php' );
 
@@ -1597,6 +1633,16 @@ ck( 'keyed to the institution being looked at', false !== strpos( $on_behalf, 'v
 ck( 'and told what it does to the people at that institution', false !== strpos( $on_behalf, 'everybody at the institution is emailed that it arrived' ), true );
 ck( 'the record travels in the field its handler honours', false !== strpos( $on_behalf, 'name="wpcpm_agreement_record" value="' . $rec_a . '"' ), true );
 
+// The manager's form is drawn in wp-admin, where only core's button classes dress a button; the
+// same form on the Institution Dashboard keeps the dashboard's own class, which its stylesheet
+// dresses.
+ck( 'the manager\'s Upload is core\'s primary button, and the dashboard\'s keeps the dashboard\'s class', array(
+	substr_count( $on_behalf, '<button type="submit" class="button button-primary">Upload the signed agreement</button>' ),
+	substr_count( $on_behalf, 'class="wpcpm-button"' ),
+	substr_count( $upload_only, '<button type="submit" class="wpcpm-button">Upload the signed agreement</button>' ),
+	substr_count( $upload_only, 'button-primary' ),
+), array( 1, 0, 1, 0 ) );
+
 $GLOBALS['caps']      = false;
 $GLOBALS['member_of'] = array( $rec_a );
 ob_start();
@@ -1679,6 +1725,20 @@ ck( 'with the way out of it: the copy, and the control that withdraws it', array
 	false !== strpos( $row_busy, 'value="nonce-wpcpm_agreement_withdraw_' . $waiting . '"' ),
 ), array( 1, 1, true ) );
 ck( 'and the file is still named nowhere', false !== strpos( $row_busy, '0123456789abcdef' ), false );
+
+// The Withdraw drawn on the manager's view is wp-admin's too, so it is core's secondary button, as
+// the Upload there is core's primary one; drawn as the Institution Dashboard draws it, it keeps the
+// dashboard's own class, which its stylesheet dresses.
+ob_start();
+WPCPM_Institution_Panel::render_withdraw_form( $waiting );
+$withdraw_elsewhere = (string) ob_get_clean();
+
+ck( 'the manager\'s Withdraw is core\'s secondary button, and the one the dashboard draws keeps the dashboard\'s class', array(
+	substr_count( $row_busy, '<button type="submit" class="button button-secondary" onclick=' ),
+	substr_count( $row_busy, 'wpcpm-button' ),
+	substr_count( $withdraw_elsewhere, '<button type="submit" class="wpcpm-button" onclick=' ),
+	substr_count( $withdraw_elsewhere, 'button-secondary' ),
+), array( 1, 0, 1, 0 ) );
 
 // An accepted agreement is not that case: a re-signed copy reaching the program by email is
 // T10, and the standing one stays in force until somebody accepts the new one. A row that
@@ -1771,16 +1831,25 @@ echo "\n=== The review block: the checklist read, the flags as a courtesy, two w
 /**
  * Render the review block for one document and hand back what it printed.
  *
+ * Drawn to decide, it is called with the one argument the Administrator Dashboard passes, so every
+ * check of the two decisions is a check that the default still draws them; drawn to be read, with
+ * the `false` the Institutions screen's queue passes.
+ *
  * @param int         $post_id    Agreement post ID.
  * @param bool        $can_manage Whether the viewer holds CAP_MANAGE.
  * @param string|null $member_of  The institution the viewer belongs to; null for none.
+ * @param bool        $decide     Whether the block is drawn to decide.
  * @return string
  */
-function review( $post_id, $can_manage = true, $member_of = null ) {
+function review( $post_id, $can_manage = true, $member_of = null, $decide = true ) {
 	$GLOBALS['caps']      = $can_manage;
 	$GLOBALS['member_of'] = null === $member_of ? array() : array( $member_of );
 	ob_start();
-	WPCPM_Institution_Panel::render_review( $post_id );
+	if ( $decide ) {
+		WPCPM_Institution_Panel::render_review( $post_id );
+	} else {
+		WPCPM_Institution_Panel::render_review( $post_id, false );
+	}
 	return (string) ob_get_clean();
 }
 
@@ -1822,6 +1891,81 @@ $GLOBALS['members'][ $rec_a ] = array( 'Anna Kowalska', 'Bo Nowak', 'Cy Wisniews
 ck( 'the return note is the one free-text field in the block', substr_count( $template_review, '<textarea' ), 1 );
 ck( 'named the way the handler reads it, and bounded the way it refuses', false !== strpos( $template_review, 'name="wpcpm_agreement_note" rows="4" minlength="20" maxlength="2000" required' ), true );
 ck( 'and said to be mailed verbatim', false !== strpos( $template_review, 'exactly as you write it' ), true );
+ck( 'drawn to decide, the block does not send the reviewer anywhere else', strpos( $template_review, 'wpcpm-review__open' ), false );
+
+/* ---- the same block, read on the Institutions screen ------------------------ */
+
+echo "\n=== Read on the Institutions screen, the block links to its decisions on the Administrator Dashboard ===\n";
+
+// The queue in wp-admin draws the block to be read: everything a reviewer reads is the same, and
+// the two decisions are the Administrator Dashboard's, so they give way to one line that links to
+// this block there, by the anchor both pages print.
+$read_review = review( $review_id, true, null, false );
+
+ck( 'read, the block keeps everything a reviewer reads', array(
+	false !== strpos( $read_review, '<section class="wpcpm-review" id="wpcpm-review-' . $review_id . '">' ),
+	false !== strpos( $read_review, 'Review the signed agreement from Universidad Example' ),
+	false !== strpos( $read_review, 'Uploaded by Wera Rektor on 2025-09-01, 234 KB.' ),
+	false !== strpos( $read_review, 'The institution says this is the program&#039;s template, signed.' ),
+	substr_count( $read_review, '<li>' ),
+	false !== strpos( $read_review, 'The scan noticed these in the file: /JavaScript, /OpenAction.' ),
+	false !== strpos( $read_review, 'The scan is a courtesy and not evidence' ),
+	false !== strpos( $read_review, 'action=wpcpm_agreement_download&post=' . $review_id . '&_wpnonce=nonce-wpcpm_agreement_download_' . $review_id ),
+), array( true, true, true, true, 3, true, true, true ) );
+ck( 'and draws neither decision: no form, no note, no post field', array(
+	forms_in( $read_review )['accept'],
+	forms_in( $read_review )['return'],
+	substr_count( $read_review, '<form' ),
+	substr_count( $read_review, '<textarea' ),
+	substr_count( $read_review, 'wpcpm_agreement_post' ),
+), array( 0, 0, 0, 0, 0 ) );
+ck( 'in their place, last in the block, one line linking to this block on the Administrator Dashboard', array(
+	substr_count( $read_review, 'wpcpm-review__open' ),
+	false !== strpos( $read_review, '<p class="wpcpm-review__open"><a href="https://example.test/administrator-dashboard/#wpcpm-review-' . $review_id . '">Open on the Administrator Dashboard</a></p></section>' ),
+), array( 1, true ) );
+
+WPCPM_Administrators_Dashboard::$url = '';
+$read_no_page                        = review( $review_id, true, null, false );
+WPCPM_Administrators_Dashboard::$url = 'https://example.test/administrator-dashboard/';
+
+// The queue, the one page that reads the block, says the page is missing once above its whole
+// list; a block that said it again would say it once more for every document waiting.
+ck( 'while that page is missing the block ends with the download link: no line, no sentence, no form', array(
+	1 === preg_match( '#<p class="wpcpm-agreement-panel__download"><a [^>]*>Download the signed agreement</a></p></section>$#', $read_no_page ),
+	substr_count( $read_no_page, 'wpcpm-review__open' ),
+	strpos( $read_no_page, 'The dashboard class says its page is missing.' ),
+	forms_in( $read_no_page )['accept'] + forms_in( $read_no_page )['return'],
+), array( true, 0, false, 0 ) );
+ck( 'and whoever may not review it is drawn nothing either way', array( review( $review_id, false, $rec_a, false ), review( $review_id, false, $rec_b, false ) ), array( '', '' ) );
+ck( 'passing true is the default, the Administrator Dashboard\'s', ( function () use ( $review_id, $template_review ) {
+	$GLOBALS['caps']      = true;
+	$GLOBALS['member_of'] = array();
+	ob_start();
+	WPCPM_Institution_Panel::render_review( $review_id, true );
+	return (string) ob_get_clean() === $template_review;
+} )(), true );
+
+// Which page passes which is said where the next reader of the method will look for it.
+$review_doc = substr( $panel_src, 0, (int) strpos( $panel_src, 'public static function render_review(' ) );
+$review_doc = substr( $review_doc, (int) strrpos( $review_doc, '/**' ) );
+ck( 'the docblock says which page decides and which reads', array(
+	false !== strpos( $review_doc, '@param bool $decide' ),
+	false !== strpos( $review_doc, 'Administrator Dashboard' ),
+	false !== strpos( $review_doc, 'Institutions screen' ),
+), array( true, true, true ) );
+
+// And each page passes what the docblock says, read off the two callers: the suite of either page
+// stands this class in, so neither could see the other argument passed.
+$callers = array(
+	'cards' => (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-cards.php' ),
+	'queue' => (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions.php' ),
+);
+ck( 'the Administrator Dashboard passes nothing and the Institutions screen passes false, once each', array(
+	substr_count( $callers['cards'], 'WPCPM_Institution_Panel::render_review(' ),
+	substr_count( $callers['cards'], "WPCPM_Institution_Panel::render_review( (int) \$row['id'] );" ),
+	substr_count( $callers['queue'], 'WPCPM_Institution_Panel::render_review(' ),
+	substr_count( $callers['queue'], "WPCPM_Institution_Panel::render_review( (int) \$row['id'], false );" ),
+), array( 1, 1, 1, 1 ) );
 
 /* ---- an own-kind document is a different read ----------------------------- */
 
@@ -2013,7 +2157,7 @@ foreach ( classes_in( $panel_src ) as $name ) {
 
 sort( $undressed );
 
-ck( 'the review block is ten classes, and the admin stylesheet dresses all of them', array( $review, in_array( 'wpcpm-review', $undressed, true ) ), array( 10, false ) );
+ck( 'the review block is eleven classes, and the admin stylesheet dresses all of them', array( $review, in_array( 'wpcpm-review', $undressed, true ), in_array( 'wpcpm-review__open', $undressed, true ) ), array( 11, false, false ) );
 
 // `.wpcpm-link-button` is the mentor dashboard's own button class - the group-sessions cards
 // print it too - so its rule belongs in dashboard.css and not in either file this page owns.
@@ -2318,6 +2462,13 @@ $settings_src = (string) file_get_contents( WPCPM_PLUGIN_DIR . 'includes/class-w
 ck( 'and ten is what the real defaults say', false !== strpos( $settings_src, "'agreement_max_mb'              => 10," ), true );
 
 ck( 'every message is a known notice type', array_values( array_unique( array_map( function ( $row ) { return $row[0]; }, WPCPM_Institution_Panel::messages() ) ) ), array( 'success', 'error', 'info' ) );
+
+// The two outcomes that send a manager to the Institutions screen name what it has: the
+// institutions sync, run from its Sync and storage tab. It has no Refresh control, and never had.
+$panel_messages = WPCPM_Institution_Panel::messages();
+ck( 'a record the site could not write after Airtable took it sends the manager to the institutions sync, on the tab that runs it', $panel_messages['agreement-not-saved'][1], 'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.' );
+ck( 'and a state that was being rebuilt says the account opens after the next institutions sync', $panel_messages['agreement-later'][1], 'Airtable and the site record were both written, but this institution\'s state was being rebuilt at that moment. The account opens after the next institutions sync.' );
+ck( 'and no outcome names a Refresh control', array_values( array_filter( array_keys( $panel_messages ), function ( $slug ) use ( $panel_messages ) { return false !== stripos( (string) $panel_messages[ $slug ][1], 'Refresh' ); } ) ), array() );
 
 echo "\n" . ( $fail ? "$fail FAILURE(S)\n" : "ALL PASS\n" );
 exit( $fail ? 1 : 0 );

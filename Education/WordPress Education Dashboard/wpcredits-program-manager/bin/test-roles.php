@@ -264,11 +264,12 @@ ck( 'an institution is told about institutions, and never about the Mentor role'
 
 // A manager sees an empty page when no institution has an account, which no amount of
 // syncing fixes: the resolver falls back to the first institution *with a live member*. So
-// this one points at the screen that provisions and never says "sync".
+// this one points at the screen that provisions, at its Accounts tab, where the accounts are
+// created, rather than at the queue the screen opens on, and never says "sync".
 $manager_sees = WPCPM_Dashboards::nothing_to_show( 'institutions', true );
-ck( 'a manager is sent to the Institutions screen, and is not told to run a sync',
+ck( 'a manager is sent to the Institutions screen\'s Accounts tab, and is not told to run a sync',
     array(
-        false !== strpos( $manager_sees, 'admin.php?page=wpcpm-institutions' ),
+        false !== strpos( $manager_sees, '<a href="https://example.test/wp-admin/admin.php?page=wpcpm-institutions&tab=accounts">' ),
         false !== stripos( $manager_sees, 'sync' ),
     ),
     array( true, false ) );

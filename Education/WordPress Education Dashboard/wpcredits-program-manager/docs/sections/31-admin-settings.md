@@ -164,10 +164,11 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 
 - **Applications from institutions** - **Take applications through the form on this site**. Off by
   default, since the form is a public page anybody can post to; its address is under the switch.
-  Every submission is stored for a program manager to read on the Institutions screen, and nothing
-  is created until somebody approves it; while this is off, the page shows one sentence saying
-  applications are closed. The form shows nothing to the public without a published privacy policy,
-  however this is switched, and the row says so until one is chosen under Settings > Privacy.
+  Every submission is stored for a program manager to read on the Institutions screen's Waiting for
+  review tab and to decide on the Administrator Dashboard, and nothing is created until somebody
+  approves it; while this is off, the page shows one sentence saying applications are closed. The
+  form shows nothing to the public without a published privacy policy, however this is switched, and
+  the row says so until one is chosen under Settings > Privacy.
 - **Enrollment lists from institutions** - **Let an institution send a list of students to
   enroll**. Adds an "Enroll students" section to the Institution Dashboard, where a school chooses
   the program and the term and then adds one student or sends a CSV. Off by default. Its fold: the
@@ -178,8 +179,9 @@ institution leaves the pipeline**, **Collaboration Agreements** and **Semester r
 - **Create accounts automatically** - **Let the sync create the first account for a Confirmed
   institution**, from the Contact Email Airtable holds, and only for a Confirmed institution whose
   agreement is recorded and that has never had a member. Off by default. Its fold: an address that
-  already belongs to an account is left alone and named on the Institutions screen, and with this
-  off, accounts are created only when somebody presses the button there.
+  already belongs to an account is left alone, and on the Institutions screen's Accounts tab, under
+  No account, the institution is listed with the reason, never the address or the account; with
+  this off, accounts are created only when somebody presses Create account there.
 
 #### Institution landing page
 

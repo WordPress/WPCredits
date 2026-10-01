@@ -35,10 +35,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * **Every form here is drawn by whichever screen the reader is on, and gated by the same
  * fence.** The upload form appears on this panel, on the card at the foot of a settled
- * dashboard (a replacement, T10) and on the manager's institution row, and it is one method
- * that asks `WPCPM_Institution_Policy::decide()` itself rather than three copies trusting
- * three callers. The handlers on the other side ask again; a form nobody may post is not a
- * gate, it is a courtesy that saves the reader a refusal.
+ * dashboard (a replacement, T10) and on an institution's Manage members view in wp-admin, and
+ * it is one method that asks `WPCPM_Institution_Policy::decide()` itself rather than three
+ * copies trusting three callers. The handlers on the other side ask again; a form nobody may
+ * post is not a gate, it is a courtesy that saves the reader a refusal.
  */
 class WPCPM_Institution_Panel {
 
@@ -58,8 +58,8 @@ class WPCPM_Institution_Panel {
 	 * Every outcome the agreement handlers can flash, in the words the reader gets.
 	 *
 	 * Kept here rather than in each screen, because the forms are drawn in four places (this
-	 * panel, the card at the foot of a settled dashboard, the manager's institution row and
-	 * the review queue) and land wherever they were pressed. Each row is
+	 * panel, the card at the foot of a settled dashboard, an institution's Manage members view
+	 * on the Institutions screen and the review queue) and land wherever they were pressed. Each row is
 	 * `array( notice type, message )`, the shape every screen already uses.
 	 *
 	 * Every refusal opens by saying that nothing happened, and then says what to do next.
@@ -99,8 +99,8 @@ class WPCPM_Institution_Panel {
 			'agreement-all-none'           => array( 'info', __( 'Nothing to record: every Confirmed institution already has an agreement recorded.', 'wpcredits-program-manager' ) ),
 			'agreement-on-file-all'        => array( 'success', self::on_file_all_summary() ),
 			'agreement-airtable'           => array( 'error', __( 'Airtable could not be updated, so nothing was recorded here either. The base is the record of this state, and the site does not open an account the base has not agreed to.', 'wpcredits-program-manager' ) ),
-			'agreement-not-saved'          => array( 'error', __( 'Airtable was updated but the record on this site could not be written. Press Refresh on the Institutions screen: the next reconcile completes it.', 'wpcredits-program-manager' ) ),
-			'agreement-later'              => array( 'info', __( 'Airtable and the site record were both written, but this institution\'s state was being rebuilt at that moment. The account opens after the next sync or Refresh.', 'wpcredits-program-manager' ) ),
+			'agreement-not-saved'          => array( 'error', __( 'Airtable was updated but the record on this site could not be written. Run the institutions sync on the Institutions screen\'s Sync and storage tab: the next reconcile completes it.', 'wpcredits-program-manager' ) ),
+			'agreement-later'              => array( 'info', __( 'Airtable and the site record were both written, but this institution\'s state was being rebuilt at that moment. The account opens after the next institutions sync.', 'wpcredits-program-manager' ) ),
 			'agreement-uploaded'           => array( 'success', __( 'The signed agreement is uploaded. A program manager reviews it and you will get an email either way.', 'wpcredits-program-manager' ) ),
 			'agreement-too-big'            => array(
 				'error',
@@ -232,8 +232,8 @@ class WPCPM_Institution_Panel {
 	/**
 	 * The manager's "record an agreement on file" form.
 	 *
-	 * Public and capability-checked here rather than at the call site, so the manager's
-	 * institution row on the Institutions screen can print the same form with one call and
+	 * Public and capability-checked here rather than at the call site, so a screen that draws it
+	 * for a manager, this panel on the Institution Dashboard today, prints it with one call and
 	 * cannot print it to the wrong person by forgetting the check.
 	 *
 	 * The date and the location note are optional; the Drive link is not. A recorded
@@ -464,9 +464,20 @@ class WPCPM_Institution_Panel {
 	 * hidden in ways a bounded scan will not find. What protects the reviewer is that this
 	 * site never shows the file in a browser and hands it over as an attachment instead.
 	 *
-	 * @param int $post_id Agreement post ID, a document in `submitted`.
+	 * **Two pages draw it, and one of them decides.** A decision keeps one home, the
+	 * Administrator Dashboard, which passes nothing for `$decide` and gets the two, Accept and
+	 * Return. The Institutions screen's queue passes `false` and gets the same block to read, down
+	 * to the download link, with one line in the decisions' place: the way to this block on the
+	 * Administrator Dashboard, by the `wpcpm-review-<post id>` anchor both pages print. While that
+	 * page is missing the line is left out and the caller says so: the queue prints the dashboard
+	 * class's sentence once above its list, where one sentence per waiting document would repeat
+	 * it.
+	 *
+	 * @param int  $post_id Agreement post ID, a document in `submitted`.
+	 * @param bool $decide  True on the Administrator Dashboard, where the two decisions are drawn;
+	 *                      false on the Institutions screen, where the block is read.
 	 */
-	public static function render_review( $post_id ) {
+	public static function render_review( $post_id, $decide = true ) {
 		$post_id = (int) $post_id;
 		$post    = get_post( $post_id );
 
@@ -525,10 +536,38 @@ class WPCPM_Institution_Panel {
 		self::render_checklist( $facts, $name );
 		self::render_flags( isset( $facts['flags'] ) ? (array) $facts['flags'] : array() );
 		self::render_download_link( $post_id, __( 'Download the signed agreement', 'wpcredits-program-manager' ) );
-		self::render_accept_form( $post_id, $name, $members );
-		self::render_return_form( $post_id );
+
+		if ( $decide ) {
+			self::render_accept_form( $post_id, $name, $members );
+			self::render_return_form( $post_id );
+		} else {
+			self::render_decided_elsewhere( $post_id );
+		}
 
 		echo '</section>';
+	}
+
+	/**
+	 * The line a block drawn to be read ends with, in the place of the two decisions: the way to the
+	 * same block on the Administrator Dashboard, which makes them.
+	 *
+	 * Nothing while the dashboard's page is missing: there is nowhere to link, and the caller says
+	 * so once for its whole list rather than once in every block.
+	 *
+	 * @param int $post_id Agreement post ID.
+	 */
+	private static function render_decided_elsewhere( $post_id ) {
+		$page = WPCPM_Administrators_Dashboard::page_url();
+
+		if ( '' === $page ) {
+			return;
+		}
+
+		printf(
+			'<p class="wpcpm-review__open"><a href="%1$s">%2$s</a></p>',
+			esc_url( $page . '#wpcpm-review-' . (int) $post_id ),
+			esc_html__( 'Open on the Administrator Dashboard', 'wpcredits-program-manager' )
+		);
 	}
 
 	/**
@@ -1006,11 +1045,12 @@ class WPCPM_Institution_Panel {
 	/**
 	 * The upload form: the signed PDF, which kind it is, and the declaration.
 	 *
-	 * Public because it is drawn in four places and must be identical in all of them: this
-	 * panel on three of its five states, the card at the foot of a settled dashboard (a
-	 * replacement, T10), and the manager's institution row through `render_manager_upload()`.
-	 * It asks the fence itself rather than trusting each caller, for the reason `render()`
-	 * gives: a later screen that forgets the check is what the fence is for.
+	 * Public because it is drawn in four places and must be identical in all of them but for
+	 * the button's classes: this panel on three of its five states, the card at the foot of a
+	 * settled dashboard (a replacement, T10), and an institution's Manage members view through
+	 * `render_manager_upload()`, which is drawn in wp-admin, where only core's button classes
+	 * dress a button. It asks the fence itself rather than trusting each caller, for the reason
+	 * `render()` gives: a later screen that forgets the check is what the fence is for.
 	 *
 	 * **No free-text field.** Design spec 7.4 is explicit, and the reason is worth repeating
 	 * where the markup is: a textarea on an upload form is a second place for personal data
@@ -1022,8 +1062,10 @@ class WPCPM_Institution_Panel {
 	 *
 	 * @param string $record_id Institutions record ID.
 	 * @param string $intro     A sentence above the form, or an empty string for none.
+	 * @param string $button    The submit button's classes: the dashboard's own, which its
+	 *                          stylesheet dresses, unless the screen it is drawn on dresses others.
 	 */
-	public static function render_upload_form( $record_id, $intro = '' ) {
+	public static function render_upload_form( $record_id, $intro = '', $button = 'wpcpm-button' ) {
 		$record_id = trim( (string) $record_id );
 
 		if ( ! self::may_act( $record_id ) ) {
@@ -1092,7 +1134,8 @@ class WPCPM_Institution_Panel {
 		);
 
 		printf(
-			'<button type="submit" class="wpcpm-button">%s</button>',
+			'<button type="submit" class="%1$s">%2$s</button>',
+			esc_attr( $button ),
 			esc_html__( 'Upload the signed agreement', 'wpcredits-program-manager' )
 		);
 
@@ -1105,7 +1148,8 @@ class WPCPM_Institution_Panel {
 	 * The two bespoke agreements and many of the legacy ones reach the program as an
 	 * attachment, so the person holding the PDF is a program manager rather than the
 	 * institution. Same form, same handler, same nonce; the sentence above it is different
-	 * because the reader is.
+	 * because the reader is, and the button is core's primary one because the screen is
+	 * wp-admin.
 	 *
 	 * Capability-checked *and* fenced here rather than at the call site, so the Institutions
 	 * screen prints it with one call and cannot print it to the wrong person by forgetting
@@ -1115,13 +1159,13 @@ class WPCPM_Institution_Panel {
 	 * than as a gate, and is the shape `render()` and `render_review()` are written to
 	 * avoid.
 	 *
-	 * **It decides everything for itself, because its caller is a table.** The Institutions
-	 * screen draws one of these per institution row, from a loop that already holds a name, a
-	 * summary and a record ID and could hand any of them over. Nothing here is taken from the
-	 * caller but the record ID, and that is checked for shape before it is used: the
-	 * capability, the fence and the state below are all read here. A row rendering a form its
-	 * handler would refuse is worse than a row rendering nothing, and the screen is not the
-	 * place where that is known.
+	 * **It decides everything for itself.** Its one caller is an institution's Manage members
+	 * view on the Institutions screen, which reads the record ID from the address and the
+	 * institution's name from the index, and could hand either over. Nothing here is taken from
+	 * the caller but the record ID, and that is checked for shape before it is used: the
+	 * capability, the fence and the state below are all read here. A view rendering a form its
+	 * handler would refuse is worse than one rendering nothing, and the screen is not the place
+	 * where that is known.
 	 *
 	 * **The state it will not draw over.** `handle_upload()` allows one document in review at
 	 * a time, so an institution with a signed copy already waiting gets the sentence saying
@@ -1161,14 +1205,15 @@ class WPCPM_Institution_Panel {
 				$pending,
 				__( 'Download the copy waiting for review', 'wpcredits-program-manager' )
 			);
-			self::render_withdraw_form( $pending );
+			self::render_withdraw_form( $pending, 'button button-secondary' );
 
 			return;
 		}
 
 		self::render_upload_form(
 			$record_id,
-			__( 'For a signed copy that reached the program by email. It lands in the review queue exactly as an institution\'s own upload does, and everybody at the institution is emailed that it arrived.', 'wpcredits-program-manager' )
+			__( 'For a signed copy that reached the program by email. It lands in the review queue exactly as an institution\'s own upload does, and everybody at the institution is emailed that it arrived.', 'wpcredits-program-manager' ),
+			'button button-primary'
 		);
 	}
 
@@ -1231,8 +1276,8 @@ class WPCPM_Institution_Panel {
 	 * a second caller with a second decision of its own.
 	 *
 	 * **A manager may withdraw, and is told different things.** `handle_withdraw()` takes a
-	 * member or a manager on the member's behalf, so the control belongs on the manager's
-	 * institution row as much as on the panel; what does not carry across is the wording. A
+	 * member or a manager on the member's behalf, so the control belongs on an institution's
+	 * Manage members view as much as on the panel; what does not carry across is the wording. A
 	 * manager pressing this deletes somebody else's document, and the two facts they need and
 	 * a member does not are that the institution is not emailed and that nothing will be
 	 * reviewed until the institution uploads again. So the confirm is written for whoever the
@@ -1240,9 +1285,11 @@ class WPCPM_Institution_Panel {
 	 * confirm in this module does: a person acting on forty rows should not have to remember
 	 * which one the button belongs to.
 	 *
-	 * @param int $post_id Agreement post ID.
+	 * @param int    $post_id Agreement post ID.
+	 * @param string $button  The submit button's classes: the dashboard's own, which its
+	 *                        stylesheet dresses, unless the screen it is drawn on dresses others.
 	 */
-	public static function render_withdraw_form( $post_id ) {
+	public static function render_withdraw_form( $post_id, $button = 'wpcpm-button' ) {
 		$post_id  = (int) $post_id;
 		$decision = $post_id ? self::post_decision( $post_id ) : null;
 
@@ -1263,7 +1310,8 @@ class WPCPM_Institution_Panel {
 		printf( '<input type="hidden" name="wpcpm_agreement_post" value="%d" />', (int) $post_id );
 
 		printf(
-			'<button type="submit" class="wpcpm-button" onclick="return confirm(%1$s)">%2$s</button>',
+			'<button type="submit" class="%1$s" onclick="return confirm(%2$s)">%3$s</button>',
+			esc_attr( (string) $button ),
 			esc_attr( wp_json_encode( self::withdraw_confirm( $post_id, $as_manager ) ) ),
 			esc_html(
 				$as_manager
@@ -1722,8 +1770,8 @@ class WPCPM_Institution_Agreement_Card {
 	/**
 	 * Which route recorded the accepted agreement.
 	 *
-	 * `grid` is a manager typing `On file` and a Drive link into the base and pressing
-	 * Refresh; `site` is anything a person did here, the on-file form included. Named on the
+	 * `grid` is a manager typing `On file` and a Drive link into the base, which the next
+	 * institutions sync reads; `site` is anything a person did here, the on-file form included. Named on the
 	 * card because "we never signed anything on this website" is a reasonable thing for a
 	 * long-standing partner to think, and the answer is that the program recorded the copy
 	 * it already had.

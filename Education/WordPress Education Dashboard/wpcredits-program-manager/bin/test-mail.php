@@ -83,6 +83,8 @@ function update_option( $k, $v, $a = null ) { $GLOBALS['opts'][ $k ] = $v; retur
 function delete_option( $k ) { unset( $GLOBALS['opts'][ $k ] ); return true; }
 function get_user_meta( $id, $k, $single = false ) { return $GLOBALS['umeta'][ (int) $id ][ $k ] ?? ''; }
 function update_user_meta( $id, $k, $v ) { $GLOBALS['umeta'][ (int) $id ][ $k ] = $v; return true; }
+// Whether the key is there at all, whatever it holds, as core's `metadata_exists()` answers.
+function metadata_exists( $type, $id, $k ) { return 'user' === $type && isset( $GLOBALS['umeta'][ (int) $id ] ) && array_key_exists( $k, $GLOBALS['umeta'][ (int) $id ] ); }
 function get_user_by( $f, $v ) { return $GLOBALS['users'][ (int) $v ] ?? false; }
 // Session posts, for the series message, which reads every session it names: a single meta read
 // answers the first row, a rows read answers them all, as WordPress does.
@@ -213,6 +215,9 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-settings-screen.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-sync.php';
+// The third sync with a row invitation of its own, which stamps by the mail layer's rule as the
+// other two do.
+require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-sync.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-dashboard.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-availability.php';
 require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentor-calls.php';
@@ -536,9 +541,18 @@ update_user_meta( 520, 'wpcpm_sponsor_invited', time() );
 ck( 'nor is a sponsor already invited',
     array( WPCPM_Mail::queue_invites( array( 520 ) ), WPCPM_Mail::queued() ), array( 0, 0 ) );
 
-// Which stamp goes on is what the guards above read back, so each kind of account has to get
-// its own: an institution stamped as a student would pass the guard and still show as never
-// invited on its own screen, which lists by role and stamp together.
+// A stamp of 0 is somebody having written one, and every reader of who was sent an invitation
+// counts a stamp by its presence, the guard among them: the lists call this account Invited, and a
+// first invitation queued for it would be one more than the lists say it needs.
+$GLOBALS['users'][ 530 ] = new WP_User( 530, 'Stamped 0', 'stamped-zero@program.example', array( WPCPM_Roles::ROLE_STUDENT ) );
+update_user_meta( 530, 'wpcpm_student_invited', 0 );
+
+ck( 'nor is an account whose stamp holds 0, which is still a stamp',
+    array( WPCPM_Mail::queue_invites( array( 530 ) ), WPCPM_Mail::queued() ), array( 0, 0 ) );
+
+// Which stamp goes on is each audience's own record of the invitation, so each kind of account
+// has to get its own: an institution stamped as a student would pass the guard and read as
+// invited, with a record naming the wrong audience.
 WPCPM_Mail::clear_queue();
 WPCPM_Mail::dismiss_run();
 $GLOBALS['invited'] = array();
@@ -576,6 +590,135 @@ ck( 'a sponsor account is stamped with its own invited meta, not the student one
         get_user_meta( 610, 'wpcpm_student_invited', true ),
     ),
     array( true, '' ) );
+
+// **An account in two audiences is stamped for each, by its one message.** Each audience's key is
+// its own record of the invitation, so the queue writes the key of every program role the account
+// holds: an account holding the Mentor and Institution roles carries the institutions' stamp as
+// well as the mentors'. A mentor alone carries the mentor stamp alone, and an account holding none
+// of the program roles the student stamp.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited'] = array();
+
+$GLOBALS['users'][604] = new WP_User( 604, 'A mentor and member', 'mentor-member@institution-4.example', array( WPCPM_Roles::ROLE_MENTOR, WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['users'][605] = new WP_User( 605, 'A mentor alone', 'mentor-alone@program.example', array( WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][606] = new WP_User( 606, 'A subscriber', 'subscriber@program.example', array( 'subscriber' ) );
+
+WPCPM_Mail::queue_invites( array( 604, 605, 606 ) );
+WPCPM_Mail::drain_queue();
+
+// The four stamps an account can carry, by audience, '' for one it does not.
+$stamps_of = function ( $id ) {
+    return array(
+        'student'     => get_user_meta( $id, 'wpcpm_student_invited', true ),
+        'mentor'      => get_user_meta( $id, 'wpcpm_mentor_invited', true ),
+        'institution' => get_user_meta( $id, 'wpcpm_inst_invited', true ),
+        'sponsor'     => get_user_meta( $id, 'wpcpm_sponsor_invited', true ),
+    );
+};
+$both  = $stamps_of( 604 );
+$alone = $stamps_of( 605 );
+$none  = $stamps_of( 606 );
+
+ck( 'an account holding the Mentor and Institution roles is stamped for both, at the one moment it was sent, and for nothing else',
+    array( (int) $both['mentor'] > 0, (int) $both['institution'] > 0, $both['institution'] === $both['mentor'], $both['student'], $both['sponsor'] ),
+    array( true, true, true, '', '' ) );
+ck( 'a mentor alone carries the mentor stamp alone',
+    array( (int) $alone['mentor'] > 0, $alone['institution'], $alone['sponsor'], $alone['student'] ),
+    array( true, '', '', '' ) );
+ck( 'and an account holding none of the program roles, a plain Subscriber, carries the student stamp alone',
+    array( (int) $none['student'] > 0, $none['mentor'], $none['institution'], $none['sponsor'] ),
+    array( true, '', '', '' ) );
+ck( 'each of the three was sent one message, the account in two audiences included', $GLOBALS['invited'], array( 604, 605, 606 ) );
+
+// **The Student role is asked on its own too.** A mentor who studies is on the Students list and
+// the Mentors list, and the one message the queue sends that account is an invitation to both.
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+$GLOBALS['invited'] = array();
+
+$GLOBALS['users'][607] = new WP_User( 607, 'A mentor who studies', 'mentor-student@program.example', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ) );
+
+WPCPM_Mail::queue_invites( array( 607 ) );
+WPCPM_Mail::drain_queue();
+
+$studies = $stamps_of( 607 );
+
+ck( 'an account holding the Student and Mentor roles is stamped for both, at the one moment it was sent, by one message',
+    array( (int) $studies['student'] > 0, (int) $studies['mentor'] > 0, $studies['student'] === $studies['mentor'], $studies['institution'], $studies['sponsor'], $GLOBALS['invited'] ),
+    array( true, true, true, '', '', array( 607 ) ) );
+
+WPCPM_Mail::clear_queue();
+WPCPM_Mail::dismiss_run();
+
+/* ---- one stamping rule --------------------------------------------------- */
+
+echo "\n=== One stamping rule, for the queue and a row's invitation ===\n";
+
+// The queue and the three syncs' row invitations stamp by one rule, the mail layer's: the key of
+// each program role the account holds, and the student key for an account holding none, all at
+// one moment. What it answers is the keys it wrote, for the checks.
+$stamp_with = function ( $id, $time = 0 ) {
+    try {
+        return WPCPM_Mail::stamp_invited( $GLOBALS['users'][ $id ], $time );
+    } catch ( Error $e ) {
+        return $e->getMessage();
+    }
+};
+
+// The names of the stamps an account carries, by audience.
+$stamped = function ( $id ) use ( $stamps_of ) {
+    return array_keys(
+        array_filter(
+            $stamps_of( $id ),
+            function ( $value ) {
+                return '' !== $value;
+            }
+        )
+    );
+};
+
+$GLOBALS['users'][611] = new WP_User( 611, 'A sponsor alone', 'sponsor-alone@partner.example', array( WPCPM_Roles::ROLE_SPONSOR ) );
+$GLOBALS['users'][612] = new WP_User( 612, 'A student and member', 'student-member@institution-4.example', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['users'][613] = new WP_User( 613, 'A subscriber', 'subscriber-two@program.example', array( 'subscriber' ) );
+$GLOBALS['users'][614] = new WP_User( 614, 'All four', 'all-four@program.example', array( WPCPM_Roles::ROLE_SPONSOR, WPCPM_Roles::ROLE_INSTITUTION, WPCPM_Roles::ROLE_MENTOR, WPCPM_Roles::ROLE_STUDENT ) );
+$GLOBALS['users'][615] = new WP_User( 615, 'Stamped at a given moment', 'given-moment@program.example', array( WPCPM_Roles::ROLE_MENTOR, WPCPM_Roles::ROLE_STUDENT ) );
+
+$stamp_from = time();
+
+ck( 'it writes the key of each program role the account holds, the student key for an account holding none, and says which',
+    array( $stamp_with( 611 ), $stamp_with( 612 ), $stamp_with( 613 ), $stamp_with( 614 ) ),
+    array(
+        array( 'wpcpm_sponsor_invited' ),
+        array( 'wpcpm_student_invited', 'wpcpm_inst_invited' ),
+        array( 'wpcpm_student_invited' ),
+        array( 'wpcpm_student_invited', 'wpcpm_mentor_invited', 'wpcpm_inst_invited', 'wpcpm_sponsor_invited' ),
+    ) );
+ck( 'as the stamps the accounts then carry, and nothing else',
+    array( $stamped( 611 ), $stamped( 612 ), $stamped( 613 ), $stamped( 614 ) ),
+    array( array( 'sponsor' ), array( 'student', 'institution' ), array( 'student' ), array( 'student', 'mentor', 'institution', 'sponsor' ) ) );
+ck( 'each at the moment it is given, or now when it is given none',
+    array( $stamp_with( 615, 1790000000 ), $stamps_of( 615 )['mentor'], $stamps_of( 615 )['student'], (int) $stamps_of( 614 )['sponsor'] >= $stamp_from && (int) $stamps_of( 614 )['sponsor'] <= time() ),
+    array( array( 'wpcpm_student_invited', 'wpcpm_mentor_invited' ), 1790000000, 1790000000, true ) );
+
+// A row's invitation, from each sync that has one, to an account in two audiences.
+$GLOBALS['users'][621] = new WP_User( 621, 'A student who mentors', 'student-mentor@program.example', array( WPCPM_Roles::ROLE_STUDENT, WPCPM_Roles::ROLE_MENTOR ) );
+$GLOBALS['users'][622] = new WP_User( 622, 'A mentor and member', 'mentor-member@institution-5.example', array( WPCPM_Roles::ROLE_MENTOR, WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['users'][623] = new WP_User( 623, 'A member and sponsor', 'member-sponsor@institution-6.example', array( WPCPM_Roles::ROLE_INSTITUTION, WPCPM_Roles::ROLE_SPONSOR ) );
+$GLOBALS['invited']    = array();
+
+$rows = array(
+    WPCPM_Students_Sync::send_invite( 621 ),
+    WPCPM_Mentors_Sync::send_invite( 622 ),
+    WPCPM_Institutions_Sync::send_invite( 623 ),
+);
+
+ck( 'a row\'s invitation from the Students, Mentors or Institutions sync stamps an account in two audiences for both, as the queue does',
+    array( $rows, $GLOBALS['invited'], $stamped( 621 ), $stamped( 622 ), $stamped( 623 ) ),
+    array( array( true, true, true ), array( 621, 622, 623 ), array( 'student', 'mentor' ), array( 'mentor', 'institution' ), array( 'institution', 'sponsor' ) ) );
+ck( 'each pair at the one moment its message went',
+    array( $stamps_of( 621 )['student'] === $stamps_of( 621 )['mentor'], $stamps_of( 622 )['mentor'] === $stamps_of( 622 )['institution'], $stamps_of( 623 )['institution'] === $stamps_of( 623 )['sponsor'] ),
+    array( true, true, true ) );
 
 WPCPM_Mail::clear_queue();
 WPCPM_Mail::dismiss_run();
@@ -793,7 +936,7 @@ ck( 'an account that is not ours is left alone', array( $left === $core ), array
 
 // The third audience. An account holding only the institution role was "not one of ours" and
 // went out as WordPress's bare "Login Details", which is the bug these pin.
-$GLOBALS['users'][70] = new WP_User( 70, 'Pundra Contact', 'contact@pundra.example.test', array( WPCPM_Roles::ROLE_INSTITUTION ) );
+$GLOBALS['users'][70] = new WP_User( 70, 'Oscar Example Contact', 'contact@oscar.example', array( WPCPM_Roles::ROLE_INSTITUTION ) );
 
 $institution = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'WordPress Education Dashboard' );
 
@@ -813,11 +956,19 @@ ck( 'a new institution is told the agreement is the first step',
 ck( 'and the institution wording is its own',
     array( $institution['message'] === $mentor['message'], $institution['message'] === $student['message'] ), array( false, false ) );
 
+// The account the queue stamps for two audiences is sent one template all the same, chosen in the
+// template's own order: the template is what the person reads, the stamps what the lists read.
+$mentor_member = WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][604], 'WordPress Education Dashboard' );
+
+ck( 'an account holding the Mentor and Institution roles is sent the mentor\'s invitation, whatever it is stamped for',
+    array( $mentor_member['subject'], $mentor_member['message'] === $mentor['message'] ),
+    array( '[WordPress Education Dashboard] Your mentor account is ready', true ) );
+
 // The context is observed the way production observes it: WordPress calls `wp_mail()` itself
 // straight after the filter, and the outcome hook reads what the filter left behind.
 WPCPM_Mail::clear_log();
 WPCPM_Mail::welcome_email( $core, $GLOBALS['users'][70], 'Site' );
-wp_mail( 'contact@pundra.example.test', $institution['subject'], $institution['message'] );
+wp_mail( 'contact@oscar.example', $institution['subject'], $institution['message'] );
 ck( 'the invitation is logged as an institution\'s', array( WPCPM_Mail::log()[0]['context'] ), array( 'invite-institution' ) );
 
 // The agreement module answers `is_settled()` once it exists; the next phase ships it and the

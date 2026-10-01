@@ -196,7 +196,7 @@ class WPCPM_Institution_Approval {
 		// a record deleted or renamed in the Countries table since would make the link cell a
 		// 422 for the whole create, after the applicant has been told they are approved.
 		if ( '' === $country_id || ! isset( $countries[ $country_id ] ) ) {
-			return self::refuse( $application_id, new WP_Error( 'wpcpm_app_country', __( 'The country this application named no longer resolves. Refresh the countries, then try again.', 'wpcredits-program-manager' ) ) );
+			return self::refuse( $application_id, new WP_Error( 'wpcpm_app_country', __( 'The country this application named no longer resolves. Run the institutions sync on the Institutions screen\'s Sync and storage tab, then try again.', 'wpcredits-program-manager' ) ) );
 		}
 
 		$settings = WPCPM_Settings::get();

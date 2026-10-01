@@ -445,13 +445,71 @@ p.wpcpm-settings__intro {
 }
 
 /* -------------------------------------------------------------------------
+ * The Accounts tab's Manage members view
+ *
+ * One institution's members drawn in wp-admin with the Institution
+ * Dashboard's People card markup, and the agreement panel's upload form
+ * under it: classes this file never dressed, because the stylesheets that
+ * dress them on the dashboard are not loaded here. The dashboard does not
+ * load this file, so these rules leave the card there as it is. The People
+ * rules are scoped to the view's own block, so they reach nothing else on
+ * this screen; the fieldset rule is scoped to the plugin's admin screens
+ * (`.wpcpm-wrap`), where the upload form is drawn on this view alone. An
+ * outcome reads as a notice in its state's color, a member as a row with the
+ * facts under the name and the row's control under the facts, and the upload
+ * form's fieldset loses the frame a browser gives one.
+ * ---------------------------------------------------------------------- */
+.wpcpm-people--admin .wpcpm-people__message {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-left-width: 4px;
+	margin: 8px 0 12px;
+	padding: 8px 12px;
+}
+
+.wpcpm-people--admin .wpcpm-people__message.is-success {
+	border-left-color: #00a32a;
+}
+
+.wpcpm-people--admin .wpcpm-people__message.is-error {
+	border-left-color: #d63638;
+}
+
+.wpcpm-people--admin .wpcpm-people__message.is-info {
+	border-left-color: #72aee6;
+}
+
+.wpcpm-people--admin .wpcpm-people__member {
+	border-bottom: 1px solid #f0f0f1;
+	padding: 8px 0;
+}
+
+.wpcpm-people--admin .wpcpm-people__facts {
+	color: #646970;
+	display: block;
+}
+
+.wpcpm-people--admin .wpcpm-people__list .wpcpm-people__form {
+	margin-top: 4px;
+}
+
+.wpcpm-wrap .wpcpm-agreement-panel__choices {
+	border: 0;
+	margin: 0;
+	padding: 0;
+}
+
+/* -------------------------------------------------------------------------
  * The agreement review block
  *
  * One document waiting in the queue: who sent it, the three things to look at,
- * what the courtesy scan noticed, the copy itself, and the two decisions. It is
- * drawn inside a queue item that already has a card around it, so it carries no
- * box of its own. What it needs is to read as one block, and for the half that
- * is read and the half that decides to be plainly two halves.
+ * what the courtesy scan noticed, the copy itself, and the two decisions. On
+ * this screen the block is read, and the decisions give way to one line linking
+ * to them on the Administrator Dashboard; their rules stay here with the rest,
+ * because this file dresses every class the block can print. It is drawn inside
+ * a queue item that already has a card around it, so it carries no box of its
+ * own. What it needs is to read as one block, and for the half that is read and
+ * the half that decides to be plainly two halves.
  * ---------------------------------------------------------------------- */
 .wpcpm-review {
 	border-top: 1px solid #f0f0f1;
@@ -516,6 +574,14 @@ p.wpcpm-settings__intro {
 
 .wpcpm-review__form--accept {
 	border-top: 1px solid #f0f0f1;
+	padding-top: 12px;
+}
+
+/* The line that stands where the decisions would: set off from the reading half
+   by the same rule, because it is still the way to deciding. */
+.wpcpm-review__open {
+	border-top: 1px solid #f0f0f1;
+	margin: 12px 0 0;
 	padding-top: 12px;
 }
 

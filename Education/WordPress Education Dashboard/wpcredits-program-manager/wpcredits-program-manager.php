@@ -3,7 +3,7 @@
  * Plugin Name:       WPCredits Program Manager
  * Plugin URI:        https://github.com/gomp/wpcredits-program-manager
  * Description:       Runs the WPCredits program on WordPress for five audiences - Students, Mentors, Institutions, Sponsors and Administrators - plus a Tools section. Provisions role-based accounts from Airtable, gives each mentor a Mentor Report Card listing the students assigned to them, and includes the Mentor Status Checker.
- * Version:           1.120.0
+ * Version:           1.121.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            Maciej Pilarski
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'WPCPM_VERSION', '1.120.0' );
+define( 'WPCPM_VERSION', '1.121.0' );
 define( 'WPCPM_PLUGIN_FILE', __FILE__ );
 define( 'WPCPM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCPM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -166,19 +166,20 @@ require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-admin.php';
  *
  * Not with the rest: the lists extend core's list table, which core loads for wp-admin requests,
  * after plugins have loaded, so declaring them as the plugin loads would load core's class on the
- * front end, in REST and on cron as well. The Students, Mentors and Administrators screens call this,
- * in the plumbing they share (`WPCPM_Accounts_Screen`), on their load hooks, when their rows-per-page
- * choices are saved and when they draw their lists without that hook; the Students and Mentors
- * screens also wherever they read their accounts table's role and invitation stamp (their
- * invitations cards, and the cards' buttons, which admin-post.php runs), and where they print what a
- * press on the ticked accounts did in the base's words. The base still loads core's class itself when
- * it is missing.
+ * front end, in REST and on cron as well. The Students, Mentors, Institutions and Administrators
+ * screens call this, in the plumbing they share (`WPCPM_Accounts_Screen`), on their load hooks, when
+ * their rows-per-page choices are saved and when they draw their lists without that hook; the
+ * Students, Mentors and Institutions screens also wherever they read their accounts table's role and
+ * invitation stamp (their invitations cards, and the cards' buttons, which admin-post.php runs), and
+ * where they print what a press on the ticked rows did in the table's words. The base still loads
+ * core's class itself when it is missing.
  */
 function wpcpm_load_accounts_tables() {
 	require_once WPCPM_PLUGIN_DIR . 'includes/class-wpcpm-accounts-table.php';
 	require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-students-table.php';
 	require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-mentors-table.php';
 	require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-administrators-table.php';
+	require_once WPCPM_PLUGIN_DIR . 'includes/modules/class-wpcpm-institutions-table.php';
 }
 
 /**
