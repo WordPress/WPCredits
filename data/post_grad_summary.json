@@ -1,14 +1,37 @@
 {
-  "generated": "2026-09-01",
+  "generated": "2026-10-01",
   "window_days": 90,
   "horizon_months": 6,
   "definition": "any wp.org contribution in the active window, grad-date-gated",
-  "graduates": 327,
-  "with_profile": 327,
-  "grad_date_known": 327,
-  "measurable_90d": 123,
-  "active_90d": 17,
-  "pct_active_post_grad": 14,
-  "within_6mo_horizon": 319,
-  "parse_failures": 2
+  "graduates": 340,
+  "with_profile": 340,
+  "grad_date_known": 340,
+  "measurable_90d": 189,
+  "active_90d": 34,
+  "pct_active_post_grad": 18,
+  "within_6mo_horizon": 330,
+  "parse_failures": 1,
+  "grad_date_sources": {
+    "course": 316,
+    "badge": 7,
+    "airtable": 17,
+    "unknown": 0
+  },
+  "tracks": {
+    "150h": 307,
+    "50h": 9
+  },
+  "track_unknown": 24,
+  "unregistered_courses": {
+    "wordpress-credits-self-onboarding-pilot": 7
+  },
+  "unregistered_track_statuses": {
+    "Foundations Track": 1
+  },
+  "registered_tracks": [
+    "150h",
+    "50h",
+    "design",
+    "dev"
+  ]
 }
