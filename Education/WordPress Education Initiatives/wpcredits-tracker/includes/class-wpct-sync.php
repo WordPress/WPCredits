@@ -945,7 +945,7 @@ class WPCT_Sync {
 	 * @param array $state Current state.
 	 */
 	private static function phase_finalize( $state ) {
-		// Public rows only — anonymous, exactly the fields the front-end reads.
+		// Public rows only: anonymous, exactly the fields the front-end reads.
 		$public_students = array();
 		foreach ( $state['students'] as $s ) {
 			$public_students[] = array(
@@ -980,7 +980,7 @@ class WPCT_Sync {
 	/**
 	 * Fetch every record from an Airtable table (paginated), requesting fields
 	 * by ID. Falls back to fetching all fields if Airtable rejects the field
-	 * list with a 422 (a mapped field was renamed/deleted) — matching upstream.
+	 * list with a 422 (a mapped field was renamed/deleted), matching upstream.
 	 *
 	 * @param array  $settings  Plugin settings.
 	 * @param string $table_id  Table id.
@@ -1080,8 +1080,8 @@ class WPCT_Sync {
 	/**
 	 * Extract the display name from a single-select value (array or scalar).
 	 *
-	 * Select names are third-party text — whoever administers the Airtable base
-	 * chooses them — and some of them are rendered on the public dashboard, so
+	 * Select names are third-party text, chosen by whoever administers the
+	 * Airtable base, and some of them are rendered on the public dashboard, so
 	 * they are stripped of markup here rather than trusted downstream.
 	 *
 	 * @param mixed $value Value.
@@ -1110,7 +1110,7 @@ class WPCT_Sync {
 
 	/**
 	 * Title-case a string, keeping Spanish prepositions lower and parenthesized
-	 * acronyms upper — mirrors the upstream title_case().
+	 * acronyms upper, mirroring the upstream title_case().
 	 *
 	 * @param string $text Text.
 	 * @return string

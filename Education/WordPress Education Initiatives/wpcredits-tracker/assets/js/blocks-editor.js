@@ -12,7 +12,7 @@
 	var registerBlockType = wp.blocks.registerBlockType;
 	var useBlockProps = wp.blockEditor.useBlockProps;
 
-	// [ block name suffix, label, blurb ] — labels mirror the PHP titles.
+	// [ block name suffix, label, blurb ]. Labels mirror the PHP titles.
 	var SECTIONS = [
 		[ 'scale', 'Scale & Momentum', 'Students in the program, joined to date, and countries.' ],
 		[ 'growth', 'Growth Chart', 'Students joining and graduating, month by month.' ],

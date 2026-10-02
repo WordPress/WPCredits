@@ -5,7 +5,7 @@
 	"title": "WPCredits-Tracker (full)",
 	"category": "wpcredits-tracker",
 	"icon": "chart-area",
-	"description": "The WordPress Credits program dashboard: scale, growth, partner map, contributions, and student voices — synced from Airtable and WordPress.org.",
+	"description": "The WordPress Credits program dashboard: scale, growth, partner map, contributions, and student voices, synced from Airtable and WordPress.org.",
 	"keywords": [ "credits", "dashboard", "students", "contributions", "wordpress", "stats" ],
 	"textdomain": "wpcredits-tracker",
 	"supports": {

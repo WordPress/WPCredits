@@ -26,7 +26,7 @@
 				el(
 					'div',
 					{ style: { fontSize: '13px', color: '#64748b', marginTop: '6px' } },
-					__( 'Overview · Contributions · Voices — renders with live charts and map on the front end.', 'wpcredits-tracker' )
+					__( 'Overview · Contributions · Voices. Renders with live charts and map on the front end.', 'wpcredits-tracker' )
 				)
 			);
 		},

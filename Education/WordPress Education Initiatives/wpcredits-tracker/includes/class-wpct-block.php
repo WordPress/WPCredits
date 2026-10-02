@@ -93,7 +93,7 @@ class WPCT_Block {
 			array( 'render_callback' => array( $this, 'render_full' ) )
 		);
 
-		// One block per section — registered from PHP metadata (no block.json),
+		// One block per section, registered from PHP metadata (no block.json),
 		// all sharing the wpct-blocks-editor client script.
 		foreach ( self::sections() as $key => $meta ) {
 			register_block_type(

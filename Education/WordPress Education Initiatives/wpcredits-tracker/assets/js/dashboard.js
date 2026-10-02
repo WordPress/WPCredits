@@ -1,5 +1,5 @@
 /*
- * WPCredits-Tracker — front-end renderer.
+ * WPCredits-Tracker front-end renderer.
  * Ported from the upstream template.html <script>, reworked to be modular: the
  * dashboard is split into independent section renderers so each can be dropped
  * on a page as its own block. The combined ("full") block composes the very
@@ -98,18 +98,18 @@
 		var finished = grad + drop;
 		var completionRate = finished > 0 ? Math.round( grad / finished * 100 ) : null;
 		var fb = D.feedback || {};
-		var recPct = ( fb.recommend && fb.recommend.pct != null ) ? fb.recommend.pct + '%' : '—';
-		var keepPct = ( fb.keep && fb.keep.pct != null ) ? fb.keep.pct + '%' : '—';
+		var recPct = ( fb.recommend && fb.recommend.pct != null ) ? fb.recommend.pct + '%' : '-';
+		var keepPct = ( fb.keep && fb.keep.pct != null ) ? fb.keep.pct + '%' : '-';
 		var impact = ( fb.ratings && fb.ratings.impact ) || {};
 		var rs = g.repeatSchools || {};
 		return '<div class="act-label act-outcomes">Outcomes &amp; quality</div>'
 			+ '<div class="cards cards-outcomes">'
-			+   '<div class="card hl"><div class="num">' + ( completionRate != null ? completionRate + '%' : '—' ) + '</div><div class="lbl">Graduated from the program</div></div>'
+			+   '<div class="card hl"><div class="num">' + ( completionRate != null ? completionRate + '%' : '-' ) + '</div><div class="lbl">Graduated from the program</div></div>'
 			+   '<div class="card"><div class="num">' + grad + '</div><div class="lbl">Graduates to date</div></div>'
-			+   '<div class="card"><div class="num">' + ( impact.avg != null ? impact.avg + '<span style="font-size:20px;color:var(--text-light)">/5</span>' : '—' ) + '</div><div class="lbl">How impactful graduates rate their contributions</div></div>'
+			+   '<div class="card"><div class="num">' + ( impact.avg != null ? impact.avg + '<span style="font-size:20px;color:var(--text-light)">/5</span>' : '-' ) + '</div><div class="lbl">How impactful graduates rate their contributions</div></div>'
 			+   '<div class="card"><div class="num">' + recPct + '</div><div class="lbl">Graduates who would recommend the program</div></div>'
 			+   '<div class="card"><div class="num">' + keepPct + '</div><div class="lbl">Graduates who plan to keep contributing to WordPress</div></div>'
-			+   '<div class="card"><div class="num">' + ( rs.pct != null ? rs.pct + '%' : '—' ) + '</div><div class="lbl">Schools that have run more than one cohort</div>' + ( rs.total ? '<div class="act-sub">of the ' + rs.total + ' schools with us long enough to return</div>' : '' ) + '</div>'
+			+   '<div class="card"><div class="num">' + ( rs.pct != null ? rs.pct + '%' : '-' ) + '</div><div class="lbl">Schools that have run more than one cohort</div>' + ( rs.total ? '<div class="act-sub">of the ' + rs.total + ' schools with us long enough to return</div>' : '' ) + '</div>'
 			+ '</div>';
 	}
 
@@ -127,7 +127,7 @@
 			{ q: "Mi experiencia en WPCredits fue muy positiva ya que aprendí sobre WordPress, la colaboración en comunidades de código abierto y la importancia de compartir conocimientos. Aunque al inicio fue un reto familiarizarme con las diferentes plataformas, con el tiempo logré adaptarme y desarrollar nuevas habilidades. Recomiendo esta experiencia a otros estudiantes porque permite aprender herramientas útiles y participar en una comunidad tecnológica.", who: "Teresa · Universidad Fidélitas", cc: "CR", country: "Costa Rica" }
 		];
 		// These are literals above, but escaping them keeps one rule for the whole
-		// file — nothing reaches innerHTML unescaped — so wiring them to the
+		// file (nothing reaches innerHTML unescaped), so wiring them to the
 		// synced blob later cannot reintroduce an injection.
 		var voicesHtml = voices.map( function ( v ) { return '<div class="voice"><div class="voice-q">“' + esc( v.q ) + '”</div><div class="voice-meta"><span>' + esc( v.who ) + '</span><span class="voice-tag"><span aria-hidden="true">' + flag( v.cc ) + '</span> ' + esc( v.country ) + '</span></div></div>'; } ).join( '' );
 		return '<h3 style="font-size:18px;margin:4px 0 6px">Voices from the program</h3>'

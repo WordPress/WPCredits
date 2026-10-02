@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       WPCredits-Tracker
  * Plugin URI:        https://wpeducationalinitiatives.app/
- * Description:       A native WordPress rendering of the WordPress Credits program dashboard (scale, growth, partner map, contributions, and student voices) — no iframe. Data is synced weekly from Airtable and profiles.wordpress.org, and displayed via a "WPCredits-Tracker" block or the [wpcredits_tracker] shortcode. A PHP port of the wordpress/WPCredits-Tracker build.
- * Version:           1.5.1
+ * Description:       A native WordPress rendering of the WordPress Credits program dashboard (scale, growth, partner map, contributions, and student voices), with no iframe. Data is synced weekly from Airtable and profiles.wordpress.org, and displayed via a "WPCredits-Tracker" block or the [wpcredits_tracker] shortcode. A PHP port of the wordpress/WPCredits-Tracker build.
+ * Version:           1.5.2
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            Maciej (Matt) Pilarski, Isotta Peira
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPCT_VERSION', '1.5.1' );
+define( 'WPCT_VERSION', '1.5.2' );
 define( 'WPCT_FILE', __FILE__ );
 define( 'WPCT_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCT_URL', plugin_dir_url( __FILE__ ) );

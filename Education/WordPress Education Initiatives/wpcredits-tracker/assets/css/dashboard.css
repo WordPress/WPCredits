@@ -1,5 +1,5 @@
 /*
- * WPCredits-Tracker — front-end styles.
+ * WPCredits-Tracker front-end styles.
  * Ported from the upstream template.html, then restyled to match the
  * Educational Initiatives (Education Hub) FSE theme: system fonts, the theme's
  * cool blue/navy palette, bordered white surfaces, and a transparent container
@@ -19,7 +19,7 @@
 	--bg: transparent;        /* blend into the theme page background */
 	--card-bg: #ffffff;       /* surface */
 	--surface-2: #f4f6fb;
-	--deep: #10182B;          /* deep navy — big numbers */
+	--deep: #10182B;          /* deep navy - big numbers */
 	--text: #1F2733;          /* ink */
 	--text-light: #64748B;    /* muted */
 	--border: #E6E9F0;
@@ -28,7 +28,7 @@
 	--accent-tint: #F2ECFD;
 	--green-tint: #E9F3ED;
 	--sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-	--serif: var(--sans); /* theme uses system sans throughout — no serif */
+	--serif: var(--sans); /* theme uses system sans throughout, no serif */
 	--shadow: 0 1px 2px rgba(16,24,43,.04), 0 1px 3px rgba(16,24,43,.06);
 	--radius: 8px;
 
@@ -61,7 +61,7 @@
 /* Stat cards */
 .wpct-dashboard .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 16px; margin-bottom: 26px; }
 .wpct-dashboard .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 19px 22px; }
-/* Big stat numbers — matched to the "Student Impact" (Graduate Stats) block in
+/* Big stat numbers, matched to the "Student Impact" (Graduate Stats) block in
    the education-student-stories plugin: fluid size, primary blue, tabular nums. */
 .wpct-dashboard .card .num { font-family: var(--sans); font-size: clamp(2rem, 1.2rem + 2.6vw, 3rem); font-weight: 800; color: var(--wp-blue); line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .wpct-dashboard .card .lbl { font-size: 13px; color: var(--text-light); margin-top: 8px; letter-spacing: .005em; }

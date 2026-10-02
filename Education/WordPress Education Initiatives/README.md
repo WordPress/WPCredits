@@ -2,7 +2,7 @@
 
 **WordPress Education Initiatives** is the suite of WordPress plugins and the block
 theme that power the public site and back-office tooling for the WordPress
-education programs — WordPress Campus Connect (WPCC), the WordPress Credits
+education programs: WordPress Campus Connect (WPCC), the WordPress Credits
 contribution program, Student Clubs, and the certification path that ties them
 together.
 
@@ -14,8 +14,8 @@ repository.
 
 The first release of the suite is tracked in these issues:
 
-- **[#160 — Initial release](https://github.com/WordPress/WPCredits/issues/160)** — release tracker and pre-flight checklist.
-- **[#161 — Prerelease testing](https://github.com/WordPress/WPCredits/issues/161)** — open call for testing (testing window closes **10 August 2026**). Feedback welcome on that issue.
+- **[#160 - Initial release](https://github.com/WordPress/WPCredits/issues/160)** - release tracker and pre-flight checklist.
+- **[#161 - Prerelease testing](https://github.com/WordPress/WPCredits/issues/161)** - open call for testing (testing window closes **10 August 2026**). Feedback welcome on that issue.
 
 ## What's in here
 
@@ -23,7 +23,7 @@ The first release of the suite is tracked in these issues:
 
 | Folder | Name | Version | What it does |
 | --- | --- | --- | --- |
-| [`wordpress-education-blocks`](./wordpress-education-blocks) | **WordPress Education Initiatives** | 1.6.0 | Full Site Editing (block) theme — the front end of the initiative. Framed by the [official wordpress.org header and footer](../WordPress.org%20Global%20Header%20and%20Footer). The header, front page and every section are edited in the WordPress Site Editor, with global colours/typography in Styles. Ships block patterns for the hero, feature highlights, animated statistics, programs, campus, resources, testimonials, career paths, an expandable career-path timeline, a "why contribution matters" panel, and the call-to-action. Includes a WordPress Playground blueprint for one-click, in-browser previews. |
+| [`wordpress-education-blocks`](./wordpress-education-blocks) | **WordPress Education Initiatives** | 1.6.0 | Full Site Editing (block) theme, the front end of the initiative. Framed by the [official wordpress.org header and footer](../WordPress.org%20Global%20Header%20and%20Footer). The header, front page and every section are edited in the WordPress Site Editor, with global colours/typography in Styles. Ships block patterns for the hero, feature highlights, animated statistics, programs, campus, resources, testimonials, career paths, an expandable career-path timeline, a "why contribution matters" panel, and the call-to-action. Includes a WordPress Playground blueprint for one-click, in-browser previews. |
 
 ### Plugins
 
@@ -33,7 +33,7 @@ The first release of the suite is tracked in these issues:
 | [`credits-program-mentors`](./credits-program-mentors) | **Credits Program Mentors** | 1.5.1 | Displays the public "Sponsored mentors" directory (synced from Airtable) via the `[credits_program_mentors]` shortcode. |
 | [`education-programs-map`](./education-programs-map) | **Education Programs Map** | 2.4.0 | A world map with city-level markers for WPCC, WPCredits, and Student Club activity, plus a dashboard screen for managing institutions. Implements [wordpress.org#584](https://github.com/WordPress/wordpress.org/issues/584). |
 | [`student-impact`](./student-impact) | **Student Impact** | 1.6.1 | Showcases the top graduating students ranked by their WordPress.org contribution impact, contributions and logged hours (synced live from Airtable + profiles.wordpress.org). Provides "Student Stories" and "Graduate Stats" blocks/shortcodes. |
-| [`wpcredits-tracker`](./wpcredits-tracker) | **WPCredits-Tracker** | 1.5.1 | A native WordPress rendering of the WordPress Credits program dashboard (scale, growth, partner map, contributions, student voices), no iframe. Synced weekly from Airtable + profiles.wordpress.org; rendered via a block or the `[wpcredits_tracker]` shortcode. |
+| [`wpcredits-tracker`](./wpcredits-tracker) | **WPCredits-Tracker** | 1.5.2 | A native WordPress rendering of the WordPress Credits program dashboard (scale, growth, partner map, contributions, student voices), no iframe. Synced weekly from Airtable + profiles.wordpress.org; rendered via a block or the `[wpcredits_tracker]` shortcode. |
 
 ## How the pieces fit together
 
@@ -44,7 +44,7 @@ The first release of the suite is tracked in these issues:
   surface live program data (institutions, student impact, contribution
   metrics) as blocks/shortcodes dropped into theme pages.
 - **Contributor Team Matcher** and **Credits Program Mentors** support the
-  contribution journey — helping students pick a team and connect with mentors.
+  contribution journey, helping students pick a team and connect with mentors.
 
 Together they take a student from a first WordPress lesson, through structured
 contribution with a matched mentor, to a certified, contributing member of the
@@ -64,11 +64,11 @@ blueprint (see the theme's `readme.txt`).
 ## Data & privacy
 
 Several plugins sync from Airtable and profiles.wordpress.org. API credentials
-are **not** stored in this source — they are configured per-site (via settings
+are **not** stored in this source. They are configured per-site (via settings
 screens or site constants) and never committed to this repository.
 
 ## Maintenance
 
 This is a mirror. Changes are made in each component's own development
-repository and re-synced here (unpacked source only — no build artifacts,
+repository and re-synced here (unpacked source only, no build artifacts,
 `.git`, or credentials). Version numbers above reflect the mirrored snapshot.
